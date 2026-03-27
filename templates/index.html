@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XPS Fitting Studio</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
@@ -633,22 +635,48 @@
   }
   #survey-selector .survey-sel-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
   #survey-selector .survey-sel-meta { color: var(--text3); font-size: 9px; white-space: nowrap; margin-left: 6px; }
-  /* Element identification list */
-  #survey-element-list { list-style: none; padding: 0; margin: 0; }
-  #survey-element-list li {
-    display: flex; align-items: baseline; justify-content: space-between;
-    padding: 3px 0; border-bottom: 1px solid var(--border);
+  /* Element search & autocomplete */
+  #survey-search-wrap { position: relative; margin-bottom: 10px; }
+  #survey-element-search {
+    width: 100%; box-sizing: border-box; padding: 5px 8px;
     font-family: var(--mono); font-size: 11px;
+    background: var(--bg1); color: var(--text1); border: 1px solid var(--border);
+    border-radius: 4px; outline: none;
   }
-  #survey-element-list li:last-child { border-bottom: none; }
-  .el-label { color: var(--accent2); font-weight: 500; }
-  .el-label.auger { color: var(--text2); font-weight: 400; font-style: italic; }
-  .el-be { color: var(--text3); font-size: 10px; }
-  .el-dismiss { color: var(--text3); cursor: pointer; font-size: 13px; margin-left: 6px;
-    opacity: 0.5; transition: opacity 0.15s, color 0.15s; flex-shrink: 0; }
-  .el-dismiss:hover { opacity: 1; color: #ff6b6b; }
-  .el-row { display: flex; align-items: baseline; flex: 1; justify-content: space-between; }
-  .survey-dismiss-hint { color: var(--text3); font-size: 9px; margin-bottom: 6px; font-style: italic; }
+  #survey-element-search:focus { border-color: var(--accent); }
+  #survey-autocomplete {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+    list-style: none; padding: 0; margin: 2px 0 0;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+    max-height: 160px; overflow-y: auto;
+  }
+  #survey-autocomplete.open { display: block; }
+  #survey-autocomplete li {
+    padding: 5px 8px; cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--text1);
+  }
+  #survey-autocomplete li:hover, #survey-autocomplete li.ac-active {
+    background: var(--bg3);
+  }
+  #survey-autocomplete .ac-symbol { font-weight: 500; color: var(--accent2); }
+  #survey-autocomplete .ac-name { color: var(--text3); margin-left: 6px; }
+  /* Element markers list */
+  #survey-element-list { list-style: none; padding: 0; margin: 0; }
+  .survey-el-group { border-bottom: 1px solid var(--border); padding: 6px 0; }
+  .survey-el-group:last-child { border-bottom: none; }
+  .survey-el-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+  }
+  .survey-el-symbol { display: flex; align-items: center; gap: 6px; }
+  .survey-el-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .survey-el-remove { color: var(--text3); cursor: pointer; font-size: 14px;
+    opacity: 0.5; transition: opacity 0.15s, color 0.15s; padding: 0 2px; }
+  .survey-el-remove:hover { opacity: 1; color: #ff6b6b; }
+  .survey-el-lines { list-style: none; padding: 2px 0 0 16px; margin: 0; }
+  .survey-el-lines li {
+    font-family: var(--mono); font-size: 10px; color: var(--text3); padding: 1px 0;
+  }
+  .survey-el-lines .line-label { color: var(--text2); }
 
   /* ── Folder upload progress ─────────────────────────────── */
   #folder-progress {
@@ -881,8 +909,12 @@
               <div class="survey-heading">Survey Spectra</div>
               <ul id="survey-selector"></ul>
             </div>
-            <div id="survey-detail" style="display:none;">
-              <div class="survey-heading">Identified Elements</div>
+            <div id="survey-markers-wrap" style="display:none;">
+              <div class="survey-heading">Element Markers</div>
+              <div id="survey-search-wrap">
+                <input type="text" id="survey-element-search" placeholder="Type element (e.g. U, Cl, O)..." autocomplete="off">
+                <ul id="survey-autocomplete"></ul>
+              </div>
               <ul id="survey-element-list"></ul>
             </div>
           </div>
@@ -912,160 +944,85 @@ let state = {
 };
 
 // ═══════════════════════════════════════════════════
-// XPS BINDING ENERGY DATABASE (Al Kα, eV)
+// XPS BINDING ENERGY DATABASE — organized by element (Al Kα, eV)
 // ═══════════════════════════════════════════════════
-// Priority: 10 = ubiquitous, 8 = very common, 5 = common, 3 = uncommon, 1 = rare
-const XPS_ELEMENT_DB = [
-  { label: 'Li 1s',     be: 55,   p: 3 },
-  { label: 'Be 1s',     be: 112,  p: 1 },
-  { label: 'B 1s',      be: 188,  p: 3 },
-  { label: 'C 1s',      be: 285,  p: 10 },
-  { label: 'N 1s',      be: 399,  p: 8 },
-  { label: 'O 1s',      be: 531,  p: 10 },
-  { label: 'F 1s',      be: 685,  p: 8 },
-  { label: 'Na 1s',     be: 1072, p: 8 },
-  { label: 'Na KLL',    be: 497,  p: 8, auger: true },
-  { label: 'Mg 1s',     be: 1304, p: 5 },
-  { label: 'Mg KLL',    be: 306,  p: 5, auger: true },
-  { label: 'Al 2p',     be: 73,   p: 5 },
-  { label: 'Si 2p',     be: 99,   p: 8 },
-  { label: 'P 2p',      be: 133,  p: 5 },
-  { label: 'S 2p',      be: 164,  p: 8 },
-  { label: 'Cl 2p',     be: 199,  p: 8 },
-  { label: 'Cl 2s',     be: 270,  p: 5 },
-  { label: 'K 2p',      be: 293,  p: 5 },
-  { label: 'Ca 2p',     be: 347,  p: 5 },
-  { label: 'Ti 2p',     be: 459,  p: 5 },
-  { label: 'V 2p',      be: 517,  p: 3 },
-  { label: 'Cr 2p',     be: 577,  p: 3 },
-  { label: 'Mn 2p',     be: 641,  p: 3 },
-  { label: 'Fe 2p',     be: 711,  p: 5 },
-  { label: 'Co 2p',     be: 778,  p: 3 },
-  { label: 'Ni 2p',     be: 853,  p: 5 },
-  { label: 'Cu 2p',     be: 933,  p: 5 },
-  { label: 'Zn 2p',     be: 1022, p: 5 },
-  { label: 'Ga 2p',     be: 1117, p: 1 },
-  { label: 'Ge 2p',     be: 1217, p: 1 },
-  { label: 'As 3d',     be: 42,   p: 1 },
-  { label: 'Se 3d',     be: 56,   p: 1 },
-  { label: 'Br 3d',     be: 69,   p: 3 },
-  { label: 'Sr 3d',     be: 134,  p: 3 },
-  { label: 'Y 3d',      be: 157,  p: 3 },
-  { label: 'Zr 3d',     be: 179,  p: 3 },
-  { label: 'Nb 3d',     be: 202,  p: 3 },
-  { label: 'Mo 3d',     be: 228,  p: 3 },
-  { label: 'Ag 3d',     be: 368,  p: 3 },
-  { label: 'Cd 3d',     be: 405,  p: 1 },
-  { label: 'In 3d',     be: 444,  p: 1 },
-  { label: 'Sn 3d',     be: 485,  p: 3 },
-  { label: 'Sb 3d',     be: 528,  p: 1 },
-  { label: 'Te 3d',     be: 573,  p: 1 },
-  { label: 'I 3d',      be: 619,  p: 3 },
-  { label: 'Ba 3d',     be: 780,  p: 3 },
-  { label: 'La 3d',     be: 836,  p: 3 },
-  { label: 'Ce 3d',     be: 882,  p: 3 },
-  { label: 'Nd 3d',     be: 982,  p: 3 },
-  { label: 'W 4f',      be: 31,   p: 3 },
-  { label: 'Pt 4f',     be: 71,   p: 3 },
-  { label: 'Au 4f',     be: 84,   p: 3 },
-  { label: 'Pb 4f',     be: 137,  p: 3 },
-  { label: 'Bi 4f',     be: 157,  p: 1 },
-  { label: 'Th 4f',     be: 333,  p: 3 },
-  { label: 'U 4f',      be: 380,  p: 5 },
-  { label: 'U 4d',      be: 736,  p: 3 },
-  { label: 'U 5d',      be: 98,   p: 3 },
-  { label: 'O KLL',     be: 978,  p: 8, auger: true },
+const XPS_ELEMENTS = {
+  'Li': { lines: {'1s': 55} },
+  'Be': { lines: {'1s': 112} },
+  'B':  { lines: {'1s': 188} },
+  'C':  { lines: {'1s': 285} },
+  'N':  { lines: {'1s': 399} },
+  'O':  { lines: {'1s': 531, 'KLL': 978} },
+  'F':  { lines: {'1s': 685} },
+  'Na': { lines: {'1s': 1072, 'KLL': 497} },
+  'Mg': { lines: {'1s': 1304, 'KLL': 306} },
+  'Al': { lines: {'2p': 73} },
+  'Si': { lines: {'2p': 99, '2s': 150} },
+  'P':  { lines: {'2p': 133} },
+  'S':  { lines: {'2p': 164, '2s': 228} },
+  'Cl': { lines: {'2p': 199, '2s': 270} },
+  'K':  { lines: {'2p': 293, '2s': 378} },
+  'Ca': { lines: {'2p': 347} },
+  'Ti': { lines: {'2p': 459} },
+  'V':  { lines: {'2p': 517} },
+  'Cr': { lines: {'2p': 577} },
+  'Mn': { lines: {'2p': 641} },
+  'Fe': { lines: {'2p': 711} },
+  'Co': { lines: {'2p': 778} },
+  'Ni': { lines: {'2p': 853} },
+  'Cu': { lines: {'2p': 933} },
+  'Zn': { lines: {'2p': 1022} },
+  'Ga': { lines: {'2p': 1117} },
+  'Ge': { lines: {'2p': 1217} },
+  'As': { lines: {'3d': 42} },
+  'Se': { lines: {'3d': 56} },
+  'Br': { lines: {'3d': 69} },
+  'Sr': { lines: {'3d': 134} },
+  'Y':  { lines: {'3d': 157} },
+  'Zr': { lines: {'3d': 179} },
+  'Nb': { lines: {'3d': 202} },
+  'Mo': { lines: {'3d': 228} },
+  'Ag': { lines: {'3d': 368} },
+  'Cd': { lines: {'3d': 405} },
+  'In': { lines: {'3d': 444} },
+  'Sn': { lines: {'3d': 485} },
+  'Sb': { lines: {'3d': 528} },
+  'Te': { lines: {'3d': 573} },
+  'I':  { lines: {'3d': 619} },
+  'Ba': { lines: {'3d': 780} },
+  'La': { lines: {'3d': 836} },
+  'Ce': { lines: {'3d': 882} },
+  'Nd': { lines: {'3d': 982} },
+  'W':  { lines: {'4f': 31} },
+  'Pt': { lines: {'4f': 71} },
+  'Au': { lines: {'4f': 84} },
+  'Pb': { lines: {'4f': 137} },
+  'Bi': { lines: {'4f': 157} },
+  'Th': { lines: {'4f': 333} },
+  'U':  { lines: {'4f': 380, '4d': 736, '5d': 98} },
+};
+
+// Element name lookup for autocomplete
+const ELEMENT_NAMES = {
+  'Li':'Lithium','Be':'Beryllium','B':'Boron','C':'Carbon','N':'Nitrogen',
+  'O':'Oxygen','F':'Fluorine','Na':'Sodium','Mg':'Magnesium','Al':'Aluminium',
+  'Si':'Silicon','P':'Phosphorus','S':'Sulfur','Cl':'Chlorine','K':'Potassium',
+  'Ca':'Calcium','Ti':'Titanium','V':'Vanadium','Cr':'Chromium','Mn':'Manganese',
+  'Fe':'Iron','Co':'Cobalt','Ni':'Nickel','Cu':'Copper','Zn':'Zinc',
+  'Ga':'Gallium','Ge':'Germanium','As':'Arsenic','Se':'Selenium','Br':'Bromine',
+  'Sr':'Strontium','Y':'Yttrium','Zr':'Zirconium','Nb':'Niobium','Mo':'Molybdenum',
+  'Ag':'Silver','Cd':'Cadmium','In':'Indium','Sn':'Tin','Sb':'Antimony',
+  'Te':'Tellurium','I':'Iodine','Ba':'Barium','La':'Lanthanum','Ce':'Cerium',
+  'Nd':'Neodymium','W':'Tungsten','Pt':'Platinum','Au':'Gold','Pb':'Lead',
+  'Bi':'Bismuth','Th':'Thorium','U':'Uranium',
+};
+
+// Colors assigned to elements for markers
+const ELEMENT_MARKER_COLORS = [
+  '#4a9eff','#3ddc84','#ff6b6b','#ffbb44','#b48eff',
+  '#ff8c66','#44ddcc','#ff9de2','#c8ff80','#ffd580',
+  '#80d4ff','#ff80ab','#a0e860','#ffab40','#82b1ff',
 ];
-
-// ── Survey peak detection (simple local maxima + median filter) ──
-function detectSurveyPeaks(be, intensity) {
-  const n = be.length;
-  if (n < 10) return [];
-  console.log('[Survey] Starting peak detection on', n, 'points, BE range',
-    Math.min(...be).toFixed(0), '–', Math.max(...be).toFixed(0), 'eV');
-
-  // 1. Smooth with 5-point moving average (hw = 2)
-  const hw = 2;
-  const smooth = new Float64Array(n);
-  for (let i = 0; i < n; i++) {
-    let sum = 0, cnt = 0;
-    for (let j = Math.max(0, i - hw); j <= Math.min(n - 1, i + hw); j++) {
-      sum += intensity[j]; cnt++;
-    }
-    smooth[i] = sum / cnt;
-  }
-
-  // 2. Compute 75th percentile for filtering (top 25% brightest)
-  const sorted = [...smooth].sort((a, b) => a - b);
-  const p75 = sorted[Math.floor(n * 0.75)];
-  console.log('[Survey] 75th percentile intensity:', p75.toFixed(0));
-
-  // 3. Find ALL local maxima above the 75th percentile
-  const peakIndices = [];
-  for (let i = 1; i < n - 1; i++) {
-    if (smooth[i] > smooth[i - 1] && smooth[i] > smooth[i + 1] && smooth[i] > p75) {
-      peakIndices.push(i);
-    }
-  }
-  console.log('[Survey] Local maxima above 75th pct:', peakIndices.length);
-
-  // 4. Merge clusters: if several maxima within 6 eV, keep the tallest
-  const merged = [];
-  for (const idx of peakIndices) {
-    if (merged.length && Math.abs(be[idx] - be[merged[merged.length - 1]]) < 6) {
-      if (smooth[idx] > smooth[merged[merged.length - 1]]) {
-        merged[merged.length - 1] = idx;
-      }
-    } else {
-      merged.push(idx);
-    }
-  }
-  console.log('[Survey] After cluster merge:', merged.length, 'peaks');
-
-  // 5. Match peaks to database (±5 eV, priority-weighted, greedy)
-  const tolerance = 5;
-  const pairs = [];
-  for (const idx of merged) {
-    const peakBE = be[idx];
-    for (let d = 0; d < XPS_ELEMENT_DB.length; d++) {
-      const dist = Math.abs(peakBE - XPS_ELEMENT_DB[d].be);
-      if (dist <= tolerance) {
-        pairs.push({ idx, d, dist, p: XPS_ELEMENT_DB[d].p || 1, inten: smooth[idx] });
-      }
-    }
-  }
-  // Sort: highest priority first, then strongest peak, then closest distance
-  pairs.sort((a, b) => b.p - a.p || b.inten - a.inten || a.dist - b.dist);
-
-  // Greedy: each DB entry used once, each peak matched to at most one element
-  const usedDB = new Set();
-  const usedPeak = new Set();
-  const labels = [];
-  for (const pair of pairs) {
-    if (usedDB.has(pair.d) || usedPeak.has(pair.idx)) continue;
-    usedDB.add(pair.d);
-    usedPeak.add(pair.idx);
-    const entry = XPS_ELEMENT_DB[pair.d];
-    labels.push({
-      label: entry.label,
-      be: be[pair.idx],
-      intensity: intensity[pair.idx],
-      auger: !!entry.auger
-    });
-    console.log('[Survey]   Matched:', be[pair.idx].toFixed(1), 'eV →', entry.label,
-      '(db:', entry.be, ', dist:', pair.dist.toFixed(1), ', p:', pair.p, ')');
-  }
-
-  // Log unmatched peaks for debugging
-  for (const idx of merged) {
-    if (!usedPeak.has(idx)) {
-      console.log('[Survey]   Unmatched peak at', be[idx].toFixed(1), 'eV, intensity:', smooth[idx].toFixed(0));
-    }
-  }
-
-  console.log('[Survey] Final:', labels.length, 'elements identified');
-  return labels;
-}
 
 const PEAK_COLORS = ['#4a9eff','#3ddc84','#ff6b6b','#ffbb44','#b48eff','#ff8c66','#44ddcc','#ff9de2','#aaffaa','#ffaaaa'];
 
@@ -1110,7 +1067,7 @@ class TabManager {
       peaks: [],
       nextId: 1,
       fitResult: null,
-      surveyLabels: isSurvey ? detectSurveyPeaks(sortedBE, sortedInten) : null,
+      markedElements: [],
       ui: {
         bgType: 'shirley', bgStart: maxBE, bgEnd: minBE,
         shirleyIter: '50',
@@ -1237,7 +1194,7 @@ class TabManager {
         ccShift: t.ccShift,
         peaks: t.peaks.map(p => ({...p})),
         nextId: t.nextId,
-        surveyLabels: t.surveyLabels || null,
+        markedElements: t.markedElements || [],
         ui: {...t.ui},
       })),
       // v1 compat keys from active tab
@@ -1348,7 +1305,6 @@ class TabManager {
 
     if (!surveys.length) {
       btn.classList.remove('visible');
-      // If survey sidebar tab was active, switch back to peaks
       if (btn.classList.contains('active')) {
         this._restoreFromSurvey();
         const peaksBtn = document.querySelector('.tab[onclick*="peaks"]');
@@ -1364,41 +1320,35 @@ class TabManager {
     const surveys = this.tabs.filter(t => t.isSurvey && t.rawBE.length);
     const noData = document.getElementById('survey-no-data');
     const selWrap = document.getElementById('survey-selector-wrap');
-    const detail = document.getElementById('survey-detail');
-    if (!noData || !selWrap || !detail) return;
+    const markersWrap = document.getElementById('survey-markers-wrap');
+    if (!noData || !selWrap || !markersWrap) return;
 
-    // No surveys loaded
     if (!surveys.length) {
       noData.style.display = '';
       selWrap.style.display = 'none';
-      detail.style.display = 'none';
+      markersWrap.style.display = 'none';
       return;
     }
 
     noData.style.display = 'none';
 
-    // Single survey: skip list, go directly
     if (surveys.length === 1) {
       selWrap.style.display = 'none';
       this._activateSurvey(surveys[0].id);
       return;
     }
 
-    // Multiple surveys: show selector list
     selWrap.style.display = '';
     this._renderSurveySelector(surveys);
 
-    // If we're already viewing one of the surveys, highlight it + show elements
     const currentlyViewing = surveys.find(s => s.id === this.activeId);
     if (currentlyViewing) {
       this._activateSurvey(currentlyViewing.id);
     } else {
-      // Don't auto-switch yet; show list and hide detail until user picks one
-      detail.style.display = 'none';
+      markersWrap.style.display = 'none';
     }
   }
 
-  /** Render the clickable survey selector list */
   _renderSurveySelector(surveys) {
     const sel = document.getElementById('survey-selector');
     if (!sel) return;
@@ -1408,82 +1358,167 @@ class TabManager {
       const beMax = Math.max(...s.rawBE).toFixed(0);
       return `<li data-survey-id="${s.id}" onclick="tabManager._onSurveySelect('${s.id}')">` +
         `<span class="survey-sel-name">${s.name}</span>` +
-        `<span class="survey-sel-meta">${n} pts · ${beMin}–${beMax} eV</span></li>`;
+        `<span class="survey-sel-meta">${n} pts \u00b7 ${beMin}\u2013${beMax} eV</span></li>`;
     }).join('');
   }
 
-  /** Handle click on a survey in the selector list */
   _onSurveySelect(surveyId) {
     this._activateSurvey(surveyId);
   }
 
-  /** Switch main chart to a specific survey and show its element list */
+  /** Switch main chart to a survey and show element markers panel */
   _activateSurvey(surveyId) {
     const surveyTab = this._getTab(surveyId);
     if (!surveyTab) return;
 
     // Remember previous non-survey tab for restore
-    if (!this._preSurveyTabId || !this._getTab(this._preSurveyTabId)?.isSurvey === false) {
-      const currentActive = this._getTab(this.activeId);
-      if (currentActive && !currentActive.isSurvey) {
-        this._preSurveyTabId = this.activeId;
-      }
+    const currentActive = this._getTab(this.activeId);
+    if (currentActive && !currentActive.isSurvey) {
+      this._preSurveyTabId = this.activeId;
     }
 
-    // Switch the main chart
     this.activateTab(surveyId);
 
-    // Re-run detection (only if not already cached)
-    if (!surveyTab.surveyLabels) {
-      surveyTab.surveyLabels = detectSurveyPeaks(surveyTab.rawBE, surveyTab.rawIntensity);
-    }
-    // Initialize dismissed set if needed
-    if (!surveyTab._dismissedLabels) surveyTab._dismissedLabels = new Set();
-
-    // Filter out dismissed labels
-    const visibleLabels = (surveyTab.surveyLabels || [])
-      .filter(lbl => !surveyTab._dismissedLabels.has(lbl.label));
-
-    // Update the chart labels to match (excluding dismissed)
-    surveyTab._visibleSurveyLabels = visibleLabels;
+    // Initialize element selections if needed
+    if (!surveyTab.markedElements) surveyTab.markedElements = [];
 
     // Highlight active survey in selector list
     document.querySelectorAll('#survey-selector li').forEach(li => {
       li.classList.toggle('active-survey', li.dataset.surveyId === surveyId);
     });
 
-    // Populate element identification list
-    const detail = document.getElementById('survey-detail');
-    const list = document.getElementById('survey-element-list');
-    if (!detail || !list) return;
-    detail.style.display = '';
-
-    if (!visibleLabels.length) {
-      list.innerHTML = '<li style="color:var(--text3);font-size:11px;">No elements detected.</li>';
-      return;
-    }
-    const sorted = [...visibleLabels].sort((a, b) => b.be - a.be);
-    list.innerHTML = '<div class="survey-dismiss-hint">Click \u00d7 to dismiss incorrect assignments</div>' +
-      sorted.map(lbl => {
-        const cls = lbl.auger ? 'el-label auger' : 'el-label';
-        const tag = lbl.auger ? ' (Auger)' : '';
-        const escaped = lbl.label.replace(/'/g, "\\'");
-        return `<li><span class="el-row"><span class="${cls}">${lbl.label}${tag}</span><span class="el-be">${lbl.be.toFixed(1)} eV</span></span>` +
-          `<span class="el-dismiss" onclick="tabManager._dismissLabel('${surveyId}','${escaped}')" title="Dismiss">\u00d7</span></li>`;
-      }).join('');
-
-    // Trigger chart redraw so labels update
+    // Show markers panel and render
+    const markersWrap = document.getElementById('survey-markers-wrap');
+    if (markersWrap) markersWrap.style.display = '';
+    this._renderElementMarkers(surveyId);
+    this._initElementSearch(surveyId);
     updatePlot();
   }
 
-  /** Dismiss a label from a survey and refresh the list */
-  _dismissLabel(surveyId, labelName) {
+  /** Render the list of user-added elements with their lines */
+  _renderElementMarkers(surveyId) {
     const surveyTab = this._getTab(surveyId);
-    if (!surveyTab) return;
-    if (!surveyTab._dismissedLabels) surveyTab._dismissedLabels = new Set();
-    surveyTab._dismissedLabels.add(labelName);
-    console.log('[Survey] Dismissed:', labelName);
-    this._activateSurvey(surveyId);
+    const list = document.getElementById('survey-element-list');
+    if (!surveyTab || !list) return;
+
+    const elements = surveyTab.markedElements || [];
+    if (!elements.length) {
+      list.innerHTML = '<li style="color:var(--text3);font-size:11px;padding:6px 0;">No elements added. Use the search box above.</li>';
+      return;
+    }
+
+    list.innerHTML = elements.map((sym, idx) => {
+      const color = ELEMENT_MARKER_COLORS[idx % ELEMENT_MARKER_COLORS.length];
+      const el = XPS_ELEMENTS[sym];
+      if (!el) return '';
+      const name = ELEMENT_NAMES[sym] || sym;
+      const linesHtml = Object.entries(el.lines).map(([line, be]) => {
+        const isAuger = /^[A-Z]/.test(line);
+        const label = sym + ' ' + line;
+        return `<li><span class="line-label">${label}</span> &mdash; ${be} eV${isAuger ? ' (Auger)' : ''}</li>`;
+      }).join('');
+      return `<li class="survey-el-group">` +
+        `<div class="survey-el-header">` +
+          `<span class="survey-el-symbol"><span class="survey-el-swatch" style="background:${color}"></span>${sym} &mdash; ${name}</span>` +
+          `<span class="survey-el-remove" onclick="tabManager._removeElement('${surveyId}','${sym}')" title="Remove">\u00d7</span>` +
+        `</div>` +
+        `<ul class="survey-el-lines">${linesHtml}</ul></li>`;
+    }).join('');
+  }
+
+  /** Set up the element search input and autocomplete */
+  _initElementSearch(surveyId) {
+    const input = document.getElementById('survey-element-search');
+    const ac = document.getElementById('survey-autocomplete');
+    if (!input || !ac) return;
+
+    // Store current survey id for handlers
+    input.dataset.surveyId = surveyId;
+
+    // Clear previous value
+    input.value = '';
+    ac.classList.remove('open');
+
+    // Remove old listeners by replacing node
+    const fresh = input.cloneNode(true);
+    input.parentNode.replaceChild(fresh, input);
+
+    let acIndex = -1;
+
+    fresh.addEventListener('input', () => {
+      const q = fresh.value.trim().toLowerCase();
+      if (!q) { ac.classList.remove('open'); return; }
+      const matches = Object.keys(XPS_ELEMENTS).filter(sym => {
+        const name = (ELEMENT_NAMES[sym] || '').toLowerCase();
+        return sym.toLowerCase().startsWith(q) || name.startsWith(q) || name.includes(q);
+      }).slice(0, 8);
+      if (!matches.length) { ac.classList.remove('open'); return; }
+      acIndex = -1;
+      ac.innerHTML = matches.map(sym =>
+        `<li data-sym="${sym}"><span class="ac-symbol">${sym}</span><span class="ac-name">${ELEMENT_NAMES[sym] || ''}</span></li>`
+      ).join('');
+      ac.classList.add('open');
+      // Click handler on items
+      ac.querySelectorAll('li').forEach(li => {
+        li.addEventListener('click', () => {
+          this._addElement(fresh.dataset.surveyId, li.dataset.sym);
+          fresh.value = '';
+          ac.classList.remove('open');
+        });
+      });
+    });
+
+    fresh.addEventListener('keydown', (e) => {
+      const items = ac.querySelectorAll('li');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        acIndex = Math.min(acIndex + 1, items.length - 1);
+        items.forEach((li, i) => li.classList.toggle('ac-active', i === acIndex));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        acIndex = Math.max(acIndex - 1, 0);
+        items.forEach((li, i) => li.classList.toggle('ac-active', i === acIndex));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (acIndex >= 0 && items[acIndex]) {
+          this._addElement(fresh.dataset.surveyId, items[acIndex].dataset.sym);
+        } else {
+          // Try exact match on current input
+          const q = fresh.value.trim();
+          const exact = Object.keys(XPS_ELEMENTS).find(s => s.toLowerCase() === q.toLowerCase());
+          if (exact) this._addElement(fresh.dataset.surveyId, exact);
+        }
+        fresh.value = '';
+        ac.classList.remove('open');
+      } else if (e.key === 'Escape') {
+        ac.classList.remove('open');
+      }
+    });
+
+    // Close autocomplete when clicking outside
+    fresh.addEventListener('blur', () => {
+      setTimeout(() => ac.classList.remove('open'), 150);
+    });
+  }
+
+  /** Add an element to the current survey's marker list */
+  _addElement(surveyId, sym) {
+    const surveyTab = this._getTab(surveyId);
+    if (!surveyTab || !XPS_ELEMENTS[sym]) return;
+    if (!surveyTab.markedElements) surveyTab.markedElements = [];
+    if (surveyTab.markedElements.includes(sym)) return; // already added
+    surveyTab.markedElements.push(sym);
+    this._renderElementMarkers(surveyId);
+    updatePlot();
+  }
+
+  /** Remove an element from the current survey's marker list */
+  _removeElement(surveyId, sym) {
+    const surveyTab = this._getTab(surveyId);
+    if (!surveyTab || !surveyTab.markedElements) return;
+    surveyTab.markedElements = surveyTab.markedElements.filter(s => s !== sym);
+    this._renderElementMarkers(surveyId);
+    updatePlot();
   }
 
   /** Switch the main chart back to whatever was active before survey */
@@ -2202,6 +2237,8 @@ function togglePlaceMode(mode) {
     wrap.classList.remove('placing');
     btnPeak.classList.remove('place-active');
     btnMult.classList.remove('place-active');
+    // Re-enable drag zoom
+    if (state.chart) state.chart.options.plugins.zoom.zoom.drag.enabled = true;
     notify('Placement mode cancelled.', '');
     return;
   }
@@ -2209,6 +2246,8 @@ function togglePlaceMode(mode) {
   // Activate placement mode
   placeMode = mode;
   wrap.classList.add('placing');
+  // Disable drag zoom so clicks place peaks instead of zooming
+  if (state.chart) state.chart.options.plugins.zoom.zoom.drag.enabled = false;
   btnPeak.classList.remove('place-active');
   btnMult.classList.remove('place-active');
   if (mode === 'peak') {
@@ -3117,58 +3156,61 @@ function updatePlot() {
     afterDraw(chart) {
       const activeTab = typeof tabManager !== 'undefined' && tabManager._getTab(tabManager.activeId);
       if (!activeTab || !activeTab.isSurvey) return;
-      // Use visible labels (after dismissals) if available, fall back to full set
-      const labels = activeTab._visibleSurveyLabels || activeTab.surveyLabels;
-      if (!labels || !labels.length) return;
+      const elements = activeTab.markedElements;
+      if (!elements || !elements.length) return;
       const { ctx: c, chartArea, scales } = chart;
       if (!chartArea || !scales.x || !scales.y) return;
       const shift = activeTab.ccShift || 0;
-      const plotH = chartArea.bottom - chartArea.top;
 
       c.save();
 
-      // Compute pixel positions; label offset = 8% of y-axis range minimum
-      const labelGap = Math.max(24, plotH * 0.08);
-      const positioned = labels.map(lbl => {
-        const px = scales.x.getPixelForValue(lbl.be + shift);
-        const py = scales.y.getPixelForValue(lbl.intensity);
-        return { ...lbl, px, py };
-      }).filter(p => p.px >= chartArea.left && p.px <= chartArea.right);
-      positioned.sort((a, b) => a.px - b.px);
+      // Build positioned markers from user's element selections
+      const markers = [];
+      elements.forEach((sym, idx) => {
+        const el = XPS_ELEMENTS[sym];
+        if (!el) return;
+        const color = ELEMENT_MARKER_COLORS[idx % ELEMENT_MARKER_COLORS.length];
+        Object.entries(el.lines).forEach(([line, be]) => {
+          const px = scales.x.getPixelForValue(be + shift);
+          if (px < chartArea.left || px > chartArea.right) return;
+          const isAuger = /^[A-Z]/.test(line);
+          markers.push({ label: sym + ' ' + line, px, be, color, auger: isAuger });
+        });
+      });
+      markers.sort((a, b) => a.px - b.px);
 
-      // Stagger overlapping labels at different heights
+      // Stagger overlapping labels
       const minSep = 55, maxOff = 80;
-      const yOffsets = new Array(positioned.length).fill(0);
-      for (let i = 1; i < positioned.length; i++) {
-        if (positioned[i].px - positioned[i - 1].px < minSep) {
-          yOffsets[i] = Math.min(yOffsets[i - 1] + 20, maxOff);
+      const yOffsets = new Array(markers.length).fill(0);
+      for (let i = 1; i < markers.length; i++) {
+        if (markers[i].px - markers[i - 1].px < minSep) {
+          yOffsets[i] = Math.min(yOffsets[i - 1] + 18, maxOff);
         }
       }
 
-      for (let i = 0; i < positioned.length; i++) {
-        const p = positioned[i];
-        const yBase = Math.max(chartArea.top + 16, p.py - labelGap - yOffsets[i]);
+      for (let i = 0; i < markers.length; i++) {
+        const m = markers[i];
+        const labelY = chartArea.top + 16 + yOffsets[i];
 
-        // Thin vertical dotted line from peak to label
-        c.strokeStyle = 'rgba(200,210,230,0.4)';
+        // Vertical dashed line spanning full chart height
+        c.strokeStyle = m.color + '60';
         c.lineWidth = 1;
-        c.setLineDash([2, 2]);
+        c.setLineDash([4, 3]);
         c.beginPath();
-        c.moveTo(p.px, p.py);
-        c.lineTo(p.px, yBase + 4);
+        c.moveTo(m.px, chartArea.top);
+        c.lineTo(m.px, chartArea.bottom);
         c.stroke();
         c.setLineDash([]);
 
-        // Label text: 13px bold, white with dark shadow for visibility
+        // Label text: 13px bold, white with dark shadow
         c.font = "bold 13px 'IBM Plex Mono', monospace";
         c.textAlign = 'center';
-        c.textBaseline = 'bottom';
+        c.textBaseline = 'top';
         c.shadowColor = 'black';
         c.shadowBlur = 4;
-        c.fillStyle = p.auger ? '#a0b0cc' : '#ffffff';
-        c.fillText(p.label, p.px, yBase);
-        // Draw twice for stronger shadow effect
-        c.fillText(p.label, p.px, yBase);
+        c.fillStyle = m.auger ? '#a0b0cc' : '#ffffff';
+        c.fillText(m.label, m.px, labelY);
+        c.fillText(m.label, m.px, labelY);
         c.shadowBlur = 0;
       }
       c.restore();
@@ -3204,6 +3246,19 @@ function updatePlot() {
           bodyColor: '#8a9ab8',
           titleFont: { family: "'IBM Plex Mono', monospace", size: 11 },
           bodyFont:  { family: "'IBM Plex Mono', monospace", size: 11 }
+        },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true, mode: 'y' },
+            drag: {
+              enabled: !placeMode,
+              mode: 'x',
+              backgroundColor: 'rgba(74,158,255,0.15)',
+              borderColor: 'rgba(74,158,255,0.5)',
+              borderWidth: 1,
+            },
+          },
+          limits: { y: { min: 0 } }
         }
       },
       scales: {
@@ -3224,6 +3279,11 @@ function updatePlot() {
         }
       }
     }
+  });
+
+  // Double-click to reset zoom
+  document.getElementById('mainChart').addEventListener('dblclick', () => {
+    if (state.chart) state.chart.resetZoom();
   });
 }
 
@@ -3284,7 +3344,19 @@ function updateResiduals(be, residuals, invert, show) {
       animation: false,
       plugins: {
         legend: { display: false },
-        tooltip: { enabled: false }
+        tooltip: { enabled: false },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true, mode: 'y' },
+            drag: {
+              enabled: true,
+              mode: 'x',
+              backgroundColor: 'rgba(74,158,255,0.15)',
+              borderColor: 'rgba(74,158,255,0.5)',
+              borderWidth: 1,
+            },
+          }
+        }
       },
       scales: {
         x: {
@@ -3303,6 +3375,11 @@ function updateResiduals(be, residuals, invert, show) {
         }
       }
     }
+  });
+
+  // Double-click to reset zoom on residuals
+  document.getElementById('residChart').addEventListener('dblclick', () => {
+    if (state.residChart) state.residChart.resetZoom();
   });
 }
 
@@ -3616,8 +3693,7 @@ function _loadProjectJSON(data) {
       peaks: (t.peaks || []).map(p => ({...p})),
       nextId: t.nextId || 1,
       fitResult: t.fitResult || null,
-      surveyLabels: t.surveyLabels || ((isSurvey && t.rawBE && t.rawBE.length)
-        ? detectSurveyPeaks(t.rawBE, t.rawIntensity || []) : null),
+      markedElements: t.markedElements || [],
       ui: {
         bgType: 'shirley', bgStart: '', bgEnd: '',
         shirleyIter: '50', roiMin: '', roiMax: '',
