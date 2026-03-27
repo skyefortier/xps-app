@@ -181,7 +181,7 @@
     border-color: var(--red);
     color: var(--red);
   }
-  .btn-danger:hover { background: rgba(255,107,107,0.25); }
+  .btn-red:hover { background: rgba(255,107,107,0.25); }
   .btn-sm { padding: 3px 8px; font-size: 10px; }
   .btn-icon {
     width: 24px; height: 24px; padding: 0;
@@ -2821,7 +2821,6 @@ async function runFit() {
     notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
   } catch (e) {
     // Fall back to local Levenberg-Marquardt
-    console.warn('Flask backend unavailable, using local LM:', e.message);
     runFitLocal(be, bgSubtracted);
     return;
   }
@@ -3269,7 +3268,6 @@ function updatePlot() {
         c.shadowColor = 'black';
         c.shadowBlur = 4;
         c.fillStyle = m.auger ? '#a0b0cc' : '#ffffff';
-        c.fillText(m.label, m.px, labelY);
         c.fillText(m.label, m.px, labelY);
         c.shadowBlur = 0;
       }
