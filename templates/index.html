@@ -644,6 +644,11 @@
   .el-label { color: var(--accent2); font-weight: 500; }
   .el-label.auger { color: var(--text2); font-weight: 400; font-style: italic; }
   .el-be { color: var(--text3); font-size: 10px; }
+  .el-dismiss { color: var(--text3); cursor: pointer; font-size: 13px; margin-left: 6px;
+    opacity: 0.5; transition: opacity 0.15s, color 0.15s; flex-shrink: 0; }
+  .el-dismiss:hover { opacity: 1; color: #ff6b6b; }
+  .el-row { display: flex; align-items: baseline; flex: 1; justify-content: space-between; }
+  .survey-dismiss-hint { color: var(--text3); font-size: 9px; margin-bottom: 6px; font-style: italic; }
 
   /* ── Folder upload progress ─────────────────────────────── */
   #folder-progress {
@@ -972,15 +977,15 @@ const XPS_ELEMENT_DB = [
   { label: 'O KLL',     be: 978,  p: 8, auger: true },
 ];
 
-// ── Survey peak detection (derivative-based) ────────
+// ── Survey peak detection (simple local maxima + median filter) ──
 function detectSurveyPeaks(be, intensity) {
   const n = be.length;
-  if (n < 20) return [];
+  if (n < 10) return [];
   console.log('[Survey] Starting peak detection on', n, 'points, BE range',
     Math.min(...be).toFixed(0), '–', Math.max(...be).toFixed(0), 'eV');
 
-  // 1. Smooth with moving average (window = 11 points, hw = 5)
-  const hw = 5;
+  // 1. Smooth with 5-point moving average (hw = 2)
+  const hw = 2;
   const smooth = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     let sum = 0, cnt = 0;
@@ -990,65 +995,21 @@ function detectSurveyPeaks(be, intensity) {
     smooth[i] = sum / cnt;
   }
 
-  // Intensity statistics for filtering
-  let minIntensity = Infinity, maxIntensity = -Infinity;
-  for (let i = 0; i < n; i++) {
-    if (smooth[i] < minIntensity) minIntensity = smooth[i];
-    if (smooth[i] > maxIntensity) maxIntensity = smooth[i];
-  }
-  const intensityRange = maxIntensity - minIntensity;
-  const intensityThreshold = minIntensity + 0.05 * intensityRange; // 5% above min
+  // 2. Compute 75th percentile for filtering (top 25% brightest)
+  const sorted = [...smooth].sort((a, b) => a - b);
+  const p75 = sorted[Math.floor(n * 0.75)];
+  console.log('[Survey] 75th percentile intensity:', p75.toFixed(0));
 
-  // 2. Compute first derivative of smoothed signal
-  const deriv = new Float64Array(n);
-  for (let i = 1; i < n - 1; i++) {
-    deriv[i] = smooth[i + 1] - smooth[i - 1];
-  }
-  deriv[0] = deriv[1];
-  deriv[n - 1] = deriv[n - 2];
-
-  // Determine BE direction: is be[] ascending or descending?
-  const beAscending = be[n - 1] > be[0];
-
-  // 3. Find zero crossings in derivative (positive → negative = peak)
-  // For ascending BE, a peak in intensity is where deriv goes + → −
-  // For descending BE (typical XPS), deriv goes − → + at intensity peaks
-  const rawPeaks = [];
-  for (let i = 1; i < n - 1; i++) {
-    let isPeak;
-    if (beAscending) {
-      isPeak = deriv[i - 1] > 0 && deriv[i + 1] < 0;
-    } else {
-      isPeak = deriv[i - 1] < 0 && deriv[i + 1] > 0;
-    }
-    if (isPeak && smooth[i] > intensityThreshold) {
-      rawPeaks.push(i);
-    }
-  }
-  console.log('[Survey] Zero crossings found:', rawPeaks.length, 'candidates above 5% threshold');
-
-  // 4. Prominence filter: peak must rise ≥3% of total intensity range
-  //    above the average of intensities 20 points to the left and right
-  const prominenceThreshold = 0.03 * intensityRange;
+  // 3. Find ALL local maxima above the 75th percentile
   const peakIndices = [];
-  for (const i of rawPeaks) {
-    const leftStart = Math.max(0, i - 20);
-    const rightEnd = Math.min(n - 1, i + 20);
-    let leftSum = 0, leftCnt = 0;
-    for (let k = leftStart; k < Math.max(0, i - 3); k++) { leftSum += smooth[k]; leftCnt++; }
-    let rightSum = 0, rightCnt = 0;
-    for (let k = Math.min(n - 1, i + 3) + 1; k <= rightEnd; k++) { rightSum += smooth[k]; rightCnt++; }
-    const localBase = (leftCnt && rightCnt)
-      ? (leftSum / leftCnt + rightSum / rightCnt) / 2
-      : (leftCnt ? leftSum / leftCnt : rightSum / rightCnt);
-    const prominence = smooth[i] - localBase;
-    if (prominence >= prominenceThreshold) {
+  for (let i = 1; i < n - 1; i++) {
+    if (smooth[i] > smooth[i - 1] && smooth[i] > smooth[i + 1] && smooth[i] > p75) {
       peakIndices.push(i);
     }
   }
-  console.log('[Survey] After prominence filter:', peakIndices.length, 'peaks');
+  console.log('[Survey] Local maxima above 75th pct:', peakIndices.length);
 
-  // 5. Merge clusters: if several maxima within 6 eV, keep the tallest
+  // 4. Merge clusters: if several maxima within 6 eV, keep the tallest
   const merged = [];
   for (const idx of peakIndices) {
     if (merged.length && Math.abs(be[idx] - be[merged[merged.length - 1]]) < 6) {
@@ -1061,10 +1022,8 @@ function detectSurveyPeaks(be, intensity) {
   }
   console.log('[Survey] After cluster merge:', merged.length, 'peaks');
 
-  // 6. Match peaks to database entries (±5 eV, priority-weighted)
-  //    Each DB element can only match once; if it matches multiple peaks, pick strongest
+  // 5. Match peaks to database (±5 eV, priority-weighted, greedy)
   const tolerance = 5;
-  // First pass: collect all (peak, dbEntry) candidate pairs
   const pairs = [];
   for (const idx of merged) {
     const peakBE = be[idx];
@@ -1075,10 +1034,10 @@ function detectSurveyPeaks(be, intensity) {
       }
     }
   }
-  // Sort by priority desc, then intensity desc, then distance asc
+  // Sort: highest priority first, then strongest peak, then closest distance
   pairs.sort((a, b) => b.p - a.p || b.inten - a.inten || a.dist - b.dist);
 
-  // Greedy assignment: each DB entry used once, each peak matched to at most one element
+  // Greedy: each DB entry used once, each peak matched to at most one element
   const usedDB = new Set();
   const usedPeak = new Set();
   const labels = [];
@@ -1093,18 +1052,18 @@ function detectSurveyPeaks(be, intensity) {
       intensity: intensity[pair.idx],
       auger: !!entry.auger
     });
-    console.log('[Survey]   Matched peak at', be[pair.idx].toFixed(1), 'eV →', entry.label,
-      '(db:', entry.be, 'eV, dist:', pair.dist.toFixed(1), ', priority:', pair.p, ')');
+    console.log('[Survey]   Matched:', be[pair.idx].toFixed(1), 'eV →', entry.label,
+      '(db:', entry.be, ', dist:', pair.dist.toFixed(1), ', p:', pair.p, ')');
   }
 
-  // Log unmatched peaks
+  // Log unmatched peaks for debugging
   for (const idx of merged) {
     if (!usedPeak.has(idx)) {
       console.log('[Survey]   Unmatched peak at', be[idx].toFixed(1), 'eV, intensity:', smooth[idx].toFixed(0));
     }
   }
 
-  console.log('[Survey] Final result:', labels.length, 'elements identified');
+  console.log('[Survey] Final:', labels.length, 'elements identified');
   return labels;
 }
 
@@ -1474,8 +1433,19 @@ class TabManager {
     // Switch the main chart
     this.activateTab(surveyId);
 
-    // Re-run detection
-    surveyTab.surveyLabels = detectSurveyPeaks(surveyTab.rawBE, surveyTab.rawIntensity);
+    // Re-run detection (only if not already cached)
+    if (!surveyTab.surveyLabels) {
+      surveyTab.surveyLabels = detectSurveyPeaks(surveyTab.rawBE, surveyTab.rawIntensity);
+    }
+    // Initialize dismissed set if needed
+    if (!surveyTab._dismissedLabels) surveyTab._dismissedLabels = new Set();
+
+    // Filter out dismissed labels
+    const visibleLabels = (surveyTab.surveyLabels || [])
+      .filter(lbl => !surveyTab._dismissedLabels.has(lbl.label));
+
+    // Update the chart labels to match (excluding dismissed)
+    surveyTab._visibleSurveyLabels = visibleLabels;
 
     // Highlight active survey in selector list
     document.querySelectorAll('#survey-selector li').forEach(li => {
@@ -1488,17 +1458,32 @@ class TabManager {
     if (!detail || !list) return;
     detail.style.display = '';
 
-    const labels = surveyTab.surveyLabels || [];
-    if (!labels.length) {
+    if (!visibleLabels.length) {
       list.innerHTML = '<li style="color:var(--text3);font-size:11px;">No elements detected.</li>';
       return;
     }
-    const sorted = [...labels].sort((a, b) => b.be - a.be);
-    list.innerHTML = sorted.map(lbl => {
-      const cls = lbl.auger ? 'el-label auger' : 'el-label';
-      const tag = lbl.auger ? ' (Auger)' : '';
-      return `<li><span class="${cls}">${lbl.label}${tag}</span><span class="el-be">${lbl.be.toFixed(1)} eV</span></li>`;
-    }).join('');
+    const sorted = [...visibleLabels].sort((a, b) => b.be - a.be);
+    list.innerHTML = '<div class="survey-dismiss-hint">Click \u00d7 to dismiss incorrect assignments</div>' +
+      sorted.map(lbl => {
+        const cls = lbl.auger ? 'el-label auger' : 'el-label';
+        const tag = lbl.auger ? ' (Auger)' : '';
+        const escaped = lbl.label.replace(/'/g, "\\'");
+        return `<li><span class="el-row"><span class="${cls}">${lbl.label}${tag}</span><span class="el-be">${lbl.be.toFixed(1)} eV</span></span>` +
+          `<span class="el-dismiss" onclick="tabManager._dismissLabel('${surveyId}','${escaped}')" title="Dismiss">\u00d7</span></li>`;
+      }).join('');
+
+    // Trigger chart redraw so labels update
+    updatePlot();
+  }
+
+  /** Dismiss a label from a survey and refresh the list */
+  _dismissLabel(surveyId, labelName) {
+    const surveyTab = this._getTab(surveyId);
+    if (!surveyTab) return;
+    if (!surveyTab._dismissedLabels) surveyTab._dismissedLabels = new Set();
+    surveyTab._dismissedLabels.add(labelName);
+    console.log('[Survey] Dismissed:', labelName);
+    this._activateSurvey(surveyId);
   }
 
   /** Switch the main chart back to whatever was active before survey */
@@ -3131,11 +3116,12 @@ function updatePlot() {
     id: 'surveyLabels',
     afterDraw(chart) {
       const activeTab = typeof tabManager !== 'undefined' && tabManager._getTab(tabManager.activeId);
-      if (!activeTab || !activeTab.isSurvey || !activeTab.surveyLabels || !activeTab.surveyLabels.length) return;
+      if (!activeTab || !activeTab.isSurvey) return;
+      // Use visible labels (after dismissals) if available, fall back to full set
+      const labels = activeTab._visibleSurveyLabels || activeTab.surveyLabels;
+      if (!labels || !labels.length) return;
       const { ctx: c, chartArea, scales } = chart;
       if (!chartArea || !scales.x || !scales.y) return;
-
-      const labels = activeTab.surveyLabels;
       const shift = activeTab.ccShift || 0;
       const plotH = chartArea.bottom - chartArea.top;
 
