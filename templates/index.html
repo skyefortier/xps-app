@@ -618,6 +618,22 @@
     letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--text3); margin-bottom: 10px;
   }
+  #survey-no-data { color: var(--text3); font-size: 11px; text-align: center; padding: 20px 0; }
+  /* Survey selector list */
+  #survey-selector { list-style: none; padding: 0; margin: 0 0 12px; }
+  #survey-selector li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 8px; border-radius: 4px; cursor: pointer;
+    font-family: var(--mono); font-size: 11px; color: var(--text1);
+    border: 1px solid transparent; transition: background 0.15s, border-color 0.15s;
+  }
+  #survey-selector li:hover { background: var(--bg3); }
+  #survey-selector li.active-survey {
+    background: rgba(99,179,237,0.10); border-color: var(--accent2);
+  }
+  #survey-selector .survey-sel-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+  #survey-selector .survey-sel-meta { color: var(--text3); font-size: 9px; white-space: nowrap; margin-left: 6px; }
+  /* Element identification list */
   #survey-element-list { list-style: none; padding: 0; margin: 0; }
   #survey-element-list li {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -855,12 +871,15 @@
 
         <div class="tab-panel" id="tab-survey">
           <div id="survey-info">
-            <div class="survey-heading">Viewing Survey Spectrum</div>
-            <p style="color:var(--text3);font-size:11px;margin:0 0 10px;">The main chart is showing the full survey. Click Peaks/Results to return.</p>
-            <div class="survey-heading" style="margin-top:14px;">Identified Elements</div>
-            <ul id="survey-element-list">
-              <li style="color:var(--text3);font-size:11px;">No elements detected.</li>
-            </ul>
+            <div id="survey-no-data" style="display:none;">No survey spectra loaded.<br>Load a folder containing a survey scan.</div>
+            <div id="survey-selector-wrap" style="display:none;">
+              <div class="survey-heading">Survey Spectra</div>
+              <ul id="survey-selector"></ul>
+            </div>
+            <div id="survey-detail" style="display:none;">
+              <div class="survey-heading">Identified Elements</div>
+              <ul id="survey-element-list"></ul>
+            </div>
           </div>
         </div>
 
@@ -953,12 +972,14 @@ const XPS_ELEMENT_DB = [
   { label: 'O KLL',     be: 978,  p: 8, auger: true },
 ];
 
-// ── Survey peak detection ───────────────────────────
+// ── Survey peak detection (derivative-based) ────────
 function detectSurveyPeaks(be, intensity) {
   const n = be.length;
-  if (n < 10) return [];
+  if (n < 20) return [];
+  console.log('[Survey] Starting peak detection on', n, 'points, BE range',
+    Math.min(...be).toFixed(0), '–', Math.max(...be).toFixed(0), 'eV');
 
-  // 1. Smooth with moving average (window = 11 points)
+  // 1. Smooth with moving average (window = 11 points, hw = 5)
   const hw = 5;
   const smooth = new Float64Array(n);
   for (let i = 0; i < n; i++) {
@@ -969,41 +990,67 @@ function detectSurveyPeaks(be, intensity) {
     smooth[i] = sum / cnt;
   }
 
-  // 2. Threshold: mean + 0.5 * stddev (permissive — prominence filter handles noise)
-  let mean = 0;
-  for (let i = 0; i < n; i++) mean += smooth[i];
-  mean /= n;
-  let variance = 0;
-  for (let i = 0; i < n; i++) variance += (smooth[i] - mean) ** 2;
-  const stddev = Math.sqrt(variance / n);
-  const threshold = mean + 0.5 * stddev;
+  // Intensity statistics for filtering
+  let minIntensity = Infinity, maxIntensity = -Infinity;
+  for (let i = 0; i < n; i++) {
+    if (smooth[i] < minIntensity) minIntensity = smooth[i];
+    if (smooth[i] > maxIntensity) maxIntensity = smooth[i];
+  }
+  const intensityRange = maxIntensity - minIntensity;
+  const intensityThreshold = minIntensity + 0.05 * intensityRange; // 5% above min
 
-  // Helper: average eV step between data points
-  const avgStep = Math.abs(be[0] - be[n - 1]) / (n - 1);
+  // 2. Compute first derivative of smoothed signal
+  const deriv = new Float64Array(n);
+  for (let i = 1; i < n - 1; i++) {
+    deriv[i] = smooth[i + 1] - smooth[i - 1];
+  }
+  deriv[0] = deriv[1];
+  deriv[n - 1] = deriv[n - 2];
 
-  // 3. Find local maxima above threshold with prominence check
-  const peakIndices = [];
-  for (let i = 2; i < n - 2; i++) {
-    if (smooth[i] > threshold &&
-        smooth[i] >= smooth[i - 1] && smooth[i] >= smooth[i + 1] &&
-        smooth[i] >= smooth[i - 2] && smooth[i] >= smooth[i + 2]) {
-      // Prominence: peak must be ≥10% above the local baseline within ±10 eV
-      const wing = Math.max(3, Math.round(10 / avgStep));
-      let localMin = smooth[i];
-      for (let k = Math.max(0, i - wing); k <= Math.min(n - 1, i + wing); k++) {
-        if (smooth[k] < localMin) localMin = smooth[k];
-      }
-      const prominence = (smooth[i] - localMin) / (localMin || 1);
-      if (prominence >= 0.10) {
-        peakIndices.push(i);
-      }
+  // Determine BE direction: is be[] ascending or descending?
+  const beAscending = be[n - 1] > be[0];
+
+  // 3. Find zero crossings in derivative (positive → negative = peak)
+  // For ascending BE, a peak in intensity is where deriv goes + → −
+  // For descending BE (typical XPS), deriv goes − → + at intensity peaks
+  const rawPeaks = [];
+  for (let i = 1; i < n - 1; i++) {
+    let isPeak;
+    if (beAscending) {
+      isPeak = deriv[i - 1] > 0 && deriv[i + 1] < 0;
+    } else {
+      isPeak = deriv[i - 1] < 0 && deriv[i + 1] > 0;
+    }
+    if (isPeak && smooth[i] > intensityThreshold) {
+      rawPeaks.push(i);
     }
   }
+  console.log('[Survey] Zero crossings found:', rawPeaks.length, 'candidates above 5% threshold');
 
-  // 3b. Merge clusters: if several maxima within 6 eV, keep the tallest
+  // 4. Prominence filter: peak must rise ≥3% of total intensity range
+  //    above the average of intensities 20 points to the left and right
+  const prominenceThreshold = 0.03 * intensityRange;
+  const peakIndices = [];
+  for (const i of rawPeaks) {
+    const leftStart = Math.max(0, i - 20);
+    const rightEnd = Math.min(n - 1, i + 20);
+    let leftSum = 0, leftCnt = 0;
+    for (let k = leftStart; k < Math.max(0, i - 3); k++) { leftSum += smooth[k]; leftCnt++; }
+    let rightSum = 0, rightCnt = 0;
+    for (let k = Math.min(n - 1, i + 3) + 1; k <= rightEnd; k++) { rightSum += smooth[k]; rightCnt++; }
+    const localBase = (leftCnt && rightCnt)
+      ? (leftSum / leftCnt + rightSum / rightCnt) / 2
+      : (leftCnt ? leftSum / leftCnt : rightSum / rightCnt);
+    const prominence = smooth[i] - localBase;
+    if (prominence >= prominenceThreshold) {
+      peakIndices.push(i);
+    }
+  }
+  console.log('[Survey] After prominence filter:', peakIndices.length, 'peaks');
+
+  // 5. Merge clusters: if several maxima within 6 eV, keep the tallest
   const merged = [];
-  for (let i = 0; i < peakIndices.length; i++) {
-    const idx = peakIndices[i];
+  for (const idx of peakIndices) {
     if (merged.length && Math.abs(be[idx] - be[merged[merged.length - 1]]) < 6) {
       if (smooth[idx] > smooth[merged[merged.length - 1]]) {
         merged[merged.length - 1] = idx;
@@ -1012,36 +1059,52 @@ function detectSurveyPeaks(be, intensity) {
       merged.push(idx);
     }
   }
+  console.log('[Survey] After cluster merge:', merged.length, 'peaks');
 
-  // 4. Match peaks to database entries (±5 eV, priority-weighted)
-  const labels = [];
+  // 6. Match peaks to database entries (±5 eV, priority-weighted)
+  //    Each DB element can only match once; if it matches multiple peaks, pick strongest
   const tolerance = 5;
-  const usedDB = new Set();
-
+  // First pass: collect all (peak, dbEntry) candidate pairs
+  const pairs = [];
   for (const idx of merged) {
     const peakBE = be[idx];
-    // Collect all candidates within tolerance
-    const candidates = [];
     for (let d = 0; d < XPS_ELEMENT_DB.length; d++) {
-      if (usedDB.has(d)) continue;
       const dist = Math.abs(peakBE - XPS_ELEMENT_DB[d].be);
       if (dist <= tolerance) {
-        candidates.push({ d, dist, p: XPS_ELEMENT_DB[d].p || 1 });
+        pairs.push({ idx, d, dist, p: XPS_ELEMENT_DB[d].p || 1, inten: smooth[idx] });
       }
     }
-    if (!candidates.length) continue;
-    // Pick best: highest priority wins; tiebreak by closest distance
-    candidates.sort((a, b) => b.p - a.p || a.dist - b.dist);
-    const best = candidates[0];
-    usedDB.add(best.d);
+  }
+  // Sort by priority desc, then intensity desc, then distance asc
+  pairs.sort((a, b) => b.p - a.p || b.inten - a.inten || a.dist - b.dist);
+
+  // Greedy assignment: each DB entry used once, each peak matched to at most one element
+  const usedDB = new Set();
+  const usedPeak = new Set();
+  const labels = [];
+  for (const pair of pairs) {
+    if (usedDB.has(pair.d) || usedPeak.has(pair.idx)) continue;
+    usedDB.add(pair.d);
+    usedPeak.add(pair.idx);
+    const entry = XPS_ELEMENT_DB[pair.d];
     labels.push({
-      label: XPS_ELEMENT_DB[best.d].label,
-      be: peakBE,
-      intensity: intensity[idx],
-      auger: !!XPS_ELEMENT_DB[best.d].auger
+      label: entry.label,
+      be: be[pair.idx],
+      intensity: intensity[pair.idx],
+      auger: !!entry.auger
     });
+    console.log('[Survey]   Matched peak at', be[pair.idx].toFixed(1), 'eV →', entry.label,
+      '(db:', entry.be, 'eV, dist:', pair.dist.toFixed(1), ', priority:', pair.p, ')');
   }
 
+  // Log unmatched peaks
+  for (const idx of merged) {
+    if (!usedPeak.has(idx)) {
+      console.log('[Survey]   Unmatched peak at', be[idx].toFixed(1), 'eV, intensity:', smooth[idx].toFixed(0));
+    }
+  }
+
+  console.log('[Survey] Final result:', labels.length, 'elements identified');
   return labels;
 }
 
@@ -1320,11 +1383,11 @@ class TabManager {
   // ── Survey panel ────────────────────────────────
 
   _updateSurveyPanel() {
-    const surveyTab = this.tabs.find(t => t.isSurvey);
+    const surveys = this.tabs.filter(t => t.isSurvey && t.rawBE.length);
     const btn = document.getElementById('survey-tab-btn');
     if (!btn) return;
 
-    if (!surveyTab || !surveyTab.rawBE.length) {
+    if (!surveys.length) {
       btn.classList.remove('visible');
       // If survey sidebar tab was active, switch back to peaks
       if (btn.classList.contains('active')) {
@@ -1337,31 +1400,99 @@ class TabManager {
     btn.classList.add('visible');
   }
 
-  /** Switch the main chart to the survey spectrum and populate element list */
+  /** Called when the Survey sidebar tab is activated */
   _showSurveyInMain() {
-    const surveyTab = this.tabs.find(t => t.isSurvey);
-    if (!surveyTab) return;
+    const surveys = this.tabs.filter(t => t.isSurvey && t.rawBE.length);
+    const noData = document.getElementById('survey-no-data');
+    const selWrap = document.getElementById('survey-selector-wrap');
+    const detail = document.getElementById('survey-detail');
+    if (!noData || !selWrap || !detail) return;
 
-    // Remember which top tab was active so we can restore it
-    if (this.activeId !== surveyTab.id) {
-      this._preSurveyTabId = this.activeId;
+    // No surveys loaded
+    if (!surveys.length) {
+      noData.style.display = '';
+      selWrap.style.display = 'none';
+      detail.style.display = 'none';
+      return;
     }
 
-    // Switch the top tab bar to the survey spectrum
-    this.activateTab(surveyTab.id);
+    noData.style.display = 'none';
 
-    // Always re-run detection (ensures latest algorithm is used)
+    // Single survey: skip list, go directly
+    if (surveys.length === 1) {
+      selWrap.style.display = 'none';
+      this._activateSurvey(surveys[0].id);
+      return;
+    }
+
+    // Multiple surveys: show selector list
+    selWrap.style.display = '';
+    this._renderSurveySelector(surveys);
+
+    // If we're already viewing one of the surveys, highlight it + show elements
+    const currentlyViewing = surveys.find(s => s.id === this.activeId);
+    if (currentlyViewing) {
+      this._activateSurvey(currentlyViewing.id);
+    } else {
+      // Don't auto-switch yet; show list and hide detail until user picks one
+      detail.style.display = 'none';
+    }
+  }
+
+  /** Render the clickable survey selector list */
+  _renderSurveySelector(surveys) {
+    const sel = document.getElementById('survey-selector');
+    if (!sel) return;
+    sel.innerHTML = surveys.map(s => {
+      const n = s.rawBE.length;
+      const beMin = Math.min(...s.rawBE).toFixed(0);
+      const beMax = Math.max(...s.rawBE).toFixed(0);
+      return `<li data-survey-id="${s.id}" onclick="tabManager._onSurveySelect('${s.id}')">` +
+        `<span class="survey-sel-name">${s.name}</span>` +
+        `<span class="survey-sel-meta">${n} pts · ${beMin}–${beMax} eV</span></li>`;
+    }).join('');
+  }
+
+  /** Handle click on a survey in the selector list */
+  _onSurveySelect(surveyId) {
+    this._activateSurvey(surveyId);
+  }
+
+  /** Switch main chart to a specific survey and show its element list */
+  _activateSurvey(surveyId) {
+    const surveyTab = this._getTab(surveyId);
+    if (!surveyTab) return;
+
+    // Remember previous non-survey tab for restore
+    if (!this._preSurveyTabId || !this._getTab(this._preSurveyTabId)?.isSurvey === false) {
+      const currentActive = this._getTab(this.activeId);
+      if (currentActive && !currentActive.isSurvey) {
+        this._preSurveyTabId = this.activeId;
+      }
+    }
+
+    // Switch the main chart
+    this.activateTab(surveyId);
+
+    // Re-run detection
     surveyTab.surveyLabels = detectSurveyPeaks(surveyTab.rawBE, surveyTab.rawIntensity);
 
-    // Populate element identification list in the right panel
+    // Highlight active survey in selector list
+    document.querySelectorAll('#survey-selector li').forEach(li => {
+      li.classList.toggle('active-survey', li.dataset.surveyId === surveyId);
+    });
+
+    // Populate element identification list
+    const detail = document.getElementById('survey-detail');
     const list = document.getElementById('survey-element-list');
-    if (!list) return;
+    if (!detail || !list) return;
+    detail.style.display = '';
+
     const labels = surveyTab.surveyLabels || [];
     if (!labels.length) {
       list.innerHTML = '<li style="color:var(--text3);font-size:11px;">No elements detected.</li>';
       return;
     }
-    // Sort by BE descending (high energy first)
     const sorted = [...labels].sort((a, b) => b.be - a.be);
     list.innerHTML = sorted.map(lbl => {
       const cls = lbl.auger ? 'el-label auger' : 'el-label';
@@ -3010,8 +3141,8 @@ function updatePlot() {
 
       c.save();
 
-      // Compute pixel positions; place label 18% of plot height above peak
-      const labelGap = Math.max(20, plotH * 0.18);
+      // Compute pixel positions; label offset = 8% of y-axis range minimum
+      const labelGap = Math.max(24, plotH * 0.08);
       const positioned = labels.map(lbl => {
         const px = scales.x.getPixelForValue(lbl.be + shift);
         const py = scales.y.getPixelForValue(lbl.intensity);
@@ -3019,39 +3150,40 @@ function updatePlot() {
       }).filter(p => p.px >= chartArea.left && p.px <= chartArea.right);
       positioned.sort((a, b) => a.px - b.px);
 
-      // Stagger overlapping labels
-      const minSep = 50, maxOff = 72;
+      // Stagger overlapping labels at different heights
+      const minSep = 55, maxOff = 80;
       const yOffsets = new Array(positioned.length).fill(0);
       for (let i = 1; i < positioned.length; i++) {
         if (positioned[i].px - positioned[i - 1].px < minSep) {
-          yOffsets[i] = Math.min(yOffsets[i - 1] + 18, maxOff);
+          yOffsets[i] = Math.min(yOffsets[i - 1] + 20, maxOff);
         }
       }
 
       for (let i = 0; i < positioned.length; i++) {
         const p = positioned[i];
-        const yBase = Math.max(chartArea.top + 14, p.py - labelGap - yOffsets[i]);
+        const yBase = Math.max(chartArea.top + 16, p.py - labelGap - yOffsets[i]);
 
-        // Vertical tick line from peak to label
-        c.strokeStyle = 'rgba(200,210,230,0.35)';
+        // Thin vertical dotted line from peak to label
+        c.strokeStyle = 'rgba(200,210,230,0.4)';
         c.lineWidth = 1;
-        c.setLineDash([3, 2]);
+        c.setLineDash([2, 2]);
         c.beginPath();
         c.moveTo(p.px, p.py);
-        c.lineTo(p.px, yBase + 3);
+        c.lineTo(p.px, yBase + 4);
         c.stroke();
         c.setLineDash([]);
 
-        // Label text: dark stroke for contrast, then bright fill
-        c.font = "bold 12px 'IBM Plex Mono', monospace";
+        // Label text: 13px bold, white with dark shadow for visibility
+        c.font = "bold 13px 'IBM Plex Mono', monospace";
         c.textAlign = 'center';
         c.textBaseline = 'bottom';
-        c.lineWidth = 3;
-        c.strokeStyle = 'rgba(10,14,24,0.85)';
-        c.lineJoin = 'round';
-        c.strokeText(p.label, p.px, yBase);
+        c.shadowColor = 'black';
+        c.shadowBlur = 4;
         c.fillStyle = p.auger ? '#a0b0cc' : '#ffffff';
         c.fillText(p.label, p.px, yBase);
+        // Draw twice for stronger shadow effect
+        c.fillText(p.label, p.px, yBase);
+        c.shadowBlur = 0;
       }
       c.restore();
     }
