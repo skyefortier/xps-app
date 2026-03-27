@@ -1,0 +1,18 @@
+# XPS Peak Fitting – Python dependencies
+# Install: pip install -r requirements.txt
+
+flask>=3.0,<4
+werkzeug>=3.0
+gunicorn>=22.0
+
+# Numerics & fitting
+numpy>=1.26
+scipy>=1.13
+lmfit>=1.3
+
+# File parsing
+pandas>=2.2
+openpyxl>=3.1       # .xlsx read/write
+
+# Optional – uncomment if you need CORS (e.g. separate frontend dev server)
+# flask-cors>=4.0

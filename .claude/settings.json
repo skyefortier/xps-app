@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/skye/**)",
+      "Bash(find /home/skye -maxdepth 4 -name *xps* -o -name *fitting*tool*)",
+      "Bash(pip install:*)",
+      "Bash(curl -s http://localhost:5000/api/health)",
+      "Bash(fuser -k 5000/tcp)",
+      "Bash(source venv/bin/activate)",
+      "Bash(python app.py)",
+      "Bash(curl -s http://127.0.0.1:5000/api/health)",
+      "Bash(grep -n 'bg_method == \"\"shirley\"\"\\\\|bg_method == \"\"smart\"\"\\\\|bg_method == \"\"linear\"\"' /home/skye/xps-app/fitting.py)"
+    ],
+    "additionalDirectories": [
+      "/home/skye/xps-app"
+    ]
+  }
+}

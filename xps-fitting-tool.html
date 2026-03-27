@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XPS Fitting Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --bg2: #131720;
+    --bg3: #1a2030;
+    --bg4: #212840;
+    --border: rgba(100,140,220,0.15);
+    --border2: rgba(100,140,220,0.3);
+    --accent: #4a9eff;
+    --accent2: #7bc4ff;
+    --accent-dim: rgba(74,158,255,0.15);
+    --green: #3ddc84;
+    --green-dim: rgba(61,220,132,0.15);
+    --red: #ff6b6b;
+    --red-dim: rgba(255,107,107,0.15);
+    --amber: #ffbb44;
+    --amber-dim: rgba(255,187,68,0.15);
+    --purple: #b48eff;
+    --purple-dim: rgba(180,142,255,0.15);
+    --coral: #ff8c66;
+    --coral-dim: rgba(255,140,102,0.15);
+    --teal: #44ddcc;
+    --teal-dim: rgba(68,221,204,0.15);
+    --text: #e8edf5;
+    --text2: #8a9ab8;
+    --text3: #4a5a78;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --radius: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* Header */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #header h1 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent2);
+    letter-spacing: 0.05em;
+  }
+  #header h1 span { color: var(--text2); font-weight: 400; }
+
+  .hbadge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    background: var(--bg3);
+  }
+
+  .hbtns { display: flex; gap: 8px; align-items: center; }
+
+  /* Main layout */
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* Left panel */
+  #left-panel {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Center panel */
+  #center-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Right panel */
+  #right-panel {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .panel-body { overflow-y: auto; flex: 1; padding: 12px; }
+  .panel-body::-webkit-scrollbar { width: 3px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Buttons */
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--bg4); border-color: var(--accent); color: var(--accent2); }
+  .btn-accent {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent2);
+  }
+  .btn-accent:hover { background: rgba(74,158,255,0.25); }
+  .btn-green {
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .btn-green:hover { background: rgba(61,220,132,0.25); }
+  .btn-red {
+    background: var(--red-dim);
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(255,107,107,0.25); }
+  .btn-sm { padding: 3px 8px; font-size: 10px; }
+  .btn-icon {
+    width: 24px; height: 24px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  /* Form elements */
+  label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
+  input[type=text], input[type=number], select {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--bg3); }
+
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .field { margin-bottom: 10px; }
+  .field-row { display: flex; gap: 8px; align-items: flex-end; }
+  .field-row .field { flex: 1; margin-bottom: 0; }
+
+  /* Section */
+  .section {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .section-head {
+    padding: 7px 10px;
+    background: var(--bg3);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-head:hover { color: var(--text); }
+  .section-body { padding: 10px; }
+
+  /* Chart canvas */
+  #chart-area {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    padding: 12px;
+    background: var(--bg);
+  }
+  #chart-area canvas { width: 100% !important; height: 100% !important; }
+
+  #chart-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  /* Status bar */
+  #statusbar {
+    padding: 4px 14px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    display: flex;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  #statusbar span { color: var(--text2); }
+
+  /* Peak list */
+  .peak-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .peak-item.selected { border-color: var(--accent); }
+  .peak-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--bg3);
+    cursor: pointer;
+  }
+  .peak-color {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .peak-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    flex: 1;
+  }
+  .peak-info {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+  .peak-body { padding: 10px; display: none; }
+  .peak-body.open { display: block; }
+
+  /* Results table */
+  .results-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+  .results-table th {
+    text-align: left;
+    padding: 5px 8px;
+    color: var(--text3);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .results-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .results-table tr:last-child td { border-bottom: none; }
+  .results-table tr:hover td { background: var(--bg3); }
+
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    color: var(--text2);
+  }
+  .chip-accent { background: var(--accent-dim); border-color: var(--accent); color: var(--accent2); }
+  .chip-green { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+  .chip-red { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+  /* Drop zone */
+  #dropzone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+  }
+  #dropzone:hover, #dropzone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  #dropzone .dz-icon { font-size: 24px; margin-bottom: 8px; opacity: 0.5; }
+  #dropzone p { color: var(--text2); font-size: 11px; }
+  #dropzone strong { color: var(--accent2); }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 10px 0; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  .tab {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    cursor: pointer;
+    color: var(--text2);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--accent2); border-color: var(--accent); }
+  .tab:hover { color: var(--text); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Notification */
+  #notify {
+    position: fixed;
+    top: 16px; right: 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--green);
+    display: none;
+    z-index: 999;
+    max-width: 320px;
+  }
+
+  /* Multiplet link indicator */
+  .linked-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: var(--purple-dim);
+    border: 1px solid var(--purple);
+    color: var(--purple);
+  }
+
+  .color-swatch {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="header">
+    <h1>XPS Fitting Studio <span>// v1.0</span></h1>
+    <div class="hbtns">
+      <span class="hbadge" id="fit-quality">χ² — </span>
+      <span class="hbadge" id="data-info">no data</span>
+      <button class="btn btn-green" onclick="runFit()">Run Fit</button>
+      <button class="btn" onclick="exportResults()">Export</button>
+    </div>
+  </div>
+
+  <div id="main">
+
+    <!-- Left Panel: Data & Setup -->
+    <div id="left-panel">
+      <div class="panel-header">Data &amp; Setup</div>
+      <div class="panel-body">
+
+        <div id="dropzone" onclick="document.getElementById('fileInput').click()"
+             ondragover="e=>{e.preventDefault();this.classList.add('drag-over')}"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleDrop(event)">
+          <div class="dz-icon">📂</div>
+          <p><strong>Click</strong> or drag to load spectrum</p>
+          <p>.csv · .txt · .xlsx · .vgd</p>
+        </div>
+        <input type="file" id="fileInput" style="display:none" accept=".csv,.txt,.xlsx,.xls,.vgd" onchange="loadFile(this.files[0])">
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            Charge Correction
+            <span style="font-size:10px">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="field">
+              <label>Method</label>
+              <select id="cc-method" onchange="updateChargeCorrection()">
+                <option value="none">None</option>
+                <option value="c1s">C 1s graphite (284.8 eV)</option>
+                <option value="au4f">Au 4f₇/₂ (83.98 eV)</option>
+                <option value="custom">Custom reference</option>
+              </select>
+            </div>
+            <div class="field" id="cc-ref-field" style="display:none">
+              <label>Observed peak BE (eV)</label>
+              <input type="number" id="cc-obs" value="284.8" step="0.05" oninput="updateChargeCorrection()">
+            </div>
+            <div class="field" id="cc-target-field" style="display:none">
+              <label>Literature BE (eV)</label>
+              <input type="number" id="cc-lit" value="284.8" step="0.05" oninput="updateChargeCorrection()">
+            </div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text2);">
+              Shift: <span id="cc-shift-display" style="color:var(--accent2)">0.00 eV</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            Background
+            <span style="font-size:10px">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="field">
+              <label>Type</label>
+              <select id="bg-type" onchange="updatePlot()">
+                <option value="shirley">Shirley (iterative)</option>
+                <option value="linear">Linear</option>
+                <option value="tougaard">Tougaard (simplified)</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>BE start (eV)</label>
+                <input type="number" id="bg-start" value="726" step="0.5" oninput="updatePlot()">
+              </div>
+              <div class="field">
+                <label>BE end (eV)</label>
+                <input type="number" id="bg-end" value="706" step="0.5" oninput="updatePlot()">
+              </div>
+            </div>
+            <div class="field">
+              <label>Shirley iterations</label>
+              <input type="number" id="shirley-iter" value="50" min="5" max="500" step="5" oninput="updatePlot()">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            Region of Interest
+            <span style="font-size:10px">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="field-row">
+              <div class="field">
+                <label>BE min (eV)</label>
+                <input type="number" id="roi-min" value="706" step="0.5" oninput="updatePlot()">
+              </div>
+              <div class="field">
+                <label>BE max (eV)</label>
+                <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot()">
+              </div>
+            </div>
+            <button class="btn btn-sm" onclick="autoSetROI()">Auto from data</button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-sm btn-accent" onclick="loadDemo('Fe2p')">Demo: Fe 2p</button>
+          <button class="btn btn-sm btn-accent" onclick="loadDemo('U4f')">Demo: U 4f</button>
+          <button class="btn btn-sm btn-accent" onclick="loadDemo('C1s')">Demo: C 1s</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Center Panel: Chart -->
+    <div id="center-panel">
+      <div id="chart-toolbar">
+        <button class="btn btn-sm" onclick="addPeak()">+ Add Peak</button>
+        <button class="btn btn-sm" onclick="addMultiplet()">+ Multiplet Pair</button>
+        <div style="flex:1"></div>
+        <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="show-individual" checked onchange="updatePlot()">
+          <span style="font-size:11px;color:var(--text2)">Individual peaks</span>
+        </label>
+        <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="show-residuals" checked onchange="updatePlot()">
+          <span style="font-size:11px;color:var(--text2)">Residuals</span>
+        </label>
+        <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="invert-be" checked onchange="updatePlot()">
+          <span style="font-size:11px;color:var(--text2)">Invert BE axis</span>
+        </label>
+      </div>
+      <div id="chart-area">
+        <canvas id="mainChart"></canvas>
+      </div>
+      <div id="statusbar">
+        <span>Points: <span id="sb-pts">—</span></span>
+        <span>BE range: <span id="sb-range">—</span></span>
+        <span>Peaks: <span id="sb-peaks">0</span></span>
+        <span>χ²ᵣ: <span id="sb-chi">—</span></span>
+        <span id="sb-msg" style="color:var(--accent2)"></span>
+      </div>
+    </div>
+
+    <!-- Right Panel: Peaks & Results -->
+    <div id="right-panel">
+      <div class="panel-header">
+        Peaks &amp; Results
+        <button class="btn btn-sm btn-red" onclick="clearAllPeaks()">Clear all</button>
+      </div>
+      <div class="panel-body">
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'peaks')">Peaks</div>
+          <div class="tab" onclick="switchTab(this,'results')">Results</div>
+          <div class="tab" onclick="switchTab(this,'quantify')">Quantify</div>
+        </div>
+
+        <div class="tab-panel active" id="tab-peaks">
+          <div id="peak-list"></div>
+          <div id="peak-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
+            No peaks added yet.<br>Click "+ Add Peak" to start.
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-results">
+          <div id="results-area">
+            <p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0;">Run the fit to see results.</p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-quantify">
+          <div id="quantify-area">
+            <p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0;">Run fit to quantify.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="notify"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let state = {
+  rawBE: [],
+  rawIntensity: [],
+  ccShift: 0,
+  peaks: [],
+  nextId: 1,
+  chart: null,
+  fitResult: null
+};
+
+const PEAK_COLORS = ['#4a9eff','#3ddc84','#ff6b6b','#ffbb44','#b48eff','#ff8c66','#44ddcc','#ff9de2','#aaffaa','#ffaaaa'];
+
+// ═══════════════════════════════════════════════════
+// PEAK MATH
+// ═══════════════════════════════════════════════════
+function gaussian(x, center, fwhm) {
+  const sigma = fwhm / (2 * Math.sqrt(2 * Math.log(2)));
+  return Math.exp(-Math.pow(x - center, 2) / (2 * sigma * sigma));
+}
+
+function lorentzian(x, center, fwhm) {
+  const gamma = fwhm / 2;
+  return (gamma * gamma) / (Math.pow(x - center, 2) + gamma * gamma);
+}
+
+function voigt(x, center, fwhm, eta) {
+  // Pseudo-Voigt approximation (Thompson et al.)
+  const g = gaussian(x, center, fwhm);
+  const l = lorentzian(x, center, fwhm);
+  return eta * l + (1 - eta) * g;
+}
+
+function asymmGL(x, center, fwhm, m, alpha) {
+  // Asymmetric Gaussian-Lorentzian: m = GL mixing, alpha = asymmetry
+  const fwhmEff = x < center ? fwhm : fwhm * (1 + alpha * (x - center));
+  return voigt(x, center, fwhmEff, m / 100);
+}
+
+function doniachSunjic(x, center, fwhm, alpha, gamma_asym) {
+  // Doniach-Šunjić lineshape
+  const dx = x - center;
+  const gamma2 = fwhm / 2;
+  const phaseArg = Math.atan(dx / gamma2);
+  const r2 = dx * dx + gamma2 * gamma2;
+  const rPow = Math.pow(r2, (1 - alpha) / 2);
+  if (rPow === 0) return 0;
+  const phase = (1 - alpha) * phaseArg;
+  const gammaFactor = Math.exp(-gamma_asym * dx); // exponential tail
+  return Math.cos(phase) / rPow * Math.max(0.01, gammaFactor);
+}
+
+function dsCore(eps, alpha, beta) {
+  // Doniach-Šunjić core: eps = x − center, tail at eps > 0 (higher BE)
+  // beta: Lorentzian half-width (eV); alpha: dimensionless asymmetry index
+  const r2 = eps * eps + beta * beta;
+  if (r2 < 1e-30) return 1.0;
+  const rPow = Math.pow(r2, (1 - alpha) / 2);
+  if (rPow === 0) return 0;
+  return Math.cos((1 - alpha) * Math.atan2(eps, beta)) / rPow;
+}
+
+function laLineshape(x, center, alpha, beta, mGauss) {
+  // LA(α, β, m) — CasaXPS convention
+  // α: dimensionless asymmetry index (0–0.5)  — tail toward HIGHER binding energy
+  // β: Lorentzian half-width (eV)
+  // m: Gaussian FWHM (eV) convolved with DS core
+  // Returns value normalised so that maximum ≈ 1 at x = center.
+  const sigma = mGauss / (2 * Math.sqrt(2 * Math.log(2)));
+  const halfRange = 5 * sigma + 6 * beta;
+  const N = 40;
+  const dEps = 2 * halfRange / N;
+  const u0 = x - center;
+  let val = 0, norm = 0;
+  for (let k = 0; k <= N; k++) {
+    const eps = -halfRange + k * dEps;
+    const ds = dsCore(eps, alpha, beta);
+    // Gaussian kernel evaluated at (x-center) and at 0 (for normalisation)
+    val  += ds * Math.exp(-((u0 - eps) * (u0 - eps)) / (2 * sigma * sigma));
+    norm += ds * Math.exp(-(eps * eps)                / (2 * sigma * sigma));
+  }
+  return norm > 0 ? val / norm : 0;
+}
+
+function evalPeak(x, p) {
+  let y = 0;
+  const center = p.center;
+  const fwhm = p.fwhm;
+  const amp = p.amplitude;
+
+  if (p.shape === 'GL') {
+    y = voigt(x, center, fwhm, p.glMix / 100);
+  } else if (p.shape === 'asym-GL') {
+    y = asymmGL(x, center, fwhm, p.glMix, p.asymmetry);
+  } else if (p.shape === 'DS') {
+    y = doniachSunjic(x, center, fwhm, p.dsAlpha, p.dsGamma);
+    // Normalize DS to 1 at center for consistent amplitude
+    const yMax = doniachSunjic(center, center, fwhm, p.dsAlpha, 0.001);
+    if (yMax > 0) y /= yMax;
+  } else if (p.shape === 'LA') {
+    // LA(α,β,m) — laLineshape already returns normalised [0,1] value
+    y = laLineshape(x, center, p.laAlpha, p.laBeta, p.laM);
+  } else if (p.shape === 'Voigt') {
+    y = voigt(x, center, fwhm, 0.5);
+  } else if (p.shape === 'Gaussian') {
+    y = gaussian(x, center, fwhm);
+  } else if (p.shape === 'Lorentzian') {
+    y = lorentzian(x, center, fwhm);
+  }
+  return amp * y;
+}
+
+function evalAllPeaks(beArray, peaks) {
+  return beArray.map(x => {
+    let sum = 0;
+    for (const p of peaks) sum += evalPeak(x, p);
+    return sum;
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// BACKGROUND SUBTRACTION
+// ═══════════════════════════════════════════════════
+function shirleyBackground(be, intensity, maxIter) {
+  const n = be.length;
+  if (n < 2) return new Array(n).fill(0);
+  const I0 = intensity[0], I1 = intensity[n - 1];
+  let bg = new Array(n).fill(0);
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const newBg = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      // Integrate from right to current point
+      let sumRight = 0;
+      for (let j = i; j < n - 1; j++) {
+        sumRight += ((intensity[j] - bg[j]) + (intensity[j + 1] - bg[j + 1])) / 2 * Math.abs(be[j + 1] - be[j]);
+      }
+      let sumTotal = 0;
+      for (let j = 0; j < n - 1; j++) {
+        sumTotal += ((intensity[j] - bg[j]) + (intensity[j + 1] - bg[j + 1])) / 2 * Math.abs(be[j + 1] - be[j]);
+      }
+      const frac = sumTotal > 0 ? sumRight / sumTotal : (n - 1 - i) / (n - 1);
+      newBg[i] = I1 + (I0 - I1) * frac;
+    }
+    bg = newBg;
+  }
+  return bg;
+}
+
+function linearBackground(be, intensity) {
+  const n = be.length;
+  if (n < 2) return new Array(n).fill(0);
+  const I0 = intensity[0], I1 = intensity[n - 1];
+  const bg = [];
+  for (let i = 0; i < n; i++) {
+    bg.push(I0 + (I1 - I0) * i / (n - 1));
+  }
+  return bg;
+}
+
+function tougaardBackground(be, intensity) {
+  // Simplified Tougaard: B*T^2 / (C + T^2)^2 convolution approximation
+  const n = be.length;
+  const B = 2866, C = 1643 * 1643;
+  const bg = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    for (let j = i; j < n; j++) {
+      const T = Math.abs(be[j] - be[i]);
+      sum += (B * T) / Math.pow(C + T * T, 2) * intensity[j];
+    }
+    bg[i] = sum * Math.abs(be[1] - be[0]);
+  }
+  // Scale to match endpoints
+  const scale = (intensity[n - 1]) / (bg[n - 1] || 1);
+  return bg.map(v => v * scale);
+}
+
+function computeBackground(be, intensity) {
+  const type = document.getElementById('bg-type').value;
+  const iter = parseInt(document.getElementById('shirley-iter').value) || 50;
+  if (type === 'shirley') return shirleyBackground(be, intensity, iter);
+  if (type === 'linear') return linearBackground(be, intensity);
+  if (type === 'tougaard') return tougaardBackground(be, intensity);
+  return new Array(be.length).fill(0);
+}
+
+// ═══════════════════════════════════════════════════
+// FILE PARSING
+// ═══════════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const be = [], inten = [];
+  for (const line of lines) {
+    if (!line.trim() || line.startsWith('#') || line.startsWith('%')) continue;
+    const parts = line.trim().split(/[\s,\t;]+/);
+    if (parts.length < 2) continue;
+    const x = parseFloat(parts[0]), y = parseFloat(parts[1]);
+    if (isFinite(x) && isFinite(y)) { be.push(x); inten.push(y); }
+  }
+  return { be, inten };
+}
+
+function parseXLSX(buffer) {
+  const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+  const be = [], inten = [];
+  for (const row of data) {
+    if (row.length < 2) continue;
+    const x = parseFloat(row[0]), y = parseFloat(row[1]);
+    if (isFinite(x) && isFinite(y)) { be.push(x); inten.push(y); }
+  }
+  return { be, inten };
+}
+
+function parseVGD(buffer) {
+  // Thermo Avantage .vgd is a binary XML-like container
+  // Try to extract ASCII data blocks from the binary
+  const bytes = new Uint8Array(buffer);
+  const text = new TextDecoder('ascii', { fatal: false }).decode(bytes);
+  
+  // Pattern 1: Look for tabular float data blocks
+  const be = [], inten = [];
+  
+  // Try to find "ChannelEnergy" or "Binding" sections
+  const lines = text.split('\n');
+  let inDataBlock = false;
+  let dataLines = [];
+  
+  for (const line of lines) {
+    if (line.includes('ChannelEnergy') || line.includes('Counts') || line.includes('Binding')) {
+      inDataBlock = true;
+    }
+    if (inDataBlock) dataLines.push(line);
+  }
+  
+  // Extract float pairs from the binary blob
+  // Scan for consecutive valid floats in Float32 or Float64 representation
+  const float32View = new Float32Array(buffer);
+  const validBE = [], validI = [];
+  
+  for (let i = 0; i < float32View.length - 1; i++) {
+    const v = float32View[i];
+    if (v > 0 && v < 2000 && isFinite(v)) {
+      const next = float32View[i + 1];
+      if (next > 0 && next < 1e9 && isFinite(next)) {
+        validBE.push(v);
+        validI.push(next);
+        i++;
+      }
+    }
+  }
+  
+  // Heuristic: find the longest run of monotonic BE values
+  if (validBE.length > 10) {
+    let bestStart = 0, bestLen = 0, curStart = 0, curLen = 1;
+    for (let i = 1; i < validBE.length; i++) {
+      const diff = validBE[i] - validBE[i - 1];
+      if (Math.abs(diff) < 2 && Math.abs(diff) > 0.001) {
+        curLen++;
+      } else {
+        if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+        curStart = i; curLen = 1;
+      }
+    }
+    if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+    
+    if (bestLen > 10) {
+      for (let i = bestStart; i < bestStart + bestLen; i++) {
+        be.push(validBE[i]);
+        inten.push(validI[i]);
+      }
+    }
+  }
+  
+  if (be.length < 5) {
+    // Fallback: try parsing as text with common delimiters
+    const numRegex = /[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/g;
+    const nums = [];
+    let m;
+    while ((m = numRegex.exec(text)) !== null) {
+      const v = parseFloat(m[0]);
+      if (isFinite(v)) nums.push(v);
+    }
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      if (nums[i] > 0 && nums[i] < 2000) {
+        be.push(nums[i]);
+        inten.push(nums[i + 1]);
+      }
+    }
+  }
+  
+  return { be, inten };
+}
+
+function loadFile(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  
+  if (ext === 'vgd' || ext === 'xlsx' || ext === 'xls') {
+    reader.readAsArrayBuffer(file);
+    reader.onload = e => {
+      try {
+        let result;
+        if (ext === 'vgd') result = parseVGD(e.target.result);
+        else result = parseXLSX(e.target.result);
+        if (result.be.length > 0) setSpectrum(result.be, result.inten, file.name);
+        else notify('Could not extract data from file. Try CSV format.', 'red');
+      } catch(err) { notify('Parse error: ' + err.message, 'red'); }
+    };
+  } else {
+    reader.readAsText(file);
+    reader.onload = e => {
+      try {
+        const result = parseCSV(e.target.result);
+        if (result.be.length > 0) setSpectrum(result.be, result.inten, file.name);
+        else notify('No numeric data found in file.', 'red');
+      } catch(err) { notify('Parse error: ' + err.message, 'red'); }
+    };
+  }
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag-over');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+}
+
+function setSpectrum(be, inten, name) {
+  // Sort by BE descending (standard XPS convention)
+  const pairs = be.map((b, i) => [b, inten[i]]).sort((a, b) => b[0] - a[0]);
+  state.rawBE = pairs.map(p => p[0]);
+  state.rawIntensity = pairs.map(p => p[1]);
+  
+  // Auto-set ROI and background
+  const minBE = Math.min(...state.rawBE);
+  const maxBE = Math.max(...state.rawBE);
+  document.getElementById('roi-min').value = minBE.toFixed(1);
+  document.getElementById('roi-max').value = maxBE.toFixed(1);
+  document.getElementById('bg-start').value = maxBE.toFixed(1);
+  document.getElementById('bg-end').value = minBE.toFixed(1);
+  
+  document.getElementById('data-info').textContent = (name || 'spectrum') + ' · ' + be.length + ' pts';
+  document.getElementById('sb-pts').textContent = be.length;
+  document.getElementById('sb-range').textContent = minBE.toFixed(1) + '–' + maxBE.toFixed(1) + ' eV';
+  
+  notify('Loaded ' + be.length + ' points', 'green');
+  updatePlot();
+}
+
+// ═══════════════════════════════════════════════════
+// CHARGE CORRECTION
+// ═══════════════════════════════════════════════════
+function updateChargeCorrection() {
+  const method = document.getElementById('cc-method').value;
+  const refField = document.getElementById('cc-ref-field');
+  const targetField = document.getElementById('cc-target-field');
+  
+  refField.style.display = 'none';
+  targetField.style.display = 'none';
+  
+  if (method === 'c1s') {
+    state.ccShift = parseFloat(document.getElementById('cc-obs').value || 284.8) - 284.8;
+    refField.style.display = 'block';
+    document.getElementById('cc-lit').value = '284.8';
+  } else if (method === 'au4f') {
+    state.ccShift = parseFloat(document.getElementById('cc-obs').value || 83.98) - 83.98;
+    refField.style.display = 'block';
+    document.getElementById('cc-lit').value = '83.98';
+  } else if (method === 'custom') {
+    const obs = parseFloat(document.getElementById('cc-obs').value);
+    const lit = parseFloat(document.getElementById('cc-lit').value);
+    state.ccShift = obs - lit;
+    refField.style.display = 'block';
+    targetField.style.display = 'block';
+  } else {
+    state.ccShift = 0;
+  }
+  
+  const shift = -state.ccShift;
+  document.getElementById('cc-shift-display').textContent = (shift >= 0 ? '+' : '') + shift.toFixed(3) + ' eV';
+  updatePlot();
+}
+
+function getCorrectedBE() {
+  return state.rawBE.map(b => b - state.ccShift);
+}
+
+// ═══════════════════════════════════════════════════
+// ROI FILTERING
+// ═══════════════════════════════════════════════════
+function getROIData() {
+  const roiMin = parseFloat(document.getElementById('roi-min').value);
+  const roiMax = parseFloat(document.getElementById('roi-max').value);
+  const corrBE = getCorrectedBE();
+  const be = [], inten = [];
+  for (let i = 0; i < corrBE.length; i++) {
+    if (corrBE[i] >= roiMin && corrBE[i] <= roiMax) {
+      be.push(corrBE[i]);
+      inten.push(state.rawIntensity[i]);
+    }
+  }
+  return { be, inten };
+}
+
+function autoSetROI() {
+  if (!state.rawBE.length) return;
+  const be = getCorrectedBE();
+  document.getElementById('roi-min').value = Math.min(...be).toFixed(1);
+  document.getElementById('roi-max').value = Math.max(...be).toFixed(1);
+  document.getElementById('bg-start').value = Math.max(...be).toFixed(1);
+  document.getElementById('bg-end').value = Math.min(...be).toFixed(1);
+  updatePlot();
+}
+
+// ═══════════════════════════════════════════════════
+// PEAKS
+// ═══════════════════════════════════════════════════
+function defaultPeak(overrides) {
+  const id = state.nextId++;
+  const color = PEAK_COLORS[(id - 1) % PEAK_COLORS.length];
+  return Object.assign({
+    id, color,
+    name: 'Peak ' + id,
+    center: 710,
+    fwhm: 2.0,
+    amplitude: 10000,
+    shape: 'asym-GL',
+    glMix: 30,
+    asymmetry: 0.0,
+    dsAlpha: 0.1,
+    dsGamma: 0.01,
+    laAlpha: 0.10,
+    laBeta: 0.3,
+    laM: 0.4,
+    linked: null,
+    linkOffset: 13.6,
+    linkRatio: 0.5,
+    visible: true
+  }, overrides);
+}
+
+function addPeak(overrides) {
+  const p = defaultPeak(overrides);
+  state.peaks.push(p);
+  renderPeakList();
+  updatePlot();
+  return p;
+}
+
+function addMultiplet() {
+  // Add a spin-orbit pair (e.g. U 4f7/2 and 4f5/2)
+  const p1 = addPeak({ name: 'Peak ' + state.nextId + ' (₇/₂)', center: 380 });
+  const p2 = defaultPeak({
+    name: 'Peak ' + state.nextId + ' (₅/₂)',
+    center: p1.center + 13.6,
+    amplitude: p1.amplitude * 0.75,
+    color: p1.color,
+    linked: p1.id,
+    linkOffset: 13.6,
+    linkRatio: 0.75
+  });
+  state.peaks.push(p2);
+  renderPeakList();
+  updatePlot();
+  notify('Added multiplet pair. Set offset and ratio in Peak ' + p2.id, 'green');
+}
+
+function removePeak(id) {
+  state.peaks = state.peaks.filter(p => p.id !== id && p.linked !== id);
+  renderPeakList();
+  updatePlot();
+}
+
+function clearAllPeaks() {
+  state.peaks = [];
+  state.fitResult = null;
+  renderPeakList();
+  updatePlot();
+}
+
+function getPeak(id) { return state.peaks.find(p => p.id === id); }
+
+function updatePeakParam(id, key, value) {
+  const p = getPeak(id);
+  if (!p) return;
+  p[key] = value;
+  
+  // Sync linked peak
+  if (key === 'center' || key === 'amplitude' || key === 'fwhm' || key === 'shape' || key === 'glMix' || key === 'asymmetry' || key === 'dsAlpha' || key === 'dsGamma' || key === 'laAlpha' || key === 'laBeta' || key === 'laM') {
+    const linked = state.peaks.find(q => q.linked === id);
+    if (linked) {
+      if (key === 'center') linked.center = p.center + linked.linkOffset;
+      if (key === 'amplitude') linked.amplitude = p.amplitude * linked.linkRatio;
+      if (key === 'fwhm') linked.fwhm = p.fwhm;
+      if (key === 'shape') linked.shape = p.shape;
+      if (key === 'glMix') linked.glMix = p.glMix;
+      if (key === 'asymmetry') linked.asymmetry = p.asymmetry;
+      if (key === 'dsAlpha') linked.dsAlpha = p.dsAlpha;
+      if (key === 'dsGamma') linked.dsGamma = p.dsGamma;
+      if (key === 'laAlpha') linked.laAlpha = p.laAlpha;
+      if (key === 'laBeta') linked.laBeta = p.laBeta;
+      if (key === 'laM') linked.laM = p.laM;
+      renderPeakControls(linked);
+    }
+  }
+  updatePlot();
+}
+
+// ═══════════════════════════════════════════════════
+// PEAK LIST UI
+// ═══════════════════════════════════════════════════
+function renderPeakList() {
+  const el = document.getElementById('peak-list');
+  const empty = document.getElementById('peak-empty');
+  el.innerHTML = '';
+  empty.style.display = state.peaks.length ? 'none' : 'block';
+  document.getElementById('sb-peaks').textContent = state.peaks.length;
+  
+  for (const p of state.peaks) {
+    const item = document.createElement('div');
+    item.className = 'peak-item';
+    item.id = 'peak-item-' + p.id;
+    
+    const linkedPeer = state.peaks.find(q => q.linked === p.id);
+    const isLinked = !!p.linked;
+    
+    item.innerHTML = `
+      <div class="peak-header" onclick="togglePeakBody(${p.id})">
+        <div class="peak-color" style="background:${p.color}"></div>
+        <span class="peak-name">${p.name}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}</span>
+        <span class="peak-info">${p.center.toFixed(2)} eV</span>
+        <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">×</button>
+      </div>
+      <div class="peak-body" id="peak-body-${p.id}">
+        ${renderPeakForm(p)}
+      </div>
+    `;
+    el.appendChild(item);
+  }
+}
+
+function renderPeakForm(p) {
+  const isLinked = !!p.linked;
+  return `
+    <div class="field">
+      <label>Name</label>
+      <input type="text" value="${p.name}" oninput="updatePeakParam(${p.id},'name',this.value);document.querySelector('#peak-item-${p.id} .peak-name').childNodes[0].textContent=this.value">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Center (eV)${isLinked ? ' <em style="color:var(--purple);font-size:9px">auto</em>' : ''}</label>
+        <input type="number" id="pk-center-${p.id}" value="${p.center.toFixed(3)}" step="0.05"
+          ${isLinked ? 'readonly style="opacity:0.5"' : ''}
+          oninput="updatePeakParam(${p.id},'center',parseFloat(this.value));document.querySelector('#peak-item-${p.id} .peak-info').textContent=parseFloat(this.value).toFixed(2)+' eV'">
+      </div>
+      <div class="field" id="fwhm-field-${p.id}" ${p.shape === 'LA' ? 'style="opacity:0.4"' : ''}>
+        <label>FWHM (eV)${p.shape === 'LA' ? ' <em style="color:var(--amber);font-size:9px">set by \u03b2, m</em>' : ''}</label>
+        <input type="number" id="pk-fwhm-${p.id}" value="${p.fwhm.toFixed(3)}" step="0.05" min="0.1"
+          ${p.shape === 'LA' ? 'readonly ' : ''}oninput="updatePeakParam(${p.id},'fwhm',parseFloat(this.value))">
+      </div>
+    </div>
+    <div class="field">
+      <label>Amplitude</label>
+      <input type="number" id="pk-amp-${p.id}" value="${p.amplitude.toFixed(0)}" step="100"
+        ${isLinked ? 'readonly style="opacity:0.5"' : ''}
+        oninput="updatePeakParam(${p.id},'amplitude',parseFloat(this.value))">
+    </div>
+    <div class="field">
+      <label>Line shape</label>
+      <select id="pk-shape-${p.id}" onchange="updatePeakParam(${p.id},'shape',this.value);updateShapeControls(${p.id})">
+        <option ${p.shape==='Gaussian'?'selected':''}>Gaussian</option>
+        <option ${p.shape==='Lorentzian'?'selected':''}>Lorentzian</option>
+        <option ${p.shape==='Voigt'?'selected':''}>Voigt</option>
+        <option value="GL" ${p.shape==='GL'?'selected':''}>GL (pseudo-Voigt)</option>
+        <option value="asym-GL" ${p.shape==='asym-GL'?'selected':''}>Asymmetric GL</option>
+        <option value="DS" ${p.shape==='DS'?'selected':''}>Doniach-Šunjić</option>
+        <option value="LA" ${p.shape==='LA'?'selected':''}>LA(\u03b1,\u03b2,m)</option>
+      </select>
+    </div>
+    <div id="shape-controls-${p.id}">
+      ${renderShapeControls(p)}
+    </div>
+    ${isLinked ? `
+    <div class="divider"></div>
+    <div style="font-size:10px;color:var(--purple);margin-bottom:6px">Multiplet constraints</div>
+    <div class="field-row">
+      <div class="field">
+        <label>Offset (eV)</label>
+        <input type="number" value="${p.linkOffset.toFixed(2)}" step="0.05"
+          oninput="getPeak(${p.id}).linkOffset=parseFloat(this.value);getPeak(${p.id}).center=getPeak(${p.linked}).center+parseFloat(this.value);updatePeakParam(${p.id},'center',getPeak(${p.id}).center)">
+      </div>
+      <div class="field">
+        <label>Ratio (I₂/I₁)</label>
+        <input type="number" value="${p.linkRatio.toFixed(3)}" step="0.05" min="0.01" max="2"
+          oninput="getPeak(${p.id}).linkRatio=parseFloat(this.value);getPeak(${p.id}).amplitude=getPeak(${p.linked}).amplitude*parseFloat(this.value);updatePeakParam(${p.id},'amplitude',getPeak(${p.id}).amplitude)">
+      </div>
+    </div>
+    ` : ''}
+  `;
+}
+
+function renderShapeControls(p) {
+  if (p.shape === 'GL' || p.shape === 'asym-GL') {
+    return `
+      <div class="field">
+        <label>GL mixing (0=Gauss, 100=Lorentz)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="range" min="0" max="100" step="1" value="${p.glMix}"
+            oninput="updatePeakParam(${p.id},'glMix',parseFloat(this.value));document.getElementById('glmix-${p.id}').textContent=this.value+'%'">
+          <span id="glmix-${p.id}" style="font-family:var(--mono);font-size:11px;min-width:32px">${p.glMix}%</span>
+        </div>
+      </div>
+      ${p.shape === 'asym-GL' ? `
+      <div class="field">
+        <label>Asymmetry (α)</label>
+        <input type="number" value="${p.asymmetry.toFixed(3)}" step="0.01" min="0" max="1"
+          oninput="updatePeakParam(${p.id},'asymmetry',parseFloat(this.value))">
+      </div>` : ''}
+    `;
+  } else if (p.shape === 'DS') {
+    return `
+      <div class="field">
+        <label>DS α (asymmetry, 0–0.5)</label>
+        <input type="number" value="${p.dsAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
+          oninput="updatePeakParam(${p.id},'dsAlpha',parseFloat(this.value))">
+      </div>
+      <div class="field">
+        <label>DS γ (tail cutoff)</label>
+        <input type="number" value="${p.dsGamma.toFixed(4)}" step="0.001" min="0"
+          oninput="updatePeakParam(${p.id},'dsGamma',parseFloat(this.value))">
+      </div>
+    `;
+  } else if (p.shape === 'LA') {
+    return `
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px">
+        CasaXPS convention — tail toward higher BE
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>α (asymmetry, 0–0.5)</label>
+          <input type="number" value="${p.laAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
+            oninput="updatePeakParam(${p.id},'laAlpha',parseFloat(this.value))">
+        </div>
+        <div class="field">
+          <label>β Lorentz HW (eV)</label>
+          <input type="number" value="${p.laBeta.toFixed(3)}" step="0.01" min="0.05" max="2.0"
+            oninput="updatePeakParam(${p.id},'laBeta',parseFloat(this.value))">
+        </div>
+      </div>
+      <div class="field">
+        <label>m Gauss FWHM (eV)</label>
+        <input type="number" value="${p.laM.toFixed(3)}" step="0.01" min="0.05" max="1.5"
+          oninput="updatePeakParam(${p.id},'laM',parseFloat(this.value))">
+      </div>
+    `;
+  }
+  return '';
+}
+
+function renderPeakControls(p) {
+  const body = document.getElementById('peak-body-' + p.id);
+  if (body) body.innerHTML = renderPeakForm(p);
+}
+
+function updateShapeControls(id) {
+  const p = getPeak(id);
+  const el = document.getElementById('shape-controls-' + id);
+  if (el) el.innerHTML = renderShapeControls(p);
+  // Grey out the FWHM field when LA is selected (β and m control width instead)
+  const fwhmField = document.getElementById('fwhm-field-' + id);
+  const fwhmInput = document.getElementById('pk-fwhm-' + id);
+  const fwhmLabel = fwhmField ? fwhmField.querySelector('label') : null;
+  if (fwhmField) {
+    const isLA = p.shape === 'LA';
+    fwhmField.style.opacity = isLA ? '0.4' : '1';
+    if (fwhmInput) fwhmInput.readOnly = isLA;
+    if (fwhmLabel) fwhmLabel.innerHTML = isLA
+      ? 'FWHM (eV) <em style="color:var(--amber);font-size:9px">set by \u03b2, m</em>'
+      : 'FWHM (eV)';
+  }
+}
+
+function togglePeakBody(id) {
+  const body = document.getElementById('peak-body-' + id);
+  body.classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════════
+// LEVENBERG-MARQUARDT FITTING
+// ═══════════════════════════════════════════════════
+function runFit() {
+  if (!state.rawBE.length) { notify('Load a spectrum first.', 'red'); return; }
+  if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
+  
+  const { be, inten } = getROIData();
+  const bgIntensity = computeBackground(be, inten);
+  const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
+  
+  // Build parameter vector (only free params)
+  const freeParams = [];
+  const paramMap = []; // {peakId, param}
+  
+  for (const p of state.peaks) {
+    if (!p.linked) {
+      freeParams.push(p.center);   paramMap.push({id: p.id, param: 'center'});
+      // LA uses β and m for width; other shapes use the common fwhm field
+      if (p.shape !== 'LA') {
+        freeParams.push(p.fwhm);   paramMap.push({id: p.id, param: 'fwhm'});
+      }
+      freeParams.push(p.amplitude);paramMap.push({id: p.id, param: 'amplitude'});
+      if (p.shape === 'GL' || p.shape === 'asym-GL') {
+        freeParams.push(p.glMix);  paramMap.push({id: p.id, param: 'glMix'});
+      }
+      if (p.shape === 'asym-GL') {
+        freeParams.push(p.asymmetry); paramMap.push({id: p.id, param: 'asymmetry'});
+      }
+      if (p.shape === 'DS') {
+        freeParams.push(p.dsAlpha);  paramMap.push({id: p.id, param: 'dsAlpha'});
+      }
+      if (p.shape === 'LA') {
+        freeParams.push(p.laAlpha);  paramMap.push({id: p.id, param: 'laAlpha'});
+        freeParams.push(p.laBeta);   paramMap.push({id: p.id, param: 'laBeta'});
+        freeParams.push(p.laM);      paramMap.push({id: p.id, param: 'laM'});
+      }
+    }
+  }
+  
+  function applyParams(params) {
+    for (let i = 0; i < params.length; i++) {
+      const { id, param } = paramMap[i];
+      const p = getPeak(id);
+      if (!p) continue;
+      let v = params[i];
+      if (param === 'fwhm')     v = Math.max(0.05, v);
+      if (param === 'amplitude') v = Math.max(1, v);
+      if (param === 'glMix')    v = Math.max(0, Math.min(100, v));
+      if (param === 'asymmetry') v = Math.max(0, Math.min(0.9, v));
+      if (param === 'dsAlpha')  v = Math.max(0, Math.min(0.49, v));
+      if (param === 'laAlpha')  v = Math.max(0, Math.min(0.49, v));
+      if (param === 'laBeta')   v = Math.max(0.05, Math.min(2.0, v));
+      if (param === 'laM')      v = Math.max(0.05, Math.min(1.5, v));
+      p[param] = v;
+      // Sync linked
+      const linked = state.peaks.find(q => q.linked === id);
+      if (linked) {
+        if (param === 'center') linked.center = v + linked.linkOffset;
+        if (param === 'amplitude') linked.amplitude = v * linked.linkRatio;
+        if (param === 'fwhm') linked.fwhm = v;
+        if (param === 'shape' || param === 'glMix' || param === 'asymmetry' || param === 'dsAlpha' || param === 'laAlpha' || param === 'laBeta' || param === 'laM') linked[param] = v;
+      }
+    }
+  }
+  
+  function residuals(params) {
+    applyParams(params);
+    const model = evalAllPeaks(be, state.peaks);
+    return be.map((_, i) => bgSubtracted[i] - model[i]);
+  }
+  
+  function chiSq(params) {
+    const r = residuals(params);
+    return r.reduce((s, v) => s + v * v, 0);
+  }
+  
+  // Levenberg-Marquardt (simplified gradient descent + damping)
+  let params = [...freeParams];
+  let lambda = 0.001;
+  let chi = chiSq(params);
+  const maxIter = 500;
+  const h = 1e-4;
+  
+  document.getElementById('sb-msg').textContent = 'Fitting...';
+  
+  for (let iter = 0; iter < maxIter; iter++) {
+    // Numerical Jacobian
+    const J = [];
+    const r = residuals(params);
+    for (let j = 0; j < params.length; j++) {
+      const p2 = [...params];
+      p2[j] += h * Math.max(1, Math.abs(params[j]));
+      const r2 = residuals(p2);
+      J.push(r2.map((v, i) => (v - r[i]) / (h * Math.max(1, Math.abs(params[j])))));
+    }
+    
+    // JᵀJ and Jᵀr
+    const n = params.length;
+    const JtJ = Array.from({length: n}, () => new Array(n).fill(0));
+    const Jtr = new Array(n).fill(0);
+    for (let a = 0; a < n; a++) {
+      for (let b = 0; b < n; b++) {
+        for (let i = 0; i < r.length; i++) JtJ[a][b] += J[a][i] * J[b][i];
+      }
+      for (let i = 0; i < r.length; i++) Jtr[a] += J[a][i] * r[i];
+    }
+    
+    // Add damping
+    for (let a = 0; a < n; a++) JtJ[a][a] *= (1 + lambda);
+    
+    // Solve (JtJ + λI) dp = Jtr via simple Gauss-Seidel
+    const dp = solveLinear(JtJ, Jtr, n);
+    
+    const newParams = params.map((v, i) => v + dp[i]);
+    const newChi = chiSq(newParams);
+    
+    if (newChi < chi) {
+      params = newParams;
+      chi = newChi;
+      lambda *= 0.7;
+    } else {
+      applyParams(params); // restore
+      lambda *= 3;
+    }
+    
+    if (lambda > 1e8 || Math.abs(newChi - chi) / (chi + 1e-10) < 1e-8) break;
+  }
+  
+  applyParams(params);
+  
+  const dof = Math.max(1, be.length - params.length);
+  const chiReduced = chi / dof;
+  const rmse = Math.sqrt(chi / be.length);
+  
+  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted };
+  
+  document.getElementById('fit-quality').textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
+  document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
+  document.getElementById('sb-msg').textContent = 'Fit complete';
+  
+  renderPeakList();
+  updatePlot();
+  renderResults();
+  
+  notify('Fit complete. χ²ᵣ = ' + chiReduced.toFixed(3), 'green');
+}
+
+function solveLinear(A, b, n) {
+  // Gaussian elimination with partial pivoting
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+    }
+    [M[col], M[maxRow]] = [M[maxRow], M[col]];
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(M[col][col]) < 1e-15) continue;
+      const f = M[row][col] / M[col][col];
+      for (let k = col; k <= n; k++) M[row][k] -= f * M[col][k];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    if (Math.abs(M[i][i]) < 1e-15) { x[i] = 0; continue; }
+    x[i] = M[i][n];
+    for (let j = i + 1; j < n; j++) x[i] -= M[i][j] * x[j];
+    x[i] /= M[i][i];
+  }
+  return x;
+}
+
+// ═══════════════════════════════════════════════════
+// RESULTS
+// ═══════════════════════════════════════════════════
+function renderResults() {
+  const el = document.getElementById('results-area');
+  if (!state.fitResult) { el.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>'; return; }
+  
+  const { chiReduced, rmse } = state.fitResult;
+  
+  let html = `
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">χ²ᵣ</div>
+        <div style="font-family:var(--mono);font-size:16px;color:${chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)'}">${chiReduced.toFixed(3)}</div>
+      </div>
+      <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">RMSE</div>
+        <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${rmse.toFixed(1)}</div>
+      </div>
+    </div>
+    <table class="results-table">
+      <thead><tr>
+        <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
+      </tr></thead>
+      <tbody>
+  `;
+  
+  const { be } = state.fitResult;
+  const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
+  const areas = state.peaks.map(p => {
+    const vals = be.map(x => evalPeak(x, p));
+    return vals.reduce((s, v) => s + v, 0) * step;
+  });
+  const totalArea = areas.reduce((s, v) => s + v, 0);
+  
+  state.peaks.forEach((p, i) => {
+    const pct = totalArea > 0 ? (areas[i] / totalArea * 100) : 0;
+    html += `<tr>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${p.name}</td>
+      <td>${p.center.toFixed(3)}</td>
+      <td>${p.fwhm.toFixed(3)}</td>
+      <td>${areas[i].toFixed(0)}</td>
+      <td>${pct.toFixed(1)}%</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  el.innerHTML = html;
+  
+  renderQuantify(areas, totalArea);
+}
+
+function renderQuantify(areas, totalArea) {
+  const el = document.getElementById('quantify-area');
+  
+  let html = `
+    <div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
+      Relative atomic concentrations from peak areas.<br>
+      Apply RSF corrections manually below.
+    </div>
+    <table class="results-table">
+      <thead><tr><th>Peak</th><th>Area</th><th>RSF</th><th>Norm. Area</th><th>At. %</th></tr></thead>
+      <tbody>
+  `;
+  
+  const rsfs = state.peaks.map(p => ({ id: p.id, rsf: 1.0 }));
+  
+  state.peaks.forEach((p, i) => {
+    html += `<tr>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${p.name}</td>
+      <td>${areas[i].toFixed(0)}</td>
+      <td><input type="number" value="1.000" step="0.01" min="0.01" style="width:60px;font-size:11px;padding:2px 4px" onchange="recalcQuantify()" id="rsf-${p.id}"></td>
+      <td id="qnorm-${p.id}">—</td>
+      <td id="qpct-${p.id}">—</td>
+    </tr>`;
+    rsfs[i] = { id: p.id, area: areas[i] };
+  });
+  
+
+  html += '</tbody></table>';
+  html += `<button class="btn btn-sm btn-accent" style="margin-top:10px" onclick="recalcQuantify()">Recalculate</button>`;
+  el.innerHTML = html;
+  
+  // Store areas for recalc
+  el._areas = areas;
+  recalcQuantify();
+}
+
+function recalcQuantify() {
+  const el = document.getElementById('quantify-area');
+  if (!el._areas) return;
+  const areas = el._areas;
+  
+  const normAreas = state.peaks.map((p, i) => {
+    const rsf = parseFloat(document.getElementById('rsf-' + p.id)?.value || 1);
+    return areas[i] / (rsf || 1);
+  });
+  const total = normAreas.reduce((s, v) => s + v, 0);
+  
+  state.peaks.forEach((p, i) => {
+    const pct = total > 0 ? (normAreas[i] / total * 100) : 0;
+    const ne = document.getElementById('qnorm-' + p.id);
+    const pe = document.getElementById('qpct-' + p.id);
+    if (ne) ne.textContent = normAreas[i].toFixed(0);
+    if (pe) pe.textContent = pct.toFixed(1) + '%';
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// CHART
+// ═══════════════════════════════════════════════════
+function updatePlot() {
+  const { be, inten } = getROIData();
+  const invert = document.getElementById('invert-be').checked;
+  const showIndividual = document.getElementById('show-individual').checked;
+  const showResiduals = document.getElementById('show-residuals').checked;
+  
+  if (!be.length) {
+    renderEmptyChart();
+    return;
+  }
+  
+  const bgIntensity = computeBackground(be, inten);
+  const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
+  const modelFull = evalAllPeaks(be, state.peaks);
+  const residuals = bgSubtracted.map((v, i) => v - modelFull[i]);
+  
+  // X axis (possibly inverted)
+  const xLabels = invert ? [...be] : [...be].reverse();
+  const sortedBE = [...be];
+  const sortIdxs = be.map((_, i) => i);
+  
+  const datasets = [];
+  
+  // Raw data
+  datasets.push({
+    label: 'Data',
+    data: be.map((b, i) => ({ x: b, y: inten[i] })),
+    borderColor: '#e8edf5',
+    backgroundColor: 'rgba(232,237,245,0.08)',
+    pointRadius: 0,
+    borderWidth: 1.5,
+    tension: 0,
+    fill: false,
+    order: 10
+  });
+  
+  // Background
+  datasets.push({
+    label: 'Background',
+    data: be.map((b, i) => ({ x: b, y: bgIntensity[i] })),
+    borderColor: '#4a5a78',
+    borderWidth: 1,
+    borderDash: [4, 3],
+    pointRadius: 0,
+    fill: false,
+    order: 9
+  });
+  
+  // Envelope (bg + model)
+  datasets.push({
+    label: 'Fit',
+    data: be.map((b, i) => ({ x: b, y: modelFull[i] + bgIntensity[i] })),
+    borderColor: '#ff6b6b',
+    borderWidth: 2,
+    pointRadius: 0,
+    fill: false,
+    order: 8
+  });
+  
+  // Individual peaks
+  if (showIndividual) {
+    for (const p of state.peaks) {
+      datasets.push({
+        label: p.name,
+        data: be.map((b, i) => ({ x: b, y: evalPeak(b, p) + bgIntensity[i] })),
+        borderColor: p.color,
+        backgroundColor: p.color + '22',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: '+0',
+        tension: 0,
+        order: 5
+      });
+    }
+  }
+  
+  // Residuals
+  if (showResiduals) {
+    const maxI = Math.max(...inten);
+    const resScale = 0.15;
+    const resOffset = Math.min(...inten) - maxI * 0.05;
+    datasets.push({
+      label: 'Residuals',
+      data: be.map((b, i) => ({ x: b, y: residuals[i] * resScale + resOffset })),
+      borderColor: '#8a9ab8',
+      borderWidth: 1,
+      pointRadius: 0,
+      fill: false,
+      borderDash: [2, 2],
+      order: 11
+    });
+  }
+  
+  const beMin = Math.min(...be), beMax = Math.max(...be);
+  const xMin = invert ? beMax : beMin;
+  const xMax = invert ? beMin : beMax;
+  
+  if (state.chart) {
+    state.chart.data.datasets = datasets;
+    state.chart.options.scales.x.min = xMin;
+    state.chart.options.scales.x.max = xMax;
+    state.chart.options.scales.x.reverse = invert;
+    state.chart.update('none');
+  } else {
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    state.chart = new Chart(ctx, {
+      type: 'line',
+      data: { datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: items => items[0].raw.x.toFixed(3) + ' eV',
+              label: item => item.dataset.label + ': ' + item.raw.y.toFixed(1)
+            },
+            backgroundColor: '#131720',
+            borderColor: '#4a9eff44',
+            borderWidth: 1,
+            titleColor: '#4a9eff',
+            bodyColor: '#8a9ab8',
+            titleFont: { family: "'IBM Plex Mono', monospace", size: 11 },
+            bodyFont: { family: "'IBM Plex Mono', monospace", size: 11 }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            min: xMin, max: xMax,
+            reverse: invert,
+            title: { display: true, text: 'Binding Energy (eV)', color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 11 } },
+            grid: { color: 'rgba(100,140,220,0.07)' },
+            ticks: { color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 10 } }
+          },
+          y: {
+            title: { display: true, text: 'Intensity (counts/s)', color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 11 } },
+            grid: { color: 'rgba(100,140,220,0.07)' },
+            ticks: { color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 10 } }
+          }
+        }
+      }
+    });
+  }
+}
+
+function renderEmptyChart() {
+  if (state.chart) { state.chart.destroy(); state.chart = null; }
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = '#4a5a78';
+  ctx.font = "14px 'IBM Plex Mono', monospace";
+  ctx.textAlign = 'center';
+  ctx.fillText('Load a spectrum to begin', ctx.canvas.width / 2, ctx.canvas.height / 2);
+}
+
+// ═══════════════════════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════════════════════
+function loadDemo(type) {
+  let be = [], inten = [];
+  
+  if (type === 'Fe2p') {
+    // Fe 2p spectrum with Fe(0) and Fe(III), multiplet splitting
+    for (let E = 700; E <= 740; E += 0.1) {
+      let I = 2000;
+      // Fe 2p3/2 (metallic ~706.6, oxide ~710.5)
+      I += 8000 * Math.exp(-Math.pow(E - 706.6, 2) / (2 * 0.6 * 0.6)); // Fe0
+      I += 5000 * Math.exp(-Math.pow(E - 710.5, 2) / (2 * 1.2 * 1.2)); // FeOx
+      I += 1500 * Math.exp(-Math.pow(E - 713.5, 2) / (2 * 2.0 * 2.0)); // satellite
+      // Fe 2p1/2 (×0.5, +13.1 eV)
+      I += 4000 * Math.exp(-Math.pow(E - 719.7, 2) / (2 * 0.8 * 0.8));
+      I += 2500 * Math.exp(-Math.pow(E - 724.0, 2) / (2 * 1.5 * 1.5));
+      I += 0.1 * E * (Math.random() - 0.5) * 30 + (Math.random() - 0.5) * 80;
+      be.push(E); inten.push(Math.max(0, I));
+    }
+    setSpectrum(be, inten, 'Fe2p_demo.csv');
+    document.getElementById('bg-start').value = '740';
+    document.getElementById('bg-end').value = '700';
+    document.getElementById('roi-min').value = '700';
+    document.getElementById('roi-max').value = '740';
+    
+  } else if (type === 'U4f') {
+    // U 4f spectrum (UCl4-like: U(IV))
+    for (let E = 370; E <= 415; E += 0.1) {
+      let I = 1000 + (E - 370) * 40; // inelastic background
+      // U 4f7/2 at 380.9, asymmetric
+      const dx72 = E - 380.9;
+      I += 15000 * Math.exp(-Math.pow(dx72, 2) / (2 * 1.5 * 1.5)) * (1 + 0.3 * Math.exp(-Math.max(0, dx72) * 0.3));
+      // U 4f5/2 at 391.8 (offset 10.9 eV, ratio 0.75)
+      const dx52 = E - 391.8;
+      I += 11250 * Math.exp(-Math.pow(dx52, 2) / (2 * 1.7 * 1.7)) * (1 + 0.3 * Math.exp(-Math.max(0, dx52) * 0.3));
+      // Multiplet satellites
+      I += 2000 * Math.exp(-Math.pow(E - 383.5, 2) / (2 * 1.5 * 1.5));
+      I += 1500 * Math.exp(-Math.pow(E - 394.4, 2) / (2 * 1.5 * 1.5));
+      I += (Math.random() - 0.5) * 100;
+      be.push(E); inten.push(Math.max(0, I));
+    }
+    setSpectrum(be, inten, 'U4f_demo.csv');
+    document.getElementById('bg-start').value = '415';
+    document.getElementById('bg-end').value = '370';
+    document.getElementById('roi-min').value = '370';
+    document.getElementById('roi-max').value = '415';
+    
+    // Auto-add U4f peaks
+    clearAllPeaks();
+    const p1 = addPeak({ name: 'U 4f₇/₂', center: 380.9, fwhm: 1.8, amplitude: 14000, shape: 'asym-GL', glMix: 30, asymmetry: 0.05 });
+    addPeak({ name: 'U 4f₅/₂', center: 391.8, fwhm: 2.0, amplitude: 10500, shape: 'asym-GL', glMix: 30, asymmetry: 0.05, linked: p1.id, linkOffset: 10.9, linkRatio: 0.75 });
+    addPeak({ name: 'Satellite 1', center: 383.5, fwhm: 1.8, amplitude: 2000, shape: 'GL', glMix: 50 });
+    notify('U 4f demo loaded with peaks. Click Run Fit.', 'green');
+    
+  } else if (type === 'C1s') {
+    for (let E = 280; E <= 295; E += 0.1) {
+      let I = 500;
+      I += 20000 * Math.exp(-Math.pow(E - 284.8, 2) / (2 * 0.7 * 0.7)); // sp2 graphite
+      I += 5000 * Math.exp(-Math.pow(E - 285.6, 2) / (2 * 1.0 * 1.0));  // sp3/C-C
+      I += 2000 * Math.exp(-Math.pow(E - 286.8, 2) / (2 * 1.2 * 1.2));  // C-O
+      I += 1000 * Math.exp(-Math.pow(E - 288.2, 2) / (2 * 1.3 * 1.3));  // C=O
+      I += 500 * Math.exp(-Math.pow(E - 289.4, 2) / (2 * 1.5 * 1.5));   // COOH
+      I += (Math.random() - 0.5) * 60;
+      be.push(E); inten.push(Math.max(0, I));
+    }
+    setSpectrum(be, inten, 'C1s_demo.csv');
+    document.getElementById('bg-start').value = '295';
+    document.getElementById('bg-end').value = '280';
+    document.getElementById('roi-min').value = '280';
+    document.getElementById('roi-max').value = '295';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════
+function exportResults() {
+  const { be, inten } = getROIData();
+  if (!be.length) { notify('No data to export.', 'red'); return; }
+  
+  const bgIntensity = computeBackground(be, inten);
+  const modelFull = evalAllPeaks(be, state.peaks);
+  
+  const rows = [['BE (eV)', 'Intensity', 'Background', 'BG-subtracted', 'Model', 'Residual',
+    ...state.peaks.map(p => p.name)]];
+  
+  const bgSub = inten.map((v, i) => v - bgIntensity[i]);
+  const resid = bgSub.map((v, i) => v - modelFull[i]);
+  
+  for (let i = 0; i < be.length; i++) {
+    rows.push([
+      be[i].toFixed(4), inten[i].toFixed(2), bgIntensity[i].toFixed(2),
+      bgSub[i].toFixed(2), modelFull[i].toFixed(2), resid[i].toFixed(2),
+      ...state.peaks.map(p => evalPeak(be[i], p).toFixed(2))
+    ]);
+  }
+  
+  const csv = rows.map(r => r.join('\t')).join('\n');
+  const blob = new Blob([csv], { type: 'text/tab-separated-values' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'xps_fit_result.tsv';
+  a.click();
+  URL.revokeObjectURL(url);
+  notify('Exported TSV file', 'green');
+}
+
+// ═══════════════════════════════════════════════════
+// UI UTILITIES
+// ═══════════════════════════════════════════════════
+function toggleSection(head) {
+  const body = head.nextElementSibling;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function switchTab(el, name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'results' || name === 'quantify') renderResults();
+}
+
+function notify(msg, type) {
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.style.color = type === 'red' ? 'var(--red)' : type === 'amber' ? 'var(--amber)' : 'var(--green)';
+  el.style.display = 'block';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+// Init
+renderEmptyChart();
+loadDemo('U4f');
+</script>
+</body>
+</html>
