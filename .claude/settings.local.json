@@ -7,7 +7,17 @@
       "Bash(gh --version)",
       "Bash(git remote:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(while read:*)",
+      "Bash(do if:*)",
+      "Bash(! grep:*)",
+      "Bash(then echo:*)",
+      "Bash(fi)",
+      "Bash(grep \"id=\"\"[^$]*\"\"\" /home/skye/xps-app/templates/index.html)",
+      "Bash(for id:*)",
+      "Bash(do echo:*)",
+      "Bash(grep -c \"$id\" /home/skye/xps-app/templates/index.html)",
+      "Bash(done)"
     ]
   }
 }
