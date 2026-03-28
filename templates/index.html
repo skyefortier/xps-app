@@ -689,6 +689,162 @@
     margin-top: 8px;
   }
   #folder-progress.active { display: block; }
+
+  /* ── Fit spinner overlay ────────────────────────────────── */
+  .fit-spinner-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: var(--radius);
+  }
+  .fit-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fit-spinner-label {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    letter-spacing: 0.05em;
+  }
+  .fit-spinner-label .ellipsis::after {
+    content: '';
+    animation: ellipsis 1.2s steps(4, end) infinite;
+  }
+  @keyframes ellipsis {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+  }
+
+  /* ── Dark/light mode toggle ────────────────────────────── */
+  #theme-toggle {
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 15px;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Light theme overrides ─────────────────────────────── */
+  body.light-theme {
+    --bg: #f0f2f5;
+    --bg2: #e4e6eb;
+    --bg3: #ffffff;
+    --bg4: #d4d6db;
+    --text: #1a1a2e;
+    --text2: #4a4a5e;
+    --text3: #6a6a7e;
+    --accent: #2563eb;
+    --accent2: #1d4ed8;
+    --accent-dim: rgba(37,99,235,0.12);
+    --border: #c8c8d0;
+    --border2: #b0b0b8;
+    --red: #dc2626;
+    --red-dim: rgba(220,38,38,0.12);
+    --green: #16a34a;
+    --green-dim: rgba(22,163,74,0.12);
+    --amber: #d97706;
+    --amber-dim: rgba(217,119,6,0.12);
+    --purple: #7c3aed;
+  }
+
+  /* ── Multiplet modal ────────────────────────────────────── */
+  #multiplet-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  #multiplet-modal-overlay.open { display: flex; }
+  #multiplet-modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    width: 340px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+  #multiplet-modal-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #multiplet-modal-header h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  #multiplet-modal-search {
+    margin: 10px 12px 6px;
+    flex-shrink: 0;
+  }
+  #multiplet-modal-search input {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    border-radius: var(--radius);
+  }
+  #multiplet-modal-search input:focus { outline: none; border-color: var(--accent); }
+  #multiplet-modal-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 8px 10px;
+  }
+  #multiplet-modal-list::-webkit-scrollbar { width: 3px; }
+  #multiplet-modal-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .mm-section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 8px 6px 4px;
+  }
+  .mm-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .mm-item:hover { background: var(--bg4); }
+  .mm-item.suggested { border-left: 2px solid var(--accent); padding-left: 6px; }
+  .mm-item-name { font-family: var(--mono); color: var(--text); font-weight: 500; }
+  .mm-item-meta { font-size: 10px; color: var(--text3); }
 </style>
 </head>
 <body>
@@ -709,6 +865,7 @@
           <option value="basinhopping">Basin-hopping</option>
         </select>
       </div>
+      <button id="theme-toggle" title="Toggle light/dark mode" onclick="toggleTheme()">🌙</button>
       <button class="btn btn-green" onclick="runFit()">Run Fit</button>
       <div class="save-dropdown" id="save-dropdown">
         <button class="btn" onclick="toggleSaveMenu()">Save &#9662;</button>
@@ -835,7 +992,7 @@
       <div id="spectrum-tab-bar"></div>
       <div id="chart-toolbar">
         <button class="btn btn-sm" id="btn-add-peak" onclick="togglePlaceMode('peak')">+ Add Peak</button>
-        <button class="btn btn-sm" id="btn-add-multiplet" onclick="togglePlaceMode('multiplet')">+ Multiplet Pair</button>
+        <button class="btn btn-sm" id="btn-add-multiplet" onclick="_onMultipletBtnClick()">+ Multiplet Pair</button>
         <div style="flex:1"></div>
         <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="checkbox" id="show-individual" checked onchange="updatePlot()">
@@ -856,6 +1013,10 @@
         <button class="btn btn-sm" id="btn-reset-zoom" style="display:none;margin-left:8px;font-size:10px;padding:2px 8px;" onclick="resetAllZoom()">Reset Zoom</button>
       </div>
       <div id="chart-area" style="position:relative">
+        <div id="fit-spinner-overlay" class="fit-spinner-overlay" style="display:none">
+          <div class="fit-spinner"></div>
+          <div class="fit-spinner-label" id="fit-spinner-label">Fitting<span class="ellipsis"></span></div>
+        </div>
         <div id="main-chart-wrap"><canvas id="mainChart"></canvas></div>
         <div id="resid-handle" class="hidden"></div>
         <div id="resid-wrap" class="hidden"><canvas id="residChart"></canvas></div>
@@ -1025,6 +1186,52 @@ const ELEMENT_MARKER_COLORS = [
 ];
 
 const PEAK_COLORS = ['#4a9eff','#3ddc84','#ff6b6b','#ffbb44','#b48eff','#ff8c66','#44ddcc','#ff9de2','#aaffaa','#ffaaaa'];
+
+// TODO: Verify these values against the original Scofield 1976 paper
+// Source: Scofield, J.H., J. Electron Spectrosc. Relat. Phenom. 8 (1976) 129
+// Normalized to C 1s = 1.000 for Al Kα (1486.6 eV)
+const SCOFIELD_RSF = {
+  'Li 1s': 0.057, 'Be 1s': 0.137, 'B 1s': 0.276, 'C 1s': 1.000, 'N 1s': 1.800,
+  'O 1s': 2.930, 'F 1s': 4.430, 'Na 1s': 8.520, 'Na 2s': 1.100, 'Mg 1s': 11.18,
+  'Mg 2s': 1.560, 'Mg 2p': 0.168, 'Al 2s': 2.100, 'Al 2p': 0.256, 'Si 2s': 2.760,
+  'Si 2p': 0.368, 'P 2s': 3.490, 'P 2p': 0.514, 'S 2s': 4.290, 'S 2p': 0.668,
+  'Cl 2s': 5.170, 'Cl 2p': 0.891, 'K 2p': 1.466, 'K 3s': 0.226, 'Ca 2p': 1.833,
+  'Ca 3s': 0.304, 'Ti 2p': 2.752, 'V 2p': 3.240, 'Cr 2p': 3.758, 'Mn 2p': 4.326,
+  'Fe 2p': 4.935, 'Co 2p': 5.582, 'Ni 2p': 6.302, 'Cu 2p': 7.060, 'Zn 2p': 7.910,
+  'Ga 2p': 8.820, 'Ga 3d': 0.348, 'Ge 2p': 9.790, 'Ge 3d': 0.453, 'As 3d': 0.572,
+  'Se 3d': 0.706, 'Br 3d': 0.858, 'Sr 3d': 1.849, 'Y 3d': 2.140, 'Zr 3d': 2.454,
+  'Nb 3d': 2.797, 'Mo 3d': 3.167, 'Ag 3d': 5.987, 'Cd 3d': 6.590, 'In 3d': 7.218,
+  'Sn 3d': 7.875, 'Sb 3d': 8.560, 'Te 3d': 9.272, 'I 3d': 10.01, 'Ba 3d': 12.85,
+  'La 3d': 13.72, 'Ce 3d': 14.63, 'W 4f': 3.523, 'Pt 4f': 5.575, 'Au 4f': 6.250,
+  'Pb 4f': 6.943, 'Bi 4f': 7.327, 'Th 4f': 8.756, 'U 4f': 9.674,
+};
+
+// Spin-orbit splitting presets for multiplet pair auto-detection
+const SPIN_ORBIT_PRESETS = {
+  "Si 2p":  { splitting: 0.61,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Al 2p":  { splitting: 0.41,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "P 2p":   { splitting: 0.84,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "S 2p":   { splitting: 1.18,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Cl 2p":  { splitting: 1.60,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Ti 2p":  { splitting: 5.54,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Fe 2p":  { splitting: 13.1,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Co 2p":  { splitting: 15.0,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Ni 2p":  { splitting: 17.3,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Cu 2p":  { splitting: 19.8,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Zn 2p":  { splitting: 23.1,  ratio: 0.5,   label: "2p3/2 \u2192 2p1/2" },
+  "Mo 3d":  { splitting: 3.13,  ratio: 0.667, label: "3d5/2 \u2192 3d3/2" },
+  "Ag 3d":  { splitting: 6.00,  ratio: 0.667, label: "3d5/2 \u2192 3d3/2" },
+  "Sn 3d":  { splitting: 8.43,  ratio: 0.667, label: "3d5/2 \u2192 3d3/2" },
+  "Se 3d":  { splitting: 0.86,  ratio: 0.667, label: "3d5/2 \u2192 3d3/2" },
+  "W 4f":   { splitting: 2.18,  ratio: 0.75,  label: "4f7/2 \u2192 4f5/2" },
+  "Au 4f":  { splitting: 3.67,  ratio: 0.75,  label: "4f7/2 \u2192 4f5/2" },
+  "Pt 4f":  { splitting: 3.33,  ratio: 0.75,  label: "4f7/2 \u2192 4f5/2" },
+  "Pb 4f":  { splitting: 4.86,  ratio: 0.75,  label: "4f7/2 \u2192 4f5/2" },
+  "U 4f":   { splitting: 10.9,  ratio: 0.75,  label: "4f7/2 \u2192 4f5/2" },
+  "Th 4f":  { splitting: 9.67,  ratio: 0.75,  label: "4f7/2 \u2192 4f5/2" },
+  "U 4d":   { splitting: 23.4,  ratio: 0.667, label: "4d5/2 \u2192 4d3/2" },
+  "Custom": { splitting: 1.0,   ratio: 0.5,   label: "Custom" },
+};
 
 const TAB_COLORS = ['#7bc4ff','#3ddc84','#ffbb44','#ff8c66','#b48eff','#44ddcc','#ff9de2','#c8ff80','#ffd580','#80d4ff'];
 
@@ -2362,6 +2569,117 @@ function _attachDragZoom(canvasId, chartGetter) {
 // ═══════════════════════════════════════════════════
 let placeMode = null; // null, 'peak', or 'multiplet'
 
+// ── Multiplet preset modal ───────────────────────────────────────────────
+let _pendingMultipletPreset = null; // set when user picks from modal
+
+function _getSuggestedPresets() {
+  // Look at current BE range to suggest matching elements
+  const roiMin = parseFloat(document.getElementById('bg-end')?.value || 0);
+  const roiMax = parseFloat(document.getElementById('bg-start')?.value || 9999);
+  const beMin = Math.min(roiMin, roiMax);
+  const beMax = Math.max(roiMin, roiMax);
+
+  // Also check active tab name for element hints
+  const tabName = (tabManager.activeId
+    ? (tabManager.tabs.find(t => t.id === tabManager.activeId) || {}).label || ''
+    : '').toLowerCase();
+
+  const suggested = [];
+  const all = [];
+
+  for (const [key, preset] of Object.entries(SPIN_ORBIT_PRESETS)) {
+    if (key === 'Custom') continue;
+    const [elem, orbital] = key.split(' ');
+    // Check if primary BE for this element/orbital is in range
+    const elemData = XPS_ELEMENTS[elem];
+    const be = elemData && elemData.lines[orbital] ? elemData.lines[orbital] : null;
+    const inRange = be != null && be >= beMin && be <= beMax;
+    // Check tab name hint
+    const nameHint = tabName.includes(elem.toLowerCase()) ||
+                     tabName.includes(key.toLowerCase().replace(' ', '')) ||
+                     tabName.replace(/\s/g,'').toLowerCase().includes(elem.toLowerCase() + orbital.replace(/[^a-z0-9]/gi,'').toLowerCase());
+    const isSuggested = inRange || nameHint;
+    const entry = { key, preset, isSuggested, be };
+    if (isSuggested) suggested.push(entry);
+    all.push(entry);
+  }
+  // Custom always at bottom
+  all.push({ key: 'Custom', preset: SPIN_ORBIT_PRESETS['Custom'], isSuggested: false, be: null });
+
+  return { suggested, all };
+}
+
+function _renderMultipletModalList(filter) {
+  const { suggested, all } = _getSuggestedPresets();
+  const q = (filter || '').toLowerCase().trim();
+  const list = document.getElementById('multiplet-modal-list');
+
+  function matchesFilter(entry) {
+    if (!q) return true;
+    return entry.key.toLowerCase().includes(q) || entry.preset.label.toLowerCase().includes(q);
+  }
+
+  let html = '';
+
+  if (!q && suggested.length) {
+    html += '<div class="mm-section-label">Suggested</div>';
+    for (const e of suggested) {
+      const beStr = e.be != null ? e.be + ' eV' : '';
+      html += `<div class="mm-item suggested" onclick="_selectMultipletPreset('${e.key}')">
+        <span class="mm-item-name">${e.key}</span>
+        <span class="mm-item-meta">${e.preset.label} &middot; \u0394${e.preset.splitting} eV${beStr ? ' &middot; ' + beStr : ''}</span>
+      </div>`;
+    }
+    html += '<div class="mm-section-label">All Elements</div>';
+  }
+
+  const displayAll = q ? all.filter(matchesFilter) : all;
+  for (const e of displayAll) {
+    if (!q && suggested.some(s => s.key === e.key)) continue; // already shown in suggested
+    const beStr = e.be != null ? e.be + ' eV' : '';
+    html += `<div class="mm-item" onclick="_selectMultipletPreset('${e.key}')">
+      <span class="mm-item-name">${e.key}</span>
+      <span class="mm-item-meta">${e.preset.label} &middot; \u0394${e.preset.splitting} eV${beStr ? ' &middot; ' + beStr : ''}</span>
+    </div>`;
+  }
+
+  if (!html) html = '<div style="padding:16px;color:var(--text3);font-size:11px;text-align:center">No matches</div>';
+  list.innerHTML = html;
+}
+
+function _filterMultipletModal(val) {
+  _renderMultipletModalList(val);
+}
+
+function _onMultipletBtnClick() {
+  // If already in multiplet place mode, toggle off
+  if (placeMode === 'multiplet') { togglePlaceMode('multiplet'); return; }
+  // Open preset modal first
+  _pendingMultipletPreset = null;
+  _openMultipletModal();
+}
+
+function _openMultipletModal() {
+  const overlay = document.getElementById('multiplet-modal-overlay');
+  overlay.classList.add('open');
+  const input = document.getElementById('multiplet-modal-input');
+  input.value = '';
+  _renderMultipletModalList('');
+  setTimeout(() => input.focus(), 50);
+}
+
+function _closeMultipletModal() {
+  document.getElementById('multiplet-modal-overlay').classList.remove('open');
+}
+
+function _selectMultipletPreset(key) {
+  _closeMultipletModal();
+  _pendingMultipletPreset = key;
+  // Now activate place mode — click will use the preset
+  placeMode = null; // ensure fresh activation
+  togglePlaceMode('multiplet');
+}
+
 function togglePlaceMode(mode) {
   const wrap = document.getElementById('main-chart-wrap');
   const btnPeak = document.getElementById('btn-add-peak');
@@ -2435,35 +2753,59 @@ function handleChartClick(event) {
     });
     notify('Peak placed at ' + beValue.toFixed(2) + ' eV', 'green');
   } else if (placeMode === 'multiplet') {
+    const preset = _pendingMultipletPreset && SPIN_ORBIT_PRESETS[_pendingMultipletPreset]
+      ? SPIN_ORBIT_PRESETS[_pendingMultipletPreset]
+      : { splitting: 10.9, ratio: 0.75, label: '' };
+    const presetKey = _pendingMultipletPreset || 'Custom';
+    // Derive peak names from preset key
+    const [elemName, orbName] = presetKey !== 'Custom' ? presetKey.split(' ') : [null, null];
+    const orbParts = orbName ? orbName.match(/^(\d[spdf])/) : null;
+    const orb = orbParts ? orbParts[1] : null;
+    // Spin-orbit j-values for labels
+    function _spinOrbitLabel(key, isSecond) {
+      const p = SPIN_ORBIT_PRESETS[key];
+      if (!p || key === 'Custom') return isSecond ? 'b' : 'a';
+      const lbl = p.label; // e.g. "2p3/2 → 2p1/2"
+      const parts = lbl.split(' \u2192 ');
+      return isSecond ? (parts[1] || 'b') : (parts[0] || 'a');
+    }
+    const lbl1 = elemName ? (elemName + ' ' + _spinOrbitLabel(presetKey, false)) : ('Peak ' + state.nextId + ' a');
+    const lbl2 = elemName ? (elemName + ' ' + _spinOrbitLabel(presetKey, true)) : ('Peak ' + state.nextId + ' b');
+
     const p1 = addPeak({
-      name: 'Peak ' + state.nextId + ' (\u2087/\u2082)',
+      name: lbl1,
       center: Math.round(beValue * 100) / 100,
       amplitude: Math.round(netAmplitude)
     });
     const p2 = defaultPeak({
-      name: 'Peak ' + state.nextId + ' (\u2085/\u2082)',
-      center: Math.round((beValue + 10.9) * 100) / 100,
-      amplitude: Math.round(netAmplitude * 0.75),
+      name: lbl2,
+      center: Math.round((beValue + preset.splitting) * 100) / 100,
+      amplitude: Math.round(netAmplitude * preset.ratio),
       shape: p1.shape,
       color: p1.color,
       linked: p1.id,
-      linkOffset: 10.9,
-      linkRatio: 0.75
+      linkOffset: preset.splitting,
+      linkRatio: preset.ratio
     });
     state.peaks.push(p2);
     renderPeakList();
     updatePlot();
-    notify('Multiplet pair placed at ' + beValue.toFixed(2) + ' eV', 'green');
+    notify('Multiplet pair placed at ' + beValue.toFixed(2) + ' eV (' + presetKey + ')', 'green');
   }
 
   // Exit placement mode after placing
   togglePlaceMode(placeMode);
 }
 
-// Escape key cancels placement mode
+// Escape key cancels placement mode or closes multiplet modal
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && placeMode) {
-    togglePlaceMode(placeMode);
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('multiplet-modal-overlay');
+    if (overlay && overlay.classList.contains('open')) {
+      _closeMultipletModal();
+      return;
+    }
+    if (placeMode) togglePlaceMode(placeMode);
   }
 });
 
@@ -2846,10 +3188,29 @@ function applyBackendResult(result) {
 
 // LEVENBERG-MARQUARDT FITTING (local JS engine)
 // ═══════════════════════════════════════════════════
+function _showFitSpinner() {
+  const overlay = document.getElementById('fit-spinner-overlay');
+  const label = document.getElementById('fit-spinner-label');
+  if (overlay) overlay.style.display = 'flex';
+  if (label) label.innerHTML = 'Fitting<span class="ellipsis"></span>';
+  document.querySelector('.btn-green').disabled = true;
+  // After 2s, update label to hint at perturbations
+  _showFitSpinner._timer = setTimeout(() => {
+    if (label) label.innerHTML = 'Running perturbations<span class="ellipsis"></span>';
+  }, 2000);
+}
+function _hideFitSpinner() {
+  const overlay = document.getElementById('fit-spinner-overlay');
+  if (overlay) overlay.style.display = 'none';
+  document.querySelector('.btn-green').disabled = false;
+  clearTimeout(_showFitSpinner._timer);
+}
+
 async function runFit() {
   if (!state.rawBE.length) { notify('Load a spectrum first.', 'red', true); return; }
   if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
 
+  _showFitSpinner();
   document.getElementById('sb-msg').textContent = 'Fitting\u2026';
 
   const { be, inten } = getROIData();
@@ -2895,9 +3256,11 @@ async function runFit() {
     document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
     document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
+    _hideFitSpinner();
     notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
   } catch (e) {
     // Fall back to local Levenberg-Marquardt
+    _hideFitSpinner();
     runFitLocal(be, bgSubtracted);
     return;
   }
@@ -3021,6 +3384,7 @@ function runFitLocal(be, bgSubtracted) {
   updatePlot();
   renderResults();
 
+  _hideFitSpinner();
   notify('Fit complete (local LM). \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
 }
 
@@ -3123,33 +3487,141 @@ function renderResults() {
   renderQuantify(areas, totalArea);
 }
 
+// Auto-detect element/orbital from peak name, then by center BE
+function _detectPeakRSF(p) {
+  // Try parsing the name: "Fe 2p", "Fe2p", "Fe 2p3/2", "O1s", "U 4f7/2", etc.
+  const name = (p.name || '').trim();
+  // Match patterns like "Fe 2p", "Fe2p", "U 4f", "O 1s", "Cu 2p3/2"
+  const m = name.match(/^([A-Z][a-z]?)\s*(\d[spdf])/i);
+  if (m) {
+    const elem = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+    const orb = m[2].toLowerCase();
+    const key = elem + ' ' + orb;
+    if (SCOFIELD_RSF[key] != null) return { key, rsf: SCOFIELD_RSF[key] };
+  }
+  // Fall back to center BE matching
+  const center = p.center;
+  let bestKey = null, bestDist = 6;
+  for (const [elem, data] of Object.entries(XPS_ELEMENTS)) {
+    for (const [orb, be] of Object.entries(data.lines)) {
+      const dist = Math.abs(be - center);
+      if (dist < bestDist) {
+        const key = elem + ' ' + orb;
+        if (SCOFIELD_RSF[key] != null) { bestDist = dist; bestKey = key; }
+      }
+    }
+  }
+  if (bestKey) return { key: bestKey, rsf: SCOFIELD_RSF[bestKey] };
+  return { key: null, rsf: 1.000 };
+}
+
 function renderQuantify(areas, totalArea) {
   const el = document.getElementById('quantify-area');
+  // Preserve user's RSF source choice
+  const savedSource = el._rsfSource || 'scofield';
+
+  const infoTooltip = `<span title="Relative Sensitivity Factor — corrects for different photoionization probabilities between elements" style="cursor:help;color:var(--text3);border-bottom:1px dotted var(--text3);font-size:10px">RSF &#9432;</span>`;
 
   let html = `
     <div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
-      Relative atomic concentrations from peak areas.<br>
-      Apply RSF corrections manually below.
+      Relative atomic concentrations from peak areas.
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <label style="margin:0;font-size:11px;color:var(--text2)">RSF Source:</label>
+      <select id="rsf-source" style="font-size:11px;padding:2px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius)" onchange="onRSFSourceChange(this.value)">
+        <option value="scofield"${savedSource==='scofield'?' selected':''}>Scofield (Al K\u03b1)</option>
+        <option value="wagner"${savedSource==='wagner'?' selected':''}>Wagner (coming soon)</option>
+        <option value="custom"${savedSource==='custom'?' selected':''}>Custom (manual)</option>
+      </select>
     </div>
     <table class="results-table">
-      <thead><tr><th>Peak</th><th>Area</th><th>RSF</th><th>Norm. Area</th><th>At. %</th></tr></thead>
+      <thead><tr><th>Peak</th><th>Area</th><th>${infoTooltip}</th><th>Element</th><th>Norm. Area</th><th>At. %</th></tr></thead>
       <tbody>
   `;
 
   state.peaks.forEach((p, i) => {
+    const { key, rsf } = _detectPeakRSF(p);
+    // Use stored RSF if present, otherwise detected
+    const storedRSF = p._rsf != null ? p._rsf : rsf;
+    const storedElem = p._rsfKey != null ? p._rsfKey : key;
+    const useRSF = savedSource === 'custom' ? (p._rsf != null ? p._rsf : 1.000) : storedRSF;
+
+    // Build element dropdown
+    const allKeys = Object.keys(SCOFIELD_RSF);
+    const ddOptions = allKeys.map(k =>
+      `<option value="${k}"${k === storedElem ? ' selected' : ''}>${k}</option>`
+    ).join('');
+
     html += `<tr>
       <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${p.name}</td>
       <td>${areas[i].toFixed(0)}</td>
-      <td><input type="number" value="1.000" step="0.01" min="0.01" style="width:60px;font-size:11px;padding:2px 4px" onchange="recalcQuantify()" id="rsf-${p.id}"></td>
+      <td><input type="number" value="${useRSF.toFixed(3)}" step="0.001" min="0.001" style="width:62px;font-size:11px;padding:2px 4px" onchange="onRSFInputChange(${p.id},this.value)" id="rsf-${p.id}"></td>
+      <td>
+        <select style="font-size:10px;padding:1px 3px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);max-width:80px" onchange="onRSFElemChange(${p.id},this.value)" id="rsf-elem-${p.id}">
+          <option value="">— none —</option>
+          ${ddOptions}
+        </select>
+      </td>
       <td id="qnorm-${p.id}">&mdash;</td>
-      <td id="qpct-${p.id}">&mdash;</td>
+      <td id="qpct-${p.id}" style="font-weight:500">&mdash;</td>
     </tr>`;
   });
 
-  html += '</tbody></table>';
+  html += '</tbody><tfoot><tr><td colspan="4" style="font-weight:500;color:var(--text2)">Total</td><td id="qtotal-norm">&mdash;</td><td id="qtotal-pct" style="font-weight:500">100%</td></tr></tfoot></table>';
   html += `<button class="btn btn-sm btn-accent" style="margin-top:10px" onclick="recalcQuantify()">Recalculate</button>`;
   el.innerHTML = html;
   el._areas = areas;
+  el._rsfSource = savedSource;
+
+  // Save detected RSF to peak objects for persistence
+  state.peaks.forEach(p => {
+    const { key, rsf } = _detectPeakRSF(p);
+    if (p._rsfKey == null) p._rsfKey = key;
+    if (p._rsf == null) p._rsf = rsf;
+  });
+
+  recalcQuantify();
+}
+
+function onRSFSourceChange(source) {
+  const el = document.getElementById('quantify-area');
+  el._rsfSource = source;
+  if (source === 'wagner') {
+    notify('Wagner RSFs coming soon — using Scofield values.', 'amber');
+    // Fall through to Scofield
+    el._rsfSource = 'scofield';
+    document.getElementById('rsf-source').value = 'scofield';
+  }
+  // Refresh RSF input values
+  if (!el._areas) return;
+  state.peaks.forEach(p => {
+    const inp = document.getElementById('rsf-' + p.id);
+    if (!inp) return;
+    if (el._rsfSource === 'custom') {
+      inp.value = (p._rsf != null ? p._rsf : 1.000).toFixed(3);
+    } else {
+      const { rsf } = _detectPeakRSF(p);
+      p._rsf = rsf;
+      inp.value = rsf.toFixed(3);
+    }
+  });
+  recalcQuantify();
+}
+
+function onRSFInputChange(peakId, val) {
+  const p = state.peaks.find(pk => pk.id === peakId);
+  if (p) p._rsf = parseFloat(val) || 1;
+  recalcQuantify();
+}
+
+function onRSFElemChange(peakId, elemKey) {
+  const p = state.peaks.find(pk => pk.id === peakId);
+  if (!p) return;
+  p._rsfKey = elemKey || null;
+  const rsf = elemKey && SCOFIELD_RSF[elemKey] ? SCOFIELD_RSF[elemKey] : 1.000;
+  p._rsf = rsf;
+  const inp = document.getElementById('rsf-' + peakId);
+  if (inp) inp.value = rsf.toFixed(3);
   recalcQuantify();
 }
 
@@ -3163,14 +3635,27 @@ function recalcQuantify() {
     return areas[i] / (rsf || 1);
   });
   const total = normAreas.reduce((s, v) => s + v, 0);
+  const maxPct = total > 0 ? Math.max(...normAreas.map(v => v / total * 100)) : 1;
 
   state.peaks.forEach((p, i) => {
     const pct = total > 0 ? (normAreas[i] / total * 100) : 0;
     const ne = document.getElementById('qnorm-' + p.id);
     const pe = document.getElementById('qpct-' + p.id);
     if (ne) ne.textContent = normAreas[i].toFixed(0);
-    if (pe) pe.textContent = pct.toFixed(1) + '%';
+    if (pe) {
+      pe.textContent = pct.toFixed(1) + '%';
+      // Color saturation proportional to percentage
+      const sat = maxPct > 0 ? pct / maxPct : 0;
+      pe.style.color = sat > 0.6
+        ? 'var(--accent2)'
+        : sat > 0.3
+          ? 'var(--text)'
+          : 'var(--text2)';
+    }
   });
+
+  const tn = document.getElementById('qtotal-norm');
+  if (tn) tn.textContent = total.toFixed(0);
 }
 
 // ═══════════════════════════════════════════════════
@@ -3248,11 +3733,13 @@ function updatePlot() {
   });
 
   // Raw data below fit envelope
+  const _cc = _chartColors();
   datasets.push({
     label: 'Data',
     data: be.map((b, i) => ({ x: b, y: inten[i] })),
-    borderColor: '#e8edf5',
-    backgroundColor: 'rgba(232,237,245,0.08)',
+    borderColor: _cc.rawData,
+    backgroundColor: document.body.classList.contains('light-theme')
+      ? 'rgba(26,26,46,0.08)' : 'rgba(232,237,245,0.08)',
     pointRadius: 0,
     borderWidth: 1.5,
     tension: 0,
@@ -3385,11 +3872,11 @@ function updatePlot() {
             },
             filter: item => !(item.dataset.label && item.dataset.label.startsWith('_bg_'))
           },
-          backgroundColor: '#131720',
-          borderColor: 'rgba(74,158,255,0.27)',
+          backgroundColor: _cc.tooltipBg,
+          borderColor: _cc.tooltipBorder,
           borderWidth: 1,
-          titleColor: '#4a9eff',
-          bodyColor: '#8a9ab8',
+          titleColor: _cc.tooltipTitle,
+          bodyColor: _cc.tooltipBody,
           titleFont: { family: "'IBM Plex Mono', monospace", size: 11 },
           bodyFont:  { family: "'IBM Plex Mono', monospace", size: 11 }
         }
@@ -3400,14 +3887,14 @@ function updatePlot() {
           min: beMin,
           max: beMax,
           reverse: invert,
-          title: { display: true, text: 'Binding Energy (eV)', color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 11 } },
-          grid: { color: 'rgba(100,140,220,0.07)' },
-          ticks: { color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 10 } }
+          title: { display: true, text: 'Binding Energy (eV)', color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 11 } },
+          grid: { color: _cc.gridColor },
+          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 10 } }
         },
         y: {
-          title: { display: true, text: 'Intensity (counts/s)', color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 11 } },
-          grid: { color: 'rgba(100,140,220,0.07)' },
-          ticks: { color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 10 } }
+          title: { display: true, text: 'Intensity (counts/s)', color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 11 } },
+          grid: { color: _cc.gridColor },
+          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 10 } }
         }
       }
     }
@@ -3487,6 +3974,7 @@ function renderEmptyChart() {
 }
 
 function updateResiduals(be, residuals, invert, show) {
+  const _cc = _chartColors();
   const wrap = document.getElementById('resid-wrap');
   const handle = document.getElementById('resid-handle');
   if (!show) {
@@ -3541,13 +4029,13 @@ function updateResiduals(be, residuals, invert, show) {
           max: beMax,
           reverse: invert,
           title: { display: false },
-          grid: { color: 'rgba(100,140,220,0.07)' },
-          ticks: { color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 9 }, maxTicksLimit: 8 }
+          grid: { color: _cc.gridColor },
+          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 9 }, maxTicksLimit: 8 }
         },
         y: {
-          title: { display: true, text: 'Resid.', color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 9 } },
-          grid: { color: 'rgba(100,140,220,0.07)' },
-          ticks: { color: '#8a9ab8', font: { family: "'IBM Plex Mono', monospace", size: 9 }, maxTicksLimit: 4 }
+          title: { display: true, text: 'Resid.', color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 9 } },
+          grid: { color: _cc.gridColor },
+          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 9 }, maxTicksLimit: 4 }
         }
       }
     }
@@ -3584,8 +4072,6 @@ function updateResiduals(be, residuals, invert, show) {
     chart.update('none');
     chart.scales.y.min = -state._residYMax;
     chart.scales.y.max = state._residYMax;
-
-    console.log('RESID WHEEL FINAL:', 'y.min=', chart.scales.y.min, 'y.max=', chart.scales.y.max);
     updateResetZoomButton();
   };
   residCanvas.addEventListener('wheel', residCanvas._wheelHandler, { passive: false });
@@ -4074,6 +4560,59 @@ function dismissToast() {
   });
 })();
 
+// ═══════════════════════════════════════════════════
+// CHART COLOR HELPER — reads CSS vars so light/dark mode works
+// ═══════════════════════════════════════════════════
+function _cssVar(name) {
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
+}
+function _chartColors() {
+  return {
+    text2: _cssVar('--text2'),
+    border: _cssVar('--border'),
+    gridColor: document.body.classList.contains('light-theme')
+      ? 'rgba(100,100,120,0.12)' : 'rgba(100,140,220,0.07)',
+    tooltipBg: _cssVar('--bg2'),
+    tooltipBorder: document.body.classList.contains('light-theme')
+      ? 'rgba(37,99,235,0.3)' : 'rgba(74,158,255,0.27)',
+    tooltipTitle: _cssVar('--accent'),
+    tooltipBody: _cssVar('--text2'),
+    // Raw spectrum data color adapts to theme
+    rawData: document.body.classList.contains('light-theme') ? '#1a1a2e' : '#e8edf5',
+  };
+}
+
+// ═══════════════════════════════════════════════════
+// DARK / LIGHT MODE
+// ═══════════════════════════════════════════════════
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-theme');
+  document.getElementById('theme-toggle').textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('xps-theme', isLight ? 'light' : 'dark');
+  // Re-render chart so grid/text colors update
+  if (state.chart) updatePlot();
+}
+
+// Apply saved theme on load
+(function() {
+  if (localStorage.getItem('xps-theme') === 'light') {
+    document.body.classList.add('light-theme');
+    // Update button after DOM is ready
+    window.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = '☀️';
+    });
+  }
+})();
+
+// Warn before accidental page refresh/close when data is loaded
+window.addEventListener('beforeunload', function(e) {
+  if (state.rawBE && state.rawBE.length > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 // Init
 tabManager = new TabManager();
 renderEmptyChart();
@@ -4102,5 +4641,19 @@ document.getElementById('mainChart').addEventListener('click', handleChartClick)
   </div>
 </div>
 <div id="prominent-toast" onclick="dismissToast()"><div id="prominent-toast-inner"></div></div>
+
+<!-- Multiplet preset selection modal -->
+<div id="multiplet-modal-overlay" onclick="if(event.target===this)_closeMultipletModal()">
+  <div id="multiplet-modal">
+    <div id="multiplet-modal-header">
+      <h3>SELECT SPIN-ORBIT PAIR</h3>
+      <button class="btn btn-sm" onclick="_closeMultipletModal()">✕</button>
+    </div>
+    <div id="multiplet-modal-search">
+      <input type="text" id="multiplet-modal-input" placeholder="Search element or orbital…" oninput="_filterMultipletModal(this.value)" autocomplete="off">
+    </div>
+    <div id="multiplet-modal-list"></div>
+  </div>
+</div>
 </body>
 </html>
