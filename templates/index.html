@@ -1293,11 +1293,6 @@ function toggleOverlayMode() {
   updatePlot();
 }
 
-// ═══════════════════════════════════════════════════
-// TOOLS STATE (smoothing)
-// ═══════════════════════════════════════════════════
-let _smoothedData = null;
-
 function updateSmoothing() {
   const enabled = document.getElementById('smooth-enable')?.checked;
   const ctrl = document.getElementById('smooth-controls');
@@ -3685,6 +3680,21 @@ function solveLinear(A, b, n) {
 // ═══════════════════════════════════════════════════
 // RESULTS
 // ═══════════════════════════════════════════════════
+
+// Build {peakId: paramMap} from backend fit result (null-safe)
+function _buildStderrMap(fitResult) {
+  const m = {};
+  const peaks = fitResult?.backendResult?.individual_peaks;
+  if (peaks) for (const ip of peaks) m[ip.id] = ip.params || {};
+  return m;
+}
+
+// Rectangular-rule area for one peak over a BE grid
+function _peakArea(p, be) {
+  const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
+  return be.reduce((s, x) => s + evalPeak(x, p), 0) * step;
+}
+
 function renderResults() {
   const el = document.getElementById('results-area');
   if (!state.fitResult) {
@@ -3693,14 +3703,8 @@ function renderResults() {
   }
 
   const { chiReduced, rmse, backendResult } = state.fitResult;
+  const stderrMap = _buildStderrMap(state.fitResult);
 
-  // Build stderr lookup from backend result if available
-  const stderrMap = {};
-  if (backendResult && backendResult.individual_peaks) {
-    for (const ip of backendResult.individual_peaks) {
-      stderrMap[ip.id] = ip.params || {};
-    }
-  }
   function fmtVal(val, se, decimals) {
     if (se != null && se > 0) return val.toFixed(decimals) + ' \u00b1 ' + se.toFixed(decimals);
     return val.toFixed(decimals);
@@ -3729,11 +3733,7 @@ function renderResults() {
   `;
 
   const { be } = state.fitResult;
-  const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
-  const areas = state.peaks.map(p => {
-    const vals = be.map(x => evalPeak(x, p));
-    return vals.reduce((s, v) => s + v, 0) * step;
-  });
+  const areas = state.peaks.map(p => _peakArea(p, be));
   const totalArea = areas.reduce((s, v) => s + v, 0);
 
   state.peaks.forEach((p, i) => {
@@ -4058,12 +4058,15 @@ function updatePlot() {
   const d1Enabled = document.getElementById('deriv1-enable')?.checked;
   const d2Enabled = document.getElementById('deriv2-enable')?.checked;
   if ((d1Enabled || d2Enabled) && inten.length > 3) {
-    const intensRange = Math.max(...inten) - Math.min(...inten);
+    const arrMax = a => a.reduce((m, v) => v > m ? v : m, -Infinity);
+    const arrMin = a => a.reduce((m, v) => v < m ? v : m,  Infinity);
+    const intenMax = arrMax(inten), intenMin = arrMin(inten);
+    const intensRange = intenMax - intenMin;
+    const midY = (intenMax + intenMin) / 2;
     if (d1Enabled) {
       const d1 = numericalDerivative(be, inten, 1);
-      const d1Range = Math.max(...d1.map(Math.abs)) || 1;
+      const d1Range = d1.reduce((m, v) => Math.abs(v) > m ? Math.abs(v) : m, 0) || 1;
       const scale1 = intensRange * 0.35 / d1Range;
-      const midY = (Math.max(...inten) + Math.min(...inten)) / 2;
       datasets.push({
         label: 'd/dBE',
         data: be.map((b, i) => ({ x: b, y: midY + d1[i] * scale1 })),
@@ -4073,9 +4076,8 @@ function updatePlot() {
     }
     if (d2Enabled) {
       const d2 = numericalDerivative(be, inten, 2);
-      const d2Range = Math.max(...d2.map(Math.abs)) || 1;
+      const d2Range = d2.reduce((m, v) => Math.abs(v) > m ? Math.abs(v) : m, 0) || 1;
       const scale2 = intensRange * 0.25 / d2Range;
-      const midY = (Math.max(...inten) + Math.min(...inten)) / 2;
       datasets.push({
         label: 'd²/dBE²',
         data: be.map((b, i) => ({ x: b, y: midY + d2[i] * scale2 })),
@@ -5007,11 +5009,10 @@ function _exportFigurePNG(fname, wIn, hIn, dpi, inclResid, inclLabels) {
 
     pubChart.destroy();
     residChart2.destroy();
-    _downloadURL(combined.toDataURL('image/png'), fname + '.png');
+    combined.toBlob(blob => _downloadBlob(blob, fname + '.png'), 'image/png');
   } else {
-    const url = mainCanvas.toDataURL('image/png');
     pubChart.destroy();
-    _downloadURL(url, fname + '.png');
+    mainCanvas.toBlob(blob => _downloadBlob(blob, fname + '.png'), 'image/png');
   }
   notify('Figure exported as PNG', 'green');
 }
@@ -5103,7 +5104,8 @@ function _exportFigureSVG(fname, wIn, hIn, inclResid, inclLabels) {
   const items = [
     { label: 'Data', color: '#000', dash: '' },
     ...(state.fitResult ? [{ label: 'Fit', color: '#cc0000', dash: '' }] : []),
-    { label: 'Background', color: '#888', dash: '4,3' }
+    { label: 'Background', color: '#888', dash: '4,3' },
+    ...(showIndiv ? state.peaks.map(p => ({ label: p.name, color: p.color, dash: '' })) : [])
   ];
   let ly = m.top + 10;
   const lx = m.left + plotW - 80;
@@ -5118,25 +5120,14 @@ function _exportFigureSVG(fname, wIn, hIn, inclResid, inclLabels) {
   notify('Figure exported as SVG', 'green');
 }
 
-function _downloadURL(url, filename) {
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-}
-
 // ═══════════════════════════════════════════════════
 // EXPORT FIT RESULTS TABLE
 // ═══════════════════════════════════════════════════
 function exportFitTable(fmt) {
   if (!state.fitResult) { notify('Run a fit first.', 'red'); return; }
-  const { be, backendResult } = state.fitResult;
-  const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
-
-  const stderrMap = {};
-  if (backendResult && backendResult.individual_peaks) {
-    for (const ip of backendResult.individual_peaks) stderrMap[ip.id] = ip.params || {};
-  }
-
-  const areas = state.peaks.map(p => be.map(x => evalPeak(x, p)).reduce((s,v)=>s+v,0) * step);
+  const { be } = state.fitResult;
+  const stderrMap = _buildStderrMap(state.fitResult);
+  const areas = state.peaks.map(p => _peakArea(p, be));
   const totalArea = areas.reduce((s,v)=>s+v,0);
   const rsfVals = state.peaks.map(p => {
     const el = document.getElementById('rsf-' + p.id);
@@ -5207,8 +5198,7 @@ function renderPeakTable() {
   let areaMap = {};
   if (state.fitResult?.be) {
     const { be } = state.fitResult;
-    const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
-    state.peaks.forEach(p => { areaMap[p.id] = be.map(x => evalPeak(x,p)).reduce((s,v)=>s+v,0)*step; });
+    state.peaks.forEach(p => { areaMap[p.id] = _peakArea(p, be); });
   }
   const hasArea = Object.keys(areaMap).length > 0;
 
@@ -5252,9 +5242,8 @@ function _sortPeakTable(key) {
 
   if (key === 'area' && state.fitResult?.be) {
     const { be } = state.fitResult;
-    const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
     const am = {};
-    state.peaks.forEach(p => { am[p.id] = be.map(x=>evalPeak(x,p)).reduce((s,v)=>s+v,0)*step; });
+    state.peaks.forEach(p => { am[p.id] = _peakArea(p, be); });
     state.peaks.sort((a,b) => _ptSortAsc ? am[a.id]-am[b.id] : am[b.id]-am[a.id]);
   } else {
     state.peaks.sort((a,b) => {
@@ -5316,10 +5305,11 @@ function numericalDerivative(be, intensity, order) {
 function _validateUncertainties() {
   if (!state.fitResult?.backendResult?.individual_peaks) return [];
   const warnings = [];
-  for (const ip of state.fitResult.backendResult.individual_peaks) {
-    const p = getPeak(ip.id);
+  const stderrMap = _buildStderrMap(state.fitResult);
+  for (const [rawId, params] of Object.entries(stderrMap)) {
+    const p = getPeak(Number(rawId));
     if (!p) continue;
-    for (const [pName, pData] of Object.entries(ip.params || {})) {
+    for (const [pName, pData] of Object.entries(params)) {
       if (['center','fwhm','fwhm_l','amplitude','glMix'].includes(pName)) {
         const val = pData.value;
         const se  = pData.stderr;
