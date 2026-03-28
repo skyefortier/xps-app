@@ -732,17 +732,22 @@
 
   /* ── Dark/light mode toggle ────────────────────────────── */
   #theme-toggle {
-    background: none;
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    background: var(--bg3);
     border: 1px solid var(--border2);
     border-radius: var(--radius);
     color: var(--text2);
     cursor: pointer;
     font-size: 15px;
-    width: 28px; height: 28px;
+    width: 32px; height: 32px;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.15s;
+    z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
-  #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  #theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--bg4); }
 
   /* ── Light theme overrides ─────────────────────────────── */
   body.light-theme {
@@ -845,6 +850,95 @@
   .mm-item.suggested { border-left: 2px solid var(--accent); padding-left: 6px; }
   .mm-item-name { font-family: var(--mono); color: var(--text); font-weight: 500; }
   .mm-item-meta { font-size: 10px; color: var(--text3); }
+
+  /* ── Undo/Redo buttons ──────────────────────────────────── */
+  #btn-undo, #btn-redo { font-size: 14px; padding: 1px 7px; min-width: 26px; }
+  #btn-undo:disabled, #btn-redo:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* ── Overlay toggle ─────────────────────────────────────── */
+  #btn-overlay.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .sp-tab-overlay-chk { display: none; margin-right: 3px; accent-color: var(--accent); cursor: pointer; }
+  .overlay-mode .sp-tab-overlay-chk { display: inline-block; }
+
+  /* ── Peak table ─────────────────────────────────────────── */
+  #tab-table { overflow: auto; padding: 0; }
+  .peak-table-grid { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .peak-table-grid th {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text3); padding: 6px 6px; border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none; white-space: nowrap;
+    background: var(--bg2); position: sticky; top: 0;
+  }
+  .peak-table-grid th:hover { color: var(--accent2); }
+  .peak-table-grid td { padding: 3px 5px; border-bottom: 1px solid var(--border); }
+  .peak-table-grid tr:hover td { background: var(--bg3); }
+  .peak-table-grid td input {
+    width: 100%; background: transparent; border: none; color: var(--text);
+    font-family: var(--mono); font-size: 11px; padding: 0; min-width: 0;
+  }
+  .peak-table-grid td input:focus {
+    background: var(--bg4); border-radius: 3px; outline: none; padding: 1px 3px;
+  }
+  .pt-swatch { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 3px; vertical-align: middle; }
+
+  /* ── Generic modal (reusable) ───────────────────────────── */
+  .xps-modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+  }
+  .xps-modal-overlay.open { display: flex; }
+  .xps-modal {
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px;
+    padding: 20px 24px; min-width: 300px; max-width: 460px; width: 92%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto;
+  }
+  .xps-modal h3 {
+    margin: 0 0 14px 0; font-family: var(--mono); font-size: 13px;
+    color: var(--text); font-weight: 500;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .xps-modal label { font-size: 11px; color: var(--text2); margin-bottom: 4px; display: block; }
+  .xps-modal input[type=text], .xps-modal input[type=number], .xps-modal select {
+    width: 100%; font-family: var(--mono); font-size: 12px;
+    padding: 6px 10px; margin-bottom: 10px;
+    background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius);
+    color: var(--text); box-sizing: border-box;
+  }
+  .xps-modal input:focus, .xps-modal select:focus { border-color: var(--accent); outline: none; }
+  .xps-modal .dialog-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+  .xps-modal .row2 { display: flex; gap: 10px; }
+  .xps-modal .row2 > div { flex: 1; }
+  .xps-modal .chk-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 11px; color: var(--text2); cursor: pointer; }
+  .xps-modal .chk-row input { width: auto; margin: 0; }
+  .xps-modal .section-label {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text3); margin: 10px 0 6px; font-family: var(--mono);
+  }
+
+  /* ── Shortcuts modal ────────────────────────────────────── */
+  .shortcut-row { display: flex; gap: 8px; margin-bottom: 7px; align-items: center; }
+  .shortcut-key {
+    background: var(--bg4); border: 1px solid var(--border2); border-radius: 4px;
+    padding: 2px 7px; font-family: var(--mono); font-size: 10px; color: var(--text2);
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .shortcut-desc { font-size: 11px; color: var(--text2); flex: 1; }
+
+  /* ── Tools section ──────────────────────────────────────── */
+  .tools-chk-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px; color: var(--text2); cursor: pointer; }
+  .tools-chk-row input[type=checkbox] { width: auto; accent-color: var(--accent); }
+  .tools-slider { width: 100%; accent-color: var(--accent); margin: 2px 0 6px; }
+
+  /* ── Uncertainty warnings ───────────────────────────────── */
+  .unc-warn-box {
+    background: var(--amber-dim); border: 1px solid var(--amber);
+    border-radius: var(--radius); padding: 8px 10px; margin-top: 10px; font-size: 11px;
+  }
+  .unc-warn-box .uw-title {
+    font-family: var(--mono); font-size: 9px; color: var(--amber);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px;
+  }
+  .unc-warn-box li { color: var(--text2); line-height: 1.6; margin-left: 14px; }
 </style>
 </head>
 <body>
@@ -865,7 +959,6 @@
           <option value="basinhopping">Basin-hopping</option>
         </select>
       </div>
-      <button id="theme-toggle" title="Toggle light/dark mode" onclick="toggleTheme()">🌙</button>
       <button class="btn btn-green" onclick="runFit()">Run Fit</button>
       <div class="save-dropdown" id="save-dropdown">
         <button class="btn" onclick="toggleSaveMenu()">Save &#9662;</button>
@@ -873,10 +966,15 @@
           <button class="save-dropdown-item" onclick="saveFit()">Save Fit<small>Peak params only (~2 KB)</small></button>
           <button class="save-dropdown-item" onclick="saveSpectrum()">Save Spectrum<small>Data + fit curves (~50–200 KB)</small></button>
           <button class="save-dropdown-item" onclick="showProjectDialog()">Save Project<small>All tabs + metadata</small></button>
+          <div style="height:1px;background:var(--border);margin:4px 0"></div>
+          <button class="save-dropdown-item" onclick="exportFitTable('csv')">Export Table (CSV)<small>All fit parameters</small></button>
+          <button class="save-dropdown-item" onclick="exportFitTable('xlsx')">Export Table (XLSX)<small>All fit parameters</small></button>
         </div>
       </div>
       <button class="btn" onclick="loadSession()">Load Fit</button>
       <button class="btn" onclick="exportResults()">Export</button>
+      <button class="btn" onclick="_showExportFigureDialog()" title="Export publication figure">Fig</button>
+      <button class="btn btn-sm" onclick="showShortcutsModal()" title="Keyboard shortcuts" style="font-weight:bold;padding:2px 9px">?</button>
       <input type="file" id="load-session-input" accept=".json,.zip" style="display:none" onchange="handleSessionLoad(event)">
     </div>
   </div>
@@ -983,6 +1081,29 @@
           </div>
         </div>
 
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            Tools
+            <span style="font-size:10px">&#9660;</span>
+          </div>
+          <div class="section-body" style="display:none">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:5px">Smoothing</div>
+            <label class="tools-chk-row"><input type="checkbox" id="smooth-enable" onchange="updateSmoothing()"> Savitzky-Golay smooth</label>
+            <div id="smooth-controls" style="display:none">
+              <div class="field">
+                <label>Window (pts): <span id="smooth-window-val">11</span></label>
+                <input type="range" class="tools-slider" id="smooth-window" min="5" max="25" step="2" value="11" oninput="document.getElementById('smooth-window-val').textContent=this.value;updateSmoothing()">
+              </div>
+              <div class="field">
+                <label>Poly order: <span id="smooth-poly-val">2</span></label>
+                <input type="range" class="tools-slider" id="smooth-poly" min="2" max="4" step="1" value="2" oninput="document.getElementById('smooth-poly-val').textContent=this.value;updateSmoothing()">
+              </div>
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:5px;margin-top:8px">Derivatives</div>
+            <label class="tools-chk-row"><input type="checkbox" id="deriv1-enable" onchange="updatePlot()"> 1st derivative</label>
+            <label class="tools-chk-row"><input type="checkbox" id="deriv2-enable" onchange="updatePlot()"> 2nd derivative</label>
+          </div>
+        </div>
 
       </div>
     </div>
@@ -991,8 +1112,11 @@
     <div id="center-panel">
       <div id="spectrum-tab-bar"></div>
       <div id="chart-toolbar">
+        <button class="btn btn-sm" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)" disabled>&#8617;</button>
+        <button class="btn btn-sm" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled>&#8618;</button>
         <button class="btn btn-sm" id="btn-add-peak" onclick="togglePlaceMode('peak')">+ Add Peak</button>
         <button class="btn btn-sm" id="btn-add-multiplet" onclick="_onMultipletBtnClick()">+ Multiplet Pair</button>
+        <button class="btn btn-sm" id="btn-overlay" onclick="toggleOverlayMode()" title="Overlay multiple spectra">Overlay</button>
         <div style="flex:1"></div>
         <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="checkbox" id="show-individual" checked onchange="updatePlot()">
@@ -1041,6 +1165,7 @@
           <div class="tab active" onclick="switchTab(this,'peaks')">Peaks</div>
           <div class="tab" onclick="switchTab(this,'results')">Results</div>
           <div class="tab" onclick="switchTab(this,'quantify')">Quantify</div>
+          <div class="tab" onclick="switchTab(this,'table')">Table</div>
           <div class="tab survey-tab" id="survey-tab-btn" onclick="switchTab(this,'survey')">Survey</div>
         </div>
 
@@ -1061,6 +1186,10 @@
           <div id="quantify-area">
             <p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0;">Run fit to quantify.</p>
           </div>
+        </div>
+
+        <div class="tab-panel" id="tab-table">
+          <div id="peak-table-area"></div>
         </div>
 
         <div class="tab-panel" id="tab-survey">
@@ -1103,6 +1232,78 @@ let state = {
   residChart: null,
   fitResult: null
 };
+
+// ═══════════════════════════════════════════════════
+// UNDO / REDO
+// ═══════════════════════════════════════════════════
+const undoStack = [];
+const redoStack = [];
+const MAX_UNDO = 50;
+let _undoDebounceTimer = null;
+
+function pushUndo() {
+  undoStack.push(JSON.parse(JSON.stringify(state.peaks)));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack.length = 0;
+  _updateUndoButtons();
+}
+
+function _pushUndoDebounced() {
+  clearTimeout(_undoDebounceTimer);
+  _undoDebounceTimer = setTimeout(pushUndo, 500);
+}
+
+function _updateUndoButtons() {
+  const u = document.getElementById('btn-undo');
+  const r = document.getElementById('btn-redo');
+  if (u) u.disabled = !undoStack.length;
+  if (r) r.disabled = !redoStack.length;
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(JSON.parse(JSON.stringify(state.peaks)));
+  state.peaks = undoStack.pop();
+  renderPeakList();
+  updatePlot();
+  _updateUndoButtons();
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(JSON.parse(JSON.stringify(state.peaks)));
+  state.peaks = redoStack.pop();
+  renderPeakList();
+  updatePlot();
+  _updateUndoButtons();
+}
+
+// ═══════════════════════════════════════════════════
+// OVERLAY STATE
+// ═══════════════════════════════════════════════════
+let overlayMode = false;
+const overlayTabIds = new Set();
+
+function toggleOverlayMode() {
+  overlayMode = !overlayMode;
+  const btn = document.getElementById('btn-overlay');
+  if (btn) btn.classList.toggle('active', overlayMode);
+  if (!overlayMode) overlayTabIds.clear();
+  if (typeof tabManager !== 'undefined') tabManager.renderTabBar();
+  updatePlot();
+}
+
+// ═══════════════════════════════════════════════════
+// TOOLS STATE (smoothing)
+// ═══════════════════════════════════════════════════
+let _smoothedData = null;
+
+function updateSmoothing() {
+  const enabled = document.getElementById('smooth-enable')?.checked;
+  const ctrl = document.getElementById('smooth-controls');
+  if (ctrl) ctrl.style.display = enabled ? 'block' : 'none';
+  updatePlot();
+}
 
 // ═══════════════════════════════════════════════════
 // XPS BINDING ENERGY DATABASE — organized by element (Al Kα, eV)
@@ -1483,15 +1684,38 @@ class TabManager {
     const bar = document.getElementById('spectrum-tab-bar');
     if (!bar) return;
     bar.innerHTML = '';
+    if (overlayMode) bar.classList.add('overlay-mode');
+    else bar.classList.remove('overlay-mode');
     for (const tab of this.tabs) {
       const el = document.createElement('div');
       el.className = 'sp-tab' + (tab.id === this.activeId ? ' active' : '');
-      el.innerHTML =
+      const tabId = tab.id;
+
+      // Overlay checkbox
+      if (overlayMode) {
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.className = 'sp-tab-overlay-chk';
+        chk.checked = overlayTabIds.has(tabId);
+        chk.title = 'Show in overlay';
+        chk.addEventListener('change', e => {
+          e.stopPropagation();
+          if (e.target.checked) overlayTabIds.add(tabId);
+          else overlayTabIds.delete(tabId);
+          updatePlot();
+        });
+        el.appendChild(chk);
+      }
+
+      const inner = document.createElement('span');
+      inner.innerHTML =
         '<span class="sp-tab-dot" style="background:' + tab.color + '"></span>' +
         '<span>' + this._esc(tab.name) + '</span>' +
         '<span class="sp-tab-close" title="Close tab">&times;</span>';
-      const tabId = tab.id;
+      el.appendChild(inner);
+
       el.addEventListener('click', e => {
+        if (e.target.classList.contains('sp-tab-overlay-chk')) return;
         if (e.target.classList.contains('sp-tab-close')) {
           e.stopPropagation();
           this.closeTab(tabId);
@@ -2797,19 +3021,48 @@ function handleChartClick(event) {
   togglePlaceMode(placeMode);
 }
 
-// Escape key cancels placement mode or closes multiplet modal
+// Global keyboard shortcuts
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    const overlay = document.getElementById('multiplet-modal-overlay');
-    if (overlay && overlay.classList.contains('open')) {
+    document.querySelectorAll('.xps-modal-overlay.open').forEach(m => m.classList.remove('open'));
+    const multipletOverlay = document.getElementById('multiplet-modal-overlay');
+    if (multipletOverlay && multipletOverlay.classList.contains('open')) {
       _closeMultipletModal();
-      return;
     }
     if (placeMode) togglePlaceMode(placeMode);
+    return;
+  }
+
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if (e.key === 'z' && e.shiftKey)  { e.preventDefault(); redo(); return; }
+    if (e.key === 'y')                 { e.preventDefault(); redo(); return; }
+    if (e.key === 's' && !e.shiftKey)  { e.preventDefault(); saveFit(); return; }
+    if (e.key === 's' && e.shiftKey)   { e.preventDefault(); saveSpectrum(); return; }
+    if (e.key === 'f')                 { e.preventDefault(); runFit(); return; }
+    return;
+  }
+
+  switch (e.key) {
+    case 'Delete':
+    case 'Backspace': {
+      const body = document.querySelector('.peak-body.open');
+      if (body) {
+        const id = parseInt(body.id.replace('peak-body-', ''));
+        if (!isNaN(id)) removePeak(id);
+      }
+      break;
+    }
+    case '+': case '=': togglePlaceMode('peak'); break;
+    case 'm': case 'M': _onMultipletBtnClick(); break;
+    case '?': showShortcutsModal(); break;
   }
 });
 
 function addPeak(overrides) {
+  pushUndo();
   const p = defaultPeak(overrides);
   state.peaks.push(p);
   renderPeakList();
@@ -2838,12 +3091,14 @@ function addMultiplet() {
 }
 
 function removePeak(id) {
+  pushUndo();
   state.peaks = state.peaks.filter(p => p.id !== id && p.linked !== id);
   renderPeakList();
   updatePlot();
 }
 
 function clearAllPeaks() {
+  pushUndo();
   state.peaks = [];
   state.fitResult = null;
   renderPeakList();
@@ -2852,7 +3107,18 @@ function clearAllPeaks() {
 
 function getPeak(id) { return state.peaks.find(p => p.id === id); }
 
+function unlinkPeak(id) {
+  if (!confirm('Unlink this peak? It will become fully independent.')) return;
+  pushUndo();
+  const p = getPeak(id);
+  if (!p) return;
+  p.linked = null;
+  renderPeakList();
+  updatePlot();
+}
+
 function updatePeakParam(id, key, value) {
+  _pushUndoDebounced();
   const p = getPeak(id);
   if (!p) return;
   p[key] = value;
@@ -2969,7 +3235,10 @@ function renderPeakForm(p) {
     </div>
     ${isLinked ? `
     <div class="divider"></div>
-    <div style="font-size:10px;color:var(--purple);margin-bottom:6px">Multiplet constraints</div>
+    <div style="font-size:10px;color:var(--purple);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+      <span>Multiplet constraints</span>
+      <button class="btn btn-sm" style="font-size:10px;padding:1px 7px;color:var(--amber);border-color:var(--amber)" onclick="unlinkPeak(${p.id})">Unlink</button>
+    </div>
     <div class="field-row">
       <div class="field">
         <label>Offset (eV)</label>
@@ -3209,6 +3478,7 @@ function _hideFitSpinner() {
 async function runFit() {
   if (!state.rawBE.length) { notify('Load a spectrum first.', 'red', true); return; }
   if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
+  pushUndo();
 
   _showFitSpinner();
   document.getElementById('sb-msg').textContent = 'Fitting\u2026';
@@ -3482,6 +3752,16 @@ function renderResults() {
   });
 
   html += '</tbody></table>';
+
+  // Uncertainty warnings (backend fit only)
+  const uncWarnings = _validateUncertainties();
+  if (uncWarnings.length) {
+    html += `<div class="unc-warn-box">
+      <div class="uw-title">&#9888; Uncertainty Warnings</div>
+      <ul>${uncWarnings.join('')}</ul>
+    </div>`;
+  }
+
   el.innerHTML = html;
 
   renderQuantify(areas, totalArea);
@@ -3758,6 +4038,75 @@ function updatePlot() {
       pointRadius: 0,
       fill: false
     });
+  }
+
+  // Smoothed data overlay (Tools section)
+  const smoothEnabled = document.getElementById('smooth-enable')?.checked;
+  if (smoothEnabled && inten.length > 5) {
+    const ws = parseInt(document.getElementById('smooth-window')?.value || '11');
+    const po = parseInt(document.getElementById('smooth-poly')?.value  || '2');
+    const smoothed = savitzkyGolay(inten, ws, po);
+    datasets.push({
+      label: 'Smoothed',
+      data: be.map((b, i) => ({ x: b, y: smoothed[i] })),
+      borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, fill: false,
+      borderDash: [5, 3]
+    });
+  }
+
+  // Derivative overlays (scaled to fit in chart, plotted on secondary y-axis)
+  const d1Enabled = document.getElementById('deriv1-enable')?.checked;
+  const d2Enabled = document.getElementById('deriv2-enable')?.checked;
+  if ((d1Enabled || d2Enabled) && inten.length > 3) {
+    const intensRange = Math.max(...inten) - Math.min(...inten);
+    if (d1Enabled) {
+      const d1 = numericalDerivative(be, inten, 1);
+      const d1Range = Math.max(...d1.map(Math.abs)) || 1;
+      const scale1 = intensRange * 0.35 / d1Range;
+      const midY = (Math.max(...inten) + Math.min(...inten)) / 2;
+      datasets.push({
+        label: 'd/dBE',
+        data: be.map((b, i) => ({ x: b, y: midY + d1[i] * scale1 })),
+        borderColor: '#22d3ee', borderWidth: 1.5, pointRadius: 0, fill: false,
+        borderDash: [2, 2]
+      });
+    }
+    if (d2Enabled) {
+      const d2 = numericalDerivative(be, inten, 2);
+      const d2Range = Math.max(...d2.map(Math.abs)) || 1;
+      const scale2 = intensRange * 0.25 / d2Range;
+      const midY = (Math.max(...inten) + Math.min(...inten)) / 2;
+      datasets.push({
+        label: 'd²/dBE²',
+        data: be.map((b, i) => ({ x: b, y: midY + d2[i] * scale2 })),
+        borderColor: '#a78bfa', borderWidth: 1.5, pointRadius: 0, fill: false,
+        borderDash: [2, 2]
+      });
+    }
+  }
+
+  // Overlay spectra from other tabs
+  if (overlayMode && typeof tabManager !== 'undefined') {
+    const tabColors = ['#60a5fa','#34d399','#fb923c','#f472b6','#a78bfa','#fbbf24'];
+    let ci = 0;
+    for (const t of tabManager.tabs) {
+      if (!overlayTabIds.has(t.id) || t.id === tabManager.activeId) continue;
+      if (!t.rawBE || !t.rawBE.length) continue;
+      const tBE = t.rawBE.map(b => b - (t.ccShift || 0));
+      const roiMin = parseFloat(document.getElementById('roi-min')?.value) || -Infinity;
+      const roiMax = parseFloat(document.getElementById('roi-max')?.value) ||  Infinity;
+      const pts = tBE.map((b, i) => ({ x: b, y: t.rawIntensity[i] }))
+        .filter(pt => pt.x >= Math.min(roiMin, roiMax) && pt.x <= Math.max(roiMin, roiMax));
+      if (pts.length < 2) continue;
+      const col = t.color || tabColors[ci % tabColors.length];
+      datasets.push({
+        label: t.name || ('Tab ' + t.id),
+        data: pts,
+        borderColor: col + 'cc', borderWidth: 1.5, pointRadius: 0, fill: false,
+        borderDash: [3, 2]
+      });
+      ci++;
+    }
   }
 
   // Residuals go to separate panel — update after main chart
@@ -4471,6 +4820,530 @@ function exportResults() {
 }
 
 // ═══════════════════════════════════════════════════
+// EXPORT FIGURE (publication quality)
+// ═══════════════════════════════════════════════════
+function _showExportFigureDialog() {
+  document.getElementById('export-figure-modal-overlay').classList.add('open');
+}
+
+function _doExportFigure() {
+  const fname = document.getElementById('expfig-fname').value || 'xps_spectrum';
+  const fmt   = document.getElementById('expfig-format').value;
+  const wIn   = parseFloat(document.getElementById('expfig-width').value)  || 6;
+  const hIn   = parseFloat(document.getElementById('expfig-height').value) || 4;
+  const dpi   = parseInt(document.getElementById('expfig-dpi').value)      || 300;
+  const inclResid  = document.getElementById('expfig-residuals').checked;
+  const inclLabels = document.getElementById('expfig-peaklabels').checked;
+  document.getElementById('export-figure-modal-overlay').classList.remove('open');
+
+  if (!state.rawBE.length) { notify('No spectrum loaded.', 'red'); return; }
+
+  if (fmt === 'svg') {
+    _exportFigureSVG(fname, wIn, hIn, inclResid, inclLabels);
+  } else {
+    _exportFigurePNG(fname, wIn, hIn, dpi, inclResid, inclLabels);
+  }
+}
+
+function _exportFigurePNG(fname, wIn, hIn, dpi, inclResid, inclLabels) {
+  const scale = dpi / 96;
+  const pxW = Math.round(wIn * dpi);
+  const pxH = Math.round(hIn * dpi);
+
+  const { be, inten } = getROIData();
+  if (!be.length) { notify('No data in ROI.', 'red'); return; }
+  const bgIntensity = computeBackground(be, inten);
+  const modelFull   = evalAllPeaks(be, state.peaks);
+  const fittedY = (state.fitResult?.fittedY?.length === be.length)
+    ? state.fitResult.fittedY : modelFull.map((v, i) => v + bgIntensity[i]);
+  const residuals   = state.fitResult ? inten.map((v, i) => v - fittedY[i]) : null;
+  const invert      = document.getElementById('invert-be').checked;
+  const showIndiv   = document.getElementById('show-individual').checked;
+
+  const mainCanvas = document.createElement('canvas');
+  mainCanvas.width  = pxW;
+  mainCanvas.height = inclResid && residuals ? Math.round(pxH * 0.72) : pxH;
+
+  const datasets = [];
+  if (showIndiv) {
+    for (const p of state.peaks) {
+      datasets.push({
+        label: p.name,
+        data: be.map((b, i) => ({ x: b, y: evalPeak(b, p) + bgIntensity[i] })),
+        borderColor: p.color, borderWidth: 1.5 * scale, pointRadius: 0, fill: false
+      });
+    }
+  }
+  datasets.push({
+    label: 'Background',
+    data: be.map((b, i) => ({ x: b, y: bgIntensity[i] })),
+    borderColor: '#888', borderDash: [4 * scale, 3 * scale],
+    borderWidth: 1.5 * scale, pointRadius: 0, fill: false
+  });
+  datasets.push({
+    label: 'Data',
+    data: be.map((b, i) => ({ x: b, y: inten[i] })),
+    borderColor: '#000', borderWidth: 2 * scale, pointRadius: 0, fill: false
+  });
+  if (state.fitResult) {
+    datasets.push({
+      label: 'Fit',
+      data: be.map((b, i) => ({ x: b, y: fittedY[i] })),
+      borderColor: '#cc0000', borderWidth: 2.5 * scale, pointRadius: 0, fill: false
+    });
+  }
+
+  const labelPlugin = {
+    id: 'peakLabels',
+    afterDraw(chart) {
+      if (!inclLabels || !state.peaks.length) return;
+      const { ctx: c, scales } = chart;
+      c.save();
+      c.font = `${9 * scale}px Arial,Helvetica,sans-serif`;
+      c.fillStyle = '#333';
+      c.textAlign = 'center';
+      for (const p of state.peaks) {
+        const peakTop = be.reduce((best, b, i) => {
+          const v = evalPeak(b, p) + bgIntensity[i];
+          return v > best.val ? { val: v, idx: i } : best;
+        }, { val: -Infinity, idx: 0 });
+        const px = scales.x.getPixelForValue(be[peakTop.idx]);
+        const py = scales.y.getPixelForValue(peakTop.val);
+        c.fillText(p.name, px, py - 6 * scale);
+      }
+      c.restore();
+    }
+  };
+  const whiteBgPlugin = {
+    id: 'whiteBg',
+    beforeDraw(chart) {
+      const { ctx: c } = chart;
+      c.save(); c.fillStyle = '#fff'; c.fillRect(0, 0, chart.width, chart.height); c.restore();
+    }
+  };
+  const chi2Plugin = {
+    id: 'chi2text',
+    afterDraw(chart) {
+      if (!state.fitResult) return;
+      const { ctx: c } = chart;
+      c.save();
+      c.font = `${9 * scale}px Arial,Helvetica,sans-serif`;
+      c.fillStyle = '#666';
+      c.textAlign = 'right';
+      c.fillText('\u03c7\u00b2\u1d63 = ' + state.fitResult.chiReduced.toFixed(3),
+        chart.width - 10 * scale, 18 * scale);
+      c.restore();
+    }
+  };
+
+  const pubChart = new Chart(mainCanvas, {
+    type: 'line', data: { datasets },
+    options: {
+      animation: false,
+      scales: {
+        x: {
+          type: 'linear', reverse: invert,
+          title: { display: true, text: 'Binding Energy (eV)',
+            font: { family: 'Arial,Helvetica,sans-serif', size: 12 * scale }, color: '#000' },
+          ticks: { font: { family: 'Arial,Helvetica,sans-serif', size: 10 * scale }, color: '#000', maxTicksLimit: 8 },
+          grid: { color: '#ddd', lineWidth: 0.5 * scale }, border: { color: '#000', width: scale }
+        },
+        y: {
+          title: { display: true, text: 'Intensity (counts/s)',
+            font: { family: 'Arial,Helvetica,sans-serif', size: 12 * scale }, color: '#000' },
+          ticks: { font: { family: 'Arial,Helvetica,sans-serif', size: 10 * scale }, color: '#000', maxTicksLimit: 6 },
+          grid: { color: '#ddd', lineWidth: 0.5 * scale }, border: { color: '#000', width: scale }
+        }
+      },
+      plugins: {
+        legend: { display: true, position: 'top',
+          labels: { font: { family: 'Arial,Helvetica,sans-serif', size: 10 * scale }, color: '#000',
+            boxWidth: 20 * scale, padding: 8 * scale } }
+      },
+      layout: { padding: { top: 10 * scale, right: 20 * scale, bottom: 10 * scale, left: 10 * scale } }
+    },
+    plugins: [whiteBgPlugin, labelPlugin, chi2Plugin]
+  });
+
+  if (inclResid && residuals) {
+    const residCanvas = document.createElement('canvas');
+    residCanvas.width  = pxW;
+    residCanvas.height = Math.round(pxH * 0.22);
+    const residChart2 = new Chart(residCanvas, {
+      type: 'line',
+      data: { datasets: [
+        { label: 'Residuals', data: be.map((b, i) => ({ x: b, y: residuals[i] })),
+          borderColor: '#666', borderWidth: scale, pointRadius: 0, fill: false },
+        { label: 'Zero', data: be.map(b => ({ x: b, y: 0 })),
+          borderColor: '#aaa', borderDash: [3, 3], borderWidth: 0.5 * scale, pointRadius: 0, fill: false }
+      ]},
+      options: {
+        animation: false,
+        scales: {
+          x: { type: 'linear', reverse: invert,
+            ticks: { font: { family: 'Arial,Helvetica,sans-serif', size: 8 * scale }, color: '#000' },
+            grid: { color: '#ddd', lineWidth: 0.5 * scale }, border: { color: '#000', width: scale } },
+          y: { title: { display: true, text: 'Residuals',
+              font: { family: 'Arial,Helvetica,sans-serif', size: 9 * scale }, color: '#000' },
+            ticks: { font: { family: 'Arial,Helvetica,sans-serif', size: 8 * scale }, color: '#000', maxTicksLimit: 4 },
+            grid: { color: '#ddd', lineWidth: 0.5 * scale }, border: { color: '#000', width: scale } }
+        },
+        plugins: { legend: { display: false } },
+        layout: { padding: { left: 10 * scale, right: 20 * scale, top: 4 * scale, bottom: 4 * scale } }
+      },
+      plugins: [whiteBgPlugin]
+    });
+
+    // Composite both canvases
+    const gap = Math.round(pxH * 0.06);
+    const combined = document.createElement('canvas');
+    combined.width  = pxW;
+    combined.height = mainCanvas.height + gap + residCanvas.height;
+    const ctx2 = combined.getContext('2d');
+    ctx2.fillStyle = '#fff';
+    ctx2.fillRect(0, 0, combined.width, combined.height);
+    ctx2.drawImage(mainCanvas, 0, 0);
+    ctx2.drawImage(residCanvas, 0, mainCanvas.height + gap);
+
+    pubChart.destroy();
+    residChart2.destroy();
+    _downloadURL(combined.toDataURL('image/png'), fname + '.png');
+  } else {
+    const url = mainCanvas.toDataURL('image/png');
+    pubChart.destroy();
+    _downloadURL(url, fname + '.png');
+  }
+  notify('Figure exported as PNG', 'green');
+}
+
+function _exportFigureSVG(fname, wIn, hIn, inclResid, inclLabels) {
+  const { be, inten } = getROIData();
+  if (!be.length) { notify('No data in ROI.', 'red'); return; }
+  const bgIntensity = computeBackground(be, inten);
+  const modelFull   = evalAllPeaks(be, state.peaks);
+  const fittedY = (state.fitResult?.fittedY?.length === be.length)
+    ? state.fitResult.fittedY : modelFull.map((v, i) => v + bgIntensity[i]);
+  const invert = document.getElementById('invert-be').checked;
+  const showIndiv = document.getElementById('show-individual').checked;
+
+  const pxW = Math.round(wIn * 96);
+  const pxH = Math.round(hIn * 96);
+  const m   = { top: 30, right: 30, bottom: 55, left: 68 };
+  const plotW = pxW - m.left - m.right;
+  const plotH = pxH - m.top  - m.bottom;
+
+  const beMin = Math.min(...be), beMax = Math.max(...be);
+  const intenMax = Math.max(...inten) * 1.05;
+
+  const xs = b => {
+    const t = (b - beMin) / (beMax - beMin);
+    return m.left + (invert ? 1 - t : t) * plotW;
+  };
+  const ys = v => m.top + plotH - (Math.max(0, v) / intenMax) * plotH;
+  const pts = arr => be.map((b, i) => `${xs(b).toFixed(1)},${ys(arr[i]).toFixed(1)}`).join(' ');
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" viewBox="0 0 ${pxW} ${pxH}">`;
+  svg += `<rect width="${pxW}" height="${pxH}" fill="white"/>`;
+  svg += `<clipPath id="plot"><rect x="${m.left}" y="${m.top}" width="${plotW}" height="${plotH}"/></clipPath>`;
+  svg += `<g clip-path="url(#plot)">`;
+  if (showIndiv) {
+    for (const p of state.peaks) {
+      const vals = be.map(b => evalPeak(b, p));
+      svg += `<polyline points="${pts(vals.map((v,i)=>v+bgIntensity[i]))}" fill="none" stroke="${p.color}" stroke-width="1.5" opacity="0.85"/>`;
+    }
+  }
+  svg += `<polyline points="${pts(bgIntensity)}" fill="none" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+  svg += `<polyline points="${pts(inten)}" fill="none" stroke="#000" stroke-width="2"/>`;
+  if (state.fitResult) {
+    svg += `<polyline points="${pts(fittedY)}" fill="none" stroke="#cc0000" stroke-width="2.5"/>`;
+  }
+  svg += `</g>`;
+
+  // Axes
+  svg += `<line x1="${m.left}" y1="${m.top}" x2="${m.left}" y2="${m.top+plotH}" stroke="#000" stroke-width="1"/>`;
+  svg += `<line x1="${m.left}" y1="${m.top+plotH}" x2="${m.left+plotW}" y2="${m.top+plotH}" stroke="#000" stroke-width="1"/>`;
+
+  // X ticks
+  const nTicks = 7;
+  for (let i = 0; i <= nTicks; i++) {
+    const b = beMin + (beMax - beMin) * i / nTicks;
+    const x = xs(b);
+    svg += `<line x1="${x.toFixed(1)}" y1="${m.top+plotH}" x2="${x.toFixed(1)}" y2="${m.top+plotH+4}" stroke="#000" stroke-width="0.7"/>`;
+    svg += `<text x="${x.toFixed(1)}" y="${m.top+plotH+14}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#000">${b.toFixed(1)}</text>`;
+  }
+  // Y ticks
+  for (let i = 0; i <= 4; i++) {
+    const v = intenMax * i / 4;
+    const y = ys(v);
+    svg += `<line x1="${m.left-4}" y1="${y.toFixed(1)}" x2="${m.left}" y2="${y.toFixed(1)}" stroke="#000" stroke-width="0.7"/>`;
+    svg += `<text x="${m.left-6}" y="${(y+3).toFixed(1)}" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#000">${v.toExponential(1)}</text>`;
+  }
+
+  // Axis labels
+  svg += `<text x="${m.left+plotW/2}" y="${pxH-8}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" fill="#000">Binding Energy (eV)</text>`;
+  svg += `<text x="10" y="${m.top+plotH/2}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" fill="#000" transform="rotate(-90,10,${(m.top+plotH/2).toFixed(0)})">Intensity (counts/s)</text>`;
+
+  // Peak labels
+  if (inclLabels) {
+    for (const p of state.peaks) {
+      const top = be.reduce((b, bv, i) => {
+        const v = evalPeak(bv, p) + bgIntensity[i]; return v > b.val ? { val: v, b: bv } : b;
+      }, { val: -Infinity, b: be[0] });
+      svg += `<text x="${xs(top.b).toFixed(1)}" y="${(ys(top.val)-4).toFixed(1)}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#333">${esc(p.name)}</text>`;
+    }
+  }
+
+  // Chi2
+  if (state.fitResult) {
+    svg += `<text x="${m.left+plotW-4}" y="${m.top+13}" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#666">\u03c7\u00b2\u1d63 = ${state.fitResult.chiReduced.toFixed(3)}</text>`;
+  }
+
+  // Legend
+  const items = [
+    { label: 'Data', color: '#000', dash: '' },
+    ...(state.fitResult ? [{ label: 'Fit', color: '#cc0000', dash: '' }] : []),
+    { label: 'Background', color: '#888', dash: '4,3' }
+  ];
+  let ly = m.top + 10;
+  const lx = m.left + plotW - 80;
+  for (const item of items) {
+    svg += `<line x1="${lx}" y1="${ly+4}" x2="${lx+16}" y2="${ly+4}" stroke="${item.color}" stroke-width="1.5"${item.dash?` stroke-dasharray="${item.dash}"`:''}/>`;
+    svg += `<text x="${lx+20}" y="${ly+7}" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#000">${esc(item.label)}</text>`;
+    ly += 14;
+  }
+
+  svg += '</svg>';
+  _downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), fname + '.svg');
+  notify('Figure exported as SVG', 'green');
+}
+
+function _downloadURL(url, filename) {
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+}
+
+// ═══════════════════════════════════════════════════
+// EXPORT FIT RESULTS TABLE
+// ═══════════════════════════════════════════════════
+function exportFitTable(fmt) {
+  if (!state.fitResult) { notify('Run a fit first.', 'red'); return; }
+  const { be, backendResult } = state.fitResult;
+  const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
+
+  const stderrMap = {};
+  if (backendResult && backendResult.individual_peaks) {
+    for (const ip of backendResult.individual_peaks) stderrMap[ip.id] = ip.params || {};
+  }
+
+  const areas = state.peaks.map(p => be.map(x => evalPeak(x, p)).reduce((s,v)=>s+v,0) * step);
+  const totalArea = areas.reduce((s,v)=>s+v,0);
+  const rsfVals = state.peaks.map(p => {
+    const el = document.getElementById('rsf-' + p.id);
+    return el ? (parseFloat(el.value) || 1) : 1;
+  });
+  const normAreas = areas.map((a,i) => a / rsfVals[i]);
+  const normTotal = normAreas.reduce((s,v)=>s+v,0);
+  const atPcts = normAreas.map(n => normTotal > 0 ? n/normTotal*100 : 0);
+
+  const date = new Date().toISOString().slice(0,10);
+  const bgType = document.getElementById('bg-type')?.value || '';
+  const chiStr = state.fitResult.chiReduced.toFixed(4);
+
+  const headers = ['Peak Name','Center (eV)','Center StdErr','FWHM (eV)','FWHM StdErr',
+    'Amplitude','Amplitude StdErr','Area','Line Shape','GL Ratio','Alpha','Beta','M_Gauss',
+    'RSF','Norm Area','At%'];
+
+  const rows = state.peaks.map((p,i) => {
+    const par = stderrMap[String(p.id)] || {};
+    const cse  = par.center?.stderr  ?? '';
+    const fse  = (par.fwhm?.stderr ?? par.fwhm_l?.stderr) ?? '';
+    const ase  = par.amplitude?.stderr ?? '';
+    return [
+      p.name, p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
+      p.fwhm.toFixed(4), fse !== '' ? Number(fse).toFixed(5) : '',
+      p.amplitude.toFixed(2), ase !== '' ? Number(ase).toFixed(3) : '',
+      areas[i].toFixed(2), p.shape, p.glMix ?? '', p.dsAlpha ?? p.laAlpha ?? '',
+      p.laBeta ?? '', p.laM ?? '',
+      rsfVals[i].toFixed(4), normAreas[i].toFixed(4), atPcts[i].toFixed(2)
+    ];
+  });
+
+  if (fmt === 'xlsx') {
+    const wb = XLSX.utils.book_new();
+    const metaWS = XLSX.utils.aoa_to_sheet([
+      ['XPS Fitting Studio Export'], ['Date', date],
+      ['Chi-squared reduced', chiStr], ['Background type', bgType],
+      ['Charge correction (eV)', state.ccShift.toFixed(3)], []
+    ]);
+    XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Fit Results');
+    XLSX.writeFile(wb, 'fit_results.xlsx');
+    notify('Exported XLSX table', 'green');
+  } else {
+    let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
+    csv += `# Chi-squared reduced: ${chiStr}\n# Background: ${bgType}\n`;
+    csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
+    csv += headers.join(',') + '\n';
+    csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    _downloadBlob(new Blob([csv], { type: 'text/csv' }), 'fit_results.csv');
+    notify('Exported CSV table', 'green');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// PEAK TABLE VIEW
+// ═══════════════════════════════════════════════════
+let _ptSortKey = 'id', _ptSortAsc = true;
+
+function renderPeakTable() {
+  const el = document.getElementById('peak-table-area');
+  if (!el) return;
+  if (!state.peaks.length) {
+    el.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">No peaks to display.</p>';
+    return;
+  }
+
+  let areaMap = {};
+  if (state.fitResult?.be) {
+    const { be } = state.fitResult;
+    const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
+    state.peaks.forEach(p => { areaMap[p.id] = be.map(x => evalPeak(x,p)).reduce((s,v)=>s+v,0)*step; });
+  }
+  const hasArea = Object.keys(areaMap).length > 0;
+
+  const cols = [
+    { key: 'name',      label: 'Name' },
+    { key: 'center',    label: 'Center (eV)' },
+    { key: 'fwhm',      label: 'FWHM (eV)' },
+    { key: 'amplitude', label: 'Amplitude' },
+    { key: 'shape',     label: 'Shape' },
+    ...(hasArea ? [{ key: 'area', label: 'Area' }] : [])
+  ];
+
+  let html = `<table class="peak-table-grid"><thead><tr>`;
+  for (const c of cols) {
+    const arrow = _ptSortKey === c.key ? (_ptSortAsc ? ' ▲' : ' ▼') : '';
+    html += `<th onclick="_sortPeakTable('${c.key}')">${c.label}${arrow}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  for (const p of state.peaks) {
+    const area = areaMap[p.id];
+    html += `<tr>
+      <td style="border-left:3px solid ${p.color}">
+        <span class="pt-swatch" style="background:${p.color}"></span>
+        <input type="text" value="${p.name.replace(/"/g,'&quot;')}" onchange="updatePeakParam(${p.id},'name',this.value)">
+      </td>
+      <td><input type="number" value="${p.center.toFixed(3)}" step="0.05" ${p.linked?'readonly style="opacity:0.6"':''} onchange="updatePeakParam(${p.id},'center',parseFloat(this.value))"></td>
+      <td><input type="number" value="${p.fwhm.toFixed(3)}" step="0.05" min="0.1" onchange="updatePeakParam(${p.id},'fwhm',parseFloat(this.value))"></td>
+      <td><input type="number" value="${p.amplitude.toFixed(0)}" step="100" ${p.linked?'readonly style="opacity:0.6"':''} onchange="updatePeakParam(${p.id},'amplitude',parseFloat(this.value))"></td>
+      <td style="color:var(--text2);font-size:10px">${p.shape}</td>
+      ${hasArea ? `<td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${area != null ? area.toFixed(0) : '—'}</td>` : ''}
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function _sortPeakTable(key) {
+  if (_ptSortKey === key) _ptSortAsc = !_ptSortAsc;
+  else { _ptSortKey = key; _ptSortAsc = true; }
+
+  if (key === 'area' && state.fitResult?.be) {
+    const { be } = state.fitResult;
+    const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
+    const am = {};
+    state.peaks.forEach(p => { am[p.id] = be.map(x=>evalPeak(x,p)).reduce((s,v)=>s+v,0)*step; });
+    state.peaks.sort((a,b) => _ptSortAsc ? am[a.id]-am[b.id] : am[b.id]-am[a.id]);
+  } else {
+    state.peaks.sort((a,b) => {
+      const va = a[key] ?? 0, vb = b[key] ?? 0;
+      const cmp = typeof va === 'string' ? va.localeCompare(String(vb)) : va - vb;
+      return _ptSortAsc ? cmp : -cmp;
+    });
+  }
+  renderPeakTable();
+}
+
+// ═══════════════════════════════════════════════════
+// SMOOTHING & DERIVATIVES
+// ═══════════════════════════════════════════════════
+function savitzkyGolay(data, windowSize, polyOrder) {
+  let ws = windowSize % 2 === 0 ? windowSize + 1 : windowSize;
+  const half = Math.floor(ws / 2);
+  const n = data.length;
+  const out = new Array(n);
+  const deg = polyOrder;
+
+  for (let i = 0; i < n; i++) {
+    const wStart = Math.max(0, i - half);
+    const wEnd   = Math.min(n - 1, i + half);
+    const xs = [], ys = [];
+    for (let j = wStart; j <= wEnd; j++) { xs.push(j - i); ys.push(data[j]); }
+    if (xs.length < deg + 1) { out[i] = data[i]; continue; }
+
+    // Build normal equations
+    const AtA = Array.from({length: deg+1}, () => new Array(deg+1).fill(0));
+    const Aty = new Array(deg+1).fill(0);
+    for (let r = 0; r <= deg; r++) {
+      for (let c = 0; c <= deg; c++) {
+        for (let j = 0; j < xs.length; j++) AtA[r][c] += Math.pow(xs[j],r) * Math.pow(xs[j],c);
+      }
+      for (let j = 0; j < xs.length; j++) Aty[r] += Math.pow(xs[j],r) * ys[j];
+    }
+    const coeffs = solveLinear(AtA, Aty, deg + 1);
+    out[i] = coeffs ? coeffs[0] : data[i]; // Evaluate at x=0
+  }
+  return out;
+}
+
+function numericalDerivative(be, intensity, order) {
+  if (order === 2) return numericalDerivative(be, numericalDerivative(be, intensity, 1), 1);
+  const n = intensity.length;
+  const d = new Array(n).fill(0);
+  for (let i = 1; i < n - 1; i++) {
+    const dx = be[i+1] - be[i-1];
+    if (Math.abs(dx) > 1e-10) d[i] = (intensity[i+1] - intensity[i-1]) / dx;
+  }
+  d[0] = d[1]; d[n-1] = d[n-2];
+  return d;
+}
+
+// ═══════════════════════════════════════════════════
+// UNCERTAINTY VALIDATION
+// ═══════════════════════════════════════════════════
+function _validateUncertainties() {
+  if (!state.fitResult?.backendResult?.individual_peaks) return [];
+  const warnings = [];
+  for (const ip of state.fitResult.backendResult.individual_peaks) {
+    const p = getPeak(ip.id);
+    if (!p) continue;
+    for (const [pName, pData] of Object.entries(ip.params || {})) {
+      if (['center','fwhm','fwhm_l','amplitude','glMix'].includes(pName)) {
+        const val = pData.value;
+        const se  = pData.stderr;
+        if (se === null || se === undefined) {
+          warnings.push(`<li><b>${p.name} / ${pName}:</b> stderr=null — may be at bound or ill-conditioned. Try widening bounds or locking.</li>`);
+        } else if (se === 0) {
+          warnings.push(`<li><b>${p.name} / ${pName}:</b> stderr=0 — hit a bound. Try widening bounds.</li>`);
+        } else if (Math.abs(val) > 1e-10 && se / Math.abs(val) > 0.5) {
+          warnings.push(`<li><b>${p.name} / ${pName}:</b> stderr > 50% of value — poorly constrained. Consider locking or adding constraints.</li>`);
+        }
+      }
+    }
+  }
+  return warnings;
+}
+
+// ═══════════════════════════════════════════════════
+// SHORTCUTS MODAL
+// ═══════════════════════════════════════════════════
+function showShortcutsModal() {
+  document.getElementById('shortcuts-modal-overlay').classList.add('open');
+}
+
+// ═══════════════════════════════════════════════════
 // UI UTILITIES
 // ═══════════════════════════════════════════════════
 function toggleSection(head) {
@@ -4491,6 +5364,7 @@ function switchTab(el, name) {
   document.getElementById('tab-' + name).classList.add('active');
 
   if (name === 'results' || name === 'quantify') renderResults();
+  if (name === 'table') renderPeakTable();
   if (name === 'survey' && typeof tabManager !== 'undefined') tabManager._showSurveyInMain();
 }
 
@@ -4609,7 +5483,7 @@ function toggleTheme() {
 window.addEventListener('beforeunload', function(e) {
   if (state.rawBE && state.rawBE.length > 0) {
     e.preventDefault();
-    e.returnValue = '';
+    e.returnValue = 'All loaded data and fit results will be lost if you leave this page.';
   }
 });
 
@@ -4619,6 +5493,55 @@ renderEmptyChart();
 document.getElementById('mainChart').addEventListener('click', handleChartClick);
 
 </script>
+
+<!-- Export Figure Modal -->
+<div id="export-figure-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal">
+    <h3>Export Publication Figure <button class="btn btn-sm" onclick="document.getElementById('export-figure-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
+    <label>Filename</label>
+    <input type="text" id="expfig-fname" value="xps_spectrum">
+    <label>Format</label>
+    <select id="expfig-format">
+      <option value="png">PNG (raster, high-DPI)</option>
+      <option value="svg">SVG (vector)</option>
+    </select>
+    <div class="row2">
+      <div><label>Width (inches)</label><input type="number" id="expfig-width" value="6" step="0.5" min="2" max="20"></div>
+      <div><label>Height (inches)</label><input type="number" id="expfig-height" value="4" step="0.5" min="2" max="20"></div>
+    </div>
+    <label>DPI (PNG only)</label>
+    <input type="number" id="expfig-dpi" value="300" step="50" min="72" max="600">
+    <label class="chk-row"><input type="checkbox" id="expfig-residuals" checked> Include residuals panel</label>
+    <label class="chk-row"><input type="checkbox" id="expfig-peaklabels" checked> Include peak labels</label>
+    <div class="dialog-btns">
+      <button class="btn" onclick="document.getElementById('export-figure-modal-overlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-accent" onclick="_doExportFigure()">Export</button>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard Shortcuts Modal -->
+<div id="shortcuts-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal" style="max-width:400px">
+    <h3>Keyboard Shortcuts <button class="btn btn-sm" onclick="document.getElementById('shortcuts-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
+    <div class="section-label">Fit</div>
+    <div class="shortcut-row"><span class="shortcut-key">Ctrl+F</span><span class="shortcut-desc">Run Fit</span></div>
+    <div class="section-label">Undo / Redo</div>
+    <div class="shortcut-row"><span class="shortcut-key">Ctrl+Z</span><span class="shortcut-desc">Undo</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">Ctrl+Shift+Z</span><span class="shortcut-desc">Redo</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">Ctrl+Y</span><span class="shortcut-desc">Redo (alternate)</span></div>
+    <div class="section-label">Save</div>
+    <div class="shortcut-row"><span class="shortcut-key">Ctrl+S</span><span class="shortcut-desc">Save Fit</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">Ctrl+Shift+S</span><span class="shortcut-desc">Save Spectrum</span></div>
+    <div class="section-label">Peaks</div>
+    <div class="shortcut-row"><span class="shortcut-key">+</span><span class="shortcut-desc">Enter add-peak placement mode</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">M</span><span class="shortcut-desc">Add multiplet pair</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">Del / Backspace</span><span class="shortcut-desc">Remove expanded peak</span></div>
+    <div class="section-label">General</div>
+    <div class="shortcut-row"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Cancel / close modal</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">?</span><span class="shortcut-desc">Show this help</span></div>
+  </div>
+</div>
 
 <div id="project-dialog-overlay" onclick="if(event.target===this)closeSaveDialog()">
   <div id="project-dialog">
@@ -4640,6 +5563,7 @@ document.getElementById('mainChart').addEventListener('click', handleChartClick)
     </div>
   </div>
 </div>
+<button id="theme-toggle" title="Toggle light/dark mode" onclick="toggleTheme()">🌙</button>
 <div id="prominent-toast" onclick="dismissToast()"><div id="prominent-toast-inner"></div></div>
 
 <!-- Multiplet preset selection modal -->
