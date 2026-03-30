@@ -4291,8 +4291,8 @@ function updatePlot() {
   const overlayPlugin = {
     id: 'xpsOverlays',
     afterDraw(chart) {
-      if (typeof _drawNistMarkers === 'function') _drawNistMarkers(chart);
-      if (typeof _drawHistoryPreview === 'function') _drawHistoryPreview(chart);
+      _drawNistMarkers(chart);
+      _drawHistoryPreview(chart);
     }
   };
 
@@ -5785,7 +5785,7 @@ async function runPropagation() {
   // Return to source tab
   tabManager.activateTab(sourceId);
 
-  prog.textContent = `Done. Propagated to ${results.length} spectrum${results.length !== 1 ? 'a' : ''}.`;
+  prog.textContent = `Done. Propagated to ${results.length} ${results.length !== 1 ? 'spectra' : 'spectrum'}.`;
   summary.innerHTML = results.map(r =>
     `<div class="prop-row">${r.name}: &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'}</div>`
   ).join('');
@@ -6017,7 +6017,12 @@ function takeSnapshot() {
     label,
     timestamp: new Date().toLocaleTimeString(),
     peaks: JSON.parse(JSON.stringify(state.peaks)),
-    fitResult: state.fitResult ? { ...state.fitResult, be: [...(state.fitResult.be || [])], bgSubtracted: [...(state.fitResult.bgSubtracted || [])], fittedY: state.fitResult.fittedY ? [...state.fitResult.fittedY] : null } : null,
+    fitResult: state.fitResult ? {
+      ...state.fitResult,
+      be: [...(state.fitResult.be || [])],
+      bgSubtracted: [...(state.fitResult.bgSubtracted || [])],
+      fittedY: state.fitResult.fittedY ? [...state.fitResult.fittedY] : null,
+    } : null,
     chi,
   };
 
@@ -6047,7 +6052,7 @@ function _renderHistoryList() {
 
   info.textContent = `${snaps.length} snapshot${snaps.length !== 1 ? 's' : ''} for "${tab.name}"`;
 
-  list.innerHTML = snaps.map((s, i) => `
+  list.innerHTML = snaps.map(s => `
     <div class="hist-row" id="hist-row-${s.id}">
       <div class="hist-row-main">
         <div class="hist-row-label">${_escHtml(s.label)}</div>
@@ -6132,45 +6137,32 @@ function _drawHistoryPreview(chart) {
   const isLight = document.body.classList.contains('light-theme');
   const previewColor = isLight ? 'rgba(234,88,12,0.85)' : 'rgba(251,146,60,0.9)';
 
-  // Draw preview fitted curve in orange
+  // Resolve BE and background arrays: prefer stored fit data, fall back to live ROI
+  let bePts, bgArr;
   if (fitResult && fitResult.be && fitResult.be.length && fitResult.bgSubtracted) {
-    const bePts = fitResult.be;
-    const bg = fitResult.bgSubtracted;
-    const allPeakY = evalAllPeaks(bePts, peaks);
-    ctx.save();
-    ctx.setLineDash([6, 3]);
-    ctx.strokeStyle = previewColor;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    let started = false;
-    for (let i = 0; i < bePts.length; i++) {
-      const x = xScale.getPixelForValue(bePts[i]);
-      const y = yScale.getPixelForValue(bg[i] + allPeakY[i]);
-      if (x < xScale.left || x > xScale.right) { started = false; continue; }
-      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.restore();
+    bePts = fitResult.be;
+    bgArr = fitResult.bgSubtracted;
   } else {
-    // No fit data — just draw peak envelopes on current BG
     const { be, inten } = getROIData();
-    const bgI = computeBackground(be, inten);
-    const allPeakY = evalAllPeaks(be, peaks);
-    ctx.save();
-    ctx.setLineDash([6, 3]);
-    ctx.strokeStyle = previewColor;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    let started = false;
-    for (let i = 0; i < be.length; i++) {
-      const x = xScale.getPixelForValue(be[i]);
-      const y = yScale.getPixelForValue(bgI[i] + allPeakY[i]);
-      if (x < xScale.left || x > xScale.right) { started = false; continue; }
-      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.restore();
+    bePts = be;
+    bgArr = computeBackground(be, inten);
   }
+
+  const allPeakY = evalAllPeaks(bePts, peaks);
+  ctx.save();
+  ctx.setLineDash([6, 3]);
+  ctx.strokeStyle = previewColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < bePts.length; i++) {
+    const x = xScale.getPixelForValue(bePts[i]);
+    const y = yScale.getPixelForValue(bgArr[i] + allPeakY[i]);
+    if (x < xScale.left || x > xScale.right) { started = false; continue; }
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 </script>
