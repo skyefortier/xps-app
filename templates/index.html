@@ -970,6 +970,45 @@
   }
   #xps-tooltip.tip-above::before { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--border, #334155); }
   #xps-tooltip.tip-above::after  { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--panel2, #1e2430); }
+
+  /* ── Propagate Fit Modal ─────────────────────────────────── */
+  #propagate-tab-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; margin-bottom: 10px; }
+  .propagate-tab-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text); font-family: var(--mono); }
+  .propagate-tab-row:last-child { border-bottom: none; }
+  .propagate-tab-row input[type=checkbox] { width: auto; margin: 0; flex-shrink: 0; }
+  .propagate-tab-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  #propagate-progress { font-size: 11px; color: var(--accent); font-family: var(--mono); min-height: 16px; margin-bottom: 6px; }
+  #propagate-summary { font-size: 11px; color: var(--text2); font-family: var(--mono); max-height: 120px; overflow-y: auto; padding: 6px 8px; background: var(--bg3); border-radius: var(--radius); display: none; margin-bottom: 10px; }
+  #propagate-summary .prop-row { padding: 2px 0; border-bottom: 1px solid var(--border); }
+  #propagate-summary .prop-row:last-child { border-bottom: none; }
+
+  /* ── NIST Lookup Modal ───────────────────────────────────── */
+  #nist-results-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 0; margin-top: 8px; }
+  .nist-group-header { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); font-family: var(--mono); padding: 6px 10px 3px; background: var(--bg3); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+  .nist-result-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+  .nist-result-row:last-child { border-bottom: none; }
+  .nist-result-row:hover { background: var(--bg3); }
+  .nist-result-row .nist-state { font-size: 11px; color: var(--text); font-family: var(--mono); }
+  .nist-result-row .nist-be { font-size: 12px; color: var(--accent); font-family: var(--mono); font-weight: 600; }
+  .nist-result-row .nist-ref { font-size: 9px; color: var(--text3); }
+  .nist-marker-info { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 6px; text-align: center; }
+  #nist-active-markers { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; min-height: 0; }
+  .nist-marker-chip { display: flex; align-items: center; gap: 4px; padding: 2px 7px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px; font-size: 10px; font-family: var(--mono); color: var(--text2); }
+  .nist-marker-chip button { background: none; border: none; color: var(--text3); cursor: pointer; padding: 0; line-height: 1; font-size: 11px; }
+  .nist-marker-chip button:hover { color: var(--red, #f87171); }
+
+  /* ── Fit History Modal ───────────────────────────────────── */
+  #history-list { max-height: 320px; overflow-y: auto; }
+  .hist-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-bottom: 1px solid var(--border); font-size: 11px; font-family: var(--mono); }
+  .hist-row:last-child { border-bottom: none; }
+  .hist-row:hover { background: var(--bg3); }
+  .hist-row-main { flex: 1; min-width: 0; }
+  .hist-row-label { color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hist-row-meta { color: var(--text3); font-size: 10px; margin-top: 1px; }
+  .hist-row-chi { color: var(--accent); font-weight: 600; margin-right: 4px; }
+  .hist-row-btns { display: flex; gap: 4px; flex-shrink: 0; }
+  .hist-preview-active { background: rgba(var(--accent-rgb, 99,102,241), 0.08); }
+  #history-compare-info { font-size: 10px; color: var(--text3); font-family: var(--mono); padding: 4px 8px; min-height: 18px; }
 </style>
 </head>
 <body>
@@ -991,6 +1030,10 @@
         </select>
       </div>
       <button class="btn btn-green" onclick="runFit()">Run Fit</button>
+      <button class="btn" onclick="showPropagateModal()" title="Propagate fit model to other spectra">Propagate</button>
+      <button class="btn" onclick="takeSnapshot()" title="Save a snapshot of the current fit for comparison">Snapshot</button>
+      <button class="btn" onclick="showHistoryModal()" title="View and restore fit history">History</button>
+      <button class="btn" onclick="showNistModal()" title="NIST XPS chemical state reference lookup">Lookup</button>
       <div class="save-dropdown" id="save-dropdown">
         <button class="btn" onclick="toggleSaveMenu()">Save &#9662;</button>
         <div class="save-dropdown-menu">
@@ -4244,11 +4287,20 @@ function updatePlot() {
     }
   };
 
+  // Plugin: draw NIST markers and history preview overlays
+  const overlayPlugin = {
+    id: 'xpsOverlays',
+    afterDraw(chart) {
+      if (typeof _drawNistMarkers === 'function') _drawNistMarkers(chart);
+      if (typeof _drawHistoryPreview === 'function') _drawHistoryPreview(chart);
+    }
+  };
+
   const ctx = document.getElementById('mainChart').getContext('2d');
   state.chart = new Chart(ctx, {
     type: 'line',
     data: { datasets },
-    plugins: [surveyLabelPlugin, pinYRangePlugin],
+    plugins: [surveyLabelPlugin, pinYRangePlugin, overlayPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -5612,6 +5664,515 @@ document.getElementById('mainChart').addEventListener('click', handleChartClick)
   });
 })();
 
+// ══════════════════════════════════════════════════════════════
+// FEATURE 1: BATCH PROCESSING — PROPAGATE FIT MODEL
+// ══════════════════════════════════════════════════════════════
+
+function showPropagateModal() {
+  if (!tabManager.activeId) { notify('No active tab.', 'amber'); return; }
+  const sourceTab = tabManager._getTab(tabManager.activeId);
+  if (!sourceTab || !sourceTab.peaks || !sourceTab.peaks.length) {
+    notify('No peaks defined on this tab.', 'amber'); return;
+  }
+
+  const list = document.getElementById('propagate-tab-list');
+  const prog = document.getElementById('propagate-progress');
+  const summary = document.getElementById('propagate-summary');
+  prog.textContent = '';
+  summary.style.display = 'none';
+  summary.innerHTML = '';
+
+  const otherTabs = tabManager.tabs.filter(t => t.id !== tabManager.activeId && !t.isSurvey);
+  if (!otherTabs.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:8px;font-family:var(--mono)">No other spectra tabs open.</div>';
+  } else {
+    list.innerHTML = otherTabs.map(t => `
+      <label class="propagate-tab-row">
+        <input type="checkbox" class="prop-chk" data-id="${t.id}" checked>
+        <span class="propagate-tab-swatch" style="background:${t.color}"></span>
+        <span>${t.name}</span>
+      </label>`).join('');
+  }
+
+  document.getElementById('propagate-run-btn').disabled = false;
+  document.getElementById('propagate-modal-overlay').classList.add('open');
+}
+
+function _propagateSelectAll(checked) {
+  document.querySelectorAll('.prop-chk').forEach(c => c.checked = checked);
+}
+
+async function runPropagation() {
+  const sourceId = tabManager.activeId;
+  const sourceTab = tabManager._getTab(sourceId);
+  if (!sourceTab) return;
+
+  // Sync source state to record before we leave it
+  tabManager._syncActiveToRecord();
+
+  const checkedIds = Array.from(document.querySelectorAll('.prop-chk:checked')).map(c => c.dataset.id);
+  if (!checkedIds.length) { notify('No tabs selected.', 'amber'); return; }
+
+  const btn = document.getElementById('propagate-run-btn');
+  btn.disabled = true;
+  const prog = document.getElementById('propagate-progress');
+  const summary = document.getElementById('propagate-summary');
+  summary.style.display = 'none';
+  summary.innerHTML = '';
+
+  // Compute source amplitude scale reference (max raw intensity in ROI)
+  const srcMaxInten = Math.max(...sourceTab.rawIntensity);
+
+  const results = [];
+
+  for (let i = 0; i < checkedIds.length; i++) {
+    const tid = checkedIds[i];
+    const tgt = tabManager._getTab(tid);
+    if (!tgt) continue;
+
+    prog.textContent = `Fitting spectrum ${i + 1}/${checkedIds.length}: ${tgt.name}…`;
+
+    // Scale factor based on max intensity ratio
+    const tgtMaxInten = Math.max(...tgt.rawIntensity);
+    const scale = srcMaxInten > 0 ? tgtMaxInten / srcMaxInten : 1;
+
+    // Deep-clone source peaks, scaled
+    const clonedPeaks = sourceTab.peaks.map(p => ({
+      ...p,
+      amplitude: p.linked ? p.amplitude : p.amplitude * scale
+    }));
+
+    // Copy peak nextId
+    const nextId = Math.max(0, ...clonedPeaks.map(p => p.id)) + 1;
+
+    // Copy background and CC UI settings from source
+    const srcUi = sourceTab.ui;
+    const newUi = {
+      ...tgt.ui,
+      bgType: srcUi.bgType,
+      bgStart: srcUi.bgStart !== '' ? srcUi.bgStart : tgt.ui.bgStart,
+      bgEnd: srcUi.bgEnd !== '' ? srcUi.bgEnd : tgt.ui.bgEnd,
+      shirleyIter: srcUi.shirleyIter,
+    };
+
+    // Apply to target tab record (without switching UI)
+    tgt.peaks = clonedPeaks;
+    tgt.nextId = nextId;
+    tgt.ui = newUi;
+    tgt.ccShift = sourceTab.ccShift;
+
+    // Now activate this tab so state is populated
+    tabManager.activateTab(tid);
+
+    // Small yield so progress message renders
+    await new Promise(r => setTimeout(r, 20));
+
+    // Run local fit
+    const { be, inten } = getROIData();
+    const bgI = computeBackground(be, inten);
+    const bgSub = inten.map((v, idx) => v - bgI[idx]);
+    runFitLocal(be, bgSub);
+
+    // Sync result back to record
+    tabManager._syncActiveToRecord();
+
+    const chi = state.fitResult ? state.fitResult.chiReduced : null;
+    results.push({ name: tgt.name, chi });
+
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  // Return to source tab
+  tabManager.activateTab(sourceId);
+
+  prog.textContent = `Done. Propagated to ${results.length} spectrum${results.length !== 1 ? 'a' : ''}.`;
+  summary.innerHTML = results.map(r =>
+    `<div class="prop-row">${r.name}: &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'}</div>`
+  ).join('');
+  summary.style.display = 'block';
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════
+// FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
+// ══════════════════════════════════════════════════════════════
+
+const CHEMICAL_STATES = {
+  'C 1s': [
+    { state: 'Graphite/C-C', be: 284.5, ref: 'Moulder 1992' },
+    { state: 'Adventitious C-C/C-H', be: 284.8, ref: 'ISO 19318' },
+    { state: 'C-O (alcohol/ether)', be: 286.3, ref: 'Beamson 1992' },
+    { state: 'C=O (carbonyl)', be: 287.8, ref: 'Beamson 1992' },
+    { state: 'O-C=O (carboxyl)', be: 288.8, ref: 'Beamson 1992' },
+    { state: '\u03c0\u2192\u03c0* shake-up', be: 290.5, ref: 'Moulder 1992' },
+    { state: 'CO\u2083 (carbonate)', be: 289.5, ref: 'Moulder 1992' },
+    { state: 'CF\u2082 (PTFE)', be: 292.0, ref: 'Beamson 1992' },
+    { state: 'CF\u2083', be: 293.5, ref: 'Beamson 1992' },
+  ],
+  'O 1s': [
+    { state: 'Metal oxide (M-O)', be: 530.0, ref: 'Moulder 1992' },
+    { state: 'Hydroxide (M-OH)', be: 531.5, ref: 'Moulder 1992' },
+    { state: 'Adsorbed H\u2082O', be: 533.0, ref: 'Moulder 1992' },
+    { state: 'SiO\u2082', be: 532.9, ref: 'Moulder 1992' },
+    { state: 'Organic C-O', be: 532.5, ref: 'Beamson 1992' },
+    { state: 'Organic C=O', be: 531.8, ref: 'Beamson 1992' },
+  ],
+  'N 1s': [
+    { state: 'Metal nitride', be: 397.0, ref: 'Moulder 1992' },
+    { state: 'Amine (NH\u2082)', be: 399.5, ref: 'Moulder 1992' },
+    { state: 'Amide (N-C=O)', be: 400.0, ref: 'Beamson 1992' },
+    { state: 'NH\u2084\u207a / protonated amine', be: 401.5, ref: 'Moulder 1992' },
+    { state: 'NO\u2083 (nitrate)', be: 407.0, ref: 'Moulder 1992' },
+  ],
+  'Si 2p': [
+    { state: 'Si metal', be: 99.3, ref: 'Moulder 1992' },
+    { state: 'SiO\u2082', be: 103.3, ref: 'Moulder 1992' },
+    { state: 'Si\u2083N\u2084', be: 101.8, ref: 'Moulder 1992' },
+    { state: 'SiC', be: 100.4, ref: 'Moulder 1992' },
+  ],
+  'Fe 2p3/2': [
+    { state: 'Fe metal', be: 707.0, ref: 'Biesinger 2011' },
+    { state: 'FeO (Fe\u00b2\u207a)', be: 709.5, ref: 'Biesinger 2011' },
+    { state: 'Fe\u2082O\u2083 (Fe\u00b3\u207a)', be: 710.7, ref: 'Biesinger 2011' },
+    { state: 'FeOOH', be: 711.3, ref: 'Biesinger 2011' },
+    { state: 'FeSO\u2084', be: 712.0, ref: 'Moulder 1992' },
+  ],
+  'Cu 2p3/2': [
+    { state: 'Cu metal', be: 932.6, ref: 'Biesinger 2017' },
+    { state: 'Cu\u2082O (Cu\u207a)', be: 932.4, ref: 'Biesinger 2017' },
+    { state: 'CuO (Cu\u00b2\u207a)', be: 933.6, ref: 'Biesinger 2017' },
+    { state: 'Cu(OH)\u2082', be: 934.5, ref: 'Biesinger 2017' },
+  ],
+  'Ti 2p3/2': [
+    { state: 'Ti metal', be: 454.0, ref: 'Moulder 1992' },
+    { state: 'TiO\u2082 (Ti\u2074\u207a)', be: 458.8, ref: 'Moulder 1992' },
+    { state: 'Ti\u2082O\u2083 (Ti\u00b3\u207a)', be: 457.1, ref: 'Moulder 1992' },
+    { state: 'TiN', be: 455.8, ref: 'Moulder 1992' },
+  ],
+  'U 4f7/2': [
+    { state: 'U metal', be: 377.3, ref: 'Moulder 1992' },
+    { state: 'UO\u2082 (U\u2074\u207a)', be: 380.0, ref: 'Ilton 2007' },
+    { state: 'U\u2083O\u2088 (mixed)', be: 380.8, ref: 'Ilton 2007' },
+    { state: 'UO\u2083 (U\u2076\u207a)', be: 381.5, ref: 'Ilton 2007' },
+    { state: 'UCl\u2084', be: 380.2, ref: 'Fortier 2026' },
+  ],
+  'Cl 2p3/2': [
+    { state: 'Organic Cl (C-Cl)', be: 200.3, ref: 'Moulder 1992' },
+    { state: 'Metal chloride', be: 198.5, ref: 'Moulder 1992' },
+    { state: 'ClO\u2084\u207b (perchlorate)', be: 207.5, ref: 'Moulder 1992' },
+  ],
+  'Au 4f7/2': [
+    { state: 'Au metal', be: 84.0, ref: 'Moulder 1992' },
+    { state: 'Au\u2082O\u2083 (Au\u00b3\u207a)', be: 85.8, ref: 'Moulder 1992' },
+    { state: 'AuCl\u2083', be: 86.5, ref: 'Moulder 1992' },
+  ],
+  'S 2p3/2': [
+    { state: 'Thiol (S-H)', be: 163.0, ref: 'Moulder 1992' },
+    { state: 'Sulfide (S\u00b2\u207b)', be: 161.5, ref: 'Moulder 1992' },
+    { state: 'Sulfate (SO\u2084\u00b2\u207b)', be: 169.0, ref: 'Moulder 1992' },
+    { state: 'Sulfite (SO\u2083\u00b2\u207b)', be: 166.5, ref: 'Moulder 1992' },
+  ],
+};
+
+// Active NIST markers: array of { orbital, state, be, id }
+const _nistMarkers = [];
+let _nistMarkerNextId = 1;
+
+function showNistModal() {
+  _nistRenderResults('');
+  _nistRenderMarkerChips();
+  const inp = document.getElementById('nist-search-input');
+  inp.value = '';
+  document.getElementById('nist-modal-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 80);
+}
+
+function _nistFilter(query) {
+  _nistRenderResults(query.trim().toLowerCase());
+}
+
+function _nistRenderResults(q) {
+  const container = document.getElementById('nist-results-list');
+  const beQuery = parseFloat(q);
+  const isBeQuery = !isNaN(beQuery) && q !== '';
+
+  const groups = [];
+  for (const [orbital, states] of Object.entries(CHEMICAL_STATES)) {
+    const orbLower = orbital.toLowerCase();
+    const filtered = states.filter(s => {
+      if (!q) return true;
+      if (isBeQuery) return Math.abs(s.be - beQuery) <= 5;
+      return orbLower.includes(q) || s.state.toLowerCase().includes(q) || s.ref.toLowerCase().includes(q);
+    });
+    if (filtered.length) groups.push({ orbital, states: filtered });
+  }
+
+  if (!groups.length) {
+    container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:12px 10px;font-family:var(--mono)">No results. Try element symbol, orbital, compound, or binding energy (eV).</div>';
+    return;
+  }
+
+  container.innerHTML = groups.map(g => `
+    <div class="nist-group-header">${g.orbital}</div>
+    ${g.states.map(s => `
+      <div class="nist-result-row" onclick="_nistAddMarker('${g.orbital}','${s.state.replace(/'/g,"\\'")}',${s.be})">
+        <div>
+          <div class="nist-state">${s.state}</div>
+          <div class="nist-ref">${s.ref}</div>
+        </div>
+        <div class="nist-be">${s.be.toFixed(1)} eV</div>
+      </div>`).join('')}
+  `).join('');
+}
+
+function _nistAddMarker(orbital, stateName, be) {
+  const id = _nistMarkerNextId++;
+  _nistMarkers.push({ orbital, state: stateName, be, id });
+  _nistRenderMarkerChips();
+  updatePlot();
+  notify(`Marked ${orbital} ${stateName} at ${be.toFixed(1)} eV`, 'green');
+}
+
+function _nistRemoveMarker(id) {
+  const idx = _nistMarkers.findIndex(m => m.id === id);
+  if (idx >= 0) _nistMarkers.splice(idx, 1);
+  _nistRenderMarkerChips();
+  updatePlot();
+}
+
+function _nistRenderMarkerChips() {
+  const el = document.getElementById('nist-active-markers');
+  if (!el) return;
+  el.innerHTML = _nistMarkers.map(m => `
+    <div class="nist-marker-chip">
+      <span>${m.orbital} ${m.be.toFixed(1)} eV</span>
+      <button onclick="_nistRemoveMarker(${m.id})" title="Remove marker">&#x2715;</button>
+    </div>`).join('');
+}
+
+// Called from updatePlot() to draw NIST markers on the chart
+function _drawNistMarkers(chart) {
+  if (!_nistMarkers.length || !chart) return;
+  const meta = chart.getDatasetMeta(0);
+  if (!meta || !meta.data || !meta.data.length) return;
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+  if (!xScale || !yScale) return;
+
+  const ctx = chart.ctx;
+  const top = yScale.top;
+  const bottom = yScale.bottom;
+
+  ctx.save();
+  ctx.setLineDash([4, 3]);
+  ctx.lineWidth = 1.2;
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+
+  const isLight = document.body.classList.contains('light-theme');
+  const markerColor = isLight ? 'rgba(168,85,247,0.7)' : 'rgba(192,132,252,0.8)';
+  ctx.strokeStyle = markerColor;
+  ctx.fillStyle = markerColor;
+
+  for (const m of _nistMarkers) {
+    const x = xScale.getPixelForValue(m.be);
+    if (x < xScale.left || x > xScale.right) continue;
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.stroke();
+    // Label at top
+    ctx.save();
+    ctx.translate(x, top + 12);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(m.orbital + ' ' + m.be.toFixed(1), 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════
+// FEATURE 3: VISUAL FIT HISTORY — SNAPSHOT COMPARISON
+// ══════════════════════════════════════════════════════════════
+
+const SNAPSHOT_MAX = 10;
+
+// Preview state: { peaks, fitResult } or null — drawn in orange overlay
+let _historyPreview = null;
+
+function takeSnapshot() {
+  if (!tabManager.activeId) { notify('No active tab.', 'amber'); return; }
+  if (!state.peaks.length) { notify('No peaks to snapshot.', 'amber'); return; }
+
+  tabManager._syncActiveToRecord();
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab.snapshots) tab.snapshots = [];
+
+  const chi = state.fitResult ? state.fitResult.chiReduced : null;
+  const label = `Snap ${tab.snapshots.length + 1}` +
+    (chi != null ? ` (χ²r=${chi.toFixed(2)})` : '');
+
+  const snap = {
+    id: Date.now(),
+    label,
+    timestamp: new Date().toLocaleTimeString(),
+    peaks: JSON.parse(JSON.stringify(state.peaks)),
+    fitResult: state.fitResult ? { ...state.fitResult, be: [...(state.fitResult.be || [])], bgSubtracted: [...(state.fitResult.bgSubtracted || [])], fittedY: state.fitResult.fittedY ? [...state.fitResult.fittedY] : null } : null,
+    chi,
+  };
+
+  tab.snapshots.unshift(snap);
+  if (tab.snapshots.length > SNAPSHOT_MAX) tab.snapshots.pop();
+
+  notify(`Snapshot saved: ${label}`, 'green');
+}
+
+function showHistoryModal() {
+  if (!tabManager.activeId) { notify('No active tab.', 'amber'); return; }
+  _renderHistoryList();
+  document.getElementById('history-modal-overlay').classList.add('open');
+}
+
+function _renderHistoryList() {
+  const tab = tabManager._getTab(tabManager.activeId);
+  const snaps = tab && tab.snapshots && tab.snapshots.length ? tab.snapshots : [];
+  const list = document.getElementById('history-list');
+  const info = document.getElementById('history-compare-info');
+
+  if (!snaps.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:12px 8px;font-family:var(--mono)">No snapshots yet. Click Snapshot near Run Fit to save the current fit state.</div>';
+    info.textContent = '';
+    return;
+  }
+
+  info.textContent = `${snaps.length} snapshot${snaps.length !== 1 ? 's' : ''} for "${tab.name}"`;
+
+  list.innerHTML = snaps.map((s, i) => `
+    <div class="hist-row" id="hist-row-${s.id}">
+      <div class="hist-row-main">
+        <div class="hist-row-label">${_escHtml(s.label)}</div>
+        <div class="hist-row-meta">${s.timestamp} &middot; ${s.peaks.length} peak${s.peaks.length !== 1 ? 's' : ''}${s.chi != null ? ' &middot; <span class="hist-row-chi">\u03c7\u00b2r=' + s.chi.toFixed(3) + '</span>' : ''}</div>
+      </div>
+      <div class="hist-row-btns">
+        <button class="btn btn-sm" onclick="_historyPreviewSnap(${s.id})" title="Overlay this snapshot on the chart">Preview</button>
+        <button class="btn btn-sm btn-accent" onclick="_historyRestoreSnap(${s.id})" title="Restore this snapshot">Restore</button>
+        <button class="btn btn-sm" onclick="_historyDeleteSnap(${s.id})" title="Delete this snapshot" style="color:var(--red,#f87171)">&#x2715;</button>
+      </div>
+    </div>`).join('');
+}
+
+function _escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _historyPreviewSnap(snapId) {
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab || !tab.snapshots) return;
+  const snap = tab.snapshots.find(s => s.id === snapId);
+  if (!snap) return;
+
+  if (_historyPreview && _historyPreview.snapId === snapId) {
+    // Toggle off
+    _historyClearPreview();
+    return;
+  }
+
+  _historyPreview = { snapId, peaks: snap.peaks, fitResult: snap.fitResult };
+  // Highlight active row
+  document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
+  const row = document.getElementById('hist-row-' + snapId);
+  if (row) row.classList.add('hist-preview-active');
+  updatePlot();
+}
+
+function _historyClearPreview() {
+  _historyPreview = null;
+  document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
+  updatePlot();
+}
+
+function _historyRestoreSnap(snapId) {
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab || !tab.snapshots) return;
+  const snap = tab.snapshots.find(s => s.id === snapId);
+  if (!snap) return;
+
+  pushUndo();
+  state.peaks = JSON.parse(JSON.stringify(snap.peaks));
+  state.fitResult = snap.fitResult ? { ...snap.fitResult } : null;
+  tabManager._syncActiveToRecord();
+
+  _historyClearPreview();
+  renderPeakList();
+  updatePlot();
+  renderResults();
+  document.getElementById('history-modal-overlay').classList.remove('open');
+  notify('Snapshot restored.', 'green');
+}
+
+function _historyDeleteSnap(snapId) {
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab || !tab.snapshots) return;
+  tab.snapshots = tab.snapshots.filter(s => s.id !== snapId);
+  if (_historyPreview && _historyPreview.snapId === snapId) _historyClearPreview();
+  _renderHistoryList();
+}
+
+// Called from updatePlot() to draw snapshot preview overlay
+function _drawHistoryPreview(chart) {
+  if (!_historyPreview || !chart) return;
+  const { peaks, fitResult } = _historyPreview;
+  if (!peaks || !peaks.length) return;
+
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+  if (!xScale || !yScale) return;
+
+  const ctx = chart.ctx;
+  const isLight = document.body.classList.contains('light-theme');
+  const previewColor = isLight ? 'rgba(234,88,12,0.85)' : 'rgba(251,146,60,0.9)';
+
+  // Draw preview fitted curve in orange
+  if (fitResult && fitResult.be && fitResult.be.length && fitResult.bgSubtracted) {
+    const bePts = fitResult.be;
+    const bg = fitResult.bgSubtracted;
+    const allPeakY = evalAllPeaks(bePts, peaks);
+    ctx.save();
+    ctx.setLineDash([6, 3]);
+    ctx.strokeStyle = previewColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < bePts.length; i++) {
+      const x = xScale.getPixelForValue(bePts[i]);
+      const y = yScale.getPixelForValue(bg[i] + allPeakY[i]);
+      if (x < xScale.left || x > xScale.right) { started = false; continue; }
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    // No fit data — just draw peak envelopes on current BG
+    const { be, inten } = getROIData();
+    const bgI = computeBackground(be, inten);
+    const allPeakY = evalAllPeaks(be, peaks);
+    ctx.save();
+    ctx.setLineDash([6, 3]);
+    ctx.strokeStyle = previewColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < be.length; i++) {
+      const x = xScale.getPixelForValue(be[i]);
+      const y = yScale.getPixelForValue(bgI[i] + allPeakY[i]);
+      if (x < xScale.left || x > xScale.right) { started = false; continue; }
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 </script>
 
 
@@ -5675,6 +6236,50 @@ document.getElementById('mainChart').addEventListener('click', handleChartClick)
 </div>
 <button id="theme-toggle" title="Toggle light/dark mode" onclick="toggleTheme()">🌙</button>
 <div id="prominent-toast" onclick="dismissToast()"><div id="prominent-toast-inner"></div></div>
+
+<!-- Propagate Fit Modal -->
+<div id="propagate-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal" style="max-width:480px">
+    <h3>Propagate Fit Model <button class="btn btn-sm" onclick="document.getElementById('propagate-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
+    <p style="font-size:11px;color:var(--text2);margin:0 0 10px">Apply the current tab's peak model to other spectra. Peak positions, shapes, and relative ratios are preserved; amplitudes are scaled to match each spectrum's intensity range.</p>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btn-sm" onclick="_propagateSelectAll(true)">Select All</button>
+      <button class="btn btn-sm" onclick="_propagateSelectAll(false)">Deselect All</button>
+    </div>
+    <div id="propagate-tab-list"></div>
+    <div id="propagate-progress"></div>
+    <div id="propagate-summary"></div>
+    <div class="dialog-btns">
+      <button class="btn" onclick="document.getElementById('propagate-modal-overlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-accent" id="propagate-run-btn" onclick="runPropagation()">Propagate &amp; Fit</button>
+    </div>
+  </div>
+</div>
+
+<!-- NIST XPS Lookup Modal -->
+<div id="nist-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal" style="max-width:500px">
+    <h3>NIST XPS Chemical State Reference <button class="btn btn-sm" onclick="document.getElementById('nist-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
+    <input type="text" id="nist-search-input" placeholder="Search element, orbital, compound, or BE (e.g. Fe, 2p, UO2, 707)" oninput="_nistFilter(this.value)" autocomplete="off" style="margin-bottom:6px">
+    <div id="nist-active-markers"></div>
+    <div id="nist-results-list"></div>
+    <p class="nist-marker-info">Click a result to mark that binding energy on the active spectrum.</p>
+  </div>
+</div>
+
+<!-- Fit History Modal -->
+<div id="history-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal" style="max-width:500px">
+    <h3>Fit History <button class="btn btn-sm" onclick="document.getElementById('history-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
+    <p style="font-size:11px;color:var(--text2);margin:0 0 10px">Snapshots are stored per tab (max 10). Click Preview to overlay a snapshot on the chart in orange. Restore reverts to that state.</p>
+    <div id="history-compare-info"></div>
+    <div id="history-list"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-sm" onclick="_historyClearPreview()">Clear Preview</button>
+      <button class="btn btn-sm" onclick="document.getElementById('history-modal-overlay').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- Multiplet preset selection modal -->
 <div id="multiplet-modal-overlay" onclick="if(event.target===this)_closeMultipletModal()">
