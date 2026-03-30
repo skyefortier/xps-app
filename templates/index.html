@@ -4967,6 +4967,9 @@ function _exportFigurePNG(fname, wIn, hIn, dpi, inclResid, inclLabels) {
     plugins: [whiteBgPlugin, labelPlugin, chi2Plugin]
   });
 
+  // Build the canvas to export (main only, or composite with residuals)
+  let exportCanvas = mainCanvas;
+
   if (inclResid && residuals) {
     const residCanvas = document.createElement('canvas');
     residCanvas.width  = pxW;
@@ -4996,7 +4999,7 @@ function _exportFigurePNG(fname, wIn, hIn, dpi, inclResid, inclLabels) {
       plugins: [whiteBgPlugin]
     });
 
-    // Composite both canvases
+    // Composite both canvases into one before destroying either chart
     const gap = Math.round(pxH * 0.06);
     const combined = document.createElement('canvas');
     combined.width  = pxW;
@@ -5006,14 +5009,22 @@ function _exportFigurePNG(fname, wIn, hIn, dpi, inclResid, inclLabels) {
     ctx2.fillRect(0, 0, combined.width, combined.height);
     ctx2.drawImage(mainCanvas, 0, 0);
     ctx2.drawImage(residCanvas, 0, mainCanvas.height + gap);
+    exportCanvas = combined;
 
-    pubChart.destroy();
     residChart2.destroy();
-    combined.toBlob(blob => _downloadBlob(blob, fname + '.png'), 'image/png');
-  } else {
-    pubChart.destroy();
-    mainCanvas.toBlob(blob => _downloadBlob(blob, fname + '.png'), 'image/png');
   }
+
+  // Capture image synchronously BEFORE destroying pubChart (destroy clears the canvas).
+  // toDataURL is synchronous and keeps us in the original user-gesture context so that
+  // the programmatic a.click() download is not blocked by the browser.
+  const dataUrl = exportCanvas.toDataURL('image/png');
+  pubChart.destroy();
+
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = fname + '.png';
+  a.click();
+
   notify('Figure exported as PNG', 'green');
 }
 
