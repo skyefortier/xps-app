@@ -17,7 +17,8 @@
       "Bash(for id:*)",
       "Bash(do echo:*)",
       "Bash(grep -c \"$id\" /home/skye/xps-app/templates/index.html)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(node --check /tmp/check_js.js)"
     ]
   }
 }
