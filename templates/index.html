@@ -575,18 +575,44 @@
   }
 
   /* ── Spectrum tab bar ───────────────────────────────────── */
-  #spectrum-tab-bar {
+  #tab-bar-wrap {
     display: flex;
     align-items: stretch;
-    overflow-x: auto;
-    scrollbar-width: none;
     background: var(--bg2);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     min-height: 0;
   }
-  #spectrum-tab-bar:empty { display: none; }
+  #tab-bar-wrap:not(:has(.sp-tab)) { display: none; }
+  #spectrum-tab-bar {
+    display: flex;
+    align-items: stretch;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex: 1;
+    min-width: 0;
+  }
   #spectrum-tab-bar::-webkit-scrollbar { display: none; }
+  .tab-scroll-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.1s, color 0.1s;
+    z-index: 1;
+  }
+  .tab-scroll-btn.visible { display: flex; }
+  #tab-scroll-left { border-right: 1px solid var(--border); }
+  #tab-scroll-right { border-left: 1px solid var(--border); }
+  .tab-scroll-btn:hover { background: var(--bg3); color: var(--text); }
   .sp-tab {
     display: flex;
     align-items: center;
@@ -1202,7 +1228,11 @@
 
     <!-- Center Panel: Chart -->
     <div id="center-panel">
-      <div id="spectrum-tab-bar"></div>
+      <div id="tab-bar-wrap">
+        <button id="tab-scroll-left" class="tab-scroll-btn" onclick="_tabScrollLeft()" title="Scroll tabs left">&#8249;</button>
+        <div id="spectrum-tab-bar"></div>
+        <button id="tab-scroll-right" class="tab-scroll-btn" onclick="_tabScrollRight()" title="Scroll tabs right">&#8250;</button>
+      </div>
       <div id="chart-toolbar">
         <button class="btn btn-sm" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)" disabled>&#8617;</button>
         <button class="btn btn-sm" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled>&#8618;</button>
@@ -1756,6 +1786,10 @@ class TabManager {
         active.ui.ccObs = data.chargeCorrection.observedBE || '';
       }
 
+      // Fit loaded from external file — CC not verified for this spectrum
+      active.chargeVerified = false;
+      this._updateCCVerifiedUI(false);
+
       // Apply background
       if (data.background) {
         active.ui.bgType = data.background.type || 'shirley';
@@ -1828,6 +1862,8 @@ class TabManager {
       });
       bar.appendChild(el);
     }
+    // Update scroll arrows after DOM settles
+    setTimeout(_updateTabScrollArrows, 0);
   }
 
   // ── Survey panel ────────────────────────────────
@@ -2151,27 +2187,8 @@ class TabManager {
       return validExt.has(ext);
     });
 
-    // Build set of base names (files WITHOUT _N suffix)
-    const baseNames = new Set();
-    const subScanRe = /^(.+?)_\d+(\.[^.]+)$/;
-    for (const f of all) {
-      if (!subScanRe.test(f.name)) {
-        baseNames.add(f.name.toLowerCase());
-      }
-    }
-
-    // Filter: skip _N files if base exists
-    const filtered = all.filter(f => {
-      const m = f.name.match(subScanRe);
-      if (m) {
-        const base = (m[1] + m[2]).toLowerCase();
-        return !baseNames.has(base);
-      }
-      return true;
-    });
-
     // Sort surveys first
-    return filtered.sort((a, b) => {
+    return all.sort((a, b) => {
       const aSurvey = /survey/i.test(a.name) ? 0 : 1;
       const bSurvey = /survey/i.test(b.name) ? 0 : 1;
       return aSurvey - bSurvey;
@@ -3263,21 +3280,24 @@ function updatePeakParam(id, key, value) {
 
   const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','dsGaussSigma','laAlpha','laBeta','laM'];
   if (syncKeys.includes(key)) {
-    const linked = state.peaks.find(q => q.linked === id);
-    if (linked) {
-      if (key === 'center') linked.center = p.center + linked.linkOffset;
-      if (key === 'amplitude') linked.amplitude = p.amplitude * linked.linkRatio;
-      if (key === 'fwhm') linked.fwhm = p.fwhm;
-      if (key === 'shape') linked.shape = p.shape;
-      if (key === 'glMix') linked.glMix = p.glMix;
-      if (key === 'asymmetry') linked.asymmetry = p.asymmetry;
-      if (key === 'dsAlpha') linked.dsAlpha = p.dsAlpha;
-      if (key === 'dsGamma') linked.dsGamma = p.dsGamma;
-      if (key === 'dsGaussSigma') linked.dsGaussSigma = p.dsGaussSigma;
-      if (key === 'laAlpha') linked.laAlpha = p.laAlpha;
-      if (key === 'laBeta') linked.laBeta = p.laBeta;
-      if (key === 'laM') linked.laM = p.laM;
-      renderPeakControls(linked);
+    // Resolve canonical parent: if p is a child, find its parent first
+    let parent = p.linked ? getPeak(p.linked) : p;
+    if (!parent) parent = p;
+
+    if (p.linked && parent) {
+      // p is a child — back-propagate changed value to parent
+      if (key === 'center') parent.center = p.center - p.linkOffset;
+      else if (key === 'amplitude') parent.amplitude = p.linkRatio ? p.amplitude / p.linkRatio : p.amplitude;
+      else parent[key] = p[key];
+      renderPeakControls(parent);
+    }
+
+    // Forward-propagate from parent to all children (including p if it is one)
+    for (const child of state.peaks.filter(q => q.linked === parent.id)) {
+      if (key === 'center') child.center = parent.center + child.linkOffset;
+      else if (key === 'amplitude') child.amplitude = parent.amplitude * child.linkRatio;
+      else child[key] = parent[key];
+      if (child.id !== id) renderPeakControls(child);
     }
   }
   updatePlot();
@@ -5616,10 +5636,38 @@ window.addEventListener('beforeunload', function(e) {
   }
 });
 
+// ── Tab bar scroll arrows ─────────────────────────────────────────────────
+function _updateTabScrollArrows() {
+  const bar = document.getElementById('spectrum-tab-bar');
+  const btnL = document.getElementById('tab-scroll-left');
+  const btnR = document.getElementById('tab-scroll-right');
+  if (!bar || !btnL || !btnR) return;
+  const overflows = bar.scrollWidth > bar.clientWidth + 1;
+  btnL.classList.toggle('visible', overflows && bar.scrollLeft > 0);
+  btnR.classList.toggle('visible', overflows && bar.scrollLeft < bar.scrollWidth - bar.clientWidth - 1);
+}
+
+function _tabScrollLeft()  { const b = document.getElementById('spectrum-tab-bar'); if (b) b.scrollBy({ left: -150, behavior: 'smooth' }); }
+function _tabScrollRight() { const b = document.getElementById('spectrum-tab-bar'); if (b) b.scrollBy({ left:  150, behavior: 'smooth' }); }
+
 // Init
 tabManager = new TabManager();
 renderEmptyChart();
 document.getElementById('mainChart').addEventListener('click', handleChartClick);
+
+// Tab bar: scroll event → update arrows; wheel → horizontal scroll
+(function () {
+  const bar = document.getElementById('spectrum-tab-bar');
+  if (!bar) return;
+  bar.addEventListener('scroll', _updateTabScrollArrows);
+  bar.addEventListener('wheel', e => {
+    if (e.deltaY !== 0) {
+      e.preventDefault();
+      bar.scrollBy({ left: e.deltaY * 1.5, behavior: 'auto' });
+    }
+  }, { passive: false });
+  new ResizeObserver(_updateTabScrollArrows).observe(bar);
+})();
 
 // ── Right-panel resize handle ─────────────────────────────────────────────
 (function () {
