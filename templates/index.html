@@ -176,6 +176,8 @@
     white-space: nowrap;
   }
   .btn:hover { background: var(--bg4); border-color: var(--accent); color: var(--accent2); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible { outline: none; }
   .btn-accent {
     background: var(--accent-dim);
     border-color: var(--accent);
@@ -238,7 +240,7 @@
     overflow: hidden;
   }
   .section-head {
-    padding: 7px 10px;
+    padding: 6px 10px;
     background: var(--bg3);
     font-size: 11px;
     font-weight: 500;
@@ -248,8 +250,9 @@
     justify-content: space-between;
     cursor: pointer;
     user-select: none;
+    transition: background 0.12s, color 0.12s;
   }
-  .section-head:hover { color: var(--text); }
+  .section-head:hover { background: var(--bg4); color: var(--text); }
   .section-body { padding: 10px; }
 
   /* Chart canvas */
@@ -588,7 +591,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px 6px 10px;
+    padding: 5px 10px 5px 9px;
     font-family: var(--mono);
     font-size: 11px;
     color: var(--text2);
@@ -1047,7 +1050,7 @@
       <button class="btn" onclick="showHistoryModal()" title="View and restore fit history">History</button>
       <button class="btn" onclick="showNistModal()" title="NIST XPS chemical state reference lookup">Lookup</button>
       <div class="save-dropdown" id="save-dropdown">
-        <button class="btn" onclick="toggleSaveMenu()">Save &#9662;</button>
+        <button class="btn" onclick="toggleSaveMenu()">Actions &#9662;</button>
         <div class="save-dropdown-menu">
           <button class="save-dropdown-item" onclick="saveFit()">Save Fit<small>Peak params only (~2 KB)</small></button>
           <button class="save-dropdown-item" onclick="saveSpectrum()">Save Spectrum<small>Data + fit curves (~50–200 KB)</small></button>
@@ -1055,11 +1058,12 @@
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
           <button class="save-dropdown-item" onclick="exportFitTable('csv')">Export Table (CSV)<small>All fit parameters</small></button>
           <button class="save-dropdown-item" onclick="exportFitTable('xlsx')">Export Table (XLSX)<small>All fit parameters</small></button>
+          <div style="height:1px;background:var(--border);margin:4px 0"></div>
+          <button class="save-dropdown-item" onclick="loadSession()">Load Fit<small>Restore saved fit params</small></button>
+          <button class="save-dropdown-item" onclick="exportResults()">Export Results<small>Peaks + areas as JSON</small></button>
+          <button class="save-dropdown-item" onclick="exportFigure()">Export Figure<small>Save chart as PNG</small></button>
         </div>
       </div>
-      <button class="btn" onclick="loadSession()">Load Fit</button>
-      <button class="btn" onclick="exportResults()">Export</button>
-      <button class="btn" onclick="exportFigure()" title="Export chart as PNG">Fig</button>
       <button class="btn btn-sm" onclick="showShortcutsModal()" title="Keyboard shortcuts" style="font-weight:bold;padding:2px 9px">?</button>
       <input type="file" id="load-session-input" accept=".json,.zip" style="display:none" onchange="handleSessionLoad(event)">
     </div>
@@ -6009,6 +6013,14 @@ function _nistRenderMarkerChips() {
       <span>${m.orbital} ${m.be.toFixed(1)} eV</span>
       <button onclick="_nistRemoveMarker(${m.id})" title="Remove marker">&#x2715;</button>
     </div>`).join('');
+  const clearBtn = document.getElementById('nist-clear-all-btn');
+  if (clearBtn) clearBtn.style.display = _nistMarkers.length ? 'inline-block' : 'none';
+}
+
+function _nistClearAll() {
+  _nistMarkers.length = 0;
+  _nistRenderMarkerChips();
+  updatePlot();
 }
 
 // Draw source file path in top-left of plot area
@@ -6031,8 +6043,6 @@ function _drawSourceLabel(chart) {
 // Called from updatePlot() to draw NIST markers on the chart
 function _drawNistMarkers(chart) {
   if (!_nistMarkers.length || !chart) return;
-  const meta = chart.getDatasetMeta(0);
-  if (!meta || !meta.data || !meta.data.length) return;
   const xScale = chart.scales.x;
   const yScale = chart.scales.y;
   if (!xScale || !yScale) return;
@@ -6040,32 +6050,54 @@ function _drawNistMarkers(chart) {
   const ctx = chart.ctx;
   const top = yScale.top;
   const bottom = yScale.bottom;
+  const isLight = document.body.classList.contains('light-theme');
+  const lineColor = isLight ? 'rgba(180,100,0,0.8)' : 'rgba(255,187,68,0.9)';
+  const textColor = isLight ? '#7c3a00' : '#ffe08a';
+  const shadowColor = isLight ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.9)';
+
+  // Collect visible markers with pixel positions
+  const visible = _nistMarkers
+    .map(m => ({ ...m, px: xScale.getPixelForValue(m.be) }))
+    .filter(m => m.px >= xScale.left && m.px <= xScale.right)
+    .sort((a, b) => a.px - b.px);
+  if (!visible.length) return;
+
+  // Greedy stagger: assign vertical level so labels don't overlap (~90px wide)
+  const LABEL_W = 90;
+  const levels = [];
+  for (const m of visible) {
+    let lv = 0;
+    while (levels[lv] !== undefined && m.px < levels[lv] + LABEL_W) lv++;
+    levels[lv] = m.px;
+    m.level = lv;
+  }
 
   ctx.save();
-  ctx.setLineDash([4, 3]);
-  ctx.lineWidth = 1.2;
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'center';
 
-  const isLight = document.body.classList.contains('light-theme');
-  const markerColor = isLight ? 'rgba(168,85,247,0.7)' : 'rgba(192,132,252,0.8)';
-  ctx.strokeStyle = markerColor;
-  ctx.fillStyle = markerColor;
-
-  for (const m of _nistMarkers) {
-    const x = xScale.getPixelForValue(m.be);
-    if (x < xScale.left || x > xScale.right) continue;
+  // Draw vertical dashed lines
+  ctx.setLineDash([5, 4]);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = lineColor;
+  for (const m of visible) {
     ctx.beginPath();
-    ctx.moveTo(x, top);
-    ctx.lineTo(x, bottom);
+    ctx.moveTo(m.px, top);
+    ctx.lineTo(m.px, bottom);
     ctx.stroke();
-    // Label at top
-    ctx.save();
-    ctx.translate(x, top + 12);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText(m.orbital + ' ' + m.be.toFixed(1), 0, 0);
-    ctx.restore();
   }
+
+  // Draw horizontal labels at top with text shadow for readability
+  ctx.setLineDash([]);
+  ctx.font = 'bold 12px "IBM Plex Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.shadowColor = shadowColor;
+  ctx.shadowBlur = 4;
+  ctx.fillStyle = textColor;
+  for (const m of visible) {
+    const label = m.orbital + ' ' + m.be.toFixed(1);
+    ctx.fillText(label, m.px + 4, top + 5 + m.level * 17);
+  }
+
   ctx.restore();
 }
 
@@ -6330,7 +6362,10 @@ function _drawHistoryPreview(chart) {
   <div class="xps-modal" style="max-width:500px">
     <h3>NIST XPS Chemical State Reference <button class="btn btn-sm" onclick="document.getElementById('nist-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
     <input type="text" id="nist-search-input" placeholder="Search element, orbital, compound, or BE (e.g. Fe, 2p, UO2, 707)" oninput="_nistFilter(this.value)" autocomplete="off" style="margin-bottom:6px">
-    <div id="nist-active-markers"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;min-height:24px;margin-bottom:4px">
+      <div id="nist-active-markers" style="display:flex;flex-wrap:wrap;gap:4px;flex:1"></div>
+      <button id="nist-clear-all-btn" class="btn btn-sm" onclick="_nistClearAll()" style="display:none;margin-left:8px;font-size:10px;padding:2px 8px;color:var(--text3)">Clear all</button>
+    </div>
     <div id="nist-results-list"></div>
     <p class="nist-marker-info">Click a result to mark that binding energy on the active spectrum.</p>
   </div>
