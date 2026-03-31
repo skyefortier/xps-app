@@ -3791,7 +3791,6 @@ function runFitLocal(be, bgSubtracted) {
 
   _hideFitSpinner();
   notify('Fit complete (local LM). \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
-  _autoSnapshot();
 }
 
 function solveLinear(A, b, n) {
@@ -6122,7 +6121,7 @@ function _renderHistoryList() {
   const info = document.getElementById('history-compare-info');
 
   if (!snaps.length) {
-    list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:12px 8px;font-family:var(--mono)">No snapshots yet. Snapshots are saved automatically after each fit.</div>';
+    list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:12px 8px;font-family:var(--mono)">No snapshots yet. Click Snapshot near Run Fit to save the current fit state.</div>';
     info.textContent = '';
     return;
   }
@@ -6340,7 +6339,7 @@ function _drawHistoryPreview(chart) {
 <div id="history-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:500px">
     <h3>Fit History <button class="btn btn-sm" onclick="document.getElementById('history-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <p style="font-size:11px;color:var(--text2);margin:0 0 10px">A snapshot is saved automatically after each fit (max 10 per tab). Preview overlays a snapshot in orange; Restore reverts to that state.</p>
+    <p style="font-size:11px;color:var(--text2);margin:0 0 10px">Snapshots are stored per tab (max 10). Click Preview to overlay a snapshot on the chart in orange. Restore reverts to that state.</p>
     <div id="history-compare-info"></div>
     <div id="history-list"></div>
     <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
