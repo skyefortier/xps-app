@@ -273,6 +273,14 @@
     padding-bottom: 8px;
   }
   #main-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+  #source-path-tip {
+    position: absolute;
+    height: 20px;
+    width: 260px;
+    background: transparent;
+    pointer-events: auto;
+    cursor: default;
+  }
 
   #resid-handle {
     height: 12px; flex-shrink: 0; cursor: ns-resize; position: relative;
@@ -776,23 +784,8 @@
   }
 
   /* ── Dark/light mode toggle ────────────────────────────── */
-  #theme-toggle {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
-    color: var(--text2);
-    cursor: pointer;
-    font-size: 15px;
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-    z-index: 50;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
-  #theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--bg4); }
+  #theme-toggle { font-size: 14px; }
+  #theme-toggle:hover { border-color: var(--accent); background: var(--bg4); }
 
   /* ── Light theme overrides ─────────────────────────────── */
   body.light-theme {
@@ -970,9 +963,9 @@
     z-index: 9999;
     max-width: 300px;
     padding: 8px 11px;
-    background: var(--panel2, #1e2430);
-    color: var(--text, #e2e8f0);
-    border: 1px solid var(--border, #334155);
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border);
     border-radius: 6px;
     font-size: 11px;
     line-height: 1.55;
@@ -988,7 +981,7 @@
     bottom: 100%;
     left: 14px;
     border: 5px solid transparent;
-    border-bottom-color: var(--border, #334155);
+    border-bottom-color: var(--border);
   }
   #xps-tooltip::after {
     content: '';
@@ -996,10 +989,10 @@
     bottom: 100%;
     left: 15px;
     border: 4px solid transparent;
-    border-bottom-color: var(--panel2, #1e2430);
+    border-bottom-color: var(--bg3);
   }
-  #xps-tooltip.tip-above::before { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--border, #334155); }
-  #xps-tooltip.tip-above::after  { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--panel2, #1e2430); }
+  #xps-tooltip.tip-above::before { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--border); }
+  #xps-tooltip.tip-above::after  { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--bg3); }
 
   /* ── Charge correction unverified indicators ────────────── */
   #cc-obs.cc-unverified { border-color: var(--red, #f87171) !important; color: var(--red, #f87171); }
@@ -1090,6 +1083,7 @@
           <button class="save-dropdown-item" onclick="exportFigure()">Export Figure<small>Save chart as PNG</small></button>
         </div>
       </div>
+      <button id="theme-toggle" class="btn btn-sm" onclick="toggleTheme()" title="Toggle light/dark mode" style="padding:2px 9px">🌙</button>
       <button class="btn btn-sm" onclick="showShortcutsModal()" title="Keyboard shortcuts" style="font-weight:bold;padding:2px 9px">?</button>
       <input type="file" id="load-session-input" accept=".json,.zip" style="display:none" onchange="handleSessionLoad(event)">
     </div>
@@ -1110,7 +1104,7 @@
           <p><strong>Click</strong> or drag &middot; file or folder</p>
           <p>.csv &middot; .txt &middot; .xlsx &middot; .vgd</p>
         </div>
-        <input type="file" id="fileInput" style="display:none" accept=".csv,.txt,.xlsx,.xls,.vgd" onchange="loadFile(this.files[0])">
+        <input type="file" id="fileInput" style="display:none" accept=".csv,.txt,.xlsx,.xls,.vgd" multiple onchange="Array.from(this.files).forEach(f => loadFile(f)); this.value='';">
         <button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="document.getElementById('folderInput').click()">&#128193; Load Folder</button>
         <input type="file" id="folderInput" style="display:none" webkitdirectory onchange="tabManager.loadFolder(this.files); this.value='';">
         <div id="folder-progress"></div>
@@ -1267,7 +1261,7 @@
           <div class="fit-spinner"></div>
           <div class="fit-spinner-label" id="fit-spinner-label">Fitting<span class="ellipsis"></span></div>
         </div>
-        <div id="main-chart-wrap"><canvas id="mainChart"></canvas></div>
+        <div id="main-chart-wrap"><canvas id="mainChart"></canvas><div id="source-path-tip"></div></div>
         <div id="resid-handle" class="hidden"></div>
         <div id="resid-wrap" class="hidden"><canvas id="residChart"></canvas></div>
       </div>
@@ -2111,7 +2105,7 @@ class TabManager {
     if (!t) return;
     // Re-capture peaks reference in case removePeak/clearAllPeaks replaced the array
     t.peaks = state.peaks;
-    t.ccShift = state.ccShift;
+    t.ccShift = isNaN(state.ccShift) ? 0 : state.ccShift;
     t.nextId = state.nextId;
     t.fitResult = state.fitResult;
     t.ui = this._captureUI();
@@ -2612,15 +2606,15 @@ function parseVGD(buffer) {
   return { be, inten };
 }
 
-// Returns "ParentFolder / filename" when webkitRelativePath is available,
-// otherwise just the filename.
+// Returns the full "grandparent/parent/filename" path when webkitRelativePath is available,
+// otherwise just the filename. No truncation — callers that display this should truncate.
 function _fileSourcePath(file) {
   const rel = file.webkitRelativePath;
   if (rel && rel.includes('/')) {
     const parts = rel.split('/');
     const n = parts.length;
-    // Include grandparent + parent + filename (up to 3 parts)
-    return (n >= 3 ? parts[n - 3] + ' / ' : '') + parts[n - 2] + ' / ' + parts[n - 1];
+    if (n >= 3) return parts[n - 3] + '/' + parts[n - 2] + '/' + parts[n - 1];
+    return parts[n - 2] + '/' + parts[n - 1];
   }
   return file.name;
 }
@@ -2723,17 +2717,19 @@ function updateChargeCorrection() {
   targetField.style.display = 'none';
 
   if (method === 'c1s') {
-    state.ccShift = parseFloat(document.getElementById('cc-obs').value || 284.8) - 284.8;
+    const obs = parseFloat(document.getElementById('cc-obs').value);
+    state.ccShift = isNaN(obs) ? 0 : obs - 284.8;
     refField.style.display = 'block';
     document.getElementById('cc-lit').value = '284.8';
   } else if (method === 'au4f') {
-    state.ccShift = parseFloat(document.getElementById('cc-obs').value || 83.98) - 83.98;
+    const obs = parseFloat(document.getElementById('cc-obs').value);
+    state.ccShift = isNaN(obs) ? 0 : obs - 83.98;
     refField.style.display = 'block';
     document.getElementById('cc-lit').value = '83.98';
   } else if (method === 'custom') {
     const obs = parseFloat(document.getElementById('cc-obs').value);
     const lit = parseFloat(document.getElementById('cc-lit').value);
-    state.ccShift = obs - lit;
+    state.ccShift = (isNaN(obs) || isNaN(lit)) ? 0 : obs - lit;
     refField.style.display = 'block';
     targetField.style.display = 'block';
   } else {
@@ -2746,15 +2742,19 @@ function updateChargeCorrection() {
 }
 
 function getCorrectedBE() {
-  return state.rawBE.map(b => b - state.ccShift);
+  const shift = isNaN(state.ccShift) ? 0 : state.ccShift;
+  return state.rawBE.map(b => b - shift);
 }
 
 // ═══════════════════════════════════════════════════
 // ROI FILTERING
 // ═══════════════════════════════════════════════════
 function getROIData() {
-  const roiMin = parseFloat(document.getElementById('roi-min').value);
-  const roiMax = parseFloat(document.getElementById('roi-max').value);
+  const roiMinRaw = parseFloat(document.getElementById('roi-min').value);
+  const roiMaxRaw = parseFloat(document.getElementById('roi-max').value);
+  // NaN bounds mean the field is empty — use full range rather than filtering everything out
+  const roiMin = isNaN(roiMinRaw) ? -Infinity : roiMinRaw;
+  const roiMax = isNaN(roiMaxRaw) ?  Infinity : roiMaxRaw;
   const corrBE = getCorrectedBE();
   const be = [], inten = [];
   for (let i = 0; i < corrBE.length; i++) {
@@ -6073,19 +6073,37 @@ function _nistClearAll() {
 
 // Draw source file path in top-left of plot area
 function _drawSourceLabel(chart) {
-  if (typeof tabManager === 'undefined') return;
+  const tip = document.getElementById('source-path-tip');
+  if (typeof tabManager === 'undefined') { if (tip) tip.style.display = 'none'; return; }
   const tab = tabManager._getTab(tabManager.activeId);
-  if (!tab || !tab.sourcePath) return;
+  if (!tab || !tab.sourcePath) { if (tip) tip.style.display = 'none'; return; }
   const { ctx, chartArea } = chart;
-  if (!chartArea) return;
+  if (!chartArea) { if (tip) tip.style.display = 'none'; return; }
+
+  // Truncate folder segments only — never truncate the filename
+  const truncFolder = s => s.length > 10 ? s.slice(0, 9) + '\u2026' : s;
+  const parts = tab.sourcePath.split('/');
+  const displayPath = [
+    ...parts.slice(0, -1).map(truncFolder),
+    parts[parts.length - 1]   // filename: never truncated
+  ].join('/');
+
   const isLight = document.body.classList.contains('light-theme');
   ctx.save();
   ctx.font = "16px 'IBM Plex Mono', monospace";
   ctx.fillStyle = isLight ? '#1a1a2e' : '#ffffff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText('Source: ' + tab.sourcePath, chartArea.left + 10, chartArea.top + 10);
+  ctx.fillText('Source: ' + displayPath, chartArea.left + 10, chartArea.top + 10);
   ctx.restore();
+
+  // Keep the transparent hover overlay aligned over the label for the full-path tooltip
+  if (tip) {
+    tip.style.display = 'block';
+    tip.style.left = (chartArea.left + 10) + 'px';
+    tip.style.top  = (chartArea.top  + 10) + 'px';
+    tip.title = tab.sourcePath;
+  }
 }
 
 // Called from updatePlot() to draw NIST markers on the chart
@@ -6383,7 +6401,7 @@ function _drawHistoryPreview(chart) {
     </div>
   </div>
 </div>
-<button id="theme-toggle" title="Toggle light/dark mode" onclick="toggleTheme()">🌙</button>
+
 <div id="prominent-toast" onclick="dismissToast()"><div id="prominent-toast-inner"></div></div>
 
 <!-- Propagate Fit Modal -->
