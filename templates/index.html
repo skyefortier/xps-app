@@ -3428,7 +3428,7 @@ function renderShapeControls(p) {
         <div style="display:flex;gap:8px;align-items:center">
           <input type="range" min="0" max="100" step="1" value="${p.glMix}"
             oninput="updatePeakParam(${p.id},'glMix',parseFloat(this.value));document.getElementById('glmix-${p.id}').textContent=this.value+'%'">
-          <span id="glmix-${p.id}" style="font-family:var(--mono);font-size:11px;min-width:32px">${p.glMix}%</span>
+          <span id="glmix-${p.id}" style="font-family:var(--mono);font-size:11px;min-width:42px">${(+p.glMix).toFixed(3)}%</span>
           ${!isLinked ? `<button class="lock-btn${p.fixGlMix ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixGlMix',this)" title="${p.fixGlMix ? 'Unlock' : 'Lock'} during fitting">${p.fixGlMix ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </div>
       </div>
@@ -3440,7 +3440,7 @@ function renderShapeControls(p) {
         <div style="display:flex;gap:8px;align-items:center">
           <input type="range" min="0" max="100" step="1" value="${p.glMix}"
             oninput="updatePeakParam(${p.id},'glMix',parseFloat(this.value));document.getElementById('glmix-${p.id}').textContent=this.value+'%'">
-          <span id="glmix-${p.id}" style="font-family:var(--mono);font-size:11px;min-width:32px">${p.glMix}%</span>
+          <span id="glmix-${p.id}" style="font-family:var(--mono);font-size:11px;min-width:42px">${(+p.glMix).toFixed(3)}%</span>
           ${!isLinked ? `<button class="lock-btn${p.fixGlMix ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixGlMix',this)" title="${p.fixGlMix ? 'Unlock' : 'Lock'} during fitting">${p.fixGlMix ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </div>
       </div>

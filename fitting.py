@@ -518,7 +518,8 @@ def _make_peak_params(
          vary=not spec.get("fix_fwhm", False))
 
     if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
-        _set("gl_ratio", spec.get("gl_ratio", 0.3), min_=0.0, max_=1.0)
+        _set("gl_ratio", spec.get("gl_ratio", 0.3), min_=0.0, max_=1.0,
+             vary=not spec.get("fix_gl_ratio", False))
     if shape == "asymmetric_gl":
         _set("fwhm_l", fwhm_l, min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"))
         _set("fwhm_r", fwhm_r, min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"))
