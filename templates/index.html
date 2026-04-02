@@ -3581,9 +3581,9 @@ function peakToBackendSpec(p) {
     spec.gamma_asym = p.dsGamma || 0.0;
   } else if (shape === 'LA') {
     spec.shape = 'la_casaxps';
-    spec.alpha   = p.laAlpha  ?? 0.10;
-    spec.beta    = p.laBeta   ?? 0.3;
-    spec.m_gauss = p.laM      ?? 0.4;
+    spec.alpha   = Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10;
+    spec.beta    = Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3;
+    spec.m_gauss = Number.isFinite(p.laM)     ? p.laM     : 0.4;
   } else {
     spec.shape = 'gaussian';
   }
@@ -3711,7 +3711,7 @@ function runFitLocal(be, bgSubtracted) {
   for (const p of state.peaks) {
     if (!p.linked) {
       if (!p.fixCenter)    { freeParams.push(p.center);    paramMap.push({id: p.id, param: 'center'}); }
-      if (!p.fixFwhm)      { freeParams.push(p.fwhm);      paramMap.push({id: p.id, param: 'fwhm'}); }
+      if (!p.fixFwhm && p.shape !== 'LA') { freeParams.push(p.fwhm); paramMap.push({id: p.id, param: 'fwhm'}); }
       if (!p.fixAmplitude) { freeParams.push(p.amplitude); paramMap.push({id: p.id, param: 'amplitude'}); }
       if ((p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) {
         freeParams.push(p.glMix); paramMap.push({id: p.id, param: 'glMix'});
@@ -3721,6 +3721,11 @@ function runFitLocal(be, bgSubtracted) {
       }
       if (p.shape === 'DS' || p.shape === 'DSG') {
         freeParams.push(p.dsAlpha); paramMap.push({id: p.id, param: 'dsAlpha'});
+      }
+      if (p.shape === 'LA') {
+        freeParams.push(Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10); paramMap.push({id: p.id, param: 'laAlpha'});
+        freeParams.push(Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3);  paramMap.push({id: p.id, param: 'laBeta'});
+        freeParams.push(Number.isFinite(p.laM)     ? p.laM     : 0.4);  paramMap.push({id: p.id, param: 'laM'});
       }
     }
   }
@@ -3736,13 +3741,17 @@ function runFitLocal(be, bgSubtracted) {
       if (param === 'glMix')     v = Math.max(0, Math.min(100, v));
       if (param === 'asymmetry') v = Math.max(0, Math.min(0.9, v));
       if (param === 'dsAlpha')   v = Math.max(0, Math.min(0.49, v));
+      if (param === 'laAlpha')   v = Math.max(0, Math.min(0.49, v));
+      if (param === 'laBeta')    v = Math.max(0.05, Math.min(2.0, v));
+      if (param === 'laM')       v = Math.max(0.05, Math.min(4.0, v));
       p[param] = v;
       const linked = state.peaks.find(q => q.linked === id);
       if (linked) {
         if (param === 'center')    linked.center = v + linked.linkOffset;
         if (param === 'amplitude') linked.amplitude = v * linked.linkRatio;
         if (param === 'fwhm')      linked.fwhm = v;
-        if (param === 'shape' || param === 'glMix' || param === 'asymmetry' || param === 'dsAlpha') linked[param] = v;
+        if (param === 'shape' || param === 'glMix' || param === 'asymmetry' || param === 'dsAlpha' ||
+            param === 'laAlpha' || param === 'laBeta' || param === 'laM') linked[param] = v;
       }
     }
   }
