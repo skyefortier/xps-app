@@ -578,14 +578,25 @@
   }
   .save-dropdown.open .save-dropdown-menu { display: block; }
   .save-dropdown-item {
-    display: block; width: 100%; padding: 7px 14px;
-    font-family: var(--mono); font-size: 11px; color: var(--text);
-    background: none; border: none; cursor: pointer; text-align: left;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 14px;
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--text);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
     border-bottom: 1px solid var(--border);
+    transition: background 0.15s, color 0.15s;
   }
   .save-dropdown-item:last-child { border-bottom: none; }
-  .save-dropdown-item:hover { background: var(--bg4); color: var(--accent2); }
+  .save-dropdown-item:hover { background: var(--accent-dim); color: var(--accent2); }
   .save-dropdown-item small { display: block; font-size: 9px; color: var(--text3); margin-top: 2px; }
+  .save-dropdown-item .dd-icon { flex-shrink: 0; font-size: 13px; margin-top: 1px; opacity: 0.6; }
 
   /* ── Project save dialog ───────────────────────────────── */
   #project-dialog-overlay {
@@ -925,6 +936,29 @@
     --amber-dim: rgba(217,119,6,0.12);
     --purple: #7c3aed;
   }
+  body.light-theme .pill-toggle.active {
+    background: rgba(37,99,235,0.1);
+    border-color: var(--accent);
+    color: var(--accent2);
+  }
+  body.light-theme .section {
+    background: rgba(255,255,255,0.6);
+    border-color: rgba(0,0,0,0.08);
+  }
+  body.light-theme .peak-item {
+    background: rgba(255,255,255,0.5);
+    border-color: rgba(0,0,0,0.08);
+  }
+  body.light-theme .onboard-num {
+    background: rgba(37,99,235,0.06);
+    border-color: rgba(0,0,0,0.12);
+  }
+  body.light-theme .btn-green:hover {
+    box-shadow: 0 0 12px rgba(22,163,74,0.3);
+  }
+  body.light-theme .save-dropdown-item:hover {
+    background: rgba(37,99,235,0.08);
+  }
 
   /* ── Multiplet modal ────────────────────────────────────── */
   #multiplet-modal-overlay {
@@ -1218,16 +1252,16 @@
       <div class="save-dropdown" id="save-dropdown">
         <button class="btn" onclick="toggleSaveMenu()">Actions &#9662;</button>
         <div class="save-dropdown-menu">
-          <button class="save-dropdown-item" onclick="saveFit()">Save Fit<small>Peak params only (~2 KB)</small></button>
-          <button class="save-dropdown-item" onclick="saveSpectrum()">Save Spectrum<small>Data + fit curves (~50–200 KB)</small></button>
-          <button class="save-dropdown-item" onclick="showProjectDialog()">Save Project<small>All tabs + metadata</small></button>
+          <button class="save-dropdown-item" onclick="saveFit()"><span class="dd-icon">&#128190;</span><div>Save Fit<small>Peak params only (~2 KB)</small></div></button>
+          <button class="save-dropdown-item" onclick="saveSpectrum()"><span class="dd-icon">&#128196;</span><div>Save Spectrum<small>Data + fit curves (~50-200 KB)</small></div></button>
+          <button class="save-dropdown-item" onclick="showProjectDialog()"><span class="dd-icon">&#128193;</span><div>Save Project<small>All tabs + metadata</small></div></button>
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
-          <button class="save-dropdown-item" onclick="exportFitTable('csv')">Export Table (CSV)<small>All fit parameters</small></button>
-          <button class="save-dropdown-item" onclick="exportFitTable('xlsx')">Export Table (XLSX)<small>All fit parameters</small></button>
+          <button class="save-dropdown-item" onclick="exportFitTable('csv')"><span class="dd-icon">&#128202;</span><div>Export Table (CSV)<small>All fit parameters</small></div></button>
+          <button class="save-dropdown-item" onclick="exportFitTable('xlsx')"><span class="dd-icon">&#128202;</span><div>Export Table (XLSX)<small>All fit parameters</small></div></button>
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
-          <button class="save-dropdown-item" onclick="loadSession()">Load Fit<small>Restore saved fit params</small></button>
-          <button class="save-dropdown-item" onclick="exportResults()">Export Results<small>Peaks + areas as JSON</small></button>
-          <button class="save-dropdown-item" onclick="exportFigure()">Export Figure<small>Save chart as PNG</small></button>
+          <button class="save-dropdown-item" onclick="loadSession()"><span class="dd-icon">&#128194;</span><div>Load Fit<small>Restore saved fit params</small></div></button>
+          <button class="save-dropdown-item" onclick="exportResults()"><span class="dd-icon">&#128203;</span><div>Export Results<small>Peaks + areas as JSON</small></div></button>
+          <button class="save-dropdown-item" onclick="exportFigure()"><span class="dd-icon">&#128247;</span><div>Export Figure<small>Save chart as PNG</small></div></button>
         </div>
       </div>
       <button id="theme-toggle" class="btn btn-sm" onclick="toggleTheme()" title="Toggle light/dark mode" style="padding:2px 9px">🌙</button>
@@ -1423,6 +1457,7 @@
         <span>Peaks: <span id="sb-peaks">0</span></span>
         <span>&#967;&#178;&#7523;: <span id="sb-chi">&mdash;</span></span>
         <span id="sb-msg" style="color:var(--accent2)"></span>
+        <span style="margin-left:auto;color:var(--text3);font-family:var(--mono);font-size:9px" id="sb-build"></span>
       </div>
     </div>
 
@@ -1490,6 +1525,7 @@
 <div id="notify"></div>
 
 <script>
+const BUILD_DATE = '2026-04-06';
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
@@ -5887,6 +5923,7 @@ function _tabScrollRight() { const b = document.getElementById('spectrum-tab-bar
 // Init
 tabManager = new TabManager();
 renderEmptyChart();
+document.getElementById('sb-build').textContent = 'Build ' + BUILD_DATE;
 document.getElementById('mainChart').addEventListener('click', handleChartClick);
 
 // Tab bar: scroll event → update arrows; wheel → horizontal scroll
