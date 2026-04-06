@@ -337,15 +337,17 @@
   }
   #statusbar span { color: var(--text2); }
 
-  /* Peak list */
+  /* Peak list cards */
   .peak-item {
     border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
     border-radius: var(--radius);
     margin-bottom: 8px;
     overflow: hidden;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
   .peak-item.selected { border-color: var(--accent); }
+  .peak-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
   .peak-header {
     display: flex;
     align-items: center;
@@ -356,21 +358,47 @@
   }
   .peak-color {
     width: 10px; height: 10px;
-    border-radius: 2px;
+    border-radius: 50%;
     flex-shrink: 0;
   }
   .peak-name {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .peak-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px 8px;
+    padding: 4px 10px 6px;
+    background: var(--bg3);
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .peak-summary-label {
+    font-family: var(--sans);
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .peak-summary-val {
     font-family: var(--mono);
     font-size: 11px;
-    font-weight: 500;
-    flex: 1;
+    color: var(--text);
   }
   .peak-info {
     font-family: var(--mono);
     font-size: 10px;
     color: var(--text2);
   }
-  .peak-body { padding: 10px; display: none; }
+  .peak-body { padding: 10px; display: none; border-top: 1px solid var(--border); }
   .peak-body.open { display: block; }
 
   /* Results table */
@@ -3361,11 +3389,16 @@ function renderPeakList() {
   empty.style.display = state.peaks.length ? 'none' : 'block';
   document.getElementById('sb-peaks').textContent = state.peaks.length;
 
+  // Compute total area for percentage
+  const totalArea = state.peaks.reduce((s, p) => s + (p._area || 0), 0);
+
   for (const p of state.peaks) {
     const item = document.createElement('div');
     item.className = 'peak-item';
     item.id = 'peak-item-' + p.id;
+    item.style.borderLeftColor = p.color;
     const isLinked = !!p.linked;
+    const areaPct = totalArea > 0 && p._area ? ((p._area / totalArea) * 100).toFixed(1) : '\u2014';
 
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
@@ -3373,6 +3406,14 @@ function renderPeakList() {
         <span class="peak-name">${p.name}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}</span>
         <span class="peak-info">${p.center.toFixed(2)} eV</span>
         <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">&times;</button>
+      </div>
+      <div class="peak-summary" onclick="togglePeakBody(${p.id})">
+        <span class="peak-summary-label">Center</span>
+        <span class="peak-summary-label">FWHM</span>
+        <span class="peak-summary-label">Area</span>
+        <span class="peak-summary-val">${p.center.toFixed(2)}</span>
+        <span class="peak-summary-val">${p.fwhm.toFixed(2)}</span>
+        <span class="peak-summary-val">${areaPct}%</span>
       </div>
       <div class="peak-body" id="peak-body-${p.id}">
         ${renderPeakForm(p)}
