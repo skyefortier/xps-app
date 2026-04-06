@@ -187,8 +187,24 @@
     background: var(--green-dim);
     border-color: var(--green);
     color: var(--green);
+    position: relative;
+    overflow: hidden;
   }
-  .btn-green:hover { background: rgba(61,220,132,0.25); }
+  .btn-green:hover {
+    background: rgba(61,220,132,0.25);
+    box-shadow: 0 0 12px rgba(61,220,132,0.3);
+  }
+  .btn-green:hover::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: btn-shimmer 0.8s ease-in-out;
+  }
+  @keyframes btn-shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
+  }
   .btn-red {
     background: var(--red-dim);
     border-color: var(--red);
@@ -215,9 +231,13 @@
     border-radius: var(--radius);
     color: var(--text);
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.2s ease, box-shadow 0.3s ease;
   }
-  input:focus, select:focus { border-color: var(--accent); }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(74,158,255,0.15);
+    transition: border-color 0.2s ease, box-shadow 0.3s ease;
+  }
   select option { background: var(--bg3); }
 
   input[type=range] {
@@ -237,6 +257,9 @@
     border-radius: var(--radius);
     margin-bottom: 10px;
     overflow: hidden;
+    background: rgba(26,32,48,0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
   .section-head {
     padding: 6px 10px;
@@ -346,6 +369,9 @@
     margin-bottom: 8px;
     overflow: hidden;
     transition: border-color 0.15s, box-shadow 0.15s;
+    background: rgba(26,32,48,0.4);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
   .peak-item.selected { border-color: var(--accent); }
   .peak-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
@@ -669,7 +695,14 @@
     transition: background 0.1s;
     user-select: none;
   }
-  .sp-tab:hover { background: var(--bg3); color: var(--text); }
+  .sp-tab:hover {
+    background: var(--bg3);
+    color: var(--text);
+    box-shadow: inset 0 -2px 0 var(--border2);
+  }
+  .sp-tab.active:hover {
+    box-shadow: none;
+  }
   .sp-tab.active {
     background: var(--bg);
     color: var(--text);
@@ -818,6 +851,57 @@
   /* ── Dark/light mode toggle ────────────────────────────── */
   #theme-toggle { font-size: 14px; }
   #theme-toggle:hover { border-color: var(--accent); background: var(--bg4); }
+
+  /* ── Empty state onboarding ──────────────────────── */
+  .onboard-wrap {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .onboard-icon {
+    width: 48px; height: 48px;
+    margin: 0 auto 12px;
+    color: var(--text3);
+    opacity: 0.4;
+  }
+  .onboard-title {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--text3);
+    margin-bottom: 20px;
+  }
+  .onboard-steps {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .onboard-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .onboard-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    background: rgba(74,158,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+  }
+  .onboard-label {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--text3);
+  }
 
   /* ── Light theme overrides ─────────────────────────────── */
   body.light-theme {
@@ -4230,6 +4314,9 @@ function updatePlot() {
   const showIndividual = document.getElementById('show-individual').checked;
   const showResiduals = document.getElementById('show-residuals').checked;
 
+  const _ob = document.getElementById('main-chart-wrap').querySelector('.onboard-wrap');
+  if (_ob) _ob.remove();
+
   if (!be.length) {
     renderEmptyChart();
     return;
@@ -4608,13 +4695,42 @@ function renderEmptyChart() {
   if (state.chart) { state.chart.destroy(); state.chart = null; }
   if (state.residChart) { state.residChart.destroy(); state.residChart = null; }
   document.getElementById('resid-wrap').classList.add('hidden');
+  document.getElementById('resid-handle').classList.add('hidden');
+
+  const wrap = document.getElementById('main-chart-wrap');
   const canvas = document.getElementById('mainChart');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#4a5a78';
-  ctx.font = "14px 'IBM Plex Mono', monospace";
-  ctx.textAlign = 'center';
-  ctx.fillText('Load a spectrum to begin', canvas.width / 2, canvas.height / 2);
+
+  // Remove any existing onboarding overlay
+  const existing = wrap.querySelector('.onboard-wrap');
+  if (existing) existing.remove();
+
+  const ob = document.createElement('div');
+  ob.className = 'onboard-wrap';
+  ob.innerHTML = `
+    <svg class="onboard-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <path d="M9 13h6"/><path d="M9 17h3"/>
+    </svg>
+    <div class="onboard-title">Load a spectrum to begin</div>
+    <div class="onboard-steps">
+      <div class="onboard-step">
+        <div class="onboard-num">1</div>
+        <div class="onboard-label">Drop a file</div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">2</div>
+        <div class="onboard-label">Add peaks</div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">3</div>
+        <div class="onboard-label">Run fit</div>
+      </div>
+    </div>
+  `;
+  wrap.appendChild(ob);
 }
 
 function updateResiduals(be, residuals, invert, show) {
