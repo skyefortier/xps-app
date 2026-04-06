@@ -948,6 +948,37 @@
   .tools-chk-row input[type=checkbox] { width: auto; accent-color: var(--accent); }
   .tools-slider { width: 100%; accent-color: var(--accent); margin: 2px 0 6px; }
 
+  /* ── Pill toggle buttons ─────────────────────────── */
+  .pill-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text3);
+    background: transparent;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .pill-toggle:hover {
+    border-color: var(--text2);
+    color: var(--text2);
+  }
+  .pill-toggle.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent2);
+  }
+  .pill-toggle input[type="checkbox"] {
+    display: none;
+  }
+
   /* ── Uncertainty warnings ───────────────────────────────── */
   .unc-warn-box {
     background: var(--amber-dim); border: 1px solid var(--amber);
@@ -1236,21 +1267,21 @@
         <button class="btn btn-sm" id="btn-add-multiplet" onclick="_onMultipletBtnClick()">+ Multiplet Pair</button>
         <button class="btn btn-sm" id="btn-overlay" onclick="toggleOverlayMode()" title="Overlay multiple spectra">Overlay</button>
         <div style="flex:1"></div>
-        <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
-          <input type="checkbox" id="show-individual" checked onchange="updatePlot()">
-          <span style="font-size:11px;color:var(--text2)">Individual peaks</span>
+        <label class="pill-toggle active">
+          <input type="checkbox" id="show-individual" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
+          Individual peaks
         </label>
-        <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
-          <input type="checkbox" id="show-fill" checked onchange="updatePlot()">
-          <span style="font-size:11px;color:var(--text2)">Fill peaks</span>
+        <label class="pill-toggle active">
+          <input type="checkbox" id="show-fill" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
+          Fill peaks
         </label>
-        <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
-          <input type="checkbox" id="show-residuals" checked onchange="updatePlot()">
-          <span style="font-size:11px;color:var(--text2)">Residuals</span>
+        <label class="pill-toggle active">
+          <input type="checkbox" id="show-residuals" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
+          Residuals
         </label>
-        <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;">
-          <input type="checkbox" id="invert-be" checked onchange="updatePlot()">
-          <span style="font-size:11px;color:var(--text2)">Invert BE axis</span>
+        <label class="pill-toggle active">
+          <input type="checkbox" id="invert-be" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
+          Invert BE
         </label>
         <button class="btn btn-sm" id="btn-reset-zoom" style="display:none;margin-left:8px;font-size:10px;padding:2px 8px;" onclick="resetAllZoom()">Reset Zoom</button>
       </div>
