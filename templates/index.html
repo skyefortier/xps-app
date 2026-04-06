@@ -3520,8 +3520,13 @@ function renderPeakList() {
   if (clearWrap) clearWrap.style.display = state.peaks.length ? 'block' : 'none';
   document.getElementById('sb-peaks').textContent = state.peaks.length;
 
-  // Compute total area for percentage
-  const totalArea = state.peaks.reduce((s, p) => s + (p._area || 0), 0);
+  // Compute total area for percentage (using ROI data if available)
+  const { be: _roiBE } = (typeof getROIData === 'function' && state.rawBE.length) ? getROIData() : { be: [] };
+  const _peakAreas = {};
+  let totalArea = 0;
+  if (_roiBE.length) {
+    for (const p of state.peaks) { const a = _peakArea(p, _roiBE); _peakAreas[p.id] = a; totalArea += a; }
+  }
 
   for (const p of state.peaks) {
     const item = document.createElement('div');
@@ -3529,7 +3534,8 @@ function renderPeakList() {
     item.id = 'peak-item-' + p.id;
     item.style.borderLeftColor = p.color;
     const isLinked = !!p.linked;
-    const areaPct = totalArea > 0 && p._area ? ((p._area / totalArea) * 100).toFixed(1) : '\u2014';
+    const pArea = _peakAreas[p.id] || 0;
+    const areaPct = totalArea > 0 && pArea > 0 ? ((pArea / totalArea) * 100).toFixed(1) : '\u2014';
 
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
@@ -3544,7 +3550,7 @@ function renderPeakList() {
         <span class="peak-summary-label">Area</span>
         <span class="peak-summary-val">${p.center.toFixed(2)}</span>
         <span class="peak-summary-val">${p.fwhm.toFixed(2)}</span>
-        <span class="peak-summary-val">${areaPct}%</span>
+        <span class="peak-summary-val">${areaPct === '\u2014' ? areaPct : areaPct + '%'}</span>
       </div>
       <div class="peak-body" id="peak-body-${p.id}">
         ${renderPeakForm(p)}
