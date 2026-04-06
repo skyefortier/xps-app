@@ -1421,6 +1421,10 @@
         <button class="btn btn-sm" id="btn-overlay" onclick="toggleOverlayMode()" title="Overlay multiple spectra">Overlay</button>
         <div style="flex:1"></div>
         <label class="pill-toggle active">
+          <input type="checkbox" id="show-envelope" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
+          Envelope
+        </label>
+        <label class="pill-toggle active">
           <input type="checkbox" id="show-individual" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
           Individual peaks
         </label>
@@ -4442,7 +4446,8 @@ function updatePlot() {
   });
 
   // Fit envelope drawn last — use backend fitted_y when available
-  if (fittedYBacked || state.peaks.length) {
+  const showEnvelope = document.getElementById('show-envelope').checked;
+  if (showEnvelope && (fittedYBacked || state.peaks.length)) {
     datasets.push({
       label: 'Fit',
       data: fittedYBacked
