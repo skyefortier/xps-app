@@ -1813,6 +1813,8 @@ class TabManager {
     if (this.activeId === id) return;
     const tab = this._getTab(id);
     if (!tab) return;
+    // Clear stale history preview from previous tab
+    if (typeof _historyPreview !== 'undefined') _historyPreview = null;
     // Save current tab's live state
     this._syncActiveToRecord();
     this.activeId = id;
@@ -3914,7 +3916,7 @@ async function runFit() {
     const chiReduced = stats.reduced_chi_square || 0;
     const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
     state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
-                        chiReduced, rmse, be, bgSubtracted, backendResult,
+                        chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
                         fittedY: backendResult.fitted_y };
     document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
     document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
@@ -3924,7 +3926,7 @@ async function runFit() {
   } catch (e) {
     // Fall back to local Levenberg-Marquardt
     _hideFitSpinner();
-    runFitLocal(be, bgSubtracted);
+    runFitLocal(be, bgSubtracted, bgIntensity);
     return;
   }
 
@@ -3934,7 +3936,7 @@ async function runFit() {
   _autoSnapshot();
 }
 
-function runFitLocal(be, bgSubtracted) {
+function runFitLocal(be, bgSubtracted, bgIntensity) {
   const freeParams = [];
   const paramMap = [];
 
@@ -4047,7 +4049,7 @@ function runFitLocal(be, bgSubtracted) {
   const chiReduced = chi / dof;
   const rmse = Math.sqrt(chi / be.length);
 
-  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted };
+  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity };
 
   document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
   document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
@@ -6110,6 +6112,9 @@ async function runPropagation() {
   summary.style.display = 'none';
   summary.innerHTML = '';
 
+  // Suppress auto-snapshots during batch propagation
+  _snapshotSuppressed = true;
+
   // Compute source amplitude scale reference (max raw intensity in ROI)
   const srcMaxInten = Math.max(...sourceTab.rawIntensity);
 
@@ -6162,7 +6167,7 @@ async function runPropagation() {
     const { be, inten } = getROIData();
     const bgI = computeBackground(be, inten);
     const bgSub = inten.map((v, idx) => v - bgI[idx]);
-    runFitLocal(be, bgSub);
+    runFitLocal(be, bgSub, bgI);
 
     // Sync result back to record
     tabManager._syncActiveToRecord();
@@ -6172,6 +6177,8 @@ async function runPropagation() {
 
     await new Promise(r => setTimeout(r, 10));
   }
+
+  _snapshotSuppressed = false;
 
   // Return to source tab
   tabManager.activateTab(sourceId);
@@ -6368,7 +6375,7 @@ function _drawSourceLabel(chart) {
 
   const isLight = document.body.classList.contains('light-theme');
   ctx.save();
-  ctx.font = "16px " + MONO_FONT;
+  ctx.font = "11px " + MONO_FONT;
   ctx.fillStyle = isLight ? '#1a1a2e' : '#ffffff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -6450,11 +6457,13 @@ function _drawNistMarkers(chart) {
 // ══════════════════════════════════════════════════════════════
 
 const SNAPSHOT_MAX = 10;
+let _snapshotSuppressed = false;
 
 // Preview state: { peaks, fitResult } or null — drawn in orange overlay
 let _historyPreview = null;
 
 function _autoSnapshot() {
+  if (_snapshotSuppressed) return;
   if (!tabManager.activeId || !state.peaks.length || !state.fitResult) return;
 
   const tab = tabManager._getTab(tabManager.activeId);
@@ -6476,6 +6485,7 @@ function _autoSnapshot() {
       ...state.fitResult,
       be: [...(state.fitResult.be || [])],
       bgSubtracted: [...(state.fitResult.bgSubtracted || [])],
+      bgIntensity: state.fitResult.bgIntensity ? [...state.fitResult.bgIntensity] : null,
       fittedY: state.fitResult.fittedY ? [...state.fitResult.fittedY] : null,
     },
     chi,
@@ -6590,11 +6600,11 @@ function _drawHistoryPreview(chart) {
   const isLight = document.body.classList.contains('light-theme');
   const previewColor = isLight ? 'rgba(234,88,12,0.85)' : 'rgba(251,146,60,0.9)';
 
-  // Resolve BE and background arrays: prefer stored fit data, fall back to live ROI
+  // Resolve BE and raw background arrays: prefer stored fit data, fall back to live ROI
   let bePts, bgArr;
-  if (fitResult && fitResult.be && fitResult.be.length && fitResult.bgSubtracted) {
+  if (fitResult && fitResult.be && fitResult.be.length && fitResult.bgIntensity) {
     bePts = fitResult.be;
-    bgArr = fitResult.bgSubtracted;
+    bgArr = fitResult.bgIntensity;
   } else {
     const { be, inten } = getROIData();
     bePts = be;
