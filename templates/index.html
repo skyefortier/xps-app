@@ -9,7 +9,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
 
   :root {
     --bg: #0d0f14;
@@ -36,8 +35,8 @@
     --text: #e8edf5;
     --text2: #8a9ab8;
     --text3: #4a5a78;
-    --mono: 'IBM Plex Mono', monospace;
-    --sans: 'IBM Plex Sans', sans-serif;
+    --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --radius: 6px;
   }
 
@@ -65,9 +64,9 @@
     flex-shrink: 0;
   }
   #header h1 {
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--accent2);
     letter-spacing: 0.05em;
   }
@@ -142,9 +141,9 @@
   #right-resize-handle.dragging { background: var(--border2); }
 
   .panel-header {
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text3);
@@ -163,7 +162,7 @@
 
   /* Buttons */
   .btn {
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-size: 11px;
     font-weight: 500;
     padding: 6px 14px;
@@ -205,7 +204,7 @@
   .btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
   /* Form elements */
-  label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
+  label { font-family: var(--sans); font-size: 11px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 4px; }
   input[type=text], input[type=number], select {
     width: 100%;
     font-family: var(--mono);
@@ -242,8 +241,11 @@
   .section-head {
     padding: 6px 10px;
     background: var(--bg3);
-    font-size: 11px;
-    font-weight: 500;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--text2);
     display: flex;
     align-items: center;
@@ -1650,6 +1652,10 @@ class TabManager {
       fqEl.innerHTML = '&#967;&#178; &mdash;';
       if (chiEl) chiEl.textContent = '\u2014';
     }
+    // Reset Y zoom so chart auto-scales to this tab's data range
+    // (prevents survey zoom from squishing narrow-region spectra)
+    state._mainYMax = tab.yZoom || null;
+
     this.renderTabBar();
     renderPeakList();
     updatePlot();
@@ -2108,6 +2114,7 @@ class TabManager {
     t.ccShift = isNaN(state.ccShift) ? 0 : state.ccShift;
     t.nextId = state.nextId;
     t.fitResult = state.fitResult;
+    t.yZoom = state._mainYMax || null;
     t.ui = this._captureUI();
   }
 
