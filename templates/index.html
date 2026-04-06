@@ -1526,6 +1526,7 @@
 
 <script>
 const BUILD_DATE = '2026-04-06';
+const MONO_FONT = "'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace";
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
@@ -4589,7 +4590,7 @@ function updatePlot() {
         c.setLineDash([]);
 
         // Label text: 13px bold, white with dark shadow
-        c.font = "bold 13px 'IBM Plex Mono', monospace";
+        c.font = "bold 13px " + MONO_FONT;
         c.textAlign = 'center';
         c.textBaseline = 'top';
         c.shadowColor = 'black';
@@ -4650,8 +4651,8 @@ function updatePlot() {
           borderWidth: 1,
           titleColor: _cc.tooltipTitle,
           bodyColor: _cc.tooltipBody,
-          titleFont: { family: "'IBM Plex Mono', monospace", size: 11 },
-          bodyFont:  { family: "'IBM Plex Mono', monospace", size: 11 }
+          titleFont: { family: MONO_FONT, size: 11 },
+          bodyFont:  { family: MONO_FONT, size: 11 }
         }
       },
       scales: {
@@ -4660,14 +4661,14 @@ function updatePlot() {
           min: beMin,
           max: beMax,
           reverse: invert,
-          title: { display: true, text: 'Binding Energy (eV)', color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 11 } },
+          title: { display: true, text: 'Binding Energy (eV)', color: _cc.text2, font: { family: MONO_FONT, size: 11 } },
           grid: { color: _cc.gridColor },
-          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 10 } }
+          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 10 } }
         },
         y: {
-          title: { display: true, text: 'Intensity (counts/s)', color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 11 } },
+          title: { display: true, text: 'Intensity (counts/s)', color: _cc.text2, font: { family: MONO_FONT, size: 11 } },
           grid: { color: _cc.gridColor },
-          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 10 } }
+          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 10 } }
         }
       }
     }
@@ -4832,12 +4833,12 @@ function updateResiduals(be, residuals, invert, show) {
           reverse: invert,
           title: { display: false },
           grid: { color: _cc.gridColor },
-          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 9 }, maxTicksLimit: 8 }
+          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 9 }, maxTicksLimit: 8 }
         },
         y: {
-          title: { display: true, text: 'Resid.', color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 9 } },
+          title: { display: true, text: 'Resid.', color: _cc.text2, font: { family: MONO_FONT, size: 9 } },
           grid: { color: _cc.gridColor },
-          ticks: { color: _cc.text2, font: { family: "'IBM Plex Mono', monospace", size: 9 }, maxTicksLimit: 4 }
+          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 9 }, maxTicksLimit: 4 }
         }
       }
     }
@@ -6367,7 +6368,7 @@ function _drawSourceLabel(chart) {
 
   const isLight = document.body.classList.contains('light-theme');
   ctx.save();
-  ctx.font = "16px 'IBM Plex Mono', monospace";
+  ctx.font = "16px " + MONO_FONT;
   ctx.fillStyle = isLight ? '#1a1a2e' : '#ffffff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -6430,7 +6431,7 @@ function _drawNistMarkers(chart) {
 
   // Draw horizontal labels at top with text shadow for readability
   ctx.setLineDash([]);
-  ctx.font = 'bold 12px "IBM Plex Mono", monospace';
+  ctx.font = "bold 12px " + MONO_FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.shadowColor = shadowColor;
