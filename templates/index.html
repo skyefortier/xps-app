@@ -328,7 +328,7 @@
     padding: 4px 14px;
     background: var(--bg2);
     border-top: 1px solid var(--border);
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-size: 10px;
     color: var(--text3);
     display: flex;
@@ -336,6 +336,7 @@
     flex-shrink: 0;
   }
   #statusbar span { color: var(--text2); }
+  #statusbar span span { font-family: var(--mono); font-weight: 500; }
 
   /* Peak list cards */
   .peak-item {
@@ -445,7 +446,8 @@
     border-color: var(--accent);
     background: var(--accent-dim);
   }
-  #dropzone .dz-icon { font-size: 24px; margin-bottom: 8px; opacity: 0.5; }
+  #dropzone .dz-svg-icon { color: var(--text3); margin-bottom: 8px; opacity: 0.6; transition: opacity 0.2s, color 0.2s; }
+  #dropzone:hover .dz-svg-icon { opacity: 1; color: var(--accent); }
   #dropzone p { color: var(--text2); font-size: 11px; }
   #dropzone strong { color: var(--accent2); }
 
@@ -1161,7 +1163,12 @@
              ondragover="handleDragOver(event)"
              ondragleave="this.classList.remove('drag-over')"
              ondrop="handleDrop(event)">
-          <div class="dz-icon">&#128194;</div>
+          <svg class="dz-svg-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <polyline points="9 15 12 12 15 15"/>
+          </svg>
           <p><strong>Click</strong> or drag &middot; file or folder</p>
           <p>.csv &middot; .txt &middot; .xlsx &middot; .vgd</p>
         </div>
@@ -1340,10 +1347,7 @@
 
     <!-- Right Panel: Peaks & Results -->
     <div id="right-panel">
-      <div class="panel-header">
-        Peaks &amp; Results
-        <button class="btn btn-sm btn-red" onclick="clearAllPeaks()">Clear all</button>
-      </div>
+      <div class="panel-header">Peaks &amp; Results</div>
       <div class="panel-body">
         <div class="tabs">
           <div class="tab active" onclick="switchTab(this,'peaks')">Peaks</div>
@@ -1356,6 +1360,9 @@
           <div id="peak-list"></div>
           <div id="peak-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
             No peaks added yet.<br>Click &ldquo;+ Add Peak&rdquo; to start.
+          </div>
+          <div id="peak-clear-wrap" style="display:none;padding-top:8px;border-top:1px solid var(--border);margin-top:8px">
+            <button class="btn btn-sm btn-red" style="width:100%;font-size:10px" onclick="clearAllPeaks()">Clear all peaks</button>
           </div>
         </div>
 
@@ -3320,6 +3327,8 @@ function removePeak(id) {
 }
 
 function clearAllPeaks() {
+  if (!state.peaks.length) return;
+  if (!confirm('Are you sure you want to clear all peaks?')) return;
   pushUndo();
   state.peaks = [];
   state.fitResult = null;
@@ -3387,6 +3396,8 @@ function renderPeakList() {
   const empty = document.getElementById('peak-empty');
   el.innerHTML = '';
   empty.style.display = state.peaks.length ? 'none' : 'block';
+  const clearWrap = document.getElementById('peak-clear-wrap');
+  if (clearWrap) clearWrap.style.display = state.peaks.length ? 'block' : 'none';
   document.getElementById('sb-peaks').textContent = state.peaks.length;
 
   // Compute total area for percentage
@@ -3420,6 +3431,8 @@ function renderPeakList() {
       </div>
     `;
     el.appendChild(item);
+    item.addEventListener('mouseenter', () => _highlightChartPeak(p.id, true));
+    item.addEventListener('mouseleave', () => _highlightChartPeak(p.id, false));
   }
 }
 
@@ -3608,6 +3621,17 @@ function updateShapeControls(id) {
 function togglePeakBody(id) {
   const body = document.getElementById('peak-body-' + id);
   body.classList.toggle('open');
+}
+
+function _highlightChartPeak(peakId, highlight) {
+  if (!state.chart) return;
+  const datasets = state.chart.data.datasets;
+  for (const ds of datasets) {
+    if (ds._peakId === peakId) {
+      ds.borderWidth = highlight ? 3 : 1.5;
+    }
+  }
+  state.chart.update('none');
 }
 
 // ═══════════════════════════════════════════════════
@@ -4254,7 +4278,8 @@ function updatePlot() {
         borderWidth: 1.5,
         pointRadius: 0,
         fill: fillTarget,
-        tension: 0
+        tension: 0,
+        _peakId: p.id
       });
     }
   }
