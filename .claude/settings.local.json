@@ -19,7 +19,15 @@
       "Bash(grep -c \"$id\" /home/skye/xps-app/templates/index.html)",
       "Bash(done)",
       "Bash(node --check /tmp/check_js.js)",
-      "Bash(ls /home/skye/xps-app/*.py)"
+      "Bash(ls /home/skye/xps-app/*.py)",
+      "Read(//mnt/skills/public/frontend-design/**)",
+      "Bash(curl -s http://localhost:5050/api/parse-vgd -X POST -F \"file=@/home/skye/epr-data/xps_data/U4f Scan.VGD\")",
+      "Bash(curl -sv http://localhost:5050/api/parse-vgd -X POST -F \"file=@/home/skye/epr-data/xps_data/U4f Scan.VGD\")",
+      "Bash(curl -s http://localhost:5000/api/parse-vgd -X POST -F \"file=@/home/skye/epr-data/xps_data/U4f Scan.VGD\")",
+      "Bash(curl -s http://localhost:5000/)",
+      "Bash(ls /home/skye/epr-data/xps_data/*.VGD)",
+      "Bash(curl -s -F \"file=@/home/skye/epr-data/xps_data/U4f Scan.VGD\" http://localhost:5000/api/parse-vgd)",
+      "Bash(echo \"Exit: $?\")"
     ]
   }
 }
