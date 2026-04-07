@@ -1353,7 +1353,7 @@
                 <option value="smart" data-tip="Shirley background with the constraint that it never exceeds the data. Prevents overshoot artifacts between well-separated peaks.">Smart (constrained Shirley)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
                 <option value="tougaard" data-tip="Physics-based universal background using electron energy loss cross-sections. More accurate than Shirley but requires wider energy range.">Tougaard (simplified)</option>
-                <option value="spline" data-tip="Manually place anchor points on the spectrum and interpolate a cubic spline through them. Click to add, right-click to remove, drag to move.">Manual (spline)</option>
+                <option value="spline" data-tip="Place anchor points on the spectrum to define a custom background. PCHIP interpolation ensures no overshoot. Click to add, right-click to remove, drag to move. Max 20 points.">Manual (anchor)</option>
                 <option value="none">None</option>
               </select>
             </div>
@@ -1370,6 +1370,13 @@
             <div class="field">
               <label>Shirley iterations</label>
               <input type="number" id="shirley-iter" value="50" min="5" max="500" step="5" oninput="updatePlot()">
+            </div>
+            <div id="spline-controls" style="display:none">
+              <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+                <button class="btn btn-sm" onclick="_undoLastAnchor()" title="Remove the last anchor point placed">Undo Last Point</button>
+                <button class="btn btn-sm" onclick="_clearAllAnchors()" title="Remove all anchor points" style="color:var(--red,#f87171)">Clear All</button>
+                <span id="spline-anchor-count" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -2764,10 +2771,16 @@ function tougaardBackground(be, intensity) {
 // anchors: [{be, intensity}, ...] sorted by BE descending (same as spectrum)
 // evalBE: array of BE values to evaluate at
 // Returns: array of interpolated intensity values at each evalBE point
-function cubicSplineInterpolate(anchors, evalBE) {
+// PCHIP (Piecewise Cubic Hermite Interpolating Polynomial) interpolation.
+// Unlike natural cubic splines, PCHIP never overshoots between data points
+// (no Runge's phenomenon), making it safe for interactive background placement.
+// anchors: [{be, intensity}, ...]
+// evalBE: array of BE values to evaluate at
+// dataMax: maximum Y value in the data (for clamping)
+function pchipInterpolate(anchors, evalBE, dataMax) {
   if (!anchors || anchors.length < 2) return evalBE.map(() => 0);
 
-  // Sort anchors by BE ascending for spline math
+  // Sort anchors by BE ascending
   const pts = anchors.map(a => ({ x: a.be, y: a.intensity }))
     .sort((a, b) => a.x - b.x);
   const n = pts.length;
@@ -2777,59 +2790,68 @@ function cubicSplineInterpolate(anchors, evalBE) {
     const [p0, p1] = pts;
     const slope = (p1.y - p0.y) / (p1.x - p0.x || 1e-12);
     return evalBE.map(x => {
-      if (x <= p0.x) return p0.y;
-      if (x >= p1.x) return p1.y;
-      return p0.y + slope * (x - p0.x);
+      let v;
+      if (x <= p0.x) v = p0.y;
+      else if (x >= p1.x) v = p1.y;
+      else v = p0.y + slope * (x - p0.x);
+      return Math.max(0, Math.min(v, dataMax));
     });
   }
 
-  // Compute h[i] = x[i+1] - x[i]
-  const h = [];
-  for (let i = 0; i < n - 1; i++) h.push(pts[i + 1].x - pts[i].x || 1e-12);
+  // Compute interval widths and slopes
+  const h = [], delta = [];
+  for (let i = 0; i < n - 1; i++) {
+    h.push(pts[i + 1].x - pts[i].x || 1e-12);
+    delta.push((pts[i + 1].y - pts[i].y) / h[i]);
+  }
 
-  // Solve tridiagonal system for natural cubic spline second derivatives (M)
-  // M[0] = M[n-1] = 0 (natural boundary conditions)
-  const alpha = new Array(n).fill(0);
+  // PCHIP derivative estimation (Fritsch-Carlson method)
+  const m = new Array(n).fill(0);
+  // Interior points: weighted harmonic mean of neighboring slopes
   for (let i = 1; i < n - 1; i++) {
-    alpha[i] = (3 / h[i]) * (pts[i + 1].y - pts[i].y) -
-               (3 / h[i - 1]) * (pts[i].y - pts[i - 1].y);
+    if (delta[i - 1] * delta[i] <= 0) {
+      m[i] = 0; // sign change → zero derivative (monotonicity)
+    } else {
+      const w1 = 2 * h[i] + h[i - 1];
+      const w2 = h[i] + 2 * h[i - 1];
+      m[i] = (w1 + w2) / (w1 / delta[i - 1] + w2 / delta[i]);
+    }
+  }
+  // Endpoint derivatives: one-sided
+  m[0] = delta[0];
+  m[n - 1] = delta[n - 2];
+  // Clamp endpoint derivatives for monotonicity
+  if (n > 2) {
+    if (delta[0] * delta[1] <= 0) m[0] = 0;
+    if (delta[n - 3] * delta[n - 2] <= 0) m[n - 1] = 0;
   }
 
-  const l = new Array(n).fill(1);
-  const mu = new Array(n).fill(0);
-  const z = new Array(n).fill(0);
-
-  for (let i = 1; i < n - 1; i++) {
-    l[i] = 2 * (pts[i + 1].x - pts[i - 1].x) - h[i - 1] * mu[i - 1];
-    mu[i] = h[i] / l[i];
-    z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
-  }
-
-  const c = new Array(n).fill(0);
-  const b = new Array(n).fill(0);
-  const d = new Array(n).fill(0);
-
-  for (let j = n - 2; j >= 0; j--) {
-    c[j] = z[j] - mu[j] * c[j + 1];
-    b[j] = (pts[j + 1].y - pts[j].y) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
-    d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
-  }
-
-  // Evaluate spline at each BE point
+  // Evaluate PCHIP at each BE point with clamping
   return evalBE.map(x => {
-    // Clamp to endpoint values outside the anchor range
-    if (x <= pts[0].x) return pts[0].y;
-    if (x >= pts[n - 1].x) return pts[n - 1].y;
+    if (x <= pts[0].x) return Math.max(0, Math.min(pts[0].y, dataMax));
+    if (x >= pts[n - 1].x) return Math.max(0, Math.min(pts[n - 1].y, dataMax));
 
-    // Binary search for the correct interval
+    // Binary search for interval
     let lo = 0, hi = n - 2;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
       if (pts[mid + 1].x < x) lo = mid + 1;
       else hi = mid;
     }
+
+    // Hermite basis evaluation
     const dx = x - pts[lo].x;
-    return pts[lo].y + b[lo] * dx + c[lo] * dx * dx + d[lo] * dx * dx * dx;
+    const hk = h[lo];
+    const t = dx / hk;
+    const t2 = t * t, t3 = t2 * t;
+    const h00 = 2 * t3 - 3 * t2 + 1;
+    const h10 = t3 - 2 * t2 + t;
+    const h01 = -2 * t3 + 3 * t2;
+    const h11 = t3 - t2;
+
+    const v = h00 * pts[lo].y + h10 * hk * m[lo] +
+              h01 * pts[lo + 1].y + h11 * hk * m[lo + 1];
+    return Math.max(0, Math.min(v, dataMax));
   });
 }
 
@@ -2841,7 +2863,8 @@ function computeBackground(be, intensity) {
     if (!state.splineAnchors || state.splineAnchors.length < 2) {
       return Array(be.length).fill(0);
     }
-    return cubicSplineInterpolate(state.splineAnchors, be);
+    const dataMax = Math.max(...intensity);
+    return pchipInterpolate(state.splineAnchors, be, dataMax);
   }
 
   // Get background endpoint range from UI
@@ -3070,6 +3093,33 @@ function setSpectrum(be, inten, name, sourcePath = null) {
 // ═══════════════════════════════════════════════════
 // CHARGE CORRECTION
 // ═══════════════════════════════════════════════════
+function _undoLastAnchor() {
+  if (state.splineAnchors && state.splineAnchors.length > 0) {
+    state.splineAnchors.pop();
+    _updateSplineControlsUI();
+    updatePlot();
+  }
+}
+
+function _clearAllAnchors() {
+  if (state.splineAnchors && state.splineAnchors.length > 0) {
+    state.splineAnchors = [];
+    _updateSplineControlsUI();
+    updatePlot();
+  }
+}
+
+function _updateSplineControlsUI() {
+  const bgType = document.getElementById('bg-type')?.value;
+  const ctrl = document.getElementById('spline-controls');
+  const countEl = document.getElementById('spline-anchor-count');
+  if (ctrl) ctrl.style.display = (bgType === 'spline') ? 'block' : 'none';
+  if (countEl) {
+    const n = (state.splineAnchors || []).length;
+    countEl.textContent = n > 0 ? n + '/20 pts' : '';
+  }
+}
+
 function _updateShirleyIterState() {
   const bgType = document.getElementById('bg-type').value;
   const shirleyIter = document.getElementById('shirley-iter');
@@ -3077,6 +3127,8 @@ function _updateShirleyIterState() {
   shirleyIter.disabled = !isShirley;
   shirleyIter.style.opacity = isShirley ? '1' : '0.4';
   shirleyIter.style.pointerEvents = isShirley ? '' : 'none';
+  // Show/hide spline controls
+  _updateSplineControlsUI();
   // Set chart cursor for spline mode
   const canvas = document.getElementById('mainChart');
   if (canvas) canvas.style.cursor = (bgType === 'spline') ? 'crosshair' : '';
@@ -6807,13 +6859,22 @@ function _drawSplineAnchors(chart) {
   // Draw instruction text if fewer than 2 anchors
   if (state.splineAnchors.length < 2) {
     const msg = state.splineAnchors.length === 0
-      ? 'Click on the spectrum to place background anchor points'
+      ? 'Click to place background anchor points (right-click to remove)'
       : 'Place at least one more anchor point';
     ctx.font = "13px 'IBM Plex Mono', monospace";
     ctx.fillStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(msg, (chartArea.left + chartArea.right) / 2, (chartArea.top + chartArea.bottom) / 2);
+  }
+
+  // Show anchor count badge in top-right of chart
+  if (state.splineAnchors.length >= 2) {
+    ctx.font = "10px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(state.splineAnchors.length + '/20 anchors', chartArea.right - 8, chartArea.top + 8);
   }
   ctx.restore();
 }
@@ -7095,6 +7156,8 @@ function _drawHistoryPreview(chart) {
 // ══════════════════════════════════════════════════════════════
 (function() {
   const ANCHOR_RADIUS = 7;
+  const MAX_ANCHORS = 20;
+  const MIN_SPACING_EV = 0.5;
   let draggingIdx = -1;
 
   function _isSplineMode() {
@@ -7141,9 +7204,24 @@ function _drawHistoryPreview(chart) {
       return;
     }
 
+    // Enforce max anchor count
+    if (state.splineAnchors.length >= MAX_ANCHORS) {
+      if (typeof notify === 'function') notify('Maximum ' + MAX_ANCHORS + ' anchor points allowed.', 'amber');
+      return;
+    }
+
     const be = xScale.getValueForPixel(x);
     const intensity = yScale.getValueForPixel(y);
+
+    // Enforce minimum spacing of 0.5 eV between anchor points
+    const tooClose = state.splineAnchors.some(a => Math.abs(a.be - be) < MIN_SPACING_EV);
+    if (tooClose) {
+      if (typeof notify === 'function') notify('Anchor points must be at least ' + MIN_SPACING_EV + ' eV apart.', 'amber');
+      return;
+    }
+
     state.splineAnchors.push({ be, intensity });
+    if (typeof _updateSplineControlsUI === 'function') _updateSplineControlsUI();
     updatePlot();
   });
 
@@ -7186,6 +7264,7 @@ function _drawHistoryPreview(chart) {
     if (nearIdx >= 0) {
       e.preventDefault();
       state.splineAnchors.splice(nearIdx, 1);
+      if (typeof _updateSplineControlsUI === 'function') _updateSplineControlsUI();
       updatePlot();
     }
   });
