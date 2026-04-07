@@ -1348,7 +1348,7 @@
           <div class="section-body">
             <div class="field">
               <label>Type</label>
-              <select id="bg-type" class="xps-tip-select" onchange="updatePlot()">
+              <select id="bg-type" class="xps-tip-select" onchange="_updateShirleyIterState(); updatePlot()">
                 <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra.">Shirley (iterative)</option>
                 <option value="smart" data-tip="Shirley background with the constraint that it never exceeds the data. Prevents overshoot artifacts between well-separated peaks.">Smart (constrained Shirley)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
@@ -2428,6 +2428,7 @@ class TabManager {
     // Update shift display from the already-restored state.ccShift
     const shift = -state.ccShift;
     document.getElementById('cc-shift-display').textContent = (shift >= 0 ? '+' : '') + shift.toFixed(3) + ' eV';
+    if (typeof _updateShirleyIterState === 'function') _updateShirleyIterState();
   }
 
   _updateCCVerifiedUI(verified) {
@@ -2978,6 +2979,15 @@ function setSpectrum(be, inten, name, sourcePath = null) {
 // ═══════════════════════════════════════════════════
 // CHARGE CORRECTION
 // ═══════════════════════════════════════════════════
+function _updateShirleyIterState() {
+  const bgType = document.getElementById('bg-type').value;
+  const shirleyIter = document.getElementById('shirley-iter');
+  const isShirley = (bgType === 'shirley' || bgType === 'smart');
+  shirleyIter.disabled = !isShirley;
+  shirleyIter.style.opacity = isShirley ? '1' : '0.4';
+  shirleyIter.style.pointerEvents = isShirley ? '' : 'none';
+}
+
 function _onCCObsInput() {
   // Mark as verified when user manually edits the observed BE
   const tab = tabManager && tabManager._getTab(tabManager.activeId);
@@ -6232,6 +6242,7 @@ function _tabScrollRight() { const b = document.getElementById('spectrum-tab-bar
 
 // Init
 tabManager = new TabManager();
+_updateShirleyIterState();
 renderEmptyChart();
 document.getElementById('sb-build').textContent = 'Build ' + BUILD_DATE;
 document.getElementById('mainChart').addEventListener('click', handleChartClick);
