@@ -1246,6 +1246,7 @@
     <div class="hbtns">
       <span class="hbadge" id="fit-quality" style="cursor:help">&#967;&#178; &mdash;</span>
       <span id="sb-runs" style="font-size:12px;cursor:help;font-family:var(--mono);white-space:nowrap"></span>
+      <span id="sb-roi" style="font-size:12px;font-family:var(--mono);color:var(--text3);white-space:nowrap"></span>
       <span class="hbadge" id="data-info">no data</span>
       <div class="hselect-wrap">
         <label for="fit-method">Method</label>
@@ -1868,6 +1869,7 @@ class TabManager {
       if (chiEl) chiEl.textContent = '\u2014';
     }
     _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
+    _updateROIDisplay(state.fitResult ? state.fitResult.roiRange : null);
     // Reset Y zoom so chart auto-scales to this tab's data range
     // (prevents survey zoom from squishing narrow-region spectra)
     state._mainYMax = tab.yZoom || null;
@@ -1896,6 +1898,7 @@ class TabManager {
       this._updateSurveyPanel();
       this._updateCCVerifiedUI(true);
       _updateRFactorUI(null);
+      _updateROIDisplay(null);
       const notesEl = document.getElementById('spectrum-notes');
       if (notesEl) notesEl.value = '';
       return;
@@ -4001,15 +4004,17 @@ async function runFit() {
     const stats = backendResult.statistics || {};
     const chiReduced = stats.reduced_chi_square || 0;
     const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
+    const roiRange = { min: Math.min(...be).toFixed(1), max: Math.max(...be).toFixed(1) };
     state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
-                        fittedY: backendResult.fitted_y };
+                        fittedY: backendResult.fitted_y, roiRange };
     state.fitResult.rFactor = _computeRFactor(state.fitResult);
     document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
     document.getElementById('fit-quality').setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
     document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
     _updateRFactorUI(state.fitResult.rFactor);
+    _updateROIDisplay(roiRange);
     _hideFitSpinner();
     notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
   } catch (e) {
@@ -4138,7 +4143,8 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
   const chiReduced = chi / dof;
   const rmse = Math.sqrt(chi / be.length);
 
-  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity };
+  const roiRange = { min: Math.min(...be).toFixed(1), max: Math.max(...be).toFixed(1) };
+  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
   document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
@@ -4146,6 +4152,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
   document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
   document.getElementById('sb-msg').textContent = 'Fit complete (local)';
   _updateRFactorUI(state.fitResult.rFactor);
+  _updateROIDisplay(roiRange);
 
   renderPeakList();
   updatePlot();
@@ -4471,10 +4478,11 @@ function updatePlot() {
   const rawResiduals = fittedYBacked
     ? inten.map((v, i) => v - fittedYBacked[i])
     : bgSubtracted.map((v, i) => v - modelFull[i]);
-  // Standardised residuals: (data - fit) / sqrt(|data|), in units of σ
+  // Percentage residuals: ((data - fit) / data) × 100, clamped to ±100%
   const residuals = rawResiduals.map((r, i) => {
-    const d = fittedYBacked ? Math.abs(inten[i]) : Math.abs(bgSubtracted[i]);
-    return d > 0 ? r / Math.sqrt(d) : 0;
+    const d = fittedYBacked ? inten[i] : bgSubtracted[i];
+    if (Math.abs(d) < 1e-10) return 0;
+    return Math.max(-100, Math.min(100, (r / d) * 100));
   });
 
   const datasets = [];
@@ -4934,12 +4942,12 @@ function updateResiduals(be, residuals, invert, show) {
           reverse: invert,
           title: { display: false },
           grid: { color: _cc.gridColor },
-          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 9 }, maxTicksLimit: 8 }
+          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 11 }, maxTicksLimit: 8 }
         },
         y: {
-          title: { display: true, text: 'Std. Resid. (\u03c3)', color: _cc.text2, font: { family: MONO_FONT, size: 9 } },
+          title: { display: true, text: 'Resid. (%)', color: _cc.text2, font: { family: MONO_FONT, size: 11 } },
           grid: { color: _cc.gridColor },
-          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 9 }, maxTicksLimit: 4 }
+          ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 11 }, maxTicksLimit: 4 }
         }
       }
     }
@@ -5878,7 +5886,7 @@ function _computeRFactor(fitResult) {
   return { rPct, level };
 }
 
-const _RFACTOR_TOOLTIP = "The R-factor (reliability factor) measures the overall agreement between the fit and the data as a percentage.\n\nR = \u03a3|residual| / \u03a3|data| \u00d7 100%\n\n\u2022 R < 5% = excellent fit\n\u2022 R = 5\u201310% = acceptable fit, check residuals visually\n\u2022 R > 10% = poor fit, the model is likely incomplete\n\nUnlike chi-squared, the R-factor is intuitive \u2014 it represents the fraction of the total signal that is unexplained by the model.";
+const _RFACTOR_TOOLTIP = "The R-factor (reliability factor) measures the overall agreement between the fit and the data as a percentage. Computed within the ROI range.\n\nR = \u03a3|residual| / \u03a3|data| \u00d7 100%\n\n\u2022 R < 5% = excellent fit\n\u2022 R = 5\u201310% = acceptable fit, check residuals visually\n\u2022 R > 10% = poor fit, the model is likely incomplete\n\nUnlike chi-squared, the R-factor is intuitive \u2014 it represents the fraction of the total signal that is unexplained by the model.";
 
 function _renderRFactorPanel(rf) {
   if (!rf) return '';
@@ -5904,7 +5912,14 @@ function _updateRFactorUI(rf) {
   el.setAttribute('data-xps-tip', _RFACTOR_TOOLTIP);
 }
 
-const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
+function _updateROIDisplay(roiRange) {
+  const el = document.getElementById('sb-roi');
+  if (!el) return;
+  if (!roiRange) { el.textContent = ''; return; }
+  el.textContent = `ROI: ${roiRange.min}\u2013${roiRange.max} eV`;
+}
+
+const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty. Computed within the ROI range.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
 
 // Wire up custom tooltip for data-xps-tip elements (R-factor, chi-squared, etc.)
 (function () {
