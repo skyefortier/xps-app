@@ -1960,6 +1960,7 @@ class TabManager {
         rawBE: t.rawBE,
         rawIntensity: t.rawIntensity,
         ccShift: t.ccShift,
+        splineAnchors: t.splineAnchors || [],
         peaks: t.peaks.map(p => ({...p})),
         nextId: t.nextId,
         markedElements: t.markedElements || [],
@@ -2005,6 +2006,10 @@ class TabManager {
       active.peaks = state.peaks;
       active.nextId = state.nextId;
       active.fitResult = null;
+      if (data.splineAnchors) {
+        state.splineAnchors = data.splineAnchors;
+        active.splineAnchors = state.splineAnchors;
+      }
 
       // Apply charge correction
       if (data.chargeCorrection) {
@@ -5304,6 +5309,7 @@ function _doSaveSpectrum() {
     peaks: tab.peaks.map(p => ({...p})),
     nextId: tab.nextId,
     ui: {...tab.ui},
+    splineAnchors: tab.splineAnchors || [],
     roiBE: be,
     background: bgIntensity,
     fittedY: fittedY,
@@ -5341,6 +5347,7 @@ async function _doSaveProject() {
     } : null,
     notes: t.notes || '',
     ui: {...t.ui},
+    splineAnchors: t.splineAnchors || [],
   });
 
   const meta = {
@@ -5455,6 +5462,8 @@ function _loadSpectrumFile(data, sessionFile) {
     active.fitResult = fr;
     state.fitResult = fr;
   }
+  active.splineAnchors = data.splineAnchors || [];
+  state.splineAnchors = active.splineAnchors;
   const notesEl = document.getElementById('spectrum-notes');
   if (notesEl) notesEl.value = active.notes || '';
   renderPeakList();
@@ -5472,6 +5481,7 @@ function _loadProjectJSON(data, sessionFile) {
       id, name: t.name, color, isSurvey,
       sourcePath: t.sourcePath || (sessionFile ? sessionFile : '(restored)'),
       chargeVerified: t.chargeVerified ?? true,
+      splineAnchors: t.splineAnchors || [],
       rawBE: t.rawBE || [], rawIntensity: t.rawIntensity || [],
       ccShift: t.ccShift || 0,
       peaks: (t.peaks || []).map(p => ({...p})),
@@ -6564,6 +6574,9 @@ async function runPropagation() {
     tgt.nextId = nextId;
     tgt.ui = newUi;
     tgt.ccShift = sourceTab.ccShift;
+    if (srcUi.bgType === 'spline') {
+      tgt.splineAnchors = JSON.parse(JSON.stringify(sourceTab.splineAnchors || []));
+    }
     tgt.chargeVerified = false;
 
     // Now activate this tab so state is populated
