@@ -4886,6 +4886,7 @@ function updatePlot() {
       _drawNistMarkers(chart);
       _drawHistoryPreview(chart);
       _drawSourceLabel(chart);
+      _drawSplineAnchors(chart);
     }
   };
 
@@ -6759,6 +6760,46 @@ function _nistClearAll() {
   _nistMarkers.length = 0;
   _nistRenderMarkerChips();
   updatePlot();
+}
+
+// Draw spline background anchor points as draggable circles
+function _drawSplineAnchors(chart) {
+  const bgType = document.getElementById('bg-type')?.value;
+  if (bgType !== 'spline' || !state.splineAnchors || !state.splineAnchors.length) return;
+  const { ctx, chartArea, scales } = chart;
+  if (!chartArea || !scales.x || !scales.y) return;
+
+  const isLight = document.body.classList.contains('light-theme');
+  const fillColor = isLight ? 'rgba(37,99,235,0.85)' : 'rgba(96,165,250,0.9)';
+  const strokeColor = isLight ? '#1e40af' : '#ffffff';
+
+  ctx.save();
+  for (const a of state.splineAnchors) {
+    const x = scales.x.getPixelForValue(a.be);
+    const y = scales.y.getPixelForValue(a.intensity);
+    if (x < chartArea.left || x > chartArea.right) continue;
+
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Draw instruction text if fewer than 2 anchors
+  if (state.splineAnchors.length < 2) {
+    const msg = state.splineAnchors.length === 0
+      ? 'Click on the spectrum to place background anchor points'
+      : 'Place at least one more anchor point';
+    ctx.font = "13px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(msg, (chartArea.left + chartArea.right) / 2, (chartArea.top + chartArea.bottom) / 2);
+  }
+  ctx.restore();
 }
 
 // Draw source file path in top-left of plot area
