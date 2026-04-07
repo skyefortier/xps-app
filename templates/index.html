@@ -3613,6 +3613,12 @@ function toggleLock(id, key, btn) {
 function renderPeakList() {
   const el = document.getElementById('peak-list');
   const empty = document.getElementById('peak-empty');
+  // Preserve which peak cards are expanded before clearing
+  const expandedIds = new Set();
+  el.querySelectorAll('.peak-body.open').forEach(b => {
+    const m = b.id.match(/peak-body-(\d+)/);
+    if (m) expandedIds.add(Number(m[1]));
+  });
   el.innerHTML = '';
   empty.style.display = state.peaks.length ? 'none' : 'block';
   const clearWrap = document.getElementById('peak-clear-wrap');
@@ -3656,6 +3662,7 @@ function renderPeakList() {
       </div>
     `;
     el.appendChild(item);
+    if (expandedIds.has(p.id)) document.getElementById('peak-body-' + p.id).classList.add('open');
     item.addEventListener('mouseenter', () => _highlightChartPeak(p.id, true));
     item.addEventListener('mouseleave', () => _highlightChartPeak(p.id, false));
   }
@@ -4032,6 +4039,11 @@ async function runFit() {
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
     backendResult = json;
+    // Capture pre-fit values for uncertainty validation
+    const _preFit = {};
+    for (const p of state.peaks) {
+      _preFit[p.id] = { center: p.center, fwhm: p.fwhm, amplitude: p.amplitude, glMix: p.glMix };
+    }
     applyBackendResult(backendResult);
     const stats = backendResult.statistics || {};
     const chiReduced = stats.reduced_chi_square || 0;
@@ -4039,7 +4051,7 @@ async function runFit() {
     const roiRange = { min: Math.min(...be).toFixed(1), max: Math.max(...be).toFixed(1) };
     state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
-                        fittedY: backendResult.fitted_y, roiRange };
+                        fittedY: backendResult.fitted_y, roiRange, _preFit };
     state.fitResult.rFactor = _computeRFactor(state.fitResult);
     document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
     document.getElementById('fit-quality').setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
@@ -6008,19 +6020,45 @@ function _validateUncertainties() {
   if (!state.fitResult?.backendResult?.individual_peaks) return [];
   const warnings = [];
   const stderrMap = _buildStderrMap(state.fitResult);
+  const preFit = state.fitResult._preFit || {};
+  // Map backend param names to pre-fit property names
+  const nameMap = { center: 'center', fwhm: 'fwhm', fwhm_l: 'fwhm', amplitude: 'amplitude', gl_ratio: 'glMix' };
+
   for (const [rawId, params] of Object.entries(stderrMap)) {
     const p = getPeak(Number(rawId));
     if (!p) continue;
+    const init = preFit[Number(rawId)] || {};
+
     for (const [pName, pData] of Object.entries(params)) {
-      if (['center','fwhm','fwhm_l','amplitude','glMix'].includes(pName)) {
-        const val = pData.value;
-        const se  = pData.stderr;
-        if (se === null || se === undefined) {
-          warnings.push(`<li><b>${p.name} / ${pName}:</b> stderr=null — may be at bound or ill-conditioned. Try widening bounds or locking.</li>`);
-        } else if (se === 0) {
-          warnings.push(`<li><b>${p.name} / ${pName}:</b> stderr=0 — hit a bound. Try widening bounds.</li>`);
-        } else if (Math.abs(val) > 1e-10 && se / Math.abs(val) > 0.5) {
-          warnings.push(`<li><b>${p.name} / ${pName}:</b> stderr > 50% of value — poorly constrained. Consider locking or adding constraints.</li>`);
+      if (!['center','fwhm','fwhm_l','amplitude','gl_ratio'].includes(pName)) continue;
+      const val = pData.value;
+
+      // Rule 1: parameter sitting at its bound (within 1% of range from min or max)
+      const lo = pData.min, hi = pData.max;
+      if (lo != null && hi != null && isFinite(lo) && isFinite(hi)) {
+        const range = hi - lo;
+        if (range > 0) {
+          if ((val - lo) <= range * 0.01) {
+            warnings.push(`<li><b>${p.name} / ${pName}:</b> at lower bound (${lo}). Widen bounds or lock this parameter.</li>`);
+            continue;
+          }
+          if ((hi - val) <= range * 0.01) {
+            warnings.push(`<li><b>${p.name} / ${pName}:</b> at upper bound (${hi}). Widen bounds or lock this parameter.</li>`);
+            continue;
+          }
+        }
+      }
+
+      // Rule 2: stderr=null AND parameter barely moved from initial value (<0.1%)
+      const se = pData.stderr;
+      if (se == null) {
+        const initKey = nameMap[pName] || pName;
+        const initVal = init[initKey];
+        if (initVal != null) {
+          const denom = Math.max(Math.abs(initVal), 1e-10);
+          if (Math.abs(val - initVal) / denom < 0.001) {
+            warnings.push(`<li><b>${p.name} / ${pName}:</b> did not move from initial value — optimizer could not adjust it. Try different starting values or lock it.</li>`);
+          }
         }
       }
     }
