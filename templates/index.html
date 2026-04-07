@@ -65,16 +65,23 @@
   }
   #header h1 {
     font-family: var(--sans);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent2);
-    letter-spacing: 0.05em;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.04em;
   }
-  #header h1 span { color: var(--text2); font-weight: 400; }
+  #header h1 .title-xps {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.08em;
+  }
+  #header h1 .title-sub { color: var(--text3); font-weight: 400; font-size: 11px; letter-spacing: 0.02em; }
 
   .hbadge {
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 12px;
     padding: 2px 8px;
     border-radius: 3px;
     border: 1px solid var(--border2);
@@ -83,13 +90,14 @@
   }
 
   .hbtns { display: flex; gap: 8px; align-items: center; }
+  .hbtns .btn { font-size: 12px; }
 
   /* Compact method selector in header */
   .hselect-wrap { display: flex; align-items: center; gap: 5px; }
-  .hselect-wrap label { font-size: 10px; color: var(--text2); margin: 0; white-space: nowrap; }
+  .hselect-wrap label { font-size: 12px; color: var(--text2); margin: 0; white-space: nowrap; }
   #fit-method {
     width: auto;
-    font-size: 11px;
+    font-size: 12px;
     padding: 3px 6px;
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -352,7 +360,7 @@
     background: var(--bg2);
     border-top: 1px solid var(--border);
     font-family: var(--sans);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text3);
     display: flex;
     gap: 20px;
@@ -736,6 +744,9 @@
   }
   .sp-tab:hover .sp-tab-close { opacity: 1; }
   .sp-tab-close:hover { background: var(--red-dim); color: var(--red); }
+  .sp-tab.dragging { opacity: 0.35; }
+  .sp-tab.drag-over-left { box-shadow: inset 3px 0 0 var(--accent); }
+  .sp-tab.drag-over-right { box-shadow: inset -3px 0 0 var(--accent); }
 
   /* ── Survey tab in right sidebar ───────────────────────── */
   #tab-survey { display: none; }
@@ -1231,9 +1242,10 @@
 <div id="app">
 
   <div id="header">
-    <h1>XPS Fitting Studio <span>// lmfit backend</span></h1>
+    <h1><span class="title-xps">XPS</span> Fitting Studio <span class="title-sub">// lmfit backend</span></h1>
     <div class="hbtns">
-      <span class="hbadge" id="fit-quality">&#967;&#178; &mdash;</span>
+      <span class="hbadge" id="fit-quality" style="cursor:help">&#967;&#178; &mdash;</span>
+      <span id="sb-runs" style="font-size:12px;cursor:help;font-family:var(--mono);white-space:nowrap"></span>
       <span class="hbadge" id="data-info">no data</span>
       <div class="hselect-wrap">
         <label for="fit-method">Method</label>
@@ -1462,7 +1474,7 @@
         <span>Peaks: <span id="sb-peaks">0</span></span>
         <span>&#967;&#178;&#7523;: <span id="sb-chi">&mdash;</span></span>
         <span id="sb-msg" style="color:var(--accent2)"></span>
-        <span style="margin-left:auto;color:var(--text3);font-family:var(--mono);font-size:9px" id="sb-build"></span>
+        <span style="margin-left:auto;color:var(--text3);font-family:var(--mono);font-size:11px" id="sb-build"></span>
       </div>
     </div>
 
@@ -1487,6 +1499,10 @@
           </div>
           <div id="peak-clear-wrap" style="display:none;padding-top:8px;border-top:1px solid var(--border);margin-top:8px">
             <button class="btn btn-sm btn-red" style="width:100%;font-size:10px" onclick="clearAllPeaks()">Clear all peaks</button>
+          </div>
+          <div id="notes-wrap" style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px">
+            <label style="display:block;font-family:var(--sans);font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Notes</label>
+            <textarea id="spectrum-notes" placeholder="Free-form notes about this spectrum&#8230;" style="width:100%;min-height:60px;resize:vertical;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:6px 8px;font-family:var(--sans);font-size:11px;line-height:1.4;box-sizing:border-box"></textarea>
           </div>
         </div>
 
@@ -1795,6 +1811,7 @@ class TabManager {
       nextId: 1,
       fitResult: null,
       markedElements: [],
+      notes: '',
       ui: {
         bgType: 'shirley', bgStart: maxBE, bgEnd: minBE,
         shirleyIter: '50',
@@ -1834,6 +1851,8 @@ class TabManager {
 
     // Restore DOM form fields
     this._restoreUI(tab.ui);
+    const notesEl = document.getElementById('spectrum-notes');
+    if (notesEl) notesEl.value = tab.notes || '';
     this._updateCCVerifiedUI(tab.chargeVerified ?? true);
     this._updateInfoBadge(tab);
     // Update chi-squared display for this tab's fit result
@@ -1841,11 +1860,14 @@ class TabManager {
     const chiEl = document.getElementById('sb-chi');
     if (state.fitResult && state.fitResult.chiReduced != null) {
       fqEl.textContent = '\u03c7\u00b2\u1d63 = ' + state.fitResult.chiReduced.toFixed(2);
+      fqEl.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
       if (chiEl) chiEl.textContent = state.fitResult.chiReduced.toFixed(3);
     } else {
       fqEl.innerHTML = '&#967;&#178; &mdash;';
+      fqEl.removeAttribute('data-xps-tip');
       if (chiEl) chiEl.textContent = '\u2014';
     }
+    _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
     // Reset Y zoom so chart auto-scales to this tab's data range
     // (prevents survey zoom from squishing narrow-region spectra)
     state._mainYMax = tab.yZoom || null;
@@ -1873,6 +1895,9 @@ class TabManager {
       this.renderTabBar();
       this._updateSurveyPanel();
       this._updateCCVerifiedUI(true);
+      _updateRFactorUI(null);
+      const notesEl = document.getElementById('spectrum-notes');
+      if (notesEl) notesEl.value = '';
       return;
     }
 
@@ -1930,6 +1955,7 @@ class TabManager {
         peaks: t.peaks.map(p => ({...p})),
         nextId: t.nextId,
         markedElements: t.markedElements || [],
+        notes: t.notes || '',
         ui: {...t.ui},
       })),
       // v1 compat keys from active tab
@@ -1998,6 +2024,11 @@ class TabManager {
         active.ui.roiMax = data.roi.max || '';
       }
 
+      // Apply notes
+      if (data.notes) active.notes = data.notes;
+      const notesEl = document.getElementById('spectrum-notes');
+      if (notesEl) notesEl.value = active.notes || '';
+
       // Restore DOM from updated ui and re-render
       this._restoreUI(active.ui);
       renderPeakList();
@@ -2054,6 +2085,50 @@ class TabManager {
           this.activateTab(tabId);
         }
       });
+
+      // ── Drag-and-drop reordering ──
+      el.draggable = true;
+      el.dataset.tabId = tabId;
+      el.addEventListener('dragstart', e => {
+        this._dragTabId = tabId;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', tabId);
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('dragging');
+        this._dragTabId = null;
+        bar.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('drag-over-left', 'drag-over-right'));
+      });
+      el.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (this._dragTabId == null || this._dragTabId === tabId) return;
+        bar.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('drag-over-left', 'drag-over-right'));
+        const rect = el.getBoundingClientRect();
+        const mid = rect.left + rect.width / 2;
+        el.classList.add(e.clientX < mid ? 'drag-over-left' : 'drag-over-right');
+      });
+      el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over-left', 'drag-over-right');
+      });
+      el.addEventListener('drop', e => {
+        e.preventDefault();
+        bar.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('drag-over-left', 'drag-over-right'));
+        if (this._dragTabId == null || this._dragTabId === tabId) return;
+        const fromIdx = this.tabs.findIndex(t => t.id === this._dragTabId);
+        let toIdx = this.tabs.findIndex(t => t.id === tabId);
+        if (fromIdx === -1 || toIdx === -1) return;
+        const rect = el.getBoundingClientRect();
+        const mid = rect.left + rect.width / 2;
+        const [moved] = this.tabs.splice(fromIdx, 1);
+        toIdx = this.tabs.findIndex(t => t.id === tabId);
+        if (e.clientX < mid) this.tabs.splice(toIdx, 0, moved);
+        else this.tabs.splice(toIdx + 1, 0, moved);
+        this._dragTabId = null;
+        this.renderTabBar();
+      });
+
       bar.appendChild(el);
     }
     // Update scroll arrows after DOM settles
@@ -2309,6 +2384,7 @@ class TabManager {
     t.nextId = state.nextId;
     t.fitResult = state.fitResult;
     t.yZoom = state._mainYMax || null;
+    t.notes = document.getElementById('spectrum-notes')?.value || '';
     t.ui = this._captureUI();
   }
 
@@ -3928,9 +4004,12 @@ async function runFit() {
     state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
                         fittedY: backendResult.fitted_y };
+    state.fitResult.rFactor = _computeRFactor(state.fitResult);
     document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
+    document.getElementById('fit-quality').setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
     document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
+    _updateRFactorUI(state.fitResult.rFactor);
     _hideFitSpinner();
     notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
   } catch (e) {
@@ -4060,10 +4139,13 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
   const rmse = Math.sqrt(chi / be.length);
 
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity };
+  state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
   document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
+  document.getElementById('fit-quality').setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
   document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
   document.getElementById('sb-msg').textContent = 'Fit complete (local)';
+  _updateRFactorUI(state.fitResult.rFactor);
 
   renderPeakList();
   updatePlot();
@@ -4146,6 +4228,7 @@ function renderResults() {
         <div style="font-family:var(--mono);font-size:11px;color:var(--green)">lmfit</div>
       </div>` : ''}
     </div>
+    ${_renderRFactorPanel(state.fitResult.rFactor)}
     <table class="results-table">
       <thead><tr>
         <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
@@ -4385,9 +4468,14 @@ function updatePlot() {
   const fittedYBacked = state.fitResult && state.fitResult.fittedY &&
                         state.fitResult.fittedY.length === be.length
                         ? state.fitResult.fittedY : null;
-  const residuals = fittedYBacked
+  const rawResiduals = fittedYBacked
     ? inten.map((v, i) => v - fittedYBacked[i])
     : bgSubtracted.map((v, i) => v - modelFull[i]);
+  // Standardised residuals: (data - fit) / sqrt(|data|), in units of σ
+  const residuals = rawResiduals.map((r, i) => {
+    const d = fittedYBacked ? Math.abs(inten[i]) : Math.abs(bgSubtracted[i]);
+    return d > 0 ? r / Math.sqrt(d) : 0;
+  });
 
   const datasets = [];
 
@@ -4849,7 +4937,7 @@ function updateResiduals(be, residuals, invert, show) {
           ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 9 }, maxTicksLimit: 8 }
         },
         y: {
-          title: { display: true, text: 'Resid.', color: _cc.text2, font: { family: MONO_FONT, size: 9 } },
+          title: { display: true, text: 'Std. Resid. (\u03c3)', color: _cc.text2, font: { family: MONO_FONT, size: 9 } },
           grid: { color: _cc.gridColor },
           ticks: { color: _cc.text2, font: { family: MONO_FONT, size: 9 }, maxTicksLimit: 4 }
         }
@@ -4997,7 +5085,8 @@ function _doSaveFit() {
     roi: {
       min: document.getElementById('roi-min').value,
       max: document.getElementById('roi-max').value
-    }
+    },
+    notes: document.getElementById('spectrum-notes')?.value || ''
   };
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
   _downloadBlob(
@@ -5053,6 +5142,7 @@ function _doSaveSpectrum() {
     residuals: residuals,
     peakCurves: peakCurves,
     statistics: stats,
+    notes: tab.notes || '',
   };
 
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
@@ -5081,6 +5171,7 @@ async function _doSaveProject() {
       chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
       rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
     } : null,
+    notes: t.notes || '',
     ui: {...t.ui},
   });
 
@@ -5189,12 +5280,15 @@ function _loadSpectrumFile(data, sessionFile) {
     active.ui = { ...active.ui, ...data.ui };
     tabManager._restoreUI(active.ui);
   }
+  if (data.notes) active.notes = data.notes;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     if (data.fittedY) fr.fittedY = data.fittedY;
     active.fitResult = fr;
     state.fitResult = fr;
   }
+  const notesEl = document.getElementById('spectrum-notes');
+  if (notesEl) notesEl.value = active.notes || '';
   renderPeakList();
   updatePlot();
   notify('Spectrum loaded as new tab: ' + active.name, 'green');
@@ -5216,6 +5310,7 @@ function _loadProjectJSON(data, sessionFile) {
       nextId: t.nextId || 1,
       fitResult: t.fitResult || null,
       markedElements: t.markedElements || [],
+      notes: t.notes || '',
       ui: {
         bgType: 'shirley', bgStart: '', bgEnd: '',
         shirleyIter: '50', roiMin: '', roiMax: '',
@@ -5748,6 +5843,107 @@ function numericalDerivative(be, intensity, order) {
   d[0] = d[1]; d[n-1] = d[n-2];
   return d;
 }
+
+// ═══════════════════════════════════════════════════
+// RUNS TEST — residual randomness diagnostic
+// ═══════════════════════════════════════════════════
+// R-FACTOR (reliability factor)
+// R = Σ|residual| / Σ|data| × 100%
+// ═══════════════════════════════════════════════════
+function _computeRFactor(fitResult) {
+  if (!fitResult || !fitResult.be) return null;
+  const be = fitResult.be;
+  const bgSub = fitResult.bgSubtracted;
+  if (!bgSub || bgSub.length !== be.length) return null;
+  let residuals;
+  if (fitResult.fittedY && fitResult.fittedY.length === be.length) {
+    const bgI = fitResult.bgIntensity;
+    if (bgI && bgI.length === be.length) {
+      residuals = bgSub.map((v, i) => (v + bgI[i]) - fitResult.fittedY[i]);
+    } else {
+      residuals = bgSub.map((v, i) => v - (fitResult.fittedY[i] - (bgI ? bgI[i] : 0)));
+    }
+  } else {
+    const modelY = evalAllPeaks(be, state.peaks);
+    residuals = bgSub.map((v, i) => v - modelY[i]);
+  }
+  const sumAbsResid = residuals.reduce((s, v) => s + Math.abs(v), 0);
+  const sumAbsData = bgSub.reduce((s, v) => s + Math.abs(v), 0);
+  if (sumAbsData === 0) return null;
+  const rPct = (sumAbsResid / sumAbsData) * 100;
+  let level;
+  if (rPct < 5) level = 'good';
+  else if (rPct <= 10) level = 'amber';
+  else level = 'red';
+  return { rPct, level };
+}
+
+const _RFACTOR_TOOLTIP = "The R-factor (reliability factor) measures the overall agreement between the fit and the data as a percentage.\n\nR = \u03a3|residual| / \u03a3|data| \u00d7 100%\n\n\u2022 R < 5% = excellent fit\n\u2022 R = 5\u201310% = acceptable fit, check residuals visually\n\u2022 R > 10% = poor fit, the model is likely incomplete\n\nUnlike chi-squared, the R-factor is intuitive \u2014 it represents the fraction of the total signal that is unexplained by the model.";
+
+function _renderRFactorPanel(rf) {
+  if (!rf) return '';
+  const pct = rf.rPct.toFixed(1);
+  const color = rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
+  const label = rf.level === 'good' ? 'Excellent fit' : rf.level === 'amber' ? 'Acceptable \u2014 check residuals' : 'Poor fit \u2014 model likely incomplete';
+  return `<div data-xps-tip="${_RFACTOR_TOOLTIP.replace(/"/g, '&quot;')}" style="background:var(--bg3);border:1px solid ${color};border-radius:var(--radius);padding:8px 10px;margin-bottom:12px;font-size:11px;color:${color};cursor:help">
+    R-factor: <span style="font-family:var(--mono)">${pct}%</span> \u2014 ${label}
+  </div>`;
+}
+
+function _updateRFactorUI(rf) {
+  const el = document.getElementById('sb-runs');
+  if (!el) return;
+  if (!rf) {
+    el.textContent = '';
+    el.removeAttribute('data-xps-tip');
+    return;
+  }
+  const pct = rf.rPct.toFixed(1);
+  el.style.color = rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
+  el.textContent = `R: ${pct}%`;
+  el.setAttribute('data-xps-tip', _RFACTOR_TOOLTIP);
+}
+
+const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
+
+// Wire up custom tooltip for data-xps-tip elements (R-factor, chi-squared, etc.)
+(function () {
+  const DELAY = 300;
+  let timer = null;
+  document.addEventListener('mouseenter', function (e) {
+    const el = e.target.closest('[data-xps-tip]');
+    if (!el) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const tip = document.getElementById('xps-tooltip');
+      if (!tip) return;
+      tip.textContent = '';
+      const lines = el.dataset.xpsTip.split('\n');
+      lines.forEach((line, i) => {
+        if (i > 0) tip.appendChild(document.createElement('br'));
+        tip.appendChild(document.createTextNode(line));
+      });
+      tip.classList.remove('tip-above', 'visible');
+      const rect = el.getBoundingClientRect();
+      const tipH = 160;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < tipH && rect.top > tipH) {
+        tip.classList.add('tip-above');
+        tip.style.top = (rect.top - tipH - 6) + 'px';
+      } else {
+        tip.style.top = (rect.bottom + 6) + 'px';
+      }
+      tip.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+      tip.classList.add('visible');
+    }, DELAY);
+  }, true);
+  document.addEventListener('mouseleave', function (e) {
+    if (!e.target.closest('[data-xps-tip]')) return;
+    clearTimeout(timer);
+    const tip = document.getElementById('xps-tooltip');
+    if (tip) tip.classList.remove('visible');
+  }, true);
+})();
 
 // ═══════════════════════════════════════════════════
 // UNCERTAINTY VALIDATION
@@ -6386,7 +6582,7 @@ function _drawSourceLabel(chart) {
 
   const isLight = document.body.classList.contains('light-theme');
   ctx.save();
-  ctx.font = "11px " + MONO_FONT;
+  ctx.font = "14px " + MONO_FONT;
   ctx.fillStyle = isLight ? '#1a1a2e' : '#ffffff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
