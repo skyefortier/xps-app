@@ -572,6 +572,7 @@ def run_fit(
     bg_end_idx: int | None = None,
     charge_shift_ev: float = 0.0,
     fit_kws: dict | None = None,
+    manual_bg=None,
     n_perturb: int = 0,
 ) -> dict[str, Any]:
     """
@@ -622,6 +623,11 @@ def run_fit(
         bg = linear_background(x, y)
     elif bg_method in ("none", "flat", ""):
         bg = np.zeros_like(y)
+    elif bg_method == "spline":
+        if manual_bg is not None and len(manual_bg) == len(y):
+            bg = np.array(manual_bg, dtype=float)
+        else:
+            bg = np.zeros_like(y)
     else:
         raise ValueError(f"Unknown background method '{background_method}'")
 

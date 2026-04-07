@@ -4129,7 +4129,10 @@ async function runFit() {
     const fitMethod = document.getElementById('fit-method').value;
     const fitReq = {
       session_id: sessionId,
-      background: { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx },
+      background: {
+        method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx,
+        ...(bgType === 'spline' ? { manual_bg: Array.from(bgIntensity) } : {})
+      },
       peaks: peakSpecs,
       fit_method: fitMethod,
       n_perturb: 3

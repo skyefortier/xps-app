@@ -402,6 +402,7 @@ def _register_routes(app: Flask) -> None:
         bg_method = bg_cfg.get("method", "shirley")
         bg_start = _parse_int(bg_cfg.get("start_idx"), 0, len(energy))
         bg_end = _parse_int(bg_cfg.get("end_idx"), 0, len(energy), default=len(energy))
+        manual_bg = bg_cfg.get("manual_bg")
 
         # Peak specs
         peak_specs = body.get("peaks", [])
@@ -447,6 +448,7 @@ def _register_routes(app: Flask) -> None:
                 bg_end_idx=bg_end,
                 charge_shift_ev=shift_ev,
                 fit_kws={"method": fit_method},
+                manual_bg=manual_bg,
                 n_perturb=n_perturb,
             )
         except ValueError as exc:
