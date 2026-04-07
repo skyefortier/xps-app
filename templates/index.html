@@ -1236,6 +1236,11 @@
   .hist-row-btns { display: flex; gap: 4px; flex-shrink: 0; }
   .hist-preview-active { background: rgba(var(--accent-rgb, 99,102,241), 0.08); }
   #history-compare-info { font-size: 10px; color: var(--text3); font-family: var(--mono); padding: 4px 8px; min-height: 18px; }
+
+  /* ── Manual anchor background controls ──────────── */
+  #manual-bg-controls { display: none; margin-top: 6px; }
+  #manual-bg-controls .btn { font-size: 10px; padding: 3px 8px; }
+  #manual-anchor-count { font-size: 10px; color: var(--text3); font-family: var(--mono); }
 </style>
 </head>
 <body>
@@ -1348,14 +1353,21 @@
           <div class="section-body">
             <div class="field">
               <label>Type</label>
-              <select id="bg-type" class="xps-tip-select" onchange="_updateShirleyIterState(); updatePlot()">
+              <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
                 <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra.">Shirley (iterative)</option>
                 <option value="smart" data-tip="Shirley background with the constraint that it never exceeds the data. Prevents overshoot artifacts between well-separated peaks.">Smart (constrained Shirley)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
                 <option value="tougaard" data-tip="Physics-based universal background using electron energy loss cross-sections. More accurate than Shirley but requires wider energy range.">Tougaard (simplified)</option>
-                <option value="spline" data-tip="Place anchor points on the spectrum to define a custom background. PCHIP interpolation ensures no overshoot. Click to add, right-click to remove, drag to move. Max 20 points.">Manual (anchor)</option>
                 <option value="none">None</option>
+                <option value="manual" data-tip="Click on the spectrum to place anchor points. Background is linearly interpolated between anchors. Right-click an anchor to remove it.">Manual (anchor)</option>
               </select>
+            </div>
+            <div id="manual-bg-controls">
+              <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn btn-sm" onclick="_manualUndoAnchor()">Undo Last</button>
+                <button class="btn btn-sm" onclick="_manualClearAnchors()">Clear All</button>
+                <span id="manual-anchor-count"></span>
+              </div>
             </div>
             <div class="field-row">
               <div class="field">
@@ -1370,13 +1382,6 @@
             <div class="field">
               <label>Shirley iterations</label>
               <input type="number" id="shirley-iter" value="50" min="5" max="500" step="5" oninput="updatePlot()">
-            </div>
-            <div id="spline-controls" style="display:none">
-              <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
-                <button class="btn btn-sm" onclick="_undoLastAnchor()" title="Remove the last anchor point placed">Undo Last Point</button>
-                <button class="btn btn-sm" onclick="_clearAllAnchors()" title="Remove all anchor points" style="color:var(--red,#f87171)">Clear All</button>
-                <span id="spline-anchor-count" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></span>
-              </div>
             </div>
           </div>
         </div>
@@ -1568,8 +1573,7 @@ let state = {
   nextId: 1,
   chart: null,
   residChart: null,
-  fitResult: null,
-  splineAnchors: []
+  fitResult: null
 };
 
 // ═══════════════════════════════════════════════════
@@ -1814,7 +1818,6 @@ class TabManager {
       id, name: displayName, color, isSurvey,
       sourcePath,
       chargeVerified: true,
-      splineAnchors: [],
       rawBE: sortedBE,
       rawIntensity: sortedInten,
       ccShift: 0,
@@ -1859,7 +1862,6 @@ class TabManager {
     state.peaks = tab.peaks;
     state.nextId = tab.nextId;
     state.fitResult = tab.fitResult;
-    state.splineAnchors = tab.splineAnchors || [];
 
     // Restore DOM form fields
     this._restoreUI(tab.ui);
@@ -1900,7 +1902,6 @@ class TabManager {
       state.rawBE = []; state.rawIntensity = [];
       state.peaks = []; state.fitResult = null;
       state.ccShift = 0; state.nextId = 1;
-      state.splineAnchors = [];
       document.getElementById('data-info').textContent = 'no data';
       document.getElementById('sb-pts').textContent = '\u2014';
       document.getElementById('sb-range').textContent = '\u2014';
@@ -1967,7 +1968,6 @@ class TabManager {
         rawBE: t.rawBE,
         rawIntensity: t.rawIntensity,
         ccShift: t.ccShift,
-        splineAnchors: t.splineAnchors || [],
         peaks: t.peaks.map(p => ({...p})),
         nextId: t.nextId,
         markedElements: t.markedElements || [],
@@ -2013,10 +2013,6 @@ class TabManager {
       active.peaks = state.peaks;
       active.nextId = state.nextId;
       active.fitResult = null;
-      if (data.splineAnchors) {
-        state.splineAnchors = data.splineAnchors;
-        active.splineAnchors = state.splineAnchors;
-      }
 
       // Apply charge correction
       if (data.chargeCorrection) {
@@ -2048,6 +2044,9 @@ class TabManager {
       if (data.notes) active.notes = data.notes;
       const notesEl = document.getElementById('spectrum-notes');
       if (notesEl) notesEl.value = active.notes || '';
+
+      // Apply manual anchor points
+      if (data.manualAnchors) active.manualAnchors = data.manualAnchors;
 
       // Restore DOM from updated ui and re-render
       this._restoreUI(active.ui);
@@ -2403,7 +2402,6 @@ class TabManager {
     t.ccShift = isNaN(state.ccShift) ? 0 : state.ccShift;
     t.nextId = state.nextId;
     t.fitResult = state.fitResult;
-    t.splineAnchors = state.splineAnchors || [];
     t.yZoom = state._mainYMax || null;
     t.notes = document.getElementById('spectrum-notes')?.value || '';
     t.ui = this._captureUI();
@@ -2446,7 +2444,18 @@ class TabManager {
     // Update shift display from the already-restored state.ccShift
     const shift = -state.ccShift;
     document.getElementById('cc-shift-display').textContent = (shift >= 0 ? '+' : '') + shift.toFixed(3) + ' eV';
-    if (typeof _updateShirleyIterState === 'function') _updateShirleyIterState();
+    // Update manual bg controls and Shirley iteration state for restored bg type
+    if (typeof _onBgTypeChange === 'function') {
+      const mc = document.getElementById('manual-bg-controls');
+      if (mc) mc.style.display = ui.bgType === 'manual' ? 'block' : 'none';
+      const si = document.getElementById('shirley-iter');
+      if (si) {
+        const needsIter = (ui.bgType === 'shirley' || ui.bgType === 'smart');
+        si.disabled = !needsIter;
+        si.style.opacity = needsIter ? '1' : '0.4';
+      }
+      if (typeof _updateManualAnchorCount === 'function') _updateManualAnchorCount();
+    }
   }
 
   _updateCCVerifiedUI(verified) {
@@ -2767,105 +2776,12 @@ function tougaardBackground(be, intensity) {
   return bg.map(v => v * scale);
 }
 
-// Natural cubic spline interpolation through sorted anchor points.
-// anchors: [{be, intensity}, ...] sorted by BE descending (same as spectrum)
-// evalBE: array of BE values to evaluate at
-// Returns: array of interpolated intensity values at each evalBE point
-// PCHIP (Piecewise Cubic Hermite Interpolating Polynomial) interpolation.
-// Unlike natural cubic splines, PCHIP never overshoots between data points
-// (no Runge's phenomenon), making it safe for interactive background placement.
-// anchors: [{be, intensity}, ...]
-// evalBE: array of BE values to evaluate at
-// dataMax: maximum Y value in the data (for clamping)
-function pchipInterpolate(anchors, evalBE, dataMax) {
-  if (!anchors || anchors.length < 2) return evalBE.map(() => 0);
-
-  // Sort anchors by BE ascending
-  const pts = anchors.map(a => ({ x: a.be, y: a.intensity }))
-    .sort((a, b) => a.x - b.x);
-  const n = pts.length;
-
-  // For exactly 2 points, use linear interpolation
-  if (n === 2) {
-    const [p0, p1] = pts;
-    const slope = (p1.y - p0.y) / (p1.x - p0.x || 1e-12);
-    return evalBE.map(x => {
-      let v;
-      if (x <= p0.x) v = p0.y;
-      else if (x >= p1.x) v = p1.y;
-      else v = p0.y + slope * (x - p0.x);
-      return Math.max(0, Math.min(v, dataMax));
-    });
-  }
-
-  // Compute interval widths and slopes
-  const h = [], delta = [];
-  for (let i = 0; i < n - 1; i++) {
-    h.push(pts[i + 1].x - pts[i].x || 1e-12);
-    delta.push((pts[i + 1].y - pts[i].y) / h[i]);
-  }
-
-  // PCHIP derivative estimation (Fritsch-Carlson method)
-  const m = new Array(n).fill(0);
-  // Interior points: weighted harmonic mean of neighboring slopes
-  for (let i = 1; i < n - 1; i++) {
-    if (delta[i - 1] * delta[i] <= 0) {
-      m[i] = 0; // sign change → zero derivative (monotonicity)
-    } else {
-      const w1 = 2 * h[i] + h[i - 1];
-      const w2 = h[i] + 2 * h[i - 1];
-      m[i] = (w1 + w2) / (w1 / delta[i - 1] + w2 / delta[i]);
-    }
-  }
-  // Endpoint derivatives: one-sided
-  m[0] = delta[0];
-  m[n - 1] = delta[n - 2];
-  // Clamp endpoint derivatives for monotonicity
-  if (n > 2) {
-    if (delta[0] * delta[1] <= 0) m[0] = 0;
-    if (delta[n - 3] * delta[n - 2] <= 0) m[n - 1] = 0;
-  }
-
-  // Evaluate PCHIP at each BE point with clamping
-  return evalBE.map(x => {
-    if (x <= pts[0].x) return Math.max(0, Math.min(pts[0].y, dataMax));
-    if (x >= pts[n - 1].x) return Math.max(0, Math.min(pts[n - 1].y, dataMax));
-
-    // Binary search for interval
-    let lo = 0, hi = n - 2;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (pts[mid + 1].x < x) lo = mid + 1;
-      else hi = mid;
-    }
-
-    // Hermite basis evaluation
-    const dx = x - pts[lo].x;
-    const hk = h[lo];
-    const t = dx / hk;
-    const t2 = t * t, t3 = t2 * t;
-    const h00 = 2 * t3 - 3 * t2 + 1;
-    const h10 = t3 - 2 * t2 + t;
-    const h01 = -2 * t3 + 3 * t2;
-    const h11 = t3 - t2;
-
-    const v = h00 * pts[lo].y + h10 * hk * m[lo] +
-              h01 * pts[lo + 1].y + h11 * hk * m[lo + 1];
-    return Math.max(0, Math.min(v, dataMax));
-  });
-}
-
 function computeBackground(be, intensity) {
   const type = document.getElementById('bg-type').value;
   const iter = parseInt(document.getElementById('shirley-iter').value) || 50;
 
-  if (type === 'spline') {
-    if (!state.splineAnchors || state.splineAnchors.length < 2) {
-      return Array(be.length).fill(0);
-    }
-    const dataMax = Math.max(...intensity);
-    return pchipInterpolate(state.splineAnchors, be, dataMax);
-  }
+  // Manual anchor background uses its own anchor points, not bg-start/end
+  if (type === 'manual') return manualAnchorBackground(be, intensity);
 
   // Get background endpoint range from UI
   const bgStartBE = parseFloat(document.getElementById('bg-start').value);
@@ -3093,51 +3009,6 @@ function setSpectrum(be, inten, name, sourcePath = null) {
 // ═══════════════════════════════════════════════════
 // CHARGE CORRECTION
 // ═══════════════════════════════════════════════════
-function _undoLastAnchor() {
-  if (state.splineAnchors && state.splineAnchors.length > 0) {
-    state.splineAnchors.pop();
-    _updateSplineControlsUI();
-    updatePlot();
-  }
-}
-
-function _clearAllAnchors() {
-  if (state.splineAnchors && state.splineAnchors.length > 0) {
-    state.splineAnchors = [];
-    _updateSplineControlsUI();
-    updatePlot();
-  }
-}
-
-function _updateSplineControlsUI() {
-  const bgType = document.getElementById('bg-type')?.value;
-  const ctrl = document.getElementById('spline-controls');
-  const countEl = document.getElementById('spline-anchor-count');
-  if (ctrl) ctrl.style.display = (bgType === 'spline') ? 'block' : 'none';
-  if (countEl) {
-    const n = (state.splineAnchors || []).length;
-    countEl.textContent = n > 0 ? n + '/20 pts' : '';
-  }
-}
-
-function _updateShirleyIterState() {
-  const bgType = document.getElementById('bg-type').value;
-  const shirleyIter = document.getElementById('shirley-iter');
-  const isShirley = (bgType === 'shirley' || bgType === 'smart');
-  shirleyIter.disabled = !isShirley;
-  shirleyIter.style.opacity = isShirley ? '1' : '0.4';
-  shirleyIter.style.pointerEvents = isShirley ? '' : 'none';
-  // Show/hide spline controls
-  _updateSplineControlsUI();
-  // Set chart cursor for spline mode
-  const canvas = document.getElementById('mainChart');
-  if (canvas) canvas.style.cursor = (bgType === 'spline') ? 'crosshair' : '';
-  // Disable drag-zoom in spline mode (conflicts with anchor placement)
-  if (typeof _dragZoomEnabled !== 'undefined') {
-    if (!(typeof placeMode !== 'undefined' && placeMode)) _dragZoomEnabled = (bgType !== 'spline');
-  }
-}
-
 function _onCCObsInput() {
   // Mark as verified when user manually edits the observed BE
   const tab = tabManager && tabManager._getTab(tabManager.activeId);
@@ -4186,9 +4057,7 @@ async function runFit() {
     const fitMethod = document.getElementById('fit-method').value;
     const fitReq = {
       session_id: sessionId,
-      background: bgType === 'spline'
-        ? { method: 'spline', start_idx: 0, end_idx: be.length, manual_bg: Array.from(bgIntensity) }
-        : { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx },
+      background: { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx },
       peaks: peakSpecs,
       fit_method: fitMethod,
       n_perturb: 3
@@ -4945,7 +4814,7 @@ function updatePlot() {
       _drawNistMarkers(chart);
       _drawHistoryPreview(chart);
       _drawSourceLabel(chart);
-      _drawSplineAnchors(chart);
+      if (typeof _drawManualAnchors === 'function') _drawManualAnchors(chart);
     }
   };
 
@@ -5310,8 +5179,8 @@ function _doSaveFit() {
       min: document.getElementById('roi-min').value,
       max: document.getElementById('roi-max').value
     },
-    splineAnchors: state.splineAnchors || [],
-    notes: document.getElementById('spectrum-notes')?.value || ''
+    notes: document.getElementById('spectrum-notes')?.value || '',
+    manualAnchors: _getManualAnchors(),
   };
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
   _downloadBlob(
@@ -5361,7 +5230,6 @@ function _doSaveSpectrum() {
     peaks: tab.peaks.map(p => ({...p})),
     nextId: tab.nextId,
     ui: {...tab.ui},
-    splineAnchors: tab.splineAnchors || [],
     roiBE: be,
     background: bgIntensity,
     fittedY: fittedY,
@@ -5369,6 +5237,7 @@ function _doSaveSpectrum() {
     peakCurves: peakCurves,
     statistics: stats,
     notes: tab.notes || '',
+    manualAnchors: tab.manualAnchors || [],
   };
 
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
@@ -5398,8 +5267,8 @@ async function _doSaveProject() {
       rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
     } : null,
     notes: t.notes || '',
+    manualAnchors: t.manualAnchors || [],
     ui: {...t.ui},
-    splineAnchors: t.splineAnchors || [],
   });
 
   const meta = {
@@ -5514,8 +5383,6 @@ function _loadSpectrumFile(data, sessionFile) {
     active.fitResult = fr;
     state.fitResult = fr;
   }
-  active.splineAnchors = data.splineAnchors || [];
-  state.splineAnchors = active.splineAnchors;
   const notesEl = document.getElementById('spectrum-notes');
   if (notesEl) notesEl.value = active.notes || '';
   renderPeakList();
@@ -5533,7 +5400,6 @@ function _loadProjectJSON(data, sessionFile) {
       id, name: t.name, color, isSurvey,
       sourcePath: t.sourcePath || (sessionFile ? sessionFile : '(restored)'),
       chargeVerified: t.chargeVerified ?? true,
-      splineAnchors: t.splineAnchors || [],
       rawBE: t.rawBE || [], rawIntensity: t.rawIntensity || [],
       ccShift: t.ccShift || 0,
       peaks: (t.peaks || []).map(p => ({...p})),
@@ -5541,6 +5407,7 @@ function _loadProjectJSON(data, sessionFile) {
       fitResult: t.fitResult || null,
       markedElements: t.markedElements || [],
       notes: t.notes || '',
+      manualAnchors: t.manualAnchors || [],
       ui: {
         bgType: 'shirley', bgStart: '', bgEnd: '',
         shirleyIter: '50', roiMin: '', roiMax: '',
@@ -6401,7 +6268,6 @@ function _tabScrollRight() { const b = document.getElementById('spectrum-tab-bar
 
 // Init
 tabManager = new TabManager();
-_updateShirleyIterState();
 renderEmptyChart();
 document.getElementById('sb-build').textContent = 'Build ' + BUILD_DATE;
 document.getElementById('mainChart').addEventListener('click', handleChartClick);
@@ -6626,9 +6492,6 @@ async function runPropagation() {
     tgt.nextId = nextId;
     tgt.ui = newUi;
     tgt.ccShift = sourceTab.ccShift;
-    if (srcUi.bgType === 'spline') {
-      tgt.splineAnchors = JSON.parse(JSON.stringify(sourceTab.splineAnchors || []));
-    }
     tgt.chargeVerified = false;
 
     // Now activate this tab so state is populated
@@ -6828,55 +6691,6 @@ function _nistClearAll() {
   _nistMarkers.length = 0;
   _nistRenderMarkerChips();
   updatePlot();
-}
-
-// Draw spline background anchor points as draggable circles
-function _drawSplineAnchors(chart) {
-  const bgType = document.getElementById('bg-type')?.value;
-  if (bgType !== 'spline' || !state.splineAnchors || !state.splineAnchors.length) return;
-  const { ctx, chartArea, scales } = chart;
-  if (!chartArea || !scales.x || !scales.y) return;
-
-  const isLight = document.body.classList.contains('light-theme');
-  const fillColor = isLight ? 'rgba(37,99,235,0.85)' : 'rgba(96,165,250,0.9)';
-  const strokeColor = isLight ? '#1e40af' : '#ffffff';
-
-  ctx.save();
-  for (const a of state.splineAnchors) {
-    const x = scales.x.getPixelForValue(a.be);
-    const y = scales.y.getPixelForValue(a.intensity);
-    if (x < chartArea.left || x > chartArea.right) continue;
-
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = fillColor;
-    ctx.fill();
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  }
-
-  // Draw instruction text if fewer than 2 anchors
-  if (state.splineAnchors.length < 2) {
-    const msg = state.splineAnchors.length === 0
-      ? 'Click to place background anchor points (right-click to remove)'
-      : 'Place at least one more anchor point';
-    ctx.font = "13px 'IBM Plex Mono', monospace";
-    ctx.fillStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(msg, (chartArea.left + chartArea.right) / 2, (chartArea.top + chartArea.bottom) / 2);
-  }
-
-  // Show anchor count badge in top-right of chart
-  if (state.splineAnchors.length >= 2) {
-    ctx.font = "10px 'IBM Plex Mono', monospace";
-    ctx.fillStyle = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillText(state.splineAnchors.length + '/20 anchors', chartArea.right - 8, chartArea.top + 8);
-  }
-  ctx.restore();
 }
 
 // Draw source file path in top-left of plot area
@@ -7152,131 +6966,205 @@ function _drawHistoryPreview(chart) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// SPLINE BACKGROUND — ANCHOR POINT INTERACTION
+// MANUAL (ANCHOR) BACKGROUND
 // ══════════════════════════════════════════════════════════════
-(function() {
-  const ANCHOR_RADIUS = 7;
-  const MAX_ANCHORS = 20;
-  const MIN_SPACING_EV = 0.5;
-  let draggingIdx = -1;
 
-  function _isSplineMode() {
-    const sel = document.getElementById('bg-type');
-    return sel && sel.value === 'spline';
+const MANUAL_ANCHOR_MAX = 20;
+const MANUAL_ANCHOR_MIN_SPACING = 0.5; // eV
+
+// Per-tab anchor storage: tab.manualAnchors = [{x: BE, y: intensity}, ...]
+// Access via _getManualAnchors() / _setManualAnchors()
+
+function _getManualAnchors() {
+  const tab = tabManager && tabManager._getTab(tabManager.activeId);
+  return (tab && tab.manualAnchors) || [];
+}
+function _setManualAnchors(arr) {
+  const tab = tabManager && tabManager._getTab(tabManager.activeId);
+  if (tab) tab.manualAnchors = arr;
+}
+
+function _onBgTypeChange() {
+  const type = document.getElementById('bg-type').value;
+  // Toggle manual controls
+  const mc = document.getElementById('manual-bg-controls');
+  if (mc) mc.style.display = type === 'manual' ? 'block' : 'none';
+  // Grey out Shirley iterations for non-Shirley types
+  const shirleyIter = document.getElementById('shirley-iter');
+  if (shirleyIter) {
+    const needsIter = (type === 'shirley' || type === 'smart');
+    shirleyIter.disabled = !needsIter;
+    shirleyIter.style.opacity = needsIter ? '1' : '0.4';
   }
+  _updateManualAnchorCount();
+  updatePlot();
+}
 
-  function _canvasCoords(e, canvas) {
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  }
+function _updateManualAnchorCount() {
+  const el = document.getElementById('manual-anchor-count');
+  if (!el) return;
+  const anchors = _getManualAnchors();
+  el.textContent = anchors.length > 0 ? anchors.length + '/20 pts' : '';
+}
 
-  function _findNearestAnchor(bePx, intPx, chart) {
-    if (!state.splineAnchors || !chart) return -1;
-    const xScale = chart.scales.x, yScale = chart.scales.y;
-    let bestIdx = -1, bestDist = ANCHOR_RADIUS + 1;
-    for (let i = 0; i < state.splineAnchors.length; i++) {
-      const a = state.splineAnchors[i];
-      const ax = xScale.getPixelForValue(a.be);
-      const ay = yScale.getPixelForValue(a.intensity);
-      const dist = Math.sqrt((bePx - ax) ** 2 + (intPx - ay) ** 2);
-      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+function _manualUndoAnchor() {
+  const anchors = _getManualAnchors();
+  if (!anchors.length) return;
+  anchors.pop();
+  _setManualAnchors(anchors);
+  _updateManualAnchorCount();
+  updatePlot();
+}
+
+function _manualClearAnchors() {
+  _setManualAnchors([]);
+  _updateManualAnchorCount();
+  updatePlot();
+}
+
+// Linear interpolation between sorted anchor points
+function manualAnchorBackground(be, intensity) {
+  const anchors = _getManualAnchors();
+  const n = be.length;
+  // With fewer than 2 anchors, fall back to a linear baseline between
+  // ROI endpoints so that existing peaks stay visible while the user
+  // places anchor points.
+  if (!anchors || anchors.length < 2) return linearBackground(be, intensity);
+
+  // Sort anchors by BE descending (same direction as be array which is descending)
+  const sorted = [...anchors].sort((a, b) => b.x - a.x);
+
+  const result = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const bv = be[i];
+    // Clamp outside range
+    if (bv >= sorted[0].x) { result[i] = sorted[0].y; continue; }
+    if (bv <= sorted[sorted.length - 1].x) { result[i] = sorted[sorted.length - 1].y; continue; }
+    // Find bracketing anchors
+    let lo = 0;
+    for (let j = 0; j < sorted.length - 1; j++) {
+      if (bv <= sorted[j].x && bv >= sorted[j + 1].x) { lo = j; break; }
     }
-    return bestIdx;
+    const x0 = sorted[lo].x, y0 = sorted[lo].y;
+    const x1 = sorted[lo + 1].x, y1 = sorted[lo + 1].y;
+    const t = (x1 !== x0) ? (bv - x0) / (x1 - x0) : 0;
+    result[i] = y0 + t * (y1 - y0);
   }
+  return result;
+}
 
-  // Left-click: add anchor or start drag
-  document.addEventListener('mousedown', function(e) {
-    if (!_isSplineMode() || !state.chart || e.button !== 0) return;
-    const canvas = document.getElementById('mainChart');
-    if (e.target !== canvas) return;
-    if (typeof placeMode !== 'undefined' && placeMode) return;
+// Chart click handler for placing anchors (called from existing chart click handler)
+function _handleManualAnchorClick(event) {
+  if (document.getElementById('bg-type').value !== 'manual') return false;
+  if (!state.chart) return false;
 
-    const { x, y } = _canvasCoords(e, canvas);
-    const chart = state.chart;
-    const xScale = chart.scales.x, yScale = chart.scales.y;
-    if (x < xScale.left || x > xScale.right || y < yScale.top || y > yScale.bottom) return;
+  const chart = state.chart;
+  const rect = chart.canvas.getBoundingClientRect();
+  const cx = event.clientX - rect.left;
+  const cy = event.clientY - rect.top;
 
-    const nearIdx = _findNearestAnchor(x, y, chart);
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+  if (!xScale || !yScale) return false;
+  if (cx < xScale.left || cx > xScale.right || cy < yScale.top || cy > yScale.bottom) return false;
+
+  const beVal = xScale.getValueForPixel(cx);
+
+  // Snap y to the data intensity at this BE
+  const corrBE = getCorrectedBE();
+  let closestIdx = 0, closestDist = Infinity;
+  for (let i = 0; i < corrBE.length; i++) {
+    const d = Math.abs(corrBE[i] - beVal);
+    if (d < closestDist) { closestDist = d; closestIdx = i; }
+  }
+  const snapBE = corrBE[closestIdx];
+  const snapY = state.rawIntensity[closestIdx];
+
+  const anchors = _getManualAnchors();
+
+  // Right-click: remove nearest anchor within 1 eV
+  if (event.button === 2) {
+    let nearIdx = -1, nearDist = 1.0;
+    for (let i = 0; i < anchors.length; i++) {
+      const d = Math.abs(anchors[i].x - snapBE);
+      if (d < nearDist) { nearDist = d; nearIdx = i; }
+    }
     if (nearIdx >= 0) {
-      draggingIdx = nearIdx;
-      e.preventDefault();
-      document.body.style.cursor = 'grabbing';
-      return;
-    }
-
-    // Enforce max anchor count
-    if (state.splineAnchors.length >= MAX_ANCHORS) {
-      if (typeof notify === 'function') notify('Maximum ' + MAX_ANCHORS + ' anchor points allowed.', 'amber');
-      return;
-    }
-
-    const be = xScale.getValueForPixel(x);
-    const intensity = yScale.getValueForPixel(y);
-
-    // Enforce minimum spacing of 0.5 eV between anchor points
-    const tooClose = state.splineAnchors.some(a => Math.abs(a.be - be) < MIN_SPACING_EV);
-    if (tooClose) {
-      if (typeof notify === 'function') notify('Anchor points must be at least ' + MIN_SPACING_EV + ' eV apart.', 'amber');
-      return;
-    }
-
-    state.splineAnchors.push({ be, intensity });
-    if (typeof _updateSplineControlsUI === 'function') _updateSplineControlsUI();
-    updatePlot();
-  });
-
-  // Mousemove: drag anchor
-  document.addEventListener('mousemove', function(e) {
-    if (draggingIdx < 0 || !state.chart) return;
-    const canvas = document.getElementById('mainChart');
-    const { x, y } = _canvasCoords(e, canvas);
-    const xScale = state.chart.scales.x, yScale = state.chart.scales.y;
-    const cx = Math.max(xScale.left, Math.min(xScale.right, x));
-    const cy = Math.max(yScale.top, Math.min(yScale.bottom, y));
-
-    state.splineAnchors[draggingIdx] = {
-      be: xScale.getValueForPixel(cx),
-      intensity: yScale.getValueForPixel(cy)
-    };
-    updatePlot();
-  });
-
-  // Mouseup: end drag
-  document.addEventListener('mouseup', function(e) {
-    if (draggingIdx >= 0) {
-      draggingIdx = -1;
-      document.body.style.cursor = '';
-    }
-  });
-
-  // Right-click: remove nearest anchor
-  document.addEventListener('contextmenu', function(e) {
-    if (!_isSplineMode() || !state.chart) return;
-    const canvas = document.getElementById('mainChart');
-    if (e.target !== canvas) return;
-
-    const { x, y } = _canvasCoords(e, canvas);
-    const chart = state.chart;
-    const xScale = chart.scales.x, yScale = chart.scales.y;
-    if (x < xScale.left || x > xScale.right || y < yScale.top || y > yScale.bottom) return;
-
-    const nearIdx = _findNearestAnchor(x, y, chart);
-    if (nearIdx >= 0) {
-      e.preventDefault();
-      state.splineAnchors.splice(nearIdx, 1);
-      if (typeof _updateSplineControlsUI === 'function') _updateSplineControlsUI();
+      anchors.splice(nearIdx, 1);
+      _setManualAnchors(anchors);
+      _updateManualAnchorCount();
       updatePlot();
     }
+    return true;
+  }
+
+  // Left-click: add anchor
+  if (anchors.length >= MANUAL_ANCHOR_MAX) {
+    notify('Maximum ' + MANUAL_ANCHOR_MAX + ' anchor points reached.', 'amber');
+    return true;
+  }
+
+  // Check minimum spacing
+  for (const a of anchors) {
+    if (Math.abs(a.x - snapBE) < MANUAL_ANCHOR_MIN_SPACING) {
+      notify('Too close to existing anchor (min ' + MANUAL_ANCHOR_MIN_SPACING + ' eV spacing).', 'amber');
+      return true;
+    }
+  }
+
+  anchors.push({ x: snapBE, y: snapY });
+  _setManualAnchors(anchors);
+  _updateManualAnchorCount();
+  updatePlot();
+  return true;
+}
+
+// Draw anchor markers on the chart (called from overlayPlugin)
+function _drawManualAnchors(chart) {
+  if (document.getElementById('bg-type').value !== 'manual') return;
+  const anchors = _getManualAnchors();
+  if (!anchors.length) return;
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+  if (!xScale || !yScale) return;
+
+  const ctx = chart.ctx;
+  const isLight = document.body.classList.contains('light-theme');
+  ctx.save();
+  for (const a of anchors) {
+    const px = xScale.getPixelForValue(a.x);
+    const py = yScale.getPixelForValue(a.y);
+    if (px < xScale.left || px > xScale.right) continue;
+    // Filled circle
+    ctx.beginPath();
+    ctx.arc(px, py, 5, 0, Math.PI * 2);
+    ctx.fillStyle = isLight ? 'rgba(220,50,50,0.85)' : 'rgba(255,100,100,0.9)';
+    ctx.fill();
+    // Border
+    ctx.strokeStyle = isLight ? '#991b1b' : '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Hook into existing chart click — attach listener to mainChart canvas
+(function() {
+  const canvas = document.getElementById('mainChart');
+  if (!canvas) return;
+
+  canvas.addEventListener('click', function(e) {
+    if (document.getElementById('bg-type').value === 'manual') {
+      if (!placeMode) _handleManualAnchorClick(e);
+    }
   });
 
-  // Cursor feedback: grab when hovering anchor, crosshair otherwise
-  document.addEventListener('mousemove', function(e) {
-    if (!_isSplineMode() || !state.chart || draggingIdx >= 0) return;
-    const canvas = document.getElementById('mainChart');
-    if (e.target !== canvas) return;
-    const { x, y } = _canvasCoords(e, canvas);
-    const nearIdx = _findNearestAnchor(x, y, state.chart);
-    canvas.style.cursor = nearIdx >= 0 ? 'grab' : 'crosshair';
+  // Right-click for anchor removal
+  canvas.addEventListener('contextmenu', function(e) {
+    if (document.getElementById('bg-type').value === 'manual') {
+      e.preventDefault();
+      _handleManualAnchorClick(e);
+    }
   });
 })();
 

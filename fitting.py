@@ -572,8 +572,8 @@ def run_fit(
     bg_end_idx: int | None = None,
     charge_shift_ev: float = 0.0,
     fit_kws: dict | None = None,
-    manual_bg=None,
     n_perturb: int = 0,
+    manual_bg: list | None = None,
 ) -> dict[str, Any]:
     """
     Run XPS peak fitting and return a serialisable result dict.
@@ -615,19 +615,24 @@ def run_fit(
 
     # ── Background ────────────────────────────────────────────────────────────
     bg_method = background_method.lower()
-    if bg_method == "shirley":
+    if manual_bg is not None and bg_method == "manual":
+        # manual_bg is a list of [be, intensity] anchor points from the frontend.
+        # Linearly interpolate the anchor points onto the ROI energy grid.
+        anchors = sorted(manual_bg, key=lambda a: a[0])
+        if len(anchors) >= 2:
+            anchor_x = np.array([a[0] for a in anchors])
+            anchor_y = np.array([a[1] for a in anchors])
+            bg = np.interp(x, anchor_x, anchor_y)
+        else:
+            bg = linear_background(x, y)
+    elif bg_method == "shirley":
         bg = shirley_background(x, y)
     elif bg_method == "smart":
         bg = smart_background(x, y)
     elif bg_method == "linear":
         bg = linear_background(x, y)
-    elif bg_method in ("none", "flat", ""):
+    elif bg_method in ("none", "flat", "", "manual"):
         bg = np.zeros_like(y)
-    elif bg_method == "spline":
-        if manual_bg is not None and len(manual_bg) == len(y):
-            bg = np.array(manual_bg, dtype=float)
-        else:
-            bg = np.zeros_like(y)
     else:
         raise ValueError(f"Unknown background method '{background_method}'")
 
@@ -832,7 +837,7 @@ def compute_background_only(
         bg = smart_background(x, y)
     elif method == "linear":
         bg = linear_background(x, y)
-    elif method in ("none", "flat", ""):
+    elif method in ("none", "flat", "", "manual"):
         bg = np.zeros_like(y)
     else:
         raise ValueError(f"Unknown background method '{method}'")
