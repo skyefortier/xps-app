@@ -4134,10 +4134,9 @@ async function runFit() {
     const fitMethod = document.getElementById('fit-method').value;
     const fitReq = {
       session_id: sessionId,
-      background: {
-        method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx,
-        ...(bgType === 'spline' ? { manual_bg: Array.from(bgIntensity) } : {})
-      },
+      background: bgType === 'spline'
+        ? { method: 'spline', start_idx: 0, end_idx: be.length, manual_bg: Array.from(bgIntensity) }
+        : { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx },
       peaks: peakSpecs,
       fit_method: fitMethod,
       n_perturb: 3
@@ -5259,6 +5258,7 @@ function _doSaveFit() {
       min: document.getElementById('roi-min').value,
       max: document.getElementById('roi-max').value
     },
+    splineAnchors: state.splineAnchors || [],
     notes: document.getElementById('spectrum-notes')?.value || ''
   };
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
