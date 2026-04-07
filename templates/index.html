@@ -3072,6 +3072,13 @@ function _updateShirleyIterState() {
   shirleyIter.disabled = !isShirley;
   shirleyIter.style.opacity = isShirley ? '1' : '0.4';
   shirleyIter.style.pointerEvents = isShirley ? '' : 'none';
+  // Set chart cursor for spline mode
+  const canvas = document.getElementById('mainChart');
+  if (canvas) canvas.style.cursor = (bgType === 'spline') ? 'crosshair' : '';
+  // Disable drag-zoom in spline mode (conflicts with anchor placement)
+  if (typeof _dragZoomEnabled !== 'undefined') {
+    if (!(typeof placeMode !== 'undefined' && placeMode)) _dragZoomEnabled = (bgType !== 'spline');
+  }
 }
 
 function _onCCObsInput() {
@@ -7025,6 +7032,117 @@ function _drawHistoryPreview(chart) {
   ctx.stroke();
   ctx.restore();
 }
+
+// ══════════════════════════════════════════════════════════════
+// SPLINE BACKGROUND — ANCHOR POINT INTERACTION
+// ══════════════════════════════════════════════════════════════
+(function() {
+  const ANCHOR_RADIUS = 7;
+  let draggingIdx = -1;
+
+  function _isSplineMode() {
+    const sel = document.getElementById('bg-type');
+    return sel && sel.value === 'spline';
+  }
+
+  function _canvasCoords(e, canvas) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function _findNearestAnchor(bePx, intPx, chart) {
+    if (!state.splineAnchors || !chart) return -1;
+    const xScale = chart.scales.x, yScale = chart.scales.y;
+    let bestIdx = -1, bestDist = ANCHOR_RADIUS + 1;
+    for (let i = 0; i < state.splineAnchors.length; i++) {
+      const a = state.splineAnchors[i];
+      const ax = xScale.getPixelForValue(a.be);
+      const ay = yScale.getPixelForValue(a.intensity);
+      const dist = Math.sqrt((bePx - ax) ** 2 + (intPx - ay) ** 2);
+      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+    }
+    return bestIdx;
+  }
+
+  // Left-click: add anchor or start drag
+  document.addEventListener('mousedown', function(e) {
+    if (!_isSplineMode() || !state.chart || e.button !== 0) return;
+    const canvas = document.getElementById('mainChart');
+    if (e.target !== canvas) return;
+    if (typeof placeMode !== 'undefined' && placeMode) return;
+
+    const { x, y } = _canvasCoords(e, canvas);
+    const chart = state.chart;
+    const xScale = chart.scales.x, yScale = chart.scales.y;
+    if (x < xScale.left || x > xScale.right || y < yScale.top || y > yScale.bottom) return;
+
+    const nearIdx = _findNearestAnchor(x, y, chart);
+    if (nearIdx >= 0) {
+      draggingIdx = nearIdx;
+      e.preventDefault();
+      document.body.style.cursor = 'grabbing';
+      return;
+    }
+
+    const be = xScale.getValueForPixel(x);
+    const intensity = yScale.getValueForPixel(y);
+    state.splineAnchors.push({ be, intensity });
+    updatePlot();
+  });
+
+  // Mousemove: drag anchor
+  document.addEventListener('mousemove', function(e) {
+    if (draggingIdx < 0 || !state.chart) return;
+    const canvas = document.getElementById('mainChart');
+    const { x, y } = _canvasCoords(e, canvas);
+    const xScale = state.chart.scales.x, yScale = state.chart.scales.y;
+    const cx = Math.max(xScale.left, Math.min(xScale.right, x));
+    const cy = Math.max(yScale.top, Math.min(yScale.bottom, y));
+
+    state.splineAnchors[draggingIdx] = {
+      be: xScale.getValueForPixel(cx),
+      intensity: yScale.getValueForPixel(cy)
+    };
+    updatePlot();
+  });
+
+  // Mouseup: end drag
+  document.addEventListener('mouseup', function(e) {
+    if (draggingIdx >= 0) {
+      draggingIdx = -1;
+      document.body.style.cursor = '';
+    }
+  });
+
+  // Right-click: remove nearest anchor
+  document.addEventListener('contextmenu', function(e) {
+    if (!_isSplineMode() || !state.chart) return;
+    const canvas = document.getElementById('mainChart');
+    if (e.target !== canvas) return;
+
+    const { x, y } = _canvasCoords(e, canvas);
+    const chart = state.chart;
+    const xScale = chart.scales.x, yScale = chart.scales.y;
+    if (x < xScale.left || x > xScale.right || y < yScale.top || y > yScale.bottom) return;
+
+    const nearIdx = _findNearestAnchor(x, y, chart);
+    if (nearIdx >= 0) {
+      e.preventDefault();
+      state.splineAnchors.splice(nearIdx, 1);
+      updatePlot();
+    }
+  });
+
+  // Cursor feedback: grab when hovering anchor, crosshair otherwise
+  document.addEventListener('mousemove', function(e) {
+    if (!_isSplineMode() || !state.chart || draggingIdx >= 0) return;
+    const canvas = document.getElementById('mainChart');
+    if (e.target !== canvas) return;
+    const { x, y } = _canvasCoords(e, canvas);
+    const nearIdx = _findNearestAnchor(x, y, state.chart);
+    canvas.style.cursor = nearIdx >= 0 ? 'grab' : 'crosshair';
+  });
+})();
 
 </script>
 
