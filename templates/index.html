@@ -1353,6 +1353,7 @@
                 <option value="smart" data-tip="Shirley background with the constraint that it never exceeds the data. Prevents overshoot artifacts between well-separated peaks.">Smart (constrained Shirley)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
                 <option value="tougaard" data-tip="Physics-based universal background using electron energy loss cross-sections. More accurate than Shirley but requires wider energy range.">Tougaard (simplified)</option>
+                <option value="spline" data-tip="Manually place anchor points on the spectrum and interpolate a cubic spline through them. Click to add, right-click to remove, drag to move.">Manual (spline)</option>
                 <option value="none">None</option>
               </select>
             </div>
@@ -1560,7 +1561,8 @@ let state = {
   nextId: 1,
   chart: null,
   residChart: null,
-  fitResult: null
+  fitResult: null,
+  splineAnchors: []
 };
 
 // ═══════════════════════════════════════════════════
@@ -1805,6 +1807,7 @@ class TabManager {
       id, name: displayName, color, isSurvey,
       sourcePath,
       chargeVerified: true,
+      splineAnchors: [],
       rawBE: sortedBE,
       rawIntensity: sortedInten,
       ccShift: 0,
@@ -1849,6 +1852,7 @@ class TabManager {
     state.peaks = tab.peaks;
     state.nextId = tab.nextId;
     state.fitResult = tab.fitResult;
+    state.splineAnchors = tab.splineAnchors || [];
 
     // Restore DOM form fields
     this._restoreUI(tab.ui);
@@ -1889,6 +1893,7 @@ class TabManager {
       state.rawBE = []; state.rawIntensity = [];
       state.peaks = []; state.fitResult = null;
       state.ccShift = 0; state.nextId = 1;
+      state.splineAnchors = [];
       document.getElementById('data-info').textContent = 'no data';
       document.getElementById('sb-pts').textContent = '\u2014';
       document.getElementById('sb-range').textContent = '\u2014';
@@ -2386,6 +2391,7 @@ class TabManager {
     t.ccShift = isNaN(state.ccShift) ? 0 : state.ccShift;
     t.nextId = state.nextId;
     t.fitResult = state.fitResult;
+    t.splineAnchors = state.splineAnchors || [];
     t.yZoom = state._mainYMax || null;
     t.notes = document.getElementById('spectrum-notes')?.value || '';
     t.ui = this._captureUI();
@@ -2825,6 +2831,13 @@ function cubicSplineInterpolate(anchors, evalBE) {
 function computeBackground(be, intensity) {
   const type = document.getElementById('bg-type').value;
   const iter = parseInt(document.getElementById('shirley-iter').value) || 50;
+
+  if (type === 'spline') {
+    if (!state.splineAnchors || state.splineAnchors.length < 2) {
+      return Array(be.length).fill(0);
+    }
+    return cubicSplineInterpolate(state.splineAnchors, be);
+  }
 
   // Get background endpoint range from UI
   const bgStartBE = parseFloat(document.getElementById('bg-start').value);
