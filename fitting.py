@@ -349,42 +349,11 @@ def smart_background(
     n_iter: int = 200,
     tol: float = 1e-6,
 ) -> np.ndarray:
-    """
-    Smart/Dynamic background: Shirley with the constraint that the
-    background never exceeds the measured data at any point.
-    Prevents overshoot in regions between peaks or at noisy endpoints.
-    """
+    """Smart (constrained Shirley): standard Shirley clamped to never exceed data."""
     if len(x) < 2:
         return np.zeros_like(y)
-
-    if x[0] > x[-1]:
-        xs, ys = x[::-1].copy(), y[::-1].copy()
-        flipped = True
-    else:
-        xs, ys = x.copy(), y.copy()
-        flipped = False
-
-    b_low = ys[0]
-    b_high = ys[-1]
-
-    B = np.linspace(b_low, b_high, len(ys))
-
-    for _ in range(n_iter):
-        B_prev = B.copy()
-        signal = np.maximum(ys - B, 0.0)
-        total = trapezoid(signal, xs)
-        if total <= 0.0:
-            break
-        cum_right = np.zeros(len(ys))
-        for i in range(len(ys)):
-            cum_right[i] = trapezoid(signal[i:], xs[i:])
-        B = b_high + (b_low - b_high) * cum_right / total
-        # Smart constraint: background must never exceed data
-        B = np.minimum(B, ys)
-        if np.max(np.abs(B - B_prev)) < tol:
-            break
-
-    return B[::-1] if flipped else B
+    shir = shirley_background(x, y, n_iter, tol)
+    return np.minimum(shir, y)
 
 
 def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:

@@ -2717,38 +2717,12 @@ function shirleyBackground(be, intensity, maxIter) {
 }
 
 function smartBackground(be, intensity, maxIter) {
-  // Smart/Dynamic background: Shirley with the constraint that
-  // the background never exceeds the actual data at any point.
-  // This prevents Shirley overshoot between peaks or at noisy endpoints.
+  // Smart (constrained Shirley): standard Shirley clamped to never exceed data.
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-  const I0 = intensity[0], I1 = intensity[n - 1];
-  let bg = new Array(n).fill(0);
-  for (let iter = 0; iter < maxIter; iter++) {
-    const newBg = new Array(n).fill(0);
-    for (let i = 0; i < n; i++) {
-      let sumRight = 0;
-      for (let j = i; j < n - 1; j++) {
-        const sj  = Math.max(intensity[j]     - bg[j],     0);
-        const sj1 = Math.max(intensity[j + 1] - bg[j + 1], 0);
-        sumRight += (sj + sj1) / 2 * Math.abs(be[j + 1] - be[j]);
-      }
-      let sumTotal = 0;
-      for (let j = 0; j < n - 1; j++) {
-        const sj  = Math.max(intensity[j]     - bg[j],     0);
-        const sj1 = Math.max(intensity[j + 1] - bg[j + 1], 0);
-        sumTotal += (sj + sj1) / 2 * Math.abs(be[j + 1] - be[j]);
-      }
-      const frac = sumTotal > 0 ? sumRight / sumTotal : (n - 1 - i) / (n - 1);
-      newBg[i] = I1 + (I0 - I1) * frac;
-    }
-    // Smart constraint: background must never exceed the data
-    for (let i = 0; i < n; i++) {
-      newBg[i] = Math.min(newBg[i], intensity[i]);
-    }
-    bg = newBg;
-  }
-  return bg;
+  const shir = shirleyBackground(be, intensity, maxIter);
+  for (let i = 0; i < n; i++) shir[i] = Math.min(shir[i], intensity[i]);
+  return shir;
 }
 
 function linearBackground(be, intensity) {
