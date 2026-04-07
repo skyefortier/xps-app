@@ -3089,7 +3089,14 @@ function defaultPeak(overrides) {
     fixCenter: false,
     fixFwhm: false,
     fixAmplitude: false,
-    fixGlMix: false
+    fixGlMix: false,
+    fixAsymmetry: false,
+    fixDsAlpha: false,
+    fixDsGamma: false,
+    fixDsGaussSigma: false,
+    fixLaAlpha: false,
+    fixLaBeta: false,
+    fixLaM: false
   }, overrides);
 }
 
@@ -3729,7 +3736,9 @@ function renderShapeControls(p) {
   if (p.shape === 'asym-GL') {
     return `
       <div class="asym-field">
-        <label>Asymmetry &alpha; <span style="color:var(--text3);font-size:9px">0=symmetric &middot; U(IV) ~0.10</span></label>
+        <label>Asymmetry &alpha; <span style="color:var(--text3);font-size:9px">0=symmetric &middot; U(IV) ~0.10</span>
+          ${!isLinked ? `<button class="lock-btn${p.fixAsymmetry ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixAsymmetry',this)" title="${p.fixAsymmetry ? 'Unlock' : 'Lock'} during fitting">${p.fixAsymmetry ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
         <input type="number" value="${p.asymmetry.toFixed(3)}" step="0.01" min="0" max="1"
           oninput="updatePeakParam(${p.id},'asymmetry',parseFloat(this.value))">
       </div>
@@ -3758,12 +3767,16 @@ function renderShapeControls(p) {
   } else if (p.shape === 'DS') {
     return `
       <div class="asym-field">
-        <label>DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">actinides 0.05&ndash;0.15</span></label>
+        <label>DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">actinides 0.05&ndash;0.15</span>
+          ${!isLinked ? `<button class="lock-btn${p.fixDsAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsAlpha',this)" title="${p.fixDsAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixDsAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
         <input type="number" value="${p.dsAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
           oninput="updatePeakParam(${p.id},'dsAlpha',parseFloat(this.value))">
       </div>
       <div class="field">
-        <label>DS &gamma; (tail decay)</label>
+        <label>DS &gamma; (tail decay)
+          ${!isLinked ? `<button class="lock-btn${p.fixDsGamma ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsGamma',this)" title="${p.fixDsGamma ? 'Unlock' : 'Lock'} during fitting">${p.fixDsGamma ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
         <input type="number" value="${p.dsGamma.toFixed(4)}" step="0.001" min="0"
           oninput="updatePeakParam(${p.id},'dsGamma',parseFloat(this.value))">
       </div>
@@ -3771,17 +3784,23 @@ function renderShapeControls(p) {
   } else if (p.shape === 'DSG') {
     return `
       <div class="asym-field">
-        <label>DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">actinides 0.05&ndash;0.15</span></label>
+        <label>DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">actinides 0.05&ndash;0.15</span>
+          ${!isLinked ? `<button class="lock-btn${p.fixDsAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsAlpha',this)" title="${p.fixDsAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixDsAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
         <input type="number" value="${p.dsAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
           oninput="updatePeakParam(${p.id},'dsAlpha',parseFloat(this.value))">
       </div>
       <div class="field">
-        <label>DS &gamma; (tail decay)</label>
+        <label>DS &gamma; (tail decay)
+          ${!isLinked ? `<button class="lock-btn${p.fixDsGamma ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsGamma',this)" title="${p.fixDsGamma ? 'Unlock' : 'Lock'} during fitting">${p.fixDsGamma ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
         <input type="number" value="${p.dsGamma.toFixed(4)}" step="0.001" min="0"
           oninput="updatePeakParam(${p.id},'dsGamma',parseFloat(this.value))">
       </div>
       <div class="field">
-        <label>Instrument &sigma; (Gaussian broadening, eV)</label>
+        <label>Instrument &sigma; (Gaussian broadening, eV)
+          ${!isLinked ? `<button class="lock-btn${p.fixDsGaussSigma ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsGaussSigma',this)" title="${p.fixDsGaussSigma ? 'Unlock' : 'Lock'} during fitting">${p.fixDsGaussSigma ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
         <input type="number" value="${p.dsGaussSigma.toFixed(3)}" step="0.05" min="0"
           oninput="updatePeakParam(${p.id},'dsGaussSigma',parseFloat(this.value))">
       </div>
@@ -3793,18 +3812,24 @@ function renderShapeControls(p) {
       </div>
       <div class="field-row">
         <div class="field">
-          <label>&alpha; (asymmetry, 0&ndash;0.5)</label>
+          <label>&alpha; (asymmetry, 0&ndash;0.5)
+            ${!isLinked ? `<button class="lock-btn${p.fixLaAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixLaAlpha',this)" title="${p.fixLaAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixLaAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+          </label>
           <input type="number" value="${p.laAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
             oninput="updatePeakParam(${p.id},'laAlpha',parseFloat(this.value))">
         </div>
         <div class="field">
-          <label>&beta; Lorentz HW (eV)</label>
+          <label>&beta; Lorentz HW (eV)
+            ${!isLinked ? `<button class="lock-btn${p.fixLaBeta ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixLaBeta',this)" title="${p.fixLaBeta ? 'Unlock' : 'Lock'} during fitting">${p.fixLaBeta ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+          </label>
           <input type="number" value="${p.laBeta.toFixed(3)}" step="0.01" min="0.05" max="2.0"
             oninput="updatePeakParam(${p.id},'laBeta',parseFloat(this.value))">
         </div>
       </div>
       <div class="field">
-        <label>m Gauss FWHM (eV)</label>
+        <label>m Gauss FWHM (eV)
+          ${!isLinked ? `<button class="lock-btn${p.fixLaM ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixLaM',this)" title="${p.fixLaM ? 'Unlock' : 'Lock'} during fitting">${p.fixLaM ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
         <input type="number" value="${p.laM.toFixed(3)}" step="0.01" min="0.05" max="4.0"
           oninput="updatePeakParam(${p.id},'laM',parseFloat(this.value))">
       </div>
@@ -3896,15 +3921,21 @@ function peakToBackendSpec(p) {
     spec.gl_ratio = (p.glMix || 50) / 100;
     spec.fwhm_l = p.fwhm;
     spec.fwhm_r = p.fwhm * (1 + (p.asymmetry || 0));
+    spec.fix_asymmetry = !!p.fixAsymmetry;
   } else if (shape === 'DS' || shape === 'DSG') {
     spec.shape = 'doniach_sunjic';
     spec.alpha      = p.dsAlpha || 0.1;
     spec.gamma_asym = p.dsGamma || 0.0;
+    spec.fix_alpha      = !!p.fixDsAlpha;
+    spec.fix_gamma_asym = !!p.fixDsGamma;
   } else if (shape === 'LA') {
     spec.shape = 'la_casaxps';
     spec.alpha   = Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10;
     spec.beta    = Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3;
     spec.m_gauss = Number.isFinite(p.laM)     ? p.laM     : 0.4;
+    spec.fix_alpha   = !!p.fixLaAlpha;
+    spec.fix_beta    = !!p.fixLaBeta;
+    spec.fix_m_gauss = !!p.fixLaM;
   } else {
     spec.shape = 'gaussian';
   }
@@ -3930,7 +3961,8 @@ function applyBackendResult(result) {
     if (par.amplitude) p.amplitude = par.amplitude.value;
     if (par.fwhm)      p.fwhm      = par.fwhm.value;
     if (par.gl_ratio)  p.glMix     = par.gl_ratio.value * 100;
-    if (par.alpha && p.shape !== 'LA') p.dsAlpha = par.alpha.value;
+    if (par.alpha && (p.shape === 'DS' || p.shape === 'DSG')) p.dsAlpha = par.alpha.value;
+    if (par.gamma_asym && (p.shape === 'DS' || p.shape === 'DSG')) p.dsGamma = par.gamma_asym.value;
     if (par.alpha && p.shape === 'LA') p.laAlpha = par.alpha.value;
     if (par.beta    && p.shape === 'LA') p.laBeta  = par.beta.value;
     if (par.m_gauss && p.shape === 'LA') p.laM     = par.m_gauss.value;
@@ -4042,16 +4074,22 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       if ((p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) {
         freeParams.push(p.glMix); paramMap.push({id: p.id, param: 'glMix'});
       }
-      if (p.shape === 'asym-GL') {
+      if (p.shape === 'asym-GL' && !p.fixAsymmetry) {
         freeParams.push(p.asymmetry); paramMap.push({id: p.id, param: 'asymmetry'});
       }
-      if (p.shape === 'DS' || p.shape === 'DSG') {
+      if ((p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsAlpha) {
         freeParams.push(p.dsAlpha); paramMap.push({id: p.id, param: 'dsAlpha'});
       }
+      if ((p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsGamma) {
+        freeParams.push(p.dsGamma); paramMap.push({id: p.id, param: 'dsGamma'});
+      }
+      if (p.shape === 'DSG' && !p.fixDsGaussSigma) {
+        freeParams.push(p.dsGaussSigma); paramMap.push({id: p.id, param: 'dsGaussSigma'});
+      }
       if (p.shape === 'LA') {
-        freeParams.push(Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10); paramMap.push({id: p.id, param: 'laAlpha'});
-        freeParams.push(Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3);  paramMap.push({id: p.id, param: 'laBeta'});
-        freeParams.push(Number.isFinite(p.laM)     ? p.laM     : 0.4);  paramMap.push({id: p.id, param: 'laM'});
+        if (!p.fixLaAlpha) { freeParams.push(Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10); paramMap.push({id: p.id, param: 'laAlpha'}); }
+        if (!p.fixLaBeta)  { freeParams.push(Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3);  paramMap.push({id: p.id, param: 'laBeta'}); }
+        if (!p.fixLaM)     { freeParams.push(Number.isFinite(p.laM)     ? p.laM     : 0.4);  paramMap.push({id: p.id, param: 'laM'}); }
       }
     }
   }
@@ -4062,21 +4100,24 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       const p = getPeak(id);
       if (!p) continue;
       let v = params[i];
-      if (param === 'fwhm')      v = Math.max(0.05, v);
-      if (param === 'amplitude') v = Math.max(1, v);
-      if (param === 'glMix')     v = Math.max(0, Math.min(100, v));
-      if (param === 'asymmetry') v = Math.max(0, Math.min(0.9, v));
-      if (param === 'dsAlpha')   v = Math.max(0, Math.min(0.49, v));
-      if (param === 'laAlpha')   v = Math.max(0, Math.min(0.49, v));
-      if (param === 'laBeta')    v = Math.max(0.05, Math.min(2.0, v));
-      if (param === 'laM')       v = Math.max(0.05, Math.min(4.0, v));
+      if (param === 'fwhm')         v = Math.max(0.05, v);
+      if (param === 'amplitude')    v = Math.max(1, v);
+      if (param === 'glMix')        v = Math.max(0, Math.min(100, v));
+      if (param === 'asymmetry')    v = Math.max(0, Math.min(0.9, v));
+      if (param === 'dsAlpha')      v = Math.max(0, Math.min(0.49, v));
+      if (param === 'dsGamma')      v = Math.max(0, Math.min(5.0, v));
+      if (param === 'dsGaussSigma') v = Math.max(0.01, Math.min(3.0, v));
+      if (param === 'laAlpha')      v = Math.max(0, Math.min(0.49, v));
+      if (param === 'laBeta')       v = Math.max(0.05, Math.min(2.0, v));
+      if (param === 'laM')          v = Math.max(0.05, Math.min(4.0, v));
       p[param] = v;
       const linked = state.peaks.find(q => q.linked === id);
       if (linked) {
         if (param === 'center')    linked.center = v + linked.linkOffset;
         if (param === 'amplitude') linked.amplitude = v * linked.linkRatio;
         if (param === 'fwhm')      linked.fwhm = v;
-        if (param === 'shape' || param === 'glMix' || param === 'asymmetry' || param === 'dsAlpha' ||
+        if (param === 'shape' || param === 'glMix' || param === 'asymmetry' ||
+            param === 'dsAlpha' || param === 'dsGamma' || param === 'dsGaussSigma' ||
             param === 'laAlpha' || param === 'laBeta' || param === 'laM') linked[param] = v;
       }
     }

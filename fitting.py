@@ -524,17 +524,17 @@ def _make_peak_params(
         _set("fwhm_l", fwhm_l, min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"))
         _set("fwhm_r", fwhm_r, min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"))
     if shape == "doniach_sunjic":
-        # DS asymmetry parameters are set by the user (prior knowledge) and held
-        # fixed during fitting.  Only center, amplitude, and fwhm are optimised.
-        # This prevents the optimizer from trading off alpha/gamma_asym against
-        # fwhm/amplitude in unphysical ways.
-        _set("alpha", spec.get("alpha", 0.1), vary=False)
-        _set("gamma_asym", spec.get("gamma_asym", 0.0), vary=False)
+        _set("alpha", spec.get("alpha", 0.1), min_=0.0, max_=0.5,
+             vary=not spec.get("fix_alpha", False))
+        _set("gamma_asym", spec.get("gamma_asym", 0.0), min_=0.0, max_=5.0,
+             vary=not spec.get("fix_gamma_asym", False))
     if shape == "la_casaxps":
-        # α and m_gauss are free to vary within physical bounds.
-        _set("alpha",   spec.get("alpha",   0.10), min_=0.01, max_=0.35)
-        _set("beta",    spec.get("beta",    0.3),  min_=0.05, max_=2.0)
-        _set("m_gauss", spec.get("m_gauss", 0.4),  min_=0.05, max_=4.0)
+        _set("alpha",   spec.get("alpha",   0.10), min_=0.0,  max_=0.49,
+             vary=not spec.get("fix_alpha", False))
+        _set("beta",    spec.get("beta",    0.3),  min_=0.05, max_=2.0,
+             vary=not spec.get("fix_beta", False))
+        _set("m_gauss", spec.get("m_gauss", 0.4),  min_=0.05, max_=4.0,
+             vary=not spec.get("fix_m_gauss", False))
 
     return p
 
