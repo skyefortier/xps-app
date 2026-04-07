@@ -1306,7 +1306,8 @@
               <label>Method</label>
               <select id="cc-method" onchange="updateChargeCorrection()">
                 <option value="none">None</option>
-                <option value="c1s">C 1s graphite (284.8 eV)</option>
+                <option value="c1s">C 1s graphite (284.5 eV)</option>
+                <option value="c1s-adv">C 1s adventitious (284.8 eV)</option>
                 <option value="au4f">Au 4f&#8327;/&#8322; (83.98 eV)</option>
                 <option value="custom">Custom reference</option>
               </select>
@@ -2917,6 +2918,11 @@ function updateChargeCorrection() {
   targetField.style.display = 'none';
 
   if (method === 'c1s') {
+    const obs = parseFloat(document.getElementById('cc-obs').value);
+    state.ccShift = isNaN(obs) ? 0 : obs - 284.5;
+    refField.style.display = 'block';
+    document.getElementById('cc-lit').value = '284.5';
+  } else if (method === 'c1s-adv') {
     const obs = parseFloat(document.getElementById('cc-obs').value);
     state.ccShift = isNaN(obs) ? 0 : obs - 284.8;
     refField.style.display = 'block';
