@@ -2749,6 +2749,79 @@ function tougaardBackground(be, intensity) {
   return bg.map(v => v * scale);
 }
 
+// Natural cubic spline interpolation through sorted anchor points.
+// anchors: [{be, intensity}, ...] sorted by BE descending (same as spectrum)
+// evalBE: array of BE values to evaluate at
+// Returns: array of interpolated intensity values at each evalBE point
+function cubicSplineInterpolate(anchors, evalBE) {
+  if (!anchors || anchors.length < 2) return evalBE.map(() => 0);
+
+  // Sort anchors by BE ascending for spline math
+  const pts = anchors.map(a => ({ x: a.be, y: a.intensity }))
+    .sort((a, b) => a.x - b.x);
+  const n = pts.length;
+
+  // For exactly 2 points, use linear interpolation
+  if (n === 2) {
+    const [p0, p1] = pts;
+    const slope = (p1.y - p0.y) / (p1.x - p0.x || 1e-12);
+    return evalBE.map(x => {
+      if (x <= p0.x) return p0.y;
+      if (x >= p1.x) return p1.y;
+      return p0.y + slope * (x - p0.x);
+    });
+  }
+
+  // Compute h[i] = x[i+1] - x[i]
+  const h = [];
+  for (let i = 0; i < n - 1; i++) h.push(pts[i + 1].x - pts[i].x || 1e-12);
+
+  // Solve tridiagonal system for natural cubic spline second derivatives (M)
+  // M[0] = M[n-1] = 0 (natural boundary conditions)
+  const alpha = new Array(n).fill(0);
+  for (let i = 1; i < n - 1; i++) {
+    alpha[i] = (3 / h[i]) * (pts[i + 1].y - pts[i].y) -
+               (3 / h[i - 1]) * (pts[i].y - pts[i - 1].y);
+  }
+
+  const l = new Array(n).fill(1);
+  const mu = new Array(n).fill(0);
+  const z = new Array(n).fill(0);
+
+  for (let i = 1; i < n - 1; i++) {
+    l[i] = 2 * (pts[i + 1].x - pts[i - 1].x) - h[i - 1] * mu[i - 1];
+    mu[i] = h[i] / l[i];
+    z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
+  }
+
+  const c = new Array(n).fill(0);
+  const b = new Array(n).fill(0);
+  const d = new Array(n).fill(0);
+
+  for (let j = n - 2; j >= 0; j--) {
+    c[j] = z[j] - mu[j] * c[j + 1];
+    b[j] = (pts[j + 1].y - pts[j].y) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
+    d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
+  }
+
+  // Evaluate spline at each BE point
+  return evalBE.map(x => {
+    // Clamp to endpoint values outside the anchor range
+    if (x <= pts[0].x) return pts[0].y;
+    if (x >= pts[n - 1].x) return pts[n - 1].y;
+
+    // Binary search for the correct interval
+    let lo = 0, hi = n - 2;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (pts[mid + 1].x < x) lo = mid + 1;
+      else hi = mid;
+    }
+    const dx = x - pts[lo].x;
+    return pts[lo].y + b[lo] * dx + c[lo] * dx * dx + d[lo] * dx * dx * dx;
+  });
+}
+
 function computeBackground(be, intensity) {
   const type = document.getElementById('bg-type').value;
   const iter = parseInt(document.getElementById('shirley-iter').value) || 50;
