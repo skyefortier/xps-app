@@ -1471,21 +1471,21 @@
             <div class="field-row">
               <div class="field">
                 <label>BE start (eV)</label>
-                <input type="number" id="bg-start" value="726" step="0.5" oninput="updatePlot()">
+                <input type="number" id="bg-start" value="726" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
               </div>
               <div class="field">
                 <label>BE end (eV)</label>
-                <input type="number" id="bg-end" value="706" step="0.5" oninput="updatePlot()">
+                <input type="number" id="bg-end" value="706" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
               </div>
             </div>
             <div class="field-row">
               <div class="field">
                 <label>Shirley iterations</label>
-                <input type="number" id="shirley-iter" value="5" min="1" max="50" step="1" oninput="_clampShirleyIter(); updatePlot()" title="Number of iterations for the Shirley background calculation. The algorithm converges quickly — most of the change happens between 1 and 5 iterations. Values above 10 rarely produce visible differences. Default: 5.">
+                <input type="number" id="shirley-iter" value="5" min="1" max="50" step="1" oninput="_clampShirleyIter(); _invalidateBgCache(); updatePlot()" title="Number of iterations for the Shirley background calculation. The algorithm converges quickly — most of the change happens between 1 and 5 iterations. Values above 10 rarely produce visible differences. Default: 5.">
               </div>
               <div class="field">
                 <label>Endpoint avg</label>
-                <input type="number" id="bg-endpoint-avg" value="1" min="1" max="50" step="1" oninput="updatePlot()" title="Number of points to average at each endpoint for smoother background anchoring">
+                <input type="number" id="bg-endpoint-avg" value="1" min="1" max="50" step="1" oninput="_invalidateBgCache(); updatePlot()" title="Number of points to average at each endpoint for smoother background anchoring">
               </div>
             </div>
           </div>
@@ -1500,11 +1500,11 @@
             <div class="field-row">
               <div class="field">
                 <label>BE min (eV)</label>
-                <input type="number" id="roi-min" value="706" step="0.5" oninput="updatePlot()">
+                <input type="number" id="roi-min" value="706" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
               </div>
               <div class="field">
                 <label>BE max (eV)</label>
-                <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot()">
+                <input type="number" id="roi-max" value="726" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
               </div>
             </div>
             <div style="display:flex;gap:6px">
@@ -3013,6 +3013,11 @@ function shirleyLinearBackground(be, intensity, maxIter, nAvg) {
   return result;
 }
 
+// Clear stored background so updatePlot recomputes it
+function _invalidateBgCache() {
+  if (state.fitResult) state.fitResult.bgIntensity = null;
+}
+
 function _clampShirleyIter() {
   const el = document.getElementById('shirley-iter');
   let v = parseInt(el.value);
@@ -3327,6 +3332,9 @@ function updateChargeCorrection() {
     for (const p of state.peaks) {
       p.center -= delta;
     }
+
+    // Background cache is no longer valid after CC shift
+    _invalidateBgCache();
   }
 
   const shift = -state.ccShift;
@@ -4851,7 +4859,13 @@ function updatePlot() {
     return;
   }
 
-  const bgIntensity = computeBackground(be, inten);
+  // Use stored background from last fit when the ROI hasn't changed;
+  // this prevents recomputation artifacts when updatePlot is called after zoom/toggle.
+  const storedBg = state.fitResult && state.fitResult.bgIntensity &&
+                   state.fitResult.bgIntensity.length === be.length &&
+                   state.fitResult.be && state.fitResult.be.length === be.length
+                   ? state.fitResult.bgIntensity : null;
+  const bgIntensity = storedBg || computeBackground(be, inten);
   const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
   const modelFull = evalAllPeaks(be, state.peaks);
   // Use backend fitted_y when available (authoritative lmfit result);
@@ -7303,6 +7317,7 @@ function _onBgTypeChange() {
     epAvg.style.opacity = needsIter ? '1' : '0.4';
   }
   _updateManualAnchorCount();
+  _invalidateBgCache();
   updatePlot();
 }
 
