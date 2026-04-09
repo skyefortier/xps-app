@@ -1492,7 +1492,7 @@
         </div>
 
         <div class="section">
-          <div class="section-head" onclick="toggleSection(this)">
+          <div class="section-head" onclick="toggleSection(this)" title="The Region of Interest (ROI) defines the energy range used for all fitting operations. Only data points within this range are included when you click Run Fit — this affects peak fitting, background subtraction, and fit quality metrics (χ² and R-factor). The ROI is independent of the chart zoom — you can zoom in or out freely without affecting which data is fitted.">
             Region of Interest
             <span style="font-size:10px">&#9660;</span>
           </div>
@@ -1500,11 +1500,11 @@
             <div class="field-row">
               <div class="field">
                 <label>BE min (eV)</label>
-                <input type="number" id="roi-min" value="706" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
+                <input type="number" id="roi-min" value="706" step="0.5" oninput="updatePlot()">
               </div>
               <div class="field">
                 <label>BE max (eV)</label>
-                <input type="number" id="roi-max" value="726" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
+                <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot()">
               </div>
             </div>
             <div style="display:flex;gap:6px">
@@ -1576,6 +1576,7 @@
           Invert BE
         </label>
         <button class="btn btn-sm" id="btn-reset-zoom" style="display:none;margin-left:8px;font-size:10px;padding:2px 8px;" onclick="resetAllZoom()">Reset Zoom</button>
+        <button class="btn btn-sm" style="font-size:10px;padding:2px 8px;" onclick="zoomToROI()" title="Zoom the chart view to match the current ROI boundaries">Zoom to ROI</button>
       </div>
       <div id="chart-area" style="position:relative">
         <div id="smooth-badge" style="display:none;position:absolute;top:10px;right:12px;z-index:10;
@@ -3018,6 +3019,11 @@ function _invalidateBgCache() {
   if (state.fitResult) state.fitResult.bgIntensity = null;
 }
 
+// Clear stored fit envelope so the fallback (modelFull + bg) is used after a manual peak edit
+function _invalidateFittedY() {
+  if (state.fitResult) state.fitResult.fittedY = null;
+}
+
 function _clampShirleyIter() {
   const el = document.getElementById('shirley-iter');
   let v = parseInt(el.value);
@@ -3465,6 +3471,17 @@ function resetAllZoom() {
   updateResetZoomButton();
 }
 
+function zoomToROI() {
+  if (!state.chart) return;
+  const roiMin = parseFloat(document.getElementById('roi-min').value);
+  const roiMax = parseFloat(document.getElementById('roi-max').value);
+  if (isNaN(roiMin) || isNaN(roiMax)) return;
+  state.chart.options.scales.x.min = Math.min(roiMin, roiMax);
+  state.chart.options.scales.x.max = Math.max(roiMin, roiMax);
+  state.chart.update('none');
+  updateResetZoomButton();
+}
+
 function isChartZoomed() {
   try {
     // Check manual Y zoom on main chart
@@ -3851,6 +3868,7 @@ function addPeak(overrides) {
   pushUndo();
   const p = defaultPeak(overrides);
   state.peaks.push(p);
+  _invalidateFittedY();
   renderPeakList();
   updatePlot();
   return p;
@@ -3879,6 +3897,7 @@ function addMultiplet() {
 function removePeak(id) {
   pushUndo();
   state.peaks = state.peaks.filter(p => p.id !== id && p.linked !== id);
+  _invalidateFittedY();
   renderPeakList();
   updatePlot();
 }
@@ -3933,6 +3952,7 @@ function updatePeakParam(id, key, value) {
       if (child.id !== id) renderPeakControls(child);
     }
   }
+  _invalidateFittedY();
   updatePlot();
 }
 
@@ -4846,6 +4866,11 @@ function recalcQuantify() {
 //           min/max always beMin/beMax; reverse: invert
 // ═══════════════════════════════════════════════════
 function updatePlot() {
+  // Full corrected spectrum (for raw data display and axis range)
+  const corrBE = getCorrectedBE();
+  const fullInten = state.rawIntensity;
+
+  // ROI-filtered data (for fitting, background, peaks)
   const { be, inten } = getROIData();
   const invert = document.getElementById('invert-be').checked;
   const showIndividual = document.getElementById('show-individual').checked;
@@ -4854,47 +4879,59 @@ function updatePlot() {
   const _ob = document.getElementById('main-chart-wrap').querySelector('.onboard-wrap');
   if (_ob) _ob.remove();
 
-  if (!be.length) {
+  if (!corrBE.length) {
     renderEmptyChart();
     return;
   }
 
-  // Use stored background from last fit when the ROI hasn't changed;
-  // this prevents recomputation artifacts when updatePlot is called after zoom/toggle.
-  const storedBg = state.fitResult && state.fitResult.bgIntensity &&
-                   state.fitResult.bgIntensity.length === be.length &&
-                   state.fitResult.be && state.fitResult.be.length === be.length
-                   ? state.fitResult.bgIntensity : null;
-  const bgIntensity = storedBg || computeBackground(be, inten);
-  const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
-  const modelFull = evalAllPeaks(be, state.peaks);
+  // After a fit, freeze all curve data to the stored fit state so that
+  // changing ROI never re-draws or recomputes the fit, background, or peaks.
+  const haveFit = !!(state.fitResult && Array.isArray(state.fitResult.be) &&
+                     state.fitResult.be.length > 0 &&
+                     Array.isArray(state.fitResult.bgIntensity) &&
+                     state.fitResult.bgIntensity.length === state.fitResult.be.length);
+
+  // plotBE/plotBG/plotInten drive all fit-related curves (peaks, background, envelope).
+  // When a fit exists, they come from the frozen fit state — ROI changes don't affect them.
+  // Before fitting, they come from the current ROI so live peak previews still work.
+  const plotBE = haveFit ? state.fitResult.be : be;
+  const plotBG = haveFit ? state.fitResult.bgIntensity
+                         : (be.length ? computeBackground(be, inten) : []);
+  const plotInten = haveFit && Array.isArray(state.fitResult.bgSubtracted)
+                    ? state.fitResult.bgSubtracted.map((v, i) => v + plotBG[i])
+                    : inten;
+  const bgSubtracted = haveFit && Array.isArray(state.fitResult.bgSubtracted)
+                       ? state.fitResult.bgSubtracted
+                       : plotInten.map((v, i) => v - plotBG[i]);
+
+  const modelFull = evalAllPeaks(plotBE, state.peaks);
   // Use backend fitted_y when available (authoritative lmfit result);
   // fall back to JS-recomputed modelFull + bg for pre-fit / local-LM fits.
-  const fittedYBacked = state.fitResult && state.fitResult.fittedY &&
-                        state.fitResult.fittedY.length === be.length
+  const fittedYBacked = haveFit && state.fitResult.fittedY &&
+                        state.fitResult.fittedY.length === plotBE.length
                         ? state.fitResult.fittedY : null;
   const rawResiduals = fittedYBacked
-    ? inten.map((v, i) => v - fittedYBacked[i])
+    ? plotInten.map((v, i) => v - fittedYBacked[i])
     : bgSubtracted.map((v, i) => v - modelFull[i]);
   // Percentage residuals: ((data - fit) / data) × 100, clamped to ±100%
   const residuals = rawResiduals.map((r, i) => {
-    const d = fittedYBacked ? inten[i] : bgSubtracted[i];
+    const d = fittedYBacked ? plotInten[i] : bgSubtracted[i];
     if (Math.abs(d) < 1e-10) return 0;
     return Math.max(-100, Math.min(100, (r / d) * 100));
   });
 
   const datasets = [];
 
-  // Individual peaks drawn first (bottom layer)
+  // Individual peaks drawn first (bottom layer) — frozen to fit range after fit
   const showFill = document.getElementById('show-fill').checked;
-  if (showIndividual) {
+  if (showIndividual && plotBE.length) {
     if (showFill) {
       // First add invisible background-level datasets as fill targets
       for (let pi = 0; pi < state.peaks.length; pi++) {
         const p = state.peaks[pi];
         datasets.push({
           label: '_bg_' + p.id,
-          data: be.map((b, i) => ({ x: b, y: bgIntensity[i] })),
+          data: plotBE.map((b, i) => ({ x: b, y: plotBG[i] })),
           borderColor: 'transparent',
           borderWidth: 0,
           pointRadius: 0,
@@ -4908,7 +4945,7 @@ function updatePlot() {
       const fillTarget = showFill ? { target: pi, above: p.color + '40', below: 'transparent' } : false;
       datasets.push({
         label: p.name,
-        data: be.map((b, i) => ({ x: b, y: evalPeak(b, p) + bgIntensity[i] })),
+        data: plotBE.map((b, i) => ({ x: b, y: evalPeak(b, p) + plotBG[i] })),
         borderColor: p.color,
         backgroundColor: p.color + '40',
         borderWidth: 1.5,
@@ -4920,22 +4957,24 @@ function updatePlot() {
     }
   }
 
-  // Background
-  datasets.push({
-    label: 'Background',
-    data: be.map((b, i) => ({ x: b, y: bgIntensity[i] })),
-    borderColor: '#4a5a78',
-    borderWidth: 1,
-    borderDash: [4, 3],
-    pointRadius: 0,
-    fill: false
-  });
+  // Background — frozen to fit range after fit
+  if (plotBE.length) {
+    datasets.push({
+      label: 'Background',
+      data: plotBE.map((b, i) => ({ x: b, y: plotBG[i] })),
+      borderColor: '#4a5a78',
+      borderWidth: 1,
+      borderDash: [4, 3],
+      pointRadius: 0,
+      fill: false
+    });
+  }
 
-  // Raw data below fit envelope
+  // Raw data — FULL spectrum range (zoom-independent)
   const _cc = _chartColors();
   datasets.push({
     label: 'Data',
-    data: be.map((b, i) => ({ x: b, y: inten[i] })),
+    data: corrBE.map((b, i) => ({ x: b, y: fullInten[i] })),
     borderColor: _cc.rawData,
     backgroundColor: document.body.classList.contains('light-theme')
       ? 'rgba(26,26,46,0.08)' : 'rgba(232,237,245,0.08)',
@@ -4945,14 +4984,14 @@ function updatePlot() {
     fill: false
   });
 
-  // Fit envelope drawn last — use backend fitted_y when available
+  // Fit envelope — frozen to fit range after fit; use backend fitted_y when available
   const showEnvelope = document.getElementById('show-envelope').checked;
-  if (showEnvelope && (fittedYBacked || state.peaks.length)) {
+  if (showEnvelope && plotBE.length && (fittedYBacked || state.peaks.length)) {
     datasets.push({
       label: 'Fit',
       data: fittedYBacked
-        ? be.map((b, i) => ({ x: b, y: fittedYBacked[i] }))
-        : be.map((b, i) => ({ x: b, y: modelFull[i] + bgIntensity[i] })),
+        ? plotBE.map((b, i) => ({ x: b, y: fittedYBacked[i] }))
+        : plotBE.map((b, i) => ({ x: b, y: modelFull[i] + plotBG[i] })),
       borderColor: '#ff2020',
       borderWidth: 3,
       pointRadius: 0,
@@ -4960,47 +4999,47 @@ function updatePlot() {
     });
   }
 
-  // Smoothed data overlay (Tools section) — drawn last so it sits on top of raw data
+  // Smoothed data overlay — FULL spectrum range
   const smoothEnabled = document.getElementById('smooth-enable')?.checked;
-  if (smoothEnabled && inten.length > 5) {
+  if (smoothEnabled && fullInten.length > 5) {
     const ws = parseInt(document.getElementById('smooth-window')?.value || '11');
     const po = parseInt(document.getElementById('smooth-poly')?.value  || '2');
-    const smoothed = savitzkyGolay(inten, ws, po);
+    const smoothed = savitzkyGolay([...fullInten], ws, po);
     const smoothColor = document.body.classList.contains('light-theme') ? '#cc5500' : '#00FFDD';
     datasets.push({
       label: 'Smoothed',
-      data: be.map((b, i) => ({ x: b, y: smoothed[i] })),
+      data: corrBE.map((b, i) => ({ x: b, y: smoothed[i] })),
       borderColor: smoothColor, borderWidth: 2.5, pointRadius: 0, fill: false
     });
   }
 
-  // Derivative overlays (scaled to fit in chart, plotted on secondary y-axis)
+  // Derivative overlays — FULL spectrum range
   const d1Enabled = document.getElementById('deriv1-enable')?.checked;
   const d2Enabled = document.getElementById('deriv2-enable')?.checked;
-  if ((d1Enabled || d2Enabled) && inten.length > 3) {
+  if ((d1Enabled || d2Enabled) && fullInten.length > 3) {
     const arrMax = a => a.reduce((m, v) => v > m ? v : m, -Infinity);
     const arrMin = a => a.reduce((m, v) => v < m ? v : m,  Infinity);
-    const intenMax = arrMax(inten), intenMin = arrMin(inten);
+    const intenMax = arrMax(fullInten), intenMin = arrMin(fullInten);
     const intensRange = intenMax - intenMin;
     const midY = (intenMax + intenMin) / 2;
     if (d1Enabled) {
-      const d1 = numericalDerivative(be, inten, 1);
+      const d1 = numericalDerivative([...corrBE], [...fullInten], 1);
       const d1Range = d1.reduce((m, v) => Math.abs(v) > m ? Math.abs(v) : m, 0) || 1;
       const scale1 = intensRange * 0.35 / d1Range;
       datasets.push({
         label: 'd/dBE',
-        data: be.map((b, i) => ({ x: b, y: midY + d1[i] * scale1 })),
+        data: corrBE.map((b, i) => ({ x: b, y: midY + d1[i] * scale1 })),
         borderColor: '#22d3ee', borderWidth: 1.5, pointRadius: 0, fill: false,
         borderDash: [2, 2]
       });
     }
     if (d2Enabled) {
-      const d2 = numericalDerivative(be, inten, 2);
+      const d2 = numericalDerivative([...corrBE], [...fullInten], 2);
       const d2Range = d2.reduce((m, v) => Math.abs(v) > m ? Math.abs(v) : m, 0) || 1;
       const scale2 = intensRange * 0.25 / d2Range;
       datasets.push({
         label: 'd²/dBE²',
-        data: be.map((b, i) => ({ x: b, y: midY + d2[i] * scale2 })),
+        data: corrBE.map((b, i) => ({ x: b, y: midY + d2[i] * scale2 })),
         borderColor: '#a78bfa', borderWidth: 1.5, pointRadius: 0, fill: false,
         borderDash: [2, 2]
       });
@@ -5015,10 +5054,7 @@ function updatePlot() {
       if (!overlayTabIds.has(t.id) || t.id === tabManager.activeId) continue;
       if (!t.rawBE || !t.rawBE.length) continue;
       const tBE = t.rawBE.map(b => b - (t.ccShift || 0));
-      const roiMin = parseFloat(document.getElementById('roi-min')?.value) || -Infinity;
-      const roiMax = parseFloat(document.getElementById('roi-max')?.value) ||  Infinity;
-      const pts = tBE.map((b, i) => ({ x: b, y: t.rawIntensity[i] }))
-        .filter(pt => pt.x >= Math.min(roiMin, roiMax) && pt.x <= Math.max(roiMin, roiMax));
+      const pts = tBE.map((b, i) => ({ x: b, y: t.rawIntensity[i] }));
       if (pts.length < 2) continue;
       const col = t.color || tabColors[ci % tabColors.length];
       datasets.push({
@@ -5031,12 +5067,12 @@ function updatePlot() {
     }
   }
 
-  // Residuals go to separate panel — update after main chart
-  updateResiduals(be, residuals, invert, showResiduals);
+  // Residuals go to separate panel — use frozen fit range so ROI changes don't affect them
+  updateResiduals(plotBE, residuals, invert, showResiduals);
 
-  // Always min < max regardless of invert; rely on reverse: for direction
-  const beMin = Math.min(...be);
-  const beMax = Math.max(...be);
+  // Chart axis covers the FULL spectrum (zoom-independent of ROI)
+  const beMin = Math.min(...corrBE);
+  const beMax = Math.max(...corrBE);
 
   // Preserve Y zoom state before destroying chart (X resets to full range)
   const _savedYMax = state._mainYMax || null;
