@@ -362,6 +362,137 @@ def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return y[0] + slope * (x - x[0])
 
 
+def smart_experimental_background(
+    x: np.ndarray,
+    y: np.ndarray,
+    n_iter: int = 200,
+    tol: float = 1e-6,
+    n_avg: int = 1,
+) -> np.ndarray:
+    """Experimental constrained Shirley background, closer to public Avantage
+    Smart description.  The data constraint is enforced *during* iteration,
+    not as a post-hoc clamp.  Where the background would exceed the data it
+    locks to the data, effectively moving the Shirley start inward.  Better
+    for narrow spectral windows with sloped baselines."""
+    if len(x) < 2:
+        return np.zeros_like(y)
+
+    # Work on ascending copy
+    if x[0] > x[-1]:
+        xs, ys = x[::-1].copy(), y[::-1].copy()
+        flipped = True
+    else:
+        xs, ys = x.copy(), y.copy()
+        flipped = False
+
+    n = len(ys)
+    cap = max(1, min(n_avg, n // 4))
+    b_low = float(np.mean(ys[:cap]))      # low-BE endpoint
+    b_high = float(np.mean(ys[-cap:]))     # high-BE endpoint
+    step = b_low - b_high
+
+    # Linear initial guess
+    B = np.linspace(b_low, b_high, n)
+
+    for _ in range(n_iter):
+        B_prev = B.copy()
+        signal = np.maximum(ys - B, 0.0)
+        # Cumulative integral from high-BE end (right) back to each point
+        cum_right = np.zeros(n)
+        for i in range(n - 2, -1, -1):
+            dx = xs[i + 1] - xs[i]
+            cum_right[i] = cum_right[i + 1] + (signal[i] + signal[i + 1]) / 2 * dx
+        total = cum_right[0]
+        if total <= 0.0:
+            break
+
+        B = b_high + step * (cum_right / total)
+
+        # Constrain during iteration: lock to data where bg exceeds it
+        B = np.minimum(B, ys)
+
+        if np.max(np.abs(B - B_prev)) < tol:
+            break
+
+    B = np.minimum(B, ys)  # final safety clamp
+    return B[::-1] if flipped else B
+
+
+def _apply_endpoint_averaging(y: np.ndarray, n_avg: int) -> np.ndarray:
+    """Return a copy of *y* with the first/last *n_avg* points replaced by their mean."""
+    n = len(y)
+    if n_avg <= 1 or n < 4:
+        return y.copy()
+    cap = min(n_avg, n // 4)
+    if cap < 1:
+        return y.copy()
+    out = y.copy()
+    out[:cap] = np.mean(y[:cap])
+    out[-cap:] = np.mean(y[-cap:])
+    return out
+
+
+def shirley_linear_background(
+    x: np.ndarray,
+    y: np.ndarray,
+    n_iter: int = 200,
+    tol: float = 1e-6,
+    n_avg: int = 1,
+) -> np.ndarray:
+    """Hybrid Shirley + Linear background.
+
+    1. Average *n_avg* points at each endpoint.
+    2. Compute a linear baseline between the averaged endpoints.
+    3. Subtract the linear baseline → flattened data.
+    4. Iteratively compute a Shirley‑like cumulative correction on the
+       flattened data, scaled by the endpoint step height.
+    5. Add the correction back onto the linear baseline.
+    6. Clamp so the background never exceeds the data.
+    """
+    if len(x) < 2:
+        return np.zeros_like(y)
+
+    # Work on ascending copy
+    if x[0] > x[-1]:
+        xs, ys = x[::-1].copy(), y[::-1].copy()
+        flipped = True
+    else:
+        xs, ys = x.copy(), y.copy()
+        flipped = False
+
+    n = len(ys)
+    cap = max(1, min(n_avg, n // 4))
+    IL = float(np.mean(ys[:cap]))      # low‑BE endpoint
+    IH = float(np.mean(ys[-cap:]))     # high‑BE endpoint
+
+    # Linear baseline
+    linear = np.linspace(IL, IH, n)
+
+    # Flatten
+    flat = ys - linear
+
+    step_h = abs(IL - IH)
+    if step_h < 1e-12:
+        return linear[::-1] if flipped else linear
+
+    B = np.zeros(n)
+    for _ in range(n_iter):
+        B_prev = B.copy()
+        signal = np.maximum(flat - B, 0.0)
+        total = trapezoid(signal, xs)
+        if total <= 0.0:
+            break
+        cum_right = np.zeros(n)
+        for i in range(n):
+            cum_right[i] = trapezoid(signal[i:], xs[i:])
+        B = step_h * cum_right / total
+        if np.max(np.abs(B - B_prev)) < tol:
+            break
+
+    result = np.minimum(linear + B, ys)
+    return result[::-1] if flipped else result
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # lmfit Model factory
 # ─────────────────────────────────────────────────────────────────────────────
@@ -543,6 +674,7 @@ def run_fit(
     fit_kws: dict | None = None,
     n_perturb: int = 0,
     manual_bg: list | None = None,
+    endpoint_avg: int = 1,
 ) -> dict[str, Any]:
     """
     Run XPS peak fitting and return a serialisable result dict.
@@ -595,9 +727,13 @@ def run_fit(
         else:
             bg = linear_background(x, y)
     elif bg_method == "shirley":
-        bg = shirley_background(x, y)
+        bg = shirley_background(x, _apply_endpoint_averaging(y, endpoint_avg))
     elif bg_method == "smart":
-        bg = smart_background(x, y)
+        bg = smart_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+    elif bg_method == "smart_exp":
+        bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
+    elif bg_method == "shirley_linear":
+        bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
     elif bg_method == "linear":
         bg = linear_background(x, y)
     elif bg_method in ("none", "flat", "", "manual"):
@@ -794,6 +930,7 @@ def compute_background_only(
     method: str = "shirley",
     start_idx: int | None = None,
     end_idx: int | None = None,
+    endpoint_avg: int = 1,
 ) -> dict[str, Any]:
     """Return just the background array without fitting peaks."""
     i0 = start_idx if start_idx is not None else 0
@@ -801,9 +938,13 @@ def compute_background_only(
     x, y = energy[i0:i1], counts[i0:i1]
 
     if method == "shirley":
-        bg = shirley_background(x, y)
+        bg = shirley_background(x, _apply_endpoint_averaging(y, endpoint_avg))
     elif method == "smart":
-        bg = smart_background(x, y)
+        bg = smart_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+    elif method == "smart_exp":
+        bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
+    elif method == "shirley_linear":
+        bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
     elif method == "linear":
         bg = linear_background(x, y)
     elif method in ("none", "flat", "", "manual"):

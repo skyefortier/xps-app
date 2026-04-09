@@ -330,11 +330,13 @@ def _register_routes(app: Flask) -> None:
         method = body.get("method", "shirley")
         start_idx = _parse_int(body.get("start_idx"), 0, len(energy))
         end_idx = _parse_int(body.get("end_idx"), 0, len(energy), default=len(energy))
+        ep_avg = max(1, int(body.get("endpoint_avg", 1)))
 
         try:
             result = fitting.compute_background_only(
                 energy, counts, method=method,
                 start_idx=start_idx, end_idx=end_idx,
+                endpoint_avg=ep_avg,
             )
         except Exception as exc:
             return _err(str(exc))
@@ -402,6 +404,7 @@ def _register_routes(app: Flask) -> None:
         bg_method = bg_cfg.get("method", "shirley")
         bg_start = _parse_int(bg_cfg.get("start_idx"), 0, len(energy))
         bg_end = _parse_int(bg_cfg.get("end_idx"), 0, len(energy), default=len(energy))
+        endpoint_avg = max(1, int(bg_cfg.get("endpoint_avg", 1)))
         manual_bg = bg_cfg.get("manual_bg")
 
         # Peak specs
@@ -450,6 +453,7 @@ def _register_routes(app: Flask) -> None:
                 fit_kws={"method": fit_method},
                 manual_bg=manual_bg,
                 n_perturb=n_perturb,
+                endpoint_avg=endpoint_avg,
             )
         except ValueError as exc:
             return _err(str(exc))

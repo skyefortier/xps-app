@@ -1198,6 +1198,93 @@
     cursor: help; margin-left: 3px; line-height: 1; vertical-align: middle;
   }
 
+  /* ── Spectrum Switcher Combobox ──────────────────────────── */
+  #spec-combo { position: relative; }
+  #spec-combo-btn {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    font-family: var(--mono); font-size: 12px;
+    padding: 4px 9px 4px 11px; border-radius: 5px;
+    border: 1px solid var(--border2); background: var(--bg4); color: var(--text);
+    max-width: 220px; white-space: nowrap; user-select: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 3px rgba(0,0,0,0.2);
+    transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+  }
+  #spec-combo-btn:hover {
+    border-color: var(--accent); background: var(--bg3);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 6px rgba(74,158,255,0.15);
+  }
+  #spec-combo-btn.open {
+    border-color: var(--accent); background: var(--bg3);
+    box-shadow: 0 0 0 2px var(--accent-dim), 0 1px 6px rgba(74,158,255,0.2);
+  }
+  #spec-combo-label {
+    overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+  }
+  #spec-combo-arrow {
+    flex-shrink: 0; font-size: 11px; color: var(--accent);
+    transition: transform 0.15s; opacity: 0.8;
+  }
+  #spec-combo-btn:hover #spec-combo-arrow { opacity: 1; }
+  #spec-combo-btn.open #spec-combo-arrow { transform: rotate(180deg); opacity: 1; }
+  #spec-combo-drop {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0;
+    width: 340px; z-index: 260;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5); overflow: hidden;
+  }
+  #spec-combo-drop.open { display: block; }
+  #spec-combo-search {
+    width: 100%; background: none; border: none; border-bottom: 1px solid var(--border);
+    outline: none; font-family: var(--mono); font-size: 12px;
+    padding: 9px 12px; color: var(--text); caret-color: var(--accent);
+    box-sizing: border-box;
+  }
+  #spec-combo-search::placeholder { color: var(--text3); }
+  #spec-combo-list {
+    max-height: 280px; overflow-y: auto; padding: 3px 0;
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+  #spec-combo-list::-webkit-scrollbar { width: 5px; }
+  #spec-combo-list::-webkit-scrollbar-track { background: transparent; }
+  #spec-combo-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .ss-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; cursor: pointer; transition: background 0.06s;
+  }
+  .ss-item:hover, .ss-item.ss-focused { background: var(--accent-dim); }
+  .ss-item.ss-focused { border-left: 2px solid var(--accent); padding-left: 10px; }
+  .ss-swatch { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ss-info { flex: 1; min-width: 0; }
+  .ss-name {
+    font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ss-name mark { background: none; color: var(--accent2); font-weight: 600; }
+  .ss-path {
+    font-family: var(--mono); font-size: 9px; color: var(--text3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
+  }
+  .ss-path mark { background: none; color: var(--accent); font-weight: 500; }
+  .ss-badge-active {
+    flex-shrink: 0; font-family: var(--mono); font-size: 8px;
+    padding: 1px 4px; border-radius: 3px;
+    background: var(--accent-dim); color: var(--accent);
+  }
+  .ss-badge-survey {
+    flex-shrink: 0; font-family: var(--mono); font-size: 8px;
+    padding: 1px 4px; border-radius: 3px;
+    background: var(--purple-dim); color: var(--purple);
+  }
+  .ss-empty {
+    padding: 16px 12px; text-align: center;
+    font-family: var(--mono); font-size: 11px; color: var(--text3);
+  }
+  .ss-footer {
+    padding: 4px 12px; border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 9px; color: var(--text3);
+    display: flex; justify-content: space-between;
+  }
+
   /* ── Propagate Fit Modal ─────────────────────────────────── */
   #propagate-tab-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; margin-bottom: 10px; }
   .propagate-tab-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text); font-family: var(--mono); }
@@ -1252,7 +1339,17 @@
       <span class="hbadge" id="fit-quality" style="cursor:help">&#967;&#178; &mdash;</span>
       <span id="sb-runs" style="font-size:12px;cursor:help;font-family:var(--mono);white-space:nowrap"></span>
       <span id="sb-roi" style="font-size:12px;font-family:var(--mono);color:var(--text3);white-space:nowrap"></span>
-      <span class="hbadge" id="data-info">no data</span>
+      <div id="spec-combo">
+        <div id="spec-combo-btn" onclick="_ssToggle()" title="Switch spectrum (Ctrl+K)">
+          <span id="spec-combo-label">no data</span>
+          <span id="spec-combo-arrow">&#9660;</span>
+        </div>
+        <div id="spec-combo-drop">
+          <input id="spec-combo-search" type="text" placeholder="Filter spectra…" autocomplete="off" spellcheck="false">
+          <div id="spec-combo-list"></div>
+        </div>
+      </div>
+      <span class="hbadge" id="data-info" style="display:none">no data</span>
       <div class="hselect-wrap">
         <label for="fit-method">Method</label>
         <select id="fit-method" class="xps-tip-select">
@@ -1356,7 +1453,9 @@
               <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
                 <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra.">Shirley (iterative)</option>
                 <option value="smart" data-tip="Shirley background with the constraint that it never exceeds the data. Prevents overshoot artifacts between well-separated peaks.">Smart (constrained Shirley)</option>
+                <option value="smart_exp" data-tip="Experimental constrained Shirley closer to Avantage Smart behavior. Constraint is applied during iteration, not after. Better for narrow windows and sloped baselines.">Smart (experimental)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
+                <option value="shirley_linear" data-tip="Hybrid: a linear baseline between endpoints, plus a Shirley-like cumulative correction on top. Combines slope tracking with inelastic-scattering step.">Shirley + Linear</option>
                 <option value="tougaard" data-tip="Physics-based universal background using electron energy loss cross-sections. More accurate than Shirley but requires wider energy range.">Tougaard (simplified)</option>
                 <option value="none">None</option>
                 <option value="manual" data-tip="Click on the spectrum to place anchor points. Background is linearly interpolated between anchors. Right-click an anchor to remove it.">Manual (anchor)</option>
@@ -1379,9 +1478,15 @@
                 <input type="number" id="bg-end" value="706" step="0.5" oninput="updatePlot()">
               </div>
             </div>
-            <div class="field">
-              <label>Shirley iterations</label>
-              <input type="number" id="shirley-iter" value="50" min="5" max="500" step="5" oninput="updatePlot()">
+            <div class="field-row">
+              <div class="field">
+                <label>Shirley iterations</label>
+                <input type="number" id="shirley-iter" value="5" min="1" max="50" step="1" oninput="_clampShirleyIter(); updatePlot()" title="Number of iterations for the Shirley background calculation. The algorithm converges quickly — most of the change happens between 1 and 5 iterations. Values above 10 rarely produce visible differences. Default: 5.">
+              </div>
+              <div class="field">
+                <label>Endpoint avg</label>
+                <input type="number" id="bg-endpoint-avg" value="1" min="1" max="50" step="1" oninput="updatePlot()" title="Number of points to average at each endpoint for smoother background anchoring">
+              </div>
             </div>
           </div>
         </div>
@@ -1402,7 +1507,10 @@
                 <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot()">
               </div>
             </div>
-            <button class="btn btn-sm" onclick="autoSetROI()">Auto from data</button>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm" onclick="autoSetROI()">Auto from data</button>
+              <button class="btn btn-sm" onclick="maxROI()" title="Set ROI to the full raw spectrum range">Max</button>
+            </div>
           </div>
         </div>
 
@@ -1828,7 +1936,7 @@ class TabManager {
       notes: '',
       ui: {
         bgType: 'shirley', bgStart: maxBE, bgEnd: minBE,
-        shirleyIter: '50',
+        shirleyIter: '5', endpointAvg: '1',
         roiMin: minBE, roiMax: maxBE,
         ccMethod: 'none', ccObs: '', ccLit: '',
       }
@@ -1903,6 +2011,8 @@ class TabManager {
       state.peaks = []; state.fitResult = null;
       state.ccShift = 0; state.nextId = 1;
       document.getElementById('data-info').textContent = 'no data';
+      const _cl = document.getElementById('spec-combo-label');
+      if (_cl) _cl.textContent = 'no data';
       document.getElementById('sb-pts').textContent = '\u2014';
       document.getElementById('sb-range').textContent = '\u2014';
       renderPeakList();
@@ -2031,7 +2141,7 @@ class TabManager {
         active.ui.bgType = data.background.type || 'shirley';
         active.ui.bgStart = data.background.start || '';
         active.ui.bgEnd = data.background.end || '';
-        active.ui.shirleyIter = data.background.shirleyIter || '50';
+        active.ui.shirleyIter = data.background.shirleyIter || '5';
       }
 
       // Apply ROI
@@ -2412,7 +2522,8 @@ class TabManager {
       bgType:      document.getElementById('bg-type')?.value || 'shirley',
       bgStart:     document.getElementById('bg-start')?.value || '',
       bgEnd:       document.getElementById('bg-end')?.value || '',
-      shirleyIter: document.getElementById('shirley-iter')?.value || '50',
+      shirleyIter: document.getElementById('shirley-iter')?.value || '5',
+      endpointAvg: document.getElementById('bg-endpoint-avg')?.value || '1',
       roiMin:      document.getElementById('roi-min')?.value || '',
       roiMax:      document.getElementById('roi-max')?.value || '',
       ccMethod:    document.getElementById('cc-method')?.value || 'none',
@@ -2430,6 +2541,7 @@ class TabManager {
     set('bg-start', ui.bgStart);
     set('bg-end', ui.bgEnd);
     set('shirley-iter', ui.shirleyIter);
+    set('bg-endpoint-avg', ui.endpointAvg || '1');
     set('roi-min', ui.roiMin);
     set('roi-max', ui.roiMax);
     set('cc-method', ui.ccMethod);
@@ -2448,11 +2560,16 @@ class TabManager {
     if (typeof _onBgTypeChange === 'function') {
       const mc = document.getElementById('manual-bg-controls');
       if (mc) mc.style.display = ui.bgType === 'manual' ? 'block' : 'none';
+      const needsIter = (ui.bgType === 'shirley' || ui.bgType === 'smart' || ui.bgType === 'smart_exp' || ui.bgType === 'shirley_linear');
       const si = document.getElementById('shirley-iter');
       if (si) {
-        const needsIter = (ui.bgType === 'shirley' || ui.bgType === 'smart');
         si.disabled = !needsIter;
         si.style.opacity = needsIter ? '1' : '0.4';
+      }
+      const epAvg = document.getElementById('bg-endpoint-avg');
+      if (epAvg) {
+        epAvg.disabled = !needsIter;
+        epAvg.style.opacity = needsIter ? '1' : '0.4';
       }
       if (typeof _updateManualAnchorCount === 'function') _updateManualAnchorCount();
     }
@@ -2472,6 +2589,8 @@ class TabManager {
     const n = tab.rawBE.length;
     document.getElementById('data-info').textContent =
       n ? (tab.name + ' \u00b7 ' + n + ' pts') : 'no data';
+    const comboLabel = document.getElementById('spec-combo-label');
+    if (comboLabel) comboLabel.textContent = n ? (tab.name + ' \u00b7 ' + n + ' pts') : 'no data';
     document.getElementById('sb-pts').textContent = n || '\u2014';
     if (n) {
       const lo = tab.rawBE[tab.rawBE.length - 1].toFixed(1);
@@ -2725,6 +2844,75 @@ function smartBackground(be, intensity, maxIter) {
   return shir;
 }
 
+// Experimental constrained Shirley background, closer to the public Avantage
+// Smart description: the data-constraint is enforced *during* iteration, not as
+// a post-hoc clamp.  Where the background would exceed the data, it locks to
+// the data and the effective Shirley start moves inward, improving behaviour on
+// narrow windows with sloped baselines.
+function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
+  const n = be.length;
+  if (n < 2) return new Array(n).fill(0);
+
+  // Averaged endpoints
+  const cap = Math.min(nAvg || 1, Math.floor(n / 4)) || 1;
+  let sL = 0, sR = 0;
+  for (let i = 0; i < cap; i++) sL += intensity[i];
+  for (let i = n - cap; i < n; i++) sR += intensity[i];
+  const I0 = sL / cap;   // left endpoint (index 0, typically high-BE)
+  const I1 = sR / cap;   // right endpoint (index n-1, typically low-BE)
+
+  // Step height for the Shirley component
+  const step = I0 - I1;
+
+  // bg[i] = background value at point i
+  let bg = new Array(n);
+  for (let i = 0; i < n; i++) bg[i] = I1 + step * (n - 1 - i) / (n - 1); // linear init
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const prev = bg;
+    const newBg = new Array(n);
+
+    // Signal = data above current background, nonneg
+    const signal = new Array(n);
+    for (let i = 0; i < n; i++) signal[i] = Math.max(intensity[i] - bg[i], 0);
+
+    // Cumulative integral from right (index n-1) to each point i
+    const cumRight = new Array(n).fill(0);
+    for (let j = n - 2; j >= 0; j--) {
+      const dx = Math.abs(be[j + 1] - be[j]);
+      cumRight[j] = cumRight[j + 1] + (signal[j] + signal[j + 1]) / 2 * dx;
+    }
+    const totalInt = cumRight[0];
+    if (totalInt <= 0) break;
+
+    // Build unconstrained Shirley background
+    for (let i = 0; i < n; i++) {
+      newBg[i] = I1 + step * (cumRight[i] / totalInt);
+    }
+
+    // Constrain during iteration: where bg exceeds data, lock to data.
+    // This effectively moves the Shirley start inward at those points.
+    for (let i = 0; i < n; i++) {
+      newBg[i] = Math.min(newBg[i], intensity[i]);
+    }
+
+    bg = newBg;
+
+    // Convergence check
+    let maxDelta = 0;
+    for (let i = 0; i < n; i++) {
+      const d = Math.abs(bg[i] - prev[i]);
+      if (d > maxDelta) maxDelta = d;
+    }
+    if (maxDelta < 1e-4) break;
+  }
+
+  // Final clamp to data (safety)
+  for (let i = 0; i < n; i++) bg[i] = Math.min(bg[i], intensity[i]);
+
+  return bg;
+}
+
 function linearBackground(be, intensity) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
@@ -2750,9 +2938,93 @@ function tougaardBackground(be, intensity) {
   return bg.map(v => v * scale);
 }
 
+// Apply endpoint averaging: replace first/last N points with their mean so
+// existing Shirley/Smart functions pick up averaged endpoint intensities.
+// Returns a new array — does not mutate the input.
+function _applyEndpointAveraging(intensity, nAvg) {
+  const n = intensity.length;
+  if (nAvg <= 1 || n < 4) return intensity;
+  const cap = Math.min(nAvg, Math.floor(n / 4));
+  const out = [...intensity];
+  let sumL = 0, sumR = 0;
+  for (let i = 0; i < cap; i++) sumL += intensity[i];
+  for (let i = n - cap; i < n; i++) sumR += intensity[i];
+  const avgL = sumL / cap, avgR = sumR / cap;
+  for (let i = 0; i < cap; i++) out[i] = avgL;
+  for (let i = n - cap; i < n; i++) out[i] = avgR;
+  return out;
+}
+
+// Shirley + Linear: a linear baseline plus a Shirley-like cumulative correction.
+// Completely standalone — does not call shirleyBackground / smartBackground.
+function shirleyLinearBackground(be, intensity, maxIter, nAvg) {
+  const n = be.length;
+  if (n < 2) return new Array(n).fill(0);
+
+  // 1. Averaged endpoints
+  const cap = Math.min(nAvg || 1, Math.floor(n / 4)) || 1;
+  let sL = 0, sR = 0;
+  for (let i = 0; i < cap; i++) sL += intensity[i];
+  for (let i = n - cap; i < n; i++) sR += intensity[i];
+  const IL = sL / cap;   // left (high-BE) endpoint
+  const IR = sR / cap;   // right (low-BE) endpoint
+
+  // 2. Linear baseline between averaged endpoints
+  const linear = new Array(n);
+  for (let i = 0; i < n; i++) linear[i] = IL + (IR - IL) * i / (n - 1);
+
+  // 3. Flatten: subtract linear baseline
+  const flat = intensity.map((v, i) => v - linear[i]);
+
+  // 4. Iterative Shirley-like correction on the flattened data.
+  //    Step height = |IL - IR| (the endpoint difference drives the Shirley step).
+  const stepH = Math.abs(IL - IR);
+  if (stepH < 1e-12) return linear;   // endpoints equal → pure linear
+
+  let bg = new Array(n).fill(0);      // Shirley correction term
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const newBg = new Array(n).fill(0);
+    // Cumulative integral of (flattened signal - current bg) from right to left
+    let totalInt = 0;
+    for (let j = 0; j < n - 1; j++) {
+      totalInt += ((Math.max(flat[j] - bg[j], 0) + Math.max(flat[j + 1] - bg[j + 1], 0)) / 2)
+                  * Math.abs(be[j + 1] - be[j]);
+    }
+    if (totalInt <= 0) break;
+
+    for (let i = 0; i < n; i++) {
+      let sumRight = 0;
+      for (let j = i; j < n - 1; j++) {
+        sumRight += ((Math.max(flat[j] - bg[j], 0) + Math.max(flat[j + 1] - bg[j + 1], 0)) / 2)
+                    * Math.abs(be[j + 1] - be[j]);
+      }
+      // Scale by step height, normalised by total integral
+      newBg[i] = stepH * (sumRight / totalInt);
+    }
+    bg = newBg;
+  }
+
+  // 5. Combine: linear baseline + Shirley correction, clamped to data
+  const result = new Array(n);
+  for (let i = 0; i < n; i++) {
+    result[i] = Math.min(linear[i] + bg[i], intensity[i]);
+  }
+  return result;
+}
+
+function _clampShirleyIter() {
+  const el = document.getElementById('shirley-iter');
+  let v = parseInt(el.value);
+  if (isNaN(v)) return;
+  if (v < 1) el.value = 1;
+  else if (v > 50) el.value = 50;
+}
+
 function computeBackground(be, intensity) {
   const type = document.getElementById('bg-type').value;
-  const iter = parseInt(document.getElementById('shirley-iter').value) || 50;
+  const iter = parseInt(document.getElementById('shirley-iter').value) || 5;
+  const nAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
 
   // Manual anchor background uses its own anchor points, not bg-start/end
   if (type === 'manual') return manualAnchorBackground(be, intensity);
@@ -2771,8 +3043,11 @@ function computeBackground(be, intensity) {
 
   // If bg range doesn't overlap data, fall back to full range
   if (bgIndices.length < 2) {
-    if (type === 'shirley') return shirleyBackground(be, intensity, iter);
-    if (type === 'smart') return smartBackground(be, intensity, iter);
+    const avgIn = _applyEndpointAveraging(intensity, nAvg);
+    if (type === 'shirley') return shirleyBackground(be, avgIn, iter);
+    if (type === 'smart') return smartBackground(be, avgIn, iter);
+    if (type === 'smart_exp') return smartExperimentalBackground(be, intensity, iter, nAvg);
+    if (type === 'shirley_linear') return shirleyLinearBackground(be, intensity, iter, nAvg);
     if (type === 'linear') return linearBackground(be, intensity);
     if (type === 'tougaard') return tougaardBackground(be, intensity);
     return new Array(be.length).fill(0);
@@ -2785,10 +3060,12 @@ function computeBackground(be, intensity) {
   const beSub = be.slice(i0, i1 + 1);
   const inSub = intensity.slice(i0, i1 + 1);
 
-  // Compute background on the sliced region
+  // Compute background on the sliced region — apply endpoint averaging for Shirley types
   let bgSub;
-  if (type === 'shirley') bgSub = shirleyBackground(beSub, inSub, iter);
-  else if (type === 'smart') bgSub = smartBackground(beSub, inSub, iter);
+  if (type === 'shirley') bgSub = shirleyBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter);
+  else if (type === 'smart') bgSub = smartBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter);
+  else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, iter, nAvg);
+  else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, iter, nAvg);
   else if (type === 'linear') bgSub = linearBackground(beSub, inSub);
   else if (type === 'tougaard') bgSub = tougaardBackground(beSub, inSub);
   else return new Array(be.length).fill(0);
@@ -2994,6 +3271,7 @@ function _onCCObsInput() {
 }
 
 function updateChargeCorrection() {
+  const prevShift = state.ccShift;
   const method = document.getElementById('cc-method').value;
   const refField = document.getElementById('cc-ref-field');
   const targetField = document.getElementById('cc-target-field');
@@ -3026,6 +3304,31 @@ function updateChargeCorrection() {
     state.ccShift = 0;
   }
 
+  // Shift all energy-dependent values by the change in correction
+  const delta = state.ccShift - prevShift;
+  if (delta !== 0) {
+    // ROI boundaries
+    const roiMinEl = document.getElementById('roi-min');
+    const roiMaxEl = document.getElementById('roi-max');
+    const roiMinVal = parseFloat(roiMinEl.value);
+    const roiMaxVal = parseFloat(roiMaxEl.value);
+    if (!isNaN(roiMinVal)) roiMinEl.value = (roiMinVal - delta).toFixed(1);
+    if (!isNaN(roiMaxVal)) roiMaxEl.value = (roiMaxVal - delta).toFixed(1);
+
+    // Background endpoints
+    const bgStartEl = document.getElementById('bg-start');
+    const bgEndEl = document.getElementById('bg-end');
+    const bgStartVal = parseFloat(bgStartEl.value);
+    const bgEndVal = parseFloat(bgEndEl.value);
+    if (!isNaN(bgStartVal)) bgStartEl.value = (bgStartVal - delta).toFixed(1);
+    if (!isNaN(bgEndVal)) bgEndEl.value = (bgEndVal - delta).toFixed(1);
+
+    // Peak centers
+    for (const p of state.peaks) {
+      p.center -= delta;
+    }
+  }
+
   const shift = -state.ccShift;
   document.getElementById('cc-shift-display').textContent = (shift >= 0 ? '+' : '') + shift.toFixed(3) + ' eV';
   updatePlot();
@@ -3054,6 +3357,18 @@ function getROIData() {
     }
   }
   return { be, inten };
+}
+
+function maxROI() {
+  if (!state.rawBE.length) return;
+  const be = getCorrectedBE();
+  const lo = Math.min(...be);
+  const hi = Math.max(...be);
+  document.getElementById('roi-min').value = lo.toFixed(1);
+  document.getElementById('roi-max').value = hi.toFixed(1);
+  document.getElementById('bg-start').value = hi.toFixed(1);
+  document.getElementById('bg-end').value = lo.toFixed(1);
+  updatePlot();
 }
 
 function autoSetROI() {
@@ -3476,7 +3791,17 @@ function handleChartClick(event) {
 
 // Global keyboard shortcuts
 document.addEventListener('keydown', function(e) {
+  // Ctrl+K / Ctrl+P: spectrum switcher (works even from input fields)
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
+    e.preventDefault();
+    _ssToggle();
+    return;
+  }
+
   if (e.key === 'Escape') {
+    if (document.getElementById('spec-combo-drop').classList.contains('open')) {
+      _ssClose(); return;
+    }
     document.querySelectorAll('.xps-modal-overlay.open').forEach(m => m.classList.remove('open'));
     const multipletOverlay = document.getElementById('multiplet-modal-overlay');
     if (multipletOverlay && multipletOverlay.classList.contains('open')) {
@@ -4029,9 +4354,10 @@ async function runFit() {
     const sessionId = await uploadToBackend(be, inten);
     const peakSpecs = state.peaks.map(peakToBackendSpec);
     const fitMethod = document.getElementById('fit-method').value;
+    const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const fitReq = {
       session_id: sessionId,
-      background: { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx },
+      background: { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvgVal },
       peaks: peakSpecs,
       fit_method: fitMethod,
       n_perturb: 3
@@ -5384,7 +5710,7 @@ function _loadProjectJSON(data, sessionFile) {
       manualAnchors: t.manualAnchors || [],
       ui: {
         bgType: 'shirley', bgStart: '', bgEnd: '',
-        shirleyIter: '50', roiMin: '', roiMax: '',
+        shirleyIter: '5', roiMin: '', roiMax: '',
         ccMethod: 'none', ccObs: '', ccLit: '',
         ...(t.ui || {})
       },
@@ -6963,12 +7289,18 @@ function _onBgTypeChange() {
   // Toggle manual controls
   const mc = document.getElementById('manual-bg-controls');
   if (mc) mc.style.display = type === 'manual' ? 'block' : 'none';
+  const needsIter = (type === 'shirley' || type === 'smart' || type === 'smart_exp' || type === 'shirley_linear');
   // Grey out Shirley iterations for non-Shirley types
   const shirleyIter = document.getElementById('shirley-iter');
   if (shirleyIter) {
-    const needsIter = (type === 'shirley' || type === 'smart');
     shirleyIter.disabled = !needsIter;
     shirleyIter.style.opacity = needsIter ? '1' : '0.4';
+  }
+  // Grey out endpoint avg for non-Shirley types
+  const epAvg = document.getElementById('bg-endpoint-avg');
+  if (epAvg) {
+    epAvg.disabled = !needsIter;
+    epAvg.style.opacity = needsIter ? '1' : '0.4';
   }
   _updateManualAnchorCount();
   updatePlot();
@@ -7142,6 +7474,140 @@ function _drawManualAnchors(chart) {
   });
 })();
 
+// ══════════════════════════════════════════════════════════════
+// SPECTRUM SWITCHER COMBOBOX (Ctrl+K / Ctrl+P)
+// ══════════════════════════════════════════════════════════════
+let _ssFocusIdx = 0;
+let _ssFiltered = [];
+
+function _ssOpen() {
+  const btn = document.getElementById('spec-combo-btn');
+  const drop = document.getElementById('spec-combo-drop');
+  const input = document.getElementById('spec-combo-search');
+  if (drop.classList.contains('open')) return;
+  input.value = '';
+  _ssFocusIdx = 0;
+  _ssRender('');
+  btn.classList.add('open');
+  drop.classList.add('open');
+  setTimeout(() => input.focus(), 30);
+}
+
+function _ssClose() {
+  document.getElementById('spec-combo-btn').classList.remove('open');
+  document.getElementById('spec-combo-drop').classList.remove('open');
+  document.getElementById('spec-combo-search').blur();
+}
+
+function _ssToggle() {
+  if (document.getElementById('spec-combo-drop').classList.contains('open')) _ssClose();
+  else _ssOpen();
+}
+
+function _ssHighlight(text, query) {
+  if (!query) return _ssEsc(text);
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return _ssEsc(text);
+  return _ssEsc(text.slice(0, idx)) + '<mark>' + _ssEsc(text.slice(idx, idx + query.length)) + '</mark>' + _ssEsc(text.slice(idx + query.length));
+}
+
+function _ssEsc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _ssRender(query) {
+  const list = document.getElementById('spec-combo-list');
+  const tabs = typeof tabManager !== 'undefined' ? tabManager.tabs : [];
+
+  if (!tabs.length) {
+    list.innerHTML = '<div class="ss-empty">No spectra loaded</div>';
+    _ssFiltered = [];
+    return;
+  }
+
+  const q = query.toLowerCase().trim();
+  const scored = tabs.map(t => {
+    if (!q) return { tab: t, score: 0 };
+    const nameMatch = t.name.toLowerCase().indexOf(q);
+    const pathMatch = t.sourcePath ? t.sourcePath.toLowerCase().indexOf(q) : -1;
+    const surveyMatch = t.isSurvey && 'survey'.indexOf(q) >= 0;
+    if (nameMatch >= 0) return { tab: t, score: 100 - nameMatch };
+    if (pathMatch >= 0) return { tab: t, score: 50 - pathMatch };
+    if (surveyMatch) return { tab: t, score: 10 };
+    return null;
+  }).filter(Boolean);
+
+  if (q) scored.sort((a, b) => b.score - a.score);
+  _ssFiltered = scored.map(s => s.tab);
+
+  if (!_ssFiltered.length) {
+    list.innerHTML = '<div class="ss-empty">No matching spectra</div>';
+    return;
+  }
+
+  _ssFocusIdx = Math.min(_ssFocusIdx, _ssFiltered.length - 1);
+
+  list.innerHTML = _ssFiltered.map((t, i) => {
+    const isCurrent = t.id === tabManager.activeId;
+    const focused = i === _ssFocusIdx;
+    return `<div class="ss-item${focused ? ' ss-focused' : ''}" data-idx="${i}" onmouseenter="_ssFocusIdx=${i};_ssUpdateFocus()" onclick="_ssSelect(${i})">
+      <span class="ss-swatch" style="background:${t.color}"></span>
+      <div class="ss-info">
+        <div class="ss-name">${_ssHighlight(t.name, q)}</div>
+        ${t.sourcePath ? '<div class="ss-path">' + _ssHighlight(t.sourcePath, q) + '</div>' : ''}
+      </div>
+      ${t.isSurvey ? '<span class="ss-badge-survey">SRV</span>' : ''}
+      ${isCurrent ? '<span class="ss-badge-active">&#10003;</span>' : ''}
+    </div>`;
+  }).join('') +
+  `<div class="ss-footer"><span>${_ssFiltered.length} / ${tabs.length} spectra</span><span>Ctrl+K</span></div>`;
+}
+
+function _ssUpdateFocus() {
+  const items = document.querySelectorAll('#spec-combo-list .ss-item');
+  items.forEach((el, i) => el.classList.toggle('ss-focused', i === _ssFocusIdx));
+  const focused = items[_ssFocusIdx];
+  if (focused) focused.scrollIntoView({ block: 'nearest' });
+}
+
+function _ssSelect(idx) {
+  const t = _ssFiltered[idx];
+  if (t) {
+    tabManager.activateTab(t.id);
+    _ssClose();
+  }
+}
+
+// Wire up search input events
+document.getElementById('spec-combo-search').addEventListener('input', function() {
+  _ssFocusIdx = 0;
+  _ssRender(this.value);
+});
+
+document.getElementById('spec-combo-search').addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _ssFocusIdx = Math.min(_ssFocusIdx + 1, _ssFiltered.length - 1);
+    _ssUpdateFocus();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _ssFocusIdx = Math.max(_ssFocusIdx - 1, 0);
+    _ssUpdateFocus();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_ssFiltered.length) _ssSelect(_ssFocusIdx);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    _ssClose();
+  }
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('mousedown', function(e) {
+  const combo = document.getElementById('spec-combo');
+  if (combo && !combo.contains(e.target)) _ssClose();
+});
+
 </script>
 
 
@@ -7177,6 +7643,8 @@ function _drawManualAnchors(chart) {
     <div class="shortcut-row"><span class="shortcut-key">+</span><span class="shortcut-desc">Enter add-peak placement mode</span></div>
     <div class="shortcut-row"><span class="shortcut-key">M</span><span class="shortcut-desc">Add multiplet pair</span></div>
     <div class="shortcut-row"><span class="shortcut-key">Del / Backspace</span><span class="shortcut-desc">Remove expanded peak</span></div>
+    <div class="section-label">Navigation</div>
+    <div class="shortcut-row"><span class="shortcut-key">Ctrl+K</span><span class="shortcut-desc">Spectrum switcher</span></div>
     <div class="section-label">General</div>
     <div class="shortcut-row"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Cancel / close modal</span></div>
     <div class="shortcut-row"><span class="shortcut-key">?</span><span class="shortcut-desc">Show this help</span></div>
