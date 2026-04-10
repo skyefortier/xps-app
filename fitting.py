@@ -329,13 +329,13 @@ def shirley_background(
     for _ in range(n_iter):
         B_prev = B.copy()
         signal = np.maximum(ys - B, 0.0)
-        total = trapezoid(signal, xs)
+        # O(n) cumulative integral from high-x end back to each point
+        cum_right = np.zeros(len(ys))
+        for i in range(len(ys) - 2, -1, -1):
+            cum_right[i] = cum_right[i + 1] + 0.5 * (signal[i] + signal[i + 1]) * (xs[i + 1] - xs[i])
+        total = cum_right[0]
         if total <= 0.0:
             break
-        # Vectorised right‑side integrals using cumulative trapezoid (reversed)
-        cum_right = np.zeros(len(ys))
-        for i in range(len(ys)):
-            cum_right[i] = trapezoid(signal[i:], xs[i:])
         B = b_high + (b_low - b_high) * cum_right / total
         if np.max(np.abs(B - B_prev)) < tol:
             break
@@ -479,12 +479,13 @@ def shirley_linear_background(
     for _ in range(n_iter):
         B_prev = B.copy()
         signal = np.maximum(flat - B, 0.0)
-        total = trapezoid(signal, xs)
+        # O(n) cumulative integral from high-x end back to each point
+        cum_right = np.zeros(n)
+        for i in range(n - 2, -1, -1):
+            cum_right[i] = cum_right[i + 1] + 0.5 * (signal[i] + signal[i + 1]) * (xs[i + 1] - xs[i])
+        total = cum_right[0]
         if total <= 0.0:
             break
-        cum_right = np.zeros(n)
-        for i in range(n):
-            cum_right[i] = trapezoid(signal[i:], xs[i:])
         B = step_h * cum_right / total
         if np.max(np.abs(B - B_prev)) < tol:
             break
@@ -780,13 +781,13 @@ def run_fit(
         kws.update(fit_kws)
 
     # ── Diagnostic logging: BEFORE optimisation ──────────────────────────────
-    import sys as _sys
-    def _flog(msg): print(msg, file=_sys.stderr, flush=True)
-    _flog(f"═══ FIT START ═══  method={kws.get('method')}  n_data={len(y_sub)}")
-    for pname, par in sorted(all_params.items()):
-        _flog(f"  BEFORE  {pname:<30s} value={par.value:12.6f}  vary={str(par.vary):<5s}  expr={par.expr}  "
-              f"min={f'{par.min:.4f}' if np.isfinite(par.min) else '-inf'}  "
-              f"max={f'{par.max:.4f}' if np.isfinite(par.max) else 'inf'}")
+    if log.isEnabledFor(logging.DEBUG):
+        log.debug("═══ FIT START ═══  method=%s  n_data=%d", kws.get('method'), len(y_sub))
+        for pname, par in sorted(all_params.items()):
+            log.debug("  BEFORE  %-30s value=%12.6f  vary=%-5s  expr=%s  min=%s  max=%s",
+                      pname, par.value, str(par.vary), par.expr,
+                      f"{par.min:.4f}" if np.isfinite(par.min) else '-inf',
+                      f"{par.max:.4f}" if np.isfinite(par.max) else 'inf')
 
     try:
         result = composite_model.fit(y_sub, all_params, x=x, weights=weights, **kws)
@@ -794,12 +795,15 @@ def run_fit(
         raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
 
     # ── Diagnostic logging: AFTER optimisation ───────────────────────────────
-    _flog(f"═══ FIT DONE ═══  success={result.success}  nfev={result.nfev}  message={result.message}")
-    for pname, par in sorted(result.params.items()):
-        init = all_params[pname].value if pname in all_params else None
-        delta = f"  Δ={par.value - init:+.6f}" if init is not None and abs(par.value - init) > 1e-10 else ""
-        _flog(f"  AFTER   {pname:<30s} value={par.value:12.6f}  "
-              f"stderr={f'{par.stderr:.6f}' if par.stderr is not None else 'None'}{delta}")
+    if log.isEnabledFor(logging.DEBUG):
+        log.debug("═══ FIT DONE ═══  success=%s  nfev=%s  message=%s",
+                  result.success, result.nfev, result.message)
+        for pname, par in sorted(result.params.items()):
+            init = all_params[pname].value if pname in all_params else None
+            delta = f"  Δ={par.value - init:+.6f}" if init is not None and abs(par.value - init) > 1e-10 else ""
+            log.debug("  AFTER   %-30s value=%12.6f  stderr=%s%s",
+                      pname, par.value,
+                      f"{par.stderr:.6f}" if par.stderr is not None else 'None', delta)
 
     # ── Perturb and refit to escape local minima ─────────────────────────
     if n_perturb > 0 and result.success:
@@ -827,17 +831,19 @@ def run_fit(
             try:
                 trial = composite_model.fit(y_sub, perturbed_params, x=x, weights=weights, **kws)
                 trial_redchi = trial.redchi if trial.redchi is not None else float('inf')
-                _flog(f"  PERTURB {attempt+1}/{n_perturb}  redchi={trial_redchi:.4f}  (best={best_redchi:.4f})")
+                log.debug("  PERTURB %d/%d  redchi=%.4f  (best=%.4f)",
+                          attempt + 1, n_perturb, trial_redchi, best_redchi)
                 if trial.success and trial_redchi < best_redchi:
                     best_result = trial
                     best_redchi = trial_redchi
-                    _flog(f"  *** New best found! redchi improved to {best_redchi:.4f}")
+                    log.debug("  *** New best found! redchi improved to %.4f", best_redchi)
             except Exception:
-                _flog(f"  PERTURB {attempt+1}/{n_perturb}  failed (exception)")
+                log.debug("  PERTURB %d/%d  failed (exception)", attempt + 1, n_perturb)
                 continue
 
         if best_result is not result:
-            _flog(f"═══ PERTURB IMPROVED FIT ═══  redchi: {result.redchi:.4f} → {best_redchi:.4f}")
+            log.debug("═══ PERTURB IMPROVED FIT ═══  redchi: %.4f → %.4f",
+                      result.redchi, best_redchi)
             result = best_result
 
     fitted_sub = result.best_fit

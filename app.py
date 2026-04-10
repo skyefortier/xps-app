@@ -204,8 +204,9 @@ def _register_routes(app: Flask) -> None:
                 f"Allowed: {sorted(xps_parser.ALLOWED_EXTENSIONS)}"
             )
 
-        # Save raw upload temporarily
-        tmp_path = Path(app.config["UPLOAD_FOLDER"]) / filename
+        # Save raw upload temporarily. Prefix with a UUID so concurrent uploads
+        # of files with the same name never collide in the shared upload dir.
+        tmp_path = Path(app.config["UPLOAD_FOLDER"]) / f"{uuid.uuid4().hex}_{filename}"
         f.save(str(tmp_path))
 
         try:
@@ -590,7 +591,9 @@ app = create_app()
 
 if __name__ == "__main__":
     # Development server only – gunicorn does NOT call this block.
-    # Debug mode is on by default; set FLASK_DEBUG=0 to disable.
-    debug = os.environ.get("FLASK_DEBUG", "1") != "0"
+    # Debug mode defaults OFF to avoid exposing the Werkzeug debugger
+    # (which allows arbitrary code execution from the browser). Set
+    # FLASK_DEBUG=1 explicitly during local development.
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=debug)

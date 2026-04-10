@@ -302,7 +302,7 @@
   #main-chart-wrap {
     flex: 1;
     position: relative;
-    min-height: 0;
+    min-height: 150px;   /* never collapse below 150px even at tiny viewports */
     padding-bottom: 8px;
   }
   #main-chart-wrap canvas { width: 100% !important; height: 100% !important; }
@@ -334,6 +334,7 @@
   #resid-wrap {
     flex-shrink: 0;
     height: 90px;
+    min-height: 80px;    /* always visible, even after window resize */
     position: relative;
     padding-top: 4px;
     padding-bottom: 8px;
@@ -765,7 +766,7 @@
   #survey-selector li {
     display: flex; align-items: center; justify-content: space-between;
     padding: 6px 8px; border-radius: 4px; cursor: pointer;
-    font-family: var(--mono); font-size: 11px; color: var(--text1);
+    font-family: var(--mono); font-size: 11px; color: var(--text);
     border: 1px solid transparent; transition: background 0.15s, border-color 0.15s;
   }
   #survey-selector li:hover { background: var(--bg3); }
@@ -779,7 +780,7 @@
   #survey-element-search {
     width: 100%; box-sizing: border-box; padding: 5px 8px;
     font-family: var(--mono); font-size: 11px;
-    background: var(--bg1); color: var(--text1); border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text); border: 1px solid var(--border);
     border-radius: 4px; outline: none;
   }
   #survey-element-search:focus { border-color: var(--accent); }
@@ -791,7 +792,7 @@
   }
   #survey-autocomplete.open { display: block; }
   #survey-autocomplete li {
-    padding: 5px 8px; cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--text1);
+    padding: 5px 8px; cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--text);
   }
   #survey-autocomplete li:hover, #survey-autocomplete li.ac-active {
     background: var(--bg3);
@@ -1671,6 +1672,24 @@
 <script>
 const BUILD_DATE = '2026-04-06';
 const MONO_FONT = "'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace";
+
+// ═══════════════════════════════════════════════════
+// SAFE MIN / MAX — avoid Math.max(...arr) on large arrays
+// ═══════════════════════════════════════════════════
+// Math.min/max via spread blows the call stack for arrays with tens of
+// thousands of elements (survey spectra routinely have 5k–30k points). Use
+// a simple linear scan instead.
+function _arrMin(arr) {
+  let m = Infinity;
+  for (let i = 0; i < arr.length; i++) if (arr[i] < m) m = arr[i];
+  return m;
+}
+function _arrMax(arr) {
+  let m = -Infinity;
+  for (let i = 0; i < arr.length; i++) if (arr[i] > m) m = arr[i];
+  return m;
+}
+
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
@@ -2323,8 +2342,8 @@ class TabManager {
     if (!sel) return;
     sel.innerHTML = surveys.map(s => {
       const n = s.rawBE.length;
-      const beMin = Math.min(...s.rawBE).toFixed(0);
-      const beMax = Math.max(...s.rawBE).toFixed(0);
+      const beMin = _arrMin(s.rawBE).toFixed(0);
+      const beMax = _arrMax(s.rawBE).toFixed(0);
       return `<li data-survey-id="${s.id}" onclick="tabManager._onSurveySelect('${s.id}')">` +
         `<span class="survey-sel-name">${s.name}</span>` +
         `<span class="survey-sel-meta">${n} pts \u00b7 ${beMin}\u2013${beMax} eV</span></li>`;
@@ -3376,8 +3395,8 @@ function getROIData() {
 function maxROI() {
   if (!state.rawBE.length) return;
   const be = getCorrectedBE();
-  const lo = Math.min(...be);
-  const hi = Math.max(...be);
+  const lo = _arrMin(be);
+  const hi = _arrMax(be);
   document.getElementById('roi-min').value = lo.toFixed(1);
   document.getElementById('roi-max').value = hi.toFixed(1);
   document.getElementById('bg-start').value = hi.toFixed(1);
@@ -3388,10 +3407,11 @@ function maxROI() {
 function autoSetROI() {
   if (!state.rawBE.length) return;
   const be = getCorrectedBE();
-  document.getElementById('roi-min').value = Math.min(...be).toFixed(1);
-  document.getElementById('roi-max').value = Math.max(...be).toFixed(1);
-  document.getElementById('bg-start').value = Math.max(...be).toFixed(1);
-  document.getElementById('bg-end').value = Math.min(...be).toFixed(1);
+  const _roiLo = _arrMin(be), _roiHi = _arrMax(be);
+  document.getElementById('roi-min').value = _roiLo.toFixed(1);
+  document.getElementById('roi-max').value = _roiHi.toFixed(1);
+  document.getElementById('bg-start').value = _roiHi.toFixed(1);
+  document.getElementById('bg-end').value = _roiLo.toFixed(1);
   updatePlot();
 }
 
@@ -3924,6 +3944,24 @@ function unlinkPeak(id) {
   updatePlot();
 }
 
+// Handler for the linked-peak "Ratio (I₂/I₁)" input.
+// Clamps to [0.01, 2] so the user can't accidentally zero out both peaks by
+// typing 0 (which historically back-propagated a zero amplitude to the parent).
+// A ratio of 0 is not physically meaningful for a linked multiplet anyway —
+// if the satellite truly has no intensity, it should not be linked.
+function _onLinkRatioInput(id, rawVal) {
+  const child = getPeak(id);
+  if (!child || !child.linked) return;
+  const parent = getPeak(child.linked);
+  if (!parent) return;
+  let r = parseFloat(rawVal);
+  if (!isFinite(r) || r < 0.01) r = 0.01;
+  if (r > 2) r = 2;
+  child.linkRatio = r;
+  child.amplitude = parent.amplitude * r;
+  updatePeakParam(id, 'amplitude', child.amplitude);
+}
+
 function updatePeakParam(id, key, value) {
   _pushUndoDebounced();
   const p = getPeak(id);
@@ -3939,7 +3977,13 @@ function updatePeakParam(id, key, value) {
     if (p.linked && parent) {
       // p is a child — back-propagate changed value to parent
       if (key === 'center') parent.center = p.center - p.linkOffset;
-      else if (key === 'amplitude') parent.amplitude = p.linkRatio ? p.amplitude / p.linkRatio : p.amplitude;
+      else if (key === 'amplitude') {
+        // Only divide back to the parent when the ratio is meaningfully >0.
+        // Otherwise (child was zeroed or ratio is tiny) leave the parent alone.
+        if (p.linkRatio && p.linkRatio > 1e-6) {
+          parent.amplitude = p.amplitude / p.linkRatio;
+        }
+      }
       else parent[key] = p[key];
       renderPeakControls(parent);
     }
@@ -4089,7 +4133,7 @@ function renderPeakForm(p) {
       <div class="field">
         <label>Ratio (I&#8322;/I&#8321;)</label>
         <input type="number" value="${p.linkRatio.toFixed(3)}" step="0.05" min="0.01" max="2"
-          oninput="getPeak(${p.id}).linkRatio=parseFloat(this.value);getPeak(${p.id}).amplitude=getPeak(${p.linked}).amplitude*parseFloat(this.value);updatePeakParam(${p.id},'amplitude',getPeak(${p.id}).amplitude)">
+          oninput="_onLinkRatioInput(${p.id}, this.value)">
       </div>
     </div>
     ` : ''}
@@ -4364,6 +4408,11 @@ async function runFit() {
   _showFitSpinner();
   document.getElementById('sb-msg').textContent = 'Fitting\u2026';
 
+  // Capture the tab that owns this fit so that if the user switches tabs
+  // mid-request, we can discard the stale result instead of corrupting the
+  // now-active tab's state.
+  const fittingTabId = tabManager.activeId;
+
   const { be, inten } = getROIData();
   const bgIntensity = computeBackground(be, inten);
   const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
@@ -4398,6 +4447,16 @@ async function runFit() {
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
     backendResult = json;
+
+    // If the user switched tabs while the fit was running, discard the result
+    // rather than overwriting the now-active tab's peaks.
+    if (tabManager.activeId !== fittingTabId) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit result discarded because you switched tabs during the fit.', 'amber');
+      return;
+    }
+
     // Capture pre-fit values for uncertainty validation
     const _preFit = {};
     for (const p of state.peaks) {
@@ -4407,7 +4466,7 @@ async function runFit() {
     const stats = backendResult.statistics || {};
     const chiReduced = stats.reduced_chi_square || 0;
     const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
-    const roiRange = { min: Math.min(...be).toFixed(1), max: Math.max(...be).toFixed(1) };
+    const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
     state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
                         fittedY: backendResult.fitted_y, roiRange, _preFit };
@@ -4423,6 +4482,13 @@ async function runFit() {
   } catch (e) {
     // Fall back to local Levenberg-Marquardt
     _hideFitSpinner();
+    if (tabManager.activeId !== fittingTabId) {
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit cancelled — tab switched during fit.', 'amber');
+      return;
+    }
+    // Log the underlying error so structured backend messages aren't silently lost
+    if (e && e.message) console.warn('Backend fit failed, falling back to local LM:', e.message);
     runFitLocal(be, bgSubtracted, bgIntensity);
     return;
   }
@@ -4555,7 +4621,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
   const chiReduced = chi / dof;
   const rmse = Math.sqrt(chi / be.length);
 
-  const roiRange = { min: Math.min(...be).toFixed(1), max: Math.max(...be).toFixed(1) };
+  const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
@@ -5071,8 +5137,8 @@ function updatePlot() {
   updateResiduals(plotBE, residuals, invert, showResiduals);
 
   // Chart axis covers the FULL spectrum (zoom-independent of ROI)
-  const beMin = Math.min(...corrBE);
-  const beMax = Math.max(...corrBE);
+  const beMin = _arrMin(corrBE);
+  const beMax = _arrMax(corrBE);
 
   // Preserve Y zoom state before destroying chart (X resets to full range)
   const _savedYMax = state._mainYMax || null;
@@ -5335,8 +5401,8 @@ function updateResiduals(be, residuals, invert, show) {
   // Preserve residuals zoom state before destroying
   const _savedResidYMax = state._residYMax || null;
   if (state.residChart) { state.residChart.destroy(); state.residChart = null; }
-  const beMin = Math.min(...be);
-  const beMax = Math.max(...be);
+  const beMin = _arrMin(be);
+  const beMax = _arrMax(be);
   const ctx = document.getElementById('residChart').getContext('2d');
   state.residChart = new Chart(ctx, {
     type: 'line',
@@ -5882,11 +5948,16 @@ function _doPublicationExport() {
   ctx.fillRect(0, 0, W, H);
 
   // ── Axis ranges ──────────────────────────────────────────────────────────
-  const beMin = Math.min(...be), beMax = Math.max(...be);
-  const allY = [...inten, ...bgArr];
-  if (fittedY) allY.push(...fittedY);
-  const rawYMin = allY.reduce((a, b) => Math.min(a, b));
-  const rawYMax = allY.reduce((a, b) => Math.max(a, b));
+  const beMin = _arrMin(be), beMax = _arrMax(be);
+  let rawYMin = Infinity, rawYMax = -Infinity;
+  for (const arr of [inten, bgArr, fittedY]) {
+    if (!arr) continue;
+    for (let i = 0; i < arr.length; i++) {
+      const v = arr[i];
+      if (v < rawYMin) rawYMin = v;
+      if (v > rawYMax) rawYMax = v;
+    }
+  }
   const yMin = Math.max(0, rawYMin * (rawYMin < 0 ? 1.05 : 0.95));
   const yMax = rawYMax * 1.08;
 
@@ -6537,6 +6608,9 @@ function dismissToast() {
       mainWrap.style.flex = 'none';
       mainWrap.style.height = newMainH + 'px';
       residWrap.style.height = newResidH + 'px';
+      // Persist as a ratio of chart-area so window-resize can re-apply it
+      const chartAreaH = chartArea.getBoundingClientRect().height;
+      if (chartAreaH > 0) state._residHeightRatio = newResidH / chartAreaH;
     }
   });
 
@@ -6547,6 +6621,48 @@ function dismissToast() {
     // Re-render charts at new size
     if (state.chart) updatePlot();
   });
+})();
+
+// ═══════════════════════════════════════════════════
+// WINDOW RESIZE — keep chart layout responsive to viewport changes
+// ═══════════════════════════════════════════════════
+// When the window dimensions change (e.g. disconnecting an external monitor,
+// entering/leaving full-screen, browser zoom), the drag handler's stale
+// inline pixel heights on #main-chart-wrap can push #resid-wrap off-screen.
+// Clear those inline heights, re-apply the stored resid-height ratio, and
+// tell Chart.js to re-measure its canvases.
+(function () {
+  let rafId = null;
+  function onResize() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      const mainWrap  = document.getElementById('main-chart-wrap');
+      const residWrap = document.getElementById('resid-wrap');
+      const chartArea = document.getElementById('chart-area');
+
+      // Reset main-chart-wrap to its CSS-default flex behavior so it
+      // recomputes against the new viewport height.
+      if (mainWrap) {
+        mainWrap.style.flex = '';
+        mainWrap.style.height = '';
+      }
+
+      // If the user has ever dragged the resid handle, preserve the
+      // *proportion* (not the absolute pixels) across the resize.
+      if (residWrap && chartArea && state._residHeightRatio) {
+        const chartAreaH = chartArea.getBoundingClientRect().height;
+        // Clamp the ratio so resid always stays between 80px and 60% of area.
+        const target = chartAreaH * state._residHeightRatio;
+        const newResidH = Math.max(80, Math.min(chartAreaH * 0.6, target));
+        residWrap.style.height = newResidH + 'px';
+      }
+
+      if (state.chart)      state.chart.resize();
+      if (state.residChart) state.residChart.resize();
+    });
+  }
+  window.addEventListener('resize', onResize);
 })();
 
 // ═══════════════════════════════════════════════════
@@ -6803,7 +6919,7 @@ async function runPropagation() {
   _snapshotSuppressed = true;
 
   // Compute source amplitude scale reference (max raw intensity in ROI)
-  const srcMaxInten = Math.max(...sourceTab.rawIntensity);
+  const srcMaxInten = _arrMax(sourceTab.rawIntensity);
 
   const results = [];
 
@@ -6815,7 +6931,7 @@ async function runPropagation() {
     prog.textContent = `Fitting spectrum ${i + 1}/${checkedIds.length}: ${tgt.name}…`;
 
     // Scale factor based on max intensity ratio
-    const tgtMaxInten = Math.max(...tgt.rawIntensity);
+    const tgtMaxInten = _arrMax(tgt.rawIntensity);
     const scale = srcMaxInten > 0 ? tgtMaxInten / srcMaxInten : 1;
 
     // Deep-clone source peaks, scaled
