@@ -5140,8 +5140,18 @@ function updatePlot() {
   const beMin = _arrMin(corrBE);
   const beMax = _arrMax(corrBE);
 
-  // Preserve Y zoom state before destroying chart (X resets to full range)
+  // Preserve zoom state before destroying chart
   const _savedYMax = state._mainYMax || null;
+  let _savedXMin = null, _savedXMax = null;
+  const _prevOrigXMin = _origXMin, _prevOrigXMax = _origXMax;
+  if (state.chart && _origXMin !== null) {
+    const cx = state.chart.options.scales.x;
+    if (cx && cx.min !== undefined && cx.max !== undefined &&
+        (Math.abs(cx.min - _origXMin) > 0.01 || Math.abs(cx.max - _origXMax) > 0.01)) {
+      _savedXMin = cx.min;
+      _savedXMax = cx.max;
+    }
+  }
 
   // Destroy and recreate — never mutate chart.options on an existing instance
   if (state.chart) { state.chart.destroy(); state.chart = null; }
@@ -5289,14 +5299,23 @@ function updatePlot() {
   _origXMin = beMin;
   _origXMax = beMax;
 
-  // Restore saved Y zoom if user had zoomed before updatePlot() rebuilt the chart
+  // Restore saved zoom if user had zoomed before updatePlot() rebuilt the chart
+  let _needZoomUpdate = false;
   if (_savedYMax && _savedYMax !== _origYMax) {
     state._mainYMax = _savedYMax;
     state.chart.options.scales.y.max = _savedYMax;
-    state.chart.update('none');
+    _needZoomUpdate = true;
   } else {
     state._mainYMax = _origYMax;
   }
+  // Restore X zoom only when the underlying data range hasn't changed (same tab/spectrum)
+  if (_savedXMin !== null && _prevOrigXMin !== null &&
+      Math.abs(beMin - _prevOrigXMin) < 0.01 && Math.abs(beMax - _prevOrigXMax) < 0.01) {
+    state.chart.options.scales.x.min = _savedXMin;
+    state.chart.options.scales.x.max = _savedXMax;
+    _needZoomUpdate = true;
+  }
+  if (_needZoomUpdate) state.chart.update('none');
 
   // Manual wheel zoom — Y-axis only, baseline pinned to data minimum
   const mainCanvas = document.getElementById('mainChart');
