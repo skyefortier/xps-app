@@ -1404,9 +1404,9 @@
             <polyline points="9 15 12 12 15 15"/>
           </svg>
           <p><strong>Click</strong> or drag &middot; file or folder</p>
-          <p>.csv &middot; .txt &middot; .xlsx &middot; .vgd</p>
+          <p>.csv &middot; .txt &middot; .xlsx &middot; .vgd &middot; .fit.json &middot; .proj.json</p>
         </div>
-        <input type="file" id="fileInput" style="display:none" accept=".csv,.txt,.xlsx,.xls,.vgd" multiple onchange="Array.from(this.files).forEach(f => loadFile(f)); this.value='';">
+        <input type="file" id="fileInput" style="display:none" accept=".csv,.txt,.tsv,.xlsx,.xls,.vgd,.json,.zip" multiple onchange="Array.from(this.files).forEach(f => loadFile(f)); this.value='';">
         <button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="document.getElementById('folderInput').click()">&#128193; Load Folder</button>
         <input type="file" id="folderInput" style="display:none" webkitdirectory onchange="tabManager.loadFolder(this.files); this.value='';">
         <div id="folder-progress"></div>
@@ -3213,6 +3213,14 @@ function _fileSourcePath(file) {
 
 function loadFile(file) {
   if (!file) return;
+  if (_isSessionFile(file.name)) {
+    _loadSessionFile(file);
+    return;
+  }
+  _loadSpectralFile(file);
+}
+
+function _loadSpectralFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
 
   if (ext === 'vgd') {
@@ -4328,8 +4336,7 @@ function peakToBackendSpec(p) {
   } else if (shape === 'asym-GL') {
     spec.shape = 'asymmetric_gl';
     spec.gl_ratio = (p.glMix || 50) / 100;
-    spec.fwhm_l = p.fwhm;
-    spec.fwhm_r = p.fwhm * (1 + (p.asymmetry || 0));
+    spec.asymmetry = p.asymmetry || 0;
     spec.fix_asymmetry = !!p.fixAsymmetry;
   } else if (shape === 'DS' || shape === 'DSG') {
     spec.shape = 'doniach_sunjic';
@@ -4366,16 +4373,17 @@ function applyBackendResult(result) {
     const p = getPeak(Number(ipeak.id)) || getPeak(ipeak.id);
     if (!p) continue;
     const par = ipeak.params;
-    if (par.center)    p.center    = par.center.value;
-    if (par.amplitude) p.amplitude = par.amplitude.value;
-    if (par.fwhm)      p.fwhm      = par.fwhm.value;
-    if (par.gl_ratio)  p.glMix     = par.gl_ratio.value * 100;
-    if (par.alpha && (p.shape === 'DS' || p.shape === 'DSG')) p.dsAlpha = par.alpha.value;
-    if (par.gamma_asym && (p.shape === 'DS' || p.shape === 'DSG')) p.dsGamma = par.gamma_asym.value;
-    if (par.alpha && p.shape === 'LA') p.laAlpha = par.alpha.value;
-    if (par.beta    && p.shape === 'LA') p.laBeta  = par.beta.value;
-    if (par.m_gauss && p.shape === 'LA') p.laM     = par.m_gauss.value;
-    if (par.fwhm_l)    p.fwhm      = par.fwhm_l.value;
+    // Only apply parameters that were NOT locked — locked params must stay unchanged
+    if (par.center    && !p.fixCenter)    p.center    = par.center.value;
+    if (par.amplitude && !p.fixAmplitude) p.amplitude = par.amplitude.value;
+    if (par.fwhm      && !p.fixFwhm)     p.fwhm      = par.fwhm.value;
+    if (par.gl_ratio  && !p.fixGlMix)    p.glMix     = par.gl_ratio.value * 100;
+    if (par.asymmetry && p.shape === 'asym-GL' && !p.fixAsymmetry) p.asymmetry = par.asymmetry.value;
+    if (par.alpha && (p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsAlpha) p.dsAlpha = par.alpha.value;
+    if (par.gamma_asym && (p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsGamma) p.dsGamma = par.gamma_asym.value;
+    if (par.alpha   && p.shape === 'LA' && !p.fixLaAlpha) p.laAlpha = par.alpha.value;
+    if (par.beta    && p.shape === 'LA' && !p.fixLaBeta)  p.laBeta  = par.beta.value;
+    if (par.m_gauss && p.shape === 'LA' && !p.fixLaM)     p.laM     = par.m_gauss.value;
     p._backendParams = par;
   }
 }
@@ -5740,54 +5748,73 @@ function loadSession() {
   document.getElementById('load-session-input').click();
 }
 
+function _isSessionFile(name) {
+  const n = name.toLowerCase();
+  return n.endsWith('.json') || n.endsWith('.zip') || n.endsWith('.xpsproj');
+}
+
+function _applyFitJSON(data) {
+  if (!state.rawBE.length) { notify('Load a spectrum first before loading a fit.', 'amber', true); return; }
+  tabManager.fromJSON(data);
+  const nPeaks = (data.peaks || []).length;
+  notify('Fit applied to active tab: ' + nPeaks + ' peak' + (nPeaks !== 1 ? 's' : '') + '.', 'green');
+}
+
+async function _loadSessionFile(file) {
+  const name = file.name.toLowerCase();
+  try {
+    // All .zip files → project ZIP (app only produces .proj.zip)
+    if (name.endsWith('.zip')) { await _loadZipProject(file); return; }
+
+    // Legacy .xpsproj (JSON project, no prefix)
+    if (name.endsWith('.xpsproj')) {
+      const data = JSON.parse(await file.text());
+      _loadProjectJSON(data, file.name); return;
+    }
+
+    // Read file text once — may be .json or a CSV/TSV accidentally saved with .json
+    const text = await file.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // Not valid JSON — fall back to spectral data parsing
+      _loadSpectralFile(file);
+      return;
+    }
+
+    // Filename-prefix routing (preserves explicit user intent)
+    if (name.endsWith('.proj.json')) { _loadProjectJSON(data, file.name); return; }
+    if (name.endsWith('.spec.json')) { _loadSpectrumFile(data, file.name); return; }
+    if (name.endsWith('.fit.json'))  { _applyFitJSON(data); return; }
+
+    // Generic .json — detect type by content structure
+    if (Array.isArray(data.tabs)) { _loadProjectJSON(data, file.name); return; }
+
+    const hasPeaks = Array.isArray(data.peaks);
+    const hasRaw = (Array.isArray(data.rawBE) && data.rawBE.length) ||
+                   (Array.isArray(data.be) && data.be.length);
+
+    if (hasPeaks && hasRaw) {
+      // Normalize be/inten → rawBE/rawIntensity for _loadSpectrumFile
+      if (!data.rawBE && data.be) data.rawBE = data.be;
+      if (!data.rawIntensity && data.inten) data.rawIntensity = data.inten;
+      _loadSpectrumFile(data, file.name); return;
+    }
+    if (hasPeaks) { _applyFitJSON(data); return; }
+
+    // No recognized structure — try as spectral data (CSV-like)
+    _loadSpectralFile(file);
+  } catch (err) {
+    notify('Failed to load file: ' + err.message, 'red');
+  }
+}
+
 async function handleSessionLoad(event) {
   const file = event.target.files[0];
   if (!file) return;
   event.target.value = '';
-  const name = file.name.toLowerCase();
-
-  try {
-    // Extension-based routing (fast path)
-    if (name.endsWith('.proj.zip') || name.endsWith('.xpsproj.zip') || name.endsWith('.xpsproj')) {
-      if (name.endsWith('.zip')) { await _loadZipProject(file); return; }
-      const data = JSON.parse(await file.text());
-      _loadProjectJSON(data, file.name); return;
-    }
-    if (name.endsWith('.spec.json')) {
-      const data = JSON.parse(await file.text());
-      _loadSpectrumFile(data, file.name); return;
-    }
-    if (name.endsWith('.fit.json')) {
-      const data = JSON.parse(await file.text());
-      if (!state.rawBE.length) { notify('Load a spectrum first before loading a fit.', 'amber', true); return; }
-      tabManager.fromJSON(data);
-      const nPeaks = (data.peaks || []).length;
-      notify('Fit applied to active tab: ' + nPeaks + ' peak' + (nPeaks !== 1 ? 's' : '') + '.', 'green');
-      return;
-    }
-
-    // Fallback: read JSON and check version field
-    const text = await file.text();
-    const data = JSON.parse(text);
-
-    if (data.version === 3) {
-      _loadProjectJSON(data, file.name);
-    } else if (data.version === 2 && data.rawBE) {
-      _loadSpectrumFile(data, file.name);
-    } else if (data.version === 2 && data.tabs) {
-      // v2 multi-tab file — treat as project (replaces all tabs with confirmation)
-      _loadProjectJSON(data, file.name);
-    } else if (data.version === 1 || data.peaks) {
-      if (!state.rawBE.length) { notify('Load a spectrum first before loading a fit.', 'amber', true); return; }
-      tabManager.fromJSON(data);
-      const nPeaks = (data.peaks || []).length;
-      notify('Fit applied to active tab: ' + nPeaks + ' peak' + (nPeaks !== 1 ? 's' : '') + '.', 'green');
-    } else {
-      notify('This is not a valid fit, spectrum, or project file.', 'red', true);
-    }
-  } catch (err) {
-    notify('Failed to load file: ' + err.message, 'red');
-  }
+  await _loadSessionFile(file);
 }
 
 function _loadSpectrumFile(data, sessionFile) {
@@ -7311,6 +7338,7 @@ function _autoSnapshot() {
       fittedY: state.fitResult.fittedY ? [...state.fitResult.fittedY] : null,
     },
     chi,
+    rFactor: state.fitResult.rFactor ?? null,
   };
 
   tab.snapshots.unshift(snap);
@@ -7341,7 +7369,7 @@ function _renderHistoryList() {
     <div class="hist-row" id="hist-row-${s.id}">
       <div class="hist-row-main">
         <div class="hist-row-label">${_escHtml(s.label)}</div>
-        <div class="hist-row-meta">${s.timestamp} &middot; ${s.peaks.length} peak${s.peaks.length !== 1 ? 's' : ''}${s.chi != null ? ' &middot; <span class="hist-row-chi">\u03c7\u00b2r=' + s.chi.toFixed(3) + '</span>' : ''}</div>
+        <div class="hist-row-meta">${s.timestamp} &middot; ${s.peaks.length} peak${s.peaks.length !== 1 ? 's' : ''}${s.chi != null ? ' &middot; <span class="hist-row-chi">\u03c7\u00b2 = ' + s.chi.toFixed(3) + '</span>' : ''}${s.rFactor != null ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
       </div>
       <div class="hist-row-btns">
         <button class="btn btn-sm" onclick="_historyPreviewSnap(${s.id})" title="Overlay this snapshot on the chart">Preview</button>

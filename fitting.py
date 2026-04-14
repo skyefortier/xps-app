@@ -72,19 +72,25 @@ def _asymmetric_gl(
     x: np.ndarray,
     amplitude: float,
     center: float,
-    fwhm_l: float,
-    fwhm_r: float,
+    fwhm: float,
+    asymmetry: float,
     gl_ratio: float,
 ) -> np.ndarray:
     """
-    Asymmetric GL pseudo‑Voigt: left and right halves have independent FWHM.
+    Asymmetric GL pseudo‑Voigt with independent asymmetry parameter.
+
+    fwhm      : base FWHM (used on the low‑BE side, i.e. x ≤ center)
+    asymmetry : broadening factor for the high‑BE side;
+                fwhm_right = fwhm × (1 + asymmetry).  0 = symmetric.
+    gl_ratio  : common Lorentzian fraction for both sides.
 
     Both halves meet at x = center with value = amplitude.
-    gl_ratio applies to both sides (common Lorentzian fraction).
     """
+    asym = float(np.clip(asymmetry, 0.0, 1.0))
+    fwhm_r = fwhm * (1.0 + asym)
     result = np.empty_like(x, dtype=float)
     left = x <= center
-    result[left] = _pseudo_voigt_gl(x[left], amplitude, center, fwhm_l, gl_ratio)
+    result[left] = _pseudo_voigt_gl(x[left], amplitude, center, fwhm, gl_ratio)
     result[~left] = _pseudo_voigt_gl(x[~left], amplitude, center, fwhm_r, gl_ratio)
     return result
 
@@ -531,8 +537,7 @@ def _make_peak_params(
     fwhm_min       : float – lower bound   (default 0.01)
     fwhm_max       : float – upper bound   (optional)
     gl_ratio       : float – Lorentzian fraction for *_gl shapes  [0–1]
-    fwhm_l         : float – left FWHM for asymmetric_gl
-    fwhm_r         : float – right FWHM for asymmetric_gl
+    asymmetry      : float – high-BE broadening factor for asymmetric_gl [0–1]
     alpha          : float – DS asymmetry index
     constrain_to   : str   – id of master peak (spin‑orbit slave)
     splitting      : float – centre offset from master (eV)
@@ -545,8 +550,7 @@ def _make_peak_params(
     center = spec.get("center", 285.0)
     amp = spec.get("amplitude", 1000.0)
     fwhm = spec.get("fwhm", 1.5)
-    fwhm_l = spec.get("fwhm_l", fwhm)
-    fwhm_r = spec.get("fwhm_r", fwhm)
+    asymmetry = spec.get("asymmetry", 0.0)
 
     def _set(name, value, min_=None, max_=None, expr=None, vary=True):
         full = prefix + name
@@ -583,10 +587,9 @@ def _make_peak_params(
                  expr=f"{m_prefix}gl_ratio" if spec.get("fix_fwhm", True) else None,
                  min_=0.0, max_=1.0)
         if shape == "asymmetric_gl":
-            _set("fwhm_l", fwhm_l, expr=f"{m_prefix}fwhm_l" if spec.get("fix_fwhm", True) else None,
-                 min_=spec.get("fwhm_min", 0.01))
-            _set("fwhm_r", fwhm_r, expr=f"{m_prefix}fwhm_r" if spec.get("fix_fwhm", True) else None,
-                 min_=spec.get("fwhm_min", 0.01))
+            _set("asymmetry", asymmetry,
+                 expr=f"{m_prefix}asymmetry" if spec.get("fix_fwhm", True) else None,
+                 min_=0.0, max_=1.0)
         if shape == "doniach_sunjic":
             _set("alpha", spec.get("alpha", 0.1),
                  expr=f"{m_prefix}alpha" if spec.get("fix_fwhm", True) else None,
@@ -622,8 +625,8 @@ def _make_peak_params(
         _set("gl_ratio", spec.get("gl_ratio", 0.3), min_=0.0, max_=1.0,
              vary=not spec.get("fix_gl_ratio", False))
     if shape == "asymmetric_gl":
-        _set("fwhm_l", fwhm_l, min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"))
-        _set("fwhm_r", fwhm_r, min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"))
+        _set("asymmetry", asymmetry, min_=0.0, max_=1.0,
+             vary=not spec.get("fix_asymmetry", False))
     if shape == "doniach_sunjic":
         _set("alpha", spec.get("alpha", 0.1), min_=0.0, max_=0.5,
              vary=not spec.get("fix_alpha", False))
