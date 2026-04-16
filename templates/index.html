@@ -1312,8 +1312,24 @@
   .nist-marker-chip button { background: none; border: none; color: var(--text3); cursor: pointer; padding: 0; line-height: 1; font-size: 11px; }
   .nist-marker-chip button:hover { color: var(--red, #f87171); }
 
-  /* ── Fit History Modal ───────────────────────────────────── */
-  #history-list { max-height: 320px; overflow-y: auto; }
+  /* ── Fit History Floating Panel ────────────────────────────── */
+  #history-panel {
+    display: none; position: fixed; z-index: 250;
+    width: 340px; max-height: 80vh;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    flex-direction: column; overflow: hidden;
+  }
+  #history-panel.open { display: flex; }
+  #history-panel-titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; cursor: grab; user-select: none; -webkit-user-select: none;
+    background: var(--bg3); border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--text);
+  }
+  #history-panel-titlebar:active { cursor: grabbing; }
+  #history-panel-body { padding: 10px 12px; overflow-y: auto; flex: 1; min-height: 0; }
+  #history-list { max-height: none; overflow-y: visible; }
   .hist-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-bottom: 1px solid var(--border); font-size: 11px; font-family: var(--mono); }
   .hist-row:last-child { border-bottom: none; }
   .hist-row:hover { background: var(--bg3); }
@@ -1323,7 +1339,7 @@
   .hist-row-chi { color: var(--accent); font-weight: 600; margin-right: 4px; }
   .hist-row-btns { display: flex; gap: 4px; flex-shrink: 0; }
   .hist-preview-active { background: rgba(var(--accent-rgb, 99,102,241), 0.08); }
-  #history-compare-info { font-size: 10px; color: var(--text3); font-family: var(--mono); padding: 4px 8px; min-height: 18px; }
+  #history-compare-info { font-size: 10px; color: var(--text3); font-family: var(--mono); padding: 0 0 6px; min-height: 14px; }
 
   /* ── Manual anchor background controls ──────────── */
   #manual-bg-controls { display: none; margin-top: 6px; }
@@ -1670,7 +1686,7 @@
 <div id="notify"></div>
 
 <script>
-const BUILD_DATE = '2026-04-06';
+const BUILD_DATE = '2026-04-16';
 const MONO_FONT = "'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace";
 
 // ═══════════════════════════════════════════════════
@@ -3856,6 +3872,7 @@ document.addEventListener('keydown', function(e) {
       _ssClose(); return;
     }
     document.querySelectorAll('.xps-modal-overlay.open').forEach(m => m.classList.remove('open'));
+    if (typeof _closeHistoryPanel === 'function') _closeHistoryPanel();
     const multipletOverlay = document.getElementById('multiplet-modal-overlay');
     if (multipletOverlay && multipletOverlay.classList.contains('open')) {
       _closeMultipletModal();
@@ -4498,6 +4515,7 @@ async function runFit() {
     // Log the underlying error so structured backend messages aren't silently lost
     if (e && e.message) console.warn('Backend fit failed, falling back to local LM:', e.message);
     runFitLocal(be, bgSubtracted, bgIntensity);
+    if (!_snapshotSuppressed) document.getElementById('localfit-warn-overlay').classList.add('open');
     return;
   }
 
@@ -5073,6 +5091,22 @@ function updatePlot() {
     });
   }
 
+  // History snapshot preview overlay (cyan dashed, drawn on top)
+  if (_historyPreview && _historyPreview.peaks && _historyPreview.peaks.length && plotBE.length) {
+    const prevPeakY = evalAllPeaks(plotBE, _historyPreview.peaks);
+    const isLight = document.body.classList.contains('light-theme');
+    datasets.push({
+      label: 'Preview',
+      data: plotBE.map((b, i) => ({ x: b, y: prevPeakY[i] + plotBG[i] })),
+      borderColor: isLight ? 'rgba(0,180,220,1.0)' : 'rgba(0,220,255,1.0)',
+      borderWidth: 4,
+      borderDash: [10, 5],
+      pointRadius: 0,
+      fill: false,
+      order: -10,
+    });
+  }
+
   // Smoothed data overlay — FULL spectrum range
   const smoothEnabled = document.getElementById('smooth-enable')?.checked;
   if (smoothEnabled && fullInten.length > 5) {
@@ -5241,14 +5275,30 @@ function updatePlot() {
     }
   };
 
-  // Plugin: draw NIST markers, history preview, and source path label
+  // Plugin: draw NIST markers and source path label
   const overlayPlugin = {
     id: 'xpsOverlays',
     afterDraw(chart) {
       _drawNistMarkers(chart);
-      _drawHistoryPreview(chart);
       _drawSourceLabel(chart);
       if (typeof _drawManualAnchors === 'function') _drawManualAnchors(chart);
+    }
+  };
+
+  // Plugin: apply glow shadow to the Preview dataset
+  const previewGlowPlugin = {
+    id: 'previewGlow',
+    beforeDatasetDraw(chart, args) {
+      if (chart.data.datasets[args.index]?.label !== 'Preview') return;
+      const c = chart.ctx;
+      c.save();
+      const isL = document.body.classList.contains('light-theme');
+      c.shadowColor = isL ? 'rgba(0,180,220,0.5)' : 'rgba(0,220,255,0.45)';
+      c.shadowBlur = 8;
+    },
+    afterDatasetDraw(chart, args) {
+      if (chart.data.datasets[args.index]?.label !== 'Preview') return;
+      chart.ctx.restore();
     }
   };
 
@@ -5256,7 +5306,7 @@ function updatePlot() {
   state.chart = new Chart(ctx, {
     type: 'line',
     data: { datasets },
-    plugins: [surveyLabelPlugin, pinYRangePlugin, overlayPlugin],
+    plugins: [surveyLabelPlugin, pinYRangePlugin, overlayPlugin, previewGlowPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -7347,7 +7397,20 @@ function _autoSnapshot() {
 
 function showHistoryModal() {
   _renderHistoryList();
-  document.getElementById('history-modal-overlay').classList.add('open');
+  const panel = document.getElementById('history-panel');
+  if (!panel.classList.contains('open')) {
+    // Position at top-right of viewport, offset from the right panel
+    const rp = document.getElementById('right-panel');
+    const rpLeft = rp ? rp.getBoundingClientRect().left : window.innerWidth - 360;
+    panel.style.top = '60px';
+    panel.style.left = Math.max(20, rpLeft - 360) + 'px';
+    panel.style.right = '';
+    panel.classList.add('open');
+  }
+}
+
+function _closeHistoryPanel() {
+  document.getElementById('history-panel').classList.remove('open');
 }
 
 function _renderHistoryList() {
@@ -7395,13 +7458,16 @@ function _historyPreviewSnap(snapId) {
   if (!snap) return;
 
   if (_historyPreview && _historyPreview.snapId === snapId) {
-    // Toggle off
     _historyClearPreview();
     return;
   }
 
+  if (!snap.peaks || !snap.peaks.length) {
+    notify('Preview not available for this snapshot.', 'amber');
+    return;
+  }
+
   _historyPreview = { snapId, peaks: snap.peaks, fitResult: snap.fitResult };
-  // Highlight active row
   document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
   const row = document.getElementById('hist-row-' + snapId);
   if (row) row.classList.add('hist-preview-active');
@@ -7429,7 +7495,7 @@ function _historyRestoreSnap(snapId) {
   renderPeakList();
   updatePlot();
   renderResults();
-  document.getElementById('history-modal-overlay').classList.remove('open');
+  _closeHistoryPanel();
   notify('Snapshot restored.', 'green');
 }
 
@@ -7441,47 +7507,36 @@ function _historyDeleteSnap(snapId) {
   _renderHistoryList();
 }
 
-// Called from updatePlot() to draw snapshot preview overlay
-function _drawHistoryPreview(chart) {
-  if (!_historyPreview || !chart) return;
-  const { peaks, fitResult } = _historyPreview;
-  if (!peaks || !peaks.length) return;
-
-  const xScale = chart.scales.x;
-  const yScale = chart.scales.y;
-  if (!xScale || !yScale) return;
-
-  const ctx = chart.ctx;
-  const isLight = document.body.classList.contains('light-theme');
-  const previewColor = isLight ? 'rgba(234,88,12,0.85)' : 'rgba(251,146,60,0.9)';
-
-  // Resolve BE and raw background arrays: prefer stored fit data, fall back to live ROI
-  let bePts, bgArr;
-  if (fitResult && fitResult.be && fitResult.be.length && fitResult.bgIntensity) {
-    bePts = fitResult.be;
-    bgArr = fitResult.bgIntensity;
-  } else {
-    const { be, inten } = getROIData();
-    bePts = be;
-    bgArr = computeBackground(be, inten);
-  }
-
-  const allPeakY = evalAllPeaks(bePts, peaks);
-  ctx.save();
-  ctx.setLineDash([6, 3]);
-  ctx.strokeStyle = previewColor;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  let started = false;
-  for (let i = 0; i < bePts.length; i++) {
-    const x = xScale.getPixelForValue(bePts[i]);
-    const y = yScale.getPixelForValue(bgArr[i] + allPeakY[i]);
-    if (x < xScale.left || x > xScale.right) { started = false; continue; }
-    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
+// History panel drag logic
+(function () {
+  const panel = document.getElementById('history-panel');
+  const bar = document.getElementById('history-panel-titlebar');
+  if (!panel || !bar) return;
+  let dragging = false, offX = 0, offY = 0;
+  bar.addEventListener('mousedown', e => {
+    if (e.target.closest('button')) return;
+    dragging = true;
+    const r = panel.getBoundingClientRect();
+    offX = e.clientX - r.left;
+    offY = e.clientY - r.top;
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const x = Math.max(0, Math.min(window.innerWidth - 60, e.clientX - offX));
+    const y = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - offY));
+    panel.style.left = x + 'px';
+    panel.style.top = y + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
 
 // ══════════════════════════════════════════════════════════════
 // MANUAL (ANCHOR) BACKGROUND
@@ -7926,16 +7981,35 @@ document.addEventListener('mousedown', function(e) {
   </div>
 </div>
 
-<!-- Fit History Modal -->
-<div id="history-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="xps-modal" style="max-width:500px">
-    <h3>Fit History <button class="btn btn-sm" onclick="document.getElementById('history-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <p style="font-size:11px;color:var(--text2);margin:0 0 10px">A snapshot is saved automatically after each fit (max 10 per tab). Preview overlays a snapshot in orange; Restore reverts to that state.</p>
+<!-- Local Fit Warning Modal -->
+<div id="localfit-warn-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal" style="max-width:460px;border-color:var(--amber,#f59e0b)">
+    <h3 style="color:var(--amber,#f59e0b)">&#9888; Warning: Local Fit Performed <button class="btn btn-sm" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">&#x2715;</button></h3>
+    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) did not respond. A simplified local fit was used instead. Results may be less accurate.</p>
+    <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px"><strong style="color:var(--text)">Possible causes:</strong><br>
+    &bull; The server may be offline or restarting<br>
+    &bull; The fit request may have timed out<br>
+    &bull; Network connection issue</p>
+    <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px">Try clicking <strong>Run Fit</strong> again. If the problem persists, check that the server is running.</p>
+    <div class="dialog-btns">
+      <button class="btn btn-accent" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fit History Floating Panel -->
+<div id="history-panel">
+  <div id="history-panel-titlebar">
+    <span>Fit History</span>
+    <button class="btn btn-sm" onclick="_closeHistoryPanel()" style="padding:1px 6px">&#x2715;</button>
+  </div>
+  <div id="history-panel-body">
+    <p style="font-size:10px;color:var(--text3);margin:0 0 8px;line-height:1.5">Auto-saved after each fit (max 10). Preview overlays in orange.</p>
     <div id="history-compare-info"></div>
     <div id="history-list"></div>
-    <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
+    <div style="margin-top:8px;display:flex;gap:6px;justify-content:flex-end">
       <button class="btn btn-sm" onclick="_historyClearPreview()">Clear Preview</button>
-      <button class="btn btn-sm" onclick="document.getElementById('history-modal-overlay').classList.remove('open')">Close</button>
+      <button class="btn btn-sm" onclick="_closeHistoryPanel()">Close</button>
     </div>
   </div>
 </div>
