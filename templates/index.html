@@ -4545,7 +4545,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       const p = getPeak(id);
       if (!p) continue;
       let v = params[i];
-      if (param === 'fwhm')         v = Math.max(0.05, v);
+      if (param === 'fwhm')         v = Math.max(0.1, Math.min(15, v));
       if (param === 'amplitude')    v = Math.max(1, v);
       if (param === 'glMix')        v = Math.max(0, Math.min(100, v));
       if (param === 'asymmetry')    v = Math.max(0, Math.min(0.9, v));
@@ -7346,16 +7346,21 @@ function _autoSnapshot() {
 }
 
 function showHistoryModal() {
-  if (!tabManager.activeId) { notify('No active tab.', 'amber'); return; }
   _renderHistoryList();
   document.getElementById('history-modal-overlay').classList.add('open');
 }
 
 function _renderHistoryList() {
-  const tab = tabManager._getTab(tabManager.activeId);
+  const tab = tabManager && tabManager.activeId ? tabManager._getTab(tabManager.activeId) : null;
   const snaps = tab && tab.snapshots && tab.snapshots.length ? tab.snapshots : [];
   const list = document.getElementById('history-list');
   const info = document.getElementById('history-compare-info');
+
+  if (!tab) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:12px 8px;font-family:var(--mono)">Load a spectrum and run a fit to start recording history.</div>';
+    info.textContent = '';
+    return;
+  }
 
   if (!snaps.length) {
     list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:12px 8px;font-family:var(--mono)">No snapshots yet. Snapshots are saved automatically after each fit.</div>';
@@ -7369,7 +7374,7 @@ function _renderHistoryList() {
     <div class="hist-row" id="hist-row-${s.id}">
       <div class="hist-row-main">
         <div class="hist-row-label">${_escHtml(s.label)}</div>
-        <div class="hist-row-meta">${s.timestamp} &middot; ${s.peaks.length} peak${s.peaks.length !== 1 ? 's' : ''}${s.chi != null ? ' &middot; <span class="hist-row-chi">\u03c7\u00b2 = ' + s.chi.toFixed(3) + '</span>' : ''}${s.rFactor != null ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
+        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof s.chi === 'number' && isFinite(s.chi) ? ' &middot; <span class="hist-row-chi">\u03c7\u00b2 = ' + s.chi.toFixed(3) + '</span>' : ''}${typeof s.rFactor === 'number' && isFinite(s.rFactor) ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
       </div>
       <div class="hist-row-btns">
         <button class="btn btn-sm" onclick="_historyPreviewSnap(${s.id})" title="Overlay this snapshot on the chart">Preview</button>

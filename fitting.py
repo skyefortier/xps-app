@@ -534,8 +534,8 @@ def _make_peak_params(
     amplitude      : float – peak maximum counts
     amplitude_min  : float – lower bound   (default 0)
     fwhm           : float – full width at half max (eV)
-    fwhm_min       : float – lower bound   (default 0.01)
-    fwhm_max       : float – upper bound   (optional)
+    fwhm_min       : float – lower bound   (default 0.1)
+    fwhm_max       : float – upper bound   (default 15.0)
     gl_ratio       : float – Lorentzian fraction for *_gl shapes  [0–1]
     asymmetry      : float – high-BE broadening factor for asymmetric_gl [0–1]
     alpha          : float – DS asymmetry index
@@ -581,7 +581,7 @@ def _make_peak_params(
         _set("center", center, expr=f"{m_prefix}center + {splitting}")
         _set("amplitude", amp, expr=f"{m_prefix}amplitude * {area_ratio}")
         _set("fwhm", fwhm, expr=f"{m_prefix}fwhm" if spec.get("fix_fwhm", True) else None,
-             min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"))
+             min_=spec.get("fwhm_min", 0.1), max_=spec.get("fwhm_max", 15.0))
         if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
             _set("gl_ratio", spec.get("gl_ratio", 0.3),
                  expr=f"{m_prefix}gl_ratio" if spec.get("fix_fwhm", True) else None,
@@ -618,7 +618,7 @@ def _make_peak_params(
          min_=spec.get("amplitude_min", 0.0), max_=spec.get("amplitude_max"),
          vary=not spec.get("fix_amplitude", False))
     _set("fwhm", fwhm,
-         min_=spec.get("fwhm_min", 0.01), max_=spec.get("fwhm_max"),
+         min_=spec.get("fwhm_min", 0.1), max_=spec.get("fwhm_max", 15.0),
          vary=not spec.get("fix_fwhm", False))
 
     if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
