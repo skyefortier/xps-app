@@ -5400,7 +5400,7 @@ function updatePlot() {
 
     // Scroll up = zoom in (decrease max), scroll down = zoom out (increase max)
     const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85;
-    state._mainYMax = Math.max(state._mainYMax * zoomFactor, dataMax * 0.5);
+    state._mainYMax = Math.max(state._mainYMax * zoomFactor, dataMax * 0.02);
 
     // Pin baseline to just below the data, only change the top
     chart.options.scales.y.min = paddedMin;
