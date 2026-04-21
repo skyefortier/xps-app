@@ -1186,6 +1186,7 @@
   }
   #xps-tooltip.tip-above::before { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--border); }
   #xps-tooltip.tip-above::after  { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--bg3); }
+  label[data-xps-tip] { cursor: help; }
 
   /* ── Charge correction unverified indicators ────────────── */
   #cc-obs.cc-unverified { border-color: var(--red, #f87171) !important; color: var(--red, #f87171); }
@@ -1633,6 +1634,9 @@
         </div>
 
         <div class="tab-panel active" id="tab-peaks">
+          <div id="peak-lock-all-wrap" style="display:none;margin-bottom:8px">
+            <button class="btn btn-sm" id="btn-lock-all" style="width:100%;font-size:10px" onclick="toggleAllLocks()">&#x1f512; Lock All</button>
+          </div>
           <div id="peak-list"></div>
           <div id="peak-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
             No peaks added yet.<br>Click &ldquo;+ Add Peak&rdquo; to start.
@@ -1686,7 +1690,7 @@
 <div id="notify"></div>
 
 <script>
-const BUILD_DATE = '2026-04-16';
+const BUILD_DATE = '2026-04-21';
 const MONO_FONT = "'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace";
 
 // ═══════════════════════════════════════════════════
@@ -2745,7 +2749,7 @@ function doniachSunjic(x, center, fwhm, alpha, gamma_asym) {
 
 function doniachSunjicGauss(x, center, fwhm, alpha, gamma_asym, gaussSigma) {
   // DS convolved with Gaussian instrument function (numerical integration)
-  // Use this for actinide spectra where instrument broadening is significant
+  // Use this for metallic/asymmetric spectra where instrument broadening is significant
   if (gaussSigma < 0.001) return doniachSunjic(x, center, fwhm, alpha, gamma_asym);
   const range = 4 * gaussSigma;
   const nPts = 51;
@@ -4032,6 +4036,50 @@ function toggleLock(id, key, btn) {
   btn.className = 'lock-btn' + (p[key] ? ' locked' : '');
   btn.innerHTML = p[key] ? '&#x1f512;' : '&#x1f513;';
   btn.title = (p[key] ? 'Unlock' : 'Lock') + ' during fitting';
+  _updateLockAllBtn();
+}
+
+const LOCK_ALL_KEYS = ['fixCenter', 'fixFwhm', 'fixAmplitude', 'fixAsymmetry', 'fixGlMix', 'fixDsAlpha', 'fixDsGamma'];
+
+function _lockAllStats() {
+  let locked = 0, total = 0;
+  for (const p of state.peaks) {
+    if (p.linked) continue;
+    for (const k of LOCK_ALL_KEYS) {
+      total++;
+      if (p[k]) locked++;
+    }
+  }
+  return { locked, total };
+}
+
+function toggleAllLocks() {
+  if (!state.peaks.length) return;
+  const { locked, total } = _lockAllStats();
+  // Majority unlocked → lock all; majority locked → unlock all
+  const newVal = locked <= total / 2;
+  for (const p of state.peaks) {
+    if (p.linked) continue;
+    for (const k of LOCK_ALL_KEYS) p[k] = newVal;
+  }
+  renderPeakList();
+}
+
+function _updateLockAllBtn() {
+  const wrap = document.getElementById('peak-lock-all-wrap');
+  const btn = document.getElementById('btn-lock-all');
+  if (!wrap || !btn) return;
+  const hasLockable = state.peaks.some(p => !p.linked);
+  if (!hasLockable) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const { locked, total } = _lockAllStats();
+  if (locked > total / 2) {
+    btn.innerHTML = '&#x1f513; Unlock All';
+    btn.title = 'Unlock all fit parameters on all peaks';
+  } else {
+    btn.innerHTML = '&#x1f512; Lock All';
+    btn.title = 'Lock all fit parameters on all peaks';
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -4051,6 +4099,7 @@ function renderPeakList() {
   const clearWrap = document.getElementById('peak-clear-wrap');
   if (clearWrap) clearWrap.style.display = state.peaks.length ? 'block' : 'none';
   document.getElementById('sb-peaks').textContent = state.peaks.length;
+  _updateLockAllBtn();
 
   // Compute total area for percentage (using ROI data if available)
   const { be: _roiBE } = (typeof getROIData === 'function' && state.rawBE.length) ? getROIData() : { be: [] };
@@ -4112,7 +4161,7 @@ function renderPeakForm(p) {
         <option value="asym-GL" data-tip="GL with asymmetric broadening. Use for peaks with vibrational fine structure (e.g., C 1s in polymers) or when one side is broader than the other." ${p.shape==='asym-GL'?'selected':''}>Asymmetric GL (&alpha; asymmetry)</option>
         <option value="DS" data-tip="Asymmetric metallic lineshape with tail toward higher BE. Use for metals and conductive samples (e.g., Au, Cu, Fe metal). Not appropriate for insulators or oxides." ${p.shape==='DS'?'selected':''}>Doniach-&Scaron;unji&#263; (&alpha; + &gamma;)</option>
         <option value="DSG" data-tip="Doniach-Šunjić with instrument broadening. Use for metals when instrument resolution is significant. Good for metallic standards and clean metal surfaces." ${p.shape==='DSG'?'selected':''}>DS &times; Gaussian (DS + instr. broadening)</option>
-        <option value="LA" data-tip="CasaXPS convention asymmetric lineshape. Most versatile — works for metals, semiconductors, and materials with complex screening. Recommended for actinides and transition metals." ${p.shape==='LA'?'selected':''}>LA (&alpha;,&beta;,m) [CasaXPS]</option>
+        <option value="LA" data-tip="CasaXPS convention asymmetric lineshape. Most versatile — works for metals, semiconductors, and materials with complex screening. A good general choice for transition metals and other core levels with non-trivial tail shapes." ${p.shape==='LA'?'selected':''}>LA (&alpha;,&beta;,m) [CasaXPS]</option>
       </select>
     </div>
     <div id="shape-controls-${p.id}">
@@ -4120,7 +4169,7 @@ function renderPeakForm(p) {
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Center (eV)${isLinked ? ' <em style="color:var(--purple);font-size:9px">auto</em>' : ''}
+        <label data-xps-tip="Peak position in binding energy. After charge correction, this should match the expected literature value for the chemical state being modeled.">Center (eV)${isLinked ? ' <em style="color:var(--purple);font-size:9px">auto</em>' : ''}
           ${!isLinked ? '<button class="lock-btn' + (p.fixCenter ? ' locked' : '') + '" onclick="event.stopPropagation();toggleLock(' + p.id + ',\'fixCenter\',this)" title="' + (p.fixCenter ? 'Unlock' : 'Lock') + ' during fitting">' + (p.fixCenter ? '&#x1f512;' : '&#x1f513;') + '</button>' : ''}
         </label>
         <input type="number" id="pk-center-${p.id}" value="${p.center.toFixed(3)}" step="0.05"
@@ -4128,7 +4177,7 @@ function renderPeakForm(p) {
           oninput="updatePeakParam(${p.id},'center',parseFloat(this.value));document.querySelector('#peak-item-${p.id} .peak-info').textContent=parseFloat(this.value).toFixed(2)+' eV'">
       </div>
       <div class="field" id="fwhm-field-${p.id}" ${p.shape === 'LA' ? 'style="opacity:0.4"' : ''}>
-        <label>FWHM (eV)${p.shape === 'LA' ? ' <em style="color:var(--amber);font-size:9px">set by \\u03b2, m</em>' : ''}
+        <label data-xps-tip="Full width at half maximum. Typical XPS peak widths range from 0.5 to 3.0 eV depending on the element, chemical state, and spectrometer resolution. Peaks from the same chemical environment should have similar FWHM values.">FWHM (eV)${p.shape === 'LA' ? ' <em style="color:var(--amber);font-size:9px">set by \\u03b2, m</em>' : ''}
           ${!isLinked && p.shape !== 'LA' ? '<button class="lock-btn' + (p.fixFwhm ? ' locked' : '') + '" onclick="event.stopPropagation();toggleLock(' + p.id + ',\'fixFwhm\',this)" title="' + (p.fixFwhm ? 'Unlock' : 'Lock') + ' during fitting">' + (p.fixFwhm ? '&#x1f512;' : '&#x1f513;') + '</button>' : ''}
         </label>
         <input type="number" id="pk-fwhm-${p.id}" value="${p.fwhm.toFixed(3)}" step="0.05" min="0.1"
@@ -4136,7 +4185,7 @@ function renderPeakForm(p) {
       </div>
     </div>
     <div class="field">
-      <label>Amplitude
+      <label data-xps-tip="Peak height in counts. Proportional to the concentration of the chemical state, modified by the relative sensitivity factor (RSF) and spectrometer transmission function.">Amplitude
         ${!isLinked ? '<button class="lock-btn' + (p.fixAmplitude ? ' locked' : '') + '" onclick="event.stopPropagation();toggleLock(' + p.id + ',\'fixAmplitude\',this)" title="' + (p.fixAmplitude ? 'Unlock' : 'Lock') + ' during fitting">' + (p.fixAmplitude ? '&#x1f512;' : '&#x1f513;') + '</button>' : ''}
       </label>
       <input type="number" id="pk-amp-${p.id}" value="${p.amplitude.toFixed(0)}" step="100"
@@ -4170,14 +4219,14 @@ function renderShapeControls(p) {
   if (p.shape === 'asym-GL') {
     return `
       <div class="asym-field">
-        <label>Asymmetry &alpha; <span style="color:var(--text3);font-size:9px">0=symmetric &middot; U(IV) ~0.10</span>
+        <label data-xps-tip="Controls the peak asymmetry. α = 0 is symmetric. Positive values extend the tail toward higher binding energy. Typical values for metallic or conductive samples range from 0.05 to 0.15. For peaks with significant multiplet splitting or shake-up structure, higher values may be needed. This parameter is independent of the FWHM.">Asymmetry &alpha; <span style="color:var(--text3);font-size:9px">0=symmetric &middot; typical 0.05&ndash;0.15</span>
           ${!isLinked ? `<button class="lock-btn${p.fixAsymmetry ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixAsymmetry',this)" title="${p.fixAsymmetry ? 'Unlock' : 'Lock'} during fitting">${p.fixAsymmetry ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </label>
         <input type="number" value="${p.asymmetry.toFixed(3)}" step="0.01" min="0" max="1"
           oninput="updatePeakParam(${p.id},'asymmetry',parseFloat(this.value))">
       </div>
       <div class="field">
-        <label>GL mixing &eta; (0=Gauss, 100=Lorentz)</label>
+        <label data-xps-tip="Controls the Gaussian-Lorentzian character of the peak. η = 0% is pure Gaussian, η = 100% is pure Lorentzian. A common starting point for XPS is ~30% Lorentzian (GL(30)), which works well for most insulating and polymeric samples. The optimal value depends on your spectrometer and the chemical environment. Let the optimizer refine this unless you have a reason to fix it.">GL mixing &eta; (0=Gauss, 100=Lorentz)</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="range" min="0" max="100" step="1" value="${p.glMix}"
             oninput="updatePeakParam(${p.id},'glMix',parseFloat(this.value));document.getElementById('glmix-${p.id}').textContent=this.value+'%'">
@@ -4189,7 +4238,7 @@ function renderShapeControls(p) {
   } else if (p.shape === 'GL') {
     return `
       <div class="field">
-        <label>GL mixing &eta; (0=Gauss, 100=Lorentz)</label>
+        <label data-xps-tip="Controls the Gaussian-Lorentzian character of the peak. η = 0% is pure Gaussian, η = 100% is pure Lorentzian. A common starting point for XPS is ~30% Lorentzian (GL(30)), which works well for most insulating and polymeric samples. The optimal value depends on your spectrometer and the chemical environment. Let the optimizer refine this unless you have a reason to fix it.">GL mixing &eta; (0=Gauss, 100=Lorentz)</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="range" min="0" max="100" step="1" value="${p.glMix}"
             oninput="updatePeakParam(${p.id},'glMix',parseFloat(this.value));document.getElementById('glmix-${p.id}').textContent=this.value+'%'">
@@ -4201,14 +4250,14 @@ function renderShapeControls(p) {
   } else if (p.shape === 'DS') {
     return `
       <div class="asym-field">
-        <label>DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">actinides 0.05&ndash;0.15</span>
+        <label data-xps-tip="The singularity index controlling the asymmetric tail from metallic screening. Typical values: 0.02-0.05 for simple metals (Cu, Ag, Au), 0.05-0.15 for graphite and transition metals, up to 0.2 for strong screening. Higher values produce a longer tail toward higher binding energy.">DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">typical 0.02&ndash;0.15</span>
           ${!isLinked ? `<button class="lock-btn${p.fixDsAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsAlpha',this)" title="${p.fixDsAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixDsAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </label>
         <input type="number" value="${p.dsAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
           oninput="updatePeakParam(${p.id},'dsAlpha',parseFloat(this.value))">
       </div>
       <div class="field">
-        <label>DS &gamma; (tail decay)
+        <label data-xps-tip="Controls the Lorentzian lifetime broadening width in eV. Typical values range from 0.1 to 0.5 eV. Larger values produce broader peaks.">DS &gamma; (tail decay)
           ${!isLinked ? `<button class="lock-btn${p.fixDsGamma ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsGamma',this)" title="${p.fixDsGamma ? 'Unlock' : 'Lock'} during fitting">${p.fixDsGamma ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </label>
         <input type="number" value="${p.dsGamma.toFixed(4)}" step="0.001" min="0"
@@ -4218,14 +4267,14 @@ function renderShapeControls(p) {
   } else if (p.shape === 'DSG') {
     return `
       <div class="asym-field">
-        <label>DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">actinides 0.05&ndash;0.15</span>
+        <label data-xps-tip="The singularity index controlling the asymmetric tail from metallic screening. Typical values: 0.02-0.05 for simple metals (Cu, Ag, Au), 0.05-0.15 for graphite and transition metals, up to 0.2 for strong screening. Higher values produce a longer tail toward higher binding energy.">DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">typical 0.02&ndash;0.15</span>
           ${!isLinked ? `<button class="lock-btn${p.fixDsAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsAlpha',this)" title="${p.fixDsAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixDsAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </label>
         <input type="number" value="${p.dsAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
           oninput="updatePeakParam(${p.id},'dsAlpha',parseFloat(this.value))">
       </div>
       <div class="field">
-        <label>DS &gamma; (tail decay)
+        <label data-xps-tip="Controls the Lorentzian lifetime broadening width in eV. Typical values range from 0.1 to 0.5 eV. Larger values produce broader peaks.">DS &gamma; (tail decay)
           ${!isLinked ? `<button class="lock-btn${p.fixDsGamma ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsGamma',this)" title="${p.fixDsGamma ? 'Unlock' : 'Lock'} during fitting">${p.fixDsGamma ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </label>
         <input type="number" value="${p.dsGamma.toFixed(4)}" step="0.001" min="0"
@@ -4246,14 +4295,14 @@ function renderShapeControls(p) {
       </div>
       <div class="field-row">
         <div class="field">
-          <label>&alpha; (asymmetry, 0&ndash;0.5)
+          <label data-xps-tip="Dimensionless asymmetry parameter (0-0.5). Controls the tail toward higher binding energy from metallic screening. Similar in meaning to the DS singularity index. Typical values: 0.01-0.05 for most metals.">&alpha; (asymmetry, 0&ndash;0.5)
             ${!isLinked ? `<button class="lock-btn${p.fixLaAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixLaAlpha',this)" title="${p.fixLaAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixLaAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
           </label>
           <input type="number" value="${p.laAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
             oninput="updatePeakParam(${p.id},'laAlpha',parseFloat(this.value))">
         </div>
         <div class="field">
-          <label>&beta; Lorentz HW (eV)
+          <label data-xps-tip="Lorentzian half-width in eV. Controls the intrinsic lifetime broadening. Typical values: 0.05-0.5 eV.">&beta; Lorentz HW (eV)
             ${!isLinked ? `<button class="lock-btn${p.fixLaBeta ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixLaBeta',this)" title="${p.fixLaBeta ? 'Unlock' : 'Lock'} during fitting">${p.fixLaBeta ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
           </label>
           <input type="number" value="${p.laBeta.toFixed(3)}" step="0.01" min="0.05" max="2.0"
@@ -4261,7 +4310,7 @@ function renderShapeControls(p) {
         </div>
       </div>
       <div class="field">
-        <label>m Gauss FWHM (eV)
+        <label data-xps-tip="Gaussian full width at half maximum in eV. Represents instrumental and phonon broadening. Typical values: 0.2-1.5 eV depending on your spectrometer pass energy.">m Gauss FWHM (eV)
           ${!isLinked ? `<button class="lock-btn${p.fixLaM ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixLaM',this)" title="${p.fixLaM ? 'Unlock' : 'Lock'} during fitting">${p.fixLaM ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </label>
         <input type="number" value="${p.laM.toFixed(3)}" step="0.01" min="0.05" max="4.0"
