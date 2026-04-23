@@ -3480,6 +3480,16 @@ function toggleChargeReference(id) {
   renderPeakList();
 }
 
+// Returns true iff the active tab has exactly one peak marked as the
+// charge-reference. Phase 2 (C1s assisted batch) calls this as a gate.
+// Not wired into any current workflow.
+function hasExactlyOneChargeReference() {
+  if (!Array.isArray(state.peaks)) return false;
+  let count = 0;
+  for (const p of state.peaks) if (p.isChargeReference) count++;
+  return count === 1;
+}
+
 function defaultPeak(overrides) {
   const id = state.nextId++;
   const color = PEAK_COLORS[(id - 1) % PEAK_COLORS.length];
