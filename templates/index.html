@@ -2159,7 +2159,7 @@ class TabManager {
       if (!active) return;
 
       // Apply peaks
-      state.peaks = (data.peaks || []).map(p => ({...p}));
+      state.peaks = _normalizePeaksCRef((data.peaks || []).map(p => ({...p})));
       state.nextId = data.nextId || (Math.max(0, ...state.peaks.map(p => p.id)) + 1);
       state.fitResult = null;
       active.peaks = state.peaks;
@@ -5955,7 +5955,7 @@ function _loadSpectrumFile(data, sessionFile) {
   // Apply saved settings on top of the created tab
   active.ccShift = data.ccShift || 0;
   state.ccShift = active.ccShift;
-  active.peaks = (data.peaks || []).map(p => ({...p}));
+  active.peaks = _normalizePeaksCRef((data.peaks || []).map(p => ({...p})));
   state.peaks = active.peaks;
   active.nextId = data.nextId || 1;
   state.nextId = active.nextId;
@@ -5989,7 +5989,7 @@ function _loadProjectJSON(data, sessionFile) {
       chargeVerified: t.chargeVerified ?? true,
       rawBE: t.rawBE || [], rawIntensity: t.rawIntensity || [],
       ccShift: t.ccShift || 0,
-      peaks: (t.peaks || []).map(p => ({...p})),
+      peaks: _normalizePeaksCRef((t.peaks || []).map(p => ({...p}))),
       nextId: t.nextId || 1,
       fitResult: t.fitResult || null,
       markedElements: t.markedElements || [],
@@ -7562,7 +7562,7 @@ function _historyRestoreSnap(snapId) {
   if (!snap) return;
 
   pushUndo();
-  state.peaks = JSON.parse(JSON.stringify(snap.peaks));
+  state.peaks = _normalizePeaksCRef(JSON.parse(JSON.stringify(snap.peaks)));
   state.fitResult = snap.fitResult ? { ...snap.fitResult } : null;
   tabManager._syncActiveToRecord();
 
