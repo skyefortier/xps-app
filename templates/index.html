@@ -7289,6 +7289,63 @@ function _abUpdateRunEnabled() {
   if (btn) btn.disabled = !anySel;
 }
 
+// R² = 1 − SSres/SStot over the ROI. Returns null if inputs are unusable.
+function _abComputeRSquared(yObs, yFit) {
+  if (!Array.isArray(yObs) || !Array.isArray(yFit) || yObs.length !== yFit.length || yObs.length < 2) return null;
+  let mean = 0;
+  for (const v of yObs) mean += v;
+  mean /= yObs.length;
+  let ssRes = 0, ssTot = 0;
+  for (let i = 0; i < yObs.length; i++) {
+    const d = yObs[i] - yFit[i];
+    ssRes += d * d;
+    const t = yObs[i] - mean;
+    ssTot += t * t;
+  }
+  if (!(ssTot > 0)) return null;
+  return 1 - ssRes / ssTot;
+}
+
+// Build a transient flag list from a completed-target result bundle.
+// `bundle` keys:
+//   pass1Failed  (bool)
+//   sourceShift  (number)
+//   targetShift  (number or null)
+//   rSquared     (number or null)
+//   peakAreas    ({peakId: number} from pass-2 individual_peaks)
+//   templateAreas ({peakId: number} from the source, computed before batch)
+//   referenceId  (source reference peak id, numeric)
+// Returns { flags: string[], classification: 'failed'|'flagged'|'successful' }.
+function _abEvaluateFlags(bundle) {
+  const flags = [];
+  if (bundle.pass1Failed) flags.push('pass1_failed');
+  if (!bundle.pass1Failed) {
+    if (Number.isFinite(bundle.sourceShift) && Number.isFinite(bundle.targetShift)
+        && Math.abs(bundle.targetShift - bundle.sourceShift) > 2.0) {
+      flags.push('unusual_charging');
+    }
+    if (Number.isFinite(bundle.rSquared) && bundle.rSquared < 0.98) {
+      flags.push('poor_fit');
+    }
+    if (bundle.peakAreas && bundle.templateAreas) {
+      for (const pid in bundle.templateAreas) {
+        if (String(pid) === String(bundle.referenceId)) continue; // exclude ref
+        const tmpl = bundle.templateAreas[pid];
+        const got = bundle.peakAreas[pid];
+        if (Number.isFinite(tmpl) && tmpl > 0 && Number.isFinite(got)
+            && got < 0.05 * tmpl) {
+          flags.push('weak_peak');
+          break; // one weak_peak flag is enough for triage
+        }
+      }
+    }
+  }
+  const classification = bundle.pass1Failed ? 'failed'
+                       : flags.length ? 'flagged'
+                       : 'successful';
+  return { flags, classification };
+}
+
 // ══════════════════════════════════════════════════════════════
 // FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
 // ══════════════════════════════════════════════════════════════
