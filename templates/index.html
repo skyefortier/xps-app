@@ -7509,6 +7509,34 @@ async function _abRunPass2() {
   }
 }
 
+// Deep-snapshot the mutable fields of a target tab so a Pass-1 failure can
+// restore it exactly. Captures peaks, ccShift, ui, fitResult, chargeVerified,
+// and any pre-existing assistedBatchFlags/Meta. Does NOT snapshot rawBE /
+// rawIntensity (never mutated here) or identity (id/name/color/isSurvey).
+function _abSnapshotTarget(tab) {
+  return {
+    peaks:          JSON.parse(JSON.stringify(tab.peaks || [])),
+    nextId:         tab.nextId,
+    ccShift:        tab.ccShift,
+    ui:             JSON.parse(JSON.stringify(tab.ui || {})),
+    fitResult:      tab.fitResult ? { ...tab.fitResult } : null,
+    chargeVerified: tab.chargeVerified,
+    assistedBatchFlags: Array.isArray(tab.assistedBatchFlags) ? tab.assistedBatchFlags.slice() : undefined,
+    assistedBatchMeta:  tab.assistedBatchMeta ? { ...tab.assistedBatchMeta } : undefined,
+  };
+}
+
+function _abRestoreTargetSnapshot(tab, snap) {
+  tab.peaks          = snap.peaks;
+  tab.nextId         = snap.nextId;
+  tab.ccShift        = snap.ccShift;
+  tab.ui             = snap.ui;
+  tab.fitResult      = snap.fitResult;
+  tab.chargeVerified = snap.chargeVerified;
+  tab.assistedBatchFlags = snap.assistedBatchFlags;
+  tab.assistedBatchMeta  = snap.assistedBatchMeta;
+}
+
 // ══════════════════════════════════════════════════════════════
 // FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
 // ══════════════════════════════════════════════════════════════
