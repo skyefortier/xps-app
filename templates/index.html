@@ -4217,6 +4217,17 @@ function renderPeakForm(p) {
       <label>Name</label>
       <input type="text" value="${p.name}" oninput="updatePeakParam(${p.id},'name',this.value);document.querySelector('#peak-item-${p.id} .peak-name').childNodes[0].textContent=this.value">
     </div>
+    <div class="field" style="display:flex;align-items:center;gap:6px;margin-top:2px">
+      <input type="checkbox" id="pk-cref-${p.id}"
+             ${p.isChargeReference ? 'checked' : ''}
+             onchange="toggleChargeReference(${p.id})"
+             style="margin:0">
+      <label for="pk-cref-${p.id}"
+             style="margin:0;font-size:11px;cursor:pointer;user-select:none"
+             title="Mark this peak as the charge-correction reference (typically C 1s graphite at 284.8 eV). Only one peak per fit can hold this marker.">
+        Charge-correction reference (C&nbsp;1s graphite)
+      </label>
+    </div>
     <div class="field">
       <label>Line shape</label>
       <select id="pk-shape-${p.id}" class="xps-tip-select" onchange="updatePeakParam(${p.id},'shape',this.value);updateShapeControls(${p.id})">
