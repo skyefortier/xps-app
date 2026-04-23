@@ -1690,7 +1690,7 @@
 <div id="notify"></div>
 
 <script>
-const BUILD_DATE = '2026-04-21';
+const BUILD_DATE = '2026-04-23';
 const MONO_FONT = "'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace";
 
 // ═══════════════════════════════════════════════════
@@ -2034,6 +2034,8 @@ class TabManager {
     // Reset Y zoom so chart auto-scales to this tab's data range
     // (prevents survey zoom from squishing narrow-region spectra)
     state._mainYMax = tab.yZoom || null;
+    state._mainXMin = tab.xZoomMin ?? null;
+    state._mainXMax = tab.xZoomMax ?? null;
 
     this.renderTabBar();
     renderPeakList();
@@ -2553,6 +2555,8 @@ class TabManager {
     t.nextId = state.nextId;
     t.fitResult = state.fitResult;
     t.yZoom = state._mainYMax || null;
+    t.xZoomMin = state._mainXMin ?? null;
+    t.xZoomMax = state._mainXMax ?? null;
     t.notes = document.getElementById('spectrum-notes')?.value || '';
     t.ui = this._captureUI();
   }
@@ -3503,6 +3507,8 @@ function resetAllZoom() {
     }
     // Reset X
     if (_origXMin !== null) {
+      state._mainXMin = null;
+      state._mainXMax = null;
       state.chart.options.scales.x.min = _origXMin;
       state.chart.options.scales.x.max = _origXMax;
     }
@@ -3524,8 +3530,12 @@ function zoomToROI() {
   const roiMin = parseFloat(document.getElementById('roi-min').value);
   const roiMax = parseFloat(document.getElementById('roi-max').value);
   if (isNaN(roiMin) || isNaN(roiMax)) return;
-  state.chart.options.scales.x.min = Math.min(roiMin, roiMax);
-  state.chart.options.scales.x.max = Math.max(roiMin, roiMax);
+  const xMin = Math.min(roiMin, roiMax);
+  const xMax = Math.max(roiMin, roiMax);
+  state._mainXMin = xMin;
+  state._mainXMax = xMax;
+  state.chart.options.scales.x.min = xMin;
+  state.chart.options.scales.x.max = xMax;
   state.chart.update('none');
   updateResetZoomButton();
 }
@@ -3616,6 +3626,10 @@ function _attachDragZoom(canvasId, chartGetter) {
     // Preserve current Y max for main chart during X drag zoom
     if (chart.options.scales.y && canvasId === 'mainChart' && state._mainYMax) {
       chart.options.scales.y.max = state._mainYMax;
+    }
+    if (canvasId === 'mainChart') {
+      state._mainXMin = newMin;
+      state._mainXMax = newMax;
     }
     chart.update('none');
     updateResetZoomButton();
@@ -5231,18 +5245,13 @@ function updatePlot() {
   const beMin = _arrMin(corrBE);
   const beMax = _arrMax(corrBE);
 
-  // Preserve zoom state before destroying chart
+  // Preserve zoom state before destroying chart.
+  // Both Y and X zoom live in tab-scoped state vars (state._mainYMax/_mainXMin/Max)
+  // which are swapped by activateTab, so reading from the live chart would
+  // leak the previous tab's X zoom into any new tab sharing the same BE range.
   const _savedYMax = state._mainYMax || null;
-  let _savedXMin = null, _savedXMax = null;
-  const _prevOrigXMin = _origXMin, _prevOrigXMax = _origXMax;
-  if (state.chart && _origXMin !== null) {
-    const cx = state.chart.options.scales.x;
-    if (cx && cx.min !== undefined && cx.max !== undefined &&
-        (Math.abs(cx.min - _origXMin) > 0.01 || Math.abs(cx.max - _origXMax) > 0.01)) {
-      _savedXMin = cx.min;
-      _savedXMax = cx.max;
-    }
-  }
+  const _savedXMin = state._mainXMin ?? null;
+  const _savedXMax = state._mainXMax ?? null;
 
   // Destroy and recreate — never mutate chart.options on an existing instance
   if (state.chart) { state.chart.destroy(); state.chart = null; }
@@ -5415,9 +5424,8 @@ function updatePlot() {
   } else {
     state._mainYMax = _origYMax;
   }
-  // Restore X zoom only when the underlying data range hasn't changed (same tab/spectrum)
-  if (_savedXMin !== null && _prevOrigXMin !== null &&
-      Math.abs(beMin - _prevOrigXMin) < 0.01 && Math.abs(beMax - _prevOrigXMax) < 0.01) {
+  // Restore X zoom from tab-scoped state vars (already swapped by activateTab).
+  if (_savedXMin !== null && _savedXMax !== null) {
     state.chart.options.scales.x.min = _savedXMin;
     state.chart.options.scales.x.max = _savedXMax;
     _needZoomUpdate = true;

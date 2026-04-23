@@ -500,6 +500,34 @@ def shirley_linear_background(
     return result[::-1] if flipped else result
 
 
+def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Simplified Tougaard universal-cross-section background.
+
+    Uses the three-parameter universal loss function approximation
+    K(T) = B·T / (C + T²)² with B = 2866, C = 1643² (eV²). The result
+    is scaled so the trailing endpoint matches the data, matching the
+    frontend JS implementation in ``tougaardBackground``.
+    """
+    n = len(x)
+    if n < 2:
+        return np.zeros_like(y, dtype=float)
+
+    B_coef, C_coef = 2866.0, 1643.0 ** 2
+    xa = np.asarray(x, dtype=float)
+    ya = np.asarray(y, dtype=float)
+    dx = float(abs(xa[1] - xa[0]))
+
+    bg = np.zeros(n)
+    for i in range(n):
+        T = np.abs(xa[i:] - xa[i])
+        kernel = (B_coef * T) / (C_coef + T * T) ** 2
+        bg[i] = float(np.sum(kernel * ya[i:]))
+
+    bg *= dx
+    denom = bg[-1] if bg[-1] != 0.0 else 1.0
+    return bg * (float(ya[-1]) / denom)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # lmfit Model factory
 # ─────────────────────────────────────────────────────────────────────────────
@@ -738,6 +766,8 @@ def run_fit(
         bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
     elif bg_method == "shirley_linear":
         bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
+    elif bg_method == "tougaard":
+        bg = tougaard_background(x, _apply_endpoint_averaging(y, endpoint_avg))
     elif bg_method == "linear":
         bg = linear_background(x, y)
     elif bg_method in ("none", "flat", "", "manual"):
@@ -954,6 +984,8 @@ def compute_background_only(
         bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
     elif method == "shirley_linear":
         bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
+    elif method == "tougaard":
+        bg = tougaard_background(x, _apply_endpoint_averaging(y, endpoint_avg))
     elif method == "linear":
         bg = linear_background(x, y)
     elif method in ("none", "flat", "", "manual"):
