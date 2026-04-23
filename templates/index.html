@@ -3467,6 +3467,19 @@ function _normalizePeaksCRef(peaks) {
   });
 }
 
+// Toggle the charge-reference designation on peak `id`.
+// Enforces single-reference invariant: marking one peak clears all others.
+// Clicking the already-marked peak clears it (zero-reference state).
+function toggleChargeReference(id) {
+  const target = getPeak(id);
+  if (!target) return;
+  pushUndo();
+  const turningOn = !target.isChargeReference;
+  for (const p of state.peaks) p.isChargeReference = false;
+  if (turningOn) target.isChargeReference = true;
+  renderPeakList();
+}
+
 function defaultPeak(overrides) {
   const id = state.nextId++;
   const color = PEAK_COLORS[(id - 1) % PEAK_COLORS.length];
