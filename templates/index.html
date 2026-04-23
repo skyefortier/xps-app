@@ -3450,6 +3450,23 @@ function autoSetROI() {
 // ═══════════════════════════════════════════════════
 // PEAKS
 // ═══════════════════════════════════════════════════
+// Normalize charge-reference flags on a freshly-loaded peak list.
+// Old saves do not have `isChargeReference` — default to false.
+// If a save somehow has >1 true, keep the first and clear the rest.
+function _normalizePeaksCRef(peaks) {
+  if (!Array.isArray(peaks)) return peaks;
+  let seen = false;
+  return peaks.map(p => {
+    const q = { ...p };
+    if (typeof q.isChargeReference !== 'boolean') q.isChargeReference = false;
+    if (q.isChargeReference) {
+      if (seen) q.isChargeReference = false;
+      else seen = true;
+    }
+    return q;
+  });
+}
+
 function defaultPeak(overrides) {
   const id = state.nextId++;
   const color = PEAK_COLORS[(id - 1) % PEAK_COLORS.length];
