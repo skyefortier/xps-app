@@ -4176,7 +4176,7 @@ function renderPeakList() {
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
         <div class="peak-color" style="background:${p.color}"></div>
-        <span class="peak-name">${p.name}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}</span>
+        <span class="peak-name">${p.name}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.8 eV)">C-ref</span>' : ''}</span>
         <span class="peak-info">${p.center.toFixed(2)} eV</span>
         <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">&times;</button>
       </div>
