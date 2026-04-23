@@ -7346,6 +7346,56 @@ function _abEvaluateFlags(bundle) {
   return { flags, classification };
 }
 
+// Build a single-peak spec for Pass 1.
+// Pass 1 fits ONLY the marked reference peak, in the target's raw-BE frame
+// (achieved by setting target ccShift=0 before upload). Shape params are locked
+// to the source template; only center / fwhm / amplitude vary.
+function _abBuildPass1Peak(sourceRefPeak, startingRawCenter) {
+  const probe = { ...sourceRefPeak, center: startingRawCenter,
+                  // Lock shape params during Pass 1
+                  fixGlMix:     true,
+                  fixAsymmetry: true,
+                  fixDsAlpha:   true,
+                  fixDsGamma:   true,
+                  fixDsGaussSigma: true,
+                  fixLaAlpha:   true,
+                  fixLaBeta:    true,
+                  fixLaM:       true,
+                  // Ensure center / fwhm / amplitude are free during Pass 1
+                  fixCenter:    false,
+                  fixFwhm:      false,
+                  fixAmplitude: false,
+                  linked:       null };
+  const spec = peakToBackendSpec(probe);
+  spec.center_min = startingRawCenter - 2.0;
+  spec.center_max = startingRawCenter + 2.0;
+  spec.fwhm_min   = 0.3;
+  spec.fwhm_max   = 3.0;
+  spec.amplitude_min = 0;
+  return spec;
+}
+
+// Build Pass-2 specs for the full cloned peak set, with tighter bounds on
+// center (± 0.3 of template) and width (± 50% of template). Amplitudes stay
+// nonnegative (default amplitude_min=0). Linked children keep their existing
+// constraint plumbing (peakToBackendSpec already emits constrain_to / splitting
+// / area_ratio for linked peaks).
+function _abBuildPass2PeakSpecs(peaks) {
+  return peaks.map(p => {
+    const spec = peakToBackendSpec(p);
+    if (!p.linked) {
+      spec.center_min = p.center - 0.3;
+      spec.center_max = p.center + 0.3;
+      const lo = Math.max(0.1, p.fwhm * 0.5);
+      const hi = Math.max(lo + 0.1, p.fwhm * 1.5);
+      spec.fwhm_min = lo;
+      spec.fwhm_max = hi;
+      spec.amplitude_min = 0;
+    }
+    return spec;
+  });
+}
+
 // ══════════════════════════════════════════════════════════════
 // FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
 // ══════════════════════════════════════════════════════════════
