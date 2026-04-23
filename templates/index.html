@@ -1309,6 +1309,25 @@
   #propagate-summary .prop-row { padding: 2px 0; border-bottom: 1px solid var(--border); }
   #propagate-summary .prop-row:last-child { border-bottom: none; }
 
+  /* ── Assisted Batch Fit (C1s) ──────────────────────────────── */
+  #assisted-batch-tab-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; margin-bottom: 10px; }
+  .ab-tab-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text); font-family: var(--mono); }
+  .ab-tab-row:last-child { border-bottom: none; }
+  .ab-tab-row input[type=checkbox] { width: auto; margin: 0; flex-shrink: 0; }
+  .ab-tab-row .ab-tab-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  #assisted-batch-progress-overlay { z-index: 250; }
+  #assisted-batch-progress-overlay .xps-modal { max-width: 440px; }
+  .ab-progress-phase { font-size: 11px; color: var(--accent); font-family: var(--mono); margin: 6px 0 2px; min-height: 14px; }
+  .ab-progress-tally { font-size: 11px; color: var(--text2); font-family: var(--mono); margin: 2px 0 10px; }
+  .ab-progress-tally .ab-ok { color: var(--green); }
+  .ab-progress-tally .ab-flag { color: var(--amber); }
+  .ab-progress-tally .ab-fail { color: var(--red, #f87171); }
+  .ab-progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin: 4px 0 10px; }
+  .ab-progress-bar > div { height: 100%; background: var(--accent); transition: width 120ms linear; }
+  .ab-flag-badge { font-size: 9px; padding: 1px 5px; border-radius: 2px; background: var(--amber-dim); border: 1px solid var(--amber); color: var(--amber); margin-right: 4px; }
+  .ab-fail-badge { font-size: 9px; padding: 1px 5px; border-radius: 2px; background: rgba(248,113,113,0.15); border: 1px solid var(--red, #f87171); color: var(--red, #f87171); margin-right: 4px; }
+
   /* ── NIST Lookup Modal ───────────────────────────────────── */
   #nist-results-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 0; margin-top: 8px; }
   .nist-group-header { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); font-family: var(--mono); padding: 6px 10px 3px; background: var(--bg3); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
