@@ -8304,56 +8304,87 @@ function _agChooserApply() {
   const v = _agChooserState.variants[idx];
   if (!v) { notify('Auto-fit apply: no variant selected.', 'red'); return; }
 
-  // Guard every step — log the exact failing line so users don't see a silent no-op.
   try {
-    pushUndo();
-    const graphiticId = v.graphiticId;
     if (!Array.isArray(v.peaks) || !v.peaks.length) throw new Error('variant has no peaks');
+    if (!Array.isArray(v.be)) throw new Error('variant has no BE array');
+    if (!Array.isArray(v.inten) || v.inten.length !== v.be.length) throw new Error('variant inten/be length mismatch');
+
+    pushUndo();
+
+    // ── 1. Identify the most-intense FITTED peak by area ─────────────────
+    // Scientific requirement: "the most intense fitted peak is the graphite
+    // peak" for graphite-matrix samples. Override the by-shape designation
+    // (`v.graphiticId`, which is the LA peak) if the fit produced a taller
+    // non-LA peak — the most-intense peak is what gets charge-corrected to
+    // 284.5 eV, regardless of shape.
+    let bestId = v.graphiticId;
+    let bestArea = -Infinity;
+    for (const pid in (v.areaById || {})) {
+      const a = v.areaById[pid];
+      if (Number.isFinite(a) && a > bestArea) { bestArea = a; bestId = pid; }
+    }
+    const graphiticId = bestId;
+    const graphitic = v.peaks.find(p => String(p.id) === String(graphiticId));
+    if (!graphitic || !Number.isFinite(graphitic.center)) {
+      throw new Error('no finite graphitic center in the variant');
+    }
+
+    // ── 2. Install variant peaks with correct C-ref flag ─────────────────
     state.peaks = v.peaks.map(p => ({
       ...p,
       isChargeReference: String(p.id) === String(graphiticId),
     }));
     state.nextId = Math.max(0, ...state.peaks.map(p => p.id)) + 1;
 
-    // ── Post-fit charge-correction refinement ────────────────────────────
-    // The fit ran in the pre-fit corrected frame (shift derived from the raw
-    // dominant-peak guess). The FITTED graphitic center is the authoritative
-    // location — refine the final shift so graphite lands exactly at 284.5 eV
-    // corrected, then shift the fitResult BE axis accordingly.
-    // Skip refinement when the tab had a user-verified/custom CC before auto-fit.
-    const snap = _agChooserState.origSnapshot;
-    const preservedCC = !!(snap && snap.ui && (snap.ui.ccMethod === 'custom' || snap.chargeVerified === true));
-    let ccDelta = 0;
-    if (!preservedCC) {
-      const graphitic = state.peaks.find(p => String(p.id) === String(graphiticId));
-      if (graphitic && Number.isFinite(graphitic.center)) {
-        const currentShift = Number.isFinite(state.ccShift) ? state.ccShift : 0;
-        // APP CONVENTION: raw = corrected + shift
-        const fittedRaw = graphitic.center + currentShift;
-        const newShift  = fittedRaw - 284.5;
-        ccDelta = newShift - currentShift;
-        // Drive updateChargeCorrection() so state.ccShift, peak centers, ROI,
-        // bg endpoints, and the shift display all update together.
-        const cm = document.getElementById('cc-method');
-        const co = document.getElementById('cc-obs');
-        const cl = document.getElementById('cc-lit');
-        if (cm && co && cl && typeof updateChargeCorrection === 'function') {
-          cm.value = 'c1s';
-          co.value = fittedRaw.toFixed(3);
-          cl.value = '284.5';
-          updateChargeCorrection();
-        }
-      }
+    // ── 3. ALWAYS refine charge correction from the fitted graphitic peak.
+    // The user's scientific requirement is explicit: graphite must land at
+    // exactly 284.5 eV corrected, regardless of prior CC state.
+    const currentShift = Number.isFinite(state.ccShift) ? state.ccShift : 0;
+    // APP CONVENTION: raw = corrected + shift
+    const fittedRaw = graphitic.center + currentShift;
+    const newShift  = fittedRaw - 284.5;
+    const ccDelta   = newShift - currentShift;
+
+    console.log('[autofit] Apply Variant — diagnostic:', {
+      variantLabel: v.label,
+      mostIntenseFittedPeakId: graphiticId,
+      designatedByShape: v.graphiticId,
+      mostIntensePeakMatchesLA: String(graphiticId) === String(v.graphiticId),
+      fittedCenterCorrected: graphitic.center,
+      fittedAmplitude: graphitic.amplitude,
+      fittedArea: (v.areaById || {})[graphiticId],
+      preFitCcShift: currentShift,
+      fittedCenterRaw: fittedRaw,
+      newCcShift: newShift,
+      ccDelta,
+    });
+
+    // Drive updateChargeCorrection() — it handles state.ccShift, peak centers,
+    // ROI, bg endpoints, and the shift display together. We set the DOM fields
+    // explicitly first so updateChargeCorrection reads the refined values.
+    const cm = document.getElementById('cc-method');
+    const co = document.getElementById('cc-obs');
+    const cl = document.getElementById('cc-lit');
+    if (!(cm && co && cl)) throw new Error('CC DOM fields missing');
+    cm.value = 'c1s';
+    co.value = fittedRaw.toFixed(3);
+    cl.value = '284.5';
+    if (typeof updateChargeCorrection !== 'function') throw new Error('updateChargeCorrection not defined');
+    updateChargeCorrection();
+
+    // ── 4. Sync tab record so ccShift/ui/chargeVerified persist ──────────
+    const tab = tabManager._getTab(tabManager.activeId);
+    if (tab) {
+      tab.ccShift = state.ccShift;
+      tab.chargeVerified = true;
     }
 
-    // fitResult BE axis: shift by -ccDelta so the residual chart stays aligned.
-    if (!Array.isArray(v.be)) throw new Error('variant has no BE array');
-    if (!Array.isArray(v.inten) || v.inten.length !== v.be.length) throw new Error('variant inten/be length mismatch');
-    const shiftedBE = (ccDelta !== 0) ? v.be.map(b => b - ccDelta) : v.be;
+    // ── 5. Rebuild state.fitResult with BE shifted to the refined frame ──
+    // updateChargeCorrection does not touch fit-result arrays; shift them
+    // ourselves so the residual chart stays aligned.
+    const shiftedBE = (ccDelta !== 0) ? v.be.map(b => b - ccDelta) : v.be.slice();
     const bgArr = (v.reply && Array.isArray(v.reply.background_y)) ? v.reply.background_y : [];
     const bgSub = v.inten.map((y, i) => y - (bgArr[i] || 0));
-    // Pass bgIntensity so _computeRFactor uses the correct residual formula
-    // (fit pathway in runFit() passes it; omitting it silently uses a wrong branch).
     const fitResultShell = {
       be: shiftedBE, fittedY: v.fittedY, bgSubtracted: bgSub,
       bgIntensity: (bgArr.length === shiftedBE.length) ? bgArr : null,
@@ -8386,6 +8417,16 @@ function _agChooserApply() {
     _updateRFactorUI(rFactor);
     document.getElementById('auto-fit-c1s-chooser-overlay').classList.remove('open');
     _agChooserState = null;
+
+    console.log('[autofit] Apply complete — final state:', {
+      ccMethod: document.getElementById('cc-method').value,
+      ccObs: document.getElementById('cc-obs').value,
+      ccLit: document.getElementById('cc-lit').value,
+      stateCCShift: state.ccShift,
+      tabCCShift: tab ? tab.ccShift : null,
+      chargeVerified: tab ? tab.chargeVerified : null,
+      graphiticFinalCenter: state.peaks.find(p => p.isChargeReference)?.center,
+    });
     notify(`Applied ${v.label} — graphitic peak marked as C-ref.`, 'green');
   } catch (e) {
     console.error('Auto-Fit apply failed:', e);
@@ -8460,8 +8501,11 @@ async function runAutoFitGraphiteC1s() {
   _agSetStage('Detecting dominant peak…');
 
   try {
-    // 1. Decide whether to run automatic charge correction.
-    const preserveCC = (tab.ui && tab.ui.ccMethod === 'custom') || tab.chargeVerified === true;
+    // 1. Decide whether to run automatic PRE-FIT charge correction.
+    // Preserve only if the user deliberately selected a non-default method.
+    // (Fresh tabs default to chargeVerified=true which previously caused auto-CC
+    //  to silently skip — symptom: post-fit axis stuck in raw frame.)
+    const preserveCC = !!(tab.ui && tab.ui.ccMethod && tab.ui.ccMethod !== 'none');
     let edgeTruncated = false;
     let preservedCC = false;
     if (!preserveCC) {
@@ -8481,8 +8525,11 @@ async function runAutoFitGraphiteC1s() {
       tabManager._restoreUI(tab.ui);
       updatePlot();
       edgeTruncated = !!dom.edgeTruncated;
+      console.log('[autofit] pre-fit auto-CC:',
+        { rawDominant: dom.rawBE, ccShiftApplied, edgeTruncated: dom.edgeTruncated });
     } else {
       preservedCC = true;
+      console.log('[autofit] pre-fit CC preserved (user ccMethod=' + tab.ui.ccMethod + ')');
     }
 
     // 2. Estimate graphitic amplitude near 284.5 eV in corrected BE.
