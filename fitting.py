@@ -659,9 +659,22 @@ def _make_peak_params(
         master_spec = next((s for s in all_specs if s.get("id") == share_master), None)
         if master_spec is None:
             raise ValueError(f"fwhm_share_with master '{share_master}' not found")
+        master_shape = master_spec.get("shape", "pseudo_voigt_gl")
+        if master_shape == "la_casaxps":
+            raise ValueError(
+                f"fwhm_share_with master '{share_master}' has shape 'la_casaxps' "
+                f"which has no 'fwhm' parameter; pick a master whose shape does "
+                f"(gaussian / lorentzian / pseudo_voigt_gl / asymmetric_gl / doniach_sunjic)"
+            )
+        follower_full = prefix + "fwhm"
+        if follower_full not in p:
+            raise ValueError(
+                f"fwhm_share_with: follower peak '{spec.get('id')}' has shape "
+                f"'{shape}' with no 'fwhm' parameter"
+            )
         master_prefix = f"p{master_spec['id']}_"
-        p[prefix + "fwhm"].expr = f"{master_prefix}fwhm"
-        p[prefix + "fwhm"].vary = False
+        p[follower_full].expr = f"{master_prefix}fwhm"
+        p[follower_full].vary = False
 
     if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
         _set("gl_ratio", spec.get("gl_ratio", 0.3), min_=0.0, max_=1.0,
