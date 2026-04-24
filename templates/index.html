@@ -7231,65 +7231,6 @@ async function runPropagation() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ASSISTED BATCH FIT (C1s) — two-pass per-target workflow
-//
-// SIGN CONVENTION (IMPORTANT):
-//   The app stores ccShift such that getCorrectedBE returns (raw − ccShift).
-//   Therefore raw_BE = corrected_BE + ccShift.
-//     startingRawCenter = sourceRef.center + sourceTab.ccShift
-//     ccShift_after_pass1 = fittedGraphiteRawCenter − referenceBE
-//
-// Phase-3 hook: whole-batch undo would save (state.peaks, ccShift, ui,
-//   fitResult, assistedBatchFlags) for every target before the batch and
-//   expose a "Revert last batch" action. Not implemented here.
-// ══════════════════════════════════════════════════════════════
-
-// Run-local state. Lives only during an active batch.
-let _abState = null; // { cancel: false, running: false, sourceId, targets, refBE, counts }
-
-function showAssistedBatchModal() {
-  if (!tabManager.activeId) { notify('No active tab.', 'amber'); return; }
-  const sourceTab = tabManager._getTab(tabManager.activeId);
-  if (!sourceTab || !sourceTab.peaks || !sourceTab.peaks.length) {
-    notify('No peaks defined on this tab.', 'amber'); return;
-  }
-  // Gate: exactly one peak must be marked as the C1s charge-reference.
-  tabManager._syncActiveToRecord();
-  if (!hasExactlyOneChargeReference()) {
-    notify('Mark exactly one peak as the C 1s graphite charge-correction reference before running the assisted batch.', 'red', true);
-    return;
-  }
-
-  const list = document.getElementById('assisted-batch-tab-list');
-  const otherTabs = tabManager.tabs.filter(t => t.id !== tabManager.activeId && !t.isSurvey);
-  if (!otherTabs.length) {
-    list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:8px;font-family:var(--mono)">No eligible target tabs (non-survey tabs other than the source).</div>';
-  } else {
-    list.innerHTML = otherTabs.map(t => `
-      <label class="ab-tab-row">
-        <input type="checkbox" class="ab-chk" data-id="${t.id}" checked>
-        <span class="ab-tab-swatch" style="background:${t.color}"></span>
-        <span>${t.name}</span>
-      </label>`).join('');
-  }
-  _abUpdateRunEnabled();
-  // Re-check select state whenever the user ticks a row
-  list.addEventListener('change', _abUpdateRunEnabled);
-  document.getElementById('assisted-batch-modal-overlay').classList.add('open');
-}
-
-function _assistedBatchSelectAll(checked) {
-  document.querySelectorAll('.ab-chk').forEach(c => c.checked = checked);
-  _abUpdateRunEnabled();
-}
-
-function _abUpdateRunEnabled() {
-  const anySel = document.querySelectorAll('.ab-chk:checked').length > 0;
-  const btn = document.getElementById('ab-run-btn');
-  if (btn) btn.disabled = !anySel;
-}
-
-// ══════════════════════════════════════════════════════════════
 // FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
 // ══════════════════════════════════════════════════════════════
 
