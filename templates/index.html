@@ -8048,7 +8048,6 @@ async function _agRunCandidate(peakSpecs, graphiticId, boundTol) {
       body: JSON.stringify(fitReq),
     });
     const json = await resp.json();
-    if (_agState && _agState.cancel) return { ok: false, err: 'cancelled after fit' };
     if (json.error)   return { ok: false, err: json.error };
     if (!json.success) return { ok: false, err: 'fit did not converge' };
 
