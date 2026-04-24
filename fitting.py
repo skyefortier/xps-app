@@ -649,6 +649,20 @@ def _make_peak_params(
          min_=spec.get("fwhm_min", 0.1), max_=spec.get("fwhm_max", 15.0),
          vary=not spec.get("fix_fwhm", False))
 
+    # Minimal additive "share FWHM only" extension.
+    # Unlike `constrain_to` (which ties center/amplitude/fwhm together), this
+    # field ties ONLY fwhm to a master peak's fwhm via lmfit expression; the
+    # follower's center and amplitude remain independent free parameters with
+    # their own bounds. Backward-compatible: absent → behavior unchanged.
+    share_master = spec.get("fwhm_share_with")
+    if share_master is not None:
+        master_spec = next((s for s in all_specs if s.get("id") == share_master), None)
+        if master_spec is None:
+            raise ValueError(f"fwhm_share_with master '{share_master}' not found")
+        master_prefix = f"p{master_spec['id']}_"
+        p[prefix + "fwhm"].expr = f"{master_prefix}fwhm"
+        p[prefix + "fwhm"].vary = False
+
     if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
         _set("gl_ratio", spec.get("gl_ratio", 0.3), min_=0.0, max_=1.0,
              vary=not spec.get("fix_gl_ratio", False))
