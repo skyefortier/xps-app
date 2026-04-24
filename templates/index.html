@@ -8721,62 +8721,6 @@ document.addEventListener('mousedown', function(e) {
   </div>
 </div>
 
-<!-- Auto-Fit Graphite C1s — confirmation (shown only if peaks already exist) -->
-<div id="auto-fit-c1s-confirm-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="xps-modal" style="max-width:440px">
-    <h3>Auto-Fit Graphite C 1s
-      <button class="btn btn-sm" onclick="document.getElementById('auto-fit-c1s-confirm-overlay').classList.remove('open')">&#x2715;</button>
-    </h3>
-    <p style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 10px">
-      This tab already has peaks. Auto-fit will <strong>test candidate models without overwriting</strong> your current fit.
-      Your peaks are only replaced if you click <strong>Apply Variant</strong> on the chooser.
-      If you cancel or auto-fit fails, your current peaks are left untouched.
-    </p>
-    <p style="font-size:10px;color:var(--text3);line-height:1.5;margin:0 0 10px">
-      Intended for <strong>graphite-matrix samples</strong> whose analytes do not themselves contain carbon.
-      Molecular/carbon-containing analytes are out of scope for this version; auto-fit will still attempt,
-      but judge chemical plausibility yourself.
-    </p>
-    <div class="dialog-btns">
-      <button class="btn" onclick="document.getElementById('auto-fit-c1s-confirm-overlay').classList.remove('open')">Cancel</button>
-      <button class="btn btn-accent" onclick="document.getElementById('auto-fit-c1s-confirm-overlay').classList.remove('open'); runAutoFitGraphiteC1s();">Continue</button>
-    </div>
-  </div>
-</div>
-
-<!-- Auto-Fit Graphite C1s — progress panel (non-dismissable) -->
-<div id="auto-fit-c1s-progress-overlay" class="xps-modal-overlay">
-  <div class="xps-modal">
-    <h3 style="justify-content:flex-start;gap:8px">
-      <span>Auto-Fit Graphite C 1s</span>
-      <span id="ag-prog-index" style="color:var(--text3);font-size:11px"></span>
-    </h3>
-    <div id="ag-prog-stage" class="ag-progress-phase"></div>
-    <div id="ag-prog-detail" class="ag-progress-tally"></div>
-    <div class="dialog-btns">
-      <button class="btn" id="ag-cancel-btn" onclick="cancelAutoFitC1s()">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Auto-Fit Graphite C1s — variant chooser -->
-<div id="auto-fit-c1s-chooser-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="xps-modal">
-    <h3>Choose a Variant
-      <button class="btn btn-sm" onclick="_agChooserCancel()">&#x2715;</button>
-    </h3>
-    <p style="font-size:11px;color:var(--text2);margin:0 0 6px">
-      Surviving candidate fits after deduplication. Select one and click <strong>Apply Variant</strong> to make it the active fit.
-      The graphitic peak will be marked as the <em>C-ref</em> so it can be used as a Phase-2 batch template.
-    </p>
-    <div id="auto-fit-c1s-chooser-list"></div>
-    <div class="dialog-btns">
-      <button class="btn" onclick="_agChooserCancel()">Cancel</button>
-      <button class="btn btn-accent" id="ag-apply-btn" onclick="_agChooserApply()">Apply Variant</button>
-    </div>
-  </div>
-</div>
-
 <!-- NIST XPS Lookup Modal -->
 <div id="nist-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:500px">
