@@ -8106,42 +8106,6 @@ document.addEventListener('mousedown', function(e) {
   </div>
 </div>
 
-<!-- Assisted Batch Fit (C1s) — config modal -->
-<div id="assisted-batch-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="xps-modal" style="max-width:520px">
-    <h3>Assisted Batch Fit (C&nbsp;1s)
-      <button class="btn btn-sm" onclick="document.getElementById('assisted-batch-modal-overlay').classList.remove('open')">&#x2715;</button>
-    </h3>
-    <p style="font-size:11px;color:var(--text2);margin:0 0 10px">
-      Apply the current tab's peak model to other spectra, then for each target:
-      (1) fit only the C&nbsp;1s graphite reference in raw&nbsp;BE,
-      (2) charge-correct the spectrum to the reference BE below, and
-      (3) refit the full model on the corrected axis.
-      Generic "Propagate Fit Model" is not changed.
-    </p>
-    <div class="row2" style="margin-bottom:10px">
-      <div>
-        <label for="ab-reference-be">Reference BE (eV)</label>
-        <input type="number" id="ab-reference-be" value="284.50" step="0.01" min="0" max="2000">
-      </div>
-      <div style="display:flex;align-items:flex-end">
-        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);line-height:1.4">
-          Default 284.50 eV (graphitic sp²).<br>Set to 284.80 for adventitious C.
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="btn btn-sm" onclick="_assistedBatchSelectAll(true)">Select All</button>
-      <button class="btn btn-sm" onclick="_assistedBatchSelectAll(false)">Deselect All</button>
-    </div>
-    <div id="assisted-batch-tab-list"></div>
-    <div class="dialog-btns">
-      <button class="btn" onclick="document.getElementById('assisted-batch-modal-overlay').classList.remove('open')">Cancel</button>
-      <button class="btn btn-accent" id="ab-run-btn" onclick="runAssistedBatch()">Run Assisted Batch</button>
-    </div>
-  </div>
-</div>
-
 <!-- NIST XPS Lookup Modal -->
 <div id="nist-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:500px">
