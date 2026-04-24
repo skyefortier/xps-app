@@ -7804,17 +7804,9 @@ let _agState = null; // { cancel, running, snapshot, disabledButtons }
 
 // Find the dominant raw-BE peak inside `roi = { be: number[], inten: number[] }`.
 // Returns { rawBE, height, edgeTruncated, interiorFound } or null if unusable.
-//
-// Approach: subtract a linear baseline between ROI endpoints, apply a 5-point
-// moving-average smoothing to suppress noise-driven spurious local maxima,
-// then pick the global maximum. If the global max sits within edgeMargin of
-// either ROI edge, fall back to the strongest interior sample. This matches
-// the robust "smoothed global max" strategy used by professional XPS tools;
-// an earlier implementation relied on strict 3-point local-max tests, which
-// could pick noise bumps next to the real peak summit.
 function _agDominantPeak(be, inten, edgeMargin_eV) {
   const n = be && be.length;
-  if (!n || n !== inten.length || n < 7) return null;
+  if (!n || n !== inten.length || n < 4) return null;
   const b0 = inten[0], bN = inten[n - 1];
   const e0 = be[0],    eN = be[n - 1];
   const denom = (eN - e0) || 1;
@@ -7822,39 +7814,24 @@ function _agDominantPeak(be, inten, edgeMargin_eV) {
   const yy = new Array(n);
   for (let i = 0; i < n; i++) yy[i] = inten[i] - baselineAt(be[i]);
 
-  // 5-point moving-average smoothing
-  const W = 2;  // half-window → 5 total samples
-  const yyS = new Array(n);
-  for (let i = 0; i < n; i++) {
-    const lo = Math.max(0, i - W), hi = Math.min(n - 1, i + W);
-    let s = 0, c = 0;
-    for (let j = lo; j <= hi; j++) { s += yy[j]; c++; }
-    yyS[i] = s / c;
-  }
-
-  // Global max of the smoothed array
   let gMax = -Infinity, gIdx = 0;
-  for (let i = 0; i < n; i++) if (yyS[i] > gMax) { gMax = yyS[i]; gIdx = i; }
-  const gAtEdge = Math.abs(be[gIdx] - e0) < edgeMargin_eV || Math.abs(be[gIdx] - eN) < edgeMargin_eV;
+  for (let i = 0; i < n; i++) if (yy[i] > gMax) { gMax = yy[i]; gIdx = i; }
 
-  if (!gAtEdge) {
-    return { rawBE: be[gIdx], height: yy[gIdx] + baselineAt(be[gIdx]),
-             edgeTruncated: false, interiorFound: true };
-  }
-
-  // Edge case: strongest interior sample (still smoothed)
   let iMax = -Infinity, iIdx = -1;
-  for (let i = 0; i < n; i++) {
+  for (let i = 1; i < n - 1; i++) {
     if (Math.abs(be[i] - e0) < edgeMargin_eV) continue;
     if (Math.abs(be[i] - eN) < edgeMargin_eV) continue;
-    if (yyS[i] > iMax) { iMax = yyS[i]; iIdx = i; }
+    if (yy[i] >= yy[i - 1] && yy[i] >= yy[i + 1] && yy[i] > iMax) {
+      iMax = yy[i]; iIdx = i;
+    }
   }
   if (iIdx >= 0) {
     return { rawBE: be[iIdx], height: yy[iIdx] + baselineAt(be[iIdx]),
              edgeTruncated: false, interiorFound: true };
   }
+  const atEdge = Math.abs(be[gIdx] - e0) < edgeMargin_eV || Math.abs(be[gIdx] - eN) < edgeMargin_eV;
   return { rawBE: be[gIdx], height: yy[gIdx] + baselineAt(be[gIdx]),
-           edgeTruncated: true, interiorFound: false };
+           edgeTruncated: atEdge, interiorFound: false };
 }
 
 // Noise-floor estimator. Prefers corrected-BE > 290 eV tail; falls back to the
@@ -8334,40 +8311,23 @@ function _agChooserApply() {
 
     pushUndo();
 
-    // ── 1. Identify graphite by the LA-shape designation ────────────────
-    // The variant builder assigns the LA (la_casaxps) shape to the
-    // graphitic C-C peak by design; that peak's center bound is ±0.3 eV
-    // around 284.5 corrected, which in turn is determined by the pre-fit
-    // auto-CC from the raw dominant peak. In a clean graphite-matrix fit
-    // the LA peak has the highest AMPLITUDE (peak height). If a broad
-    // contamination peak happens to have larger INTEGRATED area than the
-    // LA peak, that's a misfit artifact, not a graphite reassignment —
-    // use the LA id regardless to keep the graphite role structural.
-    const graphiticId = v.graphiticId;
+    // ── 1. Identify the most-intense FITTED peak by area ─────────────────
+    // Scientific requirement: "the most intense fitted peak is the graphite
+    // peak" for graphite-matrix samples. Override the by-shape designation
+    // (`v.graphiticId`, which is the LA peak) if the fit produced a taller
+    // non-LA peak — the most-intense peak is what gets charge-corrected to
+    // 284.5 eV, regardless of shape.
+    let bestId = v.graphiticId;
+    let bestArea = -Infinity;
+    for (const pid in (v.areaById || {})) {
+      const a = v.areaById[pid];
+      if (Number.isFinite(a) && a > bestArea) { bestArea = a; bestId = pid; }
+    }
+    const graphiticId = bestId;
     const graphitic = v.peaks.find(p => String(p.id) === String(graphiticId));
     if (!graphitic || !Number.isFinite(graphitic.center)) {
       throw new Error('no finite graphitic center in the variant');
     }
-
-    // Sanity check: log every fitted peak's amplitude / area / center so we
-    // can verify the LA peak really IS the most intense in normal spectra,
-    // and catch pre-fit-CC misfires early.
-    const peakRows = v.peaks.map(p => {
-      const id = String(p.id);
-      return {
-        id,
-        name: p.name,
-        shape: p.shape,
-        centerCorrected: p.center,
-        amplitude: p.amplitude,
-        area: (v.areaById || {})[id],
-        isGraphiticByDesign: id === String(graphiticId),
-      };
-    });
-    const maxAmpPeak = peakRows.reduce((a, b) =>
-      (a && a.amplitude >= b.amplitude) ? a : b, null);
-    const maxAreaPeak = peakRows.reduce((a, b) =>
-      (a && (a.area || 0) >= (b.area || 0)) ? a : b, null);
 
     // ── 2. Install variant peaks with correct C-ref flag ─────────────────
     state.peaks = v.peaks.map(p => ({
@@ -8387,28 +8347,17 @@ function _agChooserApply() {
 
     console.log('[autofit] Apply Variant — diagnostic:', {
       variantLabel: v.label,
-      graphiticIdByShape: String(graphiticId),
-      mostIntenseByAmplitude: maxAmpPeak && maxAmpPeak.id,
-      mostIntenseByArea:      maxAreaPeak && maxAreaPeak.id,
-      laIsBothTallestAndLargest:
-        maxAmpPeak && maxAreaPeak &&
-        String(maxAmpPeak.id) === String(graphiticId) &&
-        String(maxAreaPeak.id) === String(graphiticId),
-      graphiticCenterCorrected: graphitic.center,
-      graphiticAmplitude: graphitic.amplitude,
-      graphiticArea: (v.areaById || {})[String(graphiticId)],
+      mostIntenseFittedPeakId: graphiticId,
+      designatedByShape: v.graphiticId,
+      mostIntensePeakMatchesLA: String(graphiticId) === String(v.graphiticId),
+      fittedCenterCorrected: graphitic.center,
+      fittedAmplitude: graphitic.amplitude,
+      fittedArea: (v.areaById || {})[graphiticId],
       preFitCcShift: currentShift,
-      graphiticCenterRaw: fittedRaw,
+      fittedCenterRaw: fittedRaw,
       newCcShift: newShift,
       ccDelta,
-      allPeaks: peakRows,
     });
-    if (maxAmpPeak && String(maxAmpPeak.id) !== String(graphiticId)) {
-      console.warn('[autofit] WARNING: LA (graphitic) peak is NOT the tallest' +
-        ' fitted peak (amplitude). Most-amplitude peak:',
-        maxAmpPeak, '— this usually indicates pre-fit auto-CC missed the real' +
-        ' dominant feature so the LA bounds ±0.3 eV miss the true graphite.');
-    }
 
     // Drive updateChargeCorrection() — it handles state.ccShift, peak centers,
     // ROI, bg endpoints, and the shift display together. We set the DOM fields
