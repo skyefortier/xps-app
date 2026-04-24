@@ -8198,6 +8198,53 @@ function _agPartitionPlausibility(variants) {
   return { plausible, implausible };
 }
 
+// Progress UI plumbing
+function _agShowProgress() {
+  document.getElementById('ag-prog-stage').textContent = 'Starting…';
+  document.getElementById('ag-prog-detail').textContent = '';
+  document.getElementById('ag-prog-index').textContent = '';
+  document.getElementById('ag-cancel-btn').disabled = false;
+  document.getElementById('ag-cancel-btn').textContent = 'Cancel';
+  document.getElementById('auto-fit-c1s-progress-overlay').classList.add('open');
+}
+function _agHideProgress() {
+  document.getElementById('auto-fit-c1s-progress-overlay').classList.remove('open');
+}
+function _agSetStage(stageText, detailText) {
+  const s = document.getElementById('ag-prog-stage');
+  const d = document.getElementById('ag-prog-detail');
+  if (s) s.textContent = stageText || '';
+  if (d) d.textContent = detailText || '';
+}
+function _agSetIndex(i, total) {
+  document.getElementById('ag-prog-index').textContent = (i && total) ? `(${i}/${total})` : '';
+}
+function _agDisableConflictingButtons() {
+  const selectors = [
+    'button[onclick="runFit()"]',
+    'button[onclick="showPropagateModal()"]',
+    'button[onclick="showAssistedBatchModal()"]',
+    '#btn-auto-fit-c1s',
+  ];
+  const disabled = [];
+  for (const sel of selectors) {
+    document.querySelectorAll(sel).forEach(btn => {
+      if (!btn.disabled) { btn.disabled = true; disabled.push(btn); }
+    });
+  }
+  return disabled;
+}
+function _agEnableButtons(list) {
+  if (!list) return;
+  for (const btn of list) btn.disabled = false;
+}
+function cancelAutoFitC1s() {
+  if (!_agState || !_agState.running) return;
+  _agState.cancel = true;
+  const btn = document.getElementById('ag-cancel-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+}
+
 // ══════════════════════════════════════════════════════════════
 // FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
 // ══════════════════════════════════════════════════════════════
