@@ -7945,7 +7945,7 @@ function _agMakeContaminationPeak(id, name, graphiticCenter, offset, amplitude, 
     fixDsAlpha: true, fixDsGamma: true, fixDsGaussSigma: true,
     fixLaAlpha: true, fixLaBeta: true, fixLaM: true,
     linked: null, isChargeReference: false, visible: true,
-    _fwhmShareWith: (widthMasterId != null ? String(widthMasterId) : null),
+    _fwhmShareWith: String(widthMasterId),
   };
 }
 
@@ -7984,38 +7984,38 @@ function _agPeakSpec(peak, opts) {
 }
 
 // Build Base A (3-peak adventitious). Returns { peaks, specs, graphiticId, label }.
-// The graphitic peak is LA — no fwhm param — so the FIRST contamination peak
-// (C-O) is the FWHM master; subsequent contamination peaks share with it.
 function _agBuildBaseA(corrCenterInit, graphiticAmp) {
-  const gid = 1001, widthMaster = 1002, cid2 = 1003;
+  const gid = 1001, cid1 = 1002, cid2 = 1003;
   const graphitic = _agMakeGraphiticPeak(gid, corrCenterInit, graphiticAmp);
-  const co  = _agMakeContaminationPeak(widthMaster, 'C-O',   corrCenterInit, 1.5, graphiticAmp * 0.25, null);
-  const oco = _agMakeContaminationPeak(cid2,        'O-C=O', corrCenterInit, 4.0, graphiticAmp * 0.15, widthMaster);
+  const co   = _agMakeContaminationPeak(cid1, 'C-O',    corrCenterInit, 1.5, graphiticAmp * 0.25, gid);
+  const oco  = _agMakeContaminationPeak(cid2, 'O-C=O',  corrCenterInit, 4.0, graphiticAmp * 0.15, gid);
   const peaks = [graphitic, co, oco];
   const specs = [
     _agPeakSpec(graphitic, { centerMin: corrCenterInit - 0.3, centerMax: corrCenterInit + 0.3 }),
     _agPeakSpec(co,        { centerMin: corrCenterInit + 1.5 - 0.3, centerMax: corrCenterInit + 1.5 + 0.3,
                              fwhmMin: 0.8, fwhmMax: 1.8 }),
-    _agPeakSpec(oco,       { centerMin: corrCenterInit + 4.0 - 0.3, centerMax: corrCenterInit + 4.0 + 0.3 }),
+    _agPeakSpec(oco,       { centerMin: corrCenterInit + 4.0 - 0.3, centerMax: corrCenterInit + 4.0 + 0.3,
+                             fwhmMin: 0.8, fwhmMax: 1.8 }),
   ];
   return { peaks, specs, graphiticId: gid, label: '3-peak' };
 }
 
-// Build Base B (4-peak adventitious). First contamination peak (C-O) is the
-// FWHM master; C=O and O-C=O share with it.
+// Build Base B (4-peak adventitious).
 function _agBuildBaseB(corrCenterInit, graphiticAmp) {
-  const gid = 1001, widthMaster = 1002, cid2 = 1003, cid3 = 1004;
+  const gid = 1001, cid1 = 1002, cid2 = 1003, cid3 = 1004;
   const graphitic = _agMakeGraphiticPeak(gid, corrCenterInit, graphiticAmp);
-  const co  = _agMakeContaminationPeak(widthMaster, 'C-O',   corrCenterInit, 1.5, graphiticAmp * 0.25, null);
-  const ceo = _agMakeContaminationPeak(cid2,        'C=O',   corrCenterInit, 3.0, graphiticAmp * 0.10, widthMaster);
-  const oco = _agMakeContaminationPeak(cid3,        'O-C=O', corrCenterInit, 4.0, graphiticAmp * 0.15, widthMaster);
+  const co   = _agMakeContaminationPeak(cid1, 'C-O',    corrCenterInit, 1.5, graphiticAmp * 0.25, gid);
+  const ceo  = _agMakeContaminationPeak(cid2, 'C=O',    corrCenterInit, 3.0, graphiticAmp * 0.10, gid);
+  const oco  = _agMakeContaminationPeak(cid3, 'O-C=O',  corrCenterInit, 4.0, graphiticAmp * 0.15, gid);
   const peaks = [graphitic, co, ceo, oco];
   const specs = [
     _agPeakSpec(graphitic, { centerMin: corrCenterInit - 0.3, centerMax: corrCenterInit + 0.3 }),
     _agPeakSpec(co,        { centerMin: corrCenterInit + 1.5 - 0.3, centerMax: corrCenterInit + 1.5 + 0.3,
                              fwhmMin: 0.8, fwhmMax: 1.8 }),
-    _agPeakSpec(ceo,       { centerMin: corrCenterInit + 3.0 - 0.3, centerMax: corrCenterInit + 3.0 + 0.3 }),
-    _agPeakSpec(oco,       { centerMin: corrCenterInit + 4.0 - 0.3, centerMax: corrCenterInit + 4.0 + 0.3 }),
+    _agPeakSpec(ceo,       { centerMin: corrCenterInit + 3.0 - 0.3, centerMax: corrCenterInit + 3.0 + 0.3,
+                             fwhmMin: 0.8, fwhmMax: 1.8 }),
+    _agPeakSpec(oco,       { centerMin: corrCenterInit + 4.0 - 0.3, centerMax: corrCenterInit + 4.0 + 0.3,
+                             fwhmMin: 0.8, fwhmMax: 1.8 }),
   ];
   return { peaks, specs, graphiticId: gid, label: '4-peak' };
 }
