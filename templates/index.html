@@ -8008,71 +8008,39 @@ function _agPeakSpec(peak, opts) {
   return spec;
 }
 
-// ── Base model construction ────────────────────────────────────────────
-//
-// STRUCTURAL CONTRACT:
-//   Graphite peak is ALWAYS its own separate LA peak.
-//   The adventitious submodel is an independent set of symmetric pseudo-Voigt
-//   peaks covering the common contamination species. The 3/4 in the labels
-//   refers only to the ADVENTITIOUS submodel count — not the total peak count.
-//
-//     Base A: 1 graphite + 3 adventitious = 4 total before any low-BE additions
-//             (Adventitious Carbon, C-O, O-C=O)
-//     Base B: 1 graphite + 4 adventitious = 5 total before any low-BE additions
-//             (Adventitious Carbon, C-O, C=O, O-C=O)
-//
-//   The lowest-BE adventitious peak is always named exactly "Adventitious Carbon"
-//   and its fit-time center bound is 284.9 eV (corrected), so that after the
-//   post-fit graphite referencing (which can shift the whole frame by up to
-//   ±0.3 eV in the worst case — graphite's ±0.3 fit-bound around 284.5) the
-//   Adventitious Carbon peak still lands ≥ 284.6 eV.
-//
-//   Low-BE peaks (added later by _agTryLowBEAddition) are ADDITIVE: they are
-//   concatenated to the base peak list, never replacing any adventitious peak.
-//
-//   FWHM sharing: Adventitious Carbon (the lowest-BE adventitious peak) is
-//   the width master; the remaining adventitious peaks share FWHM with it.
-//   Graphite's width lives in its LA α/β/m parameters and stands alone.
-//
-// Literature offsets from graphite at 284.5 eV (from NIST CHEMICAL_STATES table
-// elsewhere in this file): Adventitious 284.8 (ISO 19318), C-O 286.3 (Beamson),
-// C=O 287.8 (Beamson), O-C=O 288.8 (Beamson).
-
+// Build Base A (3-peak adventitious). Returns { peaks, specs, graphiticId, label }.
+// The graphitic peak is LA — no fwhm param — so the FIRST contamination peak
+// (C-O) is the FWHM master; subsequent contamination peaks share with it.
 function _agBuildBaseA(corrCenterInit, graphiticAmp) {
-  const gid = 1001, advCC = 1002, advCO = 1003, advOCO = 1004;
+  const gid = 1001, widthMaster = 1002, cid2 = 1003;
   const graphitic = _agMakeGraphiticPeak(gid, corrCenterInit, graphiticAmp);
-  // Offset initial centers from graphite; keep them at literature corrected BE.
-  const adcc = _agMakeContaminationPeak(advCC,  'Adventitious Carbon', corrCenterInit, 0.5, graphiticAmp * 0.35, null);
-  const adco = _agMakeContaminationPeak(advCO,  'C-O',                 corrCenterInit, 1.8, graphiticAmp * 0.20, advCC);
-  const adoc = _agMakeContaminationPeak(advOCO, 'O-C=O',               corrCenterInit, 4.3, graphiticAmp * 0.10, advCC);
-  const peaks = [graphitic, adcc, adco, adoc];
-  // Adv Carbon bounds [graphite+0.4, graphite+1.0] = [284.9, 285.5]; ensures
-  // the post-refinement floor of 284.6 eV under the ±0.3 graphite bound.
+  const co  = _agMakeContaminationPeak(widthMaster, 'C-O',   corrCenterInit, 1.5, graphiticAmp * 0.25, null);
+  const oco = _agMakeContaminationPeak(cid2,        'O-C=O', corrCenterInit, 4.0, graphiticAmp * 0.15, widthMaster);
+  const peaks = [graphitic, co, oco];
   const specs = [
     _agPeakSpec(graphitic, { centerMin: corrCenterInit - 0.3, centerMax: corrCenterInit + 0.3 }),
-    _agPeakSpec(adcc,      { centerMin: corrCenterInit + 0.4, centerMax: corrCenterInit + 1.0,
+    _agPeakSpec(co,        { centerMin: corrCenterInit + 1.5 - 0.3, centerMax: corrCenterInit + 1.5 + 0.3,
                              fwhmMin: 0.8, fwhmMax: 1.8 }),
-    _agPeakSpec(adco,      { centerMin: corrCenterInit + 1.8 - 0.3, centerMax: corrCenterInit + 1.8 + 0.3 }),
-    _agPeakSpec(adoc,      { centerMin: corrCenterInit + 4.3 - 0.3, centerMax: corrCenterInit + 4.3 + 0.3 }),
+    _agPeakSpec(oco,       { centerMin: corrCenterInit + 4.0 - 0.3, centerMax: corrCenterInit + 4.0 + 0.3 }),
   ];
   return { peaks, specs, graphiticId: gid, label: '3-peak' };
 }
 
+// Build Base B (4-peak adventitious). First contamination peak (C-O) is the
+// FWHM master; C=O and O-C=O share with it.
 function _agBuildBaseB(corrCenterInit, graphiticAmp) {
-  const gid = 1001, advCC = 1002, advCO = 1003, advCeO = 1004, advOCO = 1005;
+  const gid = 1001, widthMaster = 1002, cid2 = 1003, cid3 = 1004;
   const graphitic = _agMakeGraphiticPeak(gid, corrCenterInit, graphiticAmp);
-  const adcc  = _agMakeContaminationPeak(advCC,   'Adventitious Carbon', corrCenterInit, 0.5, graphiticAmp * 0.35, null);
-  const adco  = _agMakeContaminationPeak(advCO,   'C-O',                 corrCenterInit, 1.8, graphiticAmp * 0.20, advCC);
-  const adceo = _agMakeContaminationPeak(advCeO,  'C=O',                 corrCenterInit, 3.3, graphiticAmp * 0.08, advCC);
-  const adoc  = _agMakeContaminationPeak(advOCO,  'O-C=O',               corrCenterInit, 4.3, graphiticAmp * 0.10, advCC);
-  const peaks = [graphitic, adcc, adco, adceo, adoc];
+  const co  = _agMakeContaminationPeak(widthMaster, 'C-O',   corrCenterInit, 1.5, graphiticAmp * 0.25, null);
+  const ceo = _agMakeContaminationPeak(cid2,        'C=O',   corrCenterInit, 3.0, graphiticAmp * 0.10, widthMaster);
+  const oco = _agMakeContaminationPeak(cid3,        'O-C=O', corrCenterInit, 4.0, graphiticAmp * 0.15, widthMaster);
+  const peaks = [graphitic, co, ceo, oco];
   const specs = [
     _agPeakSpec(graphitic, { centerMin: corrCenterInit - 0.3, centerMax: corrCenterInit + 0.3 }),
-    _agPeakSpec(adcc,      { centerMin: corrCenterInit + 0.4, centerMax: corrCenterInit + 1.0,
+    _agPeakSpec(co,        { centerMin: corrCenterInit + 1.5 - 0.3, centerMax: corrCenterInit + 1.5 + 0.3,
                              fwhmMin: 0.8, fwhmMax: 1.8 }),
-    _agPeakSpec(adco,      { centerMin: corrCenterInit + 1.8 - 0.3, centerMax: corrCenterInit + 1.8 + 0.3 }),
-    _agPeakSpec(adceo,     { centerMin: corrCenterInit + 3.3 - 0.3, centerMax: corrCenterInit + 3.3 + 0.3 }),
-    _agPeakSpec(adoc,      { centerMin: corrCenterInit + 4.3 - 0.3, centerMax: corrCenterInit + 4.3 + 0.3 }),
+    _agPeakSpec(ceo,       { centerMin: corrCenterInit + 3.0 - 0.3, centerMax: corrCenterInit + 3.0 + 0.3 }),
+    _agPeakSpec(oco,       { centerMin: corrCenterInit + 4.0 - 0.3, centerMax: corrCenterInit + 4.0 + 0.3 }),
   ];
   return { peaks, specs, graphiticId: gid, label: '4-peak' };
 }
