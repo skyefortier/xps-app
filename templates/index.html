@@ -8020,6 +8020,86 @@ function _agBuildBaseB(corrCenterInit, graphiticAmp) {
   return { peaks, specs, graphiticId: gid, label: '4-peak' };
 }
 
+// Run one candidate fit via /api/fit. Returns a rich result bundle; does NOT
+// mutate state.fitResult or state.peaks.
+async function _agRunCandidate(peakSpecs, graphiticId, boundTol) {
+  if (_agState && _agState.cancel) return { ok: false, err: 'cancelled before send' };
+  const { be, inten } = getROIData();
+  if (!be.length) return { ok: false, err: 'empty ROI' };
+  try {
+    const bgType  = document.getElementById('bg-type').value;
+    const bgStart = parseFloat(document.getElementById('bg-start').value);
+    const bgEnd   = parseFloat(document.getElementById('bg-end').value);
+    const bgStartIdx = be.reduce((best, v, i) =>
+      Math.abs(v - bgStart) < Math.abs(be[best] - bgStart) ? i : best, 0);
+    const bgEndIdx = be.reduce((best, v, i) =>
+      Math.abs(v - bgEnd) < Math.abs(be[best] - bgEnd) ? i : best, 0);
+    const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const sessionId = await uploadToBackend(be, inten);
+    const fitReq = {
+      session_id: sessionId,
+      background: { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvgVal },
+      peaks: peakSpecs,
+      fit_method: document.getElementById('fit-method').value,
+      n_perturb: 2,
+    };
+    const resp = await fetch('/api/fit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fitReq),
+    });
+    const json = await resp.json();
+    if (json.error)   return { ok: false, err: json.error };
+    if (!json.success) return { ok: false, err: 'fit did not converge' };
+
+    const areaById = {};
+    let graphiticCenter = null, graphiticCenterMin = null, graphiticCenterMax = null;
+    let allFinite = true;
+    for (const ip of json.individual_peaks || []) {
+      const pid = ip.id;
+      const par = ip.params || {};
+      const a = par.area && Number.isFinite(par.area.value) ? par.area.value : null;
+      if (a != null) areaById[pid] = a;
+      if (String(pid) === String(graphiticId)) {
+        graphiticCenter = par.center && Number.isFinite(par.center.value) ? par.center.value : null;
+        graphiticCenterMin = par.center ? par.center.min : null;
+        graphiticCenterMax = par.center ? par.center.max : null;
+      }
+      for (const k of Object.keys(par)) {
+        const v = par[k] && par[k].value;
+        if (k !== 'area' && v != null && !Number.isFinite(v)) allFinite = false;
+      }
+    }
+    if (!allFinite) return { ok: false, err: 'non-finite fitted parameter' };
+
+    let boundHit = false;
+    if (Number.isFinite(graphiticCenter) && Number.isFinite(graphiticCenterMin) && Number.isFinite(graphiticCenterMax)) {
+      if (Math.abs(graphiticCenter - graphiticCenterMin) <= boundTol
+          || Math.abs(graphiticCenter - graphiticCenterMax) <= boundTol) boundHit = true;
+    }
+
+    const stats = json.statistics || {};
+    const rSquared = _abComputeRSquared(inten, json.fitted_y);
+    return {
+      ok: true,
+      reply: json,
+      chiReduced: stats.reduced_chi_square || 0,
+      bic: Number.isFinite(stats.bic) ? stats.bic : null,
+      aic: Number.isFinite(stats.aic) ? stats.aic : null,
+      nFreeParams: stats.n_free_params || peakSpecs.length * 3,
+      fittedY: json.fitted_y,
+      residuals: json.residuals,
+      rSquared,
+      areaById,
+      graphiticCenter,
+      boundHit,
+      be, inten,
+      err: null,
+    };
+  } catch (e) {
+    return { ok: false, err: (e && e.message) || String(e) };
+  }
+}
+
 // ══════════════════════════════════════════════════════════════
 // FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
 // ══════════════════════════════════════════════════════════════
