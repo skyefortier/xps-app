@@ -8302,95 +8302,78 @@ function _agChooserApply() {
   const checked = document.querySelector('input[name="ag-variant"]:checked');
   const idx = checked ? Number(checked.value) : 0;
   const v = _agChooserState.variants[idx];
-  if (!v) { notify('Auto-fit apply: no variant selected.', 'red'); return; }
+  if (!v) return;
 
-  // Guard every step — log the exact failing line so users don't see a silent no-op.
-  try {
-    pushUndo();
-    const graphiticId = v.graphiticId;
-    if (!Array.isArray(v.peaks) || !v.peaks.length) throw new Error('variant has no peaks');
-    state.peaks = v.peaks.map(p => ({
-      ...p,
-      isChargeReference: String(p.id) === String(graphiticId),
-    }));
-    state.nextId = Math.max(0, ...state.peaks.map(p => p.id)) + 1;
+  pushUndo();
+  const graphiticId = v.graphiticId;
+  state.peaks = v.peaks.map(p => ({
+    ...p,
+    isChargeReference: String(p.id) === String(graphiticId),
+  }));
+  state.nextId = Math.max(0, ...state.peaks.map(p => p.id)) + 1;
 
-    // ── Post-fit charge-correction refinement ────────────────────────────
-    // The fit ran in the pre-fit corrected frame (shift derived from the raw
-    // dominant-peak guess). The FITTED graphitic center is the authoritative
-    // location — refine the final shift so graphite lands exactly at 284.5 eV
-    // corrected, then shift the fitResult BE axis accordingly.
-    // Skip refinement when the tab had a user-verified/custom CC before auto-fit.
-    const snap = _agChooserState.origSnapshot;
-    const preservedCC = !!(snap && snap.ui && (snap.ui.ccMethod === 'custom' || snap.chargeVerified === true));
-    let ccDelta = 0;
-    if (!preservedCC) {
-      const graphitic = state.peaks.find(p => String(p.id) === String(graphiticId));
-      if (graphitic && Number.isFinite(graphitic.center)) {
-        const currentShift = Number.isFinite(state.ccShift) ? state.ccShift : 0;
-        // APP CONVENTION: raw = corrected + shift
-        const fittedRaw = graphitic.center + currentShift;
-        const newShift  = fittedRaw - 284.5;
-        ccDelta = newShift - currentShift;
-        // Drive updateChargeCorrection() so state.ccShift, peak centers, ROI,
-        // bg endpoints, and the shift display all update together.
-        const cm = document.getElementById('cc-method');
-        const co = document.getElementById('cc-obs');
-        const cl = document.getElementById('cc-lit');
-        if (cm && co && cl && typeof updateChargeCorrection === 'function') {
-          cm.value = 'c1s';
-          co.value = fittedRaw.toFixed(3);
-          cl.value = '284.5';
-          updateChargeCorrection();
-        }
-      }
+  // ── Post-fit charge-correction refinement ────────────────────────────
+  // The fit ran in the pre-fit corrected frame (shift derived from the raw
+  // dominant-peak guess). The FITTED graphitic center is the authoritative
+  // location — refine the final shift so graphite lands exactly at 284.5 eV
+  // corrected, then shift the fitResult BE axis and residual chart accordingly.
+  // Skip refinement when the tab's pre-auto-fit state had a user-verified or
+  // custom charge correction (preserveCC path in the orchestrator).
+  const snap = _agChooserState.origSnapshot;
+  const preservedCC = !!(snap && snap.ui && (snap.ui.ccMethod === 'custom' || snap.chargeVerified === true));
+  let ccDelta = 0;
+  if (!preservedCC) {
+    const graphitic = state.peaks.find(p => String(p.id) === String(graphiticId));
+    if (graphitic) {
+      const currentShift = Number(state.ccShift) || 0;
+      // APP CONVENTION: raw = corrected + shift
+      const fittedRaw = graphitic.center + currentShift;
+      const newShift  = fittedRaw - 284.5;
+      ccDelta = newShift - currentShift;
+      // Drive the existing updateChargeCorrection() so state.ccShift, peak
+      // centers, ROI, bg endpoints, and the shift display all update together.
+      document.getElementById('cc-method').value = 'c1s';
+      document.getElementById('cc-obs').value   = fittedRaw.toFixed(3);
+      document.getElementById('cc-lit').value   = '284.5';
+      updateChargeCorrection();
     }
-
-    // fitResult BE axis: shift by -ccDelta so the residual chart stays aligned.
-    if (!Array.isArray(v.be)) throw new Error('variant has no BE array');
-    if (!Array.isArray(v.inten) || v.inten.length !== v.be.length) throw new Error('variant inten/be length mismatch');
-    const shiftedBE = (ccDelta !== 0) ? v.be.map(b => b - ccDelta) : v.be;
-    const bgArr = (v.reply && Array.isArray(v.reply.background_y)) ? v.reply.background_y : [];
-    const bgSub = v.inten.map((y, i) => y - (bgArr[i] || 0));
-    // Pass bgIntensity so _computeRFactor uses the correct residual formula
-    // (fit pathway in runFit() passes it; omitting it silently uses a wrong branch).
-    const fitResultShell = {
-      be: shiftedBE, fittedY: v.fittedY, bgSubtracted: bgSub,
-      bgIntensity: (bgArr.length === shiftedBE.length) ? bgArr : null,
-    };
-    const rFactor = _computeRFactor(fitResultShell);
-    const residLen = Array.isArray(v.residuals) ? v.residuals.length : 0;
-    state.fitResult = {
-      chi: (v.chiReduced || 0) * Math.max(1, shiftedBE.length - (v.nFreeParams || 0)),
-      chiReduced: v.chiReduced,
-      rmse: residLen ? Math.sqrt(v.residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, shiftedBE.length)) : 0,
-      be: shiftedBE,
-      bgSubtracted: bgSub,
-      bgIntensity: bgArr,
-      backendResult: v.reply,
-      fittedY: v.fittedY,
-      roiRange: { min: _arrMin(shiftedBE).toFixed(1), max: _arrMax(shiftedBE).toFixed(1) },
-      rFactor,
-      rSquared: v.rSquared,
-      autoFitVariantLabel: v.label,
-    };
-    tabManager._syncActiveToRecord();
-    renderPeakList();
-    updatePlot();
-    _autoSnapshot();
-    const fqEl = document.getElementById('fit-quality');
-    if (fqEl && v.chiReduced != null) {
-      fqEl.textContent = 'χ²ᵣ = ' + v.chiReduced.toFixed(2);
-      if (typeof _CHISQ_TOOLTIP !== 'undefined') fqEl.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
-    }
-    _updateRFactorUI(rFactor);
-    document.getElementById('auto-fit-c1s-chooser-overlay').classList.remove('open');
-    _agChooserState = null;
-    notify(`Applied ${v.label} — graphitic peak marked as C-ref.`, 'green');
-  } catch (e) {
-    console.error('Auto-Fit apply failed:', e);
-    notify('Auto-Fit apply failed: ' + ((e && e.message) || String(e)) + ' (see console for details)', 'red', true);
   }
+
+  // fitResult BE axis: shift by -ccDelta so the residual chart stays aligned
+  // with the now-refined corrected frame (updateChargeCorrection shifts peaks
+  // and ROI but not the fit-result arrays).
+  const shiftedBE = (ccDelta !== 0) ? v.be.map(b => b - ccDelta) : v.be;
+  const bgArr = v.reply.background_y || [];
+  const bgSub = v.inten.map((y, i) => y - (bgArr[i] || 0));
+  const fitResultShell = { be: shiftedBE, fittedY: v.fittedY, bgSubtracted: bgSub };
+  const rFactor = _computeRFactor(fitResultShell);
+  state.fitResult = {
+    chi: v.chiReduced * Math.max(1, shiftedBE.length - v.nFreeParams),
+    chiReduced: v.chiReduced,
+    rmse: Math.sqrt((v.residuals || []).reduce((s, r) => s + r * r, 0) / Math.max(1, shiftedBE.length)),
+    be: shiftedBE,
+    bgSubtracted: bgSub,
+    bgIntensity: bgArr,
+    backendResult: v.reply,
+    fittedY: v.fittedY,
+    roiRange: { min: _arrMin(shiftedBE).toFixed(1), max: _arrMax(shiftedBE).toFixed(1) },
+    rFactor,
+    rSquared: v.rSquared,
+    autoFitVariantLabel: v.label,
+  };
+  tabManager._syncActiveToRecord();
+  renderPeakList();
+  updatePlot();
+  _autoSnapshot();
+  const fqEl = document.getElementById('fit-quality');
+  if (fqEl && v.chiReduced != null) {
+    fqEl.textContent = 'χ²ᵣ = ' + v.chiReduced.toFixed(2);
+    fqEl.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
+  }
+  _updateRFactorUI(rFactor);
+  document.getElementById('auto-fit-c1s-chooser-overlay').classList.remove('open');
+  _agChooserState = null;
+  notify(`Applied ${v.label} — graphitic peak marked as C-ref.`, 'green');
 }
 
 // Whole-tab snapshot / restore for auto-fit rollback.
