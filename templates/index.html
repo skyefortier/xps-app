@@ -8142,31 +8142,6 @@ document.addEventListener('mousedown', function(e) {
   </div>
 </div>
 
-<!-- Assisted Batch Fit (C1s) — progress panel (non-dismissable while running) -->
-<div id="assisted-batch-progress-overlay" class="xps-modal-overlay">
-  <div class="xps-modal">
-    <h3 style="justify-content:flex-start;gap:8px">
-      <span>Assisted Batch Fit</span>
-      <span id="ab-prog-index" style="color:var(--text3);font-size:11px"></span>
-    </h3>
-    <div id="ab-prog-target" style="font-size:12px;color:var(--text);font-family:var(--mono);margin:0 0 2px"></div>
-    <div id="ab-prog-phase" class="ab-progress-phase"></div>
-    <div class="ab-progress-bar"><div id="ab-prog-bar-fill" style="width:0%"></div></div>
-    <div class="ab-progress-tally">
-      <span class="ab-ok">Successful <span id="ab-prog-ok">0</span></span>
-      &nbsp;·&nbsp;
-      <span class="ab-flag">Flagged <span id="ab-prog-flag">0</span></span>
-      &nbsp;·&nbsp;
-      <span class="ab-fail">Failed <span id="ab-prog-fail">0</span></span>
-    </div>
-    <div id="ab-prog-summary" style="display:none;font-size:11px;color:var(--text2);font-family:var(--mono);max-height:200px;overflow-y:auto;background:var(--bg3);border-radius:var(--radius);padding:6px 8px;margin-bottom:8px"></div>
-    <div class="dialog-btns">
-      <button class="btn" id="ab-cancel-btn" onclick="cancelAssistedBatch()">Cancel</button>
-      <button class="btn btn-accent" id="ab-close-btn" onclick="document.getElementById('assisted-batch-progress-overlay').classList.remove('open')" style="display:none">Close</button>
-    </div>
-  </div>
-</div>
-
 <!-- NIST XPS Lookup Modal -->
 <div id="nist-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:500px">
