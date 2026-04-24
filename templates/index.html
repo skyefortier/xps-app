@@ -8311,52 +8311,20 @@ function _agChooserApply() {
     isChargeReference: String(p.id) === String(graphiticId),
   }));
   state.nextId = Math.max(0, ...state.peaks.map(p => p.id)) + 1;
-
-  // ── Post-fit charge-correction refinement ────────────────────────────
-  // The fit ran in the pre-fit corrected frame (shift derived from the raw
-  // dominant-peak guess). The FITTED graphitic center is the authoritative
-  // location — refine the final shift so graphite lands exactly at 284.5 eV
-  // corrected, then shift the fitResult BE axis and residual chart accordingly.
-  // Skip refinement when the tab's pre-auto-fit state had a user-verified or
-  // custom charge correction (preserveCC path in the orchestrator).
-  const snap = _agChooserState.origSnapshot;
-  const preservedCC = !!(snap && snap.ui && (snap.ui.ccMethod === 'custom' || snap.chargeVerified === true));
-  let ccDelta = 0;
-  if (!preservedCC) {
-    const graphitic = state.peaks.find(p => String(p.id) === String(graphiticId));
-    if (graphitic) {
-      const currentShift = Number(state.ccShift) || 0;
-      // APP CONVENTION: raw = corrected + shift
-      const fittedRaw = graphitic.center + currentShift;
-      const newShift  = fittedRaw - 284.5;
-      ccDelta = newShift - currentShift;
-      // Drive the existing updateChargeCorrection() so state.ccShift, peak
-      // centers, ROI, bg endpoints, and the shift display all update together.
-      document.getElementById('cc-method').value = 'c1s';
-      document.getElementById('cc-obs').value   = fittedRaw.toFixed(3);
-      document.getElementById('cc-lit').value   = '284.5';
-      updateChargeCorrection();
-    }
-  }
-
-  // fitResult BE axis: shift by -ccDelta so the residual chart stays aligned
-  // with the now-refined corrected frame (updateChargeCorrection shifts peaks
-  // and ROI but not the fit-result arrays).
-  const shiftedBE = (ccDelta !== 0) ? v.be.map(b => b - ccDelta) : v.be;
   const bgArr = v.reply.background_y || [];
   const bgSub = v.inten.map((y, i) => y - (bgArr[i] || 0));
-  const fitResultShell = { be: shiftedBE, fittedY: v.fittedY, bgSubtracted: bgSub };
+  const fitResultShell = { be: v.be, fittedY: v.fittedY, bgSubtracted: bgSub };
   const rFactor = _computeRFactor(fitResultShell);
   state.fitResult = {
-    chi: v.chiReduced * Math.max(1, shiftedBE.length - v.nFreeParams),
+    chi: v.chiReduced * Math.max(1, v.be.length - v.nFreeParams),
     chiReduced: v.chiReduced,
-    rmse: Math.sqrt((v.residuals || []).reduce((s, r) => s + r * r, 0) / Math.max(1, shiftedBE.length)),
-    be: shiftedBE,
+    rmse: Math.sqrt((v.residuals || []).reduce((s, r) => s + r * r, 0) / Math.max(1, v.be.length)),
+    be: v.be,
     bgSubtracted: bgSub,
     bgIntensity: bgArr,
     backendResult: v.reply,
     fittedY: v.fittedY,
-    roiRange: { min: _arrMin(shiftedBE).toFixed(1), max: _arrMax(shiftedBE).toFixed(1) },
+    roiRange: { min: _arrMin(v.be).toFixed(1), max: _arrMax(v.be).toFixed(1) },
     rFactor,
     rSquared: v.rSquared,
     autoFitVariantLabel: v.label,
