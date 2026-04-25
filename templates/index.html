@@ -4790,7 +4790,14 @@ function buildAutoFitModel(assessment) {
   // Per-peak bound metadata, consumed in runAutoFitC1sGraphite.
   peaks[0]._afCenterMin = 284.50 - 0.30; peaks[0]._afCenterMax = 284.50 + 0.30;
   peaks[0]._afFwhmMin   = 0.40;          peaks[0]._afFwhmMax   = 1.20;
-  peaks[1]._afCenterMin = 284.80 - 0.50; peaks[1]._afCenterMax = 284.80 + 0.50;
+  // Adventitious carbon (sp3) is always at higher BE than graphitic sp2 carbon.
+  // The lower bound is fixed at 284.80 eV (= graphite_init 284.50 + 0.30 eV
+  // chemical separation). Trade-off: this is a STATIC corrected-frame floor,
+  // not relative to graphite's fitted center — if graphite drifts to its
+  // ±0.30 upper bound (284.80), adv1's floor sits exactly at graphite's
+  // ceiling, which still enforces non-overlap. A relative constraint would
+  // need an lmfit derived-parameter mechanism not present in the backend.
+  peaks[1]._afCenterMin = 284.80;        peaks[1]._afCenterMax = 284.80 + 0.50;
   peaks[1]._afFwhmMin   = 0.80;          peaks[1]._afFwhmMax   = 3.00;
   peaks[2]._afCenterMin = 286.20 - 0.50; peaks[2]._afCenterMax = 286.20 + 0.50;
   peaks[2]._afFwhmMin   = 0.80;          peaks[2]._afFwhmMax   = 3.00;
