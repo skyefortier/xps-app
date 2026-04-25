@@ -4718,19 +4718,21 @@ function assessLowBERegion(rawBE, bgSubInten, provisionalShift) {
 function buildAutoFitModel(assessment) {
   const peaks = [];
 
-  // Graphite — LA shape, beta fixed at 0.05, alpha bounded [0.05, 0.20].
+  // Graphite — Asymmetric GL (η + α). Replaces LA(α,β,m) which had three
+  // free shape params and was being driven to α=0 (symmetric collapse) by
+  // the optimizer on real data, propagating the high-BE shoulder into adv1.
+  // Asymmetric GL has a single asymmetry knob with enforceable bounds and
+  // matches what users employ successfully in manual fits.
   peaks.push(defaultPeak({
     name: 'Graphite',
-    shape: 'LA',
+    shape: 'asym-GL',
     center: 284.50,
     fwhm: 0.7,
     amplitude: Math.max(1, assessment.graphiteHeight || 1000),
-    laAlpha: 0.10,
-    laBeta: 0.05,
-    laM: 0.55,
-    fixLaAlpha: false,
-    fixLaBeta: true,
-    fixLaM: false,
+    glMix: 30,            // η = 30% Lorentzian, free
+    asymmetry: 0.25,      // start mid-bound; bounds enforced via _afAsymMin/Max
+    fixGlMix: false,
+    fixAsymmetry: false,
     fixCenter: false,
     fixFwhm: false,
     fixAmplitude: false,
@@ -4795,6 +4797,7 @@ function buildAutoFitModel(assessment) {
   // Per-peak bound metadata, consumed in runAutoFitC1sGraphite.
   peaks[0]._afCenterMin = 284.50 - 0.30; peaks[0]._afCenterMax = 284.50 + 0.30;
   peaks[0]._afFwhmMin   = 0.40;          peaks[0]._afFwhmMax   = 1.20;
+  peaks[0]._afAsymMin   = 0.10;          peaks[0]._afAsymMax   = 0.50;
   // Adventitious carbon (sp3) is always at higher BE than graphitic sp2 carbon.
   // The lower bound is fixed at 284.80 eV (= graphite_init 284.50 + 0.30 eV
   // chemical separation). Trade-off: this is a STATIC corrected-frame floor,
