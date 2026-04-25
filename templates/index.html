@@ -4551,6 +4551,29 @@ function _hideFitSpinner() {
   clearTimeout(_showFitSpinner._timer);
 }
 
+// Returns true if the tab is a C1s spectrum, defined by ROI midpoint
+// in [270.0, 315.0] eV. Uses the tab's persisted UI ROI fields (which
+// are corrected-BE values), falling back to the current rawBE range.
+// Reads from a tab record, not state, so it works for inactive tabs.
+function isC1sTab(tab) {
+  if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
+  const ui = tab.ui || {};
+  let lo = parseFloat(ui.roiMin);
+  let hi = parseFloat(ui.roiMax);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+    // Fall back to full raw range (no UI ROI set yet)
+    let rmin = Infinity, rmax = -Infinity;
+    for (const v of tab.rawBE) {
+      if (v < rmin) rmin = v;
+      if (v > rmax) rmax = v;
+    }
+    lo = rmin; hi = rmax;
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return false;
+  const mid = (lo + hi) / 2;
+  return mid >= 270.0 && mid <= 315.0;
+}
+
 async function runFit() {
   if (!state.rawBE.length) { notify('Load a spectrum first.', 'red', true); return; }
   if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
