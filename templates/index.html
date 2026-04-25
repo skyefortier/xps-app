@@ -4966,6 +4966,11 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   if (sbMsg) sbMsg.textContent = 'Auto-fit complete';
   if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult.rFactor);
   if (typeof _updateROIDisplay === 'function') _updateROIDisplay(roiRange);
+  // Lock all peak centers after a successful auto-fit. Users frequently
+  // run "Run Fit" again to refine FWHMs/amplitudes; without this lock the
+  // converged auto-fit positions can drift. The user can manually unlock
+  // any center via the existing padlock icon in the peak editor.
+  for (const p of state.peaks) p.fixCenter = true;
   if (typeof renderPeakList === 'function') renderPeakList();
   if (typeof updatePlot === 'function') updatePlot();
   if (typeof renderResults === 'function') renderResults();
