@@ -392,3 +392,78 @@ non-blocking `notify()` toast in addition to the green success toast.
 Threshold is hardcoded; the fit is kept regardless.
 
 **Implementation pointer.** See `docs/superpowers/plans/2026-04-24-auto-fit-c1s-followup-fixes.md`.
+
+---
+
+## Follow-up fixes — Round 2 (2026-04-24)
+
+After real-data testing of the round-1 fixes, three additional issues surfaced.
+This section is additive; nothing earlier in the spec is rescinded.
+
+### ISSUE 1 (BUG): graphite-area-fraction warning toast was silently swallowed
+
+**Symptom:** On `8 A/C1s Scan.VGD`, the peak-list AREA column reported
+graphite at 33.3% — well below the 40% warning threshold added in round 1
+— but no amber warning toast appeared.
+
+**Root cause:** the round-1 helper read `json.individual_peaks[i].params.area.value`
+(backend trapezoid integration of the *backend* lineshape). The user-visible
+AREA column uses `_peakArea(p, be)` (frontend integration of the *frontend*
+lineshape via `evalPeak`). For LA shapes the JS and Python implementations
+diverge enough that the backend-side area can sit on the opposite side of
+the 40% threshold from the visible AREA column.
+
+**Fix:** rewrite the helper to use `_peakArea` against `state.peaks` and
+`state.fitResult.be` — the same source the visible AREA column uses. The
+warning now fires iff the AREA column shows the same number crossing the
+threshold (no more disagreement). The pure decision logic is split into
+`_autoFitDecideAreaWarning(peakAreas, graphiteId)` so it can be unit-tested
+in isolation from state.
+
+### ISSUE 2 (ALGORITHM CHANGE): graphite shape switched from LA(α,β,m) to Asymmetric GL
+
+**Symptom:** With LA, the optimizer drove α to ~0.000 on the same real-data
+spectrum, collapsing graphite to a symmetric line. The high-BE graphite
+shoulder was then absorbed by Adventitious 1, which fattened to FWHM 2.17 eV
+(unphysical for sp³ adventitious carbon).
+
+**Root cause:** LA has three free shape parameters (α, β, m) — over-parameterised
+relative to the data's information content. Worse, the round-1 frontend
+declared α bounds [0.05, 0.20] but the backend hardcoded `min_=0.0, max_=0.49`
+for `la_casaxps` α — the frontend bounds were silently dropped. (Same was true
+for `asymmetric_gl`'s asymmetry parameter: hardcoded `[0.0, 1.0]` with no
+spec-key override.)
+
+**Fix:** Two parts.
+
+1. *Backend plumbing* (2-line edit in `fitting.py`): the `asymmetric_gl`
+   branch of `_make_peak_params` now reads `spec.get("asymmetry_min", 0.0)`
+   and `spec.get("asymmetry_max", 1.0)` — same pattern already used for
+   center, FWHM, amplitude. Defaults unchanged (so non-auto-fit peaks
+   behave identically).
+
+2. *Lineshape switch* (frontend): graphite uses `shape: 'asym-GL'` with
+   `glMix: 30` (η, free), `asymmetry: 0.25` (α, free, bounds [0.10, 0.50]
+   now actually enforced via `_afAsymMin`/`_afAsymMax` overlaid by
+   `peakToBackendSpec` onto `spec.asymmetry_min`/`spec.asymmetry_max`).
+   Center bounds, FWHM bounds, and amplitude bounds unchanged.
+
+LA was kept available as a manual-mode peak shape for users who prefer it;
+auto-fit no longer uses it.
+
+### ISSUE 3 (FEATURE): peak centers are locked after a successful auto-fit
+
+**Rationale:** Users frequently run a manual "Run Fit" after auto-fit to
+refine FWHMs and amplitudes. With centers free this secondary fit drifts
+the converged auto-fit positions; locking centers makes the secondary
+refinement do what the user expects.
+
+**Implementation:** After `applyAutoFitResult` succeeds, every peak's
+`fixCenter` is set to `true` before the peak list re-renders. Users can
+manually unlock any center via the existing padlock icon — no new UI.
+Other parameters (FWHM, amplitude, η, α) remain unlocked.
+
+### ISSUE 4 (sanity check)
+
+The round-1 adv1 lower-bound floor (`peaks[1]._afCenterMin = 284.80`) still
+applies after the lineshape change.
