@@ -615,6 +615,12 @@
   }
   .save-dropdown-item:last-child { border-bottom: none; }
   .save-dropdown-item:hover { background: var(--accent-dim); color: var(--accent2); }
+  .save-dropdown-item:disabled,
+  .save-dropdown-item[aria-disabled="true"] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
   .save-dropdown-item small { display: block; font-size: 9px; color: var(--text3); margin-top: 2px; }
   .save-dropdown-item .dd-icon { flex-shrink: 0; font-size: 13px; margin-top: 1px; opacity: 0.6; }
 
@@ -1402,6 +1408,8 @@
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
           <button class="save-dropdown-item" onclick="exportFitTable('csv')"><span class="dd-icon">&#128202;</span><div>Export Table (CSV)<small>All fit parameters</small></div></button>
           <button class="save-dropdown-item" onclick="exportFitTable('xlsx')"><span class="dd-icon">&#128202;</span><div>Export Table (XLSX)<small>All fit parameters</small></div></button>
+          <div style="height:1px;background:var(--border);margin:4px 0"></div>
+          <button class="save-dropdown-item" id="auto-fit-c1s-menu-item" onclick="runAutoFitC1sGraphite()" title="Available only on C1s spectra (ROI midpoint 270–315 eV)"><span class="dd-icon">&#128293;</span><div>Auto-Fit C1s Graphite<small>One-click fit + charge correction</small></div></button>
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
           <button class="save-dropdown-item" onclick="loadSession()"><span class="dd-icon">&#128194;</span><div>Load Fit or Project<small>Restore saved fit params</small></div></button>
           <button class="save-dropdown-item" onclick="exportResults()"><span class="dd-icon">&#128203;</span><div>Export Results<small>Peaks + areas as JSON</small></div></button>
