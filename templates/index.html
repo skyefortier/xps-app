@@ -4641,6 +4641,71 @@ function findGraphiteRawBE(rawBE, bgSubInten) {
   return best.be;
 }
 
+// Decide how many low-BE peaks (0, 1, or 2) the auto-fit model should include.
+//   rawBE             : array of raw BE values
+//   bgSubInten        : background-subtracted intensity (same length)
+//   provisionalShift  : state.ccShift to apply mentally — does NOT mutate state.
+//                       App convention: corrected = raw − shift.
+// Returns:
+//   { count: 0|1|2, locations: number[] of corrected-BE local-max centers,
+//     ratio: number, graphiteHeight: number }
+function assessLowBERegion(rawBE, bgSubInten, provisionalShift) {
+  const n = rawBE.length;
+  // 1. Graphite height: closest-corrected-to-284.5 sample
+  let gIdx = 0;
+  let gDist = Infinity;
+  for (let i = 0; i < n; i++) {
+    const corr = rawBE[i] - provisionalShift;
+    const d = Math.abs(corr - 284.50);
+    if (d < gDist) { gDist = d; gIdx = i; }
+  }
+  const graphiteHeight = bgSubInten[gIdx];
+  if (!(graphiteHeight > 0)) {
+    return { count: 0, locations: [], ratio: 0, graphiteHeight: 0 };
+  }
+
+  // 2. Integrate over 278.0 ≤ corrected ≤ 283.5 (trapezoid in corrected BE)
+  let integral = 0;
+  const corr = rawBE.map(b => b - provisionalShift);
+  for (let i = 1; i < n; i++) {
+    const c0 = corr[i - 1], c1 = corr[i];
+    if (c1 < 278.0 || c0 > 283.5) continue;
+    const lo = Math.max(Math.min(c0, c1), 278.0);
+    const hi = Math.min(Math.max(c0, c1), 283.5);
+    if (hi <= lo) continue;
+    const width = hi - lo;
+    const yMid = 0.5 * (bgSubInten[i - 1] + bgSubInten[i]);
+    integral += width * Math.max(0, yMid);
+  }
+  const ratio = integral / graphiteHeight;
+
+  // 3. Local maxima in [278.0, 283.5] with bgSub ≥ 0.10 * graphite_height
+  const minPeak = 0.10 * graphiteHeight;
+  const locations = [];
+  for (let i = 1; i < n - 1; i++) {
+    const c = corr[i];
+    if (c < 278.0 || c > 283.5) continue;
+    if (bgSubInten[i] < minPeak) continue;
+    if (bgSubInten[i] >= bgSubInten[i - 1] && bgSubInten[i] >= bgSubInten[i + 1]) {
+      locations.push(c);
+    }
+  }
+  // De-duplicate locations within 0.4 eV of each other
+  locations.sort((a, b) => a - b);
+  const dedup = [];
+  for (const c of locations) {
+    if (dedup.length && Math.abs(dedup[dedup.length - 1] - c) < 0.4) continue;
+    dedup.push(c);
+  }
+
+  // 4. Decide count
+  let count;
+  if (ratio < 0.03) count = 0;
+  else if (ratio >= 0.15 || dedup.length >= 2) count = 2;
+  else count = 1;
+  return { count, locations: dedup, ratio, graphiteHeight };
+}
+
 function isC1sTab(tab) {
   if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
   const ui = tab.ui || {};
