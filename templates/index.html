@@ -4706,6 +4706,107 @@ function assessLowBERegion(rawBE, bgSubInten, provisionalShift) {
   return { count, locations: dedup, ratio, graphiteHeight };
 }
 
+// Build the auto-fit peak list in the corrected-BE frame.
+// Returns: array of peak objects (defaultPeak overrides), in the order
+//   [Graphite, Adventitious 1, Adventitious 2, Adventitious 3, Adventitious 4,
+//    Unknown 1?, Unknown 2?]
+function buildAutoFitModel(assessment) {
+  const peaks = [];
+
+  // Graphite — LA shape, beta fixed at 0.05, alpha bounded [0.05, 0.20].
+  peaks.push(defaultPeak({
+    name: 'Graphite',
+    shape: 'LA',
+    center: 284.50,
+    fwhm: 0.7,
+    amplitude: Math.max(1, assessment.graphiteHeight || 1000),
+    laAlpha: 0.10,
+    laBeta: 0.05,
+    laM: 0.55,
+    fixLaAlpha: false,
+    fixLaBeta: true,
+    fixLaM: false,
+    fixCenter: false,
+    fixFwhm: false,
+    fixAmplitude: false,
+  }));
+
+  // Adventitious 1–4 — pseudo-Voigt (shape='GL'), eta free.
+  const adv = [
+    { name: 'Adventitious 1', center: 284.80, fwhm: 1.4 },
+    { name: 'Adventitious 2', center: 286.20, fwhm: 1.6 },
+    { name: 'Adventitious 3', center: 287.80, fwhm: 1.8 },
+    { name: 'Adventitious 4', center: 291.00, fwhm: 2.5 },
+  ];
+  for (const a of adv) {
+    peaks.push(defaultPeak({
+      name: a.name,
+      shape: 'GL',
+      center: a.center,
+      fwhm: a.fwhm,
+      amplitude: Math.max(1, (assessment.graphiteHeight || 1000) * 0.20),
+      glMix: 30,
+      fixGlMix: false,
+      fixCenter: false,
+      fixFwhm: false,
+      fixAmplitude: false,
+    }));
+  }
+
+  // Unknown 1 / Unknown 2 — assessment.locations[0/1] when present
+  if (assessment.count >= 1) {
+    const c1 = (assessment.locations && assessment.locations[0] != null)
+      ? assessment.locations[0] : 283.0;
+    peaks.push(defaultPeak({
+      name: 'Unknown 1',
+      shape: 'GL',
+      center: c1,
+      fwhm: 1.0,
+      amplitude: Math.max(1, (assessment.graphiteHeight || 1000) * 0.15),
+      glMix: 30,
+      fixGlMix: false,
+      fixCenter: false,
+      fixFwhm: false,
+      fixAmplitude: false,
+    }));
+  }
+  if (assessment.count >= 2) {
+    const c2 = (assessment.locations && assessment.locations[1] != null)
+      ? assessment.locations[1] : 282.0;
+    peaks.push(defaultPeak({
+      name: 'Unknown 2',
+      shape: 'GL',
+      center: c2,
+      fwhm: 1.0,
+      amplitude: Math.max(1, (assessment.graphiteHeight || 1000) * 0.10),
+      glMix: 30,
+      fixGlMix: false,
+      fixCenter: false,
+      fixFwhm: false,
+      fixAmplitude: false,
+    }));
+  }
+
+  // Per-peak bound metadata, consumed in runAutoFitC1sGraphite.
+  peaks[0]._afCenterMin = 284.50 - 0.30; peaks[0]._afCenterMax = 284.50 + 0.30;
+  peaks[0]._afFwhmMin   = 0.40;          peaks[0]._afFwhmMax   = 1.20;
+  peaks[1]._afCenterMin = 284.80 - 0.50; peaks[1]._afCenterMax = 284.80 + 0.50;
+  peaks[1]._afFwhmMin   = 0.80;          peaks[1]._afFwhmMax   = 3.00;
+  peaks[2]._afCenterMin = 286.20 - 0.50; peaks[2]._afCenterMax = 286.20 + 0.50;
+  peaks[2]._afFwhmMin   = 0.80;          peaks[2]._afFwhmMax   = 3.00;
+  peaks[3]._afCenterMin = 287.80 - 0.50; peaks[3]._afCenterMax = 287.80 + 0.50;
+  peaks[3]._afFwhmMin   = 0.80;          peaks[3]._afFwhmMax   = 3.50;
+  peaks[4]._afCenterMin = 291.00 - 1.00; peaks[4]._afCenterMax = 291.00 + 1.00;
+  peaks[4]._afFwhmMin   = 1.00;          peaks[4]._afFwhmMax   = 4.00;
+  for (let i = 5; i < peaks.length; i++) {
+    peaks[i]._afCenterMin = peaks[i].center - 0.80;
+    peaks[i]._afCenterMax = peaks[i].center + 0.80;
+    peaks[i]._afFwhmMin   = 0.50;
+    peaks[i]._afFwhmMax   = 3.00;
+  }
+  return peaks;
+}
+
 function isC1sTab(tab) {
   if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
   const ui = tab.ui || {};
