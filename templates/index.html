@@ -4857,22 +4857,24 @@ function _autoFitRestore(snap) {
 
 // Apply a successful auto-fit result. Mutates state and DOM so the tab
 // ends in a self-consistent corrected frame with graphite at exactly 284.50.
-// Compute graphite's area fraction from a /api/fit response and decide
-// whether to surface a non-blocking "graphite < 40%" warning. Pure function;
-// returns null when no warning is needed (or when input is malformed),
-// otherwise returns { fractionPct, warning } where `warning` is the exact
-// user-facing toast text and `fractionPct` is the rounded-to-1dp percentage.
+// Pure decision: given (id, area) pairs and graphite's id, decide whether
+// to emit the < 40% area-fraction warning toast. Returns null on no-warning,
+// or { fractionPct, warning } on warning. Boundary: '< 0.40' so 0.40 itself
+// does NOT warn.
 //
-// Boundary: the spec says "< 0.40" so 0.40 itself does NOT warn.
-function _autoFitCheckGraphiteFraction(json, graphiteId) {
-  if (!json || !Array.isArray(json.individual_peaks)) return null;
+// This logic is intentionally state-free so the Python port test in
+// /tmp/test_autofit_decide_warning.py can validate it without simulating
+// state.peaks or the backend.
+function _autoFitDecideAreaWarning(peakAreas, graphiteId) {
+  if (!Array.isArray(peakAreas)) return null;
   let total = 0;
   let graphiteArea = null;
-  for (const ip of json.individual_peaks) {
-    const a = ip && ip.params && ip.params.area && ip.params.area.value;
-    if (!Number.isFinite(a)) continue;
+  for (const entry of peakAreas) {
+    if (!entry) continue;
+    const a = entry.area;
+    if (!Number.isFinite(a) || a < 0) continue;
     total += a;
-    if (String(ip.id) === String(graphiteId)) graphiteArea = a;
+    if (String(entry.id) === String(graphiteId)) graphiteArea = a;
   }
   if (graphiteArea == null || !(total > 0)) return null;
   const fraction = graphiteArea / total;
@@ -4884,6 +4886,17 @@ function _autoFitCheckGraphiteFraction(json, graphiteId) {
     'for a graphite-dominated sample. Review the fit and consider manual ' +
     'adjustment.';
   return { fractionPct, warning };
+}
+
+// State-aware wrapper: build (id, area) pairs from the current state using
+// _peakArea — the SAME integration the user-visible AREA column uses. This
+// guarantees the warning fires iff the AREA column shows the same number
+// crossing the threshold (no more frontend/backend disagreement on areas).
+function _autoFitCheckGraphiteFraction(graphiteId) {
+  const be = state.fitResult && state.fitResult.be;
+  if (!Array.isArray(be) || be.length < 2) return null;
+  const peakAreas = state.peaks.map(p => ({ id: p.id, area: _peakArea(p, be) }));
+  return _autoFitDecideAreaWarning(peakAreas, graphiteId);
 }
 
 function applyAutoFitResult(json, graphiteRaw, roi) {
@@ -4957,9 +4970,11 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
 
   // 8. Sanity check: warn if graphite area fraction is below 40%. The fit
   // is kept regardless — this is a triage signal, not a fit-quality gate.
+  // Uses _peakArea so the warning matches the user-visible AREA column
+  // exactly (and so it doesn't depend on backend response shape).
   const gPeak2 = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
   if (gPeak2) {
-    const check = _autoFitCheckGraphiteFraction(json, gPeak2.id);
+    const check = _autoFitCheckGraphiteFraction(gPeak2.id);
     if (check) notify(check.warning, 'amber', true);
   }
 
