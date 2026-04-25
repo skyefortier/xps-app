@@ -4611,6 +4611,36 @@ function _autoFitConfirmCancel() {
 // in [270.0, 315.0] eV. Uses the tab's persisted UI ROI fields (which
 // are corrected-BE values), falling back to the current rawBE range.
 // Reads from a tab record, not state, so it works for inactive tabs.
+// Find graphite in the raw-BE frame from a background-subtracted spectrum.
+//   rawBE      : array of raw BE values (state.rawBE, NOT corrected)
+//   bgSubInten : background-subtracted intensity at the same indices
+// Returns the BE of the highest-BE strong local maximum, or null.
+//
+// Algorithm (matches spec §1):
+//   1. Find all strict local maxima of bgSubInten (3-point test).
+//   2. Filter to "strong" maxima: bgSubInten[i] >= 0.30 * max(bgSubInten).
+//   3. Pick the one with the highest rawBE value.
+function findGraphiteRawBE(rawBE, bgSubInten) {
+  const n = rawBE && rawBE.length;
+  if (!n || n !== bgSubInten.length || n < 3) return null;
+  let gMax = -Infinity;
+  for (const v of bgSubInten) if (v > gMax) gMax = v;
+  if (!(gMax > 0)) return null;
+  const threshold = 0.30 * gMax;
+  const strong = []; // array of {be, intensity}
+  for (let i = 1; i < n - 1; i++) {
+    if (bgSubInten[i] < threshold) continue;
+    if (bgSubInten[i] >= bgSubInten[i - 1] && bgSubInten[i] >= bgSubInten[i + 1]) {
+      strong.push({ be: rawBE[i], intensity: bgSubInten[i] });
+    }
+  }
+  if (!strong.length) return null;
+  // Highest-BE strong maximum
+  let best = strong[0];
+  for (const c of strong) if (c.be > best.be) best = c;
+  return best.be;
+}
+
 function isC1sTab(tab) {
   if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
   const ui = tab.ui || {};
