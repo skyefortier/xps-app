@@ -8,7 +8,8 @@ Supported lineshapes
   pseudo_voigt_gl – linear GL mix: (1‑η)·G + η·L  (η = Lorentzian fraction)
   asymmetric_gl   – GL mix with independent left/right FWHM
   doniach_sunjic  – metallic asymmetric lineshape
-  la_casaxps      – CasaXPS LA(α,β,m): DS core convolved with Gaussian
+  ds_g            – DS+G: DS core × Gaussian convolution (formerly "la_casaxps")
+  la_casaxps      – TRUE CasaXPS LA(α,β,m): asymmetric base Lorentzian + integer-kernel Gauss conv
 
 Backgrounds
 -----------
@@ -145,7 +146,7 @@ def _doniach_sunjic(
     return result
 
 
-def _la_casaxps(
+def _ds_g_dscore_gauss(
     x: np.ndarray,
     amplitude: float,
     center: float,
@@ -154,7 +155,11 @@ def _la_casaxps(
     m_gauss: float,  # CasaXPS: Gaussian FWHM (eV) for convolution
 ) -> np.ndarray:
     """
-    CasaXPS LA(α,β,m) lineshape — Doniach-Šunjić core convolved with Gaussian.
+    DS+G lineshape (formerly mislabeled "LA(α,β,m) [CasaXPS]") —
+    Doniach-Šunjić asymmetric core convolved analytically with a Gaussian
+    instrument-broadening kernel. NOT to be confused with the true CasaXPS
+    LA shape (see _la_casaxps_true), which uses a piecewise-asymmetric
+    Lorentzian with point-domain Gaussian convolution.
 
     The DS core with asymmetry index α and Lorentzian half-width β is convolved
     with a Gaussian of FWHM m for instrument broadening.
@@ -538,7 +543,7 @@ _SHAPE_FUNCS = {
     "pseudo_voigt_gl": _pseudo_voigt_gl,
     "asymmetric_gl": _asymmetric_gl,
     "doniach_sunjic": _doniach_sunjic,
-    "la_casaxps": _la_casaxps,
+    "ds_g": _ds_g_dscore_gauss,
 }
 
 AVAILABLE_SHAPES = list(_SHAPE_FUNCS.keys())
@@ -626,7 +631,7 @@ def _make_peak_params(
             _set("gamma_asym", spec.get("gamma_asym", 0.0),
                  expr=f"{m_prefix}gamma_asym" if spec.get("fix_fwhm", True) else None,
                  min_=0.0, max_=1.0)
-        if shape == "la_casaxps":
+        if shape == "ds_g":
             fix = spec.get("fix_fwhm", True)
             _set("alpha",   spec.get("alpha",   0.10), expr=f"{m_prefix}alpha"   if fix else None, min_=0.0,  max_=0.49)
             _set("beta",    spec.get("beta",    0.3),  expr=f"{m_prefix}beta"    if fix else None, min_=0.05, max_=2.0)
@@ -634,13 +639,13 @@ def _make_peak_params(
         return p
 
     # Free (master or unconstrained) peak
-    # Non-LA peaks (satellites, etc.) get a default ±2 eV constraint to prevent
+    # Non-DS+G peaks (satellites, etc.) get a default ±2 eV constraint to prevent
     # the optimizer from drifting to physically unreasonable positions.
     c_min = spec.get("center_min")
     c_max = spec.get("center_max")
-    if shape != "la_casaxps" and c_min is None:
+    if shape != "ds_g" and c_min is None:
         c_min = center - 2.0
-    if shape != "la_casaxps" and c_max is None:
+    if shape != "ds_g" and c_max is None:
         c_max = center + 2.0
     _set("center", center, min_=c_min, max_=c_max, vary=not spec.get("fix_center", False))
     _set("amplitude", amp,
@@ -663,7 +668,7 @@ def _make_peak_params(
              vary=not spec.get("fix_alpha", False))
         _set("gamma_asym", spec.get("gamma_asym", 0.0), min_=0.0, max_=5.0,
              vary=not spec.get("fix_gamma_asym", False))
-    if shape == "la_casaxps":
+    if shape == "ds_g":
         _set("alpha",   spec.get("alpha",   0.10), min_=0.0,  max_=0.49,
              vary=not spec.get("fix_alpha", False))
         _set("beta",    spec.get("beta",    0.3),  min_=0.05, max_=2.0,
