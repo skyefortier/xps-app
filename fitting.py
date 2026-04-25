@@ -617,7 +617,8 @@ def _make_peak_params(
         if shape == "asymmetric_gl":
             _set("asymmetry", asymmetry,
                  expr=f"{m_prefix}asymmetry" if spec.get("fix_fwhm", True) else None,
-                 min_=0.0, max_=1.0)
+                 min_=spec.get("asymmetry_min", 0.0),
+                 max_=spec.get("asymmetry_max", 1.0))
         if shape == "doniach_sunjic":
             _set("alpha", spec.get("alpha", 0.1),
                  expr=f"{m_prefix}alpha" if spec.get("fix_fwhm", True) else None,
@@ -653,7 +654,9 @@ def _make_peak_params(
         _set("gl_ratio", spec.get("gl_ratio", 0.3), min_=0.0, max_=1.0,
              vary=not spec.get("fix_gl_ratio", False))
     if shape == "asymmetric_gl":
-        _set("asymmetry", asymmetry, min_=0.0, max_=1.0,
+        _set("asymmetry", asymmetry,
+             min_=spec.get("asymmetry_min", 0.0),
+             max_=spec.get("asymmetry_max", 1.0),
              vary=not spec.get("fix_asymmetry", False))
     if shape == "doniach_sunjic":
         _set("alpha", spec.get("alpha", 0.1), min_=0.0, max_=0.5,

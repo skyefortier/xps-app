@@ -4490,6 +4490,11 @@ function peakToBackendSpec(p) {
     spec.gl_ratio = (p.glMix || 50) / 100;
     spec.asymmetry = p.asymmetry || 0;
     spec.fix_asymmetry = !!p.fixAsymmetry;
+    // Forward auto-fit asymmetry bounds when present (set by buildAutoFitModel).
+    // For non-auto-fit peaks these fields are absent and the backend falls back
+    // to its [0.0, 1.0] default.
+    if (Number.isFinite(p._afAsymMin)) spec.asymmetry_min = p._afAsymMin;
+    if (Number.isFinite(p._afAsymMax)) spec.asymmetry_max = p._afAsymMax;
   } else if (shape === 'DS' || shape === 'DSG') {
     spec.shape = 'doniach_sunjic';
     spec.alpha      = p.dsAlpha || 0.1;
