@@ -4585,6 +4585,28 @@ window.addEventListener('DOMContentLoaded', () => {
   if (typeof _recomputeAutoFitMenuState === 'function') _recomputeAutoFitMenuState();
 });
 
+// Returns a Promise<boolean> — true if user clicks Proceed, false on Cancel/X.
+let _autoFitConfirmResolver = null;
+function _showAutoFitConfirmModal(peakCount) {
+  return new Promise(resolve => {
+    _autoFitConfirmResolver = resolve;
+    const span = document.getElementById('auto-fit-c1s-confirm-count');
+    if (span) span.textContent = String(peakCount);
+    const proceed = document.getElementById('auto-fit-c1s-confirm-proceed');
+    proceed.onclick = () => {
+      document.getElementById('auto-fit-c1s-confirm-overlay').classList.remove('open');
+      const r = _autoFitConfirmResolver; _autoFitConfirmResolver = null;
+      if (r) r(true);
+    };
+    document.getElementById('auto-fit-c1s-confirm-overlay').classList.add('open');
+  });
+}
+function _autoFitConfirmCancel() {
+  document.getElementById('auto-fit-c1s-confirm-overlay').classList.remove('open');
+  const r = _autoFitConfirmResolver; _autoFitConfirmResolver = null;
+  if (r) r(false);
+}
+
 // Returns true if the tab is a C1s spectrum, defined by ROI midpoint
 // in [270.0, 315.0] eV. Uses the tab's persisted UI ROI fields (which
 // are corrected-BE values), falling back to the current rawBE range.
@@ -8170,6 +8192,23 @@ document.addEventListener('mousedown', function(e) {
     <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px">Try clicking <strong>Run Fit</strong> again. If the problem persists, check that the server is running.</p>
     <div class="dialog-btns">
       <button class="btn btn-accent" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto-Fit C1s Graphite — replace-existing-peaks confirmation -->
+<div id="auto-fit-c1s-confirm-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal" style="max-width:440px">
+    <h3>Auto-Fit will replace existing peaks
+      <button class="btn btn-sm" onclick="_autoFitConfirmCancel()">&#x2715;</button>
+    </h3>
+    <p style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 14px">
+      This tab has <span id="auto-fit-c1s-confirm-count">0</span> peak(s) and a fit result.
+      Auto-Fit will clear them and run a fresh fit. Continue?
+    </p>
+    <div class="dialog-btns">
+      <button class="btn" onclick="_autoFitConfirmCancel()">Cancel</button>
+      <button class="btn btn-accent" id="auto-fit-c1s-confirm-proceed">Proceed</button>
     </div>
   </div>
 </div>
