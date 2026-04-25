@@ -4807,6 +4807,47 @@ function buildAutoFitModel(assessment) {
   return peaks;
 }
 
+// Capture exactly the bits of state Auto-Fit will mutate, so a failure can
+// cleanly restore the tab. Returns an opaque snapshot object.
+function _autoFitSnapshot() {
+  return {
+    peaks:        JSON.parse(JSON.stringify(state.peaks || [])),
+    fitResult:    state.fitResult ? { ...state.fitResult } : null,
+    ccShift:      state.ccShift,
+    nextId:       state.nextId,
+    ccMethodDom:  document.getElementById('cc-method')?.value || 'none',
+    ccObsDom:     document.getElementById('cc-obs')?.value || '',
+    ccLitDom:     document.getElementById('cc-lit')?.value || '',
+    roiMinDom:    document.getElementById('roi-min')?.value || '',
+    roiMaxDom:    document.getElementById('roi-max')?.value || '',
+    bgStartDom:   document.getElementById('bg-start')?.value || '',
+    bgEndDom:     document.getElementById('bg-end')?.value || '',
+  };
+}
+
+function _autoFitRestore(snap) {
+  if (!snap) return;
+  state.peaks     = snap.peaks;
+  state.fitResult = snap.fitResult;
+  state.ccShift   = snap.ccShift;
+  state.nextId    = snap.nextId;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('cc-method', snap.ccMethodDom);
+  set('cc-obs',    snap.ccObsDom);
+  set('cc-lit',    snap.ccLitDom);
+  set('roi-min',   snap.roiMinDom);
+  set('roi-max',   snap.roiMaxDom);
+  set('bg-start',  snap.bgStartDom);
+  set('bg-end',    snap.bgEndDom);
+  const disp = document.getElementById('cc-shift-display');
+  if (disp) {
+    const sh = -state.ccShift;
+    disp.textContent = (sh >= 0 ? '+' : '') + sh.toFixed(3) + ' eV';
+  }
+  if (typeof renderPeakList === 'function') renderPeakList();
+  if (typeof updatePlot === 'function') updatePlot();
+}
+
 function isC1sTab(tab) {
   if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
   const ui = tab.ui || {};
