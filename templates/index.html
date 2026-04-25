@@ -4848,6 +4848,79 @@ function _autoFitRestore(snap) {
   if (typeof updatePlot === 'function') updatePlot();
 }
 
+// Apply a successful auto-fit result. Mutates state and DOM so the tab
+// ends in a self-consistent corrected frame with graphite at exactly 284.50.
+function applyAutoFitResult(json, graphiteRaw, roi) {
+  // 1. Locate the graphite peak in state.peaks (named "Graphite").
+  const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
+  if (!gPeak || !Number.isFinite(gPeak.center)) {
+    notify('Auto-fit failed: graphite center not found in fit result.', 'red', true);
+    return false;
+  }
+  // 2. Validate within ±0.3 of 284.50 (the LA center bound).
+  if (Math.abs(gPeak.center - 284.50) > 0.30 + 1e-6) {
+    notify('Fit failed to converge or produced an unphysical graphite position.', 'red', true);
+    return false;
+  }
+  // 3. Compute fitted raw center using APP CONVENTION:
+  //    raw = corrected + state.ccShift (state.ccShift is the provisional value).
+  const graphiteFittedRaw = gPeak.center + (Number.isFinite(state.ccShift) ? state.ccShift : 0);
+
+  // 4. Drive updateChargeCorrection() to refine the shift.
+  // Self-consistency: cc-obs = graphite_fitted_raw (NOT graphite_raw_BE),
+  // approved design point.
+  const cm = document.getElementById('cc-method');
+  const co = document.getElementById('cc-obs');
+  const cl = document.getElementById('cc-lit');
+  if (cm && co && cl) {
+    cm.value = 'c1s';
+    co.value = graphiteFittedRaw.toFixed(3);
+    cl.value = '284.50';
+    if (typeof updateChargeCorrection === 'function') updateChargeCorrection();
+  }
+
+  // 5. Build state.fitResult exactly as runFit() does.
+  const { be: be2, inten: inten2 } = getROIData();
+  const bgI2 = computeBackground(be2, inten2);
+  const bgSub2 = inten2.map((v, i) => v - bgI2[i]);
+  const stats = json.statistics || {};
+  const chiReduced = stats.reduced_chi_square || 0;
+  const rmse = Math.sqrt((json.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be2.length));
+  const roiRange = { min: _arrMin(be2).toFixed(1), max: _arrMax(be2).toFixed(1) };
+  state.fitResult = {
+    chi: chiReduced * Math.max(1, be2.length - state.peaks.length * 3),
+    chiReduced, rmse,
+    be: be2, bgSubtracted: bgSub2, bgIntensity: bgI2,
+    backendResult: json,
+    fittedY: json.fitted_y,
+    roiRange,
+  };
+  state.fitResult.rFactor = _computeRFactor(state.fitResult);
+
+  // 6. Update the same DOM elements runFit() updates.
+  const fq = document.getElementById('fit-quality');
+  if (fq) {
+    fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
+    if (typeof _CHISQ_TOOLTIP !== 'undefined') fq.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
+  }
+  const sbChi = document.getElementById('sb-chi');
+  if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
+  const sbMsg = document.getElementById('sb-msg');
+  if (sbMsg) sbMsg.textContent = 'Auto-fit complete';
+  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult.rFactor);
+  if (typeof _updateROIDisplay === 'function') _updateROIDisplay(roiRange);
+  if (typeof renderPeakList === 'function') renderPeakList();
+  if (typeof updatePlot === 'function') updatePlot();
+  if (typeof renderResults === 'function') renderResults();
+  if (typeof _autoSnapshot === 'function') _autoSnapshot();
+
+  // 7. Sync to tab record so tab switching preserves the result.
+  if (typeof tabManager !== 'undefined' && tabManager._syncActiveToRecord) {
+    tabManager._syncActiveToRecord();
+  }
+  return true;
+}
+
 function isC1sTab(tab) {
   if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
   const ui = tab.ui || {};
