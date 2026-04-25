@@ -4857,6 +4857,35 @@ function _autoFitRestore(snap) {
 
 // Apply a successful auto-fit result. Mutates state and DOM so the tab
 // ends in a self-consistent corrected frame with graphite at exactly 284.50.
+// Compute graphite's area fraction from a /api/fit response and decide
+// whether to surface a non-blocking "graphite < 40%" warning. Pure function;
+// returns null when no warning is needed (or when input is malformed),
+// otherwise returns { fractionPct, warning } where `warning` is the exact
+// user-facing toast text and `fractionPct` is the rounded-to-1dp percentage.
+//
+// Boundary: the spec says "< 0.40" so 0.40 itself does NOT warn.
+function _autoFitCheckGraphiteFraction(json, graphiteId) {
+  if (!json || !Array.isArray(json.individual_peaks)) return null;
+  let total = 0;
+  let graphiteArea = null;
+  for (const ip of json.individual_peaks) {
+    const a = ip && ip.params && ip.params.area && ip.params.area.value;
+    if (!Number.isFinite(a)) continue;
+    total += a;
+    if (String(ip.id) === String(graphiteId)) graphiteArea = a;
+  }
+  if (graphiteArea == null || !(total > 0)) return null;
+  const fraction = graphiteArea / total;
+  if (fraction >= 0.40) return null;
+  const fractionPct = Math.round(fraction * 1000) / 10;  // 1 decimal
+  const warning =
+    'Graphite area is only ' + fractionPct.toFixed(1) +
+    '% of the total C1s signal. This is below the typical 40% expected ' +
+    'for a graphite-dominated sample. Review the fit and consider manual ' +
+    'adjustment.';
+  return { fractionPct, warning };
+}
+
 function applyAutoFitResult(json, graphiteRaw, roi) {
   // 1. Locate the graphite peak in state.peaks (named "Graphite").
   const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
@@ -4925,6 +4954,15 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   if (typeof tabManager !== 'undefined' && tabManager._syncActiveToRecord) {
     tabManager._syncActiveToRecord();
   }
+
+  // 8. Sanity check: warn if graphite area fraction is below 40%. The fit
+  // is kept regardless — this is a triage signal, not a fit-quality gate.
+  const gPeak2 = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
+  if (gPeak2) {
+    const check = _autoFitCheckGraphiteFraction(json, gPeak2.id);
+    if (check) notify(check.warning, 'amber', true);
+  }
+
   return true;
 }
 
