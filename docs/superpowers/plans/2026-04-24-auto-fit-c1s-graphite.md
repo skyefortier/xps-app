@@ -351,3 +351,44 @@ This reverts all commits made since the tag was placed, pushes the revert to `ma
 - **2026-04-23** — Phase 1 C1s charge-reference marker. Shipped, then rolled back as part of the broader Codex cleanup.
 - **2026-04-23** — Codex-designed "Auto-Fit Graphite C1s" built via Claude Code. Rolled back completely; see `clean-slate-pre-autofit` tag.
 - **2026-04-24** — This specification. First attempt at the feature after a full rollback and deliberate rescoping.
+
+---
+
+## Follow-up fixes (2026-04-24)
+
+After Phase-1 shipped and was tested on real Fortier Lab data, two issues
+surfaced that needed constraints added to the fit. Both were specified
+2026-04-24 and implemented as additive frontend-only changes (no
+`fitting.py` or `app.py` edits).
+
+### FIX 1 — Adventitious 1 stays above graphite
+
+**Problem.** Adv 1's previous bounds `[284.30, 285.30]` allowed it to slide
+below graphite (which is bounded `[284.20, 284.80]`). Adventitious sp3
+carbon is always at higher BE than graphitic sp2 — the bound was wrong.
+
+**Resolution.** Use a static frontend lower bound (Attempt 2 in the user's
+prescribed order). Adv 1's `_afCenterMin` is now `284.80` (= graphite_init
+`284.50` + the chemical 0.3 eV separation). Upper bound unchanged at `285.30`.
+
+**Trade-off.** The floor is fixed in the corrected BE frame, not relative to
+graphite's *fitted* center. If graphite drifts to its `±0.3` upper bound
+(284.80), adv 1's floor sits exactly at graphite's ceiling. A truly relative
+constraint would need an lmfit derived-parameter mechanism that the backend
+spec format does not currently support; adding it is well over 10 lines of
+backend change. The static bound is sufficient for graphite-matrix samples
+in practice.
+
+### FIX 2 — Post-fit warning when graphite area < 40%
+
+**Problem.** Real spectra were converging with graphite at 23–26% of total
+fitted area. Mathematically valid; physically dubious for a graphite-
+dominated sample.
+
+**Resolution.** After a successful fit, compute
+`graphite_area / sum(all_peak_areas)` from the `/api/fit`
+`individual_peaks[*].params.area.value` data. If `< 0.40`, emit an amber
+non-blocking `notify()` toast in addition to the green success toast.
+Threshold is hardcoded; the fit is kept regardless.
+
+**Implementation pointer.** See `docs/superpowers/plans/2026-04-24-auto-fit-c1s-followup-fixes.md`.
