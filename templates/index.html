@@ -1537,11 +1537,11 @@
             <div class="field-row">
               <div class="field">
                 <label>BE min (eV)</label>
-                <input type="number" id="roi-min" value="706" step="0.5" oninput="updatePlot()">
+                <input type="number" id="roi-min" value="706" step="0.5" oninput="updatePlot();_recomputeAutoFitMenuState()">
               </div>
               <div class="field">
                 <label>BE max (eV)</label>
-                <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot()">
+                <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot();_recomputeAutoFitMenuState()">
               </div>
             </div>
             <div style="display:flex;gap:6px">
@@ -2036,6 +2036,7 @@ class TabManager {
     if (notesEl) notesEl.value = tab.notes || '';
     this._updateCCVerifiedUI(tab.chargeVerified ?? true);
     this._updateInfoBadge(tab);
+    if (typeof _recomputeAutoFitMenuState === 'function') _recomputeAutoFitMenuState();
     // Update chi-squared display for this tab's fit result
     const fqEl = document.getElementById('fit-quality');
     const chiEl = document.getElementById('sb-chi');
@@ -4558,6 +4559,31 @@ function _hideFitSpinner() {
   document.querySelector('.btn-green').disabled = false;
   clearTimeout(_showFitSpinner._timer);
 }
+
+// Sync the Auto-Fit menu item's disabled state with the active tab.
+// Called from activateTab and from ROI-input event handlers.
+function _recomputeAutoFitMenuState() {
+  const item = document.getElementById('auto-fit-c1s-menu-item');
+  if (!item) return;
+  const tab = (typeof tabManager !== 'undefined' && tabManager.activeId)
+    ? tabManager._getTab(tabManager.activeId)
+    : null;
+  const enabled = !!tab && isC1sTab(tab);
+  item.disabled = !enabled;
+  if (enabled) {
+    item.removeAttribute('aria-disabled');
+    item.title = 'Auto-Fit C1s Graphite — one-click fit + charge correction';
+  } else {
+    item.setAttribute('aria-disabled', 'true');
+    item.title = 'Auto-Fit C1s Graphite is only available for C1s spectra (ROI midpoint 270–315 eV).';
+  }
+}
+
+// Late-init for Auto-Fit menu state (in case startup runs before the
+// menu item is in the DOM).
+window.addEventListener('DOMContentLoaded', () => {
+  if (typeof _recomputeAutoFitMenuState === 'function') _recomputeAutoFitMenuState();
+});
 
 // Returns true if the tab is a C1s spectrum, defined by ROI midpoint
 // in [270.0, 315.0] eV. Uses the tab's persisted UI ROI fields (which
