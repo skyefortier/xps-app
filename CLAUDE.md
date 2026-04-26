@@ -68,7 +68,8 @@ state = {
 | `GL` | Pseudo-Voigt with adjustable GL mixing (0–100) |
 | `asym-GL` | GL with asymmetric FWHM broadening on high-BE side |
 | `DS` | Doniach-Šunjić, params `dsAlpha` (0–0.5) and `dsGamma` |
-| `LA` | LA(α,β,m) — Doniach-Šunjić core convolved with Gaussian (CasaXPS convention) |
+| `DSG_LA` | DS+G — Doniach-Šunjić core convolved with Gaussian (formerly mislabeled "LA [CasaXPS]"). Frontend params `laAlpha`/`laBeta`/`laM`; backend id `ds_g` |
+| `LACX` | True CasaXPS LA(α,β,m) — asymmetric base Lorentzian + integer-kernel Gauss conv. Frontend params `caAlpha`/`caBeta`/`caM`; backend id `la_casaxps` |
 
 ### Fitting Algorithm
 
@@ -121,21 +122,59 @@ When `dx > 0` (x at higher BE than center) this factor decays, and when
 minimise the artefact until this is corrected. The power-law asymmetry from
 `dsAlpha` is correct and dominates at typical parameter values.
 
-### LA(α, β, m) — CasaXPS Convention
+### DS+G (formerly mislabeled "LA(α, β, m) [CasaXPS]")
+
+The shape registered as `ds_g` in the backend (frontend enum `'DSG_LA'`,
+dropdown text "DS+G") is a Doniach-Šunjić asymmetric core convolved with a
+Gaussian. Despite its old label, this is NOT the CasaXPS LA formulation.
+Frontend field names `laAlpha` / `laBeta` / `laM` are kept for save-state
+compatibility:
 
 | Parameter | Meaning |
 |-----------|---------|
-| α | **Dimensionless** asymmetry index, 0 ≤ α < 0.5 |
-| β | Lorentzian half-width at half-maximum (eV) |
-| m | Gaussian FWHM for convolution (eV) |
+| α (`laAlpha`) | DS asymmetry index, dimensionless, 0 ≤ α < 0.5 |
+| β (`laBeta`) | Lorentzian HALF-width (eV) of the DS core |
+| m (`laM`) | Gaussian FWHM (eV) used in the convolution |
 
-These are **not** half-widths in eV. α controls the shape of the power-law
-tail (identical role to `dsAlpha` in the Doniach-Šunjić formula). β is the
-Lorentzian width (not a half-width of a BE-asymmetric window). m is the
-Gaussian broadening applied by convolution.
+Tail points toward **higher** binding energy (DS physics: low-energy
+electron-hole pair excitations on the high-BE side only).
 
-The LA tail must also point toward **higher** binding energy (same physical
-reason as DS).
+Saved fits using the old `'LA'` shape value are auto-migrated on load to
+`'DSG_LA'` — math is unchanged, only the label.
+
+DSG shape removed; was a pre-existing bug where the frontend preview showed
+DS ⊛ G but the backend fit DS-only. Saved fits using DSG are auto-migrated
+to DS, which is the shape they were actually being fit against.
+
+### LA(α, β, m) [CasaXPS] — true CasaXPS formulation
+
+The shape registered as `la_casaxps` (frontend enum `'LACX'`, dropdown
+"LA(α,β,m) [CasaXPS]") implements the genuine CasaXPS LA. Distinct field
+names `caAlpha` / `caBeta` / `caM` so users do not confuse them with DS+G's
+`laAlpha`/`laBeta`/`laM` (which have totally different units):
+
+| Parameter | Meaning |
+|-----------|---------|
+| α (`caAlpha`) | High-BE-side exponent on the unit-amplitude Lorentzian; dimensionless, default 1.0, bounds 0.1–5.0 |
+| β (`caBeta`) | Low-BE-side exponent; dimensionless, default 1.0, bounds 0.1–5.0 |
+| m (`caM`) | Gaussian convolution kernel width in DATA POINTS (not eV); integer, default 50, bounds 0–499 |
+
+α=β=1, m=0 reduces exactly to a pure Lorentzian. Increasing α **suppresses**
+the high-BE tail; decreasing α extends it (BE-axis convention; sign-flipped
+from CasaXPS's KE-axis description). m controls Gaussian broadening;
+effective eV width ≈ (m/3) × dx where dx is the data step size.
+
+When implementing new LA-related lineshape parameters, **always** add them
+to:
+
+- `defaultPeak` defaults block in `templates/index.html`
+- `syncKeys` array (around line 4075)
+- `renderShapeControls` LACX param row
+- `peakToBackendSpec` LACX branch
+- `applyBackendResult` LACX backend-param mapping
+- `runFit` JS LM free-params block + per-param clamps + linked-peak sync
+- `evalPeak` switch + grid-aware `laTrueCasaXPS_array` evaluator (called via `evalPeakArray`)
+- `_migrateLineshapeAliases` if backwards-compat alias needed
 
 ### UCl4 U 4f Asymmetric Broadening
 
