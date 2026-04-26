@@ -2831,7 +2831,7 @@ function evalPeak(x, p) {
     if (yMax > 0) y /= yMax;
   } else if (p.shape === 'Voigt') {
     y = pseudoVoigt(x, center, fwhm, 0.5);
-  } else if (p.shape === 'LA') {
+  } else if (p.shape === 'DSG_LA') {
     // laCasaXPS already returns a normalised [0,1] value
     y = laCasaXPS(x, center, p.laAlpha, p.laBeta, p.laM);
   } else if (p.shape === 'Gaussian') {
@@ -4223,7 +4223,7 @@ function renderPeakForm(p) {
         <option value="GL" data-tip="Adjustable Gaussian/Lorentzian ratio. Use when you need control over the peak shape — common for oxides, polymers, and organic materials." ${p.shape==='GL'?'selected':''}>GL pseudo-Voigt (&eta; mixing)</option>
         <option value="asym-GL" data-tip="GL with asymmetric broadening. Use for peaks with vibrational fine structure (e.g., C 1s in polymers) or when one side is broader than the other." ${p.shape==='asym-GL'?'selected':''}>Asymmetric GL (&alpha; asymmetry)</option>
         <option value="DS" data-tip="Asymmetric metallic lineshape with tail toward higher BE. Use for metals and conductive samples (e.g., Au, Cu, Fe metal). Not appropriate for insulators or oxides." ${p.shape==='DS'?'selected':''}>Doniach-&Scaron;unji&#263; (&alpha; + &gamma;)</option>
-        <option value="LA" data-tip="CasaXPS convention asymmetric lineshape. Most versatile — works for metals, semiconductors, and materials with complex screening. A good general choice for transition metals and other core levels with non-trivial tail shapes." ${p.shape==='LA'?'selected':''}>LA (&alpha;,&beta;,m) [CasaXPS]</option>
+        <option value="DSG_LA" data-tip="Doniach-Šunjić core convolved with a Gaussian. A defensible asymmetric shape — good for metals and transition metals with complex screening. Previously this entry was mis-labeled as 'LA [CasaXPS]'. The genuine CasaXPS LA(α,β,m) lives in the new entry below." ${p.shape==='DSG_LA'?'selected':''}>DS+G</option>
       </select>
     </div>
     <div id="shape-controls-${p.id}">
@@ -4238,12 +4238,12 @@ function renderPeakForm(p) {
           ${isLinked ? 'readonly style="opacity:0.5"' : ''}
           oninput="updatePeakParam(${p.id},'center',parseFloat(this.value));document.querySelector('#peak-item-${p.id} .peak-info').textContent=parseFloat(this.value).toFixed(2)+' eV'">
       </div>
-      <div class="field" id="fwhm-field-${p.id}" ${p.shape === 'LA' ? 'style="opacity:0.4"' : ''}>
-        <label data-xps-tip="Full width at half maximum. Typical XPS peak widths range from 0.5 to 3.0 eV depending on the element, chemical state, and spectrometer resolution. Peaks from the same chemical environment should have similar FWHM values.">FWHM (eV)${p.shape === 'LA' ? ' <em style="color:var(--amber);font-size:9px">set by \\u03b2, m</em>' : ''}
-          ${!isLinked && p.shape !== 'LA' ? '<button class="lock-btn' + (p.fixFwhm ? ' locked' : '') + '" onclick="event.stopPropagation();toggleLock(' + p.id + ',\'fixFwhm\',this)" title="' + (p.fixFwhm ? 'Unlock' : 'Lock') + ' during fitting">' + (p.fixFwhm ? '&#x1f512;' : '&#x1f513;') + '</button>' : ''}
+      <div class="field" id="fwhm-field-${p.id}" ${p.shape === 'DSG_LA' ? 'style="opacity:0.4"' : ''}>
+        <label data-xps-tip="Full width at half maximum. Typical XPS peak widths range from 0.5 to 3.0 eV depending on the element, chemical state, and spectrometer resolution. Peaks from the same chemical environment should have similar FWHM values.">FWHM (eV)${p.shape === 'DSG_LA' ? ' <em style="color:var(--amber);font-size:9px">set by \\u03b2, m</em>' : ''}
+          ${!isLinked && p.shape !== 'DSG_LA' ? '<button class="lock-btn' + (p.fixFwhm ? ' locked' : '') + '" onclick="event.stopPropagation();toggleLock(' + p.id + ',\'fixFwhm\',this)" title="' + (p.fixFwhm ? 'Unlock' : 'Lock') + ' during fitting">' + (p.fixFwhm ? '&#x1f512;' : '&#x1f513;') + '</button>' : ''}
         </label>
         <input type="number" id="pk-fwhm-${p.id}" value="${p.fwhm.toFixed(3)}" step="0.05" min="0.1"
-          ${p.shape === 'LA' ? 'readonly ' : ''}oninput="updatePeakParam(${p.id},'fwhm',parseFloat(this.value))">
+          ${p.shape === 'DSG_LA' ? 'readonly ' : ''}oninput="updatePeakParam(${p.id},'fwhm',parseFloat(this.value))">
       </div>
     </div>
     <div class="field">
@@ -4326,7 +4326,7 @@ function renderShapeControls(p) {
           oninput="updatePeakParam(${p.id},'dsGamma',parseFloat(this.value))">
       </div>
     `;
-  } else if (p.shape === 'LA') {
+  } else if (p.shape === 'DSG_LA') {
     return `
       <div style="font-size:10px;color:var(--text3);margin-bottom:6px">
         CasaXPS convention — tail toward higher BE
@@ -4373,7 +4373,7 @@ function updateShapeControls(id) {
   const fwhmInput = document.getElementById('pk-fwhm-' + id);
   const fwhmLabel = fwhmField ? fwhmField.querySelector('label') : null;
   if (fwhmField) {
-    const isLA = p.shape === 'LA';
+    const isLA = p.shape === 'DSG_LA';
     fwhmField.style.opacity = isLA ? '0.4' : '1';
     if (fwhmInput) fwhmInput.readOnly = isLA;
     if (fwhmLabel) fwhmLabel.innerHTML = isLA
@@ -4453,8 +4453,8 @@ function peakToBackendSpec(p) {
     spec.gamma_asym = p.dsGamma || 0.0;
     spec.fix_alpha      = !!p.fixDsAlpha;
     spec.fix_gamma_asym = !!p.fixDsGamma;
-  } else if (shape === 'LA') {
-    spec.shape = 'la_casaxps';
+  } else if (shape === 'DSG_LA') {
+    spec.shape = 'ds_g';
     spec.alpha   = Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10;
     spec.beta    = Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3;
     spec.m_gauss = Number.isFinite(p.laM)     ? p.laM     : 0.4;
@@ -4490,9 +4490,9 @@ function applyBackendResult(result) {
     if (par.asymmetry && p.shape === 'asym-GL' && !p.fixAsymmetry) p.asymmetry = par.asymmetry.value;
     if (par.alpha && p.shape === 'DS' && !p.fixDsAlpha) p.dsAlpha = par.alpha.value;
     if (par.gamma_asym && p.shape === 'DS' && !p.fixDsGamma) p.dsGamma = par.gamma_asym.value;
-    if (par.alpha   && p.shape === 'LA' && !p.fixLaAlpha) p.laAlpha = par.alpha.value;
-    if (par.beta    && p.shape === 'LA' && !p.fixLaBeta)  p.laBeta  = par.beta.value;
-    if (par.m_gauss && p.shape === 'LA' && !p.fixLaM)     p.laM     = par.m_gauss.value;
+    if (par.alpha   && p.shape === 'DSG_LA' && !p.fixLaAlpha) p.laAlpha = par.alpha.value;
+    if (par.beta    && p.shape === 'DSG_LA' && !p.fixLaBeta)  p.laBeta  = par.beta.value;
+    if (par.m_gauss && p.shape === 'DSG_LA' && !p.fixLaM)     p.laM     = par.m_gauss.value;
     p._backendParams = par;
   }
 }
@@ -5217,7 +5217,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
   for (const p of state.peaks) {
     if (!p.linked) {
       if (!p.fixCenter)    { freeParams.push(p.center);    paramMap.push({id: p.id, param: 'center'}); }
-      if (!p.fixFwhm && p.shape !== 'LA') { freeParams.push(p.fwhm); paramMap.push({id: p.id, param: 'fwhm'}); }
+      if (!p.fixFwhm && p.shape !== 'DSG_LA') { freeParams.push(p.fwhm); paramMap.push({id: p.id, param: 'fwhm'}); }
       if (!p.fixAmplitude) { freeParams.push(p.amplitude); paramMap.push({id: p.id, param: 'amplitude'}); }
       if ((p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) {
         freeParams.push(p.glMix); paramMap.push({id: p.id, param: 'glMix'});
@@ -5231,7 +5231,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       if (p.shape === 'DS' && !p.fixDsGamma) {
         freeParams.push(p.dsGamma); paramMap.push({id: p.id, param: 'dsGamma'});
       }
-      if (p.shape === 'LA') {
+      if (p.shape === 'DSG_LA') {
         if (!p.fixLaAlpha) { freeParams.push(Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10); paramMap.push({id: p.id, param: 'laAlpha'}); }
         if (!p.fixLaBeta)  { freeParams.push(Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3);  paramMap.push({id: p.id, param: 'laBeta'}); }
         if (!p.fixLaM)     { freeParams.push(Number.isFinite(p.laM)     ? p.laM     : 0.4);  paramMap.push({id: p.id, param: 'laM'}); }
