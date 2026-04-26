@@ -3476,6 +3476,10 @@ function updateChargeCorrection() {
   const shift = -state.ccShift;
   document.getElementById('cc-shift-display').textContent = (shift >= 0 ? '+' : '') + shift.toFixed(3) + ' eV';
   updatePlot();
+  // Re-render the per-peak panels so the C 1s graphite checkbox
+  // appears/disappears reactively when the method changes (and any
+  // stale isChargeReference flags are cleared by renderPeakList).
+  renderPeakList();
 }
 
 function getCorrectedBE() {
@@ -4223,7 +4227,30 @@ function _updateLockAllBtn() {
 // ═══════════════════════════════════════════════════
 // PEAK LIST UI
 // ═══════════════════════════════════════════════════
+// The per-peak "Charge-correction reference (C 1s graphite)" checkbox is
+// only meaningful when the user is on a C 1s spectrum AND the global
+// charge-correction method is set to graphite. When either condition is
+// false, the checkbox is hidden completely AND any peak that previously
+// held the marker is silently unchecked, so re-entering the valid mode
+// gives a clean unchecked state rather than a stale stored value.
+function _isChargeRefAllowed() {
+  const cm = document.getElementById('cc-method');
+  if (!cm || cm.value !== 'c1s') return false;
+  const tab = (typeof tabManager !== 'undefined' && tabManager.activeId)
+    ? tabManager._getTab(tabManager.activeId)
+    : null;
+  return !!(tab && isC1sTab(tab));
+}
+
+function _clearDisallowedChargeRef() {
+  if (_isChargeRefAllowed()) return;
+  for (const p of state.peaks) {
+    if (p.isChargeReference) p.isChargeReference = false;
+  }
+}
+
 function renderPeakList() {
+  _clearDisallowedChargeRef();
   const el = document.getElementById('peak-list');
   const empty = document.getElementById('peak-empty');
   // Preserve which peak cards are expanded before clearing
@@ -4284,11 +4311,13 @@ function renderPeakList() {
 
 function renderPeakForm(p) {
   const isLinked = !!p.linked;
+  const showChargeRef = _isChargeRefAllowed();
   return `
     <div class="field">
       <label>Name</label>
       <input type="text" value="${p.name}" oninput="updatePeakParam(${p.id},'name',this.value);document.querySelector('#peak-item-${p.id} .peak-name').childNodes[0].textContent=this.value">
     </div>
+    ${showChargeRef ? `
     <div class="field" style="display:flex;align-items:center;gap:6px;margin-top:2px">
       <input type="checkbox" id="pk-cref-${p.id}"
              ${p.isChargeReference ? 'checked' : ''}
@@ -4299,7 +4328,7 @@ function renderPeakForm(p) {
              title="Mark this peak as the charge-correction reference (typically C 1s graphite at 284.8 eV). Only one peak per fit can hold this marker.">
         Charge-correction reference (C&nbsp;1s graphite)
       </label>
-    </div>
+    </div>` : ''}
     <div class="field">
       <label>Line shape</label>
       <select id="pk-shape-${p.id}" class="xps-tip-select" onchange="updatePeakParam(${p.id},'shape',this.value);updateShapeControls(${p.id})">
