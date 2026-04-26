@@ -597,6 +597,16 @@ def _la_casaxps_true(
     kern = kern / kern.sum()
 
     convolved = np.convolve(base, kern, mode='same')
+    # np.convolve mode='same' returns max(len(base), len(kern)) — not
+    # len(base). When the input grid is shorter than the kernel, trim
+    # back to len(base) so the function's len(output) == len(x) contract
+    # holds. lmfit's composite-fit residual path will broadcast the
+    # per-peak arrays against the data grid, so a kernel-length return
+    # surfaces as a cryptic shape mismatch downstream.
+    if len(convolved) > len(base):
+        excess = len(convolved) - len(base)
+        start = excess // 2
+        convolved = convolved[start:start + len(base)]
 
     peak_idx = int(np.argmin(np.abs(eps)))
     peak_val = convolved[peak_idx]
