@@ -2815,6 +2815,67 @@ function laCasaXPS(x, center, alpha, beta, mGauss) {
   return norm > 0 ? val / norm : 0;
 }
 
+// True LA(α, β, m) [CasaXPS] — piecewise-asymmetric Lorentzian + integer-kernel Gauss conv.
+// Mirrors fitting.py:_la_casaxps_true. BE axis: high-BE side (eps ≥ 0)
+// gets exponent α; low-BE side (eps < 0) gets β. m is integer 0–499 in
+// data-points; σ_pts = m/3.
+function laTrueCasaXPS(x, center, fwhm, alpha, beta, m) {
+  const F = Math.max(fwhm, 1e-9);
+  const A = Math.max(alpha, 1e-3);
+  const B = Math.max(beta,  1e-3);
+  const eps = x - center;
+  const L = 1.0 / (1.0 + 4.0 * Math.pow(eps / F, 2));
+  // Per-point fallback: returns the m=0 base. The grid-aware path
+  // (laTrueCasaXPS_array) handles non-zero m for chart series.
+  return eps >= 0 ? Math.pow(L, A) : Math.pow(L, B);
+}
+
+function laTrueCasaXPS_array(xArr, center, fwhm, alpha, beta, m) {
+  const N = xArr.length;
+  const F = Math.max(fwhm, 1e-9);
+  const A = Math.max(alpha, 1e-3);
+  const B = Math.max(beta,  1e-3);
+  const mInt = Math.max(0, Math.min(499, Math.round(m || 0)));
+  const base = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const eps = xArr[i] - center;
+    const L = 1.0 / (1.0 + 4.0 * (eps / F) * (eps / F));
+    base[i] = eps >= 0 ? Math.pow(L, A) : Math.pow(L, B);
+  }
+  if (mInt === 0) return base;
+  const sigma = mInt / 3.0;
+  const klen = 2 * mInt + 1;
+  const kern = new Float64Array(klen);
+  let ksum = 0;
+  for (let k = 0; k < klen; k++) {
+    const dk = k - mInt;
+    kern[k] = Math.exp(-(dk * dk) / (2.0 * sigma * sigma));
+    ksum += kern[k];
+  }
+  for (let k = 0; k < klen; k++) kern[k] /= ksum;
+  const out = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    let s = 0;
+    for (let k = 0; k < klen; k++) {
+      const j = i + (k - mInt);
+      if (j >= 0 && j < N) s += base[j] * kern[k];
+    }
+    out[i] = s;
+  }
+  let pkIdx = 0;
+  for (let i = 1; i < N; i++) {
+    if (Math.abs(xArr[i] - center) < Math.abs(xArr[pkIdx] - center)) pkIdx = i;
+  }
+  let pkVal = out[pkIdx];
+  if (pkVal <= 0) {
+    let mx = 0; for (let i = 0; i < N; i++) if (out[i] > mx) mx = out[i];
+    pkVal = mx;
+  }
+  if (pkVal <= 0) return out;
+  for (let i = 0; i < N; i++) out[i] = out[i] / pkVal;
+  return out;
+}
+
 function evalPeak(x, p) {
   let y = 0;
   const center = p.center;
@@ -2834,6 +2895,10 @@ function evalPeak(x, p) {
   } else if (p.shape === 'DSG_LA') {
     // laCasaXPS already returns a normalised [0,1] value
     y = laCasaXPS(x, center, p.laAlpha, p.laBeta, p.laM);
+  } else if (p.shape === 'LACX') {
+    // Per-point fallback: m=0 base, ignores Gaussian conv. Chart series
+    // build paths use laTrueCasaXPS_array via evalPeakArray.
+    y = laTrueCasaXPS(x, center, p.fwhm, p.caAlpha, p.caBeta, p.caM);
   } else if (p.shape === 'Gaussian') {
     y = gaussian(x, center, fwhm);
   } else if (p.shape === 'Lorentzian') {
@@ -2842,12 +2907,27 @@ function evalPeak(x, p) {
   return amp * y;
 }
 
+// Compute per-peak intensities across an array of BE values. Special-cases
+// LACX with non-zero m so the Gaussian convolution sees the whole grid.
+function evalPeakArray(beArr, p) {
+  if (p.shape === 'LACX' && Math.round(p.caM || 0) > 0) {
+    const yArr = laTrueCasaXPS_array(beArr, p.center, p.fwhm, p.caAlpha, p.caBeta, p.caM);
+    const out = new Array(beArr.length);
+    const amp = p.amplitude;
+    for (let i = 0; i < beArr.length; i++) out[i] = amp * yArr[i];
+    return out;
+  }
+  return beArr.map(x => evalPeak(x, p));
+}
+
 function evalAllPeaks(beArray, peaks) {
-  return beArray.map(x => {
-    let sum = 0;
-    for (const p of peaks) sum += evalPeak(x, p);
-    return sum;
-  });
+  const N = beArray.length;
+  const sums = new Array(N).fill(0);
+  for (const p of peaks) {
+    const yArr = evalPeakArray(beArray, p);
+    for (let i = 0; i < N; i++) sums[i] += yArr[i];
+  }
+  return sums;
 }
 
 // ═══════════════════════════════════════════════════
@@ -3506,6 +3586,9 @@ function defaultPeak(overrides) {
     laAlpha: 0.10,
     laBeta: 0.3,
     laM: 0.4,
+    caAlpha: 1.0,
+    caBeta: 1.0,
+    caM: 50,
     linked: null,
     linkOffset: 10.9,
     linkRatio: 0.5,
@@ -3520,6 +3603,9 @@ function defaultPeak(overrides) {
     fixLaAlpha: false,
     fixLaBeta: false,
     fixLaM: false,
+    fixCaAlpha: false,
+    fixCaBeta: false,
+    fixCaM: true,
     isChargeReference: false
   }, overrides);
 }
@@ -4049,7 +4135,7 @@ function updatePeakParam(id, key, value) {
   if (!p) return;
   p[key] = value;
 
-  const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM'];
+  const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM','caAlpha','caBeta','caM'];
   if (syncKeys.includes(key)) {
     // Resolve canonical parent: if p is a child, find its parent first
     let parent = p.linked ? getPeak(p.linked) : p;
@@ -4224,6 +4310,7 @@ function renderPeakForm(p) {
         <option value="asym-GL" data-tip="GL with asymmetric broadening. Use for peaks with vibrational fine structure (e.g., C 1s in polymers) or when one side is broader than the other." ${p.shape==='asym-GL'?'selected':''}>Asymmetric GL (&alpha; asymmetry)</option>
         <option value="DS" data-tip="Asymmetric metallic lineshape with tail toward higher BE. Use for metals and conductive samples (e.g., Au, Cu, Fe metal). Not appropriate for insulators or oxides." ${p.shape==='DS'?'selected':''}>Doniach-&Scaron;unji&#263; (&alpha; + &gamma;)</option>
         <option value="DSG_LA" data-tip="Doniach-Šunjić core convolved with a Gaussian. A defensible asymmetric shape — good for metals and transition metals with complex screening. Previously this entry was mis-labeled as 'LA [CasaXPS]'. The genuine CasaXPS LA(α,β,m) lives in the new entry below." ${p.shape==='DSG_LA'?'selected':''}>DS+G</option>
+        <option value="LACX" data-tip="True CasaXPS LA(α,β,m). Asymmetric Lorentzian raised to exponents α (high-BE tail side) and β (low-BE side), convolved with a Gaussian of integer point width m. Reduces to a pure Lorentzian at α=β=1, m=0. Match to CasaXPS by using the same α, β, m values." ${p.shape==='LACX'?'selected':''}>LA(&alpha;,&beta;,m) [CasaXPS]</option>
       </select>
     </div>
     <div id="shape-controls-${p.id}">
@@ -4355,6 +4442,35 @@ function renderShapeControls(p) {
           oninput="updatePeakParam(${p.id},'laM',parseFloat(this.value))">
       </div>
     `;
+  } else if (p.shape === 'LACX') {
+    return `
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px">
+        True CasaXPS LA — &alpha;/&beta; are exponents (BE convention: &alpha; applies to high-BE side)
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label data-xps-tip="High-BE-side exponent. CasaXPS-equivalent α. Smaller α extends the high-BE tail. Default 1.0 (symmetric Lorentzian). Bounds 0.1–5.0.">&alpha; (high-BE exp)
+            ${!isLinked ? `<button class="lock-btn${p.fixCaAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixCaAlpha',this)" title="${p.fixCaAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixCaAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+          </label>
+          <input type="number" value="${(p.caAlpha ?? 1.0).toFixed(3)}" step="0.05" min="0.1" max="5.0"
+            oninput="updatePeakParam(${p.id},'caAlpha',parseFloat(this.value))">
+        </div>
+        <div class="field">
+          <label data-xps-tip="Low-BE-side exponent. CasaXPS-equivalent β. Default 1.0 (symmetric). Bounds 0.1–5.0.">&beta; (low-BE exp)
+            ${!isLinked ? `<button class="lock-btn${p.fixCaBeta ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixCaBeta',this)" title="${p.fixCaBeta ? 'Unlock' : 'Lock'} during fitting">${p.fixCaBeta ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+          </label>
+          <input type="number" value="${(p.caBeta ?? 1.0).toFixed(3)}" step="0.05" min="0.1" max="5.0"
+            oninput="updatePeakParam(${p.id},'caBeta',parseFloat(this.value))">
+        </div>
+      </div>
+      <div class="field">
+        <label data-xps-tip="Gaussian convolution kernel width in DATA POINTS (not eV). Integer 0–499. m=0 = no convolution. Effective eV width ≈ (m/3) × dx where dx is the data step size.">m (Gauss kernel pts)
+          ${!isLinked ? `<button class="lock-btn${p.fixCaM ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixCaM',this)" title="${p.fixCaM ? 'Unlock' : 'Lock'} during fitting">${p.fixCaM ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
+        </label>
+        <input type="number" value="${Math.round(p.caM ?? 50)}" step="1" min="0" max="499"
+          oninput="updatePeakParam(${p.id},'caM',parseFloat(this.value))">
+      </div>
+    `;
   }
   return '';
 }
@@ -4461,6 +4577,14 @@ function peakToBackendSpec(p) {
     spec.fix_alpha   = !!p.fixLaAlpha;
     spec.fix_beta    = !!p.fixLaBeta;
     spec.fix_m_gauss = !!p.fixLaM;
+  } else if (shape === 'LACX') {
+    spec.shape = 'la_casaxps';
+    spec.alpha = Number.isFinite(p.caAlpha) ? p.caAlpha : 1.0;
+    spec.beta  = Number.isFinite(p.caBeta)  ? p.caBeta  : 1.0;
+    spec.m     = Number.isFinite(p.caM)     ? p.caM     : 50.0;
+    spec.fix_alpha = !!p.fixCaAlpha;
+    spec.fix_beta  = !!p.fixCaBeta;
+    spec.fix_m     = !!p.fixCaM;
   } else {
     spec.shape = 'gaussian';
   }
@@ -4493,6 +4617,9 @@ function applyBackendResult(result) {
     if (par.alpha   && p.shape === 'DSG_LA' && !p.fixLaAlpha) p.laAlpha = par.alpha.value;
     if (par.beta    && p.shape === 'DSG_LA' && !p.fixLaBeta)  p.laBeta  = par.beta.value;
     if (par.m_gauss && p.shape === 'DSG_LA' && !p.fixLaM)     p.laM     = par.m_gauss.value;
+    if (par.alpha   && p.shape === 'LACX' && !p.fixCaAlpha) p.caAlpha = par.alpha.value;
+    if (par.beta    && p.shape === 'LACX' && !p.fixCaBeta)  p.caBeta  = par.beta.value;
+    if (par.m       && p.shape === 'LACX' && !p.fixCaM)     p.caM     = par.m.value;
     p._backendParams = par;
   }
 }
@@ -5236,6 +5363,11 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
         if (!p.fixLaBeta)  { freeParams.push(Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3);  paramMap.push({id: p.id, param: 'laBeta'}); }
         if (!p.fixLaM)     { freeParams.push(Number.isFinite(p.laM)     ? p.laM     : 0.4);  paramMap.push({id: p.id, param: 'laM'}); }
       }
+      if (p.shape === 'LACX') {
+        if (!p.fixCaAlpha) { freeParams.push(Number.isFinite(p.caAlpha) ? p.caAlpha : 1.0); paramMap.push({id: p.id, param: 'caAlpha'}); }
+        if (!p.fixCaBeta)  { freeParams.push(Number.isFinite(p.caBeta)  ? p.caBeta  : 1.0); paramMap.push({id: p.id, param: 'caBeta'}); }
+        if (!p.fixCaM)     { freeParams.push(Number.isFinite(p.caM)     ? p.caM     : 50);  paramMap.push({id: p.id, param: 'caM'}); }
+      }
     }
   }
 
@@ -5254,6 +5386,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       if (param === 'laAlpha')      v = Math.max(0, Math.min(0.49, v));
       if (param === 'laBeta')       v = Math.max(0.05, Math.min(2.0, v));
       if (param === 'laM')          v = Math.max(0.05, Math.min(4.0, v));
+      if (param === 'caAlpha')      v = Math.max(0.1, Math.min(5.0, v));
+      if (param === 'caBeta')       v = Math.max(0.1, Math.min(5.0, v));
+      if (param === 'caM')          v = Math.max(0,   Math.min(499, Math.round(v)));
       p[param] = v;
       const linked = state.peaks.find(q => q.linked === id);
       if (linked) {
@@ -5262,7 +5397,8 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
         if (param === 'fwhm')      linked.fwhm = v;
         if (param === 'shape' || param === 'glMix' || param === 'asymmetry' ||
             param === 'dsAlpha' || param === 'dsGamma' ||
-            param === 'laAlpha' || param === 'laBeta' || param === 'laM') linked[param] = v;
+            param === 'laAlpha' || param === 'laBeta' || param === 'laM' ||
+            param === 'caAlpha' || param === 'caBeta' || param === 'caM') linked[param] = v;
       }
     }
   }
@@ -5716,9 +5852,10 @@ function updatePlot() {
     for (let pi = 0; pi < state.peaks.length; pi++) {
       const p = state.peaks[pi];
       const fillTarget = showFill ? { target: pi, above: p.color + '40', below: 'transparent' } : false;
+      const peakY = evalPeakArray(plotBE, p);
       datasets.push({
         label: p.name,
-        data: plotBE.map((b, i) => ({ x: b, y: evalPeak(b, p) + plotBG[i] })),
+        data: plotBE.map((b, i) => ({ x: b, y: peakY[i] + plotBG[i] })),
         borderColor: p.color,
         backgroundColor: p.color + '40',
         borderWidth: 1.5,
@@ -7060,8 +7197,8 @@ function exportFitTable(fmt) {
       p.name, p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
       p.fwhm.toFixed(4), fse !== '' ? Number(fse).toFixed(5) : '',
       p.amplitude.toFixed(2), ase !== '' ? Number(ase).toFixed(3) : '',
-      areas[i].toFixed(2), p.shape, p.glMix ?? '', p.dsAlpha ?? p.laAlpha ?? '',
-      p.laBeta ?? '', p.laM ?? '',
+      areas[i].toFixed(2), p.shape, p.glMix ?? '', p.dsAlpha ?? p.laAlpha ?? p.caAlpha ?? '',
+      p.laBeta ?? p.caBeta ?? '', p.laM ?? p.caM ?? '',
       rsfVals[i].toFixed(4), normAreas[i].toFixed(4), atPcts[i].toFixed(2)
     ];
   });
