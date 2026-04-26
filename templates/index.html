@@ -2771,23 +2771,6 @@ function doniachSunjic(x, center, fwhm, alpha, gamma_asym) {
   return core * tailDecay;
 }
 
-function doniachSunjicGauss(x, center, fwhm, alpha, gamma_asym, gaussSigma) {
-  // DS convolved with Gaussian instrument function (numerical integration)
-  // Use this for metallic/asymmetric spectra where instrument broadening is significant
-  if (gaussSigma < 0.001) return doniachSunjic(x, center, fwhm, alpha, gamma_asym);
-  const range = 4 * gaussSigma;
-  const nPts = 51;
-  const step = 2 * range / (nPts - 1);
-  let sum = 0, gsum = 0;
-  for (let k = 0; k < nPts; k++) {
-    const dx = -range + k * step;
-    const g = Math.exp(-dx * dx / (2 * gaussSigma * gaussSigma));
-    sum += doniachSunjic(x - dx, center, fwhm, alpha, gamma_asym) * g;
-    gsum += g;
-  }
-  return sum / (gsum || 1);
-}
-
 function laCasaXPSCore(eps, alpha, beta) {
   // Doniach-Šunjić core (BE convention) for LA(α,β,m)
   // α: dimensionless asymmetry index (0–0.5); tail at eps > 0 → HIGHER binding energy
@@ -2845,10 +2828,6 @@ function evalPeak(x, p) {
   } else if (p.shape === 'DS') {
     y = doniachSunjic(x, center, fwhm, p.dsAlpha, p.dsGamma);
     const yMax = doniachSunjic(center, center, fwhm, p.dsAlpha, 0.001);
-    if (yMax > 0) y /= yMax;
-  } else if (p.shape === 'DSG') {
-    y = doniachSunjicGauss(x, center, fwhm, p.dsAlpha, p.dsGamma, p.dsGaussSigma);
-    const yMax = doniachSunjicGauss(center, center, fwhm, p.dsAlpha, 0.001, p.dsGaussSigma);
     if (yMax > 0) y /= yMax;
   } else if (p.shape === 'Voigt') {
     y = pseudoVoigt(x, center, fwhm, 0.5);
@@ -3524,7 +3503,6 @@ function defaultPeak(overrides) {
     asymmetry: 0.0,
     dsAlpha: 0.10,
     dsGamma: 0.01,
-    dsGaussSigma: 0.3,
     laAlpha: 0.10,
     laBeta: 0.3,
     laM: 0.4,
@@ -3539,7 +3517,6 @@ function defaultPeak(overrides) {
     fixAsymmetry: false,
     fixDsAlpha: false,
     fixDsGamma: false,
-    fixDsGaussSigma: false,
     fixLaAlpha: false,
     fixLaBeta: false,
     fixLaM: false,
@@ -4072,7 +4049,7 @@ function updatePeakParam(id, key, value) {
   if (!p) return;
   p[key] = value;
 
-  const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','dsGaussSigma','laAlpha','laBeta','laM'];
+  const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM'];
   if (syncKeys.includes(key)) {
     // Resolve canonical parent: if p is a child, find its parent first
     let parent = p.linked ? getPeak(p.linked) : p;
@@ -4246,7 +4223,6 @@ function renderPeakForm(p) {
         <option value="GL" data-tip="Adjustable Gaussian/Lorentzian ratio. Use when you need control over the peak shape — common for oxides, polymers, and organic materials." ${p.shape==='GL'?'selected':''}>GL pseudo-Voigt (&eta; mixing)</option>
         <option value="asym-GL" data-tip="GL with asymmetric broadening. Use for peaks with vibrational fine structure (e.g., C 1s in polymers) or when one side is broader than the other." ${p.shape==='asym-GL'?'selected':''}>Asymmetric GL (&alpha; asymmetry)</option>
         <option value="DS" data-tip="Asymmetric metallic lineshape with tail toward higher BE. Use for metals and conductive samples (e.g., Au, Cu, Fe metal). Not appropriate for insulators or oxides." ${p.shape==='DS'?'selected':''}>Doniach-&Scaron;unji&#263; (&alpha; + &gamma;)</option>
-        <option value="DSG" data-tip="Doniach-Šunjić with instrument broadening. Use for metals when instrument resolution is significant. Good for metallic standards and clean metal surfaces." ${p.shape==='DSG'?'selected':''}>DS &times; Gaussian (DS + instr. broadening)</option>
         <option value="LA" data-tip="CasaXPS convention asymmetric lineshape. Most versatile — works for metals, semiconductors, and materials with complex screening. A good general choice for transition metals and other core levels with non-trivial tail shapes." ${p.shape==='LA'?'selected':''}>LA (&alpha;,&beta;,m) [CasaXPS]</option>
       </select>
     </div>
@@ -4348,30 +4324,6 @@ function renderShapeControls(p) {
         </label>
         <input type="number" value="${p.dsGamma.toFixed(4)}" step="0.001" min="0"
           oninput="updatePeakParam(${p.id},'dsGamma',parseFloat(this.value))">
-      </div>
-    `;
-  } else if (p.shape === 'DSG') {
-    return `
-      <div class="asym-field">
-        <label data-xps-tip="The singularity index controlling the asymmetric tail from metallic screening. Typical values: 0.02-0.05 for simple metals (Cu, Ag, Au), 0.05-0.15 for graphite and transition metals, up to 0.2 for strong screening. Higher values produce a longer tail toward higher binding energy.">DS &alpha; (asymmetry) <span style="color:var(--text3);font-size:9px">typical 0.02&ndash;0.15</span>
-          ${!isLinked ? `<button class="lock-btn${p.fixDsAlpha ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsAlpha',this)" title="${p.fixDsAlpha ? 'Unlock' : 'Lock'} during fitting">${p.fixDsAlpha ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
-        </label>
-        <input type="number" value="${p.dsAlpha.toFixed(3)}" step="0.005" min="0" max="0.5"
-          oninput="updatePeakParam(${p.id},'dsAlpha',parseFloat(this.value))">
-      </div>
-      <div class="field">
-        <label data-xps-tip="Controls the Lorentzian lifetime broadening width in eV. Typical values range from 0.1 to 0.5 eV. Larger values produce broader peaks.">DS &gamma; (tail decay)
-          ${!isLinked ? `<button class="lock-btn${p.fixDsGamma ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsGamma',this)" title="${p.fixDsGamma ? 'Unlock' : 'Lock'} during fitting">${p.fixDsGamma ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
-        </label>
-        <input type="number" value="${p.dsGamma.toFixed(4)}" step="0.001" min="0"
-          oninput="updatePeakParam(${p.id},'dsGamma',parseFloat(this.value))">
-      </div>
-      <div class="field">
-        <label>Instrument &sigma; (Gaussian broadening, eV)
-          ${!isLinked ? `<button class="lock-btn${p.fixDsGaussSigma ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixDsGaussSigma',this)" title="${p.fixDsGaussSigma ? 'Unlock' : 'Lock'} during fitting">${p.fixDsGaussSigma ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
-        </label>
-        <input type="number" value="${p.dsGaussSigma.toFixed(3)}" step="0.05" min="0"
-          oninput="updatePeakParam(${p.id},'dsGaussSigma',parseFloat(this.value))">
       </div>
     `;
   } else if (p.shape === 'LA') {
@@ -4495,7 +4447,7 @@ function peakToBackendSpec(p) {
     // to its [0.0, 1.0] default.
     if (Number.isFinite(p._afAsymMin)) spec.asymmetry_min = p._afAsymMin;
     if (Number.isFinite(p._afAsymMax)) spec.asymmetry_max = p._afAsymMax;
-  } else if (shape === 'DS' || shape === 'DSG') {
+  } else if (shape === 'DS') {
     spec.shape = 'doniach_sunjic';
     spec.alpha      = p.dsAlpha || 0.1;
     spec.gamma_asym = p.dsGamma || 0.0;
@@ -4536,8 +4488,8 @@ function applyBackendResult(result) {
     if (par.fwhm      && !p.fixFwhm)     p.fwhm      = par.fwhm.value;
     if (par.gl_ratio  && !p.fixGlMix)    p.glMix     = par.gl_ratio.value * 100;
     if (par.asymmetry && p.shape === 'asym-GL' && !p.fixAsymmetry) p.asymmetry = par.asymmetry.value;
-    if (par.alpha && (p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsAlpha) p.dsAlpha = par.alpha.value;
-    if (par.gamma_asym && (p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsGamma) p.dsGamma = par.gamma_asym.value;
+    if (par.alpha && p.shape === 'DS' && !p.fixDsAlpha) p.dsAlpha = par.alpha.value;
+    if (par.gamma_asym && p.shape === 'DS' && !p.fixDsGamma) p.dsGamma = par.gamma_asym.value;
     if (par.alpha   && p.shape === 'LA' && !p.fixLaAlpha) p.laAlpha = par.alpha.value;
     if (par.beta    && p.shape === 'LA' && !p.fixLaBeta)  p.laBeta  = par.beta.value;
     if (par.m_gauss && p.shape === 'LA' && !p.fixLaM)     p.laM     = par.m_gauss.value;
@@ -5273,14 +5225,11 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       if (p.shape === 'asym-GL' && !p.fixAsymmetry) {
         freeParams.push(p.asymmetry); paramMap.push({id: p.id, param: 'asymmetry'});
       }
-      if ((p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsAlpha) {
+      if (p.shape === 'DS' && !p.fixDsAlpha) {
         freeParams.push(p.dsAlpha); paramMap.push({id: p.id, param: 'dsAlpha'});
       }
-      if ((p.shape === 'DS' || p.shape === 'DSG') && !p.fixDsGamma) {
+      if (p.shape === 'DS' && !p.fixDsGamma) {
         freeParams.push(p.dsGamma); paramMap.push({id: p.id, param: 'dsGamma'});
-      }
-      if (p.shape === 'DSG' && !p.fixDsGaussSigma) {
-        freeParams.push(p.dsGaussSigma); paramMap.push({id: p.id, param: 'dsGaussSigma'});
       }
       if (p.shape === 'LA') {
         if (!p.fixLaAlpha) { freeParams.push(Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10); paramMap.push({id: p.id, param: 'laAlpha'}); }
@@ -5302,7 +5251,6 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       if (param === 'asymmetry')    v = Math.max(0, Math.min(0.9, v));
       if (param === 'dsAlpha')      v = Math.max(0, Math.min(0.49, v));
       if (param === 'dsGamma')      v = Math.max(0, Math.min(5.0, v));
-      if (param === 'dsGaussSigma') v = Math.max(0.01, Math.min(3.0, v));
       if (param === 'laAlpha')      v = Math.max(0, Math.min(0.49, v));
       if (param === 'laBeta')       v = Math.max(0.05, Math.min(2.0, v));
       if (param === 'laM')          v = Math.max(0.05, Math.min(4.0, v));
@@ -5313,7 +5261,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
         if (param === 'amplitude') linked.amplitude = v * linked.linkRatio;
         if (param === 'fwhm')      linked.fwhm = v;
         if (param === 'shape' || param === 'glMix' || param === 'asymmetry' ||
-            param === 'dsAlpha' || param === 'dsGamma' || param === 'dsGaussSigma' ||
+            param === 'dsAlpha' || param === 'dsGamma' ||
             param === 'laAlpha' || param === 'laBeta' || param === 'laM') linked[param] = v;
       }
     }
