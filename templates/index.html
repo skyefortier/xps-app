@@ -6615,7 +6615,42 @@ function _isSessionFile(name) {
   return n.endsWith('.json') || n.endsWith('.zip') || n.endsWith('.xpsproj');
 }
 
+// Migrate lineshape enum values in saved fits to the current naming.
+// Round-2 (2026-04-25):
+//   'LA'  → 'DSG_LA' — old LA was DS-core × Gauss conv, mislabeled as
+//                       CasaXPS LA. Math is unchanged; only the label.
+//   'DSG' → 'DS'     — DSG had a JS-only Gaussian-broadening preview
+//                       but its fit was already DS-only (the request
+//                       serialized as doniach_sunjic). Loading as DS
+//                       restores the curve that was actually being fit.
+// Mutates `peaks` in place. Logs one console.info line per alias actually
+// applied. Idempotent — running twice produces no further changes.
+function _migrateLineshapeAliases(peaks) {
+  if (!Array.isArray(peaks)) return;
+  const SHAPE_ALIASES = {
+    'LA': 'DSG_LA',
+    'DSG': 'DS',
+  };
+  const counts = {};
+  for (const p of peaks) {
+    if (!p || typeof p.shape !== 'string') continue;
+    const dest = SHAPE_ALIASES[p.shape];
+    if (dest) {
+      const key = p.shape + '->' + dest;
+      counts[key] = (counts[key] || 0) + 1;
+      p.shape = dest;
+    }
+  }
+  if (counts['LA->DSG_LA']) {
+    console.info('[migration] Remapped ' + counts['LA->DSG_LA'] + " peak(s) from 'LA' → 'DSG_LA' (DS+G is the new label).");
+  }
+  if (counts['DSG->DS']) {
+    console.info('[migration] Migrated ' + counts['DSG->DS'] + " peaks from 'DSG' → 'DS' (DSG's Gaussian-broadening preview was cosmetic only and did not affect fits; loading as DS shows the curve that was actually being fit).");
+  }
+}
+
 function _applyFitJSON(data) {
+  if (data && Array.isArray(data.peaks)) _migrateLineshapeAliases(data.peaks);
   if (!state.rawBE.length) { notify('Load a spectrum first before loading a fit.', 'amber', true); return; }
   tabManager.fromJSON(data);
   const nPeaks = (data.peaks || []).length;
@@ -6715,6 +6750,14 @@ function _loadSpectrumFile(data, sessionFile) {
 }
 
 function _loadProjectJSON(data, sessionFile) {
+  // Per-tab peaks live under data.tabs[i].peaks (v2+) and/or top-level
+  // data.peaks (v1). Migrate both shapes.
+  if (data && Array.isArray(data.peaks)) _migrateLineshapeAliases(data.peaks);
+  if (data && Array.isArray(data.tabs)) {
+    for (const t of data.tabs) {
+      if (t && Array.isArray(t.peaks)) _migrateLineshapeAliases(t.peaks);
+    }
+  }
   // Add project tabs to the existing tab bar (same as loading a folder)
   const newTabs = data.tabs.map(t => {
     const id = 'tab_' + Math.random().toString(36).slice(2, 9);
