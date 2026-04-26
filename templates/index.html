@@ -1902,9 +1902,77 @@ const ELEMENT_MARKER_COLORS = [
 
 const PEAK_COLORS = ['#4a9eff','#3ddc84','#ff6b6b','#ffbb44','#b48eff','#ff8c66','#44ddcc','#ff9de2','#aaffaa','#ffaaaa'];
 
-// TODO: Verify these values against the original Scofield 1976 paper
-// Source: Scofield, J.H., J. Electron Spectrosc. Relat. Phenom. 8 (1976) 129
-// Normalized to C 1s = 1.000 for Al Kα (1486.6 eV)
+// Scofield 1976 RSF values, normalized to C 1s = 1.000 at Al Kα (1486.6 eV).
+// Listing here for cross-reference against the original tables:
+//   Li 1s: 0.057
+//   Be 1s: 0.137
+//   B 1s:  0.276
+//   C 1s:  1.000
+//   N 1s:  1.800
+//   O 1s:  2.930
+//   F 1s:  4.430
+//   Na 1s: 8.520
+//   Na 2s: 1.100
+//   Mg 1s: 11.18
+//   Mg 2s: 1.560
+//   Mg 2p: 0.168
+//   Al 2s: 2.100
+//   Al 2p: 0.256
+//   Si 2s: 2.760
+//   Si 2p: 0.368
+//   P 2s:  3.490
+//   P 2p:  0.514
+//   S 2s:  4.290
+//   S 2p:  0.668
+//   Cl 2s: 5.170
+//   Cl 2p: 0.891
+//   K 2p:  1.466
+//   K 3s:  0.226
+//   Ca 2p: 1.833
+//   Ca 3s: 0.304
+//   Ti 2p: 2.752
+//   V 2p:  3.240
+//   Cr 2p: 3.758
+//   Mn 2p: 4.326
+//   Fe 2p: 4.935
+//   Co 2p: 5.582
+//   Ni 2p: 6.302
+//   Cu 2p: 7.060
+//   Zn 2p: 7.910
+//   Ga 2p: 8.820
+//   Ga 3d: 0.348
+//   Ge 2p: 9.790
+//   Ge 3d: 0.453
+//   As 3d: 0.572
+//   Se 3d: 0.706
+//   Br 3d: 0.858
+//   Sr 3d: 1.849
+//   Y 3d:  2.140
+//   Zr 3d: 2.454
+//   Nb 3d: 2.797
+//   Mo 3d: 3.167
+//   Ag 3d: 5.987
+//   Cd 3d: 6.590
+//   In 3d: 7.218
+//   Sn 3d: 7.875
+//   Sb 3d: 8.560
+//   Te 3d: 9.272
+//   I 3d:  10.01
+//   Ba 3d: 12.85
+//   La 3d: 13.72
+//   Ce 3d: 14.63
+//   W 4f:  3.523
+//   Pt 4f: 5.575
+//   Au 4f: 6.250
+//   Pb 4f: 6.943
+//   Bi 4f: 7.327
+//   Th 4f: 8.756
+//   U 4f:  9.674
+//
+// PENDING VERIFICATION: values originally entered from secondary sources
+// and not yet cross-checked against Scofield, J.H., J. Electron Spectrosc.
+// Relat. Phenom. 8 (1976) 129. Once verified, replace this notice with
+// "Verified against Scofield 1976" and the date.
 const SCOFIELD_RSF = {
   'Li 1s': 0.057, 'Be 1s': 0.137, 'B 1s': 0.276, 'C 1s': 1.000, 'N 1s': 1.800,
   'O 1s': 2.930, 'F 1s': 4.430, 'Na 1s': 8.520, 'Na 2s': 1.100, 'Mg 1s': 11.18,
@@ -1920,6 +1988,8 @@ const SCOFIELD_RSF = {
   'La 3d': 13.72, 'Ce 3d': 14.63, 'W 4f': 3.523, 'Pt 4f': 5.575, 'Au 4f': 6.250,
   'Pb 4f': 6.943, 'Bi 4f': 7.327, 'Th 4f': 8.756, 'U 4f': 9.674,
 };
+// Source: Scofield 1976, J. Electron Spectrosc. Relat. Phenom. 8, 129
+// Normalization: divided by Scofield's C 1s value at Al Kα so C 1s = 1.000
 
 // Spin-orbit splitting presets for multiplet pair auto-detection
 const SPIN_ORBIT_PRESETS = {
@@ -5684,6 +5754,9 @@ function renderQuantify(areas, totalArea) {
   let html = `
     <div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
       Relative atomic concentrations from peak areas.
+    </div>
+    <div style="background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--radius);padding:8px 10px;font-size:11px;color:var(--amber);margin-bottom:10px">
+      ⚠ Semi-quantitative — atomic percentages assume uniform sample composition, no transmission correction, and no matrix effects. RSFs are theoretical (Scofield 1976). Treat results as approximate; for publication, validate against reference standards.
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
       <label style="margin:0;font-size:11px;color:var(--text2)">RSF Source:</label>
