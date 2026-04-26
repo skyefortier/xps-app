@@ -783,26 +783,6 @@ def _make_peak_params(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Charge correction helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Canonical reference binding energies (eV)
-CHARGE_REFERENCES = {
-    "c1s": 284.8,   # adventitious carbon C 1s
-    "au4f": 83.96,  # Au 4f₇/₂ (Fermi‑level calibrated)
-}
-
-
-def charge_shift(method: str, measured_be: float) -> float:
-    """Return the shift (eV) to add to all energies to correct charging."""
-    reference = CHARGE_REFERENCES.get(method.lower())
-    if reference is None:
-        raise ValueError(f"Unknown charge‑correction method '{method}'. "
-                         f"Choices: {list(CHARGE_REFERENCES)}")
-    return reference - measured_be
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
 

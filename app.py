@@ -20,7 +20,6 @@ REST API
 POST /api/upload            Upload a data file; returns session_id + preview data
 POST /api/background        Compute background for a session
 POST /api/fit               Run peak fitting; returns full result
-POST /api/charge-correct    Compute charge shift from a reference peak
 GET  /api/peak-shapes       List available lineshape names
 GET  /api/elements          List built‑in spin‑orbit element presets
 GET  /api/session/<id>      Retrieve raw session data
@@ -181,10 +180,6 @@ def _register_routes(app: Flask) -> None:
     @app.get("/api/elements")
     def elements():
         return jsonify(SPIN_ORBIT_PRESETS)
-
-    @app.get("/api/charge-references")
-    def charge_references():
-        return jsonify(fitting.CHARGE_REFERENCES)
 
     # ── File upload ───────────────────────────────────────────────────────────
 
@@ -382,13 +377,7 @@ def _register_routes(app: Flask) -> None:
               "area_ratio":   0.75,               // amplitude = master × ratio
               "fix_fwhm":     true                // lock FWHM to master
             }
-          ],
-
-          "charge_correction": {                  // optional
-            "method":      "c1s",                 // "c1s" | "au4f" | "manual"
-            "measured_be": 285.0,                 // observed reference peak BE
-            "reference_be": 284.8                 // for "manual" only
-          }
+          ]
         }
         """
         body = request.get_json()
@@ -418,21 +407,6 @@ def _register_routes(app: Flask) -> None:
         if len(ids) != len(set(ids)):
             return _err("Duplicate peak ids found – each peak must have a unique 'id'")
 
-        # Charge correction
-        shift_ev = 0.0
-        cc = body.get("charge_correction")
-        if cc:
-            method_cc = cc.get("method", "").lower()
-            if method_cc == "manual":
-                ref = float(cc.get("reference_be", 0.0))
-                meas = float(cc.get("measured_be", 0.0))
-                shift_ev = ref - meas
-            else:
-                try:
-                    shift_ev = fitting.charge_shift(method_cc, float(cc["measured_be"]))
-                except (KeyError, ValueError) as exc:
-                    return _err(str(exc))
-
         _ALLOWED_METHODS = {
             "leastsq", "least_squares", "nelder",
             "differential_evolution", "basinhopping",
@@ -450,7 +424,7 @@ def _register_routes(app: Flask) -> None:
                 background_method=bg_method,
                 bg_start_idx=bg_start,
                 bg_end_idx=bg_end,
-                charge_shift_ev=shift_ev,
+                charge_shift_ev=0.0,
                 fit_kws={"method": fit_method},
                 manual_bg=manual_bg,
                 n_perturb=n_perturb,
@@ -465,48 +439,6 @@ def _register_routes(app: Flask) -> None:
             return _err(f"Internal fitting error: {exc}", 500)
 
         return jsonify(result)
-
-    # ── Charge correction (standalone) ────────────────────────────────────────
-
-    @app.post("/api/charge-correct")
-    @_require_json
-    def charge_correct():
-        """
-        Compute and return the charge shift without running a full fit.
-
-        Request body
-        ------------
-        {
-          "method":      "c1s" | "au4f" | "manual",
-          "measured_be": 285.2,
-          "reference_be": 284.8   // required for "manual"
-        }
-
-        Returns
-        -------
-        {"charge_shift": <float>, "corrected_reference": <float>}
-        """
-        body = request.get_json()
-        method = body.get("method", "c1s").lower()
-        measured = body.get("measured_be")
-        if measured is None:
-            return _err("'measured_be' is required")
-
-        if method == "manual":
-            reference = body.get("reference_be")
-            if reference is None:
-                return _err("'reference_be' is required for manual correction")
-            shift = float(reference) - float(measured)
-        else:
-            try:
-                shift = fitting.charge_shift(method, float(measured))
-            except ValueError as exc:
-                return _err(str(exc))
-
-        return jsonify({
-            "charge_shift": shift,
-            "corrected_reference": fitting.CHARGE_REFERENCES.get(method),
-        })
 
     # ── Health check ──────────────────────────────────────────────────────────
 
