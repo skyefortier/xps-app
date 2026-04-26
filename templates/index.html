@@ -5464,6 +5464,13 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
   const chiReduced = chi / dof;
   const rmse = Math.sqrt(chi / be.length);
 
+  // KNOWN LIMITATION: this fallback fitter does not produce parameter
+  // uncertainties. The backend lmfit path returns stderr per-param via the
+  // covariance matrix; the JS-LM path leaves _buildStderrMap empty so the
+  // results panel shows blank σ for every shape after a fallback fit. To
+  // close this gap, compute σ here from JtJ⁻¹ × (chi / dof) at the final
+  // params (JtJ is built fresh per iteration in the loop above; recompute
+  // it once at the optimum, invert via solveLinear with identity RHS).
   const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
