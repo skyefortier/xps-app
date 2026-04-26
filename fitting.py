@@ -533,6 +533,80 @@ def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return bg * (float(ya[-1]) / denom)
 
 
+def _la_casaxps_true(
+    x: np.ndarray,
+    amplitude: float,
+    center: float,
+    fwhm: float,
+    alpha: float,
+    beta: float,
+    m: float,
+) -> np.ndarray:
+    """
+    True CasaXPS LA(α, β, m) lineshape.
+
+    Built in two steps per the CasaXPS LA manual:
+
+    1.  Asymmetric base Lorentzian. Start with a unit-amplitude Lorentzian
+        of FWHM `fwhm` centered at `center`:
+            L(x) = 1 / (1 + 4·((x − center)/fwhm)²)
+        Apply piecewise exponents to introduce asymmetry. CasaXPS defines
+        these on a kinetic-energy axis. We use a binding-energy axis, so
+        the sides flip:
+            LA_base(x) = L(x)^α   for x ≥ center  (high-BE side)
+            LA_base(x) = L(x)^β   for x <  center  (low-BE side)
+        Increasing α relative to β SUPPRESSES the high-BE tail; decreasing
+        α extends it.
+
+    2.  Gaussian convolution with an integer-point kernel of width `m`.
+        m=0 means no convolution. For m>0, build a discrete Gaussian
+        kernel of length 2m+1 with σ_pts = m/3 (so the 3σ tail just
+        reaches the kernel edge). Convolve with mode='same' on the
+        uniform x grid.
+
+    With α=β=1 and m=0, this reduces exactly to amplitude × L(x) (a pure
+    Lorentzian of peak height = amplitude, FWHM = `fwhm`).
+
+    Parameters
+    ----------
+    fwhm  : Lorentzian FWHM in eV (must be > 0)
+    alpha : high-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
+    beta  : low-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
+    m     : Gaussian convolution kernel width in DATA POINTS (not eV);
+            integer 0–499. Stored as float in lmfit, rounded to int here.
+    """
+    fwhm = max(float(fwhm), 1e-9)
+    alpha = max(float(alpha), 1e-3)
+    beta = max(float(beta), 1e-3)
+    m_int = int(round(float(m)))
+    m_int = max(0, min(499, m_int))
+
+    eps = x - center
+    # Base unit-amplitude Lorentzian
+    L = 1.0 / (1.0 + 4.0 * (eps / fwhm) ** 2)
+    # Piecewise exponentiation. BE-axis: high-BE side is eps ≥ 0.
+    high = eps >= 0
+    base = np.where(high, np.power(L, alpha), np.power(L, beta))
+
+    if m_int == 0:
+        return amplitude * base
+
+    sigma_pts = m_int / 3.0
+    k = np.arange(-m_int, m_int + 1, dtype=float)
+    kern = np.exp(-(k ** 2) / (2.0 * sigma_pts ** 2))
+    kern = kern / kern.sum()
+
+    convolved = np.convolve(base, kern, mode='same')
+
+    peak_idx = int(np.argmin(np.abs(eps)))
+    peak_val = convolved[peak_idx]
+    if peak_val <= 0:
+        peak_val = float(np.max(convolved))
+    if peak_val <= 0:
+        return np.zeros_like(x)
+    return amplitude * convolved / peak_val
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # lmfit Model factory
 # ─────────────────────────────────────────────────────────────────────────────
@@ -544,6 +618,7 @@ _SHAPE_FUNCS = {
     "asymmetric_gl": _asymmetric_gl,
     "doniach_sunjic": _doniach_sunjic,
     "ds_g": _ds_g_dscore_gauss,
+    "la_casaxps": _la_casaxps_true,
 }
 
 AVAILABLE_SHAPES = list(_SHAPE_FUNCS.keys())
@@ -636,6 +711,17 @@ def _make_peak_params(
             _set("alpha",   spec.get("alpha",   0.10), expr=f"{m_prefix}alpha"   if fix else None, min_=0.0,  max_=0.49)
             _set("beta",    spec.get("beta",    0.3),  expr=f"{m_prefix}beta"    if fix else None, min_=0.05, max_=2.0)
             _set("m_gauss", spec.get("m_gauss", 0.4),  expr=f"{m_prefix}m_gauss" if fix else None, min_=0.0,  max_=4.0)
+        if shape == "la_casaxps":
+            fix = spec.get("fix_fwhm", True)
+            _set("alpha", spec.get("alpha", 1.0),
+                 expr=f"{m_prefix}alpha" if fix else None,
+                 min_=0.1, max_=5.0)
+            _set("beta",  spec.get("beta",  1.0),
+                 expr=f"{m_prefix}beta" if fix else None,
+                 min_=0.1, max_=5.0)
+            _set("m",     spec.get("m",    50.0),
+                 expr=f"{m_prefix}m" if fix else None,
+                 min_=0.0, max_=499.0)
         return p
 
     # Free (master or unconstrained) peak
@@ -675,6 +761,13 @@ def _make_peak_params(
              vary=not spec.get("fix_beta", False))
         _set("m_gauss", spec.get("m_gauss", 0.4),  min_=0.05, max_=4.0,
              vary=not spec.get("fix_m_gauss", False))
+    if shape == "la_casaxps":
+        _set("alpha", spec.get("alpha", 1.0), min_=0.1, max_=5.0,
+             vary=not spec.get("fix_alpha", False))
+        _set("beta",  spec.get("beta",  1.0), min_=0.1, max_=5.0,
+             vary=not spec.get("fix_beta", False))
+        _set("m",     spec.get("m",    50.0), min_=0.0, max_=499.0,
+             vary=not spec.get("fix_m", True))
 
     return p
 
