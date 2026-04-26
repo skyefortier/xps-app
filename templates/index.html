@@ -4519,11 +4519,19 @@ function updateShapeControls(id) {
   const fwhmLabel = fwhmField ? fwhmField.querySelector('label') : null;
   if (fwhmField) {
     const isLA = p.shape === 'DSG_LA';
+    const isDS = p.shape === 'DS';
     fwhmField.style.opacity = isLA ? '0.4' : '1';
     if (fwhmInput) fwhmInput.readOnly = isLA;
-    if (fwhmLabel) fwhmLabel.innerHTML = isLA
-      ? 'FWHM (eV) <em style="color:var(--amber);font-size:9px">set by \u03b2, m</em>'
-      : 'FWHM (eV)';
+    if (fwhmLabel) {
+      // For DS: input is the Lorentzian half-width seed (\u03b3 = width/2),
+      // not the measured FWHM, so relabel to avoid that misreading.
+      fwhmLabel.innerHTML = isLA
+        ? 'FWHM (eV) <em style="color:var(--amber);font-size:9px">set by \u03b2, m</em>'
+        : (isDS ? 'Width parameter \u03b3 (eV)' : 'FWHM (eV)');
+      fwhmLabel.setAttribute('data-xps-tip', isDS
+        ? 'Lorentzian half-width parameter (\u03b3 = width/2). When \u03b1 > 0, the measured FWHM of the peak is broader than this input value because of the asymmetric tail.'
+        : 'Full width at half maximum. Typical XPS peak widths range from 0.5 to 3.0 eV depending on the element, chemical state, and spectrometer resolution. Peaks from the same chemical environment should have similar FWHM values.');
+    }
   }
 }
 
