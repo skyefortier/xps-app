@@ -2126,6 +2126,7 @@ class TabManager {
 
     // Restore DOM form fields
     this._restoreUI(tab.ui);
+    if (typeof _updateBgSubPillEnabled === 'function') _updateBgSubPillEnabled();
     const notesEl = document.getElementById('spectrum-notes');
     if (notesEl) notesEl.value = tab.notes || '';
     this._updateCCVerifiedUI(tab.chargeVerified ?? true);
@@ -4827,12 +4828,106 @@ function applyBackendResult(result) {
 
 // LEVENBERG-MARQUARDT FITTING (local JS engine)
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// BKGRD SUB VIEW TOGGLE
+// ═══════════════════════════════════════════════════
+// The pill at id="bg-sub-pill" / id="bg-sub-toggle" can be in three
+// visual states (active, inactive, disabled). The disabled state
+// applies whenever subtraction is meaningless: no spectrum loaded,
+// bg-type is "none", or a fit is running. The pill's checked state
+// is preserved across disable cycles so users get their preference
+// back when bg becomes available again.
+
+let _bgSubFitInFlight = false;
+
+// IDs of overlay controls that don't compose with subtracted view
+// (they're full-spectrum / non-bg-aware). When subtracted view is
+// effectively active we disable them with the existing app
+// convention (opacity 0.4 + disabled attr + title tooltip), so users
+// see why their checkbox appears inert. Identical pattern to how
+// `shirley-iter` is gated when bg-type doesn't need iteration.
+const _BG_SUB_DEPENDENT_CONTROL_IDS = ['smooth-enable', 'deriv1-enable', 'deriv2-enable'];
+
+function _isBgSubViewActive() {
+  const toggle = document.getElementById('bg-sub-toggle');
+  if (!toggle || !toggle.checked) return false;
+  // Even if the pill is checked, fall back to raw view when bg is
+  // unavailable (defensive: covers the moment between bg-type=none
+  // and the pill recompute, and any transient bg gap).
+  const bgType = document.getElementById('bg-type')?.value || 'shirley';
+  if (bgType === 'none') return false;
+  if (!state.rawBE || state.rawBE.length < 2) return false;
+  return true;
+}
+
+function _updateBgSubPillEnabled() {
+  const pill = document.getElementById('bg-sub-pill');
+  const toggle = document.getElementById('bg-sub-toggle');
+  if (!pill || !toggle) return;
+  const bgType = document.getElementById('bg-type')?.value || 'shirley';
+  const noBg = bgType === 'none';
+  const noSpectrum = !state.rawBE || state.rawBE.length < 2;
+  const fitting = _bgSubFitInFlight;
+  const disabled = noBg || noSpectrum || fitting;
+  toggle.disabled = disabled;
+  pill.classList.toggle('disabled', disabled);
+  if (fitting) {
+    pill.title = 'Background subtraction toggle is locked while a fit is running.';
+  } else if (noSpectrum) {
+    pill.title = 'Load a spectrum to enable background subtraction.';
+  } else if (noBg) {
+    pill.title = 'Background subtraction is unavailable when no background method is set.';
+  } else {
+    pill.title = 'Toggle background-subtracted chart view.';
+  }
+}
+
+function _onBgSubToggle() {
+  const toggle = document.getElementById('bg-sub-toggle');
+  const pill = document.getElementById('bg-sub-pill');
+  if (!toggle || !pill) return;
+  pill.classList.toggle('active', toggle.checked);
+  // Persist into the active tab's UI snapshot so save/restore round-trip.
+  if (typeof tabManager !== 'undefined' && tabManager.activeId) {
+    const t = tabManager._getTab(tabManager.activeId);
+    if (t && t.ui) t.ui.bgSubtractedView = toggle.checked;
+  }
+  _syncSubViewDependentControls();
+  updatePlot();
+}
+
+// Disable controls that don't compose with subtracted view, so their
+// checkboxes don't read as "broken" when toggling them does nothing
+// visible. Re-enable when subtracted view is off. Tooltip mirrors the
+// future-enhancement note in the plan.
+function _syncSubViewDependentControls() {
+  const subActive = _isBgSubViewActive();
+  for (const id of _BG_SUB_DEPENDENT_CONTROL_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.disabled = subActive;
+    // Apply opacity to the wrapping label so the visual disable is
+    // obvious — matches the shirley-iter / bg-endpoint-avg pattern.
+    const wrap = el.closest('label') || el.parentElement;
+    if (wrap) wrap.style.opacity = subActive ? '0.4' : '1';
+    if (subActive) {
+      el.title = 'Unavailable in subtracted view. Toggle Bkgrd Sub off to enable.';
+      if (wrap && wrap !== el) wrap.title = el.title;
+    } else {
+      el.title = '';
+      if (wrap && wrap !== el) wrap.title = '';
+    }
+  }
+}
+
 function _showFitSpinner() {
   const overlay = document.getElementById('fit-spinner-overlay');
   const label = document.getElementById('fit-spinner-label');
   if (overlay) overlay.style.display = 'flex';
   if (label) label.innerHTML = 'Fitting<span class="ellipsis"></span>';
   document.querySelector('.btn-green').disabled = true;
+  _bgSubFitInFlight = true;
+  _updateBgSubPillEnabled();
   // After 2s, update label to hint at perturbations
   _showFitSpinner._timer = setTimeout(() => {
     if (label) label.innerHTML = 'Running perturbations<span class="ellipsis"></span>';
@@ -4843,6 +4938,8 @@ function _hideFitSpinner() {
   if (overlay) overlay.style.display = 'none';
   document.querySelector('.btn-green').disabled = false;
   clearTimeout(_showFitSpinner._timer);
+  _bgSubFitInFlight = false;
+  _updateBgSubPillEnabled();
 }
 
 // Sync the Auto-Fit menu item's disabled state with the active tab.
@@ -8671,6 +8768,8 @@ function _onBgTypeChange() {
   }
   _updateManualAnchorCount();
   _invalidateBgCache();
+  _updateBgSubPillEnabled();
+  _syncSubViewDependentControls();
   updatePlot();
 }
 
