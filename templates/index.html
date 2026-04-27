@@ -2299,6 +2299,8 @@ class TabManager {
         active.ui.bgStart = data.background.start || '';
         active.ui.bgEnd = data.background.end || '';
         active.ui.shirleyIter = data.background.shirleyIter || '5';
+        // bgSubtractedView is missing from pre-feature saves → falsy default
+        active.ui.bgSubtractedView = !!data.background.bgSubtractedView;
       }
 
       // Apply ROI
@@ -2688,6 +2690,7 @@ class TabManager {
       ccMethod:    document.getElementById('cc-method')?.value || 'none',
       ccObs:       document.getElementById('cc-obs')?.value || '',
       ccLit:       document.getElementById('cc-lit')?.value || '',
+      bgSubtractedView: !!document.getElementById('bg-sub-toggle')?.checked,
     };
   }
 
@@ -2732,6 +2735,18 @@ class TabManager {
       }
       if (typeof _updateManualAnchorCount === 'function') _updateManualAnchorCount();
     }
+    // Bkgrd Sub: restore checked state, sync visual class, refresh enable,
+    // and re-gate the dependent overlay controls so they reflect the
+    // restored sub-view state.
+    const bgSubToggle = document.getElementById('bg-sub-toggle');
+    const bgSubPill = document.getElementById('bg-sub-pill');
+    if (bgSubToggle && bgSubPill) {
+      const want = !!ui.bgSubtractedView;
+      bgSubToggle.checked = want;
+      bgSubPill.classList.toggle('active', want);
+    }
+    if (typeof _updateBgSubPillEnabled === 'function') _updateBgSubPillEnabled();
+    if (typeof _syncSubViewDependentControls === 'function') _syncSubViewDependentControls();
   }
 
   _updateCCVerifiedUI(verified) {
@@ -6828,7 +6843,8 @@ function _doSaveFit() {
       type: document.getElementById('bg-type').value,
       start: document.getElementById('bg-start').value,
       end: document.getElementById('bg-end').value,
-      shirleyIter: document.getElementById('shirley-iter').value
+      shirleyIter: document.getElementById('shirley-iter').value,
+      bgSubtractedView: !!document.getElementById('bg-sub-toggle')?.checked,
     },
     roi: {
       min: document.getElementById('roi-min').value,
