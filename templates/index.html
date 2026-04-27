@@ -1167,6 +1167,18 @@
   }
   .unc-warn-box li { color: var(--text2); line-height: 1.6; margin-left: 14px; }
 
+  /* Neutral/info counterpart to .unc-warn-box, used for params that are
+     intentionally locked — not an alarm, just a hint at the padlock toggle. */
+  .unc-info-box {
+    background: var(--accent-dim); border: 1px solid var(--accent);
+    border-radius: var(--radius); padding: 8px 10px; margin-top: 10px; font-size: 11px;
+  }
+  .unc-info-box .uw-title {
+    font-family: var(--mono); font-size: 9px; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px;
+  }
+  .unc-info-box li { color: var(--text2); line-height: 1.6; margin-left: 14px; }
+
   /* Custom tooltips */
   #xps-tooltip {
     position: fixed;
@@ -5774,12 +5786,20 @@ function renderResults() {
 
   html += '</tbody></table>';
 
-  // Uncertainty warnings (backend fit only)
-  const uncWarnings = _validateUncertainties();
+  // Uncertainty warnings (backend fit only). Genuine alarms go in the amber
+  // warn-box; intentionally locked params get a neutral info-box so they
+  // stop reading as scary regressions after auto-fit locks centers.
+  const { warnings: uncWarnings, info: uncInfo } = _validateUncertainties();
   if (uncWarnings.length) {
     html += `<div class="unc-warn-box">
       <div class="uw-title">&#9888; Uncertainty Warnings</div>
       <ul>${uncWarnings.join('')}</ul>
+    </div>`;
+  }
+  if (uncInfo.length) {
+    html += `<div class="unc-info-box">
+      <div class="uw-title">&#128274; Locked Parameters</div>
+      <ul>${uncInfo.join('')}</ul>
     </div>`;
   }
 
@@ -7617,8 +7637,9 @@ const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the go
 // UNCERTAINTY VALIDATION
 // ═══════════════════════════════════════════════════
 function _validateUncertainties() {
-  if (!state.fitResult?.backendResult?.individual_peaks) return [];
+  if (!state.fitResult?.backendResult?.individual_peaks) return { warnings: [], info: [] };
   const warnings = [];
+  const info = [];
   const stderrMap = _buildStderrMap(state.fitResult);
   const preFit = state.fitResult._preFit || {};
   // Map backend param names to pre-fit property names
@@ -7632,6 +7653,19 @@ function _validateUncertainties() {
     for (const [pName, pData] of Object.entries(params)) {
       if (!['center','fwhm','fwhm_l','amplitude','gl_ratio'].includes(pName)) continue;
       const val = pData.value;
+
+      // Locked or linked: skip the alarm-style movement/stderr checks.
+      //   - linked satellite (expr set): tied to master via lmfit expr; intentional
+      //     by construction → silent
+      //   - genuinely locked (vary=false, no expr): user or auto-fit set this lock
+      //     → neutral info note pointing at the padlock toggle, not an alarm
+      if (pData.vary === false) {
+        const isLinked = pData.expr != null && pData.expr !== '';
+        if (!isLinked) {
+          info.push(`<li><b>${p.name} / ${pName}:</b> locked — unlock the padlock to refine.</li>`);
+        }
+        continue;
+      }
 
       // Rule 1: parameter sitting at its bound (within 1% of range from min or max)
       const lo = pData.min, hi = pData.max;
@@ -7649,7 +7683,10 @@ function _validateUncertainties() {
         }
       }
 
-      // Rule 2: stderr=null AND parameter barely moved from initial value (<0.1%)
+      // Rule 2: param was free (vary=true, no expr) but lmfit returned no
+      // stderr AND the value barely moved → covariance matrix singular near
+      // this parameter. Distinct from "locked" (handled above) and from
+      // "converged at start with valid stderr" (silent — normal convergence).
       const se = pData.stderr;
       if (se == null) {
         const initKey = nameMap[pName] || pName;
@@ -7657,13 +7694,13 @@ function _validateUncertainties() {
         if (initVal != null) {
           const denom = Math.max(Math.abs(initVal), 1e-10);
           if (Math.abs(val - initVal) / denom < 0.001) {
-            warnings.push(`<li><b>${p.name} / ${pName}:</b> did not move from initial value — optimizer could not adjust it. Try different starting values or lock it.</li>`);
+            warnings.push(`<li><b>${p.name} / ${pName}:</b> uncertainty could not be estimated (covariance matrix singular near this parameter). The fitted value may be unreliable.</li>`);
           }
         }
       }
     }
   }
-  return warnings;
+  return { warnings, info };
 }
 
 // ═══════════════════════════════════════════════════
