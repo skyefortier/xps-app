@@ -2126,7 +2126,6 @@ class TabManager {
 
     // Restore DOM form fields
     this._restoreUI(tab.ui);
-    if (typeof _updateBgSubPillEnabled === 'function') _updateBgSubPillEnabled();
     const notesEl = document.getElementById('spectrum-notes');
     if (notesEl) notesEl.value = tab.notes || '';
     this._updateCCVerifiedUI(tab.chargeVerified ?? true);
