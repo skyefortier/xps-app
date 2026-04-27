@@ -3685,6 +3685,78 @@ function defaultPeak(overrides) {
 }
 
 // ═══════════════════════════════════════════════════
+// SHAPE-SPECIFIC PARAM SCHEMA
+// ═══════════════════════════════════════════════════
+// Single source of truth for the params that belong to each lineshape. Used
+// by _switchPeakShape to reset stale params and seed neutral defaults when
+// the user changes a peak's Line Shape dropdown. Defaults match the values
+// the backend's _make_peak_params would assign for the same shape, so a fit
+// triggered immediately after a switch starts from the same point as the
+// preview. To add a new shape: register its specific params (and their
+// defaults) here, then update evalPeak / renderShapeControls /
+// peakToBackendSpec / applyBackendResult / runFit per the checklist in
+// CLAUDE.md.
+//
+// Note: glMix uses the frontend 0-100 slider scale (= backend gl_ratio × 100).
+// Do NOT cross-map look-alike params across shapes (e.g. DSG_LA's laAlpha vs
+// LACX's caAlpha) — they are mathematically different parameters that share
+// a Greek letter.
+const SHAPE_PARAM_SCHEMA = {
+  'Gaussian':   {},
+  'Lorentzian': {},
+  'Voigt':      {},
+  'GL':         { glMix: 30 },
+  'asym-GL':    { glMix: 30, asymmetry: 0.0 },
+  'DS':         { dsAlpha: 0.10, dsGamma: 0.0 },
+  'DSG_LA':     { laAlpha: 0.10, laBeta: 0.3, laM: 0.4 },
+  'LACX':       { caAlpha: 1.0,  caBeta: 1.0, caM: 50 },
+};
+
+function _fixFlagFor(param) {
+  return 'fix' + param.charAt(0).toUpperCase() + param.slice(1);
+}
+
+function _clearShapeSpecificParams(peak, shape) {
+  const params = SHAPE_PARAM_SCHEMA[shape];
+  if (!params) return;
+  for (const k of Object.keys(params)) {
+    delete peak[k];
+    delete peak[_fixFlagFor(k)];
+  }
+}
+
+function _applyShapeDefaults(peak, shape) {
+  const params = SHAPE_PARAM_SCHEMA[shape];
+  if (!params) return;
+  for (const [k, v] of Object.entries(params)) peak[k] = v;
+}
+
+// Switch a peak's lineshape: strip the previous shape's specific params,
+// seed the new shape's neutral defaults, and re-render. Shape-agnostic
+// fields (id, name, color, center, fwhm, amplitude, linked/linkOffset/
+// linkRatio, fixCenter/fixFwhm/fixAmplitude, isChargeReference) survive
+// untouched. Linked children share their parent's shape and shape-specific
+// params, so the switch is applied to the whole multiplet family.
+function _switchPeakShape(id, newShape) {
+  const p = getPeak(id);
+  if (!p || p.shape === newShape) return;
+  if (!(newShape in SHAPE_PARAM_SCHEMA)) return;
+  const parent = p.linked ? (getPeak(p.linked) || p) : p;
+  if (parent.shape === newShape) return;
+  const oldShape = parent.shape;
+  const family = [parent, ...state.peaks.filter(q => q.linked === parent.id)];
+  _pushUndoDebounced();
+  for (const peak of family) {
+    _clearShapeSpecificParams(peak, oldShape);
+    peak.shape = newShape;
+    _applyShapeDefaults(peak, newShape);
+  }
+  _invalidateFittedY();
+  for (const peak of family) renderPeakControls(peak);
+  updatePlot();
+}
+
+// ═══════════════════════════════════════════════════
 // ZOOM HELPERS
 // ═══════════════════════════════════════════════════
 // Manual zoom state — no plugin, full control
@@ -4401,7 +4473,7 @@ function renderPeakForm(p) {
     </div>` : ''}
     <div class="field">
       <label>Line shape</label>
-      <select id="pk-shape-${p.id}" class="xps-tip-select" onchange="updatePeakParam(${p.id},'shape',this.value);updateShapeControls(${p.id})">
+      <select id="pk-shape-${p.id}" class="xps-tip-select" onchange="_switchPeakShape(${p.id}, this.value)">
         <option data-tip="Pure Gaussian. Dominated by instrument broadening. Rarely used alone — most XPS peaks need some Lorentzian character." ${p.shape==='Gaussian'?'selected':''}>Gaussian</option>
         <option data-tip="Pure Lorentzian. Dominated by core-hole lifetime. Rarely used alone — too sharp for most real XPS peaks." ${p.shape==='Lorentzian'?'selected':''}>Lorentzian</option>
         <option data-tip="50/50 Gaussian-Lorentzian mix. Good default starting point for most insulating and polymeric samples." ${p.shape==='Voigt'?'selected':''}>Voigt</option>
