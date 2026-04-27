@@ -1152,6 +1152,14 @@
     border-color: var(--accent);
     color: var(--accent2);
   }
+  .pill-toggle.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    color: var(--text3);
+    border-color: var(--border);
+    background: transparent;
+  }
   .pill-toggle input[type="checkbox"] {
     display: none;
   }
@@ -1619,6 +1627,10 @@
         <label class="pill-toggle active">
           <input type="checkbox" id="show-residuals" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
           Residuals
+        </label>
+        <label class="pill-toggle disabled" id="bg-sub-pill" title="Background subtraction is unavailable when no background method is set.">
+          <input type="checkbox" id="bg-sub-toggle" disabled onchange="_onBgSubToggle()">
+          Bkgrd Sub
         </label>
         <label class="pill-toggle active">
           <input type="checkbox" id="invert-be" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
