@@ -6416,6 +6416,28 @@ function updatePlot() {
     }
   };
 
+  // Plugin: in subtracted view, draw a thin gray horizontal line at y=0
+  // behind all data series. Helps users orient since negative values
+  // can appear from background-subtraction noise at endpoints.
+  const bgSubZeroLinePlugin = {
+    id: 'bgSubZeroLine',
+    beforeDatasetsDraw(chart) {
+      if (!_isBgSubViewActive()) return;
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea || !scales.y) return;
+      const yZero = scales.y.getPixelForValue(0);
+      if (!isFinite(yZero) || yZero < chartArea.top || yZero > chartArea.bottom) return;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,140,170,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, yZero);
+      ctx.lineTo(chartArea.right, yZero);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+
   // Plugin: draw NIST markers and source path label
   const overlayPlugin = {
     id: 'xpsOverlays',
@@ -6447,7 +6469,7 @@ function updatePlot() {
   state.chart = new Chart(ctx, {
     type: 'line',
     data: { datasets },
-    plugins: [surveyLabelPlugin, pinYRangePlugin, overlayPlugin, previewGlowPlugin],
+    plugins: [surveyLabelPlugin, pinYRangePlugin, bgSubZeroLinePlugin, overlayPlugin, previewGlowPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
