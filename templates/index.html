@@ -3699,13 +3699,18 @@ function defaultPeak(overrides) {
 // ═══════════════════════════════════════════════════
 // SHAPE-SPECIFIC PARAM SCHEMA
 // ═══════════════════════════════════════════════════
-// Single source of truth for the params that belong to each lineshape. Used
-// by _switchPeakShape to reset stale params and seed neutral defaults when
-// the user changes a peak's Line Shape dropdown. Defaults match the values
-// the backend's _make_peak_params would assign for the same shape, so a fit
-// triggered immediately after a switch starts from the same point as the
-// preview. To add a new shape: register its specific params (and their
-// defaults) here, then update evalPeak / renderShapeControls /
+// Single source of truth for the per-shape state of a peak. Used by
+// _switchPeakShape to reset stale params and seed neutral defaults when
+// the user changes a peak's Line Shape dropdown. Each entry includes both
+// value defaults AND fix-flag defaults so a shape-switched peak ends up in
+// the same state as a freshly-created peak from defaultPeak — defaultPeak
+// and _applyShapeDefaults must agree, otherwise shape-switching silently
+// flips a lock (the LACX `fixCaM: true` convention is the load-bearing
+// example: omitting it from the schema previously freed `m`, which broke
+// covariance estimation in the backend).
+//
+// To add a new shape: register its value params AND fix-flag defaults
+// here matching defaultPeak, then update evalPeak / renderShapeControls /
 // peakToBackendSpec / applyBackendResult / runFit per the checklist in
 // CLAUDE.md.
 //
@@ -3717,24 +3722,17 @@ const SHAPE_PARAM_SCHEMA = {
   'Gaussian':   {},
   'Lorentzian': {},
   'Voigt':      {},
-  'GL':         { glMix: 30 },
-  'asym-GL':    { glMix: 30, asymmetry: 0.0 },
-  'DS':         { dsAlpha: 0.10, dsGamma: 0.0 },
-  'DSG_LA':     { laAlpha: 0.10, laBeta: 0.3, laM: 0.4 },
-  'LACX':       { caAlpha: 1.0,  caBeta: 1.0, caM: 50 },
+  'GL':         { glMix: 30, fixGlMix: false },
+  'asym-GL':    { glMix: 30, fixGlMix: false, asymmetry: 0.0, fixAsymmetry: false },
+  'DS':         { dsAlpha: 0.10, fixDsAlpha: false, dsGamma: 0.0, fixDsGamma: false },
+  'DSG_LA':     { laAlpha: 0.10, fixLaAlpha: false, laBeta: 0.3, fixLaBeta: false, laM: 0.4, fixLaM: false },
+  'LACX':       { caAlpha: 1.0,  fixCaAlpha: false, caBeta: 1.0, fixCaBeta: false, caM: 50, fixCaM: true },
 };
-
-function _fixFlagFor(param) {
-  return 'fix' + param.charAt(0).toUpperCase() + param.slice(1);
-}
 
 function _clearShapeSpecificParams(peak, shape) {
   const params = SHAPE_PARAM_SCHEMA[shape];
   if (!params) return;
-  for (const k of Object.keys(params)) {
-    delete peak[k];
-    delete peak[_fixFlagFor(k)];
-  }
+  for (const k of Object.keys(params)) delete peak[k];
 }
 
 function _applyShapeDefaults(peak, shape) {
