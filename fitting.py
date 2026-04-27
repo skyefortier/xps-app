@@ -578,8 +578,15 @@ def _la_casaxps_true(
     fwhm = max(float(fwhm), 1e-9)
     alpha = max(float(alpha), 1e-3)
     beta = max(float(beta), 1e-3)
-    m_int = int(round(float(m)))
-    m_int = max(0, min(499, m_int))
+    # Continuous-σ kernel: m flows through to the kernel weights as a real
+    # number, so the Jacobian column for m is well-defined under lmfit's
+    # finite-difference perturbation. Previously m was rounded with
+    # int(round(m)), making the function locally constant in m and
+    # producing a singular Hessian whenever m varied — that poisoned
+    # covariance estimation for every other free param too.
+    # Defensive guard preserves the prior [0, 499] cap in case a saved
+    # spec or caller bypasses the lmfit bound.
+    m_cont = max(0.0, min(499.0, float(m)))
 
     eps = x - center
     # Base unit-amplitude Lorentzian
@@ -588,11 +595,20 @@ def _la_casaxps_true(
     high = eps >= 0
     base = np.where(high, np.power(L, alpha), np.power(L, beta))
 
-    if m_int == 0:
+    # Below ε, treat as un-convolved Lorentzian so an optimizer that lands
+    # exactly at m=0 returns the bare base curve rather than degenerating.
+    if m_cont < 1e-3:
         return amplitude * base
 
-    sigma_pts = m_int / 3.0
-    k = np.arange(-m_int, m_int + 1, dtype=float)
+    sigma_pts = m_cont / 3.0
+    # Kernel half-width: ±3.5σ captures > 99.95% of the Gaussian. Use 3.5
+    # rather than 3 specifically so the kernel-length quantization step
+    # `ceil(3.5σ)` doesn't coincide with integer m — that would put a
+    # discrete jump in the output exactly at integer m and re-break
+    # backwards compat with previously-saved (integer-m) fits. With 3.5
+    # the next jump from m=N is at m = 6(N+1)/7 ≠ integer.
+    half = max(1, int(np.ceil(3.5 * sigma_pts)))
+    k = np.arange(-half, half + 1, dtype=float)
     kern = np.exp(-(k ** 2) / (2.0 * sigma_pts ** 2))
     kern = kern / kern.sum()
 
