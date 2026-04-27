@@ -6150,6 +6150,12 @@ function updatePlot() {
 
   const datasets = [];
 
+  // Bkgrd Sub view: redraws the chart with the background subtracted.
+  // The flag is read once per updatePlot() call so all dataset branches
+  // see a consistent value. _isBgSubViewActive() is defensive — it
+  // returns false if bg-type is "none" even when the pill is checked.
+  const bgSubView = _isBgSubViewActive();
+
   // Individual peaks drawn first (bottom layer) — frozen to fit range after fit
   const showFill = document.getElementById('show-fill').checked;
   if (showIndividual && plotBE.length) {
@@ -6159,7 +6165,7 @@ function updatePlot() {
         const p = state.peaks[pi];
         datasets.push({
           label: '_bg_' + p.id,
-          data: plotBE.map((b, i) => ({ x: b, y: plotBG[i] })),
+          data: plotBE.map((b, i) => ({ x: b, y: bgSubView ? 0 : plotBG[i] })),
           borderColor: 'transparent',
           borderWidth: 0,
           pointRadius: 0,
@@ -6174,7 +6180,7 @@ function updatePlot() {
       const peakY = evalPeakArray(plotBE, p);
       datasets.push({
         label: p.name,
-        data: plotBE.map((b, i) => ({ x: b, y: peakY[i] + plotBG[i] })),
+        data: plotBE.map((b, i) => ({ x: b, y: peakY[i] + (bgSubView ? 0 : plotBG[i]) })),
         borderColor: p.color,
         backgroundColor: p.color + '40',
         borderWidth: 1.5,
@@ -6186,8 +6192,8 @@ function updatePlot() {
     }
   }
 
-  // Background — frozen to fit range after fit
-  if (plotBE.length) {
+  // Background — frozen to fit range after fit. Hidden in subtracted view.
+  if (plotBE.length && !bgSubView) {
     datasets.push({
       label: 'Background',
       data: plotBE.map((b, i) => ({ x: b, y: plotBG[i] })),
@@ -6199,11 +6205,14 @@ function updatePlot() {
     });
   }
 
-  // Raw data — FULL spectrum range (zoom-independent)
+  // Raw data — FULL spectrum range in raw view; ROI-only subtracted in
+  // subtracted view (background only exists for the ROI window).
   const _cc = _chartColors();
   datasets.push({
     label: 'Data',
-    data: corrBE.map((b, i) => ({ x: b, y: fullInten[i] })),
+    data: bgSubView
+      ? plotBE.map((b, i) => ({ x: b, y: plotInten[i] - plotBG[i] }))
+      : corrBE.map((b, i) => ({ x: b, y: fullInten[i] })),
     borderColor: _cc.rawData,
     backgroundColor: document.body.classList.contains('light-theme')
       ? 'rgba(26,26,46,0.08)' : 'rgba(232,237,245,0.08)',
@@ -6219,8 +6228,8 @@ function updatePlot() {
     datasets.push({
       label: 'Fit',
       data: fittedYBacked
-        ? plotBE.map((b, i) => ({ x: b, y: fittedYBacked[i] }))
-        : plotBE.map((b, i) => ({ x: b, y: modelFull[i] + plotBG[i] })),
+        ? plotBE.map((b, i) => ({ x: b, y: fittedYBacked[i] - (bgSubView ? plotBG[i] : 0) }))
+        : plotBE.map((b, i) => ({ x: b, y: modelFull[i] + (bgSubView ? 0 : plotBG[i]) })),
       borderColor: '#ff2020',
       borderWidth: 3,
       pointRadius: 0,
@@ -6234,7 +6243,7 @@ function updatePlot() {
     const isLight = document.body.classList.contains('light-theme');
     datasets.push({
       label: 'Preview',
-      data: plotBE.map((b, i) => ({ x: b, y: prevPeakY[i] + plotBG[i] })),
+      data: plotBE.map((b, i) => ({ x: b, y: prevPeakY[i] + (bgSubView ? 0 : plotBG[i]) })),
       borderColor: isLight ? 'rgba(0,180,220,1.0)' : 'rgba(0,220,255,1.0)',
       borderWidth: 4,
       borderDash: [10, 5],
@@ -6246,7 +6255,7 @@ function updatePlot() {
 
   // Smoothed data overlay — FULL spectrum range
   const smoothEnabled = document.getElementById('smooth-enable')?.checked;
-  if (smoothEnabled && fullInten.length > 5) {
+  if (!bgSubView && smoothEnabled && fullInten.length > 5) {
     const ws = parseInt(document.getElementById('smooth-window')?.value || '11');
     const po = parseInt(document.getElementById('smooth-poly')?.value  || '2');
     const smoothed = savitzkyGolay([...fullInten], ws, po);
@@ -6261,7 +6270,7 @@ function updatePlot() {
   // Derivative overlays — FULL spectrum range
   const d1Enabled = document.getElementById('deriv1-enable')?.checked;
   const d2Enabled = document.getElementById('deriv2-enable')?.checked;
-  if ((d1Enabled || d2Enabled) && fullInten.length > 3) {
+  if (!bgSubView && (d1Enabled || d2Enabled) && fullInten.length > 3) {
     const arrMax = a => a.reduce((m, v) => v > m ? v : m, -Infinity);
     const arrMin = a => a.reduce((m, v) => v < m ? v : m,  Infinity);
     const intenMax = arrMax(fullInten), intenMin = arrMin(fullInten);
@@ -6292,7 +6301,7 @@ function updatePlot() {
   }
 
   // Overlay spectra from other tabs
-  if (overlayMode && typeof tabManager !== 'undefined') {
+  if (!bgSubView && overlayMode && typeof tabManager !== 'undefined') {
     const tabColors = ['#60a5fa','#34d399','#fb923c','#f472b6','#a78bfa','#fbbf24'];
     let ci = 0;
     for (const t of tabManager.tabs) {
