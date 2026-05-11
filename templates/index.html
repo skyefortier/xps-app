@@ -2045,6 +2045,86 @@ const SPIN_ORBIT_PRESETS = {
 const TAB_COLORS = ['#7bc4ff','#3ddc84','#ffbb44','#ff8c66','#b48eff','#44ddcc','#ff9de2','#c8ff80','#ffd580','#80d4ff'];
 
 // ═══════════════════════════════════════════════════
+// TAB ORGANIZER — classification helper
+// ═══════════════════════════════════════════════════
+// Pure function. Given a tab's display name and its rawBE array, return:
+//   { kind: 'survey' } | { kind: 'element', symbol: 'C' } | { kind: 'other' }
+// Priority: filename regex first; BE-range fallback if filename doesn't match.
+function classifyTabForOrganize(name, rawBE) {
+  const raw = String(name || '').trim();
+
+  if (/survey/i.test(raw)) return { kind: 'survey' };
+
+  // Use XPS_ELEMENTS keys as the valid symbol set; longest-first so 'Cl' beats
+  // 'C' and 'Ca' beats 'C'.
+  const symbols = Object.keys(XPS_ELEMENTS).sort((a, b) => b.length - a.length);
+  const orbital = '(?:1s|2[sp]|3[spd]|4[spdf]|5[spdf]|6[spdf])';
+
+  for (const sym of symbols) {
+    const re = new RegExp(
+      '(?:^|[^A-Za-z])' + sym + '\\s*[_\\-]?\\s*' + orbital + '\\b',
+      'i'
+    );
+    if (re.test(raw)) return { kind: 'element', symbol: sym };
+  }
+
+  const be = Array.isArray(rawBE) ? rawBE : [];
+  if (be.length >= 2) {
+    const beMax = be[0];
+    const beMin = be[be.length - 1];
+    const range = beMax - beMin;
+    if (range > 1000) return { kind: 'survey' };
+
+    const center = (beMax + beMin) / 2;
+    let best = null;
+    let bestDist = Infinity;
+    for (const sym of symbols) {
+      const lines = XPS_ELEMENTS[sym].lines || {};
+      for (const orb in lines) {
+        const lineBE = lines[orb];
+        if (lineBE >= beMin && lineBE <= beMax) {
+          const d = Math.abs(lineBE - center);
+          if (d < bestDist) { bestDist = d; best = sym; }
+        }
+      }
+    }
+    if (best) return { kind: 'element', symbol: best };
+  }
+
+  return { kind: 'other' };
+}
+
+// Console test harness — call `__testClassifyTab()` in devtools to verify.
+function __testClassifyTab() {
+  const cases = [
+    ['C1s Scan',       280, 295, 'element', 'C'],
+    ['C 1s',           280, 295, 'element', 'C'],
+    ['c1s_scan',       280, 295, 'element', 'C'],
+    ['C1s Scan_0',     280, 295, 'element', 'C'],
+    ['Au4f7/2',         80,  95, 'element', 'Au'],
+    ['Cl2p',           195, 205, 'element', 'Cl'],
+    ['Ca2p',           340, 360, 'element', 'Ca'],
+    ['XPS Survey',       0,1200, 'survey',  null],
+    ['Survey',           0,1200, 'survey',  null],
+    ['Survey_0',         0,1200, 'survey',  null],
+    ['random_name',      0,1300, 'survey',  null],
+    ['untitled.csv',   280, 295, 'element', 'C'],
+    ['weird_thing',      5,  10, 'other',   null],
+    ['',               280, 295, 'element', 'C'],
+  ];
+  let pass = 0, fail = 0;
+  for (const [name, lo, hi, ek, es] of cases) {
+    const be = [hi, (hi + lo) / 2, lo];
+    const got = classifyTabForOrganize(name, be);
+    const ok = got.kind === ek && (got.symbol || null) === es;
+    if (ok) pass++;
+    else { fail++; console.error('FAIL', { name, lo, hi, expected: { kind: ek, symbol: es }, got }); }
+  }
+  console.log('classifyTabForOrganize: ' + pass + ' pass, ' + fail + ' fail');
+  return { pass, fail };
+}
+
+// ═══════════════════════════════════════════════════
 // TAB MANAGER
 // ═══════════════════════════════════════════════════
 class TabManager {
