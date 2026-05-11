@@ -2124,6 +2124,53 @@ function __testClassifyTab() {
   return { pass, fail };
 }
 
+// organizeTabs: stable reorder of tabManager.tabs in place.
+// Group order: survey -> element (alpha by symbol) -> other.
+// Within group, preserve original relative order. Active tab id is stable,
+// so the active tab stays active; its array index just changes.
+function organizeTabs() {
+  const tm = tabManager;
+  if (!tm || !Array.isArray(tm.tabs) || tm.tabs.length < 2) return;
+
+  const annotated = tm.tabs.map((tab, origIdx) => ({
+    tab, origIdx,
+    cls: classifyTabForOrganize(tab.name, tab.rawBE),
+  }));
+
+  const groupRank = (cls) => {
+    if (cls.kind === 'survey')  return 0;
+    if (cls.kind === 'element') return 1;
+    return 2;
+  };
+
+  annotated.sort((a, b) => {
+    const ra = groupRank(a.cls), rb = groupRank(b.cls);
+    if (ra !== rb) return ra - rb;
+    if (a.cls.kind === 'element' && b.cls.kind === 'element') {
+      const sa = a.cls.symbol, sb = b.cls.symbol;
+      if (sa !== sb) return sa < sb ? -1 : 1;
+    }
+    return a.origIdx - b.origIdx;
+  });
+
+  tm.tabs = annotated.map(a => a.tab);
+  tm.renderTabBar();
+  if (typeof tm._updateSurveyPanel === 'function') tm._updateSurveyPanel();
+
+  // Best-effort: scroll active tab into view after reorder (DOM is rebuilt
+  // by renderTabBar, so this runs after that). renderTabBar sets
+  // el.dataset.tabId for each tab (see TabManager.renderTabBar).
+  try {
+    const bar = document.getElementById('spectrum-tab-bar');
+    if (bar && tm.activeId) {
+      const activeEl = bar.querySelector('[data-tab-id="' + tm.activeId + '"]');
+      if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+        activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }
+  } catch (_) { /* non-fatal */ }
+}
+
 // ═══════════════════════════════════════════════════
 // TAB MANAGER
 // ═══════════════════════════════════════════════════
