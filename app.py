@@ -174,6 +174,8 @@ def _register_routes(app: Flask) -> None:
             "pseudo_voigt_gl": "Pseudo-Voigt GL mix  (η = Lorentzian fraction)",
             "asymmetric_gl":   "Asymmetric GL  (independent left/right FWHM)",
             "doniach_sunjic":  "Doniach-Sunjic  (metallic systems, asymmetric)",
+            "ds_g":            "DS+G  (Doniach-Sunjic core convolved with Gaussian)",
+            "la_casaxps":      "LA(alpha,beta,m) [CasaXPS]  (asymmetric Lorentzian + Gaussian conv)",
         }
         return jsonify({k: descriptions[k] for k in fitting.AVAILABLE_SHAPES})
 
