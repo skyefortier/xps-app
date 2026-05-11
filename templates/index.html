@@ -7276,10 +7276,11 @@ function _loadProjectJSON(data, sessionFile) {
       },
     };
   });
-  // Insert surveys at front, others at back (same as createTab)
+  // Preserve the saved tab order verbatim. (Fresh folder loads still use the
+  // surveys-front convention via createTab; this path is only for saved
+  // projects whose order the user already chose.)
   for (const tab of newTabs) {
-    if (tab.isSurvey) tabManager.tabs.unshift(tab);
-    else tabManager.tabs.push(tab);
+    tabManager.tabs.push(tab);
   }
   // Activate the first new tab
   if (newTabs.length) tabManager.activateTab(newTabs[0].id);
