@@ -1611,6 +1611,7 @@
         <button class="btn btn-sm" id="btn-add-peak" onclick="togglePlaceMode('peak')">+ Add Peak</button>
         <button class="btn btn-sm" id="btn-add-multiplet" onclick="_onMultipletBtnClick()">+ Multiplet Pair</button>
         <button class="btn btn-sm" id="btn-overlay" onclick="toggleOverlayMode()" title="Overlay multiple spectra">Overlay</button>
+        <button class="btn btn-sm" id="btn-organize-tabs" onclick="organizeTabs()" title="Reorder tabs so same-element spectra are adjacent (Surveys &rarr; elements alphabetical &rarr; Other)">&#8645; Organize Tabs</button>
         <div style="flex:1"></div>
         <label class="pill-toggle active">
           <input type="checkbox" id="show-envelope" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
