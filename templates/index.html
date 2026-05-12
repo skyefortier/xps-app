@@ -1656,6 +1656,14 @@
           <div class="fit-spinner-label" id="fit-spinner-label">Fitting<span class="ellipsis"></span></div>
         </div>
         <div id="main-chart-wrap"><canvas id="mainChart"></canvas><div id="source-path-tip"></div></div>
+        <div id="stack-empty-state" style="display:none;position:absolute;inset:0;
+              align-items:center;justify-content:center;flex-direction:column;
+              text-align:center;color:var(--text2);font-size:13px;line-height:1.6;
+              pointer-events:none;padding:40px;">
+          <div style="font-size:32px;margin-bottom:12px;opacity:0.5">&#x25A6;</div>
+          <div><strong>Empty stack.</strong></div>
+          <div>Click &ldquo;Add Spectrum to Stack&rdquo; to add a spectrum from your open tabs.</div>
+        </div>
         <div id="resid-handle" class="hidden"></div>
         <div id="resid-wrap" class="hidden"><canvas id="residChart"></canvas></div>
       </div>
@@ -6242,7 +6250,67 @@ function recalcQuantify() {
 // CHART  —  always destroy + recreate (never mutate)
 //           min/max always beMin/beMax; reverse: invert
 // ═══════════════════════════════════════════════════
+function _renderStackChart(stackTab, visibleEntries) {
+  if (state.chart) { state.chart.destroy(); state.chart = null; }
+  const datasets = visibleEntries.map(e => {
+    const src = tabManager._getTab(e.sourceTabId);
+    const shift = src.ccShift || 0;
+    const data = src.rawBE.map((b, j) => ({ x: b - shift, y: src.rawIntensity[j] }));
+    return {
+      label: src.name,
+      data,
+      borderColor: e.color,
+      backgroundColor: e.color,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      fill: false,
+    };
+  });
+  const invert = document.getElementById('invert-be')?.checked ?? true;
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  state.chart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { type: 'linear', reverse: invert, title: { display: true, text: 'Binding Energy (eV)' } },
+        y: { type: 'linear', title: { display: true, text: 'Intensity (counts/s)' } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
 function updatePlot() {
+  // Stack-tab early branch: render multi-spectrum overlay, no peaks/fits.
+  {
+    const _activeTab = (typeof tabManager !== 'undefined') ? tabManager._getTab(tabManager.activeId) : null;
+    const _emptyEl = document.getElementById('stack-empty-state');
+    const _canvas = document.getElementById('mainChart');
+    if (isStackTab(_activeTab)) {
+      const _visible = _activeTab.entries.filter(e => {
+        if (!e.visible) return false;
+        const src = tabManager._getTab(e.sourceTabId);
+        return src && Array.isArray(src.rawBE) && src.rawBE.length >= 2;
+      });
+      if (_visible.length === 0) {
+        if (_canvas) _canvas.style.display = 'none';
+        if (_emptyEl) _emptyEl.style.display = 'flex';
+        if (state.chart) { state.chart.destroy(); state.chart = null; }
+        return;
+      }
+      if (_canvas) _canvas.style.display = '';
+      if (_emptyEl) _emptyEl.style.display = 'none';
+      _renderStackChart(_activeTab, _visible);
+      return;
+    } else {
+      if (_canvas) _canvas.style.display = '';
+      if (_emptyEl) _emptyEl.style.display = 'none';
+    }
+  }
+
   // Full corrected spectrum (for raw data display and axis range)
   const corrBE = getCorrectedBE();
   const fullInten = state.rawIntensity;
