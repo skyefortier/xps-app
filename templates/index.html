@@ -777,6 +777,47 @@
   }
   .sp-tab.is-stack .sp-tab-dot { display: none; }
 
+  /* ── Stack legend rows ──────────────────────────────────── */
+  .stack-legend-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg2);
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .stack-legend-row .swatch {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .stack-legend-row .name { flex: 1; color: var(--text); font-weight: 500; }
+  .stack-legend-row .cc {
+    font-family: var(--mono); font-size: 10px; color: var(--text2);
+    margin-right: 4px;
+  }
+  .stack-legend-row .vis { cursor: pointer; accent-color: var(--accent); }
+  .stack-legend-row .remove {
+    cursor: pointer; padding: 0 4px;
+    color: var(--text3); font-size: 14px; line-height: 1;
+    border-radius: 3px;
+  }
+  .stack-legend-row .remove:hover { color: var(--red); background: var(--red-dim); }
+
+  /* ── Add-spectrum dropdown menu ─────────────────────────── */
+  .add-spectrum-menu {
+    position: absolute; top: 100%; left: 0;
+    min-width: 180px; max-height: 240px; overflow-y: auto;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 4px; z-index: 30;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .add-spectrum-menu .item {
+    padding: 5px 10px; cursor: pointer; border-radius: 4px;
+    font-size: 11px; color: var(--text); white-space: nowrap;
+  }
+  .add-spectrum-menu .item:hover { background: var(--accent-dim); color: var(--accent2); }
+  .add-spectrum-menu .empty { padding: 8px; font-size: 10px; color: var(--text3); }
+
   /* ── Survey tab in right sidebar ───────────────────────── */
   #tab-survey { display: none; }
   #tab-survey.active { display: block; }
@@ -1617,6 +1658,10 @@
         <button class="btn btn-sm" id="btn-add-peak" onclick="togglePlaceMode('peak')">+ Add Peak</button>
         <button class="btn btn-sm" id="btn-add-multiplet" onclick="_onMultipletBtnClick()">+ Multiplet Pair</button>
         <button class="btn btn-sm" id="btn-add-stack" onclick="tabManager.createStackTab()" title="Create an empty spectrum stack (viewer-only, multi-spectrum overlay)">+ Stack</button>
+        <div class="add-spectrum-dropdown" id="add-spectrum-wrap" style="display:none;position:relative">
+          <button class="btn btn-sm" id="btn-add-spectrum-to-stack" onclick="_toggleAddSpectrumMenu()" title="Add a spectrum from an open tab to this stack">+ Add Spectrum &#9662;</button>
+          <div class="add-spectrum-menu" id="add-spectrum-menu" style="display:none"></div>
+        </div>
         <button class="btn btn-sm" id="btn-organize-tabs" onclick="organizeTabs()" title="Reorder tabs so same-element spectra are adjacent (Surveys &rarr; elements alphabetical &rarr; Other)">&#8645; Organize Tabs</button>
         <div style="flex:1"></div>
         <label class="pill-toggle active">
@@ -1739,6 +1784,13 @@
           </div>
         </div>
 
+        <div class="tab-panel" id="tab-stack-legend">
+          <div id="stack-legend-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
+            No spectra in this stack yet.
+          </div>
+          <div id="stack-legend-list"></div>
+        </div>
+
       </div>
     </div>
 
@@ -1836,6 +1888,104 @@ const STACK_PALETTE = ['#E69F00','#56B4E9','#009E73','#F0E442','#0072B2','#D55E0
 let _nextStackNum = 1;  // monotonic counter for '▦ Stack N' default names
 
 function isStackTab(tab) { return !!(tab && tab.isStack); }
+
+// Render the legend panel for the given stack tab.
+function renderStackLegend(stackTab) {
+  const list = document.getElementById('stack-legend-list');
+  const empty = document.getElementById('stack-legend-empty');
+  if (!list || !empty) return;
+  const entries = stackTab.entries || [];
+  empty.style.display = entries.length ? 'none' : 'block';
+  list.innerHTML = '';
+  for (const entry of entries) {
+    const src = tabManager._getTab(entry.sourceTabId);
+    const name = src ? src.name : '(missing source)';
+    const shift = src ? (src.ccShift || 0) : 0;
+    const shiftStr = (shift >= 0 ? '+' : '') + shift.toFixed(2);
+    const row = document.createElement('div');
+    row.className = 'stack-legend-row';
+    row.innerHTML =
+      '<span class="swatch" style="background:' + entry.color + '"></span>' +
+      '<span class="name"></span>' +
+      '<span class="cc">ΔCC: ' + shiftStr + ' eV</span>' +
+      '<input type="checkbox" class="vis" ' + (entry.visible ? 'checked' : '') + '>' +
+      '<span class="remove" title="Remove">×</span>';
+    row.querySelector('.name').textContent = name;
+    row.querySelector('.vis').addEventListener('change', e => {
+      entry.visible = e.target.checked;
+      updatePlot();
+    });
+    row.querySelector('.remove').addEventListener('click', () => {
+      stackTab.entries = stackTab.entries.filter(x => x !== entry);
+      renderStackLegend(stackTab);
+      updatePlot();
+    });
+    list.appendChild(row);
+  }
+}
+
+// Swap right-panel content based on whether active tab is a stack.
+function _applyRightPanelMode(activeTab) {
+  const tabsBar = document.querySelector('#right-panel .panel-body > .tabs');
+  const subPanels = document.querySelectorAll('#right-panel .panel-body > .tab-panel');
+  const stackPanel = document.getElementById('tab-stack-legend');
+  const header = document.querySelector('#right-panel .panel-header');
+  const wrap = document.getElementById('add-spectrum-wrap');
+  const isStack = isStackTab(activeTab);
+  if (tabsBar) tabsBar.style.display = isStack ? 'none' : '';
+  subPanels.forEach(p => {
+    if (p.id === 'tab-stack-legend') return;
+    p.style.display = isStack ? 'none' : '';
+  });
+  if (stackPanel) stackPanel.classList.toggle('active', isStack);
+  if (header) header.textContent = isStack ? 'Stack Legend' : 'Peaks & Results';
+  if (wrap) wrap.style.display = isStack ? 'inline-block' : 'none';
+  document.body.classList.toggle('stack-tab-active', isStack);
+  if (isStack) renderStackLegend(activeTab);
+}
+
+// "+ Add Spectrum" dropdown toggle (button onclick handler).
+function _toggleAddSpectrumMenu() {
+  const menu = document.getElementById('add-spectrum-menu');
+  if (!menu) return;
+  const open = menu.style.display === 'block';
+  if (open) { menu.style.display = 'none'; return; }
+  const active = tabManager._getTab(tabManager.activeId);
+  if (!isStackTab(active)) return;
+  const spectrumTabs = tabManager.tabs.filter(t => !t.isStack);
+  menu.innerHTML = '';
+  if (spectrumTabs.length === 0) {
+    menu.innerHTML = '<div class="empty">No spectrum tabs open.</div>';
+  } else {
+    for (const t of spectrumTabs) {
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.textContent = t.name;
+      item.addEventListener('click', () => {
+        _addSpectrumToStack(active, t.id);
+        menu.style.display = 'none';
+      });
+      menu.appendChild(item);
+    }
+  }
+  menu.style.display = 'block';
+}
+
+function _addSpectrumToStack(stackTab, sourceTabId) {
+  const color = STACK_PALETTE[stackTab._nextColorIdx++ % STACK_PALETTE.length];
+  stackTab.entries.push({ sourceTabId, color, visible: true });
+  renderStackLegend(stackTab);
+  updatePlot();
+}
+
+// Click-outside closes the Add-Spectrum dropdown.
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('add-spectrum-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const menu = document.getElementById('add-spectrum-menu');
+    if (menu) menu.style.display = 'none';
+  }
+});
 
 function updateSmoothing() {
   const enabled = document.getElementById('smooth-enable')?.checked;
@@ -2313,6 +2463,7 @@ class TabManager {
 
     this.renderTabBar();
     renderPeakList();
+    _applyRightPanelMode(tab);
     updatePlot();
   }
 
