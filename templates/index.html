@@ -1072,11 +1072,6 @@
   #btn-undo, #btn-redo { font-size: 14px; padding: 1px 7px; min-width: 26px; }
   #btn-undo:disabled, #btn-redo:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  /* ── Overlay toggle ─────────────────────────────────────── */
-  #btn-overlay.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .sp-tab-overlay-chk { display: none; margin-right: 3px; accent-color: var(--accent); cursor: pointer; }
-  .overlay-mode .sp-tab-overlay-chk { display: inline-block; }
-
   /* ── Generic modal (reusable) ───────────────────────────── */
   .xps-modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 200;
@@ -1610,7 +1605,6 @@
         <button class="btn btn-sm" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled>&#8618;</button>
         <button class="btn btn-sm" id="btn-add-peak" onclick="togglePlaceMode('peak')">+ Add Peak</button>
         <button class="btn btn-sm" id="btn-add-multiplet" onclick="_onMultipletBtnClick()">+ Multiplet Pair</button>
-        <button class="btn btn-sm" id="btn-overlay" onclick="toggleOverlayMode()" title="Overlay multiple spectra">Overlay</button>
         <button class="btn btn-sm" id="btn-organize-tabs" onclick="organizeTabs()" title="Reorder tabs so same-element spectra are adjacent (Surveys &rarr; elements alphabetical &rarr; Other)">&#8645; Organize Tabs</button>
         <div style="flex:1"></div>
         <label class="pill-toggle active">
@@ -1811,21 +1805,6 @@ function redo() {
   renderPeakList();
   updatePlot();
   _updateUndoButtons();
-}
-
-// ═══════════════════════════════════════════════════
-// OVERLAY STATE
-// ═══════════════════════════════════════════════════
-let overlayMode = false;
-const overlayTabIds = new Set();
-
-function toggleOverlayMode() {
-  overlayMode = !overlayMode;
-  const btn = document.getElementById('btn-overlay');
-  if (btn) btn.classList.toggle('active', overlayMode);
-  if (!overlayMode) overlayTabIds.clear();
-  if (typeof tabManager !== 'undefined') tabManager.renderTabBar();
-  updatePlot();
 }
 
 function updateSmoothing() {
@@ -2461,28 +2440,10 @@ class TabManager {
     const bar = document.getElementById('spectrum-tab-bar');
     if (!bar) return;
     bar.innerHTML = '';
-    if (overlayMode) bar.classList.add('overlay-mode');
-    else bar.classList.remove('overlay-mode');
     for (const tab of this.tabs) {
       const el = document.createElement('div');
       el.className = 'sp-tab' + (tab.id === this.activeId ? ' active' : '');
       const tabId = tab.id;
-
-      // Overlay checkbox
-      if (overlayMode) {
-        const chk = document.createElement('input');
-        chk.type = 'checkbox';
-        chk.className = 'sp-tab-overlay-chk';
-        chk.checked = overlayTabIds.has(tabId);
-        chk.title = 'Show in overlay';
-        chk.addEventListener('change', e => {
-          e.stopPropagation();
-          if (e.target.checked) overlayTabIds.add(tabId);
-          else overlayTabIds.delete(tabId);
-          updatePlot();
-        });
-        el.appendChild(chk);
-      }
 
       const inner = document.createElement('span');
       inner.innerHTML =
@@ -2492,7 +2453,6 @@ class TabManager {
       el.appendChild(inner);
 
       el.addEventListener('click', e => {
-        if (e.target.classList.contains('sp-tab-overlay-chk')) return;
         if (e.target.classList.contains('sp-tab-close')) {
           e.stopPropagation();
           this.closeTab(tabId);
@@ -6439,27 +6399,6 @@ function updatePlot() {
         borderColor: '#a78bfa', borderWidth: 1.5, pointRadius: 0, fill: false,
         borderDash: [2, 2]
       });
-    }
-  }
-
-  // Overlay spectra from other tabs
-  if (!bgSubView && overlayMode && typeof tabManager !== 'undefined') {
-    const tabColors = ['#60a5fa','#34d399','#fb923c','#f472b6','#a78bfa','#fbbf24'];
-    let ci = 0;
-    for (const t of tabManager.tabs) {
-      if (!overlayTabIds.has(t.id) || t.id === tabManager.activeId) continue;
-      if (!t.rawBE || !t.rawBE.length) continue;
-      const tBE = t.rawBE.map(b => b - (t.ccShift || 0));
-      const pts = tBE.map((b, i) => ({ x: b, y: t.rawIntensity[i] }));
-      if (pts.length < 2) continue;
-      const col = t.color || tabColors[ci % tabColors.length];
-      datasets.push({
-        label: t.name || ('Tab ' + t.id),
-        data: pts,
-        borderColor: col + 'cc', borderWidth: 1.5, pointRadius: 0, fill: false,
-        borderDash: [3, 2]
-      });
-      ci++;
     }
   }
 
