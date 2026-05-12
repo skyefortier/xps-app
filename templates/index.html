@@ -2297,12 +2297,14 @@ function organizeTabs() {
 
   const annotated = tm.tabs.map((tab, origIdx) => ({
     tab, origIdx,
-    cls: classifyTabForOrganize(tab.name, tab.rawBE),
+    cls: tab.isStack ? { kind: 'stack' } : classifyTabForOrganize(tab.name, tab.rawBE),
   }));
 
   const groupRank = (cls) => {
     if (cls.kind === 'survey')  return 0;
     if (cls.kind === 'element') return 1;
+    if (cls.kind === 'other')   return 2;
+    if (cls.kind === 'stack')   return 3;
     return 2;
   };
 
@@ -2473,7 +2475,25 @@ class TabManager {
   closeTab(id) {
     const idx = this.tabs.findIndex(t => t.id === id);
     if (idx === -1) return;
+    const closing = this.tabs[idx];
+    const closingName = closing.name;
+    const wasStack = !!closing.isStack;
     this.tabs.splice(idx, 1);
+
+    // Prune stack entries that referenced the closed tab (skip if it was
+    // itself a stack — stacks don't reference each other).
+    if (!wasStack) {
+      for (const t of this.tabs) {
+        if (!t.isStack) continue;
+        const before = t.entries.length;
+        t.entries = t.entries.filter(e => e.sourceTabId !== id);
+        const removed = before - t.entries.length;
+        if (removed > 0) {
+          notify('Removed "' + closingName + '" from "' + t.name + '" (source tab closed).', 'amber');
+          if (t.id === this.activeId) renderStackLegend(t);
+        }
+      }
+    }
 
     if (this.tabs.length === 0) {
       this.activeId = null;
@@ -2962,6 +2982,7 @@ class TabManager {
     if (!this.activeId) return;
     const t = this._getTab(this.activeId);
     if (!t) return;
+    if (t.isStack) return;  // stack tabs have no UI/form state to sync back
     // Re-capture peaks reference in case removePeak/clearAllPeaks replaced the array
     t.peaks = state.peaks;
     t.ccShift = isNaN(state.ccShift) ? 0 : state.ccShift;
@@ -7261,7 +7282,8 @@ async function _doSaveProject() {
   const instrument = document.getElementById('proj-instrument').value.trim();
   const fname = document.getElementById('save-fname').value.trim() || 'project';
 
-  const tabs = tabManager.tabs;
+  // Stack tabs are session-only in session 1; filter them out of saves.
+  const tabs = tabManager.tabs.filter(t => !t.isStack);
   const buildTabData = (t) => ({
     id: t.id, name: t.name, color: t.color, isSurvey: t.isSurvey,
     rawBE: t.rawBE, rawIntensity: t.rawIntensity,
