@@ -766,6 +766,17 @@
   .sp-tab.drag-over-left { box-shadow: inset 3px 0 0 var(--accent); }
   .sp-tab.drag-over-right { box-shadow: inset -3px 0 0 var(--accent); }
 
+  /* ── Stack tab visual identity ──────────────────────────── */
+  .sp-tab.is-stack {
+    background: var(--purple-dim);
+    border-bottom-color: rgba(180,142,255,0.35);
+  }
+  .sp-tab.is-stack.active {
+    background: var(--bg);
+    border-bottom-color: var(--purple);
+  }
+  .sp-tab.is-stack .sp-tab-dot { display: none; }
+
   /* ── Survey tab in right sidebar ───────────────────────── */
   #tab-survey { display: none; }
   #tab-survey.active { display: block; }
@@ -1605,6 +1616,7 @@
         <button class="btn btn-sm" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled>&#8618;</button>
         <button class="btn btn-sm" id="btn-add-peak" onclick="togglePlaceMode('peak')">+ Add Peak</button>
         <button class="btn btn-sm" id="btn-add-multiplet" onclick="_onMultipletBtnClick()">+ Multiplet Pair</button>
+        <button class="btn btn-sm" id="btn-add-stack" onclick="tabManager.createStackTab()" title="Create an empty spectrum stack (viewer-only, multi-spectrum overlay)">+ Stack</button>
         <button class="btn btn-sm" id="btn-organize-tabs" onclick="organizeTabs()" title="Reorder tabs so same-element spectra are adjacent (Surveys &rarr; elements alphabetical &rarr; Other)">&#8645; Organize Tabs</button>
         <div style="flex:1"></div>
         <label class="pill-toggle active">
@@ -1806,6 +1818,16 @@ function redo() {
   updatePlot();
   _updateUndoButtons();
 }
+
+// ═══════════════════════════════════════════════════
+// STACK FEATURE — data model
+// ═══════════════════════════════════════════════════
+// Wong colorblind-safe palette for stack-entry traces.
+const STACK_PALETTE = ['#E69F00','#56B4E9','#009E73','#F0E442','#0072B2','#D55E00','#CC79A7'];
+
+let _nextStackNum = 1;  // monotonic counter for '▦ Stack N' default names
+
+function isStackTab(tab) { return !!(tab && tab.isStack); }
 
 function updateSmoothing() {
   const enabled = document.getElementById('smooth-enable')?.checked;
@@ -2213,6 +2235,29 @@ class TabManager {
     return tab;
   }
 
+  createStackTab() {
+    const id = 'tab_' + Math.random().toString(36).slice(2, 9);
+    const tab = {
+      id,
+      name: '▦ Stack ' + (_nextStackNum++),
+      color: '#7a7a7a',           // inert — stack tabs render no dot
+      isStack: true,
+      entries: [],
+      _nextColorIdx: 0,
+      // Inert spectrum-tab fields kept to satisfy existing lifecycle code paths.
+      isSurvey: false, chargeVerified: true,
+      rawBE: [], rawIntensity: [], ccShift: 0,
+      peaks: [], nextId: 1, fitResult: null,
+      markedElements: [], notes: '', sourcePath: null,
+      ui: { bgType: 'shirley', bgStart: '', bgEnd: '', shirleyIter: '5',
+            endpointAvg: '1', roiMin: '', roiMax: '',
+            ccMethod: 'none', ccObs: '', ccLit: '' },
+    };
+    this.tabs.push(tab);
+    this.activateTab(id);
+    return tab;
+  }
+
   activateTab(id) {
     if (this.activeId === id) return;
     const tab = this._getTab(id);
@@ -2442,7 +2487,9 @@ class TabManager {
     bar.innerHTML = '';
     for (const tab of this.tabs) {
       const el = document.createElement('div');
-      el.className = 'sp-tab' + (tab.id === this.activeId ? ' active' : '');
+      el.className = 'sp-tab'
+        + (tab.id === this.activeId ? ' active' : '')
+        + (tab.isStack ? ' is-stack' : '');
       const tabId = tab.id;
 
       const inner = document.createElement('span');
