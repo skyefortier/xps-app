@@ -7859,22 +7859,42 @@ async function _doSaveProject() {
   const instrument = document.getElementById('proj-instrument').value.trim();
   const fname = document.getElementById('save-fname').value.trim() || 'project';
 
-  // Stack tabs are session-only in session 1; filter them out of saves.
-  const tabs = tabManager.tabs.filter(t => !t.isStack);
-  const buildTabData = (t) => ({
-    id: t.id, name: t.name, color: t.color, isSurvey: t.isSurvey,
-    rawBE: t.rawBE, rawIntensity: t.rawIntensity,
-    ccShift: t.ccShift, chargeVerified: t.chargeVerified ?? true,
-    peaks: t.peaks.map(p => ({...p})),
-    nextId: t.nextId,
-    fitResult: t.fitResult ? {
-      chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
-      rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
-    } : null,
-    notes: t.notes || '',
-    manualAnchors: t.manualAnchors || [],
-    ui: {...t.ui},
-  });
+  // Phase 5: stack tabs now persist. Spectrum tab shape unchanged;
+  // stack tabs serialize with stack-specific fields only (entries +
+  // visualization state). Source data lives on the spectrum tabs and
+  // is reached via entry.sourceTabId at load time.
+  const tabs = tabManager.tabs;
+  const buildTabData = (t) => {
+    if (t.isStack) {
+      return {
+        id: t.id, name: t.name, isStack: true,
+        _nextColorIdx: t._nextColorIdx || 0,
+        lineWidth: t.lineWidth ?? 1.5,
+        verticalOffset: t.verticalOffset ?? 0,
+        entries: (t.entries || []).map(e => ({
+          id: e.id,
+          sourceTabId: e.sourceTabId,
+          color: e.color,
+          visible: !!e.visible,
+          showFit: !!e.showFit,
+        })),
+      };
+    }
+    return {
+      id: t.id, name: t.name, color: t.color, isSurvey: t.isSurvey,
+      rawBE: t.rawBE, rawIntensity: t.rawIntensity,
+      ccShift: t.ccShift, chargeVerified: t.chargeVerified ?? true,
+      peaks: t.peaks.map(p => ({...p})),
+      nextId: t.nextId,
+      fitResult: t.fitResult ? {
+        chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
+        rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
+      } : null,
+      notes: t.notes || '',
+      manualAnchors: t.manualAnchors || [],
+      ui: {...t.ui},
+    };
+  };
 
   const meta = {
     version: 3,
@@ -8058,9 +8078,50 @@ function _loadProjectJSON(data, sessionFile) {
       if (t && Array.isArray(t.peaks)) _migrateLineshapeAliases(t.peaks);
     }
   }
+  // Phase 5: preserve saved tab IDs (with collision-detect fallback to
+  // random). Stack-entry sourceTabId references resolve correctly when
+  // IDs round-trip. Backward compatible — old saves with no isStack
+  // tabs flow through the spectrum-tab branch unchanged.
+  const usedIds = new Set(tabManager.tabs.map(x => x.id));
+  const newId = (saved) => {
+    if (saved && !usedIds.has(saved)) { usedIds.add(saved); return saved; }
+    let nid = 'tab_' + Math.random().toString(36).slice(2, 9);
+    while (usedIds.has(nid)) nid = 'tab_' + Math.random().toString(36).slice(2, 9);
+    usedIds.add(nid);
+    return nid;
+  };
+
   // Add project tabs to the existing tab bar (same as loading a folder)
   const newTabs = data.tabs.map(t => {
-    const id = 'tab_' + Math.random().toString(36).slice(2, 9);
+    const id = newId(t.id);
+    if (t.isStack) {
+      // Stack tab — shape matches createStackTab; entries restored verbatim
+      // (sourceTabId references resolved after all tabs are pushed below).
+      return {
+        id,
+        name: t.name || '▦ Stack',
+        color: '#7a7a7a',
+        isStack: true,
+        _nextColorIdx: t._nextColorIdx || 0,
+        lineWidth: typeof t.lineWidth === 'number' ? t.lineWidth : 1.5,
+        verticalOffset: typeof t.verticalOffset === 'number' ? t.verticalOffset : 0,
+        entries: Array.isArray(t.entries) ? t.entries.map(e => ({
+          id: e.id || ('e_' + Math.random().toString(36).slice(2, 9)),
+          sourceTabId: e.sourceTabId,
+          color: e.color || '#7a7a7a',
+          visible: e.visible !== false,
+          showFit: !!e.showFit,
+        })) : [],
+        // Inert spectrum-tab fields kept to satisfy existing lifecycle code paths.
+        isSurvey: false, chargeVerified: true,
+        rawBE: [], rawIntensity: [], ccShift: 0,
+        peaks: [], nextId: 1, fitResult: null,
+        markedElements: [], notes: '', sourcePath: null,
+        ui: { bgType: 'shirley', bgStart: '', bgEnd: '', shirleyIter: '5',
+              endpointAvg: '1', roiMin: '', roiMax: '',
+              ccMethod: 'none', ccObs: '', ccLit: '' },
+      };
+    }
     const color = TAB_COLORS[tabManager._colorIdx++ % TAB_COLORS.length];
     const isSurvey = t.isSurvey || false;
     return {
@@ -8089,6 +8150,36 @@ function _loadProjectJSON(data, sessionFile) {
   for (const tab of newTabs) {
     tabManager.tabs.push(tab);
   }
+
+  // Phase 5: prune stack entries whose sourceTabId doesn't resolve to a
+  // loaded spectrum tab. Happens when the source was renamed by the
+  // collision-detect path above, or the saved file was manually edited
+  // to reference a non-existent tab. Notify per-stack so the user
+  // knows what was dropped.
+  const validSpectrumIds = new Set(
+    tabManager.tabs.filter(x => !x.isStack).map(x => x.id)
+  );
+  for (const t of tabManager.tabs) {
+    if (!t.isStack) continue;
+    const before = t.entries.length;
+    t.entries = t.entries.filter(e => validSpectrumIds.has(e.sourceTabId));
+    const removed = before - t.entries.length;
+    if (removed > 0) {
+      notify('Pruned ' + removed + ' stale entr' + (removed === 1 ? 'y' : 'ies')
+             + ' from stack "' + t.name + '" (source tabs not found).', 'amber');
+    }
+  }
+
+  // Phase 5: advance _nextStackNum past the highest restored "▦ Stack N"
+  // so future "+ Stack" creates non-colliding names.
+  let maxN = 0;
+  for (const t of tabManager.tabs) {
+    if (!t.isStack) continue;
+    const m = /^▦\s*Stack\s+(\d+)$/.exec(t.name || '');
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  }
+  if (maxN >= _nextStackNum) _nextStackNum = maxN + 1;
+
   // Activate the first new tab
   if (newTabs.length) tabManager.activateTab(newTabs[0].id);
   tabManager.renderTabBar();
