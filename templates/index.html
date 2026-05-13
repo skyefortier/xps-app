@@ -6603,7 +6603,13 @@ function _updateStackChart(stackTab, opts) {
     const isVisible = !!e.visible && srcOk;
     const yShift = isVisible ? visIdx * O : 0;
     // Chart.js v4 caches dataset.hidden into meta at construction; live
-    // toggles must go through setDatasetVisibility (index-based) instead.
+    // toggles must mutate meta.hidden directly. We do NOT call
+    // setDatasetVisibility because it auto-runs chart.update() per call,
+    // which when looped over multiple datasets trips Chart.js's
+    // option-resolver recursion guard ("Recursion detected: callback->
+    // callback"). Instead batch: mutate meta.hidden inline, then let the
+    // single chart.update('none') at the end of this function apply all
+    // visibility, data, and borderWidth changes in one pipeline run.
     const rawIdx = _findStackDatasetIndex(state.chart, e.id + ':raw');
     if (rawIdx >= 0) {
       const rawDs = state.chart.data.datasets[rawIdx];
@@ -6611,7 +6617,8 @@ function _updateStackChart(stackTab, opts) {
       if (srcOk) {
         rawDs.data = src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }));
       }
-      state.chart.setDatasetVisibility(rawIdx, isVisible);
+      const rawMeta = state.chart.getDatasetMeta(rawIdx);
+      if (rawMeta) rawMeta.hidden = !isVisible;
     }
     const fitShown = isVisible && !!e.showFit && _entryHasFit(e);
     const fitIdx = _findStackDatasetIndex(state.chart, e.id + ':fit');
@@ -6620,7 +6627,8 @@ function _updateStackChart(stackTab, opts) {
       fitDs.borderWidth = lineWidth;
       const fitData = fitShown ? _buildEntryFitData(e) : [];
       fitDs.data = fitData.map(pt => ({ x: pt.x, y: pt.y + yShift }));
-      state.chart.setDatasetVisibility(fitIdx, fitShown);
+      const fitMeta = state.chart.getDatasetMeta(fitIdx);
+      if (fitMeta) fitMeta.hidden = !fitShown;
     }
     if (isVisible) visIdx++;
   }
