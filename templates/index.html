@@ -6445,6 +6445,13 @@ function _findStackDataset(chart, key) {
   return chart.data.datasets.find(d => d._stackKey === key) || null;
 }
 
+// Index variant — needed because Chart.js's visibility API
+// (setDatasetVisibility) is index-based. Returns -1 if not found.
+function _findStackDatasetIndex(chart, key) {
+  if (!chart || !chart.data || !Array.isArray(chart.data.datasets)) return -1;
+  return chart.data.datasets.findIndex(d => d._stackKey === key);
+}
+
 // Has-fit detection — Phase 4 will rely on this. Phase 1 stubs the
 // downstream `_buildEntryFitData` so the :fit dataset is always built
 // (per the dataset-count-stability requirement) but with empty data.
@@ -6595,21 +6602,25 @@ function _updateStackChart(stackTab, opts) {
     const srcOk = !!(src && Array.isArray(src.rawBE) && src.rawBE.length >= 2);
     const isVisible = !!e.visible && srcOk;
     const yShift = isVisible ? visIdx * O : 0;
-    const rawDs = _findStackDataset(state.chart, e.id + ':raw');
-    if (rawDs) {
-      rawDs.hidden = !isVisible;
+    // Chart.js v4 caches dataset.hidden into meta at construction; live
+    // toggles must go through setDatasetVisibility (index-based) instead.
+    const rawIdx = _findStackDatasetIndex(state.chart, e.id + ':raw');
+    if (rawIdx >= 0) {
+      const rawDs = state.chart.data.datasets[rawIdx];
       rawDs.borderWidth = lineWidth;
       if (srcOk) {
         rawDs.data = src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }));
       }
+      state.chart.setDatasetVisibility(rawIdx, isVisible);
     }
     const fitShown = isVisible && !!e.showFit && _entryHasFit(e);
-    const fitDs = _findStackDataset(state.chart, e.id + ':fit');
-    if (fitDs) {
-      fitDs.hidden = !fitShown;
+    const fitIdx = _findStackDatasetIndex(state.chart, e.id + ':fit');
+    if (fitIdx >= 0) {
+      const fitDs = state.chart.data.datasets[fitIdx];
       fitDs.borderWidth = lineWidth;
       const fitData = fitShown ? _buildEntryFitData(e) : [];
       fitDs.data = fitData.map(pt => ({ x: pt.x, y: pt.y + yShift }));
+      state.chart.setDatasetVisibility(fitIdx, fitShown);
     }
     if (isVisible) visIdx++;
   }
