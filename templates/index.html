@@ -3725,17 +3725,23 @@ function _clampShirleyIter() {
   else if (v > 50) el.value = 50;
 }
 
-function computeBackground(be, intensity) {
-  const type = document.getElementById('bg-type').value;
-  const iter = parseInt(document.getElementById('shirley-iter').value) || 5;
-  const nAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+// Pure-functional background computation. Takes explicit `settings`
+// (matches the shape of tab.ui — bgType, bgStart, bgEnd, shirleyIter,
+// endpointAvg) instead of reading from DOM. Used by stack-view render
+// to reproduce a source tab's background from its persisted ui state.
+// computeBackground() below is a thin DOM-reading wrapper for callers
+// in the single-tab plot path.
+function computeBackgroundCore(be, intensity, settings) {
+  const type = settings.bgType;
+  const iter = parseInt(settings.shirleyIter) || 5;
+  const nAvg = parseInt(settings.endpointAvg) || 1;
 
   // Manual anchor background uses its own anchor points, not bg-start/end
   if (type === 'manual') return manualAnchorBackground(be, intensity);
 
-  // Get background endpoint range from UI
-  const bgStartBE = parseFloat(document.getElementById('bg-start').value);
-  const bgEndBE   = parseFloat(document.getElementById('bg-end').value);
+  // Get background endpoint range from settings
+  const bgStartBE = parseFloat(settings.bgStart);
+  const bgEndBE   = parseFloat(settings.bgEnd);
   const bgLo = Math.min(bgStartBE, bgEndBE);
   const bgHi = Math.max(bgStartBE, bgEndBE);
 
@@ -3789,6 +3795,18 @@ function computeBackground(be, intensity) {
   }
 
   return full;
+}
+
+// Thin DOM-reading wrapper used by single-tab updatePlot. Stack render
+// path calls computeBackgroundCore directly with source-tab settings.
+function computeBackground(be, intensity) {
+  return computeBackgroundCore(be, intensity, {
+    bgType:      document.getElementById('bg-type').value,
+    shirleyIter: document.getElementById('shirley-iter').value,
+    endpointAvg: document.getElementById('bg-endpoint-avg').value,
+    bgStart:     document.getElementById('bg-start').value,
+    bgEnd:       document.getElementById('bg-end').value,
+  });
 }
 
 // ═══════════════════════════════════════════════════
@@ -6616,9 +6634,9 @@ function _findStackDatasetIndex(chart, key) {
   return chart.data.datasets.findIndex(d => d._stackKey === key);
 }
 
-// Has-fit detection — Phase 4 will rely on this. Phase 1 stubs the
-// downstream `_buildEntryFitData` so the :fit dataset is always built
-// (per the dataset-count-stability requirement) but with empty data.
+// Has-fit detection — source tab must have a non-null fitResult AND
+// a non-empty peaks array. Drives whether _buildEntryRenderData is
+// called and whether the legend's fit-toggle is enabled.
 function _entryHasFit(entry) {
   const src = tabManager._getTab(entry.sourceTabId);
   return !!(src && src.fitResult && Array.isArray(src.peaks) && src.peaks.length > 0);
@@ -6630,33 +6648,101 @@ function _colorWithAlpha(hex, a) {
   return hex + alphaHex;
 }
 
-// Build envelope X+Y points for an entry's :fit dataset.
-//   Path A (fresh fit): fitResult.be and fittedY both present + same length.
-//     fitResult.be is stored in corrected-BE space (it's the ROI-filtered
-//     `be` passed to the fit, which getROIData() pre-applies ccShift to).
-//     Plot directly — no additional ccShift transformation. Note: this
-//     means envelope is frozen to the ccShift at fit time; if the user
-//     re-charge-corrects post-fit, raw moves live but envelope stays.
-//     Matches the existing single-tab freeze behavior.
-//   Path B (post-load): _doSaveProject persists fittedY but NOT fitResult.be,
-//     so after loading a .proj.json we regenerate the envelope from the
-//     persisted peaks evaluated over the source's full live-corrected BE.
-//     This matches the single-tab post-load fallback in updatePlot's
-//     `showEnvelope && !fittedYBacked && state.peaks.length` branch.
-//     Path B envelope DOES move live with ccShift (intentional asymmetry
-//     vs Path A — the trade-off of not persisting fitResult.be).
-function _buildEntryFitData(entry) {
-  if (!_entryHasFit(entry)) return [];
+// Reproduce a source tab's background using its persisted ui state.
+// Falls back to shirley for manual-anchor sources (see follow-up:
+// "Stack view of post-load fits: support manual-anchor background
+// reconstruction from persisted anchor points").
+function _computeBackgroundForSource(be, inten, srcUi) {
+  if (!be || !be.length || !inten || !inten.length) {
+    return new Array(be ? be.length : 0).fill(0);
+  }
+  let settings = {
+    bgType:      (srcUi && srcUi.bgType)      || 'shirley',
+    shirleyIter: (srcUi && srcUi.shirleyIter) || '5',
+    endpointAvg: (srcUi && srcUi.endpointAvg) || '1',
+    bgStart:     (srcUi && srcUi.bgStart)     || '',
+    bgEnd:       (srcUi && srcUi.bgEnd)       || '',
+  };
+  if (settings.bgType === 'manual') settings = { ...settings, bgType: 'shirley' };
+  return computeBackgroundCore(be, inten, settings);
+}
+
+// Build all render data for one entry's fit visualization:
+//   { be, bg, fittedY, peaks: [{peak, y}] }
+// `be` is corrected-BE space; `bg` is raw-level background curve;
+// `fittedY` is the raw-level envelope; each peak's `y` is the raw-level
+// peak shape (peak height + bg).
+//
+// Three internal paths, chosen by what the source tab has available:
+//   A:  fitResult.be + fitResult.fittedY both present, lengths match
+//       → use fittedY directly (already raw-level). Frozen to fit-time
+//         ccShift, matching single-tab behavior.
+//   A2: fitResult.be + fitResult.bgIntensity present, no fittedY (local
+//       LM fit) → fittedY = evalAllPeaks(be, peaks) + bg.
+//   B:  post-load, neither fr.be nor fr.bgIntensity present → derive be
+//       by ROI-filtering corrBE using src.ui.roiMin/roiMax, recompute
+//       bg via _computeBackgroundForSource(be, inten, src.ui).
+//       Live ccShift (deliberate asymmetry vs A/A2).
+//
+// Returns empty arrays if source isn't available or has no fit.
+function _buildEntryRenderData(entry) {
   const src = tabManager._getTab(entry.sourceTabId);
-  if (Array.isArray(src.fitResult.be) && src.fitResult.be.length
-      && Array.isArray(src.fitResult.fittedY)
-      && src.fitResult.fittedY.length === src.fitResult.be.length) {
-    return src.fitResult.be.map((b, i) => ({ x: b, y: src.fitResult.fittedY[i] }));
+  if (!src || !Array.isArray(src.rawBE) || src.rawBE.length < 2) {
+    return { be: [], bg: [], fittedY: [], peaks: [] };
+  }
+  const peaks = Array.isArray(src.peaks) ? src.peaks : [];
+  const fr = src.fitResult;
+  if (!fr || peaks.length === 0) {
+    return { be: [], bg: [], fittedY: [], peaks: [] };
   }
   const shift = src.ccShift || 0;
-  const corrBE = src.rawBE.map(b => b - shift);
-  const modelFull = evalAllPeaks(corrBE, src.peaks);
-  return corrBE.map((b, i) => ({ x: b, y: modelFull[i] }));
+
+  // be + bg
+  let be, bg;
+  if (Array.isArray(fr.be) && fr.be.length >= 2
+      && Array.isArray(fr.bgIntensity)
+      && fr.bgIntensity.length === fr.be.length) {
+    // Path A/A2: fit-time be + bg both present (frozen).
+    be = fr.be.slice();
+    bg = fr.bgIntensity.slice();
+  } else {
+    // Path B: post-load — derive ROI-window be from rawBE + ui.roiMin/Max,
+    // recompute bg from raw via source's persisted bg settings.
+    const corrBE = src.rawBE.map(b => b - shift);
+    const roiMinV = parseFloat(src.ui && src.ui.roiMin);
+    const roiMaxV = parseFloat(src.ui && src.ui.roiMax);
+    let i0 = 0, i1 = corrBE.length - 1;
+    if (isFinite(roiMinV) && isFinite(roiMaxV)) {
+      const lo = Math.min(roiMinV, roiMaxV);
+      const hi = Math.max(roiMinV, roiMaxV);
+      // corrBE is descending (highest BE first); locate ROI bounds.
+      while (i0 < corrBE.length && corrBE[i0] > hi) i0++;
+      while (i1 >= 0 && corrBE[i1] < lo) i1--;
+      if (i1 < i0) { i0 = 0; i1 = corrBE.length - 1; }
+    }
+    be = corrBE.slice(i0, i1 + 1);
+    const inten = src.rawIntensity.slice(i0, i1 + 1);
+    bg = _computeBackgroundForSource(be, inten, src.ui);
+  }
+
+  // Envelope (raw-level)
+  let fittedY;
+  if (Array.isArray(fr.fittedY) && fr.fittedY.length === be.length) {
+    // Path A: backend fittedY directly (already raw-level).
+    fittedY = fr.fittedY.slice();
+  } else {
+    // Path A2/B: compose envelope from peaks + bg.
+    const model = evalAllPeaks(be, peaks);
+    fittedY = model.map((v, i) => v + bg[i]);
+  }
+
+  // Per-peak curves (peak shape + bg, raw-level)
+  const peakCurves = peaks.map(p => {
+    const peakY = evalPeakArray(be, p);
+    return { peak: p, y: peakY.map((v, i) => v + bg[i]) };
+  });
+
+  return { be, bg, fittedY, peaks: peakCurves };
 }
 
 // Count entries that have a valid source and are flagged visible.
@@ -6671,22 +6757,67 @@ function _countVisibleStackEntries(stackTab) {
   return n;
 }
 
-// Pure builder: returns the full datasets array (two per entry: raw + fit).
-// Both datasets always exist for every entry — dataset count is stable
-// regardless of visibility/showFit, so toggles can mutate hidden flags
-// in place without preserving zoom.
+// Pure builder. Per entry, emits up to 2 + 2×N_peaks datasets:
+//   <id>:pbg:<peakId>   hidden background-level target for each peak fill
+//   <id>:peak:<peakId>  filled peak component (raw-level peak + bg)
+//   <id>:raw            solid raw spectrum
+//   <id>:env            dashed envelope (raw-level)
+// pbg + peak datasets only exist when source has a fit (_entryHasFit).
+// Dataset count is stable for a given activation cycle — peak set can
+// only change while the source tab is active (peak controls are hidden
+// in stack mode), and any such change triggers a fresh activateTab →
+// _renderStackChart pass when the user returns.
 function _buildStackDatasets(stackTab) {
   const lineWidth = stackTab.lineWidth ?? 1.5;
   const O = stackTab.verticalOffset || 0;
   const datasets = [];
   let visIdx = 0;
   for (const e of stackTab.entries) {
-    // Backfill id defensively for entries created before Phase 1.
     if (!e.id) e.id = 'e_' + Math.random().toString(36).slice(2, 9);
     const src = tabManager._getTab(e.sourceTabId);
     const srcOk = !!(src && Array.isArray(src.rawBE) && src.rawBE.length >= 2);
     const isVisible = !!e.visible && srcOk;
     const yShift = isVisible ? visIdx * O : 0;
+    const hasFit = _entryHasFit(e);
+    const fitShown = isVisible && !!e.showFit && hasFit;
+    const rd = hasFit ? _buildEntryRenderData(e) : null;
+    const rdPeaks = rd ? rd.peaks : [];
+
+    // Peak bg-target datasets — must come first so fill.target indices
+    // are computable for the matching peak datasets below.
+    const pbgBase = datasets.length;
+    for (const pc of rdPeaks) {
+      datasets.push({
+        _stackKey: e.id + ':pbg:' + pc.peak.id,
+        label: '_pbg_' + e.id + '_' + pc.peak.id,
+        data: rd.be.map((b, i) => ({ x: b, y: rd.bg[i] + yShift })),
+        borderColor: 'transparent',
+        borderWidth: 0,
+        pointRadius: 0,
+        fill: false,
+        // Must not be hidden: Chart.js requires the fill target dataset
+        // to render its data points for fills to anchor. Visually
+        // invisible via borderWidth:0 + transparent stroke.
+        hidden: false,
+      });
+    }
+    // Peak datasets — filled between peak curve and matching pbg.
+    let pi = 0;
+    for (const pc of rdPeaks) {
+      datasets.push({
+        _stackKey: e.id + ':peak:' + pc.peak.id,
+        label: pc.peak.name || ('peak ' + pc.peak.id),
+        data: rd.be.map((b, i) => ({ x: b, y: pc.y[i] + yShift })),
+        borderColor: pc.peak.color,
+        backgroundColor: pc.peak.color + '40',
+        borderWidth: lineWidth,
+        pointRadius: 0,
+        fill: { target: pbgBase + pi, above: pc.peak.color + '40', below: 'transparent' },
+        tension: 0,
+        hidden: !fitShown,
+      });
+      pi++;
+    }
     // Raw dataset (always present)
     datasets.push({
       _stackKey: e.id + ':raw',
@@ -6701,13 +6832,11 @@ function _buildStackDatasets(stackTab) {
       fill: false,
       hidden: !isVisible,
     });
-    // Fit dataset (always present; hidden until Phase 4 wires showFit)
-    const fitShown = isVisible && !!e.showFit && _entryHasFit(e);
-    const fitData = fitShown ? _buildEntryFitData(e) : [];
+    // Envelope dataset (always present; hidden when no fit or showFit off)
     datasets.push({
-      _stackKey: e.id + ':fit',
+      _stackKey: e.id + ':env',
       label: (src ? src.name : 'entry') + ' (fit)',
-      data: fitData.map(pt => ({ x: pt.x, y: pt.y + yShift })),
+      data: rd ? rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i] + yShift })) : [],
       borderColor: _colorWithAlpha(e.color, 0.7),
       backgroundColor: _colorWithAlpha(e.color, 0.7),
       borderWidth: lineWidth,
@@ -6795,6 +6924,15 @@ function _updateStackChart(stackTab, opts) {
   }
   if (canvas) canvas.style.display = '';
   if (emptyEl) emptyEl.style.display = 'none';
+  // Build key→index map once (O(N)) so per-entry lookups are O(1).
+  // Chart.js v4 caches dataset.hidden into meta at construction; live
+  // toggles mutate getDatasetMeta(i).hidden directly. The single
+  // chart.update('none') at the end applies all changes in one pass.
+  const dsByKey = new Map();
+  state.chart.data.datasets.forEach((ds, i) => {
+    if (ds._stackKey) dsByKey.set(ds._stackKey, i);
+  });
+
   const lineWidth = stackTab.lineWidth ?? 1.5;
   const O = stackTab.verticalOffset || 0;
   let visIdx = 0;
@@ -6804,29 +6942,52 @@ function _updateStackChart(stackTab, opts) {
     const srcOk = !!(src && Array.isArray(src.rawBE) && src.rawBE.length >= 2);
     const isVisible = !!e.visible && srcOk;
     const yShift = isVisible ? visIdx * O : 0;
-    // Chart.js v4 caches dataset.hidden into meta at construction; live
-    // toggles must mutate getDatasetMeta(i).hidden directly. The single
-    // chart.update('none') at the end of this function applies all
-    // visibility, data, and borderWidth changes in one pipeline run.
-    const rawIdx = _findStackDatasetIndex(state.chart, e.id + ':raw');
-    if (rawIdx >= 0) {
-      const rawDs = state.chart.data.datasets[rawIdx];
-      rawDs.borderWidth = lineWidth;
+    const hasFit = _entryHasFit(e);
+    const fitShown = isVisible && !!e.showFit && hasFit;
+    // Compute render data once for this entry; reused across env + peaks.
+    const rd = hasFit ? _buildEntryRenderData(e) : null;
+
+    // Raw
+    const rawIdx = dsByKey.get(e.id + ':raw');
+    if (rawIdx !== undefined) {
+      const ds = state.chart.data.datasets[rawIdx];
+      ds.borderWidth = lineWidth;
       if (srcOk) {
-        rawDs.data = src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }));
+        ds.data = src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }));
       }
-      const rawMeta = state.chart.getDatasetMeta(rawIdx);
-      if (rawMeta) rawMeta.hidden = !isVisible;
+      const m = state.chart.getDatasetMeta(rawIdx);
+      if (m) m.hidden = !isVisible;
     }
-    const fitShown = isVisible && !!e.showFit && _entryHasFit(e);
-    const fitIdx = _findStackDatasetIndex(state.chart, e.id + ':fit');
-    if (fitIdx >= 0) {
-      const fitDs = state.chart.data.datasets[fitIdx];
-      fitDs.borderWidth = lineWidth;
-      const fitData = fitShown ? _buildEntryFitData(e) : [];
-      fitDs.data = fitData.map(pt => ({ x: pt.x, y: pt.y + yShift }));
-      const fitMeta = state.chart.getDatasetMeta(fitIdx);
-      if (fitMeta) fitMeta.hidden = !fitShown;
+    // Envelope
+    const envIdx = dsByKey.get(e.id + ':env');
+    if (envIdx !== undefined) {
+      const ds = state.chart.data.datasets[envIdx];
+      ds.borderWidth = lineWidth;
+      ds.data = rd ? rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i] + yShift })) : [];
+      const m = state.chart.getDatasetMeta(envIdx);
+      if (m) m.hidden = !fitShown;
+    }
+    // Per-peak (pbg target + filled peak component)
+    if (rd) {
+      for (const pc of rd.peaks) {
+        const pbgIdx = dsByKey.get(e.id + ':pbg:' + pc.peak.id);
+        if (pbgIdx !== undefined) {
+          const ds = state.chart.data.datasets[pbgIdx];
+          ds.data = rd.be.map((b, i) => ({ x: b, y: rd.bg[i] + yShift }));
+          // pbg stays "not hidden" so its fill anchor still works; it's
+          // transparent so nothing is drawn anyway.
+          const m = state.chart.getDatasetMeta(pbgIdx);
+          if (m) m.hidden = false;
+        }
+        const pkIdx = dsByKey.get(e.id + ':peak:' + pc.peak.id);
+        if (pkIdx !== undefined) {
+          const ds = state.chart.data.datasets[pkIdx];
+          ds.borderWidth = lineWidth;
+          ds.data = rd.be.map((b, i) => ({ x: b, y: pc.y[i] + yShift }));
+          const m = state.chart.getDatasetMeta(pkIdx);
+          if (m) m.hidden = !fitShown;
+        }
+      }
     }
     if (isVisible) visIdx++;
   }
