@@ -6745,6 +6745,25 @@ function _buildEntryRenderData(entry) {
   return { be, bg, fittedY, peaks: peakCurves };
 }
 
+// Cached wrapper around _buildEntryRenderData. Stored on the entry as
+// entry._renderDataCache. Slider drags and other in-place updates hit
+// the cache; _renderStackChart clears all entry caches before rebuild,
+// which is the only path that runs when source-tab state changes
+// (peak edits, ccShift edits, re-fits all happen while user is on the
+// source tab — they return to the stack via activateTab → updatePlot →
+// _renderStackChart, picking up fresh data).
+//
+// The big win: Path B (post-load) recomputes a Shirley background per
+// call, which costs ~1-2 ms per entry. Without the cache, that compute
+// fires on every offset/line-width slider tick (60 Hz) for every fit
+// entry — visible stutter. With the cache, slider drag is O(1) lookup.
+function _getEntryRenderData(entry) {
+  if (entry._renderDataCache) return entry._renderDataCache;
+  const rd = _buildEntryRenderData(entry);
+  entry._renderDataCache = rd;
+  return rd;
+}
+
 // Count entries that have a valid source and are flagged visible.
 // Drives the empty-state DOM message.
 function _countVisibleStackEntries(stackTab) {
@@ -6780,7 +6799,7 @@ function _buildStackDatasets(stackTab) {
     const yShift = isVisible ? visIdx * O : 0;
     const hasFit = _entryHasFit(e);
     const fitShown = isVisible && !!e.showFit && hasFit;
-    const rd = hasFit ? _buildEntryRenderData(e) : null;
+    const rd = hasFit ? _getEntryRenderData(e) : null;
     const rdPeaks = rd ? rd.peaks : [];
 
     // Peak bg-target datasets — must come first so fill.target indices
@@ -6852,6 +6871,10 @@ function _buildStackDatasets(stackTab) {
 
 // Destroy + rebuild path — used on entry add/remove or initial activation.
 function _renderStackChart(stackTab) {
+  // Invalidate render-data caches. This is the only path that picks up
+  // source-tab changes (peaks/fits/ccShift edited while user was on the
+  // source tab), so it's also the right invalidation point.
+  for (const e of stackTab.entries) e._renderDataCache = null;
   if (state.chart) { state.chart.destroy(); state.chart = null; }
   const canvas = document.getElementById('mainChart');
   const emptyEl = document.getElementById('stack-empty-state');
@@ -6884,7 +6907,19 @@ function _renderStackChart(stackTab) {
           }
         }
       },
-      plugins: { legend: { display: false } }
+      plugins: {
+        legend: { display: false },
+        // Show only raw-spectrum entries in the hover tooltip. With per-peak
+        // and pbg-target datasets in the chart, the default tooltip would
+        // list 10+ items per entry (raw + env + N peaks + N pbgs) and be
+        // unreadable. Filter to _stackKey ending in ':raw'.
+        tooltip: {
+          filter: (item) => {
+            const ds = item && item.dataset;
+            return !!(ds && typeof ds._stackKey === 'string' && ds._stackKey.endsWith(':raw'));
+          },
+        },
+      }
     }
   });
   // Initialize state._mainYMax to the natural data max so the scroll-wheel
@@ -6944,8 +6979,8 @@ function _updateStackChart(stackTab, opts) {
     const yShift = isVisible ? visIdx * O : 0;
     const hasFit = _entryHasFit(e);
     const fitShown = isVisible && !!e.showFit && hasFit;
-    // Compute render data once for this entry; reused across env + peaks.
-    const rd = hasFit ? _buildEntryRenderData(e) : null;
+    // Cached: slider drags hit the cache; rebuild path clears it.
+    const rd = hasFit ? _getEntryRenderData(e) : null;
 
     // Raw
     const rawIdx = dsByKey.get(e.id + ':raw');
