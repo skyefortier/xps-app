@@ -1916,12 +1916,12 @@ function renderStackLegend(stackTab) {
     row.querySelector('.name').textContent = name;
     row.querySelector('.vis').addEventListener('change', e => {
       entry.visible = e.target.checked;
-      updatePlot();
+      _updateStackChart(stackTab);
     });
     row.querySelector('.remove').addEventListener('click', () => {
       stackTab.entries = stackTab.entries.filter(x => x !== entry);
       renderStackLegend(stackTab);
-      updatePlot();
+      _updateStackChart(stackTab, { invalidate: 'datasets' });
     });
     list.appendChild(row);
   }
@@ -1976,9 +1976,16 @@ function _toggleAddSpectrumMenu() {
 
 function _addSpectrumToStack(stackTab, sourceTabId) {
   const color = STACK_PALETTE[stackTab._nextColorIdx++ % STACK_PALETTE.length];
-  stackTab.entries.push({ sourceTabId, color, visible: true });
+  // showFit defaults true if source has a fit at add time (Phase 4 wires the toggle).
+  const src = tabManager._getTab(sourceTabId);
+  const srcHasFit = !!(src && src.fitResult && Array.isArray(src.peaks) && src.peaks.length > 0);
+  stackTab.entries.push({
+    id: 'e_' + Math.random().toString(36).slice(2, 9),
+    sourceTabId, color, visible: true,
+    showFit: srcHasFit,
+  });
   renderStackLegend(stackTab);
-  updatePlot();
+  _updateStackChart(stackTab, { invalidate: 'datasets' });
 }
 
 // Click-outside closes the Add-Spectrum dropdown.
@@ -6425,24 +6432,118 @@ function recalcQuantify() {
 // CHART  —  always destroy + recreate (never mutate)
 //           min/max always beMin/beMax; reverse: invert
 // ═══════════════════════════════════════════════════
-function _renderStackChart(stackTab, visibleEntries) {
-  if (state.chart) { state.chart.destroy(); state.chart = null; }
-  const datasets = visibleEntries.map(e => {
+// ── Stack chart helpers ───────────────────────────────────
+// Stable dataset key scheme: each entry contributes two datasets,
+// identified by `${entry.id}:raw` and `${entry.id}:fit` (stored as
+// dataset._stackKey). Lookup uses _findStackDataset; Chart.js ignores
+// unknown dataset properties. This lets in-place updates target a
+// specific entry's dataset without relying on array indices, which
+// would shift when datasets reorder.
+
+function _findStackDataset(chart, key) {
+  if (!chart || !chart.data || !Array.isArray(chart.data.datasets)) return null;
+  return chart.data.datasets.find(d => d._stackKey === key) || null;
+}
+
+// Has-fit detection — Phase 4 will rely on this. Phase 1 stubs the
+// downstream `_buildEntryFitData` so the :fit dataset is always built
+// (per the dataset-count-stability requirement) but with empty data.
+function _entryHasFit(entry) {
+  const src = tabManager._getTab(entry.sourceTabId);
+  return !!(src && src.fitResult && Array.isArray(src.peaks) && src.peaks.length > 0);
+}
+
+function _colorWithAlpha(hex, a) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+  const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
+  return hex + alphaHex;
+}
+
+// Phase 4 implements real envelope data; Phase 1 returns empty so the
+// :fit dataset exists for stable keying but stays hidden+empty.
+function _buildEntryFitData(entry) {
+  return [];
+}
+
+// Count entries that have a valid source and are flagged visible.
+// Drives the empty-state DOM message.
+function _countVisibleStackEntries(stackTab) {
+  let n = 0;
+  for (const e of stackTab.entries) {
+    if (!e.visible) continue;
     const src = tabManager._getTab(e.sourceTabId);
-    const shift = src.ccShift || 0;
-    const data = src.rawBE.map((b, j) => ({ x: b - shift, y: src.rawIntensity[j] }));
-    return {
-      label: src.name,
-      data,
+    if (src && Array.isArray(src.rawBE) && src.rawBE.length >= 2) n++;
+  }
+  return n;
+}
+
+// Pure builder: returns the full datasets array (two per entry: raw + fit).
+// Both datasets always exist for every entry — dataset count is stable
+// regardless of visibility/showFit, so toggles can mutate hidden flags
+// in place without preserving zoom.
+function _buildStackDatasets(stackTab) {
+  const lineWidth = stackTab.lineWidth ?? 1.5;
+  const O = stackTab.verticalOffset || 0;
+  const datasets = [];
+  let visIdx = 0;
+  for (const e of stackTab.entries) {
+    // Backfill id defensively for entries created before Phase 1.
+    if (!e.id) e.id = 'e_' + Math.random().toString(36).slice(2, 9);
+    const src = tabManager._getTab(e.sourceTabId);
+    const srcOk = !!(src && Array.isArray(src.rawBE) && src.rawBE.length >= 2);
+    const isVisible = !!e.visible && srcOk;
+    const yShift = isVisible ? visIdx * O : 0;
+    // Raw dataset (always present)
+    datasets.push({
+      _stackKey: e.id + ':raw',
+      label: src ? src.name : '(missing source)',
+      data: srcOk
+        ? src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }))
+        : [],
       borderColor: e.color,
       backgroundColor: e.color,
-      borderWidth: 1.5,
+      borderWidth: lineWidth,
       pointRadius: 0,
       fill: false,
-    };
-  });
+      hidden: !isVisible,
+    });
+    // Fit dataset (always present; hidden until Phase 4 wires showFit)
+    const fitShown = isVisible && !!e.showFit && _entryHasFit(e);
+    const fitData = fitShown ? _buildEntryFitData(e) : [];
+    datasets.push({
+      _stackKey: e.id + ':fit',
+      label: (src ? src.name : 'entry') + ' (fit)',
+      data: fitData.map(pt => ({ x: pt.x, y: pt.y + yShift })),
+      borderColor: _colorWithAlpha(e.color, 0.7),
+      backgroundColor: _colorWithAlpha(e.color, 0.7),
+      borderWidth: lineWidth,
+      borderDash: [4, 3],
+      pointRadius: 0,
+      fill: false,
+      hidden: !fitShown,
+    });
+    if (isVisible) visIdx++;
+  }
+  return datasets;
+}
+
+// Destroy + rebuild path — used on entry add/remove or initial activation.
+function _renderStackChart(stackTab) {
+  if (state.chart) { state.chart.destroy(); state.chart = null; }
+  const canvas = document.getElementById('mainChart');
+  const emptyEl = document.getElementById('stack-empty-state');
+  const visible = _countVisibleStackEntries(stackTab);
+  if (visible === 0) {
+    if (canvas) canvas.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'flex';
+    return;
+  }
+  if (canvas) canvas.style.display = '';
+  if (emptyEl) emptyEl.style.display = 'none';
+  const datasets = _buildStackDatasets(stackTab);
   const invert = document.getElementById('invert-be')?.checked ?? true;
-  const ctx = document.getElementById('mainChart').getContext('2d');
+  const offsetActive = (stackTab.verticalOffset || 0) > 0;
+  const ctx = canvas.getContext('2d');
   state.chart = new Chart(ctx, {
     type: 'line',
     data: { datasets },
@@ -6451,34 +6552,90 @@ function _renderStackChart(stackTab, visibleEntries) {
       interaction: { mode: 'index', intersect: false },
       scales: {
         x: { type: 'linear', reverse: invert, title: { display: true, text: 'Binding Energy (eV)' } },
-        y: { type: 'linear', title: { display: true, text: 'Intensity (counts/s)' } }
+        y: {
+          type: 'linear',
+          ticks: { display: !offsetActive },
+          title: {
+            display: true,
+            text: offsetActive ? 'Intensity (offset stacked)' : 'Intensity (counts/s)',
+          }
+        }
       },
       plugins: { legend: { display: false } }
     }
   });
 }
 
+// In-place orchestrator: preserves zoom unless invalidate='datasets'.
+// Called from legend handlers (visibility, remove) and Phase 2+ sliders.
+function _updateStackChart(stackTab, opts) {
+  opts = opts || {};
+  if (opts.invalidate === 'datasets' || !state.chart) {
+    _renderStackChart(stackTab);
+    return;
+  }
+  const canvas = document.getElementById('mainChart');
+  const emptyEl = document.getElementById('stack-empty-state');
+  const visible = _countVisibleStackEntries(stackTab);
+  if (visible === 0) {
+    // No visible entries — show empty-state DOM but keep chart instance
+    // alive so zoom etc. is preserved when user re-enables an entry.
+    if (canvas) canvas.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'flex';
+    return;
+  }
+  if (canvas) canvas.style.display = '';
+  if (emptyEl) emptyEl.style.display = 'none';
+  const lineWidth = stackTab.lineWidth ?? 1.5;
+  const O = stackTab.verticalOffset || 0;
+  let visIdx = 0;
+  for (const e of stackTab.entries) {
+    if (!e.id) e.id = 'e_' + Math.random().toString(36).slice(2, 9);
+    const src = tabManager._getTab(e.sourceTabId);
+    const srcOk = !!(src && Array.isArray(src.rawBE) && src.rawBE.length >= 2);
+    const isVisible = !!e.visible && srcOk;
+    const yShift = isVisible ? visIdx * O : 0;
+    const rawDs = _findStackDataset(state.chart, e.id + ':raw');
+    if (rawDs) {
+      rawDs.hidden = !isVisible;
+      rawDs.borderWidth = lineWidth;
+      if (srcOk) {
+        rawDs.data = src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }));
+      }
+    }
+    const fitShown = isVisible && !!e.showFit && _entryHasFit(e);
+    const fitDs = _findStackDataset(state.chart, e.id + ':fit');
+    if (fitDs) {
+      fitDs.hidden = !fitShown;
+      fitDs.borderWidth = lineWidth;
+      const fitData = fitShown ? _buildEntryFitData(e) : [];
+      fitDs.data = fitData.map(pt => ({ x: pt.x, y: pt.y + yShift }));
+    }
+    if (isVisible) visIdx++;
+  }
+  // Sync Y-axis label/ticks for offset state
+  const offsetActive = (stackTab.verticalOffset || 0) > 0;
+  if (state.chart.options && state.chart.options.scales && state.chart.options.scales.y) {
+    const y = state.chart.options.scales.y;
+    y.ticks = y.ticks || {};
+    y.ticks.display = !offsetActive;
+    y.title = y.title || { display: true };
+    y.title.text = offsetActive ? 'Intensity (offset stacked)' : 'Intensity (counts/s)';
+  }
+  state.chart.update('none');
+}
+
 function updatePlot() {
   // Stack-tab early branch: render multi-spectrum overlay, no peaks/fits.
+  // updatePlot is a destroy+rebuild path; in-place updates triggered by
+  // legend toggles / sliders go through _updateStackChart directly to
+  // preserve zoom.
   {
     const _activeTab = (typeof tabManager !== 'undefined') ? tabManager._getTab(tabManager.activeId) : null;
     const _emptyEl = document.getElementById('stack-empty-state');
     const _canvas = document.getElementById('mainChart');
     if (isStackTab(_activeTab)) {
-      const _visible = _activeTab.entries.filter(e => {
-        if (!e.visible) return false;
-        const src = tabManager._getTab(e.sourceTabId);
-        return src && Array.isArray(src.rawBE) && src.rawBE.length >= 2;
-      });
-      if (_visible.length === 0) {
-        if (_canvas) _canvas.style.display = 'none';
-        if (_emptyEl) _emptyEl.style.display = 'flex';
-        if (state.chart) { state.chart.destroy(); state.chart = null; }
-        return;
-      }
-      if (_canvas) _canvas.style.display = '';
-      if (_emptyEl) _emptyEl.style.display = 'none';
-      _renderStackChart(_activeTab, _visible);
+      _renderStackChart(_activeTab);
       return;
     } else {
       if (_canvas) _canvas.style.display = '';
