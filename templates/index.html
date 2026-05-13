@@ -4255,6 +4255,33 @@ let _dragZoomEnabled = true; // toggled off during placeMode
 
 function resetAllZoom() {
   if (state.chart) {
+    // Stack tabs: _origYMax / _origXMin are set by single-tab updatePlot
+    // and carry stale spectrum-range values when the active tab is a
+    // stack. Clear explicit Y and X bounds, let Chart.js auto-fit, and
+    // seed state._mainYMax from current chart data so the next wheel
+    // event has a real number to multiply against (same pattern as
+    // _renderStackChart init).
+    const _activeTab = typeof tabManager !== 'undefined' && tabManager._getTab(tabManager.activeId);
+    if (isStackTab(_activeTab)) {
+      delete state.chart.options.scales.y.min;
+      delete state.chart.options.scales.y.max;
+      delete state.chart.options.scales.x.min;
+      delete state.chart.options.scales.x.max;
+      let _maxY = 0;
+      for (const ds of state.chart.data.datasets) {
+        if (!Array.isArray(ds.data)) continue;
+        for (const pt of ds.data) {
+          const v = (pt && typeof pt === 'object') ? pt.y : pt;
+          if (typeof v === 'number' && isFinite(v) && v > _maxY) _maxY = v;
+        }
+      }
+      state._mainYMax = _maxY > 0 ? _maxY : null;
+      state._mainXMin = null;
+      state._mainXMax = null;
+      state.chart.update('none');
+      updateResetZoomButton();
+      return;
+    }
     // Reset Y — remove explicit min/max so Chart.js auto-fits to data
     if (_origYMax !== null) {
       state._mainYMax = _origYMax;
