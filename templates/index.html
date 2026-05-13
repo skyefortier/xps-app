@@ -796,6 +796,8 @@
     margin-right: 4px;
   }
   .stack-legend-row .vis { cursor: pointer; accent-color: var(--accent); }
+  .stack-legend-row .fit-toggle { cursor: pointer; accent-color: var(--accent); }
+  .stack-legend-row .fit-toggle:disabled { opacity: 0.3; cursor: not-allowed; }
   .stack-legend-row .remove {
     cursor: pointer; padding: 0 4px;
     color: var(--text3); font-size: 14px; line-height: 1;
@@ -1943,19 +1945,30 @@ function renderStackLegend(stackTab) {
     const name = src ? src.name : '(missing source)';
     const shift = src ? (src.ccShift || 0) : 0;
     const shiftStr = (shift >= 0 ? '+' : '') + shift.toFixed(2);
+    const hasFit = _entryHasFit(entry);
     const row = document.createElement('div');
     row.className = 'stack-legend-row';
     row.innerHTML =
       '<span class="swatch" style="background:' + entry.color + '"></span>' +
       '<span class="name"></span>' +
       '<span class="cc">ΔCC: ' + shiftStr + ' eV</span>' +
-      '<input type="checkbox" class="vis" ' + (entry.visible ? 'checked' : '') + '>' +
+      '<input type="checkbox" class="vis" ' + (entry.visible ? 'checked' : '') + ' title="Show spectrum">' +
+      '<input type="checkbox" class="fit-toggle"'
+        + (hasFit ? (entry.showFit ? ' checked' : '') : ' disabled')
+        + ' title="' + (hasFit ? 'Show fit envelope' : 'No fit available') + '">' +
       '<span class="remove" title="Remove">×</span>';
     row.querySelector('.name').textContent = name;
     row.querySelector('.vis').addEventListener('change', e => {
       entry.visible = e.target.checked;
       _updateStackChart(stackTab);
     });
+    const ft = row.querySelector('.fit-toggle');
+    if (ft && hasFit) {
+      ft.addEventListener('change', e => {
+        entry.showFit = e.target.checked;
+        _updateStackChart(stackTab);
+      });
+    }
     row.querySelector('.remove').addEventListener('click', () => {
       stackTab.entries = stackTab.entries.filter(x => x !== entry);
       stackTab._offsetMaxCache = null;
@@ -6617,10 +6630,33 @@ function _colorWithAlpha(hex, a) {
   return hex + alphaHex;
 }
 
-// Phase 4 implements real envelope data; Phase 1 returns empty so the
-// :fit dataset exists for stable keying but stays hidden+empty.
+// Build envelope X+Y points for an entry's :fit dataset.
+//   Path A (fresh fit): fitResult.be and fittedY both present + same length.
+//     fitResult.be is stored in corrected-BE space (it's the ROI-filtered
+//     `be` passed to the fit, which getROIData() pre-applies ccShift to).
+//     Plot directly — no additional ccShift transformation. Note: this
+//     means envelope is frozen to the ccShift at fit time; if the user
+//     re-charge-corrects post-fit, raw moves live but envelope stays.
+//     Matches the existing single-tab freeze behavior.
+//   Path B (post-load): _doSaveProject persists fittedY but NOT fitResult.be,
+//     so after loading a .proj.json we regenerate the envelope from the
+//     persisted peaks evaluated over the source's full live-corrected BE.
+//     This matches the single-tab post-load fallback in updatePlot's
+//     `showEnvelope && !fittedYBacked && state.peaks.length` branch.
+//     Path B envelope DOES move live with ccShift (intentional asymmetry
+//     vs Path A — the trade-off of not persisting fitResult.be).
 function _buildEntryFitData(entry) {
-  return [];
+  if (!_entryHasFit(entry)) return [];
+  const src = tabManager._getTab(entry.sourceTabId);
+  if (Array.isArray(src.fitResult.be) && src.fitResult.be.length
+      && Array.isArray(src.fitResult.fittedY)
+      && src.fitResult.fittedY.length === src.fitResult.be.length) {
+    return src.fitResult.be.map((b, i) => ({ x: b, y: src.fitResult.fittedY[i] }));
+  }
+  const shift = src.ccShift || 0;
+  const corrBE = src.rawBE.map(b => b - shift);
+  const modelFull = evalAllPeaks(corrBE, src.peaks);
+  return corrBE.map((b, i) => ({ x: b, y: modelFull[i] }));
 }
 
 // Count entries that have a valid source and are flagged visible.
