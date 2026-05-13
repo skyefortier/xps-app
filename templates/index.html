@@ -6695,6 +6695,21 @@ function _renderStackChart(stackTab) {
       plugins: { legend: { display: false } }
     }
   });
+  // Initialize state._mainYMax to the natural data max so the scroll-wheel
+  // Y-zoom handler (attached to the canvas during single-tab updatePlot,
+  // which persists across tab switches) has a real number to multiply
+  // against. Without this, _mainYMax stays null after activateTab and the
+  // wheel handler's first event computes null * zoomFactor = 0, clamping
+  // Y to a tiny ceiling that strands the stack chart out of frame.
+  let _maxY = 0;
+  for (const ds of state.chart.data.datasets) {
+    if (!Array.isArray(ds.data)) continue;
+    for (const pt of ds.data) {
+      const v = (pt && typeof pt === 'object') ? pt.y : pt;
+      if (typeof v === 'number' && isFinite(v) && v > _maxY) _maxY = v;
+    }
+  }
+  state._mainYMax = _maxY > 0 ? _maxY : null;
 }
 
 // In-place orchestrator: preserves zoom unless invalidate='datasets'.
