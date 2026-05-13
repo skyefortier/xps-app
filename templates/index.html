@@ -803,6 +803,32 @@
   }
   .stack-legend-row .remove:hover { color: var(--red); background: var(--red-dim); }
 
+  /* ── Stack control sliders (line width, offset) ─────────── */
+  .stack-controls {
+    padding: 0 0 10px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+  .stack-control-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+  .stack-control-row:last-child { margin-bottom: 0; }
+  .stack-control-row label {
+    width: 72px; flex-shrink: 0;
+    color: var(--text2);
+  }
+  .stack-control-row input[type=range] {
+    flex: 1;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .stack-control-value {
+    width: 56px; flex-shrink: 0; text-align: right;
+    font-family: var(--mono); font-size: 10px; color: var(--text);
+  }
+
   /* ── Add-spectrum dropdown menu ─────────────────────────── */
   .add-spectrum-menu {
     position: absolute; top: 100%; left: 0;
@@ -1788,6 +1814,13 @@
         </div>
 
         <div class="tab-panel" id="tab-stack-legend">
+          <div class="stack-controls">
+            <div class="stack-control-row">
+              <label for="stack-linewidth">Line Width</label>
+              <input type="range" id="stack-linewidth" min="1" max="5" step="0.5" value="1.5">
+              <span class="stack-control-value" id="stack-linewidth-value">1.5 px</span>
+            </div>
+          </div>
           <div id="stack-legend-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
             No spectra in this stack yet.
           </div>
@@ -1944,7 +1977,10 @@ function _applyRightPanelMode(activeTab) {
   if (header) header.textContent = isStack ? 'Stack Legend' : 'Peaks & Results';
   if (wrap) wrap.style.display = isStack ? 'inline-block' : 'none';
   document.body.classList.toggle('stack-tab-active', isStack);
-  if (isStack) renderStackLegend(activeTab);
+  if (isStack) {
+    renderStackLegend(activeTab);
+    _bindStackControls(activeTab);
+  }
 }
 
 // "+ Add Spectrum" dropdown toggle (button onclick handler).
@@ -1986,6 +2022,28 @@ function _addSpectrumToStack(stackTab, sourceTabId) {
   });
   renderStackLegend(stackTab);
   _updateStackChart(stackTab, { invalidate: 'datasets' });
+}
+
+// Bind slider event handlers on every stack-tab activation. Sliders live
+// in static DOM (#tab-stack-legend) but their values are per-stack-tab,
+// so we re-sync the input value + value display each time and re-bind
+// the oninput handler with the active stackTab in the closure. Using
+// oninput = (rather than addEventListener) overwrites any previous
+// binding, so this is safe to call repeatedly.
+function _bindStackControls(stackTab) {
+  const lw = document.getElementById('stack-linewidth');
+  const lwVal = document.getElementById('stack-linewidth-value');
+  if (lw && lwVal) {
+    const v0 = stackTab.lineWidth ?? 1.5;
+    lw.value = v0;
+    lwVal.textContent = v0.toFixed(1) + ' px';
+    lw.oninput = () => {
+      const v = parseFloat(lw.value);
+      stackTab.lineWidth = v;
+      lwVal.textContent = v.toFixed(1) + ' px';
+      _updateStackChart(stackTab);
+    };
+  }
 }
 
 // Click-outside closes the Add-Spectrum dropdown.
@@ -2414,6 +2472,7 @@ class TabManager {
       isStack: true,
       entries: [],
       _nextColorIdx: 0,
+      lineWidth: 1.5,
       // Inert spectrum-tab fields kept to satisfy existing lifecycle code paths.
       isSurvey: false, chargeVerified: true,
       rawBE: [], rawIntensity: [], ccShift: 0,
