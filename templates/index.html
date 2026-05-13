@@ -6603,12 +6603,8 @@ function _updateStackChart(stackTab, opts) {
     const isVisible = !!e.visible && srcOk;
     const yShift = isVisible ? visIdx * O : 0;
     // Chart.js v4 caches dataset.hidden into meta at construction; live
-    // toggles must mutate meta.hidden directly. We do NOT call
-    // setDatasetVisibility because it auto-runs chart.update() per call,
-    // which when looped over multiple datasets trips Chart.js's
-    // option-resolver recursion guard ("Recursion detected: callback->
-    // callback"). Instead batch: mutate meta.hidden inline, then let the
-    // single chart.update('none') at the end of this function apply all
+    // toggles must mutate getDatasetMeta(i).hidden directly. The single
+    // chart.update('none') at the end of this function applies all
     // visibility, data, and borderWidth changes in one pipeline run.
     const rawIdx = _findStackDatasetIndex(state.chart, e.id + ':raw');
     if (rawIdx >= 0) {
@@ -6632,14 +6628,21 @@ function _updateStackChart(stackTab, opts) {
     }
     if (isVisible) visIdx++;
   }
-  // Sync Y-axis label/ticks for offset state
+  // Sync Y-axis label/ticks for offset state.
+  // Mutate leaf fields only — assigning back y.ticks / y.title would
+  // round-trip through Chart.js's options resolver proxy and store a
+  // self-referencing object whose scriptable callback property cycles
+  // when next resolved ("Recursion detected: callback->callback").
+  // _renderStackChart creates both ticks and title at construction, so
+  // they always exist here.
   const offsetActive = (stackTab.verticalOffset || 0) > 0;
   if (state.chart.options && state.chart.options.scales && state.chart.options.scales.y) {
     const y = state.chart.options.scales.y;
-    y.ticks = y.ticks || {};
-    y.ticks.display = !offsetActive;
-    y.title = y.title || { display: true };
-    y.title.text = offsetActive ? 'Intensity (offset stacked)' : 'Intensity (counts/s)';
+    if (y.ticks) y.ticks.display = !offsetActive;
+    if (y.title) {
+      y.title.display = true;
+      y.title.text = offsetActive ? 'Intensity (offset stacked)' : 'Intensity (counts/s)';
+    }
   }
   state.chart.update('none');
 }
