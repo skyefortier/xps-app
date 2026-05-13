@@ -1820,6 +1820,11 @@
               <input type="range" id="stack-linewidth" min="1" max="5" step="0.5" value="1.5">
               <span class="stack-control-value" id="stack-linewidth-value">1.5 px</span>
             </div>
+            <div class="stack-control-row">
+              <label for="stack-offset">Offset</label>
+              <input type="range" id="stack-offset" min="0" max="100" step="1" value="0">
+              <span class="stack-control-value" id="stack-offset-value">0</span>
+            </div>
           </div>
           <div id="stack-legend-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
             No spectra in this stack yet.
@@ -1953,7 +1958,9 @@ function renderStackLegend(stackTab) {
     });
     row.querySelector('.remove').addEventListener('click', () => {
       stackTab.entries = stackTab.entries.filter(x => x !== entry);
+      stackTab._offsetMaxCache = null;
       renderStackLegend(stackTab);
+      _bindStackControls(stackTab);
       _updateStackChart(stackTab, { invalidate: 'datasets' });
     });
     list.appendChild(row);
@@ -2020,8 +2027,46 @@ function _addSpectrumToStack(stackTab, sourceTabId) {
     sourceTabId, color, visible: true,
     showFit: srcHasFit,
   });
+  stackTab._offsetMaxCache = null;
   renderStackLegend(stackTab);
+  _bindStackControls(stackTab);
   _updateStackChart(stackTab, { invalidate: 'datasets' });
+}
+
+// Round to n significant digits (used for offset-slider step granularity).
+function _roundSig(x, n) {
+  if (x === 0) return 0;
+  const mag = Math.pow(10, n - Math.ceil(Math.log10(Math.abs(x))));
+  return Math.round(x * mag) / mag;
+}
+
+// Human-readable offset display — coarser precision for large values.
+function _formatOffset(v) {
+  if (v === 0) return '0';
+  if (Math.abs(v) >= 1000) return v.toFixed(0);
+  if (Math.abs(v) >= 10) return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+// Compute the offset slider's max and step from the stack's entries.
+// Max = 2 × largest finite rawIntensity across ALL entries (regardless of
+// visibility). Step = max/100, rounded to 2 sig figs. Falls back to a
+// safe { max: 100, step: 1 } when no finite positive intensity exists.
+// Caller is responsible for invalidating stackTab._offsetMaxCache on
+// entry add/remove; visibility toggles deliberately do NOT recompute.
+function _computeStackOffsetMax(stackTab) {
+  let maxY = 0;
+  for (const e of stackTab.entries) {
+    const src = tabManager._getTab(e.sourceTabId);
+    if (!src || !Array.isArray(src.rawIntensity)) continue;
+    for (const v of src.rawIntensity) {
+      if (typeof v === 'number' && isFinite(v) && v > maxY) maxY = v;
+    }
+  }
+  if (!isFinite(maxY) || maxY <= 0) return { max: 100, step: 1 };
+  const max = 2 * maxY;
+  const step = _roundSig(max / 100, 2);
+  return { max, step };
 }
 
 // Bind slider event handlers on every stack-tab activation. Sliders live
@@ -2031,6 +2076,7 @@ function _addSpectrumToStack(stackTab, sourceTabId) {
 // oninput = (rather than addEventListener) overwrites any previous
 // binding, so this is safe to call repeatedly.
 function _bindStackControls(stackTab) {
+  // Line Width slider
   const lw = document.getElementById('stack-linewidth');
   const lwVal = document.getElementById('stack-linewidth-value');
   if (lw && lwVal) {
@@ -2041,6 +2087,24 @@ function _bindStackControls(stackTab) {
       const v = parseFloat(lw.value);
       stackTab.lineWidth = v;
       lwVal.textContent = v.toFixed(1) + ' px';
+      _updateStackChart(stackTab);
+    };
+  }
+  // Vertical Offset slider
+  const off = document.getElementById('stack-offset');
+  const offVal = document.getElementById('stack-offset-value');
+  if (off && offVal) {
+    const cache = stackTab._offsetMaxCache ?? _computeStackOffsetMax(stackTab);
+    stackTab._offsetMaxCache = cache;
+    off.max = cache.max;
+    off.step = cache.step;
+    const v0 = stackTab.verticalOffset ?? 0;
+    off.value = v0;
+    offVal.textContent = _formatOffset(v0);
+    off.oninput = () => {
+      const v = parseFloat(off.value);
+      stackTab.verticalOffset = v;
+      offVal.textContent = _formatOffset(v);
       _updateStackChart(stackTab);
     };
   }
@@ -2473,6 +2537,7 @@ class TabManager {
       entries: [],
       _nextColorIdx: 0,
       lineWidth: 1.5,
+      verticalOffset: 0,
       // Inert spectrum-tab fields kept to satisfy existing lifecycle code paths.
       isSurvey: false, chargeVerified: true,
       rawBE: [], rawIntensity: [], ccShift: 0,
