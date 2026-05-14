@@ -6715,26 +6715,48 @@ function _computeBackgroundForSource(be, inten, srcUi) {
 //       Live ccShift (deliberate asymmetry vs A/A2).
 //
 // Returns empty arrays if source isn't available or has no fit.
+// Align src.rawIntensity to a fit-time `be` array (Path A/A2). fr.be is
+// a contiguous slice of corrBE at fit time; if ccShift hasn't drifted,
+// we can find the matching window in current rawBE by locating the
+// index where (rawBE - shift) is closest to be[0]. Returns rawIntensity
+// slice of length matching `be` (or shorter if data runs out).
+function _alignRawToFitBe(src, be) {
+  if (!Array.isArray(src.rawBE) || !Array.isArray(src.rawIntensity)
+      || src.rawBE.length === 0 || !be || be.length === 0) return [];
+  const shift = src.ccShift || 0;
+  const target = be[0];
+  let i0 = 0;
+  let minDiff = Math.abs((src.rawBE[0] - shift) - target);
+  for (let i = 1; i < src.rawBE.length; i++) {
+    const d = Math.abs((src.rawBE[i] - shift) - target);
+    if (d < minDiff) { minDiff = d; i0 = i; }
+    else if (i0 > 0) break;  // rawBE is monotonic; past the closest match.
+  }
+  const len = Math.min(be.length, src.rawBE.length - i0);
+  return src.rawIntensity.slice(i0, i0 + len);
+}
+
 function _buildEntryRenderData(entry) {
   const src = tabManager._getTab(entry.sourceTabId);
   if (!src || !Array.isArray(src.rawBE) || src.rawBE.length < 2) {
-    return { be: [], bg: [], fittedY: [], peaks: [] };
+    return { be: [], bg: [], rawY: [], fittedY: [], peaks: [] };
   }
   const peaks = Array.isArray(src.peaks) ? src.peaks : [];
   const fr = src.fitResult;
   if (!fr || peaks.length === 0) {
-    return { be: [], bg: [], fittedY: [], peaks: [] };
+    return { be: [], bg: [], rawY: [], fittedY: [], peaks: [] };
   }
   const shift = src.ccShift || 0;
 
-  // be + bg
-  let be, bg;
+  // be + bg + rawY
+  let be, bg, rawY;
   if (Array.isArray(fr.be) && fr.be.length >= 2
       && Array.isArray(fr.bgIntensity)
       && fr.bgIntensity.length === fr.be.length) {
     // Path A/A2: fit-time be + bg both present (frozen).
     be = fr.be.slice();
     bg = fr.bgIntensity.slice();
+    rawY = _alignRawToFitBe(src, be);
   } else {
     // Path B: post-load — derive ROI-window be from rawBE + ui.roiMin/Max,
     // recompute bg from raw via source's persisted bg settings.
@@ -6751,8 +6773,8 @@ function _buildEntryRenderData(entry) {
       if (i1 < i0) { i0 = 0; i1 = corrBE.length - 1; }
     }
     be = corrBE.slice(i0, i1 + 1);
-    const inten = src.rawIntensity.slice(i0, i1 + 1);
-    bg = _computeBackgroundForSource(be, inten, src.ui);
+    rawY = src.rawIntensity.slice(i0, i1 + 1);
+    bg = _computeBackgroundForSource(be, rawY, src.ui);
   }
 
   // Envelope (raw-level)
@@ -6766,13 +6788,15 @@ function _buildEntryRenderData(entry) {
     fittedY = model.map((v, i) => v + bg[i]);
   }
 
-  // Per-peak curves (peak shape + bg, raw-level)
+  // Per-peak curves. peakOnly = pure peak shape (bg-subtracted level);
+  // y = peakOnly + bg (raw level). Both kept so Bkgrd Sub view can
+  // pick the appropriate one without recomputing.
   const peakCurves = peaks.map(p => {
-    const peakY = evalPeakArray(be, p);
-    return { peak: p, y: peakY.map((v, i) => v + bg[i]) };
+    const peakOnly = evalPeakArray(be, p);
+    return { peak: p, peakOnly, y: peakOnly.map((v, i) => v + bg[i]) };
   });
 
-  return { be, bg, fittedY, peaks: peakCurves };
+  return { be, bg, rawY, fittedY, peaks: peakCurves };
 }
 
 // Cached wrapper around _buildEntryRenderData. Stored on the entry as
@@ -6792,6 +6816,19 @@ function _getEntryRenderData(entry) {
   const rd = _buildEntryRenderData(entry);
   entry._renderDataCache = rd;
   return rd;
+}
+
+// Read the four toolbar pill states once per stack render. On stack
+// tabs, _isBgSubViewActive() returns false unconditionally (state.rawBE
+// is empty/inert), so the bg-sub gate is just the pill's checked state.
+// Defaults match the pills' initial checked state in the HTML.
+function _readStackPillState() {
+  return {
+    showEnvelope:   document.getElementById('show-envelope')?.checked   ?? true,
+    showIndividual: document.getElementById('show-individual')?.checked ?? true,
+    showFill:       document.getElementById('show-fill')?.checked       ?? true,
+    bgSubView:      document.getElementById('bg-sub-toggle')?.checked   ?? false,
+  };
 }
 
 // Count entries that have a valid source and are flagged visible.
@@ -6819,6 +6856,7 @@ function _countVisibleStackEntries(stackTab) {
 function _buildStackDatasets(stackTab) {
   const lineWidth = stackTab.lineWidth ?? 1.5;
   const O = stackTab.verticalOffset || 0;
+  const pills = _readStackPillState();
   const datasets = [];
   let visIdx = 0;
   for (const e of stackTab.entries) {
@@ -6828,9 +6866,15 @@ function _buildStackDatasets(stackTab) {
     const isVisible = !!e.visible && srcOk;
     const yShift = isVisible ? visIdx * O : 0;
     const hasFit = _entryHasFit(e);
-    const fitShown = isVisible && !!e.showFit && hasFit;
+    // Layered model: per-entry showFit gates entry's participation in
+    // fit visualization; toolbar pills gate which layers show.
+    const envShown   = isVisible && !!e.showFit && hasFit && pills.showEnvelope;
+    const peaksShown = isVisible && !!e.showFit && hasFit && pills.showIndividual;
     const rd = hasFit ? _getEntryRenderData(e) : null;
     const rdPeaks = rd ? rd.peaks : [];
+    // Bkgrd Sub mode applies per-entry. Only meaningful when this entry
+    // has bg available (i.e., has a fit). Unfit entries' raw stays full.
+    const useBgSub = pills.bgSubView && !!rd;
 
     // Peak bg-target datasets — must come first so fill.target indices
     // are computable for the matching peak datasets below.
@@ -6839,7 +6883,11 @@ function _buildStackDatasets(stackTab) {
       datasets.push({
         _stackKey: e.id + ':pbg:' + pc.peak.id,
         label: '_pbg_' + e.id + '_' + pc.peak.id,
-        data: rd.be.map((b, i) => ({ x: b, y: rd.bg[i] + yShift })),
+        // BG-sub view: pbg flattens to zero baseline (peak fills anchor to 0).
+        // Raw view: pbg sits at the background curve.
+        data: useBgSub
+          ? rd.be.map((b, i) => ({ x: b, y: 0 + yShift }))
+          : rd.be.map((b, i) => ({ x: b, y: rd.bg[i] + yShift })),
         borderColor: 'transparent',
         borderWidth: 0,
         pointRadius: 0,
@@ -6856,24 +6904,39 @@ function _buildStackDatasets(stackTab) {
       datasets.push({
         _stackKey: e.id + ':peak:' + pc.peak.id,
         label: pc.peak.name || ('peak ' + pc.peak.id),
-        data: rd.be.map((b, i) => ({ x: b, y: pc.y[i] + yShift })),
+        // BG-sub view: pure peak shape (bg-subtracted level).
+        // Raw view: peak + bg (raw level).
+        data: useBgSub
+          ? rd.be.map((b, i) => ({ x: b, y: pc.peakOnly[i] + yShift }))
+          : rd.be.map((b, i) => ({ x: b, y: pc.y[i]        + yShift })),
         borderColor: pc.peak.color,
         backgroundColor: pc.peak.color + '40',
         borderWidth: lineWidth,
         pointRadius: 0,
-        fill: { target: pbgBase + pi, above: pc.peak.color + '40', below: 'transparent' },
+        // Fill pill controls shaded peak fills globally.
+        fill: pills.showFill
+          ? { target: pbgBase + pi, above: pc.peak.color + '40', below: 'transparent' }
+          : false,
         tension: 0,
-        hidden: !fitShown,
+        hidden: !peaksShown,
       });
       pi++;
     }
     // Raw dataset (always present)
+    let rawData;
+    if (useBgSub && Array.isArray(rd.rawY) && rd.rawY.length === rd.be.length) {
+      // BG-sub view: rawY - bg over ROI window; matches single-tab semantics.
+      rawData = rd.be.map((b, i) => ({ x: b, y: (rd.rawY[i] - rd.bg[i]) + yShift }));
+    } else if (srcOk) {
+      // Raw view: full-range raw at live ccShift.
+      rawData = src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }));
+    } else {
+      rawData = [];
+    }
     datasets.push({
       _stackKey: e.id + ':raw',
       label: src ? src.name : '(missing source)',
-      data: srcOk
-        ? src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }))
-        : [],
+      data: rawData,
       borderColor: e.color,
       backgroundColor: e.color,
       borderWidth: lineWidth,
@@ -6881,18 +6944,25 @@ function _buildStackDatasets(stackTab) {
       fill: false,
       hidden: !isVisible,
     });
-    // Envelope dataset (always present; hidden when no fit or showFit off)
+    // Envelope dataset (always present; hidden when no fit or
+    // envelope-pill off or per-entry showFit off).
+    let envData = [];
+    if (rd && rd.be.length) {
+      envData = useBgSub
+        ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedY[i] - rd.bg[i]) + yShift }))
+        : rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i]              + yShift }));
+    }
     datasets.push({
       _stackKey: e.id + ':env',
       label: (src ? src.name : 'entry') + ' (fit)',
-      data: rd ? rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i] + yShift })) : [],
+      data: envData,
       borderColor: _colorWithAlpha(e.color, 0.7),
       backgroundColor: _colorWithAlpha(e.color, 0.7),
       borderWidth: lineWidth,
       borderDash: [4, 3],
       pointRadius: 0,
       fill: false,
-      hidden: !fitShown,
+      hidden: !envShown,
     });
     if (isVisible) visIdx++;
   }
@@ -7000,6 +7070,7 @@ function _updateStackChart(stackTab, opts) {
 
   const lineWidth = stackTab.lineWidth ?? 1.5;
   const O = stackTab.verticalOffset || 0;
+  const pills = _readStackPillState();
   let visIdx = 0;
   for (const e of stackTab.entries) {
     if (!e.id) e.id = 'e_' + Math.random().toString(36).slice(2, 9);
@@ -7008,16 +7079,21 @@ function _updateStackChart(stackTab, opts) {
     const isVisible = !!e.visible && srcOk;
     const yShift = isVisible ? visIdx * O : 0;
     const hasFit = _entryHasFit(e);
-    const fitShown = isVisible && !!e.showFit && hasFit;
+    // Layered model — matches _buildStackDatasets exactly.
+    const envShown   = isVisible && !!e.showFit && hasFit && pills.showEnvelope;
+    const peaksShown = isVisible && !!e.showFit && hasFit && pills.showIndividual;
     // Cached: slider drags hit the cache; rebuild path clears it.
     const rd = hasFit ? _getEntryRenderData(e) : null;
+    const useBgSub = pills.bgSubView && !!rd;
 
     // Raw
     const rawIdx = dsByKey.get(e.id + ':raw');
     if (rawIdx !== undefined) {
       const ds = state.chart.data.datasets[rawIdx];
       ds.borderWidth = lineWidth;
-      if (srcOk) {
+      if (useBgSub && Array.isArray(rd.rawY) && rd.rawY.length === rd.be.length) {
+        ds.data = rd.be.map((b, i) => ({ x: b, y: (rd.rawY[i] - rd.bg[i]) + yShift }));
+      } else if (srcOk) {
         ds.data = src.rawBE.map((b, j) => ({ x: b - (src.ccShift || 0), y: src.rawIntensity[j] + yShift }));
       }
       const m = state.chart.getDatasetMeta(rawIdx);
@@ -7028,17 +7104,25 @@ function _updateStackChart(stackTab, opts) {
     if (envIdx !== undefined) {
       const ds = state.chart.data.datasets[envIdx];
       ds.borderWidth = lineWidth;
-      ds.data = rd ? rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i] + yShift })) : [];
+      ds.data = rd
+        ? (useBgSub
+            ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedY[i] - rd.bg[i]) + yShift }))
+            : rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i]              + yShift })))
+        : [];
       const m = state.chart.getDatasetMeta(envIdx);
-      if (m) m.hidden = !fitShown;
+      if (m) m.hidden = !envShown;
     }
     // Per-peak (pbg target + filled peak component)
     if (rd) {
+      let pi = 0;
       for (const pc of rd.peaks) {
         const pbgIdx = dsByKey.get(e.id + ':pbg:' + pc.peak.id);
         if (pbgIdx !== undefined) {
           const ds = state.chart.data.datasets[pbgIdx];
-          ds.data = rd.be.map((b, i) => ({ x: b, y: rd.bg[i] + yShift }));
+          // BG-sub view: pbg flattens to zero so peak fills anchor at baseline.
+          ds.data = useBgSub
+            ? rd.be.map((b, i) => ({ x: b, y: 0 + yShift }))
+            : rd.be.map((b, i) => ({ x: b, y: rd.bg[i] + yShift }));
           // pbg stays "not hidden" so its fill anchor still works; it's
           // transparent so nothing is drawn anyway.
           const m = state.chart.getDatasetMeta(pbgIdx);
@@ -7048,10 +7132,21 @@ function _updateStackChart(stackTab, opts) {
         if (pkIdx !== undefined) {
           const ds = state.chart.data.datasets[pkIdx];
           ds.borderWidth = lineWidth;
-          ds.data = rd.be.map((b, i) => ({ x: b, y: pc.y[i] + yShift }));
+          ds.data = useBgSub
+            ? rd.be.map((b, i) => ({ x: b, y: pc.peakOnly[i] + yShift }))
+            : rd.be.map((b, i) => ({ x: b, y: pc.y[i]        + yShift }));
+          // Fill pill: mutate fill config in place. Chart.js v4 picks
+          // this up on update('none') for the filler plugin. If a future
+          // Chart.js version regresses on that, fall back by calling
+          // _updateStackChart(stack, { invalidate: 'datasets' }) from
+          // the show-fill onchange handler instead.
+          ds.fill = pills.showFill
+            ? { target: pbgIdx !== undefined ? pbgIdx : (pi), above: pc.peak.color + '40', below: 'transparent' }
+            : false;
           const m = state.chart.getDatasetMeta(pkIdx);
-          if (m) m.hidden = !fitShown;
+          if (m) m.hidden = !peaksShown;
         }
+        pi++;
       }
     }
     if (isVisible) visIdx++;
@@ -7077,15 +7172,16 @@ function _updateStackChart(stackTab, opts) {
 
 function updatePlot() {
   // Stack-tab early branch: render multi-spectrum overlay, no peaks/fits.
-  // updatePlot is a destroy+rebuild path; in-place updates triggered by
-  // legend toggles / sliders go through _updateStackChart directly to
-  // preserve zoom.
+  // Route through _updateStackChart so toolbar-pill toggles (Envelope,
+  // Individual Peaks, Fill, Bkgrd Sub) and other state changes preserve
+  // zoom by in-place updating. _updateStackChart delegates to
+  // _renderStackChart automatically when no chart exists.
   {
     const _activeTab = (typeof tabManager !== 'undefined') ? tabManager._getTab(tabManager.activeId) : null;
     const _emptyEl = document.getElementById('stack-empty-state');
     const _canvas = document.getElementById('mainChart');
     if (isStackTab(_activeTab)) {
-      _renderStackChart(_activeTab);
+      _updateStackChart(_activeTab);
       return;
     } else {
       if (_canvas) _canvas.style.display = '';
