@@ -85,7 +85,9 @@ Lifecycle: `createTab`, `createStackTab`, `activateTab`, `closeTab`,
 `_syncActiveToRecord` (writes state-back-to-tab on switch-away). Drag-and-drop
 tab reordering exists.
 
-### Peak Object Schema
+### Peak Object Schema — core fields
+
+(Non-exhaustive. Additional optional fields appear for multiplet linkage, fix-flags per parameter, auto-fit asymmetry bounds, etc. Search the source for `defaultPeak` to see the full shape.)
 
 ```js
 {
@@ -128,13 +130,14 @@ which produce intensity only on the high-BE side of the core-level peak.
 
 **Never invert the DS tail toward lower binding energy.**
 
-Current implementation note: `doniachSunjic` uses
-`gammaFactor = Math.exp(-gamma_asym * dx)` where `dx = x − center`.
-When `dx > 0` (x at higher BE than center) this factor decays, and when
-`dx < 0` it grows — which means the exponential tail currently amplifies
-toward **lower** BE. This is physically backwards. Keep `dsGamma` small
-(≤ 0.01) to minimise the artefact until this is corrected. The power-law
-asymmetry from `dsAlpha` is correct and dominates at typical parameter values.
+Implementation convention: `dx = center − x`. The power-law term
+extends the tail toward higher BE (`x > center` ⇒ `dx < 0`). The
+optional exponential cutoff `gamma_asym` decays **only** on that
+side — `Math.exp(gamma_asym * Math.min(dx, 0))` in the JS
+`doniachSunjic`, equivalent to `exp(−gamma_asym · max(x − center, 0))`
+in `fitting.py`'s `_doniach_sunjic`. When adding DS-derived shapes,
+preserve this convention: the high-BE side is where `dx < 0` and where
+the exponential envelope must decay.
 
 ### DS+G (formerly mislabeled "LA(α, β, m) [CasaXPS]")
 
@@ -228,12 +231,14 @@ closure in `runFit` when adding parameters; both need the new key.
 
 ### Backend (default)
 
-`POST /api/fit` runs lmfit on the server. Methods selectable per fit:
-`leastsq`, `least_squares` (Trust-Region, default), `nelder`,
-`differential_evolution`, `basinhopping`. The endpoint returns the full
-result including refined params, σ bounds, χ², `bgIntensity`,
-`bgSubtracted`, and `fittedY`. Linked peaks are constrained via lmfit
-parameter expressions.
+`POST /api/fit` runs lmfit on the server. Selectable methods: `leastsq`
+(Levenberg-Marquardt), `least_squares` (Trust-Region), `nelder`,
+`differential_evolution`, `basinhopping`. The UI Method dropdown
+defaults to **Trust-Region** (`least_squares`); the backend falls back
+to **`leastsq`** when a request omits `fit_method`. The endpoint
+returns the full result including refined params, σ bounds, χ²,
+`bgIntensity`, `bgSubtracted`, and `fittedY`. Linked peaks are
+constrained via lmfit parameter expressions.
 
 ### Client-side fallback
 
