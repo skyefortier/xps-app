@@ -8359,8 +8359,20 @@ function _loadProjectJSON(data, sessionFile) {
   }
   if (maxN >= _nextStackNum) _nextStackNum = maxN + 1;
 
-  // Activate the first new tab
-  if (newTabs.length) tabManager.activateTab(newTabs[0].id);
+  // Restore the saved active tab when possible. Phase 5's ID
+  // preservation (Option A) keeps tab IDs stable across save/load, so
+  // data.activeId points to a real tab in the typical case. Saved shape
+  // is data.activeId (top-level — meta is spread into data on save);
+  // checking data.meta?.activeId too is harmless defense against future
+  // shape drift. Stack tabs with pruned entries still activate (the
+  // stack itself exists; pruning only removed missing-source entries).
+  // Old saves with no activeId, or activeId pointing to a tab dropped
+  // during load, fall back to activating the first new tab.
+  const savedActiveId = (data.meta && data.meta.activeId) || data.activeId;
+  const restoreId = (savedActiveId && tabManager.tabs.some(t => t.id === savedActiveId))
+    ? savedActiveId
+    : (newTabs.length ? newTabs[0].id : null);
+  if (restoreId) tabManager.activateTab(restoreId);
   tabManager.renderTabBar();
   tabManager._updateSurveyPanel();
   const label = data.sample_name ? ('"' + data.sample_name + '" — ') : '';
