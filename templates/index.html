@@ -1717,7 +1717,7 @@
           <input type="checkbox" id="show-fill" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
           Fill peaks
         </label>
-        <label class="pill-toggle active">
+        <label class="pill-toggle active peak-fit-control">
           <input type="checkbox" id="show-residuals" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
           Residuals
         </label>
@@ -5415,10 +5415,37 @@ function _updateBgSubPillEnabled() {
   const pill = document.getElementById('bg-sub-pill');
   const toggle = document.getElementById('bg-sub-toggle');
   if (!pill || !toggle) return;
+  const fitting = _bgSubFitInFlight;
+
+  // Stack tabs: bg-sub semantics are per-entry. Enable the pill if at
+  // least one entry has render data with a usable bg array. state.rawBE
+  // is empty/inert for stack tabs so the spectrum-mode gating would
+  // otherwise leave the toggle permanently disabled.
+  const activeTab = (typeof tabManager !== 'undefined') ? tabManager._getTab(tabManager.activeId) : null;
+  if (activeTab && activeTab.isStack) {
+    let anyBg = false;
+    for (const e of (activeTab.entries || [])) {
+      if (!_entryHasFit(e)) continue;
+      const rd = _getEntryRenderData(e);
+      if (rd && Array.isArray(rd.bg) && rd.bg.length > 0) { anyBg = true; break; }
+    }
+    const disabled = !anyBg || fitting;
+    toggle.disabled = disabled;
+    pill.classList.toggle('disabled', disabled);
+    if (fitting) {
+      pill.title = 'Background subtraction toggle is locked while a fit is running.';
+    } else if (!anyBg) {
+      pill.title = 'No entries with a usable background in this stack.';
+    } else {
+      pill.title = 'Toggle background-subtracted chart view (per entry).';
+    }
+    return;
+  }
+
+  // Spectrum-tab path (unchanged).
   const bgType = document.getElementById('bg-type')?.value || 'shirley';
   const noBg = bgType === 'none';
   const noSpectrum = !state.rawBE || state.rawBE.length < 2;
-  const fitting = _bgSubFitInFlight;
   const disabled = noBg || noSpectrum || fitting;
   toggle.disabled = disabled;
   pill.classList.toggle('disabled', disabled);
@@ -5439,9 +5466,11 @@ function _onBgSubToggle() {
   if (!toggle || !pill) return;
   pill.classList.toggle('active', toggle.checked);
   // Persist into the active tab's UI snapshot so save/restore round-trip.
+  // Skip stack tabs — their ui block is inert and bg-sub is a view-mode
+  // tweak applied per-entry at render time, not tab-scoped state.
   if (typeof tabManager !== 'undefined' && tabManager.activeId) {
     const t = tabManager._getTab(tabManager.activeId);
-    if (t && t.ui) t.ui.bgSubtractedView = toggle.checked;
+    if (t && !t.isStack && t.ui) t.ui.bgSubtractedView = toggle.checked;
   }
   _syncSubViewDependentControls();
   updatePlot();
@@ -7022,6 +7051,11 @@ function _renderStackChart(stackTab) {
       }
     }
   });
+  // Tag the chart so _updateStackChart can detect "this chart belongs
+  // to THIS stack tab" — guards against in-place updates running
+  // against a stale spectrum chart or a different stack's chart.
+  // App-prefixed name to avoid Chart.js internal naming collisions.
+  state.chart._xpsStackTabId = stackTab.id;
   // Initialize state._mainYMax to the natural data max so the scroll-wheel
   // Y-zoom handler (attached to the canvas during single-tab updatePlot,
   // which persists across tab switches) has a real number to multiply
@@ -7043,7 +7077,17 @@ function _renderStackChart(stackTab) {
 // Called from legend handlers (visibility, remove) and Phase 2+ sliders.
 function _updateStackChart(stackTab, opts) {
   opts = opts || {};
-  if (opts.invalidate === 'datasets' || !state.chart) {
+  // Chart-type discriminator: the in-place path mutates datasets by
+  // _stackKey, which is only valid when state.chart was built for THIS
+  // stack tab. After loading a project, switching from a spectrum tab,
+  // or switching between stacks, state.chart may be the wrong chart;
+  // in-place lookups would miss silently and pill toggles would no-op.
+  // Force a rebuild whenever the chart isn't tagged for this stack tab.
+  const chartIsThisStack =
+    state.chart &&
+    state.chart._xpsStackTabId === stackTab.id &&
+    state.chart.data.datasets.some(d => d._stackKey);
+  if (opts.invalidate === 'datasets' || !chartIsThisStack) {
     _renderStackChart(stackTab);
     return;
   }
@@ -7151,20 +7195,27 @@ function _updateStackChart(stackTab, opts) {
     }
     if (isVisible) visIdx++;
   }
-  // Sync Y-axis label/ticks for offset state.
-  // Mutate leaf fields only — assigning back y.ticks / y.title would
-  // round-trip through Chart.js's options resolver proxy and store a
-  // self-referencing object whose scriptable callback property cycles
-  // when next resolved ("Recursion detected: callback->callback").
-  // _renderStackChart creates both ticks and title at construction, so
-  // they always exist here.
+  // Sync Y-axis label/ticks for offset state, and X-axis reverse for
+  // the Invert BE pill. Mutate leaf fields only — assigning back
+  // y.ticks / y.title would round-trip through Chart.js's options
+  // resolver proxy and store a self-referencing object whose scriptable
+  // callback property cycles when next resolved ("Recursion detected:
+  // callback->callback"). _renderStackChart creates both ticks and
+  // title at construction, so they always exist here. scales.x.reverse
+  // is a boolean leaf — safe to mutate directly.
   const offsetActive = (stackTab.verticalOffset || 0) > 0;
-  if (state.chart.options && state.chart.options.scales && state.chart.options.scales.y) {
-    const y = state.chart.options.scales.y;
-    if (y.ticks) y.ticks.display = !offsetActive;
-    if (y.title) {
-      y.title.display = true;
-      y.title.text = offsetActive ? 'Intensity (offset stacked)' : 'Intensity (counts/s)';
+  if (state.chart.options && state.chart.options.scales) {
+    const sc = state.chart.options.scales;
+    if (sc.x) {
+      const invert = document.getElementById('invert-be')?.checked ?? true;
+      sc.x.reverse = invert;
+    }
+    if (sc.y) {
+      if (sc.y.ticks) sc.y.ticks.display = !offsetActive;
+      if (sc.y.title) {
+        sc.y.title.display = true;
+        sc.y.title.text = offsetActive ? 'Intensity (offset stacked)' : 'Intensity (counts/s)';
+      }
     }
   }
   state.chart.update('none');
