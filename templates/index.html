@@ -5002,7 +5002,7 @@ function renderPeakList() {
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
         <div class="peak-color" style="background:${p.color}"></div>
-        <span class="peak-name">${p.name}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.8 eV)">C-ref</span>' : ''}</span>
+        <span class="peak-name">${p.name}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}</span>
         <span class="peak-info">${p.center.toFixed(2)} eV</span>
         <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">&times;</button>
       </div>
@@ -5041,7 +5041,7 @@ function renderPeakForm(p) {
              style="margin:0">
       <label for="pk-cref-${p.id}"
              style="margin:0;font-size:11px;cursor:pointer;user-select:none"
-             title="Mark this peak as the charge-correction reference (typically C 1s graphite at 284.8 eV). Only one peak per fit can hold this marker.">
+             title="Mark this peak as the charge-correction reference (typically C 1s graphite at 284.5 eV). Only one peak per fit can hold this marker.">
         Charge-correction reference (C&nbsp;1s graphite)
       </label>
     </div>` : ''}
