@@ -6048,12 +6048,18 @@ async function runAutoFitC1sGraphite() {
       return spec;
     });
 
+    const bgPayload = { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvg };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
     const resp = await fetch('/api/fit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         session_id: sessionId,
-        background: { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvg },
+        background: bgPayload,
         peaks: peakSpecs,
         fit_method: fitMethod,
         n_perturb: 3,
@@ -6150,9 +6156,15 @@ async function runFit() {
     const peakSpecs = state.peaks.map(peakToBackendSpec);
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const bgPayload = { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvgVal };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
     const fitReq = {
       session_id: sessionId,
-      background: { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvgVal },
+      background: bgPayload,
       peaks: peakSpecs,
       fit_method: fitMethod,
       n_perturb: 3
