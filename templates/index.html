@@ -1603,14 +1603,19 @@
                 <option value="shirley_linear" data-tip="Hybrid: a linear baseline between endpoints, plus a Shirley-like cumulative correction on top. Combines slope tracking with inelastic-scattering step.">Shirley + Linear</option>
                 <option value="tougaard" data-tip="Physics-based universal background using electron energy loss cross-sections. More accurate than Shirley but requires wider energy range.">Tougaard (simplified)</option>
                 <option value="none">None</option>
-                <option value="manual" data-tip="Click on the spectrum to place anchor points. Background is linearly interpolated between anchors. Right-click an anchor to remove it.">Manual (anchor)</option>
+                <option value="manual" data-tip="Click + Anchor in the Manual bg controls, then click the chart to place points. Background is linearly interpolated between anchors. Right-click on or near an anchor to remove it.">Manual (anchor)</option>
               </select>
             </div>
             <div id="manual-bg-controls">
               <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn btn-sm" id="btn-add-anchor" onclick="togglePlaceMode('anchor')">+ Anchor</button>
                 <button class="btn btn-sm" onclick="_manualUndoAnchor()">Undo Last</button>
                 <button class="btn btn-sm" onclick="_manualClearAnchors()">Clear All</button>
                 <span id="manual-anchor-count"></span>
+              </div>
+              <div class="bg-anchor-hint" style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.4">
+                Click <b>+ Anchor</b>, then click the chart to add points.<br>
+                Right-click to exit; right-click near an anchor to remove it.
               </div>
             </div>
             <div class="field-row">
@@ -2597,6 +2602,9 @@ class TabManager {
     if (this.activeId === id) return;
     const tab = this._getTab(id);
     if (!tab) return;
+    // Cancel any armed placement mode so a click on the new tab's chart
+    // isn't consumed by a placement aimed at the previous spectrum.
+    if (placeMode) togglePlaceMode(placeMode);
     // Clear stale history preview from previous tab
     if (typeof _historyPreview !== 'undefined') _historyPreview = null;
     // Save current tab's live state
@@ -4603,17 +4611,28 @@ function _selectMultipletPreset(key) {
   togglePlaceMode('multiplet');
 }
 
+const PLACE_MODE_BUTTONS = {
+  peak:      { id: 'btn-add-peak',      msg: 'Click on the spectrum to place a peak. Press Esc to cancel.' },
+  multiplet: { id: 'btn-add-multiplet', msg: 'Click on the spectrum to place a multiplet pair. Press Esc to cancel.' },
+  anchor:    { id: 'btn-add-anchor',    msg: 'Click on the spectrum to place background anchors. Right-click to exit; Esc also exits.' },
+};
+
 function togglePlaceMode(mode) {
+  // Anchor placement is meaningless on stack tabs (viewer-only). Guard against
+  // arming it even if the button somehow becomes reachable in the future.
+  if (mode === 'anchor' && tabManager && isStackTab(tabManager._getTab(tabManager.activeId))) return;
   const wrap = document.getElementById('main-chart-wrap');
-  const btnPeak = document.getElementById('btn-add-peak');
-  const btnMult = document.getElementById('btn-add-multiplet');
+  // Clear armed state on every placement button so mode switches don't leave
+  // a stale highlight on the previous button.
+  for (const cfg of Object.values(PLACE_MODE_BUTTONS)) {
+    const b = document.getElementById(cfg.id);
+    if (b) b.classList.remove('place-active');
+  }
 
   if (placeMode === mode) {
     // Toggle off
     placeMode = null;
     wrap.classList.remove('placing');
-    btnPeak.classList.remove('place-active');
-    btnMult.classList.remove('place-active');
     _dragZoomEnabled = true;
     notify('Placement mode cancelled.', '');
     return;
@@ -4623,19 +4642,26 @@ function togglePlaceMode(mode) {
   placeMode = mode;
   wrap.classList.add('placing');
   _dragZoomEnabled = false;
-  btnPeak.classList.remove('place-active');
-  btnMult.classList.remove('place-active');
-  if (mode === 'peak') {
-    btnPeak.classList.add('place-active');
-    notify('Click on the spectrum to place a peak. Press Esc to cancel.', 'green');
-  } else {
-    btnMult.classList.add('place-active');
-    notify('Click on the spectrum to place a multiplet pair. Press Esc to cancel.', 'green');
+  const cfg = PLACE_MODE_BUTTONS[mode];
+  if (cfg) {
+    const b = document.getElementById(cfg.id);
+    if (b) b.classList.add('place-active');
+    notify(cfg.msg, 'green');
   }
 }
 
 function handleChartClick(event) {
   if (!placeMode || !state.chart) return;
+
+  if (placeMode === 'anchor') {
+    // Sticky mode: anchors are typically placed in clusters along the
+    // baseline. Don't auto-disarm — exit via right-click, Esc, re-clicking
+    // + Anchor, switching tabs, leaving Manual bg, or arming a different
+    // placement mode. _handleManualAnchorClick handles its own plot-area
+    // and bg-type checks.
+    _handleManualAnchorClick(event);
+    return;
+  }
 
   const chart = state.chart;
   const rect = chart.canvas.getBoundingClientRect();
@@ -10029,6 +10055,8 @@ function _onBgTypeChange() {
   // Toggle manual controls
   const mc = document.getElementById('manual-bg-controls');
   if (mc) mc.style.display = type === 'manual' ? 'block' : 'none';
+  // Cancel armed anchor placement when leaving manual bg.
+  if (type !== 'manual' && placeMode === 'anchor') togglePlaceMode('anchor');
   const needsIter = (type === 'shirley' || type === 'smart' || type === 'smart_exp' || type === 'shirley_linear');
   // Grey out Shirley iterations for non-Shirley types
   const shirleyIter = document.getElementById('shirley-iter');
@@ -10197,22 +10225,21 @@ function _drawManualAnchors(chart) {
   ctx.restore();
 }
 
-// Hook into existing chart click — attach listener to mainChart canvas
+// Right-click-to-remove for manual anchors. Placement is arm-then-click via
+// the + Anchor toolbar button (routed through handleChartClick), so there is
+// no always-on left-click listener here — that would conflict with peak and
+// multiplet placement.
 (function() {
   const canvas = document.getElementById('mainChart');
   if (!canvas) return;
 
-  canvas.addEventListener('click', function(e) {
-    if (document.getElementById('bg-type').value === 'manual') {
-      if (!placeMode) _handleManualAnchorClick(e);
-    }
-  });
-
-  // Right-click for anchor removal
   canvas.addEventListener('contextmenu', function(e) {
     if (document.getElementById('bg-type').value === 'manual') {
       e.preventDefault();
       _handleManualAnchorClick(e);
+      // Right-click always exits sticky anchor placement mode, whether or
+      // not an anchor was removed.
+      if (placeMode === 'anchor') togglePlaceMode('anchor');
     }
   });
 })();
