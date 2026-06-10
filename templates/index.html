@@ -1967,7 +1967,7 @@ function renderStackLegend(stackTab) {
     const row = document.createElement('div');
     row.className = 'stack-legend-row';
     row.innerHTML =
-      '<span class="swatch" style="background:' + entry.color + '"></span>' +
+      '<span class="swatch"></span>' +
       '<span class="name"></span>' +
       '<span class="cc">ΔCC: ' + shiftStr + ' eV</span>' +
       '<input type="checkbox" class="vis" ' + (entry.visible ? 'checked' : '') + ' title="Show spectrum">' +
@@ -1975,6 +1975,11 @@ function renderStackLegend(stackTab) {
         + (hasFit ? (entry.showFit ? ' checked' : '') : ' disabled')
         + ' title="' + (hasFit ? 'Show fit envelope' : 'No fit available') + '">' +
       '<span class="remove" title="Remove">×</span>';
+    // Audit F3: set the swatch colour as a DOM property, never via
+    // string-concatenated innerHTML. The CSS parser silently drops a
+    // malformed value, so this cannot break out into an HTML attribute
+    // even if a hostile entry.color slipped past load-time validation.
+    row.querySelector('.swatch').style.background = entry.color;
     row.querySelector('.name').textContent = name;
     row.querySelector('.vis').addEventListener('change', e => {
       entry.visible = e.target.checked;
@@ -2787,6 +2792,10 @@ class TabManager {
       const active = this._getTab(this.activeId);
       if (!active) return;
 
+      // Audit F1/F4/F5: reject unsafe peak ids/links/colors before rendering.
+      const pe = _peaksLoadError(data.peaks);
+      if (pe) { notify('Fit not loaded: ' + pe + '.', 'red', true); return; }
+
       // Apply peaks
       state.peaks = _normalizePeaksCRef((data.peaks || []).map(p => ({...p})));
       state.nextId = data.nextId || (Math.max(0, ...state.peaks.map(p => p.id)) + 1);
@@ -2981,7 +2990,7 @@ class TabManager {
       const beMin = _arrMin(s.rawBE).toFixed(0);
       const beMax = _arrMax(s.rawBE).toFixed(0);
       return `<li data-survey-id="${s.id}" onclick="tabManager._onSurveySelect('${s.id}')">` +
-        `<span class="survey-sel-name">${s.name}</span>` +
+        `<span class="survey-sel-name">${_escHtml(s.name)}</span>` +
         `<span class="survey-sel-meta">${n} pts \u00b7 ${beMin}\u2013${beMax} eV</span></li>`;
     }).join('');
   }
@@ -5028,7 +5037,7 @@ function renderPeakList() {
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
         <div class="peak-color" style="background:${p.color}"></div>
-        <span class="peak-name">${p.name}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}</span>
+        <span class="peak-name">${_escHtml(p.name)}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}</span>
         <span class="peak-info">${p.center.toFixed(2)} eV</span>
         <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">&times;</button>
       </div>
@@ -5057,7 +5066,7 @@ function renderPeakForm(p) {
   return `
     <div class="field">
       <label>Name</label>
-      <input type="text" value="${p.name}" oninput="updatePeakParam(${p.id},'name',this.value);document.querySelector('#peak-item-${p.id} .peak-name').childNodes[0].textContent=this.value">
+      <input type="text" value="${_escAttr(p.name)}" oninput="updatePeakParam(${p.id},'name',this.value);document.querySelector('#peak-item-${p.id} .peak-name').childNodes[0].textContent=this.value">
     </div>
     ${showChargeRef ? `
     <div class="field" style="display:flex;align-items:center;gap:6px;margin-top:2px">
@@ -6501,7 +6510,7 @@ function renderResults() {
     const fwhmSE   = par.fwhm   ? par.fwhm.stderr   :
                      par.fwhm_l ? par.fwhm_l.stderr  : null;
     html += `<tr>
-      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${p.name}</td>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${_escHtml(p.name)}</td>
       <td style="font-family:var(--mono)">${fmtVal(p.center, centerSE, 3)} eV</td>
       <td style="font-family:var(--mono)">${fmtVal(p.fwhm, fwhmSE, 3)} eV</td>
       <td>${areas[i].toFixed(0)}</td>
@@ -6602,7 +6611,7 @@ function renderQuantify(areas, totalArea) {
     ).join('');
 
     html += `<tr>
-      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${p.name}</td>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${_escHtml(p.name)}</td>
       <td>${areas[i].toFixed(0)}</td>
       <td><input type="number" value="${useRSF.toFixed(3)}" step="0.001" min="0.001" style="width:62px;font-size:11px;padding:2px 4px" onchange="onRSFInputChange(${p.id},this.value)" id="rsf-${p.id}"></td>
       <td>
@@ -8265,6 +8274,9 @@ async function handleSessionLoad(event) {
 }
 
 function _loadSpectrumFile(data, sessionFile) {
+  // Audit F1/F4/F5: reject unsafe peak ids/links/colors before rendering.
+  const pe = _peaksLoadError(data && data.peaks);
+  if (pe) { notify('Spectrum not loaded: ' + pe + '.', 'red', true); return; }
   // Create a new tab with the saved spectrum data
   const srcPath = data.sourcePath || (sessionFile ? sessionFile : '(restored)');
   const active = tabManager.createTab(
@@ -8308,6 +8320,38 @@ function _loadProjectJSON(data, sessionFile) {
       if (t && Array.isArray(t.peaks)) _migrateLineshapeAliases(t.peaks);
     }
   }
+
+  // Audit F1–F5: validate untrusted ids/colors before building anything, so
+  // a hostile/hand-edited file is rejected wholesale rather than partially
+  // loaded. Tab ids and stack-entry ids must be slugs (they land in onclick=
+  // strings); peak ids/links/colors are checked by _peaksLoadError.
+  for (const t of (data.tabs || [])) {
+    if (!t || typeof t !== 'object') continue;
+    if (t.id != null && !_SLUG_ID_RE.test(String(t.id))) {
+      notify('Project not loaded: tab id ' + JSON.stringify(t.id).slice(0, 60)
+             + ' is not a valid identifier.', 'red', true);
+      return;
+    }
+    if (Array.isArray(t.entries)) {
+      for (const e of t.entries) {
+        if (!e || typeof e !== 'object') continue;
+        if (e.id != null && !_SLUG_ID_RE.test(String(e.id))) {
+          notify('Project not loaded: stack-entry id ' + JSON.stringify(e.id).slice(0, 60)
+                 + ' is not a valid identifier.', 'red', true);
+          return;
+        }
+        if (e.color != null && e.color !== '' &&
+            (typeof e.color !== 'string' || !_HEX_COLOR_RE.test(e.color))) {
+          notify('Project not loaded: stack-entry color ' + JSON.stringify(e.color).slice(0, 60)
+                 + ' is not a valid hex color.', 'red', true);
+          return;
+        }
+      }
+    }
+    const pe = _peaksLoadError(t.peaks);
+    if (pe) { notify('Project not loaded: ' + pe + '.', 'red', true); return; }
+  }
+
   // Phase 5: preserve saved tab IDs (with collision-detect fallback to
   // random). Stack-entry sourceTabId references resolve correctly when
   // IDs round-trip. Backward compatible — old saves with no isStack
@@ -9108,7 +9152,7 @@ function _validateUncertainties() {
       if (pData.vary === false) {
         const isLinked = pData.expr != null && pData.expr !== '';
         if (!isLinked) {
-          info.push(`<li><b>${p.name} / ${pName}:</b> locked — unlock the padlock to refine.</li>`);
+          info.push(`<li><b>${_escHtml(p.name)} / ${pName}:</b> locked — unlock the padlock to refine.</li>`);
         }
         continue;
       }
@@ -9119,11 +9163,11 @@ function _validateUncertainties() {
         const range = hi - lo;
         if (range > 0) {
           if ((val - lo) <= range * 0.01) {
-            warnings.push(`<li><b>${p.name} / ${pName}:</b> at lower bound (${lo}). Widen bounds or lock this parameter.</li>`);
+            warnings.push(`<li><b>${_escHtml(p.name)} / ${pName}:</b> at lower bound (${lo}). Widen bounds or lock this parameter.</li>`);
             continue;
           }
           if ((hi - val) <= range * 0.01) {
-            warnings.push(`<li><b>${p.name} / ${pName}:</b> at upper bound (${hi}). Widen bounds or lock this parameter.</li>`);
+            warnings.push(`<li><b>${_escHtml(p.name)} / ${pName}:</b> at upper bound (${hi}). Widen bounds or lock this parameter.</li>`);
             continue;
           }
         }
@@ -9140,7 +9184,7 @@ function _validateUncertainties() {
         if (initVal != null) {
           const denom = Math.max(Math.abs(initVal), 1e-10);
           if (Math.abs(val - initVal) / denom < 0.001) {
-            warnings.push(`<li><b>${p.name} / ${pName}:</b> uncertainty could not be estimated (covariance matrix singular near this parameter). The fitted value may be unreliable.</li>`);
+            warnings.push(`<li><b>${_escHtml(p.name)} / ${pName}:</b> uncertainty could not be estimated (covariance matrix singular near this parameter). The fitted value may be unreliable.</li>`);
           }
         }
       }
@@ -9511,7 +9555,7 @@ function showPropagateModal() {
       <label class="propagate-tab-row">
         <input type="checkbox" class="prop-chk" data-id="${t.id}" checked>
         <span class="propagate-tab-swatch" style="background:${t.color}"></span>
-        <span>${t.name}</span>
+        <span>${_escHtml(t.name)}</span>
       </label>`).join('');
   }
 
@@ -9614,7 +9658,7 @@ async function runPropagation() {
 
   prog.textContent = `Done. Propagated to ${results.length} ${results.length !== 1 ? 'spectra' : 'spectrum'}.`;
   summary.innerHTML = results.map(r =>
-    `<div class="prop-row">${r.name}: &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'}</div>`
+    `<div class="prop-row">${_escHtml(r.name)}: &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'}</div>`
   ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
   summary.style.display = 'block';
   btn.disabled = false;
@@ -9979,6 +10023,45 @@ function _renderHistoryList() {
 
 function _escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Attribute-context escape (audit F4). Superset of _escHtml that also
+// neutralises the single quote, for values interpolated INSIDE an HTML
+// attribute value where escaping for text nodes is insufficient.
+function _escAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Load-boundary input validation (audit F1–F5) ──────────────────────
+// User-controlled strings from loaded project/spectrum/fit files reach
+// innerHTML and onclick=/oninput= JS attributes. Names are escaped at the
+// render boundary; ids and colors cannot be safely escaped in a JS-attribute
+// context, so they are validated here against the app's own invariants and
+// the file is REJECTED on violation (never coerced — ids are references).
+const _HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+const _SLUG_ID_RE   = /^[A-Za-z0-9_-]{1,64}$/;
+
+// Returns an error string if peak `p` carries an unsafe id/link/color,
+// else null. Does NOT mutate the peak — a numeric id stays numeric so
+// downstream === comparisons and object-key lookups are unaffected.
+function _peakLoadError(p) {
+  if (!p || typeof p !== 'object') return null;
+  if (!/^\d+$/.test(String(p.id)))
+    return 'peak id ' + JSON.stringify(p.id) + ' is not a non-negative integer';
+  if (p.linked != null && p.linked !== false && !/^\d+$/.test(String(p.linked)))
+    return 'peak link target ' + JSON.stringify(p.linked) + ' is not a valid peak id';
+  if (p.color != null && p.color !== '' &&
+      (typeof p.color !== 'string' || !_HEX_COLOR_RE.test(p.color)))
+    return 'peak color ' + JSON.stringify(p.color) + ' is not a valid hex color';
+  return null;
+}
+
+// Returns an error string for the first unsafe peak in `peaks`, else null.
+function _peaksLoadError(peaks) {
+  if (!Array.isArray(peaks)) return null;
+  for (const p of peaks) { const e = _peakLoadError(p); if (e) return e; }
+  return null;
 }
 
 function _historyPreviewSnap(snapId) {
