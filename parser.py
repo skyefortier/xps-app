@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import vgd_parser
+
 log = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,7 +58,13 @@ def parse_file(filepath: str | Path) -> tuple[np.ndarray, np.ndarray]:
     elif suffix in (".xlsx", ".xls"):
         return parse_xlsx(path)
     elif suffix == ".vgd":
-        return parse_vgd(path)
+        # Audit F6: route through the strict olefile-based parser — the same
+        # one /api/parse-vgd uses. The heuristic parse_vgd in this module has
+        # a brute-force fallback that fabricates a plausible-looking spectrum
+        # from arbitrary bytes; a junk .vgd must fail cleanly, not return
+        # fabricated counts. vgd_parser raises ValueError on non-OLE input.
+        be, inten = vgd_parser.parse_vgd(str(path))
+        return np.asarray(be, dtype=float), np.asarray(inten, dtype=float)
     else:
         # Try CSV as a fallback
         try:
