@@ -842,22 +842,52 @@ def run_fit(
     # Apply charge correction
     energy = energy + charge_shift_ev
 
-    # Select background region
+    # The fit runs on the ENTIRE incoming ROI; bg_start_idx / bg_end_idx
+    # narrow only the anchor window used to construct the background
+    # curve. Reusing the slice for both was the bug where putting bg
+    # anchors inside the ROI silently chopped the fit window — and the
+    # reported χ², residuals, and σ — down to that same sub-slice.
     i0 = bg_start_idx if bg_start_idx is not None else 0
     i1 = bg_end_idx if bg_end_idx is not None else len(energy)
     i0 = max(0, i0)
     i1 = min(len(energy), i1)
-    if i0 >= i1:
+    # Normalize the user-supplied anchor pair: reversed order is a valid
+    # choice — the frontend sends bg-start = higher BE and bg-end = lower
+    # BE, so the index order depends on whether the data array is
+    # BE-ascending or BE-descending. Treat the pair as an unordered
+    # anchor window regardless of direction.
+    if i0 > i1:
+        i0, i1 = i1, i0
+    # Bail to the full ROI only if the normalized window is genuinely
+    # unusable (< 2 points): the integral / interp / linear-fit
+    # functions below all need at least two distinct anchor points.
+    if i1 - i0 < 2:
         i0, i1 = 0, len(energy)
 
-    x = energy[i0:i1]
-    y = counts[i0:i1]
+    x = energy
+    y = counts
+    x_bg = energy[i0:i1]
+    y_bg = counts[i0:i1]
 
     # ── Background ────────────────────────────────────────────────────────────
+    # Integral backgrounds (Shirley, Tougaard, Smart variants) are
+    # physically defined only between the user's two anchor points: the
+    # integral represents inelastic-loss cumulation through the peaks
+    # *between* those anchors. Computing them over the full ROI would
+    # let peaks outside the anchor window contribute to the loss
+    # integral, which violates the model's premise. We therefore
+    # compute them on [i0:i1] and flat-hold the endpoint value across
+    # the rest of the ROI — Shirley/Tougaard asymptote to the anchor
+    # values by construction, so constant extension is the least-bad
+    # continuation. Linear backgrounds are extrapolated across the
+    # full ROI (the line is well-defined outside the anchor window).
     bg_method = background_method.lower()
+    bg_inner: np.ndarray | None = None
+
     if manual_bg is not None and bg_method == "manual":
-        # manual_bg is a list of [be, intensity] anchor points from the frontend.
-        # Linearly interpolate the anchor points onto the ROI energy grid.
+        # manual_bg is a list of [be, intensity] anchor points from the
+        # frontend. The anchors are BE-anchored (independent of i0/i1),
+        # so interpolate them across the full ROI grid.
         anchors = sorted(manual_bg, key=lambda a: a[0])
         if len(anchors) >= 2:
             anchor_x = np.array([a[0] for a in anchors])
@@ -866,21 +896,41 @@ def run_fit(
         else:
             bg = linear_background(x, y)
     elif bg_method == "shirley":
-        bg = shirley_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+        bg_inner = shirley_background(x_bg, _apply_endpoint_averaging(y_bg, endpoint_avg))
     elif bg_method == "smart":
-        bg = smart_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+        bg_inner = smart_background(x_bg, _apply_endpoint_averaging(y_bg, endpoint_avg))
     elif bg_method == "smart_exp":
-        bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
+        bg_inner = smart_experimental_background(x_bg, y_bg, n_avg=endpoint_avg)
     elif bg_method == "shirley_linear":
-        bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
+        bg_inner = shirley_linear_background(x_bg, y_bg, n_avg=endpoint_avg)
     elif bg_method == "tougaard":
-        bg = tougaard_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+        bg_inner = tougaard_background(x_bg, _apply_endpoint_averaging(y_bg, endpoint_avg))
     elif bg_method == "linear":
-        bg = linear_background(x, y)
+        # Extrapolate the line through (E[i0], y[i0]) ↔ (E[i1-1], y[i1-1])
+        # across the full ROI. The line is well-defined everywhere, so
+        # constant extension would discard real information.
+        if x[i1 - 1] != x[i0]:
+            slope = (y[i1 - 1] - y[i0]) / (x[i1 - 1] - x[i0])
+        else:
+            slope = 0.0
+        bg = y[i0] + slope * (x - x[i0])
     elif bg_method in ("none", "flat", "", "manual"):
         bg = np.zeros_like(y)
     else:
         raise ValueError(f"Unknown background method '{background_method}'")
+
+    if bg_inner is not None:
+        # Embed the anchor-window integral background into a full-ROI
+        # array; flat-hold the endpoint value outside [i0, i1]. In the
+        # common case where the user keeps bg anchors at the ROI edges
+        # this is a no-op (i0=0, i1=len(y)).
+        bg = np.zeros_like(y)
+        if len(bg_inner) > 0:
+            bg[i0:i1] = bg_inner
+            if i0 > 0:
+                bg[:i0] = bg_inner[0]
+            if i1 < len(y):
+                bg[i1:] = bg_inner[-1]
 
     y_sub = y - bg
 
