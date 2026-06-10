@@ -8307,9 +8307,16 @@ function _loadProjectJSON(data, sessionFile) {
     return nid;
   };
 
+  // Map saved IDs to final IDs for ALL project tabs, so references recorded
+  // against saved IDs (stack-entry sourceTabId, saved activeId) can be
+  // rewritten when the collision-detect path assigns a fresh ID. Identity
+  // mappings (no collision) are harmless.
+  const idMap = new Map();
+
   // Add project tabs to the existing tab bar (same as loading a folder)
   const newTabs = data.tabs.map(t => {
     const id = newId(t.id);
+    if (t.id) idMap.set(t.id, id);
     if (t.isStack) {
       // Stack tab — shape matches createStackTab; entries restored verbatim
       // (sourceTabId references resolved after all tabs are pushed below).
@@ -8368,11 +8375,24 @@ function _loadProjectJSON(data, sessionFile) {
     tabManager.tabs.push(tab);
   }
 
+  // Rewrite stack-entry source references through idMap BEFORE pruning.
+  // When the collision-detect path renamed a source spectrum tab, the
+  // saved sourceTabId now belongs to a PRE-EXISTING tab — without the
+  // remap the entry would silently render the wrong spectrum (or be
+  // pruned if the colliding tab isn't a spectrum tab). Only newly loaded
+  // stacks are remapped; pre-existing stacks reference live IDs.
+  for (const tab of newTabs) {
+    if (!tab.isStack) continue;
+    for (const e of tab.entries) {
+      e.sourceTabId = idMap.get(e.sourceTabId) ?? e.sourceTabId;
+    }
+  }
+
   // Phase 5: prune stack entries whose sourceTabId doesn't resolve to a
-  // loaded spectrum tab. Happens when the source was renamed by the
-  // collision-detect path above, or the saved file was manually edited
-  // to reference a non-existent tab. Notify per-stack so the user
-  // knows what was dropped.
+  // loaded spectrum tab. After the remap above this only happens when the
+  // saved file was manually edited to reference a non-existent tab, or a
+  // spectrum file was missing from a ZIP load. Notify per-stack so the
+  // user knows what was dropped.
   const validSpectrumIds = new Set(
     tabManager.tabs.filter(x => !x.isStack).map(x => x.id)
   );
@@ -8407,8 +8427,11 @@ function _loadProjectJSON(data, sessionFile) {
   // Old saves with no activeId, or activeId pointing to a tab dropped
   // during load, fall back to activating the first new tab.
   const savedActiveId = (data.meta && data.meta.activeId) || data.activeId;
-  const restoreId = (savedActiveId && tabManager.tabs.some(t => t.id === savedActiveId))
-    ? savedActiveId
+  // Resolve through idMap so a collision-renamed active tab still activates
+  // the newly loaded tab, not the pre-existing tab holding the saved ID.
+  const resolvedActiveId = idMap.get(savedActiveId) ?? savedActiveId;
+  const restoreId = (resolvedActiveId && tabManager.tabs.some(t => t.id === resolvedActiveId))
+    ? resolvedActiveId
     : (newTabs.length ? newTabs[0].id : null);
   if (restoreId) tabManager.activateTab(restoreId);
   tabManager.renderTabBar();
