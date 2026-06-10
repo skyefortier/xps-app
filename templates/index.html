@@ -8079,6 +8079,12 @@ async function _doSaveProject() {
   // visualization state). Source data lives on the spectrum tabs and
   // is reached via entry.sourceTabId at load time.
   const tabs = tabManager.tabs;
+  // Size control for the frozen fit grid: BE to 4 decimals, intensities to
+  // 6 significant figures — both far beyond instrument resolution. Keep
+  // values as JSON numbers: toPrecision returns a STRING, so it must be
+  // wrapped in Number() or downstream math silently breaks.
+  const _roundBE = (a) => Array.isArray(a) ? a.map(v => Math.round(v * 1e4) / 1e4) : null;
+  const _roundIntensity = (a) => Array.isArray(a) ? a.map(v => Number(v.toPrecision(6))) : null;
   const buildTabData = (t) => {
     if (t.isStack) {
       return {
@@ -8104,6 +8110,14 @@ async function _doSaveProject() {
       fitResult: t.fitResult ? {
         chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
         rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
+        // Frozen fit grid: persisted so post-load updatePlot() renders the
+        // recorded fit (haveFit path) instead of recomputing background and
+        // residuals from current settings. Absent in older saves — loaders
+        // fall back to reconstruction.
+        be: _roundBE(t.fitResult.be),
+        bgIntensity: _roundIntensity(t.fitResult.bgIntensity),
+        bgSubtracted: _roundIntensity(t.fitResult.bgSubtracted),
+        roiRange: t.fitResult.roiRange || null,
       } : null,
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],
