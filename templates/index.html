@@ -8311,6 +8311,17 @@ function _loadSpectrumFile(data, sessionFile) {
   notify('Spectrum loaded as new tab: ' + active.name, 'green');
 }
 
+// ── Project-load resource caps (audit F8) ─────────────────────────────
+// Generous bounds, far above any real spectrum (a Thermo Nexsa survey is
+// well under 10^6 points), so no legitimate file is ever rejected. They
+// exist only to stop a crafted file from inflating the JS heap and freezing
+// the tab. Adjust here if a genuinely larger dataset ever needs to load.
+const MAX_PROJECT_TABS      = 100;                  // tabs per project
+const MAX_SPECTRUM_POINTS   = 1000000;              // rawBE / rawIntensity length per tab
+const MAX_ZIP_SPECTRA       = 100;                  // manifest.spectra entries (zip path)
+const MAX_ZIP_UNCOMPRESSED  = 500 * 1024 * 1024;    // 500 MB total inflated (zip-bomb guard)
+const MAX_ZIP_COMPRESSED_FALLBACK = 50 * 1024 * 1024; // 50 MB, used only if sizes are unreadable
+
 function _loadProjectJSON(data, sessionFile) {
   // Per-tab peaks live under data.tabs[i].peaks (v2+) and/or top-level
   // data.peaks (v1). Migrate both shapes.
@@ -8350,6 +8361,27 @@ function _loadProjectJSON(data, sessionFile) {
     }
     const pe = _peaksLoadError(t.peaks);
     if (pe) { notify('Project not loaded: ' + pe + '.', 'red', true); return; }
+  }
+
+  // Audit F8: reject oversized projects before building tabs/charts, so a
+  // crafted file cannot inflate the JS heap and freeze the tab. Applies to
+  // both the .proj.json path and the .proj.zip path (which routes its
+  // assembled tabs through here).
+  const _ftabs = data.tabs || [];
+  if (_ftabs.length > MAX_PROJECT_TABS) {
+    notify('Project not loaded: too many tabs (' + _ftabs.length + ' > '
+           + MAX_PROJECT_TABS + ').', 'red', true);
+    return;
+  }
+  for (const t of _ftabs) {
+    if (!t || typeof t !== 'object') continue;
+    const nBE = Array.isArray(t.rawBE) ? t.rawBE.length : 0;
+    const nI  = Array.isArray(t.rawIntensity) ? t.rawIntensity.length : 0;
+    if (nBE > MAX_SPECTRUM_POINTS || nI > MAX_SPECTRUM_POINTS) {
+      notify('Project not loaded: a spectrum exceeds '
+             + MAX_SPECTRUM_POINTS.toLocaleString() + ' points.', 'red', true);
+      return;
+    }
   }
 
   // Phase 5: preserve saved tab IDs (with collision-detect fallback to
@@ -8505,9 +8537,39 @@ async function _loadZipProject(file) {
   const manifest = JSON.parse(await manifestFile.async('string'));
   if (manifest.version !== 3) { notify('Unsupported project version: ' + manifest.version, 'red'); return; }
 
+  // Audit F8: bound the zip BEFORE inflating any spectrum stream, so a small
+  // compressed file cannot expand to gigabytes in the heap (zip bomb).
+  const specList = Array.isArray(manifest.spectra) ? manifest.spectra : [];
+  if (specList.length > MAX_ZIP_SPECTRA) {
+    notify('Project ZIP not loaded: too many spectra (' + specList.length + ' > '
+           + MAX_ZIP_SPECTRA + ').', 'red', true);
+    return;
+  }
+  // Sum the declared uncompressed sizes. _data.uncompressedSize is a private
+  // JSZip field and may be absent depending on version/entry type; when it is,
+  // fall back to rejecting zips whose COMPRESSED size alone is already large
+  // (a real project zip is far smaller than the fallback bound).
+  let totalUncompressed = 0, haveSizes = true;
+  zip.forEach((path, entry) => {
+    const u = entry && entry._data && entry._data.uncompressedSize;
+    if (typeof u === 'number') totalUncompressed += u;
+    else haveSizes = false;
+  });
+  if (haveSizes && totalUncompressed > MAX_ZIP_UNCOMPRESSED) {
+    notify('Project ZIP not loaded: uncompressed size '
+           + Math.round(totalUncompressed / 1048576) + ' MB exceeds '
+           + Math.round(MAX_ZIP_UNCOMPRESSED / 1048576) + ' MB.', 'red', true);
+    return;
+  }
+  if (!haveSizes && file.size > MAX_ZIP_COMPRESSED_FALLBACK) {
+    notify('Project ZIP not loaded: file too large and its uncompressed size '
+           + 'could not be verified.', 'red', true);
+    return;
+  }
+
   const tabs = [];
   let missing = 0;
-  for (const entry of manifest.spectra) {
+  for (const entry of specList) {
     const specFile = zip.file(entry.filename);
     if (!specFile) { missing++; continue; }
     const t = JSON.parse(await specFile.async('string'));

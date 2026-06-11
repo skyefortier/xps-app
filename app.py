@@ -42,6 +42,12 @@ import fitting
 import parser as xps_parser
 import vgd_parser
 
+# Upper bound on the Monte-Carlo uncertainty resampling count accepted by
+# /api/fit. Each perturbation re-runs the full composite fit, so an unbounded
+# value lets a single request occupy a worker for many minutes (audit F7).
+# Adjust here if more resampling is ever needed.
+MAX_N_PERTURB = 100
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Application factory
 # ─────────────────────────────────────────────────────────────────────────────
@@ -417,7 +423,16 @@ def _register_routes(app: Flask) -> None:
         if fit_method not in _ALLOWED_METHODS:
             return _err(f"Unknown fit_method '{fit_method}'")
 
-        n_perturb = int(body.get("n_perturb", 5))
+        # Bounded, type-checked n_perturb (audit F7; also covers the F9
+        # ValueError-on-bad-input case for this field). Reject out-of-range or
+        # non-integer values with a clean 400 instead of a 500 or a worker hang.
+        try:
+            n_perturb = int(body.get("n_perturb", 5))
+        except (TypeError, ValueError):
+            return _err(f"n_perturb must be an integer between 0 and {MAX_N_PERTURB}")
+        if n_perturb < 0 or n_perturb > MAX_N_PERTURB:
+            return _err(f"n_perturb must be between 0 and {MAX_N_PERTURB}")
+
         try:
             result = fitting.run_fit(
                 energy=energy,

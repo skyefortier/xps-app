@@ -522,13 +522,32 @@ def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     ya = np.asarray(y, dtype=float)
     dx = float(abs(xa[1] - xa[0]))
 
-    bg = np.zeros(n)
-    for i in range(n):
-        T = np.abs(xa[i:] - xa[i])
-        kernel = (B_coef * T) / (C_coef + T * T) ** 2
-        bg[i] = float(np.sum(kernel * ya[i:]))
+    # bg[i] = Σ_{j>=i} K(|x[j]-x[i]|)·y[j],  K(T) = B·T / (C + T²)².
+    #
+    # On a uniformly spaced grid |x[j]-x[i]| = (j-i)·dx, so the kernel depends
+    # only on the index gap and this one-sided correlation collapses to a
+    # convolution against a single precomputed kernel vector — evaluated in C
+    # via np.convolve instead of an n-iteration Python loop (audit F7). On a
+    # NONUNIFORM grid that identity does not hold, so we keep the exact
+    # per-point separation loop (slower, but numerically unchanged). Never
+    # substitute (j-i)·dx for the true separation unless uniformity is verified.
+    diffs = np.diff(xa)
+    uniform = bool(dx > 0.0 and np.max(np.abs(diffs - diffs[0])) <= 1e-6 * dx)
 
-    bg *= dx
+    if uniform:
+        m = np.arange(n, dtype=float)
+        T = m * dx
+        k = (B_coef * T) / (C_coef + T * T) ** 2          # k[m] = K(m·dx)
+        # bg[i] = Σ_{m=0}^{n-1-i} k[m]·y[i+m]  =  conv(y, reverse(k))[n-1+i]
+        bg = np.convolve(ya, k[::-1])[n - 1:]
+    else:
+        bg = np.zeros(n)
+        for i in range(n):
+            T = np.abs(xa[i:] - xa[i])
+            kernel = (B_coef * T) / (C_coef + T * T) ** 2
+            bg[i] = float(np.sum(kernel * ya[i:]))
+
+    bg = bg * dx
     denom = bg[-1] if bg[-1] != 0.0 else 1.0
     return bg * (float(ya[-1]) / denom)
 
