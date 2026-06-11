@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -47,6 +48,11 @@ import vgd_parser
 # value lets a single request occupy a worker for many minutes (audit F7).
 # Adjust here if more resampling is ever needed.
 MAX_N_PERTURB = 100
+
+# Session .npz files are deleted by an opportunistic sweep this many days after
+# their last modification (audit F13). The sweep runs on each new session write
+# — no background thread or scheduler.
+SESSION_TTL_DAYS = 7
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Application factory
@@ -89,6 +95,30 @@ def _load_session(session_id: str, upload_folder: str) -> tuple[np.ndarray, np.n
     return archive["energy"], archive["counts"]
 
 
+def _sweep_expired_sessions(upload_folder: str) -> None:
+    """Opportunistically delete session files older than SESSION_TTL_DAYS.
+
+    Runs on each new session write (audit F13) — no scheduler/thread, which
+    would risk duplicate sweeps under multi-worker gunicorn. Touches ONLY
+    ``*.npz`` session files (never .vgd scratch or temp uploads), tolerates a
+    concurrent worker deleting the same file first, and never raises (cleanup
+    must not break a successful upload).
+    """
+    cutoff = time.time() - SESSION_TTL_DAYS * 86400
+    try:
+        candidates = list(Path(upload_folder).glob("*.npz"))
+    except OSError:
+        return
+    for p in candidates:
+        try:
+            if p.stat().st_mtime < cutoff:
+                p.unlink(missing_ok=True)
+        except FileNotFoundError:
+            pass  # another worker swept it first — fine
+        except OSError:
+            pass  # never let cleanup break the request
+
+
 def _save_session(
     session_id: str,
     upload_folder: str,
@@ -99,6 +129,8 @@ def _save_session(
     path = _session_path(session_id, upload_folder)
     np.savez_compressed(path, energy=energy, counts=counts,
                         filename=np.array([filename]))
+    # Opportunistic TTL cleanup of stale sessions (audit F13). Never raises.
+    _sweep_expired_sessions(upload_folder)
 
 
 def _err(message: str, status: int = 400) -> tuple:
@@ -214,9 +246,16 @@ def _register_routes(app: Flask) -> None:
 
         try:
             energy, counts = xps_parser.parse_file(tmp_path)
-        except Exception as exc:
+        except ValueError as exc:
+            # Our own validation (clean, user-facing): bad format, empty file,
+            # too few points, "Not a valid Thermo VGD file", etc. (audit F10).
             tmp_path.unlink(missing_ok=True)
-            return _err(f"Failed to parse file: {exc}")
+            return _err(f"Could not parse file: {exc}")
+        except Exception:
+            # Unexpected library/internal failure — log the detail, return generic.
+            app.logger.exception("Unexpected file-parse error")
+            tmp_path.unlink(missing_ok=True)
+            return _err("Internal parse error — see server log for details.", 500)
         finally:
             tmp_path.unlink(missing_ok=True)
 
@@ -224,8 +263,9 @@ def _register_routes(app: Flask) -> None:
         try:
             _save_session(session_id, app.config["UPLOAD_FOLDER"],
                           energy, counts, filename)
-        except Exception as exc:
-            return _err(f"Failed to store session: {exc}", 500)
+        except Exception:
+            app.logger.exception("Failed to store session")
+            return _err("Could not store the session — see server log.", 500)
 
         return jsonify({
             "session_id": session_id,
@@ -256,6 +296,11 @@ def _register_routes(app: Flask) -> None:
         if not f.filename:
             return _err("No filename provided")
 
+        # Reject non-.vgd before spending the upload budget / writing to disk
+        # (audit F12). olefile content validation remains the real gate.
+        if Path(f.filename).suffix.lower() != ".vgd":
+            return _err("Only .vgd files are accepted by this endpoint.")
+
         try:
             photon_energy = float(request.form.get("photon_energy", vgd_parser.DEFAULT_PHOTON_ENERGY))
             work_function = float(request.form.get("work_function", vgd_parser.DEFAULT_WORK_FUNCTION))
@@ -272,9 +317,12 @@ def _register_routes(app: Flask) -> None:
                 work_function=work_function,
             )
         except (ValueError, ImportError) as exc:
+            # Clean, user/operator-facing: "Not a valid Thermo VGD file",
+            # "olefile is required: pip install olefile" (audit F10).
             return _err(str(exc))
-        except Exception as exc:
-            return _err(f"VGD parse error: {exc}", 500)
+        except Exception:
+            app.logger.exception("Unexpected VGD parse error")
+            return _err("Internal VGD parse error — see server log.", 500)
         finally:
             tmp_path.unlink(missing_ok=True)
 
@@ -334,7 +382,11 @@ def _register_routes(app: Flask) -> None:
         method = body.get("method", "shirley")
         start_idx = _parse_int(body.get("start_idx"), 0, len(energy))
         end_idx = _parse_int(body.get("end_idx"), 0, len(energy), default=len(energy))
-        ep_avg = max(1, int(body.get("endpoint_avg", 1)))
+        # Clean 400 for malformed endpoint_avg instead of a 500 (audit F9).
+        try:
+            ep_avg = max(1, int(body.get("endpoint_avg", 1)))
+        except (TypeError, ValueError):
+            return _err("endpoint_avg must be an integer")
 
         try:
             result = fitting.compute_background_only(
@@ -342,8 +394,12 @@ def _register_routes(app: Flask) -> None:
                 start_idx=start_idx, end_idx=end_idx,
                 endpoint_avg=ep_avg,
             )
-        except Exception as exc:
+        except ValueError as exc:
+            # Our own validation, e.g. "Unknown background method" (audit F10).
             return _err(str(exc))
+        except Exception:
+            app.logger.exception("Unexpected background error")
+            return _err("Internal background error — see server log.", 500)
 
         return jsonify(result)
 
@@ -402,7 +458,11 @@ def _register_routes(app: Flask) -> None:
         bg_method = bg_cfg.get("method", "shirley")
         bg_start = _parse_int(bg_cfg.get("start_idx"), 0, len(energy))
         bg_end = _parse_int(bg_cfg.get("end_idx"), 0, len(energy), default=len(energy))
-        endpoint_avg = max(1, int(bg_cfg.get("endpoint_avg", 1)))
+        # Clean 400 for malformed endpoint_avg instead of a 500 (audit F9).
+        try:
+            endpoint_avg = max(1, int(bg_cfg.get("endpoint_avg", 1)))
+        except (TypeError, ValueError):
+            return _err("endpoint_avg must be an integer")
         manual_bg = bg_cfg.get("manual_bg")
 
         # Peak specs
@@ -448,12 +508,17 @@ def _register_routes(app: Flask) -> None:
                 endpoint_avg=endpoint_avg,
             )
         except ValueError as exc:
+            # Our own validation: unknown shape/method, self/circular constraint,
+            # "Master peak not found", bad numeric field, etc. (audit F10/F11).
             return _err(str(exc))
-        except RuntimeError as exc:
-            return _err(str(exc), 422)
-        except Exception as exc:
+        except RuntimeError:
+            # Solver-internal failure (e.g. lmfit non-convergence). Log the
+            # detail; return a generic 422 that leaks no library internals.
+            app.logger.exception("Fit failed")
+            return _err("Fit failed — see server log for details.", 422)
+        except Exception:
             app.logger.exception("Unexpected fitting error")
-            return _err(f"Internal fitting error: {exc}", 500)
+            return _err("Internal fitting error — see server log.", 500)
 
         return jsonify(result)
 

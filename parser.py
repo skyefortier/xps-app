@@ -117,7 +117,14 @@ def parse_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
             engine="python",
         )
     except Exception as exc:
-        raise ValueError(f"CSV parse error: {exc}") from exc
+        # Clean, non-leaking message (audit F10): a corrupt/unreadable file is a
+        # user-fixable problem, so surface a helpful 400 rather than a generic
+        # 500 — but never echo the raw pandas text. The original is preserved on
+        # the exception chain (`from exc`) for a server-side traceback if needed.
+        raise ValueError(
+            "Could not parse the file as delimited text. Expected two numeric "
+            "columns (binding energy, intensity)."
+        ) from exc
 
     # Drop any entirely‑NaN columns (e.g. trailing delimiter)
     df.dropna(axis=1, how="all", inplace=True)
@@ -178,7 +185,15 @@ def parse_xlsx(path: Path) -> tuple[np.ndarray, np.ndarray]:
     try:
         xl = pd.ExcelFile(path, engine="openpyxl" if path.suffix.lower() == ".xlsx" else None)
     except Exception as exc:
-        raise ValueError(f"Cannot open Excel file: {exc}") from exc
+        # Clean, non-leaking message (audit F10): a corrupt/unreadable workbook
+        # is a user-fixable problem, so surface a helpful 400 rather than a
+        # generic 500 — but never echo the raw openpyxl/pandas text (this also
+        # neutralises pandas's own .xls "format cannot be determined" ValueError).
+        # Original preserved on the exception chain (`from exc`) for the log.
+        raise ValueError(
+            "Could not read the Excel file. Ensure it is a valid .xlsx/.xls "
+            "with two numeric columns (binding energy, intensity)."
+        ) from exc
 
     sheet = xl.sheet_names[0]
 

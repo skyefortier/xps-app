@@ -669,6 +669,37 @@ _SHAPE_FUNCS = {
 AVAILABLE_SHAPES = list(_SHAPE_FUNCS.keys())
 
 
+def _validate_constraint_graph(peak_specs: list[dict]) -> None:
+    """Reject self-referential or circular spin-orbit constraints (audit F11).
+
+    A peak whose ``constrain_to`` names its own id — or a cycle such as
+    A→B→A — produces a self-referencing lmfit expression that recurses to
+    "maximum recursion depth exceeded". Catch it here with a clean ValueError
+    (→ 400) before any lmfit parameter/expression is built. A ``constrain_to``
+    that names a non-existent peak is left for ``_make_peak_params`` to report.
+    """
+    parent: dict = {}
+    for s in peak_specs:
+        sid = s.get("id")
+        master = s.get("constrain_to")
+        if master is None:
+            continue
+        if master == sid:
+            raise ValueError(f"Peak '{sid}' cannot constrain to itself")
+        parent[sid] = master
+
+    # Walk each constrained peak's master chain; a repeat is a cycle.
+    for start in parent:
+        chain = [start]
+        cur = parent[start]
+        while cur is not None:
+            chain.append(cur)
+            if cur == start or cur in chain[:-1]:
+                pretty = " → ".join(str(x) for x in chain)
+                raise ValueError(f"Circular peak constraint detected: {pretty}")
+            cur = parent.get(cur)
+
+
 def _make_peak_params(
     model: Model,
     spec: dict[str, Any],
@@ -857,6 +888,8 @@ def run_fit(
         raise ValueError("energy and counts must have the same length")
     if not peak_specs:
         raise ValueError("At least one peak specification is required")
+    # Reject self/cyclic spin-orbit constraints before building lmfit exprs (F11)
+    _validate_constraint_graph(peak_specs)
 
     # Apply charge correction
     energy = energy + charge_shift_ev
