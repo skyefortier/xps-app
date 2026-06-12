@@ -251,6 +251,33 @@
   }
   .ref-note-more { color: var(--text2); cursor: pointer; text-decoration: underline; }
   .ref-cite { font-size: 9px; color: var(--text3); font-family: var(--mono); margin-top: 4px; cursor: help; }
+  .ref-ident { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
+  .ref-ident-head {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text3); margin-bottom: 6px;
+  }
+  .ref-ident-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .ref-ident-row select {
+    font-size: 11px; padding: 2px 6px; background: var(--bg3); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
+  }
+  .ref-ident-tol { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+  .ref-cand {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 7px 8px; margin-bottom: 6px; background: var(--bg);
+  }
+  .ref-cand-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .ref-cand-name { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .ref-cand-ev { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-left: auto; }
+  .ref-tier { font-size: 9px; padding: 0 6px; border-radius: 3px; border: 1px solid; line-height: 1.7; white-space: nowrap; }
+  .ref-tier.strong { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+  .ref-tier.possible { color: var(--accent2); border-color: var(--accent); background: var(--accent-dim); }
+  .ref-tier.weak { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+  .ref-cand-line { font-size: 10px; line-height: 1.6; color: var(--text2); }
+  .ref-cand-line b { color: var(--text); font-weight: 600; }
+  .ref-cand-conflict { font-size: 10px; line-height: 1.6; color: var(--amber); }
+  .ref-cand-actions { margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+  .ref-cand-add { font-size: 10px; color: var(--accent2); cursor: pointer; text-decoration: underline; }
 
   /* Buttons */
   .btn {
@@ -4722,6 +4749,7 @@ const PLACE_MODE_BUTTONS = {
   peak:      { id: 'btn-add-peak',      msg: 'Click on the spectrum to place a peak. Press Esc to cancel.' },
   multiplet: { id: 'btn-add-multiplet', msg: 'Click on the spectrum to place a multiplet pair. Press Esc to cancel.' },
   anchor:    { id: 'btn-add-anchor',    msg: 'Click on the spectrum to place background anchors. Right-click to exit; Esc also exits.' },
+  identify:  { id: 'ref-identify-btn',  msg: 'Identify mode: click a spectrum feature to list candidate elemental lines. Right-click or Esc to exit.' },
 };
 
 function togglePlaceMode(mode) {
@@ -4767,6 +4795,20 @@ function handleChartClick(event) {
     // placement mode. _handleManualAnchorClick handles its own plot-area
     // and bg-type checks.
     _handleManualAnchorClick(event);
+    return;
+  }
+
+  if (placeMode === 'identify') {
+    // Sticky like anchor mode — users probe several survey features in a
+    // row. The chart x-axis is corrected BE, so the clicked value is used
+    // directly (no ccShift handling here).
+    const chart = state.chart;
+    const rect = chart.canvas.getBoundingClientRect();
+    const ix = event.clientX - rect.left;
+    const iy = event.clientY - rect.top;
+    const ixs = chart.scales.x, iys = chart.scales.y;
+    if (!ixs || !iys || ix < ixs.left || ix > ixs.right || iy < iys.top || iy > iys.bottom) return;
+    if (typeof _refIdentifyAt === 'function') _refIdentifyAt(ixs.getValueForPixel(ix));
     return;
   }
 
@@ -10144,7 +10186,8 @@ var _refGlobalSel = null;      // selection fallback when no tab exists
 var _refNotesOpen = {};        // element symbol -> curation-note expanded
 
 function _refDefaultSel() {
-  return { syms: [], showWeak: false, source: 'AlKa', _nextColorIdx: 0 };
+  return { syms: [], showWeak: false, source: 'AlKa', _nextColorIdx: 0,
+           tolMode: 'normal', includeAuger: false };
 }
 
 function _refActiveTab() {
@@ -10248,6 +10291,11 @@ function toggleRefPanel() {
   document.getElementById('ref-panel').classList.toggle('open', _refPanelOpen);
   const btn = document.getElementById('btn-ref-panel');
   if (btn) btn.classList.toggle('btn-accent', _refPanelOpen);
+  // Closing the panel disarms Identify mode — a crosshair with no visible
+  // results target would be confusing.
+  if (!_refPanelOpen && typeof placeMode !== 'undefined' && placeMode === 'identify') {
+    togglePlaceMode('identify');
+  }
   if (_refPanelOpen) { _refEnsureData(); _refRenderPanel(); }
   _refRepaint();
 }
@@ -10431,6 +10479,8 @@ function _refRenderPanel() {
   html += '<label class="ref-toggle-row"><input type="checkbox"' + (sel.showWeak ? ' checked' : '') +
     ' onchange="_refSetShowWeak(this.checked)"> All lines (include weak)</label>';
 
+  html += _refRenderIdentify(sel, range);
+
   if (!sel.syms.length) {
     html += '<div class="ref-hint">Click a highlighted element to overlay its reference lines on the spectrum. Dimmed elements are not yet curated — no values are invented for them.</div>';
   }
@@ -10471,14 +10521,15 @@ const xpsRefLinesPlugin = {
   // Shaded expected_region bands go UNDER the data traces.
   beforeDatasetsDraw(chart) {
     const items = _refChartItems(chart);
-    if (!items) return;
+    const ident = _refIdentState(chart);
+    if (!items && !ident) return;
     const { ctx: c, chartArea, scales } = chart;
     if (!chartArea || !scales.x) return;
     c.save();
     c.beginPath();
     c.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
     c.clip();
-    for (const m of items) {
+    for (const m of (items || [])) {
       const x1 = scales.x.getPixelForValue(m.region.min);
       const x2 = scales.x.getPixelForValue(m.region.max);
       const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
@@ -10486,11 +10537,43 @@ const xpsRefLinesPlugin = {
       c.fillStyle = m.color + (m.hover ? '2e' : '14');
       c.fillRect(lo, chartArea.top, hi - lo, chartArea.bottom - chartArea.top);
     }
+    if (ident) {
+      // Clicked-energy tolerance window (accent tint).
+      const x1 = scales.x.getPixelForValue(ident.be - ident.tol);
+      const x2 = scales.x.getPixelForValue(ident.be + ident.tol);
+      c.fillStyle = 'rgba(74,158,255,0.10)';
+      c.fillRect(Math.min(x1, x2), chartArea.top, Math.abs(x2 - x1), chartArea.bottom - chartArea.top);
+    }
     c.restore();
   },
   // Nominal lines + labels go OVER everything (solid = photoelectron,
   // dashed = Auger, matching the existing marker vocabulary).
   afterDraw(chart) {
+    const ident = _refIdentState(chart);
+    if (ident) {
+      const { ctx: c, chartArea, scales } = chart;
+      if (chartArea && scales.x) {
+        const px = scales.x.getPixelForValue(ident.be);
+        if (px >= chartArea.left && px <= chartArea.right) {
+          c.save();
+          c.strokeStyle = '#4a9eff';
+          c.lineWidth = 1.5;
+          c.beginPath();
+          c.moveTo(px, chartArea.top);
+          c.lineTo(px, chartArea.bottom);
+          c.stroke();
+          c.font = 'bold 12px ' + MONO_FONT;
+          c.textAlign = 'center';
+          c.textBaseline = 'bottom';
+          c.shadowColor = 'black';
+          c.shadowBlur = 4;
+          c.fillStyle = '#7bc4ff';
+          c.fillText('identify ' + ident.be.toFixed(1), px, chartArea.bottom - 4);
+          c.shadowBlur = 0;
+          c.restore();
+        }
+      }
+    }
     const items = _refChartItems(chart);
     if (!items) return;
     const { ctx: c, chartArea, scales } = chart;
@@ -10584,6 +10667,251 @@ function _refRenderReferenceChart() {
     },
     plugins: [xpsRefLinesPlugin],
   });
+}
+
+// ── Reverse lookup (Identify mode) ────────────────────────────
+// Chart clicks in Identify mode rank candidate elemental lines across ALL
+// curated elements. Language is deliberately non-definitive: candidates and
+// evidence, never identifications. Companion-line absence REDUCES confidence
+// but never eliminates a candidate (peaks may be obscured/attenuated/out of
+// range).
+
+function _refIdentState(chart) {
+  if (!_refPanelOpen || !_refPayload) return null;
+  if (chart !== state.chart || chart._xpsStackTabId) return null;
+  const tab = _refActiveTab();
+  if (!tab || isStackTab(tab) || !tab._refIdentify) return null;
+  return tab._refIdentify;
+}
+
+function _refFindTransById(id) {
+  const sym = String(id).split('-')[0];
+  return _refTransitionsFor(sym).find(m => m.t.id === id) || null;
+}
+
+// Search tolerance: data step size + survey/high-res classification +
+// chemical-shift allowance, widened when uncorrected; user multiplier on top.
+function _refToleranceEv() {
+  const sel = _refGetSel();
+  let step = 0.1, highres = false;
+  if (state.rawBE && state.rawBE.length > 1) {
+    const be = getCorrectedBE();
+    const span = Math.abs(be[be.length - 1] - be[0]);
+    step = span / (be.length - 1);
+    highres = span <= 100;
+  }
+  let tol = Math.max(3 * Math.abs(step), highres ? 0.4 : 1.0);
+  tol += highres ? 0.3 : 0.5;        // chemical-shift / minor-charging allowance
+  let widened = false;
+  if (!_refIsChargeCorrected()) { tol += 1.5; widened = true; }
+  const mult = { narrow: 0.5, normal: 1, broad: 2 }[sel.tolMode] || 1;
+  return { tol: tol * mult, widened, highres };
+}
+
+// Crude qualitative presence check: elevated signal near `be` (±tol) relative
+// to the flanking baseline (median + k·MAD). Evidence, not detection.
+function _refSignalElevatedNear(be, tol) {
+  if (!(state.rawBE && state.rawBE.length)) return { evaluated: false };
+  const x = getCorrectedBE(), y = state.rawIntensity;
+  const lo = _arrMin(x), hi = _arrMax(x);
+  if (be < lo + tol || be > hi - tol) return { evaluated: false };
+  const win = [], flank = [];
+  for (let i = 0; i < x.length; i++) {
+    const d = Math.abs(x[i] - be);
+    if (d <= tol) win.push(y[i]);
+    else if (d <= 3 * tol) flank.push(y[i]);
+  }
+  if (win.length < 3 || flank.length < 6) return { evaluated: false };
+  const med = a => { const s = [...a].sort((p, q) => p - q); return s[(s.length / 2) | 0]; };
+  const fMed = med(flank);
+  const mad = med(flank.map(v => Math.abs(v - fMed))) || 1;
+  return { evaluated: true, present: _arrMax(win) > fMed + 4 * 1.4826 * mad };
+}
+
+function _refIdentifyAt(beClicked) {
+  const tab = _refActiveTab();
+  if (!tab || isStackTab(tab) || !_refPayload) return;
+  const sel = _refGetSel();
+  const { tol, widened } = _refToleranceEv();
+  const hv = _refPayload.conventions.photon_energy_ev[sel.source];
+  const wf = _refPayload.conventions.work_function_ev;
+  const ccUnverified = tab.chargeVerified === false;
+  const cands = [];
+
+  for (const sym of Object.keys(_refElements())) {
+    if (!_refIsCurated(sym)) continue;
+    const trans = _refTransitionsFor(sym);
+    for (const m of trans) {
+      if (m.isAuger && !sel.includeAuger) continue;
+      if (!m.isAuger && m.be > hv - wf) continue;        // not excitable
+      const dist = Math.abs(m.be - beClicked);
+      const inRegion = beClicked >= m.region.min && beClicked <= m.region.max;
+      if (!inRegion && dist > tol) continue;
+
+      let score = inRegion ? 40 : 10;
+      score += 30 * Math.max(0, 1 - dist / Math.max(tol, 0.01));
+      score += { major: 15, moderate: 8, weak: 2 }[m.visEff] || 2;
+      if (!m.isAuger) score += 5;                        // photoelectron priority
+
+      // Companion positions assume a rigid chemical shift: if the clicked
+      // feature is this line shifted by (beClicked − nominal), its companions
+      // shift by the same amount (doublets move together; other orbitals do
+      // to first order — adequate for orientation evidence).
+      const chemShift = beClicked - m.be;
+
+      // Doublet partner evidence
+      let partnerTxt = 'singlet — no doublet partner expected';
+      if (m.t.spin_orbit) {
+        const partner = _refFindTransById(m.t.spin_orbit.partner_id);
+        if (!partner) {
+          partnerTxt = 'not evaluated';
+        } else {
+          const pAt = partner.be + chemShift;
+          const ev = _refSignalElevatedNear(pAt, Math.max(tol, 1.0));
+          if (!ev.evaluated) {
+            partnerTxt = 'not evaluated (expected near ' + pAt.toFixed(1) +
+                         ' eV — outside spectrum range)';
+          } else if (ev.present) {
+            score += 15;
+            partnerTxt = 'elevated signal near ' + pAt.toFixed(1) + ' eV';
+          } else {
+            score -= 8;
+            partnerTxt = 'no elevated signal near ' + pAt.toFixed(1) +
+                         ' eV (reduces confidence; may be obscured or attenuated)';
+          }
+        }
+      }
+
+      // Other major lines of the same element
+      const partnerId = m.t.spin_orbit ? m.t.spin_orbit.partner_id : null;
+      const others = trans.filter(o => o.t.id !== m.t.id && o.t.id !== partnerId &&
+                                       !o.isAuger && o.visEff === 'major');
+      let found = 0, checked = 0;
+      for (const o of others) {
+        const ev = _refSignalElevatedNear(o.be + chemShift, Math.max(tol, 1.0));
+        if (!ev.evaluated) continue;
+        checked++;
+        if (ev.present) { found++; score += 8; } else { score -= 4; }
+      }
+      let othersTxt;
+      if (!others.length) othersTxt = 'no other major lines curated';
+      else if (!checked) othersTxt = 'not evaluated (outside spectrum range)';
+      else othersTxt = found + ' of ' + checked + ' evaluated major line(s) show elevated signal' +
+        (others.length > checked ? ' (' + (others.length - checked) + ' out of range)' : '');
+
+      if (ccUnverified) score -= 10;
+
+      cands.push({
+        id: m.t.id, sym, label: sym + ' ' + (m.isAuger ? m.fam : m.t.orbital),
+        isAuger: m.isAuger, ke: m.isAuger ? m.t.auger_ke_ev : null,
+        be: m.be, dist, inRegion, vis: m.visEff, score,
+        energyMatch: inRegion && dist <= tol / 2 ? 'strong'
+                   : (inRegion || dist <= tol ? 'moderate' : 'weak'),
+        partnerTxt, othersTxt, conflictTxt: null,
+        sourceId: m.t.source,
+      });
+    }
+  }
+
+  cands.sort((a, b) => b.score - a.score || (a.isAuger ? 1 : 0) - (b.isAuger ? 1 : 0));
+  const top = cands.slice(0, 8);
+  // Overlap conflicts among surviving candidates (different elements only)
+  for (const a of top) {
+    const clash = top.find(b => b !== a && b.sym !== a.sym && Math.abs(b.be - a.be) <= tol);
+    if (clash) a.conflictTxt = 'overlapping ' + clash.label + ' at ' + clash.be.toFixed(1) + ' eV';
+  }
+  for (const c of top) {
+    c.tier = c.score >= 80 ? 'Strong candidate' : (c.score >= 50 ? 'Possible' : 'Weak candidate');
+    c.tierCls = c.score >= 80 ? 'strong' : (c.score >= 50 ? 'possible' : 'weak');
+  }
+
+  tab._refIdentify = { be: beClicked, tol, widened, ccUnverified, cands: top };
+  _refRenderPanel();
+  if (state.chart) state.chart.update('none');
+}
+
+function _refClearIdentify() {
+  const tab = _refActiveTab();
+  if (tab) tab._refIdentify = null;
+  _refRenderPanel();
+  if (state.chart) state.chart.update('none');
+}
+
+function _refRerunIdentify() {
+  const tab = _refActiveTab();
+  if (tab && tab._refIdentify) _refIdentifyAt(tab._refIdentify.be);
+  else _refRenderPanel();
+}
+
+function _refSetTolMode(v) {
+  _refGetSel().tolMode = v;
+  _refRerunIdentify();
+}
+
+function _refSetIncludeAuger(on) {
+  _refGetSel().includeAuger = !!on;
+  _refRerunIdentify();
+}
+
+function _refAddOverlayFromCand(sym) {
+  const sel = _refGetSel();
+  if (!sel.syms.some(s => s.sym === sym)) _refToggleElement(sym);
+}
+
+function _refRenderIdentify(sel, range) {
+  let html = '<div class="ref-ident"><div class="ref-ident-head">Identify peak</div>';
+  if (range.mode === 'reference') {
+    return html + '<div class="ref-hint">Load a spectrum to identify peaks.</div></div>';
+  }
+  const tab = _refActiveTab();
+  const { tol, widened } = _refToleranceEv();
+  const armed = typeof placeMode !== 'undefined' && placeMode === 'identify';
+  html += '<div class="ref-ident-row">' +
+    '<button class="btn btn-sm' + (armed ? ' place-active' : '') + '" id="ref-identify-btn" ' +
+    'onclick="togglePlaceMode(\'identify\')" title="Arm Identify mode: chart clicks list candidate lines instead of placing peaks">&#8982; Identify mode</button>' +
+    '<select onchange="_refSetTolMode(this.value)" title="Search tolerance around the clicked energy">' +
+    ['narrow', 'normal', 'broad'].map(v =>
+      '<option value="' + v + '"' + (sel.tolMode === v ? ' selected' : '') + '>' +
+      v[0].toUpperCase() + v.slice(1) + '</option>').join('') +
+    '</select><span class="ref-ident-tol">&plusmn; ' + tol.toFixed(2) + ' eV</span></div>';
+  html += '<label class="ref-toggle-row"><input type="checkbox"' + (sel.includeAuger ? ' checked' : '') +
+    ' onchange="_refSetIncludeAuger(this.checked)"> Include Auger lines</label>';
+  if (widened) {
+    html += '<div class="ref-hint">Spectrum has not been charge corrected; candidate energies may be shifted — tolerance widened.</div>';
+  }
+
+  const ident = tab && tab._refIdentify;
+  if (!ident) {
+    return html + '<div class="ref-hint">Arm Identify mode, then click a spectrum feature.</div></div>';
+  }
+  html += '<div class="ref-context">Clicked: ' + ident.be.toFixed(2) + ' eV &middot; &plusmn;' +
+    ident.tol.toFixed(2) + ' eV &mdash; <span class="ref-note-more" onclick="_refClearIdentify()">clear</span></div>';
+  if (ident.ccUnverified) {
+    html += '<div class="ref-hint">Charge correction was propagated but is unverified — candidate confidence lowered.</div>';
+  }
+  if (!ident.cands.length) {
+    html += '<div class="ref-hint">No curated candidates within tolerance. Try Broad, include Auger lines, or consider elements not yet curated in the dataset.</div>';
+  }
+  const srcLabel = sel.source === 'AlKa' ? 'Al Kα' : 'Mg Kα';
+  for (const c of ident.cands) {
+    const cite = _refPayload.sources[c.sourceId];
+    html += '<div class="ref-cand">' +
+      '<div class="ref-cand-head"><span class="ref-tier ' + c.tierCls + '">' + c.tier + '</span>' +
+      '<span class="ref-cand-name">' + _escHtml(c.label) + '</span>' +
+      (c.isAuger ? '<span class="ref-chip auger">Auger</span>' : '') +
+      '<span class="ref-cand-ev">' + c.be.toFixed(2) + ' eV &middot; &Delta;' + c.dist.toFixed(2) + '</span></div>' +
+      '<div class="ref-cand-line">Energy match: <b>' + c.energyMatch + '</b>' +
+      (c.inRegion ? ' (inside expected region)' : ' (outside expected region)') + '</div>' +
+      '<div class="ref-cand-line">Expected visibility: <b>' + c.vis + '</b></div>' +
+      '<div class="ref-cand-line">Doublet partner: ' + _escHtml(c.partnerTxt) + '</div>' +
+      '<div class="ref-cand-line">Other ' + _escHtml(c.sym) + ' lines: ' + _escHtml(c.othersTxt) + '</div>' +
+      (c.conflictTxt ? '<div class="ref-cand-conflict">Possible conflict: ' + _escHtml(c.conflictTxt) + '</div>' : '') +
+      (c.isAuger ? '<div class="ref-cand-line">KE ' + c.ke.toFixed(2) + ' eV &rarr; apparent BE on ' + srcLabel + '</div>' : '') +
+      '<div class="ref-cand-actions"><span class="ref-cand-add" onclick="_refAddOverlayFromCand(\'' + c.sym + '\')">+ overlay ' + c.sym + '</span>' +
+      (cite ? '<span class="ref-cite" title="' + _escAttr(cite.citation) + '">source: ' + _escHtml(c.sourceId) + '</span>' : '') +
+      '</div></div>';
+  }
+  return html + '</div>';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -11021,6 +11349,11 @@ function _drawManualAnchors(chart) {
       // Right-click always exits sticky anchor placement mode, whether or
       // not an anchor was removed.
       if (placeMode === 'anchor') togglePlaceMode('anchor');
+    }
+    // Identify mode is sticky like anchor mode — right-click exits it.
+    if (placeMode === 'identify') {
+      e.preventDefault();
+      togglePlaceMode('identify');
     }
   });
 })();
