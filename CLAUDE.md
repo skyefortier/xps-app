@@ -200,9 +200,8 @@ multiplet coupling**, not metallic screening. Do not attribute it to
 Kondo screening or Doniach-Šunjić metallic behaviour. Use
 multiplet-split component models, not a single DS peak.
 
-The demo data (`loadDemo('U4f')`) correctly uses `asym-GL` for the
-U 4f₇/₂ and 4f₅/₂ main lines, with separate symmetric GL peaks for the
-multiplet satellites.
+When modeling U 4f, use `asym-GL` for the U 4f₇/₂ and 4f₅/₂ main lines,
+with separate symmetric GL peaks for the multiplet satellites.
 
 ### Satellite Peaks
 
@@ -384,13 +383,29 @@ tests/test_mixed_ds_lacx_e2e.py # End-to-end: a fit with both DS+G and CasaXPS L
 
 Run via `pytest tests/`.
 
-## Demo Spectra
+## Reference Energies for Common Regions
 
-| Demo | Region | Notes |
-|------|--------|-------|
+There is **no demo-spectrum loader** in the app (a `loadDemo(...)`
+function does not exist — earlier versions of this file were stale).
+Typical regions for hand-testing:
+
+| Region | Window | Notes |
+|--------|--------|-------|
 | Fe 2p | 700–740 eV | Fe(0) at 706.6, Fe(III) at 710.5, satellite at 713.5 |
 | U 4f | 370–415 eV | UCl4-like U(IV); 4f₇/₂ at 380.9, 4f₅/₂ at 391.8 (offset 10.9 eV) |
 | C 1s | 280–295 eV | sp², sp³, C-O, C=O, COOH components; charge ref at 284.8 eV |
+
+## Known Issues
+
+- Legacy document-level tooltip handlers call `e.target.closest(...)`
+  without checking that the event target is an Element
+  (`templates/index.html` around the `data-xps-tip` listeners); events
+  targeting non-Elements throw `e.target.closest is not a function`.
+  Needs an `instanceof Element` guard in a future pass.
+- Gunicorn `--reload` watches Python files only — **edits to
+  `templates/index.html` are NOT picked up** outside Flask debug mode
+  because Jinja caches compiled templates per worker. Restart the dev
+  gunicorn after template changes before browser-verifying.
 
 ## Development Workflow
 
