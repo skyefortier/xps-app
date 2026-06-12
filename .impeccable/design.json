@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-12T00:00:00Z",
+  "title": "Design System: XPS Fitting Studio",
+  "extensions": {
+    "colorMeta": {
+      "accent-signal": { "role": "primary", "displayName": "Signal Blue", "canonical": "#4a9eff" },
+      "bg-chassis": { "role": "neutral", "displayName": "Chassis", "canonical": "#0d0f14" },
+      "bg-panel": { "role": "neutral", "displayName": "Panel", "canonical": "#131720" },
+      "bg-control": { "role": "neutral", "displayName": "Control", "canonical": "#1a2030" },
+      "ink-data": { "role": "neutral", "displayName": "Data Ink", "canonical": "#e8edf5" },
+      "ink-label": { "role": "neutral", "displayName": "Label Ink", "canonical": "#8a9ab8" },
+      "state-amber": { "role": "tertiary", "displayName": "Warning Amber", "canonical": "#ffbb44" }
+    },
+    "shadows": [
+      { "name": "chart-label-shadow", "value": "text-shadow via canvas shadowBlur 4 black", "purpose": "Only sanctioned shadow: keeps chart-overlay labels legible over data traces." }
+    ],
+    "motion": [
+      { "name": "state-fade", "value": "opacity 150ms ease-out", "purpose": "Marker/panel state changes; instant under prefers-reduced-motion." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Standard control-bar button.",
+      "html": "<button class=\"ds-btn\">Run Fit</button>",
+      "css": ".ds-btn { background: #1a2030; color: #e8edf5; border: 1px solid rgba(100,140,220,0.15); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: background 150ms, border-color 150ms, color 150ms; } .ds-btn:hover { background: #212840; border-color: #4a9eff; color: #7bc4ff; } .ds-btn:focus-visible { outline: 2px solid #4a9eff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Mono Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Numeric/status badge in the data mono stack.",
+      "html": "<span class=\"ds-badge\">1486.6 eV</span>",
+      "css": ".ds-badge { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 12px; padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(100,140,220,0.3); color: #8a9ab8; background: #1a2030; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Side-panel container with hairline border.",
+      "html": "<div class=\"ds-panel\"><div class=\"ds-panel-h\">Reference Lines</div><div>Panel content</div></div>",
+      "css": ".ds-panel { background: #131720; border: 1px solid rgba(100,140,220,0.15); border-radius: 6px; padding: 10px; color: #e8edf5; font-size: 13px; } .ds-panel-h { font-weight: 600; font-size: 12px; color: #8a9ab8; margin-bottom: 8px; }"
+    },
+    {
+      "name": "State Chip",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Color+text state chip (never color-only).",
+      "html": "<span class=\"ds-chip-amber\">uncurated</span>",
+      "css": ".ds-chip-amber { font-size: 11px; padding: 1px 7px; border-radius: 3px; background: rgba(255,187,68,0.15); border: 1px solid #ffbb44; color: #ffbb44; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Instrument Panel",
+    "overview": "The front panel of a piece of lab instrumentation: a deep blue-black tonal chassis where only the data glows. Density is a feature; chrome recedes; provenance is always one glance away.",
+    "keyCharacteristics": [
+      "Dark tonal chassis (4-step ramp), hairline borders, no shadows",
+      "Saturated color reserved for data, markers, and state",
+      "Mono font for every numeric value",
+      "13px base, compact paddings, information-dense panels",
+      "Motion limited to <=200ms state fades"
+    ],
+    "rules": [
+      { "name": "The Luminous Data Rule", "body": "Saturated color belongs to data and state only; chrome lives in the blue-gray ramp.", "section": "colors" },
+      { "name": "The Tint-Not-Fill Rule", "body": "Selection and emphasis use 15%-alpha dim variants behind full-strength text.", "section": "colors" },
+      { "name": "The Mono Numbers Rule", "body": "A numeric value rendered in the sans stack is a defect.", "section": "typography" },
+      { "name": "The Tonal Depth Rule", "body": "Depth = one step up the background ramp + a hairline border. Never a box-shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do reserve saturated color for data, markers, and state",
+      "Do render every numeric value in the mono stack",
+      "Do pair every color-coded chip with a text label",
+      "Do keep panel copy non-definitive: candidate, possible, expected region",
+      "Do preserve chart zoom on every in-place update"
+    ],
+    "donts": [
+      "Don't import marketing-site expressiveness (heroes, gradient washes, decorative motion, glassmorphism)",
+      "Don't build dashboard theater (big-number cards, chartjunk, color as decoration)",
+      "Don't ship UI language that says 'identified as'",
+      "Don't repeat the legacy gradient-text header pattern",
+      "Don't animate data positions"
+    ]
+  }
+}

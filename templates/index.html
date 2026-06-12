@@ -168,6 +168,90 @@
   .panel-body::-webkit-scrollbar-track { background: transparent; }
   .panel-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
+  /* ── Reference Lines panel (periodic-table overlays, data/xps) ── */
+  #ref-panel {
+    width: 340px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    display: none;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #ref-panel.open { display: flex; }
+  .ref-close {
+    background: none; border: none; color: var(--text2);
+    font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1;
+  }
+  .ref-close:hover { color: var(--text); }
+  .ref-context { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+  .ref-notice {
+    font-size: 11px; line-height: 1.5; padding: 6px 8px; border-radius: var(--radius);
+    background: var(--amber-dim); border: 1px solid rgba(255,187,68,0.5); color: var(--amber); margin-bottom: 8px;
+  }
+  .ref-error {
+    font-size: 11px; line-height: 1.5; padding: 6px 8px; border-radius: var(--radius);
+    background: var(--red-dim); border: 1px solid var(--red); color: var(--red);
+    margin-bottom: 8px; font-family: var(--mono); word-break: break-all;
+  }
+  .ref-hint { font-size: 10px; color: var(--text2); margin: 2px 0 8px; line-height: 1.5; }
+  .ref-src-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .ref-src-row label { font-size: 11px; color: var(--text2); }
+  .ref-src-row select {
+    font-size: 11px; padding: 2px 6px; background: var(--bg3); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
+  }
+  .ref-src-readout { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-left: auto; }
+  #ref-pt-grid { display: grid; grid-template-columns: repeat(18, 1fr); gap: 1px; margin-bottom: 6px; }
+  .ref-pt-cell {
+    height: 17px; font-size: 9px; font-family: var(--mono);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg3); color: var(--text3); border: 1px solid transparent;
+    border-radius: 2px; cursor: default; user-select: none; line-height: 1;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+  @media (prefers-reduced-motion: reduce) { .ref-pt-cell { transition: none; } }
+  .ref-pt-cell.curated { color: var(--text); border-color: var(--border2); cursor: pointer; }
+  .ref-pt-cell.curated:hover { border-color: var(--accent); color: var(--accent2); }
+  .ref-pt-cell.curated:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+  .ref-pt-cell.selected {
+    background: var(--accent-dim); color: var(--text);
+    border-color: var(--mark, var(--accent));
+    box-shadow: inset 0 -2px 0 var(--mark, var(--accent));
+  }
+  .ref-pt-cell.fmarker { background: transparent; color: var(--text3); font-size: 8px; }
+  .ref-toggle-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); margin: 2px 0 10px; }
+  .ref-el-group {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 8px; margin-bottom: 8px; background: var(--bg);
+  }
+  .ref-el-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .ref-el-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .ref-el-name { font-size: 12px; font-weight: 600; }
+  .ref-el-status { font-size: 9px; font-family: var(--mono); color: var(--text3); margin-left: auto; }
+  .ref-el-remove { color: var(--text3); cursor: pointer; font-size: 13px; padding: 0 3px; }
+  .ref-el-remove:hover { color: var(--red); }
+  .ref-line-row { display: flex; align-items: center; gap: 6px; padding: 3px 2px; font-size: 11px; border-radius: 3px; }
+  .ref-line-row:hover { background: var(--bg3); }
+  .ref-line-row.outside { opacity: 0.45; }
+  .ref-line-orb { font-family: var(--mono); min-width: 78px; }
+  .ref-line-ev { font-family: var(--mono); color: var(--text2); margin-left: auto; white-space: nowrap; }
+  .ref-chip {
+    font-size: 9px; font-family: var(--mono); padding: 0 5px;
+    border-radius: 3px; border: 1px solid; line-height: 1.6; white-space: nowrap;
+  }
+  .ref-chip.major { color: var(--accent2); border-color: var(--accent); background: var(--accent-dim); }
+  .ref-chip.moderate { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+  .ref-chip.weak { color: var(--text3); border-color: var(--border); background: var(--bg3); }
+  .ref-chip.auger { color: var(--purple); border-color: var(--purple); background: var(--purple-dim); }
+  .ref-note {
+    font-size: 10px; line-height: 1.5; color: var(--amber);
+    background: var(--amber-dim); border: 1px solid rgba(255,187,68,0.4);
+    border-radius: 3px; padding: 5px 7px; margin-top: 6px;
+  }
+  .ref-note-more { color: var(--text2); cursor: pointer; text-decoration: underline; }
+  .ref-cite { font-size: 9px; color: var(--text3); font-family: var(--mono); margin-top: 4px; cursor: help; }
+
   /* Buttons */
   .btn {
     font-family: var(--sans);
@@ -1709,6 +1793,7 @@
           <div class="add-spectrum-menu" id="add-spectrum-menu" style="display:none"></div>
         </div>
         <button class="btn btn-sm" id="btn-organize-tabs" onclick="organizeTabs()" title="Reorder tabs so same-element spectra are adjacent (Surveys &rarr; elements alphabetical &rarr; Other)">&#8645; Organize Tabs</button>
+        <button class="btn btn-sm" id="btn-ref-panel" onclick="toggleRefPanel()" title="Periodic-table reference lines: overlay expected elemental line positions on the spectrum (data: NIST SRD 20)">&#8862; Reference Lines</button>
         <div style="flex:1"></div>
         <label class="pill-toggle active">
           <input type="checkbox" id="show-envelope" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
@@ -1852,6 +1937,15 @@
         </div>
 
       </div>
+    </div>
+
+    <!-- Reference Lines panel: periodic-table overlays fed by /api/xps-reference.
+         Built ALONGSIDE the survey-marker + NIST systems (migration is a later, separate step). -->
+    <div id="ref-panel">
+      <div class="panel-header">Reference Lines
+        <button class="ref-close" onclick="toggleRefPanel()" title="Close panel">&#10005;</button>
+      </div>
+      <div class="panel-body" id="ref-panel-body"></div>
     </div>
 
   </div>
@@ -2655,6 +2749,7 @@ class TabManager {
     this.renderTabBar();
     renderPeakList();
     _applyRightPanelMode(tab);
+    if (typeof _refOnTabChange === 'function') _refOnTabChange();
     updatePlot();
   }
 
@@ -7641,7 +7736,7 @@ function updatePlot() {
   state.chart = new Chart(ctx, {
     type: 'line',
     data: { datasets },
-    plugins: [surveyLabelPlugin, pinYRangePlugin, bgSubZeroLinePlugin, overlayPlugin, previewGlowPlugin],
+    plugins: [surveyLabelPlugin, pinYRangePlugin, bgSubZeroLinePlugin, overlayPlugin, previewGlowPlugin, xpsRefLinesPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -7756,6 +7851,12 @@ function updatePlot() {
 }
 
 function renderEmptyChart() {
+  // Reference mode: panel open + elements selected + no spectrum loaded →
+  // draw markers on a labeled 0–1200 eV axis instead of the onboarding card.
+  if (typeof _refReferenceModeWanted === 'function' && _refReferenceModeWanted()) {
+    _refRenderReferenceChart();
+    return;
+  }
   if (state.chart) { state.chart.destroy(); state.chart = null; }
   if (state.residChart) { state.residChart.destroy(); state.residChart = null; }
   document.getElementById('resid-wrap').classList.add('hidden');
@@ -9985,6 +10086,493 @@ function _drawNistMarkers(chart) {
   }
 
   ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════
+// PERIODIC TABLE REFERENCE LINES  (data/xps via /api/xps-reference)
+// ══════════════════════════════════════════════════════════════
+// Built ALONGSIDE the legacy XPS_ELEMENTS survey markers and the
+// CHEMICAL_STATES NIST modal; neither is touched until the final
+// migration step. Physics conventions (do not violate):
+//   • Photoelectron markers draw at nominal_be_ev DIRECTLY in the
+//     displayed corrected-BE frame — never shifted by ccShift.
+//   • Auger lines store source-invariant KINETIC energy; apparent
+//     BE = hν − KE − φ (vgd_parser convention). Switching the
+//     reference source moves Auger markers ONLY.
+//   • Line-list filtering uses the spectrum's acquisition range
+//     (corrected data extent), never the current zoom; drawing
+//     clips to the zoomed viewport.
+
+// 18-column periodic-table layout. Rows 1–7 are the main grid;
+// rows 9–10 are the detached f-blocks (La–Lu, Ac–Lr).
+const REF_PT_LAYOUT = (() => {
+  const SYM = ['H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si',
+    'P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn',
+    'Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh',
+    'Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd',
+    'Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re',
+    'Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th',
+    'Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db',
+    'Sg','Bh','Hs','Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv','Ts','Og'];
+  const out = [];
+  let z = 1;
+  const place = (col, row) => { out.push({ sym: SYM[z - 1], z, col, row }); z++; };
+  place(1, 1); place(18, 1);                              // H, He
+  for (const row of [2, 3]) {                             // Li–Ne, Na–Ar
+    place(1, row); place(2, row);
+    for (let c = 13; c <= 18; c++) place(c, row);
+  }
+  for (const row of [4, 5])                               // K–Kr, Rb–Xe
+    for (let c = 1; c <= 18; c++) place(c, row);
+  for (const [row, fRow] of [[6, 9], [7, 10]]) {          // Cs–Rn + La–Lu, Fr–Og + Ac–Lr
+    place(1, row); place(2, row);
+    for (let c = 3; c <= 17; c++) place(c, fRow);
+    for (let c = 4; c <= 18; c++) place(c, row);
+  }
+  return out;
+})();
+
+var _refPanelOpen = false;
+var _refPayload = null;        // validated /api/xps-reference payload
+var _refError = null;          // {error, file?, path?} on fetch/validation failure
+var _refFetchPromise = null;
+var _refHoverId = null;        // transition id highlighted from a panel row
+var _refGlobalSel = null;      // selection fallback when no tab exists
+var _refNotesOpen = {};        // element symbol -> curation-note expanded
+
+function _refDefaultSel() {
+  return { syms: [], showWeak: false, source: 'AlKa', _nextColorIdx: 0 };
+}
+
+function _refActiveTab() {
+  return (typeof tabManager !== 'undefined' && tabManager.activeId)
+    ? tabManager._getTab(tabManager.activeId) : null;
+}
+
+// Selection lives on the tab (session-only — the .proj.json schema is frozen,
+// so this is deliberately NOT serialized), with a global fallback pre-tab.
+function _refGetSel() {
+  const tab = _refActiveTab();
+  if (tab) { if (!tab._refSel) tab._refSel = _refDefaultSel(); return tab._refSel; }
+  if (!_refGlobalSel) _refGlobalSel = _refDefaultSel();
+  return _refGlobalSel;
+}
+
+function _refElements() {
+  if (!_refPayload) return {};
+  if (!_refPayload._bySym) {
+    const m = {};
+    for (const el of _refPayload.elements) m[el.symbol] = { pe: el, auger: null };
+    for (const el of _refPayload.auger) {
+      if (!m[el.symbol]) m[el.symbol] = { pe: null, auger: null };
+      m[el.symbol].auger = el;
+    }
+    _refPayload._bySym = m;
+  }
+  return _refPayload._bySym;
+}
+
+function _refIsCurated(sym) {
+  const e = _refElements()[sym];
+  if (!e) return false;
+  const has = el => !!(el && el.families.some(f => f.transitions.length));
+  return has(e.pe) || has(e.auger);
+}
+
+// Flatten an element's transitions with display positions in the corrected-BE
+// frame. PE: be = nominal_be_ev (drawn as-is). Auger: be = hν − KE − φ, and
+// the KE-frame expected region converts with min/max swapped.
+function _refTransitionsFor(sym) {
+  const e = _refElements()[sym];
+  if (!e) return [];
+  const sel = _refGetSel();
+  const conv = _refPayload.conventions;
+  const hv = conv.photon_energy_ev[sel.source];
+  const wf = conv.work_function_ev;
+  const out = [];
+  const collect = el => {
+    if (!el) return;
+    for (const fam of el.families) for (const t of fam.transitions) {
+      const isAuger = t.transition_type === 'auger';
+      const be = isAuger ? (hv - t.auger_ke_ev - wf) : t.nominal_be_ev;
+      const region = isAuger
+        ? { min: hv - t.expected_region_ev.max - wf, max: hv - t.expected_region_ev.min - wf }
+        : { min: t.expected_region_ev.min, max: t.expected_region_ev.max };
+      const rawVis = t.visibility[sel.source] || 'uncurated';
+      const visFallback = rawVis === 'uncurated';
+      const alka = t.visibility.AlKa;
+      const visEff = !visFallback ? rawVis
+        : (alka && alka !== 'uncurated' ? alka : 'weak');
+      out.push({ t, sym, fam: fam.family, isAuger, be, region, visEff, visFallback });
+    }
+  };
+  collect(e.pe); collect(e.auger);
+  return out;
+}
+
+// Acquisition range in corrected BE (NOT the current zoom), or the labeled
+// 0–1200 eV survey convention when no spectrum is loaded.
+function _refViewRange() {
+  if (state.rawBE && state.rawBE.length) {
+    const be = getCorrectedBE();
+    return { lo: _arrMin(be), hi: _arrMax(be), mode: 'spectrum' };
+  }
+  return { lo: 0, hi: 1200, mode: 'reference' };
+}
+
+function _refEnsureData() {
+  if (_refPayload || _refFetchPromise) return;
+  _refFetchPromise = fetch('/api/xps-reference')
+    .then(r => r.json().then(j => ({ ok: r.ok, j })))
+    .then(({ ok, j }) => {
+      if (ok) { _refPayload = j; _refError = null; }
+      else { _refError = j || { error: 'reference endpoint failed' }; }
+    })
+    .catch(err => { _refError = { error: String((err && err.message) || err) }; })
+    .finally(() => { _refFetchPromise = null; _refRenderPanel(); _refRepaint(); });
+}
+
+function toggleRefPanel() {
+  _refPanelOpen = !_refPanelOpen;
+  document.getElementById('ref-panel').classList.toggle('open', _refPanelOpen);
+  const btn = document.getElementById('btn-ref-panel');
+  if (btn) btn.classList.toggle('btn-accent', _refPanelOpen);
+  if (_refPanelOpen) { _refEnsureData(); _refRenderPanel(); }
+  _refRepaint();
+}
+
+// Redraw overlays in place (zoom preserved); fall back to updatePlot when the
+// reference chart may need to be built or torn down.
+function _refRepaint() {
+  if (!(state.rawBE && state.rawBE.length)) { updatePlot(); return; }
+  if (state.chart) state.chart.update('none');
+}
+
+function _refOnTabChange() {
+  if (_refPanelOpen) _refRenderPanel();
+}
+
+function _refToggleElement(sym) {
+  if (!_refIsCurated(sym)) return;
+  const sel = _refGetSel();
+  const i = sel.syms.findIndex(s => s.sym === sym);
+  if (i >= 0) sel.syms.splice(i, 1);
+  else sel.syms.push({ sym, colorIdx: sel._nextColorIdx++ % ELEMENT_MARKER_COLORS.length });
+  _refRenderPanel();
+  _refRepaint();
+}
+
+function _refSetSource(src) {
+  const sel = _refGetSel();
+  if (sel.source === src || !_refPayload) return;
+  sel.source = src;
+  const hv = _refPayload.conventions.photon_energy_ev[src];
+  notify('Reference source ' + (src === 'AlKa' ? 'Al Kα' : 'Mg Kα') + ' (hν ' + hv +
+         ' eV) — Auger markers repositioned; photoelectron markers unchanged.', 'green');
+  _refRenderPanel();
+  _refRepaint();
+}
+
+function _refSetShowWeak(on) {
+  _refGetSel().showWeak = !!on;
+  _refRenderPanel();
+  _refRepaint();
+}
+
+function _refToggleNote(sym) {
+  _refNotesOpen[sym] = !_refNotesOpen[sym];
+  _refRenderPanel();
+}
+
+function _refHover(id) {
+  if (_refHoverId === id) return;
+  _refHoverId = id;
+  if (state.chart) state.chart.update('none');
+}
+
+function _refRetry() {
+  _refError = null; _refPayload = null;
+  _refRenderPanel();
+  _refEnsureData();
+}
+
+function _refRenderGrid(sel) {
+  const selected = {};
+  sel.syms.forEach(s => { selected[s.sym] = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length]; });
+  let cells = '';
+  for (const e of REF_PT_LAYOUT) {
+    const curated = _refIsCurated(e.sym);
+    const selColor = selected[e.sym];
+    const cls = 'ref-pt-cell' + (curated ? ' curated' : '') + (selColor ? ' selected' : '');
+    const entry = _refElements()[e.sym];
+    const name = (typeof ELEMENT_NAMES !== 'undefined' && ELEMENT_NAMES[e.sym]) ||
+                 (entry && (entry.pe || entry.auger).name) || e.sym;
+    const title = curated
+      ? name + ' (Z=' + e.z + ') — click to overlay reference lines'
+      : name + ' (Z=' + e.z + ') — not yet curated in the reference dataset';
+    cells += '<div class="' + cls + '" style="grid-column:' + e.col + ';grid-row:' + e.row +
+      (selColor ? ';--mark:' + selColor : '') + '"' +
+      (curated ? ' tabindex="0" role="button" aria-pressed="' + !!selColor +
+        '" onclick="_refToggleElement(\'' + e.sym + '\')"' +
+        ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_refToggleElement(\'' + e.sym + '\')}"' : '') +
+      ' title="' + _escAttr(title) + '">' + e.sym + '</div>';
+  }
+  cells += '<div class="ref-pt-cell fmarker" style="grid-column:3;grid-row:6" title="Lanthanides — detached row below">57–71</div>';
+  cells += '<div class="ref-pt-cell fmarker" style="grid-column:3;grid-row:7" title="Actinides — detached row below">89–103</div>';
+  return '<div id="ref-pt-grid" style="grid-template-rows:repeat(7,17px) 4px repeat(2,17px)">' + cells + '</div>';
+}
+
+function _refRenderElementGroup(s, sel, range) {
+  const e = _refElements()[s.sym];
+  const color = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length];
+  const el = e.pe || e.auger;
+  const status = el.curation_status || '';
+  const items = _refTransitionsFor(s.sym);
+  let rows = '';
+  for (const m of items) {
+    if (!sel.showWeak && m.visEff === 'weak') continue;
+    const inRange = m.region.max >= range.lo && m.region.min <= range.hi;
+    const evTxt = m.isAuger
+      ? 'KE ' + m.t.auger_ke_ev.toFixed(2) + ' → ' + m.be.toFixed(1) + ' eV'
+      : m.t.nominal_be_ev.toFixed(2) + ' eV';
+    const rowTitle = (m.t.notes || '') +
+      (m.visFallback ? ' [visibility label is the Al Kα assessment — not assessed for the selected source]' : '') +
+      (inRange ? '' : ' [outside the current spectrum range — not drawn]');
+    rows += '<div class="ref-line-row' + (inRange ? '' : ' outside') + '"' +
+      ' onmouseenter="_refHover(\'' + _escAttr(m.t.id) + '\')" onmouseleave="_refHover(null)"' +
+      ' title="' + _escAttr(rowTitle) + '">' +
+      '<span class="ref-line-orb">' + _escHtml(m.t.orbital) + '</span>' +
+      '<span class="ref-chip ' + m.visEff + '">' + m.visEff + (m.visFallback ? '*' : '') + '</span>' +
+      (m.isAuger ? '<span class="ref-chip auger">Auger</span>' : '') +
+      '<span class="ref-line-ev">' + evTxt + '</span></div>';
+  }
+  if (!rows) rows = '<div class="ref-hint">No major/moderate lines — enable “All lines”.</div>';
+
+  let noteHtml = '';
+  const note = (e.pe && e.pe.curation_notes) || (e.auger && e.auger.curation_notes) || '';
+  if (note) {
+    const open = !!_refNotesOpen[s.sym];
+    const firstDot = note.indexOf('. ');
+    const head = firstDot > 0 ? note.slice(0, firstDot + 1) : note;
+    noteHtml = '<div class="ref-note">' + _escHtml(open ? note : head) +
+      (firstDot > 0 ? ' <span class="ref-note-more" onclick="_refToggleNote(\'' + s.sym + '\')">' +
+        (open ? 'less' : 'more…') + '</span>' : '') + '</div>';
+  }
+
+  const srcId = items.length ? items[0].t.source : null;
+  const cite = srcId && _refPayload.sources[srcId];
+  const citeHtml = cite
+    ? '<div class="ref-cite" title="' + _escAttr(cite.citation) + '">source: ' + _escHtml(srcId) +
+      ' — hover for full citation; line rows carry per-record notes</div>'
+    : '';
+
+  return '<div class="ref-el-group">' +
+    '<div class="ref-el-head"><span class="ref-el-swatch" style="background:' + color + '"></span>' +
+    '<span class="ref-el-name">' + _escHtml(s.sym) + ' — ' + _escHtml(el.name) + '</span>' +
+    '<span class="ref-el-status">' + _escHtml(status) + '</span>' +
+    '<span class="ref-el-remove" onclick="_refToggleElement(\'' + s.sym + '\')" title="Remove overlay">×</span></div>' +
+    rows + noteHtml + citeHtml + '</div>';
+}
+
+function _refRenderPanel() {
+  const body = document.getElementById('ref-panel-body');
+  if (!body || !_refPanelOpen) return;
+  if (_refError) {
+    const where = (_refError.file ? _refError.file + (_refError.path ? ' at ' + _refError.path : '') + ': ' : '');
+    body.innerHTML = '<div class="ref-error">Reference data failed to load — ' +
+      _escHtml(where + (_refError.error || 'unknown error')) +
+      '</div><button class="btn btn-sm" onclick="_refRetry()">Retry</button>';
+    return;
+  }
+  if (!_refPayload) {
+    body.innerHTML = '<div class="ref-hint">Loading reference data…</div>';
+    return;
+  }
+  const tab = _refActiveTab();
+  if (tab && isStackTab(tab)) {
+    body.innerHTML = '<div class="ref-notice">Reference overlays apply to spectrum tabs — switch to a spectrum tab to use them.</div>';
+    return;
+  }
+  const sel = _refGetSel();
+  const conv = _refPayload.conventions;
+  const hv = conv.photon_energy_ev[sel.source];
+  const wf = conv.work_function_ev;
+  const range = _refViewRange();
+  let html = '<div class="ref-src-row"><label for="ref-src-sel">Source</label>' +
+    '<select id="ref-src-sel" onchange="_refSetSource(this.value)">' +
+    '<option value="AlKa"' + (sel.source === 'AlKa' ? ' selected' : '') + '>Al Kα</option>' +
+    '<option value="MgKa"' + (sel.source === 'MgKa' ? ' selected' : '') + '>Mg Kα</option>' +
+    '</select><span class="ref-src-readout" title="Values used to place Auger markers on the BE axis: apparent BE = hν − KE − φ. Switching source moves ONLY Auger markers — it never recalibrates the imported spectrum’s measured axis.">hν ' +
+    hv.toFixed(1) + ' · φ ' + wf.toFixed(1) + ' eV</span></div>' +
+    '<div class="ref-hint">Projects reference markers only — does not recalibrate the imported spectrum.</div>';
+
+  if (range.mode === 'reference') {
+    html += '<div class="ref-notice">No spectrum loaded — reference view 0–1200 eV (survey convention). Not evaluating an active spectrum.</div>';
+  } else {
+    html += '<div class="ref-context">Evaluating: ' + _escHtml(tab ? tab.name : 'spectrum') + ' · ' +
+      range.lo.toFixed(1) + '–' + range.hi.toFixed(1) + ' eV (corrected BE)</div>';
+    if (!state.ccShift) {
+      html += '<div class="ref-hint">Spectrum has not been charge corrected — sample peaks may be shifted relative to reference positions.</div>';
+    }
+  }
+
+  html += _refRenderGrid(sel);
+  html += '<label class="ref-toggle-row"><input type="checkbox"' + (sel.showWeak ? ' checked' : '') +
+    ' onchange="_refSetShowWeak(this.checked)"> All lines (include weak)</label>';
+
+  if (!sel.syms.length) {
+    html += '<div class="ref-hint">Click a highlighted element to overlay its reference lines on the spectrum. Dimmed elements are not yet curated — no values are invented for them.</div>';
+  }
+  for (const s of sel.syms) html += _refRenderElementGroup(s, sel, range);
+  body.innerHTML = html;
+}
+
+// Items to draw on a given chart, or null when overlays don't apply.
+function _refChartItems(chart) {
+  if (!_refPanelOpen || !_refPayload) return null;
+  if (chart !== state.chart || chart._xpsStackTabId) return null;
+  const tab = _refActiveTab();
+  if (tab && isStackTab(tab)) return null;
+  const sel = _refGetSel();
+  if (!sel.syms.length) return null;
+  const range = _refViewRange();
+  const hv = _refPayload.conventions.photon_energy_ev[sel.source];
+  const wf = _refPayload.conventions.work_function_ev;
+  const out = [];
+  for (const s of sel.syms) {
+    const color = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length];
+    for (const m of _refTransitionsFor(s.sym)) {
+      if (!sel.showWeak && m.visEff === 'weak') continue;
+      if (!m.isAuger && m.be > hv - wf) continue;            // not excitable by this source
+      if (m.region.max < range.lo || m.region.min > range.hi) continue;
+      out.push(Object.assign({}, m, {
+        color,
+        hover: _refHoverId === m.t.id,
+        label: s.sym + ' ' + (m.isAuger ? m.fam : m.t.orbital),
+      }));
+    }
+  }
+  return out.length ? out : null;
+}
+
+const xpsRefLinesPlugin = {
+  id: 'xpsRefLines',
+  // Shaded expected_region bands go UNDER the data traces.
+  beforeDatasetsDraw(chart) {
+    const items = _refChartItems(chart);
+    if (!items) return;
+    const { ctx: c, chartArea, scales } = chart;
+    if (!chartArea || !scales.x) return;
+    c.save();
+    c.beginPath();
+    c.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+    c.clip();
+    for (const m of items) {
+      const x1 = scales.x.getPixelForValue(m.region.min);
+      const x2 = scales.x.getPixelForValue(m.region.max);
+      const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
+      if (hi < chartArea.left || lo > chartArea.right) continue;
+      c.fillStyle = m.color + (m.hover ? '2e' : '14');
+      c.fillRect(lo, chartArea.top, hi - lo, chartArea.bottom - chartArea.top);
+    }
+    c.restore();
+  },
+  // Nominal lines + labels go OVER everything (solid = photoelectron,
+  // dashed = Auger, matching the existing marker vocabulary).
+  afterDraw(chart) {
+    const items = _refChartItems(chart);
+    if (!items) return;
+    const { ctx: c, chartArea, scales } = chart;
+    if (!chartArea || !scales.x) return;
+    const sorted = items
+      .map(m => Object.assign({}, m, { px: scales.x.getPixelForValue(m.be) }))
+      .filter(m => m.px >= chartArea.left && m.px <= chartArea.right)
+      .sort((a, b) => a.px - b.px);
+    if (!sorted.length) return;
+    const minSep = 55, maxOff = 80;
+    const yOff = new Array(sorted.length).fill(0);
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].px - sorted[i - 1].px < minSep) yOff[i] = Math.min(yOff[i - 1] + 18, maxOff);
+    }
+    c.save();
+    for (const [i, m] of sorted.entries()) {
+      c.strokeStyle = m.color + (m.hover ? 'ff' : 'cc');
+      c.lineWidth = m.hover ? 2 : 1.25;
+      c.setLineDash(m.isAuger ? [5, 4] : []);
+      c.beginPath();
+      c.moveTo(m.px, chartArea.top);
+      c.lineTo(m.px, chartArea.bottom);
+      c.stroke();
+    }
+    c.setLineDash([]);
+    c.font = 'bold 12px ' + MONO_FONT;
+    c.textAlign = 'center';
+    c.textBaseline = 'top';
+    c.shadowColor = 'black';
+    c.shadowBlur = 4;
+    for (let i = 0; i < sorted.length; i++) {
+      const m = sorted[i];
+      c.fillStyle = m.isAuger ? '#a0b0cc' : '#ffffff';
+      c.fillText(m.label, m.px, chartArea.top + 16 + yOff[i]);
+    }
+    c.shadowBlur = 0;
+    c.restore();
+  },
+};
+
+// Reference mode: a labeled bare 0–1200 eV axis so overlays are usable with
+// no spectrum loaded. Built/torn down via renderEmptyChart's guard.
+function _refReferenceModeWanted() {
+  const tab = _refActiveTab();
+  if (tab && isStackTab(tab)) return false;
+  return _refPanelOpen && !!_refPayload && _refGetSel().syms.length > 0 &&
+    !(state.rawBE && state.rawBE.length);
+}
+
+function _refRenderReferenceChart() {
+  if (state.chart) { state.chart.destroy(); state.chart = null; }
+  if (state.residChart) { state.residChart.destroy(); state.residChart = null; }
+  document.getElementById('resid-wrap').classList.add('hidden');
+  document.getElementById('resid-handle').classList.add('hidden');
+  const wrap = document.getElementById('main-chart-wrap');
+  const ob = wrap.querySelector('.onboard-wrap');
+  if (ob) ob.remove();
+  const canvas = document.getElementById('mainChart');
+  canvas.style.display = '';
+  const cc = _chartColors();
+  const sel = _refGetSel();
+  const invertEl = document.getElementById('invert-be');
+  const invert = invertEl ? invertEl.checked : true;
+  state.chart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { datasets: [] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        title: {
+          display: true,
+          color: '#ffbb44',
+          font: { size: 11, family: MONO_FONT },
+          text: 'REFERENCE VIEW — no spectrum loaded · 0–1200 eV · ' +
+                (sel.source === 'AlKa' ? 'Al Kα' : 'Mg Kα') + ' convention',
+        },
+      },
+      scales: {
+        x: {
+          type: 'linear', min: 0, max: 1200, reverse: invert,
+          title: { display: true, text: 'Binding Energy (eV)', color: cc.text2 },
+          ticks: { color: cc.text2 },
+          grid: { color: cc.gridColor },
+        },
+        y: { display: false, min: 0, max: 1 },
+      },
+    },
+    plugins: [xpsRefLinesPlugin],
+  });
 }
 
 // ══════════════════════════════════════════════════════════════
