@@ -1,5 +1,77 @@
 {
   "schema_version": 1,
   "file_id": "elements-actinides",
-  "elements": []
+  "elements": [
+    {
+      "symbol": "U",
+      "z": 92,
+      "name": "Uranium",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 4f doublet + 4d family. Nominals are U METAL values, but real samples are almost always oxidized (UCl4, U4+/U6+ oxides) and sit several eV HIGHER — expected_region_ev bands are therefore widened upward through the common oxidation states (curator-directed, 2026-06) so orientation bands cover where actual sample peaks appear. U-4d3/2 nominal is DERIVED (4d5/2 + DS-4d median), not a direct NIST record — hand-check. UO2/U3O8/UO3 4f7/2 chemical-state values were NOT archive-recoverable (compound pages 2-5 unarchived) — uncurated; NIST v4.1 line list confirms 4f7/2,sat / 4f5/2,sat satellite records exist but their values were not recoverable — uncurated. NIST also tabulates 4s (1043), 5p3/2 (194.8), 5d5/2 (93.6-94.2), 6p3/2 (16.8-18.0), 6s (43.9), DS-5d (8.2-8.6), DS-5p (63.6), DS-6p (10-10.5) — not curated in v1. One NIST compound record (U3O7 4d3/2 = 105.3 eV) is a physically impossible data-entry artifact and was discarded. Asymmetric U 4f broadening in U(IV) compounds arises from 5f multiplet coupling — use multiplet models, not single DS peaks (see CLAUDE.md). Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2015/2016/2023).",
+      "families": [
+        {
+          "family": "4f",
+          "transitions": [
+            {
+              "id": "U-4f7/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "4f7/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 377.3,
+              "spin_orbit": { "partner_id": "U-4f5/2", "splitting_ev": 10.8, "area_ratio": 1.3333 },
+              "expected_region_ev": { "min": 375.5, "max": 383.0, "basis": "observed-reference-range" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Nominal is U METAL: median of the 12-record metal cluster (376.5-377.6: HoTh79, VRPC74, AlTu73, ACCT74, Chad73, MCSS82, WRDM79, FBWF74, DMKK84z, ScLa81, WCSW86, WCSW87). Real samples are usually oxidized (UCl4, U4+/U6+) and appear SEVERAL eV HIGHER — the region spans the oxidation states: NIST-tabulated points are the metal cluster, the oxidized-surface record 380.2 (ChGr72), and ~380.8 implied by NIST U(VI) uranate 4f5/2 records (391.6, Cs2U2O7/Cs2UO4) minus DS-4f 10.8; top extended to 383.0 for U(VI) oxides (curator-directed margin, 2026-06). Splitting = median of 9 NIST DS-4f records (10.7-10.9); area_ratio 4:3 from 4f degeneracy."
+            },
+            {
+              "id": "U-4f5/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "4f5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 388.4,
+              "spin_orbit": { "partner_id": "U-4f7/2", "splitting_ev": 10.8, "area_ratio": 0.75 },
+              "expected_region_ev": { "min": 386.5, "max": 393.8, "basis": "observed-reference-range" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Nominal is U METAL: direct NIST record (WCSW87); cross-check 377.6 (WCSW87 4f7/2) + 10.8 = 388.4 OK. Real samples are usually oxidized and appear higher — region spans NIST-tabulated oxidized states: D2O/U 388.0-391.5, Cs2U2O7 / Cs2UO4 uranates 391.6; top 393.8 mirrors the 4f7/2 band top (383.0) + DS-4f (10.8) for doublet congruence (curator-directed margin, 2026-06)."
+            }
+          ]
+        },
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "U-4d5/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 736.4,
+              "spin_orbit": { "partner_id": "U-4d3/2", "splitting_ev": 42.1, "area_ratio": 1.5 },
+              "expected_region_ev": { "min": 735.0, "max": 742.0, "basis": "observed-reference-range" },
+              "visibility": { "AlKa": "moderate", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Nominal is U METAL: four NIST records 736.0 (FBWF74), 736.4 (ScLa81), 736.7 (AlTu73), 736.8 (ACCT74) — 736.4 chosen as the record nearest the median; hand-check. Real samples are usually oxidized and appear higher — region spans NIST-tabulated oxide records UO2 737.7 / 738.6, U3O7 739.5; top extended to 742.0 for U(VI) (curator-directed margin, 2026-06; UO3 4d values not archive-recoverable). Splitting = median of NIST DS-4d records (42.1 x2, 42.3); area_ratio 3:2 from 4d degeneracy."
+            },
+            {
+              "id": "U-4d3/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "4d3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 778.5,
+              "spin_orbit": { "partner_id": "U-4d5/2", "splitting_ev": 42.1, "area_ratio": 0.6667 },
+              "expected_region_ev": { "min": 777.0, "max": 784.5, "basis": "observed-reference-range" },
+              "visibility": { "AlKa": "moderate", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "DERIVED: 736.4 + 42.1 (DS-4d median) = 778.5 — no direct NIST elemental 4d3/2 record was archive-recoverable. Needs hand-verification against live SRD 20. Real samples are usually oxidized and appear higher — region spans the NIST-tabulated oxide record U3O7 781.7; top extended to 784.5 for U(VI) (curator-directed margin, 2026-06)."
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

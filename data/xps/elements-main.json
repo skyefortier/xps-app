@@ -1,5 +1,131 @@
 {
   "schema_version": 1,
   "file_id": "elements-main",
-  "elements": []
+  "elements": [
+    {
+      "symbol": "O",
+      "z": 8,
+      "name": "Oxygen",
+      "curation_status": "partial",
+      "curation_notes": "O KLL Auger KE is NOT curated: NIST tabulates only Auger-parameter records (AP-1s,KVV 1041.5 / 1043.9, KKMP88) whose KE decomposition is ambiguous — needs hand-verification against live SRD 20. NIST 1s records (531.2-533.0) are compound/adsorbate-hosted; the lattice-oxide low end (~529-530.5) is not represented in archive-recoverable records, hence the conservative-fallback region. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016).",
+      "families": [
+        {
+          "family": "1s",
+          "transitions": [
+            {
+              "id": "O-1s",
+              "element": "O",
+              "z": 8,
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 531.4,
+              "spin_orbit": null,
+              "expected_region_ev": { "min": 528.5, "max": 534.5, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Median of 13 NIST records spanning 531.2-533.0 (KBG90, WVBM87, KKMP88, FPT88, TaYa87, KeSc90, RaDe91); no NIST-evaluated (starred) value exists for O 1s. Region floor extended below the NIST span to cover lattice metal oxides — fallback policy, not sourced data."
+            }
+          ]
+        },
+        {
+          "family": "2s",
+          "transitions": [
+            {
+              "id": "O-2s",
+              "element": "O",
+              "z": 8,
+              "orbital": "2s",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 28.3,
+              "spin_orbit": null,
+              "expected_region_ev": { "min": 26.0, "max": 31.0, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "weak", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Single NIST record (RaDe91, 28.30 eV) — low-confidence nominal; weak line."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Cu",
+      "z": 29,
+      "name": "Copper",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 2p doublet (LMM Auger lives in auger-lines.json). NIST also tabulates 3s (122.2-122.9), 3p3/2 (75.14, Seah89 NIST-evaluated), 2s (1096.4-1097.1), DS-3p (2.2-2.39) — not curated in v1. Cu2O/CuO/Cu(OH)2 chemical-state values and the Cu(II) shake-up satellites (~940-945 eV) were not recoverable from archived NIST pages — uncurated. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016).",
+      "families": [
+        {
+          "family": "2p",
+          "transitions": [
+            {
+              "id": "Cu-2p3/2",
+              "element": "Cu",
+              "z": 29,
+              "orbital": "2p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 932.67,
+              "spin_orbit": { "partner_id": "Cu-2p1/2", "splitting_ev": 19.82, "area_ratio": 2.0 },
+              "expected_region_ev": { "min": 931.0, "max": 936.5, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "NIST-evaluated value (Seah89, starred); 29 raw records span 932.2-933.1. Splitting = median of NIST DS-2p records (19.8 x3, 19.82 x2, 19.9 x2); note 952.56 - 932.67 = 19.89 disagrees slightly with the DS median — hand-check. Region top covers Cu(II) states (fallback, unsourced); area_ratio 2:1 from 2p degeneracy (2j+1)."
+            },
+            {
+              "id": "Cu-2p1/2",
+              "element": "Cu",
+              "z": 29,
+              "orbital": "2p1/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 952.56,
+              "spin_orbit": { "partner_id": "Cu-2p3/2", "splitting_ev": 19.82, "area_ratio": 0.5 },
+              "expected_region_ev": { "min": 951.0, "max": 956.5, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Direct NIST records: 952.56 x2 + 952.55 (Mans94202), 952.45 (MiSi9355) — not derived from the splitting."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Nb",
+      "z": 41,
+      "name": "Niobium",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 3d doublet. Nb-3d3/2 nominal is DERIVED (3d5/2 + DS-3d median), not a direct NIST record — the page holding direct 3d3/2 values was not archive-recoverable; hand-check. NIST also tabulates 3p3/2 (360.4-360.7), 3s (466.8-467.1), 4p3/2 (30.77, Powe95 NIST-evaluated), 4s (56.4), DS-3p (15.4-15.5), M5N23V Auger KE (167.6, NIST-evaluated) — not curated in v1. Oxide values (NbO/NbO2/Nb2O5) were not recoverable from archived NIST pages — region tops are fallback. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016).",
+      "families": [
+        {
+          "family": "3d",
+          "transitions": [
+            {
+              "id": "Nb-3d5/2",
+              "element": "Nb",
+              "z": 41,
+              "orbital": "3d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 202.31,
+              "spin_orbit": { "partner_id": "Nb-3d3/2", "splitting_ev": 2.8, "area_ratio": 1.5 },
+              "expected_region_ev": { "min": 201.0, "max": 209.0, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "NIST-evaluated value (Powe12, 2016 snapshot; the 2004 snapshot's evaluated Powe95 gives 202.34). 14 raw records span 201.5-202.6. Splitting = median of NIST DS-3d records (2.6, 2.75, 2.8 x3); handbooks often cite 2.72 — hand-check. Region top covers Nb(V) oxide (fallback, unsourced); area_ratio 3:2 from 3d degeneracy."
+            },
+            {
+              "id": "Nb-3d3/2",
+              "element": "Nb",
+              "z": 41,
+              "orbital": "3d3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 205.11,
+              "spin_orbit": { "partner_id": "Nb-3d5/2", "splitting_ev": 2.8, "area_ratio": 0.6667 },
+              "expected_region_ev": { "min": 203.8, "max": 211.8, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "DERIVED: 202.31 (Powe12) + 2.8 (DS-3d median) = 205.11 — no direct NIST 3d3/2 record was archive-recoverable. Needs hand-verification against live SRD 20."
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

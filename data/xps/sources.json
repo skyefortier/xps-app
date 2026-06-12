@@ -4,7 +4,8 @@
     "nist-srd-20": {
       "citation": "NIST X-ray Photoelectron Spectroscopy Database, NIST Standard Reference Database Number 20, National Institute of Standards and Technology, Gaithersburg MD, 20899 (2000), DOI: 10.18434/T4T88K.",
       "type": "database",
-      "url": "https://srdata.nist.gov/xps/"
+      "url": "https://srdata.nist.gov/xps/",
+      "notes": "v1 checkpoint values were recovered from Internet Archive snapshots of the SRD 20 web interface because the live v5 application is not machine-readable: query_all_dat_el.asp?elm1={Nb,O,U,Cu} (2004-09-17, v3.5; complete element tables), query_all_dat_el.aspx (2016-02-02, v4.1; page 1 cross-checks incl. the Powe12 evaluated Nb 3d5/2), elm_in_comp_res.aspx?elm1={U,O} (2015-10-27, v4.1; compound values, page 1 of 5), EngElmSrchQuery.aspx Elm={U,O} (2023, v4.1; line inventories only). Per-record reference codes (e.g. Powe12, Seah89, WCSW87) are NIST's own citation keys and are preserved in each transition's notes. All values pending hand-verification against live SRD 20 v5."
     },
     "scofield-1976": {
       "citation": "Scofield, J. H. Hartree-Slater subshell photoionization cross-sections at 1254 and 1487 eV. J. Electron Spectrosc. Relat. Phenom. 1976, 8 (2), 129-137. DOI: 10.1016/0368-2048(76)80015-1.",

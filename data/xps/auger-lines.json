@@ -1,5 +1,32 @@
 {
   "schema_version": 1,
   "file_id": "auger-lines",
-  "elements": []
+  "elements": [
+    {
+      "symbol": "Cu",
+      "z": 29,
+      "name": "Copper",
+      "curation_status": "partial",
+      "curation_notes": "Curated: L3M4,5M4,5 (1G) — the principal Cu LMM line. Cu2O/CuO LMM kinetic energies (Wagner-plot values) were not recoverable from archived NIST pages — region floor is fallback to cover them; hand-check. NIST also tabulates M3VV (61 eV, PEJ82) and L2-series satellite offsets (SA- records, Scho72 et al.) — not curated in v1. Values recovered from NIST SRD 20 v3.5 via Internet Archive snapshot (2004).",
+      "families": [
+        {
+          "family": "LMM",
+          "transitions": [
+            {
+              "id": "Cu-L3M4,5M4,5",
+              "element": "Cu",
+              "z": 29,
+              "orbital": "L3M4,5M4,5",
+              "transition_type": "auger",
+              "auger_ke_ev": 918.62,
+              "expected_region_ev": { "min": 915.5, "max": 919.5, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "NIST notation L3M45M45(1G); KINETIC energy. 25 NIST metal records span 918.1-919.0 with a tight modern cluster at 918.62-918.66 (SSA90 x2 918.62, BiSw80 918.62/.64/.66, AnSe84 918.63/.65, Asam76 918.65); no starred value on the archived page. Region (KE frame) floor extended to cover Cu2O/CuO whose LMM KEs sit lower — fallback, unsourced."
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
