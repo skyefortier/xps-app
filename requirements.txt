@@ -14,6 +14,9 @@ lmfit>=1.3
 pandas>=2.2
 openpyxl>=3.1       # .xlsx read/write
 
+# Reference-data validation (data/xps/ against schema.json)
+jsonschema>=4.21
+
 # Optional – uncomment if you need CORS (e.g. separate frontend dev server)
 # flask-cors>=4.0
 olefile

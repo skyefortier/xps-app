@@ -22,6 +22,7 @@ POST /api/background        Compute background for a session
 POST /api/fit               Run peak fitting; returns full result
 GET  /api/peak-shapes       List available lineshape names
 GET  /api/elements          List built‑in spin‑orbit element presets
+GET  /api/xps-reference     Validated periodic-table reference dataset (data/xps/)
 GET  /api/session/<id>      Retrieve raw session data
 DELETE /api/session/<id>    Delete session files
 """
@@ -42,6 +43,7 @@ from werkzeug.utils import secure_filename
 import fitting
 import parser as xps_parser
 import vgd_parser
+from xps_reference import XPSReferenceError, load_reference_cached
 
 # Upper bound on the Monte-Carlo uncertainty resampling count accepted by
 # /api/fit. Each perturbation re-runs the full composite fit, so an unbounded
@@ -58,10 +60,11 @@ SESSION_TTL_DAYS = 7
 # Application factory
 # ─────────────────────────────────────────────────────────────────────────────
 
-def create_app(upload_folder: str = "uploads") -> Flask:
+def create_app(upload_folder: str = "uploads", data_folder: str = "data/xps") -> Flask:
     app = Flask(__name__, static_folder="static", template_folder="templates")
 
     app.config["UPLOAD_FOLDER"] = upload_folder
+    app.config["XPS_DATA_DIR"] = data_folder
     app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB hard limit
 
     Path(upload_folder).mkdir(parents=True, exist_ok=True)
@@ -220,6 +223,22 @@ def _register_routes(app: Flask) -> None:
     @app.get("/api/elements")
     def elements():
         return jsonify(SPIN_ORBIT_PRESETS)
+
+    @app.get("/api/xps-reference")
+    def xps_reference():
+        """Serve the validated data/xps reference dataset (cached on mtime).
+
+        On invalid data this fails loudly with a structured error naming the
+        offending file and JSON path — a malformed transition is never
+        silently dropped.
+        """
+        try:
+            payload = load_reference_cached(app.config["XPS_DATA_DIR"])
+        except XPSReferenceError as e:
+            logging.getLogger(__name__).error("XPS reference dataset invalid: %s", e)
+            return jsonify({"error": e.message, "file": e.filename,
+                            "path": e.json_path}), 500
+        return jsonify(payload)
 
     # ── File upload ───────────────────────────────────────────────────────────
 

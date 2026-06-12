@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "xps-reference-schema-v1",
+  "title": "XPS Fitting Studio reference-data schema",
+  "description": "Schema for the version-controlled XPS reference dataset under data/xps/. Three document kinds: a sources registry (sources.json), photoelectron element files (elements-*.json), and the Auger line file (auger-lines.json). Hierarchy: element -> orbital family -> individual transition -> optional chemical-state references. Every numeric value's record carries a source id resolving in sources.json. Semantic rules the schema cannot express (unique ids, source-id resolution, region min<=max, spin-orbit reciprocity, file-role/transition-type agreement) are enforced by the loader (xps_reference.py).",
+
+  "$defs": {
+    "sourcesFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "sources"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "sources": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "additionalProperties": { "$ref": "#/$defs/source" }
+        }
+      }
+    },
+
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["citation", "type"],
+      "properties": {
+        "citation": { "type": "string", "minLength": 8 },
+        "type": { "enum": ["database", "handbook", "primary-literature", "standard"] },
+        "url": { "type": "string", "pattern": "^https?://" },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "elementFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "file_id", "elements"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "file_id": { "enum": ["elements-main", "elements-lanthanides", "elements-actinides", "auger-lines"] },
+        "elements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/element" }
+        }
+      }
+    },
+
+    "element": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "z", "name", "curation_status", "families"],
+      "properties": {
+        "symbol": { "type": "string", "pattern": "^[A-Z][a-z]?$" },
+        "z": { "type": "integer", "minimum": 1, "maximum": 118 },
+        "name": { "type": "string", "minLength": 3 },
+        "curation_status": {
+          "description": "curated: all listed values verified against the cited sources. partial: listed values verified, but known lines are missing (see curation_notes). uncurated: placeholder entry, no trustworthy open data curated yet — families may be empty; the UI must not present uncurated elements as authoritative.",
+          "enum": ["curated", "partial", "uncurated"]
+        },
+        "curation_notes": { "type": "string" },
+        "families": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/family" }
+        }
+      }
+    },
+
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "transitions"],
+      "properties": {
+        "family": {
+          "description": "Orbital family label: a subshell ('4f', '3d', '1s') for photoelectron files, or an Auger group ('LMM', 'KLL') for auger-lines.json.",
+          "type": "string",
+          "pattern": "^([1-7][spdf]|[KLMN]{2,3}[0-9,]*)$"
+        },
+        "transitions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/transition" }
+        }
+      }
+    },
+
+    "transition": {
+      "oneOf": [
+        { "$ref": "#/$defs/photoelectronTransition" },
+        { "$ref": "#/$defs/augerTransition" }
+      ]
+    },
+
+    "photoelectronTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "element", "z", "orbital", "transition_type", "nominal_be_ev", "spin_orbit", "expected_region_ev", "visibility", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/transitionId" },
+        "element": { "type": "string", "pattern": "^[A-Z][a-z]?$" },
+        "z": { "type": "integer", "minimum": 1, "maximum": 118 },
+        "orbital": {
+          "description": "Subshell with j where split ('4f7/2'), bare subshell for s lines ('1s').",
+          "type": "string",
+          "pattern": "^[1-7][spdf]([1357]/2)?$"
+        },
+        "transition_type": { "const": "photoelectron" },
+        "nominal_be_ev": {
+          "description": "Reference binding energy in eV in the app's corrected-BE frame. Source-invariant after calibration: drawn at this value directly, never shifted by ccShift and never moved by the reference-source selector.",
+          "type": "number", "minimum": 0, "maximum": 1500
+        },
+        "spin_orbit": {
+          "description": "Doublet linkage; explicit null for singlets (s lines) so curators must decide rather than omit.",
+          "oneOf": [{ "$ref": "#/$defs/spinOrbit" }, { "type": "null" }]
+        },
+        "expected_region_ev": { "$ref": "#/$defs/expectedRegion" },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "source": { "$ref": "#/$defs/sourceId" },
+        "chemical_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/chemicalState" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "augerTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "element", "z", "orbital", "transition_type", "auger_ke_ev", "expected_region_ev", "visibility", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/transitionId" },
+        "element": { "type": "string", "pattern": "^[A-Z][a-z]?$" },
+        "z": { "type": "integer", "minimum": 1, "maximum": 118 },
+        "orbital": {
+          "description": "Auger transition label, e.g. 'L3M4,5M4,5' or the family shorthand 'LMM'.",
+          "type": "string",
+          "pattern": "^[KLMN][0-9]?([KLMN][0-9,]*){1,2}([KLMN][0-9,]*)?$"
+        },
+        "transition_type": { "const": "auger" },
+        "auger_ke_ev": {
+          "description": "Nominal KINETIC energy in eV — the source-invariant quantity for Auger lines. The apparent BE on a given source is computed at display time as photon_energy - auger_ke_ev - work_function (vgd_parser.py convention); it is never stored. nominal_be_ev is deliberately not an allowed property on Auger records.",
+          "type": "number", "minimum": 0, "maximum": 1500
+        },
+        "expected_region_ev": {
+          "description": "Orientation range in KINETIC energy eV (same frame as auger_ke_ev); converted to apparent BE at display time.",
+          "$ref": "#/$defs/expectedRegion"
+        },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "source": { "$ref": "#/$defs/sourceId" },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "transitionId": {
+      "description": "Globally unique id, convention '<Symbol>-<orbital>' (e.g. 'U-4f7/2', 'Cu-L3M4,5M4,5').",
+      "type": "string",
+      "pattern": "^[A-Z][a-z]?-[A-Za-z0-9/,.-]+$"
+    },
+
+    "sourceId": {
+      "description": "Citation id; must resolve to an entry in sources.json (loader-enforced).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+
+    "spinOrbit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partner_id", "splitting_ev", "area_ratio"],
+      "properties": {
+        "partner_id": { "$ref": "#/$defs/transitionId" },
+        "splitting_ev": {
+          "description": "Energy separation to the partner line in eV; positive on both members of the doublet (loader enforces existence + reciprocity).",
+          "type": "number", "exclusiveMinimum": 0
+        },
+        "area_ratio": {
+          "description": "Area of THIS line divided by area of the partner line (e.g. 4f7/2 vs 4f5/2 -> 4/3 on the 7/2 record, 3/4 on the 5/2 record).",
+          "type": "number", "exclusiveMinimum": 0
+        }
+      }
+    },
+
+    "expectedRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max", "basis"],
+      "properties": {
+        "min": { "type": "number", "minimum": 0, "maximum": 1500 },
+        "max": { "type": "number", "minimum": 0, "maximum": 1500 },
+        "basis": {
+          "description": "Provenance of the range. observed-reference-range: spanned by tabulated values across chemical states in the cited source(s). source-reported: the source itself states a range. conservative-fallback: no reliable range data; a deliberately wide orientation window. This is an ORIENTATION range for survey identification, NOT a claim that every chemical state falls inside it.",
+          "enum": ["observed-reference-range", "source-reported", "conservative-fallback"]
+        }
+      }
+    },
+
+    "visibility": {
+      "description": "QUALITATIVE expected-visibility labels per X-ray source — curator judgement from reference survey spectra, NOT computed intensities (no Scofield/RSF/IMFP derivation in v1). 'uncurated' = not yet assessed for that source.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["AlKa"],
+      "properties": {
+        "AlKa": { "$ref": "#/$defs/visibilityLabel" },
+        "MgKa": { "$ref": "#/$defs/visibilityLabel" }
+      }
+    },
+
+    "visibilityLabel": { "enum": ["major", "moderate", "weak", "uncurated"] },
+
+    "chemicalState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "be_ev", "source"],
+      "properties": {
+        "state": { "type": "string", "minLength": 1 },
+        "be_ev": { "type": "number", "minimum": 0, "maximum": 1500 },
+        "satellite_offset_ev": {
+          "description": "Offset of an associated satellite from this state's main line, in eV (positive = higher BE).",
+          "type": "number"
+        },
+        "source": { "$ref": "#/$defs/sourceId" }
+      }
+    }
+  }
+}

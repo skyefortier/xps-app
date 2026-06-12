@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "nist-srd-20": {
+      "citation": "NIST X-ray Photoelectron Spectroscopy Database, NIST Standard Reference Database Number 20, National Institute of Standards and Technology, Gaithersburg MD, 20899 (2000), DOI: 10.18434/T4T88K.",
+      "type": "database",
+      "url": "https://srdata.nist.gov/xps/"
+    },
+    "scofield-1976": {
+      "citation": "Scofield, J. H. Hartree-Slater subshell photoionization cross-sections at 1254 and 1487 eV. J. Electron Spectrosc. Relat. Phenom. 1976, 8 (2), 129-137. DOI: 10.1016/0368-2048(76)80015-1.",
+      "type": "primary-literature",
+      "url": "https://doi.org/10.1016/0368-2048(76)80015-1"
+    },
+    "moulder-1992": {
+      "citation": "Moulder, J. F.; Stickle, W. F.; Sobol, P. E.; Bomben, K. D. Handbook of X-ray Photoelectron Spectroscopy; Chastain, J., Ed.; Perkin-Elmer Corporation: Eden Prairie, MN, 1992.",
+      "type": "handbook"
+    }
+  }
+}
