@@ -4211,6 +4211,9 @@ function updateChargeCorrection() {
   // appears/disappears reactively when the method changes (and any
   // stale isChargeReference flags are cleared by renderPeakList).
   renderPeakList();
+  // Reference Lines panel shows the corrected range + a not-charge-corrected
+  // hint — both go stale when the correction changes.
+  if (typeof _refOnTabChange === 'function') _refOnTabChange();
 }
 
 function getCorrectedBE() {
@@ -10210,6 +10213,14 @@ function _refTransitionsFor(sym) {
   return out;
 }
 
+// Corrected-state predicate keyed on the CC METHOD, not the shift value —
+// a legitimate correction can produce a 0.00 eV shift, and "no method" with
+// shift 0 must still warn.
+function _refIsChargeCorrected() {
+  const m = document.getElementById('cc-method');
+  return !!(m && m.value && m.value !== 'none');
+}
+
 // Acquisition range in corrected BE (NOT the current zoom), or the labeled
 // 0–1200 eV survey convention when no spectrum is loaded.
 function _refViewRange() {
@@ -10411,7 +10422,7 @@ function _refRenderPanel() {
   } else {
     html += '<div class="ref-context">Evaluating: ' + _escHtml(tab ? tab.name : 'spectrum') + ' · ' +
       range.lo.toFixed(1) + '–' + range.hi.toFixed(1) + ' eV (corrected BE)</div>';
-    if (!state.ccShift) {
+    if (!_refIsChargeCorrected()) {
       html += '<div class="ref-hint">Spectrum has not been charge corrected — sample peaks may be shifted relative to reference positions.</div>';
     }
   }
