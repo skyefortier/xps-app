@@ -15,6 +15,11 @@
     "moulder-1992": {
       "citation": "Moulder, J. F.; Stickle, W. F.; Sobol, P. E.; Bomben, K. D. Handbook of X-ray Photoelectron Spectroscopy; Chastain, J., Ed.; Perkin-Elmer Corporation: Eden Prairie, MN, 1992.",
       "type": "handbook"
+    },
+    "legacy-embedded-dataset": {
+      "citation": "Legacy reference values embedded as the XPS_ELEMENTS and CHEMICAL_STATES JavaScript constants in templates/index.html prior to the data/xps migration. Rounded single values of unverified origin; retained verbatim under tier 'legacy-unverified' pending source-corroborated re-curation. NOT an authoritative source.",
+      "type": "database",
+      "notes": "Provenance marker only. A value carrying this source id has NOT been verified against any external authority; it is the pre-migration in-app value preserved for exact parity."
     }
   }
 }

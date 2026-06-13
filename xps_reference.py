@@ -31,6 +31,13 @@ ELEMENT_FILES = ("elements-main.json", "elements-lanthanides.json",
 AUGER_FILE = "auger-lines.json"
 DATA_FILES = ELEMENT_FILES + (AUGER_FILE,)
 
+# Legacy verbatim transcription (Stage 9). Loaded + validated when present;
+# absent in the synthetic test datasets, so loading is optional.
+LEGACY_DIR = "legacy"
+LEGACY_SCHEMA_FILE = "schema.json"
+LEGACY_SURVEY_FILE = "survey-lines.json"
+LEGACY_CHEM_FILE = "chemical-states.json"
+
 # Photon energies of the supported lab sources (eV). Al Kα reuses
 # vgd_parser's constant so the two never drift; Mg Kα is the standard
 # 1253.6 eV line (the "1254 eV" of Scofield 1976).
@@ -200,11 +207,14 @@ def load_reference(data_dir) -> dict:
 
     _validate_semantics(docs, sources_doc["sources"])
 
+    legacy = _load_legacy(data_dir, sources_doc["sources"])
+
     return {
         "schema_version": 1,
         "sources": sources_doc["sources"],
         "elements": [el for f in ELEMENT_FILES for el in docs[f]["elements"]],
         "auger": docs[AUGER_FILE]["elements"],
+        "legacy": legacy,
         "conventions": {
             # Exposed so the UI can DISPLAY (never silently assume) the
             # defaults used to place Auger markers on the BE axis.
@@ -216,6 +226,47 @@ def load_reference(data_dir) -> dict:
     }
 
 
+def _load_legacy(data_dir: Path, sources: dict):
+    """Load + validate the verbatim legacy docs (Stage 9), if present.
+
+    Returns ``{"survey": [...elements], "chemical_states": [...groups]}`` or
+    ``None`` when the legacy directory is absent. Validates against the legacy
+    schema and enforces globally-unique ids + source resolution — a malformed
+    legacy record fails loudly exactly like a curated one.
+    """
+    legacy_dir = data_dir / LEGACY_DIR
+    if not legacy_dir.exists():
+        return None
+    schema = _read_json(legacy_dir, LEGACY_SCHEMA_FILE)
+    rel = lambda f: f"{LEGACY_DIR}/{f}"
+
+    survey = _read_json(legacy_dir, LEGACY_SURVEY_FILE)
+    _validate_schema(survey, "legacySurveyFile", schema, rel(LEGACY_SURVEY_FILE))
+    chem = _read_json(legacy_dir, LEGACY_CHEM_FILE)
+    _validate_schema(chem, "legacyChemStatesFile", schema, rel(LEGACY_CHEM_FILE))
+
+    seen: dict[str, str] = {}
+    def check(rec_id, src, fname, path):
+        if rec_id in seen:
+            raise XPSReferenceError(fname, path,
+                f"duplicate legacy id '{rec_id}' (first in {seen[rec_id]})")
+        seen[rec_id] = fname
+        if src not in sources:
+            raise XPSReferenceError(fname, path,
+                f"source id '{src}' does not resolve in sources.json")
+
+    for ei, el in enumerate(survey["elements"]):
+        for li, ln in enumerate(el["lines"]):
+            check(ln["id"], ln["source"], rel(LEGACY_SURVEY_FILE),
+                  f"$.elements[{ei}].lines[{li}]")
+    for gi, g in enumerate(chem["groups"]):
+        for si, s in enumerate(g["states"]):
+            check(s["id"], s["source"], rel(LEGACY_CHEM_FILE),
+                  f"$.groups[{gi}].states[{si}]")
+
+    return {"survey": survey["elements"], "chemical_states": chem["groups"]}
+
+
 # Per-process cache: data dir -> (mtime stamp, payload). Reference data is
 # read-only at runtime, so this is safe under multi-worker gunicorn; the
 # mtime stamp keeps dev edits live without a restart.
@@ -225,8 +276,13 @@ _cache: dict[str, tuple] = {}
 def load_reference_cached(data_dir) -> dict:
     data_dir = Path(data_dir)
     try:
-        stamp = tuple((f, (data_dir / f).stat().st_mtime_ns)
-                      for f in (SCHEMA_FILE, SOURCES_FILE) + DATA_FILES)
+        stamp = [(f, (data_dir / f).stat().st_mtime_ns)
+                 for f in (SCHEMA_FILE, SOURCES_FILE) + DATA_FILES]
+        legacy_dir = data_dir / LEGACY_DIR
+        if legacy_dir.exists():
+            for f in (LEGACY_SCHEMA_FILE, LEGACY_SURVEY_FILE, LEGACY_CHEM_FILE):
+                stamp.append((f"{LEGACY_DIR}/{f}", (legacy_dir / f).stat().st_mtime_ns))
+        stamp = tuple(stamp)
     except FileNotFoundError as e:
         raise XPSReferenceError(Path(e.filename).name, "$",
                                 "file not found") from None

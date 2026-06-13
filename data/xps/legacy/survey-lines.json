@@ -1,0 +1,991 @@
+{
+  "schema_version": 1,
+  "file_id": "legacy-survey-lines",
+  "source": "legacy-embedded-dataset",
+  "curation_status": "legacy-unverified",
+  "provenance": "Verbatim transcription of the XPS_ELEMENTS constant embedded in templates/index.html (rounded single-value survey-marker positions, unsourced in origin). Auger (KLL) lines kept as legacy BE marker positions, not converted to kinetic energy.",
+  "elements": [
+    {
+      "symbol": "Li",
+      "z": 3,
+      "z_basis": "definitional",
+      "name": "Lithium",
+      "lines": [
+        {
+          "id": "legacy-Li-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 55,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Be",
+      "z": 4,
+      "z_basis": "definitional",
+      "name": "Beryllium",
+      "lines": [
+        {
+          "id": "legacy-Be-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 112,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "B",
+      "z": 5,
+      "z_basis": "definitional",
+      "name": "Boron",
+      "lines": [
+        {
+          "id": "legacy-B-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 188,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "C",
+      "z": 6,
+      "z_basis": "definitional",
+      "name": "Carbon",
+      "lines": [
+        {
+          "id": "legacy-C-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 285,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "N",
+      "z": 7,
+      "z_basis": "definitional",
+      "name": "Nitrogen",
+      "lines": [
+        {
+          "id": "legacy-N-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 399,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "O",
+      "z": 8,
+      "z_basis": "definitional",
+      "name": "Oxygen",
+      "lines": [
+        {
+          "id": "legacy-O-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 531,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-O-KLL",
+          "orbital": "KLL",
+          "transition_type": "auger",
+          "be_ev": 978,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "F",
+      "z": 9,
+      "z_basis": "definitional",
+      "name": "Fluorine",
+      "lines": [
+        {
+          "id": "legacy-F-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 685,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Na",
+      "z": 11,
+      "z_basis": "definitional",
+      "name": "Sodium",
+      "lines": [
+        {
+          "id": "legacy-Na-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 1072,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-Na-KLL",
+          "orbital": "KLL",
+          "transition_type": "auger",
+          "be_ev": 497,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Mg",
+      "z": 12,
+      "z_basis": "definitional",
+      "name": "Magnesium",
+      "lines": [
+        {
+          "id": "legacy-Mg-1s",
+          "orbital": "1s",
+          "transition_type": "photoelectron",
+          "be_ev": 1304,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-Mg-KLL",
+          "orbital": "KLL",
+          "transition_type": "auger",
+          "be_ev": 306,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Al",
+      "z": 13,
+      "z_basis": "definitional",
+      "name": "Aluminium",
+      "lines": [
+        {
+          "id": "legacy-Al-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 73,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Si",
+      "z": 14,
+      "z_basis": "definitional",
+      "name": "Silicon",
+      "lines": [
+        {
+          "id": "legacy-Si-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 99,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-Si-2s",
+          "orbital": "2s",
+          "transition_type": "photoelectron",
+          "be_ev": 150,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "P",
+      "z": 15,
+      "z_basis": "definitional",
+      "name": "Phosphorus",
+      "lines": [
+        {
+          "id": "legacy-P-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 133,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "S",
+      "z": 16,
+      "z_basis": "definitional",
+      "name": "Sulfur",
+      "lines": [
+        {
+          "id": "legacy-S-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 164,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-S-2s",
+          "orbital": "2s",
+          "transition_type": "photoelectron",
+          "be_ev": 228,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Cl",
+      "z": 17,
+      "z_basis": "definitional",
+      "name": "Chlorine",
+      "lines": [
+        {
+          "id": "legacy-Cl-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 199,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-Cl-2s",
+          "orbital": "2s",
+          "transition_type": "photoelectron",
+          "be_ev": 270,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "K",
+      "z": 19,
+      "z_basis": "definitional",
+      "name": "Potassium",
+      "lines": [
+        {
+          "id": "legacy-K-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 293,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-K-2s",
+          "orbital": "2s",
+          "transition_type": "photoelectron",
+          "be_ev": 378,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ca",
+      "z": 20,
+      "z_basis": "definitional",
+      "name": "Calcium",
+      "lines": [
+        {
+          "id": "legacy-Ca-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 347,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ti",
+      "z": 22,
+      "z_basis": "definitional",
+      "name": "Titanium",
+      "lines": [
+        {
+          "id": "legacy-Ti-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 459,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "V",
+      "z": 23,
+      "z_basis": "definitional",
+      "name": "Vanadium",
+      "lines": [
+        {
+          "id": "legacy-V-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 517,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Cr",
+      "z": 24,
+      "z_basis": "definitional",
+      "name": "Chromium",
+      "lines": [
+        {
+          "id": "legacy-Cr-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 577,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Mn",
+      "z": 25,
+      "z_basis": "definitional",
+      "name": "Manganese",
+      "lines": [
+        {
+          "id": "legacy-Mn-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 641,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Fe",
+      "z": 26,
+      "z_basis": "definitional",
+      "name": "Iron",
+      "lines": [
+        {
+          "id": "legacy-Fe-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 711,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Co",
+      "z": 27,
+      "z_basis": "definitional",
+      "name": "Cobalt",
+      "lines": [
+        {
+          "id": "legacy-Co-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 778,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ni",
+      "z": 28,
+      "z_basis": "definitional",
+      "name": "Nickel",
+      "lines": [
+        {
+          "id": "legacy-Ni-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 853,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Cu",
+      "z": 29,
+      "z_basis": "definitional",
+      "name": "Copper",
+      "lines": [
+        {
+          "id": "legacy-Cu-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 933,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Zn",
+      "z": 30,
+      "z_basis": "definitional",
+      "name": "Zinc",
+      "lines": [
+        {
+          "id": "legacy-Zn-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 1022,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ga",
+      "z": 31,
+      "z_basis": "definitional",
+      "name": "Gallium",
+      "lines": [
+        {
+          "id": "legacy-Ga-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 1117,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ge",
+      "z": 32,
+      "z_basis": "definitional",
+      "name": "Germanium",
+      "lines": [
+        {
+          "id": "legacy-Ge-2p",
+          "orbital": "2p",
+          "transition_type": "photoelectron",
+          "be_ev": 1217,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "As",
+      "z": 33,
+      "z_basis": "definitional",
+      "name": "Arsenic",
+      "lines": [
+        {
+          "id": "legacy-As-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 42,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Se",
+      "z": 34,
+      "z_basis": "definitional",
+      "name": "Selenium",
+      "lines": [
+        {
+          "id": "legacy-Se-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 56,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Br",
+      "z": 35,
+      "z_basis": "definitional",
+      "name": "Bromine",
+      "lines": [
+        {
+          "id": "legacy-Br-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 69,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Sr",
+      "z": 38,
+      "z_basis": "definitional",
+      "name": "Strontium",
+      "lines": [
+        {
+          "id": "legacy-Sr-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 134,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Y",
+      "z": 39,
+      "z_basis": "definitional",
+      "name": "Yttrium",
+      "lines": [
+        {
+          "id": "legacy-Y-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 157,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Zr",
+      "z": 40,
+      "z_basis": "definitional",
+      "name": "Zirconium",
+      "lines": [
+        {
+          "id": "legacy-Zr-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 179,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Nb",
+      "z": 41,
+      "z_basis": "definitional",
+      "name": "Niobium",
+      "lines": [
+        {
+          "id": "legacy-Nb-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 202,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Mo",
+      "z": 42,
+      "z_basis": "definitional",
+      "name": "Molybdenum",
+      "lines": [
+        {
+          "id": "legacy-Mo-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 228,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ag",
+      "z": 47,
+      "z_basis": "definitional",
+      "name": "Silver",
+      "lines": [
+        {
+          "id": "legacy-Ag-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 368,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Cd",
+      "z": 48,
+      "z_basis": "definitional",
+      "name": "Cadmium",
+      "lines": [
+        {
+          "id": "legacy-Cd-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 405,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "In",
+      "z": 49,
+      "z_basis": "definitional",
+      "name": "Indium",
+      "lines": [
+        {
+          "id": "legacy-In-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 444,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Sn",
+      "z": 50,
+      "z_basis": "definitional",
+      "name": "Tin",
+      "lines": [
+        {
+          "id": "legacy-Sn-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 485,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Sb",
+      "z": 51,
+      "z_basis": "definitional",
+      "name": "Antimony",
+      "lines": [
+        {
+          "id": "legacy-Sb-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 528,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Te",
+      "z": 52,
+      "z_basis": "definitional",
+      "name": "Tellurium",
+      "lines": [
+        {
+          "id": "legacy-Te-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 573,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "I",
+      "z": 53,
+      "z_basis": "definitional",
+      "name": "Iodine",
+      "lines": [
+        {
+          "id": "legacy-I-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 619,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ba",
+      "z": 56,
+      "z_basis": "definitional",
+      "name": "Barium",
+      "lines": [
+        {
+          "id": "legacy-Ba-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 780,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "La",
+      "z": 57,
+      "z_basis": "definitional",
+      "name": "Lanthanum",
+      "lines": [
+        {
+          "id": "legacy-La-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 836,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Ce",
+      "z": 58,
+      "z_basis": "definitional",
+      "name": "Cerium",
+      "lines": [
+        {
+          "id": "legacy-Ce-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 882,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Nd",
+      "z": 60,
+      "z_basis": "definitional",
+      "name": "Neodymium",
+      "lines": [
+        {
+          "id": "legacy-Nd-3d",
+          "orbital": "3d",
+          "transition_type": "photoelectron",
+          "be_ev": 982,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "W",
+      "z": 74,
+      "z_basis": "definitional",
+      "name": "Tungsten",
+      "lines": [
+        {
+          "id": "legacy-W-4f",
+          "orbital": "4f",
+          "transition_type": "photoelectron",
+          "be_ev": 31,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Pt",
+      "z": 78,
+      "z_basis": "definitional",
+      "name": "Platinum",
+      "lines": [
+        {
+          "id": "legacy-Pt-4f",
+          "orbital": "4f",
+          "transition_type": "photoelectron",
+          "be_ev": 71,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Au",
+      "z": 79,
+      "z_basis": "definitional",
+      "name": "Gold",
+      "lines": [
+        {
+          "id": "legacy-Au-4f",
+          "orbital": "4f",
+          "transition_type": "photoelectron",
+          "be_ev": 84,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Pb",
+      "z": 82,
+      "z_basis": "definitional",
+      "name": "Lead",
+      "lines": [
+        {
+          "id": "legacy-Pb-4f",
+          "orbital": "4f",
+          "transition_type": "photoelectron",
+          "be_ev": 137,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Bi",
+      "z": 83,
+      "z_basis": "definitional",
+      "name": "Bismuth",
+      "lines": [
+        {
+          "id": "legacy-Bi-4f",
+          "orbital": "4f",
+          "transition_type": "photoelectron",
+          "be_ev": 157,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "Th",
+      "z": 90,
+      "z_basis": "definitional",
+      "name": "Thorium",
+      "lines": [
+        {
+          "id": "legacy-Th-4f",
+          "orbital": "4f",
+          "transition_type": "photoelectron",
+          "be_ev": 333,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "symbol": "U",
+      "z": 92,
+      "z_basis": "definitional",
+      "name": "Uranium",
+      "lines": [
+        {
+          "id": "legacy-U-4f",
+          "orbital": "4f",
+          "transition_type": "photoelectron",
+          "be_ev": 380,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-U-4d",
+          "orbital": "4d",
+          "transition_type": "photoelectron",
+          "be_ev": 736,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-U-5d",
+          "orbital": "5d",
+          "transition_type": "photoelectron",
+          "be_ev": 98,
+          "be_basis": "legacy-marker-position",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    }
+  ]
+}

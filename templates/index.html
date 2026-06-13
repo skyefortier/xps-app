@@ -2327,7 +2327,55 @@ function updateSmoothing() {
 }
 
 // ═══════════════════════════════════════════════════
+// UNIFIED REFERENCE ACCESSOR  (Stage 9 migration)
+// ═══════════════════════════════════════════════════
+// Single point of access for the five legacy consumers (survey markers,
+// tab-type detection, multiplet-preset suggestions, RSF fallback, NIST
+// modal). Reads the server-injected legacy reference data — the verbatim
+// transcription of the old constants (tier 'legacy-unverified', sourced
+// from data/xps/legacy/*.json and validated by xps_reference.py). The
+// XPS_ELEMENTS / CHEMICAL_STATES constants below are RETAINED as a backstop
+// through Stage 9 and deleted only at the approved cutover; until then the
+// accessor prefers the injected data so the rewired consumers exercise the
+// real post-cutover path.
+const LEGACY_REFERENCE = {{ legacy_reference | tojson }};
+
+let _accSurveyCache = null, _accChemCache = null;
+
+// XPS_ELEMENTS-shaped view: { sym: { lines: { orbital: be } } }. Exact
+// parity with the legacy constant (proven by tests/test_legacy_parity.py).
+function _accSurveyElements() {
+  if (_accSurveyCache) return _accSurveyCache;
+  if (LEGACY_REFERENCE && Array.isArray(LEGACY_REFERENCE.survey)) {
+    const out = {};
+    for (const el of LEGACY_REFERENCE.survey) {
+      const lines = {};
+      for (const ln of el.lines) lines[ln.orbital] = ln.be_ev;
+      out[el.symbol] = { lines };
+    }
+    return (_accSurveyCache = out);
+  }
+  return (typeof XPS_ELEMENTS !== 'undefined') ? XPS_ELEMENTS : {};
+}
+
+// CHEMICAL_STATES-shaped view: { 'El orb': [ { state, be, ref } ] }.
+function _accChemicalStates() {
+  if (_accChemCache) return _accChemCache;
+  if (LEGACY_REFERENCE && Array.isArray(LEGACY_REFERENCE.chemical_states)) {
+    const out = {};
+    for (const g of LEGACY_REFERENCE.chemical_states) {
+      out[g.orbital_key] = g.states.map(s =>
+        ({ state: s.state, be: s.be_ev, ref: s.ref, tier: s.tier }));
+    }
+    return (_accChemCache = out);
+  }
+  return (typeof CHEMICAL_STATES !== 'undefined') ? CHEMICAL_STATES : {};
+}
+
+// ═══════════════════════════════════════════════════
 // XPS BINDING ENERGY DATABASE — organized by element (Al Kα, eV)
+// LEGACY CONSTANT — retained as backstop; deleted at Stage 9 cutover.
+// Consumers read it via _accSurveyElements(), never directly.
 // ═══════════════════════════════════════════════════
 const XPS_ELEMENTS = {
   'Li': { lines: {'1s': 55} },
@@ -2540,7 +2588,7 @@ function classifyTabForOrganize(name, rawBE) {
 
   // Use XPS_ELEMENTS keys as the valid symbol set; longest-first so 'Cl' beats
   // 'C' and 'Ca' beats 'C'.
-  const symbols = Object.keys(XPS_ELEMENTS).sort((a, b) => b.length - a.length);
+  const symbols = Object.keys(_accSurveyElements()).sort((a, b) => b.length - a.length);
   const orbital = '(?:1s|2[sp]|3[spd]|4[spdf]|5[spdf]|6[spdf])';
 
   for (const sym of symbols) {
@@ -2562,7 +2610,7 @@ function classifyTabForOrganize(name, rawBE) {
     let best = null;
     let bestDist = Infinity;
     for (const sym of symbols) {
-      const lines = XPS_ELEMENTS[sym].lines || {};
+      const lines = _accSurveyElements()[sym].lines || {};
       for (const orb in lines) {
         const lineBE = lines[orb];
         if (lineBE >= beMin && lineBE <= beMax) {
@@ -3184,7 +3232,7 @@ class TabManager {
 
     list.innerHTML = elements.map((sym, idx) => {
       const color = ELEMENT_MARKER_COLORS[idx % ELEMENT_MARKER_COLORS.length];
-      const el = XPS_ELEMENTS[sym];
+      const el = _accSurveyElements()[sym];
       if (!el) return '';
       const name = ELEMENT_NAMES[sym] || sym;
       const linesHtml = Object.entries(el.lines).map(([line, be]) => {
@@ -3223,7 +3271,7 @@ class TabManager {
     fresh.addEventListener('input', () => {
       const q = fresh.value.trim().toLowerCase();
       if (!q) { ac.classList.remove('open'); return; }
-      const matches = Object.keys(XPS_ELEMENTS).filter(sym => {
+      const matches = Object.keys(_accSurveyElements()).filter(sym => {
         const name = (ELEMENT_NAMES[sym] || '').toLowerCase();
         return sym.toLowerCase().startsWith(q) || name.startsWith(q) || name.includes(q);
       }).slice(0, 8);
@@ -3260,7 +3308,7 @@ class TabManager {
         } else {
           // Try exact match on current input
           const q = fresh.value.trim();
-          const exact = Object.keys(XPS_ELEMENTS).find(s => s.toLowerCase() === q.toLowerCase());
+          const exact = Object.keys(_accSurveyElements()).find(s => s.toLowerCase() === q.toLowerCase());
           if (exact) this._addElement(fresh.dataset.surveyId, exact);
         }
         fresh.value = '';
@@ -3279,7 +3327,7 @@ class TabManager {
   /** Add an element to the current survey's marker list */
   _addElement(surveyId, sym) {
     const surveyTab = this._getTab(surveyId);
-    if (!surveyTab || !XPS_ELEMENTS[sym]) return;
+    if (!surveyTab || !_accSurveyElements()[sym]) return;
     if (!surveyTab.markedElements) surveyTab.markedElements = [];
     if (surveyTab.markedElements.includes(sym)) return; // already added
     surveyTab.markedElements.push(sym);
@@ -4676,7 +4724,7 @@ function _getSuggestedPresets() {
     if (key === 'Custom') continue;
     const [elem, orbital] = key.split(' ');
     // Check if primary BE for this element/orbital is in range
-    const elemData = XPS_ELEMENTS[elem];
+    const elemData = _accSurveyElements()[elem];
     const be = elemData && elemData.lines[orbital] ? elemData.lines[orbital] : null;
     const inRange = be != null && be >= beMin && be <= beMax;
     // Check tab name hint
@@ -6717,7 +6765,7 @@ function _detectPeakRSF(p) {
   // Fall back to center BE matching
   const center = p.center;
   let bestKey = null, bestDist = 6;
-  for (const [elem, data] of Object.entries(XPS_ELEMENTS)) {
+  for (const [elem, data] of Object.entries(_accSurveyElements())) {
     for (const [orb, be] of Object.entries(data.lines)) {
       const dist = Math.abs(be - center);
       if (dist < bestDist) {
@@ -7688,11 +7736,14 @@ function updatePlot() {
       // Build positioned markers from user's element selections
       const markers = [];
       elements.forEach((sym, idx) => {
-        const el = XPS_ELEMENTS[sym];
+        const el = _accSurveyElements()[sym];
         if (!el) return;
         const color = ELEMENT_MARKER_COLORS[idx % ELEMENT_MARKER_COLORS.length];
         Object.entries(el.lines).forEach(([line, be]) => {
-          const px = scales.x.getPixelForValue(be + shift);
+          // Stage 9 fix: reference markers draw at their reference BE
+          // DIRECTLY on the corrected-BE axis — never shifted by ccShift.
+          // (Legacy drew at be+shift; that was the documented bug.)
+          const px = scales.x.getPixelForValue(be);
           if (px < chartArea.left || px > chartArea.right) return;
           const isAuger = /^[A-Z]/.test(line);
           markers.push({ label: sym + ' ' + line, px, be, color, auger: isAuger });
@@ -9996,7 +10047,7 @@ function _nistRenderResults(q) {
   const isBeQuery = !isNaN(beQuery) && q !== '';
 
   const groups = [];
-  for (const [orbital, states] of Object.entries(CHEMICAL_STATES)) {
+  for (const [orbital, states] of Object.entries(_accChemicalStates())) {
     const orbLower = orbital.toLowerCase();
     const filtered = states.filter(s => {
       if (!q) return true;

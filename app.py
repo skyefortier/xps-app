@@ -194,7 +194,19 @@ def _register_routes(app: Flask) -> None:
         templates = Path(app.template_folder)
         static = Path(app.static_folder) if app.static_folder else Path("static")
         if templates.exists() and (templates / "index.html").exists():
-            return render_template("index.html")
+            # Inject the validated legacy reference data synchronously so the
+            # survey-marker / NIST-modal consumers (rewired to the unified
+            # accessor in Stage 9) have it at parse time — no async-load race.
+            # Falls back to null on validation failure; the frontend accessor
+            # degrades gracefully (and, pre-cutover, the legacy constants
+            # remain as a backstop).
+            try:
+                legacy = load_reference_cached(app.config["XPS_DATA_DIR"]).get("legacy")
+            except XPSReferenceError as e:
+                logging.getLogger(__name__).error(
+                    "legacy reference unavailable for template injection: %s", e)
+                legacy = None
+            return render_template("index.html", legacy_reference=legacy)
         if static.exists() and (static / "index.html").exists():
             return send_from_directory(str(static), "index.html")
         return (

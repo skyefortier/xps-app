@@ -1,0 +1,7 @@
+# Generated artifacts + extraction working outputs (provenance scripts are tracked).
+legacy_raw.json
+extract_claude/
+extract_codex/
+manifest/
+audit/
+reports/

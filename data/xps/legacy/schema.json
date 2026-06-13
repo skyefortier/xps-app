@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "xps-legacy-schema-v1",
+  "title": "XPS Fitting Studio legacy reference data (verbatim transcription)",
+  "description": "Schema for the verbatim transcription of the legacy XPS_ELEMENTS (survey-lines.json) and CHEMICAL_STATES (chemical-states.json) constants. These are rounded, single-value, origin-unsourced legacy values tagged tier 'legacy-unverified'. Kept structurally separate from the curated dataset so the unified accessor can present per-field tiers honestly. The loader (xps_reference.py) enforces unique ids and source-id resolution.",
+
+  "$defs": {
+    "legacySurveyFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "file_id", "source", "curation_status", "provenance", "elements"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "file_id": { "const": "legacy-survey-lines" },
+        "source": { "const": "legacy-embedded-dataset" },
+        "curation_status": { "const": "legacy-unverified" },
+        "provenance": { "type": "string", "minLength": 8 },
+        "elements": { "type": "array", "items": { "$ref": "#/$defs/legacyElement" } }
+      }
+    },
+
+    "legacyElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "z", "z_basis", "name", "lines"],
+      "properties": {
+        "symbol": { "type": "string", "pattern": "^[A-Z][a-z]?$" },
+        "z": { "type": "integer", "minimum": 1, "maximum": 118 },
+        "z_basis": { "const": "definitional" },
+        "name": { "type": "string", "minLength": 1 },
+        "lines": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/legacyLine" } }
+      }
+    },
+
+    "legacyLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "orbital", "transition_type", "be_ev", "be_basis", "source", "tier"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^legacy-[A-Z][a-z]?-[A-Za-z0-9/]+$" },
+        "orbital": { "type": "string", "minLength": 1 },
+        "transition_type": { "enum": ["photoelectron", "auger"] },
+        "be_ev": {
+          "description": "VERBATIM legacy marker position in eV (apparent BE on the survey axis). For Auger lines this is the legacy BE marker position, NOT a kinetic energy.",
+          "type": "number", "minimum": 0, "maximum": 3000
+        },
+        "be_basis": { "const": "legacy-marker-position" },
+        "source": { "const": "legacy-embedded-dataset" },
+        "tier": { "const": "legacy-unverified" }
+      }
+    },
+
+    "legacyChemStatesFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "file_id", "source", "curation_status", "provenance", "groups"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "file_id": { "const": "legacy-chemical-states" },
+        "source": { "const": "legacy-embedded-dataset" },
+        "curation_status": { "const": "legacy-unverified" },
+        "provenance": { "type": "string", "minLength": 8 },
+        "groups": { "type": "array", "items": { "$ref": "#/$defs/legacyChemGroup" } }
+      }
+    },
+
+    "legacyChemGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orbital_key", "element", "z", "z_basis", "orbital", "states"],
+      "properties": {
+        "orbital_key": { "type": "string", "minLength": 2 },
+        "element": { "type": "string", "pattern": "^[A-Z][a-z]?$" },
+        "z": { "type": "integer", "minimum": 1, "maximum": 118 },
+        "z_basis": { "const": "definitional" },
+        "orbital": { "type": "string", "minLength": 1 },
+        "states": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/legacyChemState" } }
+      }
+    },
+
+    "legacyChemState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "state", "be_ev", "ref", "source", "tier"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^legacy-cs-" },
+        "state": { "type": "string", "minLength": 1 },
+        "be_ev": { "type": "number", "minimum": 0, "maximum": 3000 },
+        "ref": {
+          "description": "Legacy editorial citation string (free text, e.g. 'Moulder 1992'). NOT a sources.json id.",
+          "type": "string", "minLength": 1
+        },
+        "source": { "const": "legacy-embedded-dataset" },
+        "tier": { "const": "legacy-unverified" }
+      }
+    }
+  }
+}

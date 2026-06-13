@@ -1,0 +1,524 @@
+{
+  "schema_version": 1,
+  "file_id": "legacy-chemical-states",
+  "source": "legacy-embedded-dataset",
+  "curation_status": "legacy-unverified",
+  "provenance": "Verbatim transcription of the CHEMICAL_STATES constant embedded in templates/index.html (NIST-modal chemical-state table). The 'ref' strings are the legacy editorial citations, kept as-is.",
+  "groups": [
+    {
+      "orbital_key": "C 1s",
+      "element": "C",
+      "z": 6,
+      "z_basis": "definitional",
+      "orbital": "1s",
+      "states": [
+        {
+          "id": "legacy-cs-C-1s-0",
+          "state": "Graphite/C-C",
+          "be_ev": 284.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-1",
+          "state": "Adventitious C-C/C-H",
+          "be_ev": 284.8,
+          "ref": "ISO 19318",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-2",
+          "state": "C-O (alcohol/ether)",
+          "be_ev": 286.3,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-3",
+          "state": "C=O (carbonyl)",
+          "be_ev": 287.8,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-4",
+          "state": "O-C=O (carboxyl)",
+          "be_ev": 288.8,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-5",
+          "state": "π→π* shake-up",
+          "be_ev": 290.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-6",
+          "state": "CO₃ (carbonate)",
+          "be_ev": 289.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-7",
+          "state": "CF₂ (PTFE)",
+          "be_ev": 292,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-C-1s-8",
+          "state": "CF₃",
+          "be_ev": 293.5,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "O 1s",
+      "element": "O",
+      "z": 8,
+      "z_basis": "definitional",
+      "orbital": "1s",
+      "states": [
+        {
+          "id": "legacy-cs-O-1s-0",
+          "state": "Metal oxide (M-O)",
+          "be_ev": 530,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-O-1s-1",
+          "state": "Hydroxide (M-OH)",
+          "be_ev": 531.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-O-1s-2",
+          "state": "Adsorbed H₂O",
+          "be_ev": 533,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-O-1s-3",
+          "state": "SiO₂",
+          "be_ev": 532.9,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-O-1s-4",
+          "state": "Organic C-O",
+          "be_ev": 532.5,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-O-1s-5",
+          "state": "Organic C=O",
+          "be_ev": 531.8,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "N 1s",
+      "element": "N",
+      "z": 7,
+      "z_basis": "definitional",
+      "orbital": "1s",
+      "states": [
+        {
+          "id": "legacy-cs-N-1s-0",
+          "state": "Metal nitride",
+          "be_ev": 397,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-N-1s-1",
+          "state": "Amine (NH₂)",
+          "be_ev": 399.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-N-1s-2",
+          "state": "Amide (N-C=O)",
+          "be_ev": 400,
+          "ref": "Beamson 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-N-1s-3",
+          "state": "NH₄⁺ / protonated amine",
+          "be_ev": 401.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-N-1s-4",
+          "state": "NO₃ (nitrate)",
+          "be_ev": 407,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "Si 2p",
+      "element": "Si",
+      "z": 14,
+      "z_basis": "definitional",
+      "orbital": "2p",
+      "states": [
+        {
+          "id": "legacy-cs-Si-2p-0",
+          "state": "Si metal",
+          "be_ev": 99.3,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Si-2p-1",
+          "state": "SiO₂",
+          "be_ev": 103.3,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Si-2p-2",
+          "state": "Si₃N₄",
+          "be_ev": 101.8,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Si-2p-3",
+          "state": "SiC",
+          "be_ev": 100.4,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "Fe 2p3/2",
+      "element": "Fe",
+      "z": 26,
+      "z_basis": "definitional",
+      "orbital": "2p3/2",
+      "states": [
+        {
+          "id": "legacy-cs-Fe-2p32-0",
+          "state": "Fe metal",
+          "be_ev": 707,
+          "ref": "Biesinger 2011",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Fe-2p32-1",
+          "state": "FeO (Fe²⁺)",
+          "be_ev": 709.5,
+          "ref": "Biesinger 2011",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Fe-2p32-2",
+          "state": "Fe₂O₃ (Fe³⁺)",
+          "be_ev": 710.7,
+          "ref": "Biesinger 2011",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Fe-2p32-3",
+          "state": "FeOOH",
+          "be_ev": 711.3,
+          "ref": "Biesinger 2011",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Fe-2p32-4",
+          "state": "FeSO₄",
+          "be_ev": 712,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "Cu 2p3/2",
+      "element": "Cu",
+      "z": 29,
+      "z_basis": "definitional",
+      "orbital": "2p3/2",
+      "states": [
+        {
+          "id": "legacy-cs-Cu-2p32-0",
+          "state": "Cu metal",
+          "be_ev": 932.6,
+          "ref": "Biesinger 2017",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Cu-2p32-1",
+          "state": "Cu₂O (Cu⁺)",
+          "be_ev": 932.4,
+          "ref": "Biesinger 2017",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Cu-2p32-2",
+          "state": "CuO (Cu²⁺)",
+          "be_ev": 933.6,
+          "ref": "Biesinger 2017",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Cu-2p32-3",
+          "state": "Cu(OH)₂",
+          "be_ev": 934.5,
+          "ref": "Biesinger 2017",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "Ti 2p3/2",
+      "element": "Ti",
+      "z": 22,
+      "z_basis": "definitional",
+      "orbital": "2p3/2",
+      "states": [
+        {
+          "id": "legacy-cs-Ti-2p32-0",
+          "state": "Ti metal",
+          "be_ev": 454,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Ti-2p32-1",
+          "state": "TiO₂ (Ti⁴⁺)",
+          "be_ev": 458.8,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Ti-2p32-2",
+          "state": "Ti₂O₃ (Ti³⁺)",
+          "be_ev": 457.1,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Ti-2p32-3",
+          "state": "TiN",
+          "be_ev": 455.8,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "U 4f7/2",
+      "element": "U",
+      "z": 92,
+      "z_basis": "definitional",
+      "orbital": "4f7/2",
+      "states": [
+        {
+          "id": "legacy-cs-U-4f72-0",
+          "state": "U metal",
+          "be_ev": 377.3,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-U-4f72-1",
+          "state": "UO₂ (U⁴⁺)",
+          "be_ev": 380,
+          "ref": "Ilton 2007",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-U-4f72-2",
+          "state": "U₃O₈ (mixed)",
+          "be_ev": 380.8,
+          "ref": "Ilton 2007",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-U-4f72-3",
+          "state": "UO₃ (U⁶⁺)",
+          "be_ev": 381.5,
+          "ref": "Ilton 2007",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-U-4f72-4",
+          "state": "UCl₄",
+          "be_ev": 380.2,
+          "ref": "Fortier 2026",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "Cl 2p3/2",
+      "element": "Cl",
+      "z": 17,
+      "z_basis": "definitional",
+      "orbital": "2p3/2",
+      "states": [
+        {
+          "id": "legacy-cs-Cl-2p32-0",
+          "state": "Organic Cl (C-Cl)",
+          "be_ev": 200.3,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Cl-2p32-1",
+          "state": "Metal chloride",
+          "be_ev": 198.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Cl-2p32-2",
+          "state": "ClO₄⁻ (perchlorate)",
+          "be_ev": 207.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "Au 4f7/2",
+      "element": "Au",
+      "z": 79,
+      "z_basis": "definitional",
+      "orbital": "4f7/2",
+      "states": [
+        {
+          "id": "legacy-cs-Au-4f72-0",
+          "state": "Au metal",
+          "be_ev": 84,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Au-4f72-1",
+          "state": "Au₂O₃ (Au³⁺)",
+          "be_ev": 85.8,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-Au-4f72-2",
+          "state": "AuCl₃",
+          "be_ev": 86.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    },
+    {
+      "orbital_key": "S 2p3/2",
+      "element": "S",
+      "z": 16,
+      "z_basis": "definitional",
+      "orbital": "2p3/2",
+      "states": [
+        {
+          "id": "legacy-cs-S-2p32-0",
+          "state": "Thiol (S-H)",
+          "be_ev": 163,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-S-2p32-1",
+          "state": "Sulfide (S²⁻)",
+          "be_ev": 161.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-S-2p32-2",
+          "state": "Sulfate (SO₄²⁻)",
+          "be_ev": 169,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        },
+        {
+          "id": "legacy-cs-S-2p32-3",
+          "state": "Sulfite (SO₃²⁻)",
+          "be_ev": 166.5,
+          "ref": "Moulder 1992",
+          "source": "legacy-embedded-dataset",
+          "tier": "legacy-unverified"
+        }
+      ]
+    }
+  ]
+}
