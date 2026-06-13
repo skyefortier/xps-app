@@ -7,7 +7,7 @@
       "z": 92,
       "name": "Uranium",
       "curation_status": "partial",
-      "curation_notes": "Curated: 4f doublet + 4d family. Nominals are U METAL values, but real samples are almost always oxidized (UCl4, U4+/U6+ oxides) and sit several eV HIGHER — expected_region_ev bands are therefore widened upward through the common oxidation states (curator-directed, 2026-06) so orientation bands cover where actual sample peaks appear. U-4d3/2 nominal is DERIVED (4d5/2 + DS-4d median), not a direct NIST record — hand-check. UO2/U3O8/UO3 4f7/2 chemical-state values were NOT archive-recoverable (compound pages 2-5 unarchived) — uncurated; NIST v4.1 line list confirms 4f7/2,sat / 4f5/2,sat satellite records exist but their values were not recoverable — uncurated. NIST also tabulates 4s (1043), 5p3/2 (194.8), 5d5/2 (93.6-94.2), 6p3/2 (16.8-18.0), 6s (43.9), DS-5d (8.2-8.6), DS-5p (63.6), DS-6p (10-10.5) — not curated in v1. One NIST compound record (U3O7 4d3/2 = 105.3 eV) is a physically impossible data-entry artifact and was discarded. Asymmetric U 4f broadening in U(IV) compounds arises from 5f multiplet coupling — use multiplet models, not single DS peaks (see CLAUDE.md). Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2015/2016/2023).",
+      "curation_notes": "Curated: 4f doublet + 4d family. Nominals are U METAL values, but real samples are almost always oxidized (UCl4, U4+/U6+ oxides) and sit several eV HIGHER — expected_region_ev bands are therefore widened upward through the common oxidation states (curator-directed, 2026-06) so orientation bands cover where actual sample peaks appear. U-4d3/2 nominal is DERIVED (4d5/2 + DS-4d median), not a direct NIST record — hand-check. UO2/U3O8/UO3 4f7/2 chemical-state values were NOT archive-recoverable (compound pages 2-5 unarchived) — uncurated; NIST v4.1 line list confirms 4f7/2,sat / 4f5/2,sat satellite records exist but their values were not recoverable — uncurated. Shallow lines (4s, 5d, 5p3/2, 6p, 6s) are curated from the complete 2004 NIST element page. 4p3/2 exists in NIST's v4.1 line list but no value was archive-recoverable — uncurated. U 5f is NOT tabulated as a line in NIST SRD 20 (valence character) — intentionally absent, not an omission. 5p1/2 is not in NIST's line list — 5p3/2 is curated unpaired (the DS-5p record, 63.6 eV FBWF74, is noted but unused). One NIST compound record (U3O7 4d3/2 = 105.3 eV) is a physically impossible data-entry artifact and was discarded. Asymmetric U 4f broadening in U(IV) compounds arises from 5f multiplet coupling — use multiplet models, not single DS peaks (see CLAUDE.md). Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2015/2016/2023).",
       "families": [
         {
           "family": "4f",
@@ -68,6 +68,122 @@
               "visibility": { "AlKa": "moderate", "MgKa": "uncurated" },
               "source": "nist-srd-20",
               "notes": "DERIVED: 736.4 + 42.1 (DS-4d median) = 778.5 — no direct NIST elemental 4d3/2 record was archive-recoverable. Needs hand-verification against live SRD 20. Real samples are usually oxidized and appear higher — region spans the NIST-tabulated oxide record U3O7 781.7; top extended to 784.5 for U(VI) (curator-directed margin, 2026-06)."
+            }
+          ]
+        },
+        {
+          "family": "4s",
+          "transitions": [
+            {
+              "id": "U-4s",
+              "element": "U",
+              "z": 92,
+              "orbital": "4s",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 1043.0,
+              "spin_orbit": null,
+              "expected_region_ev": { "min": 1041.5, "max": 1049.0, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "weak", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Single NIST record (FBWF74) — low-confidence nominal. Oxidation-widened fallback region (U metal nominal; real samples shift higher)."
+            }
+          ]
+        },
+        {
+          "family": "5d",
+          "transitions": [
+            {
+              "id": "U-5d5/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "5d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 94.0,
+              "spin_orbit": { "partner_id": "U-5d3/2", "splitting_ev": 8.6, "area_ratio": 1.5 },
+              "expected_region_ev": { "min": 92.5, "max": 100.0, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "moderate", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Three NIST records: 93.6 (AlTu73), 94.0 (ScLa81 — median record, chosen), 94.2 (FBWF74). DS-5d records DISAGREE: 8.2 (AlTu73) vs 8.6 (FBWF74) — 8.6 chosen for internal consistency with FBWF74's comprehensive U set; HAND-CHECK. Oxidation-widened fallback region; area_ratio 3:2 from 5d degeneracy."
+            },
+            {
+              "id": "U-5d3/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "5d3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 102.6,
+              "spin_orbit": { "partner_id": "U-5d5/2", "splitting_ev": 8.6, "area_ratio": 0.6667 },
+              "expected_region_ev": { "min": 101.1, "max": 108.6, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "moderate", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "DERIVED: 94.0 + 8.6 (DS-5d, FBWF74) = 102.6 — no direct NIST record archive-recoverable (the 5d3/2 line exists in NIST's v4.1 list). DOUBLE uncertainty: the splitting itself is contested (8.2 vs 8.6). Needs hand-verification."
+            }
+          ]
+        },
+        {
+          "family": "5p",
+          "transitions": [
+            {
+              "id": "U-5p3/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "5p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 194.8,
+              "spin_orbit": null,
+              "expected_region_ev": { "min": 193.3, "max": 200.8, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "weak", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Single NIST record (FBWF74) — low-confidence nominal. Curated UNPAIRED: NIST's line list has no 5p1/2 entry (the DS-5p record, 63.6 eV FBWF74, is noted but unused). Oxidation-widened fallback region. OVERLAPS the Cl 2p region in actinide chlorides (e.g. UCl4) — expect interference."
+            }
+          ]
+        },
+        {
+          "family": "6p",
+          "transitions": [
+            {
+              "id": "U-6p3/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "6p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 16.9,
+              "spin_orbit": { "partner_id": "U-6p1/2", "splitting_ev": 10.0, "area_ratio": 2.0 },
+              "expected_region_ev": { "min": 15.4, "max": 22.9, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "weak", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Three NIST records: 16.8 (FBWF74), 16.9 (WCSW87 — median, chosen), 18.0 (VeLa74). DS-6p records DISAGREE: 10.0 (FBWF74) vs 10.5 (VeLa74) — 10.0 chosen (internally consistent with FBWF74's 16.8); HAND-CHECK. Oxidation-widened fallback region; area_ratio 2:1 from 6p degeneracy."
+            },
+            {
+              "id": "U-6p1/2",
+              "element": "U",
+              "z": 92,
+              "orbital": "6p1/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 26.9,
+              "spin_orbit": { "partner_id": "U-6p3/2", "splitting_ev": 10.0, "area_ratio": 0.5 },
+              "expected_region_ev": { "min": 25.4, "max": 32.9, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "weak", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "DERIVED: 16.9 + 10.0 (DS-6p, FBWF74) = 26.9 — no direct NIST record archive-recoverable (the 6p1/2 line exists in NIST's v4.1 list). Splitting contested (10.0 vs 10.5). Needs hand-verification. Overlaps the O 2s region (~28.3) in oxidized samples."
+            }
+          ]
+        },
+        {
+          "family": "6s",
+          "transitions": [
+            {
+              "id": "U-6s",
+              "element": "U",
+              "z": 92,
+              "orbital": "6s",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 43.9,
+              "spin_orbit": null,
+              "expected_region_ev": { "min": 42.4, "max": 49.9, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "weak", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Single NIST record (FBWF74) — low-confidence nominal. Oxidation-widened fallback region."
             }
           ]
         }

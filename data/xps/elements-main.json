@@ -3,6 +3,33 @@
   "file_id": "elements-main",
   "elements": [
     {
+      "symbol": "C",
+      "z": 6,
+      "name": "Carbon",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 1s. NIST also tabulates a 1s surface core-level shift (SS-1s -0.95, Pate86) — not modeled. C KLL/KVV Auger values were not archive-recoverable — uncurated. Higher-BE chemical states (carbonates ~289.5+, fluorocarbons CF2/CF3) are NOT represented in the recovered NIST records — region top may need upward extension after hand-verification. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2015/2016).",
+      "families": [
+        {
+          "family": "1s",
+          "transitions": [
+            {
+              "id": "C-1s",
+              "element": "C",
+              "z": 6,
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 284.5,
+              "spin_orbit": null,
+              "expected_region_ev": { "min": 282.0, "max": 289.3, "basis": "observed-reference-range" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Nominal is set to 284.5 — the app's C 1s graphite charge-correction reference — NOT the raw NIST-evaluated value (Powe95, starred: 284.44). C 1s is the calibration anchor, so the reference marker and the CC reference must agree; internal consistency beats the 0.06 eV difference (curator decision, S. Fortier 2026-06). NIST evidence: 20 elemental-form records span 282.0-286.9 incl. the Powe95 evaluated 284.44; NIST compound records (2015 page) extend organic C 1s components to 289.22 — region spans both. Carbonate/fluorocarbon upward extension (>289.5) is a future expansion."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "symbol": "O",
       "z": 8,
       "name": "Oxygen",
@@ -41,7 +68,47 @@
               "expected_region_ev": { "min": 26.0, "max": 31.0, "basis": "conservative-fallback" },
               "visibility": { "AlKa": "weak", "MgKa": "uncurated" },
               "source": "nist-srd-20",
-              "notes": "Single NIST record (RaDe91, 28.30 eV) — low-confidence nominal; weak line."
+              "notes": "Single NIST record (RaDe91, 28.30 eV) — low-confidence nominal; weak line. Overlaps the U 6p1/2 region in uranium samples."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Cl",
+      "z": 17,
+      "name": "Chlorine",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 2p doublet. The single archive-recoverable NIST elemental-page record (TPPF90) has an unidentified specimen (detail popup unarchived) — its 198.30 eV sits in metal-chloride territory; hand-check against live SRD 20. Chloride-compound 2p values were NOT archive-recoverable (the recovered compound page holds only Cl 1s records near 2815 eV from hard-X-ray work, beyond Al Ka reach) — region is fallback. Cl 2s not recovered — uncurated. In actinide chlorides (e.g. UCl4) the Cl 2p region overlaps U 5p3/2 — expect interference. Values recovered from NIST SRD 20 v4.1 via Internet Archive snapshots (2015/2016).",
+      "families": [
+        {
+          "family": "2p",
+          "transitions": [
+            {
+              "id": "Cl-2p3/2",
+              "element": "Cl",
+              "z": 17,
+              "orbital": "2p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 198.3,
+              "spin_orbit": { "partner_id": "Cl-2p1/2", "splitting_ev": 1.6, "area_ratio": 2.0 },
+              "expected_region_ev": { "min": 196.5, "max": 202.5, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "Single NIST elemental-page record (TPPF90, 198.30); splitting from the NIST DS-2p record (BDH74, 1.60). Region sized to span metal chlorides through organochlorine (fallback, unsourced); UCl4-type chlorides sit near the nominal. The narrow 1.6 eV splitting means the doublet often appears as one envelope in surveys. Overlaps U 5p3/2 in actinide chlorides."
+            },
+            {
+              "id": "Cl-2p1/2",
+              "element": "Cl",
+              "z": 17,
+              "orbital": "2p1/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 199.9,
+              "spin_orbit": { "partner_id": "Cl-2p3/2", "splitting_ev": 1.6, "area_ratio": 0.5 },
+              "expected_region_ev": { "min": 198.1, "max": 204.1, "basis": "conservative-fallback" },
+              "visibility": { "AlKa": "major", "MgKa": "uncurated" },
+              "source": "nist-srd-20",
+              "notes": "DERIVED: 198.30 (TPPF90) + 1.60 (DS-2p, BDH74) = 199.90 — no direct NIST 2p1/2 record was archive-recoverable. Needs hand-verification."
             }
           ]
         }
