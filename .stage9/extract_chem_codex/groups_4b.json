@@ -1,0 +1,2021 @@
+{
+ "groups": [
+  {
+   "element": "C",
+   "orbital": "1s",
+   "compound_bes": [
+    {
+     "compound": "(((-CH2CH2-)x)-CH2CH2OC(O)O-)n",
+     "be_ev": 285.0
+    },
+    {
+     "compound": "(((-CH2CH2-)x)-CH2CH2OC(O)O-)n",
+     "be_ev": 286.76
+    },
+    {
+     "compound": "(((-CH2CH2-)x)-CH2CH2OC(O)O-)n",
+     "be_ev": 290.35
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OC(O)CH3)OCHO-(1)CH(OC(O)CH3)C-(2)H(OC(O)CH3)))n",
+     "be_ev": 285.4
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OC(O)CH3)OCHO-(1)CH(OC(O)CH3)C-(2)H(OC(O)CH3)))n",
+     "be_ev": 286.84
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OC(O)CH3)OCHO-(1)CH(OC(O)CH3)C-(2)H(OC(O)CH3)))n",
+     "be_ev": 289.22
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OC(O)CH3)OCHO-(1)CH(OC(O)CH3)C-(2)H(OC(O)CH3)))n",
+     "be_ev": 287.98
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OC(O)CH3)OCHO-(1)CH(OC(O)CH3)C-(2)H(OC(O)CH3)))n",
+     "be_ev": 286.63
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH2CH2OH)OCHO-(1)CH(OCH2CH2CH2OH)C-(2)H(OCH2CH2CH2OH)))n",
+     "be_ev": 287.9
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH2CH2OH)OCHO-(1)CH(OCH2CH2CH2OH)C-(2)H(OCH2CH2CH2OH)))n",
+     "be_ev": 286.51
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH2CH2OH)OCHO-(1)CH(OCH2CH2CH2OH)C-(2)H(OCH2CH2CH2OH)))n",
+     "be_ev": 285.0
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH3)OCHO-(1)CH(OCH2CH3)C-(2)H(OCH2CH3)))n",
+     "be_ev": 286.44
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH3)OCHO-(1)CH(OCH2CH3)C-(2)H(OCH2CH3)))n",
+     "be_ev": 285.0
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH3)OCHO-(1)CH(OCH2CH3)C-(2)H(OCH2CH3)))n",
+     "be_ev": 287.83
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OH)OCHO-(1)CH(OH)C-(2)H(OH)))n",
+     "be_ev": 286.73
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OH)OCHO-(1)CH(OH)C-(2)H(OH)))n",
+     "be_ev": 288.06
+    },
+    {
+     "compound": "(-(1)-(2)CCH(CH2ONO2)OCHO-(1)CH(ONO2)C-(2)H(ONO2))n",
+     "be_ev": 288.76
+    },
+    {
+     "compound": "(-(1)-(2)CCH(CH2ONO2)OCHO-(1)CH(ONO2)C-(2)H(ONO2))n",
+     "be_ev": 287.62
+    },
+    {
+     "compound": "(-(1)-(2)CCH(CH2ONO2)OCHO-(1)CH(ONO2)C-(2)H(ONO2))n",
+     "be_ev": 287.13
+    },
+    {
+     "compound": "(-(C10H2N2O4)-C6H4-O-C6H4-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-(C10H2N2O4)-C6H4-O-C6H4-)n",
+     "be_ev": 288.9
+    },
+    {
+     "compound": "(-(C10H2N2O4)-C6H4-O-C6H4-)n",
+     "be_ev": 285.9
+    },
+    {
+     "compound": "((-C8H4S-)x[BF4]y)n",
+     "be_ev": 284.4
+    },
+    {
+     "compound": "(-(CH2)4O-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-(CH2)4O-)n",
+     "be_ev": 286.2
+    },
+    {
+     "compound": "(-(CH2)5C(O)O-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-(CH2)5C(O)O-)n",
+     "be_ev": 286.3
+    },
+    {
+     "compound": "(-(CH2)5C(O)O-)n",
+     "be_ev": 289.0
+    },
+    {
+     "compound": "((-CH2C(CH3)(C(O)OC4H9)-)3(-CH2C(CH3)(C(O)OC(CH3)3)-)7)n",
+     "be_ev": 288.7
+    },
+    {
+     "compound": "((-CH2C(CH3)(C(O)OC4H9)-)3(-CH2C(CH3)(C(O)OC(CH3)3)-)7)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "((-CH2C(CH3)(C(O)OC4H9)-)3(-CH2C(CH3)(C(O)OC(CH3)3)-)7)n",
+     "be_ev": 285.5
+    },
+    {
+     "compound": "((-CH2C(CH3)(C(O)OC4H9)-)3(-CH2C(CH3)(C(O)OC(CH3)3)-)7)n",
+     "be_ev": 286.7
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 284.3
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 285.7
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 286.7
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 287.8
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)2[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 284.7
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)2[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 287.1
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)2[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 285.7
+    },
+    {
+     "compound": "((CH3)2NC6H4N(CH3)2)2[Ni(NCC(S)C(S)CN)2]",
+     "be_ev": 286.6
+    },
+    {
+     "compound": "((CH3)3S(O))Br",
+     "be_ev": 285.4
+    },
+    {
+     "compound": "((CH3CH2)C-(1)-(2)OCH2CH2N-(1)-(2))n",
+     "be_ev": 286.13
+    },
+    {
+     "compound": "((CH3CH2)C-(1)-(2)OCH2CH2N-(1)-(2))n",
+     "be_ev": 287.78
+    },
+    {
+     "compound": "((CH3CH2)C-(1)-(2)OCH2CH2N-(1)-(2))n",
+     "be_ev": 285.78
+    },
+    {
+     "compound": "((CH3CH2)C-(1)-(2)OCH2CH2N-(1)-(2))n",
+     "be_ev": 285.0
+    },
+    {
+     "compound": "((NHCC(C2H5)C(C2H5)C)CH(NCC(C2H5)C(C2H5)C)CH)2",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "((NHCC(C2H5)C(C2H5)C)CH(NCC(C2H5)C(C2H5)C)CH)2",
+     "be_ev": 283.9
+    },
+    {
+     "compound": "((NHCC(C2H5)C(C2H5)C)CH(NCC(C2H5)C(C2H5)C)CH)2",
+     "be_ev": 287.4
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 288.4
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 288.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 288.7
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 288.3
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 286.2
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 286.4
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 286.0
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 286.4
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 288.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 288.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.9
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 287.9
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 289.0
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.3
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 289.2
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 286.2
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.9
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 288.8
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 289.2
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 285.3
+    },
+    {
+     "compound": "(=(C10H2O4)=N-(C6H4)-O-(C6H4)-N=)n",
+     "be_ev": 286.2
+    },
+    {
+     "compound": "(=(C10H2O4)=N(C6H4)O(C6H4)N=)n/Ag",
+     "be_ev": 288.7
+    },
+    {
+     "compound": "(=(C10H2O4)=N(C6H4)O(C6H4)N=)n/Ag",
+     "be_ev": 284.9
+    },
+    {
+     "compound": "(=(C10H2O4)=N(C6H4)O(C6H4)N=)n/Ag",
+     "be_ev": 286.1
+    },
+    {
+     "compound": "(=C(CH3(CH2)3C(O)OCH2NHC(O)O(CH2)4)C=&CC=((CH2)4OC(O)NHCH2C(O)O(CH2)3CH3))n",
+     "be_ev": 287.5
+    },
+    {
+     "compound": "(=C(CH3(CH2)3C(O)OCH2NHC(O)O(CH2)4)C=&CC=((CH2)4OC(O)NHCH2C(O)O(CH2)3CH3))n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(=C(CH3(CH2)3C(O)OCH2NHC(O)O(CH2)4)C=&CC=((CH2)4OC(O)NHCH2C(O)O(CH2)3CH3))n",
+     "be_ev": 286.2
+    },
+    {
+     "compound": "(=C(CH3(CH2)3C(O)OCH2NHC(O)O(CH2)4)C=&CC=((CH2)4OC(O)NHCH2C(O)O(CH2)3CH3))n",
+     "be_ev": 289.2
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 288.2
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 288.0
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 289.2
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 285.9
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 285.9
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 291.3
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 291.3
+    },
+    {
+     "compound": "(-C(O)C6H2(COOH)2C(O)NHRNH-)n/R=aromatic",
+     "be_ev": 289.3
+    },
+    {
+     "compound": "(-C(O)C6H4C(O)O(CH2)4O-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)C6H4C(O)O(CH2)4O-)n",
+     "be_ev": 288.8
+    },
+    {
+     "compound": "(-C(O)C6H4C(O)O(CH2)4O-)n",
+     "be_ev": 286.2
+    },
+    {
+     "compound": "(-C(O)C6H4C(O)O(CH2)4O-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)C6H4C(O)O(CH2)4O-)n",
+     "be_ev": 286.3
+    },
+    {
+     "compound": "(-C(O)C6H4C(O)O(CH2)4O-)n",
+     "be_ev": 288.8
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 286.3
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 288.9
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 286.4
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 288.9
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 288.9
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)n",
+     "be_ev": 286.3
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)x-(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)y",
+     "be_ev": 284.8
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)x-(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)y",
+     "be_ev": 286.4
+    },
+    {
+     "compound": "(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)x-(-C(O)-C6H4-C(O)-O-C6H3(CH3)-O-)y",
+     "be_ev": 289.0
+    },
+    {
+     "compound": "(-C(O)-CH((CH2)3-CH2-NH-C(O)-CF3))NH-)n",
+     "be_ev": 292.8
+    },
+    {
+     "compound": "(-C(O)-CH((CH2)3-CH2-NH-C(O)-CF3))NH-)n",
+     "be_ev": 286.1
+    },
+    {
+     "compound": "(-C(O)-CH((CH2)3-CH2-NH-C(O)-CF3))NH-)n",
+     "be_ev": 287.5
+    },
+    {
+     "compound": "(-C(O)-CH((CH2)3-CH2-NH-C(O)-CF3))NH-)n",
+     "be_ev": 288.7
+    }
+   ],
+   "status": "extracted"
+  },
+  {
+   "element": "Ti",
+   "orbital": "2p3/2",
+   "compound_bes": [
+    {
+     "compound": "(TiO2)14(SiO2)86",
+     "be_ev": 459.2
+    },
+    {
+     "compound": "(TiO2)24(SiO2)76",
+     "be_ev": 459.2
+    },
+    {
+     "compound": "(TiO2)56(SiO2)44",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "(TiO2)82(SiO2)18",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "[Ti(C7H7)(C5H5)]",
+     "be_ev": 455.4
+    },
+    {
+     "compound": "[TiCl(C5H5)2]",
+     "be_ev": 455.8
+    },
+    {
+     "compound": "[TiCl2(C5H5)2]",
+     "be_ev": 457.1
+    },
+    {
+     "compound": "BaTiO3",
+     "be_ev": 458.52
+    },
+    {
+     "compound": "BaTiO3",
+     "be_ev": 458.55
+    },
+    {
+     "compound": "BaTiO3",
+     "be_ev": 457.9
+    },
+    {
+     "compound": "CaTiO3",
+     "be_ev": 458.87
+    },
+    {
+     "compound": "Ni0.86TiO1.86",
+     "be_ev": 455.0
+    },
+    {
+     "compound": "Ni0.86TiO1.86",
+     "be_ev": 456.5
+    },
+    {
+     "compound": "Ni0.86TiO1.86",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "NiO0.25 + TiO1.59",
+     "be_ev": 455.3
+    },
+    {
+     "compound": "NiO0.25 + TiO1.59",
+     "be_ev": 456.9
+    },
+    {
+     "compound": "NiO0.25 + TiO1.59",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "PbTiO3",
+     "be_ev": 458.58
+    },
+    {
+     "compound": "PbTiO3",
+     "be_ev": 458.8
+    },
+    {
+     "compound": "SrTiO3",
+     "be_ev": 458.8
+    },
+    {
+     "compound": "SrTiO3",
+     "be_ev": 458.1
+    },
+    {
+     "compound": "Ta1.4Ti98.6",
+     "be_ev": 454.0
+    },
+    {
+     "compound": "Ta1.4Ti98.6Ox",
+     "be_ev": 459.2
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 454
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 453.2
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 453.73
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 454.0
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 454.3
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 454.0
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 453.89
+    },
+    {
+     "compound": "Ti",
+     "be_ev": 453.8
+    },
+    {
+     "compound": "Ti[Co(CN)6]",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "Ti[Ir(CN)6]",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "Ti[Rh(CN)6]",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "Ti2O3",
+     "be_ev": 457.8
+    },
+    {
+     "compound": "Ti2O3",
+     "be_ev": 456.9
+    },
+    {
+     "compound": "Ti2O3",
+     "be_ev": 456.8
+    },
+    {
+     "compound": "Ti2S3",
+     "be_ev": 459.0
+    },
+    {
+     "compound": "TiB2",
+     "be_ev": 454.4
+    },
+    {
+     "compound": "TiC",
+     "be_ev": 454.9
+    },
+    {
+     "compound": "TiCl4",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "TiN",
+     "be_ev": 455.2
+    },
+    {
+     "compound": "TiN",
+     "be_ev": 455.8
+    },
+    {
+     "compound": "TiN0.12",
+     "be_ev": 454.3
+    },
+    {
+     "compound": "TiN0.24",
+     "be_ev": 454.5
+    },
+    {
+     "compound": "TiN0.72",
+     "be_ev": 454.8
+    },
+    {
+     "compound": "TiN0.96",
+     "be_ev": 454.8
+    },
+    {
+     "compound": "TiN1.01",
+     "be_ev": 455.0
+    },
+    {
+     "compound": "TiN1.19",
+     "be_ev": 455.0
+    },
+    {
+     "compound": "TiO",
+     "be_ev": 455.1
+    },
+    {
+     "compound": "TiO",
+     "be_ev": 455.9
+    },
+    {
+     "compound": "TiO",
+     "be_ev": 454.6
+    },
+    {
+     "compound": "TiO/NiTi",
+     "be_ev": 454.6
+    },
+    {
+     "compound": "TiO0.3S1.5",
+     "be_ev": 458.8
+    },
+    {
+     "compound": "TiO0.3S1.5",
+     "be_ev": 456.3
+    },
+    {
+     "compound": "TiO0.3S1.5",
+     "be_ev": 457.5
+    },
+    {
+     "compound": "TiO0.3S1.5",
+     "be_ev": 458.9
+    },
+    {
+     "compound": "TiO0.3S1.5",
+     "be_ev": 456.3
+    },
+    {
+     "compound": "TiO0.3S1.5",
+     "be_ev": 457.5
+    },
+    {
+     "compound": "TiO1.5",
+     "be_ev": 456.8
+    },
+    {
+     "compound": "TiO1.5",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "TiO1.5",
+     "be_ev": 455.2
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.33
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 459.0
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.7
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.7
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 459
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 459.2
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.5
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.9
+    },
+    {
+     "compound": "TiO2",
+     "be_ev": 458.6
+    },
+    {
+     "compound": "TiO2/Al2O3",
+     "be_ev": 459.3
+    },
+    {
+     "compound": "TiO2/NiTi",
+     "be_ev": 458.4
+    },
+    {
+     "compound": "TiO2/NiTi",
+     "be_ev": 459.0
+    },
+    {
+     "compound": "TiOS",
+     "be_ev": 457.6
+    },
+    {
+     "compound": "TiOS",
+     "be_ev": 458.8
+    },
+    {
+     "compound": "TiOS",
+     "be_ev": 456.5
+    },
+    {
+     "compound": "TiOS",
+     "be_ev": 457.4
+    },
+    {
+     "compound": "TiOS",
+     "be_ev": 458.9
+    },
+    {
+     "compound": "TiOS",
+     "be_ev": 456.5
+    },
+    {
+     "compound": "TiOx/Ti",
+     "be_ev": 460.2
+    },
+    {
+     "compound": "TiP",
+     "be_ev": 454.8
+    },
+    {
+     "compound": "TiS",
+     "be_ev": 455.4
+    },
+    {
+     "compound": "TiS2",
+     "be_ev": 458.7
+    },
+    {
+     "compound": "TiS2",
+     "be_ev": 456.2
+    },
+    {
+     "compound": "TiSi2",
+     "be_ev": 453.9
+    }
+   ],
+   "status": "extracted"
+  },
+  {
+   "element": "O",
+   "orbital": "1s",
+   "compound_bes": [
+    {
+     "compound": "(-((C6H7O2)(OC(O)CH3)3)-)n",
+     "be_ev": 532.27
+    },
+    {
+     "compound": "(-((C6H7O2)(OC(O)CH3)3)-)n",
+     "be_ev": 533.08
+    },
+    {
+     "compound": "(-((C6H7O2)(OC(O)CH3)3)-)n",
+     "be_ev": 533.68
+    },
+    {
+     "compound": "(-((C6H7O2)(OCH2CH2CH2OH)0.2)(OCH3)1.6(OH)1.2)-)n",
+     "be_ev": 532.2
+    },
+    {
+     "compound": "(-((C6H7O2)(OCH2CH2CN)x(OH)3-x)-)n",
+     "be_ev": 532.7
+    },
+    {
+     "compound": "(-((C6H7O2)(OCH2CH3)x(OH)3-x)-)n",
+     "be_ev": 532.5
+    },
+    {
+     "compound": "(-((C6H7O2)(OCH2CH3)x(OH)3-x)-)n",
+     "be_ev": 532.62
+    },
+    {
+     "compound": "(-((C6H7O2)(OCH2CH3)x(OH)3-x)-)n",
+     "be_ev": 532.94
+    },
+    {
+     "compound": "(((-CH2CH2-)x)-CH2CH2OC(O)O-)n",
+     "be_ev": 532.44
+    },
+    {
+     "compound": "(((-CH2CH2-)x)-CH2CH2OC(O)O-)n",
+     "be_ev": 533.88
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH2CH2OH)OCHO-(1)CH(OCH2CH2CH2OH)C-(2)H(OCH2CH2CH2OH)))n",
+     "be_ev": 532.64
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH2CH2OH)OCHO-(1)CH(OCH2CH2CH2OH)C-(2)H(OCH2CH2CH2OH)))n",
+     "be_ev": 532.8
+    },
+    {
+     "compound": "(-(1)(-(2)CCH(CH2OCH2CH2CH2OH)OCHO-(1)CH(OCH2CH2CH2OH)C-(2)H(OCH2CH2CH2OH)))n",
+     "be_ev": 533.18
+    },
+    {
+     "compound": "(-(1)-(2)CCH(CH2ONO2)OCHO-(1)CH(ONO2)C-(2)H(ONO2))n",
+     "be_ev": 533.59
+    },
+    {
+     "compound": "(-(1)-(2)CCH(CH2ONO2)OCHO-(1)CH(ONO2)C-(2)H(ONO2))n",
+     "be_ev": 533.88
+    },
+    {
+     "compound": "(-(1)-(2)CCH(CH2ONO2)OCHO-(1)CH(ONO2)C-(2)H(ONO2))n",
+     "be_ev": 534.7
+    },
+    {
+     "compound": "((C2H5)4N)2[Mo2O2S2(S2)(S4)]",
+     "be_ev": 531.0
+    },
+    {
+     "compound": "((C2H5)4N)2[W2O2S2(S4)2]",
+     "be_ev": 531.2
+    },
+    {
+     "compound": "((C5H5)2ZrCl)2O",
+     "be_ev": 530.2
+    },
+    {
+     "compound": "(-(C6H10O5)-)n",
+     "be_ev": 532.93
+    }
+   ],
+   "status": "extracted"
+  },
+  {
+   "element": "U",
+   "orbital": "4f7/2",
+   "compound_bes": [
+    {
+     "compound": "[U(CH3C(O)CHC(O)CH3)4]",
+     "be_ev": 379.7
+    },
+    {
+     "compound": "[UO2(C2H3O2)2].2H2O",
+     "be_ev": 381
+    },
+    {
+     "compound": "AlNiU",
+     "be_ev": 376.7
+    },
+    {
+     "compound": "AlNiUOx",
+     "be_ev": 379.6
+    },
+    {
+     "compound": "CaUO4",
+     "be_ev": 380.7
+    },
+    {
+     "compound": "D2O/O2/U",
+     "be_ev": 380.5
+    },
+    {
+     "compound": "D2O/O2/U",
+     "be_ev": 380.1
+    },
+    {
+     "compound": "D2O/O2/U",
+     "be_ev": 380.1
+    },
+    {
+     "compound": "D2O/U",
+     "be_ev": 377.7
+    },
+    {
+     "compound": "D2O/U",
+     "be_ev": 380.8
+    },
+    {
+     "compound": "D2O/U",
+     "be_ev": 380.6
+    },
+    {
+     "compound": "D2O/U",
+     "be_ev": 380.9
+    },
+    {
+     "compound": "D2O/U",
+     "be_ev": 377.3
+    },
+    {
+     "compound": "D2O/U",
+     "be_ev": 377.5
+    },
+    {
+     "compound": "D2O/U",
+     "be_ev": 377.7
+    },
+    {
+     "compound": "K2UF6",
+     "be_ev": 382.4
+    },
+    {
+     "compound": "Li2UO4",
+     "be_ev": 381.4
+    },
+    {
+     "compound": "O2/AlNiU",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "O2/U",
+     "be_ev": 380.7
+    },
+    {
+     "compound": "O2/U",
+     "be_ev": 377.6
+    },
+    {
+     "compound": "O2/U",
+     "be_ev": 380.7
+    },
+    {
+     "compound": "O2/U",
+     "be_ev": 377.5
+    },
+    {
+     "compound": "O2/U",
+     "be_ev": 379.9
+    },
+    {
+     "compound": "O2/UFe2",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "O2/UFe2",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "O2/UFe2",
+     "be_ev": 380.4
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.6
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.6
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.1
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.4
+    },
+    {
+     "compound": "U",
+     "be_ev": 376.9
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.4
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.1
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.4
+    },
+    {
+     "compound": "U",
+     "be_ev": 377
+    },
+    {
+     "compound": "U",
+     "be_ev": 376.5
+    },
+    {
+     "compound": "U",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.2
+    },
+    {
+     "compound": "U",
+     "be_ev": 377.4
+    },
+    {
+     "compound": "U(SO4)2",
+     "be_ev": 381.6
+    },
+    {
+     "compound": "U2Te3",
+     "be_ev": 380.5
+    },
+    {
+     "compound": "U3O7",
+     "be_ev": 381.0
+    },
+    {
+     "compound": "U3O8",
+     "be_ev": 381.1
+    },
+    {
+     "compound": "U3O8",
+     "be_ev": 381.3
+    },
+    {
+     "compound": "U3O8",
+     "be_ev": 380.8
+    },
+    {
+     "compound": "U3O8",
+     "be_ev": 381
+    },
+    {
+     "compound": "U3O8",
+     "be_ev": 380.7
+    },
+    {
+     "compound": "U4O9",
+     "be_ev": 379.9
+    },
+    {
+     "compound": "UBr2O",
+     "be_ev": 380.4
+    },
+    {
+     "compound": "UBr2O2",
+     "be_ev": 381.1
+    },
+    {
+     "compound": "UBr3",
+     "be_ev": 378.4
+    },
+    {
+     "compound": "UBr4",
+     "be_ev": 379.9
+    },
+    {
+     "compound": "UBr4",
+     "be_ev": 380.5
+    },
+    {
+     "compound": "UBrO",
+     "be_ev": 380.1
+    },
+    {
+     "compound": "UCl2O",
+     "be_ev": 380.3
+    },
+    {
+     "compound": "UCl3",
+     "be_ev": 378.3
+    },
+    {
+     "compound": "UCl4",
+     "be_ev": 381.3
+    },
+    {
+     "compound": "UCl4",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "UCl4",
+     "be_ev": 381.3
+    },
+    {
+     "compound": "UCl5",
+     "be_ev": 381.9
+    },
+    {
+     "compound": "UClO",
+     "be_ev": 380
+    },
+    {
+     "compound": "UF3",
+     "be_ev": 380.1
+    },
+    {
+     "compound": "UF4",
+     "be_ev": 382.3
+    },
+    {
+     "compound": "UF4",
+     "be_ev": 382.6
+    },
+    {
+     "compound": "UF4",
+     "be_ev": 382.7
+    },
+    {
+     "compound": "UF4",
+     "be_ev": 382.2
+    },
+    {
+     "compound": "UF4",
+     "be_ev": 382.2
+    },
+    {
+     "compound": "UF4",
+     "be_ev": 382.6
+    },
+    {
+     "compound": "UF4",
+     "be_ev": 382.3
+    },
+    {
+     "compound": "UF5",
+     "be_ev": 382.6
+    },
+    {
+     "compound": "UF5",
+     "be_ev": 383.4
+    },
+    {
+     "compound": "UF6",
+     "be_ev": 384.9
+    },
+    {
+     "compound": "UFe2",
+     "be_ev": 377.8
+    },
+    {
+     "compound": "UI3",
+     "be_ev": 379
+    },
+    {
+     "compound": "UNb2O7",
+     "be_ev": 380.7
+    },
+    {
+     "compound": "UNb3O10",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "UNb3O10.17",
+     "be_ev": 380.4
+    },
+    {
+     "compound": "UNb3O10.34",
+     "be_ev": 381.4
+    },
+    {
+     "compound": "UNb4O12",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 379.2
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.2
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.3
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.6
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 379.8
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.1
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.7
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 379.8
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.3
+    },
+    {
+     "compound": "UO2",
+     "be_ev": 380.15
+    },
+    {
+     "compound": "UO2(NO3)2.6H2O",
+     "be_ev": 382
+    },
+    {
+     "compound": "UO2Br",
+     "be_ev": 380.5
+    },
+    {
+     "compound": "UO2Cl2",
+     "be_ev": 381.6
+    },
+    {
+     "compound": "UO2F2",
+     "be_ev": 383
+    },
+    {
+     "compound": "UO2F2",
+     "be_ev": 382.7
+    },
+    {
+     "compound": "UO2MoO4",
+     "be_ev": 381
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.7
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.9
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.1
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.3
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 380.9
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.9
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.6
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 380.9
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.75
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.8
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.8
+    },
+    {
+     "compound": "UO3",
+     "be_ev": 381.9
+    },
+    {
+     "compound": "US",
+     "be_ev": 380.1
+    },
+    {
+     "compound": "US3",
+     "be_ev": 379.4
+    },
+    {
+     "compound": "USb3O10",
+     "be_ev": 381.1
+    },
+    {
+     "compound": "USbO5",
+     "be_ev": 380.6
+    },
+    {
+     "compound": "USe",
+     "be_ev": 380.3
+    },
+    {
+     "compound": "USe3",
+     "be_ev": 379.1
+    },
+    {
+     "compound": "UTe3",
+     "be_ev": 381.3
+    }
+   ],
+   "status": "extracted"
+  },
+  {
+   "element": "N",
+   "orbital": "1s",
+   "compound_bes": [
+    {
+     "compound": "(-((C3N3)2(NH)3)-)n",
+     "be_ev": 398.7
+    },
+    {
+     "compound": "(-((C6H7O2)(OCH2CH2CN)x(OH)3-x)-)n",
+     "be_ev": 399.5
+    },
+    {
+     "compound": "(-(1)-(2)CCH(CH2ONO2)OCHO-(1)CH(ONO2)C-(2)H(ONO2))n",
+     "be_ev": 408.15
+    },
+    {
+     "compound": "((C2H5)4N)2[Mo2O2S2(S2)(S4)]",
+     "be_ev": 401.8
+    },
+    {
+     "compound": "((C2H5)4N)2[Ni(OC6H4C(O)NHCH2CH2NHC(O)C6H4O)]",
+     "be_ev": 398.1
+    },
+    {
+     "compound": "((C2H5)4N)2[Ni(SC(O)(C5H3N)C(O)S)2]",
+     "be_ev": 399.1
+    },
+    {
+     "compound": "((C2H5)4N)2[Ni(SC6H4C(O)NHCH2CH2NHC(O)C6H4S)]",
+     "be_ev": 398.1
+    },
+    {
+     "compound": "((C2H5)4N)2[W2O2S2(S4)2]",
+     "be_ev": 401.9
+    },
+    {
+     "compound": "(-(C34H20N4O)(AsF6).mH2O)-)n",
+     "be_ev": 399.6
+    },
+    {
+     "compound": "(-(C34H20N4O)(AsF6).mH2O)-)n",
+     "be_ev": 402.1
+    },
+    {
+     "compound": "(-(C34H20N4O)(BF4).mH2O)-)n",
+     "be_ev": 399.6
+    },
+    {
+     "compound": "(-(C34H20N4O)(BF4).mH2O)-)n",
+     "be_ev": 401.5
+    },
+    {
+     "compound": "(-(C34H20N4O)(PF6).mH2O)-)n",
+     "be_ev": 398.9
+    },
+    {
+     "compound": "(-(C34H20N4O)(PF6).mH2O)-)n",
+     "be_ev": 401.9
+    },
+    {
+     "compound": "(-(C4H2NH)2-)n",
+     "be_ev": 398.0
+    },
+    {
+     "compound": "(-(C4H2NH)2-)n",
+     "be_ev": 399.9
+    },
+    {
+     "compound": "(-(C6H4)-NH-(C6H4)-NH-(C6H4)-N=(C6H4)=N-)n",
+     "be_ev": 398.3
+    },
+    {
+     "compound": "(-(C6H4)-NH-(C6H4)-NH-(C6H4)-N=(C6H4)=N-)n",
+     "be_ev": 399.5
+    },
+    {
+     "compound": "((C6H5)2PCH3)C5H3N((C6H5)2PCH3)",
+     "be_ev": 398.7
+    },
+    {
+     "compound": "(-(CH(C(O)NH2)CH2)k-(CH(C(O)NH(CH2)3N(CH3)3Cl)CH2)m-)n",
+     "be_ev": 399.67
+    }
+   ],
+   "status": "extracted"
+  },
+  {
+   "element": "Si",
+   "orbital": "2p",
+   "compound_bes": [
+    {
+     "compound": "(-CH2C((CH3)C(O)O(CH2)3Si(OCH3)3)-)n",
+     "be_ev": 103.5
+    },
+    {
+     "compound": "(-CH2C((CH3)C(O)O(CH2)3Si(OCH3)3)-)n",
+     "be_ev": 101.1
+    },
+    {
+     "compound": "(-CH2C((CH3)C(O)O(CH2)3Si(OCH3)3)-)n",
+     "be_ev": 102.4
+    },
+    {
+     "compound": "(-CH2CH(Si(OCH3)3)-)n",
+     "be_ev": 101.1
+    },
+    {
+     "compound": "(-CH2CH(Si(OCH3)3)-)n",
+     "be_ev": 102.4
+    },
+    {
+     "compound": "(-CH2CH(Si(OCH3)3)-)n",
+     "be_ev": 103.5
+    },
+    {
+     "compound": "(MoO3)50(SiO)50",
+     "be_ev": 102.8
+    },
+    {
+     "compound": "(MoO3)60(SiO)40",
+     "be_ev": 102.7
+    },
+    {
+     "compound": "(MoO3)70(SiO)30",
+     "be_ev": 102.5
+    },
+    {
+     "compound": "(MoO3)70(SiO)30",
+     "be_ev": 102.6
+    },
+    {
+     "compound": "(MoO3)70(SiO)30",
+     "be_ev": 102.7
+    },
+    {
+     "compound": "(MoO3)70(SiO)30",
+     "be_ev": 102.8
+    },
+    {
+     "compound": "(MoO3)80(SiO)20",
+     "be_ev": 102.3
+    },
+    {
+     "compound": "(MoO3)90(SiO)10",
+     "be_ev": 102.2
+    },
+    {
+     "compound": "(-OCH2CH(CH2O(CH2)3Si(OCH3)3)-)n",
+     "be_ev": 101.1
+    },
+    {
+     "compound": "(-OCH2CH(CH2O(CH2)3Si(OCH3)3)-)n",
+     "be_ev": 102.4
+    },
+    {
+     "compound": "(-OCH2CH(CH2O(CH2)3Si(OCH3)3)-)n",
+     "be_ev": 103.4
+    },
+    {
+     "compound": "(PbF2)12.7(PbO)58.2(SiO2)29.1",
+     "be_ev": 101.6
+    },
+    {
+     "compound": "(PbF2)15.6(PbO)56.0(SiO2)28.4",
+     "be_ev": 101.8
+    },
+    {
+     "compound": "(PbF2)17.2PbO)54.3(SiO2)28.5",
+     "be_ev": 101.5
+    },
+    {
+     "compound": "(PbF2)3.2(PbO)68.7(SiO2)28.1",
+     "be_ev": 101.6
+    },
+    {
+     "compound": "(PbF2)9.0(PbO)63.7(SiO2)27.3",
+     "be_ev": 101.5
+    },
+    {
+     "compound": "(-Si(C6H5)(CH3)O-)n",
+     "be_ev": 102.2
+    },
+    {
+     "compound": "(-Si(C6H5)2O-)n",
+     "be_ev": 102.2
+    },
+    {
+     "compound": "(-Si(CH3)2-C6H4-Si(CH3)2-O-)n",
+     "be_ev": 101.7
+    },
+    {
+     "compound": "(-Si(CH3)2-O-)n",
+     "be_ev": 102.4
+    },
+    {
+     "compound": "(-Si(CH3)2-O-)n",
+     "be_ev": 103.8
+    },
+    {
+     "compound": "(-Si(CH3)2-O-)n",
+     "be_ev": 102.3
+    },
+    {
+     "compound": "(-Si(CH3)2-O-)n",
+     "be_ev": 102.4
+    },
+    {
+     "compound": "(-Si(CH3)2-O-)n",
+     "be_ev": 102.2
+    },
+    {
+     "compound": "Al0.2Si0.8O2.2",
+     "be_ev": 103.2
+    },
+    {
+     "compound": "Al0.35Si0.48P0.16O2.2",
+     "be_ev": 102.9
+    },
+    {
+     "compound": "Al0.44Si0.41P0.13O2.1",
+     "be_ev": 102.3
+    },
+    {
+     "compound": "Al0.55Si0.10P0.35O2.2",
+     "be_ev": 101.8
+    },
+    {
+     "compound": "Au34Si66",
+     "be_ev": 98.8
+    },
+    {
+     "compound": "Au45Si55",
+     "be_ev": 99.1
+    },
+    {
+     "compound": "Au59Si41",
+     "be_ev": 98.9
+    },
+    {
+     "compound": "CoSi2/Si",
+     "be_ev": 99.27
+    },
+    {
+     "compound": "Er/Si",
+     "be_ev": 98.9
+    },
+    {
+     "compound": "Er/Si",
+     "be_ev": 98.9
+    },
+    {
+     "compound": "Er/Si",
+     "be_ev": 99.3
+    },
+    {
+     "compound": "Er/Si",
+     "be_ev": 99.3
+    },
+    {
+     "compound": "Er/Si",
+     "be_ev": 98.7
+    },
+    {
+     "compound": "Gd3Si5",
+     "be_ev": 98.9
+    },
+    {
+     "compound": "Gd5Si3",
+     "be_ev": 98.1
+    },
+    {
+     "compound": "GdSi",
+     "be_ev": 98.6
+    },
+    {
+     "compound": "O2/Sr/Si",
+     "be_ev": 103.2
+    },
+    {
+     "compound": "O2/Sr/Si",
+     "be_ev": 102.6
+    },
+    {
+     "compound": "O2/Sr/Si",
+     "be_ev": 103.2
+    },
+    {
+     "compound": "O2/Sr/Si",
+     "be_ev": 103.2
+    },
+    {
+     "compound": "Si",
+     "be_ev": 98.7
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.3
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.1
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.6
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.6
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.42
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.61
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.2
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.59
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.6
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.3
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.3
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.6
+    },
+    {
+     "compound": "Si",
+     "be_ev": 99.2
+    },
+    {
+     "compound": "Si2N2O",
+     "be_ev": 101.7
+    },
+    {
+     "compound": "Si3N4",
+     "be_ev": 100.6
+    },
+    {
+     "compound": "Si3N4",
+     "be_ev": 102.04
+    },
+    {
+     "compound": "Si3N4/InP",
+     "be_ev": 101.9
+    },
+    {
+     "compound": "Si3N4/Si",
+     "be_ev": 102.0
+    },
+    {
+     "compound": "Si3N4/Si",
+     "be_ev": 101.9
+    },
+    {
+     "compound": "SiC",
+     "be_ev": 100.4
+    },
+    {
+     "compound": "SiC",
+     "be_ev": 100.3
+    },
+    {
+     "compound": "SiC",
+     "be_ev": 99.85
+    },
+    {
+     "compound": "SiC",
+     "be_ev": 100.2
+    },
+    {
+     "compound": "SiC",
+     "be_ev": 100.8
+    },
+    {
+     "compound": "SiH0.1",
+     "be_ev": 99.6
+    },
+    {
+     "compound": "SiH0.2",
+     "be_ev": 99.65
+    },
+    {
+     "compound": "SiHx",
+     "be_ev": 99.5
+    },
+    {
+     "compound": "SiHx",
+     "be_ev": 99.5
+    },
+    {
+     "compound": "SiO",
+     "be_ev": 102.0
+    },
+    {
+     "compound": "SiO0.35N1.1/Si",
+     "be_ev": 102.1
+    },
+    {
+     "compound": "SiO0.7N0.9/Si",
+     "be_ev": 102.2
+    },
+    {
+     "compound": "SiO1.9",
+     "be_ev": 103.4
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.0
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 104.0
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.7
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.3
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.4
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 104.0
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.9
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.6
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.0
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.4
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.7
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.6
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 103.3
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 104.0
+    },
+    {
+     "compound": "SiO2",
+     "be_ev": 104.1
+    },
+    {
+     "compound": "SiO2/Si",
+     "be_ev": 103.49
+    },
+    {
+     "compound": "SiO2/Si",
+     "be_ev": 103.5
+    },
+    {
+     "compound": "SiO2/Si",
+     "be_ev": 103.1
+    },
+    {
+     "compound": "SiO2/Si",
+     "be_ev": 103.6
+    },
+    {
+     "compound": "SiO2/Si",
+     "be_ev": 103.7
+    },
+    {
+     "compound": "SiOx",
+     "be_ev": 103.2
+    },
+    {
+     "compound": "SiOx",
+     "be_ev": 100.4
+    },
+    {
+     "compound": "SiOx",
+     "be_ev": 101.1
+    },
+    {
+     "compound": "SiOx",
+     "be_ev": 101.9
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 103.6
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 103.3
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 99.4
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 99.1
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 99.5
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 99.3
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 99.34
+    },
+    {
+     "compound": "SiOx/Si",
+     "be_ev": 99.3
+    },
+    {
+     "compound": "TiSi2",
+     "be_ev": 98.8
+    },
+    {
+     "compound": "Y/Si",
+     "be_ev": 99.5
+    }
+   ],
+   "status": "extracted"
+  },
+  {
+   "element": "Fe",
+   "orbital": "2p3/2",
+   "compound_bes": [
+    {
+     "compound": "(C6H4S4)2FeCl3",
+     "be_ev": 710.5
+    },
+    {
+     "compound": "(C6H4S4)3FeBr3",
+     "be_ev": 710.5
+    },
+    {
+     "compound": "(Mg/Fe)2SiO4",
+     "be_ev": 710.4
+    },
+    {
+     "compound": "(Mg/Fe)2SiO4",
+     "be_ev": 710.4
+    },
+    {
+     "compound": "(Mg/Fe)2SiO4",
+     "be_ev": 710.8
+    }
+   ],
+   "status": "extracted"
+  }
+ ]
+}

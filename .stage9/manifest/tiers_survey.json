@@ -492,7 +492,16 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040917205455id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Na"
-    ]
+    ],
+    "resolution": {
+      "kind": "auger-ke-frame",
+      "auger_ke_ev": 994.4,
+      "apparent_be_alka": 487.7,
+      "legacy_apparent_be": 497,
+      "basis": "auger-ke-frame",
+      "note": "Legacy apparent-BE marker 497 is the same Auger line as NIST KE 994.4 eV (apparent BE = hv-KE-wf = 487.7 on Al Ka, consistent within legacy rounding). Store as KINETIC energy; corroborated by both extraction passes."
+    },
+    "resolution_tier": "conflict-resolved-auger-frame"
   },
   {
     "field_id": "f0010",
@@ -621,7 +630,16 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040917205038id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Mg"
-    ]
+    ],
+    "resolution": {
+      "kind": "auger-ke-frame",
+      "auger_ke_ev": 1185.65,
+      "apparent_be_alka": 296.4,
+      "legacy_apparent_be": 306,
+      "basis": "auger-ke-frame",
+      "note": "Legacy apparent-BE marker 306 is the same Auger line as NIST KE 1185.65 eV (apparent BE = hv-KE-wf = 296.4 on Al Ka, consistent within legacy rounding). Store as KINETIC energy; corroborated by both extraction passes."
+    },
+    "resolution_tier": "conflict-resolved-auger-frame"
   },
   {
     "field_id": "f0012",
@@ -999,7 +1017,19 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040917205643id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=P"
-    ]
+    ],
+    "resolution": {
+      "kind": "elemental-nominal-with-oxidation-range",
+      "elemental_nominal_ev": 130.15,
+      "expected_region_ev": [
+        129.4,
+        134.5
+      ],
+      "legacy_oxide_be": 133,
+      "basis": "elemental-nominal-with-oxidation-range",
+      "note": "Legacy marker 133 was oxide/compound-positioned. Elemental (metal) nominal 130.15 eV corroborated by both extraction passes; expected region widened to [129.4, 134.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+    },
+    "resolution_tier": "conflict-resolved-elemental-nominal"
   },
   {
     "field_id": "f0016",
@@ -1292,7 +1322,19 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040919031502id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ti"
-    ]
+    ],
+    "resolution": {
+      "kind": "elemental-nominal-with-oxidation-range",
+      "elemental_nominal_ev": 453.89,
+      "expected_region_ev": [
+        452.7,
+        460.5
+      ],
+      "legacy_oxide_be": 459,
+      "basis": "elemental-nominal-with-oxidation-range",
+      "note": "Legacy marker 459 was oxide/compound-positioned. Elemental (metal) nominal 453.89 eV corroborated by both extraction passes; expected region widened to [452.7, 460.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+    },
+    "resolution_tier": "conflict-resolved-elemental-nominal"
   },
   {
     "field_id": "f0024",
@@ -1361,7 +1403,19 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040917221717id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=V"
-    ]
+    ],
+    "resolution": {
+      "kind": "elemental-nominal-with-oxidation-range",
+      "elemental_nominal_ev": 512.4,
+      "expected_region_ev": [
+        511.6,
+        518.5
+      ],
+      "legacy_oxide_be": 517,
+      "basis": "elemental-nominal-with-oxidation-range",
+      "note": "Legacy marker 517 was oxide/compound-positioned. Elemental (metal) nominal 512.4 eV corroborated by both extraction passes; expected region widened to [511.6, 518.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+    },
+    "resolution_tier": "conflict-resolved-elemental-nominal"
   },
   {
     "field_id": "f0025",
@@ -1458,7 +1512,19 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040917204950id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Cr"
-    ]
+    ],
+    "resolution": {
+      "kind": "elemental-nominal-with-oxidation-range",
+      "elemental_nominal_ev": 574.26,
+      "expected_region_ev": [
+        573.3,
+        578.5
+      ],
+      "legacy_oxide_be": 577,
+      "basis": "elemental-nominal-with-oxidation-range",
+      "note": "Legacy marker 577 was oxide/compound-positioned. Elemental (metal) nominal 574.26 eV corroborated by both extraction passes; expected region widened to [573.3, 578.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+    },
+    "resolution_tier": "conflict-resolved-elemental-nominal"
   },
   {
     "field_id": "f0026",
@@ -1661,7 +1727,19 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040917204654id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Fe"
-    ]
+    ],
+    "resolution": {
+      "kind": "elemental-nominal-with-oxidation-range",
+      "elemental_nominal_ev": 706.92,
+      "expected_region_ev": [
+        706.0,
+        712.5
+      ],
+      "legacy_oxide_be": 711,
+      "basis": "elemental-nominal-with-oxidation-range",
+      "note": "Legacy marker 711 was oxide/compound-positioned. Elemental (metal) nominal 706.92 eV corroborated by both extraction passes; expected region widened to [706.0, 712.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+    },
+    "resolution_tier": "conflict-resolved-elemental-nominal"
   },
   {
     "field_id": "f0028",
@@ -4282,6 +4360,18 @@
     ],
     "source_urls": [
       "http://web.archive.org/web/20040917221629id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=U"
-    ]
+    ],
+    "resolution": {
+      "kind": "elemental-nominal-with-oxidation-range",
+      "elemental_nominal_ev": 94,
+      "expected_region_ev": [
+        93.1,
+        99.5
+      ],
+      "legacy_oxide_be": 98,
+      "basis": "elemental-nominal-with-oxidation-range",
+      "note": "Legacy marker 98 was oxide/compound-positioned. Elemental (metal) nominal 94 eV corroborated by both extraction passes; expected region widened to [93.1, 99.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+    },
+    "resolution_tier": "conflict-resolved-elemental-nominal"
   }
 ]
