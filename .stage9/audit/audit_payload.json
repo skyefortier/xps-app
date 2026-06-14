@@ -1,0 +1,998 @@
+[
+ {
+  "field_id": "f0009",
+  "element": "Na",
+  "orbital": "KLL",
+  "legacy_be": 497,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   994.5,
+   994.3,
+   994.3
+  ],
+  "codex_values": [
+   994.5,
+   994.3,
+   994.3
+  ],
+  "agreed_values": [
+   994.3,
+   994.5
+  ],
+  "claude_refs": [
+   "SRHH78",
+   "KLMP73",
+   "BaSt75"
+  ],
+  "resolution": {
+   "kind": "auger-ke-frame",
+   "auger_ke_ev": 994.4,
+   "apparent_be_alka": 487.7,
+   "legacy_apparent_be": 497,
+   "basis": "auger-ke-frame",
+   "note": "Legacy apparent-BE marker 497 is the same Auger line as NIST KE 994.4 eV (apparent BE = hv-KE-wf = 487.7 on Al Ka, consistent within legacy rounding). Store as KINETIC energy; corroborated by both extraction passes."
+  }
+ },
+ {
+  "field_id": "f0011",
+  "element": "Mg",
+  "orbital": "KLL",
+  "legacy_be": 306,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   1185.5,
+   1185.9,
+   1185.5,
+   1185.7,
+   1185.3,
+   1185.5,
+   1185.5,
+   1185.8,
+   1184.9,
+   1185.6,
+   1186
+  ],
+  "codex_values": [
+   1185.5,
+   1185.9,
+   1185.5,
+   1185.7,
+   1185.3,
+   1185.5,
+   1185.5,
+   1185.8,
+   1184.9
+  ],
+  "agreed_values": [
+   1184.9,
+   1185.3,
+   1185.5,
+   1185.6,
+   1185.7,
+   1185.8,
+   1185.9,
+   1186
+  ],
+  "claude_refs": [
+   "FWFA75",
+   "VaTr79a",
+   "YaWe83",
+   "HFV77",
+   "LMKJ75",
+   "SRHH78",
+   "WRDM79",
+   "ThWe86",
+   "CDN77",
+   "Fugg77",
+   "*PoweXX"
+  ],
+  "resolution": {
+   "kind": "auger-ke-frame",
+   "auger_ke_ev": 1185.65,
+   "apparent_be_alka": 296.4,
+   "legacy_apparent_be": 306,
+   "basis": "auger-ke-frame",
+   "note": "Legacy apparent-BE marker 306 is the same Auger line as NIST KE 1185.65 eV (apparent BE = hv-KE-wf = 296.4 on Al Ka, consistent within legacy rounding). Store as KINETIC energy; corroborated by both extraction passes."
+  }
+ },
+ {
+  "field_id": "f0015",
+  "element": "P",
+  "orbital": "2p",
+  "legacy_be": 133,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   130.25,
+   129.9,
+   130.1,
+   130.9,
+   130,
+   130.35,
+   130,
+   129.9,
+   130.2,
+   129.96,
+   130.45,
+   130.01
+  ],
+  "codex_values": [
+   130.25,
+   129.9,
+   130.1,
+   130.9,
+   130,
+   130.35,
+   130,
+   129.9,
+   130.2,
+   129.96,
+   130.45,
+   130.01
+  ],
+  "agreed_values": [
+   129.9,
+   129.96,
+   130,
+   130.01,
+   130.1,
+   130.2,
+   130.25,
+   130.35,
+   130.45,
+   130.9
+  ],
+  "claude_refs": [
+   "FCSM91",
+   "MFA85",
+   "TSSS83",
+   "PHHJ70z",
+   "ScBr81",
+   "OSBG83",
+   "NSDU75",
+   "NDKS83",
+   "FlWe74",
+   "AKHM84",
+   "FCSM91",
+   "*Powe95"
+  ],
+  "resolution": {
+   "kind": "elemental-nominal-with-oxidation-range",
+   "elemental_nominal_ev": 130.15,
+   "expected_region_ev": [
+    129.4,
+    134.5
+   ],
+   "legacy_oxide_be": 133,
+   "basis": "elemental-nominal-with-oxidation-range",
+   "note": "Legacy marker 133 was oxide/compound-positioned. Elemental (metal) nominal 130.15 eV corroborated by both extraction passes; expected region widened to [129.4, 134.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+  }
+ },
+ {
+  "field_id": "f0023",
+  "element": "Ti",
+  "orbital": "2p",
+  "legacy_be": 459,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   453.98,
+   454,
+   454.3,
+   454,
+   453.2,
+   454,
+   453.89,
+   453.8,
+   453.73
+  ],
+  "codex_values": [
+   453.98,
+   454.0,
+   454.3,
+   454,
+   453.2,
+   454.0,
+   453.89,
+   453.8,
+   453.73
+  ],
+  "agreed_values": [
+   453.2,
+   453.73,
+   453.8,
+   453.89,
+   453.98,
+   454,
+   454.3
+  ],
+  "claude_refs": [
+   "*Powe95",
+   "EBMW88",
+   "MFA85",
+   "WRDM79",
+   "SPB76a",
+   "BSM89",
+   "LANM81",
+   "NSCP74",
+   "ALMP82"
+  ],
+  "resolution": {
+   "kind": "elemental-nominal-with-oxidation-range",
+   "elemental_nominal_ev": 453.89,
+   "expected_region_ev": [
+    452.7,
+    460.5
+   ],
+   "legacy_oxide_be": 459,
+   "basis": "elemental-nominal-with-oxidation-range",
+   "note": "Legacy marker 459 was oxide/compound-positioned. Elemental (metal) nominal 453.89 eV corroborated by both extraction passes; expected region widened to [452.7, 460.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+  }
+ },
+ {
+  "field_id": "f0024",
+  "element": "V",
+  "orbital": "2p",
+  "legacy_be": 517,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   512.6,
+   512.15,
+   512.9,
+   512.3,
+   512.4,
+   512.3,
+   512.4,
+   512.14,
+   512.7,
+   512.4
+  ],
+  "codex_values": [
+   512.6,
+   512.15,
+   512.9,
+   512.3,
+   512.4,
+   512.3,
+   512.4,
+   512.14,
+   512.7,
+   512.4
+  ],
+  "agreed_values": [
+   512.14,
+   512.15,
+   512.3,
+   512.4,
+   512.6,
+   512.7,
+   512.9
+  ],
+  "claude_refs": [
+   "MFA85",
+   "WRDM79",
+   "KKL83",
+   "CGR78",
+   "SaPo79",
+   "RoRo76",
+   "NSCP74",
+   "LANM81",
+   "FrSa75",
+   "LFS73z"
+  ],
+  "resolution": {
+   "kind": "elemental-nominal-with-oxidation-range",
+   "elemental_nominal_ev": 512.4,
+   "expected_region_ev": [
+    511.6,
+    518.5
+   ],
+   "legacy_oxide_be": 517,
+   "basis": "elemental-nominal-with-oxidation-range",
+   "note": "Legacy marker 517 was oxide/compound-positioned. Elemental (metal) nominal 512.4 eV corroborated by both extraction passes; expected region widened to [511.6, 518.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+  }
+ },
+ {
+  "field_id": "f0025",
+  "element": "Cr",
+  "orbital": "2p",
+  "legacy_be": 577,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   574,
+   574.4,
+   574.2,
+   573.9,
+   574.26,
+   574.6,
+   573.8,
+   574.18,
+   574.7,
+   574.2,
+   574.2,
+   574.3,
+   573.9,
+   573.8,
+   574.4,
+   574.35
+  ],
+  "codex_values": [
+   574,
+   574.4,
+   574.2,
+   573.9,
+   574.26,
+   574.6,
+   573.8,
+   574.18,
+   574.7,
+   574.2,
+   574.2,
+   574.3,
+   573.9,
+   573.8,
+   574.4,
+   574.35
+  ],
+  "agreed_values": [
+   573.8,
+   573.9,
+   574,
+   574.18,
+   574.2,
+   574.26,
+   574.3,
+   574.35,
+   574.4,
+   574.6,
+   574.7
+  ],
+  "claude_refs": [
+   "LeMi84",
+   "MMP82",
+   "ATW78",
+   "DAEC79",
+   "LANM81",
+   "NYI89",
+   "Shut80",
+   "AsHa77",
+   "Conn78",
+   "DMZR88",
+   "RoRo76",
+   "WRDM79",
+   "DAEC79",
+   "AlTu76z",
+   "LaKe76",
+   "*Powe95"
+  ],
+  "resolution": {
+   "kind": "elemental-nominal-with-oxidation-range",
+   "elemental_nominal_ev": 574.26,
+   "expected_region_ev": [
+    573.3,
+    578.5
+   ],
+   "legacy_oxide_be": 577,
+   "basis": "elemental-nominal-with-oxidation-range",
+   "note": "Legacy marker 577 was oxide/compound-positioned. Elemental (metal) nominal 574.26 eV corroborated by both extraction passes; expected region widened to [573.3, 578.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+  }
+ },
+ {
+  "field_id": "f0027",
+  "element": "Fe",
+  "orbital": "2p",
+  "legacy_be": 711,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   707.1,
+   707,
+   708.7,
+   706.9,
+   707.3,
+   707.5,
+   706.74,
+   706.88,
+   706.8,
+   706.82,
+   707.3,
+   707,
+   706.5,
+   706.8,
+   706.8,
+   707.4,
+   707.9,
+   707.1,
+   706.5,
+   706.7,
+   706.7,
+   706.95,
+   707.1,
+   707.1,
+   706.86
+  ],
+  "codex_values": [
+   707.1,
+   707.0,
+   708.7,
+   706.9,
+   707.3,
+   707.5,
+   706.74,
+   706.88,
+   706.8,
+   706.82,
+   707.3,
+   707,
+   706.5,
+   706.8,
+   706.8,
+   707.4,
+   707.9,
+   707.1,
+   706.5,
+   706.7
+  ],
+  "agreed_values": [
+   706.5,
+   706.7,
+   706.74,
+   706.8,
+   706.82,
+   706.86,
+   706.88,
+   706.9,
+   706.95,
+   707,
+   707.1,
+   707.3,
+   707.4,
+   707.5,
+   707.9,
+   708.7
+  ],
+  "claude_refs": [
+   "SBS86",
+   "AnHo89",
+   "SiCo85a",
+   "MFA85",
+   "ErWa75",
+   "Conn78",
+   "LANM81",
+   "AsHa77",
+   "KoNa80",
+   "Asam76",
+   "ACHT74",
+   "McZe77",
+   "MiSu83",
+   "KMI81",
+   "NDKS83",
+   "PaEg84",
+   "ShTr75",
+   "JJH80",
+   "HaDe87",
+   "BiBe86",
+   "Brio80",
+   "WRDM79",
+   "YNNA77z",
+   "MaLa86",
+   "*Powe95"
+  ],
+  "resolution": {
+   "kind": "elemental-nominal-with-oxidation-range",
+   "elemental_nominal_ev": 706.92,
+   "expected_region_ev": [
+    706.0,
+    712.5
+   ],
+   "legacy_oxide_be": 711,
+   "basis": "elemental-nominal-with-oxidation-range",
+   "note": "Legacy marker 711 was oxide/compound-positioned. Elemental (metal) nominal 706.92 eV corroborated by both extraction passes; expected region widened to [706.0, 712.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+  }
+ },
+ {
+  "field_id": "f0061",
+  "element": "U",
+  "orbital": "5d",
+  "legacy_be": 98,
+  "tier": "conflict",
+  "kind": "survey",
+  "claude_values": [
+   94,
+   94.2,
+   93.6
+  ],
+  "codex_values": [
+   94,
+   94.2,
+   93.6
+  ],
+  "agreed_values": [
+   93.6,
+   94,
+   94.2
+  ],
+  "claude_refs": [
+   "ScLa81",
+   "FBWF74",
+   "AlTu73"
+  ],
+  "resolution": {
+   "kind": "elemental-nominal-with-oxidation-range",
+   "elemental_nominal_ev": 94,
+   "expected_region_ev": [
+    93.1,
+    99.5
+   ],
+   "legacy_oxide_be": 98,
+   "basis": "elemental-nominal-with-oxidation-range",
+   "note": "Legacy marker 98 was oxide/compound-positioned. Elemental (metal) nominal 94 eV corroborated by both extraction passes; expected region widened to [93.1, 99.5] to cover the legacy oxidation state. Same pattern as the curated U 4f."
+  }
+ },
+ {
+  "field_id": "f0069",
+  "element": "C",
+  "orbital": "1s",
+  "legacy_be": 292,
+  "tier": "single-source",
+  "kind": "chem",
+  "state": "CF\u2082 (PTFE)",
+  "claude_match": false,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0070",
+  "element": "C",
+  "orbital": "1s",
+  "legacy_be": 293.5,
+  "tier": "single-source",
+  "kind": "chem",
+  "state": "CF\u2083",
+  "claude_match": false,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0018",
+  "element": "Cl",
+  "orbital": "2p",
+  "legacy_be": 199,
+  "tier": "transcription-corroborated",
+  "kind": "survey",
+  "claude_values": [
+   198.3
+  ],
+  "codex_values": [
+   198.3
+  ],
+  "agreed_values": [
+   198.3
+  ],
+  "claude_refs": [
+   "TPPF90"
+  ],
+  "resolution": null
+ },
+ {
+  "field_id": "f0080",
+  "element": "N",
+  "orbital": "1s",
+  "legacy_be": 401.5,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "NH\u2084\u207a / protonated amine",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0033",
+  "element": "Ge",
+  "orbital": "2p",
+  "legacy_be": 1217,
+  "tier": "transcription-corroborated",
+  "kind": "survey",
+  "claude_values": [
+   1217.2,
+   1217.28,
+   1217.4,
+   1217.2,
+   1217.6,
+   1217.38
+  ],
+  "codex_values": [
+   1217.2,
+   1217.28,
+   1217.4,
+   1217.2,
+   1217.6,
+   1217.38
+  ],
+  "agreed_values": [
+   1217.2,
+   1217.28,
+   1217.38,
+   1217.4,
+   1217.6
+  ],
+  "claude_refs": [
+   "TLR78",
+   "Evan85",
+   "MoVa73",
+   "McWe76",
+   "Wagn75",
+   "Evan85"
+  ],
+  "resolution": null
+ },
+ {
+  "field_id": "f0002",
+  "element": "B",
+  "orbital": "1s",
+  "legacy_be": 188,
+  "tier": "transcription-corroborated",
+  "kind": "survey",
+  "claude_values": [
+   187.8,
+   188.4,
+   187.3,
+   186.4,
+   186.5
+  ],
+  "codex_values": [
+   187.8,
+   188.4,
+   187.3,
+   186.4,
+   186.5
+  ],
+  "agreed_values": [
+   186.4,
+   186.5,
+   187.3,
+   187.8,
+   188.4
+  ],
+  "claude_refs": [
+   "GoHi88",
+   "CGHA90",
+   "HHJ70z",
+   "BBBG88",
+   "SMS80"
+  ],
+  "resolution": null
+ },
+ {
+  "field_id": "f0028",
+  "element": "Co",
+  "orbital": "2p",
+  "legacy_be": 778,
+  "tier": "transcription-corroborated",
+  "kind": "survey",
+  "claude_values": [
+   778,
+   778.3,
+   777.9,
+   778.32,
+   778.5,
+   778.1,
+   778.5,
+   778.2,
+   777.8,
+   778.35
+  ],
+  "codex_values": [
+   778,
+   778.3,
+   777.9,
+   778.32,
+   778.5,
+   778.1,
+   778.5,
+   778.2,
+   777.8,
+   778.35
+  ],
+  "agreed_values": [
+   777.8,
+   777.9,
+   778,
+   778.1,
+   778.2,
+   778.3,
+   778.32,
+   778.35,
+   778.5
+  ],
+  "claude_refs": [
+   "McCo75",
+   "AnHo89",
+   "NDKS83",
+   "LANM81",
+   "MBDS84",
+   "WRDM79",
+   "ACCC82",
+   "HaUn77",
+   "MJCD90",
+   "*Powe95"
+  ],
+  "resolution": null
+ },
+ {
+  "field_id": "f0064",
+  "element": "C",
+  "orbital": "1s",
+  "legacy_be": 286.3,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "C-O (alcohol/ether)",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0084",
+  "element": "Si",
+  "orbital": "2p",
+  "legacy_be": 101.8,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "Si\u2083N\u2084",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0075",
+  "element": "O",
+  "orbital": "1s",
+  "legacy_be": 532.5,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "Organic C-O",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0046",
+  "element": "Sb",
+  "orbital": "3d",
+  "legacy_be": 528,
+  "tier": "transcription-corroborated",
+  "kind": "survey",
+  "claude_values": [
+   528.25,
+   528.2,
+   528.2,
+   528.2,
+   528,
+   528.17,
+   526.3,
+   528.3,
+   528.02,
+   528.25
+  ],
+  "codex_values": [
+   528.25,
+   528.2,
+   528.2,
+   528.2,
+   528,
+   528.17,
+   526.3,
+   528.3,
+   528.02,
+   528.25
+  ],
+  "agreed_values": [
+   526.3,
+   528,
+   528.02,
+   528.17,
+   528.2,
+   528.25,
+   528.3
+  ],
+  "claude_refs": [
+   "WRDM79",
+   "VaTr79",
+   "SFS77",
+   "Wagn75",
+   "HSBS81",
+   "NyMa80",
+   "CKLN78",
+   "MSV73",
+   "PVVA79",
+   "* Powe95"
+  ],
+  "resolution": null
+ },
+ {
+  "field_id": "f0066",
+  "element": "C",
+  "orbital": "1s",
+  "legacy_be": 288.8,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "O-C=O (carboxyl)",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0063",
+  "element": "C",
+  "orbital": "1s",
+  "legacy_be": 284.8,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "Adventitious C-C/C-H",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0079",
+  "element": "N",
+  "orbital": "1s",
+  "legacy_be": 400,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "Amide (N-C=O)",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0073",
+  "element": "O",
+  "orbital": "1s",
+  "legacy_be": 533,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "Adsorbed H\u2082O",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0012",
+  "element": "Al",
+  "orbital": "2p",
+  "legacy_be": 73,
+  "tier": "transcription-corroborated",
+  "kind": "survey",
+  "claude_values": [
+   72.5,
+   73,
+   72.7,
+   72.1,
+   72.7,
+   72.5,
+   72.9,
+   71.8,
+   72.8,
+   73,
+   72.84,
+   72.85,
+   72.85,
+   72.92,
+   72.8,
+   72.87
+  ],
+  "codex_values": [
+   72.5,
+   73.0,
+   72.7,
+   72.1,
+   72.7,
+   72.5,
+   72.9,
+   71.8,
+   72.8,
+   73,
+   72.84,
+   72.85,
+   72.85,
+   72.92,
+   72.8,
+   72.87
+  ],
+  "agreed_values": [
+   71.8,
+   72.1,
+   72.5,
+   72.7,
+   72.8,
+   72.84,
+   72.85,
+   72.87,
+   72.9,
+   72.92,
+   73
+  ],
+  "claude_refs": [
+   "MSWB87",
+   "PHF89",
+   "BST88",
+   "KPSL83",
+   "WaTa80z",
+   "ScLa79",
+   "CaRo78",
+   "KlHe83",
+   "SHH78",
+   "VaTr78a",
+   "LMKJ75",
+   "Tayl82",
+   "WRDM79",
+   "WPHK82z",
+   "TaRa81",
+   "*  Powe95"
+  ],
+  "resolution": null
+ },
+ {
+  "field_id": "f0101",
+  "element": "U",
+  "orbital": "4f7/2",
+  "legacy_be": 380.8,
+  "tier": "transcription-corroborated",
+  "kind": "chem",
+  "state": "U\u2083O\u2088 (mixed)",
+  "claude_match": true,
+  "codex_match": true,
+  "claude_page": true,
+  "codex_page": true
+ },
+ {
+  "field_id": "f0058",
+  "element": "Th",
+  "orbital": "4f",
+  "legacy_be": 333,
+  "tier": "transcription-corroborated",
+  "kind": "survey",
+  "claude_values": [
+   333.8,
+   333.1,
+   333.1,
+   333.1,
+   333.25
+  ],
+  "codex_values": [
+   333.8,
+   333.1,
+   333.1,
+   333.1,
+   333.25
+  ],
+  "agreed_values": [
+   333.1,
+   333.25,
+   333.8
+  ],
+  "claude_refs": [
+   "HHHK89",
+   "FBWF74",
+   "ScLa81",
+   "MCSS82",
+   "WRDM79"
+  ],
+  "resolution": null
+ }
+]

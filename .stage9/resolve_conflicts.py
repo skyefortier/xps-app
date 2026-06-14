@@ -38,17 +38,26 @@ for t in tiers:
     med = round(statistics.median(vals), 2)
     if t["orbital"] == "KLL":
         # Auger KE frame: NIST value is KE; legacy is apparent BE.
-        apparent = round(HV_ALKA - med - WF, 1)
+        # Phase 6 audit correction: legacy apparent-BE + NIST KE implies the
+        # legacy convention used hv-wf ~ legacy+KE (≈1491.5 eV here), NOT the
+        # app's 1486.6/4.5 — so the two are the SAME Auger line under a
+        # different photon-energy/workfunction convention, not "within rounding".
+        apparent_app = round(HV_ALKA - med - WF, 1)            # under the app convention
+        implied_hv_minus_wf = round(t["legacy_be"] + med, 1)   # implied by the legacy marker
         t["resolution"] = {
             "kind": "auger-ke-frame",
             "auger_ke_ev": med,
-            "apparent_be_alka": apparent,
+            "apparent_be_app_convention": apparent_app,
             "legacy_apparent_be": t["legacy_be"],
+            "legacy_implied_hv_minus_wf": implied_hv_minus_wf,
             "basis": "auger-ke-frame",
-            "note": (f"Legacy apparent-BE marker {t['legacy_be']} is the same Auger line as "
-                     f"NIST KE {med} eV (apparent BE = hv-KE-wf = {apparent} on Al Ka, "
-                     f"consistent within legacy rounding). Store as KINETIC energy; "
-                     f"corroborated by both extraction passes."),
+            "note": (f"Legacy apparent-BE marker {t['legacy_be']} is the SAME Auger line as "
+                     f"NIST KE {med} eV, but under a different display convention: the legacy "
+                     f"marker implies hv-wf ≈ {implied_hv_minus_wf} eV (legacy {t['legacy_be']} "
+                     f"+ KE {med}), vs the app's hv-wf = {round(HV_ALKA-WF,1)} (which would put "
+                     f"the apparent BE at {apparent_app}). Store as KINETIC energy (corroborated "
+                     f"by both passes); the app computes the apparent-BE marker from KE via "
+                     f"hv-KE-wf, so the convention mismatch is handled at display time."),
         }
         t["resolution_tier"] = "conflict-resolved-auger-frame"
     else:

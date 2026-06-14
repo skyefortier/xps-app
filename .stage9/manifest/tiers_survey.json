@@ -496,10 +496,11 @@
     "resolution": {
       "kind": "auger-ke-frame",
       "auger_ke_ev": 994.4,
-      "apparent_be_alka": 487.7,
+      "apparent_be_app_convention": 487.7,
       "legacy_apparent_be": 497,
+      "legacy_implied_hv_minus_wf": 1491.4,
       "basis": "auger-ke-frame",
-      "note": "Legacy apparent-BE marker 497 is the same Auger line as NIST KE 994.4 eV (apparent BE = hv-KE-wf = 487.7 on Al Ka, consistent within legacy rounding). Store as KINETIC energy; corroborated by both extraction passes."
+      "note": "Legacy apparent-BE marker 497 is the SAME Auger line as NIST KE 994.4 eV, but under a different display convention: the legacy marker implies hv-wf \u2248 1491.4 eV (legacy 497 + KE 994.4), vs the app's hv-wf = 1482.1 (which would put the apparent BE at 487.7). Store as KINETIC energy (corroborated by both passes); the app computes the apparent-BE marker from KE via hv-KE-wf, so the convention mismatch is handled at display time."
     },
     "resolution_tier": "conflict-resolved-auger-frame"
   },
@@ -634,10 +635,11 @@
     "resolution": {
       "kind": "auger-ke-frame",
       "auger_ke_ev": 1185.65,
-      "apparent_be_alka": 296.4,
+      "apparent_be_app_convention": 296.4,
       "legacy_apparent_be": 306,
+      "legacy_implied_hv_minus_wf": 1491.7,
       "basis": "auger-ke-frame",
-      "note": "Legacy apparent-BE marker 306 is the same Auger line as NIST KE 1185.65 eV (apparent BE = hv-KE-wf = 296.4 on Al Ka, consistent within legacy rounding). Store as KINETIC energy; corroborated by both extraction passes."
+      "note": "Legacy apparent-BE marker 306 is the SAME Auger line as NIST KE 1185.65 eV, but under a different display convention: the legacy marker implies hv-wf \u2248 1491.7 eV (legacy 306 + KE 1185.65), vs the app's hv-wf = 1482.1 (which would put the apparent BE at 296.4). Store as KINETIC energy (corroborated by both passes); the app computes the apparent-BE marker from KE via hv-KE-wf, so the convention mismatch is handled at display time."
     },
     "resolution_tier": "conflict-resolved-auger-frame"
   },
