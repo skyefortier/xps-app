@@ -4,6 +4,7 @@
   "source": "legacy-embedded-dataset",
   "curation_status": "legacy-unverified",
   "provenance": "Verbatim transcription of the XPS_ELEMENTS constant embedded in templates/index.html (rounded single-value survey-marker positions, unsourced in origin). Auger (KLL) lines kept as legacy BE marker positions, not converted to kinetic energy.",
+  "content_sha256": "6ffe72971fd8d6a2cf4587c6b54b35751ceabc2e171ff49b39dc16a89ec732c8",
   "elements": [
     {
       "symbol": "Li",

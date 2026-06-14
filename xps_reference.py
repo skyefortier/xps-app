@@ -16,6 +16,7 @@ Energy conventions (must stay aligned with vgd_parser.py):
     ``photon_energy - auger_ke_ev - work_function`` — the same convention as
     vgd_parser's KE → BE conversion, NOT the simplified ``hv - KE``.
 """
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -255,16 +256,69 @@ def _load_legacy(data_dir: Path, sources: dict):
             raise XPSReferenceError(fname, path,
                 f"source id '{src}' does not resolve in sources.json")
 
+    # Reject duplicate element symbols / orbital_keys (Codex CkptA #3): the
+    # frontend accessor builds objects keyed on symbol / orbital_key, so a
+    # collision would SILENTLY overwrite an earlier record. Fail loudly.
+    sym_seen: dict[str, int] = {}
     for ei, el in enumerate(survey["elements"]):
+        if el["symbol"] in sym_seen:
+            raise XPSReferenceError(rel(LEGACY_SURVEY_FILE), f"$.elements[{ei}]",
+                f"duplicate element symbol '{el['symbol']}' "
+                f"(first at index {sym_seen[el['symbol']]}) — accessor would overwrite")
+        sym_seen[el["symbol"]] = ei
+        orb_seen: dict[str, int] = {}
         for li, ln in enumerate(el["lines"]):
+            if ln["orbital"] in orb_seen:
+                raise XPSReferenceError(rel(LEGACY_SURVEY_FILE),
+                    f"$.elements[{ei}].lines[{li}]",
+                    f"duplicate orbital '{ln['orbital']}' in element '{el['symbol']}' "
+                    f"— accessor lines map would overwrite")
+            orb_seen[ln["orbital"]] = li
             check(ln["id"], ln["source"], rel(LEGACY_SURVEY_FILE),
                   f"$.elements[{ei}].lines[{li}]")
+    key_seen: dict[str, int] = {}
     for gi, g in enumerate(chem["groups"]):
+        if g["orbital_key"] in key_seen:
+            raise XPSReferenceError(rel(LEGACY_CHEM_FILE), f"$.groups[{gi}]",
+                f"duplicate orbital_key '{g['orbital_key']}' "
+                f"(first at index {key_seen[g['orbital_key']]}) — accessor would overwrite")
+        key_seen[g["orbital_key"]] = gi
         for si, s in enumerate(g["states"]):
             check(s["id"], s["source"], rel(LEGACY_CHEM_FILE),
                   f"$.groups[{gi}].states[{si}]")
 
+    # Verify the content checksum (Codex CkptA #2): the frozen legacy values
+    # are tamper-evident at load time — an accidental edit to a be_ev that the
+    # schema would otherwise accept (any in-range number) fails loudly here.
+    _verify_legacy_checksum(survey, _canon_survey(survey["elements"]),
+                            rel(LEGACY_SURVEY_FILE))
+    _verify_legacy_checksum(chem, _canon_chem(chem["groups"]),
+                            rel(LEGACY_CHEM_FILE))
+
     return {"survey": survey["elements"], "chemical_states": chem["groups"]}
+
+
+# Canonical reconstructions + checksum — MUST match .stage9/transcribe_legacy.py
+# byte-for-byte so the loader can verify the data the transcriber stamped.
+def _canon_survey(elements):
+    return {el["symbol"]: {"lines": {ln["orbital"]: ln["be_ev"] for ln in el["lines"]}}
+            for el in elements}
+
+
+def _canon_chem(groups):
+    return {g["orbital_key"]: [{"state": s["state"], "be": s["be_ev"], "ref": s["ref"]}
+                              for s in g["states"]] for g in groups}
+
+
+def _verify_legacy_checksum(doc, canonical, fname):
+    actual = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    if actual != doc["content_sha256"]:
+        raise XPSReferenceError(fname, "$.content_sha256",
+            f"legacy content checksum mismatch — data has been edited without "
+            f"regenerating the stamp (expected {doc['content_sha256'][:12]}…, "
+            f"computed {actual[:12]}…). Legacy data is frozen; re-run transcribe_legacy.py.")
 
 
 # Per-process cache: data dir -> (mtime stamp, payload). Reference data is

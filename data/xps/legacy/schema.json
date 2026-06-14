@@ -8,13 +8,17 @@
     "legacySurveyFile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "file_id", "source", "curation_status", "provenance", "elements"],
+      "required": ["schema_version", "file_id", "source", "curation_status", "provenance", "content_sha256", "elements"],
       "properties": {
         "schema_version": { "const": 1 },
         "file_id": { "const": "legacy-survey-lines" },
         "source": { "const": "legacy-embedded-dataset" },
         "curation_status": { "const": "legacy-unverified" },
         "provenance": { "type": "string", "minLength": 8 },
+        "content_sha256": {
+          "description": "SHA-256 of the canonical value reconstruction ({sym:{lines:{orbital:be}}}), sort_keys+ascii. The loader recomputes and asserts it — makes the frozen legacy data tamper-evident at load time (Codex CkptA #2).",
+          "type": "string", "pattern": "^[0-9a-f]{64}$"
+        },
         "elements": { "type": "array", "items": { "$ref": "#/$defs/legacyElement" } }
       }
     },
@@ -53,13 +57,17 @@
     "legacyChemStatesFile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "file_id", "source", "curation_status", "provenance", "groups"],
+      "required": ["schema_version", "file_id", "source", "curation_status", "provenance", "content_sha256", "groups"],
       "properties": {
         "schema_version": { "const": 1 },
         "file_id": { "const": "legacy-chemical-states" },
         "source": { "const": "legacy-embedded-dataset" },
         "curation_status": { "const": "legacy-unverified" },
         "provenance": { "type": "string", "minLength": 8 },
+        "content_sha256": {
+          "description": "SHA-256 of the canonical reconstruction ({orbital_key:[{state,be,ref}]}), sort_keys+ascii. Loader recomputes and asserts (Codex CkptA #2).",
+          "type": "string", "pattern": "^[0-9a-f]{64}$"
+        },
         "groups": { "type": "array", "items": { "$ref": "#/$defs/legacyChemGroup" } }
       }
     },

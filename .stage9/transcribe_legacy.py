@@ -13,11 +13,30 @@ Faithfulness rules:
 - Every record tagged source 'legacy-embedded-dataset', tier
   'legacy-unverified'. No NIST values merged here (that is the curated set).
 """
+import hashlib
 import json
 from pathlib import Path
 
 RAW = json.load(open(".stage9/legacy_raw.json"))
 OUT = Path("data/xps/legacy")
+
+
+# Canonical reconstructions + checksum (must match xps_reference.py exactly,
+# so the loader can verify the frozen legacy data is untampered at load time).
+def _canon_survey(elements):
+    return {el["symbol"]: {"lines": {ln["orbital"]: ln["be_ev"] for ln in el["lines"]}}
+            for el in elements}
+
+
+def _canon_chem(groups):
+    return {g["orbital_key"]: [{"state": s["state"], "be": s["be_ev"], "ref": s["ref"]}
+                              for s in g["states"]] for g in groups}
+
+
+def _checksum(canonical):
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
 
 # Definitional symbol -> Z (periodic table; not a measured quantity).
 PT = ("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co "
@@ -64,6 +83,7 @@ survey_doc = {
                   "templates/index.html (rounded single-value survey-marker positions, "
                   "unsourced in origin). Auger (KLL) lines kept as legacy BE marker "
                   "positions, not converted to kinetic energy.",
+    "content_sha256": _checksum(_canon_survey(survey_elements)),
     "elements": survey_elements,
 }
 
@@ -95,6 +115,7 @@ cs_doc = {
     "provenance": "Verbatim transcription of the CHEMICAL_STATES constant embedded in "
                   "templates/index.html (NIST-modal chemical-state table). The 'ref' "
                   "strings are the legacy editorial citations, kept as-is.",
+    "content_sha256": _checksum(_canon_chem(cs_groups)),
     "groups": cs_groups,
 }
 

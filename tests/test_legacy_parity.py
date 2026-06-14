@@ -17,8 +17,10 @@ RAW = REPO / ".stage9" / "legacy_raw.json"
 
 
 def _raw():
-    if not RAW.exists():
-        subprocess.run(["node", ".stage9/extract_legacy.mjs"], cwd=REPO, check=True)
+    # Codex CkptA #5: ALWAYS regenerate from the current template — a stale
+    # .stage9/legacy_raw.json would silently let the parity test compare
+    # against outdated constants, defeating the deletion safety net.
+    subprocess.run(["node", ".stage9/extract_legacy.mjs"], cwd=REPO, check=True)
     return json.loads(RAW.read_text())
 
 

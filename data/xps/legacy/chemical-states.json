@@ -4,6 +4,7 @@
   "source": "legacy-embedded-dataset",
   "curation_status": "legacy-unverified",
   "provenance": "Verbatim transcription of the CHEMICAL_STATES constant embedded in templates/index.html (NIST-modal chemical-state table). The 'ref' strings are the legacy editorial citations, kept as-is.",
+  "content_sha256": "775939f636b7aeacb31fb304f22eb6be8bbe4636b4e15e736e71c75a443ec486",
   "groups": [
     {
       "orbital_key": "C 1s",
