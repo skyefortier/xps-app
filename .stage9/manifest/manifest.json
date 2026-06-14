@@ -1,0 +1,4330 @@
+{
+  "schema_version": 1,
+  "purpose": "Stage 9 Phase 3 verification manifest — work-list for extraction. Field types carry different evidence policies; quantitative energies are dual-extracted, visibility is editorial, regions are curated summaries, area ratios are physics-derived.",
+  "out_of_scope": {
+    "rsf": "SCOFIELD_RSF is a separate constant NOT part of the XPS_ELEMENTS / CHEMICAL_STATES migration; its per-element RSF values are not enumerated or re-verified here. Flagged so the omission is explicit, not silent."
+  },
+  "counts_by_field_type": {
+    "quantitative-energy": 149,
+    "expected-region": 21,
+    "visibility": 42,
+    "area-ratio": 14
+  },
+  "counts_by_kind": {
+    "legacy-survey-line": 62,
+    "legacy-chemical-state": 52,
+    "curated-transition": 21,
+    "curated-expected-region": 21,
+    "curated-visibility": 42,
+    "curated-splitting": 14,
+    "curated-area-ratio": 14
+  },
+  "counts_by_policy": {
+    "dual-extract-authoritative": 149,
+    "curated-summary-multi-observation": 21,
+    "editorial-carry-no-verify": 42,
+    "physics-derived-degeneracy-validate": 14
+  },
+  "extraction_targets": 149,
+  "fields": [
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Li",
+      "z": 3,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 55,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Li-1s",
+      "field_id": "f0000"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Be",
+      "z": 4,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 112,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Be-1s",
+      "field_id": "f0001"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "B",
+      "z": 5,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 188,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-B-1s",
+      "field_id": "f0002"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 285,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-C-1s",
+      "field_id": "f0003"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "N",
+      "z": 7,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 399,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-N-1s",
+      "field_id": "f0004"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 531,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-O-1s",
+      "field_id": "f0005"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "KLL",
+        "transition_type": "auger",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "legacy-auger-be-marker"
+      },
+      "current_value": 978,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-O-KLL",
+      "field_id": "f0006"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "F",
+      "z": 9,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 685,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-F-1s",
+      "field_id": "f0007"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Na",
+      "z": 11,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 1072,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Na-1s",
+      "field_id": "f0008"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Na",
+      "z": 11,
+      "context": {
+        "orbital": "KLL",
+        "transition_type": "auger",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "legacy-auger-be-marker"
+      },
+      "current_value": 497,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Na-KLL",
+      "field_id": "f0009"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Mg",
+      "z": 12,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 1304,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Mg-1s",
+      "field_id": "f0010"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Mg",
+      "z": 12,
+      "context": {
+        "orbital": "KLL",
+        "transition_type": "auger",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "legacy-auger-be-marker"
+      },
+      "current_value": 306,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Mg-KLL",
+      "field_id": "f0011"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Al",
+      "z": 13,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 73,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Al-2p",
+      "field_id": "f0012"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Si",
+      "z": 14,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 99,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Si-2p",
+      "field_id": "f0013"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Si",
+      "z": 14,
+      "context": {
+        "orbital": "2s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 150,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Si-2s",
+      "field_id": "f0014"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "P",
+      "z": 15,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 133,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-P-2p",
+      "field_id": "f0015"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "S",
+      "z": 16,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 164,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-S-2p",
+      "field_id": "f0016"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "S",
+      "z": 16,
+      "context": {
+        "orbital": "2s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 228,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-S-2s",
+      "field_id": "f0017"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 199,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Cl-2p",
+      "field_id": "f0018"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 270,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Cl-2s",
+      "field_id": "f0019"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "K",
+      "z": 19,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 293,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-K-2p",
+      "field_id": "f0020"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "K",
+      "z": 19,
+      "context": {
+        "orbital": "2s",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 378,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-K-2s",
+      "field_id": "f0021"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ca",
+      "z": 20,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 347,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ca-2p",
+      "field_id": "f0022"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ti",
+      "z": 22,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 459,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ti-2p",
+      "field_id": "f0023"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "V",
+      "z": 23,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 517,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-V-2p",
+      "field_id": "f0024"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cr",
+      "z": 24,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 577,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Cr-2p",
+      "field_id": "f0025"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Mn",
+      "z": 25,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 641,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Mn-2p",
+      "field_id": "f0026"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Fe",
+      "z": 26,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 711,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Fe-2p",
+      "field_id": "f0027"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Co",
+      "z": 27,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 778,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Co-2p",
+      "field_id": "f0028"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ni",
+      "z": 28,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 853,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ni-2p",
+      "field_id": "f0029"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 933,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Cu-2p",
+      "field_id": "f0030"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Zn",
+      "z": 30,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 1022,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Zn-2p",
+      "field_id": "f0031"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ga",
+      "z": 31,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 1117,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ga-2p",
+      "field_id": "f0032"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ge",
+      "z": 32,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 1217,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ge-2p",
+      "field_id": "f0033"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "As",
+      "z": 33,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 42,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-As-3d",
+      "field_id": "f0034"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Se",
+      "z": 34,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 56,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Se-3d",
+      "field_id": "f0035"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Br",
+      "z": 35,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 69,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Br-3d",
+      "field_id": "f0036"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Sr",
+      "z": 38,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 134,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Sr-3d",
+      "field_id": "f0037"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Y",
+      "z": 39,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 157,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Y-3d",
+      "field_id": "f0038"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Zr",
+      "z": 40,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 179,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Zr-3d",
+      "field_id": "f0039"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 202,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Nb-3d",
+      "field_id": "f0040"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Mo",
+      "z": 42,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 228,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Mo-3d",
+      "field_id": "f0041"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ag",
+      "z": 47,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 368,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ag-3d",
+      "field_id": "f0042"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cd",
+      "z": 48,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 405,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Cd-3d",
+      "field_id": "f0043"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "In",
+      "z": 49,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 444,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-In-3d",
+      "field_id": "f0044"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Sn",
+      "z": 50,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 485,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Sn-3d",
+      "field_id": "f0045"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Sb",
+      "z": 51,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 528,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Sb-3d",
+      "field_id": "f0046"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Te",
+      "z": 52,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 573,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Te-3d",
+      "field_id": "f0047"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "I",
+      "z": 53,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 619,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-I-3d",
+      "field_id": "f0048"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ba",
+      "z": 56,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 780,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ba-3d",
+      "field_id": "f0049"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "La",
+      "z": 57,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 836,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-La-3d",
+      "field_id": "f0050"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ce",
+      "z": 58,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 882,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Ce-3d",
+      "field_id": "f0051"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Nd",
+      "z": 60,
+      "context": {
+        "orbital": "3d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 982,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Nd-3d",
+      "field_id": "f0052"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "W",
+      "z": 74,
+      "context": {
+        "orbital": "4f",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 31,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-W-4f",
+      "field_id": "f0053"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Pt",
+      "z": 78,
+      "context": {
+        "orbital": "4f",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 71,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Pt-4f",
+      "field_id": "f0054"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Au",
+      "z": 79,
+      "context": {
+        "orbital": "4f",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 84,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Au-4f",
+      "field_id": "f0055"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Pb",
+      "z": 82,
+      "context": {
+        "orbital": "4f",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 137,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Pb-4f",
+      "field_id": "f0056"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Bi",
+      "z": 83,
+      "context": {
+        "orbital": "4f",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 157,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Bi-4f",
+      "field_id": "f0057"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Th",
+      "z": 90,
+      "context": {
+        "orbital": "4f",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 333,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-Th-4f",
+      "field_id": "f0058"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 380,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-U-4f",
+      "field_id": "f0059"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 736,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-U-4d",
+      "field_id": "f0060"
+    },
+    {
+      "kind": "legacy-survey-line",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d",
+        "transition_type": "photoelectron",
+        "reference_state": "unspecified",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-marker"
+      },
+      "current_value": 98,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "record_id": "legacy-U-5d",
+      "field_id": "f0061"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Graphite/C-C",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 284.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-C-1s-0",
+      "field_id": "f0062"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Adventitious C-C/C-H",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 284.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "ISO 19318",
+      "record_id": "legacy-cs-C-1s-1",
+      "field_id": "f0063"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "C-O (alcohol/ether)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 286.3,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-C-1s-2",
+      "field_id": "f0064"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "C=O (carbonyl)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 287.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-C-1s-3",
+      "field_id": "f0065"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "O-C=O (carboxyl)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 288.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-C-1s-4",
+      "field_id": "f0066"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "π→π* shake-up",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 290.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-C-1s-5",
+      "field_id": "f0067"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "CO₃ (carbonate)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 289.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-C-1s-6",
+      "field_id": "f0068"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "CF₂ (PTFE)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 292,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-C-1s-7",
+      "field_id": "f0069"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "CF₃",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 293.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-C-1s-8",
+      "field_id": "f0070"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Metal oxide (M-O)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 530,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-O-1s-0",
+      "field_id": "f0071"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Hydroxide (M-OH)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 531.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-O-1s-1",
+      "field_id": "f0072"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Adsorbed H₂O",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 533,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-O-1s-2",
+      "field_id": "f0073"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "SiO₂",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 532.9,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-O-1s-3",
+      "field_id": "f0074"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Organic C-O",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 532.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-O-1s-4",
+      "field_id": "f0075"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Organic C=O",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 531.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-O-1s-5",
+      "field_id": "f0076"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "N",
+      "z": 7,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Metal nitride",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 397,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-N-1s-0",
+      "field_id": "f0077"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "N",
+      "z": 7,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Amine (NH₂)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 399.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-N-1s-1",
+      "field_id": "f0078"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "N",
+      "z": 7,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "Amide (N-C=O)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 400,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Beamson 1992",
+      "record_id": "legacy-cs-N-1s-2",
+      "field_id": "f0079"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "N",
+      "z": 7,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "NH₄⁺ / protonated amine",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 401.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-N-1s-3",
+      "field_id": "f0080"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "N",
+      "z": 7,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "NO₃ (nitrate)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 407,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-N-1s-4",
+      "field_id": "f0081"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Si",
+      "z": 14,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "Si metal",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 99.3,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Si-2p-0",
+      "field_id": "f0082"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Si",
+      "z": 14,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "SiO₂",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 103.3,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Si-2p-1",
+      "field_id": "f0083"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Si",
+      "z": 14,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "Si₃N₄",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 101.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Si-2p-2",
+      "field_id": "f0084"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Si",
+      "z": 14,
+      "context": {
+        "orbital": "2p",
+        "transition_type": "photoelectron",
+        "reference_state": "SiC",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 100.4,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Si-2p-3",
+      "field_id": "f0085"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Fe",
+      "z": 26,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Fe metal",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 707,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2011",
+      "record_id": "legacy-cs-Fe-2p32-0",
+      "field_id": "f0086"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Fe",
+      "z": 26,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "FeO (Fe²⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 709.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2011",
+      "record_id": "legacy-cs-Fe-2p32-1",
+      "field_id": "f0087"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Fe",
+      "z": 26,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Fe₂O₃ (Fe³⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 710.7,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2011",
+      "record_id": "legacy-cs-Fe-2p32-2",
+      "field_id": "f0088"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Fe",
+      "z": 26,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "FeOOH",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 711.3,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2011",
+      "record_id": "legacy-cs-Fe-2p32-3",
+      "field_id": "f0089"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Fe",
+      "z": 26,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "FeSO₄",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 712,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Fe-2p32-4",
+      "field_id": "f0090"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Cu metal",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 932.6,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2017",
+      "record_id": "legacy-cs-Cu-2p32-0",
+      "field_id": "f0091"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Cu₂O (Cu⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 932.4,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2017",
+      "record_id": "legacy-cs-Cu-2p32-1",
+      "field_id": "f0092"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "CuO (Cu²⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 933.6,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2017",
+      "record_id": "legacy-cs-Cu-2p32-2",
+      "field_id": "f0093"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Cu(OH)₂",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 934.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Biesinger 2017",
+      "record_id": "legacy-cs-Cu-2p32-3",
+      "field_id": "f0094"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ti",
+      "z": 22,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Ti metal",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 454,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Ti-2p32-0",
+      "field_id": "f0095"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ti",
+      "z": 22,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "TiO₂ (Ti⁴⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 458.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Ti-2p32-1",
+      "field_id": "f0096"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ti",
+      "z": 22,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Ti₂O₃ (Ti³⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 457.1,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Ti-2p32-2",
+      "field_id": "f0097"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Ti",
+      "z": 22,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "TiN",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 455.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Ti-2p32-3",
+      "field_id": "f0098"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "U metal",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 377.3,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-U-4f72-0",
+      "field_id": "f0099"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "UO₂ (U⁴⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 380,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Ilton 2007",
+      "record_id": "legacy-cs-U-4f72-1",
+      "field_id": "f0100"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "U₃O₈ (mixed)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 380.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Ilton 2007",
+      "record_id": "legacy-cs-U-4f72-2",
+      "field_id": "f0101"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "UO₃ (U⁶⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 381.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Ilton 2007",
+      "record_id": "legacy-cs-U-4f72-3",
+      "field_id": "f0102"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "UCl₄",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 380.2,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Fortier 2026",
+      "record_id": "legacy-cs-U-4f72-4",
+      "field_id": "f0103"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Organic Cl (C-Cl)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 200.3,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Cl-2p32-0",
+      "field_id": "f0104"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Metal chloride",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 198.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Cl-2p32-1",
+      "field_id": "f0105"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "ClO₄⁻ (perchlorate)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 207.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Cl-2p32-2",
+      "field_id": "f0106"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Au",
+      "z": 79,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Au metal",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 84,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Au-4f72-0",
+      "field_id": "f0107"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Au",
+      "z": 79,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Au₂O₃ (Au³⁺)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 85.8,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Au-4f72-1",
+      "field_id": "f0108"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Au",
+      "z": 79,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "AuCl₃",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 86.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-Au-4f72-2",
+      "field_id": "f0109"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "S",
+      "z": 16,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Thiol (S-H)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 163,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-S-2p32-0",
+      "field_id": "f0110"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "S",
+      "z": 16,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Sulfide (S²⁻)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 161.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-S-2p32-1",
+      "field_id": "f0111"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "S",
+      "z": 16,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Sulfate (SO₄²⁻)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 169,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-S-2p32-2",
+      "field_id": "f0112"
+    },
+    {
+      "kind": "legacy-chemical-state",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "S",
+      "z": 16,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "Sulfite (SO₃²⁻)",
+        "calibration_convention": "unspecified",
+        "photon_source": "unspecified",
+        "energy_type": "binding-energy-chemical-state"
+      },
+      "current_value": 166.5,
+      "current_tier": "legacy-unverified",
+      "current_source": "legacy-embedded-dataset",
+      "legacy_ref": "Moulder 1992",
+      "record_id": "legacy-cs-S-2p32-3",
+      "field_id": "f0113"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 284.5,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "C-1s",
+      "field_id": "f0114"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "basis": "observed-reference-range"
+      },
+      "current_value": [
+        282.0,
+        289.3
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "C-1s:region",
+      "field_id": "f0115"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "C-1s:vis:AlKa",
+      "field_id": "f0116"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "C",
+      "z": 6,
+      "context": {
+        "orbital": "1s",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "C-1s:vis:MgKa",
+      "field_id": "f0117"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 531.4,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "O-1s",
+      "field_id": "f0118"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        528.5,
+        534.5
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "O-1s:region",
+      "field_id": "f0119"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "O-1s:vis:AlKa",
+      "field_id": "f0120"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "1s",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "O-1s:vis:MgKa",
+      "field_id": "f0121"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "2s",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 28.3,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "O-2s",
+      "field_id": "f0122"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "2s",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        26.0,
+        31.0
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "O-2s:region",
+      "field_id": "f0123"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "2s",
+        "source_label": "AlKa"
+      },
+      "current_value": "weak",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "O-2s:vis:AlKa",
+      "field_id": "f0124"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "O",
+      "z": 8,
+      "context": {
+        "orbital": "2s",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "O-2s:vis:MgKa",
+      "field_id": "f0125"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 198.3,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p3/2",
+      "field_id": "f0126"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "partner": "Cl-2p1/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 1.6,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p3/2:splitting",
+      "field_id": "f0127"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "partner": "Cl-2p1/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 2.0,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p3/2:area_ratio",
+      "field_id": "f0128"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        196.5,
+        202.5
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p3/2:region",
+      "field_id": "f0129"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p3/2:vis:AlKa",
+      "field_id": "f0130"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p3/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p3/2:vis:MgKa",
+      "field_id": "f0131"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p1/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 199.9,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p1/2",
+      "field_id": "f0132"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p1/2",
+        "partner": "Cl-2p3/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 1.6,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p1/2:splitting",
+      "field_id": "f0133"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p1/2",
+        "partner": "Cl-2p3/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 0.5,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p1/2:area_ratio",
+      "field_id": "f0134"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p1/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        198.1,
+        204.1
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p1/2:region",
+      "field_id": "f0135"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p1/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p1/2:vis:AlKa",
+      "field_id": "f0136"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cl",
+      "z": 17,
+      "context": {
+        "orbital": "2p1/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cl-2p1/2:vis:MgKa",
+      "field_id": "f0137"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 932.67,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p3/2",
+      "field_id": "f0138"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "partner": "Cu-2p1/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 19.82,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p3/2:splitting",
+      "field_id": "f0139"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "partner": "Cu-2p1/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 2.0,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p3/2:area_ratio",
+      "field_id": "f0140"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        931.0,
+        936.5
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p3/2:region",
+      "field_id": "f0141"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p3/2:vis:AlKa",
+      "field_id": "f0142"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p3/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p3/2:vis:MgKa",
+      "field_id": "f0143"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p1/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 952.56,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p1/2",
+      "field_id": "f0144"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p1/2",
+        "partner": "Cu-2p3/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 19.82,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p1/2:splitting",
+      "field_id": "f0145"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p1/2",
+        "partner": "Cu-2p3/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 0.5,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p1/2:area_ratio",
+      "field_id": "f0146"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p1/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        951.0,
+        956.5
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p1/2:region",
+      "field_id": "f0147"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p1/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p1/2:vis:AlKa",
+      "field_id": "f0148"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "2p1/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-2p1/2:vis:MgKa",
+      "field_id": "f0149"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d5/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 202.31,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d5/2",
+      "field_id": "f0150"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d5/2",
+        "partner": "Nb-3d3/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 2.8,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d5/2:splitting",
+      "field_id": "f0151"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d5/2",
+        "partner": "Nb-3d3/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 1.5,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d5/2:area_ratio",
+      "field_id": "f0152"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d5/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        201.0,
+        209.0
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d5/2:region",
+      "field_id": "f0153"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d5/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d5/2:vis:AlKa",
+      "field_id": "f0154"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d5/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d5/2:vis:MgKa",
+      "field_id": "f0155"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 205.11,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d3/2",
+      "field_id": "f0156"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d3/2",
+        "partner": "Nb-3d5/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 2.8,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d3/2:splitting",
+      "field_id": "f0157"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d3/2",
+        "partner": "Nb-3d5/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 0.6667,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d3/2:area_ratio",
+      "field_id": "f0158"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d3/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        203.8,
+        211.8
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d3/2:region",
+      "field_id": "f0159"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d3/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d3/2:vis:AlKa",
+      "field_id": "f0160"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Nb",
+      "z": 41,
+      "context": {
+        "orbital": "3d3/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Nb-3d3/2:vis:MgKa",
+      "field_id": "f0161"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 377.3,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f7/2",
+      "field_id": "f0162"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "partner": "U-4f5/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 10.8,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f7/2:splitting",
+      "field_id": "f0163"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "partner": "U-4f5/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 1.3333,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f7/2:area_ratio",
+      "field_id": "f0164"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "basis": "observed-reference-range"
+      },
+      "current_value": [
+        375.5,
+        383.0
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f7/2:region",
+      "field_id": "f0165"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f7/2:vis:AlKa",
+      "field_id": "f0166"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f7/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f7/2:vis:MgKa",
+      "field_id": "f0167"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f5/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 388.4,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f5/2",
+      "field_id": "f0168"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f5/2",
+        "partner": "U-4f7/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 10.8,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f5/2:splitting",
+      "field_id": "f0169"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f5/2",
+        "partner": "U-4f7/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 0.75,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f5/2:area_ratio",
+      "field_id": "f0170"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f5/2",
+        "basis": "observed-reference-range"
+      },
+      "current_value": [
+        386.5,
+        393.8
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f5/2:region",
+      "field_id": "f0171"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f5/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f5/2:vis:AlKa",
+      "field_id": "f0172"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4f5/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4f5/2:vis:MgKa",
+      "field_id": "f0173"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d5/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 736.4,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d5/2",
+      "field_id": "f0174"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d5/2",
+        "partner": "U-4d3/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 42.1,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d5/2:splitting",
+      "field_id": "f0175"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d5/2",
+        "partner": "U-4d3/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 1.5,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d5/2:area_ratio",
+      "field_id": "f0176"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d5/2",
+        "basis": "observed-reference-range"
+      },
+      "current_value": [
+        735.0,
+        742.0
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d5/2:region",
+      "field_id": "f0177"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d5/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "moderate",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d5/2:vis:AlKa",
+      "field_id": "f0178"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d5/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d5/2:vis:MgKa",
+      "field_id": "f0179"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 778.5,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d3/2",
+      "field_id": "f0180"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d3/2",
+        "partner": "U-4d5/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 42.1,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d3/2:splitting",
+      "field_id": "f0181"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d3/2",
+        "partner": "U-4d5/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 0.6667,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d3/2:area_ratio",
+      "field_id": "f0182"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d3/2",
+        "basis": "observed-reference-range"
+      },
+      "current_value": [
+        777.0,
+        784.5
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d3/2:region",
+      "field_id": "f0183"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d3/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "moderate",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d3/2:vis:AlKa",
+      "field_id": "f0184"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4d3/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4d3/2:vis:MgKa",
+      "field_id": "f0185"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4s",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 1043.0,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4s",
+      "field_id": "f0186"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4s",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        1041.5,
+        1049.0
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4s:region",
+      "field_id": "f0187"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4s",
+        "source_label": "AlKa"
+      },
+      "current_value": "weak",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4s:vis:AlKa",
+      "field_id": "f0188"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "4s",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-4s:vis:MgKa",
+      "field_id": "f0189"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d5/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 94.0,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d5/2",
+      "field_id": "f0190"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d5/2",
+        "partner": "U-5d3/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 8.6,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d5/2:splitting",
+      "field_id": "f0191"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d5/2",
+        "partner": "U-5d3/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 1.5,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d5/2:area_ratio",
+      "field_id": "f0192"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d5/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        92.5,
+        100.0
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d5/2:region",
+      "field_id": "f0193"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d5/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "moderate",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d5/2:vis:AlKa",
+      "field_id": "f0194"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d5/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d5/2:vis:MgKa",
+      "field_id": "f0195"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 102.6,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d3/2",
+      "field_id": "f0196"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d3/2",
+        "partner": "U-5d5/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 8.6,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d3/2:splitting",
+      "field_id": "f0197"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d3/2",
+        "partner": "U-5d5/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 0.6667,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d3/2:area_ratio",
+      "field_id": "f0198"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d3/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        101.1,
+        108.6
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d3/2:region",
+      "field_id": "f0199"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d3/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "moderate",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d3/2:vis:AlKa",
+      "field_id": "f0200"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5d3/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5d3/2:vis:MgKa",
+      "field_id": "f0201"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 194.8,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5p3/2",
+      "field_id": "f0202"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5p3/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        193.3,
+        200.8
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5p3/2:region",
+      "field_id": "f0203"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5p3/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "weak",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5p3/2:vis:AlKa",
+      "field_id": "f0204"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "5p3/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-5p3/2:vis:MgKa",
+      "field_id": "f0205"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p3/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 16.9,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p3/2",
+      "field_id": "f0206"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p3/2",
+        "partner": "U-6p1/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 10.0,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p3/2:splitting",
+      "field_id": "f0207"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p3/2",
+        "partner": "U-6p1/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 2.0,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p3/2:area_ratio",
+      "field_id": "f0208"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p3/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        15.4,
+        22.9
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p3/2:region",
+      "field_id": "f0209"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p3/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "weak",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p3/2:vis:AlKa",
+      "field_id": "f0210"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p3/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p3/2:vis:MgKa",
+      "field_id": "f0211"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p1/2",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 26.9,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p1/2",
+      "field_id": "f0212"
+    },
+    {
+      "kind": "curated-splitting",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p1/2",
+        "partner": "U-6p3/2",
+        "energy_type": "spin-orbit-splitting"
+      },
+      "current_value": 10.0,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p1/2:splitting",
+      "field_id": "f0213"
+    },
+    {
+      "kind": "curated-area-ratio",
+      "field_type": "area-ratio",
+      "evidence_policy": "physics-derived-degeneracy-validate",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p1/2",
+        "partner": "U-6p3/2",
+        "basis": "2j+1 degeneracy"
+      },
+      "current_value": 0.5,
+      "current_tier": "physics-derived",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p1/2:area_ratio",
+      "field_id": "f0214"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p1/2",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        25.4,
+        32.9
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p1/2:region",
+      "field_id": "f0215"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p1/2",
+        "source_label": "AlKa"
+      },
+      "current_value": "weak",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p1/2:vis:AlKa",
+      "field_id": "f0216"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6p1/2",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6p1/2:vis:MgKa",
+      "field_id": "f0217"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6s",
+        "transition_type": "photoelectron",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "binding-energy-nominal"
+      },
+      "current_value": 43.9,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6s",
+      "field_id": "f0218"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6s",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        42.4,
+        49.9
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6s:region",
+      "field_id": "f0219"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6s",
+        "source_label": "AlKa"
+      },
+      "current_value": "weak",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6s:vis:AlKa",
+      "field_id": "f0220"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "U",
+      "z": 92,
+      "context": {
+        "orbital": "6s",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "U-6s:vis:MgKa",
+      "field_id": "f0221"
+    },
+    {
+      "kind": "curated-transition",
+      "field_type": "quantitative-energy",
+      "evidence_policy": "dual-extract-authoritative",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "L3M4,5M4,5",
+        "transition_type": "auger",
+        "reference_state": "elemental-nominal",
+        "calibration_convention": "corrected-BE-frame",
+        "photon_source": "source-invariant",
+        "energy_type": "auger-kinetic-energy"
+      },
+      "current_value": 918.62,
+      "current_tier": "curated-hand-verified",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-L3M4,5M4,5",
+      "field_id": "f0222"
+    },
+    {
+      "kind": "curated-expected-region",
+      "field_type": "expected-region",
+      "evidence_policy": "curated-summary-multi-observation",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "L3M4,5M4,5",
+        "basis": "conservative-fallback"
+      },
+      "current_value": [
+        915.5,
+        919.5
+      ],
+      "current_tier": "curated-summary",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-L3M4,5M4,5:region",
+      "field_id": "f0223"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "L3M4,5M4,5",
+        "source_label": "AlKa"
+      },
+      "current_value": "major",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-L3M4,5M4,5:vis:AlKa",
+      "field_id": "f0224"
+    },
+    {
+      "kind": "curated-visibility",
+      "field_type": "visibility",
+      "evidence_policy": "editorial-carry-no-verify",
+      "element": "Cu",
+      "z": 29,
+      "context": {
+        "orbital": "L3M4,5M4,5",
+        "source_label": "MgKa"
+      },
+      "current_value": "uncurated",
+      "current_tier": "editorial",
+      "current_source": "nist-srd-20",
+      "record_id": "Cu-L3M4,5M4,5:vis:MgKa",
+      "field_id": "f0225"
+    }
+  ]
+}

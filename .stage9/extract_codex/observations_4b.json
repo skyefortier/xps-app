@@ -1,0 +1,2842 @@
+{
+ "observations": [
+  {
+   "field_id": "f0000",
+   "values": [
+    {
+     "be_ev": 55.35,
+     "nist_ref": "SHSX90"
+    },
+    {
+     "be_ev": 55.1,
+     "nist_ref": "SHSX90"
+    },
+    {
+     "be_ev": 54.8,
+     "nist_ref": "KLMP73"
+    },
+    {
+     "be_ev": 54.6,
+     "nist_ref": "CSFG79"
+    },
+    {
+     "be_ev": 54.9,
+     "nist_ref": "WVB80"
+    }
+   ],
+   "status": "extracted",
+   "element": "Li",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0010",
+   "values": [
+    {
+     "be_ev": 1303.5,
+     "nist_ref": "FWFA75"
+    },
+    {
+     "be_ev": 1303,
+     "nist_ref": "LMKJ75"
+    },
+    {
+     "be_ev": 1303.8,
+     "nist_ref": "YaWe83"
+    },
+    {
+     "be_ev": 1303.2,
+     "nist_ref": "ThWe86"
+    },
+    {
+     "be_ev": 1303.4,
+     "nist_ref": "SRHH78"
+    },
+    {
+     "be_ev": 1303.2,
+     "nist_ref": "JWHD84"
+    },
+    {
+     "be_ev": 1303.2,
+     "nist_ref": "Fugg77"
+    },
+    {
+     "be_ev": 1303,
+     "nist_ref": "HAS75"
+    }
+   ],
+   "status": "extracted",
+   "element": "Mg",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0011",
+   "values": [
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "FWFA75"
+    },
+    {
+     "be_ev": 1185.9,
+     "nist_ref": "VaTr79a"
+    },
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "YaWe83"
+    },
+    {
+     "be_ev": 1185.7,
+     "nist_ref": "HFV77"
+    },
+    {
+     "be_ev": 1185.3,
+     "nist_ref": "LMKJ75"
+    },
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "SRHH78"
+    },
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 1185.8,
+     "nist_ref": "ThWe86"
+    },
+    {
+     "be_ev": 1184.9,
+     "nist_ref": "CDN77"
+    }
+   ],
+   "status": "extracted",
+   "element": "Mg",
+   "orbital": "KLL"
+  },
+  {
+   "field_id": "f0023",
+   "values": [
+    {
+     "be_ev": 453.98,
+     "nist_ref": "Powe95"
+    },
+    {
+     "be_ev": 454.0,
+     "nist_ref": "EBMW88"
+    },
+    {
+     "be_ev": 454.3,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 454,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 453.2,
+     "nist_ref": "SPB76a"
+    },
+    {
+     "be_ev": 454.0,
+     "nist_ref": "BSM89"
+    },
+    {
+     "be_ev": 453.89,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 453.8,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 453.73,
+     "nist_ref": "ALMP82"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ti",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0031",
+   "values": [
+    {
+     "be_ev": 1021.81,
+     "nist_ref": "Powe95"
+    },
+    {
+     "be_ev": 1021.65,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 1021.9,
+     "nist_ref": "KLMP74"
+    },
+    {
+     "be_ev": 1021.7,
+     "nist_ref": "Evan85"
+    },
+    {
+     "be_ev": 1020.8,
+     "nist_ref": "ChHa78"
+    },
+    {
+     "be_ev": 1021.9,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 1021.9,
+     "nist_ref": "Scho73a"
+    },
+    {
+     "be_ev": 1021.82,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 1021.7,
+     "nist_ref": "KlHe83"
+    },
+    {
+     "be_ev": 1021.6,
+     "nist_ref": "KPML73"
+    },
+    {
+     "be_ev": 1021.7,
+     "nist_ref": "WMA83"
+    },
+    {
+     "be_ev": 1021,
+     "nist_ref": "StHe84a"
+    },
+    {
+     "be_ev": 1022.1,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 1021.6,
+     "nist_ref": "MaDu77"
+    },
+    {
+     "be_ev": 1021.96,
+     "nist_ref": "LKMP73"
+    },
+    {
+     "be_ev": 1021.6,
+     "nist_ref": "DBZ89"
+    }
+   ],
+   "status": "extracted",
+   "element": "Zn",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0039",
+   "values": [
+    {
+     "be_ev": 178.78,
+     "nist_ref": "Powe95"
+    },
+    {
+     "be_ev": 179.2,
+     "nist_ref": "BaSi90"
+    },
+    {
+     "be_ev": 179.2,
+     "nist_ref": "SBS86"
+    },
+    {
+     "be_ev": 179.0,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 179.0,
+     "nist_ref": "WOGB89"
+    },
+    {
+     "be_ev": 179.3,
+     "nist_ref": "SBS87"
+    },
+    {
+     "be_ev": 178.8,
+     "nist_ref": "deGa88"
+    },
+    {
+     "be_ev": 178.29,
+     "nist_ref": "MSGS89"
+    },
+    {
+     "be_ev": 179.0,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 178.9,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 179,
+     "nist_ref": "BaSa84"
+    },
+    {
+     "be_ev": 179.3,
+     "nist_ref": "BSM89"
+    },
+    {
+     "be_ev": 179,
+     "nist_ref": "SaBa85"
+    },
+    {
+     "be_ev": 178.3,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 178.52,
+     "nist_ref": "MSGS89"
+    },
+    {
+     "be_ev": 178.79,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 178.9,
+     "nist_ref": "KKMP88"
+    }
+   ],
+   "status": "extracted",
+   "element": "Zr",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0047",
+   "values": [
+    {
+     "be_ev": 573.03,
+     "nist_ref": "Powe95"
+    },
+    {
+     "be_ev": 573.5,
+     "nist_ref": "RWW84"
+    },
+    {
+     "be_ev": 572.7,
+     "nist_ref": "SWH71"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "SRHR79z"
+    },
+    {
+     "be_ev": 572.7,
+     "nist_ref": "SNRS76z"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "SCT73"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 573.54,
+     "nist_ref": "WRW83"
+    },
+    {
+     "be_ev": 572.85,
+     "nist_ref": "PVVA79"
+    },
+    {
+     "be_ev": 572.98,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 572.7,
+     "nist_ref": "MaBa90"
+    },
+    {
+     "be_ev": 573.4,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 572.85,
+     "nist_ref": "LTMP83"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "HKMP74z"
+    },
+    {
+     "be_ev": 573.54,
+     "nist_ref": "RWW84"
+    },
+    {
+     "be_ev": 573.2,
+     "nist_ref": "Bahl75"
+    },
+    {
+     "be_ev": 572.1,
+     "nist_ref": "TIWB72"
+    },
+    {
+     "be_ev": 573.1,
+     "nist_ref": "BaWa77"
+    },
+    {
+     "be_ev": 573,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 573.05,
+     "nist_ref": "SGR90"
+    }
+   ],
+   "status": "extracted",
+   "element": "Te",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0055",
+   "values": [
+    {
+     "be_ev": 83.83,
+     "nist_ref": "DuBo89"
+    },
+    {
+     "be_ev": 83.98,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 84.0,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 84.04,
+     "nist_ref": "ThWe86"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 84.22,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 83.97,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 84.07,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 83.8,
+     "nist_ref": "HKNN71"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 84.1,
+     "nist_ref": "PEJ82"
+    },
+    {
+     "be_ev": 83.98,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "MKLP73"
+    },
+    {
+     "be_ev": 83.86,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 83.98,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 83.81,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 83.74,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 84.21,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 83.8,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 83.7,
+     "nist_ref": "FKWF77"
+    }
+   ],
+   "status": "extracted",
+   "element": "Au",
+   "orbital": "4f"
+  },
+  {
+   "field_id": "f0001",
+   "values": [
+    {
+     "be_ev": 111.6,
+     "nist_ref": "HJGN70"
+    },
+    {
+     "be_ev": 111.8,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 111.3,
+     "nist_ref": "SHH78"
+    },
+    {
+     "be_ev": 111.85,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Be",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0012",
+   "values": [
+    {
+     "be_ev": 72.5,
+     "nist_ref": "MSWB87"
+    },
+    {
+     "be_ev": 73.0,
+     "nist_ref": "PHF89"
+    },
+    {
+     "be_ev": 72.7,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 72.1,
+     "nist_ref": "KPSL83"
+    },
+    {
+     "be_ev": 72.7,
+     "nist_ref": "WaTa80z"
+    },
+    {
+     "be_ev": 72.5,
+     "nist_ref": "ScLa79"
+    },
+    {
+     "be_ev": 72.9,
+     "nist_ref": "CaRo78"
+    },
+    {
+     "be_ev": 71.8,
+     "nist_ref": "KlHe83"
+    },
+    {
+     "be_ev": 72.8,
+     "nist_ref": "SHH78"
+    },
+    {
+     "be_ev": 73,
+     "nist_ref": "VaTr78a"
+    },
+    {
+     "be_ev": 72.84,
+     "nist_ref": "LMKJ75"
+    },
+    {
+     "be_ev": 72.85,
+     "nist_ref": "Tayl82"
+    },
+    {
+     "be_ev": 72.85,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 72.92,
+     "nist_ref": "WPHK82z"
+    },
+    {
+     "be_ev": 72.8,
+     "nist_ref": "TaRa81"
+    },
+    {
+     "be_ev": 72.87,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Al",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0024",
+   "values": [
+    {
+     "be_ev": 512.6,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 512.15,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 512.9,
+     "nist_ref": "KKL83"
+    },
+    {
+     "be_ev": 512.3,
+     "nist_ref": "CGR78"
+    },
+    {
+     "be_ev": 512.4,
+     "nist_ref": "SaPo79"
+    },
+    {
+     "be_ev": 512.3,
+     "nist_ref": "RoRo76"
+    },
+    {
+     "be_ev": 512.4,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 512.14,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 512.7,
+     "nist_ref": "FrSa75"
+    },
+    {
+     "be_ev": 512.4,
+     "nist_ref": "LFS73z"
+    }
+   ],
+   "status": "extracted",
+   "element": "V",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0032",
+   "values": [
+    {
+     "be_ev": 1118.1,
+     "nist_ref": "RRD78a"
+    },
+    {
+     "be_ev": 1117,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 1116.67,
+     "nist_ref": "Evan85"
+    },
+    {
+     "be_ev": 1116.5,
+     "nist_ref": "Scho73a"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ga",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0040",
+   "values": [
+    {
+     "be_ev": 202.5,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 202.26,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "SaBa85"
+    },
+    {
+     "be_ev": 202.1,
+     "nist_ref": "MSC73"
+    },
+    {
+     "be_ev": 202.6,
+     "nist_ref": "FCFG77"
+    },
+    {
+     "be_ev": 202.2,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 201.6,
+     "nist_ref": "GSS84z"
+    },
+    {
+     "be_ev": 201.8,
+     "nist_ref": "Bahl75"
+    },
+    {
+     "be_ev": 201.5,
+     "nist_ref": "SPB76"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "BaSa84"
+    },
+    {
+     "be_ev": 202.2,
+     "nist_ref": "DaHa87"
+    },
+    {
+     "be_ev": 202.34,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Nb",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0048",
+   "values": [
+    {
+     "be_ev": 619.9,
+     "nist_ref": "Sher76"
+    },
+    {
+     "be_ev": 627.2,
+     "nist_ref": "SSM86"
+    },
+    {
+     "be_ev": 619.9,
+     "nist_ref": "DMKK84z"
+    },
+    {
+     "be_ev": 620.8,
+     "nist_ref": "HSPB78"
+    },
+    {
+     "be_ev": 628.2,
+     "nist_ref": "SSM86"
+    }
+   ],
+   "status": "extracted",
+   "element": "I",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0056",
+   "values": [
+    {
+     "be_ev": 136.9,
+     "nist_ref": "BMV92"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 137,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "Pede82"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "OCH79"
+    },
+    {
+     "be_ev": 136.7,
+     "nist_ref": "TLR78"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "BeFl80"
+    },
+    {
+     "be_ev": 137.9,
+     "nist_ref": "MoVa73"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "MWM77"
+    },
+    {
+     "be_ev": 136.9,
+     "nist_ref": "TaPe84"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "KiWi73"
+    },
+    {
+     "be_ev": 137,
+     "nist_ref": "BJP79"
+    },
+    {
+     "be_ev": 136.9,
+     "nist_ref": "MaBa90"
+    },
+    {
+     "be_ev": 136.78,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 136.4,
+     "nist_ref": "LKMP73"
+    },
+    {
+     "be_ev": 137,
+     "nist_ref": "WaTa80z"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "KOW73"
+    },
+    {
+     "be_ev": 136.85,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Pb",
+   "orbital": "4f"
+  },
+  {
+   "field_id": "f0002",
+   "values": [
+    {
+     "be_ev": 187.8,
+     "nist_ref": "GoHi88"
+    },
+    {
+     "be_ev": 188.4,
+     "nist_ref": "CGHA90"
+    },
+    {
+     "be_ev": 187.3,
+     "nist_ref": "HHJ70z"
+    },
+    {
+     "be_ev": 186.4,
+     "nist_ref": "BBBG88"
+    },
+    {
+     "be_ev": 186.5,
+     "nist_ref": "SMS80"
+    }
+   ],
+   "status": "extracted",
+   "element": "B",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0013",
+   "values": [
+    {
+     "be_ev": 99.85,
+     "nist_ref": "MWDR91"
+    },
+    {
+     "be_ev": 99.34,
+     "nist_ref": "Powe95"
+    },
+    {
+     "be_ev": 99.45,
+     "nist_ref": "BOUB87b"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "BOUB87b"
+    },
+    {
+     "be_ev": 99.06,
+     "nist_ref": "GMML90"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "WOT86"
+    },
+    {
+     "be_ev": 99.0,
+     "nist_ref": "EBMd86"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.15,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.15,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "BCPV89"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "BrTh88"
+    },
+    {
+     "be_ev": 102.7,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 99.81,
+     "nist_ref": "InZa90"
+    },
+    {
+     "be_ev": 99.3,
+     "nist_ref": "BRP90"
+    },
+    {
+     "be_ev": 99.79,
+     "nist_ref": "InZa90"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "Holl81"
+    },
+    {
+     "be_ev": 99.55,
+     "nist_ref": "CPT83"
+    },
+    {
+     "be_ev": 99.44,
+     "nist_ref": "WPHK82z"
+    }
+   ],
+   "status": "extracted",
+   "element": "Si",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0014",
+   "values": [
+    {
+     "be_ev": 150.5,
+     "nist_ref": "PLA91"
+    },
+    {
+     "be_ev": 150.7,
+     "nist_ref": "BPC88"
+    },
+    {
+     "be_ev": 150.7,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 150.7,
+     "nist_ref": "Ogam88"
+    }
+   ],
+   "status": "extracted",
+   "element": "Si",
+   "orbital": "2s"
+  },
+  {
+   "field_id": "f0025",
+   "values": [
+    {
+     "be_ev": 574,
+     "nist_ref": "LeMi84"
+    },
+    {
+     "be_ev": 574.4,
+     "nist_ref": "MMP82"
+    },
+    {
+     "be_ev": 574.2,
+     "nist_ref": "ATW78"
+    },
+    {
+     "be_ev": 573.9,
+     "nist_ref": "DAEC79"
+    },
+    {
+     "be_ev": 574.26,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 574.6,
+     "nist_ref": "NYI89"
+    },
+    {
+     "be_ev": 573.8,
+     "nist_ref": "Shut80"
+    },
+    {
+     "be_ev": 574.18,
+     "nist_ref": "AsHa77"
+    },
+    {
+     "be_ev": 574.7,
+     "nist_ref": "Conn78"
+    },
+    {
+     "be_ev": 574.2,
+     "nist_ref": "DMZR88"
+    },
+    {
+     "be_ev": 574.2,
+     "nist_ref": "RoRo76"
+    },
+    {
+     "be_ev": 574.3,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 573.9,
+     "nist_ref": "DAEC79"
+    },
+    {
+     "be_ev": 573.8,
+     "nist_ref": "AlTu76z"
+    },
+    {
+     "be_ev": 574.4,
+     "nist_ref": "LaKe76"
+    },
+    {
+     "be_ev": 574.35,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Cr",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0033",
+   "values": [
+    {
+     "be_ev": 1217.2,
+     "nist_ref": "TLR78"
+    },
+    {
+     "be_ev": 1217.28,
+     "nist_ref": "Evan85"
+    },
+    {
+     "be_ev": 1217.4,
+     "nist_ref": "MoVa73"
+    },
+    {
+     "be_ev": 1217.2,
+     "nist_ref": "McWe76"
+    },
+    {
+     "be_ev": 1217.6,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 1217.38,
+     "nist_ref": "Evan85"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ge",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0041",
+   "values": [
+    {
+     "be_ev": 228.0,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 228.0,
+     "nist_ref": "MiWe88"
+    },
+    {
+     "be_ev": 228.0,
+     "nist_ref": "WuCh88"
+    },
+    {
+     "be_ev": 227.95,
+     "nist_ref": "MJCD90"
+    },
+    {
+     "be_ev": 227.9,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "WaTa80z"
+    },
+    {
+     "be_ev": 227.9,
+     "nist_ref": "BrOl88"
+    },
+    {
+     "be_ev": 227.4,
+     "nist_ref": "PKLJ73"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "CGR78"
+    },
+    {
+     "be_ev": 227.6,
+     "nist_ref": "BrWh78"
+    },
+    {
+     "be_ev": 227.5,
+     "nist_ref": "TVG76"
+    },
+    {
+     "be_ev": 226.1,
+     "nist_ref": "SwHe71z"
+    },
+    {
+     "be_ev": 228.6,
+     "nist_ref": "SFM80"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "GrMa75z"
+    },
+    {
+     "be_ev": 227.6,
+     "nist_ref": "DYBG83"
+    },
+    {
+     "be_ev": 227.8,
+     "nist_ref": "CiDe75"
+    },
+    {
+     "be_ev": 227.94,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 227.6,
+     "nist_ref": "ZMTB80"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "KBAW74"
+    },
+    {
+     "be_ev": 228.2,
+     "nist_ref": "FlMa82a"
+    }
+   ],
+   "status": "extracted",
+   "element": "Mo",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0049",
+   "values": [
+    {
+     "be_ev": 780.6,
+     "nist_ref": "KoGr85"
+    },
+    {
+     "be_ev": 779.3,
+     "nist_ref": "VaVe80"
+    },
+    {
+     "be_ev": 779.8,
+     "nist_ref": "LRLH82"
+    },
+    {
+     "be_ev": 780.72,
+     "nist_ref": "HMW90"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ba",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0057",
+   "values": [
+    {
+     "be_ev": 157.1,
+     "nist_ref": "IsHa86"
+    },
+    {
+     "be_ev": 156.9,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 156.6,
+     "nist_ref": "MWM77"
+    },
+    {
+     "be_ev": 156.9,
+     "nist_ref": "MSV73"
+    },
+    {
+     "be_ev": 157,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 156.88,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 157,
+     "nist_ref": "LKMP73"
+    },
+    {
+     "be_ev": 156.85,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 157.12,
+     "nist_ref": "DSBG82"
+    },
+    {
+     "be_ev": 156.96,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Bi",
+   "orbital": "4f"
+  },
+  {
+   "field_id": "f0003",
+   "values": [
+    {
+     "be_ev": 284.5,
+     "nist_ref": "EsRo92"
+    },
+    {
+     "be_ev": 284.42,
+     "nist_ref": "EsRo92"
+    },
+    {
+     "be_ev": 285.18,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 284.29,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 285.18,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 284.18,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 284.4,
+     "nist_ref": "EsRo88"
+    },
+    {
+     "be_ev": 284.8,
+     "nist_ref": "BaVa89"
+    },
+    {
+     "be_ev": 284.5,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 286.9,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 284.6,
+     "nist_ref": "PCER89"
+    },
+    {
+     "be_ev": 284.45,
+     "nist_ref": "WVB80"
+    },
+    {
+     "be_ev": 284.3,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 284.5,
+     "nist_ref": "SmBl84"
+    },
+    {
+     "be_ev": 284.31,
+     "nist_ref": "KeKl76"
+    },
+    {
+     "be_ev": 284.6,
+     "nist_ref": "Tayl78"
+    },
+    {
+     "be_ev": 282.0,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 284.7,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 286.0,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 284.44,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "C",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0015",
+   "values": [
+    {
+     "be_ev": 130.25,
+     "nist_ref": "FCSM91"
+    },
+    {
+     "be_ev": 129.9,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 130.1,
+     "nist_ref": "TSSS83"
+    },
+    {
+     "be_ev": 130.9,
+     "nist_ref": "PHHJ70z"
+    },
+    {
+     "be_ev": 130,
+     "nist_ref": "ScBr81"
+    },
+    {
+     "be_ev": 130.35,
+     "nist_ref": "OSBG83"
+    },
+    {
+     "be_ev": 130,
+     "nist_ref": "NSDU75"
+    },
+    {
+     "be_ev": 129.9,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 130.2,
+     "nist_ref": "FlWe74"
+    },
+    {
+     "be_ev": 129.96,
+     "nist_ref": "AKHM84"
+    },
+    {
+     "be_ev": 130.45,
+     "nist_ref": "FCSM91"
+    },
+    {
+     "be_ev": 130.01,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "P",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0026",
+   "values": [
+    {
+     "be_ev": 638.78,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 640.7,
+     "nist_ref": "ADP78"
+    },
+    {
+     "be_ev": 638.8,
+     "nist_ref": "MaBa90"
+    },
+    {
+     "be_ev": 638.8,
+     "nist_ref": "HuRa81"
+    },
+    {
+     "be_ev": 639.0,
+     "nist_ref": "DiPo89"
+    },
+    {
+     "be_ev": 641,
+     "nist_ref": "MBDS84"
+    },
+    {
+     "be_ev": 638.9,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 639,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 640.8,
+     "nist_ref": "INZI82"
+    },
+    {
+     "be_ev": 640.9,
+     "nist_ref": "Aoki76"
+    },
+    {
+     "be_ev": 638.89,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Mn",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0034",
+   "values": [
+    {
+     "be_ev": 41.4,
+     "nist_ref": "MRV82"
+    },
+    {
+     "be_ev": 41.65,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "As",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0042",
+   "values": [
+    {
+     "be_ev": 368.26,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 368.27,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "Scho73"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "Kaus91"
+    },
+    {
+     "be_ev": 368.23,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "HKNN71"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 368.22,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 368.3,
+     "nist_ref": "Scho72"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 368.21,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 368.29,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 368.16,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "WeAn80a"
+    },
+    {
+     "be_ev": 368.27,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 367.9,
+     "nist_ref": "FKWF77"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "HGW75"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ag",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0050",
+   "values": [
+    {
+     "be_ev": 835.9,
+     "nist_ref": "ScSc82"
+    },
+    {
+     "be_ev": 835.9,
+     "nist_ref": "SOS82"
+    }
+   ],
+   "status": "extracted",
+   "element": "La",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0058",
+   "values": [
+    {
+     "be_ev": 333.8,
+     "nist_ref": "HHHK89"
+    },
+    {
+     "be_ev": 333.1,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 333.1,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 333.1,
+     "nist_ref": "MCSS82"
+    },
+    {
+     "be_ev": 333.25,
+     "nist_ref": "WRDM79"
+    }
+   ],
+   "status": "extracted",
+   "element": "Th",
+   "orbital": "4f"
+  },
+  {
+   "field_id": "f0004",
+   "values": [
+    {
+     "be_ev": 399.9,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 398.7,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 398.9,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 398.0,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 399.9,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 399.3,
+     "nist_ref": "ZBLP88"
+    }
+   ],
+   "status": "extracted",
+   "element": "N",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0016",
+   "values": [
+    {
+     "be_ev": 163.7,
+     "nist_ref": "KGG90"
+    },
+    {
+     "be_ev": 164.4,
+     "nist_ref": "MaPa77"
+    },
+    {
+     "be_ev": 164.25,
+     "nist_ref": "RiVe83z"
+    },
+    {
+     "be_ev": 164.15,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 164,
+     "nist_ref": "SNRS76z"
+    },
+    {
+     "be_ev": 162.9,
+     "nist_ref": "HKMP74z"
+    },
+    {
+     "be_ev": 164.8,
+     "nist_ref": "TIWB72"
+    },
+    {
+     "be_ev": 163.1,
+     "nist_ref": "YLWC90"
+    },
+    {
+     "be_ev": 164.1,
+     "nist_ref": "Brio80"
+    },
+    {
+     "be_ev": 164,
+     "nist_ref": "LHJG70z"
+    }
+   ],
+   "status": "extracted",
+   "element": "S",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0017",
+   "values": [
+    {
+     "be_ev": 229.2,
+     "nist_ref": "TIWB72"
+    }
+   ],
+   "status": "extracted",
+   "element": "S",
+   "orbital": "2s"
+  },
+  {
+   "field_id": "f0027",
+   "values": [
+    {
+     "be_ev": 707.1,
+     "nist_ref": "SBS86"
+    },
+    {
+     "be_ev": 707.0,
+     "nist_ref": "AnHo89"
+    },
+    {
+     "be_ev": 708.7,
+     "nist_ref": "SiCo85a"
+    },
+    {
+     "be_ev": 706.9,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 707.3,
+     "nist_ref": "ErWa75"
+    },
+    {
+     "be_ev": 707.5,
+     "nist_ref": "Conn78"
+    },
+    {
+     "be_ev": 706.74,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 706.88,
+     "nist_ref": "AsHa77"
+    },
+    {
+     "be_ev": 706.8,
+     "nist_ref": "KoNa80"
+    },
+    {
+     "be_ev": 706.82,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 707.3,
+     "nist_ref": "ACHT74"
+    },
+    {
+     "be_ev": 707,
+     "nist_ref": "McZe77"
+    },
+    {
+     "be_ev": 706.5,
+     "nist_ref": "MiSu83"
+    },
+    {
+     "be_ev": 706.8,
+     "nist_ref": "KMI81"
+    },
+    {
+     "be_ev": 706.8,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 707.4,
+     "nist_ref": "PaEg84"
+    },
+    {
+     "be_ev": 707.9,
+     "nist_ref": "ShTr75"
+    },
+    {
+     "be_ev": 707.1,
+     "nist_ref": "JJH80"
+    },
+    {
+     "be_ev": 706.5,
+     "nist_ref": "HaDe87"
+    },
+    {
+     "be_ev": 706.7,
+     "nist_ref": "BiBe86"
+    }
+   ],
+   "status": "extracted",
+   "element": "Fe",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0035",
+   "values": [
+    {
+     "be_ev": 55.5,
+     "nist_ref": "UeOd82"
+    },
+    {
+     "be_ev": 54.9,
+     "nist_ref": "Bahl75"
+    },
+    {
+     "be_ev": 56.7,
+     "nist_ref": "TIWB72"
+    },
+    {
+     "be_ev": 55.2,
+     "nist_ref": "CIKT85"
+    },
+    {
+     "be_ev": 54.7,
+     "nist_ref": "IKYK82z"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "SSL86"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "KJID81"
+    },
+    {
+     "be_ev": 55.7,
+     "nist_ref": "MTHB71z"
+    },
+    {
+     "be_ev": 55.9,
+     "nist_ref": "MBDS84"
+    },
+    {
+     "be_ev": 54.7,
+     "nist_ref": "MTT84z"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "TSH84"
+    },
+    {
+     "be_ev": 55.2,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 54.9,
+     "nist_ref": "ITI82"
+    },
+    {
+     "be_ev": 55.6,
+     "nist_ref": "WSP77"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "UeOd81"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "Ueno83"
+    },
+    {
+     "be_ev": 55.2,
+     "nist_ref": "STKS85"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 57.5,
+     "nist_ref": "SRHR79z"
+    },
+    {
+     "be_ev": 55.64,
+     "nist_ref": "TCCW85"
+    }
+   ],
+   "status": "extracted",
+   "element": "Se",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0043",
+   "values": [
+    {
+     "be_ev": 405.04,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 404.6,
+     "nist_ref": "SHR82"
+    },
+    {
+     "be_ev": 404.9,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 405,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 404.6,
+     "nist_ref": "SATD73"
+    },
+    {
+     "be_ev": 405.3,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 404.9,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 405,
+     "nist_ref": "HGW75"
+    },
+    {
+     "be_ev": 405.15,
+     "nist_ref": "NyMa81"
+    },
+    {
+     "be_ev": 404.78,
+     "nist_ref": "SeSi86"
+    },
+    {
+     "be_ev": 405.12,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Cd",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0051",
+   "values": [
+    {
+     "be_ev": 883.9,
+     "nist_ref": "ScOs82"
+    },
+    {
+     "be_ev": 883.9,
+     "nist_ref": "SOS82"
+    },
+    {
+     "be_ev": 883.2,
+     "nist_ref": "PKHL80"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ce",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0059",
+   "values": [
+    {
+     "be_ev": 377.6,
+     "nist_ref": "WCSW86"
+    },
+    {
+     "be_ev": 377.6,
+     "nist_ref": "WCSW87"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 376.5,
+     "nist_ref": "HoTh79"
+    },
+    {
+     "be_ev": 380.2,
+     "nist_ref": "ChGr72"
+    },
+    {
+     "be_ev": 377.2,
+     "nist_ref": "MCSS82"
+    },
+    {
+     "be_ev": 377.1,
+     "nist_ref": "ACCT74"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 377,
+     "nist_ref": "AlTu73"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "DMKK84z"
+    },
+    {
+     "be_ev": 376.9,
+     "nist_ref": "VRPC74"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 377.1,
+     "nist_ref": "Chad73"
+    }
+   ],
+   "status": "extracted",
+   "element": "U",
+   "orbital": "4f"
+  },
+  {
+   "field_id": "f0060",
+   "values": [
+    {
+     "be_ev": 736,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 736.4,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 736.8,
+     "nist_ref": "ACCT74"
+    },
+    {
+     "be_ev": 736.7,
+     "nist_ref": "AlTu73"
+    }
+   ],
+   "status": "extracted",
+   "element": "U",
+   "orbital": "4d"
+  },
+  {
+   "field_id": "f0061",
+   "values": [
+    {
+     "be_ev": 94,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 94.2,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 93.6,
+     "nist_ref": "AlTu73"
+    }
+   ],
+   "status": "extracted",
+   "element": "U",
+   "orbital": "5d"
+  },
+  {
+   "field_id": "f0005",
+   "values": [
+    {
+     "be_ev": 532.9,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "KBG90"
+    },
+    {
+     "be_ev": 532.9,
+     "nist_ref": "KBG90"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "WVBM87"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "WVBM87"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 533.0,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 531.4,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "FPT88"
+    },
+    {
+     "be_ev": 531.4,
+     "nist_ref": "FPT88"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "FPT88"
+    },
+    {
+     "be_ev": 532.7,
+     "nist_ref": "KeSc90"
+    },
+    {
+     "be_ev": 531.6,
+     "nist_ref": "RaDe91"
+    }
+   ],
+   "status": "extracted",
+   "element": "O",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0006",
+   "values": [],
+   "status": "no-matching-line",
+   "element": "O",
+   "orbital": "KLL"
+  },
+  {
+   "field_id": "f0018",
+   "values": [
+    {
+     "be_ev": 198.3,
+     "nist_ref": "TPPF90"
+    }
+   ],
+   "status": "extracted",
+   "element": "Cl",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0019",
+   "values": [],
+   "status": "no-matching-line",
+   "element": "Cl",
+   "orbital": "2s"
+  },
+  {
+   "field_id": "f0028",
+   "values": [
+    {
+     "be_ev": 778,
+     "nist_ref": "McCo75"
+    },
+    {
+     "be_ev": 778.3,
+     "nist_ref": "AnHo89"
+    },
+    {
+     "be_ev": 777.9,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 778.32,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 778.5,
+     "nist_ref": "MBDS84"
+    },
+    {
+     "be_ev": 778.1,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 778.5,
+     "nist_ref": "ACCC82"
+    },
+    {
+     "be_ev": 778.2,
+     "nist_ref": "HaUn77"
+    },
+    {
+     "be_ev": 777.8,
+     "nist_ref": "MJCD90"
+    },
+    {
+     "be_ev": 778.35,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Co",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0044",
+   "values": [
+    {
+     "be_ev": 443.8,
+     "nist_ref": "SHR82"
+    },
+    {
+     "be_ev": 443.6,
+     "nist_ref": "Hegd82"
+    },
+    {
+     "be_ev": 443.7,
+     "nist_ref": "HeWi80"
+    },
+    {
+     "be_ev": 443.6,
+     "nist_ref": "Bert81"
+    },
+    {
+     "be_ev": 443.3,
+     "nist_ref": "OSBG83"
+    },
+    {
+     "be_ev": 443.84,
+     "nist_ref": "PVVA79"
+    },
+    {
+     "be_ev": 443.15,
+     "nist_ref": "LTMP83"
+    },
+    {
+     "be_ev": 443.86,
+     "nist_ref": "NyMa81"
+    },
+    {
+     "be_ev": 444.3,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 443.6,
+     "nist_ref": "KISC80"
+    },
+    {
+     "be_ev": 444,
+     "nist_ref": "CIKT85"
+    },
+    {
+     "be_ev": 444,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 444.6,
+     "nist_ref": "MSC73"
+    },
+    {
+     "be_ev": 443.4,
+     "nist_ref": "CFRS80"
+    },
+    {
+     "be_ev": 443.8,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 443.8,
+     "nist_ref": "CKLN78"
+    },
+    {
+     "be_ev": 443.75,
+     "nist_ref": "KJID81"
+    },
+    {
+     "be_ev": 444,
+     "nist_ref": "LAK77"
+    },
+    {
+     "be_ev": 443.88,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "In",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0020",
+   "values": [
+    {
+     "be_ev": 294.7,
+     "nist_ref": "PeKa77"
+    }
+   ],
+   "status": "extracted",
+   "element": "K",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0021",
+   "values": [
+    {
+     "be_ev": 379.2,
+     "nist_ref": "PeKa77"
+    }
+   ],
+   "status": "extracted",
+   "element": "K",
+   "orbital": "2s"
+  },
+  {
+   "field_id": "f0029",
+   "values": [
+    {
+     "be_ev": 852.8,
+     "nist_ref": "KiFu90"
+    },
+    {
+     "be_ev": 852.9,
+     "nist_ref": "ChHa78"
+    },
+    {
+     "be_ev": 853.3,
+     "nist_ref": "Conn78"
+    },
+    {
+     "be_ev": 852.73,
+     "nist_ref": "ALMP82"
+    },
+    {
+     "be_ev": 852.9,
+     "nist_ref": "KiWi74a"
+    },
+    {
+     "be_ev": 853.8,
+     "nist_ref": "GMS72z"
+    },
+    {
+     "be_ev": 852.5,
+     "nist_ref": "McCo75"
+    },
+    {
+     "be_ev": 852.8,
+     "nist_ref": "PEJ82"
+    },
+    {
+     "be_ev": 853,
+     "nist_ref": "LoSt84"
+    },
+    {
+     "be_ev": 852.8,
+     "nist_ref": "ShRe79"
+    },
+    {
+     "be_ev": 852,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 852.5,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 852.4,
+     "nist_ref": "CGGM81"
+    },
+    {
+     "be_ev": 853,
+     "nist_ref": "SMSB81"
+    },
+    {
+     "be_ev": 852.2,
+     "nist_ref": "FML85"
+    },
+    {
+     "be_ev": 852.65,
+     "nist_ref": "HFBZ82"
+    },
+    {
+     "be_ev": 853.5,
+     "nist_ref": "EHKT80"
+    },
+    {
+     "be_ev": 852.5,
+     "nist_ref": "KlHe83"
+    },
+    {
+     "be_ev": 852.6,
+     "nist_ref": "LPH84"
+    },
+    {
+     "be_ev": 852.8,
+     "nist_ref": "MBDS84"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ni",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0037",
+   "values": [
+    {
+     "be_ev": 134.2,
+     "nist_ref": "Vasq91"
+    },
+    {
+     "be_ev": 134.4,
+     "nist_ref": "VaVe80"
+    }
+   ],
+   "status": "extracted",
+   "element": "Sr",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0045",
+   "values": [
+    {
+     "be_ev": 484.7,
+     "nist_ref": "FaGo77"
+    },
+    {
+     "be_ev": 484.6,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 484.9,
+     "nist_ref": "LAK77"
+    },
+    {
+     "be_ev": 485.2,
+     "nist_ref": "OCH79"
+    },
+    {
+     "be_ev": 484.3,
+     "nist_ref": "ADPS77"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 484.7,
+     "nist_ref": "ThSh78"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "Shut80"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 485.1,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 484.85,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 484.6,
+     "nist_ref": "Hegd82"
+    },
+    {
+     "be_ev": 485,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 485,
+     "nist_ref": "SHR82"
+    },
+    {
+     "be_ev": 486.72,
+     "nist_ref": "WaHu74"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "BVWW80"
+    },
+    {
+     "be_ev": 486.1,
+     "nist_ref": "WaHu74"
+    },
+    {
+     "be_ev": 484.4,
+     "nist_ref": "WVV79z"
+    },
+    {
+     "be_ev": 484.87,
+     "nist_ref": "VeCa85"
+    },
+    {
+     "be_ev": 484.9,
+     "nist_ref": "TLR78"
+    }
+   ],
+   "status": "extracted",
+   "element": "Sn",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0053",
+   "values": [
+    {
+     "be_ev": 31.5,
+     "nist_ref": "JPPD88"
+    },
+    {
+     "be_ev": 31.4,
+     "nist_ref": "MuSh88"
+    },
+    {
+     "be_ev": 31.37,
+     "nist_ref": "Powe95"
+    },
+    {
+     "be_ev": 31.1,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 31.5,
+     "nist_ref": "SMSB81"
+    },
+    {
+     "be_ev": 31.4,
+     "nist_ref": "CoRa76"
+    },
+    {
+     "be_ev": 30.9,
+     "nist_ref": "NgHe76"
+    },
+    {
+     "be_ev": 31.6,
+     "nist_ref": "BiPo73"
+    },
+    {
+     "be_ev": 31.4,
+     "nist_ref": "CGR78"
+    },
+    {
+     "be_ev": 31.6,
+     "nist_ref": "MSC73"
+    },
+    {
+     "be_ev": 31.2,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 31.2,
+     "nist_ref": "FlMa82a"
+    },
+    {
+     "be_ev": 31.32,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 31.42,
+     "nist_ref": "VHE82"
+    }
+   ],
+   "status": "extracted",
+   "element": "W",
+   "orbital": "4f"
+  },
+  {
+   "field_id": "f0008",
+   "values": [
+    {
+     "be_ev": 1071.4,
+     "nist_ref": "KLMP73"
+    },
+    {
+     "be_ev": 1071.76,
+     "nist_ref": "Citr73"
+    },
+    {
+     "be_ev": 1071.8,
+     "nist_ref": "BaSt75"
+    },
+    {
+     "be_ev": 1070.8,
+     "nist_ref": "SHH78"
+    }
+   ],
+   "status": "extracted",
+   "element": "Na",
+   "orbital": "1s"
+  },
+  {
+   "field_id": "f0009",
+   "values": [
+    {
+     "be_ev": 994.5,
+     "nist_ref": "SRHH78"
+    },
+    {
+     "be_ev": 994.3,
+     "nist_ref": "KLMP73"
+    },
+    {
+     "be_ev": 994.3,
+     "nist_ref": "BaSt75"
+    }
+   ],
+   "status": "extracted",
+   "element": "Na",
+   "orbital": "KLL"
+  },
+  {
+   "field_id": "f0022",
+   "values": [
+    {
+     "be_ev": 345.9,
+     "nist_ref": "VaVe80"
+    },
+    {
+     "be_ev": 346.61,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Ca",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0030",
+   "values": [
+    {
+     "be_ev": 932.66,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 932.67,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 932.7,
+     "nist_ref": "BMPN85"
+    },
+    {
+     "be_ev": 933,
+     "nist_ref": "RRD78"
+    },
+    {
+     "be_ev": 933.1,
+     "nist_ref": "HMUZ78"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 932.7,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "KPML73"
+    },
+    {
+     "be_ev": 932.5,
+     "nist_ref": "McCo75"
+    },
+    {
+     "be_ev": 932.67,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 932.8,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 932.8,
+     "nist_ref": "HKNN71"
+    },
+    {
+     "be_ev": 932.63,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 932.2,
+     "nist_ref": "Scho73b"
+    },
+    {
+     "be_ev": 932.53,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 932.57,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 932.5,
+     "nist_ref": "FKWF77"
+    },
+    {
+     "be_ev": 932.61,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 932.3,
+     "nist_ref": "SLFH85"
+    }
+   ],
+   "status": "extracted",
+   "element": "Cu",
+   "orbital": "2p"
+  },
+  {
+   "field_id": "f0038",
+   "values": [
+    {
+     "be_ev": 155.9,
+     "nist_ref": "Powe95"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "VFH89"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "BPC88"
+    },
+    {
+     "be_ev": 155.9,
+     "nist_ref": "ReGa86"
+    },
+    {
+     "be_ev": 156.1,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 155.9,
+     "nist_ref": "BaSa84"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "FuSc84"
+    }
+   ],
+   "status": "extracted",
+   "element": "Y",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0046",
+   "values": [
+    {
+     "be_ev": 528.25,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 528.2,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 528.2,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 528.2,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 528,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 528.17,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 526.3,
+     "nist_ref": "CKLN78"
+    },
+    {
+     "be_ev": 528.3,
+     "nist_ref": "MSV73"
+    },
+    {
+     "be_ev": 528.02,
+     "nist_ref": "PVVA79"
+    },
+    {
+     "be_ev": 528.25,
+     "nist_ref": "Powe95"
+    }
+   ],
+   "status": "extracted",
+   "element": "Sb",
+   "orbital": "3d"
+  },
+  {
+   "field_id": "f0054",
+   "values": [
+    {
+     "be_ev": 71.0,
+     "nist_ref": "CaDw86"
+    },
+    {
+     "be_ev": 70.9,
+     "nist_ref": "SFJ88"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "BeRo86"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "ShOt88"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "RMLC90"
+    },
+    {
+     "be_ev": 71.09,
+     "nist_ref": "LLHM88"
+    },
+    {
+     "be_ev": 70.99,
+     "nist_ref": "LLHM88"
+    },
+    {
+     "be_ev": 71.08,
+     "nist_ref": "LLHM88"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "AGCE87"
+    },
+    {
+     "be_ev": 71.12,
+     "nist_ref": "PHF86"
+    },
+    {
+     "be_ev": 70.83,
+     "nist_ref": "DuBo89"
+    },
+    {
+     "be_ev": 70.87,
+     "nist_ref": "DBW86"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "BACB75"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "CMHL77"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 71.07,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "Nefe78z"
+    },
+    {
+     "be_ev": 71.07,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "KNNH68"
+    }
+   ],
+   "status": "extracted",
+   "element": "Pt",
+   "orbital": "4f"
+  }
+ ]
+}

@@ -1,0 +1,3469 @@
+{
+ "observations": [
+  {
+   "field_id": "f0000",
+   "element": "Li",
+   "orbital": "1s",
+   "legacy_be": 55,
+   "status": "extracted",
+   "nist_line": "1s",
+   "source_url": "http://web.archive.org/web/20040917204809id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Li",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Li_nist.html",
+   "evidence": "Li | 1s | 55.35 | SHSX90 ; Li | 1s | 55.10 | SHSX90 ; Li | 1s | 54.8 | KLMP73 ; Li | 1s | 54.6 | CSFG79 ; Li | 1s | 54.9 | WVB80",
+   "values": [
+    {
+     "be_ev": 55.35,
+     "nist_ref": "SHSX90"
+    },
+    {
+     "be_ev": 55.1,
+     "nist_ref": "SHSX90"
+    },
+    {
+     "be_ev": 54.8,
+     "nist_ref": "KLMP73"
+    },
+    {
+     "be_ev": 54.6,
+     "nist_ref": "CSFG79"
+    },
+    {
+     "be_ev": 54.9,
+     "nist_ref": "WVB80"
+    }
+   ]
+  },
+  {
+   "field_id": "f0010",
+   "element": "Mg",
+   "orbital": "1s",
+   "legacy_be": 1304,
+   "status": "extracted",
+   "nist_line": "1s",
+   "source_url": "http://web.archive.org/web/20040917205038id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Mg",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Mg_nist.html",
+   "evidence": "Mg | 1s | 1303.5 | FWFA75 ; Mg | 1s | 1303 | LMKJ75 ; Mg | 1s | 1303.8 | YaWe83 ; Mg | 1s | 1303.2 | ThWe86 ; Mg | 1s | 1303.4 | SRHH78 ; Mg | 1s | 1303.2 | JWHD84 ; Mg | 1s | 1303.2 | Fugg77 ; Mg | 1s | 1303 | HAS75",
+   "values": [
+    {
+     "be_ev": 1303.5,
+     "nist_ref": "FWFA75"
+    },
+    {
+     "be_ev": 1303,
+     "nist_ref": "LMKJ75"
+    },
+    {
+     "be_ev": 1303.8,
+     "nist_ref": "YaWe83"
+    },
+    {
+     "be_ev": 1303.2,
+     "nist_ref": "ThWe86"
+    },
+    {
+     "be_ev": 1303.4,
+     "nist_ref": "SRHH78"
+    },
+    {
+     "be_ev": 1303.2,
+     "nist_ref": "JWHD84"
+    },
+    {
+     "be_ev": 1303.2,
+     "nist_ref": "Fugg77"
+    },
+    {
+     "be_ev": 1303,
+     "nist_ref": "HAS75"
+    }
+   ]
+  },
+  {
+   "field_id": "f0011",
+   "element": "Mg",
+   "orbital": "KLL",
+   "legacy_be": 306,
+   "status": "extracted",
+   "nist_line": "KL23L23(1D)",
+   "source_url": "http://web.archive.org/web/20040917205038id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Mg",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Mg_nist.html",
+   "evidence": "Mg | KL23L23(1D) | 1185.5 | FWFA75 ; Mg | KL23L23(1D) | 1185.9 | VaTr79a ; Mg | KL23L23(1D) | 1185.5 | YaWe83 ; Mg | KL23L23(1D) | 1185.7 | HFV77 ; Mg | KL23L23(1D) | 1185.3 | LMKJ75 ; Mg | KL23L23(1D) | 1185.5 | SRHH78 ; Mg | KL23L23(1D) | 1185.5 | WRDM79 ; Mg | KL23L23(1D) | 1185.8 | ThWe86 ; Mg | KL23L23(1D) | 1184.9 | CDN77 ; Mg | KL23L23(1D) | 1185.6 | Fugg77 ; Mg | KL23L23(1D) | 1186.0 | *PoweXX",
+   "values": [
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "FWFA75"
+    },
+    {
+     "be_ev": 1185.9,
+     "nist_ref": "VaTr79a"
+    },
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "YaWe83"
+    },
+    {
+     "be_ev": 1185.7,
+     "nist_ref": "HFV77"
+    },
+    {
+     "be_ev": 1185.3,
+     "nist_ref": "LMKJ75"
+    },
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "SRHH78"
+    },
+    {
+     "be_ev": 1185.5,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 1185.8,
+     "nist_ref": "ThWe86"
+    },
+    {
+     "be_ev": 1184.9,
+     "nist_ref": "CDN77"
+    },
+    {
+     "be_ev": 1185.6,
+     "nist_ref": "Fugg77"
+    },
+    {
+     "be_ev": 1186,
+     "nist_ref": "*PoweXX"
+    }
+   ]
+  },
+  {
+   "field_id": "f0023",
+   "element": "Ti",
+   "orbital": "2p",
+   "legacy_be": 459,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040919031502id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ti",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ti_nist.html",
+   "evidence": "Ti | 2p3/2 | 453.98 | *Powe95 ; Ti | 2p3/2 | 454.0 | EBMW88 ; Ti | 2p3/2 | 454.3 | MFA85 ; Ti | 2p3/2 | 454 | WRDM79 ; Ti | 2p3/2 | 453.2 | SPB76a ; Ti | 2p3/2 | 454.0 | BSM89 ; Ti | 2p3/2 | 453.89 | LANM81 ; Ti | 2p3/2 | 453.8 | NSCP74 ; Ti | 2p3/2 | 453.73 | ALMP82",
+   "values": [
+    {
+     "be_ev": 453.98,
+     "nist_ref": "*Powe95"
+    },
+    {
+     "be_ev": 454,
+     "nist_ref": "EBMW88"
+    },
+    {
+     "be_ev": 454.3,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 454,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 453.2,
+     "nist_ref": "SPB76a"
+    },
+    {
+     "be_ev": 454,
+     "nist_ref": "BSM89"
+    },
+    {
+     "be_ev": 453.89,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 453.8,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 453.73,
+     "nist_ref": "ALMP82"
+    }
+   ]
+  },
+  {
+   "field_id": "f0031",
+   "element": "Zn",
+   "orbital": "2p",
+   "legacy_be": 1022,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040919030101id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Zn",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Zn_nist.html",
+   "evidence": "Zn | 2p3/2 | 1021.81 | *Powe95 ; Zn | 2p3/2 | 1021.65 | WRDM79 ; Zn | 2p3/2 | 1021.9 | KLMP74 ; Zn | 2p3/2 | 1021.7 | Evan85 ; Zn | 2p3/2 | 1020.8 | ChHa78 ; Zn | 2p3/2 | 1021.9 | Wagn75 ; Zn | 2p3/2 | 1021.9 | Scho73a ; Zn | 2p3/2 | 1021.82 | LANM81 ; Zn | 2p3/2 | 1021.7 | KlHe83 ; Zn | 2p3/2 | 1021.6 | KPML73 ; Zn | 2p3/2 | 1021.7 | WMA83 ; Zn | 2p3/2 | 1021 | StHe84a ; Zn | 2p3/2 | 1022.1 | GaWi77 ; Zn | 2p3/2 | 1021.6 | MaDu77 ; Zn | 2p3/2 | 1021.96 | LKMP73 ; Zn | 2p3/2 | 1021.6 | DBZ89",
+   "values": [
+    {
+     "be_ev": 1021.81,
+     "nist_ref": "*Powe95"
+    },
+    {
+     "be_ev": 1021.65,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 1021.9,
+     "nist_ref": "KLMP74"
+    },
+    {
+     "be_ev": 1021.7,
+     "nist_ref": "Evan85"
+    },
+    {
+     "be_ev": 1020.8,
+     "nist_ref": "ChHa78"
+    },
+    {
+     "be_ev": 1021.9,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 1021.9,
+     "nist_ref": "Scho73a"
+    },
+    {
+     "be_ev": 1021.82,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 1021.7,
+     "nist_ref": "KlHe83"
+    },
+    {
+     "be_ev": 1021.6,
+     "nist_ref": "KPML73"
+    },
+    {
+     "be_ev": 1021.7,
+     "nist_ref": "WMA83"
+    },
+    {
+     "be_ev": 1021,
+     "nist_ref": "StHe84a"
+    },
+    {
+     "be_ev": 1022.1,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 1021.6,
+     "nist_ref": "MaDu77"
+    },
+    {
+     "be_ev": 1021.96,
+     "nist_ref": "LKMP73"
+    },
+    {
+     "be_ev": 1021.6,
+     "nist_ref": "DBZ89"
+    }
+   ]
+  },
+  {
+   "field_id": "f0039",
+   "element": "Zr",
+   "orbital": "3d",
+   "legacy_be": 179,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040919030307id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Zr",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Zr_nist.html",
+   "evidence": "Zr | 3d5/2 | 178.78 | *Powe95 ; Zr | 3d5/2 | 179.2 | BaSi90 ; Zr | 3d5/2 | 179.2 | SBS86 ; Zr | 3d5/2 | 179.0 | TISB89 ; Zr | 3d5/2 | 179.0 | WOGB89 ; Zr | 3d5/2 | 179.3 | SBS87 ; Zr | 3d5/2 | 178.8 | deGa88 ; Zr | 3d5/2 | 178.29 | MSGS89 ; Zr | 3d5/2 | 179.0 | BST88 ; Zr | 3d5/2 | 178.9 | WRDM79 ; Zr | 3d5/2 | 179 | BaSa84 ; Zr | 3d5/2 | 179.3 | BSM89 ; Zr | 3d5/2 | 179 | SaBa85 ; Zr | 3d5/2 | 178.3 | NSCP74 ; Zr | 3d5/2 | 178.52 | MSGS89 ; Zr | 3d5/2 | 178.79 | NyMa80 ; Zr | 3d5/2 | 178.9 | KKMP88",
+   "values": [
+    {
+     "be_ev": 178.78,
+     "nist_ref": "*Powe95"
+    },
+    {
+     "be_ev": 179.2,
+     "nist_ref": "BaSi90"
+    },
+    {
+     "be_ev": 179.2,
+     "nist_ref": "SBS86"
+    },
+    {
+     "be_ev": 179,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 179,
+     "nist_ref": "WOGB89"
+    },
+    {
+     "be_ev": 179.3,
+     "nist_ref": "SBS87"
+    },
+    {
+     "be_ev": 178.8,
+     "nist_ref": "deGa88"
+    },
+    {
+     "be_ev": 178.29,
+     "nist_ref": "MSGS89"
+    },
+    {
+     "be_ev": 179,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 178.9,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 179,
+     "nist_ref": "BaSa84"
+    },
+    {
+     "be_ev": 179.3,
+     "nist_ref": "BSM89"
+    },
+    {
+     "be_ev": 179,
+     "nist_ref": "SaBa85"
+    },
+    {
+     "be_ev": 178.3,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 178.52,
+     "nist_ref": "MSGS89"
+    },
+    {
+     "be_ev": 178.79,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 178.9,
+     "nist_ref": "KKMP88"
+    }
+   ]
+  },
+  {
+   "field_id": "f0047",
+   "element": "Te",
+   "orbital": "3d",
+   "legacy_be": 573,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917221800id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Te",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Te_nist.html",
+   "evidence": "Te | 3d5/2 | 573.03 | *Powe95 ; Te | 3d5/2 | 573.5 | RWW84 ; Te | 3d5/2 | 572.7 | SWH71 ; Te | 3d5/2 | 572.9 | SRHR79z ; Te | 3d5/2 | 572.7 | SNRS76z ; Te | 3d5/2 | 572.9 | SCT73 ; Te | 3d5/2 | 572.9 | WRDM79 ; Te | 3d5/2 | 573.54 | WRW83 ; Te | 3d5/2 | 572.85 | PVVA79 ; Te | 3d5/2 | 572.98 | NyMa80 ; Te | 3d5/2 | 572.7 | MaBa90 ; Te | 3d5/2 | 573.4 | Wagn75 ; Te | 3d5/2 | 572.85 | LTMP83 ; Te | 3d5/2 | 572.9 | HKMP74z ; Te | 3d5/2 | 573.54 | RWW84 ; Te | 3d5/2 | 573.2 | Bahl75 ; Te | 3d5/2 | 572.1 | TIWB72 ; Te | 3d5/2 | 573.1 | BaWa77 ; Te | 3d5/2 | 573 | SFS77 ; Te | 3d5/2 | 573.05 | SGR90 ; Te | 3d5/2 | 573.1 | BWI77",
+   "values": [
+    {
+     "be_ev": 573.03,
+     "nist_ref": "*Powe95"
+    },
+    {
+     "be_ev": 573.5,
+     "nist_ref": "RWW84"
+    },
+    {
+     "be_ev": 572.7,
+     "nist_ref": "SWH71"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "SRHR79z"
+    },
+    {
+     "be_ev": 572.7,
+     "nist_ref": "SNRS76z"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "SCT73"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 573.54,
+     "nist_ref": "WRW83"
+    },
+    {
+     "be_ev": 572.85,
+     "nist_ref": "PVVA79"
+    },
+    {
+     "be_ev": 572.98,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 572.7,
+     "nist_ref": "MaBa90"
+    },
+    {
+     "be_ev": 573.4,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 572.85,
+     "nist_ref": "LTMP83"
+    },
+    {
+     "be_ev": 572.9,
+     "nist_ref": "HKMP74z"
+    },
+    {
+     "be_ev": 573.54,
+     "nist_ref": "RWW84"
+    },
+    {
+     "be_ev": 573.2,
+     "nist_ref": "Bahl75"
+    },
+    {
+     "be_ev": 572.1,
+     "nist_ref": "TIWB72"
+    },
+    {
+     "be_ev": 573.1,
+     "nist_ref": "BaWa77"
+    },
+    {
+     "be_ev": 573,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 573.05,
+     "nist_ref": "SGR90"
+    },
+    {
+     "be_ev": 573.1,
+     "nist_ref": "BWI77"
+    }
+   ]
+  },
+  {
+   "field_id": "f0055",
+   "element": "Au",
+   "orbital": "4f",
+   "legacy_be": 84,
+   "status": "extracted",
+   "nist_line": "4f7/2",
+   "source_url": "http://web.archive.org/web/20040917205451id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Au",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Au_nist.html",
+   "evidence": "Au | 4f7/2 | 83.83 | DuBo89 ; 83.98 SSA90 ; 84.00 SSA90 ; 84.04 ThWe86 ; 84 AnSe84 ; 84.22 TuSi90 ; 83.97 VaTr79 ; 84.07 Asam76 ; 83.8 HKNN71 ; 84 NBM80 ; 84.1 PEJ82 ; 83.98 BiSw80 ; 84 MKLP73 ; 83.86 BiSw80 ; 83.98 AnSe84 ; 83.81 TuSi90 ; 83.74 TuSi90 ; 84.21 TuSi90 ; 83.8 JHBK73 ; 83.7 FKWF77 ; 83.7 BMZN82 ; 84 MCSS83 ; 84.15 ALMP82 ; 84 LPYS76 ; 84.25 TuSi90 ; 84.20 TuSi90 ; 83.97 BiSw80 ; 84.00 *Seah89",
+   "values": [
+    {
+     "be_ev": 83.83,
+     "nist_ref": "DuBo89"
+    },
+    {
+     "be_ev": 83.98,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 84.04,
+     "nist_ref": "ThWe86"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 84.22,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 83.97,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 84.07,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 83.8,
+     "nist_ref": "HKNN71"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 84.1,
+     "nist_ref": "PEJ82"
+    },
+    {
+     "be_ev": 83.98,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "MKLP73"
+    },
+    {
+     "be_ev": 83.86,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 83.98,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 83.81,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 83.74,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 84.21,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 83.8,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 83.7,
+     "nist_ref": "FKWF77"
+    },
+    {
+     "be_ev": 83.7,
+     "nist_ref": "BMZN82"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "MCSS83"
+    },
+    {
+     "be_ev": 84.15,
+     "nist_ref": "ALMP82"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "LPYS76"
+    },
+    {
+     "be_ev": 84.25,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 84.2,
+     "nist_ref": "TuSi90"
+    },
+    {
+     "be_ev": 83.97,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 84,
+     "nist_ref": "*Seah89"
+    }
+   ]
+  },
+  {
+   "field_id": "f0001",
+   "element": "Be",
+   "orbital": "1s",
+   "legacy_be": 112,
+   "nist_line": "1s",
+   "status": "extracted",
+   "source_url": "http://web.archive.org/web/20040917205603id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Be",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Be_nist.html",
+   "evidence": "Be | 1s | 111.6 | HJGN70 ; Be | 1s | 111.8 | WRDM79 ; Be | 1s | 111.3 | SHH78 ; Be | 1s | 111.85 | *  Powe95",
+   "values": [
+    {
+     "be_ev": 111.6,
+     "nist_ref": "HJGN70"
+    },
+    {
+     "be_ev": 111.8,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 111.3,
+     "nist_ref": "SHH78"
+    },
+    {
+     "be_ev": 111.85,
+     "nist_ref": "*  Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0012",
+   "element": "Al",
+   "orbital": "2p",
+   "legacy_be": 73,
+   "nist_line": "2p3/2",
+   "status": "extracted",
+   "source_url": "http://web.archive.org/web/20040917204639id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Al",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Al_nist.html",
+   "evidence": "Al | 2p3/2 | 72.5 | MSWB87 ; Al | 2p3/2 | 73.0 | PHF89 ; ... ; Al | 2p3/2 | 72.87 | *  Powe95",
+   "values": [
+    {
+     "be_ev": 72.5,
+     "nist_ref": "MSWB87"
+    },
+    {
+     "be_ev": 73,
+     "nist_ref": "PHF89"
+    },
+    {
+     "be_ev": 72.7,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 72.1,
+     "nist_ref": "KPSL83"
+    },
+    {
+     "be_ev": 72.7,
+     "nist_ref": "WaTa80z"
+    },
+    {
+     "be_ev": 72.5,
+     "nist_ref": "ScLa79"
+    },
+    {
+     "be_ev": 72.9,
+     "nist_ref": "CaRo78"
+    },
+    {
+     "be_ev": 71.8,
+     "nist_ref": "KlHe83"
+    },
+    {
+     "be_ev": 72.8,
+     "nist_ref": "SHH78"
+    },
+    {
+     "be_ev": 73,
+     "nist_ref": "VaTr78a"
+    },
+    {
+     "be_ev": 72.84,
+     "nist_ref": "LMKJ75"
+    },
+    {
+     "be_ev": 72.85,
+     "nist_ref": "Tayl82"
+    },
+    {
+     "be_ev": 72.85,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 72.92,
+     "nist_ref": "WPHK82z"
+    },
+    {
+     "be_ev": 72.8,
+     "nist_ref": "TaRa81"
+    },
+    {
+     "be_ev": 72.87,
+     "nist_ref": "*  Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0024",
+   "element": "V",
+   "orbital": "2p",
+   "legacy_be": 517,
+   "nist_line": "2p3/2",
+   "status": "extracted",
+   "source_url": "http://web.archive.org/web/20040917221717id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=V",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/V_nist.html",
+   "evidence": "V | 2p3/2 | 512.6 | MFA85 ; V | 2p3/2 | 512.15 | WRDM79 ; V | 2p3/2 | 512.9 | KKL83 ; ...",
+   "values": [
+    {
+     "be_ev": 512.6,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 512.15,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 512.9,
+     "nist_ref": "KKL83"
+    },
+    {
+     "be_ev": 512.3,
+     "nist_ref": "CGR78"
+    },
+    {
+     "be_ev": 512.4,
+     "nist_ref": "SaPo79"
+    },
+    {
+     "be_ev": 512.3,
+     "nist_ref": "RoRo76"
+    },
+    {
+     "be_ev": 512.4,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 512.14,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 512.7,
+     "nist_ref": "FrSa75"
+    },
+    {
+     "be_ev": 512.4,
+     "nist_ref": "LFS73z"
+    }
+   ]
+  },
+  {
+   "field_id": "f0032",
+   "element": "Ga",
+   "orbital": "2p",
+   "legacy_be": 1117,
+   "nist_line": "2p3/2",
+   "status": "extracted",
+   "source_url": "http://web.archive.org/web/20040917205537id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ga",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ga_nist.html",
+   "evidence": "Ga | 2p3/2 | 1118.1 | RRD78a ; Ga | 2p3/2 | 1117 | Wagn75 ; Ga | 2p3/2 | 1116.67 | Evan85 ; Ga | 2p3/2 | 1116.5 | Scho73a",
+   "values": [
+    {
+     "be_ev": 1118.1,
+     "nist_ref": "RRD78a"
+    },
+    {
+     "be_ev": 1117,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 1116.67,
+     "nist_ref": "Evan85"
+    },
+    {
+     "be_ev": 1116.5,
+     "nist_ref": "Scho73a"
+    }
+   ]
+  },
+  {
+   "field_id": "f0040",
+   "element": "Nb",
+   "orbital": "3d",
+   "legacy_be": 202,
+   "nist_line": "3d5/2",
+   "status": "extracted",
+   "source_url": "http://web.archive.org/web/20040917205654id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Nb",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Nb_nist.html",
+   "evidence": "Nb | 3d5/2 | 202.5 | TISB89 ; ... ; Nb | 3d5/2 | 202.34 | *  Powe95",
+   "values": [
+    {
+     "be_ev": 202.5,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 202.26,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "SaBa85"
+    },
+    {
+     "be_ev": 202.1,
+     "nist_ref": "MSC73"
+    },
+    {
+     "be_ev": 202.6,
+     "nist_ref": "FCFG77"
+    },
+    {
+     "be_ev": 202.2,
+     "nist_ref": "NSCP74"
+    },
+    {
+     "be_ev": 201.6,
+     "nist_ref": "GSS84z"
+    },
+    {
+     "be_ev": 201.8,
+     "nist_ref": "Bahl75"
+    },
+    {
+     "be_ev": 201.5,
+     "nist_ref": "SPB76"
+    },
+    {
+     "be_ev": 202.4,
+     "nist_ref": "BaSa84"
+    },
+    {
+     "be_ev": 202.2,
+     "nist_ref": "DaHa87"
+    },
+    {
+     "be_ev": 202.34,
+     "nist_ref": "*  Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0048",
+   "element": "I",
+   "orbital": "3d",
+   "legacy_be": 619,
+   "nist_line": "3d5/2",
+   "status": "extracted",
+   "source_url": "http://web.archive.org/web/20040917205650id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=I",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/I_nist.html",
+   "evidence": "I | 3d5/2 | 619.9 | Sher76 ; I | 3d5/2 | 627.2 | SSM86 ; I | 3d5/2 | 619.9 | DMKK84z ; I | 3d5/2 | 620.8 | HSPB78 ; I | 3d5/2 | 628.2 | SSM86",
+   "values": [
+    {
+     "be_ev": 619.9,
+     "nist_ref": "Sher76"
+    },
+    {
+     "be_ev": 627.2,
+     "nist_ref": "SSM86"
+    },
+    {
+     "be_ev": 619.9,
+     "nist_ref": "DMKK84z"
+    },
+    {
+     "be_ev": 620.8,
+     "nist_ref": "HSPB78"
+    },
+    {
+     "be_ev": 628.2,
+     "nist_ref": "SSM86"
+    }
+   ]
+  },
+  {
+   "field_id": "f0056",
+   "element": "Pb",
+   "orbital": "4f",
+   "legacy_be": 137,
+   "nist_line": "4f7/2",
+   "status": "extracted",
+   "source_url": "http://web.archive.org/web/20040917205122id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Pb",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Pb_nist.html",
+   "evidence": "Pb | 4f7/2 | 136.9 | BMV92 ; ... ; Pb | 4f7/2 | 137.9 | MoVa73 ; ... ; Pb | 4f7/2 | 136.85 | *  Powe95",
+   "values": [
+    {
+     "be_ev": 136.9,
+     "nist_ref": "BMV92"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 137,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "Pede82"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "OCH79"
+    },
+    {
+     "be_ev": 136.7,
+     "nist_ref": "TLR78"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "BeFl80"
+    },
+    {
+     "be_ev": 137.9,
+     "nist_ref": "MoVa73"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "MWM77"
+    },
+    {
+     "be_ev": 136.9,
+     "nist_ref": "TaPe84"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "KiWi73"
+    },
+    {
+     "be_ev": 137,
+     "nist_ref": "BJP79"
+    },
+    {
+     "be_ev": 136.9,
+     "nist_ref": "MaBa90"
+    },
+    {
+     "be_ev": 136.78,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 136.8,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 136.4,
+     "nist_ref": "LKMP73"
+    },
+    {
+     "be_ev": 137,
+     "nist_ref": "WaTa80z"
+    },
+    {
+     "be_ev": 136.6,
+     "nist_ref": "KOW73"
+    },
+    {
+     "be_ev": 136.85,
+     "nist_ref": "*  Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0002",
+   "element": "B",
+   "orbital": "1s",
+   "legacy_be": 188,
+   "status": "extracted",
+   "nist_line": "1s",
+   "source_url": "http://web.archive.org/web/20040917205146id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=B",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/B_nist.html",
+   "evidence": "B | 1s | 187.8 | GoHi88 ; B | 1s | 188.4 | CGHA90 ; B | 1s | 187.3 | HHJ70z ; B | 1s | 186.4 | BBBG88 ; B | 1s | 186.5 | SMS80",
+   "values": [
+    {
+     "be_ev": 187.8,
+     "nist_ref": "GoHi88"
+    },
+    {
+     "be_ev": 188.4,
+     "nist_ref": "CGHA90"
+    },
+    {
+     "be_ev": 187.3,
+     "nist_ref": "HHJ70z"
+    },
+    {
+     "be_ev": 186.4,
+     "nist_ref": "BBBG88"
+    },
+    {
+     "be_ev": 186.5,
+     "nist_ref": "SMS80"
+    }
+   ]
+  },
+  {
+   "field_id": "f0013",
+   "element": "Si",
+   "orbital": "2p",
+   "legacy_be": 99,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20041118194114id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Si",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Si_nist.html",
+   "evidence": "39 rows for Si 2p3/2, e.g. Si | 2p3/2 | 99.85 | MWDR91 ; Si | 2p3/2 | 99.34 | *Powe95 ; Si | 2p3/2 | 99.45 | BOUB87b ; ... ; Si | 2p3/2 | 99.3 | ReGa90",
+   "values": [
+    {
+     "be_ev": 99.85,
+     "nist_ref": "MWDR91"
+    },
+    {
+     "be_ev": 99.34,
+     "nist_ref": "*Powe95"
+    },
+    {
+     "be_ev": 99.45,
+     "nist_ref": "BOUB87b"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "BOUB87b"
+    },
+    {
+     "be_ev": 99.06,
+     "nist_ref": "GMML90"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "WOT86"
+    },
+    {
+     "be_ev": 99,
+     "nist_ref": "EBMd86"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.15,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.15,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "BCPV89"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "BrTh88"
+    },
+    {
+     "be_ev": 102.7,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 99.81,
+     "nist_ref": "InZa90"
+    },
+    {
+     "be_ev": 99.3,
+     "nist_ref": "BRP90"
+    },
+    {
+     "be_ev": 99.79,
+     "nist_ref": "InZa90"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "Holl81"
+    },
+    {
+     "be_ev": 99.55,
+     "nist_ref": "CPT83"
+    },
+    {
+     "be_ev": 99.44,
+     "nist_ref": "WPHK82z"
+    },
+    {
+     "be_ev": 99.7,
+     "nist_ref": "KBHN74"
+    },
+    {
+     "be_ev": 99.35,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 100,
+     "nist_ref": "HBBK72"
+    },
+    {
+     "be_ev": 99,
+     "nist_ref": "HBBK72"
+    },
+    {
+     "be_ev": 99.7,
+     "nist_ref": "TLIR78"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "DBS88"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "SmBl84"
+    },
+    {
+     "be_ev": 99.3,
+     "nist_ref": "PADS78"
+    },
+    {
+     "be_ev": 99.7,
+     "nist_ref": "TLR78"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "SmBl84"
+    },
+    {
+     "be_ev": 98.9,
+     "nist_ref": "MoVa73"
+    },
+    {
+     "be_ev": 99.6,
+     "nist_ref": "Tayl81"
+    },
+    {
+     "be_ev": 99.3,
+     "nist_ref": "AWL80"
+    },
+    {
+     "be_ev": 99.4,
+     "nist_ref": "BaBu86"
+    },
+    {
+     "be_ev": 98.9,
+     "nist_ref": "GGVL79"
+    },
+    {
+     "be_ev": 99.5,
+     "nist_ref": "NgLe89"
+    },
+    {
+     "be_ev": 99.54,
+     "nist_ref": "RMSL88"
+    },
+    {
+     "be_ev": 99.13,
+     "nist_ref": "RMSL88"
+    },
+    {
+     "be_ev": 99.3,
+     "nist_ref": "ReGa90"
+    }
+   ]
+  },
+  {
+   "field_id": "f0014",
+   "element": "Si",
+   "orbital": "2s",
+   "legacy_be": 150,
+   "status": "extracted",
+   "nist_line": "2s",
+   "source_url": "http://web.archive.org/web/20041118194114id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Si",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Si_nist.html",
+   "evidence": "Si | 2s | 150.5 | PLA91 ; Si | 2s | 150.7 | BPC88 ; Si | 2s | 150.7 | Ogam88 ; Si | 2s | 150.7 | Ogam88",
+   "values": [
+    {
+     "be_ev": 150.5,
+     "nist_ref": "PLA91"
+    },
+    {
+     "be_ev": 150.7,
+     "nist_ref": "BPC88"
+    },
+    {
+     "be_ev": 150.7,
+     "nist_ref": "Ogam88"
+    },
+    {
+     "be_ev": 150.7,
+     "nist_ref": "Ogam88"
+    }
+   ]
+  },
+  {
+   "field_id": "f0025",
+   "element": "Cr",
+   "orbital": "2p",
+   "legacy_be": 577,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917204950id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Cr",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Cr_nist.html",
+   "evidence": "16 rows for Cr 2p3/2, e.g. Cr | 2p3/2 | 574 | LeMi84 ; Cr | 2p3/2 | 574.4 | MMP82 ; Cr | 2p3/2 | 574.26 | LANM81 ; ... ; Cr | 2p3/2 | 574.35 | *Powe95",
+   "values": [
+    {
+     "be_ev": 574,
+     "nist_ref": "LeMi84"
+    },
+    {
+     "be_ev": 574.4,
+     "nist_ref": "MMP82"
+    },
+    {
+     "be_ev": 574.2,
+     "nist_ref": "ATW78"
+    },
+    {
+     "be_ev": 573.9,
+     "nist_ref": "DAEC79"
+    },
+    {
+     "be_ev": 574.26,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 574.6,
+     "nist_ref": "NYI89"
+    },
+    {
+     "be_ev": 573.8,
+     "nist_ref": "Shut80"
+    },
+    {
+     "be_ev": 574.18,
+     "nist_ref": "AsHa77"
+    },
+    {
+     "be_ev": 574.7,
+     "nist_ref": "Conn78"
+    },
+    {
+     "be_ev": 574.2,
+     "nist_ref": "DMZR88"
+    },
+    {
+     "be_ev": 574.2,
+     "nist_ref": "RoRo76"
+    },
+    {
+     "be_ev": 574.3,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 573.9,
+     "nist_ref": "DAEC79"
+    },
+    {
+     "be_ev": 573.8,
+     "nist_ref": "AlTu76z"
+    },
+    {
+     "be_ev": 574.4,
+     "nist_ref": "LaKe76"
+    },
+    {
+     "be_ev": 574.35,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0033",
+   "element": "Ge",
+   "orbital": "2p",
+   "legacy_be": 1217,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917205118id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ge",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ge_nist.html",
+   "evidence": "Ge | 2p3/2 | 1217.2 | TLR78 ; Ge | 2p3/2 | 1217.28 | Evan85 ; Ge | 2p3/2 | 1217.4 | MoVa73 ; Ge | 2p3/2 | 1217.2 | McWe76 ; Ge | 2p3/2 | 1217.6 | Wagn75 ; Ge | 2p3/2 | 1217.38 | Evan85",
+   "values": [
+    {
+     "be_ev": 1217.2,
+     "nist_ref": "TLR78"
+    },
+    {
+     "be_ev": 1217.28,
+     "nist_ref": "Evan85"
+    },
+    {
+     "be_ev": 1217.4,
+     "nist_ref": "MoVa73"
+    },
+    {
+     "be_ev": 1217.2,
+     "nist_ref": "McWe76"
+    },
+    {
+     "be_ev": 1217.6,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 1217.38,
+     "nist_ref": "Evan85"
+    }
+   ]
+  },
+  {
+   "field_id": "f0041",
+   "element": "Mo",
+   "orbital": "3d",
+   "legacy_be": 228,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917205029id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Mo",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Mo_nist.html",
+   "evidence": "23 rows for Mo 3d5/2, e.g. Mo | 3d5/2 | 228.0 | TISB89 ; Mo | 3d5/2 | 227.95 | MJCD90 ; Mo | 3d5/2 | 226.1 | SwHe71z ; ... ; Mo | 3d5/2 | 227.95 | *Powe95",
+   "values": [
+    {
+     "be_ev": 228,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "MiWe88"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "WuCh88"
+    },
+    {
+     "be_ev": 227.95,
+     "nist_ref": "MJCD90"
+    },
+    {
+     "be_ev": 227.9,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "WaTa80z"
+    },
+    {
+     "be_ev": 227.9,
+     "nist_ref": "BrOl88"
+    },
+    {
+     "be_ev": 227.4,
+     "nist_ref": "PKLJ73"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "CGR78"
+    },
+    {
+     "be_ev": 227.6,
+     "nist_ref": "BrWh78"
+    },
+    {
+     "be_ev": 227.5,
+     "nist_ref": "TVG76"
+    },
+    {
+     "be_ev": 226.1,
+     "nist_ref": "SwHe71z"
+    },
+    {
+     "be_ev": 228.6,
+     "nist_ref": "SFM80"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "GrMa75z"
+    },
+    {
+     "be_ev": 227.6,
+     "nist_ref": "DYBG83"
+    },
+    {
+     "be_ev": 227.8,
+     "nist_ref": "CiDe75"
+    },
+    {
+     "be_ev": 227.94,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 227.6,
+     "nist_ref": "ZMTB80"
+    },
+    {
+     "be_ev": 228,
+     "nist_ref": "KBAW74"
+    },
+    {
+     "be_ev": 228.2,
+     "nist_ref": "FlMa82a"
+    },
+    {
+     "be_ev": 227.8,
+     "nist_ref": "MaLa86"
+    },
+    {
+     "be_ev": 228.1,
+     "nist_ref": "AnHo89"
+    },
+    {
+     "be_ev": 227.95,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0049",
+   "element": "Ba",
+   "orbital": "3d",
+   "legacy_be": 780,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917205025id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ba",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ba_nist.html",
+   "evidence": "Ba | 3d5/2 | 780.6 | KoGr85 ; Ba | 3d5/2 | 779.3 | VaVe80 ; Ba | 3d5/2 | 779.8 | LRLH82 ; Ba | 3d5/2 | 780.72 | HMW90",
+   "values": [
+    {
+     "be_ev": 780.6,
+     "nist_ref": "KoGr85"
+    },
+    {
+     "be_ev": 779.3,
+     "nist_ref": "VaVe80"
+    },
+    {
+     "be_ev": 779.8,
+     "nist_ref": "LRLH82"
+    },
+    {
+     "be_ev": 780.72,
+     "nist_ref": "HMW90"
+    }
+   ]
+  },
+  {
+   "field_id": "f0057",
+   "element": "Bi",
+   "orbital": "4f",
+   "legacy_be": 157,
+   "status": "extracted",
+   "nist_line": "4f7/2",
+   "source_url": "http://web.archive.org/web/20040917205615id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Bi",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Bi_nist.html",
+   "evidence": "10 rows for Bi 4f7/2, e.g. Bi | 4f7/2 | 157.1 | IsHa86 ; Bi | 4f7/2 | 156.9 | SFS77 ; Bi | 4f7/2 | 156.6 | MWM77 ; ... ; Bi | 4f7/2 | 156.96 | *Powe95",
+   "values": [
+    {
+     "be_ev": 157.1,
+     "nist_ref": "IsHa86"
+    },
+    {
+     "be_ev": 156.9,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 156.6,
+     "nist_ref": "MWM77"
+    },
+    {
+     "be_ev": 156.9,
+     "nist_ref": "MSV73"
+    },
+    {
+     "be_ev": 157,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 156.88,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 157,
+     "nist_ref": "LKMP73"
+    },
+    {
+     "be_ev": 156.85,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 157.12,
+     "nist_ref": "DSBG82"
+    },
+    {
+     "be_ev": 156.96,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0003",
+   "element": "C",
+   "orbital": "1s",
+   "legacy_be": 285,
+   "status": "extracted",
+   "nist_line": "1s",
+   "source_url": "http://web.archive.org/web/20040917205306id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=C",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/C_nist.html",
+   "evidence": "C | 1s | 284.5 | EsRo92  (20 matching 1s rows in table)",
+   "values": [
+    {
+     "be_ev": 284.5,
+     "nist_ref": "EsRo92"
+    },
+    {
+     "be_ev": 284.42,
+     "nist_ref": "EsRo92"
+    },
+    {
+     "be_ev": 285.18,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 284.29,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 285.18,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 284.18,
+     "nist_ref": "MHHJ86"
+    },
+    {
+     "be_ev": 284.4,
+     "nist_ref": "EsRo88"
+    },
+    {
+     "be_ev": 284.8,
+     "nist_ref": "BaVa89"
+    },
+    {
+     "be_ev": 284.5,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 286.9,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 284.6,
+     "nist_ref": "PCER89"
+    },
+    {
+     "be_ev": 284.45,
+     "nist_ref": "WVB80"
+    },
+    {
+     "be_ev": 284.3,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 284.5,
+     "nist_ref": "SmBl84"
+    },
+    {
+     "be_ev": 284.31,
+     "nist_ref": "KeKl76"
+    },
+    {
+     "be_ev": 284.6,
+     "nist_ref": "Tayl78"
+    },
+    {
+     "be_ev": 282,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 284.7,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 286,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 284.44,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0015",
+   "element": "P",
+   "orbital": "2p",
+   "legacy_be": 133,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917205643id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=P",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/P_nist.html",
+   "evidence": "P | 2p3/2 | 130.25 | FCSM91  (12 matching 2p3/2 rows in table)",
+   "values": [
+    {
+     "be_ev": 130.25,
+     "nist_ref": "FCSM91"
+    },
+    {
+     "be_ev": 129.9,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 130.1,
+     "nist_ref": "TSSS83"
+    },
+    {
+     "be_ev": 130.9,
+     "nist_ref": "PHHJ70z"
+    },
+    {
+     "be_ev": 130,
+     "nist_ref": "ScBr81"
+    },
+    {
+     "be_ev": 130.35,
+     "nist_ref": "OSBG83"
+    },
+    {
+     "be_ev": 130,
+     "nist_ref": "NSDU75"
+    },
+    {
+     "be_ev": 129.9,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 130.2,
+     "nist_ref": "FlWe74"
+    },
+    {
+     "be_ev": 129.96,
+     "nist_ref": "AKHM84"
+    },
+    {
+     "be_ev": 130.45,
+     "nist_ref": "FCSM91"
+    },
+    {
+     "be_ev": 130.01,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0026",
+   "element": "Mn",
+   "orbital": "2p",
+   "legacy_be": 641,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917205218id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Mn",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Mn_nist.html",
+   "evidence": "Mn | 2p3/2 | 638.78 | LANM81  (11 matching 2p3/2 rows in table)",
+   "values": [
+    {
+     "be_ev": 638.78,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 640.7,
+     "nist_ref": "ADP78"
+    },
+    {
+     "be_ev": 638.8,
+     "nist_ref": "MaBa90"
+    },
+    {
+     "be_ev": 638.8,
+     "nist_ref": "HuRa81"
+    },
+    {
+     "be_ev": 639,
+     "nist_ref": "DiPo89"
+    },
+    {
+     "be_ev": 641,
+     "nist_ref": "MBDS84"
+    },
+    {
+     "be_ev": 638.9,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 639,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 640.8,
+     "nist_ref": "INZI82"
+    },
+    {
+     "be_ev": 640.9,
+     "nist_ref": "Aoki76"
+    },
+    {
+     "be_ev": 638.89,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0034",
+   "element": "As",
+   "orbital": "3d",
+   "legacy_be": 42,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917205114id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=As",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/As_nist.html",
+   "evidence": "As | 3d5/2 | 41.4 | MRV82  (2 matching 3d5/2 rows in table)",
+   "values": [
+    {
+     "be_ev": 41.4,
+     "nist_ref": "MRV82"
+    },
+    {
+     "be_ev": 41.65,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0042",
+   "element": "Ag",
+   "orbital": "3d",
+   "legacy_be": 368,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917205512id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ag",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ag_nist.html",
+   "evidence": "Ag | 3d5/2 | 368.26 | SSA90  (25 matching 3d5/2 rows in table)",
+   "values": [
+    {
+     "be_ev": 368.26,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 368.27,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "Scho73"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "Kaus91"
+    },
+    {
+     "be_ev": 368.23,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "HKNN71"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 368.22,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 368.3,
+     "nist_ref": "Scho72"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 368.21,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 368.29,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 368.16,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "WeAn80a"
+    },
+    {
+     "be_ev": 368.27,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 367.9,
+     "nist_ref": "FKWF77"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 368.1,
+     "nist_ref": "HGW75"
+    },
+    {
+     "be_ev": 368.3,
+     "nist_ref": "RRD78"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 368.2,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 368.4,
+     "nist_ref": "RRD78a"
+    },
+    {
+     "be_ev": 368.27,
+     "nist_ref": "*Seah89"
+    }
+   ]
+  },
+  {
+   "field_id": "f0050",
+   "element": "La",
+   "orbital": "3d",
+   "legacy_be": 836,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917205412id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=La",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/La_nist.html",
+   "evidence": "La | 3d5/2 | 835.9 | ScSc82  (2 matching 3d5/2 rows in table)",
+   "values": [
+    {
+     "be_ev": 835.9,
+     "nist_ref": "ScSc82"
+    },
+    {
+     "be_ev": 835.9,
+     "nist_ref": "SOS82"
+    }
+   ]
+  },
+  {
+   "field_id": "f0058",
+   "element": "Th",
+   "orbital": "4f",
+   "legacy_be": 333,
+   "status": "extracted",
+   "nist_line": "4f7/2",
+   "source_url": "http://web.archive.org/web/20040917221841id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Th",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Th_nist.html",
+   "evidence": "Th | 4f7/2 | 333.8 | HHHK89  (5 matching 4f7/2 rows in table)",
+   "values": [
+    {
+     "be_ev": 333.8,
+     "nist_ref": "HHHK89"
+    },
+    {
+     "be_ev": 333.1,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 333.1,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 333.1,
+     "nist_ref": "MCSS82"
+    },
+    {
+     "be_ev": 333.25,
+     "nist_ref": "WRDM79"
+    }
+   ]
+  },
+  {
+   "field_id": "f0004",
+   "element": "N",
+   "orbital": "1s",
+   "legacy_be": 399,
+   "status": "extracted",
+   "nist_line": "1s",
+   "source_url": "http://web.archive.org/web/20160202114020id_/http://srdata.nist.gov:80/xps/query_all_dat_el.aspx?elm1=N",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/N_nist.html",
+   "evidence": "N | 1s | 399.90 | ZBLP88 ; N | 1s | 398.70 | ZBLP88 ; N | 1s | 398.90 | ZBLP88 ; N | 1s | 398.00 | ZBLP88 ; N | 1s | 399.90 | ZBLP88 ; N | 1s | 399.30 | ZBLP88 (note: this 2016 .aspx snapshot is paginated and returns only the 6 rows literally present in the fetched page; no .asp full-data snapshot exists for N)",
+   "values": [
+    {
+     "be_ev": 399.9,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 398.7,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 398.9,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 398,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 399.9,
+     "nist_ref": "ZBLP88"
+    },
+    {
+     "be_ev": 399.3,
+     "nist_ref": "ZBLP88"
+    }
+   ]
+  },
+  {
+   "field_id": "f0016",
+   "element": "S",
+   "orbital": "2p",
+   "legacy_be": 164,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917204801id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=S",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/S_nist.html",
+   "evidence": "S | 2p3/2 | 163.7 | KGG90 ; S | 2p3/2 | 164.4 | MaPa77 ; S | 2p3/2 | 164.25 | RiVe83z ; S | 2p3/2 | 164.15 | WRDM79 ; S | 2p3/2 | 164 | SNRS76z ; S | 2p3/2 | 162.9 | HKMP74z ; S | 2p3/2 | 164.8 | TIWB72 ; S | 2p3/2 | 163.10 | YLWC90 ; S | 2p3/2 | 164.1 | Brio80 ; S | 2p3/2 | 164 | LHJG70z",
+   "values": [
+    {
+     "be_ev": 163.7,
+     "nist_ref": "KGG90"
+    },
+    {
+     "be_ev": 164.4,
+     "nist_ref": "MaPa77"
+    },
+    {
+     "be_ev": 164.25,
+     "nist_ref": "RiVe83z"
+    },
+    {
+     "be_ev": 164.15,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 164,
+     "nist_ref": "SNRS76z"
+    },
+    {
+     "be_ev": 162.9,
+     "nist_ref": "HKMP74z"
+    },
+    {
+     "be_ev": 164.8,
+     "nist_ref": "TIWB72"
+    },
+    {
+     "be_ev": 163.1,
+     "nist_ref": "YLWC90"
+    },
+    {
+     "be_ev": 164.1,
+     "nist_ref": "Brio80"
+    },
+    {
+     "be_ev": 164,
+     "nist_ref": "LHJG70z"
+    }
+   ]
+  },
+  {
+   "field_id": "f0017",
+   "element": "S",
+   "orbital": "2s",
+   "legacy_be": 228,
+   "status": "extracted",
+   "nist_line": "2s",
+   "source_url": "http://web.archive.org/web/20040917204801id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=S",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/S_nist.html",
+   "evidence": "S | 2s | 229.2 | TIWB72",
+   "values": [
+    {
+     "be_ev": 229.2,
+     "nist_ref": "TIWB72"
+    }
+   ]
+  },
+  {
+   "field_id": "f0027",
+   "element": "Fe",
+   "orbital": "2p",
+   "legacy_be": 711,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917204654id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Fe",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Fe_nist.html",
+   "evidence": "Fe | 2p3/2 | 707.1 | SBS86 ; 707.0 | AnHo89 ; 708.7 | SiCo85a ; 706.9 | MFA85 ; 707.3 | ErWa75 ; 707.5 | Conn78 ; 706.74 | LANM81 ; 706.88 | AsHa77 ; 706.8 | KoNa80 ; 706.82 | Asam76 ; 707.3 | ACHT74 ; 707 | McZe77 ; 706.5 | MiSu83 ; 706.8 | KMI81 ; 706.8 | NDKS83 ; 707.4 | PaEg84 ; 707.9 | ShTr75 ; 707.1 | JJH80 ; 706.5 | HaDe87 ; 706.7 | BiBe86 ; 706.7 | Brio80 ; 706.95 | WRDM79 ; 707.1 | YNNA77z ; 707.1 | MaLa86 ; 706.86 | *Powe95",
+   "values": [
+    {
+     "be_ev": 707.1,
+     "nist_ref": "SBS86"
+    },
+    {
+     "be_ev": 707,
+     "nist_ref": "AnHo89"
+    },
+    {
+     "be_ev": 708.7,
+     "nist_ref": "SiCo85a"
+    },
+    {
+     "be_ev": 706.9,
+     "nist_ref": "MFA85"
+    },
+    {
+     "be_ev": 707.3,
+     "nist_ref": "ErWa75"
+    },
+    {
+     "be_ev": 707.5,
+     "nist_ref": "Conn78"
+    },
+    {
+     "be_ev": 706.74,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 706.88,
+     "nist_ref": "AsHa77"
+    },
+    {
+     "be_ev": 706.8,
+     "nist_ref": "KoNa80"
+    },
+    {
+     "be_ev": 706.82,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 707.3,
+     "nist_ref": "ACHT74"
+    },
+    {
+     "be_ev": 707,
+     "nist_ref": "McZe77"
+    },
+    {
+     "be_ev": 706.5,
+     "nist_ref": "MiSu83"
+    },
+    {
+     "be_ev": 706.8,
+     "nist_ref": "KMI81"
+    },
+    {
+     "be_ev": 706.8,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 707.4,
+     "nist_ref": "PaEg84"
+    },
+    {
+     "be_ev": 707.9,
+     "nist_ref": "ShTr75"
+    },
+    {
+     "be_ev": 707.1,
+     "nist_ref": "JJH80"
+    },
+    {
+     "be_ev": 706.5,
+     "nist_ref": "HaDe87"
+    },
+    {
+     "be_ev": 706.7,
+     "nist_ref": "BiBe86"
+    },
+    {
+     "be_ev": 706.7,
+     "nist_ref": "Brio80"
+    },
+    {
+     "be_ev": 706.95,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 707.1,
+     "nist_ref": "YNNA77z"
+    },
+    {
+     "be_ev": 707.1,
+     "nist_ref": "MaLa86"
+    },
+    {
+     "be_ev": 706.86,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0035",
+   "element": "Se",
+   "orbital": "3d",
+   "legacy_be": 56,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917204750id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Se",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Se_nist.html",
+   "evidence": "Se | 3d5/2 | 55.5 | UeOd82 ; 54.9 | Bahl75 ; 56.7 | TIWB72 ; 55.2 | CIKT85 ; 54.7 | IKYK82z ; 55.5 | SSL86 ; 55.5 | KJID81 ; 55.7 | MTHB71z ; 55.9 | MBDS84 ; 54.7 | MTT84z ; 55.5 | TSH84 ; 55.2 | SFS77 ; 54.9 | ITI82 ; 55.6 | WSP77 ; 55.5 | UeOd81 ; 55.5 | Ueno83 ; 55.2 | STKS85 ; 55.5 | WRDM79 ; 57.5 | SRHR79z ; 55.64 | TCCW85 ; 54.64 | MRV82 ; 55.1 | BWI80 ; 54.64 | SCT73",
+   "values": [
+    {
+     "be_ev": 55.5,
+     "nist_ref": "UeOd82"
+    },
+    {
+     "be_ev": 54.9,
+     "nist_ref": "Bahl75"
+    },
+    {
+     "be_ev": 56.7,
+     "nist_ref": "TIWB72"
+    },
+    {
+     "be_ev": 55.2,
+     "nist_ref": "CIKT85"
+    },
+    {
+     "be_ev": 54.7,
+     "nist_ref": "IKYK82z"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "SSL86"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "KJID81"
+    },
+    {
+     "be_ev": 55.7,
+     "nist_ref": "MTHB71z"
+    },
+    {
+     "be_ev": 55.9,
+     "nist_ref": "MBDS84"
+    },
+    {
+     "be_ev": 54.7,
+     "nist_ref": "MTT84z"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "TSH84"
+    },
+    {
+     "be_ev": 55.2,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 54.9,
+     "nist_ref": "ITI82"
+    },
+    {
+     "be_ev": 55.6,
+     "nist_ref": "WSP77"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "UeOd81"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "Ueno83"
+    },
+    {
+     "be_ev": 55.2,
+     "nist_ref": "STKS85"
+    },
+    {
+     "be_ev": 55.5,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 57.5,
+     "nist_ref": "SRHR79z"
+    },
+    {
+     "be_ev": 55.64,
+     "nist_ref": "TCCW85"
+    },
+    {
+     "be_ev": 54.64,
+     "nist_ref": "MRV82"
+    },
+    {
+     "be_ev": 55.1,
+     "nist_ref": "BWI80"
+    },
+    {
+     "be_ev": 54.64,
+     "nist_ref": "SCT73"
+    }
+   ]
+  },
+  {
+   "field_id": "f0043",
+   "element": "Cd",
+   "orbital": "3d",
+   "legacy_be": 405,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917205150id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Cd",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Cd_nist.html",
+   "evidence": "Cd | 3d5/2 | 405.04 | HSBS81 ; 404.6 | SHR82 ; 404.9 | Wagn75 ; 405 | WRDM79 ; 404.6 | SATD73 ; 405.3 | PWA79 ; 404.9 | GaWi77 ; 405 | HGW75 ; 405.15 | NyMa81 ; 404.78 | SeSi86 ; 405.12 | *Powe95",
+   "values": [
+    {
+     "be_ev": 405.04,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 404.6,
+     "nist_ref": "SHR82"
+    },
+    {
+     "be_ev": 404.9,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 405,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 404.6,
+     "nist_ref": "SATD73"
+    },
+    {
+     "be_ev": 405.3,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 404.9,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 405,
+     "nist_ref": "HGW75"
+    },
+    {
+     "be_ev": 405.15,
+     "nist_ref": "NyMa81"
+    },
+    {
+     "be_ev": 404.78,
+     "nist_ref": "SeSi86"
+    },
+    {
+     "be_ev": 405.12,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0051",
+   "element": "Ce",
+   "orbital": "3d",
+   "legacy_be": 882,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917204904id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ce",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ce_nist.html",
+   "evidence": "Ce | 3d5/2 | 883.9 | ScOs82 ; Ce | 3d5/2 | 883.9 | SOS82 ; Ce | 3d5/2 | 883.2 | PKHL80",
+   "values": [
+    {
+     "be_ev": 883.9,
+     "nist_ref": "ScOs82"
+    },
+    {
+     "be_ev": 883.9,
+     "nist_ref": "SOS82"
+    },
+    {
+     "be_ev": 883.2,
+     "nist_ref": "PKHL80"
+    }
+   ]
+  },
+  {
+   "field_id": "f0059",
+   "element": "U",
+   "orbital": "4f",
+   "legacy_be": 380,
+   "status": "extracted",
+   "nist_line": "4f7/2",
+   "source_url": "http://web.archive.org/web/20040917221629id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=U",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/U_nist.html",
+   "evidence": "U | 4f7/2 | 377.6 | WCSW86 ; 377.6 | WCSW87 ; 377.4 | WRDM79 ; 376.5 | HoTh79 ; 380.2 | ChGr72 ; 377.2 | MCSS82 ; 377.1 | ACCT74 ; 377.4 | FBWF74 ; 377 | AlTu73 ; 377.4 | DMKK84z ; 376.9 | VRPC74 ; 377.4 | ScLa81 ; 377.1 | Chad73",
+   "values": [
+    {
+     "be_ev": 377.6,
+     "nist_ref": "WCSW86"
+    },
+    {
+     "be_ev": 377.6,
+     "nist_ref": "WCSW87"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 376.5,
+     "nist_ref": "HoTh79"
+    },
+    {
+     "be_ev": 380.2,
+     "nist_ref": "ChGr72"
+    },
+    {
+     "be_ev": 377.2,
+     "nist_ref": "MCSS82"
+    },
+    {
+     "be_ev": 377.1,
+     "nist_ref": "ACCT74"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 377,
+     "nist_ref": "AlTu73"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "DMKK84z"
+    },
+    {
+     "be_ev": 376.9,
+     "nist_ref": "VRPC74"
+    },
+    {
+     "be_ev": 377.4,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 377.1,
+     "nist_ref": "Chad73"
+    }
+   ]
+  },
+  {
+   "field_id": "f0060",
+   "element": "U",
+   "orbital": "4d",
+   "legacy_be": 736,
+   "status": "extracted",
+   "nist_line": "4d5/2",
+   "source_url": "http://web.archive.org/web/20040917221629id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=U",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/U_nist.html",
+   "evidence": "U | 4d5/2 | 736 | FBWF74 ; U | 4d5/2 | 736.4 | ScLa81 ; U | 4d5/2 | 736.8 | ACCT74 ; U | 4d5/2 | 736.7 | AlTu73",
+   "values": [
+    {
+     "be_ev": 736,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 736.4,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 736.8,
+     "nist_ref": "ACCT74"
+    },
+    {
+     "be_ev": 736.7,
+     "nist_ref": "AlTu73"
+    }
+   ]
+  },
+  {
+   "field_id": "f0061",
+   "element": "U",
+   "orbital": "5d",
+   "legacy_be": 98,
+   "status": "extracted",
+   "nist_line": "5d5/2",
+   "source_url": "http://web.archive.org/web/20040917221629id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=U",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/U_nist.html",
+   "evidence": "U | 5d5/2 | 94 | ScLa81 ; U | 5d5/2 | 94.2 | FBWF74 ; U | 5d5/2 | 93.6 | AlTu73",
+   "values": [
+    {
+     "be_ev": 94,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 94.2,
+     "nist_ref": "FBWF74"
+    },
+    {
+     "be_ev": 93.6,
+     "nist_ref": "AlTu73"
+    }
+   ]
+  },
+  {
+   "field_id": "f0005",
+   "element": "O",
+   "orbital": "1s",
+   "legacy_be": 531,
+   "status": "extracted",
+   "nist_line": "1s",
+   "source_url": "http://web.archive.org/web/20040917205727id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=O",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/O_nist.html",
+   "evidence": "<TD headers=\"t1\"><B>O</B></TD> <TD headers=\"t2\"><B>1s</B></TD> <TD headers=\"t3\"><B>532.9</B></TD> <TD headers=\"t4\"><B>TaYa87</B></TD> (13 1s rows present)",
+   "values": [
+    {
+     "be_ev": 532.9,
+     "nist_ref": "TaYa87"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "KBG90"
+    },
+    {
+     "be_ev": 532.9,
+     "nist_ref": "KBG90"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "WVBM87"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "WVBM87"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 533,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 531.4,
+     "nist_ref": "KKMP88"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "FPT88"
+    },
+    {
+     "be_ev": 531.4,
+     "nist_ref": "FPT88"
+    },
+    {
+     "be_ev": 531.2,
+     "nist_ref": "FPT88"
+    },
+    {
+     "be_ev": 532.7,
+     "nist_ref": "KeSc90"
+    },
+    {
+     "be_ev": 531.6,
+     "nist_ref": "RaDe91"
+    }
+   ]
+  },
+  {
+   "field_id": "f0006",
+   "element": "O",
+   "orbital": "KLL",
+   "legacy_be": 978,
+   "status": "no-matching-line",
+   "nist_line": "KLL",
+   "source_url": "http://web.archive.org/web/20040917205727id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=O",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/O_nist.html",
+   "evidence": "O snapshot distinct spectral lines = [\"1s\",\"2s\",\"AP-1s,KVV\"]; no literal KLL line. Only Auger entry is the auger-parameter row 'AP-1s,KVV' (a different quantity). Cross-checked 2004 .asp (O_b.html) and 2016 .aspx (O_aspx.html) snapshots: same 16 rows, still no KLL line."
+  },
+  {
+   "field_id": "f0018",
+   "element": "Cl",
+   "orbital": "2p",
+   "legacy_be": 199,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20160202120716id_/http://srdata.nist.gov:80/xps/query_all_dat_el.aspx?elm1=Cl",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Cl_nist.html",
+   "evidence": "<td>Cl</td><td>2p3/2</td><td align=\"right\">198.30</td><td align=\"right\"><a href=\"query_pubs_detail.aspx?REF_NO=TPPF90\">TPPF90</a></td>",
+   "values": [
+    {
+     "be_ev": 198.3,
+     "nist_ref": "TPPF90"
+    }
+   ]
+  },
+  {
+   "field_id": "f0019",
+   "element": "Cl",
+   "orbital": "2s",
+   "legacy_be": 270,
+   "status": "no-matching-line",
+   "nist_line": "2s",
+   "source_url": "http://web.archive.org/web/20160202120716id_/http://srdata.nist.gov:80/xps/query_all_dat_el.aspx?elm1=Cl",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Cl_nist.html",
+   "evidence": "Cl snapshot contains only 2 data rows; distinct spectral lines = [\"2p3/2\",\"DS-2p\"]. No 2s line present. Confirmed identical on second .aspx snapshot (Cl_b.html, TS 20160612044507)."
+  },
+  {
+   "field_id": "f0028",
+   "element": "Co",
+   "orbital": "2p",
+   "legacy_be": 778,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917205005id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Co",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Co_nist.html",
+   "evidence": "<TD headers=\"t1\"><B>Co</B></TD> <TD headers=\"t2\"><B>2p3/2</B></TD> <TD headers=\"t3\"><B>778</B></TD> <TD headers=\"t4\"><B>McCo75</B></TD> (10 2p3/2 rows present)",
+   "values": [
+    {
+     "be_ev": 778,
+     "nist_ref": "McCo75"
+    },
+    {
+     "be_ev": 778.3,
+     "nist_ref": "AnHo89"
+    },
+    {
+     "be_ev": 777.9,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 778.32,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 778.5,
+     "nist_ref": "MBDS84"
+    },
+    {
+     "be_ev": 778.1,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 778.5,
+     "nist_ref": "ACCC82"
+    },
+    {
+     "be_ev": 778.2,
+     "nist_ref": "HaUn77"
+    },
+    {
+     "be_ev": 777.8,
+     "nist_ref": "MJCD90"
+    },
+    {
+     "be_ev": 778.35,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0036",
+   "element": "Br",
+   "orbital": "3d",
+   "legacy_be": 69,
+   "status": "no-snapshot",
+   "nist_line": "3d5/2",
+   "evidence": "No Internet Archive snapshot of srdata.nist.gov/xps/query_all_dat_el for Br on any variant (.asp ?elm1=Br, .aspx ?elm1=Br, EngElmSrchQuery.aspx ?Elm=Br) returned a 200 result. Confirmed via matchType=prefix dump of all archived query_all_dat_el elm1 pages: element list jumps Bi/B/Ba.../Be/Bi with no Br entry (sanity-checked against O which is found)."
+  },
+  {
+   "field_id": "f0044",
+   "element": "In",
+   "orbital": "3d",
+   "legacy_be": 444,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917205256id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=In",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/In_nist.html",
+   "evidence": "<TD headers=\"t1\"><B>In</B></TD> <TD headers=\"t2\"><B>3d5/2</B></TD> <TD headers=\"t3\"><B>443.8</B></TD> <TD headers=\"t4\"><B>SHR82</B></TD> (19 3d5/2 rows present)",
+   "values": [
+    {
+     "be_ev": 443.8,
+     "nist_ref": "SHR82"
+    },
+    {
+     "be_ev": 443.6,
+     "nist_ref": "Hegd82"
+    },
+    {
+     "be_ev": 443.7,
+     "nist_ref": "HeWi80"
+    },
+    {
+     "be_ev": 443.6,
+     "nist_ref": "Bert81"
+    },
+    {
+     "be_ev": 443.3,
+     "nist_ref": "OSBG83"
+    },
+    {
+     "be_ev": 443.84,
+     "nist_ref": "PVVA79"
+    },
+    {
+     "be_ev": 443.15,
+     "nist_ref": "LTMP83"
+    },
+    {
+     "be_ev": 443.86,
+     "nist_ref": "NyMa81"
+    },
+    {
+     "be_ev": 444.3,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 443.6,
+     "nist_ref": "KISC80"
+    },
+    {
+     "be_ev": 444,
+     "nist_ref": "CIKT85"
+    },
+    {
+     "be_ev": 444,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 444.6,
+     "nist_ref": "MSC73"
+    },
+    {
+     "be_ev": 443.4,
+     "nist_ref": "CFRS80"
+    },
+    {
+     "be_ev": 443.8,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 443.8,
+     "nist_ref": "CKLN78"
+    },
+    {
+     "be_ev": 443.75,
+     "nist_ref": "KJID81"
+    },
+    {
+     "be_ev": 444,
+     "nist_ref": "LAK77"
+    },
+    {
+     "be_ev": 443.88,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0052",
+   "element": "Nd",
+   "orbital": "3d",
+   "legacy_be": 982,
+   "status": "no-snapshot",
+   "nist_line": "3d5/2",
+   "evidence": "No Internet Archive snapshot of srdata.nist.gov/xps/query_all_dat_el for Nd on any variant (.asp ?elm1=Nd, .aspx ?elm1=Nd, EngElmSrchQuery.aspx ?Elm=Nd) returned a 200 result. Confirmed via matchType=prefix dump of all archived query_all_dat_el elm1 pages: element list shows Na/Nb/Ne/Ni with no Nd entry (sanity-checked against O which is found)."
+  },
+  {
+   "field_id": "f0007",
+   "element": "F",
+   "orbital": "1s",
+   "legacy_be": 685,
+   "status": "no-snapshot",
+   "evidence": "No Wayback CDX 200 snapshot exists for srdata.nist.gov/xps/query_all_dat_el.asp?elm1=F (nor .aspx, nor EngElmSrchQuery.aspx?Elm=F). A full prefix scan of query_all_dat_el captures lists bare-symbol elements B, C, F-absent, I, K, N, O, P, S, U, V, W, Y but NOT F (Fe is present, bare F is not)."
+  },
+  {
+   "field_id": "f0020",
+   "element": "K",
+   "orbital": "2p",
+   "legacy_be": 293,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20041231160024id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=K",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/K_nist.html",
+   "evidence": "Row: K | 2p3/2 | 294.7 | PeKa77",
+   "values": [
+    {
+     "be_ev": 294.7,
+     "nist_ref": "PeKa77"
+    }
+   ]
+  },
+  {
+   "field_id": "f0021",
+   "element": "K",
+   "orbital": "2s",
+   "legacy_be": 378,
+   "status": "extracted",
+   "nist_line": "2s",
+   "source_url": "http://web.archive.org/web/20041231160024id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=K",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/K_nist.html",
+   "evidence": "Row: K | 2s | 379.2 | PeKa77",
+   "values": [
+    {
+     "be_ev": 379.2,
+     "nist_ref": "PeKa77"
+    }
+   ]
+  },
+  {
+   "field_id": "f0029",
+   "element": "Ni",
+   "orbital": "2p",
+   "legacy_be": 853,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20041231160005id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ni",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ni_nist.html",
+   "evidence": "26 rows of Ni | 2p3/2 | <E> | <ref>, e.g. 852.8 KiFu90; 852.73 ALMP82; 853.8 GMS72z; 852.73 *Powe95 (recommended)",
+   "values": [
+    {
+     "be_ev": 852.8,
+     "nist_ref": "KiFu90"
+    },
+    {
+     "be_ev": 852.9,
+     "nist_ref": "ChHa78"
+    },
+    {
+     "be_ev": 853.3,
+     "nist_ref": "Conn78"
+    },
+    {
+     "be_ev": 852.73,
+     "nist_ref": "ALMP82"
+    },
+    {
+     "be_ev": 852.9,
+     "nist_ref": "KiWi74a"
+    },
+    {
+     "be_ev": 853.8,
+     "nist_ref": "GMS72z"
+    },
+    {
+     "be_ev": 852.5,
+     "nist_ref": "McCo75"
+    },
+    {
+     "be_ev": 852.8,
+     "nist_ref": "PEJ82"
+    },
+    {
+     "be_ev": 853,
+     "nist_ref": "LoSt84"
+    },
+    {
+     "be_ev": 852.8,
+     "nist_ref": "ShRe79"
+    },
+    {
+     "be_ev": 852,
+     "nist_ref": "NDKS83"
+    },
+    {
+     "be_ev": 852.5,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 852.4,
+     "nist_ref": "CGGM81"
+    },
+    {
+     "be_ev": 853,
+     "nist_ref": "SMSB81"
+    },
+    {
+     "be_ev": 852.2,
+     "nist_ref": "FML85"
+    },
+    {
+     "be_ev": 852.65,
+     "nist_ref": "HFBZ82"
+    },
+    {
+     "be_ev": 853.5,
+     "nist_ref": "EHKT80"
+    },
+    {
+     "be_ev": 852.5,
+     "nist_ref": "KlHe83"
+    },
+    {
+     "be_ev": 852.6,
+     "nist_ref": "LPH84"
+    },
+    {
+     "be_ev": 852.8,
+     "nist_ref": "MBDS84"
+    },
+    {
+     "be_ev": 852.4,
+     "nist_ref": "SMS80"
+    },
+    {
+     "be_ev": 852.3,
+     "nist_ref": "ACW81"
+    },
+    {
+     "be_ev": 852.68,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 852.4,
+     "nist_ref": "WWC78"
+    },
+    {
+     "be_ev": 852.9,
+     "nist_ref": "NSWU77z"
+    },
+    {
+     "be_ev": 852.73,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0037",
+   "element": "Sr",
+   "orbital": "3d",
+   "legacy_be": 134,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20050101025425id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Sr",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Sr_nist.html",
+   "evidence": "Rows: Sr | 3d5/2 | 134.2 | Vasq91 and Sr | 3d5/2 | 134.4 | VaVe80",
+   "values": [
+    {
+     "be_ev": 134.2,
+     "nist_ref": "Vasq91"
+    },
+    {
+     "be_ev": 134.4,
+     "nist_ref": "VaVe80"
+    }
+   ]
+  },
+  {
+   "field_id": "f0045",
+   "element": "Sn",
+   "orbital": "3d",
+   "legacy_be": 485,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20050101025507id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Sn",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Sn_nist.html",
+   "evidence": "24 rows of Sn | 3d5/2 | <E> | <ref>, e.g. 484.7 FaGo77; 486.72 WaHu74; 486.1 WaHu74; 484.98 *Powe95 (recommended)",
+   "values": [
+    {
+     "be_ev": 484.7,
+     "nist_ref": "FaGo77"
+    },
+    {
+     "be_ev": 484.6,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 484.9,
+     "nist_ref": "LAK77"
+    },
+    {
+     "be_ev": 485.2,
+     "nist_ref": "OCH79"
+    },
+    {
+     "be_ev": 484.3,
+     "nist_ref": "ADPS77"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 484.7,
+     "nist_ref": "ThSh78"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "Shut80"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "PWA79"
+    },
+    {
+     "be_ev": 485.1,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 484.85,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 484.6,
+     "nist_ref": "Hegd82"
+    },
+    {
+     "be_ev": 485,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 485,
+     "nist_ref": "SHR82"
+    },
+    {
+     "be_ev": 486.72,
+     "nist_ref": "WaHu74"
+    },
+    {
+     "be_ev": 484.8,
+     "nist_ref": "BVWW80"
+    },
+    {
+     "be_ev": 486.1,
+     "nist_ref": "WaHu74"
+    },
+    {
+     "be_ev": 484.4,
+     "nist_ref": "WVV79z"
+    },
+    {
+     "be_ev": 484.87,
+     "nist_ref": "VeCa85"
+    },
+    {
+     "be_ev": 484.9,
+     "nist_ref": "TLR78"
+    },
+    {
+     "be_ev": 485,
+     "nist_ref": "Hegd82"
+    },
+    {
+     "be_ev": 484.87,
+     "nist_ref": "PVVA79"
+    },
+    {
+     "be_ev": 484.92,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 484.98,
+     "nist_ref": "*Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0053",
+   "element": "W",
+   "orbital": "4f",
+   "legacy_be": 31,
+   "status": "extracted",
+   "nist_line": "4f7/2",
+   "source_url": "http://web.archive.org/web/20050101034425id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=W",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/W_nist.html",
+   "evidence": "14 rows of W | 4f7/2 | <E> | <ref>, e.g. 31.5 JPPD88; 31.37 *Powe95 (recommended); 30.9 NgHe76; 31.6 BiPo73",
+   "values": [
+    {
+     "be_ev": 31.5,
+     "nist_ref": "JPPD88"
+    },
+    {
+     "be_ev": 31.4,
+     "nist_ref": "MuSh88"
+    },
+    {
+     "be_ev": 31.37,
+     "nist_ref": "*Powe95"
+    },
+    {
+     "be_ev": 31.1,
+     "nist_ref": "TISB89"
+    },
+    {
+     "be_ev": 31.5,
+     "nist_ref": "SMSB81"
+    },
+    {
+     "be_ev": 31.4,
+     "nist_ref": "CoRa76"
+    },
+    {
+     "be_ev": 30.9,
+     "nist_ref": "NgHe76"
+    },
+    {
+     "be_ev": 31.6,
+     "nist_ref": "BiPo73"
+    },
+    {
+     "be_ev": 31.4,
+     "nist_ref": "CGR78"
+    },
+    {
+     "be_ev": 31.6,
+     "nist_ref": "MSC73"
+    },
+    {
+     "be_ev": 31.2,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 31.2,
+     "nist_ref": "FlMa82a"
+    },
+    {
+     "be_ev": 31.32,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 31.42,
+     "nist_ref": "VHE82"
+    }
+   ]
+  },
+  {
+   "field_id": "f0008",
+   "element": "Na",
+   "orbital": "1s",
+   "legacy_be": 1072,
+   "status": "extracted",
+   "nist_line": "1s",
+   "source_url": "http://web.archive.org/web/20040917205455id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Na",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Na_nist.html",
+   "evidence": "Na | 1s | 1071.4 | KLMP73",
+   "values": [
+    {
+     "be_ev": 1071.4,
+     "nist_ref": "KLMP73"
+    },
+    {
+     "be_ev": 1071.76,
+     "nist_ref": "Citr73"
+    },
+    {
+     "be_ev": 1071.8,
+     "nist_ref": "BaSt75"
+    },
+    {
+     "be_ev": 1070.8,
+     "nist_ref": "SHH78"
+    }
+   ]
+  },
+  {
+   "field_id": "f0009",
+   "element": "Na",
+   "orbital": "KLL",
+   "legacy_be": 497,
+   "status": "extracted",
+   "nist_line": "KL23L23(1D)",
+   "source_url": "http://web.archive.org/web/20040917205455id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Na",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Na_nist.html",
+   "evidence": "Na | KL23L23(1D) | 994.5 | SRHH78",
+   "values": [
+    {
+     "be_ev": 994.5,
+     "nist_ref": "SRHH78"
+    },
+    {
+     "be_ev": 994.3,
+     "nist_ref": "KLMP73"
+    },
+    {
+     "be_ev": 994.3,
+     "nist_ref": "BaSt75"
+    }
+   ]
+  },
+  {
+   "field_id": "f0022",
+   "element": "Ca",
+   "orbital": "2p",
+   "legacy_be": 347,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917204941id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ca",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Ca_nist.html",
+   "evidence": "Ca | 2p3/2 | 345.9 | VaVe80",
+   "values": [
+    {
+     "be_ev": 345.9,
+     "nist_ref": "VaVe80"
+    },
+    {
+     "be_ev": 346.61,
+     "nist_ref": "* Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0030",
+   "element": "Cu",
+   "orbital": "2p",
+   "legacy_be": 933,
+   "status": "extracted",
+   "nist_line": "2p3/2",
+   "source_url": "http://web.archive.org/web/20040917204643id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Cu",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Cu_nist.html",
+   "evidence": "Cu | 2p3/2 | 932.66 | SSA90",
+   "values": [
+    {
+     "be_ev": 932.66,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 932.67,
+     "nist_ref": "SSA90"
+    },
+    {
+     "be_ev": 932.7,
+     "nist_ref": "BMPN85"
+    },
+    {
+     "be_ev": 933,
+     "nist_ref": "RRD78"
+    },
+    {
+     "be_ev": 933.1,
+     "nist_ref": "HMUZ78"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "GaWi77"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 932.7,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "KPML73"
+    },
+    {
+     "be_ev": 932.5,
+     "nist_ref": "McCo75"
+    },
+    {
+     "be_ev": 932.67,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 932.8,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 932.8,
+     "nist_ref": "HKNN71"
+    },
+    {
+     "be_ev": 932.63,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 932.2,
+     "nist_ref": "Scho73b"
+    },
+    {
+     "be_ev": 932.53,
+     "nist_ref": "Asam76"
+    },
+    {
+     "be_ev": 932.57,
+     "nist_ref": "LANM81"
+    },
+    {
+     "be_ev": 932.5,
+     "nist_ref": "FKWF77"
+    },
+    {
+     "be_ev": 932.61,
+     "nist_ref": "BiSw80"
+    },
+    {
+     "be_ev": 932.3,
+     "nist_ref": "SLFH85"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "KPHB83"
+    },
+    {
+     "be_ev": 932.2,
+     "nist_ref": "EHKT80"
+    },
+    {
+     "be_ev": 932.2,
+     "nist_ref": "Scho72"
+    },
+    {
+     "be_ev": 932.8,
+     "nist_ref": "CDFM82"
+    },
+    {
+     "be_ev": 932.6,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 932.67,
+     "nist_ref": "AnSe84"
+    },
+    {
+     "be_ev": 932.7,
+     "nist_ref": "PEJ82"
+    },
+    {
+     "be_ev": 932.55,
+     "nist_ref": "ALMP82"
+    },
+    {
+     "be_ev": 932.67,
+     "nist_ref": "* Seah89"
+    }
+   ]
+  },
+  {
+   "field_id": "f0038",
+   "element": "Y",
+   "orbital": "3d",
+   "legacy_be": 157,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040919030055id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Y",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Y_nist.html",
+   "evidence": "Y | 3d5/2 | 155.90 | * Powe95",
+   "values": [
+    {
+     "be_ev": 155.9,
+     "nist_ref": "* Powe95"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "VFH89"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "BPC88"
+    },
+    {
+     "be_ev": 155.9,
+     "nist_ref": "ReGa86"
+    },
+    {
+     "be_ev": 156.1,
+     "nist_ref": "BST88"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 155.9,
+     "nist_ref": "BaSa84"
+    },
+    {
+     "be_ev": 155.8,
+     "nist_ref": "FuSc84"
+    }
+   ]
+  },
+  {
+   "field_id": "f0046",
+   "element": "Sb",
+   "orbital": "3d",
+   "legacy_be": 528,
+   "status": "extracted",
+   "nist_line": "3d5/2",
+   "source_url": "http://web.archive.org/web/20040917204726id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Sb",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Sb_nist.html",
+   "evidence": "Sb | 3d5/2 | 528.25 | WRDM79",
+   "values": [
+    {
+     "be_ev": 528.25,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 528.2,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 528.2,
+     "nist_ref": "SFS77"
+    },
+    {
+     "be_ev": 528.2,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 528,
+     "nist_ref": "HSBS81"
+    },
+    {
+     "be_ev": 528.17,
+     "nist_ref": "NyMa80"
+    },
+    {
+     "be_ev": 526.3,
+     "nist_ref": "CKLN78"
+    },
+    {
+     "be_ev": 528.3,
+     "nist_ref": "MSV73"
+    },
+    {
+     "be_ev": 528.02,
+     "nist_ref": "PVVA79"
+    },
+    {
+     "be_ev": 528.25,
+     "nist_ref": "* Powe95"
+    }
+   ]
+  },
+  {
+   "field_id": "f0054",
+   "element": "Pt",
+   "orbital": "4f",
+   "legacy_be": 71,
+   "status": "extracted",
+   "nist_line": "4f7/2",
+   "source_url": "http://web.archive.org/web/20040917205200id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Pt",
+   "saved_html": "/Users/skyefortier/xps-app/.claude/worktrees/feature-periodic-table/.stage9/extract_claude/Pt_nist.html",
+   "evidence": "Pt | 4f7/2 | 71.0 | CaDw86",
+   "values": [
+    {
+     "be_ev": 71,
+     "nist_ref": "CaDw86"
+    },
+    {
+     "be_ev": 70.9,
+     "nist_ref": "SFJ88"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "BeRo86"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "ShOt88"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "RMLC90"
+    },
+    {
+     "be_ev": 71.09,
+     "nist_ref": "LLHM88"
+    },
+    {
+     "be_ev": 70.99,
+     "nist_ref": "LLHM88"
+    },
+    {
+     "be_ev": 71.08,
+     "nist_ref": "LLHM88"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "AGCE87"
+    },
+    {
+     "be_ev": 71.12,
+     "nist_ref": "PHF86"
+    },
+    {
+     "be_ev": 70.83,
+     "nist_ref": "DuBo89"
+    },
+    {
+     "be_ev": 70.87,
+     "nist_ref": "DBW86"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "BACB75"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "Wagn75"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "CMHL77"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "ScLa81"
+    },
+    {
+     "be_ev": 71.07,
+     "nist_ref": "VaTr79"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "Nefe78z"
+    },
+    {
+     "be_ev": 71.07,
+     "nist_ref": "NBM80"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "KNNH68"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "WRDM79"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "Scho72"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "KWD71"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "BGPT84z"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "CaLe73"
+    },
+    {
+     "be_ev": 71,
+     "nist_ref": "JHBK73"
+    },
+    {
+     "be_ev": 70.9,
+     "nist_ref": "BHHK70"
+    },
+    {
+     "be_ev": 71.2,
+     "nist_ref": "HaWi77"
+    },
+    {
+     "be_ev": 71.1,
+     "nist_ref": "FPT88"
+    },
+    {
+     "be_ev": 70.9,
+     "nist_ref": "DHGY90"
+    },
+    {
+     "be_ev": 71.3,
+     "nist_ref": "DHGY90"
+    },
+    {
+     "be_ev": 71.12,
+     "nist_ref": "* Powe95"
+    }
+   ]
+  }
+ ]
+}
