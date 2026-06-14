@@ -1,0 +1,564 @@
+{
+ "description": "IMMUTABLE Stage 9 cutover oracle. Verbatim snapshot of the XPS_ELEMENTS and CHEMICAL_STATES JS constants as they existed in templates/index.html immediately before cutover. Created ONCE, mechanically verified against the extracted constant values. NEVER auto-regenerate — it is the independent post-deletion parity oracle. Mechanical integrity only; not a scientific reference.",
+ "XPS_ELEMENTS": {
+  "Li": {
+   "lines": {
+    "1s": 55
+   }
+  },
+  "Be": {
+   "lines": {
+    "1s": 112
+   }
+  },
+  "B": {
+   "lines": {
+    "1s": 188
+   }
+  },
+  "C": {
+   "lines": {
+    "1s": 285
+   }
+  },
+  "N": {
+   "lines": {
+    "1s": 399
+   }
+  },
+  "O": {
+   "lines": {
+    "1s": 531,
+    "KLL": 978
+   }
+  },
+  "F": {
+   "lines": {
+    "1s": 685
+   }
+  },
+  "Na": {
+   "lines": {
+    "1s": 1072,
+    "KLL": 497
+   }
+  },
+  "Mg": {
+   "lines": {
+    "1s": 1304,
+    "KLL": 306
+   }
+  },
+  "Al": {
+   "lines": {
+    "2p": 73
+   }
+  },
+  "Si": {
+   "lines": {
+    "2p": 99,
+    "2s": 150
+   }
+  },
+  "P": {
+   "lines": {
+    "2p": 133
+   }
+  },
+  "S": {
+   "lines": {
+    "2p": 164,
+    "2s": 228
+   }
+  },
+  "Cl": {
+   "lines": {
+    "2p": 199,
+    "2s": 270
+   }
+  },
+  "K": {
+   "lines": {
+    "2p": 293,
+    "2s": 378
+   }
+  },
+  "Ca": {
+   "lines": {
+    "2p": 347
+   }
+  },
+  "Ti": {
+   "lines": {
+    "2p": 459
+   }
+  },
+  "V": {
+   "lines": {
+    "2p": 517
+   }
+  },
+  "Cr": {
+   "lines": {
+    "2p": 577
+   }
+  },
+  "Mn": {
+   "lines": {
+    "2p": 641
+   }
+  },
+  "Fe": {
+   "lines": {
+    "2p": 711
+   }
+  },
+  "Co": {
+   "lines": {
+    "2p": 778
+   }
+  },
+  "Ni": {
+   "lines": {
+    "2p": 853
+   }
+  },
+  "Cu": {
+   "lines": {
+    "2p": 933
+   }
+  },
+  "Zn": {
+   "lines": {
+    "2p": 1022
+   }
+  },
+  "Ga": {
+   "lines": {
+    "2p": 1117
+   }
+  },
+  "Ge": {
+   "lines": {
+    "2p": 1217
+   }
+  },
+  "As": {
+   "lines": {
+    "3d": 42
+   }
+  },
+  "Se": {
+   "lines": {
+    "3d": 56
+   }
+  },
+  "Br": {
+   "lines": {
+    "3d": 69
+   }
+  },
+  "Sr": {
+   "lines": {
+    "3d": 134
+   }
+  },
+  "Y": {
+   "lines": {
+    "3d": 157
+   }
+  },
+  "Zr": {
+   "lines": {
+    "3d": 179
+   }
+  },
+  "Nb": {
+   "lines": {
+    "3d": 202
+   }
+  },
+  "Mo": {
+   "lines": {
+    "3d": 228
+   }
+  },
+  "Ag": {
+   "lines": {
+    "3d": 368
+   }
+  },
+  "Cd": {
+   "lines": {
+    "3d": 405
+   }
+  },
+  "In": {
+   "lines": {
+    "3d": 444
+   }
+  },
+  "Sn": {
+   "lines": {
+    "3d": 485
+   }
+  },
+  "Sb": {
+   "lines": {
+    "3d": 528
+   }
+  },
+  "Te": {
+   "lines": {
+    "3d": 573
+   }
+  },
+  "I": {
+   "lines": {
+    "3d": 619
+   }
+  },
+  "Ba": {
+   "lines": {
+    "3d": 780
+   }
+  },
+  "La": {
+   "lines": {
+    "3d": 836
+   }
+  },
+  "Ce": {
+   "lines": {
+    "3d": 882
+   }
+  },
+  "Nd": {
+   "lines": {
+    "3d": 982
+   }
+  },
+  "W": {
+   "lines": {
+    "4f": 31
+   }
+  },
+  "Pt": {
+   "lines": {
+    "4f": 71
+   }
+  },
+  "Au": {
+   "lines": {
+    "4f": 84
+   }
+  },
+  "Pb": {
+   "lines": {
+    "4f": 137
+   }
+  },
+  "Bi": {
+   "lines": {
+    "4f": 157
+   }
+  },
+  "Th": {
+   "lines": {
+    "4f": 333
+   }
+  },
+  "U": {
+   "lines": {
+    "4f": 380,
+    "4d": 736,
+    "5d": 98
+   }
+  }
+ },
+ "CHEMICAL_STATES": {
+  "C 1s": [
+   {
+    "state": "Graphite/C-C",
+    "be": 284.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Adventitious C-C/C-H",
+    "be": 284.8,
+    "ref": "ISO 19318"
+   },
+   {
+    "state": "C-O (alcohol/ether)",
+    "be": 286.3,
+    "ref": "Beamson 1992"
+   },
+   {
+    "state": "C=O (carbonyl)",
+    "be": 287.8,
+    "ref": "Beamson 1992"
+   },
+   {
+    "state": "O-C=O (carboxyl)",
+    "be": 288.8,
+    "ref": "Beamson 1992"
+   },
+   {
+    "state": "π→π* shake-up",
+    "be": 290.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "CO₃ (carbonate)",
+    "be": 289.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "CF₂ (PTFE)",
+    "be": 292,
+    "ref": "Beamson 1992"
+   },
+   {
+    "state": "CF₃",
+    "be": 293.5,
+    "ref": "Beamson 1992"
+   }
+  ],
+  "O 1s": [
+   {
+    "state": "Metal oxide (M-O)",
+    "be": 530,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Hydroxide (M-OH)",
+    "be": 531.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Adsorbed H₂O",
+    "be": 533,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "SiO₂",
+    "be": 532.9,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Organic C-O",
+    "be": 532.5,
+    "ref": "Beamson 1992"
+   },
+   {
+    "state": "Organic C=O",
+    "be": 531.8,
+    "ref": "Beamson 1992"
+   }
+  ],
+  "N 1s": [
+   {
+    "state": "Metal nitride",
+    "be": 397,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Amine (NH₂)",
+    "be": 399.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Amide (N-C=O)",
+    "be": 400,
+    "ref": "Beamson 1992"
+   },
+   {
+    "state": "NH₄⁺ / protonated amine",
+    "be": 401.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "NO₃ (nitrate)",
+    "be": 407,
+    "ref": "Moulder 1992"
+   }
+  ],
+  "Si 2p": [
+   {
+    "state": "Si metal",
+    "be": 99.3,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "SiO₂",
+    "be": 103.3,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Si₃N₄",
+    "be": 101.8,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "SiC",
+    "be": 100.4,
+    "ref": "Moulder 1992"
+   }
+  ],
+  "Fe 2p3/2": [
+   {
+    "state": "Fe metal",
+    "be": 707,
+    "ref": "Biesinger 2011"
+   },
+   {
+    "state": "FeO (Fe²⁺)",
+    "be": 709.5,
+    "ref": "Biesinger 2011"
+   },
+   {
+    "state": "Fe₂O₃ (Fe³⁺)",
+    "be": 710.7,
+    "ref": "Biesinger 2011"
+   },
+   {
+    "state": "FeOOH",
+    "be": 711.3,
+    "ref": "Biesinger 2011"
+   },
+   {
+    "state": "FeSO₄",
+    "be": 712,
+    "ref": "Moulder 1992"
+   }
+  ],
+  "Cu 2p3/2": [
+   {
+    "state": "Cu metal",
+    "be": 932.6,
+    "ref": "Biesinger 2017"
+   },
+   {
+    "state": "Cu₂O (Cu⁺)",
+    "be": 932.4,
+    "ref": "Biesinger 2017"
+   },
+   {
+    "state": "CuO (Cu²⁺)",
+    "be": 933.6,
+    "ref": "Biesinger 2017"
+   },
+   {
+    "state": "Cu(OH)₂",
+    "be": 934.5,
+    "ref": "Biesinger 2017"
+   }
+  ],
+  "Ti 2p3/2": [
+   {
+    "state": "Ti metal",
+    "be": 454,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "TiO₂ (Ti⁴⁺)",
+    "be": 458.8,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Ti₂O₃ (Ti³⁺)",
+    "be": 457.1,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "TiN",
+    "be": 455.8,
+    "ref": "Moulder 1992"
+   }
+  ],
+  "U 4f7/2": [
+   {
+    "state": "U metal",
+    "be": 377.3,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "UO₂ (U⁴⁺)",
+    "be": 380,
+    "ref": "Ilton 2007"
+   },
+   {
+    "state": "U₃O₈ (mixed)",
+    "be": 380.8,
+    "ref": "Ilton 2007"
+   },
+   {
+    "state": "UO₃ (U⁶⁺)",
+    "be": 381.5,
+    "ref": "Ilton 2007"
+   },
+   {
+    "state": "UCl₄",
+    "be": 380.2,
+    "ref": "Fortier 2026"
+   }
+  ],
+  "Cl 2p3/2": [
+   {
+    "state": "Organic Cl (C-Cl)",
+    "be": 200.3,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Metal chloride",
+    "be": 198.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "ClO₄⁻ (perchlorate)",
+    "be": 207.5,
+    "ref": "Moulder 1992"
+   }
+  ],
+  "Au 4f7/2": [
+   {
+    "state": "Au metal",
+    "be": 84,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Au₂O₃ (Au³⁺)",
+    "be": 85.8,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "AuCl₃",
+    "be": 86.5,
+    "ref": "Moulder 1992"
+   }
+  ],
+  "S 2p3/2": [
+   {
+    "state": "Thiol (S-H)",
+    "be": 163,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Sulfide (S²⁻)",
+    "be": 161.5,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Sulfate (SO₄²⁻)",
+    "be": 169,
+    "ref": "Moulder 1992"
+   },
+   {
+    "state": "Sulfite (SO₃²⁻)",
+    "be": 166.5,
+    "ref": "Moulder 1992"
+   }
+  ]
+ },
+ "sha256": "4c7aca2bcb9eef3bf15c8f21e1b219e8ce16a294220dbe381259056d70ac9a76"
+}
