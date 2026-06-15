@@ -14,7 +14,7 @@ LaunchAgent + Cloudflare Tunnel.
 - **File parsing:** pandas, openpyxl (xlsx), olefile (vgd).
 - **Frontend:** Single-page HTML/JS in `templates/index.html` (~8500 LOC). Vanilla JS, no build step.
 - **Charting:** Chart.js 4.4 (CDN).
-- **Deployment:** macOS LaunchAgent runs gunicorn on :5000; Cloudflare Tunnel publishes to xps.fortierlab.org. Dev gunicorn typically runs on :5151 with `--reload` for pre-merge verification.
+- **Deployment:** macOS LaunchAgent runs gunicorn on **127.0.0.1:5050** (NOT :5000 — macOS AirTunes intercepts :5000 and returns 403, so health-check :5050); Cloudflare Tunnel publishes to xps.fortierlab.org. Dev gunicorn typically runs on :5151 with `--reload` for pre-merge verification. See [DEPLOY.md](DEPLOY.md) for the full deploy sequence.
 
 ## Project Layout
 
