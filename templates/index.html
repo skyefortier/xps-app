@@ -222,6 +222,11 @@
   .ref-pt-cell.curated { color: var(--text); border-color: var(--border2); cursor: pointer; }
   .ref-pt-cell.curated:hover { border-color: var(--accent); color: var(--accent2); }
   .ref-pt-cell.curated:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Legacy-unverified tier: clickable but visually distinct (dashed, dimmer)
+     so it never reads as a curated/source-verified element. */
+  .ref-pt-cell.legacy { color: var(--text2); border-color: var(--border); border-style: dashed; cursor: pointer; }
+  .ref-pt-cell.legacy:hover { border-color: var(--amber); color: var(--amber); }
+  .ref-pt-cell.legacy:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
   .ref-pt-cell.selected {
     background: var(--accent-dim); color: var(--text);
     border-color: var(--mark, var(--accent));
@@ -255,7 +260,15 @@
   .ref-chip.major { color: var(--accent2); border-color: var(--accent); background: var(--accent-dim); }
   .ref-chip.moderate { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
   .ref-chip.weak { color: var(--text2); border-color: var(--border); background: var(--bg3); }
+  .ref-chip.unknown { color: var(--text2); border-color: var(--border2); border-style: dashed; background: transparent; }
   .ref-chip.auger { color: var(--purple); border-color: var(--purple); background: var(--purple-dim); }
+  /* Prominent legacy-unverified provenance badge in an element overlay group. */
+  .ref-badge-legacy {
+    font-size: 9px; font-family: var(--mono); padding: 1px 6px; margin-left: auto;
+    border-radius: 3px; line-height: 1.6; white-space: nowrap; font-weight: 600;
+    letter-spacing: 0.04em; color: var(--amber); border: 1px solid var(--amber);
+    background: var(--amber-dim);
+  }
   .ref-note {
     font-size: 10px; line-height: 1.5; color: var(--amber);
     background: var(--amber-dim); border: 1px solid rgba(255,187,68,0.4);
@@ -10207,21 +10220,95 @@ function _refElements() {
   if (!_refPayload) return {};
   if (!_refPayload._bySym) {
     const m = {};
-    for (const el of _refPayload.elements) m[el.symbol] = { pe: el, auger: null };
+    for (const el of _refPayload.elements) m[el.symbol] = { pe: el, auger: null, tier: 'curated' };
     for (const el of _refPayload.auger) {
-      if (!m[el.symbol]) m[el.symbol] = { pe: null, auger: null };
+      if (!m[el.symbol]) m[el.symbol] = { pe: null, auger: null, tier: 'curated' };
       m[el.symbol].auger = el;
+    }
+    // Phase A: activate legacy survey elements as a lower 'legacy' tier. Curated
+    // records always win on collision (richer + source-verified), so the six
+    // curated elements never show their legacy rows. A legacy element is
+    // synthesized into the curated element-record shape (see _refLegacyToElement)
+    // with NO expected-region band, NO spin-orbit, and visibility 'unknown' — no
+    // major/moderate/weak value is invented.
+    const legacy = (_refPayload.legacy && _refPayload.legacy.survey) || [];
+    for (const el of legacy) {
+      if (m[el.symbol]) continue;
+      const peEl = _refLegacyToElement(el);
+      if (peEl) m[el.symbol] = { pe: peEl, auger: null, tier: 'legacy' };
     }
     _refPayload._bySym = m;
   }
   return _refPayload._bySym;
 }
 
-function _refIsCurated(sym) {
+// A legacy line is an Auger transition if it is tagged as one or its orbital is
+// a K/L/M/N Auger designation (e.g. 'KLL', 'LMM') rather than a numeric subshell
+// ('1s', '2p'). General test — no per-element list.
+function _refLegacyIsAuger(ln) {
+  return ln.transition_type === 'auger' || /^[KLMN]/i.test(ln.orbital || '');
+}
+
+// Synthesize a legacy survey element into the curated element-record shape so the
+// overlay/grid code paths stay uniform. Legacy markers are stored as apparent-BE
+// positions; with NO expected-region band, NO spin-orbit, visibility 'unknown'.
+//
+// Photoelectron markers are source-invariant apparent BEs — drawn as-is.
+// Auger markers are NOT: their kinetic energy is the source-invariant quantity.
+// The stored value is treated as an apparent BE referenced to the documented
+// default source (Al Kα); its KE is derived ONCE here using the SAME conventions
+// the curated Auger path uses (photon_energy_ev.AlKa / work_function_ev — never a
+// hardcoded parallel constant), then reprojected per selected source at display
+// time via the shared Auger conversion in _refTransitionsFor.
+function _refLegacyToElement(el) {
+  const lines = (el.lines || []).filter(ln => ln && typeof ln.be_ev === 'number');
+  if (!lines.length) return null;
+  const conv = _refPayload.conventions;
+  const hvRef = conv.photon_energy_ev.AlKa;      // documented default source
+  const wf = conv.work_function_ev;
+  return {
+    symbol: el.symbol, z: el.z, name: el.name,
+    curation_status: '', _legacy: true,
+    families: lines.map(ln => {
+      const base = {
+        id: ln.id, element: el.symbol, z: el.z, orbital: ln.orbital,
+        spin_orbit: null, expected_region_ev: null,
+        visibility: { AlKa: 'unknown' },
+        source: ln.source || 'legacy-embedded-dataset',
+        tier: ln.tier || 'legacy-unverified', _legacy: true,
+      };
+      const t = _refLegacyIsAuger(ln)
+        ? Object.assign(base, {
+            transition_type: 'auger',
+            auger_ke_ev: hvRef - ln.be_ev - wf,
+            _legacyApparentBe: ln.be_ev, _legacyRefSource: 'AlKa',
+            _augerKeBasis: 'derived from legacy apparent BE @ Al Kα',
+          })
+        : Object.assign(base, {
+            transition_type: ln.transition_type || 'photoelectron',
+            nominal_be_ev: ln.be_ev,
+          });
+      return { family: ln.orbital, transitions: [t] };
+    }),
+  };
+}
+
+// Activation tier for the periodic-table grid: 'curated' (rich, source-verified),
+// 'legacy' (legacy-unverified markers only), or null (no usable line data —
+// stays unavailable). Clickability is gated on any non-null tier.
+function _refActivation(sym) {
   const e = _refElements()[sym];
-  if (!e) return false;
+  if (!e) return null;
   const has = el => !!(el && el.families.some(f => f.transitions.length));
-  return has(e.pe) || has(e.auger);
+  if (!has(e.pe) && !has(e.auger)) return null;
+  return e.tier || 'curated';
+}
+
+// Curated-tier predicate. The richer Identify-mode reverse lookup (companion-line
+// scoring, region matching) is deliberately gated on this — legacy-unverified
+// elements get overlay markers but are NOT offered as Identify candidates.
+function _refIsCurated(sym) {
+  return _refActivation(sym) === 'curated';
 }
 
 // Flatten an element's transitions with display positions in the corrected-BE
@@ -10239,15 +10326,31 @@ function _refTransitionsFor(sym) {
     if (!el) return;
     for (const fam of el.families) for (const t of fam.transitions) {
       const isAuger = t.transition_type === 'auger';
-      const be = isAuger ? (hv - t.auger_ke_ev - wf) : t.nominal_be_ev;
-      const region = isAuger
-        ? { min: hv - t.expected_region_ev.max - wf, max: hv - t.expected_region_ev.min - wf }
-        : { min: t.expected_region_ev.min, max: t.expected_region_ev.max };
-      const rawVis = t.visibility[sel.source] || 'uncurated';
-      const visFallback = rawVis === 'uncurated';
-      const alka = t.visibility.AlKa;
-      const visEff = !visFallback ? rawVis
-        : (alka && alka !== 'uncurated' ? alka : 'weak');
+      let be, region;
+      if (isAuger) {
+        // Auger KE is source-invariant; apparent BE = hν − KE − φ moves with the
+        // selected source. Same path for curated AND legacy-derived Auger lines.
+        be = hv - t.auger_ke_ev - wf;
+        region = t.expected_region_ev
+          ? { min: hv - t.expected_region_ev.max - wf, max: hv - t.expected_region_ev.min - wf }
+          : null;                                  // legacy Auger: no region band
+      } else if (t._legacy) {
+        // Legacy photoelectron marker: fixed apparent-BE position, no conversion.
+        be = t.nominal_be_ev; region = null;
+      } else {
+        be = t.nominal_be_ev;
+        region = { min: t.expected_region_ev.min, max: t.expected_region_ev.max };
+      }
+      let visEff, visFallback;
+      if (t._legacy) {
+        // Visibility genuinely unknown — shown by default, never reclassified weak.
+        visEff = 'unknown'; visFallback = false;
+      } else {
+        const rawVis = t.visibility[sel.source] || 'uncurated';
+        visFallback = rawVis === 'uncurated';
+        const alka = t.visibility.AlKa;
+        visEff = !visFallback ? rawVis : (alka && alka !== 'uncurated' ? alka : 'weak');
+      }
       out.push({ t, sym, fam: fam.family, isAuger, be, region, visEff, visFallback });
     }
   };
@@ -10311,7 +10414,7 @@ function _refOnTabChange() {
 }
 
 function _refToggleElement(sym) {
-  if (!_refIsCurated(sym)) return;
+  if (!_refActivation(sym)) return;
   const sel = _refGetSel();
   const i = sel.syms.findIndex(s => s.sym === sym);
   if (i >= 0) sel.syms.splice(i, 1);
@@ -10359,18 +10462,24 @@ function _refRenderGrid(sel) {
   sel.syms.forEach(s => { selected[s.sym] = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length]; });
   let cells = '';
   for (const e of REF_PT_LAYOUT) {
-    const curated = _refIsCurated(e.sym);
+    const tier = _refActivation(e.sym);               // 'curated' | 'legacy' | null
+    const clickable = !!tier;
     const selColor = selected[e.sym];
-    const cls = 'ref-pt-cell' + (curated ? ' curated' : '') + (selColor ? ' selected' : '');
+    const cls = 'ref-pt-cell' +
+      (tier === 'curated' ? ' curated' : '') +
+      (tier === 'legacy' ? ' legacy' : '') +
+      (selColor ? ' selected' : '');
     const entry = _refElements()[e.sym];
     const name = (typeof ELEMENT_NAMES !== 'undefined' && ELEMENT_NAMES[e.sym]) ||
                  (entry && (entry.pe || entry.auger).name) || e.sym;
-    const title = curated
-      ? name + ' (Z=' + e.z + ') — click to overlay reference lines'
-      : name + ' (Z=' + e.z + ') — not yet curated in the reference dataset';
+    const title = tier === 'curated'
+      ? name + ' (Z=' + e.z + ') — click to overlay curated reference lines'
+      : tier === 'legacy'
+        ? name + ' (Z=' + e.z + ') — legacy-unverified survey marker; click to overlay'
+        : name + ' (Z=' + e.z + ') — no reference line data';
     cells += '<div class="' + cls + '" style="grid-column:' + e.col + ';grid-row:' + e.row +
       (selColor ? ';--mark:' + selColor : '') + '"' +
-      (curated ? ' tabindex="0" role="button" aria-pressed="' + !!selColor +
+      (clickable ? ' tabindex="0" role="button" aria-pressed="' + !!selColor +
         '" onclick="_refToggleElement(\'' + e.sym + '\')"' +
         ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_refToggleElement(\'' + e.sym + '\')}"' : '') +
       ' title="' + _escAttr(title) + '">' + e.sym + '</div>';
@@ -10384,16 +10493,27 @@ function _refRenderElementGroup(s, sel, range) {
   const e = _refElements()[s.sym];
   const color = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length];
   const el = e.pe || e.auger;
+  const isLegacy = e.tier === 'legacy';
   const status = el.curation_status || '';
   const items = _refTransitionsFor(s.sym);
   let rows = '';
   for (const m of items) {
     if (!sel.showWeak && m.visEff === 'weak') continue;
-    const inRange = m.region.max >= range.lo && m.region.min <= range.hi;
+    // Legacy markers have no expected-region band — range membership is tested
+    // against the marker position itself.
+    const inRange = m.region
+      ? (m.region.max >= range.lo && m.region.min <= range.hi)
+      : (m.be >= range.lo && m.be <= range.hi);
     const evTxt = m.isAuger
       ? 'KE ' + m.t.auger_ke_ev.toFixed(2) + ' → ' + m.be.toFixed(1) + ' eV'
-      : m.t.nominal_be_ev.toFixed(2) + ' eV';
-    const rowTitle = (m.t.notes || '') +
+      : (m.t._legacy ? m.be.toFixed(1) + ' eV' : m.t.nominal_be_ev.toFixed(2) + ' eV');
+    const rowTitle = (m.t._legacy
+        ? (m.isAuger
+            ? 'Legacy Auger marker — KE ' + m.t.auger_ke_ev.toFixed(2) + ' eV (' +
+              (m.t._augerKeBasis || 'derived from legacy apparent BE') +
+              '); apparent BE = hν − KE − φ moves with the selected source.'
+            : 'Legacy-unverified marker — apparent-BE position from the pre-migration dataset; not source-verified, no expected-region band.')
+        : (m.t.notes || '')) +
       (m.visFallback ? ' [visibility label is the Al Kα assessment — not assessed for the selected source]' : '') +
       (inRange ? '' : ' [outside the current spectrum range — not drawn]');
     rows += '<div class="ref-line-row' + (inRange ? '' : ' outside') + '"' +
@@ -10407,14 +10527,20 @@ function _refRenderElementGroup(s, sel, range) {
   if (!rows) rows = '<div class="ref-hint">No major/moderate lines — enable “All lines”.</div>';
 
   let noteHtml = '';
-  const note = (e.pe && e.pe.curation_notes) || (e.auger && e.auger.curation_notes) || '';
-  if (note) {
-    const open = !!_refNotesOpen[s.sym];
-    const firstDot = note.indexOf('. ');
-    const head = firstDot > 0 ? note.slice(0, firstDot + 1) : note;
-    noteHtml = '<div class="ref-note">' + _escHtml(open ? note : head) +
-      (firstDot > 0 ? ' <button type="button" class="ref-note-more" onclick="_refToggleNote(\'' + s.sym + '\')">' +
-        (open ? 'less' : 'more…') + '</button>' : '') + '</div>';
+  if (isLegacy) {
+    noteHtml = '<div class="ref-note">Legacy-unverified survey marker(s), carried over verbatim from the ' +
+      'pre-migration in-app dataset — single rounded positions of unverified origin, not checked against ' +
+      'any external source. No expected-region band, spin-orbit, or visibility data. Treat as orientation only.</div>';
+  } else {
+    const note = (e.pe && e.pe.curation_notes) || (e.auger && e.auger.curation_notes) || '';
+    if (note) {
+      const open = !!_refNotesOpen[s.sym];
+      const firstDot = note.indexOf('. ');
+      const head = firstDot > 0 ? note.slice(0, firstDot + 1) : note;
+      noteHtml = '<div class="ref-note">' + _escHtml(open ? note : head) +
+        (firstDot > 0 ? ' <button type="button" class="ref-note-more" onclick="_refToggleNote(\'' + s.sym + '\')">' +
+          (open ? 'less' : 'more…') + '</button>' : '') + '</div>';
+    }
   }
 
   const srcId = items.length ? items[0].t.source : null;
@@ -10424,10 +10550,14 @@ function _refRenderElementGroup(s, sel, range) {
       ' — hover for full citation; line rows carry per-record notes</div>'
     : '';
 
+  const headRight = isLegacy
+    ? '<span class="ref-badge-legacy" title="Legacy in-app marker — not verified against any external source.">legacy-unverified</span>'
+    : '<span class="ref-el-status">' + _escHtml(status) + '</span>';
+
   return '<div class="ref-el-group">' +
     '<div class="ref-el-head"><span class="ref-el-swatch" style="background:' + color + '"></span>' +
     '<span class="ref-el-name">' + _escHtml(s.sym) + ' — ' + _escHtml(el.name) + '</span>' +
-    '<span class="ref-el-status">' + _escHtml(status) + '</span>' +
+    headRight +
     '<button type="button" class="ref-el-remove" onclick="_refToggleElement(\'' + s.sym + '\')"' +
     ' title="Remove overlay" aria-label="Remove ' + _escAttr(s.sym) + ' overlay">×</button></div>' +
     rows + noteHtml + citeHtml + '</div>';
@@ -10475,14 +10605,16 @@ function _refRenderPanel() {
     }
   }
 
-  // Search row: accessible alternative to the compact grid cells.
-  const curatedOpts = Object.keys(_refElements()).filter(_refIsCurated).sort().map(sym => {
+  // Search row: accessible alternative to the compact grid cells. Includes both
+  // curated and legacy-tier (activated) elements.
+  const elOpts = Object.keys(_refElements()).filter(_refActivation).sort().map(sym => {
     const e = _refElements()[sym];
-    return '<option value="' + _escAttr(sym) + '">' + _escHtml((e.pe || e.auger).name) + '</option>';
+    const suffix = e.tier === 'legacy' ? ' — legacy-unverified' : '';
+    return '<option value="' + _escAttr(sym) + '">' + _escHtml((e.pe || e.auger).name) + suffix + '</option>';
   }).join('');
   html += '<div class="ref-search-row"><input id="ref-el-search" list="ref-el-datalist" ' +
-    'placeholder="Search curated element (symbol or name)…" aria-label="Search curated elements" ' +
-    'onchange="_refSearchSelect(this)"><datalist id="ref-el-datalist">' + curatedOpts + '</datalist></div>';
+    'placeholder="Search element (symbol or name)…" aria-label="Search elements" ' +
+    'onchange="_refSearchSelect(this)"><datalist id="ref-el-datalist">' + elOpts + '</datalist></div>';
 
   html += _refRenderGrid(sel);
   html += '<label class="ref-toggle-row"><input type="checkbox"' + (sel.showWeak ? ' checked' : '') +
@@ -10491,7 +10623,9 @@ function _refRenderPanel() {
   html += _refRenderIdentify(sel, range);
 
   if (!sel.syms.length) {
-    html += '<div class="ref-hint">Click a highlighted element to overlay its reference lines on the spectrum. Dimmed elements are not yet curated — no values are invented for them.</div>';
+    html += '<div class="ref-hint">Click an element to overlay its reference lines on the spectrum. ' +
+      'Solid-outlined elements are curated (source-verified); dashed elements carry only ' +
+      'legacy-unverified markers. Dimmed elements have no line data — no values are invented for them.</div>';
   }
   for (const s of sel.syms) html += _refRenderElementGroup(s, sel, range);
   body.innerHTML = html;
@@ -10514,7 +10648,9 @@ function _refChartItems(chart) {
     for (const m of _refTransitionsFor(s.sym)) {
       if (!sel.showWeak && m.visEff === 'weak') continue;
       if (!m.isAuger && m.be > hv - wf) continue;            // not excitable by this source
-      if (m.region.max < range.lo || m.region.min > range.hi) continue;
+      // Legacy markers have no region band — gate on the marker position.
+      if (m.region) { if (m.region.max < range.lo || m.region.min > range.hi) continue; }
+      else if (m.be < range.lo || m.be > range.hi) continue;
       out.push(Object.assign({}, m, {
         color,
         hover: _refHoverId === m.t.id,
@@ -10539,6 +10675,7 @@ const xpsRefLinesPlugin = {
     c.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
     c.clip();
     for (const m of (items || [])) {
+      if (!m.region) continue;                 // legacy markers: no expected-region band
       const x1 = scales.x.getPixelForValue(m.region.min);
       const x2 = scales.x.getPixelForValue(m.region.max);
       const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
@@ -10874,14 +11011,14 @@ function _refSearchSelect(input) {
   const q = raw.toLowerCase();
   if (!q) return;
   const match = Object.keys(_refElements()).find(sym => {
-    if (!_refIsCurated(sym)) return false;
+    if (!_refActivation(sym)) return false;
     const e = _refElements()[sym];
     const name = String((e.pe || e.auger).name || '').toLowerCase();
     return sym.toLowerCase() === q || name === q || name.startsWith(q);
   });
   input.value = '';
   if (match) _refToggleElement(match);
-  else notify('No curated element matches "' + raw + '".', 'amber');
+  else notify('No element with reference data matches "' + raw + '".', 'amber');
 }
 
 function _refRenderIdentify(sel, range) {

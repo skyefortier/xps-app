@@ -196,7 +196,7 @@
     },
 
     "visibility": {
-      "description": "QUALITATIVE expected-visibility labels per X-ray source — curator judgement from reference survey spectra, NOT computed intensities (no Scofield/RSF/IMFP derivation in v1). 'uncurated' = not yet assessed for that source.",
+      "description": "QUALITATIVE expected-visibility labels per X-ray source — curator judgement from reference survey spectra, NOT computed intensities (no Scofield/RSF/IMFP derivation in v1). 'uncurated' = not yet assessed for that source (UI falls back to the AlKa assessment, else treats as weak). 'unknown' = visibility genuinely not determinable from the available data (e.g. legacy markers and machine-source-verified lines whose intensity was never assessed); rendered at full visibility and NEVER auto-classified as weak — no major/moderate/weak value is invented.",
       "type": "object",
       "additionalProperties": false,
       "required": ["AlKa"],
@@ -206,7 +206,7 @@
       }
     },
 
-    "visibilityLabel": { "enum": ["major", "moderate", "weak", "uncurated"] },
+    "visibilityLabel": { "enum": ["major", "moderate", "weak", "unknown", "uncurated"] },
 
     "chemicalState": {
       "type": "object",
