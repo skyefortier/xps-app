@@ -1637,7 +1637,7 @@
       <button class="btn btn-green peak-fit-control" id="btn-run-fit" onclick="runFit()">Run Fit</button>
       <button class="btn peak-fit-control" id="btn-batch-fit" onclick="showPropagateModal()" title="Propagate fit model to other spectra">Batch Fit</button>
       <button class="btn" onclick="showHistoryModal()" title="View and restore fit history">History</button>
-      <button class="btn" onclick="showNistModal()" title="NIST XPS chemical state reference lookup">Lookup</button>
+      <button class="btn" id="btn-nist-lookup" onclick="showNistModal()" title="NIST XPS chemical state reference lookup">Lookup</button>
       <div class="save-dropdown" id="save-dropdown">
         <button class="btn" onclick="toggleSaveMenu()">Actions &#9662;</button>
         <div class="save-dropdown-menu">
@@ -2327,111 +2327,112 @@ function updateSmoothing() {
 }
 
 // ═══════════════════════════════════════════════════
-// UNIFIED REFERENCE ACCESSOR  (Stage 9 migration)
+// UNIFIED REFERENCE ACCESSOR  (Stage 9 — post-cutover)
 // ═══════════════════════════════════════════════════
-// Single point of access for the five legacy consumers (survey markers,
+// Single source of truth for the five legacy consumers (survey markers,
 // tab-type detection, multiplet-preset suggestions, RSF fallback, NIST
-// modal). Reads the server-injected legacy reference data — the verbatim
-// transcription of the old constants (tier 'legacy-unverified', sourced
-// from data/xps/legacy/*.json and validated by xps_reference.py). The
-// XPS_ELEMENTS / CHEMICAL_STATES constants below are RETAINED as a backstop
-// through Stage 9 and deleted only at the approved cutover; until then the
-// accessor prefers the injected data so the rewired consumers exercise the
-// real post-cutover path.
+// modal). The XPS_ELEMENTS / CHEMICAL_STATES constants have been REMOVED;
+// the sole source is the server-injected LEGACY_REFERENCE (verbatim legacy
+// data from data/xps/legacy/*.json, validated by xps_reference.py).
+//
+// Distinct-observation model: legacy values are served VERBATIM (compound /
+// oxide observations preserved — e.g. Ti ~459, U(IV) ~380, never overwritten).
+// The curated elemental-metal nominals (Ti 453.9, U 377.3, …) are surfaced
+// separately, labeled, by the Reference-Lines overlay over /api/xps-reference;
+// metal and compound are distinct observations, not competing corrections.
+//
+// LOUD failure: if the injection failed (server validation error -> null), we
+// do NOT silently serve empty reference data. We disable the reference-
+// dependent controls, show a persistent banner, and log — while the fitting
+// app keeps working. (Codex Checkpoint-A #1 + Checkpoint-B P0.)
 const LEGACY_REFERENCE = {{ legacy_reference | tojson }};
+const LEGACY_REFERENCE_OK = !!(LEGACY_REFERENCE &&
+  Array.isArray(LEGACY_REFERENCE.survey) &&
+  Array.isArray(LEGACY_REFERENCE.chemical_states));
 
 let _accSurveyCache = null, _accChemCache = null;
+let _refUnavailableNotified = false;
 
-// XPS_ELEMENTS-shaped view: { sym: { lines: { orbital: be } } }. Exact
-// parity with the legacy constant (proven by tests/test_legacy_parity.py).
+function _accReferenceUnavailable() {
+  if (!_refUnavailableNotified) {
+    _refUnavailableNotified = true;
+    if (typeof console !== 'undefined')
+      console.error('[xps] LEGACY_REFERENCE injection failed — reference features disabled; fitting unaffected.');
+    if (typeof notify === 'function')
+      notify('XPS reference data unavailable — element markers, survey identification and NIST lookup are disabled. Fitting is unaffected.', 'red', true);
+    if (typeof _refMarkDataUnavailableUI === 'function') _refMarkDataUnavailableUI();
+  }
+  return true;
+}
+
+// XPS_ELEMENTS-shaped view: { sym: { lines: { orbital: be } } }, served
+// verbatim from the injected legacy data (parity proven against the immutable
+// fixture tests/fixtures/xps_legacy_snapshot.json).
 function _accSurveyElements() {
   if (_accSurveyCache) return _accSurveyCache;
-  if (LEGACY_REFERENCE && Array.isArray(LEGACY_REFERENCE.survey)) {
-    const out = {};
-    for (const el of LEGACY_REFERENCE.survey) {
-      const lines = {};
-      for (const ln of el.lines) lines[ln.orbital] = ln.be_ev;
-      out[el.symbol] = { lines };
-    }
-    return (_accSurveyCache = out);
+  if (!LEGACY_REFERENCE_OK) { _accReferenceUnavailable(); return {}; }
+  const out = {};
+  for (const el of LEGACY_REFERENCE.survey) {
+    const lines = {};
+    for (const ln of el.lines) lines[ln.orbital] = ln.be_ev;
+    out[el.symbol] = { lines };
   }
-  return (typeof XPS_ELEMENTS !== 'undefined') ? XPS_ELEMENTS : {};
+  return (_accSurveyCache = out);
 }
 
-// CHEMICAL_STATES-shaped view: { 'El orb': [ { state, be, ref } ] }.
+// CHEMICAL_STATES-shaped view: { 'El orb': [ { state, be, ref } ] } — exactly
+// those three fields (no tier leak; Codex Checkpoint-B P1).
 function _accChemicalStates() {
   if (_accChemCache) return _accChemCache;
-  if (LEGACY_REFERENCE && Array.isArray(LEGACY_REFERENCE.chemical_states)) {
-    const out = {};
-    for (const g of LEGACY_REFERENCE.chemical_states) {
-      out[g.orbital_key] = g.states.map(s =>
-        ({ state: s.state, be: s.be_ev, ref: s.ref, tier: s.tier }));
-    }
-    return (_accChemCache = out);
+  if (!LEGACY_REFERENCE_OK) { _accReferenceUnavailable(); return {}; }
+  const out = {};
+  for (const g of LEGACY_REFERENCE.chemical_states) {
+    out[g.orbital_key] = g.states.map(s => ({ state: s.state, be: s.be_ev, ref: s.ref }));
   }
-  return (typeof CHEMICAL_STATES !== 'undefined') ? CHEMICAL_STATES : {};
+  return (_accChemCache = out);
 }
 
-// ═══════════════════════════════════════════════════
-// XPS BINDING ENERGY DATABASE — organized by element (Al Kα, eV)
-// LEGACY CONSTANT — retained as backstop; deleted at Stage 9 cutover.
-// Consumers read it via _accSurveyElements(), never directly.
-// ═══════════════════════════════════════════════════
-const XPS_ELEMENTS = {
-  'Li': { lines: {'1s': 55} },
-  'Be': { lines: {'1s': 112} },
-  'B':  { lines: {'1s': 188} },
-  'C':  { lines: {'1s': 285} },
-  'N':  { lines: {'1s': 399} },
-  'O':  { lines: {'1s': 531, 'KLL': 978} },
-  'F':  { lines: {'1s': 685} },
-  'Na': { lines: {'1s': 1072, 'KLL': 497} },
-  'Mg': { lines: {'1s': 1304, 'KLL': 306} },
-  'Al': { lines: {'2p': 73} },
-  'Si': { lines: {'2p': 99, '2s': 150} },
-  'P':  { lines: {'2p': 133} },
-  'S':  { lines: {'2p': 164, '2s': 228} },
-  'Cl': { lines: {'2p': 199, '2s': 270} },
-  'K':  { lines: {'2p': 293, '2s': 378} },
-  'Ca': { lines: {'2p': 347} },
-  'Ti': { lines: {'2p': 459} },
-  'V':  { lines: {'2p': 517} },
-  'Cr': { lines: {'2p': 577} },
-  'Mn': { lines: {'2p': 641} },
-  'Fe': { lines: {'2p': 711} },
-  'Co': { lines: {'2p': 778} },
-  'Ni': { lines: {'2p': 853} },
-  'Cu': { lines: {'2p': 933} },
-  'Zn': { lines: {'2p': 1022} },
-  'Ga': { lines: {'2p': 1117} },
-  'Ge': { lines: {'2p': 1217} },
-  'As': { lines: {'3d': 42} },
-  'Se': { lines: {'3d': 56} },
-  'Br': { lines: {'3d': 69} },
-  'Sr': { lines: {'3d': 134} },
-  'Y':  { lines: {'3d': 157} },
-  'Zr': { lines: {'3d': 179} },
-  'Nb': { lines: {'3d': 202} },
-  'Mo': { lines: {'3d': 228} },
-  'Ag': { lines: {'3d': 368} },
-  'Cd': { lines: {'3d': 405} },
-  'In': { lines: {'3d': 444} },
-  'Sn': { lines: {'3d': 485} },
-  'Sb': { lines: {'3d': 528} },
-  'Te': { lines: {'3d': 573} },
-  'I':  { lines: {'3d': 619} },
-  'Ba': { lines: {'3d': 780} },
-  'La': { lines: {'3d': 836} },
-  'Ce': { lines: {'3d': 882} },
-  'Nd': { lines: {'3d': 982} },
-  'W':  { lines: {'4f': 31} },
-  'Pt': { lines: {'4f': 71} },
-  'Au': { lines: {'4f': 84} },
-  'Pb': { lines: {'4f': 137} },
-  'Bi': { lines: {'4f': 157} },
-  'Th': { lines: {'4f': 333} },
-  'U':  { lines: {'4f': 380, '4d': 736, '5d': 98} },
-};
+// True when reference data loaded; consumers/UI use this to disable cleanly.
+function _accReferenceOk() { return LEGACY_REFERENCE_OK; }
+
+// Loud, persistent "reference data unavailable" UI: disables ONLY the
+// reference-dependent controls (Reference Lines, NIST Lookup, Survey) and
+// shows a banner; the fitting app is untouched. (Codex CkptA #1 / CkptB P0.)
+function _refMarkDataUnavailableUI() {
+  if (typeof document === 'undefined') return;
+  ['btn-ref-panel', 'btn-nist-lookup', 'survey-tab-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.setAttribute('disabled', '');
+      el.setAttribute('aria-disabled', 'true');
+      el.style.opacity = '0.5';
+      el.style.pointerEvents = 'none';
+      el.title = 'Unavailable — XPS reference data failed to load.';
+    }
+  });
+  if (!document.getElementById('ref-unavailable-banner')) {
+    const b = document.createElement('div');
+    b.id = 'ref-unavailable-banner';
+    b.setAttribute('role', 'alert');
+    b.style.cssText = 'background:var(--red-dim);border:1px solid var(--red);color:var(--red);' +
+      'font-size:11px;padding:6px 10px;border-radius:var(--radius);margin:4px 8px;font-family:var(--sans)';
+    b.textContent = 'XPS reference data unavailable — element markers, survey identification and ' +
+      'NIST lookup are disabled. Fitting is unaffected. Check /api/xps-reference.';
+    const area = document.getElementById('chart-area') || document.body;
+    area.insertBefore(b, area.firstChild);
+  }
+}
+
+// Proactive check at load: surface the failure even before a consumer runs.
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!LEGACY_REFERENCE_OK) _accReferenceUnavailable();
+  });
+}
+
+// Legacy survey-line constant removed at Stage 9 cutover — element BE
+// reference data is now served verbatim via the unified accessor over
+// data/xps/legacy/survey-lines.json (see _accSurveyElements).
 
 // Element name lookup for autocomplete
 const ELEMENT_NAMES = {
@@ -2586,7 +2587,7 @@ function classifyTabForOrganize(name, rawBE) {
 
   if (/survey/i.test(raw)) return { kind: 'survey' };
 
-  // Use XPS_ELEMENTS keys as the valid symbol set; longest-first so 'Cl' beats
+  // Use the reference element set (via the accessor) as the valid symbol set; longest-first so 'Cl' beats
   // 'C' and 'Ca' beats 'C'.
   const symbols = Object.keys(_accSurveyElements()).sort((a, b) => b.length - a.length);
   const orbital = '(?:1s|2[sp]|3[spd]|4[spdf]|5[spdf]|6[spdf])';
@@ -9947,82 +9948,9 @@ async function runPropagation() {
 // FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
 // ══════════════════════════════════════════════════════════════
 
-const CHEMICAL_STATES = {
-  'C 1s': [
-    { state: 'Graphite/C-C', be: 284.5, ref: 'Moulder 1992' },
-    { state: 'Adventitious C-C/C-H', be: 284.8, ref: 'ISO 19318' },
-    { state: 'C-O (alcohol/ether)', be: 286.3, ref: 'Beamson 1992' },
-    { state: 'C=O (carbonyl)', be: 287.8, ref: 'Beamson 1992' },
-    { state: 'O-C=O (carboxyl)', be: 288.8, ref: 'Beamson 1992' },
-    { state: '\u03c0\u2192\u03c0* shake-up', be: 290.5, ref: 'Moulder 1992' },
-    { state: 'CO\u2083 (carbonate)', be: 289.5, ref: 'Moulder 1992' },
-    { state: 'CF\u2082 (PTFE)', be: 292.0, ref: 'Beamson 1992' },
-    { state: 'CF\u2083', be: 293.5, ref: 'Beamson 1992' },
-  ],
-  'O 1s': [
-    { state: 'Metal oxide (M-O)', be: 530.0, ref: 'Moulder 1992' },
-    { state: 'Hydroxide (M-OH)', be: 531.5, ref: 'Moulder 1992' },
-    { state: 'Adsorbed H\u2082O', be: 533.0, ref: 'Moulder 1992' },
-    { state: 'SiO\u2082', be: 532.9, ref: 'Moulder 1992' },
-    { state: 'Organic C-O', be: 532.5, ref: 'Beamson 1992' },
-    { state: 'Organic C=O', be: 531.8, ref: 'Beamson 1992' },
-  ],
-  'N 1s': [
-    { state: 'Metal nitride', be: 397.0, ref: 'Moulder 1992' },
-    { state: 'Amine (NH\u2082)', be: 399.5, ref: 'Moulder 1992' },
-    { state: 'Amide (N-C=O)', be: 400.0, ref: 'Beamson 1992' },
-    { state: 'NH\u2084\u207a / protonated amine', be: 401.5, ref: 'Moulder 1992' },
-    { state: 'NO\u2083 (nitrate)', be: 407.0, ref: 'Moulder 1992' },
-  ],
-  'Si 2p': [
-    { state: 'Si metal', be: 99.3, ref: 'Moulder 1992' },
-    { state: 'SiO\u2082', be: 103.3, ref: 'Moulder 1992' },
-    { state: 'Si\u2083N\u2084', be: 101.8, ref: 'Moulder 1992' },
-    { state: 'SiC', be: 100.4, ref: 'Moulder 1992' },
-  ],
-  'Fe 2p3/2': [
-    { state: 'Fe metal', be: 707.0, ref: 'Biesinger 2011' },
-    { state: 'FeO (Fe\u00b2\u207a)', be: 709.5, ref: 'Biesinger 2011' },
-    { state: 'Fe\u2082O\u2083 (Fe\u00b3\u207a)', be: 710.7, ref: 'Biesinger 2011' },
-    { state: 'FeOOH', be: 711.3, ref: 'Biesinger 2011' },
-    { state: 'FeSO\u2084', be: 712.0, ref: 'Moulder 1992' },
-  ],
-  'Cu 2p3/2': [
-    { state: 'Cu metal', be: 932.6, ref: 'Biesinger 2017' },
-    { state: 'Cu\u2082O (Cu\u207a)', be: 932.4, ref: 'Biesinger 2017' },
-    { state: 'CuO (Cu\u00b2\u207a)', be: 933.6, ref: 'Biesinger 2017' },
-    { state: 'Cu(OH)\u2082', be: 934.5, ref: 'Biesinger 2017' },
-  ],
-  'Ti 2p3/2': [
-    { state: 'Ti metal', be: 454.0, ref: 'Moulder 1992' },
-    { state: 'TiO\u2082 (Ti\u2074\u207a)', be: 458.8, ref: 'Moulder 1992' },
-    { state: 'Ti\u2082O\u2083 (Ti\u00b3\u207a)', be: 457.1, ref: 'Moulder 1992' },
-    { state: 'TiN', be: 455.8, ref: 'Moulder 1992' },
-  ],
-  'U 4f7/2': [
-    { state: 'U metal', be: 377.3, ref: 'Moulder 1992' },
-    { state: 'UO\u2082 (U\u2074\u207a)', be: 380.0, ref: 'Ilton 2007' },
-    { state: 'U\u2083O\u2088 (mixed)', be: 380.8, ref: 'Ilton 2007' },
-    { state: 'UO\u2083 (U\u2076\u207a)', be: 381.5, ref: 'Ilton 2007' },
-    { state: 'UCl\u2084', be: 380.2, ref: 'Fortier 2026' },
-  ],
-  'Cl 2p3/2': [
-    { state: 'Organic Cl (C-Cl)', be: 200.3, ref: 'Moulder 1992' },
-    { state: 'Metal chloride', be: 198.5, ref: 'Moulder 1992' },
-    { state: 'ClO\u2084\u207b (perchlorate)', be: 207.5, ref: 'Moulder 1992' },
-  ],
-  'Au 4f7/2': [
-    { state: 'Au metal', be: 84.0, ref: 'Moulder 1992' },
-    { state: 'Au\u2082O\u2083 (Au\u00b3\u207a)', be: 85.8, ref: 'Moulder 1992' },
-    { state: 'AuCl\u2083', be: 86.5, ref: 'Moulder 1992' },
-  ],
-  'S 2p3/2': [
-    { state: 'Thiol (S-H)', be: 163.0, ref: 'Moulder 1992' },
-    { state: 'Sulfide (S\u00b2\u207b)', be: 161.5, ref: 'Moulder 1992' },
-    { state: 'Sulfate (SO\u2084\u00b2\u207b)', be: 169.0, ref: 'Moulder 1992' },
-    { state: 'Sulfite (SO\u2083\u00b2\u207b)', be: 166.5, ref: 'Moulder 1992' },
-  ],
-};
+// Legacy chemical-state constant removed at Stage 9 cutover — NIST-modal
+// reference data is now served verbatim via the unified accessor over
+// data/xps/legacy/chemical-states.json (see _accChemicalStates).
 
 // Active NIST markers: array of { orbital, state, be, id }
 const _nistMarkers = [];
@@ -10207,9 +10135,9 @@ function _drawNistMarkers(chart) {
 // ══════════════════════════════════════════════════════════════
 // PERIODIC TABLE REFERENCE LINES  (data/xps via /api/xps-reference)
 // ══════════════════════════════════════════════════════════════
-// Built ALONGSIDE the legacy XPS_ELEMENTS survey markers and the
-// CHEMICAL_STATES NIST modal; neither is touched until the final
-// migration step. Physics conventions (do not violate):
+// The Stage-9 cutover removed the legacy survey-marker and NIST-modal
+// constants; all reference data now flows through the unified accessor over
+// data/xps. Physics conventions (do not violate):
 //   • Photoelectron markers draw at nominal_be_ev DIRECTLY in the
 //     displayed corrected-BE frame — never shifted by ccShift.
 //   • Auger lines store source-invariant KINETIC energy; apparent

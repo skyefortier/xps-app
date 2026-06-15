@@ -1,67 +1,71 @@
 {
  "schema_version": 1,
- "file_id": "legacy-corrections",
+ "file_id": "legacy-curated-crossreference",
  "source": "legacy-embedded-dataset",
- "description": "Stage 9 correction layer (L3). Adjudicated corrections applied over the verbatim legacy survey base to form the effective accessor output. Each correction is dual-extraction-corroborated (NIST) or a hand-verified curated nominal. Legacy base stays verbatim; this layer is separate and explicit.",
- "corrections": [
+ "description": "Stage 9 CROSS-REFERENCE (NOT applied as overwrites). Maps each legacy survey observation to its curated elemental-metal nominal. Per policy, metal and compound values are DISTINCT source observations, not competing corrections: the legacy compound/oxide value (e.g. Ti ~459, U(IV) ~380) is PRESERVED verbatim as a valid observation; the curated elemental-metal nominal (e.g. Ti 453.9, U 377.3) is surfaced separately by the curated overlay, labeled as elemental, alongside the full searchable chemical-state range. The runtime legacy survey-marker path stays verbatim; this file documents the metal<->compound relationship for the evidence report and tier display only.",
+ "note": "effective_marker_be = the value the survey-marker path uses. For photoelectron corrections it is the corrected BE; for Auger it stays at the legacy apparent-BE (the corrected value is KINETIC energy, recorded separately, not a BE marker).",
+ "crossrefs": [
   {
    "field_id": "f0003",
    "element": "C",
    "orbital": "1s",
    "legacy_be": 285,
-   "corrected_be": 284.5,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "1s",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 284.5
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 284.5
   },
   {
    "field_id": "f0005",
    "element": "O",
    "orbital": "1s",
    "legacy_be": 531,
-   "corrected_be": 531.4,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "1s",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 531.4
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 531.4
   },
   {
    "field_id": "f0009",
    "element": "Na",
    "orbital": "KLL",
    "legacy_be": 497,
-   "corrected_be": 994.4,
    "source": "nist-srd-20",
    "basis": "auger-ke-frame",
    "tier": "transcription-corroborated",
    "note": "KINETIC energy; apparent BE computed at display",
    "auger_ke": 994.4,
-   "effective_marker_be": 497,
-   "marker_note": "Auger: marker stays at legacy apparent-BE; corrected KINETIC energy recorded for overlay (apparent BE = hv-KE-wf at display)."
+   "marker_note": "Auger: marker stays at legacy apparent-BE; corrected KINETIC energy recorded for overlay (apparent BE = hv-KE-wf at display).",
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "auger-apparent-be",
+   "curated_elemental_nominal": 994.4
   },
   {
    "field_id": "f0011",
    "element": "Mg",
    "orbital": "KLL",
    "legacy_be": 306,
-   "corrected_be": 1185.65,
    "source": "nist-srd-20",
    "basis": "auger-ke-frame",
    "tier": "transcription-corroborated",
    "note": "KINETIC energy; apparent BE computed at display",
    "auger_ke": 1185.65,
-   "effective_marker_be": 306,
-   "marker_note": "Auger: marker stays at legacy apparent-BE; corrected KINETIC energy recorded for overlay (apparent BE = hv-KE-wf at display)."
+   "marker_note": "Auger: marker stays at legacy apparent-BE; corrected KINETIC energy recorded for overlay (apparent BE = hv-KE-wf at display).",
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "auger-apparent-be",
+   "curated_elemental_nominal": 1185.65
   },
   {
    "field_id": "f0015",
    "element": "P",
    "orbital": "2p",
    "legacy_be": 133,
-   "corrected_be": 130.15,
    "source": "nist-srd-20",
    "basis": "elemental-nominal-with-oxidation-range",
    "region": [
@@ -69,26 +73,28 @@
     134.5
    ],
    "tier": "transcription-corroborated",
-   "effective_marker_be": 130.15
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "compound-or-oxide",
+   "curated_elemental_nominal": 130.15
   },
   {
    "field_id": "f0018",
    "element": "Cl",
    "orbital": "2p",
    "legacy_be": 199,
-   "corrected_be": 198.3,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "2p3/2",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 198.3
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 198.3
   },
   {
    "field_id": "f0023",
    "element": "Ti",
    "orbital": "2p",
    "legacy_be": 459,
-   "corrected_be": 453.89,
    "source": "nist-srd-20",
    "basis": "elemental-nominal-with-oxidation-range",
    "region": [
@@ -96,14 +102,15 @@
     460.5
    ],
    "tier": "transcription-corroborated",
-   "effective_marker_be": 453.89
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "compound-or-oxide",
+   "curated_elemental_nominal": 453.89
   },
   {
    "field_id": "f0024",
    "element": "V",
    "orbital": "2p",
    "legacy_be": 517,
-   "corrected_be": 512.4,
    "source": "nist-srd-20",
    "basis": "elemental-nominal-with-oxidation-range",
    "region": [
@@ -111,14 +118,15 @@
     518.5
    ],
    "tier": "transcription-corroborated",
-   "effective_marker_be": 512.4
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "compound-or-oxide",
+   "curated_elemental_nominal": 512.4
   },
   {
    "field_id": "f0025",
    "element": "Cr",
    "orbital": "2p",
    "legacy_be": 577,
-   "corrected_be": 574.26,
    "source": "nist-srd-20",
    "basis": "elemental-nominal-with-oxidation-range",
    "region": [
@@ -126,14 +134,15 @@
     578.5
    ],
    "tier": "transcription-corroborated",
-   "effective_marker_be": 574.26
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "compound-or-oxide",
+   "curated_elemental_nominal": 574.26
   },
   {
    "field_id": "f0027",
    "element": "Fe",
    "orbital": "2p",
    "legacy_be": 711,
-   "corrected_be": 706.92,
    "source": "nist-srd-20",
    "basis": "elemental-nominal-with-oxidation-range",
    "region": [
@@ -141,68 +150,74 @@
     712.5
    ],
    "tier": "transcription-corroborated",
-   "effective_marker_be": 706.92
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "compound-or-oxide",
+   "curated_elemental_nominal": 706.92
   },
   {
    "field_id": "f0030",
    "element": "Cu",
    "orbital": "2p",
    "legacy_be": 933,
-   "corrected_be": 932.67,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "2p3/2",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 932.67
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 932.67
   },
   {
    "field_id": "f0040",
    "element": "Nb",
    "orbital": "3d",
    "legacy_be": 202,
-   "corrected_be": 202.31,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "3d5/2",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 202.31
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 202.31
   },
   {
    "field_id": "f0059",
    "element": "U",
    "orbital": "4f",
    "legacy_be": 380,
-   "corrected_be": 377.3,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "4f7/2",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 377.3
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 377.3
   },
   {
    "field_id": "f0060",
    "element": "U",
    "orbital": "4d",
    "legacy_be": 736,
-   "corrected_be": 736.4,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "4d5/2",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 736.4
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 736.4
   },
   {
    "field_id": "f0061",
    "element": "U",
    "orbital": "5d",
    "legacy_be": 98,
-   "corrected_be": 94.0,
    "source": "nist-srd-20",
    "basis": "curated-nominal",
    "curated_orbital": "5d5/2",
    "tier": "curated-hand-verified",
-   "effective_marker_be": 94.0
+   "relationship": "distinct-observation",
+   "legacy_observation_kind": "legacy-value",
+   "curated_elemental_nominal": 94.0
   }
- ],
- "note": "effective_marker_be = the value the survey-marker path uses. For photoelectron corrections it is the corrected BE; for Auger it stays at the legacy apparent-BE (the corrected value is KINETIC energy, recorded separately, not a BE marker)."
+ ]
 }

@@ -106,24 +106,11 @@ def test_duplicate_orbital_key_rejected(tmp_path):
     assert "duplicate orbital_key" in str(exc.value)
 
 
-# ── #4: real JS accessor deep-equals the constants ──────────────────────────
-
-def test_js_accessor_functions_deep_equal_constants(tmp_path):
-    """Render the page and run the ACTUAL _accSurveyElements/_accChemicalStates
-    JS against the injected LEGACY_REFERENCE, asserting deep parity with the
-    retained constants — not a Python reimplementation."""
-    from app import create_app
-    app = create_app(upload_folder=str(tmp_path / "up"),
-                     data_folder=str(REPO / "data/xps"))
-    app.config["TESTING"] = True
-    html = app.test_client().get("/").get_data(as_text=True)
-    rendered = tmp_path / "rendered.html"
-    rendered.write_text(html)
-    proc = subprocess.run(
-        ["node", ".stage9/accessor_parity_check.mjs", str(rendered)],
-        cwd=REPO, capture_output=True, text=True)
-    assert proc.returncode == 0, f"accessor parity failed: {proc.stdout}\n{proc.stderr}"
-    assert "ACCESSOR_PARITY_OK" in proc.stdout
+# ── #4: real JS accessor parity ─────────────────────────────────────────────
+# SUPERSEDED at cutover by tests/test_cutover.py::test_cutover_accessor_parity_and_shape,
+# which runs the actual _accSurveyElements/_accChemicalStates against the
+# IMMUTABLE FIXTURE (the post-deletion oracle) instead of the now-removed
+# constants. Kept as a pointer so the migration is traceable.
 
 
 # ── #7: axis-convention lock (survey markers draw at be, not be+ccShift) ─────

@@ -17,11 +17,14 @@ RAW = REPO / ".stage9" / "legacy_raw.json"
 
 
 def _raw():
-    # Codex CkptA #5: ALWAYS regenerate from the current template — a stale
-    # .stage9/legacy_raw.json would silently let the parity test compare
-    # against outdated constants, defeating the deletion safety net.
-    subprocess.run(["node", ".stage9/extract_legacy.mjs"], cwd=REPO, check=True)
-    return json.loads(RAW.read_text())
+    # Post-cutover oracle: the XPS_ELEMENTS / CHEMICAL_STATES constants have
+    # been REMOVED from the template, so the parity oracle is the immutable
+    # fixture tests/fixtures/xps_legacy_snapshot.json — created once and
+    # mechanically verified == the original constants (see test_cutover.py).
+    # This proves legacy JSON == the frozen original values, which survives
+    # constant deletion (Codex Checkpoint-B P0: the oracle must not vanish).
+    fx = json.loads((REPO / "tests/fixtures/xps_legacy_snapshot.json").read_text())
+    return {"XPS_ELEMENTS": fx["XPS_ELEMENTS"], "CHEMICAL_STATES": fx["CHEMICAL_STATES"]}
 
 
 def _survey():
