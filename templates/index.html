@@ -4851,6 +4851,13 @@ function togglePlaceMode(mode) {
     placeMode = null;
     wrap.classList.remove('placing');
     _dragZoomEnabled = true;
+    // Exiting Identify mode must also clear its candidate panel + chart
+    // highlight and restore normal click-to-select. This branch is the single
+    // disarm point for every exit path: the Identify button re-click calls
+    // togglePlaceMode('identify'); the Esc handler calls togglePlaceMode(placeMode);
+    // and toggleRefPanel's close-time disarm calls togglePlaceMode('identify') —
+    // so clearing here covers all three.
+    if (mode === 'identify' && typeof _refClearIdentify === 'function') _refClearIdentify();
     notify('Placement mode cancelled.', '');
     return;
   }
