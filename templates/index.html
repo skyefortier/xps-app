@@ -302,6 +302,11 @@
   .ref-tier.strong { color: var(--green); border-color: var(--green); background: var(--green-dim); }
   .ref-tier.possible { color: var(--accent2); border-color: var(--accent); background: var(--accent-dim); }
   .ref-tier.weak { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+  /* Data-tier badge on an identify candidate (distinct from the confidence
+     tier above). Legacy hits read as legacy-unverified. */
+  .ref-cand-tier { font-size: 9px; font-family: var(--mono); padding: 0 5px; border-radius: 3px; border: 1px solid; line-height: 1.6; white-space: nowrap; }
+  .ref-cand-tier.curated { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+  .ref-cand-tier.legacy { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); font-weight: 600; }
   .ref-cand-line { font-size: 10px; line-height: 1.6; color: var(--text2); }
   .ref-cand-line b { color: var(--text); font-weight: 600; }
   .ref-cand-conflict { font-size: 10px; line-height: 1.6; color: var(--amber); }
@@ -10311,13 +10316,6 @@ function _refActivation(sym) {
   return e.tier || 'curated';
 }
 
-// Curated-tier predicate. The richer Identify-mode reverse lookup (companion-line
-// scoring, region matching) is deliberately gated on this — legacy-unverified
-// elements get overlay markers but are NOT offered as Identify candidates.
-function _refIsCurated(sym) {
-  return _refActivation(sym) === 'curated';
-}
-
 // Flatten an element's transitions with display positions in the corrected-BE
 // frame. PE: be = nominal_be_ev (drawn as-is). Auger: be = hν − KE − φ, and
 // the KE-frame expected region converts with min/max swapped.
@@ -10891,18 +10889,30 @@ function _refIdentifyAt(beClicked) {
   const ccUnverified = tab.chargeVerified === false;
   const cands = [];
 
+  // Candidate pool is the table's FULL activatable set (curated + legacy),
+  // not curated-only — identify must agree with what the grid lets you click.
+  const PROX_TOL = 3.0;     // proximity window (eV) for region=null (legacy) lines
   for (const sym of Object.keys(_refElements())) {
-    if (!_refIsCurated(sym)) continue;
+    const dataTier = _refActivation(sym);                // 'curated' | 'legacy' | null
+    if (!dataTier) continue;                             // not activatable — skip
     const trans = _refTransitionsFor(sym);
     for (const m of trans) {
       if (m.isAuger && !sel.includeAuger) continue;
       if (!m.isAuger && m.be > hv - wf) continue;        // not excitable
+      // m.be is the CURRENT rendered chart position: PE at nominal_be_ev; Auger
+      // (curated AND legacy) at the source-projected apparent BE (hv − KE − φ)
+      // for the selected source — so identify always agrees with the drawn line.
       const dist = Math.abs(m.be - beClicked);
-      const inRegion = beClicked >= m.region.min && beClicked <= m.region.max;
-      if (!inRegion && dist > tol) continue;
+      const hasRegion = !!m.region;
+      // Guard the region test against null — region=null must never throw.
+      const inRegion = hasRegion && beClicked >= m.region.min && beClicked <= m.region.max;
+      // Gate: region present -> in-region OR within tol; region=null (legacy) ->
+      // within the fixed proximity window.
+      if (hasRegion ? (!inRegion && dist > tol) : (dist > PROX_TOL)) continue;
+      const effTol = hasRegion ? tol : PROX_TOL;
 
       let score = inRegion ? 40 : 10;
-      score += 30 * Math.max(0, 1 - dist / Math.max(tol, 0.01));
+      score += 30 * Math.max(0, 1 - dist / Math.max(effTol, 0.01));
       score += { major: 15, moderate: 8, weak: 2 }[m.visEff] || 2;
       if (!m.isAuger) score += 5;                        // photoelectron priority
 
@@ -10957,16 +10967,26 @@ function _refIdentifyAt(beClicked) {
       cands.push({
         id: m.t.id, sym, label: sym + ' ' + (m.isAuger ? m.fam : m.t.orbital),
         isAuger: m.isAuger, ke: m.isAuger ? m.t.auger_ke_ev : null,
-        be: m.be, dist, inRegion, vis: m.visEff, score,
+        be: m.be, dist, inRegion, hasRegion, vis: m.visEff, score, dataTier,
         energyMatch: inRegion && dist <= tol / 2 ? 'strong'
-                   : (inRegion || dist <= tol ? 'moderate' : 'weak'),
+                   : (inRegion || dist <= effTol ? 'moderate' : 'weak'),
         partnerTxt, othersTxt, conflictTxt: null,
         sourceId: m.t.source,
       });
     }
   }
 
-  cands.sort((a, b) => b.score - a.score || (a.isAuger ? 1 : 0) - (b.isAuger ? 1 : 0));
+  // Rank primarily by absolute Δ (closest first); break near-ties (Δ within
+  // ~0.5 eV of each other) by data-tier priority curated > machine > legacy,
+  // then by score, then photoelectron over Auger.
+  const TIER_RANK = { curated: 0, machine: 1, legacy: 2 };
+  cands.sort((a, b) => {
+    const dd = a.dist - b.dist;
+    if (Math.abs(dd) > 0.5) return dd;
+    const tr = (TIER_RANK[a.dataTier] ?? 9) - (TIER_RANK[b.dataTier] ?? 9);
+    if (tr) return tr;
+    return (b.score - a.score) || ((a.isAuger ? 1 : 0) - (b.isAuger ? 1 : 0));
+  });
   const top = cands.slice(0, 8);
   // Overlap conflicts among surviving candidates (different elements only)
   for (const a of top) {
@@ -11060,18 +11080,22 @@ function _refRenderIdentify(sel, range) {
     html += '<div class="ref-hint">Charge correction was propagated but is unverified — candidate confidence lowered.</div>';
   }
   if (!ident.cands.length) {
-    html += '<div class="ref-hint">No curated candidates within tolerance. Try Broad, include Auger lines, or consider elements not yet curated in the dataset.</div>';
+    html += '<div class="ref-hint">No reference candidates within tolerance. Try Broad or include Auger lines.</div>';
   }
   const srcLabel = sel.source === 'AlKa' ? 'Al Kα' : 'Mg Kα';
   for (const c of ident.cands) {
     const cite = _refPayload.sources[c.sourceId];
+    const tierBadge = c.dataTier === 'legacy'
+      ? '<span class="ref-cand-tier legacy" title="Legacy in-app marker — not verified against any external source.">legacy-unverified</span>'
+      : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '">' + _escHtml(c.dataTier || '') + '</span>';
     html += '<div class="ref-cand">' +
       '<div class="ref-cand-head"><span class="ref-tier ' + c.tierCls + '">' + c.tier + '</span>' +
-      '<span class="ref-cand-name">' + _escHtml(c.label) + '</span>' +
+      '<span class="ref-cand-name">' + _escHtml(c.label) + '</span>' + tierBadge +
       (c.isAuger ? '<span class="ref-chip auger">Auger</span>' : '') +
       '<span class="ref-cand-ev">' + c.be.toFixed(2) + ' eV &middot; &Delta;' + c.dist.toFixed(2) + '</span></div>' +
       '<div class="ref-cand-line">Energy match: <b>' + c.energyMatch + '</b>' +
-      (c.inRegion ? ' (inside expected region)' : ' (outside expected region)') + '</div>' +
+      (c.hasRegion ? (c.inRegion ? ' (inside expected region)' : ' (outside expected region)')
+                   : ' (proximity match — no expected-region band)') + '</div>' +
       '<div class="ref-cand-line">Expected visibility: <b>' + c.vis + '</b></div>' +
       '<div class="ref-cand-line">Doublet partner: ' + _escHtml(c.partnerTxt) + '</div>' +
       '<div class="ref-cand-line">Other ' + _escHtml(c.sym) + ' lines: ' + _escHtml(c.othersTxt) + '</div>' +

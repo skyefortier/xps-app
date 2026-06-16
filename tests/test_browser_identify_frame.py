@@ -228,3 +228,95 @@ def test_zero_ccshift_reference_positions_unchanged(page):
     }""")
     assert abs(r["u"] - 377.30) < 0.01
     assert abs(r["cu"] - 932.67) < 0.01
+
+
+# ── Legacy identify-coverage (candidate pool = full activatable set) ──────────
+
+def setup_spectrum(page, lo, hi, source="AlKa", include_auger=False):
+    """A flat spectrum spanning [lo, hi]; identify scans references, not the
+    spectrum, so the content is irrelevant — the window/tab/source are what matter."""
+    page.evaluate(
+        """([lo,hi,src,auger]) => {
+            const N=Math.max(60, Math.round((hi-lo)/0.2)), raw=[], inten=[];
+            for(let i=0;i<N;i++){ raw.push(lo + i*(hi-lo)/(N-1)); inten.push(1000); }
+            tabManager.createTab('probe', raw, inten);
+            const t=tabManager._getTab(tabManager.activeId); state.ccShift=0; if(t)t.ccShift=0;
+            if(typeof _refClearIdentify==='function') _refClearIdentify();
+            if(placeMode) togglePlaceMode(placeMode);
+            const sel=_refGetSel(); sel.syms=[]; sel.source=src; sel.includeAuger=!!auger; sel.tolMode='normal';
+            updatePlot();
+        }""", [lo, hi, source, include_auger])
+    page.wait_for_timeout(120)
+
+
+def identify(page, be):
+    return page.evaluate(
+        """(be) => {
+            _refIdentifyAt(be);
+            const tab=_refActiveTab(); const id=tab&&tab._refIdentify;
+            return id ? id.cands.map(c=>({label:c.label, tier:c.dataTier,
+                dist:+c.dist.toFixed(3), isAuger:c.isAuger})) : [];
+        }""", be)
+
+
+def test_legacy_fe_2p_returns_candidate_at_711(page):
+    setup_spectrum(page, 700, 740)
+    cands = identify(page, 711.0)
+    fe = [c for c in cands if c["label"] == "Fe 2p"]
+    assert fe, f"expected Fe 2p, got {[c['label'] for c in cands]}"
+    assert fe[0]["tier"] == "legacy"          # legacy-unverified
+    assert fe[0]["dist"] <= 0.01              # Δ ~0, shown
+
+
+def test_legacy_fe_absent_when_far_off(page):
+    setup_spectrum(page, 700, 740)
+    cands = identify(page, 717.0)             # 711 + 6 > 3.0 proximity window
+    assert not any(c["label"] == "Fe 2p" for c in cands)
+
+
+def test_curated_u_outranks_nearby_legacy(page):
+    setup_spectrum(page, 370, 415)
+    cands = identify(page, 377.3)
+    assert cands and cands[0]["label"] == "U 4f7/2"
+    assert cands[0]["tier"] == "curated"
+    # K 2s (legacy, 378.0) is within the proximity window but ranks below U.
+    k = [(i, c) for i, c in enumerate(cands) if c["label"] == "K 2s"]
+    if k:
+        idx, kc = k[0]
+        assert kc["tier"] == "legacy" and idx > 0
+
+
+def test_curated_outranks_legacy_on_near_tie(page):
+    # Equidistant between U 4f7/2 (377.3, curated) and K 2s (378.0, legacy):
+    # Δ within 0.5 eV -> tier priority -> curated wins.
+    setup_spectrum(page, 370, 415)
+    cands = identify(page, 377.65)
+    assert cands[0]["label"] == "U 4f7/2" and cands[0]["tier"] == "curated"
+
+
+def test_mgka_legacy_na_kll_and_curated_cu_lmm_project(page):
+    setup_spectrum(page, 200, 400, source="MgKa", include_auger=True)
+    na = identify(page, 264.0)               # Na KLL projected onto Mg Kα
+    assert any(c["label"] == "Na KLL" and c["tier"] == "legacy" and c["isAuger"] for c in na), na
+    cu = identify(page, 330.48)              # Cu LMM projected onto Mg Kα
+    assert any(c["label"].startswith("Cu L") and c["tier"] == "curated" and c["isAuger"] for c in cu), cu
+
+
+def test_region_null_identify_never_throws(page):
+    errs = []
+    page.on("pageerror", lambda e: errs.append(str(e)))
+    setup_spectrum(page, 700, 740)
+    identify(page, 711.0)                     # legacy Fe 2p, region=null
+    identify(page, 710.4)
+    region_errs = [e for e in errs if "min" in e or "region" in e or "Cannot read" in e]
+    assert not region_errs, region_errs
+
+
+def test_legacy_candidate_card_shows_tier_and_delta(page):
+    setup_spectrum(page, 700, 740)
+    page.evaluate("() => _refIdentifyAt(711.0)")
+    page.wait_for_timeout(150)
+    txt = page.inner_text("#ref-panel-body")
+    assert "Fe 2p" in txt
+    assert "legacy-unverified" in txt        # data-tier badge, non-authoritative
+    assert "Δ" in txt                   # Δ shown
