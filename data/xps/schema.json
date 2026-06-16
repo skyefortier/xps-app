@@ -38,7 +38,7 @@
       "required": ["schema_version", "file_id", "elements"],
       "properties": {
         "schema_version": { "const": 1 },
-        "file_id": { "enum": ["elements-main", "elements-lanthanides", "elements-actinides", "auger-lines"] },
+        "file_id": { "enum": ["elements-main", "elements-lanthanides", "elements-actinides", "elements-machine", "auger-lines"] },
         "elements": {
           "type": "array",
           "items": { "$ref": "#/$defs/element" }
@@ -55,8 +55,8 @@
         "z": { "type": "integer", "minimum": 1, "maximum": 118 },
         "name": { "type": "string", "minLength": 3 },
         "curation_status": {
-          "description": "curated: all listed values verified against the cited sources. partial: listed values verified, but known lines are missing (see curation_notes). uncurated: placeholder entry, no trustworthy open data curated yet — families may be empty; the UI must not present uncurated elements as authoritative.",
-          "enum": ["curated", "partial", "uncurated"]
+          "description": "curated: all listed values verified against the cited sources. machine: values are NIST-evaluated reference energies recovered by dual machine extraction and corroborated, but NOT human-verified (see the per-transition tier + the elements-machine.provenance.json sidecar). partial: listed values verified, but known lines are missing (see curation_notes). uncurated: placeholder entry, no trustworthy open data curated yet — families may be empty; the UI must not present uncurated elements as authoritative.",
+          "enum": ["curated", "machine", "partial", "uncurated"]
         },
         "curation_notes": { "type": "string" },
         "families": {
@@ -120,7 +120,8 @@
           "type": "array",
           "items": { "$ref": "#/$defs/chemicalState" }
         },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "tier": { "$ref": "#/$defs/transitionTier" }
       }
     },
 
@@ -148,8 +149,14 @@
         },
         "visibility": { "$ref": "#/$defs/visibility" },
         "source": { "$ref": "#/$defs/sourceId" },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "tier": { "$ref": "#/$defs/transitionTier" }
       }
+    },
+
+    "transitionTier": {
+      "description": "Provenance tier of an individual transition. Absent => curated (the default for hand-curated element files). 'machine' = NIST-evaluated value recovered by corroborated machine extraction, not human-verified (elements-machine.json). 'legacy' is reserved for the legacy survey markers (which live in legacy/ and are tagged client-side, not via this field).",
+      "enum": ["curated", "machine", "legacy"]
     },
 
     "transitionId": {
@@ -196,7 +203,7 @@
     },
 
     "visibility": {
-      "description": "QUALITATIVE expected-visibility labels per X-ray source — curator judgement from reference survey spectra, NOT computed intensities (no Scofield/RSF/IMFP derivation in v1). 'uncurated' = not yet assessed for that source (UI falls back to the AlKa assessment, else treats as weak). 'unknown' = visibility genuinely not determinable from the available data (e.g. legacy markers and machine-source-verified lines whose intensity was never assessed); rendered at full visibility and NEVER auto-classified as weak — no major/moderate/weak value is invented.",
+      "description": "QUALITATIVE expected-visibility labels per X-ray source — curator judgement from reference survey spectra, NOT computed intensities (no Scofield/RSF/IMFP derivation in v1). 'uncurated' = not yet assessed for that source (UI falls back to the AlKa assessment, else treats as weak). 'unknown' = visibility genuinely not determinable from the available data (legacy markers); rendered at full visibility and NEVER auto-classified as weak — no major/moderate/weak value is invented. 'machine-unassessed' = same default-show treatment for machine-tier (NIST-evaluated, dual-corroborated) transitions whose intensity was never assessed; kept distinct from 'unknown' so the UI can label it 'intensity not assessed (machine-source-corroborated)'.",
       "type": "object",
       "additionalProperties": false,
       "required": ["AlKa"],
@@ -206,7 +213,7 @@
       }
     },
 
-    "visibilityLabel": { "enum": ["major", "moderate", "weak", "unknown", "uncurated"] },
+    "visibilityLabel": { "enum": ["major", "moderate", "weak", "unknown", "machine-unassessed", "uncurated"] },
 
     "chemicalState": {
       "type": "object",

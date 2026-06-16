@@ -255,8 +255,66 @@ def identify(page, be):
             _refIdentifyAt(be);
             const tab=_refActiveTab(); const id=tab&&tab._refIdentify;
             return id ? id.cands.map(c=>({label:c.label, tier:c.dataTier,
-                dist:+c.dist.toFixed(3), isAuger:c.isAuger})) : [];
+                dist:+c.dist.toFixed(3), isAuger:c.isAuger,
+                hasRegion:c.hasRegion, inRegion:c.inRegion})) : [];
         }""", be)
+
+
+def test_machine_tier_precedence_and_count(page):
+    # Activation resolves by precedence curated > machine > legacy.
+    setup_spectrum(page, 360, 380)
+    r = page.evaluate("""() => {
+        const t={curated:0,machine:0,legacy:0,unavailable:0};
+        for(const e of REF_PT_LAYOUT){const a=_refActivation(e.sym);
+            if(a==='curated')t.curated++;else if(a==='machine')t.machine++;else if(a==='legacy')t.legacy++;else t.unavailable++;}
+        return {tally:t,
+            C:_refActivation('C'), O:_refActivation('O'), U:_refActivation('U'),
+            Si:_refActivation('Si'), Ag:_refActivation('Ag'), Pt:_refActivation('Pt'),
+            Fe:_refActivation('Fe'), He:_refActivation('He')};
+    }""")
+    assert r["tally"]["machine"] == 23                 # eligible machine set
+    assert r["tally"]["curated"] == 6
+    assert r["C"] == "curated" and r["O"] == "curated" and r["U"] == "curated"
+    assert r["Si"] == "machine" and r["Ag"] == "machine" and r["Pt"] == "machine"
+    assert r["Fe"] == "legacy"                         # legacy survives where no machine
+    assert r["He"] is None
+
+
+def test_per_subshell_merge_and_no_duplicate_orbitals(page):
+    setup_spectrum(page, 90, 540)
+    r = page.evaluate("""() => {
+        const lines = sym => _refTransitionsFor(sym).map(m => [m.t.orbital, m.tier]);
+        // every activated element: no duplicate orbital after the merge
+        let dup = null;
+        for (const e of REF_PT_LAYOUT) {
+            if (!_refActivation(e.sym)) continue;
+            const orbs = _refTransitionsFor(e.sym).map(m => m.t.orbital);
+            if (orbs.length !== new Set(orbs).size) { dup = e.sym; break; }
+        }
+        return { Si: lines('Si'), Cl: lines('Cl'), dup };
+    }""")
+    assert r["dup"] is None, f"duplicate orbital after merge for {r['dup']}"
+    # Si: machine 2p3/2 supersedes legacy bare 2p (same subshell); legacy 2s kept.
+    assert sorted(r["Si"]) == [["2p3/2", "machine"], ["2s", "legacy"]], r["Si"]
+    # Cl is curated -> legacy fully suppressed (no legacy 2s leaks onto a curated element).
+    assert sorted(r["Cl"]) == [["2p1/2", "curated"], ["2p3/2", "curated"]], r["Cl"]
+
+
+def test_machine_identifies_via_region_legacy_via_proximity(page):
+    # Ag 3d5/2 (machine, region 367.9-368.4) matches via REGION scoring; a legacy
+    # line (Fe 2p, region=null) matches via proximity.
+    setup_spectrum(page, 360, 380)
+    ag = identify(page, 368.27)
+    hit = [c for c in ag if c["label"] == "Ag 3d5/2"]
+    assert hit, [c["label"] for c in ag]
+    assert hit[0]["tier"] == "machine"
+    assert hit[0]["hasRegion"] is True and hit[0]["inRegion"] is True   # region scoring
+
+    setup_spectrum(page, 700, 740)
+    fe = identify(page, 711.0)
+    fhit = [c for c in fe if c["label"] == "Fe 2p"]
+    assert fhit and fhit[0]["tier"] == "legacy"
+    assert fhit[0]["hasRegion"] is False               # proximity fallback (no region)
 
 
 def test_legacy_fe_2p_returns_candidate_at_711(page):

@@ -1,0 +1,286 @@
+{
+  "note": "Every transcription-corroborated/conflict/insufficient survey transition NOT promoted to the machine tier, with the reason. Together with elements-machine.provenance.json this is the Phase B audit surface.",
+  "reasons": {
+    "already-curated": "transition exists in a curated element file (additive-only)",
+    "context-undeterminable": "no NIST-evaluated value; material class not recoverable, so rule 2 cannot fire",
+    "evaluated-not-corroborated": "starred value not in the dual-corroborated agreed-set",
+    "conflict": "Stage-9 tier: legacy disagrees with NIST (e.g. oxide vs metal / Auger-frame)",
+    "insufficient-evidence": "Stage-9 tier: not recoverable in both extractions"
+  },
+  "skipped_count": 39,
+  "transitions": [
+    {
+      "element": "B",
+      "orbital": "1s",
+      "field_id": "f0002",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Ba",
+      "orbital": "3d5/2",
+      "field_id": "f0049",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Br",
+      "orbital": "3d5/2",
+      "field_id": "f0036",
+      "reason": "insufficient-evidence",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "C",
+      "orbital": "1s",
+      "field_id": "f0003",
+      "reason": "already-curated",
+      "detail": "transition exists in a curated element file; additive-only, machine not emitted"
+    },
+    {
+      "element": "Ce",
+      "orbital": "3d5/2",
+      "field_id": "f0051",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Cl",
+      "orbital": "2p3/2",
+      "field_id": "f0018",
+      "reason": "already-curated",
+      "detail": "transition exists in a curated element file; additive-only, machine not emitted"
+    },
+    {
+      "element": "Cl",
+      "orbital": "2s",
+      "field_id": "f0019",
+      "reason": "insufficient-evidence",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Cr",
+      "orbital": "2p3/2",
+      "field_id": "f0025",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Cu",
+      "orbital": "2p3/2",
+      "field_id": "f0030",
+      "reason": "already-curated",
+      "detail": "transition exists in a curated element file; additive-only, machine not emitted"
+    },
+    {
+      "element": "F",
+      "orbital": null,
+      "field_id": "f0007",
+      "reason": "insufficient-evidence",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Fe",
+      "orbital": "2p3/2",
+      "field_id": "f0027",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Ga",
+      "orbital": "2p3/2",
+      "field_id": "f0032",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Ge",
+      "orbital": "2p3/2",
+      "field_id": "f0033",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "I",
+      "orbital": "3d5/2",
+      "field_id": "f0048",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "K",
+      "orbital": "2p3/2",
+      "field_id": "f0020",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "K",
+      "orbital": "2s",
+      "field_id": "f0021",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "La",
+      "orbital": "3d5/2",
+      "field_id": "f0050",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Li",
+      "orbital": "1s",
+      "field_id": "f0000",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Mg",
+      "orbital": "1s",
+      "field_id": "f0010",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Mg",
+      "orbital": "KL23L23(1D)",
+      "field_id": "f0011",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "N",
+      "orbital": "1s",
+      "field_id": "f0004",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Na",
+      "orbital": "1s",
+      "field_id": "f0008",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Na",
+      "orbital": "KL23L23(1D)",
+      "field_id": "f0009",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Nb",
+      "orbital": "3d5/2",
+      "field_id": "f0040",
+      "reason": "already-curated",
+      "detail": "transition exists in a curated element file; additive-only, machine not emitted"
+    },
+    {
+      "element": "Nd",
+      "orbital": "3d5/2",
+      "field_id": "f0052",
+      "reason": "insufficient-evidence",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "O",
+      "orbital": "1s",
+      "field_id": "f0005",
+      "reason": "already-curated",
+      "detail": "transition exists in a curated element file; additive-only, machine not emitted"
+    },
+    {
+      "element": "O",
+      "orbital": "KLL",
+      "field_id": "f0006",
+      "reason": "insufficient-evidence",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "P",
+      "orbital": "2p3/2",
+      "field_id": "f0015",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "S",
+      "orbital": "2p3/2",
+      "field_id": "f0016",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "S",
+      "orbital": "2s",
+      "field_id": "f0017",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Se",
+      "orbital": "3d5/2",
+      "field_id": "f0035",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Si",
+      "orbital": "2s",
+      "field_id": "f0014",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Sr",
+      "orbital": "3d5/2",
+      "field_id": "f0037",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Th",
+      "orbital": "4f7/2",
+      "field_id": "f0058",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Ti",
+      "orbital": "2p3/2",
+      "field_id": "f0023",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "U",
+      "orbital": "4d5/2",
+      "field_id": "f0060",
+      "reason": "already-curated",
+      "detail": "transition exists in a curated element file; additive-only, machine not emitted"
+    },
+    {
+      "element": "U",
+      "orbital": "4f7/2",
+      "field_id": "f0059",
+      "reason": "already-curated",
+      "detail": "transition exists in a curated element file; additive-only, machine not emitted"
+    },
+    {
+      "element": "U",
+      "orbital": "5d5/2",
+      "field_id": "f0061",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "V",
+      "orbital": "2p3/2",
+      "field_id": "f0024",
+      "reason": "conflict",
+      "detail": "not dual-corroborated (Stage-9 tier)"
+    }
+  ]
+}

@@ -222,6 +222,11 @@
   .ref-pt-cell.curated { color: var(--text); border-color: var(--border2); cursor: pointer; }
   .ref-pt-cell.curated:hover { border-color: var(--accent); color: var(--accent2); }
   .ref-pt-cell.curated:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Machine-source tier: corroborated NIST-evaluated, not human-verified —
+     solid green border, between curated (neutral solid) and legacy (dashed). */
+  .ref-pt-cell.machine { color: var(--text); border-color: var(--green); cursor: pointer; }
+  .ref-pt-cell.machine:hover { border-color: var(--accent); color: var(--accent2); }
+  .ref-pt-cell.machine:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   /* Legacy-unverified tier: clickable but visually distinct (dashed, dimmer)
      so it never reads as a curated/source-verified element. */
   .ref-pt-cell.legacy { color: var(--text2); border-color: var(--border); border-style: dashed; cursor: pointer; }
@@ -261,14 +266,16 @@
   .ref-chip.moderate { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
   .ref-chip.weak { color: var(--text2); border-color: var(--border); background: var(--bg3); }
   .ref-chip.unknown { color: var(--text2); border-color: var(--border2); border-style: dashed; background: transparent; }
+  .ref-chip.machine-unassessed { color: var(--green); border-color: var(--green); background: var(--green-dim); }
   .ref-chip.auger { color: var(--purple); border-color: var(--purple); background: var(--purple-dim); }
-  /* Prominent legacy-unverified provenance badge in an element overlay group. */
-  .ref-badge-legacy {
+  /* Prominent provenance badges in an element overlay group header. */
+  .ref-badge-legacy, .ref-badge-machine {
     font-size: 9px; font-family: var(--mono); padding: 1px 6px; margin-left: auto;
     border-radius: 3px; line-height: 1.6; white-space: nowrap; font-weight: 600;
-    letter-spacing: 0.04em; color: var(--amber); border: 1px solid var(--amber);
-    background: var(--amber-dim);
+    letter-spacing: 0.04em; border: 1px solid;
   }
+  .ref-badge-legacy { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); }
+  .ref-badge-machine { color: var(--green); border-color: var(--green); background: var(--green-dim); }
   .ref-note {
     font-size: 10px; line-height: 1.5; color: var(--amber);
     background: var(--amber-dim); border: 1px solid rgba(255,187,68,0.4);
@@ -306,6 +313,7 @@
      tier above). Legacy hits read as legacy-unverified. */
   .ref-cand-tier { font-size: 9px; font-family: var(--mono); padding: 0 5px; border-radius: 3px; border: 1px solid; line-height: 1.6; white-space: nowrap; }
   .ref-cand-tier.curated { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+  .ref-cand-tier.machine { color: var(--green); border-color: var(--green); background: var(--green-dim); font-weight: 600; }
   .ref-cand-tier.legacy { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); font-weight: 600; }
   .ref-cand-line { font-size: 10px; line-height: 1.6; color: var(--text2); }
   .ref-cand-line b { color: var(--text); font-weight: 600; }
@@ -10228,6 +10236,34 @@ function _refGetSel() {
   return _refGlobalSel;
 }
 
+// Subshell key for per-transition precedence: numeric subshell for PE
+// ('2p3/2' -> '2p', '1s' -> '1s'), the full label for Auger ('KLL').
+function _refSubshell(orbital, isAuger) {
+  if (isAuger) return String(orbital);
+  const m = String(orbital).match(/^[1-7][spdf]/);
+  return m ? m[0] : String(orbital);
+}
+function _refBlankEl(el) {
+  return { symbol: el.symbol, z: el.z, name: el.name, curation_status: '', families: [] };
+}
+function _refOwnedSubshells(e) {
+  const s = new Set();
+  for (const fam of (e.pe ? e.pe.families : [])) for (const t of fam.transitions) s.add(_refSubshell(t.orbital, false));
+  for (const fam of (e.auger ? e.auger.families : [])) for (const t of fam.transitions) s.add(_refSubshell(t.orbital, true));
+  return s;
+}
+
+// Build the symbol -> {pe, auger, tier} map with three-tier precedence
+// curated > machine > legacy, resolved PER SUBSHELL:
+//   - curated transitions always win; a curated element suppresses ALL of its
+//     legacy markers (Phase A behaviour, preserved) and may still gain a machine
+//     transition for a subshell it does not already own.
+//   - machine transitions (NIST-evaluated, dual-corroborated; tier carried in the
+//     data) fill subshells not owned by curated.
+//   - legacy markers fill subshells owned by neither curated nor machine.
+// Each transition keeps its own tier (curated implicit / machine via t.tier /
+// legacy via t._legacy), so an element can hold mixed tiers (e.g. Si: machine
+// 2p3/2 + legacy 2s) while its grid cell resolves to the highest tier present.
 function _refElements() {
   if (!_refPayload) return {};
   if (!_refPayload._bySym) {
@@ -10237,17 +10273,38 @@ function _refElements() {
       if (!m[el.symbol]) m[el.symbol] = { pe: null, auger: null, tier: 'curated' };
       m[el.symbol].auger = el;
     }
-    // Phase A: activate legacy survey elements as a lower 'legacy' tier. Curated
-    // records always win on collision (richer + source-verified), so the six
-    // curated elements never show their legacy rows. A legacy element is
-    // synthesized into the curated element-record shape (see _refLegacyToElement)
-    // with NO expected-region band, NO spin-orbit, and visibility 'unknown' — no
-    // major/moderate/weak value is invented.
+    // Machine tier: new symbols this run (none are curated). If a curated element
+    // ever also has a machine entry, only its non-curated subshells are merged in.
+    for (const el of (_refPayload.machine || [])) {
+      const e = m[el.symbol];
+      if (!e) { m[el.symbol] = { pe: el, auger: null, tier: 'machine' }; continue; }
+      const owned = _refOwnedSubshells(e);
+      const fams = el.families
+        .map(f => ({ family: f.family, transitions: f.transitions.filter(t => !owned.has(_refSubshell(t.orbital, false))) }))
+        .filter(f => f.transitions.length);
+      if (fams.length) { if (!e.pe) e.pe = _refBlankEl(el); e.pe.families.push(...fams); }
+    }
+    // Legacy tier: suppressed entirely for curated elements; for a machine element
+    // only subshells the machine record doesn't own are added; otherwise the
+    // legacy element stands alone. Synthesized via _refLegacyToElement (no region,
+    // no spin-orbit, visibility 'unknown').
     const legacy = (_refPayload.legacy && _refPayload.legacy.survey) || [];
     for (const el of legacy) {
-      if (m[el.symbol]) continue;
-      const peEl = _refLegacyToElement(el);
-      if (peEl) m[el.symbol] = { pe: peEl, auger: null, tier: 'legacy' };
+      const e = m[el.symbol];
+      if (e && e.tier === 'curated') continue;          // curated hides legacy
+      const legEl = _refLegacyToElement(el);
+      if (!legEl) continue;
+      if (!e) { m[el.symbol] = { pe: legEl, auger: null, tier: 'legacy' }; continue; }
+      const owned = _refOwnedSubshells(e);               // e.tier === 'machine'
+      for (const fam of legEl.families) {
+        const peTs = [], augTs = [];
+        for (const t of fam.transitions) {
+          if (owned.has(_refSubshell(t.orbital, t.transition_type === 'auger'))) continue;
+          (t.transition_type === 'auger' ? augTs : peTs).push(t);
+        }
+        if (peTs.length) { if (!e.pe) e.pe = _refBlankEl(el); e.pe.families.push({ family: fam.family, transitions: peTs }); }
+        if (augTs.length) { if (!e.auger) e.auger = _refBlankEl(el); e.auger.families.push({ family: fam.family, transitions: augTs }); }
+      }
     }
     _refPayload._bySym = m;
   }
@@ -10355,8 +10412,13 @@ function _refTransitionsFor(sym) {
         visFallback = rawVis === 'uncurated';
         const alka = t.visibility.AlKa;
         visEff = !visFallback ? rawVis : (alka && alka !== 'uncurated' ? alka : 'weak');
+        // 'machine-unassessed' is a per-tier default-show label, not a source-
+        // specific assessment — don't flag it as an Al Kα fallback.
+        if (visEff === 'machine-unassessed') visFallback = false;
       }
-      out.push({ t, sym, fam: fam.family, isAuger, be, region, visEff, visFallback });
+      // Per-transition provenance tier (drives the chip + identify candidate label).
+      const tier = t._legacy ? 'legacy' : (t.tier === 'machine' ? 'machine' : 'curated');
+      out.push({ t, sym, fam: fam.family, isAuger, be, region, visEff, visFallback, tier });
     }
   };
   collect(e.pe); collect(e.auger);
@@ -10467,11 +10529,12 @@ function _refRenderGrid(sel) {
   sel.syms.forEach(s => { selected[s.sym] = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length]; });
   let cells = '';
   for (const e of REF_PT_LAYOUT) {
-    const tier = _refActivation(e.sym);               // 'curated' | 'legacy' | null
+    const tier = _refActivation(e.sym);          // 'curated' | 'machine' | 'legacy' | null
     const clickable = !!tier;
     const selColor = selected[e.sym];
     const cls = 'ref-pt-cell' +
       (tier === 'curated' ? ' curated' : '') +
+      (tier === 'machine' ? ' machine' : '') +
       (tier === 'legacy' ? ' legacy' : '') +
       (selColor ? ' selected' : '');
     const entry = _refElements()[e.sym];
@@ -10479,9 +10542,11 @@ function _refRenderGrid(sel) {
                  (entry && (entry.pe || entry.auger).name) || e.sym;
     const title = tier === 'curated'
       ? name + ' (Z=' + e.z + ') — click to overlay curated reference lines'
-      : tier === 'legacy'
-        ? name + ' (Z=' + e.z + ') — legacy-unverified survey marker; click to overlay'
-        : name + ' (Z=' + e.z + ') — no reference line data';
+      : tier === 'machine'
+        ? name + ' (Z=' + e.z + ') — machine-source-corroborated (NIST, not human-verified); click to overlay'
+        : tier === 'legacy'
+          ? name + ' (Z=' + e.z + ') — legacy-unverified survey marker; click to overlay'
+          : name + ' (Z=' + e.z + ') — no reference line data';
     cells += '<div class="' + cls + '" style="grid-column:' + e.col + ';grid-row:' + e.row +
       (selColor ? ';--mark:' + selColor : '') + '"' +
       (clickable ? ' tabindex="0" role="button" aria-pressed="' + !!selColor +
@@ -10494,13 +10559,25 @@ function _refRenderGrid(sel) {
   return '<div id="ref-pt-grid" style="grid-template-rows:repeat(7,17px) 4px repeat(2,17px)">' + cells + '</div>';
 }
 
+// Visibility chip: 'machine-unassessed' reads as a short, honest "intensity n/a"
+// (full label on hover); other labels render verbatim.
+function _refVisChip(m) {
+  const label = m.visEff === 'machine-unassessed' ? 'intensity n/a' : m.visEff;
+  const title = m.visEff === 'machine-unassessed' ? 'intensity not assessed (machine-source-corroborated)' : '';
+  return '<span class="ref-chip ' + m.visEff + '"' + (title ? ' title="' + _escAttr(title) + '"' : '') +
+    '>' + _escHtml(label) + (m.visFallback ? '*' : '') + '</span>';
+}
+
 function _refRenderElementGroup(s, sel, range) {
   const e = _refElements()[s.sym];
   const color = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length];
   const el = e.pe || e.auger;
   const isLegacy = e.tier === 'legacy';
+  const isMachine = e.tier === 'machine';
   const status = el.curation_status || '';
   const items = _refTransitionsFor(s.sym);
+  const hasMachineRow = items.some(m => m.tier === 'machine');
+  const hasLegacyRow = items.some(m => m.tier === 'legacy');
   let rows = '';
   for (const m of items) {
     if (!sel.showWeak && m.visEff === 'weak') continue;
@@ -10525,18 +10602,14 @@ function _refRenderElementGroup(s, sel, range) {
       ' onmouseenter="_refHover(\'' + _escAttr(m.t.id) + '\')" onmouseleave="_refHover(null)"' +
       ' title="' + _escAttr(rowTitle) + '">' +
       '<span class="ref-line-orb">' + _escHtml(m.t.orbital) + '</span>' +
-      '<span class="ref-chip ' + m.visEff + '">' + m.visEff + (m.visFallback ? '*' : '') + '</span>' +
+      _refVisChip(m) +
       (m.isAuger ? '<span class="ref-chip auger">Auger</span>' : '') +
       '<span class="ref-line-ev">' + evTxt + '</span></div>';
   }
   if (!rows) rows = '<div class="ref-hint">No major/moderate lines — enable “All lines”.</div>';
 
   let noteHtml = '';
-  if (isLegacy) {
-    noteHtml = '<div class="ref-note">Legacy-unverified survey marker(s), carried over verbatim from the ' +
-      'pre-migration in-app dataset — single rounded positions of unverified origin, not checked against ' +
-      'any external source. No expected-region band, spin-orbit, or visibility data. Treat as orientation only.</div>';
-  } else {
+  if (e.tier === 'curated') {
     const note = (e.pe && e.pe.curation_notes) || (e.auger && e.auger.curation_notes) || '';
     if (note) {
       const open = !!_refNotesOpen[s.sym];
@@ -10545,6 +10618,21 @@ function _refRenderElementGroup(s, sel, range) {
       noteHtml = '<div class="ref-note">' + _escHtml(open ? note : head) +
         (firstDot > 0 ? ' <button type="button" class="ref-note-more" onclick="_refToggleNote(\'' + s.sym + '\')">' +
           (open ? 'less' : 'more…') + '</button>' : '') + '</div>';
+    }
+  } else {
+    // machine and/or legacy rows — one note per tier present (an element can
+    // hold both, e.g. a machine principal line plus a legacy line for another
+    // subshell).
+    if (hasMachineRow) {
+      noteHtml += '<div class="ref-note">Machine-source-corroborated (NIST SRD 20, dual extraction; ' +
+        'not human-verified). NIST-evaluated reference energies; the band is the observed range across ' +
+        'chemical states. Spin-orbit partners and chemical-state assignments are not curated. ' +
+        'See elements-machine.provenance.json.</div>';
+    }
+    if (hasLegacyRow) {
+      noteHtml += '<div class="ref-note">Legacy-unverified survey marker(s), carried over verbatim from the ' +
+        'pre-migration in-app dataset — single rounded positions of unverified origin, not checked against ' +
+        'any external source. No expected-region band, spin-orbit, or visibility data. Treat as orientation only.</div>';
     }
   }
 
@@ -10555,9 +10643,11 @@ function _refRenderElementGroup(s, sel, range) {
       ' — hover for full citation; line rows carry per-record notes</div>'
     : '';
 
-  const headRight = isLegacy
-    ? '<span class="ref-badge-legacy" title="Legacy in-app marker — not verified against any external source.">legacy-unverified</span>'
-    : '<span class="ref-el-status">' + _escHtml(status) + '</span>';
+  const headRight = isMachine
+    ? '<span class="ref-badge-machine" title="NIST-evaluated, dual-extraction corroborated; not human-verified.">machine-source</span>'
+    : isLegacy
+      ? '<span class="ref-badge-legacy" title="Legacy in-app marker — not verified against any external source.">legacy-unverified</span>'
+      : '<span class="ref-el-status">' + _escHtml(status) + '</span>';
 
   return '<div class="ref-el-group">' +
     '<div class="ref-el-head"><span class="ref-el-swatch" style="background:' + color + '"></span>' +
@@ -10614,7 +10704,7 @@ function _refRenderPanel() {
   // curated and legacy-tier (activated) elements.
   const elOpts = Object.keys(_refElements()).filter(_refActivation).sort().map(sym => {
     const e = _refElements()[sym];
-    const suffix = e.tier === 'legacy' ? ' — legacy-unverified' : '';
+    const suffix = e.tier === 'machine' ? ' — machine-source' : e.tier === 'legacy' ? ' — legacy-unverified' : '';
     return '<option value="' + _escAttr(sym) + '">' + _escHtml((e.pe || e.auger).name) + suffix + '</option>';
   }).join('');
   html += '<div class="ref-search-row"><input id="ref-el-search" list="ref-el-datalist" ' +
@@ -10889,12 +10979,11 @@ function _refIdentifyAt(beClicked) {
   const ccUnverified = tab.chargeVerified === false;
   const cands = [];
 
-  // Candidate pool is the table's FULL activatable set (curated + legacy),
-  // not curated-only — identify must agree with what the grid lets you click.
+  // Candidate pool is the table's FULL activatable set (curated + machine +
+  // legacy) — identify must agree with what the grid lets you click.
   const PROX_TOL = 3.0;     // proximity window (eV) for region=null (legacy) lines
   for (const sym of Object.keys(_refElements())) {
-    const dataTier = _refActivation(sym);                // 'curated' | 'legacy' | null
-    if (!dataTier) continue;                             // not activatable — skip
+    if (!_refActivation(sym)) continue;                  // not activatable — skip
     const trans = _refTransitionsFor(sym);
     for (const m of trans) {
       if (m.isAuger && !sel.includeAuger) continue;
@@ -10967,7 +11056,7 @@ function _refIdentifyAt(beClicked) {
       cands.push({
         id: m.t.id, sym, label: sym + ' ' + (m.isAuger ? m.fam : m.t.orbital),
         isAuger: m.isAuger, ke: m.isAuger ? m.t.auger_ke_ev : null,
-        be: m.be, dist, inRegion, hasRegion, vis: m.visEff, score, dataTier,
+        be: m.be, dist, inRegion, hasRegion, vis: m.visEff, score, dataTier: m.tier,
         energyMatch: inRegion && dist <= tol / 2 ? 'strong'
                    : (inRegion || dist <= effTol ? 'moderate' : 'weak'),
         partnerTxt, othersTxt, conflictTxt: null,
@@ -11087,7 +11176,9 @@ function _refRenderIdentify(sel, range) {
     const cite = _refPayload.sources[c.sourceId];
     const tierBadge = c.dataTier === 'legacy'
       ? '<span class="ref-cand-tier legacy" title="Legacy in-app marker — not verified against any external source.">legacy-unverified</span>'
-      : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '">' + _escHtml(c.dataTier || '') + '</span>';
+      : c.dataTier === 'machine'
+        ? '<span class="ref-cand-tier machine" title="NIST-evaluated, dual-extraction corroborated; not human-verified.">machine-source</span>'
+        : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '">' + _escHtml(c.dataTier || '') + '</span>';
     html += '<div class="ref-cand">' +
       '<div class="ref-cand-head"><span class="ref-tier ' + c.tierCls + '">' + c.tier + '</span>' +
       '<span class="ref-cand-name">' + _escHtml(c.label) + '</span>' + tierBadge +

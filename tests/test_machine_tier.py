@@ -1,0 +1,165 @@
+"""Phase B machine-tier invariants — the no-invention rules are HARD tests.
+
+Two layers, per the deploy constraint:
+  * committed-only invariants always run (they verify elements-machine.json
+    against its committed provenance sidecar + the curated/legacy files);
+  * .stage9-gated invariants (reproducibility, agreed-set membership) skip
+    cleanly when the gitignored working data is absent (e.g. a fresh clone).
+"""
+import importlib.util
+import json
+import os
+import subprocess
+
+import pytest
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA = os.path.join(REPO, "data", "xps")
+STAGE9 = os.path.join(REPO, ".stage9")
+
+
+def _load(name):
+    with open(os.path.join(DATA, name)) as f:
+        return json.load(f)
+
+
+MACHINE = _load("elements-machine.json")
+PROV = _load("elements-machine.provenance.json")
+SKIPPED = _load("elements-machine.skipped.json")
+
+
+def _machine_transitions():
+    return [t for el in MACHINE["elements"] for fam in el["families"] for t in fam["transitions"]]
+
+
+# ── committed-only invariants ────────────────────────────────────────────────
+
+def test_no_spin_orbit_emitted():
+    for t in _machine_transitions():
+        assert t["spin_orbit"] is None, t["id"]
+
+
+def test_region_basis_order_and_nominal_within():
+    for t in _machine_transitions():
+        r = t["expected_region_ev"]
+        assert r["basis"] == "observed-reference-range", t["id"]
+        assert r["min"] <= r["max"], t["id"]
+        assert r["min"] <= t["nominal_be_ev"] <= r["max"], t["id"]   # nominal is a sourced value
+
+
+def test_every_transition_is_machine_tier():
+    for t in _machine_transitions():
+        assert t["tier"] == "machine"
+        assert t["transition_type"] == "photoelectron"
+        assert t["source"] == "nist-srd-20"
+        assert t["visibility"]["AlKa"] == "machine-unassessed"
+    for el in MACHINE["elements"]:
+        assert el["curation_status"] == "machine"
+
+
+def test_nominal_matches_committed_provenance():
+    # Reproducibility layer 2: every emitted value is verifiable from the
+    # committed provenance manifest (independent of the gitignored .stage9).
+    prov = {p["id"]: p for p in PROV["transitions"]}
+    emitted_ids = set()
+    for t in _machine_transitions():
+        emitted_ids.add(t["id"])
+        p = prov[t["id"]]
+        assert p["nominal_be_ev"] == t["nominal_be_ev"], t["id"]
+        assert p["nominal_source"]["evaluated"] is True            # NIST-evaluated (starred)
+        assert p["dual_extraction_corroborated"] is True           # corroboration claim is recorded
+        assert p["tier"] == "machine"
+        assert p["nominal_source"]["nist_reference_code"]
+        assert len(p["nominal_source"]["source_artifact_sha256"]) == 64
+        assert p["parse_method"] == "nist-html-starred-record"
+        assert p["expected_region_ev"]["min"] == t["expected_region_ev"]["min"]
+        assert p["expected_region_ev"]["max"] == t["expected_region_ev"]["max"]
+    assert emitted_ids == set(prov)                  # provenance covers exactly the emitted set
+
+
+def test_html_only_recoveries_flagged():
+    html_only = {p["id"] for p in PROV["transitions"] if p["html_only_recovery"]}
+    assert html_only == {"Ag-3d5/2", "Pt-4f7/2"}     # the digest-truncated evaluated records
+
+
+def test_additive_only_no_curated_overlap():
+    curated = set()
+    for fn in ("elements-main.json", "elements-actinides.json",
+               "elements-lanthanides.json", "auger-lines.json"):
+        for el in _load(fn)["elements"]:
+            for fam in el["families"]:
+                for t in fam["transitions"]:
+                    curated.add((el["symbol"], t["orbital"]))
+    for t in _machine_transitions():
+        assert (t["element"], t["orbital"]) not in curated, t["id"]
+
+
+def test_curated_and_legacy_byte_unchanged():
+    # The generator writes only the three machine sidecars; curated + legacy
+    # files are untouched (verified against git HEAD).
+    paths = ["data/xps/elements-main.json", "data/xps/elements-actinides.json",
+             "data/xps/elements-lanthanides.json", "data/xps/auger-lines.json",
+             "data/xps/legacy"]
+    r = subprocess.run(["git", "-C", REPO, "diff", "--quiet", "HEAD", "--"] + paths)
+    if r.returncode not in (0, 1):
+        pytest.skip("git unavailable / no HEAD")
+    assert r.returncode == 0, "curated/legacy files differ from HEAD — must stay byte-unchanged"
+
+
+# ── .stage9-gated invariants ─────────────────────────────────────────────────
+
+_HAVE_STAGE9 = os.path.exists(os.path.join(STAGE9, "manifest", "tiers_survey.json"))
+stage9 = pytest.mark.skipif(not _HAVE_STAGE9, reason=".stage9 working data absent")
+
+
+def _gen_module():
+    spec = importlib.util.spec_from_file_location(
+        "gen_machine_tier", os.path.join(REPO, "scripts", "gen_machine_tier.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _tiers_by_el_line():
+    tiers = json.load(open(os.path.join(STAGE9, "manifest", "tiers_survey.json")))
+    obs = {o["field_id"]: o for o in
+           json.load(open(os.path.join(STAGE9, "extract_claude", "observations_4a.json")))["observations"]}
+    return {(r["element"], obs.get(r["field_id"], {}).get("nist_line")): r for r in tiers}
+
+
+@stage9
+def test_deterministic_reproducible_from_stage9():
+    mod = _gen_module()
+    m, p, s = mod.build()
+    assert mod.serialize(m) == open(os.path.join(DATA, "elements-machine.json")).read()
+    assert mod.serialize(p) == open(os.path.join(DATA, "elements-machine.provenance.json")).read()
+    assert mod.serialize(s) == open(os.path.join(DATA, "elements-machine.skipped.json")).read()
+
+
+@stage9
+def test_every_nominal_present_in_agreed_set():
+    tl = _tiers_by_el_line()
+    for t in _machine_transitions():
+        r = tl[(t["element"], t["orbital"])]
+        assert any(abs(t["nominal_be_ev"] - a) < 1e-6 for a in r["agreed_values"]), t["id"]
+
+
+@stage9
+def test_region_endpoints_are_agreed_minmax():
+    tl = _tiers_by_el_line()
+    for t in _machine_transitions():
+        agreed = tl[(t["element"], t["orbital"])]["agreed_values"]
+        assert t["expected_region_ev"]["min"] == min(agreed), t["id"]
+        assert t["expected_region_ev"]["max"] == max(agreed), t["id"]
+
+
+@stage9
+def test_no_conflict_or_insufficient_emitted():
+    tl = _tiers_by_el_line()
+    for t in _machine_transitions():
+        assert tl[(t["element"], t["orbital"])]["tier"] == "transcription-corroborated", t["id"]
+
+
+@stage9
+def test_emitted_count_matches_eligible_sanity():
+    assert len(_machine_transitions()) == 23

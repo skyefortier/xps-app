@@ -32,6 +32,12 @@ ELEMENT_FILES = ("elements-main.json", "elements-lanthanides.json",
 AUGER_FILE = "auger-lines.json"
 DATA_FILES = ELEMENT_FILES + (AUGER_FILE,)
 
+# Machine-source-corroborated tier (Phase B). Optional, like the legacy dir:
+# loaded + validated when present, absent in the synthetic test datasets.
+# Generated deterministically by scripts/gen_machine_tier.py; every value is
+# verifiable from the committed elements-machine.provenance.json sidecar.
+MACHINE_FILE = "elements-machine.json"
+
 # Legacy verbatim transcription (Stage 9). Loaded + validated when present;
 # absent in the synthetic test datasets, so loading is optional.
 LEGACY_DIR = "legacy"
@@ -99,7 +105,12 @@ def _validate_semantics(docs: dict, sources: dict) -> None:
         expected_type = "auger" if fname == AUGER_FILE else "photoelectron"
         for ei, el in enumerate(doc["elements"]):
             el_path = f"$.elements[{ei}]"
-            if fname != AUGER_FILE:
+            # Auger + machine files are ADDITIVE: they may re-declare an element
+            # that a curated file already owns (per-transition precedence is
+            # resolved client-side). Skip cross-file SYMBOL uniqueness for them —
+            # transition-id uniqueness, region, source, and spin-orbit checks
+            # below still apply to every transition.
+            if fname not in (AUGER_FILE, MACHINE_FILE):
                 prev = seen_symbols.get(el["symbol"])
                 if prev is not None:
                     raise XPSReferenceError(
@@ -206,6 +217,15 @@ def load_reference(data_dir) -> dict:
         _validate_schema(doc, "elementFile", schema, fname)
         docs[fname] = doc
 
+    # Machine tier — optional. Validated against the same elementFile schema and
+    # the same semantic rules (id uniqueness, region, source resolution); its
+    # transitions carry tier="machine" and spin_orbit=null.
+    machine_doc = None
+    if (data_dir / MACHINE_FILE).exists():
+        machine_doc = _read_json(data_dir, MACHINE_FILE)
+        _validate_schema(machine_doc, "elementFile", schema, MACHINE_FILE)
+        docs[MACHINE_FILE] = machine_doc
+
     _validate_semantics(docs, sources_doc["sources"])
 
     legacy = _load_legacy(data_dir, sources_doc["sources"])
@@ -215,6 +235,7 @@ def load_reference(data_dir) -> dict:
         "sources": sources_doc["sources"],
         "elements": [el for f in ELEMENT_FILES for el in docs[f]["elements"]],
         "auger": docs[AUGER_FILE]["elements"],
+        "machine": machine_doc["elements"] if machine_doc else [],
         "legacy": legacy,
         "conventions": {
             # Exposed so the UI can DISPLAY (never silently assume) the
@@ -332,6 +353,8 @@ def load_reference_cached(data_dir) -> dict:
     try:
         stamp = [(f, (data_dir / f).stat().st_mtime_ns)
                  for f in (SCHEMA_FILE, SOURCES_FILE) + DATA_FILES]
+        if (data_dir / MACHINE_FILE).exists():
+            stamp.append((MACHINE_FILE, (data_dir / MACHINE_FILE).stat().st_mtime_ns))
         legacy_dir = data_dir / LEGACY_DIR
         if legacy_dir.exists():
             for f in (LEGACY_SCHEMA_FILE, LEGACY_SURVEY_FILE, LEGACY_CHEM_FILE):
