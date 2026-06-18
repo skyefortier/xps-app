@@ -270,13 +270,14 @@ def test_machine_tier_precedence_and_count(page):
         return {tally:t,
             C:_refActivation('C'), O:_refActivation('O'), U:_refActivation('U'),
             Si:_refActivation('Si'), Ag:_refActivation('Ag'), Pt:_refActivation('Pt'),
-            Fe:_refActivation('Fe'), He:_refActivation('He')};
+            Fe:_refActivation('Fe'), V:_refActivation('V'), He:_refActivation('He')};
     }""")
-    assert r["tally"]["machine"] == 23                 # eligible machine set
+    assert r["tally"]["machine"] == 27                 # 23 corroborated + 4 conflict-resolved
     assert r["tally"]["curated"] == 6
     assert r["C"] == "curated" and r["O"] == "curated" and r["U"] == "curated"
     assert r["Si"] == "machine" and r["Ag"] == "machine" and r["Pt"] == "machine"
-    assert r["Fe"] == "legacy"                         # legacy survives where no machine
+    assert r["Fe"] == "machine"                         # promoted via conflict-resolution
+    assert r["V"] == "legacy"                           # V stays legacy (no NIST-evaluated value)
     assert r["He"] is None
 
 
@@ -302,7 +303,8 @@ def test_per_subshell_merge_and_no_duplicate_orbitals(page):
 
 def test_machine_identifies_via_region_legacy_via_proximity(page):
     # Ag 3d5/2 (machine, region 367.9-368.4) matches via REGION scoring; a legacy
-    # line (Fe 2p, region=null) matches via proximity.
+    # line (V 2p, region=null) matches via proximity. (Fe is no longer legacy — it
+    # was promoted to machine via conflict-resolution; V stays legacy.)
     setup_spectrum(page, 360, 380)
     ag = identify(page, 368.27)
     hit = [c for c in ag if c["label"] == "Ag 3d5/2"]
@@ -310,26 +312,26 @@ def test_machine_identifies_via_region_legacy_via_proximity(page):
     assert hit[0]["tier"] == "machine"
     assert hit[0]["hasRegion"] is True and hit[0]["inRegion"] is True   # region scoring
 
-    setup_spectrum(page, 700, 740)
-    fe = identify(page, 711.0)
-    fhit = [c for c in fe if c["label"] == "Fe 2p"]
-    assert fhit and fhit[0]["tier"] == "legacy"
-    assert fhit[0]["hasRegion"] is False               # proximity fallback (no region)
+    setup_spectrum(page, 500, 530)
+    v = identify(page, 517.0)
+    vhit = [c for c in v if c["label"] == "V 2p"]
+    assert vhit and vhit[0]["tier"] == "legacy"
+    assert vhit[0]["hasRegion"] is False               # proximity fallback (no region)
 
 
-def test_legacy_fe_2p_returns_candidate_at_711(page):
-    setup_spectrum(page, 700, 740)
-    cands = identify(page, 711.0)
-    fe = [c for c in cands if c["label"] == "Fe 2p"]
-    assert fe, f"expected Fe 2p, got {[c['label'] for c in cands]}"
-    assert fe[0]["tier"] == "legacy"          # legacy-unverified
-    assert fe[0]["dist"] <= 0.01              # Δ ~0, shown
+def test_legacy_v_2p_returns_candidate_at_517(page):
+    setup_spectrum(page, 500, 530)
+    cands = identify(page, 517.0)
+    v = [c for c in cands if c["label"] == "V 2p"]
+    assert v, f"expected V 2p, got {[c['label'] for c in cands]}"
+    assert v[0]["tier"] == "legacy"           # legacy-unverified
+    assert v[0]["dist"] <= 0.01               # Δ ~0, shown
 
 
-def test_legacy_fe_absent_when_far_off(page):
-    setup_spectrum(page, 700, 740)
-    cands = identify(page, 717.0)             # 711 + 6 > 3.0 proximity window
-    assert not any(c["label"] == "Fe 2p" for c in cands)
+def test_legacy_v_absent_when_far_off(page):
+    setup_spectrum(page, 500, 530)
+    cands = identify(page, 523.0)             # 517 + 6 > 3.0 proximity window
+    assert not any(c["label"] == "V 2p" for c in cands)
 
 
 def test_curated_u_outranks_nearby_legacy(page):
@@ -363,18 +365,18 @@ def test_mgka_legacy_na_kll_and_curated_cu_lmm_project(page):
 def test_region_null_identify_never_throws(page):
     errs = []
     page.on("pageerror", lambda e: errs.append(str(e)))
-    setup_spectrum(page, 700, 740)
-    identify(page, 711.0)                     # legacy Fe 2p, region=null
-    identify(page, 710.4)
+    setup_spectrum(page, 500, 530)
+    identify(page, 517.0)                     # legacy V 2p, region=null
+    identify(page, 516.4)
     region_errs = [e for e in errs if "min" in e or "region" in e or "Cannot read" in e]
     assert not region_errs, region_errs
 
 
 def test_legacy_candidate_card_shows_tier_and_delta(page):
-    setup_spectrum(page, 700, 740)
-    page.evaluate("() => _refIdentifyAt(711.0)")
+    setup_spectrum(page, 500, 530)
+    page.evaluate("() => _refIdentifyAt(517.0)")
     page.wait_for_timeout(150)
     txt = page.inner_text("#ref-panel-body")
-    assert "Fe 2p" in txt
+    assert "V 2p" in txt
     assert "legacy-unverified" in txt        # data-tier badge, non-authoritative
     assert "Δ" in txt                   # Δ shown

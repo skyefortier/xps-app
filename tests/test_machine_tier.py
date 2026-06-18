@@ -39,10 +39,13 @@ def test_no_spin_orbit_emitted():
         assert t["spin_orbit"] is None, t["id"]
 
 
+VALID_BASES = {"observed-reference-range", "reduced-to-oxidized-chemical-state-span"}
+
+
 def test_region_basis_order_and_nominal_within():
     for t in _machine_transitions():
         r = t["expected_region_ev"]
-        assert r["basis"] == "observed-reference-range", t["id"]
+        assert r["basis"] in VALID_BASES, t["id"]
         assert r["min"] <= r["max"], t["id"]
         assert r["min"] <= t["nominal_be_ev"] <= r["max"], t["id"]   # nominal is a sourced value
 
@@ -149,17 +152,33 @@ def test_region_endpoints_are_agreed_minmax():
     tl = _tiers_by_el_line()
     for t in _machine_transitions():
         agreed = tl[(t["element"], t["orbital"])]["agreed_values"]
-        assert t["expected_region_ev"]["min"] == min(agreed), t["id"]
-        assert t["expected_region_ev"]["max"] == max(agreed), t["id"]
+        r = t["expected_region_ev"]
+        # observed-reference-range: min..max of the agreed-set. Conflict-resolution
+        # (reduced-to-oxidized) records keep min == reduced-cluster min but extend
+        # max up to the (non-agreed) legacy oxidized value, so only min is bounded
+        # by the agreed-set there.
+        assert r["min"] == min(agreed), t["id"]
+        if r["basis"] == "observed-reference-range":
+            assert r["max"] == max(agreed), t["id"]
+        else:
+            assert r["max"] > max(agreed), t["id"]   # extends past the reduced cluster
 
 
 @stage9
-def test_no_conflict_or_insufficient_emitted():
+def test_only_corroborated_or_allowlisted_conflict_emitted():
+    # Insufficient-evidence is NEVER emitted; conflict is emitted ONLY for the
+    # explicit conflict-resolution allowlist.
+    allow = set(_gen_module().CONFLICT_RESOLUTIONS)
     tl = _tiers_by_el_line()
     for t in _machine_transitions():
-        assert tl[(t["element"], t["orbital"])]["tier"] == "transcription-corroborated", t["id"]
+        key = (t["element"], t["orbital"])
+        tier = tl[key]["tier"]
+        if tier == "conflict":
+            assert key in allow, f"{t['id']} is a conflict but not in the allowlist"
+        else:
+            assert tier == "transcription-corroborated", t["id"]
 
 
 @stage9
 def test_emitted_count_matches_eligible_sanity():
-    assert len(_machine_transitions()) == 23
+    assert len(_machine_transitions()) == 27   # 23 corroborated + 4 conflict-resolved

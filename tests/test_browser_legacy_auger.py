@@ -134,10 +134,12 @@ def test_photon_gap_is_233(page):
 
 
 def test_legacy_photoelectron_fixed_across_sources(page):
-    al = _be_map(page, "Fe", "AlKa")
-    mg = _be_map(page, "Fe", "MgKa")
+    # V stays legacy (its 2p3/2 conflict was not promoted); Fe's bare 2p is now
+    # superseded by a machine 2p3/2, so use V as the legacy-photoelectron example.
+    al = _be_map(page, "V", "AlKa")
+    mg = _be_map(page, "V", "MgKa")
     assert al["2p"]["auger"] is False
-    assert abs(al["2p"]["be"] - 711.0) < 0.05
+    assert abs(al["2p"]["be"] - 517.0) < 0.05
     assert abs(al["2p"]["be"] - mg["2p"]["be"]) < 1e-6  # photoelectron does NOT move
 
 

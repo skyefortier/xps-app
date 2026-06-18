@@ -7,7 +7,7 @@
     "conflict": "Stage-9 tier: legacy disagrees with NIST (e.g. oxide vs metal / Auger-frame)",
     "insufficient-evidence": "Stage-9 tier: not recoverable in both extractions"
   },
-  "skipped_count": 39,
+  "skipped_count": 35,
   "transitions": [
     {
       "element": "B",
@@ -59,13 +59,6 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
-      "element": "Cr",
-      "orbital": "2p3/2",
-      "field_id": "f0025",
-      "reason": "conflict",
-      "detail": "not dual-corroborated (Stage-9 tier)"
-    },
-    {
       "element": "Cu",
       "orbital": "2p3/2",
       "field_id": "f0030",
@@ -77,13 +70,6 @@
       "orbital": null,
       "field_id": "f0007",
       "reason": "insufficient-evidence",
-      "detail": "not dual-corroborated (Stage-9 tier)"
-    },
-    {
-      "element": "Fe",
-      "orbital": "2p3/2",
-      "field_id": "f0027",
-      "reason": "conflict",
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
@@ -199,13 +185,6 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
-      "element": "P",
-      "orbital": "2p3/2",
-      "field_id": "f0015",
-      "reason": "conflict",
-      "detail": "not dual-corroborated (Stage-9 tier)"
-    },
-    {
       "element": "S",
       "orbital": "2p3/2",
       "field_id": "f0016",
@@ -248,13 +227,6 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
-      "element": "Ti",
-      "orbital": "2p3/2",
-      "field_id": "f0023",
-      "reason": "conflict",
-      "detail": "not dual-corroborated (Stage-9 tier)"
-    },
-    {
       "element": "U",
       "orbital": "4d5/2",
       "field_id": "f0060",
@@ -280,7 +252,7 @@
       "orbital": "2p3/2",
       "field_id": "f0024",
       "reason": "conflict",
-      "detail": "not dual-corroborated (Stage-9 tier)"
+      "detail": "conflict (legacy oxide vs NIST metal cluster) AND no NIST-evaluated (starred) value in source \u2014 fails the conflict-resolution V-safety guard, not promotable"
     }
   ]
 }

@@ -196,8 +196,8 @@
         "min": { "type": "number", "minimum": 0, "maximum": 1500 },
         "max": { "type": "number", "minimum": 0, "maximum": 1500 },
         "basis": {
-          "description": "Provenance of the range. observed-reference-range: spanned by tabulated values across chemical states in the cited source(s). source-reported: the source itself states a range. conservative-fallback: no reliable range data; a deliberately wide orientation window. This is an ORIENTATION range for survey identification, NOT a claim that every chemical state falls inside it.",
-          "enum": ["observed-reference-range", "source-reported", "conservative-fallback"]
+          "description": "Provenance of the range. observed-reference-range: spanned by tabulated values across chemical states in the cited source(s). source-reported: the source itself states a range. conservative-fallback: no reliable range data; a deliberately wide orientation window. reduced-to-oxidized-chemical-state-span: machine-tier conflict resolution — the band runs from the reduced/elemental NIST cluster minimum up to the legacy oxidized reference value (nominal is the reduced NIST-evaluated value; the legacy oxidized value is superseded as the band's high end). This is an ORIENTATION range for survey identification, NOT a claim that every chemical state falls inside it.",
+          "enum": ["observed-reference-range", "source-reported", "conservative-fallback", "reduced-to-oxidized-chemical-state-span"]
         }
       }
     },

@@ -105,6 +105,40 @@
       ]
     },
     {
+      "symbol": "P",
+      "z": 15,
+      "name": "Phosphorus",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "2p",
+          "transitions": [
+            {
+              "id": "P-2p3/2",
+              "element": "P",
+              "z": 15,
+              "orbital": "2p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 130.01,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 129.9,
+                "max": 133,
+                "basis": "reduced-to-oxidized-chemical-state-span"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "Reduced/elemental reference value (Powe95, NIST-evaluated) is the nominal; the band spans up to the phosphate reference at 133 eV. Resolved from a legacy elemental/phosphate conflict by the lower-BE = reduced rule (legacy 133 eV was the phosphate position). Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "symbol": "Ca",
       "z": 20,
       "name": "Calcium",
@@ -139,6 +173,74 @@
       ]
     },
     {
+      "symbol": "Ti",
+      "z": 22,
+      "name": "Titanium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "2p",
+          "transitions": [
+            {
+              "id": "Ti-2p3/2",
+              "element": "Ti",
+              "z": 22,
+              "orbital": "2p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 453.98,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 453.2,
+                "max": 459,
+                "basis": "reduced-to-oxidized-chemical-state-span"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "Reduced/metal reference value (Powe95, NIST-evaluated) is the nominal; the band spans up to the oxide reference at 459 eV. Resolved from a legacy metal/oxide conflict by the lower-BE = reduced rule (legacy 459 eV was the oxide position). Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Cr",
+      "z": 24,
+      "name": "Chromium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "2p",
+          "transitions": [
+            {
+              "id": "Cr-2p3/2",
+              "element": "Cr",
+              "z": 24,
+              "orbital": "2p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 574.35,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 573.8,
+                "max": 577,
+                "basis": "reduced-to-oxidized-chemical-state-span"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "Reduced/metal reference value (Powe95, NIST-evaluated) is the nominal; the band spans up to the oxide reference at 577 eV. Resolved from a legacy metal/oxide conflict by the lower-BE = reduced rule (legacy 577 eV was the oxide position). Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "symbol": "Mn",
       "z": 25,
       "name": "Manganese",
@@ -167,6 +269,40 @@
               "source": "nist-srd-20",
               "tier": "machine",
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Fe",
+      "z": 26,
+      "name": "Iron",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "2p",
+          "transitions": [
+            {
+              "id": "Fe-2p3/2",
+              "element": "Fe",
+              "z": 26,
+              "orbital": "2p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 706.86,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 706.5,
+                "max": 711,
+                "basis": "reduced-to-oxidized-chemical-state-span"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "Reduced/metal reference value (Powe95, NIST-evaluated) is the nominal; the band spans up to the oxide reference at 711 eV. Resolved from a legacy metal/oxide conflict by the lower-BE = reduced rule (legacy 711 eV was the oxide position). Machine tier \u2014 not human-verified."
             }
           ]
         }
