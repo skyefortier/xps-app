@@ -173,7 +173,7 @@
 
   /* ── Reference Lines panel (periodic-table overlays, data/xps) ── */
   #ref-panel {
-    width: 340px;
+    width: 520px;
     flex-shrink: 0;
     background: var(--bg2);
     border-left: 1px solid var(--border);
@@ -182,6 +182,14 @@
     min-height: 0;
   }
   #ref-panel.open { display: flex; }
+  /* Three stacked zones; search + table are fixed-height, details scroll. */
+  .ref-zone-search { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .ref-zone-table  { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .ref-zone-details { padding: 10px 12px; overflow-y: auto; flex: 1; min-height: 0; }
+  .ref-zone-head {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text2); margin-bottom: 8px;
+  }
   .ref-close {
     background: none; border: none; color: var(--text2);
     font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1;
@@ -10693,7 +10701,12 @@ function _refRenderPanel() {
   const hv = conv.photon_energy_ev[sel.source];
   const wf = conv.work_function_ev;
   const range = _refViewRange();
-  let html = '<div class="ref-src-row"><label for="ref-src-sel">Source</label>' +
+
+  // Unified top search (blended element/compound/energy) is wired in a later
+  // task; until then this is an empty placeholder so the search zone is stable.
+  const blendedSearchHtml = '';
+
+  const srcRowHtml = '<div class="ref-src-row"><label for="ref-src-sel">Source</label>' +
     '<select id="ref-src-sel" onchange="_refSetSource(this.value)">' +
     '<option value="AlKa"' + (sel.source === 'AlKa' ? ' selected' : '') + '>Al Kα</option>' +
     '<option value="MgKa"' + (sel.source === 'MgKa' ? ' selected' : '') + '>Mg Kα</option>' +
@@ -10701,13 +10714,14 @@ function _refRenderPanel() {
     hv.toFixed(1) + ' · φ ' + wf.toFixed(1) + ' eV</span></div>' +
     '<div class="ref-hint">Projects reference markers only — does not recalibrate the imported spectrum.</div>';
 
+  let contextHtml = '';
   if (range.mode === 'reference') {
-    html += '<div class="ref-notice">No spectrum loaded — reference view 0–1200 eV (survey convention). Not evaluating an active spectrum.</div>';
+    contextHtml += '<div class="ref-notice">No spectrum loaded — reference view 0–1200 eV (survey convention). Not evaluating an active spectrum.</div>';
   } else {
-    html += '<div class="ref-context">Evaluating: ' + _escHtml(tab ? tab.name : 'spectrum') + ' · ' +
+    contextHtml += '<div class="ref-context">Evaluating: ' + _escHtml(tab ? tab.name : 'spectrum') + ' · ' +
       range.lo.toFixed(1) + '–' + range.hi.toFixed(1) + ' eV (corrected BE)</div>';
     if (!_refIsChargeCorrected()) {
-      html += '<div class="ref-hint">Spectrum has not been charge corrected — sample peaks may be shifted relative to reference positions.</div>';
+      contextHtml += '<div class="ref-hint">Spectrum has not been charge corrected — sample peaks may be shifted relative to reference positions.</div>';
     }
   }
 
@@ -10718,23 +10732,28 @@ function _refRenderPanel() {
     const suffix = e.tier === 'machine' ? ' — machine-source' : e.tier === 'legacy' ? ' — legacy-unverified' : '';
     return '<option value="' + _escAttr(sym) + '">' + _escHtml((e.pe || e.auger).name) + suffix + '</option>';
   }).join('');
-  html += '<div class="ref-search-row"><input id="ref-el-search" list="ref-el-datalist" ' +
+  const elementSearchHtml = '<div class="ref-search-row"><input id="ref-el-search" list="ref-el-datalist" ' +
     'placeholder="Search element (symbol or name)…" aria-label="Search elements" ' +
     'onchange="_refSearchSelect(this)"><datalist id="ref-el-datalist">' + elOpts + '</datalist></div>';
 
-  html += _refRenderGrid(sel);
-  html += '<label class="ref-toggle-row"><input type="checkbox"' + (sel.showWeak ? ' checked' : '') +
+  const allLinesToggleHtml = '<label class="ref-toggle-row"><input type="checkbox"' + (sel.showWeak ? ' checked' : '') +
     ' onchange="_refSetShowWeak(this.checked)"> All lines (include weak)</label>';
 
-  html += _refRenderIdentify(sel, range);
+  // Zone 1 — search; Zone 2 — periodic table; Zone 3 — details (clicked-element
+  // line tables AND identify candidates render HERE, never under the table/grid).
+  const searchZone = '<div class="ref-zone-search">' + blendedSearchHtml + srcRowHtml + contextHtml + elementSearchHtml + '</div>';
+  const tableZone = '<div class="ref-zone-table">' + _refRenderGrid(sel) + allLinesToggleHtml + '</div>';
 
+  let detailsInner = _refRenderIdentify(sel, range);
   if (!sel.syms.length) {
-    html += '<div class="ref-hint">Click an element to overlay its reference lines on the spectrum. ' +
+    detailsInner += '<div class="ref-hint">Click an element to overlay its reference lines on the spectrum. ' +
       'Solid-outlined elements are curated (source-verified); dashed elements carry only ' +
       'legacy-unverified markers. Dimmed elements have no line data — no values are invented for them.</div>';
   }
-  for (const s of sel.syms) html += _refRenderElementGroup(s, sel, range);
-  body.innerHTML = html;
+  for (const s of sel.syms) detailsInner += _refRenderElementGroup(s, sel, range);
+  const detailsZone = '<div class="ref-zone-details"><div class="ref-zone-head">Details</div>' + detailsInner + '</div>';
+
+  body.innerHTML = searchZone + tableZone + detailsZone;
 }
 
 // Items to draw on a given chart, or null when overlays don't apply.
