@@ -1,0 +1,572 @@
+<!doctype html>
+<!--
+  ============================================================================
+  XPS Fitting Studio — UNIFIED "Reference / Identify" WORKSPACE  (UX MOCKUP)
+  ============================================================================
+  PURPOSE: Visual + interaction reference for merging the existing "Reference
+  Lines" panel and the "Lookup" (NIST) modal into ONE workspace. This is a
+  design reference, NOT a spec to copy verbatim and NOT production code.
+
+  WHAT IT DEMONSTRATES (the intended design):
+    1. One surface, three zones: unified search (top) · large periodic table
+       (left, the hero) · dedicated details pane (right).
+    2. Unification: the old Lookup modal becomes the top search bar — it spans
+       elemental lines, chemical-state/compound records, and raw BE search.
+    3. Periodic table promoted from ~17px cells to a readable hero grid.
+    4. Clicked-element line tables / notes / citations render in the RIGHT
+       details pane — NOT stacked under the Identify button (the current bug).
+    5. Tier is NOT color-coded on the table (all data-bearing elements look
+       uniformly selectable); tier surfaces on the result card as a badge with
+       a plain-language tooltip.
+    6. Identify-peak returns ELEMENTS *and* COMPOUNDS (e.g. U 4f7/2 in UO2 /
+       UCl4 vs. elemental), ranked by |Δ| from the clicked energy.
+    7. Tolerance is a continuous slider, 0.25–5.0 eV.
+
+  DO NOT TREAT AS AUTHORITATIVE:
+    - ALL binding-energy values here are ILLUSTRATIVE PLACEHOLDERS for layout
+      review. Real values must come from NIST SRD 20 / primary literature.
+    - Tier assignments (curated/machine/legacy sets) are illustrative spreads,
+      not the app's real tiering.
+    - The exact tier-explainer wording is a first draft, pending sign-off.
+
+  DATA-LAYER WORK IMPLIED (beyond the visual):
+    - Identify must query the NIST chemical-state records (same data the old
+      Lookup used), not only the elemental-line set, to return compounds.
+    - Moving tolerance from named modes (narrow/normal/broad) to a continuous
+      number changes the backend tolerance handling.
+
+  STILL-OPEN DESIGN DECISIONS (do not assume answers):
+    - Container: centered overlay vs. chart-adjacent right drawer.
+    - Search: blended results vs. segmented element/compound lenses.
+    - Final tier-card / table tweaks.
+  ============================================================================
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XPS Fitting Studio — Reference / Identify (mockup)</title>
+<style>
+  :root{
+    --bg:#0b0e13; --panel:#121823; --panel2:#0e141d; --inset:#0a0e16;
+    --line:rgba(120,150,210,.14); --line2:rgba(120,150,210,.30);
+    --ink:#e7edf6; --ink2:#92a1bd; --ink3:#586a86;
+    --accent:#5bb0ff; --accent-dim:rgba(91,176,255,.14);
+    --curated:#b8c4dc;                /* neutral = source-verified */
+    --machine:#4fd08a; --machine-dim:rgba(79,208,138,.13);
+    --legacy:#e0a64a;  --legacy-dim:rgba(224,166,74,.13);
+    --mono:'SF Mono','Fira Code','Cascadia Code',Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --r:7px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--ink); font-size:13px; line-height:1.5;
+    background:
+      radial-gradient(1200px 700px at 18% -10%, rgba(91,176,255,.06), transparent 60%),
+      var(--bg);
+    /* dim app behind, to read as an overlay workspace */
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:26px 22px 40px;
+  }
+
+  /* ---------- workspace shell ---------- */
+  .ws{
+    width:min(1080px,100%); background:var(--panel);
+    border:1px solid var(--line2); border-radius:14px; overflow:hidden;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.4);
+  }
+  .ws-top{
+    display:flex; align-items:center; gap:14px;
+    padding:13px 16px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(255,255,255,.015), transparent);
+  }
+  .ws-title{font-size:13px; font-weight:700; letter-spacing:.02em; white-space:nowrap}
+  .ws-title .lede{
+    background:linear-gradient(135deg,var(--accent),#9bd0ff);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    letter-spacing:.06em;
+  }
+  .ws-title .sub{color:var(--ink3); font-weight:500; font-size:11px; margin-left:8px}
+  .ws-x{
+    margin-left:auto; width:26px;height:26px;border-radius:6px;border:1px solid var(--line);
+    background:var(--panel2); color:var(--ink2); cursor:pointer; font-size:13px;
+  }
+  .ws-x:hover{border-color:var(--line2); color:var(--ink)}
+
+  /* ---------- unified search row ---------- */
+  .searchbar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:11px 16px; border-bottom:1px solid var(--line); background:var(--panel2);
+  }
+  .search-wrap{position:relative; flex:1 1 360px; min-width:260px}
+  .search-wrap svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--ink3)}
+  #search{
+    width:100%; padding:9px 12px 9px 34px; border-radius:8px;
+    background:var(--inset); border:1px solid var(--line); color:var(--ink);
+    font-family:var(--sans); font-size:13px;
+  }
+  #search:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim)}
+  #search::placeholder{color:var(--ink3)}
+
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--inset)}
+  .seg button{
+    border:0; background:transparent; color:var(--ink2); font-family:var(--mono);
+    font-size:11px; padding:7px 11px; cursor:pointer; letter-spacing:.02em;
+  }
+  .seg button.on{background:var(--accent-dim); color:var(--accent)}
+  .seg button+button{border-left:1px solid var(--line)}
+  .readout{font-family:var(--mono); font-size:11px; color:var(--ink3); white-space:nowrap}
+
+  .ident-btn{
+    display:inline-flex; align-items:center; gap:7px;
+    border:1px solid var(--line2); background:var(--panel); color:var(--ink);
+    font-size:12px; padding:8px 12px; border-radius:8px; cursor:pointer; white-space:nowrap;
+  }
+  .ident-btn:hover{border-color:var(--accent)}
+  .ident-btn.armed{background:var(--accent-dim); border-color:var(--accent); color:var(--accent)}
+  .ident-btn .dot{width:7px;height:7px;border-radius:50%;background:var(--ink3)}
+  .ident-btn.armed .dot{background:var(--accent); box-shadow:0 0 0 4px var(--accent-dim)}
+  .tol-wrap{display:inline-flex; align-items:center; gap:9px; border:1px solid var(--line); background:var(--inset); border-radius:8px; padding:6px 11px}
+  .tol-cap{font-size:11px; color:var(--ink3); white-space:nowrap}
+  .tol-val{font-family:var(--mono); font-size:11px; color:var(--ink2); white-space:nowrap; min-width:64px; text-align:right}
+  #tolRange{width:100px; accent-color:var(--accent); cursor:pointer}
+
+  /* ---------- two-column body ---------- */
+  .body{display:grid; grid-template-columns:minmax(0,1fr) 372px; min-height:520px}
+  .left{padding:16px; border-right:1px solid var(--line)}
+  .right{background:var(--panel2); display:flex; flex-direction:column; min-width:0}
+
+  /* search results dropdown (overlays left col) */
+  .results{
+    display:none; border:1px solid var(--line2); border-radius:10px; overflow:hidden;
+    margin-bottom:14px; background:var(--inset);
+  }
+  .results.show{display:block}
+  .res-row{
+    display:flex; align-items:center; gap:10px; padding:9px 12px; cursor:pointer;
+    border-bottom:1px solid var(--line);
+  }
+  .res-row:last-child{border-bottom:0}
+  .res-row:hover{background:var(--accent-dim)}
+  .res-kind{
+    font-family:var(--mono); font-size:9px; letter-spacing:.06em; text-transform:uppercase;
+    padding:2px 6px; border-radius:4px; border:1px solid var(--line2); color:var(--ink2);
+  }
+  .res-kind.element{color:var(--accent); border-color:rgba(91,176,255,.4)}
+  .res-kind.state{color:var(--machine); border-color:rgba(79,208,138,.4)}
+  .res-kind.energy{color:var(--legacy); border-color:rgba(224,166,74,.4)}
+  .res-main{flex:1; min-width:0; font-size:12.5px}
+  .res-main b{font-weight:600}
+  .res-ev{font-family:var(--mono); font-size:12px; color:var(--ink2)}
+
+  /* ---------- periodic table (the hero) ---------- */
+  .pt-meta{display:flex; align-items:center; gap:16px; margin-bottom:12px; flex-wrap:wrap}
+  .pt-meta .eyebrow{
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink3);
+  }
+  .legend{display:flex; gap:14px; align-items:center; margin-left:auto; flex-wrap:wrap}
+  .legend span{display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--ink2)}
+  .legend i{width:13px;height:13px;border-radius:3px; display:inline-block}
+  .lg-curated{border:1.5px solid var(--line2); background:var(--panel)}
+  .lg-machine{border:1.5px solid var(--machine); background:var(--machine-dim)}
+  .lg-legacy{border:1.5px dashed var(--legacy); background:var(--legacy-dim)}
+  .legend span[data-tier]{cursor:help; border-bottom:1px dotted var(--line2)}
+
+  /* tier explainer toast */
+  #tip{
+    position:fixed; z-index:50; max-width:250px; pointer-events:none; opacity:0;
+    transform:translateY(4px); transition:opacity .12s, transform .12s;
+    background:#0a0e16; border:1px solid var(--line2); border-radius:9px;
+    padding:9px 11px; box-shadow:0 14px 34px -12px rgba(0,0,0,.8);
+  }
+  #tip.show{opacity:1; transform:translateY(0)}
+  #tip .tip-h{font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px}
+  #tip.curated .tip-h{color:var(--curated)}
+  #tip.machine .tip-h{color:var(--machine)}
+  #tip.legacy .tip-h{color:var(--legacy)}
+  #tip .tip-t{font-size:12px; line-height:1.5; color:var(--ink2)}
+  .badge[data-tier]{cursor:help}
+
+  #pt{
+    display:grid; grid-template-columns:repeat(18,1fr);
+    grid-template-rows:repeat(7,1fr) 7px repeat(2,1fr);
+    gap:4px; aspect-ratio:18 / 10.2;
+  }
+  .cell{
+    position:relative; display:flex; align-items:center; justify-content:center;
+    border-radius:5px; border:1.5px solid transparent; background:var(--inset);
+    color:var(--ink3); font-family:var(--mono); font-weight:600; cursor:default;
+    user-select:none; transition:border-color .12s, background .12s, color .12s, transform .08s;
+    font-size:clamp(9px,1.05vw,14px);
+  }
+  .cell .z{
+    position:absolute; top:2px; left:3px; font-size:7.5px; font-weight:500;
+    color:var(--ink3); line-height:1; letter-spacing:0;
+  }
+  .cell.on{background:var(--panel); border-color:var(--line2); color:var(--ink); cursor:pointer}
+  .cell.on:hover{border-color:var(--accent); color:var(--accent); transform:translateY(-1px)}
+  .cell.on:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+  .cell.sel{
+    color:#fff; border-color:var(--mark,var(--accent)) !important;
+    box-shadow:inset 0 -3px 0 var(--mark,var(--accent)), 0 0 0 1px var(--mark,var(--accent));
+    background:color-mix(in srgb, var(--mark,var(--accent)) 22%, var(--inset));
+  }
+  .cell.fmark{background:transparent; border:0; color:var(--ink3); font-size:9px; font-weight:500}
+
+  /* ---------- right details pane (the fix) ---------- */
+  .right-head{
+    padding:13px 15px 10px; border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink3);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .right-head .clear{
+    font-family:var(--sans); text-transform:none; letter-spacing:0; font-size:11px;
+    color:var(--ink2); background:none; border:0; cursor:pointer; display:none;
+  }
+  .right-head .clear:hover{color:var(--ink)}
+  .right-scroll{flex:1; overflow:auto; padding:13px 15px; min-height:0}
+
+  .empty{color:var(--ink3); font-size:12.5px; line-height:1.7; text-align:center; padding:48px 18px}
+  .empty .glyph{font-size:30px; opacity:.4; margin-bottom:10px}
+
+  .card{border:1px solid var(--line); border-radius:10px; background:var(--inset); margin-bottom:11px; overflow:hidden}
+  .card-head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line)}
+  .sw{width:11px;height:11px;border-radius:3px; flex-shrink:0}
+  .card-name{font-weight:600; font-size:12.5px}
+  .badge{
+    font-family:var(--mono); font-size:9px; letter-spacing:.04em; padding:2px 6px; border-radius:4px;
+    margin-left:auto;
+  }
+  .badge.curated{color:var(--ink2); border:1px solid var(--line2)}
+  .badge.machine{color:var(--machine); border:1px solid rgba(79,208,138,.45); background:var(--machine-dim)}
+  .badge.legacy{color:var(--legacy); border:1px solid rgba(224,166,74,.45); background:var(--legacy-dim)}
+  .card-x{border:0;background:none;color:var(--ink3);cursor:pointer;font-size:14px;padding:0 2px;margin-left:6px}
+  .card-x:hover{color:var(--ink)}
+
+  .lines{padding:4px 0}
+  .ln{display:flex; align-items:center; gap:9px; padding:7px 12px; font-size:12px}
+  .ln+.ln{border-top:1px solid var(--line)}
+  .ln.out{opacity:.42}
+  .ln-orb{font-family:var(--mono); color:var(--ink); min-width:42px; font-weight:600}
+  .chip{font-family:var(--mono); font-size:9px; padding:2px 6px; border-radius:4px; letter-spacing:.02em}
+  .chip.major{color:var(--accent); background:var(--accent-dim)}
+  .chip.moderate{color:var(--ink2); border:1px solid var(--line2)}
+  .chip.auger{color:var(--legacy); background:var(--legacy-dim)}
+  .ln-ev{margin-left:auto; font-family:var(--mono); color:var(--ink2)}
+  .note{padding:9px 12px; font-size:11px; line-height:1.55; color:var(--ink3); border-top:1px solid var(--line)}
+  .cite{padding:7px 12px; font-size:10.5px; font-family:var(--mono); color:var(--ink3); border-top:1px solid var(--line)}
+
+  /* identify candidate card accent */
+  .card.cand{border-color:rgba(91,176,255,.4)}
+  .cand-context{font-size:11.5px; color:var(--ink2); margin-bottom:11px; line-height:1.55}
+  .cand-context b{color:var(--accent); font-family:var(--mono)}
+  .card-head .res-kind{margin-right:1px}
+  .cand-ev{font-family:var(--mono); font-size:11px; color:var(--accent); margin-left:auto}
+  .cand-line{padding:6px 12px; font-size:11.5px; color:var(--ink2); border-top:1px solid var(--line)}
+  .cand-line b{color:var(--ink)}
+  .add-overlay{
+    margin:10px 12px; padding:7px 10px; width:calc(100% - 24px);
+    border:1px solid var(--line2); background:var(--panel); color:var(--ink);
+    border-radius:7px; cursor:pointer; font-size:11.5px;
+  }
+  .add-overlay:hover{border-color:var(--accent); color:var(--accent)}
+
+  /* armed-state hint strip */
+  .arm-hint{
+    display:none; align-items:center; gap:8px; margin:0 0 14px;
+    padding:9px 12px; border-radius:9px; font-size:12px; color:var(--accent);
+    background:var(--accent-dim); border:1px dashed rgba(91,176,255,.5);
+  }
+  .arm-hint.show{display:flex}
+
+  .footer-note{
+    padding:9px 16px; font-size:10.5px; color:var(--ink3); border-top:1px solid var(--line);
+    background:var(--panel2); font-family:var(--mono);
+  }
+  @media (max-width:760px){
+    .body{grid-template-columns:1fr}
+    .left{border-right:0; border-bottom:1px solid var(--line)}
+    .right{min-height:300px}
+  }
+</style>
+
+<div class="ws">
+  <div class="ws-top">
+    <div class="ws-title"><span class="lede">REFERENCE</span> / Identify<span class="sub">// NIST SRD 20 · elemental lines + chemical states</span></div>
+    <button class="ws-x" title="Close">✕</button>
+  </div>
+
+  <!-- unified search: spans elemental lines AND chemical-state (the old Lookup) -->
+  <div class="searchbar">
+    <div class="search-wrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="search" autocomplete="off" placeholder="Search element, orbital, compound, or BE  —  e.g. U, Cl 2p, UO₂, 707">
+    </div>
+    <div class="seg" title="Excitation source — moves Auger markers only">
+      <button id="src-al" class="on" onclick="setSrc('al')">Al Kα</button>
+      <button id="src-mg" onclick="setSrc('mg')">Mg Kα</button>
+    </div>
+    <span class="readout" id="src-readout">hν 1486.6 · φ 4.5 eV</span>
+    <button class="ident-btn" id="identBtn" onclick="toggleArm()"><span class="dot"></span> Identify peak</button>
+    <div class="tol-wrap" title="Search tolerance around the clicked energy">
+      <span class="tol-cap">± tol</span>
+      <input type="range" id="tolRange" min="0.25" max="5" step="0.25" value="1">
+      <span class="tol-val" id="tolVal">± 1.00 eV</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- LEFT: the hero periodic table -->
+    <div class="left">
+      <div class="results" id="results"></div>
+
+      <div class="pt-meta">
+        <span class="eyebrow">Periodic table — click any highlighted element to overlay its lines. Dimmed = no reference data. (Tier shows on the result card.)</span>
+      </div>
+      <div id="pt"></div>
+    </div>
+
+    <!-- RIGHT: dedicated details pane — clicked-element lines + identify candidates live HERE -->
+    <div class="right">
+      <div class="right-head">
+        <span id="right-label">Details</span>
+        <button class="clear" id="clearBtn" onclick="clearAll()">Clear all</button>
+      </div>
+      <div class="right-scroll" id="detail">
+        <div class="arm-hint" id="armHint">◎ Identify armed — click a peak on the spectrum to list candidates here.</div>
+        <div class="empty" id="emptyState">
+          <div class="glyph">⊹</div>
+          <div><b>Nothing selected yet.</b></div>
+          <div>Click an element to overlay its lines and see the
+          transition table here — or search a compound to reverse-look-up a binding energy.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Mockup — binding-energy values shown are illustrative placeholders for layout review, not verified reference data.</div>
+</div>
+
+<script>
+/* ---------------- periodic-table layout ---------------- */
+const MAIN = [
+  ['H',1,1,1],['He',2,18,1],
+  ['Li',3,1,2],['Be',4,2,2],['B',5,13,2],['C',6,14,2],['N',7,15,2],['O',8,16,2],['F',9,17,2],['Ne',10,18,2],
+  ['Na',11,1,3],['Mg',12,2,3],['Al',13,13,3],['Si',14,14,3],['P',15,15,3],['S',16,16,3],['Cl',17,17,3],['Ar',18,18,3],
+  ['K',19,1,4],['Ca',20,2,4],['Sc',21,3,4],['Ti',22,4,4],['V',23,5,4],['Cr',24,6,4],['Mn',25,7,4],['Fe',26,8,4],['Co',27,9,4],['Ni',28,10,4],['Cu',29,11,4],['Zn',30,12,4],['Ga',31,13,4],['Ge',32,14,4],['As',33,15,4],['Se',34,16,4],['Br',35,17,4],['Kr',36,18,4],
+  ['Rb',37,1,5],['Sr',38,2,5],['Y',39,3,5],['Zr',40,4,5],['Nb',41,5,5],['Mo',42,6,5],['Tc',43,7,5],['Ru',44,8,5],['Rh',45,9,5],['Pd',46,10,5],['Ag',47,11,5],['Cd',48,12,5],['In',49,13,5],['Sn',50,14,5],['Sb',51,15,5],['Te',52,16,5],['I',53,17,5],['Xe',54,18,5],
+  ['Cs',55,1,6],['Ba',56,2,6],['Hf',72,4,6],['Ta',73,5,6],['W',74,6,6],['Re',75,7,6],['Os',76,8,6],['Ir',77,9,6],['Pt',78,10,6],['Au',79,11,6],['Hg',80,12,6],['Tl',81,13,6],['Pb',82,14,6],['Bi',83,15,6],['Po',84,16,6],['At',85,17,6],['Rn',86,18,6],
+  ['Fr',87,1,7],['Ra',88,2,7],['Rf',104,4,7],['Db',105,5,7],['Sg',106,6,7],['Bh',107,7,7],['Hs',108,8,7],['Mt',109,9,7],['Ds',110,10,7],['Rg',111,11,7],['Cn',112,12,7],['Nh',113,13,7],['Fl',114,14,7],['Mc',115,15,7],['Lv',116,16,7],['Ts',117,17,7],['Og',118,18,7],
+];
+const LANTH = ['La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu'];
+const ACTIN = ['Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr'];
+
+/* tier assignment (illustrative spread, mirrors the real app's mix) */
+const LEGACY = new Set(['Na','Mg','In','Co']);
+const MACHINE = new Set(['Sc','V','Cr','Mn','Ni','Zn','Ga','Ge','As','Se','Br','Y','Zr','Nb','Mo','Ru','Rh','Pd','Cd','Sb','Te','Hf','Ta','Re','Os','Ir','Hg','Tl','Bi','Ce','Pr','Nd','Sm','Gd','Th','Pa','Np']);
+const DIM = new Set(['He','Ne','Ar','Kr','Xe','Rn','Tc','At','Fr','Ra','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv','Ts','Og','Pm','Po','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr']);
+function tierOf(sym){ if(DIM.has(sym))return null; if(LEGACY.has(sym))return'legacy'; if(MACHINE.has(sym))return'machine'; return'curated'; }
+
+/* illustrative line data for the elements most relevant to the lab's samples */
+const NAMES={H:'Hydrogen',He:'Helium',Li:'Lithium',Be:'Beryllium',B:'Boron',C:'Carbon',N:'Nitrogen',O:'Oxygen',F:'Fluorine',Ne:'Neon',Na:'Sodium',Mg:'Magnesium',Al:'Aluminium',Si:'Silicon',P:'Phosphorus',S:'Sulfur',Cl:'Chlorine',Ar:'Argon',K:'Potassium',Ca:'Calcium',Sc:'Scandium',Ti:'Titanium',V:'Vanadium',Cr:'Chromium',Mn:'Manganese',Fe:'Iron',Co:'Cobalt',Ni:'Nickel',Cu:'Copper',Zn:'Zinc',Ga:'Gallium',Ge:'Germanium',As:'Arsenic',Se:'Selenium',Br:'Bromine',Kr:'Krypton',Rb:'Rubidium',Sr:'Strontium',Y:'Yttrium',Zr:'Zirconium',Nb:'Niobium',Mo:'Molybdenum',Tc:'Technetium',Ru:'Ruthenium',Rh:'Rhodium',Pd:'Palladium',Ag:'Silver',Cd:'Cadmium',In:'Indium',Sn:'Tin',Sb:'Antimony',Te:'Tellurium',I:'Iodine',Xe:'Xenon',Cs:'Cesium',Ba:'Barium',La:'Lanthanum',Ce:'Cerium',Pr:'Praseodymium',Nd:'Neodymium',Pm:'Promethium',Sm:'Samarium',Eu:'Europium',Gd:'Gadolinium',Tb:'Terbium',Dy:'Dysprosium',Ho:'Holmium',Er:'Erbium',Tm:'Thulium',Yb:'Ytterbium',Lu:'Lutetium',Hf:'Hafnium',Ta:'Tantalum',W:'Tungsten',Re:'Rhenium',Os:'Osmium',Ir:'Iridium',Pt:'Platinum',Au:'Gold',Hg:'Mercury',Tl:'Thallium',Pb:'Lead',Bi:'Bismuth',Po:'Polonium',At:'Astatine',Rn:'Radon',Fr:'Francium',Ra:'Radium',Ac:'Actinium',Th:'Thorium',Pa:'Protactinium',U:'Uranium',Np:'Neptunium',Pu:'Plutonium',Am:'Americium',Cm:'Curium',Bk:'Berkelium',Cf:'Californium',Es:'Einsteinium',Fm:'Fermium',Md:'Mendelevium',No:'Nobelium',Lr:'Lawrencium',Rf:'Rutherfordium',Db:'Dubnium',Sg:'Seaborgium',Bh:'Bohrium',Hs:'Hassium',Mt:'Meitnerium',Ds:'Darmstadtium',Rg:'Roentgenium',Cn:'Copernicium',Nh:'Nihonium',Fl:'Flerovium',Mc:'Moscovium',Lv:'Livermorium',Ts:'Tennessine',Og:'Oganesson'};
+const ALL_EL=[];   // every element + Z, so search covers the whole table (incl. f-block)
+MAIN.forEach(m=>ALL_EL.push([m[0],m[1]]));
+LANTH.forEach((s,i)=>ALL_EL.push([s,57+i]));
+ACTIN.forEach((s,i)=>ALL_EL.push([s,89+i]));
+const TIER_INFO={
+  curated:{label:'Curated',text:'Checked by hand against NIST or published papers. The most trustworthy tier — use with confidence.'},
+  machine:{label:'Machine-source',text:'Pulled automatically from the NIST database and cross-checked by two methods, but not yet reviewed by a person. Good, but verify before publishing.'},
+  legacy:{label:'Legacy',text:'An older marker carried over from the app\u2019s original built-in data. Not checked against any outside source — treat as a rough guide only.'},
+};
+const LINES={
+  U:[['4f₇⸍₂','major','377.4 eV',1],['4f₅⸍₂','major','388.2 eV',1],['4d₅⸍₂','moderate','736.5 eV',1],['5d','moderate','96.5 eV',1]],
+  Cl:[['2p₃⸍₂','major','199.0 eV',1],['2p₁⸍₂','moderate','200.6 eV',1],['2s','moderate','270.0 eV',1]],
+  C:[['1s','major','284.5 eV',1]],
+  O:[['1s','major','530.6 eV',1],['KLL','auger','744 eV',0]],
+  Au:[['4f₇⸍₂','major','83.98 eV',1],['4f₅⸍₂','major','87.65 eV',1]],
+  Fe:[['2p₃⸍₂','major','706.8 eV',1],['2p₁⸍₂','moderate','719.9 eV',1]],
+  Ti:[['2p₃⸍₂','major','453.9 eV',1],['2p₁⸍₂','moderate','459.9 eV',1]],
+};
+const NOTES={
+  U:'Curated nominal is U metal (4f₇⸍₂ ≈ 377 eV). Oxide states (U(IV)/U(VI)) sit ~3–5 eV higher and are searchable as distinct records.',
+  C:'Graphite charge reference 284.5 eV. Adventitious carbon convention is 284.8 eV.',
+  Cl:'2s (~270 eV) is the line often missed on UCl₄ survey scans.',
+};
+const COLORS=['#5bb0ff','#4fd08a','#e0a64a','#b48eff','#ff8c66','#44ddcc','#ff6b9d'];
+
+/* search index: unifies elemental + chemical-state + energy lookup */
+const STATES=[
+  ['state','UO₂','U 4f₇⸍₂','380.0 eV','U'],
+  ['state','UO₃','U 4f₇⸍₂','381.9 eV','U'],
+  ['state','UCl₄','U 4f₇⸍₂','382.1 eV','U'],
+  ['state','TiO₂','Ti 2p₃⸍₂','458.7 eV','Ti'],
+  ['state','Fe₂O₃','Fe 2p₃⸍₂','710.9 eV','Fe'],
+  ['state','graphite','C 1s','284.5 eV','C'],
+];
+
+let src='al', armed=false;
+const sel=[]; let colorIdx=0;
+const $=s=>document.querySelector(s);
+
+/* ---------------- render periodic table ---------------- */
+function buildPT(){
+  const pt=$('#pt'); let html='';
+  const all=[...MAIN];
+  LANTH.forEach((s,i)=>all.push([s,57+i,3+i,9]));
+  ACTIN.forEach((s,i)=>all.push([s,89+i,3+i,10]));
+  for(const [sym,z,col,row] of all){
+    const t=tierOf(sym);
+    const cls='cell'+(t?' on':'');
+    const click=t?` onclick="toggleEl('${sym}')"`:'';
+    html+=`<div class="${cls}" data-sym="${sym}" style="grid-column:${col};grid-row:${row}"${click} title="${sym} (Z=${z})"><span class="z">${z}</span>${sym}</div>`;
+  }
+  html+=`<div class="cell fmark" style="grid-column:3;grid-row:6">57–71</div>`;
+  html+=`<div class="cell fmark" style="grid-column:3;grid-row:7">89–103</div>`;
+  pt.innerHTML=html;
+}
+
+/* ---------------- selection + detail pane ---------------- */
+function toggleEl(sym){
+  const i=sel.findIndex(s=>s.sym===sym);
+  if(i>=0) sel.splice(i,1);
+  else sel.push({sym,color:COLORS[colorIdx++%COLORS.length]});
+  syncPT(); renderDetail();
+}
+function syncPT(){
+  document.querySelectorAll('.cell').forEach(c=>{c.classList.remove('sel'); c.style.removeProperty('--mark');});
+  sel.forEach(s=>{const c=document.querySelector(`.cell[data-sym="${s.sym}"]`); if(c){c.classList.add('sel'); c.style.setProperty('--mark',s.color);}});
+}
+function clearAll(){ sel.length=0; armed=false; $('#identBtn').classList.remove('armed'); $('#armHint').classList.remove('show'); syncPT(); renderDetail(); }
+
+function lineRow(orb,vis,ev,inRange){
+  const chip = vis==='auger'?'<span class="chip auger">Auger</span>':`<span class="chip ${vis}">${vis}</span>`;
+  return `<div class="ln${inRange?'':' out'}"><span class="ln-orb">${orb}</span>${chip}<span class="ln-ev">${ev}</span></div>`;
+}
+function elementCard(s){
+  const t=tierOf(s.sym);
+  const badge = t==='machine'?'<span class="badge machine" data-tier="machine">machine-source</span>'
+              : t==='legacy'?'<span class="badge legacy" data-tier="legacy">legacy</span>'
+              : '<span class="badge curated" data-tier="curated">curated</span>';
+  const lines=(LINES[s.sym]||[['—','moderate','— eV',1]]).map(l=>lineRow(l[0],l[1],l[2],l[3])).join('');
+  const note=NOTES[s.sym]?`<div class="note">${NOTES[s.sym]}</div>`:'';
+  return `<div class="card">
+    <div class="card-head"><span class="sw" style="background:${s.color}"></span>
+      <span class="card-name">${s.sym} — ${NAMES[s.sym]||s.sym}</span>${badge}
+      <button class="card-x" onclick="toggleEl('${s.sym}')" title="Remove overlay">×</button></div>
+    <div class="lines">${lines}</div>${note}
+    <div class="cite">source: NIST SRD 20 · hover line rows for per-record notes</div>
+  </div>`;
+}
+function candidateCard(){
+  const clicked=380.5;
+  // Candidates within tolerance mix elemental nominals AND chemical states (compounds).
+  const cands=[
+    {kind:'state',  name:'U 4f₇⸍₂ — UO₂',       ev:'380.0', d:'0.5', sym:'U',
+      rows:[['Chemical state','U(IV) oxide'],['Energy match','inside expected region'],['Doublet partner','4f₅⸍₂ at 390.8 eV']]},
+    {kind:'state',  name:'U 4f₇⸍₂ — UCl₄',      ev:'382.1', d:'1.6', sym:'U',
+      rows:[['Chemical state','U(IV) chloride'],['Energy match','proximity match'],['Doublet partner','4f₅⸍₂ at 392.9 eV']]},
+    {kind:'element',name:'U 4f₇⸍₂ — elemental', ev:'377.4', d:'3.1', sym:'U',
+      rows:[['Reference','U metal nominal'],['Expected visibility','major'],['Other U lines','4d₅⸍₂ at 736.5 eV']]},
+  ];
+  let html=`<div class="cand-context">Clicked <b>${clicked.toFixed(1)} eV</b> — candidates within tolerance (elements <i>and</i> compounds):</div>`;
+  for(const c of cands){
+    const kind=`<span class="res-kind ${c.kind}">${c.kind==='state'?'compound':'element'}</span>`;
+    html+=`<div class="card cand">
+      <div class="card-head">${kind}<span class="card-name">${c.name}</span>
+        <span class="cand-ev">${c.ev} eV · Δ${c.d}</span></div>
+      ${c.rows.map(r=>`<div class="cand-line">${r[0]}: <b>${r[1]}</b></div>`).join('')}
+      <button class="add-overlay" onclick="toggleEl('${c.sym}')">+ overlay ${c.sym}</button>
+    </div>`;
+  }
+  return html;
+}
+function renderDetail(){
+  const d=$('#detail');
+  const armHint=`<div class="arm-hint${armed?' show':''}" id="armHint">◎ Identify armed — click a peak on the spectrum to list candidates here.</div>`;
+  let inner=armHint;
+  if(armed) inner+=candidateCard();
+  if(sel.length){ inner+=sel.map(elementCard).join(''); }
+  else if(!armed){
+    inner+=`<div class="empty"><div class="glyph">⊹</div><div><b>Nothing selected yet.</b></div>
+      <div>Click an element to overlay its lines and see the transition table here — or search a compound to reverse-look-up a binding energy.</div></div>`;
+  }
+  d.innerHTML=inner;
+  $('#right-label').textContent = sel.length? `${sel.length} selected` : (armed?'Identify':'Details');
+  $('#clearBtn').style.display = (sel.length||armed)?'inline':'none';
+}
+
+/* ---------------- source + identify ---------------- */
+function setSrc(s){
+  src=s;
+  $('#src-al').classList.toggle('on',s==='al');
+  $('#src-mg').classList.toggle('on',s==='mg');
+  $('#src-readout').textContent = s==='al'?'hν 1486.6 · φ 4.5 eV':'hν 1253.6 · φ 4.5 eV';
+}
+function toggleArm(){
+  armed=!armed; $('#identBtn').classList.toggle('armed',armed); renderDetail();
+}
+
+/* ---------------- unified search ---------------- */
+$('#search').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  const box=$('#results');
+  if(!q){ box.classList.remove('show'); box.innerHTML=''; return; }
+  const rows=[];
+  // elements — full table (main + lanthanides + actinides), match symbol OR name
+  for(const [sym,z] of ALL_EL){
+    if(!tierOf(sym)) continue;
+    const name=(NAMES[sym]||'').toLowerCase();
+    if(sym.toLowerCase().startsWith(q)||name.includes(q))
+      rows.push(['element',`<b>${sym}</b> — ${NAMES[sym]||sym}`,`Z=${z}`,sym]);
+  }
+  // chemical states (the old Lookup) — also match the parent element's symbol AND full name
+  for(const [,cmp,trans,ev,sym] of STATES){
+    const parent=(NAMES[sym]||'').toLowerCase();
+    if(cmp.toLowerCase().includes(q)||trans.toLowerCase().includes(q)||ev.includes(q)
+       ||sym.toLowerCase()===q||parent.includes(q))
+      rows.push(['state',`<b>${cmp}</b> · ${trans}`,ev,sym]);
+  }
+  // energy
+  if(/^\d/.test(q)){
+    for(const [,cmp,trans,ev,sym] of STATES){
+      if(ev.replace(/[^\d.]/g,'').startsWith(q)) rows.push(['energy',`${trans} (${cmp})`,ev,sym]);
+    }
+  }
+  if(!rows.length){ box.innerHTML=`<div class="res-row" style="cursor:default;color:var(--ink3)">No matches — try an element symbol, a compound, or a binding energy.</div>`; box.classList.add('show'); return; }
+  box.innerHTML=rows.slice(0,8).map(r=>
+    `<div class="res-row" onclick="pickResult('${r[3]}')">
+      <span class="res-kind ${r[0]}">${r[0]}</span>
+      <span class="res-main">${r[1]}</span>
+      <span class="res-ev">${r[2]}</span></div>`).join('');
+  box.classList.add('show');
+});
+function pickResult(sym){
+  $('#search').value=''; $('#results').classList.remove('show');
+  if(!sel.find(s=>s.sym===sym)) toggleEl(sym); else { syncPT(); renderDetail(); }
+}
+
+$('#tolRange').addEventListener('input',e=>{
+  $('#tolVal').textContent='± '+parseFloat(e.target.value).toFixed(2)+' eV';
+});
+
+buildPT(); renderDetail();
+
+/* tier explainer toast — hover any [data-tier] badge or legend chip */
+const tip=document.createElement('div'); tip.id='tip'; document.body.appendChild(tip);
+function showTip(el){
+  const t=el.getAttribute('data-tier'); const info=TIER_INFO[t]; if(!info) return;
+  tip.className=t; tip.innerHTML=`<div class="tip-h">${info.label}</div><div class="tip-t">${info.text}</div>`;
+  const r=el.getBoundingClientRect();
+  let left=r.left, top=r.bottom+8;
+  requestAnimationFrame(()=>{
+    const tw=tip.offsetWidth, th=tip.offsetHeight;
+    if(left+tw>innerWidth-10) left=innerWidth-tw-10;
+    if(top+th>innerHeight-10) top=r.top-th-8;        // flip above if no room below
+    tip.style.left=Math.max(10,left)+'px'; tip.style.top=top+'px';
+    tip.classList.add('show');
+  });
+}
+function hideTip(){ tip.classList.remove('show'); }
+document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-tier]'); if(el) showTip(el);});
+document.addEventListener('mouseout',e=>{if(e.target.closest('[data-tier]')) hideTip();});
+</script>
