@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XPS Fitting Studio</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- Reference/Identify pure-logic module (the SHIPPED source of truth; never
+     duplicated inline). Cache-busted so template edits force a reload. -->
+<script src="/static/js/ref_identify_core.js?v=20260619"></script>
 <!-- zoom/pan handled manually — no plugin needed -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -10444,6 +10447,14 @@ function _refViewRange() {
 }
 
 function _refEnsureData() {
+  // Loud absence guard: the reference feature depends on the shipped RefCore
+  // module. If it failed to load, fail visibly rather than silently falling
+  // back to inline logic (there is none — RefCore is the single source).
+  if (typeof RefCore === 'undefined') {
+    _refError = { error: 'RefCore module failed to load (static/js/ref_identify_core.js)' };
+    _refRenderPanel();
+    return;
+  }
   if (_refPayload || _refFetchPromise) return;
   _refFetchPromise = fetch('/api/xps-reference')
     .then(r => r.json().then(j => ({ ok: r.ok, j })))
