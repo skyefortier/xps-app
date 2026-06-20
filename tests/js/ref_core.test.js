@@ -52,3 +52,90 @@ test('blendedSearch caps results and empty query returns []', () => {
   assert.deepStrictEqual(RefCore.blendedSearch('', ELS, GROUPS), []);
   assert.ok(RefCore.blendedSearch('u', ELS, GROUPS, { limit: 2 }).length <= 2);
 });
+
+// --- parseChemKey (revision #4) ---
+test('parseChemKey: exact spin-orbit key', () => {
+  assert.deepStrictEqual(RefCore.parseChemKey('Ti 2p3/2'), { sym: 'Ti', orbital: '2p3/2', targets: ['2p3/2'] });
+  assert.deepStrictEqual(RefCore.parseChemKey('U 4f7/2'),  { sym: 'U',  orbital: '4f7/2', targets: ['4f7/2'] });
+});
+test('parseChemKey: subshell-only p attaches to BOTH spin-orbit lines (Si 2p)', () => {
+  assert.deepStrictEqual(RefCore.parseChemKey('Si 2p'), { sym: 'Si', orbital: '2p', targets: ['2p3/2', '2p1/2'] });
+});
+test('parseChemKey: 1s has no split', () => {
+  assert.deepStrictEqual(RefCore.parseChemKey('C 1s'), { sym: 'C', orbital: '1s', targets: ['1s'] });
+});
+
+// --- compoundCandidatesFrom: surface ALL within tol, no evidence filter (revision #2) ---
+test('compoundCandidatesFrom returns legacy candidates within tol, honest proximity', () => {
+  const cands = RefCore.compoundCandidatesFrom(GROUPS, 380.4, 1.0);
+  assert.strictEqual(cands.length, 1);            // UO2 (380.0) within ±1.0; UCl4 (382.1) out
+  const c = cands[0];
+  assert.strictEqual(c.sym, 'U');
+  assert.strictEqual(c.dataTier, 'legacy');
+  assert.strictEqual(c.isCompound, true);
+  assert.strictEqual(c.hasRegion, false);
+  assert.strictEqual(c.energyMatch, 'moderate');  // |Δ|=0.4, tol/2=0.5 -> not strong, honest proximity
+  assert.deepStrictEqual(c.orbitalTargets, ['4f7/2']);
+});
+
+// --- tier cap across ALL THREE surfaces (revision #3) ---
+test('capConfidenceByTier: curated/machine keep candidate label + raw energyMatch', () => {
+  assert.deepStrictEqual(RefCore.capConfidenceByTier(90, 'strong', 'curated'),
+    { label: 'Strong candidate', labelCls: 'strong', energyText: 'strong' });
+  assert.deepStrictEqual(RefCore.capConfidenceByTier(90, 'strong', 'machine'),
+    { label: 'Strong candidate', labelCls: 'strong', energyText: 'strong' });
+});
+test('capConfidenceByTier: legacy noun is "Legacy hint", energy annotated, never Strong', () => {
+  assert.deepStrictEqual(RefCore.capConfidenceByTier(90, 'strong', 'legacy'),
+    { label: 'Legacy hint', labelCls: 'legacy', energyText: 'strong (confidence capped by source tier)' });
+  assert.deepStrictEqual(RefCore.capConfidenceByTier(10, 'weak', 'legacy'),
+    { label: 'Legacy hint', labelCls: 'legacy', energyText: 'weak (confidence capped by source tier)' });
+});
+
+// --- ranking preserved Δ-primary; GOLDEN element-only order (revision #1) ---
+const GOLD_ELEMENTS = [
+  { id: 'U-4f7', sym: 'U', be: 380.9, dist: 0.4, score: 88, dataTier: 'curated', isAuger: false },
+  { id: 'U-4f5', sym: 'U', be: 391.8, dist: 0.9, score: 70, dataTier: 'curated', isAuger: false },
+  { id: 'O-1s',  sym: 'O', be: 530.0, dist: 1.2, score: 60, dataTier: 'curated', isAuger: false },
+];
+test('mergeAndRankCandidates: element-only golden order is Δ-primary', () => {
+  const r = RefCore.mergeAndRankCandidates(GOLD_ELEMENTS, []);
+  assert.deepStrictEqual(r.map(c => c.id), ['U-4f7', 'U-4f5', 'O-1s']);
+});
+test('adding compounds does not perturb the element subsequence', () => {
+  const compounds = [
+    { id: 'UO2', sym: 'U', be: 380.0, dist: 0.5, score: 45, dataTier: 'legacy', isAuger: false, isCompound: true },
+  ];
+  const r = RefCore.mergeAndRankCandidates(GOLD_ELEMENTS, compounds);
+  const elemOrder = r.filter(c => !c.isCompound).map(c => c.id);
+  assert.deepStrictEqual(elemOrder, ['U-4f7', 'U-4f5', 'O-1s']);   // unchanged
+  // UO2 (Δ0.5) vs U-4f7 (Δ0.4) differ by 0.1 (<=0.5): tier tie-break -> curated before legacy.
+  assert.strictEqual(r[0].id, 'U-4f7');
+});
+test('mergeAndRankCandidates: a clear Δ winner ranks first regardless of tier', () => {
+  const near = { id: 'leg', sym: 'X', be: 100.1, dist: 0.1, score: 30, dataTier: 'legacy', isAuger: false };
+  const far  = { id: 'cur', sym: 'Y', be: 101.6, dist: 1.6, score: 95, dataTier: 'curated', isAuger: false };
+  assert.strictEqual(RefCore.mergeAndRankCandidates([far], [near])[0].id, 'leg');
+});
+
+// --- physics assertions (revision #6) ---
+test('augerApparentBE shifts with source; photoelectronBE is source-invariant', () => {
+  const al = RefCore.augerApparentBE(910, 1486.6, 4.5);
+  const mg = RefCore.augerApparentBE(910, 1253.6, 4.5);
+  assert.notStrictEqual(al, mg);
+  assert.ok(Math.abs((1486.6 - 910 - 4.5) - al) < 1e-9);
+  assert.strictEqual(RefCore.photoelectronBE(284.5), 284.5);
+});
+test('compound BE equals input be_ev (no ccShift, source-invariant)', () => {
+  const c = RefCore.compoundCandidatesFrom(GROUPS, 284.5, 1.0).find(x => x.sym === 'C');
+  assert.strictEqual(c.be, 284.5);
+});
+
+// --- marker-lifetime predicates (revision #5) ---
+test('elementOverlayVisible is gated; compoundMarkerVisible is always true', () => {
+  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: true,  activeChart: true,  isStackTab: false }), true);
+  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: false, activeChart: true,  isStackTab: false }), false);
+  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: true,  activeChart: true,  isStackTab: true  }), false);
+  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: true,  activeChart: false, isStackTab: false }), false);
+  assert.strictEqual(RefCore.compoundMarkerVisible(), true);
+});

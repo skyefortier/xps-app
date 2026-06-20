@@ -66,5 +66,95 @@
     return rows.slice(0, limit);
   }
 
-  return { tolFromSlider, coerceTolToEv, blendedSearch };
+  // Normalize a mixed-granularity chemical-state key (revision #4). Exact
+  // spin-orbit keys map to themselves; subshell-only p/d/f keys attach to BOTH
+  // spin-orbit partners; s subshells have no split.
+  const SO_SPLIT = { p: ['3/2', '1/2'], d: ['5/2', '3/2'], f: ['7/2', '5/2'] };
+  function parseChemKey(key) {
+    const str = String(key == null ? '' : key).trim();
+    const m = str.match(/^([A-Z][a-z]?)\s+(\d)([spdf])(?:(\d)\/(\d))?$/);
+    if (!m) {
+      const parts = str.split(/\s+/);
+      return { sym: parts[0] || str, orbital: parts.slice(1).join(' '), targets: [] };
+    }
+    const sym = m[1], n = m[2], l = m[3];
+    if (m[4] && m[5]) { const orb = n + l + m[4] + '/' + m[5]; return { sym, orbital: orb, targets: [orb] }; }
+    if (l === 's') { const orb = n + 's'; return { sym, orbital: orb, targets: [orb] }; }
+    const orb = n + l;
+    return { sym, orbital: orb, targets: SO_SPLIT[l].map(j => orb + j) };
+  }
+
+  // Physics projections (revision #6). Pure; mirror vgd_parser's convention.
+  function augerApparentBE(ke, photonEv, workFn) { return photonEv - ke - workFn; }
+  function photoelectronBE(nominalBE) { return nominalBE; }   // source-invariant
+
+  // Marker-lifetime predicates (revision #5).
+  function elementOverlayVisible(s) { return !!(s && s.panelOpen && s.activeChart && !s.isStackTab); }
+  function compoundMarkerVisible() { return true; }            // global/persistent
+
+  // ALL chem states within tol become candidates — no evidence filter exists at
+  // runtime (revision #2). Proximity is honest; tier capping is applied later.
+  function compoundCandidatesFrom(chemGroups, clickedBE, tolEv) {
+    const out = [];
+    const tol = tolFromSlider(tolEv);
+    for (const g of chemGroups || []) {
+      const pk = parseChemKey(g.orbital_key);
+      const sym = pk.sym || g.element;
+      for (const s of g.states || []) {
+        const dist = Math.abs(s.be_ev - clickedBE);
+        if (dist > tol) continue;
+        const score = 20 + 30 * Math.max(0, 1 - dist / Math.max(tol, 0.01));
+        out.push({
+          id: s.id || (g.orbital_key + ':' + s.state),
+          sym: sym, orbital: pk.orbital, orbitalTargets: pk.targets,
+          label: sym + ' ' + pk.orbital + ' — ' + s.state,
+          isAuger: false, ke: null, be: s.be_ev, dist: dist,
+          inRegion: false, hasRegion: false, vis: 'n/a',
+          score: score, dataTier: 'legacy', isCompound: true,
+          stateName: s.state, ref: s.ref || '',
+          // Proximity-only: 'strong' energy match requires an expected-region
+          // hit, which chemical-state records structurally lack, so a compound
+          // tops out at 'moderate' (mirrors production's element rule).
+          energyMatch: 'moderate',
+          partnerTxt: 'n/a — chemical-state record',
+          othersTxt: 'n/a — chemical-state record',
+          conflictTxt: null,
+          sourceId: s.source || 'legacy-embedded-dataset',
+        });
+      }
+    }
+    return out;
+  }
+
+  // Tier modulates ALL THREE confidence surfaces for legacy (revision #3):
+  // overall noun -> "Legacy hint"; energy proximity stays honest but annotated.
+  function capConfidenceByTier(score, energyMatch, dataTier) {
+    if (dataTier === 'legacy') {
+      return { label: 'Legacy hint', labelCls: 'legacy',
+               energyText: energyMatch + ' (confidence capped by source tier)' };
+    }
+    const label = score >= 80 ? 'Strong candidate' : (score >= 50 ? 'Possible' : 'Weak candidate');
+    const labelCls = score >= 80 ? 'strong' : (score >= 50 ? 'possible' : 'weak');
+    return { label: label, labelCls: labelCls, energyText: energyMatch };
+  }
+
+  // PRESERVE production's comparator exactly (revision #1): |Δ| primary; ties
+  // within 0.5 eV break by tier (curated<machine<legacy), then score, then PE>Auger.
+  function mergeAndRankCandidates(elementCands, compoundCands, limit) {
+    const TIER_RANK = { curated: 0, machine: 1, legacy: 2 };
+    const all = (elementCands || []).concat(compoundCands || []);
+    all.sort((a, b) => {
+      const dd = a.dist - b.dist;
+      if (Math.abs(dd) > 0.5) return dd;
+      const tr = (TIER_RANK[a.dataTier] != null ? TIER_RANK[a.dataTier] : 9) -
+                 (TIER_RANK[b.dataTier] != null ? TIER_RANK[b.dataTier] : 9);
+      if (tr) return tr;
+      return (b.score - a.score) || ((a.isAuger ? 1 : 0) - (b.isAuger ? 1 : 0));
+    });
+    return all.slice(0, limit || 8);
+  }
+
+  return { tolFromSlider, coerceTolToEv, blendedSearch, parseChemKey,
+           augerApparentBE, photoelectronBE, elementOverlayVisible, compoundMarkerVisible,
+           compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates };
 });

@@ -419,7 +419,9 @@ test('elementOverlayVisible is gated; compoundMarkerVisible is always true', () 
           inRegion: false, hasRegion: false, vis: 'n/a',
           score, dataTier: 'legacy', isCompound: true,
           stateName: s.state, ref: s.ref || '',
-          energyMatch: dist <= tol / 2 ? 'strong' : 'moderate',  // honest proximity
+          // Proximity-only: 'strong' requires an expected-region hit, which
+          // chemical-state records lack, so a compound tops out at 'moderate'.
+          energyMatch: 'moderate',
           partnerTxt: 'n/a — chemical-state record',
           othersTxt: 'n/a — chemical-state record',
           conflictTxt: null,
