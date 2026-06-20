@@ -16,7 +16,7 @@
 
 This project has **no frontend test harness** by design (single-file vanilla JS, no build step; CLAUDE.md mandates browser verification on dev gunicorn :5151). The writing-plans skill mandates TDD. Because the hard constraint is "no regression of physics, provenance, or ranking," verification is split:
 
-- **Pure, correctness-critical logic → automated `node:test`.** Tolerance mapping, blended search, key normalization, compound-candidate construction, tier-confidence cap, candidate merge/rank, and the physics projection helpers are extracted into `static/js/ref_identify_core.js` as a UMD module (sets `module.exports` for Node, `globalThis.RefCore` for the browser — standard shim, **no build step, zero npm dependencies**), with failing-test-first TDD via `node --test tests/js/`. This includes **golden ordering tests** (#1) and **physics assertions** (#6).
+- **Pure, correctness-critical logic → automated `node:test`.** Tolerance mapping, blended search, key normalization, compound-candidate construction, tier-confidence cap, candidate merge/rank, and the physics projection helpers are extracted into `static/js/ref_identify_core.js` as a UMD module (sets `module.exports` for Node, `globalThis.RefCore` for the browser — standard shim, **no build step, zero npm dependencies**), with failing-test-first TDD via `node --test tests/js/*.test.js`. This includes **golden ordering tests** (#1) and **physics assertions** (#6). (Use the explicit `*.test.js` glob — a bare `node --test tests/js/` directory arg is not globbed on Node ≥21 and errors trying to load the directory as a module.)
 - **DOM / Chart.js / layout / markers / popover positioning → browser verification** on :5151 (the established project pattern), each task carrying an explicit, concrete manual checklist. Lifetime/style behaviors that cannot be unit-tested (panel-closed persistence, stack-tab exclusion, popover-while-scrolled) are pinned by **pure predicates** in RefCore *and* a manual browser check.
 - **Backend → untouched.** `pytest tests/ -v` runs at the end as a no-regression gate (catches a Jinja/template breakage that would stop the page rendering).
 
@@ -104,7 +104,7 @@ test('coerceTolToEv maps legacy modes onto the base, passes numbers through', ()
 
 - [ ] **Step 3: Run to verify it fails**
 
-Run: `node --test tests/js/` — FAIL: `Cannot find module '.../ref_identify_core.js'`.
+Run: `node --test tests/js/*.test.js` — FAIL: `Cannot find module '.../ref_identify_core.js'`.
 
 - [ ] **Step 4: Create the UMD module**
 
@@ -147,7 +147,7 @@ Create `static/js/ref_identify_core.js`:
 
 - [ ] **Step 5: Run to verify it passes**
 
-Run: `node --test tests/js/` — PASS (2 tests).
+Run: `node --test tests/js/*.test.js` — PASS (2 tests).
 
 - [ ] **Step 6: Include the module (cache-busted) + absence guard (revision #7)**
 
@@ -218,7 +218,7 @@ test('blendedSearch caps results and empty query returns []', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails** — `node --test tests/js/` → `blendedSearch is not a function`.
+- [ ] **Step 2: Run to verify it fails** — `node --test tests/js/*.test.js` → `blendedSearch is not a function`.
 
 - [ ] **Step 3: Implement** — in `ref_identify_core.js` before the `return`:
 
@@ -260,7 +260,7 @@ test('blendedSearch caps results and empty query returns []', () => {
 
 Add `blendedSearch` to the returned object.
 
-- [ ] **Step 4: Run to verify it passes** — `node --test tests/js/` → PASS.
+- [ ] **Step 4: Run to verify it passes** — `node --test tests/js/*.test.js` → PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -368,7 +368,7 @@ test('elementOverlayVisible is gated; compoundMarkerVisible is always true', () 
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails** — `node --test tests/js/` → `parseChemKey is not a function`.
+- [ ] **Step 2: Run to verify it fails** — `node --test tests/js/*.test.js` → `parseChemKey is not a function`.
 
 - [ ] **Step 3: Implement** — in `ref_identify_core.js` before the `return`:
 
@@ -462,7 +462,7 @@ test('elementOverlayVisible is gated; compoundMarkerVisible is always true', () 
 Extend the returned object to:
 `return { tolFromSlider, coerceTolToEv, blendedSearch, parseChemKey, augerApparentBE, photoelectronBE, elementOverlayVisible, compoundMarkerVisible, compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates };`
 
-- [ ] **Step 4: Run to verify it passes** — `node --test tests/js/` → PASS (all).
+- [ ] **Step 4: Run to verify it passes** — `node --test tests/js/*.test.js` → PASS (all).
 
 - [ ] **Step 5: Commit**
 
@@ -946,7 +946,7 @@ git commit -m "style(reference): align drawer to DESIGN.md tokens, fix prose con
 
 **Files:** none.
 
-- [ ] **Step 1: JS core tests** — `node --test tests/js/` → PASS (incl. golden ordering + physics).
+- [ ] **Step 1: JS core tests** — `node --test tests/js/*.test.js` → PASS (incl. golden ordering + physics).
 - [ ] **Step 2: Backend gate** — `pytest tests/ -v` → PASS.
 - [ ] **Step 3: No-inline-fallback check (revision #7)** — `grep -n "function tolFromSlider\|function compoundCandidatesFrom\|function mergeAndRankCandidates\|function parseChemKey\|function capConfidenceByTier" templates/index.html` → **zero** hits (these live only in `static/js/ref_identify_core.js`).
 - [ ] **Step 4: No `be + ccShift` regression (revision #6)** — `grep -n "ccShift" templates/index.html | grep -i "ref\|marker\|cand\|overlay"` → no reference marker/candidate path adds `ccShift` to a reference BE (overlays draw at corrected nominal BE; clicks already arrive corrected).
