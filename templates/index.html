@@ -214,6 +214,13 @@
   .ref-blend-main { flex: 1; min-width: 0; font-size: 12px; color: var(--text); }
   .ref-blend-ev { font-family: var(--mono); font-size: 11px; color: var(--text2); }
   .ref-blend-empty { padding: 8px 10px; font-size: 11px; color: var(--text2); }
+  /* Active compound-marker chips (amber = chemical-state family). */
+  .ref-cmarker-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+  .ref-cmarker-chip {
+    display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px;
+    color: var(--amber); border: 1px solid var(--amber); background: var(--amber-dim); border-radius: 3px; padding: 1px 6px;
+  }
+  .ref-cmarker-chip button { border: 0; background: none; color: var(--amber); cursor: pointer; font-size: 11px; line-height: 1; padding: 0; }
   .ref-close {
     background: none; border: none; color: var(--text2);
     font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1;
@@ -7894,7 +7901,7 @@ function updatePlot() {
   const overlayPlugin = {
     id: 'xpsOverlays',
     afterDraw(chart) {
-      _drawNistMarkers(chart);
+      _refDrawCompoundMarkers(chart);
       _drawSourceLabel(chart);
       if (typeof _drawManualAnchors === 'function') _drawManualAnchors(chart);
     }
@@ -10020,9 +10027,12 @@ async function runPropagation() {
 // reference data is now served verbatim via the unified accessor over
 // data/xps/legacy/chemical-states.json (see _accChemicalStates).
 
-// Active NIST markers: array of { orbital, state, be, id }
-const _nistMarkers = [];
-let _nistMarkerNextId = 1;
+// Active compound (chemical-state) markers — GLOBAL and PERSISTENT by design:
+// "mark it, close the panel, it stays" (distinct lifetime from element overlays,
+// which are panel-gated/per-tab/stack-excluded). Array of { id, sym, state, be,
+// ref } (new) or { id, orbital, state, be } (legacy NIST shape, until Task 9).
+const _refCompoundMarkers = [];
+let _refCompoundMarkerNextId = 1;
 
 function showNistModal() {
   _nistRenderResults('');
@@ -10072,16 +10082,16 @@ function _nistRenderResults(q) {
 }
 
 function _nistAddMarker(orbital, stateName, be) {
-  const id = _nistMarkerNextId++;
-  _nistMarkers.push({ orbital, state: stateName, be, id });
+  const id = _refCompoundMarkerNextId++;
+  _refCompoundMarkers.push({ orbital, state: stateName, be, id });
   _nistRenderMarkerChips();
   updatePlot();
   notify(`Marked ${orbital} ${stateName} at ${be.toFixed(1)} eV`, 'green');
 }
 
 function _nistRemoveMarker(id) {
-  const idx = _nistMarkers.findIndex(m => m.id === id);
-  if (idx >= 0) _nistMarkers.splice(idx, 1);
+  const idx = _refCompoundMarkers.findIndex(m => m.id === id);
+  if (idx >= 0) _refCompoundMarkers.splice(idx, 1);
   _nistRenderMarkerChips();
   updatePlot();
 }
@@ -10089,17 +10099,17 @@ function _nistRemoveMarker(id) {
 function _nistRenderMarkerChips() {
   const el = document.getElementById('nist-active-markers');
   if (!el) return;
-  el.innerHTML = _nistMarkers.map(m => `
+  el.innerHTML = _refCompoundMarkers.map(m => `
     <div class="nist-marker-chip">
       <span>${m.orbital} ${m.be.toFixed(1)} eV</span>
       <button onclick="_nistRemoveMarker(${m.id})" title="Remove marker">&#x2715;</button>
     </div>`).join('');
   const clearBtn = document.getElementById('nist-clear-all-btn');
-  if (clearBtn) clearBtn.style.display = _nistMarkers.length ? 'inline-block' : 'none';
+  if (clearBtn) clearBtn.style.display = _refCompoundMarkers.length ? 'inline-block' : 'none';
 }
 
 function _nistClearAll() {
-  _nistMarkers.length = 0;
+  _refCompoundMarkers.length = 0;
   _nistRenderMarkerChips();
   updatePlot();
 }
@@ -10140,8 +10150,12 @@ function _drawSourceLabel(chart) {
 }
 
 // Called from updatePlot() to draw NIST markers on the chart
-function _drawNistMarkers(chart) {
-  if (!_nistMarkers.length || !chart) return;
+// Amber-dashed chemical-state/compound markers. Drawn from the GLOBAL
+// overlayPlugin (not gated on the panel) so they persist after the drawer
+// closes. Element reference overlays keep their own panel-gated draw path
+// (xpsRefLinesPlugin) and element-coloured style — both styles, both lifetimes.
+function _refDrawCompoundMarkers(chart) {
+  if (!_refCompoundMarkers.length || !chart) return;
   const xScale = chart.scales.x;
   const yScale = chart.scales.y;
   if (!xScale || !yScale) return;
@@ -10155,7 +10169,7 @@ function _drawNistMarkers(chart) {
   const shadowColor = isLight ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.9)';
 
   // Collect visible markers with pixel positions
-  const visible = _nistMarkers
+  const visible = _refCompoundMarkers
     .map(m => ({ ...m, px: xScale.getPixelForValue(m.be) }))
     .filter(m => m.px >= xScale.left && m.px <= xScale.right)
     .sort((a, b) => a.px - b.px);
@@ -10193,7 +10207,7 @@ function _drawNistMarkers(chart) {
   ctx.shadowBlur = 4;
   ctx.fillStyle = textColor;
   for (const m of visible) {
-    const label = m.orbital + ' ' + m.be.toFixed(1);
+    const label = (m.sym || m.orbital || '') + ' ' + m.be.toFixed(1);
     ctx.fillText(label, m.px + 4, top + 5 + m.level * 17);
   }
 
@@ -10606,6 +10620,32 @@ document.addEventListener('click', (e) => {
   _refCloseSearch();
 });
 
+// ── Compound markers (global, persistent) ────────────────────────────────────
+// Added from the unified search / identify compound candidates. They live in
+// the global _refCompoundMarkers store and are drawn by _refDrawCompoundMarkers
+// regardless of panel state, so they survive closing the drawer.
+function _refAddCompoundMarker(sym, stateLabel, be, ref) {
+  const id = _refCompoundMarkerNextId++;
+  _refCompoundMarkers.push({ id, sym, state: stateLabel, be, ref: ref || '' });
+  if (_refPanelOpen) _refRenderPanel();
+  if (state.chart) state.chart.update('none');   // leaf update; preserves zoom
+  notify('Marked ' + sym + ' ' + be.toFixed(1) + ' eV', 'green');
+}
+function _refRemoveCompoundMarker(id) {
+  const i = _refCompoundMarkers.findIndex(m => m.id === id);
+  if (i >= 0) _refCompoundMarkers.splice(i, 1);
+  if (_refPanelOpen) _refRenderPanel();
+  if (state.chart) state.chart.update('none');
+}
+// Active-marker chips for the search zone (lets users see/remove markers without
+// the retired NIST modal). Reads sym (new) or orbital (legacy) for the label.
+function _refRenderCompoundChips() {
+  if (!_refCompoundMarkers.length) return '';
+  return '<div class="ref-cmarker-chips">' + _refCompoundMarkers.map(m =>
+    '<span class="ref-cmarker-chip">' + _escHtml((m.sym || m.orbital || '') + ' ' + m.be.toFixed(1) + ' eV') +
+    '<button type="button" onclick="_refRemoveCompoundMarker(' + m.id + ')" title="Remove marker" aria-label="Remove marker">&#10005;</button></span>').join('') + '</div>';
+}
+
 function _refOnTabChange() {
   if (_refPanelOpen) _refRenderPanel();
 }
@@ -10864,8 +10904,8 @@ function _refRenderPanel() {
 
   // Zone 1 — search; Zone 2 — periodic table; Zone 3 — details (clicked-element
   // line tables AND identify candidates render HERE, never under the table/grid).
-  const searchZone = '<div class="ref-zone-search">' + blendedSearchHtml + srcRowHtml + contextHtml +
-    elementSearchHtml + _refRenderIdentifyControls(sel, range) + '</div>';
+  const searchZone = '<div class="ref-zone-search">' + blendedSearchHtml + _refRenderCompoundChips() +
+    srcRowHtml + contextHtml + elementSearchHtml + _refRenderIdentifyControls(sel, range) + '</div>';
   const tableZone = '<div class="ref-zone-table">' + _refRenderGrid(sel) + allLinesToggleHtml + '</div>';
 
   let detailsInner = _refRenderIdentifyResults(sel, range);
@@ -10882,9 +10922,18 @@ function _refRenderPanel() {
 
 // Items to draw on a given chart, or null when overlays don't apply.
 function _refChartItems(chart) {
+  if (!_refPayload) return null;
+  // Element overlays are panel-gated / active-chart-only / stack-excluded — a
+  // DIFFERENT lifetime from compound markers (global/persistent). The tested
+  // RefCore predicate documents that contract; the explicit checks below are
+  // kept as the authoritative guard.
+  const tab = _refActiveTab();
+  if (!RefCore.elementOverlayVisible({
+        panelOpen: _refPanelOpen,
+        activeChart: chart === state.chart && !chart._xpsStackTabId,
+        isStackTab: !!(tab && isStackTab(tab)) })) return null;
   if (!_refPanelOpen || !_refPayload) return null;
   if (chart !== state.chart || chart._xpsStackTabId) return null;
-  const tab = _refActiveTab();
   if (tab && isStackTab(tab)) return null;
   const sel = _refGetSel();
   if (!sel.syms.length) return null;
