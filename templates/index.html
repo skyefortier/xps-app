@@ -342,6 +342,8 @@
   .ref-tier.strong { color: var(--green); border-color: var(--green); background: var(--green-dim); }
   .ref-tier.possible { color: var(--accent2); border-color: var(--accent); background: var(--accent-dim); }
   .ref-tier.weak { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+  .ref-tier.legacy { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); }
+  .ref-cand.compound { border-color: var(--green); }
   /* Data-tier badge on an identify candidate (distinct from the confidence
      tier above). Legacy hits read as legacy-unverified. */
   .ref-cand-tier { font-size: 9px; font-family: var(--mono); padding: 0 5px; border-radius: 3px; border: 1px solid; line-height: 1.6; white-space: nowrap; }
@@ -11231,26 +11233,25 @@ function _refIdentifyAt(beClicked) {
     }
   }
 
-  // Rank primarily by absolute Δ (closest first); break near-ties (Δ within
-  // ~0.5 eV of each other) by data-tier priority curated > machine > legacy,
-  // then by score, then photoelectron over Auger.
-  const TIER_RANK = { curated: 0, machine: 1, legacy: 2 };
-  cands.sort((a, b) => {
-    const dd = a.dist - b.dist;
-    if (Math.abs(dd) > 0.5) return dd;
-    const tr = (TIER_RANK[a.dataTier] ?? 9) - (TIER_RANK[b.dataTier] ?? 9);
-    if (tr) return tr;
-    return (b.score - a.score) || ((a.isAuger ? 1 : 0) - (b.isAuger ? 1 : 0));
-  });
-  const top = cands.slice(0, 8);
-  // Overlap conflicts among surviving candidates (different elements only)
+  // Compound (chemical-state) candidates from the same legacy data Lookup used.
+  // Ranked by the SAME comparator as elements (Δ-primary), so adding them never
+  // perturbs the element ordering (RefCore golden tests pin this).
+  const chemGroups = (LEGACY_REFERENCE_OK && LEGACY_REFERENCE.chemical_states) || [];
+  const compoundCands = RefCore.compoundCandidatesFrom(chemGroups, beClicked, tol);
+  if (ccUnverified) for (const c of compoundCands) c.score -= 10;
+
+  const top = RefCore.mergeAndRankCandidates(cands, compoundCands, 8);
+
+  // Overlap conflicts among survivors (different element only).
   for (const a of top) {
     const clash = top.find(b => b !== a && b.sym !== a.sym && Math.abs(b.be - a.be) <= tol);
     if (clash) a.conflictTxt = 'overlapping ' + clash.label + ' at ' + clash.be.toFixed(1) + ' eV';
   }
+  // Tier modulates the confidence label + energy text on all surfaces: legacy
+  // (incl. compounds) reads "Legacy hint", energy annotated "capped by tier".
   for (const c of top) {
-    c.tier = c.score >= 80 ? 'Strong candidate' : (c.score >= 50 ? 'Possible' : 'Weak candidate');
-    c.tierCls = c.score >= 80 ? 'strong' : (c.score >= 50 ? 'possible' : 'weak');
+    const cap = RefCore.capConfidenceByTier(c.score, c.energyMatch, c.dataTier);
+    c.tier = cap.label; c.tierCls = cap.labelCls; c.energyText = cap.energyText;
   }
 
   tab._refIdentify = { be: beClicked, tol, widened, ccUnverified, cands: top };
@@ -11363,20 +11364,24 @@ function _refRenderIdentifyResults(sel, range) {
       : c.dataTier === 'machine'
         ? '<span class="ref-cand-tier machine" title="NIST-evaluated, dual-extraction corroborated; not human-verified.">machine-source</span>'
         : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '">' + _escHtml(c.dataTier || '') + '</span>';
-    html += '<div class="ref-cand">' +
-      '<div class="ref-cand-head"><span class="ref-tier ' + c.tierCls + '">' + c.tier + '</span>' +
-      '<span class="ref-cand-name">' + _escHtml(c.label) + '</span>' + tierBadge +
+    const kindTag = c.isCompound
+      ? '<span class="ref-blend-kind compound">compound</span>'
+      : '<span class="ref-blend-kind element">element</span>';
+    html += '<div class="ref-cand' + (c.isCompound ? ' compound' : '') + '">' +
+      '<div class="ref-cand-head"><span class="ref-tier ' + c.tierCls + '">' + _escHtml(c.tier) + '</span>' +
+      kindTag + '<span class="ref-cand-name">' + _escHtml(c.label) + '</span>' + tierBadge +
       (c.isAuger ? '<span class="ref-chip auger">Auger</span>' : '') +
       '<span class="ref-cand-ev">' + c.be.toFixed(2) + ' eV &middot; &Delta;' + c.dist.toFixed(2) + '</span></div>' +
-      '<div class="ref-cand-line">Energy match: <b>' + c.energyMatch + '</b>' +
+      '<div class="ref-cand-line">Energy match: <b>' + _escHtml(c.energyText || c.energyMatch) + '</b>' +
       (c.hasRegion ? (c.inRegion ? ' (inside expected region)' : ' (outside expected region)')
-                   : ' (proximity match — no expected-region band)') + '</div>' +
-      '<div class="ref-cand-line">Expected visibility: <b>' + c.vis + '</b></div>' +
+                   : (c.isCompound ? ' (chemical-state record — proximity only)' : ' (proximity match — no expected-region band)')) + '</div>' +
+      '<div class="ref-cand-line">Expected visibility: <b>' + _escHtml(c.vis) + '</b></div>' +
       '<div class="ref-cand-line">Doublet partner: ' + _escHtml(c.partnerTxt) + '</div>' +
       '<div class="ref-cand-line">Other ' + _escHtml(c.sym) + ' lines: ' + _escHtml(c.othersTxt) + '</div>' +
+      (c.isCompound && c.ref ? '<div class="ref-cand-line">Reference: <b>' + _escHtml(c.ref) + '</b></div>' : '') +
       (c.conflictTxt ? '<div class="ref-cand-conflict">Possible conflict: ' + _escHtml(c.conflictTxt) + '</div>' : '') +
       (c.isAuger ? '<div class="ref-cand-line">KE ' + c.ke.toFixed(2) + ' eV &rarr; apparent BE on ' + srcLabel + '</div>' : '') +
-      '<div class="ref-cand-actions"><button type="button" class="ref-cand-add" onclick="_refAddOverlayFromCand(\'' + c.sym + '\')">+ overlay ' + c.sym + '</button>' +
+      '<div class="ref-cand-actions"><button type="button" class="ref-cand-add" onclick="_refAddOverlayFromCand(\'' + _escAttr(c.sym) + '\')">+ overlay ' + _escHtml(c.sym) + '</button>' +
       (cite ? '<span class="ref-cite" title="' + _escAttr(cite.citation) + '">source: ' + _escHtml(c.sourceId) + '</span>' : '') +
       '</div></div>';
   }
