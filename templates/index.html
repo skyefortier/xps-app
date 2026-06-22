@@ -38,6 +38,7 @@
     --text: #e8edf5;
     --text2: #8a9ab8;
     --text3: #4a5a78;
+    --z-popover: 2200;   /* search popover portal — above the drawer/chart */
     --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --radius: 6px;
@@ -190,6 +191,29 @@
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--text2); margin-bottom: 8px;
   }
+  /* Unified top search + body-portal popover (escapes overflow:hidden). */
+  .ref-blendsearch { margin-bottom: 8px; }
+  .ref-blendsearch input {
+    width: 100%; padding: 7px 10px; border-radius: 6px; background: var(--bg);
+    border: 1px solid var(--border); color: var(--text); font-family: var(--sans); font-size: 12px;
+  }
+  .ref-blendsearch input:focus { outline: none; border-color: var(--accent); }
+  .ref-blend-portal {
+    display: none; position: fixed; z-index: var(--z-popover, 2200);
+    background: var(--bg); border: 1px solid var(--border2); border-radius: 8px;
+    overflow: hidden; box-shadow: 0 10px 30px -12px rgba(0,0,0,0.7);
+  }
+  .ref-blend-portal.show { display: block; }
+  .ref-blend-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .ref-blend-row:last-child { border-bottom: 0; }
+  .ref-blend-row:hover, .ref-blend-row:focus-visible { background: var(--accent-dim); outline: none; }
+  .ref-blend-kind { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border2); color: var(--text2); }
+  .ref-blend-kind.element { color: var(--accent2); border-color: var(--accent); }
+  .ref-blend-kind.compound { color: var(--green); border-color: var(--green); }
+  .ref-blend-kind.energy { color: var(--amber); border-color: var(--amber); }
+  .ref-blend-main { flex: 1; min-width: 0; font-size: 12px; color: var(--text); }
+  .ref-blend-ev { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+  .ref-blend-empty { padding: 8px 10px; font-size: 11px; color: var(--text2); }
   .ref-close {
     background: none; border: none; color: var(--text2);
     font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1;
@@ -10225,6 +10249,7 @@ var _refFetchPromise = null;
 var _refHoverId = null;        // transition id highlighted from a panel row
 var _refGlobalSel = null;      // selection fallback when no tab exists
 var _refNotesOpen = {};        // element symbol -> curation-note expanded
+var _refSearchElements = [];   // [{sym,name,z,tier}] snapshot for the top search
 
 function _refDefaultSel() {
   return { syms: [], showWeak: false, source: 'AlKa', _nextColorIdx: 0,
@@ -10483,6 +10508,7 @@ function toggleRefPanel() {
     togglePlaceMode('identify');
   }
   if (_refPanelOpen) { _refEnsureData(); _refRenderPanel(); }
+  else if (typeof _refCloseSearch === 'function') _refCloseSearch();   // no stale popover
   _refRepaint();
 }
 
@@ -10492,6 +10518,91 @@ function _refRepaint() {
   if (!(state.rawBE && state.rawBE.length)) { updatePlot(); return; }
   if (state.chart) state.chart.update('none');
 }
+
+// ── Unified top-search portal ────────────────────────────────────────────────
+// Results render in a body-portal, position:fixed popover (NOT inside the panel)
+// so they escape the app's overflow:hidden ancestors (revision #8). Positioned
+// from the input's bounding rect and re-anchored on scroll/resize.
+function _refSearchPortal() {
+  let p = document.getElementById('ref-blend-portal');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'ref-blend-portal';
+    p.className = 'ref-blend-portal';
+    p.setAttribute('role', 'listbox');
+    document.body.appendChild(p);
+  }
+  return p;
+}
+function _refBlendedSearch(q) {
+  const input = document.getElementById('ref-blend-input');
+  const portal = _refSearchPortal();
+  const groups = (LEGACY_REFERENCE_OK && LEGACY_REFERENCE.chemical_states) || [];
+  const rows = (typeof RefCore !== 'undefined')
+    ? RefCore.blendedSearch(q, _refSearchElements, groups, { limit: 8 }) : [];
+  if (!String(q).trim()) { _refCloseSearch(); return; }
+  portal.innerHTML = rows.length
+    ? rows.map(r =>
+        '<div class="ref-blend-row" role="option" tabindex="0" data-kind="' + _escAttr(r.kind) + '" ' +
+        'data-sym="' + _escAttr(r.sym) + '" data-be="' + (r.be != null ? r.be : '') + '" ' +
+        'data-state="' + _escAttr(r.label) + '" data-ref="' + _escAttr(r.ref || '') + '" ' +
+        'onclick="_refBlendedPick(this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();_refBlendedPick(this)}">' +
+        '<span class="ref-blend-kind ' + r.kind + '">' + r.kind + '</span>' +
+        '<span class="ref-blend-main">' + _escHtml(r.label) + '</span>' +
+        '<span class="ref-blend-ev">' + _escHtml(r.ev) + '</span></div>').join('')
+    : '<div class="ref-blend-empty">No matches — try an element symbol, a compound, or a binding energy.</div>';
+  _refPositionSearchPortal();
+  portal.classList.add('show');
+  if (input) input.setAttribute('aria-expanded', 'true');
+}
+function _refPositionSearchPortal() {
+  const input = document.getElementById('ref-blend-input');
+  const portal = document.getElementById('ref-blend-portal');
+  if (!input || !portal) return;
+  const r = input.getBoundingClientRect();
+  portal.style.position = 'fixed';
+  portal.style.top = (r.bottom + 4) + 'px';
+  portal.style.left = r.left + 'px';
+  portal.style.width = r.width + 'px';
+}
+function _refCloseSearch() {
+  const input = document.getElementById('ref-blend-input');
+  const portal = document.getElementById('ref-blend-portal');
+  if (portal) { portal.classList.remove('show'); portal.innerHTML = ''; }
+  if (input) input.setAttribute('aria-expanded', 'false');
+}
+function _refBlendedPick(el) {
+  const kind = el.getAttribute('data-kind');
+  const sym = el.getAttribute('data-sym');
+  const be = parseFloat(el.getAttribute('data-be'));
+  const input = document.getElementById('ref-blend-input');
+  if (input) input.value = '';
+  _refCloseSearch();
+  if (kind === 'element') { if (sym) _refToggleElement(sym); return; }
+  // compound / energy -> drop a persistent compound marker (Task 8 API). Until
+  // that exists, degrade gracefully by overlaying the parent element.
+  if (typeof _refAddCompoundMarker === 'function' && isFinite(be) && sym) {
+    _refAddCompoundMarker(sym, el.getAttribute('data-state') || (sym + ' ' + be.toFixed(1)), be, el.getAttribute('data-ref') || '');
+  } else if (sym) {
+    _refToggleElement(sym);
+  }
+}
+// Keep the popover anchored while scrolling, and dismiss on outside click.
+window.addEventListener('scroll', () => {
+  const p = document.getElementById('ref-blend-portal');
+  if (p && p.classList.contains('show')) _refPositionSearchPortal();
+}, true);
+window.addEventListener('resize', () => {
+  const p = document.getElementById('ref-blend-portal');
+  if (p && p.classList.contains('show')) _refPositionSearchPortal();
+});
+document.addEventListener('click', (e) => {
+  const p = document.getElementById('ref-blend-portal');
+  if (!p || !p.classList.contains('show')) return;
+  if (e.target instanceof Element &&
+      (e.target.closest('#ref-blend-portal') || e.target.closest('#ref-blend-input'))) return;
+  _refCloseSearch();
+});
 
 function _refOnTabChange() {
   if (_refPanelOpen) _refRenderPanel();
@@ -10701,9 +10812,20 @@ function _refRenderPanel() {
   const wf = conv.work_function_ev;
   const range = _refViewRange();
 
-  // Unified top search (blended element/compound/energy) is wired in a later
-  // task; until then this is an empty placeholder so the search zone is stable.
-  const blendedSearchHtml = '';
+  // Unified top search — blended element/compound/energy. Results render in a
+  // body portal (see _refBlendedSearch), so no inline results container here.
+  _refSearchElements = REF_PT_LAYOUT.filter(e => _refActivation(e.sym)).map(e => {
+    const ent = _refElements()[e.sym];
+    const nm = (typeof ELEMENT_NAMES !== 'undefined' && ELEMENT_NAMES[e.sym]) ||
+               (ent && (ent.pe || ent.auger) && (ent.pe || ent.auger).name) || e.sym;
+    return { sym: e.sym, name: nm, z: e.z, tier: _refActivation(e.sym) };
+  });
+  const blendedSearchHtml =
+    '<div class="ref-blendsearch">' +
+    '<input id="ref-blend-input" autocomplete="off" oninput="_refBlendedSearch(this.value)" ' +
+    'onkeydown="if(event.key===\'Escape\'){_refCloseSearch()}" ' +
+    'placeholder="Search element, orbital, compound, or BE (e.g. U, Cl 2p, UO2, 707)" ' +
+    'aria-label="Search reference data" aria-expanded="false" aria-controls="ref-blend-portal"></div>';
 
   const srcRowHtml = '<div class="ref-src-row"><label for="ref-src-sel">Source</label>' +
     '<select id="ref-src-sel" onchange="_refSetSource(this.value)">' +
