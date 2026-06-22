@@ -230,19 +230,12 @@
     transition: border-color 0.15s, background 0.15s, color 0.15s;
   }
   @media (prefers-reduced-motion: reduce) { .ref-pt-cell { transition: none; } }
-  .ref-pt-cell.curated { color: var(--text); border-color: var(--border2); cursor: pointer; }
-  .ref-pt-cell.curated:hover { border-color: var(--accent); color: var(--accent2); }
-  .ref-pt-cell.curated:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  /* Machine-source tier: corroborated NIST-evaluated, not human-verified —
-     solid green border, between curated (neutral solid) and legacy (dashed). */
-  .ref-pt-cell.machine { color: var(--text); border-color: var(--green); cursor: pointer; }
-  .ref-pt-cell.machine:hover { border-color: var(--accent); color: var(--accent2); }
-  .ref-pt-cell.machine:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
-  /* Legacy-unverified tier: clickable but visually distinct (dashed, dimmer)
-     so it never reads as a curated/source-verified element. */
-  .ref-pt-cell.legacy { color: var(--text2); border-color: var(--border); border-style: dashed; cursor: pointer; }
-  .ref-pt-cell.legacy:hover { border-color: var(--amber); color: var(--amber); }
-  .ref-pt-cell.legacy:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  /* Uniform selectable affordance — every cell with reference data looks the
+     same (neutral solid border), regardless of curated/machine/legacy tier.
+     Tier is surfaced on the result card / cell tooltip, never on the grid. */
+  .ref-pt-cell.selectable { color: var(--text); border-color: var(--border2); cursor: pointer; }
+  .ref-pt-cell.selectable:hover { border-color: var(--accent); color: var(--accent2); }
+  .ref-pt-cell.selectable:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .ref-pt-cell.selected {
     background: var(--accent-dim); color: var(--text);
     border-color: var(--mark, var(--accent));
@@ -10556,10 +10549,11 @@ function _refRenderGrid(sel) {
     const tier = _refActivation(e.sym);          // 'curated' | 'machine' | 'legacy' | null
     const clickable = !!tier;
     const selColor = selected[e.sym];
+    // Uniform affordance: every cell with reference data looks equally
+    // selectable — tier is NOT colour-coded on the grid. Tier surfaces after
+    // selection (the result card badge) and in the cell tooltip below.
     const cls = 'ref-pt-cell' +
-      (tier === 'curated' ? ' curated' : '') +
-      (tier === 'machine' ? ' machine' : '') +
-      (tier === 'legacy' ? ' legacy' : '') +
+      (clickable ? ' selectable' : '') +
       (selColor ? ' selected' : '');
     const entry = _refElements()[e.sym];
     const name = (typeof ELEMENT_NAMES !== 'undefined' && ELEMENT_NAMES[e.sym]) ||
