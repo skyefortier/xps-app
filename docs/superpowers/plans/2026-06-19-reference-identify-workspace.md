@@ -12,6 +12,62 @@
 
 ---
 
+## As-Built Addendum (2026-06-22)
+
+The feature was implemented task-by-task on `feature-reference-identify-workspace`.
+This addendum records where the build deviated from or extended the written task
+specs below; the task sections are otherwise accurate.
+
+**Deltas from the written spec:**
+
+1. **Task 5A added — uniform periodic-table grid (Decision 2).** A dedicated task
+   (not "later polish"): `_refRenderGrid` applies one `.selectable` class to every
+   activatable cell regardless of tier; the three tier-coloured cell rules
+   (`.ref-pt-cell.curated/.machine/.legacy`) were removed. Tier now surfaces only in
+   the cell tooltip and the result-card badge. Cell a11y (`tabindex`, `role="button"`,
+   `aria-pressed`, Enter/Space `onkeydown`) preserved verbatim.
+2. **Task 5 — Identify controls moved to the search zone (Decision 1).**
+   `_refRenderIdentify` was split into `_refRenderIdentifyControls` (arm button +
+   tolerance slider + Auger toggle → **search zone**) and `_refRenderIdentifyResults`
+   (candidate cards → **details zone**). No Identify control sits above the element
+   cards in Details.
+3. **Tolerance slider drag refinement.** The slider uses `oninput="_refTolPreview()"`
+   (readout-only, no rebuild) + `onchange="_refSetTol()"` (commit + re-run on release),
+   instead of a single `oninput` that would rebuild the panel mid-drag and destroy the
+   slider element.
+4. **`energyMatch` for compounds → `'moderate'`.** A self-inconsistency in the written
+   Task 3 (impl `dist <= tol/2 ? 'strong'` vs the test asserting `'moderate'`) was
+   reconciled in favour of the test and the principle: a chemical-state record lacks
+   the expected-region evidence `'strong'` requires, so it tops out at `'moderate'`.
+   The plan snippet was updated to match.
+5. **Task 9 — full modal retirement (Codex caveat).** Deleted the modal HTML, its CSS,
+   and ALL seven `_nist*` functions (not just repointing the button), closing the
+   dual-shape marker window. The only remaining `m.orbital` reads (draw + chips) keep
+   the `(m.sym || m.orbital || '')` fallback. `_accChemicalStates()` is now orphaned
+   (left in place — Stage-9 accessor layer with parity fixtures).
+6. **Test invocation.** Use `node --test tests/js/*.test.js` (the bare-directory form
+   is not globbed on Node ≥21).
+
+**Plan → commit map** (branch `feature-reference-identify-workspace`):
+
+| Step | Commit | Step | Commit |
+|---|---|---|---|
+| Mockup decision-lock | `449e793` | T5A uniform grid | `eebbb82` |
+| T1 RefCore + tolerance | `6c517a1` | T6 portal search | `e491f19` |
+| Test-cmd fix | `606de27` | T7 compounds in Identify | `86a111b` |
+| T2 blended search | `aec6319` | T8 marker unification | `39cff4a` |
+| T3 keys/compounds/tier/rank/physics | `9b7bfc3` | T9 retire modal | `5aa827b` |
+| T4 three-zone drawer | `50b1dc6` | T10 polish | `847eb2a` |
+| T5 tolerance slider + Decision 1 | `eb24909` | T11 final verify | (no code) |
+
+**Verification status at T11:** JS core suite 18/18; backend pytest structurally
+unaffected (branch changes no `.py` / `data/` files; no test references the removed
+NIST identifiers; the two failing tests are pre-existing data-generation failures
+present on `main`, re-confirmed by a branch-vs-main run); no RefCore function defined
+inline in `index.html`; no `be + ccShift` in any reference path. Browser pass pending.
+
+---
+
 ## Testing Strategy (READ FIRST — one non-obvious decision for sign-off)
 
 This project has **no frontend test harness** by design (single-file vanilla JS, no build step; CLAUDE.md mandates browser verification on dev gunicorn :5151). The writing-plans skill mandates TDD. Because the hard constraint is "no regression of physics, provenance, or ranking," verification is split:
