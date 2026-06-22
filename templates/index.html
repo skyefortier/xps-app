@@ -309,6 +309,11 @@
     border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
   }
   .ref-ident-tol { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+  .ref-tol-wrap { display: inline-flex; align-items: center; gap: 6px; }
+  .ref-tol-cap { font-size: 10px; color: var(--text2); }
+  #ref-tol-range { width: 96px; accent-color: var(--accent); cursor: pointer; }
+  #ref-tol-range:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ref-ident-results { margin-top: 2px; }
   .ref-cand {
     border: 1px solid var(--border); border-radius: var(--radius);
     padding: 7px 8px; margin-bottom: 6px; background: var(--bg);
@@ -10230,7 +10235,7 @@ var _refNotesOpen = {};        // element symbol -> curation-note expanded
 
 function _refDefaultSel() {
   return { syms: [], showWeak: false, source: 'AlKa', _nextColorIdx: 0,
-           tolMode: 'normal', includeAuger: false };
+           tolEv: null, includeAuger: false };
 }
 
 function _refActiveTab() {
@@ -10741,10 +10746,11 @@ function _refRenderPanel() {
 
   // Zone 1 — search; Zone 2 — periodic table; Zone 3 — details (clicked-element
   // line tables AND identify candidates render HERE, never under the table/grid).
-  const searchZone = '<div class="ref-zone-search">' + blendedSearchHtml + srcRowHtml + contextHtml + elementSearchHtml + '</div>';
+  const searchZone = '<div class="ref-zone-search">' + blendedSearchHtml + srcRowHtml + contextHtml +
+    elementSearchHtml + _refRenderIdentifyControls(sel, range) + '</div>';
   const tableZone = '<div class="ref-zone-table">' + _refRenderGrid(sel) + allLinesToggleHtml + '</div>';
 
-  let detailsInner = _refRenderIdentify(sel, range);
+  let detailsInner = _refRenderIdentifyResults(sel, range);
   if (!sel.syms.length) {
     detailsInner += '<div class="ref-hint">Click an element to overlay its reference lines on the spectrum. ' +
       'Solid-outlined elements are curated (source-verified); dashed elements carry only ' +
@@ -10962,8 +10968,9 @@ function _refFindTransById(id) {
 
 // Search tolerance: data step size + survey/high-res classification +
 // chemical-shift allowance, widened when uncorrected; user multiplier on top.
-function _refToleranceEv() {
-  const sel = _refGetSel();
+// Resolution-aware tolerance base (eV), WITHOUT any user multiplier. Mirrors
+// the prior step-size + hi-res + charge-correction-widening derivation.
+function _refAutoTolBase() {
   let step = 0.1, highres = false;
   if (state.rawBE && state.rawBE.length > 1) {
     const be = getCorrectedBE();
@@ -10975,8 +10982,21 @@ function _refToleranceEv() {
   tol += highres ? 0.3 : 0.5;        // chemical-shift / minor-charging allowance
   let widened = false;
   if (!_refIsChargeCorrected()) { tol += 1.5; widened = true; }
-  const mult = { narrow: 0.5, normal: 1, broad: 2 }[sel.tolMode] || 1;
-  return { tol: tol * mult, widened, highres };
+  return { base: RefCore.tolFromSlider(tol), widened, highres };
+}
+
+// Absolute ± eV tolerance. Seeded ONCE from the resolution-aware base; the user
+// then owns the value via the slider. Legacy tolMode (never persisted) is
+// coerced for forward-safety.
+function _refToleranceEv() {
+  const sel = _refGetSel();
+  const auto = _refAutoTolBase();
+  if (sel.tolEv == null) {
+    sel.tolEv = (sel.tolMode != null)
+      ? RefCore.coerceTolToEv(sel.tolMode, auto.base)
+      : auto.base;
+  }
+  return { tol: sel.tolEv, widened: auto.widened, highres: auto.highres };
 }
 
 // Crude qualitative presence check: elevated signal near `be` (±tol) relative
@@ -11135,8 +11155,18 @@ function _refRerunIdentify() {
   else _refRenderPanel();
 }
 
-function _refSetTolMode(v) {
-  _refGetSel().tolMode = v;
+// Live drag: update the readout + store the value WITHOUT rebuilding the panel
+// (a full re-render mid-drag would destroy the slider and break the drag).
+function _refTolPreview(v) {
+  const ev = RefCore.tolFromSlider(v);
+  _refGetSel().tolEv = ev;
+  const lbl = document.getElementById('ref-tol-val');
+  if (lbl) lbl.innerHTML = '&plusmn; ' + ev.toFixed(2) + ' eV';
+}
+
+// Commit on release: store the value and re-run identify (rebuilds the panel).
+function _refSetTol(v) {
+  _refGetSel().tolEv = RefCore.tolFromSlider(v);
   _refRerunIdentify();
 }
 
@@ -11167,39 +11197,47 @@ function _refSearchSelect(input) {
   else notify('No element with reference data matches "' + raw + '".', 'amber');
 }
 
-function _refRenderIdentify(sel, range) {
+// Identify CONTROLS — armed button + tolerance slider + Auger toggle. Lives in
+// the top/search zone (decision: no Identify control above the Details cards).
+function _refRenderIdentifyControls(sel, range) {
   let html = '<div class="ref-ident"><div class="ref-ident-head">Identify peak</div>';
   if (range.mode === 'reference') {
     return html + '<div class="ref-hint">Load a spectrum to identify peaks.</div></div>';
   }
-  const tab = _refActiveTab();
   const { tol, widened } = _refToleranceEv();
   const armed = typeof placeMode !== 'undefined' && placeMode === 'identify';
   html += '<div class="ref-ident-row">' +
     '<button class="btn btn-sm' + (armed ? ' place-active' : '') + '" id="ref-identify-btn" ' +
     'onclick="togglePlaceMode(\'identify\')" title="Arm Identify mode: chart clicks list candidate lines instead of placing peaks">&#8982; Identify mode</button>' +
-    '<select onchange="_refSetTolMode(this.value)" title="Search tolerance around the clicked energy">' +
-    ['narrow', 'normal', 'broad'].map(v =>
-      '<option value="' + v + '"' + (sel.tolMode === v ? ' selected' : '') + '>' +
-      v[0].toUpperCase() + v.slice(1) + '</option>').join('') +
-    '</select><span class="ref-ident-tol">&plusmn; ' + tol.toFixed(2) + ' eV</span></div>';
+    '<label class="ref-tol-wrap"><span class="ref-tol-cap">&plusmn; tol</span>' +
+    '<input type="range" id="ref-tol-range" min="0.25" max="5" step="0.25" value="' + tol.toFixed(2) + '" ' +
+    'oninput="_refTolPreview(this.value)" onchange="_refSetTol(this.value)" aria-label="Identify tolerance in eV"></label>' +
+    '<span class="ref-ident-tol" id="ref-tol-val">&plusmn; ' + tol.toFixed(2) + ' eV</span></div>';
   html += '<label class="ref-toggle-row"><input type="checkbox"' + (sel.includeAuger ? ' checked' : '') +
     ' onchange="_refSetIncludeAuger(this.checked)"> Include Auger lines</label>';
   if (widened) {
     html += '<div class="ref-hint">Spectrum has not been charge corrected; candidate energies may be shifted — tolerance widened.</div>';
   }
+  return html + '</div>';
+}
 
+// Identify RESULTS — clicked context + ranked candidate cards. Lives in the
+// Details zone (above the per-element overlay cards).
+function _refRenderIdentifyResults(sel, range) {
+  if (range.mode === 'reference') return '';
+  const tab = _refActiveTab();
   const ident = tab && tab._refIdentify;
   if (!ident) {
-    return html + '<div class="ref-hint">Arm Identify mode, then click a spectrum feature.</div></div>';
+    return '<div class="ref-ident-results"><div class="ref-hint">Arm Identify mode, then click a spectrum feature.</div></div>';
   }
+  let html = '<div class="ref-ident-results">';
   html += '<div class="ref-context">Clicked: ' + ident.be.toFixed(2) + ' eV &middot; &plusmn;' +
     ident.tol.toFixed(2) + ' eV &mdash; <button type="button" class="ref-note-more" onclick="_refClearIdentify()">clear</button></div>';
   if (ident.ccUnverified) {
     html += '<div class="ref-hint">Charge correction was propagated but is unverified — candidate confidence lowered.</div>';
   }
   if (!ident.cands.length) {
-    html += '<div class="ref-hint">No reference candidates within tolerance. Try Broad or include Auger lines.</div>';
+    html += '<div class="ref-hint">No reference candidates within tolerance. Try a wider tolerance or include Auger lines.</div>';
   }
   const srcLabel = sel.source === 'AlKa' ? 'Al Kα' : 'Mg Kα';
   for (const c of ident.cands) {
