@@ -1622,20 +1622,6 @@
   #propagate-summary .prop-row { padding: 2px 0; border-bottom: 1px solid var(--border); }
   #propagate-summary .prop-row:last-child { border-bottom: none; }
 
-  /* ── NIST Lookup Modal ───────────────────────────────────── */
-  #nist-results-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 0; margin-top: 8px; }
-  .nist-group-header { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); font-family: var(--mono); padding: 6px 10px 3px; background: var(--bg3); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
-  .nist-result-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
-  .nist-result-row:last-child { border-bottom: none; }
-  .nist-result-row:hover { background: var(--bg3); }
-  .nist-result-row .nist-state { font-size: 11px; color: var(--text); font-family: var(--mono); }
-  .nist-result-row .nist-be { font-size: 12px; color: var(--accent); font-family: var(--mono); font-weight: 600; }
-  .nist-result-row .nist-ref { font-size: 9px; color: var(--text3); }
-  .nist-marker-info { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 6px; text-align: center; }
-  #nist-active-markers { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; min-height: 0; }
-  .nist-marker-chip { display: flex; align-items: center; gap: 4px; padding: 2px 7px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px; font-size: 10px; font-family: var(--mono); color: var(--text2); }
-  .nist-marker-chip button { background: none; border: none; color: var(--text3); cursor: pointer; padding: 0; line-height: 1; font-size: 11px; }
-  .nist-marker-chip button:hover { color: var(--red, #f87171); }
 
   /* ── Fit History Floating Panel ────────────────────────────── */
   #history-panel {
@@ -1705,7 +1691,7 @@
       <button class="btn btn-green peak-fit-control" id="btn-run-fit" onclick="runFit()">Run Fit</button>
       <button class="btn peak-fit-control" id="btn-batch-fit" onclick="showPropagateModal()" title="Propagate fit model to other spectra">Batch Fit</button>
       <button class="btn" onclick="showHistoryModal()" title="View and restore fit history">History</button>
-      <button class="btn" id="btn-nist-lookup" onclick="showNistModal()" title="NIST XPS chemical state reference lookup">Lookup</button>
+      <button class="btn" id="btn-nist-lookup" onclick="toggleRefPanel()" title="Open the Reference / Identify workspace (elements + chemical-state lookup)">Lookup</button>
       <div class="save-dropdown" id="save-dropdown">
         <button class="btn" onclick="toggleSaveMenu()">Actions &#9662;</button>
         <div class="save-dropdown-menu">
@@ -10029,90 +10015,14 @@ async function runPropagation() {
 
 // Active compound (chemical-state) markers — GLOBAL and PERSISTENT by design:
 // "mark it, close the panel, it stays" (distinct lifetime from element overlays,
-// which are panel-gated/per-tab/stack-excluded). Array of { id, sym, state, be,
-// ref } (new) or { id, orbital, state, be } (legacy NIST shape, until Task 9).
+// which are panel-gated/per-tab/stack-excluded). Shape: { id, sym, state, be, ref }.
 const _refCompoundMarkers = [];
 let _refCompoundMarkerNextId = 1;
 
-function showNistModal() {
-  _nistRenderResults('');
-  _nistRenderMarkerChips();
-  const inp = document.getElementById('nist-search-input');
-  inp.value = '';
-  document.getElementById('nist-modal-overlay').classList.add('open');
-  setTimeout(() => inp.focus(), 80);
-}
-
-function _nistFilter(query) {
-  _nistRenderResults(query.trim().toLowerCase());
-}
-
-function _nistRenderResults(q) {
-  const container = document.getElementById('nist-results-list');
-  const beQuery = parseFloat(q);
-  const isBeQuery = !isNaN(beQuery) && q !== '';
-
-  const groups = [];
-  for (const [orbital, states] of Object.entries(_accChemicalStates())) {
-    const orbLower = orbital.toLowerCase();
-    const filtered = states.filter(s => {
-      if (!q) return true;
-      if (isBeQuery) return Math.abs(s.be - beQuery) <= 5;
-      return orbLower.includes(q) || s.state.toLowerCase().includes(q) || s.ref.toLowerCase().includes(q);
-    });
-    if (filtered.length) groups.push({ orbital, states: filtered });
-  }
-
-  if (!groups.length) {
-    container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:12px 10px;font-family:var(--mono)">No results. Try element symbol, orbital, compound, or binding energy (eV).</div>';
-    return;
-  }
-
-  container.innerHTML = groups.map(g => `
-    <div class="nist-group-header">${g.orbital}</div>
-    ${g.states.map(s => `
-      <div class="nist-result-row" onclick="_nistAddMarker('${g.orbital}','${s.state.replace(/'/g,"\\'")}',${s.be})">
-        <div>
-          <div class="nist-state">${s.state}</div>
-          <div class="nist-ref">${s.ref}</div>
-        </div>
-        <div class="nist-be">${s.be.toFixed(1)} eV</div>
-      </div>`).join('')}
-  `).join('');
-}
-
-function _nistAddMarker(orbital, stateName, be) {
-  const id = _refCompoundMarkerNextId++;
-  _refCompoundMarkers.push({ orbital, state: stateName, be, id });
-  _nistRenderMarkerChips();
-  updatePlot();
-  notify(`Marked ${orbital} ${stateName} at ${be.toFixed(1)} eV`, 'green');
-}
-
-function _nistRemoveMarker(id) {
-  const idx = _refCompoundMarkers.findIndex(m => m.id === id);
-  if (idx >= 0) _refCompoundMarkers.splice(idx, 1);
-  _nistRenderMarkerChips();
-  updatePlot();
-}
-
-function _nistRenderMarkerChips() {
-  const el = document.getElementById('nist-active-markers');
-  if (!el) return;
-  el.innerHTML = _refCompoundMarkers.map(m => `
-    <div class="nist-marker-chip">
-      <span>${m.orbital} ${m.be.toFixed(1)} eV</span>
-      <button onclick="_nistRemoveMarker(${m.id})" title="Remove marker">&#x2715;</button>
-    </div>`).join('');
-  const clearBtn = document.getElementById('nist-clear-all-btn');
-  if (clearBtn) clearBtn.style.display = _refCompoundMarkers.length ? 'inline-block' : 'none';
-}
-
-function _nistClearAll() {
-  _refCompoundMarkers.length = 0;
-  _nistRenderMarkerChips();
-  updatePlot();
-}
+// The NIST Lookup modal was retired here: its chemical-state search folded into
+// the drawer's unified top search (RefCore.blendedSearch) and its markers into
+// the global _refCompoundMarkers store + _refRenderCompoundChips. The Lookup
+// button now opens the Reference/Identify drawer.
 
 // Draw source file path in top-left of plot area
 function _drawSourceLabel(chart) {
@@ -12097,20 +12007,6 @@ document.addEventListener('mousedown', function(e) {
       <button class="btn" onclick="document.getElementById('propagate-modal-overlay').classList.remove('open')">Cancel</button>
       <button class="btn btn-accent" id="propagate-run-btn" onclick="runPropagation()">Propagate &amp; Fit</button>
     </div>
-  </div>
-</div>
-
-<!-- NIST XPS Lookup Modal -->
-<div id="nist-modal-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="xps-modal" style="max-width:500px">
-    <h3>NIST XPS Chemical State Reference <button class="btn btn-sm" onclick="document.getElementById('nist-modal-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <input type="text" id="nist-search-input" placeholder="Search element, orbital, compound, or BE (e.g. Fe, 2p, UO2, 707)" oninput="_nistFilter(this.value)" autocomplete="off" style="margin-bottom:6px">
-    <div style="display:flex;align-items:center;justify-content:space-between;min-height:24px;margin-bottom:4px">
-      <div id="nist-active-markers" style="display:flex;flex-wrap:wrap;gap:4px;flex:1"></div>
-      <button id="nist-clear-all-btn" class="btn btn-sm" onclick="_nistClearAll()" style="display:none;margin-left:8px;font-size:10px;padding:2px 8px;color:var(--text3)">Clear all</button>
-    </div>
-    <div id="nist-results-list"></div>
-    <p class="nist-marker-info">Click a result to mark that binding energy on the active spectrum.</p>
   </div>
 </div>
 
