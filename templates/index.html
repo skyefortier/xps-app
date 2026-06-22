@@ -10117,7 +10117,11 @@ function _refDrawCompoundMarkers(chart) {
   ctx.shadowBlur = 4;
   ctx.fillStyle = textColor;
   for (const m of visible) {
-    const label = (m.sym || m.orbital || '') + ' ' + m.be.toFixed(1);
+    // Chemical state is the point of the marker — lead with it; fall back to
+    // the sym/orbital label only when no state is recorded.
+    const label = m.state
+      ? m.state + ' ' + m.be.toFixed(1)
+      : (m.sym || m.orbital || '') + ' ' + m.be.toFixed(1);
     ctx.fillText(label, m.px + 4, top + 5 + m.level * 17);
   }
 
@@ -10551,9 +10555,14 @@ function _refRemoveCompoundMarker(id) {
 // the retired NIST modal). Reads sym (new) or orbital (legacy) for the label.
 function _refRenderCompoundChips() {
   if (!_refCompoundMarkers.length) return '';
-  return '<div class="ref-cmarker-chips">' + _refCompoundMarkers.map(m =>
-    '<span class="ref-cmarker-chip">' + _escHtml((m.sym || m.orbital || '') + ' ' + m.be.toFixed(1) + ' eV') +
-    '<button type="button" onclick="_refRemoveCompoundMarker(' + m.id + ')" title="Remove marker" aria-label="Remove marker">&#10005;</button></span>').join('') + '</div>';
+  return '<div class="ref-cmarker-chips">' + _refCompoundMarkers.map(m => {
+    const idLabel = (m.sym || m.orbital || '');
+    const text = m.state
+      ? m.state + ' · ' + idLabel + ' ' + m.be.toFixed(1) + ' eV'
+      : idLabel + ' ' + m.be.toFixed(1) + ' eV';
+    return '<span class="ref-cmarker-chip">' + _escHtml(text) +
+      '<button type="button" onclick="_refRemoveCompoundMarker(' + m.id + ')" title="Remove marker" aria-label="Remove marker">&#10005;</button></span>';
+  }).join('') + '</div>';
 }
 
 function _refOnTabChange() {
