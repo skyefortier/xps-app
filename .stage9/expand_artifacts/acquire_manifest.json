@@ -1,0 +1,248 @@
+{
+  "elements": [
+    {
+      "symbol": "Sc",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917205009",
+      "source_url": "https://web.archive.org/web/20040917205009id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Sc",
+      "sha256": "d11d68c984ca16f174a9c88003be0ed74dc26916c00547d99064eef18deae083",
+      "bytes": 7350,
+      "starred_pe_lines": [
+        {
+          "orbital": "2p3/2",
+          "energy": 398.53,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 6,
+      "fetch_utc": "2026-06-24T06:56:39Z"
+    },
+    {
+      "symbol": "Ru",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917205734",
+      "source_url": "https://web.archive.org/web/20040917205734id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ru",
+      "sha256": "8583e1ff8fe49447b197ba8a3f6292c408bfabc0acc5cf0ba28664b2eb8d008b",
+      "bytes": 21167,
+      "starred_pe_lines": [
+        {
+          "orbital": "3d5/2",
+          "energy": 280.08,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4p3/2",
+          "energy": 43.37,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 23,
+      "fetch_utc": "2026-06-24T06:57:11Z"
+    },
+    {
+      "symbol": "Pd",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917204830",
+      "source_url": "https://web.archive.org/web/20040917204830id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Pd",
+      "sha256": "4af210ac78b8112125f4032f0562671cee6917b3ba4fa76ba8a1860a5092339d",
+      "bytes": 37812,
+      "starred_pe_lines": [
+        {
+          "orbital": "3d5/2",
+          "energy": 335.12,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 43,
+      "fetch_utc": "2026-06-24T06:57:53Z"
+    },
+    {
+      "symbol": "Hf",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917205154",
+      "source_url": "https://web.archive.org/web/20040917205154id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Hf",
+      "sha256": "4db9874e33e9f2de05b73e5e900fbabac1edee2a40039e7d09cbaff9a28bb94e",
+      "bytes": 13993,
+      "starred_pe_lines": [
+        {
+          "orbital": "4d5/2",
+          "energy": 211.5,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4f7/2",
+          "energy": 14.31,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 16,
+      "fetch_utc": "2026-06-24T06:58:29Z"
+    },
+    {
+      "symbol": "Ta",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917221833",
+      "source_url": "https://web.archive.org/web/20040917221833id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ta",
+      "sha256": "d2d6ced8578506bda1872fc4d73ac154d0fd3affa1cd2ad83418d75454e9c4fb",
+      "bytes": 21193,
+      "starred_pe_lines": [
+        {
+          "orbital": "4d5/2",
+          "energy": 226.4,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4f7/2",
+          "energy": 21.83,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 25,
+      "fetch_utc": "2026-06-24T06:58:44Z"
+    },
+    {
+      "symbol": "Re",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917204814",
+      "source_url": "https://web.archive.org/web/20040917204814id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Re",
+      "sha256": "acd10d6a1b1f14940b7bd8a6dfabff5ffe9b6c34416d4930bb6f1c02d4358d1f",
+      "bytes": 18399,
+      "starred_pe_lines": [
+        {
+          "orbital": "4d5/2",
+          "energy": 260.5,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4f7/2",
+          "energy": 40.34,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 18,
+      "fetch_utc": "2026-06-24T06:59:32Z"
+    },
+    {
+      "symbol": "Os",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917205544",
+      "source_url": "https://web.archive.org/web/20040917205544id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Os",
+      "sha256": "5f24a003cedf7b9b9d45030163a0e0a6ed06a45315a5465ff5fbff29408e7197",
+      "bytes": 11233,
+      "starred_pe_lines": [
+        {
+          "orbital": "4d5/2",
+          "energy": 278.51,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4f7/2",
+          "energy": 50.69,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 11,
+      "fetch_utc": "2026-06-24T07:00:12Z"
+    },
+    {
+      "symbol": "Ir",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917204929",
+      "source_url": "https://web.archive.org/web/20040917204929id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Ir",
+      "sha256": "ed52a1af3dd43536ca331cb42506272b2f2091551530603e240cf840f0319d6c",
+      "bytes": 18395,
+      "starred_pe_lines": [
+        {
+          "orbital": "4d5/2",
+          "energy": 296.31,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4f7/2",
+          "energy": 60.84,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 19,
+      "fetch_utc": "2026-06-24T07:00:33Z"
+    },
+    {
+      "symbol": "Hg",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917205540",
+      "source_url": "https://web.archive.org/web/20040917205540id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Hg",
+      "sha256": "220e923af4eeacddbe6ae0951c62b674be0b902727e89c8b04b778b92fd555f9",
+      "bytes": 13437,
+      "starred_pe_lines": [
+        {
+          "orbital": "4d5/2",
+          "energy": 359.32,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4f7/2",
+          "energy": 99.85,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 11,
+      "fetch_utc": "2026-06-24T07:01:03Z"
+    },
+    {
+      "symbol": "Tl",
+      "status": "OK",
+      "reason": null,
+      "snapshot_timestamp": "20040917221830",
+      "source_url": "https://web.archive.org/web/20040917221830id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Tl",
+      "sha256": "4363f6501413542ce9cba0d8edeb9c999c43ec8320aba18df10ee9b2d59054cf",
+      "bytes": 16188,
+      "starred_pe_lines": [
+        {
+          "orbital": "4d5/2",
+          "energy": 385.02,
+          "ref": "Powe95"
+        },
+        {
+          "orbital": "4f7/2",
+          "energy": 117.73,
+          "ref": "Powe95"
+        }
+      ],
+      "all_pe_line_count": 13,
+      "fetch_utc": "2026-06-24T07:01:45Z"
+    },
+    {
+      "symbol": "Rb",
+      "status": "FAILED",
+      "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+      "snapshot_timestamp": "20040917205730",
+      "source_url": "https://web.archive.org/web/20040917205730id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Rb",
+      "sha256": "52f81a225abfaa39d77c559c6c5cdb6f2f17874e841a52b34d629cb2e034b602",
+      "bytes": 6239,
+      "starred_pe_lines": [],
+      "all_pe_line_count": 3,
+      "fetch_utc": "2026-06-24T07:02:51Z"
+    },
+    {
+      "symbol": "Cs",
+      "status": "FAILED",
+      "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+      "snapshot_timestamp": "20040917204954",
+      "source_url": "https://web.archive.org/web/20040917204954id_/http://srdata.nist.gov:80/xps/query_all_dat_el.asp?elm1=Cs",
+      "sha256": "e90518df39712a1326db64ee1d1d39c628757e566c206a6139ca5b0ce5e86ad8",
+      "bytes": 15659,
+      "starred_pe_lines": [],
+      "all_pe_line_count": 11,
+      "fetch_utc": "2026-06-24T07:03:06Z"
+    }
+  ]
+}

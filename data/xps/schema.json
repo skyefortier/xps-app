@@ -55,7 +55,7 @@
         "z": { "type": "integer", "minimum": 1, "maximum": 118 },
         "name": { "type": "string", "minLength": 3 },
         "curation_status": {
-          "description": "curated: all listed values verified against the cited sources. machine: values are NIST-evaluated reference energies recovered by dual machine extraction and corroborated, but NOT human-verified (see the per-transition tier + the elements-machine.provenance.json sidecar). partial: listed values verified, but known lines are missing (see curation_notes). uncurated: placeholder entry, no trustworthy open data curated yet — families may be empty; the UI must not present uncurated elements as authoritative.",
+          "description": "curated: all listed values verified against the cited sources. machine: NIST-evaluated reference energies recovered by machine extraction, NOT human-verified — corroboration is per-record in elements-machine.provenance.json: original records are dual-extraction corroborated (dual_extraction_corroborated=true); coverage-expansion records are from a single archived snapshot, parser + independent-agent cross-checked (dual_extraction_corroborated=false, agent_cross_checked=true). partial: listed values verified, but known lines are missing (see curation_notes). uncurated: placeholder entry, no trustworthy open data curated yet — families may be empty; the UI must not present uncurated elements as authoritative.",
           "enum": ["curated", "machine", "partial", "uncurated"]
         },
         "curation_notes": { "type": "string" },
@@ -203,7 +203,7 @@
     },
 
     "visibility": {
-      "description": "QUALITATIVE expected-visibility labels per X-ray source — curator judgement from reference survey spectra, NOT computed intensities (no Scofield/RSF/IMFP derivation in v1). 'uncurated' = not yet assessed for that source (UI falls back to the AlKa assessment, else treats as weak). 'unknown' = visibility genuinely not determinable from the available data (legacy markers); rendered at full visibility and NEVER auto-classified as weak — no major/moderate/weak value is invented. 'machine-unassessed' = same default-show treatment for machine-tier (NIST-evaluated, dual-corroborated) transitions whose intensity was never assessed; kept distinct from 'unknown' so the UI can label it 'intensity not assessed (machine-source-corroborated)'.",
+      "description": "QUALITATIVE expected-visibility labels per X-ray source — curator judgement from reference survey spectra, NOT computed intensities (no Scofield/RSF/IMFP derivation in v1). 'uncurated' = not yet assessed for that source (UI falls back to the AlKa assessment, else treats as weak). 'unknown' = visibility genuinely not determinable from the available data (legacy markers); rendered at full visibility and NEVER auto-classified as weak — no major/moderate/weak value is invented. 'machine-unassessed' = same default-show treatment for machine-tier (NIST-evaluated) transitions whose intensity was never assessed — applies to both dual-extraction and single-snapshot+cross-checked machine records (see elements-machine.provenance.json for per-record corroboration); kept distinct from 'unknown' so the UI can label it 'intensity not assessed (machine-source-corroborated)'.",
       "type": "object",
       "additionalProperties": false,
       "required": ["AlKa"],

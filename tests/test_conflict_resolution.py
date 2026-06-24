@@ -100,13 +100,16 @@ def test_v_and_augers_still_skipped_and_four_gone_from_conflict():
     assert "V-2p3/2" not in _machine_by_id()
 
 
-def test_machine_count_is_27():
-    assert len(_machine_by_id()) == 27
+def test_conflict_records_present():
+    # The 4 conflict-resolution records remain in the machine tier (they are part
+    # of HEAD/main now; the coverage-expansion work must not drop them).
+    assert set(EXPECTED) <= set(_machine_by_id())
 
 
-def test_curated_and_original_23_machine_unchanged():
-    # Curated + legacy files byte-unchanged vs HEAD, and the original 23 machine
-    # transitions are byte-equal to HEAD (only the 4 conflict records are new).
+def test_prior_machine_records_unchanged_vs_head():
+    # Curated + legacy byte-unchanged, and EVERY machine record present at HEAD
+    # (the 27, including the 4 conflict records) is byte-identical in the working
+    # tree — later work (coverage expansion) is purely additive.
     paths = ["data/xps/elements-main.json", "data/xps/elements-actinides.json",
              "data/xps/elements-lanthanides.json", "data/xps/auger-lines.json",
              "data/xps/legacy"]
@@ -122,7 +125,5 @@ def test_curated_and_original_23_machine_unchanged():
     head_doc = json.loads(head.stdout)
     head_by_id = {t["id"]: t for el in head_doc["elements"] for fam in el["families"] for t in fam["transitions"]}
     new_by_id = {tid: t for tid, (t, el) in _machine_by_id().items()}
-    assert len(head_by_id) == 23 and len(new_by_id) == 27
     for tid, t in head_by_id.items():
-        assert tid in new_by_id and new_by_id[tid] == t, f"original machine record {tid} changed"
-    assert set(new_by_id) - set(head_by_id) == set(EXPECTED)   # exactly the 4 are new
+        assert new_by_id.get(tid) == t, f"prior machine record {tid} changed"

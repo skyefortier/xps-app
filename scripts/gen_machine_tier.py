@@ -67,6 +67,26 @@ GEN_NOTE = ("Machine-source tier: NIST-evaluated reference energy recovered by "
             "and chemical-state assignments are not curated. "
             "See elements-machine.provenance.json.")
 
+# ── Coverage-expansion elements (additive; do NOT alter the existing tiers path) ──
+# Symbol -> (Z, name). Z/name are DEFINITIONAL periodic-table facts, not measured
+# data — the no-invention rule governs emitted binding energies, every one of which
+# is read from a fetched NIST artifact in .stage9/expand_artifacts/. Elements that
+# fetch an artifact but carry no NIST-evaluated value (e.g. Rb, Cs) are skip-logged,
+# never invented.
+EXPAND_ELEMENTS = {
+    "Sc": (21, "Scandium"),  "Ru": (44, "Ruthenium"), "Pd": (46, "Palladium"),
+    "Hf": (72, "Hafnium"),   "Ta": (73, "Tantalum"),  "Re": (75, "Rhenium"),
+    "Os": (76, "Osmium"),    "Ir": (77, "Iridium"),   "Hg": (80, "Mercury"),
+    "Tl": (81, "Thallium"),  "Rb": (37, "Rubidium"),  "Cs": (55, "Caesium"),
+}
+EXPAND_PE_LINE = re.compile(r"^[1-7][spdf]([1357]/2)?$")   # PE subshell only (exclude DS-*/Auger)
+EXPAND_NOTE = ("Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered "
+               "from a single archived NIST SRD 20 element-page snapshot, parsed by the committed "
+               "parser and cross-checked by an independent agent re-derivation; NOT human-verified. "
+               "Spin-orbit partners and chemical-state assignments are not curated. "
+               "See elements-machine.provenance.json.")
+EXPAND_DIR = os.path.join(STAGE9, "expand_artifacts")
+
 
 def load(p):
     with open(p) as f:
@@ -319,12 +339,86 @@ def build():
             "tier": "machine",
         })
 
+    # ── Coverage-expansion path (additive) ───────────────────────────────────
+    # Emit machine records for artifact-backed new elements. Every emitted value
+    # is the NIST-evaluated (starred) value read from a fetched element-page
+    # snapshot in EXPAND_DIR; non-starred lines and artifact-less elements are
+    # skip-logged. This path NEVER touches the tiers-driven records above.
+    expand_manifest = os.path.join(EXPAND_DIR, "acquire_manifest.json")
+    if os.path.exists(expand_manifest):
+        man = {m["symbol"]: m for m in load(expand_manifest)["elements"]}
+        # Independent second-agent re-derivation (Step-4 cross-check). A value is
+        # marked agent_cross_checked only if the independent pass confirms it.
+        xc_path = os.path.join(EXPAND_DIR, "agent_crosscheck.json")
+        xc = load(xc_path) if os.path.exists(xc_path) else {}
+        for sym, (z, name) in EXPAND_ELEMENTS.items():
+            mrec = man.get(sym)
+            art = os.path.join(EXPAND_DIR, f"{sym}_nist.html")
+            if not mrec or mrec.get("status") != "OK" or not os.path.exists(art):
+                reason = (mrec.get("reason") if mrec else "no acquisition record")
+                skipped.append({"element": sym, "orbital": None, "reason": "no-evaluated-value",
+                                "detail": f"coverage-expansion FAILED: {reason}"})
+                continue
+            recs = parse_nist_html(art)
+            sha = sha256_file(art)
+            by_line = {}
+            for x in recs:
+                if EXPAND_PE_LINE.match(x["orbital"]):
+                    by_line.setdefault(x["orbital"], []).append(x)
+            for orbital in sorted(by_line):
+                line_recs = by_line[orbital]
+                starred = [x for x in line_recs if x["evaluated"]]
+                if not starred:
+                    skipped.append({"element": sym, "orbital": orbital, "reason": "context-undeterminable",
+                                    "detail": "no NIST-evaluated (starred) value for this line"})
+                    continue
+                sval, sref = starred[0]["energy"], starred[0]["ref"]
+                energies = [x["energy"] for x in line_recs]
+                rmin, rmax = min(energies), max(energies)
+                def ref_for_line(val, lr=line_recs):
+                    hits = sorted({x["ref"] for x in lr if abs(x["energy"] - val) < 1e-6})
+                    return hits[0] if hits else None
+                tid = f"{sym}-{orbital}"
+                emitted.append({
+                    "z": z, "symbol": sym, "name": name, "orbital": orbital, "id": tid,
+                    "nominal": sval, "rmin": rmin, "rmax": rmax,
+                    "basis": "observed-reference-range",
+                    "curation_notes": EXPAND_NOTE,
+                    "notes": (f"NIST-evaluated value ({sref}, starred on the SRD 20 element page); "
+                              f"single archived snapshot, committed-parser + independent agent "
+                              f"cross-checked. Region spans NIST records on the element page. "
+                              f"Machine tier — not human-verified."),
+                })
+                prov.append({
+                    "id": tid, "element": sym, "orbital": orbital,
+                    "nominal_be_ev": sval,
+                    "nominal_source": {
+                        "database": SOURCE_ID, "nist_line": orbital, "nist_reference_code": sref,
+                        "evaluated": True, "source_url": mrec["source_url"],
+                        "source_artifact": f"{sym}_nist.html", "source_artifact_sha256": sha,
+                        "archive_snapshot_timestamp": mrec["snapshot_timestamp"],
+                        "fetch_utc": mrec["fetch_utc"],
+                    },
+                    "parse_method": "nist-html-starred-record",
+                    "acquisition": "coverage-expansion: single archived NIST element-page snapshot",
+                    "dual_extraction_corroborated": False,
+                    "agent_cross_checked": bool(tid in xc and abs(xc[tid] - sval) < 1e-9),
+                    "expected_region_ev": {
+                        "min": rmin, "min_source": ref_for_line(rmin),
+                        "max": rmax, "max_source": ref_for_line(rmax),
+                        "basis": "observed-reference-range",
+                        "record_count": len(line_recs),
+                    },
+                    "tier": "machine",
+                })
+
     emitted.sort(key=lambda e: (e["z"], e["orbital"]))
     prov.sort(key=lambda p: p["id"])
     skipped.sort(key=lambda s: (s["element"], str(s["orbital"])))
 
     # ── elements-machine.json ────────────────────────────────────────────────
     elements = []
+    _by_sym = {}
     for e in emitted:
         t = {
             "id": e["id"], "element": e["symbol"], "z": e["z"], "orbital": e["orbital"],
@@ -338,12 +432,25 @@ def build():
             "tier": "machine",
             "notes": e["notes"],
         }
-        elements.append({
-            "symbol": e["symbol"], "z": e["z"], "name": e["name"],
-            "curation_status": "machine",
-            "curation_notes": GEN_NOTE,
-            "families": [{"family": subshell(e["orbital"]), "transitions": [t]}],
-        })
+        # Group transitions under one element object (a single element may carry
+        # several NIST-evaluated lines). Single-line elements (all existing 27)
+        # produce byte-identical output to the prior one-object-per-line form.
+        obj = _by_sym.get(e["symbol"])
+        if obj is None:
+            obj = {
+                "symbol": e["symbol"], "z": e["z"], "name": e["name"],
+                "curation_status": "machine",
+                "curation_notes": e.get("curation_notes", GEN_NOTE),
+                "families": [],
+            }
+            _by_sym[e["symbol"]] = obj
+            elements.append(obj)
+        fam_label = subshell(e["orbital"])
+        fam = next((f for f in obj["families"] if f["family"] == fam_label), None)
+        if fam is None:
+            fam = {"family": fam_label, "transitions": []}
+            obj["families"].append(fam)
+        fam["transitions"].append(t)
 
     machine_doc = {"schema_version": 1, "file_id": "elements-machine", "elements": elements}
     prov_doc = {
@@ -367,6 +474,7 @@ def build():
             "evaluated-not-corroborated": "starred value not in the dual-corroborated agreed-set",
             "conflict": "Stage-9 tier: legacy disagrees with NIST (e.g. oxide vs metal / Auger-frame)",
             "insufficient-evidence": "Stage-9 tier: not recoverable in both extractions",
+            "no-evaluated-value": "coverage-expansion: artifact fetched but no NIST-evaluated (starred) photoelectron line — nothing sourceable to emit (e.g. Rb, Cs)",
         },
         "skipped_count": len(skipped),
         "transitions": skipped,
@@ -388,10 +496,12 @@ def main():
         with open(os.path.join(DATA, name), "w") as f:
             f.write(serialize(obj))
     from collections import Counter
-    print(f"emitted machine transitions: {len(machine_doc['elements'])}")
+    ntrans = sum(len(f["transitions"]) for el in machine_doc["elements"] for f in el["families"])
+    print(f"machine elements: {len(machine_doc['elements'])}  |  machine transitions: {ntrans}")
     print(f"skipped: {skipped_doc['skipped_count']} -> "
           f"{dict(Counter(s['reason'] for s in skipped_doc['transitions']))}")
-    print(f"html-only recoveries: {[p['id'] for p in prov_doc['transitions'] if p['html_only_recovery']]}")
+    print(f"html-only recoveries: {[p['id'] for p in prov_doc['transitions'] if p.get('html_only_recovery')]}")
+    print(f"coverage-expansion emitted: {[p['id'] for p in prov_doc['transitions'] if p.get('acquisition')]}")
 
 
 if __name__ == "__main__":

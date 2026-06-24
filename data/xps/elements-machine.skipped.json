@@ -5,9 +5,10 @@
     "context-undeterminable": "no NIST-evaluated value; material class not recoverable, so rule 2 cannot fire",
     "evaluated-not-corroborated": "starred value not in the dual-corroborated agreed-set",
     "conflict": "Stage-9 tier: legacy disagrees with NIST (e.g. oxide vs metal / Auger-frame)",
-    "insufficient-evidence": "Stage-9 tier: not recoverable in both extractions"
+    "insufficient-evidence": "Stage-9 tier: not recoverable in both extractions",
+    "no-evaluated-value": "coverage-expansion: artifact fetched but no NIST-evaluated (starred) photoelectron line \u2014 nothing sourceable to emit (e.g. Rb, Cs)"
   },
-  "skipped_count": 35,
+  "skipped_count": 88,
   "transitions": [
     {
       "element": "B",
@@ -59,6 +60,12 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
+      "element": "Cs",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
       "element": "Cu",
       "orbital": "2p3/2",
       "field_id": "f0030",
@@ -87,11 +94,107 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "Hf",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hf",
+      "orbital": "3d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hf",
+      "orbital": "3p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hf",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hf",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hf",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hf",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hf",
+      "orbital": "5s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hg",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hg",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hg",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Hg",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "I",
       "orbital": "3d5/2",
       "field_id": "f0048",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Ir",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ir",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ir",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ir",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
       "element": "K",
@@ -185,6 +288,120 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
+      "element": "Os",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Os",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Os",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "4p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pd",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Rb",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Re",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Re",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Re",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Re",
+      "orbital": "5s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ru",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ru",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ru",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "S",
       "orbital": "2p3/2",
       "field_id": "f0016",
@@ -197,6 +414,24 @@
       "field_id": "f0017",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Sc",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sc",
+      "orbital": "3p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sc",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
       "element": "Se",
@@ -220,11 +455,95 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "Ta",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "3d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "3p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ta",
+      "orbital": "5s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Th",
       "orbital": "4f7/2",
       "field_id": "f0058",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Tl",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tl",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tl",
+      "orbital": "5d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tl",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
       "element": "U",

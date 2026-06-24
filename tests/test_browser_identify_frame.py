@@ -270,14 +270,18 @@ def test_machine_tier_precedence_and_count(page):
         return {tally:t,
             C:_refActivation('C'), O:_refActivation('O'), U:_refActivation('U'),
             Si:_refActivation('Si'), Ag:_refActivation('Ag'), Pt:_refActivation('Pt'),
-            Fe:_refActivation('Fe'), V:_refActivation('V'), He:_refActivation('He')};
+            Fe:_refActivation('Fe'), V:_refActivation('V'), He:_refActivation('He'),
+            Ta:_refActivation('Ta'), Sc:_refActivation('Sc'), Rb:_refActivation('Rb')};
     }""")
-    assert r["tally"]["machine"] == 27                 # 23 corroborated + 4 conflict-resolved
+    # Grid counts machine-tier ELEMENTS: 27 prior + 10 coverage-expansion = 37.
+    assert r["tally"]["machine"] == 37
     assert r["tally"]["curated"] == 6
     assert r["C"] == "curated" and r["O"] == "curated" and r["U"] == "curated"
     assert r["Si"] == "machine" and r["Ag"] == "machine" and r["Pt"] == "machine"
     assert r["Fe"] == "machine"                         # promoted via conflict-resolution
+    assert r["Ta"] == "machine" and r["Sc"] == "machine"   # coverage-expansion (newly clickable)
     assert r["V"] == "legacy"                           # V stays legacy (no NIST-evaluated value)
+    assert r["Rb"] is None                              # FAILED acquisition → stays unavailable
     assert r["He"] is None
 
 
