@@ -10633,9 +10633,9 @@ function _refRenderGrid(sel) {
     const title = tier === 'curated'
       ? name + ' (Z=' + e.z + ') — click to overlay curated reference lines'
       : tier === 'machine'
-        ? name + ' (Z=' + e.z + ') — machine-source-corroborated (NIST, not human-verified); click to overlay'
+        ? name + ' (Z=' + e.z + ') — from NIST, auto-checked (not yet reviewed); click to overlay'
         : tier === 'legacy'
-          ? name + ' (Z=' + e.z + ') — legacy-unverified survey marker; click to overlay'
+          ? name + ' (Z=' + e.z + ') — approximate marker; click to overlay'
           : name + ' (Z=' + e.z + ') — no reference line data';
     cells += '<div class="' + cls + '" style="grid-column:' + e.col + ';grid-row:' + e.row +
       (selColor ? ';--mark:' + selColor : '') + '"' +
@@ -10653,7 +10653,7 @@ function _refRenderGrid(sel) {
 // (full label on hover); other labels render verbatim.
 function _refVisChip(m) {
   const label = m.visEff === 'machine-unassessed' ? 'intensity n/a' : m.visEff;
-  const title = m.visEff === 'machine-unassessed' ? 'intensity not assessed (machine-source-corroborated)' : '';
+  const title = m.visEff === 'machine-unassessed' ? 'relative intensity not assessed for this line' : '';
   return '<span class="ref-chip ' + m.visEff + '"' + (title ? ' title="' + _escAttr(title) + '"' : '') +
     '>' + _escHtml(label) + (m.visFallback ? '*' : '') + '</span>';
 }
@@ -10664,7 +10664,6 @@ function _refRenderElementGroup(s, sel, range) {
   const el = e.pe || e.auger;
   const isLegacy = e.tier === 'legacy';
   const isMachine = e.tier === 'machine';
-  const status = el.curation_status || '';
   const items = _refTransitionsFor(s.sym);
   const hasMachineRow = items.some(m => m.tier === 'machine');
   const hasLegacyRow = items.some(m => m.tier === 'legacy');
@@ -10684,7 +10683,7 @@ function _refRenderElementGroup(s, sel, range) {
             ? 'Legacy Auger marker — KE ' + m.t.auger_ke_ev.toFixed(2) + ' eV (' +
               (m.t._augerKeBasis || 'derived from legacy apparent BE') +
               '); apparent BE = hν − KE − φ moves with the selected source.'
-            : 'Legacy-unverified marker — apparent-BE position from the pre-migration dataset; not source-verified, no expected-region band.')
+            : 'Approximate position — verify against literature.')
         : (m.t.notes || '')) +
       (m.visFallback ? ' [visibility label is the Al Kα assessment — not assessed for the selected source]' : '') +
       (inRange ? '' : ' [outside the current spectrum range — not drawn]');
@@ -10700,44 +10699,61 @@ function _refRenderElementGroup(s, sel, range) {
 
   let noteHtml = '';
   if (e.tier === 'curated') {
+    // Reviewed (curated) card scaffolding: a generic reviewed-tier line, an
+    // optional short per-element caveat slot (data field short_caveat, may not
+    // exist yet — Prompt 2 fills it), then a "more…" disclosure that expands to
+    // the full provenance (existing curation_notes). All data-derived strings
+    // are escaped; the disclosure is a real keyboard-accessible button scoped to
+    // this element's card.
     const note = (e.pe && e.pe.curation_notes) || (e.auger && e.auger.curation_notes) || '';
-    if (note) {
-      const open = !!_refNotesOpen[s.sym];
+    const short = (e.pe && e.pe.short_caveat) || (e.auger && e.auger.short_caveat) || '';
+    const open = !!_refNotesOpen[s.sym];
+    const moreBtn = label => ' <button type="button" class="ref-note-more"' +
+      ' aria-expanded="' + (open ? 'true' : 'false') + '"' +
+      ' onclick="_refToggleNote(\'' + s.sym + '\')">' + label + '</button>';
+    // (b) generic reviewed-tier line — structure only, no scientific values.
+    noteHtml = '<div class="ref-note">Reference energies reviewed by a person. ' +
+      'Please verify all energies against authoritative reference sources.</div>';
+    if (short) {
+      // (c) short caveat slot + (d) more… expanding to full provenance.
+      noteHtml += '<div class="ref-note">' + _escHtml(short) +
+        (note ? moreBtn(open ? 'less' : 'more…') : '') + '</div>';
+      if (open && note) noteHtml += '<div class="ref-note">' + _escHtml(note) + '</div>';
+    } else if (note) {
+      // FAIL-SAFE: no short_caveat yet — show curation_notes in ONE place only.
       const firstDot = note.indexOf('. ');
       const head = firstDot > 0 ? note.slice(0, firstDot + 1) : note;
-      noteHtml = '<div class="ref-note">' + _escHtml(open ? note : head) +
-        (firstDot > 0 ? ' <button type="button" class="ref-note-more" onclick="_refToggleNote(\'' + s.sym + '\')">' +
-          (open ? 'less' : 'more…') + '</button>' : '') + '</div>';
+      noteHtml += '<div class="ref-note">' + _escHtml(open ? note : head) +
+        (firstDot > 0 ? moreBtn(open ? 'less' : 'more…') : '') + '</div>';
     }
   } else {
     // machine and/or legacy rows — one note per tier present (an element can
     // hold both, e.g. a machine principal line plus a legacy line for another
     // subshell).
     if (hasMachineRow) {
-      noteHtml += '<div class="ref-note">Machine-source-corroborated (NIST SRD 20, dual extraction; ' +
-        'not human-verified). NIST-evaluated reference energies; the band is the observed range across ' +
-        'chemical states. Spin-orbit partners and chemical-state assignments are not curated. ' +
-        'See elements-machine.provenance.json.</div>';
+      noteHtml += '<div class="ref-note">From NIST SRD 20, automatically cross-checked but not yet ' +
+        'reviewed by a person. The value is a NIST-evaluated reference energy; the shaded band shows ' +
+        'the range seen across different chemical states. Spin-orbit partner lines and specific ' +
+        'chemical-state labels haven\'t been individually checked.</div>';
     }
     if (hasLegacyRow) {
-      noteHtml += '<div class="ref-note">Legacy-unverified survey marker(s), carried over verbatim from the ' +
-        'pre-migration in-app dataset — single rounded positions of unverified origin, not checked against ' +
-        'any external source. No expected-region band, spin-orbit, or visibility data. Treat as orientation only.</div>';
+      noteHtml += '<div class="ref-note">Approximate peak positions — use as a rough guide only, ' +
+        'and verify against literature sources.</div>';
     }
   }
 
   const srcId = items.length ? items[0].t.source : null;
   const cite = srcId && _refPayload.sources[srcId];
   const citeHtml = cite
-    ? '<div class="ref-cite" title="' + _escAttr(cite.citation) + '">source: ' + _escHtml(srcId) +
-      ' — hover for full citation; line rows carry per-record notes</div>'
+    ? '<div class="ref-cite" title="' + _escAttr(cite.citation) + '">Source: ' + _escHtml(srcId) +
+      ' — hover a line for the full citation.</div>'
     : '';
 
   const headRight = isMachine
-    ? '<span class="ref-badge-machine" title="NIST-evaluated, dual-extraction corroborated; not human-verified.">machine-source</span>'
+    ? '<span class="ref-badge-machine" title="From NIST, automatically cross-checked but not yet reviewed by a person.">machine-sourced</span>'
     : isLegacy
-      ? '<span class="ref-badge-legacy" title="Legacy in-app marker — not verified against any external source.">legacy-unverified</span>'
-      : '<span class="ref-el-status">' + _escHtml(status) + '</span>';
+      ? '<span class="ref-badge-legacy" title="Approximate value — verify against literature.">approximate</span>'
+      : '<span class="ref-el-status">reviewed</span>';
 
   return '<div class="ref-el-group">' +
     '<div class="ref-el-head"><span class="ref-el-swatch" style="background:' + color + '"></span>' +
@@ -10811,7 +10827,7 @@ function _refRenderPanel() {
   // curated and legacy-tier (activated) elements.
   const elOpts = Object.keys(_refElements()).filter(_refActivation).sort().map(sym => {
     const e = _refElements()[sym];
-    const suffix = e.tier === 'machine' ? ' — machine-source' : e.tier === 'legacy' ? ' — legacy-unverified' : '';
+    const suffix = e.tier === 'machine' ? ' — machine-sourced' : e.tier === 'legacy' ? ' — approximate' : '';
     return '<option value="' + _escAttr(sym) + '">' + _escHtml((e.pe || e.auger).name) + suffix + '</option>';
   }).join('');
   const elementSearchHtml = '<div class="ref-search-row"><input id="ref-el-search" list="ref-el-datalist" ' +
@@ -10831,7 +10847,7 @@ function _refRenderPanel() {
   if (!sel.syms.length) {
     detailsInner += '<div class="ref-hint">Click an element to overlay its reference lines on the spectrum. ' +
       'Solid-outlined elements are curated (source-verified); dashed elements carry only ' +
-      'legacy-unverified markers. Dimmed elements have no line data — no values are invented for them.</div>';
+      'approximate markers. Dimmed elements have no line data — no values are invented for them.</div>';
   }
   for (const s of sel.syms) detailsInner += _refRenderElementGroup(s, sel, range);
   const detailsZone = '<div class="ref-zone-details"><div class="ref-zone-head">Details</div>' + detailsInner + '</div>';
@@ -11328,10 +11344,12 @@ function _refRenderIdentifyResults(sel, range) {
   for (const c of ident.cands) {
     const cite = _refPayload.sources[c.sourceId];
     const tierBadge = c.dataTier === 'legacy'
-      ? '<span class="ref-cand-tier legacy" title="Legacy in-app marker — not verified against any external source.">legacy-unverified</span>'
+      ? '<span class="ref-cand-tier legacy" title="Approximate value — verify against literature.">approximate</span>'
       : c.dataTier === 'machine'
-        ? '<span class="ref-cand-tier machine" title="NIST-evaluated, dual-extraction corroborated; not human-verified.">machine-source</span>'
-        : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '">' + _escHtml(c.dataTier || '') + '</span>';
+        ? '<span class="ref-cand-tier machine" title="From NIST, automatically cross-checked but not yet reviewed by a person.">machine-sourced</span>'
+        : c.dataTier === 'curated'
+          ? '<span class="ref-cand-tier curated">reviewed</span>'
+          : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '">' + _escHtml(c.dataTier || '') + '</span>';
     const kindTag = c.isCompound
       ? '<span class="ref-blend-kind compound">compound</span>'
       : '<span class="ref-blend-kind element">element</span>';

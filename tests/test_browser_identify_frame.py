@@ -382,5 +382,5 @@ def test_legacy_candidate_card_shows_tier_and_delta(page):
     page.wait_for_timeout(150)
     txt = page.inner_text("#ref-panel-body")
     assert "V 2p" in txt
-    assert "legacy-unverified" in txt        # data-tier badge, non-authoritative
+    assert "approximate" in txt              # data-tier badge (plain-language), non-authoritative
     assert "Δ" in txt                   # Δ shown
