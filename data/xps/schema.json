@@ -59,6 +59,10 @@
           "enum": ["curated", "machine", "partial", "uncurated"]
         },
         "curation_notes": { "type": "string" },
+        "short_caveat": {
+          "description": "Optional one-line plain-language caveat shown on the reviewed (curated) reference card above the 'more…' expander, which reveals the full curation_notes. Absent on machine/legacy records.",
+          "type": "string"
+        },
         "families": {
           "type": "array",
           "items": { "$ref": "#/$defs/family" }

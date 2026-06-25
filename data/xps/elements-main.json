@@ -8,6 +8,7 @@
       "name": "Carbon",
       "curation_status": "partial",
       "curation_notes": "Curated: 1s. NIST also tabulates a 1s surface core-level shift (SS-1s -0.95, Pate86) — not modeled. C KLL/KVV Auger values were not archive-recoverable — uncurated. Higher-BE chemical states (carbonates ~289.5+, fluorocarbons CF2/CF3) are NOT represented in the recovered NIST records — region top may need upward extension after hand-verification. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2015/2016).",
+      "short_caveat": "Reference is for elemental/adventitious carbon. Oxidized states (carbonates, C–F groups) sit at higher binding energy and may fall above the shaded band.",
       "families": [
         {
           "family": "1s",
@@ -35,6 +36,7 @@
       "name": "Oxygen",
       "curation_status": "partial",
       "curation_notes": "O KLL Auger KE is NOT curated: NIST tabulates only Auger-parameter records (AP-1s,KVV 1041.5 / 1043.9, KKMP88) whose KE decomposition is ambiguous — needs hand-verification against live SRD 20. NIST 1s records (531.2-533.0) are compound/adsorbate-hosted; the lattice-oxide low end (~529-530.5) is not represented in archive-recoverable records, hence the conservative-fallback region. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016).",
+      "short_caveat": "The reference band reflects compound and adsorbed oxygen. Lattice/metal-oxide oxygen sits lower and may fall below the band.",
       "families": [
         {
           "family": "1s",
@@ -80,6 +82,7 @@
       "name": "Chlorine",
       "curation_status": "partial",
       "curation_notes": "Curated: 2p doublet. The single archive-recoverable NIST elemental-page record (TPPF90) has an unidentified specimen (detail popup unarchived) — its 198.30 eV sits in metal-chloride territory; hand-check against live SRD 20. Chloride-compound 2p values were NOT archive-recoverable (the recovered compound page holds only Cl 1s records near 2815 eV from hard-X-ray work, beyond Al Ka reach) — region is fallback. Cl 2s not recovered — uncurated. In actinide chlorides (e.g. UCl4) the Cl 2p region overlaps U 5p3/2 — expect interference. Values recovered from NIST SRD 20 v4.1 via Internet Archive snapshots (2015/2016).",
+      "short_caveat": "The 2p reference is a single chloride-type value of unidentified specimen — use it as an approximate guide for the chloride region.",
       "families": [
         {
           "family": "2p",
@@ -120,6 +123,7 @@
       "name": "Copper",
       "curation_status": "partial",
       "curation_notes": "Curated: 2p doublet (LMM Auger lives in auger-lines.json). NIST also tabulates 3s (122.2-122.9), 3p3/2 (75.14, Seah89 NIST-evaluated), 2s (1096.4-1097.1), DS-3p (2.2-2.39) — not curated in v1. Cu2O/CuO/Cu(OH)2 chemical-state values and the Cu(II) shake-up satellites (~940-945 eV) were not recoverable from archived NIST pages — uncurated. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016).",
+      "short_caveat": "Reference is for copper metal. Cu(II) species show strong shake-up satellites near 940–945 eV that aren't included here but are diagnostic of oxidation state.",
       "families": [
         {
           "family": "2p",
@@ -160,6 +164,7 @@
       "name": "Niobium",
       "curation_status": "partial",
       "curation_notes": "Curated: 3d doublet. Nb-3d3/2 nominal is DERIVED (3d5/2 + DS-3d median), not a direct NIST record — the page holding direct 3d3/2 values was not archive-recoverable; hand-check. NIST also tabulates 3p3/2 (360.4-360.7), 3s (466.8-467.1), 4p3/2 (30.77, Powe95 NIST-evaluated), 4s (56.4), DS-3p (15.4-15.5), M5N23V Auger KE (167.6, NIST-evaluated) — not curated in v1. Oxide values (NbO/NbO2/Nb2O5) were not recoverable from archived NIST pages — region tops are fallback. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016).",
+      "short_caveat": "Reference is for niobium metal. Oxides (Nb₂O₅, NbO₂) sit at higher binding energy; the band's upper extent for those states is approximate.",
       "families": [
         {
           "family": "3d",

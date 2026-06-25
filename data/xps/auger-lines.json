@@ -8,6 +8,7 @@
       "name": "Copper",
       "curation_status": "partial",
       "curation_notes": "Curated: L3M4,5M4,5 (1G) — the principal Cu LMM line. Cu2O/CuO LMM kinetic energies (Wagner-plot values) were not recoverable from archived NIST pages — region floor is fallback to cover them; hand-check. NIST also tabulates M3VV (61 eV, PEJ82) and L2-series satellite offsets (SA- records, Scho72 et al.) — not curated in v1. Values recovered from NIST SRD 20 v3.5 via Internet Archive snapshot (2004).",
+      "short_caveat": "The principal Cu LMM Auger line. Oxide-specific kinetic energies — used in Auger-parameter (Wagner) analysis to tell Cu oxidation states apart — aren't included.",
       "families": [
         {
           "family": "LMM",
