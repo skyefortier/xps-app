@@ -5,17 +5,53 @@ Hard invariants — the emitted numbers are reference data, so any failure block
 """
 import json
 import os
-import subprocess
-
-import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "data", "xps")
+MACHINE_SNAPSHOT = os.path.join(REPO, "tests", "fixtures", "machine_records_snapshot.json")
+CURATED_SNAPSHOT = os.path.join(REPO, "tests", "fixtures", "curated_records_snapshot.json")
+
+# Curated photoelectron + auger files and the scientific element-level fields the
+# old byte-diff guard protected. Additive display fields (short_caveat) and the
+# families array are excluded — see tests/fixtures/curated_records_snapshot.json.
+CURATED_FILES = ("elements-main.json", "elements-actinides.json",
+                 "elements-lanthanides.json", "auger-lines.json")
+ELEMENT_META_FIELDS = ("symbol", "z", "name", "curation_status", "curation_notes")
+LEGACY_PAYLOADS = {"survey-lines.json": "elements",
+                   "chemical-states.json": "groups",
+                   "corrections.json": "crossrefs"}
 
 
 def _load(name):
     with open(os.path.join(DATA, name)) as f:
         return json.load(f)
+
+
+def _assert_curated_and_legacy_match_snapshot():
+    """Every curated transition, element-meta entry, and legacy payload in
+    curated_records_snapshot.json is still present and structurally identical in
+    the live data. Fixture is the SOLE oracle (no git/HEAD); additive display
+    fields (short_caveat) are excluded, so they never trip it."""
+    snap = json.load(open(CURATED_SNAPSHOT))
+    records, meta = {}, {}
+    for fn in CURATED_FILES:
+        for el in _load(fn)["elements"]:
+            meta[f"{fn}:{el['symbol']}"] = {k: el[k] for k in ELEMENT_META_FIELDS if k in el}
+            for fam in el["families"]:
+                for t in fam["transitions"]:
+                    records[t["id"]] = t
+    dropped = sorted(set(snap["records"]) - set(records))
+    assert not dropped, f"protected curated transitions dropped from live data: {dropped}"
+    for tid, rec in snap["records"].items():
+        assert records[tid] == rec, f"curated transition {tid} changed vs snapshot"
+    meta_dropped = sorted(set(snap["element_meta"]) - set(meta))
+    assert not meta_dropped, f"protected element meta dropped from live data: {meta_dropped}"
+    for key, m in snap["element_meta"].items():
+        assert meta[key] == m, f"element meta {key} (curation_status/notes) changed vs snapshot"
+    for fn, payload in snap["legacy_payloads"].items():
+        with open(os.path.join(DATA, "legacy", fn)) as f:
+            live = {k: json.load(f)[k] for k in payload}
+        assert live == payload, f"legacy {fn} scientific payload changed vs snapshot"
 
 
 MACHINE = _load("elements-machine.json")
@@ -106,24 +142,29 @@ def test_conflict_records_present():
     assert set(EXPECTED) <= set(_machine_by_id())
 
 
-def test_prior_machine_records_unchanged_vs_head():
-    # Curated + legacy byte-unchanged, and EVERY machine record present at HEAD
-    # (the 27, including the 4 conflict records) is byte-identical in the working
-    # tree — later work (coverage expansion) is purely additive.
-    paths = ["data/xps/elements-main.json", "data/xps/elements-actinides.json",
-             "data/xps/elements-lanthanides.json", "data/xps/auger-lines.json",
-             "data/xps/legacy"]
-    r = subprocess.run(["git", "-C", REPO, "diff", "--quiet", "HEAD", "--"] + paths)
-    if r.returncode not in (0, 1):
-        pytest.skip("git unavailable / no HEAD")
-    assert r.returncode == 0, "curated/legacy files changed — must stay byte-unchanged"
+def test_prior_machine_records_unchanged_vs_snapshot():
+    """Durable replacement for the old `..._vs_head` guard.
 
-    head = subprocess.run(["git", "-C", REPO, "show", "HEAD:data/xps/elements-machine.json"],
-                          capture_output=True, text=True)
-    if head.returncode != 0:
-        pytest.skip("HEAD elements-machine.json unavailable")
-    head_doc = json.loads(head.stdout)
-    head_by_id = {t["id"]: t for el in head_doc["elements"] for fam in el["families"] for t in fam["transitions"]}
-    new_by_id = {tid: t for tid, (t, el) in _machine_by_id().items()}
-    for tid, t in head_by_id.items():
-        assert new_by_id.get(tid) == t, f"prior machine record {tid} changed"
+    'Prior' is defined by the committed machine_records_snapshot.json fixture —
+    NOT by the moving git HEAD (reading HEAD reintroduced the moving-target bug
+    the count guard already hit). Every machine record in the snapshot, including
+    the four conflict records, must still be present and byte-identical in the
+    live machine file; coverage expansion is purely additive. Curated + legacy
+    scientific content is likewise frozen vs curated_records_snapshot.json.
+    Both fixtures are the sole oracle, so the guard is independent of git state
+    and working-tree cleanliness, and additive display fields don't trip it.
+    """
+    # Prior machine records — the fixture is the oracle.
+    snap = json.load(open(MACHINE_SNAPSHOT))["records"]
+    assert snap, "machine snapshot empty — regenerate from elements-machine.json"
+    live = {tid: t for tid, (t, el) in _machine_by_id().items()}
+    # the four conflict records are part of the protected baseline
+    assert set(EXPECTED) <= set(snap), \
+        "conflict records (Ti/Cr/Fe/P-2p3/2) missing from the machine snapshot baseline"
+    dropped = sorted(set(snap) - set(live))
+    assert not dropped, f"protected machine records dropped from live file: {dropped}"
+    for tid, rec in snap.items():
+        assert live[tid] == rec, f"prior machine record {tid} changed vs snapshot"
+
+    # Curated + legacy scientific content — frozen vs the curated fixture.
+    _assert_curated_and_legacy_match_snapshot()

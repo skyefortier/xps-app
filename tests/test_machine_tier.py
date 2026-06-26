@@ -9,13 +9,70 @@ Two layers, per the deploy constraint:
 import importlib.util
 import json
 import os
-import subprocess
 
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "data", "xps")
 STAGE9 = os.path.join(REPO, ".stage9")
+CURATED_SNAPSHOT = os.path.join(REPO, "tests", "fixtures", "curated_records_snapshot.json")
+
+# Curated photoelectron + auger files, and the scientific element-level fields
+# the byte-diff guard used to protect. Additive display fields (short_caveat) and
+# the families array are deliberately NOT here — see curated_records_snapshot.json.
+CURATED_FILES = ("elements-main.json", "elements-actinides.json",
+                 "elements-lanthanides.json", "auger-lines.json")
+ELEMENT_META_FIELDS = ("symbol", "z", "name", "curation_status", "curation_notes")
+LEGACY_PAYLOADS = {"survey-lines.json": "elements",
+                   "chemical-states.json": "groups",
+                   "corrections.json": "crossrefs"}
+
+
+def _live_curated_records_and_meta():
+    """Extract live curated transitions (whole, by id) + per-element scientific
+    meta (allowlisted fields only, so short_caveat/families don't participate)."""
+    records, meta = {}, {}
+    for fn in CURATED_FILES:
+        for el in _load(fn)["elements"]:
+            meta[f"{fn}:{el['symbol']}"] = {k: el[k] for k in ELEMENT_META_FIELDS if k in el}
+            for fam in el["families"]:
+                for t in fam["transitions"]:
+                    records[t["id"]] = t
+    return records, meta
+
+
+def _live_legacy_payloads():
+    out = {}
+    for fn, key in LEGACY_PAYLOADS.items():
+        with open(os.path.join(DATA, "legacy", fn)) as f:
+            out[fn] = {key: json.load(f)[key]}
+    return out
+
+
+def assert_curated_and_legacy_match_snapshot():
+    """Shared durable check: every curated transition, element meta entry, and
+    legacy payload in curated_records_snapshot.json is still present and
+    structurally identical in the live data. The fixture is the SOLE oracle —
+    no git/HEAD is consulted, so working-tree cleanliness is irrelevant; and
+    additive display fields (short_caveat) are excluded, so they never trip it.
+    A mutated value/region/tier/curation_notes/source IS caught."""
+    snap = json.load(open(CURATED_SNAPSHOT))
+    assert snap["records"], "snapshot has no curated records — regenerate from data"
+    live_records, live_meta = _live_curated_records_and_meta()
+
+    dropped = sorted(set(snap["records"]) - set(live_records))
+    assert not dropped, f"protected curated transitions dropped from live data: {dropped}"
+    for tid, rec in snap["records"].items():
+        assert live_records[tid] == rec, f"curated transition {tid} changed vs snapshot"
+
+    meta_dropped = sorted(set(snap["element_meta"]) - set(live_meta))
+    assert not meta_dropped, f"protected element meta dropped from live data: {meta_dropped}"
+    for key, m in snap["element_meta"].items():
+        assert live_meta[key] == m, f"element meta {key} (curation_status/notes) changed vs snapshot"
+
+    live_legacy = _live_legacy_payloads()
+    for fn, payload in snap["legacy_payloads"].items():
+        assert live_legacy[fn] == payload, f"legacy {fn} scientific payload changed vs snapshot"
 
 
 def _load(name):
@@ -112,16 +169,14 @@ def test_additive_only_no_curated_overlap():
         assert (t["element"], t["orbital"]) not in curated, t["id"]
 
 
-def test_curated_and_legacy_byte_unchanged():
-    # The generator writes only the three machine sidecars; curated + legacy
-    # files are untouched (verified against git HEAD).
-    paths = ["data/xps/elements-main.json", "data/xps/elements-actinides.json",
-             "data/xps/elements-lanthanides.json", "data/xps/auger-lines.json",
-             "data/xps/legacy"]
-    r = subprocess.run(["git", "-C", REPO, "diff", "--quiet", "HEAD", "--"] + paths)
-    if r.returncode not in (0, 1):
-        pytest.skip("git unavailable / no HEAD")
-    assert r.returncode == 0, "curated/legacy files differ from HEAD — must stay byte-unchanged"
+def test_curated_and_legacy_content_unchanged_vs_snapshot():
+    # The machine-tier generator writes only the three machine sidecars; curated
+    # + legacy scientific content stays put. Durable replacement for the old
+    # whole-file `git diff --quiet HEAD` guard, which went spuriously RED on any
+    # uncommitted edit and false-failed the additive short_caveat work. The
+    # committed fixture — not git/HEAD — is the oracle, and only scientific
+    # fields are compared, so additive display fields don't trip it.
+    assert_curated_and_legacy_match_snapshot()
 
 
 # ── .stage9-gated invariants ─────────────────────────────────────────────────

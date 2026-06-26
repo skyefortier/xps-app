@@ -1,0 +1,2256 @@
+{
+  "description": "Protected-baseline oracle for the curated photoelectron + auger reference records and the frozen legacy directory (data/xps/elements-main.json, elements-actinides.json, elements-lanthanides.json, auger-lines.json, legacy/). Replaces the brittle whole-file `git diff --quiet HEAD` guards (test_curated_and_legacy_content_unchanged_vs_snapshot in test_machine_tier.py and test_prior_machine_records_unchanged_vs_snapshot in test_conflict_resolution.py), which went spuriously RED on any uncommitted edit and conflated byte-identity with scientific-content identity. 'records' maps transition id -> the whole transition object; 'element_meta' maps '<file>:<symbol>' -> the scientific element fields (symbol, z, name, curation_status, curation_notes) ONLY — additive display/help fields such as short_caveat and the families array are deliberately excluded so they never trip the guard; 'legacy_payloads' maps each legacy file -> its scientific payload. The guards assert every snapshot entry is still present and structurally identical in the live files (mutated value/region/tier/curation_notes/source IS caught); records added later are additive and neither protected nor blocked until this baseline is intentionally extended. THE FIXTURE IS THE SOLE ORACLE — the guards never read git/HEAD. REGENERATION IS A DELIBERATE MANUAL ACT (never inside pytest, never to silence a failure): run `python tests/fixtures/regen_curated_snapshot.py`.",
+  "records": {
+    "C-1s": {
+      "id": "C-1s",
+      "element": "C",
+      "z": 6,
+      "orbital": "1s",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 284.5,
+      "spin_orbit": null,
+      "expected_region_ev": {
+        "min": 282.0,
+        "max": 289.3,
+        "basis": "observed-reference-range"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Nominal is set to 284.5 — the app's C 1s graphite charge-correction reference — NOT the raw NIST-evaluated value (Powe95, starred: 284.44). C 1s is the calibration anchor, so the reference marker and the CC reference must agree; internal consistency beats the 0.06 eV difference (curator decision, S. Fortier 2026-06). NIST evidence: 20 elemental-form records span 282.0-286.9 incl. the Powe95 evaluated 284.44; NIST compound records (2015 page) extend organic C 1s components to 289.22 — region spans both. Carbonate/fluorocarbon upward extension (>289.5) is a future expansion."
+    },
+    "Cl-2p1/2": {
+      "id": "Cl-2p1/2",
+      "element": "Cl",
+      "z": 17,
+      "orbital": "2p1/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 199.9,
+      "spin_orbit": {
+        "partner_id": "Cl-2p3/2",
+        "splitting_ev": 1.6,
+        "area_ratio": 0.5
+      },
+      "expected_region_ev": {
+        "min": 198.1,
+        "max": 204.1,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "DERIVED: 198.30 (TPPF90) + 1.60 (DS-2p, BDH74) = 199.90 — no direct NIST 2p1/2 record was archive-recoverable. Needs hand-verification."
+    },
+    "Cl-2p3/2": {
+      "id": "Cl-2p3/2",
+      "element": "Cl",
+      "z": 17,
+      "orbital": "2p3/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 198.3,
+      "spin_orbit": {
+        "partner_id": "Cl-2p1/2",
+        "splitting_ev": 1.6,
+        "area_ratio": 2.0
+      },
+      "expected_region_ev": {
+        "min": 196.5,
+        "max": 202.5,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Single NIST elemental-page record (TPPF90, 198.30); splitting from the NIST DS-2p record (BDH74, 1.60). Region sized to span metal chlorides through organochlorine (fallback, unsourced); UCl4-type chlorides sit near the nominal. The narrow 1.6 eV splitting means the doublet often appears as one envelope in surveys. Overlaps U 5p3/2 in actinide chlorides."
+    },
+    "Cu-2p1/2": {
+      "id": "Cu-2p1/2",
+      "element": "Cu",
+      "z": 29,
+      "orbital": "2p1/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 952.56,
+      "spin_orbit": {
+        "partner_id": "Cu-2p3/2",
+        "splitting_ev": 19.82,
+        "area_ratio": 0.5
+      },
+      "expected_region_ev": {
+        "min": 951.0,
+        "max": 956.5,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Direct NIST records: 952.56 x2 + 952.55 (Mans94202), 952.45 (MiSi9355) — not derived from the splitting."
+    },
+    "Cu-2p3/2": {
+      "id": "Cu-2p3/2",
+      "element": "Cu",
+      "z": 29,
+      "orbital": "2p3/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 932.67,
+      "spin_orbit": {
+        "partner_id": "Cu-2p1/2",
+        "splitting_ev": 19.82,
+        "area_ratio": 2.0
+      },
+      "expected_region_ev": {
+        "min": 931.0,
+        "max": 936.5,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "NIST-evaluated value (Seah89, starred); 29 raw records span 932.2-933.1. Splitting = median of NIST DS-2p records (19.8 x3, 19.82 x2, 19.9 x2); note 952.56 - 932.67 = 19.89 disagrees slightly with the DS median — hand-check. Region top covers Cu(II) states (fallback, unsourced); area_ratio 2:1 from 2p degeneracy (2j+1)."
+    },
+    "Cu-L3M4,5M4,5": {
+      "id": "Cu-L3M4,5M4,5",
+      "element": "Cu",
+      "z": 29,
+      "orbital": "L3M4,5M4,5",
+      "transition_type": "auger",
+      "auger_ke_ev": 918.62,
+      "expected_region_ev": {
+        "min": 915.5,
+        "max": 919.5,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "NIST notation L3M45M45(1G); KINETIC energy. 25 NIST metal records span 918.1-919.0 with a tight modern cluster at 918.62-918.66 (SSA90 x2 918.62, BiSw80 918.62/.64/.66, AnSe84 918.63/.65, Asam76 918.65); no starred value on the archived page. Region (KE frame) floor extended to cover Cu2O/CuO whose LMM KEs sit lower — fallback, unsourced."
+    },
+    "Nb-3d3/2": {
+      "id": "Nb-3d3/2",
+      "element": "Nb",
+      "z": 41,
+      "orbital": "3d3/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 205.11,
+      "spin_orbit": {
+        "partner_id": "Nb-3d5/2",
+        "splitting_ev": 2.8,
+        "area_ratio": 0.6667
+      },
+      "expected_region_ev": {
+        "min": 203.8,
+        "max": 211.8,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "DERIVED: 202.31 (Powe12) + 2.8 (DS-3d median) = 205.11 — no direct NIST 3d3/2 record was archive-recoverable. Needs hand-verification against live SRD 20."
+    },
+    "Nb-3d5/2": {
+      "id": "Nb-3d5/2",
+      "element": "Nb",
+      "z": 41,
+      "orbital": "3d5/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 202.31,
+      "spin_orbit": {
+        "partner_id": "Nb-3d3/2",
+        "splitting_ev": 2.8,
+        "area_ratio": 1.5
+      },
+      "expected_region_ev": {
+        "min": 201.0,
+        "max": 209.0,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "NIST-evaluated value (Powe12, 2016 snapshot; the 2004 snapshot's evaluated Powe95 gives 202.34). 14 raw records span 201.5-202.6. Splitting = median of NIST DS-3d records (2.6, 2.75, 2.8 x3); handbooks often cite 2.72 — hand-check. Region top covers Nb(V) oxide (fallback, unsourced); area_ratio 3:2 from 3d degeneracy."
+    },
+    "O-1s": {
+      "id": "O-1s",
+      "element": "O",
+      "z": 8,
+      "orbital": "1s",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 531.4,
+      "spin_orbit": null,
+      "expected_region_ev": {
+        "min": 528.5,
+        "max": 534.5,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Median of 13 NIST records spanning 531.2-533.0 (KBG90, WVBM87, KKMP88, FPT88, TaYa87, KeSc90, RaDe91); no NIST-evaluated (starred) value exists for O 1s. Region floor extended below the NIST span to cover lattice metal oxides — fallback policy, not sourced data."
+    },
+    "O-2s": {
+      "id": "O-2s",
+      "element": "O",
+      "z": 8,
+      "orbital": "2s",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 28.3,
+      "spin_orbit": null,
+      "expected_region_ev": {
+        "min": 26.0,
+        "max": 31.0,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "weak",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Single NIST record (RaDe91, 28.30 eV) — low-confidence nominal; weak line. Overlaps the U 6p1/2 region in uranium samples."
+    },
+    "U-4d3/2": {
+      "id": "U-4d3/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "4d3/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 778.5,
+      "spin_orbit": {
+        "partner_id": "U-4d5/2",
+        "splitting_ev": 42.1,
+        "area_ratio": 0.6667
+      },
+      "expected_region_ev": {
+        "min": 777.0,
+        "max": 784.5,
+        "basis": "observed-reference-range"
+      },
+      "visibility": {
+        "AlKa": "moderate",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "DERIVED: 736.4 + 42.1 (DS-4d median) = 778.5 — no direct NIST elemental 4d3/2 record was archive-recoverable. Needs hand-verification against live SRD 20. Real samples are usually oxidized and appear higher — region spans the NIST-tabulated oxide record U3O7 781.7; top extended to 784.5 for U(VI) (curator-directed margin, 2026-06)."
+    },
+    "U-4d5/2": {
+      "id": "U-4d5/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "4d5/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 736.4,
+      "spin_orbit": {
+        "partner_id": "U-4d3/2",
+        "splitting_ev": 42.1,
+        "area_ratio": 1.5
+      },
+      "expected_region_ev": {
+        "min": 735.0,
+        "max": 742.0,
+        "basis": "observed-reference-range"
+      },
+      "visibility": {
+        "AlKa": "moderate",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Nominal is U METAL: four NIST records 736.0 (FBWF74), 736.4 (ScLa81), 736.7 (AlTu73), 736.8 (ACCT74) — 736.4 chosen as the record nearest the median; hand-check. Real samples are usually oxidized and appear higher — region spans NIST-tabulated oxide records UO2 737.7 / 738.6, U3O7 739.5; top extended to 742.0 for U(VI) (curator-directed margin, 2026-06; UO3 4d values not archive-recoverable). Splitting = median of NIST DS-4d records (42.1 x2, 42.3); area_ratio 3:2 from 4d degeneracy."
+    },
+    "U-4f5/2": {
+      "id": "U-4f5/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "4f5/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 388.4,
+      "spin_orbit": {
+        "partner_id": "U-4f7/2",
+        "splitting_ev": 10.8,
+        "area_ratio": 0.75
+      },
+      "expected_region_ev": {
+        "min": 386.5,
+        "max": 393.8,
+        "basis": "observed-reference-range"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Nominal is U METAL: direct NIST record (WCSW87); cross-check 377.6 (WCSW87 4f7/2) + 10.8 = 388.4 OK. Real samples are usually oxidized and appear higher — region spans NIST-tabulated oxidized states: D2O/U 388.0-391.5, Cs2U2O7 / Cs2UO4 uranates 391.6; top 393.8 mirrors the 4f7/2 band top (383.0) + DS-4f (10.8) for doublet congruence (curator-directed margin, 2026-06)."
+    },
+    "U-4f7/2": {
+      "id": "U-4f7/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "4f7/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 377.3,
+      "spin_orbit": {
+        "partner_id": "U-4f5/2",
+        "splitting_ev": 10.8,
+        "area_ratio": 1.3333
+      },
+      "expected_region_ev": {
+        "min": 375.5,
+        "max": 383.0,
+        "basis": "observed-reference-range"
+      },
+      "visibility": {
+        "AlKa": "major",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Nominal is U METAL: median of the 12-record metal cluster (376.5-377.6: HoTh79, VRPC74, AlTu73, ACCT74, Chad73, MCSS82, WRDM79, FBWF74, DMKK84z, ScLa81, WCSW86, WCSW87). Real samples are usually oxidized (UCl4, U4+/U6+) and appear SEVERAL eV HIGHER — the region spans the oxidation states: NIST-tabulated points are the metal cluster, the oxidized-surface record 380.2 (ChGr72), and ~380.8 implied by NIST U(VI) uranate 4f5/2 records (391.6, Cs2U2O7/Cs2UO4) minus DS-4f 10.8; top extended to 383.0 for U(VI) oxides (curator-directed margin, 2026-06). Splitting = median of 9 NIST DS-4f records (10.7-10.9); area_ratio 4:3 from 4f degeneracy."
+    },
+    "U-4s": {
+      "id": "U-4s",
+      "element": "U",
+      "z": 92,
+      "orbital": "4s",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 1043.0,
+      "spin_orbit": null,
+      "expected_region_ev": {
+        "min": 1041.5,
+        "max": 1049.0,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "weak",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Single NIST record (FBWF74) — low-confidence nominal. Oxidation-widened fallback region (U metal nominal; real samples shift higher)."
+    },
+    "U-5d3/2": {
+      "id": "U-5d3/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "5d3/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 102.6,
+      "spin_orbit": {
+        "partner_id": "U-5d5/2",
+        "splitting_ev": 8.6,
+        "area_ratio": 0.6667
+      },
+      "expected_region_ev": {
+        "min": 101.1,
+        "max": 108.6,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "moderate",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "DERIVED: 94.0 + 8.6 (DS-5d, FBWF74) = 102.6 — no direct NIST record archive-recoverable (the 5d3/2 line exists in NIST's v4.1 list). DOUBLE uncertainty: the splitting itself is contested (8.2 vs 8.6). Needs hand-verification."
+    },
+    "U-5d5/2": {
+      "id": "U-5d5/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "5d5/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 94.0,
+      "spin_orbit": {
+        "partner_id": "U-5d3/2",
+        "splitting_ev": 8.6,
+        "area_ratio": 1.5
+      },
+      "expected_region_ev": {
+        "min": 92.5,
+        "max": 100.0,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "moderate",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Three NIST records: 93.6 (AlTu73), 94.0 (ScLa81 — median record, chosen), 94.2 (FBWF74). DS-5d records DISAGREE: 8.2 (AlTu73) vs 8.6 (FBWF74) — 8.6 chosen for internal consistency with FBWF74's comprehensive U set; HAND-CHECK. Oxidation-widened fallback region; area_ratio 3:2 from 5d degeneracy."
+    },
+    "U-5p3/2": {
+      "id": "U-5p3/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "5p3/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 194.8,
+      "spin_orbit": null,
+      "expected_region_ev": {
+        "min": 193.3,
+        "max": 200.8,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "weak",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Single NIST record (FBWF74) — low-confidence nominal. Curated UNPAIRED: NIST's line list has no 5p1/2 entry (the DS-5p record, 63.6 eV FBWF74, is noted but unused). Oxidation-widened fallback region. OVERLAPS the Cl 2p region in actinide chlorides (e.g. UCl4) — expect interference."
+    },
+    "U-6p1/2": {
+      "id": "U-6p1/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "6p1/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 26.9,
+      "spin_orbit": {
+        "partner_id": "U-6p3/2",
+        "splitting_ev": 10.0,
+        "area_ratio": 0.5
+      },
+      "expected_region_ev": {
+        "min": 25.4,
+        "max": 32.9,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "weak",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "DERIVED: 16.9 + 10.0 (DS-6p, FBWF74) = 26.9 — no direct NIST record archive-recoverable (the 6p1/2 line exists in NIST's v4.1 list). Splitting contested (10.0 vs 10.5). Needs hand-verification. Overlaps the O 2s region (~28.3) in oxidized samples."
+    },
+    "U-6p3/2": {
+      "id": "U-6p3/2",
+      "element": "U",
+      "z": 92,
+      "orbital": "6p3/2",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 16.9,
+      "spin_orbit": {
+        "partner_id": "U-6p1/2",
+        "splitting_ev": 10.0,
+        "area_ratio": 2.0
+      },
+      "expected_region_ev": {
+        "min": 15.4,
+        "max": 22.9,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "weak",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Three NIST records: 16.8 (FBWF74), 16.9 (WCSW87 — median, chosen), 18.0 (VeLa74). DS-6p records DISAGREE: 10.0 (FBWF74) vs 10.5 (VeLa74) — 10.0 chosen (internally consistent with FBWF74's 16.8); HAND-CHECK. Oxidation-widened fallback region; area_ratio 2:1 from 6p degeneracy."
+    },
+    "U-6s": {
+      "id": "U-6s",
+      "element": "U",
+      "z": 92,
+      "orbital": "6s",
+      "transition_type": "photoelectron",
+      "nominal_be_ev": 43.9,
+      "spin_orbit": null,
+      "expected_region_ev": {
+        "min": 42.4,
+        "max": 49.9,
+        "basis": "conservative-fallback"
+      },
+      "visibility": {
+        "AlKa": "weak",
+        "MgKa": "uncurated"
+      },
+      "source": "nist-srd-20",
+      "notes": "Single NIST record (FBWF74) — low-confidence nominal. Oxidation-widened fallback region."
+    }
+  },
+  "element_meta": {
+    "auger-lines.json:Cu": {
+      "symbol": "Cu",
+      "z": 29,
+      "name": "Copper",
+      "curation_status": "partial",
+      "curation_notes": "Curated: L3M4,5M4,5 (1G) — the principal Cu LMM line. Cu2O/CuO LMM kinetic energies (Wagner-plot values) were not recoverable from archived NIST pages — region floor is fallback to cover them; hand-check. NIST also tabulates M3VV (61 eV, PEJ82) and L2-series satellite offsets (SA- records, Scho72 et al.) — not curated in v1. Values recovered from NIST SRD 20 v3.5 via Internet Archive snapshot (2004)."
+    },
+    "elements-actinides.json:U": {
+      "symbol": "U",
+      "z": 92,
+      "name": "Uranium",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 4f doublet + 4d family. Nominals are U METAL values, but real samples are almost always oxidized (UCl4, U4+/U6+ oxides) and sit several eV HIGHER — expected_region_ev bands are therefore widened upward through the common oxidation states (curator-directed, 2026-06) so orientation bands cover where actual sample peaks appear. U-4d3/2 nominal is DERIVED (4d5/2 + DS-4d median), not a direct NIST record — hand-check. UO2/U3O8/UO3 4f7/2 chemical-state values were NOT archive-recoverable (compound pages 2-5 unarchived) — uncurated; NIST v4.1 line list confirms 4f7/2,sat / 4f5/2,sat satellite records exist but their values were not recoverable — uncurated. Shallow lines (4s, 5d, 5p3/2, 6p, 6s) are curated from the complete 2004 NIST element page. 4p3/2 exists in NIST's v4.1 line list but no value was archive-recoverable — uncurated. U 5f is NOT tabulated as a line in NIST SRD 20 (valence character) — intentionally absent, not an omission. 5p1/2 is not in NIST's line list — 5p3/2 is curated unpaired (the DS-5p record, 63.6 eV FBWF74, is noted but unused). One NIST compound record (U3O7 4d3/2 = 105.3 eV) is a physically impossible data-entry artifact and was discarded. Asymmetric U 4f broadening in U(IV) compounds arises from 5f multiplet coupling — use multiplet models, not single DS peaks (see CLAUDE.md). Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2015/2016/2023)."
+    },
+    "elements-main.json:C": {
+      "symbol": "C",
+      "z": 6,
+      "name": "Carbon",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 1s. NIST also tabulates a 1s surface core-level shift (SS-1s -0.95, Pate86) — not modeled. C KLL/KVV Auger values were not archive-recoverable — uncurated. Higher-BE chemical states (carbonates ~289.5+, fluorocarbons CF2/CF3) are NOT represented in the recovered NIST records — region top may need upward extension after hand-verification. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2015/2016)."
+    },
+    "elements-main.json:Cl": {
+      "symbol": "Cl",
+      "z": 17,
+      "name": "Chlorine",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 2p doublet. The single archive-recoverable NIST elemental-page record (TPPF90) has an unidentified specimen (detail popup unarchived) — its 198.30 eV sits in metal-chloride territory; hand-check against live SRD 20. Chloride-compound 2p values were NOT archive-recoverable (the recovered compound page holds only Cl 1s records near 2815 eV from hard-X-ray work, beyond Al Ka reach) — region is fallback. Cl 2s not recovered — uncurated. In actinide chlorides (e.g. UCl4) the Cl 2p region overlaps U 5p3/2 — expect interference. Values recovered from NIST SRD 20 v4.1 via Internet Archive snapshots (2015/2016)."
+    },
+    "elements-main.json:Cu": {
+      "symbol": "Cu",
+      "z": 29,
+      "name": "Copper",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 2p doublet (LMM Auger lives in auger-lines.json). NIST also tabulates 3s (122.2-122.9), 3p3/2 (75.14, Seah89 NIST-evaluated), 2s (1096.4-1097.1), DS-3p (2.2-2.39) — not curated in v1. Cu2O/CuO/Cu(OH)2 chemical-state values and the Cu(II) shake-up satellites (~940-945 eV) were not recoverable from archived NIST pages — uncurated. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016)."
+    },
+    "elements-main.json:Nb": {
+      "symbol": "Nb",
+      "z": 41,
+      "name": "Niobium",
+      "curation_status": "partial",
+      "curation_notes": "Curated: 3d doublet. Nb-3d3/2 nominal is DERIVED (3d5/2 + DS-3d median), not a direct NIST record — the page holding direct 3d3/2 values was not archive-recoverable; hand-check. NIST also tabulates 3p3/2 (360.4-360.7), 3s (466.8-467.1), 4p3/2 (30.77, Powe95 NIST-evaluated), 4s (56.4), DS-3p (15.4-15.5), M5N23V Auger KE (167.6, NIST-evaluated) — not curated in v1. Oxide values (NbO/NbO2/Nb2O5) were not recoverable from archived NIST pages — region tops are fallback. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016)."
+    },
+    "elements-main.json:O": {
+      "symbol": "O",
+      "z": 8,
+      "name": "Oxygen",
+      "curation_status": "partial",
+      "curation_notes": "O KLL Auger KE is NOT curated: NIST tabulates only Auger-parameter records (AP-1s,KVV 1041.5 / 1043.9, KKMP88) whose KE decomposition is ambiguous — needs hand-verification against live SRD 20. NIST 1s records (531.2-533.0) are compound/adsorbate-hosted; the lattice-oxide low end (~529-530.5) is not represented in archive-recoverable records, hence the conservative-fallback region. Values recovered from NIST SRD 20 v3.5/v4.1 via Internet Archive snapshots (2004/2016)."
+    }
+  },
+  "legacy_payloads": {
+    "survey-lines.json": {
+      "elements": [
+        {
+          "symbol": "Li",
+          "z": 3,
+          "z_basis": "definitional",
+          "name": "Lithium",
+          "lines": [
+            {
+              "id": "legacy-Li-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 55,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Be",
+          "z": 4,
+          "z_basis": "definitional",
+          "name": "Beryllium",
+          "lines": [
+            {
+              "id": "legacy-Be-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 112,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "B",
+          "z": 5,
+          "z_basis": "definitional",
+          "name": "Boron",
+          "lines": [
+            {
+              "id": "legacy-B-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 188,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "C",
+          "z": 6,
+          "z_basis": "definitional",
+          "name": "Carbon",
+          "lines": [
+            {
+              "id": "legacy-C-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 285,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "N",
+          "z": 7,
+          "z_basis": "definitional",
+          "name": "Nitrogen",
+          "lines": [
+            {
+              "id": "legacy-N-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 399,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "O",
+          "z": 8,
+          "z_basis": "definitional",
+          "name": "Oxygen",
+          "lines": [
+            {
+              "id": "legacy-O-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 531,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-O-KLL",
+              "orbital": "KLL",
+              "transition_type": "auger",
+              "be_ev": 978,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "F",
+          "z": 9,
+          "z_basis": "definitional",
+          "name": "Fluorine",
+          "lines": [
+            {
+              "id": "legacy-F-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 685,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Na",
+          "z": 11,
+          "z_basis": "definitional",
+          "name": "Sodium",
+          "lines": [
+            {
+              "id": "legacy-Na-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 1072,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-Na-KLL",
+              "orbital": "KLL",
+              "transition_type": "auger",
+              "be_ev": 497,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Mg",
+          "z": 12,
+          "z_basis": "definitional",
+          "name": "Magnesium",
+          "lines": [
+            {
+              "id": "legacy-Mg-1s",
+              "orbital": "1s",
+              "transition_type": "photoelectron",
+              "be_ev": 1304,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-Mg-KLL",
+              "orbital": "KLL",
+              "transition_type": "auger",
+              "be_ev": 306,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Al",
+          "z": 13,
+          "z_basis": "definitional",
+          "name": "Aluminium",
+          "lines": [
+            {
+              "id": "legacy-Al-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 73,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Si",
+          "z": 14,
+          "z_basis": "definitional",
+          "name": "Silicon",
+          "lines": [
+            {
+              "id": "legacy-Si-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 99,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-Si-2s",
+              "orbital": "2s",
+              "transition_type": "photoelectron",
+              "be_ev": 150,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "P",
+          "z": 15,
+          "z_basis": "definitional",
+          "name": "Phosphorus",
+          "lines": [
+            {
+              "id": "legacy-P-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 133,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "S",
+          "z": 16,
+          "z_basis": "definitional",
+          "name": "Sulfur",
+          "lines": [
+            {
+              "id": "legacy-S-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 164,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-S-2s",
+              "orbital": "2s",
+              "transition_type": "photoelectron",
+              "be_ev": 228,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Cl",
+          "z": 17,
+          "z_basis": "definitional",
+          "name": "Chlorine",
+          "lines": [
+            {
+              "id": "legacy-Cl-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 199,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-Cl-2s",
+              "orbital": "2s",
+              "transition_type": "photoelectron",
+              "be_ev": 270,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "K",
+          "z": 19,
+          "z_basis": "definitional",
+          "name": "Potassium",
+          "lines": [
+            {
+              "id": "legacy-K-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 293,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-K-2s",
+              "orbital": "2s",
+              "transition_type": "photoelectron",
+              "be_ev": 378,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ca",
+          "z": 20,
+          "z_basis": "definitional",
+          "name": "Calcium",
+          "lines": [
+            {
+              "id": "legacy-Ca-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 347,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ti",
+          "z": 22,
+          "z_basis": "definitional",
+          "name": "Titanium",
+          "lines": [
+            {
+              "id": "legacy-Ti-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 459,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "V",
+          "z": 23,
+          "z_basis": "definitional",
+          "name": "Vanadium",
+          "lines": [
+            {
+              "id": "legacy-V-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 517,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Cr",
+          "z": 24,
+          "z_basis": "definitional",
+          "name": "Chromium",
+          "lines": [
+            {
+              "id": "legacy-Cr-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 577,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Mn",
+          "z": 25,
+          "z_basis": "definitional",
+          "name": "Manganese",
+          "lines": [
+            {
+              "id": "legacy-Mn-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 641,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Fe",
+          "z": 26,
+          "z_basis": "definitional",
+          "name": "Iron",
+          "lines": [
+            {
+              "id": "legacy-Fe-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 711,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Co",
+          "z": 27,
+          "z_basis": "definitional",
+          "name": "Cobalt",
+          "lines": [
+            {
+              "id": "legacy-Co-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 778,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ni",
+          "z": 28,
+          "z_basis": "definitional",
+          "name": "Nickel",
+          "lines": [
+            {
+              "id": "legacy-Ni-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 853,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Cu",
+          "z": 29,
+          "z_basis": "definitional",
+          "name": "Copper",
+          "lines": [
+            {
+              "id": "legacy-Cu-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 933,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Zn",
+          "z": 30,
+          "z_basis": "definitional",
+          "name": "Zinc",
+          "lines": [
+            {
+              "id": "legacy-Zn-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 1022,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ga",
+          "z": 31,
+          "z_basis": "definitional",
+          "name": "Gallium",
+          "lines": [
+            {
+              "id": "legacy-Ga-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 1117,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ge",
+          "z": 32,
+          "z_basis": "definitional",
+          "name": "Germanium",
+          "lines": [
+            {
+              "id": "legacy-Ge-2p",
+              "orbital": "2p",
+              "transition_type": "photoelectron",
+              "be_ev": 1217,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "As",
+          "z": 33,
+          "z_basis": "definitional",
+          "name": "Arsenic",
+          "lines": [
+            {
+              "id": "legacy-As-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 42,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Se",
+          "z": 34,
+          "z_basis": "definitional",
+          "name": "Selenium",
+          "lines": [
+            {
+              "id": "legacy-Se-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 56,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Br",
+          "z": 35,
+          "z_basis": "definitional",
+          "name": "Bromine",
+          "lines": [
+            {
+              "id": "legacy-Br-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 69,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Sr",
+          "z": 38,
+          "z_basis": "definitional",
+          "name": "Strontium",
+          "lines": [
+            {
+              "id": "legacy-Sr-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 134,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Y",
+          "z": 39,
+          "z_basis": "definitional",
+          "name": "Yttrium",
+          "lines": [
+            {
+              "id": "legacy-Y-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 157,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Zr",
+          "z": 40,
+          "z_basis": "definitional",
+          "name": "Zirconium",
+          "lines": [
+            {
+              "id": "legacy-Zr-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 179,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Nb",
+          "z": 41,
+          "z_basis": "definitional",
+          "name": "Niobium",
+          "lines": [
+            {
+              "id": "legacy-Nb-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 202,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Mo",
+          "z": 42,
+          "z_basis": "definitional",
+          "name": "Molybdenum",
+          "lines": [
+            {
+              "id": "legacy-Mo-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 228,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ag",
+          "z": 47,
+          "z_basis": "definitional",
+          "name": "Silver",
+          "lines": [
+            {
+              "id": "legacy-Ag-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 368,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Cd",
+          "z": 48,
+          "z_basis": "definitional",
+          "name": "Cadmium",
+          "lines": [
+            {
+              "id": "legacy-Cd-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 405,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "In",
+          "z": 49,
+          "z_basis": "definitional",
+          "name": "Indium",
+          "lines": [
+            {
+              "id": "legacy-In-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 444,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Sn",
+          "z": 50,
+          "z_basis": "definitional",
+          "name": "Tin",
+          "lines": [
+            {
+              "id": "legacy-Sn-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 485,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Sb",
+          "z": 51,
+          "z_basis": "definitional",
+          "name": "Antimony",
+          "lines": [
+            {
+              "id": "legacy-Sb-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 528,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Te",
+          "z": 52,
+          "z_basis": "definitional",
+          "name": "Tellurium",
+          "lines": [
+            {
+              "id": "legacy-Te-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 573,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "I",
+          "z": 53,
+          "z_basis": "definitional",
+          "name": "Iodine",
+          "lines": [
+            {
+              "id": "legacy-I-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 619,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ba",
+          "z": 56,
+          "z_basis": "definitional",
+          "name": "Barium",
+          "lines": [
+            {
+              "id": "legacy-Ba-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 780,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "La",
+          "z": 57,
+          "z_basis": "definitional",
+          "name": "Lanthanum",
+          "lines": [
+            {
+              "id": "legacy-La-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 836,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Ce",
+          "z": 58,
+          "z_basis": "definitional",
+          "name": "Cerium",
+          "lines": [
+            {
+              "id": "legacy-Ce-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 882,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Nd",
+          "z": 60,
+          "z_basis": "definitional",
+          "name": "Neodymium",
+          "lines": [
+            {
+              "id": "legacy-Nd-3d",
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "be_ev": 982,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "W",
+          "z": 74,
+          "z_basis": "definitional",
+          "name": "Tungsten",
+          "lines": [
+            {
+              "id": "legacy-W-4f",
+              "orbital": "4f",
+              "transition_type": "photoelectron",
+              "be_ev": 31,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Pt",
+          "z": 78,
+          "z_basis": "definitional",
+          "name": "Platinum",
+          "lines": [
+            {
+              "id": "legacy-Pt-4f",
+              "orbital": "4f",
+              "transition_type": "photoelectron",
+              "be_ev": 71,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Au",
+          "z": 79,
+          "z_basis": "definitional",
+          "name": "Gold",
+          "lines": [
+            {
+              "id": "legacy-Au-4f",
+              "orbital": "4f",
+              "transition_type": "photoelectron",
+              "be_ev": 84,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Pb",
+          "z": 82,
+          "z_basis": "definitional",
+          "name": "Lead",
+          "lines": [
+            {
+              "id": "legacy-Pb-4f",
+              "orbital": "4f",
+              "transition_type": "photoelectron",
+              "be_ev": 137,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Bi",
+          "z": 83,
+          "z_basis": "definitional",
+          "name": "Bismuth",
+          "lines": [
+            {
+              "id": "legacy-Bi-4f",
+              "orbital": "4f",
+              "transition_type": "photoelectron",
+              "be_ev": 157,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "Th",
+          "z": 90,
+          "z_basis": "definitional",
+          "name": "Thorium",
+          "lines": [
+            {
+              "id": "legacy-Th-4f",
+              "orbital": "4f",
+              "transition_type": "photoelectron",
+              "be_ev": 333,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "symbol": "U",
+          "z": 92,
+          "z_basis": "definitional",
+          "name": "Uranium",
+          "lines": [
+            {
+              "id": "legacy-U-4f",
+              "orbital": "4f",
+              "transition_type": "photoelectron",
+              "be_ev": 380,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-U-4d",
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "be_ev": 736,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-U-5d",
+              "orbital": "5d",
+              "transition_type": "photoelectron",
+              "be_ev": 98,
+              "be_basis": "legacy-marker-position",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        }
+      ]
+    },
+    "chemical-states.json": {
+      "groups": [
+        {
+          "orbital_key": "C 1s",
+          "element": "C",
+          "z": 6,
+          "z_basis": "definitional",
+          "orbital": "1s",
+          "states": [
+            {
+              "id": "legacy-cs-C-1s-0",
+              "state": "Graphite/C-C",
+              "be_ev": 284.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-1",
+              "state": "Adventitious C-C/C-H",
+              "be_ev": 284.8,
+              "ref": "ISO 19318",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-2",
+              "state": "C-O (alcohol/ether)",
+              "be_ev": 286.3,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-3",
+              "state": "C=O (carbonyl)",
+              "be_ev": 287.8,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-4",
+              "state": "O-C=O (carboxyl)",
+              "be_ev": 288.8,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-5",
+              "state": "π→π* shake-up",
+              "be_ev": 290.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-6",
+              "state": "CO₃ (carbonate)",
+              "be_ev": 289.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-7",
+              "state": "CF₂ (PTFE)",
+              "be_ev": 292,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-C-1s-8",
+              "state": "CF₃",
+              "be_ev": 293.5,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "O 1s",
+          "element": "O",
+          "z": 8,
+          "z_basis": "definitional",
+          "orbital": "1s",
+          "states": [
+            {
+              "id": "legacy-cs-O-1s-0",
+              "state": "Metal oxide (M-O)",
+              "be_ev": 530,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-O-1s-1",
+              "state": "Hydroxide (M-OH)",
+              "be_ev": 531.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-O-1s-2",
+              "state": "Adsorbed H₂O",
+              "be_ev": 533,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-O-1s-3",
+              "state": "SiO₂",
+              "be_ev": 532.9,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-O-1s-4",
+              "state": "Organic C-O",
+              "be_ev": 532.5,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-O-1s-5",
+              "state": "Organic C=O",
+              "be_ev": 531.8,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "N 1s",
+          "element": "N",
+          "z": 7,
+          "z_basis": "definitional",
+          "orbital": "1s",
+          "states": [
+            {
+              "id": "legacy-cs-N-1s-0",
+              "state": "Metal nitride",
+              "be_ev": 397,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-N-1s-1",
+              "state": "Amine (NH₂)",
+              "be_ev": 399.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-N-1s-2",
+              "state": "Amide (N-C=O)",
+              "be_ev": 400,
+              "ref": "Beamson 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-N-1s-3",
+              "state": "NH₄⁺ / protonated amine",
+              "be_ev": 401.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-N-1s-4",
+              "state": "NO₃ (nitrate)",
+              "be_ev": 407,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "Si 2p",
+          "element": "Si",
+          "z": 14,
+          "z_basis": "definitional",
+          "orbital": "2p",
+          "states": [
+            {
+              "id": "legacy-cs-Si-2p-0",
+              "state": "Si metal",
+              "be_ev": 99.3,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Si-2p-1",
+              "state": "SiO₂",
+              "be_ev": 103.3,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Si-2p-2",
+              "state": "Si₃N₄",
+              "be_ev": 101.8,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Si-2p-3",
+              "state": "SiC",
+              "be_ev": 100.4,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "Fe 2p3/2",
+          "element": "Fe",
+          "z": 26,
+          "z_basis": "definitional",
+          "orbital": "2p3/2",
+          "states": [
+            {
+              "id": "legacy-cs-Fe-2p32-0",
+              "state": "Fe metal",
+              "be_ev": 707,
+              "ref": "Biesinger 2011",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Fe-2p32-1",
+              "state": "FeO (Fe²⁺)",
+              "be_ev": 709.5,
+              "ref": "Biesinger 2011",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Fe-2p32-2",
+              "state": "Fe₂O₃ (Fe³⁺)",
+              "be_ev": 710.7,
+              "ref": "Biesinger 2011",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Fe-2p32-3",
+              "state": "FeOOH",
+              "be_ev": 711.3,
+              "ref": "Biesinger 2011",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Fe-2p32-4",
+              "state": "FeSO₄",
+              "be_ev": 712,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "Cu 2p3/2",
+          "element": "Cu",
+          "z": 29,
+          "z_basis": "definitional",
+          "orbital": "2p3/2",
+          "states": [
+            {
+              "id": "legacy-cs-Cu-2p32-0",
+              "state": "Cu metal",
+              "be_ev": 932.6,
+              "ref": "Biesinger 2017",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Cu-2p32-1",
+              "state": "Cu₂O (Cu⁺)",
+              "be_ev": 932.4,
+              "ref": "Biesinger 2017",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Cu-2p32-2",
+              "state": "CuO (Cu²⁺)",
+              "be_ev": 933.6,
+              "ref": "Biesinger 2017",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Cu-2p32-3",
+              "state": "Cu(OH)₂",
+              "be_ev": 934.5,
+              "ref": "Biesinger 2017",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "Ti 2p3/2",
+          "element": "Ti",
+          "z": 22,
+          "z_basis": "definitional",
+          "orbital": "2p3/2",
+          "states": [
+            {
+              "id": "legacy-cs-Ti-2p32-0",
+              "state": "Ti metal",
+              "be_ev": 454,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Ti-2p32-1",
+              "state": "TiO₂ (Ti⁴⁺)",
+              "be_ev": 458.8,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Ti-2p32-2",
+              "state": "Ti₂O₃ (Ti³⁺)",
+              "be_ev": 457.1,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Ti-2p32-3",
+              "state": "TiN",
+              "be_ev": 455.8,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "U 4f7/2",
+          "element": "U",
+          "z": 92,
+          "z_basis": "definitional",
+          "orbital": "4f7/2",
+          "states": [
+            {
+              "id": "legacy-cs-U-4f72-0",
+              "state": "U metal",
+              "be_ev": 377.3,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-U-4f72-1",
+              "state": "UO₂ (U⁴⁺)",
+              "be_ev": 380,
+              "ref": "Ilton 2007",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-U-4f72-2",
+              "state": "U₃O₈ (mixed)",
+              "be_ev": 380.8,
+              "ref": "Ilton 2007",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-U-4f72-3",
+              "state": "UO₃ (U⁶⁺)",
+              "be_ev": 381.5,
+              "ref": "Ilton 2007",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-U-4f72-4",
+              "state": "UCl₄",
+              "be_ev": 380.2,
+              "ref": "Fortier 2026",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "Cl 2p3/2",
+          "element": "Cl",
+          "z": 17,
+          "z_basis": "definitional",
+          "orbital": "2p3/2",
+          "states": [
+            {
+              "id": "legacy-cs-Cl-2p32-0",
+              "state": "Organic Cl (C-Cl)",
+              "be_ev": 200.3,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Cl-2p32-1",
+              "state": "Metal chloride",
+              "be_ev": 198.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Cl-2p32-2",
+              "state": "ClO₄⁻ (perchlorate)",
+              "be_ev": 207.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "Au 4f7/2",
+          "element": "Au",
+          "z": 79,
+          "z_basis": "definitional",
+          "orbital": "4f7/2",
+          "states": [
+            {
+              "id": "legacy-cs-Au-4f72-0",
+              "state": "Au metal",
+              "be_ev": 84,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Au-4f72-1",
+              "state": "Au₂O₃ (Au³⁺)",
+              "be_ev": 85.8,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-Au-4f72-2",
+              "state": "AuCl₃",
+              "be_ev": 86.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        },
+        {
+          "orbital_key": "S 2p3/2",
+          "element": "S",
+          "z": 16,
+          "z_basis": "definitional",
+          "orbital": "2p3/2",
+          "states": [
+            {
+              "id": "legacy-cs-S-2p32-0",
+              "state": "Thiol (S-H)",
+              "be_ev": 163,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-S-2p32-1",
+              "state": "Sulfide (S²⁻)",
+              "be_ev": 161.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-S-2p32-2",
+              "state": "Sulfate (SO₄²⁻)",
+              "be_ev": 169,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            },
+            {
+              "id": "legacy-cs-S-2p32-3",
+              "state": "Sulfite (SO₃²⁻)",
+              "be_ev": 166.5,
+              "ref": "Moulder 1992",
+              "source": "legacy-embedded-dataset",
+              "tier": "legacy-unverified"
+            }
+          ]
+        }
+      ]
+    },
+    "corrections.json": {
+      "crossrefs": [
+        {
+          "field_id": "f0003",
+          "element": "C",
+          "orbital": "1s",
+          "legacy_be": 285,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "1s",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 284.5
+        },
+        {
+          "field_id": "f0005",
+          "element": "O",
+          "orbital": "1s",
+          "legacy_be": 531,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "1s",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 531.4
+        },
+        {
+          "field_id": "f0009",
+          "element": "Na",
+          "orbital": "KLL",
+          "legacy_be": 497,
+          "source": "nist-srd-20",
+          "basis": "auger-ke-frame",
+          "tier": "transcription-corroborated",
+          "note": "KINETIC energy; apparent BE computed at display",
+          "auger_ke": 994.4,
+          "marker_note": "Auger: marker stays at legacy apparent-BE; corrected KINETIC energy recorded for overlay (apparent BE = hv-KE-wf at display).",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "auger-apparent-be",
+          "curated_elemental_nominal": 994.4
+        },
+        {
+          "field_id": "f0011",
+          "element": "Mg",
+          "orbital": "KLL",
+          "legacy_be": 306,
+          "source": "nist-srd-20",
+          "basis": "auger-ke-frame",
+          "tier": "transcription-corroborated",
+          "note": "KINETIC energy; apparent BE computed at display",
+          "auger_ke": 1185.65,
+          "marker_note": "Auger: marker stays at legacy apparent-BE; corrected KINETIC energy recorded for overlay (apparent BE = hv-KE-wf at display).",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "auger-apparent-be",
+          "curated_elemental_nominal": 1185.65
+        },
+        {
+          "field_id": "f0015",
+          "element": "P",
+          "orbital": "2p",
+          "legacy_be": 133,
+          "source": "nist-srd-20",
+          "basis": "elemental-nominal-with-oxidation-range",
+          "region": [
+            129.4,
+            134.5
+          ],
+          "tier": "transcription-corroborated",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "compound-or-oxide",
+          "curated_elemental_nominal": 130.15
+        },
+        {
+          "field_id": "f0018",
+          "element": "Cl",
+          "orbital": "2p",
+          "legacy_be": 199,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "2p3/2",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 198.3
+        },
+        {
+          "field_id": "f0023",
+          "element": "Ti",
+          "orbital": "2p",
+          "legacy_be": 459,
+          "source": "nist-srd-20",
+          "basis": "elemental-nominal-with-oxidation-range",
+          "region": [
+            452.7,
+            460.5
+          ],
+          "tier": "transcription-corroborated",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "compound-or-oxide",
+          "curated_elemental_nominal": 453.89
+        },
+        {
+          "field_id": "f0024",
+          "element": "V",
+          "orbital": "2p",
+          "legacy_be": 517,
+          "source": "nist-srd-20",
+          "basis": "elemental-nominal-with-oxidation-range",
+          "region": [
+            511.6,
+            518.5
+          ],
+          "tier": "transcription-corroborated",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "compound-or-oxide",
+          "curated_elemental_nominal": 512.4
+        },
+        {
+          "field_id": "f0025",
+          "element": "Cr",
+          "orbital": "2p",
+          "legacy_be": 577,
+          "source": "nist-srd-20",
+          "basis": "elemental-nominal-with-oxidation-range",
+          "region": [
+            573.3,
+            578.5
+          ],
+          "tier": "transcription-corroborated",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "compound-or-oxide",
+          "curated_elemental_nominal": 574.26
+        },
+        {
+          "field_id": "f0027",
+          "element": "Fe",
+          "orbital": "2p",
+          "legacy_be": 711,
+          "source": "nist-srd-20",
+          "basis": "elemental-nominal-with-oxidation-range",
+          "region": [
+            706.0,
+            712.5
+          ],
+          "tier": "transcription-corroborated",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "compound-or-oxide",
+          "curated_elemental_nominal": 706.92
+        },
+        {
+          "field_id": "f0030",
+          "element": "Cu",
+          "orbital": "2p",
+          "legacy_be": 933,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "2p3/2",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 932.67
+        },
+        {
+          "field_id": "f0040",
+          "element": "Nb",
+          "orbital": "3d",
+          "legacy_be": 202,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "3d5/2",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 202.31
+        },
+        {
+          "field_id": "f0059",
+          "element": "U",
+          "orbital": "4f",
+          "legacy_be": 380,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "4f7/2",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 377.3
+        },
+        {
+          "field_id": "f0060",
+          "element": "U",
+          "orbital": "4d",
+          "legacy_be": 736,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "4d5/2",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 736.4
+        },
+        {
+          "field_id": "f0061",
+          "element": "U",
+          "orbital": "5d",
+          "legacy_be": 98,
+          "source": "nist-srd-20",
+          "basis": "curated-nominal",
+          "curated_orbital": "5d5/2",
+          "tier": "curated-hand-verified",
+          "relationship": "distinct-observation",
+          "legacy_observation_kind": "legacy-value",
+          "curated_elemental_nominal": 94.0
+        }
+      ]
+    }
+  }
+}

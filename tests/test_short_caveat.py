@@ -7,12 +7,11 @@ expander, while the full ``curation_notes`` stays byte-identical behind it.
 These tests assert (a) the schema admits short_caveat and still admits its
 absence, (b) the seven target records carry the exact expected strings, (c)
 short_caveat is served through the loader untouched, and (d) this change did
-NOT alter any curation_notes string (compared per-record vs the branch point,
-main) — i.e. only short_caveat was added.
+NOT alter any curation_notes string (compared per-element against the committed
+curated/legacy snapshot fixture) — i.e. only short_caveat was added.
 """
 import json
 import os
-import subprocess
 from pathlib import Path
 
 import jsonschema
@@ -22,6 +21,10 @@ from xps_reference import load_reference
 
 REPO = Path(__file__).resolve().parents[1]
 DATA = REPO / "data" / "xps"
+# Same committed oracle the durable curated/legacy guards use (created in this
+# branch). Its element_meta carries each curated element's curation_notes and
+# deliberately EXCLUDES the additive short_caveat field.
+SNAPSHOT = REPO / "tests" / "fixtures" / "curated_records_snapshot.json"
 
 # The seven curated records and their verbatim caveats (exact unicode).
 EXPECTED = {
@@ -145,33 +148,21 @@ def test_loader_serves_every_short_caveat():
             assert served.get(sym) == text
 
 
-# (d) curation_notes strings byte-unchanged vs the branch point (main) ─────────
+# (d) curation_notes strings unchanged vs the committed snapshot fixture ───────
 
-def _git_show(ref_path):
-    r = subprocess.run(["git", "-C", str(REPO), "show", ref_path],
-                       capture_output=True, text=True)
-    return r
-
-
-def test_curation_notes_strings_unchanged_vs_main():
-    """Per-record curation_notes equality (NOT whole-object bytes — this change
-    intentionally adds short_caveat to the same objects). Every element's
-    curation_notes must match its value at main; only short_caveat is new."""
-    probe = _git_show("main:data/xps/elements-main.json")
-    if probe.returncode != 0:
-        pytest.skip("git/main unavailable")
-    changed = []
-    added_caveats = []
-    for fname in CURATED_FILES:
-        base = json.loads(_git_show(f"main:data/xps/{fname}").stdout)
-        base_notes = {el["symbol"]: el.get("curation_notes") for el in base["elements"]}
-        base_has_caveat = {el["symbol"] for el in base["elements"] if "short_caveat" in el}
-        for el in _doc(fname)["elements"]:
-            sym = el["symbol"]
-            if el.get("curation_notes") != base_notes.get(sym):
-                changed.append(f"{fname}:{sym}")
-            if "short_caveat" in el and sym not in base_has_caveat:
-                added_caveats.append(f"{fname}:{sym}")
-    assert changed == [], f"curation_notes changed (must be byte-identical): {changed}"
-    # sanity: main carried no short_caveat; this branch adds exactly the seven
-    assert len(added_caveats) == 7, added_caveats
+def test_curation_notes_unchanged_vs_snapshot():
+    """Every curated element's curation_notes must match the committed snapshot
+    fixture — the SAME oracle the durable curated/legacy guards use. Replaces the
+    old vs-`main` form, which hard-coded "exactly 7 short_caveats added vs main"
+    and went spuriously RED once short_caveat merged into main (a moving-target
+    bug). The fixture is the sole oracle (no git/main/HEAD reads). short_caveat is
+    an additive display field excluded from the fixture, so it never affects this
+    guard; only curation_notes content is protected here."""
+    meta = json.loads(SNAPSHOT.read_text(encoding="utf-8"))["element_meta"]
+    assert meta, "snapshot has no element_meta — regenerate from data"
+    for key, m in meta.items():
+        fname, sym = key.split(":", 1)
+        el = _by_symbol(fname).get(sym)
+        assert el is not None, f"protected curated element {key} dropped from live data"
+        assert el.get("curation_notes") == m.get("curation_notes"), \
+            f"curation_notes for {key} changed vs snapshot"
