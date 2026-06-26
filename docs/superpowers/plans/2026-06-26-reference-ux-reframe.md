@@ -164,7 +164,7 @@ c.setLineDash(m.isAuger ? [2, 3] : [6, 3]);   // element overlays always dashed;
 The legend is an HTML overlay positioned over the chart corner (NOT a Chart.js plugin — it needs interactive chips). It lists the active `sel.syms`; each chip = element color swatch + **tier color-dot** (`RefCore.tierColor`, not the word) + chevron + remove (×). It is the overlay manager: removing a chip removes the element from `sel.syms`; it is visible whenever overlays exist, regardless of palette state.
 
 - [ ] **Step 1: Add legend container + render fn** — `_refRenderLegend()` builds chips from `_refGetSel().syms`; mount in `#main-chart-wrap` (positioned, `pointer-events` only on chips). Each chip: `role="group"`, swatch `<span>`, tier dot `<span title>` (hover → tier toast, A4), chevron button (opens dropdown, A4), remove button (`aria-label="Remove <sym> overlay"`).
-- [ ] **Step 2: Wire lifecycle** — call `_refRenderLegend()` wherever `sel.syms` changes (`_refToggleElement` and the palette grid handlers) and on tab switch; hide when empty or on stack tabs.
+- [ ] **Step 2: Wire lifecycle + shared color assignment** — call `_refRenderLegend()` wherever `sel.syms` changes (`_refToggleElement` and the palette grid handlers) and on tab switch; hide when empty or on stack tabs. **Migrate the colorIdx assignment on element-add from the old `sel._nextColorIdx++` running counter to the shared `RefCore.nextColorIdx(sel.syms.map(s=>s.colorIdx), ELEMENT_MARKER_COLORS.length)`** (defined in B1; pure + order-independent — land it here at first use, reuse at load in B2 Step 3). This is the deliberate, flagged change to shared color assignment: it makes in-session picks residue-aware (no repeated rendered colors until the palette is exhausted) and is the SAME path post-load picks use, so restored and new overlays never share a rendered color while residues remain. Retire the vestigial `_nextColorIdx` field.
 - [ ] **Step 3: a11y** — chips keyboard-reachable (`tabindex`), remove on Enter/Space, `aria-pressed` not needed (button), tier meaning carried by the toast text + chip label (never color-only).
 - [ ] **Step 4: Verify (Playwright)** — add/remove elements via legend with palette closed; keyboard remove; tier dot hue matches SSOT; legend hidden on stack tab. Screenshot.
 - [ ] **Step 5: Commit** — `git commit -m "ref-ux: always-visible on-chart legend manages element overlays"`
@@ -232,9 +232,9 @@ The legend is an HTML overlay positioned over the chart corner (NOT a Chart.js p
 
 This is the **complete data-layer contract** Codex reviews before any save/load wiring (B2) is written. Nothing in B2/B3 may diverge from it.
 
-**1. Exact JSON shape + internal version.** Two homes, by confirmed scope (D2): **element overlays are PER-TAB**, **compound markers are GLOBAL at project-meta**. Both carry the SAME internal version constant `RefCore.REF_OVERLAYS_VERSION = 1` (independent of the top-level project `version`, which **stays at 3** — D3).
+**1. Exact JSON shape + DECOUPLED internal versions.** Two homes, by confirmed scope (D2): **element overlays are PER-TAB**, **compound markers are GLOBAL at project-meta**. **Each schema carries its OWN internal version constant** (P2 — decoupled so one can migrate without the other): `RefCore.REF_OVERLAYS_VERSION = 1` and `RefCore.REF_COMPOUND_MARKERS_VERSION = 1`. Both are independent of the top-level project `version` (which **stays at 3** — D3).
 
-Per-tab, inside each `data.tabs[i]` (omitted entirely when a tab has no element selection):
+Per-tab `refOverlays` (omitted when a tab has no valid element selection):
 ```jsonc
 "refOverlays": {
   "v": 1,
@@ -245,104 +245,153 @@ Per-tab, inside each `data.tabs[i]` (omitted entirely when a tab has no element 
   "includeAuger": false
 }
 ```
-Project-meta, alongside `version`/`activeId` (omitted when empty), preserving today's GLOBAL compound-marker scope:
+Project-meta `refCompoundMarkers` (omitted when empty), preserving today's GLOBAL compound-marker scope:
 ```jsonc
 "refCompoundMarkers": {
   "v": 1,
   "markers": [ { "sym": "Cu", "state": "Cu2O", "be": 932.5, "ref": "NIST ..." } ]
 }
 ```
-- `serializeRefOverlays(sel)` → the per-tab object above (or `null`/omit when `sel.syms` is empty). **`colorIdx` is saved explicitly** so colors are deterministic on reload. `tier` is saved so the legend dot renders without re-deriving. **The identify transient (`tab._refIdentify`) and the identify tolerance (`sel.tolEv`) are NEVER serialized.**
-- `serializeRefCompoundMarkers(markers)` → the project-meta object above (or `null`/omit when empty). Shape per marker `{sym?, state, be, ref}` matches the live `_refCompoundMarkers` element.
-- `deserializeRefOverlays(obj)` → a partial sel `{ syms, source, showWeak, includeAuger, _nextColorIdx }` to merge over `_refDefaultSel()`. **Color-counter determinism:** `_nextColorIdx` is set to `max(restored colorIdx) + 1` (or `0` when there are no syms), so a NEWLY-picked element after load can never be assigned a `colorIdx` that collides with a restored overlay. An entry with a **missing or invalid `colorIdx`** gets a deterministic **by-position fallback** (its index in the kept-syms array) before the max is computed, so restored colors are stable even for malformed saves.
+
+**Functions — all four are TOTAL (never throw on any input):**
+- `serializeRefOverlays(sel)` → the per-tab object, or **`null`** when `sel` is nullish / not an object / has no valid syms (so B2 can call it on a tab whose lazy `_refSel` was never created). `colorIdx` + `tier` saved per element. The pure serializer **never reads** `tab._refIdentify` / `sel.tolEv`, so identify is structurally un-serializable here (the *`buildTabData` never emits `_refIdentify`* claim is an e2e guarantee — see §3).
+- `serializeRefCompoundMarkers(markers)` → the project-meta object, or **`null`** when the array is nullish / empty / not an array.
+- `deserializeRefOverlays(obj, paletteLen)` → a partial sel `{ syms, source, showWeak, includeAuger }` to merge over `_refDefaultSel()`. **No stored color counter** — the next colorIdx is computed on demand by the shared helper below; the vestigial `_refDefaultSel._nextColorIdx` is retired.
 - `deserializeRefCompoundMarkers(obj)` → an array of marker objects for the global `_refCompoundMarkers`.
 
-**2. Load behavior for every degenerate input (deserialize is total — never throws):**
-| Input | Result |
+**Shared color-assignment helper — the deliberate, FLAGGED change to color assignment:**
+```js
+// First index whose PALETTE RESIDUE (i % paletteLen) is NOT already used by the
+// current overlays; deterministic reuse (max(used)+1) once every residue is taken.
+RefCore.nextColorIdx(usedColorIndices, paletteLen) -> integer
+```
+- This ONE helper assigns `colorIdx` for **BOTH in-session element picks AND the post-load next-pick** — a single source of truth. **Deliberate behavior change (flagged):** it also fixes *in-session* same-rendered-color collisions — today's running `_nextColorIdx++` counter can wrap the palette and repeat a color; routing picks through the helper removes that, which is desirable and on-feature.
+- Call sites: the in-session pick path (Phase A — the `_refToggleElement` / palette-grid + legend add path, currently `sel._nextColorIdx++`) and load (B2 Step 3), both as `RefCore.nextColorIdx(sel.syms.map(s => s.colorIdx), ELEMENT_MARKER_COLORS.length)`. The helper is pure + order-independent — implement it at first use (Phase A) and reuse verbatim at load.
+- **Restored colors:** a **valid** saved `colorIdx` (`Number.isInteger(c) && c >= 0`) is preserved **verbatim** (even if two saved entries share one — we don't reshuffle the saved state). A **missing/invalid** `colorIdx` (negative, `NaN`, `Infinity`, fractional, `null`, string, array, object, absent) is assigned **deterministically by position** via the same helper against the colorIdx already resolved for earlier-kept entries — so even a malformed save yields stable, residue-aware colors. (Never `Math.trunc` a non-finite/negative value into a real index.)
+
+**2. Load behavior — deserialize is TOTAL (never throws). Two DISTINCT failure granularities (resolving the prior table contradiction):**
+| Input class | Result |
 |---|---|
-| **absent** (`undefined`/key missing) | empty (`syms:[]` / `markers:[]`) — clean, no overlays |
-| **malformed** (not an object; `syms`/`markers` not an array; entries missing `sym`/`be`) | drop the bad whole-field → empty; never partially trust a malformed blob |
-| **partially invalid** (array present, some entries valid, some not) | keep valid entries, skip invalid ones; an entry without a resolvable `sym` is skipped; a missing/invalid `colorIdx` gets a deterministic by-position fallback (kept-array index); coerce a present `colorIdx` to a non-negative integer; default `source` to `'AlKa'` if not one of the two; booleans coerced. After cleaning, `_nextColorIdx = max(colorIdx)+1` |
-| **newer version** (`v` > `REF_OVERLAYS_VERSION`) | **do not guess** — ignore the field (empty), so a newer save opened in this build degrades to no-overlays rather than misreading a future shape |
-| **older version** (`v` < current) | when v1 is the floor there is no older; the migration switch is structured so a future v2 adds an explicit `v===1` upgrade branch here |
+| **absent** (`undefined` / key missing) | empty (`syms:[]` / `markers:[]`) — clean, no overlays |
+| **envelope-malformed** (not an object; `v` missing or non-numeric; `v` > the field's VERSION constant; `syms`/`markers` not an array) | **drop the WHOLE field → empty.** A blob with no/invalid `v` is NOT trusted as implicit-v1; a newer `v` is ignored (don't misread a future shape). (`v < current` has no case at v1; a future v2 adds an explicit `v===1` upgrade branch here.) |
+| **entry-invalid** (envelope OK + version OK, individual entries bad) | **keep valid entries, skip invalid ones.** Overlay entry invalid **iff no resolvable `sym`**; its `colorIdx`/`tier` are *repaired*, not cause-to-drop. Marker entry invalid **iff `be` is not finite-numeric**. |
+| **overlay entry repair** | missing/invalid `colorIdx` → by-position helper fallback; missing/unknown `tier` → **kept as-is**, rendered with `RefCore.tierColor` fallback (entry NOT dropped); `source` → `'AlKa'` unless exactly `'MgKa'`; `showWeak`/`includeAuger` coerced to bool; **duplicate `sym` → keep FIRST, drop later duplicates** (prevents duplicate legend chips + double draws). |
+| **marker entry repair** | `sym` is **optional** (absent tolerated — live markers allow it); `state`/`ref` coerced to string (empty if absent); only a non-finite `be` drops the entry. |
 
-**3. Guarantees this contract makes (each pinned by a test in Step 1):**
-- Round-trip identity for a valid selection (`deserialize(serialize(sel))` ≡ the sel's overlay fields).
-- **Element-overlay colors deterministic after reload** (saved `colorIdx` restored verbatim; no reshuffle) **AND the running color counter is restored to `max(colorIdx)+1`** so a newly-picked element after load never collides with a restored overlay's `colorIdx`; a missing/invalid `colorIdx` falls back deterministically by position.
-- **Identify transient marker NOT serialized** (`serialize` output has no `tolEv`/identify keys; round-trip never resurrects an identify marker).
-- **Compound markers preserve current GLOBAL project scope** (serialized at project-meta, not per-tab; deserialize returns the global list).
-- Back-compat: absent field → clean empty load (the old-project case, also exercised end-to-end in B2/B3).
+**3. Guarantees — and which LAYER pins each (correcting the prior "all pinned in Step 1" overstatement):**
+- **PURE (pinned by B1 Step-1 tests):**
+  - Round-trip identity for a valid selection.
+  - **Rendered-color determinism:** *the next-picked element renders a color distinct from every restored overlay while unused palette residues remain, and falls back to deterministic reuse (`max(used)+1`) once the palette is exhausted.* (Guarantee is at the **rendered-color** level — no "integer didn't collide" wording.)
+  - Valid `colorIdx` preserved verbatim; missing/invalid → deterministic by-position via the helper.
+  - Envelope-malformed / newer-version / absent → empty; entry-invalid skipped while valid entries kept; duplicate `sym` deduped first-wins; missing/unknown `tier` kept (fallback-colored).
+  - The **pure serializer output never contains `tolEv`/identify keys**; serializers are total (`null` on empty/nullish/malformed).
+  - Compound markers round-trip at the global-list shape; absent/envelope-malformed/newer-version → empty; non-finite `be` dropped, absent `sym` tolerated.
+- **E2E (pinned by B2 Step 4 / B3 — NOT B1):** that `buildTabData` itself never emits `_refIdentify`; that compound markers actually land in **project-meta** (not per-tab); that an old project loads clean in the running app.
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write failing tests** (paletteLen passed explicitly so tests don't depend on `ELEMENT_MARKER_COLORS`)
 
 ```js
-// --- serialize: deterministic, identify-free ---
-test('serializeRefOverlays captures selection deterministically and omits identify', () => {
+const PAL = 8;   // stand-in palette length for the pure tests
+// --- decoupled version constants ---
+test('overlays and compound markers have independent version constants', () => {
+  assert.strictEqual(typeof RefCore.REF_OVERLAYS_VERSION, 'number');
+  assert.strictEqual(typeof RefCore.REF_COMPOUND_MARKERS_VERSION, 'number');
+});
+// --- nextColorIdx: residue-aware, deterministic reuse when exhausted ---
+test('nextColorIdx returns the first index whose palette residue is unused', () => {
+  assert.strictEqual(RefCore.nextColorIdx([0,5,2], PAL), 1);           // residues {0,5,2} → 1 free
+  assert.strictEqual((1 % PAL), 1);                                     // and 1 is a distinct rendered residue
+});
+test('nextColorIdx falls back to max(used)+1 once every residue is taken', () => {
+  assert.strictEqual(RefCore.nextColorIdx([0,1,2], 3), 3);             // palette of 3 fully used → reuse
+  assert.strictEqual(RefCore.nextColorIdx([], PAL), 0);                // none used → 0
+});
+// --- serialize: total, deterministic, identify-free ---
+test('serializeRefOverlays is total: null for empty/nullish/malformed sel', () => {
+  for (const bad of [undefined, null, 42, 'x', {}, { syms:[] }, { syms:'no' }]) {
+    assert.strictEqual(RefCore.serializeRefOverlays(bad), null);
+  }
+});
+test('serializeRefOverlays captures selection and never emits identify keys', () => {
   const sel = { syms:[{sym:'Ti',colorIdx:0,tier:'machine'},{sym:'Cu',colorIdx:1,tier:'curated'}],
-                source:'MgKa', showWeak:true, includeAuger:true, tolEv:0.9, _nextColorIdx:2 };
+                source:'MgKa', showWeak:true, includeAuger:true, tolEv:0.9, _refIdentify:{be:1} };
   const out = RefCore.serializeRefOverlays(sel);
   assert.strictEqual(out.v, RefCore.REF_OVERLAYS_VERSION);
   assert.deepStrictEqual(out.syms, [{sym:'Ti',colorIdx:0,tier:'machine'},{sym:'Cu',colorIdx:1,tier:'curated'}]);
-  assert.strictEqual(out.source,'MgKa'); assert.strictEqual(out.showWeak,true); assert.strictEqual(out.includeAuger,true);
-  assert.ok(!('tolEv' in out) && !('cands' in out));   // identify transient is never serialized
+  assert.strictEqual(out.source,'MgKa');
+  assert.ok(!('tolEv' in out) && !('cands' in out) && !('_refIdentify' in out));
 });
-test('serializeRefOverlays omits (null) an empty selection', () => {
-  assert.strictEqual(RefCore.serializeRefOverlays({ syms:[], source:'AlKa' }), null);
-});
-// --- round-trip: deterministic colors ---
-test('round-trip restores element-overlay colors deterministically', () => {
+// --- round-trip: valid colorIdx verbatim ---
+test('round-trip preserves a valid colorIdx verbatim', () => {
   const sel = { syms:[{sym:'Fe',colorIdx:3,tier:'machine'}], source:'AlKa', showWeak:false, includeAuger:false };
-  const back = RefCore.deserializeRefOverlays(RefCore.serializeRefOverlays(sel));
-  assert.deepStrictEqual(back.syms, [{sym:'Fe',colorIdx:3,tier:'machine'}]);   // colorIdx preserved verbatim
+  const back = RefCore.deserializeRefOverlays(RefCore.serializeRefOverlays(sel), PAL);
+  assert.deepStrictEqual(back.syms, [{sym:'Fe',colorIdx:3,tier:'machine'}]);
   assert.strictEqual(back.source,'AlKa');
 });
-// --- deserialize is total: absent / malformed / newer-version / partial ---
-test('deserialize: absent or malformed → clean empty (no throw)', () => {
-  for (const bad of [undefined, null, {}, 42, 'x', { v:1, syms:'garbage' }, { v:1 }]) {
-    assert.deepStrictEqual(RefCore.deserializeRefOverlays(bad).syms, []);
+// --- deserialize totality: absent / envelope-malformed / newer-version ---
+test('deserialize: absent or envelope-malformed → clean empty (no throw)', () => {
+  for (const bad of [undefined, null, {}, 42, 'x', { syms:[{sym:'Cu',colorIdx:0}] }/*no v*/,
+                     { v:'1', syms:[] }/*non-numeric v*/, { v:1, syms:'garbage' }]) {
+    assert.deepStrictEqual(RefCore.deserializeRefOverlays(bad, PAL).syms, []);
   }
 });
 test('deserialize: newer internal version is ignored (no misread of a future shape)', () => {
-  assert.deepStrictEqual(RefCore.deserializeRefOverlays({ v: 999, syms:[{sym:'Cu',colorIdx:0}] }).syms, []);
+  assert.deepStrictEqual(RefCore.deserializeRefOverlays({ v: 999, syms:[{sym:'Cu',colorIdx:0}] }, PAL).syms, []);
 });
-test('deserialize: partially-invalid keeps valid entries, skips bad ones, coerces fields', () => {
+// --- deserialize entry repair: skip no-sym, repair colorIdx, keep unknown tier, dedup sym ---
+test('deserialize entry repair: keep valid, skip no-sym, repair invalid colorIdx, keep unknown tier', () => {
   const back = RefCore.deserializeRefOverlays({ v:1, source:'bogus', showWeak:'yes',
-    syms:[{sym:'Cu',colorIdx:'2',tier:'curated'}, {colorIdx:1}, {sym:'Ti'}] });
-  assert.deepStrictEqual(back.syms.map(s=>s.sym), ['Cu','Ti']);   // entry with no sym dropped
-  assert.strictEqual(back.syms[0].colorIdx, 2);                   // present colorIdx coerced to int
-  assert.strictEqual(back.syms[1].colorIdx, 1);                   // Ti missing colorIdx → by-position fallback (kept index 1)
-  assert.strictEqual(back.source, 'AlKa');                        // invalid source → default
+    syms:[ {sym:'Cu',colorIdx:0,tier:'curated'},
+           {colorIdx:1},                       // no sym → dropped
+           {sym:'Ti',colorIdx:-3},             // invalid colorIdx → by-position helper fallback
+           {sym:'Xe',colorIdx:2,tier:'weird'}, // unknown tier → kept (fallback-colored at render)
+           {sym:'Cu',colorIdx:7} ], PAL }, PAL);
+  assert.deepStrictEqual(back.syms.map(s=>s.sym), ['Cu','Ti','Xe']);   // no-sym dropped; duplicate Cu → keep first
+  assert.strictEqual(back.syms[0].colorIdx, 0);                        // Cu verbatim
+  assert.ok(Number.isInteger(back.syms[1].colorIdx) && back.syms[1].colorIdx >= 0); // Ti repaired
+  assert.notStrictEqual(back.syms[1].colorIdx % PAL, 0 % PAL);         // and distinct residue from Cu
+  assert.strictEqual(back.syms[2].tier, 'weird');                      // unknown tier preserved (entry kept)
+  assert.strictEqual(back.source, 'AlKa');                             // invalid source → default
+  assert.strictEqual(back.showWeak, true);                             // 'yes' coerced to bool
 });
-// --- color-counter determinism: a NEW pick after load cannot collide with a restored overlay ---
-test('deserialize restores the color counter to max(colorIdx)+1', () => {
+// --- rendered-color determinism end to end ---
+test('post-load next pick renders a color distinct from all restored while residues remain', () => {
   const back = RefCore.deserializeRefOverlays({ v:1,
-    syms:[{sym:'Cu',colorIdx:0},{sym:'Ti',colorIdx:5},{sym:'Fe',colorIdx:2}] });
-  assert.strictEqual(back._nextColorIdx, 6);                      // max(0,5,2)+1
-  assert.strictEqual(RefCore.deserializeRefOverlays({}).  _nextColorIdx, 0);   // empty → 0
+    syms:[{sym:'Cu',colorIdx:0},{sym:'Ti',colorIdx:5},{sym:'Fe',colorIdx:2}] }, PAL);
+  const usedResidues = new Set(back.syms.map(s => s.colorIdx % PAL));
+  const next = RefCore.nextColorIdx(back.syms.map(s=>s.colorIdx), PAL);
+  assert.ok(!usedResidues.has(next % PAL));                            // distinct RENDERED color
 });
-test('a newly-picked element after load gets a colorIdx that collides with none restored', () => {
-  const back = RefCore.deserializeRefOverlays({ v:1,
-    syms:[{sym:'Cu',colorIdx:0},{sym:'Ti',colorIdx:5},{sym:'Fe',colorIdx:2}] });
-  const restored = new Set(back.syms.map(s=>s.colorIdx));
-  const nextPickColorIdx = back._nextColorIdx;                    // the index the next pick will claim
-  assert.ok(!restored.has(nextPickColorIdx));                     // no collision with any restored overlay
+// --- compound markers: global scope, totality, partial-invalid, newer-version ---
+test('serializeRefCompoundMarkers is total: null for empty/nullish/non-array', () => {
+  for (const bad of [undefined, null, [], 'x', 42, {}]) {
+    assert.strictEqual(RefCore.serializeRefCompoundMarkers(bad), null);
+  }
 });
-// --- compound markers: GLOBAL project scope preserved ---
-test('compound markers round-trip at global scope', () => {
+test('compound markers round-trip at global scope; absent/malformed/newer → empty', () => {
   const markers = [{ sym:'Cu', state:'Cu2O', be:932.5, ref:'NIST' }];
   const out = RefCore.serializeRefCompoundMarkers(markers);
-  assert.strictEqual(out.v, RefCore.REF_OVERLAYS_VERSION);
+  assert.strictEqual(out.v, RefCore.REF_COMPOUND_MARKERS_VERSION);
   assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers(out), markers);
-  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers(undefined), []);   // absent → empty
-  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers({ v:1, markers:'x' }), []); // malformed → empty
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers(undefined), []);          // absent
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers({ v:1, markers:'x' }), []); // envelope-malformed
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers({}), []);                  // no v
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers({ v:999, markers:[{be:1}] }), []); // newer version
+});
+test('compound markers: non-finite be dropped, absent sym tolerated (partial-invalid)', () => {
+  const back = RefCore.deserializeRefCompoundMarkers({ v:1, markers:[
+    { state:'surface', be:530.1 },          // no sym → tolerated
+    { sym:'Cu', state:'Cu2O', be:'bad' },   // non-finite be → dropped
+    { sym:'Fe', be:711 } ] });
+  assert.deepStrictEqual(back.map(m=>m.be), [530.1, 711]);
 });
 ```
 
 - [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Implement** the four pure functions + `REF_OVERLAYS_VERSION` in `RefCore` to satisfy the contract table above.
+- [ ] **Step 3: Implement** in `RefCore`: the two version constants (`REF_OVERLAYS_VERSION`, `REF_COMPOUND_MARKERS_VERSION`), the shared `nextColorIdx(usedColorIndices, paletteLen)` helper, and the four total functions (`serializeRefOverlays`, `deserializeRefOverlays(obj, paletteLen)`, `serializeRefCompoundMarkers`, `deserializeRefCompoundMarkers`) to satisfy §1–§3.
 - [ ] **Step 4: Run, watch pass** (existing tests still green).
-- [ ] **Step 5: Commit** — `git commit -m "ref-ux(serialize): pure versioned overlay+compound serialize/deserialize in RefCore"`
-- [ ] **GATE: Codex reviews B1 (JSON shape, internal version, degenerate-input table, determinism/identify/global-scope guarantees) BEFORE B2 wiring.**
+- [ ] **Step 5: Commit** — `git commit -m "ref-ux(serialize): RefCore versioned overlay+marker serialize/deserialize + residue-aware nextColorIdx"`
+- [ ] **GATE: Codex reviews the revised B1 (shape, decoupled versions, envelope-vs-entry rules, rendered-color guarantee + shared helper, identify/global-scope/total guarantees, pure-vs-e2e attribution) BEFORE B2 wiring.**
 
 ---
 
@@ -353,12 +402,12 @@ test('compound markers round-trip at global scope', () => {
 > **Compat boundary (confirmed, OPEN-3) — stated precisely, no hand-waving.**
 > - **Top-level project `version` STAYS at 3.** `refOverlays` (per-tab) and `refCompoundMarkers` (project-meta) are **additive optional fields**, each with its own internal `v`.
 > - **Backward-compatible (GUARANTEED + tested, B2/B3):** an old project (no overlay fields) loads clean in the new app — `deserialize*` returns empty, no overlays, no error.
-> - **Forward-compatibility is NOT guaranteed.** A new project opened in an OLD app build may have `refOverlays`/`refCompoundMarkers` **ignored OR rejected depending on that old loader's unknown-field handling** — we do **not** guarantee forward-compatibility. *Verified fact for the concrete case:* the shipped loader at `bfedc95` reads a known-property whitelist (`t.id`, `t.peaks`, `t.isStack`, `t.name`, `t.lineWidth`, `t.ui`, … and validates only those + size caps at `templates/index.html:8618-8664`) — it has **no unknown-field rejection**, so it **silently ignores** the new fields and opens the project minus those overlays. That is the observed behavior of `bfedc95` specifically; an older or differently-built loader that strict-validates unknown fields could instead **reject** the file. We promise only backward-compat (old project → new app); forward-compat (new project → old app) is best-effort and explicitly untested.
+> - **Forward-compatibility is NOT guaranteed.** A new project opened in an OLD app build may have `refOverlays`/`refCompoundMarkers` **ignored OR rejected depending on that old loader's unknown-field handling** — we do **not** guarantee forward-compatibility. *Verified fact for the concrete case:* the shipped loader at `bfedc95` reads a known-property whitelist (`t.id`, `t.peaks`, `t.isStack`, `t.name`, `t.lineWidth`, `t.ui`, … and validates only those + size caps at `templates/index.html:8618-8664`) — it has **no unknown-field rejection**, so it **silently ignores** the new fields and opens the project minus those overlays. That is the observed behavior of `bfedc95` specifically; an older or differently-built loader that strict-validates unknown fields could instead **reject** the file. We promise only backward-compat (old project → new app); forward-compat (new project → old app) is best-effort and explicitly untested. **Lossy-resave caveat:** an old app that ignores the fields and then **re-saves** the project will **drop** the `refOverlays`/`refCompoundMarkers` it didn't understand — round-tripping a new project through an old build silently loses overlays/markers.
 
 - [ ] **Step 1: Save (per-tab overlays)** — in `buildTabData(t)` non-stack branch, add `refOverlays: RefCore.serializeRefOverlays(t._refSel)` **only when non-null** (omit the key entirely otherwise, so old-shaped saves stay byte-clean). Never add `_refIdentify`/`tolEv`.
 - [ ] **Step 2: Save (global compound markers)** — in the project-meta assembly (`:8417`, where `version`/`activeId` are set), add `refCompoundMarkers: RefCore.serializeRefCompoundMarkers(_refCompoundMarkers)` when non-null. Leave `version: 3` unchanged. This keeps compound markers at the GLOBAL project scope they have today (no per-tab migration this round).
-- [ ] **Step 3: Load** — in `_loadProjectJSON`: (a) per tab, after it is built, `tab._refSel = { ..._refDefaultSel(), ...RefCore.deserializeRefOverlays(saved.refOverlays) }`. The spread restores both the per-element `colorIdx` (deterministic colors) **and** the `_nextColorIdx` running counter (`= max(colorIdx)+1`), so the very next element the user picks in that tab cannot be assigned a `colorIdx` that collides with a restored overlay. (b) once, restore the global list `_refCompoundMarkers.splice(0, _refCompoundMarkers.length, ...RefCore.deserializeRefCompoundMarkers(data.refCompoundMarkers))`; (c) trigger `_refRenderLegend()` + chart repaint so reopened projects re-show overlays + markers. Never restore an identify marker.
-- [ ] **Step 3b: Verify counter (Playwright)** — load a project with overlays, then pick a NEW element in a restored tab; assert its assigned `colorIdx` is not in the restored set and its rendered color differs. (The pure invariant is already covered in B1; this confirms the wired path.)
+- [ ] **Step 3: Load** — in `_loadProjectJSON`: (a) per tab, after it is built, `tab._refSel = { ..._refDefaultSel(), ...RefCore.deserializeRefOverlays(saved.refOverlays, ELEMENT_MARKER_COLORS.length) }` (valid `colorIdx` restored verbatim; invalid repaired by the shared helper). The next in-session pick in that tab computes its colorIdx via `RefCore.nextColorIdx(sel.syms.map(s=>s.colorIdx), ELEMENT_MARKER_COLORS.length)` — the SAME helper used everywhere — so it renders distinct from restored overlays while residues remain. (b) once, restore the global list `_refCompoundMarkers.splice(0, _refCompoundMarkers.length, ...RefCore.deserializeRefCompoundMarkers(data.refCompoundMarkers))`; (c) trigger `_refRenderLegend()` + chart repaint so reopened projects re-show overlays + markers. Never restore an identify marker.
+- [ ] **Step 3b: Verify rendered color (Playwright)** — load a project with overlays, then pick a NEW element in a restored tab; assert its **rendered color** differs from every restored overlay (while the palette has unused residues). (The pure invariant is covered in B1; this confirms the wired path uses the shared helper.)
 - [ ] **Step 4: Verify (Playwright, in-app round-trip)** — pick overlays (2 elements, distinct tiers incl. machine→violet) + place a compound marker; arm identify on a peak (transient marker visible); save `.proj.json`; reload → identical overlays/colors/legend + compound marker re-shown, **identify marker absent**. Then load an **old** project (no overlay fields) → loads clean, no overlays, **no console error**. Screenshots of both.
 - [ ] **Step 5: Commit** — `git commit -m "ref-ux(serialize): persist+restore per-tab overlays + global compound markers (additive, v3, deterministic colors)"`
 
@@ -376,7 +425,7 @@ test('compound markers round-trip at global scope', () => {
 
 ## Tests (summary)
 
-- **node `RefCore` (`tests/js/ref_core.test.js`)** — extend with: `tierColor` SSOT (A0), `elementOverlayVisible` de-gated contract (A1), and the full B1 serialize/deserialize contract — round-trip, deterministic colors, identify-never-serialized, global compound-marker scope, and the degenerate-input table (absent / malformed / newer-version / partially-invalid). **Do not weaken the existing 18.** Run: `node --test tests/js/ref_core.test.js`.
+- **node `RefCore` (`tests/js/ref_core.test.js`)** — extend with: `tierColor` SSOT (A0), `elementOverlayVisible` de-gated contract (A1), the residue-aware `nextColorIdx` helper, and the full B1 serialize/deserialize contract — round-trip, **rendered-color determinism** (distinct while residues remain, deterministic reuse when exhausted), total serializers, decoupled version constants, envelope-malformed-vs-entry-invalid handling (absent / no-`v` / non-numeric-`v` / newer-version / partially-invalid), duplicate-`sym` first-wins, unknown-`tier` kept, and compound-marker partial-invalid/newer-version. **Do not weaken the existing 18.** Run: `node --test tests/js/ref_core.test.js`.
 - **pytest** — no backend change expected; run full `pytest -v` to confirm zero regressions (incl. the durable snapshot guards, which must stay green).
 - **Playwright (prod venv, build-phase verification)** — persistence after palette close (A1), three marker languages (A2/A6), legend + chip dropdown reuse (A3/A4), floating drag/clamp/collapse/responsive (A5), identify popover (A6), reference-mode (A7), save/load round-trip + old-project back-compat (B2/B3), a11y sweep.
 
