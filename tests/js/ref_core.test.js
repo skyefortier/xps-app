@@ -139,3 +139,14 @@ test('elementOverlayVisible is gated; compoundMarkerVisible is always true', () 
   assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: true,  activeChart: false, isStackTab: false }), false);
   assert.strictEqual(RefCore.compoundMarkerVisible(), true);
 });
+
+// --- A0: data-tier color SSOT ---
+test('tierColor is a single source of truth for the three data tiers', () => {
+  assert.strictEqual(RefCore.tierColor('curated'), '#3ddc84');   // green
+  assert.strictEqual(RefCore.tierColor('machine'), '#b48eff');   // violet
+  assert.strictEqual(RefCore.tierColor('legacy'),  '#ffbb44');   // amber
+});
+test('tierColor falls back safely for unknown/missing tiers', () => {
+  assert.strictEqual(RefCore.tierColor('nonsense'), RefCore.TIER_COLORS.fallback);
+  assert.strictEqual(RefCore.tierColor(undefined),  RefCore.TIER_COLORS.fallback);
+});

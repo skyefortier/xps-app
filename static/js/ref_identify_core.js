@@ -13,6 +13,14 @@
 
   const TOL_MIN = 0.25, TOL_MAX = 5.0, TOL_STEP = 0.25, TOL_DEFAULT = 1.0;
 
+  // Data-tier color SSOT — the single source for tier hue across every surface
+  // (element-group + identify-candidate badges now; legend dot / chip dropdown /
+  // identify popover in later tasks). curated=green, machine=violet, legacy=amber;
+  // fallback=label ink for any unknown tier. Hexes mirror the --green/--purple/
+  // --amber design tokens in index.html.
+  const TIER_COLORS = { curated: '#3ddc84', machine: '#b48eff', legacy: '#ffbb44', fallback: '#8a9ab8' };
+  function tierColor(tier) { return TIER_COLORS[tier] || TIER_COLORS.fallback; }
+
   function tolFromSlider(value) {
     let v = Number(value);
     if (!isFinite(v)) v = TOL_DEFAULT;
@@ -156,5 +164,6 @@
 
   return { tolFromSlider, coerceTolToEv, blendedSearch, parseChemKey,
            augerApparentBE, photoelectronBE, elementOverlayVisible, compoundMarkerVisible,
-           compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates };
+           compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates,
+           tierColor, TIER_COLORS };
 });

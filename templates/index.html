@@ -281,7 +281,7 @@
   .ref-el-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
   .ref-el-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
   .ref-el-name { font-size: 12px; font-weight: 600; }
-  .ref-el-status { font-size: 9px; font-family: var(--mono); color: var(--text2); margin-left: auto; }
+  .ref-el-status { font-size: 9px; font-family: var(--mono); color: var(--tier-c, var(--text2)); margin-left: auto; }
   .ref-el-remove {
     background: none; border: none; color: var(--text2); cursor: pointer;
     font-size: 13px; padding: 0 3px; line-height: 1;
@@ -309,8 +309,12 @@
     border-radius: 3px; line-height: 1.6; white-space: nowrap; font-weight: 600;
     letter-spacing: 0.04em; border: 1px solid;
   }
-  .ref-badge-legacy { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); }
-  .ref-badge-machine { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+  /* Tier hue comes from the RefCore.tierColor SSOT, set inline as --tier-c at
+     render; background is a 15% tint of that same hue (single source). */
+  .ref-badge-legacy, .ref-badge-machine {
+    color: var(--tier-c, var(--text2)); border-color: var(--tier-c, var(--border2));
+    background: color-mix(in srgb, var(--tier-c, var(--bg3)) 15%, transparent);
+  }
   .ref-note {
     font-size: 10px; line-height: 1.5; color: var(--amber);
     background: var(--amber-dim); border: 1px solid rgba(255,187,68,0.4);
@@ -353,10 +357,10 @@
   .ref-cand.compound { border-color: var(--green); }
   /* Data-tier badge on an identify candidate (distinct from the confidence
      tier above). Legacy hits read as legacy-unverified. */
-  .ref-cand-tier { font-size: 9px; font-family: var(--mono); padding: 0 5px; border-radius: 3px; border: 1px solid; line-height: 1.6; white-space: nowrap; }
-  .ref-cand-tier.curated { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
-  .ref-cand-tier.machine { color: var(--green); border-color: var(--green); background: var(--green-dim); font-weight: 600; }
-  .ref-cand-tier.legacy { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); font-weight: 600; }
+  .ref-cand-tier { font-size: 9px; font-family: var(--mono); padding: 0 5px; border-radius: 3px; border: 1px solid; line-height: 1.6; white-space: nowrap;
+    color: var(--tier-c, var(--text2)); border-color: var(--tier-c, var(--border2));
+    background: color-mix(in srgb, var(--tier-c, var(--bg3)) 15%, transparent); }
+  .ref-cand-tier.machine, .ref-cand-tier.legacy { font-weight: 600; }
   .ref-cand-line { font-size: 10px; line-height: 1.6; color: var(--text2); }
   .ref-cand-line b { color: var(--text); font-weight: 600; }
   .ref-cand-conflict { font-size: 10px; line-height: 1.6; color: var(--amber); }
@@ -10186,6 +10190,14 @@ function _refDefaultSel() {
            tolEv: null, includeAuger: false };
 }
 
+// Data-tier color accessor — wraps the RefCore.tierColor SSOT so every tier
+// surface (element-group + identify-candidate badges now; legend dot / chip
+// dropdown / identify popover in later tasks) shares one hue source. Emitted
+// inline as the --tier-c custom property the tier CSS reads.
+function _refTierColor(tier) {
+  return (typeof RefCore !== 'undefined' && RefCore.tierColor) ? RefCore.tierColor(tier) : '#8a9ab8';
+}
+
 function _refActiveTab() {
   return (typeof tabManager !== 'undefined' && tabManager.activeId)
     ? tabManager._getTab(tabManager.activeId) : null;
@@ -10750,10 +10762,10 @@ function _refRenderElementGroup(s, sel, range) {
     : '';
 
   const headRight = isMachine
-    ? '<span class="ref-badge-machine" title="From NIST, automatically cross-checked but not yet reviewed by a person.">machine-sourced</span>'
+    ? '<span class="ref-badge-machine" style="--tier-c:' + _refTierColor('machine') + '" title="From NIST, automatically cross-checked but not yet reviewed by a person.">machine-sourced</span>'
     : isLegacy
-      ? '<span class="ref-badge-legacy" title="Approximate value — verify against literature.">approximate</span>'
-      : '<span class="ref-el-status">reviewed</span>';
+      ? '<span class="ref-badge-legacy" style="--tier-c:' + _refTierColor('legacy') + '" title="Approximate value — verify against literature.">approximate</span>'
+      : '<span class="ref-el-status" style="--tier-c:' + _refTierColor('curated') + '">reviewed</span>';
 
   return '<div class="ref-el-group">' +
     '<div class="ref-el-head"><span class="ref-el-swatch" style="background:' + color + '"></span>' +
@@ -11344,12 +11356,12 @@ function _refRenderIdentifyResults(sel, range) {
   for (const c of ident.cands) {
     const cite = _refPayload.sources[c.sourceId];
     const tierBadge = c.dataTier === 'legacy'
-      ? '<span class="ref-cand-tier legacy" title="Approximate value — verify against literature.">approximate</span>'
+      ? '<span class="ref-cand-tier legacy" style="--tier-c:' + _refTierColor('legacy') + '" title="Approximate value — verify against literature.">approximate</span>'
       : c.dataTier === 'machine'
-        ? '<span class="ref-cand-tier machine" title="From NIST, automatically cross-checked but not yet reviewed by a person.">machine-sourced</span>'
+        ? '<span class="ref-cand-tier machine" style="--tier-c:' + _refTierColor('machine') + '" title="From NIST, automatically cross-checked but not yet reviewed by a person.">machine-sourced</span>'
         : c.dataTier === 'curated'
-          ? '<span class="ref-cand-tier curated">reviewed</span>'
-          : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '">' + _escHtml(c.dataTier || '') + '</span>';
+          ? '<span class="ref-cand-tier curated" style="--tier-c:' + _refTierColor('curated') + '">reviewed</span>'
+          : '<span class="ref-cand-tier ' + _escAttr(c.dataTier || '') + '" style="--tier-c:' + _refTierColor(c.dataTier) + '">' + _escHtml(c.dataTier || '') + '</span>';
     const kindTag = c.isCompound
       ? '<span class="ref-blend-kind compound">compound</span>'
       : '<span class="ref-blend-kind element">element</span>';
