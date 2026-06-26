@@ -152,7 +152,7 @@ test('elementOverlayVisible no longer depends on the palette being open', () => 
 c.setLineDash(m.isAuger ? [2, 3] : [6, 3]);   // element overlays always dashed; identify alone is solid
 ```
 
-- [ ] **Step 2: Verify (Playwright)** — element overlay (dashed colored) vs compound (amber dashed) vs identify (solid accent) are visually distinct on one chart. Screenshot all three together.
+- [ ] **Step 2: Verify (Playwright + `live` eyeball)** — element overlay (dashed colored) vs compound (amber dashed) vs identify (solid accent) are visually distinct on one chart. **Non-blocker (confirmed):** eyeball the three dash languages + amber compound together in `live` mode — the two dashed languages must read apart by dash pattern + color, not blur into each other; tune dash arrays if needed. Screenshot all three together.
 - [ ] **Step 3: Commit** — `git commit -m "ref-ux: element overlay lines dashed; solid reserved for identify marker"`
 
 ---
@@ -187,7 +187,7 @@ The legend is an HTML overlay positioned over the chart corner (NOT a Chart.js p
 
 **Files:** Modify `templates/index.html` (CSS for `#ref-panel` `:176`; drag/collapse JS; localStorage position; z-index scale)
 
-- [ ] **Step 1: Semantic z-index scale** — define CSS custom properties (e.g. `--z-base:1; --z-legend:30; --z-palette:200; --z-dropdown:2200; --z-toast:2400; --z-tooltip:2600`) and use them for the new surfaces; fold the existing `--z-popover` into the scale. No new raw 999/9999.
+- [ ] **Step 1: Semantic z-index scale** — define CSS custom properties (e.g. `--z-base:1; --z-legend:30; --z-palette:200; --z-dropdown:2200; --z-identify-popover:2300; --z-toast:2400; --z-tooltip:2600`) and use them for the new surfaces; fold the existing `--z-popover` into the scale. No new raw 999/9999. **Non-blocker (confirmed):** the **identify popover must sit ABOVE the palette** (`--z-identify-popover` > `--z-palette`) so identify results are never hidden behind the palette box; the chip dropdown (`--z-dropdown`) is likewise above the palette.
 - [ ] **Step 2: Convert container to floating** — `#ref-panel` → `position:fixed`, removed from the chart flex flow (chart reclaims full width — **never compressed**). Sensible default position (e.g. top-right inset), `--z-palette`. Keep the three internal zones.
 - [ ] **Step 3: Drag** — a header drag handle; pointer events update `left/top`; **viewport-clamped** so it can't leave the screen. Persist last position to `localStorage` (e.g. `xps.refPalette.pos`); restore on open (clamp on restore in case the viewport shrank).
 - [ ] **Step 4: Collapse** — collapse/expand toggle (header) that hides the zones to a compact title bar; collapsed state persisted. Overlays/legend are unaffected by collapse (they live on the chart, A1/A3).
@@ -204,7 +204,7 @@ The legend is an HTML overlay positioned over the chart corner (NOT a Chart.js p
 - [ ] **Step 1: De-gate identify** — remove the `_refPanelOpen` requirement from `_refIdentState` (`:11059`); identify works with the palette closed. Keep active-chart + non-stack guards.
 - [ ] **Step 2: Arm from toolbar** — identify arm control reachable without the palette (toolbar toggle sets `mode='identify'`); clicking the chart calls `_refIdentifyAt` (already wired `:4941`).
 - [ ] **Step 3: Identify marker = solid accent + caret, transient** — keep the solid accent line (`:10938`); add a caret/triangle glyph at top; ensure it is cleared by `_refClearIdentify`. Confirm it remains visually distinct from the now-dashed element overlays (A2).
-- [ ] **Step 4: Click-anchored popover** — render the candidate list (reuse `_refRenderIdentifyResults` markup) in a fixed/portal popover anchored at the click pixel (viewport-clamped), separate from the legend. Candidates show tier via `RefCore.tierColor` (A0). Close on Esc/outside-click; `_refClearIdentify` removes marker + popover.
+- [ ] **Step 4: Click-anchored popover** — render the candidate list (reuse `_refRenderIdentifyResults` markup) in a fixed/portal popover anchored at the click pixel (viewport-clamped), separate from the legend, at **`--z-identify-popover`** (above the palette — A5 Step 1 — so results are never hidden behind the box). Candidates show tier via `RefCore.tierColor` (A0). Close on Esc/outside-click; `_refClearIdentify` removes marker + popover.
 - [ ] **Step 5: Respect the Chart.js v4 leaf-mutation rule** — marker draw mutates only canvas context in the plugin; popover is DOM. No dataset array swaps mid-render.
 - [ ] **Step 6: Verify (Playwright)** — with palette closed: arm identify, click a peak → popover at click with tier-capped candidates (elements + compounds); marker solid+caret; Esc clears both; click another peak → marker moves (transient). Confirm physics: PE candidates at `nominal_be_ev`, Auger move only on source switch, region=null never throws. Screenshot.
 - [ ] **Step 7: Commit** — `git commit -m "ref-ux: per-peak identify popover, de-gated from palette; solid+caret transient marker"`
@@ -254,7 +254,7 @@ Project-meta, alongside `version`/`activeId` (omitted when empty), preserving to
 ```
 - `serializeRefOverlays(sel)` → the per-tab object above (or `null`/omit when `sel.syms` is empty). **`colorIdx` is saved explicitly** so colors are deterministic on reload. `tier` is saved so the legend dot renders without re-deriving. **The identify transient (`tab._refIdentify`) and the identify tolerance (`sel.tolEv`) are NEVER serialized.**
 - `serializeRefCompoundMarkers(markers)` → the project-meta object above (or `null`/omit when empty). Shape per marker `{sym?, state, be, ref}` matches the live `_refCompoundMarkers` element.
-- `deserializeRefOverlays(obj)` → a partial sel `{ syms, source, showWeak, includeAuger }` to merge over `_refDefaultSel()`.
+- `deserializeRefOverlays(obj)` → a partial sel `{ syms, source, showWeak, includeAuger, _nextColorIdx }` to merge over `_refDefaultSel()`. **Color-counter determinism:** `_nextColorIdx` is set to `max(restored colorIdx) + 1` (or `0` when there are no syms), so a NEWLY-picked element after load can never be assigned a `colorIdx` that collides with a restored overlay. An entry with a **missing or invalid `colorIdx`** gets a deterministic **by-position fallback** (its index in the kept-syms array) before the max is computed, so restored colors are stable even for malformed saves.
 - `deserializeRefCompoundMarkers(obj)` → an array of marker objects for the global `_refCompoundMarkers`.
 
 **2. Load behavior for every degenerate input (deserialize is total — never throws):**
@@ -262,13 +262,13 @@ Project-meta, alongside `version`/`activeId` (omitted when empty), preserving to
 |---|---|
 | **absent** (`undefined`/key missing) | empty (`syms:[]` / `markers:[]`) — clean, no overlays |
 | **malformed** (not an object; `syms`/`markers` not an array; entries missing `sym`/`be`) | drop the bad whole-field → empty; never partially trust a malformed blob |
-| **partially invalid** (array present, some entries valid, some not) | keep valid entries, skip invalid ones; coerce `colorIdx` to a non-negative integer, default `source` to `'AlKa'` if not one of the two, booleans coerced; an entry without a resolvable `sym` is skipped |
+| **partially invalid** (array present, some entries valid, some not) | keep valid entries, skip invalid ones; an entry without a resolvable `sym` is skipped; a missing/invalid `colorIdx` gets a deterministic by-position fallback (kept-array index); coerce a present `colorIdx` to a non-negative integer; default `source` to `'AlKa'` if not one of the two; booleans coerced. After cleaning, `_nextColorIdx = max(colorIdx)+1` |
 | **newer version** (`v` > `REF_OVERLAYS_VERSION`) | **do not guess** — ignore the field (empty), so a newer save opened in this build degrades to no-overlays rather than misreading a future shape |
 | **older version** (`v` < current) | when v1 is the floor there is no older; the migration switch is structured so a future v2 adds an explicit `v===1` upgrade branch here |
 
 **3. Guarantees this contract makes (each pinned by a test in Step 1):**
 - Round-trip identity for a valid selection (`deserialize(serialize(sel))` ≡ the sel's overlay fields).
-- **Element-overlay colors deterministic after reload** (saved `colorIdx` restored verbatim; no reshuffle).
+- **Element-overlay colors deterministic after reload** (saved `colorIdx` restored verbatim; no reshuffle) **AND the running color counter is restored to `max(colorIdx)+1`** so a newly-picked element after load never collides with a restored overlay's `colorIdx`; a missing/invalid `colorIdx` falls back deterministically by position.
 - **Identify transient marker NOT serialized** (`serialize` output has no `tolEv`/identify keys; round-trip never resurrects an identify marker).
 - **Compound markers preserve current GLOBAL project scope** (serialized at project-meta, not per-tab; deserialize returns the global list).
 - Back-compat: absent field → clean empty load (the old-project case, also exercised end-to-end in B2/B3).
@@ -309,8 +309,23 @@ test('deserialize: partially-invalid keeps valid entries, skips bad ones, coerce
   const back = RefCore.deserializeRefOverlays({ v:1, source:'bogus', showWeak:'yes',
     syms:[{sym:'Cu',colorIdx:'2',tier:'curated'}, {colorIdx:1}, {sym:'Ti'}] });
   assert.deepStrictEqual(back.syms.map(s=>s.sym), ['Cu','Ti']);   // entry with no sym dropped
-  assert.strictEqual(back.syms[0].colorIdx, 2);                   // coerced to int
+  assert.strictEqual(back.syms[0].colorIdx, 2);                   // present colorIdx coerced to int
+  assert.strictEqual(back.syms[1].colorIdx, 1);                   // Ti missing colorIdx → by-position fallback (kept index 1)
   assert.strictEqual(back.source, 'AlKa');                        // invalid source → default
+});
+// --- color-counter determinism: a NEW pick after load cannot collide with a restored overlay ---
+test('deserialize restores the color counter to max(colorIdx)+1', () => {
+  const back = RefCore.deserializeRefOverlays({ v:1,
+    syms:[{sym:'Cu',colorIdx:0},{sym:'Ti',colorIdx:5},{sym:'Fe',colorIdx:2}] });
+  assert.strictEqual(back._nextColorIdx, 6);                      // max(0,5,2)+1
+  assert.strictEqual(RefCore.deserializeRefOverlays({}).  _nextColorIdx, 0);   // empty → 0
+});
+test('a newly-picked element after load gets a colorIdx that collides with none restored', () => {
+  const back = RefCore.deserializeRefOverlays({ v:1,
+    syms:[{sym:'Cu',colorIdx:0},{sym:'Ti',colorIdx:5},{sym:'Fe',colorIdx:2}] });
+  const restored = new Set(back.syms.map(s=>s.colorIdx));
+  const nextPickColorIdx = back._nextColorIdx;                    // the index the next pick will claim
+  assert.ok(!restored.has(nextPickColorIdx));                     // no collision with any restored overlay
 });
 // --- compound markers: GLOBAL project scope preserved ---
 test('compound markers round-trip at global scope', () => {
@@ -342,7 +357,8 @@ test('compound markers round-trip at global scope', () => {
 
 - [ ] **Step 1: Save (per-tab overlays)** — in `buildTabData(t)` non-stack branch, add `refOverlays: RefCore.serializeRefOverlays(t._refSel)` **only when non-null** (omit the key entirely otherwise, so old-shaped saves stay byte-clean). Never add `_refIdentify`/`tolEv`.
 - [ ] **Step 2: Save (global compound markers)** — in the project-meta assembly (`:8417`, where `version`/`activeId` are set), add `refCompoundMarkers: RefCore.serializeRefCompoundMarkers(_refCompoundMarkers)` when non-null. Leave `version: 3` unchanged. This keeps compound markers at the GLOBAL project scope they have today (no per-tab migration this round).
-- [ ] **Step 3: Load** — in `_loadProjectJSON`: (a) per tab, after it is built, `tab._refSel = { ..._refDefaultSel(), ...RefCore.deserializeRefOverlays(saved.refOverlays) }` (colors deterministic from saved `colorIdx`); (b) once, restore the global list `_refCompoundMarkers.splice(0, _refCompoundMarkers.length, ...RefCore.deserializeRefCompoundMarkers(data.refCompoundMarkers))`; (c) trigger `_refRenderLegend()` + chart repaint so reopened projects re-show overlays + markers. Never restore an identify marker.
+- [ ] **Step 3: Load** — in `_loadProjectJSON`: (a) per tab, after it is built, `tab._refSel = { ..._refDefaultSel(), ...RefCore.deserializeRefOverlays(saved.refOverlays) }`. The spread restores both the per-element `colorIdx` (deterministic colors) **and** the `_nextColorIdx` running counter (`= max(colorIdx)+1`), so the very next element the user picks in that tab cannot be assigned a `colorIdx` that collides with a restored overlay. (b) once, restore the global list `_refCompoundMarkers.splice(0, _refCompoundMarkers.length, ...RefCore.deserializeRefCompoundMarkers(data.refCompoundMarkers))`; (c) trigger `_refRenderLegend()` + chart repaint so reopened projects re-show overlays + markers. Never restore an identify marker.
+- [ ] **Step 3b: Verify counter (Playwright)** — load a project with overlays, then pick a NEW element in a restored tab; assert its assigned `colorIdx` is not in the restored set and its rendered color differs. (The pure invariant is already covered in B1; this confirms the wired path.)
 - [ ] **Step 4: Verify (Playwright, in-app round-trip)** — pick overlays (2 elements, distinct tiers incl. machine→violet) + place a compound marker; arm identify on a peak (transient marker visible); save `.proj.json`; reload → identical overlays/colors/legend + compound marker re-shown, **identify marker absent**. Then load an **old** project (no overlay fields) → loads clean, no overlays, **no console error**. Screenshots of both.
 - [ ] **Step 5: Commit** — `git commit -m "ref-ux(serialize): persist+restore per-tab overlays + global compound markers (additive, v3, deterministic colors)"`
 
