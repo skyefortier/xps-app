@@ -345,7 +345,7 @@ test('deserialize entry repair: keep valid, skip no-sym, repair invalid colorIdx
            {colorIdx:1},                       // no sym → dropped
            {sym:'Ti',colorIdx:-3},             // invalid colorIdx → by-position helper fallback
            {sym:'Xe',colorIdx:2,tier:'weird'}, // unknown tier → kept (fallback-colored at render)
-           {sym:'Cu',colorIdx:7} ], PAL }, PAL);
+           {sym:'Cu',colorIdx:7} ] }, PAL);
   assert.deepStrictEqual(back.syms.map(s=>s.sym), ['Cu','Ti','Xe']);   // no-sym dropped; duplicate Cu → keep first
   assert.strictEqual(back.syms[0].colorIdx, 0);                        // Cu verbatim
   assert.ok(Number.isInteger(back.syms[1].colorIdx) && back.syms[1].colorIdx >= 0); // Ti repaired
