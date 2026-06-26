@@ -383,6 +383,22 @@
   }
   .ref-legend-more:hover, .ref-legend-remove:hover { color: var(--accent2); }
   .ref-legend-more:focus-visible, .ref-legend-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ref-legend-tierdot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* A4: legend chip dropdown (body portal — escapes overflow:hidden) reuses the
+     DETAILS card; tier toast on the chip tier-dot. z-index fallbacks sit above
+     the legend until the A5 semantic scale defines --z-dropdown / --z-toast. */
+  .ref-chip-portal {
+    display: none; position: fixed; z-index: var(--z-dropdown, 2200);
+    width: 360px; max-width: 92vw; max-height: 70vh; overflow-y: auto;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px;
+    padding: 10px 12px; box-shadow: 0 10px 30px -12px rgba(0,0,0,0.7);
+  }
+  .ref-tier-toast {
+    display: none; position: fixed; z-index: var(--z-toast, 2400);
+    max-width: 280px; font-size: 11px; line-height: 1.45; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border2); border-radius: 6px;
+    padding: 6px 8px; box-shadow: 0 8px 24px -10px rgba(0,0,0,0.7); pointer-events: none;
+  }
   .ref-cand-line { font-size: 10px; line-height: 1.6; color: var(--text2); }
   .ref-cand-line b { color: var(--text); font-weight: 600; }
   .ref-cand-conflict { font-size: 10px; line-height: 1.6; color: var(--amber); }
@@ -10506,6 +10522,8 @@ function _refRenderLegend() {
   const tab = _refActiveTab();
   const onStack = !!(tab && isStackTab(tab));
   const syms = (_refPayload && !onStack) ? _refGetSel().syms : [];
+  // Close an open chip dropdown if its element is no longer selected (A4).
+  if (_refChipOpenSym && !syms.some(s => s.sym === _refChipOpenSym)) _refCloseChipDropdown();
   let host = document.getElementById('ref-chart-legend');
   if (!syms.length) { if (host) host.remove(); return; }
   if (!host) {
@@ -10524,8 +10542,10 @@ function _refRenderLegend() {
     return '<span class="ref-legend-chip" data-sym="' + a + '">' +
       '<span class="ref-legend-swatch" style="background:' + color + '"></span>' +
       '<span class="ref-legend-sym">' + _escHtml(s.sym) + '</span>' +
-      '<span class="ref-legend-tierdot" style="--tier-c:' + _refTierColor(tier) +
-        '" title="' + _escAttr(_refTierToast(tier)) + '"></span>' +
+      '<span class="ref-legend-tierdot" style="--tier-c:' + _refTierColor(tier) + '"' +
+        ' tabindex="0" role="img" aria-label="' + _escAttr(_refTierToast(tier)) + '"' +
+        ' onmouseenter="_refTierToastShow(this,\'' + tier + '\')" onmouseleave="_refTierToastHide()"' +
+        ' onfocus="_refTierToastShow(this,\'' + tier + '\')" onblur="_refTierToastHide()"></span>' +
       '<button type="button" class="ref-legend-more" aria-label="' + a + ' details"' +
         ' aria-expanded="false" onclick="_refChipDropdown(\'' + a + '\', this)">›</button>' +
       '<button type="button" class="ref-legend-remove" aria-label="Remove ' + a + ' overlay"' +
@@ -10535,10 +10555,94 @@ function _refRenderLegend() {
   }).join('');
 }
 
-// A3 stub — the legend chip dropdown (reuse of _refRenderElementGroup) + tier
-// toast are implemented in A4. Inert here so the chevron is structurally present
-// without throwing; A4 replaces this.
-function _refChipDropdown(/* sym, btn */) { /* A4 implements */ }
+// ── A4: legend chip dropdown (reuses the DETAILS renderer) + tier toast ──────
+let _refChipOpenSym = null;
+let _refChipOpenBtn = null;
+
+function _refChipPortalEl() {
+  let p = document.getElementById('ref-chip-portal');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'ref-chip-portal';
+    p.className = 'ref-chip-portal';
+    p.setAttribute('role', 'dialog');
+    p.setAttribute('aria-label', 'Reference overlay details');
+    document.body.appendChild(p);
+  }
+  return p;
+}
+
+// Fill the portal from the SAME DETAILS renderer the panel uses, so the dropdown
+// carries the full card (tier badge, transition rows, provenance, short_caveat +
+// more…, citation) with zero duplication.
+function _refChipDropdownContent() {
+  if (!_refChipOpenSym) return;
+  const sel = _refGetSel();
+  const entry = sel.syms.find(s => s.sym === _refChipOpenSym);
+  if (!entry) { _refCloseChipDropdown(); return; }
+  _refChipPortalEl().innerHTML = _refRenderElementGroup(entry, sel, _refViewRange());
+  if (_refChipOpenBtn) _refPositionChipPortal(_refChipOpenBtn);
+}
+
+// position:fixed portal escapes overflow:hidden; clamp to the viewport.
+function _refPositionChipPortal(btn) {
+  const p = _refChipPortalEl();
+  const r = btn.getBoundingClientRect();
+  p.style.visibility = 'hidden'; p.style.display = 'block';
+  const pw = p.offsetWidth, ph = p.offsetHeight;
+  let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
+  let top = r.bottom + 6;
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+  p.style.left = left + 'px'; p.style.top = top + 'px'; p.style.visibility = '';
+}
+
+function _refChipDropdown(sym, btn) {
+  if (_refChipOpenSym === sym) { _refCloseChipDropdown(); if (btn) btn.focus(); return; }
+  _refCloseChipDropdown();
+  _refChipOpenSym = sym; _refChipOpenBtn = btn;
+  _refChipDropdownContent();
+  btn.setAttribute('aria-expanded', 'true');
+  setTimeout(() => document.addEventListener('mousedown', _refChipOutside, true), 0);
+  document.addEventListener('keydown', _refChipEsc, true);
+}
+
+function _refCloseChipDropdown() {
+  const p = document.getElementById('ref-chip-portal');
+  if (p) p.remove();
+  document.removeEventListener('mousedown', _refChipOutside, true);
+  document.removeEventListener('keydown', _refChipEsc, true);
+  if (_refChipOpenBtn) _refChipOpenBtn.setAttribute('aria-expanded', 'false');
+  _refChipOpenSym = null; _refChipOpenBtn = null;
+}
+
+function _refChipOutside(e) {
+  const p = document.getElementById('ref-chip-portal');
+  const t = e.target;
+  if (p && !p.contains(t) && !(t instanceof Element && t.closest('.ref-legend-more'))) _refCloseChipDropdown();
+}
+function _refChipEsc(e) {
+  if (e.key === 'Escape') { const b = _refChipOpenBtn; _refCloseChipDropdown(); if (b) b.focus(); }
+}
+
+// Styled tier toast (hover/focus the chip tier-dot). Same canonical wording as
+// the dot's aria-label; created/removed instantly (reduced-motion-safe).
+function _refTierToastShow(el, tier) {
+  let t = document.getElementById('ref-tier-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'ref-tier-toast'; t.className = 'ref-tier-toast'; t.setAttribute('role', 'status');
+    document.body.appendChild(t);
+  }
+  t.textContent = _refTierToast(tier);
+  const r = el.getBoundingClientRect();
+  t.style.visibility = 'hidden'; t.style.display = 'block';
+  const tw = t.offsetWidth, th = t.offsetHeight;
+  let left = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, window.innerWidth - tw - 8));
+  let top = r.bottom + 6;
+  if (top + th > window.innerHeight - 8) top = Math.max(8, r.top - th - 6);
+  t.style.left = left + 'px'; t.style.top = top + 'px'; t.style.visibility = '';
+}
+function _refTierToastHide() { const t = document.getElementById('ref-tier-toast'); if (t) t.remove(); }
 
 // ── Unified top-search portal ────────────────────────────────────────────────
 // Results render in a body-portal, position:fixed popover (NOT inside the panel)
@@ -10696,6 +10800,8 @@ function _refSetShowWeak(on) {
 function _refToggleNote(sym) {
   _refNotesOpen[sym] = !_refNotesOpen[sym];
   _refRenderPanel();
+  // Keep an open chip dropdown (A4) in sync when its more…/less is toggled.
+  if (_refChipOpenSym === sym) _refChipDropdownContent();
 }
 
 function _refHover(id) {
