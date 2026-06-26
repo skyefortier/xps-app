@@ -10983,7 +10983,11 @@ const xpsRefLinesPlugin = {
     for (const [i, m] of sorted.entries()) {
       c.strokeStyle = m.color + (m.hover ? 'ff' : 'cc');
       c.lineWidth = m.hover ? 2 : 1.25;
-      c.setLineDash(m.isAuger ? [5, 4] : []);
+      // A2: element overlays are ALWAYS dashed (PE [6,3], Auger [2,3]) so SOLID is
+      // reserved exclusively for the identify marker; the three on-chart marker
+      // languages then read apart by style + colour (element = dashed element-
+      // coloured, compound = amber dashed [5,4], identify = solid accent).
+      c.setLineDash(m.isAuger ? [2, 3] : [6, 3]);
       c.beginPath();
       c.moveTo(m.px, chartArea.top);
       c.lineTo(m.px, chartArea.bottom);
