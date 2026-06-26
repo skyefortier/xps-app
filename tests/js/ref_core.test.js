@@ -131,12 +131,18 @@ test('compound BE equals input be_ev (no ccShift, source-invariant)', () => {
   assert.strictEqual(c.be, 284.5);
 });
 
-// --- marker-lifetime predicates (revision #5) ---
-test('elementOverlayVisible is gated; compoundMarkerVisible is always true', () => {
+// --- marker-lifetime predicates (A1: overlays persist independent of palette) ---
+test('elementOverlayVisible no longer depends on the palette being open', () => {
+  // A1: overlays persist after the palette closes — visible with panelOpen either way…
   assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: true,  activeChart: true,  isStackTab: false }), true);
-  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: false, activeChart: true,  isStackTab: false }), false);
+  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: false, activeChart: true,  isStackTab: false }), true);
+  // …still NOT on stack tabs…
   assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: true,  activeChart: true,  isStackTab: true  }), false);
+  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: false, activeChart: true,  isStackTab: true  }), false);
+  // …still only on the active chart…
   assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: true,  activeChart: false, isStackTab: false }), false);
+  assert.strictEqual(RefCore.elementOverlayVisible({ panelOpen: false, activeChart: false, isStackTab: false }), false);
+  // …and compound-marker behavior is unchanged (always visible / persistent).
   assert.strictEqual(RefCore.compoundMarkerVisible(), true);
 });
 

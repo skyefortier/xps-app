@@ -10870,8 +10870,9 @@ function _refRenderPanel() {
 // Items to draw on a given chart, or null when overlays don't apply.
 function _refChartItems(chart) {
   if (!_refPayload) return null;
-  // Element overlays are panel-gated / active-chart-only / stack-excluded — a
-  // DIFFERENT lifetime from compound markers (global/persistent). The tested
+  // Element overlays now PERSIST after the palette closes (A1) — same
+  // active-chart-only / stack-excluded contract as before, minus the panel gate.
+  // Their lifetime matches compound markers (global/persistent). The tested
   // RefCore predicate documents that contract; the explicit checks below are
   // kept as the authoritative guard.
   const tab = _refActiveTab();
@@ -10879,7 +10880,6 @@ function _refChartItems(chart) {
         panelOpen: _refPanelOpen,
         activeChart: chart === state.chart && !chart._xpsStackTabId,
         isStackTab: !!(tab && isStackTab(tab)) })) return null;
-  if (!_refPanelOpen || !_refPayload) return null;
   if (chart !== state.chart || chart._xpsStackTabId) return null;
   if (tab && isStackTab(tab)) return null;
   const sel = _refGetSel();

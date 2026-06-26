@@ -97,7 +97,11 @@
   function photoelectronBE(nominalBE) { return nominalBE; }   // source-invariant
 
   // Marker-lifetime predicates (revision #5).
-  function elementOverlayVisible(s) { return !!(s && s.panelOpen && s.activeChart && !s.isStackTab); }
+  // Element overlays PERSIST independent of the palette: visibility depends only
+  // on being the active, non-stack chart with a selection. `panelOpen` is still
+  // accepted (callers pass it) but no longer gates — overlays stay drawn after
+  // the palette closes. (Stack-tab + active-chart guards remain authoritative.)
+  function elementOverlayVisible(s) { return !!(s && s.activeChart && !s.isStackTab); }
   function compoundMarkerVisible() { return true; }            // global/persistent
 
   // ALL chem states within tol become candidates — no evidence filter exists at
