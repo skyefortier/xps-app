@@ -361,6 +361,28 @@
     color: var(--tier-c, var(--text2)); border-color: var(--tier-c, var(--border2));
     background: color-mix(in srgb, var(--tier-c, var(--bg3)) 15%, transparent); }
   .ref-cand-tier.machine, .ref-cand-tier.legacy { font-weight: 600; }
+  /* A3: always-visible on-chart overlay legend (chip = swatch + tier dot +
+     chevron + remove). Container is pointer-transparent so only chips intercept
+     chart interactions; z-index folds into the A5 semantic scale (--z-legend). */
+  .ref-chart-legend {
+    position: absolute; top: 8px; right: 12px; z-index: var(--z-legend, 12);
+    display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+    pointer-events: none; max-width: 45%;
+  }
+  .ref-legend-chip {
+    pointer-events: auto; display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+    padding: 2px 4px 2px 6px; font-size: 11px; font-family: var(--sans);
+  }
+  .ref-legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+  .ref-legend-sym { font-family: var(--mono); color: var(--text); }
+  .ref-legend-tierdot { width: 8px; height: 8px; border-radius: 50%; background: var(--tier-c, var(--text2)); flex: 0 0 auto; cursor: help; }
+  .ref-legend-more, .ref-legend-remove {
+    border: 0; background: none; color: var(--text2); cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 0 2px;
+  }
+  .ref-legend-more:hover, .ref-legend-remove:hover { color: var(--accent2); }
+  .ref-legend-more:focus-visible, .ref-legend-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .ref-cand-line { font-size: 10px; line-height: 1.6; color: var(--text2); }
   .ref-cand-line b { color: var(--text); font-weight: 600; }
   .ref-cand-conflict { font-size: 10px; line-height: 1.6; color: var(--amber); }
@@ -10186,8 +10208,9 @@ var _refNotesOpen = {};        // element symbol -> curation-note expanded
 var _refSearchElements = [];   // [{sym,name,z,tier}] snapshot for the top search
 
 function _refDefaultSel() {
-  return { syms: [], showWeak: false, source: 'AlKa', _nextColorIdx: 0,
-           tolEv: null, includeAuger: false };
+  // colorIdx is assigned per-pick via RefCore.nextColorIdx (residue-aware), so no
+  // running _nextColorIdx counter is stored on the selection (retired in A3).
+  return { syms: [], showWeak: false, source: 'AlKa', tolEv: null, includeAuger: false };
 }
 
 // Data-tier color accessor — wraps the RefCore.tierColor SSOT so every tier
@@ -10457,9 +10480,65 @@ function toggleRefPanel() {
 // Redraw overlays in place (zoom preserved); fall back to updatePlot when the
 // reference chart may need to be built or torn down.
 function _refRepaint() {
-  if (!(state.rawBE && state.rawBE.length)) { updatePlot(); return; }
+  if (!(state.rawBE && state.rawBE.length)) { updatePlot(); _refRenderLegend(); return; }
   if (state.chart) state.chart.update('none');
+  _refRenderLegend();
 }
+
+// A3: canonical tier wording (shipped at bfedc95) — used now as the tier-dot's
+// native title; A4 upgrades the hover to a styled toast reusing this same source.
+function _refTierToast(tier) {
+  return tier === 'machine'
+    ? 'From NIST, automatically cross-checked but not yet reviewed by a person.'
+    : tier === 'legacy'
+      ? 'Approximate value — verify against literature.'
+      : 'Reference energies reviewed by a person. Please verify all energies against authoritative reference sources.';
+}
+
+// A3: always-visible on-chart legend — the overlay manager. Lists the active
+// element overlays as chips (element swatch + tier colour-dot + chevron + remove)
+// so overlays are visible/manageable whether or not the palette is open. Hidden
+// on stack tabs and when nothing is selected. Lives over the canvas in
+// #main-chart-wrap; the container is pointer-transparent so only chips intercept.
+function _refRenderLegend() {
+  const wrap = document.getElementById('main-chart-wrap');
+  if (!wrap) return;
+  const tab = _refActiveTab();
+  const onStack = !!(tab && isStackTab(tab));
+  const syms = (_refPayload && !onStack) ? _refGetSel().syms : [];
+  let host = document.getElementById('ref-chart-legend');
+  if (!syms.length) { if (host) host.remove(); return; }
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'ref-chart-legend';
+    host.className = 'ref-chart-legend';
+    host.setAttribute('role', 'group');
+    host.setAttribute('aria-label', 'Reference overlays');
+    wrap.appendChild(host);
+  }
+  const els = _refElements();
+  host.innerHTML = syms.map(s => {
+    const color = ELEMENT_MARKER_COLORS[s.colorIdx % ELEMENT_MARKER_COLORS.length];
+    const tier = (els[s.sym] && els[s.sym].tier) || 'curated';
+    const a = _escAttr(s.sym);
+    return '<span class="ref-legend-chip" data-sym="' + a + '">' +
+      '<span class="ref-legend-swatch" style="background:' + color + '"></span>' +
+      '<span class="ref-legend-sym">' + _escHtml(s.sym) + '</span>' +
+      '<span class="ref-legend-tierdot" style="--tier-c:' + _refTierColor(tier) +
+        '" title="' + _escAttr(_refTierToast(tier)) + '"></span>' +
+      '<button type="button" class="ref-legend-more" aria-label="' + a + ' details"' +
+        ' aria-expanded="false" onclick="_refChipDropdown(\'' + a + '\', this)">›</button>' +
+      '<button type="button" class="ref-legend-remove" aria-label="Remove ' + a + ' overlay"' +
+        ' onclick="_refToggleElement(\'' + a + '\')"' +
+        ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_refToggleElement(\'' + a + '\')}">×</button>' +
+      '</span>';
+  }).join('');
+}
+
+// A3 stub — the legend chip dropdown (reuse of _refRenderElementGroup) + tier
+// toast are implemented in A4. Inert here so the chevron is structurally present
+// without throwing; A4 replaces this.
+function _refChipDropdown(/* sym, btn */) { /* A4 implements */ }
 
 // ── Unified top-search portal ────────────────────────────────────────────────
 // Results render in a body-portal, position:fixed popover (NOT inside the panel)
@@ -10579,6 +10658,7 @@ function _refRenderCompoundChips() {
 
 function _refOnTabChange() {
   if (_refPanelOpen) _refRenderPanel();
+  _refRenderLegend();   // legend reflects the newly-active tab's selection (A3)
 }
 
 function _refToggleElement(sym) {
@@ -10586,7 +10666,12 @@ function _refToggleElement(sym) {
   const sel = _refGetSel();
   const i = sel.syms.findIndex(s => s.sym === sym);
   if (i >= 0) sel.syms.splice(i, 1);
-  else sel.syms.push({ sym, colorIdx: sel._nextColorIdx++ % ELEMENT_MARKER_COLORS.length });
+  // A3: in-session colour assignment routes through the shared RefCore.nextColorIdx
+  // (residue-aware) — the SAME helper post-load picks use — instead of the old
+  // sel._nextColorIdx++ running counter. New overlays no longer repeat a rendered
+  // colour until the palette is exhausted, and restored + new overlays stay
+  // distinct. (The vestigial _nextColorIdx field is retired in _refDefaultSel.)
+  else sel.syms.push({ sym, colorIdx: RefCore.nextColorIdx(sel.syms.map(s => s.colorIdx), ELEMENT_MARKER_COLORS.length) });
   _refRenderPanel();
   _refRepaint();
 }

@@ -21,6 +21,22 @@
   const TIER_COLORS = { curated: '#3ddc84', machine: '#b48eff', legacy: '#ffbb44', fallback: '#8a9ab8' };
   function tierColor(tier) { return TIER_COLORS[tier] || TIER_COLORS.fallback; }
 
+  // Shared color-assignment helper (A3) — the single source for picking an
+  // overlay colorIdx, used for BOTH in-session picks and (later) post-load
+  // next-pick. Returns the first index whose PALETTE RESIDUE (i % paletteLen) is
+  // not already used by the current overlays, so a new overlay renders a colour
+  // distinct from existing ones while unused residues remain; once every residue
+  // is taken it falls back deterministically to max(used)+1 (accepts reuse).
+  // Invalid entries (non-integer / negative) are ignored when computing the set.
+  function nextColorIdx(usedColorIndices, paletteLen) {
+    const used = Array.isArray(usedColorIndices)
+      ? usedColorIndices.filter(c => Number.isInteger(c) && c >= 0) : [];
+    const len = (Number.isInteger(paletteLen) && paletteLen > 0) ? paletteLen : 1;
+    const usedResidues = new Set(used.map(c => c % len));
+    for (let i = 0; i < len; i++) if (!usedResidues.has(i)) return i;
+    return used.length ? Math.max.apply(null, used) + 1 : 0;
+  }
+
   function tolFromSlider(value) {
     let v = Number(value);
     if (!isFinite(v)) v = TOL_DEFAULT;
@@ -169,5 +185,5 @@
   return { tolFromSlider, coerceTolToEv, blendedSearch, parseChemKey,
            augerApparentBE, photoelectronBE, elementOverlayVisible, compoundMarkerVisible,
            compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates,
-           tierColor, TIER_COLORS };
+           tierColor, TIER_COLORS, nextColorIdx };
 });

@@ -156,3 +156,20 @@ test('tierColor falls back safely for unknown/missing tiers', () => {
   assert.strictEqual(RefCore.tierColor('nonsense'), RefCore.TIER_COLORS.fallback);
   assert.strictEqual(RefCore.tierColor(undefined),  RefCore.TIER_COLORS.fallback);
 });
+
+// --- A3: shared residue-aware color assignment (nextColorIdx) ---
+test('nextColorIdx returns the first index whose palette residue is unused', () => {
+  assert.strictEqual(RefCore.nextColorIdx([0, 5, 2], 8), 1);   // residues {0,5,2} → 1 free
+});
+test('nextColorIdx falls back to max(used)+1 once every residue is taken', () => {
+  assert.strictEqual(RefCore.nextColorIdx([0, 1, 2], 3), 3);   // palette of 3 fully used → reuse
+  assert.strictEqual(RefCore.nextColorIdx([], 8), 0);          // none used → 0
+});
+test('nextColorIdx: a new pick shares no rendered residue with existing overlays (while residues remain)', () => {
+  const used = [0, 5, 2];
+  const usedResidues = new Set(used.map(c => c % 8));
+  assert.ok(!usedResidues.has(RefCore.nextColorIdx(used, 8) % 8));
+});
+test('nextColorIdx ignores invalid entries (non-integer/negative) when computing the used set', () => {
+  assert.strictEqual(RefCore.nextColorIdx([0, -1, NaN, 1.5, '2', null, 1], 8), 2);  // valid {0,1} → first free 2
+});
