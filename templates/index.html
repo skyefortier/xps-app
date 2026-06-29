@@ -9964,8 +9964,9 @@ async function runPropagation() {
     // Copy peak nextId
     const nextId = Math.max(0, ...clonedPeaks.map(p => p.id)) + 1;
 
-    // Propagate background + ROI + CC settings from source (BatchPropagation is
-    // the single source of truth for the merge — see static/js/batch_propagation.js).
+    // Propagate background + ROI settings from source (BatchPropagation is the
+    // single source of truth for the merge — see static/js/batch_propagation.js).
+    // ccShift is copied separately just below.
     const srcUi = sourceTab.ui;
     const newUi = BatchPropagation.propagateFitUi(srcUi, tgt.ui);
 
