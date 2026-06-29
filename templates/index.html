@@ -8480,7 +8480,7 @@ async function _doSaveProject() {
         })),
       };
     }
-    return {
+    const rec = {
       id: t.id, name: t.name, color: t.color, isSurvey: t.isSurvey,
       rawBE: t.rawBE, rawIntensity: t.rawIntensity,
       ccShift: t.ccShift, chargeVerified: t.chargeVerified ?? true,
@@ -8503,6 +8503,13 @@ async function _doSaveProject() {
       lineWidth: t.lineWidth ?? 1.5,
       ui: {...t.ui},
     };
+    // B2: per-tab element overlays. Additive + optional — serializeRefOverlays
+    // returns null when the tab has no valid selection, and we omit the key
+    // entirely then so old-shaped saves stay byte-clean. Identify transient
+    // state (_refIdentify / tolEv) is structurally never serialized here.
+    const _ov = RefCore.serializeRefOverlays(t._refSel);
+    if (_ov) rec.refOverlays = _ov;
+    return rec;
   };
 
   const meta = {
@@ -8512,6 +8519,12 @@ async function _doSaveProject() {
     instrument: instrument,
     activeId: tabManager.activeId,
   };
+  // B2: compound markers are GLOBAL (project-meta scope, not per-tab). Additive +
+  // optional — omit the key when there are no markers (serializer returns null).
+  // Top-level version stays 3. (Flows to both the .proj.json `{...meta}` and the
+  // .proj.zip manifest `{...meta}`, which reuse this same meta object.)
+  const _refCM = RefCore.serializeRefCompoundMarkers(_refCompoundMarkers);
+  if (_refCM) meta.refCompoundMarkers = _refCM;
 
   if (tabs.length < 5) {
     const data = { ...meta, tabs: tabs.map(buildTabData) };
@@ -8826,6 +8839,13 @@ function _loadProjectJSON(data, sessionFile) {
         ccMethod: 'none', ccObs: '', ccLit: '',
         ...(t.ui || {})
       },
+      // B2: restore per-tab element overlays. deserializeRefOverlays is total —
+      // an absent/old-shaped t.refOverlays yields an empty selection (clean, no
+      // overlays). Valid saved colorIdx restored verbatim; invalid repaired
+      // by-position via the shared RefCore.nextColorIdx (paletteLen passed
+      // explicitly). No identify marker is ever restored.
+      _refSel: { ..._refDefaultSel(),
+        ...RefCore.deserializeRefOverlays(t.refOverlays, ELEMENT_MARKER_COLORS.length) },
     };
   });
   // Preserve the saved tab order verbatim. (Fresh folder loads still use the
@@ -8893,7 +8913,25 @@ function _loadProjectJSON(data, sessionFile) {
   const restoreId = (resolvedActiveId && tabManager.tabs.some(t => t.id === resolvedActiveId))
     ? resolvedActiveId
     : (newTabs.length ? newTabs[0].id : null);
+  // B2: restore the GLOBAL compound markers ONCE (project-meta scope), before
+  // activation so the activated tab's updatePlot() draws them. deserialize is
+  // total — absent/old-shaped data.refCompoundMarkers yields []. Done in place so
+  // the existing global array reference (read by the overlay plugin) is preserved.
+  _refCompoundMarkers.splice(0, _refCompoundMarkers.length,
+    ...RefCore.deserializeRefCompoundMarkers(data.refCompoundMarkers));
   if (restoreId) tabManager.activateTab(restoreId);
+  // Re-show overlays + markers on the reopened project. Element overlays need the
+  // reference payload (transition positions) to draw + to populate the legend; if
+  // any tab restored overlays, ensure that data is fetched even with the palette
+  // closed — _refEnsureData is idempotent and its .finally repaints (legend +
+  // chart) once the data arrives. (Compound markers don't need the payload — the
+  // global overlay plugin draws them on the activation repaint above.)
+  const _anyOverlays = newTabs.some(t => !t.isStack && t._refSel && t._refSel.syms.length);
+  if (_anyOverlays && typeof _refEnsureData === 'function') _refEnsureData();
+  // Explicit, idempotent repaint for the already-loaded-payload case (and to draw
+  // restored compound markers immediately).
+  if (typeof _refRenderLegend === 'function') _refRenderLegend();
+  if (state.chart) state.chart.update('none');
   tabManager.renderTabBar();
   tabManager._updateSurveyPanel();
   const label = data.sample_name ? ('"' + data.sample_name + '" — ') : '';
