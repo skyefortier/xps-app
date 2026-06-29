@@ -8119,8 +8119,9 @@ function updatePlot() {
 }
 
 function renderEmptyChart() {
-  // Reference mode: panel open + elements selected + no spectrum loaded →
-  // draw markers on a labeled 0–1200 eV axis instead of the onboarding card.
+  // Reference mode (A7): overlays selected + no spectrum loaded (palette open or
+  // closed) → draw markers on a labeled 0–1200 eV axis instead of the onboarding
+  // card. No overlays → the onboarding card (the chart is torn down below).
   if (typeof _refReferenceModeWanted === 'function' && _refReferenceModeWanted()) {
     _refRenderReferenceChart();
     return;
@@ -11351,9 +11352,14 @@ const xpsRefLinesPlugin = {
 // Reference mode: a labeled bare 0–1200 eV axis so overlays are usable with
 // no spectrum loaded. Built/torn down via renderEmptyChart's guard.
 function _refReferenceModeWanted() {
+  // A7: bound to OVERLAYS EXISTING, not to the palette being open (overlays now
+  // persist palette-closed, A1). The bare 0–1200 eV reference chart earns its
+  // place only when there is something to show: a non-stack tab with at least
+  // one selected overlay and no spectrum loaded. Removing the last overlay
+  // (syms.length → 0) tears it back down to the onboarding card.
   const tab = _refActiveTab();
   if (tab && isStackTab(tab)) return false;
-  return _refPanelOpen && !!_refPayload && _refGetSel().syms.length > 0 &&
+  return !!_refPayload && _refGetSel().syms.length > 0 &&
     !(state.rawBE && state.rawBE.length);
 }
 
@@ -11401,6 +11407,12 @@ function _refRenderReferenceChart() {
     },
     plugins: [xpsRefLinesPlugin],
   });
+  // A7: the xpsRefLinesPlugin gates on `chart === state.chart`, but during the
+  // `new Chart()` constructor's initial render `state.chart` is not yet assigned,
+  // so the overlay markers are skipped on that first paint. Re-paint now that the
+  // assignment is complete so the reference markers actually draw. (Pre-existing
+  // render gap surfaced by making reference mode reachable with the palette closed.)
+  state.chart.update('none');
 }
 
 // ── Reverse lookup (Identify mode) ────────────────────────────
