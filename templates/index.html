@@ -8917,8 +8917,12 @@ function _loadProjectJSON(data, sessionFile) {
   // activation so the activated tab's updatePlot() draws them. deserialize is
   // total — absent/old-shaped data.refCompoundMarkers yields []. Done in place so
   // the existing global array reference (read by the overlay plugin) is preserved.
+  // Assign FRESH ephemeral ids (runtime-only, NEVER persisted — the file format
+  // carries no id) so _refRenderCompoundChips / _refRemoveCompoundMarker target
+  // the correct marker after reload (without ids, removal would hit the wrong one).
   _refCompoundMarkers.splice(0, _refCompoundMarkers.length,
-    ...RefCore.deserializeRefCompoundMarkers(data.refCompoundMarkers));
+    ...RefCore.deserializeRefCompoundMarkers(data.refCompoundMarkers)
+      .map(m => ({ ...m, id: _refCompoundMarkerNextId++ })));
   if (restoreId) tabManager.activateTab(restoreId);
   // Re-show overlays + markers on the reopened project. Element overlays need the
   // reference payload (transition positions) to draw + to populate the legend; if
@@ -10329,8 +10333,9 @@ function _refActiveTab() {
     ? tabManager._getTab(tabManager.activeId) : null;
 }
 
-// Selection lives on the tab (session-only — the .proj.json schema is frozen,
-// so this is deliberately NOT serialized), with a global fallback pre-tab.
+// Selection lives on the tab, with a global fallback pre-tab. Persisted across
+// save/load as the per-tab refOverlays field (B2 — serialize/deserialize via
+// RefCore); the identify transient on the tab is never serialized.
 function _refGetSel() {
   const tab = _refActiveTab();
   if (tab) { if (!tab._refSel) tab._refSel = _refDefaultSel(); return tab._refSel; }
