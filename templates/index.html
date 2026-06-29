@@ -197,14 +197,6 @@
     min-height: 0;
   }
   #ref-panel.open { display: flex; }
-  /* A5 INTERIM GUARD (superseded + removed by A6): while Identify is armed, the
-     floating palette yields pointer events so a chart click passes THROUGH it to
-     the canvas (otherwise the palette over the full-width chart would eat the
-     identify click). The disarm control stays interactive and Esc always
-     disarms, so the user can never be soft-locked into identify mode. A6
-     de-gates identify from the palette entirely and deletes this rule. */
-  #ref-panel.identify-passthrough { pointer-events: none; }
-  #ref-panel.identify-passthrough #ref-identify-btn { pointer-events: auto; }
   #ref-panel.collapsed { max-height: none; }
   #ref-panel.collapsed .panel-body { display: none; }
   /* header is the drag handle (scoped to #ref-panel — the class is shared with #right-panel) */
@@ -441,6 +433,14 @@
     max-width: 280px; font-size: 11px; line-height: 1.45; color: var(--text);
     background: var(--bg); border: 1px solid var(--border2); border-radius: 6px;
     padding: 6px 8px; box-shadow: 0 8px 24px -10px rgba(0,0,0,0.7); pointer-events: none;
+  }
+  /* A6: click-anchored identify popover — body portal, ABOVE the palette
+     (--z-identify-popover > --z-palette), reuses the candidate-card markup. */
+  .ref-identify-popover {
+    display: none; position: fixed; z-index: var(--z-identify-popover, 2300);
+    width: 340px; max-width: 92vw; max-height: 70vh; overflow-y: auto;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px;
+    padding: 10px 12px; box-shadow: 0 16px 40px -16px rgba(0,0,0,0.75);
   }
   .ref-cand-line { font-size: 10px; line-height: 1.6; color: var(--text2); }
   .ref-cand-line b { color: var(--text); font-weight: 600; }
@@ -1980,6 +1980,7 @@
         </div>
         <button class="btn btn-sm" id="btn-organize-tabs" onclick="organizeTabs()" title="Reorder tabs so same-element spectra are adjacent (Surveys &rarr; elements alphabetical &rarr; Other)">&#8645; Organize Tabs</button>
         <button class="btn btn-sm" id="btn-ref-panel" onclick="toggleRefPanel()" title="Periodic-table reference lines: overlay expected elemental line positions on the spectrum (data: NIST SRD 20)">&#8862; Reference Lines</button>
+        <button class="btn btn-sm peak-fit-control" id="ref-identify-btn" onclick="togglePlaceMode('identify')" title="Identify mode: click a spectrum feature to list candidate elemental lines (works with the Reference palette closed). Esc or right-click to exit.">&#8982; Identify</button>
         <div style="flex:1"></div>
         <label class="pill-toggle active">
           <input type="checkbox" id="show-envelope" checked onchange="this.parentElement.classList.toggle('active',this.checked);updatePlot()">
@@ -4986,7 +4987,6 @@ function togglePlaceMode(mode) {
     // and toggleRefPanel's close-time disarm calls togglePlaceMode('identify') —
     // so clearing here covers all three.
     if (mode === 'identify' && typeof _refClearIdentify === 'function') _refClearIdentify();
-    if (typeof _refUpdateIdentifyPassthrough === 'function') _refUpdateIdentifyPassthrough();
     notify('Placement mode cancelled.', '');
     return;
   }
@@ -5001,7 +5001,6 @@ function togglePlaceMode(mode) {
     if (b) b.classList.add('place-active');
     notify(cfg.msg, 'green');
   }
-  if (typeof _refUpdateIdentifyPassthrough === 'function') _refUpdateIdentifyPassthrough();
 }
 
 function handleChartClick(event) {
@@ -5027,7 +5026,9 @@ function handleChartClick(event) {
     const iy = event.clientY - rect.top;
     const ixs = chart.scales.x, iys = chart.scales.y;
     if (!ixs || !iys || ix < ixs.left || ix > ixs.right || iy < iys.top || iy > iys.bottom) return;
-    if (typeof _refIdentifyAt === 'function') _refIdentifyAt(ixs.getValueForPixel(ix));
+    // A6: anchor the click-anchored popover at the click pixel (viewport coords,
+    // since the popover is position:fixed).
+    if (typeof _refIdentifyAt === 'function') _refIdentifyAt(ixs.getValueForPixel(ix), { x: event.clientX, y: event.clientY });
     return;
   }
 
@@ -10615,26 +10616,14 @@ function _refPaletteDragEnd() {
 // Re-clamp an open palette when the viewport changes (prevents offscreen drift).
 window.addEventListener('resize', () => { if (_refPanelOpen) _refApplyPaletteGeometry(); });
 
-// A5 INTERIM GUARD (removed by A6): mirror identify-armed state onto the palette
-// so it yields pointer events (chart click passes through) while armed. Called
-// from togglePlaceMode's single arm/disarm point. The disarm control stays
-// interactive (CSS) and Esc disarms globally, so this can never soft-lock.
-function _refUpdateIdentifyPassthrough() {
-  const el = document.getElementById('ref-panel');
-  if (el) el.classList.toggle('identify-passthrough',
-    typeof placeMode !== 'undefined' && placeMode === 'identify');
-}
-
 function toggleRefPanel() {
   _refPanelOpen = !_refPanelOpen;
   document.getElementById('ref-panel').classList.toggle('open', _refPanelOpen);
   const btn = document.getElementById('btn-ref-panel');
   if (btn) btn.classList.toggle('btn-accent', _refPanelOpen);
-  // Closing the panel disarms Identify mode — a crosshair with no visible
-  // results target would be confusing.
-  if (!_refPanelOpen && typeof placeMode !== 'undefined' && placeMode === 'identify') {
-    togglePlaceMode('identify');
-  }
+  // A6: identify is de-gated from the palette — closing the panel no longer
+  // disarms it (the toolbar arm + click-anchored popover work with the palette
+  // closed). Esc / the popover's clear / re-toggling the toolbar button disarm.
   if (_refPanelOpen) { _refEnsureData(); _refRenderPanel(); _refApplyPaletteGeometry(); }
   else if (typeof _refCloseSearch === 'function') _refCloseSearch();   // no stale popover
   _refRepaint();
@@ -11193,7 +11182,9 @@ function _refRenderPanel() {
     srcRowHtml + contextHtml + elementSearchHtml + _refRenderIdentifyControls(sel, range) + '</div>';
   const tableZone = '<div class="ref-zone-table">' + _refRenderGrid(sel) + allLinesToggleHtml + '</div>';
 
-  let detailsInner = _refRenderIdentifyResults(sel, range);
+  // A6: identify RESULTS render in the click-anchored popover (not here); the
+  // Details zone is for the per-element overlay cards.
+  let detailsInner = '';
   if (!sel.syms.length) {
     detailsInner += '<div class="ref-hint">Click an element to overlay its reference lines on the spectrum. ' +
       'Solid-outlined elements are curated (source-verified); dashed elements carry only ' +
@@ -11285,12 +11276,22 @@ const xpsRefLinesPlugin = {
         const px = scales.x.getPixelForValue(ident.be);
         if (px >= chartArea.left && px <= chartArea.right) {
           c.save();
+          // A6: SOLID accent line (distinct from the now-dashed element overlays)
+          // + a downward caret marking the interrogated peak.
           c.strokeStyle = '#4a9eff';
           c.lineWidth = 1.5;
+          c.setLineDash([]);
           c.beginPath();
           c.moveTo(px, chartArea.top);
           c.lineTo(px, chartArea.bottom);
           c.stroke();
+          c.fillStyle = '#4a9eff';
+          c.beginPath();
+          c.moveTo(px - 5, chartArea.top);
+          c.lineTo(px + 5, chartArea.top);
+          c.lineTo(px, chartArea.top + 7);
+          c.closePath();
+          c.fill();
           c.font = 'bold 12px ' + MONO_FONT;
           c.textAlign = 'center';
           c.textBaseline = 'bottom';
@@ -11410,7 +11411,9 @@ function _refRenderReferenceChart() {
 // range).
 
 function _refIdentState(chart) {
-  if (!_refPanelOpen || !_refPayload) return null;
+  // A6: identify is no longer panel-gated — the transient marker + click-anchored
+  // popover work with the palette closed. Active-chart + non-stack guards remain.
+  if (!_refPayload) return null;
   if (chart !== state.chart || chart._xpsStackTabId) return null;
   const tab = _refActiveTab();
   if (!tab || isStackTab(tab) || !tab._refIdentify) return null;
@@ -11475,7 +11478,7 @@ function _refSignalElevatedNear(be, tol) {
   return { evaluated: true, present: _arrMax(win) > fMed + 4 * 1.4826 * mad };
 }
 
-function _refIdentifyAt(beClicked) {
+function _refIdentifyAt(beClicked, anchor) {
   const tab = _refActiveTab();
   if (!tab || isStackTab(tab) || !_refPayload) return;
   const sel = _refGetSel();
@@ -11592,22 +11595,73 @@ function _refIdentifyAt(beClicked) {
     c.tier = cap.label; c.tierCls = cap.labelCls; c.energyText = cap.energyText;
   }
 
-  tab._refIdentify = { be: beClicked, tol, widened, ccUnverified, cands: top };
+  // Preserve the click anchor across tol/Auger re-runs (which pass no fresh
+  // anchor) so the popover stays put. The anchor is transient + never serialized.
+  const keepAnchor = anchor || (tab._refIdentify && tab._refIdentify.anchor) || null;
+  tab._refIdentify = { be: beClicked, tol, widened, ccUnverified, cands: top, anchor: keepAnchor };
   _refRenderPanel();
-  if (state.chart) state.chart.update('none');
+  _refShowIdentifyPopover();
+  if (state.chart) state.chart.update('none');   // leaf-mutation: redraws the marker, no dataset swap
 }
 
 function _refClearIdentify() {
   const tab = _refActiveTab();
   if (tab) tab._refIdentify = null;
+  _refCloseIdentifyPopover();
   _refRenderPanel();
   if (state.chart) state.chart.update('none');
 }
 
 function _refRerunIdentify() {
   const tab = _refActiveTab();
-  if (tab && tab._refIdentify) _refIdentifyAt(tab._refIdentify.be);
+  if (tab && tab._refIdentify) _refIdentifyAt(tab._refIdentify.be, tab._refIdentify.anchor);
   else _refRenderPanel();
+}
+
+// A6: click-anchored identify popover — reuses the EXACT _refRenderIdentifyResults
+// markup, anchored at the click pixel, viewport-clamped, ABOVE the palette
+// (--z-identify-popover). Separate from the legend; Esc / outside-click / the
+// in-popover "clear" all route through _refClearIdentify.
+function _refIdentifyPopoverEl() {
+  let p = document.getElementById('ref-identify-popover');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'ref-identify-popover';
+    p.className = 'ref-identify-popover';
+    p.setAttribute('role', 'dialog');
+    p.setAttribute('aria-label', 'Identify candidates');
+    document.body.appendChild(p);
+  }
+  return p;
+}
+function _refShowIdentifyPopover() {
+  const tab = _refActiveTab();
+  const ident = tab && tab._refIdentify;
+  if (!ident) { _refCloseIdentifyPopover(); return; }
+  const sel = _refGetSel();
+  const p = _refIdentifyPopoverEl();
+  p.innerHTML = _refRenderIdentifyResults(sel, _refViewRange());
+  // Anchor at the click pixel (viewport coords), clamped on-screen.
+  const a = ident.anchor || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  p.style.visibility = 'hidden'; p.style.display = 'block';
+  const pw = p.offsetWidth, ph = p.offsetHeight;
+  let left = Math.max(8, Math.min(a.x + 12, window.innerWidth - pw - 8));
+  let top = Math.max(8, Math.min(a.y + 12, window.innerHeight - ph - 8));
+  p.style.left = left + 'px'; p.style.top = top + 'px'; p.style.visibility = '';
+  setTimeout(() => document.addEventListener('mousedown', _refIdentifyOutside, true), 0);
+}
+function _refCloseIdentifyPopover() {
+  const p = document.getElementById('ref-identify-popover');
+  if (p) p.remove();
+  document.removeEventListener('mousedown', _refIdentifyOutside, true);
+}
+// Outside-click clears identify — but a chart click (re-identify) and palette
+// interactions (tol slider) are NOT "outside", so they don't close it.
+function _refIdentifyOutside(e) {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  if (t.closest('#ref-identify-popover') || t.closest('#main-chart-wrap') || t.closest('#ref-panel')) return;
+  _refClearIdentify();
 }
 
 // Live drag: update the readout + store the value WITHOUT rebuilding the panel
@@ -11660,10 +11714,10 @@ function _refRenderIdentifyControls(sel, range) {
     return html + '<div class="ref-hint">Load a spectrum to identify peaks.</div></div>';
   }
   const { tol, widened } = _refToleranceEv();
-  const armed = typeof placeMode !== 'undefined' && placeMode === 'identify';
+  // A6: the arm control lives in the chart toolbar (#ref-identify-btn) so identify
+  // works with this palette closed; the panel keeps only the identify SETTINGS.
+  html += '<div class="ref-hint">Arm <b>Identify</b> in the chart toolbar, then click a spectrum feature. Settings:</div>';
   html += '<div class="ref-ident-row">' +
-    '<button class="btn btn-sm' + (armed ? ' place-active' : '') + '" id="ref-identify-btn" ' +
-    'onclick="togglePlaceMode(\'identify\')" title="Arm Identify mode: chart clicks list candidate lines instead of placing peaks">&#8982; Identify mode</button>' +
     '<label class="ref-tol-wrap"><span class="ref-tol-cap">&plusmn; tol</span>' +
     '<input type="range" id="ref-tol-range" min="0.25" max="5" step="0.25" value="' + tol.toFixed(2) + '" ' +
     'oninput="_refTolPreview(this.value)" onchange="_refSetTol(this.value)" aria-label="Identify tolerance in eV"></label>' +

@@ -227,28 +227,26 @@ def test_palette_interactive_when_identify_not_armed(browser, server):
         pg.close()
 
 
-def test_esc_disarms_identify_even_under_passthrough_guard(browser, server):
+def test_esc_disarms_identify_and_no_passthrough_guard(browser, server):
+    # A6 removed the A5 interim passthrough guard: the palette never goes
+    # pointer-events:none, and Esc still disarms identify.
     pg = _new_page(browser, server)
     try:
         _setup_u(pg)
         pg.wait_for_selector("#ref-identify-btn", timeout=10000)
-        pg.click("#ref-identify-btn")                       # arm identify
+        pg.click("#ref-identify-btn")                       # arm identify (from the toolbar)
         pg.wait_for_timeout(100)
         armed = pg.evaluate("""() => {
             const p=document.getElementById('ref-panel');
             return { mode: placeMode, passthrough: p.classList.contains('identify-passthrough'),
-                     pe: getComputedStyle(p).pointerEvents };
+                     pe: getComputedStyle(p).pointerEvents,
+                     helper: typeof _refUpdateIdentifyPassthrough };
         }""")
         assert armed["mode"] == "identify"
-        assert armed["passthrough"] is True and armed["pe"] == "none"   # guard active
-        pg.keyboard.press("Escape")                        # the always-available exit
+        assert armed["passthrough"] is False and armed["pe"] != "none"  # NO guard
+        assert armed["helper"] == "undefined"                          # helper deleted
+        pg.keyboard.press("Escape")                        # always-available exit
         pg.wait_for_timeout(100)
-        after = pg.evaluate("""() => {
-            const p=document.getElementById('ref-panel');
-            return { mode: placeMode, passthrough: p.classList.contains('identify-passthrough'),
-                     pe: getComputedStyle(p).pointerEvents };
-        }""")
-        assert after["mode"] is None                       # disarmed despite guard (no soft-lock)
-        assert after["passthrough"] is False and after["pe"] != "none"  # interactivity restored
+        assert pg.evaluate("() => placeMode") is None      # disarmed
     finally:
         pg.close()

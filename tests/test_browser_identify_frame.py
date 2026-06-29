@@ -116,6 +116,10 @@ def setup_u(page, cc=2.7):
             if(placeMode) togglePlaceMode(placeMode);
             const sel=_refGetSel(); sel.syms=[]; sel.source='AlKa';
             _refToggleElement('U');
+            // A6: identify works with the palette CLOSED — close it so the
+            // real-clicked peak (which can sit under the floating palette)
+            // reaches the chart. Overlays persist regardless (A1).
+            if(_refPanelOpen) toggleRefPanel();
             updatePlot();
         }""", cc)
     page.wait_for_timeout(150)
@@ -380,7 +384,89 @@ def test_legacy_candidate_card_shows_tier_and_delta(page):
     setup_spectrum(page, 500, 530)
     page.evaluate("() => _refIdentifyAt(517.0)")
     page.wait_for_timeout(150)
-    txt = page.inner_text("#ref-panel-body")
+    # A6: identify candidate cards render in the click-anchored popover, not the
+    # panel body.
+    txt = page.inner_text("#ref-identify-popover")
     assert "V 2p" in txt
     assert "approximate" in txt              # data-tier badge (plain-language), non-authoritative
     assert "Δ" in txt                   # Δ shown
+
+
+# ── A6: identify de-gated from the palette + click-anchored popover ───────────
+
+def test_identify_works_with_palette_closed(page):
+    setup_u(page, 2.7)
+    assert page.evaluate("() => _refPanelOpen") is False     # palette is CLOSED (setup_u closed it)
+    page.click("#ref-identify-btn")                          # arm from the TOOLBAR (no palette needed)
+    xy = _peak_client_xy(page, 377.3)
+    page.mouse.click(xy["x"], xy["y"])                       # real click reaches the chart
+    page.wait_for_timeout(150)
+    r = page.evaluate("""() => {
+        const tab=_refActiveTab(); const id=tab&&tab._refIdentify;
+        const pop=document.getElementById('ref-identify-popover');
+        return { has:!!id, top:id&&id.cands[0]&&id.cands[0].label,
+                 popover:!!pop, popHasCard: pop ? /U 4f7\\/2/.test(pop.innerText) : false };
+    }""")
+    assert r["has"] is True
+    assert r["top"] == "U 4f7/2"
+    assert r["popover"] is True and r["popHasCard"] is True
+    page.click("#ref-identify-btn")                          # disarm (leave clean state)
+
+
+def test_identify_works_with_palette_open(page):
+    setup_u(page, 2.7)
+    # Open the palette and move it LEFT so the right-side U peak is not under it.
+    page.evaluate("""() => {
+        if(!_refPanelOpen) toggleRefPanel();
+        const el=document.getElementById('ref-panel');
+        el.style.left='8px'; el.style.top='8px'; el.style.right='auto';
+    }""")
+    page.wait_for_timeout(100)
+    assert page.evaluate("() => _refPanelOpen") is True
+    page.click("#ref-identify-btn")
+    xy = _peak_client_xy(page, 377.3)
+    page.mouse.click(xy["x"], xy["y"])
+    page.wait_for_timeout(150)
+    r = page.evaluate("""() => {
+        const tab=_refActiveTab(); const id=tab&&tab._refIdentify;
+        return { has:!!id, top:id&&id.cands[0]&&id.cands[0].label,
+                 panelOpen:_refPanelOpen, popover:!!document.getElementById('ref-identify-popover') };
+    }""")
+    assert r["has"] is True and r["top"] == "U 4f7/2"        # identify worked with palette OPEN
+    assert r["panelOpen"] is True                            # palette stayed open
+    assert r["popover"] is True
+    page.click("#ref-identify-btn")                          # disarm
+    page.evaluate("() => { const el=document.getElementById('ref-panel'); el.style.left=el.style.top=''; if(_refPanelOpen) toggleRefPanel(); }")
+
+
+def test_identify_popover_sits_above_palette(page):
+    setup_u(page, 2.7)
+    page.evaluate("() => { if(!_refPanelOpen) toggleRefPanel(); }")
+    page.evaluate("() => _refIdentifyAt(377.3, {x:220, y:220})")   # produce the popover
+    page.wait_for_timeout(120)
+    z = page.evaluate("""() => {
+        const pop=document.getElementById('ref-identify-popover');
+        const pal=document.getElementById('ref-panel');
+        return { pop: parseInt(getComputedStyle(pop).zIndex || '0', 10),
+                 pal: parseInt(getComputedStyle(pal).zIndex || '0', 10) };
+    }""")
+    assert z["pop"] > z["pal"], z                            # popover renders ABOVE the palette
+    page.evaluate("() => { _refClearIdentify(); if(_refPanelOpen) toggleRefPanel(); }")
+
+
+def test_a5_passthrough_guard_fully_removed(page):
+    setup_u(page, 2.7)
+    page.evaluate("() => { if(!_refPanelOpen) toggleRefPanel(); }")   # palette OPEN
+    # The interim helper is gone…
+    assert page.evaluate("() => typeof _refUpdateIdentifyPassthrough") == "undefined"
+    page.click("#ref-identify-btn")                          # arm identify
+    page.wait_for_timeout(80)
+    g = page.evaluate("""() => {
+        const p=document.getElementById('ref-panel');
+        return { mode: placeMode, cls: p.classList.contains('identify-passthrough'),
+                 pe: getComputedStyle(p).pointerEvents };
+    }""")
+    assert g["mode"] == "identify"
+    assert g["cls"] is False and g["pe"] != "none"           # no passthrough class / pointer-events guard
+    page.click("#ref-identify-btn")                          # disarm
+    page.evaluate("() => { if(_refPanelOpen) toggleRefPanel(); }")
