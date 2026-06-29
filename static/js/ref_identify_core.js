@@ -195,8 +195,122 @@
     return all.slice(0, limit || 8);
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // B1: pure, versioned (de)serialization for reference-overlay save/load.
+  // PURE only — no DOM/state, no save/load wiring (B2 wires buildTabData /
+  // _loadProjectJSON). Element overlays are PER-TAB; compound markers are GLOBAL
+  // at project-meta. Each schema carries its OWN internal version (decoupled),
+  // independent of the top-level project version (which stays 3). All four
+  // functions are TOTAL: serializers return null on empty/nullish/malformed
+  // input; deserializers never throw and fall back to empty.
+  // ───────────────────────────────────────────────────────────────────────────
+  const REF_OVERLAYS_VERSION = 1;
+  const REF_COMPOUND_MARKERS_VERSION = 1;
+
+  // Per-tab element-overlay selection → the persisted object, or null when there
+  // is no valid selection (so B2 can call it on a tab whose lazy _refSel was
+  // never created). colorIdx + tier saved per element. Never reads identify state
+  // (tab._refIdentify / sel.tolEv) — identify is structurally un-serializable here.
+  function serializeRefOverlays(sel) {
+    if (!sel || typeof sel !== 'object' || !Array.isArray(sel.syms)) return null;
+    const syms = [];
+    for (const s of sel.syms) {
+      if (!s || typeof s !== 'object' || typeof s.sym !== 'string' || !s.sym) continue;
+      syms.push({ sym: s.sym, colorIdx: s.colorIdx, tier: s.tier });
+    }
+    if (!syms.length) return null;
+    return {
+      v: REF_OVERLAYS_VERSION,
+      syms,
+      source: sel.source === 'MgKa' ? 'MgKa' : 'AlKa',
+      showWeak: !!sel.showWeak,
+      includeAuger: !!sel.includeAuger,
+    };
+  }
+
+  // Persisted overlay object → a partial sel { syms, source, showWeak,
+  // includeAuger } to merge over _refDefaultSel(). Envelope-malformed (not an
+  // object / v missing or non-numeric / v newer than ours / syms not an array)
+  // → empty. Entry-invalid (no resolvable sym) is skipped; colorIdx/tier are
+  // repaired, not cause-to-drop. A valid colorIdx (integer ≥ 0) is preserved
+  // verbatim; a missing/invalid one is assigned by position via the shared
+  // residue-aware nextColorIdx against the colorIdx already resolved for
+  // earlier-kept entries. Duplicate sym → keep first. Unknown tier → kept.
+  function deserializeRefOverlays(obj, paletteLen) {
+    const empty = { syms: [], source: 'AlKa', showWeak: false, includeAuger: false };
+    if (!obj || typeof obj !== 'object' || typeof obj.v !== 'number' ||
+        obj.v > REF_OVERLAYS_VERSION || !Array.isArray(obj.syms)) {
+      return empty;
+    }
+    const len = (Number.isInteger(paletteLen) && paletteLen > 0) ? paletteLen : 1;
+    const syms = [];
+    const seen = new Set();
+    for (const e of obj.syms) {
+      if (!e || typeof e !== 'object') continue;
+      const sym = (typeof e.sym === 'string' && e.sym) ? e.sym : null;
+      if (!sym || seen.has(sym)) continue;              // no sym → skip; duplicate → keep first
+      seen.add(sym);
+      const colorIdx = (Number.isInteger(e.colorIdx) && e.colorIdx >= 0)
+        ? e.colorIdx                                     // valid → verbatim
+        : nextColorIdx(syms.map(s => s.colorIdx), len); // invalid/missing → by-position repair
+      syms.push({ sym, colorIdx, tier: e.tier });
+    }
+    return {
+      syms,
+      source: obj.source === 'MgKa' ? 'MgKa' : 'AlKa',
+      showWeak: !!obj.showWeak,
+      includeAuger: !!obj.includeAuger,
+    };
+  }
+
+  // Global compound markers → the persisted object, or null when empty/nullish/
+  // non-array. Marker shape {sym?, state, be, ref}; sym is optional.
+  function serializeRefCompoundMarkers(markers) {
+    if (!Array.isArray(markers) || !markers.length) return null;
+    return {
+      v: REF_COMPOUND_MARKERS_VERSION,
+      markers: markers.map(m => {
+        const out = {
+          state: typeof m.state === 'string' ? m.state : '',
+          be: m.be,
+          ref: typeof m.ref === 'string' ? m.ref : '',
+        };
+        if (typeof m.sym === 'string' && m.sym) out.sym = m.sym;
+        return out;
+      }),
+    };
+  }
+
+  // Persisted compound-marker object → the global marker list. Envelope-malformed
+  // (not an object / v missing or non-numeric / v newer / markers not an array)
+  // → empty. Per entry: a non-finite be drops it; sym is optional (absent
+  // tolerated); state/ref coerced to string.
+  function deserializeRefCompoundMarkers(obj) {
+    if (!obj || typeof obj !== 'object' || typeof obj.v !== 'number' ||
+        obj.v > REF_COMPOUND_MARKERS_VERSION || !Array.isArray(obj.markers)) {
+      return [];
+    }
+    const out = [];
+    for (const m of obj.markers) {
+      if (!m || typeof m !== 'object') continue;
+      const be = Number(m.be);
+      if (!Number.isFinite(be)) continue;               // non-finite be → drop
+      const marker = {
+        state: typeof m.state === 'string' ? m.state : '',
+        be,
+        ref: typeof m.ref === 'string' ? m.ref : '',
+      };
+      if (typeof m.sym === 'string' && m.sym) marker.sym = m.sym;   // sym optional
+      out.push(marker);
+    }
+    return out;
+  }
+
   return { tolFromSlider, coerceTolToEv, blendedSearch, parseChemKey,
            augerApparentBE, photoelectronBE, elementOverlayVisible, compoundMarkerVisible,
            compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates,
-           tierColor, TIER_COLORS, nextColorIdx, clampToViewport };
+           tierColor, TIER_COLORS, nextColorIdx, clampToViewport,
+           REF_OVERLAYS_VERSION, REF_COMPOUND_MARKERS_VERSION,
+           serializeRefOverlays, deserializeRefOverlays,
+           serializeRefCompoundMarkers, deserializeRefCompoundMarkers };
 });

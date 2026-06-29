@@ -189,3 +189,96 @@ test('clampToViewport: far off-screen (stale) position clamps inside the viewpor
 test('clampToViewport: non-finite (corrupt saved) coords fall back to the margin', () => {
   assert.deepStrictEqual(RefCore.clampToViewport(NaN, undefined, 520, 400, 1200, 800, 8), { left: 8, top: 8 });
 });
+
+// --- B1: pure, versioned serialize/deserialize (overlays + compound markers) ---
+const PAL = 8;   // stand-in palette length so these tests don't depend on ELEMENT_MARKER_COLORS
+
+test('overlays and compound markers have independent (decoupled) version constants', () => {
+  assert.strictEqual(typeof RefCore.REF_OVERLAYS_VERSION, 'number');
+  assert.strictEqual(typeof RefCore.REF_COMPOUND_MARKERS_VERSION, 'number');
+});
+
+// serialize: total, deterministic, identify-free
+test('serializeRefOverlays is total: null for empty/nullish/malformed sel', () => {
+  for (const bad of [undefined, null, 42, 'x', {}, { syms: [] }, { syms: 'no' }]) {
+    assert.strictEqual(RefCore.serializeRefOverlays(bad), null);
+  }
+});
+test('serializeRefOverlays captures selection and never emits identify keys', () => {
+  const sel = { syms: [{ sym: 'Ti', colorIdx: 0, tier: 'machine' }, { sym: 'Cu', colorIdx: 1, tier: 'curated' }],
+                source: 'MgKa', showWeak: true, includeAuger: true, tolEv: 0.9, _refIdentify: { be: 1 } };
+  const out = RefCore.serializeRefOverlays(sel);
+  assert.strictEqual(out.v, RefCore.REF_OVERLAYS_VERSION);
+  assert.deepStrictEqual(out.syms, [{ sym: 'Ti', colorIdx: 0, tier: 'machine' }, { sym: 'Cu', colorIdx: 1, tier: 'curated' }]);
+  assert.strictEqual(out.source, 'MgKa');
+  assert.ok(!('tolEv' in out) && !('cands' in out) && !('_refIdentify' in out));
+});
+
+// round-trip: valid colorIdx verbatim
+test('round-trip preserves a valid colorIdx verbatim', () => {
+  const sel = { syms: [{ sym: 'Fe', colorIdx: 3, tier: 'machine' }], source: 'AlKa', showWeak: false, includeAuger: false };
+  const back = RefCore.deserializeRefOverlays(RefCore.serializeRefOverlays(sel), PAL);
+  assert.deepStrictEqual(back.syms, [{ sym: 'Fe', colorIdx: 3, tier: 'machine' }]);
+  assert.strictEqual(back.source, 'AlKa');
+});
+
+// deserialize totality: absent / envelope-malformed / newer-version
+test('deserialize: absent or envelope-malformed → clean empty (no throw)', () => {
+  for (const bad of [undefined, null, {}, 42, 'x', { syms: [{ sym: 'Cu', colorIdx: 0 }] }/*no v*/,
+                     { v: '1', syms: [] }/*non-numeric v*/, { v: 1, syms: 'garbage' }]) {
+    assert.deepStrictEqual(RefCore.deserializeRefOverlays(bad, PAL).syms, []);
+  }
+});
+test('deserialize: newer internal version is ignored (no misread of a future shape)', () => {
+  assert.deepStrictEqual(RefCore.deserializeRefOverlays({ v: 999, syms: [{ sym: 'Cu', colorIdx: 0 }] }, PAL).syms, []);
+});
+
+// deserialize entry repair: skip no-sym, repair colorIdx, keep unknown tier, dedup sym
+test('deserialize entry repair: keep valid, skip no-sym, repair invalid colorIdx, keep unknown tier', () => {
+  const back = RefCore.deserializeRefOverlays({ v: 1, source: 'bogus', showWeak: 'yes',
+    syms: [{ sym: 'Cu', colorIdx: 0, tier: 'curated' },
+           { colorIdx: 1 },                        // no sym → dropped
+           { sym: 'Ti', colorIdx: -3 },            // invalid colorIdx → by-position helper fallback
+           { sym: 'Xe', colorIdx: 2, tier: 'weird' }, // unknown tier → kept (fallback-colored at render)
+           { sym: 'Cu', colorIdx: 7 }] }, PAL);
+  assert.deepStrictEqual(back.syms.map(s => s.sym), ['Cu', 'Ti', 'Xe']);   // no-sym dropped; duplicate Cu → keep first
+  assert.strictEqual(back.syms[0].colorIdx, 0);                            // Cu verbatim
+  assert.ok(Number.isInteger(back.syms[1].colorIdx) && back.syms[1].colorIdx >= 0); // Ti repaired
+  assert.notStrictEqual(back.syms[1].colorIdx % PAL, 0 % PAL);            // distinct residue from Cu
+  assert.strictEqual(back.syms[2].tier, 'weird');                         // unknown tier preserved (entry kept)
+  assert.strictEqual(back.source, 'AlKa');                                // invalid source → default
+  assert.strictEqual(back.showWeak, true);                               // 'yes' coerced to bool
+});
+
+// rendered-color determinism end to end
+test('post-load next pick renders a color distinct from all restored while residues remain', () => {
+  const back = RefCore.deserializeRefOverlays({ v: 1,
+    syms: [{ sym: 'Cu', colorIdx: 0 }, { sym: 'Ti', colorIdx: 5 }, { sym: 'Fe', colorIdx: 2 }] }, PAL);
+  const usedResidues = new Set(back.syms.map(s => s.colorIdx % PAL));
+  const next = RefCore.nextColorIdx(back.syms.map(s => s.colorIdx), PAL);
+  assert.ok(!usedResidues.has(next % PAL));                              // distinct RENDERED color
+});
+
+// compound markers: global scope, totality, partial-invalid, newer-version
+test('serializeRefCompoundMarkers is total: null for empty/nullish/non-array', () => {
+  for (const bad of [undefined, null, [], 'x', 42, {}]) {
+    assert.strictEqual(RefCore.serializeRefCompoundMarkers(bad), null);
+  }
+});
+test('compound markers round-trip at global scope; absent/malformed/newer → empty', () => {
+  const markers = [{ sym: 'Cu', state: 'Cu2O', be: 932.5, ref: 'NIST' }];
+  const out = RefCore.serializeRefCompoundMarkers(markers);
+  assert.strictEqual(out.v, RefCore.REF_COMPOUND_MARKERS_VERSION);
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers(out), markers);
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers(undefined), []);          // absent
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers({ v: 1, markers: 'x' }), []); // envelope-malformed
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers({}), []);                  // no v
+  assert.deepStrictEqual(RefCore.deserializeRefCompoundMarkers({ v: 999, markers: [{ be: 1 }] }), []); // newer version
+});
+test('compound markers: non-finite be dropped, absent sym tolerated (partial-invalid)', () => {
+  const back = RefCore.deserializeRefCompoundMarkers({ v: 1, markers: [
+    { state: 'surface', be: 530.1 },          // no sym → tolerated
+    { sym: 'Cu', state: 'Cu2O', be: 'bad' },  // non-finite be → dropped
+    { sym: 'Fe', be: 711 }] });
+  assert.deepStrictEqual(back.map(m => m.be), [530.1, 711]);
+});
