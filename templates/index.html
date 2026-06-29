@@ -38,7 +38,17 @@
     --text: #e8edf5;
     --text2: #8a9ab8;
     --text3: #4a5a78;
-    --z-popover: 2200;   /* search popover portal — above the drawer/chart */
+    /* Semantic z-index scale (A5) — ordered layers; no raw 9999-style values.
+       chart(1) < legend < palette < app modals(200/300) < popovers/dropdowns <
+       identify popover < toast < notify < tooltip(topmost). */
+    --z-legend: 30;             /* on-chart overlay legend */
+    --z-palette: 120;          /* floating Reference palette (below app modals) */
+    --z-popover: 2200;         /* unified search portal */
+    --z-dropdown: 2200;        /* legend chip dropdown (shares the popover band) */
+    --z-identify-popover: 2300;/* per-peak identify popover — ABOVE the palette (A6) */
+    --z-toast: 2400;           /* tier toast */
+    --z-notify: 2500;          /* global #notify toast */
+    --z-tooltip: 2600;         /* #xps-tooltip — topmost */
     --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --radius: 6px;
@@ -173,16 +183,49 @@
   .panel-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
   /* ── Reference Lines panel (periodic-table overlays, data/xps) ── */
+  /* A5: floating, draggable, collapsible palette — position:fixed removes it from
+     the chart flex flow so the chart reclaims full width (no longer compressed). */
   #ref-panel {
-    width: 520px;
-    flex-shrink: 0;
+    position: fixed; top: 64px; right: 16px;
+    width: 520px; max-height: calc(100vh - 88px);
+    z-index: var(--z-palette, 120);
     background: var(--bg2);
-    border-left: 1px solid var(--border);
+    border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 16px 40px -16px rgba(0,0,0,0.7);
     display: none;
     flex-direction: column;
     min-height: 0;
   }
   #ref-panel.open { display: flex; }
+  /* A5 INTERIM GUARD (superseded + removed by A6): while Identify is armed, the
+     floating palette yields pointer events so a chart click passes THROUGH it to
+     the canvas (otherwise the palette over the full-width chart would eat the
+     identify click). The disarm control stays interactive and Esc always
+     disarms, so the user can never be soft-locked into identify mode. A6
+     de-gates identify from the palette entirely and deletes this rule. */
+  #ref-panel.identify-passthrough { pointer-events: none; }
+  #ref-panel.identify-passthrough #ref-identify-btn { pointer-events: auto; }
+  #ref-panel.collapsed { max-height: none; }
+  #ref-panel.collapsed .panel-body { display: none; }
+  /* header is the drag handle (scoped to #ref-panel — the class is shared with #right-panel) */
+  #ref-panel .panel-header { cursor: grab; user-select: none; }
+  #ref-panel.dragging, #ref-panel.dragging .panel-header { cursor: grabbing; }
+  #ref-panel .ref-hdr-title { flex: 1; }
+  #ref-panel .ref-hdr-btn {
+    background: none; border: none; color: var(--text2);
+    font-size: 15px; line-height: 1; cursor: pointer; padding: 0 4px;
+  }
+  #ref-panel .ref-hdr-btn:hover { color: var(--text); }
+  #ref-panel .ref-hdr-btn:focus-visible, #ref-panel .ref-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Narrow viewports: dock as a bottom sheet; dragging is meaningless on touch.
+     !important overrides any JS-set inline left/top from a prior desktop drag. */
+  @media (max-width: 640px) {
+    #ref-panel {
+      top: auto !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
+      width: 100% !important; max-height: 75vh; border-radius: 12px 12px 0 0;
+    }
+    #ref-panel .panel-header { cursor: default; }
+  }
   /* Three stacked zones; search + table are fixed-height, details scroll. */
   .ref-zone-search { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .ref-zone-table  { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -762,7 +805,7 @@
     font-family: var(--mono);
     color: var(--green);
     display: none;
-    z-index: 999;
+    z-index: var(--z-notify, 2500);
     max-width: 420px;
     white-space: nowrap;
   }
@@ -1519,7 +1562,7 @@
   /* Custom tooltips */
   #xps-tooltip {
     position: fixed;
-    z-index: 9999;
+    z-index: var(--z-tooltip, 2600);
     max-width: 300px;
     padding: 8px 11px;
     background: var(--bg3);
@@ -2085,8 +2128,10 @@
     <!-- Reference Lines panel: periodic-table overlays fed by /api/xps-reference.
          Built ALONGSIDE the survey-marker + NIST systems (migration is a later, separate step). -->
     <div id="ref-panel">
-      <div class="panel-header">Reference Lines
-        <button class="ref-close" onclick="toggleRefPanel()" title="Close panel">&#10005;</button>
+      <div class="panel-header" id="ref-panel-header" onmousedown="_refPaletteDragStart(event)">
+        <span class="ref-hdr-title">Reference Lines</span>
+        <button class="ref-hdr-btn" id="ref-collapse-btn" onclick="_refToggleCollapse()" aria-expanded="true" title="Collapse panel" aria-label="Collapse panel">&#8211;</button>
+        <button class="ref-close" onclick="toggleRefPanel()" title="Close panel" aria-label="Close panel">&#10005;</button>
       </div>
       <div class="panel-body" id="ref-panel-body"></div>
     </div>
@@ -4941,6 +4986,7 @@ function togglePlaceMode(mode) {
     // and toggleRefPanel's close-time disarm calls togglePlaceMode('identify') —
     // so clearing here covers all three.
     if (mode === 'identify' && typeof _refClearIdentify === 'function') _refClearIdentify();
+    if (typeof _refUpdateIdentifyPassthrough === 'function') _refUpdateIdentifyPassthrough();
     notify('Placement mode cancelled.', '');
     return;
   }
@@ -4955,6 +5001,7 @@ function togglePlaceMode(mode) {
     if (b) b.classList.add('place-active');
     notify(cfg.msg, 'green');
   }
+  if (typeof _refUpdateIdentifyPassthrough === 'function') _refUpdateIdentifyPassthrough();
 }
 
 function handleChartClick(event) {
@@ -10475,7 +10522,107 @@ function _refEnsureData() {
       else { _refError = j || { error: 'reference endpoint failed' }; }
     })
     .catch(err => { _refError = { error: String((err && err.message) || err) }; })
-    .finally(() => { _refFetchPromise = null; _refRenderPanel(); _refRepaint(); });
+    .finally(() => { _refFetchPromise = null; _refRenderPanel();
+                     if (_refPanelOpen) _refApplyPaletteGeometry();   // re-clamp once content fills the panel (A5)
+                     _refRepaint(); });
+}
+
+// ── A5: floating palette geometry (drag / collapse / responsive / persistence) ─
+const REF_PALETTE_LS = 'xps.refPalette.v1';   // namespaced + VERSIONED geometry key
+let _refPaletteDrag = null;
+
+function _refPaletteIsMobile() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 640px)').matches;
+}
+function _refLoadPaletteState() {
+  try {
+    const o = JSON.parse(localStorage.getItem(REF_PALETTE_LS) || 'null');
+    return (o && typeof o === 'object') ? o : null;
+  } catch (e) { return null; }
+}
+function _refSavePaletteState(patch) {
+  try {
+    localStorage.setItem(REF_PALETTE_LS, JSON.stringify({ ...(_refLoadPaletteState() || {}), ...patch }));
+  } catch (e) { /* private mode / quota — geometry is best-effort */ }
+}
+function _refClampPalette(left, top) {
+  const el = document.getElementById('ref-panel');
+  const w = el ? el.offsetWidth : 520, h = el ? el.offsetHeight : 200;
+  return RefCore.clampToViewport(left, top, w, h, window.innerWidth, window.innerHeight, 8);
+}
+function _refSetCollapsed(collapsed) {
+  const el = document.getElementById('ref-panel');
+  if (el) el.classList.toggle('collapsed', collapsed);
+  const cb = document.getElementById('ref-collapse-btn');
+  if (cb) {
+    cb.setAttribute('aria-expanded', String(!collapsed));
+    cb.innerHTML = collapsed ? '&#43;' : '&#8211;';
+    const lbl = (collapsed ? 'Expand' : 'Collapse') + ' panel';
+    cb.title = lbl; cb.setAttribute('aria-label', lbl);
+  }
+}
+function _refToggleCollapse() {
+  const el = document.getElementById('ref-panel');
+  if (!el) return;
+  const collapsed = !el.classList.contains('collapsed');
+  _refSetCollapsed(collapsed);
+  _refSavePaletteState({ collapsed });
+}
+// Apply persisted collapse + position (clamped). Stale/offscreen/bad positions
+// clamp safely; on mobile the bottom-sheet CSS owns geometry so inline pos clears.
+function _refApplyPaletteGeometry() {
+  const el = document.getElementById('ref-panel');
+  if (!el) return;
+  const st = _refLoadPaletteState() || {};
+  _refSetCollapsed(!!st.collapsed);
+  if (_refPaletteIsMobile()) { el.style.left = el.style.top = el.style.right = ''; return; }
+  if (Number.isFinite(st.left) && Number.isFinite(st.top)) {
+    const c = _refClampPalette(st.left, st.top);
+    el.style.left = c.left + 'px'; el.style.top = c.top + 'px'; el.style.right = 'auto';
+  } else {
+    el.style.left = el.style.top = el.style.right = '';   // CSS default (top-right)
+  }
+}
+function _refPaletteDragStart(e) {
+  if (_refPaletteIsMobile()) return;                  // no drag on the bottom sheet
+  if (e.target && e.target.closest && e.target.closest('button')) return;  // buttons aren't drag
+  const el = document.getElementById('ref-panel');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  _refPaletteDrag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+  el.classList.add('dragging'); el.style.right = 'auto';
+  document.addEventListener('mousemove', _refPaletteDragMove, true);
+  document.addEventListener('mouseup', _refPaletteDragEnd, true);
+  e.preventDefault();
+}
+function _refPaletteDragMove(e) {
+  if (!_refPaletteDrag) return;
+  const el = document.getElementById('ref-panel');
+  const c = _refClampPalette(e.clientX - _refPaletteDrag.dx, e.clientY - _refPaletteDrag.dy);
+  el.style.left = c.left + 'px'; el.style.top = c.top + 'px';
+}
+function _refPaletteDragEnd() {
+  const el = document.getElementById('ref-panel');
+  if (el) el.classList.remove('dragging');
+  if (_refPaletteDrag && el) {
+    const left = parseFloat(el.style.left), top = parseFloat(el.style.top);
+    if (Number.isFinite(left) && Number.isFinite(top)) _refSavePaletteState({ left, top });
+  }
+  _refPaletteDrag = null;
+  document.removeEventListener('mousemove', _refPaletteDragMove, true);
+  document.removeEventListener('mouseup', _refPaletteDragEnd, true);
+}
+// Re-clamp an open palette when the viewport changes (prevents offscreen drift).
+window.addEventListener('resize', () => { if (_refPanelOpen) _refApplyPaletteGeometry(); });
+
+// A5 INTERIM GUARD (removed by A6): mirror identify-armed state onto the palette
+// so it yields pointer events (chart click passes through) while armed. Called
+// from togglePlaceMode's single arm/disarm point. The disarm control stays
+// interactive (CSS) and Esc disarms globally, so this can never soft-lock.
+function _refUpdateIdentifyPassthrough() {
+  const el = document.getElementById('ref-panel');
+  if (el) el.classList.toggle('identify-passthrough',
+    typeof placeMode !== 'undefined' && placeMode === 'identify');
 }
 
 function toggleRefPanel() {
@@ -10488,7 +10635,7 @@ function toggleRefPanel() {
   if (!_refPanelOpen && typeof placeMode !== 'undefined' && placeMode === 'identify') {
     togglePlaceMode('identify');
   }
-  if (_refPanelOpen) { _refEnsureData(); _refRenderPanel(); }
+  if (_refPanelOpen) { _refEnsureData(); _refRenderPanel(); _refApplyPaletteGeometry(); }
   else if (typeof _refCloseSearch === 'function') _refCloseSearch();   // no stale popover
   _refRepaint();
 }

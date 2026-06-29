@@ -37,6 +37,19 @@
     return used.length ? Math.max.apply(null, used) + 1 : 0;
   }
 
+  // Pure viewport clamp (A5) for the floating palette: keep the box on-screen
+  // (with `margin`), and always leave at least an 80px header band reachable
+  // vertically so a stale/offscreen saved position can never strand the palette.
+  // Non-finite left/top fall back to the margin (treated as "unset").
+  function clampToViewport(left, top, w, h, vw, vh, margin) {
+    const m = Number.isFinite(margin) ? margin : 8;
+    const maxLeft = Math.max(m, vw - w - m);
+    const maxTop = Math.max(m, vh - Math.min(h, 80) - m);
+    const L = Number.isFinite(left) ? left : m;
+    const T = Number.isFinite(top) ? top : m;
+    return { left: Math.min(Math.max(m, L), maxLeft), top: Math.min(Math.max(m, T), maxTop) };
+  }
+
   function tolFromSlider(value) {
     let v = Number(value);
     if (!isFinite(v)) v = TOL_DEFAULT;
@@ -185,5 +198,5 @@
   return { tolFromSlider, coerceTolToEv, blendedSearch, parseChemKey,
            augerApparentBE, photoelectronBE, elementOverlayVisible, compoundMarkerVisible,
            compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates,
-           tierColor, TIER_COLORS, nextColorIdx };
+           tierColor, TIER_COLORS, nextColorIdx, clampToViewport };
 });

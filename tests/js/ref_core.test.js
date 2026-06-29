@@ -173,3 +173,19 @@ test('nextColorIdx: a new pick shares no rendered residue with existing overlays
 test('nextColorIdx ignores invalid entries (non-integer/negative) when computing the used set', () => {
   assert.strictEqual(RefCore.nextColorIdx([0, -1, NaN, 1.5, '2', null, 1], 8), 2);  // valid {0,1} → first free 2
 });
+
+// --- A5: floating-palette viewport clamp (stale/offscreen positions clamp safe) ---
+test('clampToViewport: an in-bounds position passes through unchanged', () => {
+  assert.deepStrictEqual(RefCore.clampToViewport(100, 80, 520, 400, 1200, 800, 8), { left: 100, top: 80 });
+});
+test('clampToViewport: negative / above-left position clamps to the margin', () => {
+  assert.deepStrictEqual(RefCore.clampToViewport(-300, -50, 520, 400, 1200, 800, 8), { left: 8, top: 8 });
+});
+test('clampToViewport: far off-screen (stale) position clamps inside the viewport', () => {
+  const c = RefCore.clampToViewport(5000, 5000, 520, 400, 1200, 800, 8);
+  assert.strictEqual(c.left, 1200 - 520 - 8);          // 672 — fully visible horizontally
+  assert.strictEqual(c.top, 800 - 80 - 8);             // 712 — header band stays reachable
+});
+test('clampToViewport: non-finite (corrupt saved) coords fall back to the margin', () => {
+  assert.deepStrictEqual(RefCore.clampToViewport(NaN, undefined, 520, 400, 1200, 800, 8), { left: 8, top: 8 });
+});
