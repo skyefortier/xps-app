@@ -263,28 +263,42 @@
     };
   }
 
-  // Global compound markers → the persisted object, or null when empty/nullish/
-  // non-array. Marker shape {sym?, state, be, ref}; sym is optional.
-  function serializeRefCompoundMarkers(markers) {
-    if (!Array.isArray(markers) || !markers.length) return null;
-    return {
-      v: REF_COMPOUND_MARKERS_VERSION,
-      markers: markers.map(m => {
-        const out = {
-          state: typeof m.state === 'string' ? m.state : '',
-          be: m.be,
-          ref: typeof m.ref === 'string' ? m.ref : '',
-        };
-        if (typeof m.sym === 'string' && m.sym) out.sym = m.sym;
-        return out;
-      }),
+  // THE single compound-marker validity + normalization rule, shared by both
+  // serialize and deserialize (don't write it twice). Validity: a finite `be`.
+  // Repair: `state`/`ref` coerced to string; `sym` optional (absent tolerated).
+  // Returns a clean marker, or null when the entry is a non-object or has a
+  // non-finite `be`.
+  function _normalizeCompoundMarker(m) {
+    if (!m || typeof m !== 'object') return null;
+    const be = Number(m.be);
+    if (!Number.isFinite(be)) return null;
+    const marker = {
+      state: typeof m.state === 'string' ? m.state : '',
+      be,
+      ref: typeof m.ref === 'string' ? m.ref : '',
     };
+    if (typeof m.sym === 'string' && m.sym) marker.sym = m.sym;   // sym optional
+    return marker;
+  }
+
+  // Global compound markers → the persisted object, or null when the array is
+  // nullish/non-array/empty OR no entry survives normalization. TOTAL: invalid
+  // entries (non-object, non-finite be) are skipped, never thrown on.
+  function serializeRefCompoundMarkers(markers) {
+    if (!Array.isArray(markers)) return null;
+    const out = [];
+    for (const m of markers) {
+      const marker = _normalizeCompoundMarker(m);
+      if (marker) out.push(marker);
+    }
+    if (!out.length) return null;
+    return { v: REF_COMPOUND_MARKERS_VERSION, markers: out };
   }
 
   // Persisted compound-marker object → the global marker list. Envelope-malformed
   // (not an object / v missing or non-numeric / v newer / markers not an array)
-  // → empty. Per entry: a non-finite be drops it; sym is optional (absent
-  // tolerated); state/ref coerced to string.
+  // → empty. Per entry: the SAME _normalizeCompoundMarker rule — a non-finite be
+  // drops it; sym is optional (absent tolerated); state/ref coerced to string.
   function deserializeRefCompoundMarkers(obj) {
     if (!obj || typeof obj !== 'object' || typeof obj.v !== 'number' ||
         obj.v > REF_COMPOUND_MARKERS_VERSION || !Array.isArray(obj.markers)) {
@@ -292,16 +306,8 @@
     }
     const out = [];
     for (const m of obj.markers) {
-      if (!m || typeof m !== 'object') continue;
-      const be = Number(m.be);
-      if (!Number.isFinite(be)) continue;               // non-finite be → drop
-      const marker = {
-        state: typeof m.state === 'string' ? m.state : '',
-        be,
-        ref: typeof m.ref === 'string' ? m.ref : '',
-      };
-      if (typeof m.sym === 'string' && m.sym) marker.sym = m.sym;   // sym optional
-      out.push(marker);
+      const marker = _normalizeCompoundMarker(m);
+      if (marker) out.push(marker);
     }
     return out;
   }

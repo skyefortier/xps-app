@@ -265,6 +265,26 @@ test('serializeRefCompoundMarkers is total: null for empty/nullish/non-array', (
     assert.strictEqual(RefCore.serializeRefCompoundMarkers(bad), null);
   }
 });
+test('serializeRefCompoundMarkers is total for malformed ARRAY ENTRIES (no throw; all-invalid → null)', () => {
+  // non-object entries and non-finite be must not throw and must not emit an
+  // invalid marker — an all-invalid array yields null (no valid marker remains).
+  assert.strictEqual(RefCore.serializeRefCompoundMarkers([null]), null);
+  assert.strictEqual(RefCore.serializeRefCompoundMarkers([undefined]), null);
+  assert.strictEqual(RefCore.serializeRefCompoundMarkers([42]), null);
+  assert.strictEqual(RefCore.serializeRefCompoundMarkers([{ be: 'bad' }]), null);
+});
+test('serializeRefCompoundMarkers: mixed valid+invalid → invalid be dropped, valid kept', () => {
+  const out = RefCore.serializeRefCompoundMarkers([
+    null,                                                   // non-object → skipped
+    { sym: 'Cu', state: 'Cu2O', be: 932.5, ref: 'NIST' },  // valid
+    { be: 'bad' },                                          // non-finite be → dropped
+    { state: 'surface', be: 530.1 },                       // no sym → tolerated
+  ]);
+  assert.strictEqual(out.v, RefCore.REF_COMPOUND_MARKERS_VERSION);
+  assert.deepStrictEqual(out.markers.map(m => m.be), [932.5, 530.1]);   // invalid dropped, valid kept
+  assert.strictEqual(out.markers[0].sym, 'Cu');
+  assert.ok(!('sym' in out.markers[1]));                                // absent sym tolerated
+});
 test('compound markers round-trip at global scope; absent/malformed/newer → empty', () => {
   const markers = [{ sym: 'Cu', state: 'Cu2O', be: 932.5, ref: 'NIST' }];
   const out = RefCore.serializeRefCompoundMarkers(markers);
