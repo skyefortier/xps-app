@@ -9911,6 +9911,14 @@ function _propagateSelectAll(checked) {
 }
 
 async function runPropagation() {
+  // Loud missing-load guard (mirrors the RefCore guard): batch fit depends on the
+  // shipped BatchPropagation module for the source→target settings merge. If its
+  // script failed to load, fail clearly and BEFORE mutating any state (button,
+  // snapshot suppression, tab records) rather than throwing mid-propagation.
+  if (typeof BatchPropagation === 'undefined' || !BatchPropagation.propagateFitUi) {
+    notify('Batch-fit module failed to load (static/js/batch_propagation.js). Reload the page and try again.', 'red', true);
+    return;
+  }
   const sourceId = tabManager.activeId;
   const sourceTab = tabManager._getTab(sourceId);
   if (!sourceTab) return;

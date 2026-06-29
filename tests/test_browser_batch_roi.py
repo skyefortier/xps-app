@@ -199,3 +199,50 @@ def test_runpropagation_propagates_source_roi_onto_target(browser, server):
         assert dom["max"] == "545"
     finally:
         pg.close()
+
+
+def test_missing_module_fails_loudly_without_half_running(browser, server):
+    # If batch_propagation.js fails to load, runPropagation must fail LOUDLY and
+    # return BEFORE mutating any state (no half-run, no suppressed snapshots, no
+    # propagation onto the target).
+    pg = _new_page(browser, server)
+    try:
+        tgt_id = pg.evaluate("""() => {
+            const be=[], inten=[];
+            for(let i=0;i<40;i++){ const x=520+i*0.5; be.push(x); inten.push(1000); }
+            tabManager.createTab('SRC', be, inten);
+            const srcId = tabManager.activeId;
+            document.getElementById('roi-min').value = '525';
+            document.getElementById('roi-max').value = '545';
+            addPeak({ center: 530, fwhm: 2, amplitude: 8000 });
+            tabManager.createTab('TGT', be, inten);
+            const tgtId = tabManager.activeId;
+            document.getElementById('roi-min').value = '100';
+            document.getElementById('roi-max').value = '160';
+            tabManager.activateTab(srcId);
+            return tgtId;
+        }""")
+        # Simulate the module failing to load.
+        pg.evaluate("() => { delete window.BatchPropagation; }")
+        pg.evaluate("() => showPropagateModal()")
+        pg.wait_for_timeout(80)
+        pg.evaluate("""(tgtId) => { const c=document.querySelector('.prop-chk[data-id=\"' + tgtId + '\"]'); if (c) c.checked = true; }""", tgt_id)
+        res = pg.evaluate("""async (tgtId) => {
+            let threw = false;
+            try { await runPropagation(); } catch (e) { threw = true; }
+            const t = tabManager._getTab(tgtId);
+            return {
+                threw,
+                snapshotSuppressed: _snapshotSuppressed,
+                toastShown: document.getElementById('prominent-toast').classList.contains('show'),
+                toastText: document.getElementById('prominent-toast-inner').textContent,
+                tgtRoiMin: t.ui.roiMin,
+            };
+        }""", tgt_id)
+        assert res["threw"] is False                       # no raw TypeError escapes
+        assert res["snapshotSuppressed"] is False          # guard returned before suppressing snapshots
+        assert res["toastShown"] is True                   # LOUD error surfaced
+        assert "failed to load" in res["toastText"]
+        assert res["tgtRoiMin"] == "100"                   # target ROI NOT propagated (no half-run)
+    finally:
+        pg.close()
