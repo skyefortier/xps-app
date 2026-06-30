@@ -8,6 +8,8 @@
 <!-- Reference/Identify pure-logic module (the SHIPPED source of truth; never
      duplicated inline). Cache-busted so template edits force a reload. -->
 <script src="/static/js/ref_identify_core.js?v=20260619"></script>
+<!-- Batch-fit settings-propagation pure-logic module (shipped source of truth). -->
+<script src="/static/js/batch_propagation.js?v=20260628"></script>
 <!-- zoom/pan handled manually — no plugin needed -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -10042,6 +10044,14 @@ function _propagateSelectAll(checked) {
 }
 
 async function runPropagation() {
+  // Loud missing-load guard (mirrors the RefCore guard): batch fit depends on the
+  // shipped BatchPropagation module for the source→target settings merge. If its
+  // script failed to load, fail clearly and BEFORE mutating any state (button,
+  // snapshot suppression, tab records) rather than throwing mid-propagation.
+  if (typeof BatchPropagation === 'undefined' || !BatchPropagation.propagateFitUi) {
+    notify('Batch-fit module failed to load (static/js/batch_propagation.js). Reload the page and try again.', 'red', true);
+    return;
+  }
   const sourceId = tabManager.activeId;
   const sourceTab = tabManager._getTab(sourceId);
   if (!sourceTab) return;
@@ -10087,15 +10097,11 @@ async function runPropagation() {
     // Copy peak nextId
     const nextId = Math.max(0, ...clonedPeaks.map(p => p.id)) + 1;
 
-    // Copy background and CC UI settings from source
+    // Propagate background + ROI settings from source (BatchPropagation is the
+    // single source of truth for the merge — see static/js/batch_propagation.js).
+    // ccShift is copied separately just below.
     const srcUi = sourceTab.ui;
-    const newUi = {
-      ...tgt.ui,
-      bgType: srcUi.bgType,
-      bgStart: srcUi.bgStart !== '' ? srcUi.bgStart : tgt.ui.bgStart,
-      bgEnd: srcUi.bgEnd !== '' ? srcUi.bgEnd : tgt.ui.bgEnd,
-      shirleyIter: srcUi.shirleyIter,
-    };
+    const newUi = BatchPropagation.propagateFitUi(srcUi, tgt.ui);
 
     // Apply to target tab record (without switching UI)
     tgt.peaks = clonedPeaks;
