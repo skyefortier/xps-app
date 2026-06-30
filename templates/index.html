@@ -10147,8 +10147,9 @@ async function runPropagation() {
 // data/xps/legacy/chemical-states.json (see _accChemicalStates).
 
 // Active compound (chemical-state) markers — GLOBAL and PERSISTENT by design:
-// "mark it, close the panel, it stays" (distinct lifetime from element overlays,
-// which are panel-gated/per-tab/stack-excluded). Shape: { id, sym, state, be, ref }.
+// "mark it, close the palette, it stays". Element overlays also persist after the
+// palette closes (A1); these differ only in SCOPE — compound markers are global,
+// element overlays are per-tab/stack-excluded. Shape: { id, sym, state, be, ref }.
 const _refCompoundMarkers = [];
 let _refCompoundMarkerNextId = 1;
 
@@ -10194,9 +10195,10 @@ function _drawSourceLabel(chart) {
 
 // Called from updatePlot() to draw NIST markers on the chart
 // Amber-dashed chemical-state/compound markers. Drawn from the GLOBAL
-// overlayPlugin (not gated on the panel) so they persist after the drawer
-// closes. Element reference overlays keep their own panel-gated draw path
-// (xpsRefLinesPlugin) and element-coloured style — both styles, both lifetimes.
+// overlayPlugin (not gated on the panel) so they persist after the palette
+// closes. Element reference overlays persist too (A1) but via their own draw
+// path (xpsRefLinesPlugin) and element-coloured, dashed style — distinct styles,
+// same persistent lifetime.
 function _refDrawCompoundMarkers(chart) {
   if (!_refCompoundMarkers.length || !chart) return;
   const xScale = chart.scales.x;
