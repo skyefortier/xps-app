@@ -11719,11 +11719,16 @@ function _refCloseIdentifyPopover() {
   document.removeEventListener('mousedown', _refIdentifyOutside, true);
 }
 // Outside-click clears identify — but a chart click (re-identify) and palette
-// interactions (tol slider) are NOT "outside", so they don't close it.
+// interactions (tol slider) are NOT "outside", so they don't close it. The theme
+// toggle is chrome, not a dismiss target: it rebuilds the chart via updatePlot(),
+// and treating it as an outside-click tore the popover down while leaving identify
+// ARMED (inconsistent state that then needed re-clicking to recover). Exempt it so
+// a theme switch preserves the open popover (which re-themes via CSS vars).
 function _refIdentifyOutside(e) {
   const t = e.target;
   if (!(t instanceof Element)) return;
-  if (t.closest('#ref-identify-popover') || t.closest('#main-chart-wrap') || t.closest('#ref-panel')) return;
+  if (t.closest('#ref-identify-popover') || t.closest('#main-chart-wrap') ||
+      t.closest('#ref-panel') || t.closest('#theme-toggle')) return;
   _refClearIdentify();
 }
 

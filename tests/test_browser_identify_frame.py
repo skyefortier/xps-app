@@ -203,6 +203,47 @@ def test_identify_esc_clears_state(page):
     assert state["identify"] is False
 
 
+def test_identify_popover_survives_theme_switch(page):
+    # Regression (dark-mode identify bug): toggling the theme while the identify
+    # popover is open must NOT tear it down and strand identify in an armed-but-
+    # empty state. The theme toggle is chrome, exempt from outside-dismiss; the
+    # popover stays open, re-themes live, and identify state stays consistent.
+    setup_u(page, 2.7)
+    page.click("#ref-identify-btn")                       # arm from toolbar
+    xy = _peak_client_xy(page, 377.3)
+    page.mouse.click(xy["x"], xy["y"])                    # popover opens
+    page.wait_for_timeout(150)
+    before = page.evaluate("""() => ({
+        popover: !!document.getElementById('ref-identify-popover'),
+        identify: !!(_refActiveTab() && _refActiveTab()._refIdentify),
+        light: document.body.classList.contains('light-theme'),
+        bg: getComputedStyle(document.getElementById('ref-identify-popover')).backgroundColor })""")
+    assert before["popover"] is True and before["identify"] is True
+    try:
+        page.click("#theme-toggle")                       # toggle theme with popover OPEN
+        page.wait_for_timeout(300)
+        after = page.evaluate("""() => ({
+            popover: !!document.getElementById('ref-identify-popover'),
+            identify: !!(_refActiveTab() && _refActiveTab()._refIdentify),
+            armed: placeMode === 'identify',
+            light: document.body.classList.contains('light-theme'),
+            bg: (()=>{const p=document.getElementById('ref-identify-popover');return p?getComputedStyle(p).backgroundColor:null;})() })""")
+        # popover preserved + identify still consistent (open, armed) across the switch
+        assert after["popover"] is True and after["identify"] is True and after["armed"] is True
+        assert after["light"] != before["light"]          # theme actually changed
+        assert after["bg"] != before["bg"]                # popover re-themed live
+        # a GENUINE outside click still dismisses (dismiss-elsewhere preserved)
+        page.mouse.click(120, 400)
+        page.wait_for_timeout(150)
+        assert page.evaluate("() => !!document.getElementById('ref-identify-popover')") is False
+    finally:
+        # restore dark theme + clear identify so the shared page stays clean
+        page.evaluate("""() => { if (document.body.classList.contains('light-theme')) toggleTheme();
+                                 if (typeof _refClearIdentify === 'function') _refClearIdentify();
+                                 if (placeMode === 'identify') togglePlaceMode('identify'); }""")
+        page.wait_for_timeout(100)
+
+
 def test_u_shallow_lines_out_of_window(page):
     # Step 4: in the U 4f window (~367-412 eV) the shallow/deep lines sit OUTSIDE
     # the displayed range. Correct out-of-window behavior, not filtering.
