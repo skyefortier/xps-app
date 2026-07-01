@@ -10694,12 +10694,10 @@ function _refRepaint() {
 
 // A3: canonical tier wording (shipped at bfedc95) — used now as the tier-dot's
 // native title; A4 upgrades the hover to a styled toast reusing this same source.
+// Tier note wording comes from the RefCore.tierNote SSOT (single source for the
+// three tier strings, rendered by the tier toast + the reviewed-card line).
 function _refTierToast(tier) {
-  return tier === 'machine'
-    ? 'From NIST, automatically cross-checked but not yet reviewed by a person.'
-    : tier === 'legacy'
-      ? 'Approximate value — verify against literature.'
-      : 'Reference energies reviewed by a person. Please verify all energies against authoritative reference sources.';
+  return (typeof RefCore !== 'undefined' && RefCore.tierNote) ? RefCore.tierNote(tier) : '';
 }
 
 // A3: always-visible on-chart legend — the overlay manager. Lists the active
@@ -11105,9 +11103,9 @@ function _refRenderElementGroup(s, sel, range) {
     const moreBtn = label => ' <button type="button" class="ref-note-more"' +
       ' aria-expanded="' + (open ? 'true' : 'false') + '"' +
       ' onclick="_refToggleNote(\'' + s.sym + '\')">' + label + '</button>';
-    // (b) generic reviewed-tier line — structure only, no scientific values.
-    noteHtml = '<div class="ref-note">Reference energies reviewed by a person. ' +
-      'Please verify all energies against authoritative reference sources.</div>';
+    // (b) generic reviewed-tier line — from the RefCore.tierNote SSOT (same source
+    // as the tier toast), structure only, no scientific values.
+    noteHtml = '<div class="ref-note">' + _escHtml(_refTierToast('curated')) + '</div>';
     if (short) {
       // (c) short caveat slot + (d) more… expanding to full provenance.
       noteHtml += '<div class="ref-note">' + _escHtml(short) +

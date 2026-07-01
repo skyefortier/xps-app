@@ -21,6 +21,21 @@
   const TIER_COLORS = { curated: '#3ddc84', machine: '#b48eff', legacy: '#ffbb44', fallback: '#8a9ab8' };
   function tierColor(tier) { return TIER_COLORS[tier] || TIER_COLORS.fallback; }
 
+  // Data-tier note SSOT — the single canonical wording for each tier, rendered by
+  // every reviewed/machine/legacy surface (tier toast, reviewed-card line). Change
+  // the wording here and it updates everywhere. Unknown tier → the curated note
+  // (mirrors the reviewed-card default).
+  const TIER_NOTES = {
+    machine: 'From NIST, automatically cross-checked but not yet reviewed by a person.',
+    legacy: 'Approximate value — verify against literature.',
+    curated: 'Reference energies reviewed against source records. Please still verify all energies against authoritative reference sources.',
+  };
+  function tierNote(tier) {
+    return tier === 'machine' ? TIER_NOTES.machine
+         : tier === 'legacy' ? TIER_NOTES.legacy
+         : TIER_NOTES.curated;
+  }
+
   // Shared color-assignment helper (A3) — the single source for picking an
   // overlay colorIdx, used for BOTH in-session picks and (later) post-load
   // next-pick. Returns the first index whose PALETTE RESIDUE (i % paletteLen) is
@@ -315,7 +330,7 @@
   return { tolFromSlider, coerceTolToEv, blendedSearch, parseChemKey,
            augerApparentBE, photoelectronBE, elementOverlayVisible, compoundMarkerVisible,
            compoundCandidatesFrom, capConfidenceByTier, mergeAndRankCandidates,
-           tierColor, TIER_COLORS, nextColorIdx, clampToViewport,
+           tierColor, TIER_COLORS, tierNote, TIER_NOTES, nextColorIdx, clampToViewport,
            REF_OVERLAYS_VERSION, REF_COMPOUND_MARKERS_VERSION,
            serializeRefOverlays, deserializeRefOverlays,
            serializeRefCompoundMarkers, deserializeRefCompoundMarkers };

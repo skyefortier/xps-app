@@ -157,6 +157,16 @@ test('tierColor falls back safely for unknown/missing tiers', () => {
   assert.strictEqual(RefCore.tierColor(undefined),  RefCore.TIER_COLORS.fallback);
 });
 
+// --- tier-note SSOT (single source for the reviewed/machine/legacy wording) ---
+test('tierNote is the single source for tier wording; reviewed text is canonical', () => {
+  assert.strictEqual(RefCore.tierNote('curated'),
+    'Reference energies reviewed against source records. Please still verify all energies against authoritative reference sources.');
+  assert.strictEqual(RefCore.tierNote('machine'),
+    'From NIST, automatically cross-checked but not yet reviewed by a person.');
+  assert.strictEqual(RefCore.tierNote('legacy'), 'Approximate value — verify against literature.');
+  assert.strictEqual(RefCore.tierNote('nonsense'), RefCore.TIER_NOTES.curated);   // unknown → curated
+});
+
 // --- A3: shared residue-aware color assignment (nextColorIdx) ---
 test('nextColorIdx returns the first index whose palette residue is unused', () => {
   assert.strictEqual(RefCore.nextColorIdx([0, 5, 2], 8), 1);   // residues {0,5,2} → 1 free
