@@ -11329,15 +11329,18 @@ const xpsRefLinesPlugin = {
         const px = scales.x.getPixelForValue(ident.be);
         if (px >= chartArea.left && px <= chartArea.right) {
           c.save();
-          // A6: SOLID accent line (distinct from the now-dashed element overlays)
-          // + a downward caret marking the interrogated peak.
+          // DASHED accent line (candidate/plausible — the peak being interrogated;
+          // reversed from A6's solid) + a downward caret. Distinct from the other two
+          // languages: solid element overlays, and amber-dashed [5,4] compound markers
+          // — identify is accent-coloured [8,4] dashes PLUS the unique caret + label.
           c.strokeStyle = '#4a9eff';
           c.lineWidth = 1.5;
-          c.setLineDash([]);
+          c.setLineDash([8, 4]);
           c.beginPath();
           c.moveTo(px, chartArea.top);
           c.lineTo(px, chartArea.bottom);
           c.stroke();
+          c.setLineDash([]);   // reset before the caret fill
           c.fillStyle = '#4a9eff';
           c.beginPath();
           c.moveTo(px - 5, chartArea.top);
@@ -11375,11 +11378,12 @@ const xpsRefLinesPlugin = {
     for (const [i, m] of sorted.entries()) {
       c.strokeStyle = m.color + (m.hover ? 'ff' : 'cc');
       c.lineWidth = m.hover ? 2 : 1.25;
-      // A2: element overlays are ALWAYS dashed (PE [6,3], Auger [2,3]) so SOLID is
-      // reserved exclusively for the identify marker; the three on-chart marker
-      // languages then read apart by style + colour (element = dashed element-
-      // coloured, compound = amber dashed [5,4], identify = solid accent).
-      c.setLineDash(m.isAuger ? [2, 3] : [6, 3]);
+      // Marker semantics (reversed from A2): ELEMENT reference lines are SOLID —
+      // definitive/anchored expected positions (both PE and Auger; PE vs Auger read
+      // apart by their labels). The three on-chart languages stay mutually distinct:
+      // element = SOLID element-coloured; identify = DASHED accent + caret (candidate
+      // being interrogated); compound = amber DASHED [5,4] (plausible chemical state).
+      c.setLineDash([]);
       c.beginPath();
       c.moveTo(m.px, chartArea.top);
       c.lineTo(m.px, chartArea.bottom);
