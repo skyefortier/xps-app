@@ -383,9 +383,12 @@
     border: 1px solid var(--border); border-radius: var(--radius);
     padding: 7px 8px; margin-bottom: 6px; background: var(--bg);
   }
-  .ref-cand-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-  .ref-cand-name { font-family: var(--mono); font-size: 12px; font-weight: 600; }
-  .ref-cand-ev { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-left: auto; }
+  /* Wrap the candidate header so a long name + tier badge + BE/Δ value never
+     bleeds off the popover's right edge; the ev drops to its own right-aligned
+     line instead of clipping (fixes Sb 3d5/2 / long-compound-name overflow). */
+  .ref-cand-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+  .ref-cand-name { font-family: var(--mono); font-size: 12px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .ref-cand-ev { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-left: auto; white-space: nowrap; }
   .ref-tier { font-size: 9px; padding: 0 6px; border-radius: 3px; border: 1px solid; line-height: 1.7; white-space: nowrap; }
   .ref-tier.strong { color: var(--green); border-color: var(--green); background: var(--green-dim); }
   .ref-tier.possible { color: var(--accent2); border-color: var(--accent); background: var(--accent-dim); }
