@@ -4457,6 +4457,16 @@ function updateChargeCorrection() {
   // Reference Lines panel shows the corrected range + a not-charge-corrected
   // hint — both go stale when the correction changes.
   if (typeof _refOnTabChange === 'function') _refOnTabChange();
+  // fix #5: updatePlot() rebuilds the main chart at the corrected axis, but the
+  // xpsRefLinesPlugin gates on `chart === state.chart` and is skipped on the
+  // `new Chart()` first paint (the same render-timing gap _refRenderReferenceChart
+  // already works around). renderPeakList/_refOnTabChange only refresh panel/legend
+  // DOM — no chart repaint — so element reference overlays (lines, bands, labels)
+  // would vanish until the next hover/toggle. Re-issue the guarded reference-overlay
+  // repaint so they stay painted through a charge-correction change. Leaf-level
+  // chart.update('none'); positioning math and ccShift are untouched (overlays stay
+  // at nominal corrected BE), and it is a no-op when no chart/spectrum/overlays exist.
+  if (typeof _refRepaint === 'function') _refRepaint();
 }
 
 function getCorrectedBE() {
