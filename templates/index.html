@@ -9600,7 +9600,7 @@ const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the go
   const DELAY = 300;
   let timer = null;
   document.addEventListener('mouseenter', function (e) {
-    const el = e.target.closest('[data-xps-tip]');
+    const el = e.target instanceof Element ? e.target.closest('[data-xps-tip]') : null;
     if (!el) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -9627,7 +9627,7 @@ const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the go
     }, DELAY);
   }, true);
   document.addEventListener('mouseleave', function (e) {
-    if (!e.target.closest('[data-xps-tip]')) return;
+    if (!(e.target instanceof Element) || !e.target.closest('[data-xps-tip]')) return;
     clearTimeout(timer);
     const tip = document.getElementById('xps-tooltip');
     if (tip) tip.classList.remove('visible');
@@ -10019,7 +10019,7 @@ document.getElementById('mainChart').addEventListener('click', handleChartClick)
 
   // Delegate to all .xps-tip-select elements (including dynamically created ones)
   document.addEventListener('mouseenter', function (e) {
-    const sel = e.target.closest('.xps-tip-select');
+    const sel = e.target instanceof Element ? e.target.closest('.xps-tip-select') : null;
     if (!sel) return;
     const text = getTipText(sel);
     clearTimeout(showTimer);
@@ -10027,13 +10027,13 @@ document.getElementById('mainChart').addEventListener('click', handleChartClick)
   }, true);
 
   document.addEventListener('mouseleave', function (e) {
-    if (!e.target.closest('.xps-tip-select')) return;
+    if (!(e.target instanceof Element) || !e.target.closest('.xps-tip-select')) return;
     hideTip();
   }, true);
 
   // Update tooltip text when user changes the selection
   document.addEventListener('change', function (e) {
-    const sel = e.target.closest('.xps-tip-select');
+    const sel = e.target instanceof Element ? e.target.closest('.xps-tip-select') : null;
     if (!sel) return;
     const text = getTipText(sel);
     if (tip.classList.contains('visible')) showTip(sel, text);
