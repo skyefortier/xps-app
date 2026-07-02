@@ -2605,8 +2605,9 @@ const ELEMENT_MARKER_COLORS = [
 
 const PEAK_COLORS = ['#4a9eff','#3ddc84','#ff6b6b','#ffbb44','#b48eff','#ff8c66','#44ddcc','#ff9de2','#aaffaa','#ffaaaa'];
 
-// Scofield 1976 RSF values, normalized to C 1s = 1.000 at Al Kα (1486.6 eV).
-// Listing here for cross-reference against the original tables:
+// Practical Scofield-based relative sensitivity factors (C 1s = 1.000, Al Kα 1486.6 eV).
+// NOT raw Scofield cross-section ratios — see the PROVENANCE note just above the table.
+// Values listed here for cross-reference:
 //   Li 1s: 0.057
 //   Be 1s: 0.137
 //   B 1s:  0.276
@@ -2672,10 +2673,19 @@ const PEAK_COLORS = ['#4a9eff','#3ddc84','#ff6b6b','#ffbb44','#b48eff','#ff8c66'
 //   Th 4f: 8.756
 //   U 4f:  9.674
 //
-// PENDING VERIFICATION: values originally entered from secondary sources
-// and not yet cross-checked against Scofield, J.H., J. Electron Spectrosc.
-// Relat. Phenom. 8 (1976) 129. Once verified, replace this notice with
-// "Verified against Scofield 1976" and the date.
+// PROVENANCE (verified 2026-07): these are NOT raw Scofield 1976 cross-section ratios.
+// They are the standard practical RSF library of the Kratos/CasaXPS family: Scofield (1976)
+// photoionization cross-sections after inelastic-mean-free-path (λ ∝ KE^0.66) and 90°
+// source–analyser angular corrections, reported for the MAJOR spin-orbit component
+// (2p3/2, 3d5/2, 4f7/2). Verified: the 1s core lines (C, N, O, F, Na, Mg) match the published
+// Scofield/CasaXPS C1s=1 values exactly; the doublet lines match the escape-depth-corrected
+// library, not the raw Scofield subshell totals (e.g. raw Scofield Ag 3d5/2 = 10.66,
+// Au 4f7/2 = 8.65, vs. this table's 5.987 and 6.250).
+// Refs: J.H. Scofield, J. Electron Spectrosc. Relat. Phenom. 8 (1976) 129 (base cross-sections);
+// M.C. Biesinger, xpsfitting.com "Relative Sensitivity Factors" (library + component convention).
+// CAVEAT: Th 4f and U 4f are DERIVED, lab-dependent values with no measured standard — the
+// standard library itself flags U 4f as needing confirmation against a UO2 sample. Treat
+// U/Th quantification as approximate.
 const SCOFIELD_RSF = {
   'Li 1s': 0.057, 'Be 1s': 0.137, 'B 1s': 0.276, 'C 1s': 1.000, 'N 1s': 1.800,
   'O 1s': 2.930, 'F 1s': 4.430, 'Na 1s': 8.520, 'Na 2s': 1.100, 'Mg 1s': 11.18,
@@ -2691,8 +2701,8 @@ const SCOFIELD_RSF = {
   'La 3d': 13.72, 'Ce 3d': 14.63, 'W 4f': 3.523, 'Pt 4f': 5.575, 'Au 4f': 6.250,
   'Pb 4f': 6.943, 'Bi 4f': 7.327, 'Th 4f': 8.756, 'U 4f': 9.674,
 };
-// Source: Scofield 1976, J. Electron Spectrosc. Relat. Phenom. 8, 129
-// Normalization: divided by Scofield's C 1s value at Al Kα so C 1s = 1.000
+// See the PROVENANCE note above the table: practical Kratos/CasaXPS-family Scofield RSFs
+// (λ + angular corrected, major spin-orbit component, C 1s = 1) — not raw Scofield ratios.
 
 // Spin-orbit splitting presets for multiplet pair auto-detection
 const SPIN_ORBIT_PRESETS = {
@@ -6969,7 +6979,7 @@ function renderQuantify(areas, totalArea) {
       Relative atomic concentrations from peak areas.
     </div>
     <div style="background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--radius);padding:8px 10px;font-size:11px;color:var(--amber);margin-bottom:10px">
-      ⚠ Semi-quantitative — atomic percentages assume uniform sample composition, no transmission correction, and no matrix effects. RSFs are theoretical (Scofield 1976). Treat results as approximate; for publication, validate against reference standards.
+      ⚠ Semi-quantitative — atomic percentages assume uniform sample composition, no transmission correction, and no matrix effects. RSFs are practical Scofield-based factors (Kratos/CasaXPS-family, C 1s = 1); Th 4f and U 4f are derived/lab-dependent. Treat results as approximate; for publication, validate against reference standards.
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
       <label style="margin:0;font-size:11px;color:var(--text2)">RSF Source:</label>
