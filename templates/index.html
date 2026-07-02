@@ -6878,7 +6878,15 @@ function renderResults() {
       <tbody>
   `;
 
-  const { be } = state.fitResult;
+  // Fit grid for area integration. Current-format fits carry fitResult.be; older
+  // saves omit it, and without a guard _peakArea(p, be) throws on be.length —
+  // leaving the panel stale and aborting the tab switch. Fall back to the live ROI
+  // grid, exactly as renderPeakList already does for its area/percentage column.
+  let be = state.fitResult.be;
+  if ((!be || !be.length) && typeof getROIData === 'function' && state.rawBE.length) {
+    be = getROIData().be;
+  }
+  if (!be) be = [];
   const areas = state.peaks.map(p => _peakArea(p, be));
   const totalArea = areas.reduce((s, v) => s + v, 0);
 
