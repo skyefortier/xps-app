@@ -2981,6 +2981,9 @@ class TabManager {
       fqEl.removeAttribute('data-xps-tip');
       if (chiEl) chiEl.textContent = '\u2014';
     }
+    if (state.fitResult && state.fitResult.rFactor == null) {
+      state.fitResult.rFactor = _computeRFactor(state.fitResult);
+    }
     _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
     _updateROIDisplay(state.fitResult ? state.fitResult.roiRange : null);
     // Reset Y zoom so chart auto-scales to this tab's data range
