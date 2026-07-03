@@ -24,7 +24,7 @@ path untouched.
 | Codex checkpoint: Stage 3 (U 4f) | DONE | **GO** ✅ | 3 majors + 2 minors, all fixed same-session (see verdict section). Verdict + prompt in `docs/autofit/codex/`. |
 | U 4f module | TODO | — | |
 | B 1s / N 1s / Cl 2p cookbook | DONE | ✅ 21 tests | `regions/b1s.py` (position-neutral roles per discrepancy #8; good-exemplar windows; component ladder) + `regions/cl2p.py` (doublet, Δso/ratio CONDITIONAL-cited, fixed + relaxed variants) + minimal `n1s.py` (validated by the U 4f co-fit gate). Batteries (B 1s ×4, Cl 2p ×3) + engine gates: B 1s 3-component winner beats expert (χ²ᵣ 1.26 vs 1.43); Cl 2p relaxed-ratio CONDITIONAL winner beats expert on both anchors (discrepancy #7). Engine: `smart_exp` bg + decisive-override rule (ΔBIC*>10, Kass & Raftery 1995) for the conditional tier. |
-| Bayesian exchange-MC method | TODO | — | |
+| Bayesian exchange-MC method | DONE | ✅ 8 tests | `methods/bayesian_exchange_mc.py` (`86663d8`): replica-exchange + stepping-stone Bayes free energy; σ-marginalized Gaussian likelihood; priors = grammar bounds; typed `posterior_ci` intervals + ESS honesty warning. Synthetic ground truth: correct K selection (ΔF>10), centers ≤50 meV, σ̂ within 10%. NOT yet validated on real regions (sampler tunables UNVERIFIED; real-data comparison vs IC/LS = Monday work). Codex checkpoint pending. |
 | Element-physics DB | TODO | — | |
 
 ## Codex checkpoint verdicts
