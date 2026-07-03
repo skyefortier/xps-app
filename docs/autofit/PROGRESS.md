@@ -23,7 +23,7 @@ path untouched.
 | Stage 3: U 4f module | **DONE** | ✅ 62 tests | `regions/u4f.py` (LACX main doublet w/ shared α/β/m + bounded-asymmetry safeguard; explicit satellite doublet + free variant; NIST/Ilton-Bagus-cited constants) + minimal `regions/n1s.py` (co-fit partner). Engine prereqs: `share_parent_params`, linked-chain topological param ordering, linked-group absent-slot atomicity. U 4f manual-path battery (29 expert fits frozen) + engine parity gate incl. **U 4f + N 1s co-fit** (in normal suite, ~20 s). |
 | Codex checkpoint: Stage 3 (U 4f) | DONE | **GO** ✅ | 3 majors + 2 minors, all fixed same-session (see verdict section). Verdict + prompt in `docs/autofit/codex/`. |
 | U 4f module | TODO | — | |
-| B 1s / N 1s / Cl 2p cookbook | TODO | — | |
+| B 1s / N 1s / Cl 2p cookbook | DONE | ✅ 21 tests | `regions/b1s.py` (position-neutral roles per discrepancy #8; good-exemplar windows; component ladder) + `regions/cl2p.py` (doublet, Δso/ratio CONDITIONAL-cited, fixed + relaxed variants) + minimal `n1s.py` (validated by the U 4f co-fit gate). Batteries (B 1s ×4, Cl 2p ×3) + engine gates: B 1s 3-component winner beats expert (χ²ᵣ 1.26 vs 1.43); Cl 2p relaxed-ratio CONDITIONAL winner beats expert on both anchors (discrepancy #7). Engine: `smart_exp` bg + decisive-override rule (ΔBIC*>10, Kass & Raftery 1995) for the conditional tier. |
 | Bayesian exchange-MC method | TODO | — | |
 | Element-physics DB | TODO | — | |
 
@@ -102,7 +102,16 @@ byte-unchanged vs main.
    floor 284.0). It is exactly the case the residual-guided proposal pass
    exists for; whether it's carbide-like chemistry or a U-related artifact is
    an open question for adjudication.
-7. **B 1s component-assignment conflict between the two expert sources**:
+7. **Cl 2p intensity ratio rejects 2:1**: on both corrected Cl 2p anchors
+   the relaxed-ratio doublet beats the fixed-0.5 candidate by very strong
+   evidence (χ²ᵣ 2.40→1.62; 3.25→2.67) with the ratio pegged at the 0.55
+   bound — i.e. the data wants 2p1/2 : 2p3/2 > 0.55. Together with the
+   documented elevated χ²ᵣ this points at unmodeled structure (second
+   chloride species / plasmon / background shape) rather than exotic
+   physics; engine reports it as a CONDITIONAL winner with the violation
+   surfaced. Needs adjudication before the Cl 2p Δso/ratio constants can
+   leave CONDITIONAL status (spec §9).
+8. **B 1s component-assignment conflict between the two expert sources**:
    spec §3.3 (from the 4-GTA analysis) says B-C 189.41 / B-B 187.39, but the
    good B4C-UCl4 fits (χ²ᵣ 1.4–2.5) label B-C 187.10–187.24 / B-B
    188.12–188.77 — the low/mid assignments are SWAPPED between sources

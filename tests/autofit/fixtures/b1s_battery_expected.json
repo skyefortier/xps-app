@@ -1,0 +1,164 @@
+{
+ "records": [
+  {
+   "name": "B1s Scan",
+   "peaks": [
+    {
+     "amplitude": 33885.09086911102,
+     "area": -42343.509473059705,
+     "center": 190.70037185714978,
+     "fwhm": 1.0011929760911562,
+     "id": "1"
+    }
+   ],
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "r_factor": 0.05715214557906196,
+   "reduced_chi_square": 25.34896879932919,
+   "success": true
+  },
+  {
+   "name": "B1s Scan_6",
+   "peaks": [
+    {
+     "amplitude": 31742.482878702544,
+     "area": -39811.838171638745,
+     "center": 190.7090625364935,
+     "fwhm": 1.0063421137487691,
+     "id": "1"
+    }
+   ],
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "r_factor": 0.05019888452686785,
+   "reduced_chi_square": 18.524320064909865,
+   "success": true
+  },
+  {
+   "name": "B1s Scan_7",
+   "peaks": [
+    {
+     "amplitude": 33328.10798933438,
+     "area": -41304.68617086637,
+     "center": 190.73358846185914,
+     "fwhm": 0.9941637789554265,
+     "id": "1"
+    }
+   ],
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "r_factor": 0.057419220631795706,
+   "reduced_chi_square": 24.24186659360205,
+   "success": true
+  },
+  {
+   "name": "B1s Scan_7",
+   "peaks": [
+    {
+     "amplitude": 1396.5204899145533,
+     "area": -2543.730975292641,
+     "center": 188.7720808404671,
+     "fwhm": 1.6427526400695163,
+     "id": "1"
+    },
+    {
+     "amplitude": 2034.0232534801305,
+     "area": -3332.9472262831177,
+     "center": 192.99764200452407,
+     "fwhm": 1.5393604115140176,
+     "id": "2"
+    },
+    {
+     "amplitude": 7400.996780317437,
+     "area": -13230.422792455172,
+     "center": 187.23713338289454,
+     "fwhm": 1.6676979349780496,
+     "id": "3"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.03910265429599683,
+   "reduced_chi_square": 1.9113126309675363,
+   "success": true
+  }
+ ],
+ "skipped": [
+  {
+   "name": "B1s Scan_0",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "B1s Scan_1",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "B1s Scan_2",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "B1s Scan_3",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "B1s Scan_4",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "B1s Scan_5",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_8",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_0",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_1",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_2",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_3",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_4",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_5",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_6",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "B1s Scan_8",
+   "project": "B4C-UCl4.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  }
+ ]
+}

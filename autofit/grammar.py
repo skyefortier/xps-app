@@ -67,6 +67,7 @@ ASYMMETRIC_SHAPES = frozenset({LineShape.ASYM_GL, LineShape.DS, LineShape.DS_G, 
 class BackgroundType(Enum):
     SHIRLEY = "shirley"
     SMART = "smart"
+    SMART_EXP = "smart_exp"      # Avantage-style constrained Shirley
     LINEAR = "linear"
     TOUGAARD = "tougaard"
 

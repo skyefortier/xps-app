@@ -1,0 +1,74 @@
+{
+ "records": [
+  {
+   "name": "Cl2p Scan",
+   "peaks": [
+    {
+     "amplitude": 5822.888212292677,
+     "area": -11041.42990567615,
+     "center": 197.91674479410156,
+     "fwhm": 1.649189838452706,
+     "id": "2"
+    },
+    {
+     "amplitude": 2911.4441061463385,
+     "area": -5524.384843383718,
+     "center": 199.51674479410156,
+     "fwhm": 1.649189838452706,
+     "id": "3"
+    }
+   ],
+   "project": "Cl2p_projfit_test.proj.zip",
+   "r_factor": 0.08315099110248542,
+   "reduced_chi_square": 2.8511971105512237,
+   "success": true
+  },
+  {
+   "name": "Cl2p Scan_0",
+   "peaks": [
+    {
+     "amplitude": 5390.869362789518,
+     "area": -10839.602055727622,
+     "center": 197.82979379664312,
+     "fwhm": 1.6722232815630043,
+     "id": "2"
+    },
+    {
+     "amplitude": 2695.434681394759,
+     "area": -5425.862804947918,
+     "center": 199.4297937966431,
+     "fwhm": 1.6722232815630043,
+     "id": "3"
+    }
+   ],
+   "project": "Cl2p_projfit_test.proj.zip",
+   "r_factor": 0.10595497996059852,
+   "reduced_chi_square": 4.938497429364271,
+   "success": true
+  },
+  {
+   "name": "Cl2p Scan_1",
+   "peaks": [
+    {
+     "amplitude": 5795.237666036232,
+     "area": -11773.077831475664,
+     "center": 193.3837363235005,
+     "fwhm": 1.7989368367302694,
+     "id": "2"
+    },
+    {
+     "amplitude": 2897.618833018116,
+     "area": -5889.449708367079,
+     "center": 194.9837363235005,
+     "fwhm": 1.7989368367302694,
+     "id": "3"
+    }
+   ],
+   "project": "Cl2p_projfit_test.proj.zip",
+   "r_factor": 0.06208775884556926,
+   "reduced_chi_square": 1.8306283397337664,
+   "success": true
+  }
+ ],
+ "skipped": []
+}

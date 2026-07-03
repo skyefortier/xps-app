@@ -61,6 +61,14 @@ ABSENT_SLOT_AREA_FRACTION = 0.02
 ABSENT_SLOT_PERSISTENCE_THRESHOLD = 0.7
 DEFAULT_PERSISTENCE_THRESHOLD = 0.7
 DEFAULT_BIC_AMBIGUITY = 2.0
+# A stable-but-boundary-limited candidate replaces the clean tier only when
+# it is DECISIVELY better: ΔBIC* > 10 is the conventional "very strong
+# evidence" threshold (Kass & Raftery, J. Am. Stat. Assoc. 90 (1995) 773).
+# UNVERIFIED as applied to this heuristic BIC* on processed XPS data —
+# tunable.  Without this, a clean-but-terrible fit can mask a decisively
+# better fit that merely brushes a constraint wall (observed on the U 4f +
+# N 1s co-fit: clean χ²ᵣ 38 vs boundary-limited χ²ᵣ 7).
+CONDITIONAL_OVERRIDE_DELTA_BIC = 10.0
 
 PROPOSAL_WINDOW_WIDTH = 0.5
 PROPOSAL_WINDOW_STRIDE = 0.25
@@ -98,6 +106,9 @@ def _compute_background(x: np.ndarray, y: np.ndarray, bg: BackgroundType) -> np.
         return shirley_background(x, y)
     if bg is BackgroundType.SMART:
         return smart_background(x, y)
+    if bg is BackgroundType.SMART_EXP:
+        from fitting import smart_experimental_background
+        return smart_experimental_background(x, y)
     if bg is BackgroundType.LINEAR:
         return linear_background(x, y)
     if bg is BackgroundType.TOUGAARD:
@@ -1005,9 +1016,20 @@ def rank_and_filter(
         survivors.append(r)
 
     conditional = False
-    if not survivors and allow_conditional and conditional_pool:
-        survivors = conditional_pool
-        conditional = True
+    if allow_conditional and conditional_pool:
+        if not survivors:
+            survivors = conditional_pool
+            conditional = True
+        else:
+            # Decisive-override rule (see CONDITIONAL_OVERRIDE_DELTA_BIC):
+            # a boundary-limited candidate that beats the best clean
+            # candidate by very strong evidence is the honest answer —
+            # surfaced as conditional, never silently.
+            best_clean = min(r.bic_adjusted for r in survivors)
+            best_cond = min(r.bic_adjusted for r in conditional_pool)
+            if best_cond + CONDITIONAL_OVERRIDE_DELTA_BIC < best_clean:
+                survivors = conditional_pool
+                conditional = True
 
     # BIC* is the ranking default (spec §6); χ²ᵣ breaks ties only.  fitalg
     # ranked (χ²ᵣ, BIC*) — spec-noncompliant, changed per Codex finding #3.

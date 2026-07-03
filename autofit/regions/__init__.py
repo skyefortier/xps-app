@@ -58,3 +58,5 @@ def registered_regions() -> list[str]:
 from . import c1s  # noqa: E402,F401
 from . import n1s  # noqa: E402,F401
 from . import u4f  # noqa: E402,F401
+from . import b1s  # noqa: E402,F401
+from . import cl2p  # noqa: E402,F401
