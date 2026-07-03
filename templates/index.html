@@ -8546,6 +8546,13 @@ async function _doSaveProject() {
     // state (_refIdentify / tolEv) is structurally never serialized here.
     const _ov = RefCore.serializeRefOverlays(t._refSel);
     if (_ov) rec.refOverlays = _ov;
+    // Autofit engine candidate-set annotations (spec v2.1 §1): whitelisted on
+    // BOTH save and load, staying on version 3. Omitted when absent so
+    // pre-engine saves stay byte-clean. REGENERABLE data only — older clients
+    // silently drop this key on resave, so durable facts (human decisions,
+    // per-peak confidence) must ride peak-level fields (the spread channel,
+    // like _backendParams/_confidence), never this namespace.
+    if (t.analysis != null) rec.analysis = t.analysis;
     return rec;
   };
 
@@ -8866,6 +8873,9 @@ function _loadProjectJSON(data, sessionFile) {
       peaks: _normalizePeaksCRef((t.peaks || []).map(p => ({...p}))),
       nextId: t.nextId || 1,
       fitResult: t.fitResult || null,
+      // Autofit candidate-set annotations — restored verbatim when present
+      // (see buildTabData; absent in pre-engine saves → null).
+      analysis: t.analysis ?? null,
       markedElements: t.markedElements || [],
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],
