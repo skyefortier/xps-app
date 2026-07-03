@@ -36,8 +36,16 @@ import numpy as np
 import pytest
 
 if os.environ.get("RUN_AUTOFIT_GATE") != "1":
-    pytest.skip("C 1s parity gate is slow — set RUN_AUTOFIT_GATE=1 to run",
-                allow_module_level=True)
+    # LOUD skip (Codex Stage-2 finding #8): this is a REQUIRED Stage-2 gate.
+    # A default run does not enforce it — the always-on parity net is the
+    # characterization battery.  Run this gate at every stage checkpoint and
+    # after any grammar/engine change:  RUN_AUTOFIT_GATE=1 pytest <this file>
+    pytest.skip(
+        "SKIPPING REQUIRED STAGE GATE (C 1s parity) — slow; set "
+        "RUN_AUTOFIT_GATE=1 to enforce. Do not treat a run without it as a "
+        "full Stage-2 verification.",
+        allow_module_level=True,
+    )
 
 from autofit.grammar import MaterialClass, Phase, resolve
 from autofit.methods import get_method

@@ -931,7 +931,9 @@ def rank_and_filter(
         survivors = conditional_pool
         conditional = True
 
-    survivors.sort(key=lambda r: (r.reduced_chi_sq, r.bic_adjusted))
+    # BIC* is the ranking default (spec §6); χ²ᵣ breaks ties only.  fitalg
+    # ranked (χ²ᵣ, BIC*) — spec-noncompliant, changed per Codex finding #3.
+    survivors.sort(key=lambda r: (r.bic_adjusted, r.reduced_chi_sq))
 
     ambiguous: list[tuple[str, str, str]] = []
     for i in range(len(survivors)):
@@ -1090,11 +1092,15 @@ def _detect_residual_proposals(
 
 
 def _augmented_candidate(base: CandidateModel, spec: ProposalSpec) -> CandidateModel:
-    ref = base.slots[0]
+    # Proposals spawn OUTSIDE every grammar window by construction (the
+    # separation gate), so no region/phase can honestly be inherited —
+    # assigning the base model's first slot's tags would leak a phase in
+    # joint fits (Codex Stage-2 finding #2).  Region/phase assignment of a
+    # proposed peak is a human adjudication step, not an inheritance.
     proposed = ComponentSlot(
         role=spec.role,
-        region=ref.region,
-        phase_id=ref.phase_id,
+        region="unassigned",
+        phase_id="unassigned",
         be_window=(spec.center_init - 0.75, spec.center_init + 0.75),
         line_shape=spec.line_shape,
         fwhm_range=(PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX),

@@ -26,6 +26,7 @@ shared window (e.g. U 4f + N 1s overlap).
 from __future__ import annotations
 
 import itertools
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -179,9 +180,33 @@ class UnknownRegionError(KeyError):
     """Raised when no registered region module or no phase covers a region."""
 
 
+RegionRequest = "str | tuple[str, str]"  # region name, or (region, phase_id)
+
+
+def _parse_region_requests(
+    regions: "list[str | tuple[str, str]] | str | tuple[str, str]",
+) -> list[tuple[str, Optional[str]]]:
+    if isinstance(regions, str):
+        return [(regions, None)]
+    if isinstance(regions, tuple) and len(regions) == 2 \
+            and all(isinstance(v, str) for v in regions):
+        return [(regions[0], regions[1])]
+    out: list[tuple[str, Optional[str]]] = []
+    for r in regions:
+        if isinstance(r, str):
+            out.append((r, None))
+        elif isinstance(r, tuple) and len(r) == 2:
+            out.append((str(r[0]), str(r[1])))
+        else:
+            raise ValueError(
+                f"region request must be 'Region' or ('Region', 'phase_id'), got {r!r}"
+            )
+    return out
+
+
 def resolve(
     phases: list[Phase],
-    regions: list[str] | str,
+    regions: "list[str | tuple[str, str]] | str",
     oxidation_state: Optional[str] = None,
     target_phases: Optional[dict[str, str]] = None,
 ) -> CandidateGrammar:
@@ -191,23 +216,27 @@ def resolve(
     Parameters
     ----------
     phases          : the sample's phase list (length 1 = single-phase default)
-    regions         : one region id or a list for a joint co-fit window
+    regions         : region requests for one (possibly joint) fit window.
+                      Each request is either a region name (``"C 1s"``) or a
+                      phase-qualified ``("B 1s", "BN")`` pair.  The SAME
+                      region may appear once per phase — that is how a
+                      BN/B4C sample co-fits both phases' B 1s contributions
+                      in one window (spec §2: phase-scoped slot families).
     oxidation_state : Layer-C override, forwarded to region modules
-    target_phases   : {region: phase_id} disambiguation — REQUIRED for any
-                      region contributed by more than one phase
+    target_phases   : {region: phase_id} disambiguation for UNqualified
+                      requests of a region contributed by more than one phase
 
     Raises
     ------
-    PhaseAmbiguityError : region in multiple phases without a target
+    PhaseAmbiguityError : unqualified region in multiple phases w/o a target
     UnknownRegionError  : region not registered, or not covered by any phase
     """
     from .regions import get_region_module  # local import: avoid cycle
 
-    if isinstance(regions, str):
-        regions = [regions]
+    requests = _parse_region_requests(regions)
     if not phases:
         raise ValueError("phases must be a non-empty list (single-phase = length 1)")
-    if not regions:
+    if not requests:
         raise ValueError("regions must be a non-empty list")
     target_phases = target_phases or {}
 
@@ -215,25 +244,42 @@ def resolve(
     if len(set(ids)) != len(ids):
         raise ValueError(f"duplicate phase ids: {ids}")
 
+    # Region names occurring in >1 request get phase-qualified slugs so the
+    # composed slot roles stay unique across phases.
+    region_counts: dict[str, int] = {}
+    for region, _ in requests:
+        region_counts[region] = region_counts.get(region, 0) + 1
+
     notes: list[str] = []
-    per_region_candidates: list[list[CandidateModel]] = []
+    per_request_candidates: list[list[CandidateModel]] = []
+    slugs: list[str] = []
     diagnostic_windows: dict[str, tuple[float, float]] = {}
     used_phase_ids: list[str] = []
+    resolved_pairs: set[tuple[str, str]] = set()
 
-    for region in regions:
+    for region, explicit_phase in requests:
         contributors = [p for p in phases if region in p.regions]
         if not contributors:
             raise UnknownRegionError(
                 f"region {region!r} is not contributed by any declared phase "
                 f"(phases: {[p.id for p in phases]})"
             )
-        if len(contributors) > 1:
+        if explicit_phase is not None:
+            chosen = next((p for p in contributors if p.id == explicit_phase), None)
+            if chosen is None:
+                raise ValueError(
+                    f"request ({region!r}, {explicit_phase!r}): phase does not "
+                    f"contribute this region (contributors: "
+                    f"{[p.id for p in contributors]})"
+                )
+        elif len(contributors) > 1:
             tid = target_phases.get(region)
             if tid is None:
                 raise PhaseAmbiguityError(
                     f"region {region!r} appears in phases "
-                    f"{[p.id for p in contributors]} — pass "
-                    f"target_phases={{{region!r}: <phase_id>}} to disambiguate "
+                    f"{[p.id for p in contributors]} — request it per-phase "
+                    f"(({region!r}, <phase_id>)) or pass "
+                    f"target_phases={{{region!r}: <phase_id>}} "
                     "(spec v2.1 §2: region is not a unique key)"
                 )
             chosen = next((p for p in contributors if p.id == tid), None)
@@ -245,29 +291,36 @@ def resolve(
         else:
             chosen = contributors[0]
 
+        pair = (region, chosen.id)
+        if pair in resolved_pairs:
+            raise ValueError(f"duplicate region request {pair}")
+        resolved_pairs.add(pair)
+
         module = get_region_module(region)
         candidates = module.build_candidates(chosen, oxidation_state=oxidation_state)
         _guard_slot_tags(candidates, region, chosen.id)
-        per_region_candidates.append(candidates)
+        per_request_candidates.append(candidates)
+        slug = region if region_counts[region] == 1 else f"{region}@{chosen.id}"
+        slugs.append(slug)
         used_phase_ids.append(chosen.id)
         notes.append(
-            f"{region}: phase {chosen.id!r} ({chosen.material_class.value}"
+            f"{slug}: phase {chosen.id!r} ({chosen.material_class.value}"
             + (f", {chosen.material}" if chosen.material else "")
             + f"), {len(candidates)} candidates"
         )
         for label, win in module.diagnostic_windows().items():
-            diagnostic_windows[f"{region}:{label}"] = win
+            diagnostic_windows[f"{slug}:{label}"] = win
 
-    if len(regions) == 1:
-        composed = per_region_candidates[0]
+    if len(requests) == 1:
+        composed = per_request_candidates[0]
     else:
-        composed = _compose_joint_candidates(regions, per_region_candidates)
+        composed = _compose_joint_candidates(slugs, per_request_candidates)
         notes.append(
-            f"joint co-fit of {regions}: {len(composed)} composed candidates"
+            f"joint co-fit of {slugs}: {len(composed)} composed candidates"
         )
 
     grammar = CandidateGrammar(
-        regions=tuple(regions),
+        regions=tuple(region for region, _ in requests),
         phase_ids=tuple(dict.fromkeys(used_phase_ids)),
         candidates=composed,
         diagnostic_windows=diagnostic_windows,
@@ -315,17 +368,18 @@ def _guard_phase_leakage(grammar: CandidateGrammar, phases: list[Phase]) -> None
 
 
 def _compose_joint_candidates(
-    regions: list[str],
-    per_region: list[list[CandidateModel]],
+    slugs: list[str],
+    per_request: list[list[CandidateModel]],
 ) -> list[CandidateModel]:
     """
-    Cartesian composition of per-region candidate sets into joint models for
-    one shared spectral window.  Slot roles are prefixed with a region slug
-    to stay unique; the shared window uses ONE background (the regions'
-    backgrounds must agree — co-fit means one physical loss continuum).
+    Cartesian composition of per-request candidate sets into joint models for
+    one shared spectral window.  Slot roles are prefixed with the request's
+    slug (region name, phase-qualified when the same region appears for
+    multiple phases) to stay unique; the shared window uses ONE background
+    (co-fit means one physical loss continuum).
     """
     composed: list[CandidateModel] = []
-    for combo in itertools.product(*per_region):
+    for combo in itertools.product(*per_request):
         backgrounds = {c.background for c in combo}
         if len(backgrounds) != 1:
             raise ValueError(
@@ -334,8 +388,8 @@ def _compose_joint_candidates(
             )
         slots: list[ComponentSlot] = []
         shared: list[tuple[str, float, float]] = []
-        for region, cand in zip(regions, combo):
-            slug = region.replace(" ", "")
+        for slug, cand in zip(slugs, combo):
+            slug = re.sub(r"[^A-Za-z0-9_]", "", slug.replace(" ", ""))
             rename = {s.role: f"{slug}__{s.role}" for s in cand.slots}
             shared_rename = {name: f"{slug}__{name}" for name, _, _ in cand.shared_fwhm_params}
             for s in cand.slots:
@@ -388,5 +442,4 @@ def _retag_slot(
 
 def _slot_param_prefix(role: str) -> str:
     """Must match engine._slot_prefix — kept here to rewrite fwhm links."""
-    import re
     return "s_" + re.sub(r"[^A-Za-z0-9_]", "_", role) + "_"

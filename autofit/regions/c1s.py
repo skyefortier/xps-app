@@ -35,8 +35,13 @@ from . import register_region
 
 REGION = "C 1s"
 
-# Canonical BE windows (eV, corrected frame). Generous prototype widths —
-# tighten against lab data during calibration (fitalg provenance).
+# BE windows (eV, corrected frame). UNVERIFIED-calibration: the window
+# CENTERS are anchored on cited values — graphite C 1s 284.4 (Leiro,
+# 10.1016/S0368-2048(02)00284-0), adventitious C-C/C-H 284.8 and the
+# +1.5/+3.0/+4.0 oxidised-carbon shifts (Biesinger 2022, CONDITIONAL soft
+# priors per spec §9) — but the window WIDTHS are generous prototype bins
+# from fitalg with no primary source; they gate candidate admissibility and
+# must be sensitivity-tested before publication claims.
 C1S_WINDOWS: dict[str, tuple[float, float]] = {
     "graphitic":   (284.0, 284.8),   # sp² graphitic C-C
     "aliphatic":   (284.6, 285.4),   # adventitious C-C/C-H
@@ -47,7 +52,10 @@ C1S_WINDOWS: dict[str, tuple[float, float]] = {
 }
 
 # FWHM priors (eV):
-# graphitic main — ordered single species, may be narrow.
+# graphitic main — ordered single species, may be narrow.  UNVERIFIED
+# (fitalg; instrument-dependent; no primary source — labeled expert fits
+# put the graphitic main at 0.61–0.73 eV on this instrument, consistent
+# with but not derived from this range).
 FWHM_RANGE_GRAPHITIC = (0.4, 1.2)
 # aromatic-polymer main — Beamson & Briggs, "High Resolution XPS of Organic
 # Polymers — The Scienta ESCA300 Database", Wiley (1992): aromatic C 1s

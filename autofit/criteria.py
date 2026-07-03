@@ -83,7 +83,14 @@ class FTestResult:
 
 
 def f_test(smaller: ModelReport, larger: ModelReport) -> Optional[FTestResult]:
-    """Nested-model F-test; None when the pair is not genuinely nested."""
+    """
+    Nested-model F-test; None when the pair is not genuinely nested OR when
+    either model carries absent-slot adjustments (spec §6 v2.1: absent-slot-
+    adjusted models are outside F-test validity — their effective parameter
+    count was reduced arithmetically, not by a reduced-model refit).
+    """
+    if smaller.absent_slots or larger.absent_slots:
+        return None
     if not is_nested(smaller, larger):
         return None
     rss_s = smaller.primary_fit.residual_sum_sq
@@ -119,11 +126,17 @@ def build_criteria_panel(
     per_candidate: dict[str, dict] = {}
     for r in reports:
         fit = r.primary_fit
-        vals = ic_values(fit.residual_sum_sq, r.adjusted_n_params, fit.n_data)
+        # BIC* uses the absent-slot-adjusted k (matching the engine ranking);
+        # AICc uses the ACTUAL fitted k so the two criteria are genuinely
+        # different views — computing both from adjusted k suppressed the
+        # intended BIC*/AICc disagreement signal (Codex finding #6).
+        bic_vals = ic_values(fit.residual_sum_sq, r.adjusted_n_params, fit.n_data)
+        aicc_vals = ic_values(fit.residual_sum_sq, fit.n_params, fit.n_data)
         per_candidate[r.model.name] = {
             "reduced_chi_sq": float(r.reduced_chi_sq),
-            "bic_star": vals["bic_star"],
-            "aicc": vals["aicc"],
+            "bic_star": bic_vals["bic_star"],
+            "aicc": aicc_vals["aicc"],
+            "n_params": int(fit.n_params),
             "n_params_adjusted": int(r.adjusted_n_params),
             "n_components": int(r.model.n_components),
         }
@@ -141,7 +154,8 @@ def build_criteria_panel(
             ).model.name
         if len(ranked_bic) >= 2:
             gap = abs(ranked_bic[0].bic_adjusted - ranked_bic[1].bic_adjusted)
-            flags["bic_ambiguous"] = bool(gap < bic_ambiguity_threshold)
+            # <= to match the engine's ambiguous-pair convention exactly
+            flags["bic_ambiguous"] = bool(gap <= bic_ambiguity_threshold)
         if top_by_aicc is not None and top_by_aicc != top_by_bic:
             flags["criteria_conflict"] = True
 

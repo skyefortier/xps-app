@@ -97,3 +97,20 @@ def test_doublet_stability_persistence():
     assert stab.per_slot["main_p32"].persistence == 1.0
     assert stab.per_slot["main_p12"].persistence == 1.0
     assert stab.per_slot["main_p32"].position_mad < 0.02
+
+
+def test_proposed_slot_is_phase_unassigned():
+    """Codex Stage-2 blocker #2: proposals must not inherit region/phase."""
+    from autofit.engine import ProposalSpec, _augmented_candidate
+
+    base = _doublet_model()
+    spec = ProposalSpec(
+        role="proposed_peak_0", detection_windows=["proposal_x"],
+        detection_energy=10.0, detection_ratio=6.0,
+        center_init=202.0, fwhm_init=1.0, amplitude_init=500.0,
+        line_shape=LineShape.PSEUDO_VOIGT,
+    )
+    aug = _augmented_candidate(base, spec)
+    prop = aug.slot_by_role("proposed_peak_0")
+    assert prop.region == "unassigned"
+    assert prop.phase_id == "unassigned"

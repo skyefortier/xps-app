@@ -150,3 +150,38 @@ def test_joint_composition():
     assert shared_names == ["C1s__shared_contamination_fwhm"]
     co = linked_cand.slot_by_role("C1s__contamination_CO")
     assert co.fwhm_linked_to == "C1s__shared_contamination_fwhm"
+
+
+def test_same_region_from_two_phases_cofits():
+    """Codex Stage-2 blocker #1: a BN/B4C-style sample must be able to co-fit
+    BOTH phases' contributions of the same region in one window."""
+    p1 = Phase(id="ph1", material_class=MaterialClass.INSULATOR, regions=("Fk 2p",))
+    p2 = Phase(id="ph2", material_class=MaterialClass.SEMICONDUCTOR, regions=("Fk 2p",))
+    g = resolve([p1, p2], [("Fk 2p", "ph1"), ("Fk 2p", "ph2")])
+    # 2 candidates per phase → 4 joint candidates
+    assert len(g.candidates) == 4
+    assert set(g.phase_ids) == {"ph1", "ph2"}
+    joint = next(c for c in g.candidates if c.name == "FK2+FK2")
+    phase_by_role = {s.role: s.phase_id for s in joint.slots}
+    # roles are phase-qualified and each phase's slots keep THEIR phase_id
+    ph1_roles = [r for r, p in phase_by_role.items() if p == "ph1"]
+    ph2_roles = [r for r, p in phase_by_role.items() if p == "ph2"]
+    assert len(ph1_roles) == 2 and len(ph2_roles) == 2
+    assert set(ph1_roles).isdisjoint(ph2_roles)
+    # linkage stays within the owning phase
+    for c in g.candidates:
+        for s in c.slots:
+            if s.linked_to is not None:
+                parent = c.slot_by_role(s.linked_to)
+                assert parent is not None and parent.phase_id == s.phase_id
+    # phase-qualified diagnostic windows
+    assert any("@ph1:" in k for k in g.diagnostic_windows)
+    assert any("@ph2:" in k for k in g.diagnostic_windows)
+
+
+def test_same_region_duplicate_request_rejected():
+    p1 = Phase(id="ph1", material_class=MaterialClass.INSULATOR, regions=("Fk 2p",))
+    with pytest.raises(ValueError, match="duplicate region request"):
+        resolve([p1], [("Fk 2p", "ph1"), ("Fk 2p", "ph1")])
+    with pytest.raises(ValueError, match="does not contribute"):
+        resolve([p1], [("Fk 2p", "nope")])

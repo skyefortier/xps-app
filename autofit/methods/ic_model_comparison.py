@@ -79,10 +79,16 @@ class ICModelComparisonMethod(PeakFitMethod):
             )
 
         top = result.survivors[0]
-        peaks = _peaks_from_report(top)
+        # Slots classified "correctly absent" won the BIC*-adjustment benefit
+        # precisely because they carry no real signal — emitting them as
+        # fitted peaks would contradict that classification (Codex finding
+        # #4).  They remain visible in analysis.candidates[].absent_slots.
+        absent_roles = {a.role for a in top.absent_slots}
+        peaks = _peaks_from_report(top, exclude_roles=absent_roles)
         confidence = {
             slot.role: build_confidence_vector(top, slot.role, noise_floor)
             for slot in top.model.slots
+            if slot.role not in absent_roles
         }
         message = ""
         if result.conditional:
@@ -107,11 +113,15 @@ class ICModelComparisonMethod(PeakFitMethod):
         )
 
 
-def _peaks_from_report(report: ModelReport) -> list[dict]:
+def _peaks_from_report(
+    report: ModelReport, exclude_roles: frozenset | set = frozenset()
+) -> list[dict]:
     """Winning decomposition as backend-spec-shaped dicts."""
     peaks = []
     lm = report.primary_fit.lmfit_result
     for slot in report.model.slots:
+        if slot.role in exclude_roles:
+            continue
         comp = next((c for c in report.primary_fit.components
                      if c.slot_role == slot.role), None)
         if comp is None:

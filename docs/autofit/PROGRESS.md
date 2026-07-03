@@ -27,7 +27,32 @@ path untouched.
 
 ## Codex checkpoint verdicts
 
-*(none yet)*
+### Stage 2 review #1 (2026-07-03, codex exec read-only, high effort)
+**VERDICT: NO-GO** — 2 blockers, 6 majors, 1 minor. Manual-fit path confirmed
+unchanged vs main; template diff confined to the intended `analysis` additions.
+Findings + dispositions:
+1. **BLOCKER** resolver can't co-fit the same region from two phases
+   (BN+B4C B 1s) — ACCEPTED, fixed: structured region requests
+   `(region, phase_id)`, phase-qualified role slugs.
+2. **BLOCKER** proposal slots copy region/phase from `base.slots[0]` (phase
+   leakage in joint fits) — ACCEPTED, fixed: proposals tagged
+   `unassigned` (they spawn outside all grammar windows by construction;
+   assignment is adjudication, not inheritance).
+3. **MAJOR** ranking was (χ²ᵣ, BIC*) — spec says BIC* is the ranking default —
+   ACCEPTED, fixed: sort (BIC*, χ²ᵣ). (fitalg itself ranked χ²-first; port
+   was faithful but spec-noncompliant.)
+4. **MAJOR** absent slots still emitted as output peaks — ACCEPTED, fixed:
+   winner's absent slots excluded from peaks/confidence (remain in analysis).
+5. **MAJOR** F-test ran on absent-slot-adjusted models — ACCEPTED, fixed:
+   pairs with absent slots skipped.
+6. **MAJOR** AICc used adjusted k (suppressed the BIC*/AICc conflict signal) —
+   ACCEPTED, fixed: AICc from actual fitted k; BIC* stays adjusted+starred.
+7. **MAJOR** C1S_WINDOWS / FWHM_RANGE_GRAPHITIC uncited — ACCEPTED, fixed:
+   explicit UNVERIFIED-calibration markings.
+8. **MAJOR** stage gates can skip silently (no CI in repo) — PARTIAL: skips
+   made loud; the always-on battery remains non-skipping; full fix needs CI
+   infra (logged for Monday; out of window scope).
+9. **MINOR** `<` vs `<=` ambiguity-threshold mismatch — fixed (`<=` both).
 
 ## Discrepancies vs expert reference fits (for human adjudication)
 
@@ -179,6 +204,15 @@ Engine winners vs expert (post-fix, reduced 4-candidate gate, n_refits=4):
 main Δ 12–100 meV; satellite Δ 0.2–0.3 eV; envelope R-factor (≥284 eV domain)
 0.014–0.053. The low-BE 'Unknown' (~283.4) is intentionally out of gate scope
 (proposal-pass territory, discrepancy #6).
+
+## Stage-3 design cautions (carry into U 4f implementation)
+
+- **Linked-pair absent-slot atomicity**: today only non-main slots are
+  absent-eligible and every linked child references a main, so a parent can
+  never be absent while its child is emitted. The U 4f satellite DOUBLET
+  (sat5/2 linked to sat7/2) breaks that invariant — the module must either
+  make the pair's absent classification atomic or make the engine treat
+  linked groups as one absent/present unit.
 
 ## U 4f design extraction (for Stage 3; from expert fits 2026-07-03)
 
