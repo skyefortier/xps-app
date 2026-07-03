@@ -114,3 +114,42 @@ def test_proposed_slot_is_phase_unassigned():
     prop = aug.slot_by_role("proposed_peak_0")
     assert prop.region == "unassigned"
     assert prop.phase_id == "unassigned"
+
+
+def test_absent_normalization_is_region_scoped():
+    """Codex Stage-3 finding #2: a huge foreign main in a joint co-fit must
+    not dilute another region's satellite below the absent threshold."""
+    from autofit.engine import (FitOutcome, ModelStability, SlotStability,
+                                _identify_absent_slots)
+    from autofit.grammar import BackgroundType, CandidateModel, ComponentSlot
+
+    def s(role, region, phase, main=False):
+        return ComponentSlot(
+            role=role, region=region, phase_id=phase,
+            be_window=(0.0, 10.0), line_shape=LineShape.PSEUDO_VOIGT,
+            fwhm_range=(0.5, 3.0),
+        )
+
+    model = CandidateModel(
+        name="joint", background=BackgroundType.SHIRLEY,
+        slots=(s("main_u", "U 4f", "UCl4"),
+               s("satellite_u", "U 4f", "UCl4"),
+               s("main_n", "N 1s", "BN")),
+    )
+    # U satellite = 5% of the U main (clearly real), but only 0.5% of the
+    # joint main total once the huge N main is included.
+    areas = {"main_u": 1000.0, "satellite_u": 50.0, "main_n": 9000.0}
+    fit = FitOutcome(converged=True, components=[], residual_sum_sq=1.0,
+                     weighted_chi_sq=1.0, n_params=9, n_data=100)
+    stability = ModelStability(
+        per_slot={"satellite_u": SlotStability(
+            role="satellite_u", persistence=0.5,  # below threshold
+            position_median=None, position_mad=None, fwhm_median=None,
+            fwhm_mad=None, amplitude_median=None)},
+        orphan_rate=0.0, convergence_rate=1.0)
+
+    absent = _identify_absent_slots(model, stability, areas, fit)
+    assert absent == [], (
+        "region-scoped normalization must keep the 5%-of-its-own-main "
+        f"satellite; got {absent}"
+    )

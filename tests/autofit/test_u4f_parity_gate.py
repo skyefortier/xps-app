@@ -36,12 +36,12 @@ MAIN_TOL_EV = 0.05
 SAT_TOL_EV = 0.3
 CHIR_FACTOR = 1.2          # engine χ²ᵣ must be ≤ expert × this (measured: better)
 # The 4-GTA co-fit anchor is a KNOWN-ROUGH reference (expert χ²ᵣ 11.4) on a
-# genuinely multi-modal problem (U satellite / N 1s overlap): the winner's
-# U-main positions vary at the few-hundred-meV level with run-order FP
-# wobble (documented in PROGRESS.md).  The co-fit gate therefore asserts
-# STRUCTURE + phase correctness + fit quality; tight position parity is the
-# single-region tests' job on the good anchors.
-COFIT_MAIN_TOL_EV = 0.5
+# multi-modal problem (U satellite / N 1s overlap).  Measured seed envelope
+# (rng_seed 0–4, same winner every seed): U 4f7/2 spans 380.566–380.606,
+# i.e. ≤ 39 meV from the expert 380.605.  0.3 eV = measured envelope with
+# ~7× margin against run-order FP wobble; tight position parity remains the
+# single-region tests' job on the good anchors (Codex Stage-3 finding #3).
+COFIT_MAIN_TOL_EV = 0.3
 N1S_TOL_EV = 0.3
 
 OPTIONS = {"n_refits": 4, "rng_seed": 0, "noise_floor": 1.0,

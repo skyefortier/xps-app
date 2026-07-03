@@ -1,0 +1,38 @@
+Adversarial review of Stage 3 (U 4f module) of the XPS autofit engine, branch feature-autofit-stage2. Review the U 4f commit (git show 1dcde4b) in the context of the full branch diff (git diff main...HEAD). The design spec is docs/autofit/phase1-grammar-architecture-spec-v2.md §3.2 and the run log is docs/autofit/PROGRESS.md ("Stage-3 U 4f results").
+
+Scope: autofit/regions/u4f.py, autofit/regions/n1s.py, engine changes
+(share_parent_params, topological linked-slot ordering, linked-group
+absent-slot atomicity), tests/autofit/test_u4f_parity_battery.py,
+tests/autofit/test_u4f_parity_gate.py, scripts/gen_u4f_battery_fixture.py.
+
+Verify the spec's hard rules for this stage:
+- asymmetric LACX as first-class chemical model for the U(IV) 5f2 manifold
+  (no forced multiplet decomposition; no oxidation-state machinery)
+- bounded-asymmetry safeguard present and honestly labeled (calibrated
+  windows flagged UNVERIFIED-empirical)
+- satellites are explicit components in ONE joint fit
+- multi-element co-fit composes grammars (U 4f + N 1s) with per-phase slot
+  tags and no phase leakage
+- every constant lit-cited or flagged UNVERIFIED (check every number in
+  u4f.py and n1s.py)
+
+Adversarial demands:
+- The satellite-separation finding (pair separation ~11.2 eV vs Δso 10.9;
+  free-offset variant wins) — is the U1/U2 candidate design statistically
+  fair, or does U2's extra freedom guarantee it wins BIC* regardless?
+- The engine's share_parent_params + area_ratio_range interplay: any way a
+  relaxed ratio + shared shape can double-count or produce unidentifiable
+  parameter pairs the boundary/stability machinery would miss?
+- Linked-group absent atomicity: correctness of the union-find over
+  non-main slots; any group shape that misclassifies?
+- The co-fit gate loosened U-main position tolerance to 0.5 eV citing
+  multi-modality — is that assertion still meaningful, or should the gate
+  pin something sharper that remains stable?
+- Numerical findings (cross-process LACX wobble, bg-anchor drift bounds in
+  battery_common.py) — are the chosen tolerances defensible or do they
+  mask potential regressions?
+
+Produce findings with file:line, severity (BLOCKER/MAJOR/MINOR), concrete
+failure scenario, suggested fix. Do not modify anything. End with exactly:
+"VERDICT: GO" or "VERDICT: NO-GO (blockers: ...)" for proceeding to the
+region cookbook (B 1s, N 1s, Cl 2p).

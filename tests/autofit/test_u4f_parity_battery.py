@@ -21,7 +21,10 @@ MIN_PROJECTS = 3
 # (UCl4_on_graphite U4f Scan_6, a flat alpha/beta/m valley) wobbles at
 # 1.4e-4 relative across processes; 1e-3 gives ~7x margin while still
 # catching any real numerics change (C 1s pins shared machinery at 1e-6).
-EVAL_TOL = 3e-2
+# Eval-parity across all 29 eligible fits: median 6.0e-3, max 1.12e-2
+# (bg-anchor drift) — 1.5e-2 keeps ~34% headroom without masking a real
+# 2%-level regression (Codex Stage-3 finding #4).
+EVAL_TOL = 1.5e-2
 FIXTURE_RTOL = 1e-3
 
 _FITS = bc.battery_fits(REGION)

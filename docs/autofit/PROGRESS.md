@@ -21,7 +21,7 @@ path untouched.
 | C 1s parity gate | **PROVEN** | ✅ 3/3 anchors | `tests/autofit/test_c1s_parity_gate.py` (env-gated: `RUN_AUTOFIT_GATE=1`, ~4 min): main Δ 4–12 meV, satellite Δ 0.08–0.29 eV, domain envelope R 0.004–0.014 vs expert fits. Winners: MG3/MG2 (conditional tier, violations surfaced) + AG2 (clean) — see calibration log. |
 | Codex checkpoint: Stage 2 | DONE* | review #1 ✅ / re-review HUNG | Review #1: NO-GO w/ 9 findings → all fixed + test-pinned (`2669ed9`). Re-review hung (known issue) → killed, logged, proceeded per rails. Monday re-runs `docs/autofit/codex/stage2_rereview_prompt.txt`. |
 | Stage 3: U 4f module | **DONE** | ✅ 62 tests | `regions/u4f.py` (LACX main doublet w/ shared α/β/m + bounded-asymmetry safeguard; explicit satellite doublet + free variant; NIST/Ilton-Bagus-cited constants) + minimal `regions/n1s.py` (co-fit partner). Engine prereqs: `share_parent_params`, linked-chain topological param ordering, linked-group absent-slot atomicity. U 4f manual-path battery (29 expert fits frozen) + engine parity gate incl. **U 4f + N 1s co-fit** (in normal suite, ~20 s). |
-| Codex checkpoint: Stage 3 (U 4f) | TODO | — | attempt once; hang → log + proceed per rails |
+| Codex checkpoint: Stage 3 (U 4f) | DONE | **GO** ✅ | 3 majors + 2 minors, all fixed same-session (see verdict section). Verdict + prompt in `docs/autofit/codex/`. |
 | U 4f module | TODO | — | |
 | B 1s / N 1s / Cl 2p cookbook | TODO | — | |
 | Bayesian exchange-MC method | TODO | — | |
@@ -102,6 +102,15 @@ byte-unchanged vs main.
    floor 284.0). It is exactly the case the residual-guided proposal pass
    exists for; whether it's carbide-like chemistry or a U-related artifact is
    an open question for adjudication.
+7. **B 1s component-assignment conflict between the two expert sources**:
+   spec §3.3 (from the 4-GTA analysis) says B-C 189.41 / B-B 187.39, but the
+   good B4C-UCl4 fits (χ²ᵣ 1.4–2.5) label B-C 187.10–187.24 / B-B
+   188.12–188.77 — the low/mid assignments are SWAPPED between sources
+   (identical positions, opposite chemistry labels). The engine's B 1s
+   module will use position-neutral role names (low/mid/oxide) and defer the
+   chemical assignment to Skye. Also: B-O is center-pinned at exactly 193.00
+   in all 10 B4C-UCl4 fits (analyst fixed it), and the `Zr 3d` RSF mis-tag
+   (discrepancy #1) sits on B-B and B-C in those same fits.
 
 ## UNVERIFIED / suspect items
 
@@ -230,18 +239,42 @@ main Δ 12–100 meV; satellite Δ 0.2–0.3 eV; envelope R-factor (≥284 eV do
   make the pair's absent classification atomic or make the engine treat
   linked groups as one absent/present unit.
 
+### Stage 3 (U 4f) review (2026-07-03) — **VERDICT: GO**
+No blockers; "core Stage 3 model decision" explicitly confirmed sound.
+Findings + dispositions (all fixed same-session):
+1. **MAJOR** U1-vs-U2 satellite-separation conclusion confounded (U2 frees
+   shape AND offset) — ACCEPTED, fixed: added `U1b` (free pair separation,
+   shape+amplitude still tied). Clean result: U1→U1b ΔBIC* = −55.7 from
+   separation freedom alone; finding stands.
+2. **MAJOR** absent-slot area normalized against ALL mains in a joint model
+   (BN N 1s dilutes U satellites) — ACCEPTED, fixed: normalization scoped to
+   the slot's own (region, phase) mains, global fallback; pinned by test.
+3. **MAJOR** co-fit U-main tolerance 0.5 eV too broad — ACCEPTED, fixed:
+   measured seed envelope (5 seeds, same winner, ≤39 meV from expert) →
+   0.3 eV documented-envelope gate.
+4. **MINOR** U4f EVAL_TOL 3e-2 loose vs measured drift — fixed: measured all
+   29 fits (median 6.0e-3, max 1.12e-2) → 1.5e-2.
+5. **MINOR** satellite fallback windows uncited — fixed: now DERIVED from
+   the cited/flagged constants.
+
 ## Stage-3 U 4f results (2026-07-03)
 
 - **Single-region parity (good anchors)**: engine winner = mains + free
   satellite pair; main Δ 2–14 meV, satellite Δ 0.01–0.02 eV, splitting
   10.85, ratio 0.640–0.656 — and the engine's χ²ᵣ BEATS the expert fits
   (1.40 vs 1.71 on B4C-UCl4; 1.42 vs 2.00 on UCl4-graphite).
-- **Physics finding — satellite pair separation ≈ 11.2 eV ≠ Δso 10.90**:
-  the tied-pair candidate (U1, satellite doublet locked to the core
-  splitting) pegs its offset bound and loses to the free variant (U2) on
-  both good anchors; expert satellite fits agree (11.21 eV in B4C-UCl4).
-  Shake-up separations need not track the core splitting — worth Skye's
-  eyes; U2's independent offsets are the physically safer default.
+- **Physics finding — satellite pair separation ≈ 11.2 eV ≠ Δso 10.90**
+  (cleanly isolated post-Codex via the U1b candidate): freeing ONLY the
+  pair separation (shape+amplitude still tied) improves BIC* by 55.7
+  (χ²ᵣ 1.98→1.68) and fits the separation at 11.20 eV; expert satellite
+  fits agree (11.21 eV in B4C-UCl4). Shake-up separations need not track
+  the core splitting — worth Skye's eyes.
+- **Second satellite observation**: the satellite pair's amplitude ratio is
+  ~0.91 (B4C expert fit 2436/2214), NOT the core doublet's 0.75 — U1b pegs
+  its ratio bound (0.85) on that account and the fully-free U2 wins. Both
+  the separation AND the intensity ratio of the shake-up pair decouple from
+  the core doublet. U2 (independent satellites) is the physically safer
+  default; logged for adjudication.
 - **Co-fit (4-GTA UCl4-BN, U 4f + N 1s joint)**: winner
   `U2_mains_satfree+N0_asymGL`, χ²ᵣ 7.1 vs expert 11.4 (rough reference).
   N 1s at 398.28 (phase BN, no leakage). DISCREPANCY vs expert (logged, not

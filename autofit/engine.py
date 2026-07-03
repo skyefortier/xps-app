@@ -761,15 +761,33 @@ def _identify_absent_slots(
     partner is present (a spin-orbit satellite pair is one physical feature).
     Every member must individually meet the persistence + area criteria for
     the group to be classified absent.
+
+    The area fraction is normalized against the mains of the SLOT'S OWN
+    (region, phase) when any exist — in a joint co-fit, normalizing against
+    the global main area would let a huge foreign main (e.g. the BN N 1s
+    line in a U 4f + N 1s window) dilute a real satellite of the smaller
+    element below the threshold (Codex Stage-3 finding #2).  Falls back to
+    the global main area for slots without same-scope mains (e.g. proposals,
+    which are region-unassigned).
     """
-    main_area = sum(a for role, a in slot_areas.items() if _is_main_role(role))
-    if main_area <= 0:
+    global_main_area = sum(a for role, a in slot_areas.items() if _is_main_role(role))
+    if global_main_area <= 0:
         return []
+
+    scoped_main_area: dict[tuple[str, str], float] = {}
+    for s in model.slots:
+        if _is_main_role(s.role):
+            key = (s.region, s.phase_id)
+            scoped_main_area[key] = scoped_main_area.get(key, 0.0) \
+                + float(slot_areas.get(s.role, 0.0))
 
     def _member_report(slot: ComponentSlot) -> Optional[AbsentSlotReport]:
         sstab = stability.per_slot.get(slot.role)
         if sstab is None or sstab.persistence >= persistence_threshold:
             return None
+        main_area = scoped_main_area.get((slot.region, slot.phase_id), 0.0)
+        if main_area <= 0:
+            main_area = global_main_area
         area = float(slot_areas.get(slot.role, 0.0))
         frac = area / main_area
         if frac >= area_fraction_threshold:

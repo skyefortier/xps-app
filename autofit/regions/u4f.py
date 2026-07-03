@@ -89,11 +89,20 @@ U4F_LACX_M_RANGE = (0.0, 100.0)
 # et al., GCA 73 (2009) 2488, 10.1016/j.gca.2009.02.008); labeled set fits
 # 6.07–6.38 eV.  Envelope brackets both — UNVERIFIED-calibration.
 U4F_SAT_OFFSET_RANGE = (5.5, 8.5)
+# Satellite-PAIR separation window for the free-separation candidates: the
+# labeled set fits the pair 11.2 eV apart while the core splitting is 10.9
+# (satellite separations need not track the core splitting) — bracketed
+# around both; UNVERIFIED-calibration.
+U4F_SATPAIR_SEP_RANGE = (10.5, 12.0)
 # Satellite width — UNVERIFIED-empirical (labeled set 2.09–3.30 eV).
 U4F_SAT_FWHM_RANGE = (1.5, 4.5)
-# Satellite absolute fallback windows (matching only).
-U4F_SAT72_WINDOW = (383.5, 391.0)
-U4F_SAT52_WINDOW = (394.0, 402.0)
+# Satellite absolute fallback windows: DERIVED from the cited/flagged
+# constants above (main window ± satellite offsets; used for slot MATCHING
+# only — fitted centers are expression-driven off the mains).
+U4F_SAT72_WINDOW = (U4F72_WINDOW[0] + U4F_SAT_OFFSET_RANGE[0],
+                    U4F72_WINDOW[1] + U4F_SAT_OFFSET_RANGE[1])
+U4F_SAT52_WINDOW = (U4F_SAT72_WINDOW[0] + U4F_SATPAIR_SEP_RANGE[0],
+                    U4F_SAT72_WINDOW[1] + U4F_SATPAIR_SEP_RANGE[1])
 
 # Background: the labeled U 4f fits all use the 'smart' (constrained
 # Shirley) background — adopted to match expert practice; UNVERIFIED
@@ -116,13 +125,19 @@ class U4fModule:
         self, phase: Phase, oxidation_state: Optional[str] = None
     ) -> list[CandidateModel]:
         """
-        Candidates:
+        Candidates (a controlled ladder of satellite-pair freedom, so model
+        comparison can isolate WHICH freedom the data pays for — Codex
+        Stage-3 finding #1):
 
-        - ``U0_mains``          — main doublet only (reduced model for IC)
-        - ``U1_mains_satpair``  — + shake-up satellite doublet (expert model)
-        - ``U2_mains_satfree``  — + two independently-offset, free-amplitude
-                                  satellites (robustness variant: each rides
-                                  its own main, no pair linkage)
+        - ``U0_mains``            — main doublet only (reduced model for IC)
+        - ``U1_mains_satpair``    — + satellite doublet locked to the core
+                                    splitting (shape + amplitude tied)
+        - ``U1b_mains_satpair_freesep`` — satellite doublet with FREE pair
+                                    separation but shape + amplitude still
+                                    tied: the clean test of "pair separation
+                                    ≠ core splitting"
+        - ``U2_mains_satfree``    — two fully independent satellites (each
+                                    rides its own main; robustness variant)
 
         ``oxidation_state`` is accepted for the Layer-C seam; assignment is
         parked (spec §3.2) so no overrides are defined.
@@ -170,6 +185,16 @@ class U4fModule:
             area_ratio_range=U4F_RATIO_RANGE,
             share_parent_params=("gl_ratio", "fwhm"),
         )
+        # Free pair separation, everything else still tied (U1b).
+        sat_52_freesep = slot(
+            "satellite_u4f52", U4F_SAT52_WINDOW, LineShape.PSEUDO_VOIGT,
+            U4F_SAT_FWHM_RANGE,
+            linked_to="satellite_u4f72",
+            linked_offset_range=U4F_SATPAIR_SEP_RANGE,
+            area_ratio=U4F_RATIO_DEFAULT,
+            area_ratio_range=U4F_RATIO_RANGE,
+            share_parent_params=("gl_ratio", "fwhm"),
+        )
 
         # Robustness variant: satellites ride their own mains independently
         # (free amplitudes, independent offsets — no pair linkage).
@@ -191,6 +216,9 @@ class U4fModule:
                            slots=(main_72, main_52)),
             CandidateModel(name="U1_mains_satpair", background=U4F_BACKGROUND,
                            slots=(main_72, main_52, sat_72, sat_52)),
+            CandidateModel(name="U1b_mains_satpair_freesep",
+                           background=U4F_BACKGROUND,
+                           slots=(main_72, main_52, sat_72, sat_52_freesep)),
             CandidateModel(name="U2_mains_satfree", background=U4F_BACKGROUND,
                            slots=(main_72, main_52, sat_72_free, sat_52_free)),
         ]
