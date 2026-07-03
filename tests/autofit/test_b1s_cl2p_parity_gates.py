@@ -92,13 +92,18 @@ def test_cl2p_parity_gate(name):
     assert res.diagnostics["conditional"] is True
     assert res.diagnostics["conditional_reason"] == "decisive_override"
     assert any("ratio" in p for p in res.diagnostics["winner_boundary_fixed_params"])
+    # the bound-fixed refit must be an INTERIOR optimum (no fresh pegs)
+    assert res.diagnostics["winner_boundary_hits"] == []
     ratio = p12["amplitude"] / p32["amplitude"]
     assert ratio == pytest.approx(0.55, abs=1e-6)   # fixed at the bound
 
     names = {c["name"]: c for c in res.analysis["candidates"]}
     assert {"Cl0_doublet", "Cl0r_doublet_relaxed",
             "Cl0r_doublet_relaxed+bfix"} <= set(names)
-    # fixed-vs-relaxed evidence: the relaxed family is decisively better
+    # fixed-vs-relaxed evidence: the relaxed family is decisively better,
+    # by the full dominance margin on BIC* and on χ²ᵣ
+    assert names["Cl0r_doublet_relaxed+bfix"]["bic_star"] + 10 \
+        < names["Cl0_doublet"]["bic_star"]
     assert names["Cl0r_doublet_relaxed+bfix"]["reduced_chi_sq"] \
         < names["Cl0_doublet"]["reduced_chi_sq"]
     # CONDITIONAL constants provenance is runtime-visible

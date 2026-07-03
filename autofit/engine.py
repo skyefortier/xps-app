@@ -656,6 +656,7 @@ def run_stability_analysis(
     noise_floor: float,
     n_refits: int = 20,
     rng_seed: int = 0,
+    fixed_param_values: Optional[dict[str, float]] = None,
 ) -> ModelStability:
     rng = np.random.default_rng(rng_seed)
     pos: dict[str, list[float]] = {s.role: [] for s in model.slots}
@@ -673,10 +674,14 @@ def run_stability_analysis(
     best_outcome: Optional[FitOutcome] = None
     for _ in range(n_refits):
         seed = int(rng.integers(0, 2**31 - 1))
-        outcome = fit_candidate(
-            x, y, weights, model,
-            initial_params=perturb_initial_params(model, seed=seed,
-                                                  x=x, y_net=y_net))
+        init = perturb_initial_params(model, seed=seed, x=x, y_net=y_net)
+        if fixed_param_values:
+            # bound-fixed refit stability: the constrained parameters stay
+            # fixed at their bounds in every multi-start refit
+            for pname, val in fixed_param_values.items():
+                if pname in init:
+                    init[pname].set(value=float(val), vary=False)
+        outcome = fit_candidate(x, y, weights, model, initial_params=init)
         if not outcome.converged:
             continue
         n_converged += 1
@@ -1421,6 +1426,11 @@ def _cross_candidate_coincidences(
     return out
 
 
+# Bound the number of conditional candidates the override may refit — a
+# runtime guard, not a statistical constant.
+OVERRIDE_MAX_ATTEMPTS = 3
+
+
 def _bound_fixed_refit(
     x: np.ndarray,
     y: np.ndarray,
@@ -1428,14 +1438,23 @@ def _bound_fixed_refit(
     report: ModelReport,
     diagnostic_windows: dict[str, tuple[float, float]],
     noise_floor: float,
+    n_refits: int,
+    rng_seed: int,
 ) -> Optional[ModelReport]:
     """
     Refit a boundary-limited candidate with each pegged parameter FIXED at
-    the bound it pegged to.  The refit's nvarys honestly excludes the
-    constrained parameters, making its BIC* comparable (a bound-pegged free
-    parameter invalidates the interior-Laplace BIC approximation).  Returns
-    None when nothing could be fixed or the refit failed; stability figures
-    are inherited from the free fit (documented approximation).
+    the bound it pegged to, so its BIC* uses an honest parameter count (a
+    bound-pegged free parameter invalidates the interior-Laplace BIC
+    approximation).
+
+    Honesty requirements (Codex re-check blockers/major):
+    - the refit must not itself peg any NEW bound — otherwise the
+      interior-Laplace comparison is invalid again → return None;
+    - a FRESH stability pass runs on the bound-fixed model (the constrained
+      parameters stay fixed in every multi-start refit) — no inherited
+      figures;
+    - NO absent-slot adjustment is applied to the refit: its BIC* uses the
+      full varying-parameter count (conservative — errs against promotion).
     """
     import dataclasses
 
@@ -1443,7 +1462,7 @@ def _bound_fixed_refit(
     if lm is None or not report.plausibility.boundary_hits:
         return None
     params = lm.params.copy()
-    fixed: list[str] = []
+    fixed: dict[str, float] = {}
     for hit in report.plausibility.boundary_hits:
         try:
             role_param, side = hit.rsplit("@", 1)
@@ -1454,29 +1473,40 @@ def _bound_fixed_refit(
         par = params.get(full)
         if par is None or not par.vary:
             continue
-        par.set(value=par.min if side == "min" else par.max, vary=False)
-        fixed.append(full)
+        val = par.min if side == "min" else par.max
+        par.set(value=val, vary=False)
+        fixed[full] = float(val)
     if not fixed:
         return None
 
     outcome = fit_candidate(x, y, weights, report.model, initial_params=params)
     if not outcome.converged:
         return None
+    if outcome.boundary_hits:
+        # fixing one wall pushed the fit onto another — still not an
+        # interior optimum; no honest BIC* comparison is possible
+        return None
+
+    stability = run_stability_analysis(
+        x, y, weights, report.model, outcome,
+        noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
+        fixed_param_values=fixed,
+    )
     y_fit = (outcome.lmfit_result.best_fit + outcome.background
              if outcome.lmfit_result is not None else np.zeros_like(y))
     return ModelReport(
         model=dataclasses.replace(report.model, name=report.model.name + "+bfix"),
         primary_fit=outcome,
         bic=compute_bic(outcome),
-        stability=report.stability,           # inherited (approximation)
+        stability=stability,
         residuals=compute_residual_diagnostics(
             x, y, y_fit, noise_floor, diagnostic_windows),
         plausibility=PlausibilityFlags(
-            boundary_hits=list(outcome.boundary_hits),
-            orphan_peaks=report.plausibility.orphan_peaks,
+            boundary_hits=[],
+            orphan_peaks=stability.orphan_rate > 0.1,
         ),
-        absent_slots=list(report.absent_slots),
-        boundary_fixed_params=fixed,
+        absent_slots=[],                      # conservative full-k BIC*
+        boundary_fixed_params=sorted(fixed),
     )
 
 
@@ -1488,6 +1518,8 @@ def _apply_decisive_override(
     persistence_threshold: float,
     diagnostic_windows: dict[str, tuple[float, float]],
     noise_floor: float,
+    n_refits: int,
+    rng_seed: int,
 ) -> ComparisonResult:
     """Dominance rule — see CONDITIONAL_OVERRIDE_DELTA_BIC block comment."""
     if result.conditional or not result.survivors:
@@ -1500,22 +1532,27 @@ def _apply_decisive_override(
     pool = [r for r, why in result.filtered_out
             if why.startswith("plausibility")
             and r.active_min_persistence >= persistence_threshold]
-    if not pool:
+    pool.sort(key=lambda r: r.bic_adjusted)
+
+    for candidate in pool[:OVERRIDE_MAX_ATTEMPTS]:
+        refit = _bound_fixed_refit(x, y, weights, candidate,
+                                   diagnostic_windows, noise_floor,
+                                   n_refits=n_refits, rng_seed=rng_seed)
+        if refit is None:
+            continue
+        # the bound-fixed model must be STABLE in its own right
+        if refit.active_min_persistence < persistence_threshold:
+            continue
+        # (2) very-strong BIC* margin AND (3) strictly better χ²ᵣ
+        if not (refit.bic_adjusted + CONDITIONAL_OVERRIDE_DELTA_BIC
+                < clean_best.bic_adjusted
+                and refit.reduced_chi_sq < clean_best.reduced_chi_sq):
+            continue
+        result.reports.append(refit)
+        result.survivors = [refit] + result.survivors  # clean kept as alternatives
+        result.conditional = True
+        result.conditional_reason = "decisive_override"
         return result
-    candidate = min(pool, key=lambda r: r.bic_adjusted)
-    refit = _bound_fixed_refit(x, y, weights, candidate,
-                               diagnostic_windows, noise_floor)
-    if refit is None:
-        return result
-    # (2) very-strong BIC* margin AND (3) strictly better χ²ᵣ
-    if not (refit.bic_adjusted + CONDITIONAL_OVERRIDE_DELTA_BIC
-            < clean_best.bic_adjusted
-            and refit.reduced_chi_sq < clean_best.reduced_chi_sq):
-        return result
-    result.reports.append(refit)
-    result.survivors = [refit] + result.survivors   # clean kept as alternatives
-    result.conditional = True
-    result.conditional_reason = "decisive_override"
     return result
 
 
@@ -1646,6 +1683,8 @@ def compare_models(
         persistence_threshold=persistence_threshold,
         diagnostic_windows=diagnostic_windows,
         noise_floor=noise_floor,
+        n_refits=n_refits,
+        rng_seed=rng_seed,
     )
     result.non_converged = non_converged
     result.cross_candidate_coincidences = _cross_candidate_coincidences(proposal_attempts)

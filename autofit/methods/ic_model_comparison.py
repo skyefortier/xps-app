@@ -201,6 +201,8 @@ def build_analysis_record(
             "boundary_hits": r.plausibility.boundary_hits,
         })
 
+    import copy
+
     non_verified = sorted({
         f"{slug}:{e['constant']}"
         for slug, entries in grammar.provenance.items()
@@ -216,7 +218,12 @@ def build_analysis_record(
         "conditional_reason": result.conditional_reason,
         # Constants provenance — runtime-visible verification status of every
         # physical constant this fit was built on (never comments-only).
-        "constants_provenance": grammar.provenance,
+        # Deep-copied so payload consumers can't mutate the shared grammar.
+        # SCOPE: region-wide (everything the resolved grammar consumes), not
+        # per-candidate — a candidate that omits a slot still lists that
+        # slot's constants; per-candidate provenance is logged future work.
+        "constants_provenance": copy.deepcopy(grammar.provenance),
+        "constants_provenance_scope": "region-wide",
         "uses_conditional_or_unverified_constants": non_verified,
         "candidates": candidates,
         "non_converged": [m.name for m, _ in result.non_converged],

@@ -266,6 +266,26 @@ Findings + dispositions (all fixed same-session):
 5. **MINOR** satellite fallback windows uncited — fixed: now DERIVED from
    the cited/flagged constants.
 
+### Cookbook re-check (2026-07-03) — **NO-GO → all findings fixed (2nd round)**
+The re-check (archived `docs/autofit/codex/stage4_cookbook_verdict2.md`)
+found 2 blockers + 3 majors + 1 minor IN MY OVERRIDE IMPLEMENTATION, all
+verified real and fixed:
+1. **BLOCKER** stale absent-slot adjustment on bound-fixed refits — fixed:
+   refits carry NO absent-slot adjustment (conservative full-k BIC*).
+2. **BLOCKER** refit could peg a NEW bound and still be treated as decisive
+   — fixed: fresh boundary hits → no promotion (interior optimum required);
+   gate asserts `winner_boundary_hits == []`.
+3. **MAJOR** inherited stability — fixed: fresh stability pass runs on the
+   bound-fixed model (constrained params stay fixed in every multi-start
+   refit via `run_stability_analysis(fixed_param_values=…)`), with an
+   active-persistence requirement before promotion.
+4. **MAJOR** provenance region-wide + returned by reference — fixed:
+   deep-copied; scope explicitly labeled `region-wide`; per-candidate
+   provenance logged as FUTURE WORK.
+5. **MAJOR** only the best free-BIC candidate tried — fixed: up to 3
+   conditional candidates attempted in BIC* order.
+6. **MINOR** gate missing fresh-peg/dominance-margin assertions — fixed.
+
 ### Cookbook review (2026-07-03) — **VERDICT: NO-GO → all findings fixed**
 3 blockers + 4 majors + 1 minor (verdict archived at
 `docs/autofit/codex/stage4_cookbook_verdict.md`). Dispositions:
