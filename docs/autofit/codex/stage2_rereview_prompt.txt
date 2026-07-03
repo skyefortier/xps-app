@@ -1,0 +1,19 @@
+You are re-reviewing Stage 2 of the XPS autofit engine on branch feature-autofit-stage2 (git diff main...HEAD). Your previous review returned NO-GO with 9 findings; every disposition is recorded in docs/autofit/PROGRESS.md under "Codex checkpoint verdicts". The fixes landed in the most recent commits.
+
+Verify each fix ACTUALLY closes the finding — or say concretely why it does not:
+1. resolve() now accepts structured region requests (region, phase_id); same region can be requested once per phase; role slugs are phase-qualified when a region appears for multiple phases (autofit/grammar.py). Test: tests/autofit/test_resolver.py::test_same_region_from_two_phases_cofits.
+2. proposal slots are tagged region/phase "unassigned" (autofit/engine.py::_augmented_candidate). Test: test_engine_doublet.py::test_proposed_slot_is_phase_unassigned.
+3. survivors rank (bic_adjusted, reduced_chi_sq) — BIC* default.
+4. absent slots excluded from emitted peaks/confidence (ic_model_comparison.py).
+5. f_test returns None when either model has absent slots (criteria.py).
+6. AICc from actual fitted k; BIC* from adjusted k, both labeled (criteria.py + test_criteria.py).
+7. C1S_WINDOWS / FWHM_RANGE_GRAPHITIC marked UNVERIFIED-calibration with the cited anchors distinguished from the uncited widths (regions/c1s.py).
+8. gate skip made loud; PROGRESS logs that real CI enforcement is out of window scope.
+9. ambiguity threshold `<=` in both places.
+
+ADVERSARIAL demands, beyond fix verification:
+- Hunt for NEW defects introduced by these fixes (slug sanitization collisions, ranking-change fallout, absent-slot exclusion interacting with linked/parent slots — e.g. can a parent slot be classified absent while a linked child is emitted referencing it?).
+- Re-check the two-tier conditional filter and best-minimum promotion (added this stage, described in PROGRESS "Parity-gate calibration log") — both are deliberate departures from fitalg; challenge their statistical honesty.
+- Anything else you find. A review with zero findings is a failed review; report at least the sharpest residual risks with file:line, severity, failure scenario.
+
+Do NOT modify anything. End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO (blockers: ...)" for proceeding to Stage 3 (U 4f).

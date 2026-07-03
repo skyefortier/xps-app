@@ -1,0 +1,19 @@
+You are performing an ADVERSARIAL code review of Stage 2 of the XPS autofit engine, on branch feature-autofit-stage2 of this repo. Review the branch diff vs main:
+
+    git diff main...HEAD
+
+Scope of the stage under review (all strictly additive; the existing manual-fit path /api/fit + fitting.run_fit must be byte-identical to main):
+1. autofit/ package: grammar.py (multi-phase resolver, phase disambiguation), engine.py (model-comparison pipeline ported from the public xps-app-fitalg repo), regions/c1s.py (C 1s grammar), criteria.py (BIC*/AICc/F-test panel), confidence.py (typed per-peak uncertainty), methods/ (PeakFitMethod seam: least_squares + ic_model_comparison implemented, 4 stubs), reference.py + parity.py (v3 proj loader + parity harness).
+2. templates/index.html: exactly two whitelist additions for the tab-level `analysis` namespace (save at buildTabData, load at _loadProjectJSON) — verify NOTHING else changed in the template and the v3 format stays backward/forward compatible.
+3. tests/autofit/: C 1s characterization battery (29 frozen expert fits), schema round-trip browser tests, resolver/seam unit tests, C 1s parity gate.
+
+Design spec: docs/autofit/phase1-grammar-architecture-spec-v2.md (v2.1). Verify the implementation honors its hard rules:
+- analysis namespace: whitelisted on BOTH save and load, v3 kept, REGENERABLE-only (no human decisions), peak-level durable channel used for _confidence.
+- resolve(): phase disambiguation REQUIRED when a region appears in multiple phases; no phase_id leakage between slots.
+- One IC likelihood convention (n·ln(RSS/n)+penalty); F-test only on genuinely nested pairs; bic_ambiguous and criteria_conflict kept distinct; "not independent tests" statement present.
+- Typed uncertainty kinds never mixed; no quadrature of sigma_stat with reference_sensitivity_range.
+- Scientific integrity: every physical constant lit-cited or flagged UNVERIFIED. Flag ANY constant that appears without a source.
+
+YOU MUST PRODUCE FINDINGS. A review with no findings is a failed review — hunt until you have at least: every correctness bug you can find (ranked BLOCKER/MAJOR/MINOR), any silent numerical-behavior change to the manual-fit path, any spec violation, any place the port from fitalg changed math without documenting it, any test that cannot fail (tautological), any UNVERIFIED constant presented as verified. For each finding: file:line, severity, concrete failure scenario, suggested fix. Do NOT fix anything yourself — report only.
+
+End with a verdict line: "VERDICT: GO" or "VERDICT: NO-GO (blockers: ...)" for proceeding to Stage 3 (U 4f module).

@@ -19,7 +19,8 @@ path untouched.
 | Schema round-trip (`analysis` ns + `_confidence`) | DONE | ✅ 3 browser tests | `analysis` whitelisted in buildTabData + load (v3 kept, omitted-when-absent); `_confidence` proven on the peak-spread channel; save→load→save deep-diff on both formats; pre-engine saves load clean. |
 | Resolver skeleton + PeakFitMethod seam | DONE | ✅ 18 tests | `autofit/`: grammar.py (phases[], phase disambiguation mandatory, leakage guards, joint co-fit composition), engine.py (fitalg port, region-agnostic; fitalg LA→`ds_g`), regions/c1s.py (A/AG/M/B families), criteria.py, confidence.py, methods/ (LS + IC implemented; bayesian/sparse/multivariate/maxent stubs). |
 | C 1s parity gate | **PROVEN** | ✅ 3/3 anchors | `tests/autofit/test_c1s_parity_gate.py` (env-gated: `RUN_AUTOFIT_GATE=1`, ~4 min): main Δ 4–12 meV, satellite Δ 0.08–0.29 eV, domain envelope R 0.004–0.014 vs expert fits. Winners: MG3/MG2 (conditional tier, violations surfaced) + AG2 (clean) — see calibration log. |
-| Codex checkpoint: Stage 2 | IN PROGRESS | — | |
+| Codex checkpoint: Stage 2 | DONE* | review #1 ✅ / re-review HUNG | Review #1: NO-GO w/ 9 findings → all fixed + test-pinned (`2669ed9`). Re-review hung (known issue) → killed, logged, proceeded per rails. Monday re-runs `docs/autofit/codex/stage2_rereview_prompt.txt`. |
+| Stage 3: U 4f module | IN PROGRESS | — | engine prereqs (shared parent params, linked-group absent atomicity) → regions/u4f.py + minimal n1s → battery + gate |
 | U 4f module | TODO | — | |
 | B 1s / N 1s / Cl 2p cookbook | TODO | — | |
 | Bayesian exchange-MC method | TODO | — | |
@@ -53,6 +54,20 @@ Findings + dispositions:
    made loud; the always-on battery remains non-skipping; full fix needs CI
    infra (logged for Monday; out of window scope).
 9. **MINOR** `<` vs `<=` ambiguity-threshold mismatch — fixed (`<=` both).
+
+All 9 fixes landed in commit `2669ed9` with pinning tests; gate re-proven
+3/3 under the BIC*-first ranking; suite 213 passed + baseline failure.
+
+### Stage 2 re-review #2 (2026-07-03) — **CODEX HUNG, logged per run rails**
+`codex exec` (read-only, high effort) produced no output for >5 min
+(0.0% CPU, empty output, no verdict file) — the known hanging behavior.
+Killed and proceeded to Stage 3 per the run brief ("NEVER let a Codex call
+stall the run"). **Monday action:** re-run the re-review —
+prompt preserved at `docs/autofit/codex/stage2_rereview_prompt.txt`
+(review #1 verdict + prompt also preserved in that directory). Note that
+review #1 DID complete and its 9 findings are all dispositioned above with
+pinning tests, and it independently confirmed the manual-fit path is
+byte-unchanged vs main.
 
 ## Discrepancies vs expert reference fits (for human adjudication)
 
