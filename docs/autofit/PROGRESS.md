@@ -15,10 +15,10 @@ path untouched.
 |---|---|---|---|
 | Recon + data inventory | DONE | n/a | see below |
 | Baseline test suite | DONE | ✅ | **123 passed, 1 pre-existing failure**: `test_machine_tier.py::test_deterministic_reproducible_from_stage9` (`.stage9` regeneration check, SystemExit in `scripts/gen_machine_tier.py:193`; unrelated to fitting; present before any autofit work). "Green" = no NEW failures beyond this. |
-| C 1s characterization battery + parity net | TODO | — | |
-| Schema round-trip (`analysis` ns + `_confidence`) | TODO | — | |
-| Resolver skeleton + PeakFitMethod seam | TODO | — | |
-| C 1s parity gate | TODO | — | |
+| C 1s characterization battery + parity net | DONE | ✅ 59 tests | `tests/autofit/test_c1s_parity_battery.py`: 29 expert C 1s fits frozen (eval parity ≤1.2e-7; refit drift ≤2e-4 eV; fixture rtol 1e-6). 15 tabs excluded w/ reasons (legacy no-`be`; 1 internally inconsistent). Regenerate fixture ONLY via `scripts/gen_c1s_battery_fixture.py` after reviewed numerics changes. |
+| Schema round-trip (`analysis` ns + `_confidence`) | DONE | ✅ 3 browser tests | `analysis` whitelisted in buildTabData + load (v3 kept, omitted-when-absent); `_confidence` proven on the peak-spread channel; save→load→save deep-diff on both formats; pre-engine saves load clean. |
+| Resolver skeleton + PeakFitMethod seam | DONE | ✅ 18 tests | `autofit/`: grammar.py (phases[], phase disambiguation mandatory, leakage guards, joint co-fit composition), engine.py (fitalg port, region-agnostic; fitalg LA→`ds_g`), regions/c1s.py (A/AG/M/B families), criteria.py, confidence.py, methods/ (LS + IC implemented; bayesian/sparse/multivariate/maxent stubs). |
+| C 1s parity gate | IN PROGRESS | — | calibrating on real anchors (UCl4_on_graphite, 8-JT, 1-GTA) |
 | Codex checkpoint: Stage 2 | TODO | — | |
 | U 4f module | TODO | — | |
 | B 1s / N 1s / Cl 2p cookbook | TODO | — | |
@@ -31,7 +31,22 @@ path untouched.
 
 ## Discrepancies vs expert reference fits (for human adjudication)
 
-*(none logged yet — see Data notes below for known-rough fits)*
+1. **Stray `Zr 3d` RSF tag** (the known error from the run brief, now located):
+   `B4C-UCl4.proj.zip`, ALL 10 B 1s tabs — peaks `B-B` and `B-C` carry
+   `_rsfKey: 'Zr 3d'` (the `B₂O₃`-type third peak is tagged correctly). Affects
+   any atomic-% computed from those fits. Source data NOT altered; quantification
+   lint (spec §8, later gate) should flag exactly this pattern.
+2. **Systematic `K 2p` RSF tag on every C 1s π→π* satellite** — all 44 C 1s tabs
+   across 5 projects (1-GTA, 8-JT, Cl2p_projfit, Project9, UCl4_on_graphite).
+   π→π* (~291 eV corrected) sits near the K 2p window, so this looks like a
+   dropdown mis-pick propagated by batch fitting. Same lint pattern as #1.
+   NOT flagged in the run brief — needs Skye's confirmation it's unintended.
+3. `4-GTA UCl4-BN` B 1s fits: single asym-GL peak with χ²ᵣ 17–105,358 (two tabs
+   catastrophically bad) — treated as suspect reference per the run brief; NOT
+   used as parity anchors.
+4. One internally inconsistent C 1s tab (`UCl4_on_graphite / C1s Scan_4`):
+   saved `fittedY` has 143 pts vs `be` 142 (stale fittedY from an earlier ROI).
+   Excluded from the battery with recorded reason.
 
 ## UNVERIFIED / suspect items
 
@@ -116,6 +131,24 @@ ccMethod,ccObs,ccLit,bgSubtractedView}`.
   'smart' on U 4f anchors) — reproduce with `fitting.py` equivalents.
 - New engine lives in a new `autofit/` package; tests in `tests/autofit/`;
   nothing imports it from the existing request path (strictly additive).
+
+## U 4f design extraction (for Stage 3; from expert fits 2026-07-03)
+
+Canonical structure across all 3 U 4f projects (UCl4-graphite, UCl4-BN, B4C-UCl4):
+- **Main doublet**: LACX 4f7/2 (free) + 4f5/2 linked at **Δso = +10.90 eV exactly**,
+  ratio 0.65 (graphite, B4C) / 0.75 (BN). Spec default 0.75 theoretical with bounded
+  relaxation — expert data spans [0.65, 0.75].
+- **LACX params** (main): caAlpha 0.96–1.24, caBeta 2.23–2.85, caM 0–8.2 (points),
+  fwhm 2.44–2.74 eV. All free ("FitAllFree").
+- **Satellite pair**: Voigt sat at main+6.1–6.4 eV; second satellite at main+17.2–17.4
+  = sat + 10.9 → **satellites form their own Δso doublet** (4-GTA explicitly links
+  sat5/2 = sat7/2 + 10.9, ratio 0.75, shared fwhm). One shake-up pair explains both
+  observed satellites.
+- **Co-fit exemplar** (4-GTA UCl4-BN): N 1s asym-GL at 398.30 (amp 105,851 —
+  ~67× the U satellite at 397.78) inside the U 4f window: THE joint-fit case.
+- U4f battery eligibility: UCl4_on_graphite 6/10, 4-GTA 3/10, B4C-UCl4 10/10.
+- NOTE the 'N 1s' `_rsfKey` on Sat2 in UCl4_on_graphite/B4C (quantification-lint
+  candidates; sat2 sits ~397–398 eV so the tag may be deliberate on some).
 
 ## Next actions
 1. Commit unit 0 (docs + data + inventory + this file), push with `-u`.

@@ -236,10 +236,10 @@ class ReferenceFit:
 # are lit-cited there).
 _REGION_WINDOWS = [
     ("C 1s", 270.0, 315.0),      # matches isC1sTab (index.html:6548)
-    ("Cl 2p", 190.0, 210.0),
-    ("B 1s", 178.0, 190.0),
-    ("N 1s", 390.0, 410.0),      # overlaps U 4f — U 4f checked first below
-    ("U 4f", 370.0, 415.0),
+    ("B 1s", 178.0, 194.0),      # B 1s scans in the data set center ~186–191
+    ("Cl 2p", 194.0, 210.0),
+    ("N 1s", 390.0, 410.0),      # narrow N 1s scans center ~398; U 4f scans
+    ("U 4f", 370.0, 415.0),      # span ~35 eV so their midpoint lands ~387
 ]
 
 
