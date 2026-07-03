@@ -582,6 +582,12 @@ class ModelStability:
     per_slot: dict[str, SlotStability]
     orphan_rate: float
     convergence_rate: float
+    # Best converged refit found during the multi-start pass (by weighted χ²).
+    # Port improvement over fitalg, which always reported the primary fit even
+    # when a perturbed refit found a deeper minimum: the driver promotes this
+    # outcome when it beats the primary, so the report describes the best
+    # minimum FOUND and the stability numbers describe its robustness.
+    best_outcome: Optional[FitOutcome] = None
 
     @property
     def min_persistence(self) -> float:
@@ -613,6 +619,7 @@ def run_stability_analysis(
     bg = primary_fit.background
     y_net = y - bg if bg is not None else None
 
+    best_outcome: Optional[FitOutcome] = None
     for _ in range(n_refits):
         seed = int(rng.integers(0, 2**31 - 1))
         outcome = fit_candidate(
@@ -622,6 +629,8 @@ def run_stability_analysis(
         if not outcome.converged:
             continue
         n_converged += 1
+        if best_outcome is None or outcome.weighted_chi_sq < best_outcome.weighted_chi_sq:
+            best_outcome = outcome
         slot_map = match_components_to_slots(outcome.components, model, noise_floor)
         if slot_map.pop("__orphans__", []):
             n_with_orphans += 1
@@ -656,6 +665,7 @@ def run_stability_analysis(
         per_slot=per_slot,
         orphan_rate=n_with_orphans / max(n_refits, 1),
         convergence_rate=n_converged / max(n_refits, 1),
+        best_outcome=best_outcome,
     )
 
 
@@ -871,29 +881,55 @@ class ComparisonResult:
     non_converged: list[tuple[CandidateModel, FitOutcome]] = field(default_factory=list)
     cross_candidate_coincidences: list[CoincidenceReport] = field(default_factory=list)
     proposal_pass_timings: list[ProposalPassTiming] = field(default_factory=list)
+    # True when `survivors` is the CONDITIONAL tier: no candidate passed the
+    # plausibility filter cleanly, so the stable-but-boundary-limited
+    # candidates are ranked instead, each with its violations preserved in
+    # `filtered_out` and surfaced downstream.  Never silent (spec stance:
+    # best-evidenced proposal + honest uncertainty, not a dead end).
+    conditional: bool = False
 
 
 def rank_and_filter(
     reports: list[ModelReport],
     persistence_threshold: float = DEFAULT_PERSISTENCE_THRESHOLD,
     bic_ambiguity_threshold: float = DEFAULT_BIC_AMBIGUITY,
+    allow_conditional: bool = True,
 ) -> ComparisonResult:
-    """Filter (plausibility, active persistence) then rank (χ²ᵣ, BIC*)."""
+    """
+    Filter (plausibility, active persistence) then rank (χ²ᵣ, BIC*).
+
+    Two-tier semantics (departure from fitalg, which returned zero survivors
+    whenever every candidate had any boundary hit — routine on real composite
+    samples): when NO candidate passes plausibility cleanly but some are
+    otherwise stable, those are ranked as a CONDITIONAL tier with
+    ``result.conditional = True`` and every violation preserved.  Stability
+    failures are never promoted — an unstable fit is pathology, not a
+    constraint conflict.
+    """
     filtered_out: list[tuple[ModelReport, str]] = []
     survivors: list[ModelReport] = []
+    conditional_pool: list[ModelReport] = []
 
     for r in reports:
+        active_min = r.active_min_persistence
+        stable = active_min >= persistence_threshold
         if r.plausibility.boundary_hits or r.plausibility.unphysical_widths:
             filtered_out.append((r, f"plausibility: {r.plausibility}"))
+            if stable:
+                conditional_pool.append(r)
             continue
-        active_min = r.active_min_persistence
-        if active_min < persistence_threshold:
+        if not stable:
             absent_roles = [a.role for a in r.absent_slots]
             extra = f"  (absent slots excluded: {absent_roles})" if absent_roles else ""
             filtered_out.append((r, f"stability: active min persistence "
                                     f"{active_min:.2f} < {persistence_threshold}{extra}"))
             continue
         survivors.append(r)
+
+    conditional = False
+    if not survivors and allow_conditional and conditional_pool:
+        survivors = conditional_pool
+        conditional = True
 
     survivors.sort(key=lambda r: (r.reduced_chi_sq, r.bic_adjusted))
 
@@ -913,6 +949,7 @@ def rank_and_filter(
     return ComparisonResult(
         reports=reports, survivors=survivors,
         filtered_out=filtered_out, ambiguous_pairs=ambiguous,
+        conditional=conditional,
     )
 
 
@@ -1173,6 +1210,14 @@ def _attempt_proposal(
         x, y, weights, aug_model, primary,
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
     )
+    if (stability.best_outcome is not None
+            and stability.best_outcome.weighted_chi_sq < primary.weighted_chi_sq):
+        primary = stability.best_outcome
+        comp = next((c for c in primary.components if c.slot_role == spec.role), comp)
+        if comp is not None:
+            pr.fitted_center = comp.position
+            pr.fitted_fwhm = comp.fwhm
+            pr.fitted_amplitude = comp.amplitude
     sstab = stability.per_slot.get(spec.role)
     if sstab is None:
         pr.rejection_reason = "proposed slot missing from stability output"
@@ -1300,6 +1345,12 @@ def compare_models(
             x, y, weights, model, primary,
             noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
         )
+        # Promote a deeper minimum found by the multi-start pass (see
+        # ModelStability.best_outcome).
+        if (stability.best_outcome is not None
+                and stability.best_outcome.weighted_chi_sq
+                < primary.weighted_chi_sq):
+            primary = stability.best_outcome
         y_fit = (primary.lmfit_result.best_fit +
                  (primary.background if primary.background is not None else 0.0)
                  if primary.lmfit_result is not None else np.zeros_like(y))

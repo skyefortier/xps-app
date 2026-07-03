@@ -84,15 +84,26 @@ class ICModelComparisonMethod(PeakFitMethod):
             slot.role: build_confidence_vector(top, slot.role, noise_floor)
             for slot in top.model.slots
         }
+        message = ""
+        if result.conditional:
+            message = (
+                "CONDITIONAL result: no candidate passed plausibility cleanly; "
+                "ranking the stable-but-boundary-limited tier — winner "
+                f"{top.model.name} has constraint violations "
+                f"{top.plausibility.boundary_hits} (see analysis.candidates)"
+            )
         return MethodResult(
             method_id=self.id, success=True, peaks=peaks, analysis=analysis,
             confidence=confidence,
             diagnostics={
                 "winner": top.model.name,
+                "conditional": bool(result.conditional),
+                "winner_boundary_hits": list(top.plausibility.boundary_hits),
                 "n_survivors": len(result.survivors),
                 "n_filtered": len(result.filtered_out),
                 "n_non_converged": len(result.non_converged),
             },
+            message=message,
         )
 
 
@@ -172,6 +183,7 @@ def build_analysis_record(
         "regions": list(grammar.regions),
         "phase_ids": list(grammar.phase_ids),
         "resolution_notes": grammar.notes,
+        "conditional_tier": bool(result.conditional),
         "candidates": candidates,
         "non_converged": [m.name for m, _ in result.non_converged],
         "ambiguous_pairs": [list(t) for t in result.ambiguous_pairs],

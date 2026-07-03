@@ -54,11 +54,23 @@ FWHM_RANGE_GRAPHITIC = (0.4, 1.2)
 # 0.9–1.5 eV; (0.8, 1.8) is the generous cross-instrument envelope.
 FWHM_RANGE_AROMATIC_POLYMER = (0.8, 1.8)
 # π→π* satellite — intrinsically broad (multi-electron excitation).
-FWHM_RANGE_SATELLITE = (1.0, 3.0)
+# fitalg's (1.0, 3.0) was an UNVERIFIED tunable; CALIBRATED 2026-07-03 on the
+# labeled expert set: 44 expert C 1s fits across 5 projects / 2 analysts fit
+# the satellite at 1.9–5.0 eV (median 4.17).  With the 3.0 cap every gate
+# candidate pegged satellite_pi:fwhm@max and was filtered — zero survivors.
+FWHM_RANGE_SATELLITE = (1.0, 5.5)
 # adventitious carbon (incl. aliphatic main): 0.8 eV floor per Biesinger,
 # Appl. Surf. Sci. 597 (2022) 153681 and Greczynski & Hultman (2020);
 # 1.6 eV ceiling per Biesinger's tighter-convention recommendation.
 FWHM_RANGE_CONTAMINATION = (0.8, 1.6)
+# Lab-practice adventitious width range — used ONLY by the AG (expert-practice)
+# family.  The labeled set fits adventitious components at median 2.08 eV with
+# 70% above the Biesinger 1.6 eV ceiling (max 5.46, but >3.5 occurs mainly in
+# the known-rough fits).  UNVERIFIED-empirical: labeled-set calibration, not
+# literature.  A/M/B families keep the Biesinger convention so model
+# comparison arbitrates between the two width philosophies; the conflict is
+# logged in PROGRESS.md discrepancy #5 pending Skye's ruling.
+FWHM_RANGE_CONTAMINATION_LAB = (0.8, 3.5)
 
 # DS+G Lorentzian HWHM fixed at the C 1s core-hole lifetime:
 # Campbell & Papp, At. Data Nucl. Data Tables 77 (2001) 1–56
@@ -158,7 +170,8 @@ class C1sModule:
             linked_to="main_graphitic", linked_offset_range=SATELLITE_OFFSET_RANGE,
         )
 
-        def contam(key, linked_fwhm=None, offset=None) -> ComponentSlot:
+        def contam(key, linked_fwhm=None, offset=None,
+                   fwhm_range=FWHM_RANGE_CONTAMINATION) -> ComponentSlot:
             kw = {}
             if linked_fwhm:
                 kw["fwhm_linked_to"] = linked_fwhm
@@ -167,10 +180,14 @@ class C1sModule:
                 kw["linked_to"] = "main_graphitic"
                 kw["linked_offset_range"] = (mid - hw, mid + hw)
             return slot(f"contamination_{key}", C1S_WINDOWS[key],
-                        LineShape.PSEUDO_VOIGT, FWHM_RANGE_CONTAMINATION, **kw)
+                        LineShape.PSEUDO_VOIGT, fwhm_range, **kw)
 
         shared_decl = ((_SHARED_CONTAM_FWHM,
                         FWHM_RANGE_CONTAMINATION[0], FWHM_RANGE_CONTAMINATION[1]),)
+        # AG (lab-practice) family: same shared-width convention, wider bounds.
+        shared_decl_lab = ((_SHARED_CONTAM_FWHM,
+                            FWHM_RANGE_CONTAMINATION_LAB[0],
+                            FWHM_RANGE_CONTAMINATION_LAB[1]),)
         keys = ["CO", "C=O", "OC=O"]
 
         candidates: list[CandidateModel] = []
@@ -202,14 +219,20 @@ class C1sModule:
         for n in (1, 2, 3):
             add(f"A{n}_linked_offset", base_a + offset_linked[:n], shared_decl)
 
-        # --- AG family: asym-GL graphitic main (expert-fit parity family) ---
+        # --- AG family: asym-GL graphitic main (expert-fit parity family),
+        #     lab-practice contamination widths (see FWHM_RANGE_CONTAMINATION_LAB) ---
+        plain_lab = [contam(k, fwhm_range=FWHM_RANGE_CONTAMINATION_LAB)
+                     for k in keys]
+        linked_lab = [contam(k, linked_fwhm=_SHARED_CONTAM_FWHM,
+                             fwhm_range=FWHM_RANGE_CONTAMINATION_LAB)
+                      for k in keys]
         base_ag = [graphitic_main_asymgl(), shake_up]
         add("AG0_graphite_asymGL_satellite", base_ag)
         for n in (1, 2, 3):
             add(f"AG{n}_graphite_asymGL_sat_plus_{'_'.join(keys[:n])}",
-                base_ag + plain[:n])
+                base_ag + plain_lab[:n])
         for n in (1, 2, 3):
-            add(f"AG{n}_linked", base_ag + linked[:n], shared_decl)
+            add(f"AG{n}_linked", base_ag + linked_lab[:n], shared_decl_lab)
 
         # --- M family: mixed graphitic (DS+G) + aliphatic (PV) two mains ---
         base_m = [graphitic_main_dsg(), aliphatic_main(), shake_up]
@@ -217,6 +240,29 @@ class C1sModule:
         for n in (1, 2, 3):
             add(f"M{n}_graph_asym_aliph_sym_sat_{'_'.join(keys[:n])}",
                 base_m + plain[:n])
+
+        # --- MG family: the expert-practice STRUCTURE — asym-GL graphitic +
+        #     aliphatic + satellite + contaminants, lab-practice widths.  The
+        #     reference C 1s fits are exactly MG2-shaped (graphitic asym-GL
+        #     284.5 + adventitious 284.8/285.9/287.6 + π→π* ~290.9).
+        #     The aliphatic center is OFFSET-LINKED to the graphitic main
+        #     (+0.2…+0.6 eV): with a free center the optimizer slides the
+        #     aliphatic into the graphitic flank and pegs the window floor
+        #     (overlap degeneracy, fitalg LIMITATIONS §9).  The offset window
+        #     brackets both the expert practice (+0.30: 284.8 vs 284.5) and
+        #     Biesinger's adventitious C-C/C-H at 284.8 vs graphite 284.4
+        #     (+0.4).  UNVERIFIED-empirical (labeled-set + convention). ---
+        def aliphatic_main_lab() -> ComponentSlot:
+            return slot("main_aliphatic", C1S_WINDOWS["aliphatic"],
+                        LineShape.PSEUDO_VOIGT, FWHM_RANGE_CONTAMINATION_LAB,
+                        linked_to="main_graphitic",
+                        linked_offset_range=(0.2, 0.6))
+
+        base_mg = [graphitic_main_asymgl(), aliphatic_main_lab(), shake_up]
+        add("MG0_graphAsymGL_aliph_satellite", base_mg)
+        for n in (1, 2, 3):
+            add(f"MG{n}_graphAsymGL_aliph_sat_{'_'.join(keys[:n])}",
+                base_mg + plain_lab[:n])
 
         # --- B family: symmetric adventitious-carbon models (no satellite —
         #     admissibility: shake-up requires an asymmetric sp² main) ---
