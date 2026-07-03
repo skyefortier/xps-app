@@ -1,30 +1,24 @@
 """
 PeakFitMethod registry (spec §5A) — the solver-selector seam.
 
-Stage 2 ships methods 1–2 implemented; the rest are registered stubs so the
-menu shape is stable (ranked per the decision matrix):
+Methods 1–3 implemented; the rest are registered stubs so the menu shape is
+stable (ranked per the decision matrix):
 
   1. least_squares           — implemented (wraps existing run_fit)
   2. ic_model_comparison     — implemented (fitalg engine port)
-  3. bayesian_exchange_mc    — stub; the window flagship (new math)
+  3. bayesian_exchange_mc    — implemented (the window flagship: replica
+                               exchange + stepping-stone Bayes free energy)
   4. sparse_map              — stub
-  5. multivariate_mcr        — stub (multi-spectrum decomposition)
+  5. multivariate_mcr       — stub (multi-spectrum decomposition)
   6. max_entropy             — stub (resolution enhancement)
 """
 
 from __future__ import annotations
 
 from .base import MethodResult, NotImplementedMethod, PeakFitMethod
+from .bayesian_exchange_mc import BayesianExchangeMCMethod
 from .ic_model_comparison import ICModelComparisonMethod
 from .least_squares import LeastSquaresMethod
-
-
-class BayesianExchangeMCMethod(NotImplementedMethod):
-    id = "bayesian_exchange_mc"
-    label = "Bayesian (exchange Monte Carlo)"
-    reason = ("planned window flagship: replica-exchange MC + Bayes free "
-              "energy (Nagata/Sugita/Okada 2012, 10.1016/j.neunet.2011.12.001; "
-              "Tokuda/Nagata/Okada 2017, 10.7566/JPSJ.86.024001)")
 
 
 class SparseMAPMethod(NotImplementedMethod):
