@@ -155,16 +155,25 @@ def _width_param(shape: LineShape) -> str:
 
 
 def _add_shape_params(
-    p: Parameters, prefix: str, slot: ComponentSlot, fwhm_init: float
+    p: Parameters, prefix: str, slot: ComponentSlot, fwhm_init: float,
+    parent_prefix: Optional[str] = None,
 ) -> None:
     """Width + shape-specific parameters for one slot, with bounds/overrides."""
     flo, fhi = slot.fwhm_range
     fixed = dict(slot.fixed_params)
     ranges = dict(slot.param_ranges)
+    shared = set(slot.share_parent_params)
+    if shared and parent_prefix is None:
+        raise ValueError(
+            f"slot {slot.role!r} declares share_parent_params but has no "
+            "linked parent"
+        )
 
     # Width parameter (fwhm, or m_gauss for DS+G)
     wname = _width_param(slot.line_shape)
-    if wname in fixed:
+    if wname in shared:
+        p.add(f"{prefix}{wname}", value=0.0, expr=f"{parent_prefix}{wname}")
+    elif wname in fixed:
         p.add(f"{prefix}{wname}", value=float(fixed[wname]), vary=False)
     elif slot.fwhm_linked_to is not None:
         p.add(f"{prefix}{wname}", value=float(np.clip(fwhm_init, flo, fhi)),
@@ -175,6 +184,9 @@ def _add_shape_params(
               min=wlo, max=whi)
 
     for name, init, lo, hi in _SHAPE_PARAM_DEFAULTS[slot.line_shape]:
+        if name in shared:
+            p.add(f"{prefix}{name}", value=0.0, expr=f"{parent_prefix}{name}")
+            continue
         if name in fixed:
             p.add(f"{prefix}{name}", value=float(fixed[name]), vary=False)
             continue
@@ -218,10 +230,25 @@ def _default_params_from_slots(
 
     # Pass 2: linked slots (satellites, chemically-shifted contaminants,
     # spin-orbit partners) — center via offset expression; amplitude either
-    # free (satellite) or ratio-linked (doublet).
-    for slot in model.slots:
-        if slot.linked_to is None:
-            continue
+    # free (satellite) or ratio-linked (doublet).  Processed in dependency
+    # order so a chain (main ← sat7/2 ← sat5/2) resolves: lmfit exprs may
+    # not reference parameters that do not exist yet.
+    done_roles = {s.role for s in model.slots if s.linked_to is None}
+    pending = [s for s in model.slots if s.linked_to is not None]
+    ordered: list[ComponentSlot] = []
+    while pending:
+        ready = [s for s in pending if s.linked_to in done_roles]
+        if not ready:
+            raise ValueError(
+                f"unresolvable linkage chain among {[s.role for s in pending]} "
+                "(missing parent or cycle)"
+            )
+        for s in ready:
+            ordered.append(s)
+            done_roles.add(s.role)
+            pending.remove(s)
+
+    for slot in ordered:
         prefix = _slot_prefix(slot.role)
         parent = model.slot_by_role(slot.linked_to)
         if parent is None:
@@ -254,7 +281,7 @@ def _default_params_from_slots(
             amp_init, amp_max = _amp_bounds(slot.be_window)
             p.add(f"{prefix}amplitude", value=amp_init, min=0.0, max=amp_max)
 
-        _add_shape_params(p, prefix, slot, fmid)
+        _add_shape_params(p, prefix, slot, fmid, parent_prefix=parent_prefix)
 
     return p
 
@@ -697,6 +724,29 @@ def _is_main_role(role: str) -> bool:
     return role.split("__")[-1].startswith("main")
 
 
+def _linked_groups(model: CandidateModel) -> list[list[ComponentSlot]]:
+    """
+    Connected components of non-main slots over ``linked_to`` edges (edges
+    touching a main slot do not bind — mains are never absent-eligible, so a
+    satellite linked to a main is its own group; a satellite DOUBLET
+    (sat5/2 → sat7/2) is one group).
+    """
+    non_main = [s for s in model.slots if not _is_main_role(s.role)]
+    roles = {s.role for s in non_main}
+    parent_of = {s.role: s.linked_to for s in non_main
+                 if s.linked_to is not None and s.linked_to in roles}
+
+    def root(role: str) -> str:
+        while role in parent_of:
+            role = parent_of[role]
+        return role
+
+    groups: dict[str, list[ComponentSlot]] = {}
+    for s in non_main:
+        groups.setdefault(root(s.role), []).append(s)
+    return list(groups.values())
+
+
 def _identify_absent_slots(
     model: CandidateModel,
     stability: ModelStability,
@@ -705,27 +755,37 @@ def _identify_absent_slots(
     persistence_threshold: float = ABSENT_SLOT_PERSISTENCE_THRESHOLD,
     area_fraction_threshold: float = ABSENT_SLOT_AREA_FRACTION,
 ) -> list[AbsentSlotReport]:
+    """
+    Absent classification is ATOMIC per linked group: a slot whose amplitude
+    or shape is expression-tied to a partner cannot be absent while the
+    partner is present (a spin-orbit satellite pair is one physical feature).
+    Every member must individually meet the persistence + area criteria for
+    the group to be classified absent.
+    """
     main_area = sum(a for role, a in slot_areas.items() if _is_main_role(role))
     if main_area <= 0:
         return []
-    absent: list[AbsentSlotReport] = []
-    for slot in model.slots:
-        role = slot.role
-        if _is_main_role(role):
-            continue
-        sstab = stability.per_slot.get(role)
+
+    def _member_report(slot: ComponentSlot) -> Optional[AbsentSlotReport]:
+        sstab = stability.per_slot.get(slot.role)
         if sstab is None or sstab.persistence >= persistence_threshold:
-            continue
-        area = float(slot_areas.get(role, 0.0))
+            return None
+        area = float(slot_areas.get(slot.role, 0.0))
         frac = area / main_area
         if frac >= area_fraction_threshold:
-            continue
-        absent.append(AbsentSlotReport(
-            role=role, persistence=sstab.persistence, fitted_area=area,
+            return None
+        return AbsentSlotReport(
+            role=slot.role, persistence=sstab.persistence, fitted_area=area,
             main_area=main_area, area_fraction=frac,
             threshold=area_fraction_threshold,
             removed_n_params=_count_slot_free_params(slot, primary),
-        ))
+        )
+
+    absent: list[AbsentSlotReport] = []
+    for group in _linked_groups(model):
+        reports = [_member_report(s) for s in group]
+        if all(r is not None for r in reports):
+            absent.extend(reports)  # type: ignore[arg-type]
     return absent
 
 

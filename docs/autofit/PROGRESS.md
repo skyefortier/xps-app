@@ -20,7 +20,8 @@ path untouched.
 | Resolver skeleton + PeakFitMethod seam | DONE | ✅ 18 tests | `autofit/`: grammar.py (phases[], phase disambiguation mandatory, leakage guards, joint co-fit composition), engine.py (fitalg port, region-agnostic; fitalg LA→`ds_g`), regions/c1s.py (A/AG/M/B families), criteria.py, confidence.py, methods/ (LS + IC implemented; bayesian/sparse/multivariate/maxent stubs). |
 | C 1s parity gate | **PROVEN** | ✅ 3/3 anchors | `tests/autofit/test_c1s_parity_gate.py` (env-gated: `RUN_AUTOFIT_GATE=1`, ~4 min): main Δ 4–12 meV, satellite Δ 0.08–0.29 eV, domain envelope R 0.004–0.014 vs expert fits. Winners: MG3/MG2 (conditional tier, violations surfaced) + AG2 (clean) — see calibration log. |
 | Codex checkpoint: Stage 2 | DONE* | review #1 ✅ / re-review HUNG | Review #1: NO-GO w/ 9 findings → all fixed + test-pinned (`2669ed9`). Re-review hung (known issue) → killed, logged, proceeded per rails. Monday re-runs `docs/autofit/codex/stage2_rereview_prompt.txt`. |
-| Stage 3: U 4f module | IN PROGRESS | — | engine prereqs (shared parent params, linked-group absent atomicity) → regions/u4f.py + minimal n1s → battery + gate |
+| Stage 3: U 4f module | **DONE** | ✅ 62 tests | `regions/u4f.py` (LACX main doublet w/ shared α/β/m + bounded-asymmetry safeguard; explicit satellite doublet + free variant; NIST/Ilton-Bagus-cited constants) + minimal `regions/n1s.py` (co-fit partner). Engine prereqs: `share_parent_params`, linked-chain topological param ordering, linked-group absent-slot atomicity. U 4f manual-path battery (29 expert fits frozen) + engine parity gate incl. **U 4f + N 1s co-fit** (in normal suite, ~20 s). |
+| Codex checkpoint: Stage 3 (U 4f) | TODO | — | attempt once; hang → log + proceed per rails |
 | U 4f module | TODO | — | |
 | B 1s / N 1s / Cl 2p cookbook | TODO | — | |
 | Bayesian exchange-MC method | TODO | — | |
@@ -228,6 +229,34 @@ main Δ 12–100 meV; satellite Δ 0.2–0.3 eV; envelope R-factor (≥284 eV do
   (sat5/2 linked to sat7/2) breaks that invariant — the module must either
   make the pair's absent classification atomic or make the engine treat
   linked groups as one absent/present unit.
+
+## Stage-3 U 4f results (2026-07-03)
+
+- **Single-region parity (good anchors)**: engine winner = mains + free
+  satellite pair; main Δ 2–14 meV, satellite Δ 0.01–0.02 eV, splitting
+  10.85, ratio 0.640–0.656 — and the engine's χ²ᵣ BEATS the expert fits
+  (1.40 vs 1.71 on B4C-UCl4; 1.42 vs 2.00 on UCl4-graphite).
+- **Physics finding — satellite pair separation ≈ 11.2 eV ≠ Δso 10.90**:
+  the tied-pair candidate (U1, satellite doublet locked to the core
+  splitting) pegs its offset bound and loses to the free variant (U2) on
+  both good anchors; expert satellite fits agree (11.21 eV in B4C-UCl4).
+  Shake-up separations need not track the core splitting — worth Skye's
+  eyes; U2's independent offsets are the physically safer default.
+- **Co-fit (4-GTA UCl4-BN, U 4f + N 1s joint)**: winner
+  `U2_mains_satfree+N0_asymGL`, χ²ᵣ 7.1 vs expert 11.4 (rough reference).
+  N 1s at 398.28 (phase BN, no leakage). DISCREPANCY vs expert (logged, not
+  forced): the engine gives the U 4f5/2 satellite more weight in the
+  N-overlap zone (amp ~8.5k at 398.1 vs expert 1.2k at 397.8) and narrower
+  U mains (fwhm 1.7 vs 2.5) — multiple near-equal minima in the overlap;
+  winner params vary at the few-hundred-meV level with run-order FP wobble.
+  Exactly the identifiability situation the confidence machinery is for;
+  needs human adjudication of the rough reference.
+- **Numerical stability findings** (documented in battery_common.py):
+  LACX fits reproduce exactly in-process but wobble ~1e-5–1e-4 relative
+  across processes (worst: a flat α/β/m valley tab at 1.4e-4); U 4f
+  batteries use fixture rtol 1e-3. Eval-parity vs saved fittedY is bounded
+  ~1e-2 by bg-anchor drift (ui bg fields moved by post-fit cc nudges;
+  'smart' background amplifies ±1-point anchor shifts to O(100 counts)).
 
 ## U 4f design extraction (for Stage 3; from expert fits 2026-07-03)
 

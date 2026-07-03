@@ -1,0 +1,1225 @@
+{
+ "records": [
+  {
+   "name": "U4f Scan",
+   "peaks": [
+    {
+     "amplitude": 20549.239066563052,
+     "area": -55706.064928636086,
+     "center": 379.5411983880395,
+     "fwhm": 2.439706490741759,
+     "id": "2"
+    },
+    {
+     "amplitude": 13357.005393265985,
+     "area": -35790.67130565624,
+     "center": 390.4411983880395,
+     "fwhm": 2.439706490741759,
+     "id": "3"
+    },
+    {
+     "amplitude": 1989.4857545655448,
+     "area": -5058.74612807137,
+     "center": 396.9712251693392,
+     "fwhm": 2.388745267364792,
+     "id": "4"
+    },
+    {
+     "amplitude": 2628.5012391928685,
+     "area": -6802.696993588804,
+     "center": 385.9247159321286,
+     "fwhm": 2.0891771271477393,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.04485615744017836,
+   "reduced_chi_square": 2.130853079960093,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_0",
+   "peaks": [
+    {
+     "amplitude": 13750.73674660914,
+     "area": -44164.438359031716,
+     "center": 379.5736061050387,
+     "fwhm": 2.749490801416237,
+     "id": "2"
+    },
+    {
+     "amplitude": 8937.978885295941,
+     "area": -28126.031629074198,
+     "center": 390.4736061050387,
+     "fwhm": 2.749490801416237,
+     "id": "3"
+    },
+    {
+     "amplitude": 1169.8956229407977,
+     "area": -3112.9813222097064,
+     "center": 397.0393523721098,
+     "fwhm": 2.499753520428009,
+     "id": "4"
+    },
+    {
+     "amplitude": 1729.3948026931675,
+     "area": -5448.711481995413,
+     "center": 385.9753028365857,
+     "fwhm": 2.1162471748851557,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.04756827394620048,
+   "reduced_chi_square": 1.8293468133235,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_1",
+   "peaks": [
+    {
+     "amplitude": 23824.879649102986,
+     "area": -60308.30904513434,
+     "center": 379.46766244738393,
+     "fwhm": 2.4439114296491473,
+     "id": "2"
+    },
+    {
+     "amplitude": 15486.171771916941,
+     "area": -38933.2158089967,
+     "center": 390.3676624473839,
+     "fwhm": 2.4439114296491473,
+     "id": "3"
+    },
+    {
+     "amplitude": 2315.730421330954,
+     "area": -6012.517492240399,
+     "center": 396.8514426338772,
+     "fwhm": 2.439136705517953,
+     "id": "4"
+    },
+    {
+     "amplitude": 3116.559265699416,
+     "area": -8344.936116599747,
+     "center": 385.79007329637756,
+     "fwhm": 2.1214124949172573,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.044516220250750166,
+   "reduced_chi_square": 2.4039126778690973,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_2",
+   "peaks": [
+    {
+     "amplitude": 18025.204860406302,
+     "area": -50026.122584686644,
+     "center": 379.6558770342614,
+     "fwhm": 2.94985723984442,
+     "id": "2"
+    },
+    {
+     "amplitude": 11716.383159264096,
+     "area": -32307.48471985963,
+     "center": 390.55587703426136,
+     "fwhm": 2.94985723984442,
+     "id": "3"
+    },
+    {
+     "amplitude": 1891.8681708147353,
+     "area": -6092.582521357382,
+     "center": 397.0606548980312,
+     "fwhm": 2.6687854572996588,
+     "id": "4"
+    },
+    {
+     "amplitude": 2414.6619907365302,
+     "area": -7906.139737280027,
+     "center": 386.0184333629478,
+     "fwhm": 2.3750354525060704,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.0425945023713504,
+   "reduced_chi_square": 1.931444475792666,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_3",
+   "peaks": [
+    {
+     "amplitude": 15575.557277110613,
+     "area": -43729.04560094459,
+     "center": 379.67641318808154,
+     "fwhm": 3.02986368892477,
+     "id": "2"
+    },
+    {
+     "amplitude": 10124.112230121898,
+     "area": -28244.14827489368,
+     "center": 390.5764131880815,
+     "fwhm": 3.02986368892477,
+     "id": "3"
+    },
+    {
+     "amplitude": 1609.5083781152928,
+     "area": -5187.954422279017,
+     "center": 397.0461982988862,
+     "fwhm": 2.6674017346512264,
+     "id": "4"
+    },
+    {
+     "amplitude": 2156.181042535401,
+     "area": -7214.046559838203,
+     "center": 386.01348213649874,
+     "fwhm": 2.344055925392162,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.03872152409594888,
+   "reduced_chi_square": 1.4161536305330844,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_4",
+   "peaks": [
+    {
+     "amplitude": 12817.234765606847,
+     "area": -41915.80097957502,
+     "center": 379.6035307604366,
+     "fwhm": 3.965913699870278,
+     "id": "2"
+    },
+    {
+     "amplitude": 8331.202597644451,
+     "area": -26976.563546645375,
+     "center": 390.5035307604366,
+     "fwhm": 3.965913699870278,
+     "id": "3"
+    },
+    {
+     "amplitude": 1193.5114013746593,
+     "area": -3415.298197848522,
+     "center": 397.2192131335851,
+     "fwhm": 2.688251188871489,
+     "id": "4"
+    },
+    {
+     "amplitude": 1615.9291270932838,
+     "area": -5635.16573594413,
+     "center": 386.03845163112,
+     "fwhm": 2.4025127604994703,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.042893378720262894,
+   "reduced_chi_square": 1.5042140886020154,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_5",
+   "peaks": [
+    {
+     "amplitude": 22924.842959673508,
+     "area": -55274.853272014654,
+     "center": 379.5583277503419,
+     "fwhm": 2.7174574529007844,
+     "id": "2"
+    },
+    {
+     "amplitude": 14901.147923787781,
+     "area": -35826.75138659495,
+     "center": 390.4583277503419,
+     "fwhm": 2.7174574529007844,
+     "id": "3"
+    },
+    {
+     "amplitude": 2268.5240525219942,
+     "area": -5383.907964525588,
+     "center": 396.87025175382416,
+     "fwhm": 2.229574705764428,
+     "id": "4"
+    },
+    {
+     "amplitude": 2973.1332469555623,
+     "area": -7631.24173414128,
+     "center": 385.8293312920456,
+     "fwhm": 2.0719148795644884,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.04210926613766962,
+   "reduced_chi_square": 1.9951620535991377,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_6",
+   "peaks": [
+    {
+     "amplitude": 19250.181661686784,
+     "area": -51315.86736575884,
+     "center": 379.61127160346604,
+     "fwhm": 3.0122283258529707,
+     "id": "2"
+    },
+    {
+     "amplitude": 12512.61808009641,
+     "area": -33194.454587679735,
+     "center": 390.511271603466,
+     "fwhm": 3.0122283258529707,
+     "id": "3"
+    },
+    {
+     "amplitude": 1880.575753941109,
+     "area": -5090.028165310913,
+     "center": 397.0146173610315,
+     "fwhm": 2.5427118253182277,
+     "id": "4"
+    },
+    {
+     "amplitude": 2570.7236234496504,
+     "area": -7548.770024442388,
+     "center": 385.9512078926199,
+     "fwhm": 2.1760990552805275,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.04318464774210734,
+   "reduced_chi_square": 1.8723890101943144,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_7",
+   "peaks": [
+    {
+     "amplitude": 17820.55674297989,
+     "area": -52688.288387533205,
+     "center": 379.7398000566166,
+     "fwhm": 3.324835559764635,
+     "id": "2"
+    },
+    {
+     "amplitude": 11583.36188293693,
+     "area": -33968.69435430557,
+     "center": 390.6398000566166,
+     "fwhm": 3.324835559764635,
+     "id": "3"
+    },
+    {
+     "amplitude": 1650.9817962059192,
+     "area": -4455.691387736742,
+     "center": 397.2380557132703,
+     "fwhm": 2.5353656845595642,
+     "id": "4"
+    },
+    {
+     "amplitude": 2282.3412651088065,
+     "area": -7342.862048142075,
+     "center": 386.1508930659067,
+     "fwhm": 2.3046666150873376,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.042641372861912996,
+   "reduced_chi_square": 1.7137670840706953,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_8",
+   "peaks": [
+    {
+     "amplitude": 24577.386168493,
+     "area": -56180.94340324728,
+     "center": 379.5275934506227,
+     "fwhm": 2.168529323748193,
+     "id": "2"
+    },
+    {
+     "amplitude": 15975.301009520452,
+     "area": -36381.744648427026,
+     "center": 390.4275934506227,
+     "fwhm": 2.168529323748193,
+     "id": "3"
+    },
+    {
+     "amplitude": 2370.417915409794,
+     "area": -5013.201191317026,
+     "center": 396.81159817805616,
+     "fwhm": 1.9868176214779727,
+     "id": "4"
+    },
+    {
+     "amplitude": 2965.0618164774064,
+     "area": -6742.949484699173,
+     "center": 385.800118602644,
+     "fwhm": 1.9742314795376352,
+     "id": "5"
+    }
+   ],
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "r_factor": 0.050269795554081884,
+   "reduced_chi_square": 2.964092180557157,
+   "success": true
+  },
+  {
+   "name": "U4f Scan",
+   "peaks": [
+    {
+     "amplitude": 7635.766080337974,
+     "area": -21878.05776656253,
+     "center": 380.604778490284,
+     "fwhm": 2.4788582828809957,
+     "id": "2"
+    },
+    {
+     "amplitude": 5726.824560253481,
+     "area": -16006.332799581052,
+     "center": 391.50477849028397,
+     "fwhm": 2.4788582828809957,
+     "id": "3"
+    },
+    {
+     "amplitude": 1582.68042844834,
+     "area": -6691.060197214448,
+     "center": 386.8757399286858,
+     "fwhm": 3.3,
+     "id": "10"
+    },
+    {
+     "amplitude": 1187.010321336255,
+     "area": -4887.733859924222,
+     "center": 397.77573992868577,
+     "fwhm": 3.3,
+     "id": "11"
+    },
+    {
+     "amplitude": 105851.37098953135,
+     "area": -137429.0339355371,
+     "center": 398.3038844319093,
+     "fwhm": 1.0501567164994936,
+     "id": "12"
+    }
+   ],
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "r_factor": 0.03871434979643854,
+   "reduced_chi_square": 11.399835330377146,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_5",
+   "peaks": [
+    {
+     "amplitude": 7438.971665168653,
+     "area": -20362.994930056404,
+     "center": 380.7881460141099,
+     "fwhm": 2.2972756365480214,
+     "id": "2"
+    },
+    {
+     "amplitude": 5579.22874887649,
+     "area": -14918.427925166918,
+     "center": 391.68814601410986,
+     "fwhm": 2.2972756365480214,
+     "id": "3"
+    },
+    {
+     "amplitude": 1337.469798833749,
+     "area": -5659.447945233339,
+     "center": 387.01508576567545,
+     "fwhm": 3.5752402300579225,
+     "id": "10"
+    },
+    {
+     "amplitude": 1003.1023491253118,
+     "area": -4171.358546544785,
+     "center": 397.9150857656754,
+     "fwhm": 3.5752402300579225,
+     "id": "11"
+    },
+    {
+     "amplitude": 97015.14582081117,
+     "area": -125080.23806726343,
+     "center": 398.313299398849,
+     "fwhm": 1.046277706787133,
+     "id": "12"
+    }
+   ],
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "r_factor": 0.04748332187164556,
+   "reduced_chi_square": 17.896494217928357,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_6",
+   "peaks": [
+    {
+     "amplitude": 7414.394781460895,
+     "area": -20435.317309988648,
+     "center": 380.8044299515421,
+     "fwhm": 2.3820615345273253,
+     "id": "2"
+    },
+    {
+     "amplitude": 5560.796086095671,
+     "area": -14960.18492544593,
+     "center": 391.70442995154207,
+     "fwhm": 2.3820615345273253,
+     "id": "3"
+    },
+    {
+     "amplitude": 1377.3950253539456,
+     "area": -5904.4601209211805,
+     "center": 387.0026740696854,
+     "fwhm": 3.6232473158851937,
+     "id": "10"
+    },
+    {
+     "amplitude": 1033.046269015459,
+     "area": -4351.288365043242,
+     "center": 397.90267406968536,
+     "fwhm": 3.6232473158851937,
+     "id": "11"
+    },
+    {
+     "amplitude": 99508.40080916848,
+     "area": -128268.60304393437,
+     "center": 398.2999679880619,
+     "fwhm": 1.0396586881973047,
+     "id": "12"
+    }
+   ],
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "r_factor": 0.04703491400133964,
+   "reduced_chi_square": 17.16245756452428,
+   "success": true
+  },
+  {
+   "name": "U4f Scan",
+   "peaks": [
+    {
+     "amplitude": 16166.413788366692,
+     "area": -41396.9568606734,
+     "center": 380.61794223504404,
+     "fwhm": 2.7362152575306133,
+     "id": "2"
+    },
+    {
+     "amplitude": 10508.16896243835,
+     "area": -26744.850034523224,
+     "center": 391.517942235044,
+     "fwhm": 2.7362152575306133,
+     "id": "3"
+    },
+    {
+     "amplitude": 2213.9694746802556,
+     "area": -6025.355142048803,
+     "center": 397.8977620771021,
+     "fwhm": 2.556694345836995,
+     "id": "4"
+    },
+    {
+     "amplitude": 2436.0436498457166,
+     "area": -8930.633018983455,
+     "center": 386.687822279331,
+     "fwhm": 2.51184730074945,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.04481889142019357,
+   "reduced_chi_square": 1.7129688345854015,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_0",
+   "peaks": [
+    {
+     "amplitude": 19685.725184262024,
+     "area": -49104.1256010494,
+     "center": 380.57310150224623,
+     "fwhm": 1.8167394665367642,
+     "id": "2"
+    },
+    {
+     "amplitude": 12795.721369770316,
+     "area": -31445.830627840292,
+     "center": 391.4731015022462,
+     "fwhm": 1.8167394665367642,
+     "id": "3"
+    },
+    {
+     "amplitude": 2738.9828351210167,
+     "area": -7962.053580554054,
+     "center": 397.8569290660406,
+     "fwhm": 2.566564266758108,
+     "id": "4"
+    },
+    {
+     "amplitude": 2891.7964726163327,
+     "area": -10896.853377003421,
+     "center": 386.6406347903727,
+     "fwhm": 2.5162001852920675,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.0469236653394076,
+   "reduced_chi_square": 2.394069357947648,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_1",
+   "peaks": [
+    {
+     "amplitude": 17052.977214625964,
+     "area": -44920.69055210819,
+     "center": 380.59654256251633,
+     "fwhm": 2.268859711606777,
+     "id": "2"
+    },
+    {
+     "amplitude": 11084.435189506878,
+     "area": -28846.52527586132,
+     "center": 391.4965425625163,
+     "fwhm": 2.268859711606777,
+     "id": "3"
+    },
+    {
+     "amplitude": 2417.2867826690212,
+     "area": -6946.256465903137,
+     "center": 397.9068506692368,
+     "fwhm": 2.613129180612196,
+     "id": "4"
+    },
+    {
+     "amplitude": 2527.215192380752,
+     "area": -9868.781023013962,
+     "center": 386.6960375600497,
+     "fwhm": 2.6119649000711957,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.045976651857306046,
+   "reduced_chi_square": 2.090745438944614,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_2",
+   "peaks": [
+    {
+     "amplitude": 17531.528829031206,
+     "area": -43942.648065448244,
+     "center": 380.6063648793058,
+     "fwhm": 2.0335895025581916,
+     "id": "2"
+    },
+    {
+     "amplitude": 11395.493738870284,
+     "area": -28241.392353193965,
+     "center": 391.50636487930575,
+     "fwhm": 2.0335895025581916,
+     "id": "3"
+    },
+    {
+     "amplitude": 2538.597796864669,
+     "area": -6786.726737643919,
+     "center": 397.89833227198193,
+     "fwhm": 2.511506196407022,
+     "id": "4"
+    },
+    {
+     "amplitude": 2583.6441454318697,
+     "area": -9394.930653365467,
+     "center": 386.68027678020036,
+     "fwhm": 2.503399373658041,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.04654799527703818,
+   "reduced_chi_square": 2.032996103975917,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_3",
+   "peaks": [
+    {
+     "amplitude": 18762.660876978065,
+     "area": -47816.1048168339,
+     "center": 380.59341463440444,
+     "fwhm": 2.023803125274187,
+     "id": "2"
+    },
+    {
+     "amplitude": 12195.729570035743,
+     "area": -30666.849354029895,
+     "center": 391.4934146344044,
+     "fwhm": 2.023803125274187,
+     "id": "3"
+    },
+    {
+     "amplitude": 2575.9770837256874,
+     "area": -6978.558151807117,
+     "center": 397.91924511571335,
+     "fwhm": 2.545021737371015,
+     "id": "4"
+    },
+    {
+     "amplitude": 2659.5194902459384,
+     "area": -9708.408946144064,
+     "center": 386.6908726764196,
+     "fwhm": 2.4443598015797288,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.0473124409827126,
+   "reduced_chi_square": 2.32969912533146,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_4",
+   "peaks": [
+    {
+     "amplitude": 19761.181062230982,
+     "area": -49407.35905877726,
+     "center": 380.5664460966819,
+     "fwhm": 1.6493615447256906,
+     "id": "2"
+    },
+    {
+     "amplitude": 12844.767690450139,
+     "area": -31559.97430127328,
+     "center": 391.46644609668186,
+     "fwhm": 1.6493615447256906,
+     "id": "3"
+    },
+    {
+     "amplitude": 2748.517764423274,
+     "area": -7409.230395569356,
+     "center": 397.8348044775754,
+     "fwhm": 2.4081667807559426,
+     "id": "4"
+    },
+    {
+     "amplitude": 2959.5120539017717,
+     "area": -10761.404424571523,
+     "center": 386.6986894172104,
+     "fwhm": 2.4232553533004797,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.05278602505468769,
+   "reduced_chi_square": 3.08440986921586,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_5",
+   "peaks": [
+    {
+     "amplitude": 19080.83145775791,
+     "area": -47989.368829465144,
+     "center": 380.5734725260483,
+     "fwhm": 1.7838507241135864,
+     "id": "2"
+    },
+    {
+     "amplitude": 12402.540447542642,
+     "area": -30695.466543272643,
+     "center": 391.4734725260483,
+     "fwhm": 1.7838507241135864,
+     "id": "3"
+    },
+    {
+     "amplitude": 2699.4126248663947,
+     "area": -7617.118508444492,
+     "center": 397.8656086196497,
+     "fwhm": 2.606525455283864,
+     "id": "4"
+    },
+    {
+     "amplitude": 2827.13582224504,
+     "area": -10545.444444310968,
+     "center": 386.6877805625258,
+     "fwhm": 2.489048044629133,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.0472752852072734,
+   "reduced_chi_square": 2.576260014958661,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_6",
+   "peaks": [
+    {
+     "amplitude": 25375.606338108846,
+     "area": -62279.72665179585,
+     "center": 380.55168108786626,
+     "fwhm": 1.5007993156071706,
+     "id": "2"
+    },
+    {
+     "amplitude": 16494.14411977075,
+     "area": -39758.11646068573,
+     "center": 391.45168108786623,
+     "fwhm": 1.5007993156071706,
+     "id": "3"
+    },
+    {
+     "amplitude": 3552.8405066390615,
+     "area": -10684.07770461737,
+     "center": 397.80484167072404,
+     "fwhm": 2.472300160862158,
+     "id": "4"
+    },
+    {
+     "amplitude": 3765.084828323374,
+     "area": -13976.523519931578,
+     "center": 386.6444582470583,
+     "fwhm": 2.476603057633517,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.04716340407520457,
+   "reduced_chi_square": 3.641228418309529,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_7",
+   "peaks": [
+    {
+     "amplitude": 22851.114193350404,
+     "area": -57094.995550586165,
+     "center": 380.56431921485523,
+     "fwhm": 2.0438626954307466,
+     "id": "2"
+    },
+    {
+     "amplitude": 14853.224225677763,
+     "area": -36669.43944076645,
+     "center": 391.4643192148552,
+     "fwhm": 2.0438626954307466,
+     "id": "3"
+    },
+    {
+     "amplitude": 2893.030151055598,
+     "area": -7730.876649930067,
+     "center": 397.8727772201682,
+     "fwhm": 2.5104037375182204,
+     "id": "4"
+    },
+    {
+     "amplitude": 3154.770619274813,
+     "area": -10422.462915607624,
+     "center": 386.6920214451357,
+     "fwhm": 2.3881090450086546,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.04592165580187352,
+   "reduced_chi_square": 2.766038109235236,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_8",
+   "peaks": [
+    {
+     "amplitude": 21441.86071647666,
+     "area": -54060.12342881047,
+     "center": 380.6010269534992,
+     "fwhm": 2.0799011228918016,
+     "id": "2"
+    },
+    {
+     "amplitude": 13937.209465709831,
+     "area": -34718.99753340158,
+     "center": 391.50102695349915,
+     "fwhm": 2.0799011228918016,
+     "id": "3"
+    },
+    {
+     "amplitude": 2853.4477634779887,
+     "area": -7698.07216133955,
+     "center": 397.8668135841827,
+     "fwhm": 2.534427316501655,
+     "id": "4"
+    },
+    {
+     "amplitude": 3104.864578496368,
+     "area": -11063.687184827675,
+     "center": 386.69348280404955,
+     "fwhm": 2.3725969471995336,
+     "id": "5"
+    }
+   ],
+   "project": "B4C-UCl4.proj.zip",
+   "r_factor": 0.04661926432902729,
+   "reduced_chi_square": 2.7155947750130203,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_0",
+   "peaks": [
+    {
+     "amplitude": 13750.738385724893,
+     "area": -44164.3886555214,
+     "center": 379.5506066221109,
+     "fwhm": 2.749510610701452,
+     "id": "2"
+    },
+    {
+     "amplitude": 8937.979950721181,
+     "area": -28126.009118019625,
+     "center": 390.45060662211085,
+     "fwhm": 2.749510610701452,
+     "id": "3"
+    },
+    {
+     "amplitude": 1169.8981455995695,
+     "area": -3113.0038145111366,
+     "center": 397.01635335830105,
+     "fwhm": 2.499766191649031,
+     "id": "4"
+    },
+    {
+     "amplitude": 1729.3986124425164,
+     "area": -5448.749609973838,
+     "center": 385.9523026766627,
+     "fwhm": 2.116252374582773,
+     "id": "5"
+    }
+   ],
+   "project": "UCl4_on_graphite.proj.zip",
+   "r_factor": 0.0475682816379254,
+   "reduced_chi_square": 1.8293468036691556,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_3",
+   "peaks": [
+    {
+     "amplitude": 15575.56598297206,
+     "area": -43729.19779774596,
+     "center": 379.6504128881463,
+     "fwhm": 3.0298389946436766,
+     "id": "2"
+    },
+    {
+     "amplitude": 10124.11788893184,
+     "area": -28244.23778777906,
+     "center": 390.5504128881463,
+     "fwhm": 3.0298389946436766,
+     "id": "3"
+    },
+    {
+     "amplitude": 1609.5032597760892,
+     "area": -5187.887470308736,
+     "center": 397.0202184345964,
+     "fwhm": 2.667389890311386,
+     "id": "4"
+    },
+    {
+     "amplitude": 2156.1472909178433,
+     "area": -7213.870947503149,
+     "center": 385.9874846200328,
+     "fwhm": 2.34410640308456,
+     "id": "5"
+    }
+   ],
+   "project": "UCl4_on_graphite.proj.zip",
+   "r_factor": 0.03872162600773238,
+   "reduced_chi_square": 1.4161536336740845,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_5",
+   "peaks": [
+    {
+     "amplitude": 22924.86459795813,
+     "area": -55274.046847321355,
+     "center": 379.5323355068851,
+     "fwhm": 2.71789705731499,
+     "id": "2"
+    },
+    {
+     "amplitude": 14901.161988672786,
+     "area": -35826.29289249334,
+     "center": 390.43233550688507,
+     "fwhm": 2.71789705731499,
+     "id": "3"
+    },
+    {
+     "amplitude": 2268.565033839698,
+     "area": -5384.177882297973,
+     "center": 396.84424324674825,
+     "fwhm": 2.2296462046672274,
+     "id": "4"
+    },
+    {
+     "amplitude": 2973.2262259739696,
+     "area": -7632.049996346066,
+     "center": 385.8033176825335,
+     "fwhm": 2.071945070098303,
+     "id": "5"
+    }
+   ],
+   "project": "UCl4_on_graphite.proj.zip",
+   "r_factor": 0.0421081880883444,
+   "reduced_chi_square": 1.9951612488367394,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_6",
+   "peaks": [
+    {
+     "amplitude": 18993.672116345693,
+     "area": -51334.82534284827,
+     "center": 379.61199615701884,
+     "fwhm": 3.003963624486502,
+     "id": "2"
+    },
+    {
+     "amplitude": 12345.886875624701,
+     "area": -33204.898999057994,
+     "center": 390.5119961570188,
+     "fwhm": 3.003963624486502,
+     "id": "3"
+    },
+    {
+     "amplitude": 1879.6051825561756,
+     "area": -5082.506218402701,
+     "center": 397.01578108473245,
+     "fwhm": 2.540264284726762,
+     "id": "4"
+    },
+    {
+     "amplitude": 2568.816524242302,
+     "area": -7530.264598034429,
+     "center": 385.9525850759209,
+     "fwhm": 2.1748697437515783,
+     "id": "5"
+    }
+   ],
+   "project": "UCl4_on_graphite.proj.zip",
+   "r_factor": 0.04318020741621443,
+   "reduced_chi_square": 1.872424979685371,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_7",
+   "peaks": [
+    {
+     "amplitude": 17911.37939650641,
+     "area": -54577.287033642446,
+     "center": 379.7325290523712,
+     "fwhm": 3.062973367780669,
+     "id": "2"
+    },
+    {
+     "amplitude": 11642.396607729168,
+     "area": -35042.4071751243,
+     "center": 390.6325290523712,
+     "fwhm": 3.062973367780669,
+     "id": "3"
+    },
+    {
+     "amplitude": 1730.525882974656,
+     "area": -5206.044853368216,
+     "center": 397.27344765510986,
+     "fwhm": 2.6431987518731366,
+     "id": "4"
+    },
+    {
+     "amplitude": 2308.1022399328376,
+     "area": -7510.456650912636,
+     "center": 386.17873959449764,
+     "fwhm": 2.3202436761927974,
+     "id": "5"
+    }
+   ],
+   "project": "UCl4_on_graphite.proj.zip",
+   "r_factor": 0.04115112597304282,
+   "reduced_chi_square": 1.7576357742654583,
+   "success": true
+  },
+  {
+   "name": "U4f Scan_8",
+   "peaks": [
+    {
+     "amplitude": 24577.37043465245,
+     "area": -56180.5355792396,
+     "center": 379.51359386999525,
+     "fwhm": 2.16868771462139,
+     "id": "2"
+    },
+    {
+     "amplitude": 15975.290782524093,
+     "area": -36381.51366522981,
+     "center": 390.4135938699952,
+     "fwhm": 2.16868771462139,
+     "id": "3"
+    },
+    {
+     "amplitude": 2370.437469972706,
+     "area": -5013.307537339678,
+     "center": 396.79759463584156,
+     "fwhm": 1.986843374672528,
+     "id": "4"
+    },
+    {
+     "amplitude": 2965.1102653945313,
+     "area": -6743.35468860636,
+     "center": 385.78611430649914,
+     "fwhm": 1.9742382628323831,
+     "id": "5"
+    }
+   ],
+   "project": "UCl4_on_graphite.proj.zip",
+   "r_factor": 0.05026934336104625,
+   "reduced_chi_square": 2.964092193326995,
+   "success": true
+  }
+ ],
+ "skipped": [
+  {
+   "name": "U4f Scan_0",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_1",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_2",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_3",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_4",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_7",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_8",
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan",
+   "project": "Cl2p_projfit_test.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_0",
+   "project": "Cl2p_projfit_test.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_1",
+   "project": "Cl2p_projfit_test.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_2",
+   "project": "Cl2p_projfit_test.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_3",
+   "project": "Cl2p_projfit_test.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_4",
+   "project": "Cl2p_projfit_test.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_5",
+   "project": "Cl2p_projfit_test.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan",
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_0",
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_1",
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_2",
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_3",
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_4",
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan_5",
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "reason": "legacy fitResult (no be/fittedY)"
+  },
+  {
+   "name": "U4f Scan",
+   "project": "UCl4_on_graphite.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_1",
+   "project": "UCl4_on_graphite.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_2",
+   "project": "UCl4_on_graphite.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  },
+  {
+   "name": "U4f Scan_4",
+   "project": "UCl4_on_graphite.proj.zip",
+   "reason": "fit-time grid drifted from current ui state"
+  }
+ ]
+}

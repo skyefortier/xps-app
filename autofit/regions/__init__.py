@@ -56,3 +56,5 @@ def registered_regions() -> list[str]:
 
 # Import modules for self-registration (order = documentation order).
 from . import c1s  # noqa: E402,F401
+from . import n1s  # noqa: E402,F401
+from . import u4f  # noqa: E402,F401

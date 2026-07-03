@@ -131,6 +131,14 @@ class ComponentSlot:
     # another parameter name (Biesinger-style shared contamination width).
     fwhm_linked_to: Optional[str] = None
 
+    # Names of shape parameters tied to the PARENT slot's same-named
+    # parameters via lmfit expressions (requires ``linked_to``).  The width
+    # parameter name ('fwhm' / DS+G 'm_gauss') is allowed here too.  This is
+    # how a spin-orbit partner shares its sibling's lineshape (e.g. LACX
+    # alpha/beta/m across a U 4f doublet), mirroring the manual path's
+    # linked-peak sync.
+    share_parent_params: tuple[str, ...] = ()
+
     def contains(self, be: float, fwhm: float, amplitude: float,
                  noise_floor: float) -> bool:
         return (
@@ -437,6 +445,7 @@ def _retag_slot(
         fixed_params=s.fixed_params,
         param_ranges=s.param_ranges,
         fwhm_linked_to=fwhm_link,
+        share_parent_params=s.share_parent_params,
     )
 
 
