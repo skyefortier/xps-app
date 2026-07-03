@@ -47,6 +47,20 @@ path untouched.
 4. One internally inconsistent C 1s tab (`UCl4_on_graphite / C1s Scan_4`):
    saved `fittedY` has 143 pts vs `be` 142 (stale fittedY from an earlier ROI).
    Excluded from the battery with recorded reason.
+5. **Width-convention conflict, engine grammar vs expert C 1s practice**: the
+   expert fits let adventitious GL components go to FWHM 1.57–2.66 eV and the
+   π→π* satellite to 3.95 eV; the grammar caps contamination at 1.6 eV
+   (Biesinger 2022 / Greczynski & Hultman 2020) and the satellite at 3.0 eV
+   (fitalg UNVERIFIED tunable). Engine caps kept (lit-based; NOT silently
+   widened to force a match). Consequence: peak-by-peak width parity is not
+   achievable by construction; the parity gate asserts main/satellite position
+   + envelope R-factor instead. Needs Skye's ruling on which convention the
+   engine should encode for adventitious carbon on composite samples.
+6. **Low-BE 'Unknown' C 1s component at ~283.4 eV** in the UCl4-graphite
+   expert fits sits OUTSIDE every grammar window (below the graphitic window
+   floor 284.0). It is exactly the case the residual-guided proposal pass
+   exists for; whether it's carbide-like chemistry or a U-related artifact is
+   an open question for adjudication.
 
 ## UNVERIFIED / suspect items
 

@@ -1,0 +1,6 @@
+# Test/development dependencies (runtime deps live in requirements.txt).
+# The browser tests (tests/test_browser_*.py, tests/autofit/test_browser_*)
+# additionally need a Playwright Chromium build:  playwright install chromium
+# They self-skip when playwright/gunicorn/chromium are absent.
+pytest>=9.0
+playwright>=1.60

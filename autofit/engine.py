@@ -432,10 +432,20 @@ def perturb_initial_params(
     position_jitter_eV: float = 0.15,
     fwhm_jitter_frac: float = 0.20,
     amplitude_jitter_frac: float = 0.30,
+    x: Optional[np.ndarray] = None,
+    y_net: Optional[np.ndarray] = None,
 ) -> Parameters:
-    """Perturbed starting parameters for a multi-start refit (bounds-clipped)."""
+    """
+    Perturbed starting parameters for a multi-start refit (bounds-clipped).
+
+    Port improvement over fitalg: when (x, y_net) are provided the defaults
+    are data-informed — in particular the amplitude UPPER bound scales with
+    the spectrum instead of the fixed 1e5 fallback, which silently clamped
+    (and systematically failed) stability refits on peaks brighter than 1e5
+    counts (e.g. the UCl4-BN N 1s line at ~1.06e5).
+    """
     rng = np.random.default_rng(seed)
-    params = _default_params_from_slots(model)
+    params = _default_params_from_slots(model, x=x, y_net=y_net)
 
     def _clip(par, new_val: float) -> None:
         lo = par.min if np.isfinite(par.min) else -np.inf
@@ -598,10 +608,17 @@ def run_stability_analysis(
     n_converged = 0
     n_with_orphans = 0
 
+    # Data-informed perturbation seeds (see perturb_initial_params): reuse
+    # the primary fit's background rather than recomputing per refit.
+    bg = primary_fit.background
+    y_net = y - bg if bg is not None else None
+
     for _ in range(n_refits):
         seed = int(rng.integers(0, 2**31 - 1))
-        outcome = fit_candidate(x, y, weights, model,
-                                initial_params=perturb_initial_params(model, seed=seed))
+        outcome = fit_candidate(
+            x, y, weights, model,
+            initial_params=perturb_initial_params(model, seed=seed,
+                                                  x=x, y_net=y_net))
         if not outcome.converged:
             continue
         n_converged += 1
