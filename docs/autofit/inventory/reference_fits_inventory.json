@@ -1,0 +1,6888 @@
+{
+ "1-GTA UCl4-graphite one set of U doublets.proj.zip": [
+  {
+   "file": "spectrum_0_C1s_Scan.json",
+   "name": "C1s Scan",
+   "cc": -4.740000000000009,
+   "npts": 191,
+   "chiRed": 4.967637579289385,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.66,
+     "amp": 55631.1,
+     "rsf": "C 1s",
+     "glMix": 7.742695499917747,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.567,
+     "amp": 8580.5,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.867,
+     "fwhm": 1.929,
+     "amp": 4161.1,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.545,
+     "fwhm": 2.664,
+     "amp": 1400.1,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.857,
+     "fwhm": 3.948,
+     "amp": 1741.9,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.445,
+     "fwhm": 1.083,
+     "amp": 8692.9,
+     "rsf": "C 1s",
+     "glMix": 30
+    }
+   ]
+  },
+  {
+   "file": "spectrum_10_C1s_Scan_4.json",
+   "name": "C1s Scan_4",
+   "cc": -4.7900000000000205,
+   "npts": 191,
+   "chiRed": 3.6960810208767194,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.685,
+     "amp": 36445.9,
+     "rsf": "C 1s",
+     "glMix": 30,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.6,
+     "amp": 4955,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.817,
+     "fwhm": 1.379,
+     "amp": 1567.8,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 286.265,
+     "fwhm": 3.306,
+     "amp": 2480.3,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.623,
+     "fwhm": 4.048,
+     "amp": 1205.1,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "Gaussian",
+     "center": 283.291,
+     "fwhm": 1.03,
+     "amp": 9191.9,
+     "rsf": "C 1s"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_11_U4f_Scan_4.json",
+   "name": "U4f Scan_4",
+   "cc": -4.7900000000000205,
+   "npts": 351,
+   "chiRed": 1.5042105334159788,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.604,
+     "fwhm": 3.967,
+     "amp": 12817.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.2843086529465126,
+     "caBeta": 4.49207486146677,
+     "caM": 5.582827686142615
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.504,
+     "fwhm": 3.967,
+     "amp": 8331.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.2843086529465126,
+     "caBeta": 4.49207486146677,
+     "caM": 5.582827686142615,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.219,
+     "fwhm": 2.689,
+     "amp": 1193.6,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.038,
+     "fwhm": 2.403,
+     "amp": 1616.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_12_C1s_Scan_5.json",
+   "name": "C1s Scan_5",
+   "cc": -4.740000000000009,
+   "npts": 191,
+   "chiRed": 3.8334032289658766,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.62,
+     "amp": 53071.3,
+     "rsf": "C 1s",
+     "glMix": 30,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.005,
+     "amp": 12386.4,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.867,
+     "fwhm": 1.665,
+     "amp": 4579.7,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.453,
+     "fwhm": 2.521,
+     "amp": 1289,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.795,
+     "fwhm": 4.904,
+     "amp": 1869.3,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "Gaussian",
+     "center": 283.496,
+     "fwhm": 1.183,
+     "amp": 7300.2,
+     "rsf": "C 1s"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_13_U4f_Scan_5.json",
+   "name": "U4f Scan_5",
+   "cc": -4.740000000000009,
+   "npts": 351,
+   "chiRed": 1.9951741072881632,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.558,
+     "fwhm": 2.72,
+     "amp": 22925.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.4065478473802249,
+     "caBeta": 2.81839128203929,
+     "caM": 7.109481039594523
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.458,
+     "fwhm": 2.72,
+     "amp": 14901.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.4065478473802249,
+     "caBeta": 2.81839128203929,
+     "caM": 7.109481039594523,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.87,
+     "fwhm": 2.23,
+     "amp": 2268.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.829,
+     "fwhm": 2.072,
+     "amp": 2973.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_14_C1s_Scan_6.json",
+   "name": "C1s Scan_6",
+   "cc": -4.7409999999999854,
+   "npts": 191,
+   "chiRed": 3.2120635553658095,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.664,
+     "amp": 51412.1,
+     "rsf": "C 1s",
+     "glMix": 15.874739572333905,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.8,
+     "fwhm": 1.62,
+     "amp": 7244.4,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.868,
+     "fwhm": 1.881,
+     "amp": 3800.8,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.566,
+     "fwhm": 2.521,
+     "amp": 1381.1,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.905,
+     "fwhm": 4.142,
+     "amp": 1682.0,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.454,
+     "fwhm": 1.152,
+     "amp": 6496.0,
+     "rsf": "C 1s",
+     "glMix": 30
+    }
+   ]
+  },
+  {
+   "file": "spectrum_15_U4f_Scan_6.json",
+   "name": "U4f Scan_6",
+   "cc": -4.7409999999999854,
+   "npts": 351,
+   "chiRed": 1.8723884415466105,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.611,
+     "fwhm": 3.013,
+     "amp": 19250.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.33911954430289,
+     "caBeta": 3.1794703488722904,
+     "caM": 7.656464156414737
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.511,
+     "fwhm": 3.013,
+     "amp": 12512.6,
+     "rsf": "U 4f",
+     "caAlpha": 1.33911954430289,
+     "caBeta": 3.1794703488722904,
+     "caM": 7.656464156414737,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.015,
+     "fwhm": 2.543,
+     "amp": 1880.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.951,
+     "fwhm": 2.176,
+     "amp": 2571.0,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_16_C1s_Scan_7.json",
+   "name": "C1s Scan_7",
+   "cc": -4.689999999999998,
+   "npts": 191,
+   "chiRed": 4.0685419062676065,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.67,
+     "amp": 55523.8,
+     "rsf": "C 1s",
+     "glMix": 30,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.8,
+     "fwhm": 1.446,
+     "amp": 6558.0,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.817,
+     "fwhm": 1.774,
+     "amp": 4109.0,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.411,
+     "fwhm": 2.447,
+     "amp": 1451.5,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.744,
+     "fwhm": 4.28,
+     "amp": 1747.2,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "Gaussian",
+     "center": 283.387,
+     "fwhm": 1.15,
+     "amp": 5731.4,
+     "rsf": "C 1s"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_17_U4f_Scan_7.json",
+   "name": "U4f Scan_7",
+   "cc": -4.689999999999998,
+   "npts": 351,
+   "chiRed": 1.713763743226685,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.74,
+     "fwhm": 3.326,
+     "amp": 17820.5,
+     "rsf": "U 4f",
+     "caAlpha": 1.2689934758325294,
+     "caBeta": 3.4812340263615513,
+     "caM": 6.550245848482404
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.64,
+     "fwhm": 3.326,
+     "amp": 11583.3,
+     "rsf": "U 4f",
+     "caAlpha": 1.2689934758325294,
+     "caBeta": 3.4812340263615513,
+     "caM": 6.550245848482404,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.238,
+     "fwhm": 2.536,
+     "amp": 1651.1,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.151,
+     "fwhm": 2.305,
+     "amp": 2282.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_18_C1s_Scan_8.json",
+   "name": "C1s Scan_8",
+   "cc": -4.740000000000009,
+   "npts": 191,
+   "chiRed": 3.149603649998216,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.641,
+     "amp": 63633.8,
+     "rsf": "C 1s",
+     "glMix": 30,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.129,
+     "amp": 11315.0,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.867,
+     "fwhm": 1.521,
+     "amp": 4534.5,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.233,
+     "fwhm": 2.346,
+     "amp": 1870.6,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.81,
+     "fwhm": 4.998,
+     "amp": 2242.6,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.644,
+     "fwhm": 1.233,
+     "amp": 6640.3,
+     "rsf": "C 1s",
+     "glMix": 30
+    }
+   ]
+  },
+  {
+   "file": "spectrum_19_U4f_Scan_8.json",
+   "name": "U4f Scan_8",
+   "cc": -4.740000000000009,
+   "npts": 351,
+   "chiRed": 2.9640804602235837,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.528,
+     "fwhm": 2.169,
+     "amp": 24577.6,
+     "rsf": "U 4f",
+     "caAlpha": 1.2630900004564267,
+     "caBeta": 2.2982023877815148,
+     "caM": 9.161920727933342
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.428,
+     "fwhm": 2.169,
+     "amp": 15975.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.2630900004564267,
+     "caBeta": 2.2982023877815148,
+     "caM": 9.161920727933342,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.812,
+     "fwhm": 1.987,
+     "amp": 2370.4,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.8,
+     "fwhm": 1.974,
+     "amp": 2965.0,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_1_U4f_Scan.json",
+   "name": "U4f Scan",
+   "cc": -4.740000000000009,
+   "npts": 351,
+   "chiRed": 2.1308392185479836,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.541,
+     "fwhm": 2.442,
+     "amp": 20549.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.0748916918730158,
+     "caBeta": 2.5423521202736654,
+     "caM": 8.19934520780095
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.441,
+     "fwhm": 2.442,
+     "amp": 13357.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.0748916918730158,
+     "caBeta": 2.5423521202736654,
+     "caM": 8.19934520780095,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.971,
+     "fwhm": 2.389,
+     "amp": 1989.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.925,
+     "fwhm": 2.089,
+     "amp": 2628.9,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_2_C1s_Scan_0.json",
+   "name": "C1s Scan_0",
+   "cc": -4.740000000000009,
+   "npts": 191,
+   "chiRed": 4.479841719402459,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.669,
+     "amp": 42620.9,
+     "rsf": "C 1s",
+     "glMix": 9.176301898129244,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.057,
+     "amp": 7290,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.543,
+     "fwhm": 1.438,
+     "amp": 3298,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 286.46,
+     "fwhm": 2.784,
+     "amp": 2282.9,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.532,
+     "fwhm": 4.574,
+     "amp": 1479.8,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.435,
+     "fwhm": 1.11,
+     "amp": 7696.5,
+     "rsf": "C 1s",
+     "glMix": 30
+    }
+   ]
+  },
+  {
+   "file": "spectrum_3_U4f_Scan_0.json",
+   "name": "U4f Scan_0",
+   "cc": -4.740000000000009,
+   "npts": 351,
+   "chiRed": 1.8293447813320716,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.574,
+     "fwhm": 2.75,
+     "amp": 13750.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.9894996751925238,
+     "caBeta": 3.0469186387286835,
+     "caM": 9.859888380824296
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.474,
+     "fwhm": 2.75,
+     "amp": 8938.0,
+     "rsf": "U 4f",
+     "caAlpha": 0.9894996751925238,
+     "caBeta": 3.0469186387286835,
+     "caM": 9.859888380824296,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.039,
+     "fwhm": 2.5,
+     "amp": 1170.0,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.975,
+     "fwhm": 2.116,
+     "amp": 1729.5,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_4_C1s_Scan_1.json",
+   "name": "C1s Scan_1",
+   "cc": -4.7900000000000205,
+   "npts": 191,
+   "chiRed": 3.147624394815963,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.657,
+     "amp": 51216.9,
+     "rsf": "C 1s",
+     "glMix": 30,
+     "asymmetry": 0.12
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.493,
+     "amp": 6643.8,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.809,
+     "fwhm": 1.977,
+     "amp": 3318.3,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.581,
+     "fwhm": 2.851,
+     "amp": 1340.6,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.961,
+     "fwhm": 3.908,
+     "amp": 1592.7,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "Gaussian",
+     "center": 283.366,
+     "fwhm": 1.121,
+     "amp": 6382.9,
+     "rsf": "C 1s"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_5_U4f_Scan_1.json",
+   "name": "U4f Scan_1",
+   "cc": -4.7900000000000205,
+   "npts": 351,
+   "chiRed": 2.4039263324934654,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.468,
+     "fwhm": 2.445,
+     "amp": 23824.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.1762193257190352,
+     "caBeta": 2.456448272544126,
+     "caM": 7.506925282018743
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.368,
+     "fwhm": 2.445,
+     "amp": 15486.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.1762193257190352,
+     "caBeta": 2.456448272544126,
+     "caM": 7.506925282018743,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.851,
+     "fwhm": 2.439,
+     "amp": 2315.9,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.79,
+     "fwhm": 2.122,
+     "amp": 3116.9,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_6_C1s_Scan_2.json",
+   "name": "C1s Scan_2",
+   "cc": -4.740000000000009,
+   "npts": 191,
+   "chiRed": 2.4429007043239985,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.672,
+     "amp": 49875.7,
+     "rsf": "C 1s",
+     "glMix": 35.746825484927705,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.658,
+     "amp": 5836.3,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.867,
+     "fwhm": 1.901,
+     "amp": 3145.9,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.508,
+     "fwhm": 2.412,
+     "amp": 1077.6,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.691,
+     "fwhm": 4.692,
+     "amp": 1592.9,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "Gaussian",
+     "center": 283.357,
+     "fwhm": 0.999,
+     "amp": 7488.2,
+     "rsf": "C 1s"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_7_U4f_Scan_2.json",
+   "name": "U4f Scan_2",
+   "cc": -4.740000000000009,
+   "npts": 351,
+   "chiRed": 1.931450395429101,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.656,
+     "fwhm": 2.95,
+     "amp": 18025.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.2664209936402822,
+     "caBeta": 3.01239660665207,
+     "caM": 8.351028919863579
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.556,
+     "fwhm": 2.95,
+     "amp": 11716.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.2664209936402822,
+     "caBeta": 3.01239660665207,
+     "caM": 8.351028919863579,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.061,
+     "fwhm": 2.669,
+     "amp": 1891.9,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.018,
+     "fwhm": 2.375,
+     "amp": 2414.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_8_C1s_Scan_3.json",
+   "name": "C1s Scan_3",
+   "cc": -4.740000000000009,
+   "npts": 191,
+   "chiRed": 3.483286599670092,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.645,
+     "amp": 38606.6,
+     "rsf": "C 1s",
+     "glMix": 30,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.799,
+     "fwhm": 1.087,
+     "amp": 9352.7,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.867,
+     "fwhm": 1.559,
+     "amp": 3400.0,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.277,
+     "fwhm": 2.492,
+     "amp": 1134.9,
+     "rsf": "C 1s",
+     "glMix": 30
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.617,
+     "fwhm": 4.939,
+     "amp": 1390.8,
+     "rsf": "K 2p",
+     "glMix": 30
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "Gaussian",
+     "center": 283.381,
+     "fwhm": 1.126,
+     "amp": 6619.9,
+     "rsf": "C 1s"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_9_U4f_Scan_3.json",
+   "name": "U4f Scan_3",
+   "cc": -4.740000000000009,
+   "npts": 351,
+   "chiRed": 1.4161447999520789,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.676,
+     "fwhm": 3.03,
+     "amp": 15575.6,
+     "rsf": "U 4f",
+     "caAlpha": 1.2809567416575083,
+     "caBeta": 3.0580134484136754,
+     "caM": 8.001658173857885
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.576,
+     "fwhm": 3.03,
+     "amp": 10124.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.2809567416575083,
+     "caBeta": 3.0580134484136754,
+     "caM": 8.001658173857885,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.046,
+     "fwhm": 2.667,
+     "amp": 1609.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.013,
+     "fwhm": 2.344,
+     "amp": 2156.2,
+     "rsf": "U 4f"
+    }
+   ]
+  }
+ ],
+ "4-GTA UCl4-BN.proj.zip": [
+  {
+   "file": "spectrum_0_B1s_Scan.json",
+   "name": "B1s Scan",
+   "cc": -5.935999999999979,
+   "npts": 251,
+   "chiRed": 25.348600556378976,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.7,
+     "fwhm": 1.001,
+     "amp": 33885.1,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.1
+    }
+   ]
+  },
+  {
+   "file": "spectrum_10_B1s_Scan_4.json",
+   "name": "B1s Scan_4",
+   "cc": -5.969999999999999,
+   "npts": 251,
+   "chiRed": 16.74853250890884,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.703,
+     "fwhm": 1.042,
+     "amp": 30625.9,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.12
+    }
+   ]
+  },
+  {
+   "file": "spectrum_11_U4f_Scan_4.json",
+   "name": "U4f Scan_4",
+   "cc": -5.970000000000027,
+   "npts": 351,
+   "chiRed": 17.726653180630024,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.733,
+     "fwhm": 2.539,
+     "amp": 7078.3,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0.3007478374164745
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.633,
+     "fwhm": 2.539,
+     "amp": 5308.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0.3007478374164745,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.976,
+     "fwhm": 3.825,
+     "amp": 1351.3,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.876,
+     "fwhm": 3.825,
+     "amp": 1013.5,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.282,
+     "fwhm": 1.049,
+     "amp": 95889.0,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.14191786363391862
+    }
+   ]
+  },
+  {
+   "file": "spectrum_12_B1s_Scan_5.json",
+   "name": "B1s Scan_5",
+   "cc": -5.939999999999998,
+   "npts": 251,
+   "chiRed": 101820.31303248325,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.704,
+     "fwhm": 1.001,
+     "amp": 31315.3,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.1
+    }
+   ]
+  },
+  {
+   "file": "spectrum_13_U4f_Scan_5.json",
+   "name": "U4f Scan_5",
+   "cc": -5.939999999999998,
+   "npts": 351,
+   "chiRed": 17.896591884057713,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.788,
+     "fwhm": 2.297,
+     "amp": 7439.0,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 4.405013865339606
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.688,
+     "fwhm": 2.297,
+     "amp": 5579.2,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 4.405013865339606,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 387.015,
+     "fwhm": 3.575,
+     "amp": 1337.5,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.915,
+     "fwhm": 3.575,
+     "amp": 1003.1,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.313,
+     "fwhm": 1.046,
+     "amp": 97015.1,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.05633717391608131
+    }
+   ]
+  },
+  {
+   "file": "spectrum_14_B1s_Scan_6.json",
+   "name": "B1s Scan_6",
+   "cc": -5.939999999999998,
+   "npts": 251,
+   "chiRed": 18.524651473430872,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.709,
+     "fwhm": 1.006,
+     "amp": 31742.5,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.1
+    }
+   ]
+  },
+  {
+   "file": "spectrum_15_U4f_Scan_6.json",
+   "name": "U4f Scan_6",
+   "cc": -5.939999999999998,
+   "npts": 351,
+   "chiRed": 17.162536985984683,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.804,
+     "fwhm": 2.382,
+     "amp": 7414.4,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 3.194734572884084e-09
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.704,
+     "fwhm": 2.382,
+     "amp": 5560.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 3.194734572884084e-09,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 387.003,
+     "fwhm": 3.623,
+     "amp": 1377.4,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.903,
+     "fwhm": 3.623,
+     "amp": 1033.0,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.3,
+     "fwhm": 1.04,
+     "amp": 99508.1,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.06918378482559479
+    }
+   ]
+  },
+  {
+   "file": "spectrum_16_B1s_Scan_7.json",
+   "name": "B1s Scan_7",
+   "cc": -5.939999999999998,
+   "npts": 251,
+   "chiRed": 24.24217553746893,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.734,
+     "fwhm": 0.994,
+     "amp": 33328.1,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.1
+    }
+   ]
+  },
+  {
+   "file": "spectrum_17_U4f_Scan_7.json",
+   "name": "U4f Scan_7",
+   "cc": -5.939999999999998,
+   "npts": 351,
+   "chiRed": 17.894795324462155,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.726,
+     "fwhm": 2.391,
+     "amp": 8054.6,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 2.2517602935984757
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.626,
+     "fwhm": 2.391,
+     "amp": 6041.0,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 2.2517602935984757,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.915,
+     "fwhm": 3.75,
+     "amp": 1491.4,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.815,
+     "fwhm": 3.75,
+     "amp": 1118.5,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.324,
+     "fwhm": 1.038,
+     "amp": 104450.8,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.04738046115378198
+    }
+   ]
+  },
+  {
+   "file": "spectrum_18_B1s_Scan_8.json",
+   "name": "B1s Scan_8",
+   "cc": -5.939999999999998,
+   "npts": 251,
+   "chiRed": 105358.77329966081,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.704,
+     "fwhm": 1.001,
+     "amp": 33158.4,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.1
+    }
+   ]
+  },
+  {
+   "file": "spectrum_19_U4f_Scan_8.json",
+   "name": "U4f Scan_8",
+   "cc": -5.939999999999998,
+   "npts": 351,
+   "chiRed": 16.069941118019766,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.65,
+     "fwhm": 2.4,
+     "amp": 6853.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 2.601947915123374
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.55,
+     "fwhm": 2.4,
+     "amp": 5140.3,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 2.601947915123374,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.879,
+     "fwhm": 3.741,
+     "amp": 1306.3,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.779,
+     "fwhm": 3.741,
+     "amp": 979.7,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.287,
+     "fwhm": 1.05,
+     "amp": 103742.9,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.057237014047600704
+    }
+   ]
+  },
+  {
+   "file": "spectrum_1_U4f_Scan.json",
+   "name": "U4f Scan",
+   "cc": -5.935999999999979,
+   "npts": 351,
+   "chiRed": 11.399870385521767,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.605,
+     "fwhm": 2.479,
+     "amp": 7635.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.505,
+     "fwhm": 2.479,
+     "amp": 5726.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.876,
+     "fwhm": 3.3,
+     "amp": 1582.7,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.776,
+     "fwhm": 3.3,
+     "amp": 1187.0,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.304,
+     "fwhm": 1.05,
+     "amp": 105851.4,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.06391475583812725
+    }
+   ]
+  },
+  {
+   "file": "spectrum_2_B1s_Scan_0.json",
+   "name": "B1s Scan_0",
+   "cc": -5.943999999999988,
+   "npts": 251,
+   "chiRed": 23.686718629692116,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.7,
+     "fwhm": 1.002,
+     "amp": 31369.6,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.1
+    }
+   ]
+  },
+  {
+   "file": "spectrum_3_U4f_Scan_0.json",
+   "name": "U4f Scan_0",
+   "cc": -5.944000000000017,
+   "npts": 351,
+   "chiRed": 10.430429689821771,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.62,
+     "fwhm": 2.498,
+     "amp": 6623.2,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0.03129175223819014
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.52,
+     "fwhm": 2.498,
+     "amp": 4967.4,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0.03129175223819014,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.891,
+     "fwhm": 3.3,
+     "amp": 1377.1,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.791,
+     "fwhm": 3.3,
+     "amp": 1032.8,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.293,
+     "fwhm": 1.039,
+     "amp": 98451.3,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.07994042407342147
+    }
+   ]
+  },
+  {
+   "file": "spectrum_4_B1s_Scan_1.json",
+   "name": "B1s Scan_1",
+   "cc": -5.947999999999979,
+   "npts": 251,
+   "chiRed": 25.849409992361625,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.7,
+     "fwhm": 1.016,
+     "amp": 30597.5,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.08
+    }
+   ]
+  },
+  {
+   "file": "spectrum_5_U4f_Scan_1.json",
+   "name": "U4f Scan_1",
+   "cc": -5.947999999999979,
+   "npts": 351,
+   "chiRed": 9.082746402318776,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.612,
+     "fwhm": 2.457,
+     "amp": 6628.6,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0.29418216588029783
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.512,
+     "fwhm": 2.457,
+     "amp": 4971.5,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 0.29418216588029783,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.895,
+     "fwhm": 3.3,
+     "amp": 1348.8,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.795,
+     "fwhm": 3.3,
+     "amp": 1011.6,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.274,
+     "fwhm": 1.038,
+     "amp": 96162.4,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.09602749521776674
+    }
+   ]
+  },
+  {
+   "file": "spectrum_6_B1s_Scan_2.json",
+   "name": "B1s Scan_2",
+   "cc": -5.947000000000003,
+   "npts": 251,
+   "chiRed": 28.98290088934907,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.7,
+     "fwhm": 1.012,
+     "amp": 31229.0,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.1
+    }
+   ]
+  },
+  {
+   "file": "spectrum_7_U4f_Scan_2.json",
+   "name": "U4f Scan_2",
+   "cc": -5.947000000000003,
+   "npts": 351,
+   "chiRed": 11.364337790387303,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.637,
+     "fwhm": 2.411,
+     "amp": 6589.6,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 3.9451120036330267
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.537,
+     "fwhm": 2.411,
+     "amp": 4942.2,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 3.9451120036330267,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.83,
+     "fwhm": 3.964,
+     "amp": 1251.3,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.73,
+     "fwhm": 3.964,
+     "amp": 938.5,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.289,
+     "fwhm": 1.056,
+     "amp": 97795.5,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.06011404743360149
+    }
+   ]
+  },
+  {
+   "file": "spectrum_8_B1s_Scan_3.json",
+   "name": "B1s Scan_3",
+   "cc": -6,
+   "npts": 251,
+   "chiRed": 28.642141988824857,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-N",
+     "shape": "asym-GL",
+     "center": 190.697,
+     "fwhm": 0.984,
+     "amp": 33044.9,
+     "rsf": "B 1s",
+     "glMix": 30,
+     "asymmetry": 0.12
+    }
+   ]
+  },
+  {
+   "file": "spectrum_9_U4f_Scan_3.json",
+   "name": "U4f Scan_3",
+   "cc": -6,
+   "npts": 351,
+   "chiRed": 14.79280759328891,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.67,
+     "fwhm": 2.4,
+     "amp": 6414.3,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 1.8791236767997688
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.57,
+     "fwhm": 2.4,
+     "amp": 4810.7,
+     "rsf": "U 4f",
+     "caAlpha": 0.962,
+     "caBeta": 2.228,
+     "caM": 1.8791236767997688,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 10,
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "center": 386.864,
+     "fwhm": 3.736,
+     "amp": 1195.3,
+     "rsf": "U 4f"
+    },
+    {
+     "id": 11,
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "center": 397.764,
+     "fwhm": 3.736,
+     "amp": 896.5,
+     "rsf": "U 4f",
+     "linked": 10,
+     "linkOffset": 10.9,
+     "linkRatio": 0.75
+    },
+    {
+     "id": 12,
+     "name": "N",
+     "shape": "asym-GL",
+     "center": 398.294,
+     "fwhm": 1.039,
+     "amp": 103426.3,
+     "rsf": "N 1s",
+     "glMix": 30,
+     "asymmetry": 0.05654991723150841
+    }
+   ]
+  }
+ ],
+ "8-JT Graphite.proj.zip": [
+  {
+   "file": "spectrum_10_C1s_Scan.json",
+   "name": "C1s Scan",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 6.550020651692149,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.397,
+     "fwhm": 0.64,
+     "amp": 90501.0,
+     "rsf": "C 1s",
+     "glMix": 16.43747059440742,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.715,
+     "fwhm": 1.909,
+     "amp": 14706.6,
+     "rsf": "C 1s",
+     "glMix": 4.270549855456619e-24
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.408,
+     "fwhm": 1.423,
+     "amp": 2393.9,
+     "rsf": "C 1s",
+     "glMix": 3.9062500000001324e-27
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.317,
+     "fwhm": 3.991,
+     "amp": 2423.7,
+     "rsf": "C 1s",
+     "glMix": 8.001803892769839e-24
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.101,
+     "fwhm": 3.482,
+     "amp": 2759.3,
+     "rsf": "K 2p",
+     "glMix": 59.17426528431612
+    }
+   ]
+  },
+  {
+   "file": "spectrum_11_C1s_Scan_0.json",
+   "name": "C1s Scan_0",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 7.0593104575070225,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.514,
+     "fwhm": 0.649,
+     "amp": 81563.0,
+     "rsf": "C 1s",
+     "glMix": 14.856895383321737,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.817,
+     "fwhm": 1.893,
+     "amp": 13868.1,
+     "rsf": "C 1s",
+     "glMix": 1.929613127794616e-21
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.469,
+     "fwhm": 1.517,
+     "amp": 2260.4,
+     "rsf": "C 1s",
+     "glMix": 1.1517823375936705e-21
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.317,
+     "fwhm": 3.762,
+     "amp": 2188.5,
+     "rsf": "C 1s",
+     "glMix": 5.390992079015101e-21
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.101,
+     "fwhm": 3.637,
+     "amp": 2495.2,
+     "rsf": "K 2p",
+     "glMix": 43.838753124043215
+    }
+   ]
+  },
+  {
+   "file": "spectrum_12_C1s_Scan_1.json",
+   "name": "C1s Scan_1",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 5.989829147877702,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.45,
+     "fwhm": 0.659,
+     "amp": 88787.8,
+     "rsf": "C 1s",
+     "glMix": 18.0419506744337,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.817,
+     "fwhm": 2.003,
+     "amp": 13215.5,
+     "rsf": "C 1s",
+     "glMix": 1.1274248923630984e-33
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.469,
+     "fwhm": 1.272,
+     "amp": 1777.4,
+     "rsf": "C 1s",
+     "glMix": 1.5174687675251702e-32
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.317,
+     "fwhm": 3.626,
+     "amp": 2528.3,
+     "rsf": "C 1s",
+     "glMix": 1.322811844636256e-33
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.101,
+     "fwhm": 3.621,
+     "amp": 2635.3,
+     "rsf": "K 2p",
+     "glMix": 30.909153054157134
+    }
+   ]
+  },
+  {
+   "file": "spectrum_13_C1s_Scan_2.json",
+   "name": "C1s Scan_2",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 5.493776086316103,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.391,
+     "fwhm": 0.65,
+     "amp": 86998.8,
+     "rsf": "C 1s",
+     "glMix": 20.984840958465412,
+     "asymmetry": 0.10206223477149681
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.701,
+     "fwhm": 1.854,
+     "amp": 14971.3,
+     "rsf": "C 1s",
+     "glMix": 5.3680857425852935e-06
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 287.403,
+     "fwhm": 1.826,
+     "amp": 1651.2,
+     "rsf": "C 1s",
+     "glMix": 2.763744786915545e-05
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 286.268,
+     "fwhm": 1.434,
+     "amp": 3558.6,
+     "rsf": "C 1s",
+     "glMix": 1.124198378832375e-06
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.446,
+     "fwhm": 5.038,
+     "amp": 2814.2,
+     "rsf": "K 2p",
+     "glMix": 0.00010027568656534314
+    }
+   ]
+  },
+  {
+   "file": "spectrum_14_C1s_Scan_3.json",
+   "name": "C1s Scan_3",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 5.9946535156789995,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.459,
+     "fwhm": 0.638,
+     "amp": 94501.8,
+     "rsf": "C 1s",
+     "glMix": 22.24324728829055,
+     "asymmetry": 0.10000000000616856
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.755,
+     "fwhm": 1.866,
+     "amp": 15719.6,
+     "rsf": "C 1s",
+     "glMix": 1.5421386390102043e-09
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.257,
+     "fwhm": 1.224,
+     "amp": 2878.0,
+     "rsf": "C 1s",
+     "glMix": 1.6360246923863286e-05
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.155,
+     "fwhm": 2.165,
+     "amp": 2782.9,
+     "rsf": "C 1s",
+     "glMix": 3.153521070387022e-05
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.651,
+     "fwhm": 4.62,
+     "amp": 3064.0,
+     "rsf": "K 2p",
+     "glMix": 1.5420220655926187e-09
+    }
+   ]
+  },
+  {
+   "file": "spectrum_15_C1s_Scan_4.json",
+   "name": "C1s Scan_4",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 6.814356482467471,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.522,
+     "fwhm": 0.644,
+     "amp": 97008.1,
+     "rsf": "C 1s",
+     "glMix": 18.473862394936013,
+     "asymmetry": 0.10000000000010906
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.761,
+     "fwhm": 1.764,
+     "amp": 16432.5,
+     "rsf": "C 1s",
+     "glMix": 1.5421386390102043e-09
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.377,
+     "fwhm": 1.985,
+     "amp": 4460.0,
+     "rsf": "C 1s",
+     "glMix": 1.5421386390102043e-09
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.691,
+     "fwhm": 5.462,
+     "amp": 1724.8,
+     "rsf": "C 1s",
+     "glMix": 2.091458339847918e-07
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.195,
+     "fwhm": 4.988,
+     "amp": 2684.8,
+     "rsf": "K 2p",
+     "glMix": 8.842989754544323
+    }
+   ]
+  },
+  {
+   "file": "spectrum_16_C1s_Scan_5.json",
+   "name": "C1s Scan_5",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 6.941364661986328,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.484,
+     "fwhm": 0.638,
+     "amp": 95850.3,
+     "rsf": "C 1s",
+     "glMix": 17.5718410367492,
+     "asymmetry": 0.10000000000616854
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.725,
+     "fwhm": 1.783,
+     "amp": 16591.4,
+     "rsf": "C 1s",
+     "glMix": 1.288666373611136e-06
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.368,
+     "fwhm": 1.975,
+     "amp": 4263.6,
+     "rsf": "C 1s",
+     "glMix": 3.469748099949044e-07
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.354,
+     "fwhm": 5.435,
+     "amp": 1631.6,
+     "rsf": "C 1s",
+     "glMix": 5.01036905853347e-06
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.021,
+     "fwhm": 4.951,
+     "amp": 2731.3,
+     "rsf": "K 2p",
+     "glMix": 1.573138093680093e-05
+    }
+   ]
+  },
+  {
+   "file": "spectrum_17_C1s_Scan_6.json",
+   "name": "C1s Scan_6",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 8.952814771063393,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.498,
+     "fwhm": 0.654,
+     "amp": 96868.0,
+     "rsf": "C 1s",
+     "glMix": 14.396999704798391,
+     "asymmetry": 0.10000000000616856
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.779,
+     "fwhm": 1.939,
+     "amp": 13430.7,
+     "rsf": "C 1s",
+     "glMix": 1.5421386390102043e-09
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.255,
+     "fwhm": 4.18,
+     "amp": 0.0,
+     "rsf": "C 1s",
+     "glMix": 0.11857494570989835
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 286.22,
+     "fwhm": 3.287,
+     "amp": 5300.9,
+     "rsf": "C 1s",
+     "glMix": 0.0021613702322065276
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.88,
+     "fwhm": 4.799,
+     "amp": 3540.3,
+     "rsf": "K 2p",
+     "glMix": 22.830043993997506
+    }
+   ]
+  },
+  {
+   "file": "spectrum_18_C1s_Scan_7.json",
+   "name": "C1s Scan_7",
+   "cc": -4.7970000000000255,
+   "npts": 191,
+   "chiRed": 6.079863203117668,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.645,
+     "amp": 86606.6,
+     "rsf": "C 1s",
+     "glMix": 15.135863443967773,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.776,
+     "fwhm": 1.858,
+     "amp": 15576.9,
+     "rsf": "C 1s",
+     "glMix": 2.130830358396807e-35
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.444,
+     "fwhm": 1.569,
+     "amp": 2731.6,
+     "rsf": "C 1s",
+     "glMix": 1.797878979050939e-33
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.317,
+     "fwhm": 3.976,
+     "amp": 2274.5,
+     "rsf": "C 1s",
+     "glMix": 6.06292523376186e-33
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.101,
+     "fwhm": 3.683,
+     "amp": 2650.1,
+     "rsf": "K 2p",
+     "glMix": 45.77258253729928
+    }
+   ]
+  },
+  {
+   "file": "spectrum_19_C1s_Scan_8.json",
+   "name": "C1s Scan_8",
+   "cc": -4.834000000000003,
+   "npts": 191,
+   "chiRed": 5.0170015524391065,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 12,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.499,
+     "fwhm": 0.618,
+     "amp": 98490.8,
+     "rsf": "C 1s",
+     "glMix": 1.352801979922391,
+     "asymmetry": 0.17564391435637725
+    },
+    {
+     "id": 13,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.854,
+     "fwhm": 1.907,
+     "amp": 12527.7,
+     "rsf": "C 1s",
+     "glMix": 5.032545279569556e-36
+    },
+    {
+     "id": 14,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.754,
+     "fwhm": 3.527,
+     "amp": 5500.9,
+     "rsf": "C 1s",
+     "glMix": 1.6356293519378533e-34
+    },
+    {
+     "id": 15,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.594,
+     "fwhm": 4.732,
+     "amp": 1065.3,
+     "rsf": "C 1s",
+     "glMix": 3.266327133643892e-36
+    },
+    {
+     "id": 16,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.063,
+     "fwhm": 4.138,
+     "amp": 3212.0,
+     "rsf": "K 2p",
+     "glMix": 40.936544614029344
+    },
+    {
+     "id": 17,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.854,
+     "fwhm": 0.45,
+     "amp": 4214.9,
+     "rsf": "C 1s",
+     "glMix": 1.4941166412074627
+    }
+   ]
+  }
+ ],
+ "B4C-UCl4.proj.zip": [
+  {
+   "file": "spectrum_10_B1s_Scan.json",
+   "name": "B1s Scan",
+   "cc": -5.8700000000000045,
+   "npts": 161,
+   "chiRed": 1.4265863110880088,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.545,
+     "fwhm": 1.853,
+     "amp": 1983.7,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 192.998,
+     "fwhm": 1.618,
+     "amp": 2300.4,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.16,
+     "fwhm": 1.669,
+     "amp": 7387.0,
+     "rsf": "Zr 3d",
+     "glMix": 2.7406717159597695
+    }
+   ]
+  },
+  {
+   "file": "spectrum_11_B1s_Scan_0.json",
+   "name": "B1s Scan_0",
+   "cc": -5.960000000000008,
+   "npts": 161,
+   "chiRed": 2.5226059385267727,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.736,
+     "fwhm": 1.658,
+     "amp": 1716.6,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 193.002,
+     "fwhm": 1.538,
+     "amp": 2370.2,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.21,
+     "fwhm": 1.655,
+     "amp": 8481.2,
+     "rsf": "Zr 3d",
+     "glMix": 3.765386304440593
+    }
+   ]
+  },
+  {
+   "file": "spectrum_12_B1s_Scan_1.json",
+   "name": "B1s Scan_1",
+   "cc": -5.889999999999986,
+   "npts": 161,
+   "chiRed": 1.942895197373235,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.118,
+     "fwhm": 2.272,
+     "amp": 2841.4,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 193.002,
+     "fwhm": 1.623,
+     "amp": 2396.4,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.101,
+     "fwhm": 1.566,
+     "amp": 6606.2,
+     "rsf": "Zr 3d",
+     "glMix": 2.0581239992585987
+    }
+   ]
+  },
+  {
+   "file": "spectrum_13_B1s_Scan_2.json",
+   "name": "B1s Scan_2",
+   "cc": -5.900000000000006,
+   "npts": 161,
+   "chiRed": 1.9616341265157586,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.662,
+     "fwhm": 1.746,
+     "amp": 1793.0,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 193.005,
+     "fwhm": 1.601,
+     "amp": 2362.9,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.184,
+     "fwhm": 1.643,
+     "amp": 8062.5,
+     "rsf": "Zr 3d",
+     "glMix": 6.063227270581101
+    }
+   ]
+  },
+  {
+   "file": "spectrum_14_B1s_Scan_3.json",
+   "name": "B1s Scan_3",
+   "cc": -5.900000000000006,
+   "npts": 161,
+   "chiRed": 2.207235716132693,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.663,
+     "fwhm": 1.741,
+     "amp": 1886.6,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 192.996,
+     "fwhm": 1.539,
+     "amp": 2409.8,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.195,
+     "fwhm": 1.64,
+     "amp": 8562.5,
+     "rsf": "Zr 3d",
+     "glMix": 2.8848659085265904
+    }
+   ]
+  },
+  {
+   "file": "spectrum_15_B1s_Scan_4.json",
+   "name": "B1s Scan_4",
+   "cc": -5.840000000000003,
+   "npts": 161,
+   "chiRed": 1.8735049445228082,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.636,
+     "fwhm": 1.827,
+     "amp": 1967.7,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 193.003,
+     "fwhm": 1.593,
+     "amp": 2527.0,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.171,
+     "fwhm": 1.632,
+     "amp": 8579.5,
+     "rsf": "Zr 3d",
+     "glMix": 2.1661606425207425
+    }
+   ]
+  },
+  {
+   "file": "spectrum_16_B1s_Scan_5.json",
+   "name": "B1s Scan_5",
+   "cc": -5.780000000000001,
+   "npts": 161,
+   "chiRed": 1.3838900527003168,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.547,
+     "fwhm": 1.873,
+     "amp": 1938.0,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 193.004,
+     "fwhm": 1.599,
+     "amp": 2313.2,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.152,
+     "fwhm": 1.621,
+     "amp": 8061.1,
+     "rsf": "Zr 3d",
+     "glMix": 2.8427059165399617
+    }
+   ]
+  },
+  {
+   "file": "spectrum_17_B1s_Scan_6.json",
+   "name": "B1s Scan_6",
+   "cc": -5.909999999999997,
+   "npts": 161,
+   "chiRed": 2.4353438692209566,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.58,
+     "fwhm": 1.775,
+     "amp": 1778.6,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 192.995,
+     "fwhm": 1.491,
+     "amp": 2218.6,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.164,
+     "fwhm": 1.618,
+     "amp": 8129.3,
+     "rsf": "Zr 3d",
+     "glMix": 2.5449829123106005
+    }
+   ]
+  },
+  {
+   "file": "spectrum_18_B1s_Scan_7.json",
+   "name": "B1s Scan_7",
+   "cc": -5.889999999999986,
+   "npts": 161,
+   "chiRed": 1.9113195509766194,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.772,
+     "fwhm": 1.643,
+     "amp": 1396.5,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 192.998,
+     "fwhm": 1.539,
+     "amp": 2034.0,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.237,
+     "fwhm": 1.668,
+     "amp": 7401.0,
+     "rsf": "Zr 3d",
+     "glMix": 1.890323583746329
+    }
+   ]
+  },
+  {
+   "file": "spectrum_19_B1s_Scan_8.json",
+   "name": "B1s Scan_8",
+   "cc": -5.8799999999999955,
+   "npts": 161,
+   "chiRed": 1.9953054715701235,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "B-B",
+     "shape": "GL",
+     "center": 188.582,
+     "fwhm": 1.927,
+     "amp": 1803.5,
+     "rsf": "Zr 3d",
+     "glMix": 11
+    },
+    {
+     "id": 2,
+     "name": "B-O",
+     "shape": "Gaussian",
+     "center": 193.005,
+     "fwhm": 1.623,
+     "amp": 2175.7,
+     "rsf": "B 1s"
+    },
+    {
+     "id": 3,
+     "name": "B-C",
+     "shape": "GL",
+     "center": 187.2,
+     "fwhm": 1.643,
+     "amp": 7631.4,
+     "rsf": "Zr 3d",
+     "glMix": 2.1143751578127814
+    }
+   ]
+  },
+  {
+   "file": "spectrum_33_U4f_Scan.json",
+   "name": "U4f Scan",
+   "cc": -5.8700000000000045,
+   "npts": 351,
+   "chiRed": 1.7129708462685973,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.618,
+     "fwhm": 2.737,
+     "amp": 16166.5,
+     "rsf": "U 4f",
+     "caAlpha": 1.2434122423244907,
+     "caBeta": 2.8502276317254593,
+     "caM": 5.274564884095105
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.518,
+     "fwhm": 2.737,
+     "amp": 10508.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.2434122423244907,
+     "caBeta": 2.8502276317254593,
+     "caM": 5.274564884095105,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.898,
+     "fwhm": 2.557,
+     "amp": 2214.1,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.688,
+     "fwhm": 2.512,
+     "amp": 2436.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_34_U4f_Scan_0.json",
+   "name": "U4f Scan_0",
+   "cc": -5.960000000000008,
+   "npts": 351,
+   "chiRed": 2.394078018483238,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.573,
+     "fwhm": 1.817,
+     "amp": 19685.7,
+     "rsf": "U 4f",
+     "caAlpha": 0.9452680037000059,
+     "caBeta": 2.0090354634988223,
+     "caM": 8.977708339562373
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.473,
+     "fwhm": 1.817,
+     "amp": 12795.7,
+     "rsf": "U 4f",
+     "caAlpha": 0.9452680037000059,
+     "caBeta": 2.0090354634988223,
+     "caM": 8.977708339562373,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.857,
+     "fwhm": 2.567,
+     "amp": 2738.9,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.641,
+     "fwhm": 2.516,
+     "amp": 2891.8,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_35_U4f_Scan_1.json",
+   "name": "U4f Scan_1",
+   "cc": -5.889999999999986,
+   "npts": 351,
+   "chiRed": 2.090741836185668,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.597,
+     "fwhm": 2.27,
+     "amp": 17053.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.0436073029304704,
+     "caBeta": 2.3971552992793357,
+     "caM": 8.18614094502097
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.497,
+     "fwhm": 2.27,
+     "amp": 11084.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.0436073029304704,
+     "caBeta": 2.3971552992793357,
+     "caM": 8.18614094502097,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.907,
+     "fwhm": 2.613,
+     "amp": 2417.6,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.696,
+     "fwhm": 2.612,
+     "amp": 2527.4,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_36_U4f_Scan_2.json",
+   "name": "U4f Scan_2",
+   "cc": -5.900000000000006,
+   "npts": 351,
+   "chiRed": 2.0329986053253073,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.606,
+     "fwhm": 2.034,
+     "amp": 17531.5,
+     "rsf": "U 4f",
+     "caAlpha": 1.0321277071695076,
+     "caBeta": 2.3179478608312327,
+     "caM": 9.500856163118732
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.506,
+     "fwhm": 2.034,
+     "amp": 11395.5,
+     "rsf": "U 4f",
+     "caAlpha": 1.0321277071695076,
+     "caBeta": 2.3179478608312327,
+     "caM": 9.500856163118732,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.898,
+     "fwhm": 2.511,
+     "amp": 2538.6,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.68,
+     "fwhm": 2.503,
+     "amp": 2583.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_37_U4f_Scan_3.json",
+   "name": "U4f Scan_3",
+   "cc": -5.900000000000006,
+   "npts": 351,
+   "chiRed": 2.3296966243702184,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.593,
+     "fwhm": 2.024,
+     "amp": 18762.7,
+     "rsf": "U 4f",
+     "caAlpha": 0.9956127194734493,
+     "caBeta": 2.235937926516081,
+     "caM": 8.949662164848407
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.493,
+     "fwhm": 2.024,
+     "amp": 12195.7,
+     "rsf": "U 4f",
+     "caAlpha": 0.9956127194734493,
+     "caBeta": 2.235937926516081,
+     "caM": 8.949662164848407,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.919,
+     "fwhm": 2.545,
+     "amp": 2576.0,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.691,
+     "fwhm": 2.444,
+     "amp": 2659.5,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_38_U4f_Scan_4.json",
+   "name": "U4f Scan_4",
+   "cc": -5.840000000000003,
+   "npts": 351,
+   "chiRed": 3.0844220066288863,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.566,
+     "fwhm": 1.65,
+     "amp": 19761.2,
+     "rsf": "U 4f",
+     "caAlpha": 0.8975969502488202,
+     "caBeta": 1.803858369519313,
+     "caM": 9.46272426236025
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.466,
+     "fwhm": 1.65,
+     "amp": 12844.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.8975969502488202,
+     "caBeta": 1.803858369519313,
+     "caM": 9.46272426236025,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.835,
+     "fwhm": 2.408,
+     "amp": 2748.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.699,
+     "fwhm": 2.423,
+     "amp": 2959.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_39_U4f_Scan_5.json",
+   "name": "U4f Scan_5",
+   "cc": -5.780000000000001,
+   "npts": 351,
+   "chiRed": 2.576255880196419,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.573,
+     "fwhm": 1.783,
+     "amp": 19080.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.927636055091844,
+     "caBeta": 1.9035162983412957,
+     "caM": 8.98912726402828
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.473,
+     "fwhm": 1.783,
+     "amp": 12402.5,
+     "rsf": "U 4f",
+     "caAlpha": 0.927636055091844,
+     "caBeta": 1.9035162983412957,
+     "caM": 8.98912726402828,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.866,
+     "fwhm": 2.607,
+     "amp": 2699.2,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.688,
+     "fwhm": 2.489,
+     "amp": 2827.0,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_40_U4f_Scan_6.json",
+   "name": "U4f Scan_6",
+   "cc": -5.909999999999997,
+   "npts": 351,
+   "chiRed": 3.6412302539850137,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.552,
+     "fwhm": 1.501,
+     "amp": 25375.5,
+     "rsf": "U 4f",
+     "caAlpha": 0.8709011263555,
+     "caBeta": 1.6810522599367652,
+     "caM": 9.81392144894354
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.452,
+     "fwhm": 1.501,
+     "amp": 16494.1,
+     "rsf": "U 4f",
+     "caAlpha": 0.8709011263555,
+     "caBeta": 1.6810522599367652,
+     "caM": 9.81392144894354,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.805,
+     "fwhm": 2.472,
+     "amp": 3552.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.644,
+     "fwhm": 2.476,
+     "amp": 3765.0,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_41_U4f_Scan_7.json",
+   "name": "U4f Scan_7",
+   "cc": -5.889999999999986,
+   "npts": 351,
+   "chiRed": 2.766039219601118,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.564,
+     "fwhm": 2.044,
+     "amp": 22851.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.015696697388606,
+     "caBeta": 2.1274318723584633,
+     "caM": 7.8930510258187905
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.464,
+     "fwhm": 2.044,
+     "amp": 14853.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.015696697388606,
+     "caBeta": 2.1274318723584633,
+     "caM": 7.8930510258187905,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.873,
+     "fwhm": 2.511,
+     "amp": 2893.1,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.692,
+     "fwhm": 2.388,
+     "amp": 3154.9,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_42_U4f_Scan_8.json",
+   "name": "U4f Scan_8",
+   "cc": -5.8799999999999955,
+   "npts": 351,
+   "chiRed": 2.7155832145694414,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.601,
+     "fwhm": 2.08,
+     "amp": 21441.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.0187666337255912,
+     "caBeta": 2.1755037816140126,
+     "caM": 7.679225762323879
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 391.501,
+     "fwhm": 2.08,
+     "amp": 13937.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.0187666337255912,
+     "caBeta": 2.1755037816140126,
+     "caM": 7.679225762323879,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.867,
+     "fwhm": 2.535,
+     "amp": 2853.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.693,
+     "fwhm": 2.373,
+     "amp": 3104.9,
+     "rsf": "U 4f"
+    }
+   ]
+  }
+ ],
+ "Cl2p_projfit_test.proj.zip": [
+  {
+   "file": "spectrum_10_U4f_Scan_1.json",
+   "name": "U4f Scan_1",
+   "cc": -4.690999999999974,
+   "npts": 351,
+   "chiRed": 1.5906795945461998,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.764,
+     "fwhm": 2.447,
+     "amp": 17552.7,
+     "rsf": "U 4f",
+     "caAlpha": 1.0503145124176454,
+     "caBeta": 2.983638356432724,
+     "caM": 13.248791283084197
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.664,
+     "fwhm": 2.447,
+     "amp": 11409.3,
+     "rsf": "U 4f",
+     "caAlpha": 1.0503145124176454,
+     "caBeta": 2.983638356432724,
+     "caM": 13.248791283084197,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.129,
+     "fwhm": 2.939,
+     "amp": 2115.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.96,
+     "fwhm": 2.72,
+     "amp": 2602.1,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_11_U4f_Scan_2.json",
+   "name": "U4f Scan_2",
+   "cc": -4.725999999999999,
+   "npts": 351,
+   "chiRed": 1.740803456816502,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.645,
+     "fwhm": 2.749,
+     "amp": 19095.7,
+     "rsf": "U 4f",
+     "caAlpha": 1.1279885460188435,
+     "caBeta": 2.9979712003125805,
+     "caM": 7.229921060086857
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.545,
+     "fwhm": 2.749,
+     "amp": 12412.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.1279885460188435,
+     "caBeta": 2.9979712003125805,
+     "caM": 7.229921060086857,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.931,
+     "fwhm": 2.678,
+     "amp": 2199.1,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.761,
+     "fwhm": 2.485,
+     "amp": 2833.9,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_12_U4f_Scan_3.json",
+   "name": "U4f Scan_3",
+   "cc": -4.654999999999973,
+   "npts": 351,
+   "chiRed": 2.3782993207599143,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.791,
+     "fwhm": 4.605,
+     "amp": 12875.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.2541482657600622,
+     "caBeta": 4.999999999999999,
+     "caM": 0.1921440819458686
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.691,
+     "fwhm": 4.605,
+     "amp": 8368.7,
+     "rsf": "U 4f",
+     "caAlpha": 1.2541482657600622,
+     "caBeta": 4.999999999999999,
+     "caM": 0.1921440819458686,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.33,
+     "fwhm": 2.646,
+     "amp": 1174.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.047,
+     "fwhm": 2.667,
+     "amp": 1744.5,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_13_U4f_Scan_4.json",
+   "name": "U4f Scan_4",
+   "cc": -4.699999999999989,
+   "npts": 351,
+   "chiRed": 1.6252307206662826,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.085,
+     "fwhm": 2.045,
+     "amp": 20003.3,
+     "rsf": "U 4f",
+     "caAlpha": 1.1915494664463089,
+     "caBeta": 2.2165249645718688,
+     "caM": 13.759703248318894
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.985,
+     "fwhm": 2.045,
+     "amp": 13002.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.1915494664463089,
+     "caBeta": 2.2165249645718688,
+     "caM": 13.759703248318894,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.25,
+     "fwhm": 2.542,
+     "amp": 2253.8,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.123,
+     "fwhm": 2.711,
+     "amp": 2961.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_14_U4f_Scan_5.json",
+   "name": "U4f Scan_5",
+   "cc": -4.701000000000022,
+   "npts": 351,
+   "chiRed": 1.6839055520832307,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.826,
+     "fwhm": 2.704,
+     "amp": 19719.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.2816024613476595,
+     "caBeta": 3.1252910518627424,
+     "caM": 10.541027157816622
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.726,
+     "fwhm": 2.704,
+     "amp": 12817.6,
+     "rsf": "U 4f",
+     "caAlpha": 1.2816024613476595,
+     "caBeta": 3.1252910518627424,
+     "caM": 10.541027157816622,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.99,
+     "fwhm": 2.627,
+     "amp": 1976.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.896,
+     "fwhm": 2.681,
+     "amp": 2870.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_15_Cl2p_Scan.json",
+   "name": "Cl2p Scan",
+   "cc": -4.699999999999989,
+   "npts": 201,
+   "chiRed": 2.851136794742553,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "Cl 2p3/2",
+     "shape": "GL",
+     "center": 197.917,
+     "fwhm": 1.649,
+     "amp": 5822.9,
+     "rsf": "Cl 2p",
+     "glMix": 20.33097850108166
+    },
+    {
+     "id": 3,
+     "name": "Cl 2p1/2",
+     "shape": "GL",
+     "center": 199.517,
+     "fwhm": 1.649,
+     "amp": 2911.4,
+     "rsf": "Cl 2p",
+     "glMix": 20.33097850108166,
+     "linked": 2,
+     "linkOffset": 1.6,
+     "linkRatio": 0.5
+    }
+   ]
+  },
+  {
+   "file": "spectrum_16_Cl2p_Scan_0.json",
+   "name": "Cl2p Scan_0",
+   "cc": -4.699999999999989,
+   "npts": 201,
+   "chiRed": 4.938573321633435,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "Cl 2p3/2",
+     "shape": "GL",
+     "center": 197.83,
+     "fwhm": 1.672,
+     "amp": 5390.9,
+     "rsf": "Cl 2p",
+     "glMix": 33.0001443080691
+    },
+    {
+     "id": 3,
+     "name": "Cl 2p1/2",
+     "shape": "GL",
+     "center": 199.43,
+     "fwhm": 1.672,
+     "amp": 2695.4,
+     "rsf": "Cl 2p",
+     "glMix": 33.0001443080691,
+     "linked": 2,
+     "linkOffset": 1.6,
+     "linkRatio": 0.5
+    }
+   ]
+  },
+  {
+   "file": "spectrum_17_Cl2p_Scan_1.json",
+   "name": "Cl2p Scan_1",
+   "cc": 0,
+   "npts": 201,
+   "chiRed": 1.830632051990748,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "Cl 2p3/2",
+     "shape": "Voigt",
+     "center": 193.384,
+     "fwhm": 1.799,
+     "amp": 5795.2,
+     "rsf": "Cl 2p"
+    },
+    {
+     "id": 3,
+     "name": "Cl 2p1/2",
+     "shape": "Voigt",
+     "center": 194.984,
+     "fwhm": 1.799,
+     "amp": 2897.6,
+     "rsf": "Cl 2p",
+     "linked": 2,
+     "linkOffset": 1.6,
+     "linkRatio": 0.5
+    }
+   ]
+  },
+  {
+   "file": "spectrum_1_C1s_Scan.json",
+   "name": "C1s Scan",
+   "cc": -4.732000000000028,
+   "npts": 191,
+   "chiRed": 1.616942122745486,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.641,
+     "amp": 64198.9,
+     "rsf": "C 1s",
+     "glMix": 27.61407465082027,
+     "asymmetry": 0.10000000000050001,
+     "ccRef": true
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.852,
+     "fwhm": 1.495,
+     "amp": 8954.3,
+     "rsf": "C 1s",
+     "glMix": 5.135074499967822e-11
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.983,
+     "fwhm": 1.848,
+     "amp": 4039.7,
+     "rsf": "C 1s",
+     "glMix": 5.1056258532749784e-11
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.588,
+     "fwhm": 3.548,
+     "amp": 1901.0,
+     "rsf": "C 1s",
+     "glMix": 5.133451056442431e-11
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.16,
+     "fwhm": 4.14,
+     "amp": 2168.4,
+     "rsf": "K 2p",
+     "glMix": 77.14575078773123
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.851,
+     "fwhm": 1.653,
+     "amp": 6284.9,
+     "rsf": "C 1s",
+     "glMix": 5.146017839398947e-11
+    }
+   ]
+  },
+  {
+   "file": "spectrum_2_C1s_Scan_0.json",
+   "name": "C1s Scan_0",
+   "cc": -4.7029999999999745,
+   "npts": 191,
+   "chiRed": 2.137667757811028,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.673,
+     "amp": 51492.6,
+     "rsf": "C 1s",
+     "glMix": 47.638404291743385,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.823,
+     "fwhm": 2.724,
+     "amp": 6588.7,
+     "rsf": "C 1s",
+     "glMix": 5.934445164219489e-25
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.668,
+     "fwhm": 1.533,
+     "amp": 462.4,
+     "rsf": "C 1s",
+     "glMix": 1.637672783652163e-23
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.951,
+     "fwhm": 2.87,
+     "amp": 1150.1,
+     "rsf": "C 1s",
+     "glMix": 4.40842359383233e-25
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.99,
+     "fwhm": 4.167,
+     "amp": 1594.6,
+     "rsf": "K 2p",
+     "glMix": 26.125330122194285
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.163,
+     "fwhm": 0.929,
+     "amp": 5539.4,
+     "rsf": "C 1s",
+     "glMix": 7.401536829268493e-21
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.823,
+     "fwhm": 0.348,
+     "amp": 352.8,
+     "rsf": "C 1s",
+     "glMix": 4.3662668767570215e-21
+    }
+   ]
+  },
+  {
+   "file": "spectrum_3_C1s_Scan_1.json",
+   "name": "C1s Scan_1",
+   "cc": -4.690999999999974,
+   "npts": 191,
+   "chiRed": 1.7678166873639551,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.655,
+     "amp": 64438.3,
+     "rsf": "C 1s",
+     "glMix": 38.6778976390728,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.811,
+     "fwhm": 2.193,
+     "amp": 11263.6,
+     "rsf": "C 1s",
+     "glMix": 2.0553434650098652e-23
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.605,
+     "fwhm": 1.246,
+     "amp": 1108.9,
+     "rsf": "C 1s",
+     "glMix": 1.9156041633294229e-23
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.44,
+     "fwhm": 2.778,
+     "amp": 1680.1,
+     "rsf": "C 1s",
+     "glMix": 1.0856288631456813e-23
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.861,
+     "fwhm": 4.288,
+     "amp": 1849.4,
+     "rsf": "K 2p",
+     "glMix": 29.74047315104863
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.307,
+     "fwhm": 1.144,
+     "amp": 3200.6,
+     "rsf": "C 1s",
+     "glMix": 2.4948654099348965e-22
+    }
+   ]
+  },
+  {
+   "file": "spectrum_4_C1s_Scan_2.json",
+   "name": "C1s Scan_2",
+   "cc": -4.725999999999999,
+   "npts": 191,
+   "chiRed": 2.2794342815827657,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.654,
+     "amp": 73358.3,
+     "rsf": "C 1s",
+     "glMix": 39.54556392561567,
+     "asymmetry": 0.10395942107414903
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.846,
+     "fwhm": 2.323,
+     "amp": 10597.9,
+     "rsf": "C 1s",
+     "glMix": 4.039015598487986e-29
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.552,
+     "fwhm": 1.29,
+     "amp": 1314.0,
+     "rsf": "C 1s",
+     "glMix": 4.515645769371151e-24
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.739,
+     "fwhm": 2.646,
+     "amp": 1963.1,
+     "rsf": "C 1s",
+     "glMix": 9.483720480867695e-22
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.075,
+     "fwhm": 4.007,
+     "amp": 2173.2,
+     "rsf": "K 2p",
+     "glMix": 6.046723034187046
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.442,
+     "fwhm": 1.121,
+     "amp": 2697.4,
+     "rsf": "C 1s",
+     "glMix": 5.068852831788092e-32
+    }
+   ]
+  },
+  {
+   "file": "spectrum_5_C1s_Scan_3.json",
+   "name": "C1s Scan_3",
+   "cc": -4.654999999999973,
+   "npts": 191,
+   "chiRed": 2.0506939731782303,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.646,
+     "amp": 49464.1,
+     "rsf": "C 1s",
+     "glMix": 44.48839548822604,
+     "asymmetry": 0.10000000000013104
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.775,
+     "fwhm": 2.621,
+     "amp": 8182.1,
+     "rsf": "C 1s",
+     "glMix": 3.3815975585236666e-25
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.638,
+     "fwhm": 1.332,
+     "amp": 747.2,
+     "rsf": "C 1s",
+     "glMix": 2.1113843768439295e-20
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.774,
+     "fwhm": 2.668,
+     "amp": 1290.1,
+     "rsf": "C 1s",
+     "glMix": 1.640183308866461e-22
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.912,
+     "fwhm": 4.25,
+     "amp": 1657.6,
+     "rsf": "K 2p",
+     "glMix": 4.165538167148504e-15
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.082,
+     "fwhm": 0.863,
+     "amp": 4031.7,
+     "rsf": "C 1s",
+     "glMix": 2.0512654748511145e-23
+    }
+   ]
+  },
+  {
+   "file": "spectrum_6_C1s_Scan_4.json",
+   "name": "C1s Scan_4",
+   "cc": -4.699999999999989,
+   "npts": 191,
+   "chiRed": 1.6983112507759401,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.637,
+     "amp": 82284.4,
+     "rsf": "C 1s",
+     "glMix": 31.606354853718287,
+     "asymmetry": 0.11603288454552267
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.82,
+     "fwhm": 2.193,
+     "amp": 13024.7,
+     "rsf": "C 1s",
+     "glMix": 7.197592601090229e-12
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.679,
+     "fwhm": 1.309,
+     "amp": 1652.3,
+     "rsf": "C 1s",
+     "glMix": 5.76356353653701e-19
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.37,
+     "fwhm": 3.595,
+     "amp": 2102.4,
+     "rsf": "C 1s",
+     "glMix": 4.308400313827759e-22
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.109,
+     "fwhm": 4.255,
+     "amp": 2469.1,
+     "rsf": "K 2p",
+     "glMix": 26.812393482829616
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.82,
+     "fwhm": 0.476,
+     "amp": 1805.9,
+     "rsf": "C 1s",
+     "glMix": 27.135675521069167
+    }
+   ]
+  },
+  {
+   "file": "spectrum_7_C1s_Scan_5.json",
+   "name": "C1s Scan_5",
+   "cc": -4.701000000000022,
+   "npts": 191,
+   "chiRed": 1.504680690829523,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.624,
+     "amp": 61864.3,
+     "rsf": "C 1s",
+     "glMix": 31.412764736205045,
+     "asymmetry": 0.10054565841363201
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.821,
+     "fwhm": 1.593,
+     "amp": 12193.2,
+     "rsf": "C 1s",
+     "glMix": 2.726526441348831e-12
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.243,
+     "fwhm": 1.355,
+     "amp": 3124.5,
+     "rsf": "C 1s",
+     "glMix": 11.04952139936714
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.321,
+     "fwhm": 3.206,
+     "amp": 2040.5,
+     "rsf": "C 1s",
+     "glMix": 9.370202198787024e-19
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.966,
+     "fwhm": 4.248,
+     "amp": 2249.6,
+     "rsf": "K 2p",
+     "glMix": 80.05229405606255
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.821,
+     "fwhm": 1.664,
+     "amp": 5031.0,
+     "rsf": "C 1s",
+     "glMix": 3.613709075411224
+    }
+   ]
+  },
+  {
+   "file": "spectrum_8_U4f_Scan.json",
+   "name": "U4f Scan",
+   "cc": -4.732000000000028,
+   "npts": 351,
+   "chiRed": 1.3491848715247527,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.679,
+     "fwhm": 3.063,
+     "amp": 16743.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.2538830231171603,
+     "caBeta": 3.561697521889929,
+     "caM": 7.452503588846346
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.579,
+     "fwhm": 3.063,
+     "amp": 10882.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.2538830231171603,
+     "caBeta": 3.561697521889929,
+     "caM": 7.452503588846346,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.985,
+     "fwhm": 2.431,
+     "amp": 1992.2,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.795,
+     "fwhm": 2.44,
+     "amp": 2327.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_9_U4f_Scan_0.json",
+   "name": "U4f Scan_0",
+   "cc": -4.7029999999999745,
+   "npts": 351,
+   "chiRed": 1.7290829725288717,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.593,
+     "fwhm": 3.287,
+     "amp": 15146.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.3171232654490328,
+     "caBeta": 4.128559305976932,
+     "caM": 8.940808754218997
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.493,
+     "fwhm": 3.287,
+     "amp": 9845.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.3171232654490328,
+     "caBeta": 4.128559305976932,
+     "caM": 8.940808754218997,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.89,
+     "fwhm": 2.741,
+     "amp": 1414.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.667,
+     "fwhm": 2.617,
+     "amp": 2102.0,
+     "rsf": "U 4f"
+    }
+   ]
+  }
+ ],
+ "Project9_CasaXPS_newfit.proj.zip": [
+  {
+   "file": "spectrum_10_U4f_Scan_1.json",
+   "name": "U4f Scan_1",
+   "cc": -4.690999999999974,
+   "npts": 351,
+   "chiRed": 1.5906795945461998,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.764,
+     "fwhm": 2.447,
+     "amp": 17552.7,
+     "rsf": "U 4f",
+     "caAlpha": 1.0503145124176454,
+     "caBeta": 2.983638356432724,
+     "caM": 13.248791283084197
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.664,
+     "fwhm": 2.447,
+     "amp": 11409.3,
+     "rsf": "U 4f",
+     "caAlpha": 1.0503145124176454,
+     "caBeta": 2.983638356432724,
+     "caM": 13.248791283084197,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.129,
+     "fwhm": 2.939,
+     "amp": 2115.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.96,
+     "fwhm": 2.72,
+     "amp": 2602.1,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_11_U4f_Scan_2.json",
+   "name": "U4f Scan_2",
+   "cc": -4.725999999999999,
+   "npts": 351,
+   "chiRed": 1.740803456816502,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.645,
+     "fwhm": 2.749,
+     "amp": 19095.7,
+     "rsf": "U 4f",
+     "caAlpha": 1.1279885460188435,
+     "caBeta": 2.9979712003125805,
+     "caM": 7.229921060086857
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.545,
+     "fwhm": 2.749,
+     "amp": 12412.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.1279885460188435,
+     "caBeta": 2.9979712003125805,
+     "caM": 7.229921060086857,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.931,
+     "fwhm": 2.678,
+     "amp": 2199.1,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.761,
+     "fwhm": 2.485,
+     "amp": 2833.9,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_12_U4f_Scan_3.json",
+   "name": "U4f Scan_3",
+   "cc": -4.654999999999973,
+   "npts": 351,
+   "chiRed": 2.3782993207599143,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.791,
+     "fwhm": 4.605,
+     "amp": 12875.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.2541482657600622,
+     "caBeta": 4.999999999999999,
+     "caM": 0.1921440819458686
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.691,
+     "fwhm": 4.605,
+     "amp": 8368.7,
+     "rsf": "U 4f",
+     "caAlpha": 1.2541482657600622,
+     "caBeta": 4.999999999999999,
+     "caM": 0.1921440819458686,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.33,
+     "fwhm": 2.646,
+     "amp": 1174.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.047,
+     "fwhm": 2.667,
+     "amp": 1744.5,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_13_U4f_Scan_4.json",
+   "name": "U4f Scan_4",
+   "cc": -4.699999999999989,
+   "npts": 351,
+   "chiRed": 1.6252307206662826,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 380.085,
+     "fwhm": 2.045,
+     "amp": 20003.3,
+     "rsf": "U 4f",
+     "caAlpha": 1.1915494664463089,
+     "caBeta": 2.2165249645718688,
+     "caM": 13.759703248318894
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.985,
+     "fwhm": 2.045,
+     "amp": 13002.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.1915494664463089,
+     "caBeta": 2.2165249645718688,
+     "caM": 13.759703248318894,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.25,
+     "fwhm": 2.542,
+     "amp": 2253.8,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.123,
+     "fwhm": 2.711,
+     "amp": 2961.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_14_U4f_Scan_5.json",
+   "name": "U4f Scan_5",
+   "cc": -4.701000000000022,
+   "npts": 351,
+   "chiRed": 1.6839055520832307,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.826,
+     "fwhm": 2.704,
+     "amp": 19719.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.2816024613476595,
+     "caBeta": 3.1252910518627424,
+     "caM": 10.541027157816622
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.726,
+     "fwhm": 2.704,
+     "amp": 12817.6,
+     "rsf": "U 4f",
+     "caAlpha": 1.2816024613476595,
+     "caBeta": 3.1252910518627424,
+     "caM": 10.541027157816622,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.99,
+     "fwhm": 2.627,
+     "amp": 1976.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.896,
+     "fwhm": 2.681,
+     "amp": 2870.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_1_C1s_Scan.json",
+   "name": "C1s Scan",
+   "cc": -4.732000000000028,
+   "npts": 191,
+   "chiRed": 1.616942122745486,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.641,
+     "amp": 64198.9,
+     "rsf": "C 1s",
+     "glMix": 27.61407465082027,
+     "asymmetry": 0.10000000000050001,
+     "ccRef": true
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.852,
+     "fwhm": 1.495,
+     "amp": 8954.3,
+     "rsf": "C 1s",
+     "glMix": 5.135074499967822e-11
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 285.983,
+     "fwhm": 1.848,
+     "amp": 4039.7,
+     "rsf": "C 1s",
+     "glMix": 5.1056258532749784e-11
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.588,
+     "fwhm": 3.548,
+     "amp": 1901.0,
+     "rsf": "C 1s",
+     "glMix": 5.133451056442431e-11
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.16,
+     "fwhm": 4.14,
+     "amp": 2168.4,
+     "rsf": "K 2p",
+     "glMix": 77.14575078773123
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.851,
+     "fwhm": 1.653,
+     "amp": 6284.9,
+     "rsf": "C 1s",
+     "glMix": 5.146017839398947e-11
+    }
+   ]
+  },
+  {
+   "file": "spectrum_2_C1s_Scan_0.json",
+   "name": "C1s Scan_0",
+   "cc": -4.7029999999999745,
+   "npts": 191,
+   "chiRed": 2.137667757811028,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.673,
+     "amp": 51492.6,
+     "rsf": "C 1s",
+     "glMix": 47.638404291743385,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.823,
+     "fwhm": 2.724,
+     "amp": 6588.7,
+     "rsf": "C 1s",
+     "glMix": 5.934445164219489e-25
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.668,
+     "fwhm": 1.533,
+     "amp": 462.4,
+     "rsf": "C 1s",
+     "glMix": 1.637672783652163e-23
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.951,
+     "fwhm": 2.87,
+     "amp": 1150.1,
+     "rsf": "C 1s",
+     "glMix": 4.40842359383233e-25
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.99,
+     "fwhm": 4.167,
+     "amp": 1594.6,
+     "rsf": "K 2p",
+     "glMix": 26.125330122194285
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.163,
+     "fwhm": 0.929,
+     "amp": 5539.4,
+     "rsf": "C 1s",
+     "glMix": 7.401536829268493e-21
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.823,
+     "fwhm": 0.348,
+     "amp": 352.8,
+     "rsf": "C 1s",
+     "glMix": 4.3662668767570215e-21
+    }
+   ]
+  },
+  {
+   "file": "spectrum_3_C1s_Scan_1.json",
+   "name": "C1s Scan_1",
+   "cc": -4.690999999999974,
+   "npts": 191,
+   "chiRed": 1.7678166873639551,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.655,
+     "amp": 64438.3,
+     "rsf": "C 1s",
+     "glMix": 38.6778976390728,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.811,
+     "fwhm": 2.193,
+     "amp": 11263.6,
+     "rsf": "C 1s",
+     "glMix": 2.0553434650098652e-23
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.605,
+     "fwhm": 1.246,
+     "amp": 1108.9,
+     "rsf": "C 1s",
+     "glMix": 1.9156041633294229e-23
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.44,
+     "fwhm": 2.778,
+     "amp": 1680.1,
+     "rsf": "C 1s",
+     "glMix": 1.0856288631456813e-23
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.861,
+     "fwhm": 4.288,
+     "amp": 1849.4,
+     "rsf": "K 2p",
+     "glMix": 29.74047315104863
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.307,
+     "fwhm": 1.144,
+     "amp": 3200.6,
+     "rsf": "C 1s",
+     "glMix": 2.4948654099348965e-22
+    }
+   ]
+  },
+  {
+   "file": "spectrum_4_C1s_Scan_2.json",
+   "name": "C1s Scan_2",
+   "cc": -4.725999999999999,
+   "npts": 191,
+   "chiRed": 2.2794342815827657,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.654,
+     "amp": 73358.3,
+     "rsf": "C 1s",
+     "glMix": 39.54556392561567,
+     "asymmetry": 0.10395942107414903
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.846,
+     "fwhm": 2.323,
+     "amp": 10597.9,
+     "rsf": "C 1s",
+     "glMix": 4.039015598487986e-29
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.552,
+     "fwhm": 1.29,
+     "amp": 1314.0,
+     "rsf": "C 1s",
+     "glMix": 4.515645769371151e-24
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.739,
+     "fwhm": 2.646,
+     "amp": 1963.1,
+     "rsf": "C 1s",
+     "glMix": 9.483720480867695e-22
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.075,
+     "fwhm": 4.007,
+     "amp": 2173.2,
+     "rsf": "K 2p",
+     "glMix": 6.046723034187046
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.442,
+     "fwhm": 1.121,
+     "amp": 2697.4,
+     "rsf": "C 1s",
+     "glMix": 5.068852831788092e-32
+    }
+   ]
+  },
+  {
+   "file": "spectrum_5_C1s_Scan_3.json",
+   "name": "C1s Scan_3",
+   "cc": -4.654999999999973,
+   "npts": 191,
+   "chiRed": 2.0506939731782303,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.646,
+     "amp": 49464.1,
+     "rsf": "C 1s",
+     "glMix": 44.48839548822604,
+     "asymmetry": 0.10000000000013104
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.775,
+     "fwhm": 2.621,
+     "amp": 8182.1,
+     "rsf": "C 1s",
+     "glMix": 3.3815975585236666e-25
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.638,
+     "fwhm": 1.332,
+     "amp": 747.2,
+     "rsf": "C 1s",
+     "glMix": 2.1113843768439295e-20
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.774,
+     "fwhm": 2.668,
+     "amp": 1290.1,
+     "rsf": "C 1s",
+     "glMix": 1.640183308866461e-22
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.912,
+     "fwhm": 4.25,
+     "amp": 1657.6,
+     "rsf": "K 2p",
+     "glMix": 4.165538167148504e-15
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.082,
+     "fwhm": 0.863,
+     "amp": 4031.7,
+     "rsf": "C 1s",
+     "glMix": 2.0512654748511145e-23
+    }
+   ]
+  },
+  {
+   "file": "spectrum_6_C1s_Scan_4.json",
+   "name": "C1s Scan_4",
+   "cc": -4.699999999999989,
+   "npts": 191,
+   "chiRed": 1.6983112507759401,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.637,
+     "amp": 82284.4,
+     "rsf": "C 1s",
+     "glMix": 31.606354853718287,
+     "asymmetry": 0.11603288454552267
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.82,
+     "fwhm": 2.193,
+     "amp": 13024.7,
+     "rsf": "C 1s",
+     "glMix": 7.197592601090229e-12
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.679,
+     "fwhm": 1.309,
+     "amp": 1652.3,
+     "rsf": "C 1s",
+     "glMix": 5.76356353653701e-19
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.37,
+     "fwhm": 3.595,
+     "amp": 2102.4,
+     "rsf": "C 1s",
+     "glMix": 4.308400313827759e-22
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.109,
+     "fwhm": 4.255,
+     "amp": 2469.1,
+     "rsf": "K 2p",
+     "glMix": 26.812393482829616
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.82,
+     "fwhm": 0.476,
+     "amp": 1805.9,
+     "rsf": "C 1s",
+     "glMix": 27.135675521069167
+    }
+   ]
+  },
+  {
+   "file": "spectrum_7_C1s_Scan_5.json",
+   "name": "C1s Scan_5",
+   "cc": -4.701000000000022,
+   "npts": 191,
+   "chiRed": 1.504680690829523,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.624,
+     "amp": 61864.3,
+     "rsf": "C 1s",
+     "glMix": 31.412764736205045,
+     "asymmetry": 0.10054565841363201
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.821,
+     "fwhm": 1.593,
+     "amp": 12193.2,
+     "rsf": "C 1s",
+     "glMix": 2.726526441348831e-12
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.243,
+     "fwhm": 1.355,
+     "amp": 3124.5,
+     "rsf": "C 1s",
+     "glMix": 11.04952139936714
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.321,
+     "fwhm": 3.206,
+     "amp": 2040.5,
+     "rsf": "C 1s",
+     "glMix": 9.370202198787024e-19
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.966,
+     "fwhm": 4.248,
+     "amp": 2249.6,
+     "rsf": "K 2p",
+     "glMix": 80.05229405606255
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.821,
+     "fwhm": 1.664,
+     "amp": 5031.0,
+     "rsf": "C 1s",
+     "glMix": 3.613709075411224
+    }
+   ]
+  },
+  {
+   "file": "spectrum_8_U4f_Scan.json",
+   "name": "U4f Scan",
+   "cc": -4.732000000000028,
+   "npts": 351,
+   "chiRed": 1.3491848715247527,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.679,
+     "fwhm": 3.063,
+     "amp": 16743.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.2538830231171603,
+     "caBeta": 3.561697521889929,
+     "caM": 7.452503588846346
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.579,
+     "fwhm": 3.063,
+     "amp": 10882.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.2538830231171603,
+     "caBeta": 3.561697521889929,
+     "caM": 7.452503588846346,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.985,
+     "fwhm": 2.431,
+     "amp": 1992.2,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.795,
+     "fwhm": 2.44,
+     "amp": 2327.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_9_U4f_Scan_0.json",
+   "name": "U4f Scan_0",
+   "cc": -4.7029999999999745,
+   "npts": 351,
+   "chiRed": 1.7290829725288717,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.593,
+     "fwhm": 3.287,
+     "amp": 15146.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.3171232654490328,
+     "caBeta": 4.128559305976932,
+     "caM": 8.940808754218997
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.493,
+     "fwhm": 3.287,
+     "amp": 9845.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.3171232654490328,
+     "caBeta": 4.128559305976932,
+     "caM": 8.940808754218997,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.89,
+     "fwhm": 2.741,
+     "amp": 1414.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.667,
+     "fwhm": 2.617,
+     "amp": 2102.0,
+     "rsf": "U 4f"
+    }
+   ]
+  }
+ ],
+ "UCl4_on_graphite.proj.zip": [
+  {
+   "file": "spectrum_10_C1s_Scan.json",
+   "name": "C1s Scan",
+   "cc": -4.738999999999976,
+   "npts": 191,
+   "chiRed": 1.807128165651509,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.664,
+     "amp": 59518.4,
+     "rsf": "C 1s",
+     "glMix": 45.770876882152436,
+     "asymmetry": 0.1000000000061201
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.759,
+     "fwhm": 2.528,
+     "amp": 7497.9,
+     "rsf": "C 1s",
+     "glMix": 4.327547124122272e-19
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.413,
+     "fwhm": 1.562,
+     "amp": 1139.7,
+     "rsf": "C 1s",
+     "glMix": 6.569939740827549e-19
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.585,
+     "fwhm": 2.788,
+     "amp": 1421.0,
+     "rsf": "C 1s",
+     "glMix": 5.274660161032311e-20
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.908,
+     "fwhm": 4.204,
+     "amp": 1751.1,
+     "rsf": "K 2p",
+     "glMix": 1.337519211558646e-20
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.288,
+     "fwhm": 0.799,
+     "amp": 4997.1,
+     "rsf": "C 1s",
+     "glMix": 2.6358575986695748e-21
+    }
+   ]
+  },
+  {
+   "file": "spectrum_11_C1s_Scan_0.json",
+   "name": "C1s Scan_0",
+   "cc": -4.7169999999999845,
+   "npts": 191,
+   "chiRed": 1.8827139440414913,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.678,
+     "amp": 45957.4,
+     "rsf": "C 1s",
+     "glMix": 37.94817886560431,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.837,
+     "fwhm": 2.506,
+     "amp": 5841.6,
+     "rsf": "C 1s",
+     "glMix": 1.8772906314146743e-31
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.737,
+     "fwhm": 2.301,
+     "amp": 892.0,
+     "rsf": "C 1s",
+     "glMix": 4.284556042041408e-33
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.196,
+     "fwhm": 5.166,
+     "amp": 947.2,
+     "rsf": "C 1s",
+     "glMix": 9.994312634867853e-34
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.223,
+     "fwhm": 4.418,
+     "amp": 1031.6,
+     "rsf": "K 2p",
+     "glMix": 5.771190014673669
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.261,
+     "fwhm": 0.925,
+     "amp": 4718.3,
+     "rsf": "C 1s",
+     "glMix": 1.7681427236483944e-37
+    }
+   ]
+  },
+  {
+   "file": "spectrum_12_C1s_Scan_1.json",
+   "name": "C1s Scan_1",
+   "cc": -4.77800000000002,
+   "npts": 191,
+   "chiRed": 1.3981056116528339,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.669,
+     "amp": 52821.5,
+     "rsf": "C 1s",
+     "glMix": 44.09858630690638,
+     "asymmetry": 0.10000000000000002,
+     "ccRef": true
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.798,
+     "fwhm": 2.667,
+     "amp": 6073.3,
+     "rsf": "C 1s",
+     "glMix": 7.903999699723524e-30
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.698,
+     "fwhm": 1.915,
+     "amp": 362.0,
+     "rsf": "C 1s",
+     "glMix": 2.039871195009512e-30
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.298,
+     "fwhm": 3.524,
+     "amp": 882.4,
+     "rsf": "C 1s",
+     "glMix": 1.0356094757822308e-27
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.16,
+     "fwhm": 2.051,
+     "amp": 847.1,
+     "rsf": "K 2p",
+     "glMix": 1.114470046738507e-31
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.254,
+     "fwhm": 0.9,
+     "amp": 4137.6,
+     "rsf": "C 1s",
+     "glMix": 1.3852368190969813e-32
+    }
+   ]
+  },
+  {
+   "file": "spectrum_13_C1s_Scan_2.json",
+   "name": "C1s Scan_2",
+   "cc": -4.740000000000009,
+   "npts": 191,
+   "chiRed": 1.885110861803108,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.665,
+     "amp": 48971.5,
+     "rsf": "C 1s",
+     "glMix": 38.86038840649954,
+     "asymmetry": 0.10000000000000002,
+     "ccRef": true
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.76,
+     "fwhm": 2.6,
+     "amp": 7168.5,
+     "rsf": "C 1s",
+     "glMix": 1.0748398283197998e-33
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.66,
+     "fwhm": 1.28,
+     "amp": 407.8,
+     "rsf": "C 1s",
+     "glMix": 1.8829244774249955e-29
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.011,
+     "fwhm": 2.703,
+     "amp": 916.8,
+     "rsf": "C 1s",
+     "glMix": 2.4599040637703175e-30
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.867,
+     "fwhm": 2.252,
+     "amp": 866.7,
+     "rsf": "K 2p",
+     "glMix": 1.03390362966509e-34
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.288,
+     "fwhm": 0.801,
+     "amp": 5460.4,
+     "rsf": "C 1s",
+     "glMix": 3.0789047306004425e-26
+    }
+   ]
+  },
+  {
+   "file": "spectrum_14_C1s_Scan_3.json",
+   "name": "C1s Scan_3",
+   "cc": -4.713999999999999,
+   "npts": 191,
+   "chiRed": 1.6493912192264506,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.673,
+     "amp": 41693.4,
+     "rsf": "C 1s",
+     "glMix": 40.43433248674273,
+     "asymmetry": 0.10000000000000002,
+     "ccRef": true
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.834,
+     "fwhm": 2.651,
+     "amp": 5746.6,
+     "rsf": "C 1s",
+     "glMix": 1.8906709947163843e-18
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.734,
+     "fwhm": 1.07,
+     "amp": 325.6,
+     "rsf": "C 1s",
+     "glMix": 1.4384997628440162e-17
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.154,
+     "fwhm": 2.656,
+     "amp": 772.9,
+     "rsf": "C 1s",
+     "glMix": 1.3096024846727414e-17
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.88,
+     "fwhm": 2.259,
+     "amp": 720.6,
+     "rsf": "K 2p",
+     "glMix": 1.9467938926203053e-18
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.215,
+     "fwhm": 0.879,
+     "amp": 4496.3,
+     "rsf": "C 1s",
+     "glMix": 9.871835135330521e-18
+    }
+   ]
+  },
+  {
+   "file": "spectrum_15_C1s_Scan_4.json",
+   "name": "C1s Scan_4",
+   "cc": -4.795999999999992,
+   "npts": 191,
+   "chiRed": 1.3958721072603708,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.681,
+     "amp": 36597.8,
+     "rsf": "C 1s",
+     "glMix": 47.19171956649281,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.816,
+     "fwhm": 2.829,
+     "amp": 6112.8,
+     "rsf": "C 1s",
+     "glMix": 1.2784620116216518e-23
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.649,
+     "fwhm": 1.61,
+     "amp": 608.1,
+     "rsf": "C 1s",
+     "glMix": 1.5228263961709815e-19
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.164,
+     "fwhm": 2.813,
+     "amp": 850.1,
+     "rsf": "C 1s",
+     "glMix": 1.0165612081392737e-17
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.889,
+     "fwhm": 2.464,
+     "amp": 812.5,
+     "rsf": "K 2p",
+     "glMix": 8.383049436037503e-22
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.223,
+     "fwhm": 0.803,
+     "amp": 7357.1,
+     "rsf": "C 1s",
+     "glMix": 1.1456406733197765e-17
+    },
+    {
+     "id": 13,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.25,
+     "fwhm": 0.5,
+     "amp": 103.4,
+     "rsf": "C 1s",
+     "glMix": 4.489200850982169e-16
+    }
+   ]
+  },
+  {
+   "file": "spectrum_16_C1s_Scan_5.json",
+   "name": "C1s Scan_5",
+   "cc": -4.713999999999999,
+   "npts": 191,
+   "chiRed": 1.798446893440109,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.658,
+     "amp": 58347.1,
+     "rsf": "C 1s",
+     "glMix": 41.87748911084934,
+     "asymmetry": 0.10000000000000002
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.834,
+     "fwhm": 2.552,
+     "amp": 6425.7,
+     "rsf": "C 1s",
+     "glMix": 3.462529561878706e-36
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.734,
+     "fwhm": 1.827,
+     "amp": 479.4,
+     "rsf": "C 1s",
+     "glMix": 4.070465308816542e-31
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.334,
+     "fwhm": 4.096,
+     "amp": 842.4,
+     "rsf": "C 1s",
+     "glMix": 2.046883992115422e-31
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.223,
+     "fwhm": 1.921,
+     "amp": 802.0,
+     "rsf": "K 2p",
+     "glMix": 1.3832172593524296e-32
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.29,
+     "fwhm": 0.901,
+     "amp": 4510.0,
+     "rsf": "C 1s",
+     "glMix": 5.667580263247356e-31
+    }
+   ]
+  },
+  {
+   "file": "spectrum_17_C1s_Scan_6.json",
+   "name": "C1s Scan_6",
+   "cc": -4.742000000000019,
+   "npts": 191,
+   "chiRed": 1.8128903007374455,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.656,
+     "amp": 51569.0,
+     "rsf": "C 1s",
+     "glMix": 27.152260987783123,
+     "asymmetry": 0.10000000000010953
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.762,
+     "fwhm": 2.491,
+     "amp": 8634.8,
+     "rsf": "C 1s",
+     "glMix": 7.2756874373734206e-12
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.596,
+     "fwhm": 1.209,
+     "amp": 616.7,
+     "rsf": "C 1s",
+     "glMix": 2.274422065135228e-11
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.796,
+     "fwhm": 2.887,
+     "amp": 1252.2,
+     "rsf": "C 1s",
+     "glMix": 6.616393232552366e-12
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.007,
+     "fwhm": 2.533,
+     "amp": 1107.8,
+     "rsf": "K 2p",
+     "glMix": 3.841895163616789e-11
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.305,
+     "fwhm": 0.906,
+     "amp": 3434.9,
+     "rsf": "C 1s",
+     "glMix": 1.2054451332372516e-14
+    }
+   ]
+  },
+  {
+   "file": "spectrum_18_C1s_Scan_7.json",
+   "name": "C1s Scan_7",
+   "cc": -4.689999999999998,
+   "npts": 191,
+   "chiRed": 2.3216420194440293,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.659,
+     "amp": 54450.8,
+     "rsf": "C 1s",
+     "glMix": 33.085506616448804,
+     "asymmetry": 0.10000000000026209,
+     "ccRef": true
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.81,
+     "fwhm": 2.421,
+     "amp": 8644.5,
+     "rsf": "C 1s",
+     "glMix": 2.197419911526322e-22
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.71,
+     "fwhm": 1.346,
+     "amp": 826.8,
+     "rsf": "C 1s",
+     "glMix": 4.740949323619048e-22
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 287.974,
+     "fwhm": 2.65,
+     "amp": 1190.3,
+     "rsf": "C 1s",
+     "glMix": 1.8534265066356928e-25
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.904,
+     "fwhm": 2.565,
+     "amp": 1164.4,
+     "rsf": "K 2p",
+     "glMix": 2.878188189333813e-23
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.203,
+     "fwhm": 0.866,
+     "amp": 3496.9,
+     "rsf": "C 1s",
+     "glMix": 7.364981918872615e-11
+    }
+   ]
+  },
+  {
+   "file": "spectrum_19_C1s_Scan_8.json",
+   "name": "C1s Scan_8",
+   "cc": -4.725999999999999,
+   "npts": 191,
+   "chiRed": 1.2046857566409657,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 7,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5,
+     "fwhm": 0.667,
+     "amp": 68687.5,
+     "rsf": "C 1s",
+     "glMix": 43.14168441512017,
+     "asymmetry": 0.10000000000011433,
+     "ccRef": true
+    },
+    {
+     "id": 8,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 284.846,
+     "fwhm": 2.436,
+     "amp": 6769.1,
+     "rsf": "C 1s",
+     "glMix": 1.1383079709115615e-11
+    },
+    {
+     "id": 9,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.62,
+     "fwhm": 1.92,
+     "amp": 980.3,
+     "rsf": "C 1s",
+     "glMix": 1.1659108413500729e-11
+    },
+    {
+     "id": 10,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.346,
+     "fwhm": 3.787,
+     "amp": 967.1,
+     "rsf": "C 1s",
+     "glMix": 1.1660341019604075e-11
+    },
+    {
+     "id": 11,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 291.217,
+     "fwhm": 2.106,
+     "amp": 1039.6,
+     "rsf": "K 2p",
+     "glMix": 1.1593748926698842e-11
+    },
+    {
+     "id": 12,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 283.46,
+     "fwhm": 1.114,
+     "amp": 3096.5,
+     "rsf": "C 1s",
+     "glMix": 1.139623110226758e-11
+    }
+   ]
+  },
+  {
+   "file": "spectrum_20_U4f_Scan.json",
+   "name": "U4f Scan",
+   "cc": -4.738999999999976,
+   "npts": 351,
+   "chiRed": 2.1308392184026137,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.54,
+     "fwhm": 2.442,
+     "amp": 20549.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.0748973822768704,
+     "caBeta": 2.542365252212551,
+     "caM": 8.199206946287239
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.44,
+     "fwhm": 2.442,
+     "amp": 13357.5,
+     "rsf": "U 4f",
+     "caAlpha": 1.0748973822768704,
+     "caBeta": 2.542365252212551,
+     "caM": 8.199206946287239,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.97,
+     "fwhm": 2.389,
+     "amp": 1989.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.924,
+     "fwhm": 2.089,
+     "amp": 2628.9,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_21_U4f_Scan_0.json",
+   "name": "U4f Scan_0",
+   "cc": -4.7169999999999845,
+   "npts": 351,
+   "chiRed": 1.8293447802635068,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.551,
+     "fwhm": 2.75,
+     "amp": 13750.8,
+     "rsf": "U 4f",
+     "caAlpha": 0.9895081449166863,
+     "caBeta": 3.0469495049705437,
+     "caM": 9.859849427386386
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.451,
+     "fwhm": 2.75,
+     "amp": 8938.0,
+     "rsf": "U 4f",
+     "caAlpha": 0.9895081449166863,
+     "caBeta": 3.0469495049705437,
+     "caM": 9.859849427386386,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.016,
+     "fwhm": 2.5,
+     "amp": 1169.9,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.952,
+     "fwhm": 2.116,
+     "amp": 1729.5,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_22_U4f_Scan_1.json",
+   "name": "U4f Scan_1",
+   "cc": -4.77800000000002,
+   "npts": 351,
+   "chiRed": 2.2441865302874144,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.451,
+     "fwhm": 2.404,
+     "amp": 23802.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.1595451277516247,
+     "caBeta": 2.4632885741445123,
+     "caM": 8.026279793961638
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.351,
+     "fwhm": 2.404,
+     "amp": 15471.9,
+     "rsf": "U 4f",
+     "caAlpha": 1.1595451277516247,
+     "caBeta": 2.4632885741445123,
+     "caM": 8.026279793961638,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.842,
+     "fwhm": 2.454,
+     "amp": 2323.1,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.784,
+     "fwhm": 2.122,
+     "amp": 3109.5,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_23_U4f_Scan_2.json",
+   "name": "U4f Scan_2",
+   "cc": -4.740000000000009,
+   "npts": 351,
+   "chiRed": 1.8539619290934002,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.647,
+     "fwhm": 2.857,
+     "amp": 18020.3,
+     "rsf": "U 4f",
+     "caAlpha": 1.2260970386103047,
+     "caBeta": 3.0248922222132544,
+     "caM": 9.359471871164365
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.547,
+     "fwhm": 2.857,
+     "amp": 11713.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.2260970386103047,
+     "caBeta": 3.0248922222132544,
+     "caM": 9.359471871164365,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.071,
+     "fwhm": 2.716,
+     "amp": 1976.9,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.031,
+     "fwhm": 2.409,
+     "amp": 2444.3,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_24_U4f_Scan_3.json",
+   "name": "U4f Scan_3",
+   "cc": -4.713999999999999,
+   "npts": 351,
+   "chiRed": 1.4161447992878806,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.65,
+     "fwhm": 3.03,
+     "amp": 15575.6,
+     "rsf": "U 4f",
+     "caAlpha": 1.2809787779050992,
+     "caBeta": 3.0580698767807277,
+     "caM": 8.001524130457923
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.55,
+     "fwhm": 3.03,
+     "amp": 10124.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.2809787779050992,
+     "caBeta": 3.0580698767807277,
+     "caM": 8.001524130457923,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.02,
+     "fwhm": 2.667,
+     "amp": 1609.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.987,
+     "fwhm": 2.344,
+     "amp": 2156.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_25_U4f_Scan_4.json",
+   "name": "U4f Scan_4",
+   "cc": -4.795999999999992,
+   "npts": 351,
+   "chiRed": 1.5042105297524297,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.61,
+     "fwhm": 3.967,
+     "amp": 12817.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.2843190815217238,
+     "caBeta": 4.492097128762064,
+     "caM": 5.5825368027045545
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.51,
+     "fwhm": 3.967,
+     "amp": 8331.1,
+     "rsf": "U 4f",
+     "caAlpha": 1.2843190815217238,
+     "caBeta": 4.492097128762064,
+     "caM": 5.5825368027045545,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.225,
+     "fwhm": 2.689,
+     "amp": 1193.6,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.044,
+     "fwhm": 2.403,
+     "amp": 1616.2,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_26_U4f_Scan_5.json",
+   "name": "U4f Scan_5",
+   "cc": -4.713999999999999,
+   "npts": 351,
+   "chiRed": 1.995174107286073,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.532,
+     "fwhm": 2.72,
+     "amp": 22925.0,
+     "rsf": "U 4f",
+     "caAlpha": 1.4065478131885865,
+     "caBeta": 2.8183912214809546,
+     "caM": 7.109481852560603
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.432,
+     "fwhm": 2.72,
+     "amp": 14901.2,
+     "rsf": "U 4f",
+     "caAlpha": 1.4065478131885865,
+     "caBeta": 2.8183912214809546,
+     "caM": 7.109481852560603,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.844,
+     "fwhm": 2.23,
+     "amp": 2268.7,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.803,
+     "fwhm": 2.072,
+     "amp": 2973.6,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_27_U4f_Scan_6.json",
+   "name": "U4f Scan_6",
+   "cc": -4.742000000000019,
+   "npts": 351,
+   "chiRed": 1.8726816368148664,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.612,
+     "fwhm": 3.007,
+     "amp": 18982.7,
+     "rsf": "U 4f",
+     "caAlpha": 1.3369199514202141,
+     "caBeta": 3.17736171842795,
+     "caM": 7.739886734617352
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.512,
+     "fwhm": 3.007,
+     "amp": 12338.8,
+     "rsf": "U 4f",
+     "caAlpha": 1.3369199514202141,
+     "caBeta": 3.17736171842795,
+     "caM": 7.739886734617352,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.016,
+     "fwhm": 2.542,
+     "amp": 1880.3,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.952,
+     "fwhm": 2.18,
+     "amp": 2565.3,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_28_U4f_Scan_7.json",
+   "name": "U4f Scan_7",
+   "cc": -4.689999999999998,
+   "npts": 351,
+   "chiRed": 1.7576357831118468,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.733,
+     "fwhm": 3.063,
+     "amp": 17911.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.1407113554308106,
+     "caBeta": 3.2012806857533613,
+     "caM": 7.93892273598672
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.633,
+     "fwhm": 3.063,
+     "amp": 11642.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.1407113554308106,
+     "caBeta": 3.2012806857533613,
+     "caM": 7.93892273598672,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 397.273,
+     "fwhm": 2.643,
+     "amp": 1730.5,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 386.179,
+     "fwhm": 2.32,
+     "amp": 2308.0,
+     "rsf": "U 4f"
+    }
+   ]
+  },
+  {
+   "file": "spectrum_29_U4f_Scan_8.json",
+   "name": "U4f Scan_8",
+   "cc": -4.725999999999999,
+   "npts": 351,
+   "chiRed": 2.964080455503376,
+   "bg": null,
+   "peaks": [
+    {
+     "id": 2,
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "center": 379.514,
+     "fwhm": 2.169,
+     "amp": 24577.6,
+     "rsf": "U 4f",
+     "caAlpha": 1.263170795900341,
+     "caBeta": 2.2983495675429544,
+     "caM": 9.160767536954989
+    },
+    {
+     "id": 3,
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "center": 390.414,
+     "fwhm": 2.169,
+     "amp": 15975.4,
+     "rsf": "U 4f",
+     "caAlpha": 1.263170795900341,
+     "caBeta": 2.2983495675429544,
+     "caM": 9.160767536954989,
+     "linked": 2,
+     "linkOffset": 10.9,
+     "linkRatio": 0.65
+    },
+    {
+     "id": 4,
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "center": 396.798,
+     "fwhm": 1.987,
+     "amp": 2370.4,
+     "rsf": "N 1s"
+    },
+    {
+     "id": 5,
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "center": 385.786,
+     "fwhm": 1.974,
+     "amp": 2965.1,
+     "rsf": "U 4f"
+    }
+   ]
+  }
+ ]
+}

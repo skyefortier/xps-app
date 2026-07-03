@@ -1,0 +1,354 @@
+{
+  "version": 1,
+  "timestamp": "2026-04-27T04:32:03.507Z",
+  "peaks": [
+    {
+      "id": 2,
+      "color": "#3ddc84",
+      "name": "U 4f7/2",
+      "center": 379.56056874067036,
+      "fwhm": 2.9148448515505447,
+      "amplitude": 12667.308159129028,
+      "shape": "LACX",
+      "glMix": 40,
+      "asymmetry": 0.26,
+      "dsAlpha": 0.1,
+      "dsGamma": 0.01,
+      "dsGaussSigma": 0.3,
+      "laAlpha": 0.013611414548120234,
+      "laBeta": 0.05000000000000001,
+      "laM": 1.7644148472882815,
+      "linked": null,
+      "linkOffset": 10.9,
+      "linkRatio": 0.5,
+      "visible": true,
+      "fixCenter": false,
+      "fixFwhm": false,
+      "fixAmplitude": false,
+      "fixGlMix": false,
+      "fixAsymmetry": false,
+      "fixDsAlpha": false,
+      "fixDsGamma": false,
+      "fixDsGaussSigma": false,
+      "fixLaAlpha": false,
+      "fixLaBeta": false,
+      "fixLaM": false,
+      "_backendParams": {
+        "alpha": {
+          "expr": null,
+          "max": 5,
+          "min": 0.1,
+          "stderr": null,
+          "value": 1.1611871377454783,
+          "vary": true
+        },
+        "amplitude": {
+          "expr": null,
+          "max": null,
+          "min": 0,
+          "stderr": null,
+          "value": 12667.308159129028,
+          "vary": true
+        },
+        "area": {
+          "stderr": null,
+          "value": -36455.81134460658
+        },
+        "beta": {
+          "expr": null,
+          "max": 5,
+          "min": 0.1,
+          "stderr": null,
+          "value": 3.380366008224396,
+          "vary": true
+        },
+        "center": {
+          "expr": null,
+          "max": 382.3203768765313,
+          "min": 378.3203768765313,
+          "stderr": null,
+          "value": 379.81356874067035,
+          "vary": true
+        },
+        "fwhm": {
+          "expr": null,
+          "max": 15,
+          "min": 0.1,
+          "stderr": null,
+          "value": 2.9148448515505447,
+          "vary": true
+        },
+        "m": {
+          "expr": null,
+          "max": 499,
+          "min": 0,
+          "stderr": null,
+          "value": 9.333373606105475,
+          "vary": true
+        }
+      },
+      "_rsfKey": "U 4f",
+      "_rsf": 9.674,
+      "isChargeReference": false,
+      "caAlpha": 1.1611871377454783,
+      "caBeta": 3.380366008224396,
+      "caM": 9.333373606105475
+    },
+    {
+      "id": 3,
+      "color": "#3ddc84",
+      "name": "U 4f5/2",
+      "center": 390.4605687406702,
+      "fwhm": 2.9148448515505447,
+      "amplitude": 8233.750303433868,
+      "shape": "LACX",
+      "glMix": 40,
+      "asymmetry": 0.26,
+      "dsAlpha": 0.1,
+      "dsGamma": 0.01,
+      "dsGaussSigma": 0.3,
+      "laAlpha": 0.013611414548120234,
+      "laBeta": 0.05000000000000001,
+      "laM": 1.7644148472882815,
+      "linked": 2,
+      "linkOffset": 10.9,
+      "linkRatio": 0.65,
+      "visible": true,
+      "fixCenter": false,
+      "fixFwhm": false,
+      "fixAmplitude": false,
+      "fixGlMix": false,
+      "fixAsymmetry": false,
+      "fixDsAlpha": false,
+      "fixDsGamma": false,
+      "fixDsGaussSigma": false,
+      "fixLaAlpha": false,
+      "fixLaBeta": false,
+      "fixLaM": false,
+      "_backendParams": {
+        "alpha": {
+          "expr": "p2_alpha",
+          "max": null,
+          "min": null,
+          "stderr": null,
+          "value": 1.1611871377454783,
+          "vary": false
+        },
+        "amplitude": {
+          "expr": "p2_amplitude * 0.65",
+          "max": null,
+          "min": null,
+          "stderr": null,
+          "value": 8233.750303433868,
+          "vary": false
+        },
+        "area": {
+          "stderr": null,
+          "value": -23450.01839031461
+        },
+        "beta": {
+          "expr": "p2_beta",
+          "max": null,
+          "min": null,
+          "stderr": null,
+          "value": 3.380366008224396,
+          "vary": false
+        },
+        "center": {
+          "expr": "p2_center + 10.9",
+          "max": null,
+          "min": null,
+          "stderr": null,
+          "value": 390.7135687406703,
+          "vary": false
+        },
+        "fwhm": {
+          "expr": "p2_fwhm",
+          "max": null,
+          "min": null,
+          "stderr": null,
+          "value": 2.9148448515505447,
+          "vary": false
+        },
+        "m": {
+          "expr": "p2_m",
+          "max": null,
+          "min": null,
+          "stderr": null,
+          "value": 9.333373606105475,
+          "vary": false
+        }
+      },
+      "_rsfKey": "U 4f",
+      "_rsf": 9.674,
+      "isChargeReference": false,
+      "caAlpha": 1.1611871377454783,
+      "caBeta": 3.380366008224396,
+      "caM": 9.333373606105475
+    },
+    {
+      "id": 4,
+      "color": "#ffbb44",
+      "name": "Satellite 2",
+      "center": 396.8477762268063,
+      "fwhm": 2.662871199839065,
+      "amplitude": 1789.1211261723215,
+      "shape": "Voigt",
+      "glMix": 38.11696986281542,
+      "asymmetry": 0,
+      "dsAlpha": 0.1,
+      "dsGamma": 0.01,
+      "dsGaussSigma": 0.3,
+      "laAlpha": 0.1,
+      "laBeta": 0.3,
+      "laM": 0.4,
+      "linked": null,
+      "linkOffset": 10.9,
+      "linkRatio": 0.5,
+      "visible": true,
+      "fixCenter": false,
+      "fixFwhm": false,
+      "fixAmplitude": false,
+      "fixGlMix": false,
+      "fixAsymmetry": false,
+      "fixDsAlpha": false,
+      "fixDsGamma": false,
+      "fixDsGaussSigma": false,
+      "fixLaAlpha": false,
+      "fixLaBeta": false,
+      "fixLaM": false,
+      "_backendParams": {
+        "amplitude": {
+          "expr": null,
+          "max": null,
+          "min": 0,
+          "stderr": null,
+          "value": 1789.1211261723215,
+          "vary": true
+        },
+        "area": {
+          "stderr": null,
+          "value": -5798.273759310167
+        },
+        "center": {
+          "expr": null,
+          "max": 399.65914631079846,
+          "min": 395.65914631079846,
+          "stderr": null,
+          "value": 397.1007762268064,
+          "vary": true
+        },
+        "fwhm": {
+          "expr": null,
+          "max": 15,
+          "min": 0.1,
+          "stderr": null,
+          "value": 2.662871199839065,
+          "vary": true
+        },
+        "gl_ratio": {
+          "expr": null,
+          "max": 1,
+          "min": 0,
+          "stderr": null,
+          "value": 0.38116969862815414,
+          "vary": true
+        }
+      },
+      "_rsfKey": "N 1s",
+      "_rsf": 1,
+      "isChargeReference": false
+    },
+    {
+      "id": 5,
+      "color": "#b48eff",
+      "name": "Satellite 1",
+      "center": 385.6749324479334,
+      "fwhm": 2.901547676381956,
+      "amplitude": 2036.057141928978,
+      "shape": "Voigt",
+      "glMix": 99.99999999999999,
+      "asymmetry": 0,
+      "dsAlpha": 0.1,
+      "dsGamma": 0.01,
+      "dsGaussSigma": 0.3,
+      "laAlpha": 0.1,
+      "laBeta": 0.3,
+      "laM": 0.4,
+      "linked": null,
+      "linkOffset": 10.9,
+      "linkRatio": 0.5,
+      "visible": true,
+      "fixCenter": false,
+      "fixFwhm": false,
+      "fixAmplitude": false,
+      "fixGlMix": false,
+      "fixAsymmetry": false,
+      "fixDsAlpha": false,
+      "fixDsGamma": false,
+      "fixDsGaussSigma": false,
+      "fixLaAlpha": false,
+      "fixLaBeta": false,
+      "fixLaM": false,
+      "_backendParams": {
+        "amplitude": {
+          "expr": null,
+          "max": null,
+          "min": 0,
+          "stderr": null,
+          "value": 2036.057141928978,
+          "vary": true
+        },
+        "area": {
+          "stderr": null,
+          "value": -8782.444854327545
+        },
+        "center": {
+          "expr": null,
+          "max": 388.3881627749768,
+          "min": 384.3881627749768,
+          "stderr": null,
+          "value": 385.92793244793336,
+          "vary": true
+        },
+        "fwhm": {
+          "expr": null,
+          "max": 15,
+          "min": 0.1,
+          "stderr": null,
+          "value": 2.901547676381956,
+          "vary": true
+        },
+        "gl_ratio": {
+          "expr": null,
+          "max": 1,
+          "min": 0,
+          "stderr": null,
+          "value": 0.9999999999999999,
+          "vary": true
+        }
+      },
+      "_rsfKey": "U 4f",
+      "_rsf": 9.674,
+      "isChargeReference": false
+    }
+  ],
+  "nextId": 10,
+  "chargeCorrection": {
+    "method": "c1s",
+    "observedBE": "279.833",
+    "shift": -4.666999999999973
+  },
+  "background": {
+    "type": "smart",
+    "start": "405.1",
+    "end": "370.1",
+    "shirleyIter": "50"
+  },
+  "roi": {
+    "min": "370.1",
+    "max": "405.1"
+  },
+  "notes": "",
+  "manualAnchors": []
+}
