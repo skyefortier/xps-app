@@ -1,0 +1,9 @@
+Adversarial review of the Bayesian exchange-Monte-Carlo PeakFitMethod, commit 86663d8 on branch feature-autofit-stage2 (git show 86663d8; context: git diff main...HEAD, spec docs/autofit/peak-fit-methods-decision-matrix.md entry 3 and docs/autofit/PROGRESS.md). File: autofit/methods/bayesian_exchange_mc.py; tests: tests/autofit/test_bayesian_method.py.
+
+Verify the MATH adversarially:
+1. sigma-marginalized likelihood: is -(n/2)·log RSS the correct Jeffreys-prior marginal (up to theta-independent constants), and is the stepping-stone free energy still a valid log-evidence estimator when the 'energy' is this marginal log-likelihood tempered by beta (i.e. p_beta ∝ RSS^(-beta·n/2))? Check the beta=0 replica normalization (uniform prior volume) and whether the reported F omits theta-independent constants that CANCEL in model comparison or ones that DO NOT cancel (e.g. differing prior volumes between candidates with different parameter counts — this changes ΔF!).
+2. Exchange acceptance formula sign; adaptation-freeze detailed balance claim; whether per-coordinate Metropolis with out-of-bounds auto-reject preserves the correct stationary law under the uniform prior.
+3. Stepping-stone estimator bias with only ~250 post-burn samples per rung and correlated draws; is the ESS warning sufficient or does F itself need an error bar?
+4. posterior_ci honesty: with random-walk chains, are the reported CIs defensible even WITH the ESS warning, or should the payload downgrade harder?
+5. Tests: can test_selects_true_peak_count pass while the free-energy math is wrong (e.g. constants that don't cancel)? Suggest a sharper analytic test (e.g. conjugate/linear model with known evidence).
+Findings with file:line, severity, failure scenario, fix. Do not modify anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)' for proceeding to the element-physics database stage.

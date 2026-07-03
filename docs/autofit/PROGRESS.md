@@ -266,6 +266,29 @@ Findings + dispositions (all fixed same-session):
 5. **MINOR** satellite fallback windows uncited — fixed: now DERIVED from
    the cited/flagged constants.
 
+### Cross-method real-data demo (2026-07-03) — Bayesian vs IC on Cl 2p
+Ran `bayesian_exchange_mc` on the real `Cl2p Scan` anchor (12 replicas,
+2000 sweeps, 33 s): winner `Cl0r_doublet_relaxed` by **ΔF = 47.8**
+(posterior weight ~1.0), with the ratio posterior PILED AGAINST the 0.55
+prior bound (median 0.5494, CI68 [0.5485, 0.5498]) and the ESS honesty
+warning firing (min ESS 17.7 — boundary-piled chain, exactly the intended
+behavior). **Two independent treatments — IC decisive-override and Bayesian
+free energy — reach the same physics conclusion**: the Cl 2p intensity
+ratio wants > 0.55 on this data (discrepancy #7). Doublet params agree
+across methods (2p3/2 197.90/197.93, fwhm 1.63/1.67, splitting 1.595/1.610).
+σ̂ = 81 counts — consistent with unmodeled structure inflating the
+effective noise. (Bayesian math still awaits its Codex review, below.)
+
+### Bayesian method review (2026-07-03) — **CODEX HUNG (2nd hang), logged**
+`codex exec` hung again (0.0% CPU, ~0.2 s total, no output — same signature
+as the Stage-2 re-review hang). Killed per run rails. **Monday action:**
+re-run `docs/autofit/codex/stage5_bayesian_review_prompt.txt` — it targets
+the free-energy math specifically (prior-volume cancellation in ΔF,
+stepping-stone bias, CI honesty, and a suggested analytic-evidence test).
+The Bayesian method is validated ONLY against the synthetic ground-truth
+battery so far; treat its real-data outputs as unreviewed until this
+review runs.
+
 ### Cookbook re-check (2026-07-03) — **NO-GO → all findings fixed (2nd round)**
 The re-check (archived `docs/autofit/codex/stage4_cookbook_verdict2.md`)
 found 2 blockers + 3 majors + 1 minor IN MY OVERRIDE IMPLEMENTATION, all
@@ -369,8 +392,35 @@ Canonical structure across all 3 U 4f projects (UCl4-graphite, UCl4-BN, B4C-UCl4
 - NOTE the 'N 1s' `_rsfKey` on Sat2 in UCl4_on_graphite/B4C (quantification-lint
   candidates; sat2 sits ~397–398 eV so the tag may be deliberate on some).
 
-## Next actions
-1. Commit unit 0 (docs + data + inventory + this file), push with `-u`.
-2. C 1s characterization battery (Task-1): parity harness reading the inventory,
-   refitting with `run_fit` from saved peak specs, asserting reproduction within
-   tolerance.
+## Monday handoff — what to do first
+1. Read this file top to bottom; then `git log main..feature-autofit-stage2`
+   (every unit self-contained and pushed).
+2. Run the suite: `venv/bin/pytest tests/ -q` (expect ONLY the pre-existing
+   machine-tier baseline failure) and the slow gate
+   `RUN_AUTOFIT_GATE=1 venv/bin/pytest tests/autofit/test_c1s_parity_gate.py`.
+3. **Re-run the two hung Codex reviews** (codex hung twice, same
+   0-CPU/no-output signature):
+   - `docs/autofit/codex/stage2_rereview_prompt.txt` (verifies the 9
+     Stage-2 fix dispositions)
+   - `docs/autofit/codex/stage5_bayesian_review_prompt.txt` (the free-energy
+     math — the Bayesian method is synthetic-validated only)
+4. Adjudicate the **Discrepancies** section above (8 items — RSF mis-tags,
+   width conventions, Cl 2p ratio, B 1s assignments, U 4f satellite
+   physics findings).
+5. Everything marked UNVERIFIED → NIST/primary-literature verification
+   before any production exposure.
+6. Nothing merges to main or deploys until human review (run rail).
+
+## Remaining work (deliberately not attempted in this window)
+- Production `/api/analyze` + results/confidence UI (spec §0/§8: later gate).
+- Broad periodic-table fit-physics coverage: needs the NIST-archive
+  retrieval pipeline (scripts/gen_machine_tier.py pattern) — the
+  fit-physics format + no-invention tests are in place to receive it.
+- Wiring region modules to read fit-physics.json (they keep their own
+  cited constants for now; migration should follow the Codex math review).
+- Per-candidate (vs region-wide) constants provenance; role-swap detection
+  for overlapping symmetric components (B 1s); sensitivity sweep of the
+  UNVERIFIED pipeline thresholds (persistence 0.7, ΔBIC 2, absent-area 2%,
+  SNR 5×, override ΔBIC 10) on the labeled set.
+- Methods 4–6 (sparse/MAP, multivariate, max-entropy) remain stubs.
+- CI infrastructure so the required gates cannot silently skip.
