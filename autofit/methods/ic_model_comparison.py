@@ -92,19 +92,32 @@ class ICModelComparisonMethod(PeakFitMethod):
         }
         message = ""
         if result.conditional:
-            message = (
-                "CONDITIONAL result: no candidate passed plausibility cleanly; "
-                "ranking the stable-but-boundary-limited tier — winner "
-                f"{top.model.name} has constraint violations "
-                f"{top.plausibility.boundary_hits} (see analysis.candidates)"
-            )
+            if result.conditional_reason == "decisive_override":
+                message = (
+                    "CONDITIONAL result (decisive_override): clean candidates "
+                    "exist but a bound-fixed refit of a constraint-limited "
+                    f"candidate dominates them — winner {top.model.name} with "
+                    f"parameters fixed at bounds: {top.boundary_fixed_params}; "
+                    "clean alternatives retained in the ranking "
+                    "(see analysis.candidates)"
+                )
+            else:
+                message = (
+                    "CONDITIONAL result (no_clean_survivor): no candidate "
+                    "passed plausibility cleanly; ranking the stable-but-"
+                    f"boundary-limited tier — winner {top.model.name} has "
+                    f"constraint violations {top.plausibility.boundary_hits} "
+                    "(see analysis.candidates)"
+                )
         return MethodResult(
             method_id=self.id, success=True, peaks=peaks, analysis=analysis,
             confidence=confidence,
             diagnostics={
                 "winner": top.model.name,
                 "conditional": bool(result.conditional),
+                "conditional_reason": result.conditional_reason,
                 "winner_boundary_hits": list(top.plausibility.boundary_hits),
+                "winner_boundary_fixed_params": list(top.boundary_fixed_params),
                 "n_survivors": len(result.survivors),
                 "n_filtered": len(result.filtered_out),
                 "n_non_converged": len(result.non_converged),
@@ -170,6 +183,7 @@ def build_analysis_record(
             "rank": survivor_rank.get(name),
             "filter_reason": filtered_reason.get(name),
             "augmented_from": r.augmented_from,
+            "boundary_fixed_params": list(r.boundary_fixed_params),
             "absent_slots": [
                 {"role": a.role, "persistence": float(a.persistence),
                  "area_fraction": float(a.area_fraction)} for a in r.absent_slots
@@ -187,6 +201,11 @@ def build_analysis_record(
             "boundary_hits": r.plausibility.boundary_hits,
         })
 
+    non_verified = sorted({
+        f"{slug}:{e['constant']}"
+        for slug, entries in grammar.provenance.items()
+        for e in entries if e.get("status") != "VERIFIED"
+    })
     return {
         "method": "ic_model_comparison",
         "engine_version": ENGINE_VERSION,
@@ -194,6 +213,11 @@ def build_analysis_record(
         "phase_ids": list(grammar.phase_ids),
         "resolution_notes": grammar.notes,
         "conditional_tier": bool(result.conditional),
+        "conditional_reason": result.conditional_reason,
+        # Constants provenance — runtime-visible verification status of every
+        # physical constant this fit was built on (never comments-only).
+        "constants_provenance": grammar.provenance,
+        "uses_conditional_or_unverified_constants": non_verified,
         "candidates": candidates,
         "non_converged": [m.name for m, _ in result.non_converged],
         "ambiguous_pairs": [list(t) for t in result.ambiguous_pairs],

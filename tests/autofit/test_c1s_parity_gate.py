@@ -123,9 +123,16 @@ def test_c1s_parity_gate(grammar, project, name):
                     for c in res.analysis["candidates"])
     )
     if res.diagnostics["conditional"]:
-        assert res.diagnostics["winner_boundary_hits"], (
-            "conditional winner must carry its constraint violations"
-        )
+        if res.diagnostics["conditional_reason"] == "decisive_override":
+            # winner is a bound-fixed refit: constraint evidence lives in the
+            # list of parameters fixed at their bounds
+            assert res.diagnostics["winner_boundary_fixed_params"], (
+                "override winner must record its bound-fixed parameters"
+            )
+        else:
+            assert res.diagnostics["winner_boundary_hits"], (
+                "conditional winner must carry its constraint violations"
+            )
 
     # (2) graphitic main position parity
     main = next(p for p in res.peaks if p["role"] == "main_graphitic")

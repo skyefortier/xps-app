@@ -1,7 +1,7 @@
 """
 B 1s region module — the weak exemplar (spec §3.3).
 
-IMPORTANT — component-assignment conflict (PROGRESS.md discrepancy #7): the
+IMPORTANT — component-assignment conflict (PROGRESS.md discrepancy #8): the
 two expert sources SWAP the chemical labels of the two sub-oxide components
 (spec §3.3 quotes B-C 189.41 / B-B 187.39 from the 4-GTA analysis; the
 good-quality B4C-UCl4 fits label B-C 187.10–187.24 / B-B 188.12–188.77).
@@ -32,11 +32,17 @@ from . import register_region
 REGION = "B 1s"
 
 # Windows (corrected frame of the labeled exemplar) — UNVERIFIED-calibration:
-# low  : labeled 187.10–187.24  (window split from mid at 187.9)
+# low  : labeled 187.10–187.24
 # mid  : labeled 188.12–188.77
 # oxide: labeled pinned 193.00 (analyst fixed); window allows freedom
-B1S_LOW_WINDOW = (186.4, 187.9)
-B1S_MID_WINDOW = (187.9, 189.4)
+# low/mid OVERLAP deliberately (187.8–188.0): a knife-edge shared boundary
+# puts a component at the edge in both windows with tie-breaking left to
+# window ordering (Codex cookbook finding #7).  With overlap, the engine's
+# nearest-window-center rule owns the ambiguity band explicitly.  Role-swap
+# detection for symmetric overlapping components remains future work
+# (logged in PROGRESS.md).
+B1S_LOW_WINDOW = (186.4, 188.0)
+B1S_MID_WINDOW = (187.8, 189.4)
 B1S_OXIDE_WINDOW = (192.2, 193.8)
 
 # UNVERIFIED-empirical (labeled set 1.49–2.27 eV).
@@ -53,6 +59,24 @@ class B1sModule:
     def diagnostic_windows(self) -> dict[str, tuple[float, float]]:
         return {"low": B1S_LOW_WINDOW, "mid": B1S_MID_WINDOW,
                 "oxide": B1S_OXIDE_WINDOW}
+
+    def provenance(self) -> list[dict]:
+        return [
+            {"constant": "low_window_ev", "value": list(B1S_LOW_WINDOW),
+             "status": "UNVERIFIED",
+             "source": "labeled-set calibration (B4C-UCl4 exemplar); chemical "
+                       "assignment DISPUTED between expert sources "
+                       "(PROGRESS.md discrepancy #8)"},
+            {"constant": "mid_window_ev", "value": list(B1S_MID_WINDOW),
+             "status": "UNVERIFIED", "source": "same as low_window_ev"},
+            {"constant": "oxide_window_ev", "value": list(B1S_OXIDE_WINDOW),
+             "status": "UNVERIFIED",
+             "source": "labeled-set calibration (analyst-pinned 193.00)"},
+            {"constant": "fwhm_range_ev", "value": list(B1S_FWHM_RANGE),
+             "status": "UNVERIFIED", "source": "labeled-set calibration"},
+            {"constant": "background", "value": "smart_exp",
+             "status": "UNVERIFIED", "source": "expert practice for this data set"},
+        ]
 
     def build_candidates(
         self, phase: Phase, oxidation_state: Optional[str] = None

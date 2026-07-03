@@ -28,6 +28,17 @@ class RegionModule(Protocol):
     def diagnostic_windows(self) -> dict[str, tuple[float, float]]:
         ...
 
+    def provenance(self) -> list[dict]:
+        """
+        Machine-readable provenance for every physical constant the module's
+        grammar consumes: [{constant, value, status, source}], with status ∈
+        {VERIFIED, CONDITIONAL, UNVERIFIED}.  Flows into the `analysis`
+        namespace so runtime output can distinguish clean physics from fits
+        built on CONDITIONAL/UNVERIFIED constants (comments alone are
+        invisible at runtime — Codex cookbook review, blocker 1).
+        """
+        ...
+
 
 _REGISTRY: dict[str, RegionModule] = {}
 

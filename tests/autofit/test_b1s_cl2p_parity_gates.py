@@ -55,7 +55,7 @@ def test_b1s_parity_gate():
     exp = {p["name"]: p["center"] for p in rf.peaks}
     by_role = {p["role"]: p for p in res.peaks}
     # position-neutral roles vs the expert's (conflicting) labels — see
-    # PROGRESS.md discrepancy #7; positions are what both sources agree on
+    # PROGRESS.md discrepancy #8; positions are what both sources agree on
     assert abs(by_role["main_b_low"]["center"] - exp["B-C"]) <= 0.15
     assert abs(by_role["main_b_mid"]["center"] - exp["B-B"]) <= 0.30
     assert abs(by_role["main_b_oxide"]["center"] - exp["B-O"]) <= 0.10
@@ -79,22 +79,33 @@ def test_cl2p_parity_gate(name):
     assert abs(p32["center"] - exp32["center"]) <= 0.05
     splitting = p12["center"] - p32["center"]
     assert 1.55 <= splitting <= 1.65
-    ratio = p12["amplitude"] / p32["amplitude"]
-    if res.diagnostics["winner"] == "Cl0_doublet":
-        assert ratio == pytest.approx(0.5, rel=1e-6)
-    else:
-        # relaxed-ratio winner: decisively better fit with the ratio pegged
-        # at its bound — MUST be surfaced as conditional with the violation
-        assert res.diagnostics["winner"] == "Cl0r_doublet_relaxed"
-        assert 0.45 <= ratio <= 0.55
-        assert res.diagnostics["conditional"] is True
-        assert any("ratio" in h for h in res.diagnostics["winner_boundary_hits"])
     # doublet shares its lineshape
     assert p12["fwhm"] == pytest.approx(p32["fwhm"], rel=1e-9)
     assert p12["gl_ratio"] == pytest.approx(p32["gl_ratio"], rel=1e-9)
 
-    winner = next(c for c in res.analysis["candidates"]
-                  if c["name"] == res.diagnostics["winner"])
+    # KNOWN ANCHOR RESULT, pinned directly (not winner-dependent): the data
+    # rejects the 2:1 statistical ratio by very strong evidence, so the
+    # decisive-override path must fire — winner is the bound-fixed refit of
+    # the relaxed-ratio candidate, surfaced as conditional, with the fixed
+    # ratio at the 0.55 bound and the fixed-vs-relaxed evidence recorded.
+    assert res.diagnostics["winner"] == "Cl0r_doublet_relaxed+bfix"
+    assert res.diagnostics["conditional"] is True
+    assert res.diagnostics["conditional_reason"] == "decisive_override"
+    assert any("ratio" in p for p in res.diagnostics["winner_boundary_fixed_params"])
+    ratio = p12["amplitude"] / p32["amplitude"]
+    assert ratio == pytest.approx(0.55, abs=1e-6)   # fixed at the bound
+
+    names = {c["name"]: c for c in res.analysis["candidates"]}
+    assert {"Cl0_doublet", "Cl0r_doublet_relaxed",
+            "Cl0r_doublet_relaxed+bfix"} <= set(names)
+    # fixed-vs-relaxed evidence: the relaxed family is decisively better
+    assert names["Cl0r_doublet_relaxed+bfix"]["reduced_chi_sq"] \
+        < names["Cl0_doublet"]["reduced_chi_sq"]
+    # CONDITIONAL constants provenance is runtime-visible
+    flagged = res.analysis["uses_conditional_or_unverified_constants"]
+    assert any("spin_orbit_splitting_ev" in f for f in flagged)
+
     # engine must be at least on par with the (documented elevated-χ²ᵣ)
     # expert fits — measured: strictly better on both anchors
+    winner = names[res.diagnostics["winner"]]
     assert winner["reduced_chi_sq"] <= rf.fit_result["chiReduced"]

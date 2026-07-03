@@ -1,0 +1,34 @@
+Adversarial review of the region-cookbook stage of the XPS autofit engine, branch feature-autofit-stage2, commit 0154efd (git show 0154efd; context git diff main...HEAD). Spec: docs/autofit/phase1-grammar-architecture-spec-v2.md §3.3–§3.5, §7, §9; run log docs/autofit/PROGRESS.md.
+
+Scope: autofit/regions/b1s.py, autofit/regions/cl2p.py, the engine's
+SMART_EXP background + CONDITIONAL_OVERRIDE_DELTA_BIC decisive-override
+rule, tests/autofit/test_b1s_cl2p_batteries.py,
+tests/autofit/test_b1s_cl2p_parity_gates.py,
+scripts/gen_region_battery_fixture.py.
+
+Hard rules to verify:
+- every constant lit-cited, CONDITIONAL-cited, or flagged UNVERIFIED (check
+  every number in b1s.py / cl2p.py);
+- the B-C/B-B assignment conflict is deferred (position-neutral roles), not
+  silently resolved;
+- the Cl 2p ratio finding is surfaced as CONDITIONAL, never silently forced.
+
+Adversarial demands:
+1. The decisive-override rule (conditional tier replaces clean tier when
+   ΔBIC* > 10): this is the SECOND ranking-semantics departure from fitalg.
+   Attack it — hysteresis/instability near the threshold, interaction with
+   absent-slot-adjusted BIC*, whether Kass & Raftery calibration is even
+   meaningful for this heuristic BIC* on processed data, and whether a
+   boundary-pegged parameter invalidates the BIC* comparison itself (the
+   pegged model's k counts a parameter that is effectively constrained).
+2. B 1s windows split low/mid at exactly 187.9 between the two observed
+   clusters — knife-edge window boundaries on overlapping symmetric peaks:
+   failure modes for slot matching / stability?
+3. Cl 2p: is asserting winner-dependent behavior in the gate (fixed ratio
+   OR relaxed+conditional) a tautology that can never fail? Would a real
+   regression slip through?
+4. Anything else, incl. new defects in the engine edits. Zero findings =
+   failed review. file:line, severity, failure scenario, suggested fix.
+Do not modify anything. End with exactly one line:
+"VERDICT: GO" or "VERDICT: NO-GO (blockers: ...)" for proceeding to the
+Bayesian exchange-MC method.

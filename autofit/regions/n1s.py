@@ -46,6 +46,20 @@ class N1sModule:
     def diagnostic_windows(self) -> dict[str, tuple[float, float]]:
         return {"main": N1S_WINDOW}
 
+    def provenance(self) -> list[dict]:
+        return [
+            {"constant": "main_window_ev", "value": list(N1S_WINDOW),
+             "status": "UNVERIFIED",
+             "source": "spec §9: h-BN N 1s ~398.0–398.3 pending a primary "
+                       "table; window brackets spec range + labeled exemplar"},
+            {"constant": "fwhm_range_ev", "value": list(N1S_FWHM_RANGE),
+             "status": "UNVERIFIED", "source": "single labeled exemplar (1.05 eV)"},
+            {"constant": "asymmetry_range", "value": list(N1S_ASYM_RANGE),
+             "status": "UNVERIFIED", "source": "single labeled exemplar (0.064)"},
+            {"constant": "background", "value": "smart",
+             "status": "UNVERIFIED", "source": "matches U 4f family for co-fit"},
+        ]
+
     def build_candidates(
         self, phase: Phase, oxidation_state: Optional[str] = None
     ) -> list[CandidateModel]:

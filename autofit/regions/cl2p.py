@@ -50,6 +50,25 @@ class Cl2pModule:
     def diagnostic_windows(self) -> dict[str, tuple[float, float]]:
         return {"p32": CL2P_32_WINDOW, "p12": CL2P_12_WINDOW}
 
+    def provenance(self) -> list[dict]:
+        return [
+            {"constant": "spin_orbit_splitting_ev", "value": 1.60,
+             "status": "CONDITIONAL",
+             "source": "NaCl, Surf. Sci. Spectra, DOI 10.1116/1.1247741 — "
+                       "conditional until a chloride-source primary fit is cited"},
+            {"constant": "area_ratio_2p12_over_2p32", "value": CL2P_RATIO,
+             "status": "CONDITIONAL", "source": "2:1 statistical; same source"},
+            {"constant": "p32_window_ev", "value": list(CL2P_32_WINDOW),
+             "status": "UNVERIFIED",
+             "source": "labeled-set calibration (197.83–197.92 corrected)"},
+            {"constant": "fwhm_range_ev", "value": list(CL2P_FWHM_RANGE),
+             "status": "UNVERIFIED", "source": "labeled-set calibration"},
+            {"constant": "ratio_relaxation_range", "value": list(CL2P_RATIO_RANGE),
+             "status": "UNVERIFIED", "source": "bounded-relaxation tunable"},
+            {"constant": "background", "value": "smart_exp",
+             "status": "UNVERIFIED", "source": "expert practice for this data set"},
+        ]
+
     def build_candidates(
         self, phase: Phase, oxidation_state: Optional[str] = None
     ) -> list[CandidateModel]:

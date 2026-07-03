@@ -113,6 +113,43 @@ U4F_BACKGROUND = BackgroundType.SMART
 class U4fModule:
     region = REGION
 
+    def provenance(self) -> list[dict]:
+        return [
+            {"constant": "spin_orbit_splitting_ev", "value": list(U4F_SPLITTING_RANGE),
+             "status": "VERIFIED",
+             "source": "Ilton & Bagus 2011 DOI 10.1002/sia.3836 (10.8–10.9); "
+                       "NIST SRD 20 via data/xps/elements-actinides.json (10.8)"},
+            {"constant": "area_ratio_default", "value": U4F_RATIO_DEFAULT,
+             "status": "VERIFIED",
+             "source": "4:3 theoretical, Bagus DOI 10.1063/1.4846135; NIST SRD 20"},
+            {"constant": "area_ratio_relaxation", "value": list(U4F_RATIO_RANGE),
+             "status": "UNVERIFIED", "source": "labeled-set bounds (0.65–0.75 fitted)"},
+            {"constant": "asymmetry_origin", "value": "5f2 multiplet/final-state",
+             "status": "VERIFIED", "source": "Ilton & Bagus 2011 — supports the "
+                                             "asymmetric-envelope model (spec §3.2)"},
+            {"constant": "main72_window_ev", "value": list(U4F72_WINDOW),
+             "status": "UNVERIFIED",
+             "source": "within NIST-curated oxidation-widened region "
+                       "(375.5–383.0, data/xps); widths labeled-set calibration"},
+            {"constant": "lacx_alpha_range", "value": list(U4F_LACX_ALPHA_RANGE),
+             "status": "UNVERIFIED", "source": "bounded-asymmetry safeguard, "
+                                               "labeled-set calibration"},
+            {"constant": "lacx_beta_range", "value": list(U4F_LACX_BETA_RANGE),
+             "status": "UNVERIFIED", "source": "same"},
+            {"constant": "satellite_offset_ev", "value": list(U4F_SAT_OFFSET_RANGE),
+             "status": "CONDITIONAL",
+             "source": "lit 6.8–7.1 (Ilton & Bagus 2011; Schindler 2009 "
+                       "10.1016/j.gca.2009.02.008); labeled set 6.07–6.38 — "
+                       "envelope brackets both"},
+            {"constant": "satellite_pair_separation_ev",
+             "value": list(U4F_SATPAIR_SEP_RANGE), "status": "UNVERIFIED",
+             "source": "labeled-set finding: pair separation ~11.2 ≠ Δso"},
+            {"constant": "main_fwhm_range_ev", "value": list(U4F_MAIN_FWHM_RANGE),
+             "status": "UNVERIFIED", "source": "labeled-set calibration"},
+            {"constant": "background", "value": "smart",
+             "status": "UNVERIFIED", "source": "expert practice for this data set"},
+        ]
+
     def diagnostic_windows(self) -> dict[str, tuple[float, float]]:
         return {
             "main_72": U4F72_WINDOW,

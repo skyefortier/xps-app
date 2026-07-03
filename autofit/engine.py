@@ -61,13 +61,26 @@ ABSENT_SLOT_AREA_FRACTION = 0.02
 ABSENT_SLOT_PERSISTENCE_THRESHOLD = 0.7
 DEFAULT_PERSISTENCE_THRESHOLD = 0.7
 DEFAULT_BIC_AMBIGUITY = 2.0
-# A stable-but-boundary-limited candidate replaces the clean tier only when
-# it is DECISIVELY better: ΔBIC* > 10 is the conventional "very strong
-# evidence" threshold (Kass & Raftery, J. Am. Stat. Assoc. 90 (1995) 773).
-# UNVERIFIED as applied to this heuristic BIC* on processed XPS data —
-# tunable.  Without this, a clean-but-terrible fit can mask a decisively
-# better fit that merely brushes a constraint wall (observed on the U 4f +
-# N 1s co-fit: clean χ²ᵣ 38 vs boundary-limited χ²ᵣ 7).
+# Decisive-override DOMINANCE rule (Codex cookbook review, blockers 2–3).
+# A stable-but-boundary-limited candidate is promoted ahead of the clean
+# tier only when ALL of the following hold:
+#   (1) it is REFIT with its pegged parameters FIXED at their bounds — the
+#       Laplace-style BIC* approximation is invalid at a constraint wall,
+#       and the fixed-bound refit gives an honest parameter count;
+#   (2) the refit's BIC* beats the best clean candidate's by more than
+#       CONDITIONAL_OVERRIDE_DELTA_BIC (10 — the conventional "very strong"
+#       threshold, Kass & Raftery, JASA 90 (1995) 773; UNVERIFIED as applied
+#       to this heuristic BIC* on processed XPS data — tunable);
+#   (3) its reduced χ² is also strictly better (BIC* is never the sole
+#       decision axis — spec §6 trust order); and
+#   (4) the clean best shows residual-structure flags (autocorrelation or
+#       flagged windows) — evidence that it is genuinely mis-fitting, not
+#       merely losing a scalar comparison.
+# The clean survivors are KEPT as ranked alternatives after the promoted
+# candidate; the result carries conditional_reason='decisive_override'.
+# Without any override, a clean-but-terrible fit masks a decisively better
+# fit that merely brushes a constraint wall (observed on the U 4f + N 1s
+# co-fit: clean χ²ᵣ 38 vs boundary-limited χ²ᵣ 7).
 CONDITIONAL_OVERRIDE_DELTA_BIC = 10.0
 
 PROPOSAL_WINDOW_WIDTH = 0.5
@@ -924,6 +937,11 @@ class ModelReport:
     absent_slots: list[AbsentSlotReport] = field(default_factory=list)
     proposed_peaks: list[ProposedPeakReport] = field(default_factory=list)
     augmented_from: Optional[str] = None
+    # Full lmfit param names fixed at their bounds by the decisive-override
+    # bound-fixed refit (empty for ordinary reports).  Stability figures on
+    # such a report are inherited from the free (pegged) fit — a documented
+    # approximation.
+    boundary_fixed_params: list[str] = field(default_factory=list)
 
     @property
     def reduced_chi_sq(self) -> float:
@@ -970,12 +988,17 @@ class ComparisonResult:
     non_converged: list[tuple[CandidateModel, FitOutcome]] = field(default_factory=list)
     cross_candidate_coincidences: list[CoincidenceReport] = field(default_factory=list)
     proposal_pass_timings: list[ProposalPassTiming] = field(default_factory=list)
-    # True when `survivors` is the CONDITIONAL tier: no candidate passed the
-    # plausibility filter cleanly, so the stable-but-boundary-limited
-    # candidates are ranked instead, each with its violations preserved in
-    # `filtered_out` and surfaced downstream.  Never silent (spec stance:
-    # best-evidenced proposal + honest uncertainty, not a dead end).
+    # True when the leading survivor is constraint-limited.  Reason:
+    #   'no_clean_survivor'  — nothing passed plausibility cleanly; the
+    #                          stable-but-boundary-limited tier is ranked.
+    #   'decisive_override'  — clean survivors exist but a bound-fixed refit
+    #                          of a boundary-limited candidate dominates them
+    #                          (see CONDITIONAL_OVERRIDE_DELTA_BIC); clean
+    #                          survivors remain as ranked alternatives.
+    # Never silent (spec stance: best-evidenced proposal + honest
+    # uncertainty, not a dead end).
     conditional: bool = False
+    conditional_reason: Optional[str] = None
 
 
 def rank_and_filter(
@@ -1016,20 +1039,15 @@ def rank_and_filter(
         survivors.append(r)
 
     conditional = False
-    if allow_conditional and conditional_pool:
-        if not survivors:
-            survivors = conditional_pool
-            conditional = True
-        else:
-            # Decisive-override rule (see CONDITIONAL_OVERRIDE_DELTA_BIC):
-            # a boundary-limited candidate that beats the best clean
-            # candidate by very strong evidence is the honest answer —
-            # surfaced as conditional, never silently.
-            best_clean = min(r.bic_adjusted for r in survivors)
-            best_cond = min(r.bic_adjusted for r in conditional_pool)
-            if best_cond + CONDITIONAL_OVERRIDE_DELTA_BIC < best_clean:
-                survivors = conditional_pool
-                conditional = True
+    conditional_reason = None
+    if allow_conditional and conditional_pool and not survivors:
+        survivors = conditional_pool
+        conditional = True
+        conditional_reason = "no_clean_survivor"
+    # NOTE: the decisive-override path (clean survivors exist but a
+    # bound-fixed refit of a conditional candidate dominates) lives in
+    # compare_models — it needs the spectrum to refit; rank_and_filter is
+    # pure ranking.
 
     # BIC* is the ranking default (spec §6); χ²ᵣ breaks ties only.  fitalg
     # ranked (χ²ᵣ, BIC*) — spec-noncompliant, changed per Codex finding #3.
@@ -1051,7 +1069,7 @@ def rank_and_filter(
     return ComparisonResult(
         reports=reports, survivors=survivors,
         filtered_out=filtered_out, ambiguous_pairs=ambiguous,
-        conditional=conditional,
+        conditional=conditional, conditional_reason=conditional_reason,
     )
 
 
@@ -1403,6 +1421,104 @@ def _cross_candidate_coincidences(
     return out
 
 
+def _bound_fixed_refit(
+    x: np.ndarray,
+    y: np.ndarray,
+    weights: np.ndarray,
+    report: ModelReport,
+    diagnostic_windows: dict[str, tuple[float, float]],
+    noise_floor: float,
+) -> Optional[ModelReport]:
+    """
+    Refit a boundary-limited candidate with each pegged parameter FIXED at
+    the bound it pegged to.  The refit's nvarys honestly excludes the
+    constrained parameters, making its BIC* comparable (a bound-pegged free
+    parameter invalidates the interior-Laplace BIC approximation).  Returns
+    None when nothing could be fixed or the refit failed; stability figures
+    are inherited from the free fit (documented approximation).
+    """
+    import dataclasses
+
+    lm = report.primary_fit.lmfit_result
+    if lm is None or not report.plausibility.boundary_hits:
+        return None
+    params = lm.params.copy()
+    fixed: list[str] = []
+    for hit in report.plausibility.boundary_hits:
+        try:
+            role_param, side = hit.rsplit("@", 1)
+            role, pname = role_param.split(":", 1)
+        except ValueError:
+            continue
+        full = _slot_prefix(role) + pname
+        par = params.get(full)
+        if par is None or not par.vary:
+            continue
+        par.set(value=par.min if side == "min" else par.max, vary=False)
+        fixed.append(full)
+    if not fixed:
+        return None
+
+    outcome = fit_candidate(x, y, weights, report.model, initial_params=params)
+    if not outcome.converged:
+        return None
+    y_fit = (outcome.lmfit_result.best_fit + outcome.background
+             if outcome.lmfit_result is not None else np.zeros_like(y))
+    return ModelReport(
+        model=dataclasses.replace(report.model, name=report.model.name + "+bfix"),
+        primary_fit=outcome,
+        bic=compute_bic(outcome),
+        stability=report.stability,           # inherited (approximation)
+        residuals=compute_residual_diagnostics(
+            x, y, y_fit, noise_floor, diagnostic_windows),
+        plausibility=PlausibilityFlags(
+            boundary_hits=list(outcome.boundary_hits),
+            orphan_peaks=report.plausibility.orphan_peaks,
+        ),
+        absent_slots=list(report.absent_slots),
+        boundary_fixed_params=fixed,
+    )
+
+
+def _apply_decisive_override(
+    x: np.ndarray,
+    y: np.ndarray,
+    weights: np.ndarray,
+    result: ComparisonResult,
+    persistence_threshold: float,
+    diagnostic_windows: dict[str, tuple[float, float]],
+    noise_floor: float,
+) -> ComparisonResult:
+    """Dominance rule — see CONDITIONAL_OVERRIDE_DELTA_BIC block comment."""
+    if result.conditional or not result.survivors:
+        return result
+    clean_best = result.survivors[0]
+    # (4) the clean best must itself show residual-structure evidence
+    if not (clean_best.residuals.autocorr_flag
+            or clean_best.residuals.flagged_windows):
+        return result
+    pool = [r for r, why in result.filtered_out
+            if why.startswith("plausibility")
+            and r.active_min_persistence >= persistence_threshold]
+    if not pool:
+        return result
+    candidate = min(pool, key=lambda r: r.bic_adjusted)
+    refit = _bound_fixed_refit(x, y, weights, candidate,
+                               diagnostic_windows, noise_floor)
+    if refit is None:
+        return result
+    # (2) very-strong BIC* margin AND (3) strictly better χ²ᵣ
+    if not (refit.bic_adjusted + CONDITIONAL_OVERRIDE_DELTA_BIC
+            < clean_best.bic_adjusted
+            and refit.reduced_chi_sq < clean_best.reduced_chi_sq):
+        return result
+    result.reports.append(refit)
+    result.survivors = [refit] + result.survivors   # clean kept as alternatives
+    result.conditional = True
+    result.conditional_reason = "decisive_override"
+    return result
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Top-level driver — region-agnostic
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1524,6 +1640,12 @@ def compare_models(
         reports,
         persistence_threshold=persistence_threshold,
         bic_ambiguity_threshold=bic_ambiguity_threshold,
+    )
+    result = _apply_decisive_override(
+        x, y, weights, result,
+        persistence_threshold=persistence_threshold,
+        diagnostic_windows=diagnostic_windows,
+        noise_floor=noise_floor,
     )
     result.non_converged = non_converged
     result.cross_candidate_coincidences = _cross_candidate_coincidences(proposal_attempts)

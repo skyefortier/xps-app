@@ -179,6 +179,10 @@ class CandidateGrammar:
     # Human-readable resolution trace (which phase supplied which region,
     # Layer-A decisions, oxidation-state overrides applied).
     notes: list[str] = field(default_factory=list)
+    # {region-slug: [{constant, value, status, source}, ...]} — every
+    # physical constant the resolved grammar consumes, with its verification
+    # status.  Travels into the analysis namespace (never comments-only).
+    provenance: dict[str, list[dict]] = field(default_factory=dict)
 
 
 class PhaseAmbiguityError(ValueError):
@@ -263,6 +267,7 @@ def resolve(
     per_request_candidates: list[list[CandidateModel]] = []
     slugs: list[str] = []
     diagnostic_windows: dict[str, tuple[float, float]] = {}
+    provenance: dict[str, list[dict]] = {}
     used_phase_ids: list[str] = []
     resolved_pairs: set[tuple[str, str]] = set()
 
@@ -319,6 +324,8 @@ def resolve(
         )
         for label, win in module.diagnostic_windows().items():
             diagnostic_windows[f"{slug}:{label}"] = win
+        prov_fn = getattr(module, "provenance", None)
+        provenance[slug] = list(prov_fn()) if callable(prov_fn) else []
 
     if len(requests) == 1:
         composed = per_request_candidates[0]
@@ -334,6 +341,7 @@ def resolve(
         candidates=composed,
         diagnostic_windows=diagnostic_windows,
         notes=notes,
+        provenance=provenance,
     )
     _guard_phase_leakage(grammar, phases)
     return grammar

@@ -266,6 +266,37 @@ Findings + dispositions (all fixed same-session):
 5. **MINOR** satellite fallback windows uncited — fixed: now DERIVED from
    the cited/flagged constants.
 
+### Cookbook review (2026-07-03) — **VERDICT: NO-GO → all findings fixed**
+3 blockers + 4 majors + 1 minor (verdict archived at
+`docs/autofit/codex/stage4_cookbook_verdict.md`). Dispositions:
+1. **BLOCKER** CONDITIONAL provenance comments-only, runtime-invisible —
+   ACCEPTED, fixed: region modules now expose machine-readable
+   `provenance()` ({constant, value, status, source}); flows through
+   `resolve()` into the analysis namespace with a
+   `uses_conditional_or_unverified_constants` rollup.
+2. **BLOCKER** decisive override made BIC* a hard decision rule — ACCEPTED,
+   reworked into a DOMINANCE rule: fires only when the boundary-limited
+   candidate is refit with pegged params FIXED at bounds (see 3), beats the
+   clean best on BIC* (>10) AND χ²ᵣ, and the clean best itself shows
+   residual-structure flags (spec trust order: residual evidence above
+   BIC*). Clean survivors kept as ranked alternatives.
+3. **BLOCKER** boundary-pegged winner invalidates interior-Laplace BIC* —
+   ACCEPTED, fixed: `_bound_fixed_refit` refits with pegged parameters
+   fixed at their bounds (honest k) before any comparison; the refit
+   (name+`+bfix`, `boundary_fixed_params` recorded) is what gets promoted.
+4. **MAJOR** override promoted the whole conditional pool — fixed: only the
+   dominating refit candidate is promoted.
+5. **MAJOR** misleading conditional message — fixed: `conditional_reason`
+   enum (`no_clean_survivor` | `decisive_override`) in result + analysis.
+6. **MAJOR** tautological Cl 2p gate — fixed: gate pins the known anchor
+   result directly (relaxed+bfix winner, conditional, ratio fixed at 0.55,
+   fixed-vs-relaxed evidence, provenance visibility).
+7. **MAJOR** B 1s knife-edge 187.9 boundary — fixed: windows overlap
+   0.2 eV so the nearest-center rule owns the ambiguity band; role-swap
+   detection for symmetric overlapping components logged as FUTURE WORK.
+8. **MINOR** discrepancy numbering — fixed (#8 for the B-assignment
+   conflict).
+
 ## Stage-3 U 4f results (2026-07-03)
 
 - **Single-region parity (good anchors)**: engine winner = mains + free

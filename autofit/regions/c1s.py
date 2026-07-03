@@ -121,6 +121,45 @@ class C1sModule:
     def diagnostic_windows(self) -> dict[str, tuple[float, float]]:
         return dict(C1S_WINDOWS)
 
+    def provenance(self) -> list[dict]:
+        return [
+            {"constant": "graphite_reference_ev", "value": 284.4,
+             "status": "VERIFIED",
+             "source": "Leiro DOI 10.1016/S0368-2048(02)00284-0; HOPG SSS "
+                       "10.1116/1.1247695 (window anchor)"},
+            {"constant": "adventitious_reference_ev", "value": 284.8,
+             "status": "CONDITIONAL",
+             "source": "Biesinger 2022 10.1016/j.apsusc.2022.153681; "
+                       "Greczynski 10.1002/anie.201916000 — convention"},
+            {"constant": "dsg_core_hole_beta_ev", "value": DSG_LORENTZIAN_HWHM_C1S,
+             "status": "VERIFIED",
+             "source": "Campbell & Papp 2001 DOI 10.1006/adnd.2000.0848 "
+                       "(Γ_K(C) ≈ 0.10 eV FWHM → 0.05 HWHM)"},
+            {"constant": "contamination_offsets_ev",
+             "value": {k: list(v) for k, v in CONTAM_OFFSETS.items()},
+             "status": "CONDITIONAL",
+             "source": "Biesinger 2022 soft priors (+1.5/+3.0/+4.0)"},
+            {"constant": "window_widths", "value": {k: list(v) for k, v in C1S_WINDOWS.items()},
+             "status": "UNVERIFIED", "source": "fitalg prototype bins around cited anchors"},
+            {"constant": "fwhm_graphitic_ev", "value": list(FWHM_RANGE_GRAPHITIC),
+             "status": "UNVERIFIED", "source": "fitalg; instrument-dependent"},
+            {"constant": "fwhm_contamination_ev", "value": list(FWHM_RANGE_CONTAMINATION),
+             "status": "CONDITIONAL",
+             "source": "floor Biesinger 2022 / Greczynski & Hultman 2020; "
+                       "ceiling = Biesinger tighter convention"},
+            {"constant": "fwhm_contamination_lab_ev",
+             "value": list(FWHM_RANGE_CONTAMINATION_LAB),
+             "status": "UNVERIFIED",
+             "source": "labeled-set calibration (PROGRESS discrepancy #5)"},
+            {"constant": "fwhm_satellite_ev", "value": list(FWHM_RANGE_SATELLITE),
+             "status": "UNVERIFIED",
+             "source": "labeled-set calibration (44 fits, 1.9–5.0 eV)"},
+            {"constant": "dsg_alpha_cap", "value": list(DSG_ALPHA_RANGE_GRAPHITIC),
+             "status": "UNVERIFIED", "source": "fitalg numeric guard"},
+            {"constant": "asymgl_family", "value": "empirical asymmetric envelope",
+             "status": "UNVERIFIED", "source": "expert-practice family (AG/MG)"},
+        ]
+
     def build_candidates(
         self, phase: Phase, oxidation_state: Optional[str] = None
     ) -> list[CandidateModel]:
