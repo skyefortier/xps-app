@@ -12,9 +12,10 @@ between methods under a shared wrong noise model is shared bias, not
 corroboration.
 
 THE ESTIMATOR (replicates): repeat scans of the same region on the SAME
-acquisition grid (the labeled projects carry n=3–10 such replicates).  For
-each adjacent scan pair the difference d = y_a − y_b cancels the static
-signal exactly; two honest corrections remain:
+acquisition grid (the labeled projects carry n=3–10 such replicates;
+descending BE grids are reversed internally — np.interp silently breaks on
+them otherwise).  For each adjacent scan pair the difference d = y_a − y_b
+cancels the static signal exactly; two honest corrections remain:
 
 - SHIFT DRIFT: each scan charge-references slightly differently (measured
   ccShift spreads ~0.01–0.06 eV), so the true spectra are BE-shifted and
@@ -26,12 +27,15 @@ signal exactly; two honest corrections remain:
   we regress out the mean-spectrum component as well.
 
 The drift removal + high-pass form an explicit linear operator T, and the
-fit uses the EXACT per-point variance transmission: E[(T d)_i²] =
-a·(T² c)_i + b·(T² (c·I))_i where c is the per-point pair-variance factor
-(2 unaligned; 1+(1−f)²+f² after interpolation registration).  σ²(I)=a+b·I
-is fitted per point by IRLS with prediction-based weights (per-bin
-aggregation and observed-value weighting each bias the slope low ~10-15%
-— measured; documented at the fit).  For raw counts the truth is (a=0,
+fit uses the COVARIANCE-EXACT per-point transmission through T and the
+interpolation matrix P:  E[r_i²] = a·u_i + b·w_i with
+u = (T² + (TP)²)·1 and w = (T² + (TP)²)·I  (see ``_transmission_uw`` —
+the only documented estimator form; any scalar/diagonal interpolation
+factor is the rejected approximation, since linear interpolation gives
+adjacent aligned samples covariance f(1−f)σ² that no diagonal can carry).
+σ²(I)=a+b·I is fitted per point by IRLS with prediction-based weights
+(per-bin aggregation and observed-value weighting each bias the slope low
+~10-15% — measured; documented at the fit).  For raw counts the truth is (a=0,
 b=1); for a rate/gain-scaled export b recovers the effective gain; ``a``
 absorbs additive (detector/readout) noise.  Known second-order residuals
 (finite-sample IRLS, clamped-edge leakage through the global hat matrix
@@ -114,6 +118,66 @@ class NoiseModel:
         }
 
 
+def _interp_matrix(x: np.ndarray, shift: float) -> np.ndarray:
+    """P with (P @ yb) ≡ np.interp(x, x + shift, yb) — built by
+    searchsorted (non-uniform-grid safe, clamped edges).  Module-level so
+    the transmission pin tests exercise the PRODUCTION operator."""
+    n = len(x)
+    P = np.zeros((n, n))
+    src = x + shift
+    for i in range(n):
+        q = x[i]
+        if q <= src[0]:
+            P[i, 0] = 1.0
+        elif q >= src[-1]:
+            P[i, -1] = 1.0
+        else:
+            j = int(np.searchsorted(src, q)) - 1
+            f_ij = (q - src[j]) / (src[j + 1] - src[j])
+            P[i, j] = 1.0 - f_ij
+            P[i, j + 1] = f_ij
+    return P
+
+
+def _residual_operator(x: np.ndarray, mean_scan: np.ndarray,
+                       k: int) -> tuple:
+    """(T, S, basis): the estimator's residual-maker T = (I − S)(I − H)
+    with H the drift-basis hat matrix and S the edge-normalized moving-
+    average smoother.  Module-level so the pin tests exercise the
+    PRODUCTION operator."""
+    n = len(x)
+    grad = np.gradient(mean_scan, x)
+    curv = np.gradient(grad, x)
+    basis = np.column_stack([grad, curv, mean_scan, np.ones(n)])
+    Q, _ = np.linalg.qr(basis)
+    H = Q @ Q.T
+    half = k // 2
+    S = np.zeros((n, n))
+    for i in range(n):
+        lo, hi = max(0, i - half), min(n, i + half + 1)
+        S[i, lo:hi] = 1.0 / (hi - lo)
+    T = (np.eye(n) - S) @ (np.eye(n) - H)
+    return T, S, basis
+
+
+def _transmission_uw(T: np.ndarray, P: "np.ndarray | None",
+                     intensity: np.ndarray) -> tuple:
+    """The covariance-exact per-point transmission of d = ya − P·yb through
+    the residual-maker T, for diagonal per-scan covariances σ²(I):
+
+        E[r_i²] = a·u_i + b·w_i,
+        u = (T² + (TP)²) · 1,   w = (T² + (TP)²) · I     (² elementwise)
+
+    P=None means the unaligned pair (P = identity).  This is the ONLY
+    documented estimator form — the scalar/diagonal interpolation factor
+    (1−f)²+f² is the REJECTED round-2 approximation (it cannot carry the
+    adjacent-sample covariance linear interpolation creates)."""
+    G2 = T * T
+    Gp2 = G2 if P is None else (T @ P) * (T @ P)
+    both = G2 + Gp2
+    return both @ np.ones(len(intensity)), both @ intensity
+
+
 def estimate_noise_from_replicates(
     x: np.ndarray, scans: "list[np.ndarray]",
     n_bins: int = N_BINS,
@@ -147,8 +211,6 @@ def estimate_noise_from_replicates(
         raise ValueError("x must be strictly monotonic")
 
     mean_scan = np.mean(ys, axis=0)
-    grad = np.gradient(mean_scan, x)
-    curv = np.gradient(grad, x)
 
     flags: list[str] = []
     shifts = []
@@ -167,23 +229,16 @@ def estimate_noise_from_replicates(
     # For diagonal input covariance Var(d_j) = c_j σ²(I_j), the response is
     # EXACT per point:  E[r_i²] = a·Σ_j T_ij² c_j + b·Σ_j T_ij² c_j I_j —
     # so the fit regresses r² on the T²-transformed design (u, w).
-    basis = np.column_stack([grad, curv, mean_scan, np.ones(n)])
-    Q, _ = np.linalg.qr(basis)
-    H = Q @ Q.T
-    S = np.zeros((n, n))
-    for i in range(n):
-        lo, hi = max(0, i - half), min(n, i + half + 1)
-        S[i, lo:hi] = 1.0 / (hi - lo)
-    T = (np.eye(n) - S) @ (np.eye(n) - H)
-    T2 = T * T
+    T, S, basis = _residual_operator(x, mean_scan, k)
 
     # Registration transmission is COVARIANCE-EXACT (Codex re-check
     # blocker: linear interpolation gives adjacent aligned samples the
-    # covariance f(1−f)σ² — a diagonal factor cannot represent it): with
+    # covariance f(1−f)σ² — no diagonal factor can represent that;
+    # a diagonal approximation was the REJECTED round-2 design): with
     # d = ya − P yb (P = the interpolation matrix), Σ_d = D_a + P D_b Pᵀ,
-    # so with G = T and Gp = T P,
-    #   E[r_i²] = (G² + Gp²)·σ²-vector  =  a·u + b·w,
-    #   u = (G²+Gp²)·1,  w = (G²+Gp²)·I     (² elementwise; D diagonal).
+    # so with the module-level helpers (shared with the pin tests so the
+    # PRODUCTION path is what gets tested),
+    #   E[r_i²] = a·u_i + b·w_i,  (u, w) from _transmission_operators.
     # Remaining KNOWN second-order effects, accepted and documented rather
     # than silently absorbed: (a) IRLS with fitted weights is consistent,
     # not finite-sample unbiased; (b) interp-CLAMPED edge points are
@@ -191,24 +246,6 @@ def estimate_noise_from_replicates(
     # regression coefficients at O(edge_points/n); (c) the registration
     # sign/refinement selects among a handful of candidates using the
     # residual-shift coefficient — a near-deterministic statistic.
-    def _interp_matrix(shift):
-        """P with yb_aligned = P @ yb  ≡  np.interp(x, x + shift, yb),
-        built by searchsorted (non-uniform-grid safe, clamped edges)."""
-        P = np.zeros((n, n))
-        src = x + shift
-        for i in range(n):
-            q = x[i]
-            if q <= src[0]:
-                P[i, 0] = 1.0
-            elif q >= src[-1]:
-                P[i, -1] = 1.0
-            else:
-                j = int(np.searchsorted(src, q)) - 1
-                f_ij = (q - src[j]) / (src[j + 1] - src[j])
-                P[i, j] = 1.0 - f_ij
-                P[i, j + 1] = f_ij
-        return P
-
     r2_l, u_l, w_l, Ie_l = [], [], [], []
     for a_i in range(len(ys) - 1):
         ya, yb = ys[a_i], ys[a_i + 1]
@@ -268,14 +305,8 @@ def estimate_noise_from_replicates(
         # misassignment at multi-grid-step shifts (measured: b
         # understates ~18% at 6-step / 0.3 eV shifts) — flagged below
         # rather than silently absorbed.
-        G2 = T2
-        if s_used != 0.0:
-            Gp = T @ _interp_matrix(s_used)
-            Gp2 = Gp * Gp
-        else:
-            Gp2 = T2
-        u = G2 @ np.ones(n) + Gp2 @ np.ones(n)
-        w = (G2 + Gp2) @ mean_scan
+        P = _interp_matrix(x, s_used) if s_used != 0.0 else None
+        u, w = _transmission_uw(T, P, mean_scan)
         if abs(s_used) > 2.0 * step and not any(
                 f.startswith("intensity_assignment_degraded") for f in flags):
             flags.append(
@@ -290,7 +321,7 @@ def estimate_noise_from_replicates(
         # was insufficient for the survey's ~0.3 eV shifts)
         edge_excl = (int(np.ceil(abs(s_used) / step)) + 1 if s_used else 1)
         drop = edge_excl + half
-        if drop > n // 4:
+        if drop > n // 4 or 2 * drop >= n - 8:
             # refusing beats silent under-masking (Codex re-check): a shift
             # this large relative to the window is not a registration case
             flags.append(f"pair_excluded: |shift|={abs(s_used):.3g} eV "
@@ -307,6 +338,13 @@ def estimate_noise_from_replicates(
             "variance was drift — the σ(I) fit rests on the residual; "
             "treat with caution")
 
+    if sum(len(r) for r in r2_l) < 24:      # < ~12 samples per fitted param
+        # refusal must carry its own diagnostics, not a generic
+        # concatenate error or a NaN "fit" (Codex round-3 major)
+        raise ValueError(
+            "too few variance samples after pair exclusion/masking: "
+            + ("; ".join(f for f in flags if f.startswith("pair_excluded"))
+               or f"{sum(len(r) for r in r2_l)} samples"))
     R2 = np.concatenate(r2_l)
     U = np.concatenate(u_l)
     Wd = np.concatenate(w_l)
@@ -351,9 +389,19 @@ def estimate_noise_from_replicates(
         # a small negative intercept is estimation noise; clamp + flag
         flags.append(f"negative_intercept_clamped: a={a_fit:.3g} -> 0")
         a_fit = 0.0
-    pred = a_fit + b_fit * bi_a
-    resid_rel = float(np.sqrt(np.mean(((bv_a - pred) / np.maximum(pred, 1e-12)) ** 2)))
-    if resid_rel > 0.5:
+    if len(bi_a) == 0:
+        # too few samples for even one diagnostic bin — the FIT above ran
+        # on the per-point samples; only the summary is unavailable
+        flags.append("no_diagnostic_bins: too few samples for the binned "
+                     "summary (fit used the per-point samples)")
+        resid_rel = None
+        bi_a = bv_a = np.asarray([])
+        pred = np.asarray([])
+    else:
+        pred = a_fit + b_fit * bi_a
+        resid_rel = float(np.sqrt(np.mean(
+            ((bv_a - pred) / np.maximum(pred, 1e-12)) ** 2)))
+    if resid_rel is not None and resid_rel > 0.5:
         flags.append(f"poor_variance_fit: rel residual {resid_rel:.2f} — "
                      "σ²(I) = a + b·I may be the wrong family here")
 

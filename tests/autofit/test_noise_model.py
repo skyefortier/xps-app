@@ -150,55 +150,54 @@ def test_monte_carlo_centering_small_and_large_shifts():
 
 
 def test_transmission_is_covariance_exact_pointwise():
-    """Matrix-level pin (Codex re-check demand): for a KNOWN white noise σ
-    and a fixed fractional registration shift, the implemented per-point
-    predictor u must satisfy E[r²]ᵢ = σ²·uᵢ INCLUDING the interpolation
-    covariance (a diagonal-only correction fails this by ~f(1−f) terms).
-    Verified against 3000 Monte Carlo draws through the exact operator."""
-    from autofit.noise import LOCAL_DETREND_POINTS
+    """Matrix-level pin on the PRODUCTION helpers (Codex round-3 blocker:
+    a test-local rebuild would keep passing if production regressed to a
+    diagonal approximation).  Three layers:
+    1. DETERMINISTIC algebra: the production (u) must equal
+       diag(T (I + P Pᵀ) Tᵀ) computed independently — machine precision;
+    2. NEGATIVE CONTROL: the rejected diagonal-only predictor
+       T²·(1+(1−f)²+f²) must FAIL that identity at a fractional shift;
+    3. Monte Carlo sanity through the production operator."""
+    from autofit.noise import (LOCAL_DETREND_POINTS, _interp_matrix,
+                               _residual_operator, _transmission_uw)
     n = 120
     x = np.linspace(0.0, 10.0, n)
     mean_scan = np.full(n, 100.0)
-    grad = np.gradient(mean_scan, x)
-    curv = np.gradient(grad, x)
-    basis = np.column_stack([grad, curv, mean_scan, np.ones(n)])
-    Q, _ = np.linalg.qr(basis)
-    H = Q @ Q.T
     k = min(LOCAL_DETREND_POINTS, max(5, n // 4) | 1)
-    half = k // 2
-    S = np.zeros((n, n))
-    for i in range(n):
-        lo_i, hi_i = max(0, i - half), min(n, i + half + 1)
-        S[i, lo_i:hi_i] = 1.0 / (hi_i - lo_i)
-    T = (np.eye(n) - S) @ (np.eye(n) - H)
+    T, _S, _basis = _residual_operator(x, mean_scan, k)
     step = x[1] - x[0]
-    s = 1.5004 * step                      # deliberately fractional
-    P = np.zeros((n, n))
-    src = x + s
-    for i in range(n):
-        q = x[i]
-        if q <= src[0]:
-            P[i, 0] = 1.0
-        elif q >= src[-1]:
-            P[i, -1] = 1.0
-        else:
-            j = int(np.searchsorted(src, q)) - 1
-            f = (q - src[j]) / (src[j + 1] - src[j])
-            P[i, j], P[i, j + 1] = 1.0 - f, f
-    Gp = T @ P
-    u = (T * T) @ np.ones(n) + (Gp * Gp) @ np.ones(n)
+    s = 0.5 * step        # half-step shift: maximal interp covariance f(1−f)
+    P = _interp_matrix(x, s)
+
+    # (1) exact algebra vs an independent dense computation
+    u, w = _transmission_uw(T, P, mean_scan)
+    sigma_full = np.eye(n) + P @ P.T
+    u_ref = np.diag(T @ sigma_full @ T.T)
+    assert np.allclose(u, u_ref, rtol=1e-10, atol=1e-12)
+    assert np.allclose(w, u_ref * 100.0, rtol=1e-10)   # flat intensity 100
+
+    # (2) the rejected diagonal-only predictor must NOT satisfy the
+    # identity the exact path satisfies at 1e-10 (measured gap here:
+    # ~2-3% at the half-step shift — 8 orders above the exact tolerance)
+    f = (abs(s) / step) % 1.0
+    u_diag = (T * T) @ np.full(n, 1.0 + (1.0 - f) ** 2 + f ** 2)
+    interior = slice(20, n - 20)
+    assert not np.allclose(u_diag, u_ref, rtol=1e-10, atol=1e-12)
+    rel_gap = np.abs(u_diag[interior] - u_ref[interior]) / u_ref[interior]
+    assert float(np.max(rel_gap)) > 0.01, (
+        "negative control lost its teeth: diagonal-only ≈ exact here")
+
+    # (3) Monte Carlo sanity through the production operator
     sig = 3.0
     acc = np.zeros(n)
-    n_draws = 3000
+    n_draws = 1500
     for t in range(n_draws):
         ra = np.random.default_rng(t).normal(0, sig, n)
         rb = np.random.default_rng(50000 + t).normal(0, sig, n)
         r = T @ (ra - P @ rb)
         acc += r * r
     ratio = (acc / n_draws) / (sig * sig * u)
-    interior = slice(20, n - 20)
-    assert float(np.mean(ratio[interior])) == pytest.approx(1.0, abs=0.02)
-    assert float(np.max(np.abs(ratio[interior] - 1.0))) < 0.10
+    assert float(np.mean(ratio[interior])) == pytest.approx(1.0, abs=0.03)
 
 
 def test_descending_grid_equivalence():
@@ -224,6 +223,24 @@ def test_input_validation():
         estimate_noise_from_replicates(X, [_truth(), _truth()[:-1]])
     with pytest.raises(ValueError, match="too short"):
         estimate_noise_from_replicates(X[:10], [X[:10] * 0 + 1, X[:10] * 0 + 2])
+
+
+def test_all_pairs_excluded_raises_with_diagnostics():
+    """Codex round-3 major: when masking/refusal drops everything, the
+    caller must get a domain error CARRYING the pair_excluded reasons —
+    never a generic concatenate error or a NaN 'fit'."""
+    n = 52
+    x = 190.0 + 0.05 * np.arange(n)
+    rng = np.random.default_rng(2)
+
+    def sig(s):
+        return 400.0 + 40000.0 * np.exp(
+            -4 * np.log(2) * ((x - 191.3 - s) / 1.5) ** 2)
+
+    with pytest.raises(ValueError, match="pair_excluded"):
+        estimate_noise_from_replicates(
+            x, [rng.poisson(sig(0)).astype(float),
+                rng.poisson(sig(0.35)).astype(float)])
 
 
 def test_single_spectrum_fallback_flagged():
