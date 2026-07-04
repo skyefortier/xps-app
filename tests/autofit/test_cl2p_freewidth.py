@@ -162,6 +162,37 @@ def test_excess_area_link_requires_shared_gl_ratio():
         _default_params_from_slots(cand)
 
 
+def test_excess_area_link_rejects_non_pv_shapes():
+    """Codex adjudication-unit review (both runs, MAJOR): area ∝ height ×
+    width does NOT hold for asym-GL/DS/DS+G/LACX — the area-linked excess
+    branch must refuse them rather than silently enforce a wrong ratio."""
+    for shape, shared in ((LineShape.ASYM_GL, ("gl_ratio", "asymmetry")),
+                          (LineShape.DS, ("alpha", "gamma_asym")),
+                          (LineShape.DS_G, ("alpha", "beta"))):
+        p32 = _slot("main_p32", line_shape=shape)
+        p12 = _slot("main_p12", be_window=(198.0, 201.0), line_shape=shape,
+                    linked_to="main_p32", linked_offset_range=(1.5, 1.7),
+                    area_ratio=0.5, share_parent_params=shared,
+                    fwhm_excess_range=(0.0, 0.5))
+        cand = CandidateModel(name="bad", background=BackgroundType.LINEAR,
+                              slots=(p32, p12))
+        with pytest.raises(ValueError, match="only for.*PSEUDO_VOIGT"):
+            _default_params_from_slots(cand)
+
+
+def test_excess_area_link_rejects_mixed_shapes():
+    p32 = _slot("main_p32", line_shape=LineShape.GAUSSIAN)
+    p12 = _slot("main_p12", be_window=(198.0, 201.0),
+                line_shape=LineShape.PSEUDO_VOIGT,
+                linked_to="main_p32", linked_offset_range=(1.5, 1.7),
+                area_ratio=0.5,
+                fwhm_excess_range=(0.0, 0.5))
+    cand = CandidateModel(name="bad", background=BackgroundType.LINEAR,
+                          slots=(p32, p12))
+    with pytest.raises(ValueError, match="share the.*line shape"):
+        _default_params_from_slots(cand)
+
+
 def test_negative_or_empty_excess_range_raises():
     p32 = _slot("main_p32")
     for rng in ((-0.1, 0.5), (0.5, 0.5)):

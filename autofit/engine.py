@@ -343,6 +343,14 @@ def _default_params_from_slots(
             amp_init, amp_max = _amp_bounds(slot.be_window)
             p.add(f"{prefix}amplitude", value=amp_init, min=0.0, max=amp_max)
         elif slot.fwhm_excess_range is not None:
+            # Area-ratio linkage under independent widths is implemented
+            # ONLY for the pseudo-Voigt with a shared mixing parameter —
+            # the one case where area ∝ height × width with a cancelling
+            # shape factor.  Other shapes (asym-GL asymmetry, DS α/γ,
+            # DS+G's m_gauss-only width, LACX α/β/m) do NOT scale that way;
+            # a shape-specific area factor is FUTURE WORK, and silently
+            # emitting the height×width link there would enforce a wrong
+            # area ratio (Codex adjudication-unit review, both runs).
             if parent.line_shape is not slot.line_shape:
                 raise ValueError(
                     f"slot {slot.role!r}: area-ratio linkage under "
@@ -350,8 +358,14 @@ def _default_params_from_slots(
                     "line shape (area ∝ amplitude × width only holds "
                     "within one shape family)"
                 )
-            if (slot.line_shape is LineShape.PSEUDO_VOIGT
-                    and "gl_ratio" not in slot.share_parent_params):
+            if slot.line_shape is not LineShape.PSEUDO_VOIGT:
+                raise ValueError(
+                    f"slot {slot.role!r}: area-ratio linkage under "
+                    "fwhm_excess_range is implemented only for "
+                    "PSEUDO_VOIGT (shape-specific area factors for other "
+                    "shapes are future work)"
+                )
+            if "gl_ratio" not in slot.share_parent_params:
                 raise ValueError(
                     f"slot {slot.role!r}: area-ratio linkage under "
                     "fwhm_excess_range requires gl_ratio in "

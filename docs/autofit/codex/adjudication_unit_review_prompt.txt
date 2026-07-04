@@ -1,0 +1,40 @@
+Review the adjudication-implementation unit on branch feature-autofit-stage2
+(commits a5fcd58, b25c0e3, 3d88ea0). Context: docs/autofit/adjudication-decisions.md
+holds the domain expert's FINAL rulings; the unit implements them without
+re-adjudicating. Review for correctness and honesty (NOT for whether the
+rulings themselves are right):
+
+1. Cl 2p independent doublet widths (autofit/grammar.py fwhm_excess_range,
+   autofit/engine.py width branch + width-aware AREA-ratio amplitude link,
+   autofit/regions/cl2p.py Cl0w/Cl0rw candidates,
+   tests/autofit/test_cl2p_freewidth.py):
+   - is the inequality fwhm(child) = fwhm(parent) + excess >= 0 correctly
+     enforced through lmfit expressions, including joint-composition
+     renaming (grammar._retag_slot passthrough)?
+   - is the area-ratio semantics correct? amplitude is peak HEIGHT in this
+     engine; area ∝ height × width with the PV shape factor cancelling only
+     when gl_ratio is shared — is the guard sufficient, and is there any
+     shape/branch where the emitted amplitude expression would be wrong?
+   - the REAL-anchor outcome (excess pegs at 0, ratio still pegs 0.55,
+     winner unchanged; Δso/ratio kept CONDITIONAL because the adjudicated
+     lift was contingent on ratio→~0.5) — is that documented consistently
+     in cl2p.py / the parity gate / PROGRESS.md? Any residual claim that
+     the hypothesis was confirmed?
+   - do the synthetic tests actually discriminate (true-excess recovery;
+     nested behavior at equal widths; validation guards)?
+2. C 1s uniform 2.0 eV contamination cap (autofit/regions/c1s.py; gate
+   recalibration in tests/autofit/test_c1s_parity_gate.py): split
+   convention fully removed? provenance honest (cap CONDITIONAL,
+   adjudication-cited)? gate recalibration honest (tolerances raised to
+   measured values with cause documented, not silently loosened)?
+3. Quantification lint (autofit/lint.py,
+   tests/autofit/test_quantification_lint.py): flag-only guaranteed? does
+   the positional-justification rule (region-module windows; fit-physics
+   windows ±3.0 eV) have false-positive/false-negative holes on the
+   labeled set? is the N 1s leave-it ruling honored structurally (not by
+   special-casing that peak)? the coarse tab-region bins
+   (autofit/reference.py _REGION_WINDOWS) — could any labeled-set tab be
+   mislabeled and silently skipped?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

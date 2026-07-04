@@ -18,7 +18,7 @@ path untouched.
 | C 1s characterization battery + parity net | DONE | ✅ 59 tests | `tests/autofit/test_c1s_parity_battery.py`: 29 expert C 1s fits frozen (eval parity ≤1.2e-7; refit drift ≤2e-4 eV; fixture rtol 1e-6). 15 tabs excluded w/ reasons (legacy no-`be`; 1 internally inconsistent). Regenerate fixture ONLY via `scripts/gen_c1s_battery_fixture.py` after reviewed numerics changes. |
 | Schema round-trip (`analysis` ns + `_confidence`) | DONE | ✅ 3 browser tests | `analysis` whitelisted in buildTabData + load (v3 kept, omitted-when-absent); `_confidence` proven on the peak-spread channel; save→load→save deep-diff on both formats; pre-engine saves load clean. |
 | Resolver skeleton + PeakFitMethod seam | DONE | ✅ 18 tests | `autofit/`: grammar.py (phases[], phase disambiguation mandatory, leakage guards, joint co-fit composition), engine.py (fitalg port, region-agnostic; fitalg LA→`ds_g`), regions/c1s.py (A/AG/M/B families), criteria.py, confidence.py, methods/ (LS + IC implemented; bayesian/sparse/multivariate/maxent stubs). |
-| C 1s parity gate | **PROVEN** | ✅ 3/3 anchors | `tests/autofit/test_c1s_parity_gate.py` (env-gated: `RUN_AUTOFIT_GATE=1`, ~4 min): main Δ 4–12 meV, satellite Δ 0.08–0.29 eV, domain envelope R 0.004–0.014 vs expert fits. Winners: MG3/MG2 (conditional tier, violations surfaced) + AG2 (clean) — see calibration log. |
+| C 1s parity gate | **PROVEN** (recalibrated 2026-07-04) | ✅ 3/3 anchors | `tests/autofit/test_c1s_parity_gate.py` (env-gated: `RUN_AUTOFIT_GATE=1`, ~7 min). POST-adjudication (#5 uniform 2.0 eV cap) numbers: Scan_2 main Δ 4 meV / Scan_6 12 meV (clean winners, R 0.004–0.014) but Scan_8 (UCl4 composite) DEGRADED by the cap ruling — conditional no_clean_survivor winner A2_linked, main Δ 54 meV, envelope R 0.0407; tolerances recalibrated 0.05→0.08 / 0.03→0.05 (measured, documented). Pre-cap numbers (Δ 4–12 meV all-anchor, MG winners) are SUPERSEDED — see the adjudication-implementation section. |
 | Codex checkpoint: Stage 2 | DONE* | review #1 ✅ / re-review HUNG | Review #1: NO-GO w/ 9 findings → all fixed + test-pinned (`2669ed9`). Re-review hung (known issue) → killed, logged, proceeded per rails. Monday re-runs `docs/autofit/codex/stage2_rereview_prompt.txt`. |
 | Stage 3: U 4f module | **DONE** | ✅ 62 tests | `regions/u4f.py` (LACX main doublet w/ shared α/β/m + bounded-asymmetry safeguard; explicit satellite doublet + free variant; NIST/Ilton-Bagus-cited constants) + minimal `regions/n1s.py` (co-fit partner). Engine prereqs: `share_parent_params`, linked-chain topological param ordering, linked-group absent-slot atomicity. U 4f manual-path battery (29 expert fits frozen) + engine parity gate incl. **U 4f + N 1s co-fit** (in normal suite, ~20 s). |
 | Codex checkpoint: Stage 3 (U 4f) | DONE | **GO** ✅ | 3 majors + 2 minors, all fixed same-session (see verdict section). Verdict + prompt in `docs/autofit/codex/`. |
@@ -835,9 +835,12 @@ failure is FIXED; the suite is fully green, 322 passed.)*
    `RUN_AUTOFIT_GATE=1 venv/bin/pytest tests/autofit/test_c1s_parity_gate.py
    tests/autofit/test_bayesian_real_gate.py
    tests/autofit/test_bayesian_u4f_unresolved_gate.py`.
-3. Adjudicate the **Discrepancies** section above (8 items — RSF mis-tags,
-   width conventions, Cl 2p ratio [now sharpened by the sensitivity sweep:
-   interior ratio 0.611], B 1s assignments, U 4f satellite physics).
+3. ~~Adjudicate the Discrepancies section~~ **DONE 2026-07-03** (Skye's
+   rulings in `docs/autofit/adjudication-decisions.md`) and **IMPLEMENTED
+   2026-07-04** — see the "Adjudication implementation" section. Review the
+   implemented OUTCOMES only (esp. the Cl 2p hypothesis rejection + the
+   differential-charging residual evidence, and the Scan_8 parity
+   degradation under the 2.0 eV cap); do not re-adjudicate.
 4. Hand-verify the machine-tier values marked UNVERIFIED (the per-value
    review table is `docs/autofit/fit-physics-coverage-report.md`; every
    value links to a sha256-pinned archived NIST snapshot) → promote or
