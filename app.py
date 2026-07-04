@@ -85,6 +85,20 @@ def create_app(upload_folder: str = "uploads", data_folder: str = "data/xps") ->
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _json_sanitize(obj):
+    """Defensive numpy→native conversion for /api/analyze payloads (the
+    methods emit natives, but a stray np scalar must not 500 the route)."""
+    if isinstance(obj, dict):
+        return {str(k): _json_sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_sanitize(v) for v in obj]
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
+
 def _session_path(session_id: str, upload_folder: str) -> Path:
     return Path(upload_folder) / f"{session_id}.npz"
 
@@ -552,6 +566,162 @@ def _register_routes(app: Flask) -> None:
             return _err("Internal fitting error — see server log.", 500)
 
         return jsonify(result)
+
+    # ── Autofit analyze (opt-in Find Peaks; STRICTLY ADDITIVE — the manual
+    #    /api/fit path above is untouched) ──────────────────────────────────
+
+    _ANALYZE_METHODS = {
+        # adjustable defaults surfaced by /api/analyze/meta (spec §5A);
+        # anything the client sends in `options` overrides these and is
+        # validated by the METHOD's own option whitelist (ValueError → 400)
+        "least_squares": {"background_method": "shirley"},
+        "ic_model_comparison": {"n_refits": 4, "rng_seed": 0,
+                                "enable_proposal_pass": True},
+        "bayesian_exchange_mc": {"n_replicas": 8, "n_sweeps": 600,
+                                 "rng_seed": 0},
+        "sparse_map": {},
+    }
+
+    @app.get("/api/analyze/meta")
+    def analyze_meta():
+        """Registered regions, material classes, and the method menu with
+        its ADJUSTABLE defaults — everything the opt-in Find Peaks UI needs
+        to build its form."""
+        from autofit.grammar import MaterialClass
+        from autofit.methods import available_methods
+        from autofit.regions import registered_regions
+
+        menu = [dict(m) for m in available_methods()
+                if m.get("id") in _ANALYZE_METHODS and m.get("implemented")]
+        for m in menu:
+            m["default_options"] = dict(_ANALYZE_METHODS[m["id"]])
+        return jsonify({
+            "regions": registered_regions(),
+            "material_classes": [m.value for m in MaterialClass],
+            "methods": menu,
+        })
+
+    @app.post("/api/analyze")
+    @_require_json
+    def analyze():
+        """
+        Opt-in grammar-driven peak finding (spec §5A/§8).
+
+        Request body
+        ------------
+        {
+          "session_id":     "...",
+          "cc_shift":       0.0,          // frontend charge shift (corrected = raw − cc_shift)
+          "roi":            {"be_min": ..., "be_max": ...},   // corrected frame
+          "material_class": "conductor" | "insulator" | "semiconductor",
+          "regions":        ["Cl 2p", ...],   // registered region names
+          "phase":          {"id": "sample", "material": "graphite"},  // optional
+          "method":         "ic_model_comparison" | "least_squares"
+                            | "bayesian_exchange_mc" | "sparse_map",
+          "options":        {...},        // per-method; validated by the method
+          "peak_specs":     [...]         // least_squares only (manual baseline)
+        }
+
+        Returns the full MethodResult: candidate peaks with the per-peak
+        confidence vector, the analysis namespace (ambiguity flags, ranked
+        alternatives, constants provenance), diagnostics, and a review-gate
+        stub — results are candidates + honesty flags, not ground truth;
+        a NAMED human review is required before export (spec §8).
+        """
+        from autofit.grammar import (MaterialClass, Phase,
+                                     PhaseAmbiguityError, UnknownRegionError,
+                                     resolve)
+        from autofit.methods import get_method
+
+        body = request.get_json()
+        session_id = body.get("session_id", "")
+        _validate_session_id(session_id)
+        try:
+            energy, counts = _load_session(session_id, app.config["UPLOAD_FOLDER"])
+        except KeyError:
+            return _err(f"Session '{session_id}' not found", 404)
+
+        method_id = body.get("method", "ic_model_comparison")
+        if method_id not in _ANALYZE_METHODS:
+            return _err(f"Unknown analyze method '{method_id}' "
+                        f"(available: {sorted(_ANALYZE_METHODS)})")
+
+        regions = body.get("regions") or []
+        if (not isinstance(regions, list) or not regions
+                or not all(isinstance(r, str) for r in regions)):
+            return _err("'regions' must be a non-empty list of region names")
+
+        mc_raw = body.get("material_class", "")
+        try:
+            mclass = MaterialClass(mc_raw)
+        except ValueError:
+            return _err(f"Unknown material_class '{mc_raw}'")
+
+        try:
+            cc_shift = float(body.get("cc_shift", 0.0))
+        except (TypeError, ValueError):
+            return _err("cc_shift must be a number")
+        corrected = energy - cc_shift   # frontend getCorrectedBE convention
+
+        roi = body.get("roi") or {}
+        try:
+            be_min = float(roi.get("be_min", float(corrected.min())))
+            be_max = float(roi.get("be_max", float(corrected.max())))
+        except (TypeError, ValueError):
+            return _err("roi.be_min/be_max must be numbers")
+        mask = (corrected >= be_min) & (corrected <= be_max)
+        if int(mask.sum()) < 20:
+            return _err("ROI selects fewer than 20 points")
+        x, y = corrected[mask], counts[mask]
+
+        options = body.get("options") or {}
+        if not isinstance(options, dict):
+            return _err("'options' must be an object")
+        opts = {**_ANALYZE_METHODS[method_id], **options}
+
+        peak_specs = body.get("peak_specs") or None
+        if method_id == "least_squares" and not peak_specs:
+            return _err("least_squares is the manual-model baseline — "
+                        "provide 'peak_specs'")
+
+        phase_kwargs = body.get("phase") or {}
+        grammar = None
+        if method_id != "least_squares":
+            phase = Phase(id=str(phase_kwargs.get("id", "sample")),
+                          material_class=mclass,
+                          regions=tuple(regions),
+                          material=phase_kwargs.get("material"))
+            try:
+                grammar = resolve(
+                    [phase], regions if len(regions) > 1 else regions[0])
+            except (UnknownRegionError, PhaseAmbiguityError, ValueError) as exc:
+                return _err(str(exc))
+
+        try:
+            res = get_method(method_id).run(
+                x, y, grammar=grammar, peak_specs=peak_specs, options=opts)
+        except ValueError as exc:
+            # the method's own option/spec validation
+            return _err(str(exc))
+        except Exception:
+            app.logger.exception("analyze failed")
+            return _err("Internal analyze error — see server log.", 500)
+
+        return jsonify(_json_sanitize({
+            "method": method_id,
+            "success": bool(res.success),
+            "peaks": res.peaks,
+            "confidence": res.confidence,
+            "analysis": res.analysis,
+            "diagnostics": res.diagnostics,
+            "message": res.message,
+            "review_gate": {
+                "reviewed_by": None,
+                "note": "results are candidates + confidence flags, not "
+                        "ground truth — a named human review is required "
+                        "before export (spec §8)",
+            },
+        }))
 
     # ── Health check ──────────────────────────────────────────────────────────
 

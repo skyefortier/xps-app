@@ -1,0 +1,38 @@
+Re-check of the stress-suite unit on branch feature-autofit-stage2
+(commit 4330dbf). Your review's NO-GO dispositions, all claimed fixed:
+
+1. (BLOCKER) stale expectation evidence → the case LIBRARY
+   (tests/autofit/stress_cases.py build_all_cases) is now the single
+   source of truth for labels; scripts/summarize_stress_battery.py reads
+   it at report time and annotates any generation-label drift; the
+   battery was REGENERATED from scratch under the corrected labels
+   (182 records; first generation preserved in git history at ac9902e).
+2. (BLOCKER) sparse count-only PASS → PASS now requires count AND all
+   truth centers within 0.15 eV; count-only outcomes are labeled
+   count_ok_param_biased; the always-on sparse pin is renamed/documented
+   as count-only, explicitly NOT a recovery claim.
+3. (BLOCKER) simpler_model laundering → _buried_dominant in the
+   summarizer: an IC record whose filtered candidate beats the winner by
+   >10 BIC* with no result-level signal classifies as
+   buried_dominant_alternative(FAIL...), never parsimony (10 such rows in
+   the regenerated report).
+4. Bayesian rows now record n_emitted_components AND run under the
+   Poisson weights the suite's construction makes correct (the "weights"
+   key is part of the resume identity). The report's finding 3 was
+   REWRITTEN: the unweighted default was the misdirection (two of three
+   silent P3 overfits become TRUE picks; remaining P3 picks carry
+   warnings); a cross-method note records Bayes-P1 vs IC-BIC*-P2
+   disagreement on the buried sub-FWHM case.
+5. _match_truth is one-to-one greedy assignment (no reuse).
+6. The over-specified regime gained an IN-ROI decoy case (window between
+   the true peaks with real tail intensity) — IC prunes it (P2 clean,
+   χ²ᵣ 1.10; always-on pin) and the weighted Bayesian picks P2.
+7. Deficient-behavior pins → conditional invariants
+   (test_subfwhm_dominant_alternative_never_silently_lost passes whether
+   or not a future engine fix promotes P2, but requires the trace).
+
+Also sanity-check docs/autofit/stress-test-report.md (generated) and the
+PROGRESS.md stress section tell the same story as the JSONL.
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

@@ -1,0 +1,31 @@
+Re-check ROUND 4 of the empirical noise estimator on branch
+feature-autofit-stage2 (commit 4d48794). Your round-3 NO-GO dispositions,
+all claimed fixed:
+
+1. (BLOCKER) the covariance pin did not exercise production → the
+   operator construction and transmission are now module-level PRODUCTION
+   helpers (_residual_operator, _interp_matrix, _transmission_uw) used by
+   both the estimator and the pin
+   (tests/autofit/test_noise_model.py::
+    test_transmission_is_covariance_exact_pointwise), which has three
+   layers: (a) deterministic identity of the production u against an
+   independently computed dense diag(T(I+PPᵀ)Tᵀ) at rtol 1e-10; (b) a
+   NEGATIVE CONTROL asserting the rejected diagonal-only predictor FAILS
+   the same identity (half-step shift = maximal interp covariance;
+   measured 2-3% gap vs the 1e-10 tolerance) — a production regression to
+   diagonal-only now fails layer (a) directly; (c) MC sanity through the
+   production operator.
+2. (MAJOR) refusal loses diagnostics → a total-sample-count guard raises
+   a domain ValueError carrying the accumulated pair_excluded reasons
+   (test_all_pairs_excluded_raises_with_diagnostics exercises a REACHABLE
+   exclusion: short grid + estimated ~0.4 eV shift); the degenerate
+   diagnostic-bin path flags no_diagnostic_bins with resid_rel=None
+   instead of NaN + numpy warnings.
+3. (MAJOR/MINOR) stale diagonal-factor prose → removed everywhere; the
+   (T²+(TP)²) matrix form is documented as the ONLY estimator form, with
+   the scalar factor explicitly labeled the rejected approximation
+   (module docstring + _transmission_uw docstring).
+
+Verify each disposition. Findings with file:line, severity, failure
+scenario, fix. Do not modify anything. End with exactly 'VERDICT: GO' or
+'VERDICT: NO-GO (blockers: ...)'.

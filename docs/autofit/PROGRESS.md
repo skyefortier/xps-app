@@ -903,11 +903,11 @@ the bound-fixed decoy via decisive_override (P3_decoy+bfix, k=3,
 conditional-flagged but structurally an invented component): prune
 robustness is noise-draw-dependent; criteria-calibration material. The
 always-on pin covers the base draw only.
-Unit Codex review ×2: NO-GO ×2 → all findings fixed same-session (stale
-label evidence → library-as-single-source + battery regenerated; sparse
-count-only PASS; simpler_model laundering → buried_dominant_alternative
-classification; Bayesian n_emitted + weights; deficient-behavior test pins
-→ conditional invariants). Re-check pending.
+Unit Codex trail (×2 every round; stricter governs; full record in
+`docs/autofit/codex/stress_suite_verdicts.md`): review NO-GO ×2 →
+re-check GO+NO-GO (decoy evidence misread caught) → re-check GO+NO-GO
+(one factual χ² overstatement) → final **GO ×2**.
+**STRESS-SUITE UNIT REVIEW-COMPLETE.**
 
 ## Empirical noise model (2026-07-04) — run-brief item 3a, IMPLEMENTED
 
@@ -956,6 +956,11 @@ insufficient for the survey's ~0.3 eV shifts); (5) predeclared-seed Monte
 Carlo pins (small-shift median 1.033, large-shift 0.954; residual pure-
 case +3–7% finite-sample IRLS bias documented, shrinking with replicate
 count); (6) stale docstring fixed.  Re-review pending.
+
+**Codex trail: 4 rounds ×2, final GO ×2 — NOISE-ESTIMATOR UNIT
+REVIEW-COMPLETE** (full record in
+`docs/autofit/codex/noise_model_verdicts.md`; the round-2 summary below is
+kept for the mid-trail state).
 
 **Codex re-check ×2 (round 2): NO-GO ×2 → fixed same-session.** Two real
 blockers survived round 1: (1) interpolation COVARIANCE — linear

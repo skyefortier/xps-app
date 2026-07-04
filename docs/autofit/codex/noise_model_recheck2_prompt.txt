@@ -1,0 +1,34 @@
+Re-check ROUND 3 of the empirical noise estimator on branch
+feature-autofit-stage2 (commit 7b15cec). Round-2 NO-GO dispositions, all
+claimed fixed:
+
+1. (BLOCKER) interpolation covariance → transmission now goes through the
+   explicit interpolation matrix: E[r²]ᵢ = a·[(T²+(TP)²)·1]ᵢ +
+   b·[(T²+(TP)²)·I]ᵢ (elementwise squares; exact for diagonal source
+   covariance). Pinned by test_transmission_is_covariance_exact_pointwise
+   (3000-draw matrix-level MC at a fractional shift; interior mean ratio
+   1.000, |dev| < 0.10). Is the math right and the pin discriminating
+   (would a diagonal-only c_vec fail it)?
+2. (BLOCKER) descending BE grids → internal reversal (strict monotonicity
+   validated; descending inputs reversed; asc/desc equivalence pinned at
+   rel 1e-9 in test_descending_grid_equivalence). Sufficient?
+3. (mask cap) refuses with a pair_excluded flag instead of silently
+   under-masking.
+4. (per-scan intensity) TRIED and measured catastrophically wrong
+   (regressor shares response noise; b→0.38 pure Poisson) — reverted to
+   ensemble-mean σ²(I) assignment WITH an intensity_assignment_degraded
+   flag at |shift| > 2 grid steps (measured b understatement ~18% at
+   6-step shifts, documented as lower bound; MC pin bounds updated and
+   the flag REQUIRED in the large-shift case). Is documenting-plus-
+   flagging acceptable here, given the correlated-regressor alternative
+   is provably worse?
+5. (survey prose) regenerated under VALID registration: only the three
+   flag-clean groups (8-JT C1s b 0.947, B4C B1s 1.221, B4C U4f 1.380) are
+   interpreted (near-Poisson, tentative, drift-dominated); the earlier
+   sub-Poisson reading is explicitly RETRACTED as the descending-grid
+   artifact; Cl2p is no longer called clean; shifts quoted up to 0.40 eV.
+   Honest now (docs/autofit/PROGRESS.md noise section +
+   docs/autofit/inventory/replicate_noise_survey.json)?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

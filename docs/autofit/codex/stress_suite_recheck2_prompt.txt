@@ -1,0 +1,26 @@
+Re-check ROUND 2 of the stress-suite unit on branch feature-autofit-stage2
+(commit c72fd29). Your round-1 re-check NO-GO dispositions, all claimed
+fixed:
+
+1. (BLOCKER) the in-ROI decoy claim overstated the evidence → the report
+   (finding 8), PROGRESS.md, and the always-on pin's docstring now state
+   the measured truth: pruned on the base and offset-1000 draws (P2
+   clean); at offset 2000 BOTH IC depths promote the bound-fixed decoy
+   via decisive_override (P3_decoy+bfix, k=3, conditional-flagged but
+   structurally an invented component); the weighted Bayesian prunes on
+   the base draw; prune robustness is noise-draw-dependent
+   (criteria-calibration material); the pin covers the base draw only.
+2. (BLOCKER) prune failure summarized as ambiguity evidence → the
+   winner-stability section is now EXPECTATION-AWARE: flips on
+   recover/prune cases are labeled robustness FAILURES; "ambiguity
+   evidence" is reserved for ambiguous-class cases.
+3. (MAJOR) stale old-label/RELABEL prose → generator finding 6 and the
+   stress_cases.py comments now say: current battery generated under the
+   corrected library labels; superseded generation in git history;
+   future generation-label drift annotated per row.
+
+Verify each disposition against docs/autofit/stress-test-report.md
+(generated), docs/autofit/inventory/stress_battery_runs.jsonl, and
+docs/autofit/PROGRESS.md. Findings with file:line, severity, failure
+scenario, fix. Do not modify anything. End with exactly 'VERDICT: GO' or
+'VERDICT: NO-GO (blockers: ...)'.
