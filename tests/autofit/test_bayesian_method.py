@@ -218,6 +218,36 @@ def test_analytic_evidence_flat_model():
     assert (r2 - r1) == pytest.approx(np.log(4.0), abs=0.05)
 
 
+def test_seed_replicates_identity_and_mean_semantics():
+    """Re-check #2 major: seed_replicates=1 must be IDENTICAL to omitting
+    the option; k=2 reports F as the replicate mean with consumer-visible
+    flags that only the evidence (not the posterior summary) is replicated."""
+    x, y = _spectrum()
+    m = get_method("bayesian_exchange_mc")
+    base = m.run(x, y, grammar=_grammar(),
+                 options={**OPTS, "candidate_filter": ["K2"]})
+    k1 = m.run(x, y, grammar=_grammar(),
+               options={**OPTS, "candidate_filter": ["K2"], "seed_replicates": 1})
+    assert base.analysis == k1.analysis
+    assert base.diagnostics == k1.diagnostics
+    c = next(c for c in base.analysis["candidates"] if "free_energy" in c)
+    assert c["free_energy_is_replicate_mean"] is False
+
+    k2 = m.run(x, y, grammar=_grammar(),
+               options={**OPTS, "candidate_filter": ["K2"], "seed_replicates": 2})
+    c2 = next(c for c in k2.analysis["candidates"] if "free_energy" in c)
+    assert c2["free_energy_is_replicate_mean"] is True
+    reps = c2["free_energy_replicates"]
+    assert len(reps) == 2
+    assert c2["free_energy"] == pytest.approx(np.mean(reps))
+    assert k2.analysis["posterior_summary_replicated"] is False
+    assert k2.analysis["posterior_samples_seed"] == OPTS["rng_seed"]
+    # base-seed replicate equals the k=1 evidence (same rng path)
+    assert reps[0] == pytest.approx(
+        next(c["free_energy"] for c in k1.analysis["candidates"]
+             if "free_energy" in c))
+
+
 def test_selection_warning_fires_on_twin_models():
     """Two structurally identical candidates have ΔF ≈ 0 by construction —
     the unresolved-selection warning MUST fire."""

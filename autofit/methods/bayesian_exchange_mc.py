@@ -370,10 +370,12 @@ class BayesianExchangeMCMethod(PeakFitMethod):
                            default=None)
             per_candidate.append({
                 "name": model.name,
-                # replicate-mean F when replicated (reported posterior/peaks
-                # stay those of the base seed's run, documented)
+                # replicate-mean F when replicated; the posterior summary
+                # (peaks/CIs) stays the BASE seed's run — flagged for
+                # consumers below (Codex Stage-5 re-check #2 major)
                 "free_energy": (float(np.mean(rep_fs)) if len(rep_fs) > 1
                                 else run["free_energy"]),
+                "free_energy_is_replicate_mean": len(rep_fs) > 1,
                 "free_energy_replicates": (list(map(float, rep_fs))
                                            if len(rep_fs) > 1 else None),
                 "free_energy_replicate_spread": rep_spread,
@@ -466,6 +468,11 @@ class BayesianExchangeMCMethod(PeakFitMethod):
             # comparing candidates on the SAME data/window, never across
             # datasets (Codex Stage-5 finding #5)
             "free_energy_is_relative": True,
+            # With seed_replicates > 1 ONLY the evidence (F) is replicated;
+            # peaks/CIs summarize the base seed's posterior (re-check #2)
+            "posterior_summary_replicated": False,
+            "posterior_samples_seed": mc_kwargs["rng_seed"],
+            "seed_replicates": seed_replicates,
             "sampler": {k: mc_kwargs[k] for k in mc_kwargs},
         }
         return MethodResult(
