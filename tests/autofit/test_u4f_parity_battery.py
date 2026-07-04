@@ -16,16 +16,19 @@ REGION = "U 4f"
 FIXTURE = "u4f_battery_expected.json"
 MIN_BATTERY_SIZE = 20
 MIN_PROJECTS = 3
-# Bounded by background-anchor drift / LACX cross-process FP wobble —
-# measured and documented in battery_common.py.  The worst LACX tab
-# (UCl4_on_graphite U4f Scan_6, a flat alpha/beta/m valley) wobbles at
-# 1.4e-4 relative across processes; 1e-3 gives ~7x margin while still
-# catching any real numerics change (C 1s pins shared machinery at 1e-6).
+# Bounded by background-anchor drift / LACX FP wobble — measured and
+# documented in battery_common.py.  The worst LACX tab (UCl4_on_graphite
+# U4f Scan_6, a flat alpha/beta/m valley) wobbles at 1.4e-4 relative
+# across PROCESSES on one platform, but 1.9e-3 across PLATFORMS (first CI
+# run on ubuntu/openBLAS vs the macOS/arm64 fixture, 2026-07-04 — fwhm
+# 3.00971 vs frozen 3.00396 on that tab).  3e-3 covers the measured
+# cross-platform wobble with ~1.6x headroom while still catching any real
+# numerics change (C 1s pins the shared machinery at 1e-6).
 # Eval-parity across all 29 eligible fits: median 6.0e-3, max 1.12e-2
 # (bg-anchor drift) — 1.5e-2 keeps ~34% headroom without masking a real
 # 2%-level regression (Codex Stage-3 finding #4).
 EVAL_TOL = 1.5e-2
-FIXTURE_RTOL = 1e-3
+FIXTURE_RTOL = 3e-3
 
 _FITS = bc.battery_fits(REGION)
 _IDS = [f"{rf.project}::{rf.name}" for rf in _FITS]

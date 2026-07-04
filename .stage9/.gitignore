@@ -1,6 +1,11 @@
 # Generated artifacts + extraction working outputs (provenance scripts are tracked).
+# NOTE: extract_claude/ is COMMITTED (50 archived NIST HTML artifacts +
+# observations_4a.json) — the machine-tier DB build and its determinism
+# test consume them, so a fresh clone must carry the full evidence chain
+# (first CI run failed without them; restore_artifacts.py remains the
+# documented re-fetch path).  Tracked JSON exceptions also exist inside
+# the still-ignored dirs (git tracking overrides these patterns).
 legacy_raw.json
-extract_claude/
 extract_codex/
 manifest/
 audit/
