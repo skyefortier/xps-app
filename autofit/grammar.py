@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+from .fit_physics import provenance_entries as _fit_physics_provenance
+
 __all__ = [
     "LineShape", "BackgroundType", "MaterialClass", "Phase", "ComponentSlot",
     "CandidateModel", "CandidateGrammar", "PhaseAmbiguityError",
@@ -336,6 +338,14 @@ def resolve(
             diagnostic_windows[f"{slug}:{label}"] = win
         prov_fn = getattr(module, "provenance", None)
         provenance[slug] = list(prov_fn()) if callable(prov_fn) else []
+        # tiered fit-physics DB exposure (run-brief item 4): the DB's
+        # matching entries + mechanical cross-checks ride along in the
+        # provenance (→ analysis namespace); candidate construction is
+        # untouched — grammar constants stand until the machine-tier
+        # human review (see autofit/fit_physics.py)
+        db_prov, db_notes = _fit_physics_provenance(region, provenance[slug])
+        provenance[slug].extend(db_prov)
+        notes.extend(f"{slug}: {note}" for note in db_notes)
 
     # Role-prefix collision guard (Codex Stage-2 re-review finding #2): the
     # composition sanitizer strips non-alphanumerics from slugs, so distinct
