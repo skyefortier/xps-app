@@ -1,0 +1,45 @@
+Review the synthetic hard-case stress-suite unit on branch
+feature-autofit-stage2 (newest commit). Scope:
+
+- tests/autofit/stress_cases.py — parameter-level ground-truth case library
+  (Poisson noise, seeded; regimes: heavy overlap, weak minor, over-
+  specified menu, differential-charging replica, asymmetric truth,
+  background mismatch; expectation classes recover/ambiguous/prune/honesty)
+- scripts/run_stress_battery.py — resumable JSONL battery: LS (true-
+  structure baseline), IC at n_refits 4 AND 12, Bayesian (small budget),
+  sparse; noise-draw replicates at 3 seed offsets
+- scripts/summarize_stress_battery.py — classification rules + report
+  generator; docs/autofit/stress-test-report.md (generated)
+- tests/autofit/test_stress_honesty.py — always-on invariant net
+- docs/autofit/inventory/stress_battery_runs.jsonl — evidence of record
+
+The unit's KEY CRITERION: where data cannot distinguish models the engine
+must REPORT ambiguity, never confidently pick one; where there IS a right
+answer it must recover it. Review for:
+
+1. Ground-truth honesty: are the generators actually producing what they
+   claim (Poisson noise so 1/sqrt weights are correct by construction; the
+   documented χ²ᵣ floor from Lorentzian tails under the endpoint-anchored
+   linear background — is the floor explanation correct and honestly
+   labeled a design property rather than hidden)?
+2. Classification-rule soundness (summarize_stress_battery.py): do the
+   rules force-pass anything? Is "confident_true(RELABEL?)" on
+   ambiguous-class cases honest (evidence the case was mislabeled) rather
+   than a laundering of overconfidence? Any hole where a method could
+   overclaim structure and still be classified favorably?
+3. Scaffold-vs-engine attribution: the distinct-window ladder exists
+   because identical windows label-switch and zero persistence (documented
+   in _n_peak_ladder). Is anything in the scaffold biasing FOR the engine
+   (windows that pre-encode the answer beyond what a real region grammar
+   would know)?
+4. The always-on pins (test_stress_honesty.py): do they pin engine
+   behavior that is genuinely invariant-worthy, or measured happenstance
+   that will flake (seeded, so deterministic — but are the tolerances
+   principled)?
+5. Findings supported by the JSONL: n_refits=4 basin failures at high S/N;
+   Bayesian small-budget P3 overfit on a recover case; sparse over-
+   splitting on sub-FWHM overlap; the LS sub-FWHM position drift. Any
+   misreading of the evidence?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

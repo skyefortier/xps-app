@@ -849,6 +849,44 @@ failure is FIXED; the suite is fully green, 322 passed.)*
    in `docs/autofit/codex/` and this file's verdict sections.
 6. Nothing merges to main or deploys until human review (run rail).
 
+## Synthetic hard-case stress suite (2026-07-04) — run-brief item 2
+
+**Deliverables:** `tests/autofit/stress_cases.py` (13 cases / 6 regimes:
+heavy overlap, weak minor, over-specified menu, charging replica,
+asymmetric truth, background mismatch — parameter-level truth + seeded
+Poisson noise, so 1/√counts weights are CORRECT by construction here);
+`scripts/run_stress_battery.py` (resumable JSONL: LS true-structure
+baseline, IC at n_refits 4 AND 12, Bayesian small-budget, sparse;
+noise-draw replicates ×3); **`docs/autofit/inventory/
+stress_battery_runs.jsonl` (169 records — evidence of record)**;
+`scripts/summarize_stress_battery.py` → `docs/autofit/
+stress-test-report.md` (classification rules encoded in the generator);
+`tests/autofit/test_stress_honesty.py` (9 always-on pins, ~46 s).
+
+**KEY-CRITERION picture:** clear cases recover across methods (sep-1.0
+doublet, over-specified menu prunes to exactly the true structure, matched-
+background control, asymmetric truth with the right candidate); genuinely
+ambiguous cases (low-count sub-FWHM) resolve by honest parsimony; truth-
+outside-model-space cases surface machine-readably (bg mismatch →
+conditional + χ²ᵣ 283; asym-vs-symmetric → autocorr flag + χ²ᵣ 10).
+
+**HEADLINE FINDING — evidence burial:** filter-then-rank can discard a
+DECISIVELY better candidate with no result-level trace: sub-FWHM@9000
+(P2 stable, ΔBIC* 74–97 better, orphan-filtered on every draw → clean P1,
+`conditional=False`), sep-0.7 offset-2000 (stable P2 buried at ΔBIC* +944),
+charging replica offset-0 (center-pegged true model not promoted by the
+override → clean single_main at ΔBIC* +801). Recommendation logged for the
+criteria/stability unit: result-level `filtered_dominant_alternative` flag
++ orphan-tolerant matching. Full findings list (7 more: n_refits basin
+sensitivity; count-rate-scaling χ²ᵣ floor from endpoint-anchored linear bg
+under Lorentzian tails — truth scores 0.96 vs 34 at h90k; Bayesian
+decisive-but-misdirected under model misspecification; sparse over-
+splitting; measured relabels in BOTH directions; LS sub-FWHM drift) in the
+report. Two labels were arbitrated by measurement (ambiguous→recover), and
+the noise-model inventory found the methods do NOT share one noise model
+(IC: per-point 1/√y; Bayesian: homoscedastic σ-marginalized) — both feed
+the math-review unit.
+
 ## CI — gates cannot silently skip (2026-07-04)
 
 `.github/workflows/autofit-gates.yml`: two jobs on every push/PR —
