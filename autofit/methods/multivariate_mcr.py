@@ -48,7 +48,13 @@ DEFAULTS = dict(
     variance_target=0.995,     # UNVERIFIED tunable (scree always reported)
     max_rank=6,                # UNVERIFIED guard
     max_als_iter=200,
-    als_tol=1e-9,              # relative lack-of-fit change
+    als_tol=1e-3,              # relative lack-of-fit change per iteration —
+                               # the MCR-ALS GUI convergence default (0.1%,
+                               # Jaumot 2005); UNVERIFIED as applied to XPS
+    closure=False,             # data rows sum to a constant total? ONLY then
+                               # does k = centered-PCs + 1 (Codex Stage-8
+                               # blocker: unconditional +1 overcounts
+                               # non-closed data)
 )
 _ALLOWED_OPTIONS = set(DEFAULTS) | {"rank"}
 
@@ -64,7 +70,15 @@ def build_matrix(spectra: list[tuple[np.ndarray, np.ndarray]],
         raise ValueError("spectra have no overlapping BE range")
     if grid is None:
         step = min(float(np.min(np.abs(np.diff(x)))) for x, _ in spectra)
-        grid = np.arange(lo, hi + 0.5 * step, step)
+        n_pts = int(np.floor((hi - lo) / step + 1e-9)) + 1
+        grid = lo + step * np.arange(n_pts)       # strictly inside [lo, hi]
+    else:
+        grid = np.asarray(grid, dtype=float)
+        if grid.min() < lo - 1e-9 or grid.max() > hi + 1e-9:
+            raise ValueError(
+                f"supplied grid [{grid.min():g}, {grid.max():g}] exceeds the "
+                f"overlap range [{lo:g}, {hi:g}] — np.interp would silently "
+                "edge-fill outside it")
     rows = []
     for x, y in spectra:
         x = np.asarray(x, dtype=float)
@@ -128,35 +142,59 @@ class MultivariateMCRMethod(PeakFitMethod):
         var = s ** 2
         frac = var / var.sum() if var.sum() > 0 else var
         cum = np.cumsum(frac)
-        # +1: k mean-centered PCs describe k+1 chemical states (closure)
-        k_auto = int(np.searchsorted(cum, cfg["variance_target"]) + 1) + 1
+        n_pcs = int(np.searchsorted(cum, cfg["variance_target"]) + 1)
+        # +1 ONLY under closure (rows sum to a constant total): k centered
+        # PCs then describe k+1 states.  Non-closed data with independently
+        # varying amounts needs NO adjustment (Codex Stage-8 blocker).
+        k_auto = n_pcs + (1 if cfg["closure"] else 0)
         k = int(rank_override) if rank_override is not None else k_auto
         k = max(1, min(k, cfg["max_rank"], m, n))
 
-        # ── MCR-ALS from a deterministic SVD init ──
-        # init S from the top-k right singular vectors of the RAW matrix,
-        # clipped to ≥0 (sign chosen so each vector is mostly positive)
+        # ── MCR-ALS from a deterministic NNDSVD-style init ──
+        # orientation by POSITIVE-vs-NEGATIVE PART NORM (not element count:
+        # a few large negative channels must flip the vector even against
+        # many tiny positive ones — Codex Stage-8 finding)
         U2, s2, Vt2 = np.linalg.svd(D, full_matrices=False)
         S = []
-        for j in range(k):
+        for j in range(min(k, Vt2.shape[0])):
             v = Vt2[j]
-            if np.sum(v < 0) > np.sum(v > 0):
+            if np.linalg.norm(np.clip(-v, 0, None)) > np.linalg.norm(np.clip(v, 0, None)):
                 v = -v
             S.append(np.clip(v, 0.0, None))
+        while len(S) < k:                      # rank > available PCs: flat seeds
+            S.append(np.full(n, 1.0 / n))
         S = np.asarray(S).T                    # n × k
         S[:, 0] = np.maximum(S[:, 0], 1e-12)   # keep the dominant atom nonzero
 
         lof_prev = None
         history = []
+        reseed_events = 0
         for it in range(cfg["max_als_iter"]):
             C = _nnls_rows(S, D)               # m × k
-            # guard: a component with all-zero concentration would make the
-            # next NNLS singular — reseed it to tiny uniform
+            # dead component (all-zero concentration): reseed its spectrum
+            # from the POSITIVE RESIDUAL at finite scale — a tiny-uniform
+            # reseed makes the next NNLS near-singular and can fabricate
+            # arbitrary "states" (Codex Stage-8 finding); count + surface.
             dead = ~np.any(C > 0, axis=0)
-            C[:, dead] = 1e-12
+            if np.any(dead):
+                reseed_events += int(np.sum(dead))
+                R = np.clip(D - C @ S.T, 0.0, None)
+                seed = R.mean(axis=0)
+                if seed.max() <= 0:
+                    seed = np.full(n, float(D.mean()))
+                for jd in np.where(dead)[0]:
+                    S[:, jd] = seed / max(seed.max(), 1e-30)
+                C = _nnls_rows(S, D)
             St = _nnls_rows(C, D.T)            # n × k
             dead = ~np.any(St > 0, axis=0)
-            St[:, dead] = 1e-12
+            if np.any(dead):
+                reseed_events += int(np.sum(dead))
+                R = np.clip(D - C @ St.T, 0.0, None)
+                seed = R.mean(axis=0)
+                if seed.max() <= 0:
+                    seed = np.full(n, float(D.mean()))
+                for jd in np.where(dead)[0]:
+                    St[:, jd] = seed / max(seed.max(), 1e-30)
             S = St
             R = D - C @ S.T
             lof = float(np.sqrt(np.sum(R ** 2) / np.sum(D ** 2)))
@@ -164,6 +202,10 @@ class MultivariateMCRMethod(PeakFitMethod):
             if lof_prev is not None and abs(lof_prev - lof) <= cfg["als_tol"] * max(lof_prev, 1e-30):
                 break
             lof_prev = lof
+        final_delta = (abs(history[-2] - history[-1]) / max(history[-2], 1e-30)
+                       if len(history) > 1 else None)
+        als_converged = (final_delta is not None
+                         and final_delta <= cfg["als_tol"])
 
         # normalize: unit-max pure spectra; scale into concentrations
         scale = S.max(axis=0)
@@ -182,11 +224,24 @@ class MultivariateMCRMethod(PeakFitMethod):
                      "Avval 2022 DOI 10.1116/6.0002082",
             "n_spectra": int(m),
             "n_channels": int(n),
+            "result_kind": "state_decomposition",   # consumer contract:
+            #   peaks=[] is BY DESIGN — read n_states/pure_spectra, do not
+            #   interpret the empty peak list as "no result"
+            "n_states": int(k),
             "rank": int(k),
-            "rank_source": "user" if rank_override is not None else
-                           f"PCA cumulative variance ≥ {cfg['variance_target']} (+1 for closure)",
+            "n_centered_pcs": int(n_pcs),
+            "closure_assumed": bool(cfg["closure"]),
+            "rank_source": "user" if rank_override is not None else (
+                f"PCA cumulative variance ≥ {cfg['variance_target']}"
+                + (" +1 (closure assumed)" if cfg["closure"] else
+                   " (no closure adjustment — set closure=True only when "
+                   "rows sum to a constant total)")),
             "pca_scree_explained_variance": [float(f) for f in frac[:min(10, len(frac))]],
             "als_iterations": len(history),
+            "als_converged": bool(als_converged),
+            "als_final_relative_delta": final_delta,
+            "als_max_iter_hit": len(history) >= cfg["max_als_iter"],
+            "dead_component_reseeds": int(reseed_events),
             "lack_of_fit": history[-1],
             "explained_variance": explained,
             "pure_spectra": [[float(v) for v in S_n[:, j]] for j in range(k)],
@@ -208,9 +263,14 @@ class MultivariateMCRMethod(PeakFitMethod):
             peaks=[],                # by design: states, not fitted peaks
             analysis=analysis,
             confidence={},
-            diagnostics={"rank": int(k), "lack_of_fit": history[-1],
+            diagnostics={"result_kind": "state_decomposition",
+                         "rank": int(k), "n_states": int(k),
+                         "lack_of_fit": history[-1],
                          "explained_variance": explained,
-                         "als_iterations": len(history)},
+                         "als_iterations": len(history),
+                         "als_converged": bool(als_converged),
+                         "dead_component_reseeds": int(reseed_events)},
             message=f"decomposed {m} spectra into {k} non-negative states "
-                    f"(LOF {history[-1]:.3%})",
+                    f"(LOF {history[-1]:.3%}; states, not peaks — see "
+                    f"analysis.pure_spectra)",
         )

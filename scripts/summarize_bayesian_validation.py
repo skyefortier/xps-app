@@ -69,9 +69,10 @@ def main():
         "warning. Sampler tunables remain UNVERIFIED defaults — validated "
         "as adequate for model selection on these anchors, NOT tuned "
         "constants.",
-        "- Records predate `free_energy_mc_error`/replicate fields where "
-        "noted; at seed_replicates=1 the MC error equals the split-half "
-        "error by definition.",
+        "- The JSONL is a single canonical generation (regenerated under "
+        "frozen method code after the Stage-5 re-check#2 blocker); at "
+        "seed_replicates=1 the MC error equals the split-half error by "
+        "definition.",
         "",
     ]
 

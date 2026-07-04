@@ -25,12 +25,18 @@ def _pure():
 
 
 def _matrix(m=8, seed=2, noise=0.004):
+    """NON-closed design: the two amounts vary independently (no constant
+    total), so mean-centered PCA legitimately needs 2 PCs and the default
+    closure=False rank must be 2 (Codex Stage-8 blocker regression case).
+    Two near-pure end-member rows (as real depth profiles have) keep the
+    rotational ambiguity small enough for tight recovery assertions."""
     rng = np.random.default_rng(seed)
     s1, s2 = _pure()
-    fracs = np.linspace(0.1, 0.9, m)
-    D = np.vstack([f * 900 * s1 + (1 - f) * 700 * s2 for f in fracs])
+    a1 = np.concatenate([[950.0, 40.0], rng.uniform(200.0, 1000.0, m - 2)])
+    a2 = np.concatenate([[40.0, 950.0], rng.uniform(200.0, 1000.0, m - 2)])
+    D = np.outer(a1, s1) + np.outer(a2, s2)
     D = D + rng.normal(0, noise * D.max(), D.shape)
-    return np.clip(D, 0.0, None), fracs
+    return np.clip(D, 0.0, None), a1
 
 
 @pytest.fixture(scope="module")
@@ -57,12 +63,67 @@ def test_pure_spectra_recovered_up_to_permutation(result):
 
 
 def test_concentration_profile_tracks_truth(result):
-    D, fracs = _matrix()
+    D, a1 = _matrix()
     C = np.array(result.analysis["concentrations"])
     # one component's concentration must correlate strongly with the known
-    # mixing fraction (sign/permutation free)
-    cors = [abs(float(np.corrcoef(C[:, j], fracs)[0, 1])) for j in range(C.shape[1])]
+    # component-1 amount (sign/permutation free)
+    cors = [abs(float(np.corrcoef(C[:, j], a1)[0, 1])) for j in range(C.shape[1])]
     assert max(cors) > 0.99, cors
+
+
+def test_payload_reconstructs_data_at_reported_lof(result):
+    """Codex Stage-8 test gap: the PAYLOAD matrices must reconstruct D at
+    the reported lack-of-fit (catches any normalization/scaling bug)."""
+    D, _ = _matrix()
+    C = np.array(result.analysis["concentrations"])
+    S = np.array(result.analysis["pure_spectra"]).T
+    lof = float(np.sqrt(np.sum((D - C @ S.T) ** 2) / np.sum(D ** 2)))
+    assert lof == pytest.approx(result.analysis["lack_of_fit"], rel=1e-6)
+
+
+def test_rank_estimator_discriminates():
+    """Codex Stage-8 test gap: the estimator must not be 'always 2'.
+    1-state (scaled copies) → 1; closed 2-state with closure=True → 2
+    (1 centered PC + closure); the non-closed default case is the fixture."""
+    rng = np.random.default_rng(7)
+    s1, s2 = _pure()
+    one = np.outer(rng.uniform(300, 900, 6), s1)
+    one += rng.normal(0, 0.003 * one.max(), one.shape)
+    r1 = get_method("multivariate_mcr").run(X, np.clip(one, 0, None))
+    assert r1.diagnostics["rank"] == 1
+
+    f = np.linspace(0.15, 0.85, 7)
+    closed = np.outer(f, 800 * s1) + np.outer(1 - f, 800 * s2)
+    closed += rng.normal(0, 0.003 * closed.max(), closed.shape)
+    r2 = get_method("multivariate_mcr").run(X, np.clip(closed, 0, None),
+                                            options={"closure": True})
+    assert r2.diagnostics["rank"] == 2
+    assert r2.analysis["closure_assumed"] is True
+    # same closed data WITHOUT the closure claim: 1 centered PC → rank 1
+    # (under-count is the honest default when closure is not asserted)
+    r3 = get_method("multivariate_mcr").run(X, np.clip(closed, 0, None))
+    assert r3.diagnostics["rank"] == 1
+
+
+def test_nnls_rows_orientation():
+    """Direct pin of the ALS building block on a known D = C·Sᵀ."""
+    from autofit.methods.multivariate_mcr import _nnls_rows
+    rng = np.random.default_rng(1)
+    C = rng.uniform(0.5, 2.0, (5, 2))
+    S = np.abs(rng.normal(size=(30, 2))) + 0.1
+    D = C @ S.T
+    C_hat = _nnls_rows(S, D)
+    assert np.allclose(C_hat, C, atol=1e-8)
+    S_hat = _nnls_rows(C, D.T)
+    assert np.allclose(S_hat, S, atol=1e-8)
+
+
+def test_result_kind_contract(result):
+    assert result.analysis["result_kind"] == "state_decomposition"
+    assert result.diagnostics["result_kind"] == "state_decomposition"
+    assert result.analysis["n_states"] == result.diagnostics["rank"]
+    assert result.analysis["als_converged"] is True
+    assert result.analysis["dead_component_reseeds"] == 0
 
 
 def test_rotational_ambiguity_stated_and_no_fake_peaks(result):
@@ -109,4 +170,24 @@ def test_build_matrix_interpolates_mixed_grids():
     ]
     grid, D = build_matrix(spectra)
     assert D.shape[0] == 3 and D.shape[1] == len(grid)
-    assert grid[0] >= 281.0 - 1e-9 and grid[-1] <= X[-4] + 1e-9
+    # every grid point strictly inside the overlap — no silent edge-fill
+    lo = 281.0
+    hi = float(X[-4])
+    assert grid[0] >= lo - 1e-9 and grid[-1] <= hi + 1e-9
+
+
+def test_build_matrix_descending_grid_and_endpoint():
+    """Codex Stage-8 pins: descending BE grids interpolate correctly, and a
+    non-commensurate overlap span never yields grid points past the overlap
+    (np.interp would silently edge-fill there)."""
+    s1, _ = _pure()
+    desc = X[::-1]
+    grid, D = build_matrix([(X, 900 * s1), (desc, 900 * s1[::-1])])
+    assert np.allclose(D[0], D[1], atol=1e-9)     # same spectrum both ways
+    # non-commensurate span: overlap [0, 0.95] with step 0.2
+    a = (np.arange(0.0, 1.01, 0.2), np.ones(6))
+    b = (np.arange(-0.5, 0.951, 0.05), np.ones(30))
+    grid2, _ = build_matrix([a, b])
+    assert grid2.max() <= 0.95 + 1e-9
+    with pytest.raises(ValueError, match="exceeds the overlap"):
+        build_matrix([a, b], grid=np.array([0.0, 1.5]))

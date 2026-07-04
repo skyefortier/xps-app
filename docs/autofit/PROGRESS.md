@@ -146,6 +146,36 @@ GO** — "Findings: None"; all six dispositions verified closed line-by-line
 (incl. that the analytic pins discriminate the λ-scale and missing-clamp
 failure modes). sparse/MAP review-complete.
 
+## Codex checkpoint: multivariate MCR (Stage 8, 2026-07-03 late) — **NO-GO → all findings fixed**
+
+Verdict archived: `docs/autofit/codex/stage8_mcr_verdict.md` (NNLS
+orientation, normalization algebra, and ambiguity language "Checked OK").
+Findings, all fixed + pinned same-session:
+1. **BLOCKER** unconditional "+1 for closure" overcounts non-closed data —
+   fixed: `closure` option (default False = no adjustment; the honest
+   default under-counts closed data unless the user asserts closure);
+   `n_centered_pcs` and `n_states` reported separately; pins: 1-state → 1,
+   closed 2-state +closure → 2, closed without the claim → 1 (honest),
+   non-closed 2-state fixture → 2.
+2. **MAJOR** build_matrix endpoint could exceed the overlap (silent
+   edge-fill) — fixed: grid strictly inside [lo, hi]; user grids validated;
+   descending-grid + non-commensurate-span pins.
+3. **MAJOR** SVD-init sign by element count — fixed: positive-vs-negative
+   PART-NORM orientation (NNDSVD-style).
+4. **MAJOR** dead-component reseed to 1e-12 (near-singular NNLS) — fixed:
+   reseed from the positive residual at finite scale; `dead_component_
+   reseeds` surfaced.
+5. **MAJOR** no convergence flag — fixed: `als_converged`,
+   `als_final_relative_delta`, `als_max_iter_hit`; als_tol default moved to
+   the MCR-ALS GUI literature default (0.1% relative LOF change, Jaumot
+   2005; UNVERIFIED as applied).
+6. **MAJOR** peaks=[] contract ambiguity — fixed: `result_kind:
+   'state_decomposition'` + `n_states` in analysis AND diagnostics; message
+   spells it out.
+7. **MAJOR test gaps** — fixed: payload-reconstruction LOF pin, rank-
+   estimator discrimination (see 1), `_nnls_rows` orientation pin,
+   descending-grid/endpoint pins.
+
 ## Codex checkpoint: element-physics DB (Stage 6, 2026-07-03 late) — **NO-GO → all findings fixed**
 
 Verdict archived: `docs/autofit/codex/stage6_element_db_verdict.md`. Codex's

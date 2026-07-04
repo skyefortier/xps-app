@@ -1,0 +1,28 @@
+Adversarial review of the max-entropy PeakFitMethod (decision-matrix entry
+6) on branch feature-autofit-stage2. Files: autofit/methods/max_entropy.py,
+tests/autofit/test_max_entropy.py. Context:
+docs/autofit/peak-fit-methods-decision-matrix.md entry 6 (weaknesses:
+amplifies noise; artifact peaks; doesn't quantify) and the PROGRESS row.
+
+Verify adversarially:
+1. The multiplicative update: f *= exp(damping * conv(y−Kf) /
+   conv(max(Kf,eps))): is this a defensible MaxEnt/RL-hybrid ascent
+   direction for the Gaussian likelihood with entropy prior, or does it
+   secretly optimize something else? Does the symmetric-kernel assumption
+   (correlation == convolution) hold for the Gaussian kernel as built, incl.
+   edge effects of mode="same" at the spectrum boundaries?
+2. Stopping: reduced-χ² target on the RECONVOLVED model with user/MAD noise
+   σ — is the MAD-of-2nd-difference σ estimator right (the /sqrt(6) factor)?
+   What happens when σ is over/under-estimated (silent over/under-
+   sharpening)? Is the honesty adequate (sigma_source flag)?
+3. The floor shift (y − min(y)) and restoration (+floor on output): does it
+   distort entropy or the χ² target? Negative-going noise below the floor?
+4. Honesty: peaks=[] + AMPLIFIES-NOISE warning + USER-SUPPLIED kernel
+   provenance — any remaining overclaim? Is 'relative_entropy_to_flat'
+   meaningful as reported?
+5. Tests: the artifact bound is RELATIVE (15% of main feature) — can the
+   method degrade badly while staying under it (e.g. artifact exactly at a
+   real peak's shoulder)? Do the tests pin kernel-required and determinism
+   adequately? Suggest sharper pins if warranted.
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
