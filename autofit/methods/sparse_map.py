@@ -54,6 +54,9 @@ DEFAULTS = dict(
     merge_fraction=0.6,
     cd_tol=1e-8,
     cd_max_iter=400,
+    # convergence = exit KKT violation ≤ kkt_rtol × λ (the stationarity
+    # condition's own scale); the raw violation is always surfaced
+    kkt_rtol=1e-2,
 )
 _ALLOWED_OPTIONS = set(DEFAULTS) | {"lambda_fixed"}
 
@@ -68,19 +71,32 @@ def _gauss(x: np.ndarray, c: float, w: float) -> np.ndarray:
 
 
 def _build_dictionary(x: np.ndarray, grammar: CandidateGrammar, n_widths: int):
-    """Atoms (unit-height Gaussians) on the data grid within slot windows."""
-    slots = {}
+    """Atoms (unit-height Gaussians) on the data grid within slot windows.
+
+    Slot variants are UNIONED per role across all candidates (Codex Stage-7
+    blocker #1: role-level setdefault dropped variants — a role that is
+    ASYM_GL in one candidate and PV in another must still be flagged
+    asymmetric, and the widest window / FWHM range must win)."""
+    windows: dict[str, list[float]] = {}     # role -> [lo, hi, wlo, whi]
+    asym: dict[str, bool] = {}
     for cand in grammar.candidates:
         for s in cand.slots:
-            slots.setdefault(s.role, s)
+            lo, hi = s.be_window
+            wlo, whi = s.fwhm_range
+            b = windows.get(s.role)
+            if b is None:
+                windows[s.role] = [lo, hi, wlo, whi]
+            else:
+                b[0] = min(b[0], lo)
+                b[1] = max(b[1], hi)
+                b[2] = min(b[2], wlo)
+                b[3] = max(b[3], whi)
+            asym[s.role] = asym.get(s.role, False) or (
+                getattr(s, "line_shape", None) in _ASYMMETRIC_SHAPES)
+    unexpressible = sorted(r for r, a in asym.items() if a)
     atoms = []          # (center, width, role)
-    unexpressible = sorted({
-        s.role for s in slots.values()
-        if getattr(s, "line_shape", None) in _ASYMMETRIC_SHAPES
-    })
-    for role, s in sorted(slots.items()):
-        lo, hi = s.be_window
-        wlo, whi = s.fwhm_range
+    for role in sorted(windows):
+        lo, hi, wlo, whi = windows[role]
         widths = np.geomspace(max(wlo, 1e-3), max(whi, wlo + 1e-3),
                               max(2, n_widths))
         centers = x[(x >= lo) & (x <= hi)]
@@ -96,9 +112,14 @@ def _build_dictionary(x: np.ndarray, grammar: CandidateGrammar, n_widths: int):
 
 
 def _nn_lasso_cd(A: np.ndarray, y: np.ndarray, lam: float,
-                 a0: np.ndarray, tol: float, max_iter: int) -> np.ndarray:
+                 a0: np.ndarray, tol: float, max_iter: int):
     """Cyclic coordinate descent for min ½||y−Aa||² + λ·Σa, a ≥ 0.
-    Columns of A must be unit-norm (then ||A_j||² = 1)."""
+    Columns of A must be unit-norm (then ||A_j||² = 1).
+
+    Returns (a, kkt_violation): the exit-time KKT stationarity residual —
+    max over j of (A_j·r − λ) for a_j = 0 and |A_j·r − λ| for a_j > 0 —
+    computed on a FRESHLY recomputed residual so incremental-update drift
+    cannot hide non-convergence (Codex Stage-7 finding #3)."""
     a = a0.copy()
     r = y - A @ a
     for _ in range(max_iter):
@@ -113,7 +134,15 @@ def _nn_lasso_cd(A: np.ndarray, y: np.ndarray, lam: float,
                 a[j] = new
         if delta < tol:
             break
-    return a
+    r = y - A @ a                          # exact residual at exit
+    grad = A.T @ r
+    active = a > 0
+    kkt = 0.0
+    if np.any(~active):
+        kkt = max(kkt, float(np.max(grad[~active] - lam)))
+    if np.any(active):
+        kkt = max(kkt, float(np.max(np.abs(grad[active] - lam))))
+    return a, max(kkt, 0.0)
 
 
 def _cluster_support(idx: list[int], atoms, amps: np.ndarray, merge_fraction: float):
@@ -189,25 +218,44 @@ class SparseMAPMethod(PeakFitMethod):
         a = np.zeros(An.shape[1])
         path_records = []
         best = None
-        for lam in lam_path:                 # warm-started path, dense→sparse order
-            a = _nn_lasso_cd(An, y_net, lam, a, cfg["cd_tol"], cfg["cd_max_iter"])
+        # warm-started λ path, SPARSE→DENSE order (λ_max down; each solve
+        # warm-starts from the previous, sparser, solution)
+        for lam in lam_path:
+            a, kkt = _nn_lasso_cd(An, y_net, lam, a,
+                                  cfg["cd_tol"], cfg["cd_max_iter"])
+            converged = kkt <= cfg["kkt_rtol"] * lam
             idx = [j for j in range(len(a)) if a[j] > 1e-10]
             if not idx:
-                path_records.append({"lambda": lam, "n_atoms": 0, "bic": None,
-                                     "n_peaks": 0})
+                path_records.append({"lambda": lam, "n_atoms_active": 0,
+                                     "bic": None, "n_peaks": 0,
+                                     "kkt_violation": float(kkt),
+                                     "converged": bool(converged)})
                 continue
-            # debiased amplitudes: NNLS on the raw (un-normalized) support
-            amps, rss_debiased = nnls(A[:, idx], y_net)
-            rss = float(np.sum((y_net - A[:, idx] @ amps) ** 2))
-            k = len(idx)
+            # debiased amplitudes: NNLS on the raw (un-normalized) support;
+            # the ACTIVE support is what NNLS keeps nonzero — zero-amplitude
+            # atoms must not count as dof or join clusters (Codex Stage-7
+            # blocker #2)
+            amps_all, _ = nnls(A[:, idx], y_net)
+            active = amps_all > 1e-10
+            act_idx = [j for j, keep in zip(idx, active) if keep]
+            amps = amps_all[active]
+            if not act_idx:
+                path_records.append({"lambda": lam, "n_atoms_active": 0,
+                                     "bic": None, "n_peaks": 0,
+                                     "kkt_violation": float(kkt),
+                                     "converged": bool(converged)})
+                continue
+            rss = float(np.sum((y_net - A[:, act_idx] @ amps) ** 2))
+            k = len(act_idx)
             bic = n * np.log(max(rss, 1e-300) / n) + k * np.log(n)
-            clusters = _cluster_support(idx, atoms, amps, cfg["merge_fraction"])
-            rec = {"lambda": float(lam), "n_atoms": k,
-                   "n_peaks": len(clusters), "bic": float(bic)}
+            clusters = _cluster_support(act_idx, atoms, amps, cfg["merge_fraction"])
+            rec = {"lambda": float(lam), "n_atoms_active": k,
+                   "n_peaks": len(clusters), "bic": float(bic),
+                   "kkt_violation": float(kkt), "converged": bool(converged)}
             path_records.append(rec)
-            if any(amps > 0) and (best is None or bic < best["bic"]):
-                best = {**rec, "idx": idx, "amps": amps, "clusters": clusters,
-                        "rss": rss}
+            if best is None or bic < best["bic"]:
+                best = {**rec, "idx": act_idx, "amps": amps,
+                        "clusters": clusters, "rss": rss}
 
         if best is None:
             return MethodResult(
@@ -272,10 +320,15 @@ class SparseMAPMethod(PeakFitMethod):
                 "n_widths": cfg["n_widths"],
                 "asymmetric_slots_not_expressible": unexpressible,
             },
-            "model_size_selection": "BIC = n·ln(RSS/n) + k·ln(n) on the "
-                                    "debiased support (k = selected atoms)",
+            "model_size_selection": (
+                "HEURISTIC BIC on active dictionary atoms: "
+                "n·ln(RSS/n) + k·ln(n), k = NNLS-active atom count — a "
+                "fixed-dictionary heuristic, NOT calibrated evidence "
+                "(collinear atoms make effective dof < k; λ-path selection "
+                "on the same data adds post-selection optimism)"),
             "lambda_path": path_records,
             "selected_lambda": best["lambda"],
+            "path_fully_converged": all(r["converged"] for r in path_records),
             "unverified_tunables": {k: cfg[k] for k in DEFAULTS},
             "regions": list(grammar.regions),
             "phase_ids": list(grammar.phase_ids),
@@ -292,5 +345,7 @@ class SparseMAPMethod(PeakFitMethod):
             confidence=confidence,
             diagnostics={"n_peaks": len(peaks), "bic": best["bic"],
                          "rss": best["rss"], "selected_lambda": best["lambda"],
-                         "n_selected_atoms": best["n_atoms"]},
+                         "n_atoms_active": best["n_atoms_active"],
+                         "kkt_violation": best["kkt_violation"],
+                         "converged": best["converged"]},
         )

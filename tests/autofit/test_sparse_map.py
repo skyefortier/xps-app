@@ -112,6 +112,62 @@ def test_deterministic_no_rng():
     assert r1.peaks == r2.peaks
 
 
+def test_nn_lasso_cd_analytic_solution():
+    """Codex Stage-7 finding #6: end-to-end tests can pass with a subtly
+    wrong solver. Pin _nn_lasso_cd on an analytic problem: A = I,
+    y = [2, -2, 0.3], λ = 0.5 ⇒ a* = [1.5, 0, 0] (the non-negative clamp
+    must kill the negative-correlation coordinate; plain soft-thresholding
+    would return -1.5 there)."""
+    from autofit.methods.sparse_map import _nn_lasso_cd
+    A = np.eye(3)
+    y = np.array([2.0, -2.0, 0.3])
+    a, kkt = _nn_lasso_cd(A, y, 0.5, np.zeros(3), tol=1e-12, max_iter=100)
+    assert np.allclose(a, [1.5, 0.0, 0.0], atol=1e-10)
+    assert kkt <= 1e-10
+
+
+def test_lambda_max_boundary_behavior():
+    """λ ≥ max(Aᵀy) ⇒ empty support; λ just below activates exactly the
+    max-correlation atom (non-negative variant thresholds at the MAX, not
+    max-|·|)."""
+    from autofit.methods.sparse_map import _nn_lasso_cd
+    rng = np.random.default_rng(3)
+    A = rng.normal(size=(40, 5))
+    A /= np.linalg.norm(A, axis=0)
+    y = rng.normal(size=40)
+    lam_max = float(np.max(A.T @ y))
+    a, _ = _nn_lasso_cd(A, y, lam_max * 1.0000001, np.zeros(5),
+                        tol=1e-12, max_iter=200)
+    assert np.all(a == 0.0)
+    a, _ = _nn_lasso_cd(A, y, lam_max * 0.999, np.zeros(5),
+                        tol=1e-12, max_iter=200)
+    assert np.count_nonzero(a) == 1
+    assert a[int(np.argmax(A.T @ y))] > 0
+
+
+def test_kkt_and_convergence_surfaced(result):
+    assert "path_fully_converged" in result.analysis
+    assert result.diagnostics["converged"] is True
+    assert result.diagnostics["kkt_violation"] >= 0.0
+    for r in result.analysis["lambda_path"]:
+        assert "kkt_violation" in r and "converged" in r
+        assert "n_atoms_active" in r
+
+
+def test_slot_variant_union_flags_asymmetry():
+    """Blocker #1 pin: a role that is Gaussian in one candidate and ASYM_GL
+    in another must still be flagged not-expressible."""
+    m1 = CandidateModel(name="A", background=BackgroundType.LINEAR,
+                        slots=(_slot("p1", (99.0, 101.2), LineShape.GAUSSIAN),))
+    m2 = CandidateModel(name="B", background=BackgroundType.LINEAR,
+                        slots=(_slot("p1", (99.5, 101.5), LineShape.ASYM_GL),))
+    g = CandidateGrammar(regions=("T",), phase_ids=("t",), candidates=[m1, m2],
+                         diagnostic_windows={}, provenance={})
+    x, y = _spectrum()
+    res = get_method("sparse_map").run(x, y, grammar=g)
+    assert res.analysis["dictionary"]["asymmetric_slots_not_expressible"] == ["p1"]
+
+
 def test_option_validation():
     x, y = _spectrum()
     m = get_method("sparse_map")

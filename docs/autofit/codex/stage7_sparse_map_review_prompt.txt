@@ -1,0 +1,32 @@
+Adversarial review of the sparse/MAP PeakFitMethod (decision-matrix entry 4)
+on branch feature-autofit-stage2. Files: autofit/methods/sparse_map.py,
+tests/autofit/test_sparse_map.py, registry autofit/methods/__init__.py.
+Context: docs/autofit/peak-fit-methods-decision-matrix.md entry 4 (sparse /
+MAP: L1 dictionary, auto-prune; weaknesses grid mismatch / amplitude bias /
+overlap), docs/autofit/PROGRESS.md status row.
+
+Verify the MATH and honesty adversarially:
+1. The non-negative LASSO coordinate-descent update: is
+   a_j <- max(0, A_j.(r + A_j a_j) - lambda) correct for unit-norm columns
+   minimizing 0.5||y-Aa||^2 + lambda*sum(a) with a >= 0? Is the residual
+   update exact (no drift over iterations)? Convergence criterion adequacy?
+2. Warm-started geometric lambda path from lambda_max = max(A^T y): is
+   lambda_max the correct smallest lambda with empty support for the
+   NON-NEGATIVE variant? Dense->sparse traversal with warm starts — any
+   path-dependence hazard that breaks determinism or optimality?
+3. BIC on the debiased NNLS support with k = number of selected atoms: is
+   that k defensible as the dof, and is comparing BIC across lambda values
+   on the SAME data valid model-size selection? Where does it break
+   (cluster count vs atom count, post-selection optimism)?
+4. Cluster merge scaled by the cluster's amplitude-weighted mean FWHM
+   (merge_fraction 0.6 UNVERIFIED): failure modes (two true peaks closer
+   than 0.6x width merged into one; chain-merging across a broad cluster)?
+5. Honesty: does the confidence payload overclaim anything? Is
+   'unavailable_post_selection' + note sufficient, or does any consumer
+   read absent fields as calibrated? Are the UNVERIFIED tunables and the
+   asymmetric-shape inexpressibility surfaced enough?
+6. Tests: can they pass with a subtly wrong solver (e.g. lambda off by a
+   factor, soft-threshold without the nonneg clamp)? Suggest a sharper
+   pin (e.g. a tiny analytic LASSO problem with known solution path).
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
