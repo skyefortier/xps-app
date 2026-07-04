@@ -133,6 +133,18 @@ def estimate_noise_from_replicates(
         raise ValueError("replicate scans must share one acquisition grid")
     if n < MIN_PAIR_POINTS:
         raise ValueError(f"replicates too short (< {MIN_PAIR_POINTS} points)")
+    dx = np.diff(x)
+    if np.all(dx < 0):
+        # real XPS BE grids are often DESCENDING; np.interp silently
+        # returns garbage on a descending source grid (Codex re-check
+        # blocker — the first survey's registration was invalid on real
+        # data because of this).  Reverse internally; a/b are
+        # order-independent, pair shifts flip sign (reported in the
+        # reversed = ascending frame).
+        x = x[::-1].copy()
+        ys = [s[::-1].copy() for s in ys]
+    elif not np.all(dx > 0):
+        raise ValueError("x must be strictly monotonic")
 
     mean_scan = np.mean(ys, axis=0)
     grad = np.gradient(mean_scan, x)
@@ -165,13 +177,38 @@ def estimate_noise_from_replicates(
     T = (np.eye(n) - S) @ (np.eye(n) - H)
     T2 = T * T
 
+    # Registration transmission is COVARIANCE-EXACT (Codex re-check
+    # blocker: linear interpolation gives adjacent aligned samples the
+    # covariance f(1−f)σ² — a diagonal factor cannot represent it): with
+    # d = ya − P yb (P = the interpolation matrix), Σ_d = D_a + P D_b Pᵀ,
+    # so with G = T and Gp = T P,
+    #   E[r_i²] = (G² + Gp²)·σ²-vector  =  a·u + b·w,
+    #   u = (G²+Gp²)·1,  w = (G²+Gp²)·I     (² elementwise; D diagonal).
     # Remaining KNOWN second-order effects, accepted and documented rather
     # than silently absorbed: (a) IRLS with fitted weights is consistent,
     # not finite-sample unbiased; (b) interp-CLAMPED edge points are
     # excluded by mask, but the global hat matrix lets them perturb the 4
     # regression coefficients at O(edge_points/n); (c) the registration
-    # sign is selected on the SMOOTHED residual (noise power there is
-    # ~σ²/k), so selection-on-noise is suppressed by 1/k, not eliminated.
+    # sign/refinement selects among a handful of candidates using the
+    # residual-shift coefficient — a near-deterministic statistic.
+    def _interp_matrix(shift):
+        """P with yb_aligned = P @ yb  ≡  np.interp(x, x + shift, yb),
+        built by searchsorted (non-uniform-grid safe, clamped edges)."""
+        P = np.zeros((n, n))
+        src = x + shift
+        for i in range(n):
+            q = x[i]
+            if q <= src[0]:
+                P[i, 0] = 1.0
+            elif q >= src[-1]:
+                P[i, -1] = 1.0
+            else:
+                j = int(np.searchsorted(src, q)) - 1
+                f_ij = (q - src[j]) / (src[j + 1] - src[j])
+                P[i, j] = 1.0 - f_ij
+                P[i, j + 1] = f_ij
+        return P
+
     r2_l, u_l, w_l, Ie_l = [], [], [], []
     for a_i in range(len(ys) - 1):
         ya, yb = ys[a_i], ys[a_i + 1]
@@ -188,7 +225,6 @@ def estimate_noise_from_replicates(
         # leakage power is comparable to the smoothed noise floor σ²/k, so
         # pairs mis-selected — measured, hence this discriminator.)
         d_chosen, s_used = d0, 0.0
-        c_vec = np.full(n, 2.0)          # Var(ya − yb) = 2σ²
         best_residual_shift = abs(s_hat)
         if abs(s_hat) >= 1e-4 * step:
             for s_try in (s_hat, -s_hat):
@@ -219,22 +255,47 @@ def estimate_noise_from_replicates(
                         break
                 if not improved:
                     break
-            f = (abs(s_used) / step) % 1.0
-            # linear-interp noise transmission for the aligned scan
-            c_vec = np.full(n, 1.0 + (1.0 - f) ** 2 + f ** 2)
         shifts.append(s_used if s_used != 0.0 else s_hat)
 
         r = T @ d_chosen
         removed_var += float(np.var(d0) - np.var(r))
-        u = T2 @ c_vec
-        w = T2 @ (c_vec * mean_scan)
+        # covariance-exact transmission (see the operator note above).
+        # σ²(I) is assigned from the ENSEMBLE MEAN intensity: per-scan
+        # (smoothed) intensities were tried and are WRONG — they share
+        # noise with the response r², and that regressor-response
+        # correlation collapses the slope (measured b→0.38 on pure
+        # Poisson).  The mean-assignment residual error is flank
+        # misassignment at multi-grid-step shifts (measured: b
+        # understates ~18% at 6-step / 0.3 eV shifts) — flagged below
+        # rather than silently absorbed.
+        G2 = T2
+        if s_used != 0.0:
+            Gp = T @ _interp_matrix(s_used)
+            Gp2 = Gp * Gp
+        else:
+            Gp2 = T2
+        u = G2 @ np.ones(n) + Gp2 @ np.ones(n)
+        w = (G2 + Gp2) @ mean_scan
+        if abs(s_used) > 2.0 * step and not any(
+                f.startswith("intensity_assignment_degraded") for f in flags):
+            flags.append(
+                "intensity_assignment_degraded: pair shifts exceed ~2 grid "
+                "steps — σ²(I) is assigned from the ensemble mean, which "
+                "misassigns flank variance there (measured: b understates "
+                "~18% at 6-step shifts); treat b as a lower bound")
         # mask: interp-clamped points (np.interp holds edge values beyond
         # the shifted support) contaminate every T row whose smoother
         # window touches them — exclude ceil(|s|/step)+1 edge points plus
         # the half-window on each side (Codex noise review: edge_drop=3
         # was insufficient for the survey's ~0.3 eV shifts)
         edge_excl = (int(np.ceil(abs(s_used) / step)) + 1 if s_used else 1)
-        drop = min(edge_excl + half, n // 4)
+        drop = edge_excl + half
+        if drop > n // 4:
+            # refusing beats silent under-masking (Codex re-check): a shift
+            # this large relative to the window is not a registration case
+            flags.append(f"pair_excluded: |shift|={abs(s_used):.3g} eV "
+                         "needs an edge mask wider than n/4 — pair dropped")
+            continue
         m = np.ones(n, bool)
         m[:drop] = m[-drop:] = False
         r2_l.append((r * r)[m]); u_l.append(u[m]); w_l.append(w[m])

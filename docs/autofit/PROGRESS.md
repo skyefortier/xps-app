@@ -951,19 +951,34 @@ Carlo pins (small-shift median 1.033, large-shift 0.954; residual pure-
 case +3–7% finite-sample IRLS bias documented, shrinking with replicate
 count); (6) stale docstring fixed.  Re-review pending.
 
-**Real-data survey (regenerated under the corrected estimator):** the
-labeled projects' repeat scans are DRIFT-DOMINATED (71–99.5% of pair
-variance — sequential acquisitions, not clean noise replicates; recovered
-pair shifts 0.01–0.31 eV match the ccShift-difference scale).  TENTATIVE
-residual-noise estimates only (every group still carries the
-drift_dominated flag): the cleanest groups (8-JT C1s, B4C B1s/U4f, Cl2p)
-give a≈0 with b = 0.77–0.92 — compatible with near-raw-counts exports,
-NOT calibrated evidence of export gain; the UCl4-graphite/Project9 C 1s
-and U 4f groups are not even linear in σ²(I) (poor_variance_fit /
-nonpositive_slope — structure evolving between scans; honestly flagged,
-not fitted through).  χ²-target and χ²ᵣ-based criteria inherit whichever
-miscalibration applies; calibration against the stress suite follows the
-re-review.
+**Codex re-check ×2 (round 2): NO-GO ×2 → fixed same-session.** Two real
+blockers survived round 1: (1) interpolation COVARIANCE — linear
+registration gives adjacent aligned samples covariance f(1−f)σ², which a
+diagonal factor cannot carry; the transmission now goes through the
+explicit interpolation matrix (E[r²] = a·[(T²+(TP)²)·1] + b·[(T²+(TP)²)·I],
+exact for diagonal source covariance — pinned by a 3000-draw matrix-level
+Monte Carlo, interior mean ratio 1.000±0.02); (2) **descending BE grids**
+— real raw_be grids DESCEND and np.interp silently returns garbage there,
+so ALL earlier real-data registration (and the "sub-Poisson b=0.61–0.92"
+narratives) were invalid; the estimator now reverses internally
+(ascending/descending equivalence pinned to 1e-9).  Also fixed: mask cap
+refuses (flags pair_excluded) instead of silently under-masking; per-scan
+intensity assignment was TRIED for the multi-step-shift case and measured
+catastrophically wrong (regressor shares noise with the response —
+b→0.38 on pure Poisson), so σ²(I) stays ensemble-mean-assigned with an
+explicit `intensity_assignment_degraded` flag at |shift| > 2 grid steps
+(measured: b understates ~18% at 6-step shifts; treat as lower bound).
+
+**Real-data survey (regenerated under VALID registration):** repeat scans
+remain DRIFT-DOMINATED (88–99.8%; recovered pair shifts up to 0.40 eV).
+On the only three groups with NO fit-quality flags (8-JT C1s, B4C
+B1s/U4f): a≈0, **b = 0.95–1.38 — near-Poisson to modestly super-Poisson**
+(tentative; still drift-dominated), i.e. 1/√y weights are roughly right
+THERE.  Every other group is honestly flagged (nonlinear σ²(I),
+poor_variance_fit, and/or intensity_assignment_degraded at the largest
+shifts).  The earlier sub-Poisson reading is retracted — it was the
+descending-grid registration artifact.  χ²-criteria calibration against
+the stress suite follows the re-review.
 
 ## CI — gates cannot silently skip (2026-07-04)
 

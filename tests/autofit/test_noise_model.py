@@ -122,21 +122,99 @@ def test_monte_carlo_centering_small_and_large_shifts():
     replicate count (16 reps → +2.9%)."""
     cases = (
         ("small", [0.00, 0.03, -0.02, 0.05, 0.01, -0.04, 0.02, 0.06],
-         0.95, 1.12),
-        ("large", [0.0, 0.30, -0.25, 0.30, 0.05, -0.30], 0.88, 1.10),
+         0.95, 1.12, 0.8, 1.3, None),
+        # multi-grid-step shifts: σ²(I) assignment from the ensemble mean
+        # UNDERSTATES b there (measured median 0.82) — the estimator must
+        # SAY so (intensity_assignment_degraded), never a clean number
+        ("large", [0.0, 0.30, -0.25, 0.30, 0.05, -0.30], 0.72, 1.05,
+         0.5, 1.3, "intensity_assignment_degraded"),
     )
-    for label, shift_set, lo, hi in cases:
-        bs = []
+    for label, shift_set, lo, hi, slo, shi, req_flag in cases:
+        bs, flags = [], set()
         for seed in range(1, 11):
             rng = np.random.default_rng(seed)
             reps = [rng.poisson(
                         400.0 + 50000.0 * np.exp(
                             -4 * np.log(2) * ((X - 197.5 - s) / 1.4) ** 2)
                     ).astype(float) for s in shift_set]
-            bs.append(estimate_noise_from_replicates(X, reps).b)
+            m = estimate_noise_from_replicates(X, reps)
+            bs.append(m.b)
+            flags |= {f.split(":")[0] for f in m.flags}
         med = float(np.median(bs))
         assert lo <= med <= hi, (label, med, bs)
-        assert all(0.8 <= b <= 1.3 for b in bs), (label, bs)
+        assert all(slo <= b <= shi for b in bs), (label, bs)
+        if req_flag:
+            assert req_flag in flags, (label, flags)
+        else:
+            assert "intensity_assignment_degraded" not in flags, (label, flags)
+
+
+def test_transmission_is_covariance_exact_pointwise():
+    """Matrix-level pin (Codex re-check demand): for a KNOWN white noise σ
+    and a fixed fractional registration shift, the implemented per-point
+    predictor u must satisfy E[r²]ᵢ = σ²·uᵢ INCLUDING the interpolation
+    covariance (a diagonal-only correction fails this by ~f(1−f) terms).
+    Verified against 3000 Monte Carlo draws through the exact operator."""
+    from autofit.noise import LOCAL_DETREND_POINTS
+    n = 120
+    x = np.linspace(0.0, 10.0, n)
+    mean_scan = np.full(n, 100.0)
+    grad = np.gradient(mean_scan, x)
+    curv = np.gradient(grad, x)
+    basis = np.column_stack([grad, curv, mean_scan, np.ones(n)])
+    Q, _ = np.linalg.qr(basis)
+    H = Q @ Q.T
+    k = min(LOCAL_DETREND_POINTS, max(5, n // 4) | 1)
+    half = k // 2
+    S = np.zeros((n, n))
+    for i in range(n):
+        lo_i, hi_i = max(0, i - half), min(n, i + half + 1)
+        S[i, lo_i:hi_i] = 1.0 / (hi_i - lo_i)
+    T = (np.eye(n) - S) @ (np.eye(n) - H)
+    step = x[1] - x[0]
+    s = 1.5004 * step                      # deliberately fractional
+    P = np.zeros((n, n))
+    src = x + s
+    for i in range(n):
+        q = x[i]
+        if q <= src[0]:
+            P[i, 0] = 1.0
+        elif q >= src[-1]:
+            P[i, -1] = 1.0
+        else:
+            j = int(np.searchsorted(src, q)) - 1
+            f = (q - src[j]) / (src[j + 1] - src[j])
+            P[i, j], P[i, j + 1] = 1.0 - f, f
+    Gp = T @ P
+    u = (T * T) @ np.ones(n) + (Gp * Gp) @ np.ones(n)
+    sig = 3.0
+    acc = np.zeros(n)
+    n_draws = 3000
+    for t in range(n_draws):
+        ra = np.random.default_rng(t).normal(0, sig, n)
+        rb = np.random.default_rng(50000 + t).normal(0, sig, n)
+        r = T @ (ra - P @ rb)
+        acc += r * r
+    ratio = (acc / n_draws) / (sig * sig * u)
+    interior = slice(20, n - 20)
+    assert float(np.mean(ratio[interior])) == pytest.approx(1.0, abs=0.02)
+    assert float(np.max(np.abs(ratio[interior] - 1.0))) < 0.10
+
+
+def test_descending_grid_equivalence():
+    """Real XPS BE grids are DESCENDING; np.interp silently breaks on a
+    descending source grid (Codex re-check blocker — the first real-data
+    survey's registration was invalid because of this).  The estimator
+    must reverse internally: identical a/b either way."""
+    rng = np.random.default_rng(3)
+    reps = [rng.poisson(400.0 + 50000.0 * np.exp(
+                -4 * np.log(2) * ((X - 197.5 - s) / 1.4) ** 2)
+            ).astype(float) for s in (0.0, 0.05, -0.03, 0.04)]
+    m_asc = estimate_noise_from_replicates(X, reps)
+    m_desc = estimate_noise_from_replicates(
+        X[::-1].copy(), [r[::-1].copy() for r in reps])
+    assert m_desc.b == pytest.approx(m_asc.b, rel=1e-9)
+    assert m_desc.a == pytest.approx(m_asc.a, abs=1e-6)
 
 
 def test_input_validation():

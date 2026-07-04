@@ -1,0 +1,36 @@
+Re-check of the empirical noise estimator on branch feature-autofit-stage2
+(commit 4075a13; your NO-GO verdicts' dispositions all claimed fixed).
+Files: autofit/noise.py, tests/autofit/test_noise_model.py,
+docs/autofit/PROGRESS.md (noise section),
+docs/autofit/inventory/replicate_noise_survey.json.
+
+Verify each disposition ACTUALLY closes the finding — or say concretely
+why not:
+1. (BLOCKER) scalar corrections after the data-adaptive residual stack →
+   the drift regression + high-pass are now an explicit operator
+   T = (I−S)(I−H) and the fit regresses r² on the exact per-point
+   transmission (u = T²c, w = T²(c·I)) by IRLS with prediction weights.
+   Is E[r²ᵢ] = a·uᵢ + b·wᵢ exact for diagonal input covariance? Any
+   remaining uncorrected transmission (registration selection is now by
+   the residual-shift coefficient; Newton refinement; per-pair c from the
+   interp factor)?
+2. (MAJOR) interp-clamp/filter edges → dynamic mask ceil(|s|/step)+1+k/2
+   per pair. Sufficient? (The known second-order leak of clamped points
+   through the GLOBAL hat rows at O(edge/n) is documented as accepted.)
+3. (MAJOR) survey overreach → reworded to tentative residual-noise
+   estimates under drift-dominated sequential acquisition (b=0.77-0.92 on
+   the cleanest groups under the corrected estimator, all still
+   drift_dominated-flagged; nonlinear groups flagged not fitted).
+   Honest now?
+4. (MAJOR) test discrimination → predeclared-seed Monte Carlo pins
+   (small-shift median 1.033 bounds [0.95,1.12]; large-shift 0.954
+   bounds [0.88,1.10]; per-seed [0.8,1.3]), plus the existing
+   gain/floor/shift-recovery/drift-flag/edge tests. Do these discriminate
+   the failure modes you named? The pure-case +3-7% finite-sample IRLS
+   bias is documented rather than fixed — acceptable, or does it need a
+   correction?
+5. (MINOR) stale docstring → rewritten to the per-point operator-
+   transmission description.
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
