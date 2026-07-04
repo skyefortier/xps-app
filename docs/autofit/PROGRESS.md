@@ -800,6 +800,29 @@ the graphitic-main lineshape. Provenance updated.
   predate this ruling. Not regenerated in this unit; flagged for the next
   battery regeneration.
 
+### #1/#2 region-mismatched `_rsfKey` quantification lint — IMPLEMENTED (flag-only)
+
+**Ruling:** the `Zr 3d` tags (B4C B-B/B-C) and `K 2p` tags (all C 1s π→π*
+satellites) are confirmed erroneous — add the spec-§8 lint to catch the
+pattern; do NOT alter source data; LEAVE the `N 1s` tag on the ~397 eV
+U 4f satellite (genuinely N 1s territory, possibly deliberate).
+
+**Implemented:** `autofit/lint.py` — `lint_rsf_tags` / `lint_project`,
+flag-only (input-mutation pinned impossible). A foreign `_rsfKey` is
+*positionally justified* (info, not flagged) when the peak center sits in
+the named region's engine-module window or inside a machine-tier
+fit-physics.json window ±3.0 eV (documented UNVERIFIED bookkeeping
+tolerance — a flag threshold, not physics); otherwise flagged with full
+evidence (distance to nearest known territory, or "no territory known").
+Unknown-tab + unknown-key cases are conservatively skipped.
+
+**Measured on the full labeled set (pinned in
+`tests/autofit/test_quantification_lint.py`):** exactly the adjudicated
+picture — 44 `K 2p` flags (every C 1s π→π* satellite, 5 projects), 20
+`Zr 3d` flags (B-B/B-C × 10 B4C tabs, 9.25 eV outside the machine-tier
+Zr 3d window), 54 `N 1s`-on-U 4f tags all INFO (leave-it ruling honored),
+zero other flags.
+
 ## Monday handoff — what to do first
 *(updated end of the 2026-07-03 late session — items 2–3 of the original
 list are DONE: both hung Codex reviews re-ran under the gtimeout rails
