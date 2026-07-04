@@ -29,10 +29,11 @@ def test_registry_shape():
                    "sparse_map", "multivariate_mcr", "max_entropy"]
     implemented = {m["id"] for m in menu if m["implemented"]}
     assert implemented == {"least_squares", "ic_model_comparison",
-                           "bayesian_exchange_mc", "sparse_map"}
+                           "bayesian_exchange_mc", "sparse_map",
+                           "multivariate_mcr"}
 
 
-@pytest.mark.parametrize("stub_id", ["multivariate_mcr", "max_entropy"])
+@pytest.mark.parametrize("stub_id", ["max_entropy"])
 def test_stubs_raise_with_pointer(stub_id):
     with pytest.raises(NotImplementedError, match="decision-matrix"):
         get_method(stub_id).run(None, None)

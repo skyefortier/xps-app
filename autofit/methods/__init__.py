@@ -1,8 +1,8 @@
 """
 PeakFitMethod registry (spec §5A) — the solver-selector seam.
 
-Methods 1–4 implemented; the rest are registered stubs so the menu shape is
-stable (ranked per the decision matrix):
+Methods 1–5 implemented; max_entropy remains a registered stub so the menu
+shape is stable (ranked per the decision matrix):
 
   1. least_squares           — implemented (wraps existing run_fit)
   2. ic_model_comparison     — implemented (fitalg engine port)
@@ -10,7 +10,8 @@ stable (ranked per the decision matrix):
                                exchange + stepping-stone Bayes free energy)
   4. sparse_map              — implemented (L1 dictionary + debiased NNLS;
                                fast auto-pruning, few-separated-peaks regime)
-  5. multivariate_mcr       — stub (multi-spectrum decomposition)
+  5. multivariate_mcr        — implemented (PCA rank + MCR-ALS on a
+                               multi-spectrum matrix; states, not peaks)
   6. max_entropy             — stub (resolution enhancement)
 """
 
@@ -20,13 +21,8 @@ from .base import MethodResult, NotImplementedMethod, PeakFitMethod
 from .bayesian_exchange_mc import BayesianExchangeMCMethod
 from .ic_model_comparison import ICModelComparisonMethod
 from .least_squares import LeastSquaresMethod
+from .multivariate_mcr import MultivariateMCRMethod
 from .sparse_map import SparseMAPMethod
-
-
-class MultivariateMCRMethod(NotImplementedMethod):
-    id = "multivariate_mcr"
-    label = "Multivariate (PCA / MCR-ALS)"
-    reason = "multi-spectrum decomposition — needs the repeat-scan data matrix plumbing"
 
 
 class MaxEntropyMethod(NotImplementedMethod):
