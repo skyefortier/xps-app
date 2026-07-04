@@ -1,0 +1,25 @@
+Re-check #2 (final) of the resolution-enhancement (MaxEnt-slot) unit on
+branch feature-autofit-stage2. Your re-check verdict
+(docs/autofit/codex/stage9_recheck_verdict.md) verified dispositions 3-5
+closed and item 6 discriminating, and held NO-GO on exactly two residuals,
+both claimed fixed in commit 0a82c20:
+
+1. (BLOCKER) residual MaxEnt claim in tests — the test module docstring and
+   the flat-region test docstring in tests/autofit/test_max_entropy.py are
+   reworded to iterative deconvolution with menu-slot naming only. Verify NO
+   unqualified MaxEnt claim remains anywhere (implementation, tests,
+   PROGRESS row): remaining mentions must be menu-slot naming, literature
+   citations, or explicit NOT-MaxEnt statements.
+2. (MAJOR) stale χ² on the max_iter-exhausted path — after the loop,
+   autofit/methods/max_entropy.py now recomputes chi_r from the EMITTED f
+   (and derives converged from it), so reduced_chi_sq_reconvolution always
+   describes sharpened_spectrum. Pinned by
+   test_nonconverged_chi_sq_matches_emitted_spectrum (max_iter=3, identity
+   vs an independent reconvolution at rel 1e-6, asserts non-convergence).
+   Check the recompute sits before payload/diagnostics/message assembly and
+   that converged-path semantics are unchanged (the recompute reproduces the
+   break-path value; a final update that crosses the target at exhaustion
+   now honestly reports converged).
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

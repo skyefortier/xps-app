@@ -1,0 +1,30 @@
+Re-check #3 (final) of the Bayesian exchange-MC validation on branch
+feature-autofit-stage2. Your re-check #2 verified all code dispositions and
+held NO-GO on exactly two items, both claimed fixed in the latest commits:
+
+1. (BLOCKER) mixed-schema/duplicated validation JSONL → the artifact
+   docs/autofit/inventory/bayesian_real_validation_runs.jsonl is now a
+   SINGLE canonical generation under frozen method code: verify one record
+   per (anchor, method, config, seed) — 33 records, no duplicates — and
+   that every Bayesian record carries selection_warning,
+   free_energy_split_half_error, free_energy_mc_error,
+   free_energy_is_replicate_mean, posterior_weight_reliable, and per-slot
+   sigma_stat reliability/ess. The summary doc
+   docs/autofit/bayesian-real-validation.md is regenerated from it.
+2. (MAJOR) replicate semantics → consumer-visible flags
+   (free_energy_is_replicate_mean per candidate;
+   posterior_summary_replicated / posterior_samples_seed / seed_replicates
+   in analysis) + pins in tests/autofit/test_bayesian_method.py
+   (k=1 identity with the option omitted; k=2 mean-F; base replicate ==
+   k=1 evidence).
+
+Also sanity-check the fresh-data honesty picture is correctly represented
+in the doc: Cl 2p/B 1s resolved with cross-method agreement; C 1s flagged
+UNRESOLVED on both seeds (winners flip MG2/AG2); U 4f seed 1 flags while
+seed 0 at k=1 does not (split-half is a documented lower bound — the
+replicated env gate tests/autofit/test_bayesian_u4f_unresolved_gate.py and
+the tuned run docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl carry
+that case).
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

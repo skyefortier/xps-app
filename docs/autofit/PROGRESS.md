@@ -26,7 +26,7 @@ path untouched.
 | B 1s / N 1s / Cl 2p cookbook | DONE | ✅ 21 tests | `regions/b1s.py` (position-neutral roles per discrepancy #8; good-exemplar windows; component ladder) + `regions/cl2p.py` (doublet, Δso/ratio CONDITIONAL-cited, fixed + relaxed variants) + minimal `n1s.py` (validated by the U 4f co-fit gate). Batteries (B 1s ×4, Cl 2p ×3) + engine gates: B 1s 3-component winner beats expert (χ²ᵣ 1.26 vs 1.43); Cl 2p relaxed-ratio CONDITIONAL winner beats expert on both anchors (discrepancy #7). Engine: `smart_exp` bg + decisive-override rule (ΔBIC*>10, Kass & Raftery 1995) for the conditional tier. |
 | Bayesian exchange-MC method | DONE + REAL-DATA VALIDATED | ✅ 11 tests + 2 env gates | `methods/bayesian_exchange_mc.py`: replica-exchange + stepping-stone Bayes free energy; σ-marginalized Gaussian likelihood; priors = grammar bounds; typed `posterior_ci` intervals. Codex math review COMPLETED (core math confirmed; 5 honesty findings fixed — see verdict section): split-half F error bars, UNRESOLVED-selection warning, per-slot CI reliability, stuck-chain ESS, analytic Student-t evidence pin, `seed_replicates` independent-replicate errors. REAL-DATA validation (`scripts/run_bayesian_real_validation.py` + JSONL + `docs/autofit/bayesian-real-validation.md`): Cl 2p + B 1s — cross-method winner agreement with IC at every seed/tunable setting (ΔF 47 / 113–148); U 4f — honestly UNRESOLVED at default budget (seed flip, flagged by replication; env gate pins it) and RESOLVED to U2 at 16 replicas/4000 sweeps (ΔF 28.2), agreeing with IC's ΔBIC*=59. Tuning evidence: replicas drive ESS more than sweeps; LACX-scale regions need the tuned budget. |
 | Sensitivity sweeps (spec §9) | DONE | ✅ 86 runs | `scripts/run_sensitivity_sweeps.py` + JSONL + `docs/autofit/sensitivity-sweeps.md`. ONLY the Cl 2p ratio cap changes any conclusion (see Sensitivity section); all pipeline thresholds insensitive on the anchors; flags kept (insensitivity ≠ verification). |
-| Resolution-enhancement method (stretch #6, MaxEnt menu slot) | DONE (synthetic-validated) | ✅ 10 tests | `methods/max_entropy.py` — Codex Stage-9 blocker accepted and fixed by HONEST RELABELING: the implemented update is a damped exponentiated ISRA/RL-style deconvolution with χ²ᵣ stopping, **NOT a constrained MaxEnt solve** (no entropy gradient) — label, docstring, and payload all say so; a true entropy-regularized objective is logged FUTURE WORK (Vasquez 1981 / Aspnes 2022 cited as the slot's reference methods). Kernel FWHM REQUIRED user input (no default); σ-estimated stopping flagged UNCALIBRATED (supply repeat-sweep noise_sigma for production); edge-normalized convolution + `edge_margin_ev` boundary flag; `negative_kl_to_flat` (renamed from the misleading entropy field); baseline offset exposed; kernel validation (finite, narrower than spectrum). Pins: interior artifact prominence < 25% of the weakest true feature with true peaks top-2; emitted-spectrum reconvolution χ² exact; kernel/σ paths. **The FULL decision-matrix menu (1–6) is implemented.** |
+| Resolution-enhancement method (stretch #6, MaxEnt menu slot) | DONE (synthetic-validated) | ✅ 11 tests | `methods/max_entropy.py` — Codex Stage-9 blocker accepted and fixed by HONEST RELABELING: the implemented update is a damped exponentiated ISRA/RL-style deconvolution with χ²ᵣ stopping, **NOT a constrained MaxEnt solve** (no entropy gradient) — label, docstring, and payload all say so; a true entropy-regularized objective is logged FUTURE WORK (Vasquez 1981 / Aspnes 2022 cited as the slot's reference methods). Kernel FWHM REQUIRED user input (no default); σ-estimated stopping flagged UNCALIBRATED (supply repeat-sweep noise_sigma for production); edge-normalized convolution + `edge_margin_ev` boundary flag; `negative_kl_to_flat` (renamed from the misleading entropy field); baseline offset exposed; kernel validation (finite, narrower than spectrum). Pins: interior artifact prominence < 25% of the weakest true feature with true peaks top-2; emitted-spectrum reconvolution χ² exact; kernel/σ paths. **The FULL decision-matrix menu (1–6) is implemented.** |
 | Multivariate MCR method (stretch #5) | DONE (synthetic-validated) | ✅ 8 tests | `methods/multivariate_mcr.py`: PCA scree rank estimate (variance_target 0.995 UNVERIFIED, user-overridable, scree always reported) + MCR-ALS (row-wise NNLS alternation, deterministic SVD init, non-negativity on C and S) on a multi-spectrum matrix; `build_matrix` interpolation helper for mixed-grid repeat scans. HONESTY: `peaks=[]` by design (chemical states, not fitted peaks); rotational ambiguity stated in the payload; negative intensities rejected loudly. Synthetic: rank recovered, pure-spectra corr >0.98 (permutation-free), concentration corr >0.99, deterministic. Real-data validation on the repeat-scan matrices = follow-up. Codex checkpoint pending. |
 | Sparse/MAP method (stretch #4) | DONE (synthetic-validated) | ✅ 9 tests | `methods/sparse_map.py`: L1 Gaussian-atom dictionary on grammar slot windows (data-grid centers × log FWHM ladder), non-negative coordinate descent, geometric λ path, debiased NNLS refit, BIC (engine convention) model-size selection; cluster merge scaled to the resolved feature's width. Honesty: `uncertainty_kind='unavailable_post_selection'` (no fabricated σ), asymmetric slots flagged not-expressible, UNVERIFIED tunables in payload, limitations stated (decision-matrix entry 4: STAM:Methods 2024 DOI 10.1080/27660400.2024.2373046 + Tibshirani 1996). Synthetic ground truth: exact peak-count recovery, centers ≤0.15 eV, debiased amplitudes ≤15%, deterministic (no RNG). NOT validated on real anchors (its regime is few-separated-peaks; the real regions are overlap-heavy — documented). Codex checkpoint pending. |
 | Element-physics DB | **BROAD COVERAGE DONE** | ✅ 17+5 tests | Full-periodic-table NIST-archive sweep (committed pipeline `scripts/acquire_nist_archive.py`, resumable manifest): all 103 elements probed; **52 with usable archived SRD-20 snapshots + starred values, 51 honest failures** (no snapshot / no NIST-evaluated line — incl. the whole aspx-only + actinide tail; see format finding). Machine tier now **78 transitions / 51 elements** (was 45/37): +33 new (lanthanide 4d family, heavy-metal 4d5/2, 3d/3p secondaries, new elements Rh + Pr + Mg), every one an archived starred value, sha256-pinned, **33/33 independently agent-cross-checked (own parser, exact agreement)**; subshell-level guards prevent any curated/tiers overlap (27+10 guard skips logged); 337-entry skip audit. `fit-physics.json` regenerated: **98 transitions** (14 sourced spin-orbit, statistical 2j+1 ratios caveated). Byte-identical regeneration test GREEN (the old baseline failure is FIXED — artifacts restored sha256-verified from committed provenance). Still NOT wired into the engine (regions keep their own cited constants; deliberate). Per-value review table: `docs/autofit/fit-physics-coverage-report.md`. |
@@ -167,6 +167,25 @@ dispositions (all same-session):
    (< 25% of weakest true feature; true peaks top-2; measured behavior:
    largest artifacts live in the boundary margins), kernel validation
    (NaN / wider-than-spectrum), estimated-σ path.
+
+**Re-check** (`docs/autofit/codex/stage9_recheck_verdict.md`, 2026-07-04):
+items 3–5 verified closed, item 6 verified discriminating; **NO-GO** on two
+residuals, both fixed same-session:
+- **BLOCKER** one residual MaxEnt claim in a test docstring ("MaxEnt
+  inherently amplifies…") — fixed: test module + docstring reworded
+  (iterative deconvolution; "max-entropy" is MENU-SLOT naming only).
+- **MAJOR** emitted-spectrum χ² stale on the max_iter-EXHAUSTED path (the
+  loop computed χ² before the final multiplicative update, so the reported
+  `reduced_chi_sq_reconvolution` didn't describe the emitted spectrum) —
+  fixed: χ² recomputed from the emitted f after the loop (`converged`
+  derived from it); NON-converged reconvolution identity pinned
+  (`test_nonconverged_chi_sq_matches_emitted_spectrum`, max_iter=3).
+
+**Re-check #2** (`docs/autofit/codex/stage9_recheck2_verdict.md`,
+2026-07-04): **VERDICT GO** — "Findings: None"; both residuals verified
+closed (Codex ran the converged + max_iter=3 non-converged χ² identity
+checks directly; break-path semantics confirmed unchanged).
+Resolution-enhancement slot review-complete.
 
 ## Codex checkpoint: multivariate MCR (Stage 8, 2026-07-03 late) — **NO-GO → all findings fixed**
 
@@ -461,7 +480,16 @@ U2's F dropped 2806→2773 as deeper mixing found its evidence; min ESS
 3→7–20). This restores cross-method agreement with IC (ΔBIC* = 59 for U2)
 and matches the Stage-3 physics conclusion (independent satellites, the
 physically-safer default). Record:
-`docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl`. Bonus determinism
+`docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl`. **REGENERATED
+2026-07-04** under the current output schema by the NEW COMMITTED generator
+`scripts/run_bayesian_u4f_tuned.py` (Stage-5 re-check #3: the ad-hoc
+original predated the replicate-semantics flags). The regeneration
+reproduced the original evidence: all four record-0 F values to ≤ 5e-5
+(documented cross-process wobble), winner U2 in both records, and the
+replicated record's F replicates EXACTLY (ΔF 28.24; mean-F ΔF 27.56 with
+spreads ±0.51/±0.18 — the doc's "27.6, ±0.5" stands); replicated candidates
+now carry `free_energy_is_replicate_mean: true`, non-replicated `false`,
+and every confidence slot has `sigma_stat.reliability`. Bonus determinism
 demo: two independent processes reproduced U4f seed-0 F to 4 decimals
 (2803.1533) — the benign duplicate row in the battery JSONL.
 
@@ -537,6 +565,35 @@ the UNRESOLVED warning. `tests/autofit/test_bayesian_u4f_unresolved_gate.py`
 (env-gated, ~4 min) pins on the REAL B4C-UCl4 U 4f anchor that replication
 flags the U1b/U2 selection UNRESOLVED and marks posterior weights
 unreliable. PASSED 2026-07-03.
+
+**Re-check #2** (`docs/autofit/codex/stage5_recheck2_verdict.md`; ran late
+2026-07-03, verdict recovered from the session log 2026-07-04): all code
+dispositions verified; **NO-GO** on exactly two artifact/semantics items,
+both fixed same-session:
+- **BLOCKER** validation JSONL still a mixed append/resume record (28 stale
+  + 4 duplicate new-schema rows) — fixed by commit 9296cc3: CANONICAL
+  single-generation battery under frozen method code (33 records, one per
+  (anchor, method, config, seed), uniform schema); summary doc regenerated.
+- **MAJOR** replicate semantics invisible to consumers (mean-F vs base-seed
+  posterior only in a code comment; k=1 identity unpinned) — fixed by
+  commit 82003db: `free_energy_is_replicate_mean` per candidate,
+  `posterior_summary_replicated` / `posterior_samples_seed` /
+  `seed_replicates` in analysis; k=1-identity, k=2 mean-F, and
+  base-replicate==k=1-evidence pins in `test_bayesian_method.py`.
+
+**Re-check #3** (`docs/autofit/codex/stage5_recheck3_verdict.md`): the same
+prompt ran twice independently (2026-07-03 late, unarchived until 07-04; and
+fresh 2026-07-04). Both verified the two re-check-#2 dispositions CLOSED and
+the canonical-JSONL/doc honesty picture correct, and both surfaced the SAME
+single residual: the tuned U 4f sidecar
+(`docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl`) predated the
+replicate-semantics flags (`free_energy_is_replicate_mean` absent). Run A
+rated it MINOR (**GO**); run B rated it BLOCKER (**NO-GO**). Treated at the
+stricter severity: the artifact was REGENERATED from scratch under the
+current schema by the new committed generator
+`scripts/run_bayesian_u4f_tuned.py` (the original was ad hoc — no committed
+script — which is how it went stale); see the tuned-budget section above for
+the regenerated numbers.
 
 ### Cookbook re-check (2026-07-03) — **NO-GO → all findings fixed (2nd round)**
 The re-check (archived `docs/autofit/codex/stage4_cookbook_verdict2.md`)

@@ -1,0 +1,33 @@
+Re-check #2 of the Bayesian exchange-MC validation artifacts on branch
+feature-autofit-stage2. Your re-check #1
+(docs/autofit/codex/stage5_recheck_verdict.md) verified all 5 code
+dispositions closed but held NO-GO on ONE blocker (stale validation JSONL +
+no U 4f gate) and ONE major (sigma_stat/stuck-chain unpinned). Both are now
+claimed fixed in the latest commits. Verify concretely:
+
+1. (was BLOCKER) docs/autofit/inventory/bayesian_real_validation_runs.jsonl
+   is fully regenerated under the fixed method (records carry
+   selection_warning, free_energy_split_half_error, posterior_weight_reliable,
+   per-slot sigma_stat reliability/ess). The U 4f flip case:
+   - default budget records for seeds 0/1 exist; C 1s seeds 0/1 are flagged
+     UNRESOLVED with unreliable weights (and indeed flip MG2 vs AG2);
+   - tests/autofit/test_bayesian_u4f_unresolved_gate.py pins the replicated
+     UNRESOLVED flag on the real B4C-UCl4 U 4f anchor via the new
+     seed_replicates option (free_energy_replicates / replicate_spread /
+     mc_error fields);
+   - docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl records the tuned
+     (16 replicas / 4000 sweeps) RESOLUTION to U2 (ΔF 27.6–28.2, replicates
+     within ±0.5), agreeing with IC.
+   Also check the summary doc docs/autofit/bayesian-real-validation.md is
+   generated from the JSONL and states the U 4f / C 1s unresolved findings.
+2. (was MAJOR) tests pin the sigma_stat contract
+   (test_sigma_stat_reliability_contract) and zero-variance ESS→0
+   (test_zero_variance_ess_is_stuck_not_perfect, plus the ptp==0 stuck
+   detection in _effective_sample_sizes).
+3. Sanity: does seed_replicates preserve determinism and leave k=1 behavior
+   identical? Is free_energy the replicate MEAN when k>1 and is that
+   consistent with the reported posterior (base seed's run) — any
+   inconsistency a consumer could misread?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
