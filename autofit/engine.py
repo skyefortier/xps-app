@@ -200,7 +200,29 @@ def _add_shape_params(
 
     # Width parameter (fwhm, or m_gauss for DS+G)
     wname = _width_param(slot.line_shape)
-    if wname in shared:
+    if slot.fwhm_excess_range is not None:
+        # width-inequality linkage: width = parent width + free excess >= 0
+        # (Coster-Kronig doublet broadening — grammar.ComponentSlot docs)
+        if parent_prefix is None:
+            raise ValueError(
+                f"slot {slot.role!r} declares fwhm_excess_range but has no "
+                "linked parent"
+            )
+        if wname in shared or wname in fixed or slot.fwhm_linked_to is not None:
+            raise ValueError(
+                f"slot {slot.role!r}: fwhm_excess_range is mutually exclusive "
+                "with sharing/fixing/expression-linking the width"
+            )
+        elo, ehi = slot.fwhm_excess_range
+        if not (0.0 <= elo < ehi):
+            raise ValueError(
+                f"slot {slot.role!r}: fwhm_excess_range must be a "
+                f"non-negative interval, got {slot.fwhm_excess_range}"
+            )
+        p.add(f"{prefix}fwhm_excess", value=0.5 * (elo + ehi), min=elo, max=ehi)
+        p.add(f"{prefix}{wname}", value=0.0,
+              expr=f"{parent_prefix}{wname} + {prefix}fwhm_excess")
+    elif wname in shared:
         p.add(f"{prefix}{wname}", value=0.0, expr=f"{parent_prefix}{wname}")
     elif wname in fixed:
         p.add(f"{prefix}{wname}", value=float(fixed[wname]), vary=False)
@@ -296,21 +318,53 @@ def _default_params_from_slots(
             p.add(f"{prefix}center", value=0.0,
                   expr=f"{parent_prefix}center + {offs_lo}")
 
+        # Shape params (incl. the width) BEFORE the amplitude: the width-
+        # aware area-ratio expression below references this slot's width.
+        _add_shape_params(p, prefix, slot, fmid, parent_prefix=parent_prefix)
+
+        # ``area_ratio`` is an AREA statement (2j+1 statistical intensity).
+        # With a shared width, height ratio == area ratio and the plain
+        # height link is exact.  Under width-inequality linkage
+        # (fwhm_excess_range) the height link must carry the width
+        # correction: same-shape peaks have area ∝ amplitude × width (the
+        # lineshape factor cancels only when the mixing params are shared —
+        # guarded in _add_shape_params/_validate below).
+        ratio_expr: Optional[str] = None
         if slot.area_ratio_range is not None:
             rlo, rhi = slot.area_ratio_range
             rinit = slot.area_ratio if slot.area_ratio is not None else 0.5 * (rlo + rhi)
             p.add(f"{prefix}ratio", value=float(np.clip(rinit, rlo, rhi)),
                   min=rlo, max=rhi)
-            p.add(f"{prefix}amplitude", value=0.0,
-                  expr=f"{parent_prefix}amplitude * {prefix}ratio")
+            ratio_expr = f"{prefix}ratio"
         elif slot.area_ratio is not None:
-            p.add(f"{prefix}amplitude", value=0.0,
-                  expr=f"{parent_prefix}amplitude * {slot.area_ratio}")
-        else:
+            ratio_expr = repr(float(slot.area_ratio))
+
+        if ratio_expr is None:
             amp_init, amp_max = _amp_bounds(slot.be_window)
             p.add(f"{prefix}amplitude", value=amp_init, min=0.0, max=amp_max)
-
-        _add_shape_params(p, prefix, slot, fmid, parent_prefix=parent_prefix)
+        elif slot.fwhm_excess_range is not None:
+            if parent.line_shape is not slot.line_shape:
+                raise ValueError(
+                    f"slot {slot.role!r}: area-ratio linkage under "
+                    "fwhm_excess_range requires the parent to share the "
+                    "line shape (area ∝ amplitude × width only holds "
+                    "within one shape family)"
+                )
+            if (slot.line_shape is LineShape.PSEUDO_VOIGT
+                    and "gl_ratio" not in slot.share_parent_params):
+                raise ValueError(
+                    f"slot {slot.role!r}: area-ratio linkage under "
+                    "fwhm_excess_range requires gl_ratio in "
+                    "share_parent_params (the pseudo-Voigt area factor "
+                    "must cancel in the ratio)"
+                )
+            wname = _width_param(slot.line_shape)
+            p.add(f"{prefix}amplitude", value=0.0,
+                  expr=(f"{parent_prefix}amplitude * {ratio_expr} * "
+                        f"{parent_prefix}{wname} / {prefix}{wname}"))
+        else:
+            p.add(f"{prefix}amplitude", value=0.0,
+                  expr=f"{parent_prefix}amplitude * {ratio_expr}")
 
     return p
 

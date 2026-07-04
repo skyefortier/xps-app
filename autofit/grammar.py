@@ -132,6 +132,16 @@ class ComponentSlot:
     # another parameter name (Biesinger-style shared contamination width).
     fwhm_linked_to: Optional[str] = None
 
+    # Width-INEQUALITY linkage (spin-orbit doublets whose deeper j-hole is
+    # Coster-Kronig broadened, e.g. Cl 2p1/2 — adjudication 2026-07-03,
+    # docs/autofit/adjudication-decisions.md #7): this slot's width parameter
+    # becomes parent_width + a FREE non-negative excess bounded by this
+    # range, enforcing width(child) >= width(parent).  Requires
+    # ``linked_to``; mutually exclusive with fixing/sharing/expression-
+    # linking the width.  An excess pegged at 0 surfaces as a boundary hit,
+    # correctly steering selection toward the nested shared-width candidate.
+    fwhm_excess_range: Optional[tuple[float, float]] = None
+
     # Names of shape parameters tied to the PARENT slot's same-named
     # parameters via lmfit expressions (requires ``linked_to``).  The width
     # parameter name ('fwhm' / DS+G 'm_gauss') is allowed here too.  This is
@@ -467,6 +477,7 @@ def _retag_slot(
         param_ranges=s.param_ranges,
         fwhm_linked_to=fwhm_link,
         share_parent_params=s.share_parent_params,
+        fwhm_excess_range=s.fwhm_excess_range,
     )
 
 

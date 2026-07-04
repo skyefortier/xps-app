@@ -100,6 +100,24 @@ def test_cl2p_parity_gate(name):
     names = {c["name"]: c for c in res.analysis["candidates"]}
     assert {"Cl0_doublet", "Cl0r_doublet_relaxed",
             "Cl0r_doublet_relaxed+bfix"} <= set(names)
+
+    # Adjudication #7 (2026-07-03) — independent widths IMPLEMENTED and
+    # measured 2026-07-04: the free-width candidates are enumerated but the
+    # data REJECTS the Coster-Kronig hypothesis on both anchors — the width
+    # excess pegs at its 0 bound (equal widths preferred) and the relaxed
+    # ratio still pegs at 0.55 even WITH width freedom.  The ratio anomaly
+    # is not a shared-FWHM artifact; Δso/ratio remain CONDITIONAL (the
+    # adjudicated lift was contingent on the ratio returning to ~0.5).
+    assert {"Cl0w_doublet_freewidth",
+            "Cl0rw_doublet_relaxed_freewidth"} <= set(names)
+    assert ("main_cl2p12:fwhm_excess@min"
+            in names["Cl0w_doublet_freewidth"]["boundary_hits"])
+    rw_hits = names["Cl0rw_doublet_relaxed_freewidth"]["boundary_hits"]
+    assert "main_cl2p12:fwhm_excess@min" in rw_hits
+    assert "main_cl2p12:ratio@max" in rw_hits
+    # width freedom bought nothing at the fixed statistical ratio
+    assert (names["Cl0w_doublet_freewidth"]["reduced_chi_sq"]
+            <= names["Cl0_doublet"]["reduced_chi_sq"] * 1.02)
     # fixed-vs-relaxed evidence: the relaxed family is decisively better,
     # by the full dominance margin on BIC* and on χ²ᵣ
     assert names["Cl0r_doublet_relaxed+bfix"]["bic_star"] + 10 \

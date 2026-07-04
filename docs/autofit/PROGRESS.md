@@ -252,6 +252,11 @@ pending human verification of the UNVERIFIED values.
 
 ## Discrepancies vs expert reference fits (for human adjudication)
 
+*(ADJUDICATED 2026-07-03 by Skye — final rulings in
+`docs/autofit/adjudication-decisions.md`; implementation status + measured
+outcomes in the "Adjudication implementation (2026-07-04)" section below.
+The per-item text that follows is the original pre-ruling record.)*
+
 1. **Stray `Zr 3d` RSF tag** (the known error from the run brief, now located):
    `B4C-UCl4.proj.zip`, ALL 10 B 1s tabs — peaks `B-B` and `B-C` carry
    `_rsfKey: 'Zr 3d'` (the `B₂O₃`-type third peak is tagged correctly). Affects
@@ -704,6 +709,63 @@ Canonical structure across all 3 U 4f projects (UCl4-graphite, UCl4-BN, B4C-UCl4
 - U4f battery eligibility: UCl4_on_graphite 6/10, 4-GTA 3/10, B4C-UCl4 10/10.
 - NOTE the 'N 1s' `_rsfKey` on Sat2 in UCl4_on_graphite/B4C (quantification-lint
   candidates; sat2 sits ~397–398 eV so the tag may be deliberate on some).
+
+## Adjudication implementation (2026-07-04)
+
+Skye's final rulings (`docs/autofit/adjudication-decisions.md`) executed —
+implementation only, nothing re-adjudicated.
+
+### #7 Cl 2p independent doublet widths — IMPLEMENTED; hypothesis REJECTED by the data
+
+**Ruling:** allow independent widths (2p1/2 ≥ 2p3/2, Coster-Kronig); expect
+the area ratio back at ~0.5; then lift Δso/ratio from CONDITIONAL.
+
+**Engine capability (new, general):** `ComponentSlot.fwhm_excess_range` —
+width-inequality linkage (child width = parent width + free excess ≥ 0)
+with the amplitude link made width-aware so `area_ratio` is a true AREA
+statement under independent widths (amplitude is peak HEIGHT in this
+engine; area ∝ height × width with the pseudo-Voigt shape factor cancelling
+only when `gl_ratio` is shared — enforced by validation). Joint-composition
+passthrough handled. Menu: `Cl0w_doublet_freewidth` (statistical ratio,
+free width) + `Cl0rw_doublet_relaxed_freewidth` (relaxed ratio + free
+width) join the two shared-width candidates. Machinery VALIDATED on
+synthetic ground truth (`tests/autofit/test_cl2p_freewidth.py`): a true
+0.35 eV excess at a true 2:1 area ratio is recovered (±0.06 eV, area ratio
+held exactly) and the free-width candidate WINS; equal-width truth pegs the
+excess at 0 and selection correctly prefers the nested shared-width model.
+
+**Measured outcome on the real anchors (both corrected Cl2p tabs):** the
+data REJECTS the Coster-Kronig hypothesis —
+
+| candidate | Scan bic*/χ²ᵣ | Scan_0 bic*/χ²ᵣ | boundary pegs |
+|---|---|---|---|
+| Cl0r_doublet_relaxed+bfix (winner, unchanged) | 1782.9 / 1.614 | 1802.1 / 2.658 | — (ratio bound-fixed 0.55) |
+| Cl0rw_relaxed_freewidth | 1793.5 / 1.631 | 1812.7 / 2.686 | ratio@max AND fwhm_excess@min |
+| Cl0_doublet (shared width, 0.5) | 1894.2 / 2.399 | 1880.0 / 3.253 | — |
+| Cl0w_freewidth (0.5 area ratio) | 1899.5 / 2.411 | 1885.3 / 3.270 | fwhm_excess@min |
+
+Width freedom buys NOTHING at the statistical ratio (χ²ᵣ 2.41 vs 2.40 /
+3.27 vs 3.25) and the relaxed ratio still pegs 0.55 WITH width freedom.
+The ratio anomaly is not a shared-FWHM artifact. **Δso/ratio therefore
+REMAIN CONDITIONAL** (the adjudicated lift was contingent on ratio → ~0.5,
+which did not occur).
+
+**Secondary diagnostics run per the ruling's fallback (for Skye):**
+- *Beam damage (ratio vs scan order):* interior area ratio 0.607 (Scan) vs
+  0.596 (Scan_0) with a wide-ratio diagnostic — no monotonic trend across
+  the two usable scans (Scan_1 is the documented uncorrected tab, excluded
+  by construction). No damage signal, but n=2.
+- *Identifiability:* on Scan the free-width wide-ratio diagnostic finds a
+  shallow ratio↔excess valley — (ratio 0.65, excess 0.073 eV, χ²ᵣ 1.282)
+  vs (0.607, 0, 1.309): the two knobs partially degenerate on this data.
+- *Residual localization (differential-charging check):* consistent on both
+  scans — a −/+ dipole in the doublet valley (deficit at +0.5 eV, surplus
+  at +1.1–1.2 eV from the 2p3/2) plus POSITIVE low-BE shoulders at
+  −2.1…−4.8 eV (2.6–3.4σ). The low-BE surplus is where a lower-charging
+  replica of the doublet would sit in an insulator-in-conductor composite —
+  consistent with (not proof of) differential charging. The proposal pass
+  does not fire (structure is distributed, not a discrete missing peak). No
+  grammar change (no uncited species invention).
 
 ## Monday handoff — what to do first
 *(updated end of the 2026-07-03 late session — items 2–3 of the original
