@@ -22,6 +22,7 @@ from stress_cases import (  # noqa: E402
     asym_truth_case,
     bg_matched_control_case,
     bg_mismatch_case,
+    isolated_missing_peak_case,
     overlap_case,
     overspecified_case,
     overspecified_decoy_case,
@@ -131,6 +132,20 @@ def test_bg_mismatch_surfaces_loudly():
     wc = next(c for c in res.analysis["candidates"]
               if c["name"] == res.diagnostics["winner"])
     assert wc["reduced_chi_sq"] > 10.0
+
+
+def test_proposal_pass_fires_on_isolated_missing_peak():
+    """The residual-guided proposal pass's designed regime (3d): a
+    discrete isolated real peak the menu doesn't model must be proposed,
+    accepted, and fitted at the true position (measured on every noise
+    draw; 0 false positives across the battery's 66 covered rows)."""
+    case = isolated_missing_peak_case(seed=71)
+    res = _ic(case)
+    assert res.diagnostics["winner"].endswith("+prop")
+    accepted = [p for c in res.analysis["candidates"]
+                for p in c.get("proposed_peaks", []) if p["accepted"]]
+    assert len(accepted) == 1
+    assert accepted[0]["fitted_center"] == pytest.approx(201.5, abs=0.3)
 
 
 def test_asym_truth_recovered_when_expressible():

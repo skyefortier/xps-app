@@ -197,24 +197,26 @@ def main():
     lines += [
         "## Key findings (curated; every claim is in the JSONL)",
         "",
-        "0. **HEADLINE — filter-then-rank can bury DECISIVE evidence with "
-        "no result-level trace.** Three measured instances: "
-        "(a) `overlap_sep0.4_h9000` — P2 beats P1 by ΔBIC* 74–97 on EVERY "
-        "noise draw and is stable (persistence 0.92–1.0), yet is "
-        "plausibility-filtered (orphan matching) every time; clean P1 wins "
-        "with `conditional=False`. (b) `overlap_sep0.7_h9000` offset 2000 — "
-        "stable P2 (pers 0.83) orphan-filtered; clean P1 wins at "
+        "0. **HEADLINE — filter-then-rank buried DECISIVE evidence; the "
+        "engine now flags it at the RESULT level.** Three measured "
+        "instances (gen-2): (a) `overlap_sep0.4_h9000` — P2 beats P1 by "
+        "ΔBIC* 74–97 on EVERY noise draw and is stable, yet is "
+        "plausibility-filtered every time; clean P1 emitted. "
+        "(b) `overlap_sep0.7_h9000` offset 2000 — stable P2 buried at "
         "ΔBIC* +944. (c) `charging_with_replica_candidate` offset 0 — the "
-        "true candidate pegs `replica:center@max`, the decisive-override "
-        "bound-fix does not promote it, and clean `single_main` wins at "
-        "ΔBIC* +801. In all three the dominant alternative is visible only "
-        "in `analysis.candidates`; nothing at the RESULT level warns. "
-        "Recommendation for the criteria/stability unit: a result-level "
-        "`filtered_dominant_alternative` flag whenever a filtered "
-        "candidate's BIC* beats the winner's by more than the decisive "
-        "threshold, plus orphan-tolerant role matching for heavily-"
-        "overlapped windows. (Contrast: `overlap_sep0.4_h900` is GENUINE "
-        "parsimony — P1 wins the evidence by ΔBIC* 5–12 on every draw.)",
+        "center-pegged true candidate not promoted; `single_main` at "
+        "ΔBIC* +801. DRIVEN ENGINE CHANGE (commit 8079188): a result-level "
+        "`filtered_dominant_alternative` flag (diagnostics + analysis + "
+        "message WARNING) whenever a filtered candidate's BIC* beats the "
+        "winner's by the decisive threshold — THIS battery generation "
+        "demonstrates it on every burial row (e.g. sep0.4@9000: P2 named, "
+        "ΔBIC* 86.3, filter reason carried). The BIC/IC math review "
+        "endorsed reporting-not-auto-promotion (raw BIC also RESCUES: it "
+        "preferred a P3 overfit by margin 669 that filtering correctly "
+        "rejected). Remaining recommendation: orphan-tolerant role "
+        "matching for heavily-overlapped windows. (Contrast: "
+        "`overlap_sep0.4_h900` is GENUINE parsimony — P1 wins the evidence "
+        "by ΔBIC* 5–12 on every draw.)",
         "1. **Multi-start depth matters on razor-sharp surfaces**: "
         "`overlap_sep0.7_h9000` offset 0 — IC at n_refits=4 lands in a "
         "wrong basin (winner P2+bfix, χ²ᵣ 5.06, max|Δc| 0.37 eV) while "
@@ -289,6 +291,18 @@ def main():
         "(|Δc| ≤ 0.01 eV) but drifts 0.2+ eV on sub-FWHM doublets even "
         "GIVEN the true structure — position uncertainty there is "
         "intrinsic, not a selection artifact.",
+        "9. **Proposal-pass FP/FN characterization (run-brief item 3d)**: "
+        "measured across the battery — ZERO false positives (0 accepted "
+        "proposals on 66 rows whose model space covers the truth) and "
+        "ZERO detections on the 18 distributed/overlapped truth-outside "
+        "rows (charging replica at 0.8 eV inside the envelope, asymmetric "
+        "tails, background curvature — those honesty cases surface via "
+        "χ²ᵣ/autocorrelation/conditional instead), but RELIABLE detection "
+        "in its designed regime: the isolated discrete missing peak "
+        "(`isolated_missing_peak`, +5 eV) is proposed, accepted, and "
+        "fitted at the true position on every noise draw. The pass is a "
+        "conservative discrete-peak detector, not a general "
+        "misspecification alarm — by design, now measured.",
         "",
     ]
 

@@ -991,6 +991,58 @@ shifts).  The earlier sub-Poisson reading is retracted — it was the
 descending-grid registration artifact.  χ²-criteria calibration against
 the stress suite follows the re-review.
 
+## Stability calibration (3c) + proposal-pass rates (3d) — 2026-07-05
+
+**3c — partially done, remainder logged.** Concrete outputs: the
+result-level `filtered_dominant_alternative` flag (engine change driven by
+the stress suite's burial evidence, endorsed by the BIC/IC review over
+raw-BIC auto-promotion) — the gen-3 battery demonstrates it on every
+burial row; plus the measured two-tier tension record (Scan_8's
+stable-poor-over-unstable-better promotion; the decoy decisive-override
+inventing a component on one draw; the burial trail).  LOGGED FUTURE WORK:
+orphan-tolerant role matching for heavily-overlapped windows;
+persistence-threshold calibration by noise-draw strata; SE-distance
+boundary proximity (from the BIC review).
+
+**3d — DONE (measured).** Proposal-pass characterization across the
+battery (finding 9 in the stress report): ZERO false positives (0/66
+covered rows), ZERO detections on distributed/overlapped truth-outside
+structure (0/18 — χ²ᵣ/autocorrelation/conditional carry those instead),
+RELIABLE detection in the designed regime — the new
+`isolated_missing_peak` case (+5 eV discrete peak, menu unaware) is
+proposed/accepted/fitted at the true position on every noise draw
+(always-on pin added).  The pass is a conservative discrete-peak detector,
+not a general misspecification alarm — by design, now quantified.
+
+## Opt-in Find Peaks UI + POST /api/analyze (2026-07-05) — run-brief item 5
+
+**Backend** (`app.py`, strictly additive — `/api/fit` and the manual path
+untouched): `GET /api/analyze/meta` (registered regions, material classes,
+method menu with adjustable defaults) + `POST /api/analyze` (session +
+cc_shift/ROI in the frontend's corrected-frame convention → resolve() →
+any of LS-baseline / IC / Bayesian / sparse; per-method option validation
+by the methods' own whitelists → clean 400s; full MethodResult payload
+incl. per-peak confidence, ambiguity flags, ranked alternatives, constants
+provenance, and a named-review gate stub).  12 endpoint tests
+(`tests/test_api_analyze.py`).
+
+**Frontend** (`templates/index.html`, one menu item + one self-contained
+modal/script block): material class + region multi-select (joint co-fit
+capable) + method dropdown with JSON-editable defaults; results view
+renders the honesty surface (CONDITIONAL banner, filtered-dominant-
+alternative warning, ambiguous pairs, selection warnings,
+CONDITIONAL/UNVERIFIED-constants count), the winner's peaks with
+σ(center), and the ranked-alternatives table; **Apply is gated on a named
+reviewer** and records {reviewer, method, regions, winner, time} on the
+tab; applied peaks map backend lineshapes onto the frontend peak model.
+
+**VISION-VERIFIED** end-to-end on dev gunicorn :5151 with Playwright:
+upload → configure → IC on the real Cl 2p grammar (winner
+`Cl0r_doublet_relaxed+bfix` WITH the CONDITIONAL banner — the known anchor
+story) → gate enforced → apply (2 peaks + review record).  Screenshots:
+`docs/autofit/ui-screenshots/find-peaks-{1..5}*.png`.  STILL DEFERRED:
+Skye's own visual review; production deploy (never, per rails).
+
 ## BIC*/IC math review (2026-07-05) — run-brief item 3b: NO-GO ×2 → additive fixes + logged deferrals
 
 Dedicated Codex math review ×2 (prompt

@@ -323,6 +323,32 @@ def asym_truth_case(seed: int, with_asym_candidate: bool) -> StressCase:
 # Regime 6 — background mismatch (Shirley-shaped truth, linear-only fits)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def isolated_missing_peak_case(seed: int) -> StressCase:
+    """The residual-guided proposal pass's DESIGNED regime: a discrete,
+    isolated real peak (+5 eV from the modeled main) that the candidate
+    menu does not know about.  The proposal pass must detect it (contrast:
+    it correctly stays silent on distributed/overlapped unmodeled
+    structure — charging replica, asym tails, bg curvature — where
+    χ²ᵣ/autocorrelation/conditional carry the honesty instead; measured
+    2026-07-05: 0 false positives across 66 covered rows)."""
+    x = _grid()
+    truth = [{"center": 196.5, "fwhm": 1.2, "height": 9000.0},
+             {"center": 201.5, "fwhm": 1.2, "height": 2500.0}]
+    sig = sum(_pv(x, t["height"], t["center"], t["fwhm"], ETA) for t in truth)
+    y = _noisy(sig + _linear_bg(x), seed)
+    return StressCase(
+        name="isolated_missing_peak",
+        regime="proposal_pass", expectation="honesty",
+        x=x, y=y, truth=truth, truth_n=2,
+        grammar=_grammar([_cand("single_main",
+                                [_slot("main_a", (195.5, 197.5))])]),
+        ls_specs=_ls_specs(truth),
+        true_candidates=(),
+        notes="isolated discrete unmodeled peak at +5 eV — the proposal "
+              "pass must fire (accepted proposal = the honesty signal)",
+    )
+
+
 def bg_mismatch_case(seed: int) -> StressCase:
     x = _grid()
     truth = [{"center": 197.2, "fwhm": 1.2, "height": 9000.0},
@@ -410,4 +436,6 @@ def build_all_cases(seed_offset: int = 0) -> list[StressCase]:
         # background mismatch + control
         bg_mismatch_case(seed=61 + o),
         bg_matched_control_case(seed=62 + o),
+        # proposal-pass designed regime (isolated discrete missing peak)
+        isolated_missing_peak_case(seed=71 + o),
     ]
