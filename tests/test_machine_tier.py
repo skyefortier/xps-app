@@ -200,6 +200,18 @@ def test_machine_tier_no_internal_duplicates():
         seen.add(key)
 
 
+def test_machine_tier_no_internal_subshell_overlap():
+    """Stronger machine-internal invariant (Codex Stage-6 blocker #2): the
+    two emission paths must not even share an (element, subshell) — a bare
+    '3p' expansion line must never coexist with a tiers-driven '3p3/2'."""
+    seen = {}
+    for t in _machine_transitions():
+        key = (t["element"], _subshell(t["orbital"]))
+        assert key not in seen, (
+            f"machine-internal subshell overlap: {t['id']} vs {seen[key]}")
+        seen[key] = t["id"]
+
+
 def test_skip_reasons_enumerated():
     """Every skip reason used in the audit log is documented in the reasons
     legend (no unexplained skip categories)."""
@@ -210,19 +222,34 @@ def test_skip_reasons_enumerated():
 
 def test_expansion_provenance_source_is_nist_archive():
     """Coverage-expansion values must be traceable to an Internet Archive
-    snapshot of the retired NIST SRD-20 query page: archived URL + snapshot
-    timestamp + artifact sha256 + the committed parse method."""
+    snapshot of the retired NIST SRD-20 query page: strict archived-URL
+    shape, snapshot timestamp consistent with the URL, artifact bytes
+    matching the recorded sha256, the committed parse method (Codex
+    Stage-6 MAJOR: substring checks were too loose and bytes unverified)."""
+    import hashlib
+    import re as _re
+    url_re = _re.compile(
+        r"^https?://web\.archive\.org/web/(\d{14})id_/"
+        r"https?://srdata\.nist\.gov(:80)?/xps/query_all_dat_el\.aspx?"
+        r"\?elm1=([A-Z][a-z]?)$")
+    art_dir = os.path.join(STAGE9, "expand_artifacts")
     for p in PROV["transitions"]:
         if not p.get("acquisition"):
             continue
         ns = p["nominal_source"]
-        url = ns["source_url"]
-        assert url.startswith(("http://web.archive.org/web/",
-                               "https://web.archive.org/web/")), p["id"]
-        assert "srdata.nist.gov" in url and "query_all_dat_el" in url, p["id"]
-        assert ns["archive_snapshot_timestamp"], p["id"]
+        m = url_re.match(ns["source_url"])
+        assert m, f"{p['id']}: malformed archive URL {ns['source_url']}"
+        assert m.group(1) == ns["archive_snapshot_timestamp"], (
+            f"{p['id']}: URL timestamp {m.group(1)} != recorded "
+            f"{ns['archive_snapshot_timestamp']}")
+        assert m.group(3) == p["element"], (
+            f"{p['id']}: archive URL queries {m.group(3)}, not {p['element']}")
         assert ns["fetch_utc"], p["id"]
-        assert len(ns["source_artifact_sha256"]) == 64, p["id"]
+        art = os.path.join(art_dir, ns["source_artifact"])
+        assert os.path.exists(art), f"{p['id']}: tracked artifact missing"
+        got = hashlib.sha256(open(art, "rb").read()).hexdigest()
+        assert got == ns["source_artifact_sha256"], (
+            f"{p['id']}: artifact bytes do not match recorded sha256")
         assert p["parse_method"] == "nist-html-starred-record", p["id"]
 
 

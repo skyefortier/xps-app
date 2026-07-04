@@ -72,13 +72,29 @@ def test_expansion_records_emitted_at_machine_tier():
         assert r["min"] <= t["nominal_be_ev"] <= r["max"]
 
 
+def _acquisition_records():
+    """EVERY coverage-expansion record from provenance — the oracle must
+    never lag behind a coverage expansion (Codex Stage-6 blocker #1: a
+    hard-coded subset left the 33 full-sweep records unverified)."""
+    return {tid: p for tid, p in PROV.items() if p.get("acquisition")}
+
+
+def test_acquisition_oracle_covers_all_expansion_records():
+    acq = _acquisition_records()
+    assert len(acq) == 51        # 18 original + 33 full-table sweep 2026-07-03
+    assert set(EXPANSION) <= set(acq)
+
+
 def test_every_emitted_value_literally_in_committed_artifact():
-    # The anti-confabulation invariant, verified WITHOUT the committed parser:
+    # The anti-confabulation invariant, verified WITHOUT the committed parser,
+    # for EVERY acquisition record (not a hard-coded subset):
     #   (a) an independent raw-HTML parse finds the value as a starred record,
     #   (b) the independent second-agent cross-check agrees, and
     #   (c) the provenance sha256 matches the committed artifact bytes.
     agent = json.load(open(os.path.join(ART, "agent_crosscheck.json")))
-    for tid, nom in EXPANSION.items():
+    by_id = _machine_by_id()
+    for tid in _acquisition_records():
+        nom = by_id[tid][0]["nominal_be_ev"]
         sym, orbital = tid.split("-", 1)
         art = os.path.join(ART, f"{sym}_nist.html")
         assert os.path.exists(art), f"committed artifact missing: {sym}_nist.html"
@@ -92,7 +108,7 @@ def test_every_emitted_value_literally_in_committed_artifact():
 
 
 def test_expansion_provenance_complete():
-    for tid in EXPANSION:
+    for tid in _acquisition_records():
         p = PROV[tid]
         ns = p["nominal_source"]
         assert ns["database"] == "nist-srd-20"
