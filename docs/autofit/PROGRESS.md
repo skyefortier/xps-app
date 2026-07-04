@@ -115,6 +115,30 @@ recover the evaluation flag is found. (Nuance: the N tiers-path skip
 detail says "no starred value" where "page format yields no parseable
 records" is the deeper cause — same outcome either way.)
 
+## Codex checkpoint: sparse/MAP method (Stage 7, 2026-07-03 late) — **NO-GO → all findings fixed**
+
+Verdict archived: `docs/autofit/codex/stage7_sparse_map_verdict.md`. The CD
+update/residual math and λ_max were confirmed correct; confidence honesty
+"mostly good". Findings, all fixed + pinned same-session:
+1. **BLOCKER** slot-variant collapse (role-level setdefault) — fixed:
+   per-role UNION of windows/FWHM ranges across all candidates; a role
+   asymmetric in ANY variant is flagged (pin:
+   `test_slot_variant_union_flags_asymmetry`).
+2. **BLOCKER** zero-amplitude NNLS atoms counted as dof / joined clusters —
+   fixed: active support = NNLS-nonzero only for k, RSS, clustering.
+3. **MAJOR** no KKT check / non-convergence silent — fixed: exact-residual
+   KKT violation computed at exit, surfaced per λ (+`converged`,
+   `path_fully_converged`); criterion = kkt ≤ kkt_rtol×λ (1e-2, UNVERIFIED
+   tunable, raw value always reported).
+4. **MAJOR** BIC labeled honestly: "HEURISTIC BIC on active dictionary
+   atoms … NOT calibrated evidence" + post-selection optimism note;
+   n_atoms_active + n_peaks surfaced per λ.
+5. **MINOR** path-order comment fixed (sparse→dense).
+6. **MAJOR** solver pinned analytically: A=I soft-threshold-with-clamp
+   solution, empty-support at λ≥max(Aᵀy), single-atom activation just
+   below (`test_nn_lasso_cd_analytic_solution`,
+   `test_lambda_max_boundary_behavior`).
+
 ## Codex checkpoint: element-physics DB (Stage 6, 2026-07-03 late) — **NO-GO → all findings fixed**
 
 Verdict archived: `docs/autofit/codex/stage6_element_db_verdict.md`. Codex's

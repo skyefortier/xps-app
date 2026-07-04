@@ -50,8 +50,17 @@ def main():
         "flip winners across seeds (ΔF ≈ 3–6 vs seed spread ≈ 5); the "
         "warning machinery + `seed_replicates` option now flag this "
         "(env-gated pin: tests/autofit/test_bayesian_u4f_unresolved_gate.py). "
-        "IC decisively prefers U2 (ΔBIC* = 59). Tuned run (16 replicas / "
-        "4000 sweeps): docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl.",
+        "IC decisively prefers U2 (ΔBIC* = 59). **RESOLVED at 16 replicas / "
+        "4000 sweeps: U2 by ΔF = 27.6, replicates agreeing to ±0.5** "
+        "(docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl) — cross-method "
+        "agreement restored at adequate budget.",
+        "- **C 1s (4 gate candidates): flagged UNRESOLVED on BOTH seeds and "
+        "indeed seed-flipping** (seed 0 MG2 gap 2.7 vs errs 1.5+2.0; seed 1 "
+        "AG2 gap 5.8 vs errs 0.1+3.6; posterior weights marked unreliable "
+        "in-run) — the split-half machinery catches the C 1s budget "
+        "shortfall with no silent false confidence, unlike the pre-fix "
+        "U 4f case. IC winner MG2 (the expert-structure family) on the "
+        "same anchor.",
         "- **Tuning evidence**: winner selection is insensitive to all swept "
         "sampler tunables on the resolved anchors; min-ESS improves most "
         "with n_replicas (B 1s: 4→13 at 8→16 replicas), far less with "
