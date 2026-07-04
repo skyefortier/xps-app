@@ -80,11 +80,83 @@ def test_honesty_payload(result):
     a = result.analysis
     assert a["kernel"]["provenance"].startswith("USER-SUPPLIED")
     assert "AMPLIFIES NOISE" in a["warning"]
+    assert "UNCALIBRATED" in a["warning"]         # σ-estimated stopping caveat
     assert "10.1016/0368-2048(81)85037-2" in a["basis"]
+    # honest algorithm identity (Codex Stage-9 blocker): no MaxEnt claim
+    assert "NOT a constrained maximum-entropy" in a["algorithm"]
+    assert "negative_kl_to_flat" in a
+    assert "baseline_offset" in a
     assert result.peaks == []           # sharpening, not quantification
     assert a["unverified_tunables"]
     import json
     json.dumps(a)
+
+
+def test_interior_artifacts_bounded_and_true_peaks_dominate(result):
+    """Codex Stage-9 test gap: a single left-flat bound allows misleading
+    shoulder/inter-peak artifacts.  Measured behavior on this synthetic:
+    noise amplification DOES create secondary maxima (documented warning),
+    largest in the boundary margins where deconvolution is ill-posed
+    (edge_margin_ev in the payload).  Pins:
+    - in the INTERIOR, the two most prominent maxima are the true peaks
+      (position within 0.3 eV);
+    - every OTHER interior maximum has prominence < 25% of the weakest
+      true feature — artifacts can never masquerade as comparable peaks."""
+    sharp = np.array(result.analysis["sharpened_spectrum"])
+    margin = result.analysis["edge_margin_ev"]
+    interior = (X >= X[0] + margin) & (X <= X[-1] - margin)
+    proms = []
+    for i in range(1, len(sharp) - 1):
+        if not interior[i]:
+            continue
+        if sharp[i] >= sharp[i - 1] and sharp[i] >= sharp[i + 1]:
+            left = sharp[max(0, i - 20):i + 1].min()
+            right = sharp[i:i + 21].min()
+            prom = sharp[i] - max(left, right)
+            if prom > 5.0 * result.analysis["noise_sigma"]:
+                proms.append((prom, float(X[i])))
+    proms.sort(reverse=True)
+    assert len(proms) >= 2, f"true peaks not found: {proms}"
+    top2 = sorted(be for _, be in proms[:2])
+    for f_be, (c, _a, _w) in zip(top2, TRUE):
+        assert abs(f_be - c) < 0.3, (f_be, c)
+    weakest_true = proms[1][0]
+    for prom, be in proms[2:]:
+        assert prom < 0.25 * weakest_true, (
+            f"interior artifact at {be} eV with prominence {prom:.0f} "
+            f"(≥25% of the weakest true feature {weakest_true:.0f})")
+
+
+def test_emitted_spectrum_reconvolves_to_data(result):
+    """The emitted sharpened_spectrum (with its baseline_offset) must
+    reconvolve to the ORIGINAL data at the reported χ² (catches any
+    offset/edge bookkeeping drift)."""
+    _, blurred = _spectrum()
+    a = result.analysis
+    sharp = np.array(a["sharpened_spectrum"]) - a["baseline_offset"]
+    k = np.exp(-4 * np.log(2) * ((np.arange(-73, 74) * 0.05) / KERNEL_FWHM) ** 2)
+    k /= k.sum()
+    edge = np.convolve(np.ones(len(X)), k, mode="same")
+    model = np.convolve(sharp, k, mode="same") / edge + a["baseline_offset"]
+    chi_r = float(np.sum(((blurred - model) / a["noise_sigma"]) ** 2) / len(X))
+    assert chi_r == pytest.approx(a["reduced_chi_sq_reconvolution"], rel=1e-6)
+
+
+def test_kernel_validation():
+    _, blurred = _spectrum()
+    m = get_method("max_entropy")
+    with pytest.raises(ValueError, match="finite"):
+        m.run(X, blurred, options={"kernel_fwhm_ev": float("nan")})
+    with pytest.raises(ValueError, match="as wide as the spectrum"):
+        m.run(X, blurred, options={"kernel_fwhm_ev": 50.0})
+
+
+def test_estimated_sigma_path_flagged():
+    _, blurred = _spectrum()
+    res = get_method("max_entropy").run(X, blurred,
+                                        options={"kernel_fwhm_ev": KERNEL_FWHM})
+    assert res.success
+    assert res.analysis["noise_sigma_source"].startswith("estimated")
 
 
 def test_kernel_is_required_no_default():
