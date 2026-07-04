@@ -343,7 +343,19 @@ def resolve(
         # provenance (→ analysis namespace); candidate construction is
         # untouched — grammar constants stand until the machine-tier
         # human review (see autofit/fit_physics.py)
-        db_prov, db_notes = _fit_physics_provenance(region, provenance[slug])
+        # slot FACTS (the constants actually building candidates) ride
+        # along so the DB cross-check cannot be satisfied by stale
+        # provenance prose alone (Codex analyze review)
+        slot_facts = {"splitting": [], "ratio": []}
+        for cand in candidates:
+            for s in cand.slots:
+                if s.linked_offset_range and s.area_ratio is not None:
+                    slot_facts["splitting"].append(
+                        (float(s.linked_offset_range[0]),
+                         float(s.linked_offset_range[1])))
+                    slot_facts["ratio"].append(float(s.area_ratio))
+        db_prov, db_notes = _fit_physics_provenance(
+            region, provenance[slug], slot_facts=slot_facts)
         provenance[slug].extend(db_prov)
         notes.extend(f"{slug}: {note}" for note in db_notes)
 

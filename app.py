@@ -86,16 +86,20 @@ def create_app(upload_folder: str = "uploads", data_folder: str = "data/xps") ->
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _json_sanitize(obj):
-    """Defensive numpy→native conversion for /api/analyze payloads (the
-    methods emit natives, but a stray np scalar must not 500 the route)."""
+    """Defensive numpy→native + non-finite→None conversion for
+    /api/analyze payloads: a stray np scalar must not 500 the route, and
+    inf/NaN (e.g. BIC of a degenerate fit) must not emit non-standard JSON
+    that browsers refuse to parse."""
     if isinstance(obj, dict):
         return {str(k): _json_sanitize(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_json_sanitize(v) for v in obj]
     if isinstance(obj, np.generic):
-        return obj.item()
+        obj = obj.item()
     if isinstance(obj, np.ndarray):
-        return obj.tolist()
+        return [_json_sanitize(v) for v in obj.tolist()]
+    if isinstance(obj, float) and not np.isfinite(obj):
+        return None
     return obj
 
 
@@ -633,7 +637,9 @@ def _register_routes(app: Flask) -> None:
                                      resolve)
         from autofit.methods import get_method
 
-        body = request.get_json()
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _err("request body must be a JSON object")
         session_id = body.get("session_id", "")
         _validate_session_id(session_id)
         try:
@@ -664,6 +670,8 @@ def _register_routes(app: Flask) -> None:
         corrected = energy - cc_shift   # frontend getCorrectedBE convention
 
         roi = body.get("roi") or {}
+        if not isinstance(roi, dict):
+            return _err("'roi' must be an object")
         try:
             be_min = float(roi.get("be_min", float(corrected.min())))
             be_max = float(roi.get("be_max", float(corrected.max())))
@@ -685,6 +693,8 @@ def _register_routes(app: Flask) -> None:
                         "provide 'peak_specs'")
 
         phase_kwargs = body.get("phase") or {}
+        if not isinstance(phase_kwargs, dict):
+            return _err("'phase' must be an object")
         grammar = None
         if method_id != "least_squares":
             phase = Phase(id=str(phase_kwargs.get("id", "sample")),

@@ -1063,17 +1063,19 @@ class ModelReport:
 
     @property
     def bic_weighted(self) -> float:
-        """Known-σ (weighted-χ²) BIC: χ²_w + k·ln n — the criterion
-        CONSISTENT with the Poisson-weighted fits (the RSS form implies a
-        homoscedastic likelihood the fits do not use — BIC/IC math review
-        blocker).  The ranking still uses BIC*; a result-level
-        weighted_ic_disagreement flag fires when the two criteria pick
-        different survivors."""
+        """Known-σ (weighted-χ²) FULL-k BIC: χ²_w + k·ln n with k = the
+        actual free-parameter count (NO absent-slot adjustment — the
+        adjustment is the labeled heuristic on BIC*; letting it into the
+        companion criterion would let the heuristic shape the
+        weighted-vs-RSS disagreement it exists to expose).  This is the
+        criterion CONSISTENT with the Poisson-weighted fits; the ranking
+        still uses BIC*, and weighted_ic_disagreement fires when the two
+        criteria pick different survivors."""
         n = self.primary_fit.n_data
         chi = self.primary_fit.weighted_chi_sq
         if n <= 0 or not np.isfinite(chi):
             return float("inf")
-        return chi + self.adjusted_n_params * np.log(n)
+        return chi + self.primary_fit.n_params * np.log(n)
 
     @property
     def n_eff_lag1(self) -> Optional[float]:
@@ -1842,11 +1844,21 @@ def compare_models(
     # promotion rules are unchanged — this only reports what they buried.
     if result.survivors:
         win_bic = result.survivors[0].bic_adjusted
-        survivor_names = {r.model.name for r in result.survivors}
+        # promotion LINEAGE, not just names: a decisive-override winner is
+        # renamed "X+bfix" while its free original "X" stays in
+        # filtered_out — flagging the original as "buried" would name the
+        # very candidate that was promoted (Codex analyze review blocker)
+        survivor_names = set()
+        for r in result.survivors:
+            survivor_names.add(r.model.name)
+            if r.model.name.endswith("+bfix"):
+                survivor_names.add(r.model.name[:-len("+bfix")])
+            if r.augmented_from:
+                survivor_names.add(r.augmented_from)
         dominant = None
         for rep, why in result.filtered_out:
             if rep.model.name in survivor_names:
-                continue        # promoted conditional-pool members
+                continue        # promoted members / their free originals
             if win_bic - rep.bic_adjusted > CONDITIONAL_OVERRIDE_DELTA_BIC:
                 if dominant is None or rep.bic_adjusted < dominant[0].bic_adjusted:
                     dominant = (rep, why)

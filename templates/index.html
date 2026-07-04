@@ -12700,15 +12700,17 @@ async function openFindPeaksModal() {
     notify('Find Peaks backend unavailable: ' + e.message, 'amber');
     return;
   }
+  // server strings escaped even though currently code-controlled (a future
+  // registered label must never become an injection point)
   const mat = document.getElementById('fp-material');
   mat.innerHTML = _fpMeta.material_classes
-    .map(m => `<option value="${m}">${m}</option>`).join('');
+    .map(m => `<option value="${_fpEsc(m)}">${_fpEsc(m)}</option>`).join('');
   const reg = document.getElementById('fp-regions');
   reg.innerHTML = _fpMeta.regions
-    .map(r => `<option value="${r}">${r}</option>`).join('');
+    .map(r => `<option value="${_fpEsc(r)}">${_fpEsc(r)}</option>`).join('');
   const meth = document.getElementById('fp-method');
   meth.innerHTML = _fpMeta.methods
-    .map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join('');
+    .map(m => `<option value="${_fpEsc(m.id)}">${_fpEsc(m.label || m.id)}</option>`).join('');
   meth.value = 'ic_model_comparison';
   _fpMethodChanged();
   document.getElementById('fp-results').style.display = 'none';
@@ -12863,13 +12865,24 @@ function applyFindPeaks() {
   if (state.peaks.length &&
       !confirm('Replace this tab\'s ' + state.peaks.length + ' peak(s) with the ' +
                peaks.length + ' analysis candidates?')) return;
-  state.peaks = peaks.map(_fpPeakFromBackend);
-  const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
-  if (active) active._findPeaksReview = {
+  // the manual path's real undo: the replaced peak list must be Ctrl-Z
+  // recoverable (Codex analyze review blocker)
+  pushUndo();
+  const review = {
     reviewer, method: _fpLast.method, regions: _fpLast.regions,
     winner: (_fpLast.body.diagnostics || {}).winner || null,
     at: new Date().toISOString(),
   };
+  // DURABLE review record: stamped on every applied peak (peak objects
+  // round-trip through project save/load with extra fields intact, like
+  // _rsfKey does) — a saved project keeps the required reviewer name.
+  state.peaks = peaks.map((p, i) => {
+    const fp = _fpPeakFromBackend(p, i);
+    fp._findPeaks = review;
+    return fp;
+  });
+  const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
+  if (active) active._findPeaksReview = review;
   renderPeakList();
   updatePlot();
   closeFindPeaksModal();

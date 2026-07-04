@@ -41,6 +41,22 @@ def test_burial_case_fires_result_level_flag():
     assert "beats this winner" in res.message
 
 
+def test_promoted_bfix_original_never_flagged_as_buried():
+    """Codex analyze review blocker: a decisive-override winner is renamed
+    'X+bfix' while its free original 'X' remains in filtered_out — the
+    lineage skip must never flag the promoted candidate's own original.
+    On this case (sep-0.7 doublet, n_refits=4, measured winner P2+bfix)
+    the flag may legitimately name the genuinely-buried P3 (raw BIC
+    preferred it — the reporting-not-promotion contract) but NEVER P2."""
+    case = overlap_case(0.7, 9000.0, seed=12, expectation="recover")
+    res = _ic(case)
+    winner = res.diagnostics["winner"]
+    flag = res.diagnostics["filtered_dominant_alternative"]
+    if winner.endswith("+bfix"):
+        original = winner[:-len("+bfix")]
+        assert flag is None or flag["name"] != original, (winner, flag)
+
+
 def test_clean_win_has_no_flag():
     case = overspecified_case(seed=31)
     res = _ic(case)

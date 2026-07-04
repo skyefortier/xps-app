@@ -137,3 +137,32 @@ def test_analyze_unknown_session_404(client):
         "session_id": "0" * 32, "material_class": "insulator",
         "regions": ["Cl 2p"]})
     assert resp.status_code == 404
+
+
+def test_analyze_non_object_bodies_are_clean_400s(client):
+    """Codex analyze review blocker: a JSON array/string/null body (or
+    non-object roi/phase) must be a clean 400, never a 500."""
+    sid = _upload_doublet(client)
+    for body in (["not", "an", "object"], "string", 42):
+        resp = client.post("/api/analyze", json=body)
+        assert resp.status_code == 400, (body, resp.status_code)
+        assert "JSON object" in resp.get_json()["error"]
+    base = {"session_id": sid, "material_class": "insulator",
+            "regions": ["Cl 2p"], "method": "ic_model_comparison"}
+    for field, frag in (("roi", "'roi'"), ("phase", "'phase'"),
+                        ("options", "'options'")):
+        resp = client.post("/api/analyze", json={**base, field: ["bad"]})
+        assert resp.status_code == 400, (field, resp.status_code)
+        assert frag in resp.get_json()["error"]
+
+
+def test_json_sanitize_non_finite():
+    """inf/NaN (degenerate-fit BIC values) must become null, not invalid
+    JSON tokens browsers refuse to parse."""
+    from app import _json_sanitize
+    out = _json_sanitize({"a": float("inf"), "b": float("nan"),
+                          "c": [1.0, float("-inf")],
+                          "d": np.float64("inf"), "e": 2.5})
+    assert out == {"a": None, "b": None, "c": [1.0, None],
+                   "d": None, "e": 2.5}
+    json.dumps(out, allow_nan=False)

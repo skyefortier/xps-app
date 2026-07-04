@@ -1,0 +1,40 @@
+Review of the remaining unreviewed units on branch feature-autofit-stage2
+(HEAD 5a37663) — fit-physics wiring, the /api/analyze backend + Find Peaks
+UI, and the 3b/3c/3d additive changes. Review for correctness and honesty.
+
+1. fit-physics wiring (autofit/fit_physics.py + the resolve() hook in
+   autofit/grammar.py, tests/autofit/test_fit_physics_wiring.py):
+   exposure-only claim — is candidate construction PROVABLY untouched?
+   Status mapping (machine→UNVERIFIED, curated→CONDITIONAL) honest?
+   Cross-check semantics (scalar compare vs range containment) sound?
+   Absent-region marker adequate? Any hole where a DB/grammar disagreement
+   could pass silently?
+2. POST /api/analyze + GET /api/analyze/meta (app.py,
+   tests/test_api_analyze.py): STRICTLY ADDITIVE claim vs /api/fit;
+   validation surface (any 500-able path?); the cc_shift/ROI corrected-
+   frame convention consistency with the frontend (getCorrectedBE uses
+   raw − ccShift; the UI uploads corrected data with cc_shift=0);
+   per-method option pass-through relying on the methods' own whitelists;
+   numpy sanitization; review_gate semantics.
+3. Find Peaks UI (templates/index.html — the find-peaks-menu-item,
+   #find-peaks-overlay modal, and the self-contained script block at the
+   end): manual path untouched? XSS surface of the rendered tables/banners
+   (server-side strings pass through _fpEsc — anything unescaped)?
+   backend→frontend lineshape mapping vs the documented conventions
+   (glMix percent, DS+G laM=m_gauss, LACX caM in points)? apply flow
+   (state.peaks replacement, undo stack semantics, review record)?
+   Vision-verify screenshots in docs/autofit/ui-screenshots/.
+4. BIC companions (engine.py bic_raw/bic_weighted/n_eff_lag1 +
+   _weighted_ic_disagreement; ic_model_comparison payload;
+   tests/autofit/test_bic_companions.py): is bic_weighted = χ²_w + k·ln n
+   the right known-σ form up to candidate-independent constants (so ΔBIC
+   comparisons are valid)? n_eff_lag1 formula n(1−ρ)/(1+ρ) appropriate as
+   a REPORTED diagnostic? disagreement flag logic correct for ≥2
+   survivors?
+5. filtered_dominant_alternative (engine.py compare_models tail) — skip
+   logic for promoted conditional-pool members; message wiring; and the
+   3d isolated_missing_peak case + finding 9 claims vs the gen-3 JSONL
+   (docs/autofit/inventory/stress_battery_runs.jsonl, 195 records).
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

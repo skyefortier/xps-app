@@ -78,17 +78,23 @@ def _value_matches(module_value: Any, db_value: float,
 
 
 def provenance_entries(
-    region: str, module_provenance: list[dict]
+    region: str, module_provenance: list[dict],
+    slot_facts: Optional[dict] = None,
 ) -> tuple[list[dict], list[str]]:
     """
     (extra provenance records, resolution notes) for one region:
 
     - one record per DB entry (nominal BE, window, spin-orbit block) with
       the tier mapped into the provenance status vocabulary;
-    - mechanical cross-checks of the DB's spin-orbit splitting and
-      statistical area ratio against the module's own provenance records
-      ('splitting' / 'ratio'-named constants) — agreement recorded in the
-      record, DISAGREEMENT additionally surfaced as a resolution note.
+    - mechanical cross-checks of the DB's SPIN-ORBIT SPLITTING and
+      STATISTICAL AREA RATIO ONLY (nominal-BE/window fields are exposed
+      but not auto-compared — Codex analyze review: do not imply broader
+      coverage), each against BOTH the module's provenance records AND —
+      when ``slot_facts`` is supplied by resolve() — the RESOLVED
+      candidate slots' actual constants (provenance strings can go stale
+      relative to the slots that build candidates).  Agreement is recorded
+      per record; DISAGREEMENT is additionally surfaced as a resolution
+      note.
     """
     entries = entries_for_region(region)
     records: list[dict] = []
@@ -159,4 +165,31 @@ def provenance_entries(
                     f"fit-physics DISAGREEMENT {key}.{db_field}: DB "
                     f"{db_val} vs grammar {mod_name}={mod_val} — grammar "
                     "value stands (migration pends human review)")
+
+            # RESOLVED-SLOT check: the constants actually building the
+            # candidates, not just the provenance prose
+            if slot_facts:
+                if db_field == "splitting_ev":
+                    facts = slot_facts.get("splitting") or []
+                    ok_s = (any(lo - 1e-6 <= db_val <= hi + 1e-6
+                                for lo, hi in facts) if facts else None)
+                else:
+                    facts = slot_facts.get("ratio") or []
+                    ok_s = (any(abs(f - db_val) <= max(1e-6, 1e-3 * db_val)
+                                for f in facts) if facts else None)
+                if ok_s is not None:
+                    records.append({
+                        "constant": f"fit_physics_slot_check:{key}:{db_field}",
+                        "value": {"db": db_val, "resolved_slots": facts,
+                                  "agrees": bool(ok_s)},
+                        "status": "UNVERIFIED",
+                        "source": "mechanical DB-vs-RESOLVED-SLOT "
+                                  "comparison (exposure only)",
+                    })
+                    if not ok_s:
+                        notes.append(
+                            f"fit-physics DISAGREEMENT (resolved slots) "
+                            f"{key}.{db_field}: DB {db_val} vs slot "
+                            f"constants {facts} — grammar value stands "
+                            "(migration pends human review)")
     return records, notes
