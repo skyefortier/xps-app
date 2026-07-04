@@ -112,6 +112,33 @@ def test_drift_dominated_flag_fires():
     assert any(f.startswith("drift_dominated") for f in m.flags)
 
 
+def test_monte_carlo_centering_small_and_large_shifts():
+    """Codex noise-review demand: predeclared-seed Monte Carlo centering
+    of the slope under realistic drift.  Measured 2026-07-04 (seeds 1-10,
+    n=8 replicates at 50k counts): small shifts (0.02-0.06 eV) median
+    1.033; large shifts (0.25-0.30 eV — interp-clamp + Newton-refinement
+    territory) median 0.954.  The residual +3-7% pure-case finite-sample
+    IRLS bias is documented in the module docstring and shrinks with
+    replicate count (16 reps → +2.9%)."""
+    cases = (
+        ("small", [0.00, 0.03, -0.02, 0.05, 0.01, -0.04, 0.02, 0.06],
+         0.95, 1.12),
+        ("large", [0.0, 0.30, -0.25, 0.30, 0.05, -0.30], 0.88, 1.10),
+    )
+    for label, shift_set, lo, hi in cases:
+        bs = []
+        for seed in range(1, 11):
+            rng = np.random.default_rng(seed)
+            reps = [rng.poisson(
+                        400.0 + 50000.0 * np.exp(
+                            -4 * np.log(2) * ((X - 197.5 - s) / 1.4) ** 2)
+                    ).astype(float) for s in shift_set]
+            bs.append(estimate_noise_from_replicates(X, reps).b)
+        med = float(np.median(bs))
+        assert lo <= med <= hi, (label, med, bs)
+        assert all(0.8 <= b <= 1.3 for b in bs), (label, bs)
+
+
 def test_input_validation():
     with pytest.raises(ValueError, match=">= 2 replicate"):
         estimate_noise_from_replicates(X, [_truth()])

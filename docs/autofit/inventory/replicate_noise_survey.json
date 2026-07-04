@@ -7,26 +7,26 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 10.448077728807833,
+   "b": 7.966288975581129,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9794838913131284,
+   "drift_fraction": 0.9703062317563903,
    "pair_shifts_ev": [
-    -0.021158658412020102,
+    0.021158658412020102,
     -0.05991727330111722,
-    -0.039312715773580434,
+    0.039312715773580434,
     0.023193749192214445,
     -0.06269246853024879,
-    -0.06888283190385923,
+    0.06888283190385923,
     -0.030064487588544183,
     0.060947084754831904,
     -0.04368197469901894
    ],
-   "fit_residual_rel": 0.8923467831786132,
+   "fit_residual_rel": 0.8265447999938159,
    "flags": [
-    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-2.49e+04 -> 0",
-    "poor_variance_fit: rel residual 0.89 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+    "drift_dominated: 97% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-1.17e+03 -> 0",
+    "poor_variance_fit: rel residual 0.83 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -40,25 +40,26 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 1.4226219144377408,
+   "b": 2.138930247773323,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9887926019871885,
+   "drift_fraction": 0.9022415792048984,
    "pair_shifts_ev": [
     -0.08288852824313633,
-    -0.28950998713098136,
+    0.3383300784012468,
     -0.30736075284609926,
-    -0.00604808787208898,
+    0.00604808787208898,
     -0.035896858839875555,
-    -0.11170992323327053,
-    0.10492932106030192,
-    -0.1884326261044594,
-    -0.3591444834624619
+    0.11170992323327053,
+    -0.10492932106030192,
+    0.21951183909562333,
+    1.0081802514306588
    ],
-   "fit_residual_rel": 0.46653046232212486,
+   "fit_residual_rel": 0.5506052652290535,
    "flags": [
-    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-4.68e+03 -> 0"
+    "drift_dominated: 90% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-7.61e+03 -> 0",
+    "poor_variance_fit: rel residual 0.55 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -72,25 +73,25 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 0.9706475184638772,
+   "b": 1.2911186434287896,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9739942279939925,
+   "drift_fraction": 0.9366913357017886,
    "pair_shifts_ev": [
     -0.01150387003317739,
-    -0.013323168889183105,
-    -0.0016870407557556713,
+    0.013323168889183105,
+    0.0016870407557556713,
     -0.048375269324414265,
-    -0.03516959080711366,
+    0.03516959080711366,
     -0.04236256070647469,
     -0.007769590509824022,
-    -0.026815150718235377,
-    -0.0413972983263241
+    0.026815150718235377,
+    0.0413972983263241
    ],
-   "fit_residual_rel": 0.403631233246173,
+   "fit_residual_rel": 0.3789495020574327,
    "flags": [
-    "drift_dominated: 97% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-311 -> 0"
+    "drift_dominated: 94% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-362 -> 0"
    ],
    "tunables": {
     "n_bins": 12,
@@ -104,26 +105,26 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 1.8578019838416608,
+   "b": 2.4753660005993243,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9801550208310865,
+   "drift_fraction": 0.9393945533244664,
    "pair_shifts_ev": [
     -0.016242410622589104,
-    -0.018585893387040597,
+    0.018585893387040597,
     0.007216387115833878,
     -0.050515761801767166,
-    -0.041590616643053184,
+    0.041590616643053184,
     -0.04048215796527366,
     -0.009903180926731035,
-    -0.02024707035675403,
-    -0.037486244737980325
+    0.02024707035675403,
+    0.037486244737980325
    ],
-   "fit_residual_rel": 0.5587294258033837,
+   "fit_residual_rel": 0.6454076005019068,
    "flags": [
-    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-3.1e+03 -> 0",
-    "poor_variance_fit: rel residual 0.56 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+    "drift_dominated: 94% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-4.71e+03 -> 0",
+    "poor_variance_fit: rel residual 0.65 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -137,25 +138,25 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 0.6104535454163947,
+   "b": 0.7743282429358904,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9983197639161705,
+   "drift_fraction": 0.995351031572696,
    "pair_shifts_ev": [
     -0.11575793600551852,
-    -0.06174086495924666,
+    0.10401770965553497,
     -0.05495752119137712,
-    -0.06311803037557533,
+    0.06311803037557533,
     -0.06919095016516273,
     -0.04123622512045426,
-    -0.01447269773945536,
+    0.01447269773945536,
     -0.00017404545823375688,
-    -0.0312010428038593
+    0.0312010428038593
    ],
-   "fit_residual_rel": 0.31411583949608685,
+   "fit_residual_rel": 0.3253577197534346,
    "flags": [
     "drift_dominated: 100% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-49.6 -> 0"
+    "negative_intercept_clamped: a=-44.7 -> 0"
    ],
    "tunables": {
     "n_bins": 12,
@@ -169,25 +170,25 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 0.6531179324935845,
+   "b": 0.8211802536220327,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9385028810278901,
+   "drift_fraction": 0.7147173589671012,
    "pair_shifts_ev": [
-    -0.09016891914456611,
-    -0.07118992872156359,
+    0.10189737666721939,
+    0.07118992872156359,
     -0.016651373512683167,
-    -0.008926105411881654,
+    0.008926105411881654,
     -0.046249098258853524,
-    -0.052044276367995405,
-    -0.1285337220282847,
+    0.052044276367995405,
+    0.21143798197328925,
     -0.06077099944449477,
-    -0.010743152741152971
+    0.010743152741152971
    ],
-   "fit_residual_rel": 0.2497168906064617,
+   "fit_residual_rel": 0.25353082298781193,
    "flags": [
-    "drift_dominated: 94% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-253 -> 0"
+    "drift_dominated: 71% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-264 -> 0"
    ],
    "tunables": {
     "n_bins": 12,
@@ -201,25 +202,25 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 0.7597862320698408,
+   "b": 0.8906498535403449,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9740269333876077,
+   "drift_fraction": 0.7784756176938783,
    "pair_shifts_ev": [
-    -0.12916035973233214,
+    0.12916035973233214,
     -0.10074983453432737,
-    -9.179535398484127e-05,
+    9.179535398484127e-05,
     -0.010581219624241332,
-    -0.013278247281954524,
-    -0.06428681591901614,
-    -0.18270324313197042,
-    -0.06364864970501928,
+    0.013278247281954524,
+    0.06428681591901614,
+    0.4301627258374783,
+    0.06364864970501928,
     -0.056232319202060115
    ],
-   "fit_residual_rel": 0.33043298431391466,
+   "fit_residual_rel": 0.31036598999078124,
    "flags": [
-    "drift_dominated: 97% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-1.73e+03 -> 0"
+    "drift_dominated: 78% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-1.62e+03 -> 0"
    ],
    "tunables": {
     "n_bins": 12,
@@ -232,24 +233,23 @@
    "group": "C1s Scan",
    "n_replicates": 7,
    "kind": "replicate_difference",
-   "a": 0.0,
-   "b": 8.857399455722168,
+   "a": 40653.70747226199,
+   "b": 19.804299212708898,
    "sigma_global": null,
    "n_pairs": 6,
-   "drift_fraction": 0.9916651779332695,
+   "drift_fraction": 0.9757669821200703,
    "pair_shifts_ev": [
-    -0.024767200313999975,
-    0.01670022740134592,
-    -0.039123068154695274,
+    0.024767200313999975,
+    -0.01670022740134592,
+    0.039123068154695274,
     -0.06306074813548611,
     -0.023593179832198337,
     -0.006469841085245927
    ],
-   "fit_residual_rel": 0.8587264157338637,
+   "fit_residual_rel": 0.9030017015379685,
    "flags": [
-    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-5.68e+03 -> 0",
-    "poor_variance_fit: rel residual 0.86 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "poor_variance_fit: rel residual 0.90 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -263,18 +263,19 @@
    "n_replicates": 3,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 0.6493565886669506,
+   "b": 0.9168136887159223,
    "sigma_global": null,
    "n_pairs": 2,
-   "drift_fraction": 0.9626260473188233,
+   "drift_fraction": 0.9626260473188253,
    "pair_shifts_ev": [
     -0.061302361408912986,
     -0.20827336448605832
    ],
-   "fit_residual_rel": 0.4683874953298283,
+   "fit_residual_rel": 0.5594824447602956,
    "flags": [
     "drift_dominated: 96% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-305 -> 0"
+    "negative_intercept_clamped: a=-855 -> 0",
+    "poor_variance_fit: rel residual 0.56 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -287,24 +288,24 @@
    "group": "U4f Scan",
    "n_replicates": 7,
    "kind": "replicate_difference",
-   "a": 0.0,
-   "b": 2.899395801361764,
+   "a": 26170.39562964534,
+   "b": 0.0,
    "sigma_global": null,
    "n_pairs": 6,
-   "drift_fraction": 0.9567721633598413,
+   "drift_fraction": 0.8563623587720188,
    "pair_shifts_ev": [
     -0.012506361463863408,
     -0.14743893993011137,
-    -0.19753303053927285,
+    0.21908733434460437,
     -0.26784191522878303,
-    -0.1593109831458886,
+    0.43201440757317217,
     -0.21569507093051948
    ],
-   "fit_residual_rel": 0.6791974892808899,
+   "fit_residual_rel": 0.6285161764926738,
    "flags": [
-    "drift_dominated: 96% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-1.52e+04 -> 0",
-    "poor_variance_fit: rel residual 0.68 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+    "drift_dominated: 86% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "nonpositive_slope: \u03c3\u00b2 does not grow with intensity here \u2014 additive-noise regime or estimation failure",
+    "poor_variance_fit: rel residual 0.63 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -317,24 +318,23 @@
    "group": "C1s Scan",
    "n_replicates": 7,
    "kind": "replicate_difference",
-   "a": 0.0,
-   "b": 8.857399455722168,
+   "a": 40653.70747226199,
+   "b": 19.804299212708898,
    "sigma_global": null,
    "n_pairs": 6,
-   "drift_fraction": 0.9916651779332695,
+   "drift_fraction": 0.9757669821200703,
    "pair_shifts_ev": [
-    -0.024767200313999975,
-    0.01670022740134592,
-    -0.039123068154695274,
+    0.024767200313999975,
+    -0.01670022740134592,
+    0.039123068154695274,
     -0.06306074813548611,
     -0.023593179832198337,
     -0.006469841085245927
    ],
-   "fit_residual_rel": 0.8587264157338637,
+   "fit_residual_rel": 0.9030017015379685,
    "flags": [
-    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-5.68e+03 -> 0",
-    "poor_variance_fit: rel residual 0.86 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "poor_variance_fit: rel residual 0.90 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -347,24 +347,24 @@
    "group": "U4f Scan",
    "n_replicates": 7,
    "kind": "replicate_difference",
-   "a": 0.0,
-   "b": 2.899395801361764,
+   "a": 26170.39562964534,
+   "b": 0.0,
    "sigma_global": null,
    "n_pairs": 6,
-   "drift_fraction": 0.9567721633598413,
+   "drift_fraction": 0.8563623587720188,
    "pair_shifts_ev": [
     -0.012506361463863408,
     -0.14743893993011137,
-    -0.19753303053927285,
+    0.21908733434460437,
     -0.26784191522878303,
-    -0.1593109831458886,
+    0.43201440757317217,
     -0.21569507093051948
    ],
-   "fit_residual_rel": 0.6791974892808899,
+   "fit_residual_rel": 0.6285161764926738,
    "flags": [
-    "drift_dominated: 96% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-1.52e+04 -> 0",
-    "poor_variance_fit: rel residual 0.68 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+    "drift_dominated: 86% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "nonpositive_slope: \u03c3\u00b2 does not grow with intensity here \u2014 additive-noise regime or estimation failure",
+    "poor_variance_fit: rel residual 0.63 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -378,26 +378,26 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 10.448077728807833,
+   "b": 7.966288975581129,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9794838913131284,
+   "drift_fraction": 0.9703062317563903,
    "pair_shifts_ev": [
-    -0.021158658412020102,
+    0.021158658412020102,
     -0.05991727330111722,
-    -0.039312715773580434,
+    0.039312715773580434,
     0.023193749192214445,
     -0.06269246853024879,
-    -0.06888283190385923,
+    0.06888283190385923,
     -0.030064487588544183,
     0.060947084754831904,
     -0.04368197469901894
    ],
-   "fit_residual_rel": 0.8923467831786132,
+   "fit_residual_rel": 0.8265447999938159,
    "flags": [
-    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-2.49e+04 -> 0",
-    "poor_variance_fit: rel residual 0.89 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+    "drift_dominated: 97% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-1.17e+03 -> 0",
+    "poor_variance_fit: rel residual 0.83 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,
@@ -411,25 +411,26 @@
    "n_replicates": 10,
    "kind": "replicate_difference",
    "a": 0.0,
-   "b": 1.4226219144377408,
+   "b": 2.138930247773323,
    "sigma_global": null,
    "n_pairs": 9,
-   "drift_fraction": 0.9887926019871885,
+   "drift_fraction": 0.9022415792048984,
    "pair_shifts_ev": [
     -0.08288852824313633,
-    -0.28950998713098136,
+    0.3383300784012468,
     -0.30736075284609926,
-    -0.00604808787208898,
+    0.00604808787208898,
     -0.035896858839875555,
-    -0.11170992323327053,
-    0.10492932106030192,
-    -0.1884326261044594,
-    -0.3591444834624619
+    0.11170992323327053,
+    -0.10492932106030192,
+    0.21951183909562333,
+    1.0081802514306588
    ],
-   "fit_residual_rel": 0.46653046232212486,
+   "fit_residual_rel": 0.5506052652290535,
    "flags": [
-    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
-    "negative_intercept_clamped: a=-4.68e+03 -> 0"
+    "drift_dominated: 90% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-7.61e+03 -> 0",
+    "poor_variance_fit: rel residual 0.55 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
    ],
    "tunables": {
     "n_bins": 12,

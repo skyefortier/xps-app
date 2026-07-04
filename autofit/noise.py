@@ -25,11 +25,18 @@ signal exactly; two honest corrections remain:
 - SCALE DRIFT: source-intensity drift between scans scales the signal;
   we regress out the mean-spectrum component as well.
 
-After drift removal, Var(d) = 2σ²(I) pointwise.  We bin d²/2 by the local
-mean intensity (robust median × 1.4826² per bin) and fit
-``σ²(I) = a + b·I`` by weighted least squares.  For raw counts the truth
-is (a=0, b=1); for a rate/gain-scaled export b recovers the effective
-gain; ``a`` absorbs additive (detector/readout) noise.
+The drift removal + high-pass form an explicit linear operator T, and the
+fit uses the EXACT per-point variance transmission: E[(T d)_i²] =
+a·(T² c)_i + b·(T² (c·I))_i where c is the per-point pair-variance factor
+(2 unaligned; 1+(1−f)²+f² after interpolation registration).  σ²(I)=a+b·I
+is fitted per point by IRLS with prediction-based weights (per-bin
+aggregation and observed-value weighting each bias the slope low ~10-15%
+— measured; documented at the fit).  For raw counts the truth is (a=0,
+b=1); for a rate/gain-scaled export b recovers the effective gain; ``a``
+absorbs additive (detector/readout) noise.  Known second-order residuals
+(finite-sample IRLS, clamped-edge leakage through the global hat matrix
+at O(edge/n), 1/k-suppressed registration-sign selection) are documented
+at the implementation.
 
 SINGLE-SPECTRUM FALLBACK: robust MAD of the second difference (the
 ``max_entropy`` method's estimator, factored here) — a GLOBAL σ, biased
@@ -132,56 +139,106 @@ def estimate_noise_from_replicates(
     curv = np.gradient(grad, x)
 
     flags: list[str] = []
-    diffs = []
-    var_corrections = []
     shifts = []
     raw_var = removed_var = 0.0
     k = min(LOCAL_DETREND_POINTS, max(5, n // 4) | 1)
-    kernel = np.ones(k) / k
-    edge = np.convolve(np.ones(n), kernel, mode="same")
+    half = k // 2
     step = float(np.median(np.abs(np.diff(x)))) or 1.0
-    edge_drop = 3            # interp-clamped edge points excluded per pair
-    sample_masks = []
+
+    # The full residual-maker as an EXPLICIT operator (Codex noise-review
+    # blocker: scalar corrections are wrong after the drift-regression /
+    # high-pass stack — leverage and filter-edge transmission are point-
+    # dependent).  r = T d with T = (I − S)(I − H):
+    #   H = hat matrix of the drift basis [y′, y″, mean, 1]
+    #   S = edge-normalized moving-average smoother (row i averages its
+    #       clipped window: weights 1/(hi−lo))
+    # For diagonal input covariance Var(d_j) = c_j σ²(I_j), the response is
+    # EXACT per point:  E[r_i²] = a·Σ_j T_ij² c_j + b·Σ_j T_ij² c_j I_j —
+    # so the fit regresses r² on the T²-transformed design (u, w).
+    basis = np.column_stack([grad, curv, mean_scan, np.ones(n)])
+    Q, _ = np.linalg.qr(basis)
+    H = Q @ Q.T
+    S = np.zeros((n, n))
+    for i in range(n):
+        lo, hi = max(0, i - half), min(n, i + half + 1)
+        S[i, lo:hi] = 1.0 / (hi - lo)
+    T = (np.eye(n) - S) @ (np.eye(n) - H)
+    T2 = T * T
+
+    # Remaining KNOWN second-order effects, accepted and documented rather
+    # than silently absorbed: (a) IRLS with fitted weights is consistent,
+    # not finite-sample unbiased; (b) interp-CLAMPED edge points are
+    # excluded by mask, but the global hat matrix lets them perturb the 4
+    # regression coefficients at O(edge_points/n); (c) the registration
+    # sign is selected on the SMOOTHED residual (noise power there is
+    # ~σ²/k), so selection-on-noise is suppressed by 1/k, not eliminated.
+    r2_l, u_l, w_l, Ie_l = [], [], [], []
     for a_i in range(len(ys) - 1):
         ya, yb = ys[a_i], ys[a_i + 1]
         d0 = ya - yb
         raw_var += float(np.var(d0))
-        # 1) estimate the pair's relative BE shift from the Taylor leakage
-        # (d ≈ Δs·y′ + …), then REGISTER the pair by interpolation — the
-        # discrete-grid Taylor basis alone leaves ~50% excess variance on
-        # the flanks at shifts ≈ one grid step (measured); align-then-
-        # difference removes it.  Both shift signs are tried and the lower-
-        # residual one kept (sidesteps gradient/差 sign conventions).
-        basis = np.column_stack([grad, curv, mean_scan, np.ones(n)])
         coef, *_ = np.linalg.lstsq(basis, d0, rcond=None)
         s_hat = float(coef[0])
-        d_clean = d0 - basis @ coef
-        best_resid = float(np.var(d_clean))
-        s_used = 0.0
-        pair_var_factor = 2.0            # Var(ya − yb) = 2σ²
+
+        # registration: try both shift signs; judge by the RESIDUAL SHIFT
+        # COEFFICIENT after alignment — the correct sign leaves ~0 (the
+        # coefficient's own standard error, ~0.001 eV here) while the wrong
+        # sign leaves ≈ 2ŝ.  (A smoothed-residual-variance criterion was
+        # tried first and is TOO WEAK at small shifts: the wrong-sign
+        # leakage power is comparable to the smoothed noise floor σ²/k, so
+        # pairs mis-selected — measured, hence this discriminator.)
+        d_chosen, s_used = d0, 0.0
+        c_vec = np.full(n, 2.0)          # Var(ya − yb) = 2σ²
+        best_residual_shift = abs(s_hat)
         if abs(s_hat) >= 1e-4 * step:
             for s_try in (s_hat, -s_hat):
                 yb_al = np.interp(x, x + s_try, yb)
-                c2, *_ = np.linalg.lstsq(basis, ya - yb_al, rcond=None)
-                resid = ya - yb_al - basis @ c2
-                if float(np.var(resid)) < best_resid:
-                    best_resid = float(np.var(resid))
-                    d_clean = resid
-                    s_used = s_try
-                    # linear-interp noise transmission: Var(yb_al) = σ²·rf
-                    # with rf = (1−f)² + f², f = fractional grid offset
-                    f = (abs(s_try) / step) % 1.0
-                    pair_var_factor = 1.0 + (1.0 - f) ** 2 + f ** 2
+                d_al = ya - yb_al
+                c2, *_ = np.linalg.lstsq(basis, d_al, rcond=None)
+                if abs(float(c2[0])) < best_residual_shift:
+                    best_residual_shift = abs(float(c2[0]))
+                    d_chosen, s_used = d_al, s_try
+        # Newton refinement: at shifts ≳ 4 grid steps the first-order ŝ
+        # biases low (Taylor validity), leaving flank leakage that over-
+        # counts b ~20% (measured) — re-estimate the residual shift from
+        # the aligned difference and re-align until it vanishes (sign
+        # resolved by trial, as above)
+        if s_used != 0.0:
+            for _ in range(3):
+                cr, *_ = np.linalg.lstsq(basis, d_chosen, rcond=None)
+                delta = float(cr[0])
+                if abs(delta) < 1e-3 * step:
+                    break
+                improved = False
+                for s_new in (s_used + delta, s_used - delta):
+                    yb_al = np.interp(x, x + s_new, yb)
+                    c3, *_ = np.linalg.lstsq(basis, ya - yb_al, rcond=None)
+                    if abs(float(c3[0])) < abs(delta):
+                        s_used, d_chosen = s_new, ya - yb_al
+                        improved = True
+                        break
+                if not improved:
+                    break
+            f = (abs(s_used) / step) % 1.0
+            # linear-interp noise transmission for the aligned scan
+            c_vec = np.full(n, 1.0 + (1.0 - f) ** 2 + f ** 2)
         shifts.append(s_used if s_used != 0.0 else s_hat)
-        # 2) local high-pass: remove residual smooth drift; white noise
-        # passes with variance factor exactly (1 − 1/k)
-        d_hp = d_clean - np.convolve(d_clean, kernel, mode="same") / edge
-        removed_var += float(np.var(d0) - np.var(d_hp))
-        diffs.append(d_hp)
-        var_corrections.append(pair_var_factor * (1.0 - 1.0 / k))
+
+        r = T @ d_chosen
+        removed_var += float(np.var(d0) - np.var(r))
+        u = T2 @ c_vec
+        w = T2 @ (c_vec * mean_scan)
+        # mask: interp-clamped points (np.interp holds edge values beyond
+        # the shifted support) contaminate every T row whose smoother
+        # window touches them — exclude ceil(|s|/step)+1 edge points plus
+        # the half-window on each side (Codex noise review: edge_drop=3
+        # was insufficient for the survey's ~0.3 eV shifts)
+        edge_excl = (int(np.ceil(abs(s_used) / step)) + 1 if s_used else 1)
+        drop = min(edge_excl + half, n // 4)
         m = np.ones(n, bool)
-        m[:edge_drop] = m[-edge_drop:] = False
-        sample_masks.append(m)
+        m[:drop] = m[-drop:] = False
+        r2_l.append((r * r)[m]); u_l.append(u[m]); w_l.append(w[m])
+        Ie_l.append(mean_scan[m])
     drift_fraction = removed_var / raw_var if raw_var > 0 else 0.0
     if drift_fraction > DRIFT_DOMINANT_FRACTION:
         flags.append(
@@ -189,33 +246,34 @@ def estimate_noise_from_replicates(
             "variance was drift — the σ(I) fit rests on the residual; "
             "treat with caution")
 
-    # pointwise variance samples: d²/2 at the local mean intensity —
-    # E[d²/2 | I] = σ²(I) exactly, so the regression runs PER POINT (any
-    # binning aggregates a skewed within-bin intensity mixture and biases
-    # the slope low ~10-15%, measured).  Var(d²/2) = 2σ⁴, handled by IRLS
-    # weights 1/pred² (from FITTED values — weighting by the observed
-    # samples correlates weights with their own noise, also biasing low).
-    I = np.concatenate([mean_scan[m] for m in sample_masks])
-    V = np.concatenate([(d * d / c)[m]
-                        for d, c, m in zip(diffs, var_corrections,
-                                           sample_masks)])
+    R2 = np.concatenate(r2_l)
+    U = np.concatenate(u_l)
+    Wd = np.concatenate(w_l)
+    I = np.concatenate(Ie_l)
     if float(np.ptp(I)) <= 0:
         raise ValueError("not enough intensity spread for a variance fit")
 
-    A = np.column_stack([np.ones_like(I), I])
-    W = np.ones_like(V)
+    # IRLS fit of E[r²] = a·u + b·w.  Var(r²) ≈ 2·E[r²]² (χ²₁-like), so
+    # weights come from FITTED values — weighting by the observed samples
+    # correlates weights with their own noise and biases the slope low
+    # ~10-15% (measured; same reason per-bin aggregation was dropped).
+    M = np.column_stack([U, Wd])
+    Wt = np.ones_like(R2)
     coef = np.zeros(2)
     for _ in range(4):
-        AtW = A.T * W
-        coef = np.linalg.solve(AtW @ A, AtW @ V)
-        pred_it = np.maximum(A @ coef, 1e-9)
-        W = 1.0 / pred_it ** 2
+        MtW = M.T * Wt
+        coef = np.linalg.solve(MtW @ M, MtW @ R2)
+        pred_it = np.maximum(M @ coef, 1e-9)
+        Wt = 1.0 / pred_it ** 2
     a_fit, b_fit = float(coef[0]), float(coef[1])
 
-    # per-bin summary for DIAGNOSTICS/reporting only (equal-count bins,
-    # χ²₁-median-corrected) — never used in the fit
-    order = np.argsort(I)
-    Is, Vs = I[order], V[order]
+    # per-bin summary for DIAGNOSTICS/reporting only: bins of effective
+    # intensity I_eff = w/u vs implied variance r²/u (χ²₁-median-corrected
+    # medians) — never used in the fit
+    I_eff = Wd / np.maximum(U, 1e-12)
+    V_imp = R2 / np.maximum(U, 1e-12)
+    order = np.argsort(I_eff)
+    Is, Vs = I_eff[order], V_imp[order]
     edges = np.linspace(0, len(Is), n_bins + 1).astype(int)
     bi_a, bv_a = [], []
     for lo, hi in zip(edges[:-1], edges[1:]):
@@ -241,7 +299,7 @@ def estimate_noise_from_replicates(
     # (pair shifts are in eV directly: the coefficient of dy/dE)
     return NoiseModel(
         kind="replicate_difference", a=a_fit, b=b_fit, sigma_global=None,
-        n_replicates=len(ys), n_pairs=len(diffs),
+        n_replicates=len(ys), n_pairs=len(r2_l),
         drift_fraction=drift_fraction, pair_shifts_ev=shifts,
         bin_intensity=list(map(float, bi_a)), bin_variance=list(map(float, bv_a)),
         fit_residual_rel=resid_rel, flags=flags,

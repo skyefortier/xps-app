@@ -1,0 +1,43 @@
+Dedicated MATH review of the empirical noise estimator on branch
+feature-autofit-stage2 (commit bd30807): autofit/noise.py,
+tests/autofit/test_noise_model.py, scripts/measure_replicate_noise.py,
+docs/autofit/inventory/replicate_noise_survey.json. This is the run
+brief's "noise model is foundational" item — scrutinize the mathematics
+with the same rigor the Bayesian free-energy machinery got.
+
+Claims to verify or refute:
+1. Pair differences: for same-grid replicates with static truth,
+   E[(y_a−y_b)²/2 | I] = σ²(I) pointwise; the per-point regression of
+   d²/2 on I with IRLS weights 1/pred² is unbiased for σ²(I)=a+b·I (the
+   code documents that per-bin aggregation and observed-variance weights
+   each bias b low ~10-15% — is the IRLS fix itself unbiased, including
+   the χ²₁ heavy tail?).
+2. Registration: the pair shift is estimated from the Taylor-leakage
+   coefficient, then the pair is aligned by np.interp with BOTH signs
+   tried (lowest residual kept). Is the linear-interp noise transmission
+   factor rf=(1−f)²+f² applied correctly in pair_var_factor = 1+rf (Var
+   of aligned difference)? Any bias from choosing the sign/alignment by
+   minimum residual variance (selection on noise)?
+3. Drift regression: bases [y′, y″, mean, const] fitted per pair by
+   OLS — degrees-of-freedom loss is ~4/n (n≈300); noise absorbed into
+   the basis coefficients biases σ² low by O(4/n)? Acceptable/documented?
+4. High-pass: d_hp = d − movavg_k(d) with variance correction 1−1/k.
+   Exact for white noise with a normalized 'same' convolution at the
+   edges? (Edge points are excluded from the samples — enough?) What
+   about noise correlated on scales ≥ k (the code claims only
+   under-counting there — direction correct?)
+5. The χ²₁-median 0.4549 correction is now used ONLY in the diagnostic
+   bins — confirm nothing in the FIT path still assumes it.
+6. sigma() / weights() / variance() semantics; the second-difference
+   fallback σ = 1.4826·MAD(Δ²y)/√6 — is √6 the right factor for the
+   second difference of iid noise?
+7. Tests: do they discriminate the failure modes above (aggregation
+   bias, weight-noise correlation, shift leakage, drift domination)?
+   Are the tolerances principled (median-of-seeds pins)?
+8. Survey honesty: sub-Poisson b=0.61-0.76 on the clean groups is
+   interpreted as sweep-averaged exports, with the nonlinear C 1s groups
+   flagged rather than fitted — any overreach in
+   docs/autofit/PROGRESS.md's noise section?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

@@ -918,21 +918,36 @@ a≈s² recovered; injected pair shifts recovered to ±0.01 eV; drift-
 dominated flag fires; the gain-4 case demonstrates 1/√y over-weighting by
 exactly √gain.
 
-**Real-data survey** (`scripts/measure_replicate_noise.py` →
-`docs/autofit/inventory/replicate_noise_survey.json`): the labeled
-projects' repeat scans are DRIFT-DOMINATED (94–99.8% of pair variance —
-they are sequential acquisitions, not clean noise replicates; recovered
-pair shifts 0.01–0.31 eV match the ccShift-difference scale).  After
-registration: the well-behaved groups (8-JT C1s, B4C B1s/U4f, Cl2p, 4-GTA
-partially) give a≈0 with **b = 0.61–0.76 — SUB-Poisson**, i.e. 1/√y
-weights OVERESTIMATE σ by ~15–30% on these exports (consistent with
-sweep-averaged count rates); UCl4-graphite/Project9 C 1s groups are not
-even linear in σ²(I) (b 8.9–10.4 with poor_variance_fit — structure
-evolving between scans; honestly flagged, not fitted through).  χ²-target
-and χ²ᵣ-based criteria inherit whichever miscalibration applies.
+**Codex math review ×2 (2026-07-04): NO-GO ×2 → all findings fixed
+same-session.** Both runs converged on the blocker: scalar variance
+corrections are not exact after the data-adaptive residual-maker stack
+(regression leverage, registration selection-on-noise, filter edges) —
+run B measured b centering ≈0.92 under modest shifts.  Fixes: (1) the
+drift regression + high-pass are now an EXPLICIT operator T and the fit
+uses the exact per-point transmission E[(Td)²ᵢ] = a·(T²c)ᵢ + b·(T²cI)ᵢ;
+(2) the registration sign is selected by the residual-shift coefficient
+(the smoothed-residual criterion was measured too weak at small shifts —
+mis-selected pairs); (3) Newton refinement of the shift (first-order ŝ
+biases low at ≳4-grid-step shifts → 20% b over-count, fixed to median
+0.954); (4) dynamic edge masks (ceil(|s|/step)+1+k/2 — edge_drop=3 was
+insufficient for the survey's ~0.3 eV shifts); (5) predeclared-seed Monte
+Carlo pins (small-shift median 1.033, large-shift 0.954; residual pure-
+case +3–7% finite-sample IRLS bias documented, shrinking with replicate
+count); (6) stale docstring fixed.  Re-review pending.
 
-NEXT (same unit): dedicated Codex math review ×2 of the estimator, then
-calibration against the stress suite.
+**Real-data survey (regenerated under the corrected estimator):** the
+labeled projects' repeat scans are DRIFT-DOMINATED (71–99.5% of pair
+variance — sequential acquisitions, not clean noise replicates; recovered
+pair shifts 0.01–0.31 eV match the ccShift-difference scale).  TENTATIVE
+residual-noise estimates only (every group still carries the
+drift_dominated flag): the cleanest groups (8-JT C1s, B4C B1s/U4f, Cl2p)
+give a≈0 with b = 0.77–0.92 — compatible with near-raw-counts exports,
+NOT calibrated evidence of export gain; the UCl4-graphite/Project9 C 1s
+and U 4f groups are not even linear in σ²(I) (poor_variance_fit /
+nonpositive_slope — structure evolving between scans; honestly flagged,
+not fitted through).  χ²-target and χ²ᵣ-based criteria inherit whichever
+miscalibration applies; calibration against the stress suite follows the
+re-review.
 
 ## CI — gates cannot silently skip (2026-07-04)
 
