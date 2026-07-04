@@ -985,6 +985,23 @@ shifts).  The earlier sub-Poisson reading is retracted — it was the
 descending-grid registration artifact.  χ²-criteria calibration against
 the stress suite follows the re-review.
 
+## fit-physics.json wired into the engine (2026-07-04) — run-brief item 4
+
+EXPOSURE-ONLY by design (`autofit/fit_physics.py` + a resolve() hook):
+every resolved grammar's provenance — and therefore every fit's analysis
+payload — now carries the tiered DB's matching entries (machine tier →
+UNVERIFIED pending the hand-verification of handoff item 4; curated →
+CONDITIONAL) plus MECHANICAL cross-checks of the DB's Δso / statistical
+ratio against the module's own constants (scalar compare, or containment
+for range-valued grammar constants).  Disagreements surface as resolution
+notes ("grammar value stands — migration pends human review"); regions
+with no DB entries (B 1s, N 1s today) get an explicit marker record.
+Candidate construction is untouched (parity pinned).  Measured: all Cl 2p
+and U 4f cross-checks AGREE (the U 4f grammar splitting range [10.75,
+10.95] contains the DB's 10.8); the disagreement machinery is
+unit-covered synthetically.  9 tests
+(`tests/autofit/test_fit_physics_wiring.py`).
+
 ## CI — gates cannot silently skip (2026-07-04)
 
 `.github/workflows/autofit-gates.yml`: two jobs on every push/PR —
