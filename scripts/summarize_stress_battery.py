@@ -24,19 +24,42 @@ its own rules):
 """
 import json
 import os
+import sys
 from collections import defaultdict
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, "tests", "autofit"))
 SRC = os.path.join(REPO, "docs", "autofit", "inventory",
                    "stress_battery_runs.jsonl")
 OUT = os.path.join(REPO, "docs", "autofit", "stress-test-report.md")
 
 CENTER_TOL = 0.15
+# a filtered candidate whose BIC* beats the winner's by more than this is
+# a BURIED DOMINANT ALTERNATIVE (same decisive threshold as the engine's
+# override rule, Kass & Raftery 1995)
+DECISIVE_DBIC = 10.0
+
+
+def _library_expectations():
+    """The case LIBRARY is the single source of truth for expectation
+    labels (Codex stress review blocker: records carry generation-time
+    labels, which go stale when measurement arbitrates a relabel)."""
+    from stress_cases import build_all_cases
+    return {c.name: c.expectation for c in build_all_cases()}
 
 
 def _load():
     with open(SRC) as f:
-        return [json.loads(l) for l in f]
+        recs = [json.loads(l) for l in f]
+    lib = _library_expectations()
+    for r in recs:
+        gen_label = r.get("expectation")
+        lib_label = lib.get(r["case"], gen_label)
+        r["expectation"] = lib_label
+        r["_label_drift"] = (gen_label != lib_label and
+                             f"generated under {gen_label!r}") or None
+    return recs
 
 
 def _centers_ok(rec):
@@ -70,6 +93,26 @@ def _honesty_signal(rec):
     return sig
 
 
+def _buried_dominant(rec):
+    """A filtered candidate whose BIC* decisively beats the winner's, with
+    no result-level warning — the laundering hole both Codex runs flagged:
+    such a record must NEVER be classified as honest parsimony."""
+    cands = rec.get("candidates") or []
+    win = next((c for c in cands if c.get("name") == rec.get("winner")), None)
+    if win is None or win.get("bic_star") is None:
+        return None
+    best_filtered = min(
+        (c for c in cands
+         if c.get("filter_reason") and c.get("bic_star") is not None),
+        key=lambda c: c["bic_star"], default=None)
+    if best_filtered is None:
+        return None
+    margin = win["bic_star"] - best_filtered["bic_star"]
+    if margin > DECISIVE_DBIC and not _ambiguity_signal(rec):
+        return {"name": best_filtered["name"], "dbic": round(margin, 1)}
+    return None
+
+
 def classify(rec):
     if not rec.get("success"):
         return "ERROR" if rec.get("error") else "no_survivor"
@@ -81,33 +124,47 @@ def classify(rec):
         return "baseline_ok" if _centers_ok(rec) else "baseline_biased"
 
     if method == "sparse_map":
+        # count AND positions must both hold for a PASS (Codex blocker:
+        # count-only let 0.7 eV position errors pass as recovery)
+        k_ok = rec.get("n_selected") == rec["truth_n"]
         if exp in ("recover", "prune"):
-            return "PASS" if rec.get("n_selected") == rec["truth_n"] else \
-                f"wrong_k={rec.get('n_selected')}"
-        return f"k={rec.get('n_selected')}"
+            if k_ok and _centers_ok(rec):
+                return "PASS"
+            if k_ok:
+                return "count_ok_param_biased"
+            return f"wrong_k={rec.get('n_selected')}"
+        return f"k={rec.get('n_selected')}" + \
+            ("" if not k_ok or _centers_ok(rec) else "(param_biased)")
 
     picked_true = bool(rec.get("winner_is_true"))
     signals = _ambiguity_signal(rec)
+    emitted = rec.get("n_emitted_components")
+
+    # evidence burial dominates every other reading for IC records
+    if method == "ic_model_comparison":
+        buried = _buried_dominant(rec)
+        if buried and not picked_true:
+            return (f"buried_dominant_alternative(FAIL:"
+                    f"{buried['name']}+{buried['dbic']})")
 
     if exp == "recover":
         if picked_true and _centers_ok(rec):
             return "PASS_FLAGGED" if signals else "PASS"
         return f"FAIL(winner={rec.get('winner')})"
     if exp == "ambiguous":
-        emitted = rec.get("n_emitted_components")
         if picked_true:
             return "flagged_true" if (signals or rec.get("selection_warning")) \
                 else "confident_true(RELABEL?)"
         if emitted is not None and emitted < rec["truth_n"]:
-            return "simpler_model"
-        if rec["method"] == "bayesian_exchange_mc" and not picked_true:
-            return "simpler_model" if not signals else "flagged_other"
+            return "simpler_model" if not signals else "flagged_simpler"
+        if emitted is not None and emitted > rec["truth_n"] and not signals:
+            return f"overclaim(winner={rec.get('winner')})"
         return f"confident_wrong(winner={rec.get('winner')})" if not signals \
             else "flagged_other"
     if exp == "prune":
-        if picked_true and rec.get("n_emitted_components") == rec["truth_n"]:
+        if picked_true and emitted == rec["truth_n"]:
             return "PASS_FLAGGED" if signals else "PASS"
-        return f"FAIL(winner={rec.get('winner')},k={rec.get('n_emitted_components')})"
+        return f"FAIL(winner={rec.get('winner')},k={emitted})"
     if exp == "honesty":
         sig = _honesty_signal(rec)
         return f"PASS({','.join(sig)})" if sig else "FAIL(silent_clean)"
@@ -171,15 +228,22 @@ def main():
         "subtraction is imperfect; the engine's iterative Shirley absorbs "
         "the same integral background well (control case χ²ᵣ 1.24). Feeds "
         "the noise-model work item.",
-        "3. **Bayesian evidence is decisive-but-misdirected under model-"
-        "space misspecification**: at small budget it confidently selects "
-        "P3 (no warning) on `overlap_sep0.7` / `weak_minor_h90000` / "
-        "`bg_mismatch` — the extra component absorbs real non-species "
-        "structure (background-tail mass; the sep0.7 case's inner-"
-        "optimization gap). The evidence machinery answers 'best of this "
-        "menu', never 'is this menu adequate'. On genuinely ambiguous "
-        "cases its warnings fire correctly (`sep0.4_h900`, "
-        "`overspecified`).",
+        "3. **The Bayesian noise model dominated its behavior**: the "
+        "first battery ran it UNWEIGHTED (its homoscedastic default) and "
+        "it confidently overfit P3 with no warning on three recover-class "
+        "cases. Under the Poisson weights the suite's construction makes "
+        "correct (this battery), two of those become TRUE picks "
+        "(`sep0.7`→P2, `weak_minor_h90000`→P2+warn) and every remaining "
+        "P3 pick carries a selection warning (`bg_mismatch`, "
+        "`overspecified` flanking case; the in-ROI decoy is picked "
+        "correctly). Quantified evidence that the noise model — not the "
+        "evidence machinery — was the misdirection; feeds the noise-model "
+        "work item. Cross-method note: on the buried sub-FWHM@9000 case "
+        "the Bayesian evidence prefers P1 while IC's BIC* decisively "
+        "prefers the (filtered) P2 — the two selection criteria "
+        "legitimately disagree there (prior-volume penalty vs BIC "
+        "approximation); neither result-level output mentions the other "
+        "reading.",
         "4. **Sparse over-splits under atom/shape mismatch**: Gaussian "
         "atoms on 30%-Lorentzian truth select k>truth on most regimes "
         "(k=3–4 on sub-FWHM overlap and over-specified menus); the count "
@@ -235,9 +299,10 @@ def main():
                                       if r.get("n_selected") is not None else "—")
             cfg = ",".join(f"{k}={v}" for k, v in (r.get("config") or {}).items()
                            if k not in ("rng_seed",))
+            drift = f" ⚠{r['_label_drift']}" if r.get("_label_drift") else ""
             lines.append(
                 f"| {r['method']} | {cfg or '—'} | {r['seed_offset']} | "
-                f"{classify(r)} | {win} | "
+                f"{classify(r)}{drift} | {win} | "
                 f"{f'{chi:.2f}' if chi is not None else '—'} | "
                 f"{f'{maxdc:.3f}' if maxdc is not None else '—'} | "
                 f"{r.get('runtime_s', 0):.0f} |")

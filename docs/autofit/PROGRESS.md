@@ -851,17 +851,23 @@ failure is FIXED; the suite is fully green, 322 passed.)*
 
 ## Synthetic hard-case stress suite (2026-07-04) — run-brief item 2
 
-**Deliverables:** `tests/autofit/stress_cases.py` (13 cases / 6 regimes:
-heavy overlap, weak minor, over-specified menu, charging replica,
-asymmetric truth, background mismatch — parameter-level truth + seeded
-Poisson noise, so 1/√counts weights are CORRECT by construction here);
-`scripts/run_stress_battery.py` (resumable JSONL: LS true-structure
-baseline, IC at n_refits 4 AND 12, Bayesian small-budget, sparse;
+**Deliverables:** `tests/autofit/stress_cases.py` (14 cases / 6 regimes:
+heavy overlap, weak minor, over-specified menu incl. an IN-ROI decoy
+window, charging replica, asymmetric truth, background mismatch —
+parameter-level truth + seeded Poisson noise, so 1/√counts weights are
+CORRECT by construction); `scripts/run_stress_battery.py` (resumable
+JSONL: LS true-structure baseline, IC at n_refits 4 AND 12, Bayesian
+small-budget WITH the Poisson weights, sparse; one-to-one truth matching;
 noise-draw replicates ×3); **`docs/autofit/inventory/
-stress_battery_runs.jsonl` (169 records — evidence of record)**;
-`scripts/summarize_stress_battery.py` → `docs/autofit/
-stress-test-report.md` (classification rules encoded in the generator);
-`tests/autofit/test_stress_honesty.py` (9 always-on pins, ~46 s).
+stress_battery_runs.jsonl` (182 records — evidence of record; the first
+generation, superseded after the Codex stress review for stale labels /
+unweighted Bayesian / reuse-matching, is preserved in git history at
+ac9902e)**; `scripts/summarize_stress_battery.py` →
+`docs/autofit/stress-test-report.md` (classification rules encoded in the
+generator; expectation labels come from the case LIBRARY as single source
+of truth; buried-dominant detection; sparse passes need count AND
+positions); `tests/autofit/test_stress_honesty.py` (10 always-on pins,
+~60 s).
 
 **KEY-CRITERION picture:** clear cases recover across methods (sep-1.0
 doublet, over-specified menu prunes to exactly the true structure, matched-
@@ -877,15 +883,25 @@ DECISIVELY better candidate with no result-level trace: sub-FWHM@9000
 charging replica offset-0 (center-pegged true model not promoted by the
 override → clean single_main at ΔBIC* +801). Recommendation logged for the
 criteria/stability unit: result-level `filtered_dominant_alternative` flag
-+ orphan-tolerant matching. Full findings list (7 more: n_refits basin
-sensitivity; count-rate-scaling χ²ᵣ floor from endpoint-anchored linear bg
-under Lorentzian tails — truth scores 0.96 vs 34 at h90k; Bayesian
-decisive-but-misdirected under model misspecification; sparse over-
-splitting; measured relabels in BOTH directions; LS sub-FWHM drift) in the
-report. Two labels were arbitrated by measurement (ambiguous→recover), and
-the noise-model inventory found the methods do NOT share one noise model
-(IC: per-point 1/√y; Bayesian: homoscedastic σ-marginalized) — both feed
-the math-review unit.
++ orphan-tolerant matching. Full findings list in the report: n_refits
+basin sensitivity; count-rate-scaling χ²ᵣ floor from endpoint-anchored
+linear bg under Lorentzian tails (truth scores 0.96 vs 34 at h90k); **the
+Bayesian noise model dominated its behavior** (unweighted it overfit P3
+silently ×3; under the correct Poisson weights two become TRUE picks and
+every remaining P3 carries a warning — the noise model, not the evidence
+machinery, was the misdirection); a cross-method criterion disagreement
+on the buried case (Bayes evidence prefers P1 where IC BIC* decisively
+prefers the filtered P2); sparse over-splitting quantified (count-only
+"PASS" was a Codex-flagged laundering hole — positions now required);
+measured relabels in BOTH directions (weak_minor_h2000 and sep0.4_h9000
+ambiguous→recover); LS sub-FWHM drift. The in-ROI decoy case (Codex
+finding: empty flanks only test "don't populate empty windows") is pruned
+correctly by IC (P2 clean, χ²ᵣ 1.10) AND by the weighted Bayesian.
+Unit Codex review ×2: NO-GO ×2 → all findings fixed same-session (stale
+label evidence → library-as-single-source + battery regenerated; sparse
+count-only PASS; simpler_model laundering → buried_dominant_alternative
+classification; Bayesian n_emitted + weights; deficient-behavior test pins
+→ conditional invariants). Re-check pending.
 
 ## Empirical noise model (2026-07-04) — run-brief item 3a, IMPLEMENTED
 

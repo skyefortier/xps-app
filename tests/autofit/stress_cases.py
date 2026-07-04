@@ -226,6 +226,36 @@ def overspecified_case(seed: int) -> StressCase:
     )
 
 
+def overspecified_decoy_case(seed: int) -> StressCase:
+    """Over-specification with an IN-ROI decoy (Codex stress review: empty
+    flanking windows only test 'do not populate empty side windows').  The
+    decoy window sits BETWEEN the true peaks where real tail intensity
+    lives — a plausible 'shoulder species' hypothesis the data must reject:
+    the winner must carry the true 2-peak structure with the decoy pruned/
+    absent, not a populated 3-component invention."""
+    x = _grid()
+    truth = [{"center": 196.8, "fwhm": 1.1, "height": 8000.0},
+             {"center": 199.4, "fwhm": 1.3, "height": 5000.0}]
+    sig = sum(_pv(x, t["height"], t["center"], t["fwhm"], ETA) for t in truth)
+    y = _noisy(sig + _linear_bg(x), seed)
+    p1 = _cand("P1", [_slot("main_a", (194.8, 201.4))])
+    p2 = _cand("P2", [_slot("main_a", (194.8, 198.1)),
+                      _slot("main_b", (198.1, 201.4))])
+    p3 = _cand("P3_decoy", [_slot("main_a", (194.8, 197.4)),
+                            _slot("decoy_mid", (197.4, 198.8)),
+                            _slot("main_b", (198.8, 201.4))])
+    return StressCase(
+        name="overspecified_inroi_decoy",
+        regime="overspecified", expectation="prune",
+        x=x, y=y, truth=truth, truth_n=2,
+        grammar=_grammar([p1, p2, p3]),
+        ls_specs=_ls_specs(truth),
+        true_candidates=("P2",),
+        notes="decoy 'shoulder' window between the true peaks (real tail "
+              "intensity present) — must be pruned, not populated",
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Regime 4 — differential-charging replica (truth outside the model space)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -367,8 +397,9 @@ def build_all_cases(seed_offset: int = 0) -> list[StressCase]:
         # The minor's fitted center wobbles ±0.16 eV at these counts.
         weak_minor_case(0.03, 90000.0, seed=21 + o, expectation="recover"),
         weak_minor_case(0.03, 2000.0, seed=22 + o, expectation="recover"),
-        # over-specification
+        # over-specification (empty flanks + in-ROI decoy variants)
         overspecified_case(seed=31 + o),
+        overspecified_decoy_case(seed=32 + o),
         # charging replica
         charging_tail_case(seed=41 + o, with_replica_candidate=False),
         charging_tail_case(seed=42 + o, with_replica_candidate=True),

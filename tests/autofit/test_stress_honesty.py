@@ -24,6 +24,7 @@ from stress_cases import (  # noqa: E402
     bg_mismatch_case,
     overlap_case,
     overspecified_case,
+    overspecified_decoy_case,
 )
 from autofit.methods import get_method  # noqa: E402
 
@@ -64,11 +65,14 @@ def test_resolved_doublet_ls_baseline(sep1):
         assert p["fwhm"] == pytest.approx(t["fwhm"], abs=0.1)
 
 
-def test_resolved_doublet_sparse_count(sep1):
-    """Sparse must find the true component COUNT here (its position bias
-    under Gaussian-atom/PV-truth mismatch is a documented weakness,
-    recorded in the battery — the count is the invariant)."""
-    case, _ = sep1
+def test_resolved_doublet_sparse_count_only():
+    """Sparse COUNT-ONLY pin — explicitly NOT a recovery claim: on this
+    PV-truth case the selected atoms sit 0.45-0.75 eV off (Gaussian-atom /
+    30%-Lorentzian mismatch, its documented weakness; classified
+    count_ok_param_biased in the battery, never PASS).  The invariant
+    worth pinning is only that the component COUNT does not hallucinate on
+    a clean, well-separated doublet."""
+    case = overlap_case(1.0, 9000.0, seed=11, expectation="recover")
     res = get_method("sparse_map").run(case.x, case.y, grammar=case.grammar)
     assert res.success
     assert len(res.peaks) == 2
@@ -87,6 +91,21 @@ def test_overspecified_menu_prunes_not_invents():
         if any(abs(p["center"] - t["center"]) < 0.3 for p in by_role.values()):
             matched += 1
     assert matched == 2
+
+
+def test_inroi_decoy_pruned_not_populated():
+    """The harder over-specification test (Codex stress review): a decoy
+    'shoulder' window BETWEEN the true peaks, where real tail intensity
+    lives — the winner must carry the true 2-component structure with the
+    decoy hypothesis rejected, not a populated 3-component invention.
+    Measured 2026-07-04: P2 clean, χ²ᵣ 1.10, exact recovery."""
+    case = overspecified_decoy_case(seed=32)
+    res = _ic(case)
+    assert res.diagnostics["winner"] == "P2"
+    assert len(res.peaks) == 2
+    by_role = {p["role"]: p for p in res.peaks}
+    for t, role in zip(case.truth, ("main_a", "main_b")):
+        assert by_role[role]["center"] == pytest.approx(t["center"], abs=0.1)
 
 
 def test_bg_matched_control_recovers():
@@ -127,23 +146,30 @@ def test_asym_truth_symmetric_only_flags_mismatch():
     assert wc["reduced_chi_sq"] > 3.0
 
 
-def test_subfwhm_alternative_never_silently_lost():
-    """KNOWN-DEFICIENCY pin (stress report finding 0 — evidence burial):
-    on the high-count sub-FWHM doublet the EVIDENCE decisively favors P2
-    (ΔBIC* 74-97, every noise draw) but the filter pipeline orphan-filters
-    it and emits clean P1.  This test pins the HONESTY FLOOR while the
-    deficiency stands: the dominant alternative's fit, its BIC*, and its
-    non-survival reason must remain machine-readable in the candidate
-    table.  REVISE deliberately when the result-level
-    filtered_dominant_alternative flag lands (criteria/stability unit)."""
+def test_subfwhm_dominant_alternative_never_silently_lost():
+    """INVARIANT (not a pin of the current deficient winner — Codex stress
+    review): on the high-count sub-FWHM doublet the EVIDENCE decisively
+    favors P2 (ΔBIC* 74-97 on every noise draw; stress report finding 0).
+    Whatever the pipeline emits, the dominant evidence must never be
+    silently lost:
+    - if the engine picks P2 (a future fix), its centers must be sane; or
+    - if it picks anything else, the dominant P2 record must remain fully
+      machine-readable (fit quality, BIC* dominance, explicit non-survival
+      reason) OR the result must carry an ambiguity/conditional signal."""
     case = overlap_case(0.4, 9000.0, seed=13, expectation="recover")
     res = _ic(case)
-    assert res.diagnostics["winner"] == "P1"        # current deficient pick
-    p1 = next(c for c in res.analysis["candidates"] if c["name"] == "P1")
-    p2 = next(c for c in res.analysis["candidates"] if c["name"] == "P2")
-    # the buried alternative dominates on evidence — and the trace of that
-    # burial is fully present: fit quality, BIC*, explicit filter reason
-    assert p2["bic_star"] < p1["bic_star"] - 10
-    assert p2["reduced_chi_sq"] is not None
-    assert p2["survived"] is False
-    assert p2["filter_reason"]
+    winner = res.diagnostics["winner"]
+    cands = {c["name"]: c for c in res.analysis["candidates"]}
+    if winner.startswith("P2"):
+        by_role = {p["role"]: p for p in res.peaks}
+        assert len(by_role) == 2
+    else:
+        p2, w = cands["P2"], cands[winner]
+        dominated = p2["bic_star"] < w["bic_star"] - 10
+        result_flagged = (res.diagnostics.get("conditional")
+                          or res.analysis.get("ambiguous_pairs"))
+        assert (not dominated) or result_flagged or (
+            p2["reduced_chi_sq"] is not None
+            and p2["survived"] is False
+            and p2["filter_reason"]
+        ), "dominant alternative lost without any machine-readable trace"

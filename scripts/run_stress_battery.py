@@ -51,7 +51,14 @@ OUT = os.path.join(REPO, "docs", "autofit", "inventory",
 
 SEED_OFFSETS = (0, 1000, 2000)
 IC_CONFIGS = ({"n_refits": 4}, {"n_refits": 12})
-BAYES_CFG = {"n_replicas": 8, "n_sweeps": 600, "rng_seed": 0}
+# weights: the suite's premise is that Poisson noise makes 1/sqrt(y)
+# weights CORRECT BY CONSTRUCTION — the Bayesian method defaults to UNIT
+# weights (homoscedastic σ-marginalized), so the battery passes the
+# Poisson weights explicitly (Codex stress review: unweighted Bayesian
+# evidence would not test the intended noise regime).  The "weights" key
+# is part of the resume identity.
+BAYES_CFG = {"n_replicas": 8, "n_sweeps": 600, "rng_seed": 0,
+             "weights": "poisson_like"}
 
 
 def _key(rec):
@@ -77,13 +84,27 @@ def _emit(rec):
 
 
 def _match_truth(truth, comps):
-    """Nearest-center matching of fitted components to truth peaks."""
+    """ONE-TO-ONE assignment of fitted components to truth peaks (greedy by
+    distance; a component can serve only one truth peak — Codex stress
+    review: nearest-neighbor reuse let one atom 'match' both doublet
+    members).  Unmatched truth peaks record match=None."""
+    pairs = sorted(
+        ((abs(c["center"] - t["center"]), ti, ci)
+         for ti, t in enumerate(truth)
+         for ci, c in enumerate(comps)
+         if c.get("center") is not None),
+        key=lambda p: p[0])
+    t_used, c_used, assign = set(), set(), {}
+    for _, ti, ci in pairs:
+        if ti in t_used or ci in c_used:
+            continue
+        t_used.add(ti); c_used.add(ci); assign[ti] = ci
     errs = []
-    for t in truth:
-        if not comps:
+    for ti, t in enumerate(truth):
+        if ti not in assign:
             errs.append(None)
             continue
-        best = min(comps, key=lambda c: abs(c["center"] - t["center"]))
+        best = comps[assign[ti]]
         errs.append({
             "true_center": t["center"],
             "d_center_ev": round(best["center"] - t["center"], 4),
@@ -174,14 +195,18 @@ def run_bayes(case, off, done):
         return
     t0 = time.time()
     try:
+        from autofit.methods.base import poisson_like_weights
+        opts = {k: v for k, v in BAYES_CFG.items() if k != "weights"}
         res = get_method("bayesian_exchange_mc").run(
-            case.x, case.y, grammar=case.grammar, options=dict(BAYES_CFG))
+            case.x, case.y, weights=poisson_like_weights(case.y),
+            grammar=case.grammar, options=opts)
         d, a = res.diagnostics, res.analysis
         comps = [{"center": p["center"], "fwhm": p.get("fwhm"),
                   "role": p.get("role")} for p in res.peaks]
         rec.update(
             success=bool(res.success),
             winner=d.get("winner"),
+            n_emitted_components=len(res.peaks),
             winner_is_true=any((d.get("winner") or "").startswith(t)
                                for t in case.true_candidates),
             selection_warning=a.get("model_selection_warning"),
