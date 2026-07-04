@@ -6,16 +6,203 @@
     "evaluated-not-corroborated": "starred value not in the dual-corroborated agreed-set",
     "conflict": "Stage-9 tier: legacy disagrees with NIST (e.g. oxide vs metal / Auger-frame)",
     "insufficient-evidence": "Stage-9 tier: not recoverable in both extractions",
-    "no-evaluated-value": "coverage-expansion: artifact fetched but no NIST-evaluated (starred) photoelectron line \u2014 nothing sourceable to emit (e.g. Rb, Cs)"
+    "no-evaluated-value": "coverage-expansion: artifact fetched but no NIST-evaluated (starred) photoelectron line \u2014 nothing sourceable to emit (e.g. Rb, Cs)",
+    "already-machine-tier": "coverage-expansion: subshell already emitted by the Stage-9 tiers-driven machine path (additive-only)"
   },
-  "skipped_count": 88,
+  "skipped_count": 337,
   "transitions": [
+    {
+      "element": "Ac",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Ag",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ag",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ag",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ag",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Ag",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ag",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ag",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ag",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Al",
+      "orbital": "1s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Al",
+      "orbital": "2p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Al",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Al",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Am",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Ar",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "As",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "As",
+      "orbital": "3d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "As",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "As",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "As",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "At",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Au",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Au",
+      "orbital": "3d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Au",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Au",
+      "orbital": "4d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Au",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Au",
+      "orbital": "4f7/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Au",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Au",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Au",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
     {
       "element": "B",
       "orbital": "1s",
       "field_id": "f0002",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "B",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
     },
     {
       "element": "Ba",
@@ -25,11 +212,77 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "Ba",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Be",
+      "orbital": "1s",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Bi",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Bi",
+      "orbital": "4f7/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Bi",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Bi",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Bi",
+      "orbital": "5d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Bi",
+      "orbital": "5d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Bi",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Bk",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
       "element": "Br",
       "orbital": "3d5/2",
       "field_id": "f0036",
       "reason": "insufficient-evidence",
       "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Br",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
     },
     {
       "element": "C",
@@ -39,11 +292,77 @@
       "detail": "transition exists in a curated element file; additive-only, machine not emitted"
     },
     {
+      "element": "C",
+      "orbital": "1s",
+      "reason": "already-curated",
+      "detail": "expansion: subshell covered by a curated element file; additive-only"
+    },
+    {
+      "element": "Ca",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Ca",
+      "orbital": "3p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ca",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cd",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Cd",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cd",
+      "orbital": "4d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cd",
+      "orbital": "4d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cd",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Ce",
       "orbital": "3d5/2",
       "field_id": "f0051",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Ce",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Cf",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
     },
     {
       "element": "Cl",
@@ -60,6 +379,78 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
+      "element": "Cl",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Cm",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Co",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Co",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Co",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Co",
+      "orbital": "3p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Co",
+      "orbital": "3p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Co",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cr",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cr",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Cr",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cr",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Cs",
       "orbital": null,
       "reason": "no-evaluated-value",
@@ -73,11 +464,113 @@
       "detail": "transition exists in a curated element file; additive-only, machine not emitted"
     },
     {
+      "element": "Cu",
+      "orbital": "2p3/2",
+      "reason": "already-curated",
+      "detail": "expansion: subshell covered by a curated element file; additive-only"
+    },
+    {
+      "element": "Cu",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cu",
+      "orbital": "3p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Cu",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Dy",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Er",
+      "orbital": "4d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Er",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Es",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Eu",
+      "orbital": "4d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Eu",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Eu",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "F",
       "orbital": null,
       "field_id": "f0007",
       "reason": "insufficient-evidence",
       "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "F",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Fe",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Fe",
+      "orbital": "3p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Fe",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Fm",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Fr",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
     },
     {
       "element": "Ga",
@@ -87,11 +580,83 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "Ga",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Gd",
+      "orbital": "4d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Gd",
+      "orbital": "4f",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Gd",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Gd",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Ge",
       "orbital": "2p3/2",
       "field_id": "f0033",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Ge",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ge",
+      "orbital": "3d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ge",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ge",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ge",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "H",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "He",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
     },
     {
       "element": "Hf",
@@ -166,11 +731,65 @@
       "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
+      "element": "Ho",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "I",
       "orbital": "3d5/2",
       "field_id": "f0048",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "I",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "In",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "In",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "In",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "In",
+      "orbital": "4d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "In",
+      "orbital": "4d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "In",
+      "orbital": "4d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "In",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
       "element": "Ir",
@@ -211,6 +830,18 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "K",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Kr",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
       "element": "La",
       "orbital": "3d5/2",
       "field_id": "f0050",
@@ -218,11 +849,41 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "La",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
       "element": "Li",
       "orbital": "1s",
       "field_id": "f0000",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Li",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Lr",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Lu",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Md",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
     },
     {
       "element": "Mg",
@@ -233,10 +894,94 @@
     },
     {
       "element": "Mg",
+      "orbital": "1s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mg",
+      "orbital": "2p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mg",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mg",
       "orbital": "KL23L23(1D)",
       "field_id": "f0011",
       "reason": "conflict",
       "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Mn",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Mn",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mn",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mo",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mo",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mo",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mo",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mo",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Mo",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mo",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Mo",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
       "element": "N",
@@ -244,6 +989,12 @@
       "field_id": "f0004",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "N",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
     },
     {
       "element": "Na",
@@ -260,6 +1011,30 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
+      "element": "Na",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Nb",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Nb",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Nb",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Nb",
       "orbital": "3d5/2",
       "field_id": "f0040",
@@ -267,11 +1042,89 @@
       "detail": "transition exists in a curated element file; additive-only, machine not emitted"
     },
     {
+      "element": "Nb",
+      "orbital": "3d5/2",
+      "reason": "already-curated",
+      "detail": "expansion: subshell covered by a curated element file; additive-only"
+    },
+    {
+      "element": "Nb",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Nb",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Nb",
+      "orbital": "4p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Nb",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Nd",
       "orbital": "3d5/2",
       "field_id": "f0052",
       "reason": "insufficient-evidence",
       "detail": "not dual-corroborated (Stage-9 tier)"
+    },
+    {
+      "element": "Nd",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Ne",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Ni",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Ni",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ni",
+      "orbital": "3p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ni",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "No",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Np",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
     },
     {
       "element": "O",
@@ -288,6 +1141,12 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
+      "element": "O",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
       "element": "Os",
       "orbital": "4f5/2",
       "reason": "context-undeterminable",
@@ -302,6 +1161,66 @@
     {
       "element": "Os",
       "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "P",
+      "orbital": "1s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "P",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "P",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pa",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Pb",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pb",
+      "orbital": "4f7/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Pb",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pb",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pb",
+      "orbital": "5d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pb",
+      "orbital": "5p3/2",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value for this line"
     },
@@ -354,6 +1273,102 @@
       "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
+      "element": "Pm",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Po",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Pr",
+      "orbital": "4d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pr",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "3d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "3p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "4f7/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Pt",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pt",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Pu",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Ra",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
       "element": "Rb",
       "orbital": null,
       "reason": "no-evaluated-value",
@@ -382,6 +1397,42 @@
       "orbital": "5s",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Rh",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Rh",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Rh",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Rh",
+      "orbital": "4p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Rh",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Rn",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
     },
     {
       "element": "Ru",
@@ -416,6 +1467,48 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "S",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Sb",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Sb",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sb",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sb",
+      "orbital": "4d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sb",
+      "orbital": "4p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sb",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Sc",
       "orbital": "2s",
       "reason": "context-undeterminable",
@@ -441,6 +1534,30 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "Se",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Si",
+      "orbital": "1s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Si",
+      "orbital": "2p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Si",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
       "element": "Si",
       "orbital": "2s",
       "field_id": "f0014",
@@ -448,11 +1565,65 @@
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
     },
     {
+      "element": "Si",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sm",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Sn",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Sn",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sn",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sn",
+      "orbital": "4d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sn",
+      "orbital": "4p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Sn",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Sr",
       "orbital": "3d5/2",
       "field_id": "f0037",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Sr",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
     },
     {
       "element": "Ta",
@@ -515,11 +1686,107 @@
       "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
+      "element": "Tb",
+      "orbital": "3d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tb",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tb",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tc",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: no archive snapshot of query_all_dat_el.asp(x) for this element"
+    },
+    {
+      "element": "Te",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Te",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Te",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Te",
+      "orbital": "4d",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Te",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Te",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "Th",
       "orbital": "4f7/2",
       "field_id": "f0058",
       "reason": "context-undeterminable",
       "detail": "no NIST-evaluated (starred) value; material/chemical-state class not recoverable from the archived page, so rule 2 cannot establish a context-equivalent nominal"
+    },
+    {
+      "element": "Th",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Ti",
+      "orbital": "2p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ti",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ti",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Ti",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Ti",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
       "element": "Tl",
@@ -546,6 +1813,30 @@
       "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
+      "element": "Tm",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tm",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tm",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Tm",
+      "orbital": "5s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
       "element": "U",
       "orbital": "4d5/2",
       "field_id": "f0060",
@@ -567,11 +1858,215 @@
       "detail": "not dual-corroborated (Stage-9 tier)"
     },
     {
+      "element": "U",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
       "element": "V",
       "orbital": "2p3/2",
       "field_id": "f0024",
       "reason": "conflict",
       "detail": "conflict (legacy oxide vs NIST metal cluster) AND no NIST-evaluated (starred) value in source \u2014 fails the conflict-resolution V-safety guard, not promotable"
+    },
+    {
+      "element": "V",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "W",
+      "orbital": "3d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "W",
+      "orbital": "3p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "W",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "W",
+      "orbital": "4f5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "W",
+      "orbital": "4f7/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "W",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "W",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "W",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "W",
+      "orbital": "5s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Xe",
+      "orbital": null,
+      "reason": "no-evaluated-value",
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+    },
+    {
+      "element": "Y",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Y",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Y",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Yb",
+      "orbital": "4d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Yb",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Yb",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Yb",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Yb",
+      "orbital": "5s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zn",
+      "orbital": "2p3/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Zn",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zn",
+      "orbital": "3d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zn",
+      "orbital": "3p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zn",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "2p1/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "2p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "2s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "3d3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "3d5/2",
+      "reason": "already-machine-tier",
+      "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"
+    },
+    {
+      "element": "Zr",
+      "orbital": "3p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "3s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "4p",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Zr",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     }
   ]
 }

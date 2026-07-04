@@ -169,6 +169,72 @@ def test_additive_only_no_curated_overlap():
         assert (t["element"], t["orbital"]) not in curated, t["id"]
 
 
+def _subshell(orbital):
+    import re
+    m = re.match(r"^([1-7][spdf])", orbital)
+    return m.group(1) if m else orbital
+
+
+def test_no_curated_subshell_overlap():
+    """Stronger additive-only invariant (broad-coverage expansion): a machine
+    transition may not even share an (element, subshell) with the curated
+    tiers — prevents a bare '2p' machine line shadowing a curated '2p3/2'."""
+    curated_sub = set()
+    for fn in ("elements-main.json", "elements-actinides.json",
+               "elements-lanthanides.json", "auger-lines.json"):
+        for el in _load(fn)["elements"]:
+            for fam in el["families"]:
+                for t in fam["transitions"]:
+                    curated_sub.add((el["symbol"], _subshell(t["orbital"])))
+    for t in _machine_transitions():
+        assert (t["element"], _subshell(t["orbital"])) not in curated_sub, t["id"]
+
+
+def test_machine_tier_no_internal_duplicates():
+    """One machine record per (element, orbital) — the tiers path and the
+    coverage-expansion path must never both emit the same line."""
+    seen = set()
+    for t in _machine_transitions():
+        key = (t["element"], t["orbital"])
+        assert key not in seen, f"duplicate machine emission {t['id']}"
+        seen.add(key)
+
+
+def test_skip_reasons_enumerated():
+    """Every skip reason used in the audit log is documented in the reasons
+    legend (no unexplained skip categories)."""
+    legend = set(SKIPPED["reasons"])
+    used = {r["reason"] for r in SKIPPED["transitions"]}
+    assert used <= legend, f"undocumented skip reasons: {sorted(used - legend)}"
+
+
+def test_expansion_provenance_source_is_nist_archive():
+    """Coverage-expansion values must be traceable to an Internet Archive
+    snapshot of the retired NIST SRD-20 query page: archived URL + snapshot
+    timestamp + artifact sha256 + the committed parse method."""
+    for p in PROV["transitions"]:
+        if not p.get("acquisition"):
+            continue
+        ns = p["nominal_source"]
+        url = ns["source_url"]
+        assert url.startswith(("http://web.archive.org/web/",
+                               "https://web.archive.org/web/")), p["id"]
+        assert "srdata.nist.gov" in url and "query_all_dat_el" in url, p["id"]
+        assert ns["archive_snapshot_timestamp"], p["id"]
+        assert ns["fetch_utc"], p["id"]
+        assert len(ns["source_artifact_sha256"]) == 64, p["id"]
+        assert p["parse_method"] == "nist-html-starred-record", p["id"]
+
+
+def test_expansion_values_agent_cross_checked():
+    """Single-snapshot expansion values are only as strong as their
+    independent re-derivation: every acquisition record must carry a
+    confirmed agent cross-check."""
+    for p in PROV["transitions"]:
+        if p.get("acquisition"):
+            assert p.get("agent_cross_checked") is True, p["id"]
+
+
 def test_curated_and_legacy_content_unchanged_vs_snapshot():
     # The machine-tier generator writes only the three machine sidecars; curated
     # + legacy scientific content stays put. Durable replacement for the old
@@ -257,4 +323,4 @@ def test_only_corroborated_or_allowlisted_conflict_emitted():
 
 @stage9
 def test_emitted_count_matches_eligible_sanity():
-    assert len(_machine_transitions()) == 45   # 23 corroborated + 4 conflict-resolved + 18 coverage-expansion
+    assert len(_machine_transitions()) == 78   # 23 corroborated + 4 conflict-resolved + 51 coverage-expansion (full-table sweep 2026-07-03)

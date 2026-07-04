@@ -79,6 +79,32 @@
    "transition": "As-3d5/2",
    "z": 33
   },
+  "Au-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 335.34,
+    "min": 334.7,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Au",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 335.22
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Au-4d5/2",
+   "z": 79
+  },
   "Au-4f7/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -123,6 +149,32 @@
    "status": "UNVERIFIED-machine-derived",
    "transition": "Be-1s",
    "z": 4
+  },
+  "Bi-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 440.4,
+    "min": 440.0,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Bi",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 440.13
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Bi-4d5/2",
+   "z": 83
   },
   "Bi-4f7/2": {
    "be_window_ev": {
@@ -343,6 +395,32 @@
    "transition": "Co-2p3/2",
    "z": 27
   },
+  "Co-3p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 59.3,
+    "min": 58.88,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Co",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 58.88
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Co-3p3/2",
+   "z": 27
+  },
   "Cr-2p3/2": {
    "be_window_ev": {
     "basis": "reduced-to-oxidized-chemical-state-span",
@@ -367,6 +445,32 @@
    },
    "status": "UNVERIFIED-machine-derived",
    "transition": "Cr-2p3/2",
+   "z": 24
+  },
+  "Cr-3p": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 43.0,
+    "min": 41.9,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Cr",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 42.27
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Cr-3p",
    "z": 24
   },
   "Cu-2p1/2": {
@@ -435,6 +539,110 @@
    "transition": "Cu-2p3/2",
    "z": 29
   },
+  "Cu-3p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 75.2,
+    "min": 74.9,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Cu",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 75.14
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Cu-3p3/2",
+   "z": 29
+  },
+  "Dy-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 152.35,
+    "min": 152.35,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Dy",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 152.35
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Dy-4d",
+   "z": 66
+  },
+  "Er-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 167.28,
+    "min": 167.28,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Er",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 167.28
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Er-4d",
+   "z": 68
+  },
+  "Eu-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 128.19,
+    "min": 128.19,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Eu",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 128.19
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Eu-4d",
+   "z": 63
+  },
   "Fe-2p3/2": {
    "be_window_ev": {
     "basis": "reduced-to-oxidized-chemical-state-span",
@@ -460,6 +668,84 @@
    "status": "UNVERIFIED-machine-derived",
    "transition": "Fe-2p3/2",
    "z": 26
+  },
+  "Fe-3p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 52.5,
+    "min": 52.48,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Fe",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 52.48
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Fe-3p3/2",
+   "z": 26
+  },
+  "Gd-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 140.37,
+    "min": 140.37,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Gd",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 140.37
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Gd-4d",
+   "z": 64
+  },
+  "Ge-3d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 29.45,
+    "min": 29.1,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Ge",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 29.39
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Ge-3d5/2",
+   "z": 32
   },
   "Hf-4d5/2": {
    "be_window_ev": {
@@ -565,6 +851,32 @@
    "transition": "Hg-4f7/2",
    "z": 80
   },
+  "Ho-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 161.3,
+    "min": 159.0,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Ho",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 159.59
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Ho-4d",
+   "z": 67
+  },
   "In-3d5/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -643,6 +955,32 @@
    "transition": "Ir-4f7/2",
    "z": 77
   },
+  "Mg-2p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 49.79,
+    "min": 49.79,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Mg",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 49.79
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Mg-2p3/2",
+   "z": 12
+  },
   "Mn-2p3/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -669,6 +1007,32 @@
    "transition": "Mn-2p3/2",
    "z": 25
   },
+  "Mn-3p": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 49.4,
+    "min": 47.17,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Mn",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 47.17
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Mn-3p",
+   "z": 25
+  },
   "Mo-3d5/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -693,6 +1057,32 @@
    },
    "status": "UNVERIFIED-machine-derived",
    "transition": "Mo-3d5/2",
+   "z": 42
+  },
+  "Mo-4p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 35.5,
+    "min": 35.47,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Mo",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 35.47
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Mo-4p3/2",
    "z": 42
   },
   "Nb-3d3/2": {
@@ -761,6 +1151,32 @@
    "transition": "Nb-3d5/2",
    "z": 41
   },
+  "Nb-4p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 30.8,
+    "min": 30.77,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Nb",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 30.77
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Nb-4p3/2",
+   "z": 41
+  },
   "Ni-2p3/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -785,6 +1201,32 @@
    },
    "status": "UNVERIFIED-machine-derived",
    "transition": "Ni-2p3/2",
+   "z": 28
+  },
+  "Ni-3p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 67.6,
+    "min": 66.08,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Ni",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 66.08
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Ni-3p3/2",
    "z": 28
   },
   "O-1s": {
@@ -903,6 +1345,32 @@
    "transition": "P-2p3/2",
    "z": 15
   },
+  "Pb-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 412.03,
+    "min": 412.0,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Pb",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 412.03
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Pb-4d5/2",
+   "z": 82
+  },
   "Pb-4f7/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -954,6 +1422,58 @@
    "status": "UNVERIFIED-machine-derived",
    "transition": "Pd-3d5/2",
    "z": 46
+  },
+  "Pr-3d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 932.0,
+    "min": 931.89,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Pr",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 931.89
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Pr-3d5/2",
+   "z": 59
+  },
+  "Pt-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 314.7,
+    "min": 314.2,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Pt",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 314.61
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Pt-4d5/2",
+   "z": 78
   },
   "Pt-4f7/2": {
    "be_window_ev": {
@@ -1033,6 +1553,58 @@
    "transition": "Re-4f7/2",
    "z": 75
   },
+  "Rh-3d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 309.9,
+    "min": 306.1,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Rh",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 307.2
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Rh-3d5/2",
+   "z": 45
+  },
+  "Rh-4p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 47.3,
+    "min": 47.0,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Rh",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 47.27
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Rh-4p3/2",
+   "z": 45
+  },
   "Ru-3d5/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -1109,6 +1681,32 @@
    },
    "status": "UNVERIFIED-machine-derived",
    "transition": "Sb-3d5/2",
+   "z": 51
+  },
+  "Sb-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 32.3,
+    "min": 31.94,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Sb",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 32.04
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Sb-4d5/2",
    "z": 51
   },
   "Sc-2p3/2": {
@@ -1189,6 +1787,32 @@
    "transition": "Sn-3d5/2",
    "z": 50
   },
+  "Sn-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 24.1,
+    "min": 23.68,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Sn",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 23.92
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Sn-4d5/2",
+   "z": 50
+  },
   "Ta-4d5/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -1241,6 +1865,32 @@
    "transition": "Ta-4f7/2",
    "z": 73
   },
+  "Tb-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 146.01,
+    "min": 146.01,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Tb",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 146.01
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Tb-4d",
+   "z": 65
+  },
   "Te-3d5/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -1267,6 +1917,32 @@
    "transition": "Te-3d5/2",
    "z": 52
   },
+  "Te-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 40.5,
+    "min": 40.3,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Te",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 40.41
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Te-4d5/2",
+   "z": 52
+  },
   "Ti-2p3/2": {
    "be_window_ev": {
     "basis": "reduced-to-oxidized-chemical-state-span",
@@ -1291,6 +1967,32 @@
    },
    "status": "UNVERIFIED-machine-derived",
    "transition": "Ti-2p3/2",
+   "z": 22
+  },
+  "Ti-3p": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 32.5,
+    "min": 32.47,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Ti",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 32.47
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Ti-3p",
    "z": 22
   },
   "Tl-4d5/2": {
@@ -1344,6 +2046,32 @@
    "status": "UNVERIFIED-machine-derived",
    "transition": "Tl-4f7/2",
    "z": 81
+  },
+  "Tm-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 175.39,
+    "min": 175.39,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Tm",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 175.39
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Tm-4d",
+   "z": 69
   },
   "U-4d3/2": {
    "be_window_ev": {
@@ -1711,6 +2439,32 @@
    "transition": "U-6s",
    "z": 92
   },
+  "W-4d5/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 244.0,
+    "min": 243.5,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "W",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 243.5
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "W-4d5/2",
+   "z": 74
+  },
   "W-4f7/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -1763,6 +2517,32 @@
    "transition": "Y-3d5/2",
    "z": 39
   },
+  "Yb-4d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 182.4,
+    "min": 182.4,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Yb",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 182.4
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Yb-4d",
+   "z": 70
+  },
   "Zn-2p3/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -1789,6 +2569,58 @@
    "transition": "Zn-2p3/2",
    "z": 30
   },
+  "Zn-3d": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 10.2,
+    "min": 9.5,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Zn",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 9.97
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "3:2",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.6666666666666666
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Zn-3d",
+   "z": 30
+  },
+  "Zn-3p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 88.8,
+    "min": 88.6,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Zn",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 88.63
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Zn-3p3/2",
+   "z": 30
+  },
   "Zr-3d5/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",
@@ -1813,6 +2645,32 @@
    },
    "status": "UNVERIFIED-machine-derived",
    "transition": "Zr-3d5/2",
+   "z": 40
+  },
+  "Zr-4p3/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 27.1,
+    "min": 27.07,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Zr",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 27.07
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "2:1",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.5
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Zr-4p3/2",
    "z": 40
   }
  },

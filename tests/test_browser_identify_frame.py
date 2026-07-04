@@ -318,8 +318,11 @@ def test_machine_tier_precedence_and_count(page):
             Fe:_refActivation('Fe'), V:_refActivation('V'), He:_refActivation('He'),
             Ta:_refActivation('Ta'), Sc:_refActivation('Sc'), Rb:_refActivation('Rb')};
     }""")
-    # Grid counts machine-tier ELEMENTS: 27 prior + 10 coverage-expansion = 37.
-    assert r["tally"]["machine"] == 37
+    # Machine-tier tally after the full-table coverage sweep (2026-07-03):
+    # elements-machine.json now holds 51 elements (was 37; new incl. Rh, Pr,
+    # Mg + the lanthanide 4d family), but Cu and Nb also carry curated
+    # records and resolve 'curated' by precedence -> 49 tally as machine.
+    assert r["tally"]["machine"] == 49
     assert r["tally"]["curated"] == 6
     assert r["C"] == "curated" and r["O"] == "curated" and r["U"] == "curated"
     assert r["Si"] == "machine" and r["Ag"] == "machine" and r["Pt"] == "machine"

@@ -72,12 +72,46 @@ GEN_NOTE = ("Machine-source tier: NIST-evaluated reference energy recovered by "
 # data — the no-invention rule governs emitted binding energies, every one of which
 # is read from a fetched NIST artifact in .stage9/expand_artifacts/. Elements that
 # fetch an artifact but carry no NIST-evaluated value (e.g. Rb, Cs) are skip-logged,
-# never invented.
-EXPAND_ELEMENTS = {
-    "Sc": (21, "Scandium"),  "Ru": (44, "Ruthenium"), "Pd": (46, "Palladium"),
-    "Hf": (72, "Hafnium"),   "Ta": (73, "Tantalum"),  "Re": (75, "Rhenium"),
-    "Os": (76, "Osmium"),    "Ir": (77, "Iridium"),   "Hg": (80, "Mercury"),
-    "Tl": (81, "Thallium"),  "Rb": (37, "Rubidium"),  "Cs": (55, "Caesium"),
+# never invented. Originally the 12-element EXPAND_ELEMENTS set; broadened to the
+# full periodic table for the fit-physics coverage work (acquisition by the
+# committed scripts/acquire_nist_archive.py; elements never acquired or with no
+# starred value simply skip-log).
+PERIODIC_TABLE = {
+    "H": (1, "Hydrogen"), "He": (2, "Helium"), "Li": (3, "Lithium"),
+    "Be": (4, "Beryllium"), "B": (5, "Boron"), "C": (6, "Carbon"),
+    "N": (7, "Nitrogen"), "O": (8, "Oxygen"), "F": (9, "Fluorine"),
+    "Ne": (10, "Neon"), "Na": (11, "Sodium"), "Mg": (12, "Magnesium"),
+    "Al": (13, "Aluminium"), "Si": (14, "Silicon"), "P": (15, "Phosphorus"),
+    "S": (16, "Sulfur"), "Cl": (17, "Chlorine"), "Ar": (18, "Argon"),
+    "K": (19, "Potassium"), "Ca": (20, "Calcium"), "Sc": (21, "Scandium"),
+    "Ti": (22, "Titanium"), "V": (23, "Vanadium"), "Cr": (24, "Chromium"),
+    "Mn": (25, "Manganese"), "Fe": (26, "Iron"), "Co": (27, "Cobalt"),
+    "Ni": (28, "Nickel"), "Cu": (29, "Copper"), "Zn": (30, "Zinc"),
+    "Ga": (31, "Gallium"), "Ge": (32, "Germanium"), "As": (33, "Arsenic"),
+    "Se": (34, "Selenium"), "Br": (35, "Bromine"), "Kr": (36, "Krypton"),
+    "Rb": (37, "Rubidium"), "Sr": (38, "Strontium"), "Y": (39, "Yttrium"),
+    "Zr": (40, "Zirconium"), "Nb": (41, "Niobium"), "Mo": (42, "Molybdenum"),
+    "Tc": (43, "Technetium"), "Ru": (44, "Ruthenium"), "Rh": (45, "Rhodium"),
+    "Pd": (46, "Palladium"), "Ag": (47, "Silver"), "Cd": (48, "Cadmium"),
+    "In": (49, "Indium"), "Sn": (50, "Tin"), "Sb": (51, "Antimony"),
+    "Te": (52, "Tellurium"), "I": (53, "Iodine"), "Xe": (54, "Xenon"),
+    "Cs": (55, "Caesium"), "Ba": (56, "Barium"), "La": (57, "Lanthanum"),
+    "Ce": (58, "Cerium"), "Pr": (59, "Praseodymium"), "Nd": (60, "Neodymium"),
+    "Pm": (61, "Promethium"), "Sm": (62, "Samarium"), "Eu": (63, "Europium"),
+    "Gd": (64, "Gadolinium"), "Tb": (65, "Terbium"), "Dy": (66, "Dysprosium"),
+    "Ho": (67, "Holmium"), "Er": (68, "Erbium"), "Tm": (69, "Thulium"),
+    "Yb": (70, "Ytterbium"), "Lu": (71, "Lutetium"), "Hf": (72, "Hafnium"),
+    "Ta": (73, "Tantalum"), "W": (74, "Tungsten"), "Re": (75, "Rhenium"),
+    "Os": (76, "Osmium"), "Ir": (77, "Iridium"), "Pt": (78, "Platinum"),
+    "Au": (79, "Gold"), "Hg": (80, "Mercury"), "Tl": (81, "Thallium"),
+    "Pb": (82, "Lead"), "Bi": (83, "Bismuth"), "Po": (84, "Polonium"),
+    "At": (85, "Astatine"), "Rn": (86, "Radon"), "Fr": (87, "Francium"),
+    "Ra": (88, "Radium"), "Ac": (89, "Actinium"), "Th": (90, "Thorium"),
+    "Pa": (91, "Protactinium"), "U": (92, "Uranium"), "Np": (93, "Neptunium"),
+    "Pu": (94, "Plutonium"), "Am": (95, "Americium"), "Cm": (96, "Curium"),
+    "Bk": (97, "Berkelium"), "Cf": (98, "Californium"), "Es": (99, "Einsteinium"),
+    "Fm": (100, "Fermium"), "Md": (101, "Mendelevium"), "No": (102, "Nobelium"),
+    "Lr": (103, "Lawrencium"),
 }
 EXPAND_PE_LINE = re.compile(r"^[1-7][spdf]([1357]/2)?$")   # PE subshell only (exclude DS-*/Auger)
 EXPAND_NOTE = ("Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered "
@@ -340,10 +374,14 @@ def build():
         })
 
     # ── Coverage-expansion path (additive) ───────────────────────────────────
-    # Emit machine records for artifact-backed new elements. Every emitted value
-    # is the NIST-evaluated (starred) value read from a fetched element-page
-    # snapshot in EXPAND_DIR; non-starred lines and artifact-less elements are
-    # skip-logged. This path NEVER touches the tiers-driven records above.
+    # Emit machine records for artifact-backed new elements/levels. Every
+    # emitted value is the NIST-evaluated (starred) value read from a fetched
+    # element-page snapshot in EXPAND_DIR; non-starred lines and artifact-less
+    # elements are skip-logged. This path NEVER touches the tiers-driven
+    # records above: any (element, subshell) already covered by a curated tier
+    # or a tiers-driven machine record is skip-logged, never re-emitted.
+    curated_sub = {(s, subshell(o)) for (s, o) in curated}
+    tiers_machine_sub = {(e["symbol"], subshell(e["orbital"])) for e in emitted}
     expand_manifest = os.path.join(EXPAND_DIR, "acquire_manifest.json")
     if os.path.exists(expand_manifest):
         man = {m["symbol"]: m for m in load(expand_manifest)["elements"]}
@@ -351,7 +389,7 @@ def build():
         # marked agent_cross_checked only if the independent pass confirms it.
         xc_path = os.path.join(EXPAND_DIR, "agent_crosscheck.json")
         xc = load(xc_path) if os.path.exists(xc_path) else {}
-        for sym, (z, name) in EXPAND_ELEMENTS.items():
+        for sym, (z, name) in sorted(PERIODIC_TABLE.items(), key=lambda kv: kv[1][0]):
             mrec = man.get(sym)
             art = os.path.join(EXPAND_DIR, f"{sym}_nist.html")
             if not mrec or mrec.get("status") != "OK" or not os.path.exists(art):
@@ -361,6 +399,9 @@ def build():
                 continue
             recs = parse_nist_html(art)
             sha = sha256_file(art)
+            if mrec.get("sha256") and sha != mrec["sha256"]:
+                raise SystemExit(f"expansion artifact/manifest desync for {sym}: "
+                                 f"disk sha {sha[:12]} != manifest {mrec['sha256'][:12]}")
             by_line = {}
             for x in recs:
                 if EXPAND_PE_LINE.match(x["orbital"]):
@@ -371,6 +412,14 @@ def build():
                 if not starred:
                     skipped.append({"element": sym, "orbital": orbital, "reason": "context-undeterminable",
                                     "detail": "no NIST-evaluated (starred) value for this line"})
+                    continue
+                if (sym, subshell(orbital)) in curated_sub:
+                    skipped.append({"element": sym, "orbital": orbital, "reason": "already-curated",
+                                    "detail": "expansion: subshell covered by a curated element file; additive-only"})
+                    continue
+                if (sym, subshell(orbital)) in tiers_machine_sub:
+                    skipped.append({"element": sym, "orbital": orbital, "reason": "already-machine-tier",
+                                    "detail": "expansion: subshell already emitted by the Stage-9 tiers-driven machine path"})
                     continue
                 sval, sref = starred[0]["energy"], starred[0]["ref"]
                 energies = [x["energy"] for x in line_recs]
@@ -475,6 +524,7 @@ def build():
             "conflict": "Stage-9 tier: legacy disagrees with NIST (e.g. oxide vs metal / Auger-frame)",
             "insufficient-evidence": "Stage-9 tier: not recoverable in both extractions",
             "no-evaluated-value": "coverage-expansion: artifact fetched but no NIST-evaluated (starred) photoelectron line — nothing sourceable to emit (e.g. Rb, Cs)",
+            "already-machine-tier": "coverage-expansion: subshell already emitted by the Stage-9 tiers-driven machine path (additive-only)",
         },
         "skipped_count": len(skipped),
         "transitions": skipped,

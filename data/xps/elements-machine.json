@@ -37,6 +37,40 @@
       ]
     },
     {
+      "symbol": "Mg",
+      "z": 12,
+      "name": "Magnesium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "2p",
+          "transitions": [
+            {
+              "id": "Mg-2p3/2",
+              "element": "Mg",
+              "z": 12,
+              "orbital": "2p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 49.79,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 49.79,
+                "max": 49.79,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "symbol": "Al",
       "z": 13,
       "name": "Aluminium",
@@ -237,6 +271,31 @@
               "notes": "Reduced/metal reference value (Powe95, NIST-evaluated) is the nominal; the band spans up to the oxide reference at 459 eV. Resolved from a legacy metal/oxide conflict by the lower-BE = reduced rule (legacy 459 eV was the oxide position). Machine tier \u2014 not human-verified."
             }
           ]
+        },
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Ti-3p",
+              "element": "Ti",
+              "z": 22,
+              "orbital": "3p",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 32.47,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 32.47,
+                "max": 32.5,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
         }
       ]
     },
@@ -269,6 +328,31 @@
               "source": "nist-srd-20",
               "tier": "machine",
               "notes": "Reduced/metal reference value (Powe95, NIST-evaluated) is the nominal; the band spans up to the oxide reference at 577 eV. Resolved from a legacy metal/oxide conflict by the lower-BE = reduced rule (legacy 577 eV was the oxide position). Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Cr-3p",
+              "element": "Cr",
+              "z": 24,
+              "orbital": "3p",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 42.27,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 41.9,
+                "max": 43.0,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
             }
           ]
         }
@@ -305,6 +389,31 @@
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
             }
           ]
+        },
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Mn-3p",
+              "element": "Mn",
+              "z": 25,
+              "orbital": "3p",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 47.17,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 47.17,
+                "max": 49.4,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
         }
       ]
     },
@@ -337,6 +446,31 @@
               "source": "nist-srd-20",
               "tier": "machine",
               "notes": "Reduced/metal reference value (Powe95, NIST-evaluated) is the nominal; the band spans up to the oxide reference at 711 eV. Resolved from a legacy metal/oxide conflict by the lower-BE = reduced rule (legacy 711 eV was the oxide position). Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Fe-3p3/2",
+              "element": "Fe",
+              "z": 26,
+              "orbital": "3p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 52.48,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 52.48,
+                "max": 52.5,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
             }
           ]
         }
@@ -373,6 +507,31 @@
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
             }
           ]
+        },
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Co-3p3/2",
+              "element": "Co",
+              "z": 27,
+              "orbital": "3p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 58.88,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 58.88,
+                "max": 59.3,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
         }
       ]
     },
@@ -407,6 +566,65 @@
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
             }
           ]
+        },
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Ni-3p3/2",
+              "element": "Ni",
+              "z": 28,
+              "orbital": "3p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 66.08,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 66.08,
+                "max": 67.6,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Cu",
+      "z": 29,
+      "name": "Copper",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Cu-3p3/2",
+              "element": "Cu",
+              "z": 29,
+              "orbital": "3p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 75.14,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 74.9,
+                "max": 75.2,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Seah89, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
         }
       ]
     },
@@ -439,6 +657,90 @@
               "source": "nist-srd-20",
               "tier": "machine",
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
+        {
+          "family": "3d",
+          "transitions": [
+            {
+              "id": "Zn-3d",
+              "element": "Zn",
+              "z": 30,
+              "orbital": "3d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 9.97,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 9.5,
+                "max": 10.2,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
+        {
+          "family": "3p",
+          "transitions": [
+            {
+              "id": "Zn-3p3/2",
+              "element": "Zn",
+              "z": 30,
+              "orbital": "3p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 88.63,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 88.6,
+                "max": 88.8,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Ge",
+      "z": 32,
+      "name": "Germanium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "3d",
+          "transitions": [
+            {
+              "id": "Ge-3d5/2",
+              "element": "Ge",
+              "z": 32,
+              "orbital": "3d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 29.39,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 29.1,
+                "max": 29.45,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
             }
           ]
         }
@@ -543,6 +845,65 @@
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
             }
           ]
+        },
+        {
+          "family": "4p",
+          "transitions": [
+            {
+              "id": "Zr-4p3/2",
+              "element": "Zr",
+              "z": 40,
+              "orbital": "4p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 27.07,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 27.07,
+                "max": 27.1,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Nb",
+      "z": 41,
+      "name": "Niobium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4p",
+          "transitions": [
+            {
+              "id": "Nb-4p3/2",
+              "element": "Nb",
+              "z": 41,
+              "orbital": "4p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 30.77,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 30.77,
+                "max": 30.8,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
         }
       ]
     },
@@ -575,6 +936,31 @@
               "source": "nist-srd-20",
               "tier": "machine",
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
+        {
+          "family": "4p",
+          "transitions": [
+            {
+              "id": "Mo-4p3/2",
+              "element": "Mo",
+              "z": 42,
+              "orbital": "4p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 35.47,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 35.47,
+                "max": 35.5,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
             }
           ]
         }
@@ -626,6 +1012,65 @@
               "expected_region_ev": {
                 "min": 43.2,
                 "max": 43.4,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Rh",
+      "z": 45,
+      "name": "Rhodium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "3d",
+          "transitions": [
+            {
+              "id": "Rh-3d5/2",
+              "element": "Rh",
+              "z": 45,
+              "orbital": "3d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 307.2,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 306.1,
+                "max": 309.9,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
+        {
+          "family": "4p",
+          "transitions": [
+            {
+              "id": "Rh-4p3/2",
+              "element": "Rh",
+              "z": 45,
+              "orbital": "4p3/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 47.27,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 47.0,
+                "max": 47.3,
                 "basis": "observed-reference-range"
               },
               "visibility": {
@@ -806,6 +1251,31 @@
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
             }
           ]
+        },
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Sn-4d5/2",
+              "element": "Sn",
+              "z": 50,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 23.92,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 23.68,
+                "max": 24.1,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
         }
       ]
     },
@@ -840,6 +1310,31 @@
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
             }
           ]
+        },
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Sb-4d5/2",
+              "element": "Sb",
+              "z": 51,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 32.04,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 31.94,
+                "max": 32.3,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
         }
       ]
     },
@@ -872,6 +1367,337 @@
               "source": "nist-srd-20",
               "tier": "machine",
               "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); dual-extraction corroborated (present in the agreed-set). Region spans NIST records across chemical states. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Te-4d5/2",
+              "element": "Te",
+              "z": 52,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 40.41,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 40.3,
+                "max": 40.5,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Pr",
+      "z": 59,
+      "name": "Praseodymium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "3d",
+          "transitions": [
+            {
+              "id": "Pr-3d5/2",
+              "element": "Pr",
+              "z": 59,
+              "orbital": "3d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 931.89,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 931.89,
+                "max": 932.0,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Eu",
+      "z": 63,
+      "name": "Europium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Eu-4d",
+              "element": "Eu",
+              "z": 63,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 128.19,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 128.19,
+                "max": 128.19,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Gd",
+      "z": 64,
+      "name": "Gadolinium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Gd-4d",
+              "element": "Gd",
+              "z": 64,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 140.37,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 140.37,
+                "max": 140.37,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Tb",
+      "z": 65,
+      "name": "Terbium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Tb-4d",
+              "element": "Tb",
+              "z": 65,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 146.01,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 146.01,
+                "max": 146.01,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Dy",
+      "z": 66,
+      "name": "Dysprosium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Dy-4d",
+              "element": "Dy",
+              "z": 66,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 152.35,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 152.35,
+                "max": 152.35,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Ho",
+      "z": 67,
+      "name": "Holmium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Ho-4d",
+              "element": "Ho",
+              "z": 67,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 159.59,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 159.0,
+                "max": 161.3,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Er",
+      "z": 68,
+      "name": "Erbium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Er-4d",
+              "element": "Er",
+              "z": 68,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 167.28,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 167.28,
+                "max": 167.28,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Tm",
+      "z": 69,
+      "name": "Thulium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Tm-4d",
+              "element": "Tm",
+              "z": 69,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 175.39,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 175.39,
+                "max": 175.39,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Yb",
+      "z": 70,
+      "name": "Ytterbium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Yb-4d",
+              "element": "Yb",
+              "z": 70,
+              "orbital": "4d",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 182.4,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 182.4,
+                "max": 182.4,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
             }
           ]
         }
@@ -1000,8 +1826,33 @@
       "z": 74,
       "name": "Tungsten",
       "curation_status": "machine",
-      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
       "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "W-4d5/2",
+              "element": "W",
+              "z": 74,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 243.5,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 243.5,
+                "max": 244.0,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
         {
           "family": "4f",
           "transitions": [
@@ -1211,8 +2062,33 @@
       "z": 78,
       "name": "Platinum",
       "curation_status": "machine",
-      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
       "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Pt-4d5/2",
+              "element": "Pt",
+              "z": 78,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 314.61,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 314.2,
+                "max": 314.7,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
         {
           "family": "4f",
           "transitions": [
@@ -1245,8 +2121,33 @@
       "z": 79,
       "name": "Gold",
       "curation_status": "machine",
-      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
       "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Au-4d5/2",
+              "element": "Au",
+              "z": 79,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 335.22,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 334.7,
+                "max": 335.34,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
         {
           "family": "4f",
           "transitions": [
@@ -1397,8 +2298,33 @@
       "z": 82,
       "name": "Lead",
       "curation_status": "machine",
-      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
       "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Pb-4d5/2",
+              "element": "Pb",
+              "z": 82,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 412.03,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 412.0,
+                "max": 412.03,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
         {
           "family": "4f",
           "transitions": [
@@ -1431,8 +2357,33 @@
       "z": 83,
       "name": "Bismuth",
       "curation_status": "machine",
-      "curation_notes": "Machine-source tier: NIST-evaluated reference energy recovered by dual extraction (Claude + Codex) from NIST SRD 20 element-page snapshots and corroborated; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
       "families": [
+        {
+          "family": "4d",
+          "transitions": [
+            {
+              "id": "Bi-4d5/2",
+              "element": "Bi",
+              "z": 83,
+              "orbital": "4d5/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 440.13,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 440.0,
+                "max": 440.4,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        },
         {
           "family": "4f",
           "transitions": [

@@ -1,0 +1,50 @@
+Adversarial review of the ELEMENT-PHYSICS DATABASE coverage expansion on
+branch feature-autofit-stage2 (diff: the commits touching
+scripts/acquire_nist_archive.py, scripts/gen_machine_tier.py,
+scripts/gen_fit_physics.py, scripts/gen_coverage_report.py,
+data/xps/elements-machine*.json, data/xps/fit-physics.json,
+tests/test_machine_tier.py, tests/autofit/test_fit_physics.py; context:
+docs/autofit/PROGRESS.md "Element-physics DB" rows and the
+"NIST-archive format finding" section).
+
+This unit's HARD contract is NO INVENTION: every emitted binding energy must
+be the NIST-evaluated (starred) value literally present in an archived NIST
+SRD-20 element-page snapshot fetched from web.archive.org, sha256-pinned in
+elements-machine.provenance.json, parsed by the ONE committed parser; every
+non-emitted transition must be skip-logged with a reason; spin_orbit is
+always null in the machine tier; fit-physics 2j+1 ratios are pure arithmetic
+with a measured-deviation caveat.
+
+Attack these specifically:
+1. Can ANY path emit a value that is not a starred record in the artifact?
+   (parse_nist_html false positives — e.g. '*' in a reference cell that is
+   not the evaluated marker; multiple starred records for one line — which
+   one is chosen and is that deterministic?)
+2. Guards: the expansion path skips (element, subshell) pairs covered by
+   curated tiers or the tiers-driven machine path. Is subshell() correct for
+   every NIST line format on the pages (bare '2p', '4f7/2', 'DS-*' exclusion
+   via EXPAND_PE_LINE)? Can a duplicate (element, orbital) still be emitted
+   by the two paths in either order?
+3. Provenance completeness: for every NEW emitted transition — archived
+   source_url resolvable, snapshot timestamp, artifact sha256 matching the
+   committed artifact bytes, agent_cross_checked flag TRUE only when the
+   independent re-derivation matched exactly. Is the cross-check actually
+   independent of parse_nist_html?
+4. Determinism: is build() a pure function of (.stage9 inputs + script)?
+   Any iteration-order, set-order, or float-format hazards in the new code?
+   Would a re-run on another machine produce byte-identical committed files?
+5. Definitional table: PERIODIC_TABLE symbol/Z/name — validated against
+   committed data where present; any transcription error in the
+   non-overlapping entries? (Check a sample against the artifacts'
+   'All Data for' headers.)
+6. Tests: do the new invariants (no-curated-subshell-overlap, no internal
+   duplicates, skip-reason legend, archive-source pattern, cross-check flag)
+   actually fail if the property is violated, or are they vacuous?
+7. fit-physics regeneration: does any new machine entry gain a spin_orbit or
+   any value not copied from the sourced files? Is the statistical 2j+1
+   ratio ever emitted for an s line?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'
+for treating the element-physics DB slice as review-complete pending human
+verification of the UNVERIFIED-flagged values.

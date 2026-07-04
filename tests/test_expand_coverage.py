@@ -115,8 +115,10 @@ def test_rb_cs_failed_not_emitted():
     assert FAILED_ELEMENTS <= skipped_failed
 
 
-def test_machine_count_is_45():
-    assert len(_machine_by_id()) == 27 + len(EXPANSION)   # 27 prior + 18 new = 45
+def test_machine_count_is_78():
+    # 27 tiers-driven + 51 coverage-expansion (18 original EXPANSION set +
+    # 33 full-table sweep 2026-07-03, each agent-cross-checked)
+    assert len(_machine_by_id()) == 78
 
 
 def test_existing_machine_records_byte_unchanged_vs_snapshot():
