@@ -228,9 +228,12 @@ def test_expansion_provenance_source_is_nist_archive():
     Stage-6 MAJOR: substring checks were too loose and bytes unverified)."""
     import hashlib
     import re as _re
+    # .asp ONLY (Stage-6 re-check): the 2016 .aspx GridView pages carry no
+    # evaluated-star marker (PROGRESS format finding), so an emitted value
+    # sourced from an aspx snapshot is by definition suspect — reject it.
     url_re = _re.compile(
         r"^https?://web\.archive\.org/web/(\d{14})id_/"
-        r"https?://srdata\.nist\.gov(:80)?/xps/query_all_dat_el\.aspx?"
+        r"https?://srdata\.nist\.gov(:80)?/xps/query_all_dat_el\.asp"
         r"\?elm1=([A-Z][a-z]?)$")
     art_dir = os.path.join(STAGE9, "expand_artifacts")
     for p in PROV["transitions"]:

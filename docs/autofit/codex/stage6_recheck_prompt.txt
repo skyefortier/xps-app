@@ -1,0 +1,24 @@
+Re-check of the element-physics DB test-coverage fixes on branch
+feature-autofit-stage2 (context: your NO-GO verdict at
+docs/autofit/codex/stage6_element_db_verdict.md — 2 blockers + 1 major, all
+claimed fixed in the latest commit touching tests/test_machine_tier.py and
+tests/test_expand_coverage.py).
+
+Verify each disposition ACTUALLY closes the finding — or say concretely why
+not:
+1. (BLOCKER) tests/test_expand_coverage.py now derives the acquisition set
+   from elements-machine.provenance.json (_acquisition_records) and runs the
+   independent <tr>/<td> + <b>*</b> raw-HTML parse, the agent cross-check
+   agreement, and the sha256-vs-artifact-bytes check for ALL records with
+   p["acquisition"], plus test_acquisition_oracle_covers_all_expansion_records
+   pinning the count (51). Would a tampered Rh-3d5/2 or Mg-2p3/2 now be
+   caught?
+2. (BLOCKER) test_machine_tier_no_internal_subshell_overlap: does it
+   actually reject a bare '3p' coexisting with '3p3/2' for one element
+   (check _subshell against every NIST line format present in the data)?
+3. (MAJOR) test_expansion_provenance_source_is_nist_archive: strict URL
+   regex + URL-timestamp == archive_snapshot_timestamp + element match +
+   artifact byte re-hash. Any remaining looseness (e.g. aspx vs asp,
+   port variants, case)?
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
