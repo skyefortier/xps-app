@@ -595,6 +595,13 @@ current schema by the new committed generator
 script — which is how it went stale); see the tuned-budget section above for
 the regenerated numbers.
 
+**Re-check #4 (final)**
+(`docs/autofit/codex/stage5_recheck4_verdict.md`, 2026-07-04): **VERDICT
+GO** — "Findings: none"; generator configs, both regenerated records
+(schema flags, winners, per-slot sigma_stat), the ΔF values, and the
+doc/PROGRESS citations all verified line-by-line. Bayesian
+real-data-validation unit review-complete.
+
 ### Cookbook re-check (2026-07-03) — **NO-GO → all findings fixed (2nd round)**
 The re-check (archived `docs/autofit/codex/stage4_cookbook_verdict2.md`)
 found 2 blockers + 3 majors + 1 minor IN MY OVERRIDE IMPLEMENTATION, all

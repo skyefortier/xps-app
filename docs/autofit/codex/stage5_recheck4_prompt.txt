@@ -1,0 +1,28 @@
+Final focused verification of the Stage-5 Bayesian closure on branch
+feature-autofit-stage2 (context: your re-check #3 verdict(s) — the same
+prompt ran twice; the single residual finding in BOTH runs was the stale
+tuned U 4f sidecar docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl
+missing free_energy_is_replicate_mean). Claimed fixed in commit 7f6ec48:
+
+1. The artifact was regenerated FROM SCRATCH under the current
+   bayesian_exchange_mc output schema by a new COMMITTED generator,
+   scripts/run_bayesian_u4f_tuned.py (resumable-JSONL harness reused from
+   scripts/run_bayesian_real_validation.py). Verify: 2 records, both with
+   winner U2_mains_satfree; record 1 = full candidate set at 16 replicas /
+   4000 sweeps, seed 0, free_energy_is_replicate_mean: false on all 4
+   candidates; record 2 = U1b-vs-U2 head-to-head with seed_replicates: 2,
+   free_energy_is_replicate_mean: true plus free_energy_replicates /
+   free_energy_replicate_spread / free_energy_mc_error on both candidates;
+   per-slot sigma_stat.reliability present in each record's confidence.
+2. The generator reproduces the recorded configs (its TUNED dict +
+   candidate_filter/seed_replicates flow into the records' config fields
+   via the battery runner) and documents the resume-key caveat (a stale
+   same-key artifact must be moved aside before regeneration).
+3. Doc/PROGRESS citations still match the regenerated evidence: record-1
+   ΔF(U1b−U2) = 28.24; record-2 mean-F ΔF = 27.56 with replicate spreads
+   ±0.51/±0.18 — i.e. the summary doc's "U2 by ΔF = 27.6, replicates
+   agreeing to ±0.5" takeaway and PROGRESS.md's tuned-budget section
+   (ΔF 28.2 / F 2772.9 vs 2801.1) remain accurate.
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
