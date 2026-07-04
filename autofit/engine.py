@@ -1093,6 +1093,11 @@ class ComparisonResult:
     # (criteria panel) must reuse it so the payload can never disagree with
     # the ranking (Codex Stage-2 re-review finding #1).
     bic_ambiguity_threshold: float = DEFAULT_BIC_AMBIGUITY
+    # A filtered candidate whose BIC* beats the winner's by more than the
+    # decisive threshold — {name, bic_star, delta_bic_vs_winner,
+    # filter_reason} or None.  Stress-suite finding 0: evidence burial must
+    # be machine-visible at the result level.
+    filtered_dominant_alternative: Optional[dict] = None
 
 
 def rank_and_filter(
@@ -1783,4 +1788,28 @@ def compare_models(
     result.non_converged = non_converged
     result.cross_candidate_coincidences = _cross_candidate_coincidences(proposal_attempts)
     result.proposal_pass_timings = timings
+
+    # Result-level honesty flag (stress-suite finding 0 — burial measured
+    # at ΔBIC* +74…+944): a FILTERED candidate whose BIC* decisively beats
+    # the emitted winner must be visible at the RESULT level, not only in
+    # the candidate table.  Purely additive: ranking, filtering, and the
+    # promotion rules are unchanged — this only reports what they buried.
+    if result.survivors:
+        win_bic = result.survivors[0].bic_adjusted
+        survivor_names = {r.model.name for r in result.survivors}
+        dominant = None
+        for rep, why in result.filtered_out:
+            if rep.model.name in survivor_names:
+                continue        # promoted conditional-pool members
+            if win_bic - rep.bic_adjusted > CONDITIONAL_OVERRIDE_DELTA_BIC:
+                if dominant is None or rep.bic_adjusted < dominant[0].bic_adjusted:
+                    dominant = (rep, why)
+        if dominant is not None:
+            rep, why = dominant
+            result.filtered_dominant_alternative = {
+                "name": rep.model.name,
+                "bic_star": float(rep.bic_adjusted),
+                "delta_bic_vs_winner": float(win_bic - rep.bic_adjusted),
+                "filter_reason": why,
+            }
     return result

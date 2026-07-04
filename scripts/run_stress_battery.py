@@ -168,6 +168,7 @@ def run_ic(case, off, config, done):
             conditional=bool(d.get("conditional")),
             conditional_reason=d.get("conditional_reason"),
             ambiguous_pairs=a.get("ambiguous_pairs"),
+            filtered_dominant_alternative=d.get("filtered_dominant_alternative"),
             winner_chi_reduced=wc.get("reduced_chi_sq"),
             winner_boundary_hits=wc.get("boundary_hits"),
             winner_autocorr_flag=wc.get("autocorr_flag"),

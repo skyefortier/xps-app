@@ -76,6 +76,11 @@ def _ambiguity_signal(rec):
         sig.append("ambiguous_pairs")
     if rec.get("selection_warning"):
         sig.append("selection_warning")
+    if rec.get("filtered_dominant_alternative"):
+        # the result-level burial flag (engine change driven by finding 0)
+        fda = rec["filtered_dominant_alternative"]
+        sig.append(f"filtered_dominant_alternative:{fda.get('name')}"
+                   f"+{fda.get('delta_bic_vs_winner', 0):.0f}")
     return sig
 
 

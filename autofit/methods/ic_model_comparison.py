@@ -118,11 +118,22 @@ class ICModelComparisonMethod(PeakFitMethod):
                 "conditional_reason": result.conditional_reason,
                 "winner_boundary_hits": list(top.plausibility.boundary_hits),
                 "winner_boundary_fixed_params": list(top.boundary_fixed_params),
+                # stress-suite finding 0: buried decisive evidence is a
+                # RESULT-level flag, not candidate-table archaeology
+                "filtered_dominant_alternative":
+                    result.filtered_dominant_alternative,
                 "n_survivors": len(result.survivors),
                 "n_filtered": len(result.filtered_out),
                 "n_non_converged": len(result.non_converged),
             },
-            message=message,
+            message=(message + (
+                f" WARNING: filtered candidate "
+                f"{result.filtered_dominant_alternative['name']} beats this "
+                f"winner by ΔBIC* "
+                f"{result.filtered_dominant_alternative['delta_bic_vs_winner']:.1f} "
+                "but did not survive filtering "
+                f"({result.filtered_dominant_alternative['filter_reason']})"
+                if result.filtered_dominant_alternative else "")),
         )
 
 
@@ -235,6 +246,7 @@ def build_analysis_record(
         "candidates": candidates,
         "non_converged": [m.name for m, _ in result.non_converged],
         "ambiguous_pairs": [list(t) for t in result.ambiguous_pairs],
+        "filtered_dominant_alternative": result.filtered_dominant_alternative,
         "criteria_panel": build_criteria_panel(
             result.reports, result.survivors,
             # the SAME threshold the ranking used — panel and ranking can

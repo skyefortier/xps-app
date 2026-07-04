@@ -170,10 +170,15 @@ def test_subfwhm_dominant_alternative_never_silently_lost():
     else:
         p2, w = cands["P2"], cands[winner]
         dominated = p2["bic_star"] < w["bic_star"] - 10
+        # the engine now carries the RESULT-LEVEL burial flag (change
+        # driven by stress finding 0) — when the dominant alternative is
+        # filtered, the flag must name it
         result_flagged = (res.diagnostics.get("conditional")
-                          or res.analysis.get("ambiguous_pairs"))
-        assert (not dominated) or result_flagged or (
-            p2["reduced_chi_sq"] is not None
-            and p2["survived"] is False
-            and p2["filter_reason"]
-        ), "dominant alternative lost without any machine-readable trace"
+                          or res.analysis.get("ambiguous_pairs")
+                          or res.diagnostics.get(
+                              "filtered_dominant_alternative"))
+        assert (not dominated) or result_flagged, (
+            "dominant alternative buried without any RESULT-level signal")
+        if dominated and res.diagnostics.get("filtered_dominant_alternative"):
+            assert (res.diagnostics["filtered_dominant_alternative"]["name"]
+                    == "P2")
