@@ -4,10 +4,10 @@ reproduce the expert C 1s reference fits within tolerance.
 
 Parity is defined on what the grammar and the expert fits AGREE on
 physically — not peak-by-peak equality, because the expert fits use freer
-width conventions than the lit-cited grammar caps (adventitious FWHM up to
-2.66 eV vs Biesinger-2022 cap 1.6 eV; π→π* 3.95 eV vs cap 3.0 eV).  That
-conflict is LOGGED in docs/autofit/PROGRESS.md for human adjudication, per
-the run brief ("do not silently force the engine to match a rough fit").
+width conventions than the grammar caps (adventitious FWHM up to 2.66 eV
+vs the ADJUDICATED uniform 2.0 eV cap — adjudication-decisions.md #5,
+2026-07-03; the cap is the ruling, so exact width parity with the broadest
+expert components is not expressible by construction).
 
 Gate assertions per anchor spectrum:
 1. the engine finds >= 1 surviving candidate (no forced answer, but the
@@ -71,12 +71,21 @@ GATE_CANDIDATES = [
     "A2_linked",
 ]
 
-# Calibrated 2026-07-03 (see PROGRESS.md parity-gate calibration log).
-# Achieved on the anchors: main Δ 4–12 meV; satellite Δ 0.08–0.29 eV;
-# domain envelope R 0.004–0.014.  Tolerances carry ~2–4× headroom.
-MAIN_CENTER_TOL_EV = 0.05
+# Calibrated 2026-07-03; RE-calibrated 2026-07-04 under the adjudicated
+# uniform 2.0 eV contamination cap (see PROGRESS.md parity-gate calibration
+# log).  Measured mains: Scan_2 4 meV (clean MG2), Scan_6 12 meV (clean
+# AG2), Scan_8 54 meV — the UCl4-composite anchor's expert adventitious
+# widths (median 2.08 eV) exceed the cap, so its MG/AG candidates go
+# boundary-limited/unstable and the winner drops to the conditional
+# no_clean_survivor tier (A2_linked).  That anchor's degradation is the
+# adjudicated convention meeting data that prefers wider components —
+# expected, documented, not silently forced.
+MAIN_CENTER_TOL_EV = 0.08
 SATELLITE_TOL_EV = 0.5
-ENVELOPE_R_TOL = 0.03     # Σ|engine−expert| / Σ|expert|, BE ≥ ENVELOPE_DOMAIN_MIN
+# Measured domain envelope R 2026-07-04 under the adjudicated cap:
+# Scan_2/Scan_6 unchanged (0.004–0.014); Scan_8 0.0407 (conditional-tier
+# winner — same cap-vs-data cause as the main-center recalibration above).
+ENVELOPE_R_TOL = 0.05     # Σ|engine−expert| / Σ|expert|, BE ≥ ENVELOPE_DOMAIN_MIN
 # The expert fits model a low-BE 'Unknown' (~283.4 eV) that sits outside every
 # grammar window (PROGRESS.md discrepancy #6 — proposal-pass territory, which
 # the gate disables for runtime).  Envelope parity is asserted on the

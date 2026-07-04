@@ -767,6 +767,39 @@ which did not occur).
   does not fire (structure is distributed, not a discrete missing peak). No
   grammar change (no uncited species invention).
 
+### #5 C 1s adventitious width — uniform 2.0 eV cap IMPLEMENTED
+
+**Ruling:** replace the split contamination caps (Biesinger 1.6 for A/M/B
+vs labeled-set 3.5 for AG/MG) with a uniform ~2.0 eV cap — "a cap, not a
+target"; satellite cap (1.0, 5.5) unchanged.
+
+**Implemented:** `FWHM_RANGE_CONTAMINATION = (0.8, 2.0)` (floor still
+Biesinger/Greczynski-cited; cap CONDITIONAL per the adjudication);
+`FWHM_RANGE_CONTAMINATION_LAB` deleted — AG/MG now differ from A/M only in
+the graphitic-main lineshape. Provenance updated.
+
+**Measured consequences (C 1s parity gate re-run, RUN_AUTOFIT_GATE=1):**
+- Scan_2 (8-JT graphite): clean MG2 winner, main Δ 4 meV — unchanged.
+- Scan_6 (1-GTA): clean AG2 winner, main Δ 12 meV — unchanged.
+- **Scan_8 (UCl4-on-graphite composite): DEGRADED as the ruling predicts
+  for data that wants wider components** (expert adventitious median
+  2.08 eV > cap): every MG/AG gate candidate goes boundary-limited
+  (contamination fwhm@max 2.0) and/or unstable; winner drops to the
+  conditional no_clean_survivor tier (A2_linked), main Δ 54 meV, domain
+  envelope R 0.0407. Gate recalibrated with the measured table documented
+  in the gate file: MAIN_CENTER_TOL 0.05 → 0.08, ENVELOPE_R_TOL
+  0.03 → 0.05 (Scan_2/Scan_6 unchanged at R 0.004–0.014). Gate green.
+- **Criteria-calibration observation logged for the stability unit**: on
+  Scan_8 the two-tier rule ("stability failures never promoted") promotes
+  a stable-but-poor A2_linked (χ²ᵣ 174) over an unstable-but-far-better
+  MG3 (χ²ᵣ 23) — bound-pegging under the new cap is itself a source of
+  refit variance. Motivating case for the stability/persistence
+  calibration work item.
+- NOTE: the canonical Bayesian battery JSONL (33 records) and the C 1s
+  UNRESOLVED story were generated under the PRE-cap grammar; its C 1s rows
+  predate this ruling. Not regenerated in this unit; flagged for the next
+  battery regeneration.
+
 ## Monday handoff — what to do first
 *(updated end of the 2026-07-03 late session — items 2–3 of the original
 list are DONE: both hung Codex reviews re-ran under the gtimeout rails
