@@ -1,14 +1,15 @@
 """
 PeakFitMethod registry (spec §5A) — the solver-selector seam.
 
-Methods 1–3 implemented; the rest are registered stubs so the menu shape is
+Methods 1–4 implemented; the rest are registered stubs so the menu shape is
 stable (ranked per the decision matrix):
 
   1. least_squares           — implemented (wraps existing run_fit)
   2. ic_model_comparison     — implemented (fitalg engine port)
   3. bayesian_exchange_mc    — implemented (the window flagship: replica
                                exchange + stepping-stone Bayes free energy)
-  4. sparse_map              — stub
+  4. sparse_map              — implemented (L1 dictionary + debiased NNLS;
+                               fast auto-pruning, few-separated-peaks regime)
   5. multivariate_mcr       — stub (multi-spectrum decomposition)
   6. max_entropy             — stub (resolution enhancement)
 """
@@ -19,12 +20,7 @@ from .base import MethodResult, NotImplementedMethod, PeakFitMethod
 from .bayesian_exchange_mc import BayesianExchangeMCMethod
 from .ic_model_comparison import ICModelComparisonMethod
 from .least_squares import LeastSquaresMethod
-
-
-class SparseMAPMethod(NotImplementedMethod):
-    id = "sparse_map"
-    label = "Sparse / MAP (fast auto)"
-    reason = "needs an XPS lineshape dictionary (STAM:Methods 2024, 10.1080/27660400.2024.2373046)"
+from .sparse_map import SparseMAPMethod
 
 
 class MultivariateMCRMethod(NotImplementedMethod):
