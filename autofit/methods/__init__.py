@@ -1,18 +1,18 @@
 """
 PeakFitMethod registry (spec §5A) — the solver-selector seam.
 
-Methods 1–5 implemented; max_entropy remains a registered stub so the menu
-shape is stable (ranked per the decision matrix):
+The FULL decision-matrix menu (methods 1–6) is implemented:
 
-  1. least_squares           — implemented (wraps existing run_fit)
-  2. ic_model_comparison     — implemented (fitalg engine port)
-  3. bayesian_exchange_mc    — implemented (the window flagship: replica
-                               exchange + stepping-stone Bayes free energy)
-  4. sparse_map              — implemented (L1 dictionary + debiased NNLS;
-                               fast auto-pruning, few-separated-peaks regime)
-  5. multivariate_mcr        — implemented (PCA rank + MCR-ALS on a
-                               multi-spectrum matrix; states, not peaks)
-  6. max_entropy             — stub (resolution enhancement)
+  1. least_squares           — wraps existing run_fit (the honest baseline)
+  2. ic_model_comparison     — fitalg engine port (peak-count by IC panel)
+  3. bayesian_exchange_mc    — the window flagship: replica exchange +
+                               stepping-stone Bayes free energy
+  4. sparse_map              — L1 dictionary + debiased NNLS (fast auto-
+                               pruning, few-separated-peaks regime)
+  5. multivariate_mcr        — PCA rank + MCR-ALS on a multi-spectrum
+                               matrix (chemical states, not peaks)
+  6. max_entropy             — resolution enhancement (USER-supplied
+                               kernel; sharpening, not quantification)
 """
 
 from __future__ import annotations
@@ -21,14 +21,9 @@ from .base import MethodResult, NotImplementedMethod, PeakFitMethod
 from .bayesian_exchange_mc import BayesianExchangeMCMethod
 from .ic_model_comparison import ICModelComparisonMethod
 from .least_squares import LeastSquaresMethod
+from .max_entropy import MaxEntropyMethod
 from .multivariate_mcr import MultivariateMCRMethod
 from .sparse_map import SparseMAPMethod
-
-
-class MaxEntropyMethod(NotImplementedMethod):
-    id = "max_entropy"
-    label = "Max-entropy (resolution enhancement)"
-    reason = "needs an instrument broadening kernel model"
 
 
 _METHODS: dict[str, PeakFitMethod] = {}

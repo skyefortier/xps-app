@@ -1,0 +1,30 @@
+Re-check of the sparse/MAP fixes on branch feature-autofit-stage2 (context:
+your NO-GO verdict at docs/autofit/codex/stage7_sparse_map_verdict.md — 2
+blockers + 3 majors + 1 minor, all claimed fixed in the commit "fix all 6
+Stage-7 Codex findings"). Files: autofit/methods/sparse_map.py,
+tests/autofit/test_sparse_map.py.
+
+Verify each disposition ACTUALLY closes the finding — or say concretely why
+not:
+1. (BLOCKER) _build_dictionary now UNIONS windows/FWHM ranges per role
+   across all candidates and flags a role asymmetric if ANY variant is
+   (pin: test_slot_variant_union_flags_asymmetry).
+2. (BLOCKER) active support after NNLS (amps > 1e-10) is what k, RSS, and
+   clustering use — zero-amplitude atoms can no longer count as dof or
+   bridge clusters.
+3. (MAJOR) exact-residual KKT violation computed at CD exit and surfaced
+   per λ (kkt_violation, converged, path_fully_converged); criterion
+   kkt <= kkt_rtol×λ (1e-2 UNVERIFIED tunable). Is λ-relative 1e-2 a
+   defensible support-identification tolerance, and is the raw value
+   sufficient for consumers to judge?
+4. (MAJOR) BIC relabeled "HEURISTIC ... NOT calibrated evidence" with
+   post-selection optimism note; n_atoms_active + n_peaks per λ record.
+5. (MINOR) path-order comment now says sparse→dense.
+6. (MAJOR) analytic solver pins: test_nn_lasso_cd_analytic_solution
+   (A=I, y=[2,-2,0.3], λ=0.5 ⇒ [1.5,0,0] — the nonneg clamp case) and
+   test_lambda_max_boundary_behavior (empty support at λ≥max(Aᵀy),
+   single max-correlation atom just below). Do these actually discriminate
+   the failure modes you described (λ scale error, missing clamp)?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

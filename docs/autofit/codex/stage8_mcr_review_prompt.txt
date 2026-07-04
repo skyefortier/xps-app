@@ -1,0 +1,31 @@
+Adversarial review of the multivariate MCR-ALS PeakFitMethod (decision-matrix
+entry 5) on branch feature-autofit-stage2. Files:
+autofit/methods/multivariate_mcr.py, tests/autofit/test_multivariate_mcr.py,
+registry autofit/methods/__init__.py. Context:
+docs/autofit/peak-fit-methods-decision-matrix.md entry 5 (weaknesses: needs a
+data matrix; rotational ambiguity; not single-spectrum),
+docs/autofit/PROGRESS.md status row.
+
+Verify adversarially:
+1. ALS correctness: row-wise NNLS alternation C←argmin||D−CSᵀ||, S←argmin —
+   does _nnls_rows implement both updates correctly (orientation/transposes)?
+   Dead-component reseeding to 1e-12 — can it oscillate or bias the fit?
+   Convergence on relative lack-of-fit change — adequate?
+2. Rank estimate: mean-centered PCA cumulative variance ≥ target, +1 for
+   closure — is the +1 justified as coded, and can it overcount when spectra
+   are NOT closed (no constant total)? Is the scree honestly sufficient for
+   the user to override?
+3. SVD init: sign-flip + clip to ≥0 — any failure mode (e.g. a PC that is
+   half-positive/half-negative producing a degenerate init) the tests miss?
+4. Honesty: rotational-ambiguity statement adequate? peaks=[] by design —
+   can any consumer misread the empty peaks as "no states found"? The
+   message says "decomposed m spectra into k states" — consistent?
+5. Normalization: unit-max S with scale moved into C — does that preserve
+   D ≈ C·Sᵀ exactly? Any double-scaling bug?
+6. build_matrix: overlap-range computation with descending BE grids
+   (np.interp needs ascending — is the argsort handling right)? Densest-step
+   choice — off-by-one/edge issues?
+7. Tests: can they pass with transposed updates, wrong normalization, or a
+   rank estimator that always returns 2? Suggest sharper pins if so.
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
