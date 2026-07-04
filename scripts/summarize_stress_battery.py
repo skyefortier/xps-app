@@ -264,9 +264,21 @@ def main():
         "the 0.15 eV PASS tolerance — reported as-is). "
         "`overlap_sep0.4_h9000` ambiguous→recover (the evidence "
         "decisively distinguishes; the pipeline currently fails it — "
-        "finding 0). Rows generated under the old labels carry the "
-        "old-label classifications; the library carries the corrected "
-        "labels with the measurement notes.",
+        "finding 0). The current battery was REGENERATED under the "
+        "corrected library labels (the superseded first generation lives "
+        "in git history); the summarizer reads labels from the library at "
+        "report time and annotates any future generation-label drift per "
+        "row.",
+        "8. **In-ROI decoy prune robustness is noise-draw-dependent**: the "
+        "decoy 'shoulder' case is pruned correctly on 2 of 3 noise draws "
+        "(P2 clean, χ²ᵣ ≈1.1) and by the weighted Bayesian on the base "
+        "draw — but at seed offset 2000 BOTH IC depths promote the "
+        "bound-fixed decoy candidate via the decisive-override path "
+        "(winner P3_decoy+bfix, k=3, conditional=True): flagged, but "
+        "structurally an INVENTED component on truth-2 data. The "
+        "always-on pin covers the base draw only. Criteria-calibration "
+        "material (the override's interior-optimum requirement admits a "
+        "populated decoy on some draws).",
         "7. **LS true-structure baseline**: excellent on separated truth "
         "(|Δc| ≤ 0.01 eV) but drifts 0.2+ eV on sub-FWHM doublets even "
         "GIVEN the true structure — position uncertainty there is "
@@ -308,9 +320,12 @@ def main():
                 f"{r.get('runtime_s', 0):.0f} |")
         lines.append("")
 
-    # winner-stability across noise draws (IC only)
+    # winner-stability across noise draws (IC only) — framing is
+    # EXPECTATION-AWARE (Codex re-check blocker: a prune failure must not
+    # be laundered as "ambiguity evidence")
     lines += ["## Winner stability across noise draws (IC)", ""]
     flips = []
+    exp_by_case = {r["case"]: r["expectation"] for r in recs}
     ic = defaultdict(set)
     for r in recs:
         if r["method"] == "ic_model_comparison" and r.get("success"):
@@ -318,9 +333,12 @@ def main():
                 r.get("winner"))
     for (case, cfg), winners in sorted(ic.items()):
         if len(winners) > 1:
-            flips.append(f"- `{case}` {cfg}: winners flip across noise "
-                         f"draws: {sorted(winners)} — instability = "
-                         "ambiguity evidence")
+            exp = exp_by_case.get(case)
+            verdict = ("instability = ambiguity evidence" if exp == "ambiguous"
+                       else f"{exp} FAILS on some noise draws — "
+                            "robustness deficiency, not ambiguity")
+            flips.append(f"- `{case}` {cfg} (expect: {exp}): winners flip "
+                         f"across noise draws: {sorted(winners)} — {verdict}")
     lines += flips or ["- none: every IC (case, config) picked the same "
                        "winner on all noise draws"]
     lines.append("")

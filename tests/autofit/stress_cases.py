@@ -391,10 +391,11 @@ def build_all_cases(seed_offset: int = 0) -> list[StressCase]:
         # weak minor — detectable at high counts; the low-count case was
         # a-priori labeled "ambiguous" but MEASURED recoverable (2026-07-04
         # battery: IC picks P2 on every noise draw, Bayes picks P2 with an
-        # honest budget warning) → relabeled recover; the battery JSONL
-        # rows generated under the old label carry the
-        # confident_true(RELABEL?) classification documenting exactly this.
-        # The minor's fitted center wobbles ±0.16 eV at these counts.
+        # honest budget warning) → relabeled recover.  The current battery
+        # is generated under these corrected labels (the summarizer reads
+        # labels from THIS library at report time; the superseded first
+        # generation lives in git history).  The minor's fitted center
+        # wobbles ±0.16 eV at these counts.
         weak_minor_case(0.03, 90000.0, seed=21 + o, expectation="recover"),
         weak_minor_case(0.03, 2000.0, seed=22 + o, expectation="recover"),
         # over-specification (empty flanks + in-ROI decoy variants)

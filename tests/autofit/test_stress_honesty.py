@@ -98,7 +98,11 @@ def test_inroi_decoy_pruned_not_populated():
     'shoulder' window BETWEEN the true peaks, where real tail intensity
     lives — the winner must carry the true 2-component structure with the
     decoy hypothesis rejected, not a populated 3-component invention.
-    Measured 2026-07-04: P2 clean, χ²ᵣ 1.10, exact recovery."""
+    Measured 2026-07-04: P2 clean, χ²ᵣ 1.10, exact recovery ON THIS BASE
+    DRAW.  The battery shows the prune is noise-draw-DEPENDENT (offset
+    2000 promotes the bound-fixed decoy via decisive_override, k=3,
+    conditional-flagged) — stress report finding 8; this pin covers the
+    base draw only."""
     case = overspecified_decoy_case(seed=32)
     res = _ic(case)
     assert res.diagnostics["winner"] == "P2"
