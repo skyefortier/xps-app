@@ -849,6 +849,18 @@ failure is FIXED; the suite is fully green, 322 passed.)*
    in `docs/autofit/codex/` and this file's verdict sections.
 6. Nothing merges to main or deploys until human review (run rail).
 
+## CI — gates cannot silently skip (2026-07-04)
+
+`.github/workflows/autofit-gates.yml`: two jobs on every push/PR —
+(1) the full fast suite with a junit guard (`scripts/ci_check_junit.py`)
+that FAILS if fewer than 350 tests actually ran or if more than the 3
+known env-gated module skips appear; (2) the three REQUIRED slow gates
+under `RUN_AUTOFIT_GATE=1` with a ZERO-skip guard — a gate that skips
+fails the job structurally. Guard verified locally on pass/skip/wipeout
+paths. NOTE: numeric pins were calibrated on macOS/arm64; a linux-only
+failure is honest platform-sensitivity signal (fixture tolerances carry
+documented FP-wobble margins), not noise to silence.
+
 ## Remaining work (deliberately not attempted in this window)
 - Production `/api/analyze` + results/confidence UI (spec §0/§8: later gate).
 - Wiring region modules to read fit-physics.json (they keep their own
