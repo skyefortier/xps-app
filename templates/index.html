@@ -1793,6 +1793,7 @@
           <button class="save-dropdown-item" onclick="exportFitTable('xlsx')"><span class="dd-icon">&#128202;</span><div>Export Table (XLSX)<small>All fit parameters</small></div></button>
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
           <button class="save-dropdown-item" id="auto-fit-c1s-menu-item" onclick="runAutoFitC1sGraphite()" title="Available only on C1s spectra (ROI midpoint 270–315 eV)"><span class="dd-icon">&#128293;</span><div>Auto-Fit C1s Graphite<small>One-click fit + charge correction</small></div></button>
+          <button class="save-dropdown-item" id="find-peaks-menu-item" onclick="openFindPeaksModal()" title="Grammar-driven candidate models with per-peak confidence (opt-in beta; manual fitting untouched)"><span class="dd-icon">&#129517;</span><div>Find Peaks (beta)<small>Candidates + confidence, named review required</small></div></button>
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
           <button class="save-dropdown-item" onclick="loadSession()"><span class="dd-icon">&#128194;</span><div>Load Fit or Project<small>Restore saved fit params</small></div></button>
           <button class="save-dropdown-item" onclick="exportResults()"><span class="dd-icon">&#128203;</span><div>Export Results<small>Peaks + areas as JSON</small></div></button>
@@ -12623,5 +12624,258 @@ document.addEventListener('mousedown', function(e) {
     <div id="multiplet-modal-list"></div>
   </div>
 </div>
+<!-- ═══════════════════════════════════════════════════════════════════
+     Find Peaks (beta) — opt-in grammar-driven analysis (spec §5A/§8).
+     STRICTLY ADDITIVE: the manual fit path (/api/fit, Run Fit, peak
+     editing) is untouched.  Results are candidate models + per-peak
+     confidence + ambiguity flags; a NAMED human review is required
+     before anything is applied to the tab. ═══════════════════════════ -->
+<div id="find-peaks-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="xps-modal" style="max-width:680px;max-height:86vh;overflow-y:auto">
+    <h3>Find Peaks <span style="font-size:10px;color:var(--text3)">BETA</span>
+      <button class="btn btn-sm" onclick="closeFindPeaksModal()" style="float:right">&#x2715;</button>
+    </h3>
+    <p style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 10px">
+      Fits the registered candidate-model grammar for the selected region(s)
+      server-side and reports <b>candidates + confidence flags — not ground
+      truth</b>. Applying results to the tab requires a named review.
+      Manual fitting is unaffected.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <label style="font-size:11px">Material class
+        <select id="fp-material" class="btn" style="width:100%"></select>
+      </label>
+      <label style="font-size:11px">Method
+        <select id="fp-method" class="btn" style="width:100%" onchange="_fpMethodChanged()"></select>
+      </label>
+      <label style="font-size:11px">Region(s) <small style="color:var(--text3)">(ctrl-click for joint co-fit)</small>
+        <select id="fp-regions" class="btn" multiple size="5" style="width:100%"></select>
+      </label>
+      <label style="font-size:11px">Options <small style="color:var(--text3)">(JSON — adjustable defaults)</small>
+        <textarea id="fp-options" spellcheck="false" style="width:100%;height:96px;font-family:monospace;font-size:10px;background:var(--bg2);color:var(--text1);border:1px solid var(--border)"></textarea>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <button class="btn btn-accent" id="fp-run" onclick="runFindPeaks()">Run analysis</button>
+      <span id="fp-status" style="font-size:11px;color:var(--text2)"></span>
+    </div>
+    <div id="fp-results" style="display:none">
+      <div id="fp-flags"></div>
+      <div id="fp-message" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
+      <h4 style="font-size:11px;margin:10px 0 4px">Candidate peaks (winner)</h4>
+      <div style="overflow-x:auto"><table id="fp-peaks" style="width:100%;font-size:10px;border-collapse:collapse"></table></div>
+      <h4 style="font-size:11px;margin:10px 0 4px">Ranked alternatives</h4>
+      <div style="overflow-x:auto"><table id="fp-cands" style="width:100%;font-size:10px;border-collapse:collapse"></table></div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
+        <input type="text" id="fp-reviewer" placeholder="Reviewed by (name required to apply)"
+               oninput="document.getElementById('fp-apply').disabled = !this.value.trim()"
+               style="flex:1;font-size:11px;padding:4px 6px;background:var(--bg2);color:var(--text1);border:1px solid var(--border)">
+        <button class="btn" id="fp-apply" disabled onclick="applyFindPeaks()">Apply peaks to tab</button>
+      </div>
+      <p style="font-size:10px;color:var(--text3);margin:6px 0 0">
+        Applying replaces this tab's peak list with the winner's components
+        (your manual edits stay undo-able). The review name is recorded with
+        the applied model for this session.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Find Peaks (beta) — all logic self-contained in this block ──────────
+let _fpMeta = null;        // /api/analyze/meta cache
+let _fpLast = null;        // last analysis result (for apply)
+
+async function openFindPeaksModal() {
+  if (!state.rawBE || !state.rawBE.length) {
+    notify('Load a spectrum first — Find Peaks runs on the active tab.', 'amber');
+    return;
+  }
+  try {
+    if (!_fpMeta) {
+      const r = await fetch('/api/analyze/meta');
+      _fpMeta = await r.json();
+    }
+  } catch (e) {
+    notify('Find Peaks backend unavailable: ' + e.message, 'amber');
+    return;
+  }
+  const mat = document.getElementById('fp-material');
+  mat.innerHTML = _fpMeta.material_classes
+    .map(m => `<option value="${m}">${m}</option>`).join('');
+  const reg = document.getElementById('fp-regions');
+  reg.innerHTML = _fpMeta.regions
+    .map(r => `<option value="${r}">${r}</option>`).join('');
+  const meth = document.getElementById('fp-method');
+  meth.innerHTML = _fpMeta.methods
+    .map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join('');
+  meth.value = 'ic_model_comparison';
+  _fpMethodChanged();
+  document.getElementById('fp-results').style.display = 'none';
+  document.getElementById('fp-status').textContent = '';
+  document.getElementById('find-peaks-overlay').classList.add('open');
+}
+
+function closeFindPeaksModal() {
+  document.getElementById('find-peaks-overlay').classList.remove('open');
+}
+
+function _fpMethodChanged() {
+  const id = document.getElementById('fp-method').value;
+  const m = (_fpMeta.methods || []).find(x => x.id === id);
+  document.getElementById('fp-options').value =
+    JSON.stringify((m && m.default_options) || {}, null, 1);
+}
+
+async function runFindPeaks() {
+  const status = document.getElementById('fp-status');
+  const btn = document.getElementById('fp-run');
+  const regions = Array.from(
+    document.getElementById('fp-regions').selectedOptions).map(o => o.value);
+  if (!regions.length) { status.textContent = 'Select at least one region.'; return; }
+  let options;
+  try {
+    options = JSON.parse(document.getElementById('fp-options').value || '{}');
+  } catch (e) { status.textContent = 'Options are not valid JSON.'; return; }
+  const method = document.getElementById('fp-method').value;
+
+  btn.disabled = true;
+  status.textContent = 'Uploading + analyzing… (grammar methods can take a while)';
+  try {
+    // corrected-frame data, same convention as the manual fit path
+    const be = getCorrectedBE();
+    const sessionId = await uploadToBackend(be, state.rawIntensity);
+    const payload = {
+      session_id: sessionId, cc_shift: 0,
+      roi: { be_min: parseFloat(document.getElementById('roi-min').value),
+             be_max: parseFloat(document.getElementById('roi-max').value) },
+      material_class: document.getElementById('fp-material').value,
+      regions, method, options,
+    };
+    if (method === 'least_squares') {
+      payload.peak_specs = state.peaks.map(peakToBackendSpec);
+      if (!payload.peak_specs.length) {
+        status.textContent = 'least_squares refits YOUR current peaks — add peaks first, or pick a grammar method.';
+        btn.disabled = false;
+        return;
+      }
+    }
+    const resp = await fetch('/api/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await resp.json();
+    if (!resp.ok) throw new Error(body.error || ('HTTP ' + resp.status));
+    _fpLast = { body, method, regions };
+    _fpRenderResults(body);
+    status.textContent = '';
+  } catch (e) {
+    status.textContent = 'Failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function _fpEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function _fpBanner(text, color) {
+  return `<div style="font-size:10px;padding:5px 8px;margin:3px 0;border-left:3px solid ${color};background:var(--bg2)">${text}</div>`;
+}
+
+function _fpRenderResults(body) {
+  const flags = [];
+  const d = body.diagnostics || {}, a = body.analysis || {};
+  if (!body.success) flags.push(_fpBanner('No surviving candidate — ' + _fpEsc(body.message), '#e05555'));
+  if (d.conditional) flags.push(_fpBanner('CONDITIONAL result (' + _fpEsc(d.conditional_reason) + ') — a lit-cited constraint binds; see message.', '#e0a030'));
+  if (d.filtered_dominant_alternative) {
+    const f = d.filtered_dominant_alternative;
+    flags.push(_fpBanner('&#9888; Filtered candidate <b>' + _fpEsc(f.name) + '</b> beats this winner by ΔBIC* ' +
+      (+f.delta_bic_vs_winner).toFixed(1) + ' but did not survive filtering (' + _fpEsc(f.filter_reason) + ').', '#e05555'));
+  }
+  if (a.ambiguous_pairs && a.ambiguous_pairs.length)
+    flags.push(_fpBanner('Ambiguous alternatives (ΔBIC* within threshold): ' +
+      _fpEsc(a.ambiguous_pairs.map(p => p[0] + ' ↔ ' + p[1]).join('; ')), '#e0a030'));
+  if (a.model_selection_warning || a.selection_warning)
+    flags.push(_fpBanner(_fpEsc(a.model_selection_warning || a.selection_warning), '#e0a030'));
+  const nonv = (a.uses_conditional_or_unverified_constants || []).length;
+  if (nonv) flags.push(_fpBanner(nonv + ' CONDITIONAL/UNVERIFIED constants underlie this fit (see analysis provenance).', '#888'));
+  document.getElementById('fp-flags').innerHTML = flags.join('');
+  document.getElementById('fp-message').textContent = body.message || '';
+
+  const td = 'padding:2px 6px;border-bottom:1px solid var(--border);text-align:left';
+  const peaks = body.peaks || [];
+  document.getElementById('fp-peaks').innerHTML =
+    `<tr><th style="${td}">role</th><th style="${td}">shape</th><th style="${td}">center</th><th style="${td}">fwhm</th><th style="${td}">amplitude</th><th style="${td}">σ(center)</th></tr>` +
+    peaks.map(p => {
+      const conf = (body.confidence || {})[p.role] || {};
+      const sc = conf.sigma_stat && conf.sigma_stat.values && conf.sigma_stat.values.center;
+      return `<tr><td style="${td}">${_fpEsc(p.role || p.id)}</td><td style="${td}">${_fpEsc(p.shape)}</td>` +
+        `<td style="${td}">${(+p.center).toFixed(3)}</td><td style="${td}">${p.fwhm != null ? (+p.fwhm).toFixed(3) : '—'}</td>` +
+        `<td style="${td}">${p.amplitude != null ? (+p.amplitude).toFixed(0) : '—'}</td>` +
+        `<td style="${td}">${sc != null ? (+sc).toFixed(3) : '—'}</td></tr>`;
+    }).join('');
+
+  const cands = (a.candidates || []).slice()
+    .sort((x, y) => (x.bic_star ?? 1e12) - (y.bic_star ?? 1e12));
+  document.getElementById('fp-cands').innerHTML = cands.length ?
+    `<tr><th style="${td}">candidate</th><th style="${td}">χ²ᵣ</th><th style="${td}">BIC*</th><th style="${td}">status</th></tr>` +
+    cands.map(c => {
+      const status = c.name === d.winner ? '<b>WINNER</b>'
+        : (c.survived ? 'rank ' + _fpEsc(c.rank) : _fpEsc((c.filter_reason || 'not fitted').split(':')[0]));
+      return `<tr><td style="${td}">${_fpEsc(c.name)}</td>` +
+        `<td style="${td}">${c.reduced_chi_sq != null ? (+c.reduced_chi_sq).toFixed(2) : '—'}</td>` +
+        `<td style="${td}">${c.bic_star != null ? (+c.bic_star).toFixed(1) : '—'}</td>` +
+        `<td style="${td}">${status}</td></tr>`;
+    }).join('') : '';
+  document.getElementById('fp-reviewer').value = '';
+  document.getElementById('fp-apply').disabled = true;
+  document.getElementById('fp-results').style.display = 'block';
+}
+
+// backend lineshape id → frontend peak enum + shape-param mapping
+function _fpPeakFromBackend(p, i) {
+  const o = { name: p.role || ('found ' + (i + 1)), center: p.center,
+              fwhm: p.fwhm || 1.0, amplitude: p.amplitude || 1 };
+  switch (p.shape) {
+    case 'gaussian':        o.shape = 'Gaussian'; break;
+    case 'lorentzian':      o.shape = 'Lorentzian'; break;
+    case 'asymmetric_gl':   o.shape = 'asym-GL';
+      o.glMix = 100 * (p.gl_ratio ?? 0.3); o.asymmetry = p.asymmetry ?? 0.1; break;
+    case 'doniach_sunjic':  o.shape = 'DS';
+      o.dsAlpha = p.alpha ?? 0.1; o.dsGamma = p.gamma_asym ?? 0; break;
+    case 'ds_g':            o.shape = 'DSG_LA';
+      o.laAlpha = p.alpha ?? 0.1; o.laBeta = p.beta ?? 0.3; o.laM = p.m_gauss ?? p.fwhm ?? 1; break;
+    case 'la_casaxps':      o.shape = 'LACX';
+      o.caAlpha = p.alpha ?? 1; o.caBeta = p.beta ?? 1; o.caM = p.m ?? 50; break;
+    default:                o.shape = 'GL'; o.glMix = 100 * (p.gl_ratio ?? 0.3);
+  }
+  return defaultPeak(o);
+}
+
+function applyFindPeaks() {
+  const reviewer = document.getElementById('fp-reviewer').value.trim();
+  if (!reviewer || !_fpLast) return;
+  const peaks = (_fpLast.body.peaks || []);
+  if (!peaks.length) { notify('Nothing to apply — the analysis emitted no peaks.', 'amber'); return; }
+  if (state.peaks.length &&
+      !confirm('Replace this tab\'s ' + state.peaks.length + ' peak(s) with the ' +
+               peaks.length + ' analysis candidates?')) return;
+  state.peaks = peaks.map(_fpPeakFromBackend);
+  const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
+  if (active) active._findPeaksReview = {
+    reviewer, method: _fpLast.method, regions: _fpLast.regions,
+    winner: (_fpLast.body.diagnostics || {}).winner || null,
+    at: new Date().toISOString(),
+  };
+  renderPeakList();
+  updatePlot();
+  closeFindPeaksModal();
+  notify('Applied ' + peaks.length + ' candidate peak(s) — reviewed by ' + reviewer +
+         '. These are CANDIDATES: verify before publication use.', 'amber', true);
+}
+</script>
 </body>
 </html>
