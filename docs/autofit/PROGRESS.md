@@ -823,6 +823,22 @@ picture — 44 `K 2p` flags (every C 1s π→π* satellite, 5 projects), 20
 Zr 3d window), 54 `N 1s`-on-U 4f tags all INFO (leave-it ruling honored),
 zero other flags.
 
+## Handoff — state as of 2026-07-05 (supersedes the Monday list below)
+
+The 2026-07-04/05 goal run executed the full ordered work list:
+adjudication implemented (Cl 2p hypothesis honestly REJECTED by the data;
+uniform 2.0 eV cap; RSF lint) → synthetic stress suite (review-complete,
+GO ×2; 195-record evidence JSONL; burial finding → engine flag) →
+noise model (review-complete after 4 adversarial rounds, GO ×2) → BIC/IC
+math review (additive likelihood-consistency companions; deferrals
+logged) → fit-physics wiring (exposure-only) → /api/analyze + Find Peaks
+UI (vision-verified) → CI (green end-to-end, no-silent-skip proven) →
+proposal-pass rates measured.  Suite: 431 passed / 3 skipped; slow gates
+green locally AND on ubuntu CI.  Every unit's Codex trail is in
+docs/autofit/codex/ (each check ran TWICE; stricter verdict governed).
+Start with the STILL OPEN list in "Remaining work" below/above — the
+items needing Skye are marked.
+
 ## Monday handoff — what to do first
 *(updated end of the 2026-07-03 late session — items 2–3 of the original
 list are DONE: both hung Codex reviews re-ran under the gtimeout rails
@@ -1108,14 +1124,25 @@ paths. NOTE: numeric pins were calibrated on macOS/arm64; a linux-only
 failure is honest platform-sensitivity signal (fixture tolerances carry
 documented FP-wobble margins), not noise to silence.
 
-## Remaining work (deliberately not attempted in this window)
-- Production `/api/analyze` + results/confidence UI (spec §0/§8: later gate).
-- Wiring region modules to read fit-physics.json (they keep their own
-  cited constants for now; migration should follow human review of the
-  machine-tier values).
-- Per-candidate (vs region-wide) constants provenance; role-swap detection
-  for overlapping symmetric components (B 1s).
-- Methods 4–6 (sparse/MAP, multivariate, max-entropy) — stubs unless the
-  stretch unit below got to them.
-- CI infrastructure so the required gates cannot silently skip.
+## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
+DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
+UI (vision-verified; Skye's own visual review still pending);
+fit-physics.json wiring (exposure-only; value MIGRATION still pends the
+human review of machine-tier values); methods 4–6 (all implemented and
+review-complete); CI with no-silent-skip guards (green end-to-end).
+
+STILL OPEN:
+- Skye: visual review of the Find Peaks UI; hand-verification of the
+  machine-tier fit-physics values (then constant migration); review of
+  the Cl 2p hypothesis-rejection + differential-charging residual
+  evidence and the Scan_8 parity degradation under the 2.0 eV cap.
+- Engine (logged from the reviews): reduced-model refits for the
+  absent-slot BIC* heuristic; block-bootstrap/CV calibration of the ΔBIC
+  thresholds (+ n_eff-aware penalties); SE-distance boundary-proximity
+  diagnostics; orphan-tolerant role matching for heavily-overlapped
+  windows; persistence-threshold calibration by noise-draw strata;
+  per-candidate constants provenance; B 1s role-swap detection.
+- χ²-criteria calibration of the empirical noise model against the stress
+  suite (the estimator itself is review-complete).
 - Hour→interactive performance work (deferred per the run brief).
+- Production deploy: NEVER without human review (run rail).
