@@ -1,0 +1,24 @@
+Re-check of the multivariate MCR fixes on branch feature-autofit-stage2
+(context: your NO-GO verdict at docs/autofit/codex/stage8_mcr_verdict.md —
+1 blocker + 6 majors, all claimed fixed in the commit "fix all 7 Stage-8
+Codex findings"). Files: autofit/methods/multivariate_mcr.py,
+tests/autofit/test_multivariate_mcr.py.
+
+Verify each disposition ACTUALLY closes the finding — or say concretely why
+not:
+1. (BLOCKER) closure option: default False adds NO +1; +1 only when the
+   user asserts closure; n_centered_pcs vs n_states reported separately;
+   rank discrimination pinned (1-state→1; closed+closure→2; closed
+   WITHOUT the claim→1, documented as the honest under-count; non-closed
+   fixture→2).
+2. build_matrix: grid strictly inside [lo,hi]; user grids validated;
+   descending + non-commensurate-span pins.
+3. NNDSVD-style part-norm sign orientation.
+4. dead-component reseed from the positive residual at finite scale +
+   dead_component_reseeds surfaced (can it still oscillate?).
+5. als_converged / final delta / max_iter_hit surfaced; als_tol default =
+   0.1% relative LOF (Jaumot 2005 GUI default, flagged UNVERIFIED-applied).
+6. result_kind='state_decomposition' + n_states contract.
+7. payload-reconstruction LOF pin + _nnls_rows orientation pin.
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

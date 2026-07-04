@@ -10,51 +10,49 @@ Takeaways (2026-07-03 battery, fixed method with split-half F error bars + UNRES
 - **U 4f: honestly UNRESOLVED at the default budget** — U1b vs U2 flip winners across seeds (ΔF ≈ 3–6 vs seed spread ≈ 5); the warning machinery + `seed_replicates` option now flag this (env-gated pin: tests/autofit/test_bayesian_u4f_unresolved_gate.py). IC decisively prefers U2 (ΔBIC* = 59). **RESOLVED at 16 replicas / 4000 sweeps: U2 by ΔF = 27.6, replicates agreeing to ±0.5** (docs/autofit/inventory/bayesian_u4f_tuned_run.jsonl) — cross-method agreement restored at adequate budget.
 - **C 1s (4 gate candidates): flagged UNRESOLVED on BOTH seeds and indeed seed-flipping** (seed 0 MG2 gap 2.7 vs errs 1.5+2.0; seed 1 AG2 gap 5.8 vs errs 0.1+3.6; posterior weights marked unreliable in-run) — the split-half machinery catches the C 1s budget shortfall with no silent false confidence, unlike the pre-fix U 4f case. IC winner MG2 (the expert-structure family) on the same anchor.
 - **Tuning evidence**: winner selection is insensitive to all swept sampler tunables on the resolved anchors; min-ESS improves most with n_replicas (B 1s: 4→13 at 8→16 replicas), far less with n_sweeps; boundary-piled chains (Cl 2p ratio at its 0.55 cap) keep ESS low by construction and correctly fire the CI honesty warning. Sampler tunables remain UNVERIFIED defaults — validated as adequate for model selection on these anchors, NOT tuned constants.
-- Records predate `free_energy_mc_error`/replicate fields where noted; at seed_replicates=1 the MC error equals the split-half error by definition.
+- The JSONL is a single canonical generation (regenerated under frozen method code after the Stage-5 re-check#2 blocker); at seed_replicates=1 the MC error equals the split-half error by definition.
 
 ## B1s_Scan
 
-- **IC**: winner `B3_low_mid_oxide`, χ²ᵣ 1.26 (expert 1.43), 4.8s
+- **IC**: winner `B3_low_mid_oxide`, χ²ᵣ 1.26 (expert 1.43), 4.6s
 - **Bayes winners across 8 runs**: ['B3_low_mid_oxide'] — AGREE (vs IC modulo +bfix)
 
 | config | seed | winner | ΔF to 2nd | ±F err | σ̂ | swap acc | min ESS | CI warn | sel warn | t(s) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| {"burn_fraction": 0.3} | 0 | B3_low_mid_oxide | 130.3 | 2.4 | 59.8 | 0.52 | 5.2 | YES | – | 50.8 |
-| {"exchange_every": 1} | 0 | B3_low_mid_oxide | 130.1 | 0.4 | 63.7 | 0.52 | 4.7 | YES | – | 50.2 |
-| default | 0 | B3_low_mid_oxide | 126.1 | 0.7 | 60.1 | 0.52 | 3.9 | YES | – | 49.2 |
-| default | 1 | B3_low_mid_oxide | 121.2 | 2.4 | 68.9 | 0.52 | 3.1 | YES | – | 50.3 |
-| {"n_sweeps": 3000} | 0 | B3_low_mid_oxide | 131.1 | 1.4 | 59.2 | 0.52 | 8.1 | YES | – | 94.7 |
-| {"n_replicas": 16} | 0 | B3_low_mid_oxide | 148.3 | 3.7 | 59.1 | 0.58 | 13.3 | YES | – | 64.5 |
-| {"n_replicas": 8} | 0 | B3_low_mid_oxide | 112.9 | 5.8 | 60.0 | 0.50 | 4.2 | YES | – | 33.3 |
-| {"beta_min": 0.001} | 0 | B3_low_mid_oxide | 143.4 | 0.6 | 59.4 | 0.44 | 7.4 | YES | – | 49.4 |
+| {"burn_fraction": 0.3} | 0 | B3_low_mid_oxide | 130.3 | 2.4 | 59.8 | 0.52 | 5.2 | YES | – | 46.2 |
+| {"exchange_every": 1} | 0 | B3_low_mid_oxide | 130.1 | 0.4 | 63.7 | 0.52 | 4.7 | YES | – | 45.0 |
+| default | 0 | B3_low_mid_oxide | 126.1 | 0.7 | 60.1 | 0.52 | 3.9 | YES | – | 46.8 |
+| default | 1 | B3_low_mid_oxide | 121.2 | 2.4 | 68.9 | 0.52 | 3.1 | YES | – | 48.2 |
+| {"n_sweeps": 3000} | 0 | B3_low_mid_oxide | 131.1 | 1.4 | 59.2 | 0.52 | 8.1 | YES | – | 85.9 |
+| {"n_replicas": 16} | 0 | B3_low_mid_oxide | 148.3 | 3.7 | 59.1 | 0.58 | 13.3 | YES | – | 58.2 |
+| {"n_replicas": 8} | 0 | B3_low_mid_oxide | 112.9 | 5.8 | 60.0 | 0.50 | 4.2 | YES | – | 29.2 |
+| {"beta_min": 0.001} | 0 | B3_low_mid_oxide | 143.4 | 0.6 | 59.4 | 0.44 | 7.4 | YES | – | 44.5 |
 
 ## C1s_Scan_8
 
-- **IC**: winner `MG2_graphAsymGL_aliph_sat_CO_C=O`, χ²ᵣ 9.04 (expert 1.20), 892.3s
-- **Bayes winners across 4 runs**: ['AG2_linked', 'MG2_graphAsymGL_aliph_sat_CO_C=O'] — UNSTABLE 
+- **IC**: winner `MG2_graphAsymGL_aliph_sat_CO_C=O`, χ²ᵣ 9.04 (expert 1.20), 799.3s
+- **Bayes winners across 2 runs**: ['AG2_linked', 'MG2_graphAsymGL_aliph_sat_CO_C=O'] — UNSTABLE 
 
 | config | seed | winner | ΔF to 2nd | ±F err | σ̂ | swap acc | min ESS | CI warn | sel warn | t(s) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| default | 0 | MG2_graphAsymGL_aliph_sat_CO_C=O | 2.7 | 1.5 | 314.3 | 0.54 | 1.9 | YES | YES | 360.8 |
-| default | 0 | MG2_graphAsymGL_aliph_sat_CO_C=O | 2.7 | 1.5 | 314.3 | 0.54 | 0.0 | YES | YES | 365.1 |
-| default | 1 | AG2_linked | 5.8 | 0.1 | 529.8 | 0.55 | 3.4 | YES | YES | 367.9 |
-| default | 1 | AG2_linked | 5.8 | 0.1 | 529.8 | 0.55 | 3.4 | YES | YES | 365.6 |
+| default | 0 | MG2_graphAsymGL_aliph_sat_CO_C=O | 2.7 | 1.5 | 314.3 | 0.54 | 0.0 | YES | YES | 351.9 |
+| default | 1 | AG2_linked | 5.8 | 0.1 | 529.8 | 0.55 | 3.4 | YES | YES | 342.3 |
 
 ## Cl2p_Scan
 
-- **IC**: winner `Cl0r_doublet_relaxed+bfix`, χ²ᵣ 1.62 (expert 2.85), 0.4s
+- **IC**: winner `Cl0r_doublet_relaxed+bfix`, χ²ᵣ 1.62 (expert 2.85), 0.3s
 - **Bayes winners across 8 runs**: ['Cl0r_doublet_relaxed'] — AGREE (vs IC modulo +bfix)
 
 | config | seed | winner | ΔF to 2nd | ±F err | σ̂ | swap acc | min ESS | CI warn | sel warn | t(s) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| {"burn_fraction": 0.3} | 0 | Cl0r_doublet_relaxed | 48.2 | 0.6 | 81.2 | 0.54 | 24.5 | YES | – | 30.3 |
-| {"exchange_every": 1} | 0 | Cl0r_doublet_relaxed | 49.2 | 0.3 | 81.4 | 0.54 | 23.7 | YES | – | 29.7 |
-| default | 0 | Cl0r_doublet_relaxed | 48.9 | 0.5 | 81.5 | 0.53 | 11.9 | YES | – | 31.7 |
-| default | 1 | Cl0r_doublet_relaxed | 46.4 | 0.3 | 81.5 | 0.52 | 6.1 | YES | – | 29.9 |
-| {"n_sweeps": 3000} | 0 | Cl0r_doublet_relaxed | 49.0 | 0.3 | 81.4 | 0.53 | 36.5 | YES | – | 57.3 |
-| {"n_replicas": 16} | 0 | Cl0r_doublet_relaxed | 47.2 | 0.8 | 81.3 | 0.62 | 36.7 | YES | – | 38.0 |
-| {"n_replicas": 8} | 0 | Cl0r_doublet_relaxed | 47.6 | 1.0 | 81.5 | 0.44 | 14.7 | YES | – | 19.5 |
-| {"beta_min": 0.001} | 0 | Cl0r_doublet_relaxed | 48.4 | 0.1 | 81.3 | 0.49 | 13.9 | YES | – | 30.0 |
+| {"burn_fraction": 0.3} | 0 | Cl0r_doublet_relaxed | 48.2 | 0.6 | 81.2 | 0.54 | 24.5 | YES | – | 26.9 |
+| {"exchange_every": 1} | 0 | Cl0r_doublet_relaxed | 49.2 | 0.3 | 81.4 | 0.54 | 23.7 | YES | – | 26.4 |
+| default | 0 | Cl0r_doublet_relaxed | 48.9 | 0.5 | 81.5 | 0.53 | 11.9 | YES | – | 25.2 |
+| default | 1 | Cl0r_doublet_relaxed | 46.4 | 0.3 | 81.5 | 0.52 | 6.1 | YES | – | 25.3 |
+| {"n_sweeps": 3000} | 0 | Cl0r_doublet_relaxed | 49.0 | 0.3 | 81.4 | 0.53 | 36.5 | YES | – | 48.9 |
+| {"n_replicas": 16} | 0 | Cl0r_doublet_relaxed | 47.2 | 0.8 | 81.3 | 0.62 | 36.7 | YES | – | 34.1 |
+| {"n_replicas": 8} | 0 | Cl0r_doublet_relaxed | 47.6 | 1.0 | 81.5 | 0.44 | 14.7 | YES | – | 17.2 |
+| {"beta_min": 0.001} | 0 | Cl0r_doublet_relaxed | 48.4 | 0.1 | 81.3 | 0.49 | 13.9 | YES | – | 26.1 |
 
 ## Cl2p_Scan_0
 
@@ -63,24 +61,22 @@ Takeaways (2026-07-03 battery, fixed method with split-half F error bars + UNRES
 
 | config | seed | winner | ΔF to 2nd | ±F err | σ̂ | swap acc | min ESS | CI warn | sel warn | t(s) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| {"burn_fraction": 0.3} | 0 | Cl0r_doublet_relaxed | 33.1 | 0.7 | 85.5 | 0.55 | 9.7 | YES | – | 29.3 |
-| {"exchange_every": 1} | 0 | Cl0r_doublet_relaxed | 33.3 | 0.7 | 85.6 | 0.54 | 7.2 | YES | – | 28.8 |
-| default | 0 | Cl0r_doublet_relaxed | 30.9 | 0.6 | 86.0 | 0.55 | 15.6 | YES | – | 28.8 |
-| default | 1 | Cl0r_doublet_relaxed | 34.0 | 1.4 | 85.6 | 0.55 | 7.4 | YES | – | 29.3 |
-| {"n_sweeps": 3000} | 0 | Cl0r_doublet_relaxed | 32.7 | 0.6 | 85.6 | 0.56 | 19.6 | YES | – | 55.0 |
-| {"n_replicas": 16} | 0 | Cl0r_doublet_relaxed | 30.6 | 0.2 | 85.6 | 0.63 | 24.2 | YES | – | 42.4 |
-| {"n_replicas": 8} | 0 | Cl0r_doublet_relaxed | 31.1 | 1.3 | 85.7 | 0.45 | 3.8 | YES | – | 21.4 |
-| {"beta_min": 0.001} | 0 | Cl0r_doublet_relaxed | 33.9 | 0.8 | 86.0 | 0.52 | 22.7 | YES | – | 28.0 |
+| {"burn_fraction": 0.3} | 0 | Cl0r_doublet_relaxed | 33.1 | 0.7 | 85.5 | 0.55 | 9.7 | YES | – | 28.3 |
+| {"exchange_every": 1} | 0 | Cl0r_doublet_relaxed | 33.3 | 0.7 | 85.6 | 0.54 | 7.2 | YES | – | 27.4 |
+| default | 0 | Cl0r_doublet_relaxed | 30.9 | 0.6 | 86.0 | 0.55 | 15.6 | YES | – | 26.2 |
+| default | 1 | Cl0r_doublet_relaxed | 34.0 | 1.4 | 85.6 | 0.55 | 7.4 | YES | – | 26.4 |
+| {"n_sweeps": 3000} | 0 | Cl0r_doublet_relaxed | 32.7 | 0.6 | 85.6 | 0.56 | 19.6 | YES | – | 51.7 |
+| {"n_replicas": 16} | 0 | Cl0r_doublet_relaxed | 30.6 | 0.2 | 85.6 | 0.63 | 24.2 | YES | – | 35.0 |
+| {"n_replicas": 8} | 0 | Cl0r_doublet_relaxed | 31.1 | 1.3 | 85.7 | 0.45 | 3.8 | YES | – | 17.0 |
+| {"beta_min": 0.001} | 0 | Cl0r_doublet_relaxed | 33.9 | 0.8 | 86.0 | 0.52 | 22.7 | YES | – | 27.2 |
 
 ## U4f_Scan
 
 - **IC**: winner `U2_mains_satfree`, χ²ᵣ 1.40 (expert 1.71), 10.8s
-- **Bayes winners across 4 runs**: ['U1b_mains_satpair_freesep', 'U2_mains_satfree'] — UNSTABLE 
+- **Bayes winners across 2 runs**: ['U1b_mains_satpair_freesep', 'U2_mains_satfree'] — UNSTABLE 
 
 | config | seed | winner | ΔF to 2nd | ±F err | σ̂ | swap acc | min ESS | CI warn | sel warn | t(s) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| default | 0 | U1b_mains_satpair_freesep | 3.2 | 1.1 | 137.0 | 0.45 | 3.1 | YES | – | 344.9 |
-| default | 0 | U1b_mains_satpair_freesep | 3.2 | 1.1 | 137.0 | 0.45 | 3.1 | YES | – | 346.7 |
-| default | 1 | U2_mains_satfree | 6.4 | 3.5 | 129.3 | 0.45 | 3.8 | YES | YES | 343.5 |
-| default | 1 | U2_mains_satfree | 6.4 | 3.5 | 129.3 | 0.45 | 3.8 | YES | YES | 344.4 |
+| default | 0 | U1b_mains_satpair_freesep | 3.2 | 1.1 | 137.0 | 0.45 | 3.1 | YES | – | 307.0 |
+| default | 1 | U2_mains_satfree | 6.4 | 3.5 | 129.3 | 0.45 | 3.8 | YES | YES | 312.0 |
 

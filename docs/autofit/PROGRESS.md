@@ -198,6 +198,10 @@ Findings, all fixed + pinned same-session:
    estimator discrimination (see 1), `_nnls_rows` orientation pin,
    descending-grid/endpoint pins.
 
+**Re-check** (`docs/autofit/codex/stage8_recheck_verdict.md`): **VERDICT
+GO** — all seven dispositions verified closed (Codex ran direct Python
+checks of the core pins itself). MCR review-complete.
+
 ## Codex checkpoint: element-physics DB (Stage 6, 2026-07-03 late) — **NO-GO → all findings fixed**
 
 Verdict archived: `docs/autofit/codex/stage6_element_db_verdict.md`. Codex's
