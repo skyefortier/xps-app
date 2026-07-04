@@ -199,6 +199,13 @@ def build_analysis_record(
             "autocorr_flag": bool(r.residuals.autocorr_flag),
             "min_active_persistence": float(r.active_min_persistence),
             "boundary_hits": r.plausibility.boundary_hits,
+            # full plausibility surface (Codex Stage-2 re-review finding #3 —
+            # the orphan flag was recorded but dropped from the payload)
+            "unphysical_widths": r.plausibility.unphysical_widths,
+            "orphan_peaks": bool(r.plausibility.orphan_peaks),
+            # best-minimum honesty (re-review finding #4): how many of the
+            # multi-start fits reproduced the reported minimum's χ² basin
+            "best_minimum_basin_support": int(r.stability.best_basin_support),
         })
 
     import copy
@@ -228,7 +235,11 @@ def build_analysis_record(
         "candidates": candidates,
         "non_converged": [m.name for m, _ in result.non_converged],
         "ambiguous_pairs": [list(t) for t in result.ambiguous_pairs],
-        "criteria_panel": build_criteria_panel(result.reports, result.survivors),
+        "criteria_panel": build_criteria_panel(
+            result.reports, result.survivors,
+            # the SAME threshold the ranking used — panel and ranking can
+            # never disagree (Codex Stage-2 re-review finding #1)
+            bic_ambiguity_threshold=result.bic_ambiguity_threshold),
         "cross_candidate_coincidences": [
             {"center_be": c.center_be, "contributors": c.contributors}
             for c in result.cross_candidate_coincidences

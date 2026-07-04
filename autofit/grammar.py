@@ -327,6 +327,18 @@ def resolve(
         prov_fn = getattr(module, "provenance", None)
         provenance[slug] = list(prov_fn()) if callable(prov_fn) else []
 
+    # Role-prefix collision guard (Codex Stage-2 re-review finding #2): the
+    # composition sanitizer strips non-alphanumerics from slugs, so distinct
+    # phase ids like 'B-4C' and 'B4C' would collapse into one role prefix and
+    # silently collide in the lmfit parameter namespace.  Fail loudly instead.
+    sanitized = [re.sub(r"[^A-Za-z0-9_]", "", s.replace(" ", "")) for s in slugs]
+    if len(set(sanitized)) != len(sanitized):
+        dupes = sorted({s for s in sanitized if sanitized.count(s) > 1})
+        raise ValueError(
+            f"phase-qualified role slugs collide after sanitization: {dupes} — "
+            "phase ids must remain distinct once spaces/punctuation are removed"
+        )
+
     if len(requests) == 1:
         composed = per_request_candidates[0]
     else:

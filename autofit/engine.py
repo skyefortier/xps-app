@@ -88,6 +88,11 @@ PROPOSAL_WINDOW_STRIDE = 0.25
 PROPOSAL_FLAG_RATIO = 5.0
 PROPOSAL_MERGE_BE = 1.0
 PROPOSAL_FWHM_MIN = 0.5
+
+# Relative χ² tolerance for counting multi-start fits as landing in the SAME
+# basin as the best minimum (best_basin_support) — reporting-only honesty
+# diagnostic, never a ranking input.  UNVERIFIED tunable.
+BASIN_SUPPORT_RTOL = 1e-3
 PROPOSAL_FWHM_MAX = 3.0
 PROPOSED_PEAK_SHAPE = LineShape.PSEUDO_VOIGT
 PROPOSAL_GRAMMAR_SEPARATION_FACTOR = 0.5
@@ -639,6 +644,12 @@ class ModelStability:
     # outcome when it beats the primary, so the report describes the best
     # minimum FOUND and the stability numbers describe its robustness.
     best_outcome: Optional[FitOutcome] = None
+    # How many multi-start fits (refits + primary) landed within
+    # BASIN_SUPPORT_RTOL of the best weighted χ² — an honesty diagnostic for
+    # the best-minimum promotion (Codex Stage-2 re-review finding #4: a
+    # one-off deeper minimum is a different product than a reproducible one).
+    # Reporting-only; never used in ranking.
+    best_basin_support: int = 0
 
     @property
     def min_persistence(self) -> float:
@@ -672,6 +683,7 @@ def run_stability_analysis(
     y_net = y - bg if bg is not None else None
 
     best_outcome: Optional[FitOutcome] = None
+    refit_chis: list[float] = [float(primary_fit.weighted_chi_sq)]
     for _ in range(n_refits):
         seed = int(rng.integers(0, 2**31 - 1))
         init = perturb_initial_params(model, seed=seed, x=x, y_net=y_net)
@@ -685,6 +697,7 @@ def run_stability_analysis(
         if not outcome.converged:
             continue
         n_converged += 1
+        refit_chis.append(float(outcome.weighted_chi_sq))
         if best_outcome is None or outcome.weighted_chi_sq < best_outcome.weighted_chi_sq:
             best_outcome = outcome
         slot_map = match_components_to_slots(outcome.components, model, noise_floor)
@@ -717,11 +730,15 @@ def run_stability_analysis(
         )
         for role in occupied
     }
+    best_chi = min(refit_chis)
+    basin_support = sum(1 for c in refit_chis
+                        if c <= best_chi * (1.0 + BASIN_SUPPORT_RTOL))
     return ModelStability(
         per_slot=per_slot,
         orphan_rate=n_with_orphans / max(n_refits, 1),
         convergence_rate=n_converged / max(n_refits, 1),
         best_outcome=best_outcome,
+        best_basin_support=basin_support,
     )
 
 
@@ -1004,6 +1021,10 @@ class ComparisonResult:
     # uncertainty, not a dead end).
     conditional: bool = False
     conditional_reason: Optional[str] = None
+    # The ambiguity threshold ACTUALLY used for ambiguous_pairs — consumers
+    # (criteria panel) must reuse it so the payload can never disagree with
+    # the ranking (Codex Stage-2 re-review finding #1).
+    bic_ambiguity_threshold: float = DEFAULT_BIC_AMBIGUITY
 
 
 def rank_and_filter(
@@ -1030,7 +1051,11 @@ def rank_and_filter(
     for r in reports:
         active_min = r.active_min_persistence
         stable = active_min >= persistence_threshold
-        if r.plausibility.boundary_hits or r.plausibility.unphysical_widths:
+        if r.plausibility.boundary_hits or r.plausibility.unphysical_widths \
+                or r.plausibility.orphan_peaks:
+            # orphan_peaks included (Codex Stage-2 re-review finding #3):
+            # refits repeatedly producing unmatched components is a
+            # plausibility violation, not clean-survivor material.
             filtered_out.append((r, f"plausibility: {r.plausibility}"))
             if stable:
                 conditional_pool.append(r)
@@ -1075,6 +1100,7 @@ def rank_and_filter(
         reports=reports, survivors=survivors,
         filtered_out=filtered_out, ambiguous_pairs=ambiguous,
         conditional=conditional, conditional_reason=conditional_reason,
+        bic_ambiguity_threshold=bic_ambiguity_threshold,
     )
 
 

@@ -70,6 +70,33 @@ review #1 DID complete and its 9 findings are all dispositioned above with
 pinning tests, and it independently confirmed the manual-fit path is
 byte-unchanged vs main.
 
+### Stage 2 re-review #3 (2026-07-03 late session) — **COMPLETED: VERDICT GO**
+Re-run under `gtimeout -k 15 600` (the run rails' hard 10-min kill) in a
+fresh session — completed in ~7 min, no hang. Verdict archived at
+`docs/autofit/codex/stage2_rereview_verdict.md`. Items 1–8 of review #1
+confirmed closed; item 9 partially (panel threshold, below). 4 new findings,
+ALL fixed same-session and pinned in
+`tests/autofit/test_stage2_rereview_findings.py`:
+1. **MAJOR** criteria panel built with the default 2.0 ambiguity threshold,
+   not the method option — fixed: threshold recorded on `ComparisonResult`
+   and reused by `build_criteria_panel` (panel can never disagree with the
+   ranking again).
+2. **MAJOR** sanitized role slugs could collide (`B-4C` vs `B4C` → one
+   param namespace) — fixed: loud `ValueError` at resolve time; distinct
+   sanitized slugs still resolve.
+3. **MAJOR** `orphan_peaks` recorded but ignored in ranking and dropped
+   from the payload — fixed: orphaned reports are plausibility violations
+   (conditional tier at best, never clean survivors); full plausibility
+   surface (`unphysical_widths`, `orphan_peaks`) now in the per-candidate
+   payload.
+4. **MAJOR residual risk** best-minimum promotion could report a one-off
+   deeper minimum indistinguishably from a reproducible one — surfaced:
+   `best_basin_support` (count of multi-start fits within
+   `BASIN_SUPPORT_RTOL` of the best χ²; UNVERIFIED reporting-only constant)
+   on stability + `best_minimum_basin_support` in the payload. Ranking
+   unchanged (documented decision: report the best minimum FOUND;
+   promotion-vs-robustness is Skye's call, see calibration log #3).
+
 ## Discrepancies vs expert reference fits (for human adjudication)
 
 1. **Stray `Zr 3d` RSF tag** (the known error from the run brief, now located):
