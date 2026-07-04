@@ -36,4 +36,12 @@ swallowed present-but-falsy non-objects (roi: [], "", false) as omitted.
 distinguished from present for roi/options/phase; pinned
 (test_analyze_malformed_option_values_are_400s + falsy-variant cases).
 
-## Round 3 — final: (recorded when verdicts land)
+## Round 3 — final narrow check: COULD NOT RUN (Codex quota exhausted)
+Both attempts hit the Codex usage limit (reset 18:22). Logged per the run
+rails (no verdict → kill + log + proceed). Standing evidence: round-2 run
+B was a full GO; the two round-2 run-A findings are FIXED and pinned by
+tests that run in the suite and in CI
+(test_analyze_malformed_option_values_are_400s;
+test_analyze_non_object_bodies_are_clean_400s truthy+falsy variants).
+The narrow re-check prompt is preserved in the session scratchpad and in
+this trail — re-run it when quota allows.

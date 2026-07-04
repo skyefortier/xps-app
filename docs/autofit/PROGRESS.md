@@ -1052,6 +1052,14 @@ CONDITIONAL/UNVERIFIED-constants count), the winner's peaks with
 reviewer** and records {reviewer, method, regions, winner, time} on the
 tab; applied peaks map backend lineshapes onto the frontend peak model.
 
+**Codex trail** (×2 every round; stricter governs; full record in
+`docs/autofit/codex/analyze_ui_verdicts.md`): combined review NO-GO ×2
+(validation 500s, destructive apply without undo + transient review
+record, non-full-k bic_weighted, burial-flag lineage bug, stale-prose
+cross-check hole, escapes, non-finite JSON) → all fixed + re-vision-
+verified → re-check GO + NO-GO (validation tail: TypeError option values,
+falsy non-objects) → fixed + pinned → final round recorded in the archive.
+
 **VISION-VERIFIED** end-to-end on dev gunicorn :5151 with Playwright:
 upload → configure → IC on the real Cl 2p grammar (winner
 `Cl0r_doublet_relaxed+bfix` WITH the CONDITIONAL banner — the known anchor
