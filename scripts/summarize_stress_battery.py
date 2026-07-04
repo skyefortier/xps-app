@@ -271,8 +271,9 @@ def main():
         "row.",
         "8. **In-ROI decoy prune robustness is noise-draw-dependent**: the "
         "decoy 'shoulder' case is pruned correctly on 2 of 3 noise draws "
-        "(P2 clean, χ²ᵣ ≈1.1) and by the weighted Bayesian on the base "
-        "draw — but at seed offset 2000 BOTH IC depths promote the "
+        "(P2 clean — χ²ᵣ 1.10 on the base draw, 2.23 at offset 1000) and "
+        "by the weighted Bayesian on the base draw — but at seed offset "
+        "2000 BOTH IC depths promote the "
         "bound-fixed decoy candidate via the decisive-override path "
         "(winner P3_decoy+bfix, k=3, conditional=True): flagged, but "
         "structurally an INVENTED component on truth-2 data. The "

@@ -896,7 +896,8 @@ prefers the filtered P2); sparse over-splitting quantified (count-only
 measured relabels in BOTH directions (weak_minor_h2000 and sep0.4_h9000
 ambiguous→recover); LS sub-FWHM drift. The in-ROI decoy case (Codex
 finding: empty flanks only test "don't populate empty windows") is pruned
-correctly on 2 of 3 noise draws (P2 clean, χ²ᵣ ≈1.1) and by the weighted
+correctly on 2 of 3 noise draws (P2 clean — χ²ᵣ 1.10 base draw, 2.23 at
+offset 1000) and by the weighted
 Bayesian on the base draw — but at seed offset 2000 BOTH IC depths promote
 the bound-fixed decoy via decisive_override (P3_decoy+bfix, k=3,
 conditional-flagged but structurally an invented component): prune
