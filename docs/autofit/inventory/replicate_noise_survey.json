@@ -1,0 +1,441 @@
+{
+ "note": "replicate-difference noise survey; see autofit/noise.py for the estimator and its corrections",
+ "rows": [
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "group": "C1s Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 10.448077728807833,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9794838913131284,
+   "pair_shifts_ev": [
+    -0.021158658412020102,
+    -0.05991727330111722,
+    -0.039312715773580434,
+    0.023193749192214445,
+    -0.06269246853024879,
+    -0.06888283190385923,
+    -0.030064487588544183,
+    0.060947084754831904,
+    -0.04368197469901894
+   ],
+   "fit_residual_rel": 0.8923467831786132,
+   "flags": [
+    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-2.49e+04 -> 0",
+    "poor_variance_fit: rel residual 0.89 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "group": "U4f Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 1.4226219144377408,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9887926019871885,
+   "pair_shifts_ev": [
+    -0.08288852824313633,
+    -0.28950998713098136,
+    -0.30736075284609926,
+    -0.00604808787208898,
+    -0.035896858839875555,
+    -0.11170992323327053,
+    0.10492932106030192,
+    -0.1884326261044594,
+    -0.3591444834624619
+   ],
+   "fit_residual_rel": 0.46653046232212486,
+   "flags": [
+    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-4.68e+03 -> 0"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "group": "B1s Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 0.9706475184638772,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9739942279939925,
+   "pair_shifts_ev": [
+    -0.01150387003317739,
+    -0.013323168889183105,
+    -0.0016870407557556713,
+    -0.048375269324414265,
+    -0.03516959080711366,
+    -0.04236256070647469,
+    -0.007769590509824022,
+    -0.026815150718235377,
+    -0.0413972983263241
+   ],
+   "fit_residual_rel": 0.403631233246173,
+   "flags": [
+    "drift_dominated: 97% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-311 -> 0"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "group": "U4f Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 1.8578019838416608,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9801550208310865,
+   "pair_shifts_ev": [
+    -0.016242410622589104,
+    -0.018585893387040597,
+    0.007216387115833878,
+    -0.050515761801767166,
+    -0.041590616643053184,
+    -0.04048215796527366,
+    -0.009903180926731035,
+    -0.02024707035675403,
+    -0.037486244737980325
+   ],
+   "fit_residual_rel": 0.5587294258033837,
+   "flags": [
+    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-3.1e+03 -> 0",
+    "poor_variance_fit: rel residual 0.56 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "8-JT Graphite.proj.zip",
+   "group": "C1s Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 0.6104535454163947,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9983197639161705,
+   "pair_shifts_ev": [
+    -0.11575793600551852,
+    -0.06174086495924666,
+    -0.05495752119137712,
+    -0.06311803037557533,
+    -0.06919095016516273,
+    -0.04123622512045426,
+    -0.01447269773945536,
+    -0.00017404545823375688,
+    -0.0312010428038593
+   ],
+   "fit_residual_rel": 0.31411583949608685,
+   "flags": [
+    "drift_dominated: 100% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-49.6 -> 0"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "group": "B1s Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 0.6531179324935845,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9385028810278901,
+   "pair_shifts_ev": [
+    -0.09016891914456611,
+    -0.07118992872156359,
+    -0.016651373512683167,
+    -0.008926105411881654,
+    -0.046249098258853524,
+    -0.052044276367995405,
+    -0.1285337220282847,
+    -0.06077099944449477,
+    -0.010743152741152971
+   ],
+   "fit_residual_rel": 0.2497168906064617,
+   "flags": [
+    "drift_dominated: 94% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-253 -> 0"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "group": "U4f Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 0.7597862320698408,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9740269333876077,
+   "pair_shifts_ev": [
+    -0.12916035973233214,
+    -0.10074983453432737,
+    -9.179535398484127e-05,
+    -0.010581219624241332,
+    -0.013278247281954524,
+    -0.06428681591901614,
+    -0.18270324313197042,
+    -0.06364864970501928,
+    -0.056232319202060115
+   ],
+   "fit_residual_rel": 0.33043298431391466,
+   "flags": [
+    "drift_dominated: 97% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-1.73e+03 -> 0"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "group": "C1s Scan",
+   "n_replicates": 7,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 8.857399455722168,
+   "sigma_global": null,
+   "n_pairs": 6,
+   "drift_fraction": 0.9916651779332695,
+   "pair_shifts_ev": [
+    -0.024767200313999975,
+    0.01670022740134592,
+    -0.039123068154695274,
+    -0.06306074813548611,
+    -0.023593179832198337,
+    -0.006469841085245927
+   ],
+   "fit_residual_rel": 0.8587264157338637,
+   "flags": [
+    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-5.68e+03 -> 0",
+    "poor_variance_fit: rel residual 0.86 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "group": "Cl2p Scan",
+   "n_replicates": 3,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 0.6493565886669506,
+   "sigma_global": null,
+   "n_pairs": 2,
+   "drift_fraction": 0.9626260473188233,
+   "pair_shifts_ev": [
+    -0.061302361408912986,
+    -0.20827336448605832
+   ],
+   "fit_residual_rel": 0.4683874953298283,
+   "flags": [
+    "drift_dominated: 96% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-305 -> 0"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "group": "U4f Scan",
+   "n_replicates": 7,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 2.899395801361764,
+   "sigma_global": null,
+   "n_pairs": 6,
+   "drift_fraction": 0.9567721633598413,
+   "pair_shifts_ev": [
+    -0.012506361463863408,
+    -0.14743893993011137,
+    -0.19753303053927285,
+    -0.26784191522878303,
+    -0.1593109831458886,
+    -0.21569507093051948
+   ],
+   "fit_residual_rel": 0.6791974892808899,
+   "flags": [
+    "drift_dominated: 96% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-1.52e+04 -> 0",
+    "poor_variance_fit: rel residual 0.68 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "group": "C1s Scan",
+   "n_replicates": 7,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 8.857399455722168,
+   "sigma_global": null,
+   "n_pairs": 6,
+   "drift_fraction": 0.9916651779332695,
+   "pair_shifts_ev": [
+    -0.024767200313999975,
+    0.01670022740134592,
+    -0.039123068154695274,
+    -0.06306074813548611,
+    -0.023593179832198337,
+    -0.006469841085245927
+   ],
+   "fit_residual_rel": 0.8587264157338637,
+   "flags": [
+    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-5.68e+03 -> 0",
+    "poor_variance_fit: rel residual 0.86 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "group": "U4f Scan",
+   "n_replicates": 7,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 2.899395801361764,
+   "sigma_global": null,
+   "n_pairs": 6,
+   "drift_fraction": 0.9567721633598413,
+   "pair_shifts_ev": [
+    -0.012506361463863408,
+    -0.14743893993011137,
+    -0.19753303053927285,
+    -0.26784191522878303,
+    -0.1593109831458886,
+    -0.21569507093051948
+   ],
+   "fit_residual_rel": 0.6791974892808899,
+   "flags": [
+    "drift_dominated: 96% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-1.52e+04 -> 0",
+    "poor_variance_fit: rel residual 0.68 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "group": "C1s Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 10.448077728807833,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9794838913131284,
+   "pair_shifts_ev": [
+    -0.021158658412020102,
+    -0.05991727330111722,
+    -0.039312715773580434,
+    0.023193749192214445,
+    -0.06269246853024879,
+    -0.06888283190385923,
+    -0.030064487588544183,
+    0.060947084754831904,
+    -0.04368197469901894
+   ],
+   "fit_residual_rel": 0.8923467831786132,
+   "flags": [
+    "drift_dominated: 98% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-2.49e+04 -> 0",
+    "poor_variance_fit: rel residual 0.89 \u2014 \u03c3\u00b2(I) = a + b\u00b7I may be the wrong family here"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "group": "U4f Scan",
+   "n_replicates": 10,
+   "kind": "replicate_difference",
+   "a": 0.0,
+   "b": 1.4226219144377408,
+   "sigma_global": null,
+   "n_pairs": 9,
+   "drift_fraction": 0.9887926019871885,
+   "pair_shifts_ev": [
+    -0.08288852824313633,
+    -0.28950998713098136,
+    -0.30736075284609926,
+    -0.00604808787208898,
+    -0.035896858839875555,
+    -0.11170992323327053,
+    0.10492932106030192,
+    -0.1884326261044594,
+    -0.3591444834624619
+   ],
+   "fit_residual_rel": 0.46653046232212486,
+   "flags": [
+    "drift_dominated: 99% of the pair-difference variance was drift \u2014 the \u03c3(I) fit rests on the residual; treat with caution",
+    "negative_intercept_clamped: a=-4.68e+03 -> 0"
+   ],
+   "tunables": {
+    "n_bins": 12,
+    "drift_dominant_fraction": 0.5,
+    "local_detrend_points": 31
+   }
+  }
+ ]
+}

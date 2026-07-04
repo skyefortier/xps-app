@@ -887,6 +887,53 @@ the noise-model inventory found the methods do NOT share one noise model
 (IC: per-point 1/√y; Bayesian: homoscedastic σ-marginalized) — both feed
 the math-review unit.
 
+## Empirical noise model (2026-07-04) — run-brief item 3a, IMPLEMENTED
+
+**The foundational problem measured first:** the methods do NOT share one
+noise model — IC/engine/sparse weight per-point 1/√max(y,1) (raw-counts
+Poisson; `poisson_like_weights` docstring already said "RAW COUNTS only"),
+while the Bayesian method defaults to HOMOSCEDASTIC unit weights with a
+σ-marginalized global scale.  Cross-method agreement therefore never was a
+same-noise-model corroboration.
+
+**Implemented:** `autofit/noise.py` —
+`estimate_noise_from_replicates(x, scans)`: same-grid repeat scans →
+register-then-difference (pair BE-shift estimated from the Taylor leakage,
+pair aligned by interpolation with the EXACT linear-interp noise
+transmission (1−f)²+f²; scale/const + derivative bases regressed; residual
+smooth drift removed by a moving-average high-pass with the exact white-
+noise factor 1−1/k), then a PER-POINT IRLS fit of σ²(I) = a + b·I
+(per-bin aggregation and observed-variance weighting each bias b low
+~10–15% — measured, documented in code).  Honesty flags: drift_dominated,
+poor_variance_fit, nonpositive_slope, negative_intercept_clamped.  Single-
+spectrum fallback (2nd-difference MAD, the max_entropy estimator) carries
+an UNCALIBRATED flag.  OPT-IN by construction: consumers pass
+`model.weights(y)` through the existing `weights=` seam; nothing replaces
+default weights silently.
+
+**Ground-truth validation** (`tests/autofit/test_noise_model.py`, 10
+tests): pure Poisson b∈[0.93,1.06] across seeds; gain-scaled exports
+recover b≈gain (0.25, 4.0; median-of-seeds within 15%); additive floor
+a≈s² recovered; injected pair shifts recovered to ±0.01 eV; drift-
+dominated flag fires; the gain-4 case demonstrates 1/√y over-weighting by
+exactly √gain.
+
+**Real-data survey** (`scripts/measure_replicate_noise.py` →
+`docs/autofit/inventory/replicate_noise_survey.json`): the labeled
+projects' repeat scans are DRIFT-DOMINATED (94–99.8% of pair variance —
+they are sequential acquisitions, not clean noise replicates; recovered
+pair shifts 0.01–0.31 eV match the ccShift-difference scale).  After
+registration: the well-behaved groups (8-JT C1s, B4C B1s/U4f, Cl2p, 4-GTA
+partially) give a≈0 with **b = 0.61–0.76 — SUB-Poisson**, i.e. 1/√y
+weights OVERESTIMATE σ by ~15–30% on these exports (consistent with
+sweep-averaged count rates); UCl4-graphite/Project9 C 1s groups are not
+even linear in σ²(I) (b 8.9–10.4 with poor_variance_fit — structure
+evolving between scans; honestly flagged, not fitted through).  χ²-target
+and χ²ᵣ-based criteria inherit whichever miscalibration applies.
+
+NEXT (same unit): dedicated Codex math review ×2 of the estimator, then
+calibration against the stress suite.
+
 ## CI — gates cannot silently skip (2026-07-04)
 
 `.github/workflows/autofit-gates.yml`: two jobs on every push/PR —
