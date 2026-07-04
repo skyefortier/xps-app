@@ -30,7 +30,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt pytest
+      - run: pip install -r requirements.txt pytest playwright
+      # the browser tests importorskip playwright — installing it (plus a
+      # chromium build) keeps them RUNNING in CI instead of silently
+      # skipping (the guard's 3-skip allowance covers only the env-gated
+      # slow-gate modules)
+      - run: playwright install --with-deps chromium
       - name: pytest (full fast suite)
         run: |
           set -o pipefail
