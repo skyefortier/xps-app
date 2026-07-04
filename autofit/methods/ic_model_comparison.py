@@ -122,6 +122,7 @@ class ICModelComparisonMethod(PeakFitMethod):
                 # RESULT-level flag, not candidate-table archaeology
                 "filtered_dominant_alternative":
                     result.filtered_dominant_alternative,
+                "weighted_ic_disagreement": result.weighted_ic_disagreement,
                 "n_survivors": len(result.survivors),
                 "n_filtered": len(result.filtered_out),
                 "n_non_converged": len(result.non_converged),
@@ -190,6 +191,14 @@ def build_analysis_record(
             "n_components": int(r.model.n_components),
             "reduced_chi_sq": float(r.reduced_chi_sq),
             "bic_star": float(r.bic_adjusted),
+            # the labeled-heuristic BIC*'s honest companions (BIC/IC math
+            # review): full-k raw BIC, the weighted-χ² criterion the fits
+            # are actually consistent with, and the effective sample size
+            # under residual autocorrelation
+            "bic_raw": float(r.bic_raw),
+            "bic_weighted": float(r.bic_weighted),
+            "n_eff_lag1": (float(r.n_eff_lag1)
+                           if r.n_eff_lag1 is not None else None),
             "survived": name in survivor_rank,
             "rank": survivor_rank.get(name),
             "filter_reason": filtered_reason.get(name),
@@ -247,6 +256,16 @@ def build_analysis_record(
         "non_converged": [m.name for m, _ in result.non_converged],
         "ambiguous_pairs": [list(t) for t in result.ambiguous_pairs],
         "filtered_dominant_alternative": result.filtered_dominant_alternative,
+        "weighted_ic_disagreement": result.weighted_ic_disagreement,
+        # BIC/IC math review: the ΔBIC thresholds (decisive 10 / ambiguity
+        # 2, Kass & Raftery 1995) are CONVENTIONS assuming independent
+        # residuals and a well-specified likelihood — n_eff_lag1 per
+        # candidate shows how far independence is stretched; empirical
+        # calibration (block bootstrap / CV) is logged future work.
+        "bic_threshold_caveat": (
+            "ΔBIC* thresholds are uncalibrated conventions under residual "
+            "autocorrelation and background misspecification — see "
+            "per-candidate n_eff_lag1 and the stress-test report"),
         "criteria_panel": build_criteria_panel(
             result.reports, result.survivors,
             # the SAME threshold the ranking used — panel and ranking can

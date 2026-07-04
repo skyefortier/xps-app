@@ -991,6 +991,42 @@ shifts).  The earlier sub-Poisson reading is retracted — it was the
 descending-grid registration artifact.  χ²-criteria calibration against
 the stress suite follows the re-review.
 
+## BIC*/IC math review (2026-07-05) — run-brief item 3b: NO-GO ×2 → additive fixes + logged deferrals
+
+Dedicated Codex math review ×2 (prompt
+`docs/autofit/codex/bic_ic_math_review_prompt.txt`, fed with measured
+stress-battery calibration evidence).  Converged blockers and dispositions:
+
+1. **LIKELIHOOD MISMATCH (blocker, both runs)** — the fits minimize
+   Poisson-weighted χ² while BIC* uses UNWEIGHTED RSS (homoscedastic
+   implied likelihood); IC and Bayes therefore share a selection
+   assumption their fits reject.  FIXED (additive): every candidate row
+   now carries `bic_weighted` (χ²_w + k·ln n, the criterion consistent
+   with the weights) beside `bic_star`, and a result-level
+   `weighted_ic_disagreement` flag fires when the weighted criterion tops
+   a different survivor (ranking unchanged — switching it would
+   invalidate every calibrated gate without recalibration).
+2. **ABSENT-SLOT BIC\* heuristic (blocker, run A)** — large-model RSS with
+   small-model penalty.  PARTIAL FIX (the reviews' stated minimum):
+   `bic_raw` (full-k) reported beside the labeled heuristic on every row;
+   reduced-model REFITS for finalists = LOGGED FUTURE WORK.
+3. **THRESHOLDS UNCALIBRATED under misspecification/correlation (blocker)**
+   — ΔBIC 10/2 are conventions assuming independent residuals; the χ²ᵣ
+   floor does NOT cancel in ΔBIC for additive unmodeled background.
+   PARTIAL FIX: per-candidate `n_eff_lag1` (lag-1-autocorrelation
+   effective n) + an explicit `bic_threshold_caveat` in every analysis
+   payload; block-bootstrap/CV empirical calibration = LOGGED FUTURE WORK.
+4. **Boundary proximity (major)** — the 1%-of-range peg detector is not a
+   Laplace-validity test (a param 1.1% away with large stderr still gets
+   interior treatment).  LOGGED FUTURE WORK (SE-distance-based proximity
+   diagnostic).
+5. Both runs ENDORSED filter-then-rank + the new
+   `filtered_dominant_alternative` flag over raw-BIC auto-promotion (the
+   battery shows filtering both buries AND rescues — one P3 overfit
+   preferred by raw BIC at margin 669 was correctly rejected), and asked
+   for the full battery regeneration under the flag (gen-3 regeneration
+   was already running; completes this session).
+
 ## fit-physics.json wired into the engine (2026-07-04) — run-brief item 4
 
 EXPOSURE-ONLY by design (`autofit/fit_physics.py` + a resolve() hook):

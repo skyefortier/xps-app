@@ -1045,12 +1045,53 @@ class ModelReport:
 
     @property
     def bic_adjusted(self) -> float:
-        """BIC* (heuristic — absent-slot params arithmetically subtracted)."""
+        """BIC* (heuristic — absent-slot params arithmetically subtracted;
+        the BIC/IC math review requires the raw full-k and weighted
+        counterparts REPORTED beside it: see bic_raw / bic_weighted)."""
         n = self.primary_fit.n_data
         rss = self.primary_fit.residual_sum_sq
         if n <= 0 or rss <= 0:
             return float("inf")
         return n * np.log(rss / n) + self.adjusted_n_params * np.log(n)
+
+    @property
+    def bic_raw(self) -> float:
+        """Full-k, no absent-slot adjustment — reported beside the labeled
+        heuristic so the adjustment can never silently decide alone
+        (BIC/IC math review: 'large-model RSS with small-model penalty')."""
+        return compute_bic(self.primary_fit)
+
+    @property
+    def bic_weighted(self) -> float:
+        """Known-σ (weighted-χ²) BIC: χ²_w + k·ln n — the criterion
+        CONSISTENT with the Poisson-weighted fits (the RSS form implies a
+        homoscedastic likelihood the fits do not use — BIC/IC math review
+        blocker).  The ranking still uses BIC*; a result-level
+        weighted_ic_disagreement flag fires when the two criteria pick
+        different survivors."""
+        n = self.primary_fit.n_data
+        chi = self.primary_fit.weighted_chi_sq
+        if n <= 0 or not np.isfinite(chi):
+            return float("inf")
+        return chi + self.adjusted_n_params * np.log(n)
+
+    @property
+    def n_eff_lag1(self) -> Optional[float]:
+        """Effective sample size from the lag-1 autocorrelation of the
+        weighted residuals: n·(1−ρ)/(1+ρ).  Oversampled/correlated spectra
+        make the raw n in k·ln(n) (and the ΔBIC thresholds) overconfident
+        — reported so consumers can see how far the independence
+        assumption is stretched (BIC/IC math review)."""
+        lm = self.primary_fit.lmfit_result
+        if lm is None or getattr(lm, "residual", None) is None:
+            return None
+        r = np.asarray(lm.residual, dtype=float)
+        if len(r) < 8 or float(np.std(r)) == 0.0:
+            return None
+        r = r - r.mean()
+        rho = float(np.sum(r[:-1] * r[1:]) / np.sum(r * r))
+        rho = min(max(rho, -0.99), 0.99)
+        return float(len(r) * (1.0 - rho) / (1.0 + rho))
 
     @property
     def active_min_persistence(self) -> float:
@@ -1098,6 +1139,11 @@ class ComparisonResult:
     # filter_reason} or None.  Stress-suite finding 0: evidence burial must
     # be machine-visible at the result level.
     filtered_dominant_alternative: Optional[dict] = None
+    # The weighted-χ² criterion (consistent with the fit weights) prefers a
+    # DIFFERENT survivor than the ranking's RSS-form BIC* — {rss_bic_top,
+    # weighted_bic_top, note} or None (BIC/IC math review blocker:
+    # selection must not silently rest on a likelihood the fits reject).
+    weighted_ic_disagreement: Optional[dict] = None
 
 
 def rank_and_filter(
@@ -1812,4 +1858,24 @@ def compare_models(
                 "delta_bic_vs_winner": float(win_bic - rep.bic_adjusted),
                 "filter_reason": why,
             }
+    result.weighted_ic_disagreement = _weighted_ic_disagreement(
+        result.survivors)
     return result
+
+
+def _weighted_ic_disagreement(survivors: "list[ModelReport]") -> Optional[dict]:
+    """Result-level flag when the weighted-χ² BIC (consistent with the fit
+    weights) tops a different survivor than the ranking's RSS-form BIC*."""
+    if len(survivors) < 2:
+        return None
+    weighted_top = min(survivors, key=lambda r: r.bic_weighted)
+    if weighted_top.model.name == survivors[0].model.name:
+        return None
+    return {
+        "rss_bic_top": survivors[0].model.name,
+        "weighted_bic_top": weighted_top.model.name,
+        "note": "the weighted-χ² criterion (consistent with the fit "
+                "weights) prefers a different survivor — model selection "
+                "is noise-model-sensitive on this spectrum; treat the "
+                "ranking as CONDITIONAL on the homoscedastic-RSS form",
+    }

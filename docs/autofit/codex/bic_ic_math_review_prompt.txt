@@ -1,0 +1,47 @@
+Dedicated MATH review of the BIC*/IC selection machinery on branch
+feature-autofit-stage2 (commit 8079188) — run-brief item 3b, same rigor
+as the Bayesian free-energy and noise-model reviews. Files:
+autofit/engine.py (ModelReport.bic_adjusted, compute_bic,
+rank_and_filter, _apply_decisive_override, CONDITIONAL_OVERRIDE_DELTA_BIC,
+DEFAULT_BIC_AMBIGUITY, the absent-slot adjustment machinery),
+autofit/methods/ic_model_comparison.py.
+
+Claims/questions to verify or refute:
+1. LIKELIHOOD CONSISTENCY: BIC* = n·ln(RSS/n) + k·ln(n) uses the
+   UNWEIGHTED residual_sum_sq (engine.py ~line 526) while the fits
+   minimize the Poisson-WEIGHTED χ² (weights 1/√max(y,1)). The BIC's
+   implied likelihood is homoscedastic-σ-marginalized; the estimator's is
+   heteroscedastic. Is ΔBIC between candidates biased when their residual
+   differences concentrate in high-count vs low-count regions (peak tops
+   vs baseline)? Should BIC use the weighted χ² (χ² + k·ln n, known-σ
+   form) given weights exist — and what changes if the noise model is
+   wrong (the empirical-noise unit measured near-Poisson b=0.95-1.38 on
+   the only clean replicate groups)? NOTE the Bayesian method's evidence
+   is ALSO homoscedastic (RSS^(−n/2)) — the two SELECTION layers share an
+   assumption their FITS do not.
+2. BOUNDARY VALIDITY: BIC/Laplace assumes an interior ML point. Pegged
+   params are counted in k (n_params = lmfit vary count); boundary-hit
+   candidates are filtered or bound-fix-refitted (k then drops because
+   fixed params no longer vary). Is the accounting right, and is there a
+   hole where a candidate with interior-but-nearly-pegged params gets
+   full-k Laplace treatment it does not deserve?
+3. ABSENT-SLOT ADJUSTMENT: bic_adjusted subtracts absent slots' params
+   arithmetically (self-labeled heuristic). Failure modes?
+4. THRESHOLD CALIBRATION under misspecification: ΔBIC>10 (Kass & Raftery
+   1995) and ambiguity ΔBIC≤2 under (a) the measured count-rate-scaling
+   χ²ᵣ floor from imperfect background subtraction (does an ADDITIVE
+   unmodeled component cancel in ΔBIC or bias it?) and (b) oversampled /
+   correlated-residual spectra (is n in ln(n) the right effective n?).
+5. STRESS-BATTERY CALIBRATION EVIDENCE (gen-2, 84 IC records,
+   docs/autofit/inventory + git history; summarize honestly): recover
+   38/48 picked-true, prune 10/12; 11 recover/prune rows where the raw
+   BIC-best differs from the emitted winner — mostly the measured
+   evidence-burial cases (ΔBIC +26..+800 buried; now surfaced by the new
+   result-level filtered_dominant_alternative flag), but ALSO one case
+   where raw BIC preferred a P3 overfit by margin 669 and the
+   filter-then-rank pipeline RESCUED the true P2 — i.e., filtering both
+   buries and saves. Given this, what calibration/reporting changes do
+   the data support?
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.
