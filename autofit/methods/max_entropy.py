@@ -126,7 +126,6 @@ class MaxEntropyMethod(PeakFitMethod):
 
         m_prior = max(float(np.mean(y_pos)), 1e-12)
         f = np.full(n, m_prior)
-        chi_r = None
         for it in range(cfg["max_iter"]):
             model = conv(f)
             chi_r = float(np.sum(((y_pos - model) / sigma) ** 2) / n)
@@ -141,7 +140,11 @@ class MaxEntropyMethod(PeakFitMethod):
                            / np.maximum(conv(np.maximum(model, 1e-30)), 1e-30))
             f = np.clip(f, 1e-30, None)
 
-        converged = chi_r is not None and chi_r <= cfg["chi_sq_target"]
+        # χ² must describe the EMITTED f: when max_iter is exhausted the
+        # loop's last chi_r predates the final multiplicative update
+        # (Codex Stage-9 re-check major)
+        chi_r = float(np.sum(((y_pos - conv(f)) / sigma) ** 2) / n)
+        converged = chi_r <= cfg["chi_sq_target"]
         p = f / f.sum()
         neg_kl_to_flat = float(-np.sum(p * np.log(np.maximum(p, 1e-300) * n)))
 

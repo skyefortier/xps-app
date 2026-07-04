@@ -1,0 +1,29 @@
+Re-check of the resolution-enhancement (MaxEnt-slot) fixes on branch
+feature-autofit-stage2 (context: your NO-GO verdict at
+docs/autofit/codex/stage9_maxent_verdict.md — 1 blocker + 3 majors +
+2 minors, all claimed fixed). Files: autofit/methods/max_entropy.py,
+tests/autofit/test_max_entropy.py.
+
+Verify each disposition ACTUALLY closes the finding — or say concretely
+why not:
+1. (BLOCKER) honest relabeling: label, docstring, and payload `algorithm`
+   now state this is a damped exponentiated ISRA/RL-style deconvolution
+   with χ²ᵣ stopping, NOT a constrained MaxEnt solve; MaxEnt claims
+   removed; entropy-regularized objective logged FUTURE WORK; registry id
+   kept for menu stability (documented). Is any residual MaxEnt claim
+   left anywhere (label/message/payload/tests/PROGRESS row)?
+2. (MAJOR) baseline_offset exposed; χ²-under-constant-offset documented;
+   test_emitted_spectrum_reconvolves_to_data pins the emitted spectrum +
+   offset reconvolving to the ORIGINAL data at the reported χ² exactly.
+3. (MAJOR) σ-estimated stopping flagged UNCALIBRATED in the payload
+   warning with the repeat-sweep recommendation; estimated path pinned.
+4. (MINOR) edge-normalized convolution (constants preserved) +
+   edge_margin_ev do-not-interpret flag.
+5. (MINOR) negative_kl_to_flat rename.
+6. (MAJOR) sharper tests: interior-artifact prominence bound (< 25% of the
+   weakest true feature, true peaks top-2, boundary margins excluded with
+   the payload flag), kernel validation (NaN / wider-than-spectrum),
+   estimated-σ path. Do these discriminate the failure modes you named
+   (shoulder artifacts, broad-kernel length bug)?
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

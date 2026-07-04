@@ -1,5 +1,7 @@
 """
-Max-entropy resolution-enhancement validation (decision-matrix entry 6).
+Resolution-enhancement (iterative deconvolution) validation — the
+decision-matrix "max-entropy" MENU SLOT (entry 6); the implementation is
+NOT a maximum-entropy solve (see the method docstring's honest labeling).
 
 Synthetic ground truth: two narrow Gaussians broadened by a KNOWN Gaussian
 kernel + noise.  Deconvolution with the true kernel must sharpen the
@@ -64,10 +66,11 @@ def test_stops_at_chi_sq_target(result):
 
 
 def test_artifact_structure_bounded_relative_to_real_features(result):
-    """MaxEnt inherently amplifies background noise (~10× here — exactly why
-    the payload carries the AMPLIFIES-NOISE warning).  The meaningful
-    invariant: flat-region artifacts stay SMALL relative to the real
-    features, so no artifact could be mistaken for a comparable peak."""
+    """Iterative deconvolution inherently amplifies background noise (~10×
+    here — exactly why the payload carries the AMPLIFIES-NOISE warning).
+    The meaningful invariant: flat-region artifacts stay SMALL relative to
+    the real features, so no artifact could be mistaken for a comparable
+    peak."""
     sharp = np.array(result.analysis["sharpened_spectrum"])
     flat = sharp[X < 283.0]
     excursion = float(np.max(flat) - np.median(flat))
@@ -127,19 +130,41 @@ def test_interior_artifacts_bounded_and_true_peaks_dominate(result):
             f"(≥25% of the weakest true feature {weakest_true:.0f})")
 
 
+def _reconv_chi(a, blurred):
+    """Independently reconvolve the emitted spectrum and score it vs data."""
+    sharp = np.array(a["sharpened_spectrum"]) - a["baseline_offset"]
+    k = np.exp(-4 * np.log(2) * ((np.arange(-73, 74) * 0.05) / KERNEL_FWHM) ** 2)
+    k /= k.sum()
+    edge = np.convolve(np.ones(len(X)), k, mode="same")
+    model = np.convolve(sharp, k, mode="same") / edge + a["baseline_offset"]
+    return float(np.sum(((blurred - model) / a["noise_sigma"]) ** 2) / len(X))
+
+
 def test_emitted_spectrum_reconvolves_to_data(result):
     """The emitted sharpened_spectrum (with its baseline_offset) must
     reconvolve to the ORIGINAL data at the reported χ² (catches any
     offset/edge bookkeeping drift)."""
     _, blurred = _spectrum()
     a = result.analysis
-    sharp = np.array(a["sharpened_spectrum"]) - a["baseline_offset"]
-    k = np.exp(-4 * np.log(2) * ((np.arange(-73, 74) * 0.05) / KERNEL_FWHM) ** 2)
-    k /= k.sum()
-    edge = np.convolve(np.ones(len(X)), k, mode="same")
-    model = np.convolve(sharp, k, mode="same") / edge + a["baseline_offset"]
-    chi_r = float(np.sum(((blurred - model) / a["noise_sigma"]) ** 2) / len(X))
-    assert chi_r == pytest.approx(a["reduced_chi_sq_reconvolution"], rel=1e-6)
+    assert _reconv_chi(a, blurred) == pytest.approx(
+        a["reduced_chi_sq_reconvolution"], rel=1e-6)
+
+
+def test_nonconverged_chi_sq_matches_emitted_spectrum():
+    """Codex Stage-9 re-check MAJOR: on max_iter exhaustion the loop's last
+    χ² predated the final multiplicative update, so the reported
+    reduced_chi_sq_reconvolution did not describe the emitted spectrum.
+    Pin the reconvolution identity on the NON-converged path too."""
+    _, blurred = _spectrum()
+    res = get_method("max_entropy").run(
+        X, blurred, options={"kernel_fwhm_ev": KERNEL_FWHM,
+                             "noise_sigma": 3.0, "max_iter": 3})
+    a = res.analysis
+    assert res.diagnostics["chi_sq_target_reached"] is False
+    assert res.diagnostics["iterations"] == 3
+    assert a["reduced_chi_sq_reconvolution"] > 1.0   # genuinely non-converged
+    assert _reconv_chi(a, blurred) == pytest.approx(
+        a["reduced_chi_sq_reconvolution"], rel=1e-6)
 
 
 def test_kernel_validation():
