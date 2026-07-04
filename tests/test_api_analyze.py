@@ -149,11 +149,27 @@ def test_analyze_non_object_bodies_are_clean_400s(client):
         assert "JSON object" in resp.get_json()["error"]
     base = {"session_id": sid, "material_class": "insulator",
             "regions": ["Cl 2p"], "method": "ic_model_comparison"}
-    for field, frag in (("roi", "'roi'"), ("phase", "'phase'"),
-                        ("options", "'options'")):
-        resp = client.post("/api/analyze", json={**base, field: ["bad"]})
-        assert resp.status_code == 400, (field, resp.status_code)
-        assert frag in resp.get_json()["error"]
+    # truthy AND falsy non-objects: `or {}` used to swallow [] / "" / false
+    for bad in (["bad"], [], "", False):
+        for field, frag in (("roi", "'roi'"), ("phase", "'phase'"),
+                            ("options", "'options'")):
+            resp = client.post("/api/analyze", json={**base, field: bad})
+            assert resp.status_code == 400, (field, bad, resp.status_code)
+            assert frag in resp.get_json()["error"]
+
+
+def test_analyze_malformed_option_values_are_400s(client):
+    """A well-formed options OBJECT with a malformed VALUE (TypeError from
+    the method's numeric casts) must be a clean 400, never a 500."""
+    sid = _upload_doublet(client)
+    for bad_opts in ({"n_refits": []}, {"n_refits": {"a": 1}},
+                     {"rng_seed": [1, 2]}):
+        resp = client.post("/api/analyze", json={
+            "session_id": sid, "material_class": "insulator",
+            "regions": ["Cl 2p"], "method": "ic_model_comparison",
+            "options": bad_opts})
+        assert resp.status_code == 400, (bad_opts, resp.status_code)
+        assert "invalid option" in resp.get_json()["error"].lower()
 
 
 def test_json_sanitize_non_finite():

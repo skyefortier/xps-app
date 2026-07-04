@@ -669,7 +669,10 @@ def _register_routes(app: Flask) -> None:
             return _err("cc_shift must be a number")
         corrected = energy - cc_shift   # frontend getCorrectedBE convention
 
-        roi = body.get("roi") or {}
+        # present-but-falsy non-objects ([], "", false) must be clean 400s,
+        # not silently treated as omitted (Codex re-check)
+        roi = body.get("roi")
+        roi = {} if roi is None else roi
         if not isinstance(roi, dict):
             return _err("'roi' must be an object")
         try:
@@ -682,7 +685,8 @@ def _register_routes(app: Flask) -> None:
             return _err("ROI selects fewer than 20 points")
         x, y = corrected[mask], counts[mask]
 
-        options = body.get("options") or {}
+        options = body.get("options")
+        options = {} if options is None else options
         if not isinstance(options, dict):
             return _err("'options' must be an object")
         opts = {**_ANALYZE_METHODS[method_id], **options}
@@ -692,7 +696,8 @@ def _register_routes(app: Flask) -> None:
             return _err("least_squares is the manual-model baseline — "
                         "provide 'peak_specs'")
 
-        phase_kwargs = body.get("phase") or {}
+        phase_kwargs = body.get("phase")
+        phase_kwargs = {} if phase_kwargs is None else phase_kwargs
         if not isinstance(phase_kwargs, dict):
             return _err("'phase' must be an object")
         grammar = None
@@ -710,9 +715,11 @@ def _register_routes(app: Flask) -> None:
         try:
             res = get_method(method_id).run(
                 x, y, grammar=grammar, peak_specs=peak_specs, options=opts)
-        except ValueError as exc:
-            # the method's own option/spec validation
-            return _err(str(exc))
+        except (ValueError, TypeError) as exc:
+            # the method's own option/spec validation — TypeError included:
+            # a malformed option VALUE (e.g. n_refits: []) raises TypeError
+            # from the methods' numeric casts (Codex re-check blocker)
+            return _err(f"invalid option or spec: {exc}")
         except Exception:
             app.logger.exception("analyze failed")
             return _err("Internal analyze error — see server log.", 500)
