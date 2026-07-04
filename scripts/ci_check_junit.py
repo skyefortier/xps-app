@@ -10,10 +10,26 @@ Reads a pytest junit XML and FAILS unless:
   gates silently skipping — the gate job runs with --max-skipped 0).
 
 Usage: ci_check_junit.py report.xml --min-tests N [--max-skipped M]
+       [--tail pytest.log]
 """
 import argparse
+import os
 import sys
 import xml.etree.ElementTree as ET
+
+
+def _die(msg, tail_path=None):
+    """Every guard failure is emitted as a ::error annotation (readable
+    via the PUBLIC checks API, unlike job logs) before exiting; --tail
+    additionally annotates the last pytest output lines for diagnosis."""
+    print(f"::error title=ci guard::{msg}")
+    if tail_path and os.path.exists(tail_path):
+        with open(tail_path, errors="replace") as f:
+            lines = [l.rstrip() for l in f.readlines()[-25:] if l.strip()]
+        for chunk_start in range(0, len(lines), 5):
+            chunk = " | ".join(lines[chunk_start:chunk_start + 5])
+            print(f"::error title=pytest tail::{chunk[:400]}")
+    sys.exit(f"FAIL: {msg}")
 
 
 def main():
@@ -21,9 +37,16 @@ def main():
     ap.add_argument("xml")
     ap.add_argument("--min-tests", type=int, required=True)
     ap.add_argument("--max-skipped", type=int, default=0)
+    ap.add_argument("--tail", default=None,
+                    help="pytest log to annotate on failure")
     args = ap.parse_args()
 
-    root = ET.parse(args.xml).getroot()
+    try:
+        root = ET.parse(args.xml).getroot()
+    except (OSError, ET.ParseError) as e:
+        _die(f"junit XML unreadable ({e}) — pytest likely crashed or was "
+             "killed before writing it", args.tail)
+        return
     tests = skipped = failures = errors = 0
     for s in root.iter("testsuite"):
         tests += int(s.get("tests", 0))
@@ -47,13 +70,13 @@ def main():
     print(f"junit: {tests} collected, {ran} ran, {skipped} skipped, "
           f"{failures} failures, {errors} errors")
     if failures or errors:
-        sys.exit(f"FAIL: {failures} failures / {errors} errors")
+        _die(f"{failures} failures / {errors} errors", args.tail)
     if ran < args.min_tests:
-        sys.exit(f"FAIL: only {ran} tests ran (< {args.min_tests}) — "
-                 "collection wipeout or mass skip")
+        _die(f"only {ran} tests ran (< {args.min_tests}) — collection "
+             "wipeout or mass skip", args.tail)
     if skipped > args.max_skipped:
-        sys.exit(f"FAIL: {skipped} skipped (> {args.max_skipped}) — a "
-                 "required gate may have silently skipped")
+        _die(f"{skipped} skipped (> {args.max_skipped}) — a required gate "
+             "may have silently skipped", args.tail)
     print("OK")
 
 
