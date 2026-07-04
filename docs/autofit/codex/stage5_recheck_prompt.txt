@@ -1,0 +1,33 @@
+Re-check of the Bayesian exchange-MC method fixes on branch
+feature-autofit-stage2 (working tree; context: your NO-GO verdict archived at
+docs/autofit/codex/stage5_bayesian_verdict.md — 2 blockers, 2 majors,
+1 minor). File: autofit/methods/bayesian_exchange_mc.py; tests:
+tests/autofit/test_bayesian_method.py.
+
+Verify each disposition ACTUALLY closes the finding — or say concretely why
+not:
+1. (BLOCKER, F uncertainty) split-half stepping-stone error per candidate
+   (`free_energy_split_half_error`, documented as a lower bound for
+   correlated draws), an UNRESOLVED-model-selection warning when the top-2
+   ΔF < 2×(sum of split-half errors) in analysis + diagnostics, and
+   `posterior_weight_reliable` flags on every scored candidate.
+2. (BLOCKER, CI overclaim) per-slot `sigma_stat.reliability`
+   (ok | low_ess | stuck_chain) + `reliability_note` + per-interval `ess`
+   in the confidence payload consumers read (`_posterior_peaks`).
+3. (MAJOR, stuck chains) zero-variance sampled parameter now yields ESS=0
+   (stuck_chain reliability), never ESS=n.
+4. (MAJOR, analytic test) test_analytic_evidence_flat_model pins the
+   estimator against quadrature evidence for the constant model with
+   sigma-marginalized likelihood, at two prior widths, verifying the
+   prior-volume Occam factor (log 4) — check the reference math is right
+   and the tolerances are meaningful, not vacuous.
+5. (MINOR) `free_energy_is_relative: true` in the analysis payload +
+   docstring note.
+Also confirm the real-data validation artifacts are consistent with the
+machinery (docs/autofit/inventory/bayesian_real_validation_runs.jsonl,
+tests/autofit/test_bayesian_real_gate.py): the U 4f seed-flip case
+(seed 0 U1b F=2803.2 vs U2 2806.3; seed 1 U2 2800.1 vs U1b 2806.6) is
+exactly what the new warning must catch.
+
+Findings with file:line, severity, failure scenario, fix. Do not modify
+anything. End with exactly 'VERDICT: GO' or 'VERDICT: NO-GO (blockers: ...)'.

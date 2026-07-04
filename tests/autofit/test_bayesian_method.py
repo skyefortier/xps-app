@@ -113,6 +113,131 @@ def test_payload_json_safe_and_documented(result):
     assert "stepping-stone" in result.analysis["model_selection"]
 
 
+def test_free_energy_error_bar_and_selection_warning():
+    """Split-half F error bars + the UNRESOLVED-selection warning (added after
+    the real-data U 4f finding: seed-to-seed F spread flipped the winner while
+    |ΔF| ~ 3 — silently, before this machinery).  K1-vs-K2 is decisive
+    (ΔF ≈ 500): the warning must NOT fire.  (K2-vs-K3 legitimately CAN fire
+    at reduced sweeps — the honest behavior, exercised by the twin test.)"""
+    x, y = _spectrum()
+    res = get_method("bayesian_exchange_mc").run(
+        x, y, grammar=_grammar(),
+        options={**OPTS, "candidate_filter": ["K1", "K2"]})
+    scored = [c for c in res.analysis["candidates"] if "free_energy" in c]
+    assert len(scored) == 2
+    for c in scored:
+        assert c["free_energy_split_half_error"] is None or \
+            c["free_energy_split_half_error"] >= 0.0
+        assert c["posterior_weight_reliable"] is True
+    assert res.analysis["model_selection_warning"] is None
+    assert res.diagnostics["model_selection_warning"] is None
+    assert res.analysis["free_energy_is_relative"] is True
+
+
+def test_sigma_stat_reliability_contract(result):
+    """Re-check MAJOR: the consumer-visible CI reliability fields must be
+    regression-pinned — sigma_stat carries reliability + note + per-interval
+    ess (Codex Stage-5 blocker #2 fix)."""
+    for role, conf in result.confidence.items():
+        stat = conf["sigma_stat"]
+        assert stat["reliability"] in ("ok", "low_ess", "stuck_chain"), role
+        assert "reliability_note" in stat
+        if stat["reliability"] != "ok":
+            assert stat["reliability_note"]
+        for pname, iv in (stat["values"] or {}).items():
+            assert "ess" in iv, (role, pname)
+
+
+def test_zero_variance_ess_is_stuck_not_perfect():
+    """Re-check MAJOR: a sampled parameter that never moves must report
+    ESS=0 (stuck chain), never ESS=n (Codex Stage-5 finding #3)."""
+    from autofit.methods.bayesian_exchange_mc import _effective_sample_sizes
+    n = 64
+    samples = np.column_stack([
+        np.full(n, 3.7),                      # stuck: zero variance
+        np.random.default_rng(0).normal(size=n),  # healthy
+    ])
+    ess = _effective_sample_sizes(samples)
+    assert ess[0] == 0.0
+    assert ess[1] > 0.0
+
+
+def test_analytic_evidence_flat_model():
+    """Codex Stage-5 finding #4: peak-count recovery can pass while the
+    evidence math is subtly wrong.  Pin the estimator against an ANALYTIC
+    marginal likelihood: constant model f(x)=μ, uniform prior μ∈[a,b],
+    σ-marginalized Gaussian likelihood ⇒
+
+        Z = (1/V) ∫ RSS(μ)^(−n/2) dμ,   RSS(μ) = S + n(μ−ȳ)²
+
+    (a Student-t kernel), computed by high-precision quadrature.  Two prior
+    widths verify the prior-volume Occam factor flows through Z(0)."""
+    from scipy.integrate import quad
+
+    from autofit.methods.bayesian_exchange_mc import run_exchange_mc
+
+    rng = np.random.default_rng(11)
+    x = np.arange(0.0, 20.0, 0.1)
+    y = 50.0 + rng.normal(0.0, 4.0, len(x))
+    n = len(y)
+    ybar = float(np.mean(y))
+    S = float(np.sum((y - ybar) ** 2))
+
+    def f_ref(a, b):
+        # F = −log Z on the same "−(n/2)·log RSS" scale the sampler uses
+        l_star = -(n / 2.0) * np.log(S)
+        integ, _ = quad(lambda u: (1.0 + n * (u - ybar) ** 2 / S) ** (-n / 2.0),
+                        a, b, epsabs=1e-14, epsrel=1e-12)
+        return -(l_star + np.log(integ) - np.log(b - a))
+
+    class _FlatSpace:
+        names = ["mu"]
+
+        def __init__(self, a, b):
+            self.lows = np.array([a])
+            self.highs = np.array([b])
+
+        def model_eval(self, xx, theta):
+            return np.full(len(xx), theta[0])
+
+    results = {}
+    for a, b in ((ybar - 2.0, ybar + 2.0), (ybar - 8.0, ybar + 8.0)):
+        run = run_exchange_mc(x, y, _FlatSpace(a, b),
+                              n_replicas=12, n_sweeps=4000, rng_seed=0)
+        results[(a, b)] = (run["free_energy"], f_ref(a, b),
+                           run["free_energy_split_half_error"])
+
+    for (a, b), (f_est, f_exact, err) in results.items():
+        assert f_est == pytest.approx(f_exact, abs=0.3), (
+            f"width {b-a:.0f}: estimator {f_est:.3f} vs analytic {f_exact:.3f} "
+            f"(split-half err {err})")
+    (f1, r1, _), (f2, r2, _) = results.values()
+    # Occam factor: widening the prior 4× must raise F by ~log 4 (the
+    # likelihood mass is inside both windows) — matched analytically
+    assert (f2 - f1) == pytest.approx(r2 - r1, abs=0.3)
+    assert (r2 - r1) == pytest.approx(np.log(4.0), abs=0.05)
+
+
+def test_selection_warning_fires_on_twin_models():
+    """Two structurally identical candidates have ΔF ≈ 0 by construction —
+    the unresolved-selection warning MUST fire."""
+    twin_a = CandidateModel(name="T1", background=BackgroundType.LINEAR,
+                            slots=(_slot("p1", (99.0, 101.0)),
+                                   _slot("p2", (101.5, 103.5))))
+    twin_b = CandidateModel(name="T2", background=BackgroundType.LINEAR,
+                            slots=(_slot("p1", (99.0, 101.0)),
+                                   _slot("p2", (101.5, 103.5))))
+    grammar = CandidateGrammar(regions=("T",), phase_ids=("t",),
+                               candidates=[twin_a, twin_b],
+                               diagnostic_windows={}, provenance={})
+    x, y = _spectrum()
+    res = get_method("bayesian_exchange_mc").run(x, y, grammar=grammar,
+                                                 options=OPTS)
+    assert res.success
+    warning = res.analysis["model_selection_warning"]
+    assert warning and "UNRESOLVED" in warning
+
+
 def test_determinism_and_option_validation():
     x, y = _spectrum()
     m = get_method("bayesian_exchange_mc")

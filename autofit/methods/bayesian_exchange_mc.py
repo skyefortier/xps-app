@@ -72,6 +72,7 @@ DEFAULT_EXCHANGE_EVERY = 5
 DEFAULT_TARGET_ACCEPT = 0.30
 DEFAULT_CI_LEVEL = 0.68              # central credible interval (1σ-like)
 INITIAL_STEP_FRACTION = 0.05         # of each prior width
+ESS_RELIABLE_MIN = 50                # CI trust floor — UNVERIFIED tunable
 
 
 @dataclass
@@ -204,13 +205,28 @@ def run_exchange_mc(
 
     # ── Bayes free energy: stepping-stone across the ladder ──
     # log Z(1)/Z(0) = Σ_k log ⟨exp((β_{k+1}−β_k)·loglik)⟩_{β_k}
-    log_z = 0.0
-    for k in range(K - 1):
-        d = betas[k + 1] - betas[k]
-        lr = d * np.asarray(ll_records[k])
-        m = float(np.max(lr))
-        log_z += m + float(np.log(np.mean(np.exp(lr - m))))
-    free_energy = -log_z
+    def _stepping_stone(sl=slice(None)):
+        log_z = 0.0
+        for k in range(K - 1):
+            d = betas[k + 1] - betas[k]
+            lr = d * np.asarray(ll_records[k][sl])
+            if lr.size == 0:
+                return None
+            m = float(np.max(lr))
+            log_z += m + float(np.log(np.mean(np.exp(lr - m))))
+        return -log_z
+
+    free_energy = _stepping_stone()
+    # Split-half MC error proxy (real-data validation 2026-07-03: on U 4f the
+    # seed-to-seed F spread exceeded the between-model gap, silently — the
+    # estimator needs an in-run error bar).  Correlated draws make this a
+    # LOWER bound on the true MC error; consumers must treat close calls as
+    # unresolved, not as weak wins.
+    n_rec = len(ll_records[0]) if K else 0
+    f_a = _stepping_stone(slice(0, n_rec // 2)) if n_rec >= 4 else None
+    f_b = _stepping_stone(slice(n_rec // 2, None)) if n_rec >= 4 else None
+    fe_split_err = (abs(f_a - f_b) / 2.0
+                    if f_a is not None and f_b is not None else None)
 
     samples = np.asarray(post_samples)
     # posterior noise estimate from the σ-marginal model: σ̂² = RSS/n per
@@ -222,6 +238,8 @@ def run_exchange_mc(
         "samples": samples,
         "names": list(space.names),
         "free_energy": float(free_energy),
+        "free_energy_split_half_error": (float(fe_split_err)
+                                         if fe_split_err is not None else None),
         "sigma_hat": sigma_hat,
         "acceptance": (accept / np.maximum(propose, 1)).tolist(),
         "swap_acceptance": swap_accept / max(swap_propose, 1),
@@ -245,10 +263,16 @@ def _effective_sample_sizes(samples: np.ndarray) -> list[float]:
     n, dim = samples.shape
     out = []
     for j in range(dim):
-        c = samples[:, j] - samples[:, j].mean()
+        col = samples[:, j]
+        c = col - col.mean()
         var = float(np.dot(c, c)) / n
-        if var <= 0:
-            out.append(float(n))
+        if var <= 0 or float(np.ptp(col)) == 0.0:
+            # a free sampled parameter that never moved is a STUCK chain,
+            # not a perfectly-converged one (Codex Stage-5 finding #3) —
+            # ESS=n here would let a zero-width "credible interval" pass
+            # with no warning.  ptp==0 catches the literal never-moved case
+            # that FP noise in the mean can disguise as var>0.
+            out.append(0.0)
             continue
         tau = 1.0
         for lag in range(1, min(n // 2, 200)):
@@ -263,6 +287,7 @@ def _effective_sample_sizes(samples: np.ndarray) -> list[float]:
 _ALLOWED_OPTIONS = {
     "n_replicas", "beta_min", "n_sweeps", "burn_fraction", "exchange_every",
     "rng_seed", "candidate_filter", "ci_level", "noise_floor",
+    "seed_replicates",
 }
 
 
@@ -305,6 +330,17 @@ class BayesianExchangeMCMethod(PeakFitMethod):
             wanted = set(cand_filter)
             candidates = [c for c in candidates if c.name in wanted]
 
+        # Independent seeded evidence replicates (Codex Stage-5 blocker #1,
+        # re-check evidence: at reduced budgets a single run can report a
+        # confidently-resolved F gap that a different seed flips — the
+        # split-half proxy is a LOWER bound and can miss it).  k replicates
+        # cost k× runtime; the across-replicate half-range is a genuine
+        # independent-run MC error and dominates the split-half bound in the
+        # selection warning.  Default 1 = cost-neutral single run.
+        seed_replicates = int(opts.pop("seed_replicates", 1))
+        if seed_replicates < 1:
+            raise ValueError("seed_replicates must be >= 1")
+
         per_candidate: list[dict] = []
         runs: dict[str, dict] = {}
         for model in candidates:
@@ -313,15 +349,36 @@ class BayesianExchangeMCMethod(PeakFitMethod):
             try:
                 space = _param_space(model, x, y_net)
                 run = run_exchange_mc(x, y_net, space, weights=weights, **mc_kwargs)
+                rep_fs = [run["free_energy"]]
+                for j in range(1, seed_replicates):
+                    rep_kwargs = dict(mc_kwargs,
+                                      rng_seed=mc_kwargs["rng_seed"] + j)
+                    rep_space = _param_space(model, x, y_net)
+                    rep = run_exchange_mc(x, y_net, rep_space, weights=weights,
+                                          **rep_kwargs)
+                    rep_fs.append(rep["free_energy"])
             except Exception as exc:
                 per_candidate.append({"name": model.name, "error": str(exc)})
                 continue
             runs[model.name] = {"run": run, "model": model, "space": space,
                                 "bg": bg, "y_net": y_net}
             min_ess = float(min(run["ess"])) if run["ess"] else 0.0
+            rep_spread = ((max(rep_fs) - min(rep_fs)) / 2.0
+                          if len(rep_fs) > 1 else None)
+            split_err = run["free_energy_split_half_error"]
+            mc_error = max([e for e in (split_err, rep_spread) if e is not None],
+                           default=None)
             per_candidate.append({
                 "name": model.name,
-                "free_energy": run["free_energy"],
+                # replicate-mean F when replicated (reported posterior/peaks
+                # stay those of the base seed's run, documented)
+                "free_energy": (float(np.mean(rep_fs)) if len(rep_fs) > 1
+                                else run["free_energy"]),
+                "free_energy_replicates": (list(map(float, rep_fs))
+                                           if len(rep_fs) > 1 else None),
+                "free_energy_replicate_spread": rep_spread,
+                "free_energy_mc_error": mc_error,
+                "free_energy_split_half_error": run["free_energy_split_half_error"],
                 "sigma_hat": run["sigma_hat"],
                 "n_components": int(model.n_components),
                 "swap_acceptance": run["swap_acceptance"],
@@ -333,7 +390,7 @@ class BayesianExchangeMCMethod(PeakFitMethod):
                 "ci_reliability_warning": (
                     "LOW effective sample size — credible intervals likely "
                     "underestimate uncertainty; increase n_sweeps"
-                ) if min_ess < 50 else None,
+                ) if min_ess < ESS_RELIABLE_MIN else None,
             })
 
         scored = [c for c in per_candidate if "free_energy" in c]
@@ -355,6 +412,32 @@ class BayesianExchangeMCMethod(PeakFitMethod):
             c["rank"] = i + 1
         winner_name = scored[0]["name"]
         win = runs[winner_name]
+
+        # Model-selection reliability (real-data finding, U 4f 2026-07-03:
+        # seed-to-seed F spread flipped the winner while |ΔF| ~ 3): if the
+        # top-2 gap is within the summed split-half error bars, the selection
+        # is UNRESOLVED at this sweep budget — surfaced, never silent.
+        # Split-half error underestimates for correlated chains, so the ×2
+        # margin is an UNVERIFIED heuristic, not a guarantee.
+        selection_warning = None
+        if len(scored) > 1:
+            gap = scored[1]["free_energy"] - scored[0]["free_energy"]
+            errs = [c.get("free_energy_mc_error") for c in scored[:2]]
+            src = ("replicate-spread/split-half"
+                   if any(c.get("free_energy_replicate_spread") is not None
+                          for c in scored[:2]) else "split-half (lower bound)")
+            if all(e is not None for e in errs) and gap < 2.0 * (errs[0] + errs[1]):
+                selection_warning = (
+                    f"UNRESOLVED model selection: top-2 ΔF={gap:.1f} is within "
+                    f"2×(MC errors {errs[0]:.1f}+{errs[1]:.1f}; {src}) — "
+                    "increase n_sweeps/n_replicas or seed_replicates before "
+                    "trusting the winner"
+                )
+        # posterior weights are only as good as the F estimates behind them
+        # (Codex Stage-5 blocker #1: never report decisive weights on an
+        # unresolved comparison without a flag)
+        for c in scored:
+            c["posterior_weight_reliable"] = selection_warning is None
 
         import copy
 
@@ -378,6 +461,11 @@ class BayesianExchangeMCMethod(PeakFitMethod):
             "model_selection": "Bayes free energy (stepping-stone across the "
                                "replica ladder); posterior weights under a "
                                "uniform model prior",
+            "model_selection_warning": selection_warning,
+            # F omits θ-independent likelihood constants — valid ONLY for
+            # comparing candidates on the SAME data/window, never across
+            # datasets (Codex Stage-5 finding #5)
+            "free_energy_is_relative": True,
             "sampler": {k: mc_kwargs[k] for k in mc_kwargs},
         }
         return MethodResult(
@@ -389,6 +477,7 @@ class BayesianExchangeMCMethod(PeakFitMethod):
                 "posterior_weight": scored[0]["posterior_weight"],
                 "sigma_hat": scored[0]["sigma_hat"],
                 "swap_acceptance": scored[0]["swap_acceptance"],
+                "model_selection_warning": selection_warning,
             },
         )
 
@@ -413,6 +502,7 @@ def _posterior_peaks(win: dict, ci_level: float) -> tuple[list[dict], dict]:
 
     comps = _extract_fitted_components(_R, model)
 
+    ess = run.get("ess") or []
     by_name = dict(zip(names, range(len(names))))
     peaks, confidence = [], {}
     for slot in model.slots:
@@ -426,20 +516,43 @@ def _posterior_peaks(win: dict, ci_level: float) -> tuple[list[dict], dict]:
             "amplitude": comp.amplitude, **comp.shape_params,
         })
         prefix = _slot_prefix(slot.role)
-        intervals = {}
+        intervals, slot_ess = {}, []
         for name in names:
             if name.startswith(prefix):
                 j = by_name[name]
+                e = float(ess[j]) if j < len(ess) else None
+                if e is not None:
+                    slot_ess.append(e)
                 intervals[name[len(prefix):]] = {
                     "median": float(med[j]),
                     "ci_low": float(qlo[j]), "ci_high": float(qhi[j]),
                     "ci_level": ci_level,
+                    "ess": e,
                 }
+        # Per-slot CI reliability (Codex Stage-5 blocker #2: the low-ESS
+        # warning must live ON the intervals consumers read, not only in the
+        # candidate analysis).  ESS_RELIABLE_MIN is the same UNVERIFIED 50
+        # the candidate-level warning uses; ess==0 marks a stuck chain.
+        if not slot_ess:
+            reliability, note = "ok", None
+        elif min(slot_ess) <= 0.0:
+            reliability = "stuck_chain"
+            note = ("a sampled parameter never moved — intervals are "
+                    "meaningless; refit with larger steps/more sweeps")
+        elif min(slot_ess) < ESS_RELIABLE_MIN:
+            reliability = "low_ess"
+            note = (f"min ESS {min(slot_ess):.1f} < {ESS_RELIABLE_MIN} — "
+                    "random-walk quantiles likely UNDERESTIMATE uncertainty; "
+                    "increase n_sweeps")
+        else:
+            reliability, note = "ok", None
         confidence[slot.role] = {
             "sigma_stat": {
                 # typed posterior kind — NEVER mixed with covariance /
                 # stability_mad numerics (spec §5 discipline)
                 "uncertainty_kind": "posterior_ci",
+                "reliability": reliability,
+                "reliability_note": note,
                 "values": intervals or None,
             },
             "reference_sensitivity_range": {

@@ -25,6 +25,7 @@ path untouched.
 | U 4f module | TODO | — | |
 | B 1s / N 1s / Cl 2p cookbook | DONE | ✅ 21 tests | `regions/b1s.py` (position-neutral roles per discrepancy #8; good-exemplar windows; component ladder) + `regions/cl2p.py` (doublet, Δso/ratio CONDITIONAL-cited, fixed + relaxed variants) + minimal `n1s.py` (validated by the U 4f co-fit gate). Batteries (B 1s ×4, Cl 2p ×3) + engine gates: B 1s 3-component winner beats expert (χ²ᵣ 1.26 vs 1.43); Cl 2p relaxed-ratio CONDITIONAL winner beats expert on both anchors (discrepancy #7). Engine: `smart_exp` bg + decisive-override rule (ΔBIC*>10, Kass & Raftery 1995) for the conditional tier. |
 | Bayesian exchange-MC method | DONE | ✅ 8 tests | `methods/bayesian_exchange_mc.py` (`86663d8`): replica-exchange + stepping-stone Bayes free energy; σ-marginalized Gaussian likelihood; priors = grammar bounds; typed `posterior_ci` intervals + ESS honesty warning. Synthetic ground truth: correct K selection (ΔF>10), centers ≤50 meV, σ̂ within 10%. NOT yet validated on real regions (sampler tunables UNVERIFIED; real-data comparison vs IC/LS = Monday work). Codex checkpoint pending. |
+| Sensitivity sweeps (spec §9) | DONE | ✅ 86 runs | `scripts/run_sensitivity_sweeps.py` + JSONL + `docs/autofit/sensitivity-sweeps.md`. ONLY the Cl 2p ratio cap changes any conclusion (see Sensitivity section); all pipeline thresholds insensitive on the anchors; flags kept (insensitivity ≠ verification). |
 | Element-physics DB | PARTIAL (first slice) | ✅ 5 tests | `data/xps/fit-physics.json` (65 transitions: 45 machine-derived-UNVERIFIED, 17 CONDITIONAL-derived, 3 lit-cited seeds) + `scripts/gen_fit_physics.py` under a strict no-invention contract: values copied from the already-sourced data/xps tiers, 2j+1 arithmetic ratios (caveated), or DOI-cited seeds (C 1s β Campbell&Papp; U 4f multiplet family + satellites Ilton&Bagus/Schindler). Tests: regeneration determinism, per-value traceability, machine-tier flagging, no spin-orbit invention, DOI presence. **NOT wired into the engine yet** (regions keep their own cited constants); broad periodic-table coverage needs the NIST-archive retrieval pipeline — Monday-scale, see Next actions. |
 
 ## Codex checkpoint verdicts
@@ -97,6 +98,22 @@ ALL fixed same-session and pinned in
    unchanged (documented decision: report the best minimum FOUND;
    promotion-vs-robustness is Skye's call, see calibration log #3).
 
+## NIST-archive format finding (coverage sweep, 2026-07-03)
+
+The retired SRD-20 site has TWO archived page generations: the 2004
+`query_all_dat_el.asp` tables (parsed by the committed
+`parse_nist_html`; carries the `<b>*</b>` NIST-evaluated marker) and the
+2015/16 `query_all_dat_el.aspx` ASP.NET GridView pages. The 2016 format
+(inspected: N) **does not display the evaluated-value star at all**, and the
+committed parser reads 0 records from it — so aspx-only elements are
+honestly skip-logged as "no NIST-evaluated value" rather than recoverable.
+Consequence: a GridView parser extension would recover *records* but not
+*evaluated markers*, i.e. nothing emittable under the starred-only
+no-invention rule. Do not "fix" this by parsing aspx pages unless a way to
+recover the evaluation flag is found. (Nuance: the N tiers-path skip
+detail says "no starred value" where "page format yields no parseable
+records" is the deeper cause — same outcome either way.)
+
 ## Discrepancies vs expert reference fits (for human adjudication)
 
 1. **Stray `Zr 3d` RSF tag** (the known error from the run brief, now located):
@@ -147,6 +164,32 @@ ALL fixed same-session and pinned in
    chemical assignment to Skye. Also: B-O is center-pinned at exactly 193.00
    in all 10 B4C-UCl4 fits (analyst fixed it), and the `Zr 3d` RSF mis-tag
    (discrepancy #1) sits on B-B and B-C in those same fits.
+
+## Sensitivity sweeps — spec-§9 evidence (2026-07-03 late session)
+
+Harness `scripts/run_sensitivity_sweeps.py` (resumable JSONL:
+`docs/autofit/inventory/sensitivity_sweeps.jsonl`, 86 runs; report
+`docs/autofit/sensitivity-sweeps.md`). OFAT around defaults, IC at gate
+options, on the real anchors (Cl 2p ×2, B 1s, U 4f cheap; C 1s Scan_8 for
+the proposal/α-cap constants):
+
+- **Insensitive on every anchor** (winner AND conditional status invariant):
+  persistence 0.5–0.9, absent-slot persistence 0.5/0.9, absent-slot area
+  0.01–0.08, ΔBIC* ambiguity 1–4, noise floor 0.5–5 ('detection floor'
+  knob), decisive-override ΔBIC* 5–30, proposal flag ratio 3/8 (proposal
+  pass ON), graphitic DS α cap 0.2/0.5. **Flags KEPT** — insensitivity on
+  4 anchors is evidence for the defaults, not literature verification.
+- **SENSITIVE — Cl 2p ratio cap (CONDITIONAL constant, discrepancy #7)**:
+  raising `CL2P_RATIO_RANGE` upper 0.55→0.65+ turns both corrected anchors
+  CLEAN (interior optimum, no +bfix): fitted 2p1/2:2p3/2 amp ratio
+  **0.611**, splitting 1.585 eV, χ²ᵣ 1.286 vs 1.614 at the 0.55 cap
+  (Cl2p Scan; Scan_0 same pattern). The prior CONDITIONAL status was a
+  **cap artifact**. 0.611 vs the statistical 0.5 still says unmodeled
+  structure/second species — the constants stay CONDITIONAL; the
+  adjudication question sharpens to "why 0.61" rather than "why pegged".
+- **Insensitive** — Δso widening (1.55,1.65)→(1.50,1.70): splitting stays
+  1.585–1.599 eV on both anchors; the 1.60 eV CONDITIONAL constant is
+  well-supported by the data (still CONDITIONAL pending primary-lit cite).
 
 ## UNVERIFIED / suspect items
 
@@ -315,6 +358,56 @@ stepping-stone bias, CI honesty, and a suggested analytic-evidence test).
 The Bayesian method is validated ONLY against the synthetic ground-truth
 battery so far; treat its real-data outputs as unreviewed until this
 review runs.
+
+### Bayesian math review (2026-07-03 late session) — **COMPLETED: NO-GO → all 5 findings fixed**
+The hung review ran clean under the gtimeout rails (~7 min). Verdict
+archived at `docs/autofit/codex/stage5_bayesian_verdict.md`. **The core
+math was CONFIRMED correct** (σ-marginal likelihood; stepping-stone
+validity for p_β ∝ RSS^(−βn/2); β=0 replica normalizes the prior volume so
+differing parameter counts DO flow into ΔF correctly; exchange sign;
+post-burn detailed balance; bounded-uniform target). The NO-GO was honesty
+machinery, all fixed same-session:
+1. **BLOCKER** F reported with no MC error bar → split-half stepping-stone
+   error per candidate (`free_energy_split_half_error`, documented lower
+   bound), UNRESOLVED-selection warning when top-2 ΔF < 2×(sum of errors),
+   `posterior_weight_reliable` flags. Motivating real-data case: U 4f
+   seed flip (seed 0: U1b F=2803.2 < U2 2806.3; seed 1: U2 2800.1 <
+   U1b 2806.6) — ΔF ≈ 3 vs seed spread ≈ 5, silently before this.
+2. **BLOCKER** CI overclaim under low ESS → per-slot
+   `sigma_stat.reliability` (ok|low_ess|stuck_chain) + note + per-interval
+   `ess` in the confidence payload itself.
+3. **MAJOR** stuck chain → ESS=n → zero-variance sampled param now ESS=0
+   (stuck_chain), never n.
+4. **MAJOR** tests could pass with wrong evidence math →
+   `test_analytic_evidence_flat_model`: estimator vs quadrature evidence
+   (Student-t kernel) at two prior widths incl. the log 4 prior-volume
+   Occam factor; passes at |ΔF| ≤ 0.3.
+5. **MINOR** `free_energy_is_relative: true` + docstring (same-data
+   comparisons only).
+
+**Re-check #1** (same session, ~7 min): all 5 code dispositions verified
+closed line-by-line (verdict `docs/autofit/codex/stage5_recheck_verdict.md`),
+NO-GO retained on two artifact gaps, both then fixed:
+- **BLOCKER** validation JSONL predated the machinery + no U 4f gate →
+  battery fully regenerated under the fixed method (records carry
+  selection_warning / split-half / posterior_weight_reliable / per-slot
+  CI reliability), and a NEW env-gated real-data gate pins the motivating
+  case (below).
+- **MAJOR** sigma_stat contract + stuck-chain ESS unpinned → pinned
+  (`test_sigma_stat_reliability_contract`,
+  `test_zero_variance_ess_is_stuck_not_perfect`).
+
+**Deeper finding while building the U 4f gate** — the split-half proxy alone
+CAN miss the flip: at 800 sweeps seed 0 reports ΔF=12.3 with split-half
+errors 0.5+3.9 (looks resolved, U1b) while seed 1 flips to U2 — proof the
+documented lower bound really is one. Fix: **`seed_replicates` method
+option** — independent seeded evidence replicates; F reported as the
+replicate mean with `free_energy_replicates` / `free_energy_replicate_spread`
+/ `free_energy_mc_error` (= max(split-half, replicate half-range)) feeding
+the UNRESOLVED warning. `tests/autofit/test_bayesian_u4f_unresolved_gate.py`
+(env-gated, ~4 min) pins on the REAL B4C-UCl4 U 4f anchor that replication
+flags the U1b/U2 selection UNRESOLVED and marks posterior weights
+unreliable. PASSED 2026-07-03.
 
 ### Cookbook re-check (2026-07-03) — **NO-GO → all findings fixed (2nd round)**
 The re-check (archived `docs/autofit/codex/stage4_cookbook_verdict2.md`)
