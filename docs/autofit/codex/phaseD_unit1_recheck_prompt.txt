@@ -1,0 +1,60 @@
+Re-check of dispositions for Phase D unit 1 (autofit/coverage.py), branch
+feature-autofit-stage2. Original reviews: NO-GO x2 (archived at
+docs/autofit/codex/phaseD_unit1_verdict_runA.md / _runB.md; prompt
+phaseD_unit1_coverage_prompt.txt). Fix commit: 4254ee1 (`git show 4254ee1`;
+the reviewed unit itself is 884518b). Verify each disposition line-by-line,
+adversarially. Read-only sandbox; pytest may be unavailable — direct
+python import probes work.
+
+FINDING 1 (BLOCKER, both runs): _RATIO_CAVEAT emitted the empirical Cl 2p
+0.55 ratio-bound into every element's statistical-ratio record (string
+laundering of an empirical value outside the cited-source loader).
+DISPOSITION: caveat reworded to carry the lesson BY REFERENCE
+(docs/autofit/adjudication-decisions.md #7) with no numeric values at all.
+CHECK: grep the module for any remaining empirical numerals in prose;
+confirm level_structure('U','4f')['statistical_area_ratio']['caveat'] is
+number-free; confirm the hardened guard test would now catch a
+reintroduction (it scans every string leaf for decimal numbers and
+eV-suffixed quantities).
+
+FINDING 2 (MAJOR run A / BLOCKER run B): the anti-confabulation guard test
+whitelisted the generic 'value' key and never scanned strings — wrapped
+values ({"splitting_ev": {"value": 1.6}}) and prose-embedded numbers
+("284.8 eV") could launder through.
+DISPOSITION (tests/autofit/test_coverage_structure.py, hardened guard):
+(a) _walk now tracks value-bearing ANCESTRY: any leaf nested anywhere
+under a key matching the value-bearing regex must be None; (b) numeric
+'value' is allowed ONLY when the path is inside the
+statistical_area_ratio record; (c) every string leaf is scanned with
+r"\d+\.\d+|\b\d+(\.\d+)?\s*eV\b" (case-insensitive). The hardened guard
+was watched FAIL against the pre-fix caveat (the 0.55) before the caveat
+fix landed.
+CHECK: probe the guard's discrimination yourself — would it catch (i) a
+populated *_ev scalar, (ii) {"spin_orbit_splitting_ev": {"value": 1.6}},
+(iii) a caveat string "shifts by 1.6 eV", (iv) a caveat string "284.8"?
+Also check it does NOT false-positive on legal bookkeeping ("2j+1",
+"1:2", "3/2" labels, "(n+l, n)").
+
+FINDING 3 (MINOR, both runs): cache isolation implemented but untested.
+DISPOSITION: test_cache_isolation_first_call_and_cache_hit clears the
+module cache, mutates the FIRST-call return, checks the cache-hit read,
+mutates the cache-hit return, re-reads, and covers the level_structure
+view. CHECK: would this test fail if either deepcopy in
+element_structure() were removed?
+
+FINDING 4 (MINOR, run B): Madelung-anomaly edge cases unpinned.
+DISPOSITION: test_madelung_anomaly_edge_cases_pinned pins the ALGORITHM's
+outputs for Cu (3d9 4s2), Pd (4d8 5s2), La (4f1), Ce (4f2) + their
+multiplet flags, with a docstring stating real ground states deviate and
+that encoding them must be a reviewed decision. CHECK: do the pins match
+what the module actually computes, and would they break if someone
+special-cased the real configurations?
+
+SCOPE: 4254ee1 must touch only autofit/coverage.py (caveat text),
+tests/autofit/test_coverage_structure.py, and docs/autofit/codex/
+archives. No numeric/algorithmic change to the module beyond the caveat
+string.
+
+Deliver: per-finding CLOSED/NOT-CLOSED with evidence, any new findings
+(BLOCKER/MAJOR/MINOR + file/line + concrete failure scenario), then
+exactly "VERDICT: GO" or "VERDICT: NO-GO".
