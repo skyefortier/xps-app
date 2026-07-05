@@ -233,9 +233,14 @@ def test_anti_confabulation_no_energy_values_anywhere():
                     "the cited-source loader")
             if isinstance(leaf, (int, float)) and not isinstance(leaf, bool):
                 if key == "value":
-                    assert ".statistical_area_ratio." in path + ".", (
+                    # EXACT direct child only — any-depth allowance would
+                    # let {"statistical_area_ratio": {"empirical_bound":
+                    # {"value": 0.55}}} launder structured empirical data
+                    # (Codex D1 re-check, run B MAJOR)
+                    assert path.endswith(".statistical_area_ratio.value"), (
                         f"{sym}{path}: numeric 'value' outside the "
-                        f"statistical-ratio record ({leaf!r})")
+                        f"statistical-ratio record's own value field "
+                        f"({leaf!r})")
                 else:
                     assert key in _ALLOWED_NUMERIC_KEYS, (
                         f"{sym}{path}: unexpected numeric leaf {leaf!r} "

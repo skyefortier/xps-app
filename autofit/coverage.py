@@ -41,6 +41,7 @@ from typing import Optional, Union
 
 __all__ = [
     "PERIODIC_TABLE", "element_structure", "level_structure", "parse_region",
+    "structural_provenance",
 ]
 
 # Generated from scripts/gen_machine_tier.py PERIODIC_TABLE (Z <= 96);
@@ -176,7 +177,7 @@ def _components(n: int, l: int) -> list[dict]:
 def _statistical_ratio(l: int) -> dict:
     """Lower-j over higher-j degeneracy ratio, exact rational: 2l/(2l+2) =
     l/(l+1) → p 1:2, d 2:3, f 3:4. Matches the grammar's existing
-    ``area_ratio`` convention (Cl 2p 0.5, U 4f 0.75)."""
+    ``area_ratio`` convention (Cl 2p 1:2, U 4f 3:4 as child/parent)."""
     frac = Fraction(l, l + 1)
     return {
         "numerator": frac.numerator,
@@ -328,3 +329,102 @@ def parse_region(label: str) -> Optional[tuple[str, str]]:
     if sym not in PERIODIC_TABLE:
         return None
     return sym, level
+
+
+def structural_provenance(region: str, cited_values=None
+                          ) -> tuple[list[dict], list[str]]:
+    """Derived-structure provenance records + honesty notes for one
+    element/level region ('Fe 2p') — the resolve() structural-fallback
+    payload (Phase D unit 3).
+
+    Status semantics (existing {VERIFIED, CONDITIONAL, UNVERIFIED}
+    vocabulary, so the methods' uses_conditional_or_unverified_constants
+    rollup works unchanged):
+
+    - exact quantum bookkeeping (doublet/singlet, degeneracies) →
+      VERIFIED (it is mathematics, not an empirical claim);
+    - ratio EXPECTATIONS and advisory flags (multiplet, conductor class) →
+      CONDITIONAL (theory/heuristics that real samples deviate from);
+    - positions → UNVERIFIED with value None, until a cited source is
+      loaded (autofit.cited_values), whose records then ride along with
+      their own status (CONDITIONAL, or UNVERIFIED for test_only files).
+
+    Raises KeyError when the region is not parseable as an element/level
+    in the Z=1..96 table or the subshell is not occupied.
+    """
+    parsed = parse_region(region)
+    if parsed is None:
+        raise KeyError(
+            f"region {region!r} is not an '<Element> <n><subshell>' label "
+            "within the Z=1..96 table")
+    sym, subshell = parsed
+    lv = level_structure(sym, subshell)      # KeyError when not occupied
+    st = element_structure(sym)
+
+    records: list[dict] = [
+        {"constant": "structure",
+         "value": {"level": lv["level"], "structure": lv["structure"],
+                   "components": lv["components"],
+                   "occupancy": lv["occupancy"], "capacity": lv["capacity"],
+                   "partially_filled": lv["partially_filled"]},
+         "status": "VERIFIED",
+         "derived_rule": lv["derived_rule"],
+         "source": f"{lv['derived_rule']} — exact quantum bookkeeping "
+                   "(j = l ± 1/2, degeneracy 2j+1), not an empirical claim"},
+    ]
+    ratio = lv["statistical_area_ratio"]
+    if ratio is not None:
+        records.append({
+            "constant": "statistical_area_ratio_expectation",
+            "value": ratio,
+            "status": "CONDITIONAL",
+            "derived_rule": ratio["derived_rule"],
+            "source": f"{ratio['derived_rule']} — theoretical expectation "
+                      "ONLY (see value.caveat); never a hard constraint: "
+                      "allow a free/relaxed ratio and independent widths"})
+    records.extend([
+        {"constant": "binding_energy_ev",
+         "value": None,
+         "status": "UNVERIFIED",
+         "source": "no VERIFIED position — supply a cited source via "
+                   "autofit.cited_values (schema in that module's "
+                   "docstring); the engine never invents a number"},
+        {"constant": "multiplet_prone_flag",
+         "value": st["multiplet_prone"],
+         "status": "CONDITIONAL",
+         "derived_rule": st["multiplet_rule"],
+         "source": f"{st['multiplet_rule']} — advisory flag (oxidation "
+                   "states repopulate d/f; see element caveat); never a "
+                   "splitting"},
+        {"constant": "conductor_class_default",
+         "value": st["conductor_class_default"],
+         "status": "CONDITIONAL",
+         "derived_rule": st["conductor_class_rule"],
+         "source": f"{st['conductor_class_rule']} — coarse positional "
+                   "default, user-overridable (the declared "
+                   "Phase.material_class wins)"},
+    ])
+
+    notes = [
+        "structure known, positions UNVERIFIED — supply a cited source "
+        "(autofit.cited_values) and curated windows/widths to enable "
+        "fitting; no fit candidates built",
+    ]
+    matching = [v for v in (cited_values or [])
+                if v.element == sym and v.level == subshell]
+    for v in matching:
+        records.append({
+            "constant": f"cited:{v.value_type}[{v.component or v.level}]",
+            "value": {"value_ev": v.value_ev,
+                      "uncertainty_ev": v.uncertainty_ev,
+                      "oxidation_state": v.oxidation_state,
+                      "method": v.method, "convention": v.convention,
+                      "test_only": v.test_only},
+            "status": v.status,
+            "source": v.source_citation})
+    if matching:
+        notes.append(
+            f"{len(matching)} cited value(s) loaded for {region} — fitting "
+            "still requires curated windows/widths (cited positions alone "
+            "do not build candidates)")
+    return records, notes
