@@ -1030,6 +1030,20 @@ proposed/accepted/fitted at the true position on every noise draw
 (always-on pin added).  The pass is a conservative discrete-peak detector,
 not a general misspecification alarm — by design, now quantified.
 
+## Find Peaks plain-language pass (2026-07-05) — copy/controls/tooltips only
+
+Approachability pass for bench chemists; ZERO behavior change (verified:
+identical winner + peak positions to 1e-3 vs the pre-pass run).  All
+wording centralized in `FP_STRINGS`; raw-JSON options replaced by labeled
+per-method controls that write into a collapsible Advanced JSON; every
+engine name translated with the raw form on hover (models, roles, shapes,
+param slugs); banners in plain words with the untranslated story under
+"Technical details"; tooltips on every control and column header; jargon
+sweep clean.  Screenshots for Skye:
+`docs/autofit/ui-screenshots/fp-lang-{1..8}*.png` (menu, friendly
+controls, advanced JSON, plain results, review gate, applied toast,
+Bayesian controls, re-fit controls).
+
 ## Opt-in Find Peaks UI + POST /api/analyze (2026-07-05) — run-brief item 5
 
 **Backend** (`app.py`, strictly additive — `/api/fit` and the manual path
