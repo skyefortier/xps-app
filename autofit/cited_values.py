@@ -134,6 +134,10 @@ def _validate_row(i: int, row: dict, test_only: bool) -> CitedValue:
             raise _reject(i, "a splitting belongs to the subshell, not a "
                              "component — drop the j suffix")
 
+    # bool is an int subclass (float(True) == 1.0) — a JSON true must not
+    # silently load as a 1.0 eV value
+    if isinstance(row["value_ev"], bool):
+        raise _reject(i, f"value_ev {row['value_ev']!r} is not numeric")
     try:
         value_ev = float(row["value_ev"])
     except (TypeError, ValueError):
@@ -146,6 +150,9 @@ def _validate_row(i: int, row: dict, test_only: bool) -> CitedValue:
 
     uncertainty: Optional[float] = None
     if row.get("uncertainty_ev") is not None:
+        if isinstance(row["uncertainty_ev"], bool):
+            raise _reject(i, f"uncertainty_ev {row['uncertainty_ev']!r} "
+                             "is not numeric")
         try:
             uncertainty = float(row["uncertainty_ev"])
         except (TypeError, ValueError):
@@ -200,10 +207,16 @@ def _rows_from_json(path: str) -> tuple[list[dict], bool]:
 def _rows_from_csv(path: str) -> tuple[list[dict], bool]:
     rows: list[dict] = []
     with open(path, newline="") as f:
-        for raw in csv.DictReader(f):
+        for n, raw in enumerate(csv.DictReader(f)):
+            # a row longer than the header lands under DictReader's None
+            # key — silently dropping it would hide a shifted/malformed row
+            if None in raw:
+                raise CitedValueError(
+                    f"row {n}: malformed CSV row — more cells than header "
+                    f"columns (overflow: {raw[None]!r})")
             # blank CSV cells are absent optionals, not empty strings
             rows.append({k: (v if v not in ("", None) else None)
-                         for k, v in raw.items() if k is not None})
+                         for k, v in raw.items()})
     return rows, False
 
 

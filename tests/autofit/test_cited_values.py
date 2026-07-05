@@ -153,6 +153,39 @@ def test_csv_format_loads_identically(tmp_path):
             for v in c]
 
 
+def test_boolean_value_rejected(tmp_path):
+    """bool is an int subclass: float(True) == 1.0 — a JSON true must not
+    silently load as a 1.0 eV value."""
+    with pytest.raises(CitedValueError, match="numeric"):
+        load_cited_values(_write(tmp_path, [_row(value_ev=True)]))
+    with pytest.raises(CitedValueError, match="numeric"):
+        load_cited_values(_write(tmp_path, [_row(uncertainty_ev=False)]))
+
+
+def test_json_infinity_rejected(tmp_path):
+    """Python's json.loads accepts the nonstandard Infinity literal —
+    it must be caught by the finiteness check, not loaded."""
+    p = tmp_path / "inf.json"
+    p.write_text('{"schema_version": 1, "rows": [{"element": "Cl", '
+                 '"level": "2p3/2", "value_type": "binding_energy_ev", '
+                 '"value_ev": Infinity, '
+                 '"source_citation": "SYNTHETIC-TEST-ONLY demonstration"}]}')
+    with pytest.raises(CitedValueError, match="finite"):
+        load_cited_values(str(p))
+
+
+def test_csv_overflow_cells_rejected(tmp_path):
+    """A CSV row longer than its header must be rejected loudly — the
+    overflow lands under DictReader's None key and silently dropping it
+    would hide a shifted/malformed row."""
+    p = tmp_path / "overflow.csv"
+    p.write_text(
+        "element,level,value_type,value_ev,source_citation\n"
+        "Cl,2p3/2,binding_energy_ev,100.0,SYNTHETIC-TEST-ONLY demo,EXTRA\n")
+    with pytest.raises(CitedValueError, match="malformed"):
+        load_cited_values(str(p))
+
+
 def test_schema_version_gate(tmp_path):
     with pytest.raises(CitedValueError, match="schema_version"):
         load_cited_values(_write(tmp_path, [_row()], schema_version=2))

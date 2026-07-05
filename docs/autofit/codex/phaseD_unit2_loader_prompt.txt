@@ -1,0 +1,56 @@
+Adversarial review of commit bed007e on branch feature-autofit-stage2 —
+Phase D unit 2: autofit/cited_values.py (cited-source empirical-value
+loader), tests/autofit/test_cited_values.py, and the TEST-ONLY fixture
+tests/autofit/fixtures/example_cited_values.json. `git show bed007e`.
+Context: docs/autofit/PROGRESS.md Phase D section; unit D1 (autofit/
+coverage.py) provides the structure cross-checks. Read-only sandbox.
+
+THE CONTRACT — AUDIT HARDEST:
+This is the ONLY path by which empirical values (binding energies,
+splittings) enter the Phase D framework. Anti-confabulation demands:
+1. NOTHING loads without a citation. Probe every route around it:
+   missing key, None, empty/whitespace string, the placeholder set
+   (none/unknown/n-a/na/todo/tbd/?/-) — is the set case-insensitively
+   enforced after strip? Can a row sneak through via the CSV path (blank
+   cell handling), via unknown-key typos (source_citaton), via a
+   whitespace-only citation, via a citation of "0" or "false"?
+2. The loader can NEVER mint VERIFIED status. Check both paths
+   (CONDITIONAL for cited, UNVERIFIED for test_only). Is there any way a
+   caller-supplied field influences status?
+3. No defaults / no invention: empty rows → empty list; no fallback
+   values anywhere; all-or-nothing load (first invalid row aborts with
+   its index).
+4. Structure cross-checks: element must be in the Z=1..96 table, subshell
+   occupied (via coverage.level_structure), component label real,
+   splittings only on doublet subshells and never on a component. Probe
+   edge cases: "2p" vs "2p3/2" vs "2p5/2" vs "5f7/2" on Cl; H "1s";
+   an f-block element; case sensitivity of element symbols ("cl" vs
+   "Cl", "CL"); level strings with spaces.
+5. Value validation: finite, positive; uncertainty None or >= 0 finite.
+   Probe: value_ev as string "100.0" (CSV path relies on this), as bool
+   True (bool is an int subclass — float(True)=1.0: does a boolean
+   value_ev load as 1.0 eV? judge severity), as "1e2", as Infinity via
+   JSON ("Infinity" is accepted by Python's json.loads!) — check
+   math.isfinite catches it.
+6. The fixture: values obviously non-physical (Cl 2p3/2 at 100 eV, a
+   100 eV "splitting", U 4f7/2 at 200 eV), test_only=true, citations
+   clearly marked SYNTHETIC. Confirm nothing in the repo loads this
+   fixture outside tests.
+
+FORMAT ROBUSTNESS: JSON schema_version gate; top-level shape errors;
+CSV DictReader behavior with missing columns, extra columns (unknown-key
+guard must fire), duplicated headers, rows longer than the header
+(DictReader's None key — the code strips k is not None: does that
+silently DROP overflow cells instead of rejecting? construct a concrete
+failure), empty CSV file.
+
+TEST DISCRIMINATION: would each test fail under a plausible bug
+(placeholder set not lowercased, missing-citation branch ordered after
+generic missing-fields, CSV blanks becoming "" instead of None,
+component check skipped for splittings)?
+
+SCOPE: bed007e touches only the three new files. Nothing imports
+cited_values from the engine/request path yet (unit D3 wires it).
+
+Deliver: numbered findings (BLOCKER/MAJOR/MINOR + file/line + concrete
+failure scenario), then exactly "VERDICT: GO" or "VERDICT: NO-GO".
