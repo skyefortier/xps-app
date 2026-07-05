@@ -78,7 +78,12 @@ def test_citation_required(tmp_path):
                 "n-a", "N-A", "false", "true", "0", "null", "nil",
                 # Codex D2 re-check (run A MAJOR): punctuation/unicode/
                 # whitespace placeholder variants
-                "n–a", "None.", "n - a", "n\t-a", "...", "(none)"):
+                "n–a", "None.", "n - a", "n\t-a", "...", "(none)",
+                # Codex D2 re-check round 2 (run B MAJOR): dash runs and
+                # trailing-dash forms; (both runs MINOR): zero-width/BOM
+                # copy-paste damage
+                "---", "———", "n/a-", "none-", "todo-", "unknown-",
+                "n​/a", "﻿none﻿", "n⁠/a"):
         rows = [_row(source_citation=bad)]
         with pytest.raises(CitedValueError, match="citation"):
             load_cited_values(_write(tmp_path, rows))

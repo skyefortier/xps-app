@@ -32,6 +32,7 @@ import csv
 import json
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Optional
 
@@ -105,12 +106,18 @@ def _validate_row(i: int, row: dict, test_only: bool) -> CitedValue:
                          f"{row['source_citation']!r} — a non-text value "
                          "is not a citation")
     citation = row["source_citation"].strip()
-    # placeholder detection runs on a CANONICAL form (D2 re-check, run A
-    # MAJOR: "n–a", "None.", "n - a" loaded): unicode dashes → hyphen,
-    # internal whitespace removed, edge punctuation stripped, lowercased.
-    # The stored citation stays verbatim; only the check normalizes.
-    canonical = re.sub(r"[‐-―−]", "-", citation.lower())
-    canonical = re.sub(r"\s+", "", canonical).strip(".,;:!?()[]{}'\"")
+    # placeholder detection runs on a CANONICAL form (D2 re-checks: "n–a",
+    # "None.", "n - a", "---", "n/a-", zero-width/BOM damage all loaded
+    # before): Unicode format chars (Cf: ZWSP/BOM/word-joiner) removed,
+    # unicode dashes → hyphen, internal whitespace removed, edge
+    # punctuation INCLUDING hyphens stripped (dash-runs canonicalize to
+    # empty → rejected), lowercased. Homoglyph/fullwidth forgery is
+    # adversarial input, out of scope (both re-check runs concur). The
+    # stored citation stays verbatim; only the check normalizes.
+    canonical = "".join(ch for ch in citation.lower()
+                        if unicodedata.category(ch) != "Cf")
+    canonical = re.sub(r"[‐-―−]", "-", canonical)
+    canonical = re.sub(r"\s+", "", canonical).strip(".,;:!?()[]{}'\"-")
     if not canonical or canonical in _PLACEHOLDER_CITATIONS:
         raise _reject(i, f"placeholder citation {citation!r} rejected — "
                          "a real source citation is required")
