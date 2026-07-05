@@ -4016,20 +4016,42 @@ function linearBackground(be, intensity) {
   return bg;
 }
 
+// Single-pass Tougaard background — JS twin of fitting.py's
+// tougaard_background (keep the two numerically in agreement; pinned by
+// tests/js/tougaard_twin.test.js). Universal loss kernel
+// K(T) = B·T/(C+T²)² with B = 2866 eV², C = 1643 eV² (S. Tougaard,
+// Surf. Interface Anal. 11, 453 (1988); kernel max at sqrt(C/3) ≈ 23.4 eV).
+// C was long shipped squared (1643*1643) — fixed 2026-07-04 with the backend.
 function tougaardBackground(be, intensity) {
   const n = be.length;
-  const B = 2866, C = 1643 * 1643;
+  if (n < 2) return new Array(n).fill(0);
+  const B = 2866, C = 1643;
+  // The one-sided loss sum (j >= i) is physical only on a DESCENDING BE
+  // grid (loss contributions come from lower-BE / higher-KE emitters).
+  // Normalize to descending internally and flip back, like the backend.
+  const flipped = be[0] < be[n - 1];
+  const beW = flipped ? [...be].reverse() : be;
+  const inW = flipped ? [...intensity].reverse() : intensity;
+  const dx = Math.abs(beW[1] - beW[0]);
   const bg = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
     let sum = 0;
     for (let j = i; j < n; j++) {
-      const T = Math.abs(be[j] - be[i]);
-      sum += (B * T) / Math.pow(C + T * T, 2) * intensity[j];
+      const T = Math.abs(beW[j] - beW[i]);
+      sum += (B * T) / Math.pow(C + T * T, 2) * inW[j];
     }
-    bg[i] = sum * Math.abs(be[1] - be[0]);
+    bg[i] = sum * dx;
   }
-  const scale = (intensity[n - 1]) / (bg[n - 1] || 1);
-  return bg.map(v => v * scale);
+  // Amplitude anchor at the HIGH-BE edge (index 0 after normalization):
+  // scale so the background meets the measured intensity above the peak —
+  // the practical Tougaard criterion (B effectively fitted; C alone sets
+  // the kernel shape). The old code "rescaled to the trailing endpoint",
+  // but K(0)=0 makes bg[n-1] identically zero, so the || 1 guard always
+  // fired and it multiplied by raw trailing counts instead. The guard now
+  // only protects the all-zero-signal case.
+  const scale = inW[0] / (bg[0] || 1);
+  const out = bg.map(v => v * scale);
+  return flipped ? out.reverse() : out;
 }
 
 // Apply endpoint averaging: replace first/last N points with their mean so

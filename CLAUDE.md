@@ -255,7 +255,7 @@ unreachable). Numerical Jacobian, max 500 iterations, stops at
 | `smart_exp` | Experimental Shirley variant. |
 | `shirley_linear` | Shirley with a linear-fallback bridge. |
 | `linear` | Straight line between ROI endpoints. |
-| `tougaard` | Simplified B·T²/(C+T²)² cross-section. |
+| `tougaard` | Single-pass universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV). Order-robust (either BE direction); amplitude anchored to the data at the high-BE edge. JS twin `tougaardBackground` must stay in numerical agreement (pinned by `tests/js/tougaard_twin.test.js`). |
 | `manual` (frontend only) | User-placed anchor points; `manualAnchorBackground` in JS. |
 
 Use Shirley for standard core-level regions. Linear only when the

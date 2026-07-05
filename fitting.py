@@ -506,20 +506,45 @@ def shirley_linear_background(
 
 
 def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Simplified Tougaard universal-cross-section background.
+    """Simplified single-pass Tougaard universal-cross-section background.
 
-    Uses the three-parameter universal loss function approximation
-    K(T) = B·T / (C + T²)² with B = 2866, C = 1643² (eV²). The result
-    is scaled so the trailing endpoint matches the data, matching the
-    frontend JS implementation in ``tougaardBackground``.
+    Uses the two-parameter universal loss function
+    K(T) = B·T / (C + T²)² with B = 2866 eV², C = 1643 eV²
+    (S. Tougaard, Surf. Interface Anal. 11, 453 (1988): universal
+    cross-section fitted to noble/transition-metal optical data; the
+    kernel maximum sits at T = sqrt(C/3) ≈ 23.4 eV energy loss).
+
+    The background at each binding energy accumulates loss contributions
+    from electrons emitted at LOWER BE (higher kinetic energy), so the
+    one-sided sum requires a descending-BE grid; input in either BE order
+    is normalized internally (see below). The amplitude is anchored so the
+    background matches the measured intensity at the high-BE edge of the
+    window, matching the frontend JS twin ``tougaardBackground``.
     """
     n = len(x)
     if n < 2:
         return np.zeros_like(y, dtype=float)
 
-    B_coef, C_coef = 2866.0, 1643.0 ** 2
+    # Universal cross-section constants, Tougaard (1988): B = 2866 eV²,
+    # C = 1643 eV². A long-standing transcription slip shipped C = 1643²
+    # (~2.7e6 eV²), which pushed the kernel maximum from ~23 eV to ~949 eV
+    # of energy loss and flattened the background to ~zero over any real
+    # XPS window. Fixed 2026-07-04 together with the JS twin.
+    B_coef, C_coef = 2866.0, 1643.0
+
     xa = np.asarray(x, dtype=float)
     ya = np.asarray(y, dtype=float)
+
+    # The one-sided loss sum below (j >= i) is physical only when BE
+    # DESCENDS along the array: the loss contributions at x[i] must come
+    # from lower-BE (higher-KE) emitters, which sit at higher indices only
+    # on a descending grid. Normalize to descending internally and flip
+    # the result back — the mirror of shirley_background's ascending
+    # normalization — so both BE orderings give identical output.
+    flipped = bool(xa[0] < xa[-1])
+    if flipped:
+        xa, ya = xa[::-1].copy(), ya[::-1].copy()
+
     dx = float(abs(xa[1] - xa[0]))
 
     # bg[i] = Σ_{j>=i} K(|x[j]-x[i]|)·y[j],  K(T) = B·T / (C + T²)².
@@ -548,8 +573,21 @@ def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
             bg[i] = float(np.sum(kernel * ya[i:]))
 
     bg = bg * dx
-    denom = bg[-1] if bg[-1] != 0.0 else 1.0
-    return bg * (float(ya[-1]) / denom)
+
+    # Amplitude anchor: scale the correlation so the background equals the
+    # measured intensity at the HIGH-BE edge (index 0 on the descending
+    # working array) — the standard practical Tougaard criterion, i.e. B is
+    # effectively fitted so the background meets the spectrum above the
+    # peak (which also makes the nominal B_coef cancel; C alone sets the
+    # kernel shape). History: this used to "rescale to the trailing
+    # endpoint", but K(0) = 0 makes bg[-1] identically zero, so the
+    # zero-guard always fired and the code multiplied by the raw trailing
+    # counts instead — a scale that is harmless only while the squared-C
+    # kernel kept bg near zero, and off by ~the baseline counts once C is
+    # corrected. The guard below now only protects the all-zero-signal case.
+    denom = bg[0] if bg[0] != 0.0 else 1.0
+    bg = bg * (float(ya[0]) / denom)
+    return bg[::-1] if flipped else bg
 
 
 def _la_casaxps_true(

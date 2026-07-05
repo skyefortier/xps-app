@@ -29,6 +29,7 @@ path untouched.
 | Resolution-enhancement method (stretch #6, MaxEnt menu slot) | DONE (synthetic-validated) | ✅ 11 tests | `methods/max_entropy.py` — Codex Stage-9 blocker accepted and fixed by HONEST RELABELING: the implemented update is a damped exponentiated ISRA/RL-style deconvolution with χ²ᵣ stopping, **NOT a constrained MaxEnt solve** (no entropy gradient) — label, docstring, and payload all say so; a true entropy-regularized objective is logged FUTURE WORK (Vasquez 1981 / Aspnes 2022 cited as the slot's reference methods). Kernel FWHM REQUIRED user input (no default); σ-estimated stopping flagged UNCALIBRATED (supply repeat-sweep noise_sigma for production); edge-normalized convolution + `edge_margin_ev` boundary flag; `negative_kl_to_flat` (renamed from the misleading entropy field); baseline offset exposed; kernel validation (finite, narrower than spectrum). Pins: interior artifact prominence < 25% of the weakest true feature with true peaks top-2; emitted-spectrum reconvolution χ² exact; kernel/σ paths. **The FULL decision-matrix menu (1–6) is implemented.** |
 | Multivariate MCR method (stretch #5) | DONE (synthetic-validated) | ✅ 8 tests | `methods/multivariate_mcr.py`: PCA scree rank estimate (variance_target 0.995 UNVERIFIED, user-overridable, scree always reported) + MCR-ALS (row-wise NNLS alternation, deterministic SVD init, non-negativity on C and S) on a multi-spectrum matrix; `build_matrix` interpolation helper for mixed-grid repeat scans. HONESTY: `peaks=[]` by design (chemical states, not fitted peaks); rotational ambiguity stated in the payload; negative intensities rejected loudly. Synthetic: rank recovered, pure-spectra corr >0.98 (permutation-free), concentration corr >0.99, deterministic. Real-data validation on the repeat-scan matrices = follow-up. Codex checkpoint pending. |
 | Sparse/MAP method (stretch #4) | DONE (synthetic-validated) | ✅ 9 tests | `methods/sparse_map.py`: L1 Gaussian-atom dictionary on grammar slot windows (data-grid centers × log FWHM ladder), non-negative coordinate descent, geometric λ path, debiased NNLS refit, BIC (engine convention) model-size selection; cluster merge scaled to the resolved feature's width. Honesty: `uncertainty_kind='unavailable_post_selection'` (no fabricated σ), asymmetric slots flagged not-expressible, UNVERIFIED tunables in payload, limitations stated (decision-matrix entry 4: STAM:Methods 2024 DOI 10.1080/27660400.2024.2373046 + Tibshirani 1996). Synthetic ground truth: exact peak-count recovery, centers ≤0.15 eV, debiased amplitudes ≤15%, deterministic (no RNG). NOT validated on real anchors (its regime is few-separated-peaks; the real regions are overlap-heavy — documented). Codex checkpoint pending. |
+| Tougaard background bug-fix (C constant + BE-order + amplitude anchor) | DONE | ✅ 5 py + 4 js tests | `fitting.py::tougaard_background` + JS twin `tougaardBackground`: C was shipped SQUARED (1643² ≈ 2.7e6 eV², kernel max ~949 eV → flat/zero bg on real windows) → corrected to 1643 eV² (Tougaard 1988, SIA 11, 453); one-sided sum made order-robust (descending normalization, shirley-mirror); degenerate trailing rescale (K(0)=0 ⇒ scale ≡ raw trailing counts) replaced by the high-BE-edge anchor. Cross-language parity pinned at 1e-9. See the dated section below. |
 | Element-physics DB | **BROAD COVERAGE DONE** | ✅ 17+5 tests | Full-periodic-table NIST-archive sweep (committed pipeline `scripts/acquire_nist_archive.py`, resumable manifest): all 103 elements probed; **52 with usable archived SRD-20 snapshots + starred values, 51 honest failures** (no snapshot / no NIST-evaluated line — incl. the whole aspx-only + actinide tail; see format finding). Machine tier now **78 transitions / 51 elements** (was 45/37): +33 new (lanthanide 4d family, heavy-metal 4d5/2, 3d/3p secondaries, new elements Rh + Pr + Mg), every one an archived starred value, sha256-pinned, **33/33 independently agent-cross-checked (own parser, exact agreement)**; subshell-level guards prevent any curated/tiers overlap (27+10 guard skips logged); 337-entry skip audit. `fit-physics.json` regenerated: **98 transitions** (14 sourced spin-orbit, statistical 2j+1 ratios caveated). Byte-identical regeneration test GREEN (the old baseline failure is FIXED — artifacts restored sha256-verified from committed provenance). Still NOT wired into the engine (regions keep their own cited constants; deliberate). Per-value review table: `docs/autofit/fit-physics-coverage-report.md`. |
 
 ## Codex checkpoint verdicts
@@ -1145,6 +1146,72 @@ fails the job structurally. Guard verified locally on pass/skip/wipeout
 paths. NOTE: numeric pins were calibrated on macOS/arm64; a linux-only
 failure is honest platform-sensitivity signal (fixture tolerances carry
 documented FP-wobble margins), not noise to silence.
+
+## Tougaard background bug-fix (2026-07-04 goal session) — constant, BE-order, amplitude anchor
+
+Small scoped fix to the EXISTING `tougaard` background (manual-fit path
+math; the autofit engine only reaches it via `BackgroundType.TOUGAARD` —
+no anchor battery uses it, and grep confirmed **no test or fixture pinned
+the old output**, so nothing needed regeneration). Both fixed
+implementations: `fitting.py::tougaard_background` and its JS twin
+`tougaardBackground` in `templates/index.html` (kept in numerical
+agreement, pinned at 1e-9 relative by `tests/js/tougaard_twin.test.js`).
+
+1. **Constant transcription slip (the confirmed bug).** Shipped
+   `C = 1643.0**2` (JS: `1643 * 1643`) ≈ 2.7e6 eV². The universal loss
+   kernel K(T) = B·T/(C+T²)² peaks at T = √(C/3): **948.6 eV** as shipped
+   vs **23.4 eV** corrected — verified numerically both ways, and the
+   constants verified against the source: S. Tougaard, *Surf. Interface
+   Anal.* **11**, 453 (1988), two-parameter universal cross-section
+   **B = 2866 eV², C = 1643 eV²** (also restated in the QUASES-Tougaard
+   documentation). B was already correct; only C changed (square dropped).
+   Impact of the old value: over a real ~15–20 eV window the kernel was
+   ~1e-9-scale, so the "Tougaard" background was essentially zero/flat.
+2. **BE-order dependence (same class as the np.interp registration bug).**
+   The one-sided loss sum (j ≥ i) is physical only on a DESCENDING BE
+   grid — loss contributions at each BE come from lower-BE (higher-KE)
+   emitters. Ascending input silently accumulated the background on the
+   wrong side (measured pre-fix: ascending vs descending outputs disagreed
+   everywhere). Fixed in both implementations by normalizing to descending
+   internally and flipping the result back — the mirror image of
+   `shirley_background`'s ascending normalization. Parity is now EXACT
+   (bit-identical) on uniform grids and on the non-uniform-grid loop path.
+3. **Trailing-endpoint rescale was degenerate — replaced, not preserved
+   (deliberate scope call, flagged for review).** The goal asked to
+   *document* the rescale, but measurement showed it never did what its
+   docstring claimed: K(0) = 0 makes the trailing bg sample IDENTICALLY
+   zero, so the `|| 1` / `else 1.0` zero-guard always fired and the
+   "rescale so the trailing endpoint matches the data" was in fact
+   "multiply the raw correlation by the trailing-point counts". Harmless
+   while the squared-C kernel kept everything near zero — but with C
+   corrected, the correlation is already at physical scale (counts), and
+   keeping the ×ya[-1] scale inflates the background by ~the baseline
+   counts (measured on a synthetic C 1s region: background 4× the peak
+   maximum). Documenting-but-keeping it would have shipped a worse
+   regression than the bug. Replaced with the standard practical Tougaard
+   normalization: scale so the background equals the measured intensity at
+   the **high-BE edge** of the window (equivalent to fitting B so the
+   background meets the spectrum above the peak; the nominal B = 2866
+   cancels in the scale — C alone sets the kernel shape). The old
+   degeneracy is documented in comments at both sites.
+4. **Tests** (`tests/test_tougaard_background.py`, 5;
+   `tests/js/tougaard_twin.test.js`, 4 — the JS tests extract the function
+   source from the template so they exercise the shipped code): kernel
+   response to a delta-like peak pinned at √(C/3) ≈ 23.4 eV above the
+   peak; exact ascending/descending parity on uniform AND non-uniform
+   grids; high-BE-edge anchor + zero at the low-BE edge; short-input
+   guard; backend↔frontend agreement pinned against values generated by
+   the corrected `fitting.py` (generation snippet committed in the test).
+   TDD: all pins watched fail against the buggy code first.
+5. **Docs**: CLAUDE.md background table corrected (it described a
+   B·T²/(C+T²)² form that was never implemented); fitting.py docstring
+   rewritten with the citation.
+
+Suite after fix: **440 passed, 3 skipped (the known env-gated modules),
+0 failures**; JS suite 52/52. Rails: branch-only, `/api/fit` and the
+autofit engine untouched (engine reaches the corrected function only
+through the existing `BackgroundType.TOUGAARD` dispatch). Codex
+checkpoint: run twice per rails — verdicts below.
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
