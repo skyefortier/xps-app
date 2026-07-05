@@ -91,7 +91,13 @@ def cdx_snapshots(elem, ext):
     be concluded from an HTTP-successful, well-formed, EMPTY result set."""
     base = f"srdata.nist.gov/xps/query_all_dat_el.{ext}?elm1={elem}"
     q = urllib.parse.quote(base, safe="")
-    url = f"https://web.archive.org/cdx/search/cdx?url={q}&output=json&limit=12"
+    # limit=200 is a sanity bound, not a practical cap: these obscure NIST
+    # pages carry a handful of captures. The old limit=12 made the
+    # "no starred line in ANY archived snapshot" conclusion an overclaim
+    # (Codex R2 re-check, both runs: a starred snapshot at CDX row 13
+    # would have been silently missed). cdx_rows in the manifest records
+    # the returned count so a bound-binding listing is visible.
+    url = f"https://web.archive.org/cdx/search/cdx?url={q}&output=json&limit=200"
     try:
         data = json.loads(http_get(url, timeout=45))
     except Exception as e:
@@ -109,12 +115,13 @@ def acquire(elem):
     rec = {"symbol": elem, "status": "FAILED", "reason": None,
            "snapshot_timestamp": None, "source_url": None, "sha256": None,
            "bytes": 0, "starred_pe_lines": [], "all_pe_line_count": 0,
-           "snapshots_checked": 0, "cdx_errors": [],
+           "snapshots_checked": 0, "cdx_errors": [], "cdx_rows": {},
            "fetch_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     snaps, errors = [], []
     for ext in ("asp", "aspx"):
         s, err = cdx_snapshots(elem, ext)
         snaps += [(ts, orig, sc, ext) for ts, orig, sc in s]
+        rec["cdx_rows"][ext] = len(s)
         if err:
             errors.append(f"{ext}: {err}")
     rec["cdx_errors"] = errors

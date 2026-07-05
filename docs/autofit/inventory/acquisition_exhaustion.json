@@ -2,157 +2,157 @@
   "failed_by_reason": {
     "artifact-has-no-starred-value": [
       {
-        "last_probe_utc": "2026-07-05T18:57:27Z",
+        "last_probe_utc": "2026-07-05T19:40:14Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Ar"
       },
       {
-        "last_probe_utc": "2026-07-05T18:53:41Z",
+        "last_probe_utc": "2026-07-05T19:34:31Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "B"
       },
       {
-        "last_probe_utc": "2026-07-05T19:03:24Z",
+        "last_probe_utc": "2026-07-05T19:48:40Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Ba"
       },
       {
-        "last_probe_utc": "2026-07-05T19:04:30Z",
+        "last_probe_utc": "2026-07-05T19:49:38Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Ce"
       },
       {
-        "last_probe_utc": "2026-07-05T18:57:08Z",
+        "last_probe_utc": "2026-07-05T19:39:07Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Cl"
       },
       {
-        "last_probe_utc": "2026-07-05T19:02:58Z",
+        "last_probe_utc": "2026-07-05T19:47:56Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Cs"
       },
       {
-        "last_probe_utc": "2026-07-05T18:59:23Z",
+        "last_probe_utc": "2026-07-05T19:42:42Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Ga"
       },
       {
-        "last_probe_utc": "2026-07-05T19:01:41Z",
+        "last_probe_utc": "2026-07-05T19:45:56Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "I"
       },
       {
-        "last_probe_utc": "2026-07-05T18:57:37Z",
+        "last_probe_utc": "2026-07-05T19:41:39Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
         "snapshots_checked": 5,
         "symbol": "K"
       },
       {
-        "last_probe_utc": "2026-07-05T19:00:15Z",
+        "last_probe_utc": "2026-07-05T19:44:02Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Kr"
       },
       {
-        "last_probe_utc": "2026-07-05T19:04:00Z",
+        "last_probe_utc": "2026-07-05T19:49:08Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "La"
       },
       {
-        "last_probe_utc": "2026-07-05T18:52:43Z",
+        "last_probe_utc": "2026-07-05T19:33:40Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (7 checked)",
         "snapshots_checked": 7,
         "symbol": "Li"
       },
       {
-        "last_probe_utc": "2026-07-05T18:54:21Z",
+        "last_probe_utc": "2026-07-05T19:35:06Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "N"
       },
       {
-        "last_probe_utc": "2026-07-05T18:56:04Z",
+        "last_probe_utc": "2026-07-05T19:36:41Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Na"
       },
       {
-        "last_probe_utc": "2026-07-05T18:55:28Z",
+        "last_probe_utc": "2026-07-05T19:36:09Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Ne"
       },
       {
-        "last_probe_utc": "2026-07-05T18:54:47Z",
+        "last_probe_utc": "2026-07-05T19:35:21Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "O"
       },
       {
-        "last_probe_utc": "2026-07-05T19:08:41Z",
+        "last_probe_utc": "2026-07-05T19:52:04Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Pu"
       },
       {
-        "last_probe_utc": "2026-07-05T19:00:40Z",
+        "last_probe_utc": "2026-07-05T19:44:40Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Rb"
       },
       {
-        "last_probe_utc": "2026-07-05T18:56:28Z",
+        "last_probe_utc": "2026-07-05T19:38:23Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "S"
       },
       {
-        "last_probe_utc": "2026-07-05T18:59:49Z",
+        "last_probe_utc": "2026-07-05T19:43:10Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Se"
       },
       {
-        "last_probe_utc": "2026-07-05T19:05:17Z",
+        "last_probe_utc": "2026-07-05T19:50:06Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Sm"
       },
       {
-        "last_probe_utc": "2026-07-05T19:01:14Z",
+        "last_probe_utc": "2026-07-05T19:45:28Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
         "snapshots_checked": 5,
         "symbol": "Sr"
       },
       {
-        "last_probe_utc": "2026-07-05T19:06:19Z",
+        "last_probe_utc": "2026-07-05T19:50:53Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Th"
       },
       {
-        "last_probe_utc": "2026-07-05T19:07:26Z",
+        "last_probe_utc": "2026-07-05T19:51:45Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "U"
       },
       {
-        "last_probe_utc": "2026-07-05T18:58:16Z",
+        "last_probe_utc": "2026-07-05T19:42:14Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
         "snapshots_checked": 5,
         "symbol": "V"
       },
       {
-        "last_probe_utc": "2026-07-05T19:02:22Z",
+        "last_probe_utc": "2026-07-05T19:47:08Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Xe"
