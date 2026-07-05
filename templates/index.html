@@ -1793,7 +1793,7 @@
           <button class="save-dropdown-item" onclick="exportFitTable('xlsx')"><span class="dd-icon">&#128202;</span><div>Export Table (XLSX)<small>All fit parameters</small></div></button>
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
           <button class="save-dropdown-item" id="auto-fit-c1s-menu-item" onclick="runAutoFitC1sGraphite()" title="Available only on C1s spectra (ROI midpoint 270–315 eV)"><span class="dd-icon">&#128293;</span><div>Auto-Fit C1s Graphite<small>One-click fit + charge correction</small></div></button>
-          <button class="save-dropdown-item" id="find-peaks-menu-item" onclick="openFindPeaksModal()" title="Grammar-driven candidate models with per-peak confidence (opt-in beta; manual fitting untouched)"><span class="dd-icon">&#129517;</span><div>Find Peaks (beta)<small>Candidates + confidence, named review required</small></div></button>
+          <button class="save-dropdown-item" id="find-peaks-menu-item" onclick="openFindPeaksModal()" title="Suggests peaks for the region you pick and shows how confident it is. Suggestions only — nothing changes your fit unless you add them."><span class="dd-icon">&#129517;</span><div>Find Peaks (beta)<small>Suggested peaks + confidence, reviewed by you</small></div></button>
           <div style="height:1px;background:var(--border);margin:4px 0"></div>
           <button class="save-dropdown-item" onclick="loadSession()"><span class="dd-icon">&#128194;</span><div>Load Fit or Project<small>Restore saved fit params</small></div></button>
           <button class="save-dropdown-item" onclick="exportResults()"><span class="dd-icon">&#128203;</span><div>Export Results<small>Peaks + areas as JSON</small></div></button>
@@ -12635,48 +12635,49 @@ document.addEventListener('mousedown', function(e) {
     <h3>Find Peaks <span style="font-size:10px;color:var(--text3)">BETA</span>
       <button class="btn btn-sm" onclick="closeFindPeaksModal()" style="float:right">&#x2715;</button>
     </h3>
-    <p style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 10px">
-      Fits the registered candidate-model grammar for the selected region(s)
-      server-side and reports <b>candidates + confidence flags — not ground
-      truth</b>. Applying results to the tab requires a named review.
-      Manual fitting is unaffected.
-    </p>
+    <p id="fp-blurb" style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 10px"></p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-      <label style="font-size:11px">Material class
+      <label style="font-size:11px" id="fp-material-label">Material class
         <select id="fp-material" class="btn" style="width:100%"></select>
       </label>
-      <label style="font-size:11px">Method
+      <label style="font-size:11px" id="fp-method-label">Method
         <select id="fp-method" class="btn" style="width:100%" onchange="_fpMethodChanged()"></select>
       </label>
-      <label style="font-size:11px">Region(s) <small style="color:var(--text3)">(ctrl-click for joint co-fit)</small>
+      <label style="font-size:11px" id="fp-regions-label">Region(s) <small style="color:var(--text3)">(ctrl-click to fit two together)</small>
         <select id="fp-regions" class="btn" multiple size="5" style="width:100%"></select>
       </label>
-      <label style="font-size:11px">Options <small style="color:var(--text3)">(JSON — adjustable defaults)</small>
-        <textarea id="fp-options" spellcheck="false" style="width:100%;height:96px;font-family:monospace;font-size:10px;background:var(--bg2);color:var(--text1);border:1px solid var(--border)"></textarea>
-      </label>
+      <div style="font-size:11px">
+        <div id="fp-method-hint" style="color:var(--text3);font-size:10px;line-height:1.45;margin-bottom:6px"></div>
+        <div id="fp-simple-options"></div>
+        <details id="fp-advanced" style="margin-top:6px">
+          <summary style="font-size:10px;color:var(--text3);cursor:pointer">Advanced (edit as JSON)</summary>
+          <textarea id="fp-options" spellcheck="false" style="width:100%;height:72px;font-family:monospace;font-size:10px;background:var(--bg2);color:var(--text1);border:1px solid var(--border);margin-top:4px"></textarea>
+        </details>
+      </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-      <button class="btn btn-accent" id="fp-run" onclick="runFindPeaks()">Run analysis</button>
+      <button class="btn btn-accent" id="fp-run" onclick="runFindPeaks()">Suggest peaks</button>
       <span id="fp-status" style="font-size:11px;color:var(--text2)"></span>
     </div>
     <div id="fp-results" style="display:none">
       <div id="fp-flags"></div>
-      <div id="fp-message" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
-      <h4 style="font-size:11px;margin:10px 0 4px">Candidate peaks (winner)</h4>
+      <h4 style="font-size:11px;margin:10px 0 4px">Suggested peaks</h4>
       <div style="overflow-x:auto"><table id="fp-peaks" style="width:100%;font-size:10px;border-collapse:collapse"></table></div>
-      <h4 style="font-size:11px;margin:10px 0 4px">Ranked alternatives</h4>
+      <h4 style="font-size:11px;margin:10px 0 4px" title="Every peak model that was tried for this region, ranked by how well the data supports it.">Other models compared</h4>
       <div style="overflow-x:auto"><table id="fp-cands" style="width:100%;font-size:10px;border-collapse:collapse"></table></div>
+      <details style="margin-top:8px">
+        <summary style="font-size:10px;color:var(--text3);cursor:pointer">Technical details</summary>
+        <div id="fp-message" style="font-size:10px;color:var(--text3);margin:4px 0;font-family:monospace;white-space:pre-wrap"></div>
+      </details>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
-        <input type="text" id="fp-reviewer" placeholder="Reviewed by (name required to apply)"
+        <input type="text" id="fp-reviewer" placeholder="Your name (required before adding peaks)"
+               title="Whoever adds these peaks takes responsibility for checking them — the name is saved with the fit."
                oninput="document.getElementById('fp-apply').disabled = !this.value.trim()"
                style="flex:1;font-size:11px;padding:4px 6px;background:var(--bg2);color:var(--text1);border:1px solid var(--border)">
-        <button class="btn" id="fp-apply" disabled onclick="applyFindPeaks()">Apply peaks to tab</button>
+        <button class="btn" id="fp-apply" disabled onclick="applyFindPeaks()"
+                title="Replaces this tab's current peaks with the suggested ones. You can undo this.">Add peaks to my fit</button>
       </div>
-      <p style="font-size:10px;color:var(--text3);margin:6px 0 0">
-        Applying replaces this tab's peak list with the winner's components
-        (your manual edits stay undo-able). The review name is recorded with
-        the applied model for this session.
-      </p>
+      <p id="fp-apply-note" style="font-size:10px;color:var(--text3);margin:6px 0 0"></p>
     </div>
   </div>
 </div>
@@ -12685,6 +12686,247 @@ document.addEventListener('mousedown', function(e) {
 // ── Find Peaks (beta) — all logic self-contained in this block ──────────
 let _fpMeta = null;        // /api/analyze/meta cache
 let _fpLast = null;        // last analysis result (for apply)
+
+// ═══ ALL user-facing wording lives HERE (one place, easy to iterate). ═══
+// Audience: bench chemists/spectroscopists. Engine jargon (grammar,
+// candidate-model, decisive_override, +bfix, role slugs) must never reach
+// the screen — the honest CONTENT stays, said plainly.
+const FP_STRINGS = {
+  blurb: 'Suggests a set of peaks for the region(s) you select and shows ' +
+         'how confident it is. These are <b>starting suggestions to ' +
+         'review — not final answers</b>. Nothing changes your manual fit ' +
+         'unless you add them.',
+  applyNote: 'Adding replaces this tab’s current peak list with the ' +
+             'suggested peaks. You can undo this (Ctrl+Z). Your name is ' +
+             'saved with the fit as the reviewer.',
+  tips: {
+    material: 'Conducting samples charge-correct differently from ' +
+              'insulating ones, and the suggested peak shapes differ too. ' +
+              'Pick what best describes YOUR sample.',
+    method: 'How the suggestions are generated. “Automatic” is ' +
+            'the right choice unless you have a reason otherwise.',
+    regions: 'Which core-level region(s) to model. Pick the region this ' +
+             'scan covers; ctrl-click two if one scan genuinely contains ' +
+             'both (e.g. N 1s inside a U 4f window).',
+    chi2r: 'Goodness of fit: about 1 means the model matches the data ' +
+           'within noise; higher means the model is missing structure.',
+    bic: 'Ranking score used to compare models — lower is better. Extra ' +
+         'peaks are only rewarded when the data genuinely supports them.',
+    sigmaCenter: 'Statistical uncertainty in the fitted peak position (eV).',
+    position: 'Fitted peak position, binding energy (eV).',
+    width: 'Fitted peak width, FWHM (eV).',
+    height: 'Fitted peak height (counts).',
+    shape: 'Line shape used for this peak.',
+    status: 'How this model fared: the best-supported one wins; others ' +
+            'are kept for comparison or rejected with the reason shown.',
+  },
+  methods: {
+    ic_model_comparison: {
+      label: 'Automatic — compare peak models (recommended)',
+      hint: 'Tries several physically sensible peak models for the ' +
+            'region, checks each for stability and plausibility, and ' +
+            'reports the best-supported one. Usually seconds to a minute.',
+    },
+    bayesian_exchange_mc: {
+      label: 'Automatic + confidence ranges (slower)',
+      hint: 'Same idea, but samples many fits to attach confidence ' +
+            'ranges to the result. Can take several minutes.',
+    },
+    sparse_map: {
+      label: 'Quick scan',
+      hint: 'A fast first look that estimates how many peaks are ' +
+            'present. Positions are approximate — follow up with ' +
+            '“Automatic”.',
+    },
+    least_squares: {
+      label: 'Re-fit my current peaks',
+      hint: 'Uses the peaks already on this tab as the starting model ' +
+            'and re-fits them. Add peaks manually first.',
+    },
+  },
+  // friendly controls per method — each writes into the Advanced JSON so
+  // the request itself is unchanged (values only, no new behavior)
+  controls: {
+    ic_model_comparison: [
+      { key: 'n_refits', type: 'number', min: 1, max: 32, step: 1,
+        label: 'Stability re-fits',
+        tip: 'How many times each model is re-fitted from different ' +
+             'starting points to check the answer is stable. More is ' +
+             'slower but more reliable.' },
+      { key: 'enable_proposal_pass', type: 'checkbox',
+        label: 'Look for unexpected extra peaks',
+        tip: 'After fitting, scan the leftover signal for a clear peak ' +
+             'the model missed and suggest it.' },
+    ],
+    bayesian_exchange_mc: [
+      { key: 'n_replicas', type: 'number', min: 4, max: 32, step: 1,
+        label: 'Samplers',
+        tip: 'Parallel samplers exploring the fit. More handles hard, ' +
+             'overlapping regions better — and takes longer.' },
+      { key: 'n_sweeps', type: 'number', min: 100, max: 20000, step: 100,
+        label: 'Sampling length',
+        tip: 'How long to sample. Longer gives steadier confidence ' +
+             'ranges — and takes longer.' },
+    ],
+    least_squares: [
+      { key: 'background_method', type: 'select',
+        choices: [['shirley', 'Shirley (standard)'],
+                  ['linear', 'Straight line']],
+        label: 'Background',
+        tip: 'How the background under the peaks is estimated before ' +
+             'fitting. Shirley is the usual choice for core levels.' },
+    ],
+    sparse_map: [],
+    _none: 'No settings needed — runs with tested defaults.',
+  },
+  status: {
+    winner: 'Best fit',
+    alternative: 'Alternative',
+    rejectedImplausible: 'Rejected — implausible',
+    rejectedUnstable: 'Rejected — unstable',
+    notFitted: 'Not fitted',
+  },
+  banners: {
+    noResult: 'No usable fit came out of this run — see Technical ' +
+              'details.',
+    pinnedLimit: 'Treat with caution: the best fit only held together by ' +
+                 'pinning {param} to a literature-based limit — the ' +
+                 'data wanted to go past it.',
+    constraintBind: 'Treat with caution: this fit is pressing against a ' +
+                    'literature-based limit ({details}).',
+    hiddenBetter: 'A rejected model ({name}) actually matched the data ' +
+                  'better than the one shown, but was set aside: {reason}. ' +
+                  'Worth a look before trusting the result.',
+    tooCloseToCall: 'Too close to call between: {pairs}. The data does ' +
+                    'not clearly favour one — treat the choice as ' +
+                    'provisional.',
+    provisional: 'Some values behind this fit are provisional (not yet ' +
+                 'literature-verified). See Technical details.',
+    extraPeakFound: 'An extra peak the model did not expect was found ' +
+                    'and included — check whether it is real in ' +
+                    'your data.',
+  },
+  toastApplied: 'Added {n} suggested peak(s) to your fit. These are ' +
+                'suggestions — double-check before publication use. ' +
+                'You can undo this.',
+  reviewReminder: 'Enter your name first — whoever adds these peaks ' +
+                  'is the reviewer of record.',
+  filterReasons: {
+    plausibility: 'a parameter hit a physically implausible value',
+    stability: 'the fit would not reproduce reliably',
+    orphan: 'components kept losing their identity between re-fits',
+  },
+};
+
+// engine candidate name → what a spectroscopist would call it (raw name
+// stays visible on hover)
+const FP_MODEL_LABELS = {
+  Cl0_doublet: 'Cl 2p doublet — textbook 2:1 ratio, equal widths',
+  Cl0r_doublet_relaxed: 'Cl 2p doublet — intensity ratio allowed to vary',
+  Cl0w_doublet_freewidth: 'Cl 2p doublet — 2p₁/₂ allowed to be broader',
+  Cl0rw_doublet_relaxed_freewidth: 'Cl 2p doublet — ratio and widths both free',
+  B2_low_mid: 'Two boron components (low + mid BE)',
+  B2b_low_oxide: 'Two boron components (low BE + oxide)',
+  B3_low_mid_oxide: 'Three boron components (low, mid, oxide)',
+  N0_pv: 'Single N 1s peak (symmetric)',
+  N0_asymGL: 'Single N 1s peak (asymmetric)',
+  U0_mains: 'U 4f doublet only',
+  U1_mains_satpair: 'U 4f doublet + tied satellite pair',
+  U1b_mains_satpair_freesep: 'U 4f doublet + satellite pair (free spacing)',
+  U2_mains_satfree: 'U 4f doublet + independent satellites',
+};
+
+function _fpModelLabel(raw) {
+  if (!raw) return '';
+  let name = String(raw), notes = [];
+  if (name.endsWith('+bfix')) {
+    name = name.slice(0, -5);
+    notes.push('one parameter held at its limit');
+  }
+  if (name.endsWith('+prop')) {
+    name = name.slice(0, -5);
+    notes.push('plus one extra suggested peak');
+  }
+  let label = FP_MODEL_LABELS[name];
+  if (!label) {
+    // C 1s family names are systematic — translate by pattern
+    let m = name.match(/^(A|AG|M|MG|B)(\d)/);
+    if (m) {
+      const fam = { A: 'Graphitic carbon + π→π* satellite',
+                    AG: 'Graphitic carbon + π→π* satellite',
+                    M: 'Graphitic + aliphatic carbon + satellite',
+                    MG: 'Graphitic + aliphatic carbon + satellite',
+                    B: 'Adventitious carbon only' }[m[1]];
+      const n = parseInt(m[2], 10);
+      label = fam + (n ? ` + ${n} oxidised-carbon peak${n > 1 ? 's' : ''}` : '');
+      if (name.includes('_linked_offset')) label += ' (shared widths, literature shifts)';
+      else if (name.includes('_linked')) label += ' (shared widths)';
+    }
+  }
+  if (!label) label = name.replace(/_/g, ' ');   // honest fallback
+  if (notes.length) label += ' — ' + notes.join('; ');
+  return label;
+}
+
+// slot role → peak name a chemist recognises
+const FP_ROLE_LABELS = {
+  main_cl2p32: 'Cl 2p₃/₂', main_cl2p12: 'Cl 2p₁/₂',
+  main_graphitic: 'Graphitic C', main_aliphatic: 'Aliphatic C',
+  satellite_pi: 'π→π* satellite',
+  'contamination_CO': 'C–O', 'contamination_C=O': 'C=O',
+  'contamination_OC=O': 'O–C=O',
+  main_b_low: 'B (low BE)', main_b_mid: 'B (mid BE)', main_b_oxide: 'B oxide',
+  main_n1s: 'N 1s',
+  main_u4f72: 'U 4f₇/₂', main_u4f52: 'U 4f₅/₂',
+  satellite_u4f72: 'U 4f₇/₂ satellite',
+  satellite_u4f52: 'U 4f₅/₂ satellite',
+};
+
+function _fpRoleLabel(role) {
+  if (!role) return '';
+  if (FP_ROLE_LABELS[role]) return FP_ROLE_LABELS[role];
+  const m = String(role).match(/^proposed_peak_(\d+)$/);
+  if (m) return 'Extra peak (suggested)';
+  return String(role).replace(/_/g, ' ');
+}
+
+// lmfit param slug ('s_main_cl2p12_ratio') → plain words
+function _fpParamLabel(slug) {
+  let s = String(slug).replace(/^s_/, '');
+  const params = { ratio: 'intensity ratio', fwhm: 'width',
+                   fwhm_excess: 'extra width', center: 'position',
+                   offset: 'separation', gl_ratio: 'G/L mix',
+                   asymmetry: 'asymmetry', amplitude: 'height',
+                   m_gauss: 'Gaussian width', alpha: 'α', beta: 'β' };
+  for (const p of Object.keys(params).sort((a, b) => b.length - a.length)) {
+    if (s.endsWith('_' + p)) {
+      const role = s.slice(0, -(p.length + 1));
+      return `the ${_fpRoleLabel(role)} ${params[p]}`;
+    }
+  }
+  return `“${s.replace(/_/g, ' ')}”`;
+}
+
+const FP_SHAPE_LABELS = {
+  pseudo_voigt_gl: 'Voigt-type (GL)', asymmetric_gl: 'Asymmetric GL',
+  gaussian: 'Gaussian', lorentzian: 'Lorentzian',
+  doniach_sunjic: 'Doniach–Šunjić', ds_g: 'DS + Gaussian',
+  la_casaxps: 'LA (CasaXPS)',
+};
+
+function _fpFilterReasonLabel(reason) {
+  const r = String(reason || '');
+  if (r.startsWith('stability')) return FP_STRINGS.status.rejectedUnstable;
+  if (r.includes('orphan_peaks=True'))
+    return FP_STRINGS.status.rejectedImplausible;
+  if (r.startsWith('plausibility'))
+    return FP_STRINGS.status.rejectedImplausible;
+  return FP_STRINGS.status.notFitted;
+}
+
+function _fpFmt(tpl, vars) {
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] != null ? vars[k] : '');
+}
 
 async function openFindPeaksModal() {
   if (!state.rawBE || !state.rawBE.length) {
@@ -12700,8 +12942,14 @@ async function openFindPeaksModal() {
     notify('Find Peaks backend unavailable: ' + e.message, 'amber');
     return;
   }
-  // server strings escaped even though currently code-controlled (a future
-  // registered label must never become an injection point)
+  // all wording from FP_STRINGS; server strings escaped even though
+  // currently code-controlled (a future registered label must never
+  // become an injection point)
+  document.getElementById('fp-blurb').innerHTML = FP_STRINGS.blurb;
+  document.getElementById('fp-apply-note').textContent = FP_STRINGS.applyNote;
+  document.getElementById('fp-material-label').title = FP_STRINGS.tips.material;
+  document.getElementById('fp-method-label').title = FP_STRINGS.tips.method;
+  document.getElementById('fp-regions-label').title = FP_STRINGS.tips.regions;
   const mat = document.getElementById('fp-material');
   mat.innerHTML = _fpMeta.material_classes
     .map(m => `<option value="${_fpEsc(m)}">${_fpEsc(m)}</option>`).join('');
@@ -12710,7 +12958,11 @@ async function openFindPeaksModal() {
     .map(r => `<option value="${_fpEsc(r)}">${_fpEsc(r)}</option>`).join('');
   const meth = document.getElementById('fp-method');
   meth.innerHTML = _fpMeta.methods
-    .map(m => `<option value="${_fpEsc(m.id)}">${_fpEsc(m.label || m.id)}</option>`).join('');
+    .map(m => {
+      const s = FP_STRINGS.methods[m.id] || {};
+      // friendly label; the backend's technical label stays on hover
+      return `<option value="${_fpEsc(m.id)}" title="${_fpEsc(m.label || m.id)}">${_fpEsc(s.label || m.label || m.id)}</option>`;
+    }).join('');
   meth.value = 'ic_model_comparison';
   _fpMethodChanged();
   document.getElementById('fp-results').style.display = 'none';
@@ -12725,8 +12977,80 @@ function closeFindPeaksModal() {
 function _fpMethodChanged() {
   const id = document.getElementById('fp-method').value;
   const m = (_fpMeta.methods || []).find(x => x.id === id);
+  const strs = FP_STRINGS.methods[id] || {};
+  document.getElementById('fp-method-hint').textContent = strs.hint || '';
+  // the Advanced JSON stays the single source of truth for the request —
+  // the friendly controls below are a labeled VIEW that writes into it
   document.getElementById('fp-options').value =
     JSON.stringify((m && m.default_options) || {}, null, 1);
+  _fpBuildSimpleControls(id);
+}
+
+function _fpBuildSimpleControls(methodId) {
+  const host = document.getElementById('fp-simple-options');
+  const defs = FP_STRINGS.controls[methodId] || [];
+  host.innerHTML = '';
+  if (!defs.length) {
+    const p = document.createElement('div');
+    p.style.cssText = 'font-size:10px;color:var(--text3)';
+    p.textContent = FP_STRINGS.controls._none;
+    host.appendChild(p);
+    return;
+  }
+  let opts = {};
+  try { opts = JSON.parse(document.getElementById('fp-options').value || '{}'); }
+  catch (e) { opts = {}; }
+  for (const def of defs) {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;' +
+      'font-size:11px;margin:3px 0';
+    row.title = def.tip;
+    let input;
+    if (def.type === 'checkbox') {
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = !!opts[def.key];
+    } else if (def.type === 'select') {
+      input = document.createElement('select');
+      input.className = 'btn';
+      for (const [v, text] of def.choices) {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = text;
+        input.appendChild(o);
+      }
+      if (opts[def.key] != null) input.value = String(opts[def.key]);
+    } else {
+      input = document.createElement('input');
+      input.type = 'number';
+      input.min = def.min; input.max = def.max; input.step = def.step;
+      input.style.cssText = 'width:72px;font-size:11px;background:var(--bg2);' +
+        'color:var(--text1);border:1px solid var(--border);padding:2px 4px';
+      if (opts[def.key] != null) input.value = opts[def.key];
+    }
+    input.id = 'fp-opt-' + def.key;
+    input.addEventListener('change', () => _fpSyncOptionsFromControls(methodId));
+    const span = document.createElement('span');
+    span.textContent = def.label;
+    if (def.type === 'checkbox') { row.appendChild(input); row.appendChild(span); }
+    else { row.appendChild(span); row.appendChild(input); }
+    host.appendChild(row);
+  }
+}
+
+function _fpSyncOptionsFromControls(methodId) {
+  // controls write INTO the JSON (unknown/advanced keys preserved) — the
+  // request path is unchanged; this is purely a friendlier way to edit it
+  let opts = {};
+  try { opts = JSON.parse(document.getElementById('fp-options').value || '{}'); }
+  catch (e) { opts = {}; }
+  for (const def of (FP_STRINGS.controls[methodId] || [])) {
+    const el = document.getElementById('fp-opt-' + def.key);
+    if (!el) continue;
+    if (def.type === 'checkbox') opts[def.key] = el.checked;
+    else if (def.type === 'select') opts[def.key] = el.value;
+    else if (el.value !== '') opts[def.key] = Number(el.value);
+  }
+  document.getElementById('fp-options').value = JSON.stringify(opts, null, 1);
 }
 
 async function runFindPeaks() {
@@ -12742,7 +13066,7 @@ async function runFindPeaks() {
   const method = document.getElementById('fp-method').value;
 
   btn.disabled = true;
-  status.textContent = 'Uploading + analyzing… (grammar methods can take a while)';
+  status.textContent = 'Analyzing… this can take a little while.';
   try {
     // corrected-frame data, same convention as the manual fit path
     const be = getCorrectedBE();
@@ -12757,7 +13081,8 @@ async function runFindPeaks() {
     if (method === 'least_squares') {
       payload.peak_specs = state.peaks.map(peakToBackendSpec);
       if (!payload.peak_specs.length) {
-        status.textContent = 'least_squares refits YOUR current peaks — add peaks first, or pick a grammar method.';
+        status.textContent = '“Re-fit my current peaks” needs peaks on ' +
+          'this tab first — add some, or pick “Automatic”.';
         btn.disabled = false;
         return;
       }
@@ -12790,31 +13115,63 @@ function _fpBanner(text, color) {
 function _fpRenderResults(body) {
   const flags = [];
   const d = body.diagnostics || {}, a = body.analysis || {};
-  if (!body.success) flags.push(_fpBanner('No surviving candidate — ' + _fpEsc(body.message), '#e05555'));
-  if (d.conditional) flags.push(_fpBanner('CONDITIONAL result (' + _fpEsc(d.conditional_reason) + ') — a lit-cited constraint binds; see message.', '#e0a030'));
+  const B = FP_STRINGS.banners;
+  if (!body.success) flags.push(_fpBanner(_fpEsc(B.noResult), '#e05555'));
+  if (d.conditional) {
+    // the engine's decisive_override / no_clean_survivor stories, said
+    // plainly: a literature-based limit had to hold the fit together
+    const pinned = (d.winner_boundary_fixed_params || [])
+      .map(_fpParamLabel).join(', ');
+    if (pinned) {
+      flags.push(_fpBanner(_fpEsc(_fpFmt(B.pinnedLimit, { param: pinned })),
+                           '#e0a030'));
+    } else {
+      const hits = (d.winner_boundary_hits || [])
+        .map(h => _fpParamLabel('s_' + String(h).replace(':', '_')
+                                .replace(/@(min|max)$/, ''))).join(', ');
+      flags.push(_fpBanner(_fpEsc(_fpFmt(B.constraintBind,
+        { details: hits || 'see Technical details' })), '#e0a030'));
+    }
+  }
   if (d.filtered_dominant_alternative) {
     const f = d.filtered_dominant_alternative;
-    flags.push(_fpBanner('&#9888; Filtered candidate <b>' + _fpEsc(f.name) + '</b> beats this winner by ΔBIC* ' +
-      (+f.delta_bic_vs_winner).toFixed(1) + ' but did not survive filtering (' + _fpEsc(f.filter_reason) + ').', '#e05555'));
+    flags.push(_fpBanner('&#9888; ' + _fpEsc(_fpFmt(B.hiddenBetter, {
+      name: _fpModelLabel(f.name),
+      reason: _fpFilterReasonLabel(f.filter_reason).toLowerCase(),
+    })), '#e05555'));
   }
   if (a.ambiguous_pairs && a.ambiguous_pairs.length)
-    flags.push(_fpBanner('Ambiguous alternatives (ΔBIC* within threshold): ' +
-      _fpEsc(a.ambiguous_pairs.map(p => p[0] + ' ↔ ' + p[1]).join('; ')), '#e0a030'));
+    flags.push(_fpBanner(_fpEsc(_fpFmt(B.tooCloseToCall, {
+      pairs: a.ambiguous_pairs
+        .map(p => _fpModelLabel(p[0]) + ' vs ' + _fpModelLabel(p[1]))
+        .join('; '),
+    })), '#e0a030'));
   if (a.model_selection_warning || a.selection_warning)
     flags.push(_fpBanner(_fpEsc(a.model_selection_warning || a.selection_warning), '#e0a030'));
   const nonv = (a.uses_conditional_or_unverified_constants || []).length;
-  if (nonv) flags.push(_fpBanner(nonv + ' CONDITIONAL/UNVERIFIED constants underlie this fit (see analysis provenance).', '#888'));
+  if (nonv) flags.push(_fpBanner(_fpEsc(B.provisional), '#888'));
+  const anyProposed = (body.peaks || []).some(
+    p => /^proposed_peak_/.test(p.role || ''));
+  if (anyProposed) flags.push(_fpBanner(_fpEsc(B.extraPeakFound), '#e0a030'));
   document.getElementById('fp-flags').innerHTML = flags.join('');
+  // the untranslated engine story stays available under Technical details
   document.getElementById('fp-message').textContent = body.message || '';
 
   const td = 'padding:2px 6px;border-bottom:1px solid var(--border);text-align:left';
+  const T = FP_STRINGS.tips;
+  const th = (text, tip) =>
+    `<th style="${td}" title="${_fpEsc(tip)}">${_fpEsc(text)}</th>`;
   const peaks = body.peaks || [];
   document.getElementById('fp-peaks').innerHTML =
-    `<tr><th style="${td}">role</th><th style="${td}">shape</th><th style="${td}">center</th><th style="${td}">fwhm</th><th style="${td}">amplitude</th><th style="${td}">σ(center)</th></tr>` +
+    '<tr>' + th('peak', 'Which component this is in the suggested model.') +
+    th('shape', T.shape) + th('position (eV)', T.position) +
+    th('width (eV)', T.width) + th('height', T.height) +
+    th('± position (eV)', T.sigmaCenter) + '</tr>' +
     peaks.map(p => {
       const conf = (body.confidence || {})[p.role] || {};
       const sc = conf.sigma_stat && conf.sigma_stat.values && conf.sigma_stat.values.center;
-      return `<tr><td style="${td}">${_fpEsc(p.role || p.id)}</td><td style="${td}">${_fpEsc(p.shape)}</td>` +
+      return `<tr><td style="${td}" title="${_fpEsc(p.role || p.id)}">${_fpEsc(_fpRoleLabel(p.role) || p.id)}</td>` +
+        `<td style="${td}" title="${_fpEsc(p.shape)}">${_fpEsc(FP_SHAPE_LABELS[p.shape] || p.shape)}</td>` +
         `<td style="${td}">${(+p.center).toFixed(3)}</td><td style="${td}">${p.fwhm != null ? (+p.fwhm).toFixed(3) : '—'}</td>` +
         `<td style="${td}">${p.amplitude != null ? (+p.amplitude).toFixed(0) : '—'}</td>` +
         `<td style="${td}">${sc != null ? (+sc).toFixed(3) : '—'}</td></tr>`;
@@ -12822,15 +13179,20 @@ function _fpRenderResults(body) {
 
   const cands = (a.candidates || []).slice()
     .sort((x, y) => (x.bic_star ?? 1e12) - (y.bic_star ?? 1e12));
+  const S = FP_STRINGS.status;
   document.getElementById('fp-cands').innerHTML = cands.length ?
-    `<tr><th style="${td}">candidate</th><th style="${td}">χ²ᵣ</th><th style="${td}">BIC*</th><th style="${td}">status</th></tr>` +
+    '<tr>' + th('model', 'A peak model that was tried for this region. ' +
+                'Hover a row for its internal name.') +
+    th('fit quality (χ²ᵣ)', T.chi2r) + th('ranking score', T.bic) +
+    th('status', T.status) + '</tr>' +
     cands.map(c => {
-      const status = c.name === d.winner ? '<b>WINNER</b>'
-        : (c.survived ? 'rank ' + _fpEsc(c.rank) : _fpEsc((c.filter_reason || 'not fitted').split(':')[0]));
-      return `<tr><td style="${td}">${_fpEsc(c.name)}</td>` +
+      const status = c.name === d.winner ? '<b>' + _fpEsc(S.winner) + '</b>'
+        : (c.survived ? _fpEsc(S.alternative)
+                      : _fpEsc(_fpFilterReasonLabel(c.filter_reason)));
+      return `<tr><td style="${td}" title="${_fpEsc(c.name)}">${_fpEsc(_fpModelLabel(c.name))}</td>` +
         `<td style="${td}">${c.reduced_chi_sq != null ? (+c.reduced_chi_sq).toFixed(2) : '—'}</td>` +
         `<td style="${td}">${c.bic_star != null ? (+c.bic_star).toFixed(1) : '—'}</td>` +
-        `<td style="${td}">${status}</td></tr>`;
+        `<td style="${td}" title="${_fpEsc(c.filter_reason || '')}">${status}</td></tr>`;
     }).join('') : '';
   document.getElementById('fp-reviewer').value = '';
   document.getElementById('fp-apply').disabled = true;
@@ -12863,8 +13225,9 @@ function applyFindPeaks() {
   const peaks = (_fpLast.body.peaks || []);
   if (!peaks.length) { notify('Nothing to apply — the analysis emitted no peaks.', 'amber'); return; }
   if (state.peaks.length &&
-      !confirm('Replace this tab\'s ' + state.peaks.length + ' peak(s) with the ' +
-               peaks.length + ' analysis candidates?')) return;
+      !confirm('Replace the ' + state.peaks.length + ' peak(s) on this tab ' +
+               'with the ' + peaks.length + ' suggested peak(s)? ' +
+               'You can undo this.')) return;
   // the manual path's real undo: the replaced peak list must be Ctrl-Z
   // recoverable (Codex analyze review blocker)
   pushUndo();
@@ -12886,8 +13249,7 @@ function applyFindPeaks() {
   renderPeakList();
   updatePlot();
   closeFindPeaksModal();
-  notify('Applied ' + peaks.length + ' candidate peak(s) — reviewed by ' + reviewer +
-         '. These are CANDIDATES: verify before publication use.', 'amber', true);
+  notify(_fpFmt(FP_STRINGS.toastApplied, { n: peaks.length }), 'amber', true);
 }
 </script>
 </body>
