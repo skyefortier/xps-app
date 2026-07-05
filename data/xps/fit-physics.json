@@ -955,6 +955,32 @@
    "transition": "Ir-4f7/2",
    "z": 77
   },
+  "Lu-4f7/2": {
+   "be_window_ev": {
+    "basis": "observed-reference-range",
+    "max": 7.19,
+    "min": 7.19,
+    "source": "nist-srd-20"
+   },
+   "derivation": "copied from data/xps (already sourced)",
+   "element": "Lu",
+   "nominal_be_ev": {
+    "source": "nist-srd-20",
+    "value": 7.19
+   },
+   "reference_tier": "machine",
+   "source_file": "elements-machine.json",
+   "statistical_area_ratio": {
+    "caveat": "measured intensity ratios deviate (e.g. U 4f fitted 0.65-0.75; satellite pairs ~0.9)",
+    "derivation": "theoretical-statistical (2j+1)",
+    "ratio": "4:3",
+    "status": "VERIFIED-arithmetic",
+    "value": 0.75
+   },
+   "status": "UNVERIFIED-machine-derived",
+   "transition": "Lu-4f7/2",
+   "z": 71
+  },
   "Mg-2p3/2": {
    "be_window_ev": {
     "basis": "observed-reference-range",

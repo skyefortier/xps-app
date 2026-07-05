@@ -1565,6 +1565,38 @@ elements from cited handbooks later). Machine-tier byte-identical
 regeneration re-verified after the re-probe (18 tests green — the
 committed outputs were untouched by it).
 
+**R2 Codex review ×2: NO-GO ×2 → the demanded hardening RECOVERED AN
+ELEMENT.** Both runs converged on the BLOCKER: `cdx_snapshots()`
+collapsed every CDX/network failure into "no snapshot", so the re-probe
+proved retry EXECUTION, not archive ABSENCE. Run A added two MAJORs:
+"no starred value" was concluded from the FIRST usable snapshot only
+(not archive-exhaustive), and the manifest-consistency pin silently
+ignored machine elements with no manifest row. ALL FIXED in the
+pipeline: CDX errors are now their own manifest reason class
+(`cdx query failed` — never certified, always re-probed; the summary
+marks it -UNPROVEN and the certification pin admits only the two proven
+classes); `acquire()` iterates EVERY listed snapshot earliest-first
+(polite 1.5s spacing, temp-file candidates, only the decision artifact
+promoted, `snapshots_checked` recorded); resume semantics distinguish
+archive-exhaustive no-starred conclusions from single-snapshot vintage
+records (which re-probe); the manifest row is now REQUIRED for every
+machine element. RE-VERIFICATION of all 51 failed elements under the
+hardened pipeline (2026-07-05): **Lu RECOVERED** — its starred 4f7/2
+line (Powe95) was absent from the first-listed snapshot but present in
+another; zero CDX errors; the 24 no-snapshot elements are now
+CDX-PROVEN empty; 26 no-starred conclusions are now archive-exhaustive
+(every listed snapshot checked). Lu emission followed the full
+discipline: independent agent cross-check (own ISO-8859-1-aware parser,
+exact agreement: one starred PE line, 4f7/2 = 7.19 eV Powe95, same
+sha256) → agent_crosscheck.json → deterministic regeneration.
+New certified counts: probed 103 = **53 OK + 24 proven-no-snapshot +
+26 exhaustively-no-starred**; machine tier **52 elements / 79
+transitions**; fit-physics.json 99 transitions; coverage report
+regenerated; all count pins updated (exhaustion, machine-tier, expand
+oracle incl. Lu in the 52-record acquisition set, browser tier-tally
+49→50). Elements with ≥1 sourced position: 74 of 96. Full suite green.
+Re-check ×2: below.
+
 **Unit R3 — chemical states: sourced-or-skip audit → SPARSE STAYS
 SPARSE (correct outcome, not failure).** Every candidate source audited
 (2026-07-05):

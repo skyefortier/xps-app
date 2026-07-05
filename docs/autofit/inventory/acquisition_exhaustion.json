@@ -2,268 +2,289 @@
   "failed_by_reason": {
     "artifact-has-no-starred-value": [
       {
-        "last_probe_utc": "2026-07-04T02:09:53Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:57:27Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
+        "snapshots_checked": 2,
         "symbol": "Ar"
       },
       {
-        "last_probe_utc": "2026-07-04T02:02:50Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:53:41Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "B"
       },
       {
-        "last_probe_utc": "2026-07-04T02:33:50Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:03:24Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Ba"
       },
       {
-        "last_probe_utc": "2026-07-04T02:36:11Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:04:30Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Ce"
       },
       {
-        "last_probe_utc": "2026-07-04T02:09:02Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:57:08Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
+        "snapshots_checked": 2,
         "symbol": "Cl"
       },
       {
-        "last_probe_utc": "2026-06-24T07:03:06Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:02:58Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Cs"
       },
       {
-        "last_probe_utc": "2026-07-04T02:17:44Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:59:23Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Ga"
       },
       {
-        "last_probe_utc": "2026-07-04T02:33:02Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:01:41Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "I"
       },
       {
-        "last_probe_utc": "2026-07-04T02:10:58Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:57:37Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
+        "snapshots_checked": 5,
         "symbol": "K"
       },
       {
-        "last_probe_utc": "2026-07-04T02:21:31Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:00:15Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
+        "snapshots_checked": 2,
         "symbol": "Kr"
       },
       {
-        "last_probe_utc": "2026-07-04T02:35:53Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:04:00Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "La"
       },
       {
-        "last_probe_utc": "2026-07-04T02:01:57Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:52:43Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (7 checked)",
+        "snapshots_checked": 7,
         "symbol": "Li"
       },
       {
-        "last_probe_utc": "2026-07-04T02:50:07Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
-        "symbol": "Lu"
-      },
-      {
-        "last_probe_utc": "2026-07-04T02:03:31Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:54:21Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
+        "snapshots_checked": 2,
         "symbol": "N"
       },
       {
-        "last_probe_utc": "2026-07-04T02:05:48Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:56:04Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Na"
       },
       {
-        "last_probe_utc": "2026-07-04T02:04:58Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:55:28Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
+        "snapshots_checked": 2,
         "symbol": "Ne"
       },
       {
-        "last_probe_utc": "2026-07-04T02:03:48Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:54:47Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "O"
       },
       {
-        "last_probe_utc": "2026-07-04T03:03:16Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:08:41Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Pu"
       },
       {
-        "last_probe_utc": "2026-06-24T07:02:51Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:00:40Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Rb"
       },
       {
-        "last_probe_utc": "2026-07-04T02:08:42Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:56:28Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "S"
       },
       {
-        "last_probe_utc": "2026-07-04T02:19:54Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:59:49Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Se"
       },
       {
-        "last_probe_utc": "2026-07-04T02:41:20Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:05:17Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Sm"
       },
       {
-        "last_probe_utc": "2026-07-04T02:21:49Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:01:14Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
+        "snapshots_checked": 5,
         "symbol": "Sr"
       },
       {
-        "last_probe_utc": "2026-07-04T03:00:30Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:06:19Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Th"
       },
       {
-        "last_probe_utc": "2026-07-04T03:01:40Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:07:26Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "U"
       },
       {
-        "last_probe_utc": "2026-07-04T01:52:49Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T18:58:16Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
+        "snapshots_checked": 5,
         "symbol": "V"
       },
       {
-        "last_probe_utc": "2026-07-04T02:33:25Z",
-        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line",
+        "last_probe_utc": "2026-07-05T19:02:22Z",
+        "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
+        "snapshots_checked": 6,
         "symbol": "Xe"
       }
     ],
     "no-archive-snapshot": [
       {
-        "last_probe_utc": "2026-07-05T17:31:51Z",
+        "last_probe_utc": "2026-07-05T18:45:54Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Ac"
       },
       {
-        "last_probe_utc": "2026-07-05T17:33:46Z",
+        "last_probe_utc": "2026-07-05T18:47:49Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Am"
       },
       {
-        "last_probe_utc": "2026-07-05T17:30:27Z",
+        "last_probe_utc": "2026-07-05T18:44:38Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "At"
       },
       {
-        "last_probe_utc": "2026-07-05T17:34:28Z",
+        "last_probe_utc": "2026-07-05T18:48:28Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Bk"
       },
       {
-        "last_probe_utc": "2026-07-05T17:29:13Z",
+        "last_probe_utc": "2026-07-05T18:42:39Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Br"
       },
       {
-        "last_probe_utc": "2026-07-05T17:35:10Z",
+        "last_probe_utc": "2026-07-05T18:48:48Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Cf"
       },
       {
-        "last_probe_utc": "2026-07-05T17:34:10Z",
+        "last_probe_utc": "2026-07-05T18:48:02Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Cm"
       },
       {
-        "last_probe_utc": "2026-07-05T17:35:39Z",
+        "last_probe_utc": "2026-07-05T18:49:23Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Es"
       },
       {
-        "last_probe_utc": "2026-07-05T17:28:50Z",
+        "last_probe_utc": "2026-07-05T18:42:00Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "F"
       },
       {
-        "last_probe_utc": "2026-07-05T17:35:45Z",
+        "last_probe_utc": "2026-07-05T18:50:29Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Fm"
       },
       {
-        "last_probe_utc": "2026-07-05T17:30:47Z",
+        "last_probe_utc": "2026-07-05T18:45:12Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Fr"
       },
       {
-        "last_probe_utc": "2026-07-05T17:28:04Z",
+        "last_probe_utc": "2026-07-05T18:40:12Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "H"
       },
       {
-        "last_probe_utc": "2026-07-05T17:28:39Z",
+        "last_probe_utc": "2026-07-05T18:41:32Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "He"
       },
       {
-        "last_probe_utc": "2026-07-05T17:37:01Z",
+        "last_probe_utc": "2026-07-05T18:51:49Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Lr"
       },
       {
-        "last_probe_utc": "2026-07-05T17:36:07Z",
+        "last_probe_utc": "2026-07-05T18:51:10Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Md"
       },
       {
-        "last_probe_utc": "2026-07-05T17:29:51Z",
+        "last_probe_utc": "2026-07-05T18:43:20Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Nd"
       },
       {
-        "last_probe_utc": "2026-07-05T17:36:22Z",
+        "last_probe_utc": "2026-07-05T18:51:33Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "No"
       },
       {
-        "last_probe_utc": "2026-07-05T17:33:21Z",
+        "last_probe_utc": "2026-07-05T18:47:37Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Np"
       },
       {
-        "last_probe_utc": "2026-07-05T17:33:09Z",
+        "last_probe_utc": "2026-07-05T18:46:38Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Pa"
       },
       {
-        "last_probe_utc": "2026-07-05T17:30:11Z",
+        "last_probe_utc": "2026-07-05T18:43:40Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Pm"
       },
       {
-        "last_probe_utc": "2026-07-05T17:30:17Z",
+        "last_probe_utc": "2026-07-05T18:43:47Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Po"
       },
       {
-        "last_probe_utc": "2026-07-05T17:31:28Z",
+        "last_probe_utc": "2026-07-05T18:45:30Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Ra"
       },
       {
-        "last_probe_utc": "2026-07-05T17:30:37Z",
+        "last_probe_utc": "2026-07-05T18:45:02Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Rn"
       },
       {
-        "last_probe_utc": "2026-07-05T17:29:40Z",
+        "last_probe_utc": "2026-07-05T18:42:49Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Tc"
       }
     ]
   },
-  "failed_count": 51,
+  "failed_count": 50,
   "generated_by": "scripts/summarize_acquisition.py",
-  "note": "Element coverage is EXHAUSTED under the no-invention rule: every element of the definitional periodic table was probed against the Wayback CDX for both archived SRD-20 page formats (query_all_dat_el.asp and .aspx). 'no-archive-snapshot' elements have NO snapshot of either format in the archive (re-confirmed by a fresh re-probe after clearing their manifest rows \u2014 CDX errors at first-sweep time were indistinguishable from true absence, so the re-probe was required evidence). 'artifact-has-no-starred-value' elements have an archived page but carry no NIST-evaluated (starred) photoelectron line \u2014 including the aspx-only format, which does not display evaluation markers at all (do NOT parse aspx pages for emission; see PROGRESS.md format finding). The boundary is the archive, not the pipeline.",
-  "ok_count": 52,
+  "note": "Element coverage is EXHAUSTED under the no-invention rule: every element of the definitional periodic table was probed against the Wayback CDX for both archived SRD-20 page formats (query_all_dat_el.asp and .aspx). 'no-archive-snapshot' elements have NO snapshot of either format \u2014 PROVEN: the hardened pipeline (2026-07-05, after the Codex R2 review) records a failed CDX query as its own reason class (cdx-query-failed-UNPROVEN, always re-probed, never certified), so this class contains only HTTP-successful, well-formed, EMPTY CDX results. 'artifact-has-no-starred-value' elements have an archived page but carry no NIST-evaluated (starred) photoelectron line in ANY listed snapshot (multi-snapshot iteration, earliest first \u2014 the same hardening recovered Lu, whose starred line was absent from the first-listed snapshot only) \u2014 including the aspx-only format, which does not display evaluation markers at all (do NOT parse aspx pages for emission; see PROGRESS.md format finding). The boundary is the archive, not the pipeline.",
+  "ok_count": 53,
   "ok_elements": [
     "Ag",
     "Al",
@@ -288,6 +309,7 @@
     "Ho",
     "In",
     "Ir",
+    "Lu",
     "Mg",
     "Mn",
     "Mo",

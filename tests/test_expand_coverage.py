@@ -81,7 +81,7 @@ def _acquisition_records():
 
 def test_acquisition_oracle_covers_all_expansion_records():
     acq = _acquisition_records()
-    assert len(acq) == 51        # 18 original + 33 full-table sweep 2026-07-03
+    assert len(acq) == 52        # 18 original + 33 full-table sweep 2026-07-03 + Lu (multi-snapshot re-verification 2026-07-05)
     assert set(EXPANSION) <= set(acq)
 
 
@@ -134,7 +134,7 @@ def test_rb_cs_failed_not_emitted():
 def test_machine_count_is_78():
     # 27 tiers-driven + 51 coverage-expansion (18 original EXPANSION set +
     # 33 full-table sweep 2026-07-03, each agent-cross-checked)
-    assert len(_machine_by_id()) == 78
+    assert len(_machine_by_id()) == 79
 
 
 def test_existing_machine_records_byte_unchanged_vs_snapshot():

@@ -72,16 +72,21 @@ def build():
             "every element of the definitional periodic table was probed "
             "against the Wayback CDX for both archived SRD-20 page formats "
             "(query_all_dat_el.asp and .aspx). 'no-archive-snapshot' "
-            "elements have NO snapshot of either format in the archive "
-            "(re-confirmed by a fresh re-probe after clearing their "
-            "manifest rows — CDX errors at first-sweep time were "
-            "indistinguishable from true absence, so the re-probe was "
-            "required evidence). 'artifact-has-no-starred-value' elements "
-            "have an archived page but carry no NIST-evaluated (starred) "
-            "photoelectron line — including the aspx-only format, which "
-            "does not display evaluation markers at all (do NOT parse "
-            "aspx pages for emission; see PROGRESS.md format finding). "
-            "The boundary is the archive, not the pipeline."),
+            "elements have NO snapshot of either format — PROVEN: the "
+            "hardened pipeline (2026-07-05, after the Codex R2 review) "
+            "records a failed CDX query as its own reason class "
+            "(cdx-query-failed-UNPROVEN, always re-probed, never "
+            "certified), so this class contains only HTTP-successful, "
+            "well-formed, EMPTY CDX results. "
+            "'artifact-has-no-starred-value' elements have an archived "
+            "page but carry no NIST-evaluated (starred) photoelectron "
+            "line in ANY listed snapshot (multi-snapshot iteration, "
+            "earliest first — the same hardening recovered Lu, whose "
+            "starred line was absent from the first-listed snapshot "
+            "only) — including the aspx-only format, which does not "
+            "display evaluation markers at all (do NOT parse aspx pages "
+            "for emission; see PROGRESS.md format finding). The boundary "
+            "is the archive, not the pipeline."),
     }
 
 

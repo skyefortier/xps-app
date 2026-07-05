@@ -1704,6 +1704,40 @@
       ]
     },
     {
+      "symbol": "Lu",
+      "z": 71,
+      "name": "Lutetium",
+      "curation_status": "machine",
+      "curation_notes": "Machine-source tier (coverage expansion): NIST-evaluated reference energy recovered from a single archived NIST SRD 20 element-page snapshot, parsed by the committed parser and cross-checked by an independent agent re-derivation; NOT human-verified. Spin-orbit partners and chemical-state assignments are not curated. See elements-machine.provenance.json.",
+      "families": [
+        {
+          "family": "4f",
+          "transitions": [
+            {
+              "id": "Lu-4f7/2",
+              "element": "Lu",
+              "z": 71,
+              "orbital": "4f7/2",
+              "transition_type": "photoelectron",
+              "nominal_be_ev": 7.19,
+              "spin_orbit": null,
+              "expected_region_ev": {
+                "min": 7.19,
+                "max": 7.19,
+                "basis": "observed-reference-range"
+              },
+              "visibility": {
+                "AlKa": "machine-unassessed"
+              },
+              "source": "nist-srd-20",
+              "tier": "machine",
+              "notes": "NIST-evaluated value (Powe95, starred on the SRD 20 element page); single archived snapshot, committed-parser + independent agent cross-checked. Region spans NIST records on the element page. Machine tier \u2014 not human-verified."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "symbol": "Hf",
       "z": 72,
       "name": "Hafnium",

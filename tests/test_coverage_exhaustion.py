@@ -1,11 +1,15 @@
 """Unit R2 — element-coverage exhaustion certification.
 
 The full-table NIST SRD-20 acquisition is COMPLETE: all 103 definitional
-elements probed, 52 archivally recoverable (all recovered into the tiers),
-51 structurally unrecoverable (no archive snapshot of either page format,
-re-confirmed by a fresh re-probe on 2026-07-05; or an archived page with
-no NIST-evaluated starred line). These pins certify the committed state
-and keep the counts from drifting silently.
+elements probed, 53 archivally recoverable (all recovered into the tiers
+— incl. Lu, recovered ONLY by the 2026-07-05 multi-snapshot iteration
+the Codex R2 review demanded), 50 structurally unrecoverable: 24 with NO
+archive snapshot of either page format (CDX-PROVEN empty — the hardened
+pipeline distinguishes a failed CDX query from an empty result, and the
+certified summary may contain zero unproven rows), 26 whose archived
+page carries no NIST-evaluated starred line in ANY listed snapshot.
+These pins certify the committed state and keep the counts from
+drifting silently.
 
 Always-on pins run against COMMITTED files only; the manifest-consistency
 pin self-skips when the gitignored .stage9 working data is absent (CI),
@@ -33,25 +37,25 @@ def _load(path):
 def test_committed_exhaustion_summary_counts():
     s = _load(SUMMARY)
     assert s["probed_element_count"] == 103        # full definitional table
-    assert s["ok_count"] == 52
-    assert s["failed_count"] == 51
+    assert s["ok_count"] == 53
+    assert s["failed_count"] == 50
     assert s["ok_count"] + s["failed_count"] == s["probed_element_count"]
     reasons = set(s["failed_by_reason"])
     # ONLY the two structural reasons — anything else means an unhandled
     # failure class snuck in (e.g. a transient error mistaken for absence)
     assert reasons <= {"no-archive-snapshot", "artifact-has-no-starred-value"}
     assert len(s["failed_by_reason"]["no-archive-snapshot"]) == 24
-    assert len(s["failed_by_reason"]["artifact-has-no-starred-value"]) == 27
+    assert len(s["failed_by_reason"]["artifact-has-no-starred-value"]) == 26
 
 
 def test_machine_tier_counts_and_provenance_coverage():
-    """51 elements / 78 transitions in the machine tier; every transition
+    """52 elements / 79 transitions in the machine tier; every transition
     has exactly one provenance record carrying the full chain."""
     machine = _load(os.path.join(DATA, "elements-machine.json"))["elements"]
-    assert len(machine) == 51
+    assert len(machine) == 52
     tids = [t["id"] for e in machine for f in e["families"]
             for t in f["transitions"]]
-    assert len(tids) == 78 and len(set(tids)) == 78
+    assert len(tids) == 79 and len(set(tids)) == 79
     prov = _load(os.path.join(DATA, "elements-machine.provenance.json"))
     recs = {p["id"]: p for p in prov["transitions"]}
     assert set(recs) == set(tids)

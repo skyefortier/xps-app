@@ -353,4 +353,4 @@ def test_only_corroborated_or_allowlisted_conflict_emitted():
 
 @stage9
 def test_emitted_count_matches_eligible_sanity():
-    assert len(_machine_transitions()) == 78   # 23 corroborated + 4 conflict-resolved + 51 coverage-expansion (full-table sweep 2026-07-03)
+    assert len(_machine_transitions()) == 79   # 23 corroborated + 4 conflict-resolved + 52 coverage-expansion (full-table sweep 2026-07-03 + Lu, multi-snapshot re-verification 2026-07-05)

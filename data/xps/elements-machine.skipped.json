@@ -9,7 +9,7 @@
     "no-evaluated-value": "coverage-expansion: artifact fetched but no NIST-evaluated (starred) photoelectron line \u2014 nothing sourceable to emit (e.g. Rb, Cs)",
     "already-machine-tier": "coverage-expansion: subshell already emitted by the Stage-9 tiers-driven machine path (additive-only)"
   },
-  "skipped_count": 337,
+  "skipped_count": 341,
   "transitions": [
     {
       "element": "Ac",
@@ -99,7 +99,7 @@
       "element": "Ar",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)"
     },
     {
       "element": "As",
@@ -202,7 +202,7 @@
       "element": "B",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Ba",
@@ -215,7 +215,7 @@
       "element": "Ba",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Be",
@@ -356,7 +356,7 @@
       "element": "Ce",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Cf",
@@ -382,7 +382,7 @@
       "element": "Cl",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)"
     },
     {
       "element": "Cm",
@@ -454,7 +454,7 @@
       "element": "Cs",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Cu",
@@ -583,7 +583,7 @@
       "element": "Ga",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Gd",
@@ -747,7 +747,7 @@
       "element": "I",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "In",
@@ -833,13 +833,13 @@
       "element": "K",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)"
     },
     {
       "element": "Kr",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)"
     },
     {
       "element": "La",
@@ -852,7 +852,7 @@
       "element": "La",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Li",
@@ -865,7 +865,7 @@
       "element": "Li",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (7 checked)"
     },
     {
       "element": "Lr",
@@ -875,9 +875,33 @@
     },
     {
       "element": "Lu",
-      "orbital": null,
-      "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "orbital": "4d5/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Lu",
+      "orbital": "4p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Lu",
+      "orbital": "4s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Lu",
+      "orbital": "5p3/2",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
+    },
+    {
+      "element": "Lu",
+      "orbital": "5s",
+      "reason": "context-undeterminable",
+      "detail": "no NIST-evaluated (starred) value for this line"
     },
     {
       "element": "Md",
@@ -994,7 +1018,7 @@
       "element": "N",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)"
     },
     {
       "element": "Na",
@@ -1014,7 +1038,7 @@
       "element": "Na",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Nb",
@@ -1088,7 +1112,7 @@
       "element": "Ne",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)"
     },
     {
       "element": "Ni",
@@ -1144,7 +1168,7 @@
       "element": "O",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Os",
@@ -1360,7 +1384,7 @@
       "element": "Pu",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Ra",
@@ -1372,7 +1396,7 @@
       "element": "Rb",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Re",
@@ -1470,7 +1494,7 @@
       "element": "S",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Sb",
@@ -1537,7 +1561,7 @@
       "element": "Se",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Si",
@@ -1574,7 +1598,7 @@
       "element": "Sm",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Sn",
@@ -1623,7 +1647,7 @@
       "element": "Sr",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)"
     },
     {
       "element": "Ta",
@@ -1756,7 +1780,7 @@
       "element": "Th",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Ti",
@@ -1861,7 +1885,7 @@
       "element": "U",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "V",
@@ -1874,7 +1898,7 @@
       "element": "V",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)"
     },
     {
       "element": "W",
@@ -1934,7 +1958,7 @@
       "element": "Xe",
       "orbital": null,
       "reason": "no-evaluated-value",
-      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line"
+      "detail": "coverage-expansion FAILED: artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)"
     },
     {
       "element": "Y",
