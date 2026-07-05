@@ -51,9 +51,12 @@ _REQUIRED = frozenset({"element", "level", "value_type", "value_ev",
 _OPTIONAL = frozenset({"oxidation_state", "uncertainty_ev", "method",
                        "convention"})
 
-# Rejected even when non-empty: citation laundering via placeholder text.
+# Rejected even when non-empty: citation laundering via placeholder text
+# (extended after the Codex D2 review — both runs probed "n-a"/"false"/"0"
+# through the original set).
 _PLACEHOLDER_CITATIONS = frozenset({
-    "none", "unknown", "n/a", "na", "todo", "tbd", "?", "-",
+    "none", "unknown", "n/a", "n-a", "na", "todo", "tbd", "?", "-", "--",
+    "false", "true", "0", "null", "nil", "no",
 })
 
 _LEVEL_RE = re.compile(r"^([1-7][spdf])(\d/2)?$")
@@ -95,7 +98,13 @@ def _validate_row(i: int, row: dict, test_only: bool) -> CitedValue:
     if missing:
         raise _reject(i, f"missing required field(s) {sorted(missing)}")
 
-    citation = str(row["source_citation"]).strip()
+    # a citation is TEXT — JSON false/true/0/numbers must not be
+    # str()-coerced into "citations" (Codex D2 review, both runs)
+    if not isinstance(row["source_citation"], str):
+        raise _reject(i, f"source_citation must be a string, got "
+                         f"{row['source_citation']!r} — a non-text value "
+                         "is not a citation")
+    citation = row["source_citation"].strip()
     if citation.lower() in _PLACEHOLDER_CITATIONS:
         raise _reject(i, f"placeholder citation {citation!r} rejected — "
                          "a real source citation is required")
@@ -194,29 +203,49 @@ def _rows_from_json(path: str) -> tuple[list[dict], bool]:
         raise CitedValueError(f"{path}: not valid JSON ({e})")
     if not isinstance(doc, dict):
         raise CitedValueError(f"{path}: top level must be an object")
-    if doc.get("schema_version") != 1:
+    sv = doc.get("schema_version")
+    # bool is an int subclass (True == 1) — the gate is a strict integer
+    if isinstance(sv, bool) or sv != 1:
         raise CitedValueError(
-            f"{path}: unsupported schema_version "
-            f"{doc.get('schema_version')!r} (expected 1)")
+            f"{path}: unsupported schema_version {sv!r} (expected 1)")
     rows = doc.get("rows")
     if not isinstance(rows, list):
         raise CitedValueError(f"{path}: 'rows' must be a list")
-    return rows, bool(doc.get("test_only", False))
+    test_only = doc.get("test_only", False)
+    # part of the provenance contract — no truthiness coercion
+    # (bool("false") is True; 1 is not a declaration)
+    if not isinstance(test_only, bool):
+        raise CitedValueError(
+            f"{path}: test_only must be a JSON boolean, got {test_only!r}")
+    return rows, test_only
 
 
 def _rows_from_csv(path: str) -> tuple[list[dict], bool]:
     rows: list[dict] = []
     with open(path, newline="") as f:
-        for n, raw in enumerate(csv.DictReader(f)):
-            # a row longer than the header lands under DictReader's None
-            # key — silently dropping it would hide a shifted/malformed row
-            if None in raw:
+        reader = csv.reader(f)
+        try:
+            header = next(reader)
+        except StopIteration:
+            return [], False
+        # DictReader silently collapses duplicate header names (last cell
+        # wins) — a blank source_citation could hide behind a duplicated
+        # column (Codex D2 review, both runs). Validate the header first.
+        dupes = sorted({h for h in header if header.count(h) > 1})
+        if dupes:
+            raise CitedValueError(
+                f"{path}: duplicate CSV header column(s) {dupes} — "
+                "malformed table rejected")
+        if any(not h.strip() for h in header):
+            raise CitedValueError(f"{path}: empty CSV header column name")
+        for n, cells in enumerate(reader):
+            if len(cells) > len(header):
                 raise CitedValueError(
                     f"row {n}: malformed CSV row — more cells than header "
-                    f"columns (overflow: {raw[None]!r})")
+                    f"columns (overflow: {cells[len(header):]!r})")
             # blank CSV cells are absent optionals, not empty strings
-            rows.append({k: (v if v not in ("", None) else None)
-                         for k, v in raw.items()})
+            rows.append({k: (v if v != "" else None)
+                         for k, v in zip(header, cells)})
     return rows, False
 
 

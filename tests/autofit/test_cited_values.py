@@ -73,7 +73,18 @@ def test_example_fixture_loads_as_test_only_unverified():
 
 
 def test_citation_required(tmp_path):
-    for bad in ("", "   ", None, "unknown", "N/A", "todo", "TBD", "none"):
+    for bad in ("", "   ", None, "unknown", "N/A", "todo", "TBD", "none",
+                # Codex D2 review (both runs): laundering probes that loaded
+                "n-a", "N-A", "false", "true", "0", "null", "nil"):
+        rows = [_row(source_citation=bad)]
+        with pytest.raises(CitedValueError, match="citation"):
+            load_cited_values(_write(tmp_path, rows))
+
+
+def test_non_string_citation_rejected(tmp_path):
+    """JSON false/true/0/numbers must not be str()-coerced into 'citations'
+    (Codex D2 review BLOCKER, both runs)."""
+    for bad in (False, True, 0, 1, 100.0, [], {}):
         rows = [_row(source_citation=bad)]
         with pytest.raises(CitedValueError, match="citation"):
             load_cited_values(_write(tmp_path, rows))
@@ -186,9 +197,41 @@ def test_csv_overflow_cells_rejected(tmp_path):
         load_cited_values(str(p))
 
 
+def test_csv_duplicate_headers_rejected(tmp_path):
+    """DictReader silently collapses duplicate header names (last cell
+    wins) — a blank source_citation can hide behind a duplicated column
+    (Codex D2 review MAJOR, both runs)."""
+    p = tmp_path / "dup.csv"
+    p.write_text(
+        "element,level,value_type,value_ev,source_citation,source_citation\n"
+        "Cl,2p3/2,binding_energy_ev,100.0,,SYNTHETIC-TEST-ONLY demo\n")
+    with pytest.raises(CitedValueError, match="duplicate"):
+        load_cited_values(str(p))
+    p2 = tmp_path / "dup2.csv"
+    p2.write_text(
+        "element,level,value_type,value_ev,value_ev,source_citation\n"
+        "Cl,2p3/2,binding_energy_ev,BAD,100.0,SYNTHETIC-TEST-ONLY demo\n")
+    with pytest.raises(CitedValueError, match="duplicate"):
+        load_cited_values(str(p2))
+
+
 def test_schema_version_gate(tmp_path):
     with pytest.raises(CitedValueError, match="schema_version"):
         load_cited_values(_write(tmp_path, [_row()], schema_version=2))
+    # True == 1 in Python — a boolean must not satisfy the integer gate
+    with pytest.raises(CitedValueError, match="schema_version"):
+        load_cited_values(_write(tmp_path, [_row()], schema_version=True))
+
+
+def test_test_only_must_be_boolean(tmp_path):
+    """A string 'false' must not be truthiness-coerced (bool('false') is
+    True); the flag is part of the provenance contract."""
+    for bad in ("false", "true", 1, 0, "yes"):
+        with pytest.raises(CitedValueError, match="test_only"):
+            load_cited_values(_write(tmp_path, [_row()], test_only=bad))
+    # actual booleans pass
+    assert load_cited_values(
+        _write(tmp_path, [_row()], test_only=True))[0].test_only is True
 
 
 def test_empty_table_loads_empty_never_invents(tmp_path):
