@@ -1,0 +1,36 @@
+Re-check of dispositions for unit R1 (reference bridge), branch
+feature-autofit-stage2. Original: NO-GO (run A) + GO (run B), stricter
+governs (archived: docs/autofit/codex/refpop_unit1_verdict_run{A,B}.md).
+Fix commit: the latest touching autofit/reference_bridge.py
+(`git log --oneline -3`). Probe directly.
+
+FINDING 1 (run A MAJOR): legacy positions synthesized
+expected_region_ev/spin_orbit None fields absent from the committed
+survey records. DISPOSITION: field-presence pass-through — the bridge
+(_add_position) and the coverage relay emit those fields ONLY when the
+committed record carries them; committed explicit nulls (curated/machine
+spin_orbit) still pass through as null. CHECK: probe Li 1s (legacy) —
+record must NOT contain the keys; Ti 2p (machine) — spin_orbit must be
+present-and-null exactly as committed; Cu 2p (curated) — as committed.
+
+FINDING 2 (run A MAJOR / run B MINOR): the global sweep only checked
+nominals. DISPOSITION: full-field sweep (nominal + expected_region_ev +
+spin_orbit with key-absence semantics, per tier), chemical states by id,
+plus test_structural_provenance_relays_bridge_values_unmutated proving
+the coverage-layer emission is identical to the bridge output.
+CHECK: would the hardened sweep catch (i) a fabricated curated
+spin_orbit, (ii) a defaulted legacy region window, (iii) a coverage-layer
+be_ev mutation of a chemical state?
+
+FINDING 3 (run A MINOR): sidecar-join refusal untested; join uniqueness
+unpinned. DISPOSITION: _join_machine_sidecar helper + refusal regression
+pin + value-uniqueness pin (each Ti machine position's nominal equals
+ITS OWN sidecar record's — 2p3/2 vs 3p differ). CHECK discrimination.
+
+SCOPE: the fix commit touches only reference_bridge.py, coverage.py
+(relay key-omission), test_reference_bridge.py, PROGRESS.md, verdict
+archives.
+
+Deliver: per-finding CLOSED/NOT-CLOSED, any new findings (severity +
+file/line + concrete scenario), then exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
