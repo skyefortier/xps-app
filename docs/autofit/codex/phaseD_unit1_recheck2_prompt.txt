@@ -1,0 +1,35 @@
+Re-check ROUND 2, Phase D unit 1 (autofit/coverage.py), branch
+feature-autofit-stage2. Round 1 (archived: docs/autofit/codex/
+phaseD_unit1_recheck_verdict_runA.md GO / _runB.md NO-GO — stricter
+governs) verified findings 1, 3, 4 CLOSED in both runs; the single
+residual was run B's MAJOR: the anti-confabulation guard allowed a
+numeric key named 'value' at ANY depth under statistical_area_ratio, so
+{"statistical_area_ratio": {"empirical_bound": {"value": 0.55}}} could
+launder structured empirical data.
+
+Fix commit: 11024a0 (`git show 11024a0`).
+DISPOSITION: the guard (tests/autofit/test_coverage_structure.py) now
+allows numeric 'value' ONLY when the walk path ends with the exact
+direct-child ".statistical_area_ratio.value"; run B's empirical_bound
+probe was re-run and verified CAUGHT. Also: the one decimal-prose
+docstring hit run A noted (Cl 2p 0.5 / U 4f 0.75 in a private docstring)
+was reworded to rationals (1:2 / 3:4) so the module source carries no
+decimal empirical-looking prose at all.
+
+CHECK adversarially, with direct probes (pytest may be unavailable —
+import the test module and drive _walk yourself):
+1. The exact-path condition: does run B's probe now fail the guard? Does
+   a legal structure still pass (the ratio record's own 'value')?
+2. Any REMAINING laundering route into the guard-checked output you can
+   construct: numeric under a novel non-whitelisted key (caught?), a
+   list-wrapped value, a bool-typed number, an int (integers are legal in
+   many places — could an empirical integer eV value hide under a
+   whitelisted key like 'occupancy'? judge whether that残 risk is
+   real or requires a malicious patch that pins would catch elsewhere),
+   string forms ("284.8", "1.6 eV", "1,600 meV"?).
+3. Scope: 11024a0 touches only the test file, the coverage.py docstring
+   line, and the two verdict archives.
+
+Deliver: CLOSED/NOT-CLOSED for the residual + any new findings
+(BLOCKER/MAJOR/MINOR + file/line + concrete failure scenario), then
+exactly "VERDICT: GO" or "VERDICT: NO-GO".
