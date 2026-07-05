@@ -1,0 +1,52 @@
+Adversarial review of unit R3 on branch feature-autofit-stage2 — the
+chemical-state sourced-or-skip audit (the latest commit touching
+tests/test_chem_state_tier.py; `git log --oneline -3`). Context:
+docs/autofit/PROGRESS.md "Unit R3" section. Read-only sandbox.
+
+THE OUTCOME TO JUDGE: ZERO new chemical states were emitted; the tier
+stays at 11 groups / 52 states. The unit's claim: no cleanly-sourceable
+extension exists under the no-hand-entry/no-memory rails, and the sparse
+outcome is CORRECT. Oxidation-state BEs are the highest confabulation
+risk — the reviewer's job is to verify nothing WAS emitted from memory
+AND that the "nothing sourceable" claim wasn't a lazy skip.
+
+THE AUDIT TRAIL TO VERIFY:
+1. Origin exhausted: the tier is a verbatim transcription (dual
+   extraction 4a/4b) of the frontend's embedded CHEMICAL_STATES constant,
+   which was subsequently REMOVED from templates/index.html. Verify the
+   removal + the pin (a resurrected constant fails the test). Check git
+   history if needed.
+2. Element pages: chemical-state class not recoverable (standing
+   gen_machine_tier "context-undeterminable" skip). Verify this is real
+   by inspecting an archived element page artifact if .stage9 is
+   readable (.stage9/extract_claude/*_nist.html): do rows carry any
+   compound/state context the claim overlooks?
+3. THE INTERESTING ONE — archived COMPOUND pages (elm_in_comp_res.asp):
+   the Stage-9 summaries (.stage9/extract_chem_*/groups_4*.json) show
+   per-compound BE rows (1591 for C 1s). The unit classifies them
+   NOT-EMITTABLE because the summaries carry no per-row reference codes,
+   no evaluated-star markers, and no retained raw artifacts (no sha
+   chain) — emitting would violate the tier's own per-state ref
+   contract. Verify each of those three absences yourself. Judge: is
+   the not-emittable ruling right, or is there a legitimate emission
+   path today that the unit missed (e.g. group-level source_url +
+   snapshot timestamp as provenance WITHOUT per-row refs — would that
+   satisfy the tier's record contract per data/xps/legacy/
+   chemical-states.json's own structure? The existing 52 states each
+   carry an editorial ref string). The pin
+   (test_compound_page_summaries_are_not_emittable) makes the
+   classification self-invalidating if refs/artifacts appear — judge
+   its discrimination.
+4. The future pipeline is LOGGED with preconditions (re-fetch, sha-pin,
+   per-row ref recovery, Skye's editorial condensation rules). Is the
+   handoff complete enough for a future session to execute without
+   re-deriving the audit?
+5. End-to-end: chem states reach the autofit bridge (unit R1) with
+   ref/source intact and UNVERIFIED status — verify the pin.
+
+SCOPE: the commit touches only tests/test_chem_state_tier.py and
+PROGRESS.md — NO data file changed, NO state emitted anywhere. Verify
+`git show` confirms zero data/xps changes.
+
+Deliver: numbered findings (BLOCKER/MAJOR/MINOR + file/line + concrete
+failure scenario), then exactly "VERDICT: GO" or "VERDICT: NO-GO".
