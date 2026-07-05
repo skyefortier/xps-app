@@ -182,6 +182,9 @@ def test_fallback_never_builds_from_db_values_and_derived_records_are_number_fre
                     allow_structural_fallback=True)
         assert g.candidates == [], (
             f"{region}: DB exposure must never build candidates")
+        assert g.diagnostic_windows == {}, (
+            f"{region}: DB be_window_ev must never surface as a "
+            f"diagnostic window (D3 recheck, both runs MINOR)")
         slug = region
         sourced_prefixes = ("fit_physics", "cited:")
         for rec in g.provenance[slug]:
@@ -318,8 +321,12 @@ def test_api_mixed_deep_plus_structural_runs_and_flags(client):
     assert body["structural_only"] == ["Fe 2p"]
     assert body["success"] is True          # the Cl 2p fit ran
     assert len(body["peaks"]) == 2
-    # the structural region's derived records ride in the analysis payload
-    assert "Fe 2p" in body["analysis"]["constants_provenance"]
+    # the structural region's derived records ride in the analysis payload —
+    # assert actual DERIVED content, not just the key (D3 recheck run B)
+    fe_constants = {r["constant"]
+                    for r in body["analysis"]["constants_provenance"]["Fe 2p"]}
+    assert {"structure", "binding_energy_ev",
+            "multiplet_prone_flag"} <= fe_constants
 
 
 def test_api_least_squares_never_reaches_structural_degradation(client):

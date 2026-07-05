@@ -1407,8 +1407,23 @@ composition). Run B (GO) added two MINOR regression pins, both landed:
 PhaseAmbiguityError-before-fallback on a two-phase structural region,
 and API pins for the mixed deep+structural payload (structural_only
 flagged, deep fit runs) + least_squares never reaching the structural
-degradation path. The re-check adversarially re-judges the argued
-disposition. Verdicts `phaseD_unit3_verdict_run{A,B}.md`.
+degradation path. Verdicts `phaseD_unit3_verdict_run{A,B}.md`.
+
+**Unit 3 re-check ×2: VERDICT GO ×2 — the argued disposition UPHELD by
+both runs.** Both independently ruled the rail bans INVENTED/estimated
+values and candidate/window construction, not the relay of sourced,
+status-limited, reference-only tiered-DB records ("these records are
+sourced provenance overlays, non-VERIFIED, and resolve() states they are
+reference-only"); both judged value-redaction/flag-gating NOT required
+(a product/UI policy question, not a correctness blocker). Both probed
+Cu 2p / Fe 2p directly: zero candidates, empty diagnostic_windows,
+structural_only set, reference-only note present. Two GO-rated MINOR
+test-tightenings, landed same-session: the DB-boundary test now asserts
+`diagnostic_windows == {}` (a future refactor surfacing be_window_ev as
+a window would otherwise slip past the "never windows" claim), and the
+mixed-API pin asserts actual derived record content (structure /
+binding_energy_ev / multiplet flag), not just the region key. Verdicts
+`phaseD_unit3_recheck_verdict_run{A,B}.md`. **UNIT 3 REVIEW-COMPLETE.**
 
 ### Phase D unit 1 Codex trail (×2 every round, stricter governs)
 
