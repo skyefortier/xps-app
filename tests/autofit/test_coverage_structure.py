@@ -186,41 +186,103 @@ def test_region_label_parsing_and_unknowns():
 _VALUE_BEARING_KEY = re.compile(
     r"(_ev$|_energy|energy_|^rsf|_rsf|fwhm|splitting|sensitivity)", re.I)
 
+# generic "value" is NOT here — it is only allowed inside the
+# statistical_area_ratio record (checked contextually below), so a wrapped
+# empirical value like {"splitting_ev": {"value": 1.6}} cannot launder
+# through a whitelisted leaf key (Codex D1 review, both runs).
 _ALLOWED_NUMERIC_KEYS = frozenset({
     "z", "n", "l", "occupancy", "capacity", "degeneracy",
-    "numerator", "denominator", "value", "period", "group",
+    "numerator", "denominator", "period", "group",
 })
 
+# decimal numbers, or integers glued to an eV unit, inside ANY string —
+# catches value-laundering through caveat/source prose ("284.8", "1.6 eV").
+# Derivable integer bookkeeping like "2j+1", "1:2", "3/2" stays legal.
+_STRING_VALUE_PATTERN = re.compile(r"\d+\.\d+|\b\d+(\.\d+)?\s*eV\b", re.I)
 
-def _walk(obj, path=""):
+
+def _walk(obj, path="", bearing=False):
+    """Yield (path, leaf, under_value_bearing_key) for every leaf."""
     if isinstance(obj, dict):
         for k, v in obj.items():
-            yield from _walk(v, f"{path}.{k}")
+            yield from _walk(v, f"{path}.{k}",
+                             bearing or bool(_VALUE_BEARING_KEY.search(k)))
     elif isinstance(obj, (list, tuple)):
         for i, v in enumerate(obj):
-            yield from _walk(v, f"{path}[{i}]")
+            yield from _walk(v, f"{path}[{i}]", bearing)
     else:
-        yield path, obj
+        yield path, obj, bearing
 
 
 def test_anti_confabulation_no_energy_values_anywhere():
     """THE GOVERNING RAIL: across the whole Z=1..96 output there must be no
     populated value-bearing field (binding energies, splittings, RSFs,
-    FWHMs), and every numeric leaf must belong to the whitelisted quantum
-    bookkeeping (Z, n, l, occupancies, degeneracies, ratio rationals,
-    period/group)."""
+    FWHMs) — including anything NESTED under a value-bearing key; every
+    numeric leaf must belong to the whitelisted quantum bookkeeping (the
+    ratio's 'value' only inside the statistical_area_ratio record); and no
+    string leaf may smuggle a decimal number or an eV-suffixed quantity
+    (caveat/source prose is scanned too)."""
     for sym in coverage.PERIODIC_TABLE:
         st = coverage.element_structure(sym)
-        for path, leaf in _walk(st):
+        for path, leaf, bearing in _walk(st):
             key = path.rsplit(".", 1)[-1].split("[")[0]
-            if _VALUE_BEARING_KEY.search(key):
+            if bearing:
                 assert leaf is None, (
-                    f"{sym}{path}: value-bearing field populated ({leaf!r}) — "
-                    "empirical values may only come from the cited-source loader")
+                    f"{sym}{path}: populated content under a value-bearing "
+                    f"key ({leaf!r}) — empirical values may only come from "
+                    "the cited-source loader")
             if isinstance(leaf, (int, float)) and not isinstance(leaf, bool):
-                assert key in _ALLOWED_NUMERIC_KEYS, (
-                    f"{sym}{path}: unexpected numeric leaf {leaf!r} under "
-                    f"non-whitelisted key {key!r}")
+                if key == "value":
+                    assert ".statistical_area_ratio." in path + ".", (
+                        f"{sym}{path}: numeric 'value' outside the "
+                        f"statistical-ratio record ({leaf!r})")
+                else:
+                    assert key in _ALLOWED_NUMERIC_KEYS, (
+                        f"{sym}{path}: unexpected numeric leaf {leaf!r} "
+                        f"under non-whitelisted key {key!r}")
+            if isinstance(leaf, str):
+                m = _STRING_VALUE_PATTERN.search(leaf)
+                assert m is None, (
+                    f"{sym}{path}: string leaf smuggles a numeric value "
+                    f"({m.group(0)!r} in {leaf!r}) — prose must not carry "
+                    "empirical numbers")
         # binding energy must exist as a field on every level and be None
         for lv in st["levels"]:
             assert "binding_energy_ev" in lv and lv["binding_energy_ev"] is None
+
+
+def test_cache_isolation_first_call_and_cache_hit():
+    """Mutating a returned structure must never corrupt later reads —
+    on BOTH the first-call and cache-hit paths (Codex D1 review, MINOR)."""
+    coverage._STRUCTURE_CACHE.clear()
+    first = coverage.element_structure("Ni")          # first-call path
+    first["levels"][0]["binding_energy_ev"] = 999.0
+    first["multiplet_prone"] = "corrupted"
+    second = coverage.element_structure("Ni")         # cache-hit path
+    assert second["levels"][0]["binding_energy_ev"] is None
+    assert isinstance(second["multiplet_prone"], bool)
+    second["levels"][0]["binding_energy_ev"] = 888.0
+    assert coverage.element_structure("Ni")["levels"][0]["binding_energy_ev"] is None
+    lv = coverage.level_structure("Ni", "2p")
+    lv["binding_energy_ev"] = 777.0
+    assert coverage.level_structure("Ni", "2p")["binding_energy_ev"] is None
+
+
+def test_madelung_anomaly_edge_cases_pinned():
+    """Pins the ALGORITHM's outputs for elements whose TRUE ground states
+    deviate from Madelung (real Cu is 3d10 4s1, Pd 4d10, La 5d1, Ce 4f1
+    5d1). These pins make encoding the real configurations a REVIEWED
+    decision that must consciously change this test — never a silent
+    'helpful' patch (no-invention rail; the caveat documents the deviation
+    instead). Codex D1 review, run B MINOR."""
+    def occ(sym):
+        return {c["subshell"]: c["occupancy"]
+                for c in coverage.element_structure(sym)["configuration"]}
+    assert occ("Cu")["3d"] == 9 and occ("Cu")["4s"] == 2      # Madelung, not real
+    assert coverage.element_structure("Cu")["multiplet_prone"] is True
+    assert occ("Pd")["4d"] == 8 and occ("Pd")["5s"] == 2      # Madelung, not real
+    assert coverage.element_structure("Pd")["multiplet_prone"] is True
+    assert occ("La")["4f"] == 1                                # Madelung, not real
+    assert coverage.element_structure("La")["multiplet_prone"] is True
+    assert occ("Ce")["4f"] == 2                                # Madelung, not real
+    assert coverage.element_structure("Ce")["multiplet_prone"] is True

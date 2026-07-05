@@ -99,9 +99,10 @@ _CONFIGURATION_CAVEAT = (
 
 _RATIO_CAVEAT = (
     "Theoretical (2j+1) statistical expectation for a FILLED subshell. "
-    "Measured doublet ratios deviate (Coster-Kronig broadening, "
-    "photoionization cross-section effects) — this lab's Cl 2p anchors peg "
-    "past a 0.55 ratio bound where theory says 0.5. Treat as a default "
+    "Measured doublet ratios deviate from the statistical value "
+    "(Coster-Kronig broadening, photoionization cross-section effects); "
+    "this lab's Cl 2p adjudication is the documented example "
+    "(docs/autofit/adjudication-decisions.md #7). Treat as a default "
     "EXPECTATION, never a hard constraint: allow a free/relaxed ratio and "
     "independent doublet widths when fitting."
 )

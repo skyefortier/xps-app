@@ -1,0 +1,71 @@
+Adversarial review of commit 884518b on branch feature-autofit-stage2 —
+Phase D unit 1: autofit/coverage.py, the derivable element-structure module
+(Z=1..96), plus tests/autofit/test_coverage_structure.py. Read-only
+sandbox; `git show 884518b` gives the diff. Context: docs/autofit/
+PROGRESS.md (Phase D goal: general-use coverage framework with a hard
+anti-confabulation rail).
+
+THE GOVERNING RAIL — AUDIT THIS HARDEST:
+The module must emit NO empirical values: no binding energies, no
+spin-orbit splitting magnitudes in eV, no RSFs, no FWHMs, no multiplet
+patterns — not from memory, not from formula estimates (no hydrogenic
+guesses). Audit line-by-line:
+(a) grep the module for numeric literals and verify every one is quantum
+    bookkeeping (Z, n, l, capacities 2(2l+1), degeneracies 2j+1, group
+    arithmetic) — nothing energy-like;
+(b) the ONLY value-bearing field is binding_energy_ev and it is ALWAYS
+    None;
+(c) the guard test (test_anti_confabulation_no_energy_values_anywhere)
+    actually discriminates — would it catch a populated *_ev field? A
+    numeric leaf under a new key? Any laundering hole (e.g. a value hidden
+    in a string, a caveat text carrying numbers)? NOTE the ratio caveat
+    text mentions "0.55" and "0.5" — judge whether citing this lab's OWN
+    measured Cl 2p anchor behavior (documented in PROGRESS.md/repo) inside
+    a caveat string violates the rail or is legitimate provenance context.
+
+DERIVATION CORRECTNESS:
+1. Madelung (n+l, n) filling: verify order and capacities; total electrons
+   == Z for all 96; the anomaly caveat honestly states true ground states
+   can deviate and that they are NOT encoded. Check the l<4 truncation
+   claim (no g-subshell fills by Madelung through Z=96).
+2. Spin-orbit bookkeeping: j = l ± 1/2 labels/degeneracies (p3/2:4, p1/2:2;
+   d5/2:6, d3/2:4; f7/2:8, f5/2:6); parent = higher-j listed first.
+3. Statistical ratios: l/(l+1) lower-over-higher (p 1/2, d 2/3, f 3/4),
+   exact rationals, expectation_only=True, filled-subshells-only (partial
+   → None). Convention matches the grammar's area_ratio (Cl 2p 0.5 child/
+   parent, U 4f 0.75) — check against autofit/regions/cl2p.py and u4f.py.
+4. Multiplet flag: open d/f in the Madelung config, flag-not-splitting,
+   oxidation + anomaly caveats. Probe edge cases: Zn (3d10 → False),
+   Pd (Madelung 4d8 → True; real Pd is 4d10 — is the caveat adequate?),
+   Cu (Madelung 3d9 → True; real Cu metal d10 — same question), La/Ce
+   (Madelung 4f-filling).
+5. Conductor-class positional rule: six-metalloid staircase; H/He special
+   case; group>=17 insulator; period-6 p-block conductor through Po;
+   f/d/s-block conductor. Spot-check ~10 elements across blocks. The
+   caveat must make clear it is a coarse elemental-solid DEFAULT
+   (allotropes: graphite vs diamond; oxides insulate) and user-overridable.
+6. Period/group/block computation from the config — check p-block group =
+   12+occ, d-block group = d+s occupancy, s-block, f-block group=None; He
+   → 18.
+
+DEFINITIONAL-TABLE INTEGRITY:
+The PERIODIC_TABLE literal was GENERATED from the committed
+scripts/gen_machine_tier.py table (not re-typed from memory) and the
+cross-pin test asserts exact equality for Z<=96 (symbol, Z, name) and the
+1..96 span. Run that comparison yourself. Also check _BY_Z inversion and
+the by-Z access path.
+
+API/ROBUSTNESS: element_structure symbol/Z access, KeyError paths,
+level_structure unknown-level, parse_region regex (rejects non-regions,
+unknown symbols), cache isolation (mutating a returned structure must not
+corrupt later reads — both first-call and cache-hit paths).
+
+TEST DISCRIMINATION: for each test, would it fail under a plausible bug
+(wrong degeneracy order, ratio inverted, capacity off-by-one, staircase
+typo, cache aliasing)?
+
+SCOPE: nothing outside autofit/coverage.py + the test file changed; no
+imports of it from the engine/request path yet (units D2/D3 integrate).
+
+Deliver: numbered findings (BLOCKER/MAJOR/MINOR + file/line + concrete
+failure scenario), then exactly "VERDICT: GO" or "VERDICT: NO-GO".
