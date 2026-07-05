@@ -1,0 +1,69 @@
+Re-check of dispositions for Phase D unit 3 (structural fallback),
+branch feature-autofit-stage2. Original review: NO-GO (run A) + GO
+(run B), stricter governs (archived: docs/autofit/codex/
+phaseD_unit3_verdict_runA.md / _runB.md; prompt
+phaseD_unit3_fallback_prompt.txt). Fix commit: 58a35f4
+(`git show 58a35f4`). Read-only sandbox; probe directly.
+
+THE CENTRAL ITEM — AN ARGUED DISPOSITION FOR YOU TO RE-JUDGE, NOT A
+CLOSED QUESTION. Run A's BLOCKER: fit-physics DB records carrying
+nominal_be_ev / be_window_ev / splitting_ev ride into structural
+provenance (e.g. Cu 2p), read as "the fallback creates fit-enabling
+numbers". The disposition ARGUES partial acceptance:
+
+KEPT (with reasoning you should stress-test):
+- These are the EXISTING tiered reference system's values: sha256-pinned
+  NIST-archive snapshots, machine tier, status-mapped UNVERIFIED, with
+  "hand-verification pending" in every record's source text
+  (autofit/fit_physics.py — that unit had its own Codex review).
+- The system is EXPOSURE-ONLY by reviewed design, and the deep-region
+  resolve path has attached the same records to every fit result since
+  run-brief item 4. The Phase D goal text requires the coverage
+  framework to "EXTEND that same tiered-provenance system, not replace
+  it". The anti-confabulation rail bans INVENTED values (memory/formula
+  estimates) and gap-filling — a sourced, provenance-carrying,
+  UNVERIFIED-flagged relay is neither.
+- Removing the exposure would hide from the user exactly the honest
+  curation hint ("the DB already holds an archived value for this
+  region — verify it, or supply a cited source").
+
+ACCEPTED AND FIXED:
+- The boundary was UNGUARDED: nothing pinned that DB values never become
+  candidates/windows. New test
+  (test_fallback_never_builds_from_db_values_and_derived_records_are_
+  number_free): DB-covered regions (Cu 2p, Fe 2p) produce zero
+  candidates; every eV-bearing number in structural provenance must
+  live under a SOURCED record (constant prefixed fit_physics:* or
+  cited:*), and such records must never carry VERIFIED status; the
+  derived-structure records are walked with the laundering pattern and
+  must be number-free.
+- The semantics were UNSTATED: resolve() now emits an explicit note
+  when DB entries ride along ("exposed for reference only … not used to
+  build candidates or windows; positions remain UNVERIFIED until
+  cited/curated") — watched fail before the note was added.
+
+YOUR JUDGMENT: is the KEPT part sound under the Phase D goal text (read
+the goal excerpt at the top of docs/autofit/PROGRESS.md's Phase D
+section), or does the rail as you read it require stripping sourced DB
+values from STRUCTURAL (no-candidates) responses specifically? If you
+rule stripping is required, say so as a BLOCKER with your reasoning
+against the extend-the-tiering argument. Judge the middle grounds too
+(e.g. redacting values but keeping entry KEYS; or gating exposure behind
+an explicit flag).
+
+ALSO VERIFY (run B MINORs, landed in the same commit):
+1. test_phase_ambiguity_checked_before_fallback — two-phase structural
+   region still raises PhaseAmbiguityError with the fallback on.
+2. API pins: mixed deep+structural request → deep fit runs,
+   structural_only == ["Fe 2p"], derived records in
+   analysis.constants_provenance; least_squares with an unregistered
+   region → no structure_report, structural_only == [].
+Would each pin fail under the bug it guards?
+
+SCOPE: 58a35f4 touches autofit/grammar.py (the note), the fallback test
+file, PROGRESS.md, and the two verdict archives only.
+
+Deliver: per-item CLOSED/NOT-CLOSED (the argued disposition gets your
+explicit ruling), any new findings (BLOCKER/MAJOR/MINOR + file/line +
+concrete failure scenario), then exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
