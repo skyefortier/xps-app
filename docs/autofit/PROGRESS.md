@@ -1529,7 +1529,9 @@ elements carry ≥1 sourced position (curated 6, machine 51, legacy survey
 keep the pure structure-only degradation. Anti-invention pinned by a
 global sweep test: every bridged position value-identical to a committed
 data-file record, for all Z=1..96. Tests never hardcode a BE — expected
-values are read programmatically from the data files. 9 tests.
+values are read programmatically from the data files. 8 tests (the R1
+commit message says 9 tests / suite 495 — off-by-one, actual 8 / 494;
+corrected here rather than rewriting pushed history).
 ALL bridged positions remain subject to Skye's hand-check (machine tier)
 per the standing handoff item.
 

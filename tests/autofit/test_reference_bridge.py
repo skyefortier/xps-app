@@ -146,22 +146,32 @@ def test_uncovered_element_returns_no_positions():
 
 
 def test_bridge_emits_nothing_not_in_data_xps():
-    """Global anti-invention sweep: EVERY position the bridge emits for
-    EVERY Z=1..96 element/level must be value-identical to a record in the
-    committed data files."""
+    """Global anti-invention sweep, FULL-FIELD (Codex R1 review, both
+    runs): every position the bridge emits for every Z=1..96
+    element/level must be FIELD-IDENTICAL to its committed record —
+    nominal, expected_region_ev, spin_orbit (committed explicit null
+    stays null; a field ABSENT in the source must be ABSENT in the
+    emission, never synthesized as None) — and every bridged chemical
+    state must match its committed record by id."""
     from autofit import coverage
-    allowed = set()
-    machine = _load("elements-machine.json")["elements"]
-    for e in machine + _load("elements-main.json")["elements"] \
-            + _load("elements-actinides.json")["elements"] \
-            + _load("elements-lanthanides.json")["elements"]:
-        for fam in e["families"]:
-            for t in fam["transitions"]:
-                allowed.add((e["symbol"], t["orbital"],
-                             float(t["nominal_be_ev"])))
+
+    committed: dict[tuple, dict] = {}
+    for fname, tier in (("elements-machine.json", "machine"),
+                        ("elements-main.json", "curated"),
+                        ("elements-actinides.json", "curated"),
+                        ("elements-lanthanides.json", "curated")):
+        for e in _load(fname)["elements"]:
+            for fam in e["families"]:
+                for t in fam["transitions"]:
+                    committed[(e["symbol"], t["orbital"], tier)] = t
     for e in _load(os.path.join("legacy", "survey-lines.json"))["elements"]:
         for ln in e["lines"]:
-            allowed.add((e["symbol"], ln["orbital"], float(ln["be_ev"])))
+            committed[(e["symbol"], ln["orbital"], "legacy")] = ln
+
+    chem_by_id = {s["id"]: s
+                  for g in _load(os.path.join(
+                      "legacy", "chemical-states.json"))["groups"]
+                  for s in g["states"]}
 
     emitted = 0
     for sym in coverage.PERIODIC_TABLE:
@@ -170,11 +180,78 @@ def test_bridge_emits_nothing_not_in_data_xps():
             ref = rb.level_reference(sym, lv["level"])
             for pos in ref["positions"]:
                 emitted += 1
-                key = (sym, pos["orbital"], float(pos["nominal_be_ev"]))
-                assert key in allowed, (
+                key = (sym, pos["orbital"], pos["tier"])
+                assert key in committed, (
                     f"{key}: bridge emitted a position not present in "
                     "data/xps — INVENTION")
+                src = committed[key]
+                assert pos["nominal_be_ev"] == src.get(
+                    "nominal_be_ev", src.get("be_ev"))
+                for field in ("expected_region_ev", "spin_orbit"):
+                    if field in src:
+                        assert field in pos and pos[field] == src[field], (
+                            f"{key}.{field}: emission differs from the "
+                            "committed record")
+                    else:
+                        assert field not in pos, (
+                            f"{key}.{field}: synthesized field — the "
+                            "committed record has no such key")
+            for s in ref["chemical_states"]:
+                emitted += 1
+                src = chem_by_id[s["id"]]
+                assert s["be_ev"] == src["be_ev"] and s["ref"] == src["ref"]
     assert emitted > 0
+
+
+def test_structural_provenance_relays_bridge_values_unmutated():
+    """The coverage-layer emission must relay bridge values IDENTICALLY —
+    a mutation between the bridge and the analysis namespace is the same
+    class of invention (Codex R1 review, run A MAJOR 2)."""
+    from autofit import coverage
+    for region in ("Ti 2p", "Cu 2p", "Li 1s", "C 1s"):
+        sym, sub = region.split()
+        bridged = rb.level_reference(sym, sub)
+        records, _ = coverage.structural_provenance(region)
+        by_const = {}
+        for r in records:
+            by_const.setdefault(r["constant"], []).append(r)
+        for pos in bridged["positions"]:
+            recs = by_const[f"reference:{pos['tier']}:{pos['orbital']}"]
+            assert any(
+                r["value"]["nominal_be_ev"] == pos["nominal_be_ev"]
+                and r["value"].get("expected_region_ev") ==
+                    pos.get("expected_region_ev")
+                and r["value"].get("spin_orbit") == pos.get("spin_orbit")
+                and r["status"] == pos["status"]
+                for r in recs), (
+                f"{region} {pos['orbital']}: provenance record mutated "
+                "relative to the bridge")
+        if bridged["chemical_states"]:
+            agg = by_const["reference:legacy:chemical_states"][0]
+            assert agg["value"] == bridged["chemical_states"]
+
+
+def test_machine_sidecar_join_refusal_and_uniqueness():
+    """(a) A machine transition with no sidecar record must REFUSE to
+    bridge (never emit naked); (b) the join is by-id and value-unique —
+    each Ti position's nominal equals ITS OWN sidecar record's nominal
+    (Ti 2p3/2 and Ti 3p differ, so a wrong-key join cannot hide).
+    Codex R1 review, run A MINOR."""
+    from autofit.reference_bridge import _join_machine_sidecar
+    with pytest.raises(ValueError, match="no provenance sidecar"):
+        _join_machine_sidecar({"id": "Xx-9z"}, {})
+
+    sidecar = {p["id"]: p for p in
+               _load("elements-machine.provenance.json")["transitions"]}
+    ref = rb.level_reference("Ti", "2p")
+    machine_pos = [p for p in ref["positions"] if p["tier"] == "machine"]
+    ref3p = rb.level_reference("Ti", "3p")
+    machine_pos += [p for p in ref3p["positions"] if p["tier"] == "machine"]
+    assert len({p["orbital"] for p in machine_pos}) >= 2
+    for p in machine_pos:
+        sc = sidecar[f"Ti-{p['orbital']}"]
+        assert p["nominal_be_ev"] == sc["nominal_be_ev"], (
+            f"Ti-{p['orbital']}: joined the wrong sidecar record")
 
 
 def test_structural_fallback_carries_bridge_records():

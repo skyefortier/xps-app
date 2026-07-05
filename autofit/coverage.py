@@ -418,15 +418,19 @@ def structural_provenance(region: str, cited_values=None
     from . import reference_bridge  # lazy: avoid import cost when unused
     bridged = reference_bridge.level_reference(sym, subshell)
     for pos in bridged["positions"]:
+        value = {
+            "nominal_be_ev": pos["nominal_be_ev"],
+            "source_id": pos["source_id"],
+            "provenance": pos["provenance"],
+        }
+        # relay ONLY fields the committed record carries (key absence is
+        # meaningful — never synthesize a None the source doesn't have)
+        for field in ("expected_region_ev", "spin_orbit"):
+            if field in pos:
+                value[field] = pos[field]
         records.append({
             "constant": f"reference:{pos['tier']}:{pos['orbital']}",
-            "value": {
-                "nominal_be_ev": pos["nominal_be_ev"],
-                "expected_region_ev": pos["expected_region_ev"],
-                "spin_orbit": pos["spin_orbit"],
-                "source_id": pos["source_id"],
-                "provenance": pos["provenance"],
-            },
+            "value": value,
             "status": pos["status"],
             "source": (f"{pos['citation'] or pos['source_id']} "
                        f"[{pos['tier']} tier via data/xps]"

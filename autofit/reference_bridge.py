@@ -66,6 +66,18 @@ def _subshell(orbital: str) -> str:
     return m.group(1) if m else orbital
 
 
+def _join_machine_sidecar(transition: dict, sidecar: dict) -> dict:
+    """By-id join of a machine transition to its provenance record.
+    A machine value with no sidecar record violates the tier's own
+    contract — REFUSE it, never emit a machine position naked."""
+    sc = sidecar.get(transition["id"])
+    if sc is None:
+        raise ValueError(
+            f"machine transition {transition['id']} has no provenance "
+            "sidecar record — refusing to bridge it")
+    return sc
+
+
 def _load_bridge() -> dict:
     """Build the (element, subshell) → positions/chem-states index once.
 
@@ -97,10 +109,6 @@ def _load_bridge() -> dict:
         rec = {
             "orbital": t["orbital"],
             "nominal_be_ev": t["nominal_be_ev"],
-            "expected_region_ev": t.get("expected_region_ev"),
-            # spin_orbit is exposed EXACTLY as committed — explicit null
-            # for singlets/uncurated partners; never fabricated here
-            "spin_orbit": t.get("spin_orbit"),
             "tier": tier,
             "status": BRIDGE_TIER_STATUS[tier],
             "source_id": source_id,
@@ -108,6 +116,15 @@ def _load_bridge() -> dict:
             "notes": notes,
             "provenance": provenance,
         }
+        # Fields ride ONLY when the committed record carries them (Codex R1
+        # review, run A MAJOR: a legacy survey line has no
+        # expected_region_ev/spin_orbit — synthesizing None would be a
+        # default, not a pass-through). A committed EXPLICIT null (the
+        # schema forces curated/machine spin_orbit to be present, null for
+        # singlets/uncurated partners) passes through as null.
+        for field in ("expected_region_ev", "spin_orbit"):
+            if field in t:
+                rec[field] = t[field]
         positions.setdefault((sym, _subshell(t["orbital"])), []).append(rec)
 
     # curated tier (elements-main + lanthanides + actinides, loader-merged)
@@ -120,7 +137,6 @@ def _load_bridge() -> dict:
                     provenance=None)
 
     # machine tier + sha256 provenance sidecar join (by transition id)
-    sidecar: dict[str, dict] = {}
     prov_doc = ref.get("machine_provenance")
     if prov_doc is None:
         import json
@@ -131,13 +147,7 @@ def _load_bridge() -> dict:
     for el in ref["machine"]:
         for fam in el["families"]:
             for t in fam["transitions"]:
-                sc = sidecar.get(t["id"])
-                if sc is None:
-                    # a machine value with no provenance record violates
-                    # the tier's own contract — refuse, never emit naked
-                    raise ValueError(
-                        f"machine transition {t['id']} has no provenance "
-                        "sidecar record — refusing to bridge it")
+                sc = _join_machine_sidecar(t, sidecar)
                 ns = sc["nominal_source"]
                 _add_position(
                     el["symbol"], "machine", t,
