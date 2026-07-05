@@ -3589,10 +3589,13 @@ class TabManager {
         si.disabled = !needsIter;
         si.style.opacity = needsIter ? '1' : '0.4';
       }
+      // Endpoint averaging also applies to Tougaard (it sets the high-BE
+      // amplitude anchor), not just the Shirley iteration family.
+      const needsEpAvg = needsIter || ui.bgType === 'tougaard';
       const epAvg = document.getElementById('bg-endpoint-avg');
       if (epAvg) {
-        epAvg.disabled = !needsIter;
-        epAvg.style.opacity = needsIter ? '1' : '0.4';
+        epAvg.disabled = !needsEpAvg;
+        epAvg.style.opacity = needsEpAvg ? '1' : '0.4';
       }
       if (typeof _updateManualAnchorCount === 'function') _updateManualAnchorCount();
     }
@@ -4047,8 +4050,11 @@ function tougaardBackground(be, intensity) {
   // the practical Tougaard criterion (B effectively fitted; C alone sets
   // the kernel shape). The old code "rescaled to the trailing endpoint",
   // but K(0)=0 makes bg[n-1] identically zero, so the || 1 guard always
-  // fired and it multiplied by raw trailing counts instead. The guard now
-  // only protects the all-zero-signal case.
+  // fired and it multiplied by raw trailing counts instead. Guard
+  // semantics: if no net loss signal accumulates at the high-BE edge
+  // (bg[0] === 0), the correlation is returned UNANCHORED (all zeros in
+  // practice) rather than force-matched to the edge. Negative counts
+  // (physically invalid input) pass through signed; no clamping here.
   const scale = inW[0] / (bg[0] || 1);
   const out = bg.map(v => v * scale);
   return flipped ? out.reverse() : out;
@@ -4181,7 +4187,10 @@ function computeBackgroundCore(be, intensity, settings) {
     if (type === 'smart_exp') return smartExperimentalBackground(be, intensity, iter, nAvg);
     if (type === 'shirley_linear') return shirleyLinearBackground(be, intensity, iter, nAvg);
     if (type === 'linear') return linearBackground(be, intensity);
-    if (type === 'tougaard') return tougaardBackground(be, intensity);
+    // Endpoint averaging matters for Tougaard since the amplitude is
+    // anchored at the high-BE edge — mirror the backend callers, which all
+    // do tougaard_background(x, _apply_endpoint_averaging(y, n)).
+    if (type === 'tougaard') return tougaardBackground(be, avgIn);
     return new Array(be.length).fill(0);
   }
 
@@ -4199,7 +4208,10 @@ function computeBackgroundCore(be, intensity, settings) {
   else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, iter, nAvg);
   else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, iter, nAvg);
   else if (type === 'linear') bgSub = linearBackground(beSub, inSub);
-  else if (type === 'tougaard') bgSub = tougaardBackground(beSub, inSub);
+  // Averaged for the same reason as Shirley types: the Tougaard amplitude
+  // is anchored at the high-BE edge, so endpoint noise feeds the anchor
+  // directly. Mirrors fitting.py's run_fit / compute_background_only.
+  else if (type === 'tougaard') bgSub = tougaardBackground(beSub, _applyEndpointAveraging(inSub, nAvg));
   else return new Array(be.length).fill(0);
 
   // Extend background across full data range:
@@ -12179,11 +12191,14 @@ function _onBgTypeChange() {
     shirleyIter.disabled = !needsIter;
     shirleyIter.style.opacity = needsIter ? '1' : '0.4';
   }
-  // Grey out endpoint avg for non-Shirley types
+  // Grey out endpoint avg for types it can't affect. Tougaard keeps it:
+  // averaging sets the high-BE amplitude anchor (and the backend applies
+  // it for tougaard regardless, so the control must stay honest).
+  const needsEpAvg = needsIter || type === 'tougaard';
   const epAvg = document.getElementById('bg-endpoint-avg');
   if (epAvg) {
-    epAvg.disabled = !needsIter;
-    epAvg.style.opacity = needsIter ? '1' : '0.4';
+    epAvg.disabled = !needsEpAvg;
+    epAvg.style.opacity = needsEpAvg ? '1' : '0.4';
   }
   _updateManualAnchorCount();
   _invalidateBgCache();

@@ -584,7 +584,12 @@ def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     # zero-guard always fired and the code multiplied by the raw trailing
     # counts instead — a scale that is harmless only while the squared-C
     # kernel kept bg near zero, and off by ~the baseline counts once C is
-    # corrected. The guard below now only protects the all-zero-signal case.
+    # corrected. Guard semantics: if NO net loss signal accumulates at the
+    # high-BE edge (bg[0] == 0 — e.g. all counts zero, or zero everywhere
+    # below the edge point), the correlation is returned UNANCHORED (all
+    # zeros in practice) rather than force-matched to the edge intensity.
+    # Negative counts (physically invalid input) pass through signed; no
+    # clamping policy is imposed here.
     denom = bg[0] if bg[0] != 0.0 else 1.0
     bg = bg * (float(ya[0]) / denom)
     return bg[::-1] if flipped else bg

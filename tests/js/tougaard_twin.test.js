@@ -24,6 +24,10 @@ const match = html.match(/function tougaardBackground\([\s\S]*?\n\}/);
 assert.ok(match, 'tougaardBackground not found in templates/index.html');
 const tougaardBackground = eval('(' + match[0] + ')');
 
+const avgMatch = html.match(/function _applyEndpointAveraging\([\s\S]*?\n\}/);
+assert.ok(avgMatch, '_applyEndpointAveraging not found in templates/index.html');
+const _applyEndpointAveraging = eval('(' + avgMatch[0] + ')');
+
 function syntheticSpectrum() {
   // Same C 1s-like region as the Python tests: descending BE, dx = 0.1 eV.
   const be = [], intensity = [];
@@ -109,5 +113,56 @@ test('agrees with the backend implementation (fitting.py) on the same spectrum',
     const tol = want === 0 ? 1e-15 : Math.abs(want) * 1e-9;
     assert.ok(Math.abs(got - want) <= tol,
       `backend/frontend disagree at index ${idx}: js ${got} vs python ${want}`);
+  }
+});
+
+// --- Codex review finding (2026-07-04, both runs, MAJOR): the shipped
+// caller computeBackgroundCore passed RAW intensity to tougaardBackground
+// while every backend caller applies endpoint averaging first. With the
+// high-BE-edge anchor, averaging directly sets the anchor amplitude, so
+// the caller contract — not just the function — must match the backend
+// (fitting.py run_fit / compute_background_only both do
+// tougaard_background(x, _apply_endpoint_averaging(y, n))).
+test('computeBackgroundCore applies endpoint averaging for tougaard (both branches)', () => {
+  const coreMatch = html.match(/function computeBackgroundCore\([\s\S]*?\n\}/);
+  assert.ok(coreMatch, 'computeBackgroundCore not found in templates/index.html');
+  // Stubs for background types this test never routes to; the eval'd
+  // function closes over this scope, so these names resolve at call time.
+  const manualAnchorBackground = () => { throw new Error('unexpected route: manual'); };
+  const shirleyBackground = () => { throw new Error('unexpected route: shirley'); };
+  const smartBackground = () => { throw new Error('unexpected route: smart'); };
+  const smartExperimentalBackground = () => { throw new Error('unexpected route: smart_exp'); };
+  const shirleyLinearBackground = () => { throw new Error('unexpected route: shirley_linear'); };
+  const linearBackground = () => { throw new Error('unexpected route: linear'); };
+  const computeBackgroundCore = eval('(' + coreMatch[0] + ')');
+
+  // Descending grid with an outlier at the high-BE edge: raw vs 3-point
+  // averaged anchors differ by construction (Codex's concrete scenario).
+  const n = 21;
+  const be = [], intensity = [];
+  for (let i = 0; i < n; i++) { be.push(292.0 - 0.5 * i); intensity.push(100); }
+  intensity[0] = 10000;   // high-BE outlier
+  intensity[10] = 4000;   // a peak so the correlation is non-trivial
+
+  const nAvg = 3;
+  const expected = tougaardBackground(be, _applyEndpointAveraging(intensity, nAvg));
+
+  // Branch 1: bg window covers the data (main sliced path)
+  const mainOut = computeBackgroundCore(be, intensity, {
+    bgType: 'tougaard', shirleyIter: '5', endpointAvg: String(nAvg),
+    bgStart: '292', bgEnd: '282',
+  });
+  // Branch 2: bg window misses the data entirely (fallback full-range path)
+  const fallbackOut = computeBackgroundCore(be, intensity, {
+    bgType: 'tougaard', shirleyIter: '5', endpointAvg: String(nAvg),
+    bgStart: '900', bgEnd: '905',
+  });
+
+  for (const [label, out] of [['main', mainOut], ['fallback', fallbackOut]]) {
+    for (let i = 0; i < n; i++) {
+      assert.strictEqual(out[i], expected[i],
+        `${label} branch: caller bypasses endpoint averaging at index ${i}: ` +
+        `${out[i]} vs averaged ${expected[i]}`);
+    }
   }
 });

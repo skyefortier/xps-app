@@ -1,0 +1,85 @@
+You are an adversarial reviewer for a small, scoped bug-fix commit in this
+repo (XPS peak-fitting web app). Review commit 37861fd ("tougaard: fix
+squared universal-cross-section constant, BE-order dependence, degenerate
+rescale") on branch feature-autofit-stage2 — `git show 37861fd` gives the
+full diff. Read-only sandbox; pytest may not be runnable (no writable tmp),
+but you can read everything and run read-only python one-liners.
+
+SCOPE OF THE CHANGE (verify it is contained):
+- fitting.py: ONLY tougaard_background (docstring + body). Nothing else in
+  fitting.py, /api/fit, or the autofit engine may have changed.
+- templates/index.html: ONLY the tougaardBackground JS function (+ leading
+  comment).
+- New tests: tests/test_tougaard_background.py, tests/js/tougaard_twin.test.js.
+- Docs: CLAUDE.md background-table row; docs/autofit/PROGRESS.md entry.
+
+THE CLAIMS TO VERIFY ADVERSARIALLY:
+
+1. CONSTANT FIX. Old code: C = 1643.0**2 (JS: 1643*1643) ≈ 2.7e6 eV² in the
+   universal loss kernel K(T) = B·T/(C+T²)². Claim: this was a transcription
+   slip of "C = 1643 eV²" (S. Tougaard, Surf. Interface Anal. 11, 453
+   (1988), two-parameter universal cross-section B = 2866 eV², C = 1643
+   eV²). Kernel max at sqrt(C/3): measured 948.586 eV old vs 23.402 eV new.
+   B = 2866 was already correct and is unchanged. Check the fixed code uses
+   1643.0 exactly and the citation is accurate.
+
+2. BE-ORDER ROBUSTNESS. The one-sided loss sum (j >= i) is only physical on
+   a DESCENDING BE grid (loss contributions at each BE come from lower-BE /
+   higher-KE emitters). Old behavior measured: ascending input produced a
+   background accumulating on the wrong side (max|Δ| vs flipped descending
+   result = 0.024 on a synthetic where the whole bg was O(0.024) — i.e.
+   totally different). Fix: normalize to descending internally, flip result
+   back (mirror of shirley_background's ascending normalization), BOTH
+   implementations. Verify: exact parity on uniform AND non-uniform grids;
+   descending-input behavior identical to pre-fix modulo the constant and
+   anchor changes; the np.convolve uniform-grid path and the per-point loop
+   path both covered.
+
+3. AMPLITUDE ANCHOR — THIS IS A DELIBERATE SCOPE CALL, REVIEW IT HARDEST.
+   The goal asked to *document* the existing "trailing-endpoint rescale".
+   Measurement showed it is degenerate: K(0) = 0 makes the trailing bg
+   sample IDENTICALLY zero (bg[-1] == 0.0 exactly), so the `else 1.0` /
+   `|| 1` zero-guard ALWAYS fired and the code multiplied the raw
+   correlation by the trailing-point raw counts (ya[-1]) — not a rescale to
+   match anything. With the corrected C the correlation is already at
+   physical counts scale, and keeping the ×ya[-1] scale was measured to
+   inflate the background to ~4× the peak maximum on a synthetic C 1s
+   region (baseline 100, peak 5000: bg[0] would be ~22,500 counts).
+   Decision taken: replace it with the standard practical Tougaard
+   normalization — scale so the background equals the measured intensity at
+   the HIGH-BE edge of the window (equivalent to fitting B so the
+   background meets the spectrum above the peak; nominal B cancels).
+   Questions for you: (a) is the K(0)=0 degeneracy analysis correct?
+   (b) is the high-BE-edge anchor the right practical criterion, and is the
+   claim "standard practical Tougaard criterion" fair? (c) was there a
+   defensible way to keep the old scale that we missed? (d) any edge cases
+   where scale = ya[0]/bg[0] misbehaves (bg[0] == 0 guard, all-zero data,
+   negative counts)?
+
+4. TESTS. tests/test_tougaard_background.py (5 tests) and
+   tests/js/tougaard_twin.test.js (4 tests; they extract the function
+   source from templates/index.html so they exercise the shipped code).
+   Verify each test actually discriminates: would the kernel-peak pin fail
+   on the old constant? Would the parity pins fail on the old order
+   handling? Would the anchor pin fail on the old rescale? Is the
+   cross-language pin (values generated from the corrected fitting.py,
+   tolerance 1e-9 relative, generation snippet in the test) sound? Claim:
+   no pre-existing test or fixture pinned the old Tougaard output (grep
+   over tests/, tests/autofit/, docs/autofit/inventory/, scripts/) — check.
+
+5. CALLERS. fitting.py dispatches tougaard_background at the /api/background
+   and /api/fit background paths (grep "tougaard"); autofit reaches it only
+   via BackgroundType.TOUGAARD (autofit/engine.py) and autofit/parity.py.
+   The frontend calls tougaardBackground at two sites (~line 4162/4180).
+   Verify the changed function signatures/contracts still fit every caller
+   and that endpoint averaging (_apply_endpoint_averaging /
+   _applyEndpointAveraging) composes sensibly with the new high-BE anchor.
+
+6. DOCS. CLAUDE.md previously documented "B·T²/(C+T²)²" (a form never
+   implemented); now documents the corrected form + constants + citation.
+   PROGRESS.md section "Tougaard background bug-fix (2026-07-04 goal
+   session)". Check for overclaims or inaccuracies.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".

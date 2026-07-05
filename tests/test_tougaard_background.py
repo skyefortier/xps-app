@@ -128,6 +128,18 @@ def test_background_anchored_at_high_be_edge():
     assert bg_a[0] == 0.0
 
 
+def test_no_loss_signal_returns_unanchored_zeros():
+    """Codex review pin (2026-07-04, run A MINOR): when no net loss signal
+    accumulates at the high-BE edge (bg[0] == 0 — e.g. counts are zero
+    everywhere below the edge point), the background is returned UNANCHORED
+    (all zeros), NOT force-matched to the edge intensity. Documented
+    degenerate-input fallback, mirrored in the JS twin's ``|| 1`` guard."""
+    x = np.array([291.0, 290.0, 289.0, 288.0])  # descending
+    y = np.array([100.0, 0.0, 0.0, 0.0])        # signal only at the edge itself
+    bg = tougaard_background(x, y)
+    assert np.array_equal(bg, np.zeros(4)), f"expected unanchored zeros, got {bg}"
+
+
 def test_short_input_returns_zeros():
     """< 2 points: no background can be defined; must return zeros."""
     assert np.array_equal(

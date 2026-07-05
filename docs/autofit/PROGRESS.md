@@ -29,7 +29,7 @@ path untouched.
 | Resolution-enhancement method (stretch #6, MaxEnt menu slot) | DONE (synthetic-validated) | ✅ 11 tests | `methods/max_entropy.py` — Codex Stage-9 blocker accepted and fixed by HONEST RELABELING: the implemented update is a damped exponentiated ISRA/RL-style deconvolution with χ²ᵣ stopping, **NOT a constrained MaxEnt solve** (no entropy gradient) — label, docstring, and payload all say so; a true entropy-regularized objective is logged FUTURE WORK (Vasquez 1981 / Aspnes 2022 cited as the slot's reference methods). Kernel FWHM REQUIRED user input (no default); σ-estimated stopping flagged UNCALIBRATED (supply repeat-sweep noise_sigma for production); edge-normalized convolution + `edge_margin_ev` boundary flag; `negative_kl_to_flat` (renamed from the misleading entropy field); baseline offset exposed; kernel validation (finite, narrower than spectrum). Pins: interior artifact prominence < 25% of the weakest true feature with true peaks top-2; emitted-spectrum reconvolution χ² exact; kernel/σ paths. **The FULL decision-matrix menu (1–6) is implemented.** |
 | Multivariate MCR method (stretch #5) | DONE (synthetic-validated) | ✅ 8 tests | `methods/multivariate_mcr.py`: PCA scree rank estimate (variance_target 0.995 UNVERIFIED, user-overridable, scree always reported) + MCR-ALS (row-wise NNLS alternation, deterministic SVD init, non-negativity on C and S) on a multi-spectrum matrix; `build_matrix` interpolation helper for mixed-grid repeat scans. HONESTY: `peaks=[]` by design (chemical states, not fitted peaks); rotational ambiguity stated in the payload; negative intensities rejected loudly. Synthetic: rank recovered, pure-spectra corr >0.98 (permutation-free), concentration corr >0.99, deterministic. Real-data validation on the repeat-scan matrices = follow-up. Codex checkpoint pending. |
 | Sparse/MAP method (stretch #4) | DONE (synthetic-validated) | ✅ 9 tests | `methods/sparse_map.py`: L1 Gaussian-atom dictionary on grammar slot windows (data-grid centers × log FWHM ladder), non-negative coordinate descent, geometric λ path, debiased NNLS refit, BIC (engine convention) model-size selection; cluster merge scaled to the resolved feature's width. Honesty: `uncertainty_kind='unavailable_post_selection'` (no fabricated σ), asymmetric slots flagged not-expressible, UNVERIFIED tunables in payload, limitations stated (decision-matrix entry 4: STAM:Methods 2024 DOI 10.1080/27660400.2024.2373046 + Tibshirani 1996). Synthetic ground truth: exact peak-count recovery, centers ≤0.15 eV, debiased amplitudes ≤15%, deterministic (no RNG). NOT validated on real anchors (its regime is few-separated-peaks; the real regions are overlap-heavy — documented). Codex checkpoint pending. |
-| Tougaard background bug-fix (C constant + BE-order + amplitude anchor) | DONE | ✅ 5 py + 4 js tests | `fitting.py::tougaard_background` + JS twin `tougaardBackground`: C was shipped SQUARED (1643² ≈ 2.7e6 eV², kernel max ~949 eV → flat/zero bg on real windows) → corrected to 1643 eV² (Tougaard 1988, SIA 11, 453); one-sided sum made order-robust (descending normalization, shirley-mirror); degenerate trailing rescale (K(0)=0 ⇒ scale ≡ raw trailing counts) replaced by the high-BE-edge anchor. Cross-language parity pinned at 1e-9. See the dated section below. |
+| Tougaard background bug-fix (C constant + BE-order + amplitude anchor) | DONE | ✅ 5 py + 4 js tests | `fitting.py::tougaard_background` + JS twin `tougaardBackground`: C was shipped SQUARED (1643² ≈ 2.7e6 eV², kernel max ~949 eV → flat/zero bg on real windows) → corrected to 1643 eV² (Tougaard 1988, SIA 11, 453); one-sided sum made order-robust (descending normalization, shirley-mirror); degenerate trailing rescale (K(0)=0 ⇒ scale ≡ raw trailing counts) replaced by the high-BE-edge anchor. Cross-language parity pinned at 1e-9. Codex checkpoint ×2: NO-GO ×2 (same MAJOR: frontend callers bypassed endpoint averaging → anchor mismatch; + 1 MINOR comment honesty) → all fixed same-session + caller-level pin; re-check ×2 below. |
 | Element-physics DB | **BROAD COVERAGE DONE** | ✅ 17+5 tests | Full-periodic-table NIST-archive sweep (committed pipeline `scripts/acquire_nist_archive.py`, resumable manifest): all 103 elements probed; **52 with usable archived SRD-20 snapshots + starred values, 51 honest failures** (no snapshot / no NIST-evaluated line — incl. the whole aspx-only + actinide tail; see format finding). Machine tier now **78 transitions / 51 elements** (was 45/37): +33 new (lanthanide 4d family, heavy-metal 4d5/2, 3d/3p secondaries, new elements Rh + Pr + Mg), every one an archived starred value, sha256-pinned, **33/33 independently agent-cross-checked (own parser, exact agreement)**; subshell-level guards prevent any curated/tiers overlap (27+10 guard skips logged); 337-entry skip audit. `fit-physics.json` regenerated: **98 transitions** (14 sourced spin-orbit, statistical 2j+1 ratios caveated). Byte-identical regeneration test GREEN (the old baseline failure is FIXED — artifacts restored sha256-verified from committed provenance). Still NOT wired into the engine (regions keep their own cited constants; deliberate). Per-value review table: `docs/autofit/fit-physics-coverage-report.md`. |
 
 ## Codex checkpoint verdicts
@@ -1212,6 +1212,48 @@ Suite after fix: **440 passed, 3 skipped (the known env-gated modules),
 autofit engine untouched (engine reaches the corrected function only
 through the existing `BackgroundType.TOUGAARD` dispatch). Codex
 checkpoint: run twice per rails — verdicts below.
+
+### Codex checkpoint (2026-07-04, ×2 concurrent, gtimeout rails) — **NO-GO ×2 → all findings fixed**
+
+Both runs completed (~6 min each; 118k/83k tokens), prompt
+`docs/autofit/codex/tougaard_fix_review_prompt.txt`, verdicts archived at
+`docs/autofit/codex/tougaard_fix_verdict_runA.md` / `_runB.md`. Both runs
+independently converged on the same MAJOR; run A added one MINOR. Both
+NO-GO — stricter-governs moot. Dispositions (fixed same-session):
+
+1. **MAJOR (both runs)** — frontend CALLERS bypassed endpoint averaging
+   for Tougaard while every backend caller applies
+   `_apply_endpoint_averaging` first; with the new high-BE anchor,
+   averaging directly sets the anchor amplitude, so the shipped caller
+   contract (not just the function) broke twin parity (run A's concrete
+   case: outlier edge point 10000 vs averaged 5050 anchor). Run B also
+   noted the UI greys out the endpoint-avg control for Tougaard while the
+   value is still sent to and applied by the backend. FIXED: both
+   `computeBackgroundCore` Tougaard branches (sliced + fallback) now pass
+   `_applyEndpointAveraging(...)` exactly like the Shirley family, and
+   both UI gates enable the endpoint-avg control for Tougaard (it now
+   genuinely affects the anchor; backend applied it regardless). Pinned by
+   a new caller-level JS test that extracts `computeBackgroundCore` from
+   the template and proves both branches equal
+   `tougaardBackground(be, averaged)` (watched fail first).
+2. **MINOR (run A)** — the "guard only protects the all-zero-signal case"
+   comment was narrower than actual behavior (bg[0]==0 with a nonzero
+   edge point returns UNANCHORED zeros, e.g. `[100,0,0,0]`), and
+   negative-count inputs had no stated policy. FIXED: comments at both
+   sites now state the real guard semantics (unanchored-zeros fallback)
+   and the explicit negative-counts policy (signed pass-through, no
+   clamping — physically invalid input); degenerate case pinned in
+   `test_no_loss_signal_returns_unanchored_zeros`.
+
+Run A explicitly cleared the tracked stale template copies
+(`xps-fitting-tool.html`, `index.html.pre-audit`) as out-of-scope
+non-blockers; run B re-ran the JS twin suite itself (green in its
+sandbox). Caller sweep note: `autofit/engine.py::_compute_background`
+calls tougaard_background WITHOUT averaging, but it does so for EVERY
+background type (the engine has no endpoint-averaging option) — an
+internally consistent design, not a Tougaard-specific mismatch, and
+engine changes are out of scope per rails. Post-fix: JS 53/53, Tougaard
+py 6/6. Re-check ×2: see below.
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
