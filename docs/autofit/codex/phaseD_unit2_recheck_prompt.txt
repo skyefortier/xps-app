@@ -1,8 +1,9 @@
 Re-check of dispositions for Phase D unit 2 (autofit/cited_values.py),
 branch feature-autofit-stage2. Original reviews: NO-GO x2 (archived:
 docs/autofit/codex/phaseD_unit2_verdict_runA.md / _runB.md; prompt
-phaseD_unit2_loader_prompt.txt). Fix commit: 9062477 (`git show
-9062477`; the unit itself is bed007e + 24587a1). Verify each disposition
+phaseD_unit2_loader_prompt.txt). Fix commits: 9062477 + a9ba919 (`git show 9062477 a9ba919`;
+the unit itself is bed007e + 24587a1; a9ba919 also self-caught the
+float 1.0 == 1 residual asked about under finding 3 — verify its pin). Verify each disposition
 line-by-line, adversarially, with direct probes (pytest may be
 unavailable — import the loader and drive load_cited_values / the
 validators yourself on temp files if writable, else via in-memory row
