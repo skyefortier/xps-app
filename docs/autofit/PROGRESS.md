@@ -1595,7 +1595,49 @@ transitions**; fit-physics.json 99 transitions; coverage report
 regenerated; all count pins updated (exhaustion, machine-tier, expand
 oracle incl. Lu in the 52-record acquisition set, browser tier-tally
 49→50). Elements with ≥1 sourced position: 74 of 96. Full suite green.
-Re-check ×2: below.
+
+**R2 re-check trail.** Round 1 ×2: NO-GO ×2, but all three original
+dispositions CLOSED by both runs (both independently re-parsed
+Lu_nist.html and confirmed the single starred line; run B verified the
+data drift is exactly Lu-4f7/2 with nothing mutated). Two residuals,
+both fixed + committed same-session: (1) run B BLOCKER — .stage9/
+expand_artifacts is TRACKED (not gitignored as assumed), so HEAD carried
+stale Lu/Sm artifacts + manifest + crosscheck while the working tree was
+correct; all four evidence files committed, every artifact verified
+sha-identical to its manifest record first; (2) both runs — the CDX
+limit=12 cap made "ANY archived snapshot" an overclaim; cap raised to a
+200 sanity bound, per-format cdx_rows recorded per manifest row, and the
+26 no-starred elements RE-VERIFIED under the uncapped listing:
+conclusions unchanged, max listing across all 103 elements = 4 rows —
+the bound is PROVEN non-binding, recorded not assumed.
+**Re-check round 2: QUOTA-BLOCKED** — both runs died on the Codex usage
+limit, reset Jul 6 10:01 PM (>32 h out, beyond this session). Per rails
+(kill+log+proceed; same precedent as the weekend run's Stage-2 hang):
+the ready-to-run prompt is committed at
+`docs/autofit/codex/refpop_unit2_recheck2_prompt.txt` — NEXT SESSION:
+run it ×2, stricter governs. Residual risk is low and bounded: round 2
+covers only the two mechanically-verifiable residual fixes above, both
+test-pinned (fresh-checkout oracle passes from committed state; the
+uncapped-listing evidence is in the committed manifest).
+
+## Reference-population closeout (2026-07-05)
+
+- **R1 bridge: REVIEW-COMPLETE** (review ×2 NO-GO+GO → field-purity
+  fixes; re-check GO ×2 with mutation probes). The engine now consumes
+  every committed sourced position (74/96 elements) married to derived
+  structure, with the tier→status mapping both reviewers accepted.
+- **R2 exhaustion: engineering complete + certified; final re-check
+  round quota-blocked** (above). The adversarial process RECOVERED Lu —
+  the machine tier stands at 52 elements / 79 transitions, fit-physics
+  at 99, every failure class proven (24 CDX-proven-empty + 26
+  uncapped-exhaustive no-starred).
+- **R3 chem states: REVIEW-COMPLETE** (GO ×2 first pass). Sparse stays
+  sparse; the compound-page future pipeline is the documented handoff.
+- **Standing for Skye:** every machine-tier position (incl. Lu-4f7/2)
+  remains NOT-human-verified until the hand-check; the bridge marks all
+  of them CONDITIONAL with the caveat on every record.
+
+Full suite at closeout: **504 passed + 3 known env-gated skips.**
 
 **Unit R3 — chemical states: sourced-or-skip audit → SPARSE STAYS
 SPARSE (correct outcome, not failure).** Every candidate source audited
