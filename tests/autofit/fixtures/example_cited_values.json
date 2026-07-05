@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "test_only": true,
+  "description": "TEST-ONLY example of the cited-values schema (Phase D unit 2). Every value is deliberately NON-PHYSICAL — a Cl 2p3/2 binding energy sits nowhere near 100 eV, no 2p spin-orbit splitting is 100 eV, and U 4f7/2 is nowhere near 200 eV. This file exists to demonstrate and test the schema; it must never be loaded into a production analysis. The loader forces every record from a test_only file to UNVERIFIED.",
+  "rows": [
+    {
+      "element": "Cl",
+      "level": "2p3/2",
+      "oxidation_state": null,
+      "value_type": "binding_energy_ev",
+      "value_ev": 100.0,
+      "uncertainty_ev": 0.5,
+      "source_citation": "SYNTHETIC-TEST-ONLY — schema demonstration value, not a publication",
+      "method": "synthetic",
+      "convention": "binding energy, synthetic test frame"
+    },
+    {
+      "element": "Cl",
+      "level": "2p",
+      "oxidation_state": null,
+      "value_type": "spin_orbit_splitting_ev",
+      "value_ev": 100.0,
+      "uncertainty_ev": null,
+      "source_citation": "SYNTHETIC-TEST-ONLY — schema demonstration value, not a publication",
+      "method": "synthetic",
+      "convention": "splitting magnitude, synthetic test frame"
+    },
+    {
+      "element": "U",
+      "level": "4f7/2",
+      "oxidation_state": "U(IV) [synthetic label]",
+      "value_type": "binding_energy_ev",
+      "value_ev": 200.0,
+      "uncertainty_ev": 1.0,
+      "source_citation": "SYNTHETIC-TEST-ONLY — schema demonstration value, not a publication",
+      "method": "synthetic",
+      "convention": "binding energy, synthetic test frame"
+    }
+  ]
+}
