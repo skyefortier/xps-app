@@ -1,0 +1,38 @@
+Re-check ROUND 2 (final), unit R2 (element-coverage exhaustion), branch
+feature-autofit-stage2. Round 1: NO-GO x2 with dispositions 1-3 CLOSED
+by both runs (archived: docs/autofit/codex/refpop_unit2_recheck_verdict_
+run{A,B}.md); two residuals, both fixed in the latest commit touching
+.stage9/expand_artifacts (`git log --oneline -3`). Probe directly.
+
+RESIDUAL 1 (run B BLOCKER): HEAD was not self-consistent — the updated
+Lu/Sm artifacts, acquire_manifest.json, and agent_crosscheck.json were
+dirty in the working tree while HEAD carried stale versions (fresh
+checkout would fail test_every_emitted_value_literally_in_committed_
+artifact). DISPOSITION: all four tracked evidence files committed;
+every artifact verified sha-identical to its manifest record before
+commit. CHECK against HEAD (no reliance on the working tree): tracked
+Lu_nist.html sha == 8bbf8fc2be371d61db62f0bb1c536bcff75496bf0eda1258f5c
+21aa43b83b680 == provenance sidecar; agent_crosscheck.json carries
+Lu-4f7/2 = 7.19; the expand-coverage oracle passes from committed
+state; Sm's committed artifact matches ITS manifest row.
+
+RESIDUAL 2 (run A MAJOR / run B MINOR): CDX limit=12 made "no starred
+line in ANY archived snapshot" an overclaim (a starred snapshot at row
+13 would be missed). DISPOSITION: limit raised to a 200 sanity bound;
+per-format cdx_rows now recorded in every manifest row; and the 26
+no-starred elements were RE-VERIFIED under the uncapped listing —
+conclusions unchanged, and the maximum CDX listing across all 103
+elements is 4 rows, so the bound is PROVEN non-binding (recorded
+evidence, not an assumption). CHECK: the manifest's cdx_rows fields;
+the code path; whether any conclusion could still rest on a truncated
+listing.
+
+Also confirm: the summary regenerates deterministically from the
+committed manifest state; counts unchanged (103 = 53 + 24 + 26; machine
+52/79; fit-physics 99); no data/xps drift in the fix commit beyond the
+verdict archives/summary (the machine tier itself is untouched by this
+commit).
+
+Deliver: per-residual CLOSED/NOT-CLOSED, any new findings (severity +
+file/line + concrete scenario), then exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
