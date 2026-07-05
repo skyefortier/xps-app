@@ -186,12 +186,19 @@ def test_fallback_never_builds_from_db_values_and_derived_records_are_number_fre
             f"{region}: DB be_window_ev must never surface as a "
             f"diagnostic window (D3 recheck, both runs MINOR)")
         slug = region
-        sourced_prefixes = ("fit_physics", "cited:")
+        # Three sourced families may carry eV values: the fit-physics DB
+        # exposure, user-cited loader records, and (unit R1) the data/xps
+        # reference bridge. fit_physics/cited records are never VERIFIED;
+        # bridge records may be VERIFIED ONLY for the curated tier (the
+        # goal-prescribed mapping: curator-verified against cited sources).
+        sourced_prefixes = ("fit_physics", "cited:", "reference:")
         for rec in g.provenance[slug]:
-            if str(rec.get("constant", "")).startswith(sourced_prefixes):
-                assert rec.get("status") != "VERIFIED", (
-                    f"{region}: sourced-tier record {rec['constant']} must "
-                    "carry UNVERIFIED/CONDITIONAL status, never VERIFIED")
+            const = str(rec.get("constant", ""))
+            if const.startswith(sourced_prefixes):
+                if rec.get("status") == "VERIFIED":
+                    assert const.startswith("reference:curated:"), (
+                        f"{region}: sourced record {const} is VERIFIED but "
+                        "only curated-tier bridge records may be")
                 continue
             # derived-structure record: NO eV-bearing numbers anywhere
             for leaf in _leaves(rec):

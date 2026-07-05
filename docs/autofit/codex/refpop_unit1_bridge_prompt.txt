@@ -1,0 +1,72 @@
+Adversarial review of unit R1 on branch feature-autofit-stage2 — the
+data/xps → autofit reference bridge (autofit/reference_bridge.py, the
+structural_provenance integration in autofit/coverage.py, the updated
+boundary pin in tests/autofit/test_structural_fallback.py, and
+tests/autofit/test_reference_bridge.py). The commit is the latest one
+touching autofit/reference_bridge.py (`git log --oneline -2`). Context:
+docs/autofit/PROGRESS.md "Reference-population units" section.
+Read-only sandbox; probe directly.
+
+THE GOVERNING RAIL — AUDIT HARDEST:
+Every position the bridge emits must be VALUE-IDENTICAL to a record in
+the committed data/xps files (loaded via xps_reference.load_reference —
+the served loader). The bridge must contain NO fallbacks, NO defaults,
+NO interpolation, NO memory-recalled numbers. Audit:
+(a) grep reference_bridge.py for numeric literals — none may be
+    energy-like;
+(b) trace every path that populates nominal_be_ev / expected_region_ev /
+    spin_orbit / be_ev — all must read from the loaded documents;
+(c) spin_orbit must pass through EXACTLY as committed (explicit null
+    stays null — no fabricated splittings);
+(d) the machine tier REFUSES to emit a transition with no provenance
+    sidecar record (ValueError) — verify, and construct the failure;
+(e) the global anti-invention sweep test
+    (test_bridge_emits_nothing_not_in_data_xps): does it actually cover
+    every emission path (all four source files + survey)? Could a
+    chemical-state value bypass it? (chem states are checked in their
+    own test — judge whether the sweep should cover them too.)
+
+TIER → STATUS MAPPING — AN EXPLICIT DESIGN DECISION TO JUDGE:
+Goal-prescribed: curated → VERIFIED, machine → CONDITIONAL, legacy →
+UNVERIFIED. This DEVIATES from autofit/fit_physics.py's older exposure
+mapping (machine → UNVERIFIED, curated → CONDITIONAL), which is left
+untouched (additive rail) — so one analysis payload can show the SAME
+machine value as CONDITIONAL (reference:*) and UNVERIFIED
+(fit_physics:*). The deviation is documented in both module docstrings
+and PROGRESS.md, each record carries its tier label, and harmonization
+is deferred to Skye post-hand-check. Judge: is the documented
+coexistence acceptable, or is the inconsistency itself a finding? Also
+judge curated → VERIFIED specifically: the D3-era boundary pin said
+sourced records are never VERIFIED; it was updated (deliberately,
+documented) to allow VERIFIED only for reference:curated:*. The schema
+defines curated as "all listed values verified against the cited
+sources". Sound, or an overreach?
+
+BOUNDARY (D3-upheld, must still hold): the bridge exposure must never
+build candidates/windows/widths. Probe: Ti 2p, Cu 2p (curated), a
+legacy-survey-only element, and an uncovered element (Tc 3d) through
+resolve(..., allow_structural_fallback=True) — candidates == [] and
+diagnostic_windows == {} in every case; the naked binding_energy_ev
+None/UNVERIFIED record still present; uncovered elements get NO
+reference:* records (degradation unchanged).
+
+MECHANICS: subshell keying ("2p3/2" → "2p"; bare "1s"); the loader
+inherits validation (corrupt a field mentally — where does it fail?);
+cache behavior (deepcopied returns?); the legacy chem-states aggregation
+(one record, per-state ref carried in value — is per-state provenance
+preserved?); citation resolution via sources.json with the raw-id
+fallback; the /api/analyze structure_report path (bridge values must
+survive _json_sanitize).
+
+TESTS: no hardcoded binding energies in the test source (expected values
+read programmatically from the data files) — verify; would each test
+fail under a plausible bug (tier mislabel, status swap, sidecar join by
+wrong key, subshell collision)?
+
+SCOPE: only reference_bridge.py (new), coverage.py (structural_provenance
+block), test_structural_fallback.py (boundary pin update),
+test_reference_bridge.py (new), PROGRESS.md. /api/fit, the manual path,
+xps_reference.py, and fit_physics.py untouched.
+
+Deliver: numbered findings (BLOCKER/MAJOR/MINOR + file/line + concrete
+failure scenario), then exactly "VERDICT: GO" or "VERDICT: NO-GO".

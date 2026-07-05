@@ -1496,6 +1496,43 @@ binding_energy_ev / multiplet flag), not just the region key. Verdicts
   The meV pattern fix is verified in the D3 unit review (single
   regex + self-test; D1 has had 3 full rounds ×2).
 
+## Reference-population units (2026-07-05 goal session, follows Phase D)
+
+Populate real, sourced positions by REUSING the provenance-first
+pipeline. Governing rail: every BE transcribed from a fetched sha256-
+pinned artifact or identified cited source, never model memory; no
+reachable source → skip-log, never invent.
+
+**Unit R1 — data/xps → autofit reference bridge
+(`autofit/reference_bridge.py`).** Marries coverage.py's derived
+STRUCTURE with the committed tiers' POSITIONS, loaded through
+`xps_reference.load_reference` (the served loader — its validation
+contract inherited wholesale; a bad data file fails the bridge loudly)
+and joined with the machine provenance sidecar (NIST ref code, archived
+source URL, artifact sha256, parse method, corroboration flags carried
+per record). Tier → status mapping (GOAL-PRESCRIBED): curated →
+VERIFIED (schema: "verified against the cited sources"; still fully
+visible in provenance), machine → CONDITIONAL (sourced + sha-pinned,
+NOT human-verified — caveat on every record), legacy (survey + chem
+states) → UNVERIFIED. **Documented deviation:** autofit/fit_physics.py's
+older exposure maps machine→UNVERIFIED / curated→CONDITIONAL; untouched
+(additive rail); both mappings carry tier labels; harmonization is
+Skye's post-hand-check call. The D3 boundary pin was updated
+deliberately: `reference:*` joins fit_physics/cited as a sourced family;
+VERIFIED allowed ONLY for reference:curated:*. Wired into
+structural_provenance: fallback regions now expose sourced positions +
+chemical states (reference-only — candidates/windows still never built;
+the naked binding_energy_ev=None UNVERIFIED record stays, since sourced
+positions without curated windows still cannot fit). Coverage: 73 of 96
+elements carry ≥1 sourced position (curated 6, machine 51, legacy survey
+53, overlapping); 23 have none (H/He/nobles/Tc/Pm/actinide tail) and
+keep the pure structure-only degradation. Anti-invention pinned by a
+global sweep test: every bridged position value-identical to a committed
+data-file record, for all Z=1..96. Tests never hardcode a BE — expected
+values are read programmatically from the data files. 9 tests.
+ALL bridged positions remain subject to Skye's hand-check (machine tier)
+per the standing handoff item.
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);

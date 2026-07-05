@@ -410,6 +410,43 @@ def structural_provenance(region: str, cited_values=None
         "(autofit.cited_values) and curated windows/widths to enable "
         "fitting; no fit candidates built",
     ]
+
+    # ── data/xps reference bridge (unit R1) ──────────────────────────────
+    # Sourced positions/chemical states from the committed tiers ride into
+    # the provenance with their tier-mapped statuses. Reference-only, like
+    # the fit-physics exposure: NEVER candidates, windows, or widths.
+    from . import reference_bridge  # lazy: avoid import cost when unused
+    bridged = reference_bridge.level_reference(sym, subshell)
+    for pos in bridged["positions"]:
+        records.append({
+            "constant": f"reference:{pos['tier']}:{pos['orbital']}",
+            "value": {
+                "nominal_be_ev": pos["nominal_be_ev"],
+                "expected_region_ev": pos["expected_region_ev"],
+                "spin_orbit": pos["spin_orbit"],
+                "source_id": pos["source_id"],
+                "provenance": pos["provenance"],
+            },
+            "status": pos["status"],
+            "source": (f"{pos['citation'] or pos['source_id']} "
+                       f"[{pos['tier']} tier via data/xps]"
+                       + ("; NOT human-verified"
+                          if pos["tier"] == "machine" else "")),
+        })
+    if bridged["chemical_states"]:
+        records.append({
+            "constant": "reference:legacy:chemical_states",
+            "value": bridged["chemical_states"],
+            "status": "UNVERIFIED",
+            "source": "legacy chemical-state dataset via data/xps "
+                      "(verbatim, per-state ref carried in value)",
+        })
+    if bridged["positions"] or bridged["chemical_states"]:
+        notes.append(
+            f"{len(bridged['positions'])} sourced reference position(s) "
+            f"and {len(bridged['chemical_states'])} chemical state(s) "
+            "exposed from the committed data/xps tiers — reference only; "
+            "fitting still requires curated windows/widths")
     matching = [v for v in (cited_values or [])
                 if v.element == sym and v.level == subshell]
     for v in matching:
