@@ -195,10 +195,31 @@ _ALLOWED_NUMERIC_KEYS = frozenset({
     "numerator", "denominator", "period", "group",
 })
 
-# decimal numbers, or integers glued to an eV unit, inside ANY string —
-# catches value-laundering through caveat/source prose ("284.8", "1.6 eV").
-# Derivable integer bookkeeping like "2j+1", "1:2", "3/2" stays legal.
-_STRING_VALUE_PATTERN = re.compile(r"\d+\.\d+|\b\d+(\.\d+)?\s*eV\b", re.I)
+# decimal numbers, comma-grouped integers, or numbers glued to an
+# eV/meV/keV unit, inside ANY string — catches value-laundering through
+# caveat/source prose ("284.8", "1.6 eV", "1,600 meV" — the meV form was
+# a Codex D1 re-check-2 MAJOR, both runs). Derivable integer bookkeeping
+# like "2j+1", "1:2", "3/2" stays legal.
+_STRING_VALUE_PATTERN = re.compile(
+    r"\d+\.\d+"                              # decimals
+    r"|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b"     # comma-grouped magnitudes
+    r"|\b\d+(?:\.\d+)?\s*[mk]?eV\b",         # any number + (m|k)eV unit
+    re.I)
+
+
+def test_string_guard_pattern_discriminates():
+    """Self-test of the laundering pattern: every smuggling form the Codex
+    reviews probed must match; legal quantum bookkeeping must not."""
+    caught = ["284.8", "shifts by 1.6 eV", "1600 eV", "1600 meV",
+              "1,600 meV", "600 meV", "around 1,600", "2.5 keV",
+              "0.55", "splitting of 10 eV"]
+    legal = ["2j+1", "1:2 ratio", "3/2 label", "(n+l, n) filling",
+             "adjudication-decisions.md #7", "Z=1..96", "six-metalloid",
+             "d10 metal can be d9 as a 2+ cation", "j = l +/- 1/2"]
+    for s in caught:
+        assert _STRING_VALUE_PATTERN.search(s), f"pattern misses {s!r}"
+    for s in legal:
+        assert not _STRING_VALUE_PATTERN.search(s), f"false positive on {s!r}"
 
 
 def _walk(obj, path="", bearing=False):

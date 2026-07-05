@@ -1369,6 +1369,43 @@ cited values; windows/widths per region remain future curation.
 self-audit: bool-value rejection, CSV overflow-row rejection, JSON
 Infinity pin) + 10 fallback/API — zero regressions).
 
+### Phase D unit 1 Codex trail (×2 every round, stricter governs)
+
+- **Review ×2 (commit 884518b): NO-GO ×2** — BLOCKER both runs: the ratio
+  caveat string-laundered the empirical Cl 2p 0.55 bound into every
+  element; + guard-hardening MAJOR/BLOCKER (wrapped values, unscanned
+  strings) + 2 MINORs (cache-isolation untested, anomaly cases unpinned).
+  All fixed in 4254ee1; verdicts `phaseD_unit1_verdict_run{A,B}.md`.
+- **Re-check ×2 (4254ee1): GO + NO-GO — stricter governs.** Findings
+  1/3/4 CLOSED by both runs (run B simulated deepcopy removal and probed
+  the guard directly); residual MAJOR (run B): numeric `value` allowed at
+  ANY depth under statistical_area_ratio → `empirical_bound: {value:}`
+  could launder. Fixed in 11024a0 (exact direct-child path; probe
+  verified caught). Verdicts `phaseD_unit1_recheck_verdict_run{A,B}.md`.
+- **Re-check round 2 ×2 (11024a0): NO-GO ×2, residual CLOSED by both.**
+  Two new findings, both fixed same-session:
+  1. MAJOR (both runs): the string guard missed meV-denominated prose —
+     "1,600 meV" / "1600 meV" / "600 meV" all passed. Fixed: pattern now
+     catches decimals, comma-grouped magnitudes, and any number glued to
+     an (m|k)?eV unit; a pattern SELF-TEST pins every probed smuggling
+     form + the legal bookkeeping strings.
+  2. MAJOR/MINOR (scope, both runs — **process miss, acknowledged**):
+     commit 11024a0 was described as guard/docstring-only but its
+     coverage.py diff carried the `structural_provenance` function
+     (+101 lines) — unit D3 API that was already in the working tree
+     when the D1 fix was committed. NOT rewritten (no-force-push rail);
+     dispositioned honestly: that API is the CORE of the unit D3 review
+     scope (its tests landed with D3 in 2ef5b2c) and the D3 review
+     prompt names it explicitly as swept-in-early code requiring
+     first-look scrutiny. Lesson recorded: when units run concurrently,
+     `git add -p` the shared file, not the whole file.
+  Verdicts `phaseD_unit1_recheck2_verdict_run{A,B}.md`. Both runs also
+  probed and accepted: novel numeric keys caught, list-wrapped values
+  caught, bool leaves and whitelisted-integer abuse judged
+  malicious-patch territory (pinned elsewhere), not realistic residuals.
+  The meV pattern fix is verified in the D3 unit review (single
+  regex + self-test; D1 has had 3 full rounds ×2).
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);
