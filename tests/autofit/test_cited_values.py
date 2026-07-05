@@ -221,6 +221,9 @@ def test_schema_version_gate(tmp_path):
     # True == 1 in Python — a boolean must not satisfy the integer gate
     with pytest.raises(CitedValueError, match="schema_version"):
         load_cited_values(_write(tmp_path, [_row()], schema_version=True))
+    # 1.0 == 1 too — the gate is a strict INTEGER 1
+    with pytest.raises(CitedValueError, match="schema_version"):
+        load_cited_values(_write(tmp_path, [_row()], schema_version=1.0))
 
 
 def test_test_only_must_be_boolean(tmp_path):

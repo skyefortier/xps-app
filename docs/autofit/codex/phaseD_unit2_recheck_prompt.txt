@@ -1,0 +1,61 @@
+Re-check of dispositions for Phase D unit 2 (autofit/cited_values.py),
+branch feature-autofit-stage2. Original reviews: NO-GO x2 (archived:
+docs/autofit/codex/phaseD_unit2_verdict_runA.md / _runB.md; prompt
+phaseD_unit2_loader_prompt.txt). Fix commit: 9062477 (`git show
+9062477`; the unit itself is bed007e + 24587a1). Verify each disposition
+line-by-line, adversarially, with direct probes (pytest may be
+unavailable — import the loader and drive load_cited_values / the
+validators yourself on temp files if writable, else via in-memory row
+dicts through _validate_row).
+
+FINDING 1 (BLOCKER, both runs): citation laundering — non-string
+citations str()-coerced (JSON false/true/0 → "False"/"True"/"0"
+CONDITIONAL), and the placeholder set missed "n-a".
+DISPOSITION: source_citation must now BE a str (isinstance check before
+any coercion; error message names the non-text value); placeholder set
+extended to {none, unknown, n/a, n-a, na, todo, tbd, ?, -, --, false,
+true, 0, null, nil, no} (case-insensitive after strip). Pins:
+test_citation_required (now incl. n-a/N-A/false/true/0/null/nil) and
+test_non_string_citation_rejected (False/True/0/1/100.0/[]/{}).
+CHECK: re-run your original probes; hunt NEW bypasses (e.g. "  n-a  ",
+unicode dashes "n–a", "None." with punctuation, a citation of only
+digits "12345", whitespace-embedded placeholders). Judge which residuals
+are real vs. pedantic — the contract is no EMPTY/PLACEHOLDER/NON-TEXT
+citations, not NLP validation of citation quality.
+
+FINDING 2 (MAJOR, both runs): csv.DictReader silently collapses
+duplicate header names — a blank source_citation hides behind a
+duplicated column.
+DISPOSITION: the CSV path now reads the header with csv.reader FIRST,
+rejects duplicate column names and empty column names loudly, then zips
+rows itself (overflow rows still rejected; blank cells → None). Pins:
+test_csv_duplicate_headers_rejected (both the source_citation and
+value_ev variants from the verdicts).
+CHECK: probe leading/trailing-space header variants ("source_citation "
+vs "source_citation" — distinct strings, so both survive the dup check
+but the spaced one becomes an unknown row key → rejected at row level;
+confirm), short rows (fewer cells than header — missing fields None →
+required-field rejection: confirm), empty file, header-only file.
+
+FINDING 3 (MINOR, run A): type-loose gates — schema_version: true
+passed (True == 1); test_only truthiness-coerced.
+DISPOSITION: schema_version now rejects bools explicitly and must equal
+integer 1; test_only must be a JSON boolean (no coercion). Pins:
+test_schema_version_gate (boolean case), test_test_only_must_be_boolean
+("false"/"true"/1/0/"yes" rejected; real booleans pass).
+CHECK: probe schema_version 1.0 (float) — should it pass? (1.0 != 1 is
+False in Python — 1.0 == 1 is True, so float 1.0 passes the != gate;
+judge whether that is acceptable or a residual).
+
+FINDING 4 (MINOR, both runs): the bypass probes were untested.
+DISPOSITION: every probe from both verdicts is now a pinned test,
+watched fail against the pre-fix loader.
+CHECK: do the pins discriminate (would each fail if its fix were
+reverted)?
+
+SCOPE: 9062477 touches only autofit/cited_values.py,
+tests/autofit/test_cited_values.py, and the two verdict archives.
+
+Deliver: per-finding CLOSED/NOT-CLOSED with evidence, any new findings
+(BLOCKER/MAJOR/MINOR + file/line + concrete failure scenario), then
+exactly "VERDICT: GO" or "VERDICT: NO-GO".

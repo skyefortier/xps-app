@@ -204,8 +204,9 @@ def _rows_from_json(path: str) -> tuple[list[dict], bool]:
     if not isinstance(doc, dict):
         raise CitedValueError(f"{path}: top level must be an object")
     sv = doc.get("schema_version")
-    # bool is an int subclass (True == 1) — the gate is a strict integer
-    if isinstance(sv, bool) or sv != 1:
+    # bool is an int subclass (True == 1) and 1.0 == 1 — the gate is a
+    # strict INTEGER 1, no cross-type equality
+    if isinstance(sv, bool) or not isinstance(sv, int) or sv != 1:
         raise CitedValueError(
             f"{path}: unsupported schema_version {sv!r} (expected 1)")
     rows = doc.get("rows")
