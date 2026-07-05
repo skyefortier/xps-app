@@ -1369,6 +1369,47 @@ cited values; windows/widths per region remain future curation.
 self-audit: bool-value rejection, CSV overflow-row rejection, JSON
 Infinity pin) + 10 fallback/API — zero regressions).
 
+### Phase D unit 2/3 Codex trails (×2 every round, stricter governs)
+
+**Unit 2 review ×2 (bed007e+24587a1): NO-GO ×2 → all fixed (9062477 +
+a9ba919).** Converged BLOCKER: citation laundering — non-string
+citations str()-coerced (JSON false/0 loaded as "False"/"0" CONDITIONAL
+citations) and "n-a" missing from the placeholder set. MAJOR: DictReader
+silently collapses duplicate CSV headers (a blank source_citation could
+hide behind a duplicated column) → manual header validation. MINORs:
+type-loose gates (schema_version: true via True==1; test_only
+truthiness) → strict-typed; the float 1.0==1 residual was SELF-CAUGHT
+while drafting the re-check prompt and fixed with a pin. Every probe
+from both verdicts is a pinned test, watched fail first. Re-check ×2:
+verdicts below when landed.
+
+**Unit 3 review ×2 (2ef5b2c + the swept-in structural_provenance):
+NO-GO (A) + GO (B) — stricter governs; dispositioned same-session.**
+Run A BLOCKER **partially accepted with an argued disposition**: it read
+the fit-physics DB records riding into structural provenance
+(nominal_be_ev / be_window_ev / splitting_ev for e.g. Cu 2p) as the
+fallback "creating fit-enabling numbers". Adjudication: those are the
+EXISTING tiered system's sha256-pinned NIST-archived SOURCED values,
+exposure-only by that unit's own reviewed design, and the Phase D goal
+explicitly requires extending that system — they are relayed with
+provenance, not invented, and run A itself verified candidates stay
+empty. What WAS accepted: the boundary was unguarded and the semantics
+unstated. Fixed: (1) a guard test pins that DB-covered regions (Cu 2p,
+Fe 2p) still produce zero candidates/slots/windows, that every eV-bearing
+number in structural provenance lives under a SOURCED record
+(fit_physics:* / cited:*, never VERIFIED status), and that the derived-
+structure records are number-free (walked with the laundering pattern);
+(2) resolve() now emits an explicit note when DB entries ride along:
+"exposed for reference only … not used to build candidates or windows".
+Run A's checks otherwise passed (meV guard verified incl.
+old-pattern-would-fail; cited filtering; ambiguity-before-fallback;
+composition). Run B (GO) added two MINOR regression pins, both landed:
+PhaseAmbiguityError-before-fallback on a two-phase structural region,
+and API pins for the mixed deep+structural payload (structural_only
+flagged, deep fit runs) + least_squares never reaching the structural
+degradation path. The re-check adversarially re-judges the argued
+disposition. Verdicts `phaseD_unit3_verdict_run{A,B}.md`.
+
 ### Phase D unit 1 Codex trail (×2 every round, stricter governs)
 
 - **Review ×2 (commit 884518b): NO-GO ×2** — BLOCKER both runs: the ratio

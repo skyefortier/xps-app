@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 
 import numpy as np
 import pytest
@@ -151,6 +152,76 @@ def test_joint_deep_plus_structural_keeps_deep_candidates():
     assert any("excluded from candidate composition" in n for n in g.notes)
 
 
+_EV_PROSE = re.compile(r"\d+\.\d+|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b"
+                       r"|\b\d+(?:\.\d+)?\s*[mk]?eV\b", re.I)
+
+
+def _leaves(obj):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from _leaves(v)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            yield from _leaves(v)
+    else:
+        yield obj
+
+
+def test_fallback_never_builds_from_db_values_and_derived_records_are_number_free():
+    """Codex D3 review adjudication (run A BLOCKER, dispositioned as
+    guard-the-boundary): the tiered fit-physics DB's SOURCED values
+    (sha256-pinned NIST archive, exposure-only by design) legitimately
+    ride into structural provenance under fit_physics:* constants — but
+    they must NEVER become fit-enabling: no candidates, no slots, no
+    windows, even for DB-covered regions. And every eV-bearing number in
+    the structural provenance must live under a SOURCED record
+    (fit_physics:* or cited:*) — the derived-structure records themselves
+    stay number-free."""
+    for region in ("Cu 2p", "Fe 2p"):   # both have machine-tier DB entries
+        g = resolve([_phase([region])], region,
+                    allow_structural_fallback=True)
+        assert g.candidates == [], (
+            f"{region}: DB exposure must never build candidates")
+        slug = region
+        sourced_prefixes = ("fit_physics", "cited:")
+        for rec in g.provenance[slug]:
+            if str(rec.get("constant", "")).startswith(sourced_prefixes):
+                assert rec.get("status") != "VERIFIED", (
+                    f"{region}: sourced-tier record {rec['constant']} must "
+                    "carry UNVERIFIED/CONDITIONAL status, never VERIFIED")
+                continue
+            # derived-structure record: NO eV-bearing numbers anywhere
+            for leaf in _leaves(rec):
+                if isinstance(leaf, str):
+                    assert not _EV_PROSE.search(leaf), (
+                        f"{region}:{rec['constant']}: prose smuggles a "
+                        f"numeric value: {leaf!r}")
+                if isinstance(leaf, float) and not isinstance(leaf, bool):
+                    # the only legal float in derived records is the
+                    # statistical ratio's exact value
+                    assert rec["constant"] == \
+                        "statistical_area_ratio_expectation", (
+                        f"{region}:{rec['constant']}: unexpected float "
+                        f"{leaf!r} in a derived record")
+        # the exposure semantics are stated in a note
+        assert any("not used to build candidates" in n.lower()
+                   for n in g.notes), (
+            f"{region}: DB-exposure semantics note missing")
+
+
+def test_phase_ambiguity_checked_before_fallback():
+    """A structural region contributed by two phases without a target must
+    still raise PhaseAmbiguityError — disambiguation runs BEFORE the
+    fallback (Codex D3 review, run B MINOR: regression pin)."""
+    from autofit.grammar import PhaseAmbiguityError
+    p1 = Phase(id="a", material_class=MaterialClass("conductor"),
+               regions=("Fe 2p",))
+    p2 = Phase(id="b", material_class=MaterialClass("conductor"),
+               regions=("Fe 2p",))
+    with pytest.raises(PhaseAmbiguityError):
+        resolve([p1, p2], "Fe 2p", allow_structural_fallback=True)
+
+
 def test_structural_records_roll_into_the_existing_rollup():
     g = resolve([_phase(["Fe 2p"])], "Fe 2p", allow_structural_fallback=True)
     # the exact expression the methods use (ic_model_comparison etc.)
@@ -212,3 +283,57 @@ def test_api_analyze_unparseable_region_still_400(client):
         "regions": ["Kryptonite 9x"], "method": "ic_model_comparison",
     })
     assert resp.status_code == 400
+
+
+def _upload_cl_doublet(client):
+    rng = np.random.default_rng(7)
+    x = np.arange(192.0, 205.0, 0.05)
+
+    def pv(h, c, w, eta=0.3):
+        g = np.exp(-4 * np.log(2) * ((x - c) / w) ** 2)
+        lo = (w / 2) ** 2 / ((x - c) ** 2 + (w / 2) ** 2)
+        return h * ((1 - eta) * g + eta * lo)
+
+    y = rng.poisson(300.0 + pv(9000.0, 197.9, 1.65)
+                    + pv(4950.0, 199.5, 1.65)).astype(float)
+    csv = "\n".join(f"{a:.3f},{b:.1f}" for a, b in zip(x, y))
+    resp = client.post("/api/upload", data={
+        "file": (io.BytesIO(csv.encode()), "cl.csv")})
+    assert resp.status_code == 200, resp.get_json()
+    return resp.get_json()["session_id"]
+
+
+def test_api_mixed_deep_plus_structural_runs_and_flags(client):
+    """Mixed request: the deep region fits normally; the structural region
+    is flagged in the payload (Codex D3 review, run B MINOR: API pin)."""
+    sid = _upload_cl_doublet(client)
+    resp = client.post("/api/analyze", json={
+        "session_id": sid, "material_class": "insulator",
+        "regions": ["Cl 2p", "Fe 2p"], "method": "ic_model_comparison",
+        "roi": {"be_min": 192.0, "be_max": 205.0},
+        "options": {"n_refits": 2, "enable_proposal_pass": False},
+    })
+    assert resp.status_code == 200, resp.get_json()
+    body = resp.get_json()
+    assert body["structural_only"] == ["Fe 2p"]
+    assert body["success"] is True          # the Cl 2p fit ran
+    assert len(body["peaks"]) == 2
+    # the structural region's derived records ride in the analysis payload
+    assert "Fe 2p" in body["analysis"]["constants_provenance"]
+
+
+def test_api_least_squares_never_reaches_structural_degradation(client):
+    """least_squares takes no grammar (grammar=None) — an unregistered
+    region must not trigger the structure-report path (run B MINOR)."""
+    sid = _upload_cl_doublet(client)
+    resp = client.post("/api/analyze", json={
+        "session_id": sid, "material_class": "conductor",
+        "regions": ["Fe 2p"], "method": "least_squares",
+        "peak_specs": [{"id": 1, "shape": "pseudo_voigt_gl",
+                        "center": 197.9, "fwhm": 1.6, "amplitude": 9000.0,
+                        "gl_mix": 30}],
+    })
+    assert resp.status_code == 200, resp.get_json()
+    body = resp.get_json()
+    assert "structure_report" not in body
+    assert body["structural_only"] == []

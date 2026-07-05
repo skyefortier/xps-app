@@ -384,6 +384,18 @@ def resolve(
                 region, provenance[slug], slot_facts=None)
             provenance[slug].extend(db_prov)
             notes.extend(f"{slug}: {note}" for note in db_notes)
+            if any(str(r.get("constant", "")).startswith("fit_physics:")
+                   for r in db_prov):
+                # exposure semantics, stated where a consumer will read
+                # them: these are SOURCED tier values (sha256-pinned NIST
+                # archive; tier-status UNVERIFIED/CONDITIONAL), relayed
+                # for reference and curation — NOT used to build
+                # candidates, windows, or any fit-enabling quantity here
+                notes.append(
+                    f"{slug}: fit-physics DB entries exposed for reference "
+                    "only (sourced tier, hand-verification pending) — not "
+                    "used to build candidates or windows; positions remain "
+                    "UNVERIFIED until cited/curated")
             continue
 
         candidates = module.build_candidates(chosen, oxidation_state=oxidation_state)
