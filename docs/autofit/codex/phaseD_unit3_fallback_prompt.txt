@@ -1,0 +1,73 @@
+Adversarial review of Phase D unit 3 on branch feature-autofit-stage2 —
+the resolve() structural fallback + honesty surface. Read-only sandbox.
+Context: docs/autofit/PROGRESS.md Phase D section.
+
+SCOPE OF THIS REVIEW (three pieces, named precisely):
+1. Commit 2ef5b2c — autofit/grammar.py (structural_only field +
+   allow_structural_fallback/cited_values params + fallback block +
+   composition restructure), app.py /api/analyze integration,
+   tests/autofit/test_structural_fallback.py, PROGRESS.md.
+2. **SWEPT-IN-EARLY CODE REQUIRING FIRST-LOOK SCRUTINY**: the
+   `structural_provenance()` function in autofit/coverage.py physically
+   landed in commit 11024a0 (a D1 fix commit) because both units shared
+   the file in the working tree — the D1 re-check flagged the scope
+   violation and this review is its named disposition. Treat that
+   function as UNREVIEWED: audit it from scratch.
+3. D1-trail closure item (commit 876d376): the string-guard pattern was
+   extended after the D1 re-check-2 MAJOR (meV laundering). Verify with
+   direct probes that "1,600 meV", "1600 meV", "600 meV", "2.5 keV" are
+   caught and the legal bookkeeping strings ("2j+1", "1:2", "3/2",
+   "(n+l, n)", "#7", "Z=1..96", "2+ cation") are not, and that the new
+   pattern self-test would fail under the OLD pattern.
+
+THE GOVERNING RAIL FOR structural_provenance — audit hardest:
+(a) record prose must carry NO empirical numbers (the coverage guard
+    test does NOT scan these records — probe every source/note string
+    yourself, including the notes resolve() emits);
+(b) status honesty: VERIFIED only for exact quantum bookkeeping
+    (structure record); CONDITIONAL for the ratio EXPECTATION and the
+    advisory flags (multiplet, conductor class); UNVERIFIED with value
+    None for positions; cited-value records carry the loader's status
+    (CONDITIONAL, or UNVERIFIED for test_only) — never upgraded;
+(c) the fallback must NEVER create a fit candidate, a BE window, a
+    width range, or any other fit-enabling number. Probe: is there any
+    input (cited values loaded, oxidation_state set, joint requests)
+    that produces a non-empty candidates list for a structural region?
+(d) cited-value filtering: element+subshell match only — probe leakage
+    (another element's rows, another subshell's rows, component rows).
+
+RESOLVE() INTEGRATION:
+- Additivity: allow_structural_fallback defaults False — verify an
+  unknown region still raises for every existing call shape, and that
+  the grammar dataclass addition breaks no consumer (engine, methods,
+  parity) — `git grep "CandidateGrammar("` and check positional usage.
+- Joint composition: per_request_candidates now excludes structural
+  requests. Verify: (i) deep+structural joint → deep candidates intact,
+  correct slugs, note emitted; (ii) structural-only single and multi
+  requests → candidates == []; (iii) the len==1 composition shortcut
+  now keys on module-backed count, not request count — construct a case
+  where those differ and check the composed names/roles; (iv) collision
+  guard covers structural slugs; (v) phase gating/ambiguity/duplicate
+  checks still run BEFORE the fallback (a structural region in two
+  phases without a target must still raise PhaseAmbiguityError).
+- Error paths: unparseable label, unknown element, unoccupied subshell
+  ("Fe 5f") → UnknownRegionError with the reason, never a silent
+  structural entry.
+
+API (/api/analyze):
+- Structure-only request → 200 with structure_report + notes +
+  uses_conditional_or_unverified_constants computed with the EXACT
+  expression the methods use (compare to ic_model_comparison.py) +
+  peaks [] + review-gate stub; success false. NOT reachable for
+  least_squares (grammar None path). Mixed deep+structural → method
+  runs; structural_only in the payload. Unparseable region → 400.
+  Check _json_sanitize handles the report (bools/None/nested).
+- Confirm /api/fit and the manual path are untouched by all commits in
+  scope (diff against their pre-Phase-D state).
+
+TESTS: would each fail under a plausible bug (fallback silently building
+candidates, empty-product wipe, wrong status vocabulary, leaked cited
+rows, rollup including VERIFIED records)?
+
+Deliver: numbered findings (BLOCKER/MAJOR/MINOR + file/line + concrete
+failure scenario), then exactly "VERDICT: GO" or "VERDICT: NO-GO".
