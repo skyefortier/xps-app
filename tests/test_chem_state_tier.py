@@ -74,24 +74,32 @@ def test_compound_page_summaries_are_not_emittable():
     avenue) lack per-row refs — pin WHY they are skip-classified, so a
     future 'helpful' emission from them fails a test instead of shipping
     uncited values. Env-gated on the gitignored .stage9 data."""
-    p = os.path.join(STAGE9, "extract_chem_claude", "groups_4a.json")
-    if not os.path.exists(p):
+    # BOTH extraction paths (4a claude + 4b codex — Codex R3 review, both
+    # runs MINOR: watching only 4a would miss a 4b rerun gaining refs)
+    checked_any = False
+    for d, fname in (("extract_chem_claude", "groups_4a.json"),
+                     ("extract_chem_codex", "groups_4b.json")):
+        p = os.path.join(STAGE9, d, fname)
+        if not os.path.exists(p):
+            continue
+        checked_any = True
+        groups = _load(p)
+        groups = groups.get("groups", groups)
+        assert groups, f"{fname} present but empty"
+        for g in groups:
+            for row in g.get("compound_bes", []):
+                assert "ref" not in row and "evaluated" not in row, (
+                    f"{fname} {g['element']} {g['orbital']}: compound row "
+                    "carries ref/evaluated fields — the not-emittable "
+                    "classification may be stale; re-audit R3")
+        # raw compound-page artifacts were NOT retained (no sha chain)
+        arts = [f for f in os.listdir(os.path.join(STAGE9, d))
+                if f.endswith(".html")]
+        assert arts == [], (
+            f"{d}: raw compound-page artifacts present — the "
+            "future-pipeline preconditions may now hold; re-audit R3")
+    if not checked_any:
         pytest.skip("gitignored .stage9 working data not present")
-    groups = _load(p)
-    groups = groups.get("groups", groups)
-    assert groups, "4a summary present but empty"
-    for g in groups:
-        for row in g.get("compound_bes", []):
-            assert "ref" not in row, (
-                f"{g['element']} {g['orbital']}: compound row carries a "
-                "ref — the not-emittable classification may be stale; "
-                "re-audit R3")
-    # raw compound-page artifacts were NOT retained (no sha chain)
-    arts = [f for f in os.listdir(os.path.join(STAGE9, "extract_chem_claude"))
-            if f.endswith(".html")]
-    assert arts == [], (
-        "raw compound-page artifacts present — the future-pipeline "
-        "preconditions may now hold; re-audit R3")
 
 
 def test_chem_states_flow_through_bridge_with_provenance():
