@@ -105,7 +105,13 @@ def _validate_row(i: int, row: dict, test_only: bool) -> CitedValue:
                          f"{row['source_citation']!r} — a non-text value "
                          "is not a citation")
     citation = row["source_citation"].strip()
-    if citation.lower() in _PLACEHOLDER_CITATIONS:
+    # placeholder detection runs on a CANONICAL form (D2 re-check, run A
+    # MAJOR: "n–a", "None.", "n - a" loaded): unicode dashes → hyphen,
+    # internal whitespace removed, edge punctuation stripped, lowercased.
+    # The stored citation stays verbatim; only the check normalizes.
+    canonical = re.sub(r"[‐-―−]", "-", citation.lower())
+    canonical = re.sub(r"\s+", "", canonical).strip(".,;:!?()[]{}'\"")
+    if not canonical or canonical in _PLACEHOLDER_CITATIONS:
         raise _reject(i, f"placeholder citation {citation!r} rejected — "
                          "a real source citation is required")
 

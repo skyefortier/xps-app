@@ -1,0 +1,45 @@
+Re-check ROUND 2, Phase D unit 2 (autofit/cited_values.py), branch
+feature-autofit-stage2. Round 1: run A NO-GO (archived:
+docs/autofit/codex/phaseD_unit2_recheck_verdict_runA.md — dispositions
+1-4 all CLOSED with direct probes; one NEW MAJOR); run B was killed by
+the watchdog with no verdict (logged). This round runs x2 fresh.
+
+THE ROUND-1 RESIDUAL (run A MAJOR): placeholder detection was exact set
+membership after strip().lower() — "n–a" (unicode dash), "None.",
+"n - a", "n\t-a" all loaded as CONDITIONAL citations.
+FIX COMMIT: see the latest commit touching autofit/cited_values.py
+(`git log --oneline -3 -- autofit/cited_values.py`). DISPOSITION: the
+placeholder check now runs on a CANONICAL form — unicode dashes
+(U+2010..U+2015, U+2212) mapped to '-', ALL internal whitespace removed,
+edge punctuation (.,;:!?()[]{}'" ) stripped, lowercased; an
+empty-after-canonicalization citation (e.g. "...") is rejected too. The
+STORED citation stays verbatim; only the check normalizes. Pins added:
+"n–a", "None.", "n - a", "n\t-a", "...", "(none)" in
+test_citation_required (watched fail first).
+
+CHECK adversarially with direct in-memory probes (sandbox may deny temp
+files — drive _validate_row / _rows_from_json directly):
+1. Round-1 probes still rejected; the new variants rejected; legitimate
+   citations still load (e.g. "Tougaard, Surf. Interface Anal. 11, 453
+   (1988)", "Powe95", a DOI, a URL).
+2. Hunt REMAINING placeholder-laundering routes in the same spirit
+   (zero-width/format characters U+200B/U+FEFF? fullwidth letters?
+   "ｎ／ａ"? Cyrillic homoglyphs?). Judge honestly which are realistic
+   data-entry accidents vs adversarial input — the loader guards against
+   ACCIDENTAL uncited loads, not hostile users with repo write access;
+   rate severity accordingly.
+3. The canonicalization must not create FALSE rejections: probe short
+   legitimate keys ("Powe95"), citations that canonicalize to something
+   in the set only via aggressive stripping (can any real citation
+   collapse to "none"/"0"/...? e.g. "0" as a full citation is already a
+   placeholder; "No. 5, J. Chem." → canonical "no.5,j.chem" wait —
+   internal punctuation is NOT stripped, only edge — verify).
+4. Re-verify round-1 dispositions 1-4 briefly (they were CLOSED by run A
+   with probes; spot-check, don't re-litigate unless you find a hole).
+
+SCOPE: the fix commit touches only autofit/cited_values.py and
+tests/autofit/test_cited_values.py.
+
+Deliver: per-item CLOSED/NOT-CLOSED, any new findings (severity +
+file/line + concrete failure scenario), then exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
