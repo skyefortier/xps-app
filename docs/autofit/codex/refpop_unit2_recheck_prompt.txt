@@ -1,0 +1,64 @@
+Re-check of dispositions for unit R2 (element-coverage exhaustion),
+branch feature-autofit-stage2. Original review: NO-GO x2 (archived:
+docs/autofit/codex/refpop_unit2_verdict_run{A,B}.md). Fix commits: the
+two most recent touching scripts/acquire_nist_archive.py and
+data/xps/elements-machine.json (`git log --oneline -5`). Context:
+PROGRESS.md "R2 Codex review x2" paragraph. Probe directly.
+
+HEADLINE: the hardening you demanded RECOVERED AN ELEMENT. Verify this
+end-to-end — it is the strongest evidence the fixes are real:
+Lu's starred 4f7/2 (Powe95) was absent from the first-listed snapshot
+but present in another; the multi-snapshot iteration found it; emission
+followed the full discipline (independent agent cross-check with its own
+parser — exact agreement, same artifact sha
+8bbf8fc2be371d61db62f0bb1c536bcff75496bf0eda1258f5c21aa43b83b680 —
+recorded in the gitignored agent_crosscheck.json; deterministic
+gen_machine_tier regeneration). CHECK: Lu-4f7/2 in
+elements-machine.json + provenance sidecar (agent_cross_checked true,
+evaluated true, sha matches the artifact on disk if .stage9 readable);
+re-parse Lu_nist.html yourself and confirm the single starred PE line.
+
+FINDING 1 (BLOCKER, both runs): CDX failures collapsed into "no
+snapshot" — absence unproven. DISPOSITION: cdx_snapshots() returns
+(snapshots, error); a failed/malformed query becomes the manifest
+reason class "cdx query failed: ..." which the resume logic ALWAYS
+re-probes and summarize_acquisition classifies as
+cdx-query-failed-UNPROVEN; "no archive snapshot" may only be concluded
+from an HTTP-successful, well-formed, EMPTY result set. The
+certification pin admits ONLY the two proven classes (any UNPROVEN row
+in the committed summary fails the subset assertion). The 2026-07-05
+re-verification recorded zero CDX errors; the 24 no-snapshot elements
+are now CDX-proven empty. CHECK the code paths + the pin's
+discrimination (would an UNPROVEN row fail
+test_committed_exhaustion_summary_counts?).
+
+FINDING 2 (run A MAJOR): no-starred concluded from the first usable
+artifact only. DISPOSITION: acquire() iterates EVERY listed snapshot
+earliest-first (1.5s polite spacing, temp-file candidates, only the
+decision artifact promoted, snapshots_checked recorded); the no-starred
+reason text now says "in ANY archived snapshot (N checked)"; resume
+semantics re-probe single-snapshot vintage records but skip
+archive-exhaustive ones. Residual honesty question for you: CDX
+limit=12 caps the snapshot list — judge whether that cap needs raising
+or a documented caveat (the earliest-first ordering + the 2004-vintage
+format the parser targets bound the useful set; snapshots beyond 12 of
+the same static page are unlikely to differ — but rule on it).
+
+FINDING 3 (run A MAJOR): manifest rows silently optional for machine
+elements. DISPOSITION: test_every_machine_element_is_manifest_ok now
+REQUIRES a row (assert m is not None) AND status OK. CHECK
+discrimination (a machine element absent from the manifest must fail).
+
+COUNTS: probed 103 = 53 OK + 24 + 26; machine tier 52/79; fit-physics
+99; every count pin updated (exhaustion, machine-tier, expand oracle
+incl. Lu, browser tally 50). Verify the pins match the committed data.
+
+SCOPE: the fix commits touch the pipeline scripts, the regenerated
+data/xps machine files (+fit-physics/coverage report/summary), the
+count pins, and PROGRESS.md. The regeneration must contain EXACTLY one
+new element (Lu) — verify no other data drift (git diff of the data
+files).
+
+Deliver: per-finding CLOSED/NOT-CLOSED, any new findings (severity +
+file/line + concrete scenario), then exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
