@@ -1,0 +1,36 @@
+Re-check ROUND 3, Phase D unit 2 (autofit/cited_values.py), branch
+feature-autofit-stage2. Round 2: GO (run A) + NO-GO (run B), stricter
+governs (archived: docs/autofit/codex/phaseD_unit2_recheck2_verdict_
+run{A,B}.md). Fix commit: 5ae00bf (`git show 5ae00bf`). Probe
+directly (in-memory _validate_row / _rows_from_json probes; temp files
+may be denied).
+
+ROUND-2 RESIDUALS AND DISPOSITIONS:
+1. MAJOR (run B): dash-only runs ("---", "———") and trailing-dash
+   placeholders ("n/a-", "none-", "todo-", "unknown-") loaded.
+   DISPOSITION: hyphens are now stripped from the CANONICAL form's edges
+   (after unicode-dash normalization and whitespace removal), so dash
+   runs collapse to empty and are rejected by the empty-canonical check;
+   trailing-dash forms canonicalize into the placeholder set. Pinned.
+2. MINOR (both runs): zero-width/BOM (Unicode Cf) characters survived
+   canonicalization ("n​/a", "﻿none﻿", "n⁠/a").
+   DISPOSITION: Cf-category characters are removed first. Pinned with
+   literal zero-width characters embedded in the test source.
+   Fullwidth/homoglyph forms: both round-2 runs rated adversarial-input,
+   out of scope — that ruling is recorded, not re-opened here unless you
+   disagree with BOTH prior runs.
+
+CHECK: (a) all round-2 probes now reject; (b) legitimate citations still
+load — especially ones exercising the new stripping: "Tougaard, Surf.
+Interface Anal. 11, 453 (1988)" (parenthesis edge), "Powe95", a DOI
+"10.1116/1.1247741", "Smith & Jones 1990-1995 survey" (INTERNAL hyphen
+must survive; only EDGE hyphens strip), "-30 mV vs SCE study" (leading
+hyphen strips for the CHECK but the canonical remainder is not a
+placeholder — must load); (c) any NEW realistic-accident laundering
+route left standing after Cf-removal + dash/punct/whitespace
+canonicalization; (d) scope: the fix commit touches only the loader and
+its tests.
+
+Deliver: per-item CLOSED/NOT-CLOSED, any new findings (severity +
+file/line + concrete scenario), then exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
