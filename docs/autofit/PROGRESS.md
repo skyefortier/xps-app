@@ -30,6 +30,7 @@ path untouched.
 | Multivariate MCR method (stretch #5) | DONE (synthetic-validated) | ✅ 8 tests | `methods/multivariate_mcr.py`: PCA scree rank estimate (variance_target 0.995 UNVERIFIED, user-overridable, scree always reported) + MCR-ALS (row-wise NNLS alternation, deterministic SVD init, non-negativity on C and S) on a multi-spectrum matrix; `build_matrix` interpolation helper for mixed-grid repeat scans. HONESTY: `peaks=[]` by design (chemical states, not fitted peaks); rotational ambiguity stated in the payload; negative intensities rejected loudly. Synthetic: rank recovered, pure-spectra corr >0.98 (permutation-free), concentration corr >0.99, deterministic. Real-data validation on the repeat-scan matrices = follow-up. Codex checkpoint pending. |
 | Sparse/MAP method (stretch #4) | DONE (synthetic-validated) | ✅ 9 tests | `methods/sparse_map.py`: L1 Gaussian-atom dictionary on grammar slot windows (data-grid centers × log FWHM ladder), non-negative coordinate descent, geometric λ path, debiased NNLS refit, BIC (engine convention) model-size selection; cluster merge scaled to the resolved feature's width. Honesty: `uncertainty_kind='unavailable_post_selection'` (no fabricated σ), asymmetric slots flagged not-expressible, UNVERIFIED tunables in payload, limitations stated (decision-matrix entry 4: STAM:Methods 2024 DOI 10.1080/27660400.2024.2373046 + Tibshirani 1996). Synthetic ground truth: exact peak-count recovery, centers ≤0.15 eV, debiased amplitudes ≤15%, deterministic (no RNG). NOT validated on real anchors (its regime is few-separated-peaks; the real regions are overlap-heavy — documented). Codex checkpoint pending. |
 | Tougaard background bug-fix (C constant + BE-order + amplitude anchor) | DONE | ✅ 5 py + 4 js tests | `fitting.py::tougaard_background` + JS twin `tougaardBackground`: C was shipped SQUARED (1643² ≈ 2.7e6 eV², kernel max ~949 eV → flat/zero bg on real windows) → corrected to 1643 eV² (Tougaard 1988, SIA 11, 453); one-sided sum made order-robust (descending normalization, shirley-mirror); degenerate trailing rescale (K(0)=0 ⇒ scale ≡ raw trailing counts) replaced by the high-BE-edge anchor. Cross-language parity pinned at 1e-9. Codex checkpoint ×2: NO-GO ×2 (same MAJOR: frontend callers bypassed endpoint averaging → anchor mismatch; + 1 MINOR comment honesty) → all fixed same-session + caller-level pin; re-check ×2 **GO ×2** — unit review-complete. |
+| Phase D coverage framework (Z=1..96 structure + cited-source loader + structural fallback) | UNITS BUILT; Codex in flight | ✅ 12+11+10 tests | `autofit/coverage.py` (derivable structure, anti-confabulation guard hardened after NO-GO ×2) + `autofit/cited_values.py` (citation-required loader, user_cited tier) + `resolve(allow_structural_fallback=…)` + `/api/analyze` structure-report degradation. NO empirical value emitted anywhere; positions all UNVERIFIED/None pending cited sources. See the Phase D section. |
 | Element-physics DB | **BROAD COVERAGE DONE** | ✅ 17+5 tests | Full-periodic-table NIST-archive sweep (committed pipeline `scripts/acquire_nist_archive.py`, resumable manifest): all 103 elements probed; **52 with usable archived SRD-20 snapshots + starred values, 51 honest failures** (no snapshot / no NIST-evaluated line — incl. the whole aspx-only + actinide tail; see format finding). Machine tier now **78 transitions / 51 elements** (was 45/37): +33 new (lanthanide 4d family, heavy-metal 4d5/2, 3d/3p secondaries, new elements Rh + Pr + Mg), every one an archived starred value, sha256-pinned, **33/33 independently agent-cross-checked (own parser, exact agreement)**; subshell-level guards prevent any curated/tiers overlap (27+10 guard skips logged); 337-entry skip audit. `fit-physics.json` regenerated: **98 transitions** (14 sourced spin-orbit, statistical 2j+1 ratios caveated). Byte-identical regeneration test GREEN (the old baseline failure is FIXED — artifacts restored sha256-verified from committed provenance). Still NOT wired into the engine (regions keep their own cited constants; deliberate). Per-value review table: `docs/autofit/fit-physics-coverage-report.md`. |
 
 ## Codex checkpoint verdicts
@@ -1277,6 +1278,96 @@ directly, confirming the `[100,0,0,0] → zeros` pin and the signed
 mixed-sign pass-through match the documented policy. **The Tougaard
 bug-fix unit is Codex-cleared: review ×2 (NO-GO → fixed) + re-check ×2
 (GO ×2).**
+
+## Phase D — periodic-table coverage framework (2026-07-05 goal session)
+
+Structural general-use across Z=1..96 WITHOUT emitting a single empirical
+value from memory. Three additive units, each Codex-checked ×2 (stricter
+governs). The anti-confabulation rail governs everything: no binding
+energies, splittings, RSFs, FWHMs, or multiplet patterns from memory or
+formula estimates — values enter ONLY through the cited-source loader.
+
+**Unit D1 — derivable structure (`autofit/coverage.py`, commits 884518b +
+4254ee1).** Everything derivable from electron configuration + QM
+bookkeeping for Z=1..96: Madelung (n+l, n) configurations (an ALGORITHM —
+true-ground-state anomalies documented as a caveat, deliberately NOT
+encoded); occupied levels; singlet vs spin-orbit doublet with exact j
+labels/degeneracies; exact (2j+1) ratio EXPECTATIONS (p 1:2, d 2:3, f 3:4
+as rationals, child-over-parent convention matching the grammar's
+area_ratio) for FILLED subshells only, expectation_only-flagged with the
+Cl 2p Coster-Kronig lesson referenced BY CITATION (see below);
+open-d/f multiplet-prone FLAG (never a splitting) + oxidation caveat;
+positional conductor-class default (six-metalloid staircase, H/He
+special-cased, allotrope caveat naming graphite/diamond) — always
+user-overridable. Every derived field carries `derived:<rule>`. Element
+symbols/Z/names GENERATED from the committed definitional table
+(`scripts/gen_machine_tier.py`) and cross-pinned by test — zero memory
+re-transcription. `binding_energy_ev` exists on every level and is None.
+**Codex ×2: NO-GO ×2 → fixed same-session:** the BLOCKER both runs
+converged on was the ratio caveat emitting the empirical Cl 2p 0.55 bound
+into every element's record — exactly the string-laundering hole the
+review was pointed at; the caveat now carries the lesson by reference
+(adjudication-decisions.md #7), numbers removed. The anti-confabulation
+guard test was hardened (both runs): value-bearing ANCESTRY tracking (a
+wrapped `{"splitting_ev": {"value": ...}}` cannot launder through the
+whitelisted `value` key), numeric `value` legal only inside the
+statistical-ratio record, and EVERY string leaf scanned for decimal
+numbers / eV-suffixed quantities. Cache isolation now tested (first-call
++ cache-hit); Madelung-anomaly outputs for Cu/Pd/La/Ce pinned so encoding
+real configurations must be a reviewed decision. Re-check ×2: see the
+verdicts subsection below.
+
+**Unit D2 — cited-source loader (`autofit/cited_values.py`, commit
+bed007e).** The ONLY entry path for empirical values. JSON (schema v1) or
+CSV; row fields: element, level (subshell `2p` or component `2p3/2`),
+oxidation_state?, value_type (binding_energy_ev |
+spin_orbit_splitting_ev), value_ev, uncertainty_ev?, source_citation,
+method?, convention?. NOTHING loads without a non-empty, non-placeholder
+citation (placeholder set rejected); rows cross-checked against the
+derivable structure (element in table, subshell occupied, component
+real, splittings only on doublet subshells); values finite/positive;
+unknown row keys rejected (typo guard — a typo'd citation column can
+never silently launder an uncited row); all-or-nothing load with the row
+index in the error. Statuses extend the existing tier mapping
+(machine→UNVERIFIED, curated→CONDITIONAL) with **user_cited→CONDITIONAL**
+— a load can never mint VERIFIED; test_only files force UNVERIFIED.
+Example fixture (`tests/autofit/fixtures/example_cited_values.json`) uses
+deliberately NON-PHYSICAL values (Cl 2p3/2 at 100 eV, a 100 eV
+"splitting", U 4f7/2 at 200 eV). 11 tests. Codex ×2: pending (queued
+behind the D1 re-check).
+
+**Unit D3 — resolve() structural fallback + honesty surface (commit
+below).** `resolve(..., allow_structural_fallback=True, cited_values=…)`
+— OPT-IN, default False keeps every existing caller byte-identical.
+A region with no registered module that parses as an element/level
+resolves to derived structure: zero candidates, provenance records
+(structure=VERIFIED exact-QM / ratio expectation + advisory flags
+=CONDITIONAL / position=UNVERIFIED value-None), the honesty note
+"structure known, positions UNVERIFIED — supply a cited source", and a
+new `CandidateGrammar.structural_only` field. Cited values ride into the
+provenance with their own status; they do NOT build candidates (windows/
+widths remain curation work — no invented fit windows). Joint requests:
+structural regions are excluded from candidate composition (an empty set
+would wipe the deep regions' candidates) with an explicit note; the
+fit-physics DB exposure rides along (the machine tier may already carry
+an UNVERIFIED entry for e.g. Fe 2p). `/api/analyze` resolves with the
+fallback ON: a structure-only request returns 200 with a structure
+report + the uses_conditional_or_unverified_constants rollup (computed
+with the exact expression the methods use) instead of a 400/500; mixed
+deep+structural requests run normally with `structural_only` flagged in
+the payload. Unparseable/unknown regions still 400. `/api/fit`, the
+manual path, and the deep region modules untouched. 10 tests (resolve
+level + API level).
+
+**Coverage span:** structure DERIVED for all Z=1..96 (levels, doublets,
+ratios, flags). Positions: NONE populated anywhere — by design. The
+loader schema is the handoff for Skye (or a curation pass) to bring in
+cited values; windows/widths per region remain future curation.
+
+**Suite after all three units: 474 passed + 3 known env-gated skips**
+(441 pre-Phase-D + 12 coverage + 14 loader (incl. the pre-review
+self-audit: bool-value rejection, CSV overflow-row rejection, JSON
+Infinity pin) + 10 fallback/API — zero regressions).
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks

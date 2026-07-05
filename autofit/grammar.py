@@ -195,6 +195,10 @@ class CandidateGrammar:
     # physical constant the resolved grammar consumes, with its verification
     # status.  Travels into the analysis namespace (never comments-only).
     provenance: dict[str, list[dict]] = field(default_factory=dict)
+    # Phase D structural fallback: regions resolved WITHOUT a registered
+    # module — derived structure only (see autofit.coverage), zero fit
+    # candidates contributed.  Empty for every pre-Phase-D caller.
+    structural_only: tuple[str, ...] = ()
 
 
 class PhaseAmbiguityError(ValueError):
@@ -234,6 +238,8 @@ def resolve(
     regions: "list[str | tuple[str, str]] | str",
     oxidation_state: Optional[str] = None,
     target_phases: Optional[dict[str, str]] = None,
+    allow_structural_fallback: bool = False,
+    cited_values: Optional[list] = None,
 ) -> CandidateGrammar:
     """
     Compose the candidate grammar for ``regions`` over ``phases``.
@@ -250,11 +256,30 @@ def resolve(
     oxidation_state : Layer-C override, forwarded to region modules
     target_phases   : {region: phase_id} disambiguation for UNqualified
                       requests of a region contributed by more than one phase
+    allow_structural_fallback : Phase D, OPT-IN (default False keeps every
+                      existing caller byte-identical).  A region with no
+                      registered module that parses as an element/level in
+                      the Z=1..96 table resolves to DERIVED STRUCTURE only
+                      (autofit.coverage): zero fit candidates, provenance
+                      records for the doublet/singlet structure, ratio
+                      expectation, multiplet/conductor flags, and an
+                      UNVERIFIED value-None position — 'structure known,
+                      positions UNVERIFIED, supply a cited source'.  Such
+                      regions are listed in ``CandidateGrammar.
+                      structural_only`` and excluded from joint candidate
+                      composition.
+    cited_values    : optional list of autofit.cited_values.CitedValue —
+                      cited empirical values whose matching records ride
+                      into the structural provenance (they do NOT build
+                      candidates; windows/widths remain curation work).
 
     Raises
     ------
     PhaseAmbiguityError : unqualified region in multiple phases w/o a target
     UnknownRegionError  : region not registered, or not covered by any phase
+                          (with fallback enabled: also not derivable —
+                          unparseable label, unknown element, or an
+                          unoccupied subshell)
     """
     from .regions import get_region_module  # local import: avoid cycle
 
@@ -277,7 +302,9 @@ def resolve(
 
     notes: list[str] = []
     per_request_candidates: list[list[CandidateModel]] = []
-    slugs: list[str] = []
+    slugs: list[str] = []            # module-backed requests (composition)
+    all_slugs: list[str] = []        # module-backed + structural (collision)
+    structural_regions: list[str] = []
     diagnostic_windows: dict[str, tuple[float, float]] = {}
     provenance: dict[str, list[dict]] = {}
     used_phase_ids: list[str] = []
@@ -322,12 +349,48 @@ def resolve(
             raise ValueError(f"duplicate region request {pair}")
         resolved_pairs.add(pair)
 
-        module = get_region_module(region)
+        slug = region if region_counts[region] == 1 else f"{region}@{chosen.id}"
+        try:
+            module = get_region_module(region)
+        except UnknownRegionError:
+            # ── Phase D structural fallback (opt-in) ─────────────────────
+            if not allow_structural_fallback:
+                raise
+            from . import coverage
+            try:
+                records, s_notes = coverage.structural_provenance(
+                    region, cited_values=cited_values)
+            except KeyError as exc:
+                raise UnknownRegionError(
+                    f"region {region!r}: no registered module and no "
+                    f"derivable structure — {exc}"
+                ) from None
+            all_slugs.append(slug)
+            structural_regions.append(region)
+            used_phase_ids.append(chosen.id)
+            provenance[slug] = records
+            notes.append(
+                f"{slug}: STRUCTURAL FALLBACK (phase {chosen.id!r}, "
+                f"{chosen.material_class.value}) — derived structure only")
+            notes.extend(f"{slug}: {n}" for n in s_notes)
+            if oxidation_state is not None:
+                notes.append(
+                    f"{slug}: oxidation_state {oxidation_state!r} has no "
+                    "effect on a structural-fallback region (Layer C needs "
+                    "a region module)")
+            # the tiered fit-physics DB exposure rides along here too —
+            # the machine tier may already carry an (UNVERIFIED) entry
+            db_prov, db_notes = _fit_physics_provenance(
+                region, provenance[slug], slot_facts=None)
+            provenance[slug].extend(db_prov)
+            notes.extend(f"{slug}: {note}" for note in db_notes)
+            continue
+
         candidates = module.build_candidates(chosen, oxidation_state=oxidation_state)
         _guard_slot_tags(candidates, region, chosen.id)
         per_request_candidates.append(candidates)
-        slug = region if region_counts[region] == 1 else f"{region}@{chosen.id}"
         slugs.append(slug)
+        all_slugs.append(slug)
         used_phase_ids.append(chosen.id)
         notes.append(
             f"{slug}: phase {chosen.id!r} ({chosen.material_class.value}"
@@ -363,7 +426,8 @@ def resolve(
     # composition sanitizer strips non-alphanumerics from slugs, so distinct
     # phase ids like 'B-4C' and 'B4C' would collapse into one role prefix and
     # silently collide in the lmfit parameter namespace.  Fail loudly instead.
-    sanitized = [re.sub(r"[^A-Za-z0-9_]", "", s.replace(" ", "")) for s in slugs]
+    sanitized = [re.sub(r"[^A-Za-z0-9_]", "", s.replace(" ", ""))
+                 for s in all_slugs]
     if len(set(sanitized)) != len(sanitized):
         dupes = sorted({s for s in sanitized if sanitized.count(s) > 1})
         raise ValueError(
@@ -371,13 +435,23 @@ def resolve(
             "phase ids must remain distinct once spaces/punctuation are removed"
         )
 
-    if len(requests) == 1:
+    # Composition runs over MODULE-BACKED requests only: a structural-
+    # fallback region has no candidates, and letting its empty set into the
+    # cartesian product would wipe the deep regions' candidates.
+    if not per_request_candidates:
+        composed: list[CandidateModel] = []
+    elif len(per_request_candidates) == 1:
         composed = per_request_candidates[0]
     else:
         composed = _compose_joint_candidates(slugs, per_request_candidates)
         notes.append(
             f"joint co-fit of {slugs}: {len(composed)} composed candidates"
         )
+    if structural_regions and len(requests) > 1:
+        notes.append(
+            f"structural-fallback region(s) {structural_regions} excluded "
+            "from candidate composition (derived structure only — no "
+            "windows or candidates to compose)")
 
     grammar = CandidateGrammar(
         regions=tuple(region for region, _ in requests),
@@ -386,6 +460,7 @@ def resolve(
         diagnostic_windows=diagnostic_windows,
         notes=notes,
         provenance=provenance,
+        structural_only=tuple(structural_regions),
     )
     _guard_phase_leakage(grammar, phases)
     return grammar
