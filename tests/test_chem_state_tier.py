@@ -1,0 +1,107 @@
+"""Unit R3 — chemical-state tier: integrity pins + the sourced-or-skip
+audit outcome.
+
+Oxidation-state BEs are the highest confabulation risk, so the rail is
+sourced-or-skip. The 2026-07-05 audit of every candidate source found NO
+cleanly-sourceable extension:
+
+1. The frontend's embedded CHEMICAL_STATES constant — the origin of the
+   existing 11-group/52-state tier — was FULLY transcribed (dual
+   extraction, 4a/4b) and then REMOVED from the template. Source
+   exhausted.
+2. The archived NIST element pages (query_all_dat_el.asp) carry no
+   chemical-state class — the standing gen_machine_tier
+   "context-undeterminable" skip reason.
+3. The archived NIST compound pages (elm_in_comp_res.asp) DO exist and
+   were summarized during Stage 9 (.stage9/extract_chem_*/groups_4*.json)
+   — but the summaries carry per-compound BEs with NO per-row reference
+   codes, NO evaluated-star markers, and NO retained raw artifacts, so
+   emitting from them would violate the tier's own per-state ref
+   contract. A future pipeline (re-fetch, sha-pin, per-row ref recovery,
+   plus Skye's editorial condensation rules for which compound rows
+   constitute a "state") is the documented path — logged, not executed.
+
+The tier therefore stays at 11 groups / 52 states. That is the correct
+outcome, not a failure.
+"""
+
+import json
+import os
+
+import pytest
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CHEM = os.path.join(REPO, "data", "xps", "legacy", "chemical-states.json")
+STAGE9 = os.path.join(REPO, ".stage9")
+
+
+def _load(path):
+    with open(path) as f:
+        return json.load(f)
+
+
+def test_every_chem_state_carries_ref_source_tier():
+    """The goal-prescribed pin: every emitted chemical state carries
+    ref + source; none without provenance."""
+    doc = _load(CHEM)
+    assert doc["curation_status"] == "legacy-unverified"
+    assert doc["source"] == "legacy-embedded-dataset"
+    assert doc["content_sha256"]
+    states = [s for g in doc["groups"] for s in g["states"]]
+    assert len(doc["groups"]) == 11
+    assert len(states) == 52
+    for s in states:
+        assert s["ref"] and isinstance(s["ref"], str), f"{s['id']}: no ref"
+        assert s["source"] == "legacy-embedded-dataset"
+        assert s["tier"] == "legacy-unverified"
+        assert isinstance(s["be_ev"], (int, float)) and 0 < s["be_ev"] < 1500
+    assert len({s["id"] for s in states}) == 52     # ids unique
+
+
+def test_transcription_source_removed_from_frontend():
+    """The tier's origin (the embedded frontend constant) was fully
+    transcribed and REMOVED — pin the removal so a resurrected constant
+    (a second, diverging copy of chem-state values) is caught."""
+    html = open(os.path.join(REPO, "templates", "index.html")).read()
+    assert "CHEMICAL_STATES constants have been REMOVED" in html
+    # no live constant definition may reappear
+    assert "CHEMICAL_STATES = {" not in html
+    assert "CHEMICAL_STATES={" not in html
+
+
+def test_compound_page_summaries_are_not_emittable():
+    """The Stage-9 compound-page summaries (the only other sourced
+    avenue) lack per-row refs — pin WHY they are skip-classified, so a
+    future 'helpful' emission from them fails a test instead of shipping
+    uncited values. Env-gated on the gitignored .stage9 data."""
+    p = os.path.join(STAGE9, "extract_chem_claude", "groups_4a.json")
+    if not os.path.exists(p):
+        pytest.skip("gitignored .stage9 working data not present")
+    groups = _load(p)
+    groups = groups.get("groups", groups)
+    assert groups, "4a summary present but empty"
+    for g in groups:
+        for row in g.get("compound_bes", []):
+            assert "ref" not in row, (
+                f"{g['element']} {g['orbital']}: compound row carries a "
+                "ref — the not-emittable classification may be stale; "
+                "re-audit R3")
+    # raw compound-page artifacts were NOT retained (no sha chain)
+    arts = [f for f in os.listdir(os.path.join(STAGE9, "extract_chem_claude"))
+            if f.endswith(".html")]
+    assert arts == [], (
+        "raw compound-page artifacts present — the future-pipeline "
+        "preconditions may now hold; re-audit R3")
+
+
+def test_chem_states_flow_through_bridge_with_provenance():
+    """End-to-end: the tier reaches the autofit bridge with per-state
+    ref/source intact and UNVERIFIED status (unit R1 integration)."""
+    from autofit import reference_bridge as rb
+    doc = _load(CHEM)
+    for grp in doc["groups"]:
+        sub = grp["orbital"][:2]
+        ref = rb.level_reference(grp["element"], sub)
+        assert len(ref["chemical_states"]) == len(grp["states"])
+        for s in ref["chemical_states"]:
+            assert s["ref"] and s["source"] and s["status"] == "UNVERIFIED"

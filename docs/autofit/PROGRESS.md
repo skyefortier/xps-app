@@ -1565,6 +1565,41 @@ elements from cited handbooks later). Machine-tier byte-identical
 regeneration re-verified after the re-probe (18 tests green — the
 committed outputs were untouched by it).
 
+**Unit R3 — chemical states: sourced-or-skip audit → SPARSE STAYS
+SPARSE (correct outcome, not failure).** Every candidate source audited
+(2026-07-05):
+1. The frontend's embedded CHEMICAL_STATES constant (the tier's origin,
+   11 groups / 52 states, per-state ref + source) — FULLY transcribed by
+   the Stage-9 dual extraction and then REMOVED from the template.
+   Source exhausted; the removal is now pinned so a resurrected
+   diverging copy fails a test.
+2. Archived element pages (query_all_dat_el.asp) — chemical-state class
+   NOT recoverable (the standing gen_machine_tier
+   "context-undeterminable" finding). Skip.
+3. **NEW FINDING — archived COMPOUND pages (elm_in_comp_res.asp) exist
+   and are parseable** (Stage-9 summaries show e.g. 1591 C 1s compound
+   rows, 94 Ti 2p3/2 rows, with per-compound BEs) — a genuine future
+   sourced avenue. NOT emittable today: the retained summaries carry no
+   per-row reference codes, no evaluated-star markers, and no raw
+   artifacts (no sha chain), so emission would violate the tier's own
+   per-state ref contract. The not-emittable classification is PINNED
+   (a ref appearing in the summaries, or raw artifacts appearing, fails
+   a test with "re-audit R3"). FUTURE PIPELINE (logged for Skye):
+   re-fetch compound pages politely → sha-pin → recover per-row refs/
+   stars → Skye defines editorial condensation rules (which compound
+   rows constitute a "state") → emit under the existing schema seam
+   (curated transitions' chemical_states, currently 0 entries by
+   design).
+Zero states emitted from memory; the tier stays 11/52 with integrity
+pins (every state ref+source+tier+range, unique ids) and an end-to-end
+pin that states reach the autofit bridge with provenance intact. 4
+tests (`tests/test_chem_state_tier.py`).
+
+**Codex status for R units:** R1 review ×2 done (NO-GO+GO → all
+findings fixed); R1 re-check attempt 1 hit the Codex USAGE LIMIT (both
+runs; no verdict — logged, retry scheduled post-reset). R2/R3 reviews
+queued behind the R1 re-check retry.
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);
