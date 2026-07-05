@@ -83,7 +83,14 @@ def test_citation_required(tmp_path):
                 # trailing-dash forms; (both runs MINOR): zero-width/BOM
                 # copy-paste damage
                 "---", "———", "n/a-", "none-", "todo-", "unknown-",
-                "n​/a", "﻿none﻿", "n⁠/a"):
+                "n​/a", "﻿none﻿", "n⁠/a",
+                # Codex D2 re-check round 3 (both runs MAJOR): the
+                # edge-punctuation set was an enumeration — the class fix
+                # collapses the canonical form to alphanumerics, so ANY
+                # non-alphanumeric decoration of a placeholder is caught
+                "n/a/", "none/", "unknown/", "todo/", "unknown…", "none…",
+                "<none>", "n/a*", "none*", "todo*", "n/a #", "none #",
+                "n/a_", "x", "xxx", "fixme", "citation needed"):
         rows = [_row(source_citation=bad)]
         with pytest.raises(CitedValueError, match="citation"):
             load_cited_values(_write(tmp_path, rows))

@@ -1,0 +1,45 @@
+Re-check ROUND 4 (final verification), Phase D unit 2
+(autofit/cited_values.py), branch feature-autofit-stage2. Round 3:
+NO-GO x2 (archived: docs/autofit/codex/phaseD_unit2_recheck3_verdict_
+run{A,B}.md) — every prior disposition CLOSED; both runs converged on
+the same structural point: the edge-punctuation strip set was an
+ENUMERATION, and each round found another realistic decoration
+("n/a/", "none*", "<none>", "n/a #", "n/a_").
+
+THE CLASS FIX (latest commit touching autofit/cited_values.py):
+placeholder detection now collapses the citation to ASCII alphanumerics
+ONLY (re.sub(r"[^a-z0-9]", "", lowercased)) and compares against a set
+of COLLAPSED tokens (none/unknown/na/todo/tbd/false/true/0/null/nil/no/
+x/xx/xxx/fixme/citationneeded/placeholder/test/example/sample/missing);
+empty-after-collapse rejects. ANY non-alphanumeric decoration of a
+placeholder token — punctuation, unicode dashes, zero-width/BOM chars,
+brackets, footnote markers — is caught by construction, ending the
+enumeration game. DOCUMENTED LIMITATION (in code): a citation with NO
+ASCII alphanumerics at all (fully non-Latin, no digits) collapses empty
+and rejects — supply a DOI/year/transliteration. All 3 rounds' probes
+are pinned (~35 rejection cases); legit-citation pins include internal
+hyphens, leading hyphens, DOIs, URLs, "Doniach-Šunjić 1970", and a CJK
+citation WITH digits.
+
+VERIFY:
+1. Every round-3 probe rejects; your own new decorations of set tokens
+   reject BY CONSTRUCTION (pick any); legit citations load.
+2. False-rejection audit of the collapse: can a REAL citation collapse
+   exactly onto a set token? (e.g. "T.O.D.O. et al."? — judge realism;
+   "NA 27, 100 (1990)" collapses to "na271001990", fine). Probe your own.
+3. THE PROPORTIONALITY RULING (make it explicit): the loader's defense
+   in depth is (a) type-checked required citation, (b) collapsed-token
+   placeholder gate, (c) status CEILING of CONDITIONAL — never VERIFIED —
+   with the citation text relayed VERBATIM into provenance that humans
+   review. A placeholder that somehow slips is a VISIBLE garbage string
+   in a CONDITIONAL record, not an invisible fabrication. Given that,
+   rule where the accidental-vs-adversarial line sits and whether any
+   residual you find is release-blocking for THIS contract, or
+   token-set tuning (MINOR). Do not treat "I can invent another token
+   spelling" (e.g. "nothing here") as a structural hole — the gate
+   guards common accidents, the human review guards quality.
+4. Scope: the fix commit touches only the loader + its tests + verdict
+   archives.
+
+Deliver: per-item CLOSED/NOT-CLOSED, findings with severity + concrete
+scenario, then exactly "VERDICT: GO" or "VERDICT: NO-GO".

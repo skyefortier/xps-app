@@ -32,7 +32,6 @@ import csv
 import json
 import math
 import re
-import unicodedata
 from dataclasses import dataclass
 from typing import Optional
 
@@ -52,12 +51,16 @@ _REQUIRED = frozenset({"element", "level", "value_type", "value_ev",
 _OPTIONAL = frozenset({"oxidation_state", "uncertainty_ev", "method",
                        "convention"})
 
-# Rejected even when non-empty: citation laundering via placeholder text
-# (extended after the Codex D2 review — both runs probed "n-a"/"false"/"0"
-# through the original set).
+# Rejected even when non-empty: citation laundering via placeholder text.
+# The set holds ALPHANUMERIC-COLLAPSED forms — the check strips everything
+# that is not [a-z0-9] first (Codex D2 re-check round 3, both runs: an
+# edge-punctuation enumeration is unwinnable — "n/a-", "none*", "<none>",
+# "n/a #" each needed another entry; collapsing eliminates the class).
+# Pure-punctuation citations collapse to empty and are rejected as empty.
 _PLACEHOLDER_CITATIONS = frozenset({
-    "none", "unknown", "n/a", "n-a", "na", "todo", "tbd", "?", "-", "--",
-    "false", "true", "0", "null", "nil", "no",
+    "none", "unknown", "na", "todo", "tbd", "false", "true", "0", "null",
+    "nil", "no", "x", "xx", "xxx", "fixme", "citationneeded",
+    "placeholder", "test", "example", "sample", "missing",
 })
 
 _LEVEL_RE = re.compile(r"^([1-7][spdf])(\d/2)?$")
@@ -106,18 +109,20 @@ def _validate_row(i: int, row: dict, test_only: bool) -> CitedValue:
                          f"{row['source_citation']!r} — a non-text value "
                          "is not a citation")
     citation = row["source_citation"].strip()
-    # placeholder detection runs on a CANONICAL form (D2 re-checks: "n–a",
-    # "None.", "n - a", "---", "n/a-", zero-width/BOM damage all loaded
-    # before): Unicode format chars (Cf: ZWSP/BOM/word-joiner) removed,
-    # unicode dashes → hyphen, internal whitespace removed, edge
-    # punctuation INCLUDING hyphens stripped (dash-runs canonicalize to
-    # empty → rejected), lowercased. Homoglyph/fullwidth forgery is
-    # adversarial input, out of scope (both re-check runs concur). The
-    # stored citation stays verbatim; only the check normalizes.
-    canonical = "".join(ch for ch in citation.lower()
-                        if unicodedata.category(ch) != "Cf")
-    canonical = re.sub(r"[‐-―−]", "-", canonical)
-    canonical = re.sub(r"\s+", "", canonical).strip(".,;:!?()[]{}'\"-")
+    # Placeholder detection runs on an ALPHANUMERIC-COLLAPSED form: strip
+    # every character outside [a-z0-9] after lowercasing. Three re-check
+    # rounds proved punctuation enumeration unwinnable ("n–a", "None.",
+    # "---", "n/a-", "<none>", "n/a #", zero-width/BOM damage each got
+    # through a narrower rule); the collapse catches any non-alphanumeric
+    # decoration of a placeholder token in one move. Pure-decoration
+    # citations collapse to empty → rejected. Homoglyph/fullwidth forgery
+    # is adversarial input, out of scope (re-check rounds 2A/2B concur).
+    # KNOWN LIMITATION (documented, accepted): a citation containing NO
+    # ASCII alphanumerics at all (e.g. a fully non-Latin string without
+    # digits) collapses to empty and is rejected — supply a DOI, year, or
+    # transliterated form. The stored citation stays verbatim; only the
+    # check normalizes.
+    canonical = re.sub(r"[^a-z0-9]", "", citation.lower())
     if not canonical or canonical in _PLACEHOLDER_CITATIONS:
         raise _reject(i, f"placeholder citation {citation!r} rejected — "
                          "a real source citation is required")
