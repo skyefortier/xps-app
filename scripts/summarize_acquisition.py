@@ -33,19 +33,27 @@ def build():
 
     def reason_class(r):
         reason = str(r.get("reason", ""))
+        if reason.startswith("cdx query failed"):
+            # NOT proof of absence — a summary containing this class is
+            # NOT an exhaustion certificate (the test pins zero of these)
+            return "cdx-query-failed-UNPROVEN"
         if reason.startswith("no archive snapshot"):
             return "no-archive-snapshot"
         if "no NIST-evaluated" in reason:
             return "artifact-has-no-starred-value"
-        return "other"
+        return "other-UNCLASSIFIED"
 
     by_reason: dict = {}
     for r in failed:
-        by_reason.setdefault(reason_class(r), []).append({
+        entry = {
             "symbol": r["symbol"],
             "reason": r.get("reason"),
             "last_probe_utc": r.get("fetch_utc"),
-        })
+        }
+        if r.get("snapshots_checked"):
+            # evidence of archive-exhaustive iteration (multi-snapshot)
+            entry["snapshots_checked"] = r["snapshots_checked"]
+        by_reason.setdefault(reason_class(r), []).append(entry)
     for v in by_reason.values():
         v.sort(key=lambda x: x["symbol"])
 

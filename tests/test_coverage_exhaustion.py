@@ -82,16 +82,19 @@ def test_every_machine_element_is_manifest_ok():
     spec.loader.exec_module(mod)
     regen = mod.build()
     assert regen == s, "committed summary != deterministic regeneration"
-    # every committed machine element was manifest-OK
+    # EVERY committed machine element must have a manifest row AND be OK —
+    # a missing row must fail, not silently pass (Codex R2 review, run A
+    # MAJOR: a hand-edited element with plausible provenance but no
+    # manifest row previously slipped this certification)
     machine = _load(os.path.join(DATA, "elements-machine.json"))["elements"]
     for e in machine:
-        # tiers-driven originals may predate the manifest; expansion
-        # records must be OK when present in the manifest
         m = man.get(e["symbol"])
-        if m is not None:
-            assert m["status"] == "OK", (
-                f"{e['symbol']}: committed machine element but manifest "
-                f"status {m['status']}")
+        assert m is not None, (
+            f"{e['symbol']}: committed machine element has NO manifest "
+            "row — where did it come from?")
+        assert m["status"] == "OK", (
+            f"{e['symbol']}: committed machine element but manifest "
+            f"status {m['status']}")
 
 
 def test_no_snapshot_elements_absent_from_machine_tier():

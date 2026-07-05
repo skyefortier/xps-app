@@ -84,63 +84,117 @@ def http_get(url, timeout=60, retries=3):
 
 
 def cdx_snapshots(elem, ext):
+    """(snapshots, error) — a CDX failure is returned as an ERROR STRING,
+    never collapsed into an empty result (Codex R2 review, both runs
+    BLOCKER: a timeout was indistinguishable from true archive absence,
+    leaving the exhaustion certification unproven). 'No snapshot' may only
+    be concluded from an HTTP-successful, well-formed, EMPTY result set."""
     base = f"srdata.nist.gov/xps/query_all_dat_el.{ext}?elm1={elem}"
     q = urllib.parse.quote(base, safe="")
     url = f"https://web.archive.org/cdx/search/cdx?url={q}&output=json&limit=12"
     try:
         data = json.loads(http_get(url, timeout=45))
-    except Exception:
-        return []
-    rows = data[1:] if data and isinstance(data, list) else []
+    except Exception as e:
+        return [], f"{type(e).__name__}: {e}"
+    if not isinstance(data, list):
+        return [], f"malformed CDX response ({type(data).__name__})"
+    rows = data[1:]
     # rows: [urlkey, timestamp, original, mimetype, statuscode, digest, length]
     snaps = [(r[1], r[2], r[4]) for r in rows if len(r) >= 5 and r[4] in ("200", "-")]
     snaps.sort(key=lambda s: s[0])      # earliest first (2004 vintage matches the parser)
-    return snaps
+    return snaps, None
 
 
 def acquire(elem):
     rec = {"symbol": elem, "status": "FAILED", "reason": None,
            "snapshot_timestamp": None, "source_url": None, "sha256": None,
            "bytes": 0, "starred_pe_lines": [], "all_pe_line_count": 0,
+           "snapshots_checked": 0, "cdx_errors": [],
            "fetch_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    snaps = [(ts, orig, sc, "asp") for ts, orig, sc in cdx_snapshots(elem, "asp")]
-    snaps += [(ts, orig, sc, "aspx") for ts, orig, sc in cdx_snapshots(elem, "aspx")]
+    snaps, errors = [], []
+    for ext in ("asp", "aspx"):
+        s, err = cdx_snapshots(elem, ext)
+        snaps += [(ts, orig, sc, ext) for ts, orig, sc in s]
+        if err:
+            errors.append(f"{ext}: {err}")
+    rec["cdx_errors"] = errors
     if not snaps:
-        rec["reason"] = "no archive snapshot of query_all_dat_el.asp(x) for this element"
-        return rec
-    for ts, original, _sc, _ext in snaps:
-        src = f"https://web.archive.org/web/{ts}id_/{original}"
-        try:
-            raw = http_get(src, timeout=60)
-        except Exception as e:
-            rec["reason"] = f"fetch error: {e}"
-            continue
-        path = os.path.join(ART, f"{elem}_nist.html")
-        with open(path, "wb") as f:
-            f.write(raw)
-        text = raw.decode("utf-8", "replace")
-        if "All Data for" not in text:
-            rec["reason"] = f"snapshot {ts} not the element-data page (likely a redirect/placeholder)"
-            continue
-        recs = parse_nist_html(path)
-        pe = [r for r in recs if PE_LINE.match(r["orbital"])]
-        starred = sorted({(r["orbital"], r["energy"], r["ref"].lstrip("*").strip())
-                          for r in pe if r["evaluated"]})
-        rec.update(snapshot_timestamp=ts, source_url=src,
-                   sha256=hashlib.sha256(raw).hexdigest(), bytes=len(raw),
-                   all_pe_line_count=len(pe),
-                   starred_pe_lines=[{"orbital": o, "energy": e, "ref": rf} for o, e, rf in starred])
-        if starred:
-            rec["status"] = "OK"
-            rec["reason"] = None
+        if errors:
+            # NOT proof of absence — a failed query must never be
+            # certified as an empty archive (Codex R2 BLOCKER). The
+            # resume logic re-probes this reason class.
+            rec["reason"] = f"cdx query failed: {'; '.join(errors)}"
         else:
-            rec["status"] = "FAILED"
-            rec["reason"] = "artifact fetched but no NIST-evaluated (starred) photoelectron line"
+            rec["reason"] = "no archive snapshot of query_all_dat_el.asp(x) for this element"
         return rec
+
+    # Iterate EVERY listed snapshot, earliest first, until a starred line
+    # is found (Codex R2 review, run A MAJOR: concluding 'no starred
+    # value' from only the FIRST usable artifact was not
+    # archive-exhaustive — a later snapshot may carry evaluated records).
+    # Candidates are parsed from a temp path; only the DECISION artifact
+    # (the starred snapshot, else the first parseable one) is promoted to
+    # {elem}_nist.html.
+    final_path = os.path.join(ART, f"{elem}_nist.html")
+    tmp_path = final_path + ".candidate"
+    best = None            # (found_dict, raw_bytes) — first parseable, starless
+    try:
+        for ts, original, _sc, _ext in snaps:
+            src = f"https://web.archive.org/web/{ts}id_/{original}"
+            try:
+                raw = http_get(src, timeout=60)
+            except Exception as e:
+                rec["reason"] = f"fetch error: {e}"
+                continue
+            rec["snapshots_checked"] += 1
+            text = raw.decode("utf-8", "replace")
+            if "All Data for" not in text:
+                rec["reason"] = (f"snapshot {ts} not the element-data page "
+                                 "(likely a redirect/placeholder)")
+                time.sleep(1.5)     # polite spacing between snapshot fetches
+                continue
+            with open(tmp_path, "wb") as f:
+                f.write(raw)
+            recs = parse_nist_html(tmp_path)
+            pe = [r for r in recs if PE_LINE.match(r["orbital"])]
+            starred = sorted({(r["orbital"], r["energy"],
+                               r["ref"].lstrip("*").strip())
+                              for r in pe if r["evaluated"]})
+            found = dict(snapshot_timestamp=ts, source_url=src,
+                         sha256=hashlib.sha256(raw).hexdigest(),
+                         bytes=len(raw), all_pe_line_count=len(pe),
+                         starred_pe_lines=[{"orbital": o, "energy": e,
+                                            "ref": rf}
+                                           for o, e, rf in starred])
+            if starred:
+                os.replace(tmp_path, final_path)
+                rec.update(found)
+                rec["status"] = "OK"
+                rec["reason"] = None
+                return rec
+            if best is None:
+                best = (found, raw)
+            time.sleep(1.5)         # polite spacing between snapshot fetches
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+    if best is not None:
+        # every snapshot checked; none carries a starred line — the first
+        # parseable artifact is the on-disk evidence for that conclusion
+        found, raw = best
+        with open(final_path, "wb") as f:
+            f.write(raw)
+        rec.update(found)
+        rec["status"] = "FAILED"
+        rec["reason"] = ("artifact fetched but no NIST-evaluated (starred) "
+                         "photoelectron line in ANY archived snapshot "
+                         f"({rec['snapshots_checked']} checked)")
+        return rec
+
     # nothing usable; make sure a half-written artifact doesn't linger
-    path = os.path.join(ART, f"{elem}_nist.html")
-    if os.path.exists(path) and rec["sha256"] is None:
-        os.remove(path)
+    if os.path.exists(final_path) and rec["sha256"] is None:
+        os.remove(final_path)
     return rec
 
 
@@ -169,15 +223,21 @@ def main():
     for el in targets:
         prior = existing.get(el) or {}
         art_present = os.path.exists(os.path.join(ART, f"{el}_nist.html"))
-        # Resumable skips: OK with artifact; FAILED-but-fetched with artifact
-        # (immutable snapshot — refetching cannot change 'nothing starred');
-        # FAILED with no snapshot found (probing again is pointless).
-        if art_present and prior.get("sha256") and prior.get("status") in ("OK", "FAILED"):
-            print(f"--- {el}: already acquired ({prior['status']}, artifact present) ---", flush=True)
+        # Resumable skips: OK with artifact; FAILED no-starred ONLY when the
+        # conclusion is archive-exhaustive (the multi-snapshot reason text —
+        # single-snapshot vintage records must be re-verified: Codex R2
+        # review, run A MAJOR); FAILED with a PROVEN-empty CDX result
+        # (a 'cdx query failed' reason is NOT proof and is always re-probed).
+        if art_present and prior.get("sha256") and prior.get("status") == "OK":
+            print(f"--- {el}: already acquired (OK, artifact present) ---", flush=True)
+            continue
+        if art_present and prior.get("sha256") and prior.get("status") == "FAILED" \
+                and "in ANY archived snapshot" in str(prior.get("reason", "")):
+            print(f"--- {el}: already exhaustively checked (no starred line in any snapshot) ---", flush=True)
             continue
         if prior.get("status") == "FAILED" and \
                 str(prior.get("reason", "")).startswith("no archive snapshot"):
-            print(f"--- {el}: already probed (no archive snapshot) ---", flush=True)
+            print(f"--- {el}: already probed (no archive snapshot, CDX-proven empty) ---", flush=True)
             continue
         print(f"--- {el} ---", flush=True)
         r = acquire(el)
