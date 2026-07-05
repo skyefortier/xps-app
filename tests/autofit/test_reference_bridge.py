@@ -217,15 +217,24 @@ def test_structural_provenance_relays_bridge_values_unmutated():
             by_const.setdefault(r["constant"], []).append(r)
         for pos in bridged["positions"]:
             recs = by_const[f"reference:{pos['tier']}:{pos['orbital']}"]
+            # KEY-PRESENCE identity, not .get() equality: an absent field
+            # and an explicit None must not be conflated (Codex R1
+            # re-check MINOR — a relay regression synthesizing None for
+            # legacy records would slip past .get() comparison)
+            _MISSING = object()
+
+            def _field(d, k):
+                return d[k] if k in d else _MISSING
             assert any(
                 r["value"]["nominal_be_ev"] == pos["nominal_be_ev"]
-                and r["value"].get("expected_region_ev") ==
-                    pos.get("expected_region_ev")
-                and r["value"].get("spin_orbit") == pos.get("spin_orbit")
+                and _field(r["value"], "expected_region_ev") ==
+                    _field(pos, "expected_region_ev")
+                and _field(r["value"], "spin_orbit") ==
+                    _field(pos, "spin_orbit")
                 and r["status"] == pos["status"]
                 for r in recs), (
                 f"{region} {pos['orbital']}: provenance record mutated "
-                "relative to the bridge")
+                "relative to the bridge (or key-presence differs)")
         if bridged["chemical_states"]:
             agg = by_const["reference:legacy:chemical_states"][0]
             assert agg["value"] == bridged["chemical_states"]
