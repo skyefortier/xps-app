@@ -30,7 +30,7 @@ path untouched.
 | Multivariate MCR method (stretch #5) | DONE (synthetic-validated) | ✅ 8 tests | `methods/multivariate_mcr.py`: PCA scree rank estimate (variance_target 0.995 UNVERIFIED, user-overridable, scree always reported) + MCR-ALS (row-wise NNLS alternation, deterministic SVD init, non-negativity on C and S) on a multi-spectrum matrix; `build_matrix` interpolation helper for mixed-grid repeat scans. HONESTY: `peaks=[]` by design (chemical states, not fitted peaks); rotational ambiguity stated in the payload; negative intensities rejected loudly. Synthetic: rank recovered, pure-spectra corr >0.98 (permutation-free), concentration corr >0.99, deterministic. Real-data validation on the repeat-scan matrices = follow-up. Codex checkpoint pending. |
 | Sparse/MAP method (stretch #4) | DONE (synthetic-validated) | ✅ 9 tests | `methods/sparse_map.py`: L1 Gaussian-atom dictionary on grammar slot windows (data-grid centers × log FWHM ladder), non-negative coordinate descent, geometric λ path, debiased NNLS refit, BIC (engine convention) model-size selection; cluster merge scaled to the resolved feature's width. Honesty: `uncertainty_kind='unavailable_post_selection'` (no fabricated σ), asymmetric slots flagged not-expressible, UNVERIFIED tunables in payload, limitations stated (decision-matrix entry 4: STAM:Methods 2024 DOI 10.1080/27660400.2024.2373046 + Tibshirani 1996). Synthetic ground truth: exact peak-count recovery, centers ≤0.15 eV, debiased amplitudes ≤15%, deterministic (no RNG). NOT validated on real anchors (its regime is few-separated-peaks; the real regions are overlap-heavy — documented). Codex checkpoint pending. |
 | Tougaard background bug-fix (C constant + BE-order + amplitude anchor) | DONE | ✅ 5 py + 4 js tests | `fitting.py::tougaard_background` + JS twin `tougaardBackground`: C was shipped SQUARED (1643² ≈ 2.7e6 eV², kernel max ~949 eV → flat/zero bg on real windows) → corrected to 1643 eV² (Tougaard 1988, SIA 11, 453); one-sided sum made order-robust (descending normalization, shirley-mirror); degenerate trailing rescale (K(0)=0 ⇒ scale ≡ raw trailing counts) replaced by the high-BE-edge anchor. Cross-language parity pinned at 1e-9. Codex checkpoint ×2: NO-GO ×2 (same MAJOR: frontend callers bypassed endpoint averaging → anchor mismatch; + 1 MINOR comment honesty) → all fixed same-session + caller-level pin; re-check ×2 **GO ×2** — unit review-complete. |
-| Phase D coverage framework (Z=1..96 structure + cited-source loader + structural fallback) | UNITS BUILT; Codex in flight | ✅ 12+11+10 tests | `autofit/coverage.py` (derivable structure, anti-confabulation guard hardened after NO-GO ×2) + `autofit/cited_values.py` (citation-required loader, user_cited tier) + `resolve(allow_structural_fallback=…)` + `/api/analyze` structure-report degradation. NO empirical value emitted anywhere; positions all UNVERIFIED/None pending cited sources. See the Phase D section. |
+| Phase D coverage framework (Z=1..96 structure + cited-source loader + structural fallback) | **DONE — ALL 3 UNITS CODEX-CLEARED** | ✅ 13+18+14 tests | `autofit/coverage.py` (derivable structure; anti-confabulation guard hardened through 3 review rounds) + `autofit/cited_values.py` (citation-required loader, user_cited tier; placeholder gate class-fixed to alphanumeric collapse, final GO ×2 with explicit proportionality ruling) + `resolve(allow_structural_fallback=…)` + `/api/analyze` structure-report degradation (argued DB-exposure disposition UPHELD GO ×2). NO empirical value emitted anywhere; positions all UNVERIFIED/None pending cited sources. Full suite 486 + 3 known skips. See the Phase D section. |
 | Element-physics DB | **BROAD COVERAGE DONE** | ✅ 17+5 tests | Full-periodic-table NIST-archive sweep (committed pipeline `scripts/acquire_nist_archive.py`, resumable manifest): all 103 elements probed; **52 with usable archived SRD-20 snapshots + starred values, 51 honest failures** (no snapshot / no NIST-evaluated line — incl. the whole aspx-only + actinide tail; see format finding). Machine tier now **78 transitions / 51 elements** (was 45/37): +33 new (lanthanide 4d family, heavy-metal 4d5/2, 3d/3p secondaries, new elements Rh + Pr + Mg), every one an archived starred value, sha256-pinned, **33/33 independently agent-cross-checked (own parser, exact agreement)**; subshell-level guards prevent any curated/tiers overlap (27+10 guard skips logged); 337-entry skip audit. `fit-physics.json` regenerated: **98 transitions** (14 sourced spin-orbit, statistical 2j+1 ratios caveated). Byte-identical regeneration test GREEN (the old baseline failure is FIXED — artifacts restored sha256-verified from committed provenance). Still NOT wired into the engine (regions keep their own cited constants; deliberate). Per-value review table: `docs/autofit/fit-physics-coverage-report.md`. |
 
 ## Codex checkpoint verdicts
@@ -1380,8 +1380,42 @@ hide behind a duplicated column) → manual header validation. MINORs:
 type-loose gates (schema_version: true via True==1; test_only
 truthiness) → strict-typed; the float 1.0==1 residual was SELF-CAUGHT
 while drafting the re-check prompt and fixed with a pin. Every probe
-from both verdicts is a pinned test, watched fail first. Re-check ×2:
-verdicts below when landed.
+from both verdicts is a pinned test, watched fail first.
+
+**Unit 2 re-check trail — 4 rounds, converging severity, final GO ×2:**
+- Round 1: run A NO-GO (dispositions 1–4 all CLOSED with probes; NEW
+  MAJOR: punctuation/unicode-dash/whitespace placeholder variants —
+  "n–a", "None.", "n - a" loaded); run B watchdog-killed with no verdict
+  (logged per rails). Fixed: canonical-form check (dash normalization,
+  whitespace removal, edge-punctuation strip).
+- Round 2: GO + NO-GO, stricter governs. Run B MAJOR: dash RUNS ("---")
+  and trailing-dash forms ("n/a-") loaded; both runs MINOR: zero-width/
+  BOM (Cf) copy-paste damage loaded; both rated fullwidth/homoglyph
+  forgery adversarial, out of scope. Fixed: Cf removal + edge-hyphen
+  strip.
+- Round 3: NO-GO ×2 — all priors CLOSED, but both runs converged on the
+  structural point: EDGE-PUNCTUATION ENUMERATION IS UNWINNABLE (each
+  round found another decoration: "n/a/", "none*", "<none>", "n/a #",
+  "n/a_"). CLASS FIX: the check now collapses citations to ASCII
+  alphanumerics and compares collapsed tokens — any non-alphanumeric
+  decoration is caught by construction. Documented limitation: fully
+  non-Latin citations without digits collapse empty and reject (supply
+  DOI/year/transliteration).
+- Round 4 (final): **VERDICT GO ×2.** Both runs probed their own novel
+  decorations ("[[none]]", "n/a†", zero-width joiners, "fixme!!!") —
+  all reject by construction; false-rejection audit clean (only
+  degenerate "citations" like bare "N.A."/"No." collapse to tokens —
+  correctly rejected as inadequate); the requested PROPORTIONALITY
+  RULING made explicit: "the accidental-vs-adversarial line is now in
+  the right place for this contract" — a missed synonym is token-set
+  tuning (MINOR), not a structural hole, because the CONDITIONAL status
+  ceiling + verbatim citation relay make any slip a VISIBLE garbage
+  string in a human-reviewed record, never an invisible fabrication.
+  Run A's one GO-rated MINOR (explicit legit-citation false-rejection
+  pins) landed same-session: DOI/URL/short-key/diacritic/CJK-with-digits
+  citations pinned as loading verbatim. 18 loader tests.
+  **UNIT 2 REVIEW-COMPLETE.** Verdicts
+  `phaseD_unit2_recheck{,2,3,4}_verdict_run{A,B}.md`.
 
 **Unit 3 review ×2 (2ef5b2c + the swept-in structural_provenance):
 NO-GO (A) + GO (B) — stricter governs; dispositioned same-session.**

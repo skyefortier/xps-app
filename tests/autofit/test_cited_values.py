@@ -96,6 +96,28 @@ def test_citation_required(tmp_path):
             load_cited_values(_write(tmp_path, rows))
 
 
+def test_legitimate_citations_never_false_reject(tmp_path):
+    """False-rejection pins for the alphanumeric-collapse placeholder gate
+    (Codex D2 re-check round 4, run A MINOR): a future over-aggressive
+    filter must not reject real citation forms — internal/leading hyphens,
+    DOIs, URLs, short reference keys, diacritics, CJK-with-digits."""
+    legit = [
+        "Tougaard, Surf. Interface Anal. 11, 453 (1988)",
+        "Powe95",
+        "10.1116/1.1247741",
+        "https://web.archive.org/web/2004/srdata.nist.gov",
+        "Smith & Jones 1990-1995 survey",
+        "-30 mV vs SCE study",
+        "Doniach-Šunjić 1970",
+        "日本表面科学会誌 12, 34 (1990)",
+        "NA 27, 100 (1990)",
+        "No. 5, J. Chem.",
+    ]
+    for c in legit:
+        vals = load_cited_values(_write(tmp_path, [_row(source_citation=c)]))
+        assert vals[0].source_citation == c    # stored verbatim
+
+
 def test_non_string_citation_rejected(tmp_path):
     """JSON false/true/0/numbers must not be str()-coerced into 'citations'
     (Codex D2 review BLOCKER, both runs)."""
