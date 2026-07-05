@@ -1535,6 +1535,36 @@ corrected here rather than rewriting pushed history).
 ALL bridged positions remain subject to Skye's hand-check (machine tier)
 per the standing handoff item.
 
+**Unit R2 — element coverage EXHAUSTED (certified, not expanded).** The
+goal asked to extend machine-tier coverage to the remaining elements —
+but the 2026-07-03 full-table sweep had already probed ALL 103
+definitional elements (52 OK → the 51-element/78-transition machine
+tier; 51 failures). The one honest gap: `cdx_snapshots` swallows
+exceptions into "no snapshot", so first-sweep CDX errors were
+indistinguishable from true archive absence. EXECUTED: the 24
+no-snapshot rows were cleared from the resumable manifest (backup kept)
+and re-probed once through the committed pipeline (its own polite 2s
+spacing + retries) on 2026-07-05. RESULT: **0/24 recovered — every one
+re-confirmed as having NO Wayback snapshot of either page format**
+(query_all_dat_el.asp AND .aspx), including ordinary elements (H, F,
+Br, Nd) and the actinide tail. The other 27 failures remain
+"artifact-has-no-starred-value" (incl. the aspx-only format that
+carries no evaluation markers — the standing do-not-parse finding).
+**Conclusion: the boundary is the archive, not the pipeline; there is
+nothing left to acquire under the no-invention rule.** Committed
+evidence: `docs/autofit/inventory/acquisition_exhaustion.json`
+(generator: `scripts/summarize_acquisition.py`, per the
+committed-generator rule). Pins (`tests/test_coverage_exhaustion.py`,
+4 tests): probe span 103 = 52+51 with ONLY the two structural failure
+classes (24 + 27); machine tier exactly 51/78 with a full provenance
+chain (sha256 + source URL + evaluated=True + NIST ref) on every
+transition; summary == deterministic regeneration (env-gated on the
+gitignored manifest); archive-dark elements absent from the machine
+tier (curated tiers deliberately unpinned — Skye may hand-curate dark
+elements from cited handbooks later). Machine-tier byte-identical
+regeneration re-verified after the re-probe (18 tests green — the
+committed outputs were untouched by it).
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);
