@@ -1,0 +1,68 @@
+You are re-checking dispositions for a previously NO-GO'd review in this
+repo (XPS peak-fitting web app), branch feature-autofit-stage2. Read-only
+sandbox; pytest may not run (no writable tmp), but `node --test` worked for
+the original reviewers and read-only python one-liners are fine.
+
+CONTEXT: Commit 37861fd fixed the Tougaard background (squared constant
+C=1643**2 → 1643 eV² per Tougaard 1988 SIA 11,453; BE-order robustness via
+internal descending normalization; degenerate trailing rescale replaced by
+a high-BE-edge amplitude anchor). Two independent Codex reviews (prompt
+docs/autofit/codex/tougaard_fix_review_prompt.txt, verdicts archived at
+docs/autofit/codex/tougaard_fix_verdict_runA.md / _runB.md) each returned
+NO-GO. The findings were fixed in commit 2731edc. Verify each
+disposition line-by-line, adversarially. `git show 2731edc` gives the
+fix diff; `git show 37861fd` the original.
+
+FINDING 1 (MAJOR, both runs): frontend callers bypassed endpoint
+averaging for Tougaard while all backend callers apply
+_apply_endpoint_averaging first — with the new high-BE anchor this breaks
+the twin contract at the caller level (outlier edge point: raw 10000 vs
+averaged 5050 anchor). Run B also noted the UI greys out the endpoint-avg
+control for Tougaard while its value is still sent to and applied by the
+backend.
+DISPOSITION: templates/index.html computeBackgroundCore — BOTH Tougaard
+branches (the bgIndices<2 fallback and the main sliced path) now pass the
+endpoint-averaged intensity (`avgIn` / `_applyEndpointAveraging(inSub,
+nAvg)`), exactly mirroring fitting.py's run_fit and
+compute_background_only dispatch. BOTH UI gates (the ui-restore gate near
+the `needsIter` block ~line 3586, and the bg-type-change handler near
+~line 12180) now compute `needsEpAvg = needsIter || type === 'tougaard'`
+so the control is enabled for Tougaard (it genuinely affects the anchor;
+the backend applied it regardless, so a greyed-out-but-applied control was
+dishonest). PIN: new test in tests/js/tougaard_twin.test.js
+('computeBackgroundCore applies endpoint averaging for tougaard (both
+branches)') extracts computeBackgroundCore from the shipped template,
+stubs the non-tougaard routes, and asserts BOTH branches bit-equal
+tougaardBackground(be, _applyEndpointAveraging(intensity, 3)) on run A's
+outlier-edge scenario. It was watched FAIL against the pre-fix template.
+CHECK: does the pin discriminate (would the old raw-intensity call fail
+it)? Are both call sites really covered? Are the two UI gates correct and
+consistent (shirley-iter stays disabled for tougaard, endpoint-avg
+enabled)? Any OTHER shipped caller of tougaardBackground we missed?
+
+FINDING 2 (MINOR, run A): the guard comment ("only protects the
+all-zero-signal case") was narrower than actual behavior — bg[0]==0 with
+a nonzero edge point (e.g. [100,0,0,0] descending) returns UNANCHORED
+zeros, not an edge-matched background; negative counts had no stated
+policy.
+DISPOSITION: comments corrected at both sites (fitting.py
+tougaard_background anchor block; templates/index.html tougaardBackground
+anchor block) to state the real semantics: bg[0]==0 → correlation
+returned unanchored (all zeros in practice), never force-matched;
+negative counts pass through signed, no clamping (physically invalid
+input). PIN: tests/test_tougaard_background.py::
+test_no_loss_signal_returns_unanchored_zeros pins the [100,0,0,0] case.
+CHECK: are the new comments now accurate (including for the JS `|| 1`
+guard, where bg[0] could in principle be exactly -0/0 with mixed-sign
+input)? Does the pin match the documented behavior?
+
+Also confirm: no scope creep beyond these two findings in 2731edc
+(expected diff: templates/index.html caller branches + 2 UI gates +
+comment; fitting.py comment only — NO numeric change; the two test files;
+docs/autofit/PROGRESS.md + archived verdict files + this prompt).
+fitting.py's tougaard_background NUMERICS must be byte-identical to
+commit 37861fd apart from the comment text.
+
+Deliver: per-finding CLOSED/NOT-CLOSED with evidence, any new findings
+(severity BLOCKER/MAJOR/MINOR + file/line + concrete failure scenario),
+then a final line exactly "VERDICT: GO" or "VERDICT: NO-GO".
