@@ -12707,14 +12707,28 @@ document.addEventListener('mousedown', function(e) {
         <div id="fp-message" style="font-size:10px;color:var(--text3);margin:4px 0;font-family:monospace;white-space:pre-wrap"></div>
       </details>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
-        <input type="text" id="fp-reviewer" placeholder="Your name (required before adding peaks)"
-               title="Whoever adds these peaks takes responsibility for checking them — the name is saved with the fit."
-               oninput="document.getElementById('fp-apply').disabled = !this.value.trim()"
-               style="flex:1;font-size:11px;padding:4px 6px;background:var(--bg2);color:var(--text1);border:1px solid var(--border)">
-        <button class="btn" id="fp-apply" disabled onclick="applyFindPeaks()"
+        <button class="btn" id="fp-apply" onclick="applyFindPeaks()"
                 title="Replaces this tab's current peaks with the suggested ones. You can undo this.">Add peaks to my fit</button>
       </div>
       <p id="fp-apply-note" style="font-size:10px;color:var(--text3);margin:6px 0 0"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Find Peaks — apply confirmation (statistically generated, unverified) -->
+<div id="find-peaks-apply-confirm-overlay" class="xps-modal-overlay" onclick="if(event.target===this)_findPeaksApplyConfirmCancel()">
+  <div class="xps-modal" style="max-width:440px">
+    <h3>Add suggested peaks?
+      <button class="btn btn-sm" onclick="_findPeaksApplyConfirmCancel()">&#x2715;</button>
+    </h3>
+    <p style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 14px">
+      These are statistically generated peaks offered as a starting point,
+      not verified results — it's your responsibility to check them
+      against your chemistry before use.
+    </p>
+    <div class="dialog-btns">
+      <button class="btn" onclick="_findPeaksApplyConfirmCancel()">Cancel</button>
+      <button class="btn btn-accent" id="find-peaks-apply-confirm-proceed">Add anyway</button>
     </div>
   </div>
 </div>
@@ -12734,8 +12748,7 @@ const FP_STRINGS = {
          'review — not final answers</b>. Nothing changes your manual fit ' +
          'unless you add them.',
   applyNote: 'Adding replaces this tab’s current peak list with the ' +
-             'suggested peaks. You can undo this (Ctrl+Z). Your name is ' +
-             'saved with the fit as the reviewer.',
+             'suggested peaks. You can undo this (Ctrl+Z).',
   tips: {
     material: 'Conducting samples charge-correct differently from ' +
               'insulating ones, and the suggested peak shapes differ too. ' +
@@ -12846,8 +12859,6 @@ const FP_STRINGS = {
   toastApplied: 'Added {n} suggested peak(s) to your fit. These are ' +
                 'suggestions — double-check before publication use. ' +
                 'You can undo this.',
-  reviewReminder: 'Enter your name first — whoever adds these peaks ' +
-                  'is the reviewer of record.',
   filterReasons: {
     plausibility: 'a parameter hit a physically implausible value',
     stability: 'the fit would not reproduce reliably',
@@ -13231,8 +13242,6 @@ function _fpRenderResults(body) {
         `<td style="${td}">${c.bic_star != null ? (+c.bic_star).toFixed(1) : '—'}</td>` +
         `<td style="${td}" title="${_fpEsc(c.filter_reason || '')}">${status}</td></tr>`;
     }).join('') : '';
-  document.getElementById('fp-reviewer').value = '';
-  document.getElementById('fp-apply').disabled = true;
   document.getElementById('fp-results').style.display = 'block';
 }
 
@@ -13256,26 +13265,51 @@ function _fpPeakFromBackend(p, i) {
   return defaultPeak(o);
 }
 
-function applyFindPeaks() {
-  const reviewer = document.getElementById('fp-reviewer').value.trim();
-  if (!reviewer || !_fpLast) return;
+// One-time "these are unverified" confirmation, replacing the old
+// required-reviewer-name gate. Same Promise/resolver pattern as
+// _showAutoFitConfirmModal/_autoFitConfirmCancel.
+let _findPeaksApplyConfirmResolver = null;
+function _showFindPeaksApplyConfirmModal() {
+  return new Promise(resolve => {
+    _findPeaksApplyConfirmResolver = resolve;
+    const proceed = document.getElementById('find-peaks-apply-confirm-proceed');
+    proceed.onclick = () => {
+      document.getElementById('find-peaks-apply-confirm-overlay').classList.remove('open');
+      const r = _findPeaksApplyConfirmResolver; _findPeaksApplyConfirmResolver = null;
+      if (r) r(true);
+    };
+    document.getElementById('find-peaks-apply-confirm-overlay').classList.add('open');
+  });
+}
+function _findPeaksApplyConfirmCancel() {
+  document.getElementById('find-peaks-apply-confirm-overlay').classList.remove('open');
+  const r = _findPeaksApplyConfirmResolver; _findPeaksApplyConfirmResolver = null;
+  if (r) r(false);
+}
+
+async function applyFindPeaks() {
+  if (!_fpLast) return;
   const peaks = (_fpLast.body.peaks || []);
   if (!peaks.length) { notify('Nothing to apply — the analysis emitted no peaks.', 'amber'); return; }
   if (state.peaks.length &&
       !confirm('Replace the ' + state.peaks.length + ' peak(s) on this tab ' +
                'with the ' + peaks.length + ' suggested peak(s)? ' +
                'You can undo this.')) return;
+  if (!(await _showFindPeaksApplyConfirmModal())) return;
   // the manual path's real undo: the replaced peak list must be Ctrl-Z
   // recoverable (Codex analyze review blocker)
   pushUndo();
+  // DURABLE provenance record: stamped on every applied peak (peak objects
+  // round-trip through project save/load with extra fields intact, like
+  // _rsfKey does) — no reviewer name anymore, but autoSuggested/verified
+  // keep the "these came from Find Peaks and haven't been checked" fact
+  // alive through save/load.
   const review = {
-    reviewer, method: _fpLast.method, regions: _fpLast.regions,
+    autoSuggested: true, verified: false,
+    method: _fpLast.method, regions: _fpLast.regions,
     winner: (_fpLast.body.diagnostics || {}).winner || null,
     at: new Date().toISOString(),
   };
-  // DURABLE review record: stamped on every applied peak (peak objects
-  // round-trip through project save/load with extra fields intact, like
-  // _rsfKey does) — a saved project keeps the required reviewer name.
   state.peaks = peaks.map((p, i) => {
     const fp = _fpPeakFromBackend(p, i);
     fp._findPeaks = review;
