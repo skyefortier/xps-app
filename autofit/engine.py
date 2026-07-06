@@ -102,6 +102,34 @@ PROPOSAL_AMPLITUDE_SNR = 5.0
 PROPOSAL_MAX_PER_CANDIDATE = 1
 PROPOSAL_MAX_ATTEMPTS_PER_CANDIDATE = 3
 PROPOSAL_CANDIDATE_TIMEOUT_SEC = 30.0
+
+# See fit_candidate() docstring: deterministic per-call ceiling on lmfit's
+# own effort, replacing its effectively-unbounded default.
+FIT_CANDIDATE_MAX_NFEV = 18000
+
+# Wall-clock ceiling on ONE candidate's entire primary-fit + stability-refit
+# pass (compare_models -> run_stability_analysis). Mirrors
+# PROPOSAL_CANDIDATE_TIMEOUT_SEC's existing per-candidate budget for the
+# later residual-proposal pass: a candidate that blows this budget stops
+# taking further stability refits rather than consuming the rest of the
+# request's time. FIT_CANDIDATE_MAX_NFEV already bounds any single call to
+# roughly 10-12s on this pipeline's DS+G cost profile, so this allows a
+# couple of such calls (primary + 1-2 refits) before cutting the rest.
+CANDIDATE_TIMEOUT_SEC = 25.0
+
+# Wall-clock ceiling on the ENTIRE compare_models sweep over all candidates
+# in the grammar. Per-candidate budgets (CANDIDATE_TIMEOUT_SEC,
+# PROPOSAL_CANDIDATE_TIMEOUT_SEC) bound any one candidate but not their sum
+# — a 29-candidate grammar at ~7s/candidate for ordinary (non-degenerate)
+# fits already runs ~3-4 minutes, and several candidates hitting the
+# DS+G-style degenerate corner push that further. Checked once per outer
+# loop iteration (compare_models): once exceeded, remaining candidates are
+# skipped and the sweep returns best-so-far, ranked normally, with
+# ComparisonResult.analysis_truncated=True — an honest partial result
+# instead of a request timeout. Deliberately below the gunicorn dev
+# --timeout so this truncation path always gets to run and respond before
+# the worker is aborted (see DEPLOY.md / dev gunicorn --timeout).
+TOTAL_ANALYSIS_TIMEOUT_SEC = 240.0
 PROPOSAL_ENDPOINT_WARNING_BE = 1.0
 PROPOSAL_COINCIDENCE_BE = 0.5
 
@@ -495,8 +523,23 @@ def fit_candidate(
     weights: np.ndarray,
     model: CandidateModel,
     initial_params: Optional[Parameters] = None,
+    max_nfev: int = FIT_CANDIDATE_MAX_NFEV,
 ) -> FitOutcome:
-    """One fit of ``model`` to (x, y, weights); background subtracted first."""
+    """One fit of ``model`` to (x, y, weights); background subtracted first.
+
+    ``max_nfev`` bounds leastsq's own effort per call. lmfit's default
+    (200000*(nvars+1), see lmfit.Minimizer) is effectively unbounded: a
+    candidate whose params wander to a valid-but-degenerate corner (e.g.
+    DS+G's alpha/beta pinned at their bounds — a shape preference, not a
+    param error; see _BOUNDARY_EXCLUDED) produces a landscape leastsq can't
+    descend, and it spins for tens of thousands of evaluations without
+    terminating. Diagnostic run (2026-07-05, Suggest-peaks hang
+    investigation) showed a clean bimodal split: converged fits topped out
+    at nfev=14890; non-convergent ones started at nfev=21604. This cap sits
+    between the two so lmfit's own AbortFitException (caught internally by
+    leastsq(), surfacing as result.success=False) cuts off the latter
+    deterministically, without clipping legitimate slow-but-converging fits.
+    """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     weights = np.asarray(weights, dtype=float)
@@ -509,7 +552,8 @@ def fit_candidate(
 
     try:
         result = composite.fit(y_sub, params, x=x, weights=weights,
-                               method="leastsq", nan_policy="omit")
+                               method="leastsq", nan_policy="omit",
+                               max_nfev=max_nfev)
     except Exception as exc:
         log.debug("fit_candidate failed for %s: %s", model.name, exc)
         return FitOutcome(
@@ -718,6 +762,13 @@ class ModelStability:
     # one-off deeper minimum is a different product than a reproducible one).
     # Reporting-only; never used in ranking.
     best_basin_support: int = 0
+    # How many of the requested n_refits were actually attempted before the
+    # candidate's wall-clock budget (CANDIDATE_TIMEOUT_SEC) ran out. Equal to
+    # n_refits unless timed_out is True — used as the honest denominator for
+    # persistence/orphan_rate/convergence_rate instead of silently
+    # understating them against the full nominal n_refits.
+    n_attempted: int = 0
+    timed_out: bool = False
 
     @property
     def min_persistence(self) -> float:
@@ -736,7 +787,15 @@ def run_stability_analysis(
     n_refits: int = 20,
     rng_seed: int = 0,
     fixed_param_values: Optional[dict[str, float]] = None,
+    deadline: Optional[float] = None,
 ) -> ModelStability:
+    """
+    ``deadline`` is an absolute ``time.perf_counter()`` timestamp (set by
+    the caller from CANDIDATE_TIMEOUT_SEC) shared across this candidate's
+    primary fit + all its refits. Once passed, remaining refits are
+    skipped — not run and not counted as failures — so one candidate stuck
+    in a slow-but-nfev-capped region can't consume the rest of the request.
+    """
     rng = np.random.default_rng(rng_seed)
     pos: dict[str, list[float]] = {s.role: [] for s in model.slots}
     fw: dict[str, list[float]] = {s.role: [] for s in model.slots}
@@ -752,7 +811,18 @@ def run_stability_analysis(
 
     best_outcome: Optional[FitOutcome] = None
     refit_chis: list[float] = [float(primary_fit.weighted_chi_sq)]
+    n_attempted = 0
+    timed_out = False
     for _ in range(n_refits):
+        if deadline is not None and time.perf_counter() >= deadline:
+            timed_out = True
+            log.warning(
+                "run_stability_analysis: candidate %s hit its %.0fs budget "
+                "after %d/%d refits — remaining refits skipped",
+                model.name, CANDIDATE_TIMEOUT_SEC, n_attempted, n_refits,
+            )
+            break
+        n_attempted += 1
         seed = int(rng.integers(0, 2**31 - 1))
         init = perturb_initial_params(model, seed=seed, x=x, y_net=y_net)
         if fixed_param_values:
@@ -791,7 +861,7 @@ def run_stability_analysis(
     per_slot = {
         role: SlotStability(
             role=role,
-            persistence=occupied[role] / max(n_refits, 1),
+            persistence=occupied[role] / max(n_attempted, 1),
             position_median=_med(pos[role]), position_mad=_mad(pos[role]),
             fwhm_median=_med(fw[role]), fwhm_mad=_mad(fw[role]),
             amplitude_median=_med(am[role]), amplitude_mad=_mad(am[role]),
@@ -803,10 +873,12 @@ def run_stability_analysis(
                         if c <= best_chi * (1.0 + BASIN_SUPPORT_RTOL))
     return ModelStability(
         per_slot=per_slot,
-        orphan_rate=n_with_orphans / max(n_refits, 1),
-        convergence_rate=n_converged / max(n_refits, 1),
+        orphan_rate=n_with_orphans / max(n_attempted, 1),
+        convergence_rate=n_converged / max(n_attempted, 1),
         best_outcome=best_outcome,
         best_basin_support=basin_support,
+        n_attempted=n_attempted,
+        timed_out=timed_out,
     )
 
 
@@ -1146,6 +1218,14 @@ class ComparisonResult:
     # weighted_bic_top, note} or None (BIC/IC math review blocker:
     # selection must not silently rest on a likelihood the fits reject).
     weighted_ic_disagreement: Optional[dict] = None
+    # Set when the sweep hit TOTAL_ANALYSIS_TIMEOUT_SEC and stopped before
+    # evaluating every candidate in the grammar. The candidates evaluated so
+    # far are still ranked/reported normally (best-so-far) — this only flags
+    # that the comparison is partial, so a slow/pathological spectrum
+    # returns an honest incomplete result instead of a request timeout.
+    analysis_truncated: bool = False
+    n_candidates_evaluated: int = 0
+    n_candidates_total: int = 0
 
 
 def rank_and_filter(
@@ -1485,6 +1565,7 @@ def _attempt_proposal(
     stability = run_stability_analysis(
         x, y, weights, aug_model, primary,
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
+        deadline=time.perf_counter() + min(budget_remaining, CANDIDATE_TIMEOUT_SEC),
     )
     if (stability.best_outcome is not None
             and stability.best_outcome.weighted_chi_sq < primary.weighted_chi_sq):
@@ -1638,6 +1719,7 @@ def _bound_fixed_refit(
         x, y, weights, report.model, outcome,
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
         fixed_param_values=fixed,
+        deadline=time.perf_counter() + CANDIDATE_TIMEOUT_SEC,
     )
     y_fit = (outcome.lmfit_result.best_fit + outcome.background
              if outcome.lmfit_result is not None else np.zeros_like(y))
@@ -1739,9 +1821,25 @@ def compare_models(
     proposal_attempts: list[tuple[str, ProposedPeakReport]] = []
     timings: list[ProposalPassTiming] = []
     n_cand = len(candidates)
+    sweep_start = time.perf_counter()
+    n_evaluated = 0
+    analysis_truncated = False
 
     for idx, model in enumerate(candidates, 1):
+        if time.perf_counter() - sweep_start > TOTAL_ANALYSIS_TIMEOUT_SEC:
+            analysis_truncated = True
+            log.warning(
+                "compare_models: TOTAL_ANALYSIS_TIMEOUT_SEC (%.0fs) exceeded "
+                "after %d/%d candidates — remaining candidates skipped, "
+                "returning best-so-far",
+                TOTAL_ANALYSIS_TIMEOUT_SEC, n_evaluated, n_cand,
+            )
+            break
+        n_evaluated += 1
         log.info("[%2d/%d] %s: primary fit", idx, n_cand, model.name)
+        # Shared wall-clock budget for this candidate's primary fit + all its
+        # stability refits (CANDIDATE_TIMEOUT_SEC) — see run_stability_analysis.
+        candidate_deadline = time.perf_counter() + CANDIDATE_TIMEOUT_SEC
         primary = fit_candidate(x, y, weights, model)
         if not primary.converged:
             non_converged.append((model, primary))
@@ -1750,6 +1848,7 @@ def compare_models(
         stability = run_stability_analysis(
             x, y, weights, model, primary,
             noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
+            deadline=candidate_deadline,
         )
         # Promote a deeper minimum found by the multi-start pass (see
         # ModelStability.best_outcome).
@@ -1836,6 +1935,9 @@ def compare_models(
     result.non_converged = non_converged
     result.cross_candidate_coincidences = _cross_candidate_coincidences(proposal_attempts)
     result.proposal_pass_timings = timings
+    result.analysis_truncated = analysis_truncated
+    result.n_candidates_evaluated = n_evaluated
+    result.n_candidates_total = n_cand
 
     # Result-level honesty flag (stress-suite finding 0 — burial measured
     # at ΔBIC* +74…+944): a FILTERED candidate whose BIC* decisively beats

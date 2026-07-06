@@ -69,13 +69,25 @@ class ICModelComparisonMethod(PeakFitMethod):
         )
 
         analysis = build_analysis_record(grammar, result)
+        truncation_note = (
+            f"analysis truncated — {result.n_candidates_evaluated} of "
+            f"{result.n_candidates_total} candidates evaluated before the "
+            "overall time budget was reached"
+            if result.analysis_truncated else None
+        )
         if not result.survivors:
             return MethodResult(
                 method_id=self.id, success=False, peaks=[], analysis=analysis,
-                confidence={}, diagnostics={"n_reports": len(result.reports)},
-                message="no candidate survived filter-then-rank — see analysis "
-                        "for filtered/non-converged detail (diagnostic, not "
-                        "prescriptive: manual attention required)",
+                confidence={}, diagnostics={
+                    "n_reports": len(result.reports),
+                    "analysis_truncated": result.analysis_truncated,
+                    "n_candidates_evaluated": result.n_candidates_evaluated,
+                    "n_candidates_total": result.n_candidates_total,
+                },
+                message=("no candidate survived filter-then-rank — see analysis "
+                         "for filtered/non-converged detail (diagnostic, not "
+                         "prescriptive: manual attention required)"
+                         + (f"; {truncation_note}" if truncation_note else "")),
             )
 
         top = result.survivors[0]
@@ -126,6 +138,9 @@ class ICModelComparisonMethod(PeakFitMethod):
                 "n_survivors": len(result.survivors),
                 "n_filtered": len(result.filtered_out),
                 "n_non_converged": len(result.non_converged),
+                "analysis_truncated": result.analysis_truncated,
+                "n_candidates_evaluated": result.n_candidates_evaluated,
+                "n_candidates_total": result.n_candidates_total,
             },
             message=(message + (
                 f" WARNING: filtered candidate "
@@ -134,7 +149,8 @@ class ICModelComparisonMethod(PeakFitMethod):
                 f"{result.filtered_dominant_alternative['delta_bic_vs_winner']:.1f} "
                 "but did not survive filtering "
                 f"({result.filtered_dominant_alternative['filter_reason']})"
-                if result.filtered_dominant_alternative else "")),
+                if result.filtered_dominant_alternative else "")
+                + (f" {truncation_note}." if truncation_note else "")),
         )
 
 

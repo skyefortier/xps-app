@@ -12855,6 +12855,10 @@ const FP_STRINGS = {
     extraPeakFound: 'An extra peak the model did not expect was found ' +
                     'and included — check whether it is real in ' +
                     'your data.',
+    truncated: 'Analysis truncated: only {evaluated} of {total} candidate ' +
+               'models were evaluated before the time budget ran out. The ' +
+               'result below is the best found so far, not a complete ' +
+               'comparison — treat it as provisional.',
   },
   toastApplied: 'Added {n} suggested peak(s) to your fit. These are ' +
                 'suggestions — double-check before publication use. ' +
@@ -13139,8 +13143,30 @@ async function runFindPeaks() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const body = await resp.json();
-    if (!resp.ok) throw new Error(body.error || ('HTTP ' + resp.status));
+    // Don't assume the body is JSON before checking resp.ok — a worker
+    // timeout/crash can return a bare non-JSON 500 (plain text or an HTML
+    // error page), and calling .json() on that throws an opaque SyntaxError
+    // instead of a message the user can act on.
+    const ct = resp.headers.get('content-type') || '';
+    if (!resp.ok) {
+      let msg = 'HTTP ' + resp.status;
+      if (ct.includes('application/json')) {
+        try {
+          const errBody = await resp.json();
+          if (errBody && errBody.error) msg = errBody.error;
+        } catch (_) { /* not actually JSON despite the header; use HTTP status */ }
+      } else {
+        const text = (await resp.text()).replace(/<[^>]*>/g, ' ').trim();
+        if (text) msg += ': ' + text.slice(0, 300);
+      }
+      throw new Error(msg);
+    }
+    let body;
+    try {
+      body = await resp.json();
+    } catch (_) {
+      throw new Error('Server returned an invalid (non-JSON) response.');
+    }
     _fpLast = { body, method, regions };
     _fpRenderResults(body);
     status.textContent = '';
@@ -13165,6 +13191,11 @@ function _fpRenderResults(body) {
   const d = body.diagnostics || {}, a = body.analysis || {};
   const B = FP_STRINGS.banners;
   if (!body.success) flags.push(_fpBanner(_fpEsc(B.noResult), '#e05555'));
+  if (d.analysis_truncated) {
+    flags.push(_fpBanner(_fpEsc(_fpFmt(B.truncated, {
+      evaluated: d.n_candidates_evaluated, total: d.n_candidates_total,
+    })), '#e0a030'));
+  }
   if (d.conditional) {
     // the engine's decisive_override / no_clean_survivor stories, said
     // plainly: a literature-based limit had to hold the fit together
