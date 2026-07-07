@@ -124,6 +124,14 @@ PROPOSAL_CANDIDATE_TIMEOUT_SEC = 60.0
 # because the 4th refit never ran.  35 s fits n_refits=4 at the measured
 # ~7-8 s worst-case per refit on 191-point real data.  UNVERIFIED tunable.
 PROPOSAL_STABILITY_TIMEOUT_SEC = 35.0
+# Minimum budget (s) that must remain before an augmented-model FIT is
+# started inside the proposal pass.  A single fit_candidate at
+# FIT_CANDIDATE_MAX_NFEV runs ~10-12 s worst-case on 191-point data with no
+# internal wall clock, so starting one with less than this left would
+# overrun TOTAL_ANALYSIS_TIMEOUT_SEC — and hence the gunicorn --timeout
+# (Codex c1s-fix review, run B MAJOR).  A proposal attempt that cannot fit
+# this budget fast-rejects with 'insufficient_budget'.  UNVERIFIED tunable.
+PROPOSAL_MIN_FIT_BUDGET_SEC = 15.0
 
 # See fit_candidate() docstring: deterministic per-call ceiling on lmfit's
 # own effort, replacing its effectively-unbounded default.
@@ -1685,6 +1693,26 @@ def _detect_residual_proposals(
     return specs
 
 
+def _next_proposal_index(model: CandidateModel) -> int:
+    """One past the highest existing ``proposed_peak_<n>`` suffix on ``model``
+    (0 if none).  MUST be max-suffix+1, NOT a slot COUNT: within an F2 round
+    the specs are numbered from a base and attempted in detection-energy
+    order, so a rejected earlier spec followed by an accepted later one
+    leaves e.g. ``proposed_peak_1`` present while ``proposed_peak_0`` never
+    materialized — a count (1) would then re-issue ``proposed_peak_1`` next
+    round, colliding the slot role and its lmfit param prefix (Codex
+    c1s-fix review, both runs BLOCKER)."""
+    mx = -1
+    prefix = "proposed_peak_"
+    for s in model.slots:
+        if s.role.startswith(prefix):
+            try:
+                mx = max(mx, int(s.role[len(prefix):]))
+            except ValueError:
+                continue
+    return mx + 1
+
+
 def _augmented_candidate(base: CandidateModel, spec: ProposalSpec) -> CandidateModel:
     # Proposals spawn OUTSIDE every grammar window by construction (the
     # separation gate), so no region/phase can honestly be inherited —
@@ -1747,6 +1775,7 @@ def _attempt_proposal(
     diagnostic_windows: dict[str, tuple[float, float]],
     budget_remaining: float = float("inf"),
 ) -> tuple[Optional[ModelReport], ProposedPeakReport, str]:
+    attempt_start = time.perf_counter()
     base_model = base_report.model
     base_fit = base_report.primary_fit
     aug_model = _augmented_candidate(base_model, spec)
@@ -1762,6 +1791,16 @@ def _attempt_proposal(
     def _fast(reason: str):
         pr.rejection_reason = reason
         return None, pr, "fast_rejected"
+
+    # An augmented fit_candidate has no internal wall clock and runs
+    # ~10-12 s worst-case; starting one with less than PROPOSAL_MIN_FIT_
+    # BUDGET_SEC of sweep budget left would overrun TOTAL_ANALYSIS_TIMEOUT_SEC
+    # and the gunicorn --timeout (Codex c1s-fix review, run B MAJOR).  The
+    # caller passes budget_remaining = min(pass budget, sweep budget) left.
+    if budget_remaining < PROPOSAL_MIN_FIT_BUDGET_SEC:
+        return _fast(
+            f"insufficient_budget: {budget_remaining:.1f}s left < "
+            f"{PROPOSAL_MIN_FIT_BUDGET_SEC:.0f}s needed for one augmented fit")
 
     bg = _compute_background(x, y, aug_model.background)
     try:
@@ -1802,14 +1841,20 @@ def _attempt_proposal(
             f"base BIC* {base_report.bic_adjusted:.2f} by {PROPOSAL_DELTABIC_THRESHOLD:.1f}"
         )
 
-    if budget_remaining <= 0:
+    # budget_remaining was a snapshot BEFORE the augmented fit; that fit has
+    # since consumed wall time, so the stability deadline must be computed
+    # from what's ACTUALLY left, not the stale snapshot (Codex c1s-fix
+    # review, run B MAJOR — otherwise the stability pass could run
+    # min(stale_budget, 35) s past the fit and overrun the sweep budget).
+    remaining = budget_remaining - (time.perf_counter() - attempt_start)
+    if remaining <= 0:
         pr.rejection_reason = "per-candidate budget exhausted before stability analysis"
         return None, pr, "fast_rejected"
 
     stability = run_stability_analysis(
         x, y, weights, aug_model, primary,
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
-        deadline=time.perf_counter() + min(budget_remaining,
+        deadline=time.perf_counter() + min(remaining,
                                            PROPOSAL_STABILITY_TIMEOUT_SEC),
     )
     if (stability.best_outcome is not None
@@ -2224,13 +2269,13 @@ def compare_models(
                     x, y, current_y_fit, noise_floor, current.model,
                     canonical_windows=diagnostic_windows,
                 )
-                # roles must stay unique across rounds — an accepted
-                # proposed_peak_0 already lives in current.model, so this
-                # round's specs are renumbered past every existing one
-                n_prior = sum(1 for s in current.model.slots
-                              if s.role.startswith("proposed_peak"))
+                # roles must stay unique across rounds — number this round's
+                # specs from one past the HIGHEST existing suffix (never a
+                # count: see _next_proposal_index for the collision this
+                # avoids)
+                base_idx = _next_proposal_index(current.model)
                 for j, spec in enumerate(specs):
-                    spec.role = f"proposed_peak_{n_prior + j}"
+                    spec.role = f"proposed_peak_{base_idx + j}"
                 attempts = specs[:PROPOSAL_MAX_ATTEMPTS_PER_CANDIDATE]
                 counts["n_flagged"] += len(specs)
                 counts["n_over_cap"] += max(len(specs) - len(attempts), 0)

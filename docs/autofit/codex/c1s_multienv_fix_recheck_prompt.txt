@@ -1,0 +1,68 @@
+Re-check, branch feature-autofit-stage2, of the F1/F2/F3 C1s multi-env
+fix after the review-round NO-GO x2. Read-only. Both review runs
+(archived docs/autofit/codex/c1s_multienv_fix_verdict_run{A,B}.md)
+converged on ONE BLOCKER; run B added ONE MAJOR. Both are fixed in the
+latest commit (git log --oneline -1). Verify each disposition CLOSED by
+probing the code directly, and look for any NEW issue the fixes introduce.
+
+DISPOSITION 1 (BLOCKER, both runs — F2 proposal role collision across
+rounds). The renumbering used a slot COUNT (n_prior = number of
+proposed_peak* slots), so after a round rejected proposed_peak_0 but
+accepted proposed_peak_1, the next round's count was 1 and re-issued
+proposed_peak_1, colliding the slot role and its lmfit param prefix.
+FIXED: new helper autofit/engine.py::_next_proposal_index(model) returns
+max(existing proposed_peak_<n> suffix) + 1 (0 if none); the F2 loop now
+sets base_idx = _next_proposal_index(current.model) and numbers this
+round's specs proposed_peak_{base_idx + j}. CHECK:
+- _next_proposal_index parses only proposed_peak_<int> suffixes, ignores
+  non-numeric, returns max+1 — confirm the reject-first-accept-later state
+  (proposed_peak_1 present, _0 absent) yields 2, not 1.
+- confirm no remaining call site uses a COUNT for the suffix.
+- confirm the accepted-peak carry-forward (aug_report.proposed_peaks =
+  list(current.proposed_peaks) + aug_report.proposed_peaks) and the
+  rejected-append at the end cannot now double-count or drop a report.
+- pin: tests/autofit/test_preseed_dominants.py::
+  test_next_proposal_index_is_max_suffix_plus_one — does it actually
+  discriminate max+1 from count (i.e. would it fail against the old code)?
+
+DISPOSITION 2 (MAJOR, run B — F2 budget overrun). An augmented
+fit_candidate has no internal wall clock (~10-12 s worst-case at
+FIT_CANDIDATE_MAX_NFEV), and the proposal pass could START one with ~1 s
+of sweep budget left, overrunning TOTAL_ANALYSIS_TIMEOUT_SEC (240) and
+hence the gunicorn --timeout (300). Also the stability deadline was
+computed from a STALE budget_remaining snapshot taken before that fit.
+FIXED in _attempt_proposal:
+- new constant PROPOSAL_MIN_FIT_BUDGET_SEC = 15.0; a guard at the top of
+  _attempt_proposal fast-rejects ('insufficient_budget') when
+  budget_remaining < PROPOSAL_MIN_FIT_BUDGET_SEC, BEFORE the augmented fit.
+- attempt_start = time.perf_counter() at entry; the stability deadline now
+  uses remaining = budget_remaining - (now - attempt_start) (dynamic, not
+  the stale snapshot), and fast-rejects if remaining <= 0.
+- the caller passes budget_remaining = min(pass budget, sweep budget left)
+  as before (pass_budget = min(PROPOSAL_CANDIDATE_TIMEOUT_SEC 60,
+  TOTAL - offset)), so the guard bounds worst-case wall.
+CHECK:
+- with the guard, can the proposal pass still start a fit that finishes
+  after TOTAL_ANALYSIS_TIMEOUT_SEC? Bound the worst case: a fit started
+  with >= 15 s of sweep budget left, taking <= ~12 s, finishes before the
+  budget. Confirm there is no path that starts a fit with < 15 s left.
+- confirm the dynamic `remaining` cannot go negative-then-positive or
+  mis-account when budget_remaining is inf (the default / no-budget path).
+- confirm the guard's fast-reject still records a ProposedPeakReport (so
+  the attempt is visible, not silent) and increments the right counters.
+- pin: test_proposal_pass_respects_sweep_budget (monkeypatches the floor
+  huge) — does it prove every attempt fast-rejects with insufficient_budget
+  and no +prop winner, WITHOUT breaking the sweep?
+
+ALSO re-confirm the review's other four areas are still sound after these
+edits (F1 honesty/no-op-on-covered; F3 screen record + classic-path
+unchanged; strictly additive; the 287.7 honest-limitation flags). The
+full suite is 513+ passing and the C1s/U4f/B1s/Cl2p parity gates pass on
+the real anchors (you cannot run them — read the code and the committed
+pins). Do NOT re-litigate the deliberate decision to leave the
+persistence gate unchanged (documented as future work); only flag it if
+these two fixes changed it.
+
+End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO", preceded by
+a numbered findings list (severity, file:line, concrete failing scenario,
+fix).

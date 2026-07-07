@@ -171,6 +171,66 @@ def test_iterative_proposals_add_two_missing_peaks():
     assert len(roles) == len(set(roles)) == 2
 
 
+def test_next_proposal_index_is_max_suffix_plus_one():
+    """Codex c1s-fix BLOCKER (both runs): the F2 round renumbering must be
+    max-suffix+1, NOT a slot COUNT.  After a round rejects proposed_peak_0
+    but accepts proposed_peak_1, the model carries proposed_peak_1 while
+    proposed_peak_0 never materialized — a count (1) would re-issue
+    proposed_peak_1 next round, colliding the slot role and its lmfit param
+    prefix.  This pins the helper directly on that exact gap."""
+    from autofit.grammar import CandidateModel, ComponentSlot, LineShape
+
+    def slot(role):
+        return ComponentSlot(role=role, region="unassigned", phase_id="unassigned",
+                             be_window=(199.0, 201.0), line_shape=LineShape.PSEUDO_VOIGT,
+                             fwhm_range=(0.5, 3.0))
+    # a model with proposed_peak_1 present but NOT proposed_peak_0 (the
+    # reject-first-accept-later state) — count would say 1, max+1 says 2
+    m = CandidateModel(name="X", background=eng.BackgroundType.LINEAR,
+                       slots=(slot("main_a"), slot("proposed_peak_1")))
+    assert eng._next_proposal_index(m) == 2
+    # and after augmenting, all slot roles stay unique (no collision)
+    spec = eng.ProposalSpec(
+        role=f"proposed_peak_{eng._next_proposal_index(m)}",
+        detection_windows=[], detection_energy=1.0, detection_ratio=9.0,
+        center_init=200.0, fwhm_init=1.0, amplitude_init=5000.0,
+        line_shape=eng.PROPOSED_PEAK_SHAPE)
+    aug = eng._augmented_candidate(m, spec)
+    aug_roles = [s.role for s in aug.slots]
+    assert len(aug_roles) == len(set(aug_roles)), f"role collision: {aug_roles}"
+    assert "proposed_peak_2" in aug_roles
+    # no-proposal model → index 0
+    m0 = CandidateModel(name="Y", background=eng.BackgroundType.LINEAR,
+                        slots=(slot("main_a"),))
+    assert eng._next_proposal_index(m0) == 0
+
+
+def test_proposal_pass_respects_sweep_budget(monkeypatch):
+    """Codex c1s-fix MAJOR (run B): an augmented fit has no internal wall
+    clock, so a proposal attempt must fast-reject when too little sweep
+    budget remains rather than running an unbounded fit past the total
+    timeout.  With the fit-budget floor raised above any real remaining
+    budget, EVERY proposal attempt must be 'insufficient_budget' — no
+    augmented fit runs, no proposal is accepted, and the sweep still
+    returns cleanly."""
+    monkeypatch.setattr(eng, "PROPOSAL_MIN_FIT_BUDGET_SEC", 10_000.0)
+    x = _grid()
+    truth = [{"center": 196.5, "fwhm": 1.2, "height": 9000.0},
+             {"center": 201.5, "fwhm": 1.2, "height": 2500.0}]
+    sig = sum(_pv(x, t["height"], t["center"], t["fwhm"], ETA) for t in truth)
+    y = _noisy(sig + _linear_bg(x), 71)
+    cands = [_cand("single_main", [_slot("main_a", (195.5, 197.5))])]
+    grammar = _grammar(cands)
+    res = get_method("ic_model_comparison").run(
+        x, y, grammar=grammar,
+        options={**IC_OPTS, "enable_preseed": False})
+    assert not res.diagnostics["winner"].endswith("+prop")
+    reasons = [p["rejection_reason"] for c in res.analysis["candidates"]
+               for p in c.get("proposed_peaks", [])]
+    assert reasons, "expected at least one attempted-then-rejected proposal"
+    assert all("insufficient_budget" in (r or "") for r in reasons), reasons
+
+
 # ── F3: two-phase sweep ────────────────────────────────────────────────────
 
 def _many_candidate_grammar(x, y):
