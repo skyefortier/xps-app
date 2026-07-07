@@ -1610,15 +1610,29 @@ limit=12 cap made "ANY archived snapshot" an overclaim; cap raised to a
 26 no-starred elements RE-VERIFIED under the uncapped listing:
 conclusions unchanged, max listing across all 103 elements = 4 rows —
 the bound is PROVEN non-binding, recorded not assumed.
-**Re-check round 2: QUOTA-BLOCKED** — both runs died on the Codex usage
-limit, reset Jul 6 10:01 PM (>32 h out, beyond this session). Per rails
-(kill+log+proceed; same precedent as the weekend run's Stage-2 hang):
-the ready-to-run prompt is committed at
-`docs/autofit/codex/refpop_unit2_recheck2_prompt.txt` — NEXT SESSION:
-run it ×2, stricter governs. Residual risk is low and bounded: round 2
-covers only the two mechanically-verifiable residual fixes above, both
-test-pinned (fresh-checkout oracle passes from committed state; the
-uncapped-listing evidence is in the committed manifest).
+**Re-check round 2: COMPLETED 2026-07-07 (post-quota-reset) — NO-GO + GO,
+stricter governs → the run-A finding fixed same-session.** The committed
+prompt (`refpop_unit2_recheck2_prompt.txt`) ran ×2 under the gtimeout
+rails; verdicts archived at
+`docs/autofit/codex/refpop_unit2_recheck2_verdict_run{A,B}.md`.  BOTH runs
+confirmed residual 1 (HEAD self-consistent for the Lu/Sm evidence
+artifacts) CLOSED and residual 2's no-starred subset re-verified
+(limit=200, all 26 rows carry `cdx_rows`, max listing 4, none near the
+bound).  Run A (NO-GO) surfaced the real gap run B (GO, rated it MINOR)
+under-weighted: the "max CDX listing across ALL probed elements is 4"
+claim — which certifies the sanity bound is non-binding — was verifiable
+only for the 26 no-starred rows; **77/103 manifest rows (the 24
+no-archive + 53 OK rows) predated the `cdx_rows` field**, so the
+repo-wide claim was not checkable from committed evidence.  FIXED
+same-session (commit d0ad1c5): new `acquire_nist_archive.py
+--backfill-cdx-rows` mode (evidence-only; a listing contradicting a row's
+certified class REFUSES to record and exits non-zero; each backfilled row
+carries `cdx_rows_backfilled_utc`); all 103 rows now carry `cdx_rows`
+(max 4, every no-archive row an explicit `{asp:0, aspx:0}`); the summary
+rolls up `cdx_rows_recorded_for_all_rows` + `max_cdx_listing_...`; new pin
+`test_cdx_listing_evidence_is_committed_for_every_row`.  Manifest data
+values UNCHANGED (462 insertions are cdx fields only — no
+sha256/energy/status touched).  **R2 unit review-complete.**
 
 ## Reference-population closeout (2026-07-05)
 
