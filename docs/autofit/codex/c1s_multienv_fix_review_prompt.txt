@@ -1,0 +1,126 @@
+Adversarial code review, branch feature-autofit-stage2, commit ad4acc3
+("autofit: fix poor fits on real low-BE-dominant multi-env C1s (units
+F1/F2/F3)"). Read-only. This is a NEW engine unit; review it for
+CORRECTNESS bugs and HONESTY erosion, not style. Focus your effort on the
+five areas below; a NO-GO needs a concrete failing scenario (inputs ->
+wrong output/state), not a preference.
+
+CONTEXT (what problem this solves — see docs/autofit/PROGRESS.md section
+"Real multi-environment C 1s — FIX IMPLEMENTED + MEASURED (2026-07-07)"
+and the "MEASURED DIAGNOSIS" section above it):
+Real multi-environment C 1s spectra have a DOMINANT feature (~279 eV,
+40k counts) BELOW every C 1s grammar window (floor 284.0), plus species
+through ~290 eV. Before this unit every candidate faced an unfittable
+~40k-count out-of-window residual: fits pinned mains at window floors
+(chi2r ~656) or burned max_nfev without converging, and the sweep
+truncated (8/29) before richer candidates were reached. The rails on this
+work: strictly additive (do NOT touch /api/fit or the manual path), no
+per-spectrum hard-coded positions (must GENERALIZE), PRESERVE the honesty
+machinery (do NOT just confidently emit more peaks), zero regressions.
+
+The changed code is entirely in autofit/engine.py and
+autofit/methods/ic_model_comparison.py (+ tests). Diff base: git show
+ad4acc3; the parent 8136d93 is the pre-unit engine.
+
+THE FIVE THINGS TO CHECK:
+
+1. F1 — pre-fit out-of-grammar dominant seeding
+   (detect_out_of_grammar_dominants, _preseed_augmented, and the
+   compare_models preseed block). Verify:
+   - Detection is DATA-DRIVEN, never invents a position or window: the
+     seeded slot window is center +/- 0.75 from a detected local maximum;
+     region/phase are "unassigned"; roles are preseed_dominant_* (NOT
+     main_*, so the absent-slot machinery can classify a signal-free seed
+     absent and exclude it from emitted peaks). Confirm a seeded slot
+     that carries no real signal is excluded from the winner's peaks with
+     the honest BIC* adjustment (not emitted as a confident peak).
+   - The gates (PRESEED_MIN_FRACTION_OF_MAX 0.25 of global smoothed-net
+     max AND PRESEED_AMPLITUDE_SNR 5x AND out-of-EVERY-window) cannot fire
+     on a grammar-covered spectrum (all prominent maxima in-window ->
+     zero seeds -> candidate set byte-identical). There is a pin
+     (test_no_preseed_on_covered_spectrum); confirm it actually proves
+     no-op, and look for a spectrum shape that WOULD wrongly seed
+     (e.g. a Shirley step, a noise spike, an ROI-edge artifact).
+   - Descending-BE-grid handling: real raw_be DESCENDS; np.interp-class
+     bugs. Detection reverses internally; there is an equivalence pin.
+     Verify the reversal is correct and the returned center is in the
+     original frame.
+   - The detection background uses candidates[0].background. Is that a
+     correctness problem for any resolved grammar today (all region
+     modules are single-background)? Flag if a mixed-background grammar
+     could mis-detect.
+
+2. F2 — iterative proposal rounds (the compare_models proposal block).
+   The old code accepted at most ONE proposal then broke. Now it loops up
+   to PROPOSAL_MAX_PER_CANDIDATE (3), re-detecting on the augmented
+   residual each round. Verify:
+   - Role uniqueness across rounds: spec.role is renumbered to
+     proposed_peak_{n_prior + j} where n_prior counts existing
+     proposed_peak* slots on current.model. Can two rounds ever collide
+     on a param prefix (which would silently corrupt lmfit params)?
+   - proposed_peaks accounting: accepted reports carry earlier rounds'
+     accepted peaks forward (list(current.proposed_peaks) + ...);
+     rejected reports are appended to final_report at the end. Can an
+     accepted peak be double-counted, lost, or a rejected one shadow an
+     accepted one?
+   - Budget: pass_budget = min(PROPOSAL_CANDIDATE_TIMEOUT_SEC 60,
+     TOTAL - elapsed). Termination is guaranteed (each round either
+     accepts, advancing n_acc, or breaks on no-accept). Confirm no
+     infinite loop and no way to exceed the sweep budget.
+   - The proposal ACCEPT GATES themselves (SNR, ΔBIC*, persistence,
+     boundary cleanliness) are UNCHANGED from the pre-unit code — confirm
+     F2 did not weaken any gate. The whole honesty claim rests on this.
+
+3. F3 — two-phase screen->stabilize sweep. When candidates >
+   SCREEN_TOP_K (6), a screen fits each candidate ONCE at SCREEN_MAX_NFEV
+   (6000), ranks converged ones by BIC, keeps top-K for the deep pipeline,
+   and REUSES the screen fit as that candidate's deep primary. Verify:
+   - A screened-OUT candidate can NEVER become a survivor and is recorded
+     in analysis.screen (name/converged/bic/selected) — nothing silent.
+   - The screen fit reuse: the deep primary is a 6000-nfev fit, not a
+     fresh 18000-nfev fit. Is the deep result CORRECT given this? (The
+     stability pass runs full-nfev refits and promotes best_outcome if a
+     refit beats the primary's weighted_chi_sq — so a coarse primary
+     should be corrected. Confirm that promotion path actually runs for a
+     screen-reused primary and that nothing reads a stale primary.)
+   - Screen budget: SCREEN_BUDGET_FRACTION (0.6) caps screen time so the
+     deep phase always gets budget. If the screen itself truncates
+     (analysis_truncated), are the not-screened candidates handled
+     correctly (they just don't appear / aren't selected)?
+   - Sweeps of <= SCREEN_TOP_K candidates (every existing gate/battery/
+     stress path) take the classic single-phase path with screen=None.
+     Confirm this is truly unchanged from pre-unit (the 513-passed suite
+     is consistent with this, but verify the branch).
+
+4. STRICTLY ADDITIVE / zero regression. enable_preseed defaults True and
+   enable_proposal_pass's iteration changed. Confirm:
+   - /api/fit and fitting.py::run_fit (the manual path) are untouched.
+   - The IC method's new options (enable_preseed) validate and default
+     sanely; the analysis payload additions (preseeded_features, screen)
+     are additive and JSON-safe.
+   - No existing test's numbers should shift. If enable_preseed=True
+     changes a clean-anchor result, that is a regression — check the C 1s
+     parity gate candidates (they are a small candidate set; do they hit
+     the screen path or the classic path?).
+
+5. HONESTY. The measured limitation (PROGRESS.md, and reproducible):
+   on ds7/C1s Scan the winner A1_linked+preseed+prop (no C=O slot) leaves
+   a 30σ residual at 287.7 eV because the C=O-bearing A2 candidate's
+   ΔBIC* −102 proposal is REJECTED on persistence 0.25 (richer model is
+   multi-modal across refits). The claim is that this is HONESTLY FLAGGED
+   (conditional=no_clean_survivor, residual_flags include the C=O window,
+   autocorr_flag, elevated chi2r) and that the fix deliberately did NOT
+   relax the persistence gate. Verify the flags actually fire and that no
+   gate was secretly loosened to make more peaks appear confident.
+
+You cannot run pytest (read-only sandbox, no writable tmp). Reason from
+the code. If you want to see the real-data behavior, the test data is
+gitignored/local so you cannot; rely on the committed synthetic pins
+(tests/autofit/test_preseed_dominants.py,
+tests/autofit/test_stress_honesty.py, the
+multi_env_low_be_dominant_case in tests/autofit/stress_cases.py) and
+judge whether they actually discriminate the failure modes they claim to.
+
+End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO", preceded by
+a numbered findings list (severity BLOCKER/MAJOR/MINOR, file:line, the
+concrete failing scenario, and the fix).
