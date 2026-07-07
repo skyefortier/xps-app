@@ -1916,8 +1916,29 @@ deadline uses a dynamic `remaining = budget_remaining − (now −
 attempt_start)`.  Both fixes pinned with tests that discriminate the exact
 gap (the role pin exercises the reject-first-accept-later state; the
 budget pin monkeypatches the floor huge and proves every attempt
-fast-rejects with no `+prop` winner and no broken sweep).  **Re-check ×2:
-[RUNNING — verdict to be recorded on completion].**
+fast-rejects with no `+prop` winner and no broken sweep).
+
+**Re-check ×2: GO + NO-GO, stricter governs.** Run B found the budget
+MAJOR was not fully closed: the top-of-attempt 15 s guard still let the
+augmented fit consume ~12 s and then `run_stability_analysis` (which
+checks its deadline at the loop top and then runs an unbounded fit) start
+with ~3 s left.  FIXED (commit d7585eb): the pre-stability check now
+fast-rejects when the DYNAMIC `remaining = budget_remaining − (now −
+attempt_start)` is below `PROPOSAL_MIN_FIT_BUDGET_SEC`, not just `<= 0` —
+so stability only starts when one worst-case fit fits.  Deterministic
+fake-clock pin (`test_stability_not_started_without_budget_after_
+augmented_fit`) proves `run_stability_analysis` is never reached when
+post-fit remaining < floor (discriminates from `remaining <= 0`).
+**Re-check round 2: GO ×2** — both runs "no open finding" on every point
+(role collision closed, both budget guards bound worst-case wall to
+≈ TOTAL + one nfev-capped fit, all three pins discriminate, F1/F3/honesty
+unchanged).  Both noted a benign PRE-EXISTING observation (NOT a finding,
+NOT the F2 residual): the classic candidate stability path can still start
+one refit late in its 25 s `CANDIDATE_TIMEOUT_SEC` budget — bounded within
+the deliberate 60 s `TOTAL_ANALYSIS_TIMEOUT_SEC` (240) → gunicorn
+`--timeout` (300) slack.  Verdicts
+`docs/autofit/codex/c1s_multienv_fix_{verdict,recheck_verdict,recheck2_verdict}_run{A,B}.md`.
+**C 1s MULTI-ENV FIX UNIT REVIEW-COMPLETE.**
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
