@@ -99,9 +99,31 @@ PROPOSAL_GRAMMAR_SEPARATION_FACTOR = 0.5
 PROPOSAL_DELTABIC_THRESHOLD = 2.0
 PROPOSAL_PERSISTENCE_THRESHOLD = ABSENT_SLOT_PERSISTENCE_THRESHOLD
 PROPOSAL_AMPLITUDE_SNR = 5.0
-PROPOSAL_MAX_PER_CANDIDATE = 1
+# Unit F2 (2026-07-07): raised 1 → 3 and made ITERATIVE — after an accepted
+# proposal, detection re-runs on the AUGMENTED model's residual and another
+# proposal may be accepted (same gates each round: SNR, ΔBIC*, persistence,
+# boundary cleanliness; same per-candidate wall budget).  Measured
+# motivation (PROGRESS.md diagnosis, cause c): with the old single-accept
+# break, two missing species (the real 279/281 eV pair, cluster-merged into
+# one detection) could never both be modeled — the second stayed a +65σ
+# residual.  fitalg's Iteration B was already capped/timeout-guarded; this
+# keeps those guards and bounds the rounds.  UNVERIFIED tunable.
+PROPOSAL_MAX_PER_CANDIDATE = 3
 PROPOSAL_MAX_ATTEMPTS_PER_CANDIDATE = 3
-PROPOSAL_CANDIDATE_TIMEOUT_SEC = 30.0
+# Whole ITERATIVE proposal pass per candidate (all F2 rounds share it).
+# Raised 30 → 60 with F2: the pass may now legitimately do up to
+# PROPOSAL_MAX_PER_CANDIDATE accepted rounds of (augmented fit + stability).
+# UNVERIFIED tunable.
+PROPOSAL_CANDIDATE_TIMEOUT_SEC = 60.0
+# One augmented-model stability pass inside the proposal pass.  Replaces the
+# old min(budget, CANDIDATE_TIMEOUT_SEC) clamp, whose 25 s ceiling cut the
+# n_refits=4 stability of a slow augmented model to 3 attempts and QUANTIZED
+# the persistence gate below its threshold — measured on the real C 1s
+# motivating case (PROGRESS.md diagnosis follow-up): a ΔBIC* −86 proposal
+# with no boundary hits was rejected at persistence 2/3 = 0.67 < 0.70 purely
+# because the 4th refit never ran.  35 s fits n_refits=4 at the measured
+# ~7-8 s worst-case per refit on 191-point real data.  UNVERIFIED tunable.
+PROPOSAL_STABILITY_TIMEOUT_SEC = 35.0
 
 # See fit_candidate() docstring: deterministic per-call ceiling on lmfit's
 # own effort, replacing its effectively-unbounded default.
@@ -136,6 +158,58 @@ PROPOSAL_COINCIDENCE_BE = 0.5
 # Component treated as asymmetric during shape-aware slot disambiguation.
 ALPHA_SYMMETRY_THRESHOLD = 0.01      # DS / DS+G α, asym-GL asymmetry
 LACX_EXPONENT_ASYMMETRY = 0.02       # |α − β| for true CasaXPS LA
+
+# ── Pre-fit out-of-grammar dominant seeding (unit F1, 2026-07-07) ──────────
+# Measured motivation (PROGRESS.md "Real multi-environment C 1s — MEASURED
+# DIAGNOSIS"): on real low-BE-dominant multi-environment C 1s spectra the
+# dominant data feature lies OUTSIDE every grammar window, so every
+# candidate faces an unfittable 40k-count residual — fits either burn
+# FIT_CANDIDATE_MAX_NFEV without converging or pin their mains at window
+# floors (χ²ᵣ ~656), and the post-fit proposal pass can only patch ONE
+# missing feature after the damage is done.  The pre-seed pass detects
+# prominent smoothed local maxima of the background-subtracted DATA that no
+# grammar/diagnostic window can express and augments every candidate with
+# absent-eligible, region-`unassigned` slots BEFORE fitting — the proposal
+# pass's honesty contract (assignment of an out-of-grammar feature is human
+# adjudication, never window inheritance), moved ahead of the fit so the
+# optimization landscape is sane.  Detection is data-driven; it fires only
+# when such a feature exists, so grammars whose windows cover the data are
+# byte-identical (pinned).  All gates are UNVERIFIED engine tunables
+# (surfaced per-feature in the result payload):
+PRESEED_MIN_FRACTION_OF_MAX = 0.25   # dominance gate: smoothed net height ≥
+                                     # this fraction of the global smoothed
+                                     # net max (weak features stay
+                                     # proposal-pass territory)
+PRESEED_AMPLITUDE_SNR = PROPOSAL_AMPLITUDE_SNR   # same detection-floor SNR
+PRESEED_SMOOTH_POINTS = 5            # moving-average width for maxima search
+PRESEED_MAX = 2                      # most dominants seeded per sweep
+PRESEED_MIN_SEPARATION_BE = 1.0      # between two accepted seeds (eV)
+
+# ── Two-phase sweep: screen → stabilize (unit F3, 2026-07-07) ──────────────
+# Measured motivation (PROGRESS.md diagnosis, cause a): a 29-candidate C 1s
+# grammar at 25 s/candidate stability budgets + a 30-60 s proposal pass can
+# never finish inside TOTAL_ANALYSIS_TIMEOUT_SEC (240 s, deliberately below
+# the gunicorn --timeout 300) — the real spectra truncated at 8/29 with the
+# expert-structure MG family (candidates #21-24) never evaluated.  When the
+# candidate set is larger than SCREEN_TOP_K, compare_models first fits EVERY
+# candidate once (primary fit only, SCREEN_MAX_NFEV effort cap), ranks the
+# converged screens by BIC, and runs the full pipeline (stability, proposal
+# pass, absent slots) ONLY for the top SCREEN_TOP_K — reusing each screen
+# fit as that candidate's primary, so no work repeats.  Candidates screened
+# out are reported honestly (analysis `screen` record: every candidate's
+# screen BIC / non-convergence, nothing silent) and can never become
+# survivors — the same contract as truncation, but deterministic and
+# best-candidates-first instead of grammar-order-first.  Sweeps of
+# ≤ SCREEN_TOP_K candidates (every existing gate/battery/stress case) take
+# the classic single-phase path unchanged.  Both UNVERIFIED tunables.
+SCREEN_MAX_NFEV = 6000     # measured: converging primaries on real 191-pt
+                           # C 1s data use 3-5k evals; hopeless landscapes
+                           # burn ≥ 18k without converging
+SCREEN_TOP_K = 6
+# The screen may spend at most this fraction of TOTAL_ANALYSIS_TIMEOUT_SEC —
+# the deep phase must always retain budget, else a very large (joint) grammar
+# could burn the whole sweep screening and deep-evaluate NOTHING.
+SCREEN_BUDGET_FRACTION = 0.6
 
 
 def _slot_prefix(role: str) -> str:
@@ -1226,6 +1300,16 @@ class ComparisonResult:
     analysis_truncated: bool = False
     n_candidates_evaluated: int = 0
     n_candidates_total: int = 0
+    # Pre-fit out-of-grammar dominant seeding (unit F1): the detected
+    # features every candidate was augmented with, incl. the gate values
+    # (UNVERIFIED tunables) — empty when detection found nothing, in which
+    # case the candidate set ran unmodified.
+    preseeded_features: list[dict] = field(default_factory=list)
+    # Two-phase sweep record (unit F3) — None when the classic single-phase
+    # path ran (candidate set ≤ SCREEN_TOP_K).  Otherwise every candidate's
+    # screen outcome: {name, converged, bic, selected} — screened-out
+    # candidates are visible here and can never be survivors.
+    screen: Optional[list[dict]] = None
 
 
 def rank_and_filter(
@@ -1302,6 +1386,166 @@ def rank_and_filter(
         filtered_out=filtered_out, ambiguous_pairs=ambiguous,
         conditional=conditional, conditional_reason=conditional_reason,
         bic_ambiguity_threshold=bic_ambiguity_threshold,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-fit out-of-grammar dominant seeding (unit F1 — see the constants block)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dataclass
+class PreseedSpec:
+    role: str
+    center_init: float
+    fwhm_init: float
+    amplitude_net: float          # smoothed background-subtracted height
+    fraction_of_max: float        # vs the global smoothed net maximum
+    local_snr: float              # amplitude_net / local Poisson σ
+
+    def payload(self) -> dict:
+        return {
+            "role": self.role,
+            "center_be": round(float(self.center_init), 3),
+            "amplitude_net": round(float(self.amplitude_net), 1),
+            "fraction_of_max": round(float(self.fraction_of_max), 3),
+            "local_snr": round(float(self.local_snr), 1),
+            "fwhm_init": round(float(self.fwhm_init), 2),
+            "gates": {
+                "min_fraction_of_max": PRESEED_MIN_FRACTION_OF_MAX,
+                "amplitude_snr": PRESEED_AMPLITUDE_SNR,
+                "note": "UNVERIFIED engine tunables — pre-seeded slots are "
+                        "region-unassigned; assignment requires human review",
+            },
+        }
+
+
+def _all_grammar_windows(
+    candidates: list[CandidateModel],
+    canonical_windows: dict[str, tuple[float, float]],
+) -> list[tuple[float, float]]:
+    wins = [s.be_window for c in candidates for s in c.slots]
+    wins += list(canonical_windows.values())
+    return wins
+
+
+def detect_out_of_grammar_dominants(
+    x: np.ndarray,
+    y: np.ndarray,
+    background: np.ndarray,
+    candidates: list[CandidateModel],
+    canonical_windows: dict[str, tuple[float, float]],
+    noise_floor: float = 1.0,
+) -> list[PreseedSpec]:
+    """
+    Prominent smoothed local maxima of the background-subtracted data that
+    lie outside EVERY grammar slot window and diagnostic window (+ the same
+    separation margin the proposal pass uses).  Conservative by design —
+    dominance (fraction-of-max) AND detection-floor SNR gates — so ordinary
+    grammar-covered spectra return [] and small out-of-window features stay
+    the residual-proposal pass's job.
+    """
+    if len(x) < max(PRESEED_SMOOTH_POINTS + 4, 8):
+        return []
+    # real raw_be grids DESCEND — normalize (np.interp-class bug family)
+    if x[0] > x[-1]:
+        x_asc, y_asc, bg_asc = x[::-1], y[::-1], background[::-1]
+    else:
+        x_asc, y_asc, bg_asc = x, y, background
+    y_net = y_asc - bg_asc
+    k = PRESEED_SMOOTH_POINTS
+    kernel = np.ones(k) / k
+    ys = np.convolve(y_net, kernel, mode="same")
+    global_max = float(np.max(ys))
+    if global_max <= 0:
+        return []
+
+    # margin: mean main-FWHM midpoint across the candidate set × the
+    # proposal separation factor (the same "too close to a window to be a
+    # separate feature" convention)
+    mids = [_main_slot_fwhm_midpoint(c) for c in candidates] or [1.0]
+    margin = PROPOSAL_GRAMMAR_SEPARATION_FACTOR * float(np.mean(mids))
+    windows = _all_grammar_windows(candidates, canonical_windows)
+
+    def in_any_window(be: float) -> bool:
+        return any((lo - margin) <= be <= (hi + margin) for lo, hi in windows)
+
+    found: list[PreseedSpec] = []
+    edge = max(2, k // 2)     # smoothing edge — 'same' convolution damps ends
+    for i in range(edge, len(ys) - edge):
+        if not (ys[i] >= ys[i - 1] and ys[i] > ys[i + 1]
+                and ys[i] >= ys[i - 2] and ys[i] > ys[i + 2]):
+            continue
+        center = float(x_asc[i])
+        amp = float(ys[i])
+        if in_any_window(center):
+            continue
+        if amp < PRESEED_MIN_FRACTION_OF_MAX * global_max:
+            continue
+        mask = (x_asc >= center - PROPOSAL_WINDOW_WIDTH) & \
+               (x_asc <= center + PROPOSAL_WINDOW_WIDTH)
+        local_sigma = float(np.median(np.sqrt(np.maximum(y_asc[mask], noise_floor)))) \
+            if mask.sum() > 1 else float(np.sqrt(max(noise_floor, 1.0)))
+        if amp < PRESEED_AMPLITUDE_SNR * local_sigma:
+            continue
+        # FWHM estimate: half-height walk on the smoothed net signal
+        half = 0.5 * amp
+        left = i
+        while left > 0 and ys[left - 1] > half:
+            left -= 1
+        right = i
+        while right < len(ys) - 1 and ys[right + 1] > half:
+            right += 1
+        fwhh = float(x_asc[right] - x_asc[left])
+        fwhm_init = float(np.clip(fwhh if fwhh > 0 else PROPOSAL_FWHM_MIN,
+                                  PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX))
+        found.append(PreseedSpec(
+            role="", center_init=center, fwhm_init=fwhm_init,
+            amplitude_net=amp, fraction_of_max=amp / global_max,
+            local_snr=amp / max(local_sigma, 1e-12),
+        ))
+
+    # strongest first; enforce separation; cap; then stable role naming by BE
+    found.sort(key=lambda s: s.amplitude_net, reverse=True)
+    accepted: list[PreseedSpec] = []
+    for s in found:
+        if len(accepted) >= PRESEED_MAX:
+            break
+        if any(abs(s.center_init - a.center_init) < PRESEED_MIN_SEPARATION_BE
+               for a in accepted):
+            continue
+        accepted.append(s)
+    accepted.sort(key=lambda s: s.center_init)
+    return [PreseedSpec(role=f"preseed_dominant_{i}", center_init=s.center_init,
+                        fwhm_init=s.fwhm_init, amplitude_net=s.amplitude_net,
+                        fraction_of_max=s.fraction_of_max, local_snr=s.local_snr)
+            for i, s in enumerate(accepted)]
+
+
+def _preseed_augmented(
+    base: CandidateModel, specs: list[PreseedSpec]
+) -> CandidateModel:
+    """Every candidate gets the seeded slots — region/phase `unassigned`
+    exactly like proposal slots (assignment is adjudication, not window
+    inheritance; Codex Stage-2 finding #2 applies here identically).  The
+    roles do not start with ``main_`` so the absent-slot machinery can
+    classify a seed that carries no real signal absent, excluding it from
+    the emitted peaks with the honest BIC* adjustment."""
+    seeded = tuple(
+        ComponentSlot(
+            role=s.role,
+            region="unassigned",
+            phase_id="unassigned",
+            be_window=(s.center_init - 0.75, s.center_init + 0.75),
+            line_shape=PROPOSED_PEAK_SHAPE,
+            fwhm_range=(PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX),
+        )
+        for s in specs
+    )
+    return CandidateModel(
+        name=f"{base.name}+preseed",
+        background=base.background,
+        slots=base.slots + seeded,
+        shared_fwhm_params=base.shared_fwhm_params,
     )
 
 
@@ -1565,7 +1809,8 @@ def _attempt_proposal(
     stability = run_stability_analysis(
         x, y, weights, aug_model, primary,
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
-        deadline=time.perf_counter() + min(budget_remaining, CANDIDATE_TIMEOUT_SEC),
+        deadline=time.perf_counter() + min(budget_remaining,
+                                           PROPOSAL_STABILITY_TIMEOUT_SEC),
     )
     if (stability.best_outcome is not None
             and stability.best_outcome.weighted_chi_sq < primary.weighted_chi_sq):
@@ -1803,18 +2048,42 @@ def compare_models(
     bic_ambiguity_threshold: float = DEFAULT_BIC_AMBIGUITY,
     enable_proposal_pass: bool = True,
     candidate_filter: Optional[list[str]] = None,
+    enable_preseed: bool = True,
 ) -> ComparisonResult:
     """
     Full pipeline over ``grammar.candidates`` for one spectral window.
 
     ``candidate_filter`` limits the run to the named candidates (useful for
-    fast tests / method options); None = all.
+    fast tests / method options); None = all.  ``enable_preseed`` gates the
+    pre-fit out-of-grammar dominant seeding (unit F1) — detection-driven, so
+    it is a no-op on spectra whose prominent features the grammar covers.
     """
     candidates = grammar.candidates
     if candidate_filter is not None:
         wanted = set(candidate_filter)
         candidates = [c for c in candidates if c.name in wanted]
     diagnostic_windows = dict(grammar.diagnostic_windows)
+
+    preseed_specs: list[PreseedSpec] = []
+    if enable_preseed and candidates:
+        # Detection-only background: today every candidate in a resolved
+        # grammar shares one background family (C 1s/B 1s/Cl 2p/U 4f modules
+        # are each homogeneous), so the first candidate's is representative.
+        # A future mixed-background grammar only affects DETECTION here —
+        # each candidate still fits with its own background.
+        det_bg = _compute_background(x, y, candidates[0].background)
+        preseed_specs = detect_out_of_grammar_dominants(
+            x, y, det_bg, candidates, diagnostic_windows,
+            noise_floor=noise_floor,
+        )
+        if preseed_specs:
+            log.info(
+                "compare_models: %d out-of-grammar dominant feature(s) "
+                "pre-seeded at %s (region-unassigned; human assignment "
+                "required)", len(preseed_specs),
+                [round(s.center_init, 2) for s in preseed_specs],
+            )
+            candidates = [_preseed_augmented(c, preseed_specs) for c in candidates]
 
     reports: list[ModelReport] = []
     non_converged: list[tuple[CandidateModel, FitOutcome]] = []
@@ -1825,22 +2094,74 @@ def compare_models(
     n_evaluated = 0
     analysis_truncated = False
 
+    # ── Unit F3: screen phase (only for candidate sets larger than the
+    #    deep-evaluation budget — every existing gate/battery path is ≤
+    #    SCREEN_TOP_K and unchanged) ─────────────────────────────────────
+    screen_record: Optional[list[dict]] = None
+    screen_fit: dict[str, FitOutcome] = {}
+    if n_cand > SCREEN_TOP_K:
+        screen_rows: list[dict] = []
+        screened: list[tuple[CandidateModel, FitOutcome, float]] = []
+        screen_deadline = sweep_start + SCREEN_BUDGET_FRACTION * TOTAL_ANALYSIS_TIMEOUT_SEC
+        for idx, model in enumerate(candidates, 1):
+            if time.perf_counter() > screen_deadline:
+                analysis_truncated = True
+                log.warning(
+                    "compare_models: screen budget (%.0f%% of the sweep) "
+                    "exhausted after %d/%d candidates — the deep phase runs "
+                    "on what screened so far",
+                    100 * SCREEN_BUDGET_FRACTION, idx - 1, n_cand)
+                break
+            log.info("[screen %2d/%d] %s", idx, n_cand, model.name)
+            outcome = fit_candidate(x, y, weights, model,
+                                    max_nfev=SCREEN_MAX_NFEV)
+            if outcome.converged:
+                bic = compute_bic(outcome)
+                screened.append((model, outcome, bic))
+                screen_rows.append({"name": model.name, "converged": True,
+                                    "bic": float(bic), "selected": False})
+            else:
+                non_converged.append((model, outcome))
+                screen_rows.append({"name": model.name, "converged": False,
+                                    "bic": None, "selected": False})
+        screened.sort(key=lambda t: t[2])
+        selected_models = screened[:SCREEN_TOP_K]
+        selected_names = {m.name for m, _, _ in selected_models}
+        for row in screen_rows:
+            row["selected"] = row["name"] in selected_names
+        screen_record = screen_rows
+        screen_fit = {m.name: o for m, o, _ in selected_models}
+        candidates = [m for m, _, _ in selected_models]
+        log.info(
+            "compare_models: screen kept %d/%d candidates for deep "
+            "evaluation: %s", len(candidates), n_cand,
+            [m.name for m in candidates])
+
     for idx, model in enumerate(candidates, 1):
-        if time.perf_counter() - sweep_start > TOTAL_ANALYSIS_TIMEOUT_SEC:
+        # Pre-check with the candidate's own worst-case budget: a candidate
+        # STARTED just under the wire used to overshoot the sweep budget by
+        # its full stability + proposal cost (measured 310 s wall vs the
+        # 240 s budget on real data — past the gunicorn --timeout 300, i.e.
+        # the exact worker-kill this budget exists to prevent).  Truncating
+        # BEFORE starting a candidate that cannot finish keeps the worst-case
+        # wall ≈ TOTAL_ANALYSIS_TIMEOUT_SEC.
+        elapsed = time.perf_counter() - sweep_start
+        if elapsed > TOTAL_ANALYSIS_TIMEOUT_SEC - CANDIDATE_TIMEOUT_SEC:
             analysis_truncated = True
             log.warning(
-                "compare_models: TOTAL_ANALYSIS_TIMEOUT_SEC (%.0fs) exceeded "
-                "after %d/%d candidates — remaining candidates skipped, "
-                "returning best-so-far",
-                TOTAL_ANALYSIS_TIMEOUT_SEC, n_evaluated, n_cand,
+                "compare_models: sweep budget cannot fit another candidate "
+                "(%.0fs elapsed of %.0fs) after %d/%d — remaining candidates "
+                "skipped, returning best-so-far",
+                elapsed, TOTAL_ANALYSIS_TIMEOUT_SEC, n_evaluated, len(candidates),
             )
             break
         n_evaluated += 1
-        log.info("[%2d/%d] %s: primary fit", idx, n_cand, model.name)
+        log.info("[%2d/%d] %s: primary fit", idx, len(candidates), model.name)
         # Shared wall-clock budget for this candidate's primary fit + all its
         # stability refits (CANDIDATE_TIMEOUT_SEC) — see run_stability_analysis.
         candidate_deadline = time.perf_counter() + CANDIDATE_TIMEOUT_SEC
-        primary = fit_candidate(x, y, weights, model)
+        # reuse the screen fit as this candidate's primary (no repeated work)
+        primary = screen_fit.get(model.name) or fit_candidate(x, y, weights, model)
         if not primary.converged:
             non_converged.append((model, primary))
             continue
@@ -1878,40 +2199,81 @@ def compare_models(
 
         final_report = base_report
         if enable_proposal_pass:
-            specs = _detect_residual_proposals(
-                x, y, y_fit, noise_floor, model, canonical_windows=diagnostic_windows,
-            )
-            attempts = specs[:PROPOSAL_MAX_ATTEMPTS_PER_CANDIDATE]
-            counts = dict(n_attempted=0, n_fast=0, n_stab=0, n_acc=0)
+            # Unit F2: ITERATIVE rounds — each accepted proposal makes the
+            # augmented report the new base, detection re-runs on ITS
+            # residual, and the next round may accept another peak (up to
+            # PROPOSAL_MAX_PER_CANDIDATE total), all under ONE shared
+            # per-candidate wall budget.  Gates are unchanged per round.
+            counts = dict(n_flagged=0, n_over_cap=0, n_attempted=0,
+                          n_fast=0, n_stab=0, n_acc=0)
             timed_out = False
             pass_start = time.perf_counter()
+            # the pass never spends beyond the sweep's remaining budget —
+            # same worst-case-wall reasoning as the candidate pre-check
+            pass_budget = min(
+                PROPOSAL_CANDIDATE_TIMEOUT_SEC,
+                TOTAL_ANALYSIS_TIMEOUT_SEC - (pass_start - sweep_start))
             rejected: list[ProposedPeakReport] = []
-            for spec in attempts:
-                elapsed = time.perf_counter() - pass_start
-                if elapsed > PROPOSAL_CANDIDATE_TIMEOUT_SEC:
+            current = base_report
+            current_y_fit = y_fit
+            while counts["n_acc"] < PROPOSAL_MAX_PER_CANDIDATE:
+                if time.perf_counter() - pass_start > pass_budget:
                     timed_out = True
                     break
-                counts["n_attempted"] += 1
-                aug_report, pr, outcome = _attempt_proposal(
-                    x=x, y=y, weights=weights, base_report=base_report, spec=spec,
-                    noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
-                    absent_slot_area_fraction=absent_slot_area_fraction,
-                    absent_slot_persistence_threshold=absent_slot_persistence_threshold,
-                    diagnostic_windows=diagnostic_windows,
-                    budget_remaining=PROPOSAL_CANDIDATE_TIMEOUT_SEC - elapsed,
+                specs = _detect_residual_proposals(
+                    x, y, current_y_fit, noise_floor, current.model,
+                    canonical_windows=diagnostic_windows,
                 )
-                proposal_attempts.append((model.name, pr))
-                if outcome == "accepted" and aug_report is not None:
-                    counts["n_acc"] += 1
-                    final_report = aug_report
+                # roles must stay unique across rounds — an accepted
+                # proposed_peak_0 already lives in current.model, so this
+                # round's specs are renumbered past every existing one
+                n_prior = sum(1 for s in current.model.slots
+                              if s.role.startswith("proposed_peak"))
+                for j, spec in enumerate(specs):
+                    spec.role = f"proposed_peak_{n_prior + j}"
+                attempts = specs[:PROPOSAL_MAX_ATTEMPTS_PER_CANDIDATE]
+                counts["n_flagged"] += len(specs)
+                counts["n_over_cap"] += max(len(specs) - len(attempts), 0)
+                accepted_this_round = False
+                for spec in attempts:
+                    elapsed = time.perf_counter() - pass_start
+                    if elapsed > pass_budget:
+                        timed_out = True
+                        break
+                    counts["n_attempted"] += 1
+                    aug_report, pr, outcome = _attempt_proposal(
+                        x=x, y=y, weights=weights, base_report=current, spec=spec,
+                        noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
+                        absent_slot_area_fraction=absent_slot_area_fraction,
+                        absent_slot_persistence_threshold=absent_slot_persistence_threshold,
+                        diagnostic_windows=diagnostic_windows,
+                        budget_remaining=pass_budget - elapsed,
+                    )
+                    proposal_attempts.append((model.name, pr))
+                    if outcome == "accepted" and aug_report is not None:
+                        counts["n_acc"] += 1
+                        # carry earlier rounds' accepted-peak reports forward
+                        # (base_report starts with [], so round 1 is a no-op)
+                        aug_report.proposed_peaks = (
+                            list(current.proposed_peaks) + aug_report.proposed_peaks)
+                        current = aug_report
+                        pf = current.primary_fit
+                        current_y_fit = (
+                            pf.lmfit_result.best_fit + pf.background
+                            if pf.lmfit_result is not None else np.zeros_like(y))
+                        accepted_this_round = True
+                        break
+                    rejected.append(pr)
+                    counts["n_fast" if outcome == "fast_rejected" else "n_stab"] += 1
+                if not accepted_this_round:
                     break
-                rejected.append(pr)
-                counts["n_fast" if outcome == "fast_rejected" else "n_stab"] += 1
-            if final_report is base_report and rejected:
-                base_report.proposed_peaks = rejected
+            final_report = current
+            if rejected:
+                # rejected attempts stay visible on whichever report we emit
+                final_report.proposed_peaks = final_report.proposed_peaks + rejected
             timings.append(ProposalPassTiming(
-                candidate_name=model.name, n_flagged=len(specs),
-                n_over_cap=max(len(specs) - len(attempts), 0),
+                candidate_name=model.name, n_flagged=counts["n_flagged"],
+                n_over_cap=counts["n_over_cap"],
                 n_attempted=counts["n_attempted"], n_fast_rejected=counts["n_fast"],
                 n_stability_rejected=counts["n_stab"], n_accepted=counts["n_acc"],
                 wall_time_sec=time.perf_counter() - pass_start, timed_out=timed_out,
@@ -1938,6 +2300,8 @@ def compare_models(
     result.analysis_truncated = analysis_truncated
     result.n_candidates_evaluated = n_evaluated
     result.n_candidates_total = n_cand
+    result.preseeded_features = [s.payload() for s in preseed_specs]
+    result.screen = screen_record
 
     # Result-level honesty flag (stress-suite finding 0 — burial measured
     # at ΔBIC* +74…+944): a FILTERED candidate whose BIC* decisively beats

@@ -134,13 +134,36 @@ def test_bg_mismatch_surfaces_loudly():
     assert wc["reduced_chi_sq"] > 10.0
 
 
-def test_proposal_pass_fires_on_isolated_missing_peak():
-    """The residual-guided proposal pass's designed regime (3d): a
-    discrete isolated real peak the menu doesn't model must be proposed,
-    accepted, and fitted at the true position (measured on every noise
-    draw; 0 false positives across the battery's 66 covered rows)."""
+def test_preseed_catches_isolated_missing_peak():
+    """Unit F1 (2026-07-07): the isolated unmodeled peak (28% of the main —
+    above the preseed dominance gate) is now caught by the PRE-FIT seeding
+    channel: same honesty contract as the proposal pass (region-unassigned
+    component, human adjudication), reached before the fit so the landscape
+    is sane.  The peak must be seeded, fitted at the true position, and
+    surfaced in analysis.preseeded_features."""
     case = isolated_missing_peak_case(seed=71)
     res = _ic(case)
+    assert res.diagnostics["winner"].endswith("+preseed")
+    feats = res.analysis["preseeded_features"]
+    assert len(feats) == 1
+    assert feats[0]["center_be"] == pytest.approx(201.5, abs=0.3)
+    seeded = [p for p in res.peaks if p["role"].startswith("preseed_dominant")]
+    assert len(seeded) == 1
+    assert seeded[0]["center"] == pytest.approx(201.5, abs=0.3)
+    assert seeded[0]["region"] == "unassigned"
+    assert "human review" in res.message
+
+
+def test_proposal_pass_fires_on_isolated_missing_peak():
+    """The residual-guided proposal pass's designed regime (3d): with the
+    preseed channel disabled, a discrete isolated real peak the menu
+    doesn't model must still be proposed, accepted, and fitted at the true
+    position (measured on every noise draw; 0 false positives across the
+    battery's 66 covered rows)."""
+    case = isolated_missing_peak_case(seed=71)
+    res = get_method("ic_model_comparison").run(
+        case.x, case.y, grammar=case.grammar,
+        options={**IC_OPTS, "enable_preseed": False})
     assert res.diagnostics["winner"].endswith("+prop")
     accepted = [p for c in res.analysis["candidates"]
                 for p in c.get("proposed_peaks", []) if p["accepted"]]

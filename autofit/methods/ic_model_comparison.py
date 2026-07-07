@@ -22,6 +22,7 @@ _ALLOWED_OPTIONS = {
     "noise_floor", "n_refits", "rng_seed", "candidate_filter",
     "enable_proposal_pass", "persistence_threshold", "bic_ambiguity_threshold",
     "absent_slot_area_fraction", "absent_slot_persistence_threshold",
+    "enable_preseed",
 }
 
 ENGINE_VERSION = "autofit-stage2"
@@ -61,6 +62,7 @@ class ICModelComparisonMethod(PeakFitMethod):
             rng_seed=int(opts.pop("rng_seed", 0)),
             candidate_filter=opts.pop("candidate_filter", None),
             enable_proposal_pass=bool(opts.pop("enable_proposal_pass", True)),
+            enable_preseed=bool(opts.pop("enable_preseed", True)),
             persistence_threshold=float(opts.pop("persistence_threshold", 0.7)),
             bic_ambiguity_threshold=float(opts.pop("bic_ambiguity_threshold", 2.0)),
             absent_slot_area_fraction=float(opts.pop("absent_slot_area_fraction", 0.02)),
@@ -103,6 +105,23 @@ class ICModelComparisonMethod(PeakFitMethod):
             if slot.role not in absent_roles
         }
         message = ""
+        winner_preseed_roles = sorted(
+            slot.role for slot in top.model.slots
+            if slot.role.startswith("preseed_dominant_")
+            and slot.role not in absent_roles
+        )
+        if winner_preseed_roles:
+            centers = [
+                f"{c.position:.2f}" for r in winner_preseed_roles
+                for c in top.primary_fit.components if c.slot_role == r
+            ]
+            message += (
+                f"PRE-SEEDED component(s) at {', '.join(centers)} eV: dominant "
+                "intensity outside every grammar window was seeded from the "
+                "data (region-unassigned) — chemical assignment requires "
+                "human review; positions are data-driven, not literature-"
+                "anchored. "
+            )
         if result.conditional:
             if result.conditional_reason == "decisive_override":
                 message = (
@@ -135,6 +154,7 @@ class ICModelComparisonMethod(PeakFitMethod):
                 "filtered_dominant_alternative":
                     result.filtered_dominant_alternative,
                 "weighted_ic_disagreement": result.weighted_ic_disagreement,
+                "preseeded_features": result.preseeded_features,
                 "n_survivors": len(result.survivors),
                 "n_filtered": len(result.filtered_out),
                 "n_non_converged": len(result.non_converged),
@@ -271,6 +291,13 @@ def build_analysis_record(
         "candidates": candidates,
         "non_converged": [m.name for m, _ in result.non_converged],
         "ambiguous_pairs": [list(t) for t in result.ambiguous_pairs],
+        # unit F1: out-of-grammar dominants every candidate was pre-seeded
+        # with (empty = detection found nothing, candidate set unmodified)
+        "preseeded_features": result.preseeded_features,
+        # unit F3: two-phase sweep record — every candidate's screen outcome
+        # when the screen ran (None = classic single-phase path).  Screened-
+        # out candidates are visible here, never silently dropped.
+        "screen": result.screen,
         "filtered_dominant_alternative": result.filtered_dominant_alternative,
         "weighted_ic_disagreement": result.weighted_ic_disagreement,
         # BIC/IC math review: the ΔBIC thresholds (decisive 10 / ambiguity

@@ -349,6 +349,55 @@ def isolated_missing_peak_case(seed: int) -> StressCase:
     )
 
 
+def multi_env_low_be_dominant_case(seed: int) -> StressCase:
+    """COMMITTED stand-in for the unpublished real multi-environment C 1s
+    class (PROGRESS.md 2026-07-07 diagnosis; the raw spectra are local-only
+    per the privacy rail): a DOMINANT peak below every grammar window, a
+    weaker low-BE neighbor (below the preseed dominance gate — it must come
+    from an ITERATIVE proposal round, unit F2), and a conventional in-window
+    species ladder.  The engine must (a) pre-seed the dominant (unit F1),
+    (b) propose the neighbor, (c) place the in-window ladder components near
+    truth, and (d) keep the honesty surface intact (region-unassigned roles,
+    human-review message).  Positions are synthetic-region scaffolds (SYN),
+    not C 1s constants — nothing here encodes the real spectra's energies.
+    (Grid extended below the dominant so its tail doesn't load the
+    endpoint-anchored linear background.)
+    """
+    x = _grid(186.0, 205.0)
+    truth = [
+        {"center": 191.2, "fwhm": 1.3, "height": 40000.0},   # dominant, out-of-window
+        {"center": 193.0, "fwhm": 2.2, "height": 9000.0},    # neighbor, 22.5% of max
+        {"center": 196.6, "fwhm": 1.6, "height": 5000.0},    # in-window ladder...
+        {"center": 198.9, "fwhm": 1.8, "height": 8000.0},
+        {"center": 201.6, "fwhm": 2.0, "height": 5500.0},
+    ]
+    sig = sum(_pv(x, t["height"], t["center"], t["fwhm"], ETA) for t in truth)
+    y = _noisy(sig + _linear_bg(x), seed)
+    ladder = [
+        _slot("main_a", (196.0, 197.2)),
+        _slot("comp_b", (198.2, 199.6)),
+        _slot("comp_c", (200.8, 202.4)),
+    ]
+    cands = [
+        _cand("L1_main", ladder[:1]),
+        _cand("L2_main_b", ladder[:2]),
+        _cand("L3_main_b_c", ladder[:3]),
+    ]
+    return StressCase(
+        name="multi_env_low_be_dominant",
+        regime="multi_env_low_be", expectation="recover",
+        x=x, y=y, truth=truth, truth_n=5,
+        grammar=_grammar(cands),
+        ls_specs=_ls_specs(truth),
+        true_candidates=("L3_main_b_c",),
+        notes="dominant + neighbor below every window; ladder in-window — "
+              "the F1 preseed + F2 iterative-proposal regression case "
+              "(NOT in build_all_cases yet: battery regeneration is a "
+              "follow-up; the always-on pin in test_stress_honesty.py "
+              "covers it every run)",
+    )
+
+
 def bg_mismatch_case(seed: int) -> StressCase:
     x = _grid()
     truth = [{"center": 197.2, "fwhm": 1.2, "height": 9000.0},

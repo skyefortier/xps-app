@@ -1779,6 +1779,108 @@ for the unpublishable real data):**
   budget re-architecture as the measurements dictate) so `MG*`-class
   candidates are actually evaluated.
 
+## Real multi-environment C 1s — FIX IMPLEMENTED + MEASURED (2026-07-07)
+
+Units F1/F2/F3 landed (engine + IC method, strictly additive; `/api/fit`
+and the manual path untouched).  Handoff note: the diagnosis + F1/F2 were
+authored by Fable 5, which ran out of credits mid-unit; Opus 4.8 finished
+F3, the measurement, the regression tests, and this write-up.  What each
+unit actually does in the shipped code:
+
+- **F1 — pre-fit out-of-grammar dominant seeding** (`engine.py`
+  `detect_out_of_grammar_dominants` / `_preseed_augmented`, gated by
+  `enable_preseed`, default on).  Before any fit, `compare_models` detects
+  prominent smoothed local maxima of the bg-subtracted data OUTSIDE every
+  grammar+diagnostic window (gates: `PRESEED_MIN_FRACTION_OF_MAX` 0.25 of
+  the global smoothed-net max AND `PRESEED_AMPLITUDE_SNR` 5×, both
+  UNVERIFIED and surfaced per-feature in `analysis.preseeded_features`),
+  and augments EVERY candidate with absent-eligible, region-`unassigned`
+  `preseed_dominant_*` slots.  Same honesty contract as the proposal pass
+  (assignment of an out-of-grammar feature is human adjudication, never
+  window inheritance); descending-grid safe.  Detection-driven: on a
+  grammar-covered spectrum it returns [] and the candidate set runs
+  byte-identical (pinned).
+- **F2 — iterative proposal rounds** (`PROPOSAL_MAX_PER_CANDIDATE` 1→3).
+  After an accepted proposal, detection re-runs on the AUGMENTED model's
+  residual and another peak may be accepted, under ONE shared per-candidate
+  wall budget (`PROPOSAL_CANDIDATE_TIMEOUT_SEC` 30→60) with UNCHANGED accept
+  gates.  Also lifted the proposal-stability sub-budget from the 25 s
+  `min(budget, CANDIDATE_TIMEOUT_SEC)` clamp to `PROPOSAL_STABILITY_TIMEOUT_SEC`
+  35 s — the old clamp quantized a slow augmented model's n_refits=4
+  stability to 3 attempts and pushed persistence below its own gate
+  (measured: a ΔBIC* −86 proposal rejected at 2/3=0.67<0.70 purely because
+  the 4th refit never ran).
+- **F3 — two-phase screen→stabilize sweep** (`SCREEN_TOP_K` 6,
+  `SCREEN_MAX_NFEV` 6000, `SCREEN_BUDGET_FRACTION` 0.6).  When the candidate
+  set exceeds `SCREEN_TOP_K`, every candidate is first fit ONCE (primary
+  only, cheap nfev cap), ranked by BIC, and only the top-K get the full
+  pipeline (stability + iterative proposal pass), reusing each screen fit as
+  its primary so nothing repeats.  Screened-out candidates are visible in
+  `analysis.screen` (name/converged/bic/selected) — never silent, and can
+  never become survivors.  The screen replaces grammar-ORDER truncation
+  (which dropped the expert-structure MG family, grammar #21–24, first) with
+  best-candidates-first; sweeps ≤ `SCREEN_TOP_K` (every existing
+  gate/battery/stress path) take the classic single-phase path unchanged.
+  Also tightened the deep-phase budget check to skip a candidate that
+  cannot finish (`elapsed > TOTAL − CANDIDATE_TIMEOUT_SEC`) instead of
+  starting one that would overrun the gunicorn `--timeout 300` (measured
+  pre-fix: a 310 s wall on a 240 s budget).
+
+**Measured on ALL 11 real C 1s scans across BOTH untracked datasets**
+(production-parity harness: resolve C 1s conductor/graphite → the exact IC
+method the `/api/analyze` route runs, n_refits=4, seed 0, proposal pass on;
+before = pre-F1 engine, after = F1/F2/F3.  Evidence: scratchpad
+`baseline_real_c1s.jsonl` / `after_real_c1s.jsonl`, LOCAL ONLY — the raw
+spectra and their fits are unpublished and never committed):
+
+| metric | BEFORE | AFTER |
+|---|---|---|
+| winner χ²ᵣ range (11 scans) | 186 – 857 | 6 – 223 |
+| scans improved on winner χ²ᵣ | — | 11 / 12 |
+| scans TRUNCATED | 12 / 12 | 4 / 12 |
+| dominant low-BE feature captured | 0 / 12 | 12 / 12 |
+
+- The class-defining dominant (~279 eV, below every C 1s window) is now
+  captured on EVERY scan via F1 — the +65σ residual and the truncation it
+  caused are gone.  Example (ds7/C1s Scan): winner χ²ᵣ 655.7 → 129.7; the
+  goal's "281 residual" is now an accepted F2 proposal at 280.75; the
+  goal's "287.7 residual" is modeled on the scans whose winner carries a
+  C=O slot (ds7/Scan_0/2/3/4 → χ²ᵣ 24–52).
+- The 4 still-truncating scans now drop only 1–2 of the BEST-6-SCREENED
+  candidates (vs dropping 21 in arbitrary grammar order before) — the
+  `analysis.screen` record shows exactly which and why.
+- **HONEST LIMITATION (2 of 12 scans, ds7/Scan + Scan_6): a parsimony vs.
+  richness flip the honesty machinery flags, not hides.**  On ds7/Scan the
+  screen correctly ranks the C=O-bearing A2 candidates ABOVE A1 by
+  cheap-BIC, and A2 IS deep-evaluated — but A2's identical 280.7 proposal
+  (ΔBIC* −102, NO timeout) is rejected on PERSISTENCE 0.25 < 0.70: the
+  richer model is multi-modal across perturbed refits, so the proposal role
+  isn't stable, while A1's persists at 1.0.  A1 (no C=O) therefore wins and
+  leaves a 30σ residual at 287.7 — which the engine reports honestly:
+  `conditional=no_clean_survivor`, `residual_flags=['C 1s:CO','C 1s:C=O']`,
+  `autocorr_flag=True`, χ²ᵣ 129.7.  This is PRE-EXISTING persistence-gate
+  behavior (F1/F2/F3 did not touch the gate) newly EXPOSED because the
+  preseed lets A2 converge at all (before, A2 didn't converge — max_nfev
+  burn).  It is exactly the already-logged "persistence-threshold
+  calibration by noise-draw strata / orphan-tolerant role matching for
+  heavily-overlapped windows" future work; DELIBERATELY NOT fixed by
+  relaxing the persistence gate under this session's time pressure (that
+  needs a full stress-suite false-positive re-validation, per the "preserve
+  the honesty machinery — do NOT just confidently emit more peaks" rail).
+
+**Anti-overfitting / honesty checks:** no per-spectrum positions anywhere
+(F1 detection is data-driven local-maxima; F2 is residual-driven; nothing
+hard-coded to 279/281/287.7).  Full suite **513 passed / 3 skipped, zero
+regressions** (504 pre-unit + 7 new F1/F2/F3 pins + 1 cdx-evidence pin + 1
+stress-honesty test split into preseed-channel and proposal-channel
+variants).  Committed synthetic ground-truth regression:
+`multi_env_low_be_dominant_case` in `stress_cases.py` (dominant below every
+window + neighbor below the dominance gate + in-window ladder) with
+always-on pins in `test_preseed_dominants.py` (10 pins: detection
+gating/descending-grid/covered-spectrum-noop, the end-to-end recovery,
+F2 two-peak iteration, F3 screen-record/classic-path) and the updated
+`test_stress_honesty.py` (preseed channel + proposal channel).
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);
@@ -1794,9 +1896,24 @@ STILL OPEN:
 - Engine (logged from the reviews): reduced-model refits for the
   absent-slot BIC* heuristic; block-bootstrap/CV calibration of the ΔBIC
   thresholds (+ n_eff-aware penalties); SE-distance boundary-proximity
-  diagnostics; orphan-tolerant role matching for heavily-overlapped
-  windows; persistence-threshold calibration by noise-draw strata;
+  diagnostics; **orphan-tolerant role matching for heavily-overlapped
+  windows + persistence-threshold calibration — NOW MOTIVATED by a
+  measured real-data case (ds7/C1s Scan, 2026-07-07): a ΔBIC* −102
+  decisively-better proposal on a C=O-bearing candidate is rejected at
+  persistence 0.25 because the richer model is multi-modal across refits,
+  so the parsimonious C=O-less winner leaves a flagged 30σ residual at
+  287.7 eV.  The fix must NOT simply lower the gate (false-positive risk);
+  a decisive-ΔBIC-with-uncertainty-flag accept, or orphan-tolerant
+  persistence, needs a full stress-suite false-positive re-validation**;
   per-candidate constants provenance; B 1s role-swap detection.
+- F1/F2/F3 tunables all UNVERIFIED (surfaced in the payload): the preseed
+  gates (fraction-of-max 0.25, SNR 5×), `SCREEN_TOP_K` 6 / `SCREEN_MAX_NFEV`
+  6000 / `SCREEN_BUDGET_FRACTION` 0.6, `PROPOSAL_MAX_PER_CANDIDATE` 3 and
+  the raised proposal budgets — calibrate against the stress suite + a
+  wider real-spectrum set before any production-claim.  Residual
+  truncation on 4/12 rich scans is honest (drops the worst 1–2 of the
+  top-6-screened) but a faster deep phase (cheaper proposal stability /
+  smaller K on the largest grammars) would close it.
 - χ²-criteria calibration of the empirical noise model against the stress
   suite (the estimator itself is review-complete).
 - Hour→interactive performance work (deferred per the run brief).
