@@ -1674,6 +1674,111 @@ findings fixed); R1 re-check attempt 1 hit the Codex USAGE LIMIT (both
 runs; no verdict — logged, retry scheduled post-reset). R2/R3 reviews
 queued behind the R1 re-check retry.
 
+## DS+G non-convergence budgets (2026-07-06, commit 8136d93) — retro-logged
+
+Logged here 2026-07-07 (the commit predates this entry; see its message for
+the full story): Suggest-peaks could 500 via gunicorn WORKER TIMEOUT when a
+DS+G candidate's alpha/beta wandered to a valid-but-degenerate boundary and
+lmfit's effectively-unbounded default max_nfev let leastsq spin.  Fixes:
+`FIT_CANDIDATE_MAX_NFEV = 18000` (bimodal-split calibrated),
+`CANDIDATE_TIMEOUT_SEC = 25` (primary + stability refits share the budget,
+honest attempted/timed-out denominators), `TOTAL_ANALYSIS_TIMEOUT_SEC = 240`
+(sweep-wide; returns best-so-far with `analysis_truncated=True` + amber UI
+banner), and the Suggest-peaks fetch handler checks `resp.ok` before
+`.json()`.  Suite 504+3 at the time.  NOTE: the truncation flag is honest
+but on the real multi-environment C 1s spectra the budget actually BINDS —
+see the diagnosis below.
+
+## Real multi-environment C 1s — MEASURED DIAGNOSIS (2026-07-07, logged BEFORE fixes)
+
+**The problem (goal statement):** real, representative multi-environment
+C 1s spectra — a dominant low-BE feature near 279 eV plus several carbon
+species through ~290 eV, ALL C 1s per the domain expert — fit poorly:
+truncation, and obvious unmodeled intensity near 281 and 287.7 eV.  Test
+data (LOCAL ONLY, untracked, NEVER commit — unpublished):
+`docs/autofit/test_data/7 - GTA-2-66 U-naph and COT.DATA` (7 C 1s scans)
+and `…/8 GTA-2-46ii U-naph and XeF2, … .DATA` (4 C 1s scans).  All 11
+scans share the pathology: dominant maximum at 278.4–279.9 eV (raw frame,
+38k–56k counts), secondary features ~287–289 and ~290–291 eV, n=191
+points, 0.1 eV step.
+
+**Baseline harness** (scratchpad `baseline_real_c1s.py`, resumable JSONL;
+production-parity: resolve C 1s conductor/graphite → compare_models,
+poisson weights, n_refits=4, seed 0, proposal pass ON, per-candidate
+timing wrapper).  Primary-scan row (ds7/C1s Scan.VGD) + foreground probes
+give the measured picture; the full 11-scan table lands with the fix
+units' before/after numbers.
+
+**Measured, all three suspected causes CONFIRMED, ranked by impact:**
+
+1. **(b) GRAMMAR BREADTH — the root cause.**  Every C 1s window floor is
+   ≥ 284.0 eV (`C1S_WINDOWS`); the class-defining dominant low-BE feature
+   and its ~281 eV neighbor are inexpressible by EVERY candidate.
+   Measured on ds7/C1s Scan: winner `A2_linked+prop` χ²ᵣ **655.7**,
+   `main_graphitic` pinned at the window floor (`center@min` 284.00,
+   `m_gauss@max`), contamination_CO fitted to amplitude 0, C=O dragged to
+   its floor (287.36) to soak mid-region intensity, and the single
+   accepted proposal at 279.06 eV is the LARGEST component of the fit
+   (amp 34 429 vs graphitic 1 101) — the engine's own output says the
+   grammar is missing the spectrum's main feature.  Residual after the
+   winner: **+65σ standardized residual centered 281.0–281.7 eV** (the
+   goal's "unmodeled intensity near 281").  Corollary (foreground probe):
+   families whose mains sit in-window (AG3_linked, MG3, B3_linked) don't
+   even CONVERGE on this data — leastsq burns the full max_nfev=18000 and
+   aborts ("Fit aborted", success=False) because no in-window arrangement
+   can descend the 42k-count out-of-window residual.  Non-convergence
+   here is a grammar-expressibility symptom, not an optimizer bug.
+2. **(c) PROPOSAL-PASS STRUCTURAL CAPS.**  Detection DID flag the low-BE
+   region on every candidate (n_flagged=1 each) and every candidate
+   accepted its one proposal at ~279 — but (i) `PROPOSAL_MERGE_BE=1.0`
+   chains the contiguous flagged tiles 278.5–281.5 into ONE cluster, so
+   279+281 yield a single spec at the argmax (279); (ii)
+   `PROPOSAL_MAX_PER_CANDIDATE=1` + break-on-accept + no iteration means
+   a second missing species can never be added; (iii) in-window residuals
+   (287.7 sits inside the C=O window) are proposal-ineligible by design —
+   they are the candidate structure's job.  Net: the pass rescues exactly
+   one of two missing low-BE species; the 65σ residual at 281 is
+   structurally unreachable.
+3. **(a) TRUNCATION.**  Primary scan: **8/29 candidates in 261 s**
+   (TOTAL_ANALYSIS_TIMEOUT_SEC=240; the goal's observed 18/29 is the same
+   budget binding under different per-candidate costs).  Cost anatomy per
+   candidate on this data: base fit + stability ≈ 25–30 s (budget-capped,
+   hopeless landscape → every refit burns toward max_nfev) + proposal
+   pass 4–22 s (the augmented fit + ITS stability).  The MG family — the
+   expert-practice model structure, candidates #21–24 in grammar order —
+   is NEVER EVALUATED on exactly the spectra that need it.  Truncation is
+   downstream of (b): inexpressible dominant ⇒ pathological landscapes ⇒
+   per-candidate budgets bind ⇒ sweep budget binds.
+
+**Fix plan (implemented as separate committed units, highest impact
+first; every unit re-validated against the synthetic stress suite + the
+C 1s/U 4f/B 1s/Cl 2p parity batteries with zero regressions, plus a NEW
+committed synthetic multi-environment C 1s regression case standing in
+for the unpublishable real data):**
+
+- **Unit F1 — pre-fit out-of-grammar dominant seeding (engine,
+  region-agnostic).**  Detect prominent smoothed local maxima of the
+  bg-subtracted data that lie outside every grammar/diagnostic window
+  (conservative gates: SNR + fraction-of-global-max, UNVERIFIED tunables
+  surfaced in the payload) and augment every candidate with
+  absent-eligible, region-`unassigned` `preseed_dominant_*` slots BEFORE
+  fitting — the same honesty contract as the proposal pass (assignment is
+  human adjudication), moved ahead of the fit so the landscape is sane.
+  No literature window is invented; nothing is hard-coded to 279 —
+  detection is data-driven and fires only when such a feature exists
+  (clean anchors: no change, pinned).
+- **Unit F2 — proposal-pass iteration.**  Allow up to
+  `PROPOSAL_MAX_PER_CANDIDATE` (raised) sequential accepted proposals
+  (accept → augmented model becomes the new base → re-detect on ITS
+  residual), still under the same per-candidate wall budget and the same
+  accept gates (SNR, ΔBIC*, persistence, boundary cleanliness) — catches
+  the second missing species (281-class) that cluster-merging hides.
+- **Unit F3 — sweep completion.**  Re-measure after F1/F2 (sane
+  landscapes should collapse per-candidate cost); then make the sweep
+  complete within budget on rich cases (cheap-first screening order /
+  budget re-architecture as the measurements dictate) so `MG*`-class
+  candidates are actually evaluated.
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);
