@@ -231,6 +231,56 @@ def test_proposal_pass_respects_sweep_budget(monkeypatch):
     assert all("insufficient_budget" in (r or "") for r in reasons), reasons
 
 
+def test_stability_not_started_without_budget_after_augmented_fit(monkeypatch):
+    """Codex c1s-fix RE-CHECK (run B): the top budget guard alone did NOT
+    close the overrun — an augmented fit that PASSES the top guard then
+    consumes most of the budget must not let run_stability_analysis start
+    an unbounded refit with only a few seconds left.  The pre-stability
+    guard now fast-rejects when the DYNAMIC remaining budget is below the
+    fit floor.  Deterministic via a fake clock: attempt_start = 1000 s,
+    every later perf_counter reads 1013 s, so with budget_remaining=20 the
+    post-fit remaining is 7 s < 15 s floor — stability must NOT run."""
+    from autofit.methods.base import poisson_like_weights
+    from stress_cases import isolated_missing_peak_case
+
+    case = isolated_missing_peak_case(seed=71)
+    x, y = case.x, case.y
+    w = poisson_like_weights(y)
+    model = case.grammar.candidates[0]
+    # real base report (unpatched clock), proposal + preseed off
+    res = eng.compare_models(x, y, w, case.grammar, n_refits=2, rng_seed=0,
+                             enable_proposal_pass=False, enable_preseed=False)
+    base_report = res.reports[0]
+    y_fit = (base_report.primary_fit.lmfit_result.best_fit
+             + base_report.primary_fit.background)
+    specs = eng._detect_residual_proposals(
+        x, y, y_fit, 1.0, model,
+        canonical_windows=dict(case.grammar.diagnostic_windows))
+    assert specs, "expected a residual proposal at the unmodeled peak"
+
+    calls = {"n": 0}
+
+    def fake_pc():
+        calls["n"] += 1
+        return 1000.0 + (0.0 if calls["n"] == 1 else 13.0)
+
+    def boom(*a, **k):
+        raise AssertionError("run_stability_analysis started without budget")
+
+    monkeypatch.setattr(eng.time, "perf_counter", fake_pc)
+    monkeypatch.setattr(eng, "run_stability_analysis", boom)
+
+    aug_report, pr, outcome = eng._attempt_proposal(
+        x=x, y=y, weights=w, base_report=base_report, spec=specs[0],
+        noise_floor=1.0, n_refits=4, rng_seed=0,
+        absent_slot_area_fraction=0.02, absent_slot_persistence_threshold=0.7,
+        diagnostic_windows=dict(case.grammar.diagnostic_windows),
+        budget_remaining=20.0)          # passes the 15 s TOP guard...
+    assert outcome == "fast_rejected"   # ...but post-fit remaining 7 s < 15
+    assert aug_report is None
+    assert "insufficient_budget before stability" in (pr.rejection_reason or "")
+
+
 # ── F3: two-phase sweep ────────────────────────────────────────────────────
 
 def _many_candidate_grammar(x, y):

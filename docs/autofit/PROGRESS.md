@@ -1884,16 +1884,40 @@ spectra and their fits are unpublished and never committed):
 
 **Anti-overfitting / honesty checks:** no per-spectrum positions anywhere
 (F1 detection is data-driven local-maxima; F2 is residual-driven; nothing
-hard-coded to 279/281/287.7).  Full suite **513 passed / 3 skipped, zero
-regressions** (504 pre-unit + 7 new F1/F2/F3 pins + 1 cdx-evidence pin + 1
+hard-coded to 279/281/287.7).  Full suite **515 passed / 3 skipped, zero
+regressions** (504 pre-unit + 9 F1/F2/F3 pins + 1 cdx-evidence pin + 1
 stress-honesty test split into preseed-channel and proposal-channel
-variants).  Committed synthetic ground-truth regression:
+variants).  The env-gated real-anchor gates (`RUN_AUTOFIT_GATE=1`) pass on
+the lab's own fits — C 1s parity gate + battery 62/62, U 4f + B 1s/Cl 2p
+gates 6/6 — the "zero regressions on the lab's existing fits" bar.
+Committed synthetic ground-truth regression:
 `multi_env_low_be_dominant_case` in `stress_cases.py` (dominant below every
 window + neighbor below the dominance gate + in-window ladder) with
-always-on pins in `test_preseed_dominants.py` (10 pins: detection
+always-on pins in `test_preseed_dominants.py` (12 pins: detection
 gating/descending-grid/covered-spectrum-noop, the end-to-end recovery,
-F2 two-peak iteration, F3 screen-record/classic-path) and the updated
-`test_stress_honesty.py` (preseed channel + proposal channel).
+F2 two-peak iteration + the role-numbering + budget-guard collision pins,
+F3 screen-record/classic-path) and the updated `test_stress_honesty.py`
+(preseed channel + proposal channel).
+
+**Codex trail (×2 every round, stricter governs; verdicts in
+`docs/autofit/codex/c1s_multienv_fix_*`).  Review ×2: NO-GO ×2** — both
+runs converged on ONE BLOCKER (F2 proposal-role renumbering used a slot
+COUNT, so a round that rejected `proposed_peak_0` then accepted
+`proposed_peak_1` re-issued `proposed_peak_1` the next round → slot-role /
+lmfit-param-prefix collision, losing the second real peak); run B added
+ONE MAJOR (an augmented `fit_candidate` has no internal wall clock, so the
+proposal pass could start one with ~1 s of sweep budget left and overrun
+`TOTAL_ANALYSIS_TIMEOUT_SEC` / the gunicorn `--timeout`; the stability
+deadline also used a stale budget snapshot).  Both FIXED same-session
+(commit 56527f9): `_next_proposal_index` = max-suffix+1; a
+`PROPOSAL_MIN_FIT_BUDGET_SEC` (15 s) guard fast-rejects
+(`insufficient_budget`) before the augmented fit, and the stability
+deadline uses a dynamic `remaining = budget_remaining − (now −
+attempt_start)`.  Both fixes pinned with tests that discriminate the exact
+gap (the role pin exercises the reject-first-accept-later state; the
+budget pin monkeypatches the floor huge and proves every attempt
+fast-rejects with no `+prop` winner and no broken sweep).  **Re-check ×2:
+[RUNNING — verdict to be recorded on completion].**
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks

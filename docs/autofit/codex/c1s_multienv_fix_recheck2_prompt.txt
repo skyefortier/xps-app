@@ -1,0 +1,53 @@
+Re-check ROUND 2, branch feature-autofit-stage2, of the F1/F2/F3 C1s
+multi-env fix. Read-only. Round-1 re-check: run A GO, run B NO-GO
+(stricter governs; archived
+docs/autofit/codex/c1s_multienv_fix_recheck_verdict_run{A,B}.md). Round 1
+confirmed the review-round BLOCKER (F2 role collision) CLOSED and the
+top-of-attempt budget guard present. The one residual (run B MAJOR) is
+fixed in the latest commit (git log --oneline -1). Probe it directly.
+
+RESIDUAL (run B MAJOR — disposition 2 not fully closed by the top guard).
+Scenario: _attempt_proposal starts with budget_remaining=15.1 (passes the
+top PROPOSAL_MIN_FIT_BUDGET_SEC=15 guard), the augmented fit_candidate()
+takes ~12 s, then remaining ~= 3 s. The OLD pre-stability check was
+`if remaining <= 0`, so it still called run_stability_analysis() with a
+~3 s deadline — but run_stability_analysis checks its deadline at the TOP
+of the loop and then runs an unbounded fit_candidate(), overrunning
+TOTAL_ANALYSIS_TIMEOUT_SEC.
+
+DISPOSITION (commit at HEAD): the pre-stability check in
+autofit/engine.py::_attempt_proposal is now
+`if remaining < PROPOSAL_MIN_FIT_BUDGET_SEC` (not `<= 0`), where
+remaining = budget_remaining - (time.perf_counter() - attempt_start) is
+the DYNAMIC post-fit budget. So stability only starts when at least one
+worst-case fit fits in the remaining sweep budget. CHECK:
+- confirm the pre-stability guard uses the floor and the dynamic remaining
+  (not the stale snapshot), and that its fast-reject records a
+  ProposedPeakReport (visible, not silent).
+- bound the worst case now: a proposal attempt runs the augmented fit only
+  if budget_remaining >= 15 (top guard), and stability only if the
+  post-fit remaining >= 15 — so from the moment the proposal pass would
+  start work, is the wall bounded to roughly TOTAL + one worst-case fit?
+  Walk the interaction with the candidate pre-check (`elapsed > TOTAL -
+  CANDIDATE_TIMEOUT_SEC`) and the outer sweep loop; identify any path that
+  still starts an unbounded fit with < 15 s of sweep budget left.
+- confirm the inf/no-budget default path (budget_remaining = inf) is
+  unaffected (remaining stays large; guards never fire).
+- pin: tests/autofit/test_preseed_dominants.py::
+  test_stability_not_started_without_budget_after_augmented_fit — it uses
+  a fake clock (attempt_start=1000 s, later reads 1013 s, budget=20 →
+  post-fit remaining 7 s) and asserts run_stability_analysis is NEVER
+  called (monkeypatched to raise) and the attempt fast-rejects. Does it
+  actually discriminate the fix (fail against `remaining <= 0`)? Also the
+  top-guard pin test_proposal_pass_respects_sweep_budget and the role pin
+  test_next_proposal_index_is_max_suffix_plus_one.
+
+Also re-confirm nothing ELSE regressed (F1 no-op-on-covered honesty; F2
+role uniqueness + accepted/rejected accounting; F3 screen record +
+classic-path unchanged; strictly additive; the 287.7 honest-limitation
+flags still fire). Full suite passes (515+); the real-anchor parity gates
+pass (you cannot run them). Do NOT re-litigate the deliberate unchanged
+persistence gate (documented future work).
+
+End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO", preceded by
+a numbered findings list (severity, file:line, concrete scenario, fix).

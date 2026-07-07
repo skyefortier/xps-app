@@ -1846,9 +1846,16 @@ def _attempt_proposal(
     # from what's ACTUALLY left, not the stale snapshot (Codex c1s-fix
     # review, run B MAJOR — otherwise the stability pass could run
     # min(stale_budget, 35) s past the fit and overrun the sweep budget).
+    # The floor (not just <= 0) matters because run_stability_analysis
+    # checks its deadline at the TOP of the loop and then runs an unbounded
+    # fit_candidate — so starting stability with only a few seconds left
+    # would still overrun by ~one worst-case fit (Codex c1s-fix RE-CHECK,
+    # run B MAJOR: disposition 2 was not fully closed by the top guard).
     remaining = budget_remaining - (time.perf_counter() - attempt_start)
-    if remaining <= 0:
-        pr.rejection_reason = "per-candidate budget exhausted before stability analysis"
+    if remaining < PROPOSAL_MIN_FIT_BUDGET_SEC:
+        pr.rejection_reason = (
+            f"insufficient_budget before stability: {remaining:.1f}s left < "
+            f"{PROPOSAL_MIN_FIT_BUDGET_SEC:.0f}s (one refit could overrun)")
         return None, pr, "fast_rejected"
 
     stability = run_stability_analysis(
