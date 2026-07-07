@@ -205,9 +205,83 @@ def acquire(elem):
     return rec
 
 
+def backfill_cdx_rows():
+    """Record per-format CDX listing counts on manifest rows that predate the
+    cdx_rows field (Codex R2 re-check round 2, run A NO-GO / run B MINOR:
+    77/103 rows lacked the field — the 24 no-archive-snapshot rows and the
+    53 OK rows — so the "max CDX listing across all probed elements" claim
+    was not verifiable from committed evidence).
+
+    EVIDENCE-ONLY: statuses, reasons, artifacts, and starred lines are never
+    modified. Because the listing is fetched at backfill time (later than
+    the row's acquisition), each backfilled row carries
+    ``cdx_rows_backfilled_utc`` — the count describes the archive as of THAT
+    date, honest provenance rather than a pretended acquisition-time record.
+
+    A backfill result that CONTRADICTS a row's certified class is reported
+    loudly and the row is left WITHOUT cdx_rows (so the certification pin
+    stays honest): a ``no archive snapshot`` row whose listing is now
+    non-empty, or any CDX query error. Those elements must be re-probed
+    through the normal acquisition path, not patched here.
+    """
+    if not os.path.exists(MANIFEST):
+        raise SystemExit("no manifest to backfill")
+    with open(MANIFEST) as f:
+        elements = json.load(f)["elements"]
+    by_symbol = {r["symbol"]: r for r in elements}
+
+    def write_manifest():
+        tmp = MANIFEST + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump({"elements": elements}, f, indent=2)
+        os.replace(tmp, MANIFEST)
+
+    todo = [r for r in elements if not r.get("cdx_rows")]
+    print(f"backfill: {len(todo)} of {len(elements)} rows lack cdx_rows", flush=True)
+    contradictions = []
+    for r in todo:
+        el = r["symbol"]
+        counts, errs = {}, []
+        for ext in ("asp", "aspx"):
+            s, err = cdx_snapshots(el, ext)
+            counts[ext] = len(s)
+            if err:
+                errs.append(f"{ext}: {err}")
+            time.sleep(1.0)     # polite CDX spacing
+        if errs:
+            contradictions.append((el, f"cdx query failed during backfill: {'; '.join(errs)}"))
+            print(f"    {el}: ERROR (not recorded) — {errs}", flush=True)
+            continue
+        if str(r.get("reason", "")).startswith("no archive snapshot") \
+                and (counts["asp"] or counts["aspx"]):
+            contradictions.append(
+                (el, f"no-archive-snapshot row now lists {counts} — the archive "
+                     "changed; re-probe this element through the normal path"))
+            print(f"    {el}: CONTRADICTION (not recorded) — {counts}", flush=True)
+            continue
+        r["cdx_rows"] = counts
+        r["cdx_rows_backfilled_utc"] = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        print(f"    {el}: {counts}", flush=True)
+        write_manifest()          # incremental: a killed run loses nothing
+        time.sleep(1.0)
+    if contradictions:
+        print("\nCONTRADICTIONS / ERRORS (rows left without cdx_rows):", flush=True)
+        for el, why in contradictions:
+            print(f"  {el}: {why}", flush=True)
+        raise SystemExit(2)
+    still = [r["symbol"] for r in elements if not r.get("cdx_rows")]
+    print(f"\nbackfill DONE — rows still lacking cdx_rows: {still or 'none'}", flush=True)
+
+
 def main():
     validate_definitional()
     os.makedirs(ART, exist_ok=True)
+    if sys.argv[1:2] == ["--backfill-cdx-rows"]:
+        if sys.argv[2:]:
+            raise SystemExit("--backfill-cdx-rows takes no element arguments")
+        backfill_cdx_rows()
+        return
     targets = sys.argv[1:] or sorted(PERIODIC_TABLE, key=lambda s: PERIODIC_TABLE[s][0])
     unknown = [t for t in targets if t not in PERIODIC_TABLE]
     if unknown:

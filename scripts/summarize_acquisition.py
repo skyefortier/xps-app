@@ -2,7 +2,7 @@
 """Deterministic summary of the NIST SRD-20 acquisition manifest state —
 the committed evidence record for element-coverage exhaustion (unit R2).
 
-Reads .stage9/expand_artifacts/acquire_manifest.json (gitignored working
+Reads .stage9/expand_artifacts/acquire_manifest.json (TRACKED evidence
 data) and emits docs/autofit/inventory/acquisition_exhaustion.json — the
 committed, regenerable summary: which elements are archivally recoverable
 (OK), which are not and WHY (the two structural reasons), and the probe
@@ -53,20 +53,46 @@ def build():
         if r.get("snapshots_checked"):
             # evidence of archive-exhaustive iteration (multi-snapshot)
             entry["snapshots_checked"] = r["snapshots_checked"]
+        if r.get("cdx_rows"):
+            # per-format CDX listing counts — a 'no-archive-snapshot'
+            # conclusion is verifiable as {asp: 0, aspx: 0} from committed
+            # evidence (Codex R2 re-check round 2, run A)
+            entry["cdx_rows"] = r["cdx_rows"]
+            if r.get("cdx_rows_backfilled_utc"):
+                entry["cdx_rows_backfilled_utc"] = r["cdx_rows_backfilled_utc"]
         by_reason.setdefault(reason_class(r), []).append(entry)
     for v in by_reason.values():
         v.sort(key=lambda x: x["symbol"])
 
+    # CDX-listing evidence rollup (Codex R2 re-check round 2, run A NO-GO):
+    # the "no listing anywhere near the 200 sanity bound" claim must be
+    # verifiable from committed evidence for EVERY probed element, not only
+    # the no-starred subset.
+    rows_with_cdx = [r for r in elements if r.get("cdx_rows")]
+    max_cdx = max((max(r["cdx_rows"].values()) for r in rows_with_cdx),
+                  default=0)
+
     return {
         "generated_by": "scripts/summarize_acquisition.py",
         "source_manifest": ".stage9/expand_artifacts/acquire_manifest.json "
-                           "(gitignored working data; resumable, written by "
+                           "(TRACKED evidence data; resumable, written by "
                            "scripts/acquire_nist_archive.py)",
         "probed_element_count": len(elements),
         "ok_count": len(ok),
         "ok_elements": ok,
         "failed_count": len(failed),
         "failed_by_reason": by_reason,
+        "cdx_rows_recorded_for_all_rows": len(rows_with_cdx) == len(elements),
+        "max_cdx_listing_rows_any_element_any_format": max_cdx,
+        "cdx_listing_note": (
+            "Every manifest row records per-format CDX listing counts "
+            "(limit=200 sanity bound). Rows acquired before the field "
+            "existed were backfilled 2026-07-07 via "
+            "scripts/acquire_nist_archive.py --backfill-cdx-rows "
+            "(evidence-only; carries cdx_rows_backfilled_utc — the count "
+            "describes the archive at backfill time, and a backfill that "
+            "contradicted a row's certified class refuses to record). "
+            "The maximum listing above shows the bound is non-binding."),
         "note": (
             "Element coverage is EXHAUSTED under the no-invention rule: "
             "every element of the definitional periodic table was probed "

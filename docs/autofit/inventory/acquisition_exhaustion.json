@@ -1,157 +1,263 @@
 {
+  "cdx_listing_note": "Every manifest row records per-format CDX listing counts (limit=200 sanity bound). Rows acquired before the field existed were backfilled 2026-07-07 via scripts/acquire_nist_archive.py --backfill-cdx-rows (evidence-only; carries cdx_rows_backfilled_utc \u2014 the count describes the archive at backfill time, and a backfill that contradicted a row's certified class refuses to record). The maximum listing above shows the bound is non-binding.",
+  "cdx_rows_recorded_for_all_rows": true,
   "failed_by_reason": {
     "artifact-has-no-starred-value": [
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:40:14Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Ar"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:34:31Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "B"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:48:40Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Ba"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:49:38Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Ce"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:39:07Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Cl"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:47:56Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Cs"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:42:42Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Ga"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:45:56Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "I"
       },
       {
+        "cdx_rows": {
+          "asp": 3,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:41:39Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
         "snapshots_checked": 5,
         "symbol": "K"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:44:02Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Kr"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:49:08Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "La"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 3
+        },
         "last_probe_utc": "2026-07-05T19:33:40Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (7 checked)",
         "snapshots_checked": 7,
         "symbol": "Li"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:35:06Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "N"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:36:41Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Na"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:36:09Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (2 checked)",
         "snapshots_checked": 2,
         "symbol": "Ne"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:35:21Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "O"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:52:04Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Pu"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:44:40Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Rb"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:38:23Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "S"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:43:10Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Se"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:50:06Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Sm"
       },
       {
+        "cdx_rows": {
+          "asp": 3,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:45:28Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
         "snapshots_checked": 5,
         "symbol": "Sr"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:50:53Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "Th"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:51:45Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
         "symbol": "U"
       },
       {
+        "cdx_rows": {
+          "asp": 3,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:42:14Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (5 checked)",
         "snapshots_checked": 5,
         "symbol": "V"
       },
       {
+        "cdx_rows": {
+          "asp": 4,
+          "aspx": 2
+        },
         "last_probe_utc": "2026-07-05T19:47:08Z",
         "reason": "artifact fetched but no NIST-evaluated (starred) photoelectron line in ANY archived snapshot (6 checked)",
         "snapshots_checked": 6,
@@ -160,121 +266,241 @@
     ],
     "no-archive-snapshot": [
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:49:56Z",
         "last_probe_utc": "2026-07-05T18:45:54Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Ac"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:51:10Z",
         "last_probe_utc": "2026-07-05T18:47:49Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Am"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:48:17Z",
         "last_probe_utc": "2026-07-05T18:44:38Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "At"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:51:32Z",
         "last_probe_utc": "2026-07-05T18:48:28Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Bk"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:28:18Z",
         "last_probe_utc": "2026-07-05T18:42:39Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Br"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:51:43Z",
         "last_probe_utc": "2026-07-05T18:48:48Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Cf"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:51:24Z",
         "last_probe_utc": "2026-07-05T18:48:02Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Cm"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:51:49Z",
         "last_probe_utc": "2026-07-05T18:49:23Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Es"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:19:10Z",
         "last_probe_utc": "2026-07-05T18:42:00Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "F"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:51:55Z",
         "last_probe_utc": "2026-07-05T18:50:29Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Fm"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:48:51Z",
         "last_probe_utc": "2026-07-05T18:45:12Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Fr"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:17:42Z",
         "last_probe_utc": "2026-07-05T18:40:12Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "H"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:18:31Z",
         "last_probe_utc": "2026-07-05T18:41:32Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "He"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:53:03Z",
         "last_probe_utc": "2026-07-05T18:51:49Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Lr"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:52:14Z",
         "last_probe_utc": "2026-07-05T18:51:10Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Md"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:35:48Z",
         "last_probe_utc": "2026-07-05T18:43:20Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Nd"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:52:23Z",
         "last_probe_utc": "2026-07-05T18:51:33Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "No"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:50:28Z",
         "last_probe_utc": "2026-07-05T18:47:37Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Np"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:50:10Z",
         "last_probe_utc": "2026-07-05T18:46:38Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Pa"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:36:10Z",
         "last_probe_utc": "2026-07-05T18:43:40Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Pm"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:48:00Z",
         "last_probe_utc": "2026-07-05T18:43:47Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Po"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:49:03Z",
         "last_probe_utc": "2026-07-05T18:45:30Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Ra"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:48:42Z",
         "last_probe_utc": "2026-07-05T18:45:02Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Rn"
       },
       {
+        "cdx_rows": {
+          "asp": 0,
+          "aspx": 0
+        },
+        "cdx_rows_backfilled_utc": "2026-07-07T17:31:11Z",
         "last_probe_utc": "2026-07-05T18:42:49Z",
         "reason": "no archive snapshot of query_all_dat_el.asp(x) for this element",
         "symbol": "Tc"
@@ -283,6 +509,7 @@
   },
   "failed_count": 50,
   "generated_by": "scripts/summarize_acquisition.py",
+  "max_cdx_listing_rows_any_element_any_format": 4,
   "note": "Element coverage is EXHAUSTED under the no-invention rule: every element of the definitional periodic table was probed against the Wayback CDX for both archived SRD-20 page formats (query_all_dat_el.asp and .aspx). 'no-archive-snapshot' elements have NO snapshot of either format \u2014 PROVEN: the hardened pipeline (2026-07-05, after the Codex R2 review) records a failed CDX query as its own reason class (cdx-query-failed-UNPROVEN, always re-probed, never certified), so this class contains only HTTP-successful, well-formed, EMPTY CDX results. 'artifact-has-no-starred-value' elements have an archived page but carry no NIST-evaluated (starred) photoelectron line in ANY listed snapshot (multi-snapshot iteration, earliest first \u2014 the same hardening recovered Lu, whose starred line was absent from the first-listed snapshot only) \u2014 including the aspx-only format, which does not display evaluation markers at all (do NOT parse aspx pages for emission; see PROGRESS.md format finding). The boundary is the archive, not the pipeline.",
   "ok_count": 53,
   "ok_elements": [
@@ -341,5 +568,5 @@
     "Zr"
   ],
   "probed_element_count": 103,
-  "source_manifest": ".stage9/expand_artifacts/acquire_manifest.json (gitignored working data; resumable, written by scripts/acquire_nist_archive.py)"
+  "source_manifest": ".stage9/expand_artifacts/acquire_manifest.json (TRACKED evidence data; resumable, written by scripts/acquire_nist_archive.py)"
 }

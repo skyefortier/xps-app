@@ -48,6 +48,25 @@ def test_committed_exhaustion_summary_counts():
     assert len(s["failed_by_reason"]["artifact-has-no-starred-value"]) == 26
 
 
+def test_cdx_listing_evidence_is_committed_for_every_row():
+    """Codex R2 re-check round 2 (run A NO-GO): the 'max CDX listing across
+    all probed elements is <bound' claim — which certifies the limit=200
+    sanity bound is non-binding — must be verifiable from committed
+    evidence for EVERY row, not only the no-starred subset.  Every manifest
+    row records per-format cdx_rows (backfilled 2026-07-07 where absent),
+    the summary rolls up the maximum, and every no-archive-snapshot row
+    carries an explicit {asp: 0, aspx: 0}."""
+    s = _load(SUMMARY)
+    assert s["cdx_rows_recorded_for_all_rows"] is True
+    # the recorded maximum must be well under the 200 sanity bound
+    assert 0 < s["max_cdx_listing_rows_any_element_any_format"] < 200
+    # every no-archive conclusion is verifiable as an EMPTY listing on disk
+    for e in s["failed_by_reason"]["no-archive-snapshot"]:
+        assert e["cdx_rows"] == {"asp": 0, "aspx": 0}, (
+            f"{e['symbol']}: no-archive-snapshot but cdx_rows {e.get('cdx_rows')}"
+            " — a non-empty listing means the conclusion is unproven")
+
+
 def test_machine_tier_counts_and_provenance_coverage():
     """52 elements / 79 transitions in the machine tier; every transition
     has exactly one provenance record carrying the full chain."""
