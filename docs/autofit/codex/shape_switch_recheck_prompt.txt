@@ -1,0 +1,44 @@
+Re-check, branch feature-autofit-stage2, of the manual-fit shape-switch fix
+after the review-round NO-GO (run A) + GO (run B), stricter governs. Read
+only. The run A finding is dispositioned in the latest commit (git log
+--oneline -1). Verify it, and confirm nothing new broke.
+
+DISPOSITION (run A MAJOR). exportFitTable's GL Ratio / Alpha / Beta /
+M_Gauss columns used cross-shape FALLBACK CHAINS
+(`p.dsAlpha ?? p.laAlpha ?? p.caAlpha`, etc.) that pick the first non-null
+field regardless of the peak's active shape. The never-delete shape
+switcher (and defaultPeak, which already sets EVERY shape's params) leaves
+inactive params on a peak, so e.g. DS -> DSG_LA -> LACX exported the stale
+DS/DS+G Alpha/Beta/M instead of the active LACX ca* values. FIXED
+(templates/index.html): new `_shapeExportCols(p)` returns the four columns
+for the ACTIVE shape ONLY (switch on p.shape), matching evalPeak /
+peakToBackendSpec; the export row now uses it. CHECK:
+- `_shapeExportCols` returns the correct field per shape (DS->dsAlpha;
+  DSG_LA->laAlpha/laBeta/laM; LACX->caAlpha/caBeta/caM; GL/asym-GL->glMix;
+  Gaussian/Lorentzian/Voigt->all empty) and never reads another shape's
+  field. Confirm the run A scenario (LACX peak carrying stale dsAlpha=0.22 /
+  laBeta=0.55 / laM=0.66) now exports the LACX ca* values, not the stale
+  ones.
+- the export row wiring uses `_shapeExportCols` for all four columns (no
+  residual fallback chain remains); column ORDER/count is unchanged
+  (headers Line Shape, GL Ratio, Alpha, Beta, M_Gauss).
+- pin tests/autofit/../tests/js/shape_switch_roundtrip.test.js
+  'export columns read the ACTIVE shape ...' — does it discriminate (would
+  it fail against the old fallback chain)?
+
+Also confirm the ORIGINAL shape-switch fix is still correct and STILL SCOPED
+(the reason for this whole change): _applyShapeSwitch preserves carried-over
+params + maps the width across laM<->fwhm; round-trip A->B->A restores active
+params + curve; no change to fitting math, the optimizer (runFit),
+evalPeak/evalPeakArray, or /api/fit. Look for any OTHER non-shape-gated
+consumer of accumulated params that the never-delete change could corrupt
+(besides the export now fixed) — e.g. a fit-results panel, clipboard copy,
+project save that would persist stale params in a harmful way (note:
+buildTabData spread-copy persisting extra fields is benign iff every reader
+is shape-gated). If you find one, that's a finding.
+
+You can run `node --test tests/js/shape_switch_roundtrip.test.js`. Cannot run
+pytest (read-only sandbox); JS suite 59 passing, py 521 passed / 3 skipped.
+
+End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO", preceded by a
+numbered findings list (severity, file:line, concrete scenario, fix).
