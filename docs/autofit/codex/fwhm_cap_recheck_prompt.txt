@@ -1,0 +1,71 @@
+Re-check, branch feature-autofit-stage2, of the physical-FWHM-cap unit
+after the review-round NO-GO x2. Read-only. Both runs' findings are
+dispositioned in the latest commit (git log --oneline -1). Verify each by
+probing the code; look for any NEW issue.
+
+DISPOSITION 1 (run B BLOCKER — the real one). The proposed-slot boundary
+decision was made on the INITIAL augmented fit, but run_stability_analysis
+can promote a deeper best_outcome whose boundary pegs differ, and that was
+never re-checked: a stability-promoted center@min (spurious) slipped
+through accepted, and a stability-INTRODUCED fwhm@max left
+width_capped=False (payload stale). FIXED in autofit/engine.py::
+_attempt_proposal: immediately after the `best_outcome` promotion block,
+the code recomputes `pr.boundary_hits = _proposed_slot_pegs(primary,
+spec.role)` (primary is now the promoted outcome), re-runs the
+spurious-peg rejection (`return ... "stability_rejected"` with a
+"post-stability" reason), and sets `pr.width_capped = (pr.boundary_hits ==
+[width_cap_hit])`. CHECK:
+- the re-check runs against the FINAL primary (post-promotion), not the
+  initial fit; confirm no path reaches the accept without it.
+- pin: tests/autofit/test_preseed_dominants.py::
+  test_proposal_rejected_when_stability_promotes_spurious_center_peg
+  (monkeypatches stability to promote a best_outcome carrying
+  center@min; expects stability_rejected + "post-stability"). Does it
+  discriminate the fix (fail if the re-check were removed)?
+- the width_capped positive case: a proposal whose FINAL (promoted)
+  outcome pegs fwhm@max sets width_capped=True and is CONDITIONAL, so
+  analysis.candidates[].proposed_peaks[].width_capped matches the emitted
+  decomposition.
+
+DISPOSITION 2 (run A MAJOR — ARGUED, not implemented as suggested). Run A
+proposed detecting proposal pegs WITHOUT the _BOUNDARY_EXCLUDED
+shape-endpoint suppression and rejecting every non-fwhm@max peg, so a
+gl_ratio-pegged proposal cannot "survive cleanly". I IMPLEMENTED THAT FIRST
+AND IT REGRESSED: the two-narrow-peak F2 case
+(test_iterative_proposals_add_two_missing_peaks) dropped to ZERO accepted
+proposals, because a pseudo-Voigt peak generated with a GL mix legitimately
+drives gl_ratio to an endpoint (pure Gaussian / pure Lorentzian) — a VALID
+lineshape, not a spurious peg. The grammar excludes shape endpoints from
+boundary hits for exactly this reason. DISPOSITION: keep the shared
+detector (shape endpoints excluded = valid), reject on SUBSTANTIVE pegs
+only (center at a window edge, amplitude at a wall, fwhm@min = an
+implausibly-narrow spike), tolerate fwhm@max (the width cap). The commit's
+earlier claim "every non-fwhm@max peg rejects" was imprecise; the accurate
+statement is now in `_proposed_slot_pegs`' docstring and the caller comment.
+CHECK: rule whether this disposition is correct — is rejecting a
+proposal for reaching a valid pure-Gaussian/Lorentzian shape endpoint
+desirable (we argue NO: it drops real peaks), or is there a concrete case
+where a shape-endpoint peg indicates a spurious proposal that the other
+gates (persistence, ΔBIC, SNR, center/amplitude pegs) do NOT already
+catch? Pin: test_shape_endpoint_pegs_do_not_reject_proposals (gl_ratio
+endpoint NOT a hit; center@edge and fwhm@max ARE).
+
+DISPOSITION 3 (run A MINOR). A width-capped proposal promoted via
+decisive-override (_bound_fixed_refit) lost its proposal lineage
+(proposed_peaks reset to []), so width_capped no longer showed on the
+winner row. FIXED: _bound_fixed_refit now copies `report.proposed_peaks`
+and `report.augmented_from` into the bfix ModelReport. CHECK the copy is
+present and does not double-count.
+
+Also re-confirm the rest of the unit is unchanged and sound: the 2.0 cap on
+F1 preseed + F2/F3 proposal slots; _unphysical_width_flags (satellite /
+U 4f-main exemption via declared range > 2.0; ordinary slot pegging 2.0
+flagged); routes to CONDITIONAL; strictly additive; /api/fit + manual path
+untouched; the low-confidence message. Full suite is green and the
+real-anchor parity gates (C 1s / U 4f / B 1s / Cl 2p) pass (you cannot run
+them). Real-data (local-only): all 11 C 1s scans now have 0 wide
+non-satellite components, all still capture the dominant, all flagged
+conditional.
+
+End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO", preceded by a
+numbered findings list (severity, file:line, concrete scenario, fix).

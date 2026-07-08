@@ -620,6 +620,25 @@ def _detect_boundary_hits(params: Parameters, model: CandidateModel) -> list[str
     return hits
 
 
+def _proposed_slot_pegs(outcome: FitOutcome, role: str) -> list[str]:
+    """Boundary pegs for one proposed slot, using the SAME detector (and the
+    same ``_BOUNDARY_EXCLUDED`` shape-endpoint policy) as every grammar slot.
+
+    Shape endpoints (a pure-Gaussian ``gl_ratio``=0, a pure-Lorentzian
+    ``gl_ratio``=1) are LEGITIMATE physics, not constraint violations — the
+    grammar excludes them from boundary hits, and treating a proposal that
+    reaches one as spurious would drop real pure-Gaussian/Lorentzian peaks
+    (measured: the two-narrow-peak F2 case regressed to zero accepted
+    proposals when shape pegs were rejected).  So the caller tolerates
+    ``{role}:fwhm@max`` (the physical-width ceiling doing its job) and any
+    shape endpoint, and rejects on a SUBSTANTIVE peg — ``center`` at a window
+    edge, ``amplitude`` at a wall, or ``fwhm@min`` (an implausibly narrow
+    spike) (Codex fwhm-cap review, run A: the accurate statement of "which
+    pegs reject").
+    """
+    return [h for h in outcome.boundary_hits if h.startswith(f"{role}:")]
+
+
 def _unphysical_width_flags(
     components: "list[FittedComponent]", model: CandidateModel
 ) -> list[str]:
@@ -1881,26 +1900,25 @@ def _attempt_proposal(
     pr.fitted_center = comp.position
     pr.fitted_fwhm = comp.fwhm
     pr.fitted_amplitude = comp.amplitude
-    pr.boundary_hits = [h for h in primary.boundary_hits if h.startswith(f"{spec.role}:")]
-
+    # A peg on the WIDTH cap alone (fwhm@max) is the ordinary physical FWHM
+    # ceiling doing its job: the feature is broader than an ordinary
+    # component with no known-broad justification.  KEEP such a proposal —
+    # modelled at the physical limit — and let it flag the augmented report
+    # (unphysical_widths + the fwhm@max boundary hit → CONDITIONAL) rather
+    # than rejecting it and leaving the intensity unmodelled.  A SUBSTANTIVE
+    # peg (center at a window edge, amplitude at a wall, or fwhm@MIN = an
+    # implausibly narrow spike) is spurious → reject.  (Shape endpoints like
+    # gl_ratio=0/1 are valid physics, excluded by the shared detector — see
+    # _proposed_slot_pegs.)  NOTE this is re-evaluated AFTER the stability
+    # best-outcome promotion below, since a deeper minimum can move a param
+    # to a wall (Codex fwhm-cap review, run B BLOCKER).
+    width_cap_hit = f"{spec.role}:fwhm@max"
+    pr.boundary_hits = _proposed_slot_pegs(primary, spec.role)
     if comp.amplitude <= noise_floor:
         return _fast(f"amplitude {comp.amplitude:.1f} ≤ noise_floor {noise_floor:.1f}")
-    # A peg on the WIDTH cap alone (fwhm@max) is the ordinary physical FWHM
-    # ceiling doing its job: the residual feature is broader than an ordinary
-    # component but has no known-broad justification (region-``unassigned``
-    # proposal).  KEEP it — modelled at the physical limit — and let it flag
-    # the augmented report (unphysical_widths + the boundary hit → CONDITIONAL
-    # tier) rather than rejecting it and leaving the intensity unmodelled: a
-    # defensible fit with a physical-width component beats both a fat peak and
-    # a dropped feature.  ANY OTHER peg (center drifted to a window edge,
-    # amplitude/shape pegged, or fwhm@MIN = an implausibly narrow spike) is
-    # spurious → reject.
-    width_cap_hit = f"{spec.role}:fwhm@max"
     spurious_hits = [h for h in pr.boundary_hits if h != width_cap_hit]
     if spurious_hits:
-        return _fast(f"proposed slot boundary hits: {spurious_hits}")
-    if pr.boundary_hits:
-        pr.width_capped = True     # accepted at the ordinary FWHM ceiling
+        return _fast(f"proposed slot boundary pegs: {spurious_hits}")
 
     mask = (x >= comp.position - PROPOSAL_WINDOW_WIDTH) & \
            (x <= comp.position + PROPOSAL_WINDOW_WIDTH)
@@ -1949,6 +1967,19 @@ def _attempt_proposal(
             pr.fitted_center = comp.position
             pr.fitted_fwhm = comp.fwhm
             pr.fitted_amplitude = comp.amplitude
+    # Re-evaluate the proposed-slot pegs against the FINAL (possibly
+    # stability-promoted) outcome — a deeper minimum can move a param to a
+    # wall the initial fit did not touch (Codex fwhm-cap review, run B
+    # BLOCKER): a stability-promoted center@min must STILL reject, and a
+    # stability-INTRODUCED fwhm@max must set width_capped so the payload
+    # matches the emitted decomposition.
+    pr.boundary_hits = _proposed_slot_pegs(primary, spec.role)
+    spurious_hits = [h for h in pr.boundary_hits if h != width_cap_hit]
+    if spurious_hits:
+        pr.rejection_reason = (
+            f"proposed slot boundary pegs (post-stability): {spurious_hits}")
+        return None, pr, "stability_rejected"
+    pr.width_capped = pr.boundary_hits == [width_cap_hit]
     sstab = stability.per_slot.get(spec.role)
     if sstab is None:
         pr.rejection_reason = "proposed slot missing from stability output"
@@ -2115,6 +2146,11 @@ def _bound_fixed_refit(
         ),
         absent_slots=[],                      # conservative full-k BIC*
         boundary_fixed_params=sorted(fixed),
+        # carry the proposal lineage forward so a width-capped proposal
+        # promoted via decisive-override keeps its width_capped/proposed_peaks
+        # record on the winner row (Codex fwhm-cap review, run A MINOR)
+        proposed_peaks=list(report.proposed_peaks),
+        augmented_from=report.augmented_from,
     )
 
 

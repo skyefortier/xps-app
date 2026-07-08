@@ -239,6 +239,80 @@ def test_wide_proposal_capped_and_flagged():
             assert pk["fwhm"] <= eng.FWHM_MAX_ORDINARY_EV + 1e-6
 
 
+def test_shape_endpoint_pegs_do_not_reject_proposals():
+    """Codex fwhm-cap review, run A: a proposed peak reaching a SHAPE
+    endpoint (pure-Gaussian gl_ratio=0 / pure-Lorentzian gl_ratio=1) is
+    valid physics — the shared detector excludes it, so it does NOT count as
+    a spurious peg and must not reject the proposal (rejecting it regressed
+    the two-narrow-peak F2 case to zero accepted proposals).  A SUBSTANTIVE
+    peg (center at a window edge, fwhm@max, fwhm@min) IS surfaced."""
+    from lmfit import Parameters
+    from autofit.grammar import (CandidateModel, ComponentSlot, LineShape,
+                                 BackgroundType)
+    role = "proposed_peak_0"
+    prefix = eng._slot_prefix(role)
+    slot = ComponentSlot(role=role, region="unassigned", phase_id="unassigned",
+                         be_window=(199., 201.), line_shape=LineShape.PSEUDO_VOIGT,
+                         fwhm_range=(0.5, 2.0))
+    model = CandidateModel(name="M", background=BackgroundType.LINEAR, slots=(slot,))
+    p = Parameters()
+    p.add(f"{prefix}center", value=200.0, min=199.0, max=201.0)      # interior
+    p.add(f"{prefix}amplitude", value=5000.0, min=0.0, max=1e5)      # interior
+    p.add(f"{prefix}fwhm", value=2.0, min=0.5, max=2.0)             # fwhm@max
+    p.add(f"{prefix}gl_ratio", value=1.0, min=0.0, max=1.0)         # shape endpoint
+    hits = eng._detect_boundary_hits(p, model)
+    assert f"{role}:gl_ratio@max" not in hits      # valid pure-Lorentzian, excluded
+    assert f"{role}:fwhm@max" in hits              # the tolerated width-cap peg
+    p[f"{prefix}center"].set(value=199.0)          # drifted to the window edge
+    assert f"{role}:center@min" in eng._detect_boundary_hits(p, model)  # substantive
+
+
+def test_proposal_rejected_when_stability_promotes_spurious_center_peg(monkeypatch):
+    """Codex fwhm-cap review, run B BLOCKER: the proposed-slot peg decision
+    must be RE-EVALUATED after run_stability_analysis promotes a deeper
+    best_outcome — a stability-promoted center@min (spurious) must still
+    reject, even though the initial augmented fit was clean."""
+    import dataclasses
+    from autofit.methods.base import poisson_like_weights
+    from stress_cases import isolated_missing_peak_case
+
+    case = isolated_missing_peak_case(seed=71)
+    x, y = case.x, case.y
+    w = poisson_like_weights(y)
+    res = eng.compare_models(x, y, w, case.grammar, n_refits=2, rng_seed=0,
+                             enable_proposal_pass=False, enable_preseed=False)
+    base = res.reports[0]
+    y_fit = (base.primary_fit.lmfit_result.best_fit + base.primary_fit.background)
+    spec = eng._detect_residual_proposals(
+        x, y, y_fit, 1.0, base.model,
+        canonical_windows=dict(case.grammar.diagnostic_windows))[0]
+
+    # a REAL augmented fit, promoted as a "deeper" best_outcome that carries a
+    # spurious center@min peg (the detector reads outcome.boundary_hits)
+    aug_model = eng._augmented_candidate(base.model, spec)
+    bg = eng._compute_background(x, y, aug_model.background)
+    init = eng._initial_params_for_augmented(aug_model, base.primary_fit, spec, x, y - bg)
+    real = eng.fit_candidate(x, y, w, aug_model, initial_params=init)
+    promoted = dataclasses.replace(
+        real, weighted_chi_sq=0.0,                       # guarantees promotion
+        boundary_hits=[f"{spec.role}:center@min"])       # stability-introduced peg
+
+    fake_stab = eng.ModelStability(
+        per_slot={}, orphan_rate=0.0, convergence_rate=1.0,
+        best_outcome=promoted, best_basin_support=1, n_attempted=2)
+    monkeypatch.setattr(eng, "run_stability_analysis", lambda *a, **k: fake_stab)
+
+    _, pr, outcome = eng._attempt_proposal(
+        x=x, y=y, weights=w, base_report=base, spec=spec,
+        noise_floor=1.0, n_refits=2, rng_seed=0,
+        absent_slot_area_fraction=0.02, absent_slot_persistence_threshold=0.7,
+        diagnostic_windows=dict(case.grammar.diagnostic_windows),
+        budget_remaining=1e6)
+    assert outcome == "stability_rejected"
+    assert "post-stability" in (pr.rejection_reason or "")
+    assert any("center@min" in h for h in pr.boundary_hits)
+
+
 # ── F2: iterative rounds add MULTIPLE missing peaks ────────────────────────
 
 def test_iterative_proposals_add_two_missing_peaks():
