@@ -2041,6 +2041,67 @@ run A explicitly verified the post-stability re-check, the shape-endpoint
 disposition, the width-cap/conditional routing, the bfix lineage copy, and
 that `/api/fit` stays manual-path-only.  **FWHM-CAP UNIT REVIEW-COMPLETE.**
 
+## Manual-fit lineshape-switch corruption fix (2026-07-08) — APPROVED manual-path exception
+
+**The bug (Skye, found in testing):** cycling a peak's "Line shape" dropdown
+(e.g. DS+G → another shape → back to DS+G) silently CHANGED its parameters
+with NO Run Fit — observed DS+G `laM` 3.11 → 0.40 and `laBeta` 0.05 → 0.30
+on a round-trip.  A data-integrity hazard: a user exploring lineshapes could
+wreck a fit by accident.  DELIBERATE SCOPED exception to the
+"don't-touch-the-manual-path" rail (approved because it's a real corruption
+bug); NO change to fitting math, the optimizer (`runFit`),
+`evalPeak`/`evalPeakArray`, or `/api/fit` — only the shape-switch handler +
+one downstream export consumer.
+
+**Cause** (`templates/index.html`): `_switchPeakShape` DELETED the old
+shape's specific params (`_clearShapeSpecificParams`) then re-seeded the new
+shape's DEFAULTS (`_applyShapeDefaults`), so a round-trip reset every fitted
+shape param to its default, and the width was reset rather than carried.
+
+**Fix:** new pure `_applyShapeSwitch(peak, newShape)` that (1) carries the
+effective WIDTH across the switch — DS+G stores its width in `laM` (Gauss
+FWHM), every other shape in the top-level `fwhm`; the eV width + its lock is
+MAPPED across the `laM`↔`fwhm` boundary (identity in eV → invertible → a
+round-trip restores it), and (2) PRESERVES every carried-over param (never
+deletes), seeding a default ONLY for a param the new shape genuinely
+introduces that the peak lacks.  So A→B→A returns the peak's ACTIVE
+parameters (the ones `evalPeak` reads for A) to their originals and the
+rendered curve is unchanged.  `center`/`amplitude` were already
+shape-agnostic top-level fields.  DS+G's `fwhm` is display-only/readonly and
+excluded from fitting, so mapping it is safe (never a user value).  This
+makes a shape-switched peak consistent with a freshly-created one from
+`defaultPeak` (which already carries every shape's params).  Removed the
+now-unused `_clearShapeSpecificParams` / `_applyShapeDefaults`.
+
+**Companion fix (Codex run A MAJOR):** `exportFitTable`'s GL Ratio / Alpha /
+Beta / M_Gauss columns used cross-shape FALLBACK CHAINS
+(`p.dsAlpha ?? p.laAlpha ?? p.caAlpha`) that pick the first non-null field
+regardless of the active shape — a latent pre-existing bug (`defaultPeak`
+already sets every shape's params) that the never-delete switcher makes
+prevalent (DS→DS+G→LACX would export the stale DS/DS+G values).  New
+`_shapeExportCols(p)` shape-gates the export to the ACTIVE shape only
+(matching `evalPeak`/`peakToBackendSpec`).
+
+**Tests** (`tests/js/shape_switch_roundtrip.test.js`, extract the shipped
+`_applyShapeSwitch` + `evalPeakArray` + `_shapeExportCols` from the template):
+round-trip param stability across the full 8-shape set (all A→B→A pairs);
+the reported DS+G→GL→DS+G case pins `laAlpha`/`laBeta`/`laM` + the width-lock
++ the rendered curve unchanged; width mapped both directions of `laM`↔`fwhm`;
+genuinely-new param defaulted while a carried-over one is preserved; a 3-hop
+round-trip; and the export reads the active shape's values, not stale
+accumulated ones.  JS suite **59 passed**; py suite **521 passed / 3
+skipped**.
+
+**Codex trail** (`docs/autofit/codex/shape_switch_*`).  Review NO-GO (run A:
+export fallback-chain regression) + GO (run B), stricter governs → fixed
+(shape-gated export).  **Re-check GO ×2** — both "none found"; both verified
+`_shapeExportCols` is shape-gated, the pin discriminates against the old
+fallback, the switch fix stays scoped (runFit / evalPeak / `/api/fit` /
+save-load untouched), and no other non-shape-gated accumulated-param consumer
+exists.  Restarted the dev gunicorn (:5151, gthread) so the fixed template is
+served (Jinja caches the compiled template per worker — a template edit needs
+a restart).  **SHAPE-SWITCH FIX REVIEW-COMPLETE.**
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);
