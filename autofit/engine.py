@@ -93,7 +93,28 @@ PROPOSAL_FWHM_MIN = 0.5
 # basin as the best minimum (best_basin_support) — reporting-only honesty
 # diagnostic, never a ranking input.  UNVERIFIED tunable.
 BASIN_SUPPORT_RTOL = 1e-3
-PROPOSAL_FWHM_MAX = 3.0
+# Physical FWHM ceiling for an ORDINARY component — one with no known-broad
+# justification.  Ordinary C 1s core lines sit at ≲2 eV FWHM (Biesinger,
+# Appl. Surf. Sci. 597 (2022) 153681; Greczynski & Hultman 2020); wider is
+# defensible ONLY for classes KNOWN to be broad (π→π* and other satellites,
+# plasmon/loss features, or a literature-justified case).  This is the
+# engine-wide default cap for REGION-UNASSIGNED components — F1 pre-seeded
+# out-of-grammar slots and F2/F3 residual proposals — which by construction
+# have no region module vouching for a wider physical width.  Region grammar
+# slots keep their own cited ranges (C 1s satellite 5.5, U 4f mains 3.5,
+# B 1s 2.5, …); those declared maxima ABOVE this ceiling mark a slot as
+# grammar-sanctioned-broad and exempt it from the unphysical-width flag.  A
+# proposed/pre-seeded peak that PEGS this cap (wants wider than physical with
+# no known-broad justification) is NOT silently widened: the fit is held at
+# the physical limit and the result is flagged (unphysical_widths →
+# conditional/low-confidence), per the fit-quality rail "a defensible fit
+# with physical widths beats a lower χ² bought with a fat peak".  UNVERIFIED
+# numeric bound (a cap, not a target).
+FWHM_MAX_ORDINARY_EV = 2.0
+# The proposal/pre-seed upper FWHM bound IS the ordinary physical cap (was a
+# looser 3.0 that let residual proposals grow to fat, physically indefensible
+# widths — e.g. a real-data 281 eV feature fitting at 3.0 eV).
+PROPOSAL_FWHM_MAX = FWHM_MAX_ORDINARY_EV
 PROPOSED_PEAK_SHAPE = LineShape.PSEUDO_VOIGT
 PROPOSAL_GRAMMAR_SEPARATION_FACTOR = 0.5
 PROPOSAL_DELTABIC_THRESHOLD = 2.0
@@ -597,6 +618,44 @@ def _detect_boundary_hits(params: Parameters, model: CandidateModel) -> list[str
         # counted (it means the data is fighting the physical ratio window).
         hits.append(f"{role or '?'}:{short}@{'min' if at_min else 'max'}")
     return hits
+
+
+def _unphysical_width_flags(
+    components: "list[FittedComponent]", model: CandidateModel
+) -> list[str]:
+    """Fitted components whose width reaches the ordinary physical FWHM
+    ceiling (:data:`FWHM_MAX_ORDINARY_EV`) with NO known-broad justification.
+
+    A slot whose grammar-declared ``fwhm_range`` maximum EXCEEDS the ordinary
+    cap is grammar-sanctioned-broad (C 1s π→π* satellite 5.5, U 4f mains 3.5,
+    B 1s 2.5, …) and is EXEMPT — its width is region physics, cited in the
+    region module, not an unphysical stretch.  Any other slot — contamination,
+    the aliphatic main, and the region-``unassigned`` F1 pre-seed / F2-F3
+    proposal slots (all capped AT the ordinary ceiling) — that fits at/above
+    the ceiling is flagged: the optimizer wanted a wider (fatter) peak than an
+    ordinary component physically has, the cap held it at the limit, and the
+    decomposition must be reported low-confidence (routes to the CONDITIONAL
+    tier via rank_and_filter) rather than silently accepted.  Region-agnostic:
+    the exemption is driven entirely by each slot's own declared range, so no
+    region's cited widths are ever mis-flagged.
+    """
+    ranges = {s.role: s.fwhm_range for s in model.slots}
+    flags: list[str] = []
+    for c in components:
+        rng = ranges.get(c.slot_role)
+        if rng is None:
+            continue
+        declared_lo, declared_hi = rng
+        if declared_hi > FWHM_MAX_ORDINARY_EV:
+            continue                       # grammar-sanctioned-broad slot
+        # pegging the ordinary ceiling — same 1%-of-range tol as boundary
+        # detection, so a component held AT the 2.0 cap is caught
+        tol = 0.01 * (declared_hi - declared_lo) if declared_hi > declared_lo else 0.0
+        if c.fwhm >= FWHM_MAX_ORDINARY_EV - tol:
+            flags.append(
+                f"{c.slot_role}:fwhm={c.fwhm:.2f}eV≥{FWHM_MAX_ORDINARY_EV:.1f}eV "
+                "ordinary cap (no known-broad justification)")
+    return flags
 
 
 def fit_candidate(
@@ -1148,6 +1207,10 @@ class ProposedPeakReport:
     rejection_reason: Optional[str] = None
     near_roi_endpoint: bool = False
     roi_bounds: Optional[tuple[float, float]] = None
+    # accepted while PEGGING the ordinary FWHM ceiling — the feature is
+    # broader than an ordinary component with no known-broad justification;
+    # the fit is held at the physical limit and the result is CONDITIONAL
+    width_capped: bool = False
 
 
 @dataclass
@@ -1822,8 +1885,22 @@ def _attempt_proposal(
 
     if comp.amplitude <= noise_floor:
         return _fast(f"amplitude {comp.amplitude:.1f} ≤ noise_floor {noise_floor:.1f}")
+    # A peg on the WIDTH cap alone (fwhm@max) is the ordinary physical FWHM
+    # ceiling doing its job: the residual feature is broader than an ordinary
+    # component but has no known-broad justification (region-``unassigned``
+    # proposal).  KEEP it — modelled at the physical limit — and let it flag
+    # the augmented report (unphysical_widths + the boundary hit → CONDITIONAL
+    # tier) rather than rejecting it and leaving the intensity unmodelled: a
+    # defensible fit with a physical-width component beats both a fat peak and
+    # a dropped feature.  ANY OTHER peg (center drifted to a window edge,
+    # amplitude/shape pegged, or fwhm@MIN = an implausibly narrow spike) is
+    # spurious → reject.
+    width_cap_hit = f"{spec.role}:fwhm@max"
+    spurious_hits = [h for h in pr.boundary_hits if h != width_cap_hit]
+    if spurious_hits:
+        return _fast(f"proposed slot boundary hits: {spurious_hits}")
     if pr.boundary_hits:
-        return _fast(f"proposed slot boundary hits: {pr.boundary_hits}")
+        pr.width_capped = True     # accepted at the ordinary FWHM ceiling
 
     mask = (x >= comp.position - PROPOSAL_WINDOW_WIDTH) & \
            (x <= comp.position + PROPOSAL_WINDOW_WIDTH)
@@ -1896,6 +1973,7 @@ def _attempt_proposal(
         stability=stability, residuals=residuals,
         plausibility=PlausibilityFlags(
             boundary_hits=list(primary.boundary_hits),
+            unphysical_widths=_unphysical_width_flags(primary.components, aug_model),
             orphan_peaks=stability.orphan_rate > 0.1,
         ),
         absent_slots=absent, augmented_from=base_model.name,
@@ -2029,6 +2107,10 @@ def _bound_fixed_refit(
             x, y, y_fit, noise_floor, diagnostic_windows),
         plausibility=PlausibilityFlags(
             boundary_hits=[],
+            # width pegs that were FIXED at the cap are still at the physical
+            # ceiling — a fixed-at-2.0 ordinary component is no more physical
+            # than a pegged one, so keep flagging it
+            unphysical_widths=_unphysical_width_flags(outcome.components, report.model),
             orphan_peaks=stability.orphan_rate > 0.1,
         ),
         absent_slots=[],                      # conservative full-k BIC*
@@ -2244,6 +2326,7 @@ def compare_models(
             stability=stability, residuals=residuals,
             plausibility=PlausibilityFlags(
                 boundary_hits=list(primary.boundary_hits),
+                unphysical_widths=_unphysical_width_flags(primary.components, model),
                 orphan_peaks=stability.orphan_rate > 0.1,
             ),
             absent_slots=absent,

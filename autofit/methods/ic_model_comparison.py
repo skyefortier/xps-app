@@ -140,6 +140,16 @@ class ICModelComparisonMethod(PeakFitMethod):
                     f"constraint violations {top.plausibility.boundary_hits} "
                     "(see analysis.candidates)"
                 )
+        if top.plausibility.unphysical_widths:
+            message += (
+                " LOW CONFIDENCE — width(s) held at the ordinary physical "
+                f"FWHM cap ({', '.join(top.plausibility.unphysical_widths)}): "
+                "the data wants a broader component than an ordinary core line "
+                "physically has, but no known-broad class (satellite / plasmon "
+                "/ loss) is assigned here. The width is capped at the physical "
+                "limit rather than silently widened; a human should identify "
+                "the feature (or justify a wider width) before trusting it."
+            )
         return MethodResult(
             method_id=self.id, success=True, peaks=peaks, analysis=analysis,
             confidence=confidence,
@@ -148,6 +158,7 @@ class ICModelComparisonMethod(PeakFitMethod):
                 "conditional": bool(result.conditional),
                 "conditional_reason": result.conditional_reason,
                 "winner_boundary_hits": list(top.plausibility.boundary_hits),
+                "winner_unphysical_widths": list(top.plausibility.unphysical_widths),
                 "winner_boundary_fixed_params": list(top.boundary_fixed_params),
                 # stress-suite finding 0: buried decisive evidence is a
                 # RESULT-level flag, not candidate-table archaeology
@@ -247,11 +258,14 @@ def build_analysis_record(
             "proposed_peaks": [
                 {"role": p.role, "accepted": bool(p.accepted),
                  "fitted_center": p.fitted_center,
+                 "fitted_fwhm": p.fitted_fwhm,
+                 "width_capped": bool(p.width_capped),
                  "rejection_reason": p.rejection_reason,
                  "near_roi_endpoint": bool(p.near_roi_endpoint)}
                 for p in r.proposed_peaks
             ],
             "residual_flags": r.residuals.flagged_windows,
+            "unphysical_widths": list(r.plausibility.unphysical_widths),
             "autocorr_flag": bool(r.residuals.autocorr_flag),
             "min_active_persistence": float(r.active_min_persistence),
             "boundary_hits": r.plausibility.boundary_hits,

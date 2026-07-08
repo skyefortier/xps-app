@@ -141,6 +141,102 @@ def test_multi_env_low_be_dominant_recovered():
     unassigned = [p for p in res.peaks if p["region"] == "unassigned"]
     assert len(unassigned) >= 2          # the seed + the proposal
     assert "human review" in res.message
+    # (e) widths are all physical (≤ ordinary cap) — the ordinary neighbour
+    # and dominant recovered without a fat peak
+    for p in res.peaks:
+        if "satellite" in p["role"]:
+            continue
+        assert p["fwhm"] <= eng.FWHM_MAX_ORDINARY_EV + 1e-6, \
+            f"{p['role']} fwhm {p['fwhm']} exceeds the ordinary cap"
+
+
+# ── Physical FWHM caps (2026-07-08) ────────────────────────────────────────
+
+def test_unphysical_width_flags_helper():
+    """The width-flag helper: an ordinary slot pegging the 2.0 cap is
+    flagged; a narrow main and a grammar-sanctioned-broad slot (declared max
+    > 2.0, e.g. a satellite) are NOT."""
+    from autofit.grammar import (CandidateModel, ComponentSlot, LineShape,
+                                 BackgroundType)
+    from autofit.engine import FittedComponent
+
+    def slot(role, lo, hi):
+        return ComponentSlot(role=role, region="r", phase_id="p",
+                             be_window=(199., 201.), line_shape=LineShape.PSEUDO_VOIGT,
+                             fwhm_range=(lo, hi))
+
+    def comp(role, fwhm):
+        return FittedComponent(slot_role=role, position=200.0, fwhm=fwhm,
+                               amplitude=1e3, shape_params={})
+
+    m = CandidateModel(name="M", background=BackgroundType.LINEAR, slots=(
+        slot("contamination_CO", 0.8, 2.0), slot("main_graphitic", 0.4, 1.2),
+        slot("satellite_pi", 1.0, 5.5), slot("proposed_peak_0", 0.5, 2.0)))
+    flags = eng._unphysical_width_flags(
+        [comp("contamination_CO", 1.99), comp("main_graphitic", 1.2),
+         comp("satellite_pi", 5.16), comp("proposed_peak_0", 2.0)], m)
+    flagged_roles = {f.split(":")[0] for f in flags}
+    assert flagged_roles == {"contamination_CO", "proposed_peak_0"}
+    # a satellite at 5.16 (declared-broad slot) is NEVER flagged — this is
+    # exactly the "wide contamination" the fat-peak report was really about
+    assert not any("satellite" in f for f in flags)
+    # a component comfortably under the cap → no flag at all
+    assert eng._unphysical_width_flags([comp("contamination_CO", 1.5)], m) == []
+
+
+def test_preseed_and_proposal_slots_capped_at_ordinary():
+    """F1 pre-seed slots and F2/F3 proposal slots must be built with the
+    ordinary physical FWHM ceiling as their upper bound — not the old
+    looser 3.0 that let residual proposals grow to fat widths."""
+    spec = eng.PreseedSpec(role="preseed_dominant_0", center_init=279.0,
+                           fwhm_init=1.0, amplitude_net=1e4, fraction_of_max=1.0,
+                           local_snr=100.0)
+    from autofit.grammar import CandidateModel, BackgroundType
+    base = CandidateModel(name="B", background=BackgroundType.SHIRLEY, slots=())
+    seeded = eng._preseed_augmented(base, [spec])
+    assert seeded.slots[-1].fwhm_range[1] == eng.FWHM_MAX_ORDINARY_EV
+
+    pspec = eng.ProposalSpec(role="proposed_peak_0", detection_windows=[],
+                             detection_energy=1.0, detection_ratio=9.0,
+                             center_init=281.0, fwhm_init=1.0, amplitude_init=5e3,
+                             line_shape=eng.PROPOSED_PEAK_SHAPE)
+    aug = eng._augmented_candidate(base, pspec)
+    assert aug.slots[-1].fwhm_range[1] == eng.FWHM_MAX_ORDINARY_EV
+
+
+def test_wide_proposal_capped_and_flagged():
+    """A genuinely BROAD (3 eV) out-of-window feature with no known-broad
+    justification: the proposal must be held at the 2.0 physical cap
+    (not fit at 3 eV), still MODEL the feature (accepted, center recovered),
+    and the result must be flagged low-confidence (width_capped +
+    unphysical_widths + conditional + a plain-language message) — the exact
+    real-data situation (a ~281 eV feature wanting 3 eV) the user flagged."""
+    x = _grid(185.0, 206.0)
+    sig = (_pv(x, 9000.0, 196.5, 1.2, ETA)            # in-window main (ordinary)
+           + _pv(x, 3200.0, 190.0, 3.0, ETA))         # broad out-of-window feature
+    y = _noisy(sig + _linear_bg(x), 41)
+    cands = [_cand("P1", [_slot("main_a", (195.5, 197.5))])]
+    grammar = _grammar(cands)
+    # preseed off so the broad feature goes through the residual-proposal
+    # path (the channel with the accept gates); with preseed on it would be
+    # a pre-seed slot, ALSO capped at 2.0 — covered by the slot-cap pin above
+    res = get_method("ic_model_comparison").run(
+        x, y, grammar=grammar, options={**IC_OPTS, "enable_preseed": False})
+    prop = [p for c in res.analysis["candidates"]
+            for p in c.get("proposed_peaks", []) if p["accepted"]]
+    assert prop, "the broad feature should still be modelled (accepted), not dropped"
+    p = prop[0]
+    assert p["fitted_center"] == pytest.approx(190.0, abs=0.6)
+    assert p["fitted_fwhm"] <= eng.FWHM_MAX_ORDINARY_EV + 1e-6   # NOT 3 eV
+    assert p["width_capped"] is True
+    # flagged: unphysical_widths on the winner + conditional + honest message
+    assert res.diagnostics["winner_unphysical_widths"]
+    assert res.diagnostics["conditional"] is True
+    assert "physical" in res.message.lower() and "confidence" in res.message.lower()
+    # every emitted non-satellite width is physical
+    for pk in res.peaks:
+        if "satellite" not in pk["role"]:
+            assert pk["fwhm"] <= eng.FWHM_MAX_ORDINARY_EV + 1e-6
 
 
 # ── F2: iterative rounds add MULTIPLE missing peaks ────────────────────────

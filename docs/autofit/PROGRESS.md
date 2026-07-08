@@ -1940,6 +1940,82 @@ the deliberate 60 s `TOTAL_ANALYSIS_TIMEOUT_SEC` (240) → gunicorn
 `docs/autofit/codex/c1s_multienv_fix_{verdict,recheck_verdict,recheck2_verdict}_run{A,B}.md`.
 **C 1s MULTI-ENV FIX UNIT REVIEW-COMPLETE.**
 
+## Physical FWHM caps on ALL component types (2026-07-08) — F1/F2/F3 follow-up
+
+**The gap (Skye, on the branch):** the F1/F2/F3 fit is good numerically but
+buys some of that χ² with UNPHYSICAL widths — the region-`unassigned` F1
+pre-seed slots and F2/F3 proposal slots were bounded at
+`PROPOSAL_FWHM_MAX = 3.0` eV, escaping the ~2.0 eV physical ceiling that
+ordinary C 1s core lines respect (grammar contamination is hard-bounded at
+2.0).  Measured: on nearly every real scan the ~281 eV `proposed_peak_0`
+pegged 3.0 eV (a fat peak) — even in complete A2/A3 models — while the
+`preseed_dominant_0` was always narrow (0.74–1.73 eV).  (The "5.16 eV
+contamination_CO" Skye saw was a π→π* **satellite** — grammar range
+(1.0, 5.5) — read as contamination; satellites are legitimately broad and
+must stay allowed.)
+
+**Fix (engine + IC method, strictly additive; `/api/fit` and the manual
+path untouched; NO per-spectrum positions):**
+- `FWHM_MAX_ORDINARY_EV = 2.0` — the engine-wide physical FWHM ceiling for
+  an ORDINARY component (no known-broad justification), Biesinger/Greczynski-
+  consistent, UNVERIFIED numeric bound.  `PROPOSAL_FWHM_MAX` is now THIS cap
+  (was 3.0), so F1 pre-seed slots and F2/F3 proposal slots (+ their
+  `fwhm_init` clips) are bounded at 2.0.  Region grammar slots keep their
+  OWN cited ranges — C 1s satellite 5.5, U 4f mains 3.5 / sats 4.5, B 1s
+  2.5, Cl 2p 2.2–3.0, N 1s 2.5 — untouched.
+- `_unphysical_width_flags(components, model)` populates the previously-DEAD
+  `PlausibilityFlags.unphysical_widths` at all three construction sites
+  (base, augmented, bound-fixed refit).  Rule (region-agnostic): flag a
+  component whose fitted width reaches the 2.0 ceiling AND whose slot's
+  declared `fwhm_range` max ≤ 2.0 (ordinary); a slot declared ABOVE 2.0 is
+  grammar-sanctioned-broad and EXEMPT (so a 5.16 eV satellite, a 3 eV U 4f
+  main, etc. are never mis-flagged, and a graphitic main pegging its own
+  1.2 eV cap is not called "unphysical").  `unphysical_widths` already
+  routes to the CONDITIONAL tier in `rank_and_filter` — so a fit held at the
+  physical width limit is reported low-confidence, never silently accepted.
+- Proposal pass: a proposal whose ONLY boundary peg is `fwhm@max` (the
+  ordinary cap doing its job) is no longer REJECTED — it is KEPT (the
+  feature is still modelled, at the physical limit) and carries
+  `width_capped=True` + the `fwhm@max` boundary hit → CONDITIONAL.  Any
+  OTHER peg (center at a window edge, amplitude/shape, or `fwhm@min` = an
+  implausibly narrow spike) still rejects.  This is the "flag it, don't
+  drop it and don't silently widen it" behaviour: rejecting would have
+  gutted F2 on this class (the ~281 feature wants ≥3 eV on almost every
+  scan).  Surfaced: `width_capped` + `fitted_fwhm` per proposal,
+  `winner_unphysical_widths` in diagnostics, `unphysical_widths` per
+  candidate, and a plain-language LOW-CONFIDENCE message naming the capped
+  widths and telling the user to identify the feature (satellite / plasmon /
+  loss) or justify a wider width before trusting it.
+
+**Measured on ALL 11 real C 1s scans (before = F1/F2/F3 pre-cap, after =
+this unit; local-only harness `aftercap_real_c1s.jsonl`):**
+
+| outcome | before | after |
+|---|---|---|
+| scans with a WIDE (>2.0 eV) non-satellite component | 10 / 11 (up to 3.0 eV) | **0 / 11** |
+| dominant low-BE feature captured | 11 / 11 | **11 / 11** |
+| flagged conditional + `unphysical_widths` | — | **11 / 11** |
+
+The fat ~281 eV proposal (2.05–3.0 eV before) is now held at ≤2.0 eV on
+every scan; the dominant pre-seed (always narrow) is unaffected; satellites
+(2.2–3.8 eV) stay allowed.  χ²ᵣ moves as expected for the trade — some rise
+(Scan_0 31→69, ds8/Scan 85→174, Scan_6 75→119: a physical-width fit costs
+some χ²), some FALL because a different, cleaner physical-width candidate now
+wins (Scan 130→85, Scan_2 49→23, ds8/Scan_0 202→178).  Every result now
+carries the honest low-confidence flag where a component wanted to exceed
+the physical width.
+
+**Anti-overfitting / honesty:** nothing hard-coded (the cap is a physics
+constant, not a position); other regions' cited widths are exempt by
+construction (their declared ranges, not a C 1s number); the honesty
+machinery is STRENGTHENED (a dead flag is now live, capped features are
+low-confidence not silently fat).  Full suite **519 passed / 3 skipped,
+zero regressions** (516 + 3 cap pins: the helper unit test incl. the
+satellite-exemption, the preseed/proposal slot-cap pin, and the end-to-end
+wide-proposal-capped-and-flagged pin); the committed synthetic
+`multi_env_low_be_dominant_case` tightened to ordinary (≤2.0) widths so its
+recovery is clean.  Codex ×2 pending.
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);

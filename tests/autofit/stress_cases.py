@@ -366,17 +366,20 @@ def multi_env_low_be_dominant_case(seed: int) -> StressCase:
     x = _grid(186.0, 205.0)
     truth = [
         {"center": 191.2, "fwhm": 1.3, "height": 40000.0},   # dominant, out-of-window
-        {"center": 193.0, "fwhm": 2.2, "height": 9000.0},    # neighbor, 22.5% of max
-        {"center": 196.6, "fwhm": 1.6, "height": 5000.0},    # in-window ladder...
-        {"center": 198.9, "fwhm": 1.8, "height": 8000.0},
-        {"center": 201.6, "fwhm": 2.0, "height": 5500.0},
+        {"center": 193.0, "fwhm": 1.7, "height": 9000.0},    # neighbor (ordinary width,
+                                                             #   22.5% of max, below gate)
+        {"center": 196.6, "fwhm": 1.5, "height": 5000.0},    # in-window ladder...
+        {"center": 198.9, "fwhm": 1.7, "height": 8000.0},
+        {"center": 201.6, "fwhm": 1.6, "height": 5500.0},
     ]
     sig = sum(_pv(x, t["height"], t["center"], t["fwhm"], ETA) for t in truth)
     y = _noisy(sig + _linear_bg(x), seed)
+    # ordinary-width in-window slots (cap 2.0, mirroring real C 1s
+    # contamination) so the whole recovered model has physical widths
     ladder = [
-        _slot("main_a", (196.0, 197.2)),
-        _slot("comp_b", (198.2, 199.6)),
-        _slot("comp_c", (200.8, 202.4)),
+        _slot("main_a", (196.0, 197.2), fwhm=(0.6, 2.0)),
+        _slot("comp_b", (198.2, 199.6), fwhm=(0.6, 2.0)),
+        _slot("comp_c", (200.8, 202.4), fwhm=(0.6, 2.0)),
     ]
     cands = [
         _cand("L1_main", ladder[:1]),
