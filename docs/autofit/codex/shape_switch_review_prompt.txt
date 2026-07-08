@@ -1,0 +1,85 @@
+Adversarial code review, branch feature-autofit-stage2, commit d5c3222
+("frontend: fix manual-fit lineshape-switch silently corrupting peak
+params"). Read-only. Review for CORRECTNESS (does it actually fix the bug
+without introducing a new corruption / regression) and SCOPE (does it touch
+ONLY the shape-switch behavior). A NO-GO needs a concrete failing scenario
+(a specific peak state + shape sequence -> wrong param/curve).
+
+THE BUG: in templates/index.html, cycling a peak's "Line shape" dropdown
+(DS+G -> another shape -> back to DS+G) silently CHANGED its parameters with
+NO Run Fit — observed DS+G laM 3.11 -> 0.40 and laBeta 0.05 -> 0.30 on a
+round-trip. Cause: the old _switchPeakShape deleted the old shape's params
+(_clearShapeSpecificParams) then re-seeded the new shape's DEFAULTS
+(_applyShapeDefaults), so a round-trip reset every fitted shape param.
+
+THE FIX (all in templates/index.html, around the SHAPE_PARAM_SCHEMA /
+_switchPeakShape region — grep _applyShapeSwitch / _widthField): a new pure
+_applyShapeSwitch(peak, newShape) that (1) carries the effective WIDTH across
+the switch — DS+G stores width in laM (Gauss FWHM), every other shape in the
+top-level fwhm; the eV width + its lock is mapped across the laM<->fwhm
+boundary — and (2) preserves every carried-over param (never deletes),
+seeding a default ONLY for a param the new shape genuinely introduces that
+the peak lacks. _switchPeakShape now calls it per family member.
+
+RAILS (verify): branch-only; touches ONLY the shape-switch behavior; NO
+change to fitting math, the optimizer (runFit), evalPeak/evalPeakArray, or
+/api/fit / the backend. Confirm the diff (git show d5c3222) is confined to
+the schema/_switchPeakShape region + the new JS test.
+
+CHECK THESE:
+1. ROUND-TRIP CORRECTNESS. For the reported case (DS+G with laAlpha/laBeta/
+   laM set, e.g. 0.12 / 0.05 / 3.11) round-tripped DS+G -> GL -> DS+G: do
+   laAlpha, laBeta, laM return to their originals, and is the rendered curve
+   (evalPeak / evalPeakArray reads laAlpha/laBeta/laM/center/amplitude for
+   DS+G) unchanged? Walk the two _applyShapeSwitch calls by hand. Then think
+   of a shape pair where the round-trip does NOT restore an ACTIVE param.
+2. THE WIDTH MAP. _widthField returns 'laM' for DS+G, 'fwhm' otherwise.
+   On a switch that crosses the boundary, peak[newWF] = peak[oldWF] (value)
+   and the lock is copied. Is the map truly invertible in eV (so A->B->A
+   restores the width)? Is there a shape where the "width" is NOT a single eV
+   field this way — e.g. LACX uses fwhm (Lorentzian eV) AND caM (Gauss
+   kernel in DATA POINTS); DS uses fwhm as a HALF-width seed (gamma=fwhm/2).
+   Does treating fwhm as "the width" for LACX/DS mis-map anything on a
+   round-trip? (caM is a non-width param — is it preserved? DS's fwhm is the
+   width field — does it round-trip?)
+3. NO SILENT OVERWRITE OF FITTED VALUES. The spec: if a conversion is lossy,
+   preserve what can be preserved and surface it — never silently overwrite.
+   With "never delete", is anything ever LOST that a shape actively uses?
+   The one field the map overwrites is the target width field (e.g. DS+G's
+   fwhm becomes laM on switch-out). Confirm DS+G's fwhm is display-only /
+   readonly / excluded from fitting (renderShapeControls / updateShapeControls
+   grey it out; runFit excludes p.shape==='DSG_LA' from the fwhm free param),
+   so overwriting it loses no user/fitted value. Is there ANY shape whose
+   width-field value is user-meaningful AND gets overwritten by the map in a
+   way a round-trip does not restore?
+4. NEW-PARAM DEFAULTING. A param the new shape introduces that the peak lacks
+   is seeded from SHAPE_PARAM_SCHEMA. Confirm the LACX fixCaM:true convention
+   still holds (a peak becoming LACX for the FIRST time must get fixCaM=true,
+   else covariance estimation breaks per the schema comment). Confirm a
+   carried-over param is NOT re-defaulted (glMix 42 stays 42, not reset to
+   30).
+5. FAMILY / LINKED PEAKS. _switchPeakShape applies _applyShapeSwitch to the
+   parent + every linked child. Does the width map + preserve behave
+   correctly for linked children (they share the parent's shape/params via
+   syncKeys)? Any way a child ends up inconsistent with its parent after a
+   switch or round-trip?
+6. ACCUMULATION. "Never delete" means a peak that visits many shapes
+   accumulates all shapes' params. Is that harmful anywhere — save/load
+   (buildTabData spread-copy), peakToBackendSpec (does it read only the
+   active shape's params?), CSV export, or a stale fix-flag affecting a fit?
+   Judge whether accumulation is benign (defaultPeak already creates peaks
+   with ALL params, so this is the normal state) or a real hazard.
+7. THE TESTS (tests/js/shape_switch_roundtrip.test.js): they extract the
+   shipped _applyShapeSwitch + evalPeakArray from the template via regex.
+   Do the regexes capture the right code, and do the assertions actually
+   discriminate the fix (would they fail against the old delete-then-default
+   behavior)? Is the ACTIVE-params map per shape correct (does it match what
+   evalPeak reads)?
+
+You can run `node --test tests/js/shape_switch_roundtrip.test.js` if node is
+available; you cannot run pytest (read-only sandbox). The JS suite is 58
+passing, py suite 521 passed / 3 skipped.
+
+End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO", preceded by a
+numbered findings list (severity BLOCKER/MAJOR/MINOR, file:line, concrete
+failing scenario, fix).
