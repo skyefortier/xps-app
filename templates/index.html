@@ -4654,14 +4654,16 @@ function defaultPeak(overrides) {
 // SHAPE-SPECIFIC PARAM SCHEMA
 // ═══════════════════════════════════════════════════
 // Single source of truth for the per-shape state of a peak. Used by
-// _switchPeakShape to reset stale params and seed neutral defaults when
-// the user changes a peak's Line Shape dropdown. Each entry includes both
-// value defaults AND fix-flag defaults so a shape-switched peak ends up in
-// the same state as a freshly-created peak from defaultPeak — defaultPeak
-// and _applyShapeDefaults must agree, otherwise shape-switching silently
-// flips a lock (the LACX `fixCaM: true` convention is the load-bearing
-// example: omitting it from the schema previously freed `m`, which broke
-// covariance estimation in the backend).
+// _applyShapeSwitch to seed defaults ONLY for the parameters a newly-chosen
+// Line Shape genuinely introduces (ones the peak does not already carry).
+// Each entry includes both value defaults AND fix-flag defaults, matching
+// defaultPeak, so a param a shape introduces for the first time lands in the
+// same state as a freshly-created peak — the LACX `fixCaM: true` convention
+// is the load-bearing example: omitting it from the schema would free `m`
+// the first time a peak becomes LACX, which broke covariance estimation in
+// the backend. NOTE: carried-over params are NEVER reset on a shape switch
+// (that silently corrupted fitted values, e.g. DS+G's laM/laBeta on a
+// round-trip) — the schema only fills in genuinely-new params.
 //
 // To add a new shape: register its value params AND fix-flag defaults
 // here matching defaultPeak, then update evalPeak / renderShapeControls /
@@ -4683,38 +4685,71 @@ const SHAPE_PARAM_SCHEMA = {
   'LACX':       { caAlpha: 1.0,  fixCaAlpha: false, caBeta: 1.0, fixCaBeta: false, caM: 50, fixCaM: true },
 };
 
-function _clearShapeSpecificParams(peak, shape) {
-  const params = SHAPE_PARAM_SCHEMA[shape];
-  if (!params) return;
-  for (const k of Object.keys(params)) delete peak[k];
+// Which peak field holds the effective eV WIDTH for a given shape. Every
+// shape stores its width in the top-level `fwhm` EXCEPT DS+G (DSG_LA), whose
+// width is the Gaussian FWHM `laM` (DS+G's `fwhm` field is display-only /
+// readonly and excluded from fitting — see renderShapeControls / runFit).
+// Used to CARRY the width across a shape switch instead of resetting it to a
+// per-shape default. The two accessors return the value field and its
+// lock (fix-flag) field respectively.
+function _widthField(shape) { return shape === 'DSG_LA' ? 'laM' : 'fwhm'; }
+function _widthFixField(shape) { return shape === 'DSG_LA' ? 'fixLaM' : 'fixFwhm'; }
+
+// Switch ONE peak object's lineshape IN PLACE. Pure — no DOM, no state, no
+// rendering (_switchPeakShape wraps it with the family / undo / render / plot
+// orchestration; the JS round-trip tests exercise it directly).
+//
+// Preserves the parameters that carry over — center and amplitude (untouched
+// top-level fields), and the effective WIDTH (mapped across the laM↔fwhm
+// boundary, not reset) — and seeds a default ONLY for a parameter the new
+// shape genuinely introduces that the peak does not already carry.
+//
+// Round-trip guarantee (A → B → A returns the peak's ACTIVE parameters — the
+// ones evalPeak reads for shape A — to their originals, so the rendered curve
+// is unchanged):
+//   1. Non-width shape params are NEVER deleted, so a value the peak already
+//      carries (e.g. DS+G's laBeta) survives the excursion through B and is
+//      not re-defaulted coming back. This replaces the old
+//      delete-then-default behaviour that silently reset fitted values
+//      (observed: laBeta 0.05 → 0.30, laM 3.11 → 0.40 on DS+G → GL → DS+G).
+//   2. The width is MAPPED, not reset: the eV width is copied across the
+//      laM↔fwhm boundary. The map is the identity in eV, so it is invertible
+//      and the round-trip restores the original width (and its lock).
+function _applyShapeSwitch(peak, newShape) {
+  const oldShape = peak.shape;
+  if (oldShape === newShape || !(newShape in SHAPE_PARAM_SCHEMA)) return;
+  // 1. carry the effective width (value + lock) across the laM↔fwhm boundary
+  const oldWF = _widthField(oldShape), newWF = _widthField(newShape);
+  if (newWF !== oldWF) {
+    const w = peak[oldWF];
+    if (Number.isFinite(w)) peak[newWF] = w;
+    const lock = peak[_widthFixField(oldShape)];
+    if (typeof lock === 'boolean') peak[_widthFixField(newShape)] = lock;
+  }
+  // 2. switch shape; seed a default ONLY for a param the new shape introduces
+  //    that the peak does not already carry (carried-over values preserved)
+  peak.shape = newShape;
+  const schema = SHAPE_PARAM_SCHEMA[newShape];
+  for (const [k, v] of Object.entries(schema)) {
+    if (!(k in peak)) peak[k] = v;
+  }
 }
 
-function _applyShapeDefaults(peak, shape) {
-  const params = SHAPE_PARAM_SCHEMA[shape];
-  if (!params) return;
-  for (const [k, v] of Object.entries(params)) peak[k] = v;
-}
-
-// Switch a peak's lineshape: strip the previous shape's specific params,
-// seed the new shape's neutral defaults, and re-render. Shape-agnostic
-// fields (id, name, color, center, fwhm, amplitude, linked/linkOffset/
-// linkRatio, fixCenter/fixFwhm/fixAmplitude, isChargeReference) survive
-// untouched. Linked children share their parent's shape and shape-specific
-// params, so the switch is applied to the whole multiplet family.
+// Switch a peak's lineshape and re-render. Shape-agnostic fields (id, name,
+// color, center, amplitude, linked/linkOffset/linkRatio, fixCenter/
+// fixAmplitude, isChargeReference) survive untouched; the width and every
+// carried-over shape param are preserved by _applyShapeSwitch. Linked
+// children share their parent's shape and shape-specific params, so the
+// switch is applied to the whole multiplet family.
 function _switchPeakShape(id, newShape) {
   const p = getPeak(id);
   if (!p || p.shape === newShape) return;
   if (!(newShape in SHAPE_PARAM_SCHEMA)) return;
   const parent = p.linked ? (getPeak(p.linked) || p) : p;
   if (parent.shape === newShape) return;
-  const oldShape = parent.shape;
   const family = [parent, ...state.peaks.filter(q => q.linked === parent.id)];
   _pushUndoDebounced();
-  for (const peak of family) {
-    _clearShapeSpecificParams(peak, oldShape);
-    peak.shape = newShape;
-    _applyShapeDefaults(peak, newShape);
-  }
+  for (const peak of family) _applyShapeSwitch(peak, newShape);
   _invalidateFittedY();
   for (const peak of family) renderPeakControls(peak);
   updatePlot();
