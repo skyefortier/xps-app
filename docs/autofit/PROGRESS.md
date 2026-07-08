@@ -2009,12 +2009,37 @@ the physical width.
 constant, not a position); other regions' cited widths are exempt by
 construction (their declared ranges, not a C 1s number); the honesty
 machinery is STRENGTHENED (a dead flag is now live, capped features are
-low-confidence not silently fat).  Full suite **519 passed / 3 skipped,
-zero regressions** (516 + 3 cap pins: the helper unit test incl. the
-satellite-exemption, the preseed/proposal slot-cap pin, and the end-to-end
-wide-proposal-capped-and-flagged pin); the committed synthetic
+low-confidence not silently fat).  Full suite **521 passed / 3 skipped,
+zero regressions** (516 + 5 cap pins: the helper unit test incl. the
+satellite-exemption, the preseed/proposal slot-cap pin, the end-to-end
+wide-proposal-capped-and-flagged pin, the shape-endpoint pin, and the
+stability-promotion peg re-check pin); the committed synthetic
 `multi_env_low_be_dominant_case` tightened to ordinary (≤2.0) widths so its
-recovery is clean.  Codex ×2 pending.
+recovery is clean.
+
+**Codex trail (×2 every round, stricter governs; verdicts
+`docs/autofit/codex/fwhm_cap_*`).  Review ×2: NO-GO ×2.**  Run B BLOCKER:
+the proposed-slot boundary decision was made on the INITIAL augmented fit,
+but `run_stability_analysis` can promote a deeper `best_outcome` whose pegs
+differ — a stability-promoted `center@min` slipped through accepted, and a
+stability-introduced `fwhm@max` left `width_capped` stale.  FIXED
+(commit 2e0a131): `_attempt_proposal` recomputes the proposed-slot pegs from
+the FINAL (promoted) primary right after the `best_outcome` block, re-runs
+the spurious-peg rejection (`post-stability` reason), and refreshes
+`width_capped`.  Run A MAJOR (shape pegs) — ARGUED disposition: run A's
+literal suggestion (reject every non-`fwhm@max` peg, no shape-endpoint
+exclusion) was IMPLEMENTED and REGRESSED the two-narrow-peak F2 case to zero
+accepted proposals — a pseudo-Voigt peak with a GL mix legitimately reaches
+a `gl_ratio` endpoint (pure Gaussian/Lorentzian), a VALID shape the grammar
+excludes from boundary hits by design; kept the shared detector, reject only
+on SUBSTANTIVE pegs (center@edge / amplitude@wall / fwhm@min), corrected the
+imprecise "every non-fwhm@max peg rejects" claim.  Run A MINOR: a
+width-capped proposal promoted via decisive-override lost its proposal
+lineage — fixed (`_bound_fixed_refit` copies `proposed_peaks` +
+`augmented_from`).  **Re-check ×2: GO ×2** — both "no new issue found";
+run A explicitly verified the post-stability re-check, the shape-endpoint
+disposition, the width-cap/conditional routing, the bfix lineage copy, and
+that `/api/fit` stays manual-path-only.  **FWHM-CAP UNIT REVIEW-COMPLETE.**
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
