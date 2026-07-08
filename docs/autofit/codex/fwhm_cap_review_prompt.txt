@@ -1,0 +1,107 @@
+Adversarial code review, branch feature-autofit-stage2, commit 1beec0d
+("autofit: physical FWHM caps on ALL component types (F1 preseed + F2/F3
+proposals)"). Read-only. Review for CORRECTNESS and HONESTY erosion. A
+NO-GO needs a concrete failing scenario (inputs -> wrong output/state).
+
+CONTEXT (see docs/autofit/PROGRESS.md "Physical FWHM caps on ALL component
+types (2026-07-08)"): the prior F1/F2/F3 unit let the region-`unassigned`
+F1 pre-seed slots and F2/F3 proposal slots grow to FWHM 3.0 eV, escaping
+the ~2.0 eV physical ceiling ordinary C 1s core lines respect (grammar
+contamination is hard-bounded 2.0). Real data: the ~281 eV proposed peak
+pegged 3.0 eV on nearly every scan. The rail: cap ALL component types at a
+physically-motivated bound (~2.0 for ordinary; known-broad classes —
+satellites — keep their wider cap), NO per-spectrum hard-coding, PRESERVE
+honesty (a component that genuinely wants wider must be FLAGGED
+conditional/low-confidence, not silently widened OR silently dropped),
+zero regressions, don't touch /api/fit or the manual path.
+
+The diff is in autofit/engine.py + autofit/methods/ic_model_comparison.py
+(+ tests). Parent d88a659 is the pre-cap engine. Check these:
+
+1. THE CAP. `FWHM_MAX_ORDINARY_EV = 2.0`; `PROPOSAL_FWHM_MAX` now equals it
+   (was 3.0). Verify BOTH the F1 pre-seed slots (`_preseed_augmented`) and
+   the F2/F3 proposal slots (`_augmented_candidate`), AND their `fwhm_init`
+   clips (in `detect_out_of_grammar_dominants` and
+   `_detect_residual_proposals`), are bounded at 2.0 — no path still lets a
+   pre-seed / proposal exceed it. Confirm region grammar slots (C 1s
+   satellite 5.5, U 4f mains 3.5, B 1s 2.5, Cl 2p 2.2-3.0, N 1s 2.5) are
+   UNCHANGED (the cap is engine-level, not applied to their declared
+   ranges).
+
+2. THE FLAG. `_unphysical_width_flags(components, model)` populates
+   `PlausibilityFlags.unphysical_widths` (previously DEAD — never set) at
+   all three construction sites (base report in compare_models; augmented
+   report in _attempt_proposal; bound-fixed refit in _bound_fixed_refit).
+   The rule: flag a component whose fitted fwhm reaches the 2.0 ceiling
+   (within 1% tol) AND whose slot's declared fwhm_range max <= 2.0
+   (ordinary); a slot with declared max > 2.0 is grammar-sanctioned-broad
+   and EXEMPT. Verify:
+   - a satellite at 5.16 eV (declared 5.5) is NOT flagged (this is the
+     "wide contamination" the report was really about — a mislabelled
+     satellite); a U 4f main at 3.0 (declared 3.5) is NOT flagged; a
+     graphitic main pegging its OWN 1.2 cap is NOT flagged (1.2 < 2.0).
+   - an ordinary component (contamination/aliphatic/preseed/proposal, all
+     declared <=2.0) fitting AT 2.0 IS flagged.
+   - `unphysical_widths` routes to the CONDITIONAL tier: rank_and_filter
+     line ~1347 treats `boundary_hits or unphysical_widths or orphan_peaks`
+     as non-clean. Confirm this does NOT change filtering for a component
+     that was ALREADY a fwhm@max boundary hit (redundant, additive), i.e.
+     the flag adds no NEW filtering that could regress clean anchors — is
+     there any component that reaches 2.0 WITHOUT a boundary hit and would
+     now be newly-conditional? (A slot whose declared max is exactly 2.0
+     fitting at 2.0 has both a boundary hit and the flag; a slot declared
+     >2.0 is exempt. So identify any case the flag catches that boundary
+     detection does not, and judge whether that is a correct new flag or a
+     regression.)
+
+3. THE PROPOSAL ACCEPT CHANGE (the behaviour change — scrutinise hardest).
+   `_attempt_proposal` used to `_fast`-reject on ANY proposed-slot boundary
+   hit. Now: a hit that is EXACTLY `{spec.role}:fwhm@max` is allowed (sets
+   `pr.width_capped=True`, keeps going); any OTHER hit (`spurious_hits`)
+   still rejects. Verify:
+   - the split is correct: `fwhm@min` (implausibly narrow spike),
+     `center@min/max`, `amplitude@max`, shape-param pegs all still reject;
+     only the upper WIDTH cap is tolerated.
+   - an accepted width-capped proposal STILL carries the fwhm@max hit in
+     the augmented report's boundary_hits (so it is CONDITIONAL, never a
+     clean survivor) AND in unphysical_widths — it can never be emitted as
+     a clean high-confidence peak. Trace it to the winner: does the winner
+     message/diagnostics surface `winner_unphysical_widths` +
+     `width_capped` + the LOW-CONFIDENCE text?
+   - the F2 ITERATIVE loop: after accepting a width-capped proposal, could
+     the next round stack a SECOND peak on the same broad feature's tail
+     (the accepted proposal's window is center+/-0.75; the in-window
+     exclusion uses current.model.slots)? If so, is that bounded/flagged or
+     a new over-fit hole? Bound the worst case (PROPOSAL_MAX_PER_CANDIDATE).
+   - persistence/DeltaBIC/SNR gates on the width-capped proposal are
+     UNCHANGED (a spurious broad bump must still fail persistence). Confirm
+     the width tolerance did not weaken any other accept gate.
+
+4. STRICTLY ADDITIVE / no regression. /api/fit + fitting.py::run_fit
+   untouched. The IC payload additions (fitted_fwhm, width_capped,
+   winner_unphysical_widths, per-candidate unphysical_widths) are additive
+   and JSON-safe. The full suite is 519 passed / 3 skipped and the
+   real-anchor parity gates (C 1s / U 4f / B 1s / Cl 2p) pass — clean lab
+   anchors have all-in-window features, so no pre-seed fires and their
+   ordinary components sit below 2.0, so the cap/flag should be inert
+   there; VERIFY that reasoning against the code (could the new flag make a
+   previously-clean parity-gate winner conditional?).
+
+5. HONESTY. The claim: a component that genuinely wants > 2.0 with no
+   known-broad justification is now (a) held at the physical width, (b)
+   still modelled (not dropped), (c) flagged conditional/low-confidence
+   with a human-actionable message. Measured on real data (PROGRESS.md):
+   all 11 scans now have 0 wide non-satellite components, all still capture
+   the dominant, all flagged conditional. Confirm nothing was silently
+   widened and no gate was loosened to emit MORE peaks confidently.
+
+You cannot run pytest (read-only sandbox). Reason from the code + the
+committed pins (tests/autofit/test_preseed_dominants.py: the helper unit
+test incl. satellite exemption, the slot-cap pin, the
+wide-proposal-capped-and-flagged end-to-end pin; tests/autofit/
+stress_cases.py multi_env case). Judge whether the pins discriminate the
+behaviours they claim.
+
+End with exactly one line: "VERDICT: GO" or "VERDICT: NO-GO", preceded by a
+numbered findings list (severity BLOCKER/MAJOR/MINOR, file:line, the
+concrete failing scenario, and the fix).
