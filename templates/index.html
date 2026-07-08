@@ -9502,6 +9502,24 @@ function _doPublicationExport() {
 // ═══════════════════════════════════════════════════
 // EXPORT FIT RESULTS TABLE
 // ═══════════════════════════════════════════════════
+// Shape-gated values for the export's GL Ratio / Alpha / Beta / M_Gauss
+// columns — read ONLY the ACTIVE shape's params (matching evalPeak /
+// peakToBackendSpec), so inactive params from other shapes (normal: both
+// defaultPeak and _applyShapeSwitch carry every shape's fields on a peak)
+// never leak into the export as stale values. Replaces the old
+// `p.dsAlpha ?? p.laAlpha ?? p.caAlpha` fallback chains, which picked the
+// first non-null field regardless of the active shape.
+function _shapeExportCols(p) {
+  switch (p.shape) {
+    case 'GL':
+    case 'asym-GL': return { gl: p.glMix ?? '', alpha: '',        beta: '',       m: '' };
+    case 'DS':      return { gl: '',            alpha: p.dsAlpha ?? '', beta: '',  m: '' };
+    case 'DSG_LA':  return { gl: '',            alpha: p.laAlpha ?? '', beta: p.laBeta ?? '', m: p.laM ?? '' };
+    case 'LACX':    return { gl: '',            alpha: p.caAlpha ?? '', beta: p.caBeta ?? '', m: p.caM ?? '' };
+    default:        return { gl: '',            alpha: '',        beta: '',       m: '' };  // Gaussian/Lorentzian/Voigt
+  }
+}
+
 function exportFitTable(fmt) {
   if (!state.fitResult) { notify('Run a fit first.', 'red'); return; }
   const { be } = state.fitResult;
@@ -9529,12 +9547,13 @@ function exportFitTable(fmt) {
     const cse  = par.center?.stderr  ?? '';
     const fse  = (par.fwhm?.stderr ?? par.fwhm_l?.stderr) ?? '';
     const ase  = par.amplitude?.stderr ?? '';
+    const sc = _shapeExportCols(p);
     return [
       p.name, p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
       p.fwhm.toFixed(4), fse !== '' ? Number(fse).toFixed(5) : '',
       p.amplitude.toFixed(2), ase !== '' ? Number(ase).toFixed(3) : '',
-      areas[i].toFixed(2), p.shape, p.glMix ?? '', p.dsAlpha ?? p.laAlpha ?? p.caAlpha ?? '',
-      p.laBeta ?? p.caBeta ?? '', p.laM ?? p.caM ?? '',
+      areas[i].toFixed(2), p.shape, sc.gl, sc.alpha,
+      sc.beta, sc.m,
       rsfVals[i].toFixed(4), normAreas[i].toFixed(4), atPcts[i].toFixed(2)
     ];
   });

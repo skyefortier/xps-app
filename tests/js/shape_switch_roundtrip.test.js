@@ -150,6 +150,33 @@ test('a genuinely-new param is defaulted; a carried-over one is preserved', () =
   assert.strictEqual(p.glMix, 42, 'carried-over glMix was reset to a default');
 });
 
+// ── 5b. fit-table export is shape-gated (Codex run A MAJOR) ──
+// The never-delete switcher means a peak carries every shape's params; the
+// export must read ONLY the ACTIVE shape's, not the first non-null via a
+// fallback chain (which would export a stale inactive param).
+const _shapeExportCols = eval('(function(){\n'
+  + extract(/function _shapeExportCols\(p\) \{[\s\S]*?\n\}/, '_shapeExportCols') + '\n'
+  + 'return _shapeExportCols;\n})()');
+
+test('export columns read the ACTIVE shape, never a stale accumulated param', () => {
+  // an LACX peak that still carries stale DS + DS+G fields (as after
+  // DS -> DSG_LA -> LACX, or simply from defaultPeak)
+  const p = { ...makePeak('LACX'), dsAlpha: 0.22, laBeta: 0.55, laM: 0.66,
+              caAlpha: 1.70, caBeta: 0.80, caM: 37 };
+  const c = _shapeExportCols(p);
+  assert.strictEqual(c.alpha, 1.70, 'export Alpha picked a stale DS/DS+G value');
+  assert.strictEqual(c.beta, 0.80, 'export Beta picked a stale DS+G value');
+  assert.strictEqual(c.m, 37, 'export M_Gauss picked a stale DS+G value');
+  assert.strictEqual(c.gl, '', 'LACX has no GL ratio');
+  // DS+G reads la*, not the stale ca*
+  const d = _shapeExportCols({ ...makePeak('DSG_LA'), caAlpha: 9, caBeta: 9, caM: 9 });
+  assert.strictEqual(d.alpha, makePeak('DSG_LA').laAlpha);
+  assert.strictEqual(d.m, makePeak('DSG_LA').laM);
+  // a symmetric shape exports no shape params, even with stale fields present
+  const g = _shapeExportCols({ ...makePeak('Gaussian'), glMix: 99, dsAlpha: 9 });
+  assert.deepStrictEqual(g, { gl: '', alpha: '', beta: '', m: '' });
+});
+
 // ── 5. round-trip via three shapes still restores the origin ──
 test('multi-hop round-trip DS+G -> LACX -> GL -> DS+G restores active params', () => {
   const peak = makePeak('DSG_LA');
