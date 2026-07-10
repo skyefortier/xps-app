@@ -45,7 +45,7 @@ properties, each with a measured motivation:
 
 | constant | value | grounds |
 |---|---|---|
-| `CWT_PROM_Z_MIN` | 7.0 | H0 battery below: above q95, per-spectrum FP 3.7%; every target regime ≥ 8.5 |
+| `CWT_PROM_Z_MIN` | 7.0 | H0 battery below: above q95 (6.73), measured pool-level FP 4.2%/spectrum; HIGH-COUNT target regimes ≥ 8.5 (a low-count detection can sit as low as ~7.1) |
 | `CWT_FWHM_MIN_EV` / `MAX_EV` | 0.3 / 2.4 | below any practical XPS instrumental width ↔ just above `FWHM_MAX_ORDINARY_EV` (2.0) |
 | `CWT_N_SCALES` | 8 | geometric ladder over that range |
 | `CWT_SIGMA_MIN_PTS` | 2.0 | kernel sampling floor (structural) |

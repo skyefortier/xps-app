@@ -2273,10 +2273,21 @@ ds8/Scan_1 (no strong shoulder) shows F2 proposing normally at 278.4/281.7
 where the preseed window-block does not apply — the audit's mechanism,
 not a general F2 failure.
 
-Re-check ×2: IN FLIGHT this session (prompt
-`docs/autofit/codex/candpool_recheck_prompt.txt`); verdicts to be archived
-as `candpool_recheck_verdict_run{A,B}.md` and this line updated with the
-outcome.
+**Re-check ×2 (verdicts `candpool_recheck_verdict_run{A,B}.md`): NO-GO ×2
+on ONE shared residual** — the calibration doc's Frozen-tunables TABLE row
+for `CWT_PROM_Z_MIN` still carried the stale `3.7%` and the unscoped
+"every target regime ≥ 8.5" (run B additionally measured a low-count
+detection at prom_z 7.13, so "≥ 8.5" must be high-count-scoped there
+too).  Everything else verified closed by BOTH runs, each independently
+RECOMPUTING the H0 stats from the committed JSONL (q95 6.72984, FP@7.0
+25/600 = 4.1667%, exact agreement with the quoted 6.73/4.2%), verifying
+the crc32 seeding, the 4-decimal rounding, the envelope scoping in all
+three places against specific JSONL rows, the fraction-gate pin's
+discrimination (incl. an independent inline recomputation of the
+synthetic fraction, 0.16 < 0.25), and that commit 712fa9b touches no
+manual-fit or engine-fit files.  Residual FIXED same-session (table row
+now: q95 6.73 / FP 4.2% / high-count-scoped ≥ 8.5 with the ~7.1
+low-count floor noted).  Re-check round 2: below.
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks

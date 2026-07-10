@@ -1,0 +1,26 @@
+Re-check ROUND 2 — candidate-pool unit, single residual (2026-07-10).
+
+Round 1 (candpool_recheck_verdict_run{A,B}.md, both NO-GO) verified every
+disposition closed EXCEPT one shared residual: the Frozen-tunables TABLE
+row for CWT_PROM_Z_MIN in docs/autofit/cwt-detector-calibration.md still
+said "per-spectrum FP 3.7%" and "every target regime >= 8.5" without the
+high-count scope (run B also measured a low-count detection at prom_z
+7.1327 in the JSONL, so an unscoped ">= 8.5" is false).
+
+THE FIX (verify, then verdict "VERDICT: GO" or "VERDICT: NO-GO" + numbered
+findings): the table row now reads "H0 battery below: above q95 (6.73),
+measured pool-level FP 4.2%/spectrum; HIGH-COUNT target regimes >= 8.5 (a
+low-count detection can sit as low as ~7.1)".
+
+Checks:
+1. No stale "3.7" remains anywhere in docs/autofit/cwt-detector-calibration.md,
+   docs/autofit/PROGRESS.md's candidate-generation sections, or
+   autofit/candidates.py.
+2. Every ">= 8.5" claim in those files is scoped to high-count target
+   regimes.
+3. The "~7.1" low-count floor is consistent with the committed JSONL
+   (sh:2000:1.3:0.15:4 -> prom_z 7.1327).
+4. The fix commit touches ONLY the doc row + PROGRESS re-check record +
+   archived verdicts + this prompt (no code, no evidence JSONL changes).
+
+Constraints: read-only sandbox; cite file:line.
