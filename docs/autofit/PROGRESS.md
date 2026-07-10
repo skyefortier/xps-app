@@ -31,6 +31,7 @@ path untouched.
 | Sparse/MAP method (stretch #4) | DONE (synthetic-validated) | ✅ 9 tests | `methods/sparse_map.py`: L1 Gaussian-atom dictionary on grammar slot windows (data-grid centers × log FWHM ladder), non-negative coordinate descent, geometric λ path, debiased NNLS refit, BIC (engine convention) model-size selection; cluster merge scaled to the resolved feature's width. Honesty: `uncertainty_kind='unavailable_post_selection'` (no fabricated σ), asymmetric slots flagged not-expressible, UNVERIFIED tunables in payload, limitations stated (decision-matrix entry 4: STAM:Methods 2024 DOI 10.1080/27660400.2024.2373046 + Tibshirani 1996). Synthetic ground truth: exact peak-count recovery, centers ≤0.15 eV, debiased amplitudes ≤15%, deterministic (no RNG). NOT validated on real anchors (its regime is few-separated-peaks; the real regions are overlap-heavy — documented). Codex checkpoint pending. |
 | Tougaard background bug-fix (C constant + BE-order + amplitude anchor) | DONE | ✅ 5 py + 4 js tests | `fitting.py::tougaard_background` + JS twin `tougaardBackground`: C was shipped SQUARED (1643² ≈ 2.7e6 eV², kernel max ~949 eV → flat/zero bg on real windows) → corrected to 1643 eV² (Tougaard 1988, SIA 11, 453); one-sided sum made order-robust (descending normalization, shirley-mirror); degenerate trailing rescale (K(0)=0 ⇒ scale ≡ raw trailing counts) replaced by the high-BE-edge anchor. Cross-language parity pinned at 1e-9. Codex checkpoint ×2: NO-GO ×2 (same MAJOR: frontend callers bypassed endpoint averaging → anchor mismatch; + 1 MINOR comment honesty) → all fixed same-session + caller-level pin; re-check ×2 **GO ×2** — unit review-complete. |
 | Phase D coverage framework (Z=1..96 structure + cited-source loader + structural fallback) | **DONE — ALL 3 UNITS CODEX-CLEARED** | ✅ 13+18+14 tests | `autofit/coverage.py` (derivable structure; anti-confabulation guard hardened through 3 review rounds) + `autofit/cited_values.py` (citation-required loader, user_cited tier; placeholder gate class-fixed to alphanumeric collapse, final GO ×2 with explicit proportionality ruling) + `resolve(allow_structural_fallback=…)` + `/api/analyze` structure-report degradation (argued DB-exposure disposition UPHELD GO ×2). NO empirical value emitted anywhere; positions all UNVERIFIED/None pending cited sources. Full suite 486 + 3 known skips. See the Phase D section. |
+| Candidate-generation layer + CWT ridge detector (2026-07-10) | DONE — detection + integration + no-hallucination bars PASSED | ✅ 29 new tests + real gate | `autofit/candidates.py`: overcomplete provenance-tagged pool (local_max / curvature_shoulder / residual_gap / grammar), Ricker-CWT prominence-z detector (synthetic-calibrated, committed generator `scripts/calibrate_cwt_detector.py`), curvature seeds `preseed_curvature_N`. Audit measured BOTH loss classes first (blunt 1.0 eV duplicate suppression on resolved pairs; local-max blindness to shoulders). Held-out: ds7/Scan_1 279.32 + ds8 shoulders seeded, 7 negative scans zero extra seeds. Codex pending (below). |
 | Element-physics DB | **BROAD COVERAGE DONE** | ✅ 17+5 tests | Full-periodic-table NIST-archive sweep (committed pipeline `scripts/acquire_nist_archive.py`, resumable manifest): all 103 elements probed; **52 with usable archived SRD-20 snapshots + starred values, 51 honest failures** (no snapshot / no NIST-evaluated line — incl. the whole aspx-only + actinide tail; see format finding). Machine tier now **78 transitions / 51 elements** (was 45/37): +33 new (lanthanide 4d family, heavy-metal 4d5/2, 3d/3p secondaries, new elements Rh + Pr + Mg), every one an archived starred value, sha256-pinned, **33/33 independently agent-cross-checked (own parser, exact agreement)**; subshell-level guards prevent any curated/tiers overlap (27+10 guard skips logged); 337-entry skip audit. `fit-physics.json` regenerated: **98 transitions** (14 sourced spin-orbit, statistical 2j+1 ratios caveated). Byte-identical regeneration test GREEN (the old baseline failure is FIXED — artifacts restored sha256-verified from committed provenance). Still NOT wired into the engine (regions keep their own cited constants; deliberate). Per-value review table: `docs/autofit/fit-physics-coverage-report.md`. |
 
 ## Codex checkpoint verdicts
@@ -2101,6 +2102,133 @@ save-load untouched), and no other non-shape-gated accumulated-param consumer
 exists.  Restarted the dev gunicorn (:5151, gthread) so the fixed template is
 served (Jinja caches the compiled template per worker — a template edit needs
 a restart).  **SHAPE-SWITCH FIX REVIEW-COMPLETE.**
+
+## Candidate-generation fix — AUDIT (2026-07-10, logged BEFORE the fix)
+
+**Goal statement:** on a real C 1s spectrum the obvious shoulder at
+~279.3 eV never entered the candidate pool, so no selection method could
+recover it.  Audit ran the PRE-FIX pipeline (production-parity IC,
+n_refits=4, seed 0) on all 12 real C 1s scans (both untracked datasets;
+evidence local-only: scratchpad `audit_pipeline_results.jsonl` +
+`audit_geometry.py`) and measured the loss chains rather than presupposing
+them.  TWO distinct classes, neither of them threshold noise:
+
+1. **Class A — resolved close pair discarded by blunt duplicate
+   suppression (ds7/Scan_1; same physics charge-shifted on Scan_5).**
+   Measured geometry: TWO smoothed local maxima at 278.42 (amp 22.6k) and
+   **279.32** (amp 20.0k, fraction-of-max 0.88, SNR 137) — the second
+   PASSES both F1 gates and is then discarded ONLY by
+   `PRESEED_MIN_SEPARATION_BE = 1.0` (separation 0.90 eV).  The single
+   seeded slot then fits a COMPROMISE center 278.88 (straddling both
+   humps), and the F2 residual pass is structurally blocked from rescuing
+   279.3: the preseed slot's own ±0.75 window + separation margin makes
+   the whole 279.x neighborhood proposal-ineligible
+   (`_in_canonical_window`).  Pipeline-confirmed: zero proposal attempts
+   anywhere near 279.3 on Scan_1/Scan_5 across every candidate; emitted
+   models carry nothing between the compromise center and ~280.9.
+2. **Class B — no-local-max shoulder invisible to a local-max detector
+   (ds8/Scan, Scan_0, Scan_2).**  Measured: a genuine low-BE shoulder at
+   ~278.6–278.7 (strong curvature signature; NO local maximum in the
+   smoothed signal) on the 279.7 dominant's flank.  F1 is a local-maximum
+   detector — blind to this class by construction; F2 is blocked exactly
+   as in class A (the shoulder sits inside the dominant preseed's
+   window+margin).  Pipeline-confirmed: ZERO proposal attempts at all on
+   ds8/Scan and Scan_0; winners conditional with the shoulder absorbed.
+
+Root cause, stated once: **the detection layer only proposed smoothed
+LOCAL MAXIMA, with a fixed 1.0 eV duplicate radius** — shoulder-class
+features and resolved sub-1-eV pairs could not enter the pool at any
+stage, and the post-fit residual channel is window-blocked precisely
+where a seeded dominant already stands.  (The goal's "~279.3" is
+literally 279.32 on ds7/Scan_1; on ds8 the same class sits at ~278.6.)
+
+## Candidate-generation fix — IMPLEMENTED + HELD-OUT-CONFIRMED (2026-07-10)
+
+**Reframe delivered:** an OVERCOMPLETE, provenance-tagged candidate pool
+(`autofit/candidates.py`) merging local-max, CWT-ridge, residual-gap, and
+grammar sources; the EXISTING selection machinery (absent-slot,
+persistence, BIC*, plausibility) prunes it.  Detection proposes;
+selection judges.  `/api/fit` and the manual path untouched; the reviewed
+F1 dominant channel (`detect_out_of_grammar_dominants`) is byte-unchanged
+— the new curvature channel supplies exactly the seeds the local-max view
+structurally cannot (both audit classes through ONE mechanism).
+
+- **ONE new detector (goal step 3, CWT preferred — scipy 1.17 present):**
+  Ricker-CWT ridge detection (`cwt_ridge_features`) on RAW counts, ridge
+  linking largest-scale-down with 1-row gap, per-scale edge margins, and a
+  **prominence-z** gate: coefficient local-max prominence over the
+  Poisson-propagated σ = sqrt(w²∗y).  Zero-mean kernel cancels
+  constant+linear backgrounds exactly; prominence cancels the main peak's
+  d²-tail offset (the reason absolute-coefficient gating measured 0/5 on
+  the shoulder class while prominence measures 5/5).  Raw derivatives
+  never used.  scale ladder eV-anchored 0.3–2.4 eV FWHM (instrumental
+  floor ↔ just above `FWHM_MAX_ORDINARY_EV`).
+- **Calibration (anti-overfit rail):** every tunable frozen from SYNTHETIC
+  batteries only — committed generator `scripts/calibrate_cwt_detector.py`
+  → `docs/autofit/inventory/cwt_calibration.jsonl`, summary
+  `docs/autofit/cwt-detector-calibration.md`.  `CWT_PROM_Z_MIN = 7.0`:
+  H0 battery (600 peakless spectra) per-spectrum-max q95 6.70, measured
+  pool-level FP 3.7%/spectrum; guaranteed envelope sep ≥ 0.9×FWHM at
+  ratio ≥ 0.3 (high counts) / ≥ 1.1×FWHM at ratio ≥ 0.15, all ≥ 8.5
+  prom_z.  Seeding-level FPs pinned at ZERO on flat/drift/broad/step
+  negatives (the seed must pass prom_z AND out-of-grammar AND the reviewed
+  F1 gates 5×SNR + 0.25 fraction + cap 2 + 0.5 eV coincidence dedup).
+- **Pool + wiring:** `build_candidate_pool` (features with provenance,
+  per-feature gate outcomes incl. `preseed_cap`/`suppressed_upstream`,
+  grammar reference entries, residual-gap post-fit merge) →
+  `analysis.candidate_pool`; curvature seeds become
+  `preseed_curvature_N` PreseedSpecs (region-`unassigned`,
+  absent-eligible, same honesty contract as F1's `preseed_dominant_N`);
+  `preseeded_features` entries now carry `provenance` (+`prom_z`).
+  `enable_preseed=False` disables the whole layer (pool = null).
+- **DETECTION BAR (the fix's acceptance): PASSED on first held-out
+  evaluation** — committed gate
+  `tests/autofit/test_candidate_pool_real_gate.py` (loud-skips without the
+  local data): ds7/Scan_1 seeded at **279.32** (prom_z 42), ds7/Scan_5 at
+  280.82 (42), ds8/Scan 278.62 (27), ds8/Scan_0 278.72 (26), ds8/Scan_2
+  278.62 (55) — margins 3.7–7.9× the gate; two-sided: the 7 scans without
+  the class feature gained ZERO curvature seeds.
+- **NO-HALLUCINATION:** pool may hold false candidates by design (visible,
+  gate-failed); negative controls gain no seeded/emitted spurious peaks —
+  pinned at detector, pool, and end-to-end (peakless-step) levels.
+- **Tests:** `test_cwt_detector.py` (11: shoulder-no-local-max on both
+  grid steps, close doublets, negatives, descending-grid, sqrt-counts
+  z-scaling, edge margins), `test_candidate_pool.py` (11: both real-data
+  loss classes as synthetic stand-ins, zero-seeds-on-negatives/covered,
+  coincidence merge, seed cap surfaced, grammar entries, payload
+  json-safety, descending grid, why-not-seeded completeness),
+  `test_candidate_pool_wiring.py` (5: shoulder end-to-end through IC with
+  INTEGRATION assertion, covered-spectrum no-op, residual-gap merge,
+  enable_preseed=False escape, peakless-step no-hallucination e2e), + the
+  real gate.  All existing F1/F2/F3 + stress-honesty pins green
+  unmodified.
+
+- **INTEGRATION BAR: PASSED 2/2** (env-gated `RUN_AUTOFIT_GATE=1`,
+  ~6.5 min) — the full IC pipeline on ds7/Scan_1 and ds8/Scan emits the
+  seeded class feature in its final model (`preseed_curvature_0` present
+  in peaks, region-unassigned, honesty message intact).
+- **Suite-run findings (measured):** the first full-suite run flushed out
+  (a) a REAL short-input crash in the new detector (np.convolve 'same'
+  returns the KERNEL length when the kernel is longer than a short ROI —
+  fixed by skipping oversized scales, pinned by
+  `test_input_shorter_than_largest_kernel_no_crash`), and (b)
+  `test_u4f_parity_gate.py::test_u4f_n1s_cofit` failing at χ²ᵣ 11.688 vs
+  the bare `<=` 11.400 expert threshold.  (b) was dissected to a
+  PRE-EXISTING flake of the known-wobbly co-fit anchor, NOT a regression:
+  with PYTHONHASHSEED pinned (seeds 1–4) old and new code produce
+  IDENTICAL winners and χ²ᵣ to ~4 decimals (7.128x); no data path exists
+  from the new layer into the fits on this anchor — zero seeds fire, all
+  pool features correctly gate-fail `in_grammar_window`.  Under unpinned
+  hash seeds the screen phase's near-ties shuffle across processes, and
+  the bad state additionally requires the deep phase's 25 s wall-clock
+  budget to truncate stability refits (measured: bad runs promote a
+  decisive-override `U1_mains_satpair+N0_pv+bfix` winner at 11.688 and
+  burn ~2× wall on the extra bound-fixed refits; logs show routine "hit
+  its 25s budget after 3/4 refits" on this anchor).  Logged as engine
+  future work: locate the hash-order entry into param construction +
+  wall-clock-free determinism for gates (pin PYTHONHASHSEED / nfev-based
+  budgets).  The gate itself left untouched (loosening it could mask real
+  regressions).
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks

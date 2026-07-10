@@ -1,0 +1,120 @@
+Adversarial review request — candidate-generation layer + CWT ridge detector
+(branch feature-autofit-stage2, unit landed 2026-07-10).
+
+You are reviewing a fix to the autofit engine's PEAK DETECTION (candidate
+generation). Verdict format: end with exactly one line
+  VERDICT: GO
+or
+  VERDICT: NO-GO
+plus a numbered findings list (severity BLOCKER/MAJOR/MINOR each).
+
+CONTEXT (read first):
+- docs/autofit/PROGRESS.md sections "Candidate-generation fix — AUDIT
+  (2026-07-10)" and "Candidate-generation fix — IMPLEMENTED +
+  HELD-OUT-CONFIRMED (2026-07-10)".
+- docs/autofit/cwt-detector-calibration.md (frozen tunables + measured
+  FP rates + sensitivity envelope; evidence JSONL:
+  docs/autofit/inventory/cwt_calibration.jsonl, committed generator
+  scripts/calibrate_cwt_detector.py).
+
+THE PROBLEM FIXED: on real C 1s spectra, an obvious ~279.3 eV feature never
+entered the candidate pool. Audit (logged before the fix) measured two loss
+classes: (A) a second local maximum PASSING all detection gates discarded
+solely by PRESEED_MIN_SEPARATION_BE = 1.0 (separation 0.90 eV), with the F2
+residual pass window-blocked from rescuing it; (B) shoulders with NO local
+maximum, invisible to the local-max detector by construction. The fix adds
+an overcomplete provenance-tagged pool (autofit/candidates.py) whose ONE
+new detector (Ricker-CWT ridge, prominence-z gate) seeds
+`preseed_curvature_N` slots through the same reviewed honesty contract as
+F1's `preseed_dominant_N` (region-unassigned, absent-eligible; selection
+prunes).
+
+FILES TO REVIEW (all committed):
+- autofit/candidates.py            (new: detector + pool + residual merge)
+- autofit/engine.py                (wiring diff only: PreseedSpec provenance
+                                    fields, _preseed_window_margin helper,
+                                    compare_models pool block, candidate_pool
+                                    result field + residual merge; the
+                                    reviewed detect_out_of_grammar_dominants
+                                    is byte-unchanged)
+- autofit/methods/ic_model_comparison.py  (analysis.candidate_pool key;
+                                    winner message prefix preseed_dominant_
+                                    -> preseed_)
+- tests/autofit/test_cwt_detector.py, test_candidate_pool.py,
+  test_candidate_pool_wiring.py, test_candidate_pool_real_gate.py
+- scripts/calibrate_cwt_detector.py + docs/autofit/cwt-detector-calibration.md
+
+INVARIANTS TO VERIFY (the rails):
+1. /api/fit and the manual Run Fit path untouched (grep the diff).
+2. detect_out_of_grammar_dominants behavior unchanged (its pins:
+   tests/autofit/test_preseed_dominants.py — all green unmodified).
+3. enable_preseed=False disables the WHOLE layer (candidate_pool null).
+4. Real raw_be grids DESCEND — check every array path normalizes order
+   (detector, pool, both pinned).
+5. The real ds7/ds8 spectra are UNTRACKED and never committed; the real
+   gate file contains only numeric positions (same policy as PROGRESS.md's
+   existing recorded positions) and LOUD-skips when data is absent.
+6. Anti-overfit: every detector tunable frozen from synthetic batteries
+   (committed generator) BEFORE the held-out real evaluation; nothing in
+   the code encodes real-spectrum energies (grep for 279/278/280 in
+   autofit/ should hit nothing outside comments/docs… verify).
+
+SPECIFIC ADVERSARIAL TARGETS (check the math and the honesty):
+a. Prominence-z statistic: C = w*y (Ricker, exact zero-mean on the finite
+   grid), V = w^2 * max(y,1); gate = peak_prominence(C_row)/sqrt(V) >= 7.0.
+   Is sqrt(V) the right normalizer for a PROMINENCE (difference of two
+   correlated C values)? The calibration treats the threshold empirically
+   (600-spectrum H0 battery, per-spectrum-max q95 = 6.70, measured FP
+   3.7%/spectrum at 7.0) — is the empirical calibration sound, and is the
+   claimed detection envelope (docs) supported by the JSONL?
+b. Ridge linking: largest-scale-down, per-row claim by nearest within
+   max(2, round(scale)) pts, gap tolerance 1, new ridges may start at any
+   row. Degenerate cases: two ridges claiming one maximum, ridge crossing,
+   center read at smallest scale — any way a real shoulder is systematically
+   dropped or double-counted?
+c. Edge handling: margins = kernel radius + 2 per scale; short-input guard
+   skips scales whose kernel exceeds the signal (pinned). Any remaining
+   crash path (n between 16 and the smallest kernel, all scales skipped,
+   descending short input)?
+d. Seeding gates (build_candidate_pool): OOG margin convention identical to
+   the dominant channel's; 5x SNR + 0.25 fraction-of-max reuse; 0.5 eV
+   coincidence dedup; PRESEED_MAX cap shared with dominant seeds; every
+   unseeded feature carries gate_fails (pinned). Can a curvature seed ever
+   bypass a gate the dominant channel would have applied? Can the cap
+   silently drop the WRONG feature (it keeps strongest-by-amplitude)?
+e. No-hallucination: pool-level FPs are tolerated BY DESIGN (overcomplete);
+   seeding-level FPs pinned zero on flat/drift/broad/step negatives;
+   end-to-end peakless-step pin. Is the layering argument sound — can a
+   pool-only FP still reach the emitted peaks through any path other than
+   seeding (e.g. the residual merge)?
+f. compare_models wiring: pool built BEFORE sweep_start (excluded from the
+   sweep budget); merge_residual_attempts runs post-sweep on the payload.
+   Worst-case wall arithmetic: does the layer add anything to the
+   gunicorn-timeout-relevant path beyond ~ms? Any exception path in pool
+   building that could 500 /api/analyze (it is NOT wrapped in try/except)?
+g. Payload honesty: analysis.candidate_pool tunables marked UNVERIFIED;
+   preseeded_features provenance/prom_z fields additive; save/load
+   round-trip unaffected (analysis is a regenerable namespace).
+h. The u4f co-fit suite finding (PROGRESS "Suite-run findings"): verify the
+   pre-existing-flake dissection is sound — pinned-PYTHONHASHSEED
+   equivalence (old==new, seeds 1-4, chir 7.128x), no data path from the
+   layer into the fits when zero seeds fire, bad state requires wall-clock
+   budget truncation. Is the claim "not a regression" adequately evidenced,
+   or does the new layer plausibly contribute (e.g. import-order, timing
+   inside budgeted regions)?
+i. Test discrimination: would the pins catch (i) a detector that only finds
+   local maxima (shoulder test asserts NO local max exists — verify), (ii)
+   a seeding path that ignores the fraction gate, (iii) a payload that drops
+   gate_fails, (iv) regression of the short-input guard?
+
+MEASURED CLAIMS TO VERIFY AGAINST ARTIFACTS:
+- docs/autofit/inventory/cwt_calibration.jsonl: H0 q95=6.70, FP@7=3.7%,
+  envelope numbers in the doc's tables, broad-peak spurious = 0/20.
+- Held-out results quoted in the doc and PROGRESS (ds7/Scan_1 279.32
+  prom_z 42, ds8 shoulders 26-55): these come from LOCAL untracked data —
+  you cannot re-run them; verify instead that the committed real-gate test
+  would fail loudly if they regressed, and that nothing in the committed
+  code could only work for those numbers.
+
+Constraints on your environment: read-only sandbox; you cannot run pytest.
+Review by reading code + artifacts. Cite file:line for every finding.
