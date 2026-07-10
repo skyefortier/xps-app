@@ -60,12 +60,18 @@ Seeding gates reuse the reviewed F1 constants unchanged
 
 flat / linear-drift / sigmoid-step backgrounds × counts 100–50 000 ×
 grid steps 0.05/0.1 eV, 25 seeds each.  Per-spectrum **max** prom_z:
-q95 = 6.70, q99 = 8.70, max = 11.59.
+q95 = 6.73, q99 = 8.32, max = 9.57.
+
+Reproducibility: row seeds are `crc32(row_key)` (Python's builtin `hash`
+is process-salted — Codex review, run B MAJOR) and emitted floats are
+rounded to 4 decimals (cross-process numpy SIMD dispatch wobbles the last
+ulp — the known LACX-battery effect); regeneration from scratch was
+verified **byte-identical** twice on 2026-07-10.
 
 | z_min | per-spectrum FP rate (pool level) |
 |---|---|
-| 6.5 | 6.3 % |
-| **7.0 (frozen)** | **3.7 %** |
+| 6.5 | 6.5 % |
+| **7.0 (frozen)** | **4.2 %** |
 | 7.5 | 2.7 % |
 | 8.0 | 1.7 % |
 
@@ -94,12 +100,15 @@ height 40 000 (counts at main):
 height 2 000: the envelope shifts one step right/up (e.g. 0.9/0.30 → 1/5,
 1.1/0.30 → 5/5) — counting statistics, as designed.
 
-Guaranteed-detection envelope claimed by the layer: **sep ≥ 0.9×FWHM at
-ratio ≥ 0.3 (high counts), sep ≥ 1.1×FWHM at ratio ≥ 0.15**.  Below it,
-features are honestly at/under the counting-statistics detectability
-boundary and remain residual-proposal territory.  Close doublets: both
-members detected 5/5 at ≥ 0.9×FWHM separation (3/5 at 0.7).  Broad-peak
-splitting: 0 spurious off-center features across 20 draws.
+Guaranteed-detection envelope claimed by the layer — **HIGH COUNTS
+(~40k-count mains) only**: sep ≥ 0.9×FWHM at ratio ≥ 0.3, and sep ≥
+1.1×FWHM at ratio ≥ 0.15.  At low counts (~2k mains) the envelope shifts
+one step coarser (measured: 1.1/0.15 → 0/5, 1.1/0.30 → 5/5, 1.3/0.15 →
+5/5) — counting statistics, as designed.  Below the envelope, features
+are honestly at/under the detectability boundary and remain
+residual-proposal territory.  Close doublets: both members detected 5/5
+at ≥ 0.9×FWHM separation (3/5 at 0.7).  Broad-peak splitting: 0 spurious
+off-center features across 20 draws.
 
 ## Held-out confirmation (real data; never tuned against)
 

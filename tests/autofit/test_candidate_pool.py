@@ -203,6 +203,31 @@ def test_pool_seed_cap_respected_and_surfaced():
     assert third and "preseed_cap" in third[0].gate_fails
 
 
+def test_pool_subfraction_curvature_candidate_not_seeded():
+    """Codex review (run A finding 3): a curvature-channel candidate BELOW
+    the 0.25 fraction-of-max dominance gate must NOT be seeded even with a
+    strong prominence-z — it stays in the pool with the explicit
+    'below_fraction_of_max' failure (that regime is residual-proposal
+    territory, exactly like the dominant channel's weak-bump rule)."""
+    x = np.arange(182.0, 205.0, 0.05)
+    sig = (_pv(x, 40000.0, 191.0, 1.2, ETA)            # dominant (seeded)
+           + _pv(x, 6000.0, 186.0, 1.2, ETA)           # 15% OOG feature —
+           + _pv(x, 9000.0, 196.5, 1.2, ETA))          # strong z, sub-gate
+    y = _noisy(sig, 300.0, seed=53)
+    pool = build_candidate_pool(
+        x, y, np.zeros_like(x), all_windows=[(195.5, 197.5)],
+        labeled_windows={}, dominant_seeds=[_dominant_seed(191.0)], **GATES)
+    weak = _find(pool, 186.0, tol=0.3)
+    assert weak, "the sub-gate feature must still be IN the pool (overcomplete)"
+    ft = weak[0]
+    assert "curvature_shoulder" in ft.provenance
+    assert ft.prom_z is not None and ft.prom_z >= 7.0     # detected strongly
+    assert ft.fraction_of_max is not None and ft.fraction_of_max < 0.25
+    assert ft.seeded_role is None
+    assert "below_fraction_of_max" in ft.gate_fails
+    assert pool.curvature_seeds == []
+
+
 def test_pool_grammar_entries_present():
     x = np.arange(190.0, 205.0, 0.05)
     y = _noisy(_pv(x, 9000.0, 196.5, 1.2, ETA), 300.0, seed=19)

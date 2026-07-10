@@ -1,0 +1,53 @@
+Re-check request — candidate-generation layer Codex findings (2026-07-10).
+
+The review round (prompt candidate_pool_review_prompt.txt; verdicts
+candpool_review_verdict_runA.md GO / runB.md NO-GO, stricter governs)
+produced three findings, all dispositioned same-session.  Verify EACH
+disposition line-by-line against the committed state.  Verdict format:
+end with exactly one line "VERDICT: GO" or "VERDICT: NO-GO" plus numbered
+findings (severity BLOCKER/MAJOR/MINOR).
+
+DISPOSITION 1 (run B MAJOR / run A MINOR — generator reproducibility).
+Claim: scripts/calibrate_cwt_detector.py no longer uses Python's salted
+hash(); H0 row seeds are now zlib.crc32(row_key) and emitted floats
+(max_prom_z, prom_z) are rounded to 4 decimals because cross-process
+numpy SIMD dispatch wobbles the last ulp (the repo's known LACX-battery
+effect).  The evidence JSONL (docs/autofit/inventory/cwt_calibration.jsonl)
+was REGENERATED from scratch under the fixed generator, and regeneration
+was verified byte-identical across two independent from-scratch runs.
+Check: (a) no remaining salted-hash seeding anywhere in the script;
+(b) the committed JSONL's H0 stats match the numbers now quoted
+everywhere (q95 6.73, q99 8.32, max 9.57, FP@7.0 = 4.17% -> quoted 4.2%;
+FP@6.5 6.5%, FP@7.5 2.67%, FP@8.0 1.67%) — recompute them from the JSONL
+yourself; (c) the doc (docs/autofit/cwt-detector-calibration.md), the
+CWT_PROM_Z_MIN comment (autofit/candidates.py), and PROGRESS.md all quote
+the REGENERATED numbers (no stale 6.70/8.70/11.59/3.7% anywhere);
+(d) rounding to 4 decimals does not blunt any calibration conclusion
+(gate margins are O(1)).
+
+DISPOSITION 2 (run A MINOR — envelope prose overbroad).  Claim: the
+"guaranteed detection envelope" language is now scoped to HIGH counts
+(~40k mains) in all three places (PROGRESS.md, the calibration doc's
+envelope paragraph, the CWT_PROM_Z_MIN comment), with the low-count
+(~2k) one-step-coarser shift stated and consistent with the JSONL
+(e.g. sh:2000:1.1:0.15:* -> 0/5 detected; sh:2000:1.1:0.3:* -> 5/5;
+sh:2000:1.3:0.15:* -> 5/5).  Verify the JSONL rows support exactly the
+claims made.
+
+DISPOSITION 3 (run A MINOR — fraction-gate test gap).  Claim: new pin
+tests/autofit/test_candidate_pool.py::
+test_pool_subfraction_curvature_candidate_not_seeded builds an
+out-of-grammar curvature candidate at 15% of max with prom_z >= 7 and
+asserts: present in the pool, provenance curvature_shoulder, prom_z >= 7,
+fraction < 0.25, seeded_role None, explicit 'below_fraction_of_max' in
+gate_fails, and zero curvature seeds.  Verify the pin discriminates the
+exact gap (a seeding path that ignored the fraction gate would fail it)
+and that the synthetic geometry genuinely produces a sub-0.25 fraction
+(6000/40000 with tail contributions).
+
+Also confirm nothing else changed in this fix commit beyond the three
+dispositions + the PROGRESS/audit-addendum documentation (git show the
+fix commit; the manual-fit path and the engine fit code must be
+untouched by it).
+
+Constraints: read-only sandbox; you cannot run pytest.  Cite file:line.

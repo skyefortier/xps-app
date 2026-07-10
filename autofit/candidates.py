@@ -55,14 +55,16 @@ from scipy.signal import find_peaks, peak_prominences
 
 # Prominence-z gate.  H0 battery (600 negative spectra: flat / linear-drift /
 # sigmoid-step backgrounds x counts 100..50000 x steps 0.05/0.1, committed
-# generator scripts/calibrate_cwt_detector.py): per-spectrum MAX prom_z
-# q95 = 6.70, q99 = 8.70; measured POOL-level FP rate at 7.0 = 3.7% of
-# spectra (tolerated by design — the pool is overcomplete; SEEDING-level
-# FPs are separately pinned at zero under the compound gates).  Sensitivity
-# battery: the target shoulder regimes (sep >= 0.9xFWHM at ratio >= 0.3
-# high-counts; sep >= 1.1 at ratio >= 0.15) measure prom_z >= 8.5.
-# 7.0 sits above H0 q95 with >= 1.5 margin below the weakest target
-# regime.  UNVERIFIED tunable.
+# generator scripts/calibrate_cwt_detector.py, byte-identical regeneration):
+# per-spectrum MAX prom_z q95 = 6.73, q99 = 8.32; measured POOL-level FP
+# rate at 7.0 = 4.2% of spectra (tolerated by design — the pool is
+# overcomplete; SEEDING-level FPs are separately pinned at zero under the
+# compound gates).  Sensitivity battery: the HIGH-COUNT target shoulder
+# regimes (sep >= 0.9xFWHM at ratio >= 0.3; sep >= 1.1 at ratio >= 0.15 —
+# both at ~40k-count mains) measure prom_z >= 8.5 and detect 5/5; at low
+# counts (~2k) the envelope shifts one step coarser (counting statistics).
+# 7.0 sits above H0 q95 with >= 1.5 margin below the weakest high-count
+# target regime.  UNVERIFIED tunable.
 CWT_PROM_Z_MIN = 7.0
 
 # Scale ladder, eV-anchored (grid-step independent): FWHM 0.3 eV (below any

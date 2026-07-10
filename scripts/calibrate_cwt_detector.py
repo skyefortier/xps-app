@@ -28,8 +28,8 @@ Output: JSONL rows to docs/autofit/inventory/cwt_calibration.jsonl
 from __future__ import annotations
 
 import json
-import os
 import sys
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -85,14 +85,21 @@ def h0_battery(done: set) -> None:
                     else:
                         base = level * (1.0 + 3.0 / (1.0 + np.exp(
                             -(np.arange(npts) - npts * 0.7) / (npts * 0.08))))
-                    rng = np.random.default_rng(
-                        abs(hash((step, level, bg_kind, seed))) % 2**32)
+                    # STABLE seed derivation — Python's builtin hash() is
+                    # salted per process (PYTHONHASHSEED), which would make
+                    # the committed generator non-reproducible (Codex
+                    # review, run B MAJOR); crc32 of the row key is exact.
+                    rng = np.random.default_rng(zlib.crc32(key.encode()))
                     y = rng.poisson(base).astype(float)
                     feats = cwt_ridge_features(x, y, prom_z_min=0.0)
                     _emit({"key": key, "section": "h0", "step": step,
                            "level": level, "bg": bg_kind, "seed": seed,
-                           "max_prom_z": max((f.prom_z for f in feats),
-                                             default=0.0),
+                           # rounded: cross-process numpy SIMD dispatch
+                           # wobbles the last ulp (the known LACX-battery
+                           # effect) — 4 decimals keeps regeneration
+                           # byte-identical without losing evidence
+                           "max_prom_z": round(max((f.prom_z for f in feats),
+                                                   default=0.0), 4),
                            "n_ge_gate": sum(1 for f in feats
                                             if f.prom_z >= CWT_PROM_Z_MIN)})
 
@@ -124,7 +131,7 @@ def shoulder_map(done: set) -> None:
                            "ratio": ratio, "seed": seed,
                            "composite_has_local_max": has_max,
                            "detected": bool(hit),
-                           "prom_z": (max(f2.prom_z for f2 in hit)
+                           "prom_z": (round(max(f2.prom_z for f2 in hit), 4)
                                       if hit else None)})
 
 

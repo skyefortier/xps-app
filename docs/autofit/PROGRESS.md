@@ -2167,10 +2167,12 @@ structurally cannot (both audit classes through ONE mechanism).
   batteries only — committed generator `scripts/calibrate_cwt_detector.py`
   → `docs/autofit/inventory/cwt_calibration.jsonl`, summary
   `docs/autofit/cwt-detector-calibration.md`.  `CWT_PROM_Z_MIN = 7.0`:
-  H0 battery (600 peakless spectra) per-spectrum-max q95 6.70, measured
-  pool-level FP 3.7%/spectrum; guaranteed envelope sep ≥ 0.9×FWHM at
-  ratio ≥ 0.3 (high counts) / ≥ 1.1×FWHM at ratio ≥ 0.15, all ≥ 8.5
-  prom_z.  Seeding-level FPs pinned at ZERO on flat/drift/broad/step
+  H0 battery (600 peakless spectra) per-spectrum-max q95 6.73, measured
+  pool-level FP 4.2%/spectrum; guaranteed envelope AT HIGH COUNTS
+  (~40k-count mains): sep ≥ 0.9×FWHM at ratio ≥ 0.3 / ≥ 1.1×FWHM at
+  ratio ≥ 0.15, all ≥ 8.5 prom_z (at ~2k counts the envelope shifts one
+  step coarser — counting statistics; Codex run A finding 2).
+  Seeding-level FPs pinned at ZERO on flat/drift/broad/step
   negatives (the seed must pass prom_z AND out-of-grammar AND the reviewed
   F1 gates 5×SNR + 0.25 fraction + cap 2 + 0.5 eV coincidence dedup).
 - **Pool + wiring:** `build_candidate_pool` (features with provenance,
@@ -2229,6 +2231,52 @@ structurally cannot (both audit classes through ONE mechanism).
   wall-clock-free determinism for gates (pin PYTHONHASHSEED / nfev-based
   budgets).  The gate itself left untouched (loosening it could mask real
   regressions).
+
+### Codex review: candidate-generation layer (2026-07-10) — GO + NO-GO, stricter governs → all findings fixed
+
+Both runs (prompt `docs/autofit/codex/candidate_pool_review_prompt.txt`,
+verdicts `candpool_review_verdict_run{A,B}.md`) independently confirmed
+the rails: `/api/fit` + manual path untouched, `enable_preseed=False`
+disables the whole layer, pool built before `sweep_start`, pool-only FPs
+cannot reach fitting, residual merge payload-only, descending grids
+normalized, real data untracked, no hard-coded real-spectrum energies,
+and the committed JSONL supports the headline claims.  Run B additionally
+reviewed the u4f co-fit flake dissection as plausible from the code path.
+Findings (run A: 3 MINOR, GO; run B: same top finding rated MAJOR,
+NO-GO — stricter governs), ALL FIXED same-session:
+
+1. **MAJOR (B) / MINOR (A)** — the calibration generator seeded H0 rows
+   with Python's process-salted `hash(...)` → committed generator not
+   reproducible.  FIXED: `crc32(row_key)` seeds + emitted floats rounded
+   to 4 decimals (cross-process numpy SIMD last-ulp wobble, the known
+   LACX-battery effect, defeated byte-identity at full precision);
+   evidence REGENERATED from scratch and regeneration verified
+   **byte-identical** twice.  Regenerated stats (all quoted numbers
+   updated in code comment + doc + this file): q95 6.73, q99 8.32,
+   max 9.57, FP@7.0 = 4.2%/spectrum; sensitivity maps unchanged (their
+   sections already used fixed integer seeds).
+2. **MINOR (A)** — sensitivity-envelope prose overbroad: the 1.1×FWHM /
+   ratio 0.15 guarantee holds at HIGH counts only (2k-count case measures
+   0/5).  FIXED: envelope scoped to high counts in PROGRESS, the
+   calibration doc, and the `CWT_PROM_Z_MIN` comment.
+3. **MINOR (A)** — no dedicated pin that a strong-prominence curvature
+   candidate BELOW the 0.25 fraction gate is not seeded.  FIXED:
+   `test_pool_subfraction_curvature_candidate_not_seeded` (in pool,
+   prom_z ≥ 7, fraction < 0.25, seeded_role None, explicit
+   `below_fraction_of_max`, zero curvature seeds).
+
+Audit addendum (pipeline rows 11–12, landed after the audit section was
+written): pre-fix ds8/Scan_2 — the STRONGEST shoulder of the set (post-fix
+prom_z 55) — had ZERO proposal attempts and a 3-peak winner with the
+shoulder absorbed (class B confirmed on all three ds8 shoulder scans);
+ds8/Scan_1 (no strong shoulder) shows F2 proposing normally at 278.4/281.7
+where the preseed window-block does not apply — the audit's mechanism,
+not a general F2 failure.
+
+Re-check ×2: IN FLIGHT this session (prompt
+`docs/autofit/codex/candpool_recheck_prompt.txt`); verdicts to be archived
+as `candpool_recheck_verdict_run{A,B}.md` and this line updated with the
+outcome.
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
