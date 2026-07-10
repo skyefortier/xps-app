@@ -41,6 +41,8 @@ from scipy.integrate import trapezoid
 
 from fitting import _SHAPE_FUNCS, linear_background, shirley_background, smart_background
 
+from .candidates import build_candidate_pool, merge_residual_attempts
+
 from .grammar import (
     BACKEND_SHAPE,
     BackgroundType,
@@ -1400,6 +1402,12 @@ class ComparisonResult:
     # screen outcome: {name, converged, bic, selected} — screened-out
     # candidates are visible here and can never be survivors.
     screen: Optional[list[dict]] = None
+    # Candidate-generation layer (autofit.candidates): the OVERCOMPLETE,
+    # provenance-tagged detection pool payload — every feature any source
+    # (local_max / curvature_shoulder / residual_gap / grammar) proposed,
+    # with per-feature gate outcomes and seeding decisions.  None when the
+    # layer did not run (enable_preseed=False or no candidates).
+    candidate_pool: Optional[dict] = None
 
 
 def rank_and_filter(
@@ -1491,15 +1499,20 @@ class PreseedSpec:
     amplitude_net: float          # smoothed background-subtracted height
     fraction_of_max: float        # vs the global smoothed net maximum
     local_snr: float              # amplitude_net / local Poisson σ
+    # detection source: 'local_max' (the F1 dominant channel) or
+    # 'curvature_shoulder' (the CWT ridge channel of autofit.candidates)
+    provenance: str = "local_max"
+    prom_z: Optional[float] = None    # curvature channel's prominence-z
 
     def payload(self) -> dict:
-        return {
+        rec = {
             "role": self.role,
             "center_be": round(float(self.center_init), 3),
             "amplitude_net": round(float(self.amplitude_net), 1),
             "fraction_of_max": round(float(self.fraction_of_max), 3),
             "local_snr": round(float(self.local_snr), 1),
             "fwhm_init": round(float(self.fwhm_init), 2),
+            "provenance": self.provenance,
             "gates": {
                 "min_fraction_of_max": PRESEED_MIN_FRACTION_OF_MAX,
                 "amplitude_snr": PRESEED_AMPLITUDE_SNR,
@@ -1507,6 +1520,9 @@ class PreseedSpec:
                         "region-unassigned; assignment requires human review",
             },
         }
+        if self.prom_z is not None:
+            rec["prom_z"] = round(float(self.prom_z), 2)
+        return rec
 
 
 def _all_grammar_windows(
@@ -1516,6 +1532,15 @@ def _all_grammar_windows(
     wins = [s.be_window for c in candidates for s in c.slots]
     wins += list(canonical_windows.values())
     return wins
+
+
+def _preseed_window_margin(candidates: list[CandidateModel]) -> float:
+    """Mean main-FWHM midpoint across the candidate set × the proposal
+    separation factor — the shared "too close to a grammar window to be a
+    separate feature" convention (used identically by the dominant channel
+    and the pool's curvature channel)."""
+    mids = [_main_slot_fwhm_midpoint(c) for c in candidates] or [1.0]
+    return PROPOSAL_GRAMMAR_SEPARATION_FACTOR * float(np.mean(mids))
 
 
 def detect_out_of_grammar_dominants(
@@ -1552,8 +1577,7 @@ def detect_out_of_grammar_dominants(
     # margin: mean main-FWHM midpoint across the candidate set × the
     # proposal separation factor (the same "too close to a window to be a
     # separate feature" convention)
-    mids = [_main_slot_fwhm_midpoint(c) for c in candidates] or [1.0]
-    margin = PROPOSAL_GRAMMAR_SEPARATION_FACTOR * float(np.mean(mids))
+    margin = _preseed_window_margin(candidates)
     windows = _all_grammar_windows(candidates, canonical_windows)
 
     def in_any_window(be: float) -> bool:
@@ -2235,6 +2259,8 @@ def compare_models(
     diagnostic_windows = dict(grammar.diagnostic_windows)
 
     preseed_specs: list[PreseedSpec] = []
+    pool = None
+    pool_error: Optional[str] = None
     if enable_preseed and candidates:
         # Detection-only background: today every candidate in a resolved
         # grammar shares one background family (C 1s/B 1s/Cl 2p/U 4f modules
@@ -2246,12 +2272,56 @@ def compare_models(
             x, y, det_bg, candidates, diagnostic_windows,
             noise_floor=noise_floor,
         )
+        # Candidate-generation layer (autofit.candidates): overcomplete,
+        # provenance-tagged pool.  The reviewed dominant channel above is
+        # UNCHANGED; the pool's CWT curvature channel adds seeds the
+        # local-max view structurally cannot produce — shoulders with no
+        # local maximum, and resolved close pairs the dominant channel's
+        # duplicate suppression discards (the measured ds7/ds8 loss
+        # classes).  Seeding gates reuse the SAME reviewed constants;
+        # detection proposes, selection judges.
+        # Defense-in-depth: the layer is an ADD-ON — an unexpected failure
+        # inside it degrades to dominant-channel-only seeding with the
+        # error surfaced in the payload, never a dead analysis.
+        try:
+            pool = build_candidate_pool(
+                x, y, det_bg,
+                all_windows=_all_grammar_windows(candidates, diagnostic_windows),
+                labeled_windows=dict(diagnostic_windows),
+                dominant_seeds=[s.payload() for s in preseed_specs],
+                window_margin_ev=_preseed_window_margin(candidates),
+                noise_floor=noise_floor,
+                min_fraction_of_max=PRESEED_MIN_FRACTION_OF_MAX,
+                amplitude_snr=PRESEED_AMPLITUDE_SNR,
+                coincidence_ev=PROPOSAL_COINCIDENCE_BE,
+                max_total_seeds=PRESEED_MAX,
+                smooth_points=PRESEED_SMOOTH_POINTS,
+                fwhm_clip=(PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX),
+                local_window_ev=PROPOSAL_WINDOW_WIDTH,
+            )
+        except Exception as exc:        # noqa: BLE001 — surfaced, not silent
+            log.exception("candidate pool layer failed — degrading to "
+                          "dominant-channel-only seeding")
+            pool = None
+            pool_error = f"{type(exc).__name__}: {exc}"
+        if pool is not None:
+            preseed_specs = preseed_specs + [
+                PreseedSpec(
+                    role=s.role, center_init=s.center_be,
+                    fwhm_init=s.fwhm_init, amplitude_net=s.amplitude_net,
+                    fraction_of_max=s.fraction_of_max, local_snr=s.local_snr,
+                    provenance="curvature_shoulder", prom_z=s.prom_z,
+                )
+                for s in pool.curvature_seeds
+            ]
+        preseed_specs.sort(key=lambda s: s.center_init)
         if preseed_specs:
             log.info(
-                "compare_models: %d out-of-grammar dominant feature(s) "
-                "pre-seeded at %s (region-unassigned; human assignment "
-                "required)", len(preseed_specs),
+                "compare_models: %d out-of-grammar feature(s) pre-seeded "
+                "at %s (%s; region-unassigned; human assignment required)",
+                len(preseed_specs),
                 [round(s.center_init, 2) for s in preseed_specs],
+                [s.provenance for s in preseed_specs],
             )
             candidates = [_preseed_augmented(c, preseed_specs) for c in candidates]
 
@@ -2473,6 +2543,28 @@ def compare_models(
     result.n_candidates_total = n_cand
     result.preseeded_features = [s.payload() for s in preseed_specs]
     result.screen = screen_record
+    if pool is not None:
+        # honesty surface: the full pool payload, with the F2 residual-
+        # proposal attempts merged in as the 'residual_gap' source (dedup
+        # by the same coincidence tolerance the seeds use)
+        pool_payload = pool.payload()
+        merge_residual_attempts(
+            pool_payload,
+            [{"center_be": (pr.fitted_center
+                            if pr.fitted_center is not None
+                            else pr.proposed_center_init),
+              "accepted": bool(pr.accepted)}
+             for _, pr in proposal_attempts],
+            coincidence_ev=PROPOSAL_COINCIDENCE_BE,
+            proposal_pass_ran=enable_proposal_pass,
+        )
+        result.candidate_pool = pool_payload
+    elif pool_error is not None:
+        result.candidate_pool = {
+            "error": pool_error,
+            "note": "candidate-generation layer failed — analysis degraded "
+                    "to dominant-channel-only seeding (see server log)",
+        }
 
     # Result-level honesty flag (stress-suite finding 0 — burial measured
     # at ΔBIC* +74…+944): a FILTERED candidate whose BIC* decisively beats

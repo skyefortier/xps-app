@@ -107,7 +107,7 @@ class ICModelComparisonMethod(PeakFitMethod):
         message = ""
         winner_preseed_roles = sorted(
             slot.role for slot in top.model.slots
-            if slot.role.startswith("preseed_dominant_")
+            if slot.role.startswith("preseed_")
             and slot.role not in absent_roles
         )
         if winner_preseed_roles:
@@ -116,11 +116,11 @@ class ICModelComparisonMethod(PeakFitMethod):
                 for c in top.primary_fit.components if c.slot_role == r
             ]
             message += (
-                f"PRE-SEEDED component(s) at {', '.join(centers)} eV: dominant "
-                "intensity outside every grammar window was seeded from the "
-                "data (region-unassigned) — chemical assignment requires "
-                "human review; positions are data-driven, not literature-"
-                "anchored. "
+                f"PRE-SEEDED component(s) at {', '.join(centers)} eV: "
+                "detected intensity outside every grammar window was seeded "
+                "from the data (region-unassigned) — chemical assignment "
+                "requires human review; positions are data-driven, not "
+                "literature-anchored. "
             )
         if result.conditional:
             if result.conditional_reason == "decisive_override":
@@ -308,6 +308,13 @@ def build_analysis_record(
         # unit F1: out-of-grammar dominants every candidate was pre-seeded
         # with (empty = detection found nothing, candidate set unmodified)
         "preseeded_features": result.preseeded_features,
+        # candidate-generation layer (2026-07-10): the OVERCOMPLETE,
+        # provenance-tagged detection pool — every feature any source
+        # (local_max / curvature_shoulder / residual_gap / grammar)
+        # proposed, with per-feature gate outcomes and seeding decisions.
+        # Features here are candidates the selection layer judged, NOT
+        # confirmed peaks.  None when the layer did not run.
+        "candidate_pool": result.candidate_pool,
         # unit F3: two-phase sweep record — every candidate's screen outcome
         # when the screen ran (None = classic single-phase path).  Screened-
         # out candidates are visible here, never silently dropped.
