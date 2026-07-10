@@ -1,7 +1,9 @@
 # Next Fable task — fix autofit CANDIDATE GENERATION (peak detection)
 
-Saved 2026-07-08 for a future session. **Not run yet.** Paste the command
-below into a Claude Code session on `feature-autofit-stage2` to launch it.
+Saved 2026-07-08 for a future session.  **EXECUTED 2026-07-10 —
+COMPLETE.**  See PROGRESS.md "Candidate-generation fix" sections (audit +
+implementation + Codex trail, REVIEW-COMPLETE; detection/integration/
+no-hallucination bars all passed).  Kept for the record; do not re-run.
 
 ```
 /goal "Continue the XPS autofit engine on the current feature branch. FIRST read docs/autofit/PROGRESS.md. GOAL: fix CANDIDATE GENERATION (peak detection) — the real weakness. On a real C 1s spectrum the obvious shoulder at ~279.3 eV never entered the candidate pool, so no selection method (LS/IC/Bayesian/sparse) could recover it. Run Fit is NOT the problem and must not be constrained. Reframe: generate an OVERCOMPLETE, provenance-tagged candidate pool and let the EXISTING fitting/model-selection layer prune it. Detection proposes generously; selection judges.
