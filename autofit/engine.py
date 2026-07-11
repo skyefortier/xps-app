@@ -237,6 +237,11 @@ CURVATURE_SEED_MIN_FRACTION = 0.02   # trivia floor (was the 0.25 dominance
 SEED_MAX_TOTAL = 6                   # dominant + curvature seeds combined
                                      # (was 2; ds7/Scan_1-class spectra
                                      # carry 5-6 real detected species)
+DETECTION_WIDTH_ABSORB_FRACTION = 0.7  # detection-slot papering-over flag:
+                                       # fitted width ≥ this × the slot's
+                                       # scale-relative ceiling (2.5× the
+                                       # detected width) ⇒ ≥1.75× detected —
+                                       # absorbing a neighbor.  UNVERIFIED.
 GRAMMAR_AUGMENT_MAX_SEEDS = 3        # of those, at most this many augment
                                      # each GRAMMAR family (measured: the
                                      # full set made all 29 screens blow
@@ -694,14 +699,46 @@ def _unphysical_width_flags(
         if rng is None:
             continue
         declared_lo, declared_hi = rng
+        # EFFECTIVE width (Stage-2 PHYSICAL bar): DS+G's width lives in TWO
+        # params — beta (Lorentzian HWHM, eV) and m_gauss (Gaussian FWHM;
+        # what comp.fwhm carries) — so the checks below must see the
+        # convolved width, not the Gaussian part alone (a component could
+        # otherwise be ~3+ eV wide while every width check reads 1.0:
+        # exactly the 'neighbor broadened to hide a missed peak' channel).
+        # Olivero & Longbothum 1977 Voigt-FWHM approximation (0.02%).
+        eff_fwhm = c.fwhm
+        if c.line_shape is LineShape.DS_G:
+            f_l = 2.0 * float(c.shape_params.get("beta", 0.0))
+            eff_fwhm = 0.5346 * f_l + np.sqrt(0.2166 * f_l ** 2 + c.fwhm ** 2)
+            if eff_fwhm >= FWHM_MAX_ORDINARY_EV and \
+                    declared_hi <= FWHM_MAX_ORDINARY_EV:
+                flags.append(
+                    f"{c.slot_role}:effective fwhm={eff_fwhm:.2f}eV≥"
+                    f"{FWHM_MAX_ORDINARY_EV:.1f}eV ordinary cap (DS+G "
+                    f"β={c.shape_params.get('beta', 0.0):.2f} + "
+                    f"m={c.fwhm:.2f}; no known-broad justification)")
+                continue
+        # detection-family slots (scale-relative ceilings, usually > the
+        # ordinary cap): a component at ≥ DETECTION_WIDTH_ABSORB_FRACTION
+        # of its own ceiling (= 1.75× the DETECTED width via the 2.5×
+        # ceiling) is absorbing neighboring intensity — the papering-over
+        # signature in transferable units.
+        if c.slot_role.startswith("detected_peak_"):
+            if eff_fwhm >= DETECTION_WIDTH_ABSORB_FRACTION * declared_hi:
+                flags.append(
+                    f"{c.slot_role}:fwhm={eff_fwhm:.2f}eV≥"
+                    f"{DETECTION_WIDTH_ABSORB_FRACTION:.2f}×ceiling "
+                    f"({declared_hi:.2f}eV) — ~1.75× its detected width; "
+                    "likely absorbing a neighbor")
+            continue
         if declared_hi > FWHM_MAX_ORDINARY_EV:
             continue                       # grammar-sanctioned-broad slot
         # pegging the ordinary ceiling — same 1%-of-range tol as boundary
         # detection, so a component held AT the 2.0 cap is caught
         tol = 0.01 * (declared_hi - declared_lo) if declared_hi > declared_lo else 0.0
-        if c.fwhm >= FWHM_MAX_ORDINARY_EV - tol:
+        if eff_fwhm >= FWHM_MAX_ORDINARY_EV - tol:
             flags.append(
-                f"{c.slot_role}:fwhm={c.fwhm:.2f}eV≥{FWHM_MAX_ORDINARY_EV:.1f}eV "
+                f"{c.slot_role}:fwhm={eff_fwhm:.2f}eV≥{FWHM_MAX_ORDINARY_EV:.1f}eV "
                 "ordinary cap (no known-broad justification)")
     return flags
 

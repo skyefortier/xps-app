@@ -272,3 +272,54 @@ def test_last_resort_never_preferred_over_survivors():
     res = eng.rank_and_filter([clean, unstable])
     assert res.conditional_reason != "unstable_last_resort"
     assert res.survivors[0].model.name == clean.model.name
+
+
+# ── PHYSICAL bar: effective width incl. DS+G (Stage-2) ────────────────────
+
+def test_dsg_effective_width_flagged():
+    """DS+G's width lives in TWO params (beta = Lorentzian HWHM eV,
+    m_gauss = Gaussian FWHM); comp.fwhm carries only m_gauss, so a DS+G
+    component could be effectively ~3.3 eV wide while every width check
+    saw 1.0 (the goal's 'NO neighbor broadened to hide a missed peak,
+    incl. DS+G m').  Effective FWHM via the Olivero–Longbothum Voigt
+    approximation must drive the flag."""
+    from autofit.grammar import (BackgroundType, CandidateModel,
+                                 ComponentSlot, LineShape)
+    from autofit.engine import FittedComponent
+
+    slot = ComponentSlot(role="main_g", region="r", phase_id="p",
+                         be_window=(199.0, 201.0), line_shape=LineShape.DS_G,
+                         fwhm_range=(0.5, 2.0))
+    m = CandidateModel(name="M", background=BackgroundType.LINEAR,
+                       slots=(slot,))
+    fat = FittedComponent(slot_role="main_g", position=200.0, fwhm=1.0,
+                          amplitude=1e3, shape_params={"beta": 1.5},
+                          line_shape=LineShape.DS_G)
+    flags = eng._unphysical_width_flags([fat], m)
+    assert flags and "effective" in flags[0], flags
+    thin = FittedComponent(slot_role="main_g", position=200.0, fwhm=0.8,
+                           amplitude=1e3, shape_params={"beta": 0.2},
+                           line_shape=LineShape.DS_G)
+    assert eng._unphysical_width_flags([thin], m) == []
+
+
+def test_detection_slot_absorbing_width_flagged():
+    """A detection-family component fitted at ≥70% of its scale-relative
+    ceiling (= 1.75× its detected width) is absorbing neighbors — the
+    papering-over signature in transferable units.  Below that: clean."""
+    from autofit.grammar import (BackgroundType, CandidateModel,
+                                 ComponentSlot, LineShape)
+    from autofit.engine import FittedComponent
+
+    slot = ComponentSlot(role="detected_peak_0", region="unassigned",
+                         phase_id="unassigned", be_window=(199.0, 201.0),
+                         line_shape=LineShape.PSEUDO_VOIGT,
+                         fwhm_range=(0.5, 5.0))
+    m = CandidateModel(name="M", background=BackgroundType.LINEAR,
+                       slots=(slot,))
+    def comp(w):
+        return FittedComponent(slot_role="detected_peak_0", position=200.0,
+                               fwhm=w, amplitude=1e3, shape_params={},
+                               line_shape=LineShape.PSEUDO_VOIGT)
+    assert eng._unphysical_width_flags([comp(4.0)], m), "4.0 ≥ 0.7×5.0"
+    assert eng._unphysical_width_flags([comp(3.0)], m) == []
