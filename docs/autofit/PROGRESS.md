@@ -2483,6 +2483,39 @@ hour→interactive performance item stays on the deferred list.
   flags — PASSED.
 - SPEED: documented best-achievable (above).
 
+### Codex review: Stage-2 calibration (2026-07-10) — NO-GO ×2 → all findings fixed
+
+Verdicts `stage2cal_review_verdict_run{A,B}.md` (prompt
+`stage2_calibration_review_prompt.txt`, range 8484679..0713c05).  Both
+runs verified the rails (manual path untouched, F1 detector unchanged,
+DS+G β=HWHM so f_L=2β correct, warm restart bounded+honest, proposal
+eligibility fitted-model-based, spike guard variance-honest, calibration
+JSONL supports q95 6.93 / FP@7 4.83% / broad 1/20, real data untracked).
+Findings, ALL closed same-session:
+
+1. **BLOCKER (both)** — at the review endpoint the last-resort tier was
+   ungated (a converged flat-noise fit could emit success=True).  Fixed
+   PRE-review by the gated-suite catch (a6c9734:
+   `allow_last_resort=bool(preseed_specs)`), which both reviewers noted;
+   the missing "never fires without detection evidence" pin added
+   (`test_last_resort_never_fires_without_detection_evidence`).
+2. **MAJOR (both)** — D0's 8-slot amplitude truncation was silent.
+   Fixed: `build_detection_candidate` returns `(model, dropped)`; the
+   dropped features are named in the log AND the pool payload
+   (`detection_model_overflow`); builder pin added.
+3. **MAJOR (run A)** — asym-GL effective-width hole (high-BE side
+   fwhm×(1+asym) invisible to the ordinary cap).  Fixed: mean effective
+   width fwhm×(1+asym/2) in `_unphysical_width_flags`, pinned.
+4. **MINOR (run A)** — covered-spectrum D0 pin blind to a screened-out/
+   non-converged D0.  Fixed: pin checks candidates ∪ non_converged ∪
+   screen.
+5. **MINOR (run B)** — last-resort-vs-CONDITIONAL-survivor interaction
+   unpinned.  Fixed: `test_last_resort_never_preferred_over_conditional_
+   survivor`.
+
+Re-check ×2: prompt `stage2cal_recheck_prompt.txt`; verdicts to be
+archived as `stage2cal_recheck_verdict_run{A,B}.md`.
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);

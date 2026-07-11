@@ -1,0 +1,41 @@
+Re-check request — Stage-2 calibration Codex findings (2026-07-10).
+
+Review round: stage2cal_review_verdict_run{A,B}.md (both NO-GO).  Verify
+each disposition line-by-line against HEAD.  End with exactly
+"VERDICT: GO" or "VERDICT: NO-GO" + numbered findings with severities.
+
+DISPOSITION 1 (BLOCKER both runs — last-resort gating).  Fixed in
+a6c9734 (pre-review): rank_and_filter(..., allow_last_resort=False
+default); compare_models passes allow_last_resort=bool(preseed_specs).
+NEW pin test_last_resort_never_fires_without_detection_evidence
+(tests/autofit/test_stage2_completeness.py) — verify it discriminates
+(default False → no survivor, no reason) alongside the existing
+emits-when-allowed and never-preferred pins, and that
+test_ic_no_survivor_is_honest (flat-noise, no detections) passes
+unchanged semantics.
+
+DISPOSITION 2 (MAJOR both runs — silent D0 truncation).  Fixed:
+build_detection_candidate returns (model, dropped); dropped features
+carry center/amplitude/reason; engine logs a warning AND surfaces
+pool_payload["detection_model_overflow"] (empty list = no overflow).
+Pin test_detection_model_overflow_is_loud builds 10 resolvable peaks and
+asserts cap-8 slots + named dropped features.  Verify the payload path
+(engine.py result assembly) and that the pin discriminates.
+
+DISPOSITION 3 (MAJOR run A — asym-GL effective width).  Fixed:
+_unphysical_width_flags computes eff = fwhm×(1+asymmetry/2) for ASYM_GL
+(fitting.py: fwhm_right = fwhm×(1+asymmetry); the mean of the two sides)
+and flags ≥ the ordinary cap on ordinary-declared slots.  Pin
+test_asym_gl_effective_width_flagged (fat 1.7×1.25=2.13 flagged; 1.5×1.1
+=1.65 clean).  Verify the convention read of fitting.py and that
+grammar-sanctioned-broad slots stay exempt.
+
+DISPOSITION 4 (MINOR run A — covered-spectrum pin).  Fixed: the pin now
+checks candidates ∪ non_converged ∪ screen for any D0.
+
+DISPOSITION 5 (MINOR run B — conditional-survivor interaction).  Fixed:
+test_last_resort_never_preferred_over_conditional_survivor (conditional
+boundary-limited survivor wins; reason stays no_clean_survivor).
+
+Also confirm the fix commits touch no manual-fit or /api/fit code.
+Constraints: read-only sandbox, no pytest.  Cite file:line.

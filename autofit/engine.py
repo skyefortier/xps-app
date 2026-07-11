@@ -718,6 +718,21 @@ def _unphysical_width_flags(
                     f"β={c.shape_params.get('beta', 0.0):.2f} + "
                     f"m={c.fwhm:.2f}; no known-broad justification)")
                 continue
+        elif c.line_shape is LineShape.ASYM_GL:
+            # asym-GL broadens its high-BE side to fwhm×(1+asymmetry)
+            # (fitting.py convention) — the MEAN effective width
+            # fwhm×(1+asym/2) closes the remaining papering-over channel
+            # (Codex Stage-2 review, run A MAJOR).
+            asym = float(c.shape_params.get("asymmetry", 0.0))
+            eff_fwhm = c.fwhm * (1.0 + 0.5 * asym)
+            if eff_fwhm >= FWHM_MAX_ORDINARY_EV and \
+                    declared_hi <= FWHM_MAX_ORDINARY_EV:
+                flags.append(
+                    f"{c.slot_role}:effective fwhm={eff_fwhm:.2f}eV≥"
+                    f"{FWHM_MAX_ORDINARY_EV:.1f}eV ordinary cap (asym-GL "
+                    f"fwhm={c.fwhm:.2f}×(1+{asym:.2f}/2); no known-broad "
+                    "justification)")
+                continue
         # detection-family slots (scale-relative ceilings, usually > the
         # ordinary cap): a component at ≥ DETECTION_WIDTH_ABSORB_FRACTION
         # of its own ceiling (= 1.75× the DETECTED width via the 2.5×
@@ -2388,6 +2403,7 @@ def compare_models(
     preseed_specs: list[PreseedSpec] = []
     pool = None
     pool_error: Optional[str] = None
+    detection_overflow: list[dict] = []
     if enable_preseed and (candidates or not grammar.candidates):
         # Detection-only background: today every candidate in a resolved
         # grammar shares one background family (C 1s/B 1s/Cl 2p/U 4f modules
@@ -2478,10 +2494,20 @@ def compare_models(
             # the grammar cannot express (preseed_specs non-empty), so
             # grammar-covered spectra keep a byte-identical candidate set.
             if pool is not None:
-                det_model = build_detection_candidate(
+                det_model, det_dropped = build_detection_candidate(
                     pool, det_bg_family,
                     step_ev=float(np.median(np.abs(np.diff(x)))),
                 )
+                detection_overflow = det_dropped
+                if det_dropped:
+                    # LOUD overflow (Codex Stage-2, both runs MAJOR): the
+                    # dropped features stay named in the log and in the
+                    # pool payload (detection_model_overflow key).
+                    log.warning(
+                        "detection family overflow: %d feature(s) beyond "
+                        "the slot cap dropped by amplitude: %s",
+                        len(det_dropped),
+                        [d["center_be"] for d in det_dropped])
                 if det_model is not None:
                     # FIRST in sweep order: the detection family is the
                     # cheapest, best-initialized candidate, and the screen
@@ -2740,6 +2766,9 @@ def compare_models(
             coincidence_ev=PROPOSAL_COINCIDENCE_BE,
             proposal_pass_ran=enable_proposal_pass,
         )
+        # loud detection-family truncation record (Codex Stage-2 MAJOR):
+        # names every feature the slot cap dropped (empty = no overflow)
+        pool_payload["detection_model_overflow"] = detection_overflow
         result.candidate_pool = pool_payload
     elif pool_error is not None:
         result.candidate_pool = {

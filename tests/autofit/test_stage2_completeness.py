@@ -191,7 +191,10 @@ def test_no_detection_family_on_covered_spectrum():
     res = get_method("ic_model_comparison").run(
         x, y, grammar=grammar, options=dict(IC_OPTS))
     names = [c["name"] for c in res.analysis["candidates"]]
-    assert not any(n.startswith("D0_detected") for n in names)
+    names += list(res.analysis.get("non_converged", []))
+    scr = res.analysis.get("screen") or []
+    names += [s["name"] for s in scr]
+    assert not any(n.startswith("D0_detected") for n in names), names
     assert res.analysis["preseeded_features"] == []
 
 
@@ -323,3 +326,84 @@ def test_detection_slot_absorbing_width_flagged():
                                line_shape=LineShape.PSEUDO_VOIGT)
     assert eng._unphysical_width_flags([comp(4.0)], m), "4.0 ≥ 0.7×5.0"
     assert eng._unphysical_width_flags([comp(3.0)], m) == []
+
+
+# ── Codex Stage-2 review findings (NO-GO ×2), pinned closed ────────────────
+
+def test_last_resort_never_fires_without_detection_evidence():
+    """Codex BLOCKER (both runs; fixed pre-review by a6c9734, pinned here):
+    the last-resort tier must NEVER fire unless the caller supplies
+    detection evidence — a converged flat-noise grammar fit stays an
+    honest no-survivor."""
+    unstable = _destabilized(_real_report())
+    res = eng.rank_and_filter([unstable])          # default: no evidence
+    assert res.survivors == []
+    assert res.conditional_reason is None
+
+
+def test_last_resort_never_preferred_over_conditional_survivor():
+    """Codex run B MINOR: pin the CONDITIONAL-survivor interaction, not
+    just the clean one — a stable-but-boundary-limited candidate must win
+    over an unstable last-resort candidate."""
+    import dataclasses
+    cond = _real_report()
+    cond = dataclasses.replace(
+        cond, plausibility=eng.PlausibilityFlags(
+            boundary_hits=["main_a:center@min"], unphysical_widths=[],
+            orphan_peaks=False))
+    unstable = _destabilized(_real_report())
+    res = eng.rank_and_filter([cond, unstable], allow_last_resort=True)
+    assert res.conditional_reason == "no_clean_survivor"
+    assert res.survivors[0].model.name == cond.model.name
+
+
+def test_asym_gl_effective_width_flagged():
+    """Codex run A MAJOR: asym-GL's high-BE side is fwhm×(1+asymmetry)
+    (fitting.py convention) — mean effective width fwhm×(1+asym/2) must
+    drive the ordinary-cap flag, closing the remaining papering-over
+    channel."""
+    from autofit.grammar import (BackgroundType, CandidateModel,
+                                 ComponentSlot, LineShape)
+    from autofit.engine import FittedComponent
+
+    slot = ComponentSlot(role="main_g", region="r", phase_id="p",
+                         be_window=(199.0, 201.0), line_shape=LineShape.ASYM_GL,
+                         fwhm_range=(0.5, 2.0))
+    m = CandidateModel(name="M", background=BackgroundType.LINEAR,
+                       slots=(slot,))
+    fat = FittedComponent(slot_role="main_g", position=200.0, fwhm=1.7,
+                          amplitude=1e3, shape_params={"asymmetry": 0.5},
+                          line_shape=LineShape.ASYM_GL)
+    flags = eng._unphysical_width_flags([fat], m)   # eff = 1.7×1.25 = 2.13
+    assert flags and "effective" in flags[0], flags
+    ok = FittedComponent(slot_role="main_g", position=200.0, fwhm=1.5,
+                         amplitude=1e3, shape_params={"asymmetry": 0.2},
+                         line_shape=LineShape.ASYM_GL)
+    assert eng._unphysical_width_flags([ok], m) == []   # eff = 1.65
+
+
+def test_detection_model_overflow_is_loud():
+    """Codex MAJOR (both runs): DETECTION_MODEL_MAX_SLOTS truncation must
+    be surfaced — the dropped features are named, never silently gone."""
+    x = np.arange(180.0, 220.0, 0.05)
+    sig = sum(_pv(x, 30000.0 - 2200.0 * i, 183.0 + 3.4 * i, 1.1, ETA)
+              for i in range(10))                   # 10 resolvable peaks
+    y = _noisy(sig + _linear_bg(x), 87)
+    from autofit.grammar import BackgroundType
+    import autofit.engine as e2
+    from autofit.candidates import (DETECTION_MODEL_MAX_SLOTS,
+                                    build_candidate_pool,
+                                    build_detection_candidate)
+    dom = e2.detect_out_of_grammar_dominants(x, y, e2._compute_background(
+        x, y, BackgroundType.LINEAR), [], {})
+    pool = build_candidate_pool(
+        x, y, np.zeros_like(x), all_windows=[], labeled_windows={},
+        dominant_seeds=[s.payload() for s in dom],
+        min_fraction_of_max=0.02, amplitude_snr=5.0, coincidence_ev=0.5,
+        max_total_seeds=6, smooth_points=5, fwhm_clip=(0.5, 2.0))
+    model, dropped = build_detection_candidate(
+        pool, BackgroundType.LINEAR, step_ev=0.05)
+    assert model is not None
+    assert len(model.slots) == DETECTION_MODEL_MAX_SLOTS
+    assert dropped, "overflow must be reported"
+    assert all("center_be" in d and "amplitude_net" in d for d in dropped)

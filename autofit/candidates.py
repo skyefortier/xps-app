@@ -416,16 +416,28 @@ def build_detection_candidate(
     adjudication) and absent-eligible (selection prunes any feature the
     fit does not support).  Slot geometry scales with each feature's own
     detected width, so the same builder serves 0.7 eV C 1s species and
-    3+ eV low-resolution Fe 2p mains.  Returns None when fewer than one
-    feature qualifies.
+    3+ eV low-resolution Fe 2p mains.
+
+    Returns ``(model, dropped)``: ``model`` is None when no feature
+    qualifies; ``dropped`` names any features cut by
+    DETECTION_MODEL_MAX_SLOTS (amplitude order) so the truncation is LOUD
+    (Codex Stage-2 review, both runs MAJOR: a ninth resolvable feature
+    must never vanish silently).
     """
     from .grammar import CandidateModel, ComponentSlot, LineShape
 
     feats = pool.detection_model_features()
     if not feats:
-        return None
-    feats = sorted(feats, key=lambda f: (f.amplitude_net or 0.0),
-                   reverse=True)[:DETECTION_MODEL_MAX_SLOTS]
+        return None, []
+    ranked = sorted(feats, key=lambda f: (f.amplitude_net or 0.0),
+                    reverse=True)
+    feats = ranked[:DETECTION_MODEL_MAX_SLOTS]
+    dropped = [{"center_be": round(float(f.center_be), 3),
+                "amplitude_net": (round(float(f.amplitude_net), 1)
+                                  if f.amplitude_net is not None else None),
+                "reason": ("detection_model_overflow (cap "
+                           f"{DETECTION_MODEL_MAX_SLOTS}, by amplitude)")}
+               for f in ranked[DETECTION_MODEL_MAX_SLOTS:]]
     feats.sort(key=lambda f: f.center_be)
     centers = [f.center_be for f in feats]
     slots = []
@@ -457,7 +469,7 @@ def build_detection_candidate(
             fwhm_range=(lo_w, hi_w),
         ))
     return CandidateModel(name=name, background=background,
-                          slots=tuple(slots))
+                          slots=tuple(slots)), dropped
 
 
 def merge_residual_attempts(
