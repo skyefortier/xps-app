@@ -6,8 +6,15 @@ duplicate suppression; conservative SEEDING gates decide which pool
 features become pre-seeded slots; everything (incl. gate failures) is
 surfaced for the honesty layer.  Selection — not detection — judges.
 
-All synthetic, deterministic seeds.  Gate constants passed here mirror the
-engine's reviewed F1 constants (fraction 0.25 / SNR 5x / coincidence 0.5).
+All synthetic, deterministic seeds.  These are MECHANICS tests — gate
+VALUES here exercise the machinery; the engine's operating-point values
+(trivia floor 0.02 / cap 6, Stage-2 recalibration 2026-07-10) are pinned
+at the wiring level.  Curvature-seed blocking is CONTAINMENT-only (a slot
+window must actually contain the feature's center): the Stage-2 Step-1
+diagnosis measured the old window+margin test blocking top-5 curvature
+detections (z 107–273) that NO slot could center — "covered by grammar"
+was a fiction.  Near-edge ambiguity is SELECTION's job (absent-slot
+pruning), not detection's.
 """
 
 import json
@@ -26,7 +33,6 @@ from autofit.candidates import build_candidate_pool  # noqa: E402
 ETA = 0.30
 
 GATES = dict(
-    window_margin_ev=0.5,
     noise_floor=1.0,
     min_fraction_of_max=0.25,
     amplitude_snr=5.0,
@@ -226,6 +232,55 @@ def test_pool_subfraction_curvature_candidate_not_seeded():
     assert ft.seeded_role is None
     assert "below_fraction_of_max" in ft.gate_fails
     assert pool.curvature_seeds == []
+
+
+def test_pool_seeds_in_crack_feature():
+    """Stage-2 chokepoint 1 (measured: ds7's 289.8 at z=107 / 287.1 at
+    z=273): a strong curvature feature whose center sits in a CRACK between
+    grammar windows — inside the OLD ±margin zone but containable by NO
+    slot — must be seeded.  Coverage claims require containment."""
+    x = np.arange(186.0, 208.0, 0.05)
+    crack_c = 198.0                                    # between the windows
+    sig = (_pv(x, 40000.0, 191.0, 1.2, ETA)            # OOG dominant
+           + _pv(x, 9000.0, 196.5, 1.2, ETA)           # in-window main
+           + _pv(x, 12000.0, crack_c, 1.2, ETA)        # in-crack feature
+           + _pv(x, 8000.0, 200.5, 1.4, ETA))          # second window species
+    y = _noisy(sig, 300.0, seed=61)
+    pool = build_candidate_pool(
+        x, y, np.zeros_like(x),
+        all_windows=[(195.5, 197.7), (198.3, 201.5)],  # crack: 197.7–198.3
+        labeled_windows={},
+        dominant_seeds=[_dominant_seed(191.0)],
+        **{**GATES, "max_total_seeds": 6})
+    ft = _find(pool, crack_c, tol=0.3)
+    assert ft, "in-crack feature missing from the pool"
+    assert ft[0].seeded_role is not None, \
+        f"in-crack feature not seeded: gate_fails={ft[0].gate_fails}"
+    assert not ft[0].in_grammar_window
+    # and the genuinely in-window species stays unseeded (containment)
+    inwin = _find(pool, 200.5, tol=0.4)
+    assert inwin and inwin[0].seeded_role is None
+    assert "in_grammar_window" in inwin[0].gate_fails
+
+
+def test_pool_trivia_floor_mechanics():
+    """With the Stage-2 trivia floor (min_fraction_of_max=0.02): a ~1%
+    curvature blip stays unseeded; a ~6% flank species (the measured
+    ds8-class expert-modeled regime) seeds."""
+    x = np.arange(182.0, 205.0, 0.05)
+    sig = (_pv(x, 40000.0, 191.0, 1.2, ETA)
+           + _pv(x, 2400.0, 186.5, 1.3, ETA)           # 6% species
+           + _pv(x, 9000.0, 196.5, 1.2, ETA))
+    y = _noisy(sig, 300.0, seed=67)
+    pool = build_candidate_pool(
+        x, y, np.zeros_like(x), all_windows=[(195.5, 197.5)],
+        labeled_windows={}, dominant_seeds=[_dominant_seed(191.0)],
+        **{**GATES, "min_fraction_of_max": 0.02, "max_total_seeds": 6})
+    flank = _find(pool, 186.5, tol=0.3)
+    assert flank and flank[0].seeded_role is not None, \
+        f"6% flank species must seed under the trivia floor: " \
+        f"{flank[0].gate_fails if flank else 'ABSENT'}"
+    assert flank[0].fraction_of_max < 0.25   # would have failed the old gate
 
 
 def test_pool_grammar_entries_present():

@@ -115,33 +115,38 @@ def test_detection_descending_grid_equivalence():
 
 def test_multi_env_low_be_dominant_recovered():
     """THE committed stand-in for the real unpublished C 1s class: dominant
-    below every window (F1 preseed) + weaker low-BE neighbor below the
-    dominance gate (F2 iterative proposal) + in-window ladder.  The winning
-    decomposition must place a component near EVERY truth peak, and the
-    honesty surface must say what was seeded/proposed."""
+    below every window + weaker low-BE neighbor + in-window ladder.  The
+    winning decomposition must place a component near EVERY truth peak with
+    the honesty surface intact.
+
+    UPDATED for the Stage-2 operating point (2026-07-10): the 22.5%
+    neighbor — historically below the 0.25 dominance gate and rescued by
+    an F2 proposal round — now PRE-SEEDS through the curvature channel
+    (trivia floor 0.02), which is the intended improvement: the fit starts
+    from a sane landscape instead of relying on a post-fit rescue.  The F2
+    iteration machinery keeps its own isolated pin below
+    (test_iterative_proposals_add_two_missing_peaks, enable_preseed=False)."""
     case = multi_env_low_be_dominant_case(seed=23)
     res = _ic(case)
     assert res.success
 
-    # (a) the dominant was PRE-seeded, not left to the residual pass
+    # (a) BOTH out-of-grammar species pre-seed: the dominant via the F1
+    # local-max channel, the neighbor via the curvature channel
     feats = res.analysis["preseeded_features"]
-    assert len(feats) == 1
-    assert feats[0]["center_be"] == pytest.approx(191.2, abs=0.4)
-    # (b) the neighbor arrived through an accepted proposal round
-    accepted = [p for c in res.analysis["candidates"]
-                for p in c.get("proposed_peaks", []) if p["accepted"]]
-    assert any(p["fitted_center"] == pytest.approx(193.0, abs=0.5)
-               for p in accepted)
-    # (c) every truth component is represented in the emitted peaks
+    by_prov = {f["provenance"]: f["center_be"] for f in feats}
+    assert len(feats) == 2, feats
+    assert by_prov.get("local_max") == pytest.approx(191.2, abs=0.4)
+    assert by_prov.get("curvature_shoulder") == pytest.approx(193.0, abs=0.5)
+    # (b) every truth component is represented in the emitted peaks
     centers = sorted(p["center"] for p in res.peaks)
     for t in case.truth:
         assert min(abs(c - t["center"]) for c in centers) < 0.5, \
             f"no fitted component near truth {t['center']}"
-    # (d) honesty surface: unassigned regions + human-review message
+    # (c) honesty surface: unassigned regions + human-review message
     unassigned = [p for p in res.peaks if p["region"] == "unassigned"]
-    assert len(unassigned) >= 2          # the seed + the proposal
+    assert len(unassigned) >= 2          # both seeds
     assert "human review" in res.message
-    # (e) widths are all physical (≤ ordinary cap) — the ordinary neighbour
+    # (d) widths are all physical (≤ ordinary cap) — the ordinary neighbour
     # and dominant recovered without a fat peak
     for p in res.peaks:
         if "satellite" in p["role"]:
@@ -285,7 +290,7 @@ def test_proposal_rejected_when_stability_promotes_spurious_center_peg(monkeypat
     y_fit = (base.primary_fit.lmfit_result.best_fit + base.primary_fit.background)
     spec = eng._detect_residual_proposals(
         x, y, y_fit, 1.0, base.model,
-        canonical_windows=dict(case.grammar.diagnostic_windows))[0]
+        fitted_components=base.primary_fit.components)[0]
 
     # a REAL augmented fit, promoted as a "deeper" best_outcome that carries a
     # spurious center@min peg (the detector reads outcome.boundary_hits)
@@ -316,10 +321,13 @@ def test_proposal_rejected_when_stability_promotes_spurious_center_peg(monkeypat
 # ── F2: iterative rounds add MULTIPLE missing peaks ────────────────────────
 
 def test_iterative_proposals_add_two_missing_peaks():
-    """Two discrete unmodeled peaks, both below the preseed dominance gate:
-    round 1 accepts one, detection re-runs on the augmented residual, round
-    2 accepts the other (the old single-accept cap structurally could not
-    do this — PROGRESS.md diagnosis, cause c)."""
+    """Two discrete unmodeled peaks: round 1 accepts one, detection re-runs
+    on the augmented residual, round 2 accepts the other (the old
+    single-accept cap structurally could not do this — PROGRESS.md
+    diagnosis, cause c).  Stage-2 note: with the recalibrated seeding both
+    peaks would PRE-seed, so this pin isolates the F2 iteration machinery
+    with enable_preseed=False (the designed escape hatch, same pattern as
+    test_proposal_pass_fires_on_isolated_missing_peak)."""
     x = _grid(186.0, 206.0)
     sig = (_pv(x, 9000.0, 196.5, 1.2, ETA)            # in-window main
            + _pv(x, 9000.0 * 0.18, 190.5, 1.3, ETA)   # missing peak 1
@@ -328,7 +336,8 @@ def test_iterative_proposals_add_two_missing_peaks():
     cands = [_cand("P1", [_slot("main_a", (195.5, 197.5))])]
     grammar = _grammar(cands)
     res = get_method("ic_model_comparison").run(
-        x, y, grammar=grammar, options=dict(IC_OPTS))
+        x, y, grammar=grammar,
+        options={**IC_OPTS, "enable_preseed": False})
     accepted = [p for c in res.analysis["candidates"]
                 for p in c.get("proposed_peaks", []) if p["accepted"]]
     fitted = sorted(p["fitted_center"] for p in accepted)
@@ -425,7 +434,7 @@ def test_stability_not_started_without_budget_after_augmented_fit(monkeypatch):
              + base_report.primary_fit.background)
     specs = eng._detect_residual_proposals(
         x, y, y_fit, 1.0, model,
-        canonical_windows=dict(case.grammar.diagnostic_windows))
+        fitted_components=base_report.primary_fit.components)
     assert specs, "expected a residual proposal at the unmodeled peak"
 
     calls = {"n": 0}

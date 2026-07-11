@@ -216,6 +216,24 @@ PRESEED_SMOOTH_POINTS = 5            # moving-average width for maxima search
 PRESEED_MAX = 2                      # most dominants seeded per sweep
 PRESEED_MIN_SEPARATION_BE = 1.0      # between two accepted seeds (eV)
 
+# ── Stage-2 curvature-seed operating point (recalibration, 2026-07-10) ────
+# The Step-1 diagnosis measured the old operating point (dominance fraction
+# 0.25, combined cap 2, window+margin blocking) discarding expert-modeled
+# species detected at prom_z 8.5-273.  For a suggest-a-profile tool a
+# MISSED resolvable shoulder costs more than a spurious candidate the
+# selection layer prunes (goal ruling): curvature seeds are gated by the
+# noise wall (prom_z) + detection-floor SNR, with only a TRIVIA floor on
+# relative height — expert practice models discrete species down to ~5-8%
+# of the window max (measured ds8 reference); below ~2% the residual pass
+# remains the honest channel.  Both UNVERIFIED tunables, surfaced in the
+# pool payload; selection (absent-slot / persistence / BIC*) prunes.
+CURVATURE_SEED_MIN_FRACTION = 0.02   # trivia floor (was the 0.25 dominance
+                                     # gate — that gate stays for the F1
+                                     # dominant channel only)
+SEED_MAX_TOTAL = 6                   # dominant + curvature seeds combined
+                                     # (was 2; ds7/Scan_1-class spectra
+                                     # carry 5-6 real detected species)
+
 # ── Two-phase sweep: screen → stabilize (unit F3, 2026-07-07) ──────────────
 # Measured motivation (PROGRESS.md diagnosis, cause a): a 29-candidate C 1s
 # grammar at 25 s/candidate stability budgets + a 30-60 s proposal pass can
@@ -1698,18 +1716,39 @@ def _main_slot_fwhm_midpoint(model: CandidateModel) -> float:
     return float(np.mean(mids)) if mids else 1.0
 
 
-def _in_canonical_window(
+def _proposal_blocked(
     center: float,
-    model: CandidateModel,
-    canonical_windows: dict[str, tuple[float, float]],
-    margin: float,
+    base_model: CandidateModel,
+    fitted_components: list["FittedComponent"],
 ) -> bool:
-    for slot in model.slots:
-        lo, hi = slot.be_window
-        if (lo - margin) <= center <= (hi + margin):
+    """Stage-2 proposal-eligibility rule (2026-07-10; replaces the old
+    window-membership test — Step-1 chokepoint 2): a residual cluster is
+    blocked only by
+
+    (i)  PROXIMITY to a fitted component — within
+         ``PROPOSAL_GRAMMAR_SEPARATION_FACTOR × that component's own
+         fitted width`` (transferable units: half its width, whatever the
+         region's energy scale) the residual is that component's
+         position/width business, never a new peak; or
+    (ii) sitting inside a POPULATED slot's window — the slot owns its
+         window's residuals, so a lineshape/width mismatch there surfaces
+         as flags (χ²ᵣ, autocorrelation, residual_flags), NEVER as an
+         invented tail-fixer peak.
+
+    An UNPOPULATED window blocks nothing: the measured failure was real
+    satellite intensity inside a canonical window that the winning family
+    had no slot for — permanently unreachable under window-membership
+    blocking."""
+    populated_roles = {c.slot_role for c in fitted_components}
+    for comp in fitted_components:
+        if abs(center - comp.position) <= (
+                PROPOSAL_GRAMMAR_SEPARATION_FACTOR * comp.fwhm):
             return True
-    for (lo, hi) in canonical_windows.values():
-        if (lo - margin) <= center <= (hi + margin):
+    for slot in base_model.slots:
+        if slot.role not in populated_roles:
+            continue
+        lo, hi = _effective_be_window(slot, fitted_components)
+        if lo <= center <= hi:
             return True
     return False
 
@@ -1720,7 +1759,7 @@ def _detect_residual_proposals(
     y_fit: np.ndarray,
     noise_floor: float,
     base_model: CandidateModel,
-    canonical_windows: dict[str, tuple[float, float]],
+    fitted_components: list["FittedComponent"],
 ) -> list[ProposalSpec]:
     if len(x) < 4:
         return []
@@ -1758,7 +1797,6 @@ def _detect_residual_proposals(
         else:
             clusters.append([t])
 
-    sep = PROPOSAL_GRAMMAR_SEPARATION_FACTOR * _main_slot_fwhm_midpoint(base_model)
     specs: list[ProposalSpec] = []
     for idx, cluster in enumerate(clusters):
         lo = min(t["be_lo"] for t in cluster)
@@ -1784,7 +1822,7 @@ def _detect_residual_proposals(
         fwhh = float(span[right] - span[left])
         fwhm_init = float(np.clip(fwhh if fwhh > 0 else PROPOSAL_FWHM_MIN,
                                   PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX))
-        if _in_canonical_window(center, base_model, canonical_windows, sep):
+        if _proposal_blocked(center, base_model, fitted_components):
             continue
         specs.append(ProposalSpec(
             role=f"proposed_peak_{idx}",
@@ -2289,12 +2327,11 @@ def compare_models(
                 all_windows=_all_grammar_windows(candidates, diagnostic_windows),
                 labeled_windows=dict(diagnostic_windows),
                 dominant_seeds=[s.payload() for s in preseed_specs],
-                window_margin_ev=_preseed_window_margin(candidates),
                 noise_floor=noise_floor,
-                min_fraction_of_max=PRESEED_MIN_FRACTION_OF_MAX,
+                min_fraction_of_max=CURVATURE_SEED_MIN_FRACTION,
                 amplitude_snr=PRESEED_AMPLITUDE_SNR,
                 coincidence_ev=PROPOSAL_COINCIDENCE_BE,
-                max_total_seeds=PRESEED_MAX,
+                max_total_seeds=SEED_MAX_TOTAL,
                 smooth_points=PRESEED_SMOOTH_POINTS,
                 fwhm_clip=(PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX),
                 local_window_ev=PROPOSAL_WINDOW_WIDTH,
@@ -2463,7 +2500,7 @@ def compare_models(
                     break
                 specs = _detect_residual_proposals(
                     x, y, current_y_fit, noise_floor, current.model,
-                    canonical_windows=diagnostic_windows,
+                    fitted_components=current.primary_fit.components,
                 )
                 # roles must stay unique across rounds — number this round's
                 # specs from one past the HIGHEST existing suffix (never a

@@ -418,7 +418,6 @@ def build_candidate_pool(
     all_windows: list[tuple[float, float]],
     labeled_windows: dict[str, tuple[float, float]],
     dominant_seeds: list[dict],
-    window_margin_ev: float,
     noise_floor: float = 1.0,
     min_fraction_of_max: float = 0.25,
     amplitude_snr: float = 5.0,
@@ -436,10 +435,18 @@ def build_candidate_pool(
     ``dominant_seeds`` is the local-max dominant channel's output (the
     reviewed F1 detector, unchanged upstream), as payload-shaped dicts with
     roles already assigned — the pool merges them by position and never
-    re-gates them.  Curvature seeding reuses the SAME reviewed gate
-    constants (fraction-of-max, amplitude SNR, out-of-grammar margin) plus
-    the detector's prominence-z, so a curvature seed is held to at least
-    the dominant channel's bar.
+    re-gates them.
+
+    Curvature-seed window blocking is CONTAINMENT-only (Stage-2
+    recalibration, 2026-07-10): a feature is "expressible by the grammar"
+    only if some slot window actually CONTAINS its center — the old
+    window+margin test was measured blocking top-5 curvature detections
+    (prom_z 107–273) sitting in inter-window cracks where NO slot could
+    center a component ("covered by grammar" was a fiction).  Near-edge
+    ambiguity — a seed just outside a window fighting the window's own
+    slot for the same intensity — is deliberately left to SELECTION
+    (absent-slot pruning / persistence / BIC*), which is the layer with
+    the evidence to arbitrate it.
     """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
@@ -466,8 +473,16 @@ def build_candidate_pool(
     ys = np.convolve(y_net, kernel, mode="same")
     global_max = float(np.max(ys)) if len(ys) else 0.0
 
+    # Containment tolerance = HALF A GRID STEP: a feature center within half
+    # a sample of a window edge is indistinguishable from the edge itself
+    # (grid arithmetic also puts float epsilon on exact-edge centers).  This
+    # is sampling resolution, NOT a coverage margin — the Stage-2 diagnosis
+    # measured the old ±margin (~0.5 eV) fictitiously "covering" features
+    # 0.2+ eV outside every slot's center bounds.
+    step_tol = 0.5 * float(np.median(np.diff(x))) if len(x) > 1 else 0.0
+
     def in_any_window(be: float) -> bool:
-        return any((lo - window_margin_ev) <= be <= (hi + window_margin_ev)
+        return any((lo - step_tol) <= be <= (hi + step_tol)
                    for lo, hi in all_windows)
 
     def local_sigma(be: float) -> float:

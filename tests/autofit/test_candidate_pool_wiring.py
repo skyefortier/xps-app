@@ -121,10 +121,16 @@ def test_engine_covered_spectrum_pool_reports_no_seeds():
     assert any(f["provenance"] == ["grammar"] for f in pool["features"])
 
 
-def test_engine_residual_gap_merged_into_pool():
+def test_engine_residual_gap_merged_into_pool(monkeypatch):
     """The F2 residual-proposal source merges into the pool payload
     post-fit: the accepted proposal position carries residual_gap
-    provenance and its accept/attempt bookkeeping."""
+    provenance and its accept/attempt bookkeeping.  The Stage-2 operating
+    point pre-seeds the multi-env neighbor, so this pin restores the OLD
+    fraction gate via monkeypatch to force the F2 path while the pool is
+    live — the merge machinery is what's under test."""
+    import autofit.engine as eng
+
+    monkeypatch.setattr(eng, "CURVATURE_SEED_MIN_FRACTION", 0.25)
     case = multi_env_low_be_dominant_case(seed=23)
     res = _ic(case.x, case.y, case.grammar)
     accepted = [p for c in res.analysis["candidates"]

@@ -11,15 +11,22 @@ calibration BEFORE these scans were evaluated (scripts/
 calibrate_cwt_detector.py); this file is the HELD-OUT confirmation, not a
 tuning target.
 
-DETECTION BAR (cheap, no fits — runs whenever the local data exists):
-on BOTH datasets, the class-defining features the old pipeline lost enter
-the candidate pool with provenance AND are seeded:
-- ds7/C1s Scan_1: the ~279.3 eV feature (a gate-passing second local max
-  that PRESEED_MIN_SEPARATION_BE discarded, 0.90 eV from the dominant)
-- ds7/C1s Scan_5: the same physics charge-shifted (+~1.5 eV -> 280.8)
-- ds8/C1s Scan, Scan_0, Scan_2: the low-BE shoulder (~278.6-278.7) with NO
-  local maximum — structurally invisible to any local-max detector.
-Two-sided: scans WITHOUT the class feature must gain NO curvature seeds.
+DETECTION BAR (cheap, no fits — runs whenever the local data exists),
+STAGE-2 operating point (containment blocking, trivia floor 0.02, cap 6 —
+recalibrated 2026-07-10 after the Step-1 diagnosis; constants frozen
+BEFORE this held-out re-measurement):
+- ds7/C1s Scan_1 (the diagnosis scan): ALL the expert-modeled features
+  seed — the low-BE trio (279.3 / 281.1 / 283.6) AND the in-crack pair
+  the old window+margin fiction blocked (287.1, 289.7).
+- ds7/C1s Scan_5: the charge-shifted second max (280.8).
+- ds8/C1s Scan, Scan_0, Scan_2: the no-local-max shoulder (~278.6-278.7).
+- ds8/C1s Scan_1: the flank species pair (278.4, 281.7) the old 0.25
+  fraction gate discarded.
+Two-sided invariants on EVERY scan: every curvature seed lies OUTSIDE all
+containment windows; every strong-but-unseeded feature (prom_z >= 7)
+carries an explicit gate failure (in-window features stay grammar
+territory, rescuable by the component-proximity proposal rule); total
+seeds respect SEED_MAX_TOTAL.
 
 INTEGRATION BAR (env-gated RUN_AUTOFIT_GATE=1, ~10 min): the full IC
 pipeline emits the seeded components in its final model on one scan per
@@ -49,13 +56,19 @@ pytestmark = pytest.mark.skipif(
             "the detection acceptance bar was NOT evaluated"),
 )
 
-# (dataset dir, scan file stem) -> expected seeded curvature feature window
+# (dataset dir, scan file stem) -> [expected seeded curvature windows]
 EXPECTED_SEEDED = {
-    ("ds7", "C1s Scan_1"): (279.15, 279.50),   # the goal's ~279.3 feature
-    ("ds7", "C1s Scan_5"): (280.65, 281.00),   # same class, charge-shifted
-    ("ds8", "C1s Scan"): (278.40, 279.00),     # no-local-max shoulder
-    ("ds8", "C1s Scan_0"): (278.50, 279.10),
-    ("ds8", "C1s Scan_2"): (278.40, 279.00),
+    ("ds7", "C1s Scan_1"): [(279.15, 279.50),   # the goal's ~279.3 feature
+                            (280.90, 281.35),   # low-BE third component
+                            (283.30, 283.90),   # broad bridge
+                            (286.90, 287.35),   # in-crack (expert 287.11)
+                            (289.50, 290.00)],  # in-crack (expert 289.80)
+    ("ds7", "C1s Scan_5"): [(280.65, 281.00)],  # charge-shifted second max
+    ("ds8", "C1s Scan"): [(278.40, 279.00)],    # no-local-max shoulder
+    ("ds8", "C1s Scan_0"): [(278.50, 279.10)],
+    ("ds8", "C1s Scan_2"): [(278.40, 279.00)],
+    ("ds8", "C1s Scan_1"): [(278.20, 278.70),   # flank species (expert
+                            (281.45, 282.00)],  # 279.09 / 281.47 classes)
 }
 
 
@@ -92,12 +105,11 @@ def _pool_for(path, grammar):
         all_windows=eng._all_grammar_windows(cands, diag),
         labeled_windows=diag,
         dominant_seeds=[s.payload() for s in dom],
-        window_margin_ev=eng._preseed_window_margin(cands),
         noise_floor=1.0,
-        min_fraction_of_max=eng.PRESEED_MIN_FRACTION_OF_MAX,
+        min_fraction_of_max=eng.CURVATURE_SEED_MIN_FRACTION,
         amplitude_snr=eng.PRESEED_AMPLITUDE_SNR,
         coincidence_ev=eng.PROPOSAL_COINCIDENCE_BE,
-        max_total_seeds=eng.PRESEED_MAX,
+        max_total_seeds=eng.SEED_MAX_TOTAL,
         smooth_points=eng.PRESEED_SMOOTH_POINTS,
         fwhm_clip=(eng.PROPOSAL_FWHM_MIN, eng.PROPOSAL_FWHM_MAX),
         local_window_ev=eng.PROPOSAL_WINDOW_WIDTH,
@@ -109,15 +121,20 @@ def test_detection_bar_all_real_scans(c1s_grammar):
     """THE detection bar (goal): on BOTH datasets every class-defining
     lost feature ENTERS the pool with provenance and is seeded; scans
     without the class feature gain NO curvature seeds (two-sided)."""
+    import autofit.engine as eng
+    wins = None
     seen = set()
     for ds, scan, path in _scans():
-        pool, dom, _ = _pool_for(path, c1s_grammar)
+        pool, dom, (x, _y) = _pool_for(path, c1s_grammar)
         assert len(dom) >= 1, f"{ds}/{scan}: dominant channel lost its seed"
+        if wins is None:
+            wins = eng._all_grammar_windows(
+                c1s_grammar.candidates, dict(c1s_grammar.diagnostic_windows))
+        step_tol = 0.5 * float(np.median(np.diff(np.sort(x))))
 
-        expected = EXPECTED_SEEDED.get((ds, scan))
-        if expected is not None:
+        # completeness side: every expected feature seeded with provenance
+        for lo, hi in EXPECTED_SEEDED.get((ds, scan), []):
             seen.add((ds, scan))
-            lo, hi = expected
             hits = [s for s in pool.curvature_seeds if lo <= s.center_be <= hi]
             assert hits, (
                 f"{ds}/{scan}: expected seeded curvature feature in "
@@ -129,17 +146,20 @@ def test_detection_bar_all_real_scans(c1s_grammar):
                         if f.seeded_role == seed.role)
             assert "curvature_shoulder" in feat.provenance
             assert not feat.in_grammar_window
-        else:
-            # two-sided: no class feature -> no curvature seeds; sub-gate
-            # features stay visible with explicit gate failures
-            assert pool.curvature_seeds == [], (
-                f"{ds}/{scan}: unexpected curvature seed(s) "
-                f"{[round(s.center_be, 2) for s in pool.curvature_seeds]}")
-            for f in pool.features:
-                if f.window is None and f.seeded_role is None:
-                    assert f.gate_fails, (
-                        f"{ds}/{scan}: unseeded {f.center_be} without a "
-                        "recorded gate failure")
+
+        # two-sided invariants on EVERY scan
+        assert len(pool.curvature_seeds) + len(dom) <= eng.SEED_MAX_TOTAL
+        for s in pool.curvature_seeds:
+            assert not any((lo - step_tol) <= s.center_be <= (hi + step_tol)
+                           for lo, hi in wins), (
+                f"{ds}/{scan}: seed {s.center_be:.2f} inside a containment "
+                "window — grammar territory must stay the grammar's")
+        for f in pool.features:
+            if (f.window is None and f.seeded_role is None
+                    and (f.prom_z or 0) >= 7.0):
+                assert f.gate_fails, (
+                    f"{ds}/{scan}: strong unseeded {f.center_be} without a "
+                    "recorded gate failure")
     assert seen == set(EXPECTED_SEEDED), \
         f"expected scans missing from the data dir: {set(EXPECTED_SEEDED) - seen}"
 
