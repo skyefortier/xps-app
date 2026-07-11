@@ -224,3 +224,51 @@ def test_zero_grammar_candidates_run_detection_only():
     # 3 eV mains must NOT be crushed to the 2.0 C1s-ish ordinary cap
     for p in res.peaks:
         assert p["fwhm"] > 2.2, f"broad main crushed: {p}"
+
+
+# ── Last-resort tier (Stage-2, measured on real low-res Fe 2p) ─────────────
+# D0 on Ugly_Fe_2p_2 CONVERGED (chi2r 7.9) but died on plausibility
+# (orphan_peaks from cross-refit label instability, min persistence 0.5)
+# and the conditional tier deliberately never promotes stability failures
+# -> the sweep emitted NOTHING.  For a suggest-a-profile tool an empty
+# answer is the worst answer: when NO candidate survives any tier, the
+# best CONVERGED model is emitted loudly flagged UNSTABLE — never
+# preferred over clean or conditional survivors.
+
+def _real_report():
+    from stress_cases import isolated_missing_peak_case
+    from autofit.methods.base import poisson_like_weights
+    case = isolated_missing_peak_case(seed=71)
+    res = eng.compare_models(case.x, case.y, poisson_like_weights(case.y),
+                             case.grammar, n_refits=2, rng_seed=0,
+                             enable_proposal_pass=False, enable_preseed=False)
+    return res.reports[0]
+
+
+def _destabilized(report):
+    import dataclasses
+    bad_slots = {role: eng.SlotStability(
+        role=role, persistence=0.4, position_median=None, position_mad=None,
+        fwhm_median=None, fwhm_mad=None, amplitude_median=None)
+        for role in (s.role for s in report.model.slots)}
+    stab = dataclasses.replace(report.stability, per_slot=bad_slots,
+                               orphan_rate=0.5)
+    plaus = eng.PlausibilityFlags(boundary_hits=[], unphysical_widths=[],
+                                  orphan_peaks=True)
+    return dataclasses.replace(report, stability=stab, plausibility=plaus)
+
+
+def test_last_resort_tier_emits_best_converged_when_nothing_survives():
+    unstable = _destabilized(_real_report())
+    res = eng.rank_and_filter([unstable])
+    assert res.survivors, "last resort must emit the best converged model"
+    assert res.conditional is True
+    assert res.conditional_reason == "unstable_last_resort"
+
+
+def test_last_resort_never_preferred_over_survivors():
+    clean = _real_report()
+    unstable = _destabilized(_real_report())
+    res = eng.rank_and_filter([clean, unstable])
+    assert res.conditional_reason != "unstable_last_resort"
+    assert res.survivors[0].model.name == clean.model.name

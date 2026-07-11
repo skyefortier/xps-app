@@ -148,25 +148,30 @@ def test_pool_zero_seeds_on_covered_spectrum():
 
 def test_pool_zero_seeds_on_negatives():
     """No-hallucination pre-condition at the seeding layer: pure noise,
-    linear drift, a single broad peak, and a peakless step (with its
-    matched Shirley-family background) must seed NOTHING."""
+    linear drift, a single-point spike, a single broad peak, and a
+    peakless step must seed NOTHING.  Backgrounds are ENGINE-computed
+    (Shirley) as in production — a zeros background makes the height
+    gates vacuous (the raw baseline masquerades as net signal), which is
+    an input the engine never produces.  Pool-level curvature FEATURES on
+    a negative draw are tolerated by design (measured H0 rate ~4%/spectrum
+    at the prom_z gate); SEEDS are not."""
     from autofit.engine import _compute_background
     from autofit.grammar import BackgroundType
 
     x = np.arange(190.0, 205.0, 0.05)
-    negatives = []
+    ys = []
     for seed in range(3):
-        negatives.append((_noisy(np.zeros_like(x), 500.0, 900 + seed),
-                          np.zeros_like(x)))
-        negatives.append((_noisy(40.0 * (x - x[0]), 300.0, 910 + seed),
-                          np.zeros_like(x)))
-        negatives.append((_noisy(_pv(x, 30000.0, 197.5, 3.5, ETA), 300.0,
-                                 920 + seed), np.zeros_like(x)))
+        ys.append(_noisy(np.zeros_like(x), 500.0, 900 + seed))
+        ys.append(_noisy(40.0 * (x - x[0]), 300.0, 910 + seed))
+        ys.append(_noisy(_pv(x, 30000.0, 197.5, 3.5, ETA), 300.0, 920 + seed))
         step = 3000.0 / (1.0 + np.exp(-(x - 200.0) / 1.0))
-        y = _noisy(step, 500.0, 930 + seed)
-        negatives.append((y, _compute_background(x, y, BackgroundType.SHIRLEY)))
+        ys.append(_noisy(step, 500.0, 930 + seed))
+        spiked = _noisy(np.zeros_like(x), 500.0, 940 + seed)
+        spiked[100 + seed * 40] *= 12.0
+        ys.append(spiked)
 
-    for y, bg in negatives:
+    for y in ys:
+        bg = _compute_background(x, y, BackgroundType.SHIRLEY)
         pool = build_candidate_pool(
             x, y, bg, all_windows=[(195.5, 197.5)], labeled_windows={},
             dominant_seeds=[], **GATES)

@@ -45,7 +45,7 @@ properties, each with a measured motivation:
 
 | constant | value | grounds |
 |---|---|---|
-| `CWT_PROM_Z_MIN` | 7.0 | H0 battery below: above q95 (6.73), measured pool-level FP 4.2%/spectrum; HIGH-COUNT target regimes ≥ 8.5 (a low-count detection can sit as low as ~7.1) |
+| `CWT_PROM_Z_MIN` | 7.0 | H0 battery below: above q95 (6.93), measured pool-level FP 4.8%/spectrum; HIGH-COUNT target regimes ≥ 8.5 (a low-count detection can sit as low as ~7.1) |
 | `CWT_FWHM_MIN_EV` / `MAX_EV` | 0.3 / 2.4 | below any practical XPS instrumental width ↔ just above `FWHM_MAX_ORDINARY_EV` (2.0) |
 | `CWT_N_SCALES` | 8 | geometric ladder over that range |
 | `CWT_SIGMA_MIN_PTS` | 2.0 | kernel sampling floor (structural) |
@@ -60,7 +60,8 @@ Seeding gates reuse the reviewed F1 constants unchanged
 
 flat / linear-drift / sigmoid-step backgrounds × counts 100–50 000 ×
 grid steps 0.05/0.1 eV, 25 seeds each.  Per-spectrum **max** prom_z:
-q95 = 6.73, q99 = 8.32, max = 9.57.
+q95 = 6.93, q99 = 8.20, max = 9.65 (regenerated 2026-07-10 under the
+spike guard below).
 
 Reproducibility: row seeds are `crc32(row_key)` (Python's builtin `hash`
 is process-salted — Codex review, run B MAJOR) and emitted floats are
@@ -70,10 +71,10 @@ verified **byte-identical** twice on 2026-07-10.
 
 | z_min | per-spectrum FP rate (pool level) |
 |---|---|
-| 6.5 | 6.5 % |
-| **7.0 (frozen)** | **4.2 %** |
-| 7.5 | 2.7 % |
-| 8.0 | 1.7 % |
+| 6.5 | 7.5 % |
+| **7.0 (frozen)** | **4.8 %** |
+| 7.5 | 3.0 % |
+| 8.0 | 1.8 % |
 
 These are POOL-level rates (a false pool entry is tolerated by design —
 the pool is overcomplete).  SEEDING-level false positives are separately
@@ -103,12 +104,24 @@ height 2 000: the envelope shifts one step right/up (e.g. 0.9/0.30 → 1/5,
 Guaranteed-detection envelope claimed by the layer — **HIGH COUNTS
 (~40k-count mains) only**: sep ≥ 0.9×FWHM at ratio ≥ 0.3, and sep ≥
 1.1×FWHM at ratio ≥ 0.15.  At low counts (~2k mains) the envelope shifts
-one step coarser (measured: 1.1/0.15 → 0/5, 1.1/0.30 → 5/5, 1.3/0.15 →
-5/5) — counting statistics, as designed.  Below the envelope, features
+one step coarser (measured under the spike guard: 1.1/0.15 → 0/5,
+1.1/0.30 → 5/5, 1.3/0.15 → 3/5) — counting statistics, as designed.  Below the envelope, features
 are honestly at/under the detectability boundary and remain
 residual-proposal territory.  Close doublets: both members detected 5/5
-at ≥ 0.9×FWHM separation (3/5 at 0.7).  Broad-peak splitting: 0 spurious
-off-center features across 20 draws.
+at ≥ 0.9×FWHM separation (3/5 at 0.7).  Broad-peak splitting: 1 pool-level
+spurious off-center feature across 20 draws (seeding-level: zero, pinned).
+
+## Spike guard (Stage-2, 2026-07-10)
+
+Detection runs on a 3-point MEDIAN-prefiltered signal; the Poisson
+variance stays on the raw counts (median-filtered noise has slightly
+lower variance, so the z errs conservative under H0).  Measured
+motivation: a single-point cosmic-ray-class event fired at prom_z 47–127
+AND its Ricker-wing ringing produced four phantom ridges at prom_z 20–55
+up to 3 eV away; the median prefilter annihilates single-point events
+while ≥3-sample physical structure is untouched (shoulder envelope
+re-verified above; held-out real-scan gate unchanged).  All H0/sensitivity
+numbers in this doc are the post-guard regeneration.
 
 ## Held-out confirmation (real data; never tuned against)
 

@@ -1503,6 +1503,24 @@ def rank_and_filter(
         survivors = conditional_pool
         conditional = True
         conditional_reason = "no_clean_survivor"
+    elif allow_conditional and not survivors and reports:
+        # LAST-RESORT tier (Stage-2, 2026-07-10; measured on real low-res
+        # Fe 2p): every candidate failed BOTH tiers — typically cross-refit
+        # label instability (orphan_peaks) on heavily-overlapped low-res
+        # structure.  For a suggest-a-profile tool an EMPTY answer is the
+        # worst answer: emit the single best CONVERGED model, loudly
+        # flagged unstable.  This tier exists only when clean and
+        # conditional are BOTH empty — stability failures are still never
+        # preferred over anything (the original design rule stands).
+        viable = [r for r in reports
+                  if r.primary_fit.converged
+                  and np.isfinite(r.bic_adjusted)]
+        if viable:
+            best = min(viable,
+                       key=lambda r: (r.bic_adjusted, r.reduced_chi_sq))
+            survivors = [best]
+            conditional = True
+            conditional_reason = "unstable_last_resort"
     # NOTE: the decisive-override path (clean survivors exist but a
     # bound-fixed refit of a conditional candidate dominates) lives in
     # compare_models — it needs the spectrum to refit; rank_and_filter is

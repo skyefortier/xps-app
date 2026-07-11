@@ -215,3 +215,42 @@ def test_feature_fields_populated():
     assert ft.ridge_length >= 2
     assert 0.2 < ft.scale_fwhm_ev < 3.0
     assert 0.2 < ft.fwhm_est_ev < 3.0
+
+
+def test_single_point_spikes_yield_no_features():
+    """Cosmic-ray-class single-point events (and their Ricker-wing RINGING
+    — measured: one 6x spike produced 4 phantom detections at z 20-55 up
+    to 3 eV away) must produce NOTHING: detection runs on a 3-point
+    median-prefiltered signal, which annihilates single-point events while
+    leaving >=3-point physical structure intact."""
+    x = np.arange(190.0, 205.0, 0.05)
+    for seed, factor in ((3, 20.0), (4, 5.0), (5, 8.0)):
+        y = np.random.default_rng(seed).poisson(
+            np.full_like(x, 500.0)).astype(float)
+        y[150] *= factor
+        assert cwt_ridge_features(x, y) == [], f"spike x{factor} leaked"
+
+
+def test_spike_on_peak_flank_no_phantoms():
+    """A spike riding a real peak's flank must add NO detections beyond
+    the peak itself (the ringing class)."""
+    x = np.arange(190.0, 205.0, 0.05)
+    sig = _pv(x, 20000.0, 197.0, 1.2, ETA)
+    y = np.random.default_rng(3).poisson(sig + 500.0).astype(float)
+    y[250] *= 6.0                                  # spike at 202.5 eV
+    feats = cwt_ridge_features(x, y)
+    off = [f for f in feats if abs(f.center_be - 197.0) > 0.6]
+    assert off == [], \
+        f"phantom detections: {[round(f.center_be, 2) for f in off]}"
+
+
+def test_median_prefilter_preserves_shoulder_detection():
+    """The spike guard must not cost the shoulder class: the standard
+    sep-0.9x/ratio-0.3 shoulder still detects through the median filter."""
+    x = np.arange(190.0, 205.0, 0.05)
+    c, f, h = 197.0, 1.2, 40000.0
+    sh = c + 0.9 * f
+    sig = _pv(x, h, c, f, ETA) + _pv(x, 0.3 * h, sh, f, ETA)
+    y = _flat_plus(x, sig, 300.0, seed=100)
+    feats = cwt_ridge_features(x, y)
+    assert any(abs(ft.center_be - sh) < 0.35 for ft in feats)

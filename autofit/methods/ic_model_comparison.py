@@ -134,6 +134,19 @@ class ICModelComparisonMethod(PeakFitMethod):
                     "clean alternatives retained in the ranking "
                     "(see analysis.candidates). "
                 ) + message
+            elif result.conditional_reason == "unstable_last_resort":
+                message = (
+                    "UNSTABLE result (last resort): NO candidate passed any "
+                    "selection tier — component identities are NOT stable "
+                    "across refits (min persistence "
+                    f"{top.active_min_persistence:.2f}, orphan rate "
+                    f"{top.stability.orphan_rate:.2f}).  Showing the best "
+                    f"CONVERGED model ({top.model.name}, χ²ᵣ "
+                    f"{top.reduced_chi_sq:.1f}) so you can see what the data "
+                    "supports — treat EVERY component as a low-confidence "
+                    "suggestion; the data may not distinguish one broad "
+                    "feature from several overlapping ones here. "
+                ) + message
             else:
                 message = (
                     "CONDITIONAL result (no_clean_survivor): no candidate "

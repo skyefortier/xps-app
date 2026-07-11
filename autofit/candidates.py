@@ -49,15 +49,16 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-from scipy.signal import find_peaks, peak_prominences
+from scipy.signal import find_peaks, medfilt, peak_prominences
 
 # ── Detector tunables (synthetic-calibrated; surfaced in payloads) ──────────
 
 # Prominence-z gate.  H0 battery (600 negative spectra: flat / linear-drift /
 # sigmoid-step backgrounds x counts 100..50000 x steps 0.05/0.1, committed
-# generator scripts/calibrate_cwt_detector.py, byte-identical regeneration):
-# per-spectrum MAX prom_z q95 = 6.73, q99 = 8.32; measured POOL-level FP
-# rate at 7.0 = 4.2% of spectra (tolerated by design — the pool is
+# generator scripts/calibrate_cwt_detector.py, byte-identical regeneration,
+# 3-pt-median spike guard included): per-spectrum MAX prom_z q95 = 6.93,
+# q99 = 8.20; measured POOL-level FP rate at 7.0 = 4.8% of spectra
+# (tolerated by design — the pool is
 # overcomplete; SEEDING-level FPs are separately pinned at zero under the
 # compound gates).  Sensitivity battery: the HIGH-COUNT target shoulder
 # regimes (sep >= 0.9xFWHM at ratio >= 0.3; sep >= 1.1 at ratio >= 0.15 —
@@ -164,13 +165,23 @@ def cwt_ridge_features(
         return []
     nrow = len(scales)
 
+    # SPIKE GUARD (Stage-2): the coefficient runs on a 3-point MEDIAN-
+    # prefiltered signal — a single-point event (cosmic-ray class) is
+    # annihilated, killing both the spike detection itself and its
+    # Ricker-wing RINGING (measured: one 6× spike produced four phantom
+    # ridges at prom_z 20–55 up to 3 eV away).  Physical structure spans
+    # ≥3 samples by definition of the detector's own scale floor, so real
+    # features are unaffected (pinned).  The Poisson variance stays on the
+    # RAW counts: median-filtered noise has slightly LOWER variance, so
+    # the z-statistic errs conservative under H0.
+    y_det = medfilt(y, kernel_size=3)
     coef = np.zeros((nrow, n))
     var = np.zeros((nrow, n))
     margins: list[int] = []
     for si, s in enumerate(scales):
         radius = int(np.ceil(4.0 * s))
         w = ricker_kernel(s, radius)
-        coef[si] = np.convolve(y, w, mode="same")
+        coef[si] = np.convolve(y_det, w, mode="same")
         var[si] = np.convolve(np.maximum(y, 1.0), w * w, mode="same")
         margins.append(radius + 2)         # 'same' zero-padding artifacts
 

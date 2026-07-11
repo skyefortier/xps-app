@@ -197,3 +197,51 @@ def test_integration_bar_selection_keeps_seeded_feature(
         f"{ds}/{scan}: seeded feature not in the final model; peaks = "
         f"{[(p['role'], round(p['center'], 2)) for p in res.peaks]}")
     assert emitted[0]["region"] == "unassigned"
+
+
+FE2P = [REPO / "docs/autofit/test_data/Ugly_Fe_2p.spec.json",
+        REPO / "docs/autofit/test_data/Ugly_Fe_2p_2.spec.json"]
+
+
+@pytest.mark.skipif(not all(p.is_file() for p in FE2P),
+                    reason="LOUD SKIP — Ugly_Fe_2p spec files absent "
+                           "(local-only); Fe 2p generalization bar NOT "
+                           "evaluated")
+@pytest.mark.skipif(os.environ.get("RUN_AUTOFIT_GATE") != "1",
+                    reason="LOUD SKIP — Fe 2p generalization bar (full "
+                           "sweep, ~2 min) runs with RUN_AUTOFIT_GATE=1")
+def test_generalization_bar_ugly_fe2p():
+    """Across-the-periodic-table bar (goal, Stage-2): the UNFITTED low-res
+    Fe 2p spectra — a region with ZERO grammar candidates — must produce a
+    physically plausible candidate set (2p3/2 region, 2p1/2 region, the
+    inter-doublet oxide/satellite intensity) while staying honest (either
+    a conditional tier or the loud UNSTABLE last resort; never silence,
+    never unflagged confidence)."""
+    import json as _json
+
+    from autofit.grammar import MaterialClass, Phase, resolve
+    from autofit.methods import get_method
+
+    phase = Phase(id="sample", material_class=MaterialClass("conductor"),
+                  regions=("Fe 2p",))
+    g = resolve([phase], "Fe 2p", allow_structural_fallback=True)
+    assert not g.candidates            # precondition: structural fallback
+    for path in FE2P:
+        d = _json.loads(path.read_text())
+        x = np.asarray(d["rawBE"], dtype=float)
+        y = np.asarray(d["rawIntensity"], dtype=float)
+        res = get_method("ic_model_comparison").run(
+            x, y, grammar=g, peak_specs=None,
+            options={"n_refits": 4, "rng_seed": 0,
+                     "enable_proposal_pass": True})
+        assert res.success, f"{path.name}: {res.message}"
+        assert res.diagnostics["winner"].startswith("D0_detected")
+        centers = sorted(p["center"] for p in res.peaks)
+        assert any(703.0 <= c <= 706.0 for c in centers), centers   # 2p3/2
+        assert any(716.0 <= c <= 719.0 for c in centers), centers   # 2p1/2
+        assert any(706.0 < c < 714.0 for c in centers), centers     # mid
+        assert all(p["region"] == "unassigned" for p in res.peaks)
+        # honesty: flagged, never silent confidence
+        assert res.diagnostics["conditional"] is True
+        assert ("human review" in res.message
+                or "low-confidence" in res.message)
