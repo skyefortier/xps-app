@@ -1,0 +1,98 @@
+Adversarial review request — Stage-2 Find-Peaks calibration
+(branch feature-autofit-stage2, commits 8484679..0713c05, 2026-07-10).
+
+Verdict format: end with exactly one line "VERDICT: GO" or
+"VERDICT: NO-GO" plus numbered findings (BLOCKER/MAJOR/MINOR each).
+
+CONTEXT (read first): docs/autofit/PROGRESS.md sections
+"Stage-2 calibration — STEP-1 DIAGNOSIS", "— FIX UNITS", "— CLOSEOUT
+UNITS".  The goal: expert-level Find-Peaks completeness on messy real
+spectra ACROSS regions, with a ruling that a missed resolvable shoulder
+costs more than a spurious candidate selection prunes; real scans +
+expert fits are HELD-OUT validation, all tunables set on
+synthetic/principled grounds in transferable units.
+
+COMMITS TO REVIEW (in order):
+1. 8484679 PROGRESS: Step-1 diagnosis (5 measured chokepoints).
+2. c226605 U1 seeding (containment-only blocking + half-grid-step
+   tolerance; CURVATURE_SEED_MIN_FRACTION=0.02 trivia floor;
+   SEED_MAX_TOTAL=6) + U2 proposal eligibility (_proposal_blocked:
+   component-proximity 0.5×own-width OR populated-slot-window;
+   unpopulated windows block nothing).
+3. 427fef5 U5: detection-driven candidate family (build_detection_
+   candidate; slots ARE curvature-confirmed pool features; spacing-aware
+   windows 0.45×gap; scale-relative geometry), GRAMMAR_AUGMENT_MAX_SEEDS
+   =3, D0 first in sweep order, ONE warm-restart retry in fit_candidate
+   (failed-but-finite → restart at exit params, WARM_RESTART_MAX_NFEV=
+   2000), /api/analyze runs structural-fallback regions and stubs only
+   when detection finds nothing.
+4. fee3c90: 3-pt median spike guard (variance stays raw), curvature-
+   confirmation requirement for D slots, LAST-RESORT tier
+   (unstable_last_resort: best CONVERGED model when nothing survives,
+   never preferred over survivors), hardened negatives, env-gated Fe 2p
+   generalization gate, calibration evidence regenerated (q95 6.93,
+   FP@7 4.8%).
+5. 0713c05 PHYSICAL bar: DS+G effective width (Olivero–Longbothum,
+   beta+m_gauss), detection-slot absorbing-width flag (≥0.7×ceiling =
+   1.75×detected width), both routing to CONDITIONAL.
+
+INVARIANTS TO VERIFY (rails):
+a. /api/fit + manual Run Fit path untouched across ALL five commits
+   (app.py changes are /api/analyze only).
+b. Grammar-covered spectra: candidate set byte-identical (no D0, no
+   seeds — pinned; verify the pins discriminate).
+c. The reviewed F1 dominant detector byte-unchanged.
+d. No real-spectrum energies hard-coded anywhere in autofit/ (grep
+   279/289/704/717 etc.); all new tunables in transferable units
+   (fractions of detected widths/gaps, grid steps, noise sigmas) and
+   surfaced as UNVERIFIED.
+e. Real data untracked; committed tests carry only numeric positions.
+
+ADVERSARIAL TARGETS:
+1. Warm restart (engine fit_candidate): can the retry MASK true
+   non-convergence (nfev-exhausted mid-descent → retry "succeeds" at a
+   non-minimum)?  Note ftol certification at a non-minimum is what
+   success means for MINPACK — argue whether the honesty machinery
+   (stability refits, χ²ᵣ, flags) covers the residual risk.  Also: the
+   bimodal-split rationale for FIT_CANDIDATE_MAX_NFEV=18000 (2026-07-06)
+   assumed non-convergent fits STAY failed — does the retry break that
+   budget arithmetic anywhere (worst-case wall per candidate)?
+2. Proposal eligibility (_proposal_blocked): the populated-window rule
+   uses _effective_be_window with FITTED components — linked slots?
+   absent slots (no fitted component → window unpopulated → residuals
+   there proposal-ELIGIBLE — is that correct or a duplication channel)?
+   Can a proposal now duplicate an ABSENT-classified slot's feature?
+3. Last-resort tier: interaction with the decisive-override path in
+   compare_models; can unstable_last_resort ever mask a conditional
+   survivor (ordering of the two elifs); does the IC message path cover
+   it; is 'never preferred' actually pinned?
+4. Detection family: slot windows from 0.45×gap — degenerate cases
+   (two features < 5×step apart; single feature; cap-8 overflow —
+   which features get dropped and is that surfaced?).  D0's absence
+   from `preseeded_features` bookkeeping — is the pool payload the only
+   surface that explains D0's slots?  Is that enough for the honesty
+   contract?
+5. Seeding gates: fraction floor 0.02 grounds ("expert practice models
+   5-8% species") — is 0.02 defensible or arbitrary?  The containment
+   half-step tolerance vs the removed margin: any regression channel
+   for near-edge features fighting window slots (the absent-slot
+   machinery argument — verify it holds).
+6. Spike guard: medfilt(3) on the DETECTION signal only — variance on
+   raw y; does the guard bias prom_z for REAL 2-point-wide features at
+   coarse steps (0.4 eV instruments)?  The scale floor is 2×step —
+   argue consistency.
+7. Effective width: Olivero–Longbothum applied with f_L=2×beta —
+   verify DS+G's beta is HWHM (fitting.py _doniach_sunjic convention)
+   so f_L=2β is right; asym-GL left to its fwhm param — is that gap
+   acceptable or a hole in the papering-over bar?
+8. Test discrimination: would the pins catch (i) D0 built on covered
+   spectra, (ii) last-resort preferred over a survivor, (iii) the
+   spike guard removed, (iv) proposal blocking reverted to window-
+   membership?
+9. MEASURED CLAIMS vs artifacts: cwt_calibration.jsonl supports q95
+   6.93 / FP@7 4.83%→"4.8%" / broad-peak 1/20; PROGRESS scorecard
+   claims match the committed gates.  The held-out numbers (ds7 6/6,
+   ds8 6/7, Fe 2p outcomes) come from local-only data — verify the
+   committed gates would fail loudly if they regressed.
+
+Constraints: read-only sandbox; you cannot run pytest.  Cite file:line.

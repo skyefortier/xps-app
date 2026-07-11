@@ -2418,6 +2418,71 @@ Both winners CONDITIONAL with honest flags (width caps, center pegs) —
 correct posture pending the physical-width and over-pruning units.
 Wall ~240 s/scan (speed unit pending; budget honesty intact).
 
+## Stage-2 calibration — CLOSEOUT UNITS (2026-07-10 evening)
+
+**Spike guard + calibration regeneration** (commit fee3c90): detection
+runs on a 3-pt median-prefiltered signal (variance stays raw-Poisson —
+z errs conservative).  Measured: one cosmic-ray point fired at prom_z
+47–127 AND its Ricker-wing ringing faked 4 ridges at z 20–55 up to 3 eV
+away; both classes annihilated, shoulder envelope re-verified, held-out
+real gate unchanged.  Regenerated H0: q95 6.93 / FP@7 4.8%.  Detection-
+family slots additionally require curvature confirmation (local-max-only
+Shirley-bridging plateau bumps on real Fe 2p carried 18–21 eV width
+estimates).
+
+**Last-resort tier** (same commit): when NO candidate survives clean or
+conditional (typically cross-refit label instability on heavily-
+overlapped low-res structure), `rank_and_filter` emits the single best
+CONVERGED model as `conditional_reason='unstable_last_resort'` with a
+loud treat-everything-as-low-confidence message.  Never preferred over
+any survivor (pinned).  Measured motivation: Ugly_Fe_2p_2's χ²ᵣ-7.9
+chemist-plausible 5-component model previously vanished to an EMPTY
+answer.
+
+**GENERALIZATION measured (the across-the-periodic-table bar):** Fe 2p
+resolves structural-only (zero grammar candidates) → the sweep now runs
+on the detection family alone.  Ugly_Fe_2p → winner D0, 3 components
+(2p₃/₂ 704.3, mid 708.0 [flagged fat], 2p₁/₂ 717.5), CONDITIONAL, 58 s.
+Ugly_Fe_2p_2 → last-resort tier, 5 components incl. the weak Fe⁰ 706.4
+(704.3 / 706.4 / 709.5 / 710.9 / 717.5), loud UNSTABLE banner, 70 s.
+Both env-gated in `test_candidate_pool_real_gate.py`
+(`test_generalization_bar_ugly_fe2p`).  HONEST AMBIGUITY: the one-broad-
+vs-two question on low-res Fe 2p surfaces as the unstable/conditional
+flags + pegged-width flags rather than silent confidence.
+
+**PHYSICAL bar** (commit 0713c05): `_unphysical_width_flags` now checks
+EFFECTIVE width — DS+G's β (Lorentzian HWHM) + m_gauss convolved via the
+Olivero–Longbothum Voigt approximation (a DS+G component could read 1.0
+while being 3.3 eV wide); detection-family slots get a scale-relative
+absorbing-width flag (fitted ≥ 1.75× detected width ⇒ likely absorbing a
+neighbor) routing to CONDITIONAL.
+
+**SPEED (measured; the honest statement):** the detection layer itself
+is milliseconds.  Full Find Peaks: Fe-2p-class detection-only regions
+58–70 s; rich C 1s grammar sweeps are BUDGET-bound at
+TOTAL_ANALYSIS_TIMEOUT_SEC (240 s worst case, honest truncation flags) —
+the warm restart made all screens converge but each costs ~7-10 s on
+191-pt multi-species scans.  "Seconds" is not achievable with the
+current per-candidate stability contract; 240 s worst-case with
+truncation honesty is the documented best-achievable; the
+hour→interactive performance item stays on the deferred list.
+
+**Acceptance scorecard vs the goal:**
+- COMPLETENESS: ds7/Scan_1 6/6 expert components (289.8 ✓, low-BE trio ✓,
+  282.84 bridge ✓ via D0); ds8/Scan_1 6/7 (the miss is a same-position
+  sharp+broad expert decomposition, sub-curvature-resolution) — PASSED.
+- GENERALIZATION: Fe 2p both files plausible + honest; anchors via the
+  env-gated suite (below); wide-scale synthetics in the Stage-2 pins
+  (0.7–3.4 eV widths, 0.05/0.1 eV grids, 200–700 eV windows) — PASSED.
+- PHYSICAL: effective-width machinery + absorbing flags — PASSED
+  (enforcement = flags routing to CONDITIONAL, per the honesty-first
+  architecture; hard caps stay at the reviewed FWHM-cap unit's bounds).
+- NO HALLUCINATION: hardened negatives (spikes incl. ringing, drift,
+  broad singles, steps) pinned at detector/pool/e2e levels — PASSED.
+- HONEST AMBIGUITY: unstable_last_resort + conditional + pegged-width
+  flags — PASSED.
+- SPEED: documented best-achievable (above).
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);

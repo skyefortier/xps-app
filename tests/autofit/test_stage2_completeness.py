@@ -260,7 +260,7 @@ def _destabilized(report):
 
 def test_last_resort_tier_emits_best_converged_when_nothing_survives():
     unstable = _destabilized(_real_report())
-    res = eng.rank_and_filter([unstable])
+    res = eng.rank_and_filter([unstable], allow_last_resort=True)
     assert res.survivors, "last resort must emit the best converged model"
     assert res.conditional is True
     assert res.conditional_reason == "unstable_last_resort"
@@ -269,7 +269,7 @@ def test_last_resort_tier_emits_best_converged_when_nothing_survives():
 def test_last_resort_never_preferred_over_survivors():
     clean = _real_report()
     unstable = _destabilized(_real_report())
-    res = eng.rank_and_filter([clean, unstable])
+    res = eng.rank_and_filter([clean, unstable], allow_last_resort=True)
     assert res.conditional_reason != "unstable_last_resort"
     assert res.survivors[0].model.name == clean.model.name
 

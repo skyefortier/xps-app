@@ -190,13 +190,14 @@ def test_integration_bar_selection_keeps_seeded_feature(
     lo, hi = window
     assert any(f["provenance"] == "curvature_shoulder"
                and lo <= f["center_be"] <= hi for f in feats), feats
+    # MECHANISM-AGNOSTIC (Stage-2): the winner may carry the feature via a
+    # curvature seed, the detection family (D0), or a proposal — the bar
+    # is a data-driven component AT the feature, region-unassigned.
     emitted = [p for p in res.peaks
-               if p["role"].startswith("preseed_curvature_")
-               and lo <= p["center"] <= hi]
+               if p["region"] == "unassigned" and lo <= p["center"] <= hi]
     assert emitted, (
-        f"{ds}/{scan}: seeded feature not in the final model; peaks = "
+        f"{ds}/{scan}: detected feature not in the final model; peaks = "
         f"{[(p['role'], round(p['center'], 2)) for p in res.peaks]}")
-    assert emitted[0]["region"] == "unassigned"
 
 
 FE2P = [REPO / "docs/autofit/test_data/Ugly_Fe_2p.spec.json",

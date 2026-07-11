@@ -1498,6 +1498,7 @@ def rank_and_filter(
     persistence_threshold: float = DEFAULT_PERSISTENCE_THRESHOLD,
     bic_ambiguity_threshold: float = DEFAULT_BIC_AMBIGUITY,
     allow_conditional: bool = True,
+    allow_last_resort: bool = False,
 ) -> ComparisonResult:
     """
     Filter (plausibility, active persistence) then rank (χ²ᵣ, BIC*).
@@ -1540,9 +1541,14 @@ def rank_and_filter(
         survivors = conditional_pool
         conditional = True
         conditional_reason = "no_clean_survivor"
-    elif allow_conditional and not survivors and reports:
+    elif allow_conditional and allow_last_resort and not survivors and reports:
         # LAST-RESORT tier (Stage-2, 2026-07-10; measured on real low-res
-        # Fe 2p): every candidate failed BOTH tiers — typically cross-refit
+        # Fe 2p): fires ONLY when the caller says detection found real
+        # structure (allow_last_resort = detection seeds exist) — its job
+        # is rescuing DETECTED structure from selection instability, never
+        # forcing an answer on featureless data (a flat-noise grammar fit
+        # can converge; the honest result there stays no-survivor).
+        # Every candidate failed BOTH tiers — typically cross-refit
         # label instability (orphan_peaks) on heavily-overlapped low-res
         # structure.  For a suggest-a-profile tool an EMPTY answer is the
         # worst answer: emit the single best CONVERGED model, loudly
@@ -2696,6 +2702,7 @@ def compare_models(
         reports,
         persistence_threshold=persistence_threshold,
         bic_ambiguity_threshold=bic_ambiguity_threshold,
+        allow_last_resort=bool(preseed_specs),
     )
     result = _apply_decisive_override(
         x, y, weights, result,
