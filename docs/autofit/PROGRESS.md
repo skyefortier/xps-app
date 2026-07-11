@@ -2294,6 +2294,75 @@ row fixed, every remaining "3.7" a legitimate unrelated number, all
 JSONL row exactly, and the fix commit docs-only.
 **CANDIDATE-GENERATION UNIT REVIEW-COMPLETE.**
 
+## Stage-2 calibration — STEP-1 DIAGNOSIS (2026-07-10, logged BEFORE fixes)
+
+**Goal statement (Skye):** Find Peaks under-proposes on messy real spectra
+— on ds7/Scan_1 it misses the clear ~289.2 eV shoulder and under-resolves
+the low-BE region, then papers over misses by unphysically broadening
+neighbors.  Expert references: `test_data/ds7_Skye_Test_fit_C1s.spec.json`
+(6 components: 278.29 / 279.29 / 281.28 / 282.84 / 287.11 / 289.80, raw
+frame) and `ds8_Skye_Test_fit_C1s.spec.json` (raw frame after ccShift
+−4.706: 279.09 / 279.79 / 280.12 / 281.47 / 283.62 / 287.97 / 290.76).
+Question posed: never-DETECTED or detected-then-PRUNED?
+
+**Measured answer: DETECTED-THEN-BLOCKED, at five specific chokepoints —
+detection itself sees essentially everything the experts modeled.**
+Ungated CWT landscape (worktree code, scratchpad `step1_diagnose.py` +
+`step1_results.jsonl`, LOCAL ONLY): ds7/Scan_1 ridges at 278.32 (prom_z
+490) / 279.42 (42) / 281.12 (49) / 283.62 (59) / 287.02 (273) / **289.82
+(107)**; ds8/Scan_1 at 278.42 (9.6) / 279.82 (768) / 281.72 (8.5) /
+284.02 (23) / 287.92 (128) / 291.12 (23).  Every expert component except
+ds7's weak broad 282.84 bridge (amp ~5% of max, no distinct curvature —
+honest-ambiguity territory) has a ridge, most at 3–70× the noise gate.
+
+Per-component loss chains (full pipeline, production parity):
+
+1. **Margin-fiction blocking (the 289.8/287.1 killer).**  ds7's 287.11
+   and 289.80 are INSIDE `window+margin` (so detection marks them
+   `in_grammar_window`, never seeds them, and the F2 canonical-window
+   test blocks proposals) — but NO slot's actual center bounds contain
+   them: 287.11 < C=O floor 287.3; 289.80 sits in the OC=O(≤289.6) /
+   π→π*(≥290.0) crack.  "Covered by grammar" is a fiction: the features
+   are unfittable by every candidate, and unreachable by every rescue
+   channel.  Both are top-5 curvature detections (z 273 / 107).
+2. **Winner-lacks-slot blocking.**  ds8's 290.76 IS expressible (π→π*
+   window) — but the measured winner (B3 family) has no satellite slot,
+   and the F2 canonical-window test still blocks a proposal there
+   because the WINDOW exists, even though the MODEL has no component
+   within 2.8 eV.  Proposal eligibility keys on window membership, not
+   on distance to the current model's fitted components.
+3. **Fraction-of-max gate kills real flank species.**  ds8's 281.72 and
+   284.02-class features (z 8.5–23, fraction 0.06–0.08) are detected and
+   sub-fraction (0.25 dominance gate) — F2 rescued 281.7 on this run;
+   283.62 stayed blocked (also margin fiction).  Expert models these.
+4. **Preseed cap = 2 binds.**  ds7's 281.12 (z 49): `preseed_cap` was its
+   ONLY gate failure; the F2 rescue attempt at 281.19 was then REJECTED
+   at persistence 0.50 < 0.70 — the known over-pruning class, measured
+   again on a new spectrum.
+5. **Budget starvation → no-survivor collapse.**  ds7/Scan_1 this run:
+   the 29-candidate screen + 2 deep evaluations consumed the 240 s sweep
+   budget → "no candidate survived filter-then-rank", **zero peaks
+   emitted**.  Outcome quality on rich scans is wall-clock-dependent
+   (screen ≈ 6–8 s/candidate here).  Completeness requires the sweep to
+   actually reach viable models — speed is a correctness gate, not UX.
+
+**"Papering over" measured (ds8 winner):** FOUR of six components pegged
+at the 2.0 eV width cap (main_aliphatic 284.60, CO 286.75, C=O 287.86,
+OC=O 289.60 — all w=2.00), absorbing the unmodeled 283.62 + satellite
+intensity.  Correctly CONDITIONAL-flagged, but the profile is incomplete
+and the widths are the symptom.
+
+**Root framing:** on exotic-chemistry spectra (U-naphthalenide/COT
+carbons), the C 1s cookbook windows are the wrong prior — and every
+completeness channel (seeding, proposals) defers to those windows.  The
+fix direction: detection evidence must be allowed to carry components
+wherever the grammar cannot (honestly, region-unassigned), and proposal
+eligibility must key on the CURRENT MODEL's components, not window
+membership.  Fe 2p baseline for the generalization bar: `resolve("Fe 2p")`
+today = structural fallback, ZERO candidates (Find Peaks cannot fit it at
+all) — derived doublet structure + CONDITIONAL machine-tier 2p3/2
+reference exist as raw material.
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);
