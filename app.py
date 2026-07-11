@@ -715,37 +715,6 @@ def _register_routes(app: Flask) -> None:
             except (UnknownRegionError, PhaseAmbiguityError, ValueError) as exc:
                 return _err(str(exc))
 
-            if grammar.structural_only and not grammar.candidates:
-                # Structure-only degradation (Phase D unit 3): no fit is
-                # possible — report the derived structure honestly instead
-                # of running a method with zero candidates.
-                non_verified = sorted({
-                    f"{slug}:{e['constant']}"
-                    for slug, entries in grammar.provenance.items()
-                    for e in entries if e.get("status") != "VERIFIED"
-                })
-                return jsonify(_json_sanitize({
-                    "method": method_id,
-                    "success": False,
-                    "structural_only": list(grammar.structural_only),
-                    "structure_report": grammar.provenance,
-                    "notes": grammar.notes,
-                    "uses_conditional_or_unverified_constants": non_verified,
-                    "peaks": [],
-                    "confidence": {},
-                    "message": (
-                        "structure known, positions UNVERIFIED — supply a "
-                        "cited source (autofit.cited_values schema) and "
-                        "curated windows to enable fitting for: "
-                        + ", ".join(grammar.structural_only)),
-                    "review_gate": {
-                        "reviewed_by": None,
-                        "note": "results are candidates + honesty flags, "
-                                "not ground truth — a named human review is "
-                                "required before export (spec §8)",
-                    },
-                }))
-
         try:
             res = get_method(method_id).run(
                 x, y, grammar=grammar, peak_specs=peak_specs, options=opts)
@@ -758,7 +727,43 @@ def _register_routes(app: Flask) -> None:
             app.logger.exception("analyze failed")
             return _err("Internal analyze error — see server log.", 500)
 
-        return jsonify(_json_sanitize({
+        if (grammar is not None and grammar.structural_only
+                and not grammar.candidates and not res.success):
+            # Structure-only degradation (Phase D unit 3, Stage-2 update):
+            # a region with ZERO grammar candidates now RUNS the method —
+            # the detection-driven candidate family can carry a fit on its
+            # own (across-the-periodic-table path).  Only when detection
+            # finds nothing fittable either does the honest structure
+            # report remain the answer.
+            non_verified = sorted({
+                f"{slug}:{e['constant']}"
+                for slug, entries in grammar.provenance.items()
+                for e in entries if e.get("status") != "VERIFIED"
+            })
+            return jsonify(_json_sanitize({
+                "method": method_id,
+                "success": False,
+                "structural_only": list(grammar.structural_only),
+                "structure_report": grammar.provenance,
+                "notes": grammar.notes,
+                "uses_conditional_or_unverified_constants": non_verified,
+                "peaks": [],
+                "confidence": {},
+                "message": (
+                    "structure known, positions UNVERIFIED — detection "
+                    "found no fittable features in this window; supply a "
+                    "cited source (autofit.cited_values schema) and "
+                    "curated windows to enable grammar fitting for: "
+                    + ", ".join(grammar.structural_only)),
+                "review_gate": {
+                    "reviewed_by": None,
+                    "note": "results are candidates + honesty flags, "
+                            "not ground truth — a named human review is "
+                            "required before export (spec §8)",
+                },
+            }))
+
+        payload = {
             "method": method_id,
             "success": bool(res.success),
             # Phase D: regions that resolved structure-only in a MIXED
@@ -776,7 +781,13 @@ def _register_routes(app: Flask) -> None:
                         "ground truth — a named human review is required "
                         "before export (spec §8)",
             },
-        }))
+        }
+        if grammar is not None and grammar.structural_only:
+            # structural regions that DID fit (detection family) still ship
+            # their derived-structure report for the honesty surface
+            payload["structure_report"] = grammar.provenance
+            payload["notes"] = grammar.notes
+        return jsonify(_json_sanitize(payload))
 
     # ── Health check ──────────────────────────────────────────────────────────
 

@@ -105,24 +105,26 @@ class ICModelComparisonMethod(PeakFitMethod):
             if slot.role not in absent_roles
         }
         message = ""
-        winner_preseed_roles = sorted(
+        winner_unassigned_roles = sorted(
             slot.role for slot in top.model.slots
-            if slot.role.startswith("preseed_")
+            if slot.region == "unassigned"
             and slot.role not in absent_roles
         )
-        if winner_preseed_roles:
+        if winner_unassigned_roles:
             centers = [
-                f"{c.position:.2f}" for r in winner_preseed_roles
+                f"{c.position:.2f}" for r in winner_unassigned_roles
                 for c in top.primary_fit.components if c.slot_role == r
             ]
             message += (
-                f"PRE-SEEDED component(s) at {', '.join(centers)} eV: "
-                "detected intensity outside every grammar window was seeded "
-                "from the data (region-unassigned) — chemical assignment "
-                "requires human review; positions are data-driven, not "
-                "literature-anchored. "
+                f"DATA-DRIVEN component(s) at {', '.join(centers)} eV "
+                "(detected/seeded/proposed, region-unassigned): chemical "
+                "assignment requires human review; positions are "
+                "data-driven, not literature-anchored. "
             )
         if result.conditional:
+            # the conditional banner leads, but must not CLOBBER the
+            # data-driven/human-review note (Stage-2: a conditional
+            # detection-family winner still needs its assignment caveat)
             if result.conditional_reason == "decisive_override":
                 message = (
                     "CONDITIONAL result (decisive_override): clean candidates "
@@ -130,16 +132,16 @@ class ICModelComparisonMethod(PeakFitMethod):
                     f"candidate dominates them — winner {top.model.name} with "
                     f"parameters fixed at bounds: {top.boundary_fixed_params}; "
                     "clean alternatives retained in the ranking "
-                    "(see analysis.candidates)"
-                )
+                    "(see analysis.candidates). "
+                ) + message
             else:
                 message = (
                     "CONDITIONAL result (no_clean_survivor): no candidate "
                     "passed plausibility cleanly; ranking the stable-but-"
                     f"boundary-limited tier — winner {top.model.name} has "
                     f"constraint violations {top.plausibility.boundary_hits} "
-                    "(see analysis.candidates)"
-                )
+                    "(see analysis.candidates). "
+                ) + message
         if top.plausibility.unphysical_widths:
             message += (
                 " LOW CONFIDENCE — width(s) held at the ordinary physical "

@@ -2363,6 +2363,61 @@ today = structural fallback, ZERO candidates (Find Peaks cannot fit it at
 all) — derived doublet structure + CONDITIONAL machine-tier 2p3/2
 reference exist as raw material.
 
+## Stage-2 calibration — FIX UNITS (2026-07-10, measured against the diagnosis)
+
+**U1 — seeding recalibration** (commit c226605): containment-only window
+blocking (half-grid-step tolerance = sampling resolution; the old ±margin
+"coverage" was measured fiction), `CURVATURE_SEED_MIN_FRACTION = 0.02`
+trivia floor for the curvature channel (the 0.25 dominance gate stays on
+the F1 dominant channel), `SEED_MAX_TOTAL = 6`.  Held-out re-measurement:
+ds7/Scan_1 seeds ALL SIX expert components (incl. the in-crack 287.1 +
+289.7); in-window strong features stay grammar territory with truthful
+gate notes; real detection gate rewritten to the Stage-2 expectations.
+
+**U2 — proposal eligibility** (same commit): `_proposal_blocked` replaces
+window-membership blocking — a residual cluster is blocked only by (i)
+proximity to a fitted component (0.5 × its own fitted width) or (ii)
+sitting inside a POPULATED slot's window; an unpopulated window blocks
+nothing (the measured winner-lacks-slot class).  Distributed-mismatch
+honesty preserved (populated windows own their residuals — no tail-fixer
+peaks; pinned).
+
+**U5 — detection-driven candidate family + warm-restart convergence.**
+Measured forcing sequence: (a) full seeding into every grammar family
+blew EVERY screen fit past the nfev cap (0/29 converged → no survivor);
+(b) grammar augmentation capped at `GRAMMAR_AUGMENT_MAX_SEEDS = 3` with
+the FULL detected structure carried instead by ONE `D0_detected`
+candidate (slots ARE the pool features, all channels, containment-
+independent; region-unassigned; absent-eligible; slot geometry in units
+of each feature's own detected width — the same builder serves 0.7 eV
+C 1s species and 3+ eV Fe 2p mains); (c) D0 goes FIRST in sweep order
+(appended last it was never screened before truncation); (d) spacing-
+aware slot windows (0.45×gap cap — a merged close pair reads its
+fwhm_est at the envelope scale and its window otherwise swallows the
+neighbor → label-switching degeneracy); (e) **ONE warm-restart retry in
+`fit_candidate`** for failed-but-finite fits: an optimum against a
+parameter bound stalls MINPACK's transformed gradient — it reaches the
+minimum then burns the whole budget without certifying (measured: 6000
+nfev cold → 33 nfev warm at identical χ²).  The retry fires only on
+success=False + finite χ², so converging fits are byte-identical.
+Structural-fallback regions (ZERO grammar candidates) now RUN the sweep
+with D0 as the model space — `/api/analyze` attempts the fit and returns
+the structure-report stub only when detection finds nothing (the
+across-the-periodic-table path).  `D0` won ds7/Scan_1 outright.
+
+**Measured e2e on the held-out diagnosis scans (production parity,
+n_refits=4, seed 0):**
+
+| scan | pre-Stage-2 | post-U5 |
+|---|---|---|
+| ds7/Scan_1 expert-component coverage | 0/6 (winner: NONE — 0 evaluated) | **6/6, winner D0_detected** (282.72/w3.1 carries even the curvature-less 282.84 bridge; 287.11/w1.78 and 289.78/w2.05 near-exact vs expert) |
+| ds8/Scan_1 coverage | 0/7 this run (winner NONE) / 4-ish best-case pre-fix | **6/7, winner AG2_linked+preseed** (the 279.09 "miss" is the expert's sharp+broad same-position decomposition 0.7 eV inside a covered cluster — sub-curvature-resolution model choice, honest-ambiguity territory) |
+| screen convergence | 0-4 / 18-22 | **22/22 and 18/18** (the warm restart fixed the whole screen phase) |
+
+Both winners CONDITIONAL with honest flags (width caps, center pegs) —
+correct posture pending the physical-width and over-pruning units.
+Wall ~240 s/scan (speed unit pending; budget honesty intact).
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);

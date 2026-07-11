@@ -256,9 +256,13 @@ def client(tmp_path):
         yield c
 
 
-def _upload(client):
+def _upload(client, peaked=True):
     x = np.arange(700.0, 730.0, 0.05)
-    y = 300.0 + 5000.0 * np.exp(-4 * np.log(2) * ((x - 710.0) / 2.0) ** 2)
+    if peaked:
+        y = 300.0 + 5000.0 * np.exp(-4 * np.log(2) * ((x - 710.0) / 2.0) ** 2)
+    else:
+        # featureless: flat baseline (detection must find nothing)
+        y = np.full_like(x, 300.0)
     csv = "\n".join(f"{a:.3f},{b:.1f}" for a, b in zip(x, y))
     resp = client.post("/api/upload", data={
         "file": (io.BytesIO(csv.encode()), "fe.csv")})
@@ -267,7 +271,11 @@ def _upload(client):
 
 
 def test_api_analyze_degrades_to_structure_report(client):
-    sid = _upload(client)
+    """Stage-2 UPDATE (2026-07-10): a structural-fallback region now RUNS
+    the sweep (the detection family is the model space), so the honest
+    structure-report stub is returned only when detection finds NOTHING
+    fittable — pinned here with a featureless window."""
+    sid = _upload(client, peaked=False)
     resp = client.post("/api/analyze", json={
         "session_id": sid, "material_class": "conductor",
         "regions": ["Fe 2p"], "method": "ic_model_comparison",
@@ -283,6 +291,28 @@ def test_api_analyze_degrades_to_structure_report(client):
     assert "Fe 2p:binding_energy_ev" in \
         body["uses_conditional_or_unverified_constants"]
     # the review-gate honesty stub still rides on the degraded response
+    assert body["review_gate"]["reviewed_by"] is None
+
+
+def test_api_analyze_structural_region_fits_via_detection(client):
+    """Stage-2 (across-the-periodic-table path): a structural-fallback
+    region WITH real detectable structure fits through the detection
+    family — peaks emitted region-unassigned, the derived-structure
+    report still attached for the honesty surface."""
+    sid = _upload(client, peaked=True)
+    resp = client.post("/api/analyze", json={
+        "session_id": sid, "material_class": "conductor",
+        "regions": ["Fe 2p"], "method": "ic_model_comparison",
+    })
+    assert resp.status_code == 200, resp.get_json()
+    body = resp.get_json()
+    assert body["success"] is True
+    assert body["structural_only"] == ["Fe 2p"]
+    assert body["peaks"], "detection family must carry the fit"
+    assert all(p["region"] == "unassigned" for p in body["peaks"])
+    assert any(abs(p["center"] - 710.0) < 0.5 for p in body["peaks"])
+    assert body["structure_report"]["Fe 2p"]
+    assert body["diagnostics"]["winner"].startswith("D0_detected")
     assert body["review_gate"]["reviewed_by"] is None
 
 

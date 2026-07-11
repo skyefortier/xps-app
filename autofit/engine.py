@@ -41,7 +41,8 @@ from scipy.integrate import trapezoid
 
 from fitting import _SHAPE_FUNCS, linear_background, shirley_background, smart_background
 
-from .candidates import build_candidate_pool, merge_residual_attempts
+from .candidates import (build_candidate_pool, build_detection_candidate,
+                         merge_residual_attempts)
 
 from .grammar import (
     BACKEND_SHAPE,
@@ -159,6 +160,9 @@ PROPOSAL_MIN_FIT_BUDGET_SEC = 15.0
 # See fit_candidate() docstring: deterministic per-call ceiling on lmfit's
 # own effort, replacing its effectively-unbounded default.
 FIT_CANDIDATE_MAX_NFEV = 18000
+WARM_RESTART_MAX_NFEV = 2000     # single retry budget for a failed-but-
+                                 # finite fit (measured need: ~33 evals;
+                                 # generous headroom, still bounded)
 
 # Wall-clock ceiling on ONE candidate's entire primary-fit + stability-refit
 # pass (compare_models -> run_stability_analysis). Mirrors
@@ -233,6 +237,11 @@ CURVATURE_SEED_MIN_FRACTION = 0.02   # trivia floor (was the 0.25 dominance
 SEED_MAX_TOTAL = 6                   # dominant + curvature seeds combined
                                      # (was 2; ds7/Scan_1-class spectra
                                      # carry 5-6 real detected species)
+GRAMMAR_AUGMENT_MAX_SEEDS = 3        # of those, at most this many augment
+                                     # each GRAMMAR family (measured: the
+                                     # full set made all 29 screens blow
+                                     # the nfev cap); the detection family
+                                     # carries the full structure instead
 
 # ── Two-phase sweep: screen → stabilize (unit F3, 2026-07-07) ──────────────
 # Measured motivation (PROGRESS.md diagnosis, cause a): a 29-candidate C 1s
@@ -734,6 +743,25 @@ def fit_candidate(
         result = composite.fit(y_sub, params, x=x, weights=weights,
                                method="leastsq", nan_policy="omit",
                                max_nfev=max_nfev)
+        if (not result.success and result.chisqr is not None
+                and np.isfinite(result.chisqr)):
+            # ONE warm restart (Stage-2, measured on the real diagnosis
+            # scans): a model whose optimum sits against parameter bounds
+            # stalls MINPACK on a flat transformed gradient — it reaches
+            # the minimum, then burns the whole nfev budget without
+            # satisfying ftol (success=False at a genuinely converged
+            # χ²).  Restarting AT the exit point resets leastsq's internal
+            # diag scaling and it certifies in tens of evaluations
+            # (measured: 6000 nfev burned cold → 33 nfev warm, identical
+            # χ²).  Fires ONLY on a failed-but-finite fit, so converging
+            # fits are byte-identical; cost is bounded by one
+            # WARM_RESTART_MAX_NFEV fit.
+            retry = composite.fit(y_sub, result.params.copy(), x=x,
+                                  weights=weights, method="leastsq",
+                                  nan_policy="omit",
+                                  max_nfev=WARM_RESTART_MAX_NFEV)
+            if retry.success:
+                result = retry
     except Exception as exc:
         log.debug("fit_candidate failed for %s: %s", model.name, exc)
         return FitOutcome(
@@ -2299,13 +2327,18 @@ def compare_models(
     preseed_specs: list[PreseedSpec] = []
     pool = None
     pool_error: Optional[str] = None
-    if enable_preseed and candidates:
+    if enable_preseed and (candidates or not grammar.candidates):
         # Detection-only background: today every candidate in a resolved
         # grammar shares one background family (C 1s/B 1s/Cl 2p/U 4f modules
         # are each homogeneous), so the first candidate's is representative.
         # A future mixed-background grammar only affects DETECTION here —
-        # each candidate still fits with its own background.
-        det_bg = _compute_background(x, y, candidates[0].background)
+        # each candidate still fits with its own background.  Structural-
+        # fallback regions (ZERO grammar candidates — the across-the-
+        # periodic-table path) default to Shirley, the standard core-level
+        # background (CLAUDE.md convention).
+        det_bg_family = (candidates[0].background if candidates
+                         else BackgroundType.SHIRLEY)
+        det_bg = _compute_background(x, y, det_bg_family)
         preseed_specs = detect_out_of_grammar_dominants(
             x, y, det_bg, candidates, diagnostic_windows,
             noise_floor=noise_floor,
@@ -2360,7 +2393,52 @@ def compare_models(
                 [round(s.center_init, 2) for s in preseed_specs],
                 [s.provenance for s in preseed_specs],
             )
-            candidates = [_preseed_augmented(c, preseed_specs) for c in candidates]
+            # Stage-2 (chokepoint 5, measured): augmenting EVERY grammar
+            # family with the full seed set made all 29 screen fits blow
+            # the nfev cap (0 converged → no survivor).  Grammar families
+            # get a LIGHT augmentation — dominant seeds always, then the
+            # strongest curvature seeds up to GRAMMAR_AUGMENT_MAX_SEEDS —
+            # while the detection-driven family below carries the FULL
+            # detected structure in one cheap, well-initialized model.
+            dom_specs = [s for s in preseed_specs
+                         if s.provenance == "local_max"]
+            cwt_specs = sorted(
+                (s for s in preseed_specs if s.provenance != "local_max"),
+                key=lambda s: s.amplitude_net, reverse=True)
+            augment_specs = (dom_specs + cwt_specs)[:GRAMMAR_AUGMENT_MAX_SEEDS]
+            augment_specs.sort(key=lambda s: s.center_init)
+            augment_roles = {s.role for s in augment_specs}
+            if candidates:
+                candidates = [_preseed_augmented(c, augment_specs)
+                              for c in candidates]
+            # The detection family: slots ARE the detected features (all
+            # channels, window-containment-independent), region-unassigned,
+            # absent-eligible.  Built ONLY when detection found structure
+            # the grammar cannot express (preseed_specs non-empty), so
+            # grammar-covered spectra keep a byte-identical candidate set.
+            if pool is not None:
+                det_model = build_detection_candidate(
+                    pool, det_bg_family,
+                    step_ev=float(np.median(np.abs(np.diff(x)))),
+                )
+                if det_model is not None:
+                    # FIRST in sweep order: the detection family is the
+                    # cheapest, best-initialized candidate, and the screen
+                    # phase truncates under its wall budget on rich scans
+                    # (measured: appended last, it was never screened at
+                    # 21/30) — a budget truncation must never be able to
+                    # drop the completeness carrier.
+                    candidates = [det_model] + candidates
+                    log.info(
+                        "compare_models: detection family '%s' joins the "
+                        "sweep with %d slot(s) at %s",
+                        det_model.name, len(det_model.slots),
+                        [round(0.5 * (s.be_window[0] + s.be_window[1]), 2)
+                         for s in det_model.slots])
+        else:
+            augment_roles = set()
+    else:
+        augment_roles = set()
 
     reports: list[ModelReport] = []
     non_converged: list[tuple[CandidateModel, FitOutcome]] = []
@@ -2578,7 +2656,12 @@ def compare_models(
     result.analysis_truncated = analysis_truncated
     result.n_candidates_evaluated = n_evaluated
     result.n_candidates_total = n_cand
-    result.preseeded_features = [s.payload() for s in preseed_specs]
+    # honest augmentation bookkeeping: every detected seed is surfaced;
+    # the flag says whether it augmented the grammar families or rides in
+    # the detection family only (GRAMMAR_AUGMENT_MAX_SEEDS cap)
+    result.preseeded_features = [
+        {**s.payload(), "augmented_into_grammar": s.role in augment_roles}
+        for s in preseed_specs]
     result.screen = screen_record
     if pool is not None:
         # honesty surface: the full pool payload, with the F2 residual-

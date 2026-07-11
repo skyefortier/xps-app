@@ -145,3 +145,82 @@ def test_e2e_winner_lacks_slot_rescued_by_proposal():
     assert emitted, (
         "satellite-window intensity missing from the final model: "
         f"{[(p['role'], round(p['center'], 2)) for p in res.peaks]}")
+
+
+# ── Detection-driven candidate family (Stage-2, chokepoint 5) ──────────────
+# Measured motivation: seeding every grammar family with up to 6 slots made
+# ALL 29 screen fits blow the 6000-nfev cap on the diagnosis scans (0
+# converged -> no survivor).  The detection family carries the full
+# detected structure in ONE candidate with detection-quality inits;
+# grammar families keep a light seed load.  Built ONLY when detection
+# finds structure the grammar cannot express (covered spectra unchanged).
+
+def test_detection_family_built_and_competes():
+    """Spectrum with out-of-grammar structure: the sweep must include a
+    `D0_detected` candidate whose slots sit at the detected features, all
+    region-unassigned and absent-eligible."""
+    x = np.arange(186.0, 206.0, 0.05)
+    sig = (_pv(x, 40000.0, 191.0, 1.2, ETA)          # OOG dominant
+           + _pv(x, 12000.0, 189.9, 1.2, ETA)        # OOG shoulder
+           + _pv(x, 9000.0, 196.5, 1.2, ETA))        # in-window main
+    y = _noisy(sig + _linear_bg(x), 42)
+    grammar = _grammar([_cand("P1", [_slot("main_a", (195.5, 197.5),
+                                           fwhm=(0.6, 2.0))])],
+                       windows={"SYN:main_a": (195.5, 197.5)})
+    res = get_method("ic_model_comparison").run(
+        x, y, grammar=grammar, options=dict(IC_OPTS))
+    names = [c["name"] for c in res.analysis["candidates"]]
+    names += list(res.analysis.get("non_converged", []))
+    assert any(n.startswith("D0_detected") for n in names), names
+    d0 = next(c for c in res.analysis["candidates"]
+              if c["name"].startswith("D0_detected"))
+    assert d0["n_components"] >= 3          # dominant + shoulder + main
+
+
+def test_no_detection_family_on_covered_spectrum():
+    """Grammar-covered spectrum: NO detection family (candidate set byte-
+    identical — the F1 no-op rail extends to Stage 2)."""
+    x = np.arange(190.0, 205.0, 0.05)
+    sig = (_pv(x, 9000.0, 196.5, 1.2, ETA)
+           + _pv(x, 4000.0, 199.5, 1.4, ETA))
+    y = _noisy(sig + _linear_bg(x), 11)
+    grammar = _grammar([_cand("P2", [_slot("main_a", (195.5, 197.5)),
+                                     _slot("comp_b", (198.5, 200.5))])],
+                       windows={"SYN:main_a": (195.5, 197.5),
+                                "SYN:comp_b": (198.5, 200.5)})
+    res = get_method("ic_model_comparison").run(
+        x, y, grammar=grammar, options=dict(IC_OPTS))
+    names = [c["name"] for c in res.analysis["candidates"]]
+    assert not any(n.startswith("D0_detected") for n in names)
+    assert res.analysis["preseeded_features"] == []
+
+
+def test_zero_grammar_candidates_run_detection_only():
+    """The across-the-periodic-table path (Fe 2p class): a grammar with
+    ZERO candidates (structural fallback) must still fit — the detection
+    family IS the model space.  All roles unassigned; honesty message
+    intact; no hallucinated extras beyond the detected structure."""
+    from autofit.grammar import CandidateGrammar
+
+    x = np.arange(700.0, 740.0, 0.1)
+    # a broad doublet, Fe-2p-like widths on a coarse grid
+    sig = (_pv(x, 30000.0, 711.0, 3.0, ETA)
+           + _pv(x, 15000.0, 724.5, 3.4, ETA))
+    y = _noisy(sig + _linear_bg(x, 2000.0), 77)
+    grammar = CandidateGrammar(
+        regions=("Fe 2p",), phase_ids=("sample",), candidates=[],
+        diagnostic_windows={}, notes=["synthetic structural fallback"],
+        provenance={}, structural_only=("Fe 2p",))
+    res = get_method("ic_model_comparison").run(
+        x, y, grammar=grammar, options=dict(IC_OPTS))
+    assert res.success, res.message
+    assert res.diagnostics["winner"].startswith("D0_detected")
+    centers = sorted(p["center"] for p in res.peaks)
+    assert any(abs(c - 711.0) < 0.8 for c in centers)
+    assert any(abs(c - 724.5) < 0.8 for c in centers)
+    assert all(p["region"] == "unassigned" for p in res.peaks)
+    assert "human review" in res.message
+    # widths scale with the detected features (transferable bounds) — the
+    # 3 eV mains must NOT be crushed to the 2.0 C1s-ish ordinary cap
+    for p in res.peaks:
+        assert p["fwhm"] > 2.2, f"broad main crushed: {p}"

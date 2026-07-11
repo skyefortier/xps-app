@@ -341,6 +341,113 @@ class CandidatePool:
                      "UNVERIFIED engine tunables."),
         }
 
+    def detection_model_features(self) -> list[PoolFeature]:
+        """Features carrying REAL detected structure — the slot set for the
+        detection-driven candidate family, INDEPENDENT of window
+        containment (the detection family owns no grammar windows, so
+        'in_grammar_window' is not a disqualifier there; nor are the
+        seeding cap or upstream-channel suppression — those gates exist to
+        bound per-grammar-candidate augmentation, not detected reality).
+        Height/noise gates still bind, and a slot additionally requires
+        CURVATURE CONFIRMATION (a coincident CWT ridge) or a dominant-
+        channel seed: local-max-only entries can be background-bridging
+        artifacts on high-count plateaus whose half-height width walk is
+        unbounded (measured on real low-res Fe 2p: three near-duplicate
+        699-701 eV plateau bumps with 18-21 eV width estimates crowding
+        out the real doublet).  Such entries stay pool-visible; they just
+        never define model structure on their own."""
+        allowed = {"in_grammar_window", "preseed_cap", "suppressed_upstream"}
+        out = []
+        for f in self.features:
+            if f.window is not None:               # grammar reference rows
+                continue
+            curvature_confirmed = "curvature_shoulder" in f.provenance
+            dominant_seeded = (f.seeded_role or "").startswith(
+                "preseed_dominant")
+            if not (curvature_confirmed or dominant_seeded):
+                continue
+            if f.seeded_role is not None or set(f.gate_fails) <= allowed:
+                out.append(f)
+        return out
+
+
+# Detection-family slot geometry, all in units of the DETECTED feature's
+# own scale (transferable across regions/energy ranges — nothing here is a
+# C 1s number).  UNVERIFIED tunables, surfaced via the model name payload.
+DETECTION_MODEL_MAX_SLOTS = 8       # by amplitude; overflow is loud
+DETECTION_SLOT_WINDOW_FRACTION = 0.6    # center bounds: ±max(this×width, 3×step),
+                                        # spacing-capped below.  Measured: 0.35
+                                        # pinned coarse-grid broad features at
+                                        # center@min, and 0.5 left a weak broad
+                                        # feature's true center just outside its
+                                        # window (detection errs ~0.5×width for
+                                        # low-prominence features) — a pegged
+                                        # optimum also stalls lmfit's bounded
+                                        # leastsq on a flat transformed gradient.
+DETECTION_SLOT_FWHM_LO_FRACTION = 0.3   # width floor: max(this×width, 2×step)
+DETECTION_SLOT_FWHM_HI_FRACTION = 2.5   # width ceiling: this×detected width
+                                        # (2.0 pegged fwhm@max on weak broad
+                                        # features whose scale estimate errs low)
+
+
+def build_detection_candidate(
+    pool: CandidatePool,
+    background,
+    step_ev: float,
+    name: str = "D0_detected",
+):
+    """
+    ONE candidate model whose slots ARE the detected features — the
+    completeness carrier for spectra the region grammar cannot express
+    (exotic chemistry) and the ONLY model space for structural-fallback
+    regions with zero grammar candidates (the across-the-periodic-table
+    path).  All slots are region-`unassigned` (assignment is human
+    adjudication) and absent-eligible (selection prunes any feature the
+    fit does not support).  Slot geometry scales with each feature's own
+    detected width, so the same builder serves 0.7 eV C 1s species and
+    3+ eV low-resolution Fe 2p mains.  Returns None when fewer than one
+    feature qualifies.
+    """
+    from .grammar import CandidateModel, ComponentSlot, LineShape
+
+    feats = pool.detection_model_features()
+    if not feats:
+        return None
+    feats = sorted(feats, key=lambda f: (f.amplitude_net or 0.0),
+                   reverse=True)[:DETECTION_MODEL_MAX_SLOTS]
+    feats.sort(key=lambda f: f.center_be)
+    centers = [f.center_be for f in feats]
+    slots = []
+    for i, f in enumerate(feats):
+        width = float(f.fwhm_est) if f.fwhm_est else max(4.0 * step_ev, 0.5)
+        # SPACING-AWARE center bounds: a slot window must never enclose a
+        # neighboring slot's center — a merged close pair reads its
+        # fwhm_est at the envelope scale (measured: dominant est 2.4 eV vs
+        # true 0.7 with a neighbor 0.9 eV away → window swallowed the
+        # neighbor → label-switching degeneracy, screens burned all nfev).
+        # 0.45×gap keeps adjacent windows disjoint whatever the widths.
+        gaps = []
+        if i > 0:
+            gaps.append(f.center_be - centers[i - 1])
+        if i < len(centers) - 1:
+            gaps.append(centers[i + 1] - f.center_be)
+        half_win = max(DETECTION_SLOT_WINDOW_FRACTION * width, 3.0 * step_ev)
+        if gaps:
+            half_win = min(half_win, 0.45 * min(gaps))
+        half_win = max(half_win, 2.0 * step_ev)     # never below grid sanity
+        lo_w = max(DETECTION_SLOT_FWHM_LO_FRACTION * width, 2.0 * step_ev)
+        hi_w = max(DETECTION_SLOT_FWHM_HI_FRACTION * width, lo_w + 4.0 * step_ev)
+        slots.append(ComponentSlot(
+            role=f"detected_peak_{i}",
+            region="unassigned",
+            phase_id="unassigned",
+            be_window=(f.center_be - half_win, f.center_be + half_win),
+            line_shape=LineShape.PSEUDO_VOIGT,
+            fwhm_range=(lo_w, hi_w),
+        ))
+    return CandidateModel(name=name, background=background,
+                          slots=tuple(slots))
+
 
 def merge_residual_attempts(
     pool_payload: dict,
