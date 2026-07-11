@@ -1,0 +1,18 @@
+# Codex review — Stage-2 Find-Peaks calibration
+*Run A, 2026-07-10, codex exec read-only, effort=high, gtimeout 600.
+Prompt: stage2_calibration_review_prompt.txt (range 8484679..0713c05;
+HEAD at review time a6c9734).*
+
+**Findings**
+
+1. BLOCKER - At the requested endpoint `0713c05`, `unstable_last_resort` is not gated on detection evidence. `rank_and_filter` fires on any nonempty report list with no survivor (`0713c05:autofit/engine.py:1543-1560`), and `compare_models` calls it without any `allow_last_resort` guard (`0713c05:autofit/engine.py:2695-2699`). That can turn a featureless/no-detection grammar fit into a loud-but-successful emitted model, violating the no-hallucination rail. The tests only prove “emits when asked” and “not preferred over a survivor” (`0713c05:tests/autofit/test_stage2_completeness.py:261-274`), not “never without detection.” Current HEAD appears to fix this with `allow_last_resort=bool(preseed_specs)` in [autofit/engine.py](/Users/skyefortier/xps-verify/autofit/engine.py:2705), but that is commit `a6c9734`, outside the requested five-commit range.
+
+2. MAJOR - The physical-width bar still has an asym-GL hole. `fitting.py` defines asym-GL as `fwhm_right = fwhm * (1 + asymmetry)` ([fitting.py](/Users/skyefortier/xps-verify/fitting.py:83), [fitting.py](/Users/skyefortier/xps-verify/fitting.py:91)), while `_unphysical_width_flags` only computes an effective width for DS+G ([autofit/engine.py](/Users/skyefortier/xps-verify/autofit/engine.py:709)). C 1s asym-GL allows asymmetry up to 0.5 ([autofit/regions/c1s.py](/Users/skyefortier/xps-verify/autofit/regions/c1s.py:98)), so a component can have a much broader high-BE side without tripping the ordinary-width flag unless the base `fwhm` itself hits the cap. That leaves part of the “neighbor broadened to hide a missed peak” channel unclosed.
+
+3. MAJOR - D0 overflow is not actually loud. `DETECTION_MODEL_MAX_SLOTS = 8` claims “overflow is loud” ([autofit/candidates.py](/Users/skyefortier/xps-verify/autofit/candidates.py:388)), but `build_detection_candidate` just amplitude-sorts and slices to eight ([autofit/candidates.py](/Users/skyefortier/xps-verify/autofit/candidates.py:427)). The full pool remains visible, but the payload does not mark which detections were included in or dropped from D0 ([autofit/candidates.py](/Users/skyefortier/xps-verify/autofit/candidates.py:343)), and candidate analysis exposes only `n_components` ([autofit/methods/ic_model_comparison.py](/Users/skyefortier/xps-verify/autofit/methods/ic_model_comparison.py:251)). On spectra with more than eight qualifying detections, lower-amplitude resolvable features can fall out of the only full-detection family without an explicit overflow flag.
+
+4. MINOR - The “no D0 on covered spectra” pin is not fully byte-identical. The covered-spectrum test checks only `analysis["candidates"]` for D0 ([tests/autofit/test_stage2_completeness.py](/Users/skyefortier/xps-verify/tests/autofit/test_stage2_completeness.py:191)), while the positive D0 test knows to include `analysis["non_converged"]` ([tests/autofit/test_stage2_completeness.py](/Users/skyefortier/xps-verify/tests/autofit/test_stage2_completeness.py:172)). A regression that builds D0 on covered spectra but has it fail screening would evade this pin.
+
+Checked rails: `/api/fit` and the manual least-squares path are untouched; the app diff is `/api/analyze` structural-fallback handling only. The F1 dominant detector body is not changed by the range. DS+G `beta` is HWHM in `fitting.py`, so `f_L = 2β` is correct. The committed calibration artifact supports q95 6.92646, FP@7 4.833%, and broad off-center 1/20. I did not run pytest per the read-only constraint.
+
+VERDICT: NO-GO
