@@ -1251,6 +1251,18 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Find Peaks inline progress (2026-07-11) ───────────────
+     Small inline ring next to "Suggest peaks" — deliberately NOT a
+     modal-covering overlay like .fit-spinner-overlay: the results area
+     and (stretch) a live per-candidate chart preview must stay visible
+     while a long analysis (60-240s) runs. */
+  .fp-spinner {
+    display: inline-block; width: 13px; height: 13px;
+    border: 2px solid var(--border2); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: -2px;
+  }
   .fit-spinner-label {
     margin-top: 14px;
     font-family: var(--mono);
@@ -12748,6 +12760,7 @@ document.addEventListener('mousedown', function(e) {
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button class="btn btn-accent" id="fp-run" onclick="runFindPeaks()">Suggest peaks</button>
+      <span id="fp-spinner" class="fp-spinner" style="display:none"></span>
       <span id="fp-status" style="font-size:11px;color:var(--text2)"></span>
     </div>
     <div id="fp-results" style="display:none">
@@ -13159,8 +13172,58 @@ function _fpSyncOptionsFromControls(methodId) {
   document.getElementById('fp-options').value = JSON.stringify(opts, null, 1);
 }
 
+// ── Progress indicator (2026-07-11): pure formatting helpers ───────────────
+// Kept DOM-free/pure so they're directly unit-testable (extracted the same
+// way other pure logic in this file is — see tests/js/).
+
+function _fpFormatElapsed(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  if (s < 60) return s + 's';
+  const m = Math.floor(s / 60), r = s % 60;
+  return m + 'm ' + r + 's';
+}
+
+// One poll payload -> the on-screen status line. `poll` is the JSON from
+// GET /api/analyze/progress/<job_id> — real engine state (candidate N of
+// M, screening/stabilizing), never a fake animation.
+function _fpProgressText(poll) {
+  const elapsed = _fpFormatElapsed(poll && poll.elapsed_sec);
+  const msg = (poll && poll.message) || 'working…';
+  return 'Analyzing… ' + elapsed + ' — ' + msg;
+}
+
+const FP_POLL_INTERVAL_MS = 350;
+// Client-side watchdog: the actual analysis has its own server-side budget
+// (TOTAL_ANALYSIS_TIMEOUT_SEC, well under this), so this only fires if a
+// job's progress file stops updating entirely (e.g. a recycled gunicorn
+// worker process taking the background thread down with it) — the
+// indicator must NEVER spin forever even in that pathological case.
+const FP_POLL_WATCHDOG_SEC = 600;
+
+async function _fpPollJob(jobId) {
+  const started = Date.now();
+  while (true) {
+    const resp = await fetch('/api/analyze/progress/' + encodeURIComponent(jobId));
+    if (!resp.ok) {
+      throw new Error('Lost the progress channel (HTTP ' + resp.status + ').');
+    }
+    const poll = await resp.json();
+    document.getElementById('fp-status').textContent = _fpProgressText(poll);
+    if (poll.status === 'done') return poll;
+    if (poll.status === 'error') {
+      throw new Error(poll.error || 'Analysis failed.');
+    }
+    if ((Date.now() - started) / 1000 > FP_POLL_WATCHDOG_SEC) {
+      throw new Error('This is taking unusually long — the analysis may ' +
+        'have been lost. Try again.');
+    }
+    await new Promise(r => setTimeout(r, FP_POLL_INTERVAL_MS));
+  }
+}
+
 async function runFindPeaks() {
   const status = document.getElementById('fp-status');
+  const spinner = document.getElementById('fp-spinner');
   const btn = document.getElementById('fp-run');
   const regions = Array.from(
     document.getElementById('fp-regions').selectedOptions).map(o => o.value);
@@ -13172,7 +13235,8 @@ async function runFindPeaks() {
   const method = document.getElementById('fp-method').value;
 
   btn.disabled = true;
-  status.textContent = 'Analyzing… this can take a little while.';
+  spinner.style.display = 'inline-block';
+  status.textContent = 'Analyzing… starting…';
   try {
     // corrected-frame data, same convention as the manual fit path
     const be = getCorrectedBE();
@@ -13189,11 +13253,10 @@ async function runFindPeaks() {
       if (!payload.peak_specs.length) {
         status.textContent = '“Re-fit my current peaks” needs peaks on ' +
           'this tab first — add some, or pick “Automatic”.';
-        btn.disabled = false;
         return;
       }
     }
-    const resp = await fetch('/api/analyze', {
+    const resp = await fetch('/api/analyze/start', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -13215,19 +13278,19 @@ async function runFindPeaks() {
       }
       throw new Error(msg);
     }
-    let body;
-    try {
-      body = await resp.json();
-    } catch (_) {
-      throw new Error('Server returned an invalid (non-JSON) response.');
-    }
+    const { job_id } = await resp.json();
+    const poll = await _fpPollJob(job_id);
+    const body = poll.result;
     _fpLast = { body, method, regions };
     _fpRenderResults(body);
     status.textContent = '';
   } catch (e) {
     status.textContent = 'Failed: ' + e.message;
   } finally {
+    // ALWAYS clears — success, error, and watchdog-timeout paths all land
+    // here (goal: the indicator must never spin forever).
     btn.disabled = false;
+    spinner.style.display = 'none';
   }
 }
 

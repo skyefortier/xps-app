@@ -37,7 +37,7 @@ the full scree is always reported so the user can override with ``rank``.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -110,6 +110,7 @@ class MultivariateMCRMethod(PeakFitMethod):
         grammar: Optional[CandidateGrammar] = None,
         peak_specs: Optional[list[dict]] = None,
         options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
     ) -> MethodResult:
         opts = dict(options or {})
         unknown = set(opts) - _ALLOWED_OPTIONS

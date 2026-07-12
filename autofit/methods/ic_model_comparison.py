@@ -8,7 +8,7 @@ candidate/criteria record for the ``analysis`` namespace.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -41,6 +41,7 @@ class ICModelComparisonMethod(PeakFitMethod):
         grammar: Optional[CandidateGrammar] = None,
         peak_specs: Optional[list[dict]] = None,
         options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
     ) -> MethodResult:
         if grammar is None:
             raise ValueError("ic_model_comparison requires a resolved grammar")
@@ -68,6 +69,7 @@ class ICModelComparisonMethod(PeakFitMethod):
             absent_slot_area_fraction=float(opts.pop("absent_slot_area_fraction", 0.02)),
             absent_slot_persistence_threshold=float(
                 opts.pop("absent_slot_persistence_threshold", 0.7)),
+            progress_cb=progress_cb,
         )
 
         analysis = build_analysis_record(grammar, result)

@@ -37,7 +37,7 @@ lambda_min_ratio=1e-3, merge_fraction=0.6, cd_tol=1e-8, cd_max_iter=400.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -181,6 +181,7 @@ class SparseMAPMethod(PeakFitMethod):
         grammar: Optional[CandidateGrammar] = None,
         peak_specs: Optional[list[dict]] = None,
         options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
     ) -> MethodResult:
         if grammar is None:
             raise ValueError("sparse_map requires a resolved grammar")

@@ -8,7 +8,7 @@ explicit ``peak_specs``; no grammar required.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -36,6 +36,7 @@ class LeastSquaresMethod(PeakFitMethod):
         grammar: Optional[CandidateGrammar] = None,
         peak_specs: Optional[list[dict]] = None,
         options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
     ) -> MethodResult:
         if not peak_specs:
             raise ValueError("least_squares requires explicit peak_specs (manual model)")

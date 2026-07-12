@@ -32,7 +32,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 from lmfit import Model, Parameters
@@ -2370,6 +2370,22 @@ def _apply_decisive_override(
 # Top-level driver — region-agnostic
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _report_progress(
+    progress_cb: Optional[Callable[[dict], None]],
+    phase: str, idx: int, total: int, name: str,
+) -> None:
+    """Fire ``progress_cb`` for one candidate transition; never let a
+    broken sink (e.g. a full disk on the progress-file writer) break the
+    analysis itself."""
+    if progress_cb is None:
+        return
+    try:
+        progress_cb({"phase": phase, "candidate_index": idx,
+                     "candidate_total": total, "candidate_name": name})
+    except Exception:
+        log.debug("progress_cb raised — ignored", exc_info=True)
+
+
 def compare_models(
     x: np.ndarray,
     y: np.ndarray,
@@ -2385,6 +2401,7 @@ def compare_models(
     enable_proposal_pass: bool = True,
     candidate_filter: Optional[list[str]] = None,
     enable_preseed: bool = True,
+    progress_cb: Optional[Callable[[dict], None]] = None,
 ) -> ComparisonResult:
     """
     Full pipeline over ``grammar.candidates`` for one spectral window.
@@ -2393,6 +2410,14 @@ def compare_models(
     fast tests / method options); None = all.  ``enable_preseed`` gates the
     pre-fit out-of-grammar dominant seeding (unit F1) — detection-driven, so
     it is a no-op on spectra whose prominent features the grammar covers.
+
+    ``progress_cb`` (Find Peaks UI, 2026-07-11): OPTIONAL, default None —
+    zero behavior/perf change for every existing caller.  When given, it is
+    invoked with ``{"phase": "screening"|"stabilizing", "candidate_index",
+    "candidate_total", "candidate_name"}`` right before each candidate's
+    fit — the REAL screen->stabilize sweep progress (unit F3), not a fake
+    animation.  A raising callback is swallowed (never lets a progress sink
+    break the analysis — the honesty/result contract outranks the nicety).
     """
     candidates = grammar.candidates
     if candidate_filter is not None:
@@ -2555,6 +2580,7 @@ def compare_models(
                     100 * SCREEN_BUDGET_FRACTION, idx - 1, n_cand)
                 break
             log.info("[screen %2d/%d] %s", idx, n_cand, model.name)
+            _report_progress(progress_cb, "screening", idx, n_cand, model.name)
             outcome = fit_candidate(x, y, weights, model,
                                     max_nfev=SCREEN_MAX_NFEV)
             if outcome.converged:
@@ -2599,6 +2625,8 @@ def compare_models(
             break
         n_evaluated += 1
         log.info("[%2d/%d] %s: primary fit", idx, len(candidates), model.name)
+        _report_progress(progress_cb, "stabilizing", idx, len(candidates),
+                         model.name)
         # Shared wall-clock budget for this candidate's primary fit + all its
         # stability refits (CANDIDATE_TIMEOUT_SEC) — see run_stability_analysis.
         candidate_deadline = time.perf_counter() + CANDIDATE_TIMEOUT_SEC

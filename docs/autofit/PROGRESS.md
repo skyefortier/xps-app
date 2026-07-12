@@ -2522,6 +2522,72 @@ intact, the strengthened covered pin, the conditional-survivor pin) and
 the fix commits touching no manual-fit//api/fit code.
 **STAGE-2 CALIBRATION UNIT REVIEW-COMPLETE.**
 
+## Find Peaks UI improvements (2026-07-11) — three additive units
+
+Goal: three UI improvements to the opt-in Find Peaks modal, strictly
+additive — manual Run Fit, `/api/fit`, the analysis math, and the
+honesty/reviewed-apply gate all untouched.  Worked highest-impact-first
+(progress + drag first, the "meatier" element selector last), committing
+each unit separately.
+
+### Unit 1 — progress indicator (candidate N of M, live timer, never spins forever)
+
+**The real signal, not a fake animation:** `autofit/engine.py::
+compare_models` already sweeps candidates in two honest phases (screen →
+deep evaluation, unit F3).  Added an OPTIONAL `progress_cb: Optional[
+Callable[[dict], None]] = None` parameter (default None → byte-identical
+behavior for every existing caller, pinned) fired once per candidate
+transition with `{phase: "screening"|"stabilizing", candidate_index,
+candidate_total, candidate_name}`; a raising callback is swallowed (the
+fit's honesty/result contract outranks the progress nicety — pinned).
+Threaded through the `PeakFitMethod` ABC (`progress_cb` added to all 5
+concrete methods' `run()` for interface uniformity; only
+`ic_model_comparison` actually uses it — others accept-and-ignore).
+
+**Backend transport — a background THREAD + a poll file, not SSE.**
+Production gunicorn runs the default SYNC worker class (`--workers 4`, no
+`-k gthread/gevent` — confirmed from the LaunchAgent plist), so an SSE
+connection held open for 60-240s would tie up an entire worker — exactly
+what the existing synchronous `/api/analyze` already risks, doubled.
+Instead: `analyze()`'s body was extracted (pure move, zero logic change)
+into three shared helpers —
+`_validate_analyze_request`/`_run_analyze_method`/`_build_analyze_payload`
+— so `/api/analyze` (sync, UNCHANGED contract, pinned against its full
+existing test suite) and the new `POST /api/analyze/start` +
+`GET /api/analyze/progress/<job_id>` (async) share ONE implementation.
+`/start` does the SAME fast synchronous validation (instant 400s,
+unchanged) then spawns a `threading.Thread` running ONLY the genuinely
+slow part (`get_method(...).run(...)`); progress writes to
+`uploads/<job_id>.job.json` via atomic `os.replace` (a FILE, not an
+in-process dict, because gunicorn's 4 workers are separate OS processes —
+same reasoning as the existing session `.npz` files: "no server-side
+memory state ... compatible with multi-worker gunicorn").  1-hour TTL
+sweep, same opportunistic pattern as `_sweep_expired_sessions`.
+
+Frontend: `runFindPeaks()` now POSTs to `/start`, then polls every 350ms
+showing `_fpProgressText` ("Analyzing… 47s — candidate 7 of 29 —
+stabilizing (A2_linked)"); a small inline `.fp-spinner` ring (NOT the
+existing `.fit-spinner-overlay` full-modal backdrop — the results area
+must stay visible).  A client-side 600s watchdog + the `finally` block's
+unconditional `btn.disabled = false; spinner.style.display = 'none'`
+guarantee the indicator clears on success, mid-fit error, AND a
+pathological stalled-job case (a recycled gunicorn worker taking the
+background thread down with it) — never spins forever.
+
+STRETCH (live per-candidate chart preview) — NOT attempted this session:
+baseline scope alone was substantial; deferred as a follow-up per the
+goal's own "only if baseline is solid" qualifier.
+
+Tests: 6 engine/method pins (`test_progress_callback.py`), 8 Flask job-
+endpoint tests incl. a byte-identical-result-vs-sync proof
+(`test_api_analyze_progress.py`), 6 pure-JS formatting tests
+(`find_peaks_progress.test.js`), 2 Playwright browser tests (real spinner/
+timer/readout while running, clears on error) — all green;
+`tests/test_api_analyze.py` (existing 18 tests) + `test_structural_fallback.py`
+(existing 12) pass UNMODIFIED, proving the extract-method refactor changed
+nothing about `/api/analyze`.
+
+
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
 UI (vision-verified; Skye's own visual review still pending);

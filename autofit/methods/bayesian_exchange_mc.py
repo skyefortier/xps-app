@@ -49,7 +49,7 @@ minutes on real regions — tests use reduced settings on synthetic spectra.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -304,6 +304,7 @@ class BayesianExchangeMCMethod(PeakFitMethod):
         grammar: Optional[CandidateGrammar] = None,
         peak_specs: Optional[list[dict]] = None,
         options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
     ) -> MethodResult:
         if grammar is None:
             raise ValueError("bayesian_exchange_mc requires a resolved grammar")

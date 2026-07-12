@@ -38,7 +38,7 @@ echoed into the payload as provenance.  Convolution is edge-normalized
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -76,6 +76,7 @@ class MaxEntropyMethod(PeakFitMethod):
         grammar: Optional[CandidateGrammar] = None,
         peak_specs: Optional[list[dict]] = None,
         options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
     ) -> MethodResult:
         opts = dict(options or {})
         unknown = set(opts) - _ALLOWED_OPTIONS

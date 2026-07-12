@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -52,12 +52,19 @@ class PeakFitMethod(ABC):
         grammar: Optional[CandidateGrammar] = None,
         peak_specs: Optional[list[dict]] = None,
         options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
     ) -> MethodResult:
         """
         Fit spectrum (x, y).  Grammar-driven methods consume ``grammar``;
         the manual baseline consumes explicit ``peak_specs`` instead.
         ``options`` carries method-specific parameters (documented per
         method); unknown keys are rejected.
+
+        ``progress_cb`` (Find Peaks UI, 2026-07-11): OPTIONAL, default
+        None — every method accepts it for interface uniformity; only
+        ``ic_model_comparison`` threads it through to a real signal
+        (``autofit.engine.compare_models``'s screen->stabilize sweep).
+        Methods that ignore it are unaffected.
         """
 
 

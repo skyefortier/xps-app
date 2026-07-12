@@ -29,8 +29,10 @@ DELETE /api/session/<id>    Delete session files
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import threading
 import time
 import uuid
 from functools import wraps
@@ -156,6 +158,285 @@ def _save_session(
 
 def _err(message: str, status: int = 400) -> tuple:
     return jsonify({"error": message}), status
+
+
+# adjustable defaults surfaced by /api/analyze/meta (spec §5A); anything the
+# client sends in `options` overrides these and is validated by the METHOD's
+# own option whitelist (ValueError → 400). Module-level (not just a
+# _register_routes local) so the shared /api/analyze helpers below can see it.
+_ANALYZE_METHODS = {
+    "least_squares": {"background_method": "shirley"},
+    "ic_model_comparison": {"n_refits": 4, "rng_seed": 0,
+                            "enable_proposal_pass": True},
+    "bayesian_exchange_mc": {"n_replicas": 8, "n_sweeps": 600,
+                             "rng_seed": 0},
+    "sparse_map": {},
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# /api/analyze shared helpers (Find Peaks; strictly additive — the manual
+# /api/fit path never touches this code) — extracted so /api/analyze (sync)
+# and /api/analyze/start + /api/analyze/progress (async, 2026-07-11) share
+# ONE implementation of validation, method execution, and payload shaping.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_ANALYZE_JOB_TTL_SEC = 3600  # job progress files are short-lived scratch
+                            # (not sessions) — 1 hour is generous for even
+                            # a slow poll UI, and far below the 7-day
+                            # session TTL these files are NOT related to.
+
+
+class _AnalyzeError(Exception):
+    """Carries the same (message, http status) pair _err() would return —
+    lets the shared validate/run helpers signal a clean 4xx/5xx from
+    EITHER the synchronous route or a background job thread (which has no
+    Flask response object to return early from)."""
+
+    def __init__(self, message: str, status: int = 400) -> None:
+        super().__init__(message)
+        self.status = status
+
+
+class _AnalyzeContext:
+    """Everything _run_analyze_method / _build_analyze_payload need,
+    assembled once by _validate_analyze_request."""
+
+    __slots__ = ("x", "y", "method_id", "opts", "peak_specs", "grammar")
+
+    def __init__(self, x, y, method_id, opts, peak_specs, grammar):
+        self.x = x
+        self.y = y
+        self.method_id = method_id
+        self.opts = opts
+        self.peak_specs = peak_specs
+        self.grammar = grammar
+
+
+def _validate_analyze_request(body: dict, upload_folder: str) -> _AnalyzeContext:
+    """ALL the synchronous, cheap validation /api/analyze has always done
+    (session lookup through grammar resolution) — pure extract-method
+    refactor, byte-identical checks/messages/order, raising
+    ``_AnalyzeError`` in place of the old inline ``return _err(...)``."""
+    from autofit.grammar import (MaterialClass, Phase,
+                                 PhaseAmbiguityError, UnknownRegionError,
+                                 resolve)
+
+    session_id = body.get("session_id", "")
+    _validate_session_id(session_id)
+    try:
+        energy, counts = _load_session(session_id, upload_folder)
+    except KeyError:
+        raise _AnalyzeError(f"Session '{session_id}' not found", 404)
+
+    method_id = body.get("method", "ic_model_comparison")
+    if method_id not in _ANALYZE_METHODS:
+        raise _AnalyzeError(f"Unknown analyze method '{method_id}' "
+                            f"(available: {sorted(_ANALYZE_METHODS)})")
+
+    regions = body.get("regions") or []
+    if (not isinstance(regions, list) or not regions
+            or not all(isinstance(r, str) for r in regions)):
+        raise _AnalyzeError("'regions' must be a non-empty list of region names")
+
+    mc_raw = body.get("material_class", "")
+    try:
+        mclass = MaterialClass(mc_raw)
+    except ValueError:
+        raise _AnalyzeError(f"Unknown material_class '{mc_raw}'")
+
+    try:
+        cc_shift = float(body.get("cc_shift", 0.0))
+    except (TypeError, ValueError):
+        raise _AnalyzeError("cc_shift must be a number")
+    corrected = energy - cc_shift   # frontend getCorrectedBE convention
+
+    # present-but-falsy non-objects ([], "", false) must be clean 400s,
+    # not silently treated as omitted (Codex re-check)
+    roi = body.get("roi")
+    roi = {} if roi is None else roi
+    if not isinstance(roi, dict):
+        raise _AnalyzeError("'roi' must be an object")
+    try:
+        be_min = float(roi.get("be_min", float(corrected.min())))
+        be_max = float(roi.get("be_max", float(corrected.max())))
+    except (TypeError, ValueError):
+        raise _AnalyzeError("roi.be_min/be_max must be numbers")
+    mask = (corrected >= be_min) & (corrected <= be_max)
+    if int(mask.sum()) < 20:
+        raise _AnalyzeError("ROI selects fewer than 20 points")
+    x, y = corrected[mask], counts[mask]
+
+    options = body.get("options")
+    options = {} if options is None else options
+    if not isinstance(options, dict):
+        raise _AnalyzeError("'options' must be an object")
+    opts = {**_ANALYZE_METHODS[method_id], **options}
+
+    peak_specs = body.get("peak_specs") or None
+    if method_id == "least_squares" and not peak_specs:
+        raise _AnalyzeError("least_squares is the manual-model baseline — "
+                            "provide 'peak_specs'")
+
+    phase_kwargs = body.get("phase")
+    phase_kwargs = {} if phase_kwargs is None else phase_kwargs
+    if not isinstance(phase_kwargs, dict):
+        raise _AnalyzeError("'phase' must be an object")
+    grammar = None
+    if method_id != "least_squares":
+        phase = Phase(id=str(phase_kwargs.get("id", "sample")),
+                      material_class=mclass,
+                      regions=tuple(regions),
+                      material=phase_kwargs.get("material"))
+        try:
+            # Phase D: regions without a deep module degrade to derived
+            # structure instead of erroring (unparseable labels still 400)
+            grammar = resolve(
+                [phase], regions if len(regions) > 1 else regions[0],
+                allow_structural_fallback=True)
+        except (UnknownRegionError, PhaseAmbiguityError, ValueError) as exc:
+            raise _AnalyzeError(str(exc))
+
+    return _AnalyzeContext(x, y, method_id, opts, peak_specs, grammar)
+
+
+def _run_analyze_method(ctx: _AnalyzeContext, progress_cb=None):
+    """The one genuinely slow/unpredictable step — the ONLY part that
+    runs on a background thread for the async job path.  ``progress_cb``
+    is None for the synchronous /api/analyze route (no poller to feed)."""
+    from autofit.methods import get_method
+
+    try:
+        return get_method(ctx.method_id).run(
+            ctx.x, ctx.y, grammar=ctx.grammar, peak_specs=ctx.peak_specs,
+            options=ctx.opts, progress_cb=progress_cb)
+    except (ValueError, TypeError) as exc:
+        # the method's own option/spec validation — TypeError included:
+        # a malformed option VALUE (e.g. n_refits: []) raises TypeError
+        # from the methods' numeric casts (Codex re-check blocker)
+        raise _AnalyzeError(f"invalid option or spec: {exc}")
+    except Exception:
+        logging.getLogger(__name__).exception("analyze failed")
+        raise _AnalyzeError("Internal analyze error — see server log.", 500)
+
+
+def _build_analyze_payload(ctx: _AnalyzeContext, res) -> dict:
+    """Shape the method result into the wire payload — byte-identical to
+    the pre-refactor inline logic, incl. the Stage-2 structural-only
+    degradation branch (a region with zero grammar candidates still RUNS
+    via the detection family; the honest structure-report stub returns
+    only when detection found nothing fittable either)."""
+    grammar = ctx.grammar
+    if (grammar is not None and grammar.structural_only
+            and not grammar.candidates and not res.success):
+        non_verified = sorted({
+            f"{slug}:{e['constant']}"
+            for slug, entries in grammar.provenance.items()
+            for e in entries if e.get("status") != "VERIFIED"
+        })
+        return {
+            "method": ctx.method_id,
+            "success": False,
+            "structural_only": list(grammar.structural_only),
+            "structure_report": grammar.provenance,
+            "notes": grammar.notes,
+            "uses_conditional_or_unverified_constants": non_verified,
+            "peaks": [],
+            "confidence": {},
+            "message": (
+                "structure known, positions UNVERIFIED — detection "
+                "found no fittable features in this window; supply a "
+                "cited source (autofit.cited_values schema) and "
+                "curated windows to enable grammar fitting for: "
+                + ", ".join(grammar.structural_only)),
+            "review_gate": {
+                "reviewed_by": None,
+                "note": "results are candidates + honesty flags, "
+                        "not ground truth — a named human review is "
+                        "required before export (spec §8)",
+            },
+        }
+
+    payload = {
+        "method": ctx.method_id,
+        "success": bool(res.success),
+        # Phase D: regions that resolved structure-only in a MIXED
+        # request (deep + structural) are flagged here; their derived
+        # structure rides in analysis.constants_provenance.
+        "structural_only": list(grammar.structural_only) if grammar else [],
+        "peaks": res.peaks,
+        "confidence": res.confidence,
+        "analysis": res.analysis,
+        "diagnostics": res.diagnostics,
+        "message": res.message,
+        "review_gate": {
+            "reviewed_by": None,
+            "note": "results are candidates + confidence flags, not "
+                    "ground truth — a named human review is required "
+                    "before export (spec §8)",
+        },
+    }
+    if grammar is not None and grammar.structural_only:
+        # structural regions that DID fit (detection family) still ship
+        # their derived-structure report for the honesty surface
+        payload["structure_report"] = grammar.provenance
+        payload["notes"] = grammar.notes
+    return payload
+
+
+def _analyze_progress_message(evt: dict) -> str:
+    """Human-readable progress line from one engine progress_cb event —
+    the exact wording the goal asked for ('candidate 7 of 29 . stabilizing')."""
+    phase = evt.get("phase")
+    idx, total = evt.get("candidate_index"), evt.get("candidate_total")
+    name = evt.get("candidate_name")
+    if phase == "screening" and idx and total:
+        msg = f"screening candidate {idx} of {total}"
+    elif phase == "stabilizing" and idx and total:
+        msg = f"candidate {idx} of {total} — stabilizing"
+    else:
+        return phase or "working…"
+    return msg + (f" ({name})" if name else "")
+
+
+def _job_progress_path(job_id: str, upload_folder: str) -> Path:
+    return Path(upload_folder) / f"{job_id}.job.json"
+
+
+def _write_job_progress(job_id: str, upload_folder: str, data: dict) -> None:
+    """Atomic write (temp file + os.replace) — required because the
+    writer (background thread, possibly in a DIFFERENT gunicorn worker
+    process than whichever one later serves a poll GET) and the reader
+    are never synchronized otherwise; a half-written file must never be
+    visible to a concurrent poll."""
+    path = _job_progress_path(job_id, upload_folder)
+    tmp = path.with_suffix(".tmp")
+    try:
+        tmp.write_text(json.dumps(_json_sanitize(data)))
+        os.replace(tmp, path)
+    except OSError:
+        logging.getLogger(__name__).exception(
+            "failed to write progress for job %s", job_id)
+
+
+def _sweep_expired_jobs(upload_folder: str) -> None:
+    """Opportunistic TTL cleanup of stale job progress files — same
+    pattern as _sweep_expired_sessions (audit F13): runs on each new job
+    start, no scheduler/thread, tolerates a concurrent worker deleting the
+    same file first, never raises."""
+    cutoff = time.time() - _ANALYZE_JOB_TTL_SEC
+    try:
+        candidates = list(Path(upload_folder).glob("*.job.json"))
+    except OSError:
+        return
+    for p in candidates:
+        try:
+            if p.stat().st_mtime < cutoff:
+                p.unlink(missing_ok=True)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
 
 
 def _require_json(f):
@@ -574,18 +855,6 @@ def _register_routes(app: Flask) -> None:
     # ── Autofit analyze (opt-in Find Peaks; STRICTLY ADDITIVE — the manual
     #    /api/fit path above is untouched) ──────────────────────────────────
 
-    _ANALYZE_METHODS = {
-        # adjustable defaults surfaced by /api/analyze/meta (spec §5A);
-        # anything the client sends in `options` overrides these and is
-        # validated by the METHOD's own option whitelist (ValueError → 400)
-        "least_squares": {"background_method": "shirley"},
-        "ic_model_comparison": {"n_refits": 4, "rng_seed": 0,
-                                "enable_proposal_pass": True},
-        "bayesian_exchange_mc": {"n_replicas": 8, "n_sweeps": 600,
-                                 "rng_seed": 0},
-        "sparse_map": {},
-    }
-
     @app.get("/api/analyze/meta")
     def analyze_meta():
         """Registered regions, material classes, and the method menu with
@@ -631,163 +900,142 @@ def _register_routes(app: Flask) -> None:
         alternatives, constants provenance), diagnostics, and a review-gate
         stub — results are candidates + honesty flags, not ground truth;
         a NAMED human review is required before export (spec §8).
-        """
-        from autofit.grammar import (MaterialClass, Phase,
-                                     PhaseAmbiguityError, UnknownRegionError,
-                                     resolve)
-        from autofit.methods import get_method
 
+        For a long analysis (60-240s), POST /api/analyze/start + poll
+        GET /api/analyze/progress/<job_id> instead — same validation, same
+        result shape, plus live sweep progress (Find Peaks UI, 2026-07-11).
+        This synchronous route is UNCHANGED: both now share
+        ``_validate_analyze_request``/``_run_analyze_method``/
+        ``_build_analyze_payload`` under the hood (a pure extract-method
+        refactor — tests/test_api_analyze.py pins the contract identical).
+        """
         body = request.get_json(silent=True)
         if not isinstance(body, dict):
             return _err("request body must be a JSON object")
-        session_id = body.get("session_id", "")
-        _validate_session_id(session_id)
         try:
-            energy, counts = _load_session(session_id, app.config["UPLOAD_FOLDER"])
-        except KeyError:
-            return _err(f"Session '{session_id}' not found", 404)
-
-        method_id = body.get("method", "ic_model_comparison")
-        if method_id not in _ANALYZE_METHODS:
-            return _err(f"Unknown analyze method '{method_id}' "
-                        f"(available: {sorted(_ANALYZE_METHODS)})")
-
-        regions = body.get("regions") or []
-        if (not isinstance(regions, list) or not regions
-                or not all(isinstance(r, str) for r in regions)):
-            return _err("'regions' must be a non-empty list of region names")
-
-        mc_raw = body.get("material_class", "")
-        try:
-            mclass = MaterialClass(mc_raw)
-        except ValueError:
-            return _err(f"Unknown material_class '{mc_raw}'")
-
-        try:
-            cc_shift = float(body.get("cc_shift", 0.0))
-        except (TypeError, ValueError):
-            return _err("cc_shift must be a number")
-        corrected = energy - cc_shift   # frontend getCorrectedBE convention
-
-        # present-but-falsy non-objects ([], "", false) must be clean 400s,
-        # not silently treated as omitted (Codex re-check)
-        roi = body.get("roi")
-        roi = {} if roi is None else roi
-        if not isinstance(roi, dict):
-            return _err("'roi' must be an object")
-        try:
-            be_min = float(roi.get("be_min", float(corrected.min())))
-            be_max = float(roi.get("be_max", float(corrected.max())))
-        except (TypeError, ValueError):
-            return _err("roi.be_min/be_max must be numbers")
-        mask = (corrected >= be_min) & (corrected <= be_max)
-        if int(mask.sum()) < 20:
-            return _err("ROI selects fewer than 20 points")
-        x, y = corrected[mask], counts[mask]
-
-        options = body.get("options")
-        options = {} if options is None else options
-        if not isinstance(options, dict):
-            return _err("'options' must be an object")
-        opts = {**_ANALYZE_METHODS[method_id], **options}
-
-        peak_specs = body.get("peak_specs") or None
-        if method_id == "least_squares" and not peak_specs:
-            return _err("least_squares is the manual-model baseline — "
-                        "provide 'peak_specs'")
-
-        phase_kwargs = body.get("phase")
-        phase_kwargs = {} if phase_kwargs is None else phase_kwargs
-        if not isinstance(phase_kwargs, dict):
-            return _err("'phase' must be an object")
-        grammar = None
-        if method_id != "least_squares":
-            phase = Phase(id=str(phase_kwargs.get("id", "sample")),
-                          material_class=mclass,
-                          regions=tuple(regions),
-                          material=phase_kwargs.get("material"))
-            try:
-                # Phase D: regions without a deep module degrade to derived
-                # structure instead of erroring (unparseable labels still 400)
-                grammar = resolve(
-                    [phase], regions if len(regions) > 1 else regions[0],
-                    allow_structural_fallback=True)
-            except (UnknownRegionError, PhaseAmbiguityError, ValueError) as exc:
-                return _err(str(exc))
-
-        try:
-            res = get_method(method_id).run(
-                x, y, grammar=grammar, peak_specs=peak_specs, options=opts)
-        except (ValueError, TypeError) as exc:
-            # the method's own option/spec validation — TypeError included:
-            # a malformed option VALUE (e.g. n_refits: []) raises TypeError
-            # from the methods' numeric casts (Codex re-check blocker)
-            return _err(f"invalid option or spec: {exc}")
-        except Exception:
-            app.logger.exception("analyze failed")
-            return _err("Internal analyze error — see server log.", 500)
-
-        if (grammar is not None and grammar.structural_only
-                and not grammar.candidates and not res.success):
-            # Structure-only degradation (Phase D unit 3, Stage-2 update):
-            # a region with ZERO grammar candidates now RUNS the method —
-            # the detection-driven candidate family can carry a fit on its
-            # own (across-the-periodic-table path).  Only when detection
-            # finds nothing fittable either does the honest structure
-            # report remain the answer.
-            non_verified = sorted({
-                f"{slug}:{e['constant']}"
-                for slug, entries in grammar.provenance.items()
-                for e in entries if e.get("status") != "VERIFIED"
-            })
-            return jsonify(_json_sanitize({
-                "method": method_id,
-                "success": False,
-                "structural_only": list(grammar.structural_only),
-                "structure_report": grammar.provenance,
-                "notes": grammar.notes,
-                "uses_conditional_or_unverified_constants": non_verified,
-                "peaks": [],
-                "confidence": {},
-                "message": (
-                    "structure known, positions UNVERIFIED — detection "
-                    "found no fittable features in this window; supply a "
-                    "cited source (autofit.cited_values schema) and "
-                    "curated windows to enable grammar fitting for: "
-                    + ", ".join(grammar.structural_only)),
-                "review_gate": {
-                    "reviewed_by": None,
-                    "note": "results are candidates + honesty flags, "
-                            "not ground truth — a named human review is "
-                            "required before export (spec §8)",
-                },
-            }))
-
-        payload = {
-            "method": method_id,
-            "success": bool(res.success),
-            # Phase D: regions that resolved structure-only in a MIXED
-            # request (deep + structural) are flagged here; their derived
-            # structure rides in analysis.constants_provenance.
-            "structural_only": list(grammar.structural_only) if grammar else [],
-            "peaks": res.peaks,
-            "confidence": res.confidence,
-            "analysis": res.analysis,
-            "diagnostics": res.diagnostics,
-            "message": res.message,
-            "review_gate": {
-                "reviewed_by": None,
-                "note": "results are candidates + confidence flags, not "
-                        "ground truth — a named human review is required "
-                        "before export (spec §8)",
-            },
-        }
-        if grammar is not None and grammar.structural_only:
-            # structural regions that DID fit (detection family) still ship
-            # their derived-structure report for the honesty surface
-            payload["structure_report"] = grammar.provenance
-            payload["notes"] = grammar.notes
+            ctx = _validate_analyze_request(body, app.config["UPLOAD_FOLDER"])
+            res = _run_analyze_method(ctx)
+        except _AnalyzeError as exc:
+            return _err(str(exc), exc.status)
+        payload = _build_analyze_payload(ctx, res)
         return jsonify(_json_sanitize(payload))
+
+    @app.post("/api/analyze/start")
+    @_require_json
+    def analyze_start():
+        """
+        Async twin of POST /api/analyze for the Find Peaks progress
+        indicator (2026-07-11).  Same request body; same SYNCHRONOUS
+        validation (a malformed request is STILL an immediate 400, never
+        a spinner) — only the actual method execution (the genuinely
+        slow, honestly-long part) moves to a background thread.
+
+        Why a thread + a poll file, not SSE: production gunicorn runs the
+        default SYNC worker class (`--workers 4`, no gthread/gevent — see
+        the LaunchAgent plist), so a held-open SSE connection would tie up
+        an entire worker for the whole 60-240s analysis, on top of the
+        existing synchronous /api/analyze already doing exactly that for
+        ITS OWN request. A background thread returns the HTTP response
+        immediately (freeing the worker's request loop), and progress is
+        written to a small JSON file under the upload folder — file, not
+        an in-process dict, because gunicorn's workers are separate OS
+        processes and a poll can land on a different one (same reasoning
+        as the existing session .npz files: "no server-side memory state
+        ... compatible with multi-worker gunicorn").
+
+        Returns {"job_id": "..."} , 202.  Poll
+        GET /api/analyze/progress/<job_id> for {status, phase,
+        candidate_index, candidate_total, candidate_name, elapsed_sec,
+        message, result (once done), error (once errored)}.
+        """
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _err("request body must be a JSON object")
+        upload_folder = app.config["UPLOAD_FOLDER"]
+        try:
+            ctx = _validate_analyze_request(body, upload_folder)
+        except _AnalyzeError as exc:
+            return _err(str(exc), exc.status)
+
+        job_id = str(uuid.uuid4())
+        _sweep_expired_jobs(upload_folder)
+        start_time = time.time()
+        _write_job_progress(job_id, upload_folder, {
+            "status": "running", "phase": "starting",
+            "candidate_index": None, "candidate_total": None,
+            "candidate_name": None, "elapsed_sec": 0.0,
+            "message": "starting analysis…",
+        })
+
+        def _progress_cb(evt: dict) -> None:
+            _write_job_progress(job_id, upload_folder, {
+                "status": "running",
+                "phase": evt.get("phase"),
+                "candidate_index": evt.get("candidate_index"),
+                "candidate_total": evt.get("candidate_total"),
+                "candidate_name": evt.get("candidate_name"),
+                "elapsed_sec": round(time.time() - start_time, 1),
+                "message": _analyze_progress_message(evt),
+            })
+
+        def _worker() -> None:
+            try:
+                res = _run_analyze_method(ctx, progress_cb=_progress_cb)
+                payload = _build_analyze_payload(ctx, res)
+                _write_job_progress(job_id, upload_folder, {
+                    "status": "done", "phase": "done",
+                    "elapsed_sec": round(time.time() - start_time, 1),
+                    "message": "done",
+                    "result": payload,
+                })
+            except _AnalyzeError as exc:
+                _write_job_progress(job_id, upload_folder, {
+                    "status": "error", "phase": "done",
+                    "elapsed_sec": round(time.time() - start_time, 1),
+                    "message": "failed", "error": str(exc),
+                    "http_status": exc.status,
+                })
+            except Exception as exc:      # belt-and-suspenders: the
+                # indicator must ALWAYS clear, even on a bug we didn't
+                # anticipate — never let a job hang the poll forever.
+                logging.getLogger(__name__).exception(
+                    "analyze job %s crashed", job_id)
+                _write_job_progress(job_id, upload_folder, {
+                    "status": "error", "phase": "done",
+                    "elapsed_sec": round(time.time() - start_time, 1),
+                    "message": "failed",
+                    "error": f"internal error: {exc}",
+                    "http_status": 500,
+                })
+
+        threading.Thread(target=_worker, daemon=True).start()
+        return jsonify({"job_id": job_id}), 202
+
+    @app.get("/api/analyze/progress/<job_id>")
+    def analyze_progress(job_id):
+        """Poll one analyze job's progress (Find Peaks UI, 2026-07-11).
+        {status: 'running'|'done'|'error', phase, candidate_index,
+        candidate_total, candidate_name, elapsed_sec, message, result
+        (done only — the SAME shape /api/analyze returns), error (error
+        only)}. 404 for an unknown/expired job_id; 400 for a malformed
+        one (path-traversal guard, same convention as _validate_session_id)."""
+        try:
+            uuid.UUID(job_id)
+        except ValueError:
+            return _err("Invalid job_id format (expected UUID)", 400)
+        path = _job_progress_path(job_id, app.config["UPLOAD_FOLDER"])
+        if not path.exists():
+            return _err(f"Job '{job_id}' not found", 404)
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            # os.replace() makes writes atomic, but tolerate a read racing
+            # the very first write rather than 500ing a normal poll
+            data = {"status": "running", "phase": "starting",
+                    "candidate_index": None, "candidate_total": None,
+                    "candidate_name": None, "elapsed_sec": 0.0,
+                    "message": "starting analysis…"}
+        return jsonify(data)
 
     # ── Health check ──────────────────────────────────────────────────────────
 
