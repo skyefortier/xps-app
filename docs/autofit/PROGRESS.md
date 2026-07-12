@@ -2610,6 +2610,73 @@ drag repositions by the exact delta, clamps when dragged far off both
 corners, the close button does NOT start a drag and still closes, inner
 `<select>` controls still work post-drag, position resets on reopen.
 
+### Unit 3 — expanded element/region selector with coverage tiers
+
+**New module** `autofit/coverage_index.py::region_coverage_index()`
+enumerates every `'<Element> <level>'` region across the FULL Phase D
+Z=1..96 framework (`autofit.coverage.element_structure` × occupied
+subshells) and tiers each into a FITTING-COVERAGE vocabulary —
+DELIBERATELY DISTINCT from `RefCore`'s reference-DATA tier system
+(curated/machine/legacy, which grades an energy VALUE's provenance for
+the Reference/Identify palette):
+
+- `curated` — a deep grammar module is registered (`autofit/regions/*`) —
+  reserved EXCLUSIVELY for this, so a structural-fallback region is NEVER
+  shown as if it had cited grammar (goal-mandated honesty rail), even
+  when `data/xps` itself calls that region's position tier "curated".
+  Today: the same 5 (B 1s, C 1s, Cl 2p, N 1s, U 4f) — pinned unchanged.
+- `machine` — no deep module, but ≥1 sourced position exists in
+  `data/xps` (via `reference_bridge.level_reference`) — CONDITIONAL,
+  structural-fallback fitting only.
+- `structure_only` — no deep module, no sourced position at all — pure
+  derived quantum bookkeeping; ROI is honestly `None` (no invented
+  window).
+
+**Measured full index: 980 selectable regions — 5 curated, 111 machine,
+864 structure_only.**  ROI hints: curated regions get the grammar's own
+`diagnostic_windows()` union ± a 6 eV practical (uncited) margin; machine-
+tier regions prefer a committed `expected_region_ev` span, falling back
+to nominal ± 12 eV; structure_only always `roi: None`.  Fe 2p (the goal's
+own example): `machine` tier, ROI 706.5-711 eV from the sourced
+`expected_region_ev`.
+
+**Routing needed ZERO backend changes beyond the read-only index** —
+`/api/analyze` already calls `resolve(..., allow_structural_fallback=True)`
+unconditionally (Stage-2's D0 detection family already makes any Z=1..96
+region fittable); confirmed by a passing test
+(`test_fe2p_runs_via_the_existing_analyze_route_structural_fallback`)
+written BEFORE any Unit 3 code existed.  `/api/analyze/meta` gained one
+additive `"coverage"` key (existing `"regions"` key, and everything that
+reads it, unchanged).
+
+Frontend: the `<select multiple>` region picker (same element, same
+`.selectedOptions` reading in `runFindPeaks()` — zero changes needed
+there) is now populated from `_fpMeta.coverage` with a live search-filter
+input (`_fpRegionMatchesFilter`/`_fpBuildRegionOptions`, matching symbol/
+name/level) and a `[cited]`/`[sourced]`/`[structure only]` tag + tier
+color per option (`FP_TIER_META` — a small, purpose-built map, NOT a
+reuse of `RefCore.tierColor`, documented as intentionally distinct
+vocabulary).  Selecting exactly one region shows its honesty note
+(`_fpTierNoteFor`) and auto-fills the shared ROI fields from its `roi`
+hint (never on a multi-region co-fit pick, never when no hint exists).
+
+Tests: 10 backend pins (`test_coverage_index.py` — tier honesty rails,
+Fe 2p, the 5 curated regions, cache-copy safety) + 3 Flask tests (meta
+exposes `coverage`, Fe 2p routes through structural fallback, a curated
+region still uses real grammar) + 17 pure-JS tests
+(`find_peaks_coverage.test.js`) + 6 Playwright browser tests (option
+count, real tier tags, live filtering, Fe 2p sets ROI + honest note, C 1s
+sets grammar ROI + cited note, the existing 5 remain selectable).
+
+**Full suite**: `pytest tests/` — 612 passed, 6 skipped, 1 failed
+(`test_u4f_n1s_cofit`) in a single uncontended run (13m 23s). That one
+failure is the DOCUMENTED pre-existing wall-clock/hash-seed flake (see
+PROGRESS.md's 2026-07-10 entry and [[xps-autofit-session-ops]] —
+PYTHONHASHSEED-pinned old-vs-new comparison already proved this class
+adds nothing to the fit path); re-run standalone 3× during this session
+(fail, pass, pass) matching its historically observed ~1/3 rate, and
+nothing in units 1-3 touches U4f-specific engine code. `node --test
+tests/js/*.test.js` — 82 passed, 0 failed.
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks

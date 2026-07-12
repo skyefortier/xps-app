@@ -12754,7 +12754,13 @@ document.addEventListener('mousedown', function(e) {
         <select id="fp-method" class="btn" style="width:100%" onchange="_fpMethodChanged()"></select>
       </label>
       <label style="font-size:11px" id="fp-regions-label">Region(s) <small style="color:var(--text3)">(ctrl-click to fit two together)</small>
-        <select id="fp-regions" class="btn" multiple size="5" style="width:100%"></select>
+        <input type="text" id="fp-regions-filter" placeholder="Search element, name, or level (e.g. Fe, iron, 2p)…"
+               autocomplete="off" style="width:100%;font-family:var(--mono);font-size:11px;padding:4px 8px;margin:2px 0 4px;
+               background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text1);box-sizing:border-box"
+               oninput="_fpFilterRegions(this.value)">
+        <select id="fp-regions" class="btn" multiple size="5" style="width:100%;font-family:var(--mono)"
+                onchange="_fpRegionsChanged()"></select>
+        <div id="fp-regions-tier-note" style="font-size:9.5px;color:var(--text3);margin-top:3px;line-height:1.4"></div>
       </label>
       <div style="font-size:11px">
         <div id="fp-method-hint" style="color:var(--text3);font-size:10px;line-height:1.45;margin-bottom:6px"></div>
@@ -12811,6 +12817,70 @@ document.addEventListener('mousedown', function(e) {
 // ── Find Peaks (beta) — all logic self-contained in this block ──────────
 let _fpMeta = null;        // /api/analyze/meta cache
 let _fpLast = null;        // last analysis result (for apply)
+
+// ── Find Peaks region-selector coverage tier (2026-07-11, unit 3) ─────────
+// FP's own vocabulary — grades whether Find Peaks has CITED FITTING
+// GRAMMAR for a region.  Deliberately DISTINCT from RefCore's
+// tierColor/tierNote (curated/machine/legacy), which grades a REFERENCE
+// ENERGY VALUE's provenance for the separate Reference/Identify palette —
+// see autofit/coverage_index.py's module docstring for why the same word
+// ("curated") means something different in each system, and why that's
+// intentional rather than an inconsistency to fix.
+const FP_TIER_META = {
+  curated:        { color: '#3ddc84', tag: '[cited]',
+                    label: 'Cited grammar' },
+  machine:        { color: '#b48eff', tag: '[sourced]',
+                    label: 'Sourced position (not cited grammar)' },
+  structure_only: { color: '#8a9ab8', tag: '[structure only]',
+                    label: 'No reference position' },
+};
+
+// One coverage entry + a search query -> does it match? Case-insensitive
+// substring match against the region label, element symbol, element name,
+// and level/subshell — matches how a chemist would actually search
+// ("Fe", "iron", "2p", "Fe 2p" all find the same entry).
+function _fpRegionMatchesFilter(entry, query) {
+  const q = String(query == null ? '' : query).trim().toLowerCase();
+  if (!q) return true;
+  const hay = [entry.region, entry.symbol, entry.name, entry.level]
+    .map(v => String(v || '').toLowerCase());
+  return hay.some(h => h.includes(q));
+}
+
+// One coverage entry -> its <option> display text: tier tag + region +
+// element name, so the tier is legible even where <option> styling is
+// ignored (some browsers/screen readers) — color is a second, not the
+// only, channel.
+function _fpRegionOptionLabel(entry) {
+  const meta = FP_TIER_META[entry.tier] || FP_TIER_META.structure_only;
+  return meta.tag + ' ' + entry.region + ' — ' + entry.name;
+}
+
+// The full coverage array + a search query -> the option list to render
+// (value/label/tier per entry). Pure — used by both the initial modal
+// population and the live filter-input handler. Total: a missing/empty
+// coverage array or an unmatched query both degrade to [], never throw.
+function _fpBuildRegionOptions(coverage, query) {
+  return (coverage || [])
+    .filter(e => _fpRegionMatchesFilter(e, query))
+    .map(e => ({ value: e.region, label: _fpRegionOptionLabel(e), tier: e.tier }));
+}
+
+// The currently-selected coverage entries -> the honesty note shown below
+// the selector (goal: "never shown as if it had cited grammar"). Total:
+// no selection -> ''.
+function _fpTierNoteFor(entries) {
+  const list = entries || [];
+  if (!list.length) return '';
+  if (list.length === 1) {
+    const meta = FP_TIER_META[list[0].tier] || FP_TIER_META.structure_only;
+    return meta.label + ': ' + list[0].note;
+  }
+  return list.map(e => {
+    const meta = FP_TIER_META[e.tier] || FP_TIER_META.structure_only;
+    return e.region + ' (' + meta.label + ')';
+  }).join(' · ');
+}
 
 // ═══ ALL user-facing wording lives HERE (one place, easy to iterate). ═══
 // Audience: bench chemists/spectroscopists. Engine jargon (grammar,
@@ -13079,9 +13149,10 @@ async function openFindPeaksModal() {
   const mat = document.getElementById('fp-material');
   mat.innerHTML = _fpMeta.material_classes
     .map(m => `<option value="${_fpEsc(m)}">${_fpEsc(m)}</option>`).join('');
-  const reg = document.getElementById('fp-regions');
-  reg.innerHTML = _fpMeta.regions
-    .map(r => `<option value="${_fpEsc(r)}">${_fpEsc(r)}</option>`).join('');
+  document.getElementById('fp-regions-filter').value = '';
+  _fpRegionsSelected = new Set();
+  _fpRenderRegionOptions('');
+  document.getElementById('fp-regions-tier-note').textContent = '';
   const meth = document.getElementById('fp-method');
   meth.innerHTML = _fpMeta.methods
     .map(m => {
@@ -13171,6 +13242,45 @@ function _fpResetModalPosition() {
   if (!el) return;
   el.style.position = ''; el.style.left = ''; el.style.top = ''; el.style.margin = '';
   el.classList.remove('dragging');
+}
+
+// Preserve a selection across a filter-driven rebuild — a previously
+// picked region (e.g. one member of a ctrl-click co-fit pair) stays
+// selected even when a later keystroke filters it out of view.
+let _fpRegionsSelected = new Set();
+
+function _fpRenderRegionOptions(query) {
+  const sel = document.getElementById('fp-regions');
+  const opts = _fpBuildRegionOptions((_fpMeta && _fpMeta.coverage) || [], query);
+  sel.innerHTML = opts.map(o => {
+    const meta = FP_TIER_META[o.tier] || FP_TIER_META.structure_only;
+    const selected = _fpRegionsSelected.has(o.value) ? ' selected' : '';
+    return `<option value="${_fpEsc(o.value)}" style="color:${meta.color}"` +
+      `${selected}>${_fpEsc(o.label)}</option>`;
+  }).join('');
+}
+
+function _fpFilterRegions(query) {
+  _fpRenderRegionOptions(query);
+}
+
+function _fpRegionsChanged() {
+  const sel = document.getElementById('fp-regions');
+  const values = Array.from(sel.selectedOptions).map(o => o.value);
+  _fpRegionsSelected = new Set(values);
+  const coverage = (_fpMeta && _fpMeta.coverage) || [];
+  const entries = values.map(v => coverage.find(e => e.region === v))
+    .filter(Boolean);
+  document.getElementById('fp-regions-tier-note').textContent =
+    _fpTierNoteFor(entries);
+  // ROI auto-fill: only for an UNAMBIGUOUS single-region pick with a real
+  // hint — a co-fit selection (2 regions) has no single "right" window,
+  // and a structure_only region honestly has no hint to offer (goal:
+  // never invent a window; the note above says so, ROI is left alone).
+  if (entries.length === 1 && entries[0].roi) {
+    document.getElementById('roi-min').value = entries[0].roi.be_min;
+    document.getElementById('roi-max').value = entries[0].roi.be_max;
+  }
 }
 
 function _fpMethodChanged() {

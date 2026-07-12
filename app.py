@@ -857,9 +857,15 @@ def _register_routes(app: Flask) -> None:
 
     @app.get("/api/analyze/meta")
     def analyze_meta():
-        """Registered regions, material classes, and the method menu with
-        its ADJUSTABLE defaults — everything the opt-in Find Peaks UI needs
-        to build its form."""
+        """Registered regions, material classes, the method menu with its
+        ADJUSTABLE defaults, and the full coverage-tier index (unit 3,
+        2026-07-11) — everything the opt-in Find Peaks UI needs to build
+        its form.  ``regions`` is UNCHANGED (still just the 5 curated
+        modules; existing consumers untouched); ``coverage`` is additive —
+        every selectable Z=1..96 region, tiered curated/machine/
+        structure_only, so the expanded selector can show real coverage
+        without ever presenting a fallback region as cited grammar."""
+        from autofit.coverage_index import region_coverage_index
         from autofit.grammar import MaterialClass
         from autofit.methods import available_methods
         from autofit.regions import registered_regions
@@ -870,6 +876,7 @@ def _register_routes(app: Flask) -> None:
             m["default_options"] = dict(_ANALYZE_METHODS[m["id"]])
         return jsonify({
             "regions": registered_regions(),
+            "coverage": region_coverage_index(),
             "material_classes": [m.value for m in MaterialClass],
             "methods": menu,
         })
