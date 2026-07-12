@@ -173,7 +173,12 @@ def test_selecting_fe2p_shows_honest_fallback_note_and_sets_roi(browser, server)
         pg.wait_for_timeout(50)
         note = pg.eval_on_selector(
             "#fp-regions-tier-note", "el => el.textContent")
-        assert "not cited grammar" in note.lower() or "sourced" in note.lower()
+        # Require the actual negation ("not cited"/"not a cited ... grammar"),
+        # not a loose OR of weak substrings — a mis-worded note like "sourced
+        # cited fitting grammar" (no negation) must FAIL this (2026-07-11
+        # Codex review finding: the prior assertion would have passed it).
+        import re
+        assert re.search(r"not (a )?cited( fitting)? grammar", note.lower()), note
         roi_min = pg.eval_on_selector("#roi-min", "el => el.value")
         roi_max = pg.eval_on_selector("#roi-max", "el => el.value")
         assert float(roi_min) < float(roi_max)
@@ -215,5 +220,45 @@ def test_existing_five_curated_elements_still_selectable_and_unchanged(
                 "#fp-regions option", "els => els.map(e => e.value)")
             assert region in values, f"{region} not found via its own filter"
         pg.fill("#fp-regions-filter", "")
+    finally:
+        pg.close()
+
+
+def test_a_selection_survives_being_filtered_out_of_view(browser, server):
+    """Regression (2026-07-11 Codex review, unit 3 round 1 NO-GO): select
+    C 1s, filter the list down to Fe 2p (C 1s no longer rendered), select
+    Fe 2p too — the co-fit pick ("ctrl-click to fit two together") must
+    NOT silently collapse to just Fe 2p. Before the fix, _fpRegionsChanged
+    rebuilt _fpRegionsSelected from only the currently-rendered
+    selectedOptions, discarding the filtered-out C 1s pick entirely."""
+    pg = _new_page(browser, server)
+    try:
+        _open_modal(pg)
+        pg.fill("#fp-regions-filter", "C 1s")
+        pg.wait_for_timeout(80)
+        pg.select_option("#fp-regions", "C 1s")
+        pg.dispatch_event("#fp-regions", "change")
+        pg.wait_for_timeout(50)
+
+        # filter to something that does NOT include C 1s -> it leaves the DOM
+        pg.fill("#fp-regions-filter", "Fe 2p")
+        pg.wait_for_timeout(80)
+        visible = pg.eval_on_selector_all(
+            "#fp-regions option", "els => els.map(e => e.value)")
+        assert "C 1s" not in visible, "test setup: C 1s must be filtered out"
+
+        pg.select_option("#fp-regions", "Fe 2p")
+        pg.dispatch_event("#fp-regions", "change")
+        pg.wait_for_timeout(50)
+
+        selected = pg.evaluate("() => Array.from(_fpRegionsSelected)")
+        assert set(selected) == {"C 1s", "Fe 2p"}, selected
+
+        # clearing the filter must re-render BOTH as selected in the DOM
+        pg.fill("#fp-regions-filter", "")
+        pg.wait_for_timeout(80)
+        dom_selected = pg.eval_on_selector_all(
+            "#fp-regions option:checked", "els => els.map(e => e.value)")
+        assert set(dom_selected) == {"C 1s", "Fe 2p"}, dom_selected
     finally:
         pg.close()

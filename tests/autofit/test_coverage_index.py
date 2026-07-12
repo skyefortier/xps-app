@@ -98,13 +98,15 @@ def test_machine_tier_never_shown_as_curated(index):
 def test_fe_2p_is_a_plausible_machine_tier_entry(index):
     """Fe 2p: no deep grammar module, but data/xps carries a machine-tier
     2p3/2 reference position (measured in the Stage-2 session) — the
-    canonical 'across-the-periodic-table' example from the goal."""
+    canonical 'across-the-periodic-table' example from the goal. Asserted
+    as an exact 'machine' pin (not `in ("machine", "structure_only")`) —
+    a regression that silently dropped Fe 2p's sourced position must FAIL
+    this test, per a 2026-07-11 Codex review finding."""
     fe2p = next((e for e in index if e["region"] == "Fe 2p"), None)
     assert fe2p is not None, "Fe 2p must be enumerated (Z=26, occupied 2p)"
-    assert fe2p["tier"] in ("machine", "structure_only")
-    if fe2p["tier"] == "machine":
-        assert fe2p["roi"] is not None
-        assert fe2p["roi"]["be_min"] < fe2p["roi"]["be_max"]
+    assert fe2p["tier"] == "machine"
+    assert fe2p["roi"] is not None
+    assert fe2p["roi"]["be_min"] < fe2p["roi"]["be_max"]
 
 
 def test_a_genuinely_uncovered_region_is_structure_only(index):
@@ -126,6 +128,22 @@ def test_index_is_cached_and_returns_independent_copies(index):
     a[0]["tier"] = "MUTATED"
     c = f()
     assert c[0]["tier"] != "MUTATED"    # caller can't corrupt the cache
+
+
+def test_cached_copies_are_deep_not_shallow(index):
+    """Regression (2026-07-11 Codex review, unit 3 round 1 NO-GO): a
+    shallow `dict(e)` per entry left the nested `roi` sub-dict SHARED with
+    the cache, so mutating a returned entry's roi corrupted every future
+    caller's (including /api/analyze/meta's) result. Must be a true deep
+    copy — pick an entry that actually HAS a roi (curated ones always do)."""
+    from autofit.coverage_index import region_coverage_index as f
+    a = f()
+    entry_with_roi = next(e for e in a if e["roi"] is not None)
+    original_be_min = entry_with_roi["roi"]["be_min"]
+    entry_with_roi["roi"]["be_min"] = -99999.0
+    b = f()
+    same_entry = next(e for e in b if e["region"] == entry_with_roi["region"])
+    assert same_entry["roi"]["be_min"] == original_be_min
 
 
 def test_every_entry_has_a_human_note(index):

@@ -51,7 +51,10 @@ def test_meta_exposes_the_full_coverage_index(client):
     assert len(cov) > 100                              # far beyond the 5 basis elements
     by_region = {e["region"]: e for e in cov}
     assert by_region["C 1s"]["tier"] == "curated"
-    assert by_region["Fe 2p"]["tier"] in ("machine", "structure_only")
+    # exact pin, not `in ("machine", "structure_only")` — a regression that
+    # silently dropped Fe 2p's sourced data/xps position must FAIL this
+    # (2026-07-11 Codex review finding)
+    assert by_region["Fe 2p"]["tier"] == "machine"
     tiers = {e["tier"] for e in cov}
     assert tiers <= {"curated", "machine", "structure_only"}
     # every curated region in the coverage index matches meta['regions']

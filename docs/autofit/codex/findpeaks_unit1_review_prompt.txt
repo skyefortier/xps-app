@@ -1,0 +1,135 @@
+You are an adversarial reviewer for a scoped, additive UI-feature commit in
+this repo (XPS peak-fitting web app, Flask backend + a single-page
+vanilla-JS frontend in templates/index.html). Review commit 7827cda
+("autofit: Find Peaks UI unit 1 — real progress indicator, never spins
+forever") on branch feature-autofit-stage2 — `git show 7827cda` gives the
+full diff. Read-only sandbox; pytest may not be runnable (no writable tmp),
+but you can read everything and run read-only python one-liners.
+
+CONTEXT: this is unit 1 of 3 additive Find Peaks UI improvements (progress
+indicator, draggable modal, expanded element selector) requested as
+strictly additive — manual Run Fit, POST /api/fit, the core analysis math,
+and the honesty/reviewed-apply gate must be UNTOUCHED. Units 2 and 3 are
+separate commits (5dade0d, 07e685a) — review ONLY unit 1's commit here;
+they are being reviewed separately.
+
+SCOPE OF THE CHANGE (verify it is contained):
+- app.py: a large diff, but it should be a PURE extract-method refactor of
+  the existing analyze() view (into _AnalyzeError/_AnalyzeContext/
+  _validate_analyze_request/_run_analyze_method/_build_analyze_payload) plus
+  two NEW routes: POST /api/analyze/start and GET
+  /api/analyze/progress/<job_id>, plus job-progress-file helpers
+  (_job_progress_path/_write_job_progress/_sweep_expired_jobs). The existing
+  POST /api/analyze route's behavior/contract must be UNCHANGED.
+- autofit/engine.py: compare_models gains an OPTIONAL progress_cb parameter
+  (default None) plus a _report_progress helper. No other logic changes.
+- autofit/methods/base.py + the 5 concrete methods
+  (least_squares/ic_model_comparison/bayesian_exchange_mc/sparse_map/
+  max_entropy/multivariate_mcr — actually 5 concrete + the ABC): each
+  run() gains progress_cb=None; only ic_model_comparison actually threads
+  it to compare_models, the rest accept-and-ignore.
+- templates/index.html: CSS .fp-spinner rule; a spinner <span> in the Find
+  Peaks button row; new pure JS helpers _fpFormatElapsed/_fpProgressText/
+  _fpPollJob + two constants (FP_POLL_INTERVAL_MS, FP_POLL_WATCHDOG_SEC);
+  runFindPeaks() rewritten to POST /api/analyze/start then poll instead of
+  POSTing directly to /api/analyze. NOTHING about the draggable modal or
+  the expanded element selector should appear in this commit (those are
+  units 2/3, separate commits) — flag it as a scope violation if you find
+  any trace of #find-peaks-modal-box id, .fp-drag-handle, FP_TIER_META,
+  fp-regions-filter, or coverage_index in this diff.
+- New tests: tests/autofit/test_progress_callback.py,
+  tests/test_api_analyze_progress.py, tests/js/find_peaks_progress.test.js,
+  tests/test_browser_find_peaks_progress.py.
+- docs/autofit/PROGRESS.md: a new "## Find Peaks UI improvements
+  (2026-07-11)" section + "### Unit 1" subsection.
+
+THE CLAIMS TO VERIFY ADVERSARIALLY:
+
+1. BYTE-IDENTICAL REFACTOR CLAIM. The claim is that /api/analyze's
+   observable behavior (status codes, response body shape, error messages)
+   is UNCHANGED by the extract-method refactor — proven by the existing
+   tests/test_api_analyze.py (18 tests) passing unmodified. Read the old
+   analyze() (via `git show 7827cda~1:app.py` or `git log -p` around it)
+   and the new shared helpers side by side. Is there ANY behavior drift —
+   a different exception type caught, a different status code, a changed
+   validation order that could change WHICH error fires first on a
+   multi-error payload, a dropped field in the response, a changed default?
+
+2. PROGRESS_CB DEFAULT-NONE SAFETY. Claim: progress_cb=None is a no-op for
+   every existing call site (nothing outside the new async path passes it),
+   so behavior for every current caller is byte-identical. Grep every call
+   site of compare_models and each method's run() — confirm none of them
+   pass progress_cb today, and confirm _report_progress's `if progress_cb is
+   None: return` short-circuits before any other logic. Also verify the
+   claim that a RAISING progress_cb is swallowed (try/except around the
+   call site) and does NOT alter compare_models' return value, survivor
+   selection, or timing/budget accounting (e.g. does the try/except wrap
+   ONLY the callback invocation, not anything that also executes fit work?).
+
+3. GUNICORN THREADING MODEL — THE CORE ARCHITECTURAL CLAIM, REVIEW HARDEST.
+   The commit's rationale is that gunicorn runs the DEFAULT sync worker
+   class (no gthread/gevent), so SSE would tie up a whole worker for
+   60-240s, hence a background `threading.Thread` + polling a small JSON
+   progress file (atomic os.replace) instead — because gunicorn's workers
+   are SEPARATE PROCESSES, so in-process/in-memory progress state would be
+   invisible to a poll landing on a different worker. Verify: (a) does
+   /api/analyze/start actually return promptly (not blocking on the fit)?
+   (b) is the background thread genuinely daemon=True (won't prevent
+   worker shutdown)? (c) is there a plausible race where the progress file
+   is read mid-write (not just at creation) — is the atomic os.replace
+   actually atomic for a partial read from a DIFFERENT process, and is the
+   "tolerates a race... 'starting' fallback" claim in GET
+   /api/analyze/progress/<job_id> sound for a job whose file hasn't been
+   created yet vs one whose file was deleted after cleanup? (d) is there a
+   memory-safety issue if the SAME Flask app process (module-level state,
+   e.g. _ANALYZE_METHODS) is shared/mutated across the background thread and
+   the request-handling thread in a way that's not thread-safe?
+
+4. JOB LIFECYCLE / CLEANUP. _job_progress_path / _write_job_progress /
+   _sweep_expired_jobs — verify the TTL sweep (a) actually runs somewhere
+   reachable (grep the call site), (b) can't delete a file mid-read by a
+   concurrent poll in a way that turns a real in-flight job into a
+   confusing 404, (c) doesn't leak job files forever if a worker crashes
+   mid-fit (is there any terminal state guaranteed to be written, or could
+   a killed worker leave a job "running" forever with no TTL cleanup path
+   because _write_job_progress for the terminal state never gets a chance
+   to run — realistic bound: the sweep is TIME-based only, so a stuck file
+   just ages out eventually; confirm that IS actually true and the poll
+   loop's own client-side FP_POLL_WATCHDOG_SEC (600s) bounds the user-facing
+   hang regardless).
+
+5. THE "NEVER SPINS FOREVER" CLAIM — VERIFY EVERY PATH. In
+   templates/index.html's runFindPeaks(): (a) success path clears the
+   spinner in the finally block, (b) a 4xx/5xx from /api/analyze/start
+   clears it, (c) a thrown error inside _fpPollJob (lost progress channel,
+   watchdog timeout, poll status "error") propagates to the outer
+   try/catch and still hits the SAME finally block. Read the actual code —
+   is there any code path (e.g., an early `return` before entering the
+   try, or an exception in a spot the try doesn't cover) where the spinner
+   could get left visible or the button left disabled? Specifically check
+   the "Re-fit my current peaks" empty-peak-specs early return — does it
+   still clear/never-set the spinner correctly?
+
+6. TESTS. Verify each test in test_progress_callback.py and
+   test_api_analyze_progress.py actually discriminates (would it fail
+   without this commit's change?) — especially
+   test_progress_reaches_done_with_the_same_result_as_sync (does it
+   actually assert deep equality against the real sync endpoint's output,
+   not a mock?) and test_progress_clears_on_error_never_spins_forever
+   (does the induced error actually originate from inside run(), matching
+   the class of error the sync path's own malformed-option test covers?).
+   For the Playwright test (test_browser_find_peaks_progress.py): does it
+   force a genuinely multi-candidate/two-phase sweep (not trivially fast),
+   and does it assert the elapsed timer visibly TICKS (not just appears
+   once)? Grep tests/test_api_analyze.py and
+   tests/autofit/test_structural_fallback.py — confirm this commit's diff
+   does NOT touch either file (they must pass unmodified per the commit
+   message's claim).
+
+7. DOCS. docs/autofit/PROGRESS.md's new Unit 1 section — check for
+   overclaims (e.g. "byte-identical" claimed without the pinning test
+   actually proving it end-to-end) or inaccuracies against the actual code.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".

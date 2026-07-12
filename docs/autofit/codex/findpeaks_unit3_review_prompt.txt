@@ -1,0 +1,169 @@
+You are an adversarial reviewer for a scoped, additive UI-feature commit in
+this repo (XPS peak-fitting web app, Flask backend + a single-page
+vanilla-JS frontend in templates/index.html). Review commit 07e685a
+("autofit: Find Peaks UI unit 3 — expanded element/region selector with
+coverage tiers") on branch feature-autofit-stage2 — `git show 07e685a`
+gives the full diff. Read-only sandbox; pytest may not be runnable (no
+writable tmp), but you can read everything and run read-only python/node
+one-liners (e.g. `python3 -c "from autofit.coverage_index import
+region_coverage_index; ..."` to independently spot-check numbers).
+
+CONTEXT: this is unit 3 (the "meatier" one) of 3 additive Find Peaks UI
+improvements — units 1 (progress indicator, commit 7827cda) and 2
+(draggable modal, commit 5dade0d) already reviewed/committed separately;
+review ONLY this commit. The GOAL'S CENTRAL HONESTY MANDATE for this unit:
+"show each element's coverage tier — curated / machine-sourced
+(CONDITIONAL) / structure-only (fallback, no cited positions) — so a
+fallback region is never shown as if it had cited grammar." Treat any
+violation of that as a BLOCKER regardless of how small.
+
+SCOPE OF THE CHANGE (verify it is contained):
+- NEW FILE autofit/coverage_index.py (region_coverage_index() + helpers
+  _curated_roi/_sourced_roi + a module-level cache keyed by
+  frozenset(registered_regions())).
+- app.py: ONLY analyze_meta() — a new `from autofit.coverage_index import
+  region_coverage_index` + one new `"coverage": region_coverage_index(),`
+  key in its jsonify(...) response, plus a docstring update. The existing
+  `"regions"` key and everything else in app.py must be untouched by this
+  commit (units 1's app.py changes were already committed separately —
+  confirm this commit's app.py diff is ONLY the coverage addition, nothing
+  from unit 1 re-appearing or being altered).
+- templates/index.html: the region `<select>`'s HTML gains a filter
+  `<input id="fp-regions-filter">` + a `<div id="fp-regions-tier-note">`
+  + an `onchange="_fpRegionsChanged()"` on the select; new JS:
+  `FP_TIER_META`, `_fpRegionMatchesFilter`, `_fpRegionOptionLabel`,
+  `_fpBuildRegionOptions`, `_fpTierNoteFor`, `_fpRegionsSelected` (Set),
+  `_fpRenderRegionOptions`, `_fpFilterRegions`, `_fpRegionsChanged`; and
+  `openFindPeaksModal()`'s old direct `_fpMeta.regions` population is
+  replaced with a call into `_fpRenderRegionOptions('')`. Confirm NOTHING
+  about the progress spinner (unit 1) or the drag implementation (unit 2)
+  appears freshly introduced/altered in this diff (they should already be
+  present from the prior two commits, untouched here).
+- New tests: tests/autofit/test_coverage_index.py,
+  tests/test_api_analyze_coverage.py, tests/js/find_peaks_coverage.test.js,
+  tests/test_browser_find_peaks_coverage.py.
+- docs/autofit/PROGRESS.md: the "### Unit 3" subsection + the finalized
+  "Full suite" line (612 passed, 6 skipped, 1 known pre-existing flake).
+
+THE CLAIMS TO VERIFY ADVERSARIALLY (HONESTY RAILS FIRST):
+
+1. THE CORE HONESTY RAIL: "curated" IS NEVER APPLIED TO A FALLBACK REGION.
+   Read region_coverage_index() closely. `curated` is assigned ONLY when
+   `region in curated` where `curated = frozenset(registered_regions())` —
+   i.e. only for the actually-registered deep-grammar modules (today: B 1s,
+   C 1s, Cl 2p, N 1s, U 4f, per autofit/regions/*). Verify there is NO code
+   path where a region with a sourced-but-not-deep-grammar position (e.g.
+   Fe 2p) could be mis-tiered "curated" instead of "machine" — trace every
+   branch of the Z=1..96 loop AND the "defensive completeness" fallback
+   loop at the end (the one that appends any `curated - seen` region as
+   tier='curated' unconditionally — is that fallback loop ONLY ever
+   reachable for members of `curated` itself, i.e. is it structurally
+   IMPOSSIBLE for this loop to tier a non-registered region as curated)?
+
+2. "machine" TIER NEVER OVERSTATES ITS BASIS. A `machine`-tier region's
+   `note` must never claim cited/literature grammar — read the exact note
+   text construction and confirm it always says "NOT a cited fitting
+   grammar" / equivalent, referencing the `reference_bridge` position
+   status honestly. Cross-check test_machine_tier_never_shown_as_curated
+   and test_structure_only_never_carries_a_roi_or_a_curated_label in
+   tests/autofit/test_coverage_index.py — do these tests actually
+   discriminate (would either FAIL if the tiering logic had a bug), or do
+   they just re-assert what the code trivially does?
+
+3. ROI HINTS NEVER INVENT A POSITION. `_curated_roi` derives from
+   `get_region_module(region).diagnostic_windows()` (a REAL grammar
+   module's own cited windows) ± a documented, clearly-labeled UI-only
+   margin; `_sourced_roi` derives from `reference_bridge.level_reference`'s
+   actual positions (preferring `expected_region_ev`, falling back to
+   nominal ± a wider practical margin) — verify NEITHER function can ever
+   return a window when the underlying source has NOTHING (structure_only
+   must get `roi: None`, unconditionally, always — check every return path
+   in the Z=1..96 loop for a region with `positions` empty). Independently
+   spot-check the "Fe 2p → machine tier, ROI ~706.5-711 eV from
+   expected_region_ev" claim in PROGRESS.md by calling
+   region_coverage_index() yourself and inspecting the Fe 2p entry's
+   exact roi/note/tier.
+
+4. CACHE CORRECTNESS UNDER THE SHARED TEST PROCESS. The cache is keyed by
+   `frozenset(registered_regions())`, specifically to handle
+   tests/autofit/test_resolver.py registering a synthetic "Fk 2p" region at
+   MODULE IMPORT TIME into the shared registry for the rest of the pytest
+   process. Verify: (a) does the keyed-invalidation actually work if
+   region_coverage_index() is called BEFORE that import (cache populated
+   with 5 curated) and then called AGAIN after test_resolver.py's import
+   (registry now has 6) — does the key mismatch force a recompute, or
+   could a subtly wrong frozenset comparison miss the change? (b) the
+   "defensive completeness" fallback that appends any registered-but-
+   unparseable region (like "Fk 2p", symbol=None) as tier='curated' — is
+   labeling a TEST-ONLY synthetic region as 'curated' actually correct
+   behavior, or could this same fallback path incorrectly launder a
+   REAL future non-periodic-table-shaped registered module in production
+   in a way that's misleading? Is this an acceptable, well-reasoned
+   scope call or a latent honesty-rail gap? (c) `test_index_is_cached_and_
+   returns_independent_copies` — confirm the returned list entries are
+   true independent copies (mutating one call's result truly cannot
+   corrupt a later call's), i.e. is the copy DEEP enough (dict-of-scalars
+   is probably fine with a shallow `dict(e)`, but check every value type
+   in an entry — is `roi` ever a nested mutable dict that a caller could
+   mutate through the "shallow copy per call" and corrupt the cached
+   original)?
+
+5. ROUTING — ZERO BACKEND CHANGES BEYOND THE READ-ONLY INDEX. The claim is
+   /api/analyze already handles ANY Z=1..96 region via the pre-existing
+   structural-fallback path with NO changes needed in this commit besides
+   exposing the coverage index for the UI. Verify by reading the actual
+   /api/analyze route (already committed, unchanged by unit 3) — does it
+   really call resolve(..., allow_structural_fallback=True)
+   unconditionally, independent of anything added in this commit? Run/read
+   test_fe2p_runs_via_the_existing_analyze_route_structural_fallback and
+   confirm its assertions (structural_only == ["Fe 2p"], every emitted
+   peak's region == "unassigned") actually match what a genuine
+   structural-fallback response looks like, not a coincidentally-shaped
+   mock.
+
+6. FRONTEND WIRING. `_fpRegionsChanged()` auto-fills the ROI ONLY when
+   `entries.length === 1 && entries[0].roi` — verify: (a) a two-region
+   ctrl-click co-fit selection never overwrites a user's existing ROI
+   values (read the exact condition — is `entries.length === 1` really
+   enforced, or could array-order/dedup bugs make a 2-selection look like
+   1 in some edge case, e.g. selecting the same region twice via a stale
+   `_fpRegionsSelected` Set)? (b) a structure_only single selection
+   (roi: null) correctly leaves the ROI fields alone rather than writing
+   "null"/NaN into them. (c) `_fpRenderRegionOptions` re-render on every
+   filter keystroke — does it correctly PRESERVE the selection across a
+   rebuild (via `_fpRegionsSelected`) even when the currently-selected
+   region is filtered OUT of view (goal: "(ctrl-click to fit two
+   together)" — a user should be able to search for a second region without
+   losing the first pick)? Read the exact `selected` attribute logic in
+   `_fpRenderRegionOptions` and confirm this actually works, not just for
+   options currently rendered.
+
+7. THE FIVE EXISTING CURATED ELEMENTS ARE UNCHANGED. Confirm (a) their
+   `region_coverage_index()` tier is 'curated' with the SAME roi-basis
+   semantics as before this feature existed (i.e. nothing about their
+   actual fitting/routing changed — this commit is UI/index only); (b) the
+   existing `meta['regions']` key (used by tests/test_api_analyze.py) is
+   byte-identical in shape/content to before this commit.
+
+8. TESTS. For each test file, spot-check 2-3 tests for genuine
+   discrimination (would they fail on a plausible bug, not just re-assert
+   the implementation). In particular scrutinize
+   test_curated_regions_have_a_grammar_derived_roi (does `"grammar" in
+   e["roi"]["basis"]` actually distinguish a grammar-derived ROI from a
+   sourced one, given both are English strings someone could phrase
+   either way?) and the Playwright
+   test_selecting_fe2p_shows_honest_fallback_note_and_sets_roi (does the
+   assertion `"not cited grammar" in note.lower() or "sourced" in
+   note.lower()` risk being too permissive — would it also pass if the
+   note text were accidentally reworded to claim citation, as long as it
+   also happened to contain the substring "sourced" somewhere?).
+
+9. DOCS. docs/autofit/PROGRESS.md's Unit 3 section and the finalized "Full
+   suite" line — check the measured numbers (980 total / 5 curated / 111
+   machine / 864 structure_only; 612 passed / 6 skipped / 1 known flake)
+   are plausible and not just asserted without basis; flag any overclaim.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario, honesty-rail violations called
+out explicitly as BLOCKER), then a final line exactly "VERDICT: GO" or
+"VERDICT: NO-GO".

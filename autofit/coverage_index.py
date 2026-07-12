@@ -40,6 +40,7 @@ which enforce the anti-confabulation contract already.
 
 from __future__ import annotations
 
+import copy
 from typing import Optional
 
 from . import coverage, reference_bridge
@@ -115,7 +116,7 @@ def region_coverage_index() -> list[dict]:
     global _INDEX_CACHE, _INDEX_CACHE_KEY
     curated = frozenset(registered_regions())
     if _INDEX_CACHE is not None and _INDEX_CACHE_KEY == curated:
-        return [dict(e) for e in _INDEX_CACHE]     # shallow copy per call
+        return copy.deepcopy(_INDEX_CACHE)   # roi is a nested dict — deep copy per call
     out: list[dict] = []
     for sym in coverage.PERIODIC_TABLE:
         st = coverage.element_structure(sym)
@@ -177,4 +178,4 @@ def region_coverage_index() -> list[dict]:
     out.sort(key=lambda r: (r["z"] if r["z"] is not None else 0, r["level"] or ""))
     _INDEX_CACHE = out
     _INDEX_CACHE_KEY = curated
-    return [dict(e) for e in out]
+    return copy.deepcopy(out)

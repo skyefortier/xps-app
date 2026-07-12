@@ -1,0 +1,120 @@
+You are an adversarial reviewer for a scoped, additive UI-feature commit in
+this repo (XPS peak-fitting web app, Flask backend + a single-page
+vanilla-JS frontend in templates/index.html). Review commit 5dade0d
+("frontend: Find Peaks UI unit 2 — draggable modal, clamped to viewport")
+on branch feature-autofit-stage2 — `git show 5dade0d` gives the full diff.
+Read-only sandbox; pytest may not be runnable (no writable tmp), but you
+can read everything and run read-only python/node one-liners.
+
+CONTEXT: this is unit 2 of 3 additive Find Peaks UI improvements (progress
+indicator [unit 1, commit 7827cda], draggable modal [this commit], expanded
+element selector [unit 3, commit 07e685a]) — strictly additive, no other
+modal in the app may be affected, and existing Find Peaks modal behavior
+(content, apply/reviewed gate, close) must be preserved. Review ONLY this
+commit; units 1 and 3 are reviewed separately.
+
+SCOPE OF THE CHANGE (verify it is contained):
+- templates/index.html only. Expect: CSS rules scoped to
+  `#find-peaks-modal-box .fp-drag-handle` / `#find-peaks-modal-box.dragging`
+  (must NOT affect any other `.xps-modal` in the app — grep for other
+  `.xps-modal` usages and confirm none of them gained a drag handle or
+  changed appearance); the modal `<div class="xps-modal" ...>` gains
+  `id="find-peaks-modal-box"`; the `<h3>` gains `class="fp-drag-handle"
+  onmousedown="_fpModalDragStart(event)"`; new JS:
+  `_fpModalDrag`/`_fpIsDragBlockingTarget`/`_fpClampModal`/
+  `_fpModalDragStart`/`_fpModalDragMove`/`_fpModalDragEnd`/a `resize`
+  listener/`_fpResetModalPosition`, plus a call to `_fpResetModalPosition()`
+  inside `openFindPeaksModal()`. NOTHING about the progress spinner/polling
+  (unit 1) or the region-selector/coverage tiers (unit 3) should appear in
+  this diff — flag it as a scope violation if you find any trace of
+  fp-spinner, _fpPollJob, FP_TIER_META, fp-regions-filter, or
+  coverage_index here.
+- New test: tests/test_browser_find_peaks_drag.py (Playwright).
+- docs/autofit/PROGRESS.md: the "### Unit 2 — draggable modal" subsection
+  only (unit 1's and unit 3's subsections were added in their own commits;
+  confirm this commit's PROGRESS.md diff is ONLY the unit 2 text, inserted
+  in the right place, with no accidental duplication or reordering of the
+  unit 1 section already committed).
+
+THE CLAIMS TO VERIFY ADVERSARIALLY:
+
+1. SCOPING TO ONLY THIS MODAL. The claim is every other `.xps-modal` in the
+   app (there should be several — e.g. any Save/Load, settings, or other
+   dialog) remains flex-centered and non-draggable, completely unaffected.
+   Grep every `.xps-modal` element in templates/index.html and confirm the
+   new CSS selectors and the `_fpModalDragStart` handler are wired ONLY to
+   `#find-peaks-modal-box` / its own header, never globally (e.g. a
+   document-level mousedown listener that could accidentally start a drag
+   on an unrelated modal's header, or a CSS rule missing the `#find-peaks-
+   modal-box` scoping prefix that would apply to all `.xps-modal` headers).
+
+2. DRAG-BLOCKING TARGET LOGIC. `_fpIsDragBlockingTarget` uses `target
+   instanceof Element && target.closest('button, select, input, a,
+   textarea')`. Verify: (a) the close button (✕) is inside the `<h3>` and
+   thus correctly matched and blocked from starting a drag; (b) are there
+   any OTHER interactive elements inside the header (now or plausibly
+   added later) that this selector list would miss — e.g. a `<label>` or a
+   custom clickable `<span>` with an onclick? (c) the `instanceof Element`
+   guard exists because CLAUDE.md's "Known Issues" documents a real,
+   still-open bug elsewhere in this codebase where `e.target.closest(...)`
+   is called without that guard and throws on a non-Element event target
+   (e.g. a text node) — confirm THIS new code correctly avoids that
+   class of bug (a text-node mousedown target must not throw).
+
+3. CLAMP-TO-VIEWPORT REUSE + CORRECTNESS. `_fpClampModal` calls
+   `RefCore.clampToViewport(left, top, w, h, window.innerWidth,
+   window.innerHeight, 8)` — the SAME shared, already-tested utility the
+   Reference/Identify palette uses (grep static/js/ref_identify_core.js and
+   its existing call site for the palette's own drag). Verify: (a) is the
+   margin convention (8px) consistent with how the palette itself calls it,
+   or was a different value copy-pasted incorrectly? (b) does
+   `_fpClampModal` correctly read the modal's CURRENT offsetWidth/
+   offsetHeight (not a stale/cached value) so clamping is correct after any
+   content/results-area resize (e.g. after Find Peaks results render and
+   the box grows taller — could a subsequent drag or the resize handler
+   clamp against a now-stale height)? (c) the resize listener re-clamps
+   only when `overlay.classList.contains('open')` AND
+   `el.style.position === 'fixed'` — verify a NEVER-dragged, still
+   flex-centered modal is correctly left alone on window resize (CSS
+   handles it) rather than being incorrectly yanked into `position:fixed`
+   by the resize handler.
+
+4. FIRST-DRAG JUMP-FREE TRANSITION. `_fpModalDragStart` reads
+   `getBoundingClientRect()` BEFORE switching `position` to `fixed`, then
+   pins `left`/`top` to that same rect — verify this really does prevent a
+   visible jump (i.e., the box's rendered position is provably identical
+   immediately before/after the `position: fixed` switch, for both the
+   default flex-centered case AND a case where the viewport is small
+   enough that the modal was already up against a flex-box constraint).
+
+5. RESET-ON-REOPEN CONTRACT. `_fpResetModalPosition()` clears
+   `style.position/left/top/margin` and the `dragging` class, and is called
+   from `openFindPeaksModal()` on every open. Verify: (a) is it called
+   BEFORE the modal is shown (no visible flash of the old dragged position
+   before snapping back)? (b) does closing without reopening (e.g. clicking
+   the X while dragged) leave any stale inline style that would matter the
+   NEXT time the modal opens, given `_fpResetModalPosition` runs on open
+   not on close — confirm this is fine given open always resets it, or
+   flag if there's a code path that renders/reads the box's position
+   between close and the next open in a way that would see stale state.
+
+6. EXISTING MODAL BEHAVIOR PRESERVED. Confirm the diff does not touch
+   anything about the modal's CONTENT, the apply/reviewed-gate logic, or
+   the close button's actual close behavior (`closeFindPeaksModal()`) —
+   only presentation/position changed.
+
+7. TESTS. Read tests/test_browser_find_peaks_drag.py — for each of its 5
+   tests, would it actually FAIL without this commit's change (i.e. does
+   it discriminate)? Specifically: does the clamp test drag far enough
+   past BOTH corners to meaningfully exercise the clamp math (not just
+   barely off-screen)? Does the "close button doesn't start a drag" test
+   click precisely on the button element (not just near it, which could
+   pass even with a bug if the click coincidentally lands off the
+   button)? Does the "inner controls still work after a drag" test
+   exercise a control that would plausibly break under a
+   drag-implementation bug (e.g. a stray `pointer-events: none` or a
+   lingering document-level mousemove listener eating subsequent clicks)?
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".

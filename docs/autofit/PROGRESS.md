@@ -2671,12 +2671,47 @@ sets grammar ROI + cited note, the existing 5 remain selectable).
 **Full suite**: `pytest tests/` — 612 passed, 6 skipped, 1 failed
 (`test_u4f_n1s_cofit`) in a single uncontended run (13m 23s). That one
 failure is the DOCUMENTED pre-existing wall-clock/hash-seed flake (see
-PROGRESS.md's 2026-07-10 entry and [[xps-autofit-session-ops]] —
-PYTHONHASHSEED-pinned old-vs-new comparison already proved this class
-adds nothing to the fit path); re-run standalone 3× during this session
-(fail, pass, pass) matching its historically observed ~1/3 rate, and
-nothing in units 1-3 touches U4f-specific engine code. `node --test
-tests/js/*.test.js` — 82 passed, 0 failed.
+PROGRESS.md's 2026-07-10 entry — PYTHONHASHSEED-pinned old-vs-new
+comparison already proved this class adds nothing to the fit path);
+re-run standalone 3× during this session (fail, pass, pass) matching its
+historically observed ~1/3 rate, and nothing in units 1-3 touches
+U4f-specific engine code. `node --test tests/js/*.test.js` — 82 passed,
+0 failed.
+
+**Codex review round 1 (2 independent runs, both NO-GO — stricter
+governs)**: units 1 and 2 cleared GO×2 unchanged; unit 3 round 1 surfaced
+2 MAJOR + 2 MINOR findings, no BLOCKER honesty-rail violation. Fixed
+same-session:
+- **MAJOR**: `_fpRegionsChanged()` rebuilt `_fpRegionsSelected` from only
+  the DOM's currently-rendered `selectedOptions`, so a co-fit member
+  filtered out of view by the search box was silently dropped from the
+  selection (and `runFindPeaks()` read the DOM directly too, so it would
+  never even have been submitted). Fixed: incremental sync — only
+  options CURRENTLY RENDERED can change membership in
+  `_fpRegionsSelected`; a filtered-out pick is left untouched; both
+  `_fpRegionsChanged` and `runFindPeaks` now read the persisted Set, not
+  the DOM. Regression test:
+  `test_a_selection_survives_being_filtered_out_of_view` (confirmed to
+  FAIL against the pre-fix code before landing the fix).
+- **MAJOR**: `region_coverage_index()` returned `dict(e)` shallow copies;
+  `roi` is a nested mutable dict, so mutating a returned entry's `roi`
+  corrupted the shared cache for every later caller, including
+  `/api/analyze/meta`. Fixed: `copy.deepcopy` on both the cache-hit and
+  cache-miss return paths. Regression test:
+  `test_cached_copies_are_deep_not_shallow` (confirmed to FAIL against
+  the pre-fix code).
+- **MINOR** (test permissiveness): the Fe 2p tier assertions in
+  `test_coverage_index.py`/`test_api_analyze_coverage.py` allowed
+  `tier in ("machine", "structure_only")`, which would not catch a
+  regression that silently dropped Fe 2p's sourced position — tightened
+  to an exact `== "machine"` pin. The Playwright honesty-note assertion
+  (`"not cited grammar" in note.lower() or "sourced" in note.lower()`)
+  would have passed a misleading note like "sourced cited fitting
+  grammar" — tightened to a regex requiring the actual negation
+  (`not (a )?cited( fitting)? grammar`).
+
+Round-1 verdicts archived at `docs/autofit/codex/findpeaks_unit{1,2,3}_verdict*.md`
+(unit 3: `findpeaks_unit3_verdict_round1.md`). Re-check (round 2) pending.
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks

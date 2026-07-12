@@ -13266,8 +13266,18 @@ function _fpFilterRegions(query) {
 
 function _fpRegionsChanged() {
   const sel = document.getElementById('fp-regions');
-  const values = Array.from(sel.selectedOptions).map(o => o.value);
-  _fpRegionsSelected = new Set(values);
+  // Incremental sync, NOT a wholesale replace: only options CURRENTLY
+  // RENDERED (i.e. visible under today's filter) can change membership
+  // here — a co-fit member filtered out of view keeps whatever selection
+  // state it already had (a change event can only ever fire for a
+  // <select> the browser rendered, so this can never see a hidden option).
+  const renderedValues = Array.from(sel.options).map(o => o.value);
+  const nowSelected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+  for (const v of renderedValues) {
+    if (nowSelected.has(v)) _fpRegionsSelected.add(v);
+    else _fpRegionsSelected.delete(v);
+  }
+  const values = Array.from(_fpRegionsSelected);
   const coverage = (_fpMeta && _fpMeta.coverage) || [];
   const entries = values.map(v => coverage.find(e => e.region === v))
     .filter(Boolean);
@@ -13415,8 +13425,10 @@ async function runFindPeaks() {
   const status = document.getElementById('fp-status');
   const spinner = document.getElementById('fp-spinner');
   const btn = document.getElementById('fp-run');
-  const regions = Array.from(
-    document.getElementById('fp-regions').selectedOptions).map(o => o.value);
+  // The full preserved selection, NOT the DOM's own selectedOptions — a
+  // co-fit member filtered out of view by the search box would be invisible
+  // to the DOM but must still be submitted (see _fpRegionsChanged).
+  const regions = Array.from(_fpRegionsSelected);
   if (!regions.length) { status.textContent = 'Select at least one region.'; return; }
   let options;
   try {
