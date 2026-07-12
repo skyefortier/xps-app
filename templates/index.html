@@ -1263,6 +1263,13 @@
     border-radius: 50%; animation: spin 0.8s linear infinite;
     vertical-align: -2px;
   }
+
+  /* ── Find Peaks draggable modal (2026-07-11) ───────────────
+     Scoped to THIS modal only (#find-peaks-modal-box) — every other
+     .xps-modal in the app stays flex-centered/non-draggable, unchanged. */
+  #find-peaks-modal-box .fp-drag-handle { cursor: grab; }
+  #find-peaks-modal-box.dragging,
+  #find-peaks-modal-box.dragging .fp-drag-handle { cursor: grabbing; }
   .fit-spinner-label {
     margin-top: 14px;
     font-family: var(--mono);
@@ -12734,8 +12741,8 @@ document.addEventListener('mousedown', function(e) {
      confidence + ambiguity flags; a NAMED human review is required
      before anything is applied to the tab. ═══════════════════════════ -->
 <div id="find-peaks-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="xps-modal" style="max-width:680px;max-height:86vh;overflow-y:auto">
-    <h3>Find Peaks <span style="font-size:10px;color:var(--text3)">BETA</span>
+  <div class="xps-modal" id="find-peaks-modal-box" style="max-width:680px;max-height:86vh;overflow-y:auto">
+    <h3 class="fp-drag-handle" onmousedown="_fpModalDragStart(event)" title="Drag to move this box out of the way">Find Peaks <span style="font-size:10px;color:var(--text3)">BETA</span>
       <button class="btn btn-sm" onclick="closeFindPeaksModal()" style="float:right">&#x2715;</button>
     </h3>
     <p id="fp-blurb" style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 10px"></p>
@@ -13086,11 +13093,84 @@ async function openFindPeaksModal() {
   _fpMethodChanged();
   document.getElementById('fp-results').style.display = 'none';
   document.getElementById('fp-status').textContent = '';
+  _fpResetModalPosition();
   document.getElementById('find-peaks-overlay').classList.add('open');
 }
 
 function closeFindPeaksModal() {
   document.getElementById('find-peaks-overlay').classList.remove('open');
+}
+
+// ── Draggable modal (2026-07-11) ────────────────────────────────────────
+// Same technique as the Reference palette's _refPaletteDragStart/Move/End
+// (static/js/ref_identify_core.js RefCore.clampToViewport is the shared,
+// tested clamp math) — but scoped to ONLY the Find Peaks modal: every
+// other .xps-modal in the app stays centered/non-draggable.
+
+let _fpModalDrag = null;
+
+// True for the close button (or any future control placed in the header)
+// — those must still work; only the bare header background starts a drag.
+// (`instanceof Element` guard: a text-node event target lacks .closest —
+// see CLAUDE.md Known Issues re: the same class of bug elsewhere.)
+function _fpIsDragBlockingTarget(target) {
+  return !!(target instanceof Element && target.closest('button, select, input, a, textarea'));
+}
+
+function _fpClampModal(left, top) {
+  const el = document.getElementById('find-peaks-modal-box');
+  const w = el ? el.offsetWidth : 680, h = el ? el.offsetHeight : 400;
+  return RefCore.clampToViewport(left, top, w, h, window.innerWidth, window.innerHeight, 8);
+}
+
+function _fpModalDragStart(e) {
+  if (_fpIsDragBlockingTarget(e.target)) return;
+  const el = document.getElementById('find-peaks-modal-box');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  // First drag: switch from flex-centered to absolutely positioned,
+  // pinned at its CURRENT visual spot so there is no jump.
+  el.style.position = 'fixed';
+  el.style.left = r.left + 'px'; el.style.top = r.top + 'px';
+  el.style.margin = '0';
+  _fpModalDrag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+  el.classList.add('dragging');
+  document.addEventListener('mousemove', _fpModalDragMove, true);
+  document.addEventListener('mouseup', _fpModalDragEnd, true);
+  e.preventDefault();
+}
+function _fpModalDragMove(e) {
+  if (!_fpModalDrag) return;
+  const el = document.getElementById('find-peaks-modal-box');
+  if (!el) return;
+  const c = _fpClampModal(e.clientX - _fpModalDrag.dx, e.clientY - _fpModalDrag.dy);
+  el.style.left = c.left + 'px'; el.style.top = c.top + 'px';
+}
+function _fpModalDragEnd() {
+  const el = document.getElementById('find-peaks-modal-box');
+  if (el) el.classList.remove('dragging');
+  _fpModalDrag = null;
+  document.removeEventListener('mousemove', _fpModalDragMove, true);
+  document.removeEventListener('mouseup', _fpModalDragEnd, true);
+}
+// Re-clamp an open, already-dragged modal when the viewport changes
+// (mirrors the Reference palette's resize guard). A never-dragged modal
+// is still flex-centered — CSS handles that case with no JS needed.
+window.addEventListener('resize', () => {
+  const overlay = document.getElementById('find-peaks-overlay');
+  const el = document.getElementById('find-peaks-modal-box');
+  if (!overlay || !overlay.classList.contains('open') || !el) return;
+  if (el.style.position !== 'fixed') return;
+  const c = _fpClampModal(parseFloat(el.style.left), parseFloat(el.style.top));
+  el.style.left = c.left + 'px'; el.style.top = c.top + 'px';
+});
+// Every fresh open starts centered — a drag is a "move it out of the way
+// for now" convenience, not a permanent relocation.
+function _fpResetModalPosition() {
+  const el = document.getElementById('find-peaks-modal-box');
+  if (!el) return;
+  el.style.position = ''; el.style.left = ''; el.style.top = ''; el.style.margin = '';
+  el.classList.remove('dragging');
 }
 
 function _fpMethodChanged() {

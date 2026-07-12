@@ -2587,6 +2587,29 @@ timer/readout while running, clears on error) — all green;
 (existing 12) pass UNMODIFIED, proving the extract-method refactor changed
 nothing about `/api/analyze`.
 
+### Unit 2 — draggable modal
+
+Reused the EXACT established pattern from the Reference palette
+(`_refPaletteDragStart`/`Move`/`End` + the shared, already-tested
+`RefCore.clampToViewport` in `static/js/ref_identify_core.js`) — new
+`_fpModalDragStart`/`_fpModalDragMove`/`_fpModalDragEnd`, scoped to ONLY
+`#find-peaks-modal-box` (every other `.xps-modal` in the app stays
+centered/non-draggable).  First drag switches the box from flex-centered
+to `position: fixed` pinned at its current visual spot (no jump); only
+the header (`.fp-drag-handle`) initiates a drag, guarded by
+`_fpIsDragBlockingTarget` (`instanceof Element` + `.closest('button,
+select, input, a, textarea')` — the close button and any future header
+control keep working).  Clamped via the SAME `clampToViewport` margin
+convention as the palette (never fully off-screen; an ~80px band stays
+reachable).  Resets to centered on every fresh `openFindPeaksModal()` — a
+drag is a "move it out of the way for now" convenience, not a permanent
+relocation.
+
+Tests: 5 Playwright browser tests (`test_browser_find_peaks_drag.py`) —
+drag repositions by the exact delta, clamps when dragged far off both
+corners, the close button does NOT start a drag and still closes, inner
+`<select>` controls still work post-drag, position resets on reopen.
+
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
