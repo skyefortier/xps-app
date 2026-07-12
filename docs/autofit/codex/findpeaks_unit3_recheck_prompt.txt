@@ -1,0 +1,118 @@
+This is a re-check of a prior review. On branch feature-autofit-stage2, two
+independent adversarial reviews of commit 07e685a ("Find Peaks UI unit 3 —
+expanded element/region selector with coverage tiers") both returned
+VERDICT: NO-GO, converging on the same 2 MAJOR + 2 MINOR findings (no
+BLOCKER honesty-rail violation in either run). The original review prompt
+is at docs/autofit/codex/findpeaks_unit3_review_prompt.txt and both round-1
+verdicts are archived at docs/autofit/codex/findpeaks_unit3_verdict_round1.md
+— read both for full context before starting. Fix commit is fa085f4 ("autofit:
+close Find Peaks unit 3 Codex round-1 findings (NO-GO x2)"); `git show fa085f4`
+gives its full diff. Read-only sandbox; pytest may not be runnable (no
+writable tmp), but you can read everything and run read-only python/node
+one-liners.
+
+VERIFY EACH DISPOSITION LINE-BY-LINE — do not just accept the commit
+message's claims, re-derive them from the actual diff:
+
+1. MAJOR — filtered-selection loss (both runs, same file/line:
+   templates/index.html:13267). Claimed fix: `_fpRegionsChanged()` no
+   longer does `_fpRegionsSelected = new Set(values)` (a wholesale replace
+   from only the DOM's rendered `selectedOptions`). Instead it now computes
+   `renderedValues` (every option CURRENTLY IN THE DOM, selected or not)
+   and `nowSelected` (the currently-selected subset), then for each
+   rendered value adds it to `_fpRegionsSelected` if selected or deletes it
+   if not — leaving entries for values NOT currently rendered untouched.
+   Verify: (a) is this genuinely correct for the reported scenario (select
+   C 1s, filter to Fe 2p so C 1s leaves the DOM, select Fe 2p too — C 1s
+   must survive in `_fpRegionsSelected`)? (b) does `runFindPeaks()` (grep
+   its `const regions = ...` line) now read `Array.from(_fpRegionsSelected)`
+   instead of the DOM's `selectedOptions` directly — confirm a filtered-out
+   co-fit member would actually be included in the analyze request body?
+   (c) any NEW bug introduced — e.g. does DESELECTING a currently-visible
+   option that was previously selected correctly remove it (not just
+   additions)? Does re-selecting the SAME already-selected option (a
+   toggle-off via ctrl-click, which some browsers surface as a change event
+   with that option no longer in `selectedOptions`) get handled by the
+   "not in nowSelected -> delete" branch correctly? (d) is there a
+   plausible double-selection/stale-Set edge case from
+   `_fpRenderRegionOptions` (which reads `_fpRegionsSelected.has(o.value)`
+   to mark `selected` on rebuild) interacting badly with this change — e.g.
+   a rapid filter-then-select-then-filter-again sequence?
+   New regression test: `tests/test_browser_find_peaks_coverage.py::
+   test_a_selection_survives_being_filtered_out_of_view` — read it; does it
+   actually reproduce the original bug's exact mechanism (select, filter to
+   hide, select again, assert BOTH survive AND both come back into the DOM
+   as checked when the filter clears)? The commit message claims this test
+   was confirmed to FAIL against the pre-fix code before the fix landed —
+   you can verify this yourself: `git show 07e685a:templates/index.html >
+   /tmp/prefix_index.html` then diff against the current file's
+   `_fpRegionsChanged`/`runFindPeaks` to confirm the pre-fix version really
+   has the wholesale-replace bug this test targets.
+
+2. MAJOR — shallow-copy cache corruption (both runs, same file/line:
+   autofit/coverage_index.py:117-118 and the final return at ~180). Claimed
+   fix: `import copy` added; both the cache-hit path (`return
+   copy.deepcopy(_INDEX_CACHE)`) and the cache-miss/populate path (`return
+   copy.deepcopy(out)`) now deep-copy instead of the old `[dict(e) for e in
+   ...]` shallow copy. Verify: (a) both return paths in
+   `region_coverage_index()` actually use `copy.deepcopy` now — grep for
+   any remaining `dict(e)` in the file. (b) does `copy.deepcopy` actually
+   protect the `roi` sub-dict specifically (the exact structure that was
+   vulnerable) — read `_curated_roi`/`_sourced_roi` to confirm `roi` is
+   always either `None` or a plain dict of JSON-safe scalars (no exotic
+   object that `deepcopy` might mishandle, e.g. a numpy scalar that
+   deepcopies fine but compares oddly). (c) performance/behavior sanity:
+   deepcopy on a ~980-entry list of small dicts should be cheap — is there
+   any reason to think this could meaningfully slow down `/api/analyze/meta`
+   (a per-request call site)? Not a blocker either way, just note it if
+   notable.
+   New regression test: `tests/autofit/test_coverage_index.py::
+   test_cached_copies_are_deep_not_shallow` — read it; does it mutate a
+   REAL nested `roi["be_min"]` (not just a top-level scalar, which the
+   pre-existing `test_index_is_cached_and_returns_independent_copies`
+   already covered and which the original shallow-copy bug would already
+   have passed)? Confirm via `git show 07e685a:autofit/coverage_index.py`
+   that the pre-fix version's `[dict(e) for e in ...]` really would fail
+   this specific new test.
+
+3. MINOR — Fe 2p tier test permissiveness. Claimed fix: both
+   `tests/autofit/test_coverage_index.py::test_fe_2p_is_a_plausible_machine_tier_entry`
+   and `tests/test_api_analyze_coverage.py::test_meta_exposes_the_full_coverage_index`
+   tightened from `tier in ("machine", "structure_only")` to an exact
+   `tier == "machine"` pin. Verify both files were actually changed (grep
+   for the old `in (` pattern — confirm it's gone from both call sites) and
+   that today's real data still makes this assertion PASS (Fe 2p really is
+   machine-tier, per data/xps's elements-machine.json — you can
+   independently re-derive this the same way you did in round 1).
+
+4. MINOR — honesty-note browser-test permissiveness. Claimed fix:
+   `tests/test_browser_find_peaks_coverage.py::
+   test_selecting_fe2p_shows_honest_fallback_note_and_sets_roi`'s assertion
+   changed from `"not cited grammar" in note.lower() or "sourced" in
+   note.lower()` to a regex `re.search(r"not (a )?cited( fitting)?
+   grammar", note.lower())`. Verify: (a) does this regex actually match the
+   REAL displayed note text (which combines `FP_TIER_META.machine.label` +
+   the backend's `note` field — trace both strings and confirm at least one
+   of them matches the regex as claimed)? (b) does it correctly REJECT the
+   adversarial example from the original finding ("sourced cited fitting
+   grammar" — no negation before "cited")? (c) is the regex itself
+   correct/not overly narrow — would it, for instance, fail to match if the
+   note were phrased "not cited" without "grammar" following immediately
+   (check the actual shipped text doesn't have that shape)?
+
+5. SCOPE CHECK. `git show fa085f4 --stat` — confirm the fix commit touches
+   only what's claimed (autofit/coverage_index.py, templates/index.html,
+   the 3 test files, docs/autofit/PROGRESS.md, and the new
+   docs/autofit/codex/ artifacts) — no drift into manual Run Fit,
+   /api/fit, the core analysis math, or the honesty/reviewed-apply gate,
+   and no accidental re-introduction of unit 1/2 content.
+
+6. THE PROGRESS.md FIX-NOTE ITSELF. Confirm the accidental
+   `[[xps-autofit-session-ops]]` memory-link-syntax artifact reported as
+   removed from PROGRESS.md's prose is in fact gone (grep `\[\[` in
+   docs/autofit/PROGRESS.md — the only remaining bracket-pairs should be
+   unrelated, e.g. `Callable[[dict], None]`).
+
+Deliver: a numbered disposition list (one entry per original finding: FIXED
+CONFIRMED / STILL BROKEN / NEW ISSUE, with file/line and evidence), then a
+final line exactly "VERDICT: GO" or "VERDICT: NO-GO".

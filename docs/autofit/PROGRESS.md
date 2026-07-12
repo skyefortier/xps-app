@@ -2711,7 +2711,22 @@ same-session:
   (`not (a )?cited( fitting)? grammar`).
 
 Round-1 verdicts archived at `docs/autofit/codex/findpeaks_unit{1,2,3}_verdict*.md`
-(unit 3: `findpeaks_unit3_verdict_round1.md`). Re-check (round 2) pending.
+(unit 3: `findpeaks_unit3_verdict_round1.md`).
+
+**Re-check (round 2, 2 independent runs)**: both GO, disposition
+"FIXED CONFIRMED" on all 6 items (the 2 MAJOR + 2 MINOR from round 1, plus
+the scope check and the memory-link-artifact cleanup) — each with
+file/line evidence and, for the two MAJOR fixes, an independent
+re-derivation that the pre-fix commit (07e685a) really did have the bug
+(one run directly seeded the coverage_index cache and confirmed the
+mutation-corruption is gone; both traced the pre-fix
+`_fpRegionsSelected = new Set(selectedOptions)` wholesale-replace). Archived
+at `docs/autofit/codex/findpeaks_unit3_verdict_round2.md`.
+
+**ALL 3 FIND PEAKS UI UNITS CODEX-CLEARED.** Unit 1: GO x2. Unit 2: GO x2.
+Unit 3: NO-GO x2 (round 1) -> fixed -> GO x2 (round 2). Commits (all
+pushed to origin/feature-autofit-stage2): 7827cda (unit 1), 5dade0d
+(unit 2), 07e685a (unit 3), fa085f4 (unit 3 round-1 fix).
 
 ## Remaining work (updated 2026-07-05 — most of the original list SHIPPED)
 DONE since this list was written: `/api/analyze` + the opt-in Find Peaks
