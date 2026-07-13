@@ -1,0 +1,84 @@
+Second recheck for the plain-English wording pass on Find Peaks (branch
+feature-autofit-stage2, worktree at this path, commit f7fa703). This
+has now been through 2 rounds of review: round 1 found a real bug
+(`[]` truthiness on `structural_only`, fixed, but round 1's OWN recheck
+then found the fix was still incomplete). This is the round-2 recheck
+for that follow-on finding. Read
+docs/autofit/codex/plain_english_pass_review_prompt.txt and
+docs/autofit/codex/plain_english_pass_recheck_prompt.txt for full
+history — do not trust this description alone; verify everything
+against current disk state.
+
+ROUND-1 RECHECK'S FINDING (verbatim, from the NO-GO run): "the fixed
+guard still misclassifies a real successful payload shape... `app.py`
+can also emit a successful normal payload with a nonempty
+`structural_only` array... This is pinned by existing backend tests:
+tests/autofit/test_structural_fallback.py asserts `success is True`,
+`structural_only == ['Fe 2p']`, and emitted peaks. The current UI still
+returns the false stub for that payload... Suggested disposition: make
+the stub branch match the actual degraded stub shape, not merely
+nonempty `structural_only`."
+
+FIX APPLIED (same session, commit f7fa703 — please verify against
+current disk state):
+
+Traced `app.py`'s `_build_analyze_payload()` (the two branches: the
+early-return honest stub, and the normal payload) and confirmed the
+STUB's field set is `{method, success, structural_only,
+structure_report, notes, uses_conditional_or_unverified_constants,
+peaks, confidence, message, review_gate}` while the NORMAL payload's is
+`{method, success, structural_only, peaks, confidence, analysis,
+diagnostics, message, review_gate}` plus optionally `structure_report`/
+`notes`. The set-difference: `analysis` (and `diagnostics`) appear ONLY
+in the normal payload, NEVER in the stub; `uses_conditional_or_
+unverified_constants` appears ONLY in the stub. `_fpPlainMessage()`'s
+guard (templates/index.html) now checks `body.analysis === undefined`
+(in addition to the existing non-empty `structural_only` array check)
+before taking the stub branch — this is the actual distinguishing
+signal per the suggested disposition, not merely nonempty
+`structural_only`.
+
+Two new regression tests in tests/js/find_peaks_plain_message.test.js:
+- a MIXED-SUCCESS case (`structural_only: ['Fe 2p']`, `success: true`,
+  real peaks, `analysis` present) — confirmed to FAIL pre-fix (showed
+  the false stub) and pass post-fix (shows the real "found 1 extra
+  peak(s) at 710.00 eV..." message).
+- a MIXED-FAILURE case (`structural_only: ['Fe 2p']`, `success: false`,
+  `analysis` present) — same disposition, falls through to the generic
+  no-survivors message instead of the false stub.
+Also fixed the `baseBody()` test-fixture helper, which was missing an
+`analysis` key entirely (an unrealistic fixture — every real payload
+has one) — this is WHY the mixed-success test initially failed for the
+wrong reason when first written, caught and fixed in the same pass.
+Also verified live in a real browser (Playwright) with the exact
+realistic mixed-success payload shape.
+
+PLEASE VERIFY:
+
+1. Read `_fpPlainMessage()`'s current guard directly and confirm it
+   checks `body.analysis === undefined` (not just non-empty
+   `structural_only`) before taking the stub branch.
+2. Independently re-derive the stub-vs-normal payload key sets from
+   `app.py`'s `_build_analyze_payload()` yourself — confirm `analysis`
+   really is present in EVERY normal-payload code path (including a
+   generic no-survivors failure with no structural regions at all) and
+   absent in EVERY stub-payload code path. Is there any code path where
+   this assumption breaks (e.g. a future/other early-return branch you
+   can find that also omits `analysis` but isn't the "no cited data"
+   stub, which would cause a false-negative here — showing the generic
+   message when the real stub message would be more honest)?
+3. Confirm the original structural-only stub case (a TRUE stub payload,
+   no `analysis` key, non-empty `structural_only`) still shows the
+   right message — check the original `test('_fpPlainMessage:
+   structural_only stub ...')` test still passes.
+4. Confirm the two new regression tests use REALISTIC payload shapes
+   (matching what `_build_analyze_payload()` would actually emit for
+   these scenarios, per `tests/autofit/test_structural_fallback.py`'s
+   own fixtures/assertions) rather than minimal/artificial objects that
+   might not catch a narrower version of the same bug class.
+5. Anything else that looks wrong, regardless of whether it's on this
+   list — this display-only pass has now had 2 real bugs found in 2
+   rounds in the SAME function, so a careful read is warranted.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".

@@ -3135,6 +3135,49 @@ paragraph ("CONDITIONAL — no model passed every plausibility check
 cleanly... the Graphitic C width (pinned at its upper limit)...") with
 the exact original raw string still available one level deeper.
 
+**Codex review — 3 rounds, same function, same bug class each time:
+"a bare truthy/array check on an optional field misclassifies some
+real payload shape."** Round 1 (2 runs): both NO-GO, unanimous —
+`if (body.structural_only)` is truthy for `[]`, so EVERY ordinary
+successful result showed the "no fittable peaks" stub instead of the
+real message. Fixed same-session (commit 95bdd41):
+`Array.isArray(body.structural_only) && body.structural_only.length`.
+
+Round 2 recheck (2 runs): 1 NO-GO, 1 GO (missed it) — stricter governs.
+The array-length fix was still wrong for a MIXED curated+structural
+request that succeeds overall with real peaks while `structural_only`
+stays non-empty (per `test_api_mixed_deep_plus_structural_runs_and_flags`)
+— length-only checking still showed the false stub, silently hiding
+that peaks WERE found. Fixed same-session (commit f7fa703) on the TRUE
+distinguishing signal: `app.py`'s honest stub payload has no `analysis`
+key at all, while every normal payload (success or failure, mixed or
+not) always does — `body.analysis === undefined` is what actually
+means "this is the stub," not `structural_only`'s emptiness. Also fixed
+the `baseBody()` JS test fixture, which was missing `analysis` entirely
+(an unrealistic fixture that let the new mixed-success test fail for
+the wrong reason when first written).
+
+Round 3 recheck (2 runs): **GO x2.** Both independently re-derived
+`_build_analyze_payload()`'s two branches' key sets from app.py and
+confirmed `analysis`/`diagnostics` are present in every normal payload
+and absent only in the true stub, with no other early-return shape
+that breaks the assumption.
+
+**UNIT 2 CODEX-CLEARED after 3 rounds.** Commits: 6a8391e (feature),
+95bdd41 (round-1 fix), f7fa703 (round-2 fix). Archived at
+`docs/autofit/codex/plain_english_pass_verdict_round{1,2,3}_run{A,B}.md`.
+
+**Same lesson as Unit 1, different shape**: both units found their
+real bugs in the SAME place — an optional/derived field being checked
+too loosely (a widened bound leaking into identity logic in Unit 1; a
+present-but-empty array being treated as "absent" in Unit 2). Read
+the actual payload/data shape being branched on, not just "is this
+value falsy," before trusting a guard clause in this codebase.
+
+---
+
+## Find Peaks UI improvements round 3 — Unit 1 closing note
+
 **Lesson for future work on this exact class of feature**: "widen a
 fit's search bound" and "widen a slot's territory for identity/matching/
 blocking purposes" are DIFFERENT concepts that must never share one
@@ -3142,5 +3185,3 @@ override — every one of the 4 real bugs found across 3 rounds was some
 form of the widened bound leaking into a place that should have stayed
 anchored to the slot's TRUE, original window. Consider this the
 authoritative account if this option is ever extended.
-
-Archived at `docs/autofit/codex/fit_full_window_verdict_round{1,2,3}_run{A,B}.md`.
