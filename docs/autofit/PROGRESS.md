@@ -2765,3 +2765,74 @@ STILL OPEN:
   suite (the estimator itself is review-complete).
 - Hour→interactive performance work (deferred per the run brief).
 - Production deploy: NEVER without human review (run rail).
+
+## Find Peaks UI improvements round 2 (2026-07-13) — two additive units
+
+### Unit 1 — Fe 2p (and any partially-sourced doublet) instant-fail fix
+
+**Bug** (functional, fixed first per the run brief): selecting a
+sourced/structure-only region such as Fe 2p in the Find Peaks UI and
+running it returned "no candidate survived filter-then-rank" in <2ms —
+even though the same structural-fallback engine produces a plausible,
+honestly-flagged 3-component fit when driven against the full Fe 2p
+window directly (matches the documented Ugly_Fe_2p acceptance result,
+2026-07-07 entry above).
+
+**Root cause**: `autofit/coverage_index.py`'s `_sourced_roi()` built the
+Find Peaks auto-fill ROI from a single sub-level's `expected_region_ev`
+span. Fe 2p is a spin-orbit doublet (2p3/2 + 2p1/2); data/xps has a
+sourced position for 2p3/2 only (706.86 eV, expected region 706.5-711
+eV) — no 2p1/2 entry exists anywhere. The narrow auto-filled window
+excluded both the real 2p1/2 peak (~717-720 eV) and the true 2p3/2
+maximum in uncalibrated data, leaving zero local maxima for the
+detection layer to seed.
+
+**Fix**: `_sourced_roi()` now takes the level's full derived spin-orbit
+`component_labels` set (from `autofit.coverage.level_structure`). When
+the sourced positions don't cover every component, the window is
+widened (union, never narrowed) with the existing nominal ±
+`_NOMINAL_ROI_MARGIN_EV` (12 eV) convention the module already used for
+the "no expected_region_ev at all" case — that margin's own docstring
+already called it "wide enough for a spin-orbit partner", so this
+applies an existing convention correctly rather than inventing a new
+empirical value. Fe 2p's auto-filled ROI is now 694.9-723.0 eV (was
+706.5-711); confirmed end-to-end on a synthetic Fe-2p-shaped doublet
+that the widened window lets the structural fallback succeed
+(3 detected components at 704.6/708.3/718.0 eV, ~0.7s).
+
+Regression tests (both confirmed to FAIL against the pre-fix code):
+`test_fe_2p_roi_widens_to_cover_unsourced_spin_orbit_partner` (Fe-2p
+pin) and `test_partially_covered_doublets_never_trust_a_single_position_span`
+(general class rule — independently caught the SAME bug class hitting
+Mg 2p and Al 2p, not just Fe 2p, before the fix landed).
+
+Also added (unit 2 prep, same file): a `practical: bool` field on every
+coverage-index entry — UI-only heuristic (never a physics citation)
+combining exact derived signals (`partially_filled` for valence
+exclusion, e.g. Fe 3d; innermost-shell-of-4+ for deep-core exclusion,
+e.g. Fe 1s / U 1s) so the periodic-table picker can grey out
+impractical levels without inventing a binding energy.
+
+**Full suite**: `pytest tests/ --ignore=tests/js -k "not browser"` — 555
+passed, 6 skipped, 62 deselected (267.8s); the only failure on the first
+unfiltered run was the documented pre-existing `test_u4f_n1s_cofit`
+wall-clock/hash-seed flake (2026-07-10 entry above) — re-ran standalone
+3x (pass, pass, pass), confirming it's unrelated to this change (which
+touches only `autofit/coverage_index.py`). `node --test tests/js/*.test.js`
+— 82 passed, 0 failed.
+
+**Codex review (2 independent runs)**: both GO, no findings. Both
+independently re-derived the Fe 2p/Mg 2p/Al 2p numbers from
+`data/xps/elements-machine.json` directly rather than trusting the
+test's literals, confirmed the widening is union-only (cannot shrink an
+existing wide ROI), confirmed the subset-check direction is correct
+(an earlier draft had it backwards and silently no-opped for Fe 2p —
+called out explicitly in the review prompt), and confirmed the change
+touches neither `/api/fit` nor the manual fit path. Archived at
+`docs/autofit/codex/fe2p_roi_widen_verdict_run{A,B}.md`.
+
+Commit: b205f73 (pushed to origin/feature-autofit-stage2).
+
+### Unit 2 — periodic-table element/orbital picker
+
+In progress — see next entry.
