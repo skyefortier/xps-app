@@ -2835,4 +2835,75 @@ Commit: b205f73 (pushed to origin/feature-autofit-stage2).
 
 ### Unit 2 — periodic-table element/orbital picker
 
-In progress — see next entry.
+Replaced the flat `<select multiple>` region list (2026-07-11 unit 3)
+with an interactive periodic-table grid. Click an element to expand its
+available core levels as color-coded chips; click a chip to select it,
+ctrl/⌘-click a chip to add a second region (co-fit); a live type-ahead
+search dropdown offers direct picks as a faster alternative to clicking
+through the grid. Elements with zero practical coverage render
+disabled/greyed. `_fpRegionsSelected` (the Set `runFindPeaks()` submits)
+is unchanged in name/role — still the single source of truth, now
+mutated only through a pure, unit-tested `_fpNextSelection()`.
+
+**New backend field** (`autofit/coverage_index.py`): `practical: bool`
+on every coverage-index entry — UI-only heuristic (never a physics
+citation, matching the module's anti-confabulation posture) combining
+two exact derived signals: `partially_filled` for valence exclusion
+(e.g. Fe 3d) and innermost-shell-of-4+-occupied-shells for deep-core
+exclusion (e.g. Fe 1s, U 1s — sits far beyond standard lab XPS source
+energies for every element reaching that shell count). Deliberately
+conservative: light/mid elements are never excluded even near the
+~1400 eV practical ceiling, erring toward showing a borderline level
+over hiding a fittable one. Spot-checked (also independently re-derived
+by both Codex runs): H 1s / Fe 1s / Fe 3d / U 1s = impractical;
+Fe 2p/2s/3p/4s, Mg 2p, U 4f = practical.
+
+**Design**: reused the app's existing "instrument panel" tokens exactly
+(`--tier-c` + `color-mix()`, same convention as `.ref-badge-*`; same
+18-column grid layout as the Reference panel's `#ref-pt-grid`) rather
+than inventing a new visual language — per DESIGN.md's "native, not
+bolted-on" principle. Cell size (26px) intentionally larger than the
+Reference grid's 17px to clear the ~24px click-target floor for a
+picker used deliberately, not glanced-and-clicked. Verified in both
+dark and light themes via Playwright screenshots on the :5252 dev
+server.
+
+**Tests**: `tests/js/find_peaks_periodic_table.test.js` (new, 11 tests —
+pure `_fpNextSelection`/`_fpBestTier`/`FP_TIER_RANK` logic, DOM-free);
+`tests/autofit/test_coverage_index.py` (+4 tests for the `practical`
+field); `tests/test_browser_find_peaks_coverage.py` (rewritten for the
+new DOM — grid size, Hydrogen disabled, tier-by-level chips, legend,
+search dropdown, Fe 2p / C 1s selection + ROI, existing 5 curated
+elements reachable, ctrl-click co-fit selection survives being filtered
+out of view); `tests/test_browser_find_peaks_progress.py` (2 call sites
+swapped from `select_option` to grid+chip clicks — unrelated file, same
+DOM dependency). Full suite: 622 passed, 6 skipped, 1 deselected (the
+documented `test_u4f_n1s_cofit` flake) in the backend; 93 passed in
+`node --test tests/js/*.test.js`.
+
+**Codex review, round 1 (2 independent runs)**: run A NO-GO, run B GO
+(missed run A's finding) — stricter governs. Finding: the search
+dropdown's focusable rows wired up `Enter` but not `Space`, and their
+`:focus-visible` rule removed the outline entirely with no replacement
+indicator — a keyboard user tabbing to a live-search result had no
+visible focus and couldn't activate it with Space. Fixed same-session:
+keydown now checks `event.key==='Enter'||event.key===' '`;
+`:focus-visible` now gets a real `2px solid var(--accent)` outline
+(inset, `outline-offset:-2px`, since these are edge-to-edge rows in an
+`overflow-y:auto` container where an outward offset would clip).
+Regression test `test_search_dropdown_item_activates_on_space_key_not_just_enter`
+confirmed to FAIL against the pre-fix code (reverted the keydown line,
+watched it fail, restored the fix, watched it pass) before landing.
+
+**Codex review, round 2 recheck (2 independent runs)**: both GO. Both
+independently re-verified the fix (grep'd the exact lines, confirmed
+the regression test targets the right element via `page.focus()` +
+`page.keyboard.press(' ')` rather than a `.click()` that would pass
+regardless of the keydown handler), re-confirmed the rest of round 1's
+non-flagged findings still hold on current disk, and re-derived the
+`practical` spot-check values independently. Archived at
+`docs/autofit/codex/fp_periodic_table_picker_verdict_round{1,2}_run{A,B}.md`.
+
+**ALL FIND PEAKS UI IMPROVEMENTS ROUND 2 UNITS CODEX-CLEARED.** Unit 1:
+GO x2. Unit 2: NO-GO/GO (round 1, stricter governs) → fixed → GO x2
+(round 2).

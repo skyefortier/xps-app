@@ -63,6 +63,35 @@ _CURATED_ROI_PADDING_EV = 6.0
 _INDEX_CACHE: Optional[list[dict]] = None
 _INDEX_CACHE_KEY: Optional[frozenset] = None
 
+# UI-only heuristic (Find Peaks periodic-table picker filtering, unit 2)
+# — NEVER a physics citation. A level's own true binding energy is only
+# known when a position is actually sourced (see ``roi`` above); most
+# ``structure_only`` levels carry none at all, so this can't apply a real
+# BE cutoff universally. Instead it combines two EXACT, already-derived
+# structural signals, deliberately conservative (errs toward keeping a
+# borderline level visible rather than hiding a fittable one):
+_DEEP_CORE_MIN_SHELLS = 4
+
+
+def _is_practically_fittable(lv: dict, st: dict) -> bool:
+    """Would a bench chemist practically try to fit this level with a
+    standard lab XPS source (Al Ka 1486.6 eV / Mg Ka 1253.6 eV)? Two
+    signals, no binding energy invented:
+
+    - valence character: ``lv['partially_filled']`` (exact Aufbau
+      bookkeeping) excludes an open-shell level like Fe 3d;
+    - very deep core: the LOWEST-n occupied level, once the element has
+      >= ``_DEEP_CORE_MIN_SHELLS`` distinct principal shells occupied,
+      sits far beyond standard lab source energies for every element
+      that reaches this shell count — excludes e.g. Fe 1s, U 1s.
+    """
+    if lv["partially_filled"]:
+        return False
+    shells = sorted({c["n"] for c in st["configuration"]})
+    if len(shells) >= _DEEP_CORE_MIN_SHELLS and lv["n"] == shells[0]:
+        return False
+    return True
+
 
 def _curated_roi(region: str) -> Optional[dict]:
     windows = get_region_module(region).diagnostic_windows()
@@ -152,6 +181,7 @@ def region_coverage_index() -> list[dict]:
                     "note": "Cited fitting grammar (lit-anchored "
                             "windows/widths).",
                     "roi": _curated_roi(region),
+                    "practical": True,   # a registered grammar module implies practical
                 })
                 continue
             bridged = reference_bridge.level_reference(sym, lv["level"])
@@ -168,6 +198,7 @@ def region_coverage_index() -> list[dict]:
                     "roi": _sourced_roi(
                         positions,
                         component_labels={c["label"] for c in lv["components"]}),
+                    "practical": _is_practically_fittable(lv, st),
                 })
             else:
                 out.append({
@@ -178,6 +209,7 @@ def region_coverage_index() -> list[dict]:
                             "structure-only fallback; set the BE window "
                             "manually.",
                     "roi": None,
+                    "practical": _is_practically_fittable(lv, st),
                 })
 
     # Defensive completeness: a registered module OUTSIDE the classic
@@ -197,6 +229,7 @@ def region_coverage_index() -> list[dict]:
             "level": level, "tier": "curated",
             "note": "Cited fitting grammar (lit-anchored windows/widths).",
             "roi": _curated_roi(region),
+            "practical": True,   # a registered grammar module implies practical
         })
 
     out.sort(key=lambda r: (r["z"] if r["z"] is not None else 0, r["level"] or ""))

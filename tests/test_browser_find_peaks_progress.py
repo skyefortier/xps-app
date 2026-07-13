@@ -135,7 +135,11 @@ def test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears(
         _load_cl2p_doublet(pg)
         pg.evaluate("() => openFindPeaksModal()")
         pg.wait_for_selector("#find-peaks-overlay.open", timeout=5000)
-        pg.select_option("#fp-regions", "Cl 2p")
+        # region picker is the periodic-table grid (2026-07-13, unit 2 of
+        # the "Find Peaks UI improvements round 2" session) — click the
+        # element cell, then its "2p" level chip, instead of a <select>.
+        pg.click("#fp-pt-grid >> text='Cl'")
+        pg.click("#fp-expanded-panel >> text='[cited] 2p'")
         pg.select_option("#fp-method", "ic_model_comparison")
         # force the two-phase screen->stabilize path so the sweep runs long
         # enough to reliably observe an in-flight poll
@@ -204,7 +208,11 @@ def test_progress_indicator_clears_on_error(browser, server):
         _load_cl2p_doublet(pg)
         pg.evaluate("() => openFindPeaksModal()")
         pg.wait_for_selector("#find-peaks-overlay.open", timeout=5000)
-        pg.select_option("#fp-regions", "Cl 2p")
+        # region picker is the periodic-table grid (2026-07-13, unit 2 of
+        # the "Find Peaks UI improvements round 2" session) — click the
+        # element cell, then its "2p" level chip, instead of a <select>.
+        pg.click("#fp-pt-grid >> text='Cl'")
+        pg.click("#fp-expanded-panel >> text='[cited] 2p'")
         pg.select_option("#fp-method", "ic_model_comparison")
         pg.evaluate("""() => {
             document.getElementById('fp-options').value =

@@ -1,0 +1,54 @@
+Recheck for the Find Peaks periodic-table picker review (branch
+feature-autofit-stage2, worktree at this path). Two independent GO/NO-GO
+runs were done against docs/autofit/codex/fp_periodic_table_picker_review_prompt.txt
+(read that file for full context on the feature). Verdicts: run 1 =
+NO-GO, run 2 = GO (missed run 1's finding). Per this project's "stricter
+verdict governs" convention, the NO-GO finding must be dispositioned
+before this unit is done.
+
+RUN 1's FINDING (verbatim): "the type-ahead dropdown rows are focusable
+role='button' controls, but their key handler only activates on Enter;
+Space does nothing. templates/index.html line ~1356 also explicitly
+removes the focus outline for these focused rows. Concrete failure: a
+keyboard user types 'Fe 2p', tabs into the first search result, gets no
+visible focus indicator, and pressing Space does not select the result."
+
+FIX APPLIED (same-session, please verify against current disk state —
+do not trust this description alone):
+1. templates/index.html: `.fp-search-dropdown-item`'s keydown handler
+   changed from `if(event.key==='Enter')` to
+   `if(event.key==='Enter'||event.key===' ')` — grep for
+   `_fpPickFromSearch` to find the exact line.
+2. templates/index.html: `.fp-search-dropdown-item:focus-visible` no
+   longer sets `outline: none` — it now gets `outline: 2px solid
+   var(--accent); outline-offset: -2px;` (inset, since these are
+   edge-to-edge rows inside a scrollable container where an outward
+   offset could get clipped by the parent's overflow or the next row —
+   confirm this reasoning holds, or flag if inset is itself a problem).
+3. New regression test:
+   `tests/test_browser_find_peaks_coverage.py::test_search_dropdown_item_activates_on_space_key_not_just_enter`
+   — confirmed to FAIL against the pre-fix code (reverted the keydown
+   line locally, re-ran, watched it fail with "Space on a focused search
+   result must select it", then restored the fix and watched it pass).
+
+PLEASE VERIFY:
+1. Read the current `.fp-search-dropdown-item` CSS and the
+   `_fpPickFromSearch` chip-building code directly — confirm both parts
+   of the fix are actually present and correct (Space now activates;
+   focus-visible now has a real, visible outline).
+2. Confirm the new regression test exists, targets the right element,
+   and would plausibly have caught the original bug (i.e., it uses
+   `page.focus(...)` + `page.keyboard.press(' ')`, not a direct
+   `.click()` that would trivially pass regardless of the keydown
+   handler).
+3. Re-check the REST of run 1's "Verified" section (the parts it did NOT
+   flag as NO-GO) still holds on the current disk state — /api/fit
+   untouched, `practical` additive, `_fpRegionsSelected` never rebuilt
+   from DOM, honesty rail (no color-only tier meaning), and the
+   `_is_practically_fittable()` spot-check values (H 1s / Fe 1s / Fe 3d
+   = False; Fe 2p/2s/3p/4s, Mg 2p, U 4f = True; U 1s = False).
+4. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".

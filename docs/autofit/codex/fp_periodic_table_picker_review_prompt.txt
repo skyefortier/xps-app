@@ -1,0 +1,95 @@
+You are reviewing a UI feature replacement on branch feature-autofit-stage2
+of the XPS Fitting Studio repo (worktree at this path). Read code directly
+from disk, do not trust this description alone.
+
+CONTEXT: the Find Peaks modal's region selector used to be a flat native
+`<select multiple>` populated with `[cited]`/`[sourced]`/`[structure only]`
+text-prefixed `<option>`s (2026-07-11, unit 3 of a prior session — see
+docs/autofit/PROGRESS.md's "Find Peaks UI improvements (2026-07-11)"
+section for that history). This change REPLACES that flat list with an
+interactive periodic-table grid: click an element to reveal its available
+core levels as color-coded chips (color = FP's own coverage tier —
+curated/machine/structure_only, NOT the unrelated data/xps reference-value
+tier system), click a level chip to select it, ctrl/cmd-click a chip to
+add a second region ("fit two together"), plus a live type-ahead search
+dropdown as a faster alternative to clicking through the grid. Elements
+with zero PRACTICAL coverage render disabled/greyed.
+
+WHAT "PRACTICAL" MEANS (new backend field, additive): autofit/coverage_index.py
+now emits `practical: bool` on every entry — a UI-only heuristic (NEVER a
+physics citation, matching the module's existing anti-confabulation
+posture) that hides (a) valence-character levels (`lv['partially_filled']`
+— exact Aufbau bookkeeping, e.g. Fe 3d) and (b) the innermost occupied
+shell once an element has >= 4 distinct occupied principal shells (e.g.
+Fe 1s, U 1s — sits far beyond standard lab XPS source energies for every
+such element). See `_is_practically_fittable()` in that file.
+
+FILES CHANGED (all on this branch, commits not yet made — review the
+current worktree diff directly, e.g. `git diff main...HEAD -- autofit/coverage_index.py templates/index.html tests/`):
+- autofit/coverage_index.py — `_is_practically_fittable()` + the
+  `practical` field wired into all 4 entry-construction sites in
+  `region_coverage_index()`.
+- tests/autofit/test_coverage_index.py — new tests for the `practical`
+  field (valence exclusion, deep-core exclusion, light-element/Fe-2p/Mg-2p
+  sanity, schema completeness).
+- templates/index.html — new CSS (`.fp-pt-cell`, `.fp-level-chip`,
+  `.fp-legend`, `.fp-search-dropdown`, ~line 1273) reusing the SAME
+  `--tier-c` + `color-mix()` convention as the existing `.ref-badge-*`
+  rules (~line 349) for theme-consistency; new HTML replacing the
+  `<select id="fp-regions">` block (~line 12844); new/renamed JS:
+  `_fpRenderPtGrid`, `_fpToggleElementExpand`, `_fpRenderExpandedPanel`,
+  `_fpRenderSearchDropdown`, `_fpPickFromSearch`, `_fpRenderLegend`,
+  `_fpNextSelection` (pure, DOM-free), `_fpToggleRegion`,
+  `_fpSyncSelectionUI` — replacing the old `_fpRenderRegionOptions` /
+  `_fpRegionsChanged`. `_fpRegionsSelected` (the Set that
+  `runFindPeaks()` reads at submit time) is UNCHANGED in name/role —
+  still the single source of truth.
+- tests/js/find_peaks_periodic_table.test.js — new pure-logic tests for
+  `_fpNextSelection` / `_fpBestTier` / `FP_TIER_RANK`.
+- tests/test_browser_find_peaks_coverage.py — rewritten for the new DOM
+  (was `<select>`-based); tests/test_browser_find_peaks_progress.py —
+  two `select_option("#fp-regions", ...)` calls swapped for grid+chip
+  clicks (unrelated file, same DOM dependency).
+
+CONSTRAINTS THAT MUST HOLD (from the run brief — please verify, don't
+just take my word):
+1. Manual Run Fit / `/api/fit` / the manual fitting path must be
+   COMPLETELY untouched. `region_coverage_index()` feeds only
+   `/api/analyze/meta`; confirm no manual-fit code path was touched.
+2. Branch-only, additive: the new `practical` field must be additive
+   (no existing field removed/renamed on coverage-index entries); no
+   change to `/api/fit`'s request/response shape.
+3. Multi-region ("ctrl-click to fit two together") selection must
+   survive a filter/expand-state change that hides one of the selected
+   regions from view — re-verify the 2026-07-11 Codex-caught regression
+   class (a selection rebuilt from only what's currently RENDERED,
+   dropping a filtered-out pick) is NOT reintroduced by the new grid
+   code. Trace `_fpToggleRegion`/`_fpSyncSelectionUI`/`_fpRenderPtGrid`
+   end to end — is `_fpRegionsSelected` EVER derived from queried DOM
+   state (`querySelectorAll`, `.selectedOptions`, etc.) rather than
+   mutated directly by `_fpNextSelection`?
+4. Honesty rail: does anything in the new grid/chip rendering invent a
+   binding energy, a tier, or a coverage claim not already present in
+   `_fpMeta.coverage`? Is color EVER the only channel for tier meaning
+   (check the legend + tooltip title text + chip tag text all carry the
+   tier in words, not just color)?
+5. `_is_practically_fittable()` — does the >=4-shell / lowest-n check
+   correctly read the ALREADY-DERIVED `st['configuration']`/`lv['n']`
+   fields (autofit/coverage.py) rather than re-deriving or guessing
+   anything? Spot check a few elements' `practical` values yourself
+   against a real Python session (`region_coverage_index()`) rather
+   than trusting the test file's literals — in particular Hydrogen
+   (its only level, 1s, should be flagged NOT practical — occupancy 1
+   of capacity 2, i.e. valence character for a 1-electron atom) and Fe
+   (1s and 3d excluded, 2p/2s/3p/4s practical).
+6. Accessibility basics: keyboard activation (Enter/Space) on grid
+   cells and chips, `:focus-visible` outline, `aria-pressed`/
+   `aria-expanded` where used — present and correct?
+7. Any leftover reference anywhere in templates/index.html or tests/ to
+   the REMOVED `#fp-regions` `<select>`, `_fpRenderRegionOptions`, or
+   `_fpRegionsChanged` (renamed away)? Grep for all three yourself.
+
+Also flag anything else that looks wrong regardless of whether it's on
+this list. Give a GO/NO-GO verdict. For any NO-GO finding, cite exact
+file:line and describe the concrete failure scenario. End your final
+answer with a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".

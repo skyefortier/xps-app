@@ -1270,6 +1270,95 @@
   #find-peaks-modal-box .fp-drag-handle { cursor: grab; }
   #find-peaks-modal-box.dragging,
   #find-peaks-modal-box.dragging .fp-drag-handle { cursor: grabbing; }
+
+  /* ── Find Peaks periodic-table region picker (2026-07-13, unit 2) ──
+     Replaces the flat <select multiple> region list. Same 18-column grid
+     mechanics as #ref-pt-grid (the Reference panel's element grid,
+     templates/index.html ~10442/11158) — but unlike that grid, THIS one
+     color-codes each cell by FP's own coverage tier (FP_TIER_META) so
+     the cited/sourced/structure-only distinction reads before a click
+     ("keep the honesty, visually"). Tier hue comes in via --tier-c set
+     inline at render, same single-source convention as .ref-badge-*
+     (line ~349). Cells are 26px (vs .ref-pt-cell's 17px) to clear the
+     ~24px click-target floor for a picker used deliberately, not the
+     always-visible glance-and-click Reference sidebar grid. */
+  #fp-pt-grid {
+    display: grid; grid-template-columns: repeat(18, 1fr); gap: 2px;
+    margin: 4px 0 8px;
+  }
+  .fp-pt-cell {
+    height: 26px; font-size: 10px; font-family: var(--mono);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg3); color: var(--text3);
+    border: 1px solid var(--border); border-radius: 3px;
+    cursor: default; user-select: none; line-height: 1;
+    transition: border-color 0.15s, background 0.15s, color 0.15s, opacity 0.15s;
+  }
+  @media (prefers-reduced-motion: reduce) { .fp-pt-cell { transition: none; } }
+  .fp-pt-cell.selectable {
+    color: var(--tier-c, var(--text)); border-color: var(--tier-c, var(--border2));
+    background: color-mix(in srgb, var(--tier-c, var(--bg3)) 10%, var(--bg3));
+    cursor: pointer;
+  }
+  .fp-pt-cell.selectable:hover {
+    background: color-mix(in srgb, var(--tier-c, var(--bg3)) 22%, var(--bg3));
+  }
+  .fp-pt-cell.selectable:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fp-pt-cell.expanded { box-shadow: inset 0 0 0 2px var(--tier-c, var(--accent)); }
+  .fp-pt-cell.has-selection {
+    background: var(--accent-dim); color: var(--text);
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .fp-pt-cell.dimmed { opacity: 0.22; }
+  .fp-pt-cell.fmarker { background: transparent; color: var(--text3); font-size: 9px; border-color: transparent; }
+
+  .fp-legend {
+    display: flex; flex-wrap: wrap; gap: 10px; font-size: 9.5px; color: var(--text2);
+    margin-bottom: 6px; align-items: center;
+  }
+  .fp-legend-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    margin-right: 4px; vertical-align: -1px; border: 1px solid var(--border2);
+    background: var(--tier-c, var(--bg3));
+  }
+  .fp-legend-dot.disabled { opacity: 0.4; }
+
+  .fp-expanded-panel {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg2); padding: 8px; margin-bottom: 6px; font-size: 11px;
+  }
+  .fp-expanded-empty { color: var(--text3); font-size: 10.5px; line-height: 1.5; }
+  .fp-expanded-title { color: var(--text2); font-size: 10px; margin-bottom: 6px; }
+  .fp-level-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .fp-level-chip {
+    font-family: var(--mono); font-size: 10.5px; padding: 3px 8px;
+    border-radius: 3px; border: 1px solid var(--tier-c, var(--border2));
+    background: color-mix(in srgb, var(--tier-c, var(--bg3)) 8%, var(--bg3));
+    color: var(--text); cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .fp-level-chip:hover { background: color-mix(in srgb, var(--tier-c, var(--bg3)) 20%, var(--bg3)); }
+  .fp-level-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fp-level-chip.selected {
+    background: color-mix(in srgb, var(--tier-c, var(--bg3)) 30%, var(--bg3));
+    box-shadow: inset 0 -2px 0 var(--tier-c, var(--accent));
+  }
+
+  .fp-search-dropdown {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg2); margin: -2px 0 6px; max-height: 130px; overflow-y: auto;
+    position: relative; z-index: var(--z-dropdown);
+  }
+  .fp-search-dropdown-item {
+    padding: 4px 8px; font-size: 10.5px; font-family: var(--mono); cursor: pointer;
+    display: flex; gap: 6px; align-items: baseline; color: var(--tier-c, var(--text));
+  }
+  .fp-search-dropdown-item:hover, .fp-search-dropdown-item:focus-visible {
+    background: var(--bg3);
+  }
+  .fp-search-dropdown-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .fp-search-dropdown-item .fp-sdi-name { font-family: var(--sans); color: var(--text2); font-size: 10px; }
+
   .fit-spinner-label {
     margin-top: 14px;
     font-family: var(--mono);
@@ -12753,16 +12842,18 @@ document.addEventListener('mousedown', function(e) {
       <label style="font-size:11px" id="fp-method-label">Method
         <select id="fp-method" class="btn" style="width:100%" onchange="_fpMethodChanged()"></select>
       </label>
-      <label style="font-size:11px" id="fp-regions-label">Region(s) <small style="color:var(--text3)">(ctrl-click to fit two together)</small>
+      <label style="font-size:11px;grid-column:1 / -1" id="fp-regions-label">Region(s) <small style="color:var(--text3)">(click an element for its levels; ctrl/&#8984;-click a level to fit two together)</small>
         <input type="text" id="fp-regions-filter" placeholder="Search element, name, or level (e.g. Fe, iron, 2p)…"
                autocomplete="off" style="width:100%;font-family:var(--mono);font-size:11px;padding:4px 8px;margin:2px 0 4px;
                background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text1);box-sizing:border-box"
                oninput="_fpFilterRegions(this.value)">
-        <select id="fp-regions" class="btn" multiple size="5" style="width:100%;font-family:var(--mono)"
-                onchange="_fpRegionsChanged()"></select>
+        <div id="fp-search-dropdown"></div>
+        <div class="fp-legend" id="fp-legend"></div>
+        <div id="fp-pt-grid" role="group" aria-label="Periodic table region picker"></div>
+        <div id="fp-expanded-panel" class="fp-expanded-panel"></div>
         <div id="fp-regions-tier-note" style="font-size:9.5px;color:var(--text3);margin-top:3px;line-height:1.4"></div>
       </label>
-      <div style="font-size:11px">
+      <div style="font-size:11px;grid-column:1 / -1">
         <div id="fp-method-hint" style="color:var(--text3);font-size:10px;line-height:1.45;margin-bottom:6px"></div>
         <div id="fp-simple-options"></div>
         <details id="fp-advanced" style="margin-top:6px">
@@ -13151,7 +13242,11 @@ async function openFindPeaksModal() {
     .map(m => `<option value="${_fpEsc(m)}">${_fpEsc(m)}</option>`).join('');
   document.getElementById('fp-regions-filter').value = '';
   _fpRegionsSelected = new Set();
-  _fpRenderRegionOptions('');
+  _fpExpandedElement = null;
+  _fpRenderLegend();
+  _fpRenderPtGrid('');
+  _fpRenderSearchDropdown('');
+  _fpRenderExpandedPanel();
   document.getElementById('fp-regions-tier-note').textContent = '';
   const meth = document.getElementById('fp-method');
   meth.innerHTML = _fpMeta.methods
@@ -13249,34 +13344,180 @@ function _fpResetModalPosition() {
 // selected even when a later keystroke filters it out of view.
 let _fpRegionsSelected = new Set();
 
-function _fpRenderRegionOptions(query) {
-  const sel = document.getElementById('fp-regions');
-  const opts = _fpBuildRegionOptions((_fpMeta && _fpMeta.coverage) || [], query);
-  sel.innerHTML = opts.map(o => {
-    const meta = FP_TIER_META[o.tier] || FP_TIER_META.structure_only;
-    const selected = _fpRegionsSelected.has(o.value) ? ' selected' : '';
-    return `<option value="${_fpEsc(o.value)}" style="color:${meta.color}"` +
-      `${selected}>${_fpEsc(o.label)}</option>`;
+// The element symbol currently expanded to show its level chips below the
+// grid (unit 2, 2026-07-13 periodic-table picker), or null.
+let _fpExpandedElement = null;
+
+const FP_TIER_RANK = { curated: 3, machine: 2, structure_only: 1 };
+
+// One element symbol -> its PRACTICAL coverage entries only (backend
+// `practical` flag, autofit/coverage_index.py — never invents a BE, just
+// hides valence/too-deep levels a bench chemist would not try to fit).
+function _fpElementCoverage(sym) {
+  return ((_fpMeta && _fpMeta.coverage) || []).filter(
+    e => e.symbol === sym && e.practical);
+}
+
+function _fpBestTier(entries) {
+  let best = null;
+  for (const e of entries) {
+    if (!best || FP_TIER_RANK[e.tier] > FP_TIER_RANK[best]) best = e.tier;
+  }
+  return best;
+}
+
+// Static-ish legend (rebuilt on modal open, from the SAME FP_TIER_META
+// single source the grid/chips read — never a second copy of the colors).
+function _fpRenderLegend() {
+  const el = document.getElementById('fp-legend');
+  if (!el) return;
+  const items = ['curated', 'machine', 'structure_only'].map(t => {
+    const meta = FP_TIER_META[t];
+    return `<span><span class="fp-legend-dot" style="--tier-c:${meta.color}"></span>${_fpEsc(meta.label)}</span>`;
+  });
+  items.push('<span><span class="fp-legend-dot disabled"></span>No coverage</span>');
+  el.innerHTML = items.join('');
+}
+
+// The periodic-table grid: one cell per element (REF_PT_LAYOUT — the same
+// 18-column layout the Reference panel's #ref-pt-grid uses). Cell color =
+// the BEST tier among that element's practical regions (curated > machine
+// > structure_only); an element with none is disabled/greyed — never
+// invented coverage. A search query dims (not hides — a co-fit pick stays
+// visible even if filtered out) non-matching cells.
+function _fpRenderPtGrid(query) {
+  const grid = document.getElementById('fp-pt-grid');
+  if (!grid) return;
+  const q = String(query == null ? '' : query).trim();
+  const ql = q.toLowerCase();
+  let cells = '';
+  for (const el of REF_PT_LAYOUT) {
+    const entries = _fpElementCoverage(el.sym);
+    const clickable = entries.length > 0;
+    const bestTier = _fpBestTier(entries);
+    const meta = bestTier ? (FP_TIER_META[bestTier] || FP_TIER_META.structure_only) : null;
+    const matchesQuery = !q || entries.some(e => _fpRegionMatchesFilter(e, q)) ||
+      el.sym.toLowerCase().includes(ql);
+    const hasSelection = entries.some(e => _fpRegionsSelected.has(e.region));
+    const isExpanded = _fpExpandedElement === el.sym;
+    const cls = 'fp-pt-cell' +
+      (clickable ? ' selectable' : '') +
+      (isExpanded ? ' expanded' : '') +
+      (hasSelection ? ' has-selection' : '') +
+      (q && !matchesQuery ? ' dimmed' : '');
+    const style = `grid-column:${el.col};grid-row:${el.row}` +
+      (meta ? `;--tier-c:${meta.color}` : '');
+    const title = clickable
+      ? `${el.sym} (Z=${el.z}) — ${meta.label}: click to see available core levels`
+      : `${el.sym} (Z=${el.z}) — no practical Find Peaks coverage`;
+    cells += `<div class="${_fpEsc(cls)}" style="${style}"` +
+      (clickable
+        ? ` tabindex="0" role="button" aria-expanded="${isExpanded}" onclick="_fpToggleElementExpand('${el.sym}')"` +
+          ` onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fpToggleElementExpand('${el.sym}')}"`
+        : '') +
+      ` title="${_fpEsc(title)}">${el.sym}</div>`;
+  }
+  cells += '<div class="fp-pt-cell fmarker" style="grid-column:3;grid-row:6" title="Lanthanides — detached row below">57–71</div>';
+  cells += '<div class="fp-pt-cell fmarker" style="grid-column:3;grid-row:7" title="Actinides — detached row below">89–103</div>';
+  grid.innerHTML = cells;
+}
+
+function _fpToggleElementExpand(sym) {
+  _fpExpandedElement = (_fpExpandedElement === sym) ? null : sym;
+  _fpRenderPtGrid(document.getElementById('fp-regions-filter').value);
+  _fpRenderExpandedPanel();
+}
+
+// The currently-expanded element's practical levels, as clickable chips —
+// each independently colored/tagged by ITS OWN tier (a curated + machine
+// level can coexist on one element).
+function _fpRenderExpandedPanel() {
+  const panel = document.getElementById('fp-expanded-panel');
+  if (!panel) return;
+  if (!_fpExpandedElement) {
+    panel.innerHTML = '<div class="fp-expanded-empty">Click an element above to see its available core levels, or search by element, name, or level.</div>';
+    return;
+  }
+  const entries = _fpElementCoverage(_fpExpandedElement)
+    .sort((a, b) => (FP_TIER_RANK[b.tier] - FP_TIER_RANK[a.tier]) || a.level.localeCompare(b.level));
+  if (!entries.length) {
+    panel.innerHTML = `<div class="fp-expanded-empty">${_fpEsc(_fpExpandedElement)} — no practical Find Peaks coverage.</div>`;
+    return;
+  }
+  const name = entries[0].name;
+  const chips = entries.map(e => {
+    const meta = FP_TIER_META[e.tier] || FP_TIER_META.structure_only;
+    const isSel = _fpRegionsSelected.has(e.region);
+    return `<div class="fp-level-chip${isSel ? ' selected' : ''}" style="--tier-c:${meta.color}"` +
+      ` tabindex="0" role="button" aria-pressed="${isSel}"` +
+      ` onclick="_fpToggleRegion('${_fpEsc(e.region)}', event.ctrlKey||event.metaKey)"` +
+      ` onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fpToggleRegion('${_fpEsc(e.region)}', event.ctrlKey||event.metaKey)}"` +
+      ` title="${_fpEsc(meta.label + ': ' + e.note)}">${meta.tag} ${_fpEsc(e.level)}</div>`;
   }).join('');
+  panel.innerHTML = `<div class="fp-expanded-title">${_fpEsc(name)} (Z=${entries[0].z}) — click a level` +
+    ` <small style="color:var(--text3)">(ctrl/⌘-click to add a second region)</small></div>` +
+    `<div class="fp-level-chips">${chips}</div>`;
+}
+
+// Up to 8 direct region matches while typing — a fast alternative to
+// clicking through the grid (goal: type-ahead search alongside the grid).
+function _fpRenderSearchDropdown(query) {
+  const box = document.getElementById('fp-search-dropdown');
+  if (!box) return;
+  const q = String(query == null ? '' : query).trim();
+  if (!q) { box.innerHTML = ''; return; }
+  const coverage = ((_fpMeta && _fpMeta.coverage) || []).filter(e => e.practical);
+  const opts = _fpBuildRegionOptions(coverage, q).slice(0, 8);
+  if (!opts.length) { box.innerHTML = ''; return; }
+  const rows = opts.map(o => {
+    const meta = FP_TIER_META[o.tier] || FP_TIER_META.structure_only;
+    const entry = coverage.find(e => e.region === o.value);
+    return `<div class="fp-search-dropdown-item" style="--tier-c:${meta.color}"` +
+      ` tabindex="0" role="button"` +
+      ` onclick="_fpPickFromSearch('${_fpEsc(o.value)}', event.ctrlKey||event.metaKey)"` +
+      ` onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fpPickFromSearch('${_fpEsc(o.value)}', event.ctrlKey||event.metaKey)}">` +
+      `<span>${meta.tag} ${_fpEsc(o.value)}</span>` +
+      `<span class="fp-sdi-name">${_fpEsc(entry ? entry.name : '')}</span></div>`;
+  }).join('');
+  box.innerHTML = `<div class="fp-search-dropdown">${rows}</div>`;
+}
+
+function _fpPickFromSearch(region, additive) {
+  const coverage = (_fpMeta && _fpMeta.coverage) || [];
+  const entry = coverage.find(e => e.region === region);
+  if (entry) _fpExpandedElement = entry.symbol;
+  _fpToggleRegion(region, additive);
+  const box = document.getElementById('fp-search-dropdown');
+  if (box) box.innerHTML = '';
 }
 
 function _fpFilterRegions(query) {
-  _fpRenderRegionOptions(query);
+  _fpRenderPtGrid(query);
+  _fpRenderSearchDropdown(query);
 }
 
-function _fpRegionsChanged() {
-  const sel = document.getElementById('fp-regions');
-  // Incremental sync, NOT a wholesale replace: only options CURRENTLY
-  // RENDERED (i.e. visible under today's filter) can change membership
-  // here — a co-fit member filtered out of view keeps whatever selection
-  // state it already had (a change event can only ever fire for a
-  // <select> the browser rendered, so this can never see a hidden option).
-  const renderedValues = Array.from(sel.options).map(o => o.value);
-  const nowSelected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
-  for (const v of renderedValues) {
-    if (nowSelected.has(v)) _fpRegionsSelected.add(v);
-    else _fpRegionsSelected.delete(v);
+// Pure selection-set logic (DOM-free, unit-testable): a plain click
+// REPLACES the selection with just that region (matches how a single
+// click reads); ctrl/cmd-click toggles membership without disturbing the
+// rest (goal: "preserve the existing multi-region selection (ctrl-click
+// to fit two together)"). Returns a NEW Set — never mutates `current`.
+function _fpNextSelection(current, region, additive) {
+  if (additive) {
+    const next = new Set(current);
+    if (next.has(region)) next.delete(region);
+    else next.add(region);
+    return next;
   }
+  if (current.size === 1 && current.has(region)) return current;
+  return new Set([region]);
+}
+
+function _fpToggleRegion(region, additive) {
+  _fpRegionsSelected = _fpNextSelection(_fpRegionsSelected, region, additive);
+  _fpSyncSelectionUI();
+}
+
+function _fpSyncSelectionUI() {
   const values = Array.from(_fpRegionsSelected);
   const coverage = (_fpMeta && _fpMeta.coverage) || [];
   const entries = values.map(v => coverage.find(e => e.region === v))
@@ -13291,6 +13532,8 @@ function _fpRegionsChanged() {
     document.getElementById('roi-min').value = entries[0].roi.be_min;
     document.getElementById('roi-max').value = entries[0].roi.be_max;
   }
+  _fpRenderPtGrid(document.getElementById('fp-regions-filter').value);
+  _fpRenderExpandedPanel();
 }
 
 function _fpMethodChanged() {
@@ -13425,9 +13668,10 @@ async function runFindPeaks() {
   const status = document.getElementById('fp-status');
   const spinner = document.getElementById('fp-spinner');
   const btn = document.getElementById('fp-run');
-  // The full preserved selection, NOT the DOM's own selectedOptions — a
-  // co-fit member filtered out of view by the search box would be invisible
-  // to the DOM but must still be submitted (see _fpRegionsChanged).
+  // The full preserved selection, NOT anything scraped from the DOM — a
+  // co-fit member filtered/collapsed out of view by the search box or the
+  // periodic-table picker would be invisible to the DOM but must still be
+  // submitted (see _fpToggleRegion / _fpSyncSelectionUI).
   const regions = Array.from(_fpRegionsSelected);
   if (!regions.length) { status.textContent = 'Select at least one region.'; return; }
   let options;

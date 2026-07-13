@@ -209,3 +209,39 @@ def test_partially_covered_doublets_never_trust_a_single_position_span(index):
     assert checked > 0, (
         "expected at least one partially-covered doublet in the machine "
         "tier (e.g. Fe 2p) to exercise this rule")
+
+
+def test_every_entry_has_a_practical_flag(index):
+    """New field (Find Peaks periodic-table picker, unit 2): every entry
+    must carry a boolean ``practical`` hint — UI-only filtering, never a
+    physics citation — so the picker can grey out levels a bench chemist
+    would not practically try to fit with a standard lab XPS source."""
+    for e in index:
+        assert isinstance(e["practical"], bool), e
+
+
+def test_valence_levels_are_flagged_impractical(index):
+    """Fe 3d (open-shell, occupancy 6 of capacity 10) is valence
+    character, not a core line — never selectable in the picker."""
+    fe3d = next(e for e in index if e["region"] == "Fe 3d")
+    assert fe3d["practical"] is False
+
+
+def test_very_deep_core_levels_are_flagged_impractical(index):
+    """The innermost (1s) shell of an element with >= 4 distinct occupied
+    principal shells sits far beyond standard lab XPS source energies
+    (Al Ka 1486.6 eV / Mg Ka 1253.6 eV) for every such element — Fe 1s
+    and U 1s must never surface as a practical Find Peaks region."""
+    fe1s = next(e for e in index if e["region"] == "Fe 1s")
+    u1s = next(e for e in index if e["region"] == "U 1s")
+    assert fe1s["practical"] is False
+    assert u1s["practical"] is False
+
+
+def test_light_elements_and_useful_levels_stay_practical(index):
+    """Sanity: the deep-core rule must not over-exclude. Light elements
+    (few occupied shells) and the actually-useful Fe 2p / Mg 2p levels
+    from the ROI-widening tests above must remain practical=True."""
+    for region in ("C 1s", "B 1s", "N 1s", "Fe 2p", "Mg 2p"):
+        e = next(x for x in index if x["region"] == region)
+        assert e["practical"] is True, e
