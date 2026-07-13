@@ -3003,3 +3003,144 @@ in the request JSON.
 Manual Run Fit / `/api/fit` untouched (confirmed: `region_coverage_index`
 and this whole option are wired only through `/api/analyze*`;
 `/api/fit` never imports `compare_models`).
+
+**Codex review — 3 rounds, all real findings (this is core fitting
+math and it showed).** Round 1 (2 runs): both NO-GO, two DIFFERENT
+blockers found — (a) `_full_window_bound_overrides()` could invert or
+narrow a bound when the ROI didn't fully contain a curated slot's own
+window (assigned a bare ROI edge instead of `min`/`max`-wrapping against
+the original bound); (b) the widened fit bound wasn't mirrored into
+`match_components_to_slots()`'s identity matching, so a stability refit
+that correctly placed a component outside its literature window got
+rejected as an "orphan" every time, tanking persistence and defeating
+the option's purpose. Fixed same-session (commit 06723f2); new
+regression tests confirmed to FAIL pre-fix and pass post-fix.
+
+Round 2 recheck (2 runs): 1 GO, 1 NO-GO with two NEW findings caused by
+the round-1 fixes themselves — (c) `_window_center()` (the
+disambiguation tie-break, not the acceptance test) started using the
+WIDENED center, which could make a component well inside its own slot's
+TRUE window resolve to the WRONG neighboring slot instead (reproduced
+Codex's exact numbers: graphitic widened to center 277.4 loses a tie-
+break at position 284.65 to untouched aliphatic at center 285.0); (d) a
+speculative "for consistency" extension of the bound override into
+`_proposal_blocked`/`_detect_residual_proposals` (never required by the
+original review) widened a populated detection slot's window to the
+full ROI, which would block every later iterative proposal anywhere in
+the ROI once the first one was accepted. Fixed same-session (commit
+a9e2b0e): `_window_center` never uses the override (only `_accepts`
+does); the proposal-blocking threading was reverted entirely (those two
+functions no longer take any fit_full_window-related parameter at all —
+this was scope creep beyond what the original bug needed, and it was
+wrong). Two new regression tests, both confirmed to FAIL pre-fix
+(reproducing Codex's exact scenario) and pass post-fix.
+
+Round 3 recheck (2 runs, for the round-2 fixes): **GO x2.** Both
+independently re-derived the graphitic/aliphatic tie-break (284.4 vs
+285.0, graphitic wins) and confirmed `_proposal_blocked`/
+`_detect_residual_proposals` carry no fit_full_window-related parameter
+anywhere, `_accepts` (unlike `_window_center`) still correctly uses the
+widened bound, and every invariant from rounds 1-2 still holds.
+
+**UNIT 1 CODEX-CLEARED after 3 rounds** (round 1: NO-GO x2 → fixed;
+round 2 recheck: GO x1/NO-GO x1, stricter governs → fixed; round 3
+recheck: GO x2). Commits: 442539f (feature), 06723f2 (round-1 fixes),
+a9e2b0e (round-2 fixes). Archived at
+`docs/autofit/codex/fit_full_window_verdict_round{1,2,3}_run{A,B}.md`.
+
+### Unit 2 — plain-English pass
+
+Display/wording only — no engine behavior or MEANING changed anywhere;
+a CONDITIONAL result still reads as conditional, just in plain words.
+
+**Method dropdown renamed** (`FP_STRINGS.methods`, templates/index.html):
+the "Automatic / Automatic" collision is gone.
+- `ic_model_comparison`: "Automatic — compare peak models (recommended)"
+  → **"Compare peak models (recommended)"**.
+- `bayesian_exchange_mc`: "Automatic + confidence ranges (slower)" →
+  **"Compare peak models + confidence ranges (slower)"** (explicitly
+  named as the SAME comparison plus more, rather than a second
+  unrelated "Automatic").
+- `sparse_map`: "Quick scan" → **"Quick peak count (approximate)"**
+  (states what it actually outputs — a count, not positions).
+- `least_squares`: "Re-fit my current peaks" → **"Refit my current
+  peaks"**. All 4 tooltips rewritten to plainly state what the method
+  does AND when to use it (not just what it does). Two other
+  "Automatic"-referencing strings (the Method field's own tooltip, and
+  the "add peaks first" validation message) updated to match.
+
+**"grammar" jargon removed** everywhere it was user-facing (confirmed
+via exhaustive grep — the ~150 OTHER "grammar" hits in the codebase are
+all the internal `autofit.grammar` module/API name, never rendered to a
+user, correctly left alone): `FP_TIER_META`'s two tier labels
+("Cited grammar" → "Cited fit recipe"; "Sourced position (not cited
+grammar)" → "Sourced reference position") and `autofit/coverage_index.py`'s
+three per-region `note` strings (curated: "Cited fitting grammar
+(lit-anchored windows/widths)." → "Cited fit recipe (based on published
+reference positions and widths)."; machine: "...NOT a cited fitting
+grammar — structural-fallback fitting..." → "...but there's no cited
+fit recipe for this region — Find Peaks detects features directly from
+your data instead..."; structure_only: lightly polished, didn't
+actually say "grammar"). `roi.basis` ("grammar diagnostic windows...")
+is never rendered to a user (grepped `templates/index.html` for
+`.basis` — zero hits) — correctly left untouched.
+
+**Raw-identifier leak in the results table fixed**: the "Other models
+compared" table's status-cell tooltip dumped the raw Python
+`PlausibilityFlags(...)`/`"stability: active min persistence..."` repr
+verbatim on hover, even though the VISIBLE cell text was already
+properly translated. Now points to Technical details instead of
+duplicating a raw dump in a tooltip.
+
+**Technical details rewritten in plain English — architecturally in
+the FRONTEND, not the backend.** `body.message` (the raw engine string)
+is asserted on verbatim by ~15 existing backend tests
+(`"human review" in res.message`, `"beats this winner" in res.message`,
+etc.) — left COMPLETELY untouched, zero risk to that contract. Instead,
+a new `_fpPlainMessage(body)` builds the plain paragraph entirely from
+the ALREADY-STRUCTURED JSON fields the banners/tables already consume
+(`diagnostics.winner`, `.conditional`, `.conditional_reason`,
+`.winner_boundary_hits`, `.winner_unphysical_widths`,
+`.winner_boundary_fixed_params`, `.filtered_dominant_alternative`,
+`.analysis_truncated`; `peaks[].region`; `structural_only`) — mirroring
+the SAME branching the backend's raw message uses, so the same
+conditions are described, just in plain words. New helpers
+`_fpBoundaryHitLabel` (`role:param@min|max` → "the &lt;role&gt; &lt;param&gt; (pinned
+at its upper/lower limit)", reusing the existing `_fpParamLabel`
+dictionary via format conversion) and `_fpWidthFlagLabel` (translates
+the two distinct raw width-flag sentence classes — "absorbing a
+neighbor" vs "ordinary cap, no known-broad justification" — without
+inventing the shape-specific sub-detail, e.g. DS+G β/asym-GL params,
+that the raw sentence carries but isn't essential to the chemist-facing
+meaning). Markup: "Technical details" now shows the plain paragraph by
+default, with a nested "Advanced (raw engine output)" `<details>`
+holding the untouched raw string for power users.
+
+**Tests**: `tests/js/find_peaks_plain_message.test.js` (17 tests) — pure
+translation-function coverage: boundary-hit/width-flag translation
+(both raw sentence variants, DS+G/asym-GL sub-detail correctly
+stripped), and `_fpPlainMessage` across every branch (structural-only
+stub, no-survivors, clean pass, data-driven components, all 3
+conditional_reason values, unphysical widths, filtered-dominant-
+alternative, and an explicit "a CONDITIONAL result never reads as a
+clean pass" check). `tests/test_browser_find_peaks_coverage.py` — 4
+assertions updated to the new wording (legend text, the two tier-note
+tests' regex/substring — the honesty-negation requirement itself is
+preserved, just re-targeted at "no cited fit recipe" instead of "not
+...cited...grammar"). Full JS suite: 110 passed. Coverage-index +
+Find-Peaks browser suites: 37 passed. Browser-verified on :5252 in
+both themes: Method dropdown shows all 4 new names; a synthetically-
+injected CONDITIONAL result's Technical details renders a clean plain
+paragraph ("CONDITIONAL — no model passed every plausibility check
+cleanly... the Graphitic C width (pinned at its upper limit)...") with
+the exact original raw string still available one level deeper.
+
+**Lesson for future work on this exact class of feature**: "widen a
+fit's search bound" and "widen a slot's territory for identity/matching/
+blocking purposes" are DIFFERENT concepts that must never share one
+override — every one of the 4 real bugs found across 3 rounds was some
+form of the widened bound leaking into a place that should have stayed
+anchored to the slot's TRUE, original window. Consider this the
+authoritative account if this option is ever extended.
+
+Archived at `docs/autofit/codex/fit_full_window_verdict_round{1,2,3}_run{A,B}.md`.

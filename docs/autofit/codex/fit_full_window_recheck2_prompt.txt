@@ -1,0 +1,95 @@
+Second recheck for the "fit the entire window" opt-in feature (branch
+feature-autofit-stage2, worktree at this path, commit a9e2b0e). This
+feature has now been through 2 rounds of Codex review; round 1 found 2
+blockers (fixed, confirmed via a round-1 recheck: GO x1, NO-GO x1 with
+2 NEW findings). This is the round-2 recheck for those 2 NEW findings.
+Read docs/autofit/codex/fit_full_window_review_prompt.txt and
+docs/autofit/codex/fit_full_window_recheck_prompt.txt for full history —
+do not trust this description alone; verify everything against current
+disk state.
+
+ROUND-2 RECHECK'S TWO FINDINGS (verbatim, both from the same NO-GO run):
+
+FINDING 1: "`match_components_to_slots()` now uses the widened
+effective window center for disambiguation. That can relabel a
+component into a neighboring slot even when it is still inside its
+original literature window. Example: C 1s graphitic (284.0, 284.8)
+widened low to ROI 270..300, adjacent aliphatic (284.6, 285.4), fitted
+component at 284.65. It is accepted by both, but graphitic's widened
+center becomes 277.4, so [the disambiguation] chooses aliphatic. This
+can tank graphitic persistence in stability. Acceptance needs widened
+bounds; identity tie-breaking should stay anchored to the original slot
+window."
+
+FINDING 2: "proposal blocking now uses full-window overrides for
+populated `region == "unassigned"` slots. Since
+`_full_window_bound_overrides()` maps unassigned primary slots to the
+full ROI, any accepted proposal/preseed/detection slot blocks every
+later residual proposal in the ROI when `fit_full_window=True`. That
+breaks the documented iterative proposal behavior
+(`PROPOSAL_MAX_PER_CANDIDATE = 3`) under this option."
+
+FIXES APPLIED (same session, commit a9e2b0e — please verify against
+current disk state):
+
+1. (Finding 1) `_window_center()` inside `match_components_to_slots()`
+   (autofit/engine.py) no longer accepts/uses a `bound_override` at
+   all — it always calls `_effective_be_window(slot, components)` with
+   NO override, so the tie-break reference point stays anchored to the
+   slot's TRUE window regardless of `fit_full_window`. Only `_accepts()`
+   (the actual accept/reject test, a few lines above) still uses the
+   override. New test:
+   `test_full_window_tie_break_never_uses_the_widened_center` in
+   tests/autofit/test_fit_full_window_option.py — reproduces the exact
+   graphitic/aliphatic/284.65 scenario from the finding, confirmed to
+   FAIL pre-fix (resolved to aliphatic / `slot_map["graphitic"] is
+   None`) and pass post-fix.
+
+2. (Finding 2) `_proposal_blocked()` and `_detect_residual_proposals()`
+   had their `bound_overrides`/`fit_full_window` parameters REMOVED
+   entirely — fully reverted to their pre-this-feature signatures and
+   behavior (this was a speculative addition never required by the
+   original round-1 review; round-1's actual finding was only about
+   `run_stability_analysis`/`match_components_to_slots`). Their call
+   sites inside `compare_models()` no longer pass `fit_full_window` or
+   `bound_overrides` either. New test:
+   `test_proposal_blocking_never_widens_a_populated_slots_territory`.
+
+PLEASE VERIFY (read the actual code, don't take this on faith):
+
+1. Confirm `_window_center()` truly never receives or uses an override
+   now — re-derive the graphitic-vs-aliphatic tie-break yourself from
+   current code and confirm 284.65 now resolves to graphitic (true
+   center 284.4, distance 0.25) over aliphatic (center 285.0, distance
+   0.35).
+2. Confirm `_accepts()` (a few lines above `_window_center` in the same
+   function) STILL uses the override — the round-1 fix (widened
+   acceptance so stability doesn't orphan a genuinely-shifted component)
+   must not have been accidentally reverted along with the tie-break fix.
+3. Confirm `_proposal_blocked` and `_detect_residual_proposals` have
+   NO fit_full_window-related parameter anywhere in their signatures or
+   bodies anymore, and that `compare_models()`'s calls to them pass no
+   such argument either. Grep to be sure nothing was missed.
+4. Confirm the two new regression tests exist, target the right
+   functions, and would plausibly catch a regression of either finding
+   (not just assert on `_full_window_bound_overrides()` output in
+   isolation, which wouldn't prove the CONSUMING code respects it
+   correctly).
+5. Re-verify the FULL set of invariants from both prior reviews still
+   holds on current disk: curated interior slots exactly untouched;
+   linked slots (spin-orbit partners) never touched, offset ranges
+   never widened; starting guess/amplitude-estimate window always the
+   slot's own original `be_window`; stability's acceptance test
+   (`_accepts`) still correctly uses the widened bound so a genuinely
+   out-of-window component isn't orphaned (the ORIGINAL round-1 fix);
+   the bound-widening itself can only ever widen, never narrow/invert
+   (the round-1-recheck fix); default `fit_full_window=False`
+   byte-identical for every existing caller; `/api/fit` / manual Run Fit
+   completely untouched; `_detect_boundary_hits()` reads live lmfit
+   bounds correctly.
+6. Anything else that looks wrong, regardless of whether it's on this
+   list — this is core fitting math and has already had 2 real bugs
+   found in 2 rounds, so a careful, skeptical read is warranted.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
