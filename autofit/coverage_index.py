@@ -178,8 +178,8 @@ def region_coverage_index() -> list[dict]:
                     "region": region, "symbol": sym, "z": st["z"],
                     "name": st["name"], "level": lv["level"],
                     "tier": "curated",
-                    "note": "Cited fitting grammar (lit-anchored "
-                            "windows/widths).",
+                    "note": "Cited fit recipe (based on published "
+                            "reference positions and widths).",
                     "roi": _curated_roi(region),
                     "practical": True,   # a registered grammar module implies practical
                 })
@@ -192,9 +192,10 @@ def region_coverage_index() -> list[dict]:
                     "region": region, "symbol": sym, "z": st["z"],
                     "name": st["name"], "level": lv["level"],
                     "tier": "machine",
-                    "note": ("Sourced reference position(s), NOT a cited "
-                             "fitting grammar — structural-fallback "
-                             f"fitting (status: {', '.join(statuses)})."),
+                    "note": ("A sourced reference position exists, but "
+                             "there's no cited fit recipe for this region — "
+                             "Find Peaks detects features directly from "
+                             f"your data instead (status: {', '.join(statuses)})."),
                     "roi": _sourced_roi(
                         positions,
                         component_labels={c["label"] for c in lv["components"]}),
@@ -205,9 +206,9 @@ def region_coverage_index() -> list[dict]:
                     "region": region, "symbol": sym, "z": st["z"],
                     "name": st["name"], "level": lv["level"],
                     "tier": "structure_only",
-                    "note": "No cited or sourced position at all — "
-                            "structure-only fallback; set the BE window "
-                            "manually.",
+                    "note": "No reference position at all for this level "
+                            "— Find Peaks has no starting point here; set "
+                            "the fitting window yourself.",
                     "roi": None,
                     "practical": _is_practically_fittable(lv, st),
                 })
@@ -227,7 +228,8 @@ def region_coverage_index() -> list[dict]:
             "name": (coverage.PERIODIC_TABLE[sym][1] if sym in coverage.PERIODIC_TABLE
                     else None),
             "level": level, "tier": "curated",
-            "note": "Cited fitting grammar (lit-anchored windows/widths).",
+            "note": "Cited fit recipe (based on published reference "
+                    "positions and widths).",
             "roi": _curated_roi(region),
             "practical": True,   # a registered grammar module implies practical
         })

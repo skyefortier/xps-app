@@ -12875,7 +12875,11 @@ document.addEventListener('mousedown', function(e) {
       <div style="overflow-x:auto"><table id="fp-cands" style="width:100%;font-size:10px;border-collapse:collapse"></table></div>
       <details style="margin-top:8px">
         <summary style="font-size:10px;color:var(--text3);cursor:pointer">Technical details</summary>
-        <div id="fp-message" style="font-size:10px;color:var(--text3);margin:4px 0;font-family:monospace;white-space:pre-wrap"></div>
+        <div id="fp-message-plain" style="font-size:10.5px;color:var(--text2);margin:4px 0;line-height:1.5"></div>
+        <details style="margin-top:4px">
+          <summary style="font-size:9.5px;color:var(--text3);cursor:pointer">Advanced (raw engine output)</summary>
+          <div id="fp-message" style="font-size:10px;color:var(--text3);margin:4px 0;font-family:monospace;white-space:pre-wrap"></div>
+        </details>
       </details>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
         <button class="btn" id="fp-apply" onclick="applyFindPeaks()"
@@ -12919,9 +12923,9 @@ let _fpLast = null;        // last analysis result (for apply)
 // intentional rather than an inconsistency to fix.
 const FP_TIER_META = {
   curated:        { color: '#3ddc84', tag: '[cited]',
-                    label: 'Cited grammar' },
+                    label: 'Cited fit recipe' },
   machine:        { color: '#b48eff', tag: '[sourced]',
-                    label: 'Sourced position (not cited grammar)' },
+                    label: 'Sourced reference position' },
   structure_only: { color: '#8a9ab8', tag: '[structure only]',
                     label: 'No reference position' },
 };
@@ -12988,8 +12992,8 @@ const FP_STRINGS = {
     material: 'Conducting samples charge-correct differently from ' +
               'insulating ones, and the suggested peak shapes differ too. ' +
               'Pick what best describes YOUR sample.',
-    method: 'How the suggestions are generated. “Automatic” is ' +
-            'the right choice unless you have a reason otherwise.',
+    method: 'How the suggestions are generated. “Compare peak models” ' +
+            'is the right choice unless you have a reason otherwise.',
     regions: 'Which core-level region(s) to model. Pick the region this ' +
              'scan covers; ctrl-click two if one scan genuinely contains ' +
              'both (e.g. N 1s inside a U 4f window).',
@@ -13007,26 +13011,30 @@ const FP_STRINGS = {
   },
   methods: {
     ic_model_comparison: {
-      label: 'Automatic — compare peak models (recommended)',
+      label: 'Compare peak models (recommended)',
       hint: 'Tries several physically sensible peak models for the ' +
             'region, checks each for stability and plausibility, and ' +
-            'reports the best-supported one. Usually seconds to a minute.',
+            'reports the best-supported one. Use this first for most ' +
+            'regions. Usually seconds to a minute.',
     },
     bayesian_exchange_mc: {
-      label: 'Automatic + confidence ranges (slower)',
-      hint: 'Same idea, but samples many fits to attach confidence ' +
-            'ranges to the result. Can take several minutes.',
+      label: 'Compare peak models + confidence ranges (slower)',
+      hint: 'Does the same comparison, but samples many fits to attach ' +
+            'confidence ranges to the result. Use this when you need an ' +
+            'uncertainty estimate, not just a single best answer. Can ' +
+            'take several minutes.',
     },
     sparse_map: {
-      label: 'Quick scan',
+      label: 'Quick peak count (approximate)',
       hint: 'A fast first look that estimates how many peaks are ' +
-            'present. Positions are approximate — follow up with ' +
-            '“Automatic”.',
+            'present. Positions are approximate — use this to get ' +
+            'oriented, then follow up with “Compare peak models”.',
     },
     least_squares: {
-      label: 'Re-fit my current peaks',
-      hint: 'Uses the peaks already on this tab as the starting model ' +
-            'and re-fits them. Add peaks manually first.',
+      label: 'Refit my current peaks',
+      hint: 'Refits the peaks already on this tab, using their current ' +
+            'shapes and positions as the starting point. Use this to ' +
+            'polish a fit you’ve already built manually — add peaks first.',
     },
   },
   // friendly controls per method — each writes into the Advanced JSON so
@@ -13214,6 +13222,120 @@ function _fpFilterReasonLabel(reason) {
   if (r.startsWith('plausibility'))
     return FP_STRINGS.status.rejectedImplausible;
   return FP_STRINGS.status.notFitted;
+}
+
+// 'main_graphitic:fwhm@max' -> "the graphitic component width (pinned at
+// its upper limit)" — same param-name dictionary as _fpParamLabel, just a
+// different raw format (role:param@min|max vs s_role_param).
+function _fpBoundaryHitLabel(hit) {
+  const m = String(hit).match(/^(.+):(\w+)@(min|max)$/);
+  if (!m) return `“${hit}”`;
+  const [, role, param, side] = m;
+  return `${_fpParamLabel('s_' + role + '_' + param)} (pinned at its ` +
+    `${side === 'min' ? 'lower' : 'upper'} limit)`;
+}
+
+// One entry of winner_unphysical_widths (a free-form engine sentence like
+// "detected_peak_2:fwhm=3.20eV≥0.70×ceiling (4.50eV) — ~1.75× its
+// detected width; likely absorbing a neighbor", or the DS+G/asym-GL/
+// ordinary-cap variants) -> one plain sentence. Extracts only the role and
+// measured width (robust across all variants) plus which of the two
+// failure classes applies — never invents the specific shape-parameter
+// detail the raw sentence carries, just the chemist-facing meaning.
+function _fpWidthFlagLabel(flag) {
+  const s = String(flag);
+  const roleMatch = s.match(/^([^:]+):/);
+  const role = roleMatch ? _fpRoleLabel(roleMatch[1]) : 'A component';
+  const widthMatch = s.match(/fwhm=([\d.]+)eV/);
+  const width = widthMatch ? `${widthMatch[1]} eV` : 'its width';
+  if (s.includes('absorbing a neighbor')) {
+    return `${role} (${width}) is wide enough that it may be absorbing an ` +
+      'unresolved neighboring peak — worth checking for a missed component nearby';
+  }
+  return `${role} (${width}) is held at the ordinary physical width limit ` +
+    'for a core-level line, with no known broad-feature explanation ' +
+    '(satellite, plasmon, loss) — confirm this is real, or justify a wider width';
+}
+
+// The full plain-English "Technical details" paragraph, built ENTIRELY
+// from the already-structured JSON fields (diagnostics.*, peaks[].region,
+// structural_only) that the banners/tables already use — never from
+// body.message itself, which stays untouched (raw, available one level
+// deeper) for anything that parses its exact wording. Mirrors the same
+// branching the backend's raw message uses (autofit/methods/
+// ic_model_comparison.py), so the SAME conditions are described, just in
+// plain words — a CONDITIONAL result still reads as conditional here.
+function _fpPlainMessage(body) {
+  if (body.structural_only) {
+    return 'No fittable peaks were found in this window for ' +
+      body.structural_only.join(', ') + ' — there’s no cited reference ' +
+      'data for this region yet, and nothing stood out in your data ' +
+      'either. Try widening the window, or double-check the region selection.';
+  }
+  const d = body.diagnostics || {};
+  const parts = [];
+  if (!body.success) {
+    parts.push('None of the peak models tried held up well enough to trust as-is.');
+    if (d.analysis_truncated) {
+      parts.push(`Only ${d.n_candidates_evaluated} of ${d.n_candidates_total} ` +
+        'candidate models were checked before time ran out.');
+    }
+    parts.push('See the comparison table below for what was tried and why ' +
+      'each option was set aside.');
+    return parts.join(' ');
+  }
+  const unassignedPeaks = (body.peaks || []).filter(p => p.region === 'unassigned');
+  if (unassignedPeaks.length) {
+    const centers = unassignedPeaks.map(p => (+p.center).toFixed(2)).join(', ');
+    parts.push(`Found ${unassignedPeaks.length} extra peak(s) at ${centers} eV ` +
+      'that aren’t part of a known chemical assignment for this region — ' +
+      'their positions come directly from your data, not a reference table, ' +
+      'so please review and assign them yourself.');
+  }
+  if (d.conditional) {
+    if (d.conditional_reason === 'decisive_override') {
+      const fixed = (d.winner_boundary_fixed_params || []).map(_fpParamLabel).join(', ');
+      parts.unshift(`CONDITIONAL — the best-supported model ` +
+        `(${_fpModelLabel(d.winner)}) only fits well with ` +
+        `${fixed || 'some parameters'} pinned at their limits. Equally ` +
+        'clean alternatives are shown in the comparison table below and ' +
+        'are worth a look.');
+    } else if (d.conditional_reason === 'unstable_last_resort') {
+      parts.unshift('LOW CONFIDENCE — no model held together consistently ' +
+        'when re-fit from different starting points, so component ' +
+        `identities aren’t reliable here. Showing the best-converged ` +
+        `attempt (${_fpModelLabel(d.winner)}) so you can see what the data ` +
+        'roughly supports — treat every peak as a rough suggestion; the ' +
+        'data may not clearly separate one broad feature from several ' +
+        'overlapping ones.');
+    } else {
+      const hits = (d.winner_boundary_hits || []).map(_fpBoundaryHitLabel).join(', ');
+      parts.unshift('CONDITIONAL — no model passed every plausibility ' +
+        'check cleanly, so this is the best of the stable-but-limited ' +
+        `options (${_fpModelLabel(d.winner)}). It hit some parameter ` +
+        `limits (${hits || 'see below'}) — worth double-checking those components.`);
+    }
+  }
+  if ((d.winner_unphysical_widths || []).length) {
+    const widths = d.winner_unphysical_widths.map(_fpWidthFlagLabel).join('; ');
+    parts.push(`LOW CONFIDENCE: ${widths}.`);
+  }
+  if (d.filtered_dominant_alternative) {
+    const fda = d.filtered_dominant_alternative;
+    parts.push(`Note: a different model (${_fpModelLabel(fda.name)}) scored ` +
+      `better by ${(+fda.delta_bic_vs_winner).toFixed(1)} points but was set ` +
+      `aside (${_fpFilterReasonLabel(fda.filter_reason).toLowerCase()}) — ` +
+      'worth a look in the comparison table.');
+  }
+  if (d.analysis_truncated) {
+    parts.push(`Only ${d.n_candidates_evaluated} of ${d.n_candidates_total} ` +
+      'candidate models were checked before time ran out.');
+  }
+  if (!parts.length) {
+    parts.push('This model passed every check cleanly — stable across ' +
+      're-fits, no parameter limits hit, no unexplained extra peaks.');
+  }
+  return parts.join(' ');
 }
 
 function _fpFmt(tpl, vars) {
@@ -13702,8 +13824,8 @@ async function runFindPeaks() {
     if (method === 'least_squares') {
       payload.peak_specs = state.peaks.map(peakToBackendSpec);
       if (!payload.peak_specs.length) {
-        status.textContent = '“Re-fit my current peaks” needs peaks on ' +
-          'this tab first — add some, or pick “Automatic”.';
+        status.textContent = '“Refit my current peaks” needs peaks on ' +
+          'this tab first — add some, or pick “Compare peak models”.';
         return;
       }
     }
@@ -13801,7 +13923,9 @@ function _fpRenderResults(body) {
     p => /^proposed_peak_/.test(p.role || ''));
   if (anyProposed) flags.push(_fpBanner(_fpEsc(B.extraPeakFound), '#e0a030'));
   document.getElementById('fp-flags').innerHTML = flags.join('');
-  // the untranslated engine story stays available under Technical details
+  // plain-English default; the untranslated engine story stays available
+  // one level deeper, under Advanced (raw engine output)
+  document.getElementById('fp-message-plain').textContent = _fpPlainMessage(body);
   document.getElementById('fp-message').textContent = body.message || '';
 
   const td = 'padding:2px 6px;border-bottom:1px solid var(--border);text-align:left';
@@ -13839,7 +13963,7 @@ function _fpRenderResults(body) {
       return `<tr><td style="${td}" title="${_fpEsc(c.name)}">${_fpEsc(_fpModelLabel(c.name))}</td>` +
         `<td style="${td}">${c.reduced_chi_sq != null ? (+c.reduced_chi_sq).toFixed(2) : '—'}</td>` +
         `<td style="${td}">${c.bic_star != null ? (+c.bic_star).toFixed(1) : '—'}</td>` +
-        `<td style="${td}" title="${_fpEsc(c.filter_reason || '')}">${status}</td></tr>`;
+        `<td style="${td}" title="${c.filter_reason ? _fpEsc(status + ' — see Technical details below for the specific reason.') : ''}">${status}</td></tr>`;
     }).join('') : '';
   document.getElementById('fp-results').style.display = 'block';
 }

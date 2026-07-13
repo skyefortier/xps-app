@@ -192,8 +192,8 @@ def test_legend_shows_all_four_coverage_states(browser, server):
     try:
         _open_modal(pg)
         text = pg.eval_on_selector("#fp-legend", "el => el.textContent")
-        assert "Cited grammar" in text
-        assert "Sourced position" in text
+        assert "Cited fit recipe" in text
+        assert "Sourced reference position" in text
         assert "No reference position" in text
         assert "No coverage" in text
     finally:
@@ -248,11 +248,12 @@ def test_selecting_fe2p_shows_honest_fallback_note_and_sets_roi(browser, server)
         _click_level_chip(pg, "[sourced] 2p")
         note = pg.eval_on_selector(
             "#fp-regions-tier-note", "el => el.textContent")
-        # Require the actual negation ("not cited"/"not a cited ... grammar"),
-        # not a loose OR of weak substrings — a mis-worded note like "sourced
-        # cited fitting grammar" (no negation) must FAIL this (2026-07-11
-        # Codex review finding: the prior assertion would have passed it).
-        assert re.search(r"not (a )?cited( fitting)? grammar", note.lower()), note
+        # Require the actual negation ("no cited fit recipe"), not a loose
+        # OR of weak substrings — a mis-worded note that drops the "no"
+        # (no negation) must FAIL this (2026-07-11 Codex review finding:
+        # the prior assertion would have passed it; wording updated
+        # 2026-07-13 to drop "grammar" jargon, same honesty requirement).
+        assert re.search(r"no cited fit recipe", note.lower()), note
         roi_min = pg.eval_on_selector("#roi-min", "el => el.value")
         roi_max = pg.eval_on_selector("#roi-max", "el => el.value")
         assert float(roi_min) < float(roi_max)
@@ -270,7 +271,7 @@ def test_selecting_curated_element_shows_cited_grammar_note_and_sets_roi(
         _click_level_chip(pg, "[cited] 1s")
         note = pg.eval_on_selector(
             "#fp-regions-tier-note", "el => el.textContent")
-        assert "cited fitting grammar" in note.lower()
+        assert "cited fit recipe" in note.lower()
         roi_min = pg.eval_on_selector("#roi-min", "el => el.value")
         roi_max = pg.eval_on_selector("#roi-max", "el => el.value")
         assert float(roi_min) < float(roi_max)

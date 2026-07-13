@@ -1,0 +1,130 @@
+You are reviewing a display/wording-only pass on branch
+feature-autofit-stage2 of the XPS Fitting Studio repo (worktree at this
+path). Read code directly from disk, do not trust this description
+alone. This change is explicitly NOT supposed to touch any engine
+behavior or the MEANING of any result — only how things are worded.
+
+CONTEXT: the Find Peaks feature (automated peak-suggestion tool,
+templates/index.html + autofit/methods/ic_model_comparison.py, distinct
+from manual Run Fit / /api/fit which this change must not touch) had
+several places where developer/engine jargon leaked into user-facing
+text. Four separate fixes, all display-only:
+
+1. METHOD DROPDOWN RENAMED (templates/index.html, `FP_STRINGS.methods`,
+   ~line 13008): the 4 entries were "Automatic — compare peak models
+   (recommended)", "Automatic + confidence ranges (slower)", "Quick
+   scan", "Re-fit my current peaks" — the first two read as a confusing
+   "Automatic / Automatic" pair. Renamed to "Compare peak models
+   (recommended)", "Compare peak models + confidence ranges (slower)",
+   "Quick peak count (approximate)", "Refit my current peaks", with
+   updated tooltips. Two other strings that referenced the old
+   "Automatic" name (the Method field's own tooltip, and a validation
+   message) were updated to match. NOTE: the BACKEND method registry's
+   own `label` class attributes (autofit/methods/*.py, e.g. "Auto —
+   model comparison (IC)") were deliberately left untouched — out of
+   scope, a separate hover-only fallback surface, not what was asked.
+
+2. "grammar" JARGON REMOVED from user-facing text: `FP_TIER_META`
+   (templates/index.html ~line 12920) tier labels ("Cited grammar" →
+   "Cited fit recipe"; "Sourced position (not cited grammar)" →
+   "Sourced reference position") and the three per-region `note`
+   strings in `autofit/coverage_index.py` (~lines 180-212) that get
+   displayed verbatim via `_fpTierNoteFor()`/the periodic-table picker's
+   level-chip tooltips. The ~150 OTHER "grammar" occurrences in the
+   codebase (the `autofit.grammar` module name, `CandidateGrammar`,
+   `resolve()`, etc.) are internal Python API surface, never rendered
+   to a user — correctly left alone (please spot-check this claim
+   yourself rather than trusting it). `roi.basis` (contains the word
+   "grammar") is also never rendered in the frontend (grepped
+   `templates/index.html` for `.basis` — zero hits) — correctly left
+   untouched.
+
+3. RAW filter_reason LEAK FIXED: the "Other models compared" results
+   table (templates/index.html, `_fpRenderResults`, ~line 13843) had a
+   status-cell tooltip that dumped the RAW Python
+   `PlausibilityFlags(boundary_hits=[...], ...)` repr (or a
+   "stability: active min persistence X < Y..." string) verbatim on
+   hover, even though the cell's VISIBLE text was already properly
+   translated via the existing `_fpFilterReasonLabel()`. Now the
+   tooltip just repeats the translated status text plus a pointer to
+   Technical details, instead of dumping the raw repr.
+
+4. "TECHNICAL DETAILS" REWRITTEN IN PLAIN ENGLISH — architecturally in
+   the FRONTEND, not the backend. `body.message` (the raw engine
+   string built in `autofit/methods/ic_model_comparison.py`'s `run()`)
+   is asserted on VERBATIM by ~15 existing backend tests (grep
+   `res.message`/`body["message"]` across tests/autofit/*.py and
+   tests/) — it was left COMPLETELY UNTOUCHED, zero backend changes,
+   zero risk to that contract. Instead, a new
+   `_fpPlainMessage(body)` (templates/index.html, ~line 13270) builds
+   an equivalent plain-English paragraph ENTIRELY from the
+   already-structured JSON fields the existing banners/tables already
+   consume: `diagnostics.winner`, `.conditional`, `.conditional_reason`
+   ('decisive_override' | 'unstable_last_resort' | 'no_clean_survivor'),
+   `.winner_boundary_hits` (format `role:param@min|max`),
+   `.winner_unphysical_widths` (free-form sentences with embedded
+   jargon like "0.70×ceiling"), `.winner_boundary_fixed_params`
+   (format `s_role_param`), `.filtered_dominant_alternative`,
+   `.analysis_truncated`; `peaks[].region` (== 'unassigned' for
+   data-driven components); `structural_only` (a different response
+   shape entirely, from app.py's honest structure-report stub). New
+   helper functions `_fpBoundaryHitLabel()` and `_fpWidthFlagLabel()`
+   translate the two raw formats found only in
+   `winner_boundary_hits`/`winner_unphysical_widths`. The markup
+   (~line 12876) now shows the plain paragraph by default under
+   "Technical details", with a NESTED "Advanced (raw engine output)"
+   `<details>` holding the untouched raw `body.message` one level
+   deeper, for power users.
+
+PLEASE VERIFY (read the actual code, this is exactly the kind of
+"looks fine at a glance" change that hides subtle honesty regressions):
+
+1. Grep templates/index.html and autofit/coverage_index.py yourself for
+   "grammar" (case-insensitive) — confirm every remaining hit is either
+   a code comment/docstring (never reaches the DOM) or the internal
+   `autofit.grammar`/`CandidateGrammar` API name, and that NOTHING
+   user-facing still says "grammar".
+2. Read `_fpPlainMessage()` end to end and confirm it mirrors EVERY
+   branch of the backend's raw `message` construction in
+   `ic_model_comparison.py` — is there a case the raw message handles
+   that the plain version silently drops or gets wrong? In particular:
+   does a CONDITIONAL result (any of the 3 `conditional_reason` values)
+   ALWAYS produce plain text that still reads as conditional/uncertain
+   (never softened into something that reads as a clean pass)? Does the
+   "unphysical_widths" LOW CONFIDENCE case still appear even when
+   `conditional` is false (they're independent flags in the backend)?
+3. Read `_fpBoundaryHitLabel()` and `_fpWidthFlagLabel()` — do they ever
+   MISPARSE a raw string in a way that produces a WRONG (not just
+   less-detailed) translation? Check against the actual raw string
+   formats in autofit/engine.py (`_detect_boundary_hits()` at ~line 686
+   for the `role:param@min|max` format; the width-flag sentence
+   construction at ~lines 760-819 for the 4 distinct raw sentence
+   shapes — DS+G, asym-GL, detection-family "absorbing a neighbor", and
+   "ordinary cap, no known-broad justification"). Do the two width-flag
+   variants ("absorbing a neighbor" vs "ordinary cap") ever get
+   conflated into the same plain sentence (they're DIFFERENT failure
+   classes and must read distinctly)?
+4. Confirm `body.message` itself is byte-for-byte unchanged anywhere in
+   the diff (grep the diff for changes to
+   `autofit/methods/ic_model_comparison.py` or `app.py`'s message
+   strings — there should be NONE) and that the ~15 existing tests that
+   assert on it verbatim still pass unmodified.
+5. Confirm the Method dropdown rename doesn't collide with or shadow
+   any OTHER existing string comparison in the code that might match
+   against the OLD label text (grep for the literal old strings
+   "Automatic — compare peak models", "Automatic + confidence ranges",
+   "Re-fit my current peaks" — anything still referencing them is a
+   miss).
+6. Confirm this is genuinely display-only: no change to
+   `autofit/methods/ic_model_comparison.py`'s actual decision logic,
+   `app.py`'s routing, or any test's assertions beyond the specific
+   wording-matching updates in
+   `tests/test_browser_find_peaks_coverage.py` (grep the diff for
+   anything beyond string literals in that file and the two frontend/
+   coverage_index files).
+7. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
