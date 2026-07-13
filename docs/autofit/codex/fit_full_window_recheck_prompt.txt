@@ -1,0 +1,92 @@
+Recheck for the "fit the entire window" opt-in feature review (branch
+feature-autofit-stage2, worktree at this path, commit 06723f2). Two
+independent GO/NO-GO runs were done against
+docs/autofit/codex/fit_full_window_review_prompt.txt (read that file for
+full context on the feature). Both runs returned NO-GO, each finding a
+DIFFERENT real bug — both must be dispositioned before this unit is done.
+
+RUN 1's FINDING (verbatim): "widened curated fits are not accepted by
+the stability/identity layer. The optimizer bounds widen, but
+run_stability_analysis() still classifies refit components against the
+original slot.be_window. ... a highest-BE curated primary slot can fit
+just above its original literature window, exactly as intended. But in
+stability, that same fitted component is outside _effective_be_window(),
+becomes an orphan, the slot's persistence stays low/zero, and the
+candidate is filtered or marked implausible."
+
+RUN 2's FINDING (verbatim): "_full_window_bound_overrides() can tighten
+or even invert curated outer-slot bounds when fit_full_window=True and
+the selected ROI is not wider than the literature envelope. ... a C 1s
+candidate with a lowest slot window (284.0, 285.0) and ROI 287.0..300.0
+gets center bounds (287.0, 285.0) for that slot."
+
+FIXES APPLIED (same session, please verify against current disk state —
+do not trust this description alone):
+
+1. (Run 2's bug) `_full_window_bound_overrides()` in autofit/engine.py:
+   the touched side of a curated outer slot's bound now uses
+   `min(slot.be_window[0], roi_lo)` (low side) / `max(slot.be_window[1],
+   roi_hi)` (high side) against the slot's OWN original bound, instead
+   of assigning a bare ROI edge — so it can only ever widen, never
+   narrow or invert. New test:
+   `test_full_window_never_narrows_or_inverts_a_bound_when_roi_is_shifted`
+   in tests/autofit/test_fit_full_window_option.py.
+
+2. (Run 1's bug) `_effective_be_window()` now accepts an optional
+   `bound_override` parameter; `match_components_to_slots()` now accepts
+   a `bound_overrides` dict (role -> (lo, hi)) and passes the right one
+   to each `_effective_be_window()` call. `run_stability_analysis()`
+   computes `_full_window_bound_overrides(model, x)` once (when
+   `fit_full_window`) and passes it through to
+   `match_components_to_slots()`. The same `bound_overrides` threading
+   was ALSO applied to `_proposal_blocked()` and
+   `_detect_residual_proposals()` (a related, lower-severity instance of
+   the same class — the proposal-eligibility "populated slot's window"
+   check) for consistency, though this second path wasn't explicitly
+   named in run 1's finding. New test:
+   `test_full_window_stability_does_not_orphan_a_widened_component` —
+   confirmed to FAIL against the pre-fix code (reverted just the
+   `match_components_to_slots(...)` call's `bound_overrides` argument
+   locally, re-ran, watched it fail with `persistence=0.0` — matching
+   run 1's predicted failure mode exactly — then restored the fix and
+   watched it pass).
+
+PLEASE VERIFY (read the actual code — this is core fitting math, don't
+take the description on faith):
+
+1. Re-derive `_full_window_bound_overrides()`'s current logic yourself
+   and confirm the min()/max() wrapping genuinely makes it impossible to
+   invert or narrow a bound, for ANY relationship between the ROI and
+   the slot's original window (ROI fully outside, partially overlapping,
+   fully containing, on either side).
+2. Trace `_effective_be_window()` / `match_components_to_slots()` /
+   `run_stability_analysis()` end to end — confirm the SAME
+   `bound_overrides` dict (built once per stability pass, not rebuilt
+   per refit in a way that could drift) is used both to build each
+   refit's fit parameters (via `perturb_initial_params` ->
+   `_default_params_from_slots`) AND to judge whether that refit's
+   fitted position still "belongs" to its slot (via
+   `match_components_to_slots`) — these two must agree, or the bug
+   recurs in a different form.
+3. Confirm `_proposal_blocked()`/`_detect_residual_proposals()` also
+   correctly thread `fit_full_window`/`bound_overrides`, and that their
+   call sites inside `compare_models()`'s proposal-pass loop pass the
+   flag through.
+4. Confirm the new regression test
+   (`test_full_window_stability_does_not_orphan_a_widened_component`)
+   actually exercises `run_stability_analysis()` (not just
+   `fit_candidate()` alone) and would plausibly have caught run 1's bug.
+5. Re-run (or trace) the rest of the ORIGINAL review's "Confirmed"
+   items to make sure neither fix regressed them: interior curated
+   slots still keep their exact original windows untouched; linked
+   slots (spin-orbit partners) still never touched; the starting
+   guess/amplitude-estimate window still anchored to the slot's own
+   original `be_window`; default `fit_full_window=False` still
+   byte-identical for every existing caller; `/api/fit` / manual Run Fit
+   still untouched; `_detect_boundary_hits()` still reads live lmfit
+   bounds correctly in both modes.
+6. Anything else that looks wrong, regardless of whether it's on this
+   list — this is core fitting math, deserves a skeptical read.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".

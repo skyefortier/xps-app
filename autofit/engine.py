@@ -1027,8 +1027,17 @@ def match_components_to_slots(
                 and comp.amplitude > noise_floor)
 
     def _window_center(slot: ComponentSlot) -> float:
-        lo, hi = _effective_be_window(slot, components,
-                                      (bound_overrides or {}).get(slot.role))
+        # NEVER the widened bound (Codex-caught, round 2): this is a
+        # TIE-BREAK reference point ("how close is this component to
+        # where this slot expects its peak"), not an acceptance test —
+        # widening it would drag the reference point far from the
+        # slot's true expected position (e.g. a curated slot's own
+        # narrow window widened to a whole ROI), making a neighboring
+        # slot's UNWIDENED, much-closer center win the tie-break even
+        # when the component sits well inside THIS slot's own original
+        # window. Acceptance (_accepts, above) is the only place the
+        # widened bound belongs.
+        lo, hi = _effective_be_window(slot, components)
         return 0.5 * (lo + hi)
 
     for comp in components:
@@ -1916,7 +1925,6 @@ def _proposal_blocked(
     center: float,
     base_model: CandidateModel,
     fitted_components: list["FittedComponent"],
-    bound_overrides: Optional[dict[str, tuple[float, float]]] = None,
 ) -> bool:
     """Stage-2 proposal-eligibility rule (2026-07-10; replaces the old
     window-membership test — Step-1 chokepoint 2): a residual cluster is
@@ -1935,7 +1943,16 @@ def _proposal_blocked(
     An UNPOPULATED window blocks nothing: the measured failure was real
     satellite intensity inside a canonical window that the winning family
     had no slot for — permanently unreachable under window-membership
-    blocking."""
+    blocking.
+
+    Deliberately NEVER uses the fit_full_window bound override (Codex-
+    caught, round 2): a ``region == "unassigned"`` slot's window widens
+    to the FULL ROI under that option, which would make rule (ii) block
+    every later residual proposal anywhere in the ROI once the first one
+    is accepted — defeating the iterative multi-proposal pass entirely.
+    This rule's "populated slot's window" is about a slot's own intrinsic
+    territory, not the fit's search bound; the two are different
+    concepts and only the latter should ever widen."""
     populated_roles = {c.slot_role for c in fitted_components}
     for comp in fitted_components:
         if abs(center - comp.position) <= (
@@ -1944,8 +1961,7 @@ def _proposal_blocked(
     for slot in base_model.slots:
         if slot.role not in populated_roles:
             continue
-        lo, hi = _effective_be_window(slot, fitted_components,
-                                      (bound_overrides or {}).get(slot.role))
+        lo, hi = _effective_be_window(slot, fitted_components)
         if lo <= center <= hi:
             return True
     return False
@@ -1958,12 +1974,9 @@ def _detect_residual_proposals(
     noise_floor: float,
     base_model: CandidateModel,
     fitted_components: list["FittedComponent"],
-    fit_full_window: bool = False,
 ) -> list[ProposalSpec]:
     if len(x) < 4:
         return []
-    bound_overrides = (_full_window_bound_overrides(base_model, x)
-                       if fit_full_window else None)
     r = y - y_fit
     sigma = np.sqrt(np.maximum(y, noise_floor))
     r_std = r / sigma
@@ -2023,8 +2036,7 @@ def _detect_residual_proposals(
         fwhh = float(span[right] - span[left])
         fwhm_init = float(np.clip(fwhh if fwhh > 0 else PROPOSAL_FWHM_MIN,
                                   PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX))
-        if _proposal_blocked(center, base_model, fitted_components,
-                             bound_overrides=bound_overrides):
+        if _proposal_blocked(center, base_model, fitted_components):
             continue
         specs.append(ProposalSpec(
             role=f"proposed_peak_{idx}",
@@ -2817,7 +2829,6 @@ def compare_models(
                 specs = _detect_residual_proposals(
                     x, y, current_y_fit, noise_floor, current.model,
                     fitted_components=current.primary_fit.components,
-                    fit_full_window=fit_full_window,
                 )
                 # roles must stay unique across rounds — number this round's
                 # specs from one past the HIGHEST existing suffix (never a

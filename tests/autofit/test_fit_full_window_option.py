@@ -30,8 +30,10 @@ a caller opts in.
 import numpy as np
 import pytest
 
-from autofit.engine import (_default_params_from_slots, _slot_prefix,
-                            fit_candidate, run_stability_analysis)
+from autofit.engine import (FittedComponent, _default_params_from_slots,
+                            _full_window_bound_overrides, _proposal_blocked,
+                            _slot_prefix, fit_candidate,
+                            match_components_to_slots, run_stability_analysis)
 from autofit.grammar import BackgroundType, CandidateModel, ComponentSlot, LineShape
 
 
@@ -271,3 +273,59 @@ def test_full_window_stability_does_not_orphan_a_widened_component():
         f"shake_up persistence={shake_up.persistence} — the widened "
         "component is being falsely orphaned against its original window")
     assert stability.orphan_rate < 0.2, stability.orphan_rate
+
+
+def test_full_window_tie_break_never_uses_the_widened_center():
+    """Regression (2026-07-13 Codex review, round 2 BLOCKER): a fitted
+    component that sits well inside its OWN slot's original window, but
+    ALSO happens to fall inside a neighbor's window (both accept it —
+    genuine overlap), must be assigned to whichever slot's TRUE center it
+    is actually closest to — never to a slot whose widened, dragged-far
+    center makes a wrong neighbor look closer. Reproduces Codex's exact
+    numbers: graphitic (284.0, 284.8) widened low to a 270-300 ROI has a
+    widened center of 277.4 eV; a component at 284.65 (well inside
+    graphitic's TRUE window, 284.0-284.8) must still resolve to graphitic,
+    not to the untouched aliphatic slot (284.6, 285.4, center 285.0)."""
+    model = _model(
+        _slot("graphitic", "C 1s", (284.0, 284.8)),
+        _slot("aliphatic", "C 1s", (284.6, 285.4)),
+        _slot("shake_up", "C 1s", (290.0, 292.0)),
+    )
+    x = np.arange(270.0, 300.0, 0.1)
+    overrides = _full_window_bound_overrides(model, x)
+    assert overrides["graphitic"] == (270.0, 284.8)   # sanity: lo_role widened
+    assert overrides["aliphatic"] == (284.6, 285.4)    # interior: untouched
+
+    comp = FittedComponent(
+        slot_role="?", position=284.65, fwhm=0.8, amplitude=1000.0,
+        shape_params={}, line_shape=LineShape.GAUSSIAN)
+    slot_map = match_components_to_slots([comp], model, noise_floor=1.0,
+                                         bound_overrides=overrides)
+    assert slot_map["graphitic"] is not None, (
+        "284.65 should resolve to graphitic (true center 284.4, distance "
+        "0.25) — not aliphatic (center 285.0, distance 0.35) via a "
+        "widened-center tie-break artifact")
+    assert slot_map["graphitic"].position == pytest.approx(284.65)
+    assert slot_map["aliphatic"] is None
+
+
+def test_proposal_blocking_never_widens_a_populated_slots_territory():
+    """Regression (2026-07-13 Codex review, round 2 BLOCKER): an earlier
+    fix speculatively threaded the fit_full_window bound override into
+    _proposal_blocked/_detect_residual_proposals too. Codex caught that
+    this widens a POPULATED ``region == "unassigned"`` slot's window to
+    the FULL ROI, so accepting the first residual proposal anywhere
+    would then block every later one anywhere else in the ROI —
+    defeating the iterative multi-proposal pass entirely under this
+    option. Reverted: proposal-blocking must never widen a slot's
+    territory, regardless of fit_full_window — only the fit's own
+    search bound may widen. (Both functions no longer accept any
+    fit_full_window/bound_overrides parameter at all — this test locks
+    in that a populated slot's un-widened window is what governs.)"""
+    model = _model(_slot("proposed_peak_0", "unassigned", (279.5, 280.5)))
+    populated = FittedComponent(
+        slot_role="proposed_peak_0", position=280.0, fwhm=1.0,
+        amplitude=500.0, shape_params={}, line_shape=LineShape.GAUSSIAN)
+    # far from the populated slot's own (narrow, un-widened) window and
+    # its fitted position — must NOT be blocked by rule (ii)
+    assert not _proposal_blocked(295.0, model, [populated])
