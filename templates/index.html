@@ -13266,7 +13266,12 @@ function _fpWidthFlagLabel(flag) {
 // ic_model_comparison.py), so the SAME conditions are described, just in
 // plain words — a CONDITIONAL result still reads as conditional here.
 function _fpPlainMessage(body) {
-  if (body.structural_only) {
+  // NOT a bare truthiness check (Codex-caught): a normal successful
+  // payload ALWAYS carries structural_only as a (possibly empty) array
+  // (app.py's payload shape), and [] is truthy in JS — a naive `if
+  // (body.structural_only)` would show the "no fittable peaks" stub
+  // for EVERY ordinary result.
+  if (Array.isArray(body.structural_only) && body.structural_only.length) {
     return 'No fittable peaks were found in this window for ' +
       body.structural_only.join(', ') + ' — there’s no cited reference ' +
       'data for this region yet, and nothing stood out in your data ' +

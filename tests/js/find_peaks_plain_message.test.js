@@ -97,6 +97,17 @@ test('_fpPlainMessage: structural_only stub (no cited or sourced data)', () => {
   assert.match(text, /no cited reference/i);
 });
 
+test('_fpPlainMessage: an EMPTY structural_only array must NOT trigger the stub (Codex-caught)', () => {
+  // Regression: app.py's normal payload shape ALWAYS carries
+  // structural_only as a (possibly empty) array — `[]` is truthy in
+  // JS, so a bare `if (body.structural_only)` would show the "no
+  // fittable peaks" stub for EVERY ordinary successful result. This is
+  // the realistic shape of a normal, healthy payload.
+  const text = _fpPlainMessage(baseBody({ structural_only: [] }));
+  assert.doesNotMatch(text, /No fittable peaks were found/);
+  assert.match(text, /passed every check cleanly/);
+});
+
 test('_fpPlainMessage: no survivors', () => {
   const text = _fpPlainMessage(baseBody({
     success: false, diagnostics: { n_candidates_evaluated: 4, n_candidates_total: 4 },
