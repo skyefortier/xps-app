@@ -167,7 +167,8 @@ def _err(message: str, status: int = 400) -> tuple:
 _ANALYZE_METHODS = {
     "least_squares": {"background_method": "shirley"},
     "ic_model_comparison": {"n_refits": 4, "rng_seed": 0,
-                            "enable_proposal_pass": True},
+                            "enable_proposal_pass": True,
+                            "fit_full_window": False},
     "bayesian_exchange_mc": {"n_replicas": 8, "n_sweeps": 600,
                              "rng_seed": 0},
     "sparse_map": {},

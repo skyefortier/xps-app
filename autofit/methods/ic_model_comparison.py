@@ -22,7 +22,7 @@ _ALLOWED_OPTIONS = {
     "noise_floor", "n_refits", "rng_seed", "candidate_filter",
     "enable_proposal_pass", "persistence_threshold", "bic_ambiguity_threshold",
     "absent_slot_area_fraction", "absent_slot_persistence_threshold",
-    "enable_preseed",
+    "enable_preseed", "fit_full_window",
 }
 
 ENGINE_VERSION = "autofit-stage2"
@@ -70,6 +70,7 @@ class ICModelComparisonMethod(PeakFitMethod):
             absent_slot_persistence_threshold=float(
                 opts.pop("absent_slot_persistence_threshold", 0.7)),
             progress_cb=progress_cb,
+            fit_full_window=bool(opts.pop("fit_full_window", False)),
         )
 
         analysis = build_analysis_record(grammar, result)

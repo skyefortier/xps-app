@@ -13042,6 +13042,11 @@ const FP_STRINGS = {
         label: 'Look for unexpected extra peaks',
         tip: 'After fitting, scan the leftover signal for a clear peak ' +
              'the model missed and suggest it.' },
+      { key: 'fit_full_window', type: 'checkbox',
+        label: 'Fit the entire window',
+        tip: 'By default, Find Peaks focuses on the region around the ' +
+             'peaks. Check this to fit the full window you selected — ' +
+             'best when your background is clean across the whole range.' },
     ],
     bayesian_exchange_mc: [
       { key: 'n_replicas', type: 'number', min: 4, max: 32, step: 1,

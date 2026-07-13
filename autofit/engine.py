@@ -410,12 +410,62 @@ def _add_shape_params(
         p.add(f"{prefix}{name}", value=float(np.clip(init, plo, phi)), min=plo, max=phi)
 
 
+def _full_window_bound_overrides(
+    model: CandidateModel, x: Optional[np.ndarray],
+) -> dict[str, tuple[float, float]]:
+    """Opt-in "fit the entire window" (unit 1, 2026-07-13): per-slot center
+    BOUND overrides — never the starting guess or amplitude estimate,
+    both of which stay anchored to the slot's own ``be_window`` (see
+    callers below). Branches on how EACH slot was solved, not on whether
+    the region as a whole has curated grammar:
+
+    - ``region == "unassigned"`` (a detection/structural-fallback slot —
+      Fe 2p, an out-of-grammar preseed) has no cited per-component window
+      to preserve: widens fully to the ROI on both sides.
+    - Any other (curated, chemically-anchored) slot widens ONLY the outer
+      envelope — the lowest-BE slot's lower bound and the highest-BE
+      slot's upper bound move to the ROI edges; every interior slot (and
+      the untouched side of an outer slot) keeps its literature window
+      exactly, so one chemical state can never wander into a
+      neighboring one's territory. A model with a single curated primary
+      slot has no interior to protect, so it widens on both sides.
+
+    Linked slots (spin-orbit partners, satellites) are never included —
+    their offset from the parent is a cited physical splitting, entirely
+    unrelated to ROI cropping.
+    """
+    if x is None or len(x) == 0:
+        return {}
+    roi_lo, roi_hi = float(np.min(x)), float(np.max(x))
+    primary = [s for s in model.slots if s.linked_to is None]
+    overrides: dict[str, tuple[float, float]] = {
+        s.role: (roi_lo, roi_hi) for s in primary if s.region == "unassigned"
+    }
+    curated = [s for s in primary if s.region != "unassigned"]
+    if curated:
+        lo_role = min(curated, key=lambda s: s.be_window[0]).role
+        hi_role = max(curated, key=lambda s: s.be_window[1]).role
+        for s in curated:
+            overrides[s.role] = (roi_lo if s.role == lo_role else s.be_window[0],
+                                 roi_hi if s.role == hi_role else s.be_window[1])
+    return overrides
+
+
 def _default_params_from_slots(
     model: CandidateModel,
     x: Optional[np.ndarray] = None,
     y_net: Optional[np.ndarray] = None,
+    fit_full_window: bool = False,
 ) -> Parameters:
-    """Slot midpoints as starting values, slot bounds as hard constraints."""
+    """Slot midpoints as starting values, slot bounds as hard constraints.
+
+    ``fit_full_window`` (default False — every existing caller's behavior
+    is unchanged unless it opts in) relaxes the primary-slot CENTER bound
+    per ``_full_window_bound_overrides``; the starting guess and the
+    amplitude-estimate window always stay anchored to the slot's own
+    ``be_window``, so relaxing the bound never changes where the search
+    starts, only how far it may wander.
+    """
     p = Parameters()
 
     for name, lo_b, hi_b in model.shared_fwhm_params:
@@ -432,6 +482,9 @@ def _default_params_from_slots(
             return init, max(2.0 * y_peak, 10.0 * init, 1.0)
         return 1000.0, 1.0e5
 
+    bound_overrides = (_full_window_bound_overrides(model, x)
+                       if fit_full_window else {})
+
     # Pass 1: primary (non-linked) slots
     for slot in model.slots:
         if slot.linked_to is not None:
@@ -440,7 +493,8 @@ def _default_params_from_slots(
         cmid = 0.5 * (slot.be_window[0] + slot.be_window[1])
         fmid = 0.5 * (slot.fwhm_range[0] + slot.fwhm_range[1])
         amp_init, amp_max = _amp_bounds(slot.be_window)
-        p.add(f"{prefix}center", value=cmid, min=slot.be_window[0], max=slot.be_window[1])
+        bound = bound_overrides.get(slot.role, slot.be_window)
+        p.add(f"{prefix}center", value=cmid, min=bound[0], max=bound[1])
         p.add(f"{prefix}amplitude", value=amp_init, min=0.0, max=amp_max)
         _add_shape_params(p, prefix, slot, fmid)
 
@@ -765,6 +819,7 @@ def fit_candidate(
     model: CandidateModel,
     initial_params: Optional[Parameters] = None,
     max_nfev: int = FIT_CANDIDATE_MAX_NFEV,
+    fit_full_window: bool = False,
 ) -> FitOutcome:
     """One fit of ``model`` to (x, y, weights); background subtracted first.
 
@@ -789,7 +844,8 @@ def fit_candidate(
     y_sub = y - bg
     composite = _build_composite_model(model)
     params = initial_params if initial_params is not None else \
-        _default_params_from_slots(model, x=x, y_net=y_sub)
+        _default_params_from_slots(model, x=x, y_net=y_sub,
+                                   fit_full_window=fit_full_window)
 
     try:
         result = composite.fit(y_sub, params, x=x, weights=weights,
@@ -862,6 +918,7 @@ def perturb_initial_params(
     amplitude_jitter_frac: float = 0.30,
     x: Optional[np.ndarray] = None,
     y_net: Optional[np.ndarray] = None,
+    fit_full_window: bool = False,
 ) -> Parameters:
     """
     Perturbed starting parameters for a multi-start refit (bounds-clipped).
@@ -873,7 +930,8 @@ def perturb_initial_params(
     counts (e.g. the UCl4-BN N 1s line at ~1.06e5).
     """
     rng = np.random.default_rng(seed)
-    params = _default_params_from_slots(model, x=x, y_net=y_net)
+    params = _default_params_from_slots(model, x=x, y_net=y_net,
+                                        fit_full_window=fit_full_window)
 
     def _clip(par, new_val: float) -> None:
         lo = par.min if np.isfinite(par.min) else -np.inf
@@ -1048,6 +1106,7 @@ def run_stability_analysis(
     rng_seed: int = 0,
     fixed_param_values: Optional[dict[str, float]] = None,
     deadline: Optional[float] = None,
+    fit_full_window: bool = False,
 ) -> ModelStability:
     """
     ``deadline`` is an absolute ``time.perf_counter()`` timestamp (set by
@@ -1084,7 +1143,8 @@ def run_stability_analysis(
             break
         n_attempted += 1
         seed = int(rng.integers(0, 2**31 - 1))
-        init = perturb_initial_params(model, seed=seed, x=x, y_net=y_net)
+        init = perturb_initial_params(model, seed=seed, x=x, y_net=y_net,
+                                      fit_full_window=fit_full_window)
         if fixed_param_values:
             # bound-fixed refit stability: the constrained parameters stay
             # fixed at their bounds in every multi-start refit
@@ -1989,8 +2049,10 @@ def _initial_params_for_augmented(
     spec: ProposalSpec,
     x: np.ndarray,
     y_net: np.ndarray,
+    fit_full_window: bool = False,
 ) -> Parameters:
-    params = _default_params_from_slots(aug_model, x=x, y_net=y_net)
+    params = _default_params_from_slots(aug_model, x=x, y_net=y_net,
+                                        fit_full_window=fit_full_window)
     if base_fit.lmfit_result is not None:
         for pname, par in base_fit.lmfit_result.params.items():
             if pname not in params or not params[pname].vary:
@@ -2022,6 +2084,7 @@ def _attempt_proposal(
     absent_slot_persistence_threshold: float,
     diagnostic_windows: dict[str, tuple[float, float]],
     budget_remaining: float = float("inf"),
+    fit_full_window: bool = False,
 ) -> tuple[Optional[ModelReport], ProposedPeakReport, str]:
     attempt_start = time.perf_counter()
     base_model = base_report.model
@@ -2052,7 +2115,8 @@ def _attempt_proposal(
 
     bg = _compute_background(x, y, aug_model.background)
     try:
-        init = _initial_params_for_augmented(aug_model, base_fit, spec, x, y - bg)
+        init = _initial_params_for_augmented(aug_model, base_fit, spec, x, y - bg,
+                                             fit_full_window=fit_full_window)
     except Exception as exc:
         return _fast(f"init_params_error: {exc}")
 
@@ -2124,6 +2188,7 @@ def _attempt_proposal(
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
         deadline=time.perf_counter() + min(remaining,
                                            PROPOSAL_STABILITY_TIMEOUT_SEC),
+        fit_full_window=fit_full_window,
     )
     if (stability.best_outcome is not None
             and stability.best_outcome.weighted_chi_sq < primary.weighted_chi_sq):
@@ -2240,6 +2305,7 @@ def _bound_fixed_refit(
     noise_floor: float,
     n_refits: int,
     rng_seed: int,
+    fit_full_window: bool = False,
 ) -> Optional[ModelReport]:
     """
     Refit a boundary-limited candidate with each pegged parameter FIXED at
@@ -2292,6 +2358,7 @@ def _bound_fixed_refit(
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
         fixed_param_values=fixed,
         deadline=time.perf_counter() + CANDIDATE_TIMEOUT_SEC,
+        fit_full_window=fit_full_window,
     )
     y_fit = (outcome.lmfit_result.best_fit + outcome.background
              if outcome.lmfit_result is not None else np.zeros_like(y))
@@ -2330,6 +2397,7 @@ def _apply_decisive_override(
     noise_floor: float,
     n_refits: int,
     rng_seed: int,
+    fit_full_window: bool = False,
 ) -> ComparisonResult:
     """Dominance rule — see CONDITIONAL_OVERRIDE_DELTA_BIC block comment."""
     if result.conditional or not result.survivors:
@@ -2347,7 +2415,8 @@ def _apply_decisive_override(
     for candidate in pool[:OVERRIDE_MAX_ATTEMPTS]:
         refit = _bound_fixed_refit(x, y, weights, candidate,
                                    diagnostic_windows, noise_floor,
-                                   n_refits=n_refits, rng_seed=rng_seed)
+                                   n_refits=n_refits, rng_seed=rng_seed,
+                                   fit_full_window=fit_full_window)
         if refit is None:
             continue
         # the bound-fixed model must be STABLE in its own right
@@ -2402,9 +2471,22 @@ def compare_models(
     candidate_filter: Optional[list[str]] = None,
     enable_preseed: bool = True,
     progress_cb: Optional[Callable[[dict], None]] = None,
+    fit_full_window: bool = False,
 ) -> ComparisonResult:
     """
     Full pipeline over ``grammar.candidates`` for one spectral window.
+
+    ``fit_full_window`` (Find Peaks UI, 2026-07-13): OPTIONAL, default
+    False — zero behavior change for every existing caller. When True,
+    relaxes each candidate's primary-slot center bound per
+    ``_full_window_bound_overrides`` (outer envelope only for curated
+    multi-component models; full ROI for detection/structural-fallback
+    slots) instead of the region module's fixed literature window.
+    Threaded through every place a candidate's initial/refit parameters
+    get built from scratch (screen fit, deep-phase primary fit, stability
+    refits, the proposal pass, and the bound-fixed decisive-override
+    refit) so the relaxed bound is consistent across a candidate's whole
+    lifecycle.
 
     ``candidate_filter`` limits the run to the named candidates (useful for
     fast tests / method options); None = all.  ``enable_preseed`` gates the
@@ -2582,7 +2664,8 @@ def compare_models(
             log.info("[screen %2d/%d] %s", idx, n_cand, model.name)
             _report_progress(progress_cb, "screening", idx, n_cand, model.name)
             outcome = fit_candidate(x, y, weights, model,
-                                    max_nfev=SCREEN_MAX_NFEV)
+                                    max_nfev=SCREEN_MAX_NFEV,
+                                    fit_full_window=fit_full_window)
             if outcome.converged:
                 bic = compute_bic(outcome)
                 screened.append((model, outcome, bic))
@@ -2631,7 +2714,8 @@ def compare_models(
         # stability refits (CANDIDATE_TIMEOUT_SEC) — see run_stability_analysis.
         candidate_deadline = time.perf_counter() + CANDIDATE_TIMEOUT_SEC
         # reuse the screen fit as this candidate's primary (no repeated work)
-        primary = screen_fit.get(model.name) or fit_candidate(x, y, weights, model)
+        primary = screen_fit.get(model.name) or fit_candidate(
+            x, y, weights, model, fit_full_window=fit_full_window)
         if not primary.converged:
             non_converged.append((model, primary))
             continue
@@ -2640,6 +2724,7 @@ def compare_models(
             x, y, weights, model, primary,
             noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
             deadline=candidate_deadline,
+            fit_full_window=fit_full_window,
         )
         # Promote a deeper minimum found by the multi-start pass (see
         # ModelStability.best_outcome).
@@ -2719,6 +2804,7 @@ def compare_models(
                         absent_slot_persistence_threshold=absent_slot_persistence_threshold,
                         diagnostic_windows=diagnostic_windows,
                         budget_remaining=pass_budget - elapsed,
+                        fit_full_window=fit_full_window,
                     )
                     proposal_attempts.append((model.name, pr))
                     if outcome == "accepted" and aug_report is not None:
@@ -2765,6 +2851,7 @@ def compare_models(
         noise_floor=noise_floor,
         n_refits=n_refits,
         rng_seed=rng_seed,
+        fit_full_window=fit_full_window,
     )
     result.non_converged = non_converged
     result.cross_candidate_coincidences = _cross_candidate_coincidences(proposal_attempts)

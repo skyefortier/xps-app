@@ -2907,3 +2907,99 @@ non-flagged findings still hold on current disk, and re-derived the
 **ALL FIND PEAKS UI IMPROVEMENTS ROUND 2 UNITS CODEX-CLEARED.** Unit 1:
 GO x2. Unit 2: NO-GO/GO (round 1, stricter governs) → fixed → GO x2
 (round 2).
+
+## Find Peaks UI improvements round 3 (2026-07-13) — two additive units
+
+### Unit 1 — opt-in "fit the entire window"
+
+**Bug/ask**: Find Peaks auto-crops the fit to a narrower ROI than the
+user's set window — a fine default for a region like C 1s (each of its
+6 chemical states — graphitic/aliphatic/C-O/C=O/OC=O/shake-up — has its
+own narrow, literature-anchored `be_window`), but wrong when the
+background is clean and an unusually-shifted component sits just
+outside the outermost window, unreachable no matter how wide the user's
+ROI is.
+
+**Root cause traced**: the x/y ARRAY handed to the fitter is always
+exactly the ROI-filtered array (confirmed end to end, `app.py` through
+`compare_models`/`fit_candidate` — no separate data-cropping step
+exists). The actual "auto-crop" is `_default_params_from_slots()`'s
+hard `min=slot.be_window[0], max=slot.be_window[1]` bound on each
+primary slot's `center` parameter — independent of ROI width.
+
+**Design fork surfaced and resolved with the user before implementing**:
+blindly widening EVERY slot to the full ROI would let, e.g., a C-O
+component wander into the graphitic slot's territory for multi-component
+curated regions — a real risk to chemical-state identity, not just a
+UI nicety. Resolved (Skye's call): branch on how EACH SLOT was solved,
+not on whether the region has grammar —
+- `region == "unassigned"` (detection/structural-fallback, e.g. Fe 2p or
+  an out-of-grammar preseed slot) — no cited per-component window to
+  preserve, widens fully to the ROI on both sides;
+- any other (curated, chemically-anchored) slot — widens ONLY the outer
+  envelope: the lowest-BE slot's lower bound and the highest-BE slot's
+  upper bound move to the ROI edges; every interior slot (and the
+  untouched side of an outer slot) keeps its literature window exactly,
+  so one chemical state can never wander into a neighbor's territory. A
+  model with a single curated primary slot has no interior to protect,
+  so it widens on both sides.
+- Linked slots (spin-orbit partners, satellites) are NEVER touched —
+  their offset from the parent is a cited physical splitting, unrelated
+  to ROI cropping. The starting guess and amplitude-estimate window
+  always stay anchored to the slot's own `be_window` too — only the
+  hard bound relaxes, never where the search starts.
+
+**Implementation**: new `_full_window_bound_overrides()` +
+`fit_full_window: bool = False` parameter on `_default_params_from_slots`
+(the single choke point), threaded through every place a candidate's
+params get built from scratch — `fit_candidate`, `perturb_initial_params`
+→ `run_stability_analysis`, `_initial_params_for_augmented` →
+`_attempt_proposal`, `_bound_fixed_refit` → `_apply_decisive_override`
+— up to `compare_models`'s own new `fit_full_window` parameter. Default
+`False` everywhere: every existing caller's behavior is byte-for-byte
+unchanged unless it opts in. `ic_model_comparison.py` adds
+`fit_full_window` to `_ALLOWED_OPTIONS` and pops it through to
+`compare_models`; `app.py`'s `_ANALYZE_METHODS["ic_model_comparison"]`
+default is `False`. Frontend: one new entry in the existing generic
+`FP_STRINGS.controls.ic_model_comparison` checkbox-definition array
+("Fit the entire window" / tooltip per the run brief's wording verbatim)
+— the render/sync/JSON-passthrough machinery was already fully generic,
+zero other frontend code needed.
+
+Honesty semantics untouched: `_detect_boundary_hits()` reads the LIVE
+lmfit parameter bounds (`par.min`/`par.max`), not a separately-cached
+window constant — a center pegged at the edge of a widened bound is
+still correctly flagged `center@max`/`center@min`, automatically and
+consistently in both modes, with no separate fix needed.
+
+**Tests**: `tests/autofit/test_fit_full_window_option.py` (10 tests) —
+unit-level coverage of `_default_params_from_slots`'s new branching
+(default untouched; outer-envelope-only widening for a 3-slot curated
+model; single-curated-slot widens both sides; detection slot widens
+fully; mixed curated+unassigned model branches per-slot; linked-slot
+offset and curated starting guess both stay untouched; no-op when
+`x is None`) PLUS two full `fit_candidate` end-to-end fits on a
+synthetic C1s-shaped spectrum with a genuine out-of-window peak: default
+clamps to the window edge (292.0, nowhere near the true 294.0); checked
+reaches the true position (294.0 ± 0.15) while the untouched inner
+component lands identically either way.
+`tests/test_api_fit_full_window_option.py` (3 tests) — `/api/analyze/meta`
+advertises the `False` default; a request with `fit_full_window: true`
+round-trips through the full HTTP path without a validation error for a
+real C 1s upload; omitting the option entirely still works (today's
+behavior, unchanged).
+
+**Full suite**: `pytest tests/autofit/` — 442 passed, 6 skipped, 1 failed
+(`test_u4f_n1s_cofit`, the documented pre-existing wall-clock/hash-seed
+flake — re-ran standalone 3x this session: fail, pass, fail, matching
+its historically observed non-deterministic rate; touches none of the
+code this unit changed). `node --test tests/js/*.test.js` — 93 passed.
+`tests/test_api_analyze.py`/`_coverage.py`/`_progress.py` — 26 passed.
+Browser-verified on the :5252 dev server in both dark and light themes:
+checkbox renders unchecked by default with the exact label/tooltip from
+the run brief, and checking it correctly sets `fit_full_window: true`
+in the request JSON.
+
+Manual Run Fit / `/api/fit` untouched (confirmed: `region_coverage_index`
+and this whole option are wired only through `/api/analyze*`;
+`/api/fit` never imports `compare_models`).
