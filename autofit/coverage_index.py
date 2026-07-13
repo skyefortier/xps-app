@@ -74,23 +74,45 @@ def _curated_roi(region: str) -> Optional[dict]:
             "basis": "grammar diagnostic windows ± practical margin"}
 
 
-def _sourced_roi(positions: list[dict]) -> Optional[dict]:
+def _sourced_roi(positions: list[dict],
+                 component_labels: Optional[set[str]] = None) -> Optional[dict]:
     """A practical starting BE window from the bridge's sourced
     positions — UI convenience only, never asserted as physics. Prefers a
     committed ``expected_region_ev`` (the source's own recorded span, e.g.
     a reduced-to-oxidized chemical-state range); falls back to a generic
-    margin around the nominal position(s) otherwise."""
+    margin around the nominal position(s) otherwise.
+
+    ``component_labels`` is the level's FULL set of derived spin-orbit
+    component labels (e.g. {'2p3/2', '2p1/2'} for a doublet). When the
+    sourced positions cover fewer components than that — a partner
+    sub-level has no sourced position at all — the covered sub-level's
+    own ``expected_region_ev`` (a chemical-state span for THAT sub-level
+    only) cannot be trusted to also span the unsourced partner peak, so
+    the window is widened (unioned) with the nominal ± practical-margin
+    convention already used below when no ``expected_region_ev`` exists
+    at all — never by inventing a splitting magnitude."""
     if not positions:
         return None
+    partial_doublet = (component_labels is not None
+                       and not component_labels <= {p.get("orbital")
+                                                    for p in positions})
     regions = [p["expected_region_ev"] for p in positions
               if p.get("expected_region_ev")]
+    noms = [p["nominal_be_ev"] for p in positions
+           if p.get("nominal_be_ev") is not None]
     if regions:
         lo = min(r["min"] for r in regions)
         hi = max(r["max"] for r in regions)
-        return {"be_min": round(lo, 1), "be_max": round(hi, 1),
-                "basis": "expected_region_ev (source-recorded span)"}
-    noms = [p["nominal_be_ev"] for p in positions
-           if p.get("nominal_be_ev") is not None]
+        basis = "expected_region_ev (source-recorded span)"
+        if partial_doublet and noms:
+            widened_lo = min(noms) - _NOMINAL_ROI_MARGIN_EV
+            widened_hi = max(noms) + _NOMINAL_ROI_MARGIN_EV
+            if widened_lo < lo or widened_hi > hi:
+                lo, hi = min(lo, widened_lo), max(hi, widened_hi)
+                basis += (" widened past the covered sub-level's span to "
+                         "the nominal ± practical margin (an unsourced "
+                         "spin-orbit partner exists)")
+        return {"be_min": round(lo, 1), "be_max": round(hi, 1), "basis": basis}
     if not noms:
         return None
     return {"be_min": round(min(noms) - _NOMINAL_ROI_MARGIN_EV, 1),
@@ -143,7 +165,9 @@ def region_coverage_index() -> list[dict]:
                     "note": ("Sourced reference position(s), NOT a cited "
                              "fitting grammar — structural-fallback "
                              f"fitting (status: {', '.join(statuses)})."),
-                    "roi": _sourced_roi(positions),
+                    "roi": _sourced_roi(
+                        positions,
+                        component_labels={c["label"] for c in lv["components"]}),
                 })
             else:
                 out.append({

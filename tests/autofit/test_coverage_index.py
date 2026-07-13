@@ -149,3 +149,63 @@ def test_cached_copies_are_deep_not_shallow(index):
 def test_every_entry_has_a_human_note(index):
     for e in index:
         assert isinstance(e["note"], str) and e["note"]
+
+
+def test_fe_2p_roi_widens_to_cover_unsourced_spin_orbit_partner(index):
+    """Regression (2026-07-12): Fe 2p's ONLY sourced position is the
+    2p3/2 sub-level (data/xps/elements-machine.json has no 2p1/2 entry at
+    all) — a ROI built from just that position's expected_region_ev
+    (706.5-711 eV) is too narrow to contain the real 2p1/2 partner
+    (~13 eV higher) or even the true 2p3/2 peak maximum in uncalibrated
+    data, so Find Peaks' structural-fallback fit found zero candidates
+    and failed in <2ms instead of reaching the plausible flagged fit the
+    same engine produces on the full spectrum. Fe 2p is a doublet
+    (l=1 > 0); its sourced positions must widen past the single
+    sub-level's narrow span to the nominal ± practical-margin convention
+    already used when NO expected_region_ev is recorded at all."""
+    from autofit.coverage_index import _NOMINAL_ROI_MARGIN_EV
+    fe2p = next(e for e in index if e["region"] == "Fe 2p")
+    roi = fe2p["roi"]
+    assert roi is not None
+    nominal = 706.86  # Fe 2p3/2, the only sourced position for this doublet level
+    assert roi["be_min"] <= round(nominal - _NOMINAL_ROI_MARGIN_EV, 1), roi
+    assert roi["be_max"] >= round(nominal + _NOMINAL_ROI_MARGIN_EV, 1), roi
+
+
+def test_partially_covered_doublets_never_trust_a_single_position_span(index):
+    """General rule, not just Fe 2p (a class fix, not an enumeration):
+    whenever a machine-tier level's sourced positions cover FEWER
+    spin-orbit components than its derived structure has, the ROI must
+    not be trusted to the narrow expected_region_ev span of the covered
+    sub-level(s) alone — it must widen at least to the nominal ±
+    practical-margin convention, so an unsourced doublet partner is
+    never silently excluded from the Find Peaks starting window."""
+    from autofit import reference_bridge
+    from autofit.coverage import level_structure
+    from autofit.coverage_index import _NOMINAL_ROI_MARGIN_EV
+
+    checked = 0
+    for e in index:
+        if e["tier"] != "machine" or e["roi"] is None:
+            continue
+        lv = level_structure(e["symbol"], e["level"])
+        component_labels = {c["label"] for c in lv["components"]}
+        if len(component_labels) < 2:
+            continue    # singlet — no partner to miss
+        positions = reference_bridge.level_reference(
+            e["symbol"], e["level"])["positions"]
+        covered = {p["orbital"] for p in positions}
+        if component_labels <= covered:
+            continue    # fully covered doublet — narrow ROI is fine
+        noms = [p["nominal_be_ev"] for p in positions
+               if p.get("nominal_be_ev") is not None]
+        if not noms:
+            continue
+        checked += 1
+        assert e["roi"]["be_min"] <= round(
+            min(noms) - _NOMINAL_ROI_MARGIN_EV, 1), e
+        assert e["roi"]["be_max"] >= round(
+            max(noms) + _NOMINAL_ROI_MARGIN_EV, 1), e
+    assert checked > 0, (
+        "expected at least one partially-covered doublet in the machine "
+        "tier (e.g. Fe 2p) to exercise this rule")

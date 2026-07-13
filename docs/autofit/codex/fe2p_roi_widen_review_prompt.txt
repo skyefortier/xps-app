@@ -1,0 +1,80 @@
+You are reviewing a bug fix on branch feature-autofit-stage2 of the XPS
+Fitting Studio repo (worktree at this path). Read code directly from
+disk, do not trust this description alone.
+
+BUG (pre-fix): selecting a "sourced"/machine-tier region such as Fe 2p
+in the Find Peaks UI and running it returned "no candidate survived
+filter-then-rank" (functionally: instant "No usable fit") in under 2ms
+— even though the SAME structural-fallback engine produces a plausible,
+honestly-flagged 3-component fit when driven against the full Fe 2p
+spectrum window directly.
+
+ROOT CAUSE: autofit/coverage_index.py's `_sourced_roi()` built the
+Find-Peaks auto-fill ROI from a single sub-level's `expected_region_ev`
+span (Fe 2p3/2 only: 706.5-711 eV) — Fe 2p is a spin-orbit DOUBLET
+(2p3/2 + 2p1/2), and data/xps/elements-machine.json has NO sourced
+position at all for the 2p1/2 partner. The narrow window excluded both
+the real 2p1/2 peak (~717-720 eV) and even the true 2p3/2 maximum in
+uncalibrated ("ugly") data, leaving zero local-maxima for the detection
+layer to seed — hence the near-instant zero-candidates failure.
+
+FIX: `_sourced_roi()` now takes an optional `component_labels` param
+(the level's full derived spin-orbit component set, e.g.
+{'2p3/2','2p1/2'} from autofit.coverage.level_structure). When the
+sourced positions don't cover every component in that set, the
+`expected_region_ev`-based window is widened (unioned, never narrowed)
+with the existing nominal ± `_NOMINAL_ROI_MARGIN_EV` (12 eV) fallback
+that the module already used for the "no expected_region_ev at all"
+case — this margin's own docstring already described it as "wide
+enough for a spin-orbit partner + a satellite", so this is applying an
+existing convention more correctly, not inventing a new empirical
+value. No splitting magnitude is invented anywhere.
+
+FILES CHANGED:
+- autofit/coverage_index.py — `_sourced_roi()` signature + widening
+  logic (~lines 77-120); call site in `region_coverage_index()` now
+  passes `component_labels={c["label"] for c in lv["components"]}`.
+- tests/autofit/test_coverage_index.py — two new tests:
+  `test_fe_2p_roi_widens_to_cover_unsourced_spin_orbit_partner`
+  (Fe-2p-specific pin) and
+  `test_partially_covered_doublets_never_trust_a_single_position_span`
+  (general class rule: ANY machine-tier doublet/multi-component level
+  whose sourced positions don't cover every component must widen past
+  the narrow span — this test independently found the SAME bug class
+  hitting Mg 2p and Al 2p before the fix, not just Fe 2p).
+
+PLEASE VERIFY (read the actual code, do not take these claims on
+faith):
+1. Is the root-cause diagnosis correct? Read `_sourced_roi` and its
+   call site; confirm the bug really was ROI-width, not something else
+   (budget/timeout/candidate-generation gate).
+2. Does the fix's coverage-check direction make sense? (It must ask
+   "does `component_labels` ⊆ covered orbitals?" — NOT the reverse
+   subset test, which breaks when a position carries an extra/generic
+   orbital label like a legacy '2p' entry alongside a specific '2p3/2'
+   entry; an earlier draft of this fix had the subset test backwards
+   and silently no-opped for Fe 2p until caught.)
+3. Does the widening ever NARROW an existing correctly-wide window, or
+   only ever union/extend it? Confirm no regression path could shrink
+   a previously-fine ROI.
+4. Is anything invented? (No spin-orbit splitting magnitude, no BE
+   value, no citation — re-check against the module's own
+   anti-confabulation rail described in its docstring.)
+5. Run (or trace) `tests/autofit/test_coverage_index.py` — did both new
+   tests genuinely fail before the fix and pass after? Independently
+   re-derive at least the Fe 2p numbers (nominal 706.86, margin 12.0)
+   from data/xps/elements-machine.json yourself rather than trusting
+   the test's hardcoded literal.
+6. Any other machine-tier level this fix should touch but doesn't (or
+   touches but shouldn't)? Check singlets (l=0 levels) are correctly
+   exempted (no partner to miss) and fully-covered doublets are
+   correctly left alone (narrow ROI is fine when both components ARE
+   sourced).
+7. Manual Run Fit / `/api/fit` — confirm this change touches NEITHER
+   (it's confined to `autofit/coverage_index.py`, which only feeds
+   `/api/analyze/meta`'s Find Peaks region list).
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and explain the concrete failure scenario (not just "could be an
+issue"). End your final answer with a line starting exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
