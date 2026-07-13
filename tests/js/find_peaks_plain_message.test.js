@@ -86,8 +86,13 @@ test('_fpWidthFlagLabel: DS+G and asym-GL variants still extract role + width cl
 // ── _fpPlainMessage ─────────────────────────────────────────────────────
 
 function baseBody(overrides) {
+  // `analysis` is ALWAYS present in a real app.py payload (success or
+  // failure) — only the honest structural-only stub omits it entirely.
+  // Included here so every test through this helper matches the real
+  // payload shape, not just the fields each test happens to check.
   return Object.assign({
     success: true, peaks: [], diagnostics: { winner: 'A0_graphite_only', conditional: false },
+    analysis: { candidates: [] },
   }, overrides);
 }
 
@@ -106,6 +111,42 @@ test('_fpPlainMessage: an EMPTY structural_only array must NOT trigger the stub 
   const text = _fpPlainMessage(baseBody({ structural_only: [] }));
   assert.doesNotMatch(text, /No fittable peaks were found/);
   assert.match(text, /passed every check cleanly/);
+});
+
+test('_fpPlainMessage: a MIXED request that succeeded must NOT trigger the stub either (Codex-caught, round 2)', () => {
+  // Regression: a mixed curated+structural request (e.g. regions
+  // ["Cl 2p", "Fe 2p"]) can SUCCEED overall with real peaks while
+  // structural_only is still non-empty (per
+  // tests/autofit/test_structural_fallback.py::
+  // test_api_mixed_deep_plus_structural_runs_and_flags) — a bare
+  // non-empty-array check (the round-1 fix) would still wrongly show
+  // the "no fittable peaks" stub here, hiding that peaks WERE found.
+  // The stub's payload shape has no `analysis` key at all; a normal
+  // payload (this one) always does — that's the real distinguishing
+  // signal, not structural_only's emptiness.
+  const text = _fpPlainMessage(baseBody({
+    structural_only: ['Fe 2p'],
+    peaks: [{ region: 'unassigned', center: 710.0 }],
+  }));
+  assert.doesNotMatch(text, /No fittable peaks were found/);
+  assert.match(text, /710\.00/);
+  assert.match(text, /review and assign/);
+});
+
+test('_fpPlainMessage: a MIXED request that failed for an unrelated reason must NOT trigger the stub', () => {
+  // Same distinguishing signal, failure side: structural_only non-empty
+  // AND success=false does NOT necessarily mean "no cited data" —
+  // it could be an ordinary no-survivors failure in a mixed request.
+  // The stub is specifically app.py's early-return shape (no
+  // `analysis` key); this object has one, so it must fall through to
+  // the generic no-survivors message instead.
+  const text = _fpPlainMessage({
+    success: false, structural_only: ['Fe 2p'], peaks: [],
+    diagnostics: { n_candidates_evaluated: 2, n_candidates_total: 2 },
+    analysis: { candidates: [] },
+  });
+  assert.doesNotMatch(text, /No fittable peaks were found/);
+  assert.match(text, /None of the peak models/);
 });
 
 test('_fpPlainMessage: no survivors', () => {

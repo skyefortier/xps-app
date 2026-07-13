@@ -1,0 +1,64 @@
+Recheck for the plain-English wording pass on Find Peaks (branch
+feature-autofit-stage2, worktree at this path, commit 95bdd41). Two
+independent GO/NO-GO runs were done against
+docs/autofit/codex/plain_english_pass_review_prompt.txt (read that file
+for full context) — BOTH returned NO-GO, unanimously, on the same real
+bug. It must be dispositioned before this unit is done.
+
+THE FINDING (verbatim, both runs independently found this): "`_fpPlainMessage()`
+treats any `body.structural_only` value as the structural-only stub
+path. In JavaScript, `[]` is truthy, and the normal API payload always
+includes `structural_only: []` for non-structural results
+(app.py:367). So templates/index.html:13269 causes ordinary successful
+Find Peaks results to show: 'No fittable peaks were found in this
+window for ...' instead of the clean/conditional/low-confidence
+technical details. This also silently drops conditional warnings,
+unphysical-width warnings, filtered-dominant-alternative notes, and
+truncation notes for normal payloads."
+
+FIX APPLIED (same session, commit 95bdd41 — please verify against
+current disk state, do not trust this description alone):
+
+`_fpPlainMessage()`'s guard changed from `if (body.structural_only)` to
+`if (Array.isArray(body.structural_only) && body.structural_only.length)`.
+New regression test
+`test('_fpPlainMessage: an EMPTY structural_only array must NOT trigger
+the stub (Codex-caught)', ...)` in
+tests/js/find_peaks_plain_message.test.js — confirmed to FAIL against
+the pre-fix code (reverted the guard locally, re-ran, watched it fail
+with the exact "No fittable peaks were found" text appearing when it
+shouldn't, then restored the fix and watched it pass). Also verified
+live in a real browser (Playwright) with a realistic successful-payload
+shape (`structural_only: []`, `success: true`, clean diagnostics) — the
+Technical details panel now correctly shows "This model passed every
+check cleanly..." instead of the false stub.
+
+PLEASE VERIFY:
+
+1. Read the current `_fpPlainMessage()` guard directly and confirm it
+   is now `Array.isArray(body.structural_only) && body.structural_only.length`
+   (or an equivalent that is NOT vulnerable to `[]`'s truthiness) —
+   don't take the description on faith.
+2. Confirm the fix doesn't accidentally break the ORIGINAL
+   structural-only stub case (a real `structural_only: ['Fe 1s', ...]`
+   with actual entries must still show the "no fittable peaks" message)
+   — check both the new test and the pre-existing
+   `test('_fpPlainMessage: structural_only stub ...')` test.
+3. Confirm the new regression test genuinely exercises a realistic
+   payload shape (matching what app.py actually sends for a normal
+   result — `success: true` plus a real `diagnostics` object), not just
+   `{ structural_only: [] }` in isolation, which might not have caught
+   a narrower version of the same class of bug.
+4. Search templates/index.html for any OTHER place that treats an
+   array-valued API field as a bare boolean (the same `if (arrayField)`
+   pattern) that might have the identical `[]`-is-truthy bug — this was
+   introduced by the SAME pass, so it's worth checking whether the bug
+   class is isolated to this one spot or recurs elsewhere in the new
+   code (`_fpBoundaryHitLabel`, `_fpWidthFlagLabel`, the rest of
+   `_fpPlainMessage`, the raw-repr tooltip fix, the Method dropdown
+   rename, the FP_TIER_META/coverage_index.py note-string changes).
+5. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
