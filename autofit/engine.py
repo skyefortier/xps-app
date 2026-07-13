@@ -446,8 +446,15 @@ def _full_window_bound_overrides(
         lo_role = min(curated, key=lambda s: s.be_window[0]).role
         hi_role = max(curated, key=lambda s: s.be_window[1]).role
         for s in curated:
-            overrides[s.role] = (roi_lo if s.role == lo_role else s.be_window[0],
-                                 roi_hi if s.role == hi_role else s.be_window[1])
+            # min()/max() against the ORIGINAL bound (never a bare ROI edge)
+            # so this can only ever widen, never narrow or invert a bound —
+            # a ROI that doesn't fully contain the slot's own literature
+            # window (Codex-caught: e.g. ROI 287-300 vs a slot window
+            # (284, 285)) must leave that side exactly as it was, not
+            # produce an inverted (min > max) or narrowed bound.
+            lo = min(s.be_window[0], roi_lo) if s.role == lo_role else s.be_window[0]
+            hi = max(s.be_window[1], roi_hi) if s.role == hi_role else s.be_window[1]
+            overrides[s.role] = (lo, hi)
     return overrides
 
 
@@ -976,10 +983,21 @@ def _is_asymmetric_component(comp: FittedComponent) -> bool:
 
 
 def _effective_be_window(
-    slot: ComponentSlot, components: list[FittedComponent]
+    slot: ComponentSlot, components: list[FittedComponent],
+    bound_override: Optional[tuple[float, float]] = None,
 ) -> tuple[float, float]:
+    """``bound_override`` (fit_full_window, unit 1 2026-07-13): the SAME
+    widened bound the fit itself was built with
+    (``_full_window_bound_overrides``) — a primary slot's fitted position
+    identity-matching must agree with the bound it was actually allowed
+    to search, or a component the widened fit correctly placed outside
+    its ORIGINAL literature window becomes an orphan here (Codex-caught:
+    tanks stability/persistence, silently rejecting the very component
+    this option exists to rescue). Only applies to a primary slot
+    (``linked_to is None`` — a linked slot's effective window is always
+    the offset-derived one below, entirely unaffected by this option)."""
     if slot.linked_to is None or slot.linked_offset_range is None:
-        return slot.be_window
+        return bound_override if bound_override is not None else slot.be_window
     parent = next((c for c in components if c.slot_role == slot.linked_to), None)
     if parent is None:
         return slot.be_window
@@ -991,20 +1009,26 @@ def match_components_to_slots(
     components: list[FittedComponent],
     model: CandidateModel,
     noise_floor: float,
+    bound_overrides: Optional[dict[str, tuple[float, float]]] = None,
 ) -> dict[str, Optional[FittedComponent]]:
-    """Assign fitted peaks to grammar slots (role + effective window + width)."""
+    """Assign fitted peaks to grammar slots (role + effective window + width).
+
+    ``bound_overrides`` (fit_full_window) — see ``_effective_be_window``.
+    """
     slot_map: dict[str, Optional[FittedComponent]] = {s.role: None for s in model.slots}
     orphans: list[FittedComponent] = []
     asym_shapes = {LineShape.ASYM_GL, LineShape.DS, LineShape.DS_G, LineShape.LACX}
 
     def _accepts(slot: ComponentSlot, comp: FittedComponent) -> bool:
-        lo, hi = _effective_be_window(slot, components)
+        lo, hi = _effective_be_window(slot, components,
+                                      (bound_overrides or {}).get(slot.role))
         return (lo <= comp.position <= hi
                 and slot.fwhm_range[0] <= comp.fwhm <= slot.fwhm_range[1]
                 and comp.amplitude > noise_floor)
 
     def _window_center(slot: ComponentSlot) -> float:
-        lo, hi = _effective_be_window(slot, components)
+        lo, hi = _effective_be_window(slot, components,
+                                      (bound_overrides or {}).get(slot.role))
         return 0.5 * (lo + hi)
 
     for comp in components:
@@ -1122,6 +1146,13 @@ def run_stability_analysis(
     occupied: dict[str, int] = {s.role: 0 for s in model.slots}
     n_converged = 0
     n_with_orphans = 0
+    # Same widened bounds every refit was actually built with (constant
+    # across this candidate's whole stability pass) — identity-matching
+    # must agree with the bound the fit was allowed to search, or a
+    # component correctly placed outside its ORIGINAL window becomes an
+    # orphan here, tanking persistence for the very slot this option
+    # exists to rescue (Codex-caught, see _effective_be_window).
+    bound_overrides = _full_window_bound_overrides(model, x) if fit_full_window else None
 
     # Data-informed perturbation seeds (see perturb_initial_params): reuse
     # the primary fit's background rather than recomputing per refit.
@@ -1158,7 +1189,8 @@ def run_stability_analysis(
         refit_chis.append(float(outcome.weighted_chi_sq))
         if best_outcome is None or outcome.weighted_chi_sq < best_outcome.weighted_chi_sq:
             best_outcome = outcome
-        slot_map = match_components_to_slots(outcome.components, model, noise_floor)
+        slot_map = match_components_to_slots(outcome.components, model, noise_floor,
+                                            bound_overrides=bound_overrides)
         if slot_map.pop("__orphans__", []):
             n_with_orphans += 1
         for role, comp in slot_map.items():
@@ -1884,6 +1916,7 @@ def _proposal_blocked(
     center: float,
     base_model: CandidateModel,
     fitted_components: list["FittedComponent"],
+    bound_overrides: Optional[dict[str, tuple[float, float]]] = None,
 ) -> bool:
     """Stage-2 proposal-eligibility rule (2026-07-10; replaces the old
     window-membership test — Step-1 chokepoint 2): a residual cluster is
@@ -1911,7 +1944,8 @@ def _proposal_blocked(
     for slot in base_model.slots:
         if slot.role not in populated_roles:
             continue
-        lo, hi = _effective_be_window(slot, fitted_components)
+        lo, hi = _effective_be_window(slot, fitted_components,
+                                      (bound_overrides or {}).get(slot.role))
         if lo <= center <= hi:
             return True
     return False
@@ -1924,9 +1958,12 @@ def _detect_residual_proposals(
     noise_floor: float,
     base_model: CandidateModel,
     fitted_components: list["FittedComponent"],
+    fit_full_window: bool = False,
 ) -> list[ProposalSpec]:
     if len(x) < 4:
         return []
+    bound_overrides = (_full_window_bound_overrides(base_model, x)
+                       if fit_full_window else None)
     r = y - y_fit
     sigma = np.sqrt(np.maximum(y, noise_floor))
     r_std = r / sigma
@@ -1986,7 +2023,8 @@ def _detect_residual_proposals(
         fwhh = float(span[right] - span[left])
         fwhm_init = float(np.clip(fwhh if fwhh > 0 else PROPOSAL_FWHM_MIN,
                                   PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX))
-        if _proposal_blocked(center, base_model, fitted_components):
+        if _proposal_blocked(center, base_model, fitted_components,
+                             bound_overrides=bound_overrides):
             continue
         specs.append(ProposalSpec(
             role=f"proposed_peak_{idx}",
@@ -2779,6 +2817,7 @@ def compare_models(
                 specs = _detect_residual_proposals(
                     x, y, current_y_fit, noise_floor, current.model,
                     fitted_components=current.primary_fit.components,
+                    fit_full_window=fit_full_window,
                 )
                 # roles must stay unique across rounds — number this round's
                 # specs from one past the HIGHEST existing suffix (never a

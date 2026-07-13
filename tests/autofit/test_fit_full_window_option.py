@@ -30,7 +30,8 @@ a caller opts in.
 import numpy as np
 import pytest
 
-from autofit.engine import _default_params_from_slots, _slot_prefix, fit_candidate
+from autofit.engine import (_default_params_from_slots, _slot_prefix,
+                            fit_candidate, run_stability_analysis)
 from autofit.grammar import BackgroundType, CandidateModel, ComponentSlot, LineShape
 
 
@@ -92,6 +93,31 @@ def test_full_window_widens_only_outer_envelope_for_multi_slot_curated_model():
     assert _bounds(params, "co") == (286.0, 287.0)          # interior: untouched
     lo, hi = _bounds(params, "shake_up")
     assert lo == pytest.approx(290.0) and hi == pytest.approx(299.9, abs=0.05)
+
+
+def test_full_window_never_narrows_or_inverts_a_bound_when_roi_is_shifted():
+    """Regression (2026-07-13 Codex review, round 1 BLOCKER): a ROI that
+    does NOT fully contain a slot's own literature window (e.g. the user
+    set a narrower/shifted window than the region's full literature
+    span) must leave that untouched side EXACTLY as it was — never
+    assign a bare ROI edge that could sit on the wrong side of the
+    slot's own bound and invert it (min > max), and never narrow an
+    already-correct bound."""
+    model = _model(
+        _slot("graphitic", "C 1s", (284.0, 285.0)),
+        _slot("co", "C 1s", (286.0, 287.0)),
+        _slot("shake_up", "C 1s", (290.0, 292.0)),
+    )
+    # ROI's low edge (287.0) sits ABOVE the lowest slot's own upper bound
+    # (285.0) — the pre-fix code assigned roi_lo=287.0 as graphitic's
+    # lower bound unconditionally, producing (287.0, 285.0): min > max.
+    x = np.arange(287.0, 300.0, 0.1)
+    params = _default_params_from_slots(model, x=x, y_net=None, fit_full_window=True)
+    lo, hi = _bounds(params, "graphitic")
+    assert lo <= hi, (lo, hi)
+    assert (lo, hi) == (284.0, 285.0)          # untouched: ROI doesn't reach it
+    lo, hi = _bounds(params, "shake_up")
+    assert lo == 290.0 and hi == pytest.approx(299.9, abs=0.05)  # this side still widens
 
 
 def test_full_window_widens_a_single_curated_slot_on_both_sides():
@@ -219,3 +245,29 @@ def test_full_window_lets_the_fit_reach_the_true_out_of_window_position():
     by_role = {c.slot_role: c for c in out.components}
     assert by_role["shake_up"].position == pytest.approx(294.0, abs=0.15)
     assert by_role["graphitic"].position == pytest.approx(284.5, abs=0.1)
+
+
+def test_full_window_stability_does_not_orphan_a_widened_component():
+    """Regression (2026-07-13 Codex review, round 1 BLOCKER): identity-
+    matching during stability re-fits (``match_components_to_slots`` /
+    ``_effective_be_window``) must agree with the SAME widened bound the
+    fit was actually built with — otherwise a refit that correctly
+    places the outer slot at its true, out-of-literature-window position
+    (294.0) gets rejected as an "orphan" against the slot's UNWIDENED
+    original window (290-292) every time, tanking persistence and
+    defeating the whole point of the option even though the fit itself
+    is working exactly as intended."""
+    x, y = _c1s_shaped_spectrum(outer_true_center=294.0)
+    w = 1 / np.sqrt(np.maximum(y, 1))
+    model = _c1s_shaped_model()
+    primary = fit_candidate(x, y, w, model, fit_full_window=True)
+    assert primary.converged
+    stability = run_stability_analysis(
+        x, y, w, model, primary, noise_floor=1.0, n_refits=6, rng_seed=0,
+        fit_full_window=True,
+    )
+    shake_up = stability.per_slot["shake_up"]
+    assert shake_up.persistence >= 0.8, (
+        f"shake_up persistence={shake_up.persistence} — the widened "
+        "component is being falsely orphaned against its original window")
+    assert stability.orphan_rate < 0.2, stability.orphan_rate

@@ -1,0 +1,127 @@
+You are reviewing a new opt-in feature on branch feature-autofit-stage2
+of the XPS Fitting Studio repo (worktree at this path, commit 442539f).
+Read code directly from disk, do not trust this description alone. This
+touches the core fitting engine (autofit/engine.py) — treat it with the
+scrutiny that deserves.
+
+CONTEXT: Find Peaks (the automated peak-fitting feature, distinct from
+manual Run Fit / /api/fit, which this change must not touch) resolves a
+region to a "grammar" of candidate models. Each curated grammar module
+(autofit/regions/c1s.py, n1s.py, cl2p.py, b1s.py, u4f.py) defines
+per-component slots with a FIXED, literature-anchored `be_window` that
+hard-bounds where lmfit can place that component's center parameter —
+completely independent of how wide the user's ROI is. That's the right
+default (C 1s has 6 chemically-distinct sub-windows, e.g. graphitic
+284.0-284.8, aliphatic 284.6-285.4, ... shake-up 290.0-292.0 — each
+anchors a specific chemical state), but it means an unusually-shifted
+extreme component just outside the outermost window is unreachable no
+matter how wide the user sets their ROI.
+
+THE FIX (opt-in, default OFF — must not change today's behavior unless
+explicitly enabled): a new `fit_full_window: bool = False` option.
+IMPORTANT DESIGN NUANCE (resolved via an explicit design conversation
+with the repo owner before implementation — verify the code actually
+does this, don't take it on faith): the widening branches on how EACH
+SLOT was solved, not on whether the region has grammar:
+- a slot with `region == "unassigned"` (a detection/structural-fallback
+  slot — e.g. Fe 2p, or an out-of-grammar "preseed" slot added
+  alongside curated slots in the same model) has no cited per-component
+  window to preserve — widens FULLY to the ROI on both sides.
+- any other (curated) slot widens ONLY the OUTER ENVELOPE: among all
+  curated PRIMARY (non-linked) slots in one candidate model, the
+  lowest-be_window[0] slot's lower bound extends to the ROI's low edge,
+  and the highest-be_window[1] slot's upper bound extends to the ROI's
+  high edge — every OTHER (interior) slot, and the untouched side of an
+  outer slot, must keep its original literature window byte-for-byte.
+  This is the crux of the whole design: it must be IMPOSSIBLE for this
+  option to let one chemical-state component (e.g. C-O) wander into a
+  neighboring one's territory (e.g. graphitic).
+- LINKED slots (spin-orbit doublet partners, satellites — anything with
+  `linked_to` set) must NEVER be touched by this option at all: their
+  position comes from a `parent_center + offset` expression, and the
+  offset range is a cited physical splitting, unrelated to ROI cropping.
+- The optimizer's STARTING GUESS (the initial `value=` passed to
+  lmfit) and the amplitude-estimate window must ALSO stay anchored to
+  the slot's own original `be_window` even when the hard bound widens —
+  only the constraint relaxes, never where the search starts.
+
+FILES CHANGED:
+- autofit/engine.py — new `_full_window_bound_overrides()` helper +
+  `fit_full_window` parameter added to `_default_params_from_slots`
+  (the single choke point for building lmfit Parameters from a
+  CandidateModel's slots) and threaded through every function that
+  calls it, directly or indirectly: `fit_candidate`,
+  `perturb_initial_params` (→ `run_stability_analysis`),
+  `_initial_params_for_augmented` (→ `_attempt_proposal`),
+  `_bound_fixed_refit` (→ `_apply_decisive_override`), and
+  `compare_models` itself (the top-level entry point, which must pass
+  the flag to EVERY one of its own internal calls to the above:
+  the screen-phase fit, the deep-phase primary fit, the stability
+  analysis call, the proposal-pass call, and the decisive-override
+  call).
+- autofit/methods/ic_model_comparison.py — `fit_full_window` added to
+  `_ALLOWED_OPTIONS`, popped from the request's `options` dict and
+  passed to `compare_models(...)`.
+- app.py — `_ANALYZE_METHODS["ic_model_comparison"]["fit_full_window"]`
+  default `False` (flows automatically into `/api/analyze/meta`'s
+  `default_options` and into the options-merge at request time; no
+  other app.py change).
+- templates/index.html — one new checkbox entry in the existing,
+  already-generic `FP_STRINGS.controls.ic_model_comparison` array
+  (label "Fit the entire window", tooltip explaining the default vs
+  checked behavior) — the render/sync/JSON-passthrough machinery was
+  already fully generic; no other frontend code changed.
+- tests/autofit/test_fit_full_window_option.py (10 tests) and
+  tests/test_api_fit_full_window_option.py (3 tests) — new.
+
+PLEASE VERIFY (read the actual code — this is core fitting math, don't
+take the description on faith):
+1. Re-derive the exact widening rule yourself from
+   `_full_window_bound_overrides()` and confirm it matches the
+   "outer-envelope-only for curated, full-ROI for unassigned" design
+   above — in particular, confirm a model with 3+ curated primary slots
+   really does leave every INTERIOR slot's window completely untouched
+   (not just narrower than before — IDENTICAL to the unwidened case).
+2. Confirm linked slots (check `slot.linked_to is not None` handling)
+   are excluded from the override computation entirely, and that their
+   `linked_offset_range` is never modified anywhere.
+3. Confirm the STARTING VALUE (`cmid` / the `value=` argument to
+   `p.add(f"{prefix}center", ...)`) and the amplitude-estimate window
+   (`_amp_bounds(...)` argument) both still use the slot's ORIGINAL
+   `be_window`, not the overridden one — only `min=`/`max=` should use
+   the override.
+4. Trace `fit_full_window` end to end from the HTTP request body
+   (`options.fit_full_window`) through `app.py`, `ic_model_comparison.py`,
+   and EVERY call site inside `compare_models` — is there any call site
+   that builds params from scratch but was MISSED (would silently keep
+   using the narrow window even when the option is on)? Pay particular
+   attention to whether `run_stability_analysis`'s OWN internal call to
+   `perturb_initial_params`, and `_attempt_proposal`'s OWN internal call
+   to `_initial_params_for_augmented`, both actually receive the
+   threaded flag (not just the top-level `compare_models` signature).
+5. Confirm the default (`fit_full_window=False` everywhere) makes every
+   EXISTING caller's behavior byte-for-byte identical to before this
+   change — i.e., that the new parameter is purely additive and no
+   existing code path's behavior shifted even slightly.
+6. Confirm `_detect_boundary_hits()` (which flags e.g. `center@max` for
+   the honesty/plausibility layer) reads the LIVE lmfit parameter bounds
+   rather than a separately-cached window constant, so a widened bound
+   is still correctly honesty-flagged when a fit pegs against it, in
+   BOTH modes, with no separate code change needed — verify this claim
+   directly rather than trusting it.
+7. Manual Run Fit / `/api/fit` — confirm this change touches NEITHER
+   (grep for any reference to `fit_full_window` or `compare_models`
+   outside the analyze/autofit code path).
+8. Run (or trace) `tests/autofit/test_fit_full_window_option.py` —
+   in particular the two full `fit_candidate` end-to-end tests
+   (`test_default_clamps_an_out_of_window_component_to_the_bound` and
+   `test_full_window_lets_the_fit_reach_the_true_out_of_window_position`)
+   — do they actually prove the fitted RESULT differs as claimed, not
+   just the Parameters object's bounds?
+9. Anything else that looks wrong, regardless of whether it's on this
+   list — this is exactly the kind of core-math change that deserves a
+   skeptical read.
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line and
+describe the concrete failure scenario. End your final answer with a
+line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
