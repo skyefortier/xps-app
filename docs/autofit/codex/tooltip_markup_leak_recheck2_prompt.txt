@@ -1,0 +1,66 @@
+Round-3 recheck for the Find Peaks tooltip HTML-leak fix's test payload
+realism (branch feature-autofit-stage2, worktree at this path, commit
+8ce1a7f). Read docs/autofit/codex/tooltip_markup_leak_review_prompt.txt
+and docs/autofit/codex/tooltip_markup_leak_recheck_prompt.txt for full
+prior context — do not trust this description alone; verify against
+current disk state.
+
+ROUND 2 FINDING (split 1x GO / 1x NO-GO — stricter governs, so this was
+treated as NO-GO): the production fix itself (`_fpRenderResults()`'s
+statusText/statusHtml split) was confirmed correct by BOTH runs again,
+and the `no_clean_survivor` trigger mechanism was confirmed realistic
+by both runs too. The ONE remaining issue (found by the NO-GO run):
+the synthetic payload's `winner_boundary_hits` value
+(`"s_main_graphitic_fwhm@max"`) and the matching substring inside the
+`filter_reason` string used the FRONTEND's transformed param-label
+format (the `'s_' + role_param + '@bound'` shape that
+`_fpRenderResults()`'s OWN JS builds for its constraint-violation
+banner display, via `'s_' + String(h).replace(':', '_')...`), not the
+REAL raw backend format that `autofit/engine.py`'s
+`_detect_boundary_hits()` actually emits, which is `role:param@min|max`
+(e.g. `"main_graphitic:fwhm@max"`, confirmed at
+autofit/engine.py:687-714's `_detect_boundary_hits()`).
+
+FIX APPLIED (commit 8ce1a7f — verify against current disk state): in
+`tests/test_browser_find_peaks_tooltip_markup.py`'s
+`_NO_CLEAN_SURVIVOR_WINNER_PAYLOAD`, changed
+`"winner_boundary_hits": ["s_main_graphitic_fwhm@max"]` to
+`["main_graphitic:fwhm@max"]`, and the matching substring inside the
+candidate's `filter_reason` PlausibilityFlags repr string from
+`'s_main_graphitic_fwhm@max'` to `'main_graphitic:fwhm@max'`. No other
+field changed. The production `templates/index.html` fix is untouched
+in this commit (this was a test-realism-only correction).
+
+Confirmed via a genuine red-green cycle (mirroring the round-1
+recheck's method exactly): temporarily reintroduced the original
+double-escaping bug in `_fpRenderResults()` (built the tooltip from
+`_fpEsc(statusHtml + '...')` instead of `_fpEsc(statusText + '...')`),
+reran `test_winner_tooltip_never_contains_literal_markup` against the
+now-doubly-corrected payload, watched it fail with the same literal
+`'<b>Best fit</b> — see Technical details...'` leaked text, restored
+the fix and reran — all 4 tests in the file passed, and the full suite
+(`pytest tests/`) passed (the one unrelated pre-existing failure,
+`test_u4f_n1s_cofit`, confirmed present on the clean commit before this
+whole review cycle too, via `git stash`).
+
+PLEASE VERIFY:
+1. Read `_detect_boundary_hits()` in autofit/engine.py directly and
+   confirm the exact string format it produces (`f"{role}:{short}@..."`)
+   — re-derive this yourself rather than trusting the description, and
+   confirm the current payload's two occurrences of
+   `"main_graphitic:fwhm@max"` genuinely match that format (role, colon,
+   param name, @, min-or-max — no stray prefix/underscore artifacts
+   left over from the frontend's own display-transform).
+2. Confirm no OTHER field in `_NO_CLEAN_SURVIVOR_WINNER_PAYLOAD` still
+   carries a frontend-transformed value instead of a raw backend one
+   (re-check `winner`, `conditional_reason`, `name`, `filter_reason` in
+   full against what `rank_and_filter()` + `build_analysis_record()`
+   would actually produce).
+3. Confirm the production fix in `_fpRenderResults()`
+   (statusText/statusHtml split, tooltip built from statusText only) is
+   unchanged from what was already twice cleared.
+4. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".

@@ -1,0 +1,82 @@
+Round-4 recheck for the "fit the entire window" fit-range-crop fix
+(branch feature-autofit-stage2, worktree at this path, commit 8ce1a7f).
+Read docs/autofit/codex/full_window_crop_fix_review_prompt.txt,
+docs/autofit/codex/full_window_crop_fix_recheck_prompt.txt, and
+docs/autofit/codex/full_window_crop_fix_recheck2_prompt.txt for full
+prior context — do not trust this description alone; verify against
+current disk state.
+
+ROUND 3 FINDING (both of 2 independent runs, unanimous NO-GO): after
+the round-2 fix added a `renderResults()` call to reset the Results
+panel, a 4th stale DOM surface was found: `renderResults()`'s
+`!state.fitResult` branch resets only `#results-area` and returns —
+it never touches `#quantify-area`, which is populated by
+`renderQuantify()`, called only from the non-null branch further down
+in the same function. Concrete scenario: run a fit, populate Quantify,
+then run Find Peaks with "Fit the entire window" checked and apply —
+chart, status bar, and Results panel all clear correctly, but Quantify
+keeps showing the OLD fit's area/RSF/At% table.
+
+FIX APPLIED (commit 8ce1a7f — verify against current disk state):
+
+In `renderResults()` (templates/index.html), inside its existing
+`if (!state.fitResult) { ... }` branch (the SAME branch that already
+resets `#results-area`, not a new branch), added:
+```
+const qEl = document.getElementById('quantify-area');
+if (qEl) qEl.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0;">Run fit to quantify.</p>';
+```
+— the exact placeholder text/markup from `#quantify-area`'s own initial
+static HTML. This fix lives in `renderResults()` itself (not in
+`applyFindPeaks()`), so it applies uniformly to EVERY caller of
+`renderResults()` (activateTab, closeTab, manual Run Fit's own
+"cleared" paths, etc.) wherever `state.fitResult` is null — not just
+the Find Peaks full-window path. No test in the suite previously
+asserted anything about `#quantify-area`, so this couldn't have
+regressed an existing assertion; confirmed via a full suite run.
+
+`tests/test_browser_find_peaks_full_window.py` extended: added
+`quantifyArea` to `_status_bar_snapshot`'s captured fields; the
+unchecked test's existing full-object-equality assertion automatically
+now also covers it; the checked test gained explicit
+before/after assertions (`"Run fit to quantify" not in` the stale
+pre-apply value, `"Run fit to quantify" in` the post-apply value).
+
+Confirmed via a genuine red-green cycle: temporarily disabled just the
+2 new lines inside `renderResults()`, reran the checked-case test,
+watched it fail on the new quantify-area assertion with the OLD fit's
+actual RSF/At% table HTML printed in the failure message, restored the
+lines and reran — full 3-test file passed, and the complete suite
+(`pytest tests/`) passed (the one failure present, `test_u4f_n1s_cofit`
+in tests/autofit/test_u4f_parity_gate.py, is a pre-existing numerical
+parity-gate marginal case confirmed present via `git stash` against the
+clean pre-this-fix commit too — completely unrelated to this fix's
+scope, no autofit/engine.py or fitting math touched by this branch).
+
+PLEASE VERIFY:
+1. Read the current `renderResults()` directly and confirm the 2 new
+   lines are INSIDE the `if (!state.fitResult)` branch (not moved
+   outside it or into the wrong branch).
+2. Confirm the placeholder markup GENUINELY MATCHES `#quantify-area`'s
+   own static initial HTML (search for `id="quantify-area"` in the
+   static template) — re-derive this yourself rather than trusting the
+   description.
+3. Confirm this is the LAST stale DOM surface — grep for any other
+   place that reads `state.fitResult` to populate visible DOM and is
+   NOT reached by `renderPeakList()`, `updatePlot()`, `renderResults()`
+   (which now also covers Quantify), or the existing status-bar reset
+   block in `applyFindPeaks()`. In particular check: the Survey panel,
+   any "last analysis" summary, any export/download preview, and the
+   Auto-Fit menu state.
+4. Confirm this still touches ONLY `templates/index.html` (JS) and the
+   test file — no backend Python changes, no `/api/fit` involvement, no
+   peak-position/width/chemical-anchor changes.
+5. Confirm the `test_u4f_n1s_cofit` failure really is unrelated and
+   pre-existing — check whether this branch's commits touch
+   `autofit/engine.py`, `autofit/methods/*.py`, or `fitting.py` at all
+   (they should not).
+6. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
