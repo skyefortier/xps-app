@@ -3261,6 +3261,27 @@ own x-axis tick range visibly changes from "290.4...278.04" to
 Full JS suite: 113 passed. Existing Find Peaks browser suites (coverage,
 progress, drag): 17 passed, no regressions.
 
+**Codex review (2 independent runs)**: both NO-GO — same real finding,
+unanimous. Clearing `state.fitResult` fixed the CHART, but the
+STATUS BAR widgets (`#sb-roi`'s "ROI: ..." readout, `#sb-chi`, the
+R-factor pill, `#fit-quality`) are a SEPARATE piece of DOM state that
+only refreshes when explicitly told to — they kept showing the OLD
+fit's stale numbers (the bug report's own literal symptom,
+"ROI: 278.0-290.4") even after the chart itself was correctly fixed.
+Fixed same-session: when clearing `state.fitResult`, also reset these
+widgets to the SAME "no committed fit yet" state
+`TabManager.activateTab` already uses for a tab with no
+`state.fitResult` (reusing an existing, well-tested convention rather
+than inventing a new one) — `#fit-quality` → "χ² —", `#sb-chi` → "—",
+`_updateRFactorUI(null)`, `_updateROIDisplay(null)`. Both existing
+tests extended to also assert on the status bar (unchecked: status bar
+untouched; checked: stale "290.4"/old χ²ᵣ readout gone) — confirmed via
+a genuine red-green cycle (temporarily disabled just the new reset
+lines, watched the checked-case test fail reproducing the bug report's
+EXACT string `'ROI: 278.0–290.4 eV'`, restored the fix, watched it
+pass). Full JS suite (113) and all other Find Peaks browser suites (24)
+still pass.
+
 ### Unit 2 — Method dropdown tooltips still uninformative
 
 **Bug report**: the dropdown entries were renamed (round 3, unit 2 of

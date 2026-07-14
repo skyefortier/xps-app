@@ -14085,7 +14085,25 @@ async function applyFindPeaks() {
   // CURRENT #roi-min/#roi-max, i.e., the full window Find Peaks just used.
   // Default (unchecked) leaves state.fitResult untouched — today's
   // behavior, unchanged.
-  if (_fpLast && _fpLast.fitFullWindow) state.fitResult = null;
+  if (_fpLast && _fpLast.fitFullWindow) {
+    state.fitResult = null;
+    // Clearing state.fitResult fixes the CHART (updatePlot's "haveFit"
+    // branch), but the status-bar widgets (χ²ᵣ, R-factor, "ROI: ...")
+    // are a SEPARATE piece of DOM state that only refreshes when
+    // explicitly told to (Codex review finding, 2026-07-14: this was
+    // the other half of the bug report's exact symptom — the header
+    // could still read the OLD fit's stale "ROI: 278.0-290.4 eV" even
+    // after the chart itself had been fixed). Reset them to the SAME
+    // "no committed fit yet" state TabManager.activateTab already uses
+    // when a tab has no state.fitResult, rather than inventing a new
+    // convention.
+    const fqEl = document.getElementById('fit-quality');
+    if (fqEl) { fqEl.innerHTML = '&#967;&#178; &mdash;'; fqEl.removeAttribute('data-xps-tip'); }
+    const chiEl = document.getElementById('sb-chi');
+    if (chiEl) chiEl.textContent = '—';
+    _updateRFactorUI(null);
+    _updateROIDisplay(null);
+  }
   renderPeakList();
   updatePlot();
   closeFindPeaksModal();
