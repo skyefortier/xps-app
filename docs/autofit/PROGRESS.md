@@ -3370,3 +3370,101 @@ it pass).
 Full JS suite: 113 passed. All Find Peaks browser suites combined
 (coverage, progress, method tooltips, full-window): 18 passed, no
 regressions.
+
+### Codex review: Find Peaks round-4 fixes (2026-07-14) — GO ×2 all
+units, after 3 rounds of NO-GO on Units 1 and 3
+
+Each unit reviewed independently, 2 runs per round, "stricter verdict
+governs" per standing instruction. Units 1 and 3 needed 3 rounds of
+real, substantive findings before clearing; Unit 2 cleared on round 1.
+
+**Unit 1 — "fit the entire window" fit-range-crop fix.** Prompts
+`full_window_crop_fix_review_prompt.txt` /
+`full_window_crop_fix_recheck{,2,3}_prompt.txt`. Verdicts
+`full_window_crop_fix_verdict_round{1,2,3,4}_run{A,B}.md`.
+
+- **Round 1 (commit e0d3185): NO-GO ×2.** Both runs found the same gap:
+  clearing `state.fitResult` fixed the CHART, but the status-bar
+  widgets (`#sb-roi`, `#sb-chi`, R-factor pill, `#fit-quality`) stayed
+  stale — reproducing the bug report's own literal symptom
+  ("ROI: 278.0-290.4 eV") in a different place. Fixed: reset those
+  widgets to `TabManager.activateTab`'s existing "no fit" convention,
+  inside the same `fitFullWindow` conditional (commit c3fe41f).
+- **Round 2 (commit c3fe41f): NO-GO ×2.** Both runs found a THIRD stale
+  surface: the right-side Results panel (`#results-area`), populated
+  only by `renderResults()`, which was never called. Fixed: added a
+  `renderResults()` call in the same conditional block (commit
+  550cf6d).
+- **Round 3 (commit 550cf6d): NO-GO ×2.** Both runs found a FOURTH
+  stale surface: `renderResults()`'s own `!state.fitResult` branch
+  reset `#results-area` but never `#quantify-area` (populated by
+  `renderQuantify()`, reached only on the non-null path). Fixed: reset
+  `#quantify-area` to its own static placeholder inside
+  `renderResults()`'s existing null branch — general fix, not
+  Find-Peaks-specific, since this is the shared "no fit" entry point
+  for every caller (commit 8ce1a7f).
+- **Round 4 (commit 8ce1a7f): GO ×2.** Both runs confirmed all four
+  stale-DOM surfaces (chart, status bar, Results panel, Quantify panel)
+  are now covered, swept for a fifth surface and found none (Survey,
+  export/download, history preview, Auto-Fit menu state all
+  confirmed clean), and confirmed the fix range never touches
+  `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`, or
+  `/api/fit`.
+
+Each round's fix was verified via a genuine red-green cycle (the fix
+line(s) temporarily disabled, test reran to confirm it fails with the
+literal reproduced symptom, then restored) before the next Codex round
+was launched. **UNIT 1 REVIEW-COMPLETE.**
+
+**Unit 2 — Method dropdown tooltips.** Prompt
+`method_tooltips_review_prompt.txt` (commit 17b0518). Verdicts
+`method_tooltips_verdict_run{A,B}.md`: **GO ×2 on round 1**, no
+findings. Both runs independently confirmed all four `FP_STRINGS.methods`
+hints are substantive, the option `title=` fallback chain can't
+silently produce an empty tooltip for any real method ID (cross-checked
+against `_ANALYZE_METHODS` in app.py), and the change is genuinely
+display-only. **UNIT 2 REVIEW-COMPLETE.**
+
+**Unit 3 — "Best fit" tooltip HTML-leak fix.** Prompts
+`tooltip_markup_leak_review_prompt.txt` /
+`tooltip_markup_leak_recheck{,2}_prompt.txt`. Verdicts
+`tooltip_markup_leak_verdict_round{1,2,3}_run{A,B}.md`.
+
+- **Round 1 (commit 2ae4340): NO-GO ×2.** Both runs confirmed the
+  PRODUCTION fix itself (the `statusText`/`statusHtml` split) was
+  correct and found no other leak in the Find Peaks section — but
+  flagged that the new test's synthetic payload modeled an unrealistic
+  backend shape: a `decisive_override` "+bfix" winner can never
+  actually carry a `filter_reason` (`_apply_decisive_override` promotes
+  it straight into `survivors`, never into `filtered_out` under the new
+  name). Both runs independently pointed at the REAL trigger:
+  `rank_and_filter()`'s `no_clean_survivor` tier, which promotes the
+  SAME `ModelReport` (same name, no suffix) into `survivors` while it's
+  simultaneously recorded in `filtered_out`. Fixed: rebuilt the test
+  payload around that real shape (commit 550cf6d).
+- **Round 2 (commit 550cf6d): split 1× GO / 1× NO-GO — stricter
+  governs, treated as NO-GO.** The NO-GO run found the corrected
+  payload still used the FRONTEND's transformed boundary-hit label
+  format (`s_main_graphitic_fwhm@max`) instead of the real raw backend
+  format `_detect_boundary_hits()` emits (`role:param@min|max`, e.g.
+  `main_graphitic:fwhm@max`). Fixed: corrected both occurrences (commit
+  8ce1a7f).
+- **Round 3 (commit 8ce1a7f): GO ×2.** Both runs re-derived
+  `_detect_boundary_hits()`'s exact output format directly and confirmed
+  the payload now matches it exactly, re-confirmed the production fix
+  and the `no_clean_survivor` trigger mechanism, and re-swept for any
+  other HTML-fragment-as-tooltip leak (none found).
+
+Each round's fix was verified via a genuine red-green cycle (the
+production fix temporarily reverted, test reran against the CORRECTED
+payload to confirm it reproduces the exact original bug-report leak
+text, then restored) before the next Codex round was launched. **UNIT 3
+REVIEW-COMPLETE.**
+
+**Full suite**: 650 passed, 6 skipped, 1 pre-existing unrelated failure
+(`tests/autofit/test_u4f_parity_gate.py::test_u4f_n1s_cofit`, a
+numerical parity-gate marginal case — confirmed present via `git stash`
+against the clean commit before this whole review cycle too, and this
+branch's Find Peaks UI commits never touch `autofit/engine.py`,
+`autofit/methods/*.py`, or `fitting.py`). **FIND PEAKS ROUND-4 FIXES:
+ALL THREE UNITS REVIEW-COMPLETE, verified on :5252 light + dark.**
