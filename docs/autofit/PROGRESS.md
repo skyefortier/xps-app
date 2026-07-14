@@ -3260,3 +3260,33 @@ own x-axis tick range visibly changes from "290.4...278.04" to
 
 Full JS suite: 113 passed. Existing Find Peaks browser suites (coverage,
 progress, drag): 17 passed, no regressions.
+
+### Unit 2 — Method dropdown tooltips still uninformative
+
+**Bug report**: the dropdown entries were renamed (round 3, unit 2 of
+the plain-English pass), but hovering was still vague — the field-level
+tooltip read "...is the right choice unless you have a reason
+otherwise," and hovering an individual option showed the RAW BACKEND
+LABEL (e.g. "Auto — model comparison (IC)", straight from
+`autofit/methods/ic_model_comparison.py`'s class `label` attribute) —
+jargon, and no explanation of what that option actually does.
+
+**Fix** (templates/index.html only): each `<option title="...">` now
+shows that method's own plain-English hint (`FP_STRINGS.methods[id].hint`
+— the same text already shown in the hint box below the dropdown once
+selected) instead of the raw backend label, so hovering ANY option
+(even before selecting it) explains what it does and when to use it —
+no click required first. The field-level tooltip
+(`FP_STRINGS.tips.method`) was rewritten from the vague
+"...right choice unless you have a reason otherwise" to point at the
+per-option tooltips and summarize the tradeoff between all four
+("Compare peak models" fits most regions; the others trade speed for
+confidence ranges, a quick estimate, or refitting existing peaks).
+
+**Tests**: `tests/test_browser_find_peaks_method_tooltips.py` (3 new
+tests) — the field tooltip no longer contains the old vague sentence;
+every option's tooltip is a substantive plain-English explanation (not
+the raw backend label, not just the visible option text repeated); each
+method's tooltip content spot-checked for its own distinguishing
+behavior. All pass; full JS suite (113) and other Find Peaks browser
+suites (12) unaffected.

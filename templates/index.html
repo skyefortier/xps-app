@@ -12992,8 +12992,11 @@ const FP_STRINGS = {
     material: 'Conducting samples charge-correct differently from ' +
               'insulating ones, and the suggested peak shapes differ too. ' +
               'Pick what best describes YOUR sample.',
-    method: 'How the suggestions are generated. “Compare peak models” ' +
-            'is the right choice unless you have a reason otherwise.',
+    method: 'How the suggestions are generated. Hover (or select) an ' +
+            'option below to see what it does and when to use it — ' +
+            '“Compare peak models” fits most regions; the others trade ' +
+            'speed for confidence ranges, a quick estimate, or refitting ' +
+            'peaks you already placed.',
     regions: 'Which core-level region(s) to model. Pick the region this ' +
              'scan covers; ctrl-click two if one scan genuinely contains ' +
              'both (e.g. N 1s inside a U 4f window).',
@@ -13390,8 +13393,13 @@ async function openFindPeaksModal() {
   meth.innerHTML = _fpMeta.methods
     .map(m => {
       const s = FP_STRINGS.methods[m.id] || {};
-      // friendly label; the backend's technical label stays on hover
-      return `<option value="${_fpEsc(m.id)}" title="${_fpEsc(m.label || m.id)}">${_fpEsc(s.label || m.label || m.id)}</option>`;
+      // hovering an option (even before selecting it) shows the SAME
+      // plain-English explanation as the hint box below the dropdown —
+      // no jargon, and no need to select first just to learn what an
+      // option does. Previously showed the raw backend label here
+      // (e.g. "Auto — model comparison (IC)"), which read as vague/
+      // jargon-y "the tooltip" per the 2026-07-14 bug report.
+      return `<option value="${_fpEsc(m.id)}" title="${_fpEsc(s.hint || s.label || m.label || m.id)}">${_fpEsc(s.label || m.label || m.id)}</option>`;
     }).join('');
   meth.value = 'ic_model_comparison';
   _fpMethodChanged();
