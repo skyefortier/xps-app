@@ -13976,13 +13976,23 @@ function _fpRenderResults(body) {
     th('fit quality (χ²ᵣ)', T.chi2r) + th('ranking score', T.bic) +
     th('status', T.status) + '</tr>' +
     cands.map(c => {
-      const status = c.name === d.winner ? '<b>' + _fpEsc(S.winner) + '</b>'
-        : (c.survived ? _fpEsc(S.alternative)
-                      : _fpEsc(_fpFilterReasonLabel(c.filter_reason)));
+      // PLAIN TEXT only (statusText) for anything going into a title=
+      // attribute — <b>/</b> markup is applied ONLY in statusHtml, for
+      // innerHTML display. Escaping statusHtml a second time (as a
+      // prior fix did, building the tooltip from the ALREADY-markup-
+      // wrapped `status` string) decoded back to literal, visible
+      // "<b>Best fit</b>" text in the tooltip instead of rendering bold
+      // (2026-07-14 bug report) — attribute values never re-interpret
+      // HTML entities as markup, so escaping a string that already
+      // contains raw tags just makes those tags show up as text.
+      const isWinner = c.name === d.winner;
+      const statusText = isWinner ? S.winner
+        : (c.survived ? S.alternative : _fpFilterReasonLabel(c.filter_reason));
+      const statusHtml = isWinner ? '<b>' + _fpEsc(statusText) + '</b>' : _fpEsc(statusText);
       return `<tr><td style="${td}" title="${_fpEsc(c.name)}">${_fpEsc(_fpModelLabel(c.name))}</td>` +
         `<td style="${td}">${c.reduced_chi_sq != null ? (+c.reduced_chi_sq).toFixed(2) : '—'}</td>` +
         `<td style="${td}">${c.bic_star != null ? (+c.bic_star).toFixed(1) : '—'}</td>` +
-        `<td style="${td}" title="${c.filter_reason ? _fpEsc(status + ' — see Technical details below for the specific reason.') : ''}">${status}</td></tr>`;
+        `<td style="${td}" title="${c.filter_reason ? _fpEsc(statusText + ' — see Technical details below for the specific reason.') : ''}">${statusHtml}</td></tr>`;
     }).join('') : '';
   document.getElementById('fp-results').style.display = 'block';
 }

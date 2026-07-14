@@ -3290,3 +3290,62 @@ the raw backend label, not just the visible option text repeated); each
 method's tooltip content spot-checked for its own distinguishing
 behavior. All pass; full JS suite (113) and other Find Peaks browser
 suites (12) unaffected.
+
+### Unit 3 — raw `<b></b>` markup leaking into the "Best fit" tooltip
+
+**Bug report**: the "Other models compared" table's status column shows
+a literal "<b></b>" tag as VISIBLE TEXT in the tooltip for the winning
+row, instead of properly rendering/escaping.
+
+**Root cause**: the winning candidate's status cell is built as
+`'<b>' + _fpEsc(S.winner) + '</b>'` — a small HTML fragment meant for
+`innerHTML` display (renders correctly as bold "Best fit" in the cell
+itself). An EARLIER fix in this same session (closing a DIFFERENT bug —
+a raw Python `PlausibilityFlags(...)` repr leaking into this same
+cell's tooltip) built the tooltip text as
+`_fpEsc(status + ' — see Technical details...')` — i.e. it ran
+`_fpEsc()` a SECOND time over a string that, for the winning row,
+ALREADY contained raw `<b>`/`</b>` characters. Escaping those turns them
+into `&lt;b&gt;`/`&lt;/b&gt;` in the HTML source, which the browser
+decodes BACK to the literal characters `<b>`/`</b>` when parsing the
+`title` ATTRIBUTE VALUE — and since attribute values are never
+re-parsed as markup, those literal characters show up as visible text
+in the tooltip instead of being interpreted as bold formatting. The
+concrete trigger: a `decisive_override` winner (a bound-fixed refit
+promoted from `filtered_out`, per `autofit/engine.py`'s
+`_apply_decisive_override`) still carries its pre-promotion
+`filter_reason`, so `c.filter_reason` is truthy for that specific
+winner — the exact combination needed to hit the buggy branch.
+
+**Fix** (templates/index.html only): separated a PLAIN-TEXT status
+string (`statusText` — escaped exactly once, used for the tooltip) from
+an HTML-rendering version (`statusHtml` — the `<b>` wrapper applied
+only at the very end, used for the cell's `innerHTML`). General
+principle: never escape a string that already contains deliberately-
+embedded markup.
+
+**Full sweep**: grepped every `title="` attribute in the Find Peaks
+code (periodic-table cells, level chips, method options, table headers,
+peak-table rows, candidate-table rows) — this was the ONLY place a
+partially-pre-escaped/marked-up string got run through `_fpEsc()` a
+second time; every other tooltip builds from genuinely plain-text
+inputs (element symbols, tier labels, coverage notes, backend
+identifiers) with no embedded markup, confirmed safe.
+
+**Tests**: `tests/test_browser_find_peaks_tooltip_markup.py` (4 new
+tests) — reproduces the exact `decisive_override`-with-`filter_reason`
+scenario and confirms the tooltip contains neither literal `<b>`/`</b>`
+nor an escaped-entity artifact (`&lt;`); confirms the cell's own bold
+rendering is unaffected (a real `<b>` element still exists, `innerHTML`
+unchanged); confirms the ordinary winner-with-no-filter_reason case
+still shows an empty tooltip (no regression); confirms the ORIGINAL
+raw-Python-repr leak this code was meant to fix stays fixed. Confirmed
+via a genuine red-green cycle (reverted to the pre-fix code, watched
+the winner-tooltip test fail with the literal string
+`'<b>Best fit</b> — see Technical details below for the specific
+reason.'` — the bug report's exact symptom — restored the fix, watched
+it pass).
+
+Full JS suite: 113 passed. All Find Peaks browser suites combined
+(coverage, progress, method tooltips, full-window): 18 passed, no
+regressions.
