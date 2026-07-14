@@ -1,0 +1,110 @@
+You are reviewing a bug fix on branch feature-autofit-stage2 of the XPS
+Fitting Studio repo (worktree at this path, commit e0d3185). Read code
+directly from disk, do not trust this description alone.
+
+CONTEXT — this is the THIRD attempt at making the "fit the entire
+window" Find Peaks checkbox (added 2026-07-13, autofit/engine.py's
+`fit_full_window` option) actually do something visible. The first two
+sessions' backend widening (`_full_window_bound_overrides` and its
+threading through `compare_models`) works correctly and was already
+Codex-cleared (GO x2, 3 rounds) — that mechanism is untouched by this
+fix. A NEW bug report said toggling the checkbox still had no visible
+effect, and specifically that the status bar showed "ROI: 278.0-290.4"
+when 278-298 was the actually-selected window — i.e. the fit/background
+COVERAGE was narrower than the selected window, not a peak-position
+issue.
+
+ROOT CAUSE (found by direct tracing): `updatePlot()`
+(templates/index.html) freezes the chart's background/fit-curve
+rendering to `state.fitResult`'s own `be`/`bgIntensity` arrays whenever
+`state.fitResult` is set with matching-length `be`/`bgIntensity` (the
+"haveFit" branch) — this happens after ANY prior manual Run Fit, or
+Auto-Fit C1s Graphite. `applyFindPeaks()` (the function that applies
+Find-Peaks-suggested peaks to the active tab) NEVER touched
+`state.fitResult` at all, so if a PRIOR fit had frozen the chart to a
+narrower range, applying NEW Find-Peaks peaks left the chart still
+frozen to that OLD, narrower range — completely unrelated to how wide a
+window Find Peaks itself used internally. This is a pure FRONTEND
+rendering-staleness bug; the backend's x/y array is always exactly the
+full requested ROI (verified in an earlier session), and Find Peaks'
+own JSON response carries no `be`/`fittedY`/`bgIntensity` arrays to
+rebuild a proper `state.fitResult` from at all.
+
+THE FIX (templates/index.html only, zero backend/engine changes):
+1. Where `_fpLast` gets set after a completed analysis (search for
+   `_fpLast = { body, method, regions`), it now also records
+   `fitFullWindow: !!options.fit_full_window` — the flag that was
+   actually used for THIS specific analysis run.
+2. In `applyFindPeaks()`, right before `renderPeakList(); updatePlot();`,
+   a new line: `if (_fpLast && _fpLast.fitFullWindow) state.fitResult =
+   null;` — ONLY when the completed run used the flag. This makes
+   `updatePlot()`'s "haveFit" check false, so it falls back to its
+   EXISTING (already well-tested, unrelated to this fix) unfit-preview
+   rendering path: `getROIData()` (reads the LIVE `#roi-min`/`#roi-max`
+   DOM fields — the SAME fields `runFindPeaks()` itself read when
+   building the request) + client-side `computeBackground()`. Default
+   (unchecked) path is completely untouched — `state.fitResult` is left
+   exactly as it was, byte-for-byte the same behavior as before this
+   commit.
+
+NEW TEST FILE: tests/test_browser_find_peaks_full_window.py (3 tests,
+real Playwright browser automation — not just backend response
+checking). Reproduces the bug report's exact scenario: a tab with a
+PRE-EXISTING `state.fitResult` frozen to 278.0-290.4 eV (matching the
+bug report's own numbers), `#roi-min`/`#roi-max` set to 278/298.
+- `test_checkbox_off_preserves_todays_cropped_behavior`: unchecked run
+  + apply must leave the chart's background dataset still at
+  278.0-290.4 (today's behavior, unchanged) and must NOT touch
+  `state.fitResult`.
+- `test_checkbox_on_extends_fit_and_background_to_the_full_window`:
+  checked run + apply must extend the chart's background dataset to
+  278.0-297.5 (the full ROI).
+- `test_checkbox_on_from_a_fresh_tab_with_no_prior_fit_still_works`:
+  sanity check with no prior `state.fitResult` at all.
+
+PLEASE VERIFY (read the actual code — do not take any of the above on
+faith):
+1. Read `applyFindPeaks()` and the `_fpLast = {...}` assignment site
+   directly. Confirm `fitFullWindow` is read from the SAME `options`
+   object that was actually sent in the request body for THIS
+   analysis (not a stale/different variable), and that the clearing
+   line is placed correctly relative to `state.peaks = ...` (i.e., the
+   NEW peaks are still set correctly regardless of this change) and
+   BEFORE `updatePlot()` is called (order matters — clearing after
+   `updatePlot()` would have no effect until the NEXT render).
+2. Confirm `getROIData()` reads the LIVE `#roi-min`/`#roi-max` DOM
+   values (not some other stored/stale ROI), and that these are the
+   SAME fields `runFindPeaks()` reads when constructing the analyze
+   request — i.e., confirm there's no window where the user could have
+   changed `#roi-min`/`#roi-max` BETWEEN submitting the analysis and
+   clicking "Apply," which would make the post-apply chart span a
+   DIFFERENT range than what was actually analyzed (this would be a
+   pre-existing/inherent risk, not introduced by this fix, but worth
+   confirming it's not made WORSE here).
+3. Confirm `updatePlot()`'s "haveFit" branch check
+   (`state.fitResult && Array.isArray(state.fitResult.be) && ...`)
+   genuinely evaluates false when `state.fitResult === null`, and that
+   the resulting code path (`be = getROIData().be`,
+   `plotBG = computeBackground(be, inten)`, `modelFull =
+   evalAllPeaks(plotBE, state.peaks)`) correctly evaluates the
+   newly-applied peaks over the FULL ROI array, not some other range.
+4. Confirm this change does NOT touch manual Run Fit, `/api/fit`, any
+   analysis math, or any peak position/width/chemical-anchor value —
+   grep the diff to confirm only `templates/index.html` (JS) and the
+   new test file changed, and that no Python file was touched.
+5. Confirm the honesty semantics are unaffected: applied peaks still
+   carry the same `_findPeaks` provenance stamp (`autoSuggested: true,
+   verified: false, ...`) regardless of whether `state.fitResult` gets
+   cleared, and the "Added N suggested peak(s)... double-check before
+   publication use" toast still fires identically in both cases.
+6. Run (or trace) the new test file's 3 tests — do they actually
+   reproduce the bug report's numbers correctly, and would they
+   plausibly have caught the pre-fix bug (i.e., is there a clear,
+   deterministic difference asserted, not something that could pass
+   coincidentally)?
+7. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
