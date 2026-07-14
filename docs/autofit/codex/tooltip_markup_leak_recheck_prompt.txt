@@ -1,0 +1,99 @@
+Recheck for the Find Peaks tooltip HTML-leak fix (branch
+feature-autofit-stage2, worktree at this path, commit 550cf6d). Read
+docs/autofit/codex/tooltip_markup_leak_review_prompt.txt for full prior
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 1 FINDING (both of 2 independent runs, unanimous NO-GO on test
+realism only — both runs confirmed the PRODUCTION fix itself, the
+statusText/statusHtml split in `_fpRenderResults()`, was correct and
+found no other leak in the Find Peaks section): the new test's
+synthetic payload modeled an unrealistic backend shape. It named the
+winning candidate `"A0_graphite_only+bfix"` (a `decisive_override`
+bound-fixed refit) and gave it a truthy `filter_reason`, but
+`autofit/engine.py`'s `_apply_decisive_override()` renames the promoted
+refit's report to `<original>+bfix` and appends it directly to
+`result.survivors` — it is NEVER also appended to `result.filtered_out`.
+`build_analysis_record()` (autofit/methods/ic_model_comparison.py)
+looks up `filter_reason` by exact model name from `filtered_out`, so a
+real `+bfix` winner always gets `filter_reason: None`. Both runs
+identified the REAL trigger instead: `rank_and_filter()`'s
+`no_clean_survivor` conditional tier (autofit/engine.py) promotes the
+SAME `ModelReport` objects that were just appended to `filtered_out`
+(tagged with their plausibility violation) directly into `survivors`
+when nothing passed cleanly but they're otherwise stable — same
+object, same `model.name`, no suffix — so the winner's own name is
+simultaneously a key in `filtered_reason` (truthy) and in
+`survivor_rank` (`survived: True`).
+
+FIX APPLIED (commit 550cf6d — verify against current disk state):
+
+In `tests/test_browser_find_peaks_tooltip_markup.py`:
+- Renamed `_DECISIVE_OVERRIDE_WINNER_PAYLOAD` to
+  `_NO_CLEAN_SURVIVOR_WINNER_PAYLOAD`.
+- Winner name is now `"A0_graphite_only"` (no `+bfix` suffix),
+  `diagnostics.conditional_reason` is `"no_clean_survivor"` (was
+  `"decisive_override"`), `winner_boundary_fixed_params` is now empty
+  (that field is specifically a decisive_override/bound-fix artifact —
+  no_clean_survivor doesn't set it), and `winner_boundary_hits` is now
+  non-empty (`["s_main_graphitic_fwhm@max"]`) since a `no_clean_survivor`
+  winner's OWN plausibility violation is what makes it conditional in
+  the first place — matching `rank_and_filter()`'s actual condition for
+  entering that tier (`r.plausibility.boundary_hits` non-empty).
+- The one candidate entry keeps `name: "A0_graphite_only"` (matching
+  the winner exactly — the crux of the real trigger), `survived: True`,
+  and a truthy `filter_reason` string.
+- Updated the module docstring to explain the corrected root-cause
+  understanding (why `+bfix` + `filter_reason` was impossible, what the
+  real shape is) instead of the original incorrect claim.
+- Both usages of the payload constant (in
+  `test_winner_tooltip_never_contains_literal_markup` and
+  `test_winner_cell_still_renders_bold_via_innerhtml`) updated to the
+  new name. The other two tests in the file
+  (`test_ordinary_winner_without_a_filter_reason_has_an_empty_tooltip`,
+  `test_rejected_candidate_tooltip_is_plain_text_not_a_raw_python_repr`)
+  were NOT touched — their payloads didn't have this problem.
+
+Confirmed via a genuine red-green cycle: temporarily reintroduced the
+ORIGINAL bug (built the tooltip from `_fpEsc(statusHtml + ' — see
+Technical details...')` instead of `_fpEsc(statusText + ...)`), reran
+`test_winner_tooltip_never_contains_literal_markup` against the NEW
+realistic payload, watched it fail with the literal reproduced string
+`'<b>Best fit</b> — see Technical details below for the specific
+reason.'` in the assertion failure — proving the corrected payload
+still exercises the real bug — then restored the fix and reran; all 4
+tests in the file passed, and the full suite (`pytest tests/`) passed
+at 651 passed / 6 skipped / 0 failed.
+
+PLEASE VERIFY:
+1. Read the current `_NO_CLEAN_SURVIVOR_WINNER_PAYLOAD` directly and
+   confirm it genuinely matches what `rank_and_filter()` +
+   `build_analysis_record()` would produce for a real
+   `no_clean_survivor` result: same name in both the winner slot and
+   the one candidate entry, that candidate's `survived` is `True`, its
+   `filter_reason` is truthy and phrased like the real
+   `f"plausibility: {r.plausibility}"` string format, and
+   `diagnostics.conditional_reason == "no_clean_survivor"` — re-derive
+   this yourself from `autofit/engine.py`'s `rank_and_filter()` and
+   `autofit/methods/ic_model_comparison.py`'s `build_analysis_record()`
+   rather than trusting this description.
+2. Confirm `winner_boundary_hits` being non-empty is actually consistent
+   with a `no_clean_survivor` winner (i.e., that a candidate needs
+   `plausibility.boundary_hits` non-empty to be filtered into the
+   conditional pool in the first place) — trace `rank_and_filter()`'s
+   filtering logic directly.
+3. Confirm the production fix itself (`_fpRenderResults()`'s
+   `statusText`/`statusHtml` split) is UNCHANGED from what was already
+   reviewed and cleared — this recheck is about test realism only, not
+   a new production change.
+4. Confirm the other two tests in the file
+   (`test_ordinary_winner_without_a_filter_reason_has_an_empty_tooltip`,
+   `test_rejected_candidate_tooltip_is_plain_text_not_a_raw_python_repr`)
+   still use realistic/plausible payload shapes too (they were not part
+   of the round-1 finding, but worth a fresh look given the same class
+   of bug was just found once in this file).
+5. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".

@@ -1,0 +1,83 @@
+Round-3 recheck for the "fit the entire window" fit-range-crop fix
+(branch feature-autofit-stage2, worktree at this path, commit 550cf6d).
+Read docs/autofit/codex/full_window_crop_fix_review_prompt.txt and
+docs/autofit/codex/full_window_crop_fix_recheck_prompt.txt for full
+prior context — do not trust this description alone; verify against
+current disk state.
+
+ROUND 2 FINDING (both of 2 independent runs, unanimous NO-GO): the
+round-1 fix cleared `state.fitResult` (fixing the chart) and reset the
+status bar (`#fit-quality`, `#sb-chi`, R-factor pill, `#sb-roi`), but
+left a THIRD stale DOM surface untouched: the right-side Results panel
+(`#results-area`), which is populated by `renderResults()` and only
+refreshes when that function is explicitly called. Concrete scenario
+both runs gave: run a fit, open the results panel, run Find Peaks with
+"Fit the entire window" checked, apply — chart and status bar clear,
+but `#results-area` keeps showing the OLD fit's chi/RMSE/table until
+some unrelated later action happens to re-render it.
+
+FIX APPLIED (commit 550cf6d — verify against current disk state):
+
+In `applyFindPeaks()` (templates/index.html), inside the SAME
+`if (_fpLast && _fpLast.fitFullWindow) { ... }` block, right after the
+existing `_updateROIDisplay(null);` line, added: `renderResults();`
+— `renderResults()` already has a `if (!state.fitResult) { ... return;
+}` branch that renders a "Run the fit to see results." placeholder, so
+no new branch was needed in that function itself.
+
+Also extended `tests/test_browser_find_peaks_full_window.py`:
+- `_load_c1s_with_stale_narrow_fit` now also sets stale `#fit-quality`
+  text/tooltip, calls `_updateRFactorUI({rPct: 3.2, level: 'good'})`,
+  and calls `renderResults()` (with the synthetic frozen fitResult and
+  empty `state.peaks`) so the Results panel starts genuinely populated
+  with stale content, not just an untouched empty div.
+- `_status_bar_snapshot` now also captures `fitQuality` (`#fit-quality`
+  textContent), `sbRuns` (`#sb-runs` textContent, the R-factor pill),
+  and `resultsArea` (`#results-area` innerHTML).
+- The unchecked test's existing full-snapshot equality check now
+  automatically covers these three new fields too (no separate
+  assertion needed — same object comparison).
+- The checked test gained explicit assertions: `fitQuality` and
+  `sbRuns` must differ from their stale pre-apply values, and
+  `resultsArea` must contain "Run the fit" post-apply (proving the
+  panel actually reset to its placeholder, not just changed to some
+  other non-placeholder content).
+
+Confirmed via a genuine red-green cycle: temporarily commented out just
+the new `renderResults();` line, reran the checked-case test, watched
+it fail on the new `"Run the fit" in status_after["resultsArea"]`
+assertion with the OLD fit's actual chi/RMSE/table HTML printed in the
+failure message, then restored the line and reran — full 3-test file
+passed, and the complete suite (`pytest tests/`) passed at
+651 passed / 6 skipped / 0 failed.
+
+PLEASE VERIFY:
+1. Read the current `applyFindPeaks()` directly and confirm
+   `renderResults();` is INSIDE the `if (_fpLast && _fpLast.fitFullWindow)`
+   branch (not moved outside it — that would call it unconditionally,
+   which is harmless-but-wasteful on the unchecked path since
+   `renderResults()` would just redraw the SAME fitResult that's still
+   set, but confirm this either way).
+2. Read `renderResults()` directly and confirm it genuinely handles
+   `state.fitResult === null` cleanly (no exception, correct
+   "Run the fit to see results." placeholder) — and separately, confirm
+   it doesn't throw when `state.fitResult` is the test's synthetic
+   object lacking a `backendResult` key, and when `state.peaks` is
+   empty (both true in the test fixture at the moment `renderResults()`
+   is called during setup).
+3. Confirm the extended `_status_bar_snapshot` and the new assertions
+   in the "checked" test are well-targeted — would they actually have
+   caught the round-2 finding (i.e., do they fail meaningfully without
+   the fix, not just coincidentally)?
+4. Confirm this still touches ONLY `templates/index.html` (JS) and the
+   test file — no backend Python changes, no `/api/fit` involvement, no
+   peak-position/width/chemical-anchor changes. Also confirm no OTHER
+   stale-DOM-on-fitResult-clear surface was missed (grep for other
+   places that read `state.fitResult` to populate DOM and are not
+   reached by `renderPeakList()`, `updatePlot()`, or the reset block —
+   e.g. any quantify panel, any "last run" summary, etc.).
+5. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
