@@ -154,12 +154,19 @@ def _load_c1s_with_stale_narrow_fit(pg):
         document.getElementById('roi-min').value = 278.0;
         document.getElementById('roi-max').value = 298.0;
         updatePlot();
-        // The status bar (χ²ᵣ, "ROI: ..." readout) is a SEPARATE piece
-        // of DOM state from the chart -- populate it the same way the
-        // prior fit would have, to reproduce the bug report's exact
-        // status-bar symptom, not just the chart-dataset symptom.
+        // The status bar (χ²ᵣ, R-factor, "ROI: ..." readout) AND the
+        // right-side Results panel are all SEPARATE pieces of DOM state
+        // from the chart -- populate them the same way a prior real fit
+        // would have (via _updateROIDisplay/_updateRFactorUI/
+        // renderResults, not hand-rolled strings), to reproduce the bug
+        // report's exact status-bar/results-panel symptom, not just the
+        // chart-dataset symptom.
         _updateROIDisplay(state.fitResult.roiRange);
         document.getElementById('sb-chi').textContent = '1.000';
+        document.getElementById('fit-quality').textContent = 'χ²ᵣ = 1.00';
+        document.getElementById('fit-quality').setAttribute('data-xps-tip', 'stale tip');
+        _updateRFactorUI({ rPct: 3.2, level: 'good' });
+        renderResults();
     }""")
 
 
@@ -167,6 +174,9 @@ def _status_bar_snapshot(pg):
     return pg.evaluate("""() => ({
         sbRoi: document.getElementById('sb-roi').textContent,
         sbChi: document.getElementById('sb-chi').textContent,
+        fitQuality: document.getElementById('fit-quality').textContent,
+        sbRuns: document.getElementById('sb-runs').textContent,
+        resultsArea: document.getElementById('results-area').innerHTML,
     })""")
 
 
@@ -209,8 +219,9 @@ def test_checkbox_off_preserves_todays_cropped_behavior(browser, server):
     byte-for-byte the same (buggy/stale) behavior as before this fix —
     the chart stays frozen to the prior fit's narrow 278.0-290.4 range,
     exactly matching the bug report's own observed numbers, AND the
-    status bar (χ²ᵣ, "ROI: ...") stays exactly as stale as it always
-    was too — the fix must not touch anything when unchecked."""
+    status bar (χ²ᵣ, R-factor, "ROI: ...") and the Results panel stay
+    exactly as stale as they always were too — the fix must not touch
+    anything when unchecked."""
     pg = _new_page(browser, server)
     try:
         _load_c1s_with_stale_narrow_fit(pg)
@@ -240,11 +251,13 @@ def test_checkbox_on_extends_fit_and_background_to_the_full_window(browser, serv
     the FULL user-set ROI (278-298), not the stale frozen 278.0-290.4
     range from a prior fit — this is the literal "checkbox on -> the
     result fit spans the full ROI" behavior asked for. ALSO must clear
-    the status bar's stale "ROI: 278.0-290.4 eV" / χ²ᵣ readout (Codex
-    review finding, 2026-07-14: the chart-only fix left this half of
-    the bug report's own reported symptom unaddressed — the header
-    could still show the OLD fit's numbers even after the chart itself
-    was fixed)."""
+    the status bar's stale "ROI: 278.0-290.4 eV" / χ²ᵣ / R-factor
+    readouts (Codex review finding, 2026-07-14: the chart-only fix left
+    this half of the bug report's own reported symptom unaddressed —
+    the header could still show the OLD fit's numbers even after the
+    chart itself was fixed) AND the Results panel (Codex recheck
+    finding, 2026-07-14: renderResults() was never called, so the
+    panel kept showing the OLD fit's chi/RMSE/table too)."""
     pg = _new_page(browser, server)
     try:
         _load_c1s_with_stale_narrow_fit(pg)
@@ -252,6 +265,9 @@ def test_checkbox_on_extends_fit_and_background_to_the_full_window(browser, serv
         assert before["max"] == pytest.approx(290.35625, abs=0.01)
         status_before = _status_bar_snapshot(pg)
         assert "278.0" in status_before["sbRoi"] and "290.4" in status_before["sbRoi"]
+        assert "Run the fit" not in status_before["resultsArea"], (
+            "sanity: the stale results panel must actually look populated "
+            "before the fix is exercised")
 
         _run_and_apply_find_peaks(pg, full_window=True)
 
@@ -271,6 +287,13 @@ def test_checkbox_on_extends_fit_and_background_to_the_full_window(browser, serv
             f"OLD fit's numbers: {status_after}")
         assert status_after["sbChi"] != status_before["sbChi"], (
             f"stale χ²ᵣ readout must be cleared too: {status_after}")
+        assert status_after["fitQuality"] != status_before["fitQuality"], (
+            f"stale fit-quality readout must be cleared too: {status_after}")
+        assert status_after["sbRuns"] != status_before["sbRuns"], (
+            f"stale R-factor readout must be cleared too: {status_after}")
+        assert "Run the fit" in status_after["resultsArea"], (
+            "stale Results panel (chi/RMSE/table from the OLD fit) must be "
+            f"cleared back to its no-fit placeholder too: {status_after}")
     finally:
         pg.close()
 

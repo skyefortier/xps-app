@@ -14103,6 +14103,15 @@ async function applyFindPeaks() {
     if (chiEl) chiEl.textContent = '—';
     _updateRFactorUI(null);
     _updateROIDisplay(null);
+    // The right-side Results panel (#results-area) is a THIRD piece of
+    // DOM state keyed off state.fitResult, separate from both the chart
+    // and the status bar (Codex recheck finding, 2026-07-14): without
+    // this call it kept showing the OLD fit's chi/RMSE/table after
+    // state.fitResult was cleared, until some unrelated later action
+    // happened to re-render it. renderResults() already handles
+    // state.fitResult === null correctly (falls back to its own
+    // "Run the fit to see results." placeholder).
+    renderResults();
   }
   renderPeakList();
   updatePlot();

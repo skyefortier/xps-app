@@ -24,10 +24,28 @@ HTML-rendering version (used for the cell's ``innerHTML``, with the
 ``<b>`` wrapper applied only at the very end).
 
 The scenario that actually triggers the leak requires the WINNING
-candidate to ALSO carry a truthy ``filter_reason`` — which happens for
-a ``decisive_override`` winner (a bound-fixed refit promoted from
-``filtered_out``) that still carries its pre-promotion plausibility
-reason. This file reproduces that exact combination.
+candidate to ALSO carry a truthy ``filter_reason``. A Codex recheck
+(2026-07-14) found the first version of this test used an unrealistic
+shape for that: it named the winner ``"A0_graphite_only+bfix"`` (a
+``decisive_override``-style bound-fixed refit) while giving it a
+``filter_reason`` — but ``autofit/engine.py``'s ``_apply_decisive_
+override`` renames that refit's report to ``<original>+bfix`` and adds
+it directly to ``survivors`` without ever adding it to
+``filtered_out``, so ``build_analysis_record()``'s
+``filtered_reason.get(name)`` lookup (keyed by exact model name) always
+returns ``None`` for a real ``+bfix`` winner — that combination cannot
+happen on the real backend.
+
+The REAL trigger is ``rank_and_filter()``'s ``no_clean_survivor``
+conditional tier (``autofit/engine.py``): when no candidate passes
+plausibility cleanly, the same ``ModelReport`` objects that were just
+appended to ``filtered_out`` (tagged with their plausibility violation)
+are ALSO promoted wholesale into ``survivors`` if they're otherwise
+stable — same object, same ``model.name``, no suffix. So the winner's
+own name is simultaneously a key in ``filtered_reason`` (truthy
+``filter_reason``) and in ``survivor_rank`` (``survived: True``,
+``d.winner`` set to that same name) — the exact combination that leaks.
+This file reproduces THAT shape.
 """
 import glob
 import os
@@ -129,27 +147,32 @@ def _new_page(browser, server):
     return pg
 
 
-# A synthetic payload matching the exact real shape that triggers the
-# bug: the WINNING candidate ("A0_graphite_only+bfix", a decisive_
-# override bound-fixed refit) ALSO carries a truthy filter_reason from
-# before it was promoted from filtered_out -- per
-# autofit/engine.py's _apply_decisive_override / build_analysis_record.
-_DECISIVE_OVERRIDE_WINNER_PAYLOAD = {
+# A synthetic payload matching the REAL backend shape that triggers the
+# bug: rank_and_filter()'s "no_clean_survivor" conditional tier promotes
+# a plausibility-filtered ModelReport straight into result.survivors
+# without renaming it -- so its plain name (no "+bfix" suffix) is
+# simultaneously a key in filtered_reason (truthy filter_reason) AND in
+# survivor_rank (survived: True, and diagnostics.winner set to that same
+# name) -- per autofit/engine.py's rank_and_filter and
+# autofit/methods/ic_model_comparison.py's build_analysis_record.
+_NO_CLEAN_SURVIVOR_WINNER_PAYLOAD = {
     "success": True, "structural_only": [],
     "peaks": [{"role": "main_graphitic", "region": "C 1s", "shape": "ds_g",
                "center": 284.6, "fwhm": 0.8, "amplitude": 5000}],
     "diagnostics": {
-        "winner": "A0_graphite_only+bfix", "conditional": True,
-        "conditional_reason": "decisive_override",
-        "winner_boundary_hits": [], "winner_unphysical_widths": [],
-        "winner_boundary_fixed_params": ["s_main_graphitic_fwhm"],
-        "filtered_dominant_alternative": None, "analysis_truncated": False,
+        "winner": "A0_graphite_only", "conditional": True,
+        "conditional_reason": "no_clean_survivor",
+        "winner_boundary_hits": ["s_main_graphitic_fwhm@max"],
+        "winner_unphysical_widths": [],
+        "winner_boundary_fixed_params": [], "filtered_dominant_alternative": None,
+        "analysis_truncated": False,
     },
     "analysis": {"candidates": [
-        {"name": "A0_graphite_only+bfix", "reduced_chi_sq": 1.1, "bic_star": 90.0,
+        {"name": "A0_graphite_only", "reduced_chi_sq": 1.1, "bic_star": 90.0,
          "survived": True,
-         "filter_reason": ("plausibility: PlausibilityFlags(boundary_hits=[], "
-                           "unphysical_widths=[], orphan_peaks=True)")},
+         "filter_reason": ("plausibility: PlausibilityFlags(boundary_hits="
+                           "['s_main_graphitic_fwhm@max'], unphysical_widths=[], "
+                           "orphan_peaks=False)")},
     ]},
     "confidence": {}, "message": "placeholder",
 }
@@ -158,7 +181,7 @@ _DECISIVE_OVERRIDE_WINNER_PAYLOAD = {
 def test_winner_tooltip_never_contains_literal_markup(browser, server):
     pg = _new_page(browser, server)
     try:
-        pg.evaluate("(body) => _fpRenderResults(body)", _DECISIVE_OVERRIDE_WINNER_PAYLOAD)
+        pg.evaluate("(body) => _fpRenderResults(body)", _NO_CLEAN_SURVIVOR_WINNER_PAYLOAD)
         pg.wait_for_timeout(150)
         tooltip = pg.eval_on_selector(
             "#fp-cands tr:nth-child(2) td:nth-child(4)", "el => el.title")
@@ -176,7 +199,7 @@ def test_winner_cell_still_renders_bold_via_innerhtml(browser, server):
     TOOLTIP's construction was wrong, not the cell's own innerHTML."""
     pg = _new_page(browser, server)
     try:
-        pg.evaluate("(body) => _fpRenderResults(body)", _DECISIVE_OVERRIDE_WINNER_PAYLOAD)
+        pg.evaluate("(body) => _fpRenderResults(body)", _NO_CLEAN_SURVIVOR_WINNER_PAYLOAD)
         pg.wait_for_timeout(150)
         cell_html = pg.eval_on_selector(
             "#fp-cands tr:nth-child(2) td:nth-child(4)", "el => el.innerHTML")
