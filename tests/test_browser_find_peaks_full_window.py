@@ -177,6 +177,7 @@ def _status_bar_snapshot(pg):
         fitQuality: document.getElementById('fit-quality').textContent,
         sbRuns: document.getElementById('sb-runs').textContent,
         resultsArea: document.getElementById('results-area').innerHTML,
+        quantifyArea: document.getElementById('quantify-area').innerHTML,
     })""")
 
 
@@ -255,9 +256,12 @@ def test_checkbox_on_extends_fit_and_background_to_the_full_window(browser, serv
     readouts (Codex review finding, 2026-07-14: the chart-only fix left
     this half of the bug report's own reported symptom unaddressed —
     the header could still show the OLD fit's numbers even after the
-    chart itself was fixed) AND the Results panel (Codex recheck
-    finding, 2026-07-14: renderResults() was never called, so the
-    panel kept showing the OLD fit's chi/RMSE/table too)."""
+    chart itself was fixed) AND the Results panel + Quantify panel
+    (Codex recheck findings, 2026-07-14: renderResults() was never
+    called, so the Results panel kept showing the OLD fit's
+    chi/RMSE/table, and even once renderResults() was added it only
+    reset #results-area and never touched #quantify-area, so THAT kept
+    showing the OLD fit's area/RSF/At% table too)."""
     pg = _new_page(browser, server)
     try:
         _load_c1s_with_stale_narrow_fit(pg)
@@ -267,6 +271,9 @@ def test_checkbox_on_extends_fit_and_background_to_the_full_window(browser, serv
         assert "278.0" in status_before["sbRoi"] and "290.4" in status_before["sbRoi"]
         assert "Run the fit" not in status_before["resultsArea"], (
             "sanity: the stale results panel must actually look populated "
+            "before the fix is exercised")
+        assert "Run fit to quantify" not in status_before["quantifyArea"], (
+            "sanity: the stale quantify panel must actually look populated "
             "before the fix is exercised")
 
         _run_and_apply_find_peaks(pg, full_window=True)
@@ -294,6 +301,9 @@ def test_checkbox_on_extends_fit_and_background_to_the_full_window(browser, serv
         assert "Run the fit" in status_after["resultsArea"], (
             "stale Results panel (chi/RMSE/table from the OLD fit) must be "
             f"cleared back to its no-fit placeholder too: {status_after}")
+        assert "Run fit to quantify" in status_after["quantifyArea"], (
+            "stale Quantify panel (area/RSF/At% table from the OLD fit) "
+            f"must be cleared back to its no-fit placeholder too: {status_after}")
     finally:
         pg.close()
 

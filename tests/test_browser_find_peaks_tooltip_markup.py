@@ -162,7 +162,7 @@ _NO_CLEAN_SURVIVOR_WINNER_PAYLOAD = {
     "diagnostics": {
         "winner": "A0_graphite_only", "conditional": True,
         "conditional_reason": "no_clean_survivor",
-        "winner_boundary_hits": ["s_main_graphitic_fwhm@max"],
+        "winner_boundary_hits": ["main_graphitic:fwhm@max"],
         "winner_unphysical_widths": [],
         "winner_boundary_fixed_params": [], "filtered_dominant_alternative": None,
         "analysis_truncated": False,
@@ -171,7 +171,7 @@ _NO_CLEAN_SURVIVOR_WINNER_PAYLOAD = {
         {"name": "A0_graphite_only", "reduced_chi_sq": 1.1, "bic_star": 90.0,
          "survived": True,
          "filter_reason": ("plausibility: PlausibilityFlags(boundary_hits="
-                           "['s_main_graphitic_fwhm@max'], unphysical_widths=[], "
+                           "['main_graphitic:fwhm@max'], unphysical_widths=[], "
                            "orphan_peaks=False)")},
     ]},
     "confidence": {}, "message": "placeholder",

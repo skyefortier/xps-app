@@ -7032,6 +7032,14 @@ function renderResults() {
   const el = document.getElementById('results-area');
   if (!state.fitResult) {
     el.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
+    // Quantify (#quantify-area) is populated by renderQuantify(), called
+    // only from the non-null path below — without this it kept showing
+    // a PRIOR fit's area/RSF/At% table after state.fitResult was cleared
+    // elsewhere (Codex review finding, 2026-07-14: same class of stale-
+    // DOM bug as the Results panel itself). Reset it to the same
+    // no-fit placeholder as its initial static markup.
+    const qEl = document.getElementById('quantify-area');
+    if (qEl) qEl.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0;">Run fit to quantify.</p>';
     return;
   }
 
