@@ -13865,7 +13865,7 @@ async function runFindPeaks() {
     const { job_id } = await resp.json();
     const poll = await _fpPollJob(job_id);
     const body = poll.result;
-    _fpLast = { body, method, regions };
+    _fpLast = { body, method, regions, fitFullWindow: !!options.fit_full_window };
     _fpRenderResults(body);
     status.textContent = '';
   } catch (e) {
@@ -14051,6 +14051,23 @@ async function applyFindPeaks() {
   });
   const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
   if (active) active._findPeaksReview = review;
+  // The chart FREEZES its background/fit-curve display to state.fitResult's
+  // OWN be/bgIntensity arrays once a fit exists (updatePlot's "haveFit"
+  // branch) — a prior manual Run Fit or Auto-Fit C1s Graphite leaves this
+  // set, frozen to THAT fit's own (possibly narrower) range. Applying new
+  // Find Peaks peaks on top never touched it, so the chart kept showing
+  // background/fit cropped to the OLD frozen range regardless of how wide
+  // a window Find Peaks actually used — root cause of "fit + background
+  // don't span the full selected window" (2026-07-14 bug report). Find
+  // Peaks' own response has no be/fittedY/bgIntensity arrays to rebuild a
+  // proper fitResult from, so when this run used "fit the entire window,"
+  // clear it instead: updatePlot() then falls back to its existing
+  // unfit-preview path (getROIData() + client-side computeBackground()),
+  // exactly like peaks placed manually before any Run Fit — spanning the
+  // CURRENT #roi-min/#roi-max, i.e., the full window Find Peaks just used.
+  // Default (unchecked) leaves state.fitResult untouched — today's
+  // behavior, unchanged.
+  if (_fpLast && _fpLast.fitFullWindow) state.fitResult = null;
   renderPeakList();
   updatePlot();
   closeFindPeaksModal();

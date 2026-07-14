@@ -3185,3 +3185,78 @@ override — every one of the 4 real bugs found across 3 rounds was some
 form of the widened bound leaking into a place that should have stayed
 anchored to the slot's TRUE, original window. Consider this the
 authoritative account if this option is ever extended.
+
+## Find Peaks UI fixes round 4 (2026-07-14) — three bug reports from testing
+
+### Unit 1 — "fit the entire window" checkbox was a genuine no-op
+
+**Bug report**: toggling the checkbox had NO visible effect on either
+C 1s or Fe 2p; status bar showed "ROI: 278.0-290.4" when 278-298 was
+set — the fit/background covered LESS than the selected window.
+
+**Root cause, determined by direct tracing (not guessed)** — TWO
+separate findings, and the user correctly redirected after the first:
+
+1. (First hypothesis, investigated and REJECTED by the user before I
+   implemented it) The round-3 position-bound-widening mechanism
+   (`_full_window_bound_overrides`, engine.py) DOES work exactly as
+   designed and reaches the winning candidate on the real HTTP path —
+   confirmed via direct engine instrumentation showing genuinely
+   widened bounds (275.0, 299.95) on both curated and detection-family
+   slots. But it has near-zero OBSERVABLE effect on real spectra,
+   because Find Peaks' out-of-grammar detection/proposal machinery
+   ALREADY finds real peaks wherever they sit, independent of this
+   flag, and that machinery almost always wins the model comparison —
+   so widening a bound that already contains the converged optimum
+   changes nothing. Confirmed via multiple synthetic C1s/Fe2p HTTP
+   round-trips: peaks table byte-identical checked vs. unchecked.
+
+2. (The ACTUAL root cause, per the user's redirect: "the user's
+   complaint was the FIT RANGE being cropped... not how far peak
+   centers can move") `updatePlot()` FREEZES the chart's background/
+   fit-curve rendering to `state.fitResult`'s own frozen `be`/
+   `bgIntensity` arrays once ANY fit exists (a prior manual Run Fit, or
+   Auto-Fit C1s Graphite — the "haveFit" branch, templates/index.html).
+   `applyFindPeaks()` never touched `state.fitResult` at all when
+   applying Find-Peaks-suggested peaks, so the chart kept showing
+   background/fit CROPPED to whatever OLD, possibly much narrower
+   range a PRIOR fit happened to freeze it to — completely independent
+   of how wide a window Find Peaks itself just used internally. This
+   is a pure FRONTEND rendering-staleness bug, not an engine issue: the
+   backend's x/y array is always exactly the full requested ROI
+   (confirmed in an earlier session), and Find Peaks' response has no
+   `be`/`fittedY`/`bgIntensity` arrays at all to rebuild a proper
+   `fitResult` from.
+
+**Fix** (templates/index.html, frontend-only, zero backend/engine
+changes this unit): `_fpLast` now also records
+`fitFullWindow: !!options.fit_full_window` alongside the analysis
+result. `applyFindPeaks()` clears `state.fitResult = null` BEFORE
+re-rendering, but ONLY when the completed analysis used
+`fit_full_window: true` — `updatePlot()` then falls back to its
+existing, already-tested unfit-preview path (`getROIData()` + client-
+side `computeBackground()`), which correctly spans whatever the
+CURRENT `#roi-min`/`#roi-max` fields say (the SAME fields Find Peaks
+itself read at submit time). Default (unchecked) leaves
+`state.fitResult` completely untouched — today's behavior, byte-for-
+byte unchanged, exactly as required. No peak positions, chemical
+anchors, or FWHM/width bounds touched at all (per the user's explicit
+constraint) — this is purely about which array the CHART renders from.
+
+**Tests**: `tests/test_browser_find_peaks_full_window.py` (3 new
+browser tests, real end-to-end: backend + frontend + actual rendered
+Chart.js dataset inspection, not just the backend response) —
+reproduces the exact bug-report scenario (a tab with a prior frozen
+fit spanning 278.0-290.4, ROI set to 278-298): unchecked leaves the
+chart's background dataset frozen at 278.0-290.4 (today's behavior,
+pinned); checked extends it to 278.0-297.5 (the full ROI); a fresh tab
+with no prior fit also works correctly. All 3 confirmed via genuine
+red-green cycles (temporarily reverted the `state.fitResult = null`
+line, watched the checked-case test fail with the EXACT stale range
+290.35625 instead of 297.5, restored the fix, watched it pass).
+Screenshot-verified on :5252 in both themes — the residuals sub-panel's
+own x-axis tick range visibly changes from "290.4...278.04" to
+"297.5...278.04" after applying with the checkbox on.
+
+Full JS suite: 113 passed. Existing Find Peaks browser suites (coverage,
+progress, drag): 17 passed, no regressions.
