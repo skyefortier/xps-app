@@ -1,0 +1,80 @@
+Recheck for the "fit the entire window" fit-range-crop fix (branch
+feature-autofit-stage2, worktree at this path, commit c3fe41f). Read
+docs/autofit/codex/full_window_crop_fix_review_prompt.txt for full
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 1 FINDING (both of 2 independent runs, unanimous NO-GO): clearing
+`state.fitResult` in `applyFindPeaks()` fixed the CHART's background/
+fit-curve rendering, but the STATUS BAR widgets (`#sb-roi`'s
+"ROI: ..." readout, `#sb-chi`, the R-factor pill via
+`_updateRFactorUI`, `#fit-quality`) are a SEPARATE piece of DOM state
+that only refreshes when explicitly told to — they kept showing the
+OLD fit's stale numbers even after the chart itself was fixed,
+reproducing the bug report's own literal symptom
+("ROI: 278.0-290.4 eV") in a DIFFERENT place than the chart.
+
+FIX APPLIED (same session, commit c3fe41f — verify against current
+disk state):
+
+In `applyFindPeaks()` (templates/index.html), inside the SAME
+`if (_fpLast && _fpLast.fitFullWindow) { ... }` block that clears
+`state.fitResult`, added:
+```
+const fqEl = document.getElementById('fit-quality');
+if (fqEl) { fqEl.innerHTML = '&#967;&#178; &mdash;'; fqEl.removeAttribute('data-xps-tip'); }
+const chiEl = document.getElementById('sb-chi');
+if (chiEl) chiEl.textContent = '—';
+_updateRFactorUI(null);
+_updateROIDisplay(null);
+```
+This mirrors EXACTLY the "no committed fit" branch already used
+elsewhere in the codebase (search for `TabManager`'s `activateTab`
+method, which does the identical reset when switching to a tab with no
+`state.fitResult`) — reusing an existing, well-tested convention rather
+than inventing a new one.
+
+Both existing browser tests in
+tests/test_browser_find_peaks_full_window.py were extended:
+- `test_checkbox_off_preserves_todays_cropped_behavior`: now also
+  snapshots the status bar before/after and asserts it's UNCHANGED when
+  unchecked (today's behavior, including any staleness, must not be
+  touched).
+- `test_checkbox_on_extends_fit_and_background_to_the_full_window`: now
+  also asserts the stale "290.4" substring is gone from `#sb-roi`'s
+  text and that `#sb-chi`'s text actually changed from its pre-apply
+  value.
+Both confirmed via a genuine red-green cycle: the new assertions were
+temporarily made to fail by disabling just the 5 new reset lines
+(commenting them out), re-running showed the checked-case test fail
+with the reproduced bug-report string `'ROI: 278.0–290.4 eV'` verbatim,
+then the lines were restored and the test passed again.
+
+PLEASE VERIFY:
+1. Read `applyFindPeaks()` directly and confirm the reset block is
+   inside the `if (_fpLast && _fpLast.fitFullWindow)` branch (not
+   accidentally moved outside it, which would make it fire
+   unconditionally and touch the status bar even when unchecked).
+2. Confirm the reset text/attribute values GENUINELY MATCH what
+   `TabManager.activateTab`'s own "no fit" branch does (same HTML
+   entities, same em-dash character, same `removeAttribute` call) —
+   re-derive this yourself from the activateTab code rather than
+   trusting the description.
+3. Confirm `_updateRFactorUI(null)` and `_updateROIDisplay(null)`
+   themselves correctly produce an EMPTY/cleared UI state when passed
+   `null` (read their implementations) — not some other unexpected
+   value.
+4. Confirm the two test assertions are well-targeted: does the
+   "unchecked" test's status-bar snapshot comparison correctly detect
+   ANY unwanted change (not just a specific substring), and does the
+   "checked" test's assertion genuinely require BOTH `#sb-roi` and
+   `#sb-chi` to change (not just one of the two, which could hide a
+   partial regression)?
+5. Confirm this still touches ONLY `templates/index.html` (JS) and the
+   test file — no backend Python changes, no `/api/fit` involvement,
+   no peak-position/width/chemical-anchor changes.
+6. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".

@@ -1,0 +1,63 @@
+You are reviewing a small UI wording fix on branch feature-autofit-stage2
+of the XPS Fitting Studio repo (worktree at this path, commit 17b0518).
+Read code directly from disk, do not trust this description alone.
+
+CONTEXT: the Find Peaks "Method" dropdown's 4 entries were renamed in an
+earlier session (round 3), but a new bug report said the TOOLTIPS were
+still uninformative: the "Method" field's own hover tooltip
+(`FP_STRINGS.tips.method`) read "How the suggestions are generated.
+'Compare peak models' is the right choice unless you have a reason
+otherwise" — vague, doesn't explain what ANY option does. Separately,
+hovering an individual `<option>` in the dropdown BEFORE selecting it
+showed the RAW BACKEND METHOD LABEL (e.g. "Auto — model comparison
+(IC)", straight from `autofit/methods/ic_model_comparison.py`'s class
+`label` attribute) — jargon, not a plain-English explanation.
+
+THE FIX (templates/index.html only):
+1. `FP_STRINGS.tips.method` rewritten to point at the per-option
+   tooltips and summarize the tradeoff between all 4 methods, instead
+   of just deferring to the recommended default.
+2. Each `<option title="...">` (built in `openFindPeaksModal()`, search
+   for `meth.innerHTML = _fpMeta.methods`) now uses
+   `s.hint || s.label || m.label || m.id` instead of
+   `m.label || m.id` — i.e. hovering an option shows that method's own
+   `FP_STRINGS.methods[id].hint` (the SAME plain-English text already
+   shown in the hint box below the dropdown once selected), not the
+   raw backend label.
+
+NEW TEST FILE: tests/test_browser_find_peaks_method_tooltips.py (3
+tests) — confirms the field tooltip no longer contains the old vague
+sentence; confirms every option's tooltip is substantive (>40 chars),
+distinct from the visible option text, and does NOT contain any of the
+3 raw backend label substrings ("IC)", "Sparse / MAP", "exchange Monte
+Carlo"); spot-checks each method's tooltip content for its own
+distinguishing keyword.
+
+PLEASE VERIFY:
+1. Read `FP_STRINGS.methods` and confirm all 4 `hint` values are
+   genuinely informative (state what the method does AND when to use
+   it, no jargon) — read each one directly rather than trusting this
+   summary.
+2. Read the `<option title="...">` construction directly and confirm
+   the fallback chain (`s.hint || s.label || m.label || m.id`) can
+   never silently produce an EMPTY or undefined tooltip for any of the
+   4 real methods (`ic_model_comparison`, `bayesian_exchange_mc`,
+   `sparse_map`, `least_squares`) — i.e. confirm `FP_STRINGS.methods`
+   genuinely has a `hint` key for every one of `_fpMeta.methods`'
+   entries the backend actually returns (cross-check against
+   `_ANALYZE_METHODS` in app.py, which is the source of the method id
+   list).
+3. Confirm this is genuinely display-only: no change to
+   `autofit/methods/*.py` label attributes, no change to which methods
+   are offered or their behavior, no change to
+   `/api/analyze/meta`'s response shape.
+4. Confirm the new tests don't just check tooltip LENGTH but genuinely
+   verify the CONTENT differs meaningfully from both the visible option
+   text and the raw backend label for every option — run or trace them
+   to be sure.
+5. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".

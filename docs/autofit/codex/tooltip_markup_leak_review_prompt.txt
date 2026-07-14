@@ -1,0 +1,95 @@
+You are reviewing a small XSS/markup-escaping bug fix on branch
+feature-autofit-stage2 of the XPS Fitting Studio repo (worktree at this
+path, commit 2ae4340). Read code directly from disk, do not trust this
+description alone.
+
+CONTEXT: the Find Peaks "Other models compared" table's status column
+shows a literal "<b></b>" tag as VISIBLE TEXT in the tooltip for the
+winning row, instead of the tag being interpreted as bold formatting
+(which it correctly IS in the cell's own visible content).
+
+ROOT CAUSE: in `_fpRenderResults()` (templates/index.html), the
+winning candidate's status cell was built as
+`'<b>' + _fpEsc(S.winner) + '</b>'` — an HTML fragment meant for
+`innerHTML` display (this DOES render correctly as bold "Best fit" in
+the cell). A DIFFERENT, earlier fix in this same session (closing a
+SEPARATE bug — a raw Python `PlausibilityFlags(...)` repr leaking into
+this same cell's tooltip) built the tooltip TEXT as
+`_fpEsc(status + ' — see Technical details...')` — i.e. it ran
+`_fpEsc()` a SECOND time over a string that, for the winning row,
+ALREADY contained raw `<b>`/`</b>` characters. Escaping `<b>` produces
+`&lt;b&gt;` in the HTML SOURCE; when the browser parses the `title`
+ATTRIBUTE VALUE, HTML entities in attribute values DO get decoded back
+to their literal characters (that's normal attribute-value parsing) —
+but since attribute values are NEVER re-parsed as markup, those
+decoded literal `<b>`/`</b>` characters just show up as VISIBLE TEXT in
+the tooltip instead of being interpreted as bold formatting. The
+concrete trigger requires the WINNING candidate to ALSO carry a truthy
+`filter_reason` — which happens for a `decisive_override` winner (a
+bound-fixed refit promoted from `filtered_out`, per
+`autofit/engine.py`'s `_apply_decisive_override` /
+`build_analysis_record` in `autofit/methods/ic_model_comparison.py`)
+that still carries its pre-promotion plausibility reason.
+
+THE FIX (templates/index.html only): separated a PLAIN-TEXT status
+string (`statusText` — escaped exactly once, used for the tooltip) from
+an HTML-rendering version (`statusHtml` — the `<b>` wrapper applied
+only at the very end, used for the cell's `innerHTML`). Search for
+`const isWinner = c.name === d.winner;` in `_fpRenderResults()`.
+
+NEW TEST FILE: tests/test_browser_find_peaks_tooltip_markup.py (4
+tests) — reproduces the exact `decisive_override`-with-`filter_reason`
+scenario via a synthetic payload injected directly via
+`_fpRenderResults(body)` and confirms the tooltip contains neither
+literal `<b>`/`</b>` nor an escaped-entity artifact (`&lt;`); confirms
+the cell's own bold rendering is UNCHANGED (a real `<b>` element still
+exists, `innerHTML === '<b>Best fit</b>'` exactly); confirms the
+ordinary winner-with-no-filter_reason case still shows an EMPTY
+tooltip (no regression to the common case); confirms the ORIGINAL
+raw-Python-repr leak this code was meant to fix (a rejected candidate's
+tooltip must not show `PlausibilityFlags(...)`) stays fixed.
+
+ALSO CLAIMED: a full sweep of every `title="` attribute in the Find
+Peaks section of templates/index.html found this to be the ONLY place
+with a partially-pre-escaped/marked-up input — every other tooltip
+(periodic-table cells, level chips, method options, table headers,
+peak-table rows, model-name cells) builds from genuinely plain-text
+sources (element symbols, tier labels, coverage-index notes, backend
+identifiers) with no embedded markup.
+
+PLEASE VERIFY (this is exactly the kind of bug that's easy to
+half-fix — read the actual code, don't take any of the above on
+faith):
+1. Read the current `_fpRenderResults()` candidate-table code directly
+   and confirm `statusText` NEVER contains raw HTML characters for ANY
+   of the 3 branches (winner / survived-alternative / rejected), and
+   that `statusHtml` is the ONLY variable that ever gets `<b>`/`</b>`
+   concatenated onto it — and that `statusHtml`, not `statusText`, is
+   what's used for the cell's own innerHTML content.
+2. Confirm the tooltip's `title="..."` attribute is built EXCLUSIVELY
+   from `statusText` (never `statusHtml`) in every code path.
+3. Do the actual sweep yourself: grep every `title="` occurrence in the
+   Find Peaks section of templates/index.html and check each one's
+   upstream string source for embedded markup — confirm the claim that
+   this was the ONLY instance of this bug class, or find another one if
+   it exists.
+4. Confirm the 4 new tests use REALISTIC payload shapes matching what
+   `autofit/methods/ic_model_comparison.py`'s `build_analysis_record()`
+   actually emits for a `decisive_override` winner (in particular, that
+   a promoted "+bfix" candidate genuinely CAN carry a non-null
+   `filter_reason` in the real backend, not just in the synthetic test
+   payload — trace `_apply_decisive_override` and
+   `build_analysis_record`'s `filtered_reason.get(name)` lookup to
+   confirm this scenario is real, not merely hypothetical).
+5. Confirm this is a pure JS/frontend fix — no backend Python file
+   changed, no change to `/api/fit`, no change to any analysis math or
+   candidate-selection logic (only how an already-computed result gets
+   DISPLAYED).
+6. Anything else that looks wrong, regardless of whether it's on this
+   list — in particular, check for any OTHER place in the file where a
+   string gets escaped twice, or where an HTML fragment gets built and
+   then treated as plain text (or vice versa).
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
