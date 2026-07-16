@@ -1,0 +1,76 @@
+Round-6 recheck for the C 1s VERIFIED-badge fix (branch
+feature-autofit-stage2, worktree at this path, commit 6a531f1). Read
+docs/autofit/codex/c1s_badge_fix_review_prompt.txt through
+docs/autofit/codex/c1s_badge_fix_recheck4_prompt.txt for full prior
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 5 FINDINGS (both of 2 independent runs, unanimous NO-GO):
+1. A fourth "52" mention in docs/superpowers/plans/2026-06-19-reference-
+   identify-workspace.md (line 1025, the Self-Review's "Spec coverage"
+   bullet) was missed by the previous round's sweep of that SAME file.
+2. A genuinely new artifact: docs/mockups/reference-identify-mockup.html
+   (a static illustrative design mockup, not live app code) hardcoded
+   C 1s at 284.5 eV under its "curated" tier badge/tooltip ("Checked by
+   hand against NIST or published papers") — the mockup was illustrating
+   the EXACT bug this whole unit fixes.
+
+FIX APPLIED (commit 6a531f1 — verify against current disk state):
+1. Qualified the fourth "52" mention the same way as the other three in
+   that file (all four locations in
+   docs/superpowers/plans/2026-06-19-reference-identify-workspace.md
+   now say "52 ... at authoring, ... 51 after a 2026-07-16
+   provenance-audit removal").
+2. Changed docs/mockups/reference-identify-mockup.html's `LINES.C`
+   illustrative value from `284.5 eV` to `284.44 eV` (the line rendered
+   under the mockup's "curated" badge/tooltip). Left TWO other 284.5
+   mentions in the SAME file untouched, since they represent something
+   genuinely different: the `NOTES.C` text ("Graphite charge reference
+   284.5 eV...") describes the CC convention, and the `STATES` search-
+   index entry (`['state','graphite','C 1s','284.5 eV','C']`) represents
+   the legacy chemical-state record (Moulder 1992-cited, tier 'legacy',
+   never touched by this unit) — not the curated/NIST elemental
+   transition this fix is about.
+
+Confirmed via a full `pytest tests/` run: 653 passed, 6 skipped, 0
+failures (docs-only change, no functional test coverage exists for
+these two files, but the full suite was still re-run per this branch's
+standing discipline).
+
+PLEASE VERIFY:
+1. Read docs/superpowers/plans/2026-06-19-reference-identify-workspace.md
+   directly and confirm ALL occurrences of the bare digits "52" that
+   refer to data/xps/legacy/chemical-states.json's state count are now
+   qualified — do a fresh, independent search of this specific file
+   yourself (grep for "52" and inspect every hit) rather than trusting
+   this description that "all four" are now fixed.
+2. Read docs/mockups/reference-identify-mockup.html directly. Confirm
+   line ~388 (`LINES.C`) now reads 284.44, and confirm the other two
+   284.5 mentions in that file (the `NOTES.C` charge-reference note, and
+   the `STATES` graphite search-index entry) are correctly LEFT
+   UNCHANGED because they represent genuinely different things (CC
+   convention; legacy chemical-state record) — not further instances of
+   the same badge-conflation bug.
+3. Do a genuinely fresh, from-scratch, repo-wide search (not limited to
+   files already touched in prior rounds) for any remaining place that
+   presents C 1s's curated/verified/NIST reference value as 284.5
+   instead of 284.44 — check docs/, docs/mockups/, docs/superpowers/,
+   README-style files, and any other tracked HTML/JS/MD mockup or
+   design artifact you haven't yet inspected. Also re-confirm the
+   `.stage9` pipeline and the live data/fixtures are still consistent
+   (they should be unchanged from round 4's clean state, since this
+   round's changes were docs-only).
+4. Confirm scope: commit 6a531f1 changes only
+   docs/mockups/reference-identify-mockup.html and
+   docs/superpowers/plans/2026-06-19-reference-identify-workspace.md —
+   no autofit/engine.py, autofit/methods/*.py, fitting.py, app.py, or
+   templates/index.html changes across the ENTIRE C1s-badge-fix effort
+   (29e922c through 6a531f1).
+5. This is now the SIXTH round of review for this one unit. If you
+   genuinely find nothing further wrong, say so plainly and give GO —
+   don't manufacture a finding to avoid concluding the review. If you do
+   find something, it should be a real, concrete, previously-undetected
+   issue, not a restatement of something already addressed.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
