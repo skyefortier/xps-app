@@ -6,7 +6,7 @@ sourced-or-skip. The 2026-07-05 audit of every candidate source found NO
 cleanly-sourceable extension:
 
 1. The frontend's embedded CHEMICAL_STATES constant — the origin of the
-   existing 11-group/52-state tier — was FULLY transcribed (dual
+   original 11-group/52-state tier — was FULLY transcribed (dual
    extraction, 4a/4b) and then REMOVED from the template. Source
    exhausted.
 2. The archived NIST element pages (query_all_dat_el.asp) carry no
@@ -21,16 +21,17 @@ cleanly-sourceable extension:
    plus Skye's editorial condensation rules for which compound rows
    constitute a "state") is the documented path — logged, not executed.
 
-The tier therefore stays at 11 groups / 52 states. That is the correct
-outcome, not a failure.
+The tier therefore stays at 11 groups / 51 states (see the disclosed
+deviation below — one state was intentionally removed from the original
+52-state transcription). That is the correct outcome, not a failure.
 
 DISCLOSED DEVIATION (2026-07-16, provenance audit): the U 4f7/2 group's
 UCl₄/380.2 eV state (id legacy-cs-U-4f72-4) carried `"ref": "Fortier
 2026"` — a literal self-citation, not an external literature source.
-Removed entirely (Skye's call: delete rather than restructure). The tier
-is now 11 groups / 51 states — the ONE intentional content deviation
-from the original embedded constant; see test_no_self_citation_in_any_
-ref_string below and tests/test_legacy_parity.py.
+Removed entirely (Skye's call: delete rather than restructure). This is
+the ONE intentional content deviation from the original transcribed
+constant (52 states -> 51); see test_no_self_citation_in_any_ref_string
+below and tests/test_legacy_parity.py.
 """
 
 import json

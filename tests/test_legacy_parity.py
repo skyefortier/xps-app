@@ -4,9 +4,13 @@ frozen oracle fixture (tests/fixtures/xps_legacy_snapshot.json) EXACTLY
 (byte-faithful values). This is the proof of "exact parity" — if
 transcription ever drifts from the fixture, this fails.
 
-The expected values are extracted directly from templates/index.html by
-evaling the real JS literals (.stage9/legacy_raw.json, regenerated here if
-missing), so the test compares JSON-against-source, not JSON-against-itself.
+The fixture itself was built ONCE by evaling the real JS literals straight
+out of templates/index.html, before the XPS_ELEMENTS/CHEMICAL_STATES
+constants were deleted from the template (see test_cutover.py, which
+proves the fixture matches what the template used to contain and that the
+constants are genuinely gone now). `_raw()` below reads that frozen
+fixture, not the template — the template's constants no longer exist to
+compare against.
 
 DISCLOSED DEVIATION (2026-07-16, provenance audit): the fixture's
 CHEMICAL_STATES['U 4f7/2'] and data/xps/legacy/chemical-states.json's
@@ -16,7 +20,7 @@ edited together (a deliberate, disclosed content change, not an accidental
 drift), so "exact reconstruction" remains literally true post-edit; the
 fixture is no longer byte-identical to the ORIGINAL pre-cutover JS
 constant, only to the current, intentionally-curated legacy dataset. The
-tier is now 11 groups / 51 states (was 52).
+tier is now 11 groups / 51 states (was 52 before this one removal).
 """
 import json
 import subprocess
