@@ -1,0 +1,85 @@
+Recheck for the self-citation removal fix (branch feature-autofit-stage2,
+worktree at this path, commit c37e902). Read
+docs/autofit/codex/self_citation_removal_review_prompt.txt for full
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 1 FINDINGS: split verdict (1x GO, 1x NO-GO — stricter governs).
+Both runs independently verified the data edit itself (UCl4 entry
+genuinely removed, no other "Fortier" ref remains in
+data/xps/legacy/chemical-states.json), the recomputed content_sha256,
+the recomputed fixture self-check sha256, and the new
+test_no_self_citation_in_any_ref_string test as correctly targeted and
+non-vacuous. The NO-GO run found two documentation-consistency issues,
+and the GO run's non-blocking notes caught a third real issue:
+
+1. tests/test_chem_state_tier.py's docstring still said "the existing
+   11-group/52-state tier" and "The tier therefore stays at 11 groups /
+   52 states. That is the correct outcome, not a failure." directly
+   above a NEW paragraph saying it's now 51 — contradictory, stale
+   prose sitting right next to the correction.
+2. tests/test_legacy_parity.py's docstring still claimed `_raw()`
+   "extract[s] values directly from templates/index.html by evaling the
+   real JS literals" — not true of the current code, which reads the
+   frozen fixture (the constants were deleted from the template long
+   ago); misdescribes what the parity gate's oracle actually is.
+3. (GO run's non-blocking note) A stray file,
+   templates/index.html.tmp.19861.1774892271848, was found TRACKED IN
+   GIT (committed accidentally in March 2026, commit 18d3a2e, alongside
+   an unrelated UI-updates commit) — an old ~6300-line snapshot of
+   index.html that still embeds the original CHEMICAL_STATES JS
+   constant with the SAME literal "Fortier 2026" ref, a second copy of
+   the self-citation sitting in the repo outside the audited files.
+
+FIX APPLIED (commit c37e902 — verify against current disk state):
+1. Rewrote the surrounding prose in both docstrings in place (not just
+   appended a disclosure paragraph) so "52" no longer appears as a
+   contradicting claim — the narrative now says the ORIGINAL tier was
+   52 states and explains the ONE disclosed removal brought it to 51,
+   consistently, in one continuous account.
+2. Corrected test_legacy_parity.py's docstring to accurately describe
+   the fixture's actual origin (evaled from templates/index.html ONCE,
+   before the constants were deleted — see test_cutover.py) and that
+   `_raw()` now reads that frozen fixture, not the template.
+3. `git rm`'d templates/index.html.tmp.19861.1774892271848 — confirmed
+   via grep that nothing in the codebase (app.py, tests, scripts)
+   references this filename, and confirmed no backup tarball or other
+   stray artifact from the same commit remains tracked.
+
+Confirmed via re-running the full relevant test suite (70 tests) plus a
+full `pytest tests/` run after this commit.
+
+PLEASE VERIFY:
+1. Read both docstrings directly and confirm there is no longer any
+   internally-contradictory "52 states" claim standing unqualified next
+   to a "51 states" assertion — the narrative should read as one
+   consistent account of what changed and why.
+2. Confirm test_legacy_parity.py's docstring now accurately describes
+   what `_raw()` actually does (reads the fixture) versus how the
+   fixture itself was originally built (evaled from the template, once,
+   historically) — these are different facts and both should be
+   correctly attributed to the right target.
+3. Confirm templates/index.html.tmp.19861.1774892271848 is genuinely
+   gone (git log / git show, and confirm it's not present in the
+   current working tree) and that grepping the CURRENT tree for
+   "Fortier" turns up nothing outside: tests/test_chem_state_tier.py,
+   tests/test_legacy_parity.py, tests/fixtures/xps_legacy_snapshot.json
+   (all discussing/disclosing the fix), tests/fixtures/curated_records_
+   snapshot.json + data/xps/elements-main.json (the C 1s curator-
+   decision attribution "S. Fortier 2026-06" — a SEPARATE, later unit's
+   scope, not this one's; confirm you agree that one is out of scope
+   here since it's an editorial-decision attribution, not a literature
+   citation dressed up as one), and .stage9/extract_targets_chem.json +
+   .stage9/phase4chem_workflow.js (deliberately-retained historical
+   transcription evidence, not loaded at runtime).
+4. Confirm removing the stray tracked temp file didn't break anything
+   (it shouldn't have been referenced by anything — confirm this
+   independently) and that the full test suite still passes.
+5. Confirm scope otherwise unchanged from round 1: still only test
+   files + the stray file removal, no autofit/engine.py,
+   autofit/methods/*.py, fitting.py, or /api/fit changes.
+6. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
