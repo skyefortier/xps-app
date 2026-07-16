@@ -11,7 +11,8 @@ ONE intended change.
    `tests/test_legacy_parity.py` rebuilds `XPS_ELEMENTS` and `CHEMICAL_STATES`
    from `data/xps/legacy/*.json` and asserts byte-equality against the live
    constants extracted from the template (53 elements / 62 lines / 11 groups /
-   52 states). Auger KLL kept as legacy BE markers (not converted).
+   52 states at Checkpoint B time; 51 states after the 2026-07-16 provenance-
+   audit removal below). Auger KLL kept as legacy BE markers (not converted).
 
 2. **The real JS accessor deep-equals the constants.**
    `tests/test_legacy_hardening.py::test_js_accessor_functions_deep_equal_constants`
@@ -59,11 +60,11 @@ Accessor-vs-constants deep parity is proven by the committed JS accessor test
 is identical except the allowlisted be+ccShift fix. No masked regression: the
 only delta is A1.
 
-## Tier adjudication summary (advisory metadata, all 114 legacy quantitative fields)
+## Tier adjudication summary (advisory metadata, all 113 legacy quantitative fields)
 
-| | survey (62) | chem (52) |
+| | survey (62) | chem (51) |
 |---|---|---|
-| transcription-corroborated | 49 | 31 |
+| transcription-corroborated | 49 | 30 |
 | conflict (resolved, flagged) | 8 | 0 |
 | single-source | 0 | 2 |
 | context-unconfirmed | 0 | 5 |
@@ -71,3 +72,13 @@ only delta is A1.
 
 `machine-source-corroborated` is **not** claimed anywhere (both passes read
 the same source, NIST). Unresolved values stay flagged indefinitely.
+
+POST-CHECKPOINT UPDATE (2026-07-16, provenance audit): the U 4f7/2 UCl₄
+chemical-state entry (id legacy-cs-U-4f72-4, transcription-corroborated
+tier) was removed — its `ref` field was the literal self-citation "Fortier
+2026", not an external literature source (see
+tests/test_chem_state_tier.py::test_no_self_citation_in_any_ref_string).
+This is the ONE change to the chem counts since the original Checkpoint B
+review (52→51 states, transcription-corroborated 31→30); every other
+number and qualitative claim in this document is unchanged from Checkpoint
+B and remains accurate.

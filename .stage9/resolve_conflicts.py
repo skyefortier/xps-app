@@ -83,7 +83,7 @@ print(f"Resolved {len(resolved)} survey conflicts via elemental-nominal/auger-fr
 for t in resolved:
     r = t["resolution"]
     if r["kind"] == "auger-ke-frame":
-        print(f"  {t['element']} {t['orbital']}: KE {r['auger_ke_ev']} (apparent BE {r['apparent_be_alka']} "
+        print(f"  {t['element']} {t['orbital']}: KE {r['auger_ke_ev']} (apparent BE {r['apparent_be_app_convention']} "
               f"~ legacy {t['legacy_be']}) [auger-frame]")
     else:
         print(f"  {t['element']} {t['orbital']}: nominal {r['elemental_nominal_ev']} metal, "
