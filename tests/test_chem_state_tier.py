@@ -134,10 +134,15 @@ def test_no_self_citation_in_any_ref_string():
     tier is now 11 groups / 51 states. Pin the absence going forward so a
     future legacy-data edit can't silently reintroduce a self-citation.
 
-    COMPLETE accounting of every remaining "Fortier" occurrence in the
-    tracked repo as of this fix (verified via ``git grep -n Fortier`` —
-    NOT the plain shell ``grep`` alias in this environment, which silently
-    respects .gitignore and hides gitignored-but-tracked files):
+    COMPLETE accounting of every remaining occurrence of the literal
+    self-citation string "Fortier 2026" in tracked .json/.js/.py files as
+    of this fix (verified via ``git grep -n "Fortier 2026" -- '*.json'
+    '*.js' '*.py'`` — NOT the plain shell ``grep`` alias in this
+    environment, which silently respects .gitignore and hides
+    gitignored-but-tracked files). This does NOT cover every bare mention
+    of the surname "Fortier" anywhere in the repo (e.g. ordinary "Fortier
+    Lab" mentions in docs/superpowers/plans/*.md planning notes) — those
+    are not citations and are out of scope for this audit:
 
     - .stage9/extract_targets_chem.json, .stage9/phase4chem_workflow.js,
       .stage9/manifest/manifest.json — the original Stage-9 dual-
