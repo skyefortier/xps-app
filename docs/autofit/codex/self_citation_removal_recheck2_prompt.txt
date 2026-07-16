@@ -1,0 +1,84 @@
+Round-3 recheck for the self-citation removal fix (branch
+feature-autofit-stage2, worktree at this path, commit aad7ebb). Read
+docs/autofit/codex/self_citation_removal_review_prompt.txt and
+docs/autofit/codex/self_citation_removal_recheck_prompt.txt for full
+prior context — do not trust this description alone; verify against
+current disk state.
+
+ROUND 2 FINDINGS (both of 2 independent runs, unanimous NO-GO):
+1. tests/test_legacy_parity.py's module docstring and `_raw()`'s inline
+   comment still overclaimed what is proven and by what: said the
+   fixture was "mechanically verified == the original constants" and
+   that test_cutover.py "proves the fixture matches what the template
+   used to contain" — neither is a live, currently-true fact (the
+   template's constants are deleted; test_cutover.py proves the
+   rendered page still matches the FIXTURE, not that the fixture
+   matches deleted historical literals).
+2. (from round 1's GO run's non-blocking note, restated as a real
+   finding in round 2) the prior commit's disclosure of "which files
+   still deliberately contain the self-citation string" was
+   INCOMPLETE — it named only 2 of what turned out to be 3 .stage9
+   historical files. This was caused by a genuinely confusing
+   environment quirk: this environment's plain `grep` command is
+   aliased to respect .gitignore (via a wrapper), which silently hid
+   `.stage9/manifest/manifest.json` (tracked in git despite being
+   covered by a LATER .gitignore rule for new writes) from every
+   earlier search.
+
+FIX APPLIED (commit aad7ebb — verify against current disk state):
+1. Rewrote tests/test_legacy_parity.py's module docstring (paragraph
+   starting "The fixture itself was built ONCE...") and `_raw()`'s
+   inline comment to state precisely: what was proven once, historically
+   (fixture == original constants, no longer live-checked); what
+   test_cutover.py proves NOW (rendered page == fixture, constants
+   genuinely absent); and that `_raw()` treats the fixture as the sole
+   current oracle, not a stand-in for "the original constants" as an
+   ongoing fact.
+2. Re-ran the self-citation search using `git grep` (searches all
+   tracked files regardless of .gitignore) instead of the environment's
+   aliased `grep`, and moved the COMPLETE, corrected list of
+   deliberately-retained files into
+   test_no_self_citation_in_any_ref_string's own docstring in
+   tests/test_chem_state_tier.py (a durable, discoverable location, vs.
+   a commit message) — now names all three: .stage9/extract_targets_
+   chem.json, .stage9/phase4chem_workflow.js, AND
+   .stage9/manifest/manifest.json, plus explicitly separates out the
+   C 1s curator-decision attribution (a different unit's scope, not a
+   literature-citation issue) in data/xps/elements-main.json /
+   tests/fixtures/curated_records_snapshot.json.
+
+Confirmed via re-running tests/test_chem_state_tier.py,
+tests/test_legacy_parity.py, tests/test_cutover.py,
+tests/test_machine_tier.py (34 passed) and a full `pytest tests/` run.
+
+PLEASE VERIFY:
+1. Read the corrected module docstring and `_raw()` comment in
+   tests/test_legacy_parity.py directly. Confirm every claim in them is
+   now literally true of the CURRENT test suite and CURRENT fixture
+   state — in particular, that no sentence claims a currently-running
+   test proves fixture == original historical constants (that fact is
+   now correctly scoped as a one-time historical claim, not a live
+   assertion).
+2. Independently run (or simulate) `git grep -n "Fortier"` yourself
+   against the current tree (not a .gitignore-respecting `grep`
+   wrapper) and confirm the three .stage9 files named in
+   test_chem_state_tier.py's docstring are the COMPLETE list of
+   remaining occurrences outside the two curator-attribution files and
+   the test/fixture files that discuss the fix itself. If you find a
+   FOURTH file this list still misses, that's the finding.
+3. Confirm the reasoning for retaining the three .stage9 files
+   (historical transcription/build-manifest evidence, not loaded by any
+   runtime code) still holds — spot check that none of app.py,
+   xps_reference.py, autofit/, or fitting.py import or read any of the
+   three by name.
+4. Confirm scope is otherwise unchanged: only tests/test_chem_state_
+   tier.py and tests/test_legacy_parity.py touched in this round — no
+   autofit/engine.py, autofit/methods/*.py, fitting.py, app.py, or
+   templates/index.html changes.
+5. Anything else that looks wrong, regardless of whether it's on this
+   list. In particular: is there a cleaner way to express the
+   historical-vs-current provenance distinction in these docstrings
+   than what's there now, if the current wording is still unclear?
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
