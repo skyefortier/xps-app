@@ -1,0 +1,119 @@
+You are reviewing a provenance-data fix on branch feature-autofit-stage2
+of the XPS Fitting Studio repo (worktree at this path, commit 29e922c).
+Read code directly from disk, do not trust this description alone.
+
+CONTEXT: a provenance audit (a separate read-only-clone Claude session)
+found a live crack in the reference-data honesty story: data/xps/
+elements-main.json's C 1s transition had `nominal_be_ev: 284.5` — the
+app's OWN charge-correction convention value (templates/index.html's
+hardcoded CC default and Auto-Fit C1s Graphite logic) — while its own
+`notes` field disclosed that the raw NIST-evaluated literature value
+(Powe95, starred: 284.44) sits 0.06 eV away. Because
+autofit/reference_bridge.py's `BRIDGE_TIER_STATUS` maps every
+curated-tier record to `"VERIFIED"` unconditionally (no per-record
+check), and static/js/ref_identify_core.js's curated-tier tooltip note
+says "Reference energies reviewed against source records," this
+unverified internal convention was wearing a literature-grade
+verification badge on the chart's reference-line overlay.
+
+Skye was asked directly (not guessed) which of two fixes she wanted:
+switch the badge to 284.44 (the literature value), or keep 284.5
+displayed with honest non-VERIFIED labeling instead. Her call: switch
+the badge to 284.44.
+
+THE FIX:
+1. data/xps/elements-main.json's C 1s transition: `nominal_be_ev`
+   284.5 -> 284.44. Rewrote the `notes` field: now says 284.44 is the
+   literature-verified value carrying VERIFIED status honestly, and
+   that 284.5 is a SEPARATE, disclosed engineering convention
+   (charge-correction default) that intentionally does NOT flow
+   through this reference/citation pipeline.
+2. data/xps/legacy/corrections.json's C entry: `curated_elemental_
+   nominal` 284.5 -> 284.44, to match. (This file is a Stage-9
+   cross-reference/audit artifact — NOT loaded by xps_reference.py or
+   any runtime path; only consumed by test snapshot guards.)
+3. Regenerated tests/fixtures/curated_records_snapshot.json (via its
+   own sanctioned `python tests/fixtures/regen_curated_snapshot.py`)
+   and data/xps/fit-physics.json (via `python scripts/gen_fit_physics.py`)
+   — both are GENERATED databases that copy `nominal_be_ev` verbatim
+   from elements-main.json; regenerating picked up the new value
+   mechanically. Confirmed the fit-physics generator's C-1s SEED entry
+   (core_hole_width_ev, lineshape_families, satellites — mirrors
+   autofit/regions/c1s.py's own provenance) has no `nominal_be_ev` key
+   of its own, so it can't clobber the mechanically-copied value.
+4. Added test_c1s_verified_reference_is_the_literature_value_not_the_
+   cc_convention to tests/autofit/test_reference_bridge.py — asserts
+   the C 1s curated position's `nominal_be_ev` equals 284.44 (not
+   284.5) and its `status` is `"VERIFIED"`. Verified via genuine
+   red-green: failed against the pre-fix 284.5 data with the literal
+   284.5≠284.44 mismatch shown, passes now.
+5. Confirmed via grep that templates/index.html's `284.5`/`284.50`
+   occurrences (the `#cc-lit` dropdown option text, `state.ccShift`
+   computation, Auto-Fit C1s Graphite logic) are ALL literal,
+   independent JS constants — none read `nominal_be_ev` from
+   `/api/xps-reference` at runtime. Zero changes to
+   templates/index.html in this commit.
+6. Running the full suite after the data change surfaced 3 unrelated
+   test failures caused by the SAME value change rippling through
+   other committed artifacts that reference C 1s's nominal_be_ev:
+   - tests/autofit/test_fit_physics.py's two tests (fixed by
+     regenerating data/xps/fit-physics.json, item 3 above — no
+     hand-editing, purely running its sanctioned generator).
+   - tests/test_browser_cc_overlay_repaint.py::test_charge_correction_
+     keeps_reference_overlay_painted, a real-browser test that samples
+     canvas pixels at a specific x-coordinate to check whether the C 1s
+     reference-line OVERLAY is painted there. It hardcoded the sample
+     coordinate at 284.5 (the overlay's OLD position) and asserted the
+     overlay's reported position equals 284.5. Updated both the sample
+     coordinate and the assertion to 284.44 (the overlay's new,
+     correct position) — the test's actual regression coverage (does
+     the overlay stay painted across a charge-correction rebuild,
+     unrelated to which exact number it's centered on) is unaffected.
+
+PLEASE VERIFY:
+1. Read data/xps/elements-main.json's C 1s transition directly and
+   confirm `nominal_be_ev` is 284.44 and the notes field accurately
+   describes both numbers and their now-separated roles.
+2. Confirm autofit/reference_bridge.py's `level_reference("C", "1s")`
+   genuinely returns a curated position with `nominal_be_ev == 284.44`
+   and `status == "VERIFIED"` — trace the code path yourself
+   (`_load_bridge`'s curated-tier loop, `_add_position`) rather than
+   trusting the test.
+3. Confirm data/xps/legacy/corrections.json's C entry, tests/fixtures/
+   curated_records_snapshot.json, and data/xps/fit-physics.json are ALL
+   internally consistent with the new 284.44 value (no stale 284.5
+   left in any of them for the C 1s record specifically) — and confirm
+   the fit-physics.json diff is EXACTLY what its generator script
+   produces (re-run `python scripts/gen_fit_physics.py` yourself into a
+   temp file and diff against the committed one, or reason through the
+   generator's copy-verbatim logic directly).
+4. Confirm there is genuinely NO coupling between templates/index.html's
+   charge-correction default (284.5, hardcoded JS literals) and
+   data/xps/elements-main.json's nominal_be_ev — grep every "284.5" and
+   "284.50" occurrence in templates/index.html and confirm none of them
+   read from `/api/xps-reference`, `_refPayload`, or any bridge-derived
+   value.
+5. Confirm tests/autofit/fixtures/c1s_battery_expected.json (real
+   fitted-peak results from a battery run) and autofit/regions/c1s.py's
+   own `provenance()` (which has its own INDEPENDENT, already-correctly-
+   cited `graphite_reference_ev: 284.4` constant, sourced to Leiro 2002 —
+   confirm this) are genuinely untouched and unaffected by this fix —
+   these should have zero diff in this commit.
+6. Confirm the two test_browser_cc_overlay_repaint.py edits are
+   correct: does sampling the canvas at x=284.44 instead of x=284.5
+   still validly test "is the reference overlay painted," and does the
+   updated assertion (`cc["cBe"] == 284.44`) still prove the overlay
+   position is independent of `ccShift` (the actual regression this
+   test protects)?
+7. Confirm scope: git diff shows ONLY the 6 files named above changed —
+   no autofit/engine.py, autofit/methods/*.py, fitting.py, app.py, or
+   templates/index.html changes; no change to manual Run Fit or
+   /api/fit.
+8. Anything else that looks wrong, regardless of whether it's on this
+   list — in particular, whether there's some OTHER committed artifact
+   (a third generated database, another test snapshot) that also
+   embeds C 1s's nominal_be_ev and was missed.
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
