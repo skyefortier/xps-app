@@ -23,6 +23,14 @@ cleanly-sourceable extension:
 
 The tier therefore stays at 11 groups / 52 states. That is the correct
 outcome, not a failure.
+
+DISCLOSED DEVIATION (2026-07-16, provenance audit): the U 4f7/2 group's
+UCl₄/380.2 eV state (id legacy-cs-U-4f72-4) carried `"ref": "Fortier
+2026"` — a literal self-citation, not an external literature source.
+Removed entirely (Skye's call: delete rather than restructure). The tier
+is now 11 groups / 51 states — the ONE intentional content deviation
+from the original embedded constant; see test_no_self_citation_in_any_
+ref_string below and tests/test_legacy_parity.py.
 """
 
 import json
@@ -49,13 +57,13 @@ def test_every_chem_state_carries_ref_source_tier():
     assert doc["content_sha256"]
     states = [s for g in doc["groups"] for s in g["states"]]
     assert len(doc["groups"]) == 11
-    assert len(states) == 52
+    assert len(states) == 51
     for s in states:
         assert s["ref"] and isinstance(s["ref"], str), f"{s['id']}: no ref"
         assert s["source"] == "legacy-embedded-dataset"
         assert s["tier"] == "legacy-unverified"
         assert isinstance(s["be_ev"], (int, float)) and 0 < s["be_ev"] < 1500
-    assert len({s["id"] for s in states}) == 52     # ids unique
+    assert len({s["id"] for s in states}) == 51     # ids unique
 
 
 def test_transcription_source_removed_from_frontend():
@@ -113,3 +121,19 @@ def test_chem_states_flow_through_bridge_with_provenance():
         assert len(ref["chemical_states"]) == len(grp["states"])
         for s in ref["chemical_states"]:
             assert s["ref"] and s["source"] and s["status"] == "UNVERIFIED"
+
+
+def test_no_self_citation_in_any_ref_string():
+    """Provenance audit (2026-07-16): 'ref' strings must cite an external
+    literature source, never the lab itself. The legacy U 4f7/2 UCl4 entry
+    (id legacy-cs-U-4f72-4) previously carried ``"ref": "Fortier 2026"`` —
+    a literal self-citation dressed up as a source, indistinguishable from
+    a real literature reference to anyone reading the tooltip. Removed
+    entirely (Skye's explicit call: delete rather than restructure) — the
+    tier is now 11 groups / 51 states. Pin the absence going forward so a
+    future legacy-data edit can't silently reintroduce a self-citation."""
+    doc = _load(CHEM)
+    for g in doc["groups"]:
+        for s in g["states"]:
+            assert "fortier" not in s["ref"].lower(), (
+                f"{s['id']}: self-citation in ref field ({s['ref']!r})")

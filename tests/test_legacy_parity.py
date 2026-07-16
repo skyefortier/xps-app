@@ -1,12 +1,22 @@
 """
 Stage 9 Phase 1 parity gate: the legacy JSON docs must reconstruct the
-original XPS_ELEMENTS and CHEMICAL_STATES constants EXACTLY (byte-faithful
-values). This is the proof of "exact parity" — if transcription ever drifts
-from the embedded constants, this fails.
+frozen oracle fixture (tests/fixtures/xps_legacy_snapshot.json) EXACTLY
+(byte-faithful values). This is the proof of "exact parity" — if
+transcription ever drifts from the fixture, this fails.
 
 The expected values are extracted directly from templates/index.html by
 evaling the real JS literals (.stage9/legacy_raw.json, regenerated here if
 missing), so the test compares JSON-against-source, not JSON-against-itself.
+
+DISCLOSED DEVIATION (2026-07-16, provenance audit): the fixture's
+CHEMICAL_STATES['U 4f7/2'] and data/xps/legacy/chemical-states.json's
+matching group both had their UCl₄/380.2 eV state removed — its `ref`
+field was the literal self-citation "Fortier 2026". Both sides were
+edited together (a deliberate, disclosed content change, not an accidental
+drift), so "exact reconstruction" remains literally true post-edit; the
+fixture is no longer byte-identical to the ORIGINAL pre-cutover JS
+constant, only to the current, intentionally-curated legacy dataset. The
+tier is now 11 groups / 51 states (was 52).
 """
 import json
 import subprocess
@@ -58,7 +68,7 @@ def test_counts_match_known_totals():
     assert len(survey["elements"]) == 53
     assert sum(len(e["lines"]) for e in survey["elements"]) == 62
     assert len(chem["groups"]) == 11
-    assert sum(len(g["states"]) for g in chem["groups"]) == 52
+    assert sum(len(g["states"]) for g in chem["groups"]) == 51
 
 
 def test_auger_lines_kept_as_legacy_be_not_converted():

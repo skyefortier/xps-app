@@ -1,5 +1,5 @@
 {
- "description": "IMMUTABLE Stage 9 cutover oracle. Verbatim snapshot of the XPS_ELEMENTS and CHEMICAL_STATES JS constants as they existed in templates/index.html immediately before cutover. Created ONCE, mechanically verified against the extracted constant values. NEVER auto-regenerate — it is the independent post-deletion parity oracle. Mechanical integrity only; not a scientific reference.",
+ "description": "IMMUTABLE Stage 9 cutover oracle. Verbatim snapshot of the XPS_ELEMENTS and CHEMICAL_STATES JS constants as they existed in templates/index.html immediately before cutover. Created ONCE, mechanically verified against the extracted constant values. NEVER auto-regenerate — it is the independent post-deletion parity oracle. Mechanical integrity only; not a scientific reference. ONE deliberate manual deviation from the original constant (2026-07-16, provenance audit): CHEMICAL_STATES['U 4f7/2'] had its UCl₄/380.2 eV entry removed — its 'ref' was the literal self-citation \"Fortier 2026\", indistinguishable from a real literature source. This is the sole intentional edit; sha256 recomputed to match. See tests/test_chem_state_tier.py::test_no_self_citation_in_any_ref_string and tests/test_legacy_parity.py.",
  "XPS_ELEMENTS": {
   "Li": {
    "lines": {
@@ -496,11 +496,6 @@
     "state": "UO₃ (U⁶⁺)",
     "be": 381.5,
     "ref": "Ilton 2007"
-   },
-   {
-    "state": "UCl₄",
-    "be": 380.2,
-    "ref": "Fortier 2026"
    }
   ],
   "Cl 2p3/2": [
@@ -560,5 +555,5 @@
    }
   ]
  },
- "sha256": "4c7aca2bcb9eef3bf15c8f21e1b219e8ce16a294220dbe381259056d70ac9a76"
+ "sha256": "0c04aa70d7ced8d35dac72dea57443801c2046d6157d6330bd0a1b2eca12227d"
 }

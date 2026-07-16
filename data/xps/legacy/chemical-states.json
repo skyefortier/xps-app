@@ -4,7 +4,7 @@
   "source": "legacy-embedded-dataset",
   "curation_status": "legacy-unverified",
   "provenance": "Verbatim transcription of the CHEMICAL_STATES constant embedded in templates/index.html (NIST-modal chemical-state table). The 'ref' strings are the legacy editorial citations, kept as-is.",
-  "content_sha256": "775939f636b7aeacb31fb304f22eb6be8bbe4636b4e15e736e71c75a443ec486",
+  "content_sha256": "98b6148f1be1d02df5e43f37b4d5c523467b16c87090877a54752b935fe44924",
   "groups": [
     {
       "orbital_key": "C 1s",
@@ -401,14 +401,6 @@
           "state": "UO₃ (U⁶⁺)",
           "be_ev": 381.5,
           "ref": "Ilton 2007",
-          "source": "legacy-embedded-dataset",
-          "tier": "legacy-unverified"
-        },
-        {
-          "id": "legacy-cs-U-4f72-4",
-          "state": "UCl₄",
-          "be_ev": 380.2,
-          "ref": "Fortier 2026",
           "source": "legacy-embedded-dataset",
           "tier": "legacy-unverified"
         }

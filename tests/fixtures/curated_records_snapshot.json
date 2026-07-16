@@ -1914,14 +1914,6 @@
               "ref": "Ilton 2007",
               "source": "legacy-embedded-dataset",
               "tier": "legacy-unverified"
-            },
-            {
-              "id": "legacy-cs-U-4f72-4",
-              "state": "UCl₄",
-              "be_ev": 380.2,
-              "ref": "Fortier 2026",
-              "source": "legacy-embedded-dataset",
-              "tier": "legacy-unverified"
             }
           ]
         },
