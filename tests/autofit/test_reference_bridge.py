@@ -300,3 +300,29 @@ def test_unknown_element_or_level_raises():
         rb.level_reference("Zz", "2p")
     with pytest.raises(KeyError):
         rb.level_reference("Ti", "5f")   # not occupied
+
+
+def test_c1s_verified_reference_is_the_literature_value_not_the_cc_convention():
+    """Provenance audit (2026-07-16): C 1s's curated position previously
+    carried the app's charge-correction CONVENTION value (284.5) under a
+    VERIFIED/curated badge, while its own notes field disclosed that the
+    true NIST-evaluated literature value (Powe95, starred: 284.44) sits
+    0.06 eV away — an unverified engineering convention wearing a
+    "reviewed against source records" badge (static/js/ref_identify_
+    core.js's curated tier note). Skye's explicit call: the VERIFIED
+    badge must point at the literature value; 284.5 stays ONLY as the
+    charge-correction dropdown default in templates/index.html, which is
+    hardcoded there independently and never reads from this reference
+    data (confirmed no coupling exists — grep templates/index.html for
+    "284.5"/"284.50": every hit is a literal JS constant in the
+    charge-correction / Auto-Fit C1s Graphite code, none read
+    nominal_be_ev from /api/xps-reference)."""
+    ref = rb.level_reference("C", "1s")
+    curated = [p for p in ref["positions"] if p["tier"] == "curated"]
+    assert curated, "C 1s should have a curated-tier position"
+    for pos in curated:
+        assert pos["nominal_be_ev"] == pytest.approx(284.44), (
+            f"C 1s VERIFIED reference must be the literature value: {pos}")
+        assert pos["nominal_be_ev"] != pytest.approx(284.5), (
+            "C 1s VERIFIED reference must NOT be the CC convention value")
+        assert pos["status"] == "VERIFIED"

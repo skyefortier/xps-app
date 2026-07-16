@@ -155,9 +155,10 @@ def test_charge_correction_keeps_reference_overlay_painted(browser, server):
     try:
         _setup_c(pg)
 
-        # Baseline sanity: the C 1s overlay line (nominal 284.5, in range with cc=0)
-        # is painted.
-        base = pg.evaluate(_SAMPLE, 284.5)
+        # Baseline sanity: the C 1s overlay line (nominal 284.44, the literature
+        # Powe95 value data/xps/elements-main.json carries as of the 2026-07-16
+        # provenance audit -- in range with cc=0) is painted.
+        base = pg.evaluate(_SAMPLE, 284.44)
         assert base["blue"] > 200, f"sanity: overlay not painted at baseline: {base}"
 
         # Apply a REAL charge correction through the actual handler (NOT by poking
@@ -182,16 +183,20 @@ def test_charge_correction_keeps_reference_overlay_painted(browser, server):
         )
         pg.wait_for_timeout(150)
 
-        # Positioning math is unchanged: overlay stays at nominal corrected BE, and
-        # the axis (data) shifted by the correction — overlay now coincides with the
-        # corrected peak (raw 286.5 - 2.0 = 284.5).
+        # Positioning math is unchanged: the overlay stays at its own fixed nominal
+        # BE (284.44) regardless of ccShift — it never moves with the correction.
+        # The axis (data) shifts by the correction instead: the demo peak (raw
+        # 286.5, cc=+2.0) lands at corrected 284.5, close to but not exactly on
+        # the 284.44 overlay — that 0.06 eV gap is expected and irrelevant here,
+        # since this test samples the OVERLAY's own paint column, not the data
+        # curve's position.
         assert abs(cc["ccShift"] - 2.0) < 1e-6, cc
-        assert cc["cBe"] == 284.5, f"overlay BE shifted by ccShift (must not): {cc}"
+        assert cc["cBe"] == 284.44, f"overlay BE shifted by ccShift (must not): {cc}"
         assert abs(cc["corrLo"] - 278.0) < 0.05 and abs(cc["corrHi"] - 293.0) < 0.05, cc
 
         # THE REGRESSION ASSERTION: without any further interaction, the overlay is
         # still painted after the charge-correction rebuild.
-        after = pg.evaluate(_SAMPLE, 284.5)
+        after = pg.evaluate(_SAMPLE, 284.44)
         assert after["blue"] > 200, (
             f"regression: reference overlay vanished after charge correction "
             f"(baseline={base}, after={after})"

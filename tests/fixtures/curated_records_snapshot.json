@@ -7,7 +7,7 @@
       "z": 6,
       "orbital": "1s",
       "transition_type": "photoelectron",
-      "nominal_be_ev": 284.5,
+      "nominal_be_ev": 284.44,
       "spin_orbit": null,
       "expected_region_ev": {
         "min": 282.0,
@@ -19,7 +19,7 @@
         "MgKa": "uncurated"
       },
       "source": "nist-srd-20",
-      "notes": "Nominal is set to 284.5 — the app's C 1s graphite charge-correction reference — NOT the raw NIST-evaluated value (Powe95, starred: 284.44). C 1s is the calibration anchor, so the reference marker and the CC reference must agree; internal consistency beats the 0.06 eV difference (curator decision, S. Fortier 2026-06). NIST evidence: 20 elemental-form records span 282.0-286.9 incl. the Powe95 evaluated 284.44; NIST compound records (2015 page) extend organic C 1s components to 289.22 — region spans both. Carbonate/fluorocarbon upward extension (>289.5) is a future expansion."
+      "notes": "Nominal is the raw NIST-evaluated value (Powe95, starred: 284.44) — the literature-verified C 1s elemental-carbon position, carrying this record's VERIFIED/curated status honestly (provenance audit, 2026-07-16). The app's own C 1s graphite charge-correction default is a SEPARATE, disclosed engineering convention (284.5 eV; see templates/index.html's cc-lit dropdown and Auto-Fit C1s Graphite logic) — chosen for internal fit-to-fit consistency, not asserted as a literature value, and intentionally does NOT flow through this reference/citation pipeline (curator decision, S. Fortier 2026-06). NIST evidence: 20 elemental-form records span 282.0-286.9 incl. the Powe95 evaluated 284.44; NIST compound records (2015 page) extend organic C 1s components to 289.22 — region spans both. Carbonate/fluorocarbon upward extension (>289.5) is a future expansion."
     },
     "Cl-2p1/2": {
       "id": "Cl-2p1/2",
@@ -2039,7 +2039,7 @@
           "tier": "curated-hand-verified",
           "relationship": "distinct-observation",
           "legacy_observation_kind": "legacy-value",
-          "curated_elemental_nominal": 284.5
+          "curated_elemental_nominal": 284.44
         },
         {
           "field_id": "f0005",

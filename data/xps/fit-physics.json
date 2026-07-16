@@ -232,7 +232,7 @@
    },
    "nominal_be_ev": {
     "source": "nist-srd-20",
-    "value": 284.5
+    "value": 284.44
    },
    "reference_tier": "curated",
    "satellites": [
