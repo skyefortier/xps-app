@@ -2,11 +2,11 @@
 
 Migration of the legacy XPS_ELEMENTS / CHEMICAL_STATES constants to the data/xps reference system, with dual-extraction adjudication. Shown as explicit transformation layers. No fabrication; unresolved values stay flagged.
 
-## 1. Tier adjudication (114 legacy quantitative fields)
+## 1. Tier adjudication (113 legacy quantitative fields)
 
-| tier | survey (62) | chem (52) |
+| tier | survey (62) | chem (51) |
 |---|---|---|
-| transcription-corroborated | 49 | 31 |
+| transcription-corroborated | 49 | 30 |
 | single-source | 0 | 2 |
 | conflict | 8 | 0 |
 | context-unconfirmed | 0 | 5 |

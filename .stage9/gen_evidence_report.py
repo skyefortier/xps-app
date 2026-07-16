@@ -49,8 +49,8 @@ lines = ["# Stage 9 Phase 8 — Evidence Report (layered)", "",
 from collections import Counter
 cs = Counter(t["tier"] for t in tiers_survey.values())
 cc = Counter(t["tier"] for t in tiers_chem.values())
-lines += ["## 1. Tier adjudication (114 legacy quantitative fields)", "",
-          "| tier | survey (62) | chem (52) |", "|---|---|---|"]
+lines += [f"## 1. Tier adjudication ({len(tiers_survey) + len(tiers_chem)} legacy quantitative fields)", "",
+          f"| tier | survey ({len(tiers_survey)}) | chem ({len(tiers_chem)}) |", "|---|---|---|"]
 for tier in ["transcription-corroborated", "single-source", "conflict",
              "context-unconfirmed", "insufficient-evidence"]:
     if cs.get(tier) or cc.get(tier):

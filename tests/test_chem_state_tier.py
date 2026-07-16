@@ -166,6 +166,13 @@ def test_no_self_citation_in_any_ref_string():
       convention separate from this reference/citation pipeline), not a
       literature citation dressed up as one — a different provenance-
       audit unit's scope, tracked separately.
+    - tests/fixtures/xps_legacy_snapshot.json, this file
+      (test_chem_state_tier.py), and tests/test_legacy_parity.py — these
+      discuss/disclose the fix itself (the fixture's own description
+      documents the deviation; this docstring and test_legacy_parity.py's
+      docstring narrate what changed and why). Not a citation in any of
+      these three; the string appears only in prose about the bug and
+      its resolution.
     """
     doc = _load(CHEM)
     for g in doc["groups"]:

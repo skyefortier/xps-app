@@ -493,18 +493,6 @@
   },
   {
     "field_id": "f0103",
-    "element": "U",
-    "orbital": "4f7/2",
-    "state": "UCl\u2084",
-    "legacy_be": 380.2,
-    "tier": "transcription-corroborated",
-    "claude_page": true,
-    "codex_page": true,
-    "claude_match": true,
-    "codex_match": true
-  },
-  {
-    "field_id": "f0104",
     "element": "Cl",
     "orbital": "2p3/2",
     "state": "Organic Cl (C-Cl)",
@@ -516,7 +504,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0105",
+    "field_id": "f0104",
     "element": "Cl",
     "orbital": "2p3/2",
     "state": "Metal chloride",
@@ -528,7 +516,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0106",
+    "field_id": "f0105",
     "element": "Cl",
     "orbital": "2p3/2",
     "state": "ClO\u2084\u207b (perchlorate)",
@@ -540,7 +528,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0107",
+    "field_id": "f0106",
     "element": "Au",
     "orbital": "4f7/2",
     "state": "Au metal",
@@ -552,7 +540,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0108",
+    "field_id": "f0107",
     "element": "Au",
     "orbital": "4f7/2",
     "state": "Au\u2082O\u2083 (Au\u00b3\u207a)",
@@ -564,7 +552,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0109",
+    "field_id": "f0108",
     "element": "Au",
     "orbital": "4f7/2",
     "state": "AuCl\u2083",
@@ -576,7 +564,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0110",
+    "field_id": "f0109",
     "element": "S",
     "orbital": "2p3/2",
     "state": "Thiol (S-H)",
@@ -588,7 +576,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0111",
+    "field_id": "f0110",
     "element": "S",
     "orbital": "2p3/2",
     "state": "Sulfide (S\u00b2\u207b)",
@@ -600,7 +588,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0112",
+    "field_id": "f0111",
     "element": "S",
     "orbital": "2p3/2",
     "state": "Sulfate (SO\u2084\u00b2\u207b)",
@@ -612,7 +600,7 @@
     "codex_match": false
   },
   {
-    "field_id": "f0113",
+    "field_id": "f0112",
     "element": "S",
     "orbital": "2p3/2",
     "state": "Sulfite (SO\u2083\u00b2\u207b)",
