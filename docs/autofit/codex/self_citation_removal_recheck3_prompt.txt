@@ -1,0 +1,65 @@
+Round-4 recheck for the self-citation removal fix (branch
+feature-autofit-stage2, worktree at this path, commit fb3941b). Read
+docs/autofit/codex/self_citation_removal_review_prompt.txt,
+docs/autofit/codex/self_citation_removal_recheck_prompt.txt, and
+docs/autofit/codex/self_citation_removal_recheck2_prompt.txt for full
+prior context — do not trust this description alone; verify against
+current disk state.
+
+ROUND 3 FINDINGS (both of 2 independent runs, unanimous NO-GO): the
+docstring in tests/test_chem_state_tier.py's
+test_no_self_citation_in_any_ref_string claimed to be a "COMPLETE
+accounting of every remaining 'Fortier' occurrence in the tracked
+repo" — not literally true, since `git grep "Fortier"` (the bare
+surname) also matches ordinary "Fortier Lab" mentions in unrelated
+docs/superpowers/plans/*.md planning notes that have nothing to do with
+the citation-shaped self-citation bug this audit is about.
+
+FIX APPLIED (commit fb3941b — verify against current disk state):
+narrowed the docstring's claim from "every remaining 'Fortier'
+occurrence" to "every remaining occurrence of the literal self-citation
+string 'Fortier 2026'" in tracked .json/.js/.py files, explicitly
+naming the exact command used
+(`git grep -n "Fortier 2026" -- '*.json' '*.js' '*.py'`) and explicitly
+stating that ordinary bare-surname mentions (e.g. "Fortier Lab" in
+planning docs) are out of scope and NOT covered by this claim.
+
+PLEASE VERIFY (this specific docstring has now had its precision
+challenged 3 times in a row — read it with real skepticism):
+1. Run (or simulate) the EXACT command named in the docstring —
+   `git grep -n "Fortier 2026" -- '*.json' '*.js' '*.py'` — against the
+   current tree yourself. Confirm the result set matches EXACTLY what
+   the docstring enumerates (the 3 .stage9 files + the 2 C1s
+   curator-attribution files + the 3 fix-discussion test/fixture
+   files) — no more, no fewer. If your own run of that exact command
+   turns up anything not named in the docstring, that's the finding.
+2. Confirm the claim is now scoped correctly: it says "Fortier 2026"
+   (the literal citation string), not "Fortier" (the bare surname) —
+   re-read the exact wording, don't just check the general spirit.
+3. Confirm this narrower, corrected claim doesn't itself contain a NEW
+   subtle overclaim — e.g., check whether ".json"/".js"/".py" file-type
+   scoping might miss a real citation-shaped occurrence sitting in some
+   OTHER file type (.md, .txt, .html, etc.) that would actually matter
+   for this audit (as opposed to the harmless "Fortier Lab" doc
+   mentions already correctly excluded). If such a file exists, is it
+   the same class of harmless doc-prose mention, or a genuine missed
+   citation-shaped occurrence?
+4. Confirm scope: only tests/test_chem_state_tier.py changed in this
+   round (single file) — no autofit/engine.py, autofit/methods/*.py,
+   fitting.py, app.py, or templates/index.html changes across the
+   entire self-citation-removal effort so far (commits e7b32f5 through
+   fb3941b).
+5. Standing back from the wording nitpicks of the last 3 rounds: is the
+   CORE fix (UCl4 self-citation entry removed from
+   data/xps/legacy/chemical-states.json, checksums regenerated
+   correctly, fixtures updated in lockstep, new regression test added
+   and genuinely red-green verified, stray tracked temp file with a
+   duplicate self-citation removed) sound and complete? If you believe
+   this has reached the point of diminishing returns on documentation
+   wording and the substance has been correct since round 1, say so
+   plainly.
+6. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
