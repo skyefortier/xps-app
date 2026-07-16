@@ -3557,3 +3557,126 @@ unit). Scope across the entire effort (`e7b32f5` through `fb3941b`): only
 parity/tier test files, and the stray tracked temp-file deletion — zero
 changes to `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`,
 `app.py`, or `templates/index.html`. **UNIT 1 REVIEW-COMPLETE.**
+
+## Provenance-audit fixes (2026-07-16) — Unit 2: point C 1s's VERIFIED badge at the literature value
+
+The same provenance audit found the live crack: `data/xps/elements-
+main.json`'s C 1s transition had `nominal_be_ev: 284.5` — the app's OWN
+charge-correction convention value — while its own `notes` field
+disclosed the raw NIST-evaluated literature value (Powe95, starred:
+284.44) sits 0.06 eV away. Because `autofit/reference_bridge.py`'s
+`BRIDGE_TIER_STATUS` maps every curated-tier record to `VERIFIED`
+unconditionally, and `static/js/ref_identify_core.js`'s curated-tier
+tooltip says "Reference energies reviewed against source records," this
+unverified internal convention wore a literature-grade verification
+badge on the chart's reference-line overlay. Asked Skye directly (not
+guessed): switch the badge to 284.44, or keep 284.5 displayed with
+honest non-VERIFIED labeling. **Her call: switch the badge to 284.44.**
+
+**Fix** (commit 29e922c): `nominal_be_ev` 284.5 → 284.44 in elements-
+main.json's C 1s transition; rewrote `notes` to correctly describe
+284.44 as the literature-verified value and 284.5 as a separate,
+disclosed engineering convention that intentionally does not flow
+through the reference/citation pipeline. Updated
+`data/xps/legacy/corrections.json`'s C entry to match. Regenerated
+`tests/fixtures/curated_records_snapshot.json` and `data/xps/fit-
+physics.json` via their own sanctioned regen scripts (both mechanically
+copy `nominal_be_ev` from elements-main.json). Confirmed via grep that
+`templates/index.html`'s CC-dropdown default (284.5) is a fully
+independent, hardcoded JS literal, never read from `/api/xps-
+reference` — zero coupling, so the CC default is genuinely unchanged.
+Added `test_c1s_verified_reference_is_the_literature_value_not_the_cc_
+convention` to `tests/autofit/test_reference_bridge.py`, verified via
+genuine red-green. Fixed 3 unrelated test failures the value change
+rippled into (`test_fit_physics.py` via regenerating fit-physics.json;
+`test_browser_cc_overlay_repaint.py`'s hardcoded overlay-sample
+coordinates, updated 284.5→284.44 since that test samples the overlay's
+own paint column).
+
+**Codex review: 6 rounds, GO ×2 on round 6** (prompts
+`c1s_badge_fix_review_prompt.txt` /
+`c1s_badge_fix_recheck{,2,3,4,5}_prompt.txt`; verdicts
+`c1s_badge_fix_verdict_round{1..6}_run{A,B}.md`). The core data fix
+(284.5→284.44, correctly bridged to VERIFIED, CC default genuinely
+uncoupled) was correct from round 1 — every round's findings were about
+a CASCADE of stale derived/report artifacts elsewhere in the repo that
+still quoted the OLD C 1s value or Unit 1's OLD chem-state count, each
+round's fix surfacing the next artifact one layer further out:
+
+- **Round 1 (commit 29e922c): split 1×NO-GO/1×GO — stricter governs.**
+  Two tracked Stage-9 artifacts (`.stage9/manifest/manifest.json`,
+  `.stage9/reports/phase8_evidence_report.md`) still showed the old
+  284.5/52-state figures. Unlike Unit 1's two frozen dual-extraction
+  INPUT files (correctly left untouched — historical evidence of what
+  was transcribed), these are DERIVED "current state" reports
+  (`build_manifest.py`'s own field is literally named `current_value`;
+  `gen_evidence_report.py` reads the live `data/xps` tree every run).
+  Fixed (commit 90276aa): regenerated both via their own generators, in
+  dependency order — which ALSO retroactively closed a residual Unit-1
+  gap (manifest.json had never been regenerated after the UCl4 removal
+  either).
+- **Round 2 (commit 90276aa): NO-GO ×2.** Two findings: (a) the
+  self-citation "COMPLETE accounting" docstring in
+  `test_chem_state_tier.py` still omitted 3 legitimate fix-discussion
+  hits; (b) a THIRD stale derived artifact one step further upstream —
+  `.stage9/manifest/tiers_chem.json` (produced by `phase5_tier_chem.py`
+  from manifest.json) still had 52 rows including the deleted UCl4
+  entry, meaning the round-1 evidence-report regen was itself built
+  from stale input. Fixed (commit 569a7f6): completed the docstring
+  enumeration; regenerated `tiers_chem.json`. **Important process
+  finding preserved for future work:** before regenerating
+  `tiers_chem.json`, also attempted its survey-side sibling
+  `tiers_survey.json` via `phase5_tier.py` alone — this proved
+  DESTRUCTIVE, silently erasing 8 conflict-resolution records added by
+  a LATER pipeline stage (`.stage9/resolve_conflicts.py`, which runs
+  AFTER `phase5_tier.py`). Caught via diff before committing, reverted
+  immediately; `tiers_survey.json` was correctly never touched since
+  nothing in this whole effort changed survey-lines.json.
+- **Round 3 (commit 569a7f6): NO-GO ×2.** A FOURTH stale report:
+  `.stage9/reports/parity_gate.md` (a hand-authored Phase-7
+  "Checkpoint B review" doc, no generator) still quoted the old
+  114/52/31 figures. Also found a latent, previously-undiscovered bug:
+  `.stage9/resolve_conflicts.py`'s summary print statement referenced a
+  dict key (`apparent_be_alka`) that was never set (real key:
+  `apparent_be_app_convention`) — crashing the script right after it
+  wrote its file, making the pipeline "not cleanly reproducible." Fixed
+  (commit bbc5580): updated `parity_gate.md`'s numbers with a dated
+  disclosure note (preserving its Checkpoint-B qualitative claims
+  unchanged); fixed the dict-key typo, verified by actually re-running
+  the script and confirming crash-free, byte-identical output.
+- **Round 4 (commit bbc5580): split 1×GO/1×NO-GO — stricter governs.**
+  A FIFTH stale-count artifact, outside `.stage9` entirely:
+  `docs/superpowers/plans/2026-06-19-reference-identify-workspace.md`
+  (an older implementation-plan doc) still quoted "11 groups / 52
+  states" in 2 places. Fixed (commit c29652f): minimal, scope-limited
+  correction (3 specific mentions, dated note) — the same treatment as
+  `parity_gate.md`, without attempting to re-audit the whole document's
+  many already-stale line-number citations from a much earlier code
+  state.
+- **Round 5 (commit c29652f): NO-GO ×2.** A 4th "52" mention in the
+  SAME plan doc was missed in the prior sweep. Also, a genuinely new
+  artifact: `docs/mockups/reference-identify-mockup.html` (a static
+  illustrative design mockup) hardcoded C 1s at 284.5 eV under its
+  "curated" tier badge/tooltip ("Checked by hand against NIST or
+  published papers") — the mockup was illustrating the EXACT badge-
+  conflation bug this whole unit fixes. Fixed (commit 6a531f1):
+  completed the 4th qualification; corrected the mockup's illustrative
+  curated-line value to 284.44, while correctly leaving two OTHER
+  284.5 mentions in the same file untouched (the CC-convention note and
+  the legacy chemical-state search entry — genuinely different, real
+  values unrelated to the curated badge).
+- **Round 6 (commit 6a531f1): GO ×2.** Both runs did a genuinely fresh,
+  repo-wide search for any remaining stale C1s-284.5-as-verified or
+  chem-state-52-count artifact and found none; confirmed the `.stage9`
+  pipeline and all live/generated data are internally consistent.
+
+Full suite re-run after every round with a code/data change: 652-653
+passed (the one variance is the same pre-existing `test_u4f_n1s_cofit`
+numerical parity-gate marginal case tracked throughout this whole
+review cycle — it passed on the LAST two runs of this unit, consistent
+with a flaky/marginal case rather than a real regression). Scope across
+the entire six-round effort (`29e922c` through `6a531f1`): only
+reference-data JSON/fixtures, Stage-9 pipeline reports/scripts, one
+older planning doc, and one design mockup — zero changes to
+`autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`, `app.py`, or
+`templates/index.html`. **UNIT 2 REVIEW-COMPLETE.**
