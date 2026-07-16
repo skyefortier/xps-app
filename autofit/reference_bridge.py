@@ -24,6 +24,16 @@ Tier → status mapping (goal-prescribed, 2026-07-05):
 - ``curated``  → **VERIFIED** — the schema defines curated as "all listed
   values verified against the cited sources" (curator-verified); still
   user-confirmable — the records remain fully visible in provenance.
+  PER-RECORD OPT-OUT (2026-07-16 provenance audit, Unit 3): tier alone
+  can't tell a genuinely-verified value from a curated record whose
+  source_id resolves to a real citation but whose stored value is a
+  disclosed curator convention that deliberately diverges from that
+  citation — exactly what let C 1s wear a VERIFIED badge on its 284.5
+  charge-correction convention instead of the cited 284.44 (see
+  :func:`_curated_status`). A curator marks that divergence explicitly
+  via the schema's optional ``independently_verified: false``; absent
+  (every already-clean curated record) defaults to True, so this never
+  demotes an existing record without an explicit per-record opt-out.
 - ``machine``  → **CONDITIONAL** — sourced and sha-pinned (NIST-evaluated
   starred records from archived SRD-20 snapshots) but NOT human-verified;
   the "not human-verified" caveat rides on every record.
@@ -55,6 +65,28 @@ BRIDGE_TIER_STATUS = {
     "machine": "CONDITIONAL",
     "legacy": "UNVERIFIED",
 }
+
+
+def _curated_status(t: dict) -> str:
+    """VERIFIED requires more than tier membership (2026-07-16 provenance
+    audit): a curated record's source_id can resolve to a real external
+    citation while the stored value still deliberately diverges from
+    that citation for a disclosed editorial reason — C 1s's pre-fix
+    record had source_id 'nist-srd-20' (a genuine NIST citation) but
+    nominal_be_ev=284.5, the app's own charge-correction convention, not
+    the cited Powe95 value (284.44). A tier-string check alone can't
+    distinguish that from a genuinely-verified record with the same
+    tier and source_id.
+
+    A curator marks the divergence explicitly via the schema's optional
+    ``independently_verified: false`` (data/xps/schema.json). Absent —
+    every already-clean curated record (Cl 198.3 eV, U's 4f/4d/5d
+    positions, etc.) — defaults to True, so this never demotes an
+    existing record without an explicit per-record opt-out."""
+    if t.get("independently_verified", True) is False:
+        return "CONDITIONAL"
+    return "VERIFIED"
+
 
 _SUBSHELL_RE = re.compile(r"^([1-7][spdf])")
 
@@ -110,7 +142,7 @@ def _load_bridge() -> dict:
             "orbital": t["orbital"],
             "nominal_be_ev": t["nominal_be_ev"],
             "tier": tier,
-            "status": BRIDGE_TIER_STATUS[tier],
+            "status": _curated_status(t) if tier == "curated" else BRIDGE_TIER_STATUS[tier],
             "source_id": source_id,
             "citation": _citation(source_id) if source_id else None,
             "notes": notes,

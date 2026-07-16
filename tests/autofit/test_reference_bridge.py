@@ -326,3 +326,42 @@ def test_c1s_verified_reference_is_the_literature_value_not_the_cc_convention():
         assert pos["nominal_be_ev"] != pytest.approx(284.5), (
             "C 1s VERIFIED reference must NOT be the CC convention value")
         assert pos["status"] == "VERIFIED"
+
+
+def test_curated_status_drops_to_conditional_when_not_independently_verified():
+    """Unit 3 of the 2026-07-16 provenance audit: the mechanism that let
+    the C 1s bug happen (and would let it happen again for any future
+    curated element) was BRIDGE_TIER_STATUS blindly mapping tier
+    'curated' -> 'VERIFIED' with no per-record check. A curated record
+    can have a source_id that resolves to a real external citation
+    (source_id in sources.json, a real DOI/citation string) while still
+    storing a value that deliberately diverges from that citation for a
+    disclosed editorial reason -- exactly what C 1s's pre-fix record did
+    (source_id 'nist-srd-20', a genuine NIST citation, but
+    nominal_be_ev=284.5 instead of the cited Powe95 value 284.44).
+    `independently_verified: false` is how a curator now marks that
+    divergence explicitly. This reproduces the pre-Unit-2-fix C 1s shape
+    synthetically (not by re-breaking the real data) and proves the
+    bridge would have caught it."""
+    from autofit.reference_bridge import _curated_status
+    c1s_before_the_badge_fix = {
+        "nominal_be_ev": 284.5,           # the CC-convention value, not Powe95's 284.44
+        "source": "nist-srd-20",          # a REAL, resolvable NIST citation
+        "independently_verified": False,  # curator's explicit disclosure of the divergence
+    }
+    assert _curated_status(c1s_before_the_badge_fix) == "CONDITIONAL"
+
+
+def test_curated_status_defaults_to_verified_when_flag_absent():
+    """Every already-clean curated record (Cl 198.3 eV, U's 4f/4d/5d
+    positions, etc.) carries no independently_verified field at all --
+    the opt-out is per-record and explicit, never a silent tier-wide
+    demotion. Absence must default to True (VERIFIED), so this fix
+    changes behavior for ZERO existing records unless a curator
+    deliberately opts one out."""
+    from autofit.reference_bridge import _curated_status
+    ordinary_clean_curated_record = {"nominal_be_ev": 198.3, "source": "nist-srd-20"}
+    assert _curated_status(ordinary_clean_curated_record) == "VERIFIED"
+    explicitly_verified_record = {"nominal_be_ev": 377.3, "source": "nist-srd-20",
+                                   "independently_verified": True}
+    assert _curated_status(explicitly_verified_record) == "VERIFIED"

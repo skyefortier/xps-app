@@ -125,7 +125,11 @@
           "items": { "$ref": "#/$defs/chemicalState" }
         },
         "notes": { "type": "string" },
-        "tier": { "$ref": "#/$defs/transitionTier" }
+        "tier": { "$ref": "#/$defs/transitionTier" },
+        "independently_verified": {
+          "description": "Curated-tier opt-OUT: false marks a record whose source_id resolves to a real external citation, but whose stored value is a disclosed curator convention that deliberately diverges from that citation (e.g. an internal calibration anchor), not a value confirmed against it. Absent (the default for every existing curated record) means true — the bridge's VERIFIED status is unaffected unless a curator explicitly sets this to false. See autofit/reference_bridge.py.",
+          "type": "boolean"
+        }
       }
     },
 
@@ -154,7 +158,11 @@
         "visibility": { "$ref": "#/$defs/visibility" },
         "source": { "$ref": "#/$defs/sourceId" },
         "notes": { "type": "string" },
-        "tier": { "$ref": "#/$defs/transitionTier" }
+        "tier": { "$ref": "#/$defs/transitionTier" },
+        "independently_verified": {
+          "description": "Curated-tier opt-OUT: false marks a record whose source_id resolves to a real external citation, but whose stored value is a disclosed curator convention that deliberately diverges from that citation, not a value confirmed against it. Absent (the default) means true. See autofit/reference_bridge.py.",
+          "type": "boolean"
+        }
       }
     },
 
