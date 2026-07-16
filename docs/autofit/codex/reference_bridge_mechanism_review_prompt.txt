@@ -1,0 +1,112 @@
+You are reviewing a provenance-mechanism fix on branch feature-autofit-stage2
+of the XPS Fitting Studio repo (worktree at this path, commit 1ed297a).
+Read code directly from disk, do not trust this description alone.
+
+CONTEXT: this is Unit 3 of a multi-unit provenance audit. Units 1 and 2
+(already Codex-cleared separately) removed a literal self-citation from
+legacy chemical-state data and fixed C 1s's curated reference value to
+the genuine literature figure (284.44, was 284.5 — the app's own
+charge-correction convention masquerading as a NIST-verified value).
+Unit 3 fixes the ROOT MECHANISM that let Unit 2's bug happen and would
+let it happen again for any future curated element:
+`autofit/reference_bridge.py`'s `BRIDGE_TIER_STATUS` mapped every
+curated-tier record to `VERIFIED` unconditionally, trusting the tier
+NAME alone rather than checking each record. A curated record's
+`source_id` can resolve to a genuine external citation (as C 1s's
+"nist-srd-20" did) while the stored VALUE still deliberately diverges
+from that citation for a disclosed editorial reason — tier membership
+alone can't distinguish "sourced and confirmed" from "sourced but the
+value is a convention."
+
+THE ORIGINAL REQUEST offered two possible mechanisms: (a) a per-record
+`independently_verified` flag, or (b) checking whether `source_id`
+resolves to a real citation in `sources.json`. Chose (a), because C 1s's
+own `source_id` ("nist-srd-20") DOES resolve to a real citation — so
+(b) alone would NOT have caught this exact bug; only an explicit
+per-record signal distinguishes "sourced" from "the stored value
+matches what's sourced."
+
+THE FIX:
+1. Added `_curated_status(t: dict) -> str` to
+   `autofit/reference_bridge.py`: returns `"CONDITIONAL"` only when
+   `t.get("independently_verified", True) is False`; otherwise
+   `"VERIFIED"`. Wired into `_add_position` as:
+   `"status": _curated_status(t) if tier == "curated" else BRIDGE_TIER_STATUS[tier]`
+   — machine and legacy tiers are untouched (no equivalent bug there;
+   machine already maps to CONDITIONAL, not VERIFIED).
+2. Added the optional `independently_verified` boolean field to both
+   `photoelectronTransition` and `augerTransition` in
+   `data/xps/schema.json` (both have `"additionalProperties": false`,
+   so a new field needed explicit schema declaration to validate).
+3. Deliberately did NOT set this flag on any real data file. Unit 2
+   already fixed C 1s's underlying value to the genuine literature
+   figure, so there is currently no curated record that SHOULD be
+   demoted — this is a purely preventive/systemic fix for future
+   curated additions, not a live remediation of an existing record.
+4. Added two new tests to `tests/autofit/test_reference_bridge.py`:
+   `test_curated_status_drops_to_conditional_when_not_independently_verified`
+   (a SYNTHETIC dict reproducing the pre-Unit-2-fix C1s shape —
+   `source: "nist-srd-20"`, `nominal_be_ev: 284.5`,
+   `independently_verified: False` — asserts `_curated_status` returns
+   `"CONDITIONAL"`) and
+   `test_curated_status_defaults_to_verified_when_flag_absent` (confirms
+   both an ordinary record with the flag absent, and one with it
+   explicitly `True`, both stay `"VERIFIED"`). Verified via genuine
+   red-green (ImportError before `_curated_status` existed, passes now).
+5. Confirmed `autofit/coverage.py` and `autofit/coverage_index.py` (the
+   two consumers of the bridge's `status` field) already treat it as an
+   open string set (`sorted({p["status"] for p in positions})`,
+   `"status": pos["status"]` pass-through) with no hardcoded
+   VERIFIED/CONDITIONAL/UNVERIFIED enumeration to update.
+
+PLEASE VERIFY:
+1. Read `_curated_status` and its call site in `_add_position` directly.
+   Confirm the logic is correct: `independently_verified` explicitly
+   `False` → `"CONDITIONAL"`; absent or explicitly `True` → `"VERIFIED"`;
+   and confirm this is ONLY applied when `tier == "curated"` (machine and
+   legacy tiers must be completely unaffected — re-derive this from the
+   actual conditional expression, don't just trust the description).
+2. Confirm the schema change is syntactically correct JSON Schema (valid
+   `$defs` structure, correct placement inside both transition types'
+   `properties`) and that BOTH `photoelectronTransition` and
+   `augerTransition` were updated consistently.
+3. Confirm the choice of mechanism (per-record flag) over the
+   alternative (citation-resolution check) is correctly justified — read
+   `_citation()` in `reference_bridge.py` and confirm that C 1s's
+   "nist-srd-20" source_id genuinely DOES resolve to a real citation in
+   `data/xps/sources.json`, proving the citation-resolution check alone
+   would NOT have caught the original bug (i.e., that this design choice
+   is not just asserted but demonstrably correct).
+4. Confirm ZERO existing data files were touched to set
+   `independently_verified` on any real record — grep
+   `data/xps/**/*.json` for `independently_verified` and confirm no
+   hits outside the schema file itself. Confirm this means every
+   currently-curated position (Cl, U's 4f/4d/5d positions, C 1s post-
+   Unit-2-fix, etc.) still resolves to `VERIFIED` exactly as before this
+   commit — i.e., this commit changes behavior for zero currently-loaded
+   records.
+5. Confirm the two new tests are correctly written: do they test the
+   real `_curated_status` function (not a reimplementation), and do the
+   synthetic dicts accurately model what a real transition dict looks
+   like (matching field names actually used elsewhere in
+   `reference_bridge.py`)?
+6. Confirm `autofit/coverage.py` and `autofit/coverage_index.py` (the
+   bridge's consumers) genuinely handle an arbitrary/new status string
+   gracefully — read the actual code, don't just trust the claim that
+   they're "generic."
+7. Confirm scope: git diff shows ONLY `autofit/reference_bridge.py`,
+   `data/xps/schema.json`, and
+   `tests/autofit/test_reference_bridge.py` changed — no
+   `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`, `app.py`,
+   or `templates/index.html` changes; no change to manual Run Fit or
+   `/api/fit`.
+8. Anything else that looks wrong, regardless of whether it's on this
+   list — in particular, is "CONDITIONAL" the semantically correct
+   downgrade target, or would a different/new status value have been
+   more honest? Is there a cleaner way to express "sourced but the
+   value is a disclosed convention" than reusing the machine tier's
+   status vocabulary?
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
