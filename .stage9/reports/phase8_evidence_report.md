@@ -20,7 +20,7 @@ Each row: legacy value (L1=L2) -> effective (L4). Correction source shown.
 
 | element | orbital | L1/L2 legacy | L3 correction | L4 effective | source | basis |
 |---|---|---|---|---|---|---|
-| C | 1s | 285 | 284.5 | 284.5 | nist-srd-20 | curated nominal (1s) |
+| C | 1s | 285 | 284.44 | 284.44 | nist-srd-20 | curated nominal (1s) |
 | O | 1s | 531 | 531.4 | 531.4 | nist-srd-20 | curated nominal (1s) |
 | Na | KLL | 497 | 994.4 | 994.4 | nist-srd-20* | auger KE-frame |
 | Mg | KLL | 306 | 1185.65 | 1185.65 | nist-srd-20* | auger KE-frame |

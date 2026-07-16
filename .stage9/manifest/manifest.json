@@ -5,14 +5,14 @@
     "rsf": "SCOFIELD_RSF is a separate constant NOT part of the XPS_ELEMENTS / CHEMICAL_STATES migration; its per-element RSF values are not enumerated or re-verified here. Flagged so the omission is explicit, not silent."
   },
   "counts_by_field_type": {
-    "quantitative-energy": 149,
+    "quantitative-energy": 148,
     "expected-region": 21,
     "visibility": 42,
     "area-ratio": 14
   },
   "counts_by_kind": {
     "legacy-survey-line": 62,
-    "legacy-chemical-state": 52,
+    "legacy-chemical-state": 51,
     "curated-transition": 21,
     "curated-expected-region": 21,
     "curated-visibility": 42,
@@ -20,12 +20,12 @@
     "curated-area-ratio": 14
   },
   "counts_by_policy": {
-    "dual-extract-authoritative": 149,
+    "dual-extract-authoritative": 148,
     "curated-summary-multi-observation": 21,
     "editorial-carry-no-verify": 42,
     "physics-derived-degeneracy-validate": 14
   },
-  "extraction_targets": 149,
+  "extraction_targets": 148,
   "fields": [
     {
       "kind": "legacy-survey-line",
@@ -2132,27 +2132,6 @@
       "kind": "legacy-chemical-state",
       "field_type": "quantitative-energy",
       "evidence_policy": "dual-extract-authoritative",
-      "element": "U",
-      "z": 92,
-      "context": {
-        "orbital": "4f7/2",
-        "transition_type": "photoelectron",
-        "reference_state": "UCl₄",
-        "calibration_convention": "unspecified",
-        "photon_source": "unspecified",
-        "energy_type": "binding-energy-chemical-state"
-      },
-      "current_value": 380.2,
-      "current_tier": "legacy-unverified",
-      "current_source": "legacy-embedded-dataset",
-      "legacy_ref": "Fortier 2026",
-      "record_id": "legacy-cs-U-4f72-4",
-      "field_id": "f0103"
-    },
-    {
-      "kind": "legacy-chemical-state",
-      "field_type": "quantitative-energy",
-      "evidence_policy": "dual-extract-authoritative",
       "element": "Cl",
       "z": 17,
       "context": {
@@ -2168,7 +2147,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-Cl-2p32-0",
-      "field_id": "f0104"
+      "field_id": "f0103"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2189,7 +2168,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-Cl-2p32-1",
-      "field_id": "f0105"
+      "field_id": "f0104"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2210,7 +2189,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-Cl-2p32-2",
-      "field_id": "f0106"
+      "field_id": "f0105"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2231,7 +2210,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-Au-4f72-0",
-      "field_id": "f0107"
+      "field_id": "f0106"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2252,7 +2231,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-Au-4f72-1",
-      "field_id": "f0108"
+      "field_id": "f0107"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2273,7 +2252,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-Au-4f72-2",
-      "field_id": "f0109"
+      "field_id": "f0108"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2294,7 +2273,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-S-2p32-0",
-      "field_id": "f0110"
+      "field_id": "f0109"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2315,7 +2294,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-S-2p32-1",
-      "field_id": "f0111"
+      "field_id": "f0110"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2336,7 +2315,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-S-2p32-2",
-      "field_id": "f0112"
+      "field_id": "f0111"
     },
     {
       "kind": "legacy-chemical-state",
@@ -2357,7 +2336,7 @@
       "current_source": "legacy-embedded-dataset",
       "legacy_ref": "Moulder 1992",
       "record_id": "legacy-cs-S-2p32-3",
-      "field_id": "f0113"
+      "field_id": "f0112"
     },
     {
       "kind": "curated-transition",
@@ -2373,11 +2352,11 @@
         "photon_source": "source-invariant",
         "energy_type": "binding-energy-nominal"
       },
-      "current_value": 284.5,
+      "current_value": 284.44,
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "C-1s",
-      "field_id": "f0114"
+      "field_id": "f0113"
     },
     {
       "kind": "curated-expected-region",
@@ -2396,7 +2375,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "C-1s:region",
-      "field_id": "f0115"
+      "field_id": "f0114"
     },
     {
       "kind": "curated-visibility",
@@ -2412,7 +2391,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "C-1s:vis:AlKa",
-      "field_id": "f0116"
+      "field_id": "f0115"
     },
     {
       "kind": "curated-visibility",
@@ -2428,7 +2407,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "C-1s:vis:MgKa",
-      "field_id": "f0117"
+      "field_id": "f0116"
     },
     {
       "kind": "curated-transition",
@@ -2448,7 +2427,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "O-1s",
-      "field_id": "f0118"
+      "field_id": "f0117"
     },
     {
       "kind": "curated-expected-region",
@@ -2467,7 +2446,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "O-1s:region",
-      "field_id": "f0119"
+      "field_id": "f0118"
     },
     {
       "kind": "curated-visibility",
@@ -2483,7 +2462,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "O-1s:vis:AlKa",
-      "field_id": "f0120"
+      "field_id": "f0119"
     },
     {
       "kind": "curated-visibility",
@@ -2499,7 +2478,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "O-1s:vis:MgKa",
-      "field_id": "f0121"
+      "field_id": "f0120"
     },
     {
       "kind": "curated-transition",
@@ -2519,7 +2498,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "O-2s",
-      "field_id": "f0122"
+      "field_id": "f0121"
     },
     {
       "kind": "curated-expected-region",
@@ -2538,7 +2517,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "O-2s:region",
-      "field_id": "f0123"
+      "field_id": "f0122"
     },
     {
       "kind": "curated-visibility",
@@ -2554,7 +2533,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "O-2s:vis:AlKa",
-      "field_id": "f0124"
+      "field_id": "f0123"
     },
     {
       "kind": "curated-visibility",
@@ -2570,7 +2549,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "O-2s:vis:MgKa",
-      "field_id": "f0125"
+      "field_id": "f0124"
     },
     {
       "kind": "curated-transition",
@@ -2590,7 +2569,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p3/2",
-      "field_id": "f0126"
+      "field_id": "f0125"
     },
     {
       "kind": "curated-splitting",
@@ -2607,7 +2586,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p3/2:splitting",
-      "field_id": "f0127"
+      "field_id": "f0126"
     },
     {
       "kind": "curated-area-ratio",
@@ -2624,7 +2603,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p3/2:area_ratio",
-      "field_id": "f0128"
+      "field_id": "f0127"
     },
     {
       "kind": "curated-expected-region",
@@ -2643,7 +2622,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p3/2:region",
-      "field_id": "f0129"
+      "field_id": "f0128"
     },
     {
       "kind": "curated-visibility",
@@ -2659,7 +2638,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p3/2:vis:AlKa",
-      "field_id": "f0130"
+      "field_id": "f0129"
     },
     {
       "kind": "curated-visibility",
@@ -2675,7 +2654,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p3/2:vis:MgKa",
-      "field_id": "f0131"
+      "field_id": "f0130"
     },
     {
       "kind": "curated-transition",
@@ -2695,7 +2674,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p1/2",
-      "field_id": "f0132"
+      "field_id": "f0131"
     },
     {
       "kind": "curated-splitting",
@@ -2712,7 +2691,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p1/2:splitting",
-      "field_id": "f0133"
+      "field_id": "f0132"
     },
     {
       "kind": "curated-area-ratio",
@@ -2729,7 +2708,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p1/2:area_ratio",
-      "field_id": "f0134"
+      "field_id": "f0133"
     },
     {
       "kind": "curated-expected-region",
@@ -2748,7 +2727,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p1/2:region",
-      "field_id": "f0135"
+      "field_id": "f0134"
     },
     {
       "kind": "curated-visibility",
@@ -2764,7 +2743,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p1/2:vis:AlKa",
-      "field_id": "f0136"
+      "field_id": "f0135"
     },
     {
       "kind": "curated-visibility",
@@ -2780,7 +2759,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cl-2p1/2:vis:MgKa",
-      "field_id": "f0137"
+      "field_id": "f0136"
     },
     {
       "kind": "curated-transition",
@@ -2800,7 +2779,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p3/2",
-      "field_id": "f0138"
+      "field_id": "f0137"
     },
     {
       "kind": "curated-splitting",
@@ -2817,7 +2796,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p3/2:splitting",
-      "field_id": "f0139"
+      "field_id": "f0138"
     },
     {
       "kind": "curated-area-ratio",
@@ -2834,7 +2813,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p3/2:area_ratio",
-      "field_id": "f0140"
+      "field_id": "f0139"
     },
     {
       "kind": "curated-expected-region",
@@ -2853,7 +2832,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p3/2:region",
-      "field_id": "f0141"
+      "field_id": "f0140"
     },
     {
       "kind": "curated-visibility",
@@ -2869,7 +2848,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p3/2:vis:AlKa",
-      "field_id": "f0142"
+      "field_id": "f0141"
     },
     {
       "kind": "curated-visibility",
@@ -2885,7 +2864,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p3/2:vis:MgKa",
-      "field_id": "f0143"
+      "field_id": "f0142"
     },
     {
       "kind": "curated-transition",
@@ -2905,7 +2884,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p1/2",
-      "field_id": "f0144"
+      "field_id": "f0143"
     },
     {
       "kind": "curated-splitting",
@@ -2922,7 +2901,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p1/2:splitting",
-      "field_id": "f0145"
+      "field_id": "f0144"
     },
     {
       "kind": "curated-area-ratio",
@@ -2939,7 +2918,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p1/2:area_ratio",
-      "field_id": "f0146"
+      "field_id": "f0145"
     },
     {
       "kind": "curated-expected-region",
@@ -2958,7 +2937,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p1/2:region",
-      "field_id": "f0147"
+      "field_id": "f0146"
     },
     {
       "kind": "curated-visibility",
@@ -2974,7 +2953,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p1/2:vis:AlKa",
-      "field_id": "f0148"
+      "field_id": "f0147"
     },
     {
       "kind": "curated-visibility",
@@ -2990,7 +2969,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cu-2p1/2:vis:MgKa",
-      "field_id": "f0149"
+      "field_id": "f0148"
     },
     {
       "kind": "curated-transition",
@@ -3010,7 +2989,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d5/2",
-      "field_id": "f0150"
+      "field_id": "f0149"
     },
     {
       "kind": "curated-splitting",
@@ -3027,7 +3006,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d5/2:splitting",
-      "field_id": "f0151"
+      "field_id": "f0150"
     },
     {
       "kind": "curated-area-ratio",
@@ -3044,7 +3023,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d5/2:area_ratio",
-      "field_id": "f0152"
+      "field_id": "f0151"
     },
     {
       "kind": "curated-expected-region",
@@ -3063,7 +3042,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d5/2:region",
-      "field_id": "f0153"
+      "field_id": "f0152"
     },
     {
       "kind": "curated-visibility",
@@ -3079,7 +3058,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d5/2:vis:AlKa",
-      "field_id": "f0154"
+      "field_id": "f0153"
     },
     {
       "kind": "curated-visibility",
@@ -3095,7 +3074,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d5/2:vis:MgKa",
-      "field_id": "f0155"
+      "field_id": "f0154"
     },
     {
       "kind": "curated-transition",
@@ -3115,7 +3094,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d3/2",
-      "field_id": "f0156"
+      "field_id": "f0155"
     },
     {
       "kind": "curated-splitting",
@@ -3132,7 +3111,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d3/2:splitting",
-      "field_id": "f0157"
+      "field_id": "f0156"
     },
     {
       "kind": "curated-area-ratio",
@@ -3149,7 +3128,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d3/2:area_ratio",
-      "field_id": "f0158"
+      "field_id": "f0157"
     },
     {
       "kind": "curated-expected-region",
@@ -3168,7 +3147,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d3/2:region",
-      "field_id": "f0159"
+      "field_id": "f0158"
     },
     {
       "kind": "curated-visibility",
@@ -3184,7 +3163,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d3/2:vis:AlKa",
-      "field_id": "f0160"
+      "field_id": "f0159"
     },
     {
       "kind": "curated-visibility",
@@ -3200,7 +3179,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Nb-3d3/2:vis:MgKa",
-      "field_id": "f0161"
+      "field_id": "f0160"
     },
     {
       "kind": "curated-transition",
@@ -3220,7 +3199,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4f7/2",
-      "field_id": "f0162"
+      "field_id": "f0161"
     },
     {
       "kind": "curated-splitting",
@@ -3237,7 +3216,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4f7/2:splitting",
-      "field_id": "f0163"
+      "field_id": "f0162"
     },
     {
       "kind": "curated-area-ratio",
@@ -3254,7 +3233,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-4f7/2:area_ratio",
-      "field_id": "f0164"
+      "field_id": "f0163"
     },
     {
       "kind": "curated-expected-region",
@@ -3273,7 +3252,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-4f7/2:region",
-      "field_id": "f0165"
+      "field_id": "f0164"
     },
     {
       "kind": "curated-visibility",
@@ -3289,7 +3268,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4f7/2:vis:AlKa",
-      "field_id": "f0166"
+      "field_id": "f0165"
     },
     {
       "kind": "curated-visibility",
@@ -3305,7 +3284,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4f7/2:vis:MgKa",
-      "field_id": "f0167"
+      "field_id": "f0166"
     },
     {
       "kind": "curated-transition",
@@ -3325,7 +3304,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4f5/2",
-      "field_id": "f0168"
+      "field_id": "f0167"
     },
     {
       "kind": "curated-splitting",
@@ -3342,7 +3321,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4f5/2:splitting",
-      "field_id": "f0169"
+      "field_id": "f0168"
     },
     {
       "kind": "curated-area-ratio",
@@ -3359,7 +3338,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-4f5/2:area_ratio",
-      "field_id": "f0170"
+      "field_id": "f0169"
     },
     {
       "kind": "curated-expected-region",
@@ -3378,7 +3357,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-4f5/2:region",
-      "field_id": "f0171"
+      "field_id": "f0170"
     },
     {
       "kind": "curated-visibility",
@@ -3394,7 +3373,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4f5/2:vis:AlKa",
-      "field_id": "f0172"
+      "field_id": "f0171"
     },
     {
       "kind": "curated-visibility",
@@ -3410,7 +3389,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4f5/2:vis:MgKa",
-      "field_id": "f0173"
+      "field_id": "f0172"
     },
     {
       "kind": "curated-transition",
@@ -3430,7 +3409,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4d5/2",
-      "field_id": "f0174"
+      "field_id": "f0173"
     },
     {
       "kind": "curated-splitting",
@@ -3447,7 +3426,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4d5/2:splitting",
-      "field_id": "f0175"
+      "field_id": "f0174"
     },
     {
       "kind": "curated-area-ratio",
@@ -3464,7 +3443,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-4d5/2:area_ratio",
-      "field_id": "f0176"
+      "field_id": "f0175"
     },
     {
       "kind": "curated-expected-region",
@@ -3483,7 +3462,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-4d5/2:region",
-      "field_id": "f0177"
+      "field_id": "f0176"
     },
     {
       "kind": "curated-visibility",
@@ -3499,7 +3478,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4d5/2:vis:AlKa",
-      "field_id": "f0178"
+      "field_id": "f0177"
     },
     {
       "kind": "curated-visibility",
@@ -3515,7 +3494,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4d5/2:vis:MgKa",
-      "field_id": "f0179"
+      "field_id": "f0178"
     },
     {
       "kind": "curated-transition",
@@ -3535,7 +3514,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4d3/2",
-      "field_id": "f0180"
+      "field_id": "f0179"
     },
     {
       "kind": "curated-splitting",
@@ -3552,7 +3531,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4d3/2:splitting",
-      "field_id": "f0181"
+      "field_id": "f0180"
     },
     {
       "kind": "curated-area-ratio",
@@ -3569,7 +3548,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-4d3/2:area_ratio",
-      "field_id": "f0182"
+      "field_id": "f0181"
     },
     {
       "kind": "curated-expected-region",
@@ -3588,7 +3567,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-4d3/2:region",
-      "field_id": "f0183"
+      "field_id": "f0182"
     },
     {
       "kind": "curated-visibility",
@@ -3604,7 +3583,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4d3/2:vis:AlKa",
-      "field_id": "f0184"
+      "field_id": "f0183"
     },
     {
       "kind": "curated-visibility",
@@ -3620,7 +3599,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4d3/2:vis:MgKa",
-      "field_id": "f0185"
+      "field_id": "f0184"
     },
     {
       "kind": "curated-transition",
@@ -3640,7 +3619,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-4s",
-      "field_id": "f0186"
+      "field_id": "f0185"
     },
     {
       "kind": "curated-expected-region",
@@ -3659,7 +3638,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-4s:region",
-      "field_id": "f0187"
+      "field_id": "f0186"
     },
     {
       "kind": "curated-visibility",
@@ -3675,7 +3654,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4s:vis:AlKa",
-      "field_id": "f0188"
+      "field_id": "f0187"
     },
     {
       "kind": "curated-visibility",
@@ -3691,7 +3670,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-4s:vis:MgKa",
-      "field_id": "f0189"
+      "field_id": "f0188"
     },
     {
       "kind": "curated-transition",
@@ -3711,7 +3690,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-5d5/2",
-      "field_id": "f0190"
+      "field_id": "f0189"
     },
     {
       "kind": "curated-splitting",
@@ -3728,7 +3707,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-5d5/2:splitting",
-      "field_id": "f0191"
+      "field_id": "f0190"
     },
     {
       "kind": "curated-area-ratio",
@@ -3745,7 +3724,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-5d5/2:area_ratio",
-      "field_id": "f0192"
+      "field_id": "f0191"
     },
     {
       "kind": "curated-expected-region",
@@ -3764,7 +3743,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-5d5/2:region",
-      "field_id": "f0193"
+      "field_id": "f0192"
     },
     {
       "kind": "curated-visibility",
@@ -3780,7 +3759,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-5d5/2:vis:AlKa",
-      "field_id": "f0194"
+      "field_id": "f0193"
     },
     {
       "kind": "curated-visibility",
@@ -3796,7 +3775,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-5d5/2:vis:MgKa",
-      "field_id": "f0195"
+      "field_id": "f0194"
     },
     {
       "kind": "curated-transition",
@@ -3816,7 +3795,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-5d3/2",
-      "field_id": "f0196"
+      "field_id": "f0195"
     },
     {
       "kind": "curated-splitting",
@@ -3833,7 +3812,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-5d3/2:splitting",
-      "field_id": "f0197"
+      "field_id": "f0196"
     },
     {
       "kind": "curated-area-ratio",
@@ -3850,7 +3829,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-5d3/2:area_ratio",
-      "field_id": "f0198"
+      "field_id": "f0197"
     },
     {
       "kind": "curated-expected-region",
@@ -3869,7 +3848,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-5d3/2:region",
-      "field_id": "f0199"
+      "field_id": "f0198"
     },
     {
       "kind": "curated-visibility",
@@ -3885,7 +3864,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-5d3/2:vis:AlKa",
-      "field_id": "f0200"
+      "field_id": "f0199"
     },
     {
       "kind": "curated-visibility",
@@ -3901,7 +3880,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-5d3/2:vis:MgKa",
-      "field_id": "f0201"
+      "field_id": "f0200"
     },
     {
       "kind": "curated-transition",
@@ -3921,7 +3900,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-5p3/2",
-      "field_id": "f0202"
+      "field_id": "f0201"
     },
     {
       "kind": "curated-expected-region",
@@ -3940,7 +3919,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-5p3/2:region",
-      "field_id": "f0203"
+      "field_id": "f0202"
     },
     {
       "kind": "curated-visibility",
@@ -3956,7 +3935,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-5p3/2:vis:AlKa",
-      "field_id": "f0204"
+      "field_id": "f0203"
     },
     {
       "kind": "curated-visibility",
@@ -3972,7 +3951,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-5p3/2:vis:MgKa",
-      "field_id": "f0205"
+      "field_id": "f0204"
     },
     {
       "kind": "curated-transition",
@@ -3992,7 +3971,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-6p3/2",
-      "field_id": "f0206"
+      "field_id": "f0205"
     },
     {
       "kind": "curated-splitting",
@@ -4009,7 +3988,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-6p3/2:splitting",
-      "field_id": "f0207"
+      "field_id": "f0206"
     },
     {
       "kind": "curated-area-ratio",
@@ -4026,7 +4005,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-6p3/2:area_ratio",
-      "field_id": "f0208"
+      "field_id": "f0207"
     },
     {
       "kind": "curated-expected-region",
@@ -4045,7 +4024,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-6p3/2:region",
-      "field_id": "f0209"
+      "field_id": "f0208"
     },
     {
       "kind": "curated-visibility",
@@ -4061,7 +4040,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-6p3/2:vis:AlKa",
-      "field_id": "f0210"
+      "field_id": "f0209"
     },
     {
       "kind": "curated-visibility",
@@ -4077,7 +4056,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-6p3/2:vis:MgKa",
-      "field_id": "f0211"
+      "field_id": "f0210"
     },
     {
       "kind": "curated-transition",
@@ -4097,7 +4076,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-6p1/2",
-      "field_id": "f0212"
+      "field_id": "f0211"
     },
     {
       "kind": "curated-splitting",
@@ -4114,7 +4093,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-6p1/2:splitting",
-      "field_id": "f0213"
+      "field_id": "f0212"
     },
     {
       "kind": "curated-area-ratio",
@@ -4131,7 +4110,7 @@
       "current_tier": "physics-derived",
       "current_source": "nist-srd-20",
       "record_id": "U-6p1/2:area_ratio",
-      "field_id": "f0214"
+      "field_id": "f0213"
     },
     {
       "kind": "curated-expected-region",
@@ -4150,7 +4129,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-6p1/2:region",
-      "field_id": "f0215"
+      "field_id": "f0214"
     },
     {
       "kind": "curated-visibility",
@@ -4166,7 +4145,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-6p1/2:vis:AlKa",
-      "field_id": "f0216"
+      "field_id": "f0215"
     },
     {
       "kind": "curated-visibility",
@@ -4182,7 +4161,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-6p1/2:vis:MgKa",
-      "field_id": "f0217"
+      "field_id": "f0216"
     },
     {
       "kind": "curated-transition",
@@ -4202,7 +4181,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "U-6s",
-      "field_id": "f0218"
+      "field_id": "f0217"
     },
     {
       "kind": "curated-expected-region",
@@ -4221,7 +4200,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "U-6s:region",
-      "field_id": "f0219"
+      "field_id": "f0218"
     },
     {
       "kind": "curated-visibility",
@@ -4237,7 +4216,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-6s:vis:AlKa",
-      "field_id": "f0220"
+      "field_id": "f0219"
     },
     {
       "kind": "curated-visibility",
@@ -4253,7 +4232,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "U-6s:vis:MgKa",
-      "field_id": "f0221"
+      "field_id": "f0220"
     },
     {
       "kind": "curated-transition",
@@ -4273,7 +4252,7 @@
       "current_tier": "curated-hand-verified",
       "current_source": "nist-srd-20",
       "record_id": "Cu-L3M4,5M4,5",
-      "field_id": "f0222"
+      "field_id": "f0221"
     },
     {
       "kind": "curated-expected-region",
@@ -4292,7 +4271,7 @@
       "current_tier": "curated-summary",
       "current_source": "nist-srd-20",
       "record_id": "Cu-L3M4,5M4,5:region",
-      "field_id": "f0223"
+      "field_id": "f0222"
     },
     {
       "kind": "curated-visibility",
@@ -4308,7 +4287,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cu-L3M4,5M4,5:vis:AlKa",
-      "field_id": "f0224"
+      "field_id": "f0223"
     },
     {
       "kind": "curated-visibility",
@@ -4324,7 +4303,7 @@
       "current_tier": "editorial",
       "current_source": "nist-srd-20",
       "record_id": "Cu-L3M4,5M4,5:vis:MgKa",
-      "field_id": "f0225"
+      "field_id": "f0224"
     }
   ]
 }

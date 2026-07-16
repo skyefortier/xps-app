@@ -144,23 +144,28 @@ def test_no_self_citation_in_any_ref_string():
     Lab" mentions in docs/superpowers/plans/*.md planning notes) — those
     are not citations and are out of scope for this audit:
 
-    - .stage9/extract_targets_chem.json, .stage9/phase4chem_workflow.js,
-      .stage9/manifest/manifest.json — the original Stage-9 dual-
-      extraction transcription inputs/build-manifest, proving the
-      transcription faithfully captured what was really in the old
-      embedded JS constant at the time. None are loaded by any runtime
-      code (app.py / xps_reference.py / autofit / fitting.py). Retaining
-      them verbatim, self-citation included, is deliberate: they are
+    - .stage9/extract_targets_chem.json, .stage9/phase4chem_workflow.js —
+      the original Stage-9 dual-extraction transcription INPUTS, proving
+      the transcription faithfully captured what was really in the old
+      embedded JS constant at the time. Not loaded by any runtime code
+      (app.py / xps_reference.py / autofit / fitting.py). Retaining them
+      verbatim, self-citation included, is deliberate: they are
       historical evidence of what WAS transcribed, and editing them would
-      rewrite that evidence — the opposite of honest. (manifest.json is
-      additionally covered by .stage9/.gitignore for NEW writes, but was
-      tracked before that rule existed.)
+      rewrite that evidence — the opposite of honest.
+      NOTE: .stage9/manifest/manifest.json is a DIFFERENT kind of
+      artifact — a "current_value" report DERIVED from the live data/xps
+      tree by .stage9/build_manifest.py, not frozen input evidence. It
+      previously also carried this self-citation (round-2 finding on
+      this same audit), but has since been regenerated via its own
+      generator and is now clean — confirmed by re-running
+      `git grep -n "Fortier 2026"` after regeneration.
     - data/xps/elements-main.json and tests/fixtures/curated_records_
       snapshot.json — the C 1s notes field's "curator decision, S.
       Fortier 2026-06" is an editorial-decision ATTRIBUTION (who decided
-      to prioritize 284.5 over 284.44), not a literature citation dressed
-      up as one — a different provenance-audit unit's scope, tracked
-      separately.
+      that the app's charge-correction default should be a disclosed
+      convention separate from this reference/citation pipeline), not a
+      literature citation dressed up as one — a different provenance-
+      audit unit's scope, tracked separately.
     """
     doc = _load(CHEM)
     for g in doc["groups"]:
