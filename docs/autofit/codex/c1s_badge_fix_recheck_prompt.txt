@@ -1,0 +1,77 @@
+Recheck for the C 1s VERIFIED-badge fix (branch feature-autofit-stage2,
+worktree at this path, commit 90276aa). Read
+docs/autofit/codex/c1s_badge_fix_review_prompt.txt for full prior
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 1 FINDING (split 1x GO / 1x NO-GO — stricter governs, treated as
+NO-GO): the NO-GO run found two tracked Stage-9 artifacts still showed
+C 1s's old 284.5 curated nominal after the badge fix (commit 29e922c):
+- .stage9/manifest/manifest.json:2376 — `record_id: "C-1s"`,
+  `current_value: 284.5`, `current_tier: "curated-hand-verified"`.
+- .stage9/reports/phase8_evidence_report.md:23 — the curated-nominal
+  table row still listed 284.5 in both value columns.
+
+Both are DERIVED reports (generated from the live data/xps tree by
+.stage9/build_manifest.py and .stage9/gen_evidence_report.py
+respectively — NOT frozen historical input evidence, unlike the two
+Stage-9 dual-extraction INPUT files correctly left untouched in Unit 1
+of this same provenance-audit effort).
+
+FIX APPLIED (commit 90276aa — verify against current disk state):
+regenerated both files via their own generators, run in dependency
+order (`python .stage9/build_manifest.py` then
+`python .stage9/gen_evidence_report.py` — the evidence-report generator
+reads manifest.json as an input). This also retroactively fixed a
+residual gap left over from the EARLIER self-citation-removal unit:
+manifest.json had never been regenerated after that fix either, so it
+still carried the removed UCl4/"Fortier 2026" entry and stale field_id
+numbering — both now corrected in the same regeneration pass. Updated
+tests/test_chem_state_tier.py's test_no_self_citation_in_any_ref_string
+docstring: removed manifest.json from the "deliberately retained
+self-citation" list (it's clean now) and added an explanation
+distinguishing "current_value" DERIVED reports (regenerate when stale)
+from frozen INPUT evidence (never touch — proves historical fidelity).
+
+Confirmed via re-running tests/test_chem_state_tier.py,
+tests/test_legacy_parity.py (11 passed) and a full `pytest tests/` run
+(652 passed, 6 skipped, 1 pre-existing unrelated failure already
+established as flaky/unrelated in this session).
+
+PLEASE VERIFY:
+1. Read .stage9/manifest/manifest.json's C-1s record and confirm
+   `current_value` is now 284.44, and confirm no U 4f7/2 UCl4 entry (no
+   "Fortier 2026" ref) remains anywhere in the file — re-run
+   `git grep -n "Fortier 2026"` yourself against the whole tree and
+   confirm manifest.json no longer appears in the results.
+2. Read .stage9/reports/phase8_evidence_report.md's C 1s row and
+   confirm both value columns now read 284.44.
+3. Confirm regenerating these two files was genuinely the right call
+   (not something that should have been left alone like Unit 1's two
+   retained files) — read .stage9/build_manifest.py's field naming
+   (`current_value`) and .stage9/gen_evidence_report.py's data-loading
+   (reads data/xps/legacy/*.json and data/xps/elements-main.json
+   directly, not a frozen snapshot) yourself to confirm the
+   derived-vs-frozen distinction holds.
+4. Re-run (or simulate) both generators yourself into temp output and
+   diff against the committed files — confirm the committed files are
+   EXACTLY what their generators currently produce, with no manual
+   editing drift.
+5. Confirm tests/test_chem_state_tier.py's updated docstring is
+   accurate: re-run `git grep -n "Fortier 2026" -- '*.json' '*.js' '*.py'`
+   yourself and confirm the result set now matches the docstring's
+   updated enumeration (2 frozen-input .stage9 files + the 2 C1s
+   curator-attribution files + the fix-discussion test/fixture files —
+   manifest.json should NOT appear).
+6. Confirm scope: only .stage9/manifest/manifest.json,
+   .stage9/reports/phase8_evidence_report.md, and
+   tests/test_chem_state_tier.py changed in commit 90276aa — no
+   autofit/engine.py, autofit/methods/*.py, fitting.py, app.py, or
+   templates/index.html changes across the whole C1s-badge-fix effort
+   (29e922c through 90276aa).
+7. Anything else that looks wrong, regardless of whether it's on this
+   list — in particular, is there a THIRD stale derived-report artifact
+   anywhere that also needs regenerating?
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
