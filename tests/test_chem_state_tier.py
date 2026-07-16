@@ -132,7 +132,31 @@ def test_no_self_citation_in_any_ref_string():
     a real literature reference to anyone reading the tooltip. Removed
     entirely (Skye's explicit call: delete rather than restructure) — the
     tier is now 11 groups / 51 states. Pin the absence going forward so a
-    future legacy-data edit can't silently reintroduce a self-citation."""
+    future legacy-data edit can't silently reintroduce a self-citation.
+
+    COMPLETE accounting of every remaining "Fortier" occurrence in the
+    tracked repo as of this fix (verified via ``git grep -n Fortier`` —
+    NOT the plain shell ``grep`` alias in this environment, which silently
+    respects .gitignore and hides gitignored-but-tracked files):
+
+    - .stage9/extract_targets_chem.json, .stage9/phase4chem_workflow.js,
+      .stage9/manifest/manifest.json — the original Stage-9 dual-
+      extraction transcription inputs/build-manifest, proving the
+      transcription faithfully captured what was really in the old
+      embedded JS constant at the time. None are loaded by any runtime
+      code (app.py / xps_reference.py / autofit / fitting.py). Retaining
+      them verbatim, self-citation included, is deliberate: they are
+      historical evidence of what WAS transcribed, and editing them would
+      rewrite that evidence — the opposite of honest. (manifest.json is
+      additionally covered by .stage9/.gitignore for NEW writes, but was
+      tracked before that rule existed.)
+    - data/xps/elements-main.json and tests/fixtures/curated_records_
+      snapshot.json — the C 1s notes field's "curator decision, S.
+      Fortier 2026-06" is an editorial-decision ATTRIBUTION (who decided
+      to prioritize 284.5 over 284.44), not a literature citation dressed
+      up as one — a different provenance-audit unit's scope, tracked
+      separately.
+    """
     doc = _load(CHEM)
     for g in doc["groups"]:
         for s in g["states"]:

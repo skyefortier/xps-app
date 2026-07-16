@@ -4,13 +4,16 @@ frozen oracle fixture (tests/fixtures/xps_legacy_snapshot.json) EXACTLY
 (byte-faithful values). This is the proof of "exact parity" — if
 transcription ever drifts from the fixture, this fails.
 
-The fixture itself was built ONCE by evaling the real JS literals straight
-out of templates/index.html, before the XPS_ELEMENTS/CHEMICAL_STATES
-constants were deleted from the template (see test_cutover.py, which
-proves the fixture matches what the template used to contain and that the
-constants are genuinely gone now). `_raw()` below reads that frozen
-fixture, not the template — the template's constants no longer exist to
-compare against.
+The fixture itself was built ONCE, historically, by evaling the real JS
+literals straight out of templates/index.html, before the
+XPS_ELEMENTS/CHEMICAL_STATES constants were deleted from the template.
+That one-time equivalence is not re-proven by any current test — the
+template's constants are gone, so nothing live remains to compare the
+fixture against. test_cutover.py instead proves a DIFFERENT, current
+fact: that the post-deletion accessor (the rendered page) still serves
+values deep-equal to this same frozen fixture, and that the constants
+are genuinely absent from the template. `_raw()` below reads the frozen
+fixture directly — it is the sole oracle for this file's assertions.
 
 DISCLOSED DEVIATION (2026-07-16, provenance audit): the fixture's
 CHEMICAL_STATES['U 4f7/2'] and data/xps/legacy/chemical-states.json's
@@ -33,10 +36,14 @@ RAW = REPO / ".stage9" / "legacy_raw.json"
 def _raw():
     # Post-cutover oracle: the XPS_ELEMENTS / CHEMICAL_STATES constants have
     # been REMOVED from the template, so the parity oracle is the immutable
-    # fixture tests/fixtures/xps_legacy_snapshot.json — created once and
-    # mechanically verified == the original constants (see test_cutover.py).
-    # This proves legacy JSON == the frozen original values, which survives
-    # constant deletion (Codex Checkpoint-B P0: the oracle must not vanish).
+    # fixture tests/fixtures/xps_legacy_snapshot.json — this survives constant
+    # deletion (Codex Checkpoint-B P0: the oracle must not vanish). The
+    # fixture was originally created once and mechanically verified against
+    # the (now-deleted) original constants; as of 2026-07-16 it also carries
+    # ONE disclosed manual deviation from that original transcription (see
+    # module docstring above) — so this test proves legacy JSON == the
+    # frozen fixture, which is the current-and-intentionally-curated legacy
+    # dataset, not "the original constants" as a still-live fact.
     fx = json.loads((REPO / "tests/fixtures/xps_legacy_snapshot.json").read_text())
     return {"XPS_ELEMENTS": fx["XPS_ELEMENTS"], "CHEMICAL_STATES": fx["CHEMICAL_STATES"]}
 
