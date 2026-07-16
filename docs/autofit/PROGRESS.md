@@ -3468,3 +3468,92 @@ against the clean commit before this whole review cycle too, and this
 branch's Find Peaks UI commits never touch `autofit/engine.py`,
 `autofit/methods/*.py`, or `fitting.py`). **FIND PEAKS ROUND-4 FIXES:
 ALL THREE UNITS REVIEW-COMPLETE, verified on :5252 light + dark.**
+
+## Provenance-audit fixes (2026-07-16) — Unit 1: remove the literal self-citation
+
+A provenance audit (a separate read-only-clone Claude session) found the
+only literal self-citation anywhere in the codebase outside tests:
+`data/xps/legacy/chemical-states.json`'s "U 4f7/2" group had a state
+entry (id `legacy-cs-U-4f72-4`, "UCl₄", 380.2 eV) with
+`"ref": "Fortier 2026"` — the lab citing itself as a literature source,
+indistinguishable from a real external citation to anyone reading the
+tooltip. Asked Skye directly (not guessed): delete outright vs. restructure
+into a non-citation-shaped field. **Her call: delete entirely.**
+
+**Fix** (commit e7b32f5): removed the entry (11 groups / 52→51 states).
+Regenerated `content_sha256` (xps_reference.py's tamper-evident checksum,
+computed against the exact `_canon_chem` canonicalization). Updated
+`tests/fixtures/xps_legacy_snapshot.json` (the "IMMUTABLE... NEVER
+auto-regenerate" Stage-9 cutover oracle) in lockstep — both live data and
+fixture agree, so "exact reconstruction" parity gates
+(`test_legacy_parity.py`, `test_cutover.py`) stay literally true; disclosed
+the one intentional deviation from the original pre-cutover JS constant in
+both the fixture's description and the parity tests. Regenerated
+`tests/fixtures/curated_records_snapshot.json` via its own sanctioned regen
+script. Added `test_no_self_citation_in_any_ref_string` as a permanent
+regression guard, verified via genuine red-green (failed against the
+pre-fix data with the literal reproduced string, passes now).
+
+**Codex review: 4 rounds, GO ×2 on round 4** (prompts
+`self_citation_removal_review_prompt.txt` /
+`self_citation_removal_recheck{,2,3}_prompt.txt`; verdicts
+`self_citation_removal_verdict_round{1,2,3,4}_run{A,B}.md`). The
+*substance* of the fix was correct from round 1 (both round-1 runs
+independently verified the data edit, checksums, and new regression test);
+all four rounds of findings were about documentation precision, not the
+underlying data change:
+
+- **Round 1 (commit e7b32f5): split 1×NO-GO/1×GO — stricter governs.**
+  Stale "52 states" prose left standing next to new "51 states" disclosure
+  paragraphs in two test docstrings, contradicting the new assertions
+  instead of narrating the change; `test_legacy_parity.py`'s docstring
+  still claimed values are extracted "directly from templates/index.html
+  by evaling the real JS literals" (no longer true — `_raw()` reads the
+  frozen fixture). The GO run's non-blocking note also caught a real
+  residual: `templates/index.html.tmp.19861.1774892271848`, a stray file
+  accidentally committed in March 2026 (unrelated UI-updates commit),
+  untracked by anything at runtime, that turned out to be an old
+  ~6300-line snapshot of index.html still embedding the original
+  `CHEMICAL_STATES` constant with the SAME literal self-citation — a
+  second copy sitting in the repo. **Fixed (c37e902):** rewrote both
+  docstrings' surrounding prose in place; `git rm`'d the stray temp file
+  after confirming nothing referenced it.
+- **Round 2 (commit c37e902): NO-GO ×2.** `_raw()`'s inline comment
+  still said the fixture was "mechanically verified == the original
+  constants" and proved JSON equals "the frozen original values" —
+  contradicted the corrected module docstring. Also, the round-1
+  disclosure of "which files still deliberately retain the string" was
+  incomplete: this environment's plain `grep` is aliased to respect
+  `.gitignore`, silently hiding `.stage9/manifest/manifest.json` (tracked
+  despite a later gitignore rule) from every earlier search. **Fixed
+  (aad7ebb):** rewrote `_raw()`'s comment to precisely state what was
+  proven once historically vs. what's proven live now; re-ran the search
+  with `git grep` (bypasses `.gitignore`) and moved the complete,
+  corrected file list into `test_no_self_citation_in_any_ref_string`'s own
+  docstring — a durable location, not a commit message.
+- **Round 3 (commit aad7ebb): NO-GO ×2.** The docstring's "COMPLETE
+  accounting of every remaining 'Fortier' occurrence in the tracked repo"
+  claim was still too broad — `git grep "Fortier"` (bare surname) also
+  matches ordinary "Fortier Lab" mentions in unrelated planning docs,
+  nothing to do with the citation bug. **Fixed (fb3941b):** narrowed the
+  claim to the literal self-citation string "Fortier 2026" in tracked
+  `.json`/`.js`/`.py` files specifically, naming the exact `git grep`
+  command used and explicitly excluding bare-surname doc mentions.
+- **Round 4 (commit fb3941b): GO ×2.** Both runs independently ran the
+  exact named `git grep -n "Fortier 2026" -- '*.json' '*.js' '*.py'`
+  command and confirmed the result set matches the docstring's
+  enumeration exactly (3 `.stage9` historical files + 2 C1s
+  curator-attribution files + 3 fix-discussion test/fixture files, no
+  more, no fewer). Both explicitly noted the effort had reached
+  diminishing returns on wording precision, with the substance sound
+  since round 1.
+
+Full suite re-run after every round: 651-652 passed (the one variance is
+the same pre-existing `test_u4f_n1s_cofit` numerical parity-gate marginal
+case, confirmed present on the clean commit before this whole review cycle
+too — a completely separate subsystem, untouched by any commit in this
+unit). Scope across the entire effort (`e7b32f5` through `fb3941b`): only
+`data/xps/legacy/chemical-states.json`, the two fixture files, the two
+parity/tier test files, and the stray tracked temp-file deletion — zero
+changes to `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`,
+`app.py`, or `templates/index.html`. **UNIT 1 REVIEW-COMPLETE.**
