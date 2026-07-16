@@ -1,0 +1,67 @@
+Round-5 recheck for the C 1s VERIFIED-badge fix (branch
+feature-autofit-stage2, worktree at this path, commit c29652f). Read
+docs/autofit/codex/c1s_badge_fix_review_prompt.txt through
+docs/autofit/codex/c1s_badge_fix_recheck3_prompt.txt for full prior
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 4 FINDING (split 1x GO / 1x NO-GO — stricter governs): the NO-GO
+run found a fifth stale-count artifact, OUTSIDE .stage9 entirely —
+docs/superpowers/plans/2026-06-19-reference-identify-workspace.md (an
+implementation-plan doc with an as-built addendum) still quoted "11
+groups / 52 states" and "all 52 chem states" as as-built facts about
+data/xps/legacy/chemical-states.json.
+
+FIX APPLIED (commit c29652f — verify against current disk state):
+corrected the three specific stale-count mentions (line ~11, ~110,
+~117) with a brief dated note ("52 as of this plan's authoring, now 51
+after a 2026-07-16 provenance-audit removal"), without attempting to
+re-audit the ENTIRE historical document (which has many already-stale
+precise line-number citations against templates/index.html from long
+before this fix, unrelated to this specific count issue — re-auditing
+those is out of scope for this provenance fix). This mirrors the same
+scope-limited treatment already applied to
+.stage9/reports/parity_gate.md in round 3.
+
+Confirmed via a full `pytest tests/` run: 653 passed, 6 skipped, 0
+failures — note this is the FIRST fully-clean run in this whole
+five-round review cycle; the previously-recurring
+tests/autofit/test_u4f_n1s_cofit failure (a numerical parity-gate
+marginal case, already established as pre-existing and unrelated to
+any commit in this effort) did not fail this time, consistent with it
+being a flaky/marginal case rather than a real regression.
+
+PLEASE VERIFY:
+1. Read docs/superpowers/plans/2026-06-19-reference-identify-workspace.md
+   directly at the three edited locations and confirm the corrected text
+   is accurate and doesn't introduce a NEW inaccuracy.
+2. Do a genuinely broad, repo-wide sweep (not limited to .stage9 or this
+   one plans file) for any OTHER place that states "52 states", "52
+   chem states", "11 groups / 52", or similar, referring to
+   data/xps/legacy/chemical-states.json's count — check docs/, other
+   docs/superpowers/plans/*.md files, README-style files, and code
+   comments anywhere in the tracked tree. Use a real search, don't just
+   trust that rounds 1-4 were exhaustive.
+3. Also do a final sweep specifically for the C 1s VERIFIED-badge value
+   itself (this unit's actual subject, separate from Unit 1's state-count
+   fallout): is there ANY other tracked file, anywhere in the repo
+   (not just .stage9 or tests/), that states or implies C 1s's
+   curated/verified reference position is 284.5 rather than 284.44? Use
+   a real search for "284.5" in doc/comment contexts specifically
+   claiming it as a NIST/curated/verified reference value (as opposed to
+   the charge-correction convention, which is legitimately still 284.5
+   and correctly unaffected by this fix).
+4. Confirm scope: commit c29652f changes only
+   docs/superpowers/plans/2026-06-19-reference-identify-workspace.md —
+   no autofit/engine.py, autofit/methods/*.py, fitting.py, app.py, or
+   templates/index.html changes across the ENTIRE C1s-badge-fix effort
+   (29e922c through c29652f).
+5. If you genuinely find nothing further wrong across the whole
+   five-round effort (data value, checksums, fixtures, generated
+   databases, Stage-9 pipeline reports, and now this plans doc), say so
+   plainly and give GO. This has now had five independent rounds of
+   review; if the remaining risk is negligible, don't manufacture a
+   finding to avoid saying GO.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
