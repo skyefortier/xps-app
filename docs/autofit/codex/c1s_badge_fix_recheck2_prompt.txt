@@ -1,0 +1,90 @@
+Round-3 recheck for the C 1s VERIFIED-badge fix (branch
+feature-autofit-stage2, worktree at this path, commit 569a7f6). Read
+docs/autofit/codex/c1s_badge_fix_review_prompt.txt and
+docs/autofit/codex/c1s_badge_fix_recheck_prompt.txt for full prior
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 2 FINDINGS (both of 2 independent runs, unanimous NO-GO):
+1. tests/test_chem_state_tier.py's "COMPLETE accounting" docstring
+   (in test_no_self_citation_in_any_ref_string) still omitted 3 tracked
+   files that legitimately match `git grep -n "Fortier 2026" -- '*.json'
+   '*.js' '*.py'`: tests/fixtures/xps_legacy_snapshot.json,
+   test_chem_state_tier.py itself, and tests/test_legacy_parity.py — all
+   fix-discussion prose mentioning the string, not citations.
+2. A THIRD stale derived Stage-9 artifact, one step further upstream
+   than round 1's finding: .stage9/manifest/tiers_chem.json (produced by
+   .stage9/phase5_tier_chem.py from manifest.json) still had 52 rows
+   including the deleted UCl4 entry — meaning the evidence-report
+   regeneration committed in round 1 was actually built from STALE
+   tiers_chem.json input and still had wrong aggregate counts (chem
+   (52), transcription-corroborated 31 instead of 30).
+
+FIX APPLIED (commit 569a7f6 — verify against current disk state):
+1. Added the 3 missing files to the docstring's enumeration; the list
+   now claims to match `git grep -n "Fortier 2026" -- '*.json' '*.js'
+   '*.py'` EXACTLY (7 files total).
+2. Regenerated .stage9/manifest/tiers_chem.json via
+   `python .stage9/phase5_tier_chem.py` (its sole, correct generator —
+   confirmed it has no LATER pipeline-stage enrichment step, unlike its
+   survey-side sibling tiers_survey.json, which IS enriched by a later
+   .stage9/resolve_conflicts.py stage — that file was correctly left
+   untouched after a near-miss: an attempt to also regenerate
+   tiers_survey.json via phase5_tier.py alone would have silently erased
+   8 conflict-resolution records added by the later stage; caught via
+   diff before committing, reverted immediately).
+3. Found and fixed a real bug in .stage9/gen_evidence_report.py: its
+   tier-summary header hardcoded literal "114 legacy quantitative
+   fields" / "survey (62)" / "chem (52)" instead of computing them from
+   `len(tiers_survey)`/`len(tiers_chem)` — meaning even a "correct"
+   regeneration would have kept printing stale totals forever. Made
+   these computed dynamically.
+4. Regenerated .stage9/reports/phase8_evidence_report.md again with the
+   now-corrected tiers_chem.json and the fixed generator: reads 113
+   fields / chem (51) / 30 transcription-corroborated.
+
+Confirmed via re-running tests/test_chem_state_tier.py,
+tests/test_legacy_parity.py (11 passed) and a full `pytest tests/` run
+(652 passed, 6 skipped, the same pre-existing unrelated failure already
+established as flaky/unrelated throughout this whole review cycle).
+
+PLEASE VERIFY:
+1. Re-run `git grep -n "Fortier 2026" -- '*.json' '*.js' '*.py'`
+   yourself and confirm the result set is EXACTLY the 7 files the
+   updated docstring in tests/test_chem_state_tier.py now enumerates —
+   no more, no fewer.
+2. Read .stage9/manifest/tiers_chem.json directly and confirm it has 51
+   entries with no UCl4/"Fortier 2026" row, and that field_id numbering
+   is internally consistent (no gaps/duplicates).
+3. Read .stage9/phase5_tier_chem.py and confirm it is genuinely the
+   ONLY writer of tiers_chem.json and that nothing else (no later-stage
+   script analogous to resolve_conflicts.py) enriches it afterward —
+   grep .stage9/*.py yourself for "tiers_chem" to confirm.
+4. Separately, confirm tiers_survey.json was correctly left untouched
+   in this commit (git diff should show no change to it) — and confirm
+   the reasoning holds: .stage9/resolve_conflicts.py enriches
+   tiers_survey.json with "resolution"/"resolution_tier" fields for 8
+   conflict-resolved entries AFTER phase5_tier.py's base output, so
+   re-running phase5_tier.py alone would erase that enrichment. (You
+   don't need to reproduce the near-miss — just confirm the stated
+   pipeline dependency is real by reading both scripts.)
+5. Read .stage9/gen_evidence_report.py's tier-summary section and
+   confirm the header numbers are now computed from
+   `len(tiers_survey)`/`len(tiers_chem)`, not hardcoded literals.
+   Re-run the generator yourself (or simulate it) and confirm the
+   committed .stage9/reports/phase8_evidence_report.md is byte-identical
+   to what it currently produces.
+6. Confirm scope: commit 569a7f6 changes only
+   .stage9/gen_evidence_report.py, .stage9/manifest/tiers_chem.json,
+   .stage9/reports/phase8_evidence_report.md, and
+   tests/test_chem_state_tier.py — no autofit/engine.py,
+   autofit/methods/*.py, fitting.py, app.py, or templates/index.html
+   changes across the ENTIRE C1s-badge-fix effort (29e922c through
+   569a7f6).
+7. Anything else that looks wrong, regardless of whether it's on this
+   list — in particular, is there a FOURTH stale derived artifact
+   anywhere in .stage9, or any other hardcoded-count bug in these
+   generator scripts that would go stale on the NEXT data edit?
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
