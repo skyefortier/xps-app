@@ -1,0 +1,119 @@
+You are reviewing a provenance-data fix on branch feature-autofit-stage2
+of the XPS Fitting Studio repo (worktree at this path, commit e7b32f5).
+Read code directly from disk, do not trust this description alone.
+
+CONTEXT: a provenance audit (a separate read-only-clone Claude session)
+found the only literal self-citation anywhere in the codebase outside
+tests: data/xps/legacy/chemical-states.json's "U 4f7/2" group had a
+state entry (id "legacy-cs-U-4f72-4", state "UCl₄", be_ev 380.2) with
+`"ref": "Fortier 2026"` — i.e. the lab citing itself as a literature
+source, indistinguishable from a real external citation to anyone
+reading the app's tooltip. Skye's explicit decision (asked directly,
+not guessed): delete the entry entirely rather than restructure it into
+a non-citation-shaped field.
+
+THE FIX:
+1. Removed the entry from data/xps/legacy/chemical-states.json's "U
+   4f7/2" group (4 states remain: U metal, UO2, U3O8, UO3 — all with
+   real literature refs, e.g. "Moulder 1992", "Ilton 2007"). Group
+   count unchanged (11); total states 52 -> 51.
+2. Regenerated `content_sha256` at the top of that file —
+   xps_reference.py's `_verify_legacy_checksum` fails loudly at load
+   time if this doesn't match the canonical reconstruction of
+   {state, be, ref} per state (search `_canon_chem` in
+   xps_reference.py). Recomputed by hand using that exact
+   canonicalization.
+3. tests/fixtures/xps_legacy_snapshot.json (the "IMMUTABLE Stage 9
+   cutover oracle", normally "NEVER auto-regenerate") — removed the
+   matching CHEMICAL_STATES["U 4f7/2"] entry and recomputed its own
+   `sha256` self-check field (the hash covers
+   {XPS_ELEMENTS, CHEMICAL_STATES} together — search
+   `test_fixture_matches_legacy_json` in tests/test_cutover.py).
+   Extended the fixture's `description` field to disclose this ONE
+   deliberate manual deviation from the original pre-cutover JS
+   constant (with date + reason + pointer to the new regression test).
+4. tests/test_legacy_parity.py — this file's whole point is proving
+   "the legacy JSON docs must reconstruct the [fixture] EXACTLY". Since
+   BOTH the live JSON (step 1) and the fixture (step 3) were edited
+   together to remove the SAME entry, exact-reconstruction parity is
+   still literally true post-edit — no test *assertions* needed
+   changing there except the hardcoded total-state count
+   (`test_counts_match_known_totals`: 52 -> 51). Updated the module
+   docstring to disclose the deviation (previously claimed byte-parity
+   with "the original XPS_ELEMENTS and CHEMICAL_STATES constants";
+   amended to "the frozen oracle fixture" + an explicit disclosed-
+   deviation paragraph, since the fixture itself is no longer literally
+   identical to the ORIGINAL pre-cutover constant).
+5. tests/test_chem_state_tier.py — same 52 -> 51 fix in two places
+   (`test_every_chem_state_carries_ref_source_tier`'s state count and
+   unique-id count), docstring updated to disclose the deviation. Added
+   a NEW permanent regression test,
+   `test_no_self_citation_in_any_ref_string`, asserting no `ref` string
+   in the whole legacy chemical-states document contains "fortier"
+   (case-insensitive).
+6. tests/fixtures/curated_records_snapshot.json — regenerated via its
+   own sanctioned script (`python tests/fixtures/regen_curated_snapshot.py`,
+   whose own docstring says this is the correct action for "a
+   deliberate, disclosed content change," not for silencing a failure).
+   This pulled the same UCl4 entry out of its embedded
+   `legacy_payloads["chemical-states.json"]["groups"]` copy
+   automatically.
+
+DELIBERATELY NOT TOUCHED: .stage9/extract_targets_chem.json and
+.stage9/phase4chem_workflow.js still contain the original "Fortier
+2026" string. These are the original dual-extraction transcription
+INPUTS (tracked historical evidence proving the Stage-9 transcription
+faithfully captured what was really in the old embedded JS constant) —
+not loaded by any runtime code, and editing them would rewrite
+historical evidence of what was actually transcribed at the time, which
+would be dishonest in the opposite direction. Confirm this reasoning
+holds (that nothing in app.py/xps_reference.py/autofit ever reads these
+two specific .stage9 files at runtime).
+
+TEST VERIFICATION: confirmed via a genuine red-green cycle — the new
+test written FIRST against the un-edited data, watched it fail with the
+literal string `'Fortier 2026'` in the assertion message, then the data
+edit was made and the test re-run to confirm it passes. Full suite:
+652 passed, 6 skipped, 0 failures.
+
+PLEASE VERIFY:
+1. Read data/xps/legacy/chemical-states.json directly: confirm the
+   UCl4 entry is genuinely gone, the "U 4f7/2" group's remaining 4
+   states are untouched (same ids, be_ev, refs), and no OTHER
+   "Fortier"-referencing entry exists anywhere in the file.
+2. Recompute `content_sha256` yourself (read `_canon_chem` and
+   `_verify_legacy_checksum` in xps_reference.py, reconstruct the exact
+   canonical JSON, hash it) and confirm it matches what's committed —
+   don't trust the stated value, derive it independently.
+3. Recompute the fixture's `sha256` yourself the same way (read
+   `test_fixture_matches_legacy_json` in tests/test_cutover.py for the
+   exact payload shape) and confirm it matches.
+4. Confirm `python -c "import xps_reference; xps_reference.load_reference('data/xps')"`
+   (or equivalent) actually loads without raising — i.e. the checksum
+   fix is not just numerically plausible but genuinely accepted by the
+   real loader.
+5. Confirm every place that previously hardcoded 52 (chemical-state
+   total count) was found and updated to 51 — grep the whole tests/
+   directory yourself for other occurrences your own search turns up;
+   don't rely on the 3 locations named above being exhaustive.
+6. Confirm the new test_no_self_citation_in_any_ref_string test is
+   correctly written (checks the right file, the right field, is
+   case-insensitive, would have caught the original bug) and would
+   NOT have passed vacuously (e.g. confirm the file it reads actually
+   still has content — not an empty list under some load path).
+7. Confirm scope: git diff shows ONLY data/xps/legacy/chemical-
+   states.json, tests/fixtures/xps_legacy_snapshot.json,
+   tests/fixtures/curated_records_snapshot.json,
+   tests/test_chem_state_tier.py, tests/test_legacy_parity.py changed
+   — no autofit/engine.py, autofit/methods/*.py, fitting.py, or
+   templates/index.html changes; no change to manual Run Fit or
+   /api/fit.
+8. Anything else that looks wrong, regardless of whether it's on this
+   list — in particular, whether reframing the parity-gate tests'
+   claimed "exact reconstruction" semantics (rather than literally
+   breaking them) is the right call, versus some alternative you'd
+   recommend.
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
