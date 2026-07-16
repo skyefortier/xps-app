@@ -1,0 +1,94 @@
+Round-4 recheck for the C 1s VERIFIED-badge fix (branch
+feature-autofit-stage2, worktree at this path, commit bbc5580). Read
+docs/autofit/codex/c1s_badge_fix_review_prompt.txt,
+docs/autofit/codex/c1s_badge_fix_recheck_prompt.txt, and
+docs/autofit/codex/c1s_badge_fix_recheck2_prompt.txt for full prior
+context — do not trust this description alone; verify against current
+disk state.
+
+ROUND 3 FINDINGS (both of 2 independent runs, unanimous NO-GO):
+1. A FOURTH stale Stage-9 report: .stage9/reports/parity_gate.md (a
+   hand-authored Phase 7 "Checkpoint B review" document, no generator
+   script) still quoted "114 legacy quantitative fields", "chem (52)",
+   "transcription-corroborated | 49 | 31", and "52 states" — the same
+   stale-count class as the previously-fixed phase8_evidence_report.md,
+   just in a different tracked file.
+2. A latent, previously-undiscovered bug in .stage9/resolve_
+   conflicts.py: its summary print statement referenced a dict key
+   (`apparent_be_alka`) that the resolution dict never sets (the real
+   key is `apparent_be_app_convention`) — meaning re-running this
+   later-pipeline-stage script (which enriches tiers_survey.json with 8
+   conflict resolutions AFTER phase5_tier.py's base output) crashed with
+   a KeyError right after writing the file, making the pipeline "not
+   cleanly reproducible."
+
+FIX APPLIED (commit bbc5580 — verify against current disk state):
+1. Updated .stage9/reports/parity_gate.md's numbers: 114→113,
+   chem(52)→chem(51), the chem transcription-corroborated row 31→30,
+   and "52 states"→"51 states" in the parity-gate description. Added a
+   dated "POST-CHECKPOINT UPDATE (2026-07-16, provenance audit)" note
+   explaining the ONE change (the UCl4 self-citation removal) and
+   affirming every other qualitative claim in the document (the
+   allowlist, the "not changed at cutover" section, the behavioral-diff
+   result) is unchanged and still accurate — this file is a Checkpoint-B
+   review record, so the fix disclosed the deviation rather than
+   silently rewriting history.
+2. Fixed the dict-key typo in .stage9/resolve_conflicts.py's print
+   statement (`apparent_be_alka` -> `apparent_be_app_convention`).
+   Verified by actually re-running the script against a backed-up copy
+   of the current tiers_survey.json and confirming it completes without
+   crashing AND produces byte-identical output (idempotent — the 8
+   conflict-resolution enrichments were already correct; only the crash
+   was the bug).
+
+Confirmed via re-running tests/test_chem_state_tier.py,
+tests/test_legacy_parity.py, tests/test_cutover.py (16 passed) and a
+full `pytest tests/` run (652 passed, 6 skipped, the same pre-existing
+unrelated failure established throughout this whole review cycle).
+
+PLEASE VERIFY:
+1. Read .stage9/reports/parity_gate.md directly and confirm the updated
+   numbers (113, chem(51), transcription-corroborated 30, "51 states")
+   are internally consistent with the current
+   .stage9/manifest/tiers_survey.json (62 entries, unchanged) and
+   .stage9/manifest/tiers_chem.json (51 entries) — recompute the tier
+   breakdown yourself from those two files and confirm every number in
+   the table matches exactly.
+2. Confirm the POST-CHECKPOINT UPDATE disclosure is accurate and that
+   no OTHER qualitative claim in the document (the allowlist section,
+   the "explicitly NOT changed at cutover" section, the U 4f
+   legacy-380/curated-377.3 distinct-observations example) was silently
+   altered or is now inconsistent with the current data.
+3. Re-run .stage9/resolve_conflicts.py yourself (it writes directly to
+   .stage9/manifest/tiers_survey.json — back that file up first, run
+   the script, diff, then restore if you want to leave the tree
+   unchanged) and confirm it completes without a KeyError and produces
+   byte-identical output to what's currently committed.
+4. Read .stage9/resolve_conflicts.py's fixed print statement directly
+   and confirm `apparent_be_app_convention` is genuinely the correct key
+   name set on the resolution dict earlier in the same function (not
+   another typo).
+5. Do a FINAL exhaustive sweep for any remaining stale-count artifact:
+   search the ENTIRE tracked .stage9/ tree (and anywhere else) for the
+   literal strings "114", "chem (52)", "52 states", or "31" that might
+   still refer to the old chemical-state tier counts in some file not
+   yet covered by rounds 1-3. Also confirm there is no fifth
+   generator/report in the Stage-9 pipeline you haven't yet traced
+   (list every .py file under .stage9/ and confirm you've accounted for
+   what each one reads/writes).
+6. Confirm scope: commit bbc5580 changes only
+   .stage9/reports/parity_gate.md and .stage9/resolve_conflicts.py — no
+   autofit/engine.py, autofit/methods/*.py, fitting.py, app.py, or
+   templates/index.html changes across the ENTIRE C1s-badge-fix effort
+   (29e922c through bbc5580).
+7. Standing back: given this is now the 4th round of the SAME
+   Stage-9-pipeline-staleness discovery pattern, is there a genuinely
+   comprehensive way to confirm NOTHING else in .stage9 is stale, or is
+   iterative discovery (as has happened here) simply how this legacy,
+   undocumented multi-stage pipeline has to be audited? If you believe
+   this has now reached a point where the .stage9 tree is fully
+   consistent, say so plainly; if you find yet another stale artifact,
+   report it as the finding.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
