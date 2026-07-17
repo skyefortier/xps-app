@@ -136,6 +136,10 @@ class U4fModule:
                                                "labeled-set calibration"},
             {"constant": "lacx_beta_range", "value": list(U4F_LACX_BETA_RANGE),
              "status": "UNVERIFIED", "source": "same"},
+            {"constant": "lacx_m_range", "value": list(U4F_LACX_M_RANGE),
+             "status": "UNVERIFIED",
+             "source": "Gaussian kernel width in DATA POINTS — "
+                       "labeled-set calibration (labeled set 0–8.2)"},
             {"constant": "satellite_offset_ev", "value": list(U4F_SAT_OFFSET_RANGE),
              "status": "CONDITIONAL",
              "source": "lit 6.8–7.1 (Ilton & Bagus 2011; Schindler 2009 "
@@ -144,6 +148,9 @@ class U4fModule:
             {"constant": "satellite_pair_separation_ev",
              "value": list(U4F_SATPAIR_SEP_RANGE), "status": "UNVERIFIED",
              "source": "labeled-set finding: pair separation ~11.2 ≠ Δso"},
+            {"constant": "satellite_fwhm_ev", "value": list(U4F_SAT_FWHM_RANGE),
+             "status": "UNVERIFIED",
+             "source": "UNVERIFIED-empirical (labeled set 2.09–3.30 eV)"},
             {"constant": "main_fwhm_range_ev", "value": list(U4F_MAIN_FWHM_RANGE),
              "status": "UNVERIFIED", "source": "labeled-set calibration"},
             {"constant": "background", "value": "smart",

@@ -164,6 +164,16 @@ class C1sModule:
              "status": "UNVERIFIED", "source": "fitalg numeric guard"},
             {"constant": "asymgl_family", "value": "empirical asymmetric envelope",
              "status": "UNVERIFIED", "source": "expert-practice family (AG/MG)"},
+            {"constant": "asymgl_asymmetry_range", "value": list(ASYMGL_ASYMMETRY_RANGE),
+             "status": "UNVERIFIED",
+             "source": "UNVERIFIED-empirical: chosen to bracket the expert "
+                       "reference fits (asymmetry ≈ 0.10, glMix ≈ "
+                       "0.08–0.5) rather than derived from literature; "
+                       "treat as a calibration target, not physics"},
+            {"constant": "satellite_offset_range_ev", "value": list(SATELLITE_OFFSET_RANGE),
+             "status": "UNVERIFIED",
+             "source": "fitalg tunable — the π→π* satellite "
+                       "offset window from the graphitic main"},
             {"constant": "aromatic_polymer_fwhm_ev",
              "value": list(FWHM_RANGE_AROMATIC_POLYMER),
              "status": "CONDITIONAL",

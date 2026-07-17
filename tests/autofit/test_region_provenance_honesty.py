@@ -4,15 +4,25 @@ lab-derived bound under one status tag (Unit 4), and two constants used
 in ``build_candidates`` had real disclosure in code comments that never
 made it into the structured ``provenance()`` list the UI reads (Unit 5).
 
+A Codex recheck (2026-07-16) found FOUR more constants in the same
+class as Unit 5's original two: real "UNVERIFIED[-empirical]" / labeled-
+set disclosure sitting in a code comment, actually consumed by
+``build_candidates``, but absent from ``provenance()``:
+``ASYMGL_ASYMMETRY_RANGE`` and ``SATELLITE_OFFSET_RANGE`` in c1s.py;
+``U4F_LACX_M_RANGE`` and ``U4F_SAT_FWHM_RANGE`` in u4f.py.
+
 No existing test exercised ``C1sModule.provenance()`` or
 ``U4fModule.provenance()`` directly before this file.
 """
 from __future__ import annotations
 
 from autofit.regions.c1s import (
-    C1sModule, FWHM_RANGE_AROMATIC_POLYMER, FWHM_RANGE_CONTAMINATION,
+    ASYMGL_ASYMMETRY_RANGE, C1sModule, FWHM_RANGE_AROMATIC_POLYMER,
+    FWHM_RANGE_CONTAMINATION, SATELLITE_OFFSET_RANGE,
 )
-from autofit.regions.u4f import U4fModule, U4F_SAT_OFFSET_RANGE
+from autofit.regions.u4f import (
+    U4F_LACX_M_RANGE, U4F_SAT_FWHM_RANGE, U4F_SAT_OFFSET_RANGE, U4fModule,
+)
 
 
 def _by_constant(records, name):
@@ -103,3 +113,50 @@ def test_u4f_satellite_offset_source_distinguishes_literature_from_labeled_set()
     assert "labeled" in src or "lab" in src, (
         "the labeled-set sub-range must be attributed to the lab, not "
         "left unattributed alongside the literature citation")
+
+
+def test_c1s_asymgl_asymmetry_range_has_provenance_entry():
+    """Codex recheck finding: ASYMGL_ASYMMETRY_RANGE is used to build the
+    AG/MG-family candidate slots (graphitic_main_asymgl) but its code
+    comment's "UNVERIFIED-empirical: chosen to bracket the expert
+    reference fits" disclosure never reached provenance() -- only a
+    generic 'asymgl_family' string existed, not this numeric bound."""
+    records = C1sModule().provenance()
+    rec = _by_constant(records, "asymgl_asymmetry_range")
+    assert rec["value"] == list(ASYMGL_ASYMMETRY_RANGE) == [0.0, 0.5]
+    assert rec["status"] == "UNVERIFIED"
+
+
+def test_c1s_satellite_offset_range_has_provenance_entry():
+    """Codex recheck finding: SATELLITE_OFFSET_RANGE (the pi->pi* shake-up
+    offset window from the graphitic main) is used as a linked_offset_
+    range in build_candidates, and its comment says "fitalg; UNVERIFIED
+    tunable" -- absent from provenance() entirely."""
+    records = C1sModule().provenance()
+    rec = _by_constant(records, "satellite_offset_range_ev")
+    assert rec["value"] == list(SATELLITE_OFFSET_RANGE) == [5.5, 7.0]
+    assert rec["status"] == "UNVERIFIED"
+
+
+def test_u4f_lacx_m_range_has_provenance_entry():
+    """Codex recheck finding: U4F_LACX_M_RANGE (the LACX Gaussian kernel
+    width in data points) is used in the LACX param_ranges alongside
+    alpha/beta, which DO have provenance entries -- m was silently
+    omitted despite its own "labeled set 0-8.2, UNVERIFIED" comment
+    disclosure."""
+    records = U4fModule().provenance()
+    rec = _by_constant(records, "lacx_m_range")
+    assert rec["value"] == list(U4F_LACX_M_RANGE) == [0.0, 100.0]
+    assert rec["status"] == "UNVERIFIED"
+
+
+def test_u4f_satellite_fwhm_range_has_provenance_entry():
+    """Codex recheck finding: U4F_SAT_FWHM_RANGE constrains every U 4f
+    satellite slot's width, and its comment says "UNVERIFIED-empirical
+    (labeled set 2.09-3.30 eV)" -- absent from provenance() even though
+    satellite_offset_ev and satellite_pair_separation_ev are both
+    present."""
+    records = U4fModule().provenance()
+    rec = _by_constant(records, "satellite_fwhm_ev")
+    assert rec["value"] == list(U4F_SAT_FWHM_RANGE) == [1.5, 4.5]
+    assert rec["status"] == "UNVERIFIED"
