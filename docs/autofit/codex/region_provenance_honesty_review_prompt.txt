@@ -1,0 +1,99 @@
+You are reviewing a provenance-honesty fix on branch feature-autofit-stage2
+of the XPS Fitting Studio repo (worktree at this path, commit e8bf31c).
+Read code directly from disk, do not trust this description alone.
+
+CONTEXT: this is Units 4-5 (batched together, both minor per the
+original request's own sequencing note) of a multi-unit provenance
+audit. Units 1-3 (self-citation removal, C1s VERIFIED-badge fix, the
+reference_bridge.py mechanism fix) are already separately Codex-cleared.
+Units 4-5 are pure documentation/metadata fixes to two region grammar
+modules' `provenance()` methods — the structured list a UI is meant to
+read to show users what's literature-backed vs. lab-convention vs.
+fully unverified for each fitting constant. NO fitting math, bounds, or
+constants used by `build_candidates` were changed — only how they're
+DESCRIBED in `provenance()`.
+
+Unit 4a: `autofit/regions/c1s.py`'s `fwhm_contamination_ev` record
+conflated a literature-derived floor (0.8 eV — Biesinger, Appl. Surf.
+Sci. 597 (2022) 153681; Greczynski & Hultman 2020) with a lab-derived
+ceiling (2.0 eV — an explicit expert adjudication decision dated
+2026-07-03, `docs/autofit/adjudication-decisions.md` #5) under ONE
+`CONDITIONAL` status tag — reading as "fully literature-backed" when
+only the floor genuinely is. Split into two separate provenance dict
+entries: `fwhm_contamination_floor_ev` (0.8, `CONDITIONAL`,
+literature-only source string) and `fwhm_contamination_ceiling_ev`
+(2.0, `UNVERIFIED`, lab-adjudication-only source string).
+
+Unit 4b: `autofit/regions/u4f.py`'s `satellite_offset_ev` was flagged
+in the original audit request as blending a literature sub-range
+(6.8–7.1 eV, Ilton & Bagus 2011; Schindler 2009) with a labeled-set
+sub-range (6.07–6.38 eV) under one `CONDITIONAL` source string. On
+inspection, the CURRENT source string on disk already explicitly
+labels which number is which ("lit 6.8–7.1 (...); labeled set
+6.07–6.38 — envelope brackets both") — this appears to have already
+been fixed in some earlier, unrelated session. Left `u4f.py`
+completely untouched; only added a permanent regression test pinning
+this distinction so it can't silently regress.
+
+Unit 5: two constants used in `C1sModule.build_candidates` had real
+disclosure in code COMMENTS that never reached the structured
+`provenance()` list: `FWHM_RANGE_AROMATIC_POLYMER` (comment cites
+Beamson & Briggs, Wiley 1992: literature 0.9–1.5 eV, stored as the
+wider (0.8, 1.8) cross-instrument envelope) and the MG-family aliphatic
+`linked_offset_range=(0.2, 0.6)` (comment says "UNVERIFIED-empirical
+(labeled-set + convention)"). Added both as new provenance() entries:
+`aromatic_polymer_fwhm_ev` (`CONDITIONAL`, citing Beamson & Briggs,
+explicitly noting the widening beyond the cited range is editorial) and
+`aliphatic_linked_offset_range_ev` (`UNVERIFIED`).
+
+New test file `tests/autofit/test_region_provenance_honesty.py` (4
+tests — no prior test exercised `C1sModule.provenance()` or
+`U4fModule.provenance()` at all). Verified via genuine red-green: 3 of
+4 failed against the pre-fix code (missing keys / the old combined
+`fwhm_contamination_ev` key); the U4f test passed immediately on first
+run since that item required no code change.
+
+PLEASE VERIFY:
+1. Read `C1sModule.provenance()` directly and confirm the split is
+   clean: `fwhm_contamination_floor_ev` (0.8, CONDITIONAL) cites ONLY
+   the literature sources (no lab-adjudication text bleeding in);
+   `fwhm_contamination_ceiling_ev` (2.0, UNVERIFIED) cites ONLY the lab
+   adjudication (no literature citation bleeding in). Confirm the old
+   combined `fwhm_contamination_ev` key is genuinely gone (not just
+   duplicated alongside the new two).
+2. Confirm `FWHM_RANGE_CONTAMINATION` itself (the actual tuple consumed
+   by `build_candidates`/`_MAIN_FWHM_BY_MATERIAL`/slot construction) is
+   COMPLETELY UNCHANGED — still `(0.8, 2.0)` — and that no fitting
+   bound, default, or candidate-model logic was touched anywhere in this
+   commit. This must be a pure metadata/documentation change.
+3. Read `U4fModule.provenance()`'s `satellite_offset_ev` entry directly
+   and confirm the claim that its source string ALREADY explicitly
+   distinguishes "lit 6.8–7.1" from "labeled set 6.07–6.38" — i.e.,
+   confirm the reviewer's own claim that no further change was needed
+   here, rather than trusting it. If you believe this entry could
+   still be clearer or is not actually adequate, say so as a finding.
+4. Read the two new Unit-5 provenance entries
+   (`aromatic_polymer_fwhm_ev`, `aliphatic_linked_offset_range_ev`) and
+   confirm their values match the actual constants
+   (`FWHM_RANGE_AROMATIC_POLYMER`, the literal `(0.2, 0.6)` tuple used
+   in `aliphatic_main_offset()`) and that their cited sources/status
+   accurately reflect the code comments they're drawn from — re-read
+   those comments yourself rather than trusting the paraphrase.
+5. Confirm the 4 new tests are correctly written: do they test the real
+   `provenance()` methods (not reimplementations), and would they
+   genuinely have failed before this fix (not just check for the
+   presence of a key trivially)?
+6. Confirm scope: git diff shows ONLY `autofit/regions/c1s.py` and the
+   new test file changed — no `autofit/regions/u4f.py`,
+   `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`, `app.py`,
+   or `templates/index.html` changes; no change to manual Run Fit or
+   `/api/fit`.
+7. Anything else that looks wrong, regardless of whether it's on this
+   list — in particular, is there any OTHER constant in `c1s.py` or
+   `u4f.py` with a real citation/disclosure in a code comment that's
+   similarly missing from `provenance()`, beyond the two named in this
+   fix?
+
+Give a GO/NO-GO verdict. For any NO-GO finding, cite exact file:line
+and describe the concrete failure scenario. End your final answer with
+a line starting exactly "VERDICT: GO" or "VERDICT: NO-GO".
