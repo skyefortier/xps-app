@@ -3815,3 +3815,78 @@ region modules (Units 4-5, 2 rounds). Zero changes to manual Run Fit,
 `/api/fit`, `autofit/engine.py`, or `autofit/methods/*.py` anywhere in
 this entire effort — confirmed unit-by-unit and re-confirmed in every
 recheck round.
+
+---
+
+## Background algorithm fixes (2026-07-17) — Unit 1: Tougaard pre-loss constant (F1) + non-uniform quadrature weights (F2)
+
+A ready-made patch (`background-fixes.patch`, one commit against this
+branch, base `b08c9ce`) arrived from a sandbox clone with no access to
+this worktree, fixing 3 findings in the Tougaard background and the
+`n_avg` convention. Explicit instruction: review critically, don't
+trust blind, re-verify locally, split into units, Codex ×2 stricter
+governs — the patch changes analysis math (`fitting.py`), which is
+normally off-limits without explicit sign-off.
+
+**F1 (the reported bug):** the idealized Tougaard integral
+`B(E) = Σ_{E'<E} K(E-E')·J(E')` assumes the analysis window begins
+loss-free. Real windows never do (e.g. Fe 2p sits on a large inelastic
+baseline from transitions outside the window), and `K(0)=0` forces the
+bare integral to zero at the low-BE edge regardless of the data —
+background dove to ~0 there, and a flat featureless window produced a
+full-amplitude phantom signal. Fix: take the low-BE edge as a pre-loss
+constant C0, run the kernel over the net `(J - C0)`, anchor amplitude
+at the high-BE edge as before. Tougaard now meets the data at both
+edges, like Shirley. **F2 (bundled, same function body):** the
+non-uniform-grid branch computed exact per-point separations but never
+weighted by local spacing, silently applying uniform-grid quadrature
+inside the branch written because the grid isn't uniform (~23.7%
+measured error); fixed via `np.gradient`-based local weights.
+
+Split into 2 units rather than the patch's suggested 3 (F1/F2/F3): F1
+and F2 live in the same `tougaard_background` function body and were
+only ever tested together upstream, so splitting further would mean
+hand-authoring an untested intermediate — judged riskier than
+reviewing them together. F3 (`n_avg` convention unification for
+`shirley_background`/`smart_background` + `autofit/engine.py` wiring)
+is naturally independent and is Unit 2.
+
+**Unit 1 = F1+F2** (commit `3d9ff54`): `fitting.py`'s
+`tougaard_background` rewrite, `templates/index.html`'s JS twin, and
+both test files. Two existing tests encoded the old (buggy) behavior
+and were rewritten, with rationale documented in the test docstrings
+rather than accepted at face value. Full suite: 666 passed, 6 skipped,
+0 failed (browser suites included). Confirmed via `git grep`: no
+saved-fit fixture or inventory JSON anywhere pins Tougaard output.
+
+**Codex review, 2 rounds.** Round 1 (`3d9ff54`): split verdict — GO
+(no findings) / **NO-GO** (one MAJOR finding). The NO-GO run proved
+`test_nonuniform_grid_uses_local_quadrature_weights`'s fixture was a
+laundered regression pin: a symmetric Gaussian on a flat baseline puts
+both window edges at ~4000 counts, so the F1 anchor
+(`(ya[0]-c0)/bg[0]`) collapsed the signal toward zero on that fixture
+— the test still passed even with F2's `w[i:]` weighting fully
+reverted from production (max diff 4.5e-13, well inside the test's
+`rtol=1e-9`). Independently reproduced before acting on it (own probe
+matched the reviewer's numbers exactly). Stricter-verdict-governs:
+fixed in commit `173f002` (test-only, `fitting.py` zero-diff) — gave
+the fixture a genuine ~800-count high-BE endpoint rise so the anchor
+scale stays non-degenerate, plus an explicit "guard the guard"
+assertion that weighted/unweighted references diverge by >10 counts
+before trusting the comparison between them. Red/green verified
+locally: the rewritten test fails without F2's weighting, passes with
+it restored. Round 2 recheck (`173f002`): **GO ×2** — both runs
+independently reproduced the F2-revert-fails methodology, confirmed
+the >10 guard margin (measured divergence ~104.8 counts, ~10× headroom),
+confirmed the fix is test-only, and swept for any other
+endpoint-collapse-class pin in both the Python tests and the JS
+twin (none found). Both also re-confirmed round 1's two open items: no
+Tougaard numeric fixture pin anywhere, and the negative-scale
+anchoring behavior (signed, unclamped on a falling baseline) is
+pre-existing project stance, not a bug this change introduced.
+
+**UNIT 1 REVIEW-COMPLETE.** Scope across `3d9ff54` + `173f002`:
+`fitting.py`'s `tougaard_background`, `templates/index.html`'s
+`tougaardBackground` JS twin, and their 2 test files only — zero
+changes to `autofit/engine.py`, `autofit/methods/*.py`, or `/api/fit`'s
+contract. Unit 2 (F3, `n_avg` unification) next.
