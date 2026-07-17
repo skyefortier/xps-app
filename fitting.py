@@ -505,21 +505,49 @@ def shirley_linear_background(
     return result[::-1] if flipped else result
 
 
-def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Simplified single-pass Tougaard universal-cross-section background.
+def tougaard_background(
+    x: np.ndarray,
+    y: np.ndarray,
+    n_avg: int = 1,
+) -> np.ndarray:
+    """Single-pass Tougaard universal-cross-section background, with the
+    constant (pre-loss) term the window-limited integral cannot generate.
 
     Uses the two-parameter universal loss function
     K(T) = B·T / (C + T²)² with B = 2866 eV², C = 1643 eV²
     (S. Tougaard, Surf. Interface Anal. 11, 453 (1988): universal
     cross-section fitted to noble/transition-metal optical data; the
-    kernel maximum sits at T = sqrt(C/3) ≈ 23.4 eV energy loss).
+    kernel maximum sits at T = sqrt(C/3) ~= 23.4 eV energy loss).
+
+    FORMULATION (2026-07-17 background audit, finding F1).  The idealized
+    Tougaard integral B(E) = Σ_{E' < E} K(E-E')·J(E') assumes the analysis
+    window BEGINS in a loss-free region, so that J at the low-BE edge is
+    the zero-loss level.  Real windows never satisfy this: at (say) Fe 2p
+    there is a large inelastic baseline produced by every lower-BE
+    (higher-KE) transition OUTSIDE the window, which a window-limited
+    integral structurally cannot reproduce.  Because K(0) = 0, the bare
+    integral is identically zero at the low-BE edge REGARDLESS OF THE DATA
+    — the background visibly dove to ~0 there, and a flat featureless
+    window produced a full-amplitude phantom "signal".
+
+    So the low-BE edge level is taken as a constant offset C0 (the
+    out-of-window baseline the kernel cannot see), the kernel runs over the
+    net (J - C0), and the amplitude is then anchored so the background
+    meets the measured intensity at the HIGH-BE edge — the standard
+    practical Tougaard criterion (B is effectively fitted, which is why the
+    nominal B_coef cancels; C alone sets the kernel shape).  Equivalent to
+    fitting B together with an offset rather than B alone.
+
+    ``n_avg`` averages the first/last ``n_avg`` points before the endpoint
+    levels are read, so neither C0 nor the high-BE anchor rests on a single
+    noisy sample (see ``_apply_endpoint_averaging``).  n_avg=1 = raw
+    endpoints = previous behaviour.
 
     The background at each binding energy accumulates loss contributions
     from electrons emitted at LOWER BE (higher kinetic energy), so the
     one-sided sum requires a descending-BE grid; input in either BE order
-    is normalized internally (see below). The amplitude is anchored so the
-    background matches the measured intensity at the high-BE edge of the
-    window, matching the frontend JS twin ``tougaardBackground``.
+    is normalized internally.  Mirrors the frontend JS twin
+    ``tougaardBackground``.
     """
     n = len(x)
     if n < 2:
@@ -534,6 +562,8 @@ def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
     xa = np.asarray(x, dtype=float)
     ya = np.asarray(y, dtype=float)
+    if n_avg > 1:
+        ya = _apply_endpoint_averaging(ya, n_avg)
 
     # The one-sided loss sum below (j >= i) is physical only when BE
     # DESCENDS along the array: the loss contributions at x[i] must come
@@ -545,17 +575,29 @@ def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     if flipped:
         xa, ya = xa[::-1].copy(), ya[::-1].copy()
 
+    # C0: the low-BE edge level = index -1 on the descending working array.
+    # This is the out-of-window (pre-loss) baseline; the kernel integral is
+    # run on the net above it.
+    c0 = float(ya[-1])
+    net = ya - c0
+
     dx = float(abs(xa[1] - xa[0]))
 
-    # bg[i] = Σ_{j>=i} K(|x[j]-x[i]|)·y[j],  K(T) = B·T / (C + T²)².
+    # bg[i] = Σ_{j>=i} K(|x[j]-x[i]|)·net[j]·w[j],  K(T) = B·T / (C + T²)²,
+    # w[j] = the local quadrature weight (energy spacing) at point j.
     #
-    # On a uniformly spaced grid |x[j]-x[i]| = (j-i)·dx, so the kernel depends
-    # only on the index gap and this one-sided correlation collapses to a
-    # convolution against a single precomputed kernel vector — evaluated in C
-    # via np.convolve instead of an n-iteration Python loop (audit F7). On a
-    # NONUNIFORM grid that identity does not hold, so we keep the exact
-    # per-point separation loop (slower, but numerically unchanged). Never
-    # substitute (j-i)·dx for the true separation unless uniformity is verified.
+    # On a uniformly spaced grid |x[j]-x[i]| = (j-i)·dx and w[j] == dx, so the
+    # kernel depends only on the index gap and this one-sided correlation
+    # collapses to a convolution against a single precomputed kernel vector —
+    # evaluated in C via np.convolve instead of an n-iteration Python loop
+    # (audit F7). On a NONUNIFORM grid neither identity holds, so we keep the
+    # exact per-point separation loop AND per-point weights (audit F2,
+    # 2026-07-17: the loop previously used exact separations but omitted the
+    # spacing weights, silently applying a uniform-grid quadrature inside the
+    # branch written precisely because the grid is not uniform — up to ~24%
+    # error on a genuinely nonuniform grid). np.gradient returns dx exactly
+    # on a uniform grid, so both branches agree to floating point and the
+    # uniformity test is a pure optimization, not a semantic fork.
     diffs = np.diff(xa)
     uniform = bool(dx > 0.0 and np.max(np.abs(diffs - diffs[0])) <= 1e-6 * dx)
 
@@ -563,36 +605,30 @@ def tougaard_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         m = np.arange(n, dtype=float)
         T = m * dx
         k = (B_coef * T) / (C_coef + T * T) ** 2          # k[m] = K(m·dx)
-        # bg[i] = Σ_{m=0}^{n-1-i} k[m]·y[i+m]  =  conv(y, reverse(k))[n-1+i]
-        bg = np.convolve(ya, k[::-1])[n - 1:]
+        # bg[i] = Σ_{m=0}^{n-1-i} k[m]·net[i+m]  =  conv(net, reverse(k))[n-1+i]
+        bg = np.convolve(net, k[::-1])[n - 1:] * dx
     else:
+        w = np.abs(np.gradient(xa))
         bg = np.zeros(n)
         for i in range(n):
             T = np.abs(xa[i:] - xa[i])
             kernel = (B_coef * T) / (C_coef + T * T) ** 2
-            bg[i] = float(np.sum(kernel * ya[i:]))
+            bg[i] = float(np.sum(kernel * net[i:] * w[i:]))
 
-    bg = bg * dx
-
-    # Amplitude anchor: scale the correlation so the background equals the
+    # Amplitude anchor: scale the loss integral so the background equals the
     # measured intensity at the HIGH-BE edge (index 0 on the descending
-    # working array) — the standard practical Tougaard criterion, i.e. B is
-    # effectively fitted so the background meets the spectrum above the
-    # peak (which also makes the nominal B_coef cancel; C alone sets the
-    # kernel shape). History: this used to "rescale to the trailing
-    # endpoint", but K(0) = 0 makes bg[-1] identically zero, so the
-    # zero-guard always fired and the code multiplied by the raw trailing
-    # counts instead — a scale that is harmless only while the squared-C
-    # kernel kept bg near zero, and off by ~the baseline counts once C is
-    # corrected. Guard semantics: if NO net loss signal accumulates at the
-    # high-BE edge (bg[0] == 0 — e.g. all counts zero, or zero everywhere
-    # below the edge point), the correlation is returned UNANCHORED (all
-    # zeros in practice) rather than force-matched to the edge intensity.
-    # Negative counts (physically invalid input) pass through signed; no
-    # clamping policy is imposed here.
-    denom = bg[0] if bg[0] != 0.0 else 1.0
-    bg = bg * (float(ya[0]) / denom)
-    return bg[::-1] if flipped else bg
+    # working array), then sit it on the C0 pedestal. Guard semantics: if NO
+    # net loss signal accumulates at the high-BE edge (bg[0] == 0 — e.g. a
+    # flat or empty window), the honest background is the flat pre-loss level
+    # C0 itself, NOT zeros: a featureless window contains no loss signal to
+    # model, and returning zeros would report the entire baseline as net
+    # signal (the pre-F1 behaviour). Negative counts (physically invalid
+    # input) pass through signed; no clamping policy is imposed here.
+    if bg[0] == 0.0:
+        out = np.full(n, c0)
+    else:
+        out = c0 + bg * ((float(ya[0]) - c0) / bg[0])
+    return out[::-1] if flipped else out
 
 
 def _la_casaxps_true(

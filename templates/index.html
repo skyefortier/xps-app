@@ -4133,7 +4133,7 @@ function linearBackground(be, intensity) {
 // K(T) = B·T/(C+T²)² with B = 2866 eV², C = 1643 eV² (S. Tougaard,
 // Surf. Interface Anal. 11, 453 (1988); kernel max at sqrt(C/3) ≈ 23.4 eV).
 // C was long shipped squared (1643*1643) — fixed 2026-07-04 with the backend.
-function tougaardBackground(be, intensity) {
+function tougaardBackground(be, intensity, nAvg) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
   const B = 2866, C = 1643;
@@ -4142,29 +4142,51 @@ function tougaardBackground(be, intensity) {
   // Normalize to descending internally and flip back, like the backend.
   const flipped = be[0] < be[n - 1];
   const beW = flipped ? [...be].reverse() : be;
-  const inW = flipped ? [...intensity].reverse() : intensity;
-  const dx = Math.abs(beW[1] - beW[0]);
+  let inW = flipped ? [...intensity].reverse() : intensity;
+  if (nAvg > 1) inW = _applyEndpointAveraging(inW, nAvg);
+  // C0 — the pre-loss constant (F1, 2026-07-17). The idealized Tougaard
+  // integral assumes the window BEGINS loss-free, so J at the low-BE edge is
+  // the zero-loss level. Real windows never satisfy that: the out-of-window
+  // inelastic baseline from every lower-BE (higher-KE) transition cannot be
+  // reproduced by a window-limited integral, and since K(0) = 0 the bare
+  // integral is identically zero at the low-BE edge REGARDLESS of the data —
+  // the background dove to ~0 there and a flat window produced phantom
+  // signal. Take the low-BE level as a constant offset, run the kernel over
+  // the net above it, then anchor the amplitude at the high-BE edge.
+  const c0 = inW[n - 1];
+  // Local quadrature weights (F2, 2026-07-17): weight each term by its own
+  // energy spacing instead of a single dx lifted from the first two points,
+  // which silently assumed a uniform grid.
+  const w = new Array(n);
+  for (let i = 0; i < n; i++) {
+    if (i === 0) w[0] = Math.abs(beW[1] - beW[0]);
+    else if (i === n - 1) w[n - 1] = Math.abs(beW[n - 1] - beW[n - 2]);
+    else w[i] = Math.abs(beW[i + 1] - beW[i - 1]) / 2;
+  }
   const bg = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
     let sum = 0;
     for (let j = i; j < n; j++) {
       const T = Math.abs(beW[j] - beW[i]);
-      sum += (B * T) / Math.pow(C + T * T, 2) * inW[j];
+      sum += (B * T) / Math.pow(C + T * T, 2) * (inW[j] - c0) * w[j];
     }
-    bg[i] = sum * dx;
+    bg[i] = sum;
   }
   // Amplitude anchor at the HIGH-BE edge (index 0 after normalization):
   // scale so the background meets the measured intensity above the peak —
-  // the practical Tougaard criterion (B effectively fitted; C alone sets
-  // the kernel shape). The old code "rescaled to the trailing endpoint",
-  // but K(0)=0 makes bg[n-1] identically zero, so the || 1 guard always
-  // fired and it multiplied by raw trailing counts instead. Guard
-  // semantics: if no net loss signal accumulates at the high-BE edge
-  // (bg[0] === 0), the correlation is returned UNANCHORED (all zeros in
-  // practice) rather than force-matched to the edge. Negative counts
+  // the practical Tougaard criterion (B effectively fitted; C alone sets the
+  // kernel shape). Guard: if no net loss signal accumulates at the high-BE
+  // edge (bg[0] === 0 — e.g. a flat or empty window) the honest background is
+  // the flat pre-loss level C0 itself, NOT zeros; zeros would report the
+  // whole baseline as net signal (the pre-F1 behaviour). Negative counts
   // (physically invalid input) pass through signed; no clamping here.
-  const scale = inW[0] / (bg[0] || 1);
-  const out = bg.map(v => v * scale);
+  let out;
+  if (bg[0] === 0) {
+    out = new Array(n).fill(c0);
+  } else {
+    const scale = (inW[0] - c0) / bg[0];
+    out = bg.map(v => c0 + v * scale);
+  }
   return flipped ? out.reverse() : out;
 }
 
