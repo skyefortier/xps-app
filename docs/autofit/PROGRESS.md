@@ -3680,3 +3680,66 @@ reference-data JSON/fixtures, Stage-9 pipeline reports/scripts, one
 older planning doc, and one design mockup — zero changes to
 `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`, `app.py`, or
 `templates/index.html`. **UNIT 2 REVIEW-COMPLETE.**
+
+## Provenance-audit fixes (2026-07-16) — Unit 3: fix the systemic curated→VERIFIED mechanism
+
+Root-cause fix for the mechanism that let Unit 2's bug happen and would
+let it happen again for any future curated element:
+`autofit/reference_bridge.py`'s `BRIDGE_TIER_STATUS` mapped every
+curated-tier record to `VERIFIED` unconditionally, trusting the tier
+NAME alone rather than checking each record — a curated record's
+`source_id` can resolve to a genuine external citation (C 1s's
+"nist-srd-20" did) while the stored VALUE still deliberately diverges
+from that citation. Tier membership alone can't tell "sourced and
+confirmed" from "sourced but the value is a convention."
+
+Considered both mechanisms the original request offered: (a) a
+per-record `independently_verified` flag, or (b) checking whether
+`source_id` resolves to a real citation in `sources.json`. **Chose
+(a)** — verified via `_citation()` that C 1s's own `source_id` DOES
+resolve to a real citation, proving (b) alone would NOT have caught
+this exact bug; only an explicit per-record signal distinguishes
+"sourced" from "the stored value matches what's sourced."
+
+**Fix** (commit 1ed297a): added `_curated_status(t)` to
+`reference_bridge.py` — returns `CONDITIONAL` only on an explicit
+`independently_verified: false`; absent (every existing curated
+record) or explicit `true` stays `VERIFIED`. Wired into `_add_position`
+for the `curated` tier only (machine/legacy untouched — no equivalent
+bug there). Added the optional `independently_verified` boolean to
+both `photoelectronTransition` and `augerTransition` in
+`data/xps/schema.json` (both have `additionalProperties: false`, so
+the field needed explicit declaration). Deliberately did NOT set the
+flag on any real data file — Unit 2 already fixed C 1s's underlying
+value to the genuine literature figure, so there is currently no
+curated record that SHOULD be demoted; this is a purely preventive/
+systemic fix for future curated additions. Added
+`test_curated_status_drops_to_conditional_when_not_independently_verified`
+and `test_curated_status_defaults_to_verified_when_flag_absent` to
+`tests/autofit/test_reference_bridge.py`, using SYNTHETIC dicts
+reproducing the pre-Unit-2-fix C1s shape (not live data), verified via
+genuine red-green. Confirmed `autofit/coverage.py` and
+`autofit/coverage_index.py` (the bridge's only consumers) already treat
+`status` as an open string set with no hardcoded enum to update.
+
+**Codex review: GO ×2 on round 1** (prompt
+`reference_bridge_mechanism_review_prompt.txt`; verdicts
+`reference_bridge_mechanism_verdict_run{A,B}.md`). Both runs
+independently confirmed: the conditional logic is correct and scoped
+to the curated tier only; the schema change is syntactically valid in
+both transition types with `additionalProperties: false` intact; C 1s's
+`source_id` genuinely resolves to a real citation (empirically
+demonstrating the chosen mechanism was necessary, not just asserted);
+zero real data files set the new flag, so every currently-curated
+record's status is unchanged by this commit; the new tests exercise
+the real function with realistic field names; and the bridge's two
+consumers are generic enough to need no changes. Both runs noted
+`CONDITIONAL` is an acceptable (if not maximally precise) downgrade
+target — a dedicated status would need broader UI/provenance
+vocabulary work, out of scope for this root-mechanism fix.
+
+Full suite: 655 passed, 6 skipped, no failures. Scope: only
+`autofit/reference_bridge.py` (a provenance-metadata bridge, not the
+fitting engine), `data/xps/schema.json`, and its test file — zero
+changes to `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`,
+`app.py`, or `templates/index.html`. **UNIT 3 REVIEW-COMPLETE.**
