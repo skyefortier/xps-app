@@ -1047,15 +1047,15 @@ def run_fit(
         else:
             bg = linear_background(x, y)
     elif bg_method == "shirley":
-        bg_inner = shirley_background(x_bg, _apply_endpoint_averaging(y_bg, endpoint_avg))
+        bg_inner = shirley_background(x_bg, y_bg, n_avg=endpoint_avg)
     elif bg_method == "smart":
-        bg_inner = smart_background(x_bg, _apply_endpoint_averaging(y_bg, endpoint_avg))
+        bg_inner = smart_background(x_bg, y_bg, n_avg=endpoint_avg)
     elif bg_method == "smart_exp":
         bg_inner = smart_experimental_background(x_bg, y_bg, n_avg=endpoint_avg)
     elif bg_method == "shirley_linear":
         bg_inner = shirley_linear_background(x_bg, y_bg, n_avg=endpoint_avg)
     elif bg_method == "tougaard":
-        bg_inner = tougaard_background(x_bg, _apply_endpoint_averaging(y_bg, endpoint_avg))
+        bg_inner = tougaard_background(x_bg, y_bg, n_avg=endpoint_avg)
     elif bg_method == "linear":
         # Extrapolate the line through (E[i0], y[i0]) ↔ (E[i1-1], y[i1-1])
         # across the full ROI. The line is well-defined everywhere, so
@@ -1285,15 +1285,15 @@ def compute_background_only(
     x, y = energy[i0:i1], counts[i0:i1]
 
     if method == "shirley":
-        bg = shirley_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+        bg = shirley_background(x, y, n_avg=endpoint_avg)
     elif method == "smart":
-        bg = smart_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+        bg = smart_background(x, y, n_avg=endpoint_avg)
     elif method == "smart_exp":
         bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
     elif method == "shirley_linear":
         bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
     elif method == "tougaard":
-        bg = tougaard_background(x, _apply_endpoint_averaging(y, endpoint_avg))
+        bg = tougaard_background(x, y, n_avg=endpoint_avg)
     elif method == "linear":
         bg = linear_background(x, y)
     elif method in ("none", "flat", "", "manual"):

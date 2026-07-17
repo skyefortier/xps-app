@@ -13,6 +13,7 @@ import pytest
 
 from fitting import (
     _apply_endpoint_averaging,
+    compute_background_only,
     shirley_background,
     smart_background,
     smart_experimental_background,
@@ -143,3 +144,32 @@ def test_compute_background_linear_ignores_endpoint_avg():
     no_avg = _compute_background(x, y, BackgroundType.LINEAR)
     with_avg = _compute_background(x, y, BackgroundType.LINEAR, endpoint_avg=8)
     assert np.array_equal(no_avg, with_avg)
+
+
+@pytest.mark.parametrize("method", ["shirley", "smart", "tougaard"])
+def test_compute_background_only_matches_direct_call_with_n_avg(method):
+    """The manual /api/background and /api/fit dispatch (compute_background_only,
+    mirrored by run_fit and autofit/parity.py) must produce IDENTICAL output to
+    calling the underlying fitting.py function directly with the same n_avg --
+    the whole point of F3 is that Find Peaks (via _compute_background) and
+    manual Run Fit agree once both pass the same endpoint_avg.
+
+    This is the parity gap Codex review caught in c5a24ac: smart_background
+    has a post-hoc `np.minimum(shir, y)` clamp, so pre-averaging y externally
+    (the old convention, still used by compute_background_only/run_fit/
+    parity.py before this fix) clamps against the AVERAGED copy, while
+    passing n_avg directly (the new engine.py convention) clamps against the
+    TRUE raw data -- a real, non-trivial divergence for SMART specifically
+    once endpoint_avg > 1 is used (shirley/tougaard have no such post-hoc
+    step and were already equivalent either way)."""
+    x, y = _noisy_endpoint_fixture()
+    direct_fn = {"shirley": shirley_background, "smart": smart_background,
+                 "tougaard": tougaard_background}[method]
+    for n_avg in (1, 4, 8):
+        result = compute_background_only(x, y, method=method, endpoint_avg=n_avg)
+        via_dispatch = np.array(result["background"])
+        direct = direct_fn(x, y, n_avg=n_avg)
+        assert np.allclose(via_dispatch, direct, rtol=1e-9), (
+            f"{method} dispatch diverges from direct n_avg={n_avg} call by "
+            f"{np.max(np.abs(via_dispatch - direct)):.3f}"
+        )
