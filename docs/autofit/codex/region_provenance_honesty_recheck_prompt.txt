@@ -1,0 +1,75 @@
+Recheck for the region-module provenance-completeness fix (branch
+feature-autofit-stage2, worktree at this path, commit 232be98). Read
+docs/autofit/codex/region_provenance_honesty_review_prompt.txt for full
+prior context — do not trust this description alone; verify against
+current disk state.
+
+ROUND 1 FINDING (both of 2 independent runs, unanimous NO-GO): both
+runs, in response to the review prompt's own "anything else" sweep
+request, found FOUR constants in `autofit/regions/c1s.py` and
+`autofit/regions/u4f.py` with the same class of gap Unit 5's original
+two fixes addressed — real "UNVERIFIED[-empirical]"/labeled-set
+disclosure sitting in a code comment, actually consumed by
+`build_candidates`, but absent from `provenance()`:
+- c1s.py: `ASYMGL_ASYMMETRY_RANGE` (0.0, 0.5) — used to build AG/MG
+  candidate slots, only a generic `asymgl_family` string existed.
+- c1s.py: `SATELLITE_OFFSET_RANGE` (5.5, 7.0) — the π→π* shake-up
+  offset window, used as a `linked_offset_range`, absent entirely.
+- u4f.py: `U4F_LACX_M_RANGE` (0.0, 100.0) — the LACX Gaussian kernel
+  width, silently omitted despite its alpha/beta siblings both having
+  provenance entries.
+- u4f.py: `U4F_SAT_FWHM_RANGE` (1.5, 4.5) — constrains every U 4f
+  satellite slot's width, absent despite `satellite_offset_ev` and
+  `satellite_pair_separation_ev` both being present.
+
+FIX APPLIED (commit 232be98 — verify against current disk state): added
+all four as new `provenance()` entries — `asymgl_asymmetry_range` and
+`satellite_offset_range_ev` in `C1sModule.provenance()`; `lacx_m_range`
+and `satellite_fwhm_ev` in `U4fModule.provenance()` — each with `value`
+read from the real constant and `status`/`source` drawn directly from
+the constant's own code comment (matching the existing pattern already
+used for every other entry in these two lists). Extended
+`tests/autofit/test_region_provenance_honesty.py` with 4 more tests (8
+total), verified via genuine red-green (all 4 new tests failed against
+the pre-fix code with the missing-key error, pass now).
+
+Confirmed via a full `pytest tests/` run: 662 passed, 6 skipped, 1
+pre-existing unrelated failure (the same `test_u4f_n1s_cofit` flaky
+numerical case established throughout this whole review cycle).
+
+PLEASE VERIFY:
+1. Read the four new `provenance()` entries directly (2 in c1s.py, 2 in
+   u4f.py) and confirm each `value` matches the actual constant
+   (`list(ASYMGL_ASYMMETRY_RANGE)`, `list(SATELLITE_OFFSET_RANGE)`,
+   `list(U4F_LACX_M_RANGE)`, `list(U4F_SAT_FWHM_RANGE)`) and that the
+   `status`/`source` text accurately reflects each constant's own code
+   comment — re-read those comments yourself rather than trusting the
+   paraphrase.
+2. Confirm NONE of the four underlying constants themselves, or any
+   code in `build_candidates`/slot-construction that consumes them, was
+   touched — this must remain a pure `provenance()`-metadata-only diff.
+   Diff the two region files yourself and confirm every change is
+   inside a `provenance()` return list.
+3. Confirm the 4 new tests genuinely exercise the real
+   `C1sModule().provenance()` / `U4fModule().provenance()` calls (not a
+   reimplementation) and would have failed before this commit.
+4. Do ONE MORE exhaustive sweep of `autofit/regions/c1s.py` and
+   `autofit/regions/u4f.py`: is there a FIFTH constant with real
+   comment-disclosure (a citation, "UNVERIFIED", "CONDITIONAL",
+   "labeled-set", "fitalg", etc.) that's actually consumed by
+   `build_candidates`/slot construction/param_ranges but still missing
+   from `provenance()`? List every module-level constant in both files
+   and cross-check each one against both its own comment and the
+   current `provenance()` list — don't rely on the prior two rounds'
+   sweeps having been exhaustive.
+5. Confirm scope across the ENTIRE Units 4-5 effort (`e8bf31c` through
+   `232be98`): only `autofit/regions/c1s.py`, `autofit/regions/u4f.py`,
+   and the test file changed — no `autofit/engine.py`,
+   `autofit/methods/*.py`, `fitting.py`, `app.py`, or
+   `templates/index.html` changes; no change to manual Run Fit or
+   `/api/fit`.
+6. Anything else that looks wrong, regardless of whether it's on this
+   list.
+
+End your final answer with a line starting exactly "VERDICT: GO" or
+"VERDICT: NO-GO".
