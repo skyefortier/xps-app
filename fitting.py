@@ -303,16 +303,40 @@ def _ds_g_dscore_gauss(
 # Background functions
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _apply_endpoint_averaging(y: np.ndarray, n_avg: int) -> np.ndarray:
+    """Return a copy of *y* with the first/last *n_avg* points replaced by their mean."""
+    n = len(y)
+    if n_avg <= 1 or n < 4:
+        return y.copy()
+    cap = min(n_avg, n // 4)
+    if cap < 1:
+        return y.copy()
+    out = y.copy()
+    out[:cap] = np.mean(y[:cap])
+    out[-cap:] = np.mean(y[-cap:])
+    return out
+
+
 def shirley_background(
     x: np.ndarray,
     y: np.ndarray,
     n_iter: int = 200,
     tol: float = 1e-6,
+    n_avg: int = 1,
 ) -> np.ndarray:
     """
     Iterative Shirley background (Proctor & Sherwood, Surf. Sci. 1982).
 
     Works on ascending or descending binding energy arrays.
+
+    ``n_avg`` averages the first/last ``n_avg`` points before the endpoint
+    levels B_low/B_high are read (audit F3, 2026-07-17). Shirley scales the
+    ENTIRE background off those two levels, so a single noisy endpoint
+    sample propagates straight into the net area. n_avg=1 = raw endpoints =
+    previous behaviour. Callers previously had to pre-average the input
+    array themselves via _apply_endpoint_averaging; that convention was
+    easy to forget (autofit/engine.py did), so the knob now lives here,
+    matching smart_experimental_background / shirley_linear_background.
 
     At each energy Eᵢ the background equals:
         B(Eᵢ) = B_high + (B_low – B_high) · ∫_{Eᵢ}^{E_max} s(E) dE
@@ -323,6 +347,9 @@ def shirley_background(
     """
     if len(x) < 2:
         return np.zeros_like(y)
+
+    if n_avg > 1:
+        y = _apply_endpoint_averaging(np.asarray(y, dtype=float), n_avg)
 
     # Work on ascending copy
     if x[0] > x[-1]:
@@ -359,11 +386,18 @@ def smart_background(
     y: np.ndarray,
     n_iter: int = 200,
     tol: float = 1e-6,
+    n_avg: int = 1,
 ) -> np.ndarray:
-    """Smart (constrained Shirley): standard Shirley clamped to never exceed data."""
+    """Smart (constrained Shirley): standard Shirley clamped to never exceed data.
+
+    ``n_avg`` is forwarded to shirley_background (audit F3). The clamp is
+    applied against the RAW data, not the endpoint-averaged copy, so
+    averaging only ever moves the background — never the reported net
+    counts.
+    """
     if len(x) < 2:
         return np.zeros_like(y)
-    shir = shirley_background(x, y, n_iter, tol)
+    shir = shirley_background(x, y, n_iter, tol, n_avg=n_avg)
     return np.minimum(shir, y)
 
 
@@ -427,20 +461,6 @@ def smart_experimental_background(
 
     B = np.minimum(B, ys)  # final safety clamp
     return B[::-1] if flipped else B
-
-
-def _apply_endpoint_averaging(y: np.ndarray, n_avg: int) -> np.ndarray:
-    """Return a copy of *y* with the first/last *n_avg* points replaced by their mean."""
-    n = len(y)
-    if n_avg <= 1 or n < 4:
-        return y.copy()
-    cap = min(n_avg, n // 4)
-    if cap < 1:
-        return y.copy()
-    out = y.copy()
-    out[:cap] = np.mean(y[:cap])
-    out[-cap:] = np.mean(y[-cap:])
-    return out
 
 
 def shirley_linear_background(

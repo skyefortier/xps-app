@@ -284,19 +284,35 @@ def _slot_prefix(role: str) -> str:
 # Background
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _compute_background(x: np.ndarray, y: np.ndarray, bg: BackgroundType) -> np.ndarray:
+def _compute_background(
+    x: np.ndarray,
+    y: np.ndarray,
+    bg: BackgroundType,
+    endpoint_avg: int = 1,
+) -> np.ndarray:
+    """Background for the autofit path.
+
+    ``endpoint_avg`` mirrors the manual /api/fit knob of the same name
+    (audit F3, 2026-07-17). Every background here now takes ``n_avg``
+    directly rather than requiring the caller to pre-average the array via
+    _apply_endpoint_averaging — which is exactly what this function forgot
+    to do, leaving Find Peaks unable to express an endpoint_avg the manual
+    path honours. Default 1 (raw endpoints) matches both the previous
+    behaviour of this function and app.py's own default, so wiring alone
+    changes nothing.
+    """
     if bg is BackgroundType.SHIRLEY:
-        return shirley_background(x, y)
+        return shirley_background(x, y, n_avg=endpoint_avg)
     if bg is BackgroundType.SMART:
-        return smart_background(x, y)
+        return smart_background(x, y, n_avg=endpoint_avg)
     if bg is BackgroundType.SMART_EXP:
         from fitting import smart_experimental_background
-        return smart_experimental_background(x, y)
+        return smart_experimental_background(x, y, n_avg=endpoint_avg)
     if bg is BackgroundType.LINEAR:
         return linear_background(x, y)
     if bg is BackgroundType.TOUGAARD:
         from fitting import tougaard_background
-        return tougaard_background(x, y)
+        return tougaard_background(x, y, n_avg=endpoint_avg)
     raise ValueError(f"Unknown background type: {bg}")
 
 
