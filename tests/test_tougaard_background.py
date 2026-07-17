@@ -226,9 +226,22 @@ def test_nonuniform_grid_uses_local_quadrature_weights():
     )
 
     # Genuinely nonuniform grid vs an explicit spacing-weighted reference.
+    # A high-BE endpoint RISE (not just a symmetric peak on a flat baseline)
+    # is required here: the F1 anchor rescales by (ya[0]-c0)/bg[0], so a
+    # fixture whose two edges sit at nearly the same level collapses that
+    # scale factor toward zero and the F2 weighting difference vanishes
+    # into the noise floor *after* anchoring -- passing this assertion even
+    # with the w[i:] weighting removed entirely (caught by Codex review,
+    # 2026-07-17: the original flat-baseline fixture measured a 4.5e-13 max
+    # diff between weighted and unweighted output, i.e. it did not actually
+    # guard F2). The endpoint delta below (~800 counts) keeps the anchored
+    # scale non-degenerate, so the ~105-count weighted-vs-unweighted
+    # divergence survives anchoring and this pin is falsifiable again.
     xa = np.concatenate([np.linspace(740.0, 720.1, 60),
                          np.linspace(720.0, 700.0, 400)])
-    ya = np.interp(xa[::-1], x[::-1], y[::-1])[::-1]
+    ya = 4000.0 + 800.0 * (xa - 700.0) / 40.0 + 6000.0 * np.exp(
+        -0.5 * ((xa - 710.9) / 1.6) ** 2
+    )
     got = tougaard_background(xa, ya)
 
     B_coef, C_coef = 2866.0, 1643.0
@@ -236,10 +249,21 @@ def test_nonuniform_grid_uses_local_quadrature_weights():
     net = ya - c0
     w = np.abs(np.gradient(xa))
     ref = np.zeros(len(xa))
+    ref_unweighted = np.zeros(len(xa))
     for i in range(len(xa)):
         T = np.abs(xa[i:] - xa[i])
-        ref[i] = float(np.sum((B_coef * T) / (C_coef + T * T) ** 2 * net[i:] * w[i:]))
+        kernel = (B_coef * T) / (C_coef + T * T) ** 2
+        ref[i] = float(np.sum(kernel * net[i:] * w[i:]))
+        ref_unweighted[i] = float(np.sum(kernel * net[i:]))
     ref = c0 + ref * ((float(ya[0]) - c0) / ref[0])
+    ref_unweighted = c0 + ref_unweighted * ((float(ya[0]) - c0) / ref_unweighted[0])
+
+    # The pin only means something if weighted and unweighted actually
+    # disagree on this fixture -- guard the guard.
+    assert np.max(np.abs(ref - ref_unweighted)) > 10.0, (
+        "fixture does not separate weighted from unweighted quadrature -- "
+        "endpoint delta too small to survive the F1 anchor, pin is dead"
+    )
     assert np.allclose(got, ref, rtol=1e-9), (
         "nonuniform branch does not match spacing-weighted quadrature"
     )
