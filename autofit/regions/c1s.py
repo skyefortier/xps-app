@@ -143,12 +143,20 @@ class C1sModule:
              "status": "UNVERIFIED", "source": "fitalg prototype bins around cited anchors"},
             {"constant": "fwhm_graphitic_ev", "value": list(FWHM_RANGE_GRAPHITIC),
              "status": "UNVERIFIED", "source": "fitalg; instrument-dependent"},
-            {"constant": "fwhm_contamination_ev", "value": list(FWHM_RANGE_CONTAMINATION),
+            {"constant": "fwhm_contamination_floor_ev",
+             "value": FWHM_RANGE_CONTAMINATION[0],
              "status": "CONDITIONAL",
-             "source": "floor Biesinger 2022 / Greczynski & Hultman 2020; "
-                       "2.0 eV uniform cap per expert adjudication "
-                       "2026-07-03 (adjudication-decisions.md #5 — a cap, "
-                       "not a target; replaces the split 1.6/3.5 caps)"},
+             "source": "Biesinger, Appl. Surf. Sci. 597 (2022) 153681; "
+                       "Greczynski & Hultman (2020) — published lower "
+                       "bound for adventitious/aliphatic carbon FWHM"},
+            {"constant": "fwhm_contamination_ceiling_ev",
+             "value": FWHM_RANGE_CONTAMINATION[1],
+             "status": "UNVERIFIED",
+             "source": "lab-adjudicated cap, not a literature value — "
+                       "expert adjudication 2026-07-03 "
+                       "(docs/autofit/adjudication-decisions.md #5); a "
+                       "literature-reasonable upper bound but a cap, not "
+                       "a target; replaces the prior split 1.6/3.5 caps"},
             {"constant": "fwhm_satellite_ev", "value": list(FWHM_RANGE_SATELLITE),
              "status": "UNVERIFIED",
              "source": "labeled-set calibration (44 fits, 1.9–5.0 eV)"},
@@ -156,6 +164,22 @@ class C1sModule:
              "status": "UNVERIFIED", "source": "fitalg numeric guard"},
             {"constant": "asymgl_family", "value": "empirical asymmetric envelope",
              "status": "UNVERIFIED", "source": "expert-practice family (AG/MG)"},
+            {"constant": "aromatic_polymer_fwhm_ev",
+             "value": list(FWHM_RANGE_AROMATIC_POLYMER),
+             "status": "CONDITIONAL",
+             "source": "Beamson & Briggs, High Resolution XPS of Organic "
+                       "Polymers — The Scienta ESCA300 Database, Wiley "
+                       "(1992): aromatic C 1s 0.9–1.5 eV; widened to "
+                       "0.8–1.8 as the generous cross-instrument envelope "
+                       "(the widening beyond the cited range is editorial, "
+                       "not itself literature-derived)"},
+            {"constant": "aliphatic_linked_offset_range_ev", "value": [0.2, 0.6],
+             "status": "UNVERIFIED",
+             "source": "UNVERIFIED-empirical (labeled-set + convention): "
+                       "brackets both expert practice (+0.30: graphitic "
+                       "284.5 vs aliphatic 284.8) and Biesinger's "
+                       "adventitious C-C/C-H convention (284.8 vs "
+                       "graphite 284.4, +0.4)"},
         ]
 
     def build_candidates(
