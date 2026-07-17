@@ -1,0 +1,94 @@
+You are an adversarial reviewer for a scoped feature commit in this repo
+(XPS peak-fitting web app). Review commit c5a24ac ("feat(fitting): unify
+n_avg convention across background functions (F3)") on branch
+feature-autofit-stage2 — `git show c5a24ac` gives the full diff. This is
+Unit 2 of a 2-unit split of a larger patch that arrived from a sandbox
+clone with no access to this worktree; Unit 1 (Tougaard F1+F2, commits
+3d9ff54 / 173f002) already landed and is review-complete. Read-only sandbox
+is fine; if pytest is runnable, run it — otherwise reason from the diff and
+static analysis / small extracted-function probes.
+
+RELEVANT HISTORY, so you calibrate scrutiny correctly: Unit 1's first
+review round split GO/NO-GO — the NO-GO run caught a "laundered" regression
+test whose fixture made the assertion trivially true regardless of whether
+the actual fix was present (an F1 anchor collapsed a fixture's signal to
+near-zero, so a test comparing weighted-vs-unweighted quadrature passed
+even with the real fix reverted). That was independently reproduced and
+fixed. Apply the SAME LEVEL of scrutiny here — for every new test in this
+commit, ask "would this test actually fail if the feature were absent or
+silently broken?", not just "does it pass."
+
+SCOPE OF THE CHANGE (verify it is contained):
+- fitting.py: _apply_endpoint_averaging relocated from after
+  smart_experimental_background to immediately before shirley_background
+  (its first consumer in source order) — verify its BODY is byte-identical
+  before and after the move (git diff should show it as a pure relocation,
+  not a rewrite). shirley_background gains n_avg: int = 1 (default) and
+  n_avg>1 triggers _apply_endpoint_averaging internally. smart_background
+  gains n_avg: int = 1 and forwards it to shirley_background.
+- autofit/engine.py: _compute_background gains endpoint_avg: int = 1,
+  forwarded as n_avg=endpoint_avg to shirley_background / smart_background
+  / smart_experimental_background / tougaard_background; linear_background
+  is unaffected (no endpoint-averaging concept).
+- tests/test_background_n_avg.py: new file, 13 tests.
+- No changes to templates/index.html, /api/fit's contract,
+  autofit/methods/*.py, or peak lineshapes — confirm zero diff in all of
+  these.
+
+THE CORE CLAIM TO VERIFY: this is "pure wiring that changes no current
+output." Specifically:
+(a) At every REAL call site of _compute_background in autofit/engine.py
+    (grep for it — there should be exactly 3), confirm none of them pass
+    endpoint_avg today, so the default of 1 is what actually executes.
+(b) Confirm shirley_background(x, y) with no n_avg argument, and
+    shirley_background(x, y, n_avg=1) explicitly, produce byte-identical
+    output to the pre-this-commit implementation (n_avg=1 must be a true
+    no-op, not an approximately-equal one — check _apply_endpoint_averaging
+    is only invoked when n_avg > 1, never unconditionally).
+(c) Same for smart_background and for _compute_background across all 5
+    BackgroundType branches (SHIRLEY, SMART, SMART_EXP, LINEAR, TOUGAARD).
+(d) app.py's own endpoint_avg default (lines ~718, ~794) is also 1 —
+    confirm this claim (grep app.py) rather than trusting the commit
+    message.
+
+TESTS TO INTERROGATE — attack each for the laundered-pin failure mode:
+- test_shirley_background_n_avg_changes_output_on_noisy_endpoints /
+  test_smart_background_n_avg_changes_output_on_noisy_endpoints: these
+  assert `not np.allclose(raw, averaged)` on a fixture with a deliberate
+  ±500-count single-point endpoint outlier. Is that outlier large enough,
+  relative to the Shirley normalization (B_low, B_high, and the
+  cum_right/total ratio), to survive to the final output and not get
+  washed out? Compute it yourself if you can run Python.
+- test_shirley_background_n_avg_matches_external_pre_averaging /
+  test_smart_background_forwards_n_avg_to_shirley: do these actually
+  distinguish "n_avg correctly implemented" from "n_avg silently ignored"?
+  (They would NOT catch a bug where n_avg is accepted as a parameter but
+  never used — check whether any test would catch THAT specific failure
+  mode, since it's exactly the class of bug this whole effort exists to
+  close for autofit/engine.py.)
+- test_compute_background_forwards_endpoint_avg (parametrized over
+  SHIRLEY/SMART/SMART_EXP/TOUGAARD): same question — does it discriminate
+  "endpoint_avg forwarded correctly" from "endpoint_avg accepted but
+  dropped on the floor"? Given the n_avg values tested are (1, 4, 8), is
+  there a value where forwarding vs. dropping would look identical by
+  coincidence on the shared fixture?
+- test_compute_background_linear_ignores_endpoint_avg: confirm
+  linear_background genuinely has no endpoint concept worth wiring (it
+  reads only x[0]/x[-1]/y[0]/y[-1], not a window of points), so "ignores
+  it" is correct behavior, not a missed wiring gap.
+- test_apply_endpoint_averaging_still_importable_and_unchanged: this test
+  passed even BEFORE the relocation (it's not read/green-cycle evidence of
+  anything this commit did) — is that fine as a regression pin for the
+  future, or should it be flagged as decorative?
+
+Also verify the RED claim in the commit message: temporarily comment out
+the `if n_avg > 1: y = _apply_endpoint_averaging(...)` line in
+shirley_background (or otherwise defeat the n_avg forwarding chain at each
+of the 3 layers: shirley_background itself, smart_background's forward,
+_compute_background's forward) and confirm the corresponding tests in
+tests/test_background_n_avg.py actually go red for each defeat
+independently — not just for all three defeated simultaneously.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
