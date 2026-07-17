@@ -3890,3 +3890,112 @@ pre-existing project stance, not a bug this change introduced.
 `tougaardBackground` JS twin, and their 2 test files only — zero
 changes to `autofit/engine.py`, `autofit/methods/*.py`, or `/api/fit`'s
 contract. Unit 2 (F3, `n_avg` unification) next.
+
+---
+
+## Background algorithm fixes (2026-07-17) — Unit 2: n_avg convention unification (F3)
+
+`shirley_background` / `smart_background` gain `n_avg` directly, matching
+the convention already used by `smart_experimental_background` /
+`shirley_linear_background`. The old convention — callers pre-average via
+`_apply_endpoint_averaging` before calling — was easy to forget, and
+`autofit/engine.py` did forget it: Find Peaks had no way to express an
+`endpoint_avg` the manual `/api/fit` path honours. `_compute_background`
+gains `endpoint_avg` (default 1, matching app.py's own default and every
+real call site today — pure wiring, no output change at default).
+
+The original patch shipped **zero tests** for this behavior change.
+Wrote 13 new TDD tests (`tests/test_background_n_avg.py`) first — watched
+12/13 fail correctly (`TypeError` on the missing kwargs) before
+implementing, all green after. Commit `c5a24ac`.
+
+**Codex review, round 1 (`c5a24ac`): NO-GO ×2, unanimous.** Both runs
+independently caught a MAJOR finding beyond the original patch's scope:
+`smart_background`'s post-hoc `np.minimum(shir, y)` clamp reads whatever
+`y` it's given. `fitting.py`'s `run_fit` / `compute_background_only` and
+`autofit/parity.py`'s mirror still called it with the OLD external-pre-
+averaging convention, so the clamp landed against the *averaged* copy —
+while the new engine.py path (direct `n_avg`) clamps against the *true
+raw* data. Once `endpoint_avg > 1`, Find Peaks and manual Run Fit would
+disagree on SMART backgrounds — precisely the divergence F3 exists to
+close. Both runs independently measured the same ~375–440 count gap on
+their own probes; reproduced independently before acting.
+
+Fixing this meant migrating 6 more call sites and, because one real
+saved reference fit ("U4f Scan" in `4-GTA UCl4-BN.proj.zip`, `smart`
+background, `endpointAvg=6`) sits exactly in the affected combination,
+regenerating a frozen battery fixture — the same class of judgment call
+flagged for Unit 1's F1. **Asked Skye via AskUserQuestion** rather than
+decide unilaterally; Skye chose "fix everywhere, regenerate the fixture."
+
+Fix (commit `3cd6aad`): migrated `run_fit`, `compute_background_only`,
+and `autofit/parity.py`'s remaining `shirley`/`smart`/`tougaard` call
+sites to the unified convention. `shirley_background` and
+`tougaard_background` are mathematically invariant to which convention
+is used (neither keeps a second reference to "raw" `y` after reading
+`n_avg`) — proven, not assumed, and independently re-derived by both
+Codex rounds. Only `smart_background` genuinely changes. Regenerated
+`tests/autofit/fixtures/u4f_battery_expected.json` via its committed
+generator; diffed before/after and confirmed only the one targeted record
+changed by more than 1e-6 relative (`reduced_chi_square`
+`11.399835330377146 → 11.281303682238963`, a ~1.04% *improvement* —
+clamping against true raw data is the more physically correct reference).
+Grepped the full `docs/autofit/test_data/*.proj.zip` corpus: exactly 3
+spectra anywhere use `smart`+`endpoint_avg>1`; 2 are already skipped by
+the generator for an unrelated pre-existing reason, leaving exactly this
+one affected record. Full suite: 681 passed, 6 skipped, 1 failed
+(`test_u4f_n1s_cofit`, byte-identical to an already-confirmed pre-existing
+flake); `RUN_AUTOFIT_GATE=1` gate suite: 11 passed, 1 failed (the other
+already-known `test_candidate_pool_real_gate.py` ds8 flake) —
+`test_u4f_n1s_cofit` passed on that run, consistent with known flakiness
+in both directions, not a regression.
+
+**Round 2 recheck (`3cd6aad`): GO ×2.** Both runs independently re-traced
+`shirley_background`/`tougaard_background` line-by-line to re-confirm
+convention-invariance, re-scanned the full fixture corpus to re-confirm
+the 3-spectra/1-affected-record count, and re-diffed the regenerated
+fixture. Both flagged the same MINOR, non-blocking finding: an integer-
+dtype edge case in `_apply_endpoint_averaging` (dtype-preserving external
+averaging vs. float-casting internal averaging) that cannot fire in this
+codebase — every real XPS data path here produces float arrays. Not
+actioned — speculative hardening against a scenario that cannot occur
+with this app's own data pipeline, not a real gap.
+
+**UNIT 2 REVIEW-COMPLETE.** Scope across `c5a24ac` + `3cd6aad`:
+`fitting.py`, `autofit/engine.py`, `autofit/parity.py`, one new test
+file, and one regenerated fixture — zero changes to
+`templates/index.html`, `app.py`, `autofit/methods/*.py`, or peak
+lineshapes.
+
+---
+
+**BACKGROUND-FIXES.PATCH EFFORT (2026-07-17) — BOTH UNITS REVIEW-COMPLETE.**
+A ready-made patch arrived from a sandbox clone with no access to this
+worktree, explicitly flagged as not to be trusted blind. Split into 2
+units rather than the patch's suggested 3 (F1/F2 are inseparable within
+`tougaard_background`'s own body; F3 is naturally independent). Every
+Codex review round in this effort found something real — nothing was
+waved through on a single GO, and no finding was accepted on Codex's
+word alone; each was independently reproduced first:
+
+- **Unit 1** (F1 Tougaard pre-loss constant + F2 non-uniform quadrature
+  weights): round 1 caught a *laundered regression pin* — a test fixture
+  whose F1 anchor collapsed the signal to near-zero, so the F2 assertion
+  passed even with the real fix fully reverted. Fixed with a fixture that
+  survives anchoring; round 2 GO ×2.
+- **Unit 2** (F3 `n_avg` convention unification): round 1 caught a real
+  product-level parity bug — `smart_background`'s clamp step made Find
+  Peaks and manual Run Fit disagree on SMART backgrounds once
+  `endpoint_avg > 1`, the exact divergence this unit exists to close.
+  Fixing it required Skye's explicit sign-off to regenerate one frozen
+  reference fixture; round 2 GO ×2.
+
+Both discovered issues were outside the original patch's own stated
+scope and its own (self-reported, never independently verified by its
+sandbox author) test coverage — underscoring why the patch was reviewed
+critically rather than applied as-is. Final state: 5 commits
+(`3d9ff54`, `173f002`, `c5a24ac`, `3cd6aad`, plus docs) on
+`feature-autofit-stage2`, all pushed, full regression suite and the
+`RUN_AUTOFIT_GATE=1` real-data gate suite both green apart from the 2
+pre-existing flakes already independently confirmed unrelated earlier in
+this effort.
