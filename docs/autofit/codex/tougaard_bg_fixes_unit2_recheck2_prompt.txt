@@ -1,0 +1,84 @@
+You are an adversarial reviewer for a scoped follow-up commit in this repo
+(XPS peak-fitting web app), branch feature-autofit-stage2. Review commit
+3cd6aad ("fix(fitting): unify remaining shirley/smart/tougaard call sites
+onto n_avg (F3 cont.)") — `git show 3cd6aad` gives the full diff.
+
+CONTEXT: commit c5a24ac ("feat(fitting): unify n_avg convention across
+background functions") was reviewed and BOTH runs returned NO-GO with the
+same MAJOR finding: smart_background(x, y, n_avg=N) clamps against raw y
+via `np.minimum(shir, y)`, but fitting.py's run_fit / compute_background_only
+and autofit/parity.py's mirror still called
+`smart_background(x, _apply_endpoint_averaging(y, endpoint_avg))` — the OLD
+external-pre-averaging convention — so the clamp landed against the
+AVERAGED copy instead. Once endpoint_avg > 1, the manual /api/fit path and
+the new engine.py Find-Peaks path (which passes n_avg directly) produced
+DIFFERENT smart backgrounds — defeating the entire point of the n_avg
+unification effort (F3): Find Peaks and manual Run Fit must agree once
+both pass the same endpoint_avg.
+
+THE FIX in 3cd6aad: migrated the 6 remaining call sites (3 in run_fit, 3
+in compute_background_only, mirrored 3 in autofit/parity.py) for
+shirley_background/smart_background/tougaard_background from external
+pre-averaging to the same direct n_avg convention already used by
+smart_experimental_background/shirley_linear_background at those same
+call sites. Removed autofit/parity.py's now-dead
+_apply_endpoint_averaging import.
+
+CONSEQUENCE: one real saved-fit fixture record changed.
+tests/autofit/fixtures/u4f_battery_expected.json was regenerated via its
+committed generator (scripts/gen_u4f_battery_fixture.py) because "U4f
+Scan" in docs/autofit/test_data/4-GTA UCl4-BN.proj.zip uses smart
+background with endpointAvg=6 — exactly the combination this bug
+affects. Its reduced_chi_square moved from 11.399835330377146 to
+11.281303682238963 (~1.04% improvement). This was surfaced to and
+explicitly approved by the human maintainer before implementing (not a
+unilateral call) — your job is to verify the TECHNICAL claims around it,
+not to re-litigate whether asking was appropriate.
+
+YOUR JOB — verify each claim, don't accept any of them on the commit
+message's word alone:
+
+1. MATHEMATICAL INVARIANCE CLAIM. The commit claims shirley_background and
+   tougaard_background are mathematically INVARIANT to which convention is
+   used (pre-average externally then call with n_avg=1, vs. call with the
+   raw array and n_avg=N directly) — because neither function keeps a
+   second reference to "the true raw array" after reading n_avg; the
+   entire rest of each function only touches the (possibly-averaged)
+   array it was handed. Prove or disprove this by tracing both functions'
+   bodies line by line. Then verify smart_background is NOT invariant,
+   specifically because of its `return np.minimum(shir, y)` step, which DOES
+   retain a second reference to whatever `y` it was given.
+2. FIXTURE SCOPE CLAIM. Independently re-derive: scan every *.proj.zip
+   under docs/autofit/test_data/ for any spectrum using smart background
+   with endpoint_avg (aka endpointAvg) > 1. The claim is there are exactly
+   3 such spectra total in the whole corpus, 2 of which
+   (scripts/gen_u4f_battery_fixture.py's own skip logic) are excluded from
+   the frozen fixture for an unrelated pre-existing reason ("fit-time grid
+   drifted from current ui state"), leaving exactly 1 fixture record
+   ("U4f Scan" in 4-GTA UCl4-BN.proj.zip) that could possibly have
+   changed. Verify this count and the skip reasons yourself.
+3. FIXTURE DIFF CLAIM. `git show 3cd6aad^:tests/autofit/fixtures/u4f_battery_expected.json`
+   gives the pre-commit fixture; diff it against the current file. Confirm
+   ONLY the "U4f Scan" / "4-GTA UCl4-BN.proj.zip" record differs by more
+   than 1e-6 relative in reduced_chi_square (or any other field) — every
+   other record's diff, if any, should be attributable to ordinary lmfit
+   refit floating-point noise (sub-1e-6 relative), not this change.
+4. UNUSED IMPORT CLAIM. Confirm autofit/parity.py's removed
+   _apply_endpoint_averaging import was genuinely dead after this commit's
+   edits (grep the file for any remaining reference).
+5. Re-verify the parametrized test added
+   (test_compute_background_only_matches_direct_call_with_n_avg in
+   tests/test_background_n_avg.py): does it discriminate correctly —
+   would it have failed for "smart" on the PRE-3cd6aad code (i.e. before
+   this fix, when compute_background_only still used external
+   pre-averaging for smart)? Would it have already passed for
+   "shirley"/"tougaard" even before this fix (consistent with claim #1)?
+6. General adversarial sweep of `git show 3cd6aad`: any other regression,
+   scope creep, or unrelated change smuggled in? Confirm scope is
+   contained to fitting.py, autofit/parity.py, the one test file, and the
+   one fixture file — zero diff in templates/index.html, app.py,
+   autofit/engine.py, autofit/methods/*.py, or peak lineshapes.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
