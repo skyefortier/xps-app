@@ -3743,3 +3743,75 @@ Full suite: 655 passed, 6 skipped, no failures. Scope: only
 fitting engine), `data/xps/schema.json`, and its test file — zero
 changes to `autofit/engine.py`, `autofit/methods/*.py`, `fitting.py`,
 `app.py`, or `templates/index.html`. **UNIT 3 REVIEW-COMPLETE.**
+
+## Provenance-audit fixes (2026-07-16) — Units 4-5: honesty/completeness polish (batched)
+
+Skye's own sequencing note called Units 4-5 minor and batchable. Both
+are pure edits to two region grammar modules'
+(`autofit/regions/c1s.py`, `autofit/regions/u4f.py`) `provenance()`
+metadata lists — zero changes to any fitting constant, bound, or
+`build_candidates` logic.
+
+**Unit 4a** (commit e8bf31c): `c1s.py`'s `fwhm_contamination_ev` record
+conflated a literature floor (0.8 eV, Biesinger 2022 / Greczynski &
+Hultman 2020) with a lab-adjudicated ceiling (2.0 eV, 2026-07-03,
+`docs/autofit/adjudication-decisions.md` #5) under one `CONDITIONAL`
+tag. Split into `fwhm_contamination_floor_ev` (CONDITIONAL,
+literature-only) and `fwhm_contamination_ceiling_ev` (UNVERIFIED,
+lab-only).
+
+**Unit 4b**: `u4f.py`'s `satellite_offset_ev` was flagged in the
+original audit as blending a literature sub-range (6.8–7.1 eV) with a
+labeled-set sub-range (6.07–6.38 eV) under one source string. On
+inspection, the current source string already explicitly labels "lit
+6.8–7.1" vs. "labeled set 6.07–6.38" — apparently already fixed in
+earlier, unrelated work. Left untouched; added a permanent regression
+test pinning the distinction.
+
+**Unit 5** (commit e8bf31c): added `aromatic_polymer_fwhm_ev`
+(CONDITIONAL, citing Beamson & Briggs 1992, noting the stored 0.8–1.8
+range widens beyond the cited 0.9–1.5 — editorial, not itself
+literature-derived) and `aliphatic_linked_offset_range_ev` (UNVERIFIED,
+labeled-set + convention) — two constants with real disclosure in code
+comments that never reached `provenance()`.
+
+**Codex review: 2 rounds, GO ×2 on round 2** (prompts
+`region_provenance_honesty_review_prompt.txt` /
+`_recheck_prompt.txt`; verdicts
+`region_provenance_honesty_verdict_round{1,2}_run{A,B}.md`). Round 1
+(commit e8bf31c): NO-GO ×2 — both runs independently confirmed the
+requested Unit 4/5 fixes were correct, but (prompted by this review's
+own "anything else" sweep request) found FOUR MORE constants in the
+same class as Unit 5's original two: `ASYMGL_ASYMMETRY_RANGE` and
+`SATELLITE_OFFSET_RANGE` in `c1s.py`; `U4F_LACX_M_RANGE` and
+`U4F_SAT_FWHM_RANGE` in `u4f.py` — each with real
+UNVERIFIED/labeled-set comment disclosure, actually consumed by
+`build_candidates`, but absent from `provenance()`. Fixed (commit
+232be98): added all four as new entries, matching the existing pattern
+exactly (value from the real constant, status/source from the code
+comment). Round 2 (commit 232be98): GO ×2 — both runs independently
+verified all four new entries against their constants and comments,
+confirmed zero fitting-logic changes, and did an exhaustive
+module-level constant sweep of both files, finding no fifth gap.
+
+Full suite: 662 passed, 6 skipped, 1 pre-existing unrelated failure
+(`test_u4f_n1s_cofit`, tracked as flaky/unrelated throughout this
+entire review cycle). Scope across both rounds (`e8bf31c` through
+`232be98`): only `autofit/regions/c1s.py`, `autofit/regions/u4f.py`,
+and their new test file — zero changes to `autofit/engine.py`,
+`autofit/methods/*.py`, `fitting.py`, `app.py`, or
+`templates/index.html`. **UNITS 4-5 REVIEW-COMPLETE.**
+
+---
+
+**PROVENANCE AUDIT (2026-07-16) — ALL FIVE UNITS REVIEW-COMPLETE.**
+Self-citation removed (Unit 1, 4 rounds); C 1s's VERIFIED badge now
+points at the literature value (Unit 2, 6 rounds — mostly a cascade of
+stale Stage-9 pipeline artifacts and one design mockup); the systemic
+curated→VERIFIED mechanism now requires a per-record signal, not tier
+membership alone (Unit 3, 1 round); conflated literature/lab provenance
+tags split and six provenance-completeness gaps filled across two
+region modules (Units 4-5, 2 rounds). Zero changes to manual Run Fit,
+`/api/fit`, `autofit/engine.py`, or `autofit/methods/*.py` anywhere in
+this entire effort — confirmed unit-by-unit and re-confirmed in every
+recheck round.
