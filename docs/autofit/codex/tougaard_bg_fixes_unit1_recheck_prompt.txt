@@ -1,0 +1,67 @@
+You are an adversarial reviewer for a scoped follow-up commit in this repo
+(XPS peak-fitting web app), branch feature-autofit-stage2. This is a RECHECK
+of a prior review round, not a fresh review — read the disposition below
+before diffing anything.
+
+CONTEXT: commit 3d9ff54 ("fix(fitting): Tougaard pre-loss constant (F1) +
+non-uniform quadrature weights (F2)") was reviewed twice already. One run
+returned GO with no findings. The other run returned NO-GO with one MAJOR
+finding: `test_nonuniform_grid_uses_local_quadrature_weights`
+(tests/test_tougaard_background.py) used a fixture where both window edges
+sat at ~4000 counts (a symmetric Gaussian on a flat baseline), so the F1
+amplitude anchor — which rescales the whole background by
+`(ya[0]-c0)/bg[0]` — collapsed the signal toward zero on that fixture. The
+reviewer proved (by reimplementing tougaard_background with the F2
+weighting term removed and re-running the test's own comparison) that the
+test would still pass even with F2 fully reverted from production: max
+diff was 4.5e-13, far inside the test's rtol=1e-9.
+
+THE FIX, now in commit 173f002 ("fix(tests): ..."): the fixture gained a
+genuine high-BE endpoint rise (a linear ramp under the Gaussian, ~800-count
+endpoint delta) so the anchor scale stays non-degenerate, plus an explicit
+"guard the guard" assertion that the weighted and unweighted reference
+implementations diverge by more than 10 counts before trusting the
+allclose comparison between them. `git show 173f002` gives the full diff —
+it touches ONLY tests/test_tougaard_background.py; fitting.py has zero
+diff in this commit (the production F2 fix from 3d9ff54 is unchanged).
+
+YOUR JOB — verify the fix actually closes the finding, and look for new
+problems it might have introduced:
+
+1. Does the new fixture (xa = concatenated dense/sparse nonuniform grid,
+   ya = 4000 + 800*(xa-700)/40 + 6000*gaussian(xa, 710.9, 1.6)) actually
+   produce a meaningful endpoint delta that survives the F1 anchor? Confirm
+   by computation, not just reading the comment.
+2. Does removing the F2 `w[i:]` weighting from a working copy of
+   tougaard_background now make THIS test fail? (This is the load-bearing
+   claim — reproduce the reviewer's own methodology from the prior round:
+   reimplement the unweighted version, run it through the test's actual
+   assertions, confirm failure.)
+3. Does the "guard the guard" assertion (`max(abs(ref - ref_unweighted)) >
+   10.0`) itself hold on this fixture, and is 10.0 counts a reasonable
+   margin given the ~105-count divergence measured, or is it either so
+   loose it could pass by accident or so tight it's fragile to unrelated
+   changes?
+4. Scope check: confirm fitting.py, templates/index.html,
+   tests/js/tougaard_twin.test.js, autofit/engine.py, autofit/methods/*.py,
+   and /api/fit have ZERO diff in commit 173f002 — this must be a pure
+   test-only fix.
+5. Re-run (or re-verify) the other 8 tests in
+   tests/test_tougaard_background.py plus the 6 tests in
+   tests/js/tougaard_twin.test.js still pass unmodified/unaffected.
+6. Any OTHER regression pin in this test file (or the JS twin) that shares
+   the same class of bug — an assertion that looks like it exercises a code
+   path but is actually neutralized by a fixture choice (endpoint
+   collapse, degenerate guard, etc.)? Do a fresh sweep, don't just take the
+   "only one MAJOR finding" disposition on faith.
+
+Also re-confirm the two items the FIRST round's GO run already checked
+(cheap to re-verify, don't skip): (a) no saved-fit fixture or inventory
+JSON anywhere in the repo pins Tougaard numeric output; (b) the negative-
+scale anchoring behavior (baseline falls with BE -> negative scale factor,
+passed through unclamped) is a deliberate, pre-existing project stance,
+not a new bug introduced by this change.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
