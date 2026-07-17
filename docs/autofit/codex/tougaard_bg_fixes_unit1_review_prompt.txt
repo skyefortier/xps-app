@@ -1,0 +1,151 @@
+You are an adversarial reviewer for a scoped bug-fix commit in this repo
+(XPS peak-fitting web app). Review commit 3d9ff54 ("fix(fitting):
+Tougaard pre-loss constant (F1) + non-uniform quadrature weights (F2)") on
+branch feature-autofit-stage2 — `git show 3d9ff54` gives the full
+diff. This commit was originally drafted as part of a larger patch written
+in a sandbox WITHOUT access to this real worktree; it has since been
+independently re-verified here, but treat it as unproven until you confirm
+it yourself. Read-only sandbox is fine; if pytest is runnable, run it —
+otherwise read everything and reason from the diff plus static analysis.
+
+SCOPE OF THE CHANGE (verify it is contained):
+- fitting.py: ONLY tougaard_background (signature, docstring, body).
+  Nothing else in fitting.py may have changed. In particular,
+  shirley_background, smart_background, _apply_endpoint_averaging, and
+  _compute_background in autofit/engine.py must be UNTOUCHED by this
+  commit — their n_avg/endpoint_avg unification is a deliberately separate
+  Unit 2, not yet applied. Confirm autofit/engine.py has zero diff.
+- templates/index.html: ONLY the tougaardBackground JS function (+ its
+  leading comment). computeBackgroundCore and _applyEndpointAveraging are
+  unmodified — their two call sites into tougaardBackground still use the
+  pre-existing external-pre-averaging convention (no 3rd argument passed).
+- tests/test_tougaard_background.py, tests/js/tougaard_twin.test.js.
+- No changes to /api/fit's contract, autofit/methods/*.py, or peak
+  lineshapes.
+
+BACKGROUND — WHY THIS CHANGED (reported bug, F1):
+
+The previous tougaard_background computed the idealized integral
+B(E) = Σ_{E' < E} K(E-E')·J(E') with K(T) = B·T/(C+T²)² (B=2866, C=1643,
+Tougaard 1988). This assumes the analysis window begins in a loss-free
+region. Real XPS windows never do — e.g. at Fe 2p (~700 eV BE) there is a
+large inelastic baseline from every lower-BE/higher-KE transition OUTSIDE
+the window, which a window-limited integral structurally cannot generate.
+Because K(0) = 0, the bare integral is identically zero at the low-BE
+edge REGARDLESS OF THE DATA: measured on a synthetic Fe 2p region, old
+behavior gave low-BE edge bg=0.0 (data=4000, net=4000 — "the dive"), and a
+flat 500-count featureless window produced a full-amplitude phantom
+signal (net spanning 0..500 with nothing there to model).
+
+THE FIX: take the low-BE edge level (post any n_avg endpoint-averaging) as
+a constant C0 (the out-of-window pre-loss baseline the kernel cannot see),
+run the kernel over the net (J - C0), then anchor amplitude at the
+high-BE edge exactly as before (out = c0 + bg * ((ya[0]-c0)/bg[0])).
+Degenerate-window guard changed: when bg[0] == 0 (no net loss signal —
+e.g. a flat window), the function now returns flat C0 instead of all
+zeros, because zeros would report the entire baseline as net signal (the
+exact F1 failure mode).
+
+SECOND FIX BUNDLED IN THE SAME FUNCTION (F2, non-uniform grid quadrature):
+
+The non-uniform branch (exact per-point separations, for grids that don't
+support the np.convolve shortcut) used the correct kernel value K(T) per
+point but never weighted by the local spacing — i.e. it silently applied
+uniform-grid quadrature inside the branch written precisely because the
+grid is not uniform. Measured ~23.7% error vs a spacing-weighted reference
+on a genuinely non-uniform (dense/sparse-halves) grid. Fixed by weighting
+each term by np.abs(np.gradient(xa)) — which returns dx exactly on a
+uniform grid, so both branches now agree to floating point and the
+uniformity test is a pure optimization, not a semantic fork. The old
+dead `bg = bg * dx` (previously applied AFTER the sum, to both branches
+alike, and canceling exactly against the anchor normalization) is removed;
+in the uniform branch dx is now applied once inline against np.convolve's
+result, and the nonuniform branch's per-point `w` supplies the equivalent
+role directly in the sum.
+
+WHY THESE TWO ARE BUNDLED IN ONE COMMIT, NOT SPLIT: both fixes live in the
+same function body and were only ever tested together by the original
+patch author (no verified intermediate state exists with F1 applied but
+not F2, or vice versa). Splitting them would require hand-authoring an
+untested intermediate — judged riskier than reviewing them together. F3
+(n_avg convention unification for shirley/smart + engine.py wiring) IS
+naturally independent and is deliberately held for a separate Unit 2 commit,
+landing after this one.
+
+ADVERSARIAL QUESTIONS — ATTACK THESE SPECIFICALLY:
+
+(a) C0 CHOICE. Is taking C0 from the single (or n_avg-averaged) low-BE
+    edge point the right pre-loss estimate, versus e.g. a fitted constant
+    (joint least-squares over B and C0) or a wider pre-peak average window
+    (more than n_avg points, e.g. a fixed fraction of the ROI)? Under what
+    realistic spectra (e.g. a region where the loss tail itself extends
+    across most of the window) does an edge-point C0 give a visibly wrong
+    answer? Is n_avg (when the caller passes n_avg>1) a sufficient mitigant,
+    or just cosmetic?
+
+(b) NEGATIVE-SCALE ANCHORING. The anchor is
+    `out = c0 + bg * ((ya[0] - c0) / bg[0])`. If the baseline FALLS with
+    increasing BE — i.e. ya[0] (high-BE edge, post any averaging) is LESS
+    than c0 (low-BE edge) — the scale factor is negative, and it is passed
+    through signed with no clamping, consistent with this codebase's
+    existing no-clamping stance elsewhere in fitting.py. Construct a
+    concrete (x, y) input where this produces a background that inverts the
+    kernel shape (goes negative in the middle of the window, or overshoots
+    past the data) and assess whether that is merely "an unclamped
+    pathological input" (acceptable, matches project philosophy) or an
+    actual correctness bug that would fire on realistic data (e.g. a region
+    with a decaying secondary electron background, not just adversarial
+    input).
+
+(c) SAVED-FIT / FIXTURE PINNING. Grep the full repo (tests/, tests/autofit/,
+    docs/autofit/inventory/, scripts/, any .json/.proj.json/.proj.zip
+    fixtures) for anything that pins a Tougaard background NUMERIC VALUE —
+    not just the string "tougaard". The claim is that nothing outside the
+    2 test files touched in this commit encodes the old (pre-F1) Tougaard
+    output, so no other test silently regresses. Verify independently.
+
+TESTS TO INTERROGATE — DO THESE ACTUALLY DISCRIMINATE, AND ARE THE TWO
+REWRITTEN TESTS LEGITIMATE OR A LAUNDERED BUG:
+
+- test_background_anchored_at_high_be_edge: previously asserted
+  `bg[-1] == 0.0` (the low-BE edge) — that assertion WAS the bug, pinned as
+  if it were correct behavior. Now asserts `bg[-1] == y[-1]` (meets C0).
+  Confirm the new assertion is actually meaningful (not trivially true for
+  all inputs) and that reverting fitting.py's C0 logic would make this test
+  fail.
+- test_no_loss_signal_returns_unanchored_zeros, renamed to
+  test_no_loss_signal_returns_flat_pre_loss_level: the degenerate-window
+  guard still exists; only the fallback value changed 0 -> C0. In this
+  test's specific fixture C0 happens to be 0, so the numeric assertion is
+  UNCHANGED — only the name/rationale moved. Confirm this is true (i.e. the
+  fixture's low-BE edge really is 0) and that the test still exercises the
+  `bg[0] == 0.0` guard branch (not some other code path).
+- test_kernel_peak_near_sqrt_c_over_3: needed a non-zero high-BE step added
+  to its fixture (a flat pedestal alone has zero net loss signal post-F1,
+  so there's no kernel shape left to inspect). Confirm the C=1643**2
+  regression guard (the OLDER 2026-07-04 transcription-slip bug) still
+  fires correctly against this modified fixture.
+- The 4 new tests (flat-window-zero-net, low-BE-baseline-tracking,
+  non-uniform-quadrature-weights, both-edge-anchoring): for each, would it
+  fail on the pre-F1/F2 code and pass on the current code? Is
+  test_nonuniform_grid_uses_local_quadrature_weights's reference
+  implementation independent enough to be a real regression guard, or does
+  it share enough structure with the production code that it would pass
+  even if both were wrong the same way?
+- JS twin: confirm the regenerated cross-twin expected-value table was
+  generated from the ACTUAL current fitting.py (not hand-computed or
+  copied from the sandbox), and that tougaard_twin.test.js still evals the
+  real tougaardBackground out of templates/index.html rather than a
+  reimplementation.
+
+CALLERS. fitting.py dispatches tougaard_background at the /api/background
+and /api/fit background paths; autofit reaches it via BackgroundType.TOUGAARD
+in autofit/engine.py (UNCHANGED by this commit — still calls the 2-arg form,
+which remains valid since n_avg defaults to 1) and autofit/parity.py. The
+frontend calls tougaardBackground at ~2 sites inside computeBackgroundCore.
+Verify every caller still gets a valid call with this commit alone applied
+(i.e. before Unit 2 adds the endpoint_avg wiring).
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
