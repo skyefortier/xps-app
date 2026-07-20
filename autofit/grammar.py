@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Optional
 
@@ -586,7 +586,21 @@ def _retag_slot(
     rename: dict[str, str],
     shared_rename: dict[str, str],
 ) -> ComponentSlot:
-    """Rewrite role / linked_to / fwhm_linked_to under the region prefix."""
+    """Rewrite role / linked_to / fwhm_linked_to under the region prefix.
+
+    Uses dataclasses.replace (ComponentSlot is frozen) rather than
+    reconstructing the slot field-by-field: replace() carries every field
+    NOT explicitly overridden forward unchanged, including any field added
+    to ComponentSlot after this function was written. The manual
+    reconstruction this replaced was exactly how broad_justification got
+    silently dropped for every multi-region composed candidate (Codex-caught
+    regression, 2026-07-20): a new field simply wasn't in the list, so it
+    defaulted back to None for every slot passing through here — see
+    tests/autofit/test_broad_justification.py's
+    test_retag_slot_preserves_all_fields_except_the_three_rewritten, which
+    guards against this exact class of bug recurring for whatever field
+    comes next.
+    """
     fwhm_link = s.fwhm_linked_to
     if fwhm_link is not None:
         # fwhm_linked_to may reference either a shared param or another
@@ -599,22 +613,11 @@ def _retag_slot(
                 if fwhm_link.startswith(old_prefix):
                     fwhm_link = _slot_param_prefix(new) + fwhm_link[len(old_prefix):]
                     break
-    return ComponentSlot(
+    return replace(
+        s,
         role=rename[s.role],
-        region=s.region,
-        phase_id=s.phase_id,
-        be_window=s.be_window,
-        line_shape=s.line_shape,
-        fwhm_range=s.fwhm_range,
         linked_to=rename.get(s.linked_to, s.linked_to) if s.linked_to else None,
-        linked_offset_range=s.linked_offset_range,
-        area_ratio=s.area_ratio,
-        area_ratio_range=s.area_ratio_range,
-        fixed_params=s.fixed_params,
-        param_ranges=s.param_ranges,
         fwhm_linked_to=fwhm_link,
-        share_parent_params=s.share_parent_params,
-        fwhm_excess_range=s.fwhm_excess_range,
     )
 
 

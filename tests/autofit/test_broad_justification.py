@@ -78,10 +78,121 @@ EXEMPTION_FIXTURE = [
     # N 1s: main_n1s exempt at N1S_FWHM_RANGE (0.7-2.5) in both shape variants.
     (_INSULATOR_N1S, "N 1s", "N0_pv", "main_n1s", True),
     (_INSULATOR_N1S, "N 1s", "N0_asymGL", "main_n1s", True),
-    # U 4f: mains (1.5-3.5) and satellites (1.5-4.5) both exempt.
+    # U 4f: mains (1.5-3.5) and satellites (1.5-4.5) both exempt, incl.
+    # the pair-linked / free-separation / independent satellite variants
+    # (Codex-caught gap, round 1 of this refactor's own review: the
+    # original fixture only covered U0_mains, not U1/U1b/U2's satellites).
     (_INSULATOR_U4F, "U 4f", "U0_mains", "main_u4f72", True),
     (_INSULATOR_U4F, "U 4f", "U0_mains", "main_u4f52", True),
+    (_INSULATOR_U4F, "U 4f", "U1_mains_satpair", "satellite_u4f72", True),
+    (_INSULATOR_U4F, "U 4f", "U1_mains_satpair", "satellite_u4f52", True),
+    (_INSULATOR_U4F, "U 4f", "U1b_mains_satpair_freesep", "satellite_u4f52", True),
+    (_INSULATOR_U4F, "U 4f", "U2_mains_satfree", "satellite_u4f72", True),
+    (_INSULATOR_U4F, "U 4f", "U2_mains_satfree", "satellite_u4f52", True),
 ]
+
+# ── Composed (multi-region joint co-fit) coverage ──────────────────────────
+# The actual bug this section guards against (Codex-caught, round 1 of this
+# refactor's own review): resolve() with >1 region composes candidates via
+# autofit.grammar._retag_slot, which used to reconstruct each ComponentSlot
+# by manually re-listing every field -- broad_justification wasn't in that
+# list, so EVERY composed candidate silently lost EVERY exemption. Fixed by
+# switching _retag_slot to dataclasses.replace(). This fixture exercises the
+# exact U 4f + N 1s co-fit scenario both Codex reviews used to demonstrate
+# the bug (this lab's real UCl4-in-BN samples).
+
+_U4F_PHASE = Phase(id="UCl4", material_class=MaterialClass.INSULATOR,
+                   regions=("U 4f",))
+_N1S_PHASE = Phase(id="BN", material_class=MaterialClass.INSULATOR,
+                   regions=("N 1s",))
+
+# (candidate_name, role, currently_exempt) -- resolved via [_U4F_PHASE, _N1S_PHASE]
+COMPOSED_EXEMPTION_FIXTURE = [
+    ("U0_mains+N0_pv", "U4f__main_u4f72", True),
+    ("U0_mains+N0_pv", "U4f__main_u4f52", True),
+    ("U0_mains+N0_pv", "N1s__main_n1s", True),
+    ("U1_mains_satpair+N0_pv", "U4f__satellite_u4f72", True),
+    ("U1_mains_satpair+N0_pv", "U4f__satellite_u4f52", True),
+    ("U1b_mains_satpair_freesep+N0_asymGL", "U4f__satellite_u4f52", True),
+    ("U2_mains_satfree+N0_asymGL", "U4f__satellite_u4f72", True),
+]
+
+
+def _composed_slot(candidate_name, role):
+    g = resolve([_U4F_PHASE, _N1S_PHASE], ["U 4f", "N 1s"])
+    cand = next(c for c in g.candidates if c.name == candidate_name)
+    slot = cand.slot_by_role(role)
+    assert slot is not None, f"{candidate_name}/{role} not found"
+    return slot
+
+
+@pytest.mark.parametrize("candidate_name,role,exempt", COMPOSED_EXEMPTION_FIXTURE)
+def test_composed_candidate_preserves_broad_justification(
+        candidate_name, role, exempt):
+    """The exact regression: a slot that is grammar-sanctioned-broad in its
+    OWN region module must stay that way after _retag_slot composes it into
+    a multi-region joint-fit candidate."""
+    slot = _composed_slot(candidate_name, role)
+    if exempt:
+        assert slot.broad_justification is not None, (
+            f"{candidate_name}/{role} lost its broad_justification during "
+            "multi-region composition (_retag_slot regression)"
+        )
+    else:
+        assert slot.broad_justification is None
+
+
+def test_retag_slot_preserves_all_fields_except_the_three_rewritten():
+    """Structural guard against this bug class recurring: _retag_slot must
+    carry every ComponentSlot field forward unchanged except role/
+    linked_to/fwhm_linked_to (deliberately rewritten for region-prefixing).
+    Driven off dataclasses.fields(ComponentSlot) rather than a hardcoded
+    list, so this test automatically covers any field added to
+    ComponentSlot later -- a class-level guard, not another point fix."""
+    import dataclasses
+
+    from autofit.grammar import ComponentSlot, _retag_slot
+
+    rewritten = {"role", "linked_to", "fwhm_linked_to"}
+
+    sentinel_by_field = {
+        "role": "orig_role",
+        "region": "orig_region",
+        "phase_id": "orig_phase",
+        "be_window": (100.0, 200.0),
+        "line_shape": LineShape.PSEUDO_VOIGT,
+        "fwhm_range": (0.5, 9.99),
+        "linked_to": "orig_role",
+        "linked_offset_range": (1.0, 2.0),
+        "area_ratio": 0.123456,
+        "area_ratio_range": (0.1, 0.9),
+        "fixed_params": (("beta", 0.05),),
+        "param_ranges": (("alpha", (0.0, 0.3)),),
+        "fwhm_linked_to": None,
+        "fwhm_excess_range": (0.0, 0.8),
+        "share_parent_params": ("alpha", "beta"),
+        "broad_justification": "sentinel justification text",
+    }
+    field_names = {f.name for f in dataclasses.fields(ComponentSlot)}
+    missing = field_names - set(sentinel_by_field)
+    assert not missing, (
+        f"ComponentSlot gained new field(s) {missing} this test doesn't "
+        "sentinel-fill -- add a case above so the guard covers it"
+    )
+
+    original = ComponentSlot(**sentinel_by_field)
+    rename = {"orig_role": "PhaseX__orig_role"}
+    retagged = _retag_slot(original, rename, shared_rename={})
+
+    for name in field_names:
+        if name in rewritten:
+            continue
+        assert getattr(retagged, name) == getattr(original, name), (
+            f"_retag_slot lost field {name!r}: "
+            f"{getattr(original, name)!r} -> {getattr(retagged, name)!r}"
+        )
+    assert retagged.role == "PhaseX__orig_role"
+    assert retagged.linked_to == "PhaseX__orig_role"
 
 
 @pytest.mark.parametrize("phase,region,candidate_name,role,exempt",
