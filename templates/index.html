@@ -12867,7 +12867,7 @@ document.addEventListener('mousedown', function(e) {
     <p id="fp-blurb" style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 10px"></p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <label style="font-size:11px" id="fp-material-label">Material class
-        <select id="fp-material" class="btn" style="width:100%"></select>
+        <select id="fp-material" class="btn" style="width:100%" onchange="_fpMaterialChanged()"></select>
       </label>
       <label style="font-size:11px" id="fp-method-label">Method
         <select id="fp-method" class="btn" style="width:100%" onchange="_fpMethodChanged()"></select>
@@ -12884,6 +12884,7 @@ document.addEventListener('mousedown', function(e) {
         <div id="fp-regions-tier-note" style="font-size:9.5px;color:var(--text3);margin-top:3px;line-height:1.4"></div>
       </label>
       <div style="font-size:11px;grid-column:1 / -1">
+        <div id="fp-material-hint" style="color:var(--text3);font-size:10px;line-height:1.45;margin-bottom:6px"></div>
         <div id="fp-method-hint" style="color:var(--text3);font-size:10px;line-height:1.45;margin-bottom:6px"></div>
         <div id="fp-simple-options"></div>
         <details id="fp-advanced" style="margin-top:6px">
@@ -13018,6 +13019,22 @@ const FP_STRINGS = {
          'unless you add them.',
   applyNote: 'Adding replaces this tab’s current peak list with the ' +
              'suggested peaks. You can undo this (Ctrl+Z).',
+  // Label/hint override for one material-class dropdown option (2026-07-20).
+  // Only "mixed" gets an entry — conductor/semiconductor/insulator render
+  // exactly as before (bare backend value, no title attribute).
+  materials: {
+    mixed: {
+      label: 'mixed (analyte in matrix)',
+      hint: 'Your sample is an analyte embedded in a different matrix, ' +
+            'which can charge differently under x-rays than the matrix ' +
+            'does (differential charging). Peak width limits are relaxed ' +
+            'accordingly. The charge reference calibrates the MATRIX’s ' +
+            'potential — it may not apply to the analyte, so reported ' +
+            'positions carry additional, unquantified uncertainty. This ' +
+            'does not correct for that uncertainty; it only stops ' +
+            'assuming there isn’t any.',
+    },
+  },
   tips: {
     material: 'Conducting samples charge-correct differently from ' +
               'insulating ones, and the suggested peak shapes differ too. ' +
@@ -13410,7 +13427,12 @@ async function openFindPeaksModal() {
   document.getElementById('fp-regions-label').title = FP_STRINGS.tips.regions;
   const mat = document.getElementById('fp-material');
   mat.innerHTML = _fpMeta.material_classes
-    .map(m => `<option value="${_fpEsc(m)}">${_fpEsc(m)}</option>`).join('');
+    .map(m => {
+      const s = FP_STRINGS.materials[m] || {};
+      const title = s.hint ? ` title="${_fpEsc(s.hint)}"` : '';
+      return `<option value="${_fpEsc(m)}"${title}>${_fpEsc(s.label || m)}</option>`;
+    }).join('');
+  _fpMaterialChanged();
   document.getElementById('fp-regions-filter').value = '';
   _fpRegionsSelected = new Set();
   _fpExpandedElement = null;
@@ -13710,6 +13732,12 @@ function _fpSyncSelectionUI() {
   }
   _fpRenderPtGrid(document.getElementById('fp-regions-filter').value);
   _fpRenderExpandedPanel();
+}
+
+function _fpMaterialChanged() {
+  const v = document.getElementById('fp-material').value;
+  const s = FP_STRINGS.materials[v] || {};
+  document.getElementById('fp-material-hint').textContent = s.hint || '';
 }
 
 function _fpMethodChanged() {

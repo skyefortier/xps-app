@@ -894,7 +894,7 @@ def _register_routes(app: Flask) -> None:
           "session_id":     "...",
           "cc_shift":       0.0,          // frontend charge shift (corrected = raw − cc_shift)
           "roi":            {"be_min": ..., "be_max": ...},   // corrected frame
-          "material_class": "conductor" | "insulator" | "semiconductor",
+          "material_class": "conductor" | "insulator" | "semiconductor" | "mixed",
           "regions":        ["Cl 2p", ...],   // registered region names
           "phase":          {"id": "sample", "material": "graphite"},  // optional
           "method":         "ic_model_comparison" | "least_squares"

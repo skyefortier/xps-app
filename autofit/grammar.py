@@ -78,6 +78,17 @@ class MaterialClass(Enum):
     CONDUCTOR = "conductor"
     SEMICONDUCTOR = "semiconductor"
     INSULATOR = "insulator"
+    # Analyte embedded in a different matrix (2026-07-20): differential
+    # charging between analyte and matrix is possible, which voids the
+    # single-species-homogeneity assumption behind some region modules'
+    # width ceilings. MIXED only RELAXES existing constraints (region
+    # modules opt in — see autofit.regions.c1s) — it asserts no new
+    # position or width value, and it must never reach charge-correction
+    # (that stays byte-identical to every other material class; see
+    # tests/test_api_analyze.py::test_material_class_does_not_affect_charge_correction).
+    # Appended LAST so the default dropdown/first-enum-member selection
+    # (conductor) is unchanged.
+    MIXED = "mixed"
 
 
 @dataclass(frozen=True)

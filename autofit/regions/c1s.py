@@ -29,6 +29,7 @@ from ..grammar import (
     CandidateModel,
     ComponentSlot,
     LineShape,
+    MaterialClass,
     Phase,
 )
 from . import register_region
@@ -79,6 +80,55 @@ FWHM_RANGE_SATELLITE = (1.0, 5.5)
 # adjudicated cap, exact width parity with the broadest expert components
 # is not expressible by construction — the cap is the ruling.
 FWHM_RANGE_CONTAMINATION = (0.8, 2.0)
+
+# MIXED material class (2026-07-20): FWHM_RANGE_CONTAMINATION's ceiling is
+# justified by a single, well-referenced HOMOGENEOUS surface. That
+# condition is not met for an analyte embedded in a different matrix —
+# analyte and matrix can charge differently under X-ray illumination
+# (differential charging), and a non-uniform spatial distribution of
+# charging potentials broadens the observed peak (inhomogeneous
+# broadening; see provenance() for the citations). Withdrawing that
+# homogeneity assumption needs no citation — it is the removal of a
+# claim, not a new one — so this widens the ceiling toward
+# "unconstrained" rather than asserting a second, chemistry-flavored
+# magic number (the provenance-audit trap this unit exists to avoid: a
+# cap derived from THIS LAB'S OWN mixed-phase spectra would be exactly
+# the self-reference the audit removed, wearing a feature label instead
+# of a tier badge). The floor is untouched: differential charging only
+# broadens a peak, it never narrows one.
+#
+# A fully unconstrained (infinite) ceiling is not viable with the current
+# engine: autofit/engine.py seeds the initial FWHM guess at the MIDPOINT
+# of fwhm_range, so an infinite upper bound would seed an infinite
+# initial value and break the optimizer outright. Some finite ceiling is
+# therefore unavoidable for numerical stability — so this reuses
+# fitting.py's OWN existing fwhm_max default (15.0 eV), the ceiling the
+# manual /api/fit path already applies to literally every peak, everywhere
+# in this app, rather than inventing a new number. Purely a numeric guard
+# for optimizer stability, not a chemistry or physics claim (same footing
+# as DSG_ALPHA_RANGE_GRAPHITIC's "fitalg numeric guard" below) — if a
+# fitted component pegs this ceiling under MIXED, that is the numerical
+# guard doing its job, not a measurement.
+#
+# KNOWN RISK (flag for review, do not silently paper over): the "_linked"
+# candidate families share ONE width parameter across all 3 contaminant
+# slots (see shared_decl below) — under MIXED that shared width relaxes
+# to this same wide ceiling, so a single fat shared-width component could
+# in principle absorb signal across the whole ~280-292 eV C 1s contaminant
+# span. c1s.py's own MG-family comments already document an analogous
+# overlap-degeneracy failure mode (see aliphatic_main_offset below); this
+# is the same class of risk, now reachable through a wider ceiling instead
+# of a free position. Should be adversarially fit-tested, not just read.
+FWHM_MIXED_CEILING_NUMERIC_GUARD_EV = 15.0
+
+
+def _contamination_fwhm_range(material_class: MaterialClass) -> tuple[float, float]:
+    """FWHM_RANGE_CONTAMINATION, widened under MIXED. See the constant
+    comment above — this relaxes a constraint, it never asserts a new one."""
+    if material_class is MaterialClass.MIXED:
+        return (FWHM_RANGE_CONTAMINATION[0], FWHM_MIXED_CEILING_NUMERIC_GUARD_EV)
+    return FWHM_RANGE_CONTAMINATION
+
 
 # DS+G Lorentzian HWHM fixed at the C 1s core-hole lifetime:
 # Campbell & Papp, At. Data Nucl. Data Tables 77 (2001) 1–56
@@ -190,6 +240,42 @@ class C1sModule:
                        "284.5 vs aliphatic 284.8) and Biesinger's "
                        "adventitious C-C/C-H convention (284.8 vs "
                        "graphite 284.4, +0.4)"},
+            {"constant": "mixed_material_class_width_relaxation",
+             "value": "under MaterialClass.MIXED (analyte embedded in a "
+                      "different matrix), the contamination/adventitious "
+                      "FWHM ceiling's single-species-homogeneity "
+                      "assumption is withdrawn and the ceiling is relaxed "
+                      "toward unconstrained; no new position or width "
+                      "value is asserted — position windows and every "
+                      "other FWHM family are unchanged",
+             "status": "CONDITIONAL",
+             "source": "differential charging between analyte and matrix "
+                       "causes inhomogeneous broadening (Baer, "
+                       "Artyushkova, Cohen, Easton, Engelhard, Gengenbach, "
+                       "Greczynski, Mack, Morgan, Roberts, \"XPS Guide: "
+                       "Charge neutralization and binding energy "
+                       "referencing for insulating samples,\" J. Vac. Sci. "
+                       "Technol. A 38, 031204 (2020), DOI "
+                       "10.1116/6.0000057 — differential charging "
+                       "broadens peaks, and a single charge correction is "
+                       "insufficient once it is present; internal "
+                       "referencing has \"limited accuracy ... often "
+                       "including multiphase and other complex samples\"; "
+                       "Greczynski & Hultman, \"X-ray photoelectron "
+                       "spectroscopy: Towards reliable binding energy "
+                       "referencing,\" Prog. Mater. Sci. 107 (2020) "
+                       "100591, DOI 10.1016/j.pmatsci.2019.100591)"},
+            {"constant": "mixed_fwhm_ceiling_numeric_guard",
+             "value": FWHM_MIXED_CEILING_NUMERIC_GUARD_EV,
+             "status": "UNVERIFIED",
+             "source": "a fully unconstrained (infinite) ceiling breaks "
+                       "the engine's initial-value seeding (the FWHM "
+                       "guess is the fwhm_range midpoint); this reuses "
+                       "fitting.py's own existing fwhm_max default, the "
+                       "ceiling the manual /api/fit path already applies "
+                       "to every peak in this app — a numeric guard for "
+                       "optimizer stability, not a chemistry or physics "
+                       "claim (same footing as dsg_alpha_cap above)"},
         ]
 
     def build_candidates(
@@ -217,6 +303,7 @@ class C1sModule:
             )
         pid = phase.id
         main_fwhm = _MAIN_FWHM_BY_MATERIAL.get(phase.material, FWHM_RANGE_GRAPHITIC)
+        contam_fwhm = _contamination_fwhm_range(phase.material_class)
 
         def slot(role, window, shape, fwhm_range, **kw) -> ComponentSlot:
             return ComponentSlot(
@@ -241,7 +328,7 @@ class C1sModule:
 
         def aliphatic_main() -> ComponentSlot:
             return slot("main_aliphatic", C1S_WINDOWS["aliphatic"],
-                        LineShape.PSEUDO_VOIGT, FWHM_RANGE_CONTAMINATION)
+                        LineShape.PSEUDO_VOIGT, contam_fwhm)
 
         shake_up = slot(
             "satellite_pi", C1S_WINDOWS["shake_up_pi"], LineShape.PSEUDO_VOIGT,
@@ -250,7 +337,7 @@ class C1sModule:
         )
 
         def contam(key, linked_fwhm=None, offset=None,
-                   fwhm_range=FWHM_RANGE_CONTAMINATION) -> ComponentSlot:
+                   fwhm_range=None) -> ComponentSlot:
             kw = {}
             if linked_fwhm:
                 kw["fwhm_linked_to"] = linked_fwhm
@@ -259,10 +346,10 @@ class C1sModule:
                 kw["linked_to"] = "main_graphitic"
                 kw["linked_offset_range"] = (mid - hw, mid + hw)
             return slot(f"contamination_{key}", C1S_WINDOWS[key],
-                        LineShape.PSEUDO_VOIGT, fwhm_range, **kw)
+                        LineShape.PSEUDO_VOIGT,
+                        fwhm_range if fwhm_range is not None else contam_fwhm, **kw)
 
-        shared_decl = ((_SHARED_CONTAM_FWHM,
-                        FWHM_RANGE_CONTAMINATION[0], FWHM_RANGE_CONTAMINATION[1]),)
+        shared_decl = ((_SHARED_CONTAM_FWHM, contam_fwhm[0], contam_fwhm[1]),)
         keys = ["CO", "C=O", "OC=O"]
 
         candidates: list[CandidateModel] = []
@@ -328,7 +415,7 @@ class C1sModule:
         #     (+0.4).  UNVERIFIED-empirical (labeled-set + convention). ---
         def aliphatic_main_offset() -> ComponentSlot:
             return slot("main_aliphatic", C1S_WINDOWS["aliphatic"],
-                        LineShape.PSEUDO_VOIGT, FWHM_RANGE_CONTAMINATION,
+                        LineShape.PSEUDO_VOIGT, contam_fwhm,
                         linked_to="main_graphitic",
                         linked_offset_range=(0.2, 0.6))
 

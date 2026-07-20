@@ -51,7 +51,7 @@ def _upload_doublet(client, seed=7):
 def test_meta_menu(client):
     meta = client.get("/api/analyze/meta").get_json()
     assert set(meta["material_classes"]) == {"conductor", "insulator",
-                                             "semiconductor"}
+                                             "semiconductor", "mixed"}
     assert {"C 1s", "Cl 2p", "U 4f", "B 1s", "N 1s"} <= set(meta["regions"])
     methods = {m["id"]: m for m in meta["methods"]}
     assert set(methods) == {"least_squares", "ic_model_comparison",
@@ -170,6 +170,66 @@ def test_analyze_malformed_option_values_are_400s(client):
             "options": bad_opts})
         assert resp.status_code == 400, (bad_opts, resp.status_code)
         assert "invalid option" in resp.get_json()["error"].lower()
+
+
+def test_analyze_material_class_mixed_accepted(client):
+    """MaterialClass.MIXED (2026-07-20 unit) round-trips through the
+    ordinary /api/analyze path exactly like any other material class --
+    Cl 2p's region module doesn't special-case it, so this is a plain
+    acceptance check, not a behavior check (that lives in
+    tests/autofit/test_c1s_mixed_material_class.py, against C 1s)."""
+    sid = _upload_doublet(client)
+    resp = client.post("/api/analyze", json={
+        "session_id": sid, "material_class": "mixed",
+        "regions": ["Cl 2p"], "method": "ic_model_comparison",
+        "roi": {"be_min": 192.0, "be_max": 205.0},
+        "options": {"n_refits": 2, "enable_proposal_pass": False},
+    })
+    assert resp.status_code == 200, resp.get_json()
+    assert resp.get_json()["success"] is True
+
+
+def test_analyze_start_material_class_mixed_accepted(client):
+    """Same acceptance check through the async /api/analyze/start path --
+    shares _validate_analyze_request with the sync route. Success here is
+    202 (job accepted), not 200 -- /api/analyze/start never returns the
+    result body directly; that comes from polling /api/analyze/progress."""
+    sid = _upload_doublet(client)
+    resp = client.post("/api/analyze/start", json={
+        "session_id": sid, "material_class": "mixed",
+        "regions": ["Cl 2p"], "method": "ic_model_comparison",
+        "roi": {"be_min": 192.0, "be_max": 205.0},
+        "options": {"n_refits": 2, "enable_proposal_pass": False},
+    })
+    assert resp.status_code == 202, resp.get_json()
+    assert "job_id" in resp.get_json()
+
+
+def test_material_class_does_not_affect_charge_correction(client):
+    """DECIDED (Skye, 2026-07-17): MIXED must not alter the charge-
+    correction step in any way -- not suppressed, not adjusted, not
+    conditionally applied. Verified at the mechanism, not just by reading
+    the diff: _validate_analyze_request's corrected/ROI-masked (x, y)
+    arrays -- the actual output of the cc_shift charge-correction step --
+    must be byte-identical regardless of material_class. material_class
+    only ever reaches Phase.material_class, consumed by grammar
+    resolution/candidate building, which happens strictly AFTER x/y are
+    already fixed."""
+    from app import _validate_analyze_request
+
+    sid = _upload_doublet(client)
+    upload_folder = client.application.config["UPLOAD_FOLDER"]
+    base = {
+        "session_id": sid, "regions": ["Cl 2p"],
+        "method": "ic_model_comparison", "cc_shift": 1.23,
+        "roi": {"be_min": 192.0, "be_max": 205.0},
+    }
+    ctx_conductor = _validate_analyze_request(
+        {**base, "material_class": "conductor"}, upload_folder)
+    ctx_mixed = _validate_analyze_request(
+        {**base, "material_class": "mixed"}, upload_folder)
+    assert np.array_equal(ctx_conductor.x, ctx_mixed.x)
+    assert np.array_equal(ctx_conductor.y, ctx_mixed.y)
 
 
 def test_json_sanitize_non_finite():
