@@ -1,0 +1,134 @@
+You are an adversarial reviewer for a follow-up fix in this repo (XPS
+peak-fitting web app), branch feature-autofit-stage2. Review commit
+bdc909a ("fix(mixed): rebase MIXED's own 2 accepted Codex findings onto
+the corrected engine") -- `git show bdc909a` gives the full diff. This is
+the third round in a review chain: MIXED material class (77bf3a8) -> both
+Codex reviews NO-GO x2 (frontend copy overstated scope; a shared-width
+degeneracy risk flagged; a weak provenance guard test) -> a separate
+engine-level refactor (5070662 broad_justification, then ad7e668 fixing a
+_retag_slot regression the refactor introduced) closed the underlying
+mechanism -> this commit rebases MIXED's own two remaining findings onto
+that corrected engine and adds new coverage. Your job is to verify this
+round's specific claims, not to re-litigate whether MIXED itself should
+exist.
+
+WHAT THIS COMMIT CHANGES (templates/index.html, tests/autofit/
+test_c1s_mixed_material_class.py, tests/js/fp_material_mixed.test.js):
+
+1. Frontend copy fix (Codex run B's original MAJOR on 77bf3a8):
+   FP_STRINGS.materials.mixed.hint used to say "Peak width limits are
+   relaxed accordingly" with no region named -- read as global. Now says
+   "For C 1s, contamination/adventitious peak width limits are relaxed
+   accordingly -- other regions are unaffected."
+
+2. Provenance guard test fix (both runs' original MINOR on 77bf3a8):
+   test_mixed_provenance_relaxation_record_asserts_no_new_value used to
+   only assert the relaxation record's `value` field `isinstance(...,
+   str)` -- so a lab-derived number smuggled into prose (e.g. "relax to
+   3.5 eV based on our spectra") would still have passed, missing the
+   exact provenance-audit trap this feature exists to avoid. Now also
+   asserts `not any(ch.isdigit() for ch in rec["value"])`.
+
+3. THE ACTUAL FINDING, encoded directly: a MIXED contamination slot
+   fitting at ~6-10 eV must now be flagged unphysical and route to
+   CONDITIONAL -- the exact scenario both Codex reviews of the
+   broad_justification refactor (5070662) used to demonstrate that bug,
+   now pinned as a permanent regression test:
+   test_mixed_wide_contamination_is_flagged_unphysical (direct
+   _unphysical_width_flags call) and
+   test_mixed_wide_contamination_routes_to_conditional (a real ModelReport
+   from an actual fast MIXED C 1s fit, with its plausibility flags
+   replaced by the ACTUAL flag _unphysical_width_flags produces for the
+   8 eV scenario, run through rank_and_filter and confirmed to land in
+   the CONDITIONAL tier, not survive clean).
+
+4. A new test, test_mixed_shared_width_contamination_all_flagged_
+   independently, addressing a risk 77bf3a8's OWN commit message flagged
+   as KNOWN and unresolved at the time: C 1s's "_linked" candidate
+   families (A1_linked/A2_linked/A3_linked/AG*_linked/MG*_linked) share
+   ONE lmfit width parameter (_SHARED_CONTAM_FWHM) across all 3
+   contaminant slots. Under MIXED that shared parameter's range ALSO
+   widens to (0.8, 15.0) -- so in principle a single fat shared-width
+   component could absorb signal across the whole ~280-292 eV
+   contaminant span (the same overlap-degeneracy class c1s.py's own
+   MG-family comments document for a free position, reachable here
+   through width instead). The commit claims this is ALREADY closed by
+   the broad_justification mechanism: sharing one lmfit parameter across
+   3 slots does not create one shared EXEMPTION, because
+   _unphysical_width_flags evaluates each FittedComponent independently
+   against its OWN slot's fwhm_range/broad_justification -- so a wide
+   shared value flags every slot built on it, not just some.
+
+ADVERSARIAL QUESTIONS -- ATTACK THESE SPECIFICALLY:
+
+(a) RED-GREEN ON THE REGRESSION TEST (item 3). Verify
+    test_mixed_wide_contamination_is_flagged_unphysical and
+    test_mixed_wide_contamination_routes_to_conditional actually exercise
+    the fix, not pass incidentally -- this codebase has a documented prior
+    instance of exactly this failure mode (a "laundered" regression test
+    in the earlier Tougaard background work this session, where a test's
+    own fixture collapsed the quantity under test to near-zero so the
+    assertion passed regardless of whether the fix was present). If your
+    sandbox can run Python (even without pytest -- direct import and
+    exec), simulate reverting autofit/engine.py's _unphysical_width_flags
+    to the OLD numeric rule (`vouched = declared_hi > FWHM_MAX_ORDINARY_EV`
+    instead of `slot.broad_justification is not None`, and the DS_G/
+    ASYM_GL branches' `declared_hi <= FWHM_MAX_ORDINARY_EV` instead of
+    `not vouched`) and confirm both tests would fail against that
+    reverted logic. If your sandbox cannot execute Python, verify by
+    close reading: trace exactly what `_unphysical_width_flags` would
+    return for an 8.0 eV component in a MIXED contamination slot
+    (fwhm_range=(0.8,15.0)) under BOTH the old rule (declared_hi=15.0 > 2.0
+    -> exempt -> no flag) and the new rule (broad_justification=None ->
+    not vouched -> flagged) and confirm the test's own assertions would
+    only pass under the new rule.
+
+(b) THE SHARED-WIDTH DEGENERACY (item 4) -- INDEPENDENTLY VERIFY, DON'T
+    JUST TRUST THE CLAIM. Construct your own scenario (or trace the code
+    precisely) confirming or refuting: does a wide SHARED contamination
+    width (all 3 linked slots reporting the same fitted fwhm, e.g. via
+    resolve()'s A3_linked candidate and its shared_fwhm_params) actually
+    get flagged for EVERY slot built on it, or is there any path where a
+    shared-width component can go wide while looking acceptable (e.g. if
+    only 1 or 2 of the 3 contaminant slots are present in a given
+    candidate, if the offset-linked family behaves differently, or if
+    some other candidate family's shared-width construction differs from
+    A3_linked's). If you find a gap the test doesn't cover, that is a real
+    finding, not a hypothetical -- say so plainly.
+
+(c) THE PROVENANCE DIGIT-CHECK (item 2). Take the exact string "relax to
+    3.5 eV based on our spectra" and confirm it fails the updated
+    assertion (`not any(ch.isdigit() for ch in value)` -- "3.5" contains
+    digits, so this should correctly reject it). Also check the OPPOSITE
+    direction: does the ACTUAL current value of the
+    mixed_material_class_width_relaxation record (read it directly from
+    autofit/regions/c1s.py's provenance()) still pass the digit check --
+    i.e. does the real record's prose contain any digit that would now
+    make this stricter test fail spuriously (e.g. a DOI number, a year, or
+    an eV figure accidentally left in the value field rather than the
+    source field)?
+
+(d) FRONTEND COPY ACCURACY (item 1). Read FP_STRINGS.materials.mixed.hint
+    in templates/index.html literally, as a chemist with no other context
+    would. Does it now accurately scope the relaxation to C 1s
+    contamination without implying (i) other regions changed, or (ii)
+    charge correction changed or was corrected for? Is "other regions are
+    unaffected" actually true given everything else in this review chain
+    (broad_justification only applies to C 1s's own slots; MIXED is
+    read nowhere else in the codebase)?
+
+(e) CHARGE-CORRECTION ISOLATION, RE-CONFIRM. Verify
+    test_material_class_does_not_affect_charge_correction in
+    tests/test_api_analyze.py still passes and still genuinely proves
+    isolation (app.py's `corrected = energy - cc_shift` has zero reference
+    to material_class) -- this is unchanged by bdc909a, but re-confirm
+    nothing in this round's changes reaches it.
+
+(f) SCOPE. Confirm bdc909a's diff touches only templates/index.html,
+    tests/autofit/test_c1s_mixed_material_class.py, and
+    tests/js/fp_material_mixed.test.js -- no diff in autofit/engine.py,
+    autofit/grammar.py, autofit/regions/c1s.py, or app.py.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
