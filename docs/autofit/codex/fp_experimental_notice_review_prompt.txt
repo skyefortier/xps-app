@@ -1,0 +1,81 @@
+You are an adversarial reviewer for a small UI commit in this repo (XPS
+peak-fitting web app). Review commit 56b5d5a ("feat(ui): one-time Find
+Peaks experimental notice") on branch feature-autofit-stage2 -- `git show
+56b5d5a` gives the full diff. This lands on top of a merge of origin/main
+into feature-autofit-stage2 (commit d13589d, already independently
+verified clean) — confirm this commit itself is scoped correctly and
+doesn't touch anything from that merge.
+
+BACKGROUND: neither the Find Peaks modal's "BETA" badge nor its existing
+blurb ("starting suggestions to review — not final answers") tells a
+student the RUNTIME. A student clicking "Suggest peaks" with no idea a
+full run can take up to 4 minutes may reasonably conclude the app is
+frozen. This commit adds a one-time, dismissible notice banner
+(#fp-experimental-notice) shown on first Find Peaks open, persisted via
+localStorage so it never shows again after "Got it".
+
+WHAT CHANGED (templates/index.html, tests/js/fp_experimental_notice.test.js):
+- FP_STRINGS.experimentalNotice: new string, "Find Peaks is experimental.
+  Suggestions are a starting point to review, not a final answer — and a
+  full run can take 60–240 seconds depending on the region and method.
+  This won't show again."
+- New HTML: <div id="fp-experimental-notice"> banner with a "Got it"
+  button, inserted between the modal's <h3> header and the existing
+  #fp-blurb paragraph.
+- New JS: _fpMaybeShowExperimentalNotice() (checks localStorage key
+  xps-fp-experimental-notice-dismissed, shows/hides the banner and sets
+  its text) and _fpDismissExperimentalNotice() (sets the localStorage key,
+  hides the banner). openFindPeaksModal() now calls
+  _fpMaybeShowExperimentalNotice() right after setting #fp-blurb.
+
+ADVERSARIAL QUESTIONS -- ATTACK THESE SPECIFICALLY:
+
+(a) THE LOCALSTORAGE LOGIC, TRACED PRECISELY. Confirm: (1) on a browser
+    that has never dismissed the notice, opening the modal shows the
+    banner with the correct FP_STRINGS.experimentalNotice text; (2)
+    clicking "Got it" calls _fpDismissExperimentalNotice, which sets
+    localStorage and hides the banner; (3) on every SUBSEQUANT open in
+    the same browser (same localStorage), the banner stays hidden --
+    _fpMaybeShowExperimentalNotice must correctly early-return without
+    ever setting the banner's text/display when the key is present. Read
+    the actual conditional logic character-by-character; don't just
+    trust the summary above.
+
+(b) IS "60-240 SECONDS" ACCURATE, OR INVENTED? Independently verify this
+    specific claim against the codebase rather than trusting the commit
+    message: grep app.py and autofit/engine.py for "60-240", "240", and
+    TOTAL_ANALYSIS_TIMEOUT_SEC. Confirm this is a genuinely pre-existing,
+    already-documented runtime range for the analysis backend (not a
+    number invented for this notice), and confirm the notice's phrasing
+    doesn't overstate precision (e.g. implying every run takes exactly
+    this long, when it's a range "depending on region and method").
+
+(c) DOES THE COPY OVERCLAIM OR UNDERCLAIM ANYTHING? Read
+    FP_STRINGS.experimentalNotice literally, as a student with no other
+    context would. Does it imply the results ARE accurate/correct (it
+    shouldn't -- that's what "starting point to review, not a final
+    answer" is for)? Does it correctly avoid implying the app is
+    broken/frozen during a long run (the whole point of the notice)?
+
+(d) INTERFERENCE CHECK. Confirm the new banner and its call site do not
+    interfere with: the existing #fp-material-hint / #fp-method-hint
+    mechanisms (_fpMaterialChanged / _fpMethodChanged, called elsewhere
+    in openFindPeaksModal); the modal's drag behavior (_fpModalDragStart
+    et al., which the header's onmousedown wires up — confirm the new
+    banner element sits OUTSIDE the drag-handle element, i.e. doesn't
+    accidentally start a drag when a user clicks "Got it" or reads the
+    banner text); the #fp-blurb paragraph's own rendering (still set
+    correctly right after, unaffected by the new call).
+
+(e) SCOPE. Confirm 56b5d5a's diff touches only templates/index.html and
+    tests/js/fp_experimental_notice.test.js. No diff in any Python file,
+    any other test file, or unrelated parts of templates/index.html.
+
+(f) TEST DISCRIMINATION. For each of the 5 tests in
+    tests/js/fp_experimental_notice.test.js, would it actually fail if
+    the corresponding behavior were missing or wrong (not just pass
+    incidentally because of how the regex extraction works)?
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
