@@ -1,0 +1,103 @@
+You are an adversarial reviewer for a follow-up fix in this repo (XPS
+peak-fitting web app), branch feature-autofit-stage2. Review commit
+ad7e668 ("fix(autofit): _retag_slot silently dropped broad_justification
+during composition") -- `git show ad7e668` gives the full diff. This is a
+recheck: both prior Codex reviews of commit 5070662 (the
+broad_justification refactor) independently found the exact bug this
+commit fixes, and the human maintainer specified the fix. Your job is to
+verify the fix actually closes the finding and to hunt for the SAME class
+of regression recurring elsewhere -- not to re-litigate whether a fix was
+needed.
+
+THE ORIGINAL FINDING (round 1, both runs independently): autofit/
+grammar.py's _retag_slot -- called by resolve() whenever it composes a
+multi-region joint co-fit (e.g. this lab's real U 4f + N 1s co-fit for
+UCl4-in-BN samples) -- reconstructed each ComponentSlot by manually
+re-listing every field. ComponentSlot.broad_justification wasn't in that
+list, so every slot passing through composition silently lost its
+exemption from autofit/engine.py's _unphysical_width_flags, regardless of
+what the source region module had set. Confirmed via:
+
+    resolve([Phase(id='UCl4', material_class=MaterialClass.INSULATOR,
+                    regions=('U 4f',)),
+             Phase(id='BN', material_class=MaterialClass.INSULATOR,
+                    regions=('N 1s',))],
+            ['U 4f', 'N 1s'])
+
+    -> U4f__main_u4f72 (1.5, 3.5) broad_justification=None  (BUG: should
+       be set, matching the un-composed U 4f module's own main_u4f72)
+
+THE FIX (ad7e668): _retag_slot now returns
+`dataclasses.replace(s, role=..., linked_to=..., fwhm_linked_to=...)`
+instead of manually reconstructing ComponentSlot field-by-field.
+ComponentSlot is frozen; replace() carries every field NOT explicitly
+overridden forward unchanged.
+
+ALSO IN THIS COMMIT: tests/autofit/test_broad_justification.py's
+EXEMPTION_FIXTURE extended to cover U 4f satellite-pair variants
+(U1_mains_satpair, U1b_mains_satpair_freesep, U2_mains_satfree -- round
+1's own MINOR finding said the original fixture missed exactly these); a
+new COMPOSED_EXEMPTION_FIXTURE exercising the real U 4f + N 1s scenario
+across every composed candidate name/role; and a new class-level
+structural guard, test_retag_slot_preserves_all_fields_except_the_three_
+rewritten, driven off dataclasses.fields(ComponentSlot) rather than a
+hardcoded field list.
+
+ADVERSARIAL QUESTIONS -- ATTACK THESE SPECIFICALLY:
+
+(a) VERIFY THE FIX ACTUALLY CLOSES THE ORIGINAL FINDING. Reproduce the
+    exact repro above yourself (or read _retag_slot's new body closely
+    enough to be certain) and confirm U4f__main_u4f72 (and every other
+    previously-exempt slot: U4f__main_u4f52, N1s__main_n1s,
+    U4f__satellite_u4f72, U4f__satellite_u4f52 in the satellite-pair
+    composed candidates) now carries broad_justification through
+    composition, matching what the un-composed region module sets.
+
+(b) HUNT THE SAME REGRESSION CLASS AGAIN, NOW THAT THE FIXTURE IS WIDER.
+    Is _retag_slot really the ONLY place in the codebase that copies-and-
+    modifies an existing ComponentSlot (as opposed to constructing a
+    fresh one from scratch)? Grep for every `ComponentSlot(` construction
+    site and every place that takes an existing `ComponentSlot` instance
+    and produces a modified copy of it (dataclasses.replace, manual
+    reconstruction, or otherwise). If there is a SECOND such site the
+    original two reviews and this fix all missed, that's a live instance
+    of the same bug class, not a hypothetical. Also check: does ANY
+    combination of phases/regions produce a composed candidate not
+    covered by COMPOSED_EXEMPTION_FIXTURE or EXEMPTION_FIXTURE where a
+    slot that SHOULD be exempt (declared broad_justification in its
+    source region module) fails to carry it through? Try at least one
+    combination neither fixture covers (e.g. C 1s + another region, or a
+    3-phase composition) if resolve() supports it.
+
+(c) VERIFY THE STRUCTURAL GUARD ACTUALLY GUARDS. Take
+    test_retag_slot_preserves_all_fields_except_the_three_rewritten and
+    confirm it would have caught the ORIGINAL bug: revert _retag_slot to
+    its pre-ad7e668 manual-reconstruction form (git show
+    5070662:autofit/grammar.py has it, or read the diff in ad7e668
+    backwards) and confirm the test fails against that reverted version.
+    Don't just read the test and assume it works -- actually exercise the
+    logic (mentally or by running Python if your sandbox allows) against
+    both the old and new _retag_slot bodies.
+
+(d) THE OTHER 3 SLOT-CONSTRUCTION SITES. The commit message claims
+    autofit/engine.py's _preseed_augmented and _augmented_candidate
+    (proposal) construct fresh ComponentSlots with fwhm_range=
+    (PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX), and PROPOSAL_FWHM_MAX ==
+    FWHM_MAX_ORDINARY_EV == 2.0 -- so declared_hi was never > 2.0 and
+    these were never exempt under the OLD numeric rule either, meaning
+    zero behavior change from this whole refactor+fix pair. Verify this
+    claim directly: check PROPOSAL_FWHM_MAX's actual value and confirm
+    it equals FWHM_MAX_ORDINARY_EV exactly (not just approximately). Also
+    verify autofit/candidates.py's detection slots (role prefix
+    "detected_peak_") really do return early in
+    _unphysical_width_flags before the broad_justification check, for
+    every code path (not just the common case) -- read the function's
+    control flow directly rather than trusting the commit message's
+    characterization.
+
+(e) SCOPE. Confirm ad7e668's diff touches only autofit/grammar.py and
+    tests/autofit/test_broad_justification.py.
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
