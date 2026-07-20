@@ -33,31 +33,75 @@ test('FP_STRINGS.experimentalNotice names it experimental and states the '
   assert.match(notice, /240/);
 });
 
-test('FP_STRINGS.experimentalNotice says results are a starting point, '
-     + 'not a final answer', () => {
+test('FP_STRINGS.experimentalNotice says BOTH "starting point" and '
+     + '"not a final answer" -- either alone is not the safety claim', () => {
+  // Codex-caught (both runs, round 1): an any-of match would still pass
+  // if the copy dropped the "not a final answer" half of the claim.
   const notice = FP_STRINGS.experimentalNotice;
-  assert.match(notice, /starting point|not a final answer|review/i);
+  assert.match(notice, /starting point/i);
+  assert.match(notice, /not a final answer/i);
 });
 
-test('FP_STRINGS.experimentalNotice does not overclaim correctness or '
-     + 'imply the app is frozen/broken during a long run', () => {
+test('FP_STRINGS.experimentalNotice does not overclaim correctness and '
+     + 'does not describe the app as broken/frozen', () => {
+  // Codex-caught (both runs, round 1): the point of the notice is to
+  // PREVENT a user from concluding the app is frozen -- if the copy itself
+  // used that word, the safety framing would be self-defeating. Reject it
+  // outright rather than just rejecting unrelated words like "guarantee".
   const notice = FP_STRINGS.experimentalNotice;
   assert.doesNotMatch(notice, /guarantee/i);
   assert.doesNotMatch(notice, /accurate/i);
+  assert.doesNotMatch(notice, /frozen/i);
+  assert.doesNotMatch(notice, /broken/i);
 });
 
-test('the notice DOM wiring exists: banner element, dismiss handler, and '
-     + 'a localStorage-backed one-time gate', () => {
-  assert.match(html, /id="fp-experimental-notice"/);
-  assert.match(html, /function _fpDismissExperimentalNotice/);
-  assert.match(html, /function _fpMaybeShowExperimentalNotice/);
-  // must actually persist the dismissal, not just hide it for the session
-  const fn = extract(/function _fpDismissExperimentalNotice\(\) \{[\s\S]*?\n\}/,
-    '_fpDismissExperimentalNotice');
-  assert.match(fn, /localStorage\.setItem/);
+test('the notice banner element and its dismiss button are wired to the '
+     + 'actual dismiss function, not just present somewhere in the page', () => {
+  const banner = extract(/<div id="fp-experimental-notice"[\s\S]*?<\/div>/,
+    '#fp-experimental-notice banner');
+  assert.match(banner, /onclick="_fpDismissExperimentalNotice\(\)"/,
+    'the banner\'s own button must call the dismiss function directly');
+});
+
+test('both notice functions read/write the SAME localStorage key -- a '
+     + 'mismatched key would show the notice every time despite dismissal', () => {
+  const keyDecl = extract(
+    /const FP_EXPERIMENTAL_NOTICE_LS_KEY = '[^']+';/,
+    'FP_EXPERIMENTAL_NOTICE_LS_KEY declaration');
+  const keyName = 'FP_EXPERIMENTAL_NOTICE_LS_KEY';
   const gate = extract(/function _fpMaybeShowExperimentalNotice\(\) \{[\s\S]*?\n\}/,
     '_fpMaybeShowExperimentalNotice');
-  assert.match(gate, /localStorage\.getItem/);
+  const dismiss = extract(/function _fpDismissExperimentalNotice\(\) \{[\s\S]*?\n\}/,
+    '_fpDismissExperimentalNotice');
+  assert.match(gate, new RegExp(`localStorage\\.getItem\\(${keyName}\\)`),
+    'the gate must read the SAME named constant, not a duplicated literal '
+    + 'that could drift from the one the dismiss handler writes');
+  assert.match(dismiss, new RegExp(`localStorage\\.setItem\\(${keyName},`),
+    'the dismiss handler must write the SAME named constant the gate reads');
+  assert.ok(keyDecl, 'sanity: the constant itself must be declared');
+});
+
+test('the gate function early-returns (hides, does not show) when '
+     + 'already dismissed, and only sets text+shows in the un-dismissed path', () => {
+  // Structural check on control flow, not just "these tokens appear
+  // somewhere": split the function on its guard `if` block and confirm
+  // hide+return lives INSIDE it while text-set+show lives strictly AFTER.
+  const gate = extract(/function _fpMaybeShowExperimentalNotice\(\) \{[\s\S]*?\n\}/,
+    '_fpMaybeShowExperimentalNotice');
+  const guardMatch = gate.match(/if \(localStorage\.getItem\([^)]*\)\) \{([\s\S]*?)\}/);
+  assert.ok(guardMatch, 'expected an `if (localStorage.getItem(...)) { ... }` guard');
+  const guardBody = guardMatch[1];
+  const afterGuard = gate.slice(gate.indexOf(guardMatch[0]) + guardMatch[0].length);
+  assert.match(guardBody, /style\.display = 'none'/,
+    'the dismissed-already branch must hide the banner');
+  assert.match(guardBody, /return/,
+    'the dismissed-already branch must return before falling through');
+  assert.doesNotMatch(guardBody, /textContent/,
+    'the dismissed-already branch must not set the notice text');
+  assert.match(afterGuard, /textContent = *\n? *FP_STRINGS\.experimentalNotice/,
+    'the un-dismissed path must set the real notice text');
+  assert.match(afterGuard, /style\.display = 'block'/,
+    'the un-dismissed path must show the banner');
 });
 
 test('openFindPeaksModal calls the notice gate so it actually shows on open', () => {
