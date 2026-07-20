@@ -1,0 +1,121 @@
+You are an adversarial reviewer for a new-feature commit in this repo (XPS
+peak-fitting web app). Review commit 77bf3a8 ("feat(autofit): MIXED
+material class -- relax C1s contamination width under differential
+charging") on branch feature-autofit-stage2 -- `git show 77bf3a8`
+gives the full diff. This lands right after a provenance audit that removed
+every lab-derived reference value from this codebase (see
+docs/autofit/PROGRESS.md's provenance-audit entries) -- treat this commit
+as a direct test of whether that discipline held, not just a UI feature.
+
+BACKGROUND -- what MIXED is supposed to be:
+
+MaterialClass gains a 4th member, MIXED = "mixed", for analyte-in-matrix
+samples (e.g. this lab's UCl4-in-graphite/B4C/BN samples). Analyte and
+matrix can charge differently under X-ray illumination (differential
+charging), which (a) broadens peaks (a distribution of local surface
+potentials broadens the observed peak -- inhomogeneous broadening) and
+(b) means a single charge reference calibrates the matrix's potential and
+may not transfer to the analyte. C1sModule.build_candidates() relaxes the
+contamination/adventitious FWHM ceiling (0.8-2.0 eV -> 0.8-15.0 eV) under
+MIXED; every other constraint (position windows, linked offsets, every
+other FWHM family) is untouched.
+
+THE EXPLICIT DESIGN CONSTRAINT (read this before reviewing the diff): MIXED
+must RELAX constraints, never ASSERT new ones. A cap widened to a number
+derived from this lab's own mixed-phase spectra (e.g. "3.5 eV because
+that's what our samples fit at") would be exactly the lab self-reference
+the provenance audit removed, wearing a feature label instead of a tier
+badge. The 15.0 eV ceiling is claimed to be a pure numeric guard reused
+from fitting.py's own existing fwhm_max default (needed because
+autofit/engine.py seeds the initial FWHM guess at the fwhm_range midpoint,
+so an infinite bound would seed an infinite initial value) -- NOT a new
+chemistry claim. Verify this claim doesn't secretly smuggle in a
+lab-derived number under UNVERIFIED cover.
+
+ADVERSARIAL QUESTIONS -- ATTACK THESE SPECIFICALLY (Skye's own framing):
+
+(a) SELF-REFERENCE CHECK. Is the 15.0 eV ceiling ACTUALLY traceable to
+    fitting.py's existing fwhm_max default (grep for it -- fitting.py's
+    _make_peak_params, spec.get("fwhm_max", 15.0)), or is it coincidentally
+    matching a number this lab's own spectra happen to fit at? Check
+    docs/autofit/test_data/*.proj.zip and docs/autofit/adjudication-
+    decisions.md for any number near 15.0 that could be the REAL source
+    dressed up as a "numeric guard." Is there a smaller, equally-honest
+    numeric-guard choice that would have been just as defensible (e.g. why
+    15.0 and not some other pre-existing engine constant)?
+
+(b) OPTIMIZER DEGENERACY. Relaxing a width ceiling from 2.0 to 15.0 eV
+    opens real room for the optimizer to grow one component pathologically
+    fat and absorb baseline or neighboring peaks -- especially in the
+    "_linked" candidate families, where c1s.py's build_candidates() has ALL
+    THREE contaminant slots (CO, C=O, OC=O) share ONE width parameter
+    (_SHARED_CONTAM_FWHM) via shared_fwhm_params. Under MIXED that shared
+    width's own range also widens to (0.8, 15.0) -- construct or reason
+    through a concrete synthetic C 1s spectrum where a shared-width
+    contaminant component under MIXED balloons wide enough to functionally
+    absorb the aliphatic main or another contaminant's signal (the ~280-292
+    eV C 1s contaminant span is only ~8-12 eV wide -- a 15 eV FWHM
+    component can span or exceed the whole region). c1s.py's own MG-family
+    comments already document an analogous overlap-degeneracy risk (see
+    aliphatic_main_offset's linked-offset rationale) -- this is the same
+    class of risk reached through width instead of position. If it
+    materializes on a real or synthetic fit, is FWHM_MIXED_CEILING_NUMERIC_
+    GUARD_EV = 15.0 too permissive, and would a MUCH lower numeric guard
+    (still honestly labeled as a guard, not a chemistry claim) close it
+    without reintroducing a new asserted value?
+
+(c) BLAST RADIUS. Confirm build_candidates()'s change is read ONLY when
+    phase.material_class is MaterialClass.MIXED -- run/reason through the
+    non-MIXED path (conductor/semiconductor/insulator) and confirm the
+    candidate pool, every fwhm_range, every BE window, every linked-offset
+    range is IDENTICAL to before this commit (tests/autofit/
+    test_c1s_mixed_material_class.py claims this structurally -- verify the
+    tests actually cover it, and try to find a code path they miss). Also
+    confirm no OTHER region module (u4f.py, b1s.py, etc.) reads
+    material_class at all -- MIXED must be a no-op everywhere except C1s.
+
+(d) USER-FACING NOTE ACCURACY. templates/index.html's FP_STRINGS.materials.
+    mixed.hint is the ONLY user-visible description of what MIXED does.
+    Read it literally: does it overstate (implying the app corrected for
+    or measured the differential charging) or understate (failing to warn
+    that reported positions are less trustworthy) what the feature
+    actually does? The DECIDED constraint (Skye, 2026-07-17) is that MIXED
+    "does not correct for that uncertainty; it only stops assuming there
+    isn't any" -- does the shipped copy read that way to a chemist with no
+    context, not just to someone who already knows the design intent?
+
+(e) CHARGE-CORRECTION ISOLATION -- THE HARDEST REQUIREMENT, VERIFY BY
+    DIFFING OUTPUT, NOT BY READING THE DIFF. Skye's explicit decision:
+    "MIXED must not alter the charge-correction step in any way. Not
+    suppressed, not adjusted, not conditionally applied." Trace
+    app.py's _validate_analyze_request: material_class is parsed into
+    `mclass` and passed ONLY into `Phase(material_class=mclass, ...)`;
+    `corrected = energy - cc_shift` (the actual charge-correction
+    arithmetic) has zero reference to `mclass`/`mc_raw` anywhere in its
+    computation, textually or in control flow. Confirm this yourself by
+    tracing the function, not by trusting this description. Then run (or
+    reason precisely through) tests/test_api_analyze.py::
+    test_material_class_does_not_affect_charge_correction and confirm it
+    actually exercises the real code path (not a mock) and would fail if
+    someone later added a material_class branch inside the cc_shift
+    computation.
+
+SCOPE CHECK: `git show --stat 77bf3a8` should show autofit/
+grammar.py, autofit/regions/c1s.py, app.py (one docstring line), templates/
+index.html, tests/test_api_analyze.py, tests/autofit/
+test_c1s_mixed_material_class.py, tests/js/fp_material_mixed.test.js. Zero
+diff in autofit/engine.py, autofit/methods/*.py, fitting.py, any OTHER
+region module, or the charge-correction path in app.py beyond the one
+enum-value addition to the docstring literal.
+
+TESTS TO INTERROGATE: for each new/modified test, would it actually fail if
+the corresponding behavior were removed or wrong? In particular:
+test_mixed_relaxes_contamination_fwhm_ceiling (would it catch MIXED being
+silently a no-op?), test_mixed_provenance_relaxation_record_asserts_no_new_
+value (would it catch a record that snuck a bare number into `value`?),
+and the FWHM_MIXED_CEILING_NUMERIC_GUARD_EV == provenance-record-value
+cross-check (would it catch code and doc drifting apart?).
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
