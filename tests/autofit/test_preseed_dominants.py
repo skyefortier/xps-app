@@ -159,16 +159,27 @@ def test_multi_env_low_be_dominant_recovered():
 
 def test_unphysical_width_flags_helper():
     """The width-flag helper: an ordinary slot pegging the 2.0 cap is
-    flagged; a narrow main and a grammar-sanctioned-broad slot (declared max
-    > 2.0, e.g. a satellite) are NOT."""
+    flagged; a narrow main and a grammar-sanctioned-broad slot (explicit
+    ``broad_justification``, e.g. a satellite) are NOT.
+
+    2026-07-20 (Unit A, broad_justification refactor): the exemption used
+    to be inferred from ``fwhm_range``'s own magnitude (declared max >
+    2.0 eV) — this test originally built its synthetic "satellite_pi" slot
+    with only a wide range and no explicit vouch, which is now correctly
+    NOT exempt (that numeric-only inference is exactly the bug the MIXED
+    material-class Codex review caught: widening a bound for an unrelated
+    reason silently asserted "this is vouched physics" as a side effect).
+    Updated to set broad_justification explicitly, matching how every real
+    region module now grants this exemption."""
     from autofit.grammar import (CandidateModel, ComponentSlot, LineShape,
                                  BackgroundType)
     from autofit.engine import FittedComponent
 
-    def slot(role, lo, hi):
+    def slot(role, lo, hi, broad_justification=None):
         return ComponentSlot(role=role, region="r", phase_id="p",
                              be_window=(199., 201.), line_shape=LineShape.PSEUDO_VOIGT,
-                             fwhm_range=(lo, hi))
+                             fwhm_range=(lo, hi),
+                             broad_justification=broad_justification)
 
     def comp(role, fwhm):
         return FittedComponent(slot_role=role, position=200.0, fwhm=fwhm,
@@ -176,17 +187,40 @@ def test_unphysical_width_flags_helper():
 
     m = CandidateModel(name="M", background=BackgroundType.LINEAR, slots=(
         slot("contamination_CO", 0.8, 2.0), slot("main_graphitic", 0.4, 1.2),
-        slot("satellite_pi", 1.0, 5.5), slot("proposed_peak_0", 0.5, 2.0)))
+        slot("satellite_pi", 1.0, 5.5,
+             broad_justification="synthetic: pi->pi* shake-up, physically broad"),
+        slot("proposed_peak_0", 0.5, 2.0)))
     flags = eng._unphysical_width_flags(
         [comp("contamination_CO", 1.99), comp("main_graphitic", 1.2),
          comp("satellite_pi", 5.16), comp("proposed_peak_0", 2.0)], m)
     flagged_roles = {f.split(":")[0] for f in flags}
     assert flagged_roles == {"contamination_CO", "proposed_peak_0"}
-    # a satellite at 5.16 (declared-broad slot) is NEVER flagged — this is
-    # exactly the "wide contamination" the fat-peak report was really about
+    # a satellite at 5.16 (explicitly vouched-broad slot) is NEVER flagged —
+    # this is exactly the "wide contamination" the fat-peak report was
+    # really about
     assert not any("satellite" in f for f in flags)
     # a component comfortably under the cap → no flag at all
     assert eng._unphysical_width_flags([comp("contamination_CO", 1.5)], m) == []
+
+
+def test_unphysical_width_flags_wide_range_alone_no_longer_exempts():
+    """The bug this refactor fixes, pinned directly: a slot with a WIDE
+    declared fwhm_range but NO broad_justification must be flagged when it
+    fits wide — the bound's magnitude alone must never grant exemption.
+    Mirrors the real MIXED material-class scenario (a relaxed contamination
+    ceiling with no physics vouch) at the helper level, region-agnostic."""
+    from autofit.grammar import (CandidateModel, ComponentSlot, LineShape,
+                                 BackgroundType)
+    from autofit.engine import FittedComponent
+
+    slot = ComponentSlot(role="wide_unvouched", region="r", phase_id="p",
+                         be_window=(199., 201.), line_shape=LineShape.PSEUDO_VOIGT,
+                         fwhm_range=(0.8, 15.0))
+    m = CandidateModel(name="M", background=BackgroundType.LINEAR, slots=(slot,))
+    comp = FittedComponent(slot_role="wide_unvouched", position=200.0,
+                           fwhm=8.0, amplitude=1e3, shape_params={})
+    flags = eng._unphysical_width_flags([comp], m)
+    assert flags, "a wide-but-unvouched slot must be flagged, not exempted"
 
 
 def test_preseed_and_proposal_slots_capped_at_ordinary():

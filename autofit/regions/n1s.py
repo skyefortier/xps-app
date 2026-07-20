@@ -68,16 +68,23 @@ class N1sModule:
                 f"N 1s defines no oxidation-state override {oxidation_state!r}"
             )
         pid = phase.id
+        _justification = (
+            "UNVERIFIED-empirical: single labeled exemplar only (fwhm "
+            "1.05 eV) -- no physical broadening mechanism cited; this is "
+            "Stage-3 minimal N 1s support, not the full cookbook module"
+        )
         pv_main = ComponentSlot(
             role="main_n1s", region=REGION, phase_id=pid,
             be_window=N1S_WINDOW, line_shape=LineShape.PSEUDO_VOIGT,
             fwhm_range=N1S_FWHM_RANGE,
+            broad_justification=_justification,
         )
         ag_main = ComponentSlot(
             role="main_n1s", region=REGION, phase_id=pid,
             be_window=N1S_WINDOW, line_shape=LineShape.ASYM_GL,
             fwhm_range=N1S_FWHM_RANGE,
             param_ranges=(("asymmetry", N1S_ASYM_RANGE),),
+            broad_justification=_justification,
         )
         return [
             CandidateModel(name="N0_pv", background=N1S_BACKGROUND,

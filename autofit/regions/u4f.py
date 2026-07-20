@@ -199,11 +199,27 @@ class U4fModule:
                 be_window=window, line_shape=shape, fwhm_range=fwhm_range, **kw,
             )
 
+        _main_justification = (
+            "U(IV) 5f2 open-shell final state: an unresolved multiplet "
+            "manifold of unknown line count is the physically-correct "
+            "reading of this width (VERIFIED mechanism, Ilton & Bagus, "
+            "Surf. Interface Anal. 43 (2011) 1549, DOI 10.1002/sia.3836; "
+            "see module docstring); the specific range is UNVERIFIED-"
+            "empirical (labeled set 2.44-2.74 eV)"
+        )
+        _sat_justification = (
+            "the U(IV) shake-up satellite is a real physical feature "
+            "(Ilton & Bagus 2011), but this specific WIDTH bound is "
+            "UNVERIFIED-empirical (labeled set 2.09-3.30 eV), not itself "
+            "derived from a cited broadening magnitude"
+        )
+
         main_72 = slot(
             "main_u4f72", U4F72_WINDOW, LineShape.LACX, U4F_MAIN_FWHM_RANGE,
             param_ranges=(("alpha", U4F_LACX_ALPHA_RANGE),
                           ("beta", U4F_LACX_BETA_RANGE),
                           ("m", U4F_LACX_M_RANGE)),
+            broad_justification=_main_justification,
         )
         main_52 = slot(
             "main_u4f52", U4F52_WINDOW, LineShape.LACX, U4F_MAIN_FWHM_RANGE,
@@ -212,6 +228,7 @@ class U4fModule:
             area_ratio=U4F_RATIO_DEFAULT,
             area_ratio_range=U4F_RATIO_RANGE,
             share_parent_params=("alpha", "beta", "m", "fwhm"),
+            broad_justification=_main_justification,
         )
 
         sat_72 = slot(
@@ -219,6 +236,7 @@ class U4fModule:
             U4F_SAT_FWHM_RANGE,
             linked_to="main_u4f72",
             linked_offset_range=U4F_SAT_OFFSET_RANGE,
+            broad_justification=_sat_justification,
         )
         sat_52 = slot(
             "satellite_u4f52", U4F_SAT52_WINDOW, LineShape.PSEUDO_VOIGT,
@@ -228,6 +246,7 @@ class U4fModule:
             area_ratio=U4F_RATIO_DEFAULT,
             area_ratio_range=U4F_RATIO_RANGE,
             share_parent_params=("gl_ratio", "fwhm"),
+            broad_justification=_sat_justification,
         )
         # Free pair separation, everything else still tied (U1b).
         sat_52_freesep = slot(
@@ -238,6 +257,7 @@ class U4fModule:
             area_ratio=U4F_RATIO_DEFAULT,
             area_ratio_range=U4F_RATIO_RANGE,
             share_parent_params=("gl_ratio", "fwhm"),
+            broad_justification=_sat_justification,
         )
 
         # Robustness variant: satellites ride their own mains independently
@@ -247,12 +267,14 @@ class U4fModule:
             U4F_SAT_FWHM_RANGE,
             linked_to="main_u4f72",
             linked_offset_range=U4F_SAT_OFFSET_RANGE,
+            broad_justification=_sat_justification,
         )
         sat_52_free = slot(
             "satellite_u4f52", U4F_SAT52_WINDOW, LineShape.PSEUDO_VOIGT,
             U4F_SAT_FWHM_RANGE,
             linked_to="main_u4f52",
             linked_offset_range=U4F_SAT_OFFSET_RANGE,
+            broad_justification=_sat_justification,
         )
 
         return [

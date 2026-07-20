@@ -123,11 +123,28 @@ class Cl2pModule:
             )
         pid = phase.id
 
+        _empirical_justification = (
+            "UNVERIFIED-empirical: labeled-set calibration only (labeled "
+            "fits 1.65-1.80 eV) -- no region-specific physical broadening "
+            "mechanism is cited"
+        )
+        _coster_kronig_justification = (
+            "2p1/2 Coster-Kronig broadening is a genuine physical "
+            "mechanism (an additional non-radiative decay channel "
+            "unavailable to 2p3/2 shortens the 2p1/2 core-hole lifetime "
+            "and broadens its linewidth; adjudication 2026-07-03, "
+            "docs/autofit/adjudication-decisions.md #7), but the specific "
+            "excess bound (0.8 eV, ~45% of the labeled shared width) is "
+            "itself an UNVERIFIED bounded-relaxation tunable, not a cited "
+            "magnitude"
+        )
+
         def p32() -> ComponentSlot:
             return ComponentSlot(
                 role="main_cl2p32", region=REGION, phase_id=pid,
                 be_window=CL2P_32_WINDOW, line_shape=LineShape.PSEUDO_VOIGT,
                 fwhm_range=CL2P_FWHM_RANGE,
+                broad_justification=_empirical_justification,
             )
 
         def p12(ratio, ratio_range, free_width=False) -> ComponentSlot:
@@ -144,6 +161,7 @@ class Cl2pModule:
                     area_ratio_range=ratio_range,
                     share_parent_params=("gl_ratio",),
                     fwhm_excess_range=CL2P_12_FWHM_EXCESS_RANGE,
+                    broad_justification=_coster_kronig_justification,
                 )
             return ComponentSlot(
                 role="main_cl2p12", region=REGION, phase_id=pid,
@@ -154,6 +172,7 @@ class Cl2pModule:
                 area_ratio=ratio,
                 area_ratio_range=ratio_range,
                 share_parent_params=("gl_ratio", "fwhm"),
+                broad_justification=_empirical_justification,
             )
 
         return [

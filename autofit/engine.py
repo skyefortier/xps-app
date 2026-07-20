@@ -756,26 +756,39 @@ def _unphysical_width_flags(
     """Fitted components whose width reaches the ordinary physical FWHM
     ceiling (:data:`FWHM_MAX_ORDINARY_EV`) with NO known-broad justification.
 
-    A slot whose grammar-declared ``fwhm_range`` maximum EXCEEDS the ordinary
-    cap is grammar-sanctioned-broad (C 1s π→π* satellite 5.5, U 4f mains 3.5,
-    B 1s 2.5, …) and is EXEMPT — its width is region physics, cited in the
-    region module, not an unphysical stretch.  Any other slot — contamination,
-    the aliphatic main, and the region-``unassigned`` F1 pre-seed / F2-F3
-    proposal slots (all capped AT the ordinary ceiling) — that fits at/above
-    the ceiling is flagged: the optimizer wanted a wider (fatter) peak than an
+    A slot is grammar-sanctioned-broad — EXEMPT, because its width is region
+    physics cited in the region module, not an unphysical stretch — if and
+    only if it carries an explicit ``ComponentSlot.broad_justification``
+    (C 1s π→π* satellite, U 4f mains, B 1s, …; see each region module for its
+    citation or honest UNVERIFIED-empirical disclosure). Any other slot —
+    contamination, the aliphatic main, and the region-``unassigned`` F1
+    pre-seed / F2-F3 proposal slots — that fits at/above the ordinary
+    ceiling is flagged: the optimizer wanted a wider (fatter) peak than an
     ordinary component physically has, the cap held it at the limit, and the
     decomposition must be reported low-confidence (routes to the CONDITIONAL
-    tier via rank_and_filter) rather than silently accepted.  Region-agnostic:
-    the exemption is driven entirely by each slot's own declared range, so no
-    region's cited widths are ever mis-flagged.
+    tier via rank_and_filter) rather than silently accepted.
+
+    ``broad_justification`` is INDEPENDENT of ``fwhm_range``'s own magnitude
+    (2026-07-20 refactor, Codex-caught in the MIXED material-class review):
+    the exemption used to be inferred from ``declared_hi >
+    FWHM_MAX_ORDINARY_EV`` alone, which conflated "the optimizer may search
+    this wide" with "this region module vouches the width is real physics".
+    Widening a bound for an unrelated reason (numerical-stability headroom,
+    a wider calibration envelope, MIXED material class's relaxed
+    contamination ceiling) used to silently grant the vouching exemption as
+    a side effect. Region-agnostic: the exemption is driven entirely by
+    each slot's own declared field, so no region's cited widths are ever
+    mis-flagged, and no bound can ever again disable this safety net merely
+    by being wide.
     """
-    ranges = {s.role: s.fwhm_range for s in model.slots}
+    slots_by_role = {s.role: s for s in model.slots}
     flags: list[str] = []
     for c in components:
-        rng = ranges.get(c.slot_role)
-        if rng is None:
+        slot = slots_by_role.get(c.slot_role)
+        if slot is None:
             continue
-        declared_lo, declared_hi = rng
+        declared_lo, declared_hi = slot.fwhm_range
+        vouched = slot.broad_justification is not None
         # EFFECTIVE width (Stage-2 PHYSICAL bar): DS+G's width lives in TWO
         # params — beta (Lorentzian HWHM, eV) and m_gauss (Gaussian FWHM;
         # what comp.fwhm carries) — so the checks below must see the
@@ -787,8 +800,7 @@ def _unphysical_width_flags(
         if c.line_shape is LineShape.DS_G:
             f_l = 2.0 * float(c.shape_params.get("beta", 0.0))
             eff_fwhm = 0.5346 * f_l + np.sqrt(0.2166 * f_l ** 2 + c.fwhm ** 2)
-            if eff_fwhm >= FWHM_MAX_ORDINARY_EV and \
-                    declared_hi <= FWHM_MAX_ORDINARY_EV:
+            if eff_fwhm >= FWHM_MAX_ORDINARY_EV and not vouched:
                 flags.append(
                     f"{c.slot_role}:effective fwhm={eff_fwhm:.2f}eV≥"
                     f"{FWHM_MAX_ORDINARY_EV:.1f}eV ordinary cap (DS+G "
@@ -802,8 +814,7 @@ def _unphysical_width_flags(
             # (Codex Stage-2 review, run A MAJOR).
             asym = float(c.shape_params.get("asymmetry", 0.0))
             eff_fwhm = c.fwhm * (1.0 + 0.5 * asym)
-            if eff_fwhm >= FWHM_MAX_ORDINARY_EV and \
-                    declared_hi <= FWHM_MAX_ORDINARY_EV:
+            if eff_fwhm >= FWHM_MAX_ORDINARY_EV and not vouched:
                 flags.append(
                     f"{c.slot_role}:effective fwhm={eff_fwhm:.2f}eV≥"
                     f"{FWHM_MAX_ORDINARY_EV:.1f}eV ordinary cap (asym-GL "
@@ -814,7 +825,10 @@ def _unphysical_width_flags(
         # ordinary cap): a component at ≥ DETECTION_WIDTH_ABSORB_FRACTION
         # of its own ceiling (= 1.75× the DETECTED width via the 2.5×
         # ceiling) is absorbing neighboring intensity — the papering-over
-        # signature in transferable units.
+        # signature in transferable units. Unaffected by broad_justification
+        # (these are engine-constructed proposal/pre-seed slots, not
+        # region-module-authored grammar; their ceiling is scale-relative,
+        # not a physics vouch).
         if c.slot_role.startswith("detected_peak_"):
             if eff_fwhm >= DETECTION_WIDTH_ABSORB_FRACTION * declared_hi:
                 flags.append(
@@ -823,7 +837,7 @@ def _unphysical_width_flags(
                     f"({declared_hi:.2f}eV) — ~1.75× its detected width; "
                     "likely absorbing a neighbor")
             continue
-        if declared_hi > FWHM_MAX_ORDINARY_EV:
+        if vouched:
             continue                       # grammar-sanctioned-broad slot
         # pegging the ordinary ceiling — same 1%-of-range tol as boundary
         # detection, so a component held AT the 2.0 cap is caught

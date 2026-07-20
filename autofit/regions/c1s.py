@@ -334,6 +334,13 @@ class C1sModule:
             "satellite_pi", C1S_WINDOWS["shake_up_pi"], LineShape.PSEUDO_VOIGT,
             FWHM_RANGE_SATELLITE,
             linked_to="main_graphitic", linked_offset_range=SATELLITE_OFFSET_RANGE,
+            broad_justification=(
+                "pi->pi* shake-up satellite: physically broad due to "
+                "multi-electron excitation (a genuine broadening "
+                "mechanism, not merely calibration); the specific range "
+                "is further calibrated to the labeled expert set (44 "
+                "fits, 1.9-5.0 eV, CALIBRATED 2026-07-03)"
+            ),
         )
 
         def contam(key, linked_fwhm=None, offset=None,

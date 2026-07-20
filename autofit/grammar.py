@@ -163,6 +163,23 @@ class ComponentSlot:
     # linked-peak sync.
     share_parent_params: tuple[str, ...] = ()
 
+    # Explicit semantic claim, independent of fwhm_range's magnitude
+    # (2026-07-20 refactor): the region module VOUCHES that a component
+    # this wide is legitimate physics for this slot specifically — e.g. the
+    # C 1s π→π* shake-up satellite's intrinsic multi-electron-excitation
+    # breadth, or U 4f's unresolved 5f² multiplet manifold. None means the
+    # slot's width is ordinary — no known-broad justification exists, so
+    # autofit.engine._unphysical_width_flags must not exempt it, REGARDLESS
+    # of how wide fwhm_range happens to be. Before this field existed,
+    # fwhm_range's upper bound alone served double duty as both the
+    # optimizer's search bound AND this semantic claim (declared_hi >
+    # FWHM_MAX_ORDINARY_EV granted exemption automatically) — widening a
+    # bound for an UNRELATED reason (numerical-stability headroom, a wider
+    # calibration envelope) silently asserted "this is vouched-for physics"
+    # as a side effect. A region module that just needs search headroom
+    # without vouching for width MUST leave this None.
+    broad_justification: Optional[str] = None
+
     def contains(self, be: float, fwhm: float, amplitude: float,
                  noise_floor: float) -> bool:
         return (

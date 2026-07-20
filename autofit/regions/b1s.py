@@ -93,6 +93,12 @@ class B1sModule:
                 role=role, region=REGION, phase_id=pid,
                 be_window=window, line_shape=LineShape.PSEUDO_VOIGT,
                 fwhm_range=B1S_FWHM_RANGE,
+                broad_justification=(
+                    "UNVERIFIED-empirical: labeled-set calibration only "
+                    "(B4C-UCl4 exemplar, labeled fits 1.49-2.27 eV) -- no "
+                    "region-specific physical broadening mechanism is "
+                    "cited; the range simply brackets the labeled data"
+                ),
             )
 
         low = pv("main_b_low", B1S_LOW_WINDOW)
