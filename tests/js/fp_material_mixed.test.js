@@ -52,3 +52,14 @@ test('FP_STRINGS has no override entries for the other 3 material classes '
       + 'must be unchanged');
   }
 });
+
+test('FP_STRINGS.materials.mixed hint names C 1s specifically and does not '
+     + 'overstate scope to other regions (Codex run B MAJOR, 77bf3a8 recheck)', () => {
+  // "Peak width limits are relaxed accordingly" (no region named) reads as
+  // global -- a chemist picking MIXED for U 4f/Cl 2p/B 1s/N 1s would wrongly
+  // believe peak widths changed there too. Only C 1s contamination/
+  // adventitious widths actually relax.
+  const hint = FP_STRINGS.materials.mixed.hint;
+  assert.match(hint, /C ?1s/);
+  assert.match(hint, /other regions are unaffected|only C ?1s|no effect on other regions/i);
+});

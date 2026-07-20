@@ -161,6 +161,13 @@ def test_mixed_provenance_relaxation_record_asserts_no_new_value():
         "the relaxation record's value must be a descriptive action, not "
         "a bare number that could read as a newly-asserted window"
     )
+    # Both Codex reviews of 77bf3a8 flagged this exact gap: "is a string"
+    # alone would pass `value = "relax to 3.5 eV based on our spectra"` --
+    # a lab-derived number smuggled in as prose. No digit may appear at all.
+    assert not any(ch.isdigit() for ch in rec["value"]), (
+        f"the relaxation record's value contains a digit -- it must "
+        f"describe an action only, never a specific number: {rec['value']!r}"
+    )
     assert "10.1116/6.0000057" in rec["source"], "Baer et al. 2020 DOI"
     assert "baer" in rec["source"].lower()
     assert "10.1016/j.pmatsci.2019.100591" in rec["source"], \
@@ -187,3 +194,143 @@ def test_mixed_provenance_numeric_guard_record_is_honestly_labeled():
     slots = _contamination_slots(_resolve(MaterialClass.MIXED))
     actual_ceiling = slots[0][1].fwhm_range[1]
     assert rec["value"] == actual_ceiling
+
+
+# ── Unit A dependency: the finding itself, encoded (2026-07-20) ───────────
+# Both Codex reviews of 77bf3a8 independently caught the same MAJOR: the
+# 15.0 eV numeric guard made contamination slots "grammar-sanctioned-broad"
+# in autofit.engine._unphysical_width_flags, so a MIXED contaminant fitting
+# at 6-10 eV sailed through unflagged -- the exact opposite of MIXED's own
+# premise (we do NOT know how broad differential charging makes the peak,
+# so the app must not vouch for it). Fixed by Unit A (broad_justification):
+# MIXED contamination slots get a wide bound but NO justification, so they
+# are no longer exempt. These two tests are that finding, encoded directly.
+
+def test_mixed_wide_contamination_is_flagged_unphysical():
+    """A C 1s contamination component fit at 8 eV under MIXED (well within
+    the relaxed 0.8-15.0 eV bound, well above the ordinary 2.0 eV cap) must
+    be flagged unphysical -- the bound's width must never itself grant
+    exemption (that would be the finding recurring)."""
+    from autofit.engine import FittedComponent, _unphysical_width_flags
+
+    g = _resolve(MaterialClass.MIXED)
+    cand = next(c for c in g.candidates if c.name == "A1_linked")
+    slot = cand.slot_by_role("contamination_CO")
+    assert slot.broad_justification is None, (
+        "fixture assumption: MIXED contamination must NOT be vouched-broad"
+    )
+    comp = FittedComponent(slot_role="contamination_CO", position=286.0,
+                           fwhm=8.0, amplitude=1e4, shape_params={},
+                           line_shape=slot.line_shape)
+    flags = _unphysical_width_flags([comp], cand)
+    assert flags, (
+        "an 8 eV MIXED contaminant must be flagged unphysical -- the "
+        "relaxed bound must not silently exempt it"
+    )
+    assert any("contamination_CO" in f for f in flags)
+
+
+def test_mixed_shared_width_contamination_all_flagged_independently():
+    """The degeneracy risk 77bf3a8's own commit message flagged as KNOWN
+    RISK, not yet closed at the time: the "_linked" families share ONE
+    width parameter (_SHARED_CONTAM_FWHM) across all 3 contaminant slots,
+    so under MIXED that shared width also relaxes to the wide ceiling -- a
+    single fat shared-width component could in principle absorb signal
+    across the whole ~280-292 eV contaminant span (the same overlap-
+    degeneracy class c1s.py's own MG-family comments document for a free
+    position, now reachable through width instead).
+
+    Verified here rather than left as a theoretical concern: sharing one
+    lmfit parameter does not create one shared exemption. Each of the 3
+    linked slots keeps its OWN fwhm_range/broad_justification, and
+    _unphysical_width_flags checks each FittedComponent independently --
+    so a shared width ballooning wide flags EVERY slot built on it, not
+    just some, and none can hide behind another's exemption."""
+    from autofit.engine import FittedComponent, _unphysical_width_flags
+
+    g = _resolve(MaterialClass.MIXED)
+    cand = next(c for c in g.candidates if c.name == "A3_linked")
+    assert cand.shared_fwhm_params, (
+        "fixture assumption: A3_linked really does share one width "
+        "parameter across its contaminants"
+    )
+    contam_roles = ("contamination_CO", "contamination_C=O", "contamination_OC=O")
+    for role in contam_roles:
+        slot = cand.slot_by_role(role)
+        assert slot.broad_justification is None, (
+            f"fixture assumption: {role} must not be individually vouched"
+        )
+
+    # All three report the SAME shared fitted width (as they would after a
+    # real fit, since they're constrained equal via one lmfit expression).
+    shared_wide_fwhm = 8.0
+    comps = [
+        FittedComponent(slot_role=role, position=0.0, fwhm=shared_wide_fwhm,
+                        amplitude=1e4, shape_params={},
+                        line_shape=cand.slot_by_role(role).line_shape)
+        for role in contam_roles
+    ]
+    flags = _unphysical_width_flags(comps, cand)
+    flagged_roles = {f.split(":")[0] for f in flags}
+    assert flagged_roles == set(contam_roles), (
+        "a wide SHARED contamination width must flag every slot built on "
+        f"it, not just some -- got {flagged_roles}, expected all of "
+        f"{set(contam_roles)}"
+    )
+
+
+def test_mixed_wide_contamination_routes_to_conditional():
+    """The tiering consequence: a report carrying that exact unphysical-
+    widths flag must be excluded from clean survivors and, as the sole
+    report, land in the CONDITIONAL tier -- not silently accepted as a
+    clean winner. Uses a REAL ModelReport (from an actual, fast MIXED
+    C 1s fit) with its plausibility flags replaced by the ACTUAL flag
+    autofit.engine._unphysical_width_flags produces for the 8 eV scenario
+    above -- not a hand-written string -- so this test would break if the
+    flag's own wording or the tiering logic ever drifted apart."""
+    import dataclasses
+
+    import numpy as np
+
+    from autofit.engine import (FittedComponent, PlausibilityFlags,
+                                compare_models, rank_and_filter,
+                                _unphysical_width_flags)
+    from autofit.methods.base import poisson_like_weights
+
+    x = np.linspace(295.0, 280.0, 300)
+    y = (4000.0
+         + 6000.0 * np.exp(-0.5 * ((x - 284.6) / 0.9) ** 2)
+         + 1500.0 * np.exp(-0.5 * ((x - 286.8) / 1.0) ** 2))
+    weights = poisson_like_weights(y)
+    g = _resolve(MaterialClass.MIXED)
+
+    res = compare_models(x, y, weights, g, n_refits=1, rng_seed=0,
+                         enable_proposal_pass=False, enable_preseed=False,
+                         candidate_filter=["A1_linked"])
+    assert res.reports, "fixture assumption: A1_linked produced a report"
+    report = res.reports[0]
+
+    slot = report.model.slot_by_role("contamination_CO")
+    fake_comp = FittedComponent(slot_role="contamination_CO", position=286.0,
+                                fwhm=8.0, amplitude=1e4, shape_params={},
+                                line_shape=slot.line_shape)
+    injected_flags = _unphysical_width_flags([fake_comp], report.model)
+    assert injected_flags, "fixture assumption: the flag must fire"
+
+    conditional_report = dataclasses.replace(
+        report,
+        plausibility=PlausibilityFlags(boundary_hits=[],
+                                       unphysical_widths=injected_flags,
+                                       orphan_peaks=False),
+    )
+    result = rank_and_filter([conditional_report], allow_conditional=True)
+    # rank_and_filter's `survivors` holds the final ranked winner regardless
+    # of tier (matches test_stage2_completeness.py's last-resort precedent);
+    # the CLEAN-vs-CONDITIONAL distinction is `result.conditional` +
+    # `result.filtered_out`, not whether `survivors` is populated.
+    assert result.conditional is True, (
+        "a report with an unphysical-widths flag must route through the "
+        "CONDITIONAL tier, never win as a clean survivor"
+    )
+    assert result.conditional_reason == "no_clean_survivor"
+    assert conditional_report in [r for r, _ in result.filtered_out]

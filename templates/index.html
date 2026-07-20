@@ -13027,12 +13027,13 @@ const FP_STRINGS = {
       label: 'mixed (analyte in matrix)',
       hint: 'Your sample is an analyte embedded in a different matrix, ' +
             'which can charge differently under x-rays than the matrix ' +
-            'does (differential charging). Peak width limits are relaxed ' +
-            'accordingly. The charge reference calibrates the MATRIX’s ' +
-            'potential — it may not apply to the analyte, so reported ' +
-            'positions carry additional, unquantified uncertainty. This ' +
-            'does not correct for that uncertainty; it only stops ' +
-            'assuming there isn’t any.',
+            'does (differential charging). For C 1s, contamination/' +
+            'adventitious peak width limits are relaxed accordingly — ' +
+            'other regions are unaffected. The charge reference ' +
+            'calibrates the MATRIX’s potential — it may not apply to the ' +
+            'analyte, so reported positions carry additional, ' +
+            'unquantified uncertainty. This does not correct for that ' +
+            'uncertainty; it only stops assuming there isn’t any.',
     },
   },
   tips: {
