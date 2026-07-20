@@ -1,0 +1,120 @@
+You are an adversarial reviewer for a refactor commit in this repo (XPS
+peak-fitting web app). Review commit 5070662 ("refactor(autofit): decouple
+broad_justification from fwhm_range's magnitude") on branch
+feature-autofit-stage2 -- `git show 5070662` gives the full diff. This
+commit exists because BOTH Codex reviews of an earlier commit (77bf3a8,
+the MIXED material class feature) independently caught the same MAJOR
+finding, and the human maintainer (not Claude Code) diagnosed the root
+cause and specified this exact fix. Your job is to verify the diagnosis
+and the fix are both actually correct, not to re-litigate whether a fix
+was needed.
+
+THE DIAGNOSIS (read this before reviewing the diff): ``ComponentSlot.
+fwhm_range``'s upper bound used to carry two independent meanings at once:
+(1) "the optimizer may search up to here" (a bound), and (2) "this region
+module vouches this width is real physics, not an optimizer papering over
+a missed feature" (a semantic claim consumed by ``autofit/engine.py``'s
+``_unphysical_width_flags``, which decides whether a fat fitted component
+gets reported as suspicious). The old code inferred (2) from (1) via
+``declared_hi > FWHM_MAX_ORDINARY_EV`` (2.0 eV) — so ANY slot whose bound
+happened to exceed 2.0 eV was automatically treated as vouched-for,
+regardless of why the bound was wide. The MIXED unit widened C1s
+contamination's bound to 15.0 eV purely for differential-charging
+numerical headroom and thereby silently ALSO granted it the vouching
+exemption — meaning a MIXED contaminant fitting unrealistically wide
+(6-10 eV, plausibly absorbing a neighbor) sailed through unflagged.
+
+THE FIX: ``ComponentSlot`` gains ``broad_justification: Optional[str] =
+None`` (autofit/grammar.py). ``_unphysical_width_flags`` now keys
+exemption off ``slot.broad_justification is not None`` — never off
+``fwhm_range``'s magnitude. Every slot that was exempt under the OLD
+numeric rule needs this field set for the refactor to be behavior-neutral;
+every slot that was NOT exempt must NOT get it, or the refactor silently
+loosens the safety net instead of merely relocating it.
+
+THE CLAIMED EXHAUSTIVE LIST (verify this yourself — do not trust it):
+- C1s satellite_pi (FWHM_RANGE_SATELLITE, 1.0-5.5 eV): genuine mechanism
+  claimed (pi->pi* shake-up, multi-electron excitation).
+- B1s all 3 mains (B1S_FWHM_RANGE, 1.2-2.5 eV): claimed HONESTLY
+  empirical-only, no mechanism cited.
+- Cl2p main_cl2p32 + the SHARED-width main_cl2p12 variant (CL2P_FWHM_RANGE,
+  1.2-2.2 eV): claimed empirical-only.
+- Cl2p the FREE-WIDTH main_cl2p12 variant (CL2P_12_FWHM_RANGE, up to
+  3.0 eV, via fwhm_excess_range): genuine mechanism claimed (2p1/2
+  Coster-Kronig broadening, adjudication #7), but the SPECIFIC 0.8 eV
+  excess bound itself is disclosed as still-unverified.
+- N1s main_n1s in both shape variants (N1S_FWHM_RANGE, 0.7-2.5 eV):
+  claimed empirical-only, single labeled exemplar.
+- U4f mains (U4F_MAIN_FWHM_RANGE, 1.5-3.5 eV): genuine VERIFIED mechanism
+  claimed (U(IV) 5f2 unresolved multiplet manifold, Ilton & Bagus 2011).
+- U4f all satellite variants (U4F_SAT_FWHM_RANGE, 1.5-4.5 eV): the
+  satellite's EXISTENCE is real physics, but the specific width bound is
+  disclosed as empirical-only.
+- C1s contamination slots under MaterialClass.MIXED (widened to 0.8-15.0
+  eV in the earlier 77bf3a8 commit): deliberately NOT given
+  broad_justification — this is the whole point of the fix.
+- Every other slot in every region module (C1s graphitic main, aromatic-
+  polymer main, plain contamination under non-MIXED classes; any slot
+  anywhere with a declared ceiling <= 2.0 eV): must NOT get
+  broad_justification — they were never exempt.
+
+ADVERSARIAL QUESTIONS -- ATTACK THESE SPECIFICALLY:
+
+(a) SILENT TIGHTENING (the mirror-image regression). Re-derive the
+    exhaustive exemption list yourself by reading every region module's
+    build_candidates() in autofit/regions/*.py from scratch — grep every
+    ComponentSlot(...) construction and every fwhm_range constant, don't
+    just check the list above. Is there ANY slot whose declared_hi
+    EXCEEDED 2.0 eV under the OLD code (so it was exempt) that did NOT
+    receive broad_justification in this commit? That slot would now be
+    flagged as unphysical when it previously wasn't — a real behavior
+    change this commit claims NOT to make. Pay special attention to
+    linked/shared-width slots (e.g. Cl2p's shared vs free-width
+    main_cl2p12, U4f's satellite pair-linked variants sat_52/sat_52_freesep)
+    where the same role appears in multiple CandidateModel variants with
+    potentially different fwhm_range values — every variant needs its own
+    check.
+
+(b) RELOCATED OVERLOAD (the honesty check). For each slot that DID
+    receive broad_justification, read its actual justification string
+    (git show 5070662, or read the region module directly) and judge: is
+    it an honest description of what's actually cited elsewhere in that
+    module (the module's own top-of-file docstring and inline comments),
+    or does it overclaim a physical mechanism the module doesn't actually
+    establish? Specifically interrogate whether B1s's, N1s's, Cl2p's
+    shared-width variant's, and U4f satellites' "empirical-only, no
+    mechanism cited" framing is ACCURATE — i.e. does the region module
+    genuinely lack a cited broadening mechanism for these, or did the
+    commit understate an existing citation? And conversely, for the
+    slots claiming a genuine mechanism (C1s satellite, Cl2p free-width,
+    U4f mains) — is the citation/mechanism actually present and correctly
+    characterized in that module's own comments, not invented for this
+    commit?
+
+(c) THE FIX'S ACTUAL EFFECT. Independently verify (read the code, or run
+    Python if your sandbox allows importing autofit) that a C1s
+    contamination slot under MaterialClass.MIXED has fwhm_range=(0.8,
+    15.0) and broad_justification=None, and that
+    autofit.engine._unphysical_width_flags flags a component fit at, say,
+    8.0 eV in that slot. This is the entire point of the refactor —
+    confirm it actually holds in the current code, not just in the
+    commit message's narrative.
+
+(d) SCOPE. Confirm the diff is contained to autofit/grammar.py,
+    autofit/engine.py, the 5 region modules, and the 2 test files. No
+    diff in app.py, templates/index.html, fitting.py, or autofit/methods/
+    *.py.
+
+(e) TEST DISCRIMINATION. tests/autofit/test_broad_justification.py's
+    EXEMPTION_FIXTURE is the safety net for the "byte-identical" claim —
+    for a few entries of your choosing, verify independently that the
+    listed (phase, region, candidate_name, role, exempt) tuple is actually
+    correct by reading the region module yourself, not by trusting the
+    fixture. Also check test_preseed_dominants.py's updated
+    test_unphysical_width_flags_helper: does the updated version still
+    test something meaningful, or did the fix just paper over the failure
+    by adding whatever kwarg made it pass?
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".
