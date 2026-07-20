@@ -12882,6 +12882,10 @@ document.addEventListener('mousedown', function(e) {
     <h3 class="fp-drag-handle" onmousedown="_fpModalDragStart(event)" title="Drag to move this box out of the way">Find Peaks <span style="font-size:10px;color:var(--text3)">BETA</span>
       <button class="btn btn-sm" onclick="closeFindPeaksModal()" style="float:right">&#x2715;</button>
     </h3>
+    <div id="fp-experimental-notice" style="display:none;background:var(--bg2);border:1px solid var(--amber);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--text2);line-height:1.5">
+      <span id="fp-experimental-notice-text"></span>
+      <button class="btn btn-sm" onclick="_fpDismissExperimentalNotice()" style="float:right;margin-left:8px">Got it</button>
+    </div>
     <p id="fp-blurb" style="font-size:11px;color:var(--text2);line-height:1.5;margin:0 0 10px"></p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <label style="font-size:11px" id="fp-material-label">Material class
@@ -13037,6 +13041,13 @@ const FP_STRINGS = {
          'unless you add them.',
   applyNote: 'Adding replaces this tab’s current peak list with the ' +
              'suggested peaks. You can undo this (Ctrl+Z).',
+  // One-time notice (2026-07-20): the BETA badge and the blurb above never
+  // told a student the RUNTIME — a full run can take up to 4 minutes, and
+  // without warning that reads as a frozen app, not a slow one.
+  experimentalNotice: 'Find Peaks is experimental. Suggestions are a ' +
+                       'starting point to review, not a final answer — ' +
+                       'and a full run can take 60–240 seconds depending ' +
+                       'on the region and method. This won’t show again.',
   // Label/hint override for one material-class dropdown option (2026-07-20).
   // Only "mixed" gets an entry — conductor/semiconductor/insulator render
   // exactly as before (bare backend value, no title attribute).
@@ -13441,6 +13452,7 @@ async function openFindPeaksModal() {
   // become an injection point)
   document.getElementById('fp-blurb').innerHTML = FP_STRINGS.blurb;
   document.getElementById('fp-apply-note').textContent = FP_STRINGS.applyNote;
+  _fpMaybeShowExperimentalNotice();
   document.getElementById('fp-material-label').title = FP_STRINGS.tips.material;
   document.getElementById('fp-method-label').title = FP_STRINGS.tips.method;
   document.getElementById('fp-regions-label').title = FP_STRINGS.tips.regions;
@@ -13757,6 +13769,24 @@ function _fpMaterialChanged() {
   const v = document.getElementById('fp-material').value;
   const s = FP_STRINGS.materials[v] || {};
   document.getElementById('fp-material-hint').textContent = s.hint || '';
+}
+
+const FP_EXPERIMENTAL_NOTICE_LS_KEY = 'xps-fp-experimental-notice-dismissed';
+
+function _fpMaybeShowExperimentalNotice() {
+  const el = document.getElementById('fp-experimental-notice');
+  if (localStorage.getItem(FP_EXPERIMENTAL_NOTICE_LS_KEY)) {
+    el.style.display = 'none';
+    return;
+  }
+  document.getElementById('fp-experimental-notice-text').textContent =
+    FP_STRINGS.experimentalNotice;
+  el.style.display = 'block';
+}
+
+function _fpDismissExperimentalNotice() {
+  localStorage.setItem(FP_EXPERIMENTAL_NOTICE_LS_KEY, '1');
+  document.getElementById('fp-experimental-notice').style.display = 'none';
 }
 
 function _fpMethodChanged() {
