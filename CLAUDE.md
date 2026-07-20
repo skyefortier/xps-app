@@ -285,6 +285,10 @@ position of adventitious carbon depends on surface chemistry and is not
 a true universal standard. Graphitic carbon (284.5 eV) or a known
 internal reference is preferable when available.
 
+Additional fixed references in the dropdown: Au 4f₇/₂ (83.98 eV), B 1s
+for B₂O₃ (192.99 eV), N 1s for BN (398.31 eV), B 1s for BN (190.74 eV),
+plus a free-entry "Custom reference" option.
+
 ## File Formats Supported
 
 | Extension | Notes |

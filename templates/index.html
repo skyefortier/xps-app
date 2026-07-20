@@ -1953,6 +1953,9 @@
                 <option value="c1s">C 1s graphite (284.5 eV)</option>
                 <option value="c1s-adv">C 1s adventitious (284.8 eV)</option>
                 <option value="au4f">Au 4f&#8327;/&#8322; (83.98 eV)</option>
+                <option value="b1s-b2o3">B 1s B&#8322;O&#8323; (192.99 eV)</option>
+                <option value="n1s-bn">N 1s BN (398.31 eV)</option>
+                <option value="b1s-bn">B 1s BN (190.74 eV)</option>
                 <option value="custom">Custom reference</option>
               </select>
             </div>
@@ -4588,6 +4591,21 @@ function updateChargeCorrection() {
     state.ccShift = isNaN(obs) ? 0 : obs - 83.98;
     refField.style.display = 'block';
     document.getElementById('cc-lit').value = '83.98';
+  } else if (method === 'b1s-b2o3') {
+    const obs = parseFloat(document.getElementById('cc-obs').value);
+    state.ccShift = isNaN(obs) ? 0 : obs - 192.99;
+    refField.style.display = 'block';
+    document.getElementById('cc-lit').value = '192.99';
+  } else if (method === 'n1s-bn') {
+    const obs = parseFloat(document.getElementById('cc-obs').value);
+    state.ccShift = isNaN(obs) ? 0 : obs - 398.31;
+    refField.style.display = 'block';
+    document.getElementById('cc-lit').value = '398.31';
+  } else if (method === 'b1s-bn') {
+    const obs = parseFloat(document.getElementById('cc-obs').value);
+    state.ccShift = isNaN(obs) ? 0 : obs - 190.74;
+    refField.style.display = 'block';
+    document.getElementById('cc-lit').value = '190.74';
   } else if (method === 'custom') {
     const obs = parseFloat(document.getElementById('cc-obs').value);
     const lit = parseFloat(document.getElementById('cc-lit').value);
