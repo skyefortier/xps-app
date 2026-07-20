@@ -3999,3 +3999,186 @@ critically rather than applied as-is. Final state: 5 commits
 `RUN_AUTOFIT_GATE=1` real-data gate suite both green apart from the 2
 pre-existing flakes already independently confirmed unrelated earlier in
 this effort.
+
+---
+
+## MIXED material class + the broad_justification engine correction it forced (2026-07-20)
+
+A new `MaterialClass.MIXED` for analyte-embedded-in-a-different-matrix
+samples (this lab's real UCl₄-in-graphite/B₄C/BN samples). Differential
+charging under X-ray illumination broadens peaks (inhomogeneous
+broadening) and means a single charge reference may not transfer from
+matrix to analyte. `C1sModule.build_candidates()` relaxes the C 1s
+contamination/adventitious FWHM ceiling accordingly (0.8–2.0 eV →
+0.8–15.0 eV, reusing `fitting.py`'s own pre-existing `fwhm_max` default
+as a pure numeric guard, not a new chemistry constant — the
+provenance-audit trap this feature was designed around: MIXED only
+*relaxes* an existing constraint, it never *asserts* a new numeric
+value). Commit `77bf3a8`.
+
+**Review round 1 (`77bf3a8`): NO-GO ×2.** Both runs independently caught
+the same MAJOR: the 15.0 eV ceiling made C 1s contamination slots
+"grammar-sanctioned-broad" in `autofit/engine.py`'s
+`_unphysical_width_flags`, which inferred "this region module vouches
+this width is real physics" from a bare numeric test
+(`declared_hi > FWHM_MAX_ORDINARY_EV`). A MIXED contaminant fitting
+unrealistically wide (6–10 eV, plausibly absorbing a neighbor) sailed
+through unflagged — the exact opposite of what MIXED is for: it exists
+*because* we don't know how broad differential charging makes a peak,
+which is the opposite of vouching for it. Run B separately caught a
+MAJOR of its own: the frontend copy ("Peak width limits are relaxed
+accordingly") read as global, when only C 1s contamination actually
+relaxes. Both runs independently flagged a MINOR: the provenance
+relaxation record's guard test only asserted `value` was a string, so a
+lab-derived number smuggled into prose would still have passed.
+
+**Root cause, stated as a class, not an instance.** `ComponentSlot.
+fwhm_range`'s upper bound was overloaded with two independent meanings:
+(1) "the optimizer may search up to here" (a bound) and (2) "this
+region module vouches this width is real physics, not an optimizer
+papering over a missed feature" (a semantic claim consumed by quality
+reporting). The badge followed whichever number happened to be in the
+tuple. MIXED widened the bound for an unrelated reason — differential-
+charging numerical headroom — and thereby silently asserted the second
+meaning as a side effect. This is the *same failure-mode family* as the
+provenance audit's own C 1s 284.5 self-reference fix earlier in this
+project: one field serving two roles, with the badge following the
+wrong one.
+
+**The scope error, worth recording so the next brief doesn't inherit
+it.** The original MIXED brief explicitly excluded `autofit/engine.py`
+from scope. That boundary was itself the mistake: the real fix (decouple
+the two meanings) was impossible to make within the stated scope,
+because the bug lived in the engine's exemption logic, not in the
+region module. A brief that scopes out the one file where the actual
+defect lives doesn't prevent risk, it guarantees the fix has to blow
+through the boundary later.
+
+**Unit A** (commit `5070662`): `ComponentSlot` gains
+`broad_justification: Optional[str] = None`. `_unphysical_width_flags`
+keys exemption off `broad_justification is not None`, never off
+`fwhm_range`'s magnitude — a pure refactor, behavior-neutral for every
+existing slot. Set on every slot exempt under the old numeric rule,
+audited exhaustively across all 5 region modules, with HONEST text
+distinguishing a genuine cited physical mechanism (C 1s π→π* satellite;
+Cl 2p 2p1/2 Coster-Kronig broadening, adjudication #7; U 4f mains'
+VERIFIED unresolved 5f² multiplet manifold, Ilton & Bagus 2011) from
+empirical-only calibration with no mechanism cited (B 1s; N 1s; Cl 2p's
+shared-width variant; U 4f satellites' specific width bound) — writing
+every justification the same way would have just relocated the original
+overload into the new field with better spelling. Tests:
+`tests/autofit/test_broad_justification.py`, an explicit fixture
+proving the exemption set matches the pre-refactor rule exactly.
+
+**Review round 2 (`5070662`): NO-GO ×2, a second real finding — the
+mirror-image regression.** Both runs independently caught: `_retag_slot`
+(used by `resolve()` whenever it composes a multi-region joint co-fit —
+e.g. this lab's real U 4f + N 1s co-fit for UCl₄-in-BN samples)
+reconstructed each `ComponentSlot` by manually re-listing every field.
+`broad_justification` wasn't in that list, so every slot passing through
+composition silently lost its exemption, regardless of what the source
+region module had set — U 4f mains and satellites, genuinely
+VERIFIED-broad, would have been flagged as unphysical in every joint
+co-fit. Independently reproduced before accepting the finding.
+
+**Fix** (commit `ad7e668`): `_retag_slot` now returns
+`dataclasses.replace(s, role=..., linked_to=..., fwhm_linked_to=...)`
+instead of manual field listing. `ComponentSlot` is frozen, so
+`replace()` is the idiomatic approach — it carries every field NOT
+explicitly overridden forward unchanged, including any field added
+after this function was written.
+
+**The recurring meta-pattern, now three instances in this codebase: two
+things that must agree, with nothing enforcing agreement.**
+- C 1s 284.5: the charge-correction anchor vs. the literature reference
+  (provenance audit, earlier this project).
+- `fwhm_range[1]`: the optimizer's search bound vs. the region module's
+  physics vouch (this effort, Unit A).
+- `_retag_slot`: `ComponentSlot`'s 16 fields vs. 15 manually re-listed
+  ones (this effort, Unit A's own regression).
+All three were caught in *review*, none prevented by *construction*.
+The `_retag_slot` fix is the first of the three whose test guard closes
+the *mechanism* rather than the *instance*:
+`test_retag_slot_preserves_all_fields_except_the_three_rewritten` is
+driven off `dataclasses.fields(ComponentSlot)`, not a hardcoded list, so
+it automatically covers whatever field comes next. Recommend this shape
+of fix — a guard derived from the type/schema itself, not an enumerated
+expectation — be preferred wherever available, and treated as something
+to look for proactively rather than only after a review catches the
+instance.
+
+**The unpredicted side effect.** The "_linked" C 1s candidate families
+share ONE lmfit width parameter across all 3 contaminant slots, which
+`77bf3a8`'s own commit message logged as a KNOWN RISK under MIXED: a
+single fat shared-width component could in principle absorb signal
+across the whole contaminant span. Unit A closed this as a *byproduct*,
+not a targeted fix: each linked slot still carries its own individual
+`ComponentSlot`/`broad_justification`, so `_unphysical_width_flags`
+(which evaluates each fitted component independently) flags every slot
+sharing a wide value, not none of them. Verified directly — including
+the B 1s-linked family, which Codex separately raised and Skye
+independently re-verified: it links to `s_main_aliphatic_fwhm` rather
+than the shared declared parameter, a genuinely different mechanism,
+and all 4 of its slots still flag correctly at a wide fitted width.
+Neither the implementation nor either review round predicted this
+resolution in advance; it fell out of removing the conflation, which is
+itself worth recording — the risk and the overload were downstream of
+the same root cause.
+
+**Review round 3 (`ad7e668`): GO ×2.** Both runs reproduced the U 4f +
+N 1s finding directly and confirmed it closed; both confirmed
+`_retag_slot` is the *only* copy-and-modify `ComponentSlot` site in the
+codebase (no second live instance of the bug class); both confirmed the
+structural guard test would have caught the original bug by simulating
+the reverted body; both went beyond the ask, testing additional
+compositions (B 1s + Cl 2p; a 3-phase U 4f + N 1s + N 1s; two-material
+C 1s + C 1s) with no losses found.
+
+**Unit B** (commit `bdc909a`): rebases MIXED's own two round-1 findings
+onto the corrected engine. Frontend copy now names C 1s contamination
+specifically and states other regions are unaffected. The provenance
+guard test now asserts the relaxation record's value contains no digit
+at all (not merely "is a string"), closing the exact gap that would
+have let `"relax to 3.5 eV based on our spectra"` through. The actual
+finding — a MIXED contamination slot at ~6–10 eV must be flagged and
+route to CONDITIONAL — is encoded as a permanent regression test,
+explicitly red-green verified against a temporarily-reverted pre-Unit-A
+engine (the same laundered-test failure mode this session already
+caught once, in the Tougaard background work). The shared-width
+degeneracy is pinned as its own test.
+
+**Review round 4 (`bdc909a`): GO ×2, zero findings.** Both runs
+independently re-traced the shared-width logic themselves rather than
+trusting the commit message (including the B-linked family's different
+mechanism) and found no gap; both confirmed the regression test
+genuinely red-greens; both confirmed the digit guard rejects a concrete
+smuggled-number string while accepting the real record's value; both
+confirmed the frontend copy is accurate and charge correction stays
+isolated.
+
+**The honest final scope of MIXED, worth stating plainly rather than
+leaving implicit.** It relaxes ONLY the C 1s contamination/adventitious
+FWHM ceiling. It asserts no new numeric value (the residual 15.0 eV
+ceiling is an existing engine numeric guard, reused, not a new
+chemistry claim). It does not touch position windows. It does not
+touch any region other than C 1s. It does not alter charge correction
+in any way — its only interaction with charge referencing is advisory
+(a note that the reference calibrates the matrix's potential and may
+not transfer to the analyte), verified by a dedicated test that diffs
+the corrected energy/counts arrays across material classes.
+
+**The review narrative, stated honestly rather than smoothed over:**
+MIXED went NO-GO ×2, then the engine refactor it forced went NO-GO ×2 a
+second time on a real finding neither prior round predicted, before
+both finally landed GO ×2. Two rounds of genuine findings, not a clean
+first pass — the second NO-GO (the composition regression) was caught
+*by the review process itself* reviewing a fix for the *first* NO-GO,
+which is the review discipline working as intended, not a sign it
+failed the first time.
+
+**Final state:** 6 commits (`77bf3a8`, `5070662`, `ad7e668`, `bdc909a`,
+plus docs) on `feature-autofit-stage2`, all pushed. Full regression
+suite and the `RUN_AUTOFIT_GATE=1` real-data gate suite both green
+apart from the 2 pre-existing flakes already independently confirmed
+unrelated earlier in this session (`test_u4f_n1s_cofit`,
+`test_candidate_pool_real_gate.py`'s ds8 timing-budget case).
