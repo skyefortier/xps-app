@@ -193,7 +193,17 @@ def cwt_scale_range_ev(x: np.ndarray) -> tuple[float, float]:
     grid step (find-peaks-math-first-architecture.md step 1(i)), not a
     fixed chemistry-tied number. Used both to build the ridge ladder and
     to report/clip characterization estimates consistently elsewhere
-    (e.g. CurvatureSeed.fwhm_init in build_candidate_pool, step 1(ii))."""
+    (e.g. CurvatureSeed.fwhm_init in build_candidate_pool, step 1(ii)).
+
+    KNOWN, documented imprecision (Codex step-1 review, Run B — minor,
+    conservative direction, not fixed here): this uses the CONTINUOUS
+    ``(n-1)/(2*TRUNC)`` bound, but ``cwt_ridge_features``'s own per-scale
+    filter applies ``ceil(TRUNC*s)`` and then excludes a further
+    ``radius+2``-point margin at each end. For small or even-length ROIs
+    the reported ceiling can therefore be a slight overstatement of what
+    the detector actually resolves at its top rung — the true usable
+    ceiling is never LARGER than what this reports, only occasionally a
+    touch smaller."""
     x = np.asarray(x, dtype=float)
     n = len(x)
     if n < 2:
@@ -672,11 +682,22 @@ def build_candidate_pool(
     the UPPER bound, when left at its default ``None``, is DERIVED from
     this ROI's own ``cwt_scale_range_ev(x)`` rather than fixed at the old
     chemistry-tied ``FWHM_MAX_ORDINARY_EV``/``PROPOSAL_FWHM_MAX`` (2.0 eV)
-    — a curvature seed's INITIAL width estimate is characterization, the
-    same principle as the detector's own scale ceiling, one layer
-    downstream.  Passing an explicit numeric upper bound (as existing
-    synthetic tests do) still clips to exactly that value — this default
-    change only affects callers that opt into deriving it.
+    — a curvature seed's width estimate is characterization, the same
+    principle as the detector's own scale ceiling, one layer downstream.
+    Passing an explicit numeric upper bound (as existing synthetic tests
+    do) still clips to exactly that value — this default change only
+    affects callers that opt into deriving it.
+
+    Corrected 2026-07-21 (Codex step-1 review, Run B — confirmed real):
+    ``fwhm_init`` is an honest CHARACTERIZATION value surfaced in
+    diagnostics (``CurvatureSeed``/``PreseedSpec``/``preseeded_features``).
+    It is NOT the optimizer's actual starting guess for a grammar-
+    augmented preseed slot — ``_preseed_augmented`` in ``engine.py``
+    never reads it; that slot's fwhm starts from its ``fwhm_range``
+    midpoint like any other slot (a pre-existing gap, not something this
+    step changed). Only the separate residual-guided proposal pass
+    (``ProposalSpec``, a different mechanism) actually seeds an
+    optimizer parameter from a spec's ``fwhm_init``.
     """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)

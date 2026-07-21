@@ -76,7 +76,7 @@ Sequenced so each step is independently reviewable. Every step is analysis-affec
 
 1. **Decouple the detector's CHARACTERIZATION from the chemistry constant.** `FWHM_MAX_ORDINARY_EV` plays three distinct roles in the detection path, split by MEANING, not by "it's the same constant":
    - (i) the detector's own scale ceiling (`CWT_FWHM_MAX_EV`) — how well we CHARACTERIZE what's present;
-   - (ii) the seed `fwhm_init` clip inside `build_candidate_pool` — also characterization (the starting estimate handed to the optimizer);
+   - (ii) the seed `fwhm_init` clip inside `build_candidate_pool` — also characterization (~~the starting estimate handed to the optimizer~~ — corrected 2026-07-21, Codex review: this value reaches diagnostics only; `_preseed_augmented` never reads it, a pre-existing gap this step didn't introduce);
    - (iii) the fit's free-parameter bound on `preseed_curvature_*` slots — a different question, what a component may BECOME. Left for step 6 (degeneracy control) below.
 
    Step 1 is (i)+(ii) only: drive both from ROI width and grid step instead of the chemistry constant. ~~Smallest change with the most immediate effect on the observed N 1s failure — a broad shoulder becomes visible to detection~~ — that framing was based on a wrong diagnosis (corrected above): a ridge already detects the real spectrum's shoulder today, just with a pegged, uninformative width. **Step 1's deliverable is an honest width ESTIMATE, not a better fit.** On this specific spectrum, expect NO visible change to the final fit outcome — the containment gate (step 2, below) and the (iii) fit bound (step 6) both still block it from fitting any differently. Verify against the real UCl₄-BN N 1s spectrum: before = `fwhm_est` pegged at the fixed ceiling; after = an estimate that is a genuine interior local maximum of a wider, denser ladder, not a boundary artifact.
@@ -84,9 +84,53 @@ Sequenced so each step is independently reviewable. Every step is analysis-affec
 3. **Promote `coverage.py` to the universal constraint source.** Every element/level gets derived structure (doublet/singlet, components, ratio expectation, multiplet flag) applied to candidate construction — not just the five curated regions.
 4. **Extract cited physics from region modules into the constraint layer.** The VERIFIED entries only (splittings, ratios, lifetimes, asymmetry admissibility). Leave the UNVERIFIED windows/widths behind.
 5. **Generate the candidate ladder from k = 1…N** with physics constraints applied, replacing hand-enumerated model families. This is the core change and the largest. Existing model comparison selects k.
-6. **Treat ceiling-pegged widths as evidence for k+1** rather than a terminal state.
+6. **Treat ceiling-pegged widths as evidence for k+1** rather than a terminal state. **Obligation added 2026-07-21, created by step 1 (Skye's ruling — see below):** step 1 made `D0_detected`'s per-slot FWHM bound (`build_detection_candidate`'s `hi_w = DETECTION_SLOT_FWHM_HI_FRACTION × width`) scale directly off the detector's own, now-uncapped `fwhm_est` — correct, since `D0_detected` owns no chemistry claim and was already sizing its bound from what the math measured, not a flat cap. But the practical exposure this creates — a wide component's window absorbing a close neighbor's signal — is now proportionally larger (the bound itself is ~2.5× the characterized width, and that width can now run to whatever a sharp/strong feature's ceiling-chasing behavior produces, not capped at the old 2.4 eV). This is a genuine degeneracy risk, and it is STATISTICS' job to catch it (ceiling-pegged/over-wide as evidence for k+1 model comparison), not the labeling layer's (steps 7-8) — don't let this drift into "just describe it better," it needs the k+1 test this step already promises once k = 1…N generation (step 5) is in place.
 7. **Move curated windows/chemical states to a post-fit labeling layer**, suggestion-only, provenance-labeled.
 8. **Retire or rewrite the parity gates.** They currently pin behavior against expert fits produced under the old architecture — see the honest caveat below.
+
+## Step 1 review findings and Skye's dispositions (2026-07-21)
+
+Two independent Codex reviews of step 1's commit (854c40a) returned NO-GO/NO-GO;
+full verdicts in `docs/autofit/codex/find_peaks_step1_verdict_run{A,B}.md`. Two
+findings were substantive enough to need an explicit ruling rather than a quiet
+fix:
+
+- **`D0_detected`'s FWHM bound now inherits the detector's uncapped
+  characterization directly** (a 4th consumption path of the retired ceiling
+  that the (i)/(ii)/(iii) split above didn't name — `PoolFeature.fwhm_est` feeds
+  `build_detection_candidate`'s slot bound with no clipping at all). **Ruling:
+  acceptable, and arguably correct — not a defect.** `D0_detected` is the
+  math-first path in miniature: it owns no chemistry claim, sizes its bounds
+  from what the math measured, is absent-eligible, and is pruned by selection
+  (BIC*/F-test). If the detector now honestly measures a wider feature instead
+  of pegging at the old 2.4 eV ceiling, letting a detection component be
+  ALLOWED to fit that width is exactly what this architecture is for.
+  `D0_detected`'s degeneracy control is the spacing-aware window + width-
+  proportional scaling already in `build_detection_candidate` — not a flat 2.0
+  eV cap — and is self-consistent, data-scaled. Adding an ad-hoc guard here
+  would re-import a chemistry-style cap into the one path that was already
+  doing this right. The genuine consequence (larger neighbor-absorption
+  exposure) is recorded as the new step 6 obligation above, not patched here.
+- **The seed `fwhm_init`'s "starting estimate handed to the optimizer" claim
+  is inaccurate for the preseed-augmentation path.** `_preseed_augmented`
+  (unmodified by step 1) never reads a spec's `fwhm_init` — only the separate
+  residual-guided proposal pass does. This gap pre-dates step 1. **Ruling:
+  comment-only fix — do not wire `fwhm_init` into `_preseed_augmented`.** That
+  would touch the optimizer's starting guess for a different subsystem and is
+  out of this step's scope. The code comment now says what's actually true:
+  the widened seed value reaches diagnostics (`preseeded_features`), not the
+  grammar-augmented optimizer's start.
+
+A third finding (a hard step-background drives false-positive detections to
+100%) reproduced numerically but is **not a step-1 regression** — measured
+identically at 100% FP for ROI sizes ≥40 points under the OLD fixed ladder
+too; step 1 only extends it to one additional small-ROI boundary case
+(n=30). A hard step discontinuity in raw counts is a far more extreme
+pathology than the sloped/poorly-subtracted backgrounds this step was asked
+to stress (which measure unchanged — see the negative-control section
+above). Both reviewers independently flagged the negative-control test's
+coverage as too thin regardless (one ROI size, a loose tolerance) — that is
+fixed as part of step 1 since it was cheap and both saw it.
 
 ## Honest caveats — flagged, not buried
 

@@ -4465,3 +4465,67 @@ session's standing rule not to commit on top of an unexplained finding.
    what's truly usable for small/even-length ROIs. Conservative-direction
    gap (reports a number that's a touch too generous, not too small) —
    lower priority than 1-3 above.
+
+### Skye's dispositions (2026-07-21) and what changed
+
+**Finding 1 (D0_detected's fit bound inherits the uncapped
+characterization) — ruled ACCEPTABLE, arguably correct, no guard added.**
+Skye's reasoning: `D0_detected` is the math-first path in miniature — it
+owns no chemistry claim, sizes its bound from what the math measured, is
+absent-eligible, and is pruned by selection (BIC*/F-test). If the
+detector now honestly measures a wider feature instead of pegging at the
+old 2.4 eV, letting a detection component be ALLOWED to fit that width is
+exactly what this architecture is for. Its degeneracy control is already
+the spacing-aware window + width-proportional scaling in
+`build_detection_candidate`, not a flat cap — self-consistent and
+data-scaled. An ad-hoc guard here would re-import a chemistry-style cap
+into the one path already doing this right. Two honest obligations
+followed, both done:
+  a. `test_preseed_catches_isolated_missing_peak`'s docstring rewritten
+     with the WRITTEN RATIONALE for why the new winner is correct (not
+     just what changed) — same bar as the Tougaard laundered-test
+     incident: a behavior change gets a test update with reasoning, never
+     a silent loosen. See the test file for the full argument.
+  b. Architecture doc's step 6 ("treat ceiling-pegged widths as evidence
+     for k+1") now carries an explicit obligation this step created: the
+     "wide component absorbs a close neighbor" exposure is now
+     proportionally larger (bound ~2.5x the now-uncapped width, not the
+     old flat 2.0 eV), and closing that gap is step 6's job (statistics/
+     model comparison), not something to patch here or leave implicit.
+     (Note: Skye's message referenced this as "step 5" — the doc's
+     current numbering, after last turn's step-2 insertion, has this
+     content at step 6; mapped by content, flagging the mismatch rather
+     than guessing.)
+
+**Finding 2 (fwhm_init "starting estimate" claim) — comment-only fix,
+no wiring.** Corrected the claim in `autofit/candidates.py`'s
+`build_candidate_pool` docstring, `autofit/engine.py`'s call-site
+comment, and the architecture doc's step 1(i)/(ii) bullet (struck
+through with the correction) — all now say what's actually true: the
+widened value reaches diagnostics (`preseeded_features`), not the
+grammar-augmented optimizer's start. Did NOT wire `fwhm_init` into
+`_preseed_augmented` — that would touch a different subsystem's
+optimizer-start behavior and is out of this step's scope per Skye.
+
+**Downgraded step-background finding — not a blocker, test tightened
+anyway.** `test_negative_control_flat_slope_sigmoid_no_meaningful_fp_rate_increase`
+widened from 1 ROI size / 15% tolerance to 5 ROI sizes (30/60/100/181/300
+pts) / 8% tolerance, grounded in a fresh measurement (900 trials, 0.67%
+aggregate, up to 5% in the single noisiest cell) — >10x headroom above
+measured baseline, not a number picked to be lenient. Hard step
+backgrounds remain untested here (deliberately — a different, far more
+pathological input than the "sloped/poorly-subtracted" case this test
+targets; both old and new code hit 100% FP on it at n>=40 identically,
+tracked as a pre-existing detector limitation, not this step's fix).
+
+**Two minors.** `test_real_ucl4_bn_n1s_main_peak_still_found_and_still_sharp`
+now asserts the main peak's `fwhm_est` explicitly (measured 2.14 eV,
+genuine interior rung of this file's 0.3-5.30 eV derived range, not
+ceiling-pegged) instead of only checking `prom_z`. `cwt_scale_range_ev`'s
+docstring now documents the tiny/even-ROI overstatement Run B found
+(conservative direction, not fixed — the true usable ceiling is never
+larger than reported, only occasionally a touch smaller).
+
+Full suite re-run clean after all of the above (see commit); real-data
+integration gate (`RUN_AUTOFIT_GATE=1`) re-run too since production code
+comments changed. Codex x2 re-review launched on the revised commit.

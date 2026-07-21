@@ -2633,12 +2633,18 @@ def compare_models(
                 # Upper bound DERIVED from this ROI's own scale
                 # (find-peaks-math-first-architecture.md step 1(ii)) —
                 # PROPOSAL_FWHM_MAX/FWHM_MAX_ORDINARY_EV must not cap a
-                # curvature seed's INITIAL width estimate, the same
-                # characterization principle as the detector's own scale
-                # ceiling (step 1(i)). The FIT's own free-parameter bound
-                # for preseed_curvature_* slots (a different question —
-                # degeneracy control, step 6) is untouched and still uses
-                # PROPOSAL_FWHM_MIN/MAX; see _preseed_augmented.
+                # curvature seed's width CHARACTERIZATION, the same
+                # principle as the detector's own scale ceiling (step
+                # 1(i)). Corrected 2026-07-21 (Codex step-1 review, Run
+                # B): this widened value reaches diagnostics
+                # (preseed_specs / preseeded_features) only — it is NOT
+                # the optimizer's starting guess for a grammar-augmented
+                # preseed slot; _preseed_augmented never reads it (a
+                # pre-existing gap, not introduced here). The FIT's own
+                # free-parameter bound for preseed_curvature_* slots (a
+                # different question — degeneracy control, step 6) is
+                # untouched and still uses PROPOSAL_FWHM_MIN/MAX; see
+                # _preseed_augmented.
                 fwhm_clip=(PROPOSAL_FWHM_MIN, None),
                 local_window_ev=PROPOSAL_WINDOW_WIDTH,
             )

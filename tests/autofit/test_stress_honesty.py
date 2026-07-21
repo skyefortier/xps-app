@@ -142,20 +142,38 @@ def test_preseed_catches_isolated_missing_peak():
     is sane.  The peak must be seeded, fitted at the true position, and
     surfaced in analysis.preseeded_features.
 
-    Corrected 2026-07-21 (find-peaks-math-first-architecture.md step 1):
-    this case's two candidates, ``single_main+preseed`` and
+    Corrected 2026-07-21 (find-peaks-math-first-architecture.md step 1;
+    Codex review + Skye's ruling on the finding it surfaced) — WHY the
+    new winner is correct, not just what changed:
+
+    Step 1 decoupled the detector's own scale ceiling from the chemistry
+    constant, and — as a traced (not incidental) consequence —
+    ``D0_detected``'s per-slot FWHM bound (``build_detection_candidate``)
+    now scales directly off that uncapped characterization instead of a
+    number derived from the old flat 2.4 eV ceiling. ``D0_detected`` is
+    the math-first path in miniature: it owns no chemistry claim, sizes
+    its bound from what the detector actually measured, and is pruned by
+    selection (BIC*/F-test) if it doesn't earn its keep. Letting it win
+    a near-tie against a grammar-seeded candidate when both fit the data
+    equally well is exactly what this architecture is supposed to allow
+    — a detection-only decomposition competing on equal footing with a
+    curated one, not losing by construction. (Ruling: this is NOT
+    something to re-tighten with an ad-hoc guard — see the architecture
+    doc's "Step 1 review findings" section.)
+
+    Measured directly: the two candidates, ``single_main+preseed`` and
     ``D0_detected``, converge to essentially IDENTICAL fitted peaks (same
-    positions/widths/amplitudes to 3 decimals) — a razor-thin BIC tie
-    (measured ΔBIC ≈ 0.0001, ΔRSS ≈ 3e-7 relative) that step 1's width-
-    ceiling derivation can nudge either way as a side effect of lmfit's
-    bounded-parameter reparameterization, even though neither candidate's
-    fit ever approaches its width bound.  The engine's own
-    ``weighted_ic_disagreement`` diagnostic already flags this exact
-    scenario as noise-model-sensitive/conditional.  Asserting a SPECIFIC
-    winner name was fragile to that coin flip and isn't the actual claim
-    this test cares about — the claim is that the isolated peak gets
-    seeded, fitted at its true position, and surfaced, regardless of
-    which of the two (functionally tied) candidates wins."""
+    positions/widths/amplitudes to 3 decimals) — this is a near-exact
+    BIC tie (ΔBIC ≈ 0.0001, ΔRSS ≈ 3e-7 relative) precisely BECAUSE both
+    candidates already agree on the right answer; which one is reported
+    as "the winner" is not a meaningful distinction here, and the
+    engine's own ``weighted_ic_disagreement`` diagnostic already flags
+    this exact scenario as noise-model-sensitive/conditional. Asserting
+    one SPECIFIC winner name was fragile to a coin flip that carries no
+    information; the actual claim this test cares about is that the
+    isolated peak gets seeded, fitted at its true position, and
+    surfaced, regardless of which of the two (functionally tied, both
+    legitimate) candidates wins."""
     case = isolated_missing_peak_case(seed=71)
     res = _ic(case)
     assert res.diagnostics["winner"] in ("single_main+preseed", "D0_detected")
