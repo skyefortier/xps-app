@@ -1,0 +1,103 @@
+You are an adversarial reviewer performing a RECHECK for this repo (XPS
+peak-fitting web app). Two prior reviews of commit 854c40a ("feat(autofit):
+decouple CWT detector characterization from the chemistry constant") on
+branch feature-autofit-stage2 both returned NO-GO. Read those verdicts in
+full first: docs/autofit/codex/find_peaks_step1_verdict_runA.md and
+find_peaks_step1_verdict_runB.md. Then review commit 47bf77b ("fix(autofit):
+apply Skye's dispositions on step-1 Codex review findings") -- `git show
+47bf77b` for the diff, `git log 854c40a..47bf77b --stat` for the full
+change since the reviewed commit. Also read
+docs/autofit/find-peaks-math-first-architecture.md's new "## Step 1 review
+findings and Skye's dispositions" section for the design owner's reasoning
+on each finding.
+
+YOUR JOB: verify each prior finding's disposition was actually implemented
+as claimed, and that no new issue was introduced by the fix commit. Do NOT
+re-litigate whether Skye's rulings were the right CALL -- that decision is
+made (see the doc's reasoning, and the recheck below explains WHY each
+ruling was made, not just WHAT). Your job is whether the disposition was
+executed honestly and correctly.
+
+RECHECK EACH FINDING:
+
+(1) Run A finding 1 / D0_detected fit-bound leak -- RULED ACCEPTABLE, NO
+    CODE CHANGE (Skye: D0_detected owns no chemistry claim, sizes its bound
+    from what the math measured, is absent-eligible and selection-pruned;
+    letting it fit a wider feature when the detector honestly measures one
+    is what this architecture is for; an ad-hoc guard would re-import a
+    chemistry cap into the one path already doing this right). Verify:
+    (a) confirm no guard was actually added to build_detection_candidate or
+    PoolFeature.fwhm_est's derivation (a silent partial fix would contradict
+    the stated ruling); (b) read the NEW obligation added to migration step
+    6 in the architecture doc and judge whether it genuinely captures the
+    real risk (the ~2.5x larger neighbor-absorption exposure) in enough
+    detail that a future implementer of step 5/6 wouldn't have to
+    rediscover this from scratch; (c) read test_preseed_catches_isolated_missing_peak's
+    rewritten docstring in tests/autofit/test_stress_honesty.py -- does it
+    actually argue WHY the new winner (or either winner) is correct, using
+    Skye's own reasoning, or does it just restate the BIC-tie mechanics
+    without the substantive architectural justification? Compare it
+    critically against what a genuinely "laundered" test-loosening would
+    look like (a test update that only describes what changed, not why the
+    new behavior is right) -- Skye explicitly invoked this bar.
+
+(2) Run B finding 1 / fwhm_init "starting estimate" claim -- RULED
+    COMMENT-ONLY FIX, no wiring into _preseed_augmented. Verify: (a) grep
+    autofit/engine.py's _preseed_augmented to confirm it STILL does not
+    read spec.fwhm_init (the fix must not have quietly wired it in despite
+    the stated ruling); (b) read the corrected comments in
+    autofit/candidates.py's build_candidate_pool docstring, the engine.py
+    call site (~line 2633-2650), and the architecture doc's step 1(ii)
+    bullet -- do they now state the TRUE behavior (widened value reaches
+    diagnostics only) without overclaiming, and without introducing a NEW
+    inaccuracy in the process of correcting the old one?
+
+(3) Both runs' false-positive-guard-too-narrow finding -- widened from 1 ROI
+    size / 15% tolerance to 5 sizes (30/60/100/181/300) / 8% tolerance in
+    tests/autofit/test_cwt_width_ceiling.py. Verify: (a) actually run or
+    trace through the test's logic -- does the 8% aggregate tolerance
+    genuinely have the claimed >10x headroom over the stated ~0.67%
+    measured baseline, or is the arithmetic/claim inflated; (b) is 8% still
+    tight enough that a real regression (e.g. the false-positive rate
+    genuinely climbing to double digits on sloped/sigmoid backgrounds
+    across these ROI sizes) would actually fail this test, or is there
+    still slack that would let a real problem through; (c) confirm the
+    test still deliberately excludes hard step-background testing and that
+    this omission is now documented (not silent) with a stated reason,
+    given both runs flagged that pathology.
+
+(4) Two minor fixes: test_real_ucl4_bn_n1s_main_peak_still_found_and_still_sharp
+    now asserts fwhm_est explicitly (bounds: 0.3 < fwhm_est < 0.9*ceiling) --
+    verify this bound is a real, meaningful check (not a tautology like the
+    scale_fwhm_ev fix from before this recheck) and would actually fail if
+    this specific real feature started chasing its ROI's ceiling.
+    cwt_scale_range_ev's docstring now documents the tiny/even-ROI
+    overstatement -- confirm the documented direction (ceiling can only be
+    OVERstated, never understated) is actually correct given how
+    cwt_ridge_features filters scales (ceil() + margin exclusion) -- would
+    a caller ever see cwt_scale_range_ev report a ceiling SMALLER than what
+    the detector can actually resolve? If so the "conservative, safe
+    direction" framing in the docstring would itself be wrong.
+
+(5) REGRESSION CHECK: with all of the above, is there ANY new finding this
+    fix commit introduces that the prior two reviews didn't touch on? Full
+    suite (758 passed, 6 skipped) and the real-data integration gate
+    (RUN_AUTOFIT_GATE=1, 4/4 passed) are both claimed clean in
+    PROGRESS.md -- you cannot run pytest in this sandbox, so instead trace
+    the diff itself for anything outside the stated scope of "fix the 5
+    findings above," e.g. any behavior change beyond comments/docstrings/
+    test bounds/doc text.
+
+SCOPE CHECK: `git show --stat 47bf77b` should show autofit/candidates.py,
+autofit/engine.py, docs/autofit/PROGRESS.md,
+docs/autofit/find-peaks-math-first-architecture.md,
+tests/autofit/test_cwt_width_ceiling.py, tests/autofit/test_stress_honesty.py.
+Confirm the candidates.py/engine.py diffs are COMMENTS/DOCSTRINGS ONLY --
+zero functional/behavioral code change (no new guards, no new clipping, no
+new branches) — since both rulings were "fix the claim, not the code."
+
+Deliver: for each of the 5 items above, a clear verified/not-verified
+judgment with evidence (file/line), then a numbered findings list for
+anything NEW or NOT actually fixed as claimed (severity BLOCKER/MAJOR/
+MINOR, each with a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".

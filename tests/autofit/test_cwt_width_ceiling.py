@@ -11,8 +11,12 @@ same constant":
   (i)   the detector's own scale ceiling (``CWT_FWHM_MAX_EV``)
         -- how well we CHARACTERIZE what's present.
   (ii)  the seed ``fwhm_init`` clip inside ``build_candidate_pool``
-        -- also characterization (the starting estimate handed to the
-        optimizer).
+        -- also characterization. Corrected 2026-07-21 (Codex step-1
+        recheck, Run A): this value reaches diagnostics
+        (``preseeded_features``) only -- ``_preseed_augmented`` never
+        reads it, so it is NOT the optimizer's starting guess for a
+        grammar-augmented preseed slot (a pre-existing gap, not
+        introduced by this step).
   (iii) the fit's free-parameter bound on ``preseed_curvature_*`` slots
         -- a different question, what a component may BECOME (degeneracy
         control). Left untouched here; that is step 6 of the migration
@@ -230,12 +234,23 @@ def test_negative_control_flat_slope_sigmoid_no_meaningful_fp_rate_increase():
     aggregate, with individual cells up to 5% (n=300 flat) from ordinary
     multiple-comparisons noise across a denser scale ladder at larger n.
     8% aggregate gives >10x headroom above the measured baseline while
-    still catching an order-of-magnitude jump."""
+    still catching an order-of-magnitude jump.
+
+    Widened AGAIN 2026-07-21 (Codex step-1 RECHECK, Run A -- MAJOR,
+    confirmed real): an aggregate-only assertion across all 3 background
+    kinds can hide a regression concentrated in the two riskier kinds
+    (slope/sigmoid) -- e.g. both climbing to ~10-12% while flat stays
+    clean still averages under the 8% aggregate bound. Fixed by asserting
+    PER KIND as well as in aggregate. Measured baseline with this test's
+    own exact seeds (200 trials/kind: 5 sizes x 40 draws): flat 0.5%,
+    slope 0%, sigmoid 0%. 5% per kind gives >=10x headroom above the
+    worst observed kind while catching the exact double-digit-regression
+    scenario the recheck named."""
     n_draws = 40
     sizes = (30, 60, 100, 181, 300)
     kinds = ("flat", "slope", "sigmoid")
-    n_fp = 0
-    n_total = 0
+    per_kind_fp = {k: 0 for k in kinds}
+    per_kind_total = {k: 0 for k in kinds}
     for n in sizes:
         x = np.arange(0.0, n * 0.1, 0.1)[:n] + 380.0
         for seed in range(n_draws):
@@ -252,9 +267,11 @@ def test_negative_control_flat_slope_sigmoid_no_meaningful_fp_rate_increase():
                         -(np.arange(n) - n * 0.7) / (n * 0.08))))
                 y = rng.poisson(base).astype(float)
                 feats = cwt_ridge_features(x, y)
-                n_total += 1
+                per_kind_total[kind] += 1
                 if any(f.prom_z >= CWT_PROM_Z_MIN for f in feats):
-                    n_fp += 1
+                    per_kind_fp[kind] += 1
+    n_fp = sum(per_kind_fp.values())
+    n_total = sum(per_kind_total.values())
     fp_rate = n_fp / n_total
     assert fp_rate <= 0.08, (
         f"false-positive rate at the frozen gate jumped to {fp_rate:.2%} "
@@ -265,6 +282,15 @@ def test_negative_control_flat_slope_sigmoid_no_meaningful_fp_rate_increase():
         "not zero-tolerance, since some baseline false-positive rate is "
         "expected and already tolerated by design)"
     )
+    for kind in kinds:
+        rate = per_kind_fp[kind] / per_kind_total[kind]
+        assert rate <= 0.05, (
+            f"false-positive rate for '{kind}' backgrounds alone jumped to "
+            f"{rate:.2%} across {len(sizes)} ROI sizes -- an aggregate-only "
+            "check can hide a regression concentrated in one background "
+            "kind (measured per-kind baseline was 0-0.5%; this bound gives "
+            ">=10x headroom, not zero-tolerance)"
+        )
 
 
 # ── (ii) seed fwhm_init clip: characterization, not the fit bound ─────────

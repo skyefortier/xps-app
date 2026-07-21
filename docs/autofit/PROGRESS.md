@@ -4528,4 +4528,36 @@ larger than reported, only occasionally a touch smaller).
 
 Full suite re-run clean after all of the above (see commit); real-data
 integration gate (`RUN_AUTOFIT_GATE=1`) re-run too since production code
-comments changed. Codex x2 re-review launched on the revised commit.
+comments changed. Codex x2 re-review launched on the revised commit
+(47bf77b).
+
+### Recheck: Run A NO-GO, Run B GO — stricter verdict governs, both fixed
+
+Full verdicts archived at `docs/autofit/codex/find_peaks_step1_recheck_verdict_run{A,B}.md`;
+recheck prompt at `find_peaks_step1_recheck_prompt.txt`. Run B confirmed
+every disposition above (D0 leak genuinely unguarded and ruled acceptable
+as intended, `fwhm_init` claim genuinely comment-only, FP-guard widening's
+arithmetic checks out, both minors verified, zero production behavior
+change beyond documentation) and returned GO with no findings. Run A
+independently confirmed the same five items but caught two real issues
+Run B missed:
+
+1. **MAJOR, confirmed real.** The FP-guard's 8% tolerance is aggregate-only
+   across all 3 background kinds — a regression concentrated in the two
+   riskier kinds (slope/sigmoid climbing to ~10-12% while flat stays
+   clean) can still average under 8% and pass. Fixed: added per-kind
+   assertions (5% each) alongside the aggregate, grounded in a fresh
+   per-kind measurement using the test's own exact seeds (200
+   trials/kind: flat 0.5%, slope 0%, sigmoid 0%) — directly catches the
+   exact scenario Run A constructed.
+2. **MINOR, confirmed real.** `tests/autofit/test_cwt_width_ceiling.py`'s
+   own module docstring still had one un-corrected occurrence of "the
+   starting estimate handed to the optimizer" — missed in the prior
+   fix pass. Corrected; repo-wide grep confirms no other ACTIVE
+   (non-historical-record) occurrence remains — the doc's own
+   strikethrough-correction and this PROGRESS.md's narrative text are
+   intentionally left as historical record, not live claims.
+
+Per this session's established discipline (a stricter verdict governs
+when two reviews disagree), both fixed regardless of Run B's GO. Full
+suite + real-data gate re-run after this fix; see commit.
