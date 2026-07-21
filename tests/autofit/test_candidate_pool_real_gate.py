@@ -111,7 +111,11 @@ def _pool_for(path, grammar):
         coincidence_ev=eng.PROPOSAL_COINCIDENCE_BE,
         max_total_seeds=eng.SEED_MAX_TOTAL,
         smooth_points=eng.PRESEED_SMOOTH_POINTS,
-        fwhm_clip=(eng.PROPOSAL_FWHM_MIN, eng.PROPOSAL_FWHM_MAX),
+        # Mirrors engine.py's real call site (find-peaks-math-first-
+        # architecture.md step 1(ii)): the seed's fwhm_init upper bound is
+        # now DERIVED from this ROI's own scale, not fixed at
+        # PROPOSAL_FWHM_MAX/FWHM_MAX_ORDINARY_EV.
+        fwhm_clip=(eng.PROPOSAL_FWHM_MIN, None),
         local_window_ev=eng.PROPOSAL_WINDOW_WIDTH,
     )
     return pool, dom, (x, y)

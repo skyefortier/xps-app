@@ -31,6 +31,7 @@ from stress_cases import _pv  # noqa: E402  (shared synthetic lineshape)
 from autofit.candidates import (  # noqa: E402
     CWT_PROM_Z_MIN,
     cwt_ridge_features,
+    cwt_scale_range_ev,
 )
 
 ETA = 0.30
@@ -203,7 +204,20 @@ def test_input_shorter_than_largest_kernel_no_crash():
 
 
 def test_feature_fields_populated():
-    """Every reported feature carries the honesty-surface fields."""
+    """Every reported feature carries the honesty-surface fields.
+
+    find-peaks-math-first-architecture.md step 1(i): the scale ladder's
+    ceiling is now DERIVED per-ROI (kernel-fits-in-window), not the old
+    fixed 2.4 eV.  A sharp, very-high-SNR isolated peak like this one has
+    NO interior local maximum in its prom_z-vs-scale curve (measured: the
+    statistic increases monotonically out to the ladder's own top rung) —
+    this was ALSO true under the old fixed ceiling, just capped at a
+    smaller number.  So the honest invariant for this signal class isn't
+    a specific eV value, it's "never exceeds this ROI's own derived
+    ceiling" — bounding against a hardcoded constant (the old `< 3.0`)
+    was really pinned to the old ceiling's coincidental value, not an
+    independent claim about this peak.
+    """
     x = np.arange(190.0, 205.0, 0.05)
     sig = _pv(x, 40000.0, 197.0, 1.2, ETA)
     y = _flat_plus(x, sig, 300.0, seed=3)
@@ -213,8 +227,9 @@ def test_feature_fields_populated():
     assert abs(ft.center_be - 197.0) < 0.2
     assert ft.prom_z >= CWT_PROM_Z_MIN
     assert ft.ridge_length >= 2
-    assert 0.2 < ft.scale_fwhm_ev < 3.0
-    assert 0.2 < ft.fwhm_est_ev < 3.0
+    ceiling = cwt_scale_range_ev(x)[1]
+    assert 0.2 < ft.scale_fwhm_ev <= ceiling
+    assert 0.2 < ft.fwhm_est_ev <= ceiling
 
 
 def test_single_point_spikes_yield_no_features():

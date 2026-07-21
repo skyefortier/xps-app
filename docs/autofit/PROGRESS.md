@@ -4182,3 +4182,200 @@ suite and the `RUN_AUTOFIT_GATE=1` real-data gate suite both green
 apart from the 2 pre-existing flakes already independently confirmed
 unrelated earlier in this session (`test_u4f_n1s_cofit`,
 `test_candidate_pool_real_gate.py`'s ds8 timing-budget case).
+
+---
+
+## Find Peaks math-first architecture — Step 1: detector characterization decoupled from the chemistry constant (2026-07-21)
+
+New design direction (Skye, 2026-07-20): `docs/autofit/find-peaks-math-
+first-architecture.md`. Supersedes the curated-grammar-driven design for
+peak *detection* — the math finds peaks using only physics derivable
+from quantum numbers or citable tables; curated grammars demote from
+gates to a post-fit labeling suggestion. Moved here from an untracked
+file sitting in production (`/Users/skyefortier/xps-app`) — nothing
+should live uncommitted there.
+
+**The doc's own diagnosis was wrong, and got corrected before any code
+changed.** The doc originally claimed the CWT ridge detector's fixed
+scale ceiling (`CWT_FWHM_MAX_EV = 2.4`, "just above
+`FWHM_MAX_ORDINARY_EV` = 2.0") made a real broad N 1s shoulder
+*invisible* to detection on the actual reported bug spectrum (a
+charging UCl₄-BN sample). Verifying against the real file
+(`docs/autofit/test_data/4 UCl4-BN 4%, Cu, 1eV, 180 mA, 200 um,
+10spot.DATA/N1s Scan_2.VGD`, raw/uncorrected) *before* touching any
+constant: a ridge **was** already detected at the shoulder
+(`center_be=400.02, fwhm_est=2.40, prom_z=34.02, ridge_length=8/8` —
+high significance, full ridge length). Its width estimate was pegged
+*exactly* at the old fixed ceiling. The detector was not blind — it was
+WIDTH-BLIND. The doc is corrected in place with these measured numbers,
+and its step 1 description ("smallest change with the most immediate
+effect on the observed failure") is corrected too — that framing assumed
+a failure mode without measuring it.
+
+**Scope split, by MEANING not by "it's the same constant"** (Skye):
+`FWHM_MAX_ORDINARY_EV` played three distinct roles in the detection
+path: (i) the detector's own scale ceiling — characterization; (ii) the
+curvature-seed's `fwhm_init` clip in `build_candidate_pool` — also
+characterization (the optimizer's starting estimate); (iii) the fit's
+free-parameter bound on `preseed_curvature_*` slots — a different
+question, what a component may *become* (degeneracy control). This unit
+is (i)+(ii) only. (iii) is untouched, deliberately deferred to migration
+step 6 ("ceiling-pegged widths are evidence for k+1, not a terminal
+state").
+
+**Implementation** (`autofit/candidates.py`): `CWT_FWHM_MAX_EV` and
+`CWT_N_SCALES` retired as fixed constants. New `cwt_scale_range_ev(x)`
+derives `(lo, hi)` from the ROI's own point count and grid step: `lo`
+stays fixed at `CWT_FWHM_MIN_EV` (0.3 eV, instrument-resolution physics,
+unchanged per Skye — nothing narrower is real XPS signal); `hi` is
+derived via the SAME kernel-fits-in-window requirement
+(`radius = ceil(4·sigma)`, `2·radius+1 <= n`) the per-scale filter
+already enforced exactly elsewhere in this module — no new, unrelated
+coefficient. Ladder density (`_cwt_n_scales`) preserves the
+steps-per-octave this module's own synthetic calibration battery
+validated `CWT_PROM_Z_MIN = 7.0` against, rather than staying fixed at
+8 regardless of range (a fixed count would coarsen resolution as the
+range widens). `build_candidate_pool`'s `fwhm_clip` upper bound now
+defaults to `None` (derive from `cwt_scale_range_ev`); an explicit
+numeric value (as all existing synthetic tests already pass) is still
+honored exactly — this is additive for the one production call site
+(`autofit/engine.py`) that mattered, not a behavior change for anything
+that already pinned a fixed clip.
+
+**Real-spectrum red/green, corrected assumption included:** the
+red-green test originally asserted the AFTER width estimate must be
+*larger* than the old 2.40 eV peg. Measured result: 2.14 eV — *smaller*.
+Investigated before accepting or rejecting: a direct per-scale scan of
+this feature's prominence-z profile shows it genuinely PEAKS around
+2.1–2.3 eV and falls off on both sides — the old 2.40 was coincidentally
+close (the ladder's last rung, forced by truncation, happened to sit
+near the true optimum), not a gross understatement. The correct,
+verified invariant isn't "the estimate goes up" — it's that the new
+estimate is a genuine INTERIOR local maximum of the wider, denser ladder
+(strictly between its own floor and ceiling), never pinned to either
+boundary the way the old truncated value was. Test corrected to check
+that, not the original wrong-direction assumption.
+
+**Negative control, measured before implementing, not asserted:**
+Skye's explicit risk to attack — does a wider ceiling let the detector
+latch onto broad background curvature? Compared old-fixed vs new-derived
+ladders on H0-style flat/slope/sigmoid synthetic negatives at 4 ROI
+shapes (2 calibration-battery shapes, 2 real-production shapes including
+this exact file's own size): false-positive rate at the frozen
+`CWT_PROM_Z_MIN = 7.0` gate was statistically indistinguishable in every
+case (e.g. 1.67% vs 1.67% at the real N 1s file's own ROI size, 30
+draws). Mechanistically expected: the Ricker kernel is exactly zero-mean
+so it cancels constant/linear backgrounds identically at any scale, and
+the prominence-z statistic's own Poisson-variance normalization scales
+with kernel width — so the false-positive profile is close to scale-
+invariant by construction. Pinned as a statistical (not single-draw)
+regression guard in `tests/autofit/test_cwt_width_ceiling.py`.
+
+**Committed calibration artifact NOT regenerated.** `docs/autofit/
+inventory/cwt_calibration.jsonl` (the frozen H0/sensitivity battery
+`CWT_PROM_Z_MIN = 7.0` was set against) still reflects the OLD fixed
+ladder. Given the negative-control measurement above, the operating
+point appears to remain valid — but regenerating a committed, frozen
+evidence artifact is itself a reviewed, intentional decision, not
+something to fold silently into a characterization fix. Flagged rather
+than done; Skye's call whether/when to regenerate it.
+
+**Set honestly, per Skye's explicit instruction: this unit changes NO
+fit outcome.** On the actual reported UCl₄-BN N 1s spectrum, Find Peaks'
+final decomposition is expected to be BYTE-IDENTICAL before and after
+this commit. Two things still block the shoulder from reaching the fit
+differently: the containment gate (new migration step 2, see below,
+sequenced next — not yet implemented) currently excludes this exact
+ridge from independent seeding because it falls inside `N1S_WINDOW`'s
+tolerance; and the (iii) fit bound on `preseed_curvature_*` slots
+(migration step 6, also not yet implemented) still caps any curvature-
+seeded component's actual fit width at 2.0 eV regardless of what the
+detector estimated. Step 1's deliverable is exactly what it claims to
+be: an honest width ESTIMATE surfaced in the pool payload, not a
+different fit — the fit-visible consequence is downstream, in steps not
+yet built.
+
+**New migration step 2 added to the doc, sequenced before promoting
+coverage.py, per Skye:** the containment-gate finding "outranks the
+rest" — a curated, UNVERIFIED window currently deciding whether the
+math's own curvature detection may even be PROPOSED (not just whether
+it's admitted into a fit) is the same class of problem this whole
+architecture exists to remove, and it is mechanically separate from the
+width ceiling. `detection_model_features()` (the D0 detection-family
+candidate builder) already treats `in_grammar_window` as
+non-disqualifying — the likely fix is extending that existing stance to
+the grammar-augmentation seeding path, not new logic. Not implemented in
+this unit.
+
+Tests: `tests/autofit/test_cwt_width_ceiling.py` (9 tests) — floor fixed
+regardless of ROI, ceiling scales with ROI width, ceiling traces
+exactly to the existing kernel-truncation constant (no new magic
+number), graceful degradation on tiny windows, the real-spectrum
+red/green (corrected per above), a non-regression check that the
+dominant sharp main peak is still found and still reads as highly
+significant (`prom_z`) — NOT that its width characterization is
+unaffected; see the two findings below, where it demonstrably is not
+for this class of signal, the statistical negative control, and both
+(ii) cases (derived-by-default not clipped to 2.0; explicit override
+still honored exactly). Updated: `tests/autofit/test_candidate_pool_real_gate.py`'s
+`_pool_for` helper (mirrors the production `engine.py` call site exactly,
+so the held-out real-data gate actually exercises this fix) and
+`scripts/calibrate_cwt_detector.py`'s summary print (reports the
+now-derived per-ROI range instead of a stale fixed figure).
+
+**Two pre-existing tests broke on the full-suite run, both investigated
+to root cause before anything was touched (per standing discipline: no
+fix without root cause, no commit on an unexplained regression).
+Neither is a fit-quality regression — both are test assertions that
+were, in hindsight, riding on properties of the OLD fixed ceiling that
+were never the actual invariant being tested.**
+
+1. `tests/autofit/test_cwt_detector.py::test_feature_fields_populated` —
+   hardcoded `0.2 < ft.scale_fwhm_ev < 3.0` failed at 3.265. Root cause:
+   for a very sharp, very-high-SNR isolated peak (height 40000, fwhm
+   1.2), the prominence-z statistic is MONOTONICALLY INCREASING across
+   the entire scanned scale range — no interior local maximum — so
+   "best-z scale" (and therefore `fwhm_est`) always chases whichever
+   ceiling is in force. This was equally true under the OLD fixed
+   ceiling; it just capped the chase at a smaller number (2.4-ish
+   instead of the new ROI's derived 4.4). The `< 3.0` bound was pinned
+   to that old ceiling's coincidental value, not an independent claim.
+   Fixed by bounding against the ROI's own derived ceiling
+   (`cwt_scale_range_ev(x)[1]`) instead of a hardcoded number, with the
+   monotonic-chase behavior documented in the test as a known property
+   of this signal class (sharp/strong peaks), not something step 1
+   introduced.
+
+2. `tests/autofit/test_stress_honesty.py::test_preseed_catches_isolated_missing_peak` —
+   winner flipped from `single_main+preseed` to `D0_detected`. Measured
+   directly (old code vs new code, same seed, side by side): both
+   candidates converge to essentially IDENTICAL fitted peaks (position/
+   width/amplitude agree to 3 decimals for both components in both
+   models). Under the OLD ceiling, `single_main+preseed`'s RSS was
+   364306.619 vs `D0_detected`'s 364306.681 — a 0.062-unit difference
+   on a sum of ~364306 (relative ~1.7e-7) — and it won by that sliver.
+   Under the NEW derived ceiling, `D0_detected`'s main-peak slot fwhm
+   upper bound widened from 6.0 to 8.16 eV (2.5× the now-larger
+   `fwhm_est` for that same sharp/strong-peak effect as finding 1
+   above) — a bound the fit's actual optimum (fwhm≈1.2) never
+   approaches either way — yet this bound-only change was enough to
+   perturb lmfit's bounded-parameter reparameterization and move
+   `D0_detected`'s RSS to 364306.564, flipping which side of this
+   razor-thin tie wins (ΔBIC ≈ 0.0001). This is not a new failure mode:
+   the engine's own `weighted_ic_disagreement` diagnostic — which did
+   NOT fire under the old code — now correctly flags this exact case as
+   noise-model-sensitive/conditional, i.e. the new code is MORE honest
+   about the tie, not less correct. The test's hard assertion on a
+   specific winner NAME was fragile to a coin flip that was always this
+   close; the actual claim (isolated peak seeded, fitted at the true
+   position, surfaced in `analysis.preseeded_features`, region
+   `unassigned`, human-review message) holds identically under either
+   winner. Fixed by asserting the substance (peak position, region,
+   message content, `preseeded_features` payload) instead of a specific
+   candidate name, while still constraining the winner to the two
+   legitimate (functionally-tied) candidates so an actual wrong-winner
+   regression would still be caught.
+
+Both fixes are test-only; no production logic changed beyond what was
+already scoped to (i)+(ii) above. Full suite re-run clean after both
+fixes (see commit).

@@ -37,10 +37,10 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from autofit.candidates import (  # noqa: E402
-    CWT_FWHM_MAX_EV,
     CWT_FWHM_MIN_EV,
     CWT_PROM_Z_MIN,
     cwt_ridge_features,
+    cwt_scale_range_ev,
 )
 from fitting import _SHAPE_FUNCS  # noqa: E402
 
@@ -180,8 +180,17 @@ def summarize() -> None:
     for z in (6.5, 7.0, 7.5, 8.0):
         print(f"  z_min={z}: per-spectrum FP rate "
               f"{100 * float(np.mean(h0 >= z)):.2f}%")
+    # find-peaks-math-first-architecture.md step 1(i): the ladder's own
+    # ceiling is now DERIVED per-ROI (grid step + point count), not a
+    # single fixed number -- print the two H0 shapes' own derived ranges
+    # rather than a stale fixed figure.
+    range_a = cwt_scale_range_ev(np.arange(0.0, 300 * 0.05, 0.05)[:300])
+    range_b = cwt_scale_range_ev(np.arange(0.0, 191 * 0.1, 0.1)[:191])
     print(f"  FROZEN operating point: CWT_PROM_Z_MIN = {CWT_PROM_Z_MIN} "
-          f"(scale ladder FWHM {CWT_FWHM_MIN_EV}-{CWT_FWHM_MAX_EV} eV)")
+          f"(scale ladder floor {CWT_FWHM_MIN_EV} eV; ceiling now DERIVED "
+          f"per-ROI, not fixed -- this battery's own two shapes: "
+          f"{range_a[1]:.2f} eV [step 0.05, 300pt], "
+          f"{range_b[1]:.2f} eV [step 0.1, 191pt])")
 
     print("\nShoulder map (detected/draws at frozen gate; * = NO local max):")
     sh = [r for r in rows if r["section"] == "shoulder"]

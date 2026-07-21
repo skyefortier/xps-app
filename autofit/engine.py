@@ -2630,7 +2630,16 @@ def compare_models(
                 coincidence_ev=PROPOSAL_COINCIDENCE_BE,
                 max_total_seeds=SEED_MAX_TOTAL,
                 smooth_points=PRESEED_SMOOTH_POINTS,
-                fwhm_clip=(PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX),
+                # Upper bound DERIVED from this ROI's own scale
+                # (find-peaks-math-first-architecture.md step 1(ii)) —
+                # PROPOSAL_FWHM_MAX/FWHM_MAX_ORDINARY_EV must not cap a
+                # curvature seed's INITIAL width estimate, the same
+                # characterization principle as the detector's own scale
+                # ceiling (step 1(i)). The FIT's own free-parameter bound
+                # for preseed_curvature_* slots (a different question —
+                # degeneracy control, step 6) is untouched and still uses
+                # PROPOSAL_FWHM_MIN/MAX; see _preseed_augmented.
+                fwhm_clip=(PROPOSAL_FWHM_MIN, None),
                 local_window_ev=PROPOSAL_WINDOW_WIDTH,
             )
         except Exception as exc:        # noqa: BLE001 — surfaced, not silent

@@ -68,18 +68,47 @@ from scipy.signal import find_peaks, medfilt, peak_prominences
 # target regime.  UNVERIFIED tunable.
 CWT_PROM_Z_MIN = 7.0
 
-# Scale ladder, eV-anchored (grid-step independent): FWHM 0.3 eV (below any
-# practical XPS instrumental width — nothing narrower is physical signal) to
-# 2.4 eV (just above FWHM_MAX_ORDINARY_EV = 2.0, the engine's ordinary-
-# component physical ceiling; broader structures are the dominant/local-max
-# channel's regime).  8 geometric steps.  UNVERIFIED tunables.
+# Scale ladder floor, eV-anchored (grid-step independent): FWHM 0.3 eV,
+# below any practical XPS instrumental width — nothing narrower is
+# physical signal.  Instrument-resolution physics, not a chemistry
+# assumption; fixed regardless of ROI (find-peaks-math-first-architecture
+# .md step 1).  UNVERIFIED tunable (the specific number, not the principle
+# that a floor belongs here).
 CWT_FWHM_MIN_EV = 0.3
-CWT_FWHM_MAX_EV = 2.4
-CWT_N_SCALES = 8
 
 # Ricker sigma floor in grid points — below ~2 points the kernel is
 # undersampled and the row is pure grid noise (structural, not tuned).
 CWT_SIGMA_MIN_PTS = 2.0
+
+# Ricker kernel truncation radius, in units of sigma: the kernel is built
+# out to +/- this many sigmas (see ricker_kernel's radius_pts / the
+# "radius = ceil(TRUNC * s)" convention below) and a scale is usable only
+# if that support still fits inside the window.  Purely numerical (kernel
+# support truncation), not a chemistry claim.
+CWT_KERNEL_TRUNCATION_SIGMAS = 4.0
+
+# ORIGINAL fixed ceiling this module's synthetic calibration battery
+# (scripts/calibrate_cwt_detector.py) validated CWT_PROM_Z_MIN=7.0
+# against: FWHM 0.3-2.4 eV, 8 geometric steps.  2.4 eV existed only
+# because it was "just above FWHM_MAX_ORDINARY_EV = 2.0" — a chemistry
+# constant leaking into the signal-processing layer (find-peaks-math-
+# first-architecture.md step 1).  Retired as the detector's own ceiling;
+# kept ONLY as the anchor for the ladder DENSITY derivation below, so
+# widening the ceiling doesn't silently coarsen resolution across the
+# (now larger) range.  Do not read this as "the ceiling is still 2.4" —
+# see cwt_scale_range_ev / _cwt_max_fwhm_ev for the real, ROI-derived
+# value.
+_CALIBRATED_FWHM_MAX_EV = 2.4
+_CALIBRATED_N_SCALES = 8
+_CWT_STEPS_PER_OCTAVE = _CALIBRATED_N_SCALES / np.log2(
+    _CALIBRATED_FWHM_MAX_EV / CWT_FWHM_MIN_EV)
+
+# Bounds on the DERIVED scale count: a floor so a very narrow ROI still
+# gets enough rungs to link a ridge (CWT_MIN_RIDGE_LENGTH=2 needs >=2);
+# a ceiling as a compute-cost guard (each extra scale costs one more
+# O(n) convolution pass) — not a resolution claim.
+CWT_N_SCALES_MIN = 4
+CWT_N_SCALES_MAX = 24
 
 # Ridge linking: a ridge must persist across >= 2 adjacent scales (single-
 # row maxima are numeric flukes); one missing scale row is tolerated
@@ -118,12 +147,71 @@ def ricker_kernel(sigma_pts: float, radius_pts: int) -> np.ndarray:
     return k - k.mean()
 
 
-def _cwt_scales_pts(step_ev: float) -> list[float]:
+def _cwt_max_sigma_pts(n: int) -> float:
+    """Largest Ricker sigma (grid points) whose kernel still fits inside an
+    n-point window: radius = ceil(TRUNC*sigma) must satisfy
+    2*radius+1 <= n (the SAME fit-in-window requirement
+    ``cwt_ridge_features``'s own per-scale filter already enforces
+    exactly, elsewhere in this module — used here to SIZE the ladder's
+    own top rung from the window's point count, rather than silently
+    discarding an oversized fixed choice). Purely structural: a feature
+    whose kernel cannot fit inside the analysis window cannot be
+    measured by this detector, independent of chemistry."""
+    return max((n - 1) / (2.0 * CWT_KERNEL_TRUNCATION_SIGMAS), CWT_SIGMA_MIN_PTS)
+
+
+def _cwt_max_fwhm_ev(n: int, step_ev: float) -> float:
+    """ROI/grid-derived ceiling on measurable FWHM (find-peaks-math-first-
+    architecture.md step 1(i)): replaces the old fixed CWT_FWHM_MAX_EV =
+    2.4 eV, which existed only because it was "just above
+    FWHM_MAX_ORDINARY_EV = 2.0" — a chemistry-derived number leaking into
+    the signal-processing layer. Derived instead from the window's own
+    point count and grid step (i.e. ROI width), via the SAME kernel-
+    fits-in-window bound the per-scale filter already enforces exactly —
+    no new, unrelated coefficient."""
+    return _cwt_max_sigma_pts(n) * _FWHM_PER_SIGMA * step_ev
+
+
+def _cwt_n_scales(lo_pts: float, hi_pts: float) -> int:
+    """Ladder density, preserving the STEPS-PER-OCTAVE this module's own
+    synthetic calibration battery (scripts/calibrate_cwt_detector.py)
+    validated CWT_PROM_Z_MIN=7.0 against — not a fresh guess, and not a
+    fixed 8 regardless of range: widening the ceiling without also
+    widening the scale count would coarsen resolution across the (now
+    larger) range."""
+    if hi_pts <= lo_pts:
+        return 1
+    octaves = np.log2(hi_pts / lo_pts)
+    n = int(round(_CWT_STEPS_PER_OCTAVE * octaves))
+    return int(np.clip(n, CWT_N_SCALES_MIN, CWT_N_SCALES_MAX))
+
+
+def cwt_scale_range_ev(x: np.ndarray) -> tuple[float, float]:
+    """Public: (lo, hi) FWHM eV range this ROI's grid supports for CWT
+    ridge detection — lo is the fixed instrument-resolution floor
+    (CWT_FWHM_MIN_EV); hi is DERIVED from this ROI's own point count and
+    grid step (find-peaks-math-first-architecture.md step 1(i)), not a
+    fixed chemistry-tied number. Used both to build the ridge ladder and
+    to report/clip characterization estimates consistently elsewhere
+    (e.g. CurvatureSeed.fwhm_init in build_candidate_pool, step 1(ii))."""
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    if n < 2:
+        return (CWT_FWHM_MIN_EV, CWT_FWHM_MIN_EV)
+    step = float(np.median(np.abs(np.diff(np.sort(x)))))
+    if step <= 0.0:
+        return (CWT_FWHM_MIN_EV, CWT_FWHM_MIN_EV)
+    hi = _cwt_max_fwhm_ev(n, step)
+    return (CWT_FWHM_MIN_EV, max(hi, CWT_FWHM_MIN_EV))
+
+
+def _cwt_scales_pts(step_ev: float, n: int) -> list[float]:
     lo = max(CWT_FWHM_MIN_EV / _FWHM_PER_SIGMA / step_ev, CWT_SIGMA_MIN_PTS)
-    hi = CWT_FWHM_MAX_EV / _FWHM_PER_SIGMA / step_ev
+    hi = _cwt_max_sigma_pts(n)
     if hi <= lo:
         return [lo]
-    return list(np.geomspace(lo, hi, CWT_N_SCALES))
+    n_scales = _cwt_n_scales(lo, hi)
+    return list(np.geomspace(lo, hi, n_scales))
 
 
 def cwt_ridge_features(
@@ -159,8 +247,8 @@ def cwt_ridge_features(
     # a kernel longer than the signal makes np.convolve('same') return the
     # KERNEL's length (shape crash) and carries no information anyway —
     # oversized scales are skipped for short windows
-    scales = [s for s in _cwt_scales_pts(step)
-              if 2 * int(np.ceil(4.0 * s)) + 1 <= n]
+    scales = [s for s in _cwt_scales_pts(step, n)
+              if 2 * int(np.ceil(CWT_KERNEL_TRUNCATION_SIGMAS * s)) + 1 <= n]
     if len(scales) < CWT_MIN_RIDGE_LENGTH:
         return []
     nrow = len(scales)
@@ -179,7 +267,7 @@ def cwt_ridge_features(
     var = np.zeros((nrow, n))
     margins: list[int] = []
     for si, s in enumerate(scales):
-        radius = int(np.ceil(4.0 * s))
+        radius = int(np.ceil(CWT_KERNEL_TRUNCATION_SIGMAS * s))
         w = ricker_kernel(s, radius)
         coef[si] = np.convolve(y_det, w, mode="same")
         var[si] = np.convolve(np.maximum(y, 1.0), w * w, mode="same")
@@ -555,7 +643,7 @@ def build_candidate_pool(
     coincidence_ev: float = 0.5,
     max_total_seeds: int = 2,
     smooth_points: int = 5,
-    fwhm_clip: tuple[float, float] = (0.5, 2.0),
+    fwhm_clip: tuple[float, Optional[float]] = (0.5, None),
     local_window_ev: float = 0.5,
 ) -> CandidatePool:
     """
@@ -577,10 +665,26 @@ def build_candidate_pool(
     slot for the same intensity — is deliberately left to SELECTION
     (absent-slot pruning / persistence / BIC*), which is the layer with
     the evidence to arbitrate it.
+
+    ``fwhm_clip`` bounds the curvature-channel seed's ``fwhm_init`` (also
+    used as the local-max channel's half-height-fwhm fallback floor via
+    ``fwhm_clip[0]``).  find-peaks-math-first-architecture.md step 1(ii):
+    the UPPER bound, when left at its default ``None``, is DERIVED from
+    this ROI's own ``cwt_scale_range_ev(x)`` rather than fixed at the old
+    chemistry-tied ``FWHM_MAX_ORDINARY_EV``/``PROPOSAL_FWHM_MAX`` (2.0 eV)
+    — a curvature seed's INITIAL width estimate is characterization, the
+    same principle as the detector's own scale ceiling, one layer
+    downstream.  Passing an explicit numeric upper bound (as existing
+    synthetic tests do) still clips to exactly that value — this default
+    change only affects callers that opt into deriving it.
     """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     background = np.asarray(background, dtype=float)
+    fwhm_clip_lo = fwhm_clip[0]
+    fwhm_clip_hi = fwhm_clip[1]
+    if fwhm_clip_hi is None:
+        fwhm_clip_hi = cwt_scale_range_ev(x)[1]
     tunables = {
         "prom_z_min": prom_z_min,
         "min_fraction_of_max": min_fraction_of_max,
@@ -588,7 +692,7 @@ def build_candidate_pool(
         "coincidence_ev": coincidence_ev,
         "max_total_seeds": max_total_seeds,
         "pool_local_max_min_snr": POOL_LOCAL_MAX_MIN_SNR,
-        "cwt_fwhm_scale_range_ev": [CWT_FWHM_MIN_EV, CWT_FWHM_MAX_EV],
+        "cwt_fwhm_scale_range_ev": list(cwt_scale_range_ev(x)),
         "note": "UNVERIFIED engine tunables (synthetic-calibrated; "
                 "scripts/calibrate_cwt_detector.py)",
     }
@@ -638,7 +742,7 @@ def build_candidate_pool(
             "center": c, "prov": {"local_max"}, "amp": amp,
             "frac": amp / global_max if global_max > 0 else 0.0,
             "snr": snr,
-            "fwhm": _half_height_fwhm(x, ys, i, fwhm_clip[0]),
+            "fwhm": _half_height_fwhm(x, ys, i, fwhm_clip_lo),
             "prom_z": None, "ridge_len": None,
         })
 
@@ -677,7 +781,7 @@ def build_candidate_pool(
                     "amp": float(seed.get("amplitude_net", 0.0)),
                     "frac": float(seed.get("fraction_of_max", 0.0)),
                     "snr": float(seed.get("local_snr", 0.0)),
-                    "fwhm": float(seed.get("fwhm_init", fwhm_clip[0])),
+                    "fwhm": float(seed.get("fwhm_init", fwhm_clip_lo)),
                     "prom_z": None, "ridge_len": None}
             entries.append(host)
         host["seeded_role"] = str(seed["role"])
@@ -721,7 +825,7 @@ def build_candidate_pool(
         seeds_out.append(CurvatureSeed(
             role=role,
             center_be=float(e["center"]),
-            fwhm_init=float(np.clip(e["fwhm"], fwhm_clip[0], fwhm_clip[1])),
+            fwhm_init=float(np.clip(e["fwhm"], fwhm_clip_lo, fwhm_clip_hi)),
             amplitude_net=float(e["amp"]),
             fraction_of_max=float(e["frac"]),
             local_snr=float(e["snr"]),

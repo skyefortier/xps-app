@@ -24,7 +24,9 @@ All three are marked UNVERIFIED in the app's own records. All three cap what can
 
 **2. Component width caps.** `FWHM_MAX_ORDINARY_EV = 2.0`, and per-region ranges like `N1S_FWHM_RANGE = (0.7, 2.5)` sourced to "a single labeled exemplar."
 
-**3. The detector itself is capped.** `CWT_FWHM_MAX_EV = 2.4`, with the comment "just above FWHM_MAX_ORDINARY_EV = 2.0; broader structures are the dominant/local-max channel's regime." **The ridge detector cannot see a feature broader than 2.4 eV.** This is the layer neither of us had named, and it likely explains the observed N 1s case directly: a broad shoulder wider than 2.4 eV is invisible to the primary detector, so nothing proposes a peak there, and the leftover gets absorbed by a generic filler pegged at its 2.0 eV ceiling.
+**3. The detector itself is capped.** `CWT_FWHM_MAX_EV = 2.4`, with the comment "just above FWHM_MAX_ORDINARY_EV = 2.0; broader structures are the dominant/local-max channel's regime."
+
+**Corrected 2026-07-21 (Skye's own empirical check, run before implementing step 1 — the original claim below was wrong):** the detector is not blind to a broad feature — it is WIDTH-BLIND. Running the unmodified detector on the real UCl₄-BN spectrum (`N1s Scan_2.VGD`, raw/uncorrected — the file behind this bug report) at its ~400.6–400.9 eV shoulder found a ridge: `center_be=400.02, fwhm_est=2.40, prom_z=34.02, ridge_length=8/8`. High significance, full ridge length — clearly detected. But `fwhm_est` was pegged exactly at the ceiling: the detector correctly flagged that something broad was there and could not measure how broad. ~~a broad shoulder wider than 2.4 eV is invisible to the primary detector, so nothing proposes a peak there~~ — that framing assumed the failure mode without measuring it; the diagnosis now rests on the numbers above, not on reading the constants.
 
 A chemistry-derived number (2.0 eV "ordinary" width) propagated into the signal-processing layer. That is the coupling to break.
 
@@ -72,13 +74,19 @@ They are **not deleted** — they are demoted from gates to labels.
 
 Sequenced so each step is independently reviewable. Every step is analysis-affecting, so Codex ×2 per unit and parity gates re-run each time.
 
-1. **Decouple the detector from the chemistry constant.** Drive `CWT_FWHM_MAX_EV` from ROI/grid scale rather than `FWHM_MAX_ORDINARY_EV`. Smallest change with the most immediate effect on the observed N 1s failure — a broad shoulder becomes visible to detection. Verify against the real UCl₄-BN N 1s spectrum.
-2. **Promote `coverage.py` to the universal constraint source.** Every element/level gets derived structure (doublet/singlet, components, ratio expectation, multiplet flag) applied to candidate construction — not just the five curated regions.
-3. **Extract cited physics from region modules into the constraint layer.** The VERIFIED entries only (splittings, ratios, lifetimes, asymmetry admissibility). Leave the UNVERIFIED windows/widths behind.
-4. **Generate the candidate ladder from k = 1…N** with physics constraints applied, replacing hand-enumerated model families. This is the core change and the largest. Existing model comparison selects k.
-5. **Treat ceiling-pegged widths as evidence for k+1** rather than a terminal state.
-6. **Move curated windows/chemical states to a post-fit labeling layer**, suggestion-only, provenance-labeled.
-7. **Retire or rewrite the parity gates.** They currently pin behavior against expert fits produced under the old architecture — see the honest caveat below.
+1. **Decouple the detector's CHARACTERIZATION from the chemistry constant.** `FWHM_MAX_ORDINARY_EV` plays three distinct roles in the detection path, split by MEANING, not by "it's the same constant":
+   - (i) the detector's own scale ceiling (`CWT_FWHM_MAX_EV`) — how well we CHARACTERIZE what's present;
+   - (ii) the seed `fwhm_init` clip inside `build_candidate_pool` — also characterization (the starting estimate handed to the optimizer);
+   - (iii) the fit's free-parameter bound on `preseed_curvature_*` slots — a different question, what a component may BECOME. Left for step 6 (degeneracy control) below.
+
+   Step 1 is (i)+(ii) only: drive both from ROI width and grid step instead of the chemistry constant. ~~Smallest change with the most immediate effect on the observed N 1s failure — a broad shoulder becomes visible to detection~~ — that framing was based on a wrong diagnosis (corrected above): a ridge already detects the real spectrum's shoulder today, just with a pegged, uninformative width. **Step 1's deliverable is an honest width ESTIMATE, not a better fit.** On this specific spectrum, expect NO visible change to the final fit outcome — the containment gate (step 2, below) and the (iii) fit bound (step 6) both still block it from fitting any differently. Verify against the real UCl₄-BN N 1s spectrum: before = `fwhm_est` pegged at the fixed ceiling; after = an estimate that is a genuine interior local maximum of a wider, denser ladder, not a boundary artifact.
+2. **Stop letting a curated window disqualify an independent curvature seed.** `build_candidate_pool`'s seeding gate marks any curvature-channel feature inside ANY grammar window's containment test as `in_grammar_window` and EXCLUDES it from ever becoming a `preseed_curvature_*` seed for grammar augmentation — regardless of width, prominence, or anything else. A curated, UNVERIFIED, often single-exemplar window is deciding what the math may even PROPOSE, which is exactly what this architecture forbids, and it is a separate mechanism from the width ceiling above — it outranks the rest of this list for sequencing. `detection_model_features()` (the D0 detection-family candidate builder) already treats `in_grammar_window` as non-disqualifying — the fix likely means extending that existing stance to the grammar-augmentation seeding path too, not inventing new logic.
+3. **Promote `coverage.py` to the universal constraint source.** Every element/level gets derived structure (doublet/singlet, components, ratio expectation, multiplet flag) applied to candidate construction — not just the five curated regions.
+4. **Extract cited physics from region modules into the constraint layer.** The VERIFIED entries only (splittings, ratios, lifetimes, asymmetry admissibility). Leave the UNVERIFIED windows/widths behind.
+5. **Generate the candidate ladder from k = 1…N** with physics constraints applied, replacing hand-enumerated model families. This is the core change and the largest. Existing model comparison selects k.
+6. **Treat ceiling-pegged widths as evidence for k+1** rather than a terminal state.
+7. **Move curated windows/chemical states to a post-fit labeling layer**, suggestion-only, provenance-labeled.
+8. **Retire or rewrite the parity gates.** They currently pin behavior against expert fits produced under the old architecture — see the honest caveat below.
 
 ## Honest caveats — flagged, not buried
 
