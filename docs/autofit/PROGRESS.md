@@ -4561,3 +4561,19 @@ Run B missed:
 Per this session's established discipline (a stricter verdict governs
 when two reviews disagree), both fixed regardless of Run B's GO. Full
 suite + real-data gate re-run after this fix; see commit.
+
+### Second recheck: GO x2 — step 1 closed
+
+Focused recheck of commit f183a7e against the exact 2 findings above.
+Both runs verified both fixes independently, including reconstructing the
+"slope+sigmoid regress, flat stays clean" scenario numerically and
+confirming the new per-kind assertion now fails it (the old aggregate
+would not have). No new findings from either run. Verdicts archived at
+`docs/autofit/codex/find_peaks_step1_recheck2_verdict_run{A,B}.md`.
+
+**Step 1 is closed: GO x2 on the final state.** Commits: 854c40a
+(implementation) -> e031923 (review archive) -> 47bf77b (Skye's
+dispositions) -> f183a7e (recheck fixes), all on feature-autofit-stage2,
+all pushed. Next: migration step 2 (the containment-gate fix, already
+scoped and documented in the architecture doc) is the next unit — not
+started.

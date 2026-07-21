@@ -1,0 +1,60 @@
+You are an adversarial reviewer performing a SECOND RECHECK for this repo
+(XPS peak-fitting web app), branch feature-autofit-stage2. This is a
+narrow, targeted recheck of exactly 2 findings from the previous recheck
+round.
+
+CONTEXT: commit 854c40a was reviewed twice (NO-GO/NO-GO). Commit 47bf77b
+fixed those findings per the design owner's rulings and was rechecked
+twice: Run A returned NO-GO with 2 findings, Run B returned GO. Read
+docs/autofit/codex/find_peaks_step1_recheck_verdict_runA.md for the exact
+findings. Commit f183a7e (`git show f183a7e`) fixes both. Your job is to
+verify ONLY these two fixes -- do not re-open anything already settled in
+the prior four review rounds (all four verdict files are in
+docs/autofit/codex/find_peaks_step1_verdict_run{A,B}.md and
+find_peaks_step1_recheck_verdict_run{A,B}.md if you want background, but
+this recheck is scoped narrowly).
+
+(1) MAJOR from the prior recheck: the false-positive negative-control test
+    (tests/autofit/test_cwt_width_ceiling.py,
+    test_negative_control_flat_slope_sigmoid_no_meaningful_fp_rate_increase)
+    asserted only an AGGREGATE false-positive rate across flat/slope/
+    sigmoid backgrounds, which could hide a regression concentrated in
+    just the riskier kinds. Verify the fix: read the test now. Does it
+    track per-kind counts separately (not just a combined total) and
+    assert a per-kind tolerance independently of the aggregate? Do the
+    arithmetic yourself: with the stated per-kind tolerance, construct
+    the SAME scenario the prior round used (slope and sigmoid both
+    regressing to ~10-12% while flat stays clean) and confirm the new
+    per-kind assertion would now actually FAIL in that scenario (it
+    should, since each kind is checked against its own bound
+    independently of the others). Also check: is the per-kind tolerance
+    itself justified by a real measurement (not just picked), and does it
+    make sense given the sample size per kind (5 ROI sizes x 40 draws =
+    200 trials/kind)?
+
+(2) MINOR from the prior recheck: a stale docstring occurrence of "the
+    starting estimate handed to the optimizer" (the claim that step 1(ii)'s
+    fwhm_init reaches the optimizer, which is false for the preseed-
+    augmentation path) survived in tests/autofit/test_cwt_width_ceiling.py's
+    module-level docstring even after all the other correction sites were
+    fixed in a previous round. Verify: grep the ENTIRE repo (not just the
+    file that was supposedly fixed) for the literal phrase "starting
+    estimate handed to the optimizer" and any close paraphrase of the same
+    overclaim (e.g. "optimizer's starting guess", "seeds the optimizer",
+    "initializes the optimizer's guess") across autofit/*.py, tests/**/*.py,
+    and docs/autofit/*.md. For each hit, judge whether it's a live,
+    executable-context claim that needs fixing, or an intentional
+    historical record (e.g. a struck-through correction, or a narrative
+    PROGRESS.md entry describing what WAS wrong) that should legitimately
+    stay as-is. Flag anything that reads as a live claim still standing.
+
+Also do a final sanity check: `git show --stat f183a7e` should show
+exactly tests/autofit/test_cwt_width_ceiling.py, docs/autofit/PROGRESS.md,
+and 3 new files under docs/autofit/codex/ (the recheck prompt + 2 verdict
+archives from the previous round). Confirm zero production code
+(autofit/*.py) changed in this commit -- the disposition was test-only.
+
+Deliver: a judgment on (1) and (2) with evidence (file/line), a numbered
+findings list for anything NOT actually fixed or newly introduced
+(severity BLOCKER/MAJOR/MINOR with a concrete failure scenario), then a
+final line exactly "VERDICT: GO" or "VERDICT: NO-GO".
