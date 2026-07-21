@@ -1,0 +1,172 @@
+You are an adversarial reviewer for a new-feature commit in this repo (XPS
+peak-fitting web app). Review commit 854c40a ("feat(autofit): decouple CWT
+detector characterization from the chemistry constant") on branch
+feature-autofit-stage2 -- `git show 854c40a` gives the full diff. This is
+step 1 of a new migration outlined in docs/autofit/find-peaks-math-first-
+architecture.md (Skye Fortier, 2026-07-20/21, the doc itself is part of
+this commit -- read it first for the full design intent, including its
+"Corrected 2026-07-21" paragraph and the honest step-1 rewrite).
+
+BACKGROUND -- what this unit is supposed to be:
+
+`autofit/candidates.py`'s CWT ridge detector had a fixed scale ladder:
+FWHM 0.3-2.4 eV, 8 geometric steps. The 2.4 eV ceiling existed only because
+it was "just above FWHM_MAX_ORDINARY_EV = 2.0" -- a chemistry-derived
+"ordinary peak width" constant leaking into the signal-processing layer,
+capping what the detector could physically characterize. This commit
+decouples exactly TWO of the three roles that constant played (Skye's
+explicit split, by MEANING not "it's the same constant"):
+
+  (i)   the detector's own scale ceiling (CWT_FWHM_MAX_EV, retired) --
+        CHARACTERIZATION: how well the detector can measure what's there.
+  (ii)  the curvature seed's fwhm_init clip in build_candidate_pool --
+        also CHARACTERIZATION (the optimizer's starting estimate).
+  (iii) the fit's free-parameter bound on preseed_curvature_* slots in
+        _preseed_augmented (engine.py) -- a DIFFERENT question, what a
+        component may BECOME (degeneracy control). Deliberately OUT OF
+        SCOPE for this unit, deferred to migration step 6. MUST be
+        UNTOUCHED in this diff.
+
+Both (i) and (ii) now derive from the ROI's own point count and grid step,
+via the SAME kernel-fits-in-window bound (`radius = ceil(4*sigma) <= (n-1)/2`)
+the per-scale filter already enforced elsewhere in this module -- the
+stated intent is NO new magic number, just a different anchor for the
+existing one. Scale-ladder density (_cwt_n_scales) is derived to preserve
+the ORIGINAL calibration's steps-per-octave rather than staying fixed at 8
+regardless of range.
+
+IMPORTANT CONTEXT, READ BEFORE JUDGING THE DIFF AS A REGRESSION-FIX: this
+commit description candidly documents that its OWN architecture doc's
+initial diagnosis was wrong (verify this yourself: read the doc's
+"Corrected 2026-07-21" paragraph in the diff) -- the detector was never
+blind to the real bug-report shoulder, it was width-blind (a ridge was
+already found, pegged exactly at the old ceiling). Do not re-litigate that
+correction; it's given. Your job is the CODE and TEST changes that
+followed from the corrected scope.
+
+ADVERSARIAL QUESTIONS -- ATTACK THESE SPECIFICALLY:
+
+(a) SPURIOUS BROAD DETECTIONS ON BAD BACKGROUNDS. Skye's explicit risk:
+    "a higher detector ceiling means the detector can now latch onto broad
+    background curvature, not just real peaks." Reason through this
+    INDEPENDENTLY -- don't just trust the measured negative-control numbers
+    in docs/autofit/PROGRESS.md's step-1 entry. The Ricker kernel is
+    zero-mean, so it should cancel constant/linear backgrounds exactly at
+    any scale -- does that argument actually hold for a WIDER ceiling too,
+    or does something break down (e.g. numerical precision at large sigma,
+    or a sigmoid/step background whose curvature the wider kernel now
+    resolves better)? tests/autofit/test_cwt_width_ceiling.py has
+    `test_negative_control_flat_slope_sigmoid_no_meaningful_fp_rate_increase`
+    -- read it and judge whether its tolerance (`fp_rate <= 0.15`) and its
+    3 background kinds (flat/slope/sigmoid) actually stress the risk Skye
+    named, or are too permissive/too narrow a battery to catch it.
+
+(b) FEATURELESS-REGION NEGATIVE CONTROL. Independently construct (or trace
+    through) a genuinely flat, no-signal spectrum at a realistic real-data
+    ROI size and check whether the wider ceiling changes the false-positive
+    rate at the frozen CWT_PROM_Z_MIN=7.0 gate. Is there a real ROI shape
+    (in particular: LOW point count, since a small ROI now gets a
+    DISPROPORTIONATELY wide derived ceiling relative to its size) where the
+    wider ceiling meaningfully increases false detections that the existing
+    test battery's shapes wouldn't catch?
+
+(c) DERIVATION PROVENANCE -- NO NEW MAGIC NUMBER. Trace `cwt_scale_range_ev`
+    -> `_cwt_max_fwhm_ev` -> `_cwt_max_sigma_pts` in autofit/candidates.py.
+    Confirm `CWT_KERNEL_TRUNCATION_SIGMAS = 4.0` is genuinely the SAME
+    constant `cwt_ridge_features`'s own per-scale filter already used
+    (grep the pre-commit blob for the bare `4.0` literals this replaces --
+    `git show 854c40a^:autofit/candidates.py` for the old version) and not
+    a new coefficient dressed up as a "traced" one. Separately, scrutinize
+    `_CWT_STEPS_PER_OCTAVE = _CALIBRATED_N_SCALES / np.log2(_CALIBRATED_FWHM_MAX_EV / CWT_FWHM_MIN_EV)`
+    and `CWT_N_SCALES_MIN=4` / `CWT_N_SCALES_MAX=24` -- are these genuinely
+    non-physics numerical/scale guards (as claimed in the code comments),
+    or do the specific MIN/MAX values themselves encode an unstated
+    assumption that deserves the same "numerical guard, not physics claim"
+    labeling scrutiny as the MIXED unit's 15.0 eV case?
+
+(d) SCOPE ISOLATION -- (iii) MUST BE UNTOUCHED. Confirm
+    `autofit/engine.py`'s `_preseed_augmented` (the function that builds
+    `preseed_curvature_*` ComponentSlots) still hard-codes
+    `fwhm_range=(PROPOSAL_FWHM_MIN, PROPOSAL_FWHM_MAX)` with ZERO reference
+    to the new derived ceiling. This is the fit's own free-parameter bound
+    -- degeneracy control, migration step 6 -- and must be byte-identical
+    to before this commit. Also confirm `build_detection_candidate`'s
+    DETECTION_SLOT_FWHM_HI_FRACTION-based bound (a THIRD width-bound
+    mechanism, for the D0_detected candidate family) was not touched by
+    this commit and isn't secretly a 4th role of the same retired constant
+    that should have been in scope.
+
+(e) RED-GREEN TEST HONESTY. Read
+    `test_real_ucl4_bn_n1s_shoulder_no_longer_pegged_at_old_ceiling` in
+    tests/autofit/test_cwt_width_ceiling.py end to end, including its
+    docstring describing a direction-reversal (the "after" width estimate
+    measured SMALLER than the old pegged value, 2.14 eV vs 2.40 eV, not
+    larger as originally assumed). Would this test actually FAIL if
+    `CWT_FWHM_MAX_EV` were still hardcoded at 2.4? Reconstruct the OLD
+    code's behavior on this exact real file
+    (docs/autofit/test_data/4 UCl4-BN 4%, Cu, 1eV, 180 mA, 200 um,
+    10spot.DATA/N1s Scan_2.VGD) and confirm the assertions
+    (`lo < fwhm_est_ev < hi` interior-maximum check, and
+    `fwhm_est_ev != 2.40`) would genuinely have failed under the old fixed
+    ladder -- not just that they happen to pass now.
+
+(f) REAL-DATA INTEGRATION GATE -- TRACE, DON'T TRUST THE PASS.
+    tests/autofit/test_candidate_pool_real_gate.py's EXPECTED_SEEDED dict
+    pins exact curvature-seed BE windows for real held-out ds7/ds8 C1s
+    scans; PROGRESS.md claims this gate ran (RUN_AUTOFIT_GATE=1, ~9 min)
+    and passed 4/4 with byte-identical positions. Read the diff to
+    `_pool_for`'s `fwhm_clip` argument (now `(eng.PROPOSAL_FWHM_MIN, None)`)
+    and reason through WHY this specific real-data case's seed positions
+    are unaffected by the wider fwhm_init upper clip -- is it because these
+    particular curvature seeds' half-height-walk widths never approached
+    the OLD 2.0 eV clip in the first place (i.e. the change is a genuine
+    no-op here), or could there be a real seed elsewhere in these files
+    whose position shifts due to a wider initial-width estimate feeding a
+    different local optimum in a later stage, that this specific pinned
+    dict wouldn't surface because it only checks seed WINDOWS, not final
+    fitted peaks?
+
+(g) THE TWO TEST FIXES -- ARE THEY HONEST FIXES OR PAPERING OVER A REAL
+    ISSUE? Two pre-existing tests broke on the full-suite run and were
+    fixed in this same commit; PROGRESS.md's step-1 entry documents the
+    root-cause investigation for both. Scrutinize each fix on its own
+    terms, not just the narrative:
+      (g1) `tests/autofit/test_cwt_detector.py::test_feature_fields_populated`
+           -- the old hardcoded `< 3.0` bound is now
+           `<= cwt_scale_range_ev(x)[1]`. Is this now a TAUTOLOGY (the
+           ridge ladder is constructed FROM this same ceiling, so of
+           course no rung can exceed it) that no longer tests anything
+           meaningful, or does it still catch a real bug (e.g. an
+           off-by-one in the ladder construction that let a scale exceed
+           its own nominal ceiling)?
+      (g2) `tests/autofit/test_stress_honesty.py::test_preseed_catches_isolated_missing_peak`
+           -- the old assertion `res.diagnostics["winner"].endswith("+preseed")`
+           is replaced with substance checks (position, region, message,
+           preseeded_features) plus a looser winner check
+           (`in ("single_main+preseed", "D0_detected")`). PROGRESS.md
+           claims this is a razor-thin pre-existing BIC tie (measured
+           ΔBIC ~0.0001, ΔRSS ~3e-7 relative) that the ceiling change
+           nudged to the other side, evidenced by comparing old-code vs
+           new-code fitted components side by side (both converge to
+           fwhm=1.204/1.189, essentially identical). Verify this claim is
+           actually the more plausible explanation versus the alternative
+           that the ceiling change introduced a REAL, if small, distortion
+           that happens to be small in THIS case but could be large in
+           others -- is there a reason to believe this specific measured
+           tie is representative, or could the same "just moved a BIC by a
+           hair" story mask a systematic bias that only rare cases expose
+           this clearly?
+
+SCOPE CHECK: `git show --stat 854c40a` should show autofit/candidates.py,
+autofit/engine.py, docs/autofit/PROGRESS.md, docs/autofit/find-peaks-math-
+first-architecture.md, scripts/calibrate_cwt_detector.py,
+tests/autofit/test_candidate_pool_real_gate.py,
+tests/autofit/test_cwt_detector.py, tests/autofit/test_cwt_width_ceiling.py
+(new), tests/autofit/test_stress_honesty.py. Zero diff anywhere else --
+in particular zero diff in any autofit/regions/*.py module, app.py, or
+templates/index.html (this is a detection-layer-only change; nothing
+user-facing changes in this unit).
+
+Deliver: a numbered findings list (severity BLOCKER/MAJOR/MINOR, each with
+file/line and a concrete failure scenario), then a final line exactly
+"VERDICT: GO" or "VERDICT: NO-GO".

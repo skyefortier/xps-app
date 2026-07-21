@@ -4379,3 +4379,89 @@ were never the actual invariant being tested.**
 Both fixes are test-only; no production logic changed beyond what was
 already scoped to (i)+(ii) above. Full suite re-run clean after both
 fixes (see commit).
+
+**Codex ×2 review of commit 854c40a: both NO-GO.** Full verdicts archived
+at `docs/autofit/codex/find_peaks_step1_verdict_runA.md` and `_runB.md`;
+review prompt at `docs/autofit/codex/find_peaks_step1_review_prompt.txt`.
+Both runs independently found real issues; every finding below was
+verified against the actual repo (not taken on the reviewers' word) before
+being recorded here. **Nothing further has been fixed yet — reporting to
+Skye for a scope decision before touching any of this,** per this
+session's standing rule not to commit on top of an unexplained finding.
+
+1. **MAJOR (Run A), CONFIRMED as a real, NEW consequence of step 1(i) —
+   a 4th consumption path the (i)/(ii)/(iii) split didn't name.**
+   `build_detection_candidate`'s `D0_detected` candidate family sizes each
+   slot's `fwhm_range` ceiling (`hi_w = 2.5 * width`) from
+   `PoolFeature.fwhm_est`, which traces directly to the RAW, UNCLIPPED
+   `RidgeFeature.fwhm_est_ev` (`autofit/candidates.py:760,768,857`) — i.e.
+   purely step 1(i)'s widened characterization, with no gating from
+   `fwhm_clip`/(ii) at all. For a sharp/strong peak whose `fwhm_est`
+   structurally chases the ceiling (the same effect documented in finding
+   1 of the test-fragility section above), this widens a real FIT BOUND —
+   "what a component may become" — for the `D0_detected` family. This is
+   the actual mechanism behind the `test_preseed_catches_isolated_missing_peak`
+   winner-tie flip investigated above: not just a coincidental BIC nudge,
+   but a genuine, if currently small, widening of a degeneracy-control
+   bound that step 1 was supposed to leave alone. Needs a scope decision:
+   is this an acceptable, minor consequence (D0_detected is already
+   absent-eligible / selection-pruned, and migration step 6 is where
+   ceiling-pegged widths get treated properly), or does it need an
+   explicit guard now (e.g. capping `width` at the old numeric ceiling
+   specifically for this consumption path until step 6 lands)?
+
+2. **MAJOR (both runs, corroborating), CONFIRMED the underlying numeric
+   claim, but the pathology itself is PRE-EXISTING, not new.** Both
+   reviewers flagged the false-positive negative-control test
+   (`test_negative_control_flat_slope_sigmoid_no_meaningful_fp_rate_increase`)
+   as too narrow: one ROI size, 3 background kinds, a loose `<=0.15`
+   tolerance against a measured ~2-4% baseline. Run A additionally
+   produced a striking concrete number: a hard STEP background (level
+   jumping 4x at the ROI midpoint) drives the false-positive rate to
+   100% at every tested ROI size n>=30. Reproduced directly against the
+   real repo (both new and OLD/parent-commit code): **this is already
+   100% FP at n>=40 under the OLD fixed ladder too, identically** — step
+   1 only extends it to one additional small-ROI boundary case (n=30:
+   0%->100%). A hard step discontinuity in raw counts is a much more
+   extreme pathology than the "sloped/poorly-subtracted" backgrounds Skye
+   asked to stress-test (which measure unchanged, as already reported
+   above) — arguably a genuine curvature signal the detector is doing its
+   job to flag, not a false positive in the sense originally asked about.
+   Still, the test's narrow coverage is independently worth strengthening
+   regardless of this specific case's severity.
+
+3. **MAJOR (Run B), CONFIRMED as real but PRE-EXISTING — my own new code
+   comment overclaims.** Traced every use of `.fwhm_init` in
+   `autofit/engine.py`: the ONLY place a spec's `fwhm_init` actually sets
+   an lmfit parameter's starting VALUE is `_initial_params_for_augmented`
+   (line 2150), which takes a `ProposalSpec` — the residual-guided
+   PROPOSAL pass, a different mechanism entirely. `_preseed_augmented`
+   (untouched by this commit) never reads `spec.fwhm_init`; grammar-
+   augmented preseed slots get their fwhm initialized generically from
+   the slot's `fwhm_range` midpoint regardless. This was ALREADY true
+   before step 1 (that function isn't in this diff) — so step 1(ii) computes
+   a more honest `fwhm_init` VALUE and surfaces it faithfully in
+   diagnostics, but that value was never wired to the optimizer's
+   starting guess for preseed slots, before or after this commit. My new
+   code comment's claim ("the starting estimate handed to the optimizer")
+   is inaccurate for this path and needs correcting at minimum; whether
+   to also close the gap (make preseed slots actually seed from
+   `spec.fwhm_init`) is a separate scope question — pre-existing, so not
+   required by this unit, but worth Skye's call on whether to fold in now
+   or track separately.
+
+4. **MINOR (Run A), CONFIRMED, already independently caught before this
+   review ran** — `test_real_ucl4_bn_n1s_main_peak_still_found_and_still_sharp`'s
+   docstring claims the main peak's characterization is "essentially
+   unchanged," but the assertion only checks `prom_z > 500`, not the
+   width. Already flagged in this same PROGRESS.md entry above (the "NOT
+   that its width characterization is unaffected" correction) — the
+   test's docstring itself still needs the matching correction.
+
+5. **MINOR (Run B), plausible, not independently re-derived.**
+   `cwt_scale_range_ev`'s continuous `(n-1)/(2*TRUNC)` bound doesn't
+   account for the `ceil()` + margin exclusions the detector applies
+   afterward, so the reported ceiling can be a slight overstatement of
+   what's truly usable for small/even-length ROIs. Conservative-direction
+   gap (reports a number that's a touch too generous, not too small) —
+   lower priority than 1-3 above.
