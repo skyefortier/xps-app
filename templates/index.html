@@ -7075,7 +7075,11 @@ function _buildStderrMap(fitResult) {
 // Rectangular-rule area for one peak over a BE grid
 function _peakArea(p, be) {
   const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
-  return be.reduce((s, x) => s + evalPeak(x, p), 0) * step;
+  // evalPeakArray(), not a per-point evalPeak map: for LACX with caM > 0,
+  // only the array evaluator applies the shape's Gaussian convolution —
+  // evalPeak silently returns the unconvolved base regardless of caM.
+  // Feeds the Results panel/sidebar Area+% and the CSV/XLSX export.
+  return evalPeakArray(be, p).reduce((s, y) => s + y, 0) * step;
 }
 
 function renderResults() {
@@ -8674,16 +8678,22 @@ function _doSaveSpectrum() {
   const residuals = bgSub.map((v, i) => v - modelFull[i]);
   const fittedY = state.fitResult?.fittedY || modelFull.map((v, i) => v + bgIntensity[i]);
 
-  // Per-peak curves and areas
-  const peakCurves = state.peaks.map(p => ({
-    id: p.id, name: p.name,
-    y: be.map(b => evalPeak(b, p)),
-    area: be.reduce((sum, b, i, arr) => {
-      if (i === 0) return 0;
-      const dx = Math.abs(b - arr[i - 1]);
-      return sum + 0.5 * (evalPeak(arr[i - 1], p) + evalPeak(b, p)) * dx;
-    }, 0)
-  }));
+  // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
+  // for LACX with caM > 0, only the array evaluator applies the shape's
+  // Gaussian convolution — evalPeak silently ignores caM. These curves
+  // and areas are written into the saved .spec.json file.
+  const peakCurves = state.peaks.map(p => {
+    const yArr = evalPeakArray(be, p);
+    return {
+      id: p.id, name: p.name,
+      y: yArr,
+      area: yArr.reduce((sum, y, i) => {
+        if (i === 0) return 0;
+        const dx = Math.abs(be[i] - be[i - 1]);
+        return sum + 0.5 * (yArr[i - 1] + y) * dx;
+      }, 0)
+    };
+  });
 
   const stats = state.fitResult ? {
     chi: state.fitResult.chi,
@@ -9283,6 +9293,12 @@ function exportResults() {
 
   const bgIntensity = computeBackground(be, inten);
   const modelFull = evalAllPeaks(be, state.peaks);
+  // evalPeakArray() per peak, once, not per-point evalPeak per row: for
+  // LACX with caM > 0, only the array evaluator applies the shape's
+  // Gaussian convolution — evalPeak silently ignores caM, which would
+  // make each peak's own exported column wrong even though the aggregate
+  // Model/Residual columns above (built from evalAllPeaks) are correct.
+  const peakCols = state.peaks.map(p => evalPeakArray(be, p));
 
   const rows = [['BE (eV)', 'Intensity', 'Background', 'BG-subtracted', 'Model', 'Residual',
     ...state.peaks.map(p => p.name)]];
@@ -9294,7 +9310,7 @@ function exportResults() {
     rows.push([
       be[i].toFixed(4), inten[i].toFixed(2), bgIntensity[i].toFixed(2),
       bgSub[i].toFixed(2), modelFull[i].toFixed(2), resid[i].toFixed(2),
-      ...state.peaks.map(p => evalPeak(be[i], p).toFixed(2))
+      ...peakCols.map(col => col[i].toFixed(2))
     ]);
   }
 
@@ -9426,7 +9442,10 @@ function _doPublicationExport() {
   if (showIndiv) {
     for (const p of state.peaks) {
       if (!p.visible) continue;
-      const pkY = be.map((b, i) => evalPeak(b, p) + bgArr[i]);
+      // evalPeakArray(), not per-point evalPeak: applies Gaussian
+      // convolution for LACX with caM > 0, which evalPeak ignores.
+      const pkArr = evalPeakArray(be, p);
+      const pkY = pkArr.map((y, i) => y + bgArr[i]);
       ctx.fillStyle = hexRgba(p.color.length === 7 ? p.color : '#888888', 0.28);
       ctx.beginPath();
       ctx.moveTo(xC(be[0]), yM(bgArr[0]));
@@ -9455,7 +9474,10 @@ function _doPublicationExport() {
   if (showIndiv) {
     for (const p of state.peaks) {
       if (!p.visible) continue;
-      const pkY = be.map((b, i) => evalPeak(b, p) + bgArr[i]);
+      // evalPeakArray(), not per-point evalPeak: applies Gaussian
+      // convolution for LACX with caM > 0, which evalPeak ignores.
+      const pkArr = evalPeakArray(be, p);
+      const pkY = pkArr.map((y, i) => y + bgArr[i]);
       ctx.strokeStyle = p.color.length === 7 ? p.color : '#888888';
       ctx.lineWidth = 1.2;
       polyline(be, pkY, yM);
@@ -9545,9 +9567,11 @@ function _doPublicationExport() {
     ctx.save(); ctx.beginPath(); ctx.rect(plotX, mainTop, plotW, mainH); ctx.clip();
     for (const p of state.peaks) {
       if (!p.visible) continue;
+      // evalPeakArray(), not per-point evalPeak: see fill/outline loops above.
+      const pArr = evalPeakArray(be, p);
       let maxVal = -Infinity, maxBE = be[0];
       for (let i = 0; i < be.length; i++) {
-        const v = evalPeak(be[i], p) + bgArr[i];
+        const v = pArr[i] + bgArr[i];
         if (v > maxVal) { maxVal = v; maxBE = be[i]; }
       }
       ctx.fillStyle = p.color.length === 7 ? p.color : '#333333';

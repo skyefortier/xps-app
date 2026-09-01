@@ -242,7 +242,23 @@ for (const shape of ALL_SHAPES) {
   });
 }
 
-// (C) — the structural "evalPeak() has no direct callers outside
-// evalPeakArray()" guard ships in unit-1 commit 2, alongside the routing
-// fix it verifies. Splitting it out here keeps commit 1 (this file) green
-// on its own, independent of whether commit 2 is later reverted.
+// ── (C) Structural guard: evalPeak() must have no callers of its own ──────
+// outside evalPeakArray()'s internal fallback. This is what actually closes
+// the bug-(B) mechanism for shipped code: any FUTURE export/save/results
+// function that calls evalPeak(...) directly instead of evalPeakArray(...)
+// will silently reintroduce the LACX-ignores-convolution bug for that call
+// site, exactly as happened in commits 8ff030e..5093487 (2026-04-25 through
+// 2026-08-30, per docs/autofit/codex git-archaeology). This test makes that
+// impossible to do silently.
+test('(C) evalPeak() has no direct callers outside evalPeakArray()', () => {
+  const evalPeakDef = extract(/function evalPeak\(x, p\) \{[\s\S]*?\n\}\n/, 'evalPeak definition');
+  const evalPeakArrayDef = extract(/function evalPeakArray\(beArr, p\) \{[\s\S]*?\n\}\n/, 'evalPeakArray definition');
+  assert.ok(/\bevalPeak\(x, p\)/.test(evalPeakArrayDef),
+    'evalPeakArray() no longer contains its expected internal evalPeak() fallback call — update this test\'s assumption');
+  const rest = html.split(evalPeakDef).join('\n').split(evalPeakArrayDef).join('\n');
+  const strayCalls = [...rest.matchAll(/\bevalPeak\(/g)];
+  assert.strictEqual(strayCalls.length, 0,
+    `evalPeak() is called directly ${strayCalls.length} time(s) outside evalPeakArray() — route through evalPeakArray() ` +
+    'instead (see file header: evalPeak() silently ignores Gaussian convolution for LACX with m>0, which evalPeakArray() ' +
+    'handles correctly).');
+});
