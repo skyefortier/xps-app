@@ -3832,9 +3832,15 @@ function pseudoVoigt(x, center, fwhm, eta) {
 }
 
 function asymmGL(x, center, fwhm, glMix, alpha) {
-  // Asymmetric GL: independent FWHM on high/low BE sides via asymmetry factor
-  // alpha=0 is symmetric; alpha>0 broadens the high-BE tail
-  const fwhmEff = x < center ? fwhm : fwhm * (1 + alpha * Math.abs(x - center) / fwhm);
+  // Asymmetric GL: piecewise TWO-CONSTANT-WIDTH pseudo-Voigt, mirroring
+  // fitting.py::_asymmetric_gl exactly. Low-BE side (x <= center) uses the
+  // base fwhm; high-BE side uses a single wider, BOUNDED fwhm = fwhm*(1+asym)
+  // — not a width that keeps growing with distance from center (that was
+  // the bug: the frontend chart/export curve diverged from the backend fit
+  // by ~10% of peak height on real U 4f data; see
+  // docs/autofit/codex/asym_gl_mismatch_verdict_run{A,B}.md).
+  const asym = Math.max(0, Math.min(1, alpha));
+  const fwhmEff = x <= center ? fwhm : fwhm * (1 + asym);
   return pseudoVoigt(x, center, fwhmEff, glMix / 100);
 }
 
@@ -5495,6 +5501,10 @@ function updatePeakParam(id, key, value) {
   _pushUndoDebounced();
   const p = getPeak(id);
   if (!p) return;
+  // asymmetry: clamp to the backend's own bound (fitting.py np.clip(asymmetry,
+  // 0, 1)) — a plain assignment let out-of-range values (e.g. pasted/loaded)
+  // sit on the peak until a backend fit result overwrote them.
+  if (key === 'asymmetry') value = Math.max(0, Math.min(1, value));
   p[key] = value;
 
   const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM','caAlpha','caBeta','caM'];
@@ -6915,7 +6925,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       if (param === 'fwhm')         v = Math.max(0.1, Math.min(15, v));
       if (param === 'amplitude')    v = Math.max(1, v);
       if (param === 'glMix')        v = Math.max(0, Math.min(100, v));
-      if (param === 'asymmetry')    v = Math.max(0, Math.min(0.9, v));
+      if (param === 'asymmetry')    v = Math.max(0, Math.min(1, v));
       if (param === 'dsAlpha')      v = Math.max(0, Math.min(0.49, v));
       if (param === 'dsGamma')      v = Math.max(0, Math.min(5.0, v));
       if (param === 'laAlpha')      v = Math.max(0, Math.min(0.49, v));

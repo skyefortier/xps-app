@@ -1,0 +1,84 @@
+Independent review of a bug diagnosis and proposed fix. Please verify or
+refute — do not assume the analysis below is correct.
+
+REPO: github.com/skyefortier/xps-app   BRANCH: main (production; this bug is in
+the manual fit path, not the unmerged autofit work)
+
+CONTEXT: XPS peak-fitting web app (Flask + lmfit backend, single-file JS
+frontend), live in production for a university lab and its students. A student
+fitting U 4f data saw the fitted envelope visibly disagree with the individual
+peaks drawn beneath it.
+
+DIAGNOSIS TO VERIFY: the "asym-GL" (Asymmetric Gaussian-Lorentzian) lineshape
+is implemented as two mathematically different functions.
+
+  BACKEND  fitting.py::_asymmetric_gl
+    piecewise, two constant widths: high-BE side uses fwhm*(1+asymmetry)
+
+  FRONTEND templates/index.html::asymmGL
+    fwhmEff = x < center ? fwhm : fwhm*(1 + alpha*|x-center|/fwhm)
+    high-BE width grows linearly with distance, unbounded
+
+Claimed consequence: the chart's red envelope comes from
+state.fitResult.fittedY (backend output) while the blue individual peaks are
+recomputed in JS via evalPeakArray (frontend formula), so the two disagree on
+screen.
+
+CLAIMED NUMERICAL EVIDENCE (from the student's saved project, U 4f peak with
+fwhm=1.83 eV, asymmetry=0.59, 4 peaks total):
+  stored fittedY vs BACKEND-formula sum + background : max diff =  120 counts
+  stored fittedY vs FRONTEND-formula sum + background: max diff = 1763 counts
+  (main peak amplitude 17794, so the frontend disagreement is ~10% of peak height)
+
+PLEASE ANSWER:
+
+1. Is the diagnosis correct? Read both implementations and confirm or refute.
+   Cite file:line.
+
+2. WHICH IMPLEMENTATION SHOULD BE CANONICAL? This is the real question and I
+   want your independent judgment, not agreement. The proposal is to change the
+   FRONTEND to match the BACKEND, on these grounds:
+     - the backend produced the fit, so its model is what the reported numbers
+       (area, FWHM, position) actually describe;
+     - changing the backend would alter existing fit results, move the parity
+       gates, and ripple into the autofit engine, which calls fitting.py's
+       shape functions directly;
+     - the backend's bounded two-half-widths form is a recognized convention,
+       while the frontend's unbounded distance-growing width appears to have no
+       basis.
+   Is that right? Is either form standard in the XPS literature (CasaXPS,
+   Avantage, Fairley's definitions)? Is there a third, better-founded
+   asymmetric-GL definition that should replace BOTH? Say so if the honest
+   answer is that neither is defensible.
+
+3. Does the backend form have a discontinuity or derivative problem at
+   x = center that would affect optimizer behavior? Both halves are claimed to
+   meet at amplitude, but check the derivative.
+
+4. Parameter bounds: the backend clips asymmetry to [0,1]; check whether the
+   frontend constrains it at all, and whether the UI can produce values the
+   backend silently clips — which would be a second, quieter mismatch.
+
+5. SWEEP FOR THE SAME BUG CLASS. Every lineshape with both a JS and a Python
+   implementation is exposed: DS/doniachSunjic, LACX/laTrueCasaXPS,
+   DSG_LA/laCasaXPS, GL/pseudoVoigt, Gaussian, Lorentzian. Check each pair for
+   numerical agreement and report any others that disagree. This may matter
+   more than the specific fix.
+
+6. Blast radius of changing the frontend only: what renders differently, what
+   tests or fixtures pin frontend shape output, and does anything besides the
+   chart consume evalPeakArray?
+
+Also flag: stored fit parameters contain NEGATIVE area values (e.g. -50227 for
+a peak with positive amplitude), apparently from integrating over a descending
+binding-energy axis. Confirm, and say whether it affects anything beyond
+display (areas are shown to users as percentages).
+
+Please end your response with a line of the exact form:
+VERDICT: GO
+or
+VERDICT: NO-GO
+where GO means the diagnosis and proposed direction (frontend changes to
+match backend) are sound to proceed with as described, and NO-GO means any
+part of STOP conditions apply (frontend is correct instead; both forms are
+wrong vs. the literature; or the sweep found additional JS/Python mismatches).
