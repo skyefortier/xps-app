@@ -1,0 +1,64 @@
+You are running an ADVERSARIAL review of one small unit on branch
+fix-dsgla-m0-collapse (HEAD, commit 7e7767e) of this repo (an XPS peak-fitting
+web app: Python/Flask backend fitting.py + single-file frontend
+templates/index.html). Challenge the implementation approach, its assumptions,
+and where it could fail under real-world conditions — do not just lint it.
+
+UNIT UNDER REVIEW (one commit vs main):
+  git diff main...HEAD   -- templates/index.html, tests/js/lineshape_parity.test.js
+
+CLAIM: The frontend DS+G lineshape evaluator laCasaXPS() (templates/index.html,
+search "function laCasaXPS(") collapsed to ~zero as its Gaussian-FWHM
+parameter mGauss (frontend field laM) approached 0, because it converts
+mGauss to sigma and runs a Gaussian-weighted quadrature whose weights divide
+by 2*sigma^2. Measured evidence (2026-08-30/31, archived in the test file's
+comments): at laM=0 the frontend-vs-backend max diff is 101.8% of amplitude
+(the curve is ~zero everywhere); at laM=0.1 it is 11.8%; at 0.2 it is 0.05%;
+at the schema default 0.4 it is 0.02%.
+
+THE FIX: mirror the backend's existing delta-kernel branch. fitting.py
+_ds_g_dscore_gauss() (search "m_gauss < 0.001") returns the normalised DS core
+with no convolution when m_gauss < 0.001. The new JS branch does the same:
+if (mGauss < 0.001) return laCasaXPSCore(x - center, alpha, beta) /
+laCasaXPSCore(0, alpha, beta), guarded against non-positive peak value.
+
+TESTS: tests/js/lineshape_parity.test.js — the previously-`todo` case
+"DSG_LA at m=0" is now a real assertion, plus a new m=0.0009 case pinning the
+threshold. Both pass at 1e-6 amplitude-relative tolerance against the real
+backend via the python bridge (run: node --test tests/js/lineshape_parity.test.js;
+note your sandbox may not be able to run it — review the assertions on their
+merits if so). Full pytest suite reported green by the author (your sandbox
+cannot run pytest; do not attempt).
+
+DELIBERATELY OUT OF SCOPE (pre-existing, separately tracked as `todo` in the
+same test file, per the project owner's explicit 2026-08-31 scoping): the
+moderate-m quadrature-vs-FFT residual for 0.001 <= m <= ~0.1 (still degenerate
+in that range, ~11.8% at m=0.1, ~1.7% at laM=1). Flag it if you think the fix
+makes that WORSE than before, but its existence is not a finding.
+
+ADVERSARIAL QUESTIONS TO ANSWER EXPLICITLY:
+1. Threshold semantics: JS uses `mGauss < 0.001`, backend clamps
+   m_gauss = max(m_gauss, 0.0) then tests `< 0.001`. Any input (negative laM,
+   NaN, undefined) where the two sides now take DIFFERENT branches?
+2. Normalisation parity: the backend delta branch normalises by
+   np.interp(center, x, ds_core) on the DATA grid; the JS branch normalises by
+   the analytic core value at eps=0. When center falls BETWEEN grid points, or
+   the grid is descending, can these diverge beyond 1e-6 of amplitude? Is the
+   test grid (center exactly on-grid, ascending) hiding that?
+3. Boundary discontinuity: at mGauss=0.0009 vs 0.0011 the JS switches from
+   exact analytic core to the degenerate quadrature. Quantify/reason about the
+   jump a user would see while dragging the m slider through 0.001, and state
+   whether the pre-fix behavior was worse there (author claims yes: it was
+   collapsed on BOTH sides of 0.001 before).
+4. Callers: evalPeak/evalPeakArray 'DSG_LA' branch, the local-LM fallback fit
+   (runFit's laM clamps), linked-peak sync, exports. Does any caller rely on
+   the old collapse-to-zero (e.g. as an implicit "disable peak" trick)?
+5. Test adequacy: do the two new cases actually pin the fix, or could a wrong
+   implementation (e.g. returning the unnormalised core, or normalising by
+   beta^(1-alpha) with the wrong exponent) still pass?
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
