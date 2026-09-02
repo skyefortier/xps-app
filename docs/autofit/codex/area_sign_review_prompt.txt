@@ -1,0 +1,65 @@
+You are running an ADVERSARIAL review of one small unit on branch
+fix-negative-backend-areas (HEAD, commit df972d6) of this repo (an XPS
+peak-fitting web app: Python/Flask backend fitting.py + single-file frontend
+templates/index.html + autofit engine under autofit/). Challenge the
+implementation approach, its assumptions, and where it could fail under
+real-world conditions — do not just lint it.
+
+UNIT UNDER REVIEW (one commit vs main):
+  git diff main...HEAD   -- fitting.py, tests/test_area_sign.py,
+                            tests/autofit/fixtures/*_battery_expected.json
+
+CLAIM: run_fit's per-peak `area` (fitting.py, search "Area by numerical
+integration") was float(trapezoid(peak_y, x)); real XPS grids are
+BE-DESCENDING, so stored areas came out negative (measured: -44163.39 for the
+committed docs/autofit/test_data/1-GTA UCl4-graphite proj's U4f Scan_0 LACX
+peak whose amplitude is +13750.76). The user-facing Quantify path was already
+verified unaffected: the frontend computes its own areas via _peakArea
+(sum(y)*|step|, always positive) and stores the backend params dict
+(_backendParams) write-only — grep templates/index.html for "_backendParams"
+to verify no field-level reader exists.
+
+THE FIX: area = float(abs(trapezoid(peak_y, x))) — matching the existing
+convention in autofit/engine.py (search "abs(trapezoid"). The area-stderr
+propagation a few lines below already used abs(area).
+
+DOWNSTREAM HANDLING TO SCRUTINIZE HARD:
+tests/autofit/fixtures/{b1s,c1s,cl2p,u4f}_battery_expected.json froze 296
+NEGATIVE areas (recorded under the bug). Rather than regenerating via the
+committed scripts/gen_*_battery_fixture.py generators (which re-run lmfit and
+would add chi-squared wobble noise to the diff), the author flipped the 296
+area values in place with a pure abs() transform, preserving byte-identical
+JSON serialization otherwise (verified: the diff contains ONLY area lines).
+The battery suites (tests/autofit/test_c1s_parity_battery.py,
+test_b1s_cl2p_batteries.py, test_u4f_parity_battery.py) re-fit from the
+fixture seeds and compare against the flipped values with np.isclose — all
+134 battery tests pass, and the author reports the FULL suite green (751
+passed / 7 skipped; your sandbox cannot run pytest, do not attempt).
+
+ADVERSARIAL QUESTIONS TO ANSWER EXPLICITLY:
+1. Is abs() the right fix, or does it hide a real signal? peak_y should be
+   non-negative for every registered shape (amplitude bounded >= 0 in
+   _make_peak_params?) — check whether any shape/params can produce a
+   genuinely negative-integral curve where abs() would silently mask a
+   pathology that the old sign would have exposed.
+2. Is the in-place fixture flip actually equivalent to regeneration here?
+   Consider: does any fixture field (chi-square, amplitude, stderr) DEPEND on
+   the area sign at generation time? Check autofit/parity.py refit_record and
+   the generators.
+3. Sweep for any OTHER consumer of individual_peaks[].params.area or
+   _backendParams.area — app.py, autofit/, scripts/, tests/, the frontend
+   (applyBackendResult, exports, .spec.json load path). Anything that
+   subtracts, sorts by, or assumes sign?
+4. The new tests (tests/test_area_sign.py): do they pin the fix adequately?
+   Note the header comment about the sys.path/conftest import subtlety —
+   verify the test actually imports THIS checkout's fitting.py.
+5. Saved projects retain stale negative _backendParams.area until refit —
+   author calls this cosmetic. Is there any load-path consumer (quantify
+   restore, CSV/spec export of a loaded-not-refit project) that would print
+   the stale negative value to a user-facing artifact?
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
