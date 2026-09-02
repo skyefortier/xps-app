@@ -1200,8 +1200,10 @@ def run_fit(
                  if c.prefix == prefix)
         ].eval(result.params, x=x)
 
-        # Area by numerical integration
-        area = float(trapezoid(peak_y, x))
+        # Area by numerical integration. abs(): real XPS grids are
+        # BE-descending, which makes the raw trapezoid integral negative —
+        # the area is a magnitude by convention (matches autofit/engine.py).
+        area = float(abs(trapezoid(peak_y, x)))
 
         # Parameter extraction with stderr
         param_info: dict[str, Any] = {}
