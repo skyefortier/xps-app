@@ -156,18 +156,21 @@ for (const shape of ['Gaussian', 'Lorentzian', 'GL', 'Voigt', 'DS', 'asym-GL']) 
 //   consistent with backend continuous-m + ceil(3.5*sigma) kernel vs
 //   frontend rounded-m + 2m+1 kernel. Small, monotonic, unit-2 material.
 //
-//   DSG_LA: error is HIGHEST at m=0 (101.8% — the frontend curve is ~zero
-//   everywhere) and DECREASES as m grows (m=1: 1.69%, m=2: 1.20%, m=5:
-//   0.62%, m=10: 0.38%, m=50: 0.04%) — the OPPOSITE shape. Root cause is
-//   NOT a kernel-discretization gap: JS laCasaXPS() (templates/index.html)
-//   sets `sigma = mGauss / (2*sqrt(2*ln2))`, so mGauss -> 0 drives sigma -> 0
-//   and its Gaussian-weighted quadrature divides by `2*sigma*sigma` — a
-//   literal division-by-zero/degenerate-weight bug, not a discretization
-//   mismatch. This is a SEPARATE, more severe defect (the curve nearly
-//   vanishes, not a few-percent residual) affecting small-but-nonzero laM
-//   too (measured 1.69% still elevated at laM=1). It is NOT "unit 2 fast-
-//   follow" as originally scoped — it needs its own root-cause fix, tracked
-//   separately. Do not fold it into the LACX kernel-construction fix.
+//   DSG_LA: error is HIGHEST at m=0 (101.8% at laAlpha=0.18/laBeta=0.7 —
+//   the frontend curve is ~zero everywhere) and DECREASES as m grows —
+//   the OPPOSITE shape from LACX. Root cause is NOT a kernel-discretization
+//   gap: JS laCasaXPS() (templates/index.html) sets
+//   `sigma = mGauss / (2*sqrt(2*ln2))`, so mGauss -> 0 drives sigma -> 0 and
+//   its Gaussian-weighted quadrature divides by `2*sigma*sigma` — a literal
+//   division-by-zero/degenerate-weight bug, not a discretization mismatch.
+//   NARROWER than the above sweep alone suggests, though: measured against
+//   the SCHEMA DEFAULT (laM=0.4, laAlpha=0.10, laBeta=0.3, 2026-08-31):
+//   laM=0 -> 100%, 0.1 -> 11.8%, 0.2 -> 0.05%, 0.4 (DEFAULT) -> 0.02%,
+//   0.6+ -> 0%. The shipped default is NOT affected; only laM at or very
+//   near zero (roughly <=0.1) is, and when it fires the peak visibly
+//   vanishes/flattens on screen — loud, not a quiet export-only drift like
+//   LACX/asym-GL were. Its own unit, normal priority — do not fold it into
+//   the LACX kernel-construction fix, and do not hold anything for it.
 test('(A) frontend vs backend parity: LACX (m>0) — KNOWN GAP, unit 2 (kernel discretization)', { todo: 'unit 2 fast-follow: LACX Gaussian-conv kernel mismatch vs backend, grows with m (~0.15% at m=50, measured 2026-08-30)' }, () => {
   const p = basePeak('LACX');
   const x = grid(p.center);

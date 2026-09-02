@@ -4182,3 +4182,53 @@ suite and the `RUN_AUTOFIT_GATE=1` real-data gate suite both green
 apart from the 2 pre-existing flakes already independently confirmed
 unrelated earlier in this session (`test_u4f_n1s_cofit`,
 `test_candidate_pool_real_gate.py`'s ds8 timing-budget case).
+
+---
+
+## Cross-reference note (2026-08-31) — NOT autofit work, logged here only because it's an open numeric question relevant to anyone touching background/backend fit numerics
+
+This entry is about the **manual-fit path** (`fitting.py` shape functions +
+`templates/index.html`), branch `fix-asymgl-lacx-mismatch`, merged to `main`
+separately from the autofit engine. Logged in this file per explicit
+instruction, so the residual below isn't mistaken for an autofit regression
+later.
+
+**Unit shipped:** asym-GL frontend/backend formula mismatch (the frontend's
+`asymmGL()` grew the high-BE width unboundedly with distance from center;
+backend `_asymmetric_gl` uses a bounded two-constant-width piecewise
+formula) + a related LACX per-point-evaluator bug (`evalPeak()`'s LACX
+branch silently ignored Gaussian convolution regardless of `caM`, affecting
+several export/save paths — CSV/XLSX, `.spec.json`, TSV per-peak columns,
+publication PNG). Two commits, reviewed pre-implementation by 2x independent
+Codex adversarial passes (`docs/autofit/codex/asym_gl_mismatch_verdict_run{A,B}.md`,
+both NO-GO on the broader sweep, both confirming this specific diagnosis and
+fix direction). Parity harness added: `tests/js/lineshape_parity.test.js`.
+
+**Real-data confirmation (measured directly against `Sample 6.proj`, tab
+`U4f Scan_0`, using `fitting.py`'s own `_asymmetric_gl`/`_gaussian`):**
+
+| Formula | vs. stored `fittedY` | % of peak height |
+|---|---|---|
+| old frontend (unbounded width) | 1763 counts | 9.9% |
+| backend formula (now shipped in frontend too) | 119 counts | 0.67% |
+
+Fix confirmed — the 9.9% lineshape-formula disagreement is gone. **But the
+119-count residual does not vanish**, unlike a synthetic reproduction of the
+same peak set (which showed exactly 0 max diff). It is concentrated at the
+**low-BE ROI edge** (~0 at the high-BE edge, +65 counts at the main peak
+center). This points at **background** (Shirley/whatever method this scan
+used), not lineshape — the lineshape formulas now agree to floating-point
+noise on synthetic data with a matched grid, so a real residual that's
+edge-localized and grows away from the fitted peaks' influence is not
+explained by anything this unit touched.
+
+**Open question, not chased in this unit:** why does the backend-formula
+reconstruction (peaks + background) not fully reproduce `fittedY` at the
+low-BE ROI edge on this real scan? Candidates: background recomputation
+using different ROI/settings than what the stored fit actually used,
+endpoint-averaging or Shirley-iteration count drift between save-time and
+verification-time settings, or something specific to this scan's low-BE
+edge behavior. Whoever picks this up should start from `Sample 6.proj`'s
+`U4f Scan_0` tab and reconstruct `fittedY` exactly as `_peakArea`/export
+paths do, then diff against the peaks+background sum at each ROI point to
+localize which term (not which peak) contributes the edge residual.
