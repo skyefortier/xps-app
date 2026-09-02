@@ -1,0 +1,61 @@
+You are running an ADVERSARIAL re-review of branch fix-dsgla-m0-collapse
+(HEAD, commit fcb3dd6) of this repo (XPS app: fitting.py backend,
+templates/index.html frontend). This is round 2: round 1 (archived at
+docs/autofit/codex/dsgla_m0_collapse_verdict_run{A,B}.md, prompt at
+docs/autofit/codex/dsgla_m0_collapse_review_prompt.txt) ended NO-GO on run
+A's MAJOR: the JS delta-kernel branch normalized analytically at eps=0
+while the backend normalizes by np.interp(center, x, ds_core) on the data
+grid (~9.7e-4 of amplitude apart for off-grid centers). The project owner
+signed off on option (a): mirror the backend's grid-interp normalization in
+JS, explicitly deferring "make both sides analytic" as a separate
+scientific decision.
+
+UNIT UNDER RE-REVIEW:
+  git diff main...HEAD   -- templates/index.html, tests/js/lineshape_parity.test.js
+  (three commits: 7e7767e original fix, 50d61a1 verdict archive, fcb3dd6
+   the revision addressing the NO-GO)
+
+WHAT THE REVISION DID:
+- evalPeakArray (templates/index.html, search "dsgDeltaKernel_array") now
+  routes DSG_LA with laM < 0.001 through a grid-aware branch: DS core
+  evaluated on the caller's grid, normalized by linear interpolation at
+  center with np.interp semantics (ascending orientation regardless of grid
+  direction, clamp outside the grid, 1-point-grid case returns core[0],
+  non-positive peak falls back to max|core|, zeros if that fails too).
+- laCasaXPS()'s internal analytic delta branch (round 1) is retained as the
+  per-point fallback; the (C) structural guard in the parity test keeps
+  evalPeak() unreachable outside evalPeakArray.
+- Parity tests now sweep center on-grid AND half-a-step off-grid for
+  laM in {0, 0.0009}, plus a descending-grid off-grid case — all asserted
+  at 1e-6 amplitude-relative tolerance against the real backend via the
+  python bridge (author reports all pass; off-grid measured 9.69e-4 before
+  the revision). Your sandbox likely cannot run node/pytest; review on the
+  merits if so.
+
+DISPOSITION OF ROUND-1 FINDINGS (verify each):
+1. run-A MAJOR (off-grid normalization): FIXED as above — verify
+   dsgDeltaKernel_array's interpolation is semantically identical to
+   fitting.py's `np.interp(center, x if x[-1] > x[0] else x[::-1], ...)`
+   including ties/duplicate-x behavior on realistic grids, and that the new
+   off-grid tests would catch a wrong implementation.
+2. MINOR (negative/NaN laM threshold semantics): unchanged by design —
+   negative laM takes delta on both sides (backend clamps to 0 first);
+   NaN/undefined coerce to 0 via (p.laM || 0) in the NEW array branch
+   (backend with NaN yields zeros via its isfinite scrub, but
+   peakToBackendSpec sanitizes non-finite laM to 0.4 before any fit, so
+   the divergence is unreachable in fit flows). State whether you accept
+   this as pre-existing hygiene or consider it a regression NOW that the
+   array branch coerces NaN→delta where the old fallback path produced ~0.
+3. MINOR (0.001-boundary discontinuity): unchanged (the moderate-m
+   quadrature gap above the threshold remains the separately-tracked todo).
+4. MINOR (no caller depends on collapse-to-zero): unchanged.
+5. MINOR (test adequacy): addressed via the off-grid + descending cases —
+   verify they'd catch (a) analytic normalization, (b) wrong orientation
+   handling on descending grids, (c) normalizing by the nearest grid point
+   instead of interpolating.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
