@@ -121,6 +121,18 @@ def test_u4f_n1s_cofit():
     m52 = by_role["U4f__main_u4f52"]
     assert abs(m52["center"] - exp["U 4f5/2"]["center"]) <= COFIT_MAIN_TOL_EV
 
+    # U satellites present in the co-fit winner (Codex round-2, both runs:
+    # 'satfree' candidates carry independently-FREE satellites, not zero
+    # satellites — measured 2026-09-02: the good-state winner
+    # U2_mains_satfree and the bad-state winner U1_mains_satpair+bfix BOTH
+    # emit satellite_u4f72/52 roles; the only satellite-less candidates
+    # (U0_mains*) score χ²ᵣ 33–38 and can never win). This polices the
+    # overlap-allocation channel the χ²ᵣ bound alone leaves open, without
+    # re-introducing the wobble flake.
+    for sat_role in ("U4f__satellite_u4f72", "U4f__satellite_u4f52"):
+        assert sat_role in by_role, f"co-fit winner lacks {sat_role}"
+        assert by_role[sat_role]["phase_id"] == "UCl4", by_role[sat_role]
+
     # no phase leakage anywhere in the winner
     for p in res.peaks:
         assert p["phase_id"] in ("UCl4", "BN"), p
@@ -130,20 +142,21 @@ def test_u4f_n1s_cofit():
     # The previous bare `<=` sat INSIDE the engine's run-to-run wobble band
     # on this multi-modal anchor: under deep-phase wall-clock budget
     # truncation (run_stability_analysis skips refits past its deadline;
-    # screening/deep phases are wall-clock budgeted), the winner
-    # occasionally lands at χ²ᵣ ~11.69 vs the expert's 11.40 (measured
-    # 2026-07-10; fired 4× across 9 full-suite runs on 2026-09-02, always
-    # under concurrent-suite machine load, always passing standalone).
+    # screening/deep phases are wall-clock budgeted), the winner flips from
+    # U2_mains_satfree (χ²ᵣ ~7.13) to U1_mains_satpair+bfix (χ²ᵣ 11.688)
+    # vs the expert's 11.400 (measured 2026-07-10; reproduced live
+    # 2026-09-02 under codex-load; fired 4×/9 full-suite runs that morning
+    # — mostly under concurrent-suite load, and under a heavy-enough spike
+    # even standalone runs fired).
     #
     # COFIT_CHIR_FACTOR = 1.05 — a co-fit-SPECIFIC bound, deliberately
     # tighter than the single-region CHIR_FACTOR (1.2): the measured wobble
-    # ratio is 11.69/11.40 = 1.025, so 1.05 covers it with 2× margin while
-    # keeping the χ²ᵣ window this gate stops policing as narrow as the
-    # evidence allows (Codex adversarial rec, both runs: a 1.2 bound here
-    # would open an 11.40–13.68 blind window on an assertion set that has
-    # no co-fit satellite/ratio checks — and adding satellite-presence
-    # assertions instead would re-introduce the flake, since alternate
-    # winners across the wobble are exactly composed-candidate variation).
+    # ratio is 11.688/11.400 = 1.025, so 1.05 covers the OBSERVED bad state
+    # with 2× margin (11.688 ≤ 11.97, confirmed against a live-reproduced
+    # bad-state run) while keeping the χ²ᵣ window this gate stops policing
+    # as narrow as the evidence allows (Codex adversarial rounds 1–2). The
+    # structural channel that the loosened χ²ᵣ leaves open is policed by
+    # the satellite-presence assertions above.
     winner = res.diagnostics["winner"]
     top = next(c for c in res.analysis["candidates"] if c["name"] == winner)
     expert_chir = rf.fit_result.get("chiReduced")
