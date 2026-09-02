@@ -1,0 +1,50 @@
+You are running round 3 of an ADVERSARIAL review of branch
+fix-manual-anchor-cc-migration (HEAD, commit 07d1a53) of this repo (XPS
+app, frontend templates/index.html). Round 1: NO-GO ×2 (auto-fit rollback
+omitted anchors) — fixed in edde216, round 2 verified that fix. Round 2:
+run A NO-GO (new MAJOR) / run B GO — this round verifies the 07d1a53
+revision.
+
+UNIT (three commits vs main):
+  git diff main...HEAD   -- templates/index.html,
+                            tests/test_browser_manual_anchor_cc_migration.py
+
+ROUND-2 FINDINGS AND DISPOSITIONS (verify each):
+1. run A MAJOR: tab-switched auto-fit discard called active-tab-scoped
+   _autoFitRestore(snap), clobbering the newly active tab and leaving the
+   fitting tab's record in the provisional cc frame (pre-existing for
+   peaks/ccShift/DOM; anchors joined it).
+   DISPOSITION: _autoFitRestore(snap, fittingTabId): when
+   tabManager.activeId !== fittingTabId, restore into the fitting tab's
+   RECORD (peaks, fitResult, ccShift, manualAnchors, nextId, and ui fields
+   ccMethod/ccObs/ccLit/roiMin/roiMax/bgStart/bgEnd from the snapshot's
+   DOM captures) and touch neither live state nor the DOM; stack-tab and
+   missing-tab guards included. All three call sites pass fittingTabId —
+   including the catch path, which previously had NO tab guard at all.
+   VERIFY: is the record-write field set complete and consistent with what
+   activateTab's _syncActiveToRecord persists (so a later switch back to
+   the fitting tab restores exactly the pre-auto-fit view)? Any field the
+   snapshot captures that the record path drops (or vice versa)? What
+   about state fields _syncActiveToRecord persists that the auto-fit flow
+   MUTATES but the snapshot never captured (lineWidth, zoom, notes are
+   untouched by auto-fit — confirm)?
+2. run A MINOR: .spec.json anchors assigned after _restoreUI left the
+   anchor-count label stale. DISPOSITION: assignment moved before the ui
+   restore; test now pins the "2/20 pts" label with ui.bgType='manual'.
+3. run A MINOR (hostile anchors verbatim in all three load paths):
+   unchanged, dispositioned as pre-existing hygiene. Confirm or escalate.
+4. New test: two tabs, snapshot on tab 1, provisional cc shift, createTab
+   (activates tab 2), _autoFitRestore(snap, tab1Id); asserts tab 2 live
+   state/DOM untouched and tab 1's record fully back at the snapshot.
+   Would a wrong implementation pass (e.g. restoring into live state
+   anyway, or writing only anchors but not peaks/ccShift into the record)?
+
+Author reports the new test failed before the fix and passes after; full
+suite 756 passed / 7 skipped / 0 failed. Sandbox cannot run tests; review
+on the merits.
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.

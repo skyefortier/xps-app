@@ -1,0 +1,50 @@
+You are running round 2 of an ADVERSARIAL review of branch
+fix-manual-anchor-cc-migration (HEAD, commit edde216) of this repo (XPS
+app, frontend templates/index.html). Round 1 (identical repo state minus
+the newest commit) ended NO-GO ×2 on one convergent MAJOR; this round
+verifies the revision.
+
+UNIT UNDER RE-REVIEW (two commits vs main):
+  git diff main...HEAD   -- templates/index.html,
+                            tests/test_browser_manual_anchor_cc_migration.py
+  a324348: anchors migrate by -delta in updateChargeCorrection (round 1)
+  edde216: the round-1 findings fix (this round's subject)
+
+ROUND-1 FINDINGS AND THEIR DISPOSITIONS (verify each):
+1. MAJOR (both runs): Auto-Fit's provisional cc shift migrates anchors,
+   but _autoFitSnapshot/_autoFitRestore didn't capture/restore them —
+   failed auto-fit left anchors in the provisional frame.
+   DISPOSITION: _autoFitSnapshot now deep-copies manualAnchors
+   (JSON round-trip, same pattern as its peaks copy) and _autoFitRestore
+   calls _setManualAnchors(snap.manualAnchors || []). Verify the
+   snapshot/restore pair now round-trips anchors in every auto-fit failure
+   path (upload failure, fit failure, applyAutoFitResult validation
+   failure), and that the deep copy means later mutations can't alias.
+2. MAJOR (run A): _doSaveSpectrum writes manualAnchors but
+   _loadSpectrumFile never read them back.
+   DISPOSITION: _loadSpectrumFile now assigns
+   active.manualAnchors = data.manualAnchors when it's an Array — same
+   verbatim convention as the v1 fit-file loader (index.html ~3305) and
+   the project tab deserializer (~9140). Verify placement in the load
+   sequence is correct (before renderPeakList/updatePlot; the created tab
+   is active) and consider hostile-file input: non-numeric anchor x/y pass
+   through verbatim in ALL THREE load paths — is that a pre-existing
+   hygiene issue or newly dangerous here?
+3. MINOR (run A): undo model excludes anchors (pre-existing; cc edits were
+   never undoable). NOT changed. Confirm acceptable or escalate.
+4. New tests: test_autofit_rollback_restores_anchors (snapshot ->
+   updateChargeCorrection provisional shift -> restore -> anchors back at
+   placement x) and test_spec_json_load_restores_anchors (direct
+   _loadSpectrumFile call). Do they pin the fixes, and would a shallow-copy
+   snapshot (aliasing the live array) pass the rollback test when it
+   shouldn't?
+
+Author reports both new tests failed before the fix and pass after; full
+suite 755 passed / 7 skipped / 0 failed. Your sandbox cannot run
+pytest/Playwright; review on the merits.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.

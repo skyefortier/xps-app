@@ -1,0 +1,74 @@
+You are running an ADVERSARIAL review of one small unit on branch
+fix-manual-anchor-cc-migration (HEAD, commit a324348) of this repo (XPS
+peak-fitting web app: Flask backend + single-file frontend
+templates/index.html). Challenge the approach, assumptions, and real-world
+failure modes — do not just lint.
+
+UNIT UNDER REVIEW (one commit vs main):
+  git diff main...HEAD   -- templates/index.html,
+                            tests/test_browser_manual_anchor_cc_migration.py
+
+CLAIM (student-reported bug): manual background anchors are DATA-ATTACHED —
+`_handleManualAnchorClick` stores {x: a data point's corrected BE at
+placement time, y: that point's rawIntensity} — but `updateChargeCorrection()`
+migrated every OTHER data-attached energy value by -delta on a cc change
+(ROI min/max, bg-start/bg-end, every peak center) while never touching
+`manualAnchors`, so anchors visibly detached from the spectrum.
+
+THE FIX: inside updateChargeCorrection()'s existing `if (delta !== 0)` block,
+next to the peak-center loop: `for (const a of _getManualAnchors()) a.x -= delta;`
+(y untouched — intensity unaffected by cc). Convention chosen: the
+peak-center (data-attached) convention, NOT the reference-marker convention
+(literature markers stay at nominal corrected BE).
+
+AUTHOR'S AUDIT TO VERIFY OR REFUTE:
+- All updateChargeCorrection() call sites are genuine cc edits (cc-method
+  select onchange, cc-lit oninput, _onCCObsInput) plus the Auto-Fit C1s
+  provisional-shift path (applyAutoFitResult step 4 / the auto-fit flow at
+  ~index.html:6676) — the auto-fit path SHOULD move anchors (it already
+  moves peak centers identically). Tab-switch (TabManager.activateTab) and
+  project/spec LOAD paths never call updateChargeCorrection, so restored
+  anchors are never double-shifted.
+- Saved-file blast radius: none — anchors persist per-tab ALONGSIDE that
+  tab's ccShift (spec writer ~8658; project serializers), so old files are
+  self-consistent snapshots and load byte-identically; only a LATER cc
+  change moves anchors, which is when the old behavior was wrong.
+- _getManualAnchors() reads the ACTIVE tab's anchors — same scoping as
+  state.peaks in the same function.
+
+ADVERSARIAL QUESTIONS:
+1. Find any path where updateChargeCorrection runs with delta != 0 during
+   load/restore/tab-switch (including the cc DOM fields being repopulated
+   from tab.ui and any programmatic .value writes followed by the handler),
+   which would double-shift restored anchors.
+2. The anchors are mutated IN PLACE via the array returned by
+   _getManualAnchors(). Verify that reference is the tab's live array in all
+   cases (and what happens when there is no active tab / a stack tab is
+   active — stack tabs have no manualAnchors).
+3. Interaction with the armed-anchor-placement mode and _handleManualAnchorClick
+   right-click deletion: any stored coordinate that is NOT migrated but
+   compared against migrated anchor x (e.g. the 1 eV nearest-anchor
+   deletion radius, snap logic) that would now mismatch?
+4. Interaction with the manual-background fit path: bgPayload.manual_bg
+   sends anchors in the corrected frame alongside session data uploaded in
+   the same frame — confirm the fix keeps那 consistent after a cc change
+   (anchor x now matches the NEW corrected frame of the same data point).
+5. The Playwright tests: do they actually pin the convention (single change
+   + composition)? Any way a wrong implementation (e.g. migrating by +delta,
+   or migrating a COPY) passes them?
+6. The undo system (pushUndo) — is anchor state included in undo snapshots,
+   and does the fix create inconsistent undo states?
+
+Note: one word in question 4 above may render as a non-ASCII glyph due to an
+encoding slip; read it as "that".
+
+Your sandbox cannot run pytest or Playwright; review assertions on their
+merits. The author reports the browser tests fail on main (anchors stay at
+placement x while the peak-center control migrates) and pass on the branch;
+full suite green.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
