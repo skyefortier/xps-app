@@ -1,0 +1,65 @@
+You are running an ADVERSARIAL DESIGN review — no code has been written for
+this design; challenge the architecture, its assumptions, the evidence, and
+the ranking before anything is implemented.
+
+REPO: this checkout (XPS peak-fitting web app; Python/Flask backend
+fitting.py + app.py, single-file frontend templates/index.html, autofit
+engine under autofit/, battery fixtures under tests/autofit/fixtures/).
+
+THE DESIGN DOCUMENT TO REVIEW (read it first, in full):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/background_architecture_design.md
+
+SUPPORTING EVIDENCE (read as needed; all measurements were made this session):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task1_residual_diagnosis.md
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task4_background_twin_parity.md
+Verification scripts (bit-exact root-cause proofs) live in
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/artifacts/
+
+CONTEXT: the app shipped to students days ago; production is the main
+branch. The design proposes: (1) after a backend fit, store the backend's
+own background_y as fitResult.bgIntensity (backend authority for anything a
+fit reports); (2) keep the JS background twins for pre-fit preview and the
+local-LM offline fallback, but align them to Python and pin with a committed
+parity test suite; (3) fix the bg-window off-by-one on the FRONTEND request
+side by sending (lo, hi+1); (4) remove the shirley-iter UI knob after giving
+the JS twins Python's convergence semantics; (5) shirley_linear gets a
+scientific review, not a blind parity fix.
+
+ADVERSARIAL QUESTIONS — answer each explicitly against the actual code:
+1. Q1's central claim: "full backend authority is impossible because the
+   local-LM fallback needs a client-side background." Verify against
+   runFitLocal and its callers in templates/index.html. Is there a design
+   that keeps one authority AND the offline fallback (e.g., freeze the last
+   backend background)? Would it survive ROI/bg-setting changes while
+   offline?
+2. The S2 window fix: sending (lo, hi+1) from the frontend. Check run_fit's
+   index normalization (fitting.py, search "bg_start_idx") for edge cases:
+   hi+1 == len (flat-hold branch skipped?), reversed user input, bg window
+   narrower than ROI, the <2-point bail. Does the +1 do the right thing in
+   ALL of them? Is the claim true that autofit/parity.py and the battery
+   fixtures are untouched by a frontend-only change?
+3. The claim that fitResult.bgIntensity = backendResult.background_y "kills
+   S3 by construction": check every consumer of fitResult.bgIntensity /
+   bgSubtracted (updatePlot frozen-fit path, save serializers, stack Path A,
+   exports) for a consumer that NEEDS the JS-computed version (e.g. length
+   or grid mismatches: background_y is on the session grid — same 'be' the
+   frontend uploaded? verify via runFit's uploadToBackend flow).
+4. Removing shirley-iter: is the assertion "converged result independent of
+   the knob" actually true for ALL five iterative JS methods once aligned
+   (smart_exp's 1e-4 tol, shirley_linear's no-tol loop)? Any saved-state
+   or stack-render consumer that breaks when the DOM control disappears?
+5. The harm ranking: does anything in the code contradict it? In particular
+   is S2 really universal (all methods incl. linear/manual?) and is S3
+   really display-only (does anything downstream COMPUTE from the stored
+   bgIntensity — quantify, exports, spec.json round-trips?).
+6. What is MISSING from the design? (e.g. /api/background's inconsistent
+   endpoint semantics vs /api/fit, charge-correction interactions,
+   multi-worker session issues, anything the symptom list omits.)
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
+GO means: the design is sound to implement as written (possibly with MINOR
+amendments you list); NO-GO means a structural flaw requires redesign.

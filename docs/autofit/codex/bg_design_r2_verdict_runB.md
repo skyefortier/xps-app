@@ -1,0 +1,26 @@
+# Codex adversarial DESIGN review — background architecture (v2) — round 2, RUN B (2026-09-02)
+
+codex exec, read-only sandbox, model_reasoning_effort=high, gtimeout rails. Tokens: 189,008.
+Prompt: docs/autofit/codex/bg_design_r2_review_prompt.txt
+Design under review: docs/superpowers/plans/2026-09-02-background-architecture-sealed-fit-record.md (this file records the round-2 state; the committed memo is the final v4+amendments)
+Round 2: NO-GO x2 — all round-1 dispositions accepted; new specific call sites (applyAutoFitResult producer, anchor-mutation dirtying, .spec.json round-trip, cc-frame exports, JS linear narrowed-window semantics, batch shirleyIter).
+
+**Findings**
+
+1. BLOCKER: Unit-1’s sweep is still incomplete. It names save/export/figure, but misses the backend Auto-Fit producer: `applyAutoFitResult()` rebuilds `state.fitResult` from frontend `be/bgIntensity/bgSubtracted` after `/api/fit` returns ([templates/index.html](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/templates/index.html:6570)). It also misses `.spec.json` reload: `_loadSpectrumFile()` restores only stats and `fittedY`, dropping saved `roiBE/background/residuals`, so loaded spectrum fits fall back to JS/Path-B behavior ([templates/index.html](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/templates/index.html:9000)). Batch propagation is a correct exception because it uses local LM.
+
+2. BLOCKER: `settingsDirty` is implementable, but v2’s call-site map is wrong/incomplete. `12474` is bg-type change, not manual-anchor editing; actual add/remove/undo/clear anchor paths update the plot without invalidating anything ([templates/index.html](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/templates/index.html:12487), [templates/index.html](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/templates/index.html:12570)). ROI edits also do not call `_invalidateBgCache()`. If dirty mode means “preview unfitted,” all bg/ROI/manual-anchor mutation paths need the same dirty mark.
+
+3. MAJOR: The dirty-fit policy needs a second invariant for peak-table/export state after charge correction. `updateChargeCorrection()` migrates peak centers and UI fields while the frozen `fitResult.be/fittedY/background` would remain in the old corrected frame ([templates/index.html](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/templates/index.html:4625)). Fit-table exports and results currently use `state.peaks` with `state.fitResult.be` ([templates/index.html](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/templates/index.html:9741)), which can report shifted peaks with old fit statistics unless fitted peak params are frozen too or dirty stats/exports are gated.
+
+4. MAJOR: `/api/background` unification is riskier than the wording implies. A shared constructor is the right architecture, but the contract must be method-specific: integral methods flat-hold outside the window, `linear` extrapolates across the full ROI, `manual` ignores the window and needs `manual_bg`, and `none/flat` ignore both ([fitting.py](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/fitting.py:1038), [fitting.py](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/fitting.py:1059)). Current `/api/background` lacks that normalization and returns only the sliced window ([fitting.py](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/fitting.py:1276)).
+
+5. MAJOR: JS twin alignment scope still misses narrowed-window `linear`. v2 lists index-vs-BE interpolation, but current JS also flat-holds the sliced linear background outside the bg window ([templates/index.html](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/templates/index.html:4349)), while backend `linear` extrapolates over the full ROI. That matters for preview and local fallback.
+
+6. MINOR: The frozen `fitResult.be/counts` rule is sound for current `fitResult.be` consumers. Residual chart, `_peakArea`, stack Path A, fit-table areas, and `_autoFitCheckGraphiteFraction()` all already treat `fitResult.be` as the fit grid. For stricter “backend-authored artifacts,” saves/exports should also prefer backend `individual_peaks[].y` where available rather than recomputing per-peak curves in JS.
+
+7. MINOR: Q2’s `(lo, hi + 1)` helper is direction-safe and keeps `autofit/parity.py` plus battery fixtures untouched because Python’s exclusive-end contract remains stable. Add tests for blank/NaN endpoints, zero/one-point ROI, and bg windows entirely outside the ROI so the helper preserves the current full-range fallback behavior.
+
+8. MINOR: Q3’s `shirley-iter` removal gating is coherent, including de-listing `shirley_linear`, but include `static/js/batch_propagation.js` and its tests in the removal sweep because that pure helper still propagates `shirleyIter` ([static/js/batch_propagation.js](/Users/skyefortier/xps-app/.claude/worktrees/fix-manual-anchor-cc-migration/static/js/batch_propagation.js:20)).
+
+VERDICT: NO-GO — Unit 1 is still incomplete because backend Auto-Fit and `.spec.json` reload can continue mixing JS backgrounds with backend fit products, and the dirty-state policy misses real mutation paths.
