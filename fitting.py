@@ -676,11 +676,16 @@ def _la_casaxps_true(
         Increasing α relative to β SUPPRESSES the high-BE tail; decreasing
         α extends it.
 
-    2.  Gaussian convolution with an integer-point kernel of width `m`.
-        m=0 means no convolution. For m>0, build a discrete Gaussian
-        kernel of length 2m+1 with σ_pts = m/3 (so the 3σ tail just
-        reaches the kernel edge). Convolve with mode='same' on the
-        uniform x grid.
+    2.  Gaussian convolution with a continuous-m kernel: σ_pts = m/3,
+        kernel half-width max(1, ceil(3.5·σ_pts)) (±3.5σ; see the inline
+        comment for why 3.5, not 3), truncation-renormalized, convolved
+        with mode='same' on the uniform x grid. m < 1e-3 means no
+        convolution. NOTE this deliberately deviates from the original
+        integer 2m+1 design (still implemented by the frontend's
+        laTrueCasaXPS_array — a tracked ~0.15%-at-m=50 parity gap, todo
+        in tests/js/lineshape_parity.test.js): m flows through
+        continuously so lmfit's finite-difference Jacobian in m is
+        non-singular.
 
     With α=β=1 and m=0, this reduces exactly to amplitude × L(x) (a pure
     Lorentzian of peak height = amplitude, FWHM = `fwhm`).
@@ -691,7 +696,7 @@ def _la_casaxps_true(
     alpha : high-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
     beta  : low-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
     m     : Gaussian convolution kernel width in DATA POINTS (not eV);
-            integer 0–499. Stored as float in lmfit, rounded to int here.
+            0–499, used CONTINUOUSLY (no rounding — see kernel note above).
     """
     fwhm = max(float(fwhm), 1e-9)
     alpha = max(float(alpha), 1e-3)
