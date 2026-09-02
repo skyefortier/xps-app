@@ -1,0 +1,51 @@
+You are running round 2 of an ADVERSARIAL review of branch
+fix-u4f-cofit-gate-flake (HEAD, commit 801f386) of this repo (XPS app;
+file under review: tests/autofit/test_u4f_parity_gate.py). Round 1 ended
+run A NO-GO / run B GO (stricter governs) on the 61ba15b version, which
+widened the flaky co-fit chi2r assertion to the single-region
+CHIR_FACTOR (1.2). This is still a LOOSENED-ASSERTION unit — keep maximum
+suspicion.
+
+UNIT UNDER RE-REVIEW (two commits vs main):
+  git diff main...HEAD   -- tests/autofit/test_u4f_parity_gate.py
+
+ROUND-1 FINDINGS AND DISPOSITIONS (verify each):
+1. run A MAJOR "1.2 opens an 11.40-13.68 blind window; co-fit lacks
+   satellite/ratio assertions" + run B "1.05 would be the stricter
+   quarantine factor": DISPOSITION — new co-fit-specific
+   COFIT_CHIR_FACTOR = 1.05 (threshold 11.97 vs measured bad state 11.69,
+   2x wobble margin). Verify the constant, its usage, and the in-comment
+   rationale.
+2. run A "add co-fit envelope/satellite checks": REJECTED, with the
+   reason in-comment — alternate winners across the wobble are
+   composed-candidate variation, so satellite-presence assertions would
+   re-introduce the flake. Assess whether that rejection is sound (check
+   whether the documented wobble winner actually differs in satellite
+   content — the good-state winner is 'U2_mains_satfree+N0_asymGL', a
+   SAT-FREE candidate name, so what would a satellite assertion even pin?).
+3. run A "hash-seed mechanism overstated": comment now cites only
+   wall-clock budget truncation (verified by run A in engine.py).
+4. run A "commit says 3/8, comment says 2/5": both now say 4x across 9
+   full-suite runs (2026-09-02).
+5. NEW EVIDENCE since round 1: during a morning load spike, main's bare
+   assertion failed twice STANDALONE on a sibling worktree while this
+   branch's full suite (with the 1.05 bound) ran green through the same
+   window (751/7/0). Under light load a 5-run winner distribution is a
+   stable chi2r 7.1286 (same winner every run). The failing chi2r value
+   under the spike was NOT captured — assess whether 1.05 is adequately
+   supported without it, or whether the unit should block on capturing
+   the load-state value distribution.
+
+ROUND-2 QUESTIONS:
+a. Is 1.05 correctly placed given all evidence? Would YOU pick a
+   different number, and on what measurement?
+b. Does the remaining assertion set + 1.05 bound now police the co-fit
+   regression channels run A worried about (overlap allocation, N/U
+   weight split, background drift) adequately?
+c. Any new defect introduced by the two commits themselves?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.

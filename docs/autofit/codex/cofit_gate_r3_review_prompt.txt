@@ -1,0 +1,46 @@
+You are running round 3 of an ADVERSARIAL review of branch
+fix-u4f-cofit-gate-flake (HEAD, commit e65a063) of this repo (XPS app;
+file under review: tests/autofit/test_u4f_parity_gate.py). This unit
+loosens a flaky chi2r assertion — keep maximum suspicion. Round 1: A
+NO-GO / B GO on borrowing CHIR_FACTOR=1.2. Round 2 (on the 1.05
+co-fit-specific bound): A NO-GO / B GO — A's MAJOR was that the in-comment
+rejection of satellite assertions was FACTUALLY WRONG ('satfree' carries
+free satellites, not none), leaving the overlap-allocation channel
+unpoliced. This round verifies the e65a063 revision.
+
+UNIT (three commits vs main):
+  git diff main...HEAD   -- tests/autofit/test_u4f_parity_gate.py
+
+DISPOSITIONS TO VERIFY:
+1. run A round-2 MAJOR: satellite assertions now ADDED — the co-fit
+   winner must emit U4f__satellite_u4f72 and U4f__satellite_u4f52, both
+   phase-tagged UCl4. Empirical safety was measured before asserting
+   (author's scratchpad run): a live run under load reproduced the exact
+   documented bad state (winner U1_mains_satpair+N0_pv+bfix, chi2r
+   11.6877) and BOTH observed wobble winners emit those satellite roles;
+   the only satellite-less candidates (U0_mains*) scored chi2r 33-38.
+   VERIFY against autofit/regions/u4f.py + the grammar composition that
+   every candidate that could plausibly win within the 1.05 bound carries
+   those roles (i.e. the new assertions cannot themselves flake), and
+   that role naming (U4f__ prefix in the co-fit) is correct.
+2. The 1.05 bound: retained per both round-2 runs' endorsement, now with
+   a live-reproduced confirmation that the bad state (11.688) sits under
+   the 11.97 threshold. Any remaining objection?
+3. Comment accuracy: the rationale now describes the measured winner
+   flip (U2_mains_satfree ~7.13 <-> U1_mains_satpair+bfix 11.688), the
+   live reproduction, and no longer claims "always passing standalone".
+   Any remaining inaccuracy or overstatement?
+4. Any new defect introduced by the three commits? Is the co-fit gate
+   NOW at least as protective as the original bare assertion for every
+   regression class you can name (chi2r blind window 11.40-11.97
+   remains — is anything real left in it given satellites + positions +
+   tagging + leakage are all asserted)?
+
+Sandbox cannot run pytest; review on the merits. Author reports full
+suite 751/7/0 with the new assertions under concurrent load.
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
