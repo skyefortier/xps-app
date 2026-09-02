@@ -184,6 +184,69 @@ def test_anchors_follow_peak_centers_through_cc_change(browser, server):
     assert s["anchors"][1]["y"] == s["t6"]["yB"]
 
 
+def test_autofit_rollback_restores_anchors(browser, server):
+    """Codex round-1 MAJOR (both runs): Auto-Fit applies a provisional cc
+    shift through updateChargeCorrection() — which now migrates anchors —
+    and on failure _autoFitRestore() rolled back ccShift/ROI/bg/peaks but
+    left anchors in the provisional frame. The snapshot/restore pair must
+    round-trip anchors exactly like the rest of the mutated state."""
+    pg = browser.new_page(viewport={"width": 1400, "height": 900})
+    pg.goto(server + "/", wait_until="load")
+    pg.wait_for_function("typeof tabManager !== 'undefined'", timeout=10000)
+    _setup(pg)
+
+    s = pg.evaluate(
+        """() => {
+            const snap = _autoFitSnapshot();
+            document.getElementById('cc-method').value = 'c1s';
+            document.getElementById('cc-obs').value = '286.5';
+            updateChargeCorrection();                      // provisional shift
+            const shifted = _getManualAnchors().map(a => a.x);
+            _autoFitRestore(snap);                         // simulated failure
+            return {
+                shifted,
+                restored: _getManualAnchors().map(a => ({ x: a.x, y: a.y })),
+                ccShift: state.ccShift,
+                t6: window.__t6,
+            };
+        }"""
+    )
+    # sanity: the provisional shift really moved them first
+    assert abs(s["shifted"][0] - (s["t6"]["rawA"] - 2.0)) < 1e-9
+    # rollback must return them to the placement frame, like ccShift itself
+    assert abs(s["ccShift"]) < 1e-9
+    assert abs(s["restored"][0]["x"] - s["t6"]["rawA"]) < 1e-9, (
+        f"anchor A left at {s['restored'][0]['x']} after auto-fit rollback "
+        f"(expected placement x {s['t6']['rawA']})"
+    )
+    assert abs(s["restored"][1]["x"] - s["t6"]["rawB"]) < 1e-9
+    assert s["restored"][0]["y"] == s["t6"]["yA"]
+
+
+def test_spec_json_load_restores_anchors(browser, server):
+    """Codex round-1 MAJOR (run A): _doSaveSpectrum writes manualAnchors but
+    _loadSpectrumFile never read them back — the one anchor-persisting load
+    path that dropped them (v1 fit files and project tabs both restore)."""
+    pg = browser.new_page(viewport={"width": 1400, "height": 900})
+    pg.goto(server + "/", wait_until="load")
+    pg.wait_for_function("typeof tabManager !== 'undefined'", timeout=10000)
+    s = pg.evaluate(
+        """() => {
+            const raw = [], inten = [];
+            for (let i = 0; i <= 50; i++) { raw.push(295.0 - 0.1 * i); inten.push(500 + i); }
+            _loadSpectrumFile({
+                spectrumName: 'roundtrip', rawBE: raw, rawIntensity: inten,
+                ccShift: 1.25, peaks: [], nextId: 1,
+                manualAnchors: [ { x: 293.0, y: 520 }, { x: 291.0, y: 540 } ],
+            });
+            return _getManualAnchors().map(a => ({ x: a.x, y: a.y }));
+        }"""
+    )
+    assert s == [{"x": 293.0, "y": 520}, {"x": 291.0, "y": 540}], (
+        f".spec.json manualAnchors dropped on load: got {s}"
+    )
+
+
 def test_anchor_migration_composes_across_two_cc_changes(browser, server):
     pg = browser.new_page(viewport={"width": 1400, "height": 900})
     pg.goto(server + "/", wait_until="load")
