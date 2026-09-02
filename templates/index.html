@@ -6470,8 +6470,31 @@ function _autoFitSnapshot() {
   };
 }
 
-function _autoFitRestore(snap) {
+function _autoFitRestore(snap, fittingTabId) {
   if (!snap) return;
+  // If the fitting tab is no longer active (the user switched tabs while
+  // the auto-fit request was in flight), restore into that tab's RECORD.
+  // Writing the snapshot into live state/DOM here would clobber the newly
+  // active tab with the fitting tab's pre-auto-fit state while leaving
+  // the fitting tab's record in the provisional cc frame (Codex round-2
+  // MAJOR — a pre-existing defect for peaks/ccShift/DOM, not just the
+  // newly-migrating anchors). activateTab already synced the provisional
+  // live state into the record at switch-away, so overwriting the record
+  // fields with the snapshot undoes exactly that.
+  if (fittingTabId != null && tabManager.activeId !== fittingTabId) {
+    const t = tabManager._getTab(fittingTabId);
+    if (!t || t.isStack) return;
+    t.peaks = snap.peaks;
+    t.fitResult = snap.fitResult;
+    t.ccShift = snap.ccShift;
+    t.manualAnchors = snap.manualAnchors || [];
+    t.nextId = snap.nextId;
+    t.ui = { ...t.ui,
+      ccMethod: snap.ccMethodDom, ccObs: snap.ccObsDom, ccLit: snap.ccLitDom,
+      roiMin: snap.roiMinDom, roiMax: snap.roiMaxDom,
+      bgStart: snap.bgStartDom, bgEnd: snap.bgEndDom };
+    return;
+  }
   state.peaks     = snap.peaks;
   state.fitResult = snap.fitResult;
   state.ccShift   = snap.ccShift;
@@ -6744,7 +6767,7 @@ async function runAutoFitC1sGraphite() {
     if (tabManager.activeId !== fittingTabId) {
       _hideFitSpinner();
       notify('Auto-fit discarded — tab switched during fit.', 'amber');
-      _autoFitRestore(snap);
+      _autoFitRestore(snap, fittingTabId);
       return;
     }
 
@@ -6753,7 +6776,7 @@ async function runAutoFitC1sGraphite() {
     const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
     if (!ok) {
       _hideFitSpinner();
-      _autoFitRestore(snap);
+      _autoFitRestore(snap, fittingTabId);
       return;
     }
 
@@ -6762,7 +6785,10 @@ async function runAutoFitC1sGraphite() {
   } catch (e) {
     clearTimeout(timer);
     _hideFitSpinner();
-    _autoFitRestore(snap);
+    // The catch path can also fire after a mid-flight tab switch (fetch
+    // error/timeout after the user moved on) — same wrong-tab hazard as
+    // the explicit discard branch, so it gets the same tab-aware restore.
+    _autoFitRestore(snap, fittingTabId);
     let msg;
     if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('aborted')))) {
       msg = 'Auto-fit exceeded the 2-minute timeout.';
@@ -8985,18 +9011,21 @@ function _loadSpectrumFile(data, sessionFile) {
   state.peaks = active.peaks;
   active.nextId = data.nextId || 1;
   state.nextId = active.nextId;
+  // Manual bg anchors: saved by _doSaveSpectrum but previously never read
+  // back here — the one anchor-persisting load path that dropped them (the
+  // v1 fit-file loader and the project tab deserializer both restore).
+  // Same verbatim convention as those two paths. Assigned BEFORE the ui
+  // restore below: _restoreUI refreshes the manual-anchor count label from
+  // the active tab, so assigning after it left the label stale (Codex
+  // round-2 MINOR).
+  if (Array.isArray(data.manualAnchors)) {
+    active.manualAnchors = data.manualAnchors;
+  }
   if (data.ui) {
     active.ui = { ...active.ui, ...data.ui };
     tabManager._restoreUI(active.ui);
   }
   if (data.notes) active.notes = data.notes;
-  // Manual bg anchors: saved by _doSaveSpectrum but previously never read
-  // back here — the one anchor-persisting load path that dropped them (the
-  // v1 fit-file loader and the project tab deserializer both restore).
-  // Same verbatim convention as those two paths.
-  if (Array.isArray(data.manualAnchors)) {
-    active.manualAnchors = data.manualAnchors;
-  }
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     if (data.fittedY) fr.fittedY = data.fittedY;
