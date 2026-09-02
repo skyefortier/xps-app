@@ -4010,8 +4010,52 @@ function evalPeak(x, p) {
   return amp * y;
 }
 
+// Grid-aware DSG_LA delta-kernel branch. Mirrors the backend's
+// _ds_g_dscore_gauss `m_gauss < 0.001` path EXACTLY, including its
+// normalisation by np.interp(center, x, ds_core) on the DATA GRID (the
+// backend reverses a descending grid before interpolating). Normalising by
+// the analytic core value at eps=0 instead differs by ~1e-3 of amplitude
+// when the fitted center falls between grid points — the Codex run-A MAJOR
+// on the first cut of this fix. Pinned by tests/js/lineshape_parity.test.js.
+function dsgDeltaKernel_array(beArr, center, alpha, beta) {
+  const N = beArr.length;
+  const core = new Array(N);
+  for (let i = 0; i < N; i++) core[i] = laCasaXPSCore(beArr[i] - center, alpha, beta);
+  let peakVal;
+  if (N === 1) {
+    peakVal = core[0];                      // np.interp on a 1-pt grid
+  } else {
+    const asc = beArr[N - 1] > beArr[0];
+    // np.interp semantics on the ascending orientation: clamp outside the
+    // grid, linear interpolation between the bracketing points inside.
+    const xAt = i => (asc ? beArr[i] : beArr[N - 1 - i]);
+    const cAt = i => (asc ? core[i] : core[N - 1 - i]);
+    if (center <= xAt(0)) {
+      peakVal = cAt(0);
+    } else if (center >= xAt(N - 1)) {
+      peakVal = cAt(N - 1);
+    } else {
+      let j = 1;
+      while (j < N - 1 && xAt(j) < center) j++;
+      const x0 = xAt(j - 1), x1 = xAt(j);
+      const t = x1 !== x0 ? (center - x0) / (x1 - x0) : 0;
+      peakVal = cAt(j - 1) + t * (cAt(j) - cAt(j - 1));
+    }
+  }
+  if (!(peakVal > 0)) {
+    let mx = 0;
+    for (let i = 0; i < N; i++) mx = Math.max(mx, Math.abs(core[i]));
+    peakVal = mx;
+  }
+  if (!(peakVal > 0)) return new Array(N).fill(0);
+  for (let i = 0; i < N; i++) core[i] = core[i] / peakVal;
+  return core;
+}
+
 // Compute per-peak intensities across an array of BE values. Special-cases
-// LACX with non-zero m so the Gaussian convolution sees the whole grid.
+// LACX with non-zero m so the Gaussian convolution sees the whole grid, and
+// DSG_LA below the 0.001 delta-kernel threshold so the normalisation sees
+// the whole grid (see dsgDeltaKernel_array above).
 function evalPeakArray(beArr, p) {
   if (p.shape === 'LACX' && Math.round(p.caM || 0) > 0) {
     const yArr = laTrueCasaXPS_array(beArr, p.center, p.fwhm, p.caAlpha, p.caBeta, p.caM);
@@ -4019,6 +4063,14 @@ function evalPeakArray(beArr, p) {
     const amp = p.amplitude;
     for (let i = 0; i < beArr.length; i++) out[i] = amp * yArr[i];
     return out;
+  }
+  if (p.shape === 'DSG_LA' && (p.laM || 0) < 0.001) {
+    // (p.laM || 0): negative laM matches the backend's clamp-to-0-then-delta
+    // path; NaN/undefined coerce to 0 → delta, which peakToBackendSpec's
+    // non-finite→default sanitisation makes unreachable in fit flows.
+    const yArr = dsgDeltaKernel_array(beArr, p.center, p.laAlpha, p.laBeta);
+    const amp = p.amplitude;
+    return yArr.map(v => amp * v);
   }
   return beArr.map(x => evalPeak(x, p));
 }
