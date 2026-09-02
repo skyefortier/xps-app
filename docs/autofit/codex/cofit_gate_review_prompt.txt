@@ -1,0 +1,54 @@
+You are running an ADVERSARIAL review of one small unit on branch
+fix-u4f-cofit-gate-flake (HEAD, commit 61ba15b) of this repo (XPS app;
+the file under review is tests/autofit/test_u4f_parity_gate.py). This unit
+LOOSENS a test assertion — treat it with maximum suspicion: the central
+question is whether this quarantines a flake or hides a real regression
+channel.
+
+UNIT UNDER REVIEW (one commit vs main):
+  git diff main...HEAD   -- tests/autofit/test_u4f_parity_gate.py
+
+CLAIM: test_u4f_n1s_cofit's final assertion was a BARE
+`reduced_chi_sq <= expert chiReduced` against the 4-GTA co-fit anchor that
+the file's own header documents as KNOWN-ROUGH (expert chi2r 11.40) on a
+multi-modal problem. The engine's documented run-to-run wobble on this
+anchor (hash-seed candidate ordering + deep-phase wall-clock budget
+truncation; bad state chi2r ~11.69 measured 2026-07-10) sits 2.5% above
+the threshold, so the gate fired 3x across 8 full-suite runs on 2026-09-02
+— always under concurrent-suite machine load, always passing standalone.
+The fix applies the file's own CHIR_FACTOR = 1.2 (already used by
+test_u4f_single_region_parity with an in-file rationale) to the co-fit
+assertion; good-state engine chi2r is ~7.1, so the 13.7 bound still fails
+any genuine regression of the class the gate exists for. All
+position/splitting/ratio/phase-tagging/leakage assertions are untouched.
+
+ADVERSARIAL QUESTIONS:
+1. Regression-channel analysis: enumerate what real defects the OLD bare
+   assertion would have caught that the NEW 1.2-factor bound would miss
+   (chi2r between 11.40 and 13.68). Given the strict assertions that
+   remain (N 1s position ±0.3 eV, U 4f7/2 / 4f5/2 positions ±0.3 eV,
+   phase tagging, no leakage), is that window a real risk or noise?
+2. Is 1.2 the right factor HERE, or should the co-fit — being a
+   known-rough multi-modal anchor — arguably use a factor derived from the
+   measured wobble (11.69/11.40 = 1.025, e.g. 1.05) to keep the gate
+   tighter? Argue both ways and pick one.
+3. Alternative designs the author rejected implicitly: pytest rerun/flaky
+   marker, seed-pinning (OPTIONS already pins rng_seed=0 — check whether
+   the residual nondeterminism claim [process hash seed + wall-clock
+   truncation, unpinnable in-process] is actually true in
+   autofit/engine.py), moving the co-fit to the env-gated slow suite. Any
+   of these strictly better?
+4. Verify the claimed in-file precedent: does the single-region gate's
+   CHIR_FACTOR usage + comment actually support this as "the file's own
+   established bound," or is that a rationalization?
+5. The commit message claims 3 firings / 8 runs under load, passing
+   standalone. You cannot verify the runs; assess whether the documented
+   wobble mechanism (see the file's own comments and the new comment) is
+   plausible from the engine code (autofit/engine.py: deadline checks,
+   budget truncation, candidate screening order).
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
