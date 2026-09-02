@@ -3882,6 +3882,18 @@ function laCasaXPS(x, center, alpha, beta, mGauss) {
   // β: Lorentzian half-width (eV)
   // m: Gaussian FWHM (eV) convolved with the DS core
   // Returns value normalised to 1 at x = center.
+  //
+  // m below the same 0.001 eV threshold the backend uses
+  // (fitting.py _ds_g_dscore_gauss) means a delta kernel: skip the
+  // convolution and return the normalised DS core directly. The quadrature
+  // below degenerates as sigma → 0 (its Gaussian weights divide by
+  // 2·sigma², collapsing the curve to ~0), so this branch is a correctness
+  // fix, not just a fast path. Pinned by tests/js/lineshape_parity.test.js.
+  if (mGauss < 0.001) {
+    const peakVal = laCasaXPSCore(0, alpha, beta);
+    if (!(peakVal > 0)) return 0;
+    return laCasaXPSCore(x - center, alpha, beta) / peakVal;
+  }
   const sigma = mGauss / (2.0 * Math.sqrt(2.0 * Math.LN2));
   // Wide window: DS power-law tail decays slowly (~1/ε^1.85), need large range.
   const halfRange = 6 * sigma + 50 * beta;

@@ -205,17 +205,25 @@ test('(A) frontend vs backend parity: DSG_LA at moderate m — KNOWN GAP, unaddr
     `DSG_LA: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
 });
 
-test('(A) frontend vs backend parity: DSG_LA at m=0 — KNOWN GAP, SEVERE, unaddressed', { todo: 'DSG_LA division-by-zero degeneracy in laCasaXPS() at small/zero laM: curve collapses to ~0 (101.8% max diff measured 2026-08-30 at laM=0) — NOT the same root cause as the moderate-m gap above; needs its own fix' }, () => {
-  const p = basePeak('DSG_LA');
-  p.laM = 0;
-  const x = grid(p.center);
-  const jsY = evalPeakArray(x, p);
-  const { shape: beShape, params } = BACKEND.DSG_LA(p);
-  const beY = backendEval(beShape, params, x);
-  const rel = maxRelDiff(jsY, beY, p.amplitude);
-  assert.ok(rel < TIGHT_TOL,
-    `DSG_LA at m=0: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
-});
+// FIXED (fix-dsgla-m0-collapse): laCasaXPS() now mirrors the backend's
+// delta-kernel branch (_ds_g_dscore_gauss, `m_gauss < 0.001` → normalised DS
+// core, no convolution) instead of running its Gaussian-weighted quadrature
+// with sigma → 0 — the degenerate-weight collapse that made the curve vanish
+// (101.8% max diff measured 2026-08-30 at laM=0). Both m=0 exactly and any
+// laM below the shared 0.001 threshold take the analytic branch.
+for (const laM of [0, 0.0009]) {
+  test(`(A) frontend vs backend parity: DSG_LA at m=${laM} (delta kernel, no convolution)`, () => {
+    const p = basePeak('DSG_LA');
+    p.laM = laM;
+    const x = grid(p.center);
+    const jsY = evalPeakArray(x, p);
+    const { shape: beShape, params } = BACKEND.DSG_LA(p);
+    const beY = backendEval(beShape, params, x);
+    const rel = maxRelDiff(jsY, beY, p.amplitude);
+    assert.ok(rel < TIGHT_TOL,
+      `DSG_LA at m=${laM}: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
+  });
+}
 
 // ── (B) Frontend vs frontend: evalPeak(x,p) vs evalPeakArray(grid,p)[i] ────
 // For every shape EXCEPT LACX, evalPeakArray falls through to
