@@ -43,6 +43,7 @@ CHIR_FACTOR = 1.2          # engine χ²ᵣ must be ≤ expert × this (measured
 # single-region tests' job on the good anchors (Codex Stage-3 finding #3).
 COFIT_MAIN_TOL_EV = 0.3
 N1S_TOL_EV = 0.3
+COFIT_CHIR_FACTOR = 1.05   # co-fit χ²ᵣ bound; see the in-test rationale
 
 OPTIONS = {"n_refits": 4, "rng_seed": 0, "noise_floor": 1.0,
            "enable_proposal_pass": False}
@@ -126,19 +127,27 @@ def test_u4f_n1s_cofit():
         assert (p["phase_id"] == "BN") == (p["region"] == "N 1s"), p
 
     # Engine fit quality at least on par with the (rough) expert reference.
-    # CHIR_FACTOR bound, same as the single-region gate above — the previous
-    # bare `<=` sat INSIDE the engine's run-to-run wobble band on this
-    # multi-modal anchor: under deep-phase wall-clock budget truncation plus
-    # an unlucky screen set (unpinnable process-level hash-seed ordering),
-    # the winner occasionally lands at χ²ᵣ ~11.69 vs the expert's 11.40
-    # (measured 2026-07-10; fired 2×/5 full-suite runs on 2026-09-02 under
-    # concurrent-suite machine load, always passing standalone). Good-state
-    # engine χ²ᵣ is ~7.1, so ×1.2 (=13.7) still fails on any genuine
-    # regression while no longer flaking on the documented wobble.
+    # The previous bare `<=` sat INSIDE the engine's run-to-run wobble band
+    # on this multi-modal anchor: under deep-phase wall-clock budget
+    # truncation (run_stability_analysis skips refits past its deadline;
+    # screening/deep phases are wall-clock budgeted), the winner
+    # occasionally lands at χ²ᵣ ~11.69 vs the expert's 11.40 (measured
+    # 2026-07-10; fired 4× across 9 full-suite runs on 2026-09-02, always
+    # under concurrent-suite machine load, always passing standalone).
+    #
+    # COFIT_CHIR_FACTOR = 1.05 — a co-fit-SPECIFIC bound, deliberately
+    # tighter than the single-region CHIR_FACTOR (1.2): the measured wobble
+    # ratio is 11.69/11.40 = 1.025, so 1.05 covers it with 2× margin while
+    # keeping the χ²ᵣ window this gate stops policing as narrow as the
+    # evidence allows (Codex adversarial rec, both runs: a 1.2 bound here
+    # would open an 11.40–13.68 blind window on an assertion set that has
+    # no co-fit satellite/ratio checks — and adding satellite-presence
+    # assertions instead would re-introduce the flake, since alternate
+    # winners across the wobble are exactly composed-candidate variation).
     winner = res.diagnostics["winner"]
     top = next(c for c in res.analysis["candidates"] if c["name"] == winner)
     expert_chir = rf.fit_result.get("chiReduced")
-    assert top["reduced_chi_sq"] <= expert_chir * CHIR_FACTOR, (
+    assert top["reduced_chi_sq"] <= expert_chir * COFIT_CHIR_FACTOR, (
         f"co-fit engine χ²ᵣ {top['reduced_chi_sq']:.2f} vs expert "
-        f"{expert_chir:.2f} × {CHIR_FACTOR}"
+        f"{expert_chir:.2f} × {COFIT_CHIR_FACTOR}"
     )
