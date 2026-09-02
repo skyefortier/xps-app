@@ -205,25 +205,48 @@ test('(A) frontend vs backend parity: DSG_LA at moderate m — KNOWN GAP, unaddr
     `DSG_LA: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
 });
 
-// FIXED (fix-dsgla-m0-collapse): laCasaXPS() now mirrors the backend's
-// delta-kernel branch (_ds_g_dscore_gauss, `m_gauss < 0.001` → normalised DS
-// core, no convolution) instead of running its Gaussian-weighted quadrature
-// with sigma → 0 — the degenerate-weight collapse that made the curve vanish
-// (101.8% max diff measured 2026-08-30 at laM=0). Both m=0 exactly and any
-// laM below the shared 0.001 threshold take the analytic branch.
+// FIXED (fix-dsgla-m0-collapse): for laM below the backend's 0.001 delta-
+// kernel threshold (_ds_g_dscore_gauss, `m_gauss < 0.001` → normalised DS
+// core, no convolution), evalPeakArray now takes a grid-aware branch that
+// mirrors the backend EXACTLY, including its normalisation by
+// np.interp(center, x, ds_core) ON THE DATA GRID — not the analytic core
+// value at eps=0. The distinction matters when the fitted center falls
+// BETWEEN grid points (~9.7e-4 of amplitude apart on a 0.05 eV grid,
+// Codex run-A MAJOR on the first cut of this fix, which normalised
+// analytically) — hence the centerOffset sweep below: 0 (on-grid) and
+// 0.025 (half a grid step). Pre-fix baseline for context: the quadrature
+// collapse made the curve vanish entirely (101.8% max diff at laM=0).
 for (const laM of [0, 0.0009]) {
-  test(`(A) frontend vs backend parity: DSG_LA at m=${laM} (delta kernel, no convolution)`, () => {
-    const p = basePeak('DSG_LA');
-    p.laM = laM;
-    const x = grid(p.center);
-    const jsY = evalPeakArray(x, p);
-    const { shape: beShape, params } = BACKEND.DSG_LA(p);
-    const beY = backendEval(beShape, params, x);
-    const rel = maxRelDiff(jsY, beY, p.amplitude);
-    assert.ok(rel < TIGHT_TOL,
-      `DSG_LA at m=${laM}: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
-  });
+  for (const centerOffset of [0, 0.025]) {
+    test(`(A) frontend vs backend parity: DSG_LA at m=${laM}, center ${centerOffset ? 'half-step off-grid' : 'on-grid'} (delta kernel)`, () => {
+      const p = basePeak('DSG_LA');
+      p.laM = laM;
+      const x = grid(p.center);       // grid built around the ON-grid center
+      p.center += centerOffset;       // then shift the peak off-grid
+      const jsY = evalPeakArray(x, p);
+      const { shape: beShape, params } = BACKEND.DSG_LA(p);
+      const beY = backendEval(beShape, params, x);
+      const rel = maxRelDiff(jsY, beY, p.amplitude);
+      assert.ok(rel < TIGHT_TOL,
+        `DSG_LA at m=${laM}, centerOffset=${centerOffset}: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
+    });
+  }
 }
+
+// Same delta branch on a DESCENDING grid (real acquisitions descend): the
+// backend delta branch reverses before np.interp; the JS mirror must too.
+test('(A) frontend vs backend parity: DSG_LA at m=0, descending grid, off-grid center', () => {
+  const p = basePeak('DSG_LA');
+  p.laM = 0;
+  const x = grid(p.center).reverse();
+  p.center += 0.025;
+  const jsY = evalPeakArray(x, p);
+  const { shape: beShape, params } = BACKEND.DSG_LA(p);
+  const beY = backendEval(beShape, params, x);
+  const rel = maxRelDiff(jsY, beY, p.amplitude);
+  assert.ok(rel < TIGHT_TOL,
+    `DSG_LA m=0 descending off-grid: max diff = ${(rel * 100).toFixed(4)}% of amplitude`);
+});
 
 // ── (B) Frontend vs frontend: evalPeak(x,p) vs evalPeakArray(grid,p)[i] ────
 // For every shape EXCEPT LACX, evalPeakArray falls through to
