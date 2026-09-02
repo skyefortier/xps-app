@@ -1,0 +1,59 @@
+You are running round 2 of an ADVERSARIAL DESIGN review — no code exists
+for this design; challenge the architecture before implementation.
+
+ROUND 1: both independent runs returned NO-GO on the v1 design with
+convergent completeness findings while endorsing the architecture direction.
+v2 (the document below) incorporates every finding, with dispositions marked
+[Cx-A#]/[Cx-B#] inline referring to round-1 runs A and B.
+
+THE DESIGN DOCUMENT (v2 — read in full):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/background_architecture_design.md
+
+ROUND-1 VERDICTS (for the findings being dispositioned):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/codex/bg_design_runA_verdict.md
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/codex/bg_design_runB_verdict.md
+
+SUPPORTING MEASUREMENTS:
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task1_residual_diagnosis.md
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task4_background_twin_parity.md
+
+REPO: this checkout (main + an unrelated one-commit branch), templates/index.html
+frontend, fitting.py backend, autofit/ engine, tests/.
+
+ROUND-2 QUESTIONS — verify each disposition against the actual code, then
+hunt for anything STILL missing:
+1. Round-1 BLOCKER (save/export/figure recompute JS backgrounds): does v2's
+   Unit-1 consumer sweep now cover EVERY such site? Grep for additional
+   computeBackground / manualAnchorBackground / bgIntensity consumers the
+   sweep list misses (batch fit, stack Path B, undo snapshots, anything).
+2. The new `settingsDirty` invalidation policy (design section Q1.3): trace
+   the actual _invalidateBgCache call sites (bg-start/end oninput 2011/2015,
+   shirley-iter 2021, endpoint-avg 2025, updateChargeCorrection 4663,
+   manual-anchor edits 12474) and updatePlot's haveFit gate (~7947). Is the
+   policy implementable without breaking the frozen-zoom/frozen-fit UX
+   invariants documented in updatePlot? Any consumer that RELIES on
+   bgIntensity being nulled (e.g. the fallback recompute path)?
+3. The frozen-arrays rule (fitResult.be/counts from backendResult): check
+   every fitResult.be consumer (residuals chart, _peakArea callers,
+   exports, stack Path A, _autoFitCheckGraphiteFraction) for one that
+   breaks if be comes from the rounded session grid instead of the
+   frontend's full-precision ROI slice.
+4. Q2's hardened window spec: shared _bgWindowIndices helper, (lo, hi+1),
+   NaN→(0,len). Any remaining edge (single-point ROI, bg window entirely
+   outside ROI, ascending uploads)? Confirm again that autofit/parity.py
+   and battery fixtures are untouched.
+5. Q3's gating (knob removal after twin convergence semantics; decoupled
+   from shirley_linear if Q4 chooses de-listing): coherent and complete?
+6. The /api/background unification via a shared background constructor
+   extracted from run_fit: any hidden coupling in run_fit (manual_bg,
+   linear extrapolation vs flat-hold) that makes the extraction riskier
+   than the design implies?
+7. Ship-order ranking: still correct after the scope corrections? What
+   would YOU ship first and why, if different?
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
+GO means: sound to implement as written (with MINOR amendments listed).

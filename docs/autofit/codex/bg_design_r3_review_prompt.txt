@@ -1,0 +1,50 @@
+You are running round 3 of an ADVERSARIAL DESIGN review — no code exists;
+challenge the architecture before implementation.
+
+HISTORY: round 1 NO-GO ×2 (architecture endorsed; completeness findings);
+round 2 NO-GO ×2 (all round-1 dispositions accepted; findings were specific
+call sites/contracts). v3 (the document below) folds in every round-2
+finding, marked [R2-A#]/[R2-B#].
+
+THE DESIGN DOCUMENT (v3 — read in full):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/background_architecture_design.md
+
+ROUND-2 VERDICTS (the findings being dispositioned):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/codex/bg_design_r2_runA_verdict.md
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/codex/bg_design_r2_runB_verdict.md
+
+MEASUREMENTS:
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task1_residual_diagnosis.md
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task4_background_twin_parity.md
+
+REPO: this checkout (main + an unrelated small branch); templates/index.html,
+fitting.py, autofit/, static/js/, tests/.
+
+ROUND-3 TASK: verify each round-2 disposition against the code, then hunt
+for anything STILL missing. Specifically:
+1. Producer/consumer sweep (design 1b): is it now exhaustive? Check
+   applyAutoFitResult, _doSaveSpectrum, exportResults, exportFigure,
+   _computeRFactor, stack Paths A and B, _autoSnapshot + the history
+   preview overlay, batch propagation (design says it is a CORRECT JS
+   consumer — agree?), and .spec.json save+load round-trip.
+2. settingsDirty call-site map (1c): bg fields, bg-type, cc, and ALL four
+   manual-anchor mutation paths; ROI explicitly excluded with the
+   documented frozen-fit invariant as rationale. Sound?
+3. The cc second invariant (exports read refined params from
+   backendResult, never live state.peaks): is that implementable given
+   the current export code paths, and does it conflict with any user
+   expectation you can infer from the UI?
+4. Q2/Q3/Q4 and the /api/background method-specific contract: any
+   remaining hole?
+5. The harm ranking and unit boundaries: would you re-order or re-split?
+GO means: sound to implement as written (with MINOR amendments listed).
+This design will gate several implementation units; do not GO politely —
+find what is missing. But equally: do not manufacture NO-GOs from items
+already explicitly dispositioned with a stated policy unless the policy
+itself is unsound against the code.
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.

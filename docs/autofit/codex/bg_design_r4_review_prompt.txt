@@ -1,0 +1,52 @@
+You are running round 4 (final round) of an ADVERSARIAL DESIGN review — no
+code exists; challenge the architecture before implementation.
+
+HISTORY: rounds 1–3 each NO-GO ×2 with converging findings; every round
+endorsed the architecture direction. Round 3's findings were all instances
+of one class ("fit artifact consumed in a different frame/settings context
+than produced"). v4 RESTRUCTURES rather than enumerates: a sealed,
+self-contained fit record with exactly one producer path per flow (auto-fit
+seals AFTER its final charge correction, rigidly shifted into the displayed
+frame), plus a single dirty-marking funnel enforced by a grep-based
+structural test (the same mechanism that guards evalPeak() callers in
+tests/js/lineshape_parity.test.js and has held for months). Prior rounds'
+enumerations are now migration checklists, not the safety argument.
+
+THE DESIGN (v4 — read in full):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/background_architecture_design.md
+
+ROUND-3 VERDICTS (dispositioned in v4):
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/codex/bg_design_r3_runA_verdict.md
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/codex/bg_design_r3_runB_verdict.md
+
+MEASUREMENTS:
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task1_residual_diagnosis.md
+/private/tmp/claude-501/-Users-skyefortier-xps-app/ebaf14f4-94cd-4c4e-819d-6618ffc98493/scratchpad/reports/task4_background_twin_parity.md
+
+ROUND-4 QUESTIONS — the CLASS structure is what's under review now:
+1. Does the sealed-record class rule actually close round 3's frame gaps?
+   Scrutinize the auto-fit rigid-shift claim: is a cc change truly a rigid
+   BE relabeling for EVERYTHING in the seal (arrays, per-peak y, centers,
+   widths, sigma, chi2, R-factor, settingsSnapshot's bgStart/bgEnd)? Any
+   member that does NOT transform rigidly?
+2. Does the dirty-funnel + structural-test mechanism actually make the
+   missed-call-site class impossible, or can you construct a mutation that
+   evades a source-grep guard (e.g. DOM .value writes via helpers,
+   programmatic dispatchEvent, project-load restores that SHOULD not dirty)?
+   Is load/restore correctly OUTSIDE the funnel (restoring a saved tab's bg
+   fields must not dirty its restored seal)?
+3. Is the local-LM seal (its own JS background) coherent with the parity
+   suite and dirty semantics?
+4. Any consumer of the CURRENT fitResult shape that the seal migration
+   breaks (undo/_autoSnapshot compatibility, stack Path B, old saved files
+   loading into the new shape)?
+5. Ship-order: 1a–1d as one branch with 1c separable — agree?
+Do not manufacture NO-GOs from enumeration items the funnel/structural test
+now covers by construction unless you can show the construction fails.
+Judge the class rules.
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
