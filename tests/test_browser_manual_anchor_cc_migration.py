@@ -223,6 +223,78 @@ def test_autofit_rollback_restores_anchors(browser, server):
     assert s["restored"][0]["y"] == s["t6"]["yA"]
 
 
+def test_autofit_restore_targets_the_fitting_tab_after_tab_switch(browser, server):
+    """Codex round-2 MAJOR (run A): if the user switches tabs while an
+    auto-fit request is in flight, the discard/error paths called
+    _autoFitRestore(snap) against the NEWLY ACTIVE tab — clobbering that
+    tab's live state with the fitting tab's snapshot while the fitting
+    tab's record kept the provisional cc frame (this was pre-existing for
+    peaks/ccShift/DOM too; anchors joined the same broken path).
+    _autoFitRestore(snap, fittingTabId) must restore into the fitting
+    tab's RECORD when it is no longer active, leaving the active tab and
+    the DOM alone."""
+    pg = browser.new_page(viewport={"width": 1400, "height": 900})
+    pg.goto(server + "/", wait_until="load")
+    pg.wait_for_function("typeof tabManager !== 'undefined'", timeout=10000)
+    _setup(pg)  # tab 1: anchors + one peak at 286.5, ccShift 0
+
+    s = pg.evaluate(
+        """() => {
+            const tab1Id = tabManager.activeId;
+            const snap = _autoFitSnapshot();
+            // provisional shift, as the auto-fit flow does before its await
+            document.getElementById('cc-method').value = 'c1s';
+            document.getElementById('cc-obs').value = '286.5';
+            updateChargeCorrection();                       // ccShift -> +2.0
+            // user switches tabs mid-request (syncs tab1's shifted state)
+            const raw2 = [], inten2 = [];
+            for (let i = 0; i <= 50; i++) { raw2.push(600.0 - 0.1 * i); inten2.push(300); }
+            tabManager.createTab('other tab', raw2, inten2);
+            const tab2Id = tabManager.activeId;
+            const tab2Before = {
+                ccShift: state.ccShift,
+                nPeaks: state.peaks.length,
+                ccObsDom: document.getElementById('cc-obs').value,
+            };
+            // discard path fires on the no-longer-active fitting tab
+            _autoFitRestore(snap, tab1Id);
+            const t1 = tabManager._getTab(tab1Id);
+            return {
+                tab2Id, tab1Id,
+                activeAfter: tabManager.activeId,
+                tab2After: {
+                    ccShift: state.ccShift,
+                    nPeaks: state.peaks.length,
+                    ccObsDom: document.getElementById('cc-obs').value,
+                },
+                tab2Before,
+                tab1Record: {
+                    ccShift: t1.ccShift,
+                    anchorX: (t1.manualAnchors || []).map(a => a.x),
+                    peakCenter: t1.peaks && t1.peaks[0] ? t1.peaks[0].center : null,
+                    uiCcObs: t1.ui ? t1.ui.ccObs : null,
+                },
+                t6: window.__t6,
+            };
+        }"""
+    )
+    # the active tab must still be tab 2 and completely untouched
+    assert s["activeAfter"] == s["tab2Id"]
+    assert s["tab2After"] == s["tab2Before"], (
+        f"restore corrupted the active tab: {s['tab2Before']} -> {s['tab2After']}"
+    )
+    # the fitting tab's RECORD must be back at the pre-auto-fit snapshot
+    assert abs(s["tab1Record"]["ccShift"]) < 1e-9, (
+        f"fitting tab record ccShift left at {s['tab1Record']['ccShift']}"
+    )
+    assert abs(s["tab1Record"]["anchorX"][0] - s["t6"]["rawA"]) < 1e-9, (
+        f"fitting tab anchors left in provisional frame: {s['tab1Record']['anchorX']}"
+    )
+    assert abs(s["tab1Record"]["anchorX"][1] - s["t6"]["rawB"]) < 1e-9
+    assert abs(s["tab1Record"]["peakCenter"] - 286.5) < 1e-9
+    assert s["tab1Record"]["uiCcObs"] == ""  # snapshot had no cc-obs entry
+
+
 def test_spec_json_load_restores_anchors(browser, server):
     """Codex round-1 MAJOR (run A): _doSaveSpectrum writes manualAnchors but
     _loadSpectrumFile never read them back — the one anchor-persisting load
@@ -237,13 +309,24 @@ def test_spec_json_load_restores_anchors(browser, server):
             _loadSpectrumFile({
                 spectrumName: 'roundtrip', rawBE: raw, rawIntensity: inten,
                 ccShift: 1.25, peaks: [], nextId: 1,
+                ui: { bgType: 'manual' },
                 manualAnchors: [ { x: 293.0, y: 520 }, { x: 291.0, y: 540 } ],
             });
-            return _getManualAnchors().map(a => ({ x: a.x, y: a.y }));
+            return {
+                anchors: _getManualAnchors().map(a => ({ x: a.x, y: a.y })),
+                countLabel: (document.getElementById('manual-anchor-count') || {}).textContent || null,
+            };
         }"""
     )
-    assert s == [{"x": 293.0, "y": 520}, {"x": 291.0, "y": 540}], (
-        f".spec.json manualAnchors dropped on load: got {s}"
+    assert s["anchors"] == [{"x": 293.0, "y": 520}, {"x": 291.0, "y": 540}], (
+        f".spec.json manualAnchors dropped on load: got {s['anchors']}"
+    )
+    # Codex round-2 MINOR (run A): anchors were assigned AFTER _restoreUI,
+    # which is where the anchor-count label refreshes — so the label was
+    # empty (stale 0-count) right after loading a manual-bg spectrum.
+    # Anchors must be on the tab before the ui restore runs.
+    assert s["countLabel"] == "2/20 pts", (
+        f"anchor count label stale after load: {s['countLabel']!r}"
     )
 
 
