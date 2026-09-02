@@ -4646,6 +4646,19 @@ function updateChargeCorrection() {
       p.center -= delta;
     }
 
+    // Manual background anchors. Anchors are DATA-ATTACHED like peak
+    // centers (x = a data point's corrected BE at placement time, y = that
+    // point's intensity), so they follow the same -delta migration as the
+    // ROI/bg fields and peak centers above — NOT the reference-marker
+    // convention (literature markers stay at nominal corrected BE). y is
+    // untouched: intensity is unaffected by charge correction. Saved files
+    // need no migration — anchors persist alongside the tab's ccShift, so
+    // every save is a self-consistent snapshot.
+    const ccAnchors = _getManualAnchors();
+    for (const a of ccAnchors) {
+      a.x -= delta;
+    }
+
     // Background cache is no longer valid after CC shift
     _invalidateBgCache();
   }
