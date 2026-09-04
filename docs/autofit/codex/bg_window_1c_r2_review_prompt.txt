@@ -1,0 +1,51 @@
+RE-CHECK (round 2) of unit 1c on branch fix-bg-window-inclusive (HEAD 050aee2).
+Round 1 (both runs) returned NO-GO on ONE shared MAJOR plus minors. This
+round verifies the dispositions line-by-line; the original prompt is
+docs/autofit/codex/bg_window_1c_review_prompt.txt and still applies.
+Do NOT read the archived round-1 verdict files (they echo verdict lines).
+
+Diff to review vs main:  git diff main...HEAD
+Round-1 fix commit:      git show 050aee2
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (A1, B1) — scripts/bg_window_pointsets.py modelled "after 1c" as
+   nearest+1. FIXED: the script now computes three request rules (today /
+   nearest+1 / 1c inside-range via the same first-last-in-range logic as
+   _bgWindowIndices incl. the <2-points full-range fallback) against the
+   preview set and prints, as its last two lines:
+     TABS: 166   preview == request point set —  today: 12/166   nearest+1: 151/166   1c inside-range: 166/166
+     bg window narrower than ROI: 25/166
+   Run it (venv python; numpy only, no lmfit needed) and confirm. The memo
+   table's "today" row was corrected 15 -> 12 (the 15 was a count
+   comparison, not set equality) and "which fits move" restated as
+   154 move / 12 unchanged. Confirm the memo text now matches the script.
+2. MINOR (A2, B3) — worked example precision. FIXED: BE rounded to 4,
+   counts to 2 decimals (uploadToBackend index.html toFixed(4)/toFixed(2)).
+   Re-run figures: chi2r 1.8293 -> 1.9317; all other quoted numbers
+   unchanged at printed precision. Memo updated (1.8294 -> 1.8293). Your
+   sandbox lacks lmfit — verify the script change on its merits.
+3. MINOR (A3, B3) — non-monotonic rawBE and pre-rounding indices.
+   DOCUMENTED, not changed: helper comment + memo "two contract edges"
+   paragraph. Author's position: createTab sorts descending; every project
+   written by this app is monotonic; a hand-edited file is out of contract
+   and preview/request still agree. Challenge if you think a guard is
+   required for 1c rather than documentation.
+4. MINOR (B2) — autofit/reference.py docstring claimed exact frontend
+   inputs. FIXED (docstring only): states the post-1c one-point-short
+   caveat and the fixture byte-stability reason; its stale "rawBE +
+   ccShift" line corrected to "− ccShift" (its code already did that).
+   Confirm no code change in autofit/**.
+5. Anything new introduced by the round-1 fix commit.
+
+Evidence: node --test tests/js/*.test.js 155 pass / 0 fail / 3 known-gap
+todo; pytest full suite on the branch before this commit: 758 passed,
+7 skipped (6 env-gated gates + the local-only {7,8}* datasets absent from
+the worktree). This commit touches comments/docstrings/scripts/docs only in
+code terms; the bg-window browser test and the C1s parity gate were re-run
+after it.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
