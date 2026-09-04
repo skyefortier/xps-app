@@ -4356,6 +4356,31 @@ function _clampShirleyIter() {
   else if (v > 50) el.value = 50;
 }
 
+// The background window. The user types two binding energies; the window
+// is every grid point with lo <= BE <= hi, INCLUSIVE at both ends — the same
+// rule getROIData uses for the ROI. This is the single definition shared by
+// the preview (computeBackgroundCore) and both /api/fit request builders,
+// which send end_idx = i1 + 1 because the backend slices Python-end-exclusive
+// (unit 1c of docs/superpowers/plans/2026-09-02-background-architecture-
+// sealed-fit-record.md, round-5 amendment — before 1c the builders sent the
+// nearest grid index per bound and end_idx = i1, so the fit anchored one
+// point inside the window the user drew).
+// Returns inclusive indices { i0, i1 }. A blank/NaN bound, or fewer than two
+// grid points inside the bounds, falls back to the full range.
+function _bgWindowIndices(be, bgStart, bgEnd) {
+  const n = be.length;
+  const full = { i0: 0, i1: n - 1 };
+  const a = parseFloat(bgStart), b = parseFloat(bgEnd);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return full;
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  let i0 = -1, i1 = -1;
+  for (let i = 0; i < n; i++) {
+    if (be[i] >= lo && be[i] <= hi) { if (i0 < 0) i0 = i; i1 = i; }
+  }
+  if (i0 < 0 || i1 - i0 < 1) return full;
+  return { i0, i1 };
+}
+
 // Pure-functional background computation. Takes explicit `settings`
 // (matches the shape of tab.ui — bgType, bgStart, bgEnd, shirleyIter,
 // endpointAvg) instead of reading from DOM. Used by stack-view render
@@ -4370,35 +4395,11 @@ function computeBackgroundCore(be, intensity, settings) {
   // Manual anchor background uses its own anchor points, not bg-start/end
   if (type === 'manual') return manualAnchorBackground(be, intensity);
 
-  // Get background endpoint range from settings
-  const bgStartBE = parseFloat(settings.bgStart);
-  const bgEndBE   = parseFloat(settings.bgEnd);
-  const bgLo = Math.min(bgStartBE, bgEndBE);
-  const bgHi = Math.max(bgStartBE, bgEndBE);
-
-  // Find indices within the bg range
-  const bgIndices = [];
-  for (let i = 0; i < be.length; i++) {
-    if (be[i] >= bgLo && be[i] <= bgHi) bgIndices.push(i);
-  }
-
-  // If bg range doesn't overlap data, fall back to full range
-  if (bgIndices.length < 2) {
-    const avgIn = _applyEndpointAveraging(intensity, nAvg);
-    if (type === 'shirley') return shirleyBackground(be, avgIn, iter);
-    if (type === 'smart') return smartBackground(be, avgIn, iter);
-    if (type === 'smart_exp') return smartExperimentalBackground(be, intensity, iter, nAvg);
-    if (type === 'shirley_linear') return shirleyLinearBackground(be, intensity, iter, nAvg);
-    if (type === 'linear') return linearBackground(be, intensity);
-    // Endpoint averaging matters for Tougaard since the amplitude is
-    // anchored at the high-BE edge — mirror the backend callers, which all
-    // do tougaard_background(x, _apply_endpoint_averaging(y, n)).
-    if (type === 'tougaard') return tougaardBackground(be, avgIn);
-    return new Array(be.length).fill(0);
-  }
-
-  const i0 = bgIndices[0];
-  const i1 = bgIndices[bgIndices.length - 1];
+  // The background window — the one definition shared with both /api/fit
+  // request builders (see _bgWindowIndices). A blank bound or a window with
+  // fewer than two points falls back to the full range inside the helper;
+  // slicing the full range below is then a no-op.
+  const { i0, i1 } = _bgWindowIndices(be, settings.bgStart, settings.bgEnd);
 
   // Slice data to background region
   const beSub = be.slice(i0, i1 + 1);
@@ -6789,8 +6790,9 @@ async function runAutoFitC1sGraphite() {
     const bgType = document.getElementById('bg-type').value;
     const bgStart = parseFloat(document.getElementById('bg-start').value);
     const bgEnd = parseFloat(document.getElementById('bg-end').value);
-    const bgStartIdx = be2.reduce((best, v, i) => Math.abs(v - bgStart) < Math.abs(be2[best] - bgStart) ? i : best, 0);
-    const bgEndIdx   = be2.reduce((best, v, i) => Math.abs(v - bgEnd)   < Math.abs(be2[best] - bgEnd)   ? i : best, 0);
+    // Inclusive bg window — the same point set computeBackgroundCore draws;
+    // the backend slices end-exclusive, so the request sends i1 + 1.
+    const bgWin = _bgWindowIndices(be2, bgStart, bgEnd);
     const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const sessionId = await uploadToBackend(be2, inten2);
     const fitMethod = document.getElementById('fit-method').value;
@@ -6806,7 +6808,7 @@ async function runAutoFitC1sGraphite() {
       return spec;
     });
 
-    const bgPayload = { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvg };
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
     if (bgType === 'manual') {
       // Anchors are stored in corrected-BE space, same frame as the uploaded
       // session data; backend expects [x, y] pairs.
@@ -6908,16 +6910,14 @@ async function runFit() {
     const bgType  = document.getElementById('bg-type').value;
     const bgStart = parseFloat(document.getElementById('bg-start').value);
     const bgEnd   = parseFloat(document.getElementById('bg-end').value);
-    // Convert BE values to nearest array indices for backend
-    const bgStartIdx = be.reduce((best, v, i) =>
-      Math.abs(v - bgStart) < Math.abs(be[best] - bgStart) ? i : best, 0);
-    const bgEndIdx = be.reduce((best, v, i) =>
-      Math.abs(v - bgEnd) < Math.abs(be[best] - bgEnd) ? i : best, 0);
+    // Inclusive bg window — the same point set computeBackgroundCore draws;
+    // the backend slices end-exclusive, so the request sends i1 + 1.
+    const bgWin = _bgWindowIndices(be, bgStart, bgEnd);
     const sessionId = await uploadToBackend(be, inten);
     const peakSpecs = state.peaks.map(peakToBackendSpec);
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
-    const bgPayload = { method: bgType, start_idx: bgStartIdx, end_idx: bgEndIdx, endpoint_avg: epAvgVal };
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
     if (bgType === 'manual') {
       // Anchors are stored in corrected-BE space, same frame as the uploaded
       // session data; backend expects [x, y] pairs.

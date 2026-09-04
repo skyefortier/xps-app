@@ -158,6 +158,11 @@ test('computeBackgroundCore applies endpoint averaging for tougaard (both branch
   const smartExperimentalBackground = () => { throw new Error('unexpected route: smart_exp'); };
   const shirleyLinearBackground = () => { throw new Error('unexpected route: shirley_linear'); };
   const linearBackground = () => { throw new Error('unexpected route: linear'); };
+  // The window helper computeBackgroundCore now shares with the /api/fit
+  // request builders (unit 1c); evaluate the shipped one, not a stub.
+  const winMatch = html.match(/function _bgWindowIndices\([\s\S]*?\n\}/);
+  assert.ok(winMatch, '_bgWindowIndices not found in templates/index.html');
+  const _bgWindowIndices = eval('(' + winMatch[0] + ')');
   const computeBackgroundCore = eval('(' + coreMatch[0] + ')');
 
   // Descending grid with an outlier at the high-BE edge: raw vs 3-point
@@ -176,7 +181,7 @@ test('computeBackgroundCore applies endpoint averaging for tougaard (both branch
     bgType: 'tougaard', shirleyIter: '5', endpointAvg: String(nAvg),
     bgStart: '292', bgEnd: '282',
   });
-  // Branch 2: bg window misses the data entirely (fallback full-range path)
+  // Branch 2: bg window misses the data entirely (helper falls back to the full range)
   const fallbackOut = computeBackgroundCore(be, intensity, {
     bgType: 'tougaard', shirleyIter: '5', endpointAvg: String(nAvg),
     bgStart: '900', bgEnd: '905',
