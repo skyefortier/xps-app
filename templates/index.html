@@ -4367,6 +4367,15 @@ function _clampShirleyIter() {
 // point inside the window the user drew).
 // Returns inclusive indices { i0, i1 }. A blank/NaN bound, or fewer than two
 // grid points inside the bounds, falls back to the full range.
+// Contract notes (Codex round 1, both runs): (a) the window is the contiguous
+// index span from the FIRST to the LAST in-range point — exact on a monotonic
+// grid, which is what createTab guarantees (it sorts descending) and what
+// every saved project written by this app carries; a hand-edited
+// non-monotonic rawBE would make the span include out-of-window rows, and
+// the preview and the request would still agree. (b) Indices are computed on
+// the frontend grid before uploadToBackend rounds BE to 4 decimals; the
+// backend only ever applies the indices to that same-length, same-order
+// session grid, so rounding cannot change which rows are used.
 function _bgWindowIndices(be, bgStart, bgEnd) {
   const n = be.length;
   const full = { i0: 0, i1: n - 1 };

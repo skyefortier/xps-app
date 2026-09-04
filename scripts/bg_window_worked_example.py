@@ -1,4 +1,4 @@
-"""Worked example for Condition 2: refit stored real-data tabs with the background
+"""Worked example for Condition 2 (run from the repo root: venv/bin/python scripts/bg_window_worked_example.py [least_squares|leastsq]): refit stored real-data tabs with the background
 window as the frontend sends it TODAY (nearest index, end-exclusive) versus AFTER 1c
 (inside-range, end-inclusive = exactly the preview's point set)."""
 import sys, zipfile, json
@@ -49,8 +49,8 @@ def run(tab, method):
     rmin, rmax = float(ui['roiMin']), float(ui['roiMax'])
     m = (be >= min(rmin, rmax)) & (be <= max(rmin, rmax))
     be, y = be[m], y[m]
-    # uploadToBackend rounds the session grid
-    be, y = np.round(be, 3), np.round(y, 1)
+    # uploadToBackend sends the session grid as BE.toFixed(4), intensity.toFixed(2)
+    be, y = np.round(be, 4), np.round(y, 2)
     specs = [spec_of(p) for p in d['peaks']]
     w = windows(be, ui)
     print(f"\n=== {tab}: bg={ui['bgType']} endpointAvg={ui['endpointAvg']} bgStart={ui['bgStart']} bgEnd={ui['bgEnd']} ROI {rmin}-{rmax} n={len(be)} fit_method={method}")

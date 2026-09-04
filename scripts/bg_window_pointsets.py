@@ -1,7 +1,13 @@
 """Which bg-window points does each side use on the committed real-data projects?
-JS preview: all grid points with lo <= BE <= hi (inclusive range).
-Backend today: nearest index to each typed boundary, slice [i0:i1) (drops i1).
-Backend after 1c: nearest index, slice [i0:i1+1] (inclusive)."""
+
+Preview (computeBackgroundCore, unchanged by 1c): all ROI grid points with
+lo <= BE <= hi (inside-range, inclusive).
+Three candidate request rules are compared against that preview set:
+  today       : nearest grid index to each typed bound, backend slice [i0:i1)
+  nearest+1   : nearest grid index, slice [i0:i1+1]   (the memo-v4 wording; REJECTED)
+  1c          : inside-range inclusive indices, slice [i0:i1+1]  (what _bgWindowIndices does)
+Run from the repo root:  venv/bin/python scripts/bg_window_pointsets.py
+Reported in the sealed-fit-record memo, round-5 amendment (Condition 2)."""
 import sys, zipfile, json, glob
 import numpy as np
 
@@ -29,14 +35,22 @@ for zpath in sorted(glob.glob('docs/autofit/test_data/*.proj.zip')):
         js = set(np.where((be >= lo) & (be <= hi))[0].tolist())
         i0, i1 = nearest(be, lo_t), nearest(be, hi_t)
         i0, i1 = min(i0, i1), max(i0, i1)
-        before = set(range(i0, i1))
-        after = set(range(i0, i1 + 1))
+        today = set(range(i0, i1))
+        nearest_plus1 = set(range(i0, i1 + 1))
+        # _bgWindowIndices: first/last inside-range index; < 2 points -> full range
+        inside = np.where((be >= lo) & (be <= hi))[0]
+        if len(inside) < 2:
+            j0, j1 = 0, len(be) - 1
+        else:
+            j0, j1 = int(inside[0]), int(inside[-1])
+        after_1c = set(range(j0, j1 + 1))
         rows.append(dict(proj=zpath.split('/')[-1][:28], tab=d.get('name'), bg=ui.get('bgType'),
-                         n=len(be), lo=lo, hi=hi, js=len(js), before=len(before), after=len(after),
-                         js_eq_after=(js == after), dropped_be=float(be[i1]), dropped_prev_be=float(be[i1-1]),
-                         js_minus_after=sorted(js - after), after_minus_js=sorted(after - js)))
-print(f"{'project':28} {'tab':14} {'bg':9} {'n':>4} {'js':>4} {'bef':>4} {'aft':>4} js==aft  dropped-pt BE  extra/missing vs JS")
+                         n=len(be), lo=lo, hi=hi, js=len(js), today=len(today), np1=len(nearest_plus1), c1=len(after_1c),
+                         js_eq_today=(js == today), js_eq_np1=(js == nearest_plus1), js_eq_1c=(js == after_1c),
+                         dropped_be=float(be[i1]), np1_extra=sorted(nearest_plus1 - js)))
+print(f"{'project':28} {'tab':14} {'bg':9} {'n':>4} {'prev':>4} {'today':>5} {'np+1':>4} {'1c':>4}  ==prev: today np+1 1c   nearest-pt BE  np+1 extra idx vs preview")
 for r in rows:
-    print(f"{r['proj']:28} {str(r['tab'])[:14]:14} {r['bg']:9} {r['n']:4d} {r['js']:4d} {r['before']:4d} {r['after']:4d} {str(r['js_eq_after']):7}  {r['dropped_be']:9.3f}      {r['js_minus_after']} {r['after_minus_js']}")
-inside = [r for r in rows if r['lo'] > min(r['lo'], r['hi']) - 1e-9 and (r['js'] < r['n'])]
-print('\nTABS:', len(rows), ' js==after:', sum(r['js_eq_after'] for r in rows), ' before-count==js-count:', sum(r['before']==r['js'] for r in rows), ' bg window narrower than ROI (js<n):', sum(r['js']<r['n'] for r in rows))
+    print(f"{r['proj']:28} {str(r['tab'])[:14]:14} {r['bg']:9} {r['n']:4d} {r['js']:4d} {r['today']:5d} {r['np1']:4d} {r['c1']:4d}  {str(r['js_eq_today'])[0]:>12} {str(r['js_eq_np1'])[0]:>4} {str(r['js_eq_1c'])[0]:>2}   {r['dropped_be']:9.3f}      {r['np1_extra']}")
+n = len(rows)
+print(f"\nTABS: {n}   preview == request point set —  today: {sum(r['js_eq_today'] for r in rows)}/{n}   nearest+1: {sum(r['js_eq_np1'] for r in rows)}/{n}   1c inside-range: {sum(r['js_eq_1c'] for r in rows)}/{n}")
+print(f"bg window narrower than ROI: {sum(r['js']<r['n'] for r in rows)}/{n}")

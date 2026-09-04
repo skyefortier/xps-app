@@ -189,8 +189,10 @@ alone and first, as its own branch and its own deploy, because it is the
 only unit that moves reported numbers. Condition 2: the window direction
 is justified here, in plain terms, before 1c is built. This section is that
 justification. Everything in it is reproducible with
-`scripts/bg_window_pointsets.py` and `scripts/bg_window_worked_example.py`
-against the committed `.proj.zip` projects.
+`scripts/bg_window_pointsets.py` (prints the three-rule comparison table
+below as its last line) and `scripts/bg_window_worked_example.py` (refits
+at the exact precision `uploadToBackend` sends: BE to 4 decimals, counts
+to 2) against the committed `.proj.zip` projects.
 
 ### The statement
 
@@ -214,7 +216,7 @@ the implicit rule matters:
 
 | rule for the request | tabs where fit point set == preview point set |
 |---|---|
-| today: nearest grid index per bound, end-exclusive | 15 / 166 |
+| today: nearest grid index per bound, end-exclusive | 12 / 166 |
 | v4 as written: nearest index, `hi+1` | 151 / 166 |
 | **1c: inside-range (lo ≤ BE ≤ hi), `hi+1`** | **166 / 166** |
 
@@ -247,6 +249,16 @@ The backend contract is untouched (`end_idx` remains Python-exclusive, as
 and the battery fixtures stay byte-stable. `_parse_int` already clamps
 `end_idx` to `[0, len]`, so `i1 + 1 == len` is legal.
 
+Two contract edges, raised by Codex round 1 and documented on the helper:
+the window is the contiguous span from the first to the last in-range
+index, exact on a monotonic grid — which `createTab` guarantees by sorting
+descending and which every project this app has written carries; a
+hand-edited non-monotonic `rawBE` would make the span include
+out-of-window rows, with preview and request still agreeing. And the
+indices are computed on the frontend grid before `uploadToBackend` rounds
+BE to 4 decimals; the backend only applies them to that same-length,
+same-order session grid, so rounding cannot change which rows are used.
+
 ### Worked example on real data
 
 Committed `docs/autofit/test_data/1-GTA UCl4-graphite one set of U
@@ -271,7 +283,7 @@ edge — exactly the Task 1 residual signature (max at the low-BE ROI edge,
 
 | quantity | today | after 1c | shift |
 |---|---|---|---|
-| χ²ᵣ | 1.8294 | 1.9317 | +0.10 |
+| χ²ᵣ | 1.8293 | 1.9317 | +0.10 |
 | U 4f₇/₂ centre | 379.574 | 379.590 | +16.5 meV |
 | U 4f₅/₂ centre | 390.474 | 390.490 | +16.5 meV |
 | U 4f₇/₂ area | 44 164 | 44 360 | +0.44 % |
@@ -301,8 +313,9 @@ a mechanism plus a measured range — χ²ᵣ up to ~0.1, centres up to ~20 meV,
 areas up to ~4 % (satellites move more than main lines), atomic fractions
 under 1 pp — not as a single number. Which fits move: every fit whose
 dropped bound maps to a grid point inside the typed range, which is the
-default configuration (window = ROI bounds); 151 of the 166 committed tabs.
-The C1s-style off-grid-inside-ROI case (15 / 166) does not move.
+default configuration (window = ROI bounds); 154 of the 166 committed tabs
+move. The 12 tabs whose point set was already the preview's — the
+C1s-style off-grid-inside-ROI case — do not move at all.
 
 The C1s example also shows, incidentally, how much a single-channel anchor
 can matter when endpointAvg = 1 (graphite fraction ±6 pp from one channel).
@@ -316,7 +329,8 @@ parity gates using the OLD frontend rule (nearest index; `parity.py` then
 slices end-exclusive). It must stay that way in 1c: the committed fixtures
 were produced by the old frontend and are required to stay byte-stable.
 Expert fits saved AFTER 1c will have been made with the inclusive window,
-and `reference.py` will reconstruct them one point short. The durable fix
+and `reference.py` will reconstruct them one point short (its module
+docstring now says so). The durable fix
 is unit 1a's `settingsSnapshot` carrying the actual indices the fit used,
 so reconstruction never re-derives them. Until then, any new parity
 fixture must be generated with that caveat recorded.

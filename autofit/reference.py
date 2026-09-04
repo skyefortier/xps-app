@@ -5,11 +5,18 @@ Reads the v3 ``.proj.zip`` / ``.proj.json`` project format (the same format
 ``templates/index.html`` saves) into plain-Python records, and reconstructs
 the exact fit inputs the frontend would send to ``/api/fit``:
 
-- corrected BE axis  = rawBE + ccShift          (``getCorrectedBE``)
+- corrected BE axis  = rawBE − ccShift          (``getCorrectedBE``)
 - ROI slice          = corrected BE within [ui.roiMin, ui.roiMax], inclusive
                        (``getROIData``, index.html:4494)
 - background indices = nearest ROI-grid index to ui.bgStart / ui.bgEnd
-                       (``runFit``, index.html:6575)
+                       (the frontend rule up to 2026-09-03; kept here on
+                       purpose so the committed expert-fit fixtures stay
+                       byte-stable. Since unit 1c the frontend sends the
+                       inside-range inclusive window, end_idx = i1 + 1, so
+                       expert fits SAVED AFTER 1c are reconstructed one
+                       point short here until the seal's settingsSnapshot
+                       carries the actual indices — see the sealed-fit-
+                       record memo, round-5 amendment)
 - peak specs         = mirror of ``peakToBackendSpec`` (index.html:5708)
 
 This module is read-only with respect to the app: it imports nothing from
