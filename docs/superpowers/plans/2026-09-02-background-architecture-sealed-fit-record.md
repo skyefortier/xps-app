@@ -181,3 +181,142 @@ amendments that are part of the approved design:
 6. **Ship order confirmed**: 1a–1d one branch (mixed sealed/unsealed
    consumers are a transient hazard); 1c separable and may land first
    with its numeric-shift expectations documented.
+
+## Round-5 amendment (2026-09-03) — Part 3 justified and made exact (Condition 2)
+
+Approval of this memo carried two conditions. Condition 1: unit 1c ships
+alone and first, as its own branch and its own deploy, because it is the
+only unit that moves reported numbers. Condition 2: the window direction
+is justified here, in plain terms, before 1c is built. This section is that
+justification. Everything in it is reproducible with
+`scripts/bg_window_pointsets.py` and `scripts/bg_window_worked_example.py`
+against the committed `.proj.zip` projects.
+
+### The statement
+
+The user draws a background window by typing two binding energies
+(bg-start, bg-end). The on-screen preview (`computeBackgroundCore`) builds
+its background from every grid point with lo ≤ BE ≤ hi — the last point the
+user selected is in the window. The fit request converts each typed bound
+to the nearest grid index and the backend slices `counts[i0:i1]` —
+Python end-exclusive — so the fit anchors its background one grid point
+INSIDE the window the user drew, on a raw single-channel value the user
+never chose (endpointAvg = 1 is the default). End-exclusive slicing
+silently drops the last point they selected; inclusive honours the stated
+intent. That is the whole direction argument. Nothing about it depends on
+which background algorithm is in use.
+
+### The point-set contract (what 1c actually changes)
+
+v4 said "send `(lo, hi+1)`" and left the index rule implicit. Measured
+across all 166 fitted tabs in the seven committed `.proj.zip` projects,
+the implicit rule matters:
+
+| rule for the request | tabs where fit point set == preview point set |
+|---|---|
+| today: nearest grid index per bound, end-exclusive | 15 / 166 |
+| v4 as written: nearest index, `hi+1` | 151 / 166 |
+| **1c: inside-range (lo ≤ BE ≤ hi), `hi+1`** | **166 / 166** |
+
+The 15 tabs where "nearest, hi+1" still disagrees with the preview are
+all tabs whose typed bound falls off-grid *inside* the ROI: the nearest
+grid point lies just OUTSIDE the typed bound (typed 279.2, grid 279.16)
+and "nearest" would pull it in, while the preview excludes it. Inside-range
+is also the rule `getROIData` already uses for the ROI itself, so 1c makes
+the three windows in the app (ROI, preview background, fitted background)
+obey one definition: a typed bound is an inclusive limit; no point outside
+it is ever used; every grid point inside it is.
+
+Concretely, 1c adds one helper and routes three callers through it:
+
+```
+_bgWindowIndices(be, bgStart, bgEnd) → { i0, i1 }   // inclusive indices
+  lo = min(start, end), hi = max(start, end)
+  i0 = first index with lo ≤ be[i] ≤ hi, i1 = last such index
+  blank/NaN bound, or fewer than 2 points in range → { 0, be.length − 1 }
+```
+
+- `runFit` backend request: `start_idx: i0, end_idx: i1 + 1`
+- `runAutoFitC1sGraphite` request: same
+- `computeBackgroundCore`: takes `i0`/`i1` from the same helper (its
+  current inline scan is the same rule; sharing the function makes the
+  agreement structural rather than coincidental)
+
+The backend contract is untouched (`end_idx` remains Python-exclusive, as
+`/api/fit` and `/api/background` both document), so `autofit/parity.py`
+and the battery fixtures stay byte-stable. `_parse_int` already clamps
+`end_idx` to `[0, len]`, so `i1 + 1 == len` is legal.
+
+### Worked example on real data
+
+Committed `docs/autofit/test_data/1-GTA UCl4-graphite one set of U
+doublets.proj.zip`, tab `U4f Scan_0`: smart background, endpointAvg 1,
+bg window 405.1 / 370.1 (= the ROI bounds, the default set by maxROI),
+350-point descending grid at 0.1 eV, stored model 2 × LACX + 2 × Voigt
+refit from its stored parameters. Both `least_squares` and `leastsq` give
+the same numbers to 4 decimals.
+
+| | points in the background window | last (low-BE) point | counts at that anchor |
+|---|---|---|---|
+| today | 349 — 405.06 … 370.26 | 370.26 | 5517 |
+| after 1c | 350 — 405.06 … 370.16 | 370.16 | 5425 |
+| preview | 350 — identical to "after 1c" | | |
+
+The one point that moves in is the last point of the user's window. Its
+intensity differs from its neighbour by 92 counts, and because Smart/Shirley
+scale the whole curve between the two anchor levels, the fitted background
+shifts by 92.4 counts at the low-BE edge tapering to 0.0 at the high-BE
+edge — exactly the Task 1 residual signature (max at the low-BE ROI edge,
+~0 at the high-BE edge).
+
+| quantity | today | after 1c | shift |
+|---|---|---|---|
+| χ²ᵣ | 1.8294 | 1.9317 | +0.10 |
+| U 4f₇/₂ centre | 379.574 | 379.590 | +16.5 meV |
+| U 4f₅/₂ centre | 390.474 | 390.490 | +16.5 meV |
+| U 4f₇/₂ area | 44 164 | 44 360 | +0.44 % |
+| U 4f₅/₂ area | 28 126 | 28 279 | +0.54 % |
+| Satellite 1 area | 5 450 | 5 679 | +4.2 % |
+| Satellite 2 area | 3 114 | 3 164 | +1.6 % |
+| atomic fractions | | | within ±0.23 pp |
+
+Second example, same project, tab `C1s Scan` (shirley; window 298.2 / 279.2
+typed INSIDE the ROI 279.0–298.5). The typed 279.2 is off-grid; the nearest
+grid point is 279.16, outside the bound. Today's request (nearest, exclusive)
+ends the window at 279.26; 1c's inside-range rule also ends it at 279.26 —
+this fit is UNCHANGED by 1c, and equals the preview. Had 1c used "nearest,
+hi+1" it would have pulled 279.16 in (2794 counts vs 2912 one channel up):
+χ²ᵣ 4.97 → 3.32 and the graphite fraction +6.2 pp — a movement the user did
+not ask for and the preview never showed. This is why the rule is stated
+explicitly above.
+
+### Ship-note magnitudes (supersede v4's Part 3 line)
+
+v4 quoted χ²ᵣ +0.03, centres ±10 meV, areas ±3.2 %, fractions ±0.9 pp; the
+measurement behind those figures is not archived in the repo. The worked
+example above is the archived, reproducible basis: the size of the shift is
+set by the intensity step between the two candidate anchor channels and by
+how strongly the model leans on the background near that edge. State it as
+a mechanism plus a measured range — χ²ᵣ up to ~0.1, centres up to ~20 meV,
+areas up to ~4 % (satellites move more than main lines), atomic fractions
+under 1 pp — not as a single number. Which fits move: every fit whose
+dropped bound maps to a grid point inside the typed range, which is the
+default configuration (window = ROI bounds); 151 of the 166 committed tabs.
+The C1s-style off-grid-inside-ROI case (15 / 166) does not move.
+
+The C1s example also shows, incidentally, how much a single-channel anchor
+can matter when endpointAvg = 1 (graphite fraction ±6 pp from one channel).
+That is an argument for endpoint averaging in the user guidance, not a
+change for 1c.
+
+### Known divergence left in place (logged, not fixed in 1c)
+
+`autofit/reference.py::bg_indices` reconstructs stored expert fits for the
+parity gates using the OLD frontend rule (nearest index; `parity.py` then
+slices end-exclusive). It must stay that way in 1c: the committed fixtures
+were produced by the old frontend and are required to stay byte-stable.
+Expert fits saved AFTER 1c will have been made with the inclusive window,
+and `reference.py` will reconstruct them one point short. The durable fix
+is unit 1a's `settingsSnapshot` carrying the actual indices the fit used,
+so reconstruction never re-derives them. Until then, any new parity
+fixture must be generated with that caveat recorded.
