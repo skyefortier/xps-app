@@ -2031,7 +2031,7 @@
               </div>
               <div class="field">
                 <label>Endpoint avg</label>
-                <input type="number" id="bg-endpoint-avg" value="1" min="1" max="50" step="1" oninput="_invalidateBgCache(); updatePlot()" title="Number of points to average at each endpoint for smoother background anchoring">
+                <input type="number" id="bg-endpoint-avg" value="3" min="1" max="50" step="1" oninput="_invalidateBgCache(); updatePlot()" title="Number of points to average at each endpoint for smoother background anchoring">
               </div>
             </div>
           </div>
@@ -2986,6 +2986,16 @@ function organizeTabs() {
 // ═══════════════════════════════════════════════════
 // TAB MANAGER
 // ═══════════════════════════════════════════════════
+// Endpoint averaging (n_avg) defaults. NEW tabs get 3 — the smallest
+// averaging that captures most of the one-point-edge benefit with half the
+// anchor bias of 5 (docs/superpowers/plans/2026-09-03-endpoint-averaging-
+// default.md; owner decision 2026-09-03). LEGACY is what a SAVED ui that
+// lacks endpointAvg must resolve to: such fits were made before the field
+// existed, i.e. at 1, and their stored results are reconstructed against
+// that background — "new fits only, nothing previously reported changes".
+const NEW_TAB_ENDPOINT_AVG = '3';
+const LEGACY_ENDPOINT_AVG = '1';
+
 class TabManager {
   constructor() {
     this.tabs = [];
@@ -3029,7 +3039,7 @@ class TabManager {
       lineWidth: 1.5,
       ui: {
         bgType: 'shirley', bgStart: maxBE, bgEnd: minBE,
-        shirleyIter: '5', endpointAvg: '1',
+        shirleyIter: '5', endpointAvg: NEW_TAB_ENDPOINT_AVG,
         roiMin: minBE, roiMax: maxBE,
         ccMethod: 'none', ccObs: '', ccLit: '',
       }
@@ -3245,7 +3255,8 @@ class TabManager {
         type: document.getElementById('bg-type').value,
         start: document.getElementById('bg-start').value,
         end: document.getElementById('bg-end').value,
-        shirleyIter: document.getElementById('shirley-iter').value
+        shirleyIter: document.getElementById('shirley-iter').value,
+        endpointAvg: document.getElementById('bg-endpoint-avg').value
       },
       roi: {
         min: document.getElementById('roi-min').value,
@@ -3295,6 +3306,10 @@ class TabManager {
         active.ui.bgStart = data.background.start || '';
         active.ui.bgEnd = data.background.end || '';
         active.ui.shirleyIter = data.background.shirleyIter || '5';
+        // v1 files written before 2026-09-03 never recorded endpointAvg:
+        // those fits were made at 1, so legacy resolves to 1, never to the
+        // new-tab default the target tab may carry.
+        active.ui.endpointAvg = data.background.endpointAvg || LEGACY_ENDPOINT_AVG;
         // bgSubtractedView is missing from pre-feature saves → falsy default
         active.ui.bgSubtractedView = !!data.background.bgSubtractedView;
       }
@@ -3665,7 +3680,7 @@ class TabManager {
       bgStart:     document.getElementById('bg-start')?.value || '',
       bgEnd:       document.getElementById('bg-end')?.value || '',
       shirleyIter: document.getElementById('shirley-iter')?.value || '5',
-      endpointAvg: document.getElementById('bg-endpoint-avg')?.value || '1',
+      endpointAvg: document.getElementById('bg-endpoint-avg')?.value || LEGACY_ENDPOINT_AVG,
       roiMin:      document.getElementById('roi-min')?.value || '',
       roiMax:      document.getElementById('roi-max')?.value || '',
       ccMethod:    document.getElementById('cc-method')?.value || 'none',
@@ -3685,7 +3700,7 @@ class TabManager {
     set('bg-start', ui.bgStart);
     set('bg-end', ui.bgEnd);
     set('shirley-iter', ui.shirleyIter);
-    set('bg-endpoint-avg', ui.endpointAvg || '1');
+    set('bg-endpoint-avg', ui.endpointAvg || LEGACY_ENDPOINT_AVG);
     set('roi-min', ui.roiMin);
     set('roi-max', ui.roiMax);
     set('cc-method', ui.ccMethod);
@@ -7530,7 +7545,7 @@ function _computeBackgroundForSource(be, inten, srcUi) {
   let settings = {
     bgType:      (srcUi && srcUi.bgType)      || 'shirley',
     shirleyIter: (srcUi && srcUi.shirleyIter) || '5',
-    endpointAvg: (srcUi && srcUi.endpointAvg) || '1',
+    endpointAvg: (srcUi && srcUi.endpointAvg) || LEGACY_ENDPOINT_AVG,
     bgStart:     (srcUi && srcUi.bgStart)     || '',
     bgEnd:       (srcUi && srcUi.bgEnd)       || '',
   };
@@ -9104,10 +9119,13 @@ function _loadSpectrumFile(data, sessionFile) {
   if (Array.isArray(data.manualAnchors)) {
     active.manualAnchors = data.manualAnchors;
   }
-  if (data.ui) {
-    active.ui = { ...active.ui, ...data.ui };
-    tabManager._restoreUI(active.ui);
-  }
+  // Saved-ui boundary: a file whose ui lacks endpointAvg was fitted at 1
+  // (the field did not exist), so it must NOT inherit the new-tab default;
+  // saved values are honoured verbatim. Restore the DOM either way so the
+  // record and the inputs agree before any switch-away capture.
+  const savedEp = data.ui && data.ui.endpointAvg;
+  active.ui = { ...active.ui, ...(data.ui || {}), endpointAvg: savedEp || LEGACY_ENDPOINT_AVG };
+  tabManager._restoreUI(active.ui);
   if (data.notes) active.notes = data.notes;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
