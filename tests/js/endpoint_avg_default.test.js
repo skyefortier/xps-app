@@ -71,10 +71,11 @@ test('undo/redo carry the averaging recorded by the Find Peaks apply action', ()
   assert.match(applyBody, /pushUndo\(\{ ?endpointAvg:/, 'the apply action must record the pre-apply averaging on its undo entry');
 });
 
-test('averaging snapshots are scoped to their originating tab', () => {
+test('averaging snapshots are scoped to the LIVE originating tab object, not its persisted id', () => {
   const start = html.indexOf('function _peaksSnapshot(');
   const body = html.slice(start, start + 1500);
-  assert.match(body, /_tabId/, 'snapshot must record the originating tab id');
+  assert.match(body, /_runtimeTokenOf\(/, 'snapshot must record a runtime token of the originating tab object');
+  assert.doesNotMatch(body, /_tabId/, 'persisted tab ids are reused after project reload — must not be the key');
   const rs = html.indexOf('function _restoreSnapshotEndpointAvg(');
-  assert.match(html.slice(rs, rs + 900), /_tabId[^\n]*activeId|activeId[^\n]*_tabId/, 'restore must check the tab id against the active tab');
+  assert.match(html.slice(rs, rs + 900), /_runtimeTokenOf\(/, 'restore must compare the runtime token of the active tab object');
 });

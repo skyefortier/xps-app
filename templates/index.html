@@ -2319,25 +2319,40 @@ let _undoDebounceTimer = null;
 // to the panel AND the tab record. Peak-only actions leave it absent and are
 // unaffected (Codex 2026-09-08 round 2, both runs: undo restored the peaks
 // but left the averaging at 1).
+// Runtime identity of a tab OBJECT. Persisted tab ids are preserved across
+// project save/load and are therefore reused by a reopened tab; an undo entry
+// keyed on the id matched the reopened tab and rewrote its saved averaging
+// (Codex 2026-09-08 round 4, both runs). A WeakMap token is unique to the
+// live object, never persisted, and dies with it.
+const _tabRuntimeTokens = new WeakMap();
+let _tabRuntimeSeq = 0;
+function _runtimeTokenOf(tab) {
+  if (!tab || typeof tab !== 'object') return null;
+  let k = _tabRuntimeTokens.get(tab);
+  if (!k) { k = ++_tabRuntimeSeq; _tabRuntimeTokens.set(tab, k); }
+  return k;
+}
 function _peaksSnapshot(extra) {
   const snap = JSON.parse(JSON.stringify(state.peaks));
-  if (extra && extra.endpointAvg !== undefined) {
+  const t = tabManager._getTab(tabManager.activeId);
+  if (extra && extra.endpointAvg !== undefined && t) {
     snap._endpointAvg = String(extra.endpointAvg);
     // The undo/redo stacks are global and survive tab switches, so an
-    // averaging-carrying entry is scoped to the tab it was taken on and is
-    // only ever restored there (Codex 2026-09-08 round 3, both runs: an
-    // undo on another tab rewrote THAT tab's averaging).
-    snap._tabId = tabManager.activeId;
+    // averaging-carrying entry is scoped to the live tab object it was taken
+    // on and is only ever restored there (round 3: an undo on another tab
+    // rewrote that tab's averaging; round 4: a reopened tab with the same
+    // persisted id matched). With no active tab, no metadata is recorded.
+    snap._tabToken = _runtimeTokenOf(t);
   }
   return snap;
 }
 function _restoreSnapshotEndpointAvg(snap) {
   if (!snap || snap._endpointAvg === undefined) return;
-  if (snap._tabId !== tabManager.activeId) return;   // never cross a tab boundary
+  const t = tabManager._getTab(tabManager.activeId);
+  if (!t || snap._tabToken !== _runtimeTokenOf(t)) return;   // inert across tabs, reloads and with no active tab
   const el = document.getElementById('bg-endpoint-avg');
   if (el) el.value = snap._endpointAvg;
-  const t = tabManager._getTab(tabManager.activeId);
-  if (t && t.ui) t.ui.endpointAvg = snap._endpointAvg;
+  if (t.ui) t.ui.endpointAvg = snap._endpointAvg;
 }
 function pushUndo(extra) {
   undoStack.push(_peaksSnapshot(extra));

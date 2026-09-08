@@ -300,3 +300,57 @@ def test_undo_redo_never_move_averaging_across_tabs(browser, server):
         assert out["aAfterRedo"] == {"dom": "1", "rec": "1"}, out
     finally:
         pg.close()
+
+
+def test_stale_averaging_entry_is_inert_for_a_reopened_project_tab_with_the_same_id(browser, server):
+    # Codex round 4 (both runs): persisted tab ids are reused when a closed
+    # tab's project is reloaded, so an id-keyed guard let a stale entry
+    # rewrite the reopened tab (9 -> 3). Entries are keyed to the live tab
+    # object instead.
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('A', be, inten);
+            const aId = tabManager.activeId;
+            addPeak(); state.peaks[0].center = 285.0;
+            """ + FP_APPLY + """
+            return applyFindPeaks().then(async () => {
+                document.getElementById('bg-endpoint-avg').value = '9';
+                tabManager._getTab(aId).ui.endpointAvg = '9';
+                const saved = [];
+                window._downloadBlob = (blob) => { saved.push(blob.text()); };
+                await _doSaveProject();
+                const project = JSON.parse((await Promise.all(saved))[0]);
+                tabManager.closeTab(aId);
+                _loadProjectJSON(project, 'reload.proj.json');
+                const reopened = tabManager._getTab(aId);
+                tabManager.activateTab(aId);
+                undo();
+                return { reopenedExists: !!reopened, sameId: tabManager.activeId === aId,
+                         dom: document.getElementById('bg-endpoint-avg').value,
+                         rec: tabManager._getTab(aId).ui.endpointAvg };
+            }); }""")
+        assert out["reopenedExists"] and out["sameId"], out
+        assert out["dom"] == "9" and out["rec"] == "9", out
+    finally:
+        pg.close()
+
+
+def test_no_active_tab_makes_averaging_restore_inert(browser, server):
+    # Codex round 4 (both runs, MINOR): after closing the last tab the mirrored
+    # entry carried a null tab id and null === null passed the guard.
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('A', be, inten);
+            """ + FP_APPLY + """
+            return applyFindPeaks().then(() => {
+                tabManager.closeTab(tabManager.activeId);          // last tab -> no active tab
+                undo();
+                document.getElementById('bg-endpoint-avg').value = '9';
+                redo();
+                return { active: tabManager.activeId, dom: document.getElementById('bg-endpoint-avg').value };
+            }); }""")
+        assert out["dom"] == "9", out
+    finally:
+        pg.close()
