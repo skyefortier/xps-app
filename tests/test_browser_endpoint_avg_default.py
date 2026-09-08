@@ -7,7 +7,7 @@ from it) uses 3; a saved spectrum/v1 fit file whose ui does not carry
 endpointAvg was fitted at 1 and must restore as 1, so its stored fit still
 reconstructs against the background it was made with. Saved values are
 honoured verbatim. The v1 fit-file writer never recorded the field at all;
-it now does, so new v1 saves round-trip.
+it now does (in _doSaveFit, the production writer), so new saves round-trip.
 Skips cleanly when Playwright/Chromium are absent.
 """
 import glob
@@ -145,18 +145,44 @@ def test_spectrum_file_without_endpoint_avg_restores_as_1_and_saved_values_win(b
         pg.close()
 
 
-def test_v1_fit_file_without_endpoint_avg_loads_as_1_and_new_v1_saves_record_it(browser, server):
+def test_save_fit_records_endpoint_avg_and_round_trips(browser, server):
+    # The PRODUCTION writer is _doSaveFit (Save Fit button), not TabManager.toJSON
+    # (Codex round 1, both runs). Capture the actual downloaded blob.
     pg = _page(browser, server)
     try:
         out = pg.evaluate("() => { " + GRID + """
             tabManager.createTab('target', be, inten);
-            const written = tabManager.toJSON();                              // fresh tab -> should record '3'
+            addPeak(); state.peaks[0].center = 286.5;
+            const saved = [];
+            window._downloadBlob = (blob, name) => { saved.push(blob.text()); };
+            _doSaveFit();
+            return Promise.all(saved).then(texts => {
+                const data = JSON.parse(texts[0]);
+                const writtenEp = data.background && data.background.endpointAvg;
+                tabManager.fromJSON(data);                                  // reload the real artifact
+                return { writtenEp, reloaded: tabManager._getTab(tabManager.activeId).ui.endpointAvg,
+                         dom: document.getElementById('bg-endpoint-avg').value };
+            }); }""")
+        assert out == {"writtenEp": "3", "reloaded": "3", "dom": "3"}, out
+    finally:
+        pg.close()
+
+
+def test_v1_fit_file_without_endpoint_avg_loads_as_1_even_without_a_background_block(browser, server):
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('target', be, inten);
             tabManager.fromJSON({ peaks: [], background: { type: 'shirley', start: '295', end: '283.1', shirleyIter: '5' } });
             const legacy = tabManager._getTab(tabManager.activeId).ui.endpointAvg;
             const legacyDom = document.getElementById('bg-endpoint-avg').value;
+            tabManager.createTab('target2', be, inten);
+            tabManager.fromJSON({ version: 1, peaks: [] });                // accepted peaks-only legacy file
+            const noBg = tabManager._getTab(tabManager.activeId).ui.endpointAvg;
+            const noBgDom = document.getElementById('bg-endpoint-avg').value;
             tabManager.fromJSON({ peaks: [], background: { type: 'shirley', start: '295', end: '283.1', shirleyIter: '5', endpointAvg: '9' } });
             const saved = tabManager._getTab(tabManager.activeId).ui.endpointAvg;
-            return { writtenEp: written.background && written.background.endpointAvg, legacy, legacyDom, saved }; }""")
-        assert out == {"writtenEp": "3", "legacy": "1", "legacyDom": "1", "saved": "9"}, out
+            return { legacy, legacyDom, noBg, noBgDom, saved }; }""")
+        assert out == {"legacy": "1", "legacyDom": "1", "noBg": "1", "noBgDom": "1", "saved": "9"}, out
     finally:
         pg.close()

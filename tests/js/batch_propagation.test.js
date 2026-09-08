@@ -61,12 +61,24 @@ test('unrelated target UI fields are preserved untouched', () => {
   const src = ui({ ccMethod: 'graphite-2845', endpointAvg: '3', roiMin: '525', roiMax: '545' });
   const tgt = ui({ ccMethod: 'advcarbon-2848', endpointAvg: '2' });
   const out = BatchPropagation.propagateFitUi(src, tgt);
-  // these are NOT in the propagated set — they keep the TARGET's values
+  // NOT in the propagated set — keeps the TARGET's value
   assert.strictEqual(out.ccMethod, 'advcarbon-2848');
-  assert.strictEqual(out.endpointAvg, '2');
+  // endpoint averaging IS background-affecting and propagates with the
+  // background (sealed-fit-record memo R3-B5; Codex 2026-09-08 both runs)
+  assert.strictEqual(out.endpointAvg, '3');
   // exactly the propagated set differs from the target
-  const propagated = ['bgType', 'bgStart', 'bgEnd', 'shirleyIter', 'roiMin', 'roiMax'];
+  const propagated = ['bgType', 'bgStart', 'bgEnd', 'shirleyIter', 'endpointAvg', 'roiMin', 'roiMax'];
   const changed = Object.keys(out).filter(k => out[k] !== tgt[k]);
-  assert.deepStrictEqual(changed.sort(), ['roiMax', 'roiMin'].sort());   // only ROI differs here
+  assert.deepStrictEqual(changed.sort(), ['endpointAvg', 'roiMax', 'roiMin'].sort());
   assert.ok(propagated.every(k => k in out));
+});
+
+// --- a legacy source (no endpointAvg field) propagates the value it was fit at: 1 ---
+test('legacy source without endpointAvg propagates 1, not the target default', () => {
+  const src = ui({ roiMin: '525', roiMax: '545' });
+  delete src.endpointAvg;
+  const tgt = ui({ endpointAvg: '3' });
+  assert.strictEqual(BatchPropagation.propagateFitUi(src, tgt).endpointAvg, '1');
+  const blank = ui({ endpointAvg: '' });
+  assert.strictEqual(BatchPropagation.propagateFitUi(blank, tgt).endpointAvg, '1');
 });

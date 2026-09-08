@@ -3300,16 +3300,19 @@ class TabManager {
       active.chargeVerified = false;
       this._updateCCVerifiedUI(false);
 
+      // Endpoint averaging is resolved whether or not the file carries a
+      // background block: v1 files written before 2026-09-08 never recorded
+      // it (those fits were made at 1), and an accepted peaks-only file must
+      // not inherit the fresh target tab's new-tab default either (Codex
+      // round 1, both runs).
+      active.ui.endpointAvg = (data.background && data.background.endpointAvg) || LEGACY_ENDPOINT_AVG;
+
       // Apply background
       if (data.background) {
         active.ui.bgType = data.background.type || 'shirley';
         active.ui.bgStart = data.background.start || '';
         active.ui.bgEnd = data.background.end || '';
         active.ui.shirleyIter = data.background.shirleyIter || '5';
-        // v1 files written before 2026-09-03 never recorded endpointAvg:
-        // those fits were made at 1, so legacy resolves to 1, never to the
-        // new-tab default the target tab may carry.
-        active.ui.endpointAvg = data.background.endpointAvg || LEGACY_ENDPOINT_AVG;
         // bgSubtractedView is missing from pre-feature saves → falsy default
         active.ui.bgSubtractedView = !!data.background.bgSubtractedView;
       }
@@ -8791,6 +8794,9 @@ function _doSaveFit() {
       start: document.getElementById('bg-start').value,
       end: document.getElementById('bg-end').value,
       shirleyIter: document.getElementById('shirley-iter').value,
+      // Recorded since 2026-09-08: without it a fit saved at the new default
+      // (3) reloaded as a legacy file (1) — Codex round 1, both runs.
+      endpointAvg: document.getElementById('bg-endpoint-avg').value,
       bgSubtractedView: !!document.getElementById('bg-sub-toggle')?.checked,
     },
     roi: {
