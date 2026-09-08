@@ -1987,11 +1987,20 @@
                 <option value="smart" data-tip="Shirley background with the constraint that it never exceeds the data. Prevents overshoot artifacts between well-separated peaks.">Smart (constrained Shirley)</option>
                 <option value="smart_exp" data-tip="Experimental constrained Shirley closer to Avantage Smart behavior. Constraint is applied during iteration, not after. Better for narrow windows and sloped baselines.">Smart (experimental)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
-                <option value="shirley_linear" data-tip="Hybrid: a linear baseline between endpoints, plus a Shirley-like cumulative correction on top. Combines slope tracking with inelastic-scattering step.">Shirley + Linear</option>
+                <!-- De-listed 2026-09-03 pending scientific review (task-4 parity
+                     report: the JS preview of this method diverges 27-33 % of span
+                     from the background the backend fits on real descending grids).
+                     The option stays in the DOM, disabled + hidden, so saved files
+                     that carry bgType 'shirley_linear' still restore, render and
+                     fit; _syncLegacyBgOption un-hides it only while it is selected. -->
+                <option value="shirley_linear" disabled hidden data-tip="Hybrid: a linear baseline between endpoints, plus a Shirley-like cumulative correction on top. De-listed pending scientific review — only shown for saved files that already use it.">Shirley + Linear (legacy)</option>
                 <option value="tougaard" data-tip="Physics-based universal background using electron energy loss cross-sections. More accurate than Shirley but requires wider energy range.">Tougaard-like (single pass)</option>
                 <option value="none">None</option>
                 <option value="manual" data-tip="Click + Anchor in the Manual bg controls, then click the chart to place points. Background is linearly interpolated between anchors. Right-click on or near an anchor to remove it.">Manual (anchor)</option>
               </select>
+              <div id="bg-legacy-note" style="display:none;background:var(--bg2);border:1px solid var(--amber);border-radius:var(--radius);padding:6px 8px;margin-top:6px;font-size:10.5px;color:var(--text2);line-height:1.45">
+                This file uses the <b>Shirley + Linear</b> background, which has been removed from the menu pending scientific review: on real spectra its on-screen curve can differ from the background the fit actually subtracts. The file still loads, renders and fits exactly as before. Choosing any other type hides this option again.
+              </div>
             </div>
             <div id="manual-bg-controls">
               <div style="display:flex;gap:6px;align-items:center">
@@ -3672,6 +3681,7 @@ class TabManager {
       if (el && val !== undefined) el.value = val;
     };
     set('bg-type', ui.bgType);
+    _syncLegacyBgOption();
     set('bg-start', ui.bgStart);
     set('bg-end', ui.bgEnd);
     set('shirley-iter', ui.shirleyIter);
@@ -12549,8 +12559,24 @@ function _setManualAnchors(arr) {
   if (tab) tab.manualAnchors = arr;
 }
 
+// shirley_linear is de-listed (2026-09-03) but never deleted: the <option>
+// stays in the DOM disabled + hidden so a saved file can still restore it.
+// While it IS the selected type (only reachable via a restored tab.ui), show
+// it and the explanatory note; the moment any other type is chosen, hide
+// both again so it cannot be newly selected.
+function _syncLegacyBgOption() {
+  const sel = document.getElementById('bg-type');
+  if (!sel) return;
+  const active = sel.value === 'shirley_linear';
+  const opt = sel.querySelector('option[value="shirley_linear"]');
+  if (opt) { opt.disabled = !active; opt.hidden = !active; }
+  const note = document.getElementById('bg-legacy-note');
+  if (note) note.style.display = active ? 'block' : 'none';
+}
+
 function _onBgTypeChange() {
   const type = document.getElementById('bg-type').value;
+  _syncLegacyBgOption();
   // Toggle manual controls
   const mc = document.getElementById('manual-bg-controls');
   if (mc) mc.style.display = type === 'manual' ? 'block' : 'none';
