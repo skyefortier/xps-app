@@ -210,3 +210,56 @@ def test_applying_find_peaks_sets_the_panel_to_the_averaging_the_engine_used(bro
         assert out == {"dom": "1", "tabUi": "1", "nPeaks": 1}, out
     finally:
         pg.close()
+
+
+FP_APPLY = """
+            window.confirm = () => true;
+            window._showFindPeaksApplyConfirmModal = async () => true;
+            _fpLast = { body: { peaks: [ { role: 'C-C', center: 284.8, fwhm: 1.2, amplitude: 3000, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 },
+                                         { role: 'C-O', center: 286.4, fwhm: 1.2, amplitude: 1500, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 } ],
+                                diagnostics: {} },
+                        method: 'ic_model_comparison', regions: ['C1s'], fitFullWindow: true, endpointAvg: '1' };
+"""
+
+
+def _ep_state(pg):
+    return pg.evaluate("""() => ({ dom: document.getElementById('bg-endpoint-avg').value,
+                                    tabUi: tabManager._getTab(tabManager.activeId).ui.endpointAvg,
+                                    nPeaks: state.peaks.length })""")
+
+
+def test_undo_after_applying_find_peaks_restores_the_averaging_and_redo_reapplies_it(browser, server):
+    # Codex round 2 (both runs): apply changed the averaging but undo restored
+    # peaks only, so the original peaks came back drawn against a background
+    # at 1. The apply action's undo entry now carries the averaging.
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('fresh', be, inten);
+            addPeak(); state.peaks[0].center = 285.0;               // one original peak at averaging 3
+            """ + FP_APPLY + """
+            return applyFindPeaks(); }""")
+        assert _ep_state(pg) == {"dom": "1", "tabUi": "1", "nPeaks": 2}
+        pg.evaluate("() => undo()")
+        assert _ep_state(pg) == {"dom": "3", "tabUi": "3", "nPeaks": 1}
+        pg.evaluate("() => redo()")
+        assert _ep_state(pg) == {"dom": "1", "tabUi": "1", "nPeaks": 2}
+        pg.evaluate("() => undo()")
+        assert _ep_state(pg) == {"dom": "3", "tabUi": "3", "nPeaks": 1}
+    finally:
+        pg.close()
+
+
+def test_applying_find_peaks_writes_the_record_even_when_the_field_already_matches(browser, server):
+    # Codex round 2 (run B, MINOR): the record was written only when the DOM
+    # value changed; a field hand-edited to 1 left the record at 3.
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('fresh', be, inten);
+            document.getElementById('bg-endpoint-avg').value = '1';   // hand edit, record still '3'
+            """ + FP_APPLY + """
+            return applyFindPeaks(); }""")
+        assert _ep_state(pg) == {"dom": "1", "tabUi": "1", "nPeaks": 2}
+    finally:
+        pg.close()

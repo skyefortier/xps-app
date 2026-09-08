@@ -128,10 +128,15 @@ closes the visible mismatch honestly — `applyFindPeaks` sets the panel and
 the tab record to the value the engine actually used and says so — but the
 engine still cannot express the panel value. The real fix threads
 `endpoint_avg` the way `fit_full_window` already is: the frontend payload
-(`options.endpoint_avg` from `#bg-endpoint-avg`), each method's option
-whitelist in `app.py` (`_ANALYZE_METHODS` defaults + validation), and the
-engine signatures `compare_models`, `fit_candidate`,
-`run_stability_analysis`, `_attempt_proposal`, `_bound_fixed_refit`,
-`_apply_decisive_override`, plus the detection call; default 1 keeps the
-parity fixtures byte-stable. Own branch, Codex ×2, and its own line in the
-user note when it ships.
+(`options.endpoint_avg` from `#bg-endpoint-avg`); `app.py`'s
+`_ANALYZE_METHODS` defaults; each method's own `_ALLOWED_OPTIONS`
+whitelist in `autofit/methods/{least_squares,bayesian_exchange_mc,
+max_entropy,multivariate_mcr}.py` (unknown keys → 400); the engine
+signatures `compare_models`, `fit_candidate`, `run_stability_analysis`,
+`_attempt_proposal`, `_bound_fixed_refit`, `_apply_decisive_override` and
+the detection call in `engine.py`; and the two direct
+`_compute_background` calls outside the engine,
+`autofit/methods/bayesian_exchange_mc.py` (~348) and
+`autofit/methods/sparse_map.py` (~198). Default 1 keeps the parity
+fixtures byte-stable. Own branch, Codex ×2, and its own line in the user
+note when it ships.

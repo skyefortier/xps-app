@@ -2312,8 +2312,27 @@ const redoStack = [];
 const MAX_UNDO = 50;
 let _undoDebounceTimer = null;
 
-function pushUndo() {
-  undoStack.push(JSON.parse(JSON.stringify(state.peaks)));
+// Undo snapshots are deep copies of state.peaks. An action that ALSO changes
+// endpoint averaging (today: applying Find Peaks suggestions, which sets the
+// panel to what the engine fitted at) passes { endpointAvg } so the snapshot
+// carries the pre-action value as a non-index property; undo/redo restore it
+// to the panel AND the tab record. Peak-only actions leave it absent and are
+// unaffected (Codex 2026-09-08 round 2, both runs: undo restored the peaks
+// but left the averaging at 1).
+function _peaksSnapshot(extra) {
+  const snap = JSON.parse(JSON.stringify(state.peaks));
+  if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
+  return snap;
+}
+function _restoreSnapshotEndpointAvg(snap) {
+  if (!snap || snap._endpointAvg === undefined) return;
+  const el = document.getElementById('bg-endpoint-avg');
+  if (el) el.value = snap._endpointAvg;
+  const t = tabManager._getTab(tabManager.activeId);
+  if (t && t.ui) t.ui.endpointAvg = snap._endpointAvg;
+}
+function pushUndo(extra) {
+  undoStack.push(_peaksSnapshot(extra));
   if (undoStack.length > MAX_UNDO) undoStack.shift();
   redoStack.length = 0;
   _updateUndoButtons();
@@ -2333,8 +2352,13 @@ function _updateUndoButtons() {
 
 function undo() {
   if (!undoStack.length) return;
-  redoStack.push(JSON.parse(JSON.stringify(state.peaks)));
-  state.peaks = undoStack.pop();
+  const snap = undoStack.pop();
+  // Mirror the averaging into the redo entry only when the undo entry
+  // carried one, so a redo re-applies exactly what the action did.
+  redoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
+    ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
+  state.peaks = snap;
+  _restoreSnapshotEndpointAvg(snap);
   renderPeakList();
   updatePlot();
   _updateUndoButtons();
@@ -2342,8 +2366,11 @@ function undo() {
 
 function redo() {
   if (!redoStack.length) return;
-  undoStack.push(JSON.parse(JSON.stringify(state.peaks)));
-  state.peaks = redoStack.pop();
+  const snap = redoStack.pop();
+  undoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
+    ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
+  state.peaks = snap;
+  _restoreSnapshotEndpointAvg(snap);
   renderPeakList();
   updatePlot();
   _updateUndoButtons();
@@ -14375,8 +14402,10 @@ async function applyFindPeaks() {
                'You can undo this.')) return;
   if (!(await _showFindPeaksApplyConfirmModal())) return;
   // the manual path's real undo: the replaced peak list must be Ctrl-Z
-  // recoverable (Codex analyze review blocker)
-  pushUndo();
+  // recoverable (Codex analyze review blocker). This action also changes
+  // endpoint averaging (below), so the undo entry carries the pre-apply
+  // value and undo/redo restore it with the peaks.
+  pushUndo({ endpointAvg: document.getElementById('bg-endpoint-avg')?.value });
   // DURABLE provenance record: stamped on every applied peak (peak objects
   // round-trip through project save/load with extra fields intact, like
   // _rsfKey does) — no reviewer name anymore, but autoSuggested/verified
@@ -14402,12 +14431,17 @@ async function applyFindPeaks() {
   // the panel and the tab record to what the engine used, so preview ==
   // fit, and say so. Wiring the panel value THROUGH the engine is a logged
   // follow-up unit (endpoint-averaging memo).
+  // (No _invalidateBgCache() here: with "fit the entire window" OFF the
+  // frozen fit display must stay exactly as today — invalidating the cache
+  // un-froze it, caught by test_checkbox_off_preserves_todays_cropped_behavior;
+  // with it ON, state.fitResult is cleared below and the preview recomputes
+  // from the panel value anyway.)
   const usedEp = (_fpLast && _fpLast.endpointAvg) || LEGACY_ENDPOINT_AVG;
   const epEl = document.getElementById('bg-endpoint-avg');
-  if (epEl && epEl.value !== usedEp) {
-    epEl.value = usedEp;
-    if (active) active.ui.endpointAvg = usedEp;
-    _invalidateBgCache();
+  const epChanged = !!epEl && epEl.value !== usedEp;
+  if (epEl) epEl.value = usedEp;
+  if (active) active.ui.endpointAvg = usedEp;   // unconditional: the record must match the fit even if the field was hand-edited
+  if (epChanged) {
     notify('Find Peaks fitted with endpoint averaging ' + usedEp + ' (it does not yet read the ' +
            'Background panel); the panel was set to ' + usedEp + ' so the preview matches the fit.', 'amber');
   }

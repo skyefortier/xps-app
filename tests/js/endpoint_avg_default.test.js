@@ -57,3 +57,16 @@ test('Find Peaks records the averaging its engine used and applies it on apply',
   assert.match(applyBody, /_fpLast\.endpointAvg/, 'applyFindPeaks must read _fpLast.endpointAvg');
   assert.match(applyBody, /getElementById\('bg-endpoint-avg'\)/, 'applyFindPeaks must set the panel');
 });
+
+test('undo/redo carry the averaging recorded by the Find Peaks apply action', () => {
+  const undoStart = html.indexOf('function undo()');
+  const redoStart = html.indexOf('function redo()');
+  assert.ok(undoStart > 0 && redoStart > 0);
+  const undoBody = html.slice(undoStart, undoStart + 900);
+  const redoBody = html.slice(redoStart, redoStart + 900);
+  assert.match(undoBody, /_endpointAvg/, 'undo must restore a snapshot-carried endpointAvg');
+  assert.match(redoBody, /_endpointAvg/, 'redo must restore a snapshot-carried endpointAvg');
+  const applyStart = html.indexOf('async function applyFindPeaks()');
+  const applyBody = html.slice(applyStart, applyStart + 8000);
+  assert.match(applyBody, /pushUndo\(\{ ?endpointAvg:/, 'the apply action must record the pre-apply averaging on its undo entry');
+});
