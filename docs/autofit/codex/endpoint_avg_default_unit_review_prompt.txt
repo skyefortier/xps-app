@@ -1,0 +1,79 @@
+You are running an ADVERSARIAL review of one unit on branch
+feature-endpoint-avg-default-3 (HEAD) of this repo (XPS peak-fitting web
+app: Flask backend + single-file frontend templates/index.html).
+Challenge the approach and real-world failure modes.
+
+UNIT UNDER REVIEW (vs main):
+  git diff main...HEAD -- templates/index.html
+                          tests/js/endpoint_avg_default.test.js
+                          tests/test_browser_endpoint_avg_default.py
+  Decision + measurements (read first):
+    docs/superpowers/plans/2026-09-03-endpoint-averaging-default.md
+    (on branch investigate-endpoint-avg-default; also summarised in the
+    commit message of the feat commit)
+  User note: docs/comms/2026-09-03-endpoint-averaging-default-note.md
+
+OWNER DECISION: endpoint averaging (n_avg) defaults to 3 for NEW fits only.
+"Nothing previously reported changes." Saved projects/spectra carry their
+own `ui.endpointAvg` and must restore it verbatim; saved files that LACK the
+field were fitted before it existed (i.e. at 1) and must resolve to 1, not
+to the new default — stack Path B and re-render reconstruct the background
+from that value, so inheriting 3 would silently change how an old fit is
+drawn.
+
+THE CHANGE: two constants, NEW_TAB_ENDPOINT_AVG='3' (createTab default and
+the #bg-endpoint-avg input's initial value) and LEGACY_ENDPOINT_AVG='1'
+(every saved-ui fallback: _restoreUI, _captureUI's missing-element
+fallback, stack Path B `_computeBackgroundForSource`, `_loadSpectrumFile`,
+the v1 fit-file loader `TabManager.fromJSON`). `_loadSpectrumFile` now
+restores the DOM even when the file has no ui block. The v1 writer
+`TabManager.toJSON` never recorded endpointAvg — it now does. Backend
+defaults (fitting.run_fit, app.py, autofit/engine.py) untouched: the
+frontend always sends endpoint_avg explicitly.
+
+ADVERSARIAL QUESTIONS:
+1. Enumerate EVERY path that creates or restores a spectrum tab's ui or
+   writes #bg-endpoint-avg: fresh upload (createTab), project load
+   (deserializer at ~index.html:3225 `ui: {...t.ui}` then activateTab),
+   .spec.json (_loadSpectrumFile), v1 fit file (fromJSON), batch
+   propagation (static/js/batch_propagation.js -> target tab.ui), auto-fit
+   snapshot/restore (_autoFitSnapshot/_autoFitRestore write DOM fields
+   directly — do they include bg-endpoint-avg?), undo/history restore,
+   stack entries (Path A vs Path B), overlay/zip round-trips. For each:
+   does a missing field resolve to 1, a present field verbatim, and a NEW
+   tab to 3? Find any path where an OLD fit would now render/reconstruct
+   against n_avg=3.
+2. The project deserializer does not go through LEGACY_ENDPOINT_AVG
+   explicitly — it relies on the field staying ABSENT in tab.ui and on
+   _restoreUI / Path B fallbacks. Is there any code that fills tab.ui from
+   _captureUI() BEFORE activation (e.g. Organize Tabs, close-tab,
+   _syncActiveToRecord on a never-activated tab) that would capture the
+   DOM's current value (possibly 3 from another tab) into a legacy record?
+3. Batch propagation copies bg fields from a source to targets — including
+   endpointAvg? If a legacy source (absent field) propagates, does the
+   target get undefined -> 1, or the DOM value?
+4. Auto-fit C1s graphite: it reads #bg-endpoint-avg for its request. A
+   user who opens a NEW spectrum now auto-fits at 3 — intended. But the
+   auto-fit engine (/api/analyze, autofit/engine.py endpoint_avg default 1)
+   — does the frontend send endpoint_avg to it, or does the engine now
+   diverge from the UI default for Find Peaks flows?
+5. The v1 writer change adds a field to a saved format — any reader that
+   validates the background block strictly, or a parity/fixture consumer
+   (autofit/reference.py reads ui.endpointAvg from .proj — unaffected?)
+6. Test adequacy: can a wrong implementation pass all 6 tests (e.g.
+   correct constants but a loader that still inherits 3 for a file whose
+   ui exists but lacks the field — covered? — or a fromJSON that sets 1
+   even when the file carries a value)?
+
+Your sandbox cannot run pytest or Playwright; review on the merits.
+Author-reported evidence: node --test tests/js/*.test.js 158 pass / 0 fail
+/ 3 known-gap todo; the 3 new browser tests watched failing on main
+(fresh tab '1' != '3'; v1 writer omitted the field, loader ignored it);
+14 related browser tests pass on the branch; full pytest result is
+recorded in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
