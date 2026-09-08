@@ -1,0 +1,11 @@
+# User note — endpoint averaging now defaults to 3 (new fits only)
+
+Status: ready to send once this unit is deployed; fill in the date.
+
+---
+
+Subject: XPS Fitting Studio — background endpoint averaging now defaults to 3 for new fits
+
+From [DEPLOY DATE], every newly opened spectrum starts with **Endpoint avg = 3** in the Background panel instead of 1. The background's two anchor levels are then read from the mean of the three outermost points at each end of the window rather than from a single raw channel. We measured on lab data that a single-channel anchor lets one data point at the window edge move a reported atomic fraction by up to 6 percentage points; averaging three points cuts that to about 1.3, with no loss of fit quality and half the slope bias that a wider average would introduce. Nothing previously reported changes: every saved project and spectrum file carries its own setting and reopens with it, and files that predate the setting reopen at 1, exactly as they were fitted. If you prefer a different value for a particular spectrum, the field is still editable and is saved with the fit as before.
+
+Skye
