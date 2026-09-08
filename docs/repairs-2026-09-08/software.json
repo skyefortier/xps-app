@@ -1,0 +1,9 @@
+{
+  "numerical_version": "2026.09-audit.1",
+  "source_sha256": "44539a337275eae4352f0a6c7d34fe5ad305764dd0f7a81d1384827cba8345e2",
+  "dependencies": {
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "lmfit": "1.3.4"
+  }
+}

@@ -1,16 +1,12 @@
-"""Real-browser test for the Find Peaks progress indicator (2026-07-11,
-unit 1).
+"""Browser contract for rendering analysis progress and clearing it.
 
-Proves the acceptance bar that needs a live DOM + real network round-trip
-(the pure formatting helpers are pinned separately in
-tests/js/find_peaks_progress.test.js): while a Find Peaks analysis runs,
-the modal shows a spinner + a live ticking elapsed timer + a real
-"candidate N of M — <phase>" readout driven by the ACTUAL engine sweep
-(never a fake animation), and the indicator ALWAYS clears — on success,
-and on a mid-fit error (never spins forever). Skips cleanly when
-Playwright/Chromium/gunicorn are absent, same as the other browser tests.
+Controlled transport responses exercise the real browser request/poll/UI
+path. A genuine small engine run can finish within one poll interval, so
+requiring a visible intermediate phase from it is not a valid UI test.
+Engine progress emission and science are covered by separate API tests.
 """
 import glob
+import json
 import os
 import socket
 import subprocess
@@ -128,10 +124,34 @@ def _load_cl2p_doublet(pg):
     }""")
 
 
+def _stub_progress(pg, error=None):
+    control = {'finish': False, 'polls': 0}
+    pg.route('**/api/analyze/start', lambda route: route.fulfill(
+        status=202, content_type='application/json',
+        body=json.dumps({'job_id': 'progress-contract'})))
+
+    def progress(route):
+        control['polls'] += 1
+        if control['finish']:
+            payload = ({'status': 'error', 'error': error} if error else {
+                'status': 'done', 'result': {'success': True, 'peaks': [],
+                    'diagnostics': {}, 'analysis': {}, 'confidence': {}},
+            })
+        else:
+            payload = {'status': 'running', 'phase': 'stabilizing',
+                'elapsed_sec': control['polls'] - 1,
+                'message': 'candidate 1 of 4 — stabilizing'}
+        route.fulfill(status=200, content_type='application/json',
+                      body=json.dumps(payload))
+    pg.route('**/api/analyze/progress/*', progress)
+    return control
+
+
 def test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears(
         browser, server):
     pg = _new_page(browser, server)
     try:
+        progress = _stub_progress(pg)
         _load_cl2p_doublet(pg)
         pg.evaluate("() => openFindPeaksModal()")
         pg.wait_for_selector("#find-peaks-overlay.open", timeout=5000)
@@ -141,8 +161,8 @@ def test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears(
         pg.click("#fp-pt-grid >> text='Cl'")
         pg.click("#fp-expanded-panel >> text='[cited] 2p'")
         pg.select_option("#fp-method", "ic_model_comparison")
-        # force the two-phase screen->stabilize path so the sweep runs long
-        # enough to reliably observe an in-flight poll
+        # Exercise the actual options/request controls; numerical work is
+        # intentionally outside this transport/UI contract.
         pg.evaluate("""() => {
             document.getElementById('fp-options').value =
                 JSON.stringify({ n_refits: 2, enable_proposal_pass: false });
@@ -190,6 +210,7 @@ def test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears(
         assert elapsed_ticked, "elapsed timer never ticked upward"
 
         # MUST clear on success — never spins forever
+        progress['finish'] = True
         pg.wait_for_function(
             "document.getElementById('fp-spinner').style.display === 'none'",
             timeout=60000)
@@ -200,11 +221,10 @@ def test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears(
 
 
 def test_progress_indicator_clears_on_error(browser, server):
-    """A mid-fit error (malformed option value, discovered inside the
-    method's run()) must ALSO clear the spinner/status/button — the
-    indicator never spins forever on the error path either."""
+    """An error received on the progress channel must clear the UI."""
     pg = _new_page(browser, server)
     try:
+        progress = _stub_progress(pg, error='invalid option: n_refits')
         _load_cl2p_doublet(pg)
         pg.evaluate("() => openFindPeaksModal()")
         pg.wait_for_selector("#find-peaks-overlay.open", timeout=5000)
@@ -222,6 +242,7 @@ def test_progress_indicator_clears_on_error(browser, server):
         pg.wait_for_function(
             "document.getElementById('fp-spinner').style.display === 'inline-block'",
             timeout=5000)
+        progress['finish'] = True
         pg.wait_for_function(
             "document.getElementById('fp-spinner').style.display === 'none'",
             timeout=15000)

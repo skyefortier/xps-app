@@ -46,6 +46,7 @@ import fitting
 import parser as xps_parser
 import vgd_parser
 from xps_reference import XPSReferenceError, load_reference_cached
+from software_metadata import software_metadata
 
 # Upper bound on the Monte-Carlo uncertainty resampling count accepted by
 # /api/fit. Each perturbation re-runs the full composite fit, so an unbounded
@@ -68,6 +69,7 @@ def create_app(upload_folder: str = "uploads", data_folder: str = "data/xps") ->
     app.config["UPLOAD_FOLDER"] = upload_folder
     app.config["XPS_DATA_DIR"] = data_folder
     app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB hard limit
+    app.config["XPS_SOFTWARE"] = software_metadata()
 
     Path(upload_folder).mkdir(parents=True, exist_ok=True)
 
@@ -187,6 +189,31 @@ _ANALYZE_JOB_TTL_SEC = 3600  # job progress files are short-lived scratch
                             # a slow poll UI, and far below the 7-day
                             # session TTL these files are NOT related to.
 
+_ANALYZE_MAX_ACTIVE_JOBS = 2
+
+
+def _acquire_analyze_slot(upload_folder: str):
+    """Acquire a cross-process async job lease, or return None at capacity.
+
+    Each slot has a permanent inode: never delete these lock files, even
+    when idle. Separate opens contend across threads, Flask app instances,
+    and gunicorn workers sharing this upload folder. Closing the descriptor
+    (including OS cleanup after process exit) releases the lease.
+    """
+    import fcntl
+
+    for index in range(_ANALYZE_MAX_ACTIVE_JOBS):
+        lease = (Path(upload_folder) / f".analyze-slot-{index}.lock").open("a+b")
+        try:
+            fcntl.flock(lease.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return lease
+        except BlockingIOError:
+            lease.close()
+        except BaseException:
+            lease.close()
+            raise
+    return None
+
 
 class _AnalyzeError(Exception):
     """Carries the same (message, http status) pair _err() would return —
@@ -215,10 +242,8 @@ class _AnalyzeContext:
 
 
 def _validate_analyze_request(body: dict, upload_folder: str) -> _AnalyzeContext:
-    """ALL the synchronous, cheap validation /api/analyze has always done
-    (session lookup through grammar resolution) — pure extract-method
-    refactor, byte-identical checks/messages/order, raising
-    ``_AnalyzeError`` in place of the old inline ``return _err(...)``."""
+    """Shared cheap validation, including bounded request costs, before
+    either synchronous execution or asynchronous job admission."""
     from autofit.grammar import (MaterialClass, Phase,
                                  PhaseAmbiguityError, UnknownRegionError,
                                  resolve)
@@ -273,6 +298,23 @@ def _validate_analyze_request(body: dict, upload_folder: str) -> _AnalyzeContext
     if not isinstance(options, dict):
         raise _AnalyzeError("'options' must be an object")
     opts = {**_ANALYZE_METHODS[method_id], **options}
+
+    # Request-level cost guards apply to both sync and async routes. These
+    # limits leave normal defaults and offline scientific gates unchanged;
+    # they are resource bounds, not claims of statistical adequacy.
+    cost_limits = {
+        "ic_model_comparison": {"n_refits": (1, 100)},
+        "least_squares": {"n_perturb": (0, 100)},
+        "sparse_map": {"n_widths": (1, 16), "n_lambdas": (1, 100),
+                       "cd_max_iter": (1, 5000)},
+    }
+    for name, (low, high) in cost_limits.get(method_id, {}).items():
+        if name in opts:
+            value = opts[name]
+            if (isinstance(value, bool) or not isinstance(value, int)
+                    or not low <= value <= high):
+                raise _AnalyzeError(
+                    f"invalid option: {name} must be an integer in [{low}, {high}]")
 
     peak_specs = body.get("peak_specs") or None
     if method_id == "least_squares" and not peak_specs:
@@ -404,7 +446,8 @@ def _job_progress_path(job_id: str, upload_folder: str) -> Path:
     return Path(upload_folder) / f"{job_id}.job.json"
 
 
-def _write_job_progress(job_id: str, upload_folder: str, data: dict) -> None:
+def _write_job_progress(job_id: str, upload_folder: str, data: dict,
+                        *, strict: bool = False) -> None:
     """Atomic write (temp file + os.replace) — required because the
     writer (background thread, possibly in a DIFFERENT gunicorn worker
     process than whichever one later serves a poll GET) and the reader
@@ -418,6 +461,8 @@ def _write_job_progress(job_id: str, upload_folder: str, data: dict) -> None:
     except OSError:
         logging.getLogger(__name__).exception(
             "failed to write progress for job %s", job_id)
+        if strict:
+            raise
 
 
 def _sweep_expired_jobs(upload_folder: str) -> None:
@@ -485,6 +530,10 @@ SPIN_ORBIT_PRESETS = {
 
 def _register_routes(app: Flask) -> None:
 
+    @app.get('/api/version')
+    def api_version():
+        return jsonify(app.config['XPS_SOFTWARE'])
+
     # ── Index ─────────────────────────────────────────────────────────────────
 
     @app.route("/")
@@ -506,7 +555,8 @@ def _register_routes(app: Flask) -> None:
                 logging.getLogger(__name__).error(
                     "legacy reference unavailable for template injection: %s", e)
                 legacy = None
-            return render_template("index.html", legacy_reference=legacy)
+            return render_template("index.html", legacy_reference=legacy,
+                                   software_metadata=app.config['XPS_SOFTWARE'])
         if static.exists() and (static / "index.html").exists():
             return send_from_directory(str(static), "index.html")
         return (
@@ -851,6 +901,7 @@ def _register_routes(app: Flask) -> None:
             app.logger.exception("Unexpected fitting error")
             return _err("Internal fitting error — see server log.", 500)
 
+        result['software'] = app.config['XPS_SOFTWARE']
         return jsonify(result)
 
     # ── Autofit analyze (opt-in Find Peaks; STRICTLY ADDITIVE — the manual
@@ -951,6 +1002,10 @@ def _register_routes(app: Flask) -> None:
         as the existing session .npz files: "no server-side memory state
         ... compatible with multi-worker gunicorn").
 
+        A file-lock lease limits async execution to two jobs across all
+        workers sharing the upload folder. At capacity return 429 with
+        Retry-After; no additional thread or queued job is created.
+
         Returns {"job_id": "..."} , 202.  Poll
         GET /api/analyze/progress/<job_id> for {status, phase,
         candidate_index, candidate_total, candidate_name, elapsed_sec,
@@ -965,15 +1020,31 @@ def _register_routes(app: Flask) -> None:
         except _AnalyzeError as exc:
             return _err(str(exc), exc.status)
 
+        try:
+            lease = _acquire_analyze_slot(upload_folder)
+        except OSError:
+            app.logger.exception("could not acquire analyze job lease")
+            return _err("Analysis admission unavailable; please retry.", 503)
+        if lease is None:
+            response = jsonify({"error": "Analysis capacity is busy; please retry shortly."})
+            response.status_code = 429
+            response.headers["Retry-After"] = "5"
+            return response
+
         job_id = str(uuid.uuid4())
-        _sweep_expired_jobs(upload_folder)
         start_time = time.time()
-        _write_job_progress(job_id, upload_folder, {
-            "status": "running", "phase": "starting",
-            "candidate_index": None, "candidate_total": None,
-            "candidate_name": None, "elapsed_sec": 0.0,
-            "message": "starting analysis…",
-        })
+        try:
+            _sweep_expired_jobs(upload_folder)
+            _write_job_progress(job_id, upload_folder, {
+                "status": "running", "phase": "starting",
+                "candidate_index": None, "candidate_total": None,
+                "candidate_name": None, "elapsed_sec": 0.0,
+                "message": "starting analysis…",
+            }, strict=True)
+        except Exception:
+            lease.close()
+            app.logger.exception("could not initialize analyze job progress")
+            return _err("Could not start analysis; please retry.", 503)
 
         def _progress_cb(evt: dict) -> None:
             _write_job_progress(job_id, upload_folder, {
@@ -984,7 +1055,7 @@ def _register_routes(app: Flask) -> None:
                 "candidate_name": evt.get("candidate_name"),
                 "elapsed_sec": round(time.time() - start_time, 1),
                 "message": _analyze_progress_message(evt),
-            })
+            }, strict=True)
 
         def _worker() -> None:
             try:
@@ -995,7 +1066,7 @@ def _register_routes(app: Flask) -> None:
                     "elapsed_sec": round(time.time() - start_time, 1),
                     "message": "done",
                     "result": payload,
-                })
+                }, strict=True)
             except _AnalyzeError as exc:
                 _write_job_progress(job_id, upload_folder, {
                     "status": "error", "phase": "done",
@@ -1015,8 +1086,20 @@ def _register_routes(app: Flask) -> None:
                     "error": f"internal error: {exc}",
                     "http_status": 500,
                 })
+            finally:
+                lease.close()
 
-        threading.Thread(target=_worker, daemon=True).start()
+        try:
+            threading.Thread(target=_worker, daemon=True).start()
+        except Exception:
+            lease.close()
+            app.logger.exception("could not start analyze worker")
+            _write_job_progress(job_id, upload_folder, {
+                "status": "error", "phase": "done", "message": "failed",
+                "error": "Could not start analysis; please retry.",
+                "http_status": 503,
+            })
+            return _err("Could not start analysis; please retry.", 503)
         return jsonify({"job_id": job_id}), 202
 
     @app.get("/api/analyze/progress/<job_id>")

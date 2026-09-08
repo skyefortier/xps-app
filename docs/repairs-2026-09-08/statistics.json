@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "synthetic_only": true,
+  "checks": [
+    {
+      "name": "mcr_identical_spectra",
+      "passed": true,
+      "expected": {
+        "noiseless_matrix_rank": 1
+      },
+      "observed": {
+        "matrix_rank": 1,
+        "reported_states": 1,
+        "reported_centered_pcs": 0,
+        "lack_of_fit": 3.5260649217346648e-16,
+        "row_sums": [
+          19.0,
+          19.0,
+          19.0
+        ]
+      },
+      "source": "autofit/methods/multivariate_mcr.py:140-152"
+    },
+    {
+      "name": "mcr_constant_and_variable_species",
+      "passed": true,
+      "expected": {
+        "noiseless_matrix_rank": 2
+      },
+      "observed": {
+        "matrix_rank": 2,
+        "reported_states": 2,
+        "reported_centered_pcs": 1,
+        "lack_of_fit": 1.9947846509040143e-16,
+        "row_sums": [
+          24.0,
+          29.0,
+          34.0,
+          39.0
+        ]
+      },
+      "source": "autofit/methods/multivariate_mcr.py:140-152"
+    },
+    {
+      "name": "f_test_disjoint_shared_parameter_bounds",
+      "passed": true,
+      "expected": {
+        "nested": false,
+        "nominal_f_test": null
+      },
+      "observed": {
+        "nested": false,
+        "nominal_p_value": null
+      },
+      "source": "autofit/criteria.py:60-110"
+    },
+    {
+      "name": "gaussian_area_full_covariance",
+      "passed": true,
+      "expected": {
+        "area_stderr": 10.312471765921204,
+        "relative_tolerance": 0.01
+      },
+      "observed": {
+        "area_stderr": 10.312471765875854,
+        "amplitude_width_correlation": -0.601606444219739
+      },
+      "source": "fitting.py:1230-1239"
+    },
+    {
+      "name": "fixed_width_area_uncertainty",
+      "passed": true,
+      "expected": {
+        "area_stderr": 12.943699440072066
+      },
+      "observed": {
+        "area_stderr": 12.943699440194179,
+        "amplitude_stderr": 8.685566984644463
+      },
+      "source": "fitting.py:1233-1239"
+    },
+    {
+      "name": "asymmetric_dsg_effective_width",
+      "passed": true,
+      "expected": {
+        "curve_fwhm_ev": 2.9202396222976574,
+        "relative_tolerance": 0.02
+      },
+      "observed": {
+        "effective_width_estimate_ev": 2.920236074581405,
+        "alpha": 0.49,
+        "beta_ev": 0.3,
+        "gaussian_fwhm_ev": 0.8,
+        "under_2ev_estimate_but_over_2ev_curve": false
+      },
+      "source": "autofit/engine.py:798-808"
+    },
+    {
+      "name": "manual_method_honors_supplied_weights",
+      "passed": true,
+      "expected": {
+        "weighted_analytic_amplitudes": [
+          12.026018066409554,
+          12.154221268496746
+        ]
+      },
+      "observed": {
+        "fitted_amplitudes": [
+          12.026018066837311,
+          12.154221269009849
+        ],
+        "identical_despite_different_weights": false
+      },
+      "source": "autofit/methods/least_squares.py:34-60"
+    },
+    {
+      "name": "bayesian_two_replicas_target_posterior",
+      "passed": true,
+      "expected": {
+        "accepted_final_beta": 1.0,
+        "explicit_validation_rejection_also_valid": true
+      },
+      "observed": {
+        "rejected": true,
+        "reason": "n_replicas must be an integer in [3, 64]"
+      },
+      "source": "autofit/methods/bayesian_exchange_mc.py:141-143,200-202"
+    },
+    {
+      "name": "bayesian_insufficient_samples_not_reliable",
+      "passed": true,
+      "expected": {
+        "reliable_posterior_claim": false,
+        "explicit_validation_rejection_also_valid": true
+      },
+      "observed": {
+        "rejected": true,
+        "reason": "n_sweeps must be an integer in [8, 100000]"
+      },
+      "source": "autofit/methods/bayesian_exchange_mc.py:425-443,544-556"
+    }
+  ],
+  "failed": 0,
+  "passed": 9
+}

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 from lmfit import Model
 
-from fitting import _ds_g_dscore_gauss, _gaussian, run_fit
+from fitting import _ds_g_dscore_gauss, _gaussian, ds_g_fwhm, run_fit
 from autofit.criteria import f_test, is_nested
 from autofit.grammar import (
     BackgroundType, CandidateGrammar, CandidateModel, ComponentSlot, LineShape,
@@ -140,10 +140,10 @@ def asymmetric_width_check():
     low = np.interp(half, y[:peak + 1], x[:peak + 1])
     high = np.interp(half, y[peak:][::-1], x[peak:][::-1])
     measured = float(high - low)
-    # The exact current production expression, contrasted against numerical
-    # half-maximum crossings of the curve the application actually fits.
-    estimate = float(.5346 * 2 * beta + np.sqrt(
-        .2166 * (2 * beta) ** 2 + gaussian_fwhm ** 2))
+    # Exercise the production width routine against independent grid-based
+    # half-maximum crossings; the baseline's symmetric estimate is retained
+    # as explanatory evidence, never used as the passing expectation.
+    estimate = ds_g_fwhm(alpha, beta, gaussian_fwhm)
     return check("asymmetric_dsg_effective_width",
                  np.isclose(estimate, measured, rtol=.02),
                  {"curve_fwhm_ev": measured, "relative_tolerance": .02},

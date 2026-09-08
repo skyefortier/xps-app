@@ -1,40 +1,12 @@
-"""Real-browser test for the "fit the entire window" checkbox's actual
-visible effect (2026-07-14 bug report — the checkbox was a no-op).
+"""Real-browser model-replacement contract with controlled API results.
 
-ROOT CAUSE (found by tracing, not guessed): the backend's position-bound
-widening (autofit/engine.py's ``fit_full_window`` — added 2026-07-13)
-works exactly as designed and reaches the winning candidate correctly,
-but has near-zero observable effect on real spectra, because Find
-Peaks' out-of-grammar detection/proposal machinery already finds real
-peaks wherever they sit, independent of this flag. The user's actual
-symptom ("ROI: 278.0-290.4" shown when 278-298 was set) traced to a
-DIFFERENT, purely-frontend bug: ``updatePlot()`` freezes the chart's
-background/fit-curve rendering to ``state.fitResult``'s own frozen
-``be``/``bgIntensity`` arrays once ANY fit exists (a prior manual Run
-Fit, or Auto-Fit C1s Graphite) — and ``applyFindPeaks()`` never touched
-``state.fitResult`` at all, so applying new Find-Peaks-suggested peaks
-left the chart showing background/fit cropped to whatever OLD, possibly
-much narrower range a prior fit happened to freeze it to, regardless of
-how wide a window Find Peaks itself just used.
-
-The fix: when the analyze request that produced the applied peaks used
-``fit_full_window: true``, ``applyFindPeaks()`` now clears
-``state.fitResult`` before re-rendering — ``updatePlot()`` then falls
-back to its existing unfit-preview path (``getROIData()`` + client-side
-``computeBackground()``), which correctly spans whatever the CURRENT
-``#roi-min``/``#roi-max`` fields say (the same fields Find Peaks itself
-just read at submit time). Default (unchecked) leaves
-``state.fitResult`` untouched — today's (possibly stale/cropped)
-behavior is unchanged, as required.
-
-This file proves the full, real bug scenario end to end: a tab with a
-PRIOR, narrower frozen fit (matching the bug report's exact numbers),
-then Find Peaks run + applied with the checkbox on vs. off, checking the
-ACTUAL RENDERED CHART DATA (not just the backend response) for both.
-Skips cleanly when Playwright/Chromium/gunicorn are absent, same as the
-other browser tests.
+For BOTH checkbox states, a replacement model must invalidate the prior
+envelope and diagnostics. Inspect real rendered chart data and panels,
+without requiring the scientific selector to emit peaks for a particular
+synthetic fixture. The selector's numerical behavior is tested separately.
 """
 import glob
+import json
 import os
 import socket
 import subprocess
@@ -74,13 +46,15 @@ def _free_port():
 
 
 @pytest.fixture(scope="module")
-def server():
+def server(tmp_path_factory):
     gunicorn = os.path.join(os.path.dirname(sys.executable), "gunicorn")
     if not os.path.exists(gunicorn):
         pytest.skip("gunicorn not found next to the test interpreter")
     port = _free_port()
+    uploads = tmp_path_factory.mktemp('window-contract-uploads')
     proc = subprocess.Popen(
-        [gunicorn, "app:app", "-w", "1", "-b", f"127.0.0.1:{port}", "--timeout", "90"],
+        [gunicorn, "app:create_app(upload_folder=%r)" % str(uploads),
+         "-w", "1", "-b", f"127.0.0.1:{port}", "--timeout", "90"],
         cwd=REPO_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     base = f"http://127.0.0.1:{port}"
@@ -182,6 +156,22 @@ def _status_bar_snapshot(pg):
 
 
 def _run_and_apply_find_peaks(pg, full_window):
+    # A stable transport fixture isolates this UI contract from model
+    # selection. Assert the checkbox still reaches the actual request.
+    def start(route):
+        payload = route.request.post_data_json
+        assert payload['options']['fit_full_window'] is full_window
+        route.fulfill(status=202, content_type='application/json',
+                      body=json.dumps({'job_id': 'window-contract'}))
+    pg.route('**/api/analyze/start', start)
+    pg.route('**/api/analyze/progress/*', lambda route: route.fulfill(
+        status=200, content_type='application/json', body=json.dumps({
+            'status': 'done', 'elapsed_sec': 1,
+            'result': {'success': True, 'peaks': [{
+                'id': 'suggested', 'role': 'main_graphitic', 'shape': 'gaussian',
+                'center': 284.5, 'fwhm': 0.8, 'amplitude': 6000,
+            }], 'diagnostics': {}, 'analysis': {}, 'confidence': {}},
+        })))
     pg.evaluate("() => openFindPeaksModal()")
     pg.wait_for_selector("#find-peaks-overlay.open", timeout=5000)
     pg.wait_for_selector("#fp-pt-grid .fp-pt-cell.selectable", timeout=5000)
@@ -215,14 +205,8 @@ def _background_span(pg):
     }""")
 
 
-def test_checkbox_off_preserves_todays_cropped_behavior(browser, server):
-    """Regression guard for the DEFAULT path: unchecked must produce
-    byte-for-byte the same (buggy/stale) behavior as before this fix —
-    the chart stays frozen to the prior fit's narrow 278.0-290.4 range,
-    exactly matching the bug report's own observed numbers, AND the
-    status bar (χ²ᵣ, R-factor, "ROI: ...") and the Results panel stay
-    exactly as stale as they always were too — the fix must not touch
-    anything when unchecked."""
+def test_checkbox_off_invalidates_previous_model_and_diagnostics(browser, server):
+    """Default search mode must not attach old diagnostics to new peaks."""
     pg = _new_page(browser, server)
     try:
         _load_c1s_with_stale_narrow_fit(pg)
@@ -233,16 +217,14 @@ def test_checkbox_off_preserves_todays_cropped_behavior(browser, server):
         _run_and_apply_find_peaks(pg, full_window=False)
 
         after = _background_span(pg)
-        assert after["max"] == pytest.approx(290.35625, abs=0.01), (
-            "default (unchecked) must leave today's cropped behavior "
-            f"unchanged: {after}")
+        assert after["max"] > before["max"] + 5
         fit_result_is_null = pg.evaluate("() => state.fitResult === null")
-        assert not fit_result_is_null, (
-            "unchecked must NOT touch state.fitResult at all")
+        assert fit_result_is_null
+        assert pg.evaluate('() => state.peaks.length') == 1
         status_after = _status_bar_snapshot(pg)
-        assert status_after == status_before, (
-            f"unchecked must not touch the status bar either: "
-            f"{status_before} -> {status_after}")
+        assert status_after['sbChi'] != status_before['sbChi']
+        assert 'Run the fit' in status_after['resultsArea']
+        assert 'Run fit to quantify' in status_after['quantifyArea']
     finally:
         pg.close()
 

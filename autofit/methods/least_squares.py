@@ -58,6 +58,7 @@ class LeastSquaresMethod(PeakFitMethod):
             n_perturb=opts.pop("n_perturb", 0),
             manual_bg=opts.pop("manual_bg", None),
             fit_kws=fit_kws,
+            weights=weights,
         )
 
         peaks = []

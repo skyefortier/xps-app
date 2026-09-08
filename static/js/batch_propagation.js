@@ -18,13 +18,14 @@
   // target's own value, so a blank source field never wipes the target's. All
   // other target UI fields are preserved unchanged.
   function propagateFitUi(srcUi, tgtUi) {
-    const keep = (s, t) => (s !== '' ? s : t);
+    const keep = (s, t) => (s != null && s !== '' ? s : t);
     return {
       ...tgtUi,
       bgType: srcUi.bgType,
       bgStart: keep(srcUi.bgStart, tgtUi.bgStart),
       bgEnd: keep(srcUi.bgEnd, tgtUi.bgEnd),
       shirleyIter: srcUi.shirleyIter,
+      endpointAvg: keep(srcUi.endpointAvg, tgtUi.endpointAvg),
       roiMin: keep(srcUi.roiMin, tgtUi.roiMin),
       roiMax: keep(srcUi.roiMax, tgtUi.roiMax),
     };

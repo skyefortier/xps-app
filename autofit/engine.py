@@ -795,11 +795,13 @@ def _unphysical_width_flags(
         # convolved width, not the Gaussian part alone (a component could
         # otherwise be ~3+ eV wide while every width check reads 1.0:
         # exactly the 'neighbor broadened to hide a missed peak' channel).
-        # Olivero & Longbothum 1977 Voigt-FWHM approximation (0.02%).
+        # Locate the actual half-height crossings: the symmetric Voigt
+        # approximation ignores alpha and can miss substantially wider tails.
         eff_fwhm = c.fwhm
         if c.line_shape is LineShape.DS_G:
-            f_l = 2.0 * float(c.shape_params.get("beta", 0.0))
-            eff_fwhm = 0.5346 * f_l + np.sqrt(0.2166 * f_l ** 2 + c.fwhm ** 2)
+            from fitting import ds_g_fwhm
+            eff_fwhm = ds_g_fwhm(float(c.shape_params.get("alpha", 0.)),
+                                 float(c.shape_params.get("beta", .3)), c.fwhm)
             if eff_fwhm >= FWHM_MAX_ORDINARY_EV and not vouched:
                 flags.append(
                     f"{c.slot_role}:effective fwhm={eff_fwhm:.2f}eV≥"

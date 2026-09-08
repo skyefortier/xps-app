@@ -13,6 +13,7 @@ Usage: ci_check_junit.py report.xml --min-tests N [--max-skipped M]
        [--tail pytest.log]
 """
 import argparse
+import json
 import os
 import sys
 import xml.etree.ElementTree as ET
@@ -37,6 +38,7 @@ def main():
     ap.add_argument("xml")
     ap.add_argument("--min-tests", type=int, required=True)
     ap.add_argument("--max-skipped", type=int, default=0)
+    ap.add_argument("--allowed-skips", help="JSON list of exact permitted classname::name skip identifiers")
     ap.add_argument("--tail", default=None,
                     help="pytest log to annotate on failure")
     args = ap.parse_args()
@@ -67,6 +69,14 @@ def main():
                       f"{tc.get('classname')}::{tc.get('name')}: {msg}")
 
     ran = tests - skipped
+    if args.allowed_skips:
+        with open(args.allowed_skips) as handle:
+            allowed = set(json.load(handle))
+        unexpected = [f"{tc.get('classname')}::{tc.get('name')}" for tc in root.iter('testcase')
+                      if tc.find('skipped') is not None and
+                      f"{tc.get('classname')}::{tc.get('name')}" not in allowed]
+        if unexpected:
+            _die('Unexpected skipped tests: ' + ', '.join(unexpected), args.tail)
     print(f"junit: {tests} collected, {ran} ran, {skipped} skipped, "
           f"{failures} failures, {errors} errors")
     if failures or errors:

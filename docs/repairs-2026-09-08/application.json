@@ -1,0 +1,86 @@
+{
+  "suite": "application-audit",
+  "probes": 8,
+  "failed": 0,
+  "results": [
+    {
+      "id": "local_lm_amplitude_recovery",
+      "pass": true,
+      "expected": "Recover amplitude 10 from initial 5 for a noiseless fixed-width Gaussian",
+      "observed": {
+        "amplitude": 9.99999999828875,
+        "sse": 4.4083298720694844e-17
+      }
+    },
+    {
+      "id": "voigt_preview_backend_contract",
+      "pass": true,
+      "expected": {
+        "gl_ratio": 0.5,
+        "fix_gl_ratio": true
+      },
+      "observed": {
+        "gl_ratio": 0.5,
+        "fix_gl_ratio": true
+      }
+    },
+    {
+      "id": "locked_zero_ds_alpha",
+      "pass": true,
+      "expected": {
+        "alpha": 0,
+        "fix_alpha": true
+      },
+      "observed": {
+        "alpha": 0,
+        "fix_alpha": true
+      }
+    },
+    {
+      "id": "locked_zero_asymmetric_gl_mix",
+      "pass": true,
+      "expected": {
+        "gl_ratio": 0,
+        "fix_gl_ratio": true
+      },
+      "observed": {
+        "gl_ratio": 0,
+        "fix_gl_ratio": true
+      }
+    },
+    {
+      "id": "area_integration_nonuniform_grid",
+      "pass": true,
+      "expected": "Integral of unit intensity over [0,3] equals 3",
+      "observed": 3
+    },
+    {
+      "id": "find_peaks_replacement_invalidates_prior_fit",
+      "pass": true,
+      "expected": "Replacing a model clears the previous fitted envelope and diagnostics even when fitFullWindow is false",
+      "observed": {
+        "center": 2,
+        "fitResult": null
+      }
+    },
+    {
+      "id": "project_roundtrip_parameter_uncertainty",
+      "pass": true,
+      "expected": "Saved projects retain parameter standard errors accessible to the results/export reader",
+      "observed": {
+        "persistedOnPeak": 0.02,
+        "resultsPanelStdErr": 0.02
+      }
+    },
+    {
+      "id": "manual_fit_captures_originating_tab_model",
+      "pass": true,
+      "expected": "A fit started on tab A sends tab A peaks even if the user changes tabs during upload",
+      "observed": {
+        "uploadedSession": "session-A",
+        "submittedCenter": 284.8,
+        "acceptedOnTabA": true
+      }
+    }
+  ]
+}

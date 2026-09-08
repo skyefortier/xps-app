@@ -8,8 +8,8 @@ Supported lineshapes
   pseudo_voigt_gl – linear GL mix: (1‑η)·G + η·L  (η = Lorentzian fraction)
   asymmetric_gl   – GL mix with independent left/right FWHM
   doniach_sunjic  – metallic asymmetric lineshape
-  ds_g            – DS+G: DS core × Gaussian convolution (formerly "la_casaxps")
-  la_casaxps      – TRUE CasaXPS LA(α,β,m): asymmetric base Lorentzian + integer-kernel Gauss conv
+  ds_g            – DS+G: DS core convolved with Gaussian
+  la_casaxps      – app LA(α,β,m): Lorentzian powers + continuous-m Gaussian convolution
 
 Backgrounds
 -----------
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -33,7 +34,7 @@ from scipy.integrate import trapezoid
 log = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Lineshape functions (all FWHM‑parameterised, amplitude = peak maximum)
+# Lineshape functions (amplitude = value at center; asymmetric max may differ)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _LN2 = np.log(2.0)
@@ -147,156 +148,90 @@ def _doniach_sunjic(
 
 
 def _ds_g_dscore_gauss(
-    x: np.ndarray,
-    amplitude: float,
-    center: float,
-    alpha: float,    # CasaXPS: dimensionless asymmetry index, 0 ≤ α < 0.5
-    beta: float,     # CasaXPS: Lorentzian half-width (eV)
-    m_gauss: float,  # CasaXPS: Gaussian FWHM (eV) for convolution
+    x: np.ndarray, amplitude: float, center: float, alpha: float,
+    beta: float, m_gauss: float,
 ) -> np.ndarray:
+    """DS core convolved with a Gaussian of FWHM m_gauss (eV).
+
+    Amplitude is the value at the continuous center, not the asymmetric
+    maximum. Integrate the analytic core at Gaussian-displaced energies,
+    including outside the ROI. The symmetric kernel has an exact zero
+    sample, independent of input length, direction, spacing and cropping.
+    The quadrature resolves both beta and Gaussian sigma with >=4 samples
+    per scale; Gaussian support is +/-8 sigma (negligible discarded mass).
     """
-    DS+G lineshape (formerly mislabeled "LA(α,β,m) [CasaXPS]") —
-    Doniach-Šunjić asymmetric core convolved analytically with a Gaussian
-    instrument-broadening kernel. NOT to be confused with the true CasaXPS
-    LA shape (see _la_casaxps_true), which uses a piecewise-asymmetric
-    Lorentzian with point-domain Gaussian convolution.
+    x = np.asarray(x, dtype=float)
+    alpha = float(np.clip(alpha, 0., .495))
+    beta = max(float(beta), 1e-6)
+    m_gauss = max(float(m_gauss), 0.)
 
-    The DS core with asymmetry index α and Lorentzian half-width β is convolved
-    with a Gaussian of FWHM m for instrument broadening.
+    def core(eps):
+        phase = np.pi * alpha / 2 - (1 - alpha) * np.arctan2(eps, beta)
+        return np.cos(phase) / (eps ** 2 + beta ** 2) ** ((1 - alpha) / 2)
 
-    Tail direction: eps = x − center > 0 → HIGHER binding energy (physically
-    correct: low-energy electron-hole pair excitations produce intensity on the
-    high-BE side only).
+    if m_gauss < .001:
+        return amplitude * core(x - center) / core(0.)
+    sigma = m_gauss / np.sqrt(8 * _LN2)
+    half = max(32, int(np.ceil(8 * sigma / (beta / 4))))
+    if half > 16384:
+        raise ValueError("DS+G Gaussian/core width ratio exceeds supported quadrature resolution")
+    if len(x) > 16 and half > 128:
+        # Broad-Gaussian/narrow-core fits otherwise cost O(N*sigma/beta)
+        # at every optimizer evaluation. Use analytically padded FFT
+        # convolution on a center-anchored lattice, then cubic interpolation.
+        # Resolve the smooth convolved curve by >=64 points per sigma;
+        # beta/4 still resolves the narrow core. Center is an exact node.
+        from scipy.interpolate import CubicSpline
+        from scipy.signal import fftconvolve
+        step = min(beta / 4, sigma / 64)
+        radius = int(np.ceil(8 * sigma / step))
+        step = 8 * sigma / radius
+        lo = int(np.floor(min(float(np.min(x - center)), 0.) / step)) - 2
+        hi = int(np.ceil(max(float(np.max(x - center)), 0.) / step)) + 2
+        if hi - lo + 2 * radius < 1000000:
+            offsets = np.arange(-radius, radius + 1) * step
+            kernel = np.exp(-.5 * (offsets / sigma) ** 2)
+            padded = np.arange(lo - radius, hi + radius + 1) * step
+            values = fftconvolve(core(padded), kernel, mode="valid")
+            lattice = np.arange(lo, hi + 1) * step
+            return amplitude * CubicSpline(lattice, values)(x - center) / values[-lo]
+    shifts = np.arange(-half, half + 1) * (8 * sigma / half)
+    kernel = np.exp(-.5 * (shifts / sigma) ** 2)
+    norm = float(np.dot(kernel, core(-shifts)))
+    result = np.empty_like(x)
+    # Vectorized, bounded-memory quadrature; this has exactly the same
+    # nodes/weights as the scalar JS evaluator, including off-grid centers.
+    chunk = max(1, 131072 // len(shifts))
+    for start in range(0, len(x), chunk):
+        eps = x[start:start + chunk, None] - center - shifts[None, :]
+        result[start:start + chunk] = core(eps) @ kernel
+    return amplitude * result / norm
 
-    Parameters
-    ----------
-    alpha   : dimensionless asymmetry index, 0 ≤ α < 0.5
-              (0 = symmetric Lorentzian, ~0.1–0.3 for metallic systems)
-    beta    : Lorentzian half-width at half-maximum (eV); controls core width
-    m_gauss : Gaussian FWHM (eV) for instrument/phonon broadening (0 = none)
 
-    Fixes (v2)
-    ----------
-    1. Convolution uses a padded grid (±10·m on each side) with cosine taper
-       to eliminate cliff artifacts at array boundaries.
-    2. Explicit FFT convolution with a properly normalised Gaussian kernel,
-       so DS tail direction is preserved regardless of m value.
-    """
-    alpha   = float(np.clip(alpha, 0.0, 0.495))
-    beta    = max(float(beta),    1e-6)
-    m_gauss = max(float(m_gauss), 0.0)
-
-    # ── DS core evaluator (independent of m_gauss) ───────────────────────────
-    #
-    # eps = x − center: positive on HIGH-BE side (where tail belongs)
-    # DS formula:  cos(πα/2 − (1−α)·arctan2(ε, β)) / (ε² + β²)^((1−α)/2)
-    #
-    # Sign convention proof:
-    #   At ε >> β (high BE):  arctan2(ε, β) → +π/2
-    #     phase → πα/2 − (1−α)·π/2 → −π(1−2α)/2  (negative for α < 0.5)
-    #     cos(phase) > 0, and denominator grows as |ε|^(1−α)
-    #     → slow power-law decay toward HIGH BE  ✓
-    #   At ε << −β (low BE): arctan2(ε, β) → −π/2
-    #     phase → πα/2 + (1−α)·π/2 → π/2  (for small α)
-    #     cos(phase) → 0, faster falloff
-    #     → steeper decay toward LOW BE  ✓
-
-    def _ds_core(xgrid):
-        """Evaluate DS kernel on arbitrary grid. Independent of m_gauss."""
-        eps = xgrid - center
-        r2 = eps ** 2 + beta ** 2
-        r2 = np.maximum(r2, 1e-30)
-        rPow = r2 ** ((1.0 - alpha) / 2.0)
-        phase = np.pi * alpha / 2.0 - (1.0 - alpha) * np.arctan2(eps, beta)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            core = np.cos(phase) / rPow
-        core = np.where(np.isfinite(core), core, 0.0)
-        return core
-
-    # ── No Gaussian broadening — just return normalised DS core ──────────────
-    if m_gauss < 0.001:
-        ds_core = _ds_core(x)
-        peak_val = float(np.interp(center, x if x[-1] > x[0] else x[::-1],
-                                   ds_core if x[-1] > x[0] else ds_core[::-1]))
-        if peak_val <= 0.0:
-            peak_val = np.max(np.abs(ds_core))
-        if peak_val <= 0.0:
-            return np.zeros_like(x)
-        return amplitude * ds_core / peak_val
-
-    # ── Build padded grid for convolution ─────────────────────────────────────
-    # Pad by ±10·m_gauss (≈ ±4.25σ) to avoid truncation artifacts.
-    # The DS power-law tail decays as |ε|^(α−1), which is slow for small α,
-    # so generous padding is essential.
-    step = float(np.median(np.abs(np.diff(x)))) if len(x) > 1 else 0.05
-    step = max(step, 1e-6)
-
-    pad_ev = max(10.0 * m_gauss, 20.0 * beta)  # eV of padding on each side
-    n_pad = int(np.ceil(pad_ev / step))
-    n_pad = max(n_pad, 1)
-
-    # Determine sort direction of input x
-    ascending = (x[-1] > x[0]) if len(x) > 1 else True
-
-    # Create padded energy grid extending beyond the data range
-    if ascending:
-        x_pad_lo = x[0] - n_pad * step
-        x_pad_hi = x[-1] + n_pad * step
-    else:
-        x_pad_lo = x[-1] - n_pad * step
-        x_pad_hi = x[0] + n_pad * step
-
-    n_total = len(x) + 2 * n_pad
-    x_padded = np.linspace(x_pad_lo, x_pad_hi, n_total)  # always ascending
-
-    # Evaluate DS core on padded grid
-    ds_padded = _ds_core(x_padded)
-
-    # ── Cosine taper on pad regions ───────────────────────────────────────────
-    # Smoothly ramp to zero at the array edges to kill any residual signal
-    # that would cause Gibbs-like ringing in FFT convolution.
-    taper = np.ones(n_total)
-    if n_pad > 1:
-        # Left taper: 0→1 over n_pad points (half cosine)
-        taper[:n_pad] = 0.5 * (1.0 - np.cos(np.linspace(0, np.pi, n_pad)))
-        # Right taper: 1→0 over n_pad points
-        taper[-n_pad:] = 0.5 * (1.0 + np.cos(np.linspace(0, np.pi, n_pad)))
-    ds_padded *= taper
-
-    # ── FFT convolution with Gaussian kernel ──────────────────────────────────
-    # σ_eV = m_gauss / (2√(2·ln2))  (convert FWHM to sigma)
-    sigma_ev = m_gauss / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-
-    # Kernel grid centred at zero, same length as padded array (for FFT)
-    n_k = len(x_padded)
-    k_half = (n_k - 1) / 2.0
-    k_grid = (np.arange(n_k) - k_half) * step  # eV relative to centre
-    gauss_kernel = np.exp(-0.5 * (k_grid / sigma_ev) ** 2)
-    gauss_kernel /= gauss_kernel.sum()  # normalise to unit area
-
-    # FFT convolution (circular, but padding makes edge effects negligible)
-    ft_ds = np.fft.rfft(ds_padded)
-    ft_gk = np.fft.rfft(np.fft.ifftshift(gauss_kernel))
-    ds_conv = np.fft.irfft(ft_ds * ft_gk, n=n_total)
-
-    # ── Interpolate back to original x grid ───────────────────────────────────
-    # x_padded is always ascending; np.interp handles arbitrary query points.
-    result = np.interp(x, x_padded, ds_conv)
-
-    # ── Normalise so value at x = center equals amplitude ─────────────────────
-    # Interpolate at exact center rather than nearest grid point to avoid
-    # normalization error when center falls between data points.
-    peak_val = float(np.interp(center, x_padded, ds_conv))
-    if peak_val <= 0.0:
-        peak_val = np.max(np.abs(result))
-    if peak_val <= 0.0:
-        return np.zeros_like(x)
-
-    result = amplitude * result / peak_val
-
-    # Final safety: suppress any NaN/Inf
-    return np.where(np.isfinite(result), result, 0.0)
+@lru_cache(maxsize=256)
+def ds_g_fwhm(alpha: float, beta: float, m_gauss: float) -> float:
+    """Actual convolved DS+G FWHM, including alpha's asymmetric broadening."""
+    from scipy.optimize import brentq, minimize_scalar
+    scale = max(2 * beta, m_gauss, .001)
+    def value(t):
+        return float(_ds_g_dscore_gauss(np.array([t]), 1., 0., alpha, beta, m_gauss)[0])
+    mode = minimize_scalar(lambda t: -value(t), bounds=(-scale, 3 * scale),
+                           method="bounded", options={"xatol": 1e-8}).x
+    half_height = value(mode) / 2
+    def residual(t):
+        return value(t) - half_height
+    bounds = []
+    for direction in (-1, 1):
+        distance = scale
+        for _ in range(30):
+            bound = mode + direction * distance
+            if residual(bound) < 0:
+                bounds.append(bound)
+                break
+            distance *= 2
+        else:
+            return float("inf")  # cannot certify a finite narrow component
+    return float(brentq(residual, mode, bounds[1]) - brentq(residual, bounds[0], mode))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -652,108 +587,49 @@ def tougaard_background(
 
 
 def _la_casaxps_true(
-    x: np.ndarray,
-    amplitude: float,
-    center: float,
-    fwhm: float,
-    alpha: float,
-    beta: float,
-    m: float,
+    x: np.ndarray, amplitude: float, center: float, fwhm: float,
+    alpha: float, beta: float, m: float,
 ) -> np.ndarray:
+    """App's LA profile: piecewise Lorentzian powers, Gaussian convolution.
+
+    Retains the app convention sigma_points=m/3, with continuous m in
+    [0,499]. This is not a certification of proprietary CasaXPS equivalence.
+    Gaussian offsets use median channel spacing (0.05 eV for a singleton).
+    The base is evaluated beyond both ROI edges, rather than zero-padded.
+    Normalization evaluates the same convolution at the continuous center.
+    Amplitude thus means value at center, not necessarily peak maximum.
     """
-    True CasaXPS LA(α, β, m) lineshape.
-
-    Built in two steps per the CasaXPS LA manual:
-
-    1.  Asymmetric base Lorentzian. Start with a unit-amplitude Lorentzian
-        of FWHM `fwhm` centered at `center`:
-            L(x) = 1 / (1 + 4·((x − center)/fwhm)²)
-        Apply piecewise exponents to introduce asymmetry. CasaXPS defines
-        these on a kinetic-energy axis. We use a binding-energy axis, so
-        the sides flip:
-            LA_base(x) = L(x)^α   for x ≥ center  (high-BE side)
-            LA_base(x) = L(x)^β   for x <  center  (low-BE side)
-        Increasing α relative to β SUPPRESSES the high-BE tail; decreasing
-        α extends it.
-
-    2.  Gaussian convolution with a continuous-m kernel: σ_pts = m/3,
-        kernel half-width max(1, ceil(3.5·σ_pts)) (±3.5σ; see the inline
-        comment for why 3.5, not 3), truncation-renormalized, convolved
-        with mode='same' on the uniform x grid. m < 1e-3 means no
-        convolution. NOTE this deliberately deviates from the original
-        integer 2m+1 design (still implemented by the frontend's
-        laTrueCasaXPS_array — a tracked ~0.15%-at-m=50 parity gap, todo
-        in tests/js/lineshape_parity.test.js): m flows through
-        continuously so lmfit's finite-difference Jacobian in m is
-        non-singular.
-
-    With α=β=1 and m=0, this reduces exactly to amplitude × L(x) (a pure
-    Lorentzian of peak height = amplitude, FWHM = `fwhm`).
-
-    Parameters
-    ----------
-    fwhm  : Lorentzian FWHM in eV (must be > 0)
-    alpha : high-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
-    beta  : low-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
-    m     : Gaussian convolution kernel width in DATA POINTS (not eV);
-            0–499, used CONTINUOUSLY (no rounding — see kernel note above).
-    """
-    fwhm = max(float(fwhm), 1e-9)
-    alpha = max(float(alpha), 1e-3)
-    beta = max(float(beta), 1e-3)
-    # Continuous-σ kernel: m flows through to the kernel weights as a real
-    # number, so the Jacobian column for m is well-defined under lmfit's
-    # finite-difference perturbation. Previously m was rounded with
-    # int(round(m)), making the function locally constant in m and
-    # producing a singular Hessian whenever m varied — that poisoned
-    # covariance estimation for every other free param too.
-    # Defensive guard preserves the prior [0, 499] cap in case a saved
-    # spec or caller bypasses the lmfit bound.
-    m_cont = max(0.0, min(499.0, float(m)))
-
-    eps = x - center
-    # Base unit-amplitude Lorentzian
-    L = 1.0 / (1.0 + 4.0 * (eps / fwhm) ** 2)
-    # Piecewise exponentiation. BE-axis: high-BE side is eps ≥ 0.
-    high = eps >= 0
-    base = np.where(high, np.power(L, alpha), np.power(L, beta))
-
-    # Below ε, treat as un-convolved Lorentzian so an optimizer that lands
-    # exactly at m=0 returns the bare base curve rather than degenerating.
-    if m_cont < 1e-3:
-        return amplitude * base
-
-    sigma_pts = m_cont / 3.0
-    # Kernel half-width: ±3.5σ captures > 99.95% of the Gaussian. Use 3.5
-    # rather than 3 specifically so the kernel-length quantization step
-    # `ceil(3.5σ)` doesn't coincide with integer m — that would put a
-    # discrete jump in the output exactly at integer m and re-break
-    # backwards compat with previously-saved (integer-m) fits. With 3.5
-    # the next jump from m=N is at m = 6(N+1)/7 ≠ integer.
-    half = max(1, int(np.ceil(3.5 * sigma_pts)))
-    k = np.arange(-half, half + 1, dtype=float)
-    kern = np.exp(-(k ** 2) / (2.0 * sigma_pts ** 2))
-    kern = kern / kern.sum()
-
-    convolved = np.convolve(base, kern, mode='same')
-    # np.convolve mode='same' returns max(len(base), len(kern)) — not
-    # len(base). When the input grid is shorter than the kernel, trim
-    # back to len(base) so the function's len(output) == len(x) contract
-    # holds. lmfit's composite-fit residual path will broadcast the
-    # per-peak arrays against the data grid, so a kernel-length return
-    # surfaces as a cryptic shape mismatch downstream.
-    if len(convolved) > len(base):
-        excess = len(convolved) - len(base)
-        start = excess // 2
-        convolved = convolved[start:start + len(base)]
-
-    peak_idx = int(np.argmin(np.abs(eps)))
-    peak_val = convolved[peak_idx]
-    if peak_val <= 0:
-        peak_val = float(np.max(convolved))
-    if peak_val <= 0:
+    x = np.asarray(x, dtype=float)
+    if len(x) == 0:
         return np.zeros_like(x)
-    return amplitude * convolved / peak_val
+    fwhm = max(float(fwhm), 1e-9)
+    alpha, beta = max(float(alpha), 1e-3), max(float(beta), 1e-3)
+    m = float(np.clip(m, 0., 499.))
+    def base(eps):
+        lorentz = 1 / (1 + 4 * (eps / fwhm) ** 2)
+        return np.where(eps >= 0, lorentz ** alpha, lorentz ** beta)
+    if m < .001:
+        return amplitude * base(x - center)
+    step = float(np.median(np.abs(np.diff(x)))) if len(x) > 1 else .05
+    if not np.isfinite(step) or step <= 0:
+        raise ValueError("LA convolution requires positive channel spacing")
+    sigma_pts = m / 3
+    half = max(1, int(np.ceil(8 * sigma_pts)))
+    k = np.arange(-half, half + 1)
+    weights = np.exp(-.5 * (k / sigma_pts) ** 2)
+    shifts = k * step
+    norm = float(np.dot(weights, base(-shifts)))
+    if len(x) > 1 and np.allclose(np.diff(x), x[1] - x[0], rtol=1e-7, atol=1e-10):
+        # Fast path for normal acquisition grids. Both tails are evaluated
+        # analytically before convolution; valid cropping returns only the
+        # requested samples. Normalize analytically as on the general path.
+        padded_x = x[0] + np.arange(-half, len(x) + half) * (x[1] - x[0])
+        convolved = np.convolve(base(padded_x - center), weights, mode="valid")
+        return amplitude * convolved / norm
+    result = np.zeros_like(x)
+    for shift, weight in zip(shifts, weights):
+        result += weight * base(x - center - shift)
+    return amplitude * result / norm
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -804,6 +680,21 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
             cur = parent.get(cur)
 
 
+def _analytic_area_factor_expr(shape: str, prefix: str) -> str | None:
+    """Full-domain area / height as an lmfit expression (not ROI area)."""
+    if shape == "gaussian":
+        return f"{prefix}fwhm * {float(_SQRT_PI_4LN2)!r}"
+    if shape == "lorentzian":
+        return f"{prefix}fwhm * {float(np.pi / 2)!r}"
+    if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
+        factor = (f"{prefix}fwhm * ((1 - {prefix}gl_ratio) * "
+                  f"{float(_SQRT_PI_4LN2)!r} + {prefix}gl_ratio * {float(np.pi / 2)!r})")
+        if shape == "asymmetric_gl":
+            factor += f" * (1 + {prefix}asymmetry / 2)"
+        return factor
+    return None
+
+
 def _make_peak_params(
     model: Model,
     spec: dict[str, Any],
@@ -829,7 +720,8 @@ def _make_peak_params(
     alpha          : float – DS asymmetry index
     constrain_to   : str   – id of master peak (spin‑orbit slave)
     splitting      : float – centre offset from master (eV)
-    area_ratio     : float – amplitude = master_amplitude × area_ratio
+    area_ratio     : float – ratio of full-domain component areas for supported
+                     analytic profiles; finite ROI integrals may differ.
     fix_fwhm       : bool  – if True, lock FWHM to master value
     """
     shape = spec["shape"]
@@ -866,8 +758,25 @@ def _make_peak_params(
         splitting = float(spec.get("splitting", 0.0))
         area_ratio = float(spec.get("area_ratio", 1.0))
 
+        if not np.isfinite(area_ratio) or area_ratio < 0:
+            raise ValueError("area_ratio must be finite and nonnegative")
+        master_shape = master_spec["shape"]
+        if master_shape != shape:
+            raise ValueError("Linked peaks must use the same lineshape family")
+        factor = _analytic_area_factor_expr(shape, prefix)
+        master_factor = _analytic_area_factor_expr(master_shape, m_prefix)
+        if factor is not None:
+            amplitude_expr = f"{m_prefix}amplitude * {area_ratio} * ({master_factor}) / ({factor})"
+        elif not spec.get("fix_fwhm", True):
+            raise ValueError(
+                "Independent-width area-ratio links are supported only for Gaussian, "
+                "Lorentzian and GL profiles; DS/DS+G/LA require shared shape parameters")
+        else:
+            # Identical profiles have a shared scale factor. This preserves
+            # established shared-shape links, including DS's finite-window
+            # convention; it does not assert DS has a finite infinite-tail area.
+            amplitude_expr = f"{m_prefix}amplitude * {area_ratio}"
         _set("center", center, expr=f"{m_prefix}center + {splitting}")
-        _set("amplitude", amp, expr=f"{m_prefix}amplitude * {area_ratio}")
         _set("fwhm", fwhm, expr=f"{m_prefix}fwhm" if spec.get("fix_fwhm", True) else None,
              min_=spec.get("fwhm_min", 0.1), max_=spec.get("fwhm_max", 15.0))
         if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
@@ -902,6 +811,9 @@ def _make_peak_params(
             _set("m",     spec.get("m",    50.0),
                  expr=f"{m_prefix}m" if fix else None,
                  min_=0.0, max_=499.0)
+        # Width/shape parameters must exist before the area expression is
+        # evaluated; lmfit resolves dependencies again after parameter merging.
+        _set("amplitude", amp, expr=amplitude_expr)
         return p
 
     # Free (master or unconstrained) peak
@@ -939,7 +851,7 @@ def _make_peak_params(
              vary=not spec.get("fix_alpha", False))
         _set("beta",    spec.get("beta",    0.3),  min_=0.05, max_=2.0,
              vary=not spec.get("fix_beta", False))
-        _set("m_gauss", spec.get("m_gauss", 0.4),  min_=0.05, max_=4.0,
+        _set("m_gauss", spec.get("m_gauss", 0.4),  min_=0.0, max_=4.0,
              vary=not spec.get("fix_m_gauss", False))
     if shape == "la_casaxps":
         _set("alpha", spec.get("alpha", 1.0), min_=0.1, max_=5.0,
@@ -956,6 +868,35 @@ def _make_peak_params(
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _area_stderr(component: Model, result, x: np.ndarray) -> float | None:
+    """Delta-method uncertainty of a finite-window area, using full covariance."""
+    if result.covar is None or not result.var_names:
+        return None
+    covariance = np.asarray(result.covar, dtype=float)
+    if not np.all(np.isfinite(covariance)):
+        return None
+    params = result.params.copy()
+    gradient = []
+    for name in result.var_names:
+        par = params[name]
+        original = par.value
+        step = np.cbrt(np.finfo(float).eps) * max(abs(original), 1.)
+        lower, upper = max(par.min, original - step), min(par.max, original + step)
+        if upper <= lower:
+            return None
+        values = []
+        for value in (lower, upper):
+            par.value = value
+            params.update_constraints()
+            values.append(float(abs(trapezoid(component.eval(params, x=x), x))))
+        par.value = original
+        params.update_constraints()
+        gradient.append((values[1] - values[0]) / (upper - lower))
+    grad = np.asarray(gradient)
+    variance = float(grad @ covariance @ grad)
+    return float(np.sqrt(max(variance, 0.))) if np.isfinite(variance) else None
+
+
 def run_fit(
     energy: np.ndarray,
     counts: np.ndarray,
@@ -968,6 +909,7 @@ def run_fit(
     n_perturb: int = 0,
     manual_bg: list | None = None,
     endpoint_avg: int = 1,
+    weights: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """
     Run XPS peak fitting and return a serialisable result dict.
@@ -982,12 +924,15 @@ def run_fit(
     bg_end_idx        : slice end for background region   (None → len)
     charge_shift_ev   : shift to apply to energy axis before fitting
     fit_kws           : extra kwargs forwarded to lmfit minimize
+    weights           : optional finite positive inverse-sigma values on the
+                        entire incoming grid; default is Poisson-like intensity weighting
 
     Returns
     -------
     dict with keys: energy, fitted_y, background_y, residuals,
                     individual_peaks, statistics, charge_shift_applied, success
     """
+    energy, counts = np.asarray(energy, dtype=float), np.asarray(counts, dtype=float)
     if len(energy) != len(counts):
         raise ValueError("energy and counts must have the same length")
     if not peak_specs:
@@ -1092,10 +1037,17 @@ def run_fit(
 
     # Poisson weights: σ = √(raw counts), weight = 1/σ
     # Use raw counts (before background subtraction) for uncertainty estimate,
-    # since the noise comes from the total photon counting statistics.
+    # since counting noise comes from the total detected signal.
     # Floor at 1.0 to avoid division by zero for zero-count channels.
-    sigma = np.sqrt(np.maximum(y, 1.0))
-    weights = 1.0 / sigma
+    supplied_weights = weights is not None
+    if weights is None:
+        weights = 1.0 / np.sqrt(np.maximum(y, 1.0))
+    else:
+        weights = np.asarray(weights, dtype=float)
+        if weights.ndim != 1 or weights.shape != y.shape:
+            raise ValueError("weights must be a one-dimensional array matching counts")
+        if not np.all(np.isfinite(weights)) or np.any(weights <= 0):
+            raise ValueError("weights must be finite and strictly positive")
 
     # ── Build composite lmfit model ───────────────────────────────────────────
     # Sort so unconstrained (master) peaks come before constrained ones
@@ -1227,16 +1179,11 @@ def run_fit(
 
         param_info["area"] = {"value": area, "stderr": None}
 
-        # Approximate area stderr via amplitude + fwhm propagation
-        amp_par = result.params.get(prefix + "amplitude")
-        fwhm_par = result.params.get(prefix + "fwhm")
-        if (amp_par and fwhm_par and amp_par.stderr and fwhm_par.stderr
-                and amp_par.value and fwhm_par.value):
-            rel_err = np.sqrt(
-                (amp_par.stderr / amp_par.value) ** 2
-                + (fwhm_par.stderr / fwhm_par.value) ** 2
-            )
-            param_info["area"]["stderr"] = abs(area) * rel_err
+        # Propagate the actual finite-window integral through ALL free
+        # parameters and their covariance. Re-evaluate constraints on each
+        # perturbation so linked component uncertainty includes its parent.
+        component = next(c for c in composite_model.components if c.prefix == prefix)
+        param_info["area"]["stderr"] = _area_stderr(component, result, x)
 
         individual_peaks.append({
             "id": pid,
@@ -1271,6 +1218,10 @@ def run_fit(
             "r_factor": r_factor,
             "n_data": n_data,
             "n_free_params": n_free,
+            "weighting": "supplied_inverse_sigma" if supplied_weights else "observed_intensity_poisson_like",
+            "area_definition": "trapezoidal_integral_over_fit_window",
+            "uncertainty_scope": "conditional_on_background_and_model",
+            "covariance_scaled_by_reduced_chi_square": bool(kws.get("scale_covar", True)),
             "aic": float(result.aic) if result.aic is not None else None,
             "bic": float(result.bic) if result.bic is not None else None,
         },

@@ -101,7 +101,7 @@ async function probe(id, expected, run) {
       RefCore: { serializeRefOverlays: () => null, serializeRefCompoundMarkers: () => null },
       _refCompoundMarkers: [], _downloadBlob: blob => { saved = blob; } });
     vm.runInContext(extract('async function _doSaveProject(', '// ── Unified Load'), c);
-    vm.runInContext(extract('function _buildStderrMap(', '// Rectangular-rule area'), c);
+    vm.runInContext(extract('function _buildStderrMap(', 'function _peakArea('), c);
     await c._doSaveProject();
     const restored = JSON.parse(await saved.text()).tabs[0];
     const map = c._buildStderrMap(restored.fitResult);
@@ -130,11 +130,13 @@ async function probe(id, expected, run) {
     await new Promise(resolve => setImmediate(resolve));
     // Return to A before the response: the current-id-only guard now passes.
     c.tabManager.activeId = 'A'; c.state.peaks = [peakA];
-    responseDone({ json: async () => ({ statistics: { reduced_chi_square: 1 }, residuals: [0,0], fitted_y: [10,20] }) });
+    responseDone({ ok: true, json: async () => ({ success: true,
+      statistics: { chi_square: 2, reduced_chi_square: 1 }, residuals: [0,0],
+      fitted_y: [10,20], background_y: [0,0], counts: [10,20], individual_peaks: [] }) });
     await pending;
     return { observed: { uploadedSession: request.session_id,
       submittedCenter: request.peaks[0].center, acceptedOnTabA: !!c.state.fitResult },
-      pass: request.peaks[0].center === peakA.center };
+      pass: request.peaks[0].center === peakA.center && !!c.state.fitResult };
   });
   const failed = results.filter(r => !r.pass).length;
   console.log(JSON.stringify({ suite: 'application-audit', probes: results.length, failed, results }, null, 2));

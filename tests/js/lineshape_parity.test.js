@@ -143,35 +143,8 @@ for (const shape of ['Gaussian', 'Lorentzian', 'GL', 'Voigt', 'DS', 'asym-GL']) 
   });
 }
 
-// ── (A) Frontend vs backend, shapes with a KNOWN, tracked residual ────────
-// LACX and DSG_LA were BOTH suspected (2026-08-30 scoping) to share one root
-// cause — a Gaussian-conv kernel-construction difference that should grow
-// monotonically with m. An explicit m=0,1,2,5,10,50 sweep (see
-// docs/autofit/codex git-archaeology notes / session record) DISPROVED that
-// for DSG_LA: the two shapes have DIFFERENT, unrelated defects. Do not
-// re-merge these into one explanation without re-running the sweep.
-//
-//   LACX: error GROWS with m as hypothesized (m=0: 0.0000%, m=1: 0.0000%,
-//   m=2: 0.0001%, m=5: 0.0061%, m=10: 0.0312%, m=50: 0.1496% of amplitude) —
-//   consistent with backend continuous-m + ceil(3.5*sigma) kernel vs
-//   frontend rounded-m + 2m+1 kernel. Small, monotonic, unit-2 material.
-//
-//   DSG_LA: error is HIGHEST at m=0 (101.8% at laAlpha=0.18/laBeta=0.7 —
-//   the frontend curve is ~zero everywhere) and DECREASES as m grows —
-//   the OPPOSITE shape from LACX. Root cause is NOT a kernel-discretization
-//   gap: JS laCasaXPS() (templates/index.html) sets
-//   `sigma = mGauss / (2*sqrt(2*ln2))`, so mGauss -> 0 drives sigma -> 0 and
-//   its Gaussian-weighted quadrature divides by `2*sigma*sigma` — a literal
-//   division-by-zero/degenerate-weight bug, not a discretization mismatch.
-//   NARROWER than the above sweep alone suggests, though: measured against
-//   the SCHEMA DEFAULT (laM=0.4, laAlpha=0.10, laBeta=0.3, 2026-08-31):
-//   laM=0 -> 100%, 0.1 -> 11.8%, 0.2 -> 0.05%, 0.4 (DEFAULT) -> 0.02%,
-//   0.6+ -> 0%. The shipped default is NOT affected; only laM at or very
-//   near zero (roughly <=0.1) is, and when it fires the peak visibly
-//   vanishes/flattens on screen — loud, not a quiet export-only drift like
-//   LACX/asym-GL were. Its own unit, normal priority — do not fold it into
-//   the LACX kernel-construction fix, and do not hold anything for it.
-test('(A) frontend vs backend parity: LACX (m>0) — KNOWN GAP, unit 2 (kernel discretization)', { todo: 'unit 2 fast-follow: LACX Gaussian-conv kernel mismatch vs backend, grows with m (~0.15% at m=50, measured 2026-08-30)' }, () => {
+// Gaussian-convolved profiles now share the same math in both runtimes.
+test('(A) frontend vs backend parity: LACX continuous convolution', () => {
   const p = basePeak('LACX');
   const x = grid(p.center);
   const jsY = evalPeakArray(x, p);
@@ -194,7 +167,7 @@ test('(A) frontend vs backend parity: LACX at m=0 (no convolution)', () => {
     `LACX at m=0: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
 });
 
-test('(A) frontend vs backend parity: DSG_LA at moderate m — KNOWN GAP, unaddressed', { todo: 'DSG_LA numerical-quadrature-vs-FFT residual, shrinks as m grows (~1.7% at laM=1, ~0.04% at laM=50, measured 2026-08-30) — separate root cause from LACX, see file comment above' }, () => {
+test('(A) frontend vs backend parity: DSG_LA convolution', () => {
   const p = basePeak('DSG_LA');
   const x = grid(p.center);
   const jsY = evalPeakArray(x, p);
@@ -205,17 +178,7 @@ test('(A) frontend vs backend parity: DSG_LA at moderate m — KNOWN GAP, unaddr
     `DSG_LA: frontend vs backend max diff = ${(rel * 100).toFixed(4)}% of amplitude (tol ${TIGHT_TOL * 100}%)`);
 });
 
-// FIXED (fix-dsgla-m0-collapse): for laM below the backend's 0.001 delta-
-// kernel threshold (_ds_g_dscore_gauss, `m_gauss < 0.001` → normalised DS
-// core, no convolution), evalPeakArray now takes a grid-aware branch that
-// mirrors the backend EXACTLY, including its normalisation by
-// np.interp(center, x, ds_core) ON THE DATA GRID — not the analytic core
-// value at eps=0. The distinction matters when the fitted center falls
-// BETWEEN grid points (~9.7e-4 of amplitude apart on a 0.05 eV grid,
-// Codex run-A MAJOR on the first cut of this fix, which normalised
-// analytically) — hence the centerOffset sweep below: 0 (on-grid) and
-// 0.025 (half a grid step). Pre-fix baseline for context: the quadrature
-// collapse made the curve vanish entirely (101.8% max diff at laM=0).
+// Delta-kernel profiles are normalized at the analytic center in both runtimes.
 for (const laM of [0, 0.0009]) {
   for (const centerOffset of [0, 0.025]) {
     test(`(A) frontend vs backend parity: DSG_LA at m=${laM}, center ${centerOffset ? 'half-step off-grid' : 'on-grid'} (delta kernel)`, () => {
@@ -248,27 +211,21 @@ test('(A) frontend vs backend parity: DSG_LA at m=0, descending grid, off-grid c
     `DSG_LA m=0 descending off-grid: max diff = ${(rel * 100).toFixed(4)}% of amplitude`);
 });
 
-// ── (B) Frontend vs frontend: evalPeak(x,p) vs evalPeakArray(grid,p)[i] ────
-// For every shape EXCEPT LACX, evalPeakArray falls through to
-// `beArr.map(x => evalPeak(x, p))` — so this is trivially true by
-// construction for those shapes; asserting it anyway locks in that
-// structural fact (a future special-case added to evalPeakArray for another
-// shape would have to keep it true, or this test catches the divergence
-// immediately). LACX with m>0 is the one shape where evalPeakArray takes a
-// genuinely different code path (laTrueCasaXPS_array, WITH convolution) than
-// evalPeak (laTrueCasaXPS, WITHOUT convolution) — tracked as `todo` since
-// unit 1/commit 2 reroutes evalPeak()'s CALLERS away from the bad path but
-// does not change evalPeak()'s own (now-unreachable-from-shipped-code-paths)
-// definition. See the (C) structural guard below for what actually closes
-// this mechanism for real callers.
+// Scalar evaluation agrees where well-defined. Convolved LA explicitly
+// requires the acquisition-grid array API because m is measured in channels.
 const ALL_SHAPES = ['Gaussian', 'Lorentzian', 'Voigt', 'GL', 'asym-GL', 'DS', 'DSG_LA', 'LACX'];
 for (const shape of ALL_SHAPES) {
-  const opts = shape === 'LACX' ? { todo: 'evalPeak() LACX branch ignores m; only its call sites are rerouted in unit-1 commit 2, not evalPeak() itself — see file header' } : undefined;
-  test(`(B) evalPeak vs evalPeakArray agree pointwise: ${shape}`, opts, () => {
+  test(`(B) scalar/array contract: ${shape}`, () => {
     const p = basePeak(shape);
     const x = grid(p.center);
     const arr = evalPeakArray(x, p);
     const idx = 130; // an arbitrary interior point, away from both edges and center
+    if (shape === 'LACX') {
+      // m is in channels: a scalar evaluator cannot infer energy spacing.
+      assert.throws(() => evalPeak(x[idx], p), /channel spacing/);
+      assert.ok(arr.every(Number.isFinite));
+      return;
+    }
     const single = evalPeak(x[idx], p);
     const diff = Math.abs(single - arr[idx]) / p.amplitude;
     assert.ok(diff < TIGHT_TOL,
@@ -296,3 +253,17 @@ test('(C) evalPeak() has no direct callers outside evalPeakArray()', () => {
     'instead (see file header: evalPeak() silently ignores Gaussian convolution for LACX with m>0, which evalPeakArray() ' +
     'handles correctly).');
 });
+
+for (const shape of ['LACX', 'DSG_LA']) {
+  test(`convolved parity on irregular descending cropped grid: ${shape}`, () => {
+    const p = basePeak(shape);
+    p.center += .023;
+    p.caM = 13.7;
+    p.laM = .05;
+    const x = grid(CENTER).filter((_, i) => i % 7 !== 0).slice(30, 170).reverse();
+    const y = evalPeakArray(x, p);
+    const { shape: backendShape, params } = BACKEND[shape](p);
+    const expected = backendEval(backendShape, params, x);
+    assert.ok(maxRelDiff(y, expected, p.amplitude) < TIGHT_TOL);
+  });
+}

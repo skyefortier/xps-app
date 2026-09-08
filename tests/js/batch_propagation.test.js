@@ -8,7 +8,7 @@ function ui(over) {
   return Object.assign({
     bgType: 'shirley', bgStart: '700', bgEnd: '740', shirleyIter: '5',
     roiMin: '700', roiMax: '740',
-    ccMethod: 'none', endpointAvg: '1',   // unrelated fields — must be preserved
+    ccMethod: 'none', endpointAvg: '1',
   }, over);
 }
 
@@ -63,10 +63,10 @@ test('unrelated target UI fields are preserved untouched', () => {
   const out = BatchPropagation.propagateFitUi(src, tgt);
   // these are NOT in the propagated set — they keep the TARGET's values
   assert.strictEqual(out.ccMethod, 'advcarbon-2848');
-  assert.strictEqual(out.endpointAvg, '2');
+  assert.strictEqual(out.endpointAvg, '3');
   // exactly the propagated set differs from the target
-  const propagated = ['bgType', 'bgStart', 'bgEnd', 'shirleyIter', 'roiMin', 'roiMax'];
+  const propagated = ['bgType', 'bgStart', 'bgEnd', 'shirleyIter', 'endpointAvg', 'roiMin', 'roiMax'];
   const changed = Object.keys(out).filter(k => out[k] !== tgt[k]);
-  assert.deepStrictEqual(changed.sort(), ['roiMax', 'roiMin'].sort());   // only ROI differs here
+  assert.deepStrictEqual(changed.sort(), ['endpointAvg', 'roiMax', 'roiMin'].sort());
   assert.ok(propagated.every(k => k in out));
 });

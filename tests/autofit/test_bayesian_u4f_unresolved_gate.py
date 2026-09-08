@@ -53,8 +53,12 @@ def test_u4f_replicated_selection_is_flagged_unresolved():
     for c in scored:
         assert c["free_energy_replicates"] and len(c["free_energy_replicates"]) == 2
         assert c["free_energy_replicate_spread"] is not None
-        assert c["free_energy_mc_error"] >= c["free_energy_replicate_spread"] \
-            or c["free_energy_mc_error"] >= (c["free_energy_split_half_error"] or 0)
+        assert c["free_energy_mc_error"] >= c["free_energy_replicate_spread"]
+        diagnostics = c["free_energy_replicate_diagnostics"]
+        assert len(diagnostics) == 2
+        for diagnostic in diagnostics:
+            assert diagnostic["split_half_error"] is not None
+            assert c["free_energy_mc_error"] >= diagnostic["split_half_error"]
         assert c["posterior_weight_reliable"] is False, c["name"]
 
     warning = res.analysis["model_selection_warning"]

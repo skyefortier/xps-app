@@ -2,9 +2,9 @@
 #
 # Two jobs:
 # - fast-suite: the full always-on pytest suite. The junit guard fails the
-#   job if fewer than the floor of tests actually RAN or if more than the
-#   three KNOWN env-gated module skips appear — a new silent skip is a
-#   failure, not a pass.
+#   job if fewer than the floor of tests actually RAN or if any skipped
+#   case is absent from the exact allowlist: three required slow modules
+#   plus four candidate-pool cases gated by unavailable data/long budgets.
 # - required-gates: the three RUN_AUTOFIT_GATE=1 gates with a ZERO-skip
 #   guard — the gate job can never green while the gates skip.
 #
@@ -31,18 +31,28 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt pytest playwright
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JavaScript behavior and independent scientific audit checks
+        env:
+          XPS_PYTHON: python
+        run: |
+          node --test tests/js/*.test.js
+          node scripts/audit_application_repro.js
+          python scripts/audit_science_benchmark.py --output science-validation.json
+          python scripts/audit_statistics_repro.py
       # the browser tests importorskip playwright — installing it (plus a
       # chromium build) keeps them RUNNING in CI instead of silently
-      # skipping (the guard's 3-skip allowance covers only the env-gated
-      # slow-gate modules)
+      # skipping (the guard's explicit allowlist never permits browser skips)
       - run: playwright install --with-deps chromium
       - name: pytest (full fast suite)
         run: |
           set -o pipefail
           pytest tests/ -q --junitxml=fast-suite.xml 2>&1 | tee pytest.log
-      - name: no-silent-skip guard (3 known env-gated module skips allowed)
+      - name: no-silent-skip guard (explicit slow and unavailable-data cases only)
         if: always()
-        run: python scripts/ci_check_junit.py fast-suite.xml --min-tests 350 --max-skipped 3 --tail pytest.log
+        run: python scripts/ci_check_junit.py fast-suite.xml --min-tests 350 --max-skipped 7 --allowed-skips scripts/ci_known_fast_skips.json --tail pytest.log
 
   required-gates:
     runs-on: ubuntu-latest

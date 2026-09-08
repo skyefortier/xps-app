@@ -99,10 +99,10 @@ def test_rank_estimator_discriminates():
                                             options={"closure": True})
     assert r2.diagnostics["rank"] == 2
     assert r2.analysis["closure_assumed"] is True
-    # same closed data WITHOUT the closure claim: 1 centered PC → rank 1
-    # (under-count is the honest default when closure is not asserted)
+    # The mean spectrum is part of D even without a closure declaration;
+    # rank selection must retain it instead of silently under-counting.
     r3 = get_method("multivariate_mcr").run(X, np.clip(closed, 0, None))
-    assert r3.diagnostics["rank"] == 1
+    assert r3.diagnostics["rank"] == 2
 
 
 def test_nnls_rows_orientation():

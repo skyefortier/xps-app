@@ -2,7 +2,8 @@
 Pluralistic model-selection criteria panel (spec v2.1 §6).
 
 From each candidate's shared ``(RSS, k, n)`` compute — near-free — a panel:
-weighted χ²ᵣ, BIC* (ranking default), AICc, and nested-model F-tests.
+weighted χ²ᵣ, BIC* (ranking default), AICc, and descriptive nested-model
+F statistics. Nominal F probabilities are unavailable for added peaks.
 
 Hard rules encoded here (Codex re-review items):
 
@@ -11,11 +12,11 @@ Hard rules encoded here (Codex re-review items):
 - The panel is a **diagnostic, not independent corroboration** — all
   members share the Gaussian residual assumption on processed (non-count)
   data.  Every payload carries ``"not independent tests"``.
-- F-test only on genuinely nested pairs (same shapes on shared roles,
-  strict slot-subset).
+- Structural nesting requires matching shared bounds and linkage.
+- Added nonnegative peaks have a nonregular boundary null; ordinary
+  F-distribution significance is suppressed until independently calibrated.
 - Two distinct flags, never merged: ``bic_ambiguous`` (|ΔBIC*| < τ) and
-  ``criteria_conflict`` (top-by-BIC* ≠ top-by-AICc, or an F-test rejects a
-  peak BIC* keeps).
+  ``criteria_conflict`` (top-by-BIC* ≠ top-by-AICc).
 - No single scalar decides.  Trust order for this data:
   parity → stability/persistence → residual structure → BIC* tie-break.
 """
@@ -26,7 +27,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-from scipy import stats
 
 from .engine import ModelReport
 
@@ -40,9 +40,6 @@ TRUST_ORDER = (
     "parity to expert fits → stability/persistence → residual structure → "
     "BIC* as a relative tie-breaker only"
 )
-
-# α for the nested-model F-test — UNVERIFIED tunable (conventional 0.05).
-F_TEST_ALPHA = 0.05
 
 
 def ic_values(rss: float, k: int, n: int) -> dict[str, Optional[float]]:
@@ -58,18 +55,32 @@ def ic_values(rss: float, k: int, n: int) -> dict[str, Optional[float]]:
 
 
 def is_nested(smaller: ModelReport, larger: ModelReport) -> bool:
-    """
-    True when ``smaller``'s slot set is a strict subset of ``larger``'s with
-    identical line shapes on the shared roles (and identical backgrounds).
-    Absent-slot-adjusted models and shape swaps are NOT nested.
+    """Conservative structural nesting, not calibration of an F distribution.
+
+    Shared slots must have identical bounds, fixed parameters and linkage.
+    Added slots must be able to disappear together at zero amplitude.
+    More general bound containment is deliberately not inferred here.
     """
     if smaller.model.background is not larger.model.background:
         return False
-    small = {s.role: s.line_shape for s in smaller.model.slots}
-    large = {s.role: s.line_shape for s in larger.model.slots}
-    if not (set(small) < set(large)):
+    if smaller.model.shared_fwhm_params != larger.model.shared_fwhm_params:
         return False
-    return all(large[r] is small[r] for r in small)
+    small = {s.role: s for s in smaller.model.slots}
+    large = {s.role: s for s in larger.model.slots}
+    if len(small) != len(smaller.model.slots) or len(large) != len(larger.model.slots):
+        return False
+    if not set(small) < set(large) or any(small[r] != large[r] for r in small):
+        return False
+    for role in set(large) - set(small):
+        slot = large[role]
+        if "amplitude" in dict(slot.fixed_params):
+            return False
+        if dict(slot.param_ranges).get("amplitude", (0, 1))[0] > 0:
+            return False
+        if slot.linked_to in small and (slot.area_ratio is not None
+                                       or slot.area_ratio_range is not None):
+            return False
+    return True
 
 
 @dataclass
@@ -79,12 +90,15 @@ class FTestResult:
     f_stat: Optional[float]
     p_value: Optional[float]
     extra_params: int
-    rejects_extra_peak: bool     # True → the extra component is NOT justified
+    rejects_extra_peak: bool
+    calibrated: bool = False
+    reason: str = ""
 
 
 def f_test(smaller: ModelReport, larger: ModelReport) -> Optional[FTestResult]:
     """
-    Nested-model F-test; None when the pair is not genuinely nested OR when
+    Descriptive F improvement; no nominal significance for added peaks.
+    None when the pair is not structurally nested OR when
     either model carries absent-slot adjustments (spec §6 v2.1: absent-slot-
     adjusted models are outside F-test validity — their effective parameter
     count was reduced arithmetically, not by a reduced-model refit).
@@ -100,14 +114,21 @@ def f_test(smaller: ModelReport, larger: ModelReport) -> Optional[FTestResult]:
     n = larger.primary_fit.n_data
     dk = k_l - k_s
     dof = n - k_l
-    if dk <= 0 or dof <= 0 or rss_l <= 0:
+    if (smaller.primary_fit.n_data != n or dk <= 0 or dof <= 0
+            or not np.isfinite([rss_s, rss_l]).all() or rss_s < 0 or rss_l <= 0):
         return None
     f = ((rss_s - rss_l) / dk) / (rss_l / dof)
-    p = float(stats.f.sf(max(f, 0.0), dk, dof))
+    # A nonnegative added amplitude has a boundary null. Its center/width
+    # are unidentified when amplitude=0; ordinary F critical values do not
+    # apply (Protassov et al. 2002, doi:10.1086/339856). Report improvement
+    # descriptively until a model-specific null simulation is calibrated.
     return FTestResult(
         smaller=smaller.model.name, larger=larger.model.name,
-        f_stat=float(f), p_value=p, extra_params=dk,
-        rejects_extra_peak=p >= F_TEST_ALPHA,
+        f_stat=float(f), p_value=None, extra_params=dk,
+        rejects_extra_peak=False, calibrated=False,
+        reason="Nominal F significance unavailable: added nonnegative peaks "
+               "have a boundary null with unidentified shape parameters; "
+               "a calibrated null simulation is required.",
     )
 
 
@@ -120,8 +141,7 @@ def build_criteria_panel(
     Serializable criteria panel over the survivor set.
 
     Rankings use the absent-slot-adjusted parameter count for BIC* (matching
-    the engine's ranking) and the same adjusted k for AICc so the two
-    criteria see identical inputs.
+    the engine ranking), and the actual fitted parameter count for AICc.
     """
     per_candidate: dict[str, dict] = {}
     for r in reports:
@@ -172,7 +192,9 @@ def build_criteria_panel(
                     "f_stat": res.f_stat, "p_value": res.p_value,
                     "extra_params": res.extra_params,
                     "rejects_extra_peak": bool(res.rejects_extra_peak),
-                    "alpha": F_TEST_ALPHA,
+                    "alpha": None,
+                    "calibrated": res.calibrated,
+                    "reason": res.reason,
                 })
                 # F rejecting a larger model that BIC* prefers → conflict
                 if res.rejects_extra_peak and top_by_bic == res.larger:

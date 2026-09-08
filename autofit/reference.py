@@ -5,7 +5,7 @@ Reads the v3 ``.proj.zip`` / ``.proj.json`` project format (the same format
 ``templates/index.html`` saves) into plain-Python records, and reconstructs
 the exact fit inputs the frontend would send to ``/api/fit``:
 
-- corrected BE axis  = rawBE + ccShift          (``getCorrectedBE``)
+- corrected BE axis  = rawBE − ccShift          (``getCorrectedBE``)
 - ROI slice          = corrected BE within [ui.roiMin, ui.roiMax], inclusive
                        (``getROIData``, index.html:4494)
 - background indices = nearest ROI-grid index to ui.bgStart / ui.bgEnd
@@ -88,7 +88,7 @@ def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
         "fix_amplitude": bool(p.get("fixAmplitude")),
         "fix_gl_ratio": bool(p.get("fixGlMix")),
     }
-    shape = p.get("shape")
+    shape = {"LA": "DSG_LA", "DSG": "DS"}.get(p.get("shape"), p.get("shape"))
     if shape == "Gaussian":
         spec["shape"] = "gaussian"
     elif shape == "Lorentzian":
@@ -131,7 +131,7 @@ def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
         spec["fix_beta"] = bool(p.get("fixCaBeta"))
         spec["fix_m"] = bool(p.get("fixCaM"))
     else:
-        spec["shape"] = "gaussian"
+        raise ValueError(f"unknown saved peak shape: {shape!r}")
 
     if p.get("linked"):
         parent = next((q for q in all_peaks if q.get("id") == p["linked"]), None)

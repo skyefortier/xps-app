@@ -1,0 +1,9 @@
+[
+  "::tests.autofit.test_bayesian_real_gate",
+  "::tests.autofit.test_bayesian_u4f_unresolved_gate",
+  "::tests.autofit.test_c1s_parity_gate",
+  "tests.autofit.test_candidate_pool_real_gate::test_detection_bar_all_real_scans",
+  "tests.autofit.test_candidate_pool_real_gate::test_integration_bar_selection_keeps_seeded_feature[ds7-C1s Scan_1-window0]",
+  "tests.autofit.test_candidate_pool_real_gate::test_integration_bar_selection_keeps_seeded_feature[ds8-C1s Scan-window1]",
+  "tests.autofit.test_candidate_pool_real_gate::test_generalization_bar_ugly_fe2p"
+]

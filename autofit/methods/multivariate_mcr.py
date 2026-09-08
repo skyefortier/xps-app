@@ -13,8 +13,8 @@ Literature basis (decision matrix, verified DOIs):
 
 THIS METHOD'S JOB IS DIFFERENT from the single-spectrum fitters: given a
 MATRIX of related spectra (depth profile, repeat scans, line scan) on one
-BE grid, it estimates the number of independent chemical states, their
-pure spectra, and per-spectrum concentrations:
+BE grid, it estimates a nonnegative spectral factorization rank, feasible component
+spectra, and per-spectrum coefficients (not identified chemical species):
 
     D (m spectra × n channels)  ≈  C (m×k, ≥0)  ·  Sᵀ (k×n, ≥0)
 
@@ -30,7 +30,7 @@ BE grid.  Spectra on differing grids must be interpolated first (helper
 this method is assumption-light by design; if one is passed its provenance
 is echoed into the payload.
 
-Rank selection: smallest k whose PCA cumulative explained variance ≥
+Rank selection: smallest k whose uncentered SVD cumulative signal energy ≥
 ``variance_target`` (0.995 — UNVERIFIED tunable), capped by ``max_rank``;
 the full scree is always reported so the user can override with ``rank``.
 """
@@ -51,10 +51,8 @@ DEFAULTS = dict(
     als_tol=1e-3,              # relative lack-of-fit change per iteration —
                                # the MCR-ALS GUI convergence default (0.1%,
                                # Jaumot 2005); UNVERIFIED as applied to XPS
-    closure=False,             # data rows sum to a constant total? ONLY then
-                               # does k = centered-PCs + 1 (Codex Stage-8
-                               # blocker: unconditional +1 overcounts
-                               # non-closed data)
+    closure=False,             # user-declared assumption, not enforced;
+                               # rank always retains the mean spectrum
 )
 _ALLOWED_OPTIONS = set(DEFAULTS) | {"rank"}
 
@@ -129,6 +127,14 @@ class MultivariateMCRMethod(PeakFitMethod):
         m, n = D.shape
         if m < 2:
             raise ValueError("need at least 2 spectra for multivariate decomposition")
+        if x.ndim != 1 or n < 2 or not np.isfinite(x).all() or not np.isfinite(D).all():
+            raise ValueError("x and data must be finite, with at least 2 channels")
+        if not 0 < cfg["variance_target"] <= 1 or not np.isfinite(cfg["variance_target"]):
+            raise ValueError("variance_target must be in (0, 1]")
+        if cfg["max_rank"] < 1 or cfg["max_als_iter"] < 1 or not 0 < cfg["als_tol"] < 1:
+            raise ValueError("positive max_rank/max_als_iter and als_tol in (0, 1) required")
+        if not np.any(D):
+            raise ValueError("all-zero data have no identifiable spectral rank")
         if n != len(x):
             raise ValueError(f"x has {len(x)} channels but the matrix has {n}")
         if np.any(D < 0):
@@ -137,25 +143,28 @@ class MultivariateMCRMethod(PeakFitMethod):
             raise ValueError("data matrix has negative entries — remove "
                              "background over-subtraction before MCR")
 
-        # ── PCA rank estimate (scree always reported) ──
-        mean = D.mean(axis=0)
-        U, s, Vt = np.linalg.svd(D - mean, full_matrices=False)
-        var = s ** 2
-        frac = var / var.sum() if var.sum() > 0 else var
-        cum = np.cumsum(frac)
-        n_pcs = int(np.searchsorted(cum, cfg["variance_target"]) + 1)
-        # +1 ONLY under closure (rows sum to a constant total): k centered
-        # PCs then describe k+1 states.  Non-closed data with independently
-        # varying amounts needs NO adjustment (Codex Stage-8 blocker).
-        k_auto = n_pcs + (1 if cfg["closure"] else 0)
-        k = int(rank_override) if rank_override is not None else k_auto
-        k = max(1, min(k, cfg["max_rank"], m, n))
-
-        # ── MCR-ALS from a deterministic NNDSVD-style init ──
-        # orientation by POSITIVE-vs-NEGATIVE PART NORM (not element count:
-        # a few large negative channels must flip the vector even against
-        # many tiny positive ones — Codex Stage-8 finding)
+        # Uncentered SVD estimates the rank needed to reconstruct D itself.
+        # Centered PCA measures variation around the mean and loses constant
+        # spectral components even without concentration closure.
         U2, s2, Vt2 = np.linalg.svd(D, full_matrices=False)
+        energy_frac = (s2 / s2[0]) ** 2
+        energy_frac /= energy_frac.sum()
+        k_auto = min(len(s2), int(np.searchsorted(np.cumsum(energy_frac),
+                                                cfg["variance_target"]) + 1))
+        centered_s = np.linalg.svd(D - D.mean(axis=0), compute_uv=False)
+        numerical_tol = max(D.shape) * np.finfo(float).eps * s2[0]
+        centered_s[centered_s <= numerical_tol] = 0
+        var = centered_s ** 2
+        frac = var / var.sum() if var.sum() > 0 else var
+        n_pcs = (min(len(frac), int(np.searchsorted(np.cumsum(frac),
+                    cfg["variance_target"]) + 1)) if var.sum() > 0 else 0)
+        cap = min(cfg["max_rank"], m, n)
+        if rank_override is not None and (isinstance(rank_override, bool)
+                or int(rank_override) != rank_override or not 1 <= rank_override <= cap):
+            raise ValueError(f"rank must be an integer in [1, {cap}]")
+        k = int(rank_override) if rank_override is not None else min(k_auto, cap)
+
+        # Deterministic nonnegative SVD initialization; orient by part norm.
         S = []
         for j in range(min(k, Vt2.shape[0])):
             v = Vt2[j]
@@ -218,7 +227,7 @@ class MultivariateMCRMethod(PeakFitMethod):
 
         analysis = {
             "method": self.id,
-            "basis": "PCA rank estimate + MCR-ALS (NNLS alternation, SVD "
+            "basis": "Uncentered SVD reconstruction rank + MCR-ALS (NNLS alternation, SVD "
                      "init, non-negativity on C and S); Mc Evoy 2008 "
                      "DOI 10.1021/ac8005878; Artyushkova & Fulghum 2001 "
                      "DOI 10.1016/S0368-2048(01)00325-5; Jaumot 2005; "
@@ -233,10 +242,13 @@ class MultivariateMCRMethod(PeakFitMethod):
             "n_centered_pcs": int(n_pcs),
             "closure_assumed": bool(cfg["closure"]),
             "rank_source": "user" if rank_override is not None else (
-                f"PCA cumulative variance ≥ {cfg['variance_target']}"
-                + (" +1 (closure assumed)" if cfg["closure"] else
-                   " (no closure adjustment — set closure=True only when "
-                   "rows sum to a constant total)")),
+                f"uncentered SVD cumulative signal energy ≥ {cfg['variance_target']}"),
+            "rank_before_cap": int(k_auto),
+            "rank_cap_applied": bool(rank_override is None and k_auto > cap),
+            "rank_interpretation": "spectral reconstruction rank; not a chemical species count",
+            "closure_enforced": False,
+            "closure_note": "Closure is a user assumption only; coefficients are not constrained to sum to one.",
+            "svd_scree_signal_energy": energy_frac.tolist(),
             "pca_scree_explained_variance": [float(f) for f in frac[:min(10, len(frac))]],
             "als_iterations": len(history),
             "als_converged": bool(als_converged),
@@ -271,7 +283,7 @@ class MultivariateMCRMethod(PeakFitMethod):
                          "als_iterations": len(history),
                          "als_converged": bool(als_converged),
                          "dead_component_reseeds": int(reseed_events)},
-            message=f"decomposed {m} spectra into {k} non-negative states "
-                    f"(LOF {history[-1]:.3%}; states, not peaks — see "
+            message=f"decomposed {m} spectra into {k} non-negative spectral factors "
+                    f"(LOF {history[-1]:.3%}; factors, not identified species — see "
                     f"analysis.pure_spectra)",
         )

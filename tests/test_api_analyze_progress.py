@@ -143,14 +143,15 @@ def test_progress_shows_real_candidate_fields_while_running(client, monkeypatch)
     assert saw_running_with_fields, "never observed a real in-flight progress event"
 
 
-def test_progress_clears_on_error_never_spins_forever(client):
-    """A malformed OPTION VALUE (discovered inside the method's run(),
-    same class of error test_analyze_malformed_option_values_are_400s
-    pins synchronously) must surface as a terminal 'error' status via
-    the SAME poll channel — the indicator must clear, not spin."""
+def test_progress_clears_on_error_never_spins_forever(client, monkeypatch):
+    """An error during execution must terminate polling. Malformed cost
+    options now fail before admission; inject a genuine worker failure."""
+    import app as app_module
+    def fail(ctx, progress_cb=None):
+        raise app_module._AnalyzeError("invalid option or spec: execution failure")
+    monkeypatch.setattr(app_module, "_run_analyze_method", fail)
     sid = _upload_doublet(client)
     body = _BODY(sid)
-    body["options"] = {"n_refits": []}     # TypeError inside run()
     start_resp = client.post("/api/analyze/start", json=body)
     assert start_resp.status_code == 202     # validation passed; run() will fail
     job_id = start_resp.get_json()["job_id"]
@@ -183,4 +184,3 @@ def test_progress_invalid_job_id_format_400(client):
     assert resp.status_code in (400, 404)  # Flask routing may itself 404
     resp2 = client.get("/api/analyze/progress/not-a-uuid-at-all")
     assert resp2.status_code == 400
-

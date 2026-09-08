@@ -75,6 +75,49 @@ INITIAL_STEP_FRACTION = 0.05         # of each prior width
 ESS_RELIABLE_MIN = 50                # CI trust floor — UNVERIFIED tunable
 
 
+# Resource guards, not scientific convergence guarantees. They bound one
+# request's replica/sweep storage and independent evidence repetitions.
+MAX_N_REPLICAS = 64
+MAX_N_SWEEPS = 100_000
+MAX_SEED_REPLICATES = 16
+MAX_REPLICA_SWEEPS = 10_000_000
+MIN_POSTERIOR_SAMPLES = 8   # minimum needed by the ESS estimator, not reliability
+
+
+def _bounded_integer(name, value, low, high):
+    if (isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer))
+            or not low <= value <= high):
+        raise ValueError(f"{name} must be an integer in [{low}, {high}]")
+    return int(value)
+
+
+def _validate_sampler_options(n_replicas, beta_min, n_sweeps, burn_fraction,
+                              exchange_every, rng_seed):
+    _bounded_integer("n_replicas", n_replicas, 3, MAX_N_REPLICAS)
+    _bounded_integer("n_sweeps", n_sweeps, MIN_POSTERIOR_SAMPLES, MAX_N_SWEEPS)
+    _bounded_integer("exchange_every", exchange_every, 1, n_sweeps)
+    _bounded_integer("rng_seed", rng_seed, 0, 2**32 - 1)
+    if not np.isfinite(beta_min) or not 0 < beta_min < 1:
+        raise ValueError("beta_min must be finite and in (0, 1)")
+    if not np.isfinite(burn_fraction) or not 0 < burn_fraction < 1:
+        raise ValueError("burn_fraction must be finite and in (0, 1)")
+    if n_sweeps - int(n_sweeps * burn_fraction) < MIN_POSTERIOR_SAMPLES:
+        raise ValueError(f"at least {MIN_POSTERIOR_SAMPLES} post-burn samples required")
+    if n_replicas * n_sweeps > MAX_REPLICA_SWEEPS:
+        raise ValueError("sampler exceeds replica-sweep resource limit")
+
+
+def _validate_data(x, y, weights):
+    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    if (x.ndim != 1 or y.ndim != 1 or x.shape != y.shape or len(x) < 2
+            or not np.isfinite(x).all() or not np.isfinite(y).all()):
+        raise ValueError("x and y must be finite matching 1-D arrays with at least 2 points")
+    w = np.ones(len(y)) if weights is None else np.asarray(weights, dtype=float)
+    if w.shape != y.shape or not np.isfinite(w).all() or np.any(w <= 0):
+        raise ValueError("weights must be finite, strictly positive and match y")
+    return x, y, w
+
+
 @dataclass
 class _ParamSpace:
     """Free-parameter view of a CandidateModel's lmfit Parameters."""
@@ -134,9 +177,16 @@ def run_exchange_mc(
     Returns posterior samples (β=1 replica, post-burn-in), the Bayes free
     energy (stepping-stone), acceptance statistics, and the noise estimate.
     """
+    _validate_sampler_options(n_replicas, beta_min, n_sweeps, burn_fraction,
+                              exchange_every, rng_seed)
+    x, y_net, w = _validate_data(x, y_net, weights)
+    if (np.shape(space.lows) != (len(space.names),)
+            or np.shape(space.highs) != (len(space.names),)
+            or not np.isfinite(space.lows).all() or not np.isfinite(space.highs).all()
+            or np.any(space.highs <= space.lows)):
+        raise ValueError("parameter priors require finite, strictly increasing bounds")
     rng = np.random.default_rng(rng_seed)
     n = len(y_net)
-    w = np.ones(n) if weights is None else np.asarray(weights, dtype=float)
 
     # β ladder: 0 (prior) + geometric β_min…1
     betas = np.concatenate([[0.0],
@@ -147,7 +197,11 @@ def run_exchange_mc(
 
     def loglik(theta: np.ndarray) -> float:
         f = space.model_eval(x, theta)
+        if np.shape(f) != y_net.shape or not np.isfinite(f).all():
+            raise ValueError("sampler model produced nonfinite or mismatched values")
         rss = float(np.sum((w * (y_net - f)) ** 2))
+        if not np.isfinite(rss):
+            raise ValueError("sampler residual sum of squares is not finite")
         return _log_likelihood(rss, n)
 
     # init: all replicas at independent uniform draws
@@ -313,17 +367,19 @@ class BayesianExchangeMCMethod(PeakFitMethod):
         if unknown:
             raise ValueError(f"unknown bayesian_exchange_mc options: {sorted(unknown)}")
 
-        x = np.asarray(x, dtype=float)
-        y = np.asarray(y, dtype=float)
+        x, y, weights = _validate_data(x, y, weights)
         ci = float(opts.pop("ci_level", DEFAULT_CI_LEVEL))
+        if not np.isfinite(ci) or not 0 < ci < 1:
+            raise ValueError("ci_level must be finite and in (0, 1)")
         mc_kwargs = dict(
-            n_replicas=int(opts.pop("n_replicas", DEFAULT_N_REPLICAS)),
+            n_replicas=opts.pop("n_replicas", DEFAULT_N_REPLICAS),
             beta_min=float(opts.pop("beta_min", DEFAULT_BETA_MIN)),
-            n_sweeps=int(opts.pop("n_sweeps", DEFAULT_N_SWEEPS)),
+            n_sweeps=opts.pop("n_sweeps", DEFAULT_N_SWEEPS),
             burn_fraction=float(opts.pop("burn_fraction", DEFAULT_BURN_FRACTION)),
-            exchange_every=int(opts.pop("exchange_every", DEFAULT_EXCHANGE_EVERY)),
-            rng_seed=int(opts.pop("rng_seed", 0)),
+            exchange_every=opts.pop("exchange_every", DEFAULT_EXCHANGE_EVERY),
+            rng_seed=opts.pop("rng_seed", 0),
         )
+        _validate_sampler_options(**mc_kwargs)
         opts.pop("noise_floor", None)     # accepted for symmetry; unused
         candidates = grammar.candidates
         cand_filter = opts.pop("candidate_filter", None)
@@ -338,12 +394,29 @@ class BayesianExchangeMCMethod(PeakFitMethod):
         # cost k× runtime; the across-replicate half-range is a genuine
         # independent-run MC error and dominates the split-half bound in the
         # selection warning.  Default 1 = cost-neutral single run.
-        seed_replicates = int(opts.pop("seed_replicates", 1))
-        if seed_replicates < 1:
-            raise ValueError("seed_replicates must be >= 1")
+        seed_replicates = _bounded_integer("seed_replicates",
+            opts.pop("seed_replicates", 1), 1, MAX_SEED_REPLICATES)
+        if mc_kwargs["rng_seed"] + seed_replicates - 1 > 2**32 - 1:
+            raise ValueError("replicate rng_seed exceeds supported range")
+        if (len(candidates) * seed_replicates * mc_kwargs["n_replicas"]
+                * mc_kwargs["n_sweeps"] > MAX_REPLICA_SWEEPS):
+            raise ValueError("candidates and replicates exceed replica-sweep resource limit")
 
         per_candidate: list[dict] = []
         runs: dict[str, dict] = {}
+
+        def evidence_diagnostic(run, seed):
+            ess = run.get("ess") or []
+            ess_available = bool(ess) and len(ess) == len(run["names"]) \
+                and bool(np.isfinite(ess).all())
+            return {
+                "seed": seed,
+                "free_energy": run["free_energy"],
+                "split_half_error": run["free_energy_split_half_error"],
+                "ess_available": ess_available,
+                "min_effective_sample_size": float(min(ess)) if ess_available else None,
+            }
+
         for model in candidates:
             bg = _compute_background(x, y, model.background)
             y_net = y - bg
@@ -351,6 +424,7 @@ class BayesianExchangeMCMethod(PeakFitMethod):
                 space = _param_space(model, x, y_net)
                 run = run_exchange_mc(x, y_net, space, weights=weights, **mc_kwargs)
                 rep_fs = [run["free_energy"]]
+                rep_diagnostics = [evidence_diagnostic(run, mc_kwargs["rng_seed"])]
                 for j in range(1, seed_replicates):
                     rep_kwargs = dict(mc_kwargs,
                                       rng_seed=mc_kwargs["rng_seed"] + j)
@@ -358,6 +432,7 @@ class BayesianExchangeMCMethod(PeakFitMethod):
                     rep = run_exchange_mc(x, y_net, rep_space, weights=weights,
                                           **rep_kwargs)
                     rep_fs.append(rep["free_energy"])
+                    rep_diagnostics.append(evidence_diagnostic(rep, rep_kwargs["rng_seed"]))
             except Exception as exc:
                 per_candidate.append({"name": model.name, "error": str(exc)})
                 continue
@@ -366,8 +441,19 @@ class BayesianExchangeMCMethod(PeakFitMethod):
             min_ess = float(min(run["ess"])) if run["ess"] else 0.0
             rep_spread = ((max(rep_fs) - min(rep_fs)) / 2.0
                           if len(rep_fs) > 1 else None)
-            split_err = run["free_energy_split_half_error"]
-            mc_error = max([e for e in (split_err, rep_spread) if e is not None],
+            # Every replicate contributes to the reported mean F. Its
+            # within-run drift must contribute to the error guard too:
+            # agreement between replicate means cannot cancel a poorly
+            # mixed chain's large split-half error. Keep the conservative
+            # maximum; these proxies are not calibrated independent SEs
+            # that could legitimately be divided by sqrt(n_replicates).
+            split_errors = [d["split_half_error"] for d in rep_diagnostics]
+            diagnostics_complete = all(
+                d["ess_available"] and d["split_half_error"] is not None
+                and np.isfinite(d["split_half_error"]) and d["split_half_error"] >= 0
+                for d in rep_diagnostics)
+            mc_error = max([e for e in (*split_errors, rep_spread)
+                            if e is not None and np.isfinite(e)],
                            default=None)
             per_candidate.append({
                 "name": model.name,
@@ -382,6 +468,8 @@ class BayesianExchangeMCMethod(PeakFitMethod):
                 "free_energy_replicate_spread": rep_spread,
                 "free_energy_mc_error": mc_error,
                 "free_energy_split_half_error": run["free_energy_split_half_error"],
+                "free_energy_replicate_diagnostics": rep_diagnostics,
+                "evidence_diagnostics_complete": bool(diagnostics_complete),
                 "sigma_hat": run["sigma_hat"],
                 "n_components": int(model.n_components),
                 "swap_acceptance": run["swap_acceptance"],
@@ -422,14 +510,25 @@ class BayesianExchangeMCMethod(PeakFitMethod):
         # is UNRESOLVED at this sweep budget — surfaced, never silent.
         # Split-half error underestimates for correlated chains, so the ×2
         # margin is an UNVERIFIED heuristic, not a guarantee.
-        selection_warning = None
-        if len(scored) > 1:
+        missing_diagnostics = any(
+            not c["evidence_diagnostics_complete"]
+            or c.get("free_energy_mc_error") is None
+            or not np.isfinite(c["free_energy_mc_error"])
+            or not runs[c["name"]]["run"].get("ess")
+            or len(runs[c["name"]]["run"]["ess"]) != len(runs[c["name"]]["run"]["names"])
+            or not np.isfinite(runs[c["name"]]["run"]["ess"]).all()
+            for c in scored)
+        selection_warning = (
+            "UNRESOLVED model selection: evidence error or effective sample "
+            "size is unavailable; increase the sampling budget"
+        ) if missing_diagnostics else None
+        if len(scored) > 1 and not missing_diagnostics:
             gap = scored[1]["free_energy"] - scored[0]["free_energy"]
             errs = [c.get("free_energy_mc_error") for c in scored[:2]]
             src = ("replicate-spread/split-half"
                    if any(c.get("free_energy_replicate_spread") is not None
                           for c in scored[:2]) else "split-half (lower bound)")
-            if all(e is not None for e in errs) and gap < 2.0 * (errs[0] + errs[1]):
+            if all(e is not None for e in errs) and gap <= 2.0 * (errs[0] + errs[1]):
                 selection_warning = (
                     f"UNRESOLVED model selection: top-2 ΔF={gap:.1f} is within "
                     f"2×(MC errors {errs[0]:.1f}+{errs[1]:.1f}; {src}) — "
@@ -541,8 +640,10 @@ def _posterior_peaks(win: dict, ci_level: float) -> tuple[list[dict], dict]:
         # warning must live ON the intervals consumers read, not only in the
         # candidate analysis).  ESS_RELIABLE_MIN is the same UNVERIFIED 50
         # the candidate-level warning uses; ess==0 marks a stuck chain.
-        if not slot_ess:
-            reliability, note = "ok", None
+        if not intervals or len(slot_ess) != len(intervals) or not np.isfinite(slot_ess).all():
+            reliability = "unavailable"
+            note = ("effective sample size or propagated intervals unavailable; "
+                    "no reliability claim can be made for this component")
         elif min(slot_ess) <= 0.0:
             reliability = "stuck_chain"
             note = ("a sampled parameter never moved — intervals are "
