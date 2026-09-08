@@ -1,0 +1,58 @@
+RE-CHECK (round 3) of the endpoint-averaging default unit on branch
+feature-endpoint-avg-default-3 (HEAD cc0f556). Round 2 (both runs) closed
+the Save Fit writer, the v1 no-background path and batch propagation,
+ACCEPTED deferring the Find Peaks engine wiring to its own unit, and
+returned NO-GO on ONE new MAJOR plus two MINORs. Verify the dispositions
+line-by-line; the round-1 and round-2 prompts
+(docs/autofit/codex/endpoint_avg_default_unit_review_prompt.txt,
+..._r2_review_prompt.txt) still apply. Do NOT read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-3 fix commit:      git show cc0f556
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — undo after applying Find Peaks left averaging at 1.
+   FIXED: pushUndo(extra) builds the snapshot via _peaksSnapshot, which
+   attaches the pre-action averaging as a non-index property
+   (snap._endpointAvg) when the action passes { endpointAvg }; undo() and
+   redo() restore it to #bg-endpoint-avg AND tab.ui.endpointAvg via
+   _restoreSnapshotEndpointAvg, and mirror the CURRENT value into the
+   paired redo/undo entry only when the popped entry carried one, so
+   peak-only actions are byte-for-byte unaffected. applyFindPeaks passes
+   the pre-apply value. Browser test: apply -> undo -> redo -> undo yields
+   dom/record 1/3/1/3 with peak counts 2/1/2/1. Challenge: the property
+   rides on state.peaks after undo (state.peaks = snap) — find any consumer
+   that serialises or iterates array properties (JSON.stringify ignores
+   non-index props; Object.keys / for-in / spread would not).
+2. MINOR (B2) — record written only when the DOM changed. FIXED: the
+   record is assigned unconditionally; only the notice is conditional.
+   Browser test hand-edits the field to 1 (record still 3), applies, and
+   asserts record 1.
+3. MINOR (A5) — follow-up memo checklist. FIXED: names
+   autofit/methods/*.py _ALLOWED_OPTIONS whitelists and the direct
+   _compute_background calls in bayesian_exchange_mc.py (~348) and
+   sparse_map.py (~198).
+4. Author-found regression, disclosed: the round-1 _invalidateBgCache()
+   call in applyFindPeaks un-froze the cropped fit display when "fit the
+   entire window" is OFF — tests/test_browser_find_peaks_full_window.py::
+   test_checkbox_off_preserves_todays_cropped_behavior failed, and the
+   round-2 prompt wrongly claimed those files passed (the author's chained
+   run had reported "1 failed, 11 passed" and did not stop on it). The
+   call is removed; the file passes again. Round-2 run A had described the
+   invalidation as correct — rule on whether removing it is right: with the
+   box OFF the frozen display is documented "today's behaviour"; with it ON
+   state.fitResult is cleared and the preview recomputes from the panel.
+5. Anything new introduced by the round-3 commit.
+
+Evidence (this time read from the log, not assumed): node --test
+tests/js/*.test.js 161 pass / 0 fail / 3 known-gap todo; browser files
+endpoint_avg_default (9), find_peaks_full_window, batch_roi and
+manual_anchor_cc_migration all pass together; each new test was watched
+failing first. Full pytest on the branch runs alongside this review and is
+recorded in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
