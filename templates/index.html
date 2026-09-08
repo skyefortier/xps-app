@@ -14145,6 +14145,12 @@ async function runFindPeaks() {
     options = JSON.parse(document.getElementById('fp-options').value || '{}');
   } catch (e) { status.textContent = 'Options are not valid JSON.'; return; }
   const method = document.getElementById('fp-method').value;
+  // What the ENGINE will use for endpoint averaging: the advanced-options
+  // endpoint_avg if supplied (least-squares honours it), else its default
+  // of 1. It does NOT read the Background panel — recorded here so
+  // applyFindPeaks can make the panel match the fit (see there).
+  const engineEndpointAvg = (Number.isInteger(+options.endpoint_avg) && +options.endpoint_avg >= 1)
+    ? String(+options.endpoint_avg) : LEGACY_ENDPOINT_AVG;
 
   btn.disabled = true;
   spinner.style.display = 'inline-block';
@@ -14193,7 +14199,7 @@ async function runFindPeaks() {
     const { job_id } = await resp.json();
     const poll = await _fpPollJob(job_id);
     const body = poll.result;
-    _fpLast = { body, method, regions, fitFullWindow: !!options.fit_full_window };
+    _fpLast = { body, method, regions, fitFullWindow: !!options.fit_full_window, endpointAvg: engineEndpointAvg };
     _fpRenderResults(body);
     status.textContent = '';
   } catch (e) {
@@ -14389,6 +14395,22 @@ async function applyFindPeaks() {
   });
   const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
   if (active) active._findPeaksReview = review;
+  // Find Peaks' engine fits at endpoint averaging 1 unless the advanced
+  // options supplied endpoint_avg; it never reads the Background panel.
+  // New tabs default to 3, so without this the preview background would be
+  // drawn at 3 under peaks fitted at 1 (Codex 2026-09-08, both runs). Set
+  // the panel and the tab record to what the engine used, so preview ==
+  // fit, and say so. Wiring the panel value THROUGH the engine is a logged
+  // follow-up unit (endpoint-averaging memo).
+  const usedEp = (_fpLast && _fpLast.endpointAvg) || LEGACY_ENDPOINT_AVG;
+  const epEl = document.getElementById('bg-endpoint-avg');
+  if (epEl && epEl.value !== usedEp) {
+    epEl.value = usedEp;
+    if (active) active.ui.endpointAvg = usedEp;
+    _invalidateBgCache();
+    notify('Find Peaks fitted with endpoint averaging ' + usedEp + ' (it does not yet read the ' +
+           'Background panel); the panel was set to ' + usedEp + ' so the preview matches the fit.', 'amber');
+  }
   // The chart FREEZES its background/fit-curve display to state.fitResult's
   // OWN be/bgIntensity arrays once a fit exists (updatePlot's "haveFit"
   // branch) — a prior manual Run Fit or Auto-Fit C1s Graphite leaves this

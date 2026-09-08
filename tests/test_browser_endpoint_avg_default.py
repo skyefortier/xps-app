@@ -186,3 +186,27 @@ def test_v1_fit_file_without_endpoint_avg_loads_as_1_even_without_a_background_b
         assert out == {"legacy": "1", "legacyDom": "1", "noBg": "1", "noBgDom": "1", "saved": "9"}, out
     finally:
         pg.close()
+
+
+def test_applying_find_peaks_sets_the_panel_to_the_averaging_the_engine_used(browser, server):
+    # Find Peaks' engine does not read the Background panel: it fits at 1 unless
+    # the advanced options carry endpoint_avg. With new tabs at 3 the preview
+    # background would be drawn at 3 under peaks fitted at 1 (Codex round 1,
+    # both runs). Applying suggestions must set the panel (and the tab record)
+    # to what the engine used, so preview == fit.
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('fresh', be, inten);
+            window.confirm = () => true;
+            window._showFindPeaksApplyConfirmModal = async () => true;
+            _fpLast = { body: { peaks: [ { role: 'C-C', center: 284.8, fwhm: 1.2, amplitude: 3000, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 } ],
+                                diagnostics: {} },
+                        method: 'ic_model_comparison', regions: ['C1s'], fitFullWindow: true, endpointAvg: '1' };
+            return applyFindPeaks().then(() => ({
+                dom: document.getElementById('bg-endpoint-avg').value,
+                tabUi: tabManager._getTab(tabManager.activeId).ui.endpointAvg,
+                nPeaks: state.peaks.length })); }""")
+        assert out == {"dom": "1", "tabUi": "1", "nPeaks": 1}, out
+    finally:
+        pg.close()

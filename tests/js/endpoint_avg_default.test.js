@@ -47,3 +47,13 @@ test("no bare endpointAvg || '1' fallback survives outside the constant", () => 
   const bare = html.match(/endpointAvg[^\n]*\|\| *'1'/g) || [];
   assert.deepStrictEqual(bare, [], 'bare fallbacks: ' + bare.join(' | '));
 });
+
+test('Find Peaks records the averaging its engine used and applies it on apply', () => {
+  // runFindPeaks stores what the engine will use (advanced-option endpoint_avg
+  // or 1) on _fpLast; applyFindPeaks writes it to the panel + tab record.
+  assert.match(html, /_fpLast = \{[^}]*endpointAvg: engineEndpointAvg/, 'runFindPeaks must record engineEndpointAvg on _fpLast');
+  const applyStart = html.indexOf('async function applyFindPeaks()');
+  const applyBody = html.slice(applyStart, applyStart + 8000);
+  assert.match(applyBody, /_fpLast\.endpointAvg/, 'applyFindPeaks must read _fpLast.endpointAvg');
+  assert.match(applyBody, /getElementById\('bg-endpoint-avg'\)/, 'applyFindPeaks must set the panel');
+});

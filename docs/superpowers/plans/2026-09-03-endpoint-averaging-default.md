@@ -117,3 +117,21 @@ note (nothing previously reported changes), and its own Codex-reviewed
 unit. It does not close the fragility — a one-channel edge move at n = 3
 still shifts C1s graphite by up to 1.3 pp — it reduces it to the level of
 the Poisson scatter, the honest floor for a single-scan fit.
+
+## Follow-up unit (logged 2026-09-08, from the default-3 Codex round 1): Find Peaks honours the panel's endpoint averaging
+
+`runFindPeaks` never sends `endpoint_avg`, and `autofit/engine.py` calls
+`_compute_background(x, y, bg)` at its default of 1 in three places
+(candidate fitting ~880, proposal augmentation ~2196, detection ~2605), so
+Find Peaks fits at 1 whatever the Background panel says. The default-3 unit
+closes the visible mismatch honestly — `applyFindPeaks` sets the panel and
+the tab record to the value the engine actually used and says so — but the
+engine still cannot express the panel value. The real fix threads
+`endpoint_avg` the way `fit_full_window` already is: the frontend payload
+(`options.endpoint_avg` from `#bg-endpoint-avg`), each method's option
+whitelist in `app.py` (`_ANALYZE_METHODS` defaults + validation), and the
+engine signatures `compare_models`, `fit_candidate`,
+`run_stability_analysis`, `_attempt_proposal`, `_bound_fixed_refit`,
+`_apply_decisive_override`, plus the detection call; default 1 keeps the
+parity fixtures byte-stable. Own branch, Codex ×2, and its own line in the
+user note when it ships.
