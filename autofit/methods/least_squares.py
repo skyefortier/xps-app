@@ -15,7 +15,7 @@ import numpy as np
 from fitting import run_fit
 
 from ..grammar import CandidateGrammar
-from .base import MethodResult, PeakFitMethod
+from .base import MethodResult, PeakFitMethod, pop_endpoint_avg
 
 _ALLOWED_OPTIONS = {
     "background_method", "bg_start_idx", "bg_end_idx", "endpoint_avg",
@@ -54,7 +54,7 @@ class LeastSquaresMethod(PeakFitMethod):
             background_method=opts.pop("background_method", "shirley"),
             bg_start_idx=opts.pop("bg_start_idx", None),
             bg_end_idx=opts.pop("bg_end_idx", None),
-            endpoint_avg=opts.pop("endpoint_avg", 1),
+            endpoint_avg=pop_endpoint_avg(opts),
             n_perturb=opts.pop("n_perturb", 0),
             manual_bg=opts.pop("manual_bg", None),
             fit_kws=fit_kws,

@@ -16,13 +16,13 @@ from ..confidence import build_confidence_vector
 from ..criteria import build_criteria_panel
 from ..engine import ComparisonResult, ModelReport, compare_models, _slot_prefix
 from ..grammar import BACKEND_SHAPE, CandidateGrammar
-from .base import MethodResult, PeakFitMethod, poisson_like_weights
+from .base import MethodResult, PeakFitMethod, poisson_like_weights, pop_endpoint_avg
 
 _ALLOWED_OPTIONS = {
     "noise_floor", "n_refits", "rng_seed", "candidate_filter",
     "enable_proposal_pass", "persistence_threshold", "bic_ambiguity_threshold",
     "absent_slot_area_fraction", "absent_slot_persistence_threshold",
-    "enable_preseed", "fit_full_window",
+    "enable_preseed", "fit_full_window", "endpoint_avg",
 }
 
 ENGINE_VERSION = "autofit-stage2"
@@ -71,6 +71,7 @@ class ICModelComparisonMethod(PeakFitMethod):
                 opts.pop("absent_slot_persistence_threshold", 0.7)),
             progress_cb=progress_cb,
             fit_full_window=bool(opts.pop("fit_full_window", False)),
+            endpoint_avg=pop_endpoint_avg(opts),
         )
 
         analysis = build_analysis_record(grammar, result)

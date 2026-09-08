@@ -43,7 +43,7 @@ import numpy as np
 
 from ..engine import _compute_background
 from ..grammar import CandidateGrammar, LineShape
-from .base import MethodResult, PeakFitMethod
+from .base import MethodResult, PeakFitMethod, pop_endpoint_avg
 
 _GAUSS_C = 4.0 * np.log(2.0)
 
@@ -58,7 +58,7 @@ DEFAULTS = dict(
     # condition's own scale); the raw violation is always surfaced
     kkt_rtol=1e-2,
 )
-_ALLOWED_OPTIONS = set(DEFAULTS) | {"lambda_fixed"}
+_ALLOWED_OPTIONS = set(DEFAULTS) | {"lambda_fixed", "endpoint_avg"}
 
 # dictionary atoms are symmetric Gaussians; these slot shapes are not
 # expressible and get flagged in the payload
@@ -191,11 +191,12 @@ class SparseMAPMethod(PeakFitMethod):
             raise ValueError(f"unknown sparse_map options: {sorted(unknown)}")
         cfg = {k: type(DEFAULTS[k])(opts.pop(k, DEFAULTS[k])) for k in DEFAULTS}
         lambda_fixed = opts.pop("lambda_fixed", None)
+        endpoint_avg = pop_endpoint_avg(opts)
 
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
 
-        bg = _compute_background(x, y, grammar.candidates[0].background)
+        bg = _compute_background(x, y, grammar.candidates[0].background, endpoint_avg=endpoint_avg)
         y_net = y - bg
         n = len(y_net)
 

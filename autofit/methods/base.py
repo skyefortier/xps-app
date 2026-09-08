@@ -88,3 +88,18 @@ def poisson_like_weights(y: np.ndarray) -> np.ndarray:
     noise estimate (fitalg LIMITATIONS §8; spec §9) when replicates exist.
     """
     return 1.0 / np.sqrt(np.maximum(np.asarray(y, dtype=float), 1.0))
+
+
+def pop_endpoint_avg(opts: dict, default: int = 1) -> int:
+    """Pop and validate the ``endpoint_avg`` option shared by every method that
+    fits a background (Find Peaks honours the Background panel, 2026-09-08).
+    Must be an integer >= 1; the frontend sends the panel value, so a bad value
+    is a request error (ValueError -> 400), never a silent fallback to 1."""
+    raw = opts.pop("endpoint_avg", default)
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
+    if n < 1 or (isinstance(raw, float) and not float(raw).is_integer()):
+        raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
+    return n

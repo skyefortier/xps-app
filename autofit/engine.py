@@ -857,6 +857,7 @@ def fit_candidate(
     initial_params: Optional[Parameters] = None,
     max_nfev: int = FIT_CANDIDATE_MAX_NFEV,
     fit_full_window: bool = False,
+    endpoint_avg: int = 1,
 ) -> FitOutcome:
     """One fit of ``model`` to (x, y, weights); background subtracted first.
 
@@ -877,7 +878,7 @@ def fit_candidate(
     y = np.asarray(y, dtype=float)
     weights = np.asarray(weights, dtype=float)
 
-    bg = _compute_background(x, y, model.background)
+    bg = _compute_background(x, y, model.background, endpoint_avg=endpoint_avg)
     y_sub = y - bg
     composite = _build_composite_model(model)
     params = initial_params if initial_params is not None else \
@@ -1170,6 +1171,7 @@ def run_stability_analysis(
     fixed_param_values: Optional[dict[str, float]] = None,
     deadline: Optional[float] = None,
     fit_full_window: bool = False,
+    endpoint_avg: int = 1,
 ) -> ModelStability:
     """
     ``deadline`` is an absolute ``time.perf_counter()`` timestamp (set by
@@ -1221,7 +1223,8 @@ def run_stability_analysis(
             for pname, val in fixed_param_values.items():
                 if pname in init:
                     init[pname].set(value=float(val), vary=False)
-        outcome = fit_candidate(x, y, weights, model, initial_params=init)
+        outcome = fit_candidate(x, y, weights, model, initial_params=init,
+                                endpoint_avg=endpoint_avg)
         if not outcome.converged:
             continue
         n_converged += 1
@@ -2165,6 +2168,7 @@ def _attempt_proposal(
     diagnostic_windows: dict[str, tuple[float, float]],
     budget_remaining: float = float("inf"),
     fit_full_window: bool = False,
+    endpoint_avg: int = 1,
 ) -> tuple[Optional[ModelReport], ProposedPeakReport, str]:
     attempt_start = time.perf_counter()
     base_model = base_report.model
@@ -2193,14 +2197,15 @@ def _attempt_proposal(
             f"insufficient_budget: {budget_remaining:.1f}s left < "
             f"{PROPOSAL_MIN_FIT_BUDGET_SEC:.0f}s needed for one augmented fit")
 
-    bg = _compute_background(x, y, aug_model.background)
+    bg = _compute_background(x, y, aug_model.background, endpoint_avg=endpoint_avg)
     try:
         init = _initial_params_for_augmented(aug_model, base_fit, spec, x, y - bg,
                                              fit_full_window=fit_full_window)
     except Exception as exc:
         return _fast(f"init_params_error: {exc}")
 
-    primary = fit_candidate(x, y, weights, aug_model, initial_params=init)
+    primary = fit_candidate(x, y, weights, aug_model, initial_params=init,
+                            endpoint_avg=endpoint_avg)
     if not primary.converged:
         return _fast("augmented_fit_did_not_converge")
     comp = next((c for c in primary.components if c.slot_role == spec.role), None)
@@ -2269,6 +2274,7 @@ def _attempt_proposal(
         deadline=time.perf_counter() + min(remaining,
                                            PROPOSAL_STABILITY_TIMEOUT_SEC),
         fit_full_window=fit_full_window,
+        endpoint_avg=endpoint_avg,
     )
     if (stability.best_outcome is not None
             and stability.best_outcome.weighted_chi_sq < primary.weighted_chi_sq):
@@ -2386,6 +2392,7 @@ def _bound_fixed_refit(
     n_refits: int,
     rng_seed: int,
     fit_full_window: bool = False,
+    endpoint_avg: int = 1,
 ) -> Optional[ModelReport]:
     """
     Refit a boundary-limited candidate with each pegged parameter FIXED at
@@ -2425,7 +2432,8 @@ def _bound_fixed_refit(
     if not fixed:
         return None
 
-    outcome = fit_candidate(x, y, weights, report.model, initial_params=params)
+    outcome = fit_candidate(x, y, weights, report.model, initial_params=params,
+                            endpoint_avg=endpoint_avg)
     if not outcome.converged:
         return None
     if outcome.boundary_hits:
@@ -2439,6 +2447,7 @@ def _bound_fixed_refit(
         fixed_param_values=fixed,
         deadline=time.perf_counter() + CANDIDATE_TIMEOUT_SEC,
         fit_full_window=fit_full_window,
+        endpoint_avg=endpoint_avg,
     )
     y_fit = (outcome.lmfit_result.best_fit + outcome.background
              if outcome.lmfit_result is not None else np.zeros_like(y))
@@ -2478,6 +2487,7 @@ def _apply_decisive_override(
     n_refits: int,
     rng_seed: int,
     fit_full_window: bool = False,
+    endpoint_avg: int = 1,
 ) -> ComparisonResult:
     """Dominance rule — see CONDITIONAL_OVERRIDE_DELTA_BIC block comment."""
     if result.conditional or not result.survivors:
@@ -2496,7 +2506,8 @@ def _apply_decisive_override(
         refit = _bound_fixed_refit(x, y, weights, candidate,
                                    diagnostic_windows, noise_floor,
                                    n_refits=n_refits, rng_seed=rng_seed,
-                                   fit_full_window=fit_full_window)
+                                   fit_full_window=fit_full_window,
+                                   endpoint_avg=endpoint_avg)
         if refit is None:
             continue
         # the bound-fixed model must be STABLE in its own right
@@ -2552,9 +2563,17 @@ def compare_models(
     enable_preseed: bool = True,
     progress_cb: Optional[Callable[[dict], None]] = None,
     fit_full_window: bool = False,
+    endpoint_avg: int = 1,
 ) -> ComparisonResult:
     """
     Full pipeline over ``grammar.candidates`` for one spectral window.
+
+    ``endpoint_avg`` (Find Peaks honours the Background panel, 2026-09-08 —
+    F3 round two): number of channels averaged at each window edge before
+    the background anchors are read; threaded to every fit_candidate /
+    _compute_background call below (screen, primary, stability refits,
+    proposals, bound-fixed refits, decisive override, detection). Default 1
+    keeps every committed fixture byte-stable.
 
     ``fit_full_window`` (Find Peaks UI, 2026-07-13): OPTIONAL, default
     False — zero behavior change for every existing caller. When True,
@@ -2602,7 +2621,7 @@ def compare_models(
         # background (CLAUDE.md convention).
         det_bg_family = (candidates[0].background if candidates
                          else BackgroundType.SHIRLEY)
-        det_bg = _compute_background(x, y, det_bg_family)
+        det_bg = _compute_background(x, y, det_bg_family, endpoint_avg=endpoint_avg)
         preseed_specs = detect_out_of_grammar_dominants(
             x, y, det_bg, candidates, diagnostic_windows,
             noise_floor=noise_floor,
@@ -2745,7 +2764,8 @@ def compare_models(
             _report_progress(progress_cb, "screening", idx, n_cand, model.name)
             outcome = fit_candidate(x, y, weights, model,
                                     max_nfev=SCREEN_MAX_NFEV,
-                                    fit_full_window=fit_full_window)
+                                    fit_full_window=fit_full_window,
+                                    endpoint_avg=endpoint_avg)
             if outcome.converged:
                 bic = compute_bic(outcome)
                 screened.append((model, outcome, bic))
@@ -2795,7 +2815,8 @@ def compare_models(
         candidate_deadline = time.perf_counter() + CANDIDATE_TIMEOUT_SEC
         # reuse the screen fit as this candidate's primary (no repeated work)
         primary = screen_fit.get(model.name) or fit_candidate(
-            x, y, weights, model, fit_full_window=fit_full_window)
+            x, y, weights, model, fit_full_window=fit_full_window,
+            endpoint_avg=endpoint_avg)
         if not primary.converged:
             non_converged.append((model, primary))
             continue
@@ -2805,6 +2826,7 @@ def compare_models(
             noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
             deadline=candidate_deadline,
             fit_full_window=fit_full_window,
+            endpoint_avg=endpoint_avg,
         )
         # Promote a deeper minimum found by the multi-start pass (see
         # ModelStability.best_outcome).
@@ -2885,6 +2907,7 @@ def compare_models(
                         diagnostic_windows=diagnostic_windows,
                         budget_remaining=pass_budget - elapsed,
                         fit_full_window=fit_full_window,
+                        endpoint_avg=endpoint_avg,
                     )
                     proposal_attempts.append((model.name, pr))
                     if outcome == "accepted" and aug_report is not None:
@@ -2932,6 +2955,7 @@ def compare_models(
         n_refits=n_refits,
         rng_seed=rng_seed,
         fit_full_window=fit_full_window,
+        endpoint_avg=endpoint_avg,
     )
     result.non_converged = non_converged
     result.cross_candidate_coincidences = _cross_candidate_coincidences(proposal_attempts)

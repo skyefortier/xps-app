@@ -61,7 +61,7 @@ from ..engine import (
     _slot_prefix,
 )
 from ..grammar import BACKEND_SHAPE, CandidateGrammar, CandidateModel
-from .base import MethodResult, PeakFitMethod
+from .base import MethodResult, PeakFitMethod, pop_endpoint_avg
 
 # ── UNVERIFIED sampler tunables (defaults; all overridable via options) ──────
 DEFAULT_N_REPLICAS = 12
@@ -288,6 +288,7 @@ _ALLOWED_OPTIONS = {
     "n_replicas", "beta_min", "n_sweeps", "burn_fraction", "exchange_every",
     "rng_seed", "candidate_filter", "ci_level", "noise_floor",
     "seed_replicates",
+    "endpoint_avg",
 }
 
 
@@ -342,10 +343,11 @@ class BayesianExchangeMCMethod(PeakFitMethod):
         if seed_replicates < 1:
             raise ValueError("seed_replicates must be >= 1")
 
+        endpoint_avg = pop_endpoint_avg(opts)
         per_candidate: list[dict] = []
         runs: dict[str, dict] = {}
         for model in candidates:
-            bg = _compute_background(x, y, model.background)
+            bg = _compute_background(x, y, model.background, endpoint_avg=endpoint_avg)
             y_net = y - bg
             try:
                 space = _param_space(model, x, y_net)

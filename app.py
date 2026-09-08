@@ -165,13 +165,16 @@ def _err(message: str, status: int = 400) -> tuple:
 # own option whitelist (ValueError → 400). Module-level (not just a
 # _register_routes local) so the shared /api/analyze helpers below can see it.
 _ANALYZE_METHODS = {
-    "least_squares": {"background_method": "shirley"},
+    # endpoint_avg: every method that fits a background takes it (Find Peaks
+    # honours the Background panel, 2026-09-08); default 1 keeps fixtures
+    # byte-stable, the frontend sends the panel value.
+    "least_squares": {"background_method": "shirley", "endpoint_avg": 1},
     "ic_model_comparison": {"n_refits": 4, "rng_seed": 0,
                             "enable_proposal_pass": True,
-                            "fit_full_window": False},
+                            "fit_full_window": False, "endpoint_avg": 1},
     "bayesian_exchange_mc": {"n_replicas": 8, "n_sweeps": 600,
-                             "rng_seed": 0},
-    "sparse_map": {},
+                             "rng_seed": 0, "endpoint_avg": 1},
+    "sparse_map": {"endpoint_avg": 1},
 }
 
 

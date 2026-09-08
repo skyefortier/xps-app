@@ -118,7 +118,7 @@ unit. It does not close the fragility — a one-channel edge move at n = 3
 still shifts C1s graphite by up to 1.3 pp — it reduces it to the level of
 the Poisson scatter, the honest floor for a single-scan fit.
 
-## Follow-up unit (logged 2026-09-08, from the default-3 Codex round 1): Find Peaks honours the panel's endpoint averaging
+## Follow-up unit — DONE 2026-09-08 on branch feature-find-peaks-endpoint-avg (owner moved it up: F3 round two, latent → guaranteed divergence): Find Peaks honours the panel's endpoint averaging
 
 `runFindPeaks` never sends `endpoint_avg`, and `autofit/engine.py` calls
 `_compute_background(x, y, bg)` at its default of 1 in three places
@@ -141,3 +141,17 @@ the detection call in `engine.py`; and the two direct
 `autofit/methods/sparse_map.py` (~198). Default 1 keeps the parity
 fixtures byte-stable. Own branch, Codex ×2, and its own line in the user
 note when it ships.
+
+Implemented as designed above: `endpoint_avg` is threaded through
+`compare_models` → screen / primary / stability-refit / proposal /
+bound-fixed-refit / decisive-override `fit_candidate` calls and the
+detection background (it was recomputed at 1 inside every refit before,
+not just the primary); the four menu methods pop it through one validated
+helper (`autofit.methods.base.pop_endpoint_avg`, integer ≥ 1 or 400);
+`_ANALYZE_METHODS` advertises it (default 1, fixtures byte-stable); the
+frontend injects the Background panel's value for methods that advertise
+it, an explicit Advanced-JSON value wins, and the JSON view never shows
+the advertised 1. A structural test requires every background-affecting
+call in `autofit/` to pass `endpoint_avg` explicitly. The apply-path
+guard from the default-3 unit stays as a consistency check (now a no-op
+unless the panel changed between run and apply).

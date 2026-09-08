@@ -14058,9 +14058,14 @@ function _fpMethodChanged() {
   const strs = FP_STRINGS.methods[id] || {};
   document.getElementById('fp-method-hint').textContent = strs.hint || '';
   // the Advanced JSON stays the single source of truth for the request —
-  // the friendly controls below are a labeled VIEW that writes into it
-  document.getElementById('fp-options').value =
-    JSON.stringify((m && m.default_options) || {}, null, 1);
+  // the friendly controls below are a labeled VIEW that writes into it.
+  // endpoint_avg is the exception: its source is the Background panel
+  // (runFindPeaks injects the panel value unless the JSON names one), so
+  // the advertised default of 1 is NOT written here — it would silently
+  // shadow the panel (Find Peaks honours the panel, 2026-09-08).
+  const shown = { ...((m && m.default_options) || {}) };
+  delete shown.endpoint_avg;
+  document.getElementById('fp-options').value = JSON.stringify(shown, null, 1);
   _fpBuildSimpleControls(id);
 }
 
@@ -14195,11 +14200,19 @@ async function runFindPeaks() {
     options = JSON.parse(document.getElementById('fp-options').value || '{}');
   } catch (e) { status.textContent = 'Options are not valid JSON.'; return; }
   const method = document.getElementById('fp-method').value;
-  // What the ENGINE will use for endpoint averaging: the advanced-options
-  // endpoint_avg if supplied (least-squares honours it), else its default
-  // of 1. It does NOT read the Background panel — recorded here so
-  // applyFindPeaks can make the panel match the fit (see there).
-  const engineEndpointAvg = (Number.isInteger(+options.endpoint_avg) && +options.endpoint_avg >= 1)
+  // Endpoint averaging: the Background panel is the source for every method
+  // that fits a background (its /api/analyze/meta default_options advertise
+  // endpoint_avg — all four menu methods do); an explicit value in the
+  // Advanced JSON wins. Methods that do not advertise it are not sent it
+  // (their option whitelists would reject the key). The value actually
+  // sent is recorded on _fpLast so applyFindPeaks keeps preview == fit.
+  const fpMethodMeta = ((_fpMeta && _fpMeta.methods) || []).find(x => x.id === method);
+  const methodTakesEp = !!(fpMethodMeta && fpMethodMeta.default_options
+                           && Object.prototype.hasOwnProperty.call(fpMethodMeta.default_options, 'endpoint_avg'));
+  if (methodTakesEp && options.endpoint_avg === undefined) {
+    options.endpoint_avg = parseInt(document.getElementById('bg-endpoint-avg')?.value) || 1;
+  }
+  const engineEndpointAvg = (methodTakesEp && Number.isInteger(+options.endpoint_avg) && +options.endpoint_avg >= 1)
     ? String(+options.endpoint_avg) : LEGACY_ENDPOINT_AVG;
 
   btn.disabled = true;
@@ -14447,13 +14460,11 @@ async function applyFindPeaks() {
   });
   const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
   if (active) active._findPeaksReview = review;
-  // Find Peaks' engine fits at endpoint averaging 1 unless the advanced
-  // options supplied endpoint_avg; it never reads the Background panel.
-  // New tabs default to 3, so without this the preview background would be
-  // drawn at 3 under peaks fitted at 1 (Codex 2026-09-08, both runs). Set
-  // the panel and the tab record to what the engine used, so preview ==
-  // fit, and say so. Wiring the panel value THROUGH the engine is a logged
-  // follow-up unit (endpoint-averaging memo).
+  // Find Peaks now sends the Background panel's endpoint averaging (see
+  // runFindPeaks), so normally this is a no-op. It still guards preview ==
+  // fit when the panel was changed between the run and the apply, or when
+  // the Advanced JSON named a different value: the panel and the tab
+  // record are set to what the engine actually used, with a notice.
   // (No _invalidateBgCache() here: with "fit the entire window" OFF the
   // frozen fit display must stay exactly as today — invalidating the cache
   // un-froze it, caught by test_checkbox_off_preserves_todays_cropped_behavior;
@@ -14465,8 +14476,8 @@ async function applyFindPeaks() {
   if (epEl) epEl.value = usedEp;
   if (active) active.ui.endpointAvg = usedEp;   // unconditional: the record must match the fit even if the field was hand-edited
   if (epChanged) {
-    notify('Find Peaks fitted with endpoint averaging ' + usedEp + ' (it does not yet read the ' +
-           'Background panel); the panel was set to ' + usedEp + ' so the preview matches the fit.', 'amber');
+    notify('Find Peaks fitted with endpoint averaging ' + usedEp + '; the Background panel was set to ' +
+           usedEp + ' so the preview matches the fit.', 'amber');
   }
   // The chart FREEZES its background/fit-curve display to state.fitResult's
   // OWN be/bgIntensity arrays once a fit exists (updatePlot's "haveFit"
