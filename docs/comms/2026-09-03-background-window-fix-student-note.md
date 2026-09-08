@@ -1,7 +1,7 @@
-# DRAFT — not sent. Student note for the background-window fix (unit 1c)
+# Student note for the background-window fix (unit 1c) — READY TO SEND (deployed 2026-09-03)
 
-Status: draft for Skye's review. Do not send until 1c is deployed and the
-deploy date below is filled in.
+Status: verified against the measured figures in the round-5 amendment (no v4 numbers); deploy date filled in. Send after the
+deploy, per the LACX lesson.
 
 ---
 
@@ -9,7 +9,7 @@ Subject: XPS Fitting Studio — background window now includes the endpoint you 
 
 Hi all,
 
-Short version: from [DEPLOY DATE], when you run a fit, the background is
+Short version: from 3 September 2026, when you run a fit, the background is
 anchored on the *exact* window you set in the bg-start / bg-end fields.
 Until now it was anchored one data point inside that window at the
 low-binding-energy end. Fits you re-run after the update will therefore
@@ -49,7 +49,7 @@ What to do
   re-run. Both sets of numbers are legitimate fits; they differ only in
   whether the last window point was included.
 - Values still being worked on: just keep going. Anything you fit from
-  [DEPLOY DATE] onward uses the corrected window.
+  3 September 2026 onward uses the corrected window.
 - Old saved projects (.proj) still open normally. The stored numbers are
   the old fit until you press Run Fit again.
 - If you compare a re-run with the old result and see a change larger than
