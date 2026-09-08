@@ -1,0 +1,43 @@
+RE-CHECK (round 4) of the endpoint-averaging default unit on branch
+feature-endpoint-avg-default-3 (HEAD 59385df). Round 3 (both runs) verified
+every earlier disposition closed and returned NO-GO on ONE new MAJOR plus
+one MINOR. Verify these two dispositions; the earlier prompts
+(docs/autofit/codex/endpoint_avg_default_unit_review_prompt.txt,
+..._r2_..., ..._r3_...) still apply. Do NOT read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-4 fix commit:      git show 59385df
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — cross-tab undo/redo moved averaging between tabs.
+   FIXED: _peaksSnapshot records snap._tabId = tabManager.activeId
+   whenever it records snap._endpointAvg; _restoreSnapshotEndpointAvg
+   returns early unless snap._tabId === tabManager.activeId. The mirrored
+   entries pushed by undo()/redo() are built by _peaksSnapshot on the tab
+   that is active at that moment, so a cross-tab pair is inert both ways.
+   Browser test reproduces the round-3 scenario (apply on A at 3 -> B at 9
+   -> undo -> B stays 9 -> back to A -> redo -> A stays 1). Cross-tab PEAK
+   restoration is pre-existing behaviour and deliberately not changed.
+   Challenge: tab ids after close/reopen or project load (ids are preserved
+   across save/load — could a stale entry match a NEW tab with the same id
+   after the original was closed and a project re-loaded? If so, is the
+   consequence worse than today's cross-tab peak restoration?), and whether
+   any path clears activeId to null while entries exist (closing the last
+   tab) — the restore must be a no-op then.
+2. MINOR (both) — memo whitelist list. FIXED: now names least_squares,
+   ic_model_comparison, bayesian_exchange_mc, sparse_map, max_entropy,
+   multivariate_mcr.
+3. Anything new introduced by the round-4 commit.
+
+Evidence (read from the logs): node --test tests/js/*.test.js 162 pass /
+0 fail / 3 known-gap todo; browser endpoint_avg_default (8 tests),
+find_peaks_full_window and batch_roi pass together; the new test was
+watched failing with the reviewers' exact reproduction. Full pytest on the
+branch runs alongside this review and is recorded in the archived verdict
+header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
