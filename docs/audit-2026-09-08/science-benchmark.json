@@ -1,0 +1,166 @@
+{
+  "baseline_commit": "aba24c6914342883079171032f72c9af9e055912",
+  "seed": 20260908,
+  "checks": [
+    {
+      "name": "gaussian_analytic",
+      "passed": true,
+      "max_absolute_error": 1.7763568394002505e-15
+    },
+    {
+      "name": "lorentzian_analytic",
+      "passed": true,
+      "max_absolute_error": 1.7763568394002505e-15
+    },
+    {
+      "name": "ds_zero_asymmetry_lorentzian",
+      "passed": true,
+      "max_absolute_error": 3.552713678800501e-15
+    },
+    {
+      "name": "dsg_voigt_oracle_200_points",
+      "passed": false,
+      "max_height_fraction_error": 0.0435310191230579,
+      "tolerance": 0.0001
+    },
+    {
+      "name": "dsg_axis_reversal_200_points",
+      "passed": true
+    },
+    {
+      "name": "dsg_voigt_oracle_201_points",
+      "passed": true,
+      "max_height_fraction_error": 2.3646184991611002e-06,
+      "tolerance": 0.0001
+    },
+    {
+      "name": "dsg_axis_reversal_201_points",
+      "passed": true
+    },
+    {
+      "name": "dsg_even_grid_center_recovery",
+      "passed": false,
+      "recovered_center_ev": 0.02506265852953457,
+      "true_center_ev": 0
+    },
+    {
+      "name": "la_center_continuity",
+      "passed": false,
+      "center_change_ev": 2e-08,
+      "max_height_fraction_jump": 0.03245270559270663
+    },
+    {
+      "name": "la_window_independence_same_sampling",
+      "passed": false,
+      "max_height_fraction_change": 0.15334655700354743
+    },
+    {
+      "name": "linked_unequal_width_area_ratio",
+      "passed": false,
+      "requested_area_ratio": 0.5,
+      "actual_area_ratio": 1.0
+    },
+    {
+      "name": "shirley_constructed_integral_solution",
+      "passed": true,
+      "max_absolute_background_error": 5.848193040947081e-09
+    },
+    {
+      "name": "noiseless_gaussian_recovery_sep2.0_start-0.15",
+      "passed": true,
+      "max_center_error_ev": 3.3306690738754696e-16,
+      "max_relative_area_error": 3.774758283725532e-15
+    },
+    {
+      "name": "noiseless_gaussian_recovery_sep2.0_start0.15",
+      "passed": true,
+      "max_center_error_ev": 0.0,
+      "max_relative_area_error": 2.220446049250313e-16
+    },
+    {
+      "name": "noiseless_gaussian_recovery_sep0.5_start-0.15",
+      "passed": true,
+      "max_center_error_ev": 3.3306690738754696e-16,
+      "max_relative_area_error": 1.7763568394002505e-15
+    },
+    {
+      "name": "noiseless_gaussian_recovery_sep0.5_start0.15",
+      "passed": true,
+      "max_center_error_ev": 3.23710391825216e-10,
+      "max_relative_area_error": 1.305021202213652e-09
+    },
+    {
+      "name": "fixed_dsg_zero_gaussian_width_preserved",
+      "passed": true,
+      "requested": 0,
+      "actual": 0.0
+    }
+  ],
+  "gaussian_recovery": [
+    {
+      "separation": 2.0,
+      "noisy": false,
+      "start_offset": -0.15,
+      "success": true,
+      "max_center_error_ev": 3.3306690738754696e-16,
+      "max_relative_area_error": 3.774758283725532e-15
+    },
+    {
+      "separation": 2.0,
+      "noisy": false,
+      "start_offset": 0.15,
+      "success": true,
+      "max_center_error_ev": 0.0,
+      "max_relative_area_error": 2.220446049250313e-16
+    },
+    {
+      "separation": 2.0,
+      "noisy": true,
+      "start_offset": -0.15,
+      "success": true,
+      "max_center_error_ev": 0.002158744326175688,
+      "max_relative_area_error": 0.0028387234535396377
+    },
+    {
+      "separation": 2.0,
+      "noisy": true,
+      "start_offset": 0.15,
+      "success": true,
+      "max_center_error_ev": 0.002158750628655337,
+      "max_relative_area_error": 0.00283870584451118
+    },
+    {
+      "separation": 0.5,
+      "noisy": false,
+      "start_offset": -0.15,
+      "success": true,
+      "max_center_error_ev": 3.3306690738754696e-16,
+      "max_relative_area_error": 1.7763568394002505e-15
+    },
+    {
+      "separation": 0.5,
+      "noisy": false,
+      "start_offset": 0.15,
+      "success": true,
+      "max_center_error_ev": 3.23710391825216e-10,
+      "max_relative_area_error": 1.305021202213652e-09
+    },
+    {
+      "separation": 0.5,
+      "noisy": true,
+      "start_offset": -0.15,
+      "success": true,
+      "max_center_error_ev": 0.009497221332901484,
+      "max_relative_area_error": 0.033155024286259716
+    },
+    {
+      "separation": 0.5,
+      "noisy": true,
+      "start_offset": 0.15,
+      "success": true,
+      "max_center_error_ev": 0.009489243380830181,
+      "max_relative_area_error": 0.03311037177846732
+    }
+  ],
+  "scope": "Independent analytic checks and Gaussian mixtures; not full scientific certification."
+}

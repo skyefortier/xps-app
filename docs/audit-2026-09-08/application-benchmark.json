@@ -1,0 +1,92 @@
+{
+  "suite": "application-audit",
+  "probes": 8,
+  "failed": 8,
+  "results": [
+    {
+      "id": "local_lm_amplitude_recovery",
+      "pass": false,
+      "expected": "Recover amplitude 10 from initial 5 for a noiseless fixed-width Gaussian",
+      "observed": {
+        "amplitude": 5,
+        "sse": 376.3459238946262
+      }
+    },
+    {
+      "id": "voigt_preview_backend_contract",
+      "pass": false,
+      "expected": {
+        "gl_ratio": 0.5,
+        "fix_gl_ratio": true
+      },
+      "observed": {
+        "gl_ratio": 0.3,
+        "fix_gl_ratio": false
+      }
+    },
+    {
+      "id": "locked_zero_ds_alpha",
+      "pass": false,
+      "expected": {
+        "alpha": 0,
+        "fix_alpha": true
+      },
+      "observed": {
+        "alpha": 0.1,
+        "fix_alpha": true
+      }
+    },
+    {
+      "id": "locked_zero_asymmetric_gl_mix",
+      "pass": false,
+      "expected": {
+        "gl_ratio": 0,
+        "fix_gl_ratio": true
+      },
+      "observed": {
+        "gl_ratio": 0.5,
+        "fix_gl_ratio": true
+      }
+    },
+    {
+      "id": "area_integration_nonuniform_grid",
+      "pass": false,
+      "expected": "Integral of unit intensity over [0,3] equals 3",
+      "observed": 0.4
+    },
+    {
+      "id": "find_peaks_replacement_invalidates_prior_fit",
+      "pass": false,
+      "expected": "Replacing a model clears the previous fitted envelope and diagnostics even when fitFullWindow is false",
+      "observed": {
+        "center": 2,
+        "fitResult": {
+          "fittedY": [
+            10,
+            20
+          ],
+          "chiReduced": 0.1
+        }
+      }
+    },
+    {
+      "id": "project_roundtrip_parameter_uncertainty",
+      "pass": false,
+      "expected": "Saved projects retain parameter standard errors accessible to the results/export reader",
+      "observed": {
+        "persistedOnPeak": 0.02,
+        "resultsPanelStdErr": null
+      }
+    },
+    {
+      "id": "manual_fit_captures_originating_tab_model",
+      "pass": false,
+      "expected": "A fit started on tab A sends tab A peaks even if the user changes tabs during upload",
+      "observed": {
+        "uploadedSession": "session-A",
+        "submittedCenter": 532,
+        "acceptedOnTabA": true
+      }
+    }
+  ]
+}

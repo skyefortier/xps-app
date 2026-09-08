@@ -1,0 +1,48 @@
+{
+  "baseline-pytest": [
+    {
+      "name": "pytest",
+      "errors": "26",
+      "failures": "0",
+      "skipped": "60",
+      "tests": "763",
+      "time": "212.563",
+      "timestamp": "2026-09-08T00:26:59.551408-06:00",
+      "hostname": "MacBookPro.lan"
+    }
+  ],
+  "baseline-browser": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "2",
+      "skipped": "0",
+      "tests": "79",
+      "time": "135.038",
+      "timestamp": "2026-09-08T00:31:18.440965-06:00",
+      "hostname": "MacBookPro.lan"
+    }
+  ],
+  "baseline-gates": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "5",
+      "time": "222.879",
+      "timestamp": "2026-09-08T00:31:19.502080-06:00",
+      "hostname": "MacBookPro.lan"
+    }
+  ],
+  "node": {
+    "passed": 145,
+    "todo": 3,
+    "failed": 0,
+    "command": "XPS_PYTHON=\"$PWD/venv/bin/python\" node --test tests/js/*.test.js"
+  },
+  "browser_failure_classification": {
+    "progress": "subsecond success cannot guarantee intermediate poll",
+    "default_window": "candidate rejection makes assumed applicable fit unavailable; stale assertions never reached"
+  }
+}
