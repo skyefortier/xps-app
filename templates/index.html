@@ -2321,11 +2321,19 @@ let _undoDebounceTimer = null;
 // but left the averaging at 1).
 function _peaksSnapshot(extra) {
   const snap = JSON.parse(JSON.stringify(state.peaks));
-  if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
+  if (extra && extra.endpointAvg !== undefined) {
+    snap._endpointAvg = String(extra.endpointAvg);
+    // The undo/redo stacks are global and survive tab switches, so an
+    // averaging-carrying entry is scoped to the tab it was taken on and is
+    // only ever restored there (Codex 2026-09-08 round 3, both runs: an
+    // undo on another tab rewrote THAT tab's averaging).
+    snap._tabId = tabManager.activeId;
+  }
   return snap;
 }
 function _restoreSnapshotEndpointAvg(snap) {
   if (!snap || snap._endpointAvg === undefined) return;
+  if (snap._tabId !== tabManager.activeId) return;   // never cross a tab boundary
   const el = document.getElementById('bg-endpoint-avg');
   if (el) el.value = snap._endpointAvg;
   const t = tabManager._getTab(tabManager.activeId);

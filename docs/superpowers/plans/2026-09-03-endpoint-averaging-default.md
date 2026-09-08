@@ -130,8 +130,9 @@ engine still cannot express the panel value. The real fix threads
 `endpoint_avg` the way `fit_full_window` already is: the frontend payload
 (`options.endpoint_avg` from `#bg-endpoint-avg`); `app.py`'s
 `_ANALYZE_METHODS` defaults; each method's own `_ALLOWED_OPTIONS`
-whitelist in `autofit/methods/{least_squares,bayesian_exchange_mc,
-max_entropy,multivariate_mcr}.py` (unknown keys → 400); the engine
+whitelist in `autofit/methods/{least_squares,ic_model_comparison,
+bayesian_exchange_mc,sparse_map,max_entropy,multivariate_mcr}.py`
+(unknown keys → 400); the engine
 signatures `compare_models`, `fit_candidate`, `run_stability_analysis`,
 `_attempt_proposal`, `_bound_fixed_refit`, `_apply_decisive_override` and
 the detection call in `engine.py`; and the two direct

@@ -263,3 +263,40 @@ def test_applying_find_peaks_writes_the_record_even_when_the_field_already_match
         assert _ep_state(pg) == {"dom": "1", "tabUi": "1", "nPeaks": 2}
     finally:
         pg.close()
+
+
+def test_undo_redo_never_move_averaging_across_tabs(browser, server):
+    # Codex round 3 (both runs): undo/redo stacks are global and survive tab
+    # switches; the averaging restore must apply only to the tab the snapshot
+    # was taken on. (Cross-tab PEAK restoration is pre-existing behaviour and
+    # is not asserted here.)
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('A', be, inten);
+            const aId = tabManager.activeId;
+            addPeak(); state.peaks[0].center = 285.0;
+            """ + FP_APPLY + """
+            return applyFindPeaks().then(() => {
+                const aAfterApply = tabManager._getTab(aId).ui.endpointAvg;          // '1'
+                tabManager.createTab('B', be, inten);
+                const bId = tabManager.activeId;
+                tabManager._getTab(bId).ui.endpointAvg = '9';
+                document.getElementById('bg-endpoint-avg').value = '9';
+                undo();                                                              // A's entry popped while B is active
+                const bAfterUndo = { dom: document.getElementById('bg-endpoint-avg').value,
+                                     rec: tabManager._getTab(bId).ui.endpointAvg };
+                tabManager.activateTab(aId);
+                const aBack = { dom: document.getElementById('bg-endpoint-avg').value,
+                                rec: tabManager._getTab(aId).ui.endpointAvg };
+                redo();                                                              // entry pushed while B was active
+                const aAfterRedo = { dom: document.getElementById('bg-endpoint-avg').value,
+                                     rec: tabManager._getTab(aId).ui.endpointAvg };
+                return { aAfterApply, bAfterUndo, aBack, aAfterRedo };
+            }); }""")
+        assert out["aAfterApply"] == "1"
+        assert out["bAfterUndo"] == {"dom": "9", "rec": "9"}, out
+        assert out["aBack"] == {"dom": "1", "rec": "1"}, out
+        assert out["aAfterRedo"] == {"dom": "1", "rec": "1"}, out
+    finally:
+        pg.close()
