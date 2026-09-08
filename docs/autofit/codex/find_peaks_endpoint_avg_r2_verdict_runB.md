@@ -1,0 +1,18 @@
+# Codex adversarial review — Find Peaks endpoint averaging (feature-find-peaks-endpoint-avg) — round 2, RUN B (2026-09-08, reviewed at 7d37cea / code 2b10c58)
+
+codex exec 0.153.4 (model gpt-6-astra), read-only sandbox, model_reasoning_effort=high, gtimeout rails. Tokens: 75,929.
+Prompt: docs/autofit/codex/find_peaks_endpoint_avg_r2_review_prompt.txt
+Evidence CORRECTION (both runs caught it): the round-2 prompt claimed the combined browser files passed; the author's chained run had logged '1 failed, 14 passed' behind a tail -1 (tests/test_browser_find_peaks_progress.py::test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears — 'elapsed timer never ticked upward', also the single failure in the round-1 full suite: 1 failed / 794 passed / 7 skipped, gate 3 passed). Isolation re-runs and the disposition are in the round-3 prompt. Chains now print failures and abort on them.
+Round 2: A GO / B NO-GO — validation and AST guard CLOSED (both); B MINOR: 1e21 passes both validators, _fpLast records '1e+21' and the preview's parseInt reads 1 while the engine caps at window//4 — fixed in round 3 with a shared upper bound (50, the panel's max); both: evidence discrepancy.
+
+**Findings**
+
+1. **MINOR — Residual averaging mismatch.** Advanced JSON `{"endpoint_avg":1e21}` passes both validators. I reproduced `_fpLast.endpointAvg === "1e+21"`. Applying copies that string into the panel, but preview computation uses `parseInt(settings.endpointAvg)`, yielding **1**, while the engine averages up to its window-size cap. This leaves the preview/fit consistency claim false for an accepted value. Use consistent numeric parsing or a shared validated upper bound. See [validation and recording](/Users/skyefortier/xps-app/.claude/worktrees/feature-find-peaks-endpoint-avg/templates/index.html:14219) and [preview parsing](/Users/skyefortier/xps-app/.claude/worktrees/feature-find-peaks-endpoint-avg/templates/index.html:4480).
+
+2. **MAJOR — Original coercion finding resolved.** Strings, booleans, non-finite floats, fractions and nonpositive values are rejected correctly. Extracted backend and frontend checks passed, including refusal before upload. All four analyze methods use `pop_endpoint_avg`. Frontend JSON `3.0` is accepted but serializes as `3`; a direct API client can send `3.0`. The separate `/api/fit` and `/api/background` coercion remains outside this unit and does not bypass analyze validation. Synchronous analyze returns 400; asynchronous analyze reports method-validation errors through job status.
+
+3. **MINOR — Original structural-guard finding resolved.** The actual AST guard passed over **17 calls**. `ast.Attribute` covers `engine._compute_background`; `ast.walk` includes nested functions. The stability spy requires recomputation and checks every observed value equals 7. Wiring and default-1 arithmetic remain unchanged by round 2.
+
+4. **MINOR — Passing-browser evidence is unverified.** The available [round-2 task log](/private/tmp/claude-501/-Users-skyefortier-xps-app/350bc509-8554-4eb2-8e01-0167f43c0b89/tasks/bacfzyjp7.output:1) records **35 Python passes**, **164 Node passes**, but **1 browser failure / 14 passes**, contradicting the prompt. No successful rerun or completed round-2 full-suite/parity logs were available. My Node run had 152 passes and 12 failures caused by Python dependencies requiring writable temporary storage. Archived verdicts were not read.
+
+VERDICT: NO-GO — An accepted numeric endpoint_avg can still produce different engine and preview averaging, and the claimed clean browser run is not supported by the available log.
