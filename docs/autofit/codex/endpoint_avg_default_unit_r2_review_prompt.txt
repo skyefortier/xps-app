@@ -1,0 +1,52 @@
+RE-CHECK (round 2) of the endpoint-averaging default unit on branch
+feature-endpoint-avg-default-3 (HEAD 15e16e4; rebased onto main, which now
+carries the shirley_linear de-list and the investigation memo).
+Round 1 (both runs) returned NO-GO on four findings. Verify each
+disposition line-by-line; the original prompt is
+docs/autofit/codex/endpoint_avg_default_unit_review_prompt.txt and still
+applies. Do NOT read the archived round-1 verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-1 fix commits:     git log --oneline main..HEAD
+
+DISPOSITIONS TO VERIFY:
+1. Save Fit writer (BLOCKER A1 / MAJOR B1). FIXED: _doSaveFit() now writes
+   background.endpointAvg. The browser test captures the ACTUAL downloaded
+   blob by overriding window._downloadBlob, parses it, asserts '3', and
+   reloads it through tabManager.fromJSON — asserting '3' in record + DOM.
+2. v1 file without a background block (MINOR A3 / MAJOR B2). FIXED:
+   fromJSON resolves active.ui.endpointAvg = (data.background &&
+   data.background.endpointAvg) || LEGACY_ENDPOINT_AVG BEFORE and
+   independently of the if (data.background) block. Browser test loads
+   {version:1, peaks:[]} onto a fresh tab and asserts '1' in record + DOM;
+   a saved '9' still wins.
+3. Find Peaks fits at 1 while the panel shows 3 (MAJOR both). CLOSED
+   HONESTLY, NOT WIRED: runFindPeaks records the value the engine will use
+   (advanced-option endpoint_avg if supplied, else 1) on _fpLast;
+   applyFindPeaks sets #bg-endpoint-avg and tab.ui.endpointAvg to it,
+   invalidates the bg cache and notifies — so the preview background under
+   applied suggestions is the one the engine fitted. Threading endpoint_avg
+   through the engine is logged as a follow-up unit in the memo (last
+   section) with the exact wiring list, and the user note states the caveat.
+   The author's scope argument: the owner asked for "the default change as
+   its own unit"; the engine wiring touches nine signatures and every
+   method's option whitelist. Rule on whether the honest-preview fix is
+   sufficient for THIS unit or whether the wiring must ship with it.
+4. Batch propagation (MINOR both). FIXED: propagateFitUi now propagates
+   endpointAvg (a legacy source without the field propagates '1'), per the
+   sealed-fit-record memo R3-B5; its test pins the new propagated set and
+   the legacy-source case.
+5. Anything new introduced by the fix commits, including the rebase onto
+   the de-list change (same file, different regions).
+
+Evidence: node --test tests/js/*.test.js 159 pass / 0 fail / 3 known-gap
+todo; browser: the 7 endpoint-avg tests + batch ROI + find-peaks
+full-window files pass; each new test was watched failing first. Full
+pytest on the rebased branch is running at prompt time and is recorded in
+the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
