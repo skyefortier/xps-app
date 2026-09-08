@@ -1,0 +1,53 @@
+RE-CHECK (round 3) of the Find Peaks endpoint-averaging unit on branch
+feature-find-peaks-endpoint-avg (HEAD 916d3da). Round 2: run A GO, run B
+NO-GO on one MINOR (an accepted 1e21 diverging from the preview) and, in
+both runs, an evidence discrepancy the author must answer. Verify; the
+round-1/2 prompts (docs/autofit/codex/find_peaks_endpoint_avg_review_prompt.txt,
+…_r2_…) still apply. Do NOT read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-3 fix commit:      git show 916d3da
+
+DISPOSITIONS TO VERIFY:
+1. MINOR (B1) — 1e21 accepted, preview read 1. FIXED: one shared bound.
+   autofit.methods.base.ENDPOINT_AVG_MAX = 50 is enforced by
+   pop_endpoint_avg (1..50), mirrored as const ENDPOINT_AVG_MAX = 50 in
+   index.html and enforced by runFindPeaks before any request; the
+   #bg-endpoint-avg input already carried max="50". A test asserts the
+   three numbers agree. Challenge: is 50 the right bound given the
+   backend's own cap of window//4 (a 46-point window caps at 11 — should
+   the frontend refuse values the window cannot honour, or is the silent
+   cap acceptable because it is the same on both sides?).
+2. EVIDENCE discrepancy (both runs). The author's chained run had logged
+   "1 failed, 14 passed" for the combined browser files behind a tail -1
+   and the round-2 prompt claimed them green. The failing test is
+   tests/test_browser_find_peaks_progress.py::
+   test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears
+   ("elapsed timer never ticked upward"). It was then run in isolation:
+   twice on this branch (1 failed, 1 passed each time) AND once on the
+   main checkout at 0a80288 (1 failed, 1 passed) — it fails on main
+   without this branch, on an idle machine. The test requires the elapsed
+   readout to increase between two polls during a REAL analysis; on this
+   machine the analysis now completes before a second tick. The author
+   classifies it as a pre-existing timing-sensitive test, out of this
+   unit's scope, to be logged. Rule on that classification: is there any
+   way this branch's runFindPeaks changes (meta lookup, validation before
+   upload) shorten or reorder the status/timer sequence so the test fails
+   for a reason this branch introduced? Note the round-1 full suite on
+   the parent commit: 1 failed (this test) / 794 passed / 7 skipped; C1s
+   parity gate 3 passed.
+3. MINOR (A3, out of scope, acknowledged): /api/fit and /api/background
+   keep app.py's own max(1, int(...)) coercion; not changed here.
+4. Anything new introduced by the round-3 commit.
+
+Evidence (read from the logs, failures printed, not truncated):
+tests/autofit/test_endpoint_avg_wiring.py + seam 39 passed; node 164 /
+0 / 3 todo; browser find_peaks_endpoint_avg (4) + endpoint_avg_default
+(10) = 14 passed. Full pytest and the C1s parity gate run on THIS commit
+alongside this review; results in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
