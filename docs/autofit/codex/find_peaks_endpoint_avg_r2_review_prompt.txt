@@ -1,0 +1,45 @@
+RE-CHECK (round 2) of the Find Peaks endpoint-averaging unit on branch
+feature-find-peaks-endpoint-avg (HEAD 2b10c58). Round 1 (both runs) verified
+the wiring complete and default-1 arithmetic unchanged, and returned
+NO-GO on one MAJOR and one MINOR. Verify the dispositions; the round-1
+prompt (docs/autofit/codex/find_peaks_endpoint_avg_review_prompt.txt)
+still applies. Do NOT read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-2 fix commit:      git show 2b10c58
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — string/bool coercion and non-finite floats. FIXED:
+   autofit.methods.base.pop_endpoint_avg accepts only a JSON integer or an
+   integral finite float >= 1 (bool rejected explicitly; str/list/None
+   rejected; inf/nan rejected before int()); 12 parametrised rejection
+   cases + 4 acceptance cases. runFindPeaks refuses anything but a JS
+   number that is a whole number >= 1 before uploading, with the reason in
+   #fp-status; browser test sets "1_0" and asserts no /api/analyze/start
+   request is sent. _fpLast.endpointAvg is now String(options.endpoint_avg)
+   only after that check. Challenge: any other path that reaches the
+   engine's endpoint_avg without pop_endpoint_avg (the /api/fit and
+   /api/background routes use app.py's own max(1, int(...)) — out of this
+   unit's scope but say if it matters), and whether 3.0 (accepted) can
+   arrive from the frontend at all.
+2. MINOR (both) — structural guard scope. FIXED: the test walks every
+   autofit/**/*.py by AST, finds calls to the seven background-affecting
+   functions, and fails on a missing endpoint_avg keyword OR a literal
+   value; a behavioural test spies _compute_background through
+   run_stability_analysis(endpoint_avg=7) and asserts every recomputation
+   used 7. Challenge: does the AST scan see calls made through attribute
+   access (engine._compute_background) and calls inside nested functions?
+3. Anything new introduced by the round-2 commit.
+
+Evidence (read from the logs): tests/autofit/test_endpoint_avg_wiring.py
++ seam: all passed; node 164 pass / 0 fail / 3 known-gap todo; browser
+find_peaks_endpoint_avg (3) + endpoint_avg_default (10) +
+find_peaks_progress pass together. Full pytest and the C1s parity gate
+run alongside this review on this commit; results in the archived verdict
+header (the round-1 run on the parent commit is also recorded there).
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
