@@ -1,0 +1,44 @@
+RE-CHECK (round 5) of the endpoint-averaging default unit on branch
+feature-endpoint-avg-default-3 (HEAD fb17b8b). Round 4 (both runs) closed
+the memo item and returned NO-GO on the reopened-project-tab id reuse
+(MAJOR) and the null-active-tab mirror (MINOR). Verify these two
+dispositions; earlier prompts (…_review_prompt.txt, _r2_, _r3_, _r4_)
+still apply. Do NOT read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-5 fix commit:      git show fb17b8b
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — persisted tab ids are reused after project reload.
+   FIXED: averaging-carrying entries now carry snap._tabToken =
+   _runtimeTokenOf(activeTabObject), a WeakMap-issued integer unique to
+   the LIVE tab object and never persisted; _restoreSnapshotEndpointAvg is
+   inert unless tabManager._getTab(activeId) is that same object. A
+   reopened tab is a new object (the project loader builds new tab
+   literals), so stale entries never match. Browser test: apply on A ->
+   set 9 -> save the project through the real _doSaveProject blob ->
+   closeTab(A) -> _loadProjectJSON -> activate -> undo leaves DOM+record 9.
+   Challenge: any path that RE-USES the same tab object while changing its
+   meaning (e.g. fromJSON loading a v1 fit file INTO the active tab, a
+   spectrum replaced in place via setSpectrum) — is a stale averaging entry
+   for that same object still correct to restore? Argue whether that is
+   the user's expected undo or a defect.
+2. MINOR (both) — null active tab. FIXED: _peaksSnapshot records no
+   metadata when there is no active tab; the restore requires a live
+   active tab object (null token never matches). Browser test: close the
+   last tab -> undo -> set 9 -> redo leaves 9.
+3. Anything new introduced by the round-5 commit, including the WeakMap
+   (memory, tokens on stack tabs, _getTab returning null).
+
+Evidence (read from the logs): node --test tests/js/*.test.js 162 pass /
+0 fail / 3 known-gap todo; browser endpoint_avg_default (10 tests),
+find_peaks_full_window, batch_roi, overlay_zip_roundtrip pass together;
+both new tests were watched failing with the reviewers' reproductions
+(reopened 9 -> 3; empty workspace 9 -> 1). Full pytest on the branch runs
+alongside this review and is recorded in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
