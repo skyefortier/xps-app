@@ -37,7 +37,7 @@ Classified by what it holds. Only class C can cause wrong-tab restore.
 | A — UI-transient | mode/handle for an interaction in progress; no spectrum content | `placeMode`, `_pendingMultipletPreset`, `_dragZoomEnabled`, `_saveMode`, `_bgSubFitInFlight`, `_autoFitConfirmResolver`, `_findPeaksApplyConfirmResolver`, `_undoDebounceTimer`, `_fpModalDrag`, `_refPaletteDrag`, `_refChipOpen*`, `_ssFocusIdx`, `_ssFiltered`, `_snapshotSuppressed` |
 | B — tab-independent cache / catalogue | server payloads, palettes, counters | `_fpMeta`, `_refPayload`, `_refError`, `_refFetchPromise`, `_refSearchElements`, `_refNotesOpen`, `_accSurveyCache`, `_accChemCache`, `_nextStackNum`, `_refCompoundMarkerNextId`, `_tabRuntimeTokens` |
 | B′ — chart-instance state | belongs to the chart object, reset on activation | `_origYMax/_origXMin/_origXMax/_origResidY*`, `_historyPreview` (cleared in `activateTab`) |
-| **C — per-tab content held globally** | **spectrum-specific data consumed on "the active tab"** | **`undoStack`, `redoStack`, `_fpLast`**, `_fpRegionsSelected` + `_fpExpandedElement` (the region selection for the NEXT run — belongs to the tab whose ROI it was chosen for), `_refGlobalSel` (documented fallback "when no tab exists" — acceptable only while no tab exists), `_refCompoundMarkers` (verify: per-tab or global markers?) |
+| **C — per-tab content held globally** | **spectrum-specific data consumed on "the active tab"** | **`undoStack`, `redoStack`, `_fpLast`**. Checked and NOT class C: `_fpRegionsSelected` + `_fpExpandedElement` are reset every time the modal opens (class A, one modal session); `_refCompoundMarkers` is a deliberately project-level overlay, serialized and restored with the project (class B, annotate); `_refGlobalSel` is the documented no-tab fallback (class B, annotate) |
 
 `state` itself is the designed exception: it is the ACTIVE tab's working
 copy, swapped wholesale by `activateTab` / `_syncActiveToRecord`. Anything
@@ -79,16 +79,14 @@ on the tab record, never beside `state`.
   pre-action averaging); the runtime-token guard becomes redundant but
   harmless — delete it once the per-tab stacks are in, to keep one
   mechanism.
-- `_fpLast` → `tab.findPeaks = { last, regions, expandedElement }`; the
+- `_fpLast` → `tab.findPeaks = { last }` (the region selection is reset on
+  every modal open and stays module-level, class A); the
   modal reads the active tab's; `applyFindPeaks` refuses (notice) if the
   result's tab object is not the active one (belt-and-braces: with the
   result stored ON the tab this cannot happen, so the check is a
   structural assertion, not a code path).
-- `_refGlobalSel`: keep, but only consulted when no tab exists (already
-  documented); add the allowlist annotation.
-- `_refCompoundMarkers`: audit whether markers are per-tab (they are drawn
-  on the active chart); if per-tab, move; if deliberately global overlay,
-  annotate.
+- `_refGlobalSel` and `_refCompoundMarkers`: keep; allowlist annotations
+  (no-tab fallback; project-level overlay serialized with the project).
 
 ## Tests
 
