@@ -145,3 +145,23 @@ def test_advanced_json_endpoint_avg_wins_over_the_panel(browser, server):
         assert body["options"].get("endpoint_avg") == 7, body["options"]
     finally:
         pg.close()
+
+
+def test_non_integer_endpoint_avg_in_advanced_json_is_refused_before_any_request(browser, server):
+    # Codex round 1 (both runs): a string like "1_0" must not reach the engine
+    # (Python would coerce it to 10) while the frontend records 1. The request
+    # must not be sent and the status must say why.
+    pg = _page(browser, server)
+    try:
+        _open_modal_with_region(pg, "least_squares")
+        out = pg.evaluate("""() => {
+            const o = JSON.parse(document.getElementById('fp-options').value || '{}');
+            o.endpoint_avg = "1_0"; document.getElementById('fp-options').value = JSON.stringify(o);
+            window.__sent = []; const of = window.fetch;
+            window.fetch = (u, opts) => { window.__sent.push(String(u)); return of(u, opts); };
+            return runFindPeaks().then(() => ({ sent: window.__sent, status: document.getElementById('fp-status').textContent }));
+        }""")
+        assert not any('/api/analyze/start' in u for u in out["sent"]), out
+        assert 'endpoint_avg' in out["status"], out
+    finally:
+        pg.close()

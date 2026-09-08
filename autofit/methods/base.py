@@ -95,11 +95,18 @@ def pop_endpoint_avg(opts: dict, default: int = 1) -> int:
     fits a background (Find Peaks honours the Background panel, 2026-09-08).
     Must be an integer >= 1; the frontend sends the panel value, so a bad value
     is a request error (ValueError -> 400), never a silent fallback to 1."""
+    import math
     raw = opts.pop("endpoint_avg", default)
-    try:
-        n = int(raw)
-    except (TypeError, ValueError):
+    # Strict by type, not by coercion: int("1_0") == 10 and int(True) == 1
+    # would let a malformed Advanced-JSON value fit at one averaging while the
+    # frontend records another (Codex 2026-09-08, both runs). Only a JSON
+    # integer (or an integral finite float such as 3.0) is accepted.
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
         raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
-    if n < 1 or (isinstance(raw, float) and not float(raw).is_integer()):
+    if isinstance(raw, float):
+        if not math.isfinite(raw) or not raw.is_integer():
+            raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
+    n = int(raw)
+    if n < 1:
         raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
     return n

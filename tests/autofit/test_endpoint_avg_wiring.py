@@ -53,39 +53,38 @@ def test_fit_candidate_background_uses_the_requested_endpoint_avg():
     assert np.max(np.abs(out10.background - out1.background)) > 1.0, "averaging must change the anchor on noisy data"
 
 
-def _calls(src: str, name: str):
-    """Every call of `name(` in src (definitions excluded), as the text up to the
-    matching close paren."""
-    out = []
-    for m in re.finditer(r'(?<!def )\b' + re.escape(name) + r'\(', src):
-        i, depth = m.end(), 1
-        while depth and i < len(src):
-            depth += {'(': 1, ')': -1}.get(src[i], 0)
-            i += 1
-        call = src[m.start():i]
-        if re.fullmatch(re.escape(name) + r'\(\s*\)', call):
-            continue   # a prose mention like "see fit_candidate() docstring", not a call
-        out.append(call)
-    return out
+BACKGROUND_AFFECTING = {"_compute_background", "fit_candidate", "run_stability_analysis",
+                        "_attempt_proposal", "_bound_fixed_refit", "_apply_decisive_override",
+                        "compare_models"}
 
 
-@pytest.mark.parametrize("fname, callee", [
-    ("autofit/engine.py", "_compute_background"),
-    ("autofit/engine.py", "fit_candidate"),
-    ("autofit/engine.py", "_attempt_proposal"),
-    ("autofit/engine.py", "_bound_fixed_refit"),
-    ("autofit/engine.py", "_apply_decisive_override"),
-    ("autofit/engine.py", "run_stability_analysis"),
-    ("autofit/methods/bayesian_exchange_mc.py", "_compute_background"),
-    ("autofit/methods/sparse_map.py", "_compute_background"),
-    ("autofit/methods/ic_model_comparison.py", "compare_models"),
-])
-def test_every_background_affecting_call_passes_endpoint_avg(fname, callee):
-    src = (ROOT / fname).read_text()
-    calls = _calls(src, callee)
-    assert calls, f"no calls of {callee} found in {fname}"
-    missing = [c[:80] for c in calls if "endpoint_avg=" not in c]
-    assert not missing, f"{fname}: {callee} called without endpoint_avg: {missing}"
+def _background_affecting_calls():
+    """Every call of a background-affecting function anywhere under autofit/,
+    discovered by AST (not by a hand-kept list), with the endpoint_avg keyword
+    node if present."""
+    import ast
+    found = []
+    for path in sorted((ROOT / "autofit").rglob("*.py")):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            name = fn.id if isinstance(fn, ast.Name) else (fn.attr if isinstance(fn, ast.Attribute) else None)
+            if name in BACKGROUND_AFFECTING:
+                kw = next((k for k in node.keywords if k.arg == "endpoint_avg"), None)
+                found.append((path.relative_to(ROOT).as_posix(), node.lineno, name, kw))
+    return found
+
+
+def test_every_background_affecting_call_in_the_package_passes_a_non_constant_endpoint_avg():
+    import ast
+    calls = _background_affecting_calls()
+    assert len(calls) >= 10, calls
+    missing = [(f, ln, n) for f, ln, n, kw in calls if kw is None]
+    assert not missing, f"calls without endpoint_avg: {missing}"
+    constants = [(f, ln, n) for f, ln, n, kw in calls if isinstance(kw.value, ast.Constant)]
+    assert not constants, f"endpoint_avg passed as a literal (drops the requested value): {constants}"
 
 
 # ── methods forward the option ───────────────────────────────────────────────
@@ -151,3 +150,45 @@ def test_endpoint_avg_is_an_adjustable_default_for_background_methods(method_id)
 def test_methods_without_a_background_do_not_advertise_endpoint_avg(method_id):
     from app import _ANALYZE_METHODS
     assert "endpoint_avg" not in _ANALYZE_METHODS.get(method_id, {})
+
+
+# ── validation (Codex round 1, both runs) ────────────────────────────────────
+
+@pytest.mark.parametrize("bad", ["3", "1_0", " 3", True, False, float("inf"), float("nan"), 2.5, 0, -1, None, [3]])
+def test_pop_endpoint_avg_rejects_non_integer_values(bad):
+    from autofit.methods.base import pop_endpoint_avg
+    with pytest.raises(ValueError, match="endpoint_avg"):
+        pop_endpoint_avg({"endpoint_avg": bad})
+
+
+@pytest.mark.parametrize("good, want", [(3, 3), (3.0, 3), (1, 1), (50, 50)])
+def test_pop_endpoint_avg_accepts_integers(good, want):
+    from autofit.methods.base import pop_endpoint_avg
+    assert pop_endpoint_avg({"endpoint_avg": good}) == want
+
+
+def test_pop_endpoint_avg_default_when_absent():
+    from autofit.methods.base import pop_endpoint_avg
+    assert pop_endpoint_avg({}) == 1
+
+
+# ── behavioural: a non-default averaging reaches the stability refits ────────
+
+def test_stability_refits_recompute_the_background_at_the_requested_averaging(monkeypatch):
+    from autofit import engine as eng
+    x, y = _synthetic_c1s()
+    w = poisson_like_weights(y)
+    model = resolve([GRAPHITE], "C 1s").candidates[0]
+    primary = fit_candidate(x, y, w, model, endpoint_avg=7)
+    assert primary.converged
+    seen = []
+    real = eng._compute_background
+
+    def spy(x_, y_, bg, endpoint_avg=1):
+        seen.append(endpoint_avg)
+        return real(x_, y_, bg, endpoint_avg=endpoint_avg)
+
+    monkeypatch.setattr(eng, "_compute_background", spy)
+    eng.run_stability_analysis(x, y, w, model, primary, noise_floor=1.0, n_refits=2, rng_seed=0, endpoint_avg=7)
+    assert seen, "refits must recompute the background"
+    assert set(seen) == {7}, seen

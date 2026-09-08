@@ -14212,8 +14212,17 @@ async function runFindPeaks() {
   if (methodTakesEp && options.endpoint_avg === undefined) {
     options.endpoint_avg = parseInt(document.getElementById('bg-endpoint-avg')?.value) || 1;
   }
-  const engineEndpointAvg = (methodTakesEp && Number.isInteger(+options.endpoint_avg) && +options.endpoint_avg >= 1)
-    ? String(+options.endpoint_avg) : LEGACY_ENDPOINT_AVG;
+  // Strict, mirroring the backend's pop_endpoint_avg: a JSON number that is
+  // a whole number >= 1. Anything else (a string like "1_0" that Python would
+  // coerce to 10, a boolean, a fraction) is refused HERE, before any request,
+  // so what _fpLast records is always exactly what the engine used.
+  if (methodTakesEp && !(typeof options.endpoint_avg === 'number'
+                         && Number.isInteger(options.endpoint_avg) && options.endpoint_avg >= 1)) {
+    status.textContent = 'Advanced options: endpoint_avg must be a whole number \u2265 1 (got ' +
+                         JSON.stringify(options.endpoint_avg) + ').';
+    return;
+  }
+  const engineEndpointAvg = methodTakesEp ? String(options.endpoint_avg) : LEGACY_ENDPOINT_AVG;
 
   btn.disabled = true;
   spinner.style.display = 'inline-block';
