@@ -1,0 +1,68 @@
+You are running an ADVERSARIAL review of one small unit on branch
+fix-shirley-linear-delist (HEAD, commit 8b93123) of this repo (XPS
+peak-fitting web app: Flask backend + single-file frontend
+templates/index.html). Challenge the approach and real-world failure modes.
+
+UNIT UNDER REVIEW (one commit vs main):
+  git diff main...HEAD -- templates/index.html
+                          tests/test_browser_shirley_linear_delist.py
+                          tests/test_shirley_linear_kept.py
+
+OWNER DECISION being implemented (verbatim intent): "de-list, but SAFELY.
+Remove from the background-type dropdown so it cannot be newly selected,
+but KEEP the code path so any existing saved file still loads and renders
+correctly. Do not delete the implementation. Add a note in the UI if an old
+file loads with it selected." Background: the JS preview of shirley_linear
+diverges 27-33 % of span from the background the backend fits on real
+descending grids (docs/superpowers/plans/2026-09-02-task4-background-twin-
+parity.md); zero usage found in 166 saved tabs across 7 committed .proj.zip
++ 5 .spec.json; a scientific review of the method is pending.
+
+THE CHANGE: the <option value="shirley_linear"> stays in the DOM with
+`disabled hidden`; new `_syncLegacyBgOption()` un-hides/enables it and shows
+`#bg-legacy-note` only while the select's value IS 'shirley_linear', and
+re-hides both otherwise. Called from TabManager._restoreUI right after
+`set('bg-type', ui.bgType)` and at the top of `_onBgTypeChange()`. No
+change to shirleyLinearBackground, computeBackgroundCore's route, save
+serializers, or the backend.
+
+ADVERSARIAL QUESTIONS:
+1. Programmatic selection of a disabled+hidden option: `select.value =
+   'shirley_linear'` is verified in headless Chromium by the browser test.
+   Is there any engine (Firefox, Safari/WebKit) where the value setter
+   refuses a disabled or hidden option, leaving value '' and the tab silently
+   rendering with NO background? If so, the restore must un-hide BEFORE
+   setting. Cite spec/behaviour; if you cannot be certain, say what the safe
+   ordering is and whether the current code has it.
+2. Every path that writes #bg-type's value: _restoreUI, the v1 fit-file
+   loader (index.html ~3285 sets active.ui.bgType then restores?), spec/json
+   loaders, batch propagation (static/js/batch_propagation.js writes target
+   tab.ui, then activation restores), undo/history restore, auto-fit
+   snapshot restore (_autoFitRestore sets DOM fields directly — does it
+   write bg-type?). Which of these bypass _syncLegacyBgOption, and what is
+   the user-visible consequence (option stays hidden while selected — does
+   the select then DISPLAY the legacy label or blank?).
+3. Batch propagation from a legacy tab would copy 'shirley_linear' onto
+   target tabs. Acceptable under "cannot be NEWLY selected"? Argue either
+   way.
+4. The note's text claims "on real spectra its on-screen curve can differ
+   from the background the fit actually subtracts". Is that an accurate
+   summary of the task-4 finding and of what a user of a restored file sees?
+5. Anything that enumerates the select's options (cloned selects, batch UI,
+   tooltips data-tip wiring `xps-tip-select`) that now misbehaves with a
+   hidden option or the inserted HTML comment inside <select>.
+6. Test adequacy: can a wrong implementation (e.g. hiding via CSS only,
+   forgetting _onBgTypeChange, or deleting the option) pass all five tests?
+
+Your sandbox cannot run pytest or Playwright; review on the merits. Author-
+reported evidence: the 3 browser tests were watched failing on main for the
+expected reasons (option not disabled; note absent) and pass on the branch;
+tests/test_shirley_linear_kept.py 2 passed; node --test tests/js/*.test.js
+155 pass / 0 fail / 3 known-gap todo. Full pytest on the branch is running
+and its result is recorded in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
