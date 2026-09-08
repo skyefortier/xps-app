@@ -90,6 +90,14 @@ def poisson_like_weights(y: np.ndarray) -> np.ndarray:
     return 1.0 / np.sqrt(np.maximum(np.asarray(y, dtype=float), 1.0))
 
 
+# Shared upper bound for endpoint averaging: the Background panel's
+# #bg-endpoint-avg input carries max="50" and the frontend defines the same
+# ENDPOINT_AVG_MAX, so every value the engine accepts is representable by the
+# panel (Codex 2026-09-08 round 2: 1e21 passed both validators while the
+# preview's parseInt read it as 1).
+ENDPOINT_AVG_MAX = 50
+
+
 def pop_endpoint_avg(opts: dict, default: int = 1) -> int:
     """Pop and validate the ``endpoint_avg`` option shared by every method that
     fits a background (Find Peaks honours the Background panel, 2026-09-08).
@@ -107,6 +115,6 @@ def pop_endpoint_avg(opts: dict, default: int = 1) -> int:
         if not math.isfinite(raw) or not raw.is_integer():
             raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
     n = int(raw)
-    if n < 1:
-        raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
+    if n < 1 or n > ENDPOINT_AVG_MAX:
+        raise ValueError(f"endpoint_avg must be an integer between 1 and {ENDPOINT_AVG_MAX}, got {raw!r}")
     return n

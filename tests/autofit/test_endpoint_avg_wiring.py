@@ -154,14 +154,15 @@ def test_methods_without_a_background_do_not_advertise_endpoint_avg(method_id):
 
 # ── validation (Codex round 1, both runs) ────────────────────────────────────
 
-@pytest.mark.parametrize("bad", ["3", "1_0", " 3", True, False, float("inf"), float("nan"), 2.5, 0, -1, None, [3]])
+@pytest.mark.parametrize("bad", ["3", "1_0", " 3", True, False, float("inf"), float("nan"), 2.5, 0, -1, None, [3],
+                                 51, 1e21, 10**9])
 def test_pop_endpoint_avg_rejects_non_integer_values(bad):
     from autofit.methods.base import pop_endpoint_avg
     with pytest.raises(ValueError, match="endpoint_avg"):
         pop_endpoint_avg({"endpoint_avg": bad})
 
 
-@pytest.mark.parametrize("good, want", [(3, 3), (3.0, 3), (1, 1), (50, 50)])
+@pytest.mark.parametrize("good, want", [(3, 3), (3.0, 3), (1, 1), (50, 50)])   # 50 = the panel's max and the shared bound
 def test_pop_endpoint_avg_accepts_integers(good, want):
     from autofit.methods.base import pop_endpoint_avg
     assert pop_endpoint_avg({"endpoint_avg": good}) == want
@@ -192,3 +193,14 @@ def test_stability_refits_recompute_the_background_at_the_requested_averaging(mo
     eng.run_stability_analysis(x, y, w, model, primary, noise_floor=1.0, n_refits=2, rng_seed=0, endpoint_avg=7)
     assert seen, "refits must recompute the background"
     assert set(seen) == {7}, seen
+
+
+def test_endpoint_avg_bound_is_shared_with_the_panel_max():
+    """The frontend #bg-endpoint-avg input carries max="50"; the backend bound
+    must be the same number so an accepted value is always representable by the
+    panel (Codex round 2 B1: 1e21 passed both validators, the preview's parseInt
+    read 1 while the engine capped at window//4)."""
+    from autofit.methods.base import ENDPOINT_AVG_MAX
+    html = (ROOT / "templates" / "index.html").read_text()
+    assert re.search(r'id="bg-endpoint-avg" value="\d+" min="1" max="%d"' % ENDPOINT_AVG_MAX, html)
+    assert re.search(r"ENDPOINT_AVG_MAX = %d;" % ENDPOINT_AVG_MAX, html), "frontend must define the same bound"

@@ -165,3 +165,23 @@ def test_non_integer_endpoint_avg_in_advanced_json_is_refused_before_any_request
         assert 'endpoint_avg' in out["status"], out
     finally:
         pg.close()
+
+
+def test_endpoint_avg_above_the_panel_bound_is_refused_before_any_request(browser, server):
+    # Codex round 2 (run B): 1e21 passed both validators; _fpLast recorded
+    # "1e+21" and the preview parsed it as 1 while the engine capped at the
+    # window. The shared bound (50, the panel's max) closes that.
+    pg = _page(browser, server)
+    try:
+        _open_modal_with_region(pg, "least_squares")
+        out = pg.evaluate("""() => {
+            const o = JSON.parse(document.getElementById('fp-options').value || '{}');
+            o.endpoint_avg = 1e21; document.getElementById('fp-options').value = JSON.stringify(o);
+            window.__sent = []; const of = window.fetch;
+            window.fetch = (u, opts) => { window.__sent.push(String(u)); return of(u, opts); };
+            return runFindPeaks().then(() => ({ sent: window.__sent, status: document.getElementById('fp-status').textContent }));
+        }""")
+        assert not any('/api/analyze/start' in u for u in out["sent"]), out
+        assert 'endpoint_avg' in out["status"], out
+    finally:
+        pg.close()

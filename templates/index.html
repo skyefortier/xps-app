@@ -3045,6 +3045,9 @@ function organizeTabs() {
 // that background — "new fits only, nothing previously reported changes".
 const NEW_TAB_ENDPOINT_AVG = '3';
 const LEGACY_ENDPOINT_AVG = '1';
+// Upper bound shared with the backend (autofit.methods.base.ENDPOINT_AVG_MAX)
+// and the #bg-endpoint-avg input's max attribute.
+const ENDPOINT_AVG_MAX = 50;
 
 class TabManager {
   constructor() {
@@ -14217,9 +14220,10 @@ async function runFindPeaks() {
   // coerce to 10, a boolean, a fraction) is refused HERE, before any request,
   // so what _fpLast records is always exactly what the engine used.
   if (methodTakesEp && !(typeof options.endpoint_avg === 'number'
-                         && Number.isInteger(options.endpoint_avg) && options.endpoint_avg >= 1)) {
-    status.textContent = 'Advanced options: endpoint_avg must be a whole number \u2265 1 (got ' +
-                         JSON.stringify(options.endpoint_avg) + ').';
+                         && Number.isInteger(options.endpoint_avg)
+                         && options.endpoint_avg >= 1 && options.endpoint_avg <= ENDPOINT_AVG_MAX)) {
+    status.textContent = 'Advanced options: endpoint_avg must be a whole number between 1 and ' +
+                         ENDPOINT_AVG_MAX + ' (got ' + JSON.stringify(options.endpoint_avg) + ').';
     return;
   }
   const engineEndpointAvg = methodTakesEp ? String(options.endpoint_avg) : LEGACY_ENDPOINT_AVG;
