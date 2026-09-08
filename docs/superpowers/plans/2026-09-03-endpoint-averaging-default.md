@@ -85,28 +85,35 @@ the local noise σ; for the slopes seen on real lab data (3–15 counts per
 channel at 0.1 eV) that permits n_avg ≈ 5 comfortably, 10 marginally, 20
 not.
 
-## Recommendation
+## Caveat on the Δfraction column (owner, 2026-09-03)
 
-**Default `n_avg = 5`** (the `window//4` cap already protects short windows;
-the 46-point B 1s windows in the committed projects would get cap 11, so 5
-applies unclipped everywhere in the corpus).
+The C1s max-Δfraction column is non-monotonic (1.28 pp at n = 5, 1.76 at
+10, 0.25 at 20): differences of that size between adjacent n_avg values
+are comparable to the measurement's own noise (one spectrum, one edge
+move), so they must not carry the argument on their own. The Poisson
+scatter column is clean and monotonic and is the primary evidence; the
+edge-move column establishes the size of the n = 1 fragility (6.2 pp) and
+that it collapses by n = 3, nothing finer than that.
 
-- Removes ~80 % of the one-point edge sensitivity on both spectra
-  (6.2 → 1.3 pp; 0.23 → 0.05 pp) and ~35 % of the Poisson scatter.
-- Bias stays inside the local noise on every measured edge, and χ²ᵣ
-  improves on C1s (4.97 → 3.88). Cost to state honestly: U 4f χ²ᵣ rises
-  1.93 → 2.10 at n_avg = 5 (1.96 at 3), with fractions moving < 0.1 pp —
-  the smart background's raw-data clamp interacting with the averaged
-  anchor at the high-BE edge; small but not zero.
-- 3 would be the conservative alternative (same C1s sensitivity, smaller
-  U 4f χ²ᵣ cost, less scatter reduction). 10 buys scatter at the price of
-  a bias that equals the noise on steep edges; 20 is not defensible.
+## Recommendation (decided by the owner: n_avg = 3)
 
-Consequences if adopted: changes numbers for NEW fits only (saved fits
-carry their own `endpointAvg` in `tab.ui` and restore it), so it needs its
-own user note but no migration; auto-fit and batch propagation read the
-same field. It does not close the fragility — a one-channel move at
-n_avg = 5 still shifts C1s graphite by up to 1.3 pp — it reduces it to the
-level of the Poisson scatter, which is the honest floor for a
-single-scan fit. Not decided here; the owner asked to see the measurements
-before any default changes.
+**Default `n_avg = 3`**, not 5. Reasoning:
+
+- C1s χ²ᵣ is identical at 3 and 5 (3.88 at both), and the C1s one-point
+  sensitivity is effectively identical (1.31 vs 1.28 pp — 3 captures 99 %
+  of the available benefit).
+- U 4f χ²ᵣ degrades less at 3 (1.96 vs 2.10).
+- By the bias formula `s·(cap−1)/2`, the n = 3 anchor bias is HALF that of
+  n = 5. Bias grows linearly with `cap` and, unlike noise, is hard to see
+  in a residual; the smallest averaging that captures most of the benefit
+  is the right default.
+- Scatter reduction is smaller at 3 than at 5 (2.70 → 1.95 vs → 1.74 pp);
+  that is the accepted price for halving the bias.
+
+Consequences: changes numbers for NEW fits only — every saved tab carries
+its own `endpointAvg` and restores it, and files that predate the field
+were fit at 1 and must keep restoring as 1. Needs a one-paragraph user
+note (nothing previously reported changes), and its own Codex-reviewed
+unit. It does not close the fragility — a one-channel edge move at n = 3
+still shifts C1s graphite by up to 1.3 pp — it reduces it to the level of
+the Poisson scatter, the honest floor for a single-scan fit.
