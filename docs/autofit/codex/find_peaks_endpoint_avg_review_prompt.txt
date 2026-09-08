@@ -1,0 +1,62 @@
+You are running an ADVERSARIAL review of one unit on branch
+feature-find-peaks-endpoint-avg (HEAD 29ce18d) of this repo (XPS
+peak-fitting web app: Flask backend, autofit engine in autofit/, single-file
+frontend templates/index.html). Challenge the approach and the failure modes.
+
+UNIT UNDER REVIEW (vs main):  git diff main...HEAD
+  autofit/engine.py, autofit/methods/{base,least_squares,ic_model_comparison,
+  bayesian_exchange_mc,sparse_map}.py, app.py, templates/index.html,
+  tests/autofit/test_endpoint_avg_wiring.py,
+  tests/test_browser_find_peaks_endpoint_avg.py, tests/js/find_peaks_endpoint_avg.test.js
+  Design record: docs/superpowers/plans/2026-09-03-endpoint-averaging-default.md
+  (last two sections).
+
+OWNER'S FRAMING: "F3 round two." Audit F3 (2026-07-17) added endpoint_avg
+to engine._compute_background at default 1, matching the frontend default
+then. The frontend default is now 3, so Find Peaks fitting at 1 became a
+GUARANTEED divergence from manual fits on every new tab, and the interim
+apply-path guard overrode the user's panel. This unit threads endpoint_avg
+end to end; default 1 must keep every committed fixture byte-stable.
+
+CLAIMS TO VERIFY OR REFUTE:
+- Completeness: every fit_candidate / _compute_background call in autofit/
+  now passes endpoint_avg explicitly (structural test). The author found
+  that stability refits, proposals and bound-fixed refits called
+  fit_candidate WITHOUT fit_full_window or endpoint_avg and so recomputed
+  the background at 1 even when the primary used another value — now
+  threaded. Is there any remaining path (perturb_initial_params,
+  _initial_params_for_augmented, detect_out_of_grammar_dominants, the
+  candidate pool / CWT detector, run_stability_analysis's y_net from
+  primary_fit.background, the max_entropy / multivariate_mcr methods) that
+  derives a background or net signal at a DIFFERENT averaging than the
+  fits, so chi2 / BIC / persistence comparisons mix anchors?
+- Byte-stability: with endpoint_avg absent or 1 the engine's arithmetic
+  is unchanged. Confirm no call site changed order of operations or
+  defaults; the parity gate (RUN_AUTOFIT_GATE=1 tests/autofit/
+  test_c1s_parity_gate.py) result is recorded in the archived verdict.
+- Validation: pop_endpoint_avg rejects 0, negatives, non-integers, strings;
+  the API turns ValueError into 400. Does anything now pass endpoint_avg
+  as a string ('3') from the frontend? (runFindPeaks uses parseInt.)
+- Frontend rule: the Background panel is the source; an explicit
+  Advanced-JSON value wins; the JSON view omits the advertised 1;
+  methods not advertising endpoint_avg are not sent it. Can the JSON view
+  and the request disagree in a way a user would not expect (e.g. the
+  panel changed after the modal filled the JSON)? Is _fpLast.endpointAvg
+  always the value the engine used?
+- The default-3 unit's apply-path guard (panel set to what the engine
+  used, with a notice) is retained as a consistency check. Is it still
+  correct and now a no-op in normal use?
+
+Your sandbox cannot run pytest or Playwright; review on the merits.
+Author-reported evidence: tests/autofit/test_endpoint_avg_wiring.py 20
+passed (+ methods seam file); node --test tests/js/*.test.js 164 pass / 0
+fail / 3 known-gap todo; browser find_peaks_endpoint_avg (2) +
+endpoint_avg_default (10) pass; every new test watched failing first. Full
+pytest and the C1s parity gate run alongside this review; results in the
+archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
