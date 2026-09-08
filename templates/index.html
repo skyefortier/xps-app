@@ -1999,7 +1999,7 @@
                 <option value="manual" data-tip="Click + Anchor in the Manual bg controls, then click the chart to place points. Background is linearly interpolated between anchors. Right-click on or near an anchor to remove it.">Manual (anchor)</option>
               </select>
               <div id="bg-legacy-note" style="display:none;background:var(--bg2);border:1px solid var(--amber);border-radius:var(--radius);padding:6px 8px;margin-top:6px;font-size:10.5px;color:var(--text2);line-height:1.45">
-                This file uses the <b>Shirley + Linear</b> background, which has been removed from the menu pending scientific review: on real spectra its on-screen curve can differ from the background the fit actually subtracts. The file still loads, renders and fits exactly as before. Choosing any other type hides this option again.
+                This file uses the <b>Shirley + Linear</b> background, which has been removed from the menu pending scientific review: on real spectra its on-screen curve can differ from the background the backend fit actually subtracts. The file still loads, renders and fits exactly as before (compatibility, not endorsement). Choosing any other type hides this option again.
               </div>
             </div>
             <div id="manual-bg-controls">
@@ -12561,9 +12561,10 @@ function _setManualAnchors(arr) {
 
 // shirley_linear is de-listed (2026-09-03) but never deleted: the <option>
 // stays in the DOM disabled + hidden so a saved file can still restore it.
-// While it IS the selected type (only reachable via a restored tab.ui), show
-// it and the explanatory note; the moment any other type is chosen, hide
-// both again so it cannot be newly selected.
+// While it IS the selected type (reachable via a restored tab.ui, or via
+// batch propagation from such a tab — the dropdown-only de-listing does not
+// police propagation), show it and the explanatory note; the moment any
+// other type is chosen, hide both again so it cannot be newly selected.
 function _syncLegacyBgOption() {
   const sel = document.getElementById('bg-type');
   if (!sel) return;
