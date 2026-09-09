@@ -2307,57 +2307,52 @@ let state = {
 // ═══════════════════════════════════════════════════
 // UNDO / REDO
 // ═══════════════════════════════════════════════════
-const undoStack = [];
-const redoStack = [];
+// Undo/redo history is PER TAB — it lives on the tab record (tab.undoStack /
+// tab.redoStack, runtime-only, never serialised) exactly like fit history
+// (tab.snapshots). Module-level stacks were the second instance of per-tab
+// content being restored into whichever tab was active (the first was the
+// auto-fit rollback); with the stacks on the record there is no other stack
+// to restore from, so a cross-tab restore has no path — by construction,
+// not by guard (docs/superpowers/plans/2026-09-08-per-tab-state-ownership.md).
 const MAX_UNDO = 50;
 let _undoDebounceTimer = null;
+
+// The one accessor for per-tab runtime state. null when no tab is active.
+function _activeTab() {
+  return (typeof tabManager !== 'undefined' && tabManager) ? tabManager._getTab(tabManager.activeId) : null;
+}
+// The active SPECTRUM tab with its history containers ensured; null for no
+// tab or a stack tab (stack tabs have no peaks and get no history).
+function _historyTab() {
+  const t = _activeTab();
+  if (!t || t.isStack) return null;
+  if (!t.undoStack) t.undoStack = [];
+  if (!t.redoStack) t.redoStack = [];
+  return t;
+}
 
 // Undo snapshots are deep copies of state.peaks. An action that ALSO changes
 // endpoint averaging (today: applying Find Peaks suggestions, which sets the
 // panel to what the engine fitted at) passes { endpointAvg } so the snapshot
 // carries the pre-action value as a non-index property; undo/redo restore it
-// to the panel AND the tab record. Peak-only actions leave it absent and are
-// unaffected (Codex 2026-09-08 round 2, both runs: undo restored the peaks
-// but left the averaging at 1).
-// Runtime identity of a tab OBJECT. Persisted tab ids are preserved across
-// project save/load and are therefore reused by a reopened tab; an undo entry
-// keyed on the id matched the reopened tab and rewrote its saved averaging
-// (Codex 2026-09-08 round 4, both runs). A WeakMap token is unique to the
-// live object, never persisted, and dies with it.
-const _tabRuntimeTokens = new WeakMap();
-let _tabRuntimeSeq = 0;
-function _runtimeTokenOf(tab) {
-  if (!tab || typeof tab !== 'object') return null;
-  let k = _tabRuntimeTokens.get(tab);
-  if (!k) { k = ++_tabRuntimeSeq; _tabRuntimeTokens.set(tab, k); }
-  return k;
-}
+// to the panel AND the tab record. Peak-only actions leave it absent.
 function _peaksSnapshot(extra) {
   const snap = JSON.parse(JSON.stringify(state.peaks));
-  const t = tabManager._getTab(tabManager.activeId);
-  if (extra && extra.endpointAvg !== undefined && t) {
-    snap._endpointAvg = String(extra.endpointAvg);
-    // The undo/redo stacks are global and survive tab switches, so an
-    // averaging-carrying entry is scoped to the live tab object it was taken
-    // on and is only ever restored there (round 3: an undo on another tab
-    // rewrote that tab's averaging; round 4: a reopened tab with the same
-    // persisted id matched). With no active tab, no metadata is recorded.
-    snap._tabToken = _runtimeTokenOf(t);
-  }
+  if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
   return snap;
 }
-function _restoreSnapshotEndpointAvg(snap) {
+function _restoreSnapshotEndpointAvg(tab, snap) {
   if (!snap || snap._endpointAvg === undefined) return;
-  const t = tabManager._getTab(tabManager.activeId);
-  if (!t || snap._tabToken !== _runtimeTokenOf(t)) return;   // inert across tabs, reloads and with no active tab
   const el = document.getElementById('bg-endpoint-avg');
   if (el) el.value = snap._endpointAvg;
-  if (t.ui) t.ui.endpointAvg = snap._endpointAvg;
+  if (tab && tab.ui) tab.ui.endpointAvg = snap._endpointAvg;
 }
 function pushUndo(extra) {
-  undoStack.push(_peaksSnapshot(extra));
-  if (undoStack.length > MAX_UNDO) undoStack.shift();
-  redoStack.length = 0;
+  const t = _historyTab();
+  if (!t) return;
+  t.undoStack.push(_peaksSnapshot(extra));
+  if (t.undoStack.length > MAX_UNDO) t.undoStack.shift();
+  t.redoStack.length = 0;
   _updateUndoButtons();
 }
 
@@ -2367,33 +2362,36 @@ function _pushUndoDebounced() {
 }
 
 function _updateUndoButtons() {
+  const t = _activeTab();
   const u = document.getElementById('btn-undo');
   const r = document.getElementById('btn-redo');
-  if (u) u.disabled = !undoStack.length;
-  if (r) r.disabled = !redoStack.length;
+  if (u) u.disabled = !(t && !t.isStack && t.undoStack && t.undoStack.length);
+  if (r) r.disabled = !(t && !t.isStack && t.redoStack && t.redoStack.length);
 }
 
 function undo() {
-  if (!undoStack.length) return;
-  const snap = undoStack.pop();
+  const t = _historyTab();
+  if (!t || !t.undoStack.length) return;
+  const snap = t.undoStack.pop();
   // Mirror the averaging into the redo entry only when the undo entry
   // carried one, so a redo re-applies exactly what the action did.
-  redoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
+  t.redoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
     ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
   state.peaks = snap;
-  _restoreSnapshotEndpointAvg(snap);
+  _restoreSnapshotEndpointAvg(t, snap);
   renderPeakList();
   updatePlot();
   _updateUndoButtons();
 }
 
 function redo() {
-  if (!redoStack.length) return;
-  const snap = redoStack.pop();
-  undoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
+  const t = _historyTab();
+  if (!t || !t.redoStack.length) return;
+  const snap = t.redoStack.pop();
+  t.undoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
     ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
   state.peaks = snap;
-  _restoreSnapshotEndpointAvg(snap);
+  _restoreSnapshotEndpointAvg(t, snap);
   renderPeakList();
   updatePlot();
   _updateUndoButtons();
@@ -3158,6 +3156,7 @@ class TabManager {
 
     // Restore DOM form fields
     this._restoreUI(tab.ui);
+    _updateUndoButtons();   // history is per tab: buttons reflect the incoming record
     const notesEl = document.getElementById('spectrum-notes');
     if (notesEl) notesEl.value = tab.notes || '';
     this._updateCCVerifiedUI(tab.chargeVerified ?? true);
@@ -3219,6 +3218,7 @@ class TabManager {
 
     if (this.tabs.length === 0) {
       this.activeId = null;
+      _updateUndoButtons();
       state.rawBE = []; state.rawIntensity = [];
       state.peaks = []; state.fitResult = null;
       state.ccShift = 0; state.nextId = 1;
@@ -13230,7 +13230,20 @@ document.addEventListener('mousedown', function(e) {
 <script>
 // ── Find Peaks (beta) — all logic self-contained in this block ──────────
 let _fpMeta = null;        // /api/analyze/meta cache
-let _fpLast = null;        // last analysis result (for apply)
+// The last Find Peaks result belongs to the tab it was produced on: it lives
+// on that record (tab.findPeaks.last, runtime-only) and is read back only
+// from the ACTIVE record, so it can never be applied to another tab (it was
+// never cleared before — reopening the modal on another tab and pressing
+// Apply injected the first tab's peaks). Stack tabs hold no result.
+function _fpGetLast() {
+  const t = _activeTab();
+  return (t && !t.isStack && t.findPeaks && t.findPeaks.last) || null;
+}
+function _fpSetLast(last) {
+  const t = _activeTab();
+  if (!t || t.isStack) return;
+  t.findPeaks = { ...(t.findPeaks || {}), last };
+}
 
 // ── Find Peaks region-selector coverage tier (2026-07-11, unit 3) ─────────
 // FP's own vocabulary — grades whether Find Peaks has CITED FITTING
@@ -14208,7 +14221,7 @@ async function runFindPeaks() {
   // endpoint_avg — all four menu methods do); an explicit value in the
   // Advanced JSON wins. Methods that do not advertise it are not sent it
   // (their option whitelists would reject the key). The value actually
-  // sent is recorded on _fpLast so applyFindPeaks keeps preview == fit.
+  // sent is recorded on the tab's findPeaks.last so applyFindPeaks keeps preview == fit.
   const fpMethodMeta = ((_fpMeta && _fpMeta.methods) || []).find(x => x.id === method);
   const methodTakesEp = !!(fpMethodMeta && fpMethodMeta.default_options
                            && Object.prototype.hasOwnProperty.call(fpMethodMeta.default_options, 'endpoint_avg'));
@@ -14218,7 +14231,7 @@ async function runFindPeaks() {
   // Strict, mirroring the backend's pop_endpoint_avg: a JSON number that is
   // a whole number >= 1. Anything else (a string like "1_0" that Python would
   // coerce to 10, a boolean, a fraction) is refused HERE, before any request,
-  // so what _fpLast records is always exactly what the engine used.
+  // so what the record holds is always exactly what the engine used.
   if (methodTakesEp && !(typeof options.endpoint_avg === 'number'
                          && Number.isInteger(options.endpoint_avg)
                          && options.endpoint_avg >= 1 && options.endpoint_avg <= ENDPOINT_AVG_MAX)) {
@@ -14275,7 +14288,7 @@ async function runFindPeaks() {
     const { job_id } = await resp.json();
     const poll = await _fpPollJob(job_id);
     const body = poll.result;
-    _fpLast = { body, method, regions, fitFullWindow: !!options.fit_full_window, endpointAvg: engineEndpointAvg };
+    _fpSetLast({ body, method, regions, fitFullWindow: !!options.fit_full_window, endpointAvg: engineEndpointAvg });
     _fpRenderResults(body);
     status.textContent = '';
   } catch (e) {
@@ -14442,6 +14455,7 @@ function _findPeaksApplyConfirmCancel() {
 }
 
 async function applyFindPeaks() {
+  const _fpLast = _fpGetLast();          // the ACTIVE tab's own result, or nothing
   if (!_fpLast) return;
   const peaks = (_fpLast.body.peaks || []);
   if (!peaks.length) { notify('Nothing to apply — the analysis emitted no peaks.', 'amber'); return; }

@@ -130,7 +130,7 @@ def test_find_peaks_sends_the_panels_endpoint_avg(browser, server):
         assert pg.evaluate("() => document.getElementById('bg-endpoint-avg').value") == "3"
         body = _captured_analyze_request(pg)
         assert body["options"].get("endpoint_avg") == 3, body["options"]
-        assert pg.evaluate("() => _fpLast === null || _fpLast.endpointAvg === '3'")
+        assert pg.evaluate("() => { const l = _fpGetLast(); return l === null || l.endpointAvg === '3'; }")
     finally:
         pg.close()
 

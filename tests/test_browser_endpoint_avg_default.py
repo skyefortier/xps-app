@@ -200,9 +200,9 @@ def test_applying_find_peaks_sets_the_panel_to_the_averaging_the_engine_used(bro
             tabManager.createTab('fresh', be, inten);
             window.confirm = () => true;
             window._showFindPeaksApplyConfirmModal = async () => true;
-            _fpLast = { body: { peaks: [ { role: 'C-C', center: 284.8, fwhm: 1.2, amplitude: 3000, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 } ],
+            _fpSetLast({ body: { peaks: [ { role: 'C-C', center: 284.8, fwhm: 1.2, amplitude: 3000, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 } ],
                                 diagnostics: {} },
-                        method: 'ic_model_comparison', regions: ['C1s'], fitFullWindow: true, endpointAvg: '1' };
+                        method: 'ic_model_comparison', regions: ['C1s'], fitFullWindow: true, endpointAvg: '1' });
             return applyFindPeaks().then(() => ({
                 dom: document.getElementById('bg-endpoint-avg').value,
                 tabUi: tabManager._getTab(tabManager.activeId).ui.endpointAvg,
@@ -215,10 +215,10 @@ def test_applying_find_peaks_sets_the_panel_to_the_averaging_the_engine_used(bro
 FP_APPLY = """
             window.confirm = () => true;
             window._showFindPeaksApplyConfirmModal = async () => true;
-            _fpLast = { body: { peaks: [ { role: 'C-C', center: 284.8, fwhm: 1.2, amplitude: 3000, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 },
+            _fpSetLast({ body: { peaks: [ { role: 'C-C', center: 284.8, fwhm: 1.2, amplitude: 3000, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 },
                                          { role: 'C-O', center: 286.4, fwhm: 1.2, amplitude: 1500, shape: 'pseudo_voigt_gl', gl_ratio: 0.3 } ],
                                 diagnostics: {} },
-                        method: 'ic_model_comparison', regions: ['C1s'], fitFullWindow: true, endpointAvg: '1' };
+                        method: 'ic_model_comparison', regions: ['C1s'], fitFullWindow: true, endpointAvg: '1' });
 """
 
 

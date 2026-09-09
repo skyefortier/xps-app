@@ -51,10 +51,10 @@ test("no bare endpointAvg || '1' fallback survives outside the constant", () => 
 test('Find Peaks records the averaging its engine used and applies it on apply', () => {
   // runFindPeaks stores what the engine will use (advanced-option endpoint_avg
   // or 1) on _fpLast; applyFindPeaks writes it to the panel + tab record.
-  assert.match(html, /_fpLast = \{[^}]*endpointAvg: engineEndpointAvg/, 'runFindPeaks must record engineEndpointAvg on _fpLast');
+  assert.match(html, /_fpSetLast\(\{[^}]*endpointAvg: engineEndpointAvg/, 'runFindPeaks must record engineEndpointAvg on the tab record');
   const applyStart = html.indexOf('async function applyFindPeaks()');
   const applyBody = html.slice(applyStart, applyStart + 8000);
-  assert.match(applyBody, /_fpLast\.endpointAvg/, 'applyFindPeaks must read _fpLast.endpointAvg');
+  assert.match(applyBody, /_fpGetLast\(\)/, 'applyFindPeaks must read the active tab record');
   assert.match(applyBody, /getElementById\('bg-endpoint-avg'\)/, 'applyFindPeaks must set the panel');
 });
 
@@ -71,11 +71,13 @@ test('undo/redo carry the averaging recorded by the Find Peaks apply action', ()
   assert.match(applyBody, /pushUndo\(\{ ?endpointAvg:/, 'the apply action must record the pre-apply averaging on its undo entry');
 });
 
-test('averaging snapshots are scoped to the LIVE originating tab object, not its persisted id', () => {
+test('averaging snapshots live on the tab record: undo/redo read the ACTIVE tab only', () => {
+  // Per-tab state ownership (2026-09-08 memo): the stacks moved onto the tab
+  // record, so the runtime-token guard from the default-3 unit is gone.
   const start = html.indexOf('function _peaksSnapshot(');
-  const body = html.slice(start, start + 1500);
-  assert.match(body, /_runtimeTokenOf\(/, 'snapshot must record a runtime token of the originating tab object');
-  assert.doesNotMatch(body, /_tabId/, 'persisted tab ids are reused after project reload — must not be the key');
-  const rs = html.indexOf('function _restoreSnapshotEndpointAvg(');
-  assert.match(html.slice(rs, rs + 900), /_runtimeTokenOf\(/, 'restore must compare the runtime token of the active tab object');
+  assert.doesNotMatch(html.slice(start, start + 800), /_runtimeTokenOf|_tabId/);
+  for (const fn of ['function undo()', 'function redo()', 'function pushUndo(']) {
+    const i = html.indexOf(fn); assert.ok(i > 0, fn);
+    assert.match(html.slice(i, i + 700), /_historyTab\(\)/, fn + ' must use the active tab record');
+  }
 });

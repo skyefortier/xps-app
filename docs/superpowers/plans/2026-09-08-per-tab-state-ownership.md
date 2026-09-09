@@ -1,6 +1,6 @@
 # Design memo — Per-tab state ownership: make wrong-tab restore impossible by construction
 
-Status: SCOPING (design, no code). Owner's framing (2026-09-08): the undo
+Status: IMPLEMENTED 2026-09-09 on branch feature-per-tab-state (see 'Migration' — done as written; the runtime-token guard deleted). Owner's framing (2026-09-08): the undo
 stack restoring one tab's peaks into another is the SECOND instance of
 global state being restored into the wrong tab (the first was the auto-fit
 rollback, fixed 2026-09-02 by a tab-aware restore); two instances is a
