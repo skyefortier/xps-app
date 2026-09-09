@@ -101,12 +101,20 @@ exception to class A's "no spectrum content". The scanner
 real parser (acorn, vendored under `tests/js/lib/` with its MIT licence;
 the one Jinja interpolation is substituted first) and reports every
 binding reachable without crossing a function boundary — destructuring,
-labelled, unbraced-if, top-level blocks, static class fields, `window.*`
-stores — skipping a `const` only when its initialiser is provably not a
-container. Codex rounds 2–3 found a new declaration form each round while
-the scanner was regex-based; the parser closes that class. Closure state
-inside an IIFE or a long-lived function remains a documented manual-review
-boundary, which rule 2 is what actually covers.
+labelled, unbraced-if, top-level blocks, static class fields (any key
+form, in class declarations or expressions, plus static blocks),
+`window.*` stores — skipping a `const` only when it is a plain identifier
+whose initialiser is provably not a container; destructuring patterns are
+always reported. The allowlist check is an own-property lookup with a
+validated class value, so an inherited name (`constructor`, `toString`)
+cannot pass unclassified. Codex rounds 2–4 found a new declaration form
+each round while the scanner was regex-based; the parser closes that
+class. What remains a documented MANUAL-REVIEW boundary, outside any
+declaration guard: closure state inside an IIFE or a long-lived function;
+properties added at runtime to an allowlisted object (`state.x = []`,
+`tabManager.x = []`); code produced by `eval` / `Function`; storage
+exposed through prototype getters. Rule 2 (async ownership) is what
+covers the first of these in practice; the others are reviewed by hand.
 
 ## Migration (one branch, TDD, Codex ×2)
 

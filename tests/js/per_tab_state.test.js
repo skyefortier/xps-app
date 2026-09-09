@@ -54,12 +54,25 @@ function moduleLevelMutables() {
   return [...new Set(scripts.flatMap(scanModuleMutables))];
 }
 
-test('every module-level mutable is allowlisted with a non-C class', () => {
+const VALID_CLASSES = new Set(['A', 'B', "B'"]);
+// Own-property lookup: an inherited name such as `constructor` or `toString`
+// must NOT count as allowlisted (Codex round 4, both runs).
+const isAllowlisted = (n) => Object.hasOwn(ALLOWLIST, n) && VALID_CLASSES.has(ALLOWLIST[n]);
+
+test('every module-level mutable is allowlisted with a valid non-C class', () => {
   const names = moduleLevelMutables();
   assert.ok(names.length > 20, 'scan found too few declarations: ' + names.length);
-  const unknown = names.filter(n => !(n in ALLOWLIST));
+  const unknown = names.filter(n => !isAllowlisted(n));
   assert.deepStrictEqual(unknown, [], 'module-level state not allowlisted (put per-tab content on the tab record): ' + unknown.join(', '));
-  for (const [n, cls] of Object.entries(ALLOWLIST)) assert.notStrictEqual(cls, 'C', n);
+  for (const [n, cls] of Object.entries(ALLOWLIST)) assert.ok(VALID_CLASSES.has(cls), n + ' has an invalid class ' + cls);
+});
+
+test('inherited property names cannot slip through the allowlist', () => {
+  for (const n of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.ok(!isAllowlisted(n), n);
+  for (const sc of inlineScripts(html)) {
+    const found = scanModuleMutables(sc + '\nlet constructor = [];');
+    assert.ok(found.includes('constructor') && !isAllowlisted('constructor'));
+  }
 });
 
 test('the known class-C holders are gone from module scope', () => {

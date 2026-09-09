@@ -64,3 +64,24 @@ test('appending a forbidden declaration to each real inline script is found', ()
     }
   }
 });
+
+// Codex round 4 (both runs): destructuring defaults/rest behind a primitive
+// right-hand side, static fields with string/computed keys, class expressions,
+// static blocks.
+test('destructuring defaults and rest create containers even when the right-hand side is primitive', () => {
+  assert.ok(finds('const {stash = []} = 0;', 'stash'));
+  assert.ok(finds('const [...stash2] = "";', 'stash2'));
+  assert.ok(finds('const {a: {deep = {}} = {}} = 0;', 'deep'));
+});
+test('static fields with string or computed keys, class expressions and static blocks are reported', () => {
+  assert.ok(finds('class K { static "store" = []; }', 'K.store'));
+  assert.ok(finds('class K { static ["store2"] = []; }', 'K.store2'));
+  assert.ok(finds('const K = class { static store3 = []; };', 'K.store3'));
+  assert.ok(finds('let K = class Named { static store4 = []; };', 'K.store4'));
+  assert.ok(finds('class K { static { var inBlock = []; } }', 'K.inBlock'));
+  assert.ok(finds('class K { static [Symbol.for("x")] = []; }', 'K.[computed]'));
+});
+test('a const whose initialiser is a class expression WITH static fields is not skipped', () => {
+  assert.ok(finds('const Holder = class { static list = []; };', 'Holder.list'));
+  assert.ok(!finds('const Pure = class { m() { return 1; } };', 'Pure'));
+});
