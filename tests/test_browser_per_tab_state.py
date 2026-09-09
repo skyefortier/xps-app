@@ -337,3 +337,115 @@ def test_shift_z_redoes(browser, server):
         assert out == 1, out
     finally:
         pg.close()
+
+
+# ── round 2 (Codex, both runs): the remaining async producers ──────────────
+
+def test_auto_fit_aborts_when_the_tab_changed_during_its_confirmation(browser, server):
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('A', be, inten); const a = tabManager.activeId;
+            addPeak(); state.peaks[0].center = 285.0;                       // existing peaks -> the confirmation is shown
+            window._showAutoFitConfirmModal = () => new Promise(r => { window.__resolveAf = r; });
+            // the snapshot is the first thing the flow does after the confirmation: record which tab it sees
+            const snapCalls = []; const realSnap = window._autoFitSnapshot;
+            window._autoFitSnapshot = () => { snapCalls.push(tabManager.activeId); return realSnap(); };
+            window.__af = runAutoFitC1sGraphite();
+            tabManager.createTab('B', be, inten); const b = tabManager.activeId;
+            window.__resolveAf(true);
+            return window.__af.then(() => ({ snapCalls, bPeaks: state.peaks.length, aPeaks: tabManager._getTab(a).peaks.length,
+                                             bActive: tabManager.activeId === b })); }""")
+        assert out["snapCalls"] == [], out                            # aborted before touching any tab
+        assert out["bPeaks"] == 0 and out["aPeaks"] == 1 and out["bActive"], out
+    finally:
+        pg.close()
+
+
+def test_generic_json_fit_file_load_aborts_when_the_tab_changed_while_reading(browser, server):
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('A', be, inten); const a = tabManager.activeId;
+            const fit = JSON.stringify({ peaks: [ { id: 1, name: 'imported', center: 285, fwhm: 1, amplitude: 1, shape: 'GL' } ] });
+            const f = new File([fit], 'model.json');                        // generic name: routed by content (hasPeaks)
+            f.text = () => new Promise(r => { window.__resolveText = () => r(fit); });
+            window.__load = _loadSessionFile(f);
+            tabManager.createTab('B', be, inten); const b = tabManager.activeId;
+            window.__resolveText();
+            return window.__load.then(() => ({ bPeaks: state.peaks.length, aPeaks: tabManager._getTab(a).peaks.length })); }""")
+        assert out == {"bPeaks": 0, "aPeaks": 0}, out
+    finally:
+        pg.close()
+
+
+def test_batch_targets_are_bound_to_record_objects_not_ids(browser, server):
+    # Deterministic: while target B is being fitted, close target C and reload a
+    # project that recreates C's id on a NEW object. C must be skipped.
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('C', be, inten); const c = tabManager.activeId;
+            tabManager.createTab('B', be, inten); const b = tabManager.activeId;
+            tabManager.createTab('A', be, inten); const a = tabManager.activeId;
+            addPeak(); state.peaks[0].center = 285.0;                       // source model on A
+            for (const id of [b, c]) { const k = document.createElement('input'); k.type = 'checkbox'; k.className = 'prop-chk'; k.dataset.id = id; k.checked = true; document.body.appendChild(k); }
+            const saved = []; window._downloadBlob = (blob) => saved.push(blob.text());
+            return _doSaveProject().then(async () => {
+                const json = (await Promise.all(saved))[0];
+                const cObj = tabManager._getTab(c);
+                const realFit = window.runFitLocal;
+                window.runFitLocal = (...args) => {                       // runs during B's step, after the yield
+                    if (tabManager.activeId === b && tabManager._getTab(c) === cObj) {
+                        tabManager.closeTab(c);
+                        _loadProjectJSON(JSON.parse(json), 'p.proj.json');  // C reopened: same id, NEW object
+                        tabManager.activateTab(b);
+                    }
+                    return realFit(...args);
+                };
+                await runPropagation();
+                window.runFitLocal = realFit;
+                const reopened = tabManager._getTab(c);
+                return { reopenedIsNew: reopened !== cObj, reopenedPeaks: reopened.peaks.length,
+                         reopenedHistory: (reopened.undoStack || []).length, bPeaks: tabManager._getTab(b).peaks.length };
+            }); }""")
+        assert out["reopenedIsNew"] and out["reopenedPeaks"] == 0 and out["reopenedHistory"] == 0, out
+        assert out["bPeaks"] == 1, out
+    finally:
+        pg.close()
+
+
+def test_reopening_the_modal_shows_the_tabs_stored_find_peaks_result(browser, server):
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            window.confirm = () => true; window._showFindPeaksApplyConfirmModal = async () => true;
+            tabManager.createTab('A', be, inten);
+            _fpSetLast(""" + FP_RESULT + """);
+            return openFindPeaksModal().then(() => {
+                const shown = document.getElementById('fp-results').style.display !== 'none';
+                return applyFindPeaks().then(() => ({ shown, peaks: state.peaks.length }));
+            }); }""")
+        assert out == {"shown": True, "peaks": 1}, out
+    finally:
+        pg.close()
+
+
+def test_pending_debounced_burst_is_flushed_before_a_later_immediate_action(browser, server):
+    pg = _page(browser, server)
+    try:
+        out = pg.evaluate("() => { " + GRID + """
+            tabManager.createTab('A', be, inten);
+            addPeak(); const pid = state.peaks[0].id; state.peaks[0].center = 285.0;
+            updatePeakParam(pid, 'center', 286.0);                          // debounced burst pending
+            addPeak();                                                      // immediate action while the burst is pending
+            return new Promise(r => setTimeout(r, 700)).then(() => {
+                undo();
+                const afterFirst = { n: state.peaks.length, center: state.peaks[0].center };
+                undo();
+                return { afterFirst, afterSecond: { n: state.peaks.length, center: state.peaks[0].center } };
+            }); }""")
+        assert out["afterFirst"] == {"n": 1, "center": 286.0}, out      # first undo removes only the added peak
+        assert out["afterSecond"] == {"n": 1, "center": 285.0}, out     # second undo reverts the edit
+    finally:
+        pg.close()

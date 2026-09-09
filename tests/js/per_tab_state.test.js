@@ -19,10 +19,10 @@ const html = fs.readFileSync(path.join(__dirname, '../../templates/index.html'),
 // name -> class. Keep this list honest: adding a name here is a design
 // decision, and "C" is not a valid value.
 const ALLOWLIST = {
-  state: 'B',                 // the ACTIVE tab's working copy, swapped wholesale by activateTab
+  state: 'B',                 // OWNERSHIP INFRASTRUCTURE, not a cache: the ACTIVE tab's working copy, swapped wholesale by activateTab / _syncActiveToRecord
   _undoDebounceTimer: 'A', _tabRuntimeTokens: 'B', _tabRuntimeSeq: 'B',
   _nextStackNum: 'B', _accSurveyCache: 'B', _accChemCache: 'B', _refUnavailableNotified: 'B',
-  tabManager: 'B',
+  tabManager: 'B',            // OWNERSHIP INFRASTRUCTURE: the record store itself
   _origYMax: "B'", _origXMin: "B'", _origXMax: "B'", _origResidYMin: "B'", _origResidYMax: "B'",
   _dragZoomEnabled: 'A', placeMode: 'A', _pendingMultipletPreset: 'A', _bgSubFitInFlight: 'A',
   _autoFitConfirmResolver: 'A', _saveMode: 'A',
@@ -34,7 +34,7 @@ const ALLOWLIST = {
   _ssFocusIdx: 'A', _ssFiltered: 'A',
   _fpMeta: 'B', _fpModalDrag: 'A', _fpRegionsSelected: 'A', _fpExpandedElement: 'A',
   _findPeaksApplyConfirmResolver: 'A',
-  _undoDebounce: 'A',         // { owner, snap } bound at burst start; flushed onto its owner only
+  _undoDebounce: 'A',         // burst buffer: DOES hold a peaks snapshot, but bound to its owner record at burst start and flushed onto that record only — the async-ownership exception to class A's 'no spectrum content'
   // Populated constant catalogues (read-only tables) and the chart plugin
   // object: class B. Listed, not skipped, so a per-tab store hidden in an
   // ALL_CAPS name or in a plugin property would need an explicit entry here.
@@ -79,8 +79,32 @@ test('async operations capture their owning record before the first await', () =
   const ap = grab('async function applyFindPeaks()', 2500);
   assert.match(ap, /const owner = _opOwner\(\)/);
   assert.ok(ap.indexOf('_ownerActive(owner)') > ap.indexOf('await _showFindPeaksApplyConfirmModal'), 'owner must be re-validated after the confirmation await');
-  // fits: owner is the record OBJECT, not an id
-  assert.doesNotMatch(grab('async function runFit()', 1200), /fittingTabId = tabManager\.activeId/);
+  // fits: owner is the record OBJECT, not an id, and EVERY request input is read before the upload await
+  for (const fn of ['async function runFit()', 'async function runAutoFitC1sGraphite()']) {
+    const body = grab(fn, 7000);
+    assert.doesNotMatch(body, /fittingTabId = tabManager\.activeId/);
+    const up = body.indexOf('await uploadToBackend');
+    assert.ok(up > 0, fn + ' upload await');
+    for (const input of ["getElementById('fit-method')", "getElementById('bg-endpoint-avg')", '_getManualAnchors()', 'peakToBackendSpec']) {
+      const at = body.indexOf(input);
+      assert.ok(at > 0 && at < up, fn + ': ' + input + ' must be read before the upload await');
+    }
+  }
+  // auto-fit: the owner is captured BEFORE its confirmation await and re-validated after it
+  const af = grab('async function runAutoFitC1sGraphite()', 3000);
+  const afOwnerAt = af.indexOf('_opOwner()'), afConfirmAt = af.indexOf('await _showAutoFitConfirmModal');
+  assert.ok(afOwnerAt > 0 && afConfirmAt > afOwnerAt, 'auto-fit owner must be captured before the confirmation await');
+  assert.ok(af.indexOf('_ownerActive(fittingTab)') > afConfirmAt, 'auto-fit must re-validate its owner after the confirmation');
+  // generic-JSON route carries the same guard as the explicit .fit.json route
+  const ls = grab('async function _loadSessionFile(', 3500);
+  assert.strictEqual((ls.match(/_ownerActive\(owner\)/g) || []).length, 2, 'both fit-file routes must check the owner');
+  // batch: targets resolved to objects before the first await
+  const rp2 = grab('async function runPropagation', 6000);
+  assert.ok(rp2.indexOf('const targets = ') > 0 && rp2.indexOf('const targets = ') < rp2.indexOf('await '), 'targets must be resolved before the first await');
+  // modal open renders the active tab's stored result
+  assert.match(grab('async function openFindPeaksModal()', 4000), /_fpGetLast\(\)/);
+  // immediate history actions flush a pending burst first
+  for (const fn of ['function pushUndo(', 'function undo()', 'function redo()']) assert.match(grab(fn, 400), /_flushUndoDebounce\(\)/, fn);
   assert.match(grab('function _autoFitRestore(', 300), /_autoFitRestore\(snap, owner\)/);
   // batch propagation re-validates the target after its yield
   const rp = grab('async function runPropagation', 5000);

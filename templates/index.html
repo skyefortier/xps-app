@@ -2372,6 +2372,7 @@ function _pushSnapshot(t, snap) {
   _updateUndoButtons();
 }
 function pushUndo(extra) {
+  _flushUndoDebounce();     // a pending slider burst is OLDER than this action: it goes first
   const t = _historyTab();
   if (!t) return;
   _pushSnapshot(t, _peaksSnapshot(extra));
@@ -2379,6 +2380,7 @@ function pushUndo(extra) {
 // History entry for a record that is NOT necessarily active (batch
 // propagation writes into target records): snapshot that record's own peaks.
 function _pushUndoFor(tab, extra) {
+  _flushUndoDebounce();
   if (!tab || tab.isStack) return;
   const snap = JSON.parse(JSON.stringify(tab.peaks || []));
   if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
@@ -2416,6 +2418,7 @@ function _updateUndoButtons() {
 }
 
 function undo() {
+  _flushUndoDebounce();     // never undo past a pending burst
   const t = _historyTab();
   if (!t || !t.undoStack.length) return;
   const snap = t.undoStack.pop();
@@ -2431,6 +2434,7 @@ function undo() {
 }
 
 function redo() {
+  _flushUndoDebounce();
   const t = _historyTab();
   if (!t || !t.redoStack.length) return;
   const snap = t.redoStack.pop();
@@ -6877,10 +6881,18 @@ async function runAutoFitC1sGraphite() {
     notify('Auto-Fit C1s Graphite is only available for C1s spectra (ROI midpoint 270–315 eV).', 'amber');
     return;
   }
+  // OWNER FIRST: the confirmation below is an await; the tab that is active
+  // when it resolves may not be the one the user asked to auto-fit.
+  const fittingTab = _opOwner();
+  if (!fittingTab) { notify('No active spectrum tab.', 'amber'); return; }
   // Confirmation if existing peaks
   if (state.peaks.length >= 1) {
     const proceed = await _showAutoFitConfirmModal(state.peaks.length);
     if (!proceed) return;
+    if (!_ownerActive(fittingTab)) {
+      notify('Auto-fit cancelled — the tab changed while the confirmation was open.', 'amber');
+      return;
+    }
   }
 
   // Snapshot for failure rollback (separate from pushUndo, which only covers peaks).
@@ -6935,7 +6947,6 @@ async function runAutoFitC1sGraphite() {
   const runBtn = document.querySelector('.btn-green');
   if (runBtn) runBtn.disabled = true;
 
-  const fittingTab = _opOwner();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
 
@@ -6961,13 +6972,13 @@ async function runAutoFitC1sGraphite() {
       return spec;
     });
 
-    const sessionId = await uploadToBackend(be2, inten2);   // after every input above is captured
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
     if (bgType === 'manual') {
       // Anchors are stored in corrected-BE space, same frame as the uploaded
       // session data; backend expects [x, y] pairs.
       bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
     }
+    const sessionId = await uploadToBackend(be2, inten2);   // after EVERY input above is captured
     const resp = await fetch('/api/fit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -7067,8 +7078,10 @@ async function runFit() {
     // Inclusive bg window — the same point set computeBackgroundCore draws;
     // the backend slices end-exclusive, so the request sends i1 + 1.
     const bgWin = _bgWindowIndices(be, bgStart, bgEnd);
-    const peakSpecs = state.peaks.map(peakToBackendSpec);   // inputs before the await (owner's peaks, not a later tab's)
-    const sessionId = await uploadToBackend(be, inten);
+    // EVERY request input is read from the owner before the upload await:
+    // peaks, method, endpoint averaging and manual anchors (Codex round 2: a
+    // request could carry A's spectrum with B's averaging and anchors).
+    const peakSpecs = state.peaks.map(peakToBackendSpec);
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
@@ -7077,6 +7090,7 @@ async function runFit() {
       // session data; backend expects [x, y] pairs.
       bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
     }
+    const sessionId = await uploadToBackend(be, inten);
     const fitReq = {
       session_id: sessionId,
       background: bgPayload,
@@ -9200,7 +9214,10 @@ async function _loadSessionFile(file) {
       if (!data.rawIntensity && data.inten) data.rawIntensity = data.inten;
       _loadSpectrumFile(data, file.name); return;
     }
-    if (hasPeaks) { _applyFitJSON(data); return; }
+    if (hasPeaks) {
+      if (!_ownerActive(owner)) { notify('Fit file not applied — the tab changed while the file was being read.', 'amber'); return; }
+      _applyFitJSON(data); return;
+    }
 
     // No recognized structure — try as spectral data (CSV-like)
     _loadSpectralFile(file);
@@ -10668,6 +10685,10 @@ async function runPropagation() {
 
   const checkedIds = Array.from(document.querySelectorAll('.prop-chk:checked')).map(c => c.dataset.id);
   if (!checkedIds.length) { notify('No tabs selected.', 'amber'); return; }
+  // Targets are record OBJECTS resolved now, before the first await: a target
+  // closed and reopened from a project during the batch has the same id on a
+  // NEW object and must not be written (Codex round 2, both runs).
+  const targets = checkedIds.map(id => tabManager._getTab(id)).filter(t => t && !t.isStack);
 
   const btn = document.getElementById('propagate-run-btn');
   btn.disabled = true;
@@ -10684,12 +10705,12 @@ async function runPropagation() {
 
   const results = [];
 
-  for (let i = 0; i < checkedIds.length; i++) {
-    const tid = checkedIds[i];
-    const tgt = tabManager._getTab(tid);
-    if (!tgt) continue;
+  for (let i = 0; i < targets.length; i++) {
+    const tgt = targets[i];
+    const tid = tgt.id;
+    if (!_ownerLive(tgt)) continue;                 // closed (or replaced by a reload) since the batch started
 
-    prog.textContent = `Fitting spectrum ${i + 1}/${checkedIds.length}: ${tgt.name}…`;
+    prog.textContent = `Fitting spectrum ${i + 1}/${targets.length}: ${tgt.name}…`;
 
     // Scale factor based on max intensity ratio
     const tgtMaxInten = _arrMax(tgt.rawIntensity);
@@ -10710,7 +10731,6 @@ async function runPropagation() {
     const srcUi = sourceTab.ui;
     const newUi = BatchPropagation.propagateFitUi(srcUi, tgt.ui);
 
-    if (!_ownerLive(tgt)) continue;                 // closed while a previous target was fitting
     // Apply to target tab record (without switching UI) — undoable on that record
     _pushUndoFor(tgt, { endpointAvg: tgt.ui && tgt.ui.endpointAvg });
     tgt.peaks = clonedPeaks;
@@ -13844,6 +13864,13 @@ async function openFindPeaksModal() {
   _fpMethodChanged();
   document.getElementById('fp-results').style.display = 'none';
   document.getElementById('fp-status').textContent = '';
+  // A result stored on THIS tab (its own run, possibly finished while another
+  // tab was active) is shown again so it can be applied here.
+  const stored = _fpGetLast();
+  if (stored && stored.body) {
+    _fpRenderResults(stored.body);
+    document.getElementById('fp-status').textContent = 'Showing this tab\u2019s last Find Peaks result.';
+  }
   _fpResetModalPosition();
   document.getElementById('find-peaks-overlay').classList.add('open');
 }
