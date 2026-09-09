@@ -1,0 +1,50 @@
+RE-CHECK (round 4) of the Find Peaks endpoint-averaging unit on branch
+feature-find-peaks-endpoint-avg (HEAD ce0ff29). Round 3: run B GO; run A
+NO-GO solely on the evidence discrepancy — and run A was RIGHT: the
+author's "on main checkout" isolation run had never changed directory.
+Verify the corrected evidence and the resulting test change; earlier
+prompts (…_review_prompt.txt, _r2_, _r3_) still apply. Do NOT read
+archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-4 commit (test only): git show ce0ff29
+
+DISPOSITIONS TO VERIFY:
+1. Evidence, corrected. tests/test_browser_find_peaks_progress.py::
+   test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears
+   run on the REAL main checkout (/Users/skyefortier/xps-app @ 0a80288,
+   checkout identity printed, exit status captured, logs saved as
+   scratchpad/tests/timer-on-main-{1,2}.log): 2 passed, twice. On this
+   branch before the round-4 commit: 1 failed, 4/4 runs. So it WAS a branch
+   effect, not pre-existing — the round-3 prompt's classification was wrong
+   and is withdrawn.
+2. Root cause, measured. A trace of every polled #fp-status text: on
+   main the sweep (Cl 2p synthetic, n_refits 2, no proposals) shows
+   "Analyzing… 0s …" then "Analyzing… 1s …" and finishes at ~1.3 s; on the
+   branch the request carries options.endpoint_avg 3 (the panel's value),
+   the sweep finishes at ~0.8 s and the counter never reaches 1s. Direct
+   API timing in-process: 0.65 s at 1, 0.83 s at 3 (so wall-clock via
+   gunicorn+polling, not engine time alone, decides whether a tick lands).
+   The averaged anchor makes the stability refits converge faster — the
+   intended behaviour. Challenge: is faster convergence at averaging 3
+   plausible for this synthetic, or could it indicate the refits doing
+   less work (e.g. non-convergence returned early)? Check FitOutcome
+   converged flags in the trace if you can, or argue from the code.
+3. Test change. n_refits 2 -> 40 so the sweep lasts several seconds at any
+   averaging (2/2 passes at ~12 s). Challenge: does the test still verify
+   what it claims (spinner, real phase readout, elapsed ticking, cleanup)
+   and is 40 refits an acceptable CI cost? Would forcing endpoint_avg: 1
+   in the test's options have been a worse fix (it would hide the
+   feature's effect)?
+4. Anything new introduced by the round-4 commit.
+
+Evidence (logs, failures printed): round-3 full suite on code 916d3da
+(same code as this HEAD): 1 failed (this timer test) / 810 passed /
+7 skipped; C1s parity gate 3 passed. Full suite on THIS commit runs
+alongside this review; result in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
