@@ -2,7 +2,7 @@
 
 codex exec 0.153.4 (model gpt-6-astra), read-only sandbox, model_reasoning_effort=high, gtimeout rails. Tokens: 73,665.
 Prompt: docs/autofit/codex/find_peaks_endpoint_avg_r4_review_prompt.txt
-Round 4: GO x2 — evidence discrepancy resolved with the real main-checkout run (2 passed x2, exit 0) and the status-line traces (0.84 s at averaging 3 vs 1.29 s on main); test change accepted (n_refits 40, ~+6 s per file run); 'REGARDLESS of engine speed' softened to 'with margin' in the test comment per both runs; faster convergence at 3 noted as plausible-but-unproven (no converged flags in the trace) — no reduced-work path found in the refit loop. Full suite on the final commit recorded below when complete.
+Round 4: GO x2 — evidence discrepancy resolved with the real main-checkout run (2 passed x2, exit 0) and the status-line traces (0.84 s at averaging 3 vs 1.29 s on main); test change accepted (n_refits 40, ~+6 s per file run); 'REGARDLESS of engine speed' softened to 'with margin' in the test comment per both runs; faster convergence at 3 noted as plausible-but-unproven (no converged flags in the trace) — no reduced-work path found in the refit loop. Full suite on the final commit: 811 passed, 7 skipped (exit 0).
 
 **Findings**
 
