@@ -34,18 +34,23 @@ const ALLOWLIST = {
   _ssFocusIdx: 'A', _ssFiltered: 'A',
   _fpMeta: 'B', _fpModalDrag: 'A', _fpRegionsSelected: 'A', _fpExpandedElement: 'A',
   _findPeaksApplyConfirmResolver: 'A',
+  _undoDebounce: 'A',         // { owner, snap } bound at burst start; flushed onto its owner only
+  // Populated constant catalogues (read-only tables) and the chart plugin
+  // object: class B. Listed, not skipped, so a per-tab store hidden in an
+  // ALL_CAPS name or in a plugin property would need an explicit entry here.
+  STACK_PALETTE: 'B', LEGACY_REFERENCE: 'B', LEGACY_REFERENCE_OK: 'B', ELEMENT_NAMES: 'B',
+  ELEMENT_MARKER_COLORS: 'B', PEAK_COLORS: 'B', SCOFIELD_RSF: 'B', SPIN_ORBIT_PRESETS: 'B',
+  TAB_COLORS: 'B', SHAPE_PARAM_SCHEMA: 'B', PLACE_MODE_BUTTONS: 'B', LOCK_ALL_KEYS: 'B',
+  _BG_SUB_DEPENDENT_CONTROL_IDS: 'B', xpsRefLinesPlugin: 'B',
+  FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
 };
 
+const { scanModuleMutables } = require('./lib/module_state_scan');
 function moduleLevelMutables() {
-  const re = /^(?:let|var) ([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:=|;)|^const ([A-Za-z_$][A-Za-z0-9_$]*) = (?:\[\]|\{\}|new (?:Set|Map|WeakMap)\(|null)/gm;
-  const names = [];
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const name = m[1] || m[2];
-    if (/^[A-Z][A-Z0-9_]+$/.test(name)) continue;          // ALL_CAPS constants are config, not state
-    names.push(name);
-  }
-  return names;
+  // scan only the page's inline scripts (not the HTML)
+  const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  assert.ok(scripts.length >= 1, 'no inline scripts found');
+  return [...new Set(scripts.flatMap(scanModuleMutables))];
 }
 
 test('every module-level mutable is allowlisted with a non-C class', () => {
@@ -60,6 +65,28 @@ test('the known class-C holders are gone from module scope', () => {
   for (const bad of ['undoStack', 'redoStack', '_fpLast']) {
     assert.ok(!new RegExp('^(?:let|var|const) ' + bad + '\\b', 'm').test(html), bad + ' must live on the tab record');
   }
+});
+
+test('async operations capture their owning record before the first await', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // runFindPeaks: owner + inputs captured before uploadToBackend; result stored on the owner
+  const rf = grab('async function runFindPeaks()', 6000);
+  const ownerAt = rf.indexOf('_opOwner()'), uploadAt = rf.indexOf('await uploadToBackend');
+  assert.ok(ownerAt > 0 && uploadAt > ownerAt, 'runFindPeaks must capture its owner before the upload await');
+  assert.ok(rf.indexOf('peakToBackendSpec') < uploadAt || rf.indexOf('peakToBackendSpec') < 0, 'peak specs must be captured before the await');
+  assert.match(rf, /_fpSetLast\([^)]*,\s*owner\)/, 'result must be stored on the captured owner');
+  // applyFindPeaks: owner captured, re-validated after the confirmation await
+  const ap = grab('async function applyFindPeaks()', 2500);
+  assert.match(ap, /const owner = _opOwner\(\)/);
+  assert.ok(ap.indexOf('_ownerActive(owner)') > ap.indexOf('await _showFindPeaksApplyConfirmModal'), 'owner must be re-validated after the confirmation await');
+  // fits: owner is the record OBJECT, not an id
+  assert.doesNotMatch(grab('async function runFit()', 1200), /fittingTabId = tabManager\.activeId/);
+  assert.match(grab('function _autoFitRestore(', 300), /_autoFitRestore\(snap, owner\)/);
+  // batch propagation re-validates the target after its yield
+  const rp = grab('async function runPropagation', 5000);
+  assert.ok(rp.indexOf('_activeTab() !== tgt') > rp.indexOf('setTimeout(r, 20)'), 'propagation must re-check the target after yielding');
+  // debounce binds owner + snapshot at schedule time
+  assert.match(grab('function _pushUndoDebounced()', 900), /_historyTab\(\)/);
 });
 
 test('undo/redo and Find Peaks apply read the ACTIVE tab record only', () => {
