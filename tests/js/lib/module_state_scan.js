@@ -8,8 +8,9 @@
 //     (a block-scoped `let` in a top-level block is still module-lifetime),
 //     with destructuring patterns expanded;
 //   * a `const` binding is skipped ONLY when it is a plain identifier AND the
-//     initialiser is provably not a mutable container: a literal (incl.
-//     regex), a template literal, a function / arrow expression, a class
+//     initialiser is provably not a mutable container: a non-regex literal
+//     (a RegExp literal is an object — lastIndex is writable — and is
+//     reported), a template literal, a function / arrow expression, a class
 //     expression WITHOUT static state, or a unary/binary expression of those.
 //     Anything else (object, array, new, call — incl. an IIFE —, conditional,
 //     identifier, member) is reported; destructuring patterns are always

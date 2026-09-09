@@ -72,6 +72,10 @@ test('every module-level mutable is allowlisted with a valid non-C class', () =>
 
 test('inherited property names and anonymous-class names cannot slip through the allowlist', () => {
   for (const n of ['constructor', 'toString', '__proto__', 'hasOwnProperty', '[anonymous class].s', '[anonymous class].[static block]']) assert.ok(!isAllowlisted(n), n);
+  // the prefix rule must hold even against an explicit own entry (Codex round 7)
+  ALLOWLIST['[anonymous class].s'] = 'B';
+  try { assert.ok(!isAllowlisted('[anonymous class].s'), 'an explicit allowlist entry must not rescue an anonymous class'); }
+  finally { delete ALLOWLIST['[anonymous class].s']; }
   for (const sc of inlineScripts(html)) {
     const found = scanModuleMutables(sc + '\nlet constructor = [];');
     assert.ok(found.includes('constructor') && !isAllowlisted('constructor'));

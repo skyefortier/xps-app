@@ -109,7 +109,7 @@ test('an unbound class expression with static state is reported under an un-allo
 test('computed class keys are evaluated in the enclosing scope: a class declared inside one is reported', () => {
   assert.ok(finds('class K { [register(class { static store = [] })]() {} }', '[anonymous class].store'));
   assert.ok(finds('class K { [register(class { static store2 = [] })] = 1; }', '[anonymous class].store2'));
-  assert.ok(!finds('class K { m() { const local = class { static s = [] }; } }', '[anonymous class].s'));   // inside a method body: closure boundary
+  assert.deepStrictEqual(scanModuleMutables('class K { m() { const local = class { static s = [] }; } }'), []);   // inside a method body: closure boundary — nothing at all
 });
 test('catch-clause bindings at module scope are enumerated', () => {
   assert.ok(finds('try { throw {} } catch ({ stash = [] }) { register(stash); }', 'stash'));
