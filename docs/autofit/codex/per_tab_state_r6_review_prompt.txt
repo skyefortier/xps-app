@@ -1,0 +1,46 @@
+RE-CHECK (round 6) of the per-tab state ownership unit on branch
+feature-per-tab-state (HEAD db6566a). Rounds 1-5 closed every ownership item
+(both runs); round 5 left two scanner forms open. Verify; earlier prompts
+and the memo still apply. Do NOT read archived verdicts. The page
+(templates/index.html) is unchanged since round 4's code (3fdba3c); this
+commit is test-side only.
+
+Diff to review vs main:  git diff main...HEAD
+Round-6 fix commit:      git show db6566a
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — static state on an inline superclass expression. FIXED
+   by rule, not by case: reportClass recurses into a ClassExpression
+   superclass and attributes its static fields/blocks to the subclass
+   name (they are reachable as K.member at runtime); classHasStaticState
+   considers the superclass too, so a const bound to such a class is not
+   exempt. Mutation tests: class K extends class { static store = [] } {}
+   -> K.store; const K = class extends class { static s = [] } {} -> K.s.
+2. MAJOR (both) — assignment-only static blocks. FIXED by rule: every
+   static block is reported as '<name>.[static block]' regardless of its
+   contents (assignments cannot be enumerated), in declarations,
+   expressions and inline superclasses. An unbound class expression with
+   static state anywhere in module scope is reported as
+   '[anonymous class].<member>', a name that cannot be allowlisted, so it
+   fails the guard by construction. Tests: (class { static s = [] });
+   register(class { static { this.x = 1 } }); a class without static
+   state is not reported.
+3. The claim to rule on: with this rule, is there any remaining way to
+   DECLARE module-lifetime container state in a script that the AST walk
+   does not report, other than the documented manual-review boundary
+   (closure state; runtime property additions to allowlisted objects;
+   eval/Function; prototype getters)? If you find one, say whether it is
+   a declaration form (in scope here) or belongs to that boundary.
+4. Anything new introduced by the round-6 commit.
+
+Evidence (logs; exit codes gated the commit): node --test tests/js/*.test.js
+181 pass / 0 fail / 3 known-gap todo; browser per_tab_state (18) +
+endpoint_avg_default (10) passed; round-4 full suite on the same page
+code: 829 passed / 7 skipped; round-5 full suite result recorded in the
+archived header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
