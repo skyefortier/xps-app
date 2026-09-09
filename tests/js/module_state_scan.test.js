@@ -85,3 +85,22 @@ test('a const whose initialiser is a class expression WITH static fields is not 
   assert.ok(finds('const Holder = class { static list = []; };', 'Holder.list'));
   assert.ok(!finds('const Pure = class { m() { return 1; } };', 'Pure'));
 });
+
+// Codex round 5 (both runs): the conservative class rule — any class with static
+// fields or a static block, wherever it appears in module scope, is reported
+// under its best name; inherited static state belongs to the subclass; a static
+// block is reported as a whole because its assignments cannot be enumerated.
+test('static fields on an anonymous superclass expression are attributed to the subclass', () => {
+  assert.ok(finds('class K extends class { static store = []; } {}', 'K.store'));
+  assert.ok(finds('const K = class extends class { static s = []; } {};', 'K.s'));
+});
+test('a static block is reported as a whole, whatever it does', () => {
+  assert.ok(finds('class K { static { this.store = []; } }', 'K.[static block]'));
+  assert.ok(finds('const K = class { static { this.store = []; } };', 'K.[static block]'));
+  assert.ok(finds('class K extends class { static { this.s = []; } } {}', 'K.[static block]'));
+});
+test('an unbound class expression with static state is reported under an un-allowlistable name', () => {
+  assert.ok(finds('(class { static s = []; });', '[anonymous class].s'));
+  assert.ok(finds('register(class { static { this.x = 1; } });', '[anonymous class].[static block]'));
+  assert.ok(!finds('register(class { m() {} });', '[anonymous class]'));
+});

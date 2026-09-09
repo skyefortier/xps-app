@@ -101,8 +101,12 @@ exception to class A's "no spectrum content". The scanner
 real parser (acorn, vendored under `tests/js/lib/` with its MIT licence;
 the one Jinja interpolation is substituted first) and reports every
 binding reachable without crossing a function boundary — destructuring,
-labelled, unbraced-if, top-level blocks, static class fields (any key
-form, in class declarations or expressions, plus static blocks),
+labelled, unbraced-if, top-level blocks, class static state (any key
+form; class declarations and expressions wherever they appear, including
+an inline superclass whose static state is attributed to the subclass;
+a static block is reported as a whole because its assignments cannot be
+enumerated; an unbound class expression with static state reports as
+'[anonymous class]', which cannot be allowlisted),
 `window.*` stores — skipping a `const` only when it is a plain identifier
 whose initialiser is provably not a container; destructuring patterns are
 always reported. The allowlist check is an own-property lookup with a

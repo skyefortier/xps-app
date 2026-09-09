@@ -36,9 +36,16 @@ function bindingNames(pattern, out) {
   return out;
 }
 
+// A class holds module-lifetime state if it has static fields or a static
+// block — or inherits them from a superclass EXPRESSION written inline.
 function classHasStaticState(cls) {
-  return cls.body.body.some(el => (el.type === 'PropertyDefinition' && el.static) || el.type === 'StaticBlock');
+  if (cls.body.body.some(el => (el.type === 'PropertyDefinition' && el.static) || el.type === 'StaticBlock')) return true;
+  return !!(cls.superClass && cls.superClass.type === 'ClassExpression' && classHasStaticState(cls.superClass));
 }
+
+// Class expressions already reported through a declarator or a superclass
+// position are not reported again as anonymous classes.
+const consumedClasses = new WeakSet();
 
 function isProvablyImmutable(init) {
   if (!init) return false;
@@ -59,17 +66,25 @@ function staticKeyName(el) {
 }
 
 // Report a class's module-lifetime state under `<binding>.<member>`: every
-// static field (identifier, string or computed key) and every declaration
-// inside a static block (those run once, at definition time).
+// static field (identifier, string or computed key); every static block as a
+// whole (`<binding>.[static block]` — what it assigns cannot be enumerated)
+// plus any declarations inside it; and, recursively, the static state of an
+// inline superclass expression, attributed to the subclass (it is reachable
+// as `<binding>.<member>` at runtime). Conservative by construction: a class
+// with any static state is always reported under SOME name, and an unbound
+// class expression gets '[anonymous class]', which cannot be allowlisted.
 function reportClass(name, cls, names) {
+  consumedClasses.add(cls);
   for (const el of cls.body.body) {
     if (el.type === 'PropertyDefinition' && el.static) names.add(name + '.' + staticKeyName(el));
     if (el.type === 'StaticBlock') {
+      names.add(name + '.[static block]');
       const inner = new Set();
       for (const st of el.body) scan(st, true, inner);
       for (const n of inner) names.add(n.startsWith('window.') ? n : name + '.' + n);
     }
   }
+  if (cls.superClass && cls.superClass.type === 'ClassExpression') reportClass(name, cls.superClass, names);
 }
 
 const FUNCTION_TYPES = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
@@ -93,6 +108,9 @@ function scan(node, moduleScope, names) {
     }
   }
   if (node.type === 'ClassDeclaration' && moduleScope && node.id) reportClass(node.id.name, node, names);
+  if (node.type === 'ClassExpression' && moduleScope && !consumedClasses.has(node) && classHasStaticState(node)) {
+    reportClass('[anonymous class]', node, names);
+  }
   if (node.type === 'AssignmentExpression' && node.left.type === 'MemberExpression'
       && node.left.object.type === 'Identifier' && node.left.object.name === 'window'
       && node.left.property && (node.left.property.name || node.left.property.value)) {
