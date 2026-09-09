@@ -10702,6 +10702,12 @@ async function runPropagation() {
 
   // Compute source amplitude scale reference (max raw intensity in ROI)
   const srcMaxInten = _arrMax(sourceTab.rawIntensity);
+  // SOURCE SNAPSHOT before the first yield: the source record can change
+  // between targets (an async rollback, an edit on it), and every target
+  // must receive the model the user pressed the button with (Codex round 3).
+  const srcPeaks = JSON.parse(JSON.stringify(sourceTab.peaks || []));
+  const srcUi = { ...(sourceTab.ui || {}) };
+  const srcShift = sourceTab.ccShift;
 
   const results = [];
 
@@ -10717,7 +10723,7 @@ async function runPropagation() {
     const scale = srcMaxInten > 0 ? tgtMaxInten / srcMaxInten : 1;
 
     // Deep-clone source peaks, scaled
-    const clonedPeaks = sourceTab.peaks.map(p => ({
+    const clonedPeaks = srcPeaks.map(p => ({
       ...p,
       amplitude: p.linked ? p.amplitude : p.amplitude * scale
     }));
@@ -10728,7 +10734,6 @@ async function runPropagation() {
     // Propagate background + ROI settings from source (BatchPropagation is the
     // single source of truth for the merge — see static/js/batch_propagation.js).
     // ccShift is copied separately just below.
-    const srcUi = sourceTab.ui;
     const newUi = BatchPropagation.propagateFitUi(srcUi, tgt.ui);
 
     // Apply to target tab record (without switching UI) — undoable on that record
@@ -10736,11 +10741,21 @@ async function runPropagation() {
     tgt.peaks = clonedPeaks;
     tgt.nextId = nextId;
     tgt.ui = newUi;
-    tgt.ccShift = sourceTab.ccShift;
+    tgt.ccShift = srcShift;
     tgt.chargeVerified = false;
 
-    // Now activate this tab so state is populated
-    tabManager.activateTab(tid);
+    // Now activate this tab so state is populated. activateTab is a no-op
+    // when the target is ALREADY active (the user switched to it during the
+    // previous target's fit): then live state still holds the target's old
+    // model and the post-fit sync would overwrite the propagated record —
+    // load the record into live state explicitly (Codex round 3, run B).
+    if (tabManager.activeId === tid) {
+      state.peaks = tgt.peaks; state.nextId = tgt.nextId; state.ccShift = tgt.ccShift;
+      tabManager._restoreUI(tgt.ui);
+      renderPeakList();
+    } else {
+      tabManager.activateTab(tid);
+    }
 
     // Small yield so progress message renders
     await new Promise(r => setTimeout(r, 20));
@@ -13869,7 +13884,10 @@ async function openFindPeaksModal() {
   const stored = _fpGetLast();
   if (stored && stored.body) {
     _fpRenderResults(stored.body);
-    document.getElementById('fp-status').textContent = 'Showing this tab\u2019s last Find Peaks result.';
+    document.getElementById('fp-status').textContent =
+      'Showing this tab\u2019s last Find Peaks result (' + (stored.method || '?') + ', regions ' +
+      ((stored.regions || []).join(', ') || '?') + ', endpoint averaging ' + (stored.endpointAvg || '?') +
+      ') \u2014 apply only if the ROI and peaks are still what that run used.';
   }
   _fpResetModalPosition();
   document.getElementById('find-peaks-overlay').classList.add('open');

@@ -97,11 +97,15 @@ INFRASTRUCTURE (the active working copy and the record store), not
 tab-independent caches; `_undoDebounce` is a burst buffer that does hold
 a peaks snapshot but is bound to its owner record — the one deliberate
 exception to class A's "no spectrum content". The scanner
-(`tests/js/lib/module_state_scan.js`) is tokenizer-level: it strips
-comments, strings, regex and nested template literals, tracks depth,
-and finds indented / multi-statement / multiline / parenthesised /
-ALL_CAPS / `window.*` declarations (mutation-tested); closure state
-inside an IIFE or a long-lived function is a documented manual-review
+(`tests/js/lib/module_state_scan.js`) parses each inline script with a
+real parser (acorn, vendored under `tests/js/lib/` with its MIT licence;
+the one Jinja interpolation is substituted first) and reports every
+binding reachable without crossing a function boundary — destructuring,
+labelled, unbraced-if, top-level blocks, static class fields, `window.*`
+stores — skipping a `const` only when its initialiser is provably not a
+container. Codex rounds 2–3 found a new declaration form each round while
+the scanner was regex-based; the parser closes that class. Closure state
+inside an IIFE or a long-lived function remains a documented manual-review
 boundary, which rule 2 is what actually covers.
 
 ## Migration (one branch, TDD, Codex ×2)

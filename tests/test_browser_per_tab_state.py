@@ -449,3 +449,60 @@ def test_pending_debounced_burst_is_flushed_before_a_later_immediate_action(brow
         assert out["afterSecond"] == {"n": 1, "center": 285.0}, out     # second undo reverts the edit
     finally:
         pg.close()
+
+
+# ── round 3 (Codex, both runs): batch propagation's remaining reads ────────
+
+def _batch_setup(pg, targets_js):
+    return pg.evaluate("() => { " + GRID + """
+        tabManager.createTab('C', be, inten); const c = tabManager.activeId;
+        tabManager.createTab('B', be, inten); const b = tabManager.activeId;
+        tabManager.createTab('A', be, inten); const a = tabManager.activeId;
+        addPeak(); state.peaks[0].center = 285.0;
+        document.getElementById('bg-endpoint-avg').value = '3'; tabManager._getTab(a).ui.endpointAvg = '3';
+        state.ccShift = 0; tabManager._getTab(a).ccShift = 0;
+        for (const id of [b, c]) { const k = document.createElement('input'); k.type = 'checkbox'; k.className = 'prop-chk'; k.dataset.id = id; k.checked = true; document.body.appendChild(k); }
+        window.__ids = { a, b, c }; return window.__ids; }""")
+
+
+def test_batch_uses_a_snapshot_of_the_source_taken_before_the_first_yield(browser, server):
+    pg = _page(browser, server)
+    try:
+        _batch_setup(pg, None)
+        out = pg.evaluate("""() => {
+            const { a, b, c } = window.__ids;
+            const realFit = window.runFitLocal;
+            window.runFitLocal = (...args) => {                       // during B's fit: mutate the SOURCE record
+                if (tabManager.activeId === b) { const A = tabManager._getTab(a); A.peaks[0].center = 289.0; A.ui.endpointAvg = '7'; A.ccShift = 4; }
+                return realFit(...args);
+            };
+            return runPropagation().then(() => { window.runFitLocal = realFit;
+                const C = tabManager._getTab(c);
+                return { cCenter: C.peaks[0].center, cEp: C.ui.endpointAvg, cShift: C.ccShift }; }); }""")
+        assert out == {"cCenter": 285.0, "cEp": "3", "cShift": 0}, out
+    finally:
+        pg.close()
+
+
+def test_batch_refreshes_live_state_when_the_target_is_already_active(browser, server):
+    # Switching to the NEXT target during the previous one's fit made
+    # activateTab(next) a no-op, so live state stayed stale and the post-fit
+    # sync overwrote the propagated record with the target's old model.
+    pg = _page(browser, server)
+    try:
+        _batch_setup(pg, None)
+        out = pg.evaluate("""() => {
+            const { a, b, c } = window.__ids;
+            const C = tabManager._getTab(c); C.peaks = [ { id: 1, name: 'old', center: 287.0, fwhm: 1, amplitude: 1, shape: 'GL' } ]; C.ui.endpointAvg = '5';
+            const realFit = window.runFitLocal;
+            window.runFitLocal = (...args) => {
+                const r = realFit(...args);
+                if (tabManager.activeId === b) tabManager.activateTab(c);   // C becomes active BEFORE its own iteration
+                return r;
+            };
+            return runPropagation().then(() => { window.runFitLocal = realFit;
+                const C2 = tabManager._getTab(c);
+                return { name: C2.peaks[0].name, ep: C2.ui.endpointAvg, n: C2.peaks.length }; }); }""")
+        assert out["name"] != "old" and out["ep"] == "3" and out["n"] == 1, out
+    finally:
+        pg.close()

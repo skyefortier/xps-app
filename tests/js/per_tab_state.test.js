@@ -43,12 +43,13 @@ const ALLOWLIST = {
   TAB_COLORS: 'B', SHAPE_PARAM_SCHEMA: 'B', PLACE_MODE_BUTTONS: 'B', LOCK_ALL_KEYS: 'B',
   _BG_SUB_DEPENDENT_CONTROL_IDS: 'B', xpsRefLinesPlugin: 'B',
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
+  REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)
 };
 
-const { scanModuleMutables } = require('./lib/module_state_scan');
+const { scanModuleMutables, inlineScripts } = require('./lib/module_state_scan');
 function moduleLevelMutables() {
-  // scan only the page's inline scripts (not the HTML)
-  const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  // scan only the page's inline scripts (Jinja interpolations substituted)
+  const scripts = inlineScripts(html);
   assert.ok(scripts.length >= 1, 'no inline scripts found');
   return [...new Set(scripts.flatMap(scanModuleMutables))];
 }
