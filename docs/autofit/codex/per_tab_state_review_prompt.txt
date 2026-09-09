@@ -1,0 +1,74 @@
+You are running an ADVERSARIAL review of one unit on branch
+feature-per-tab-state (HEAD 99d752e) of this repo (XPS peak-fitting web app;
+single-file frontend templates/index.html). Challenge the construction and
+its failure modes.
+
+UNIT UNDER REVIEW (vs main):  git diff main...HEAD
+  templates/index.html, tests/js/per_tab_state.test.js,
+  tests/test_browser_per_tab_state.py (+ updated default-3 tests)
+  Design (read first): docs/superpowers/plans/2026-09-08-per-tab-state-ownership.md
+
+OWNER'S FRAMING: the undo stack restoring one tab's peaks into another was
+the SECOND instance of global per-tab state restored into the wrong tab
+(first: auto-fit rollback, fixed 2026-09-02 with a record-targeted
+restore). Two instances is a pattern; the owner asked for the GENERAL fix
+— whatever makes wrong-tab restore impossible by construction — not a
+patch on the undo stack (same reasoning as the dataclasses.fields guard
+and the evalPeak caller guard).
+
+THE CONSTRUCTION: per-tab content lives on the tab record (tab.undoStack,
+tab.redoStack, tab.findPeaks.last; runtime-only), reached only through
+_activeTab() / _historyTab() / _fpGetLast(); module scope may hold only
+UI-transient (A), tab-independent cache (B) or chart-instance (B') state,
+enforced by an allowlist test over every module-level let/var/const-container
+declaration in index.html. Fit history (tab.snapshots) was the existing
+model. The runtime-token guard added by the default-3 unit is deleted.
+
+ADVERSARIAL QUESTIONS:
+1. Is the construction actually complete? Enumerate every write to
+   state.peaks / tab.peaks that originates from data captured EARLIER and
+   possibly on another tab (history restore _historyPreview / snapshots
+   apply, batch propagation, overlay/zip round trip, spec/project loaders,
+   auto-fit rollback, Organize Tabs) and confirm each reads the record it
+   targets. Is there any remaining module-level holder of per-tab content
+   the allowlist regex does NOT see (declared inside an IIFE, on window.*,
+   as a property of a module-level object, or via var hoisting inside a
+   function that outlives the tab)?
+2. Serialisation: tab.undoStack / redoStack / findPeaks must never reach
+   .proj.json / .proj.zip / .spec.json / .fit.json. The project serializer
+   copies explicit fields; prove no path does {...tab}. What about
+   structuredClone / JSON round-trips inside the app (stack entries,
+   overlay export, batch)?
+3. Lifecycle: closeTab drops the record; project reload builds new records;
+   activateTab / closeTab refresh the buttons. Any path that swaps
+   tab.peaks WITHOUT going through the record (e.g. fromJSON loading a v1
+   fit file INTO the active tab — history keeps the old peaks: coherent or
+   stale?), or that replaces the tab OBJECT while the user expects history
+   to survive (setSpectrum, reload of the same file)?
+4. The allowlist: is the classification honest? state (B, the swapped
+   working copy), _fpRegionsSelected (A: reset on every modal open),
+   _refCompoundMarkers (B: project-level overlay serialised with the
+   project), _refGlobalSel (B: no-tab fallback), _historyPreview (B':
+   cleared in activateTab). Argue any that is really class C.
+5. Regressions: keyboard shortcuts for undo/redo, the debounced pushUndo
+   timer firing after a tab switch (it calls pushUndo with no args on
+   whatever tab is then active — is that a cross-tab write?), MAX_UNDO
+   per tab, memory growth with many tabs.
+6. Test adequacy: could a wrong implementation pass all 4 browser + 3 JS
+   tests (e.g. per-tab stacks but a global fallback; findPeaks stored on
+   the record but read from a module variable)?
+
+Your sandbox cannot run pytest or Playwright; review on the merits.
+Author-reported evidence (from the logs): node --test tests/js/*.test.js
+167 pass / 0 fail / 3 known-gap todo; browser per_tab_state (4) +
+endpoint_avg_default (10) + find_peaks_endpoint_avg (4) +
+manual_anchor_cc_migration + find_peaks_full_window = 26 passed together;
+the per-tab tests were watched failing on main (cross-tab undo and
+stale-entry-after-reload reproduced). Full pytest on this commit runs
+alongside this review; result in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
