@@ -50,7 +50,8 @@ const consumedClasses = new WeakSet();
 function isProvablyImmutable(init) {
   if (!init) return false;
   switch (init.type) {
-    case 'Literal': case 'TemplateLiteral': case 'ArrowFunctionExpression':
+    case 'Literal': return !init.regex;      // a RegExp literal is a mutable object (lastIndex is writable)
+    case 'TemplateLiteral': case 'ArrowFunctionExpression':
     case 'FunctionExpression': return true;
     case 'ClassExpression': return !classHasStaticState(init);   // a class with static fields IS a store
     case 'UnaryExpression': return isProvablyImmutable(init.argument);
@@ -107,6 +108,9 @@ function scan(node, moduleScope, names) {
       for (const n of bindingNames(d.id, [])) names.add(n);
     }
   }
+  if (node.type === 'CatchClause' && moduleScope && node.param) {
+    for (const n of bindingNames(node.param, [])) names.add(n);   // catch bindings are declarations too
+  }
   if (node.type === 'ClassDeclaration' && moduleScope && node.id) reportClass(node.id.name, node, names);
   if (node.type === 'ClassExpression' && moduleScope && !consumedClasses.has(node) && classHasStaticState(node)) {
     reportClass('[anonymous class]', node, names);
@@ -116,7 +120,20 @@ function scan(node, moduleScope, names) {
       && node.left.property && (node.left.property.name || node.left.property.value)) {
     names.add('window.' + (node.left.property.name || node.left.property.value));
   }
-  const childScope = moduleScope && !FUNCTION_TYPES.has(node.type) && node.type !== 'ClassBody';
+  if (node.type === 'ClassBody') {
+    // Computed keys and STATIC field initialisers are evaluated once, at class
+    // definition time, in the enclosing scope; method bodies and instance
+    // field initialisers are function-like (Codex round 6).
+    for (const el of node.body) {
+      if (el.computed && el.key) scan(el.key, moduleScope, names);
+      if (el.type === 'PropertyDefinition' && el.static && el.value) scan(el.value, moduleScope, names);
+      if (el.type === 'StaticBlock') for (const st of el.body) scan(st, moduleScope, names);
+      if (el.type === 'MethodDefinition' && el.value) scan(el.value, false, names);
+      if (el.type === 'PropertyDefinition' && !el.static && el.value) scan(el.value, false, names);
+    }
+    return;
+  }
+  const childScope = moduleScope && !FUNCTION_TYPES.has(node.type);
   for (const key of Object.keys(node)) {
     if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
     const v = node[key];

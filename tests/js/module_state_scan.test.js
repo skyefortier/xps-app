@@ -39,7 +39,7 @@ test('function-local declarations and primitive consts are not module state', ()
   assert.ok(!finds('const N = 50;', 'N'));
   assert.ok(!finds("const S = 'x';", 'S'));
   assert.ok(!finds('const fn = () => 1;', 'fn'));
-  assert.ok(!finds('const RE = /^[a-z]+$/i;', 'RE'));
+  assert.ok(finds('const RE = /^[a-z]+$/i;', 'RE'));    // a RegExp literal is an object (lastIndex is writable): reported, allowlisted as B
   assert.ok(!finds('const T = `a${1}b`;', 'T'));
   assert.ok(!finds('const obj = (function(){ let inner = []; return {}; })();', 'inner'));   // documented limitation: closure state
 });
@@ -103,4 +103,22 @@ test('an unbound class expression with static state is reported under an un-allo
   assert.ok(finds('(class { static s = []; });', '[anonymous class].s'));
   assert.ok(finds('register(class { static { this.x = 1; } });', '[anonymous class].[static block]'));
   assert.ok(!finds('register(class { m() {} });', '[anonymous class]'));
+});
+
+// Codex round 6 (both runs).
+test('computed class keys are evaluated in the enclosing scope: a class declared inside one is reported', () => {
+  assert.ok(finds('class K { [register(class { static store = [] })]() {} }', '[anonymous class].store'));
+  assert.ok(finds('class K { [register(class { static store2 = [] })] = 1; }', '[anonymous class].store2'));
+  assert.ok(!finds('class K { m() { const local = class { static s = [] }; } }', '[anonymous class].s'));   // inside a method body: closure boundary
+});
+test('catch-clause bindings at module scope are enumerated', () => {
+  assert.ok(finds('try { throw {} } catch ({ stash = [] }) { register(stash); }', 'stash'));
+  assert.ok(finds('try { throw [] } catch (stash2) { register(stash2); }', 'stash2'));
+});
+test('a RegExp literal is a mutable object, not an immutable constant', () => {
+  assert.ok(finds('const stash = /x/g;', 'stash'));
+});
+test('a class without static state reports nothing at all', () => {
+  assert.deepStrictEqual(scanModuleMutables('register(class { m() {} });'), []);
+  assert.deepStrictEqual(scanModuleMutables('class Pure { m() { return 1; } }'), []);
 });

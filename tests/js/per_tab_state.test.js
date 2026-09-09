@@ -44,6 +44,7 @@ const ALLOWLIST = {
   _BG_SUB_DEPENDENT_CONTROL_IDS: 'B', xpsRefLinesPlugin: 'B',
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
   REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)
+  _HEX_COLOR_RE: 'B', _SLUG_ID_RE: 'B',   // RegExp literals are objects (lastIndex is writable); these are validation constants
 };
 
 const { scanModuleMutables, inlineScripts } = require('./lib/module_state_scan');
@@ -57,7 +58,9 @@ function moduleLevelMutables() {
 const VALID_CLASSES = new Set(['A', 'B', "B'"]);
 // Own-property lookup: an inherited name such as `constructor` or `toString`
 // must NOT count as allowlisted (Codex round 4, both runs).
-const isAllowlisted = (n) => Object.hasOwn(ALLOWLIST, n) && VALID_CLASSES.has(ALLOWLIST[n]);
+// '[anonymous class].…' names are rejected outright: an unbound class with
+// static state has no binding to classify — give it one, or remove the state.
+const isAllowlisted = (n) => !n.startsWith('[anonymous class]') && Object.hasOwn(ALLOWLIST, n) && VALID_CLASSES.has(ALLOWLIST[n]);
 
 test('every module-level mutable is allowlisted with a valid non-C class', () => {
   const names = moduleLevelMutables();
@@ -67,8 +70,8 @@ test('every module-level mutable is allowlisted with a valid non-C class', () =>
   for (const [n, cls] of Object.entries(ALLOWLIST)) assert.ok(VALID_CLASSES.has(cls), n + ' has an invalid class ' + cls);
 });
 
-test('inherited property names cannot slip through the allowlist', () => {
-  for (const n of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.ok(!isAllowlisted(n), n);
+test('inherited property names and anonymous-class names cannot slip through the allowlist', () => {
+  for (const n of ['constructor', 'toString', '__proto__', 'hasOwnProperty', '[anonymous class].s', '[anonymous class].[static block]']) assert.ok(!isAllowlisted(n), n);
   for (const sc of inlineScripts(html)) {
     const found = scanModuleMutables(sc + '\nlet constructor = [];');
     assert.ok(found.includes('constructor') && !isAllowlisted('constructor'));
