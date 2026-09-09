@@ -1,0 +1,76 @@
+RE-CHECK (round 3) of the per-tab state ownership unit on branch
+feature-per-tab-state (HEAD 015512e). Round 2 (both runs) closed the Find
+Peaks run/apply, debounce owner binding, explicit fit-file route, v1
+import and lifecycle items, and returned NO-GO on the remaining async
+producers plus scanner scope. Verify the dispositions; the round-1/2
+prompts (docs/autofit/codex/per_tab_state_review_prompt.txt, …_r2_…) and
+the design memo (now with 'Rule 2 — async ownership') still apply. Do NOT
+read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-3 fix commit:      git show 015512e
+
+DISPOSITIONS TO VERIFY:
+1. BLOCKER (both) — auto-fit confirmation before owner capture. FIXED:
+   fittingTab = _opOwner() is the first thing after the preconditions,
+   before the confirmation await; after it, _ownerActive(fittingTab) or
+   abort with a notice; the later duplicate capture removed. Browser test
+   defers _showAutoFitConfirmModal, switches tabs, resolves true, and
+   asserts _autoFitSnapshot was never called and neither tab changed.
+2. MAJOR (both) — fit inputs after the upload await. FIXED: runFit builds
+   peakSpecs, fitMethod, epAvgVal, bgPayload (incl. manual anchors) before
+   uploadToBackend; auto-fit's upload await moved after its manual-anchor
+   read. Structural test pins that 'fit-method', 'bg-endpoint-avg',
+   _getManualAnchors() and peakToBackendSpec all precede the upload await
+   in both functions.
+3. MAJOR (both) — generic hasPeaks JSON route unguarded. FIXED: same
+   _ownerActive(owner) guard as the .fit.json route (structural pin: two
+   guards in _loadSessionFile); browser test defers a 'model.json' read
+   across a switch.
+4. MAJOR (both) — batch targets by id inside the loop. FIXED: targets
+   resolved to record objects right after the checkbox read, before the
+   first await; the loop skips a target that is no longer live; the
+   post-yield active-tab check stays. Deterministic browser test: during
+   B's fit (runFitLocal hook), close C and reload the project (C reopened
+   on a new object with the same id) — the reopened C has no peaks and no
+   history; B is fitted. Challenge: the source inputs (srcUi, source
+   peaks, ccShift) are read from sourceTab before the loop — is anything
+   still read from live state inside the loop other than the target's own
+   fit (getROIData/computeBackground/runFitLocal after activateTab(tgt)
+   and the post-yield identity check)?
+5. MAJOR (B6) — stored result unrecoverable. FIXED: openFindPeaksModal
+   renders _fpGetLast().body when present and says so in the status.
+   Browser test: store on A, open the modal, results container visible,
+   apply works. Challenge: does _fpRenderResults re-show fp-results
+   itself, and does re-rendering an OLD result after the user changed the
+   ROI/peaks mislead (the result records method/regions/averaging)?
+6. MAJOR (A9) — pending burst reorders history. FIXED: pushUndo,
+   _pushUndoFor, undo and redo call _flushUndoDebounce() first. Browser
+   test: edit (debounced), add a peak (immediate), wait, undo twice ->
+   the added peak goes first, then the edit.
+7. MAJOR (both) — scanner forms. FIXED: recursive template-literal-aware
+   stripper (nested ${ } expressions containing strings/templates — the
+   renderPeakForm pattern that desynchronised depth before), regex
+   literals, same-line and multiline declarators, parenthesised
+   initialisers; the statement splitter no longer ends a declaration at an
+   object initialiser's '}'; regex-literal consts are primitives. Mutation
+   tests for each form; a test appends 'let ROUND2_FORBIDDEN = [];' to
+   EACH real inline script and asserts it is found (63 module-level
+   declarations are now enumerated vs 28 before). Challenge: any further
+   form (labelled statements, 'let' inside a top-level block '{ … }',
+   declarations after a top-level 'if' without braces, class fields).
+8. MINORs (both) — allowlist/memo wording: state and tabManager are
+   'ownership infrastructure', _undoDebounce is the documented owner-bound
+   exception to class A; recorded in the allowlist comments and the memo.
+9. Anything new introduced by the round-3 commit.
+
+Evidence (logs; exit codes gated the commit): node --test tests/js/*.test.js
+176 pass / 0 fail / 3 known-gap todo; seven browser files passed together
+(per_tab_state now 16 tests); full pytest on THIS commit runs alongside
+this review; result in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
