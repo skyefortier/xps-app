@@ -1,0 +1,51 @@
+RE-CHECK (round 7) of the per-tab state ownership unit on branch
+feature-per-tab-state (HEAD e737996). Rounds 1-4 closed every ownership item
+in the page (both runs); rounds 5-6 were scanner-only. The page
+(templates/index.html) is unchanged since 3fdba3c. Do NOT read archived
+verdicts.
+
+Diff to review vs main:  git diff main...HEAD
+Round-7 fix commit:      git show e737996   (test-side only)
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — computed class keys. FIXED: ClassBody handling scans
+   computed keys, static field initialisers and static blocks in the
+   ENCLOSING scope (they run once at definition time), while method bodies
+   and instance field initialisers are function-like. Tests: a class with
+   static state inside a computed method key and inside a computed field
+   key is reported as '[anonymous class].store'; one inside a method body
+   is not.
+2. MAJOR (B) — catch bindings. FIXED: CatchClause.param through
+   bindingNames at module scope; tests for a destructured default and a
+   plain identifier.
+3. MAJOR (A) — RegExp literals. FIXED: a Literal is immutable only when it
+   is not a regex; the page's two validation regexes are now allowlisted
+   as class B constants.
+4. MINORs — '[anonymous class]…' rejected outright by isAllowlisted (test);
+   the stateless-class negative test asserts an exactly empty scan.
+
+PROPORTIONALITY RULING REQUESTED (please answer explicitly):
+This scanner is a structural GUARD with a documented backstop: Rule 2
+(async ownership) is what prevents wrong-tab restore in practice, and the
+memo names closure state, runtime property additions, eval/Function and
+prototype getters as the manual-review boundary. Rounds 2-6 each found a
+further declaration form; the AST walk now covers let/var/const with
+patterns, labelled/unbraced/block statements, catch bindings, class
+static state in declarations, expressions, superclasses, computed keys,
+static initialisers and static blocks, and window.* stores. If you find
+another form, rate it by whether it is REALISTIC in this codebase (a
+single-file vanilla-JS page written by hand) and whether the backstop
+covers it: a contrived construction that no reviewer would accept in this
+file should be MINOR with a suggested test, not a NO-GO — say which
+category yours falls in.
+
+Evidence (logs; exit codes gated the commit): node --test tests/js/*.test.js
+185 pass / 0 fail / 3 known-gap todo; browser per_tab_state 18 passed;
+round-4 and round-5 full suites on the same page code: 829 passed /
+7 skipped each.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
