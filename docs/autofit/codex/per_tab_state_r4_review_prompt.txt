@@ -1,0 +1,61 @@
+RE-CHECK (round 4) of the per-tab state ownership unit on branch
+feature-per-tab-state (HEAD 3fdba3c). Round 3 (both runs) closed every
+async-ownership item except two batch details and the scanner. Verify
+the dispositions; earlier prompts (…_review_prompt.txt, _r2_, _r3_) and
+the design memo (Rule 2, scanner paragraph updated) still apply. Do NOT
+read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-4 fix commit:      git show 3fdba3c
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — batch source inputs read per iteration. FIXED: srcPeaks
+   (deep copy), srcUi and srcShift are taken from sourceTab before the
+   first yield and used for every target. Deterministic browser test
+   mutates the SOURCE record (centre, averaging, ccShift) during B's fit
+   via a runFitLocal hook and asserts C still receives 285 / 3 / 0.
+   Challenge: is anything else still read from the source or from live
+   state inside the loop besides the target's own fit inputs
+   (getROIData / computeBackground on the now-active target)?
+2. MAJOR (B) — already-active target not refreshed. FIXED: when
+   tabManager.activeId === tgt.id the record is loaded into live state
+   explicitly (peaks, nextId, ccShift, _restoreUI(tgt.ui), renderPeakList)
+   instead of the no-op activateTab. Test switches to C during B's fit and
+   asserts C ends up fitted with the propagated model, not its old one.
+   Challenge: does the explicit load miss anything activateTab would have
+   done that the fit depends on (fitResult cleared? chart state?).
+3. MAJOR (both) — scanner forms. REPLACED, not patched: the scanner now
+   parses with acorn 8.17 (vendored tests/js/lib/acorn.js + MIT licence)
+   and walks the AST: every let/var/const binding reachable without
+   crossing a function/class-method boundary (destructuring expanded;
+   labelled statements, unbraced if/for bodies and top-level blocks
+   included), static class fields (Class.field), window.* assignments at
+   any depth; a const is skipped only if its initialiser is a literal,
+   template, function/arrow/class expression, or unary/binary of those
+   (an IIFE, call, conditional, identifier or member initialiser is
+   reported). The Jinja interpolation `{{ legacy_reference | tojson }}`
+   is substituted with null before parsing. Mutation tests: every form
+   named in rounds 2 and 3, plus four forbidden forms appended to EACH
+   real inline script. The real page enumerates 64 module-level bindings,
+   all allowlisted with a class. Challenge: any remaining way to hold
+   module-lifetime per-tab content that an AST walk of this shape does
+   not report (property assignment onto an allowlisted object such as
+   state.x = [] or tabManager.x = [], eval/Function, a getter on a
+   prototype) — and state whether that belongs to this unit or to the
+   documented closure/manual-review boundary.
+4. MINOR (both) — recovered results show their stored method, regions and
+   endpoint averaging, with a caution to apply only if ROI/peaks are still
+   what that run used.
+5. Anything new introduced by the round-4 commit (the vendored parser is
+   test-only; nothing ships to the page).
+
+Evidence (logs; exit codes gated the commit): node --test tests/js/*.test.js
+176 pass / 0 fail / 3 known-gap todo; seven browser files (per_tab_state
+now 18 tests) passed together; full pytest on THIS commit runs alongside
+this review; result in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
