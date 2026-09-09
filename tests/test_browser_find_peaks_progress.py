@@ -142,10 +142,14 @@ def test_progress_indicator_shows_spinner_timer_and_real_readout_then_clears(
         pg.click("#fp-expanded-panel >> text='[cited] 2p'")
         pg.select_option("#fp-method", "ic_model_comparison")
         # force the two-phase screen->stabilize path so the sweep runs long
-        # enough to reliably observe an in-flight poll
+        # enough to reliably observe an in-flight poll. n_refits must make the
+        # run last several seconds REGARDLESS of engine speed: with n_refits=2
+        # the whole sweep took ~1.3 s at endpoint averaging 1 and ~0.8 s once
+        # Find Peaks honoured the panel's 3 (2026-09-08), so the 1-s elapsed
+        # counter never ticked and the test failed on a correct change.
         pg.evaluate("""() => {
             document.getElementById('fp-options').value =
-                JSON.stringify({ n_refits: 2, enable_proposal_pass: false });
+                JSON.stringify({ n_refits: 40, enable_proposal_pass: false });
         }""")
         pg.click("#fp-run")
 
