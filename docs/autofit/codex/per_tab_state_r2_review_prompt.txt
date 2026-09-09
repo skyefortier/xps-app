@@ -1,0 +1,81 @@
+RE-CHECK (round 2) of the per-tab state ownership unit on branch
+feature-per-tab-state (HEAD ba739f5). Round 1 (both runs) returned NO-GO:
+moving the containers onto the record was necessary but not sufficient
+because async producers chose the tab at completion. Verify each
+disposition line-by-line; the round-1 prompt
+(docs/autofit/codex/per_tab_state_review_prompt.txt) and the design memo
+still apply. Do NOT read archived verdict files.
+
+Diff to review vs main:  git diff main...HEAD
+Round-2 fix commit:      git show ba739f5
+
+THE ADDED RULE: an operation that awaits captures the record OBJECT it
+started on (_opOwner()) and its inputs before the first await; afterwards
+it writes to that object or checks _ownerActive(owner) (identity, not id;
+_ownerLive rejects a closed tab even if a reopened one carries its id).
+
+DISPOSITIONS TO VERIFY:
+1. BLOCKER (both) — runFindPeaks stored on the completion-time tab and read
+   ROI/peak specs after the upload await. FIXED: owner + payload (ROI,
+   material, peak specs) built before uploadToBackend; result written to
+   the owner via _fpSetLast(last, owner); if the owner is no longer active
+   the modal reports where the result went and does not render. Browser
+   test holds the poll, switches tabs, releases: result on A, none on B.
+2. BLOCKER (both) — applyFindPeaks wrote the then-active tab after the
+   confirmation await. FIXED: owner captured before, _ownerActive checked
+   after both confirmations; test defers the confirmation across a switch.
+3. MAJOR (both) — auto-fit/runFit bound by persisted id and read inputs
+   after upload. FIXED: fittingTab = _opOwner() object; peak specs before
+   the await in both; _autoFitSnapshot now carries owner: _opOwner() (it is
+   taken before the first await), _autoFitRestore(snap, owner) uses the
+   snapshot's owner whenever the argument is not a record object, is inert
+   unless _ownerLive(owner), and writes the owner RECORD when it is live
+   but not active. Tests: live-inactive -> record restored; closed +
+   reloaded same id -> reopened record untouched; the earlier anchor
+   migration tests (which call _autoFitRestore(snap) and with an id) pass
+   unchanged under the new contract. Challenge: after a record restore
+   while another tab is active, is the DOM/undo state coherent when the
+   owner is re-activated (activateTab restores from the record)?
+4. MAJOR (both) — _pushUndoDebounced fired unbound. FIXED: owner and
+   PRE-EDIT snapshot bound at burst start; a burst on a different owner
+   flushes the previous; the flush drops a closed owner. Test: A's timer
+   leaves B's redo intact. Challenge: the snapshot is taken at the FIRST
+   debounced call — before or after the first mutation at the two call
+   sites (_switchShape family loop, updatePeakParam)? If after, say whether
+   that is acceptable here (it is the pre-existing ordering) or must be
+   fixed in this unit.
+5. MAJOR (both) — runPropagation fit whichever tab was active after its
+   20 ms yield. FIXED: _pushUndoFor(tgt) before the record write; after
+   the yield, if _activeTab() !== tgt the batch stops with a notice;
+   targets closed mid-batch are skipped. Structural pin only (the window
+   is 20 ms). Challenge whether a deterministic test is required.
+6. MAJOR (both) — _loadSessionFile applied a .fit.json to the tab active
+   after the read. FIXED: owner captured before await file.text(); apply
+   only if _ownerActive. v1 fromJSON is an undoable transaction (pushUndo
+   with averaging, redo cleared) and clears findPeaks. Tests cover both.
+7. MAJOR (both) — scanner scope. FIXED: tests/js/lib/module_state_scan.js
+   strips comments/strings, tracks depth, finds indented / multi-declarator
+   / populated / ALL_CAPS / window.* declarations; mutation-tested; the
+   allowlist lists every constant catalogue and xpsRefLinesPlugin (class
+   B) and _undoDebounce (A). Documented limitation: closure state inside an
+   IIFE or long-lived function is invisible (a mutation test asserts this).
+   Challenge: is the limitation acceptable given the async rule now covers
+   locals that outlive a tab, and is the memo's class wording honest for
+   'state' / 'tabManager'?
+8. MINORs — _ssFiltered holds ids; final close nulls _historyPreview;
+   Ctrl/Cmd+Shift+Z normalised (test dispatches a real KeyboardEvent).
+9. Anything new introduced by the round-2 commit.
+
+Evidence (read from the logs; pytest exit codes gated the commit):
+node --test tests/js/*.test.js 172 pass / 0 fail / 3 known-gap todo; seven
+browser files (per_tab_state 11, default-3, find-peaks endpoint-avg,
+anchor migration, full-window, batch ROI, progress timer) passed together
+in one run; round-1 full suite on the parent commit: 815 passed /
+7 skipped. Full pytest on THIS commit runs alongside this review; result
+in the archived verdict header.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
