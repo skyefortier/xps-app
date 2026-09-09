@@ -1,0 +1,42 @@
+RE-CHECK (round 5) of the per-tab state ownership unit on branch
+feature-per-tab-state (HEAD 49fc345). Round 4 (both runs) closed both batch
+items and the recovered-result display; the only open items were scanner
+forms and the allowlist lookup. Verify; earlier prompts (…_review_prompt,
+_r2_, _r3_, _r4_) and the memo still apply. Do NOT read archived verdicts.
+
+Diff to review vs main:  git diff main...HEAD
+Round-5 fix commit:      git show 49fc345   (test-side only; no page change)
+
+DISPOSITIONS TO VERIFY:
+1. MAJOR (both) — destructuring defaults/rest behind a primitive RHS.
+   FIXED: the provably-immutable exemption applies only when the binding
+   is a plain Identifier; any pattern is expanded and reported. Mutation
+   tests: const {stash = []} = 0; const [...stash2] = ''; nested default.
+2. MAJOR (both) — static-field coverage. FIXED: reportClass handles
+   identifier, string and computed keys (string-literal computed keys
+   resolve to their value; other computed keys report Class.[computed]),
+   class expressions bound by a declarator (const/let K = class {...}),
+   and declarations inside static blocks (Class.name). A class expression
+   is 'provably immutable' only when it has no static fields/blocks.
+   Challenge: class expressions NOT bound by a declarator (window.K =
+   class {...}, a class returned from an IIFE) — reported or documented?
+3. MAJOR (both) — inherited allowlist names. FIXED: isAllowlisted uses
+   Object.hasOwn AND validates the class value; test asserts constructor /
+   toString / __proto__ / hasOwnProperty are not allowlisted and that
+   'let constructor = []' appended to each real script is caught.
+4. MINOR (both) — memo names the manual-review boundary explicitly
+   (closures; runtime property additions to allowlisted objects; eval /
+   Function; prototype getters). Binding count corrected to 61.
+5. Anything new introduced by the round-5 commit.
+
+Evidence (logs; exit codes gated the commit): node --test tests/js/*.test.js
+178 pass / 0 fail / 3 known-gap todo; seven browser files (per_tab_state
+18) passed together; round-4 full suite on the parent commit is recorded
+in the archived round-4 header; the full suite on THIS commit runs
+alongside this review.
+
+FORMAT: end your final message with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
