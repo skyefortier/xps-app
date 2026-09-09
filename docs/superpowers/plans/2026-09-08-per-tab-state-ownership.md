@@ -70,6 +70,40 @@ on the tab record, never beside `state`.
    when `_activeTab()` is null or a stack tab (today they would write into
    `state.peaks` of a stack tab).
 
+## Rule 2 — async ownership (added 2026-09-09 after Codex round 1 of the implementation)
+
+Moving the containers onto the record was necessary but not sufficient:
+every producer that awaits (a fit, an analysis, a confirmation modal, a
+file read, a debounce timer, a batch yield) was choosing the tab at
+COMPLETION time. So: an operation that awaits captures the record OBJECT
+it started on (`_opOwner()`) and every input it needs, before its first
+await; afterwards it writes to that object (`_fpSetLast(last, owner)`,
+`_autoFitRestore(snap, owner)`, `_pushUndoFor(tab)`) or checks that it is
+still the active one (`_ownerActive(owner)`), and drops the work if the
+owner was closed (`_ownerLive`). Persisted ids are not identity: a closed
+tab's id returns on a NEW object after a project reload. Sites covered:
+`runFindPeaks`, `applyFindPeaks`, `runFit`, `runAutoFitC1sGraphite`
+(owner captured before its confirmation await), `runPropagation`
+(targets resolved to objects before the first yield, re-validated after
+it), `_loadSessionFile` (both fit-file routes), `_pushUndoDebounced`
+(owner + pre-edit snapshot bound at burst start; immediate history
+actions flush a pending burst first so order is preserved), and the v1
+`fromJSON` import (an undoable transaction that clears a stale Find
+Peaks result). A stored Find Peaks result is shown again when its tab
+reopens the modal.
+
+Classification note: `state` and `tabManager` are ownership
+INFRASTRUCTURE (the active working copy and the record store), not
+tab-independent caches; `_undoDebounce` is a burst buffer that does hold
+a peaks snapshot but is bound to its owner record — the one deliberate
+exception to class A's "no spectrum content". The scanner
+(`tests/js/lib/module_state_scan.js`) is tokenizer-level: it strips
+comments, strings, regex and nested template literals, tracks depth,
+and finds indented / multi-statement / multiline / parenthesised /
+ALL_CAPS / `window.*` declarations (mutation-tested); closure state
+inside an IIFE or a long-lived function is a documented manual-review
+boundary, which rule 2 is what actually covers.
+
 ## Migration (one branch, TDD, Codex ×2)
 
 - `pushUndo` / `undo` / `redo` / `_updateUndoButtons` → operate on
