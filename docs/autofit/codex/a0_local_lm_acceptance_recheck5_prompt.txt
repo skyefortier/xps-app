@@ -1,0 +1,37 @@
+You are running ROUND 6 (fifth recheck) of the ADVERSARIAL CODE review of
+unit A0 (branch fix-local-lm-acceptance vs origin/main; review `git diff
+origin/main..HEAD` in full plus the tests). Rounds 1-5 verdicts are
+archived under docs/autofit/codex/a0_local_lm_acceptance_*verdict_run{A,B}.md
+and the prompts under a0_local_lm_acceptance_*prompt.txt. Round 5 found
+one MAJOR and nothing else. Verify the disposition against the code.
+
+ROUND-5 DISPOSITION:
+
+1. MAJOR the certificate's centre-probe scale read the working peak's
+   width, which the Jacobian loop leaves at its last perturbation → FIXED
+   at the root: `paramScale(j, vec)` is now a pure function of the parameter
+   VECTOR (a centre's scale is its peak's width taken from `vec` when the
+   width is free, or from the fixed peak — which is never perturbed —
+   otherwise); every call site passes the vector it is evaluating (params,
+   or the candidate vector). certify() additionally re-applies the current
+   vector to the working copy at entry. Test: your run-B reproduction is
+   added verbatim ("round-5: a single Gaussian between two symmetric peaks
+   ...") and passes the 1e-6 oracle; run A's LACX construction was not
+   added (it depends on a projection built from the extracted functions),
+   but it exercises the same root cause.
+
+State: 33 targeted tests pass; full JS suite passes; 18/18 committed Batch
+Fit targets converge and pass the oracle; Python and browser suites pass
+on the owner's machine.
+
+ROUND-6 QUESTIONS: (a) does the round-5 finding survive anywhere (any
+remaining read of the working copy where the parameter vector is meant)?
+(b) can you construct a success failing the stated coordinate certificate?
+(c) anything new from the round-5 change (the sensitivity guard, blocked
+probe and relStep now use the same pure scale)?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
