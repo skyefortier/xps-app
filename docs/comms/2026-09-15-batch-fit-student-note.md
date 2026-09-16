@@ -39,8 +39,10 @@ How to tell if a saved file is affected (do this first)
    could not be reached OR returned an error, Run Fit silently switched to
    the same page optimiser (you saw the amber "Local Fit Performed" box),
    and if the server reported that its fit had not converged, Run Fit
-   applied it anyway and said "Fit complete". Both are fixed now; the
-   scanner catches the first, the second shows as an unusually poor fit.
+   applied it anyway and said "Fit complete". Both are fixed now. The
+   scanner's signature applies to the first case too; the second leaves
+   no signature in the file, so if a fit ever looked implausibly poor,
+   re-run it.
 
 What happened, plainly
 

@@ -244,3 +244,84 @@ test('linked child follows its parent even when the parent width is locked (beha
   assert.ok(Math.abs(c.amplitude - p.amplitude * 0.6) < 1e-9, 'child amplitude = parent x ratio');
   assert.equal(c.fwhm, p.fwhm, 'child width = parent width, locked parent included');
 });
+
+// ── Codex round-2 finding (2026-09-15): constrained stationarity oracle ──────
+// A converged result must be a stationary point of the BOX-CONSTRAINED
+// problem: no small feasible move of any free parameter reduces the residual.
+const BOX = { fwhm: [0.1, 15], amplitude: [1, Infinity], glMix: [0, 100], asymmetry: [0, 1], dsAlpha: [0, 0.49],
+  dsGamma: [0, 5], laAlpha: [0, 0.49], laBeta: [0.05, 2], laM: [0.05, 4], caAlpha: [0.1, 5], caBeta: [0.1, 5] };
+function freeParamsOf(p) {
+  const out = [];
+  if (p.linked) return out;
+  if (!p.fixCenter) out.push('center');
+  if (!p.fixFwhm && p.shape !== 'DSG_LA') out.push('fwhm');
+  if (!p.fixAmplitude) out.push('amplitude');
+  if ((p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) out.push('glMix');
+  if (p.shape === 'asym-GL' && !p.fixAsymmetry) out.push('asymmetry');
+  if (p.shape === 'LACX') { if (!p.fixCaAlpha) out.push('caAlpha'); if (!p.fixCaBeta) out.push('caBeta'); }
+  return out;
+}
+function assertConstrainedStationary(env, be, bgSub, relTol, label) {
+  const ss = () => residualSS(env, be, bgSub);
+  const base = ss();
+  for (const p of env.state.peaks) {
+    for (const k of freeParamsOf(p)) {
+      const scale = k === 'center' ? Math.max(0.05, p.fwhm) : Math.max(1, Math.abs(p[k]));
+      const [lo, hi] = BOX[k] || [-Infinity, Infinity];
+      for (const sgn of [-1, 1]) {
+        const v0 = p[k];
+        const v = Math.max(lo, Math.min(hi, v0 + sgn * 1e-3 * scale));
+        if (v === v0) continue;
+        p[k] = v;
+        // linked children follow the parent, as in the optimiser
+        for (const q of env.state.peaks) if (q.linked === p.id) { q.center = p.center + q.linkOffset; q.amplitude = p.amplitude * q.linkRatio; q.fwhm = p.fwhm; for (const kk of ['glMix','asymmetry','caAlpha','caBeta','caM']) if (p[kk] !== undefined) q[kk] = p[kk]; }
+        const trial = ss();
+        p[k] = v0;
+        for (const q of env.state.peaks) if (q.linked === p.id) { q.center = p.center + q.linkOffset; q.amplitude = p.amplitude * q.linkRatio; q.fwhm = p.fwhm; for (const kk of ['glMix','asymmetry','caAlpha','caBeta','caM']) if (p[kk] !== undefined) q[kk] = p[kk]; }
+        assert.ok(trial >= base * (1 - relTol), `${label}: moving ${p.name}.${k} by ${sgn}×1e-3 reduces SS ${base.toExponential(6)} → ${trial.toExponential(6)} (${((1 - trial / base) * 100).toFixed(4)} %) — not a constrained stationary point`);
+      }
+    }
+  }
+}
+
+test('round-2 replay A: a peak that can only shrink at a wall is left at a constrained stationary point', () => {
+  const env = makeEnv();
+  const be = grid(283, 287, 0.01);
+  const data = be.map(x => 1 * env.gaussian(x, 285.0, 0.3));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 284.0, fwhm: 0.3, amplitude: 1 }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  if (out.success) assertConstrainedStationary(env, be, data, 1e-8, 'replay A');
+  else assert.ok(/stall|sensitivity|iteration/i.test(out.message), out.message);
+});
+
+test('round-2 replay B: amplitude pinned at its wall must not stop the width from reaching its constrained optimum', () => {
+  const env = makeEnv();
+  const be = grid(283, 287, 0.01);
+  const data = be.map(x => 0.5 * env.gaussian(x, 285.0, 1.0));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 1.5, amplitude: 5, fixCenter: true }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.equal(env.state.peaks[0].amplitude, 1, 'amplitude on its wall');
+  assert.ok(env.state.peaks[0].fwhm < 0.6, `width must move to its constrained optimum, got ${env.state.peaks[0].fwhm}`);
+  assertConstrainedStationary(env, be, data, 1e-8, 'replay B');
+});
+
+test('round-2: predicted reduction <= 0 never counts as convergence (start at FWHM 0.5 on replay A data)', () => {
+  const env = makeEnv();
+  const be = grid(283, 287, 0.01);
+  const data = be.map(x => 1 * env.gaussian(x, 285.0, 0.3));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 284.0, fwhm: 0.5, amplitude: 1 }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  if (out.success) assertConstrainedStationary(env, be, data, 1e-8, 'replay A/0.5');
+});
+
+test('A01 replay targets converge to constrained stationary points (C1s and U 4f)', () => {
+  const tabs = loadProjectTabs();
+  for (const [srcName, target] of [['C1s Scan', 'C1s Scan_0'], ['C1s Scan', 'C1s Scan_4'], ['C1s Scan', 'C1s Scan_8'], ['U4f Scan', 'U4f Scan_3'], ['U4f Scan', 'U4f Scan_6']]) {
+    const env = makeEnv();
+    const { be, bgSub, bg } = batchTarget(env, tabs, srcName, target);
+    const out = env.runFitLocal(be, bgSub, bg);
+    assert.equal(out.success, true, `${target}: ${JSON.stringify(out)}`);
+    assertConstrainedStationary(env, be, bgSub, 1e-6, target);
+  }
+});

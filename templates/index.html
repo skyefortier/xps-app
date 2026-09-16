@@ -6162,6 +6162,7 @@ async function uploadToBackend(be, inten) {
     throw serverError(msg || ('Upload failed (HTTP ' + resp.status + ').'));
   }
   const json = await resp.json();
+  if (!json || typeof json !== 'object') throw serverError('Upload returned an unexpected response.');
   if (json.error) throw serverError(json.error);
   if (!json.session_id) throw serverError('Upload returned no session id.');
   return json.session_id;
@@ -7370,9 +7371,17 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // otherwise crawls a flat valley for thousands of iterations changing
   // chi-square in its 7th digit and no parameter in its 5th.
   const FTOL = 1e-6, XTOL = 1e-8, GTOL = 1e-6, SENS_MIN = 1e-12;
+  // A parameter whose Jacobian column is below HELD_REL of the largest
+  // (in scaled units) is not determined by the data at finite-difference
+  // precision — typically the width of a component whose amplitude has
+  // collapsed to its wall. It is held for the step and reported, exactly as
+  // a singular-value cutoff would treat it; otherwise it dominates the
+  // Newton prediction with a fictitious reduction and stalls the fit.
+  const HELD_REL = 1e-4;
   let converged = params.length === 0 || chi < 1e-20;
   let iterations = 0;
   let acceptedSteps = 0;
+  let heldIll = [];
 
   for (let iter = 0; iter < maxIter && !converged; iter++) {
     iterations++;
@@ -7412,26 +7421,43 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     if (n > 0 && sens / Math.max(chi, 1e-300) < SENS_MIN) {
       return fail('the model has no measurable sensitivity to its free parameters in this region.', iterations);
     }
-    // Projected gradient test (gtol): max_j |J_j . r| / (|J_j| |r|), ignoring
-    // columns whose DESCENT direction is blocked by a wall of the parameter
-    // box. With r = data - model, d(chi)/dp_j = +2 * (J_j . r).
+    // ACTIVE SET: a parameter whose descent direction points into a wall of
+    // the parameter box (or that has no sensitivity, or is discrete) is held
+    // FIXED for this step. Solving the joint system with such a parameter
+    // and then clipping it would leave the other components of the step
+    // meaningless and let a tiny "agreed" step pass the ftol test at a
+    // non-stationary point (Codex round 2). With r = data - model,
+    // d(chi)/dp_j = +2 * (J_j . r), so the descent direction is -sign(J_j . r).
+    const active = [];
     let gradCos = 0;
     const rNorm = Math.sqrt(chi);
+    let maxCol = 0;
+    for (let j = 0; j < n; j++) if (!isDiscrete(j)) maxCol = Math.max(maxCol, Math.sqrt(JtJ[j][j]) * paramScale(j, params[j]));
+    heldIll = [];
     for (let j = 0; j < n; j++) {
-      if (isDiscrete(j) || Jtr[j] === 0) continue;
-      const probe = clamp(paramMap[j].param, params[j] - Math.sign(Jtr[j]) * 1e-6 * paramScale(j, params[j]));
-      if (probe === params[j]) continue;            // descent direction blocked by the box
-      const colNorm = Math.sqrt(JtJ[j][j]);
-      if (colNorm > 0 && rNorm > 0) gradCos = Math.max(gradCos, Math.abs(Jtr[j]) / (colNorm * rNorm));
+      if (isDiscrete(j) || !(JtJ[j][j] > 0)) continue;
+      if (Math.sqrt(JtJ[j][j]) * paramScale(j, params[j]) < HELD_REL * maxCol) { heldIll.push(j); continue; }
+      if (Jtr[j] !== 0) {
+        const probe = clamp(paramMap[j].param, params[j] - Math.sign(Jtr[j]) * 1e-6 * paramScale(j, params[j]));
+        if (probe === params[j]) continue;          // blocked by the box
+      }
+      active.push(j);
+      if (rNorm > 0) gradCos = Math.max(gradCos, Math.abs(Jtr[j]) / (Math.sqrt(JtJ[j][j]) * rNorm));
     }
+    // Projected gradient test (gtol) over the active set only.
     if (gradCos < GTOL) { converged = true; break; }
     // Linear model of the residual, for the predicted reduction (ftol test).
     const JtJ0 = JtJ.map(row => row.slice());
 
-    // Marquardt damping, then the DESCENT step: JtJ.dp = -Jt.r
-    for (let a = 0; a < n; a++) JtJ[a][a] = JtJ[a][a] * (1 + lambda) + 1e-300;
-    const dp = solveLinear(JtJ, Jtr.map(v => -v), n);
-    if (!dp.every(Number.isFinite)) return fail('the normal equations are singular.', iterations);
+    // Marquardt damping, then the DESCENT step on the active set:
+    // JtJ_aa . dp_a = -Jt.r_a, dp = 0 for held parameters.
+    const m = active.length;
+    const A = active.map(a => active.map(b => (a === b ? JtJ[a][a] * (1 + lambda) + 1e-300 : JtJ[a][b])));
+    const rhs = active.map(a => -Jtr[a]);
+    const dpA = solveLinear(A, rhs, m);
+    if (!dpA.every(Number.isFinite)) return fail('the normal equations are singular.', iterations);
+    const dp = new Array(n).fill(0);
+    active.forEach((a, k) => { dp[a] = dpA[k]; });
     const newParams = params.map((v, i) => clamp(paramMap[i].param, v + dp[i]));
     const step = newParams.map((v, i) => v - params[i]);
     const newChi = chiSq(newParams);
@@ -7451,7 +7477,17 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
       acceptedSteps++;
       lambda *= 0.7;
       if (chi < 1e-20) { converged = true; break; }
-      if (actred <= FTOL && prered <= FTOL && (prered <= 0 || actred / prered <= 2)) { converged = true; break; }
+      if (prered > 0 && actred <= FTOL && prered <= FTOL && actred / prered <= 2) {
+        // The damped step can be tiny while lambda is large in a flat
+        // valley; require that the UNDAMPED Gauss-Newton step on the active
+        // set predicts no more than FTOL either: (Jt.r)_a . (JtJ_aa)^-1 (Jt.r)_a / chi.
+        const A0 = active.map(a => active.map(b => (a === b ? JtJ0[a][a] * (1 + 1e-10) + 1e-300 : JtJ0[a][b])));
+        const newton = solveLinear(A0, active.map(a => -Jtr[a]), m);
+        let predGN = 0;
+        if (newton.every(Number.isFinite)) active.forEach((a, k) => { predGN += -Jtr[a] * newton[k]; });
+        predGN = predGN / Math.max(chi - actred * chi, 1e-300);   // relative to chi before this step
+        if (newton.every(Number.isFinite) && predGN >= 0 && predGN <= FTOL) { converged = true; break; }
+      }
       if (relStep <= XTOL) { converged = true; break; }
     } else {
       lambda *= 3;
@@ -7483,9 +7519,11 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // KNOWN LIMITATION: this engine produces no parameter uncertainties; the
   // results panel shows blank sigma for every parameter after a local fit.
   const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
+  const undeterminedNames = heldIll.map(j => { const q = workPeak(paramMap[j].id); return (q ? q.name : paramMap[j].id) + '.' + paramMap[j].param; });
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
                       engine: 'local', status: 'converged',
-                      objective: 'unweighted_residual_variance', iterations };
+                      objective: 'unweighted_residual_variance', iterations,
+                      undetermined: undeterminedNames };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
   document.getElementById('fit-quality').textContent = 'Residual variance = ' + chiReduced.toFixed(2);
@@ -7501,9 +7539,10 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
 
   _hideFitSpinner();
   notify('Local fit converged in ' + iterations + ' iteration' + (iterations === 1 ? '' : 's') +
-         '. Residual variance = ' + chiReduced.toFixed(3) + ' (unweighted; no parameter uncertainties from the local engine).', 'amber');
+         '. Residual variance = ' + chiReduced.toFixed(3) + ' (unweighted; no parameter uncertainties from the local engine).' +
+         (undeterminedNames.length ? ' Not determined by the data (held): ' + undeterminedNames.join(', ') + '.' : ''), 'amber');
   _autoSnapshot();
-  return { success: true, engine: 'local', iterations, acceptedSteps, residualVariance: chiReduced };
+  return { success: true, engine: 'local', iterations, acceptedSteps, residualVariance: chiReduced, undetermined: undeterminedNames };
 }
 
 function solveLinear(A, b, n) {

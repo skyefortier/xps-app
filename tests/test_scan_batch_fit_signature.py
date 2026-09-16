@@ -146,3 +146,14 @@ def test_unreadable_file_gives_exit_code_2_not_clean(tmp_path):
     (tmp_path / "junk.proj.json").write_text("not json")
     r = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path)], capture_output=True, text=True)
     assert r.returncode == 2 and "UNREADABLE" in r.stdout
+
+
+def test_nonexistent_path_is_unreadable_not_clean(tmp_path):
+    r = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path / "missing.proj.zip")], capture_output=True, text=True)
+    assert r.returncode == 2 and "UNREADABLE" in r.stdout
+
+
+def test_no_hits_still_prints_the_triage_caveat(tmp_path):
+    _write_proj_json(tmp_path, [_backend_tab("A", [284.8])])
+    r = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path)], capture_output=True, text=True)
+    assert r.returncode == 0 and "not proven unaffected" in r.stdout

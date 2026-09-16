@@ -174,3 +174,10 @@ test('every consumer that prints the goodness-of-fit statistic routes through th
   const act = grab('fqEl.textContent = _fitStatLabel(state.fitResult)', 400);
   assert.match(act, /_LOCALFIT_TOOLTIP/, 'tab activation must attach the local tooltip for local results');
 });
+
+test('uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is a server error, not a transport failure', async () => {
+  const src = extractFn('uploadToBackend');
+  const make = fetchImpl => new Function('fetch', 'FormData', 'Blob', src + '\nreturn uploadToBackend;')(fetchImpl, class { append() {} }, class {});
+  await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => null }))([1], [1]), e => e.serverError === true);
+  await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => 'nope' }))([1], [1]), e => e.serverError === true);
+});

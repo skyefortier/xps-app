@@ -22,12 +22,14 @@ Levels reported per tab:
               stores chiReduced = sum(r^2)/(n-k) and rmse = sqrt(sum(r^2)/n),
               so chiReduced / rmse^2 = n/(n-k), about 1. The server (lmfit)
               stores a counting-noise-WEIGHTED reduced chi-square, so the
-              same ratio is about 1/<counts>. The two coincide only when
-              counts are ~1 per channel, so the ratio is used only when
-              rmse > 10 counts. Corroborating evidence is listed: a huge
-              chiReduced, and another tab in the same project carrying the
-              IDENTICAL centre/width set (a Batch Fit copy; copying is
-              proven, failed optimisation is not).
+              same ratio is about 1/<counts>. The two coincide when counts
+              are ~1 per channel; as a rough guard the ratio is used only
+              when rmse > 10 counts (rmse is a proxy for count level, not a
+              measurement of it, so very-low-count server fits can still be
+              listed). Corroborating evidence is listed: a huge chiReduced,
+              and another tab in the same project carrying the IDENTICAL
+              centre/width set (consistent with a Batch Fit copy, or with a
+              deliberately locked model).
   POSSIBLE    the ratio sits between the two ranges, or the counts are too
               low for the ratio to discriminate — inspect the file.
   INSUFFICIENT no rmse stored (older files): cannot classify; listed when
@@ -127,7 +129,7 @@ def scan_tabs(tabs: list[dict]) -> list[dict]:
             if chi_r is not None and chi_r > CHI_HUGE:
                 reasons.append(f"corroboration: chiReduced = {chi_r:.4g} is far above any plausible weighted value")
             if twins:
-                reasons.append(f"corroboration: identical centre/width set to tab(s) {', '.join(twins)} — a Batch Fit copy (copying is proven; failed optimisation is inferred)")
+                reasons.append(f"corroboration: identical centre/width set to tab(s) {', '.join(twins)} — consistent with a Batch Fit copy (or a locked model)")
         if level:
             hits.append({"tab": t.get("name", "?"), "level": level, "ratio": ratio, "chiReduced": chi_r, "reasons": reasons})
     return hits
@@ -157,6 +159,10 @@ def main(argv=None) -> int:
     ap.add_argument("--json", help="also write the full report to this JSON file")
     args = ap.parse_args(argv)
     report, counts, n_files, n_errors = [], {"suspected": 0, "possible": 0, "insufficient": 0, "post-fix": 0}, 0, 0
+    for p in args.paths:
+        if not Path(p).exists():
+            n_errors += 1
+            print(f"UNREADABLE {p}: no such file or directory")
     for f in iter_files(args.paths):
         n_files += 1
         try:
@@ -174,9 +180,12 @@ def main(argv=None) -> int:
     print(f"\n{n_files} file(s) scanned: {counts['suspected']} suspected, {counts['possible']} possible, "
           f"{counts['insufficient']} insufficient evidence, {counts['post-fix']} post-fix local, {n_errors} unreadable.")
     if counts["suspected"] or counts["possible"] or counts["insufficient"]:
-        print("Suspected tabs hold a local-optimiser result. Before 2026-09-15 that result was the UN-FITTED starting "
-              "model (Batch Fit, or Run Fit after a server error/outage): open the file and press Run Fit on each such tab. "
-              "A file with no hits is not proven unaffected: results whose rmse is missing or was recomputed cannot be classified.")
+        print("Suspected tabs carry the local optimiser's statistics signature. Before 2026-09-15 a local-optimiser "
+              "result was the UN-FITTED starting model (Batch Fit, or Run Fit after a server error/outage): open the file "
+              "and press Run Fit on each such tab.")
+    print("This is a triage heuristic: a file with no hits is not proven unaffected (results whose rmse is missing or "
+          "was recomputed cannot be classified, and very-low-count fits blur the signature). If you know a tab came from "
+          "Batch Fit, re-fit it regardless.")
     if args.json:
         Path(args.json).write_text(json.dumps({"files": n_files, "unreadable": n_errors, **counts, "hits": report}, indent=2))
     if n_errors:

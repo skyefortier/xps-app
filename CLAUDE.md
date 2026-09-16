@@ -243,20 +243,28 @@ constrained via lmfit parameter expressions.
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
 implementation used as a fallback when the backend is unreachable, and
-the ONLY engine Batch Fit uses. Numerical Jacobian, max 1000 iterations,
-stops on relative χ² drop < 1e-8, relative step < 1e-8, or a stalled
-gradient. Unweighted: its statistic is labelled "Residual variance", never
-χ²ᵣ, and it produces no uncertainties.
+the ONLY engine Batch Fit uses. Central-difference Jacobian (centre
+step scaled by the peak width), active-set step (parameters pushed into a
+box wall are held fixed), max 3000 iterations. Terminates on a gradient
+cosine < 1e-6, on actual and predicted relative χ² reductions both < 1e-6
+in agreement, or on a relative step < 1e-8; damping exhaustion is a
+FAILURE. Unweighted: its statistic is labelled "Residual variance", never
+χ²ᵣ, and it produces no uncertainties. The integer-clamped `caM` is not
+optimised by this engine (carried at its start value).
 
-**Acceptance rule (unit A0, 2026-09-15):** nothing is shown, stored or
-exported as a fit result unless it converged. `runFitLocal` works on a
-copy and commits only on success, returning `{success, iterations}`;
-`runFit` treats `success !== true` from `/api/fit` as a failed fit and
-never falls back to the local engine on a server-side error (only on a
-transport failure). From the initial commit until this unit the local LM
-step had the wrong sign and returned the starting model as "Fit complete";
-see `docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and
-`scripts/scan_batch_fit_signature.py`, which finds affected saved files.
+**Acceptance rule for fit outcomes (unit A0, 2026-09-15):** a fit OUTCOME
+from Run Fit, Batch Fit or the local engine is shown, stored or exported
+only if it converged. `runFitLocal` works on a copy and commits only on
+success, returning `{success, iterations, residualVariance}`; `runFit`
+treats `success !== true` from `/api/fit` as a failed fit and falls back to
+the local engine only on a transport failure, never on a server-side
+error. Not covered by this rule (separate units): model replacement that
+keeps an older result (Find Peaks apply in the default window, undo/redo)
+and loaded files without convergence provenance. From the initial commit
+until this unit the local LM step had the wrong sign and returned the
+starting model as "Fit complete"; see
+`docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and
+`scripts/scan_batch_fit_signature.py`, which lists suspected saved files.
 
 ## Background Methods
 
