@@ -471,6 +471,10 @@ def test_batch_uses_a_snapshot_of_the_source_taken_before_the_first_yield(browse
         _batch_setup(pg, None)
         out = pg.evaluate("""() => {
             const { a, b, c } = window.__ids;
+            // The local optimiser now really fits (unit A0): lock the source
+            // peak so the target's centre can only come from the snapshot
+            // (285.0) or from the mutation below (289.0), never from fitting.
+            const A0 = tabManager._getTab(a); for (const p of A0.peaks) { p.fixCenter = true; p.fixFwhm = true; p.fixAmplitude = true; }
             const realFit = window.runFitLocal;
             window.runFitLocal = (...args) => {                       // during B's fit: mutate the SOURCE record
                 if (tabManager.activeId === b) { const A = tabManager._getTab(a); A.peaks[0].center = 289.0; A.ui.endpointAvg = '7'; A.ccShift = 4; }

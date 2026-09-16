@@ -7443,7 +7443,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   notify('Local fit converged in ' + iterations + ' iteration' + (iterations === 1 ? '' : 's') +
          '. Residual variance = ' + chiReduced.toFixed(3) + ' (unweighted; no parameter uncertainties from the local engine).', 'amber');
   _autoSnapshot();
-  return { success: true, engine: 'local', iterations, acceptedSteps };
+  return { success: true, engine: 'local', iterations, acceptedSteps, residualVariance: chiReduced };
 }
 
 function solveLinear(A, b, n) {
@@ -10927,9 +10927,11 @@ async function runPropagation() {
     // Sync result back to record
     tabManager._syncActiveToRecord();
 
+    // Read the statistic from the fit's own return value, not from live
+    // state: the active tab can change while the fit runs.
     const ok = !!(outcome && outcome.success);
     results.push({ name: tgt.name, ok,
-                   chi: ok && state.fitResult ? state.fitResult.chiReduced : null,
+                   chi: ok && Number.isFinite(outcome.residualVariance) ? outcome.residualVariance : null,
                    message: ok ? null : ((outcome && outcome.message) || 'local fit did not converge') });
 
     await new Promise(r => setTimeout(r, 10));
@@ -10944,7 +10946,7 @@ async function runPropagation() {
   const nFail = results.length - nOk;
   prog.textContent = `Batch complete: ${nOk} converged, ${nFail} not fitted (local optimiser, no uncertainties).`;
   summary.innerHTML = results.map(r => r.ok
-    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; residual variance = ${r.chi.toFixed(3)}</div>`
+    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; residual variance = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'}</div>`
     : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)</div>`
   ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
   summary.style.display = 'block';
