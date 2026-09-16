@@ -7353,12 +7353,13 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // no single-parameter feasible move improves the residual by more than
   // FTOL; otherwise moves to the best such point and returns false.
   function certify() {
+    applyParams(params);                     // working copy = current point
     let bestChi = chi, bestParams = null;
     for (let j = 0; j < params.length; j++) {
       if (isDiscrete(j)) continue;
       for (const sgn of [-1, 1]) {
         const trial = [...params];
-        trial[j] = clamp(paramMap[j].param, params[j] + sgn * PROBE_REL * paramScale(j, params[j]));
+        trial[j] = clamp(paramMap[j].param, params[j] + sgn * PROBE_REL * paramScale(j, params));
         if (trial[j] === params[j]) continue;
         const c = chiSq(trial);
         if (Number.isFinite(c) && c < bestChi) { bestChi = c; bestParams = trial; }
@@ -7376,10 +7377,20 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // peak WIDTH, not its binding energy: h*|285 eV| = 0.03 eV is wider than
   // a narrow peak and gave misleading derivatives (Codex round 1).
   const H_REL = 1e-4;
-  const paramScale = (j, v) => {
+  // Scale of parameter j at the parameter VECTOR `vec` — a pure function of
+  // the vector, never of the mutable working copy (which the Jacobian loop
+  // leaves at its last perturbation — Codex round 5). A centre's scale is
+  // its peak's width: from the vector when the width is free, from the
+  // (never perturbed) fixed value otherwise.
+  const fwhmIndex = {};
+  paramMap.forEach((d, k) => { if (d.param === 'fwhm') fwhmIndex[d.id] = k; });
+  const paramScale = (j, vec) => {
     const { id, param } = paramMap[j];
-    if (param === 'center') { const q = workPeak(id); return Math.max(0.05, Number.isFinite(q && q.fwhm) ? q.fwhm : 1); }
-    return Math.max(1, Math.abs(v));
+    if (param === 'center') {
+      const w = fwhmIndex[id] !== undefined ? vec[fwhmIndex[id]] : (workPeak(id) || {}).fwhm;
+      return Math.max(0.05, Number.isFinite(w) ? w : 1);
+    }
+    return Math.max(1, Math.abs(vec[j]));
   };
   // caM is rounded to an integer by its clamp, so a finite difference cannot
   // see it: it is carried at its starting value (inherited behaviour; see the
@@ -7421,7 +7432,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     const J = [];
     for (let j = 0; j < n; j++) {
       const { param } = paramMap[j];
-      const step = H_REL * paramScale(j, params[j]);
+      const step = H_REL * paramScale(j, params);
       const pPlus = [...params], pMinus = [...params];
       pPlus[j] = clamp(param, params[j] + step);
       pMinus[j] = clamp(param, params[j] - step);
@@ -7446,7 +7457,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     // (e.g. a peak far outside the window) cannot be optimised — that is a
     // failure, not a stationary point.
     let sens = 0;
-    for (let j = 0; j < n; j++) if (!isDiscrete(j)) sens = Math.max(sens, JtJ[j][j] * paramScale(j, params[j]) ** 2);
+    for (let j = 0; j < n; j++) if (!isDiscrete(j)) sens = Math.max(sens, JtJ[j][j] * paramScale(j, params) ** 2);
     if (n > 0 && sens / Math.max(chi, 1e-300) < SENS_MIN) {
       return fail('the model has no measurable sensitivity to its free parameters in this region.', iterations);
     }
@@ -7463,7 +7474,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     for (let j = 0; j < n; j++) {
       if (isDiscrete(j) || !(JtJ[j][j] > 0)) continue;
       if (Jtr[j] !== 0) {
-        const probe = clamp(paramMap[j].param, params[j] - Math.sign(Jtr[j]) * 1e-6 * paramScale(j, params[j]));
+        const probe = clamp(paramMap[j].param, params[j] - Math.sign(Jtr[j]) * 1e-6 * paramScale(j, params));
         if (probe === params[j]) continue;          // blocked by the box
       }
       active.push(j);
@@ -7498,7 +7509,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
         for (let b = 0; b < n; b++) quad += step[a] * JtJ0[a][b] * step[b];
       }
       const prered = (-2 * lin - quad) / Math.max(chi, 1e-300);
-      const relStep = Math.max(0, ...step.map((d, i) => Math.abs(d) / paramScale(i, params[i])));
+      const relStep = Math.max(0, ...step.map((d, i) => Math.abs(d) / paramScale(i, params)));
       params = newParams;
       chi = newChi;
       acceptedSteps++;

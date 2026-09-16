@@ -402,3 +402,13 @@ test('round-4: near-zero residual on the accepted-step exit is certified (amplit
     if (out.success) assertConstrainedStationary(env, be, data, 1e-6, `tiny residual centre ${center}`);
   }
 });
+
+// ── Codex round-5 reproduction (2026-09-15): the certificate scale must not read a stale working width ──
+test('round-5: a single Gaussian between two symmetric peaks is certified with the CURRENT width, not a Jacobian-perturbed one', () => {
+  const env = makeEnv();
+  const be = grid(-50, 50, 0.1);
+  const data = be.map(x => 1.28063417 * env.gaussian(x, -11.999999, 15.0) + 1.28063417 * env.gaussian(x, 12.000001, 15.0));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 0.0, fwhm: 15.0, amplitude: 1, fixAmplitude: true }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  if (out.success) assertConstrainedStationary(env, be, data, 1e-6, 'round-5');
+});
