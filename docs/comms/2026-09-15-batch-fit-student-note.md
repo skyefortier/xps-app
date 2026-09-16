@@ -24,16 +24,23 @@ How to tell if a saved file is affected (do this first)
 
        python scripts/scan_batch_fit_signature.py  ~/path/to/your/files
 
-   It lists every affected tab. It works on .proj.zip, .proj.json and
-   .spec.json files, and on whole folders.
+   It lists the tabs it suspects, with the evidence for each. It works on
+   .proj.zip, .proj.json and .spec.json files, and on whole folders. It
+   is a triage tool: a file with no hits is not proven clean (older files
+   that lack an rmse value cannot be classified), so if you know a tab
+   came from Batch Fit, re-fit it regardless.
 2. Without the scanner, the signs in the app are: the σ (uncertainty)
    columns in Results are blank, and the χ²ᵣ shown for the tab is in the
    thousands or millions (a real server fit is usually between 1 and 30).
    In a saved project, tabs that came from Batch Fit also carry exactly the
    same peak centres and widths as the spectrum they were copied from.
-3. Anything you fitted with the ordinary Run Fit button, Auto-Fit C1s
-   Graphite or Find Peaks is NOT affected. Those run on the server and
-   were correct.
+3. Run Fit, Auto-Fit C1s Graphite and Find Peaks fit on the server, and
+   server fits were correct. Two exceptions for Run Fit: if the server
+   could not be reached OR returned an error, Run Fit silently switched to
+   the same page optimiser (you saw the amber "Local Fit Performed" box),
+   and if the server reported that its fit had not converged, Run Fit
+   applied it anyway and said "Fit complete". Both are fixed now; the
+   scanner catches the first, the second shows as an unusually poor fit.
 
 What happened, plainly
 
@@ -48,9 +55,9 @@ The Results panel, the Quantify table, the CSV/XLSX exports, the figure
 export and saved .proj / .spec.json files all showed that un-fitted model
 as if it were a fit.
 
-The same page optimiser is used by Run Fit only when the server cannot be
-reached. If you ever saw the amber "Local Fit Performed" box, that result
-was your starting model too.
+The same page optimiser was used by Run Fit whenever the server could not
+be reached or returned an error. If you ever saw the amber "Local Fit
+Performed" box, that result was your starting model too.
 
 How far off
 

@@ -510,3 +510,31 @@ def test_batch_refreshes_live_state_when_the_target_is_already_active(browser, s
         assert out["name"] != "old" and out["ep"] == "3" and out["n"] == 1, out
     finally:
         pg.close()
+
+
+def test_batch_failed_fit_on_an_already_active_target_stores_no_foreign_result(browser, server):
+    # Unit A0 (Codex round 1): the already-active branch copied the propagated
+    # model into live state but left state.fitResult holding the target's OLD
+    # result; a failed local fit then synced that foreign result back onto
+    # the new peaks while the summary said "no result stored".
+    pg = _page(browser, server)
+    try:
+        _batch_setup(pg, None)
+        out = pg.evaluate("""() => {
+            const { a, b, c } = window.__ids;
+            const C = tabManager._getTab(c);
+            C.fitResult = { chi: 1, chiReduced: 1, rmse: 1, marker: 'foreign' };
+            const realFit = window.runFitLocal;
+            window.runFitLocal = (...args) => {
+                if (tabManager.activeId === c) return { success: false, engine: 'local', message: 'forced failure' };
+                const r = realFit(...args);
+                if (tabManager.activeId === b) tabManager.activateTab(c);   // C becomes active BEFORE its own iteration
+                return r;
+            };
+            return runPropagation().then(() => { window.runFitLocal = realFit;
+                const C2 = tabManager._getTab(c);
+                return { fr: C2.fitResult, summary: document.getElementById('propagate-summary').innerText }; }); }""")
+        assert out["fr"] is None, out
+        assert "NOT fitted" in out["summary"] and "forced failure" in out["summary"], out
+    finally:
+        pg.close()

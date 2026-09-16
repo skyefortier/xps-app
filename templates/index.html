@@ -3217,7 +3217,7 @@ class TabManager {
     const chiEl = document.getElementById('sb-chi');
     if (state.fitResult && state.fitResult.chiReduced != null) {
       fqEl.textContent = _fitStatLabel(state.fitResult) + ' = ' + state.fitResult.chiReduced.toFixed(2);
-      fqEl.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
+      fqEl.setAttribute('data-xps-tip', _fitStatLabel(state.fitResult) === 'Residual variance' ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP);
       if (chiEl) chiEl.textContent = state.fitResult.chiReduced.toFixed(3);
     } else {
       fqEl.innerHTML = '&#967;&#178; &mdash;';
@@ -6153,12 +6153,17 @@ async function uploadToBackend(be, inten) {
   const form = new FormData();
   form.append('file', new Blob([csv], { type: 'text/plain' }), 'spectrum.csv');
   const resp = await fetch('/api/upload', { method: 'POST', body: form });
-  const json = await resp.json();
-  if (json.error) {
-    const err = new Error(json.error);
-    err.serverError = true;   // a rejected upload is not a transport failure (see runFit)
-    throw err;
+  // A server-side failure (HTTP error, error body, or no session id) is not a
+  // transport failure: runFit must report it, never switch engines (unit A0).
+  const serverError = (msg) => { const err = new Error(msg); err.serverError = true; return err; };
+  if (resp.ok === false) {
+    let msg = null;
+    try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+    throw serverError(msg || ('Upload failed (HTTP ' + resp.status + ').'));
   }
+  const json = await resp.json();
+  if (json.error) throw serverError(json.error);
+  if (!json.session_id) throw serverError('Upload returned no session id.');
   return json.session_id;
 }
 
@@ -6998,7 +7003,7 @@ async function runAutoFitC1sGraphite() {
     clearTimeout(timer);
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
-    if (!json.success) throw new Error('fit did not converge');
+    if (json.success !== true) throw new Error(json.message || 'fit did not converge');
     if (!_ownerActive(fittingTab)) {
       _hideFitSpinner();
       notify('Auto-fit discarded — tab switched during fit.', 'amber');
@@ -7100,7 +7105,12 @@ async function runFit() {
     // and leaves the model untouched (unit A0: nothing is shown as a fit
     // result unless it converged; an HTTP 400 is not a reason to silently
     // switch engines).
-    const _asTransport = (e) => { if (!(e && e.serverError)) e.transportFailure = true; throw e; };
+    // Only a genuine transport failure (network rejection, abort, unparsable
+    // 2xx body) is marked for fallback; server errors carry `serverError`.
+    const _asTransport = (e) => {
+      if (e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError' || e instanceof SyntaxError)) e.transportFailure = true;
+      throw e;
+    };
     let sessionId;
     try { sessionId = await uploadToBackend(be, inten); } catch (e) { _asTransport(e); }
     const fitReq = {
@@ -7117,10 +7127,19 @@ async function runFit() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fitReq)
       });
-      json = await resp.json();
     } catch (e) { _asTransport(e); }
-    if (resp.ok === false || json.error) {
-      const err = new Error(json.error || ('Fit request failed (HTTP ' + resp.status + ').'));
+    if (resp.ok === false) {
+      // HTTP failure: read a message if the body is JSON, but a 502 HTML
+      // page is still a SERVER failure, never a reason to switch engines.
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.serverError = true;
+      throw err;
+    }
+    try { json = await resp.json(); } catch (e) { _asTransport(e); }
+    if (json.error) {
+      const err = new Error(json.error);
       err.serverError = true;
       throw err;
     }
@@ -7224,7 +7243,7 @@ function _fitStatLabel(fr) {
 // committed lab project; the proof is in
 // docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md.
 function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
-  const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 1000;
+  const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
   const fail = (message, iterations) => {
     _hideFitSpinner();
     document.getElementById('sb-msg').textContent = 'Local fit failed';
@@ -7329,8 +7348,28 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   let chi = chiSq(params);
   if (!Number.isFinite(chi)) return fail('the model is not finite at the starting parameters.');
   let lambda = 0.001;
-  const h = 1e-4;
-  const FTOL = 1e-8, XTOL = 1e-8, GTOL = 1e-6;
+  // Finite-difference step per parameter. A centre's natural scale is the
+  // peak WIDTH, not its binding energy: h*|285 eV| = 0.03 eV is wider than
+  // a narrow peak and gave misleading derivatives (Codex round 1).
+  const H_REL = 1e-4;
+  const paramScale = (j, v) => {
+    const { id, param } = paramMap[j];
+    if (param === 'center') { const q = workPeak(id); return Math.max(0.05, Number.isFinite(q && q.fwhm) ? q.fwhm : 1); }
+    return Math.max(1, Math.abs(v));
+  };
+  // caM is rounded to an integer by its clamp, so a finite difference cannot
+  // see it: it is carried at its starting value (inherited behaviour; see the
+  // A0 follow-up list) and excluded from the stationarity test.
+  const isDiscrete = j => paramMap[j].param === 'caM';
+  // MINPACK-style termination: (ftol) actual AND predicted relative
+  // reductions both below FTOL, with the linearised model agreeing with
+  // the actual reduction; (xtol) relative step below XTOL; (gtol) the
+  // largest cosine between the residual and any Jacobian column below
+  // GTOL. Tiny steps alone never count. FTOL = 1e-6 (relative chi-square):
+  // on real 6-component C1s data with a vanished component the optimiser
+  // otherwise crawls a flat valley for thousands of iterations changing
+  // chi-square in its 7th digit and no parameter in its 5th.
+  const FTOL = 1e-6, XTOL = 1e-8, GTOL = 1e-6, SENS_MIN = 1e-12;
   let converged = params.length === 0 || chi < 1e-20;
   let iterations = 0;
   let acceptedSteps = 0;
@@ -7339,18 +7378,20 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     iterations++;
     const r = residuals(params);
     const n = params.length;
-    // Finite-difference Jacobian d r / d p, stepping inside the parameter box.
+    // Central-difference Jacobian d r / d p, stepping inside the parameter
+    // box (one-sided at a wall).
     const J = [];
     for (let j = 0; j < n; j++) {
-      const { param, id } = paramMap[j];
-      const step = h * Math.max(1, Math.abs(params[j]));
-      const p2 = [...params];
-      p2[j] = clamp(param, params[j] + step);
-      if (p2[j] === params[j]) p2[j] = clamp(param, params[j] - step);
-      const actual = p2[j] - params[j];
-      const r2 = residuals(p2);
-      J.push(actual !== 0 ? r2.map((v, i) => (v - r[i]) / actual) : r.map(() => 0));
-      void id;
+      const { param } = paramMap[j];
+      const step = H_REL * paramScale(j, params[j]);
+      const pPlus = [...params], pMinus = [...params];
+      pPlus[j] = clamp(param, params[j] + step);
+      pMinus[j] = clamp(param, params[j] - step);
+      const span = pPlus[j] - pMinus[j];
+      if (span === 0) { J.push(r.map(() => 0)); continue; }
+      const rPlus = pPlus[j] === params[j] ? r : residuals(pPlus);
+      const rMinus = pMinus[j] === params[j] ? r : residuals(pMinus);
+      J.push(rPlus.map((v, i) => (v - rMinus[i]) / span));
     }
     const JtJ = Array.from({length: n}, () => new Array(n).fill(0));
     const Jtr = new Array(n).fill(0);
@@ -7363,42 +7404,61 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     if (!Jtr.every(Number.isFinite) || !JtJ.every(row => row.every(Number.isFinite))) {
       return fail('the model derivative is not finite.', iterations);
     }
-    // Dimensionless gradient measure: |d(chi)/dp| x parameter scale / chi,
-    // ignoring components that only push into a wall of the parameter box.
-    let gradRel = 0;
-    for (let j = 0; j < n; j++) {
-      const g = -2 * Jtr[j];                       // d(chi)/dp_j with r = data - model
-      const probe = clamp(paramMap[j].param, params[j] - Math.sign(g) * 1e-6 * Math.max(1, Math.abs(params[j])));
-      if (probe === params[j]) continue;            // descent direction blocked by the box
-      gradRel = Math.max(gradRel, Math.abs(g) * Math.max(1, Math.abs(params[j])) / Math.max(chi, 1e-300));
+    // Sensitivity: a model that does not respond to any free parameter here
+    // (e.g. a peak far outside the window) cannot be optimised — that is a
+    // failure, not a stationary point.
+    let sens = 0;
+    for (let j = 0; j < n; j++) if (!isDiscrete(j)) sens = Math.max(sens, JtJ[j][j] * paramScale(j, params[j]) ** 2);
+    if (n > 0 && sens / Math.max(chi, 1e-300) < SENS_MIN) {
+      return fail('the model has no measurable sensitivity to its free parameters in this region.', iterations);
     }
-    if (gradRel < GTOL) { converged = true; break; }
+    // Projected gradient test (gtol): max_j |J_j . r| / (|J_j| |r|), ignoring
+    // columns whose DESCENT direction is blocked by a wall of the parameter
+    // box. With r = data - model, d(chi)/dp_j = +2 * (J_j . r).
+    let gradCos = 0;
+    const rNorm = Math.sqrt(chi);
+    for (let j = 0; j < n; j++) {
+      if (isDiscrete(j) || Jtr[j] === 0) continue;
+      const probe = clamp(paramMap[j].param, params[j] - Math.sign(Jtr[j]) * 1e-6 * paramScale(j, params[j]));
+      if (probe === params[j]) continue;            // descent direction blocked by the box
+      const colNorm = Math.sqrt(JtJ[j][j]);
+      if (colNorm > 0 && rNorm > 0) gradCos = Math.max(gradCos, Math.abs(Jtr[j]) / (colNorm * rNorm));
+    }
+    if (gradCos < GTOL) { converged = true; break; }
+    // Linear model of the residual, for the predicted reduction (ftol test).
+    const JtJ0 = JtJ.map(row => row.slice());
 
     // Marquardt damping, then the DESCENT step: JtJ.dp = -Jt.r
     for (let a = 0; a < n; a++) JtJ[a][a] = JtJ[a][a] * (1 + lambda) + 1e-300;
     const dp = solveLinear(JtJ, Jtr.map(v => -v), n);
     if (!dp.every(Number.isFinite)) return fail('the normal equations are singular.', iterations);
     const newParams = params.map((v, i) => clamp(paramMap[i].param, v + dp[i]));
+    const step = newParams.map((v, i) => v - params[i]);
     const newChi = chiSq(newParams);
 
     if (Number.isFinite(newChi) && newChi < chi) {
-      const relDrop = (chi - newChi) / Math.max(chi, 1e-300);
-      const relStep = Math.max(0, ...newParams.map((v, i) => Math.abs(v - params[i]) / Math.max(1, Math.abs(params[i]))));
+      const actred = (chi - newChi) / Math.max(chi, 1e-300);
+      // predicted reduction of the linearised problem: (2 Jt.r . (-dp) - dp.JtJ.dp) / chi
+      let lin = 0, quad = 0;
+      for (let a = 0; a < n; a++) {
+        lin += Jtr[a] * step[a];
+        for (let b = 0; b < n; b++) quad += step[a] * JtJ0[a][b] * step[b];
+      }
+      const prered = (-2 * lin - quad) / Math.max(chi, 1e-300);
+      const relStep = Math.max(0, ...step.map((d, i) => Math.abs(d) / paramScale(i, params[i])));
       params = newParams;
       chi = newChi;
       acceptedSteps++;
       lambda *= 0.7;
-      if (chi < 1e-20 || relDrop < FTOL || relStep < XTOL) converged = true;
+      if (chi < 1e-20) { converged = true; break; }
+      if (actred <= FTOL && prered <= FTOL && (prered <= 0 || actred / prered <= 2)) { converged = true; break; }
+      if (relStep <= XTOL) { converged = true; break; }
     } else {
       lambda *= 3;
       if (lambda > 1e8) {
-        // Even a tiny steepest-descent step no longer reduces the residual.
-        // After genuine descent this is the finite-difference optimum
-        // (standard LM termination). With NO accepted step at all the
-        // optimiser never moved: that is the old failure signature, and it
-        // is reported as a failure unless the start is already stationary.
-        if (acceptedSteps > 0 || gradRel < 1e-3) { converged = true; break; }
-        return fail('no step reduces the residual from the starting model (' + iterations + ' iterations).', iterations);
+        // Even a tiny steepest-descent step no longer reduces the residual,
+        // yet the projected gradient is not small: stalled, not converged.
+        return fail('the optimiser stalled (no step reduces the residual) after ' + iterations + ' iterations.', iterations);
       }
     }
   }
@@ -10003,7 +10063,8 @@ function _doPublicationExport() {
   if (state.fitResult) {
     ctx.font = '38px Arial,sans-serif';
     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText('\u03c7\u00b2_r\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
+    const statLabel = _fitStatLabel(state.fitResult) === 'Residual variance' ? 'Residual variance (local fit)' : '\u03c7\u00b2_r';
+    ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
                  plotX + 14, mainTop + 14);
   }
 
@@ -10902,6 +10963,7 @@ async function runPropagation() {
     // load the record into live state explicitly (Codex round 3, run B).
     if (tabManager.activeId === tid) {
       state.peaks = tgt.peaks; state.nextId = tgt.nextId; state.ccShift = tgt.ccShift;
+      state.fitResult = null;   // live copy of tgt.fitResult = null above (unit A0)
       tabManager._restoreUI(tgt.ui);
       renderPeakList();
     } else {
@@ -12747,7 +12809,7 @@ function _renderHistoryList() {
     <div class="hist-row" id="hist-row-${s.id}">
       <div class="hist-row-main">
         <div class="hist-row-label">${_escHtml(s.label)}</div>
-        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof s.chi === 'number' && isFinite(s.chi) ? ' &middot; <span class="hist-row-chi">\u03c7\u00b2 = ' + s.chi.toFixed(3) + '</span>' : ''}${typeof s.rFactor === 'number' && isFinite(s.rFactor) ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
+        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof s.chi === 'number' && isFinite(s.chi) ? ' &middot; <span class="hist-row-chi">' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + s.chi.toFixed(3) + '</span>' : ''}${typeof s.rFactor === 'number' && isFinite(s.rFactor) ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
       </div>
       <div class="hist-row-btns">
         <button class="btn btn-sm" onclick="_historyPreviewSnap(${s.id})" title="Overlay this snapshot on the chart">Preview</button>

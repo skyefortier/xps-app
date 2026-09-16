@@ -133,3 +133,44 @@ test('the engine/objective labels of a fit result survive spectrum and project s
   assert.match(proj, /objective: t\.fitResult\.objective/);
   assert.match(proj, /engine: t\.fitResult\.engine/);
 });
+
+// ── Codex round-1 findings (2026-09-15): HTTP failures with non-JSON bodies ──
+
+function envWithFetch(fetchImpl, uploadImpl) { return makeEnv({ fetchImpl, uploadImpl }); }
+
+test('an HTTP 502 with an HTML body on /api/fit is a server failure: message shown, no local fallback', async () => {
+  const env = envWithFetch(async () => ({ ok: false, status: 502, json: async () => { throw new SyntaxError('Unexpected token <'); } }));
+  await env.runFit();
+  assert.equal(env.calls.local, 0, 'no fallback on a 502');
+  assert.equal(env.calls.applied, 0);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /502/.test(n.msg)), JSON.stringify(env.calls.notify));
+});
+
+test('an HTTP 502 on the upload is a server failure, not a transport failure', async () => {
+  const env = envWithFetch(async () => { throw new Error('fit must not be reached'); }, async () => { const e = new Error('Upload failed (HTTP 502).'); e.serverError = true; throw e; });
+  await env.runFit();
+  assert.equal(env.calls.local, 0);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /502/.test(n.msg)));
+});
+
+test('uploadToBackend itself classifies HTTP errors as server errors and rejects a reply without a session id', async () => {
+  const src = extractFn('uploadToBackend');
+  const make = fetchImpl => new Function('fetch', 'FormData', 'Blob', src + '\nreturn uploadToBackend;')(fetchImpl, class { append() {} }, class {});
+  await assert.rejects(make(async () => ({ ok: false, status: 502, json: async () => { throw new SyntaxError('<html>'); } }))([1], [1]), e => e.serverError === true && /502/.test(e.message));
+  await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => ({}) }))([1], [1]), e => e.serverError === true && /session/i.test(e.message));
+  await assert.rejects(make(async () => { throw new TypeError('Failed to fetch'); })([1], [1]), e => !e.serverError);
+});
+
+test('every consumer that prints the goodness-of-fit statistic routes through the statistic identity', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // figure export annotation
+  const fig = grab('function exportFigure()', 60000);
+  assert.match(fig, /_fitStatLabel\(/, 'figure export must label the statistic by engine');
+  assert.match(fig, /Residual variance \(local fit\)/, 'figure annotation names the local statistic');
+  // fit-history rows
+  const hist = grab('function _renderHistoryList(', 3000);
+  assert.match(hist, /_fitStatLabel\(/, 'history rows must label the statistic by engine');
+  // tab activation tooltip
+  const act = grab('fqEl.textContent = _fitStatLabel(state.fitResult)', 400);
+  assert.match(act, /_LOCALFIT_TOOLTIP/, 'tab activation must attach the local tooltip for local results');
+});

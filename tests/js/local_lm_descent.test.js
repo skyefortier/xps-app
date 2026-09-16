@@ -163,3 +163,67 @@ test('a local fit result is labelled as unweighted residual variance, never as �
   assert.equal(env.state.fitResult.objective, 'unweighted_residual_variance');
   assert.ok(!/χ/.test(env.dom['fit-quality'].textContent), `status text must not read as chi-square: ${env.dom['fit-quality'].textContent}`);
 });
+
+// ── Codex round-1 findings (2026-09-15): bound stationarity and derivative accuracy ──
+
+function gaussCase(env, { be, dataAmp, dataFwhm, dataCenter = 285.0, start }) {
+  const data = be.map(x => dataAmp * env.gaussian(x, dataCenter, dataFwhm));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, ...start }];
+  return { data, bg: new Array(be.length).fill(0) };
+}
+const grid = (lo, hi, step) => Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => lo + step * i);
+
+test('bound stationarity: amplitude at its lower wall with the optimum inside the box must move off the wall', () => {
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05);
+  const { data, bg } = gaussCase(env, { be, dataAmp: 10, dataFwhm: 1.2, start: { center: 285.0, fwhm: 1.2, amplitude: 1, fixCenter: true, fixFwhm: true } });
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true);
+  assert.ok(out.acceptedSteps > 0, 'must actually step off the wall');
+  assert.ok(Math.abs(env.state.peaks[0].amplitude - 10) < 1e-3, `amplitude ${env.state.peaks[0].amplitude}`);
+});
+
+test('bound stationarity: amplitude at its lower wall with the optimum OUTSIDE the box is a legitimate converged fit', () => {
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05);
+  const { data, bg } = gaussCase(env, { be, dataAmp: 0.5, dataFwhm: 1.2, start: { center: 285.0, fwhm: 1.2, amplitude: 1, fixCenter: true, fixFwhm: true } });
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.equal(env.state.peaks[0].amplitude, 1, 'stays on the wall');
+});
+
+test('derivative accuracy: a free centre on a narrow peak lands on the true centre from either side (fixed wrong width)', () => {
+  // Codex replay: model FWHM locked at 0.1, data FWHM 0.2, amplitude locked — the
+  // forward difference h*max(1,|p|) = 0.0285 eV was coarser than the peak itself.
+  for (const startCenter of [284.9, 285.02]) {
+    const env = makeEnv();
+    const be = grid(283, 287, 0.005);
+    const { data, bg } = gaussCase(env, { be, dataAmp: 10, dataFwhm: 0.2, start: { center: startCenter, fwhm: 0.1, amplitude: 10, fixFwhm: true, fixAmplitude: true } });
+    const out = env.runFitLocal(be, data, bg);
+    assert.equal(out.success, true, JSON.stringify(out));
+    assert.ok(Math.abs(env.state.peaks[0].center - 285.0) < 2e-4, `from ${startCenter}: centre ${env.state.peaks[0].center}`);
+  }
+});
+
+test('derivative accuracy: centre-only fit on a 0.005 eV grid with a mis-scaled amplitude reaches the least-squares optimum', () => {
+  // Codex replay: data amplitude 5, FWHM 0.3 at 1000; model amplitude locked at 10.
+  for (const startCenter of [999.8, 1000.2]) {
+    const env = makeEnv();
+    const be = grid(998, 1002, 0.005);
+    const data = be.map(x => 5 * env.gaussian(x, 1000.0, 0.3));
+    env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: startCenter, fwhm: 0.3, amplitude: 10, fixFwhm: true, fixAmplitude: true }];
+    const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+    assert.equal(out.success, true, JSON.stringify(out));
+    assert.ok(Math.abs(env.state.peaks[0].center - 1000.0) < 2e-4, `from ${startCenter}: centre ${env.state.peaks[0].center}`);
+  }
+});
+
+test('a genuinely stalled start (no sensitivity: peak far outside the data window) is reported as a failure, not convergence', () => {
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05);
+  const data = be.map(x => 10 * env.gaussian(x, 285.0, 1.0));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 250.0, fwhm: 1.0, amplitude: 10, fixFwhm: true, fixAmplitude: true }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(out.success, false, 'the model has no measurable sensitivity here; declaring convergence would be the old defect in a new form');
+  assert.equal(env.state.peaks[0].center, 250.0);
+});

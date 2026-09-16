@@ -61,7 +61,7 @@ def test_unweighted_statistics_flag_a_local_optimiser_result(tmp_path):
     f = _write_proj_json(tmp_path, [_backend_tab("A", [284.8, 286.2]), _local_tab("B", [284.9, 286.1])])
     hits = scan_path(f)
     assert [h["tab"] for h in hits] == ["B"]
-    assert "unweighted" in " ".join(hits[0]["reasons"])
+    assert hits[0]["level"] == "suspected" and "unweighted" in " ".join(hits[0]["reasons"])
 
 
 def test_batch_clone_is_reported_with_its_source(tmp_path):
@@ -106,8 +106,43 @@ def test_cli_reports_counts_and_exit_code(tmp_path):
     f = _write_proj_json(tmp_path, [_backend_tab("A", [284.8]), _local_tab("B", [284.8])])
     r = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path)], capture_output=True, text=True)
     assert r.returncode == 1, r.stdout + r.stderr        # hits found -> non-zero, so it is usable in scripts
-    assert "B" in r.stdout and "1 flagged" in r.stdout
+    assert "B" in r.stdout and "1 suspected" in r.stdout
     clean = tmp_path / "clean"; clean.mkdir()
     _write_proj_json(clean, [_backend_tab("A", [284.8])])
     r2 = subprocess.run([sys.executable, str(SCRIPT), str(clean)], capture_output=True, text=True)
-    assert r2.returncode == 0 and "0 flagged" in r2.stdout
+    assert r2.returncode == 0 and "0 suspected" in r2.stdout
+
+
+def test_low_count_server_fit_is_only_possible_never_suspected(tmp_path):
+    # backend weights are 1/sqrt(max(counts,1)): with counts ~1 the weighted ratio equals the unweighted one
+    from scan_batch_fit_signature import scan_path
+    t = _tab("A", _peaks([284.8]), chi_reduced=1.015, rmse=1.0)
+    hits = scan_path(_write_proj_json(tmp_path, [t]))
+    assert len(hits) == 1 and hits[0]["level"] == "possible"
+
+
+def test_huge_chi_alone_does_not_flag_a_weighted_fit(tmp_path):
+    from scan_batch_fit_signature import scan_path
+    t = _tab("A", _peaks([284.8]), chi_reduced=2500.0, rmse=5000.0)   # ratio 1e-4: weighted, just a terrible fit
+    assert scan_path(_write_proj_json(tmp_path, [t])) == []
+
+
+def test_missing_rmse_is_reported_as_insufficient_when_corroborated(tmp_path):
+    from scan_batch_fit_signature import scan_path
+    src = _backend_tab("A", [284.8])
+    t = _tab("B", _peaks([284.8]), chi_reduced=5.0, rmse=None); del t["fitResult"]["rmse"]
+    hits = scan_path(_write_proj_json(tmp_path, [src, t]))
+    assert [h["level"] for h in hits] == ["insufficient"] and hits[0]["tab"] == "B"
+
+
+def test_post_fix_local_result_is_distinguished(tmp_path):
+    from scan_batch_fit_signature import scan_path
+    t = _local_tab("B", [284.8]); t["fitResult"]["engine"] = "local"; t["fitResult"]["objective"] = "unweighted_residual_variance"
+    hits = scan_path(_write_proj_json(tmp_path, [t]))
+    assert hits[0]["level"] == "post-fix"
+
+
+def test_unreadable_file_gives_exit_code_2_not_clean(tmp_path):
+    (tmp_path / "junk.proj.json").write_text("not json")
+    r = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path)], capture_output=True, text=True)
+    assert r.returncode == 2 and "UNREADABLE" in r.stdout
