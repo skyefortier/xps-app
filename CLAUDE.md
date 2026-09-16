@@ -250,8 +250,10 @@ cosine < 1e-6, on actual and predicted relative χ² reductions both < 1e-6
 in agreement, or on a relative step < 1e-8, and only after a
 feasible-descent CERTIFICATE passes: no single free parameter moved by
 1e-3 (scaled, inside its box) reduces the residual by more than 1e-6 of
-its value, otherwise that point is taken and iteration continues. Damping
-exhaustion is a FAILURE. Unweighted: its statistic is labelled "Residual variance", never
+its value, otherwise that point is taken and iteration continues. The
+certificate is a coordinate (single-parameter) check, not a proof of a
+local minimum along coupled directions; no exit is exempt from it.
+Damping exhaustion is a FAILURE. Unweighted: its statistic is labelled "Residual variance", never
 χ²ᵣ, and it produces no uncertainties. The integer-clamped `caM` is not
 optimised by this engine (carried at its start value).
 

@@ -7401,7 +7401,12 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // linearised model is not a stationarity certificate; a column-norm
   // cutoff froze determined parameters).
   const PROBE_REL = 1e-3, MAX_CERTIFY = 200;
-  let converged = params.length === 0 || chi < 1e-20;
+  // No exit is exempt from the certificate: a tiny absolute residual is
+  // still probed relatively (Codex round 4). The certificate is a
+  // single-parameter (coordinate) feasible-descent check, not a proof of a
+  // local minimum along coupled directions; the LM step handles coupling
+  // during optimisation.
+  let converged = params.length === 0 || (chi === 0 && certify());
   let iterations = 0;
   let acceptedSteps = 0;
   let certifyRestarts = 0;
@@ -7464,8 +7469,10 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
       active.push(j);
       if (rNorm > 0) gradCos = Math.max(gradCos, Math.abs(Jtr[j]) / (Math.sqrt(JtJ[j][j]) * rNorm));
     }
-    // Projected gradient test (gtol) over the active set only.
-    if (gradCos < GTOL && certify()) { converged = true; break; }
+    // Projected gradient test (gtol) over the active set only. A failed
+    // certificate has moved the point: restart the iteration so the
+    // derivatives and active set are rebuilt there.
+    if (gradCos < GTOL) { if (certify()) { converged = true; break; } continue; }
     // Linear model of the residual, for the predicted reduction (ftol test).
     const JtJ0 = JtJ.map(row => row.slice());
 
@@ -7496,8 +7503,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
       chi = newChi;
       acceptedSteps++;
       lambda *= 0.7;
-      if (chi < 1e-20) { converged = true; break; }
-      if ((prered > 0 && actred <= FTOL && prered <= FTOL && actred / prered <= 2) || relStep <= XTOL) {
+      if (chi === 0 || (prered > 0 && actred <= FTOL && prered <= FTOL && actred / prered <= 2) || relStep <= XTOL) {
         if (certify()) { converged = true; break; }
       }
     } else {

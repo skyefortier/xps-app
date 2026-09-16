@@ -378,3 +378,27 @@ test('round-3 B2: (286, 0.3 locked, 20) fitted to (285, 1.5, 5) ends at a constr
   assert.equal(out.success, true, JSON.stringify(out));
   assertConstrainedStationary(env, be, data, 1e-6, 'B2');
 });
+
+// ── Codex round-4 reproductions (2026-09-15): the tiny-residual exits must also be certified ──
+
+test('round-4: near-zero residual with no data still passes the feasible-descent certificate (centre free, zero data)', () => {
+  for (const startCenter of [280.0, 280.5]) {
+    const env = makeEnv();
+    const be = grid(283, 287, 0.01);
+    const data = new Array(be.length).fill(0);
+    env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: startCenter, fwhm: 1.0, amplitude: 1, fixFwhm: true, fixAmplitude: true }];
+    const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+    if (out.success) assertConstrainedStationary(env, be, data, 1e-6, `zero-data from ${startCenter}`);
+  }
+});
+
+test('round-4: near-zero residual on the accepted-step exit is certified (amplitude free, peak mostly outside the window)', () => {
+  for (const [center, dataAmp] of [[287, 2], [286, 3]]) {
+    const env = makeEnv();
+    const be = grid(280, 281, 0.05);
+    const data = be.map(x => dataAmp * env.gaussian(x, center, 2.0));
+    env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center, fwhm: 2.0, amplitude: 1, fixCenter: true, fixFwhm: true }];
+    const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+    if (out.success) assertConstrainedStationary(env, be, data, 1e-6, `tiny residual centre ${center}`);
+  }
+});
