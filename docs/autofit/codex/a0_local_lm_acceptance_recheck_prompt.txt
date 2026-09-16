@@ -1,0 +1,93 @@
+You are running ROUND 2 (recheck) of the ADVERSARIAL CODE review of unit A0
+(branch fix-local-lm-acceptance vs origin/main; review `git diff
+origin/main..HEAD` in full plus the tests). Round 1 was NO-GO x2; the
+verdicts are archived in docs/autofit/codex/a0_local_lm_acceptance_verdict_runA.md
+and _runB.md and the original prompt in a0_local_lm_acceptance_review_prompt.txt.
+Verify each disposition below line by line against the code; do not take
+the disposition's word for it.
+
+DISPOSITIONS (round-1 numbering follows run A; run B's numbering maps 1:1):
+
+1. BLOCKER gradient sign — FIXED. d(chi)/dp = +2*Jt.r is used for the
+   box-blocking probe (runFitLocal, "Projected gradient test"). Tests:
+   tests/js/local_lm_descent.test.js "bound stationarity" x2 (amplitude on
+   the wall with the optimum inside -> steps off; outside -> converged on
+   the wall).
+2. BLOCKER/MAJOR derivative accuracy and stall-as-convergence — FIXED.
+   Central differences; the centre step is H_REL x max(0.05, peak FWHM)
+   instead of H_REL x |BE|; termination is MINPACK-style: (gtol) max cosine
+   between residual and any unblocked Jacobian column < 1e-6, OR (ftol)
+   actual AND predicted relative reductions both <= 1e-6 with
+   actred/prered <= 2, OR (xtol) relative step <= 1e-8. lambda > 1e8 is now
+   a FAILURE ("stalled"), never convergence. A sensitivity guard fails a
+   model that does not respond to any free parameter (peak outside the
+   window). caM (integer-clamped) is excluded from the stationarity test
+   and documented as carried at its start value (inherited; follow-up).
+   FTOL = 1e-6 rather than 1e-8: on the committed C1s Scan_4 target
+   (6 components, one collapsed to the amplitude wall) the optimiser
+   otherwise crawls a flat valley for >3000 iterations changing chi-square
+   in its 7th digit and no determined parameter in its 5th. Tests: both
+   round-1 replays (narrow peak from 284.9/285.02 -> within 2e-4 eV of
+   285.0; 0.005 eV grid from 999.8/1000.2 -> within 2e-4 eV of 1000.0),
+   "genuinely stalled start ... reported as a failure". Replay of all 18
+   committed Batch Fit targets: 18/18 converge in 5-288 iterations and the
+   local optimum has a LOWER unweighted residual than the backend's own
+   solution evaluated on the same background on every target.
+3. MAJOR HTTP failures reached fallback — FIXED. runFit checks resp.ok
+   BEFORE parsing the body (message read opportunistically; a 502 HTML page
+   is a server error). uploadToBackend checks resp.ok, json.error and a
+   missing session_id, all marked serverError. Transport classification is
+   narrowed to TypeError / AbortError / SyntaxError-on-2xx-body. Tests:
+   tests/js/fit_acceptance.test.js "HTTP 502 with an HTML body", "HTTP 502
+   on the upload", "uploadToBackend itself classifies ...".
+4. MAJOR already-active batch target kept a foreign live result — FIXED.
+   The already-active branch sets state.fitResult = null. Browser test:
+   tests/test_browser_per_tab_state.py::test_batch_failed_fit_on_an_already_active_target_stores_no_foreign_result.
+5. MAJOR acceptance rule incomplete across model replacement/restoration
+   (Find Peaks default-window apply retains the previous result; undo/redo
+   restore peaks only; legacy loads carry no convergence provenance) —
+   NOT FIXED IN THIS UNIT, BY SCOPE. These are pre-existing paths in which
+   a MODEL is replaced while a RESULT is retained; they are the sealed-fit
+   memo's dirty-funnel class (R6-7) and the audit's A05, each with its own
+   unit and its own existing browser test that pins today's Find Peaks
+   behaviour. The owner's scope for A0 is "the acceptance rule for fit
+   OUTCOMES and nothing else". They are listed as follow-ups in the report.
+   The auto-fit path was tightened to `json.success !== true`.
+   Judge whether this scoping is defensible for a production-incident
+   fix, not whether the gaps exist (they do).
+6. MAJOR local statistic still shown as chi-square — FIXED at all three
+   sites: figure export annotation ("Residual variance (local fit)"),
+   history rows (_fitStatLabel(s.fitResult)), tab activation tooltip
+   (_LOCALFIT_TOOLTIP). Structural test "every consumer that prints the
+   goodness-of-fit statistic ...".
+7. MAJOR scanner overclaims — FIXED as a triage tool: levels SUSPECTED /
+   POSSIBLE / INSUFFICIENT (no rmse) / POST-FIX (file records engine
+   'local'); the ratio test requires rmse > 10 counts (low-count server
+   fits become POSSIBLE, never SUSPECTED); chiReduced > 1000 and identical
+   twins are corroboration only; unreadable files -> exit 2 and never
+   "clean"; summary text says a file with no hits is not proven clean.
+   Tests added for each case. Repo scan: 2 suspected (unchanged), 0
+   unreadable.
+8. MINOR student note — corrected: server fits were correct, but Run Fit
+   fell back after server errors/outages and applied non-converged backend
+   results; "lists every affected tab" -> "lists the tabs it suspects".
+9. MINOR linked sync semantics — documented in the code comment and pinned
+   by "linked child follows its parent even when the parent width is
+   locked"; copying inactive shape keys is acknowledged as beyond the
+   backend expressions (harmless for same-shape links, which is all the UI
+   can create) and left for the parity follow-up.
+10. MINOR tests — added as listed. Full JS suite 205 pass / 0 fail / 3
+   known TODO; Python suite and browser modules re-run on the final code
+   (results in the owner's report; you cannot run them in the sandbox).
+
+ROUND-2 QUESTIONS: (a) does any round-1 finding survive in the code as it
+stands? (b) does the FTOL = 1e-6 choice reopen "tiny steps far from
+stationarity" in a way the prered/actred agreement does not catch? (c) is
+the scope ruling in item 5 acceptable for this incident unit? (d) anything
+NEW introduced by the round-1 fixes?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.

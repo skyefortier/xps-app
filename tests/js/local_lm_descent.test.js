@@ -227,3 +227,20 @@ test('a genuinely stalled start (no sensitivity: peak far outside the data windo
   assert.equal(out.success, false, 'the model has no measurable sensitivity here; declaring convergence would be the old defect in a new form');
   assert.equal(env.state.peaks[0].center, 250.0);
 });
+
+test('linked child follows its parent even when the parent width is locked (behaviour documented in unit A0)', () => {
+  const env = makeEnv();
+  const be = grid(280, 300, 0.05);
+  const data = be.map(x => 10 * env.gaussian(x, 285.0, 1.0) + 6 * env.gaussian(x, 291.0, 1.0));
+  env.state.peaks = [
+    { id: 1, name: 'p', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 284.7, fwhm: 1.0, amplitude: 5, fixFwhm: true },
+    { id: 2, name: 'c', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 290.7, fwhm: 1.0, amplitude: 3, linked: 1, linkOffset: 6.0, linkRatio: 0.6 },
+  ];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(out.success, true, JSON.stringify(out));
+  const [p, c] = env.state.peaks;
+  assert.ok(Math.abs(p.center - 285.0) < 1e-3 && Math.abs(p.amplitude - 10) < 1e-2, `parent ${p.center} ${p.amplitude}`);
+  assert.ok(Math.abs(c.center - (p.center + 6.0)) < 1e-9, 'child centre = parent + offset');
+  assert.ok(Math.abs(c.amplitude - p.amplitude * 0.6) < 1e-9, 'child amplitude = parent x ratio');
+  assert.equal(c.fwhm, p.fwhm, 'child width = parent width, locked parent included');
+});
