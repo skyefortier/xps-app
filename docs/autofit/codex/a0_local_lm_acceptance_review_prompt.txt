@@ -1,0 +1,80 @@
+You are running an ADVERSARIAL CODE review of a production-incident fix.
+Branch fix-local-lm-acceptance (this working tree) vs origin/main. Review
+`git diff origin/main..HEAD` in full, plus the new tests and script.
+
+THE INCIDENT: runFitLocal in templates/index.html solved JtJ.dp = +Jt.r
+with r = data - model since the initial commit, so every step ascended,
+none was accepted, lambda inflated past 1e8 and the STARTING model was
+announced as "Fit complete (local LM)". Its convergence test compared
+chi-square with itself after acceptance. Every Batch Fit (runPropagation)
+uses this engine; Run Fit falls back to it on ANY thrown error, including
+server 400s. runFit also never checked the backend's success flag (A08).
+Proof (a Node replay of the shipped functions on the committed lab
+project, 18/18 targets returned the starting model):
+docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md.
+
+THE FIX (scope: the acceptance rule and nothing else):
+1. runFitLocal: descent step, real convergence tests (ftol/xtol/gtol +
+   a stall rule), bounded iterations (1000), works on a COPY of the peaks
+   and commits only on success, returns {success, iterations}; non-
+   convergence leaves state.peaks and state.fitResult untouched. Its
+   statistic is labelled "Residual variance" (unweighted), never chi-square;
+   the label persists through spectrum/project save/load. Stale
+   _backendParams are removed from peaks it commits.
+2. runFit: success !== true is a failed fit (previous peaks/result kept);
+   server-side errors (HTTP error or json.error, incl. a rejected upload)
+   surface their message and never fall back to the local engine; only
+   transport failures (fetch/json throw) fall back, and the "local fit
+   used" overlay opens only if the fallback converged.
+3. Batch Fit: per-target converged / NOT fitted rows; a propagated model
+   starts with fitResult = null.
+4. scripts/scan_batch_fit_signature.py finds affected saved files
+   (unweighted-statistics signature chiReduced ~= rmse^2; corroborated by
+   chiReduced magnitude and identical-model clones). It found 2 tabs in the
+   repo's own projects (4-GTA UCl4-BN.proj.zip B1s Scan_5/_8).
+5. Tests: tests/js/local_lm_descent.test.js (replays the committed project
+   through the SHIPPED extracted functions), tests/js/fit_acceptance.test.js,
+   tests/test_scan_batch_fit_signature.py. Full JS suite 195 pass; Python
+   suite 713 pass; browser check on :5151 done (batch, server fit,
+   success:false, 400, transport abort, save labels).
+
+QUESTIONS:
+1. Is the acceptance rule now COMPLETE? Enumerate every path that writes
+   state.peaks / state.fitResult / tab.fitResult from a fit outcome
+   (runFit, runFitLocal, runPropagation, runAutoFitC1sGraphite,
+   applyFindPeaks, history restore, project/spectrum load) and show any
+   that can still present a non-converged or foreign result as a fit.
+2. Error classification in runFit: can a server-side failure still reach
+   the local fallback, or a transport failure be reported as a server
+   error? Consider: uploadToBackend's own fetch, resp.json() on a 502 HTML
+   page, AbortError, a 200 with a body lacking `success`.
+3. Optimiser soundness: the finite-difference Jacobian steps inside the
+   parameter box; gradRel ignores components blocked by the box; the
+   stall rule declares convergence when lambda > 1e8 AFTER at least one
+   accepted step (or gradRel < 1e-3 with none). Can this declare
+   convergence at a non-stationary point in a way that matters? Can it
+   fail on a legitimately-at-optimum start? Is the linked-peak sync
+   (always resync every linked peak from its parent, all shape keys)
+   semantically identical to the backend's constraint expressions and to
+   the previous behaviour for the cases the app can produce?
+4. Anything the change breaks: callers of runFitLocal's old void return;
+   the module_state / per_tab_state structural tests; renderResults' new
+   `_statIsChi`; exports; _autoSnapshot after a local fit; undo (pushUndo
+   is called before a failed fit — is an empty undo entry acceptable?).
+5. The scanner: is the unweighted-statistics signature reliable on every
+   file the app can write (spec.json statistics block, project fitResult,
+   pre-2026 formats without rmse)? False positives on legitimate server
+   fits with very low counts? Does it miss local results whose rmse was
+   later recomputed?
+6. Scope discipline: name anything in the diff that is NOT the acceptance
+   rule (should be reported as follow-up instead), and anything the rule
+   needed that is missing.
+Do not manufacture NO-GOs from style. Judge correctness of the rule and of
+the optimiser, and whether the tests would catch a regression of the
+original defect.
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
