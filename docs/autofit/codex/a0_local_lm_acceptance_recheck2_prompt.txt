@@ -1,0 +1,66 @@
+You are running ROUND 3 (second recheck) of the ADVERSARIAL CODE review of
+unit A0 (branch fix-local-lm-acceptance vs origin/main; review `git diff
+origin/main..HEAD` in full plus the tests). Rounds 1 and 2 were NO-GO x2;
+verdicts are archived in docs/autofit/codex/a0_local_lm_acceptance_verdict_run{A,B}.md
+(round 1) and a0_local_lm_acceptance_r2_verdict_run{A,B}.md (round 2); the
+prompts are a0_local_lm_acceptance_review_prompt.txt and
+a0_local_lm_acceptance_recheck_prompt.txt. Verify each disposition below
+against the code; do not take the disposition's word for it.
+
+ROUND-2 DISPOSITIONS:
+
+1. BLOCKER (both runs) clipped joint step passes ftol at a non-stationary
+   point — FIXED with an ACTIVE-SET step. Each iteration classifies every
+   free parameter: discrete (caM), zero-sensitivity (JtJ_jj = 0),
+   UNDETERMINED (scaled column norm < 1e-4 of the largest column) and
+   WALL-BLOCKED (descent direction -sign(J_j.r) points into the box) are
+   HELD (dp = 0); the damped normal equations are solved on the active set
+   only; the gtol cosine is taken over the active set only. The ftol gate
+   now requires prered > 0, actred <= FTOL, prered <= FTOL, actred/prered
+   <= 2 AND that the UNDAMPED Gauss-Newton step on the active set predicts
+   a relative reduction <= FTOL (so a large lambda in a flat valley cannot
+   under-predict the available reduction). Held-undetermined parameters are
+   reported in the return value and the notice ("Not determined by the
+   data (held): ..."), the singular-value-cutoff treatment a collapsed
+   component's width receives.
+   Tests (tests/js/local_lm_descent.test.js): a generic CONSTRAINED
+   STATIONARITY ORACLE — after success, every free parameter is moved by
+   ±1e-3 (scaled, inside the box; linked children follow) and the residual
+   must not drop by more than 1e-8 (synthetic) / 1e-6 (real data) — applied
+   to your round-2 replays A (284/0.3/1 all free) and B (centre locked,
+   amplitude pinned at 1, width must reach its constrained optimum ~0.5),
+   to replay A started at FWHM 0.5 (prered <= 0 case), and to five real
+   Batch Fit targets (C1s Scan_0/_4/_8, U4f Scan_3/_6). All 18 committed
+   targets converge (5-532 iterations); Scan_1 and Scan_4 carry one held
+   undetermined width each (collapsed component).
+2. MAJOR/MINOR uploadToBackend null JSON body → FIXED: the parsed body must
+   be an object before any property access; otherwise serverError. Test:
+   "uploadToBackend: an HTTP 200 whose body is JSON null (or not an
+   object) is a server error".
+3. MINOR scanner wording/exit codes → FIXED: "copying is proven" removed
+   (now "consistent with a Batch Fit copy (or a locked model)"); a
+   nonexistent input path counts as UNREADABLE (exit 2); the triage caveat
+   prints unconditionally; the docstring states the rmse>10 guard is a
+   proxy that can still list very-low-count server fits. Tests added.
+4. MINOR CLAUDE.md → updated to the actual engine (central differences,
+   active set, 3000 iterations, ftol 1e-6 / gtol 1e-6 / xtol 1e-8,
+   damping exhaustion = failure, caM not optimised) and the acceptance
+   guarantee narrowed to fit OUTCOMES, with model-replacement paths named
+   as separate units.
+5. Student note → the two Run Fit exceptions are stated without promising
+   the scanner catches them or that non-convergence looks poor.
+6. Scope ruling (Find Peaks default apply, undo/redo, legacy provenance):
+   both runs accepted it as defensible; unchanged.
+
+ROUND-3 QUESTIONS: (a) does the active-set + Newton-prediction gate close
+the blocker, or can you construct a start that still converges at a point
+where a feasible 1e-3 move reduces the residual by more than 1e-6?
+(b) is the 1e-4 column-norm cutoff for "undetermined" defensible, and can
+it hold a parameter that IS determined (e.g. a weak satellite next to a
+strong main line)? (c) anything new introduced by the round-2 fixes?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
