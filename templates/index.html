@@ -3216,7 +3216,7 @@ class TabManager {
     const fqEl = document.getElementById('fit-quality');
     const chiEl = document.getElementById('sb-chi');
     if (state.fitResult && state.fitResult.chiReduced != null) {
-      fqEl.textContent = '\u03c7\u00b2\u1d63 = ' + state.fitResult.chiReduced.toFixed(2);
+      fqEl.textContent = _fitStatLabel(state.fitResult) + ' = ' + state.fitResult.chiReduced.toFixed(2);
       fqEl.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
       if (chiEl) chiEl.textContent = state.fitResult.chiReduced.toFixed(3);
     } else {
@@ -6154,7 +6154,11 @@ async function uploadToBackend(be, inten) {
   form.append('file', new Blob([csv], { type: 'text/plain' }), 'spectrum.csv');
   const resp = await fetch('/api/upload', { method: 'POST', body: form });
   const json = await resp.json();
-  if (json.error) throw new Error(json.error);
+  if (json.error) {
+    const err = new Error(json.error);
+    err.serverError = true;   // a rejected upload is not a transport failure (see runFit)
+    throw err;
+  }
   return json.session_id;
 }
 
@@ -7090,7 +7094,15 @@ async function runFit() {
       // session data; backend expects [x, y] pairs.
       bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
     }
-    const sessionId = await uploadToBackend(be, inten);
+    // Transport failures (server unreachable, timeout, non-JSON reply) are
+    // the ONLY reason to fall back to the local optimiser. A server-side
+    // validation error or a non-converged optimisation surfaces its message
+    // and leaves the model untouched (unit A0: nothing is shown as a fit
+    // result unless it converged; an HTTP 400 is not a reason to silently
+    // switch engines).
+    const _asTransport = (e) => { if (!(e && e.serverError)) e.transportFailure = true; throw e; };
+    let sessionId;
+    try { sessionId = await uploadToBackend(be, inten); } catch (e) { _asTransport(e); }
     const fitReq = {
       session_id: sessionId,
       background: bgPayload,
@@ -7098,13 +7110,28 @@ async function runFit() {
       fit_method: fitMethod,
       n_perturb: 3
     };
-    const resp = await fetch('/api/fit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fitReq)
-    });
-    const json = await resp.json();
-    if (json.error) throw new Error(json.error);
+    let resp, json;
+    try {
+      resp = await fetch('/api/fit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fitReq)
+      });
+      json = await resp.json();
+    } catch (e) { _asTransport(e); }
+    if (resp.ok === false || json.error) {
+      const err = new Error(json.error || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.serverError = true;
+      throw err;
+    }
+    // ACCEPTANCE RULE: the backend reports lmfit's own convergence flag. A
+    // result that did not converge is a failed fit, not a result (audit A08:
+    // until this unit success:false was applied and announced as complete).
+    if (json.success !== true) {
+      const err = new Error(json.message || 'the optimizer did not converge.');
+      err.notConverged = true;
+      throw err;
+    }
     backendResult = json;
 
     // If the user switched tabs while the fit was running, discard the result
@@ -7146,10 +7173,22 @@ async function runFit() {
       notify('Fit cancelled — tab switched during fit.', 'amber');
       return;
     }
-    // Log the underlying error so structured backend messages aren't silently lost
-    if (e && e.message) console.warn('Backend fit failed, falling back to local LM:', e.message);
-    runFitLocal(be, bgSubtracted, bgIntensity);
-    if (!_snapshotSuppressed) document.getElementById('localfit-warn-overlay').classList.add('open');
+    if (e && e.transportFailure) {
+      // Server unreachable: the local optimiser is the honest fallback, and
+      // the overlay saying so opens only if it actually converged.
+      if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
+      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+      if (local && local.success && !_snapshotSuppressed) {
+        document.getElementById('localfit-warn-overlay').classList.add('open');
+      }
+      return;
+    }
+    // Server-side error or non-converged optimisation: report it; the
+    // previous peaks and fit result stay exactly as they were.
+    const notConverged = !!(e && e.notConverged);
+    document.getElementById('sb-msg').textContent = notConverged ? 'Fit did not converge' : 'Fit failed';
+    notify((notConverged ? 'Fit did not converge: ' : 'Fit failed: ') + ((e && e.message) || 'unknown error') +
+           ' Previous peaks and result kept.', 'red', true);
     return;
   }
 
@@ -7159,11 +7198,53 @@ async function runFit() {
   _autoSnapshot();
 }
 
-function runFitLocal(be, bgSubtracted, bgIntensity) {
+// Label for the goodness-of-fit statistic a fit result carries. The backend
+// reports a noise-weighted reduced chi-square; the local optimiser is
+// unweighted and reports a residual variance, which must never be shown as
+// chi-square (unit A0, 2026-09-15).
+function _fitStatLabel(fr) {
+  return (fr && fr.objective === 'unweighted_residual_variance') ? 'Residual variance' : 'χ²ᵣ';
+}
+
+// Local Levenberg-Marquardt: the fallback engine, and the ONLY engine Batch
+// Fit uses.
+//
+// ACCEPTANCE RULE (unit A0, 2026-09-15): this function never writes to
+// state.peaks or state.fitResult unless the optimiser converged. It works on
+// a copy of the peak list and commits the copy on success; on
+// non-convergence the previous peaks and the previous fit result are left
+// exactly as they were and the caller receives { success: false }.
+//
+// History: from the initial commit (f20d71b) until this unit the update
+// step solved JtJ.dp = +Jt.r with r = data - model, i.e. an ASCENT step, so
+// every step was rejected, lambda inflated past 1e8 and the loop returned
+// the STARTING model announced as "Fit complete (local LM)". The
+// convergence test also compared chi-square with itself after acceptance.
+// Both are pinned by tests/js/local_lm_descent.test.js, which replays the
+// committed lab project; the proof is in
+// docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md.
+function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+  const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 1000;
+  const fail = (message, iterations) => {
+    _hideFitSpinner();
+    document.getElementById('sb-msg').textContent = 'Local fit failed';
+    notify('Local fit did not converge: ' + message + ' Previous peaks and result kept.', 'red', true);
+    return { success: false, engine: 'local', message, iterations: iterations || 0 };
+  };
+  if (!Array.isArray(be) || be.length < 2 ||
+      !Array.isArray(bgSubtracted) || bgSubtracted.length !== be.length ||
+      !Array.isArray(bgIntensity) || bgIntensity.length !== be.length ||
+      !be.every(Number.isFinite) || !bgSubtracted.every(Number.isFinite)) {
+    return fail('invalid or non-finite data in the fitting region.');
+  }
+  // Work on copies: live peaks are touched only on success.
+  const work = state.peaks.map(p => ({ ...p }));
+  if (!work.length) return fail('no peaks to fit.');
+  const workPeak = id => work.find(q => q.id === id);
+
   const freeParams = [];
   const paramMap = [];
-
-  for (const p of state.peaks) {
+  for (const p of work) {
     if (!p.linked) {
       if (!p.fixCenter)    { freeParams.push(p.center);    paramMap.push({id: p.id, param: 'center'}); }
       if (!p.fixFwhm && p.shape !== 'DSG_LA') { freeParams.push(p.fwhm); paramMap.push({id: p.id, param: 'fwhm'}); }
@@ -7192,42 +7273,50 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       }
     }
   }
+  if (!freeParams.every(Number.isFinite)) return fail('a free parameter is not a finite number.');
+
+  // Parameter box (unchanged from the previous implementation).
+  function clamp(param, v) {
+    if (param === 'fwhm')         return Math.max(0.1, Math.min(15, v));
+    if (param === 'amplitude')    return Math.max(1, v);
+    if (param === 'glMix')        return Math.max(0, Math.min(100, v));
+    if (param === 'asymmetry')    return Math.max(0, Math.min(1, v));
+    if (param === 'dsAlpha')      return Math.max(0, Math.min(0.49, v));
+    if (param === 'dsGamma')      return Math.max(0, Math.min(5.0, v));
+    if (param === 'laAlpha')      return Math.max(0, Math.min(0.49, v));
+    if (param === 'laBeta')       return Math.max(0.05, Math.min(2.0, v));
+    if (param === 'laM')          return Math.max(0.05, Math.min(4.0, v));
+    if (param === 'caAlpha')      return Math.max(0.1, Math.min(5.0, v));
+    if (param === 'caBeta')       return Math.max(0.1, Math.min(5.0, v));
+    if (param === 'caM')          return Math.max(0,   Math.min(499, Math.round(v)));
+    return v;
+  }
+  const LINK_SYNC_KEYS = ['glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
+    'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM'];
 
   function applyParams(params) {
     for (let i = 0; i < params.length; i++) {
       const { id, param } = paramMap[i];
-      const p = getPeak(id);
-      if (!p) continue;
-      let v = params[i];
-      if (param === 'fwhm')         v = Math.max(0.1, Math.min(15, v));
-      if (param === 'amplitude')    v = Math.max(1, v);
-      if (param === 'glMix')        v = Math.max(0, Math.min(100, v));
-      if (param === 'asymmetry')    v = Math.max(0, Math.min(1, v));
-      if (param === 'dsAlpha')      v = Math.max(0, Math.min(0.49, v));
-      if (param === 'dsGamma')      v = Math.max(0, Math.min(5.0, v));
-      if (param === 'laAlpha')      v = Math.max(0, Math.min(0.49, v));
-      if (param === 'laBeta')       v = Math.max(0.05, Math.min(2.0, v));
-      if (param === 'laM')          v = Math.max(0.05, Math.min(4.0, v));
-      if (param === 'caAlpha')      v = Math.max(0.1, Math.min(5.0, v));
-      if (param === 'caBeta')       v = Math.max(0.1, Math.min(5.0, v));
-      if (param === 'caM')          v = Math.max(0,   Math.min(499, Math.round(v)));
-      p[param] = v;
-      const linked = state.peaks.find(q => q.linked === id);
-      if (linked) {
-        if (param === 'center')    linked.center = v + linked.linkOffset;
-        if (param === 'amplitude') linked.amplitude = v * linked.linkRatio;
-        if (param === 'fwhm')      linked.fwhm = v;
-        if (param === 'shape' || param === 'glMix' || param === 'asymmetry' ||
-            param === 'dsAlpha' || param === 'dsGamma' ||
-            param === 'laAlpha' || param === 'laBeta' || param === 'laM' ||
-            param === 'caAlpha' || param === 'caBeta' || param === 'caM') linked[param] = v;
-      }
+      const p = workPeak(id);
+      if (p) p[param] = clamp(param, params[i]);
+    }
+    // Linked peaks follow their parent: centre + offset, amplitude x ratio,
+    // and every lineshape parameter (the same constraint set the backend
+    // enforces through lmfit expressions).
+    for (const q of work) {
+      if (!q.linked) continue;
+      const parent = workPeak(q.linked);
+      if (!parent) continue;
+      if (Number.isFinite(q.linkOffset)) q.center = parent.center + q.linkOffset;
+      if (Number.isFinite(q.linkRatio))  q.amplitude = parent.amplitude * q.linkRatio;
+      q.fwhm = parent.fwhm;
+      for (const k of LINK_SYNC_KEYS) if (parent[k] !== undefined) q[k] = parent[k];
     }
   }
 
   function residuals(params) {
     applyParams(params);
-    const model = evalAllPeaks(be, state.peaks);
+    const model = evalAllPeaks(be, work);
     return be.map((_, i) => bgSubtracted[i] - model[i]);
   }
 
@@ -7236,23 +7325,33 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
     return r.reduce((s, v) => s + v * v, 0);
   }
 
-  let params = [...freeParams];
-  let lambda = 0.001;
+  let params = freeParams.map((v, i) => clamp(paramMap[i].param, v));
   let chi = chiSq(params);
-  const maxIter = 500;
+  if (!Number.isFinite(chi)) return fail('the model is not finite at the starting parameters.');
+  let lambda = 0.001;
   const h = 1e-4;
+  const FTOL = 1e-8, XTOL = 1e-8, GTOL = 1e-6;
+  let converged = params.length === 0 || chi < 1e-20;
+  let iterations = 0;
+  let acceptedSteps = 0;
 
-  for (let iter = 0; iter < maxIter; iter++) {
-    const J = [];
+  for (let iter = 0; iter < maxIter && !converged; iter++) {
+    iterations++;
     const r = residuals(params);
-    for (let j = 0; j < params.length; j++) {
-      const p2 = [...params];
-      p2[j] += h * Math.max(1, Math.abs(params[j]));
-      const r2 = residuals(p2);
-      J.push(r2.map((v, i) => (v - r[i]) / (h * Math.max(1, Math.abs(params[j])))));
-    }
-
     const n = params.length;
+    // Finite-difference Jacobian d r / d p, stepping inside the parameter box.
+    const J = [];
+    for (let j = 0; j < n; j++) {
+      const { param, id } = paramMap[j];
+      const step = h * Math.max(1, Math.abs(params[j]));
+      const p2 = [...params];
+      p2[j] = clamp(param, params[j] + step);
+      if (p2[j] === params[j]) p2[j] = clamp(param, params[j] - step);
+      const actual = p2[j] - params[j];
+      const r2 = residuals(p2);
+      J.push(actual !== 0 ? r2.map((v, i) => (v - r[i]) / actual) : r.map(() => 0));
+      void id;
+    }
     const JtJ = Array.from({length: n}, () => new Array(n).fill(0));
     const Jtr = new Array(n).fill(0);
     for (let a = 0; a < n; a++) {
@@ -7261,44 +7360,76 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
       }
       for (let i = 0; i < r.length; i++) Jtr[a] += J[a][i] * r[i];
     }
+    if (!Jtr.every(Number.isFinite) || !JtJ.every(row => row.every(Number.isFinite))) {
+      return fail('the model derivative is not finite.', iterations);
+    }
+    // Dimensionless gradient measure: |d(chi)/dp| x parameter scale / chi,
+    // ignoring components that only push into a wall of the parameter box.
+    let gradRel = 0;
+    for (let j = 0; j < n; j++) {
+      const g = -2 * Jtr[j];                       // d(chi)/dp_j with r = data - model
+      const probe = clamp(paramMap[j].param, params[j] - Math.sign(g) * 1e-6 * Math.max(1, Math.abs(params[j])));
+      if (probe === params[j]) continue;            // descent direction blocked by the box
+      gradRel = Math.max(gradRel, Math.abs(g) * Math.max(1, Math.abs(params[j])) / Math.max(chi, 1e-300));
+    }
+    if (gradRel < GTOL) { converged = true; break; }
 
-    for (let a = 0; a < n; a++) JtJ[a][a] *= (1 + lambda);
-
-    const dp = solveLinear(JtJ, Jtr, n);
-    const newParams = params.map((v, i) => v + dp[i]);
+    // Marquardt damping, then the DESCENT step: JtJ.dp = -Jt.r
+    for (let a = 0; a < n; a++) JtJ[a][a] = JtJ[a][a] * (1 + lambda) + 1e-300;
+    const dp = solveLinear(JtJ, Jtr.map(v => -v), n);
+    if (!dp.every(Number.isFinite)) return fail('the normal equations are singular.', iterations);
+    const newParams = params.map((v, i) => clamp(paramMap[i].param, v + dp[i]));
     const newChi = chiSq(newParams);
 
-    if (newChi < chi) {
+    if (Number.isFinite(newChi) && newChi < chi) {
+      const relDrop = (chi - newChi) / Math.max(chi, 1e-300);
+      const relStep = Math.max(0, ...newParams.map((v, i) => Math.abs(v - params[i]) / Math.max(1, Math.abs(params[i]))));
       params = newParams;
       chi = newChi;
+      acceptedSteps++;
       lambda *= 0.7;
+      if (chi < 1e-20 || relDrop < FTOL || relStep < XTOL) converged = true;
     } else {
-      applyParams(params);
       lambda *= 3;
+      if (lambda > 1e8) {
+        // Even a tiny steepest-descent step no longer reduces the residual.
+        // After genuine descent this is the finite-difference optimum
+        // (standard LM termination). With NO accepted step at all the
+        // optimiser never moved: that is the old failure signature, and it
+        // is reported as a failure unless the start is already stationary.
+        if (acceptedSteps > 0 || gradRel < 1e-3) { converged = true; break; }
+        return fail('no step reduces the residual from the starting model (' + iterations + ' iterations).', iterations);
+      }
     }
-
-    if (lambda > 1e8 || Math.abs(newChi - chi) / (chi + 1e-10) < 1e-8) break;
   }
+  if (!converged) return fail('iteration limit (' + maxIter + ') reached.', iterations);
 
+  // ── Converged: commit the working copy to the live peaks ──────────────────
   applyParams(params);
+  for (const p of work) {
+    const live = getPeak(p.id);
+    if (!live) continue;
+    Object.assign(live, p);
+    // A local fit has no backend covariance; any _backendParams on the peak
+    // belong to an earlier server fit (or, in Batch Fit, to the SOURCE
+    // spectrum's fit) and must not travel with this result.
+    delete live._backendParams;
+  }
 
   const dof = Math.max(1, be.length - params.length);
   const chiReduced = chi / dof;
   const rmse = Math.sqrt(chi / be.length);
 
-  // KNOWN LIMITATION: this fallback fitter does not produce parameter
-  // uncertainties. The backend lmfit path returns stderr per-param via the
-  // covariance matrix; the JS-LM path leaves _buildStderrMap empty so the
-  // results panel shows blank σ for every shape after a fallback fit. To
-  // close this gap, compute σ here from JtJ⁻¹ × (chi / dof) at the final
-  // params (JtJ is built fresh per iteration in the loop above; recompute
-  // it once at the optimum, invert via solveLinear with identity RHS).
+  // KNOWN LIMITATION: this engine produces no parameter uncertainties; the
+  // results panel shows blank sigma for every parameter after a local fit.
   const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
-  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange };
+  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
+                      engine: 'local', status: 'converged',
+                      objective: 'unweighted_residual_variance', iterations };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
-  document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
-  document.getElementById('fit-quality').setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
+  document.getElementById('fit-quality').textContent = 'Residual variance = ' + chiReduced.toFixed(2);
+  document.getElementById('fit-quality').setAttribute('data-xps-tip', _LOCALFIT_TOOLTIP);
   document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
   document.getElementById('sb-msg').textContent = 'Fit complete (local)';
   _updateRFactorUI(state.fitResult.rFactor);
@@ -7309,8 +7440,10 @@ function runFitLocal(be, bgSubtracted, bgIntensity) {
   renderResults();
 
   _hideFitSpinner();
-  notify('Fit complete (local LM). \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
+  notify('Local fit converged in ' + iterations + ' iteration' + (iterations === 1 ? '' : 's') +
+         '. Residual variance = ' + chiReduced.toFixed(3) + ' (unweighted; no parameter uncertainties from the local engine).', 'amber');
   _autoSnapshot();
+  return { success: true, engine: 'local', iterations, acceptedSteps };
 }
 
 function solveLinear(A, b, n) {
@@ -7375,6 +7508,7 @@ function renderResults() {
   }
 
   const { chiReduced, rmse, backendResult } = state.fitResult;
+  const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
   const stderrMap = _buildStderrMap(state.fitResult);
 
   function fmtVal(val, se, decimals) {
@@ -7385,8 +7519,8 @@ function renderResults() {
   let html = `
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
-        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">\u03c7\u00b2\u1d63</div>
-        <div style="font-family:var(--mono);font-size:16px;color:${chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)'}">${chiReduced.toFixed(3)}</div>
+        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${_escHtml(_fitStatLabel(state.fitResult))}</div>
+        <div style="font-family:var(--mono);font-size:16px;color:${_statIsChi ? (chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)') : 'var(--text)'}">${chiReduced.toFixed(3)}</div>
       </div>
       <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">RMSE</div>
@@ -10027,6 +10161,7 @@ function exportFitTable(fmt) {
   const date = new Date().toISOString().slice(0,10);
   const bgType = document.getElementById('bg-type')?.value || '';
   const chiStr = state.fitResult.chiReduced.toFixed(4);
+  const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
 
   const headers = ['Peak Name','Center (eV)','Center StdErr','FWHM (eV)','FWHM StdErr',
     'Amplitude','Amplitude StdErr','Area','Line Shape','GL Ratio','Alpha','Beta','M_Gauss',
@@ -10052,7 +10187,7 @@ function exportFitTable(fmt) {
     const wb = XLSX.utils.book_new();
     const metaWS = XLSX.utils.aoa_to_sheet([
       ['XPS Fitting Studio Export'], ['Date', date],
-      ['Chi-squared reduced', chiStr], ['Background type', bgType],
+      [_statIsChi ? 'Chi-squared reduced' : 'Residual variance (local fit, unweighted)', chiStr], ['Background type', bgType],
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
@@ -10061,7 +10196,7 @@ function exportFitTable(fmt) {
     notify('Exported XLSX table', 'green');
   } else {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
-    csv += `# Chi-squared reduced: ${chiStr}\n# Background: ${bgType}\n`;
+    csv += `# ${_statIsChi ? 'Chi-squared reduced' : 'Residual variance (local fit, unweighted)'}: ${chiStr}\n# Background: ${bgType}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -10182,6 +10317,7 @@ function _updateROIDisplay(roiRange) {
   el.textContent = `ROI: ${roiRange.min}\u2013${roiRange.max} eV`;
 }
 
+const _LOCALFIT_TOOLTIP = "Residual variance of the local (in-page) fit: the mean squared residual, NOT weighted by counting noise, so it is not comparable to \u03c7\u00b2\u1d63 and carries no parameter uncertainties. Run Fit with the server available for a weighted fit with uncertainties.";
 const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty. Computed within the ROI range.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
 
 // Wire up custom tooltip for data-xps-tip elements (R-factor, chi-squared, etc.)
@@ -10743,6 +10879,9 @@ async function runPropagation() {
     tgt.ui = newUi;
     tgt.ccShift = srcShift;
     tgt.chargeVerified = false;
+    // A propagated model has not been fitted yet: the target's previous
+    // result belonged to its previous peaks (unit A0 acceptance rule).
+    tgt.fitResult = null;
 
     // Now activate this tab so state is populated. activateTab is a no-op
     // when the target is ALREADY active (the user switched to it during the
@@ -10771,13 +10910,15 @@ async function runPropagation() {
     const { be, inten } = getROIData();
     const bgI = computeBackground(be, inten);
     const bgSub = inten.map((v, idx) => v - bgI[idx]);
-    runFitLocal(be, bgSub, bgI);
+    const outcome = runFitLocal(be, bgSub, bgI);
 
     // Sync result back to record
     tabManager._syncActiveToRecord();
 
-    const chi = state.fitResult ? state.fitResult.chiReduced : null;
-    results.push({ name: tgt.name, chi });
+    const ok = !!(outcome && outcome.success);
+    results.push({ name: tgt.name, ok,
+                   chi: ok && state.fitResult ? state.fitResult.chiReduced : null,
+                   message: ok ? null : ((outcome && outcome.message) || 'local fit did not converge') });
 
     await new Promise(r => setTimeout(r, 10));
   }
@@ -10787,9 +10928,12 @@ async function runPropagation() {
   // Return to source tab
   tabManager.activateTab(sourceId);
 
-  prog.textContent = `Done. Propagated to ${results.length} ${results.length !== 1 ? 'spectra' : 'spectrum'}.`;
-  summary.innerHTML = results.map(r =>
-    `<div class="prop-row">${_escHtml(r.name)}: &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'}</div>`
+  const nOk = results.filter(r => r.ok).length;
+  const nFail = results.length - nOk;
+  prog.textContent = `Batch complete: ${nOk} converged, ${nFail} not fitted (local optimiser, no uncertainties).`;
+  summary.innerHTML = results.map(r => r.ok
+    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; residual variance = ${r.chi.toFixed(3)}</div>`
+    : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)</div>`
   ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
   summary.style.display = 'block';
   btn.disabled = false;
@@ -13189,8 +13333,8 @@ document.addEventListener('mousedown', function(e) {
 <!-- Local Fit Warning Modal -->
 <div id="localfit-warn-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:460px;border-color:var(--amber,#f59e0b)">
-    <h3 style="color:var(--amber,#f59e0b)">&#9888; Warning: Local Fit Performed <button class="btn btn-sm" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) did not respond. A simplified local fit was used instead. Results may be less accurate.</p>
+    <h3 style="color:var(--amber,#f59e0b)">&#9888; Local fit used (server unreachable) <button class="btn btn-sm" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">&#x2715;</button></h3>
+    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged, but it is unweighted (it reports a residual variance, not &#967;&#178;<sub>r</sub>) and it gives <strong>no parameter uncertainties</strong>. Run Fit again when the server is available before quantifying or exporting.</p>
     <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px"><strong style="color:var(--text)">Possible causes:</strong><br>
     &bull; The server may be offline or restarting<br>
     &bull; The fit request may have timed out<br>
