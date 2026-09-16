@@ -1,0 +1,53 @@
+You are running ROUND 4 (third recheck) of the ADVERSARIAL CODE review of
+unit A0 (branch fix-local-lm-acceptance vs origin/main; review `git diff
+origin/main..HEAD` in full plus the tests). Rounds 1-3 were NO-GO x2 each;
+all verdicts are archived under docs/autofit/codex/a0_local_lm_acceptance_*verdict_run{A,B}.md
+and the prompts under a0_local_lm_acceptance_*prompt.txt. Verify each
+disposition against the code; do not take its word for it.
+
+ROUND-3 DISPOSITIONS:
+
+1. BLOCKER (both runs) the 1e-4 column-norm "undetermined" cutoff froze a
+   determined satellite → REMOVED entirely. No parameter is held for being
+   small. The active set now holds only: discrete caM, exactly-zero
+   sensitivity (JtJ_jj = 0), and wall-blocked descent directions.
+2. BLOCKER/MAJOR the undamped-Newton ftol gate still passed non-stationary
+   points → REMOVED. Replaced by an explicit FEASIBLE-DESCENT CERTIFICATE
+   (`certify()` in runFitLocal): every tentative convergence (gtol, ftol
+   trio, or xtol) is accepted only if no single free non-discrete parameter,
+   moved by ±1e-3 × its scale (centre scale = max(0.05, FWHM); others
+   max(1,|p|)) and clamped to the box, reduces the residual by more than
+   FTOL = 1e-6 of its value. Otherwise the best such point is TAKEN, lambda
+   is reset to >= 1e-3, and iteration continues (capped at 200 restarts →
+   failure "could not certify a stationary point"). This is the same probe
+   as the test oracle, by design: the certificate IS the acceptance
+   criterion, stated in the code and in CLAUDE.md.
+   Tests: your four round-3 reproductions are added verbatim as
+   tests/js/local_lm_descent.test.js "round-3 A1/B1/A2/B2" (A1: satellite
+   amplitude 1 → 1000 beside a 100000 line, all free; B1: 5 → 10 beside
+   100000 with centres/widths locked; A2 and B2 to the oracle at 1e-6) and
+   pass; the oracle now enumerates DS (dsAlpha, dsGamma) and DS+G (laAlpha,
+   laBeta, laM) and synchronises those keys on linked children. The
+   `undetermined` field is gone (nothing to persist). All 18 committed
+   targets converge (5-288 iterations); the five real-target oracle checks
+   pass at 1e-6.
+3. MINOR oracle omissions → fixed as above. MINOR persist `undetermined` →
+   moot (removed).
+
+ROUND-4 QUESTIONS: (a) can you construct a start for which runFitLocal
+returns success at a point where a feasible ±1e-3-scaled single-parameter
+move reduces the residual by more than 1e-6 (i.e. defeat the certificate
+as implemented — look for a gap between the certificate's probe and the
+oracle, or a code path that reaches success without certify())? (b) is a
+single-parameter probe an acceptable stationarity certificate for this
+engine's stated guarantee (it does not probe coupled directions — say
+whether that matters for the acceptance rule, given the LM step itself
+handles coupled directions)? (c) anything new introduced by the round-3
+changes (performance: the certificate costs 2n residual evaluations per
+tentative convergence)?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
