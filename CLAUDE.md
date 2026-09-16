@@ -242,9 +242,21 @@ constrained via lmfit parameter expressions.
 ### Client-side fallback
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
-implementation used as a fallback (e.g., when the backend is
-unreachable). Numerical Jacobian, max 500 iterations, stops at
-Δχ²/χ² < 1e-8 or λ > 1e8.
+implementation used as a fallback when the backend is unreachable, and
+the ONLY engine Batch Fit uses. Numerical Jacobian, max 1000 iterations,
+stops on relative χ² drop < 1e-8, relative step < 1e-8, or a stalled
+gradient. Unweighted: its statistic is labelled "Residual variance", never
+χ²ᵣ, and it produces no uncertainties.
+
+**Acceptance rule (unit A0, 2026-09-15):** nothing is shown, stored or
+exported as a fit result unless it converged. `runFitLocal` works on a
+copy and commits only on success, returning `{success, iterations}`;
+`runFit` treats `success !== true` from `/api/fit` as a failed fit and
+never falls back to the local engine on a server-side error (only on a
+transport failure). From the initial commit until this unit the local LM
+step had the wrong sign and returned the starting model as "Fit complete";
+see `docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and
+`scripts/scan_batch_fit_signature.py`, which finds affected saved files.
 
 ## Background Methods
 
