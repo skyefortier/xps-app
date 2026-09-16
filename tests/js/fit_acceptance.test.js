@@ -119,3 +119,17 @@ test('a converged backend result is applied (sanity)', async () => {
   assert.equal(env.calls.local, 0);
   assert.notEqual(env.state.fitResult.marker, 'previous');
 });
+
+test('the engine/objective labels of a fit result survive spectrum and project save/load', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // spectrum save: statistics block carries objective/engine; loader restores them
+  const save = grab('function _doSaveSpectrum()', 2500);
+  assert.match(save, /objective: state\.fitResult\.objective/);
+  assert.match(save, /engine: state\.fitResult\.engine/);
+  const load = grab('function _loadSpectrumFile(', 6000);
+  assert.match(load, /\['engine', 'objective', 'status'\]/);
+  // project save: the whitelisted fitResult record carries them
+  const proj = grab('const buildTabData = (t) =>', 3000);
+  assert.match(proj, /objective: t\.fitResult\.objective/);
+  assert.match(proj, /engine: t\.fitResult\.engine/);
+});

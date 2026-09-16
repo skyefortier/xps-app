@@ -9113,6 +9113,11 @@ function _doSaveSpectrum() {
     chi: state.fitResult.chi,
     chiReduced: state.fitResult.chiReduced,
     rmse: state.fitResult.rmse,
+    // Engine identity travels with the statistic so a reloaded local-engine
+    // result is never relabelled as chi-square (unit A0).
+    engine: state.fitResult.engine || null,
+    objective: state.fitResult.objective || null,
+    status: state.fitResult.status || null,
   } : null;
 
   const data = {
@@ -9194,6 +9199,12 @@ async function _doSaveProject() {
         bgIntensity: _roundIntensity(t.fitResult.bgIntensity),
         bgSubtracted: _roundIntensity(t.fitResult.bgSubtracted),
         roiRange: t.fitResult.roiRange || null,
+        // Engine identity (unit A0): a local-engine result stays labelled
+        // "Residual variance" after reload instead of becoming chi-square.
+        engine: t.fitResult.engine || null,
+        objective: t.fitResult.objective || null,
+        status: t.fitResult.status || null,
+        iterations: t.fitResult.iterations ?? null,
       } : null,
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],
@@ -9407,6 +9418,7 @@ function _loadSpectrumFile(data, sessionFile) {
   if (data.notes) active.notes = data.notes;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
+    for (const k of ['engine', 'objective', 'status']) if (data.statistics[k]) fr[k] = data.statistics[k];
     if (data.fittedY) fr.fittedY = data.fittedY;
     active.fitResult = fr;
     state.fitResult = fr;
