@@ -258,9 +258,12 @@ function freeParamsOf(p) {
   if (!p.fixAmplitude) out.push('amplitude');
   if ((p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) out.push('glMix');
   if (p.shape === 'asym-GL' && !p.fixAsymmetry) out.push('asymmetry');
+  if (p.shape === 'DS') { if (!p.fixDsAlpha) out.push('dsAlpha'); if (!p.fixDsGamma) out.push('dsGamma'); }
+  if (p.shape === 'DSG_LA') { if (!p.fixLaAlpha) out.push('laAlpha'); if (!p.fixLaBeta) out.push('laBeta'); if (!p.fixLaM) out.push('laM'); }
   if (p.shape === 'LACX') { if (!p.fixCaAlpha) out.push('caAlpha'); if (!p.fixCaBeta) out.push('caBeta'); }
   return out;
 }
+const SYNC_KEYS = ['glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM','caAlpha','caBeta','caM'];
 function assertConstrainedStationary(env, be, bgSub, relTol, label) {
   const ss = () => residualSS(env, be, bgSub);
   const base = ss();
@@ -274,10 +277,10 @@ function assertConstrainedStationary(env, be, bgSub, relTol, label) {
         if (v === v0) continue;
         p[k] = v;
         // linked children follow the parent, as in the optimiser
-        for (const q of env.state.peaks) if (q.linked === p.id) { q.center = p.center + q.linkOffset; q.amplitude = p.amplitude * q.linkRatio; q.fwhm = p.fwhm; for (const kk of ['glMix','asymmetry','caAlpha','caBeta','caM']) if (p[kk] !== undefined) q[kk] = p[kk]; }
+        for (const q of env.state.peaks) if (q.linked === p.id) { q.center = p.center + q.linkOffset; q.amplitude = p.amplitude * q.linkRatio; q.fwhm = p.fwhm; for (const kk of SYNC_KEYS) if (p[kk] !== undefined) q[kk] = p[kk]; }
         const trial = ss();
         p[k] = v0;
-        for (const q of env.state.peaks) if (q.linked === p.id) { q.center = p.center + q.linkOffset; q.amplitude = p.amplitude * q.linkRatio; q.fwhm = p.fwhm; for (const kk of ['glMix','asymmetry','caAlpha','caBeta','caM']) if (p[kk] !== undefined) q[kk] = p[kk]; }
+        for (const q of env.state.peaks) if (q.linked === p.id) { q.center = p.center + q.linkOffset; q.amplitude = p.amplitude * q.linkRatio; q.fwhm = p.fwhm; for (const kk of SYNC_KEYS) if (p[kk] !== undefined) q[kk] = p[kk]; }
         assert.ok(trial >= base * (1 - relTol), `${label}: moving ${p.name}.${k} by ${sgn}×1e-3 reduces SS ${base.toExponential(6)} → ${trial.toExponential(6)} (${((1 - trial / base) * 100).toFixed(4)} %) — not a constrained stationary point`);
       }
     }
@@ -324,4 +327,54 @@ test('A01 replay targets converge to constrained stationary points (C1s and U 4f
     assert.equal(out.success, true, `${target}: ${JSON.stringify(out)}`);
     assertConstrainedStationary(env, be, bgSub, 1e-6, target);
   }
+});
+
+
+// ── Codex round-3 reproductions (2026-09-15) ────────────────────────────────
+
+test('round-3 A1: a weak satellite next to a 100x stronger line is determined and must be fitted, not frozen', () => {
+  const env = makeEnv();
+  const be = grid(280, 300, 0.05);
+  const data = be.map(x => 100000 * env.gaussian(x, 285.0, 1.0) + 1000 * env.gaussian(x, 295.0, 1.0));
+  env.state.peaks = [
+    { id: 1, name: 'main', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 1.0, amplitude: 100000 },
+    { id: 2, name: 'satellite', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 295.0, fwhm: 1.0, amplitude: 1 },
+  ];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.ok(Math.abs(env.state.peaks[1].amplitude - 1000) < 1, `satellite amplitude ${env.state.peaks[1].amplitude}`);
+  assertConstrainedStationary(env, be, data, 1e-8, 'A1');
+});
+
+test('round-3 B1: a 10-count satellite beside a 100000-count line (centres/widths locked) recovers its amplitude', () => {
+  const env = makeEnv();
+  const be = grid(280, 295, 0.01);
+  const data = be.map(x => 100000 * env.gaussian(x, 285.0, 1.0) + 10 * env.gaussian(x, 290.0, 1.0));
+  env.state.peaks = [
+    { id: 1, name: 'main', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 1.0, amplitude: 100000, fixCenter: true, fixFwhm: true },
+    { id: 2, name: 'satellite', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 290.0, fwhm: 1.0, amplitude: 5, fixCenter: true, fixFwhm: true },
+  ];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.ok(Math.abs(env.state.peaks[1].amplitude - 10) < 1e-2, `satellite amplitude ${env.state.peaks[1].amplitude}`);
+  assertConstrainedStationary(env, be, data, 1e-8, 'B1');
+});
+
+test('round-3 A2: (285.3, 1, 8) fitted to (285, 1.5, 0.1) ends at a constrained stationary point', () => {
+  const env = makeEnv();
+  const be = grid(283, 287, 0.01);
+  const data = be.map(x => 0.1 * env.gaussian(x, 285.0, 1.5));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.3, fwhm: 1.0, amplitude: 8 }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  if (out.success) assertConstrainedStationary(env, be, data, 1e-6, 'A2');
+});
+
+test('round-3 B2: (286, 0.3 locked, 20) fitted to (285, 1.5, 5) ends at a constrained stationary point', () => {
+  const env = makeEnv();
+  const be = grid(283, 287, 0.01);
+  const data = be.map(x => 5 * env.gaussian(x, 285.0, 1.5));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 286.0, fwhm: 0.3, amplitude: 20, fixFwhm: true }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(out.success, true, JSON.stringify(out));
+  assertConstrainedStationary(env, be, data, 1e-6, 'B2');
 });

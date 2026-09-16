@@ -247,8 +247,11 @@ the ONLY engine Batch Fit uses. Central-difference Jacobian (centre
 step scaled by the peak width), active-set step (parameters pushed into a
 box wall are held fixed), max 3000 iterations. Terminates on a gradient
 cosine < 1e-6, on actual and predicted relative χ² reductions both < 1e-6
-in agreement, or on a relative step < 1e-8; damping exhaustion is a
-FAILURE. Unweighted: its statistic is labelled "Residual variance", never
+in agreement, or on a relative step < 1e-8, and only after a
+feasible-descent CERTIFICATE passes: no single free parameter moved by
+1e-3 (scaled, inside its box) reduces the residual by more than 1e-6 of
+its value, otherwise that point is taken and iteration continues. Damping
+exhaustion is a FAILURE. Unweighted: its statistic is labelled "Residual variance", never
 χ²ᵣ, and it produces no uncertainties. The integer-clamped `caM` is not
 optimised by this engine (carried at its start value).
 
