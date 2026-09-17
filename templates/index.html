@@ -2180,6 +2180,7 @@
             <span class="stack-control-value" id="panel-linewidth-value">1.5 px</span>
           </div>
         </div>
+        <div id="local-model-banner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:6px 8px;margin-bottom:8px;font-size:10.5px;line-height:1.45;color:var(--text)"></div>
         <div class="tabs">
           <div class="tab active" onclick="switchTab(this,'peaks')">Peaks</div>
           <div class="tab" onclick="switchTab(this,'results')">Results</div>
@@ -2191,7 +2192,6 @@
           <div id="peak-lock-all-wrap" style="display:none;margin-bottom:8px">
             <button class="btn btn-sm" id="btn-lock-all" style="width:100%;font-size:10px" onclick="toggleAllLocks()">&#x1f512; Lock All</button>
           </div>
-          <div id="local-model-banner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:6px 8px;margin-bottom:8px;font-size:10.5px;line-height:1.45;color:var(--text)">&#9888; <strong>Local (unweighted) model &mdash; a starting point, not a reportable result.</strong> Its areas can differ from the server fit by more than 100&nbsp;%. Run Fit before quantifying, exporting or reporting.</div>
           <div id="peak-list"></div>
           <div id="peak-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
             No peaks added yet.<br>Click &ldquo;+ Add Peak&rdquo; to start.
@@ -7264,7 +7264,14 @@ function _isLocalModel() {
 // open), refreshed with the peak list and the results.
 function _updateLocalModelBanner() {
   const el = document.getElementById('local-model-banner');
-  if (el) el.style.display = _isLocalModel() ? 'block' : 'none';
+  if (!el) return;
+  const previewLocal = (typeof _historyPreview !== 'undefined') && !!_historyPreview && _isLocalFit(_historyPreview.fitResult);
+  const modelLocal = _isLocalModel();
+  if (!modelLocal && !previewLocal) { el.style.display = 'none'; return; }
+  el.innerHTML = modelLocal
+    ? '&#9888; <strong>Local (unweighted) model &mdash; a starting point, not a reportable result.</strong> Its areas can differ from the server fit by more than 100&nbsp;%. Run Fit before quantifying, exporting or reporting.'
+    : '&#9888; <strong>The history preview overlay is a local (unweighted) fit &mdash; a starting point, not a reportable result.</strong>';
+  el.style.display = 'block';
 }
 function _provenanceOf(tab) {
   if (!tab) return null;
@@ -13069,6 +13076,7 @@ function _historyPreviewSnap(snapId) {
   }
 
   _historyPreview = { snapId, peaks: snap.peaks, fitResult: snap.fitResult };
+  _updateLocalModelBanner();
   document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
   const row = document.getElementById('hist-row-' + snapId);
   if (row) row.classList.add('hist-preview-active');
@@ -13077,6 +13085,7 @@ function _historyPreviewSnap(snapId) {
 
 function _historyClearPreview() {
   _historyPreview = null;
+  _updateLocalModelBanner();
   document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
   updatePlot();
 }
@@ -13090,6 +13099,7 @@ function _historyRestoreSnap(snapId) {
   pushUndo();
   state.peaks = _normalizePeaksCRef(JSON.parse(JSON.stringify(snap.peaks)));
   state.fitResult = snap.fitResult ? { ...snap.fitResult } : null;
+  tab.modelProvenance = null;   // the restored result governs the designation (unit A0)
   tabManager._syncActiveToRecord();
 
   _historyClearPreview();

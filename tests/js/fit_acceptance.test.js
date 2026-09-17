@@ -419,7 +419,7 @@ test('the Peaks sidebar banner shows for a local result or a local-derived model
   const src = ['_isLocalFit', '_isLocalModel', '_updateLocalModelBanner'].map(extractFn).join('\n');
   const run = (fitResult, tab) => {
     const el = { style: { display: 'block' } };
-    new Function('state', '_activeTab', 'document', src + '\n_updateLocalModelBanner();')({ fitResult }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null });
+    new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null }, null);
     return el.style.display;
   };
   assert.equal(run({ objective: 'unweighted_residual_variance', chiReduced: 1 }, { modelProvenance: null }), 'block');
@@ -437,4 +437,25 @@ test('round-14 sites: banner element and refresh hooks, undo/redo re-render Resu
   assert.match(grab('function redo()', 1000), /renderResults\(\)/, 'redo re-renders Results');
   assert.match(grab('function _autoFitSnapshot()', 1500), /modelProvenance:/, 'auto-fit snapshot carries provenance');
   assert.match(grab('function _autoFitRestore(', 3000), /modelProvenance = snap\.modelProvenance/, 'auto-fit restore reinstates it');
+});
+
+
+// ── Codex round-15: banner outside the switchable panels; local history preview designated; history restore reconciles provenance ──
+test('the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview', () => {
+  const bannerAt = html.indexOf('id="local-model-banner"'), tabsAt = html.indexOf('<div class="tabs">'), peaksPanelAt = html.indexOf('id="tab-peaks"');
+  assert.ok(bannerAt > 0 && bannerAt < tabsAt && bannerAt < peaksPanelAt, 'banner precedes the tab bar and every panel');
+  const src = ['_isLocalFit', '_isLocalModel', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const run = (fitResult, preview) => {
+    const el = { style: { display: 'block' }, innerHTML: '' };
+    new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => ({ modelProvenance: null }), { getElementById: id => id === 'local-model-banner' ? el : null }, preview);
+    return el;
+  };
+  const shown = run({ chiReduced: 2 }, { fitResult: { objective: 'unweighted_residual_variance' } });
+  assert.equal(shown.style.display, 'block', 'a local preview overlay is designated even over a weighted current fit');
+  assert.match(shown.innerHTML, /preview/i);
+  assert.equal(run({ chiReduced: 2 }, { fitResult: { chiReduced: 1 } }).style.display, 'none');
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function _historyPreviewSnap(', 1400), /_updateLocalModelBanner\(\)/, 'preview start refreshes the banner');
+  assert.match(grab('function _historyClearPreview(', 400), /_updateLocalModelBanner\(\)/, 'preview clear refreshes the banner');
+  assert.match(grab('function _historyRestoreSnap(', 900), /modelProvenance = null/, 'history restore lets the restored result govern');
 });
