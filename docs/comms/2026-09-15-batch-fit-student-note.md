@@ -16,7 +16,9 @@ numbers that were slightly off. This one is about results that were never
 fitted at all.
 
 **If you used Batch Fit for anything in a thesis chapter, manuscript, report
-or group-meeting slide, those numbers are not fits. Re-run them.**
+or group-meeting slide, those numbers are not fits. Re-run them with Run
+Fit. And even now that Batch Fit is fixed, its numbers are starting points
+only, not results: see point 4 below.**
 
 How to tell if a saved file is affected (do this first)
 
@@ -87,10 +89,17 @@ What to do
    cannot tell whether a tab came from Batch Fit, re-fit it; it takes
    seconds.
 4. From [DEPLOY DATE], Batch Fit uses a corrected optimiser and tells you
-   per spectrum whether it converged. It is still the page optimiser: it is
-   unweighted (it reports "Residual variance", not χ²ᵣ) and gives no
-   uncertainties, and its answer can differ materially from the server fit.
-   For anything you will publish, follow Batch Fit with Run Fit on each tab.
+   per spectrum whether it converged. But read this carefully, because it
+   was true before the bug and is still true after the fix: **Batch Fit is
+   an unweighted fit, and its component areas can differ from Run Fit by
+   more than 100 %** (on the lab's own C1s scans I measured up to 126 % in
+   area and 29 percentage points in atomic fraction between the two). Run
+   Fit weights each point by its counting noise; Batch Fit does not, and it
+   gives no uncertainties. So Batch Fit output is a starting model and must
+   not be reported as a quantitative result. The app now labels it that
+   way. Anyone who took Batch Fit numbers directly into a report needs to
+   re-run with Run Fit **regardless of whether the scanner flags the file**:
+   this part was never a bug, it has always been how Batch Fit worked.
 5. If a re-fit changes a conclusion you have already drawn, tell me. This
    was not something you did wrong.
 

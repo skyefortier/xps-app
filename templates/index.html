@@ -7565,7 +7565,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
 
   _hideFitSpinner();
   notify('Local fit converged in ' + iterations + ' iteration' + (iterations === 1 ? '' : 's') +
-         '. Residual variance = ' + chiReduced.toFixed(3) + ' (unweighted; no parameter uncertainties from the local engine).', 'amber');
+         '. Residual variance = ' + chiReduced.toFixed(3) + ' (unweighted; no uncertainties). Starting point only: run Fit before reporting.', 'amber');
   _autoSnapshot();
   return { success: true, engine: 'local', iterations, acceptedSteps, residualVariance: chiReduced, certifyRestarts };
 }
@@ -7634,13 +7634,21 @@ function renderResults() {
   const { chiReduced, rmse, backendResult } = state.fitResult;
   const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
   const stderrMap = _buildStderrMap(state.fitResult);
+  // A local (unweighted) result is a STARTING POINT: its areas can differ
+  // from the server's Poisson-weighted fit by more than 100 % (measured on
+  // the lab's C1s scans, unit A0). It is shown as such, never as a result.
+  const _localBanner = _statIsChi ? '' : `
+    <div style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
+      &#9888; <strong>Local unweighted fit &mdash; a starting point, not a reportable result.</strong>
+      Its areas can differ from the server fit by more than 100&nbsp;%. Press <strong>Run Fit</strong> before quantifying, exporting or reporting.
+    </div>`;
 
   function fmtVal(val, se, decimals) {
     if (se != null && se > 0) return val.toFixed(decimals) + ' \u00b1 ' + se.toFixed(decimals);
     return val.toFixed(decimals);
   }
 
-  let html = `
+  let html = _localBanner + `
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${_escHtml(_fitStatLabel(state.fitResult))}</div>
@@ -10127,7 +10135,7 @@ function _doPublicationExport() {
   if (state.fitResult) {
     ctx.font = '38px Arial,sans-serif';
     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const statLabel = _fitStatLabel(state.fitResult) === 'Residual variance' ? 'Residual variance (local fit)' : '\u03c7\u00b2_r';
+    const statLabel = _fitStatLabel(state.fitResult) === 'Residual variance' ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r';
     ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
                  plotX + 14, mainTop + 14);
   }
@@ -10325,6 +10333,7 @@ function exportFitTable(fmt) {
     const metaWS = XLSX.utils.aoa_to_sheet([
       ['XPS Fitting Studio Export'], ['Date', date],
       [_statIsChi ? 'Chi-squared reduced' : 'Residual variance (local fit, unweighted)', chiStr], ['Background type', bgType],
+      ...(_statIsChi ? [] : [['WARNING', 'Local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.']]),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
@@ -10334,6 +10343,7 @@ function exportFitTable(fmt) {
   } else {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
     csv += `# ${_statIsChi ? 'Chi-squared reduced' : 'Residual variance (local fit, unweighted)'}: ${chiStr}\n# Background: ${bgType}\n`;
+    if (!_statIsChi) csv += `# WARNING: local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -11070,9 +11080,9 @@ async function runPropagation() {
 
   const nOk = results.filter(r => r.ok).length;
   const nFail = results.length - nOk;
-  prog.textContent = `Batch complete: ${nOk} converged, ${nFail} not fitted (local optimiser, no uncertainties).`;
+  prog.textContent = `Batch complete: ${nOk} converged as starting points, ${nFail} not fitted. Run Fit on each spectrum before reporting.`;
   summary.innerHTML = results.map(r => r.ok
-    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; residual variance = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'}</div>`
+    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; residual variance = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local unweighted fit: a starting point, not a reportable result)</div>`
     : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)</div>`
   ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
   summary.style.display = 'block';
@@ -13474,7 +13484,7 @@ document.addEventListener('mousedown', function(e) {
 <div id="localfit-warn-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:460px;border-color:var(--amber,#f59e0b)">
     <h3 style="color:var(--amber,#f59e0b)">&#9888; Local fit used (server unreachable) <button class="btn btn-sm" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged, but it is unweighted (it reports a residual variance, not &#967;&#178;<sub>r</sub>) and it gives <strong>no parameter uncertainties</strong>. Run Fit again when the server is available before quantifying or exporting.</p>
+    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged, but it is unweighted (it reports a residual variance, not &#967;&#178;<sub>r</sub>) and gives <strong>no parameter uncertainties</strong>. Treat it as a <strong>starting point, not a reportable result</strong>: its areas can differ from the server fit by more than 100&nbsp;%. Run Fit again when the server is available before quantifying, exporting or reporting.</p>
     <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px"><strong style="color:var(--text)">Possible causes:</strong><br>
     &bull; The server may be offline or restarting<br>
     &bull; The fit request may have timed out<br>

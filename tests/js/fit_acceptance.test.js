@@ -166,7 +166,7 @@ test('every consumer that prints the goodness-of-fit statistic routes through th
   // figure export annotation
   const fig = grab('function exportFigure()', 60000);
   assert.match(fig, /_fitStatLabel\(/, 'figure export must label the statistic by engine');
-  assert.match(fig, /Residual variance \(local fit\)/, 'figure annotation names the local statistic');
+  assert.match(fig, /Residual variance \(local fit, not reportable\)/, 'figure annotation names the local statistic');
   // fit-history rows
   const hist = grab('function _renderHistoryList(', 3000);
   assert.match(hist, /_fitStatLabel\(/, 'history rows must label the statistic by engine');
@@ -180,4 +180,23 @@ test('uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is
   const make = fetchImpl => new Function('fetch', 'FormData', 'Blob', src + '\nreturn uploadToBackend;')(fetchImpl, class { append() {} }, class {});
   await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => null }))([1], [1]), e => e.serverError === true);
   await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => 'nope' }))([1], [1]), e => e.serverError === true);
+});
+
+test('a local (unweighted) result is labelled a STARTING POINT, not a reportable result, everywhere it is shown', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // Results panel banner, keyed on the statistic identity
+  const rr = grab('function renderResults()', 6000);
+  assert.match(rr, /starting point/i, 'results panel must say the local result is a starting point');
+  assert.match(rr, /Run Fit/, 'results panel must tell the user to press Run Fit');
+  // batch summary rows
+  const rp = grab('async function runPropagation', 9000);
+  assert.match(rp, /starting point/i, 'batch summary must say converged rows are starting points');
+  // table exports carry the warning
+  const ex = grab('function exportFitTable(fmt)', 6000);
+  assert.match(ex, /not a reportable result/i, 'CSV/XLSX export must carry the warning for a local result');
+  // figure annotation
+  const fig = grab('function exportFigure()', 60000);
+  assert.match(fig, /local fit, not reportable/i, 'figure annotation must say not reportable');
+  // local-fit overlay
+  assert.match(html, /id="localfit-warn-overlay"[\s\S]{0,1500}starting point/i, 'overlay must say starting point');
 });
