@@ -54,10 +54,10 @@ function makeEnv() {
   const notify = (msg, kind) => calls.notify.push({ msg, kind });
   const noop = () => {};
   const src = CAVEAT_CONST + '\n' + NAMES.map(extractFn).join('\n\n');
-  const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay',
+  const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_updateRFactorUI', '_updateROIDisplay',
     'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
     src + '\nreturn { runFitLocal, computeBackgroundCore, evalAllPeaks, evalPeakArray, gaussian };');
-  const fns = factory(document, state, notify, '', '', noop, noop, noop, noop, noop, noop, noop,
+  const fns = factory(document, state, notify, '', '', () => null, noop, noop, noop, noop, noop, noop, noop,
     be => new Array(be.length).fill(0));
   return { ...fns, state, dom, calls };
 }

@@ -3387,6 +3387,10 @@ class TabManager {
       active.peaks = state.peaks;
       active.nextId = state.nextId;
       active.fitResult = null;
+      // Provenance of the imported parameters (unit A0): a model saved from
+      // a local (unweighted) fit stays a starting point, not a result.
+      active.modelProvenance = (data.fitStatistics && data.fitStatistics.objective === 'unweighted_residual_variance')
+        ? { ...data.fitStatistics, importedFrom: 'fit.json' } : null;
 
       // Apply charge correction
       if (data.chargeCorrection) {
@@ -5679,6 +5683,7 @@ function clearAllPeaks() {
   pushUndo();
   state.peaks = [];
   state.fitResult = null;
+  { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }
   renderPeakList();
   updatePlot();
 }
@@ -6838,6 +6843,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
     fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
     if (typeof _CHISQ_TOOLTIP !== 'undefined') fq.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
   }
+  { const _t = typeof _activeTab === 'function' ? _activeTab() : null; if (_t) _t.modelProvenance = null; }
   if (typeof _applyStatDisplay === 'function') _applyStatDisplay(state.fitResult);
   const sbChi = document.getElementById('sb-chi');
   if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
@@ -7161,6 +7167,7 @@ async function runFit() {
       _preFit[p.id] = { center: p.center, fwhm: p.fwhm, amplitude: p.amplitude, glMix: p.glMix };
     }
     applyBackendResult(backendResult);
+    { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
     const stats = backendResult.statistics || {};
     const chiReduced = stats.reduced_chi_square || 0;
     const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
@@ -7222,6 +7229,14 @@ function _fitStatLabel(fr) {
 // persisted objective so a reloaded local result is labelled too.
 const _LOCAL_FIT_CAVEAT = 'Local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.';
 function _isLocalFit(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
+// The designation follows the MODEL, not only a live fit result: parameters
+// imported from a .fit.json that was saved from a local fit are a starting
+// point too (tab.modelProvenance, set by fromJSON, cleared by any new fit).
+function _isLocalModel() {
+  if (state.fitResult) return _isLocalFit(state.fitResult);
+  const t = _activeTab();
+  return !!(t && t.modelProvenance && t.modelProvenance.objective === 'unweighted_residual_variance');
+}
 function _localFitCaveat(fr) { return _isLocalFit(fr) ? _LOCAL_FIT_CAVEAT : ''; }
 function _fitStatusText(fr) {
   return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + (_isLocalFit(fr) ? ' (starting point)' : '');
@@ -7568,6 +7583,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // KNOWN LIMITATION: this engine produces no parameter uncertainties; the
   // results panel shows blank sigma for every parameter after a local fit.
   const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
+  { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
                       engine: 'local', status: 'converged',
                       objective: 'unweighted_residual_variance', iterations,
@@ -7640,7 +7656,9 @@ function renderResults() {
   const el = document.getElementById('results-area');
   _applyStatDisplay(state.fitResult);   // header + status bar track every result change (clear, restore, auto-fit) as one unit
   if (!state.fitResult) {
-    el.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
+    el.innerHTML = _isLocalModel()
+      ? '<p style="color:var(--amber,#f59e0b);font-size:11px;text-align:center;padding:20px 0">&#9888; This model was imported from a local (unweighted) fit: a starting point, not a reportable result. Run Fit to obtain results.</p>'
+      : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     // Quantify (#quantify-area) is populated by renderQuantify(), called
     // only from the non-null path below — without this it kept showing
     // a PRIOR fit's area/RSF/At% table after state.fitResult was cleared
@@ -9237,7 +9255,9 @@ function _doSaveFit() {
       status: state.fitResult.status || null,
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
-    } : null,
+    } : ((_activeTab() && _activeTab().modelProvenance) ? {
+      ..._activeTab().modelProvenance, reportable: false, caveat: _LOCAL_FIT_CAVEAT,
+    } : null),
   };
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
   _downloadBlob(
@@ -9380,6 +9400,7 @@ async function _doSaveProject() {
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
       } : null,
+      modelProvenance: t.modelProvenance || null,
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],
       lineWidth: t.lineWidth ?? 1.5,
@@ -9741,6 +9762,7 @@ function _loadProjectJSON(data, sessionFile) {
       peaks: _normalizePeaksCRef((t.peaks || []).map(p => ({...p}))),
       nextId: t.nextId || 1,
       fitResult: t.fitResult || null,
+      modelProvenance: t.modelProvenance || null,
       // Autofit candidate-set annotations — restored verbatim when present
       // (see buildTabData; absent in pre-engine saves → null).
       analysis: t.analysis ?? null,
@@ -9936,7 +9958,7 @@ function exportResults() {
     ]);
   }
 
-  const warning = _isLocalFit(state.fitResult) ? '# WARNING: ' + _LOCAL_FIT_CAVEAT + '\n' : '';
+  const warning = _isLocalModel() ? '# WARNING: ' + _LOCAL_FIT_CAVEAT + '\n' : '';
   const csv = warning + rows.map(r => r.join('\t')).join('\n');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);

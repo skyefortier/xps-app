@@ -45,14 +45,14 @@ function makeEnv({ fetchImpl, uploadImpl }) {
   const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
-    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay',
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab',
     src + '\nreturn { runFit };');
   const noop = () => {};
   const { runFit } = factory(document, state, fetchImpl, uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
     noop, noop, noop, () => owner, o => o === owner, () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
     b => b.map(() => 0), p => ({ id: p.id, shape: 'gaussian' }), () => [], () => { calls.applied++; },
     () => 0.1, '', noop, noop, noop, noop, noop, noop,
-    () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop);
+    () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop, () => owner);
   return { runFit, state, dom, calls };
 }
 
@@ -102,11 +102,11 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   const { runFit } = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
-    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', src + '\nreturn { runFit };')(
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab', src + '\nreturn { runFit };')(
     { getElementById: id => (dom[id] ||= { value: '', textContent: '', style: {}, setAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, _c: null } }), querySelector: () => ({}), querySelectorAll: () => [] },
     state, async () => { throw new TypeError('Failed to fetch'); }, async () => 'sid', noop, noop, noop, noop, () => owner, o => o === owner,
     () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }), b => b.map(() => 0), p => ({ id: p.id }), () => [], noop,
-    () => 0.1, '', noop, noop, noop, noop, noop, noop, () => ({ success: false, message: 'did not converge' }), false, { warn: noop }, noop);
+    () => 0.1, '', noop, noop, noop, noop, noop, noop, () => ({ success: false, message: 'did not converge' }), false, { warn: noop }, noop, () => owner);
   await runFit();
   assert.notEqual(dom['localfit-warn-overlay']?.classList._c, 'open', 'overlay must not claim a local fit was performed');
   void env;
@@ -332,4 +332,28 @@ test('_applyStatDisplay clears header, tooltip, caption and value together on lo
   apply(null);
   assert.match(dom['fit-quality'].innerHTML, /&mdash;/); assert.equal(dom['fit-quality'].tip, null);
   assert.doesNotMatch(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '—');
+});
+
+// ── Codex round-11: the designation follows the MODEL through a .fit.json round trip ──
+test('_isLocalModel: a model imported from a local .fit.json is a starting point even with no fit result', () => {
+  const src = ['_isLocalFit', '_isLocalModel'].map(extractFn).join('\n');
+  const mk = (fitResult, tab) => new Function('state', '_activeTab', src + '\nreturn _isLocalModel;')({ fitResult }, () => tab);
+  assert.equal(mk(null, { modelProvenance: { objective: 'unweighted_residual_variance' } })(), true);
+  assert.equal(mk(null, { modelProvenance: null })(), false);
+  assert.equal(mk({ chiReduced: 2 }, { modelProvenance: { objective: 'unweighted_residual_variance' } })(), false, 'a weighted fit result supersedes imported provenance');
+  assert.equal(mk({ objective: 'unweighted_residual_variance', chiReduced: 2 }, null)(), true);
+});
+
+test('fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV export use it, saves and loads carry it, new fits clear it', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('  fromJSON(data) {', 6000), /active\.modelProvenance = /, 'fromJSON records imported provenance');
+  const save = grab('function _doSaveFit()', 3500);
+  assert.match(save, /modelProvenance/, 'Save Fit falls back to imported provenance');
+  assert.match(grab('function exportResults()', 2500), /_isLocalModel\(\)/, 'TSV export keys on the model provenance');
+  assert.match(grab('const buildTabData = (t) =>', 4000), /modelProvenance: t\.modelProvenance \|\| null/, 'project save carries provenance');
+  assert.match(grab('function _loadProjectJSON(', 8000), /modelProvenance: t\.modelProvenance \|\| null/, 'project load carries provenance');
+  assert.match(grab('function renderResults()', 1200), /_isLocalModel\(\)/, 'no-result placeholder designates an imported local model');
+  for (const fn of ['function runFitLocal(', 'async function runFit()', 'function applyAutoFitResult(', 'function clearAllPeaks()']) {
+    assert.match(grab(fn, 25000), /modelProvenance = null/, fn + ' clears imported provenance');
+  }
 });
