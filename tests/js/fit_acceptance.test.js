@@ -294,7 +294,7 @@ test('_applyStatDisplay keeps header, tooltip, caption and value consistent thro
   const src = ['_fitStatLabel', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
-  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL');
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {});
   apply({ objective: 'unweighted_residual_variance', chiReduced: 12345 });
   assert.equal(dom['fit-quality'].textContent, 'Residual variance = 12345.00 (starting point)');
   assert.equal(dom['fit-quality'].tip, 'LOCAL'); assert.match(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '12345.000');
@@ -327,7 +327,7 @@ test('_applyStatDisplay clears header, tooltip, caption and value together on lo
   const src = ['_fitStatLabel', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
-  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL');
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {});
   apply({ objective: 'unweighted_residual_variance', chiReduced: 999 });
   apply(null);
   assert.match(dom['fit-quality'].innerHTML, /&mdash;/); assert.equal(dom['fit-quality'].tip, null);

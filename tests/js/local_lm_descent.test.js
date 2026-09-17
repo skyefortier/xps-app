@@ -39,7 +39,7 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
   'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
   'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
-  '_computeRFactor', '_fitStatLabel', '_isLocalFit', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'];
+  '_computeRFactor', '_fitStatLabel', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner'];
 const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m) || [''])[0];
 
 // One isolated environment per test: a fresh `state`, a stub DOM, and the
@@ -54,10 +54,10 @@ function makeEnv() {
   const notify = (msg, kind) => calls.notify.push({ msg, kind });
   const noop = () => {};
   const src = CAVEAT_CONST + '\n' + NAMES.map(extractFn).join('\n\n');
-  const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_updateRFactorUI', '_updateROIDisplay',
+  const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
     'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
     src + '\nreturn { runFitLocal, computeBackgroundCore, evalAllPeaks, evalPeakArray, gaussian };');
-  const fns = factory(document, state, notify, '', '', () => null, noop, noop, noop, noop, noop, noop, noop,
+  const fns = factory(document, state, notify, '', '', () => null, x => String(x), null, null, noop, noop, noop, noop, noop, noop, noop,
     be => new Array(be.length).fill(0));
   return { ...fns, state, dom, calls };
 }
