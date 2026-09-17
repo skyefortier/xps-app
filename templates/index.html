@@ -2191,6 +2191,7 @@
           <div id="peak-lock-all-wrap" style="display:none;margin-bottom:8px">
             <button class="btn btn-sm" id="btn-lock-all" style="width:100%;font-size:10px" onclick="toggleAllLocks()">&#x1f512; Lock All</button>
           </div>
+          <div id="local-model-banner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:6px 8px;margin-bottom:8px;font-size:10.5px;line-height:1.45;color:var(--text)">&#9888; <strong>Local (unweighted) model &mdash; a starting point, not a reportable result.</strong> Its areas can differ from the server fit by more than 100&nbsp;%. Run Fit before quantifying, exporting or reporting.</div>
           <div id="peak-list"></div>
           <div id="peak-empty" style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;">
             No peaks added yet.<br>Click &ldquo;+ Add Peak&rdquo; to start.
@@ -2441,6 +2442,7 @@ function undo() {
   _restoreSnapshotProvenance(t, snap);
   renderPeakList();
   updatePlot();
+  renderResults();   // the restored model's designation (or its absence) must be visible immediately
   _updateUndoButtons();
 }
 
@@ -2456,6 +2458,7 @@ function redo() {
   _restoreSnapshotProvenance(t, snap);
   renderPeakList();
   updatePlot();
+  renderResults();   // the restored model's designation (or its absence) must be visible immediately
   _updateUndoButtons();
 }
 
@@ -5853,6 +5856,7 @@ function _clearDisallowedChargeRef() {
 
 function renderPeakList() {
   _clearDisallowedChargeRef();
+  _updateLocalModelBanner();
   const el = document.getElementById('peak-list');
   const empty = document.getElementById('peak-empty');
   // Preserve which peak cards are expanded before clearing
@@ -6693,6 +6697,7 @@ function _autoFitSnapshot() {
     // — omitting this left anchors stranded in the provisional frame when
     // the auto-fit failed (Codex round-1 MAJOR, both runs).
     manualAnchors: JSON.parse(JSON.stringify(_getManualAnchors())),
+    modelProvenance: (() => { const o = _opOwner(); return o && o.modelProvenance ? JSON.parse(JSON.stringify(o.modelProvenance)) : null; })(),
     nextId:       state.nextId,
     ccMethodDom:  document.getElementById('cc-method')?.value || 'none',
     ccObsDom:     document.getElementById('cc-obs')?.value || '',
@@ -6730,6 +6735,7 @@ function _autoFitRestore(snap, owner) {
     t.fitResult = snap.fitResult;
     t.ccShift = snap.ccShift;
     t.manualAnchors = snap.manualAnchors || [];
+    t.modelProvenance = snap.modelProvenance || null;
     t.nextId = snap.nextId;
     t.ui = { ...t.ui,
       ccMethod: snap.ccMethodDom, ccObs: snap.ccObsDom, ccLit: snap.ccLitDom,
@@ -6741,6 +6747,7 @@ function _autoFitRestore(snap, owner) {
   state.fitResult = snap.fitResult;
   state.ccShift   = snap.ccShift;
   _setManualAnchors(snap.manualAnchors || []);
+  { const _t = _activeTab(); if (_t) _t.modelProvenance = snap.modelProvenance || null; }
   state.nextId    = snap.nextId;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   set('cc-method', snap.ccMethodDom);
@@ -7253,6 +7260,12 @@ function _isLocalModel() {
 // The designation a tab's MODEL carries: its stored provenance (imported or
 // copied), else one derived from its live local result — so that undo
 // snapshots and batch copies taken while a local result exists keep it.
+// Persistent designation in the Peaks sidebar (visible whatever panel is
+// open), refreshed with the peak list and the results.
+function _updateLocalModelBanner() {
+  const el = document.getElementById('local-model-banner');
+  if (el) el.style.display = _isLocalModel() ? 'block' : 'none';
+}
 function _provenanceOf(tab) {
   if (!tab) return null;
   if (tab.modelProvenance) return JSON.parse(JSON.stringify(tab.modelProvenance));
@@ -7679,6 +7692,7 @@ function _peakArea(p, be) {
 function renderResults() {
   const el = document.getElementById('results-area');
   _applyStatDisplay(state.fitResult);   // header + status bar track every result change (clear, restore, auto-fit) as one unit
+  _updateLocalModelBanner();
   if (!state.fitResult) {
     el.innerHTML = _isLocalModel()
       ? '<p style="color:var(--amber,#f59e0b);font-size:11px;text-align:center;padding:20px 0">&#9888; This model was imported from a local (unweighted) fit: a starting point, not a reportable result. Run Fit to obtain results.</p>'

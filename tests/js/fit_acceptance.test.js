@@ -413,3 +413,28 @@ test('batch propagation copies the source model provenance onto each target (cle
   assert.match(rp, /tgt\.modelProvenance = srcProvenance/, 'target carries it with the copied model');
   assert.match(grab('function _pushUndoFor(', 700), /_provenanceOf\(tab\)/, 'batch history entry derives provenance too');
 });
+
+// ── Codex round-14: persistent designation in the Peaks sidebar; undo/redo re-render; auto-fit rollback carries provenance ──
+test('the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise', () => {
+  const src = ['_isLocalFit', '_isLocalModel', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const run = (fitResult, tab) => {
+    const el = { style: { display: 'block' } };
+    new Function('state', '_activeTab', 'document', src + '\n_updateLocalModelBanner();')({ fitResult }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null });
+    return el.style.display;
+  };
+  assert.equal(run({ objective: 'unweighted_residual_variance', chiReduced: 1 }, { modelProvenance: null }), 'block');
+  assert.equal(run(null, { modelProvenance: { objective: 'unweighted_residual_variance' } }), 'block');
+  assert.equal(run({ chiReduced: 2 }, { modelProvenance: { objective: 'unweighted_residual_variance' } }), 'none', 'a weighted result supersedes');
+  assert.equal(run(null, { modelProvenance: null }), 'none');
+});
+
+test('round-14 sites: banner element and refresh hooks, undo/redo re-render Results, auto-fit snapshot/restore carry provenance', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(html, /id="local-model-banner"/, 'banner element in the Peaks sidebar');
+  assert.match(grab('function renderPeakList()', 1200), /_updateLocalModelBanner\(\)/, 'peak list refresh updates the banner');
+  assert.match(grab('function renderResults()', 1500), /_updateLocalModelBanner\(\)/, 'results refresh updates the banner');
+  assert.match(grab('function undo()', 1000), /renderResults\(\)/, 'undo re-renders Results');
+  assert.match(grab('function redo()', 1000), /renderResults\(\)/, 'redo re-renders Results');
+  assert.match(grab('function _autoFitSnapshot()', 1500), /modelProvenance:/, 'auto-fit snapshot carries provenance');
+  assert.match(grab('function _autoFitRestore(', 3000), /modelProvenance = snap\.modelProvenance/, 'auto-fit restore reinstates it');
+});
