@@ -1,0 +1,35 @@
+You are running ROUND 8 (second delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser and acceptance rule; round 7 (delta: a converged
+LOCAL result must be designated a STARTING POINT, not a reportable result,
+everywhere it is shown, exported or saved) was NO-GO x2 with the sites
+listed in docs/autofit/codex/a0_local_lm_acceptance_r7_verdict_run{A,B}.md.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Dispositions:
+1. Quantify → banner keyed on _isLocalFit(state.fitResult) (behavioural
+   test executes renderQuantify with a local and a weighted result).
+2. exportResults TSV → leading "# WARNING: <caveat>" line when local.
+   .spec.json statistics and project fitResult now persist `reportable`
+   (false) and `caveat` (the designation text) and the loader restores them.
+3. Tab activation → _fitStatusText() appends "(starting point)"; the
+   status bar caption is now an element (#sb-chi-caption) switched by
+   _applyStatCaption() on local/weighted/none; history rows append
+   "(starting point)"; the main-chart envelope dataset and the figure
+   legend read "Fit (local, starting point)" when the result is local.
+4. Tests → behavioural checks of the helpers (_isLocalFit keyed on the
+   persisted objective, engine field absent) and of renderQuantify; a
+   structural test per remaining site; the CSV/XLSX assertions are
+   separate matches.
+The Peaks sidebar (parameter list) is deliberately NOT labelled: it shows
+model parameters, and the designation belongs to results/quantities.
+
+QUESTIONS: (a) any site left where a local result is shown, exported or
+saved without the designation? (b) any regression in the delta (HTML
+escaping in the Quantify banner, status-bar markup, TSV/CSV consumers
+choking on the comment line, save-format readers on the two new fields)?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
