@@ -1,0 +1,41 @@
+You are running ROUND 13 (seventh delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-12 (delta: a converged
+LOCAL result, and a model imported from one, is designated a STARTING
+POINT everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..12}_verdict_run{A,B}.md.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-12
+dispositions:
+1. Undo/redo → _peaksSnapshot() and _pushUndoFor() record the tab's
+   modelProvenance on the snapshot; undo() and redo() call
+   _restoreSnapshotProvenance(t, snap) (restores or clears). Behavioural
+   test drives snapshot → clear → restore → snapshot-of-null → restore.
+2. Save Spectrum → .spec.json carries `modelProvenance`; _loadSpectrumFile
+   restores it (only when its objective is local).
+3. Figure export → the annotation gate is `state.fitResult ||
+   _isLocalModel()`; with no result it prints "Imported local fit:
+   starting point, not reportable". The main-chart envelope and figure
+   legend labels key on _isLocalModel().
+4. Import → fromJSON calls renderResults() after re-rendering peaks/plot
+   (installs the placeholder/banner and the statistic display).
+5. Find Peaks apply → clears modelProvenance after replacing the peaks
+   (the undo entry pushed before replacement carries the old provenance).
+
+SCOPE NOTE: the owner scoped model-replacement result retention (Find
+Peaks default-window apply keeping an OLD fitResult; undo/redo keeping a
+LATER fitResult) OUT of this unit as the sealed-fit memo's R6-7 class.
+This delta only makes the starting-point DESIGNATION travel with a model
+whose parameters came from a local fit. Judge the delta against that, not
+against the R6-7 class.
+
+QUESTIONS: (a) any remaining way to show, export or save a local result or
+a local-derived model without its designation, within the scope note?
+(b) any regression in this delta (snapshot arrays now carry
+`_modelProvenance`; readers that iterate snapshot properties)?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
