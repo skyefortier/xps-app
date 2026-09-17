@@ -2467,7 +2467,8 @@ function renderStackLegend(stackTab) {
   list.innerHTML = '';
   for (const entry of entries) {
     const src = tabManager._getTab(entry.sourceTabId);
-    const name = src ? src.name : '(missing source)';
+    const name = (src ? src.name : '(missing source)') +
+      (src && _isLocalFit(src.fitResult) ? ' \u2014 local fit: starting point, not reportable' : '');
     const shift = src ? (src.ccShift || 0) : 0;
     const shiftStr = (shift >= 0 ? '+' : '') + shift.toFixed(2);
     const hasFit = _entryHasFit(entry);
@@ -6849,6 +6850,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
     fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
     if (typeof _CHISQ_TOOLTIP !== 'undefined') fq.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
   }
+  if (typeof _applyStatCaption === 'function') _applyStatCaption(state.fitResult);
   const sbChi = document.getElementById('sb-chi');
   if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
   const sbMsg = document.getElementById('sb-msg');
@@ -7638,6 +7640,7 @@ function _peakArea(p, be) {
 
 function renderResults() {
   const el = document.getElementById('results-area');
+  _applyStatCaption(state.fitResult);   // status-bar caption tracks every result change (clear, restore, auto-fit)
   if (!state.fitResult) {
     el.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     // Quantify (#quantify-area) is populated by renderQuantify(), called
@@ -8234,7 +8237,7 @@ function _buildStackDatasets(stackTab) {
     }
     datasets.push({
       _stackKey: e.id + ':env',
-      label: (src ? src.name : 'entry') + ' (fit)',
+      label: (src ? src.name : 'entry') + (src && _isLocalFit(src.fitResult) ? ' (fit: local, starting point)' : ' (fit)'),
       data: envData,
       borderColor: _colorWithAlpha(e.color, 0.7),
       backgroundColor: _colorWithAlpha(e.color, 0.7),
@@ -8639,7 +8642,7 @@ function updatePlot() {
     const prevPeakY = evalAllPeaks(plotBE, _historyPreview.peaks);
     const isLight = document.body.classList.contains('light-theme');
     datasets.push({
-      label: 'Preview',
+      label: _isLocalFit(_historyPreview.fitResult) ? 'Preview (local, starting point)' : 'Preview',
       data: plotBE.map((b, i) => ({ x: b, y: prevPeakY[i] + (bgSubView ? 0 : plotBG[i]) })),
       borderColor: isLight ? 'rgba(0,180,220,1.0)' : 'rgba(0,220,255,1.0)',
       borderWidth: 4,
@@ -9274,8 +9277,10 @@ function _doSaveSpectrum() {
     engine: state.fitResult.engine || null,
     objective: state.fitResult.objective || null,
     status: state.fitResult.status || null,
-    reportable: state.fitResult.reportable ?? null,
-    caveat: state.fitResult.caveat || null,
+    // Derived from the objective so an older local result (saved before
+    // these fields existed) is designated on re-save too.
+    reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
+    caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
   } : null;
 
   const data = {
@@ -9363,8 +9368,8 @@ async function _doSaveProject() {
         objective: t.fitResult.objective || null,
         status: t.fitResult.status || null,
         iterations: t.fitResult.iterations ?? null,
-        reportable: t.fitResult.reportable ?? null,
-        caveat: t.fitResult.caveat || null,
+        reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
+        caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
       } : null,
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],

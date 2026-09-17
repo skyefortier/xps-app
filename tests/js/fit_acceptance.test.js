@@ -235,9 +235,9 @@ test('Quantify shows the starting-point banner for a local result and not for a 
 test('every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
   assert.match(grab('function exportResults()', 2500), /_LOCAL_FIT_CAVEAT|_localFitCaveat\(/, 'TSV export');
-  assert.match(grab('function _doSaveSpectrum()', 2500), /caveat: state\.fitResult\.caveat/, 'spectrum save persists caveat');
-  assert.match(grab('function _doSaveSpectrum()', 2500), /reportable: state\.fitResult\.reportable/, 'spectrum save persists reportable');
-  assert.match(grab('const buildTabData = (t) =>', 3500), /caveat: t\.fitResult\.caveat/, 'project save persists caveat');
+  assert.match(grab('function _doSaveSpectrum()', 2500), /caveat: _localFitCaveat\(state\.fitResult\) \|\| state\.fitResult\.caveat/, 'spectrum save persists caveat');
+  assert.match(grab('function _doSaveSpectrum()', 2500), /reportable: _isLocalFit\(state\.fitResult\) \? false : \(state\.fitResult\.reportable/, 'spectrum save persists reportable');
+  assert.match(grab('const buildTabData = (t) =>', 3500), /caveat: _localFitCaveat\(t\.fitResult\) \|\| t\.fitResult\.caveat/, 'project save persists caveat');
   assert.match(grab('function _loadSpectrumFile(', 6000), /'caveat'/, 'spectrum load restores caveat');
   assert.match(grab('fqEl.textContent = _fitStatusText(state.fitResult)', 200), /_applyStatCaption\(/, 'tab activation');
   assert.match(html, /id="sb-chi-caption"/, 'status-bar caption element');
@@ -248,4 +248,41 @@ test('every remaining site carries the designation: TSV export, saves, activatio
   // the local fit result itself declares it
   const rfl = grab('function runFitLocal(', 20000);
   assert.match(rfl, /reportable: false, caveat: _LOCAL_FIT_CAVEAT/, 'runFitLocal marks its result');
+});
+
+// ── Codex round-8: stack/preview labels, save-time normalisation, auto-fit caption ──
+test('project save derives the designation from the objective for an older local result lacking the new fields', () => {
+  const start = html.indexOf('const buildTabData = (t) =>'); assert.ok(start > 0);
+  let depth = 0, seen = false, end = -1;
+  for (let i = start; i < html.length; i++) { const ch = html[i]; if (ch === '{') { depth++; seen = true; } else if (ch === '}') { depth--; if (seen && depth === 0) { end = i + 1; break; } } }
+  const src = html.slice(start, end) + ';';
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
+  const helpers = ['_isLocalFit', '_localFitCaveat'].map(extractFn).join('\n');
+  const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
+    { serializeRefOverlays: () => null }, a => a, a => a);
+  const older = { id: 1, name: 't', rawBE: [1, 2], rawIntensity: [1, 1], ccShift: 0, peaks: [], nextId: 1, ui: {},
+    fitResult: { chi: 1, chiReduced: 1e4, rmse: 100, objective: 'unweighted_residual_variance', be: [1, 2], bgIntensity: [0, 0], bgSubtracted: [1, 1] } };
+  const rec = build(older);
+  assert.strictEqual(rec.fitResult.reportable, false);
+  assert.match(rec.fitResult.caveat, /starting point, not a reportable result/i);
+  const weighted = { ...older, fitResult: { chi: 1, chiReduced: 2, rmse: 100, be: [1, 2], bgIntensity: [0, 0], bgSubtracted: [1, 1] } };
+  assert.strictEqual(build(weighted).fitResult.reportable, null);
+  assert.strictEqual(build(weighted).fitResult.caveat, null);
+});
+
+test('stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(html, /_isLocalFit\(src\.fitResult\) \? ' \(fit: local, starting point\)' : ' \(fit\)'/, 'stack envelope dataset label');
+  assert.match(html, /local fit: starting point/, 'stack legend row name');
+  assert.match(html, /label: _isLocalFit\(_historyPreview\.fitResult\) \? 'Preview \(local, starting point\)' : 'Preview'/, 'history preview label');
+  assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatCaption\(state\.fitResult\)/, 'auto-fit refreshes the caption');
+  assert.match(grab('function renderResults()', 800), /_applyStatCaption\(state\.fitResult\)/, 'renderResults refreshes the caption on every result change');
+  const spec = grab('function _doSaveSpectrum()', 3000);
+  assert.match(spec, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'spectrum save derives reportable');
+  assert.match(spec, /caveat: _localFitCaveat\(state\.fitResult\)/, 'spectrum save derives caveat');
+  const ex = grab('function exportFitTable(fmt)', 6000);
+  const xlsxPart = ex.slice(ex.indexOf("if (fmt === 'xlsx')"), ex.indexOf('} else {'));
+  const csvPart = ex.slice(ex.indexOf('} else {'));
+  assert.match(xlsxPart, /WARNING/, 'XLSX warning row');
+  assert.match(csvPart, /# WARNING/, 'CSV warning line');
 });
