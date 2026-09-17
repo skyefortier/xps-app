@@ -1,0 +1,31 @@
+You are running ROUND 10 (fourth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-9 (delta: a converged
+LOCAL result is designated a STARTING POINT everywhere it is shown,
+exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7,8,9}_verdict_run{A,B}.md.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-9
+dispositions:
+1. MAJOR caption-only refresh → the statistic display is now ONE unit:
+   _applyStatDisplay(fr) sets header text + tooltip, status-bar caption +
+   value from the same result, or clears all four; it is called by
+   renderResults (every result change incl. history restore and clear),
+   tab activation (replacing the inline block), runFitLocal, runFit and
+   applyAutoFitResult. Behavioural test drives local → weighted → none and
+   checks all four elements.
+2. MINOR preview glow → the preview dataset carries `_historyPreview:
+   true` and both glow hooks key on that flag; test pins both hooks and
+   the absence of the label comparison.
+3. MINOR test harness → both runFit factories receive _applyStatDisplay;
+   the success test asserts sb-msg === 'Fit complete (lmfit)'.
+
+QUESTIONS: (a) any remaining way to show a local value without its
+designation, or a weighted value with it? (b) any regression in this
+delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
