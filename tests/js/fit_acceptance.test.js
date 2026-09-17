@@ -45,14 +45,14 @@ function makeEnv({ fetchImpl, uploadImpl }) {
   const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
-    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console',
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay',
     src + '\nreturn { runFit };');
   const noop = () => {};
   const { runFit } = factory(document, state, fetchImpl, uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
     noop, noop, noop, () => owner, o => o === owner, () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
     b => b.map(() => 0), p => ({ id: p.id, shape: 'gaussian' }), () => [], () => { calls.applied++; },
     () => 0.1, '', noop, noop, noop, noop, noop, noop,
-    () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop });
+    () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop);
   return { runFit, state, dom, calls };
 }
 
@@ -102,11 +102,11 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   const { runFit } = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
-    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', src + '\nreturn { runFit };')(
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', src + '\nreturn { runFit };')(
     { getElementById: id => (dom[id] ||= { value: '', textContent: '', style: {}, setAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, _c: null } }), querySelector: () => ({}), querySelectorAll: () => [] },
     state, async () => { throw new TypeError('Failed to fetch'); }, async () => 'sid', noop, noop, noop, noop, () => owner, o => o === owner,
     () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }), b => b.map(() => 0), p => ({ id: p.id }), () => [], noop,
-    () => 0.1, '', noop, noop, noop, noop, noop, noop, () => ({ success: false, message: 'did not converge' }), false, { warn: noop });
+    () => 0.1, '', noop, noop, noop, noop, noop, noop, () => ({ success: false, message: 'did not converge' }), false, { warn: noop }, noop);
   await runFit();
   assert.notEqual(dom['localfit-warn-overlay']?.classList._c, 'open', 'overlay must not claim a local fit was performed');
   void env;
@@ -118,6 +118,7 @@ test('a converged backend result is applied (sanity)', async () => {
   assert.equal(env.calls.applied, 1);
   assert.equal(env.calls.local, 0);
   assert.notEqual(env.state.fitResult.marker, 'previous');
+  assert.equal(env.dom['sb-msg'].textContent, 'Fit complete (lmfit)', 'the success path must run to completion, not die in an exception');
 });
 
 test('the engine/objective labels of a fit result survive spectrum and project save/load', () => {
@@ -171,8 +172,8 @@ test('every consumer that prints the goodness-of-fit statistic routes through th
   const hist = grab('function _renderHistoryList(', 3000);
   assert.match(hist, /_fitStatLabel\(/, 'history rows must label the statistic by engine');
   // tab activation tooltip
-  const act = grab('fqEl.textContent = _fitStatusText(state.fitResult)', 400);
-  assert.match(act, /_LOCALFIT_TOOLTIP/, 'tab activation must attach the local tooltip for local results');
+  const act = grab("// Update chi-squared display for this tab's fit result", 300);
+  assert.match(act, /_applyStatDisplay\(state\.fitResult\)/, 'tab activation refreshes the whole statistic display');
 });
 
 test('uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is a server error, not a transport failure', async () => {
@@ -239,7 +240,7 @@ test('every remaining site carries the designation: TSV export, saves, activatio
   assert.match(grab('function _doSaveSpectrum()', 2500), /reportable: _isLocalFit\(state\.fitResult\) \? false : \(state\.fitResult\.reportable/, 'spectrum save persists reportable');
   assert.match(grab('const buildTabData = (t) =>', 3500), /caveat: _localFitCaveat\(t\.fitResult\) \|\| t\.fitResult\.caveat/, 'project save persists caveat');
   assert.match(grab('function _loadSpectrumFile(', 6000), /'caveat'/, 'spectrum load restores caveat');
-  assert.match(grab('fqEl.textContent = _fitStatusText(state.fitResult)', 200), /_applyStatCaption\(/, 'tab activation');
+  assert.match(grab("// Update chi-squared display for this tab's fit result", 300), /_applyStatDisplay\(/, 'tab activation');
   assert.match(html, /id="sb-chi-caption"/, 'status-bar caption element');
   assert.match(grab('function _renderHistoryList(', 3000), /starting point/, 'history rows');
   assert.match(grab("label: _isLocalFit(state.fitResult) ? 'Fit (local, starting point)' : 'Fit'", 100), /Fit \(local/, 'chart envelope label');
@@ -275,8 +276,8 @@ test('stack envelope/legend, history preview and auto-fit caption carry the desi
   assert.match(html, /_isLocalFit\(src\.fitResult\) \? ' \(fit: local, starting point\)' : ' \(fit\)'/, 'stack envelope dataset label');
   assert.match(html, /local fit: starting point/, 'stack legend row name');
   assert.match(html, /label: _isLocalFit\(_historyPreview\.fitResult\) \? 'Preview \(local, starting point\)' : 'Preview'/, 'history preview label');
-  assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatCaption\(state\.fitResult\)/, 'auto-fit refreshes the caption');
-  assert.match(grab('function renderResults()', 800), /_applyStatCaption\(state\.fitResult\)/, 'renderResults refreshes the caption on every result change');
+  assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatDisplay\(state\.fitResult\)/, 'auto-fit refreshes the statistic display');
+  assert.match(grab('function renderResults()', 800), /_applyStatDisplay\(state\.fitResult\)/, 'renderResults refreshes the statistic display on every result change');
   const spec = grab('function _doSaveSpectrum()', 3000);
   assert.match(spec, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'spectrum save derives reportable');
   assert.match(spec, /caveat: _localFitCaveat\(state\.fitResult\)/, 'spectrum save derives caveat');
@@ -285,4 +286,27 @@ test('stack envelope/legend, history preview and auto-fit caption carry the desi
   const csvPart = ex.slice(ex.indexOf('} else {'));
   assert.match(xlsxPart, /WARNING/, 'XLSX warning row');
   assert.match(csvPart, /# WARNING/, 'CSV warning line');
+});
+
+
+// ── Codex round-9: header, tooltip, caption and value move as one unit ──
+test('_applyStatDisplay keeps header, tooltip, caption and value consistent through local → weighted → none', () => {
+  const src = ['_fitStatLabel', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
+  const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL');
+  apply({ objective: 'unweighted_residual_variance', chiReduced: 12345 });
+  assert.equal(dom['fit-quality'].textContent, 'Residual variance = 12345.00 (starting point)');
+  assert.equal(dom['fit-quality'].tip, 'LOCAL'); assert.match(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '12345.000');
+  apply({ chiReduced: 1.25 });
+  assert.equal(dom['fit-quality'].textContent, '\u03c7\u00b2\u1d63 = 1.25'); assert.equal(dom['fit-quality'].tip, 'CHI');
+  assert.doesNotMatch(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '1.250');
+  apply(null);
+  assert.equal(dom['sb-chi'].textContent, '\u2014'); assert.equal(dom['fit-quality'].tip, null);
+});
+
+test('history preview glow is keyed on the dataset flag, not the label text', () => {
+  assert.match(html, /_historyPreview: true/, 'preview dataset carries the flag');
+  assert.doesNotMatch(html, /\?\.label !== 'Preview'/, 'plugin no longer compares the label text');
+  assert.equal((html.match(/\?\._historyPreview\) return;/g) || []).length, 2, 'both glow hooks key on the flag');
 });

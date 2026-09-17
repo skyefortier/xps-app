@@ -3214,19 +3214,7 @@ class TabManager {
     this._updateInfoBadge(tab);
     if (typeof _recomputeAutoFitMenuState === 'function') _recomputeAutoFitMenuState();
     // Update chi-squared display for this tab's fit result
-    const fqEl = document.getElementById('fit-quality');
-    const chiEl = document.getElementById('sb-chi');
-    if (state.fitResult && state.fitResult.chiReduced != null) {
-      fqEl.textContent = _fitStatusText(state.fitResult);
-      fqEl.setAttribute('data-xps-tip', _isLocalFit(state.fitResult) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP);
-      _applyStatCaption(state.fitResult);
-      if (chiEl) chiEl.textContent = state.fitResult.chiReduced.toFixed(3);
-    } else {
-      fqEl.innerHTML = '&#967;&#178; &mdash;';
-      fqEl.removeAttribute('data-xps-tip');
-      _applyStatCaption(null);
-      if (chiEl) chiEl.textContent = '\u2014';
-    }
+    _applyStatDisplay(state.fitResult);
     if (state.fitResult && state.fitResult.rFactor == null) {
       state.fitResult.rFactor = _computeRFactor(state.fitResult);
     }
@@ -6850,7 +6838,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
     fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
     if (typeof _CHISQ_TOOLTIP !== 'undefined') fq.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
   }
-  if (typeof _applyStatCaption === 'function') _applyStatCaption(state.fitResult);
+  if (typeof _applyStatDisplay === 'function') _applyStatDisplay(state.fitResult);
   const sbChi = document.getElementById('sb-chi');
   if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
   const sbMsg = document.getElementById('sb-msg');
@@ -7181,10 +7169,7 @@ async function runFit() {
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
                         fittedY: backendResult.fitted_y, roiRange, _preFit };
     state.fitResult.rFactor = _computeRFactor(state.fitResult);
-    document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
-    document.getElementById('fit-quality').setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
-    _applyStatCaption(state.fitResult);
-    document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
+    _applyStatDisplay(state.fitResult);
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
     _updateRFactorUI(state.fitResult.rFactor);
     _updateROIDisplay(roiRange);
@@ -7244,6 +7229,22 @@ function _fitStatusText(fr) {
 function _applyStatCaption(fr) {
   const cap = document.getElementById('sb-chi-caption');
   if (cap) cap.innerHTML = _isLocalFit(fr) ? 'Residual variance (starting point):' : '&#967;&#178;&#7523;:';
+}
+// The statistic is displayed as ONE unit — header text + tooltip, status-bar
+// caption + value — from the same fit result, or all cleared. Refreshing
+// any one of them alone can pair a local value with a chi-square caption
+// (Codex round 9).
+function _applyStatDisplay(fr) {
+  const fq = document.getElementById('fit-quality');
+  const sb = document.getElementById('sb-chi');
+  if (fr && Number.isFinite(fr.chiReduced)) {
+    if (fq) { fq.textContent = _fitStatusText(fr); fq.setAttribute('data-xps-tip', _isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP); }
+    if (sb) sb.textContent = fr.chiReduced.toFixed(3);
+  } else {
+    if (fq) { fq.innerHTML = '&#967;&#178; &mdash;'; fq.removeAttribute('data-xps-tip'); }
+    if (sb) sb.textContent = '\u2014';
+  }
+  _applyStatCaption(fr);
 }
 
 // Local Levenberg-Marquardt: the fallback engine, and the ONLY engine Batch
@@ -7573,10 +7574,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
                       reportable: false, caveat: _LOCAL_FIT_CAVEAT };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
-  document.getElementById('fit-quality').textContent = _fitStatusText(state.fitResult);
-  document.getElementById('fit-quality').setAttribute('data-xps-tip', _LOCALFIT_TOOLTIP);
-  _applyStatCaption(state.fitResult);
-  document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
+  _applyStatDisplay(state.fitResult);
   document.getElementById('sb-msg').textContent = 'Fit complete (local)';
   _updateRFactorUI(state.fitResult.rFactor);
   _updateROIDisplay(roiRange);
@@ -7640,7 +7638,7 @@ function _peakArea(p, be) {
 
 function renderResults() {
   const el = document.getElementById('results-area');
-  _applyStatCaption(state.fitResult);   // status-bar caption tracks every result change (clear, restore, auto-fit)
+  _applyStatDisplay(state.fitResult);   // header + status bar track every result change (clear, restore, auto-fit) as one unit
   if (!state.fitResult) {
     el.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     // Quantify (#quantify-area) is populated by renderQuantify(), called
@@ -8643,6 +8641,7 @@ function updatePlot() {
     const isLight = document.body.classList.contains('light-theme');
     datasets.push({
       label: _isLocalFit(_historyPreview.fitResult) ? 'Preview (local, starting point)' : 'Preview',
+      _historyPreview: true,   // the glow plugin keys on this flag, not on the label text
       data: plotBE.map((b, i) => ({ x: b, y: prevPeakY[i] + (bgSubView ? 0 : plotBG[i]) })),
       borderColor: isLight ? 'rgba(0,180,220,1.0)' : 'rgba(0,220,255,1.0)',
       borderWidth: 4,
@@ -8834,7 +8833,7 @@ function updatePlot() {
   const previewGlowPlugin = {
     id: 'previewGlow',
     beforeDatasetDraw(chart, args) {
-      if (chart.data.datasets[args.index]?.label !== 'Preview') return;
+      if (!chart.data.datasets[args.index]?._historyPreview) return;
       const c = chart.ctx;
       c.save();
       const isL = document.body.classList.contains('light-theme');
@@ -8842,7 +8841,7 @@ function updatePlot() {
       c.shadowBlur = 8;
     },
     afterDatasetDraw(chart, args) {
-      if (chart.data.datasets[args.index]?.label !== 'Preview') return;
+      if (!chart.data.datasets[args.index]?._historyPreview) return;
       chart.ctx.restore();
     }
   };

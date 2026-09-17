@@ -39,7 +39,7 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
   'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
   'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
-  '_computeRFactor', '_fitStatLabel', '_isLocalFit', '_localFitCaveat', '_fitStatusText', '_applyStatCaption'];
+  '_computeRFactor', '_fitStatLabel', '_isLocalFit', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'];
 const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m) || [''])[0];
 
 // One isolated environment per test: a fresh `state`, a stub DOM, and the
