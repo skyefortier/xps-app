@@ -9228,6 +9228,16 @@ function _doSaveFit() {
     },
     notes: document.getElementById('spectrum-notes')?.value || '',
     manualAnchors: _getManualAnchors(),
+    // Provenance of the parameters being saved: a local (unweighted) result
+    // is a starting point, not a reportable result (unit A0).
+    fitStatistics: state.fitResult ? {
+      chiReduced: state.fitResult.chiReduced ?? null,
+      engine: state.fitResult.engine || null,
+      objective: state.fitResult.objective || null,
+      status: state.fitResult.status || null,
+      reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
+      caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
+    } : null,
   };
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
   _downloadBlob(
@@ -9592,6 +9602,7 @@ function _loadSpectrumFile(data, sessionFile) {
   if (notesEl) notesEl.value = active.notes || '';
   renderPeakList();
   updatePlot();
+  renderResults();   // installs the restored result's designation in Results/Quantify and the statistic display (unit A0)
   notify('Spectrum loaded as new tab: ' + active.name, 'green');
 }
 

@@ -310,3 +310,26 @@ test('history preview glow is keyed on the dataset flag, not the label text', ()
   assert.doesNotMatch(html, /\?\.label !== 'Preview'/, 'plugin no longer compares the label text');
   assert.equal((html.match(/\?\._historyPreview\) return;/g) || []).length, 2, 'both glow hooks key on the flag');
 });
+
+// ── Codex round-10: spectrum reload re-renders Results; Save Fit carries the designation; clear-state asserts all four ──
+test('spectrum load renders the Results panel after restoring a saved result, and Save Fit carries the designation', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  const load = grab('function _loadSpectrumFile(', 7000);
+  const tail = load.slice(load.indexOf("notify('Spectrum loaded as new tab") - 200, load.indexOf("notify('Spectrum loaded as new tab"));
+  assert.match(tail, /renderResults\(\)/, 'Results (and the statistic display) must be rendered after the restored result is installed');
+  const save = grab('function _doSaveFit()', 3000);
+  assert.match(save, /fitStatistics: state\.fitResult \? \{/, 'Save Fit writes a fitStatistics block');
+  assert.match(save, /caveat: _localFitCaveat\(state\.fitResult\)/, 'Save Fit derives the caveat');
+  assert.match(save, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'Save Fit derives reportable');
+});
+
+test('_applyStatDisplay clears header, tooltip, caption and value together on local → none', () => {
+  const src = ['_fitStatLabel', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
+  const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL');
+  apply({ objective: 'unweighted_residual_variance', chiReduced: 999 });
+  apply(null);
+  assert.match(dom['fit-quality'].innerHTML, /&mdash;/); assert.equal(dom['fit-quality'].tip, null);
+  assert.doesNotMatch(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '—');
+});
