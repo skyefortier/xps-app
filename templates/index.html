@@ -2355,7 +2355,15 @@ function _historyTab() {
 function _peaksSnapshot(extra) {
   const snap = JSON.parse(JSON.stringify(state.peaks));
   if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
+  // The model's provenance (imported local fit = starting point) travels
+  // with the model through undo/redo (unit A0).
+  const t = _historyTab();
+  snap._modelProvenance = (t && t.modelProvenance) ? JSON.parse(JSON.stringify(t.modelProvenance)) : null;
   return snap;
+}
+function _restoreSnapshotProvenance(tab, snap) {
+  if (!tab || !snap) return;
+  tab.modelProvenance = snap._modelProvenance ? JSON.parse(JSON.stringify(snap._modelProvenance)) : null;
 }
 function _restoreSnapshotEndpointAvg(tab, snap) {
   if (!snap || snap._endpointAvg === undefined) return;
@@ -2384,6 +2392,7 @@ function _pushUndoFor(tab, extra) {
   if (!tab || tab.isStack) return;
   const snap = JSON.parse(JSON.stringify(tab.peaks || []));
   if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
+  snap._modelProvenance = tab.modelProvenance ? JSON.parse(JSON.stringify(tab.modelProvenance)) : null;
   _pushSnapshot(tab, snap);
 }
 
@@ -2428,6 +2437,7 @@ function undo() {
     ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
   state.peaks = snap;
   _restoreSnapshotEndpointAvg(t, snap);
+  _restoreSnapshotProvenance(t, snap);
   renderPeakList();
   updatePlot();
   _updateUndoButtons();
@@ -2442,6 +2452,7 @@ function redo() {
     ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
   state.peaks = snap;
   _restoreSnapshotEndpointAvg(t, snap);
+  _restoreSnapshotProvenance(t, snap);
   renderPeakList();
   updatePlot();
   _updateUndoButtons();
@@ -3439,6 +3450,7 @@ class TabManager {
       this._restoreUI(active.ui);
       renderPeakList();
       updatePlot();
+      renderResults();   // installs the imported model's designation (or the plain placeholder) and clears stale widgets
       return;
     }
 
@@ -8642,7 +8654,7 @@ function updatePlot() {
   const showEnvelope = document.getElementById('show-envelope').checked;
   if (showEnvelope && plotBE.length && (fittedYBacked || state.peaks.length)) {
     datasets.push({
-      label: _isLocalFit(state.fitResult) ? 'Fit (local, starting point)' : 'Fit',
+      label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit',
       data: fittedYBacked
         ? plotBE.map((b, i) => ({ x: b, y: fittedYBacked[i] - (bgSubView ? plotBG[i] : 0) }))
         : plotBE.map((b, i) => ({ x: b, y: modelFull[i] + (bgSubView ? 0 : plotBG[i]) })),
@@ -9330,6 +9342,7 @@ function _doSaveSpectrum() {
     statistics: stats,
     notes: tab.notes || '',
     manualAnchors: tab.manualAnchors || [],
+    modelProvenance: tab.modelProvenance || null,
   };
 
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
@@ -9611,6 +9624,8 @@ function _loadSpectrumFile(data, sessionFile) {
   active.ui = { ...active.ui, ...(data.ui || {}), endpointAvg: savedEp || LEGACY_ENDPOINT_AVG };
   tabManager._restoreUI(active.ui);
   if (data.notes) active.notes = data.notes;
+  active.modelProvenance = (data.modelProvenance && data.modelProvenance.objective === 'unweighted_residual_variance')
+    ? data.modelProvenance : null;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     for (const k of ['engine', 'objective', 'status', 'caveat']) if (data.statistics[k]) fr[k] = data.statistics[k];
@@ -10199,12 +10214,16 @@ function _doPublicationExport() {
   ctx.restore();
 
   // ── Chi-squared annotation ────────────────────────────────────────────────
-  if (state.fitResult) {
+  if (state.fitResult || _isLocalModel()) {
     ctx.font = '38px Arial,sans-serif';
     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const statLabel = _fitStatLabel(state.fitResult) === 'Residual variance' ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r';
-    ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
-                 plotX + 14, mainTop + 14);
+    if (state.fitResult) {
+      const statLabel = _fitStatLabel(state.fitResult) === 'Residual variance' ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r';
+      ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
+                   plotX + 14, mainTop + 14);
+    } else {
+      ctx.fillText('Imported local fit: starting point, not reportable', plotX + 14, mainTop + 14);
+    }
   }
 
   // ── Peak labels ───────────────────────────────────────────────────────────
@@ -10228,7 +10247,7 @@ function _doPublicationExport() {
 
   // ── Legend ────────────────────────────────────────────────────────────────
   const lgItems = [{ label: 'Data', type: 'line', color: '#000000' }];
-  if (fittedY) lgItems.push({ label: _isLocalFit(state.fitResult) ? 'Fit (local, starting point)' : 'Fit', type: 'line', color: '#cc0000' });
+  if (fittedY) lgItems.push({ label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit', type: 'line', color: '#cc0000' });
   lgItems.push(              { label: 'Background', type: 'dash', color: '#999999' });
   if (showIndiv) {
     for (const p of state.peaks) {
@@ -14990,6 +15009,7 @@ async function applyFindPeaks() {
     fp._findPeaks = review;
     return fp;
   });
+  { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // the replaced model's provenance does not describe these peaks
   const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
   if (active) active._findPeaksReview = review;
   // Find Peaks now sends the Background panel's endpoint averaging (see

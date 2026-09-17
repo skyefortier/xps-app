@@ -243,9 +243,9 @@ test('every remaining site carries the designation: TSV export, saves, activatio
   assert.match(grab("// Update chi-squared display for this tab's fit result", 300), /_applyStatDisplay\(/, 'tab activation');
   assert.match(html, /id="sb-chi-caption"/, 'status-bar caption element');
   assert.match(grab('function _renderHistoryList(', 3000), /starting point/, 'history rows');
-  assert.match(grab("label: _isLocalFit(state.fitResult) ? 'Fit (local, starting point)' : 'Fit'", 100), /Fit \(local/, 'chart envelope label');
+  assert.match(grab("label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit'", 100), /Fit \(local/, 'chart envelope label');
   const fig = grab('function exportFigure()', 60000);
-  assert.match(fig, /label: _isLocalFit\(state\.fitResult\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'figure legend label');
+  assert.match(fig, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'figure legend label');
   // the local fit result itself declares it
   const rfl = grab('function runFitLocal(', 20000);
   assert.match(rfl, /reportable: false, caveat: _LOCAL_FIT_CAVEAT/, 'runFitLocal marks its result');
@@ -356,4 +356,36 @@ test('fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV e
   for (const fn of ['function runFitLocal(', 'async function runFit()', 'function applyAutoFitResult(', 'function clearAllPeaks()']) {
     assert.match(grab(fn, 25000), /modelProvenance = null/, fn + ' clears imported provenance');
   }
+});
+
+// ── Codex round-12: provenance survives undo/redo and spectrum save/load; import refreshes Results; figure/chart key on the model; Find Peaks clears it ──
+test('undo/redo snapshots carry and restore model provenance', () => {
+  const src = ['_peaksSnapshot', '_restoreSnapshotEndpointAvg', '_restoreSnapshotProvenance'].map(extractFn).join('\n');
+  const tab = { modelProvenance: { objective: 'unweighted_residual_variance', caveat: 'x' }, ui: {} };
+  const fns = new Function('state', '_historyTab', 'document', src + '\nreturn { _peaksSnapshot, _restoreSnapshotProvenance };')(
+    { peaks: [{ id: 1, center: 285 }] }, () => tab, { getElementById: () => null });
+  const snap = fns._peaksSnapshot(null);
+  assert.deepEqual(snap._modelProvenance, tab.modelProvenance, 'snapshot captures the active tab provenance');
+  tab.modelProvenance = null;
+  fns._restoreSnapshotProvenance(tab, snap);
+  assert.deepEqual(tab.modelProvenance, { objective: 'unweighted_residual_variance', caveat: 'x' }, 'restore reinstates it');
+  tab.modelProvenance = null;
+  const snap2 = fns._peaksSnapshot(null);   // provenance now null
+  assert.strictEqual(snap2._modelProvenance, null);
+  fns._restoreSnapshotProvenance(tab, snap2);
+  assert.strictEqual(tab.modelProvenance, null, 'restore also clears it when the snapshot had none');
+});
+
+test('round-12 sites: undo/redo restore provenance, spectrum save/load carry it, import re-renders Results, figure/chart key on the model, Find Peaks clears it', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function undo()', 900), /_restoreSnapshotProvenance\(t, snap\)/, 'undo');
+  assert.match(grab('function redo()', 900), /_restoreSnapshotProvenance\(t, snap\)/, 'redo');
+  assert.match(grab('function _pushUndoFor(', 600), /_modelProvenance/, 'batch history entry carries provenance');
+  assert.match(grab('function _doSaveSpectrum()', 4000), /modelProvenance: tab\.modelProvenance \|\| null/, 'spectrum save');
+  assert.match(grab('function _loadSpectrumFile(', 7000), /active\.modelProvenance = /, 'spectrum load');
+  const fj = grab('  fromJSON(data) {', 7000);
+  assert.match(fj.slice(fj.indexOf('this._restoreUI(active.ui);')), /renderResults\(\)/, 'import renders Results');
+  assert.match(grab('function exportFigure()', 60000), /if \(state\.fitResult \|\| _isLocalModel\(\)\)/, 'figure annotation keys on the model');
+  assert.match(html, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'chart/figure envelope labels key on the model');
+  assert.match(grab('async function applyFindPeaks()', 6000), /modelProvenance = null/, 'Find Peaks apply clears superseded provenance');
 });
