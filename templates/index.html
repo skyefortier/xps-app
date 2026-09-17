@@ -3268,7 +3268,13 @@ class TabManager {
         const removed = before - t.entries.length;
         if (removed > 0) {
           notify('Removed "' + closingName + '" from "' + t.name + '" (source tab closed).', 'amber');
-          if (t.id === this.activeId) renderStackLegend(t);
+          if (t.id === this.activeId) {
+            renderStackLegend(t);
+            // The chart holds datasets keyed to the removed entry: rebuild
+            // it, or the closed source's curves (and, for a local source,
+            // their only designation) outlive the entry (Codex A0 round 19).
+            _renderStackChart(t);
+          }
         }
       }
     }

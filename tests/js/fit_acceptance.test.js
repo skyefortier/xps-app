@@ -500,3 +500,11 @@ test('every stack chart repaint path refreshes the sidebar designation before an
     assert.ok(bannerAt > 0 && (firstReturn < 0 || bannerAt < firstReturn), fn + ' must refresh the banner before its first return');
   }
 });
+
+// ── Codex round-19: closing a source tab prunes its curves from an ACTIVE stack's chart, not only its legend ──
+test('closeTab rebuilds the active stack chart when it prunes entries that referenced the closed tab', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  const ct = grab('  closeTab(', 3000);
+  const prune = ct.slice(ct.indexOf('t.entries = t.entries.filter(e => e.sourceTabId !== id)'), ct.indexOf('t.entries = t.entries.filter(e => e.sourceTabId !== id)') + 600);
+  assert.match(prune, /_renderStackChart\(t\)/, 'the active stack chart is rebuilt after pruning');
+});
