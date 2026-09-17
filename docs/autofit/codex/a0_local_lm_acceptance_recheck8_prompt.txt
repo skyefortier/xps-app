@@ -1,0 +1,33 @@
+You are running ROUND 9 (third delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-8 (delta: a converged
+LOCAL result is designated a STARTING POINT, not a reportable result,
+everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7,8}_verdict_run{A,B}.md.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-8
+dispositions:
+1. Stack displays → the stack envelope dataset label reads
+   "<name> (fit: local, starting point)" and the stack legend row name
+   appends " — local fit: starting point, not reportable" when the SOURCE
+   tab's persisted objective is local. History preview curve label reads
+   "Preview (local, starting point)" keyed on the snapshot's objective.
+2. Re-saves of older local results → both serialisers (spectrum
+   `statistics`, project `fitResult`) now DERIVE `reportable` (false) and
+   `caveat` (canonical text) from the objective, falling back to stored
+   values; behavioural test executes the extracted project serialiser on a
+   pre-delta local result and on a weighted one.
+3. Auto-fit stale caption → applyAutoFitResult calls _applyStatCaption;
+   renderResults now refreshes the caption on EVERY result change (clear,
+   restore, auto-fit, load).
+4. CSV and XLSX warnings are asserted separately.
+Deliberately not labelled: the Peaks sidebar (model parameters, not results).
+
+QUESTIONS: (a) any site left where a local result is shown, exported or
+saved without the designation? (b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
