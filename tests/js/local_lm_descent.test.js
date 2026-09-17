@@ -46,7 +46,7 @@ const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m) || [''])[0];
 // extracted functions bound to them.
 function makeEnv() {
   const dom = {};
-  const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', setAttribute() {}, removeAttribute() {},
+  const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, setAttribute() {}, removeAttribute() {},
     classList: { add() {}, remove() {}, contains: () => false } });
   const document = { getElementById: el, querySelectorAll: () => [] };
   const state = { peaks: [], fitResult: null, rawBE: [], rawIntensity: [], ccShift: 0 };
