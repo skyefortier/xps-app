@@ -1,0 +1,31 @@
+You are running ROUND 19 (thirteenth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-18 (delta: a converged
+LOCAL result, and a model derived from one, is designated a STARTING POINT
+everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..18}_verdict_run{A,B}.md.
+Round 18 found one MAJOR and one MINOR.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-18
+dispositions:
+1. MAJOR stack toggles → _updateStackChart() and _renderStackChart() now
+   call _updateLocalModelBanner() as their FIRST statement (before any
+   early return), so every visibility / fit-toggle repaint refreshes the
+   designation. Test asserts the call precedes the first `return` in each.
+2. MINOR harnesses → the statistic-display tests stub the banner helper
+   and the local-optimiser harness extracts it with its collaborators
+   (_isLocalModel, _escHtml, _historyPreview, tabManager) and gives stub
+   elements a style object. Full JS suite: 239 pass, 0 fail, 3 known TODO.
+
+SCOPE NOTE (unchanged): model-replacement RESULT retention is R6-7 and out
+of this unit.
+
+QUESTIONS: (a) any remaining way, within the scope note, to show, export
+or save a local result or a local-derived model without a visible
+designation? (b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
