@@ -2358,7 +2358,8 @@ function _peaksSnapshot(extra) {
   // The model's provenance (imported local fit = starting point) travels
   // with the model through undo/redo (unit A0).
   const t = _historyTab();
-  snap._modelProvenance = (t && t.modelProvenance) ? JSON.parse(JSON.stringify(t.modelProvenance)) : null;
+  // The active tab's live result is state.fitResult (the record is synced on switch-away).
+  snap._modelProvenance = t ? _provenanceOf({ modelProvenance: t.modelProvenance, fitResult: state.fitResult }) : null;
   return snap;
 }
 function _restoreSnapshotProvenance(tab, snap) {
@@ -2392,7 +2393,7 @@ function _pushUndoFor(tab, extra) {
   if (!tab || tab.isStack) return;
   const snap = JSON.parse(JSON.stringify(tab.peaks || []));
   if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
-  snap._modelProvenance = tab.modelProvenance ? JSON.parse(JSON.stringify(tab.modelProvenance)) : null;
+  snap._modelProvenance = _provenanceOf(tab);
   _pushSnapshot(tab, snap);
 }
 
@@ -7249,6 +7250,17 @@ function _isLocalModel() {
   const t = _activeTab();
   return !!(t && t.modelProvenance && t.modelProvenance.objective === 'unweighted_residual_variance');
 }
+// The designation a tab's MODEL carries: its stored provenance (imported or
+// copied), else one derived from its live local result — so that undo
+// snapshots and batch copies taken while a local result exists keep it.
+function _provenanceOf(tab) {
+  if (!tab) return null;
+  if (tab.modelProvenance) return JSON.parse(JSON.stringify(tab.modelProvenance));
+  const fr = tab.fitResult;
+  if (!_isLocalFit(fr)) return null;
+  return { objective: fr.objective, engine: fr.engine || 'local', status: fr.status || null,
+           chiReduced: fr.chiReduced ?? null, reportable: false, caveat: _LOCAL_FIT_CAVEAT, derivedFrom: 'local_fit' };
+}
 function _localFitCaveat(fr) { return _isLocalFit(fr) ? _LOCAL_FIT_CAVEAT : ''; }
 function _fitStatusText(fr) {
   return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + (_isLocalFit(fr) ? ' (starting point)' : '');
@@ -11077,6 +11089,9 @@ async function runPropagation() {
   const srcPeaks = JSON.parse(JSON.stringify(sourceTab.peaks || []));
   const srcUi = { ...(sourceTab.ui || {}) };
   const srcShift = sourceTab.ccShift;
+  // A model copied from a local-derived source stays a starting point on
+  // every target until a successful fit supersedes it (unit A0).
+  const srcProvenance = _provenanceOf(sourceTab);
 
   const results = [];
 
@@ -11115,6 +11130,7 @@ async function runPropagation() {
     // A propagated model has not been fitted yet: the target's previous
     // result belonged to its previous peaks (unit A0 acceptance rule).
     tgt.fitResult = null;
+    tgt.modelProvenance = srcProvenance ? { ...srcProvenance, copiedFrom: sourceTab.name } : null;
 
     // Now activate this tab so state is populated. activateTab is a no-op
     // when the target is ALREADY active (the user switched to it during the

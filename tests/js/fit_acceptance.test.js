@@ -389,3 +389,26 @@ test('round-12 sites: undo/redo restore provenance, spectrum save/load carry it,
   assert.match(html, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'chart/figure envelope labels key on the model');
   assert.match(grab('async function applyFindPeaks()', 6000), /modelProvenance = null/, 'Find Peaks apply clears superseded provenance');
 });
+
+// ── Codex round-13: provenance derived from a LIVE local result for undo snapshots; batch clones carry the source's ──
+test('_provenanceOf derives a designation from a live local result, and undo snapshots use it', () => {
+  const src = ['_isLocalFit', '_provenanceOf', '_peaksSnapshot'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
+  const tab = { modelProvenance: null, fitResult: null };
+  const state = { peaks: [{ id: 1 }], fitResult: { objective: 'unweighted_residual_variance', engine: 'local', chiReduced: 3e4, status: 'converged' } };
+  const fns = new Function('state', '_historyTab', constLine + '\n' + src + '\nreturn { _provenanceOf, _peaksSnapshot };')(state, () => tab);
+  const p = fns._provenanceOf({ modelProvenance: null, fitResult: state.fitResult });
+  assert.equal(p.objective, 'unweighted_residual_variance'); assert.equal(p.reportable, false); assert.match(p.caveat, /starting point/i);
+  assert.equal(fns._provenanceOf({ modelProvenance: null, fitResult: { chiReduced: 2 } }), null, 'weighted result → no designation');
+  assert.equal(fns._provenanceOf({ modelProvenance: { objective: 'unweighted_residual_variance' }, fitResult: null }).objective, 'unweighted_residual_variance');
+  const snap = fns._peaksSnapshot(null);   // active tab has no stored provenance but a live local result
+  assert.equal(snap._modelProvenance && snap._modelProvenance.objective, 'unweighted_residual_variance', 'snapshot derives provenance from the live local result');
+});
+
+test('batch propagation copies the source model provenance onto each target (cleared again only by a successful fit)', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  const rp = grab('async function runPropagation', 9000);
+  assert.match(rp, /const srcProvenance = _provenanceOf\(sourceTab\)/, 'source provenance captured with the source snapshot');
+  assert.match(rp, /tgt\.modelProvenance = srcProvenance/, 'target carries it with the copied model');
+  assert.match(grab('function _pushUndoFor(', 700), /_provenanceOf\(tab\)/, 'batch history entry derives provenance too');
+});
