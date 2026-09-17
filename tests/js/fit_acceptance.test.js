@@ -489,3 +489,14 @@ test('the sidebar banner shows on a stack tab whose visible entries draw a local
   const legendAt = html.indexOf("row.querySelector('.name').textContent = name;");
   assert.match(html.slice(legendAt, legendAt + 2500), /_updateLocalModelBanner\(\)/, 'stack legend rebuild refreshes the banner');
 });
+
+// ── Codex round-18: stack visibility / fit toggles refresh the designation ──
+test('every stack chart repaint path refreshes the sidebar designation before any early return', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  for (const fn of ['function _updateStackChart(', 'function _renderStackChart(']) {
+    const body = grab(fn, 400);
+    const firstReturn = body.indexOf('return');
+    const bannerAt = body.indexOf('_updateLocalModelBanner()');
+    assert.ok(bannerAt > 0 && (firstReturn < 0 || bannerAt < firstReturn), fn + ' must refresh the banner before its first return');
+  }
+});

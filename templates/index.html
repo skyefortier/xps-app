@@ -8329,6 +8329,7 @@ function _buildStackDatasets(stackTab) {
 
 // Destroy + rebuild path — used on entry add/remove or initial activation.
 function _renderStackChart(stackTab) {
+  _updateLocalModelBanner();   // visibility / fit toggles repaint here; the designation must follow (unit A0)
   // Invalidate render-data caches. This is the only path that picks up
   // source-tab changes (peaks/fits/ccShift edited while user was on the
   // source tab), so it's also the right invalidation point.
@@ -8405,6 +8406,7 @@ function _renderStackChart(stackTab) {
 // In-place orchestrator: preserves zoom unless invalidate='datasets'.
 // Called from legend handlers (visibility, remove) and Phase 2+ sliders.
 function _updateStackChart(stackTab, opts) {
+  _updateLocalModelBanner();   // visibility / fit toggles repaint here; the designation must follow (unit A0)
   opts = opts || {};
   // Chart-type discriminator: the in-place path mutates datasets by
   // _stackKey, which is only valid when state.chart was built for THIS
