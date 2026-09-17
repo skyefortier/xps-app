@@ -360,10 +360,11 @@ test('fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV e
 
 // ── Codex round-12: provenance survives undo/redo and spectrum save/load; import refreshes Results; figure/chart key on the model; Find Peaks clears it ──
 test('undo/redo snapshots carry and restore model provenance', () => {
-  const src = ['_peaksSnapshot', '_restoreSnapshotEndpointAvg', '_restoreSnapshotProvenance'].map(extractFn).join('\n');
+  const src = ['_isLocalFit', '_provenanceOf', '_peaksSnapshot', '_restoreSnapshotEndpointAvg', '_restoreSnapshotProvenance'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
   const tab = { modelProvenance: { objective: 'unweighted_residual_variance', caveat: 'x' }, ui: {} };
-  const fns = new Function('state', '_historyTab', 'document', src + '\nreturn { _peaksSnapshot, _restoreSnapshotProvenance };')(
-    { peaks: [{ id: 1, center: 285 }] }, () => tab, { getElementById: () => null });
+  const fns = new Function('state', '_historyTab', 'document', constLine + '\n' + src + '\nreturn { _peaksSnapshot, _restoreSnapshotProvenance };')(
+    { peaks: [{ id: 1, center: 285 }], fitResult: null }, () => tab, { getElementById: () => null });
   const snap = fns._peaksSnapshot(null);
   assert.deepEqual(snap._modelProvenance, tab.modelProvenance, 'snapshot captures the active tab provenance');
   tab.modelProvenance = null;
