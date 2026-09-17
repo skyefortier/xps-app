@@ -1,0 +1,32 @@
+You are running ROUND 15 (ninth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-14 (delta: a converged
+LOCAL result, and a model derived from one, is designated a STARTING POINT
+everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..14}_verdict_run{A,B}.md.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-14
+dispositions:
+1. Persistent designation → a banner element (#local-model-banner) sits
+   above the peak list in the Peaks sidebar (visible whatever panel is
+   open); _updateLocalModelBanner() shows it iff _isLocalModel(), and is
+   called from renderPeakList() and renderResults(). Behavioural test:
+   local result / imported model / weighted-supersedes / none.
+2. Undo/redo → renderResults() after _restoreSnapshotProvenance().
+3. Auto-Fit rollback → _autoFitSnapshot() captures the owner's
+   modelProvenance; _autoFitRestore() reinstates it on the record path and
+   the live path.
+
+SCOPE NOTE (unchanged): model-replacement RESULT retention is R6-7 and out
+of this unit; this delta only makes the DESIGNATION travel with a
+local-derived model and be visible.
+
+QUESTIONS: (a) any remaining way, within the scope note, to show, export
+or save a local result or a local-derived model without its designation?
+(b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
