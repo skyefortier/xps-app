@@ -1,0 +1,28 @@
+You are running ROUND 11 (fifth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-10 (delta: a converged
+LOCAL result is designated a STARTING POINT everywhere it is shown,
+exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7,8,9,10}_verdict_run{A,B}.md.
+Round 10 was GO (run A) / NO-GO (run B); the stricter verdict governs.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-10
+dispositions:
+1. MAJOR spectrum reload → _loadSpectrumFile now calls renderResults()
+   after installing the restored result (Results/Quantify banners and the
+   statistic display follow). Structural test pins the call before the
+   "Spectrum loaded" notice.
+2. MAJOR Save Fit → _doSaveFit writes `fitStatistics: {chiReduced, engine,
+   objective, status, reportable (derived), caveat (derived)}` alongside
+   the parameters. Structural test pins the derived fields.
+3. MINOR clear-state coverage → a local → none transition test asserts
+   header, tooltip, caption and value.
+
+QUESTIONS: (a) any remaining way to show, export or save a local value
+without its designation? (b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
