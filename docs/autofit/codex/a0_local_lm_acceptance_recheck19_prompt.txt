@@ -1,0 +1,29 @@
+You are running ROUND 20 (fourteenth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-19 (delta: a converged
+LOCAL result, and a model derived from one, is designated a STARTING POINT
+everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..19}_verdict_run{A,B}.md.
+Round 19 was GO (run B) / NO-GO (run A, one MAJOR); stricter governs.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-19
+disposition: closeTab() now rebuilds the ACTIVE stack's chart
+(_renderStackChart(t)) right after pruning entries that referenced the
+closed tab, alongside the legend rebuild it already did, so the closed
+source's curves cannot outlive its entry; _renderStackChart refreshes the
+sidebar banner as its first statement. Structural test pins the rebuild
+call inside the prune block. Run B's MINOR (structural-only stack-toggle
+coverage) is acknowledged; the shipped handlers were executed by that run.
+
+SCOPE NOTE (unchanged): model-replacement RESULT retention is R6-7 and out
+of this unit.
+
+QUESTIONS: (a) any remaining way, within the scope note, to show, export
+or save a local result or a local-derived model without a visible
+designation? (b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
