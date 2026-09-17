@@ -468,3 +468,24 @@ test('the sidebar banner is sticky at the top of the scrolling panel body', () =
   assert.match(m[1], /top:\s*0/, 'pinned to the top of its scroll container');
   assert.match(m[1], /z-index:\s*[1-9]/, 'stacked above the peak cards');
 });
+
+// ── Codex round-17: a stack view showing a local source's fit curves is designated too ──
+test('the sidebar banner shows on a stack tab whose visible entries draw a local source fit', () => {
+  const src = ['_isLocalFit', '_isLocalModel', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const local = { id: 2, fitResult: { objective: 'unweighted_residual_variance', chiReduced: 1 }, name: 'C1s local' };
+  const weighted = { id: 3, fitResult: { chiReduced: 2 }, name: 'C1s server' };
+  const tabManager = { _getTab: id => ({ 2: local, 3: weighted })[id] };
+  const run = (tab) => {
+    const el = { style: { display: 'block' }, innerHTML: '' };
+    new Function('state', '_activeTab', 'document', '_historyPreview', 'tabManager', '_escHtml', src + '\n_updateLocalModelBanner();')({ fitResult: null }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null }, null, tabManager, x => String(x));
+    return el;
+  };
+  const shown = run({ isStack: true, entries: [{ sourceTabId: 2, visible: true, showFit: true }, { sourceTabId: 3, visible: true, showFit: true }] });
+  assert.equal(shown.style.display, 'block'); assert.match(shown.innerHTML, /C1s local/); assert.match(shown.innerHTML, /starting point/i);
+  assert.equal(run({ isStack: true, entries: [{ sourceTabId: 2, visible: true, showFit: false }] }).style.display, 'none', 'fit curves hidden → no designation needed');
+  assert.equal(run({ isStack: true, entries: [{ sourceTabId: 3, visible: true, showFit: true }] }).style.display, 'none', 'weighted source only');
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function _applyStatDisplay(', 900), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
+  const legendAt = html.indexOf("row.querySelector('.name').textContent = name;");
+  assert.match(html.slice(legendAt, legendAt + 2500), /_updateLocalModelBanner\(\)/, 'stack legend rebuild refreshes the banner');
+});

@@ -2524,6 +2524,7 @@ function renderStackLegend(stackTab) {
     });
     list.appendChild(row);
   }
+  _updateLocalModelBanner();   // stack legend rows scroll; the sticky banner names local sources
 }
 
 // Swap right-panel content based on whether active tab is a stack.
@@ -7265,13 +7266,24 @@ function _isLocalModel() {
 function _updateLocalModelBanner() {
   const el = document.getElementById('local-model-banner');
   if (!el) return;
+  const t = _activeTab();
+  // Stack view: entries that DRAW a local source's fit curves carry the
+  // designation too (the stack legend rows scroll; this banner does not).
+  let stackLocal = [];
+  if (t && t.isStack) {
+    const tm = (typeof tabManager !== 'undefined' && tabManager) ? tabManager : null;
+    stackLocal = (t.entries || []).filter(e => e.visible && e.showFit).map(e => tm && tm._getTab(e.sourceTabId))
+      .filter(src => src && _isLocalFit(src.fitResult)).map(src => src.name);
+  }
   const previewLocal = (typeof _historyPreview !== 'undefined') && !!_historyPreview && _isLocalFit(_historyPreview.fitResult);
-  const modelLocal = _isLocalModel();
-  if (!modelLocal && !previewLocal) { el.style.display = 'none'; return; }
+  const modelLocal = !(t && t.isStack) && _isLocalModel();
+  if (!modelLocal && !previewLocal && !stackLocal.length) { el.style.display = 'none'; return; }
   el.style.backgroundImage = 'linear-gradient(rgba(245,158,11,0.14), rgba(245,158,11,0.14))';
   el.innerHTML = modelLocal
     ? '&#9888; <strong>Local (unweighted) model &mdash; a starting point, not a reportable result.</strong> Its areas can differ from the server fit by more than 100&nbsp;%. Run Fit before quantifying, exporting or reporting.'
-    : '&#9888; <strong>The history preview overlay is a local (unweighted) fit &mdash; a starting point, not a reportable result.</strong>';
+    : stackLocal.length
+      ? '&#9888; <strong>Local (unweighted) fit curves shown for: ' + stackLocal.map(_escHtml).join(', ') + '</strong> &mdash; starting points, not reportable results. Run Fit on those spectra before reporting.'
+      : '&#9888; <strong>The history preview overlay is a local (unweighted) fit &mdash; a starting point, not a reportable result.</strong>';
   el.style.display = 'block';
 }
 function _provenanceOf(tab) {
@@ -7305,6 +7317,7 @@ function _applyStatDisplay(fr) {
     if (sb) sb.textContent = '\u2014';
   }
   _applyStatCaption(fr);
+  _updateLocalModelBanner();
 }
 
 // Local Levenberg-Marquardt: the fallback engine, and the ONLY engine Batch
