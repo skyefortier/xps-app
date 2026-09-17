@@ -1,0 +1,27 @@
+You are running ROUND 17 (eleventh delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-16 (delta: a converged
+LOCAL result, and a model derived from one, is designated a STARTING POINT
+everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..16}_verdict_run{A,B}.md.
+Round 16 found exactly one MAJOR.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-16
+disposition: #local-model-banner is now `position: sticky; top: 0;
+z-index: 3` with an opaque background inside the scrolling `.panel-body`,
+so it stays in view while the peak list scrolls; a test pins the sticky
+declaration, and the owner's browser check scrolls the panel and
+confirms the banner's box still intersects the panel's visible box.
+
+SCOPE NOTE (unchanged): model-replacement RESULT retention is R6-7 and out
+of this unit.
+
+QUESTIONS: (a) any remaining way, within the scope note, to show, export
+or save a local result or a local-derived model without a visible
+designation? (b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
