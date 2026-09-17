@@ -1,0 +1,36 @@
+You are running ROUND 12 (sixth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-11 (delta: a converged
+LOCAL result is designated a STARTING POINT everywhere it is shown,
+exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..11}_verdict_run{A,B}.md.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-11
+disposition (one MAJOR, both runs): the designation now follows the MODEL.
+- fromJSON records `active.modelProvenance = {...data.fitStatistics,
+  importedFrom}` when the imported fit.json's objective is local (null
+  otherwise); fitResult stays null (a fit file has no curves).
+- `_isLocalModel()` = _isLocalFit(state.fitResult) when a result exists,
+  else the active tab's modelProvenance. It drives the TSV export warning,
+  the no-result Results placeholder ("imported from a local fit: a
+  starting point ...") and Save Fit's fitStatistics fallback (so the
+  round trip save → load → save preserves reportable:false + caveat).
+- modelProvenance persists through project save (buildTabData) and load
+  (_loadProjectJSON), and is cleared by runFitLocal success, runFit
+  success, applyAutoFitResult and clearAllPeaks (a new result or an empty
+  model supersedes imported provenance).
+- Tests: behavioural `_isLocalModel` (import with/without result;
+  weighted result supersedes), structural pins for each site and each
+  clearing path.
+
+QUESTIONS: (a) does the fit.json round trip now preserve the designation
+through display, export and re-save? (b) any remaining way to show,
+export or save a local value or a local-derived model without its
+designation? (c) any regression in this delta (e.g. stale provenance
+after undo/redo, tab switch, or Find Peaks apply)?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
