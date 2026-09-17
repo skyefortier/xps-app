@@ -127,7 +127,7 @@ test('the engine/objective labels of a fit result survive spectrum and project s
   assert.match(save, /objective: state\.fitResult\.objective/);
   assert.match(save, /engine: state\.fitResult\.engine/);
   const load = grab('function _loadSpectrumFile(', 6000);
-  assert.match(load, /\['engine', 'objective', 'status'\]/);
+  assert.match(load, /\['engine', 'objective', 'status', 'caveat'\]/);
   // project save: the whitelisted fitResult record carries them
   const proj = grab('const buildTabData = (t) =>', 3000);
   assert.match(proj, /objective: t\.fitResult\.objective/);
@@ -171,7 +171,7 @@ test('every consumer that prints the goodness-of-fit statistic routes through th
   const hist = grab('function _renderHistoryList(', 3000);
   assert.match(hist, /_fitStatLabel\(/, 'history rows must label the statistic by engine');
   // tab activation tooltip
-  const act = grab('fqEl.textContent = _fitStatLabel(state.fitResult)', 400);
+  const act = grab('fqEl.textContent = _fitStatusText(state.fitResult)', 400);
   assert.match(act, /_LOCALFIT_TOOLTIP/, 'tab activation must attach the local tooltip for local results');
 });
 
@@ -199,4 +199,53 @@ test('a local (unweighted) result is labelled a STARTING POINT, not a reportable
   assert.match(fig, /local fit, not reportable/i, 'figure annotation must say not reportable');
   // local-fit overlay
   assert.match(html, /id="localfit-warn-overlay"[\s\S]{0,1500}starting point/i, 'overlay must say starting point');
+});
+
+// ── Codex round-7: the starting-point designation at every site, behaviourally ──
+test('starting-point helpers: keyed on the persisted objective, weighted results untouched', () => {
+  const src = ['_fitStatLabel', '_isLocalFit', '_localFitCaveat', '_fitStatusText'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m); assert.ok(constLine, '_LOCAL_FIT_CAVEAT constant');
+  const h = new Function(constLine[0] + '\n' + src + '\nreturn { _fitStatLabel, _isLocalFit, _localFitCaveat, _fitStatusText };')();
+  const local = { objective: 'unweighted_residual_variance', chiReduced: 34523.31 };
+  const reloaded = { objective: 'unweighted_residual_variance', chiReduced: 1.5 };   // engine field absent, as older saves may be
+  const weighted = { chiReduced: 4.97 };
+  assert.equal(h._isLocalFit(local), true); assert.equal(h._isLocalFit(reloaded), true); assert.equal(h._isLocalFit(weighted), false);
+  assert.match(h._localFitCaveat(local), /starting point, not a reportable result/i);
+  assert.equal(h._localFitCaveat(weighted), '');
+  assert.match(h._fitStatusText(local), /^Residual variance = 34523\.31 \(starting point\)$/);
+  assert.match(h._fitStatusText(weighted), /^χ²ᵣ = 4\.97$/);
+});
+
+test('Quantify shows the starting-point banner for a local result and not for a weighted one', () => {
+  const src = ['renderQuantify', '_fitStatLabel', '_isLocalFit', '_localFitCaveat'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m)[0];
+  const rsf = html.match(/^const SCOFIELD_RSF = \{[\s\S]*?^\};/m); assert.ok(rsf, 'SCOFIELD_RSF table');
+  const run = (fitResult) => {
+    const el = { innerHTML: '', _rsfSource: 'scofield' };
+    const document = { getElementById: () => el, querySelectorAll: () => [] };
+    const state = { fitResult, peaks: [{ id: 1, name: 'C 1s', shape: 'Gaussian', center: 284.8, fwhm: 1, amplitude: 10, rsfKey: 'C 1s' }] };
+    new Function('document', 'state', '_escHtml', '_detectPeakRSF', 'recalcQuantify', constLine + '\n' + rsf[0] + '\n' + src + '\nrenderQuantify([100], 100);')(
+      document, state, s => String(s), () => ({ key: 'C 1s', rsf: 1 }), () => {});
+    return el.innerHTML;
+  };
+  assert.match(run({ objective: 'unweighted_residual_variance', chiReduced: 3e4 }), /starting point, not a reportable result/i);
+  assert.doesNotMatch(run({ chiReduced: 2.0 }), /starting point/i);
+});
+
+test('every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function exportResults()', 2500), /_LOCAL_FIT_CAVEAT|_localFitCaveat\(/, 'TSV export');
+  assert.match(grab('function _doSaveSpectrum()', 2500), /caveat: state\.fitResult\.caveat/, 'spectrum save persists caveat');
+  assert.match(grab('function _doSaveSpectrum()', 2500), /reportable: state\.fitResult\.reportable/, 'spectrum save persists reportable');
+  assert.match(grab('const buildTabData = (t) =>', 3500), /caveat: t\.fitResult\.caveat/, 'project save persists caveat');
+  assert.match(grab('function _loadSpectrumFile(', 6000), /'caveat'/, 'spectrum load restores caveat');
+  assert.match(grab('fqEl.textContent = _fitStatusText(state.fitResult)', 200), /_applyStatCaption\(/, 'tab activation');
+  assert.match(html, /id="sb-chi-caption"/, 'status-bar caption element');
+  assert.match(grab('function _renderHistoryList(', 3000), /starting point/, 'history rows');
+  assert.match(grab("label: _isLocalFit(state.fitResult) ? 'Fit (local, starting point)' : 'Fit'", 100), /Fit \(local/, 'chart envelope label');
+  const fig = grab('function exportFigure()', 60000);
+  assert.match(fig, /label: _isLocalFit\(state\.fitResult\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'figure legend label');
+  // the local fit result itself declares it
+  const rfl = grab('function runFitLocal(', 20000);
+  assert.match(rfl, /reportable: false, caveat: _LOCAL_FIT_CAVEAT/, 'runFitLocal marks its result');
 });

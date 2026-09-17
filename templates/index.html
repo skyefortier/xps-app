@@ -2160,7 +2160,7 @@
         <span>Points: <span id="sb-pts">&mdash;</span></span>
         <span>BE range: <span id="sb-range">&mdash;</span></span>
         <span>Peaks: <span id="sb-peaks">0</span></span>
-        <span>&#967;&#178;&#7523;: <span id="sb-chi">&mdash;</span></span>
+        <span><span id="sb-chi-caption">&#967;&#178;&#7523;:</span> <span id="sb-chi">&mdash;</span></span>
         <span id="sb-msg" style="color:var(--accent2)"></span>
         <span style="margin-left:auto;color:var(--text3);font-family:var(--mono);font-size:11px" id="sb-build"></span>
       </div>
@@ -3216,12 +3216,14 @@ class TabManager {
     const fqEl = document.getElementById('fit-quality');
     const chiEl = document.getElementById('sb-chi');
     if (state.fitResult && state.fitResult.chiReduced != null) {
-      fqEl.textContent = _fitStatLabel(state.fitResult) + ' = ' + state.fitResult.chiReduced.toFixed(2);
-      fqEl.setAttribute('data-xps-tip', _fitStatLabel(state.fitResult) === 'Residual variance' ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP);
+      fqEl.textContent = _fitStatusText(state.fitResult);
+      fqEl.setAttribute('data-xps-tip', _isLocalFit(state.fitResult) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP);
+      _applyStatCaption(state.fitResult);
       if (chiEl) chiEl.textContent = state.fitResult.chiReduced.toFixed(3);
     } else {
       fqEl.innerHTML = '&#967;&#178; &mdash;';
       fqEl.removeAttribute('data-xps-tip');
+      _applyStatCaption(null);
       if (chiEl) chiEl.textContent = '\u2014';
     }
     if (state.fitResult && state.fitResult.rFactor == null) {
@@ -7179,6 +7181,7 @@ async function runFit() {
     state.fitResult.rFactor = _computeRFactor(state.fitResult);
     document.getElementById('fit-quality').textContent = '\u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(2);
     document.getElementById('fit-quality').setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
+    _applyStatCaption(state.fitResult);
     document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
     _updateRFactorUI(state.fitResult.rFactor);
@@ -7224,6 +7227,21 @@ async function runFit() {
 // chi-square (unit A0, 2026-09-15).
 function _fitStatLabel(fr) {
   return (fr && fr.objective === 'unweighted_residual_variance') ? 'Residual variance' : 'χ²ᵣ';
+}
+// A local (unweighted) result is a STARTING POINT, not a reportable result:
+// its areas can differ from the server's Poisson-weighted fit by more than
+// 100 % (measured on the lab's C1s scans, unit A0). Every site that shows,
+// exports or saves a fit result carries this designation, keyed on the
+// persisted objective so a reloaded local result is labelled too.
+const _LOCAL_FIT_CAVEAT = 'Local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.';
+function _isLocalFit(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
+function _localFitCaveat(fr) { return _isLocalFit(fr) ? _LOCAL_FIT_CAVEAT : ''; }
+function _fitStatusText(fr) {
+  return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + (_isLocalFit(fr) ? ' (starting point)' : '');
+}
+function _applyStatCaption(fr) {
+  const cap = document.getElementById('sb-chi-caption');
+  if (cap) cap.innerHTML = _isLocalFit(fr) ? 'Residual variance (starting point):' : '&#967;&#178;&#7523;:';
 }
 
 // Local Levenberg-Marquardt: the fallback engine, and the ONLY engine Batch
@@ -7549,11 +7567,13 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
                       engine: 'local', status: 'converged',
-                      objective: 'unweighted_residual_variance', iterations };
+                      objective: 'unweighted_residual_variance', iterations,
+                      reportable: false, caveat: _LOCAL_FIT_CAVEAT };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
-  document.getElementById('fit-quality').textContent = 'Residual variance = ' + chiReduced.toFixed(2);
+  document.getElementById('fit-quality').textContent = _fitStatusText(state.fitResult);
   document.getElementById('fit-quality').setAttribute('data-xps-tip', _LOCALFIT_TOOLTIP);
+  _applyStatCaption(state.fitResult);
   document.getElementById('sb-chi').textContent = chiReduced.toFixed(3);
   document.getElementById('sb-msg').textContent = 'Fit complete (local)';
   _updateRFactorUI(state.fitResult.rFactor);
@@ -7757,7 +7777,11 @@ function renderQuantify(areas, totalArea) {
 
   const infoTooltip = `<span title="Relative Sensitivity Factor — corrects for different photoionization probabilities between elements" style="cursor:help;color:var(--text3);border-bottom:1px dotted var(--text3);font-size:10px">RSF &#9432;</span>`;
 
-  let html = `
+  const _localQBanner = _isLocalFit(state.fitResult) ? `
+    <div style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
+      &#9888; <strong>${_escHtml(_localFitCaveat(state.fitResult))}</strong> Its areas can differ from the server fit by more than 100&nbsp;%.
+    </div>` : '';
+  let html = _localQBanner + `
     <div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
       Relative atomic concentrations from peak areas.
     </div>
@@ -8599,7 +8623,7 @@ function updatePlot() {
   const showEnvelope = document.getElementById('show-envelope').checked;
   if (showEnvelope && plotBE.length && (fittedYBacked || state.peaks.length)) {
     datasets.push({
-      label: 'Fit',
+      label: _isLocalFit(state.fitResult) ? 'Fit (local, starting point)' : 'Fit',
       data: fittedYBacked
         ? plotBE.map((b, i) => ({ x: b, y: fittedYBacked[i] - (bgSubView ? plotBG[i] : 0) }))
         : plotBE.map((b, i) => ({ x: b, y: modelFull[i] + (bgSubView ? 0 : plotBG[i]) })),
@@ -9250,6 +9274,8 @@ function _doSaveSpectrum() {
     engine: state.fitResult.engine || null,
     objective: state.fitResult.objective || null,
     status: state.fitResult.status || null,
+    reportable: state.fitResult.reportable ?? null,
+    caveat: state.fitResult.caveat || null,
   } : null;
 
   const data = {
@@ -9337,6 +9363,8 @@ async function _doSaveProject() {
         objective: t.fitResult.objective || null,
         status: t.fitResult.status || null,
         iterations: t.fitResult.iterations ?? null,
+        reportable: t.fitResult.reportable ?? null,
+        caveat: t.fitResult.caveat || null,
       } : null,
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],
@@ -9550,7 +9578,8 @@ function _loadSpectrumFile(data, sessionFile) {
   if (data.notes) active.notes = data.notes;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
-    for (const k of ['engine', 'objective', 'status']) if (data.statistics[k]) fr[k] = data.statistics[k];
+    for (const k of ['engine', 'objective', 'status', 'caveat']) if (data.statistics[k]) fr[k] = data.statistics[k];
+    if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     if (data.fittedY) fr.fittedY = data.fittedY;
     active.fitResult = fr;
     state.fitResult = fr;
@@ -9892,7 +9921,8 @@ function exportResults() {
     ]);
   }
 
-  const csv = rows.map(r => r.join('\t')).join('\n');
+  const warning = _isLocalFit(state.fitResult) ? '# WARNING: ' + _LOCAL_FIT_CAVEAT + '\n' : '';
+  const csv = warning + rows.map(r => r.join('\t')).join('\n');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -10161,7 +10191,7 @@ function _doPublicationExport() {
 
   // ── Legend ────────────────────────────────────────────────────────────────
   const lgItems = [{ label: 'Data', type: 'line', color: '#000000' }];
-  if (fittedY) lgItems.push({ label: 'Fit',        type: 'line', color: '#cc0000' });
+  if (fittedY) lgItems.push({ label: _isLocalFit(state.fitResult) ? 'Fit (local, starting point)' : 'Fit', type: 'line', color: '#cc0000' });
   lgItems.push(              { label: 'Background', type: 'dash', color: '#999999' });
   if (showIndiv) {
     for (const p of state.peaks) {
@@ -12883,7 +12913,7 @@ function _renderHistoryList() {
     <div class="hist-row" id="hist-row-${s.id}">
       <div class="hist-row-main">
         <div class="hist-row-label">${_escHtml(s.label)}</div>
-        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof s.chi === 'number' && isFinite(s.chi) ? ' &middot; <span class="hist-row-chi">' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + s.chi.toFixed(3) + '</span>' : ''}${typeof s.rFactor === 'number' && isFinite(s.rFactor) ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
+        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof s.chi === 'number' && isFinite(s.chi) ? ' &middot; <span class="hist-row-chi">' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + s.chi.toFixed(3) + (_isLocalFit(s.fitResult) ? ' (starting point)' : '') + '</span>' : ''}${typeof s.rFactor === 'number' && isFinite(s.rFactor) ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
       </div>
       <div class="hist-row-btns">
         <button class="btn btn-sm" onclick="_historyPreviewSnap(${s.id})" title="Overlay this snapshot on the chart">Preview</button>
