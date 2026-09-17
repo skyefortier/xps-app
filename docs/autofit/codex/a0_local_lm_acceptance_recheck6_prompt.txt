@@ -1,0 +1,28 @@
+You are running ROUND 7 (delta recheck) of the ADVERSARIAL CODE review of
+unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6 was GO x2
+(docs/autofit/codex/a0_local_lm_acceptance_r6_verdict_run{A,B}.md). After
+that GO the owner asked for ONE addition, in scope for the acceptance rule
+("shown as a fit" is what the rule governs): a converged LOCAL (unweighted)
+result must be labelled a STARTING POINT, not a reportable result, wherever
+it is shown, because the local engine's areas differ from the server's
+Poisson-weighted fit by up to 126 % on the lab's own C1s scans.
+
+Review ONLY the delta since round 6: `git diff c790c03..HEAD` (one commit
+touching templates/index.html, tests/js/fit_acceptance.test.js and the
+student note). It adds: a results-panel banner keyed on the statistic
+identity (`_statIsChi`), batch-summary wording, a WARNING row/line in the
+XLSX/CSV table exports, a figure-annotation label, overlay and notice
+wording, and a structural test pinning each site.
+
+QUESTIONS: (a) is any site where a local result is displayed or exported
+still unlabelled (Quantify table, spectrum export, .spec.json/project
+save, status bar on tab activation, history rows)? (b) does the banner
+logic correctly key on the persisted objective so a RELOADED local result
+is labelled too? (c) any regression in the delta (HTML injection via
+_escHtml misuse, layout in the results panel, the CSV header format)?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
