@@ -459,3 +459,12 @@ test('the sidebar banner sits outside the switchable tab panels and also shows f
   assert.match(grab('function _historyClearPreview(', 400), /_updateLocalModelBanner\(\)/, 'preview clear refreshes the banner');
   assert.match(grab('function _historyRestoreSnap(', 900), /modelProvenance = null/, 'history restore lets the restored result govern');
 });
+
+// ── Codex round-16: the sidebar designation stays in view when the panel body scrolls ──
+test('the sidebar banner is sticky at the top of the scrolling panel body', () => {
+  const m = html.match(/<div id="local-model-banner" style="([^"]*)"/);
+  assert.ok(m, 'banner element');
+  assert.match(m[1], /position:\s*sticky/, 'sticky positioning');
+  assert.match(m[1], /top:\s*0/, 'pinned to the top of its scroll container');
+  assert.match(m[1], /z-index:\s*[1-9]/, 'stacked above the peak cards');
+});

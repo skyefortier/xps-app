@@ -2180,7 +2180,7 @@
             <span class="stack-control-value" id="panel-linewidth-value">1.5 px</span>
           </div>
         </div>
-        <div id="local-model-banner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:6px 8px;margin-bottom:8px;font-size:10.5px;line-height:1.45;color:var(--text)"></div>
+        <div id="local-model-banner" style="display:none;position:sticky;top:0;z-index:3;background:var(--bg2,#1e1e24);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:6px 8px;margin-bottom:8px;font-size:10.5px;line-height:1.45;color:var(--text);box-shadow:0 2px 6px rgba(0,0,0,0.25)"></div>
         <div class="tabs">
           <div class="tab active" onclick="switchTab(this,'peaks')">Peaks</div>
           <div class="tab" onclick="switchTab(this,'results')">Results</div>
@@ -7268,6 +7268,7 @@ function _updateLocalModelBanner() {
   const previewLocal = (typeof _historyPreview !== 'undefined') && !!_historyPreview && _isLocalFit(_historyPreview.fitResult);
   const modelLocal = _isLocalModel();
   if (!modelLocal && !previewLocal) { el.style.display = 'none'; return; }
+  el.style.backgroundImage = 'linear-gradient(rgba(245,158,11,0.14), rgba(245,158,11,0.14))';
   el.innerHTML = modelLocal
     ? '&#9888; <strong>Local (unweighted) model &mdash; a starting point, not a reportable result.</strong> Its areas can differ from the server fit by more than 100&nbsp;%. Run Fit before quantifying, exporting or reporting.'
     : '&#9888; <strong>The history preview overlay is a local (unweighted) fit &mdash; a starting point, not a reportable result.</strong>';
