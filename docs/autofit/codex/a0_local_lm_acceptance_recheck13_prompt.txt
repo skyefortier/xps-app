@@ -1,0 +1,34 @@
+You are running ROUND 14 (eighth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-13 (delta: a converged
+LOCAL result, and a model derived from one, is designated a STARTING POINT
+everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..13}_verdict_run{A,B}.md.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-13
+dispositions:
+1. Undo after a live local fit → `_provenanceOf(tab)` returns the stored
+   provenance or one DERIVED from a local fit result ({objective, engine,
+   status, chiReduced, reportable:false, caveat, derivedFrom:'local_fit'});
+   _peaksSnapshot() uses it with the active tab's live result
+   (state.fitResult) and _pushUndoFor() with the record's own result. Undo
+   after Clear All therefore restores the designation. Behavioural test.
+2. Failed batch propagation → runPropagation captures
+   `srcProvenance = _provenanceOf(sourceTab)` with the source snapshot and
+   sets `tgt.modelProvenance` on every target when the model is copied; a
+   successful runFitLocal clears it, a failure leaves it. Structural test.
+
+SCOPE NOTE (unchanged): model-replacement RESULT retention (Find Peaks
+default-window apply keeping an old fitResult; undo/redo keeping a later
+fitResult) is the sealed-fit memo's R6-7 class and out of this unit. This
+delta only makes the DESIGNATION travel with a local-derived model.
+
+QUESTIONS: (a) any remaining way, within the scope note, to show, export
+or save a local result or a local-derived model without its designation?
+(b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
