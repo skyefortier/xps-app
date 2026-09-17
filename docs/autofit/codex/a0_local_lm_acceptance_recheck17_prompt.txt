@@ -1,0 +1,30 @@
+You are running ROUND 18 (twelfth delta recheck) of the ADVERSARIAL CODE
+review of unit A0 (branch fix-local-lm-acceptance vs origin/main). Round 6
+was GO x2 on the optimiser/acceptance rule; rounds 7-17 (delta: a converged
+LOCAL result, and a model derived from one, is designated a STARTING POINT
+everywhere it is shown, exported or saved) are archived in
+docs/autofit/codex/a0_local_lm_acceptance_r{7..17}_verdict_run{A,B}.md.
+Round 17 found exactly one MAJOR.
+
+Review the delta since round 6: `git diff c790c03..HEAD`. Round-17
+disposition: on a STACK tab, _updateLocalModelBanner() now lists every
+visible entry with showFit whose source tab's persisted result is local
+("Local (unweighted) fit curves shown for: <names> — starting points, not
+reportable results"), in the same sticky banner above the sidebar tab
+bar; it is refreshed by _applyStatDisplay() (every activation/result
+change) and at the end of renderStackLegend() (every legend rebuild).
+Behavioural test: local + weighted sources → banner names the local one;
+showFit off → hidden; weighted only → hidden.
+
+SCOPE NOTE (unchanged): model-replacement RESULT retention is R6-7 and out
+of this unit.
+
+QUESTIONS: (a) any remaining way, within the scope note, to show, export
+or save a local result or a local-derived model without a visible
+designation? (b) any regression in this delta?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
