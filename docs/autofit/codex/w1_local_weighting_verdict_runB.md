@@ -1,0 +1,17 @@
+# Codex adversarial CODE review — unit W1 (local-engine Poisson weighting) — round 1, RUN B (2026-09-18)
+
+codex exec, read-only sandbox, model_reasoning_effort=high, gtimeout rails. tokens used.
+Prompt: docs/autofit/codex/w1_local_weighting_review_prompt.txt
+Outcome: NO-GO x2. Site table (enumerated up front) held: no omitted consumer; one LISTED site (TSV) used the constant instead of the objective-aware helper. Also: reduced chi-square counted the never-optimised caM; the follow-up note over-generalised (local amplitude floor 1 vs server 0 can still give >100 % area gaps); minors on upload rounding and CPS. Dispositioned in w1_local_weighting_recheck_prompt.txt.
+
+1. **MAJOR — TSV export mislabels legacy unweighted fits as Poisson-weighted.** [exportResults](/Users/skyefortier/xps-app/.claude/worktrees/feature-local-lm-poisson-weighting/templates/index.html:10065) still inserts `_LOCAL_FIT_CAVEAT` directly. I reproduced the incorrect warning for both a restored A0 result and an imported A0 model with only `modelProvenance`. This is the missed objective-aware consumer found in the site audit, despite TSV being marked covered in the table. Resolve the governing provenance and call `_localFitCaveat`; test the actual exported warning for both cases. The existing structural test explicitly accepts the constant and therefore misses this regression.
+
+2. **MAJOR — The follow-up note withdraws the “more than 100%” warning beyond what the evidence supports.** [Lines 23–26](/Users/skyefortier/xps-app/.claude/worktrees/feature-local-lm-poisson-weighting/docs/comms/2026-09-18-batch-fit-weighting-followup-note.md:23) say that warning no longer applies to new fits; lines 55–58 generalize GL agreement and attribute large changes to multiple solutions. A counterexample remains: one GL peak, fixed centre/width/mixing, true amplitude **0.1**, starting amplitude **1**. Weighted local fitting converges at **1** because its amplitude floor is 1; the server recovers **0.100000**, or **0.100858** after upload rounding. The corresponding area gap is **900%**, approximately **891%** with rounding, in a single-amplitude convex problem. The bound difference predates W1, but invalidates the new wording. Limit the improvement claim to the measured targets and retain parameter-bound differences among the remaining limitations.
+
+Both production callers reconstruct the original ROI intensity, including manual backgrounds; the background-subtracted view does not change their inputs. Negative/subunit intensities use the same floor as the server. Strict numerical equality is subject to upload rounding, which the parity bridge bypasses. Both engines treat CPS values as supplied intensities without converting them back to event counts.
+
+The denominator follows the requested nominal free-parameter convention, including held/blocked entries; I do not classify the `caM` counting behavior as a new arithmetic regression. RMSE and R-factor remain unweighted. Scanner metadata takes precedence over its ratio heuristic. I found no additional objective-label gap or weakening of A0’s acceptance/certificate logic.
+
+Validation: **244 JavaScript tests passed, 3 TODOs**, using an in-memory workaround for Python’s temporary-directory lookup; **10 scanner logic tests passed** with in-memory file mocks. Browser rendering was not exercised.
+
+VERDICT: NO-GO — Legacy TSV exports misstate their objective, and the new student note makes a demonstrably unsupported claim about remaining area differences.

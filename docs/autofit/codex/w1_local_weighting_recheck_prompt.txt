@@ -1,0 +1,42 @@
+You are running ROUND 2 (recheck) of the ADVERSARIAL CODE review of unit W1
+(branch feature-local-lm-poisson-weighting vs origin/main; review
+`git diff origin/main..HEAD` in full plus the tests). Round 1 was NO-GO x2:
+docs/autofit/codex/w1_local_weighting_verdict_run{A,B}.md; original prompt
+w1_local_weighting_review_prompt.txt. Verify each disposition in the code.
+
+ROUND-1 DISPOSITIONS
+1. MAJOR (both) TSV export mislabelled legacy unweighted fits/models →
+   FIXED: new `_governingProvenance()` (live result, else the tab's
+   modelProvenance); exportResults writes
+   `'# WARNING: ' + _localFitCaveat(_governingProvenance())`; the sidebar
+   banner uses the same helper. BEHAVIOURAL test executes the shipped
+   exportResults for: legacy result, legacy imported model (provenance
+   only), weighted result, server result.
+2. MAJOR (run A) reduced chi-square counted the never-optimised caM →
+   FIXED: dof = n − (free parameters that are not discrete); continuous
+   parameters blocked at a wall still count. Test: identical LACX fit with
+   fixCaM true/false reports the same chi2r.
+3. MAJOR (both) the follow-up note over-generalised → REWRITTEN: the
+   improvement is stated for the 18 measured scans only; "large
+   differences … including above 100 % for an individual component" are
+   still stated as possible, with the bound difference named (local
+   amplitude floor 1, server 0); 0.32 pp; "square root of its intensity …
+   same convention Run Fit uses" instead of "counting noise"/"real"; CPS
+   caveat. The same limitations are added to the plan (items 4-5),
+   CLAUDE.md and `_localFitDetail` ("… for very weak components (different
+   parameter bounds) …"). Bounds parity itself is NOT changed in W1
+   (pre-existing; recorded as a follow-up with A03 and the caM clamp).
+4. MINOR upload rounding / CPS → documented in the plan and CLAUDE.md as
+   "same formula, not bit-identical inputs" and "a convention, not a
+   calibrated uncertainty for rates".
+
+QUESTIONS: (a) does any round-1 finding survive? (b) any site where the
+designation text or statistic name can still disagree with the governing
+objective? (c) do the note, plan and in-app wording now stay within the
+measured evidence? (d) anything new introduced by these fixes?
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
