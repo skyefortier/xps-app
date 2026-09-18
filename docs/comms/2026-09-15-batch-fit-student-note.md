@@ -1,13 +1,13 @@
-# Student note for the Batch Fit defect (unit A0) — DRAFT, send after deploy
+# Student note for the Batch Fit defect (unit A0) — READY TO SEND (deployed 2026-09-18)
 
 Status: drafted from the proof in
 `docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and the scanner
-`scripts/scan_batch_fit_signature.py`. Fill in [DEPLOY DATE] after the
+`scripts/scan_batch_fit_signature.py`. Fill in 18 September 2026 after the
 deploy; the owner sends it.
 
 ---
 
-Subject: XPS Fitting Studio — Batch Fit never fitted anything (26 Mar – [DEPLOY DATE] 2026): re-run every Batch Fit result
+Subject: XPS Fitting Studio — Batch Fit never fitted anything (26 Mar – 18 September 2026): re-run every Batch Fit result
 
 Hi all,
 
@@ -88,7 +88,7 @@ What to do
 3. Replace every affected number in anything already written. If you
    cannot tell whether a tab came from Batch Fit, re-fit it; it takes
    seconds.
-4. From [DEPLOY DATE], Batch Fit uses a corrected optimiser and tells you
+4. From 18 September 2026, Batch Fit uses a corrected optimiser and tells you
    per spectrum whether it converged. But read this carefully, because it
    was true before the bug and is still true after the fix: **Batch Fit is
    an unweighted fit, and its component areas can differ from Run Fit by
