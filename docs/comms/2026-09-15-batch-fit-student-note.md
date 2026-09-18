@@ -1,9 +1,10 @@
 # Student note for the Batch Fit defect (unit A0) — READY TO SEND (deployed 2026-09-18)
 
-Status: drafted from the proof in
+Status: numbers verified against the proof in
 `docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and the scanner
-`scripts/scan_batch_fit_signature.py`. Fill in 18 September 2026 after the
-deploy; the owner sends it.
+`scripts/scan_batch_fit_signature.py`. Fix deployed to xps.fortierlab.org on
+2026-09-18 (Codex GO x2; production browser check passed). The xps2 droplet
+is NOT yet deployed. The owner sends this note.
 
 ---
 
