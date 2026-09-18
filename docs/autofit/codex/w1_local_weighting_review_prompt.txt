@@ -1,0 +1,76 @@
+You are running an ADVERSARIAL CODE review of unit W1 (branch
+feature-local-lm-poisson-weighting vs origin/main; review
+`git diff origin/main..HEAD` in full plus the tests).
+
+CONTEXT. Unit A0 (deployed 2026-09-18, docs/autofit/codex/a0_local_lm_acceptance_*)
+fixed the in-page Levenberg-Marquardt engine (`runFitLocal`, the ONLY
+engine Batch Fit uses) and designated every local result a "starting
+point, not a reportable result", because the engine was UNWEIGHTED and
+its areas differed from the server's Poisson-weighted fit by up to 126 %.
+W1 weights the local engine like the server and — per the owner's rule —
+retires or rewords the designation ON MEASURED EVIDENCE only.
+
+READ FIRST: docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md
+(evidence, decision, and the SITE TABLE). Process note from the owner:
+the A0 labelling delta took 14 review rounds finding one site per round.
+This time the consumer sites were enumerated UP FRONT from the sealed-fit
+memo and covered in one pass. YOUR FIRST JOB IS TO SHOW THE SITE TABLE IS
+INCOMPLETE, IF IT IS — list every missed site in ONE round rather than the
+first one you find.
+
+WHAT CHANGED
+1. Engine: `runFitLocal` minimises sum((w*(data-model))^2) with
+   w = 1/sqrt(max(raw counts, 1)), raw = bgSubtracted + bgIntensity — the
+   weighting fitting.run_fit applies (fitting.py ~1093-1098). chi/dof is a
+   real reduced chi-square; rmse stays the unweighted RMS (as the server
+   path reports). fitResult: objective 'poisson_weighted_chi_square',
+   weighting '1/sqrt(max(counts,1))', engine 'local', reportable false.
+   The A0 active-set step, termination trio and feasible-descent
+   certificate are unchanged and now operate on the weighted residual.
+2. Identity/labels: `_isLocalFit` = `_isLocalProvenance` (engine 'local'
+   OR either local objective); `_isUnweightedLocal` separates A0-era saved
+   results (label "Residual variance") from weighted ones (label χ²ᵣ with
+   the tag "(local, starting point)"); `_localFitCaveat` / `_localFitDetail`
+   / banners / overlay / batch rows / figure / CSV-XLSX-TSV / saves are
+   objective-aware. `_LOCALFIT_TOOLTIP` text updated.
+3. Persistence: `weighting` persisted in .spec.json statistics, project
+   fitResult and .fit.json fitStatistics; load-side provenance checks use
+   `_isLocalProvenance`.
+4. Scanner: weighted local results carry server-like statistics, so they
+   are identified by file metadata (POST-FIX level); docstring + test.
+5. Tests: weighted stationarity oracle; closed-form weighted amplitude
+   recovery (construction separates weighted from unweighted by > 1 %);
+   SERVER-PARITY pin through a Python bridge on two committed C1s targets
+   (chi2r within 1 %, centres within 10 meV, widths/amplitudes within 1 %);
+   objective-aware helper test; scanner metadata test. JS suite 244 pass.
+6. Docs: CLAUDE.md engine description; follow-up student note draft
+   (docs/comms/2026-09-18-batch-fit-weighting-followup-note.md) correcting
+   the earlier note's "more than 100 %" sentence.
+
+QUESTIONS
+(a) SITE COMPLETENESS: any place a local result or local-derived model is
+    shown, exported, saved, restored, copied or previewed where the label,
+    caveat, statistic name, tooltip or provenance check still assumes the
+    UNWEIGHTED objective, or is not reached by the helpers? List them all.
+(b) WEIGHTS: are the weights identical to the server's in every case the
+    page can produce (raw counts reconstructed as bgSubtracted+bgIntensity,
+    including manual-anchor backgrounds, bg-subtracted VIEW toggles, cps vs
+    counts data, negative or < 1 counts)? Does any caller pass arrays for
+    which that reconstruction is not the raw intensity?
+(c) STATISTIC: is chi/dof now truly comparable with lmfit's redchi (dof =
+    n - number of varied parameters incl. held/blocked ones)? Is R-factor
+    unaffected? Any consumer that still treats a local chiReduced as a
+    residual variance (or vice versa) — e.g. the scanner's ratio test on
+    files written by this version, history rows, stack paths?
+(d) EVIDENCE vs WORDING: do the reworded caveat/banner/note claims follow
+    from the measured evidence in the plan (GL-type agreement; Voigt/LA and
+    multi-minimum differences; no uncertainties)? Is anything overstated?
+(e) REGRESSIONS: anything in A0's acceptance rule, certificate or
+    designation behaviour weakened by this diff (legacy unweighted saves
+    must keep "Residual variance" and the old caveat).
+
+FORMAT: end with exactly one line:
+VERDICT: GO
+or
+VERDICT: NO-GO — <one-sentence reason>
+preceded by a numbered findings list, each rated BLOCKER / MAJOR / MINOR.
