@@ -268,7 +268,9 @@ differs for Voigt components (the server fits their mix free — audit A03),
 LA components (`caM` held), very weak components (local amplitude floor 1,
 server 0), and where the model has several minima. Both engines weight by
 √intensity whether the data are counts or CPS (a convention, not a
-calibrated uncertainty for rates). Retire the designation only on a
+calibrated uncertainty for rates); the formula is the same but the inputs
+are not bit-identical, because `uploadToBackend` rounds intensities to
+2 dp before the server weights them. Retire the designation only on a
 re-measurement after A03, the `caM` clamp and bounds parity.
 See `docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md`.
 

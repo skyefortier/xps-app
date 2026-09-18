@@ -2,9 +2,11 @@
 
 Status: drafted from the measurements in
 `docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md`. It
-CORRECTS point 4 of the 18 September note (the "more than 100 %" sentence),
-which stops being true the moment this unit is deployed. Fill in
-[DEPLOY DATE]; the owner sends it.
+UPDATES point 4 of the 18 September note: on the 18 measured scans the
+unweighted optimiser was the main cause of the "more than 100 %"
+differences, and weighting removes that cause; differences above 100 % for
+an individual component remain possible for the reasons the body lists.
+Fill in [DEPLOY DATE]; the owner sends it.
 
 ---
 
