@@ -271,7 +271,13 @@ server 0), and where the model has several minima. Both engines weight by
 calibrated uncertainty for rates); the formula is the same but the inputs
 are not bit-identical, because `uploadToBackend` rounds intensities to
 2 dp before the server weights them. Retire the designation only on a
-re-measurement after A03, the `caM` clamp and bounds parity.
+re-measurement after A03, the `caM` clamp and a decision ON ITS MERITS
+about the amplitude lower bound (0 is degenerate, 1 is unit-dependent —
+`docs/findings/2026-09-fit-determinacy.md` §3; do not implement "parity"
+with either bound before that decision). The same file records that a
+converged server fit is not ground truth: on a committed C 1s scan the
+server's default method stopped in a local minimum the local engine
+avoided.
 See `docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md`.
 
 **Acceptance rule for fit outcomes (unit A0, 2026-09-15):** a fit OUTCOME

@@ -33,20 +33,27 @@ Feeding the local engine the SERVER's background changes nothing material
 
 Why a gap remains (so the designation stays, reworded):
 
-1. **C 1s Scan_4 — two minima.** The local engine reaches χ²ᵣ 18.21, the
-   server 19.06, with a different decomposition (one component collapses
-   locally). Neither engine is wrong; the model is not unique on that scan.
+1. **C 1s Scan_4 — a finding, not an exception.** The local engine reaches
+   χ²ᵣ 18.21 where the server's default Trust-Region method reports 19.06;
+   restarted from the local solution the server also reaches 18.21, and so
+   do Levenberg–Marquardt and basin-hopping from the original start, all
+   by driving one component to zero. The server's answer was a local
+   minimum and the six-component model is over-specified on that scan.
+   Recorded with the 72-fit sensitivity result in
+   `docs/findings/2026-09-fit-determinacy.md` §2.
 2. **U 4f — not weighting at all.** The whole area gap sits in the two
    "Voigt" satellites: the server fits their η FREE from 0.3 (it reached
    0.99 and 0.00) while the page draws and fits η = 0.5 (audit A03). The
    main LACX lines agree to ~1 % with `caM` held at its rounded start
    (8 vs the server's 8.66). Closing this needs A03, then the `caM` clamp.
 3. The local engine still produces no parameter uncertainties.
-4. **Different parameter bounds (Codex W1 round 1).** The local amplitude
-   floor is 1, the server's is 0: a component weaker than 1 count converges
-   to 1 locally and to its true value on the server (a fixed-shape GL peak
-   of true amplitude 0.1 gives a ~900 % area gap in a convex one-parameter
-   problem). Pre-existing, not touched by W1; bounds parity is a follow-up.
+4. **Different amplitude lower bounds (Codex W1 round 1) — an OPEN
+   DECISION, not a parity task.** Local floor 1, server 0; a component of
+   true amplitude 0.1 gives a ~900 % area gap. Neither bound is assumed
+   right: 0 is degenerate (centre/width unidentifiable, σ meaningless), 1
+   is unit-dependent (wrong for CPS data and weak satellites). The merits
+   and options are in `docs/findings/2026-09-fit-determinacy.md` §3; the
+   owner decides before anything is implemented.
 5. **Same formula, not bit-identical inputs.** `uploadToBackend` rounds
    intensities to 2 dp before the server weights them; the local engine
    uses full precision (weight 0.9976 vs 1 at intensity 1.0049). And both
@@ -58,8 +65,8 @@ Decision: the designation STAYS and is reworded to the truth — "local fit,
 Poisson-weighted like the server, no uncertainties: a starting point …
 can differ from the server fit for Voigt/LA components or where the model
 has several minima, or for very weak components (bounds)". It is retired
-only when A03, the `caM` clamp and bounds parity are done and a
-re-measurement supports it. The claims above are about the 18 measured
+only when A03 and the `caM` clamp are done, the amplitude-bound decision
+is made, and a re-measurement supports it. The claims above are about the 18 measured
 targets, not a general guarantee.
 
 ## Site table (enumerated up front — method note 2026-09-18)
