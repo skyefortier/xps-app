@@ -253,14 +253,26 @@ feasible-descent CERTIFICATE passes: no single free parameter moved by
 its value, otherwise that point is taken and iteration continues. The
 certificate is a coordinate (single-parameter) check, not a proof of a
 local minimum along coupled directions; no exit is exempt from it.
-Damping exhaustion is a FAILURE. Unweighted: its statistic is labelled "Residual variance", never
-χ²ᵣ, and it produces no uncertainties. The integer-clamped `caM` is not
-optimised by this engine (carried at its start value).
+Damping exhaustion is a FAILURE. Poisson-weighted since unit W1
+(2026-09-18): it minimises Σ(w·r)² with w = 1/√max(raw counts, 1), the
+server's weighting, so its statistic is a real χ²ᵣ (objective
+`poisson_weighted_chi_square`); results saved by unit A0 were unweighted
+and stay labelled "Residual variance". It produces no uncertainties, and
+the integer-clamped `caM` is not optimised (carried at its start value).
+
+**A local result is a STARTING POINT, not a reportable result** (keyed on
+`engine: 'local'`, helpers `_isLocalFit` / `_isLocalModel` /
+`_localFitCaveat`). Measured in unit W1: weighted, it matches the server
+on GL-type models (≤ 4 meV, ≤ 1.4 % area on the lab's C1s scans) but still
+differs for Voigt components (the server fits their mix free — audit A03),
+LA components (`caM` held), and where the model has several minima. Retire
+the designation only on a re-measurement after A03 and the `caM` clamp.
+See `docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md`.
 
 **Acceptance rule for fit outcomes (unit A0, 2026-09-15):** a fit OUTCOME
 from Run Fit, Batch Fit or the local engine is shown, stored or exported
 only if it converged. `runFitLocal` works on a copy and commits only on
-success, returning `{success, iterations, residualVariance}`; `runFit`
+success, returning `{success, iterations, chiReduced}`; `runFit`
 treats `success !== true` from `/api/fit` as a failed fit and falls back to
 the local engine only on a transport failure, never on a server-side
 error. Not covered by this rule (separate units): model replacement that

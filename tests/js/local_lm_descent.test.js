@@ -39,8 +39,8 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
   'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
   'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
-  '_computeRFactor', '_fitStatLabel', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner'];
-const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT = .*$/m) || [''])[0];
+  '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner'];
+const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg) || []).join('\n');
 
 // One isolated environment per test: a fresh `state`, a stub DOM, and the
 // extracted functions bound to them.
@@ -90,9 +90,11 @@ function batchTarget(env, tabs, sourceName, targetName) {
   return { be, bgSub, bg, initial: JSON.parse(JSON.stringify(cloned)) };
 }
 
-function residualSS(env, be, bgSub) {
+// The objective the local engine minimises since unit W1: the Poisson-weighted
+// sum of squares, w = 1/sqrt(max(raw counts, 1)), raw = bgSub + bg.
+function residualSS(env, be, bgSub, bg) {
   const m = env.evalAllPeaks(be, env.state.peaks);
-  return be.reduce((s, _, i) => s + (bgSub[i] - m[i]) ** 2, 0);
+  return be.reduce((s, _, i) => { const raw = bgSub[i] + (bg ? bg[i] : 0); return s + (bgSub[i] - m[i]) ** 2 / Math.max(raw, 1); }, 0);
 }
 
 test('A01 replay: Batch Fit on the committed UCl4-graphite C1s scans actually moves the parameters', () => {
@@ -100,10 +102,10 @@ test('A01 replay: Batch Fit on the committed UCl4-graphite C1s scans actually mo
   for (const target of ['C1s Scan_0', 'C1s Scan_4', 'C1s Scan_8']) {
     const env = makeEnv();
     const { be, bgSub, bg, initial } = batchTarget(env, tabs, 'C1s Scan', target);
-    const chi0 = residualSS(env, be, bgSub);
+    const chi0 = residualSS(env, be, bgSub, bg);
     const out = env.runFitLocal(be, bgSub, bg);
     assert.ok(out && out.success === true, `${target}: runFitLocal must report success, got ${JSON.stringify(out)}`);
-    const chi1 = residualSS(env, be, bgSub);
+    const chi1 = residualSS(env, be, bgSub, bg);
     assert.ok(chi1 < 0.5 * chi0, `${target}: residual must drop substantially (before ${chi0.toExponential(3)}, after ${chi1.toExponential(3)})`);
     const moved = env.state.peaks.some((p, i) => Math.abs(p.center - initial[i].center) > 1e-3 || Math.abs(p.fwhm / initial[i].fwhm - 1) > 1e-3);
     assert.ok(moved, `${target}: at least one free centre/width must move — the shipped code returned the starting model on 18/18 targets`);
@@ -115,10 +117,10 @@ test('A01 replay: the linked U 4f pair also descends', () => {
   const tabs = loadProjectTabs();
   const env = makeEnv();
   const { be, bgSub, bg } = batchTarget(env, tabs, 'U4f Scan', 'U4f Scan_3');
-  const chi0 = residualSS(env, be, bgSub);
+  const chi0 = residualSS(env, be, bgSub, bg);
   const out = env.runFitLocal(be, bgSub, bg);
   assert.equal(out.success, true);
-  assert.ok(residualSS(env, be, bgSub) < 0.5 * chi0);
+  assert.ok(residualSS(env, be, bgSub, bg) < 0.5 * chi0);
   const parent = env.state.peaks.find(p => !p.linked && p.shape === 'LACX');
   const child = env.state.peaks.find(p => p.linked);
   assert.ok(Math.abs(child.center - (parent.center + child.linkOffset)) < 1e-9, 'linked centre follows the parent');
@@ -155,14 +157,18 @@ test('acceptance rule: a non-converged attempt refuses to overwrite peaks or the
   assert.ok(env.calls.notify.some(n => n.kind === 'red' || n.kind === 'amber'), 'user is told the local fit did not converge');
 });
 
-test('a local fit result is labelled as unweighted residual variance, never as χ²ᵣ', () => {
+test('a local fit result is Poisson-weighted: objective, weighting and the designated statistic text', () => {
   const env = makeEnv();
   const be = Array.from({ length: 201 }, (_, i) => 280 + 0.05 * i);
   const data = be.map(x => 10 * env.gaussian(x, 285.0, 1.2));
   env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', center: 284.8, fwhm: 1.5, amplitude: 5, glMix: 50, asymmetry: 0 }];
-  env.runFitLocal(be, data, new Array(be.length).fill(0));
-  assert.equal(env.state.fitResult.objective, 'unweighted_residual_variance');
-  assert.ok(!/χ/.test(env.dom['fit-quality'].textContent), `status text must not read as chi-square: ${env.dom['fit-quality'].textContent}`);
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(env.state.fitResult.objective, 'poisson_weighted_chi_square');
+  assert.equal(env.state.fitResult.weighting, '1/sqrt(max(counts,1))');
+  assert.equal(env.state.fitResult.engine, 'local');
+  assert.equal(env.state.fitResult.reportable, false);
+  assert.ok(Number.isFinite(out.chiReduced), 'the fitter returns its own chi-square');
+  assert.match(env.dom['fit-quality'].textContent, /^\u03c7\u00b2\u1d63 = .* \(local, starting point\)$/, env.dom['fit-quality'].textContent);
 });
 
 // ── Codex round-1 findings (2026-09-15): bound stationarity and derivative accuracy ──
@@ -265,8 +271,8 @@ function freeParamsOf(p) {
   return out;
 }
 const SYNC_KEYS = ['glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM','caAlpha','caBeta','caM'];
-function assertConstrainedStationary(env, be, bgSub, relTol, label) {
-  const ss = () => residualSS(env, be, bgSub);
+function assertConstrainedStationary(env, be, bgSub, relTol, label, bg) {
+  const ss = () => residualSS(env, be, bgSub, bg);
   const base = ss();
   for (const p of env.state.peaks) {
     for (const k of freeParamsOf(p)) {
@@ -326,7 +332,7 @@ test('A01 replay targets converge to constrained stationary points (C1s and U 4f
     const { be, bgSub, bg } = batchTarget(env, tabs, srcName, target);
     const out = env.runFitLocal(be, bgSub, bg);
     assert.equal(out.success, true, `${target}: ${JSON.stringify(out)}`);
-    assertConstrainedStationary(env, be, bgSub, 1e-6, target);
+    assertConstrainedStationary(env, be, bgSub, 1e-6, target, bg);
   }
 });
 
@@ -412,4 +418,48 @@ test('round-5: a single Gaussian between two symmetric peaks is certified with t
   env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 0.0, fwhm: 15.0, amplitude: 1, fixAmplitude: true }];
   const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
   if (out.success) assertConstrainedStationary(env, be, data, 1e-6, 'round-5');
+});
+
+
+// ── Unit W1 (2026-09-18): the local engine is Poisson-weighted like the server ──
+test('weighted least squares: a locked-shape amplitude lands on the closed-form WEIGHTED solution, not the unweighted one', () => {
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05);
+  const g = be.map(x => env.gaussian(x, 285.0, 1.5));
+  // data = 1000 * g plus a deliberate misfit on the high-count core, so that weighting changes the answer
+  const data = be.map((x, i) => 1000 * g[i] * (Math.abs(x - 285) < 0.4 ? 1.30 : 1.0) + 5);
+  const bg = new Array(be.length).fill(0);
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 1.5, amplitude: 800, fixCenter: true, fixFwhm: true }];
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  const w2 = data.map(v => 1 / Math.max(v, 1));
+  const aW = data.reduce((s, d, i) => s + w2[i] * d * g[i], 0) / g.reduce((s, gi, i) => s + w2[i] * gi * gi, 0);
+  const aU = data.reduce((s, d, i) => s + d * g[i], 0) / g.reduce((s, gi) => s + gi * gi, 0);
+  assert.ok(Math.abs(aW / aU - 1) > 0.01, `the construction must separate the two solutions (weighted ${aW}, unweighted ${aU})`);
+  assert.ok(Math.abs(env.state.peaks[0].amplitude / aW - 1) < 1e-5, `amplitude ${env.state.peaks[0].amplitude} vs weighted closed form ${aW} (unweighted would be ${aU})`);
+});
+
+test('server parity on GL-type models: weighted local Batch Fit matches lmfit from the same start (committed C1s targets)', () => {
+  const tabs = loadProjectTabs();
+  const bridge = path.join(__dirname, 'local_lm_server_parity_backend.py');
+  const py = fs.existsSync(path.join(REPO_ROOT, 'venv/bin/python3')) ? path.join(REPO_ROOT, 'venv/bin/python3')
+    : (fs.existsSync('/Users/skyefortier/xps-app/venv/bin/python3') ? '/Users/skyefortier/xps-app/venv/bin/python3' : 'python3');
+  for (const target of ['C1s Scan_0', 'C1s Scan_5']) {
+    const env = makeEnv();
+    const { be, bgSub, bg, initial } = batchTarget(env, tabs, 'C1s Scan', target);
+    const src = tabs.find(t => t.name === 'C1s Scan'), tgt = tabs.find(t => t.name === target);
+    const ui = BatchPropagation.propagateFitUi({ ...src.ui }, { ...tgt.ui });
+    const out = env.runFitLocal(be, bgSub, bg);
+    assert.equal(out.success, true, JSON.stringify(out));
+    const inten = bgSub.map((v, i) => v + bg[i]);
+    const server = JSON.parse(execFileSync(py, [bridge, REPO_ROOT], { input: JSON.stringify({ be, inten, peaks: initial, ui }), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
+    assert.equal(server.success, true);
+    assert.ok(Math.abs(out.chiReduced / server.chi2r - 1) < 0.01, `${target}: chi2r local ${out.chiReduced} vs server ${server.chi2r}`);
+    env.state.peaks.forEach((p, i) => {
+      const q = server.peaks[i];
+      assert.ok(Math.abs(p.center - q.center) < 0.010, `${target} ${p.name}: centre ${p.center} vs server ${q.center}`);
+      assert.ok(Math.abs(p.fwhm / q.fwhm - 1) < 0.01, `${target} ${p.name}: fwhm ${p.fwhm} vs server ${q.fwhm}`);
+      assert.ok(Math.abs(p.amplitude / q.amplitude - 1) < 0.01, `${target} ${p.name}: amplitude ${p.amplitude} vs server ${q.amplitude}`);
+    });
+  }
 });

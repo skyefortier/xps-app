@@ -35,9 +35,13 @@ Levels reported per tab:
   INSUFFICIENT no rmse stored (older files): cannot classify; listed when
               chiReduced is huge or an identical-model twin exists.
   POST-FIX    the file itself says engine "local" (written by the fixed
-              app on/after 2026-09-15): an honest but unweighted local fit,
-              with no uncertainties. Not part of the incident; re-run Run
-              Fit before quantifying.
+              app on/after 2026-09-15): an honest local fit with no
+              uncertainties — unweighted until unit W1, Poisson-weighted
+              like the server from unit W1 on (objective
+              "poisson_weighted_chi_square"; for those files the ratio test
+              above no longer applies and the file metadata is the only
+              identification). Not part of the incident; re-run Run Fit
+              before quantifying.
 
 Exit code: 1 when anything is SUSPECTED/POSSIBLE/INSUFFICIENT, 2 when a
 file could not be read (never reported as clean), 0 otherwise.
@@ -108,9 +112,11 @@ def scan_tabs(tabs: list[dict]) -> list[dict]:
         rmse = _finite(fr.get("rmse"))
         twins = [n for n in keys.get(_model_key(peaks), []) if n != t.get("name", "?")]
         reasons, level, ratio = [], None, None
-        if fr.get("engine") == "local" or fr.get("objective") == "unweighted_residual_variance":
+        if fr.get("engine") == "local" or fr.get("objective") in ("unweighted_residual_variance", "poisson_weighted_chi_square"):
             level = "post-fix"
-            reasons.append("file records engine 'local': a converged but unweighted local fit written by the fixed app; no uncertainties")
+            reasons.append("file records a local-engine fit written by the fixed app ("
+                           + ("Poisson-weighted" if fr.get("objective") == "poisson_weighted_chi_square" else "unweighted")
+                           + "); converged, no uncertainties")
         elif chi_r is not None and rmse is not None and rmse > 0:
             ratio = chi_r / (rmse * rmse)
             if rmse < RMSE_MIN and ratio >= RATIO_POSSIBLE:

@@ -157,3 +157,11 @@ def test_no_hits_still_prints_the_triage_caveat(tmp_path):
     _write_proj_json(tmp_path, [_backend_tab("A", [284.8])])
     r = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path)], capture_output=True, text=True)
     assert r.returncode == 0 and "not proven unaffected" in r.stdout
+
+
+def test_weighted_local_result_is_identified_by_metadata_not_by_the_ratio(tmp_path):
+    # unit W1: a Poisson-weighted local fit stores server-like statistics, so only the file metadata identifies it
+    from scan_batch_fit_signature import scan_path
+    t = _backend_tab("B", [284.8]); t["fitResult"].update(engine="local", objective="poisson_weighted_chi_square")
+    hits = scan_path(_write_proj_json(tmp_path, [t]))
+    assert [h["level"] for h in hits] == ["post-fix"] and "Poisson-weighted" in " ".join(hits[0]["reasons"])

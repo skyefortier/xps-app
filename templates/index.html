@@ -3411,7 +3411,7 @@ class TabManager {
       active.fitResult = null;
       // Provenance of the imported parameters (unit A0): a model saved from
       // a local (unweighted) fit stays a starting point, not a result.
-      active.modelProvenance = (data.fitStatistics && data.fitStatistics.objective === 'unweighted_residual_variance')
+      active.modelProvenance = _isLocalProvenance(data.fitStatistics)
         ? { ...data.fitStatistics, importedFrom: 'fit.json' } : null;
 
       // Apply charge correction
@@ -7242,27 +7242,41 @@ async function runFit() {
   _autoSnapshot();
 }
 
-// Label for the goodness-of-fit statistic a fit result carries. The backend
-// reports a noise-weighted reduced chi-square; the local optimiser is
-// unweighted and reports a residual variance, which must never be shown as
-// chi-square (unit A0, 2026-09-15).
+// Label for the goodness-of-fit statistic a fit result carries. The server
+// and (since unit W1, 2026-09-18) the local engine both minimise a
+// counting-noise-weighted chi-square; local results saved by unit A0 were
+// UNWEIGHTED and keep the label "Residual variance", never chi-square.
+function _isUnweightedLocal(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
 function _fitStatLabel(fr) {
-  return (fr && fr.objective === 'unweighted_residual_variance') ? 'Residual variance' : 'χ²ᵣ';
+  return _isUnweightedLocal(fr) ? 'Residual variance' : 'χ²ᵣ';
 }
-// A local (unweighted) result is a STARTING POINT, not a reportable result:
-// its areas can differ from the server's Poisson-weighted fit by more than
-// 100 % (measured on the lab's C1s scans, unit A0). Every site that shows,
-// exports or saves a fit result carries this designation, keyed on the
-// persisted objective so a reloaded local result is labelled too.
-const _LOCAL_FIT_CAVEAT = 'Local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.';
-function _isLocalFit(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
+// A LOCAL result is a STARTING POINT, not a reportable result. Measured in
+// unit W1 (docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md):
+// with Poisson weighting the local engine matches the server on GL-type
+// models (<= 4 meV, <= 1.4 % area on the lab's C1s scans) but still differs
+// where the model has Voigt or LA components (server fits the Voigt mix
+// free; caM is integer-held locally) or several minima, and it gives no
+// uncertainties. Unweighted A0-era results differed by more than 100 %.
+// Every site that shows, exports or saves a fit result carries the
+// designation, keyed on persisted identity so reloaded results are labelled.
+const _LOCAL_FIT_CAVEAT = 'Local fit (Poisson-weighted like the server, no uncertainties): a starting point, not a reportable result. Run Fit before reporting.';
+const _LOCAL_FIT_CAVEAT_UNWEIGHTED = 'Local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.';
+function _isLocalProvenance(p) {
+  return !!(p && (p.engine === 'local' || p.objective === 'unweighted_residual_variance' || p.objective === 'poisson_weighted_chi_square'));
+}
+function _isLocalFit(fr) { return _isLocalProvenance(fr); }
+function _localFitDetail(fr) {
+  return _isUnweightedLocal(fr)
+    ? 'Its areas can differ from the server fit by more than 100&nbsp;%.'
+    : 'It can differ from the server fit for Voigt or LA components, or where the model has several minima.';
+}
 // The designation follows the MODEL, not only a live fit result: parameters
 // imported from a .fit.json that was saved from a local fit are a starting
 // point too (tab.modelProvenance, set by fromJSON, cleared by any new fit).
 function _isLocalModel() {
   if (state.fitResult) return _isLocalFit(state.fitResult);
   const t = _activeTab();
-  return !!(t && t.modelProvenance && t.modelProvenance.objective === 'unweighted_residual_variance');
+  return !!(t && _isLocalProvenance(t.modelProvenance));
 }
 // The designation a tab's MODEL carries: its stored provenance (imported or
 // copied), else one derived from its live local result — so that undo
@@ -7285,11 +7299,13 @@ function _updateLocalModelBanner() {
   const modelLocal = !(t && t.isStack) && _isLocalModel();
   if (!modelLocal && !previewLocal && !stackLocal.length) { el.style.display = 'none'; return; }
   el.style.backgroundImage = 'linear-gradient(rgba(245,158,11,0.14), rgba(245,158,11,0.14))';
+  const governing = state.fitResult || (t && t.modelProvenance) || null;
   el.innerHTML = modelLocal
-    ? '&#9888; <strong>Local (unweighted) model &mdash; a starting point, not a reportable result.</strong> Its areas can differ from the server fit by more than 100&nbsp;%. Run Fit before quantifying, exporting or reporting.'
+    ? '&#9888; <strong>' + (_isUnweightedLocal(governing) ? 'Local (unweighted) model' : 'Local model (Poisson-weighted, no uncertainties)') +
+      ' &mdash; a starting point, not a reportable result.</strong> ' + _localFitDetail(governing) + ' Run Fit before quantifying, exporting or reporting.'
     : stackLocal.length
-      ? '&#9888; <strong>Local (unweighted) fit curves shown for: ' + stackLocal.map(_escHtml).join(', ') + '</strong> &mdash; starting points, not reportable results. Run Fit on those spectra before reporting.'
-      : '&#9888; <strong>The history preview overlay is a local (unweighted) fit &mdash; a starting point, not a reportable result.</strong>';
+      ? '&#9888; <strong>Local fit curves shown for: ' + stackLocal.map(_escHtml).join(', ') + '</strong> &mdash; starting points, not reportable results. Run Fit on those spectra before reporting.'
+      : '&#9888; <strong>The history preview overlay is a local fit &mdash; a starting point, not a reportable result.</strong>';
   el.style.display = 'block';
 }
 function _provenanceOf(tab) {
@@ -7297,16 +7313,23 @@ function _provenanceOf(tab) {
   if (tab.modelProvenance) return JSON.parse(JSON.stringify(tab.modelProvenance));
   const fr = tab.fitResult;
   if (!_isLocalFit(fr)) return null;
-  return { objective: fr.objective, engine: fr.engine || 'local', status: fr.status || null,
-           chiReduced: fr.chiReduced ?? null, reportable: false, caveat: _LOCAL_FIT_CAVEAT, derivedFrom: 'local_fit' };
+  return { objective: fr.objective || null, engine: fr.engine || 'local', status: fr.status || null,
+           weighting: fr.weighting || null, chiReduced: fr.chiReduced ?? null,
+           reportable: false, caveat: _localFitCaveat(fr), derivedFrom: 'local_fit' };
 }
-function _localFitCaveat(fr) { return _isLocalFit(fr) ? _LOCAL_FIT_CAVEAT : ''; }
+function _localFitCaveat(fr) {
+  if (!_isLocalFit(fr)) return '';
+  return _isUnweightedLocal(fr) ? _LOCAL_FIT_CAVEAT_UNWEIGHTED : _LOCAL_FIT_CAVEAT;
+}
 function _fitStatusText(fr) {
-  return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + (_isLocalFit(fr) ? ' (starting point)' : '');
+  const tag = !_isLocalFit(fr) ? '' : (_isUnweightedLocal(fr) ? ' (starting point)' : ' (local, starting point)');
+  return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + tag;
 }
 function _applyStatCaption(fr) {
   const cap = document.getElementById('sb-chi-caption');
-  if (cap) cap.innerHTML = _isLocalFit(fr) ? 'Residual variance (starting point):' : '&#967;&#178;&#7523;:';
+  if (!cap) return;
+  cap.innerHTML = !_isLocalFit(fr) ? '&#967;&#178;&#7523;:'
+    : (_isUnweightedLocal(fr) ? 'Residual variance (starting point):' : '&#967;&#178;&#7523; (local, starting point):');
 }
 // The statistic is displayed as ONE unit — header text + tooltip, status-bar
 // caption + value — from the same fit result, or all cleared. Refreshing
@@ -7354,9 +7377,13 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   if (!Array.isArray(be) || be.length < 2 ||
       !Array.isArray(bgSubtracted) || bgSubtracted.length !== be.length ||
       !Array.isArray(bgIntensity) || bgIntensity.length !== be.length ||
-      !be.every(Number.isFinite) || !bgSubtracted.every(Number.isFinite)) {
+      !be.every(Number.isFinite) || !bgSubtracted.every(Number.isFinite) || !bgIntensity.every(Number.isFinite)) {
     return fail('invalid or non-finite data in the fitting region.');
   }
+  // POISSON WEIGHTS (unit W1): the same weighting fitting.run_fit applies on
+  // the server — sigma = sqrt(raw counts), floored at 1, where the raw
+  // counts are the background-subtracted signal plus the background.
+  const _w = be.map((_, i) => 1 / Math.sqrt(Math.max(bgSubtracted[i] + bgIntensity[i], 1)));
   // Work on copies: live peaks are touched only on success.
   const work = state.peaks.map(p => ({ ...p }));
   if (!work.length) return fail('no peaks to fit.');
@@ -7434,10 +7461,14 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     }
   }
 
-  function residuals(params) {
+  function rawResiduals(params) {
     applyParams(params);
     const model = evalAllPeaks(be, work);
     return be.map((_, i) => bgSubtracted[i] - model[i]);
+  }
+  // weighted residual: what the optimiser minimises (chi = sum of squares)
+  function residuals(params) {
+    return rawResiduals(params).map((v, i) => v * _w[i]);
   }
 
   function chiSq(params) {
@@ -7641,8 +7672,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   }
 
   const dof = Math.max(1, be.length - params.length);
-  const chiReduced = chi / dof;
-  const rmse = Math.sqrt(chi / be.length);
+  const chiReduced = chi / dof;                       // weighted reduced chi-square, as lmfit's redchi
+  const _raw = rawResiduals(params);
+  const rmse = Math.sqrt(_raw.reduce((a, v) => a + v * v, 0) / be.length);   // unweighted RMS, as the server path reports
 
   // KNOWN LIMITATION: this engine produces no parameter uncertainties; the
   // results panel shows blank sigma for every parameter after a local fit.
@@ -7650,7 +7682,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
                       engine: 'local', status: 'converged',
-                      objective: 'unweighted_residual_variance', iterations,
+                      objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))', iterations,
                       reportable: false, caveat: _LOCAL_FIT_CAVEAT };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
@@ -7665,9 +7697,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
 
   _hideFitSpinner();
   notify('Local fit converged in ' + iterations + ' iteration' + (iterations === 1 ? '' : 's') +
-         '. Residual variance = ' + chiReduced.toFixed(3) + ' (unweighted; no uncertainties). Starting point only: run Fit before reporting.', 'amber');
+         '. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3) + ' (Poisson-weighted; no uncertainties). Starting point only: run Fit before reporting.', 'amber');
   _autoSnapshot();
-  return { success: true, engine: 'local', iterations, acceptedSteps, residualVariance: chiReduced, certifyRestarts };
+  return { success: true, engine: 'local', iterations, acceptedSteps, chiReduced, certifyRestarts };
 }
 
 function solveLinear(A, b, n) {
@@ -7722,7 +7754,7 @@ function renderResults() {
   _updateLocalModelBanner();
   if (!state.fitResult) {
     el.innerHTML = _isLocalModel()
-      ? '<p style="color:var(--amber,#f59e0b);font-size:11px;text-align:center;padding:20px 0">&#9888; This model was imported from a local (unweighted) fit: a starting point, not a reportable result. Run Fit to obtain results.</p>'
+      ? '<p style="color:var(--amber,#f59e0b);font-size:11px;text-align:center;padding:20px 0">&#9888; This model was imported from a local fit: a starting point, not a reportable result. Run Fit to obtain results.</p>'
       : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     // Quantify (#quantify-area) is populated by renderQuantify(), called
     // only from the non-null path below — without this it kept showing
@@ -7741,10 +7773,10 @@ function renderResults() {
   // A local (unweighted) result is a STARTING POINT: its areas can differ
   // from the server's Poisson-weighted fit by more than 100 % (measured on
   // the lab's C1s scans, unit A0). It is shown as such, never as a result.
-  const _localBanner = _statIsChi ? '' : `
+  const _localBanner = !_isLocalFit(state.fitResult) ? '' : `
     <div style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
-      &#9888; <strong>Local unweighted fit &mdash; a starting point, not a reportable result.</strong>
-      Its areas can differ from the server fit by more than 100&nbsp;%. Press <strong>Run Fit</strong> before quantifying, exporting or reporting.
+      &#9888; <strong>${_escHtml(_localFitCaveat(state.fitResult))}</strong>
+      ${_localFitDetail(state.fitResult)} Press <strong>Run Fit</strong> before quantifying, exporting or reporting.
     </div>`;
 
   function fmtVal(val, se, decimals) {
@@ -7863,7 +7895,7 @@ function renderQuantify(areas, totalArea) {
 
   const _localQBanner = _isLocalFit(state.fitResult) ? `
     <div style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
-      &#9888; <strong>${_escHtml(_localFitCaveat(state.fitResult))}</strong> Its areas can differ from the server fit by more than 100&nbsp;%.
+      &#9888; <strong>${_escHtml(_localFitCaveat(state.fitResult))}</strong> ${_localFitDetail(state.fitResult)}
     </div>` : '';
   let html = _localQBanner + `
     <div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
@@ -9319,11 +9351,12 @@ function _doSaveFit() {
       chiReduced: state.fitResult.chiReduced ?? null,
       engine: state.fitResult.engine || null,
       objective: state.fitResult.objective || null,
+      weighting: state.fitResult.weighting || null,
       status: state.fitResult.status || null,
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
     } : ((_activeTab() && _activeTab().modelProvenance) ? {
-      ..._activeTab().modelProvenance, reportable: false, caveat: _LOCAL_FIT_CAVEAT,
+      ..._activeTab().modelProvenance, reportable: false, caveat: _localFitCaveat(_activeTab().modelProvenance),
     } : null),
   };
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
@@ -9372,6 +9405,7 @@ function _doSaveSpectrum() {
     // result is never relabelled as chi-square (unit A0).
     engine: state.fitResult.engine || null,
     objective: state.fitResult.objective || null,
+    weighting: state.fitResult.weighting || null,
     status: state.fitResult.status || null,
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
@@ -9463,6 +9497,7 @@ async function _doSaveProject() {
         // "Residual variance" after reload instead of becoming chi-square.
         engine: t.fitResult.engine || null,
         objective: t.fitResult.objective || null,
+        weighting: t.fitResult.weighting || null,
         status: t.fitResult.status || null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
@@ -9679,11 +9714,10 @@ function _loadSpectrumFile(data, sessionFile) {
   active.ui = { ...active.ui, ...(data.ui || {}), endpointAvg: savedEp || LEGACY_ENDPOINT_AVG };
   tabManager._restoreUI(active.ui);
   if (data.notes) active.notes = data.notes;
-  active.modelProvenance = (data.modelProvenance && data.modelProvenance.objective === 'unweighted_residual_variance')
-    ? data.modelProvenance : null;
+  active.modelProvenance = _isLocalProvenance(data.modelProvenance) ? data.modelProvenance : null;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
-    for (const k of ['engine', 'objective', 'status', 'caveat']) if (data.statistics[k]) fr[k] = data.statistics[k];
+    for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat']) if (data.statistics[k]) fr[k] = data.statistics[k];
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     if (data.fittedY) fr.fittedY = data.fittedY;
     active.fitResult = fr;
@@ -10273,7 +10307,8 @@ function _doPublicationExport() {
     ctx.font = '38px Arial,sans-serif';
     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     if (state.fitResult) {
-      const statLabel = _fitStatLabel(state.fitResult) === 'Residual variance' ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r';
+      const statLabel = !_isLocalFit(state.fitResult) ? '\u03c7\u00b2_r'
+        : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r (local fit, not reportable)');
       ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
                    plotX + 14, mainTop + 14);
     } else {
@@ -10447,7 +10482,8 @@ function exportFitTable(fmt) {
   const date = new Date().toISOString().slice(0,10);
   const bgType = document.getElementById('bg-type')?.value || '';
   const chiStr = state.fitResult.chiReduced.toFixed(4);
-  const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
+  const _statName = !_isLocalFit(state.fitResult) ? 'Chi-squared reduced'
+    : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, unweighted)' : 'Chi-squared reduced (local fit, Poisson-weighted)');
 
   const headers = ['Peak Name','Center (eV)','Center StdErr','FWHM (eV)','FWHM StdErr',
     'Amplitude','Amplitude StdErr','Area','Line Shape','GL Ratio','Alpha','Beta','M_Gauss',
@@ -10473,8 +10509,8 @@ function exportFitTable(fmt) {
     const wb = XLSX.utils.book_new();
     const metaWS = XLSX.utils.aoa_to_sheet([
       ['XPS Fitting Studio Export'], ['Date', date],
-      [_statIsChi ? 'Chi-squared reduced' : 'Residual variance (local fit, unweighted)', chiStr], ['Background type', bgType],
-      ...(_statIsChi ? [] : [['WARNING', 'Local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.']]),
+      [_statName, chiStr], ['Background type', bgType],
+      ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
@@ -10483,8 +10519,8 @@ function exportFitTable(fmt) {
     notify('Exported XLSX table', 'green');
   } else {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
-    csv += `# ${_statIsChi ? 'Chi-squared reduced' : 'Residual variance (local fit, unweighted)'}: ${chiStr}\n# Background: ${bgType}\n`;
-    if (!_statIsChi) csv += `# WARNING: local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.\n`;
+    csv += `# ${_statName}: ${chiStr}\n# Background: ${bgType}\n`;
+    if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -10605,7 +10641,7 @@ function _updateROIDisplay(roiRange) {
   el.textContent = `ROI: ${roiRange.min}\u2013${roiRange.max} eV`;
 }
 
-const _LOCALFIT_TOOLTIP = "Residual variance of the local (in-page) fit: the mean squared residual, NOT weighted by counting noise, so it is not comparable to \u03c7\u00b2\u1d63 and carries no parameter uncertainties. Run Fit with the server available for a weighted fit with uncertainties.";
+const _LOCALFIT_TOOLTIP = "Statistic of the local (in-page) fit. Since unit W1 (2026-09) the local engine is Poisson-weighted like the server, so its \u03c7\u00b2\u1d63 is comparable with the server's, but it gives no parameter uncertainties and can differ from the server fit for Voigt or LA components or where the model has several minima. Local results saved earlier were unweighted and are labelled 'Residual variance'. Run Fit with the server available for a reportable result.";
 const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty. Computed within the ROI range.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
 
 // Wire up custom tooltip for data-xps-tip elements (R-factor, chi-squared, etc.)
@@ -11212,7 +11248,7 @@ async function runPropagation() {
     // state: the active tab can change while the fit runs.
     const ok = !!(outcome && outcome.success);
     results.push({ name: tgt.name, ok,
-                   chi: ok && Number.isFinite(outcome.residualVariance) ? outcome.residualVariance : null,
+                   chi: ok && Number.isFinite(outcome.chiReduced) ? outcome.chiReduced : null,
                    message: ok ? null : ((outcome && outcome.message) || 'local fit did not converge') });
 
     await new Promise(r => setTimeout(r, 10));
@@ -11227,7 +11263,7 @@ async function runPropagation() {
   const nFail = results.length - nOk;
   prog.textContent = `Batch complete: ${nOk} converged as starting points, ${nFail} not fitted. Run Fit on each spectrum before reporting.`;
   summary.innerHTML = results.map(r => r.ok
-    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; residual variance = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local unweighted fit: a starting point, not a reportable result)</div>`
+    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local fit: a starting point, not a reportable result)</div>`
     : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)</div>`
   ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
   summary.style.display = 'block';
@@ -13632,7 +13668,7 @@ document.addEventListener('mousedown', function(e) {
 <div id="localfit-warn-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:460px;border-color:var(--amber,#f59e0b)">
     <h3 style="color:var(--amber,#f59e0b)">&#9888; Local fit used (server unreachable) <button class="btn btn-sm" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged, but it is unweighted (it reports a residual variance, not &#967;&#178;<sub>r</sub>) and gives <strong>no parameter uncertainties</strong>. Treat it as a <strong>starting point, not a reportable result</strong>: its areas can differ from the server fit by more than 100&nbsp;%. Run Fit again when the server is available before quantifying, exporting or reporting.</p>
+    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged and is Poisson-weighted like the server, but it gives <strong>no parameter uncertainties</strong> and can differ from the server fit for Voigt or LA components or where the model has several minima. Treat it as a <strong>starting point, not a reportable result</strong>. Run Fit again when the server is available before quantifying, exporting or reporting.</p>
     <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px"><strong style="color:var(--text)">Possible causes:</strong><br>
     &bull; The server may be offline or restarting<br>
     &bull; The fit request may have timed out<br>
