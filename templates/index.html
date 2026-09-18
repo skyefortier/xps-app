@@ -7265,10 +7265,17 @@ function _isLocalProvenance(p) {
   return !!(p && (p.engine === 'local' || p.objective === 'unweighted_residual_variance' || p.objective === 'poisson_weighted_chi_square'));
 }
 function _isLocalFit(fr) { return _isLocalProvenance(fr); }
+// The record that governs the active model's designation: its live result,
+// else the provenance it was imported / copied / restored with.
+function _governingProvenance() {
+  if (state.fitResult) return state.fitResult;
+  const t = _activeTab();
+  return (t && t.modelProvenance) || null;
+}
 function _localFitDetail(fr) {
   return _isUnweightedLocal(fr)
     ? 'Its areas can differ from the server fit by more than 100&nbsp;%.'
-    : 'It can differ from the server fit for Voigt or LA components, or where the model has several minima.';
+    : 'It can differ from the server fit for Voigt or LA components, for very weak components (different parameter bounds), or where the model has several minima.';
 }
 // The designation follows the MODEL, not only a live fit result: parameters
 // imported from a .fit.json that was saved from a local fit are a starting
@@ -7299,7 +7306,7 @@ function _updateLocalModelBanner() {
   const modelLocal = !(t && t.isStack) && _isLocalModel();
   if (!modelLocal && !previewLocal && !stackLocal.length) { el.style.display = 'none'; return; }
   el.style.backgroundImage = 'linear-gradient(rgba(245,158,11,0.14), rgba(245,158,11,0.14))';
-  const governing = state.fitResult || (t && t.modelProvenance) || null;
+  const governing = _governingProvenance();
   el.innerHTML = modelLocal
     ? '&#9888; <strong>' + (_isUnweightedLocal(governing) ? 'Local (unweighted) model' : 'Local model (Poisson-weighted, no uncertainties)') +
       ' &mdash; a starting point, not a reportable result.</strong> ' + _localFitDetail(governing) + ' Run Fit before quantifying, exporting or reporting.'
@@ -7671,7 +7678,11 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     delete live._backendParams;
   }
 
-  const dof = Math.max(1, be.length - params.length);
+  // Degrees of freedom count the parameters this engine actually varies: the
+  // integer-clamped caM is carried at its start value and is not one of them
+  // (continuous parameters temporarily blocked at a wall still count).
+  const nVaried = params.filter((_, j) => !isDiscrete(j)).length;
+  const dof = Math.max(1, be.length - nVaried);
   const chiReduced = chi / dof;                       // weighted reduced chi-square, as lmfit's redchi
   const _raw = rawResiduals(params);
   const rmse = Math.sqrt(_raw.reduce((a, v) => a + v * v, 0) / be.length);   // unweighted RMS, as the server path reports
@@ -10062,7 +10073,7 @@ function exportResults() {
     ]);
   }
 
-  const warning = _isLocalModel() ? '# WARNING: ' + _LOCAL_FIT_CAVEAT + '\n' : '';
+  const warning = _isLocalModel() ? '# WARNING: ' + _localFitCaveat(_governingProvenance()) + '\n' : '';
   const csv = warning + rows.map(r => r.join('\t')).join('\n');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);

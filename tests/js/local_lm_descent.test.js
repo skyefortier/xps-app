@@ -39,7 +39,7 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
   'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
   'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
-  '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner'];
+  '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner'];
 const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg) || []).join('\n');
 
 // One isolated environment per test: a fresh `state`, a stub DOM, and the
@@ -462,4 +462,22 @@ test('server parity on GL-type models: weighted local Batch Fit matches lmfit fr
       assert.ok(Math.abs(p.amplitude / q.amplitude - 1) < 0.01, `${target} ${p.name}: amplitude ${p.amplitude} vs server ${q.amplitude}`);
     });
   }
+});
+
+// ── W1 Codex round 1: a never-optimised parameter (integer-clamped caM) is not a degree of freedom ──
+test('reduced chi-square does not count the held caM as a varied parameter', () => {
+  const run = (fixCaM) => {
+    const env = makeEnv();
+    const be = grid(280, 282, 0.1);
+    const truth = { id: 1, name: 'la', shape: 'LACX', center: 281.0, fwhm: 1.0, amplitude: 50, caAlpha: 1.2, caBeta: 1.5, caM: 6, glMix: 50, asymmetry: 0 };
+    env.state.peaks = [{ ...truth }];
+    const data = env.evalAllPeaks(be, env.state.peaks).map((v, i) => v * (1 + 0.05 * Math.sin(3 * i)) + 20);
+    env.state.peaks = [{ ...truth, amplitude: 40, fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true, fixCaM }];
+    const out = env.runFitLocal(be, data.map(v => v - 20), new Array(be.length).fill(20));
+    assert.equal(out.success, true, JSON.stringify(out));
+    return { chi: env.state.fitResult.chi, chiReduced: out.chiReduced, amp: env.state.peaks[0].amplitude };
+  };
+  const a = run(true), b = run(false);
+  assert.ok(Math.abs(a.amp - b.amp) < 1e-9 && Math.abs(a.chi - b.chi) < 1e-9, 'identical fit either way');
+  assert.ok(Math.abs(a.chiReduced - b.chiReduced) < 1e-12, `same fit, same reduced chi-square: ${a.chiReduced} vs ${b.chiReduced}`);
 });

@@ -265,8 +265,11 @@ the integer-clamped `caM` is not optimised (carried at its start value).
 `_localFitCaveat`). Measured in unit W1: weighted, it matches the server
 on GL-type models (≤ 4 meV, ≤ 1.4 % area on the lab's C1s scans) but still
 differs for Voigt components (the server fits their mix free — audit A03),
-LA components (`caM` held), and where the model has several minima. Retire
-the designation only on a re-measurement after A03 and the `caM` clamp.
+LA components (`caM` held), very weak components (local amplitude floor 1,
+server 0), and where the model has several minima. Both engines weight by
+√intensity whether the data are counts or CPS (a convention, not a
+calibrated uncertainty for rates). Retire the designation only on a
+re-measurement after A03, the `caM` clamp and bounds parity.
 See `docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md`.
 
 **Acceptance rule for fit outcomes (unit A0, 2026-09-15):** a fit OUTCOME

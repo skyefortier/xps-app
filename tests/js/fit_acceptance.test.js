@@ -417,7 +417,7 @@ test('batch propagation copies the source model provenance onto each target (cle
 
 // ── Codex round-14: persistent designation in the Peaks sidebar; undo/redo re-render; auto-fit rollback carries provenance ──
 test('the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
   const run = (fitResult, tab) => {
     const el = { style: { display: 'block' } };
     new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null }, null);
@@ -445,7 +445,7 @@ test('round-14 sites: banner element and refresh hooks, undo/redo re-render Resu
 test('the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview', () => {
   const bannerAt = html.indexOf('id="local-model-banner"'), tabsAt = html.indexOf('<div class="tabs">'), peaksPanelAt = html.indexOf('id="tab-peaks"');
   assert.ok(bannerAt > 0 && bannerAt < tabsAt && bannerAt < peaksPanelAt, 'banner precedes the tab bar and every panel');
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
   const run = (fitResult, preview) => {
     const el = { style: { display: 'block' }, innerHTML: '' };
     new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => ({ modelProvenance: null }), { getElementById: id => id === 'local-model-banner' ? el : null }, preview);
@@ -472,7 +472,7 @@ test('the sidebar banner is sticky at the top of the scrolling panel body', () =
 
 // ── Codex round-17: a stack view showing a local source's fit curves is designated too ──
 test('the sidebar banner shows on a stack tab whose visible entries draw a local source fit', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
   const local = { id: 2, fitResult: { objective: 'unweighted_residual_variance', chiReduced: 1 }, name: 'C1s local' };
   const weighted = { id: 3, fitResult: { chiReduced: 2 }, name: 'C1s server' };
   const tabManager = { _getTab: id => ({ 2: local, 3: weighted })[id] };
@@ -527,4 +527,23 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
   assert.equal(h._fitStatusText(weighted), '\u03c7\u00b2\u1d63 = 4.35 (local, starting point)');
   assert.equal(h._fitStatusText(server), '\u03c7\u00b2\u1d63 = 4.36');
   assert.match(h._localFitDetail(weighted), /Voigt or LA components/); assert.match(h._localFitDetail(legacy), /more than 100/);
+});
+
+// ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
+test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults'].map(extractFn).join('\n');
+  const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const run = (fitResult, modelProvenance) => {
+    let text = null;
+    class Blob { constructor(parts) { text = parts.join(''); } }
+    const state = { fitResult, peaks: [{ id: 1, name: 'p' }] };
+    new Function('state', '_activeTab', 'getROIData', 'computeBackground', 'evalAllPeaks', 'evalPeakArray', 'Blob', 'URL', 'document', 'notify',
+      consts + '\n' + src + '\nexportResults();')(state, () => ({ modelProvenance }), () => ({ be: [1, 2], inten: [5, 6] }), () => [0, 0],
+      () => [1, 1], () => [1, 1], Blob, { createObjectURL: () => 'u', revokeObjectURL() {} }, { createElement: () => ({ click() {} }) }, () => {});
+    return text.split('\n')[0];
+  };
+  assert.match(run({ engine: 'local', objective: 'unweighted_residual_variance', chiReduced: 3e4 }, null), /^# WARNING: Local unweighted fit/);
+  assert.match(run(null, { engine: 'local', objective: 'unweighted_residual_variance' }), /^# WARNING: Local unweighted fit/, 'imported legacy model');
+  assert.match(run({ engine: 'local', objective: 'poisson_weighted_chi_square', chiReduced: 4 }, null), /^# WARNING: Local fit \(Poisson-weighted/);
+  assert.doesNotMatch(run({ chiReduced: 4 }, null), /WARNING/);
 });
