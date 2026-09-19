@@ -495,3 +495,41 @@ def test_a_verified_candidate_displaces_an_unverified_one_even_at_higher_chi_squ
     res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=2,
                           fit_kws={"method": "differential_evolution"})
     assert res["success"] is True, res["message"]
+
+
+# ── Codex round 6 (run A GO, run B NO-GO) ───────────────────────────────────
+
+@pytest.mark.parametrize("scale", [1e-3, 1.0, 1e3, 1e6])
+@pytest.mark.parametrize("n_perturb", [0, 3])
+def test_exact_refinement_is_accepted_at_any_intensity_scale(scale, n_perturb):
+    # 1e6 counts, noise-free, centre on a requested bound: the refinement
+    # moves the centre 5e-8 eV and chi-square goes 1.6e-24 -> 1.5e-6, above a
+    # fixed absolute allowance. The allowance now scales with the data.
+    np.random.seed(4)
+    x = np.linspace(999.0, 1001.0, 101)
+    base = 1000.0 * min(scale, 1.0)
+    y = base + scale * np.exp(-4 * np.log(2) * ((x - 1000.0) / 0.5) ** 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 1000.0, "center_min": 1000.0,
+              "amplitude": scale, "amplitude_min": 0, "fwhm": 0.5, "fix_fwhm": True}]
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[999.0, base], [1001.0, base]], n_perturb=n_perturb,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True, res["message"]
+    assert res["individual_peaks"][0]["params"]["amplitude"]["value"] == pytest.approx(scale, rel=1e-5)
+
+
+def test_a_materially_worse_refinement_is_still_rejected(monkeypatch):
+    real_fit = fitting.Model.fit
+
+    def worse_polish(self, data, params, **kw):
+        res = real_fit(self, data, params, **kw)
+        if kw.get("method") == "least_squares":
+            res.chisqr = res.chisqr * 1.01          # one percent worse than it really is
+        return res
+
+    monkeypatch.setattr(fitting.Model, "fit", worse_polish)
+    x, y = _two_peak_spectrum()
+    res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=0,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is False
+    assert "generated limits" in res["message"]

@@ -1050,11 +1050,14 @@ def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
     except Exception:
         log.debug("refinement outside the search box raised", exc_info=True)
         return found
-    # "Equal or lower" up to numerical noise. chi-square here is a sum of
-    # squared residuals in units of sigma, so 1e-8 per point is far below
-    # anything a fit means; a relative test alone rejects exact refinements
-    # of noise-free data (4e-28 -> 1e-11) and would blame the box for it.
-    if refined.success and refined.chisqr <= found.chisqr * (1.0 + 1e-6) + 1e-8 * max(found.ndata, 1):
+    # "Equal or lower" up to numerical noise, on a scale that does not depend
+    # on the intensity units: 1e-8 of the weighted power of the data being
+    # fitted (chi-square of the empty model). A start sitting exactly on a
+    # REQUESTED bound is moved ~1e-8 inside it by the local solver, which
+    # raises an exact fit's chi-square from ~1e-24 to ~1e-6 at 1e6 counts; a
+    # relative-only or fixed absolute test rejects that and blames the box.
+    power = float(np.nansum((np.asarray(weights, float) * np.asarray(y_sub, float)) ** 2))
+    if refined.success and refined.chisqr <= found.chisqr * (1.0 + 1e-6) + 1e-8 * power:
         refined.box_unverified, refined.search_box = False, {}
         return refined
     return found

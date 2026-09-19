@@ -253,8 +253,8 @@ whenever a side was generated — an UNCONDITIONAL `least_squares`
 refinement from that solution under the request's own open bounds. A box
 can shape an answer that lies nowhere near its sides, so nothing is
 inferred from nearness; the refined fit replaces the search result when it
-converged to an equal or lower χ² (relative 1e-6 plus 1e-8 per data point,
-so exact fits of noise-free data pass), and otherwise the search result
+converged to an equal or lower χ² (relative 1e-6 plus 1e-8 of the data's weighted power,
+so exact fits pass at any intensity scale), and otherwise the search result
 stays marked unverified, never displaces a verified candidate in the
 perturb loop, and, if it is what `run_fit` returns, is `success: false`
 naming the generated limits.
