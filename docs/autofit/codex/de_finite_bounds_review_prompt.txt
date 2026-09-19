@@ -1,0 +1,27 @@
+You are reviewing ONE small commit in this repository (HEAD, branch fix-de-finite-bounds, parent = main 35b950e). Read-only review. Be adversarial. Give a verdict GO or NO-GO with findings ranked BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario. Do not pad.
+
+CONTEXT
+XPS peak-fitting web app (Flask + lmfit backend in fitting.py / app.py; single-page frontend templates/index.html). The Method dropdown offers differential_evolution. The page's request builder (peakToBackendSpec in templates/index.html) sends amplitude_min: 0 and never an amplitude_max; a free ds_g peak gets no default centre window in fitting._make_peak_params. lmfit's differential_evolution refuses any varying parameter with an open bound, so every ordinary request for that method returned HTTP 422 "Fit failed". Since unit A0 the page treats success !== true / HTTP errors from /api/fit as a failed fit and never falls back to the local engine on a server-side error.
+
+THE CHANGE (git show HEAD)
+- fitting.py: new _finite_search_box(params, x, y_sub); run_fit calls it only when kws["method"] == "differential_evolution", after the composite model and parameters are built and before composite_model.fit.
+- tests/test_differential_evolution_bounds.py (6 tests).
+- CLAUDE.md paragraph.
+
+SITE TABLE — everything I believe the change can affect. Your first job is to BREAK this list: name any site I missed.
+1. fitting.run_fit first minimisation (DE only).
+2. fitting.run_fit perturb-and-refit loop (n_perturb, page sends 3): copies result.params, so the closed bounds carry over; perturbed values are clipped to the bounds.
+3. Result serialisation (individual_peaks params / stderr / bounds echoed?) — check whether a bound that the request never set is now reported back or changes any derived quantity (areas, at-bound flags, uncertainties).
+4. app.py /api/fit error mapping: ValueError -> 400 with message; RuntimeError -> 422.
+5. Other callers of run_fit (autofit engine, /api/analyze, scripts) — do any pass differential_evolution?
+6. Frontend: no change. Check that nothing in templates/index.html reads a bound back from the response.
+
+QUESTIONS
+a. Is the amplitude box scientifically safe? Every lineshape in fitting.py is supposed to be normalised so `amplitude` is the component's peak height ON THE EVALUATION GRID. Verify for each of the 7 shapes. Find a realistic case where the true best-fit amplitude exceeds max(10*max|y_sub|, 2*start) — e.g. a component whose centre sits outside or at the edge of the ROI, a convolved shape normalised on the grid, negative background-subtracted data, all-zero y_sub.
+b. Expression-constrained parameters are skipped. Can an expr-constrained amplitude (linked peak, master.amplitude * ratio) still leave DE with an open bound error? Does lmfit require finite bounds on non-varying / expr parameters?
+c. par.set(min=..., max=...) when par.value lies outside the computed box: I widen the box to include the value. Is there any path where value ends up outside [min, max] or min == max?
+d. NaN / inf in y_sub or x (nan_policy is "omit").
+e. Does closing bounds change DE's result materially versus what a user would expect (e.g. DE ignoring the start entirely, centre window +-2 eV still applied)? Is anything in the CLAUDE.md paragraph overstated or wrong? It claims: 3-47 s per fit with n_perturb 3 on committed targets, and success=false on 6-7-component C 1s models.
+f. Tests: do they actually fail without the fix, and is anything important untested?
+
+Finish with: VERDICT: GO or VERDICT: NO-GO.

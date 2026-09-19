@@ -952,37 +952,101 @@ def _make_peak_params(
     return p
 
 
-def _finite_search_box(params: Parameters, x: np.ndarray, y_sub: np.ndarray) -> None:
+_SEARCH_BOX_EXPANSIONS = 3
+
+
+def _finite_search_box(params: Parameters, x: np.ndarray,
+                       y_sub: np.ndarray) -> dict[str, dict[str, float]]:
     """Give every freely varying parameter a finite box, in place.
 
     lmfit's ``differential_evolution`` samples its population from the
     parameter bounds and refuses to run when any varying parameter has an
     open one. The page sends ``amplitude_min: 0`` and no ``amplitude_max``,
     and a free DS+G centre has no default window, so without this every
-    ordinary request for that method failed (HTTP 422). Only open bounds of
+    ordinary request for that method failed (HTTP 422). Only open sides of
     freely varying parameters are closed; fixed and expression-constrained
     parameters, and bounds the request did set, are left alone.
 
-    Every lineshape is normalised so ``amplitude`` is the component's peak
-    height, so ten times the largest background-subtracted intensity (and
-    never less than twice the starting height) is a box no sensible
-    component reaches; a centre is boxed to the fitted energy range.
+    The box is a SEARCH limit, not a constraint the request made: an
+    amplitude starts at max(10 x the largest |background-subtracted
+    intensity|, 2 x |start|, 1) and a centre at the fitted energy range, and
+    ``run_fit`` widens a generated side that the solution leans on
+    (``_expand_active_search_box``) rather than accept it. A component whose
+    centre lies outside a narrowed ROI can need far more than the visible
+    intensity, so the first guess must not be allowed to bind.
+
+    Returns ``{name: {"min": step, "max": step}}`` for the sides it
+    generated, ``step`` being the amount one expansion adds.
     """
-    y_top = float(np.nanmax(np.abs(y_sub))) if len(y_sub) else 0.0
+    xf = np.asarray(x, float)
+    yf = np.asarray(y_sub, float)
+    xf, yf = xf[np.isfinite(xf)], yf[np.isfinite(yf)]
+    if xf.size == 0 or yf.size == 0:
+        raise ValueError("differential_evolution needs finite energy and intensity values")
+    x_lo, x_hi = float(xf.min()), float(xf.max())
+    span = (x_hi - x_lo) or 1.0
+    y_top = float(np.max(np.abs(yf)))
+    generated: dict[str, dict[str, float]] = {}
     for name, par in params.items():
         if not par.vary or par.expr is not None:
             continue
-        if np.isfinite(par.min) and np.isfinite(par.max):
+        open_min, open_max = not np.isfinite(par.min), not np.isfinite(par.max)
+        if not (open_min or open_max):
             continue
         if name.endswith("_amplitude"):
-            lo, hi = 0.0, max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
+            reach = max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
+            lo, hi, step = min(0.0, par.value), max(reach, par.value), None
         elif name.endswith("_center"):
-            lo, hi = float(np.min(x)), float(np.max(x))
+            lo, hi, step = min(x_lo, par.value), max(x_hi, par.value), span
         else:
             raise ValueError(
                 f"differential_evolution needs finite bounds for '{name}'")
-        par.set(min=par.min if np.isfinite(par.min) else min(lo, par.value),
-                max=par.max if np.isfinite(par.max) else max(hi, par.value))
+        new_min = lo if open_min else par.min
+        new_max = hi if open_max else par.max
+        width = step if step is not None else reach
+        # A bound the request did set can sit at or beyond the generated
+        # side (centre_min = 300 on a 280-290 eV ROI): keep a real interval.
+        if open_max and new_max <= new_min:
+            new_max = new_min + width
+        if open_min and new_min >= new_max:
+            new_min = new_max - width
+        par.set(min=new_min, max=new_max)
+        generated[name] = {}
+        if open_min:
+            generated[name]["min"] = width
+        if open_max:
+            generated[name]["max"] = width
+    return generated
+
+
+def _active_search_sides(params: Parameters,
+                         generated: dict[str, dict[str, float]]) -> list[tuple[str, str]]:
+    """Generated sides the solution sits on (within 1 % of the box)."""
+    active = []
+    for name, sides in generated.items():
+        par = params[name]
+        tol = 0.01 * (par.max - par.min)
+        if "max" in sides and par.max - par.value <= tol:
+            active.append((name, "max"))
+        if "min" in sides and par.value - par.min <= tol:
+            # An amplitude resting on zero is a real outcome, not a search limit.
+            if not (name.endswith("_amplitude") and par.min >= 0.0):
+                active.append((name, "min"))
+    return active
+
+
+def _expand_active_search_box(params: Parameters, generated: dict[str, dict[str, float]],
+                              active: list[tuple[str, str]]) -> None:
+    for name, side in active:
+        par = params[name]
+        if name.endswith("_amplitude"):
+            grow = 9.0 * max(abs(par.max), abs(par.min), 1.0)     # tenfold
+        else:
+            grow = generated[name][side]
+        if side == "max":
+            par.set(max=par.max + grow)
+        else:
+            par.set(min=par.min - grow)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1159,8 +1223,11 @@ def run_fit(
     if fit_kws:
         kws.update(fit_kws)
 
+    # Sides of the parameter box that WE closed so differential evolution can
+    # run (the request left them open). Never reported back as bounds.
+    search_box: dict[str, dict[str, float]] = {}
     if kws.get("method") == "differential_evolution":
-        _finite_search_box(all_params, x, y_sub)
+        search_box = _finite_search_box(all_params, x, y_sub)
 
     # ── Diagnostic logging: BEFORE optimisation ──────────────────────────────
     if log.isEnabledFor(logging.DEBUG):
@@ -1173,6 +1240,15 @@ def run_fit(
 
     try:
         result = composite_model.fit(y_sub, all_params, x=x, weights=weights, **kws)
+        # A solution leaning on a side we generated has been limited by our
+        # guess, not by the data or the request: widen that side and search
+        # again instead of accepting it.
+        for _ in range(_SEARCH_BOX_EXPANSIONS):
+            active = _active_search_sides(result.params, search_box)
+            if not active:
+                break
+            _expand_active_search_box(all_params, search_box, active)
+            result = composite_model.fit(y_sub, all_params, x=x, weights=weights, **kws)
     except Exception as exc:
         raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
 
@@ -1257,8 +1333,8 @@ def run_fit(
                     "stderr": float(par.stderr) if par.stderr is not None else None,
                     "vary": par.vary,
                     "expr": par.expr,
-                    "min": float(par.min) if np.isfinite(par.min) else None,
-                    "max": float(par.max) if np.isfinite(par.max) else None,
+                    "min": float(par.min) if np.isfinite(par.min) and "min" not in search_box.get(pname, {}) else None,
+                    "max": float(par.max) if np.isfinite(par.max) and "max" not in search_box.get(pname, {}) else None,
                 }
 
         param_info["area"] = {"value": area, "stderr": None}
@@ -1292,9 +1368,19 @@ def run_fit(
     r_factor = (float(np.sum(np.abs(y_sub - fitted_sub)) / np.sum(np.abs(y_sub)))
                 if np.sum(np.abs(y_sub)) > 0 else None)
 
+    success, message = result.success, result.message
+    still_active = _active_search_sides(result.params, search_box)
+    if still_active:
+        # Not a fit of the requested model: the answer is set by our search
+        # limit. The acceptance rule shows success=false as a failed fit.
+        success = False
+        message = ("differential_evolution stopped at the limit of its search box for "
+                   + ", ".join(sorted({n for n, _ in still_active}))
+                   + "; the request leaves that parameter unbounded. Set a bound or use another method.")
+
     return {
-        "success": result.success,
-        "message": result.message,
+        "success": success,
+        "message": message,
         "energy": x.tolist(),
         "counts": y.tolist(),
         "fitted_y": fitted_y.tolist(),
