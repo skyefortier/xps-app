@@ -952,6 +952,39 @@ def _make_peak_params(
     return p
 
 
+def _finite_search_box(params: Parameters, x: np.ndarray, y_sub: np.ndarray) -> None:
+    """Give every freely varying parameter a finite box, in place.
+
+    lmfit's ``differential_evolution`` samples its population from the
+    parameter bounds and refuses to run when any varying parameter has an
+    open one. The page sends ``amplitude_min: 0`` and no ``amplitude_max``,
+    and a free DS+G centre has no default window, so without this every
+    ordinary request for that method failed (HTTP 422). Only open bounds of
+    freely varying parameters are closed; fixed and expression-constrained
+    parameters, and bounds the request did set, are left alone.
+
+    Every lineshape is normalised so ``amplitude`` is the component's peak
+    height, so ten times the largest background-subtracted intensity (and
+    never less than twice the starting height) is a box no sensible
+    component reaches; a centre is boxed to the fitted energy range.
+    """
+    y_top = float(np.nanmax(np.abs(y_sub))) if len(y_sub) else 0.0
+    for name, par in params.items():
+        if not par.vary or par.expr is not None:
+            continue
+        if np.isfinite(par.min) and np.isfinite(par.max):
+            continue
+        if name.endswith("_amplitude"):
+            lo, hi = 0.0, max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
+        elif name.endswith("_center"):
+            lo, hi = float(np.min(x)), float(np.max(x))
+        else:
+            raise ValueError(
+                f"differential_evolution needs finite bounds for '{name}'")
+        par.set(min=par.min if np.isfinite(par.min) else min(lo, par.value),
+                max=par.max if np.isfinite(par.max) else max(hi, par.value))
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1125,6 +1158,9 @@ def run_fit(
     kws = {"method": "leastsq", "nan_policy": "omit"}
     if fit_kws:
         kws.update(fit_kws)
+
+    if kws.get("method") == "differential_evolution":
+        _finite_search_box(all_params, x, y_sub)
 
     # ── Diagnostic logging: BEFORE optimisation ──────────────────────────────
     if log.isEnabledFor(logging.DEBUG):

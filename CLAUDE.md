@@ -239,6 +239,19 @@ returns the full result including refined params, σ bounds, χ²,
 `bgIntensity`, `bgSubtracted`, and `fittedY`. Linked peaks are
 constrained via lmfit parameter expressions.
 
+`differential_evolution` samples from the parameter bounds and refuses an
+open one, and the page sends `amplitude_min: 0` with no `amplitude_max`
+(a free DS+G centre has no default window either), so until 2026-09-19
+every ordinary request for that method returned HTTP 422. `run_fit` now
+closes open bounds of freely varying parameters FOR THAT METHOD ONLY
+(`_finite_search_box`: amplitude ≤ max(10 × the largest
+background-subtracted intensity, 2 × the start); centre within the fitted
+energy range); every other method's parameters are unchanged. Measured on
+committed targets with the page's `n_perturb: 3`: 3–47 s per fit, and on
+6–7-component C 1s models it exhausts lmfit's evaluation budget and
+returns `success: false`, which the acceptance rule shows as a
+non-converged fit. It is not a gold standard.
+
 ### Client-side fallback
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
