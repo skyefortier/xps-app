@@ -69,7 +69,7 @@ driven to its bound as "not supported by the data" instead of reporting its
 centre/width; `differential_evolution` raises on the mirror's unbounded
 specs (check what the UI sends before relying on it).
 
-## 3. OPEN DECISION — the amplitude lower bound (decide on the merits before any "bounds parity")
+## 3. DECIDED 2026-09-18 — the amplitude lower bound (owner decision; reasoning kept below)
 
 Local engine floor: 1. Server (`fitting.py`, `amplitude_min` default): 0.
 A fixed-shape peak of true amplitude 0.1 converges to 1 locally and 0.1 on
@@ -98,5 +98,29 @@ server is right:
   instead of hiding it behind either bound. Whatever is chosen applies to
   BOTH engines; parity with a wrong bound is not an improvement.
 
-Decision owner: Skye. Until it is made, the difference stays listed among
-the reasons a local result is a starting point.
+**Decision (Skye, 2026-09-18): option (b), reasoning intact.** Allow zero
+in BOTH engines, and treat "amplitude at its lower bound" as an explicit
+outcome: flag the component as unsupported by the data and suppress its
+centre, width and σ (results, Quantify, exports, saves). "Reporting a
+centre and width for a vanished peak is precisely the class of overclaim
+this project exists to remove." To be implemented in the unit that follows
+the optimiser-disagreement frequency measurement, not before. Until then
+the difference stays listed among the reasons a local result is a starting
+point.
+
+## 4. CONFIRMED BUG (not yet fixed) — Differential Evolution cannot run from the UI
+
+Checked 2026-09-18 with the shipped `peakToBackendSpec` and the real
+`/api/fit` route: the UI sends `amplitude_min: 0` and never an
+`amplitude_max`, so every free amplitude is unbounded above, and lmfit's
+`differential_evolution` requires finite bounds for every varying
+parameter. Result for any model with a free amplitude (i.e. essentially
+every fit): HTTP 422, "Fit failed — see server log for details"; server
+log: `ValueError: differential_evolution requires finite bound for all
+varying parameters`. Before unit A0 that error fell through silently to
+the broken local fitter, which returned the starting model as "Fit
+complete (local)" under a "server did not respond" overlay; since A0 the
+user sees a red "Fit failed". The Method dropdown therefore offers an
+option that cannot work. Fix options (own unit): send a finite
+`amplitude_max` (e.g. a multiple of the ROI maximum) for DE, or remove DE
+from the dropdown. Repro: the commands in this section's commit message.

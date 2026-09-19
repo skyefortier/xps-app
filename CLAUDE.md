@@ -271,10 +271,11 @@ server 0), and where the model has several minima. Both engines weight by
 calibrated uncertainty for rates); the formula is the same but the inputs
 are not bit-identical, because `uploadToBackend` rounds intensities to
 2 dp before the server weights them. Retire the designation only on a
-re-measurement after A03, the `caM` clamp and a decision ON ITS MERITS
-about the amplitude lower bound (0 is degenerate, 1 is unit-dependent —
-`docs/findings/2026-09-fit-determinacy.md` §3; do not implement "parity"
-with either bound before that decision). The same file records that a
+re-measurement after A03, the `caM` clamp and the amplitude-bound change
+DECIDED 2026-09-18 (`docs/findings/2026-09-fit-determinacy.md` §3): zero
+allowed in both engines, and a component at its lower bound is an explicit
+outcome — flagged as unsupported by the data, with its centre, width and σ
+suppressed. Not yet implemented. The same file records that a
 converged server fit is not ground truth: on a committed C 1s scan the
 server's default method stopped in a local minimum the local engine
 avoided.
@@ -454,6 +455,10 @@ Typical regions for hand-testing:
   (`templates/index.html` around the `data-xps-tip` listeners); events
   targeting non-Elements throw `e.target.closest is not a function`.
   Needs an `instanceof Element` guard in a future pass.
+- **Differential Evolution cannot run from the UI** (confirmed 2026-09-18):
+  the request never carries an `amplitude_max`, and lmfit's DE needs finite
+  bounds on every varying parameter, so `/api/fit` answers HTTP 422 for any
+  model with a free amplitude. See `docs/findings/2026-09-fit-determinacy.md` §4.
 - Gunicorn `--reload` watches Python files only — **edits to
   `templates/index.html` are NOT picked up** outside Flask debug mode
   because Jinja caches compiled templates per worker. Restart the dev
