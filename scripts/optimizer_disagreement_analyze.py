@@ -22,7 +22,8 @@ FRAC_TOL = 0.5      # percentage points of area fraction
 def load(d: Path):
     targets = {t["id"]: t for t in json.loads((d / "targets.json").read_text())}
     res = defaultdict(dict)
-    for f in sorted(d.glob("results*.jsonl")):
+    # n_perturb=0 run only; results_perturb3*.jsonl belongs to optimizer_disagreement_analyze_perturb.py
+    for f in sorted([*d.glob("results.jsonl"), *d.glob("results.shard*.jsonl")]):
         for line in f.read_text().splitlines():
             if line.strip():
                 r = json.loads(line)

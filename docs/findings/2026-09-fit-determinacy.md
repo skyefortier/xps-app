@@ -72,6 +72,46 @@ overlapping components. No start-model feature separates the risky fits in
 this dataset beyond "multi-component C 1s model". Full report:
 `docs/findings/optimizer-disagreement/REPORT.md`.
 
+**Correction and extension (2026-09-19, same day).** The run above called
+`run_fit` with `n_perturb=0`; the page's Run Fit sends `n_perturb: 3` (three
+refits from a random ±15 % perturbation, best χ²ᵣ kept), so it did not
+measure the shipped request. Re-measured with `n_perturb: 3`, Trust-Region
+and LM, five repeats each because the perturbation is unseeded
+(`REPORT_perturb3.md`, 2 020 fits). The headline barely moves: the shipped
+default is more than 5 pp from the best known solution in 4.2 % of Run Fit
+outcomes (7.8 % of not-yet-fitted starts, 0.9 % of saved-solution re-fits —
+one re-fit target, 1-GTA C1s Scan_0, now counts because an LM perturbation
+found a lower minimum than any first-run method). Two new facts:
+
+- **Run Fit is not repeatable.** On 8 of 202 targets the identical request
+  gives area fractions that differ by more than 1 pp between repeats
+  (8-JT C1s Scan_6: χ²ᵣ 70.6, 18.5, 70.6, 38.3, 18.5 from five presses).
+- **Trust-Region and LM are not independent.** Paired as a cross-check they
+  flag only 25 of the 42 outcomes (60 %) where the default is more than
+  5 pp off; in the rest both stop in the same minimum (8-JT C1s Scan_1:
+  χ²ᵣ 17.55 from both, every repeat, against 12.30). Taking the better of
+  the pair lowers the not-yet-fitted off-rate from 7.8 % to only 6.3 %, and
+  half of what remains is unflagged — "two methods agree" would be false
+  reassurance there.
+
+A different START is a more independent second opinion than a different
+local method (`REPORT_starts.md`, 2 222 fits): the better of the default
+and 3 Trust-Region fits from scattered starts (amplitude ×/÷ 3, width
+×/÷ 1.5, free centres ± 0.5 eV, shape parameters re-drawn inside their
+bounds; median 1.8 s for ten) lowers the not-yet-fitted off-rate to 3.2 %,
+with no false alarm at 5 pp in 968 outcomes; 5 or 10 starts add nothing at
+5 pp. Moving at-bound shape parameters inward (7 of the 9 bad targets start
+one on a bound, against 45 of 193 others) changes nothing by itself. Four
+targets defeat ten scattered starts.
+
+**"Lowest χ²ᵣ" is not "the right fit".** On 8-JT C1s Scan_1 basin-hopping
+reached χ²ᵣ 12.30 by moving the C–O component 1.47 eV (inside the server's
+default ± 2 eV centre window) to sit under the main line as a second broad
+carbon component. The default's 17.55 keeps every component where the
+student put it. Neither is established; the data do not determine this
+five-component model inside those windows. A check of this kind can show
+that a decomposition is not unique; it cannot say which one is correct.
+
 Together with §1: on real C 1s data the decomposition can move by tens of
 percent with the background choice AND by up to 100 % with the optimiser's
 path, all under "converged". This is the argument for visible assumptions,
