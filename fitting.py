@@ -1013,7 +1013,7 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
     return generated
 
 
-def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
+def _search_then_refine(model, params, requested, y_sub, x, weights, raw, kws):
     """One differential-evolution candidate: search inside a generated box,
     then refine FROM that solution with ``least_squares`` under the request's
     own (open) bounds.
@@ -1050,14 +1050,18 @@ def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
     except Exception:
         log.debug("refinement outside the search box raised", exc_info=True)
         return found
-    # "Equal or lower" up to numerical noise, on a scale that does not depend
-    # on the intensity units: 1e-8 of the weighted power of the data being
-    # fitted (chi-square of the empty model). A start sitting exactly on a
-    # REQUESTED bound is moved ~1e-8 inside it by the local solver, which
-    # raises an exact fit's chi-square from ~1e-24 to ~1e-6 at 1e6 counts; a
-    # relative-only or fixed absolute test rejects that and blames the box.
-    power = float(np.nansum((np.asarray(weights, float) * np.asarray(y_sub, float)) ** 2))
-    if refined.success and refined.chisqr <= found.chisqr * (1.0 + 1e-6) + 1e-8 * power:
+    # "Equal or lower" up to numerical noise. The local solver moves a start
+    # that sits exactly on a REQUESTED bound ~1e-10 (relative) inside it, which
+    # raises the chi-square of an exact fit from ~0 by up to ~1e-12 of the
+    # weighted power of the data; without an allowance an exact fit is
+    # refused and the box blamed. The allowance is 1e-11 of the power of the
+    # RAW intensities over the channels the objective uses (total counts under
+    # Poisson weights: it does not vanish on a flat or empty region, and at
+    # 1e9 total counts it is 0.01 in chi-square), plus 1e-6 relative.
+    used = np.isfinite(x) & np.isfinite(y_sub) & np.isfinite(weights) & np.isfinite(raw)
+    power = float(np.sum((np.asarray(weights, float)[used] * np.asarray(raw, float)[used]) ** 2))
+    allowance = found.chisqr * 1e-6 + 1e-11 * power + np.finfo(float).eps * max(found.ndata, 1)
+    if refined.success and refined.chisqr <= found.chisqr + allowance:
         refined.box_unverified, refined.search_box = False, {}
         return refined
     return found
@@ -1245,7 +1249,7 @@ def run_fit(
         requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
 
         def fit_once(params):
-            return _search_then_refine(composite_model, params, requested_bounds, y_sub, x, weights, kws)
+            return _search_then_refine(composite_model, params, requested_bounds, y_sub, x, weights, y, kws)
     else:
         def fit_once(params):
             return composite_model.fit(y_sub, params, x=x, weights=weights, **kws)
