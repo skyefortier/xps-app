@@ -423,3 +423,75 @@ def test_a_perturbed_search_starts_from_the_requests_bounds_not_the_last_box():
                                       {"method": "differential_evolution", "nan_policy": "omit"})
     assert res.box_unverified is False
     assert res.params["p1_amplitude"].value == pytest.approx(10000.0, rel=1e-3)
+
+
+# ── Codex round 5 (both runs NO-GO) ─────────────────────────────────────────
+
+@pytest.mark.parametrize("n_perturb", [0, 3])
+def test_numerically_exact_refinement_is_accepted(n_perturb):
+    # Noise-free data: DE reaches chi2 ~4e-28 on the requested centre bound,
+    # least_squares steps 3e-8 eV inside it (chi2 ~1e-11). A relative-only
+    # comparison rejected that and blamed the generated amplitude limit.
+    np.random.seed(4)
+    x = np.linspace(280.0, 290.0, 101)
+    y = 1000.0 + 1000.0 * np.exp(-4 * np.log(2) * (x - 285.0) ** 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "center_min": 285.0,
+              "amplitude": 1000.0, "amplitude_min": 0, "fwhm": 1.0, "fix_fwhm": True}]
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[280.0, 1000.0], [290.0, 1000.0]], n_perturb=n_perturb,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True, res["message"]
+    assert res["individual_peaks"][0]["params"]["amplitude"]["value"] == pytest.approx(1000.0, rel=1e-6)
+
+
+def test_exact_fit_on_a_requested_width_floor_is_accepted():
+    np.random.seed(0)
+    x = np.linspace(284.0, 286.0, 81)
+    y = 1000.0 + 100.0 * np.exp(-4 * np.log(2) * ((x - 285.0) / 0.1) ** 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "fix_center": True,
+              "amplitude": 10.0, "amplitude_min": 0, "fwhm": 0.2}]
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[280.0, 1000.0], [290.0, 1000.0]], n_perturb=0,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True, res["message"]
+
+
+def test_an_unverified_perturbed_candidate_does_not_displace_a_verified_fit(monkeypatch):
+    # First candidate verified; every later refinement is made to fail, so the
+    # perturbed candidates stay unverified. They must not replace the fit.
+    real = fitting._search_then_refine
+    calls = {"n": 0}
+
+    def later_candidates_unverified(model, params, requested, y_sub, x, weights, kws):
+        calls["n"] += 1
+        res = real(model, params, requested, y_sub, x, weights, kws)
+        if calls["n"] > 1:
+            res.box_unverified, res.search_box = True, {"p1_amplitude": {"max": 1.0}}
+            res.chisqr, res.redchi = res.chisqr * 0.5, res.redchi * 0.5     # and "better"
+        return res
+
+    monkeypatch.setattr(fitting, "_search_then_refine", later_candidates_unverified)
+    x, y = _two_peak_spectrum()
+    res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=3,
+                          fit_kws={"method": "differential_evolution"})
+    assert calls["n"] == 4
+    assert res["success"] is True, res["message"]
+
+
+def test_a_verified_candidate_displaces_an_unverified_one_even_at_higher_chi_square(monkeypatch):
+    real = fitting._search_then_refine
+    calls = {"n": 0}
+
+    def first_candidate_unverified(model, params, requested, y_sub, x, weights, kws):
+        calls["n"] += 1
+        res = real(model, params, requested, y_sub, x, weights, kws)
+        if calls["n"] == 1:
+            res.box_unverified, res.search_box = True, {"p1_amplitude": {"max": 1.0}}
+            res.chisqr, res.redchi = res.chisqr * 0.5, res.redchi * 0.5
+        return res
+
+    monkeypatch.setattr(fitting, "_search_then_refine", first_candidate_unverified)
+    x, y = _two_peak_spectrum()
+    res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=2,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True, res["message"]

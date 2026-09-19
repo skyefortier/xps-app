@@ -248,13 +248,16 @@ ONLY, every candidate (the first search and each perturbed refit) is now
 (`_finite_search_box`: open sides of freely varying parameters only —
 amplitude ± max(10 × the largest |background-subtracted intensity|,
 2 × |start|, 1), just the ceiling for the page, which sets the floor
-itself; centre = the fitted energy range, always a real interval), then an
-UNCONDITIONAL `least_squares` refinement from that solution under the
-request's own open bounds. A box can shape an answer that lies nowhere
-near its sides, so nothing is inferred from nearness; the refined fit
-replaces the search result when it converged to an equal or lower χ², and
-otherwise the search result stays marked unverified and, if it is what
-`run_fit` returns, is `success: false` naming the generated limits.
+itself; centre = the fitted energy range, always a real interval), then —
+whenever a side was generated — an UNCONDITIONAL `least_squares`
+refinement from that solution under the request's own open bounds. A box
+can shape an answer that lies nowhere near its sides, so nothing is
+inferred from nearness; the refined fit replaces the search result when it
+converged to an equal or lower χ² (relative 1e-6 plus 1e-8 per data point,
+so exact fits of noise-free data pass), and otherwise the search result
+stays marked unverified, never displaces a verified candidate in the
+perturb loop, and, if it is what `run_fit` returns, is `success: false`
+naming the generated limits.
 Generated sides are never echoed back as `min`/`max` (the page saves
 returned bounds and warns within 1 % of them). A returned DE result
 therefore normally carries `least_squares` uncertainties and message.

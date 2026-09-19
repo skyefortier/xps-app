@@ -969,12 +969,12 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
     intensity|, 2 x |start|, 1) (both signs when the request leaves the
     floor open too; the page never does), a centre the fitted energy range.
     A component centred outside a narrowed ROI can need far more than the
-    visible intensity, so ``run_fit`` never lets a generated side set the
-    answer: a solution near one is refined with the request's own bounds
-    (``_polish_outside_search_box``).
+    visible intensity, and a box can shape an answer that lies nowhere near
+    its sides, so ``_search_then_refine`` refines every boxed search under
+    the request's own bounds.
 
-    Returns ``{name: {side: scale}}`` for the sides it generated; ``scale``
-    is the length on which "near that side" is judged.
+    Returns ``{name: {side: width}}`` for the sides it generated (``width``
+    is the extent it gave that side).
     """
     xf = np.asarray(x, float)
     yf = np.asarray(y_sub, float)
@@ -1018,7 +1018,8 @@ def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
     then refine FROM that solution with ``least_squares`` under the request's
     own (open) bounds.
 
-    The refinement is unconditional. A box can shape the answer without the
+    Whenever a side was generated the refinement is unconditional (a request
+    that bounds everything itself is returned as found). A box can shape the answer without the
     solution lying anywhere near a side (centre and width compensate for a
     capped amplitude), and an unrefined boundary candidate can lose the
     perturb loop's comparison to a worse interior one, so every candidate is
@@ -1049,7 +1050,11 @@ def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
     except Exception:
         log.debug("refinement outside the search box raised", exc_info=True)
         return found
-    if refined.success and refined.chisqr <= found.chisqr * (1.0 + 1e-9):
+    # "Equal or lower" up to numerical noise. chi-square here is a sum of
+    # squared residuals in units of sigma, so 1e-8 per point is far below
+    # anything a fit means; a relative test alone rejects exact refinements
+    # of noise-free data (4e-28 -> 1e-11) and would blame the box for it.
+    if refined.success and refined.chisqr <= found.chisqr * (1.0 + 1e-6) + 1e-8 * max(found.ndata, 1):
         refined.box_unverified, refined.search_box = False, {}
         return refined
     return found
@@ -1295,7 +1300,12 @@ def run_fit(
                 trial_redchi = trial.redchi if trial.redchi is not None else float('inf')
                 log.debug("  PERTURB %d/%d  redchi=%.4f  (best=%.4f)",
                           attempt + 1, n_perturb, trial_redchi, best_redchi)
-                if trial.success and trial_redchi < best_redchi:
+                # A candidate whose search box was never cleared by its
+                # refinement (differential evolution only) does not displace
+                # one that was; for every other method both flags are False.
+                trial_rank = (getattr(trial, "box_unverified", False), trial_redchi)
+                best_rank = (getattr(best_result, "box_unverified", False), best_redchi)
+                if trial.success and trial_rank < best_rank:
                     best_result = trial
                     best_redchi = trial_redchi
                     log.debug("  *** New best found! redchi improved to %.4f", best_redchi)
