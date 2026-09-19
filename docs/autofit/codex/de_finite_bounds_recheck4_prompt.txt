@@ -1,0 +1,18 @@
+ROUND 5 recheck of branch fix-de-finite-bounds (HEAD; unit parent = main 35b950e). Read-only. Be adversarial. Round 4 was NO-GO x2 (archived docs/autofit/codex/de_finite_bounds_r4_verdict_run{A,B}.md; earlier rounds beside them).
+
+DISPOSITIONS
+1. MAJOR (both runs) a box-limited solution can lie far from the generated side / a boundary candidate can lose the perturb comparison before being refined -> nearness is gone entirely (_near_search_sides deleted). For differential_evolution every candidate — the first search and each perturbed refit — goes through _search_then_refine(model, params, requested_bounds, ...): (i) reset the candidate's bounds to the REQUEST's bounds (a perturbed start may carry an earlier candidate's generated sides), (ii) _finite_search_box, (iii) DE, (iv) UNCONDITIONAL least_squares refinement from the DE solution under the request's bounds, (v) the refined fit replaces the DE result iff refined.success and refined.chisqr <= found.chisqr*(1+1e-9); else the DE result is returned with box_unverified=True and its generated sides. run_fit: success=False with a message naming the generated limits iff the RETURNED result is box_unverified; generated sides of the returned result are never serialised.
+   Tests: test_box_limited_fit_far_from_the_ceiling_is_refined (run A, seed 3), test_a_boundary_candidate_is_refined_before_it_can_lose_the_comparison (run B, seed 0, n_perturb 0/1/3, expects chi-square 1157.545), test_a_perturbed_search_starts_from_the_requests_bounds_not_the_last_box.
+2. MINOR DE-specific solver options crashed the refinement -> refinement kwargs are built fresh ({"method": "least_squares", "nan_policy": ...}); an exception inside the refinement leaves the DE result unverified instead of raising. Test: test_solver_options_for_differential_evolution_do_not_reach_the_refinement.
+3. CLAUDE.md: "never a constraint" claim removed; paragraph rewritten to the actual mechanism and re-measured timings (2-75 s; 6-7-component C 1s models are rescued by the refinement).
+28 unit tests; full suite re-run on HEAD.
+
+TRY TO BREAK
+a. The perturb loop (unchanged) keeps a trial iff trial.success and trial.redchi < best. An unverified candidate has success as DE reported it (can be True). Can an unverified candidate with lower redchi beat a verified one and turn a good fit into success=False? Is that the right outcome or should verified candidates be preferred?
+b. `if n_perturb > 0 and result.success:` gates the perturb loop on the first candidate. After refinement, result.success is the refinement's. Any regression for other methods? (fit_once for them is exactly the old call.)
+c. Does resetting a perturbed candidate's bounds to the request's bounds interact badly with the perturb loop's own clipping of perturbed values to par.min/par.max (the copy it perturbs carries the returned result's bounds: open for a refined result, generated for an unverified one)?
+d. least_squares refinement with an open amplitude ceiling for a component centred outside the ROI: same answer as requesting least_squares directly — confirm there is no new failure mode relative to the existing default method.
+e. Response consistency after refinement (message, nfev/statistics, stderr), /api/analyze consumers, and any leak of generated bounds.
+f. CLAUDE.md accuracy.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete failing scenario) and VERDICT: GO or VERDICT: NO-GO.

@@ -242,28 +242,28 @@ constrained via lmfit parameter expressions.
 `differential_evolution` samples from the parameter bounds and refuses an
 open one, and the page sends `amplitude_min: 0` with no `amplitude_max`
 (a free DS+G centre has no default window either), so until 2026-09-19
-every ordinary request for that method returned HTTP 422. `run_fit` now
-closes the open sides of freely varying parameters FOR THAT METHOD ONLY
-(`_finite_search_box`: amplitude ± max(10 × the largest
-|background-subtracted intensity|, 2 × |start|, 1) — only the ceiling for
-the page, which sets the floor itself; centre = the fitted energy range,
-always a real interval, also beside a one-sided request bound). Every
-other method's parameters are unchanged, and `/api/analyze` reaches the
-same code through `options.fit_method`. The box is a SEARCH limit, never a
-constraint: when the final solution (first search or a winning perturbed
-refit) lies within 1 % of a generated side — on that side's own scale — it
-is refined FROM that solution by `least_squares` with the request's own
-open bounds (`_polish_outside_search_box`), so the data decide whether the
-limit mattered; the refinement replaces the solution only if it converged
-to an equal or lower χ², and if it did not the result is `success: false`
-naming the parameter. Generated sides are never echoed back as `min`/`max`
-(the page saves returned bounds and warns within 1 % of them). A refined
-result carries `least_squares` uncertainties. Measured on committed
-targets with the page's `n_perturb: 3`: 2–47 s per fit; on
-6–7-component C 1s models it exhausts lmfit's evaluation budget ("Fit
-aborted: number of function evaluations > …") and returns
-`success: false`, which the acceptance rule shows as a non-converged fit.
-It is not a gold standard.
+every ordinary request for that method returned HTTP 422. For THAT METHOD
+ONLY, every candidate (the first search and each perturbed refit) is now
+`_search_then_refine`: differential evolution inside a generated box
+(`_finite_search_box`: open sides of freely varying parameters only —
+amplitude ± max(10 × the largest |background-subtracted intensity|,
+2 × |start|, 1), just the ceiling for the page, which sets the floor
+itself; centre = the fitted energy range, always a real interval), then an
+UNCONDITIONAL `least_squares` refinement from that solution under the
+request's own open bounds. A box can shape an answer that lies nowhere
+near its sides, so nothing is inferred from nearness; the refined fit
+replaces the search result when it converged to an equal or lower χ², and
+otherwise the search result stays marked unverified and, if it is what
+`run_fit` returns, is `success: false` naming the generated limits.
+Generated sides are never echoed back as `min`/`max` (the page saves
+returned bounds and warns within 1 % of them). A returned DE result
+therefore normally carries `least_squares` uncertainties and message.
+Every other method's parameters are unchanged; `/api/analyze` reaches the
+same code through `options.fit_method`. Measured on committed targets with
+the page's `n_perturb: 3`: 2–75 s per fit (6–7-component C 1s models
+exhaust DE's evaluation budget in every search and are rescued by the
+refinement). It is not a gold standard: on one 3-component B 1s target it
+returned χ²ᵣ 1.92 where Trust-Region found 1.81.
 
 ### Client-side fallback
 

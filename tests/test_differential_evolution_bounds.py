@@ -160,7 +160,7 @@ def test_generated_amplitude_limit_never_sets_the_answer():
         ls["individual_peaks"][0]["params"]["area"]["value"], rel=1e-3)
 
 
-def test_near_the_limit_without_a_converged_refinement_is_not_a_success(monkeypatch):
+def test_without_a_converged_refinement_the_boxed_answer_is_not_a_success(monkeypatch):
     # The ceiling (10 x 625) binds; if the refinement that would settle it
     # does not converge, the capped answer must not be reported as a fit.
     real_fit = fitting.Model.fit
@@ -179,7 +179,8 @@ def test_near_the_limit_without_a_converged_refinement_is_not_a_success(monkeypa
     res = fitting.run_fit(x, y, specs, background_method="none", n_perturb=0,
                           fit_kws={"method": "differential_evolution"})
     assert res["success"] is False
-    assert "search box" in res["message"] and "p1_amplitude" in res["message"]
+    assert "generated limits" in res["message"] and "p1_amplitude" in res["message"]
+    assert res["individual_peaks"][0]["params"]["amplitude"]["max"] is None
 
 
 @pytest.mark.parametrize("bound", [{"center": 300.0, "center_min": 300.0},
@@ -285,17 +286,6 @@ def test_exact_fit_beside_a_broad_one_sided_centre_bound_is_accepted(bound):
     assert res["individual_peaks"][0]["params"]["center"]["value"] == pytest.approx(285.0, abs=0.02)
 
 
-def test_nearness_is_judged_on_the_generated_sides_scale():
-    p = Parameters()
-    p.add("p1_center", value=285.0, min=0.0)
-    x = np.linspace(284.8, 285.2, 41)
-    generated = fitting._finite_search_box(p, x, np.full_like(x, 10.0))
-    p["p1_center"].set(value=285.0)                       # 0.2 eV inside a 0.4 eV-wide generated side
-    assert fitting._near_search_sides(p, generated) == []
-    p["p1_center"].set(value=285.199)
-    assert fitting._near_search_sides(p, generated) == [("p1_center", "max")]
-
-
 # ── Codex round 3 (both runs NO-GO): the widening loop is gone. A solution near
 #    a generated side is refined FROM that solution with the request's own
 #    bounds; nearness alone never refuses, and no candidate is discarded. ─────
@@ -352,11 +342,84 @@ def test_exact_amplitude_just_under_a_generated_ceiling_is_accepted():
 
 def test_refinement_runs_only_for_differential_evolution(monkeypatch):
     def boom(*a, **k):
-        raise AssertionError("polish must not run for another method")
+        raise AssertionError("the search box is for differential evolution only")
 
-    monkeypatch.setattr(fitting, "_polish_outside_search_box", boom)
+    monkeypatch.setattr(fitting, "_search_then_refine", boom)
     x, y = _two_peak_spectrum()
     for method in ("leastsq", "least_squares", "nelder"):
         res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=1,
                               fit_kws={"method": method})
         assert res["success"] is True
+
+
+# ── Codex round 4 (both runs NO-GO): nearness was a heuristic. Every
+#    differential-evolution candidate is refined under the request's own
+#    bounds before it is compared or returned. ────────────────────────────────
+
+def test_box_limited_fit_far_from_the_ceiling_is_refined():
+    # Ceiling 2 000 for a true height of 1e6 seen through its tail: DE
+    # compensated with centre and width (amplitude 1 969, centre 286.08,
+    # width 0.69) and sat 31 away from the ceiling, outside any "near" band.
+    np.random.seed(3)
+    x = np.linspace(287.0, 288.0, 81)
+    y = 1000.0 + 1e6 * np.exp(-4 * np.log(2) * (x - 285.0) ** 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "amplitude": 1000.0, "fwhm": 1.0,
+              "amplitude_min": 0}]
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[280.0, 1000.0], [290.0, 1000.0]], n_perturb=3,
+                          fit_kws={"method": "differential_evolution"})
+    ls = fitting.run_fit(x, y, specs, background_method="manual",
+                         manual_bg=[[280.0, 1000.0], [290.0, 1000.0]], n_perturb=0,
+                         fit_kws={"method": "least_squares"})
+    assert res["success"] is True, res["message"]
+    assert res["statistics"]["chi_square"] <= ls["statistics"]["chi_square"] * (1 + 1e-6) + 1e-12
+    got = res["individual_peaks"][0]["params"]
+    assert got["amplitude"]["value"] == pytest.approx(1e6, rel=1e-3)
+    assert got["center"]["value"] == pytest.approx(285.0, abs=1e-3)
+
+
+@pytest.mark.parametrize("n_perturb", [0, 1, 3])
+def test_a_boundary_candidate_is_refined_before_it_can_lose_the_comparison(n_perturb):
+    # First search lands on the ceiling (chi2 ~1270); a perturbed search finds
+    # an interior solution (~1250) that used to win and suppress the
+    # refinement that takes the first candidate to ~1158.
+    np.random.seed(0)
+    x = np.linspace(286.8, 290.8, 81)
+    y = (1000.0 + 1e7 * np.exp(-4 * np.log(2) * (x - 285.0) ** 2)
+         + 310.0 * np.exp(-4 * np.log(2) * (x - 289.0) ** 2))
+    specs = [{"id": 1, "shape": "gaussian", "center": 287.0, "center_min": 284.0, "center_max": 291.0,
+              "amplitude": 1000.0, "amplitude_min": 0, "fwhm": 1.0, "fix_fwhm": True}]
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[286.0, 1000.0], [291.0, 1000.0]], n_perturb=n_perturb,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True, res["message"]
+    assert res["statistics"]["chi_square"] == pytest.approx(1157.545422, rel=1e-3)
+
+
+def test_solver_options_for_differential_evolution_do_not_reach_the_refinement():
+    x = np.linspace(286.0, 290.0, 81)
+    y = 10000.0 * np.exp(-4 * np.log(2) * ((x - 285.0) / 1.0) ** 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "amplitude": 1000.0, "fwhm": 1.0,
+              "fix_center": True, "fix_fwhm": True, "amplitude_min": 0}]
+    res = fitting.run_fit(x, y, specs, background_method="none", n_perturb=0,
+                          fit_kws={"method": "differential_evolution", "fit_kws": {"seed": 4}})
+    assert res["success"] is True
+    assert res["individual_peaks"][0]["params"]["amplitude"]["value"] == pytest.approx(10000.0, rel=1e-3)
+
+
+def test_a_perturbed_search_starts_from_the_requests_bounds_not_the_last_box():
+    # An unverified candidate carries generated sides; the next search must
+    # not mistake them for bounds the request set (and so skip refinement).
+    from lmfit import Model
+    model = Model(fitting._SHAPE_FUNCS["gaussian"], prefix="p1_")
+    x = np.linspace(286.0, 290.0, 81)
+    y = 10000.0 * np.exp(-4 * np.log(2) * ((x - 285.0) / 1.0) ** 2)
+    params = model.make_params()
+    params["p1_amplitude"].set(value=1000.0, min=0.0, max=6250.0)          # as left by an earlier box
+    params["p1_center"].set(value=285.0, vary=False)
+    params["p1_fwhm"].set(value=1.0, vary=False)
+    requested = {"p1_amplitude": (0.0, np.inf), "p1_center": (-np.inf, np.inf), "p1_fwhm": (-np.inf, np.inf)}
+    res = fitting._search_then_refine(model, params, requested, y, x, np.ones_like(y),
+                                      {"method": "differential_evolution", "nan_policy": "omit"})
+    assert res.box_unverified is False
+    assert res.params["p1_amplitude"].value == pytest.approx(10000.0, rel=1e-3)
