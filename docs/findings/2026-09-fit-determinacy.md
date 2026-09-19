@@ -58,6 +58,20 @@ What it shows:
   neither is presumed right. Re-run with a second method (Levenberg–
   Marquardt or basin-hopping) and look for a component being driven out.
 
+**Frequency (measured 2026-09-19, 202 targets from all committed projects,
+three server methods from the same start; generator, runner, analyser and
+raw results in `scripts/optimizer_disagreement_*` and
+`docs/findings/optimizer-disagreement/`):** the methods disagree materially
+(> 1 pp of area fraction) on 39 of 202 targets (19 %); the UI default is
+not the best of the three on 18 (8.9 %) and leaves a student more than 5 pp
+from the best answer on 8 (4.0 %) — all 8 from not-yet-fitted starts (8 of
+95, 8.4 %), none of the 107 re-fits of a saved solution, and 6 of the 8
+from one project. Scan_4's "best solution removes a component" pattern is
+the exception (1 case); most disagreements are different partitions among
+overlapping components. No start-model feature separates the risky fits in
+this dataset beyond "multi-component C 1s model". Full report:
+`docs/findings/optimizer-disagreement/REPORT.md`.
+
 Together with §1: on real C 1s data the decomposition can move by tens of
 percent with the background choice AND by up to 100 % with the optimiser's
 path, all under "converged". This is the argument for visible assumptions,

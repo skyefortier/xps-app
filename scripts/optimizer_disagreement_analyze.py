@@ -92,7 +92,11 @@ def main(d: Path, md_out: Path | None):
                 darea = max(darea, float(rel.max()) * 100)
         vanished = any(float(p.get("amplitude", 1.0)) <= 1e-6 * max(float(q.get("amplitude", 1.0)) for q in r[min(chi, key=chi.get)]["peaks"])
                        for p in r[min(chi, key=chi.get)]["peaks"])
+        b = min(chi, key=chi.get)
+        d_default = float(np.max(np.abs(fr["least_squares"] - fr[b])))          # what the UI default is off by, vs the best of the three
+        raw_key = hash((tuple(np.round(t["inten"][:40], 3)), len(t["inten"])))
         rows.append(dict(id=tid, project=t["project"], tab=t["tab"], kind=t["kind"], region=t["region"], chi=chi, excess=excess,
+                         d_default=d_default, raw_key=raw_key, messages={m: r[m].get("message") for m in METHODS},
                          chi_spread=max(chi.values()) / best - 1, dfrac=dfrac, darea=darea,
                          success={m: bool(r[m].get("success")) for m in METHODS},
                          worst=max(chi, key=chi.get), best=min(chi, key=chi.get), vanished_in_best=vanished, pred=predictors(t)))
@@ -136,6 +140,35 @@ def main(d: Path, md_out: Path | None):
     for k in rows[0]["pred"] if rows else []:
         a = [x["pred"][k] for x in disagree]; b = [x["pred"][k] for x in agree]
         P(f"| {k} | {np.median(a) if a else float('nan'):.3g} | {np.median(b) if b else float('nan'):.3g} | {auc(a, b):.2f} |")
+    P("\n## 3b. What the UI default costs a student (Trust-Region's answer vs the best of the three)\n")
+    P("| start | targets | default's fractions off by > 1 pp | > 5 pp | > 10 pp | default χ²ᵣ worse than best by > 1 % | > 10 % |\n|---|---:|---:|---:|---:|---:|---:|")
+    for kind in ("own", "batch", None):
+        g = [x for x in rows if kind is None or x["kind"] == kind]
+        P(f"| {kind or 'all'} | {len(g)} | " + " | ".join(f"{sum(x['d_default'] > v for x in g)} ({100*sum(x['d_default'] > v for x in g)/max(len(g),1):.1f} %)" for v in (1, 5, 10))
+          + " | " + " | ".join(f"{sum(x['excess']['least_squares'] > v for x in g)} ({100*sum(x['excess']['least_squares'] > v for x in g)/max(len(g),1):.1f} %)" for v in (0.01, 0.10)) + " |")
+    P("\nIndependence caveat: " + f"{len({x['raw_key'] for x in rows})} distinct spectra across {len({x['project'] for x in rows})} projects (several projects share raw spectra with different models, and scans within a project are repeats of one sample).\n")
+    P("| project | targets | disagree | default not best | default off by > 5 pp |\n|---|---:|---:|---:|---:|")
+    for pr in sorted({x["project"] for x in rows}):
+        g = [x for x in rows if x["project"] == pr]
+        P(f"| {pr[:44]} | {len(g)} | {sum(x in disagree for x in g)} | {sum(x in default_not_best for x in g)} | {sum(x['d_default'] > 5 for x in g)} |")
+    P("\n## 3c. Simple advance rules (target = fraction spread > 1 pp between methods)\n")
+    material = [x for x in rows if x["dfrac"] > 1.0]
+    P(f"Materially disagreeing targets: {len(material)} of {n}.\n\n| rule (from the START model only) | flagged | recall | precision |\n|---|---:|---:|---:|")
+    rules = {
+        "n_peaks >= 5": lambda q: q["n_peaks"] >= 5,
+        "min gap/FWHM < 0.5 (overlap)": lambda q: q["min_gap_over_fwhm"] < 0.5,
+        "weakest/strongest amplitude < 0.05": lambda q: q["weakest_amp_ratio"] < 0.05,
+        "n_peaks >= 5 AND overlap < 0.5": lambda q: q["n_peaks"] >= 5 and q["min_gap_over_fwhm"] < 0.5,
+        "n_peaks >= 4 OR overlap < 0.5": lambda q: q["n_peaks"] >= 4 or q["min_gap_over_fwhm"] < 0.5,
+        "n_peaks >= 3": lambda q: q["n_peaks"] >= 3,
+    }
+    for name, fn in rules.items():
+        fl = [x for x in rows if fn(x["pred"])]
+        hit = [x for x in fl if x in material]
+        P(f"| {name} | {len(fl)} ({100*len(fl)/n:.0f} %) | {100*len(hit)/max(len(material),1):.0f} % | {100*len(hit)/max(len(fl),1):.0f} % |")
+    fails = [(x["project"][:24], x["tab"], x["kind"], m, x["messages"][m]) for x in rows for m in METHODS if not x["success"][m]]
+    if fails:
+        P("\nsuccess=false cases:\n"); [P(f"- {f[0]} {f[1]} ({f[2]}): {LABEL[f[3]]} — {str(f[4])[:90]}") for f in fails]
     P("\n## 4. Worst cases\n\n| project | tab | start | χ²ᵣ TR | χ²ᵣ LM | χ²ᵣ BH | fraction spread (pp) | best |\n|---|---|---|---:|---:|---:|---:|---|")
     for x in sorted(disagree, key=lambda x: -x["dfrac"])[:15]:
         P(f"| {x['project'][:24]} | {x['tab']} | {x['kind']} | {x['chi']['least_squares']:.3f} | {x['chi']['leastsq']:.3f} | {x['chi']['basinhopping']:.3f} | {x['dfrac']:.1f} | {LABEL[x['best']].split(' (')[0]} |")
