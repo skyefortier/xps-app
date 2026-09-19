@@ -160,8 +160,18 @@ def test_generated_amplitude_limit_never_sets_the_answer():
         ls["individual_peaks"][0]["params"]["area"]["value"], rel=1e-3)
 
 
-def test_solution_still_on_the_search_limit_is_not_a_success(monkeypatch):
-    monkeypatch.setattr(fitting, "_SEARCH_BOX_EXPANSIONS", 0)
+def test_near_the_limit_without_a_converged_refinement_is_not_a_success(monkeypatch):
+    # The ceiling (10 x 625) binds; if the refinement that would settle it
+    # does not converge, the capped answer must not be reported as a fit.
+    real_fit = fitting.Model.fit
+
+    def failing_polish(self, data, params, **kw):
+        res = real_fit(self, data, params, **kw)
+        if kw.get("method") == "least_squares":
+            res.success = False
+        return res
+
+    monkeypatch.setattr(fitting.Model, "fit", failing_polish)
     x = np.linspace(286.0, 290.0, 81)
     y = 10000.0 * np.exp(-4 * np.log(2) * ((x - 285.0) / 1.0) ** 2)
     specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "amplitude": 1000.0, "fwhm": 1.0,
@@ -275,30 +285,78 @@ def test_exact_fit_beside_a_broad_one_sided_centre_bound_is_accepted(bound):
     assert res["individual_peaks"][0]["params"]["center"]["value"] == pytest.approx(285.0, abs=0.02)
 
 
-def test_active_side_is_judged_on_the_generated_sides_scale():
+def test_nearness_is_judged_on_the_generated_sides_scale():
     p = Parameters()
     p.add("p1_center", value=285.0, min=0.0)
     x = np.linspace(284.8, 285.2, 41)
     generated = fitting._finite_search_box(p, x, np.full_like(x, 10.0))
     p["p1_center"].set(value=285.0)                       # 0.2 eV inside a 0.4 eV-wide generated side
-    assert fitting._active_search_sides(p, generated) == []
+    assert fitting._near_search_sides(p, generated) == []
     p["p1_center"].set(value=285.199)
-    assert fitting._active_search_sides(p, generated) == [("p1_center", "max")]
+    assert fitting._near_search_sides(p, generated) == [("p1_center", "max")]
 
 
-def test_perturbation_winner_on_a_generated_side_gets_the_widening_budget(monkeypatch):
-    # First search clear of the box, a perturbed refit resting on it: the
-    # winner must be widened and searched again, not refused outright.
-    calls = {"n": 0}
-    real = fitting._active_search_sides
+# ── Codex round 3 (both runs NO-GO): the widening loop is gone. A solution near
+#    a generated side is refined FROM that solution with the request's own
+#    bounds; nearness alone never refuses, and no candidate is discarded. ─────
 
-    def spy(params, generated):
-        calls["n"] += 1
-        return real(params, generated)
+def _two_dsg_at_the_roi_edge():
+    x = np.linspace(280.0, 290.0, 501)
+    dsg = fitting._SHAPE_FUNCS["ds_g"]
+    y = (1000.0 + dsg(x, amplitude=100.0, center=280.0, alpha=0.0, beta=0.05, m_gauss=0.05)
+         + dsg(x, amplitude=75.0, center=285.0, alpha=0.0, beta=0.05, m_gauss=0.05))
+    spec = {"id": 1, "shape": "ds_g", "center": 285.0, "amplitude": 100.0, "fwhm": 1.0,
+            "alpha": 0.0, "beta": 0.05, "m_gauss": 0.05, "fix_amplitude": True,
+            "fix_alpha": True, "fix_beta": True, "fix_m_gauss": True}
+    return x, y, [spec]
 
-    monkeypatch.setattr(fitting, "_active_search_sides", spy)
-    x, y = _two_peak_spectrum()
-    res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=1,
+
+@pytest.mark.parametrize("seed,n_perturb", [(36, 1), (36, 2), (2, 0)])
+def test_the_returned_fit_is_never_worse_than_a_candidate_it_saw(monkeypatch, seed, n_perturb):
+    # Seeds from the review: a perturbed refit found the component at the ROI
+    # edge (chi2r 0.0506) and the widened refit replaced it with 0.0589, still
+    # reporting success.
+    seen = []
+    real_fit = fitting.Model.fit
+
+    def spy(self, data, params, **kw):
+        res = real_fit(self, data, params, **kw)
+        if res.success:
+            seen.append(res.chisqr)
+        return res
+
+    monkeypatch.setattr(fitting.Model, "fit", spy)
+    np.random.seed(seed)
+    x, y, specs = _two_dsg_at_the_roi_edge()
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[280.0, 1000.0], [290.0, 1000.0]], n_perturb=n_perturb,
                           fit_kws={"method": "differential_evolution"})
     assert res["success"] is True
-    assert calls["n"] >= 3          # after the first search, after the perturb loop, final check
+    assert res["statistics"]["chi_square"] <= min(seen) * (1 + 1e-9)
+
+
+def test_exact_amplitude_just_under_a_generated_ceiling_is_accepted():
+    # True height 995 000 seen only through its tail (max 100 in the ROI): the
+    # ceiling is 1 000. Nearness to a ceiling is a reason to refine, not to refuse.
+    x = np.linspace(286.8221197003983, 287.8221197003983, 81)
+    y = 1000.0 + 995000.0 * np.exp(-4 * np.log(2) * (x - 285.0) ** 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "amplitude": 1.0, "fwhm": 1.0,
+              "fix_center": True, "fix_fwhm": True, "amplitude_min": 0}]
+    np.random.seed(4)
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[286.0, 1000.0], [288.0, 1000.0]], n_perturb=3,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True, res["message"]
+    assert res["individual_peaks"][0]["params"]["amplitude"]["value"] == pytest.approx(995000.0, rel=1e-4)
+
+
+def test_refinement_runs_only_for_differential_evolution(monkeypatch):
+    def boom(*a, **k):
+        raise AssertionError("polish must not run for another method")
+
+    monkeypatch.setattr(fitting, "_polish_outside_search_box", boom)
+    x, y = _two_peak_spectrum()
+    for method in ("leastsq", "least_squares", "nelder"):
+        res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=1,
+                              fit_kws={"method": method})
+        assert res["success"] is True

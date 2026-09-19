@@ -952,9 +952,6 @@ def _make_peak_params(
     return p
 
 
-_SEARCH_BOX_EXPANSIONS = 3
-
-
 def _finite_search_box(params: Parameters, x: np.ndarray,
                        y_sub: np.ndarray) -> dict[str, dict[str, float]]:
     """Give every freely varying parameter a finite box, in place.
@@ -968,15 +965,16 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
     parameters, and bounds the request did set, are left alone.
 
     The box is a SEARCH limit, not a constraint the request made: an
-    amplitude starts at max(10 x the largest |background-subtracted
-    intensity|, 2 x |start|, 1) and a centre at the fitted energy range, and
-    ``run_fit`` widens a generated side that the solution leans on
-    (``_expand_active_search_box``) rather than accept it. A component whose
-    centre lies outside a narrowed ROI can need far more than the visible
-    intensity, so the first guess must not be allowed to bind.
+    amplitude reaches max(10 x the largest |background-subtracted
+    intensity|, 2 x |start|, 1) (both signs when the request leaves the
+    floor open too; the page never does), a centre the fitted energy range.
+    A component centred outside a narrowed ROI can need far more than the
+    visible intensity, so ``run_fit`` never lets a generated side set the
+    answer: a solution near one is refined with the request's own bounds
+    (``_polish_outside_search_box``).
 
-    Returns ``{name: {"min": step, "max": step}}`` for the sides it
-    generated, ``step`` being the amount one expansion adds.
+    Returns ``{name: {side: scale}}`` for the sides it generated; ``scale``
+    is the length on which "near that side" is judged.
     """
     xf = np.asarray(x, float)
     yf = np.asarray(y_sub, float)
@@ -994,19 +992,16 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
         if not (open_min or open_max):
             continue
         if name.endswith("_amplitude"):
-            # The page always sends amplitude_min: 0, so normally only the
-            # ceiling is generated; a request that leaves the floor open too
-            # (amplitude_min: null) allows negative heights, so search them.
-            reach = max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
-            lo, hi, step = -reach, reach, None
+            width = max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
+            lo, hi = -width, width
         elif name.endswith("_center"):
-            lo, hi, step = min(x_lo, par.value), max(x_hi, par.value), span
+            width = span
+            lo, hi = min(x_lo, par.value), max(x_hi, par.value)
         else:
             raise ValueError(
                 f"differential_evolution needs finite bounds for '{name}'")
         new_min = lo if open_min else par.min
         new_max = hi if open_max else par.max
-        width = step if step is not None else reach
         # A bound the request did set can sit at or beyond the generated
         # side (centre_min = 300 on a 280-290 eV ROI): keep a real interval.
         if open_max and new_max <= new_min:
@@ -1014,51 +1009,41 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
         if open_min and new_min >= new_max:
             new_min = new_max - width
         par.set(min=new_min, max=new_max)
-        generated[name] = {}
-        if open_min:
-            generated[name]["min"] = width
-        if open_max:
-            generated[name]["max"] = width
+        generated[name] = {side: width for side, is_open in (("min", open_min), ("max", open_max)) if is_open}
     return generated
 
 
-def _active_search_sides(params: Parameters,
-                         generated: dict[str, dict[str, float]]) -> list[tuple[str, str]]:
-    """Generated sides the solution rests on.
+def _near_search_sides(params: Parameters,
+                       generated: dict[str, dict[str, float]]) -> list[tuple[str, str]]:
+    """Generated sides the solution lies within 1 % of (on that side's own
+    scale, never the whole interval: beside a request bound of centre_min = 0
+    one percent of the interval is several eV). Nearness is only a reason to
+    refine, never by itself a reason to refuse. A bound the request set (the
+    page's amplitude floor of zero) is never in ``generated``."""
+    return [(name, side)
+            for name, sides in generated.items()
+            for side, width in sides.items()
+            if abs((params[name].max if side == "max" else params[name].min) - params[name].value) <= 0.01 * width]
 
-    "Rests on" is measured on the scale of the GENERATED side, never the whole
-    interval: beside a wide one-sided request bound (centre_min = 0) one
-    percent of the interval is several eV and would call an exact fit
-    limited. An amplitude is within 1 % of the limit's own magnitude; a centre
-    within 1 % of the width the side was generated with. A bound the request
-    set (the page's amplitude floor of zero) is never in ``generated``.
-    """
-    active = []
+
+def _polish_outside_search_box(model, result, generated, near, y_sub, x, weights, kws):
+    """Refine a differential-evolution solution that lies near a side we
+    generated, starting FROM it, with the request's own (open) bounds and a
+    local method that does not need a box. Whether the limit was shaping the
+    answer is then decided by the data: the refinement moves past it if that
+    lowers chi-square and stays put if not. The incumbent is kept unless the
+    refinement converged to something at least as good."""
+    params = result.params.copy()
     for name, sides in generated.items():
-        par = params[name]
-        for side, width in sides.items():
-            limit = par.max if side == "max" else par.min
-            if name.endswith("_amplitude"):
-                tol = 0.01 * max(abs(limit), 1.0)
-            else:
-                tol = 0.01 * width
-            if abs(limit - par.value) <= tol:
-                active.append((name, side))
-    return active
-
-
-def _expand_active_search_box(params: Parameters, generated: dict[str, dict[str, float]],
-                              active: list[tuple[str, str]]) -> None:
-    for name, side in active:
-        par = params[name]
-        if name.endswith("_amplitude"):
-            grow = 9.0 * max(abs(par.max), abs(par.min), 1.0)     # tenfold
-        else:
-            grow = generated[name][side]
-        if side == "max":
-            par.set(max=par.max + grow)
-        else:
-            par.set(min=par.min - grow)
+        params[name].set(min=-np.inf if "min" in sides else params[name].min,
+                         max=np.inf if "max" in sides else params[name].max)
+    polished = model.fit(y_sub, params, x=x, weights=weights, **{**kws, "method": "least_squares"})
+    if polished.success and polished.chisqr <= result.chisqr * (1.0 + 1e-9):
+        return polished, None
+    return result, ("differential_evolution stopped near the limit of its search box for "
+                    + ", ".join(sorted({n for n, _ in near}))
+                    + " and a local refinement without that limit did not converge to a better or equal"
+                      " solution. Set a bound for that parameter or use another method.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1252,17 +1237,6 @@ def run_fit(
 
     try:
         result = composite_model.fit(y_sub, all_params, x=x, weights=weights, **kws)
-        # A solution leaning on a side we generated has been limited by our
-        # guess, not by the data or the request: widen that side and search
-        # again instead of accepting it.
-        expansions_left = _SEARCH_BOX_EXPANSIONS
-        while expansions_left > 0:
-            active = _active_search_sides(result.params, search_box)
-            if not active:
-                break
-            _expand_active_search_box(all_params, search_box, active)
-            result = composite_model.fit(y_sub, all_params, x=x, weights=weights, **kws)
-            expansions_left -= 1
     except Exception as exc:
         raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
 
@@ -1318,21 +1292,17 @@ def run_fit(
                       result.redchi, best_redchi)
             result = best_result
 
-    # A perturbed refit can come to rest on a generated side that the first
-    # search stayed clear of: it gets what is left of the widening budget
-    # before the final check below may refuse it.
-    if search_box:
-        while expansions_left > 0:
-            active = _active_search_sides(result.params, search_box)
-            if not active:
-                break
-            widened = result.params.copy()
-            _expand_active_search_box(widened, search_box, active)
-            try:
-                result = composite_model.fit(y_sub, widened, x=x, weights=weights, **kws)
-            except Exception as exc:
-                raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
-            expansions_left -= 1
+    # Differential evolution searched a box we closed for it. If the answer
+    # (first search or a winning perturbed refit) lies near a side of OUR
+    # making, let the data decide whether that side mattered.
+    search_box_message = None
+    near = _near_search_sides(result.params, search_box) if search_box else []
+    if near:
+        try:
+            result, search_box_message = _polish_outside_search_box(
+                composite_model, result, search_box, near, y_sub, x, weights, kws)
+        except Exception as exc:
+            raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
 
     fitted_sub = result.best_fit
     fitted_y = fitted_sub + bg
@@ -1399,14 +1369,10 @@ def run_fit(
                 if np.sum(np.abs(y_sub)) > 0 else None)
 
     success, message = result.success, result.message
-    still_active = _active_search_sides(result.params, search_box)
-    if still_active:
-        # Not a fit of the requested model: the answer is set by our search
-        # limit. The acceptance rule shows success=false as a failed fit.
-        success = False
-        message = ("differential_evolution stopped at the limit of its search box for "
-                   + ", ".join(sorted({n for n, _ in still_active}))
-                   + "; the request leaves that parameter unbounded. Set a bound or use another method.")
+    if search_box_message:
+        # Not established as a fit of the requested model: the acceptance
+        # rule shows success=false as a failed fit, with this message.
+        success, message = False, search_box_message
 
     return {
         "success": success,
