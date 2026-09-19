@@ -241,3 +241,64 @@ def test_nonfinite_data_is_a_validation_error_not_a_nan_bound():
     y[3] = np.nan
     fitting._finite_search_box(p, x, y)
     assert p["p1_amplitude"].max == pytest.approx(1000.0)
+
+
+# ── Codex round 2 (both runs NO-GO) ─────────────────────────────────────────
+
+def test_open_amplitude_floor_searches_negative_heights():
+    # amplitude_min: null leaves the floor open; a generated floor of zero
+    # excluded the true -100 and still reported success.
+    x = np.linspace(280.0, 290.0, 101)
+    y = 1000.0 - 100.0 * np.exp(-4 * np.log(2) * (x - 285.0) ** 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "amplitude": 10.0, "fwhm": 1.0,
+              "fix_center": True, "fix_fwhm": True, "amplitude_min": None}]
+    res = fitting.run_fit(x, y, specs, background_method="manual",
+                          manual_bg=[[280.0, 1000.0], [290.0, 1000.0]], n_perturb=3,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True
+    assert res["individual_peaks"][0]["params"]["amplitude"]["value"] == pytest.approx(-100.0, rel=1e-3)
+
+
+@pytest.mark.parametrize("bound", [{"center_min": 0.0}, {"center_max": 1000.0}])
+def test_exact_fit_beside_a_broad_one_sided_centre_bound_is_accepted(bound):
+    # "Resting on the limit" is judged on the generated side's own scale: one
+    # percent of [0, 285.4] is 2.9 eV and called an exact fit limited.
+    x = np.linspace(284.6, 285.0, 81) if "center_min" in bound else np.linspace(285.0, 285.4, 81)
+    y = fitting._SHAPE_FUNCS["ds_g"](x, amplitude=1000.0, center=285.0,
+                                     alpha=0.05, beta=0.3, m_gauss=0.2)
+    spec = {"id": 1, "shape": "ds_g", "center": 285.0, "amplitude": 1000.0, "fwhm": 1.0,
+            "alpha": 0.05, "beta": 0.3, "m_gauss": 0.2, "fix_amplitude": True, "fix_fwhm": True,
+            "fix_alpha": True, "fix_beta": True, "fix_m_gauss": True, **bound}
+    res = fitting.run_fit(x, y, [spec], background_method="none", n_perturb=3,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True, res["message"]
+    assert res["individual_peaks"][0]["params"]["center"]["value"] == pytest.approx(285.0, abs=0.02)
+
+
+def test_active_side_is_judged_on_the_generated_sides_scale():
+    p = Parameters()
+    p.add("p1_center", value=285.0, min=0.0)
+    x = np.linspace(284.8, 285.2, 41)
+    generated = fitting._finite_search_box(p, x, np.full_like(x, 10.0))
+    p["p1_center"].set(value=285.0)                       # 0.2 eV inside a 0.4 eV-wide generated side
+    assert fitting._active_search_sides(p, generated) == []
+    p["p1_center"].set(value=285.199)
+    assert fitting._active_search_sides(p, generated) == [("p1_center", "max")]
+
+
+def test_perturbation_winner_on_a_generated_side_gets_the_widening_budget(monkeypatch):
+    # First search clear of the box, a perturbed refit resting on it: the
+    # winner must be widened and searched again, not refused outright.
+    calls = {"n": 0}
+    real = fitting._active_search_sides
+
+    def spy(params, generated):
+        calls["n"] += 1
+        return real(params, generated)
+
+    monkeypatch.setattr(fitting, "_active_search_sides", spy)
+    x, y = _two_peak_spectrum()
+    res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=1,
+                          fit_kws={"method": "differential_evolution"})
+    assert res["success"] is True
+    assert calls["n"] >= 3          # after the first search, after the perturb loop, final check

@@ -1,0 +1,15 @@
+ROUND 3 recheck of branch fix-de-finite-bounds (HEAD; unit parent = main 35b950e). Read-only. Be adversarial. Round 2 was NO-GO x2 (archived: docs/autofit/codex/de_finite_bounds_r2_verdict_run{A,B}.md; earlier rounds beside them). Verify each disposition in the code (git diff 35b950e..HEAD -- fitting.py tests/test_differential_evolution_bounds.py CLAUDE.md), then try to break what changed.
+
+DISPOSITIONS
+1. MAJOR generated zero amplitude floor excluded valid negative amplitudes while reporting success -> when a request leaves amplitude_min open, the generated floor is now -reach (symmetric with the ceiling) and the "amplitude resting on zero is a real outcome" exemption is REMOVED from _active_search_sides: only a bound the request set (never in search_box) is exempt, by construction. Test: test_open_amplitude_floor_searches_negative_heights (your reproduction; expects -100).
+2. MAJOR whole-interval tolerance rejected exact fits beside broad one-sided centre bounds -> "rests on" is now judged on the generated side's own scale: amplitude = 1 % of the limit's magnitude (floor 1); centre = 1 % of the width the side was generated with (the ROI span). Tests: test_exact_fit_beside_a_broad_one_sided_centre_bound_is_accepted (both of your cases, n_perturb 3), test_active_side_is_judged_on_the_generated_sides_scale.
+3. MINOR winning perturbation refused without any widening -> the widening budget (_SEARCH_BOX_EXPANSIONS = 3) is shared: what the first search did not use is available to the post-perturb result (widen result.params copy, refit) before the final refusal check. Test: test_perturbation_winner_on_a_generated_side_gets_the_widening_budget (structural).
+4. CLAUDE.md paragraph updated to the above.
+
+TRY TO BREAK
+a. Amplitude tolerance = 1 % of |limit|: after widening to a huge ceiling, can a true amplitude be "within 1 % of the limit" legitimately? Can a generated amplitude FLOOR of -reach make DE return a negative amplitude for a page-like request? (It must not: the page sends amplitude_min: 0, so the floor is the request's.)
+b. Centre tolerance = 1 % of the ROI span: a DS+G centre genuinely at the ROI edge is widened by one span, up to three times; is the final outcome right in both the "true centre just outside the ROI" and "true centre at the edge" cases?
+c. The post-perturb widening replaces `result` with the refit unconditionally. Can that replace a good perturbed winner with a worse DE draw and still report success? Is that acceptable given DE is stochastic, or must the better redchi be kept?
+d. Anything in the shared-budget logic that can loop, double-count, or skip the final check. Any path where search_box is non-empty for another method.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete failing scenario) and VERDICT: GO or VERDICT: NO-GO.

@@ -994,8 +994,11 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
         if not (open_min or open_max):
             continue
         if name.endswith("_amplitude"):
+            # The page always sends amplitude_min: 0, so normally only the
+            # ceiling is generated; a request that leaves the floor open too
+            # (amplitude_min: null) allows negative heights, so search them.
             reach = max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
-            lo, hi, step = min(0.0, par.value), max(reach, par.value), None
+            lo, hi, step = -reach, reach, None
         elif name.endswith("_center"):
             lo, hi, step = min(x_lo, par.value), max(x_hi, par.value), span
         else:
@@ -1021,17 +1024,26 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
 
 def _active_search_sides(params: Parameters,
                          generated: dict[str, dict[str, float]]) -> list[tuple[str, str]]:
-    """Generated sides the solution sits on (within 1 % of the box)."""
+    """Generated sides the solution rests on.
+
+    "Rests on" is measured on the scale of the GENERATED side, never the whole
+    interval: beside a wide one-sided request bound (centre_min = 0) one
+    percent of the interval is several eV and would call an exact fit
+    limited. An amplitude is within 1 % of the limit's own magnitude; a centre
+    within 1 % of the width the side was generated with. A bound the request
+    set (the page's amplitude floor of zero) is never in ``generated``.
+    """
     active = []
     for name, sides in generated.items():
         par = params[name]
-        tol = 0.01 * (par.max - par.min)
-        if "max" in sides and par.max - par.value <= tol:
-            active.append((name, "max"))
-        if "min" in sides and par.value - par.min <= tol:
-            # An amplitude resting on zero is a real outcome, not a search limit.
-            if not (name.endswith("_amplitude") and par.min >= 0.0):
-                active.append((name, "min"))
+        for side, width in sides.items():
+            limit = par.max if side == "max" else par.min
+            if name.endswith("_amplitude"):
+                tol = 0.01 * max(abs(limit), 1.0)
+            else:
+                tol = 0.01 * width
+            if abs(limit - par.value) <= tol:
+                active.append((name, side))
     return active
 
 
@@ -1243,12 +1255,14 @@ def run_fit(
         # A solution leaning on a side we generated has been limited by our
         # guess, not by the data or the request: widen that side and search
         # again instead of accepting it.
-        for _ in range(_SEARCH_BOX_EXPANSIONS):
+        expansions_left = _SEARCH_BOX_EXPANSIONS
+        while expansions_left > 0:
             active = _active_search_sides(result.params, search_box)
             if not active:
                 break
             _expand_active_search_box(all_params, search_box, active)
             result = composite_model.fit(y_sub, all_params, x=x, weights=weights, **kws)
+            expansions_left -= 1
     except Exception as exc:
         raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
 
@@ -1303,6 +1317,22 @@ def run_fit(
             log.debug("═══ PERTURB IMPROVED FIT ═══  redchi: %.4f → %.4f",
                       result.redchi, best_redchi)
             result = best_result
+
+    # A perturbed refit can come to rest on a generated side that the first
+    # search stayed clear of: it gets what is left of the widening budget
+    # before the final check below may refuse it.
+    if search_box:
+        while expansions_left > 0:
+            active = _active_search_sides(result.params, search_box)
+            if not active:
+                break
+            widened = result.params.copy()
+            _expand_active_search_box(widened, search_box, active)
+            try:
+                result = composite_model.fit(y_sub, widened, x=x, weights=weights, **kws)
+            except Exception as exc:
+                raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
+            expansions_left -= 1
 
     fitted_sub = result.best_fit
     fitted_y = fitted_sub + bg
