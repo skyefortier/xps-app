@@ -952,6 +952,150 @@ def _make_peak_params(
     return p
 
 
+def _finite_search_box(params: Parameters, x: np.ndarray,
+                       y_sub: np.ndarray) -> dict[str, dict[str, float]]:
+    """Give every freely varying parameter a finite box, in place.
+
+    lmfit's ``differential_evolution`` samples its population from the
+    parameter bounds and refuses to run when any varying parameter has an
+    open one. The page sends ``amplitude_min: 0`` and no ``amplitude_max``,
+    and a free DS+G centre has no default window, so without this every
+    ordinary request for that method failed (HTTP 422). Only open sides of
+    freely varying parameters are closed; fixed and expression-constrained
+    parameters, and bounds the request did set, are left alone.
+
+    The box is a SEARCH limit, not a constraint the request made: an
+    amplitude reaches max(10 x the largest |background-subtracted
+    intensity|, 2 x |start|, 1) (both signs when the request leaves the
+    floor open too; the page never does), a centre the fitted energy range.
+    A component centred outside a narrowed ROI can need far more than the
+    visible intensity, and a box can shape an answer that lies nowhere near
+    its sides, so ``_search_then_refine`` refines every boxed search under
+    the request's own bounds.
+
+    Returns ``{name: {side: width}}`` for the sides it generated (``width``
+    is the extent it gave that side).
+    """
+    xf = np.asarray(x, float)
+    yf = np.asarray(y_sub, float)
+    xf, yf = xf[np.isfinite(xf)], yf[np.isfinite(yf)]
+    if xf.size == 0 or yf.size == 0:
+        raise ValueError("differential_evolution needs finite energy and intensity values")
+    x_lo, x_hi = float(xf.min()), float(xf.max())
+    span = (x_hi - x_lo) or 1.0
+    y_top = float(np.max(np.abs(yf)))
+    generated: dict[str, dict[str, float]] = {}
+    for name, par in params.items():
+        if not par.vary or par.expr is not None:
+            continue
+        open_min, open_max = not np.isfinite(par.min), not np.isfinite(par.max)
+        if not (open_min or open_max):
+            continue
+        if name.endswith("_amplitude"):
+            width = max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
+            lo, hi = -width, width
+        elif name.endswith("_center"):
+            width = span
+            lo, hi = min(x_lo, par.value), max(x_hi, par.value)
+        else:
+            raise ValueError(
+                f"differential_evolution needs finite bounds for '{name}'")
+        new_min = lo if open_min else par.min
+        new_max = hi if open_max else par.max
+        # A bound the request did set can sit at or beyond the generated
+        # side (centre_min = 300 on a 280-290 eV ROI): keep a real interval.
+        if open_max and new_max <= new_min:
+            new_max = new_min + width
+        if open_min and new_min >= new_max:
+            new_min = new_max - width
+        par.set(min=new_min, max=new_max)
+        generated[name] = {side: width for side, is_open in (("min", open_min), ("max", open_max)) if is_open}
+    return generated
+
+
+def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
+    """One differential-evolution candidate: search inside a generated box,
+    then refine FROM that solution with ``least_squares`` under the request's
+    own (open) bounds.
+
+    Whenever a side was generated the refinement is unconditional (a request
+    that bounds everything itself is returned as found). A box can shape the answer without the
+    solution lying anywhere near a side (centre and width compensate for a
+    capped amplitude), and an unrefined boundary candidate can lose the
+    perturb loop's comparison to a worse interior one, so every candidate is
+    freed from the box before it is compared or returned. The refined fit
+    replaces the search result whenever it converged; if it did not (or
+    raised) the search result is returned marked
+    ``box_unverified`` (with the sides we generated, so they are not
+    reported as bounds) and ``run_fit`` does not call it a success.
+    """
+    # ``params`` may come from an earlier candidate and still carry that
+    # candidate's generated sides: always start from the request's bounds.
+    boxed = params.copy()
+    for name, (lo, hi) in requested.items():
+        boxed[name].set(min=lo, max=hi)
+    generated = _finite_search_box(boxed, x, y_sub)
+    found = model.fit(y_sub, boxed, x=x, weights=weights, **kws)
+    found.box_unverified, found.search_box = bool(generated), generated
+    if not generated:
+        return found
+    free = found.params.copy()
+    for name in generated:
+        free[name].set(min=requested[name][0], max=requested[name][1])
+    # Only what a local solver understands: DE options (seed, popsize, ...)
+    # passed through fit_kws would make least_squares raise.
+    refine_kws = {"method": "least_squares", "nan_policy": kws.get("nan_policy", "omit")}
+    try:
+        refined = model.fit(y_sub, free, x=x, weights=weights, **refine_kws)
+    except Exception:
+        log.debug("refinement outside the search box raised", exc_info=True)
+        return found
+    # A converged refinement IS the result: it is a least_squares fit of the
+    # requested model under the requested bounds, which is what the default
+    # method returns and the acceptance rule accepts. It is deliberately NOT
+    # compared with the boxed search's chi-square. least_squares descends
+    # from its start, so it cannot end materially above it (four review
+    # rounds found no reachable case), but it does end a hair above an EXACT
+    # start that sits on a requested bound (the bound transform is degenerate
+    # there; the centre moves ~1e-7 eV), by an amount that depends on peak
+    # width, position and counts. Every tolerance tried for that comparison
+    # produced reachable false failures and no reachable protection.
+    if refined.success:
+        refined.box_unverified, refined.search_box = False, {}
+        return refined
+    return found
+
+
+def _global_or_local_candidate(model, params, requested, y_sub, x, weights, kws):
+    """A differential-evolution candidate that is never worse than the
+    default method from the same start.
+
+    Differential evolution ignores the starting values. On a needle-narrow
+    peak in a wide box it can converge, "successfully", with the component
+    outside the fitted range (chi-square 1e7 where ``least_squares`` from the
+    request's start reaches 1e-4), and the refinement has nothing to descend
+    to from there. So a ``least_squares`` fit from the candidate's own start,
+    under the request's bounds, competes with the search: a verified result
+    beats an unverified one, then the lower chi-square wins.
+    """
+    searched = _search_then_refine(model, params, requested, y_sub, x, weights, kws)
+    start = params.copy()
+    for name, (lo, hi) in requested.items():
+        start[name].set(min=lo, max=hi)
+    try:
+        local = model.fit(y_sub, start, x=x, weights=weights,
+                          method="least_squares", nan_policy=kws.get("nan_policy", "omit"))
+    except Exception:
+        log.debug("local candidate from the start raised", exc_info=True)
+        return searched
+    if not local.success:
+        return searched
+    local.box_unverified, local.search_box = False, {}
+    if searched.box_unverified or not searched.success or local.chisqr < searched.chisqr:
+        return local
+    return searched
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1126,6 +1270,19 @@ def run_fit(
     if fit_kws:
         kws.update(fit_kws)
 
+    # Differential evolution needs a finite box and the page leaves amplitudes
+    # open above: each candidate is searched in a generated box and then
+    # refined under the request's own bounds (_search_then_refine). Every
+    # other method fits the request's parameters exactly as before.
+    if kws.get("method") == "differential_evolution":
+        requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
+
+        def fit_once(params):
+            return _global_or_local_candidate(composite_model, params, requested_bounds, y_sub, x, weights, kws)
+    else:
+        def fit_once(params):
+            return composite_model.fit(y_sub, params, x=x, weights=weights, **kws)
+
     # ── Diagnostic logging: BEFORE optimisation ──────────────────────────────
     if log.isEnabledFor(logging.DEBUG):
         log.debug("═══ FIT START ═══  method=%s  n_data=%d", kws.get('method'), len(y_sub))
@@ -1136,7 +1293,7 @@ def run_fit(
                       f"{par.max:.4f}" if np.isfinite(par.max) else 'inf')
 
     try:
-        result = composite_model.fit(y_sub, all_params, x=x, weights=weights, **kws)
+        result = fit_once(all_params)
     except Exception as exc:
         raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
 
@@ -1175,11 +1332,16 @@ def run_fit(
                     perturbed_params[pname].set(value=rng.uniform(0.001, 0.05))
 
             try:
-                trial = composite_model.fit(y_sub, perturbed_params, x=x, weights=weights, **kws)
+                trial = fit_once(perturbed_params)
                 trial_redchi = trial.redchi if trial.redchi is not None else float('inf')
                 log.debug("  PERTURB %d/%d  redchi=%.4f  (best=%.4f)",
                           attempt + 1, n_perturb, trial_redchi, best_redchi)
-                if trial.success and trial_redchi < best_redchi:
+                # A candidate whose search box was never cleared by its
+                # refinement (differential evolution only) does not displace
+                # one that was; for every other method both flags are False.
+                trial_rank = (getattr(trial, "box_unverified", False), trial_redchi)
+                best_rank = (getattr(best_result, "box_unverified", False), best_redchi)
+                if trial.success and trial_rank < best_rank:
                     best_result = trial
                     best_redchi = trial_redchi
                     log.debug("  *** New best found! redchi improved to %.4f", best_redchi)
@@ -1191,6 +1353,10 @@ def run_fit(
             log.debug("═══ PERTURB IMPROVED FIT ═══  redchi: %.4f → %.4f",
                       result.redchi, best_redchi)
             result = best_result
+
+    # Sides WE closed on the returned result (non-empty only for a
+    # differential-evolution result whose refinement did not take over).
+    search_box = getattr(result, "search_box", {})
 
     fitted_sub = result.best_fit
     fitted_y = fitted_sub + bg
@@ -1221,8 +1387,8 @@ def run_fit(
                     "stderr": float(par.stderr) if par.stderr is not None else None,
                     "vary": par.vary,
                     "expr": par.expr,
-                    "min": float(par.min) if np.isfinite(par.min) else None,
-                    "max": float(par.max) if np.isfinite(par.max) else None,
+                    "min": float(par.min) if np.isfinite(par.min) and "min" not in search_box.get(pname, {}) else None,
+                    "max": float(par.max) if np.isfinite(par.max) and "max" not in search_box.get(pname, {}) else None,
                 }
 
         param_info["area"] = {"value": area, "stderr": None}
@@ -1256,9 +1422,20 @@ def run_fit(
     r_factor = (float(np.sum(np.abs(y_sub - fitted_sub)) / np.sum(np.abs(y_sub)))
                 if np.sum(np.abs(y_sub)) > 0 else None)
 
+    success, message = result.success, result.message
+    if getattr(result, "box_unverified", False):
+        # Searched inside limits the request never set, and the refinement
+        # that would show they did not matter did not converge to an equal
+        # or better solution. The acceptance rule shows this as a failed fit.
+        success = False
+        message = ("differential_evolution searched inside generated limits for "
+                   + ", ".join(sorted(search_box))
+                   + " and a local refinement without them did not converge to an equal or better"
+                     " solution. Set bounds for those parameters or use another method.")
+
     return {
-        "success": result.success,
-        "message": result.message,
+        "success": success,
+        "message": message,
         "energy": x.tolist(),
         "counts": y.tolist(),
         "fitted_y": fitted_y.tolist(),

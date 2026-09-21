@@ -1,0 +1,14 @@
+ROUND 6 recheck of branch fix-de-finite-bounds (HEAD; unit parent = main 35b950e). Read-only. Be adversarial. Round 5 was NO-GO x2 (archived docs/autofit/codex/de_finite_bounds_r5_verdict_run{A,B}.md; earlier rounds beside them). The mechanism is unchanged from round 5 (_search_then_refine for every differential_evolution candidate); this round changes only the three things you found.
+
+DISPOSITIONS
+1. Refinement acceptance rejected numerically exact refinements (run B MAJOR, run A MINOR) -> refined.chisqr <= found.chisqr*(1+1e-6) + 1e-8*max(found.ndata,1). chi-square is a sum of squared sigma-unit residuals; 1e-8 per point is far below anything a fit means. Tests: test_numerically_exact_refinement_is_accepted (run B, seed 4, n_perturb 0 and 3), test_exact_fit_on_a_requested_width_floor_is_accepted (run A, seed 0).
+2. An unverified perturbed candidate displaced a verified fit (run A MAJOR) -> the perturb loop ranks candidates by (box_unverified, redchi): a verified candidate always beats an unverified one; among equals the lower redchi wins; for every other method both flags are False so the comparison is exactly the old one. Tests: test_an_unverified_perturbed_candidate_does_not_displace_a_verified_fit, test_a_verified_candidate_displaces_an_unverified_one_even_at_higher_chi_square.
+3. Stale docstring / CLAUDE.md -> _finite_search_box docstring rewritten (no nearness, no deleted helper); "unconditional WHENEVER a side was generated" in both the helper docstring and CLAUDE.md, which also states the tolerance and the ranking.
+33 unit tests; full suite re-run on HEAD.
+
+TRY TO BREAK
+a. The absolute tolerance 1e-8*ndata: any realistic case where it accepts a refinement that is materially worse than the DE solution? (Weights are 1/sqrt(max(counts,1)); real spectra have chi-square per point ~1-100.)
+b. The ranking: any way it changes behaviour for leastsq / least_squares / nelder / basinhopping? Any way a verified-but-much-worse candidate displacing an unverified one produces a misleading success (note run B's round-5 view that preferring verification can knowingly return a higher chi-square)? State which behaviour you consider correct and why; if both are defensible, do not count it as a defect.
+c. Anything else in git diff 35b950e..HEAD -- fitting.py that you have not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete failing scenario) and VERDICT: GO or VERDICT: NO-GO.

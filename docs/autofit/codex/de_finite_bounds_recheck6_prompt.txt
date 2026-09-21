@@ -1,0 +1,12 @@
+ROUND 7 recheck of branch fix-de-finite-bounds (HEAD; unit parent = main 35b950e). Read-only. Be adversarial. Round 6: run A GO, run B NO-GO (archived docs/autofit/codex/de_finite_bounds_r6_verdict_run{A,B}.md). One change since round 6.
+
+DISPOSITION
+Run B MAJOR: the fixed absolute allowance (1e-8 per point) still rejected a numerically exact refinement at 1e6 counts (chi-square 1.6e-24 -> 1.45e-6 after the local solver moved a centre 5e-8 eV off a REQUESTED bound). The allowance is now scale-free: refined.chisqr <= found.chisqr*(1+1e-6) + 1e-8*P, with P = sum((weights*y_sub)**2), the weighted power of the data being fitted (chi-square of the empty model). Tests: test_exact_refinement_is_accepted_at_any_intensity_scale (your case and the same construction at scales 1e-3, 1, 1e3, 1e6, n_perturb 0 and 3); test_a_materially_worse_refinement_is_still_rejected (a refinement reported 1 % worse is refused). 42 unit tests; full suite re-run on HEAD.
+
+TRY TO BREAK
+a. Can 1e-8*P accept a refinement that is MATERIALLY worse than the DE solution on realistic data (Poisson counts 1e2-1e6, 100-1000 points, chi-square per point 1-100), on CPS/normalised data (max ~1, weights = 1), or when y_sub is mostly negative/near zero (P tiny -> falls back to the relative term)?
+b. Can it still falsely reject an exact or near-exact fit at any intensity scale, grid, or with a start on a requested bound?
+c. NaN handling in P (nansum) vs nan_policy='omit'.
+Do not re-litigate points you cleared in rounds 4-6 unless this change affects them.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete failing scenario) and VERDICT: GO or VERDICT: NO-GO.

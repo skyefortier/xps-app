@@ -1,0 +1,14 @@
+ROUND 9 recheck of branch fix-de-finite-bounds (HEAD; unit parent = main 35b950e). Read-only. Round 8 was NO-GO x2, both on the refinement-acceptance allowance (archived docs/autofit/codex/de_finite_bounds_r8_verdict_run{A,B}.md).
+
+DISPOSITION — the chi-square gate is REMOVED, not re-tuned.
+Rounds 5-8 produced four tolerances; each had reachable FALSE FAILURES (an exact start on a requested bound is displaced ~1e-7 eV by the local solver; the chi-square cost depends on peak width, position and counts, so no universal coefficient bounds it), and in rounds 7 and 8 both of you reported that a materially worse ACCEPTED refinement was not reachable without patching solver outputs. Contract now (fitting._search_then_refine): when a side was generated, the DE solution is refined by least_squares under the request's own bounds; if the refinement CONVERGED it is the result (it is a least_squares fit of the requested model under the requested bounds — exactly what the default method returns and the app's acceptance rule accepts); if it did not converge or raised, the DE result stays box_unverified (never displaces a verified candidate; success=false if returned). Its chi-square is deliberately not compared with the boxed search's; the code comment and CLAUDE.md say why.
+Run A's second MAJOR (verified-first ranking replaced the exact candidate with a chi-square 1e7 fit) followed from the exact candidate being wrongly marked unverified; it is now verified, so ranking among verified candidates is by redchi as before.
+Tests: test_narrow_exact_peak_on_a_requested_centre_bound_is_accepted (run A's 1400 eV/0.05 eV case, run B's 1500 eV and 3000 eV cases, n_perturb 0 and 3; asserts success, centre, and chi-square comparable to direct least_squares), test_a_converged_refinement_is_returned_without_a_chi_square_gate. The tolerance fault-injection tests were removed with the gate. 50 unit tests.
+
+JUDGE ON REACHABLE BEHAVIOUR (no patched solver outputs):
+(a) any request where differential_evolution returns success=false but direct least_squares on the same request succeeds;
+(b) any request where it returns success=true with a materially worse chi-square than a candidate it held, or than direct least_squares from the same start would give;
+(c) anything else in git diff 35b950e..HEAD -- fitting.py not already cleared.
+Report fault-injection-only observations separately as MINOR.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

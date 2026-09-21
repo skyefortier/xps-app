@@ -239,6 +239,46 @@ returns the full result including refined params, σ bounds, χ²,
 `bgIntensity`, `bgSubtracted`, and `fittedY`. Linked peaks are
 constrained via lmfit parameter expressions.
 
+`differential_evolution` samples from the parameter bounds and refuses an
+open one, and the page sends `amplitude_min: 0` with no `amplitude_max`
+(a free DS+G centre has no default window either), so until 2026-09-19
+every ordinary request for that method returned HTTP 422. For THAT METHOD
+ONLY, every candidate (the first search and each perturbed refit) is now
+`_search_then_refine`: differential evolution inside a generated box
+(`_finite_search_box`: open sides of freely varying parameters only —
+amplitude ± max(10 × the largest |background-subtracted intensity|,
+2 × |start|, 1), just the ceiling for the page, which sets the floor
+itself; centre = the fitted energy range, always a real interval), then —
+whenever a side was generated — an UNCONDITIONAL `least_squares`
+refinement from that solution under the request's own open bounds. A box
+can shape an answer that lies nowhere near its sides, so nothing is
+inferred from nearness. A refinement that CONVERGED is the result — a
+`least_squares` fit of the requested model under the requested bounds,
+which is what the default method returns; its χ² is deliberately not
+compared with the boxed search's (a descent cannot end materially above
+its start, but it ends a hair above an exact start sitting on a requested
+bound, and every tolerance tried for that comparison produced reachable
+false failures and no reachable protection — Codex rounds 5–8). If the
+refinement did not converge or raised, the search result
+stays marked unverified, never displaces a verified candidate in the
+perturb loop, and, if it is what `run_fit` returns, is `success: false`
+naming the generated limits.
+Because differential evolution ignores the start and can "converge" with
+a needle-narrow component outside the fitted range, each candidate also
+competes with a `least_squares` fit from its own start under the request's
+bounds (`_global_or_local_candidate`: verified beats unverified, then the
+lower χ² wins), so this method never returns worse than the default method
+would from the same start.
+Generated sides are never echoed back as `min`/`max` (the page saves
+returned bounds and warns within 1 % of them). A returned DE result
+therefore normally carries `least_squares` uncertainties and message.
+Every other method's parameters are unchanged; `/api/analyze` reaches the
+same code through `options.fit_method`. Measured on committed targets with
+the page's `n_perturb: 3`: 2–75 s per fit (6–7-component C 1s models
+exhaust DE's evaluation budget in every search and are rescued by the
+refinement). It is not a gold standard: on one 3-component B 1s target it
+returned χ²ᵣ 1.92 where Trust-Region found 1.81.
+
 ### Client-side fallback
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt

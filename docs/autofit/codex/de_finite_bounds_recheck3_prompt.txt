@@ -1,0 +1,23 @@
+ROUND 4 recheck of branch fix-de-finite-bounds (HEAD; unit parent = main 35b950e). Read-only. Be adversarial. Round 3 was NO-GO x2 (archived docs/autofit/codex/de_finite_bounds_r3_verdict_run{A,B}.md; rounds 1-2 beside them).
+
+WHAT CHANGED, AND WHY
+Every finding in rounds 2 and 3 came from the widening machinery added in round 1 (budget, tolerance bands, refits replacing incumbents). It has been REMOVED rather than patched again. Design now (git diff 35b950e..HEAD -- fitting.py):
+- _finite_search_box closes open sides of freely varying parameters for differential_evolution only (amplitude +-reach, centre = ROI range, always a real interval) and returns {name: {side: scale}}.
+- run_fit: DE first search, then the unchanged perturb loop. AFTER it, if the final solution lies within 1 % (side's own scale) of a generated side (_near_search_sides), _polish_outside_search_box refines it FROM that solution with method least_squares and the request's own open bounds. The polished result replaces the incumbent only if polished.success and polished.chisqr <= incumbent.chisqr * (1 + 1e-9); otherwise the incumbent is returned with success=False and a message naming the parameter(s). Nearness alone never refuses; no candidate is discarded for a worse one; there is no widening, no budget.
+- Generated sides are never serialised as min/max.
+
+DISPOSITIONS OF ROUND 3
+1. MAJOR widening discarded a better winner (seed 36 n_perturb 1/2; seed 2 n_perturb 0) -> no refit replaces an incumbent any more. Test: test_the_returned_fit_is_never_worse_than_a_candidate_it_saw (your three seed cases; asserts final chi-square <= the best successful candidate any Model.fit call produced).
+2. MAJOR/MINOR exact amplitude inside the final ceiling's 1 % band refused -> nearness triggers a refinement, not a refusal. Test: test_exact_amplitude_just_under_a_generated_ceiling_is_accepted (run B's 995 000 case, seed 4, n_perturb 3).
+3. MINOR structural perturbation test -> replaced by (1). Also test_refinement_runs_only_for_differential_evolution and test_near_the_limit_without_a_converged_refinement_is_not_a_success.
+All earlier reproductions remain as tests (23 total).
+
+TRY TO BREAK
+a. The perturb loop only keeps a trial if trial.success and lower redchi; DE trials run inside the box. Can the FINAL result be a box-limited solution that is NOT within 1 % of the side (so no polish) yet is still shaped by the box? (E.g. optimum beyond the ceiling but DE unconverged far from it -> but then success is already False?)
+b. The polish uses least_squares from the DE solution with open bounds: can it return success=True with chisqr <= incumbent but a physically different answer that the user did not ask DE for (e.g. amplitude running to a huge value for a component outside the ROI, centre leaving the ROI for DS+G)? Is that any different from what least_squares itself would return for the same request, which is existing behaviour?
+c. result.chisqr comparisons when nan_policy='omit' or when the DE result has success=False (evaluation budget exhausted) AND is near a side: polish may turn a non-converged DE into success=True. Is that acceptable / correctly messaged?
+d. Response fields after a polish (message, statistics, stderr, n_free) — anything inconsistent for the page? Anything in /api/analyze that depends on result.method?
+e. Any remaining path where search_box is non-empty for another method, or generated bounds leak.
+f. CLAUDE.md paragraph accuracy.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete failing scenario) and VERDICT: GO or VERDICT: NO-GO.
