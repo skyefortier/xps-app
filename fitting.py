@@ -1194,27 +1194,37 @@ _LOWER_CHI_REL = 1e-3        # an alternative's reduced chi-square is lower by m
 def _scattered_start(params: Parameters, rng) -> Parameters:
     """One scattered start, anchored to the REQUEST's start (``params`` as
     built from the request, never a fitted solution, which jitters): free
-    amplitudes x/÷ 3, free widths x/÷ 1.5, free centres ± 0.5 eV, every other
-    freely varying parameter with finite bounds redrawn inside the middle
-    90 % of its range; always inside the request's own bounds. Fixed and
-    constrained parameters, and the integer CasaXPS ``m``, are left alone."""
+    amplitudes x/÷ 3 (sign kept), free widths x/÷ 1.5, free centres ± 0.5 eV —
+    each clamped into the request's bounds, a thousandth of the interval off
+    a finite wall (lmfit's bound transform has zero gradient ON a wall) —
+    and every other freely varying parameter with finite bounds redrawn
+    inside the middle 90 % of its range. Fixed and constrained parameters,
+    and the integer CasaXPS ``m``, are left alone."""
     out = params.copy()
     for name, par in out.items():
         if not par.vary or par.expr is not None:
             continue
         lo, hi = par.min, par.max
-        inside = lambda v, m=0.05: (  # noqa: E731  keep a margin off finite walls
-            min(max(v, lo + m * (hi - lo)), hi - m * (hi - lo)) if np.isfinite(lo) and np.isfinite(hi)
-            else max(v, lo) if np.isfinite(lo) else min(v, hi) if np.isfinite(hi) else v)
+        both = np.isfinite(lo) and np.isfinite(hi)
+        edge = 1e-3 * (hi - lo) if both else 0.0
+
+        def clamp(v):
+            if np.isfinite(lo):
+                v = max(v, lo + edge)
+            if np.isfinite(hi):
+                v = min(v, hi - edge)
+            return v
+
         if name.endswith("_amplitude"):
-            value = inside(max(abs(par.value), 1.0) * float(np.exp(rng.uniform(-np.log(3), np.log(3)))), 0.0)
+            sign = -1.0 if par.value < 0 else 1.0
+            value = clamp(sign * max(abs(par.value), 1.0) * float(np.exp(rng.uniform(-np.log(3), np.log(3)))))
         elif name.endswith("_fwhm"):
-            value = inside(par.value * float(np.exp(rng.uniform(-np.log(1.5), np.log(1.5)))))
+            value = clamp(par.value * float(np.exp(rng.uniform(-np.log(1.5), np.log(1.5)))))
         elif name.endswith("_center"):
-            value = inside(par.value + float(rng.uniform(-0.5, 0.5)))
+            value = clamp(par.value + float(rng.uniform(-0.5, 0.5)))
         elif name.endswith("_m"):
             continue
-        elif np.isfinite(lo) and np.isfinite(hi):
+        elif both:
             value = float(rng.uniform(lo + 0.05 * (hi - lo), hi - 0.05 * (hi - lo)))
         else:
             continue
@@ -1231,7 +1241,7 @@ def _solution_components(model, result, peak_specs, x) -> list[dict[str, Any]]:
         comp = next(c for c in model.components if c.prefix == prefix)
         area = float(abs(trapezoid(comp.eval(result.params, x=x), x)))
         values = {n[len(prefix):]: float(par.value) for n, par in result.params.items() if n.startswith(prefix)}
-        comps.append({"id": spec["id"], "shape": spec.get("shape", "pseudo_voigt_gl"), "area": area, "params": values})
+        comps.append({"id": spec["id"], "area": area, "params": values})
     total = sum(c["area"] for c in comps)
     for c, spec in zip(comps, peak_specs):
         c["area_percent"] = 100.0 * c["area"] / total if total > 0 else 0.0
@@ -1241,18 +1251,14 @@ def _solution_components(model, result, peak_specs, x) -> list[dict[str, Any]]:
 
 def _same_solution(a, b) -> bool:
     """Same decomposition: every area fraction within 1 pp and every centre
-    within 0.1 eV, component by component — or the same after components of
-    the SAME lineshape trade places (two interchangeable peaks that swapped
-    labels are one physical fit, not a second solution)."""
-    def close(u, v):
-        return (max(abs(p["area_percent"] - q["area_percent"]) for p, q in zip(u, v)) <= _SAME_FRACTION_PP
-                and max(abs(p["params"]["center"] - q["params"]["center"]) for p, q in zip(u, v)) <= _SAME_CENTRE_EV)
-
-    if close(a, b):
-        return True
-    key = lambda c: (c["shape"], c["params"]["center"])  # noqa: E731
-    sa, sb = sorted(a, key=key), sorted(b, key=key)
-    return [c["shape"] for c in sa] == [c["shape"] for c in sb] and close(sa, sb)
+    within 0.1 eV, COMPONENT BY COMPONENT (by the request's ids). No
+    permutations: "C-O" and "C=O" trading places is a different chemical
+    reading even when both are GL lines, and the page shows fractions by
+    name. Two truly interchangeable components that swapped labels are
+    therefore counted as a different solution of equal chi-square — which is
+    what they are: the data do not say which label goes where."""
+    return (max(abs(p["area_percent"] - q["area_percent"]) for p, q in zip(a, b)) <= _SAME_FRACTION_PP
+            and max(abs(p["params"]["center"] - q["params"]["center"]) for p, q in zip(a, b)) <= _SAME_CENTRE_EV)
 
 
 def _largest_shift(comps) -> dict[str, Any]:
@@ -1296,6 +1302,7 @@ def _scattered_starts(n_starts, fit_once, model, start_params, result, peak_spec
     return {
         "ran": True, "n_run": n_starts, "n_converged": n_converged, "n_same_as_fit": n_same,
         # solutions that are NOT better: counted, never listed (they are what a bad start looks like)
+        "n_in_alternatives": sum(c["n_starts"] for c in lower),
         "n_not_better_elsewhere": sum(c["n_starts"] for c in other),
         "not_better_chi2r": sorted(c["chi2r"] for c in other),
         "fit": {"chi2r": fit_chi, "largest_centre_shift_from_start": _largest_shift(fit_comps),

@@ -176,7 +176,7 @@ def test_the_scatter_is_anchored_to_the_request_and_stays_inside_its_bounds():
     assert 1000 / 3 - 1e-9 <= amp.min() and amp.max() <= 3000 + 1e-9 and amp.std() > 100
     assert 284.5 - 1e-9 <= cen.min() and cen.max() <= 285.5 + 1e-9
     assert 1 / 1.5 - 1e-9 <= wid.min() and wid.max() <= 1.5 + 1e-9
-    assert 0.05 - 1e-9 <= glr.min() and glr.max() <= 0.95 + 1e-9     # moved OFF the bound it started on
+    assert 0.05 - 1e-9 <= glr.min() and glr.max() <= 0.95 + 1e-9     # a SHAPE parameter is redrawn, off the bound it started on
     assert all(q["p1_m"].value == 50.0 and q["p2_amplitude"].value == 400.0 and q["p2_center"].expr for q in seen)
     assert p["p1_amplitude"].value == 1000.0 and p["p1_gl_ratio"].value == 0.0   # the request's start is not mutated
     # a start outside the centre window cannot be produced
@@ -255,13 +255,36 @@ def test_n_starts_does_not_enter_the_seed():
     assert len(seeds) == 1
 
 
-def test_two_interchangeable_components_that_swapped_labels_are_one_solution():
-    comp = lambda i, shape, c, f: {"id": i, "shape": shape, "area_percent": f, "params": {"center": c}}  # noqa: E731
-    a = [comp(1, "gaussian", 284.0, 60.0), comp(2, "gaussian", 291.5, 40.0)]
-    swapped = [comp(1, "gaussian", 291.5, 40.0), comp(2, "gaussian", 284.0, 60.0)]
-    assert fitting._same_solution(a, swapped)
-    # ... but not when the lineshapes differ: "C-O" sitting on the main line is a different reading
-    other = [comp(1, "gaussian", 291.5, 40.0), comp(2, "pseudo_voigt_gl", 284.0, 60.0)]
-    assert not fitting._same_solution([comp(1, "gaussian", 284.0, 60.0), comp(2, "pseudo_voigt_gl", 291.5, 40.0)], other)
-    assert not fitting._same_solution(a, [comp(1, "gaussian", 284.0, 58.5), comp(2, "gaussian", 291.5, 41.5)])
-    assert not fitting._same_solution(a, [comp(1, "gaussian", 284.15, 60.0), comp(2, "gaussian", 291.5, 40.0)])
+def test_solutions_are_compared_by_component_identity_never_by_permutation():
+    # Codex round 1: "C-O" at 286.4 eV / 60 % and "C=O" at 288.0 eV / 40 %, both GL. A start that
+    # reverses them is a DIFFERENT chemical reading; a lineshape-based permutation rule merged them,
+    # which can inflate "reached this solution" or hide a lower-chi-square swapped solution.
+    comp = lambda i, c, f: {"id": i, "area_percent": f, "params": {"center": c}}  # noqa: E731
+    a = [comp(1, 286.4, 60.0), comp(2, 288.0, 40.0)]
+    assert fitting._same_solution(a, [comp(1, 286.45, 60.6), comp(2, 288.05, 39.4)])
+    assert not fitting._same_solution(a, [comp(1, 288.0, 40.0), comp(2, 286.4, 60.0)])
+    assert not fitting._same_solution(a, [comp(1, 286.4, 58.5), comp(2, 288.0, 41.5)])
+    assert not fitting._same_solution(a, [comp(1, 286.55, 60.0), comp(2, 288.0, 40.0)])
+
+
+def test_the_scatter_keeps_the_documented_ranges_beside_a_wall_and_the_sign_of_an_amplitude():
+    # Codex round 1: a 5 %-of-range margin turned fwhm 0.1 in [0.1, 15] into exactly 0.845 and a
+    # centre of 1 in [0, 100] into exactly 5; a negative amplitude came back positive.
+    p = Parameters()
+    p.add("p1_amplitude", value=-100.0)                       # open both sides
+    p.add("p1_fwhm", value=0.1, min=0.1, max=15.0)            # ON its lower wall
+    p.add("p1_center", value=1.0, min=0.0, max=100.0)
+    rng = np.random.default_rng(2)
+    seen = [fitting._scattered_start(p, rng) for _ in range(300)]
+    amp = np.array([q["p1_amplitude"].value for q in seen]); wid = np.array([q["p1_fwhm"].value for q in seen])
+    cen = np.array([q["p1_center"].value for q in seen])
+    assert amp.max() < 0 and -300 - 1e-9 <= amp.min() and amp.max() <= -100 / 3 + 1e-9
+    assert 0.1 < wid.min() and wid.max() <= 0.15 + 1e-9 and len(set(np.round(wid, 6))) > 50
+    assert 0.5 - 1e-9 <= cen.min() and cen.max() <= 1.5 + 1e-9 and len(set(np.round(cen, 6))) > 50
+
+
+def test_starts_and_solutions_are_counted_separately():
+    x, y, specs = _two_basin_problem()
+    st = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **KW)["starts"]
+    assert st["n_in_alternatives"] == sum(a["n_starts"] for a in st["alternatives"]) >= 1
+    assert st["n_same_as_fit"] + st["n_not_better_elsewhere"] + st["n_in_alternatives"] == st["n_converged"]

@@ -31,7 +31,7 @@ function extractFn(name) {
   assert.fail('unbalanced ' + name);
 }
 
-function makeEnv({ fetchImpl, uploadImpl }) {
+function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
   const dom = {};
   const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, disabled: false,
     setAttribute() {}, removeAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, contains() { return false; }, _c: null } });
@@ -41,7 +41,7 @@ function makeEnv({ fetchImpl, uploadImpl }) {
     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
   const owner = { id: 7 };
   const calls = { notify: [], local: 0, applied: 0 };
-  const src = 'const _STARTS_N = 3;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount'].map(extractFn).join('\n');
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')) + 4).join('\n') + '\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey'].map(extractFn).join('\n');
   const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
@@ -49,8 +49,8 @@ function makeEnv({ fetchImpl, uploadImpl }) {
     src + '\nreturn { runFit };');
   const noop = () => {};
   const { runFit } = factory(document, state, fetchImpl, uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
-    noop, noop, noop, () => owner, o => o === owner, () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
-    b => b.map(() => 0), p => ({ id: p.id, shape: 'gaussian' }), () => [], () => { calls.applied++; },
+    noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
+    b => b.map(() => 0), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
     () => 0.1, '', noop, noop, noop, noop, noop, noop,
     () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop, () => owner);
   return { runFit, state, dom, calls };
@@ -95,7 +95,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   failing.calls.local = 0;
   // rebuild with a failing runFitLocal
   const dom = failing.dom;
-  const src = 'const _STARTS_N = 3;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount'].map(extractFn).join('\n');
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')) + 4).join('\n') + '\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey'].map(extractFn).join('\n');
   const noop = () => {};
   const owner = { id: 1 };
   const state = failing.state;
@@ -128,7 +128,7 @@ test('the engine/objective labels of a fit result survive spectrum and project s
   assert.match(save, /objective: state\.fitResult\.objective/);
   assert.match(save, /engine: state\.fitResult\.engine/);
   const load = grab('function _loadSpectrumFile(', 6000);
-  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'chosenAlternative'\]/);
+  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative'\]/);
   // project save: the whitelisted fitResult record carries them
   const proj = grab('const buildTabData = (t) =>', 3000);
   assert.match(proj, /objective: t\.fitResult\.objective/);
@@ -259,7 +259,8 @@ test('project save derives the designation from the objective for an older local
   for (let i = start; i < html.length; i++) { const ch = html[i]; if (ch === '{') { depth++; seen = true; } else if (ch === '}') { depth--; if (seen && depth === 0) { end = i + 1; break; } } }
   const src = html.slice(start, end) + ';';
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
-  const helpers = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave'].map(extractFn).join('\n');
+  const fieldsAt = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
+  const helpers = lines.slice(fieldsAt, fieldsAt + 4).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_startsIfCurrent', '_startsModelKey'].map(extractFn).join('\n');
   const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
     { serializeRefOverlays: () => null }, a => a, a => a);
   const older = { id: 1, name: 't', rawBE: [1, 2], rawIntensity: [1, 1], ccShift: 0, peaks: [], nextId: 1, ui: {},
@@ -546,4 +547,65 @@ test('TSV export warning is objective-aware: legacy result, legacy imported mode
   assert.match(run(null, { engine: 'local', objective: 'unweighted_residual_variance' }), /^# WARNING: Local unweighted fit/, 'imported legacy model');
   assert.match(run({ engine: 'local', objective: 'poisson_weighted_chi_square', chiReduced: 4 }, null), /^# WARNING: Local fit \(Poisson-weighted/);
   assert.doesNotMatch(run({ chiReduced: 4 }, null), /WARNING/);
+});
+
+
+// ── Scattered starts, adoption of an alternative (2026-09-21, Codex round 1) ──
+// "Use this solution" passes the alternative as runFit's opts.startPeaks. The
+// live model is written only by the success path, so every other outcome must
+// leave peaks and result exactly as they were — with a message that is TRUE.
+const ALT_START = [{ id: 1, name: 'p', shape: 'Gaussian', center: 286.7, fwhm: 0.9, amplitude: 70, glMix: 50, asymmetry: 0 },
+                   { id: 2, name: 'q', shape: 'Gaussian', center: 288.0, fwhm: 1.0, amplitude: 20, glMix: 50, asymmetry: 0 }];
+const CHOSEN = { fromChi: 30.3, toChi: 1.16, shiftName: 'p', shiftEv: 1.7 };
+const spec = p => ({ id: p.id, center: p.center });
+
+test('adoption: the REQUEST starts from the alternative, asks for the starts check by ITS model, and the live model is untouched until success', async () => {
+  let body = null;
+  const env = makeEnv({ specImpl: spec, fetchImpl: async (url, init) => { body = JSON.parse(init.body); return { ok: true, status: 200, json: async () => ({ success: false, message: 'max evaluations' }) }; } });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.deepStrictEqual(body.peaks, [{ id: 1, center: 286.7 }, { id: 2, center: 288.0 }]);
+  assert.strictEqual(body.n_starts, 3, 'two unlinked components in the START model (the live model has one)');
+  assert.strictEqual(JSON.stringify(env.state.peaks), before, 'a non-converged adoption changes nothing');
+  assert.strictEqual(env.state.fitResult.marker, 'previous');
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /Previous peaks and result kept/.test(n.msg)), 'and that message is now true');
+});
+
+test('adoption: a transport failure does NOT fall back to the local engine (it would start from the live model)', async () => {
+  const env = makeEnv({ specImpl: spec, fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.strictEqual(env.calls.local, 0);
+  assert.strictEqual(JSON.stringify(env.state.peaks), before);
+  assert.strictEqual(env.state.fitResult.marker, 'previous');
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /alternative was not applied/.test(n.msg)));
+  assert.notEqual(env.dom['localfit-warn-overlay']?.classList._c, 'open');
+});
+
+test('adoption: a tab switch during the re-fit discards it and leaves the originating model as it was', async () => {
+  const env = makeEnv({ specImpl: spec, ownerActive: () => false,
+    fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1.16 }, residuals: [], fitted_y: [], individual_peaks: [] }) });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.strictEqual(env.calls.applied, 0);
+  assert.strictEqual(JSON.stringify(env.state.peaks), before);
+  assert.strictEqual(env.state.fitResult.marker, 'previous');
+});
+
+test('adoption: success records the choice, the starts evidence and the key of the model it describes', async () => {
+  const starts = { ran: true, n_run: 3, n_converged: 3, n_same_as_fit: 3, n_in_alternatives: 0, n_not_better_elsewhere: 0, alternatives: [] };
+  const env = makeEnv({ specImpl: spec, fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1.16 }, residuals: [], fitted_y: [], individual_peaks: [], starts }) });
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.strictEqual(env.calls.applied, 1);
+  assert.deepStrictEqual(env.state.fitResult.chosenAlternative, CHOSEN);
+  assert.deepStrictEqual(env.state.fitResult.starts, starts);
+  assert.strictEqual(typeof env.state.fitResult.startsModelKey, 'string');
+});
+
+test('an ordinary Run Fit on one unlinked component does not ask for the starts check', async () => {
+  let body = null;
+  const env = makeEnv({ fetchImpl: async (url, init) => { body = JSON.parse(init.body); return { ok: true, status: 200, json: async () => ({ success: true, statistics: {}, residuals: [], fitted_y: [], individual_peaks: [] }) }; } });
+  await env.runFit();
+  assert.strictEqual(body.n_starts, 0);
+  assert.strictEqual(env.state.fitResult.chosenAlternative, null);
 });

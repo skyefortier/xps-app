@@ -4500,7 +4500,11 @@ function _invalidateBgCache() {
 
 // Clear stored fit envelope so the fallback (modelFull + bg) is used after a manual peak edit
 function _invalidateFittedY() {
-  if (state.fitResult) state.fitResult.fittedY = null;
+  if (!state.fitResult) return;
+  state.fitResult.fittedY = null;
+  // the scattered-starts evidence was about the data as fitted (background, ROI)
+  state.fitResult.starts = null;
+  state.fitResult.chosenAlternative = null;
 }
 
 function _clampShirleyIter() {
@@ -7191,6 +7195,27 @@ const _STARTS_TOOLTIP = "After your fit, the same method is run again from a few
 
 function _startsUnlinkedCount(peaks) { return (peaks || []).filter(p => !p.linked).length; }
 
+// The evidence belongs to the MODEL THAT WAS FITTED. Everything the fit read
+// from a peak goes into the key taken when the result is stored; any later
+// edit (a parameter, a lock, a shape, a link, a peak added or removed, an undo)
+// makes the key differ, and then the panel says so, offers nothing to apply,
+// and saves/exports carry no counts. Background and ROI edits clear it through
+// _invalidateFittedY, which already marks the fitted curve as no longer valid.
+const _STARTS_MODEL_FIELDS = ['id', 'shape', 'center', 'fwhm', 'amplitude', 'glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
+  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM', 'linked', 'linkOffset', 'linkRatio',
+  'fixCenter', 'fixFwhm', 'fixAmplitude', 'fixGlMix', 'fixAsymmetry', 'fixDsAlpha', 'fixDsGamma',
+  'fixLaAlpha', 'fixLaBeta', 'fixLaM', 'fixCaAlpha', 'fixCaBeta', 'fixCaM'];
+function _startsModelKey(peaks) {
+  return JSON.stringify((peaks || []).map(p => _STARTS_MODEL_FIELDS.map(k => (p[k] === undefined ? null : p[k]))));
+}
+// The starts evidence of `fr` if it still describes `peaks`, else null.
+function _startsIfCurrent(fr, peaks) {
+  const st = fr && fr.starts;
+  if (!st) return null;
+  if (fr.startsModelKey && fr.startsModelKey !== _startsModelKey(peaks)) return null;
+  return st;
+}
+
 // What is persisted with a saved fit: the counts, never the alternatives'
 // parameter sets (regenerable: the starts are a pure function of the request).
 function _startsForSave(st) {
@@ -7198,68 +7223,85 @@ function _startsForSave(st) {
   if (!st.ran) return { ran: false, reason: st.reason || null };
   const alts = st.alternatives || [];
   return { ran: true, n_run: st.n_run, n_converged: st.n_converged, n_same_as_fit: st.n_same_as_fit,
-           n_not_better_elsewhere: st.n_not_better_elsewhere, n_alternatives: alts.length || st.n_alternatives || 0,
+           n_not_better_elsewhere: st.n_not_better_elsewhere,
+           n_in_alternatives: st.n_in_alternatives ?? alts.reduce((n, a) => n + a.n_starts, 0),
+           n_alternatives: alts.length || st.n_alternatives || 0,
            best_alternative_chi2r: alts.length ? alts[0].chi2r : (st.best_alternative_chi2r ?? null) };
 }
 
+// Counts STARTS and SOLUTIONS separately: three starts reaching one different
+// solution is "3 starts found a DIFFERENT solution", not "one start".
 function _startsSummaryText(st) {
   if (!st || !st.ran) return '';
-  const nAlt = (st.alternatives ? st.alternatives.length : st.n_alternatives) || 0;
+  const nSol = (st.alternatives ? st.alternatives.length : st.n_alternatives) || 0;
+  const nIn = st.n_in_alternatives ?? (st.alternatives || []).reduce((n, a) => n + a.n_starts, 0);
   const nb = st.n_not_better_elsewhere || 0, failed = st.n_run - st.n_converged;
   let t = `${st.n_same_as_fit} of ${st.n_run} scattered starts reached this solution`;
   const parts = [];
+  if (nSol) parts.push(`${nIn} found ${nSol === 1 ? 'a DIFFERENT solution' : nSol + ' DIFFERENT solutions'} with a lower χ²ᵣ`);
   if (nb) {
     const worst = (st.not_better_chi2r && st.not_better_chi2r.length) ? ` (χ²ᵣ ${st.not_better_chi2r.map(c => c.toFixed(2)).join(', ')})` : '';
     parts.push(`${nb} ended in a solution that is not better${worst}`);
   }
   if (failed > 0) parts.push(`${failed} did not converge`);
-  if (nAlt) parts.push(`${nAlt === 1 ? 'one start' : 'starts'} found ${nAlt === 1 ? 'a DIFFERENT solution' : nAlt + ' DIFFERENT solutions'} with a lower χ²ᵣ`);
   if (parts.length) t += '; ' + parts.join('; ');
-  return t + '.' + (nAlt ? ' Your fit is unchanged.' : '');
+  return t + '.' + (nSol ? ' Your fit is unchanged.' : '');
 }
 
 function _startsPeakName(id) { const p = getPeak(Number(id)) || getPeak(id); return p ? p.name : String(id); }
 
+function _startsShiftColour(ev) {
+  const mag = Math.abs(ev);
+  return mag > _STARTS_SHIFT_RED_EV ? 'var(--red,#ef4444)' : mag > _STARTS_SHIFT_AMBER_EV ? 'var(--amber,#f59e0b)' : 'var(--text2)';
+}
+function _startsEv(ev) { return (ev >= 0 ? '+' : '−') + Math.abs(ev).toFixed(2) + ' eV'; }
+
 function _startsShiftHtml(shift) {
-  const ev = shift.ev, mag = Math.abs(ev);
-  const colour = mag > _STARTS_SHIFT_RED_EV ? 'var(--red,#ef4444)' : mag > _STARTS_SHIFT_AMBER_EV ? 'var(--amber,#f59e0b)' : 'var(--text2)';
-  return `<span style="color:${colour};font-weight:${mag > _STARTS_SHIFT_AMBER_EV ? 600 : 400}">${_escHtml(_startsPeakName(shift.id))} ${ev >= 0 ? '+' : '−'}${mag.toFixed(2)} eV</span>`;
+  const bold = Math.abs(shift.ev) > _STARTS_SHIFT_AMBER_EV ? 600 : 400;
+  return `<span style="color:${_startsShiftColour(shift.ev)};font-weight:${bold}">${_escHtml(_startsPeakName(shift.id))} ${_startsEv(shift.ev)}</span>`;
 }
 
 function _startsPanelHtml(fr) {
-  const st = fr && fr.starts;
-  if (!st || !st.ran) return '';
+  if (!fr || !fr.starts || !fr.starts.ran) return '';
+  const st = _startsIfCurrent(fr, state.peaks);
+  if (!st) {
+    return `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--text3)">&#8635; The model has changed since this fit, so its scattered-starts comparison no longer applies. Run the fit again to compare starts.</div>`;
+  }
   let html = `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5">
     <div data-xps-tip="${_escHtml(_STARTS_TOOLTIP)}" style="color:var(--text2)">&#8635; ${_escHtml(_startsSummaryText(st))}</div>`;
   if (fr.chosenAlternative) {
     const c = fr.chosenAlternative;
-    html += `<div style="color:var(--text3);margin-top:2px">This fit started from a solution you chose from the scattered starts (χ²ᵣ ${Number(c.fromChi).toFixed(2)} → ${Number(c.toChi).toFixed(2)}; largest move from your original start: ${_escHtml(c.shiftName)} ${c.shiftEv >= 0 ? '+' : '−'}${Math.abs(c.shiftEv).toFixed(2)} eV).</div>`;
+    html += `<div style="color:var(--text3);margin-top:2px">This fit started from a solution you chose from the scattered starts (χ²ᵣ ${Number(c.fromChi).toFixed(2)} → ${Number(c.toChi).toFixed(2)}; largest move from your original start: ${_escHtml(c.shiftName)} ${_startsEv(c.shiftEv)}).</div>`;
   }
   const alts = st.alternatives || [];
   if (!alts.length) return html + '</div>';
   const comps = st.fit.components;
-  const head = comps.map(c => `<th style="text-align:right;padding:2px 4px">${_escHtml(_startsPeakName(c.id))} %</th>`).join('');
-  const row = (label, chi, n, cs, shift, actions) => `<tr>
+  const head = comps.map(c => `<th style="text-align:right;padding:2px 4px">${_escHtml(_startsPeakName(c.id))}<br><span style="font-weight:400;color:var(--text3)">area % &middot; move</span></th>`).join('');
+  // every component: its OWN area fraction and its OWN move from the student's start
+  const cell = c => `<td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${c.area_percent.toFixed(1)}<br><span style="color:${_startsShiftColour(c.center_shift_from_start)}">${_startsEv(c.center_shift_from_start)}</span></td>`;
+  const row = (label, chi, n, cs, shift, actions) => `<tr style="border-top:1px solid var(--border)">
       <td style="padding:2px 4px">${label}</td><td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${chi.toFixed(2)}</td>
       <td style="text-align:right;padding:2px 4px">${n}</td>
-      ${cs.map(c => `<td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${c.area_percent.toFixed(1)}</td>`).join('')}
+      ${cs.map(cell).join('')}
       <td style="padding:2px 4px">${_startsShiftHtml(shift)}</td><td style="padding:2px 4px;white-space:nowrap">${actions}</td></tr>`;
   html += `<h4 style="font-size:11px;margin:8px 0 4px" title="Solutions other starts reached with a lower reduced chi-square than your fit. A lower value is not a better chemical model: look at where the components went.">Other solutions found</h4>
     <div style="overflow-x:auto"><table style="width:100%;font-size:10px;border-collapse:collapse">
-    <thead><tr><th style="text-align:left;padding:2px 4px">solution</th><th style="text-align:right;padding:2px 4px">χ²ᵣ</th><th style="text-align:right;padding:2px 4px">starts</th>${head}<th style="text-align:left;padding:2px 4px">largest move from your start</th><th></th></tr></thead><tbody>`;
+    <thead><tr><th style="text-align:left;padding:2px 4px">solution</th><th style="text-align:right;padding:2px 4px">χ²ᵣ</th><th style="text-align:right;padding:2px 4px" title="how many of the scattered starts ended here">starts here</th>${head}<th style="text-align:left;padding:2px 4px">largest move from your start</th><th></th></tr></thead><tbody>`;
   html += row('<b>Your fit</b>', st.fit.chi2r, st.n_same_as_fit, comps, st.fit.largest_centre_shift_from_start, '');
   alts.forEach((a, k) => {
     html += row('Alternative ' + (k + 1), a.chi2r, a.n_starts, a.components, a.largest_centre_shift_from_start,
       `<button class="btn btn-sm" onclick="previewAlternative(${k})" title="Overlay this solution on the chart; click again to clear">Preview</button>
-       <button class="btn btn-sm" onclick="useAlternative(${k})" title="Start a new fit from this solution. You can undo this.">Use this solution</button>`);
+       <button class="btn btn-sm" onclick="useAlternative(${k})" title="Run the fit again starting from this solution. Your model changes only if that fit succeeds; you can undo it.">Use this solution</button>`);
   });
   return html + '</tbody></table></div></div>';
 }
 
 // The alternative's parameters on a COPY of the current peaks (null when the
-// model has changed since the fit that produced it).
+// evidence no longer describes the current model).
 function _altPeaks(alt) {
+  if (!_startsIfCurrent(state.fitResult, state.peaks)) return null;
   const peaks = JSON.parse(JSON.stringify(state.peaks));
+  if (peaks.length !== alt.components.length) return null;
   for (const c of alt.components) {
     const p = peaks.find(q => String(q.id) === String(c.id));
     if (!p) return null;
@@ -7267,56 +7309,57 @@ function _altPeaks(alt) {
     for (const k in c.params) par[k] = { value: c.params[k] };
     _applyBackendParams(p, par);
   }
-  if (peaks.length !== alt.components.length) return null;
-  // linked peaks follow their parents exactly as the server's constraints made them
   return peaks;
 }
 
 function _currentAlternative(k) {
-  const st = state.fitResult && state.fitResult.starts;
+  const st = _startsIfCurrent(state.fitResult, state.peaks);
   return (st && st.ran && st.alternatives && st.alternatives[k]) || null;
 }
 
+const _STARTS_STALE_MSG = 'The model has changed since this fit. Run the fit again to compare solutions.';
+
 function previewAlternative(k) {
   const alt = _currentAlternative(k);
-  if (!alt) return;
+  const peaks = alt && _altPeaks(alt);
+  if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
   const key = 'alt:' + k;
   if (_historyPreview && _historyPreview.snapId === key) { _historyClearPreview(); return; }
-  const peaks = _altPeaks(alt);
-  if (!peaks) { notify('The model has changed since this fit. Run the fit again to compare solutions.', 'amber', true); return; }
   _historyPreview = { snapId: key, peaks, fitResult: { chiReduced: alt.chi2r } };
   _updateLocalModelBanner();
+  document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
   updatePlot();
 }
 
-// Adopting an alternative is the student's decision, made explicitly, undoable
-// (one undo returns to the fit as it was), and recorded. It becomes the START
-// of an ordinary Run Fit, so the result, its uncertainties, the exports and the
-// saves all come through the one existing path. A solution that moves a
-// component more than 1 eV from where the student put it is the measured trap
-// (a lower chi-square bought by a chemically absurd relocation), so that case —
-// and only that case — asks first, naming the component and the distance.
+// Adopting an alternative is the student's decision: explicit, undoable, and
+// recorded. It is ATOMIC by construction: the alternative is only the START of
+// an ordinary server fit (runFit's opts.startPeaks); the live model is written
+// by that fit's success path and by nothing else, so a fit that fails, does
+// not converge, is discarded because the tab changed, or cannot reach the
+// server leaves peaks and result exactly as they were (no local fallback
+// here: the local engine would start from the live model, not from the
+// alternative). runFit's own pushUndo is the single undo entry. A solution
+// that moves a component more than 1 eV from where the student put it is the
+// measured trap (a lower chi-square bought by a chemically absurd relocation),
+// so that case — and only that case — asks first, naming the component and
+// the distance.
 async function useAlternative(k) {
   const alt = _currentAlternative(k);
-  if (!alt) return;
-  const peaks = _altPeaks(alt);
-  if (!peaks) { notify('The model has changed since this fit. Run the fit again to compare solutions.', 'amber', true); return; }
+  const peaks = alt && _altPeaks(alt);
+  if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
   const shift = alt.largest_centre_shift_from_start;
-  const name = _startsPeakName(shift.id), signed = (shift.ev >= 0 ? '+' : '−') + Math.abs(shift.ev).toFixed(2);
+  const name = _startsPeakName(shift.id);
   if (Math.abs(shift.ev) > _STARTS_SHIFT_RED_EV &&
-      !confirm(`This solution moves ${name} by ${signed} eV from where you placed it. Apply?`)) return;
+      !confirm(`This solution moves ${name} by ${_startsEv(shift.ev)} from where you placed it. Apply?`)) return;
   const chosen = { fromChi: state.fitResult.starts.fit.chi2r, toChi: alt.chi2r, shiftName: name, shiftEv: shift.ev };
-  pushUndo();
-  if (_historyPreview) _historyPreview = null;
-  state.peaks = peaks;
-  renderPeakList();
-  await runFit({ skipUndo: true, chosenAlternative: chosen });
+  if (_historyPreview) _historyClearPreview();
+  await runFit({ startPeaks: peaks, chosenAlternative: chosen });
 }
 
 async function runFit(opts = {}) {
   if (!state.rawBE.length) { notify('Load a spectrum first.', 'red', true); return; }
   if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
-  if (!opts.skipUndo) pushUndo();
+  pushUndo();
 
   _showFitSpinner();
   document.getElementById('sb-msg').textContent = 'Fitting\u2026';
@@ -7342,7 +7385,13 @@ async function runFit(opts = {}) {
     // EVERY request input is read from the owner before the upload await:
     // peaks, method, endpoint averaging and manual anchors (Codex round 2: a
     // request could carry A's spectrum with B's averaging and anchors).
-    const peakSpecs = state.peaks.map(peakToBackendSpec);
+    // opts.startPeaks: the request starts from an adopted alternative; the live
+    // model is still the student's until this fit succeeds (useAlternative).
+    const startModel = opts.startPeaks || state.peaks;
+    const peakSpecs = startModel.map(peakToBackendSpec);
+    // scattered-starts check: decided HERE, with the other request inputs,
+    // before the first await (a tab switch during the upload must not turn it off)
+    const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
@@ -7371,8 +7420,7 @@ async function runFit(opts = {}) {
       peaks: peakSpecs,
       fit_method: fitMethod,
       n_perturb: 3,
-      // scattered-starts check: the server skips it for one free component and for the global methods
-      n_starts: _startsUnlinkedCount(state.peaks) >= 2 ? _STARTS_N : 0
+      n_starts: nStarts       // the server also skips it for the global methods
     };
     let resp, json;
     try {
@@ -7431,6 +7479,7 @@ async function runFit(opts = {}) {
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
                         fittedY: backendResult.fitted_y, roiRange, _preFit,
                         starts: backendResult.starts || null,
+                        startsModelKey: _startsModelKey(state.peaks),     // taken AFTER the result was applied
                         chosenAlternative: opts.chosenAlternative || null };
     state.fitResult.rFactor = _computeRFactor(state.fitResult);
     _applyStatDisplay(state.fitResult);
@@ -7445,6 +7494,13 @@ async function runFit(opts = {}) {
     if (!_ownerActive(fittingTab)) {
       document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
       notify('Fit cancelled — tab switched during fit.', 'amber');
+      return;
+    }
+    if (e && e.transportFailure && opts.startPeaks) {
+      // Adopting an alternative needs the server: the local engine would start
+      // from the live model, not from the alternative. Nothing was changed.
+      document.getElementById('sb-msg').textContent = 'Fit failed';
+      notify('The server could not be reached, so the alternative was not applied. Previous peaks and result kept.', 'red', true);
       return;
     }
     if (e && e.transportFailure) {
@@ -9595,8 +9651,9 @@ function _doSaveFit() {
       objective: state.fitResult.objective || null,
       weighting: state.fitResult.weighting || null,
       status: state.fitResult.status || null,
-      starts: _startsForSave(state.fitResult.starts),
-      chosenAlternative: state.fitResult.chosenAlternative || null,
+      starts: _startsForSave(_startsIfCurrent(state.fitResult, state.peaks)),
+      startsModelKey: state.fitResult.startsModelKey || null,
+      chosenAlternative: _startsIfCurrent(state.fitResult, state.peaks) ? (state.fitResult.chosenAlternative || null) : null,
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
     } : ((_activeTab() && _activeTab().modelProvenance) ? {
@@ -9651,8 +9708,9 @@ function _doSaveSpectrum() {
     objective: state.fitResult.objective || null,
     weighting: state.fitResult.weighting || null,
     status: state.fitResult.status || null,
-    starts: _startsForSave(state.fitResult.starts),
-    chosenAlternative: state.fitResult.chosenAlternative || null,
+    starts: _startsForSave(_startsIfCurrent(state.fitResult, state.peaks)),
+    startsModelKey: state.fitResult.startsModelKey || null,
+    chosenAlternative: _startsIfCurrent(state.fitResult, state.peaks) ? (state.fitResult.chosenAlternative || null) : null,
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -9745,8 +9803,9 @@ async function _doSaveProject() {
         objective: t.fitResult.objective || null,
         weighting: t.fitResult.weighting || null,
         status: t.fitResult.status || null,
-        starts: _startsForSave(t.fitResult.starts),
-        chosenAlternative: t.fitResult.chosenAlternative || null,
+        starts: _startsForSave(_startsIfCurrent(t.fitResult, t.peaks)),
+        startsModelKey: t.fitResult.startsModelKey || null,
+        chosenAlternative: _startsIfCurrent(t.fitResult, t.peaks) ? (t.fitResult.chosenAlternative || null) : null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -9965,7 +10024,7 @@ function _loadSpectrumFile(data, sessionFile) {
   active.modelProvenance = _isLocalProvenance(data.modelProvenance) ? data.modelProvenance : null;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
-    for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'chosenAlternative']) if (data.statistics[k]) fr[k] = data.statistics[k];
+    for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative']) if (data.statistics[k]) fr[k] = data.statistics[k];
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     if (data.fittedY) fr.fittedY = data.fittedY;
     active.fitResult = fr;
@@ -10759,7 +10818,7 @@ function exportFitTable(fmt) {
       ['XPS Fitting Studio Export'], ['Date', date],
       [_statName, chiStr], ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
-      ...(_startsSummaryText(state.fitResult.starts) ? [['Scattered starts', _startsSummaryText(state.fitResult.starts)]] : []),
+      ...(_startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks)) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks))]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
@@ -10770,7 +10829,7 @@ function exportFitTable(fmt) {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
     csv += `# ${_statName}: ${chiStr}\n# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
-    if (_startsSummaryText(state.fitResult.starts)) csv += `# Scattered starts: ${_startsSummaryText(state.fitResult.starts)}\n`;
+    if (_startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks))}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');

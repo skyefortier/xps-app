@@ -360,9 +360,11 @@ the seed) `run_fit` runs three more fits of the SAME method from scattered
 starts — drawn from a third stream of the request seed, anchored to the
 REQUEST's start (amplitude ×/÷ 3, width ×/÷ 1.5, free centres ± 0.5 eV,
 other bounded parameters redrawn inside the middle 90 % of their range),
-always inside the request's bounds. "Same solution" = every area fraction
-within 1 pp and every centre within 0.1 eV, also after same-lineshape
-components trade places. The response's `starts` reports how many reached
+clamped into the request's bounds (amplitude sign kept). "Same solution" =
+every area fraction within 1 pp and every centre within 0.1 eV, COMPONENT
+BY COMPONENT by id — no permutations: "C-O" and "C=O" trading places is a
+different chemical reading even when both are GL lines. The response's
+`starts` reports how many reached
 the fit, how many ended in a solution that is NOT better (counted, never
 listed — ~25 % of fits have one and listing them would train people to
 ignore the panel), and `alternatives`: solutions whose χ²ᵣ is lower by more
@@ -375,9 +377,22 @@ reached this solution; …" — counts, never certification language) and,
 when alternatives exist, an "Other solutions found" table (your fit first;
 the largest move named, amber > 0.5 eV, red > 1 eV) with Preview (the
 history-preview overlay, on a copy) and "Use this solution": explicit, one
-undo entry, recorded as `fitResult.chosenAlternative`, and implemented as
-the START of an ordinary Run Fit so σ, exports and saves come through the
-one existing path. In the RED band — and only there — it first asks,
+undo entry, recorded as `fitResult.chosenAlternative`, and ATOMIC by
+construction — the alternative is only the START of an ordinary server fit
+(`runFit({startPeaks})`); the live model is written by that fit's success
+path and by nothing else, so a fit that fails, does not converge, is
+discarded on a tab switch or cannot reach the server (no local fallback
+here) leaves peaks and result exactly as they were, and σ, exports and
+saves come through the one existing path. Every row shows EACH component's
+own area % and its own move from the student's start. The evidence is
+BOUND TO THE FITTED MODEL (`fitResult.startsModelKey` over every peak field
+the fit reads, taken after the result is applied, persisted with the
+counts): after any edit, lock, shape or link change, added/removed peak or
+undo the panel says the comparison no longer applies, nothing can be
+previewed or applied, and saves/exports carry no counts
+(`_startsIfCurrent`); background / ROI edits clear it through
+`_invalidateFittedY`. The trigger (`n_starts`) is decided with the other
+request inputs before the first await. In the RED band — and only there — it first asks,
 naming the component and the distance ("This solution moves C-O by
 −1.47 eV from where you placed it. Apply?"): a lower χ²ᵣ bought by
 relocating a component is the measured trap (8-JT C1s Scan_1/5/6/7), and
