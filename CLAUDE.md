@@ -463,7 +463,18 @@ only if it converged. `runFitLocal` works on a copy and commits only on
 success, returning `{success, iterations, chiReduced}`; `runFit`
 treats `success !== true` from `/api/fit` as a failed fit and falls back to
 the local engine only on a transport failure, never on a server-side
-error. Not covered by this rule (separate units): model replacement that
+error. A RESULT IS DISCARDED IF THE MODEL WAS EDITED WHILE THE FIT WAS RUNNING
+(2026-09-22; a correctness fix for EVERY Run Fit, shipped with the
+scattered-starts check but independent of it). The peak controls stay
+editable during a fit. `runFit` captures the model-plus-context key
+(`_startsLiveKey()`: every peak field the request reads, background type and
+window, endpoint averaging, ROI, anchors, charge shift) beside `peakSpecs`,
+before its first await, and after the tab-owner check refuses to apply a
+result if that key changed: amber notice, "Fit discarded (model edited)",
+previous peaks and result kept. Before this, a centre changed and locked
+mid-fit kept its edited value (`applyBackendResult` honours locks) under the
+server's χ², σ and fitted curve for a different model.
+Not covered by this rule (separate units): model replacement that
 keeps an older result (Find Peaks apply in the default window, undo/redo)
 and loaded files without convergence provenance. From the initial commit
 until this unit the local LM step had the wrong sign and returned the

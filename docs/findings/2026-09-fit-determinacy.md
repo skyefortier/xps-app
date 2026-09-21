@@ -203,3 +203,55 @@ are never reported or stored. Mechanism and measurements: CLAUDE.md,
   and machines.
 - Own small unit: Auto-Fit C1s must not derive the charge correction from a
   zero-amplitude Graphite component.
+
+## 6. PATTERN — the C 1s adventitious-component migration (recorded 2026-09-22)
+
+Not four cases: one degeneracy seen four times. In the 8-JT graphite project
+the C 1s model is an asymmetric graphite line at 284.4 eV plus adventitious
+components; "Adventitious 2" is the C–O component, placed by the student at
+286.41 eV. On four scans a solution exists in which that component LEAVES
+the C–O position, slides about 1.4 eV to lower binding energy, broadens, and
+sits under the main line as a second carbon component — inside the server's
+default ± 2 eV centre window, so nothing forbids it:
+
+| scan | who found it | χ²ᵣ: student's method → migrated solution | Adventitious 2 moved |
+|---|---|---|---|
+| C1s Scan_1 | basin-hopping only (defeats ten scattered starts) | 17.55 → 12.30 | −1.47 eV (286.41 → 284.94; width 1.30 → 2.25 eV; area 3.5 k → 29 k) |
+| C1s Scan_5 | scattered starts (2 of 3) | 33.90 → 17.26 | −1.43 eV |
+| C1s Scan_6 | scattered starts (3 of 3) | 56.82 → 18.45 | −1.40 eV |
+| C1s Scan_7 | scattered starts (2–3 of 3) | 35.8–64.2 → 15.47 | −1.42 eV |
+
+(Scan_1's sign was reported loosely as "1.47 eV" and once as "+"; it is
+towards LOWER binding energy, like the other three.) On Scan_7 the student's
+own method also moves the component (−1.86 eV) — the model as posed does not
+hold it at C–O at all.
+
+What it is: the asymmetric tail of the graphite line and a broad symmetric
+component beneath it are nearly interchangeable ways of describing the same
+intensity. Giving the fit a free component with a ± 2 eV window lets it
+spend that component on the main line's misfit, which lowers χ² by more than
+describing a weak C–O feature ever could. The result scores better and is
+chemically wrong: it reports a large second carbon species that the student
+did not propose and removes the C–O the student did propose.
+
+Consequences already acted on:
+- It is THE reason the red-band confirmation exists. A lower χ²ᵣ reached by
+  moving a component more than 1 eV from where the student put it is this
+  pattern until shown otherwise, so adopting such a solution asks first and
+  names the component and the distance; and it is why the student's method
+  result remains the fit (owner decision, §5).
+- The scattered-starts table shows every component's move for the same
+  reason: the migration is invisible in χ²ᵣ and in a fractions-only table.
+
+RELEVANT TO THE FIND PEAKS CANDIDATE LADDER (not yet examined): any model
+space that can EXPRESS this migration will FIND it, because an information
+criterion rewards exactly this trade. A candidate set that includes a free
+broad component near an asymmetric main line, or centre windows wide enough
+to reach it, should be expected to rank the migrated model first on graphitic
+C 1s. Checks worth making there: whether candidate centre windows let an
+adventitious slot reach the main line; whether the ranking can prefer
+"asymmetric line + broad carbon under it" over "asymmetric line + C–O"; and
+whether the result names the slot by its ROLE (so a migrated slot is still
+called C–O). Narrower per-role centre windows are the structural remedy; the
+manual path has only the ± 2 eV default.
+
