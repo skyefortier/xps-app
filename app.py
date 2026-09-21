@@ -827,6 +827,12 @@ def _register_routes(app: Flask) -> None:
         if n_perturb < 0 or n_perturb > MAX_N_PERTURB:
             return _err(f"n_perturb must be between 0 and {MAX_N_PERTURB}")
 
+        # Scattered-starts check (optional; the page sends 3). Same clean-400
+        # treatment as n_perturb; run_fit validates again for other callers.
+        n_starts = body.get("n_starts", 0)
+        if isinstance(n_starts, bool) or not isinstance(n_starts, int) or not 0 <= n_starts <= fitting.MAX_N_STARTS:
+            return _err(f"n_starts must be an integer between 0 and {fitting.MAX_N_STARTS}")
+
         try:
             result = fitting.run_fit(
                 energy=energy,
@@ -840,6 +846,7 @@ def _register_routes(app: Flask) -> None:
                 manual_bg=manual_bg,
                 n_perturb=n_perturb,
                 endpoint_avg=endpoint_avg,
+                n_starts=n_starts,
             )
         except ValueError as exc:
             # Our own validation: unknown shape/method, self/circular constraint,

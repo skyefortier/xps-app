@@ -1174,6 +1174,136 @@ def _request_seed(x, counts, background, shapes, prefixes, params, *, fit_kws, n
     return int.from_bytes(h.digest()[:4], "little")            # 32 bits: what scipy's seed accepts
 
 
+# ── Scattered starts: is the fit the only solution the data allow? ────────────
+# Measured on the lab's 202 committed fit targets (docs/findings/
+# 2026-09-fit-determinacy.md): the default method's result is more than 5 pp of
+# area fraction from the best known solution on 7.8 % of not-yet-fitted starts;
+# a second METHOD from the same start shares the minimum too often to help;
+# three more fits of the SAME method from scattered starts expose it (3.2 %),
+# at ~0.6 s. The fit the student asked for is never replaced (owner decision:
+# the lowest chi-square can be a chemically absurd relocation of a component);
+# solutions with a lower reduced chi-square are returned beside it, with how
+# far each component moved from the student's start.
+MAX_N_STARTS = 10
+_STARTS_METHODS = ("leastsq", "least_squares", "nelder")     # the global methods already search
+_SAME_FRACTION_PP = 1.0      # "same solution": every area fraction within 1 pp ...
+_SAME_CENTRE_EV = 0.1        # ... and every centre within 0.1 eV (presentation grain, not science)
+_LOWER_CHI_REL = 1e-3        # an alternative's reduced chi-square is lower by more than 0.1 %
+
+
+def _scattered_start(params: Parameters, rng) -> Parameters:
+    """One scattered start, anchored to the REQUEST's start (``params`` as
+    built from the request, never a fitted solution, which jitters): free
+    amplitudes x/÷ 3, free widths x/÷ 1.5, free centres ± 0.5 eV, every other
+    freely varying parameter with finite bounds redrawn inside the middle
+    90 % of its range; always inside the request's own bounds. Fixed and
+    constrained parameters, and the integer CasaXPS ``m``, are left alone."""
+    out = params.copy()
+    for name, par in out.items():
+        if not par.vary or par.expr is not None:
+            continue
+        lo, hi = par.min, par.max
+        inside = lambda v, m=0.05: (  # noqa: E731  keep a margin off finite walls
+            min(max(v, lo + m * (hi - lo)), hi - m * (hi - lo)) if np.isfinite(lo) and np.isfinite(hi)
+            else max(v, lo) if np.isfinite(lo) else min(v, hi) if np.isfinite(hi) else v)
+        if name.endswith("_amplitude"):
+            value = inside(max(abs(par.value), 1.0) * float(np.exp(rng.uniform(-np.log(3), np.log(3)))), 0.0)
+        elif name.endswith("_fwhm"):
+            value = inside(par.value * float(np.exp(rng.uniform(-np.log(1.5), np.log(1.5)))))
+        elif name.endswith("_center"):
+            value = inside(par.value + float(rng.uniform(-0.5, 0.5)))
+        elif name.endswith("_m"):
+            continue
+        elif np.isfinite(lo) and np.isfinite(hi):
+            value = float(rng.uniform(lo + 0.05 * (hi - lo), hi - 0.05 * (hi - lo)))
+        else:
+            continue
+        par.set(value=float(value))
+    return out
+
+
+def _solution_components(model, result, peak_specs, x) -> list[dict[str, Any]]:
+    """Per component, in the request's order: area, area %, and every fitted
+    parameter value (what the page needs to show and to apply a solution)."""
+    comps = []
+    for spec in peak_specs:
+        prefix = f"p{spec['id']}_"
+        comp = next(c for c in model.components if c.prefix == prefix)
+        area = float(abs(trapezoid(comp.eval(result.params, x=x), x)))
+        values = {n[len(prefix):]: float(par.value) for n, par in result.params.items() if n.startswith(prefix)}
+        comps.append({"id": spec["id"], "shape": spec.get("shape", "pseudo_voigt_gl"), "area": area, "params": values})
+    total = sum(c["area"] for c in comps)
+    for c, spec in zip(comps, peak_specs):
+        c["area_percent"] = 100.0 * c["area"] / total if total > 0 else 0.0
+        c["center_shift_from_start"] = c["params"]["center"] - float(spec["center"])
+    return comps
+
+
+def _same_solution(a, b) -> bool:
+    """Same decomposition: every area fraction within 1 pp and every centre
+    within 0.1 eV, component by component — or the same after components of
+    the SAME lineshape trade places (two interchangeable peaks that swapped
+    labels are one physical fit, not a second solution)."""
+    def close(u, v):
+        return (max(abs(p["area_percent"] - q["area_percent"]) for p, q in zip(u, v)) <= _SAME_FRACTION_PP
+                and max(abs(p["params"]["center"] - q["params"]["center"]) for p, q in zip(u, v)) <= _SAME_CENTRE_EV)
+
+    if close(a, b):
+        return True
+    key = lambda c: (c["shape"], c["params"]["center"])  # noqa: E731
+    sa, sb = sorted(a, key=key), sorted(b, key=key)
+    return [c["shape"] for c in sa] == [c["shape"] for c in sb] and close(sa, sb)
+
+
+def _largest_shift(comps) -> dict[str, Any]:
+    c = max(comps, key=lambda c: abs(c["center_shift_from_start"]))
+    return {"id": c["id"], "ev": c["center_shift_from_start"]}
+
+
+def _scattered_starts(n_starts, fit_once, model, start_params, result, peak_specs, x, rng) -> dict[str, Any]:
+    """Run the starts and sort what they found relative to THE FIT (``result``),
+    which this function never changes."""
+    fit_comps = _solution_components(model, result, peak_specs, x)
+    fit_chi = float(result.redchi)
+    clusters: list[dict[str, Any]] = []
+    n_converged = n_same = 0
+    for _ in range(n_starts):
+        try:
+            trial = fit_once(_scattered_start(start_params, rng))
+        except Exception:
+            log.debug("scattered start raised", exc_info=True)
+            continue
+        if not trial.success or trial.redchi is None or not np.isfinite(trial.redchi):
+            continue
+        n_converged += 1
+        comps = _solution_components(model, trial, peak_specs, x)
+        if _same_solution(comps, fit_comps):
+            n_same += 1
+            continue
+        home = next((c for c in clusters if _same_solution(comps, c["components"])), None)
+        if home is None:
+            clusters.append({"chi2r": float(trial.redchi), "n_starts": 1, "components": comps})
+        else:
+            home["n_starts"] += 1
+            if trial.redchi < home["chi2r"]:
+                home.update(chi2r=float(trial.redchi), components=comps)
+    lower = sorted((c for c in clusters if c["chi2r"] < fit_chi * (1.0 - _LOWER_CHI_REL)), key=lambda c: c["chi2r"])
+    other = [c for c in clusters if c not in lower]
+    for alt in lower:
+        alt["largest_centre_shift_from_start"] = _largest_shift(alt["components"])
+        alt["largest_fraction_difference_pp"] = max(
+            abs(p["area_percent"] - q["area_percent"]) for p, q in zip(alt["components"], fit_comps))
+    return {
+        "ran": True, "n_run": n_starts, "n_converged": n_converged, "n_same_as_fit": n_same,
+        # solutions that are NOT better: counted, never listed (they are what a bad start looks like)
+        "n_not_better_elsewhere": sum(c["n_starts"] for c in other),
+        "not_better_chi2r": sorted(c["chi2r"] for c in other),
+        "fit": {"chi2r": fit_chi, "largest_centre_shift_from_start": _largest_shift(fit_comps),
+                "components": [{k: c[k] for k in ("id", "area_percent", "center_shift_from_start")} for c in fit_comps]},
+        "alternatives": lower,
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1190,6 +1320,7 @@ def run_fit(
     n_perturb: int = 0,
     manual_bg: list | None = None,
     endpoint_avg: int = 1,
+    n_starts: int = 0,
 ) -> dict[str, Any]:
     """
     Run XPS peak fitting and return a serialisable result dict.
@@ -1377,8 +1508,12 @@ def run_fit(
             x, y, bg, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
             [f"p{spec['id']}_" for spec in ordered], all_params,
             fit_kws=fit_kws, n_perturb=n_perturb)
-    perturb_rng, solver_rng = (np.random.default_rng(child)
-                               for child in np.random.SeedSequence(random_seed).spawn(2))
+    # spawn(3) yields the same first two children as spawn(2): adding the
+    # scattered-starts stream leaves every existing draw (and its pins) alone.
+    perturb_rng, solver_rng, starts_rng = (np.random.default_rng(child)
+                                           for child in np.random.SeedSequence(random_seed).spawn(3))
+    if isinstance(n_starts, bool) or not isinstance(n_starts, (int, np.integer)) or not 0 <= n_starts <= MAX_N_STARTS:
+        raise ValueError(f"n_starts must be an integer between 0 and {MAX_N_STARTS}")
 
     # ── Fit ───────────────────────────────────────────────────────────────────
     kws = {"method": "leastsq", "nan_policy": "omit"}
@@ -1479,6 +1614,24 @@ def run_fit(
                       result.redchi, best_redchi)
             result = best_result
 
+    # ── Scattered starts (never changes `result`) ────────────────────────────
+    starts = None
+    if n_starts:
+        n_unlinked = sum(1 for spec in peak_specs if spec.get("constrain_to") is None)
+        if kws.get("method") not in _STARTS_METHODS:
+            starts = {"ran": False, "reason": "method"}          # a global method already searches
+        elif n_unlinked < 2:
+            starts = {"ran": False, "reason": "single_component"}
+        elif not result.success:
+            starts = {"ran": False, "reason": "fit_not_converged"}
+        else:
+            try:
+                starts = _scattered_starts(int(n_starts), fit_once, composite_model, all_params, result,
+                                           peak_specs, x, starts_rng)
+            except Exception as exc:                              # the check must never cost the student the fit
+                log.exception("scattered starts failed")
+                starts = {"ran": False, "reason": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
+
     # Sides WE closed on the returned result (non-empty only for a
     # differential-evolution result whose refinement did not take over).
     search_box = getattr(result, "search_box", {})
@@ -1578,6 +1731,7 @@ def run_fit(
         },
         "charge_shift_applied": charge_shift_ev,
         "random_seed": random_seed,
+        "starts": starts,
     }
 
 
