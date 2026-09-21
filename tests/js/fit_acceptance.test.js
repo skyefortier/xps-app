@@ -41,7 +41,7 @@ function makeEnv({ fetchImpl, uploadImpl }) {
     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
   const owner = { id: 7 };
   const calls = { notify: [], local: 0, applied: 0 };
-  const src = ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax'].map(extractFn).join('\n');
+  const src = 'const _STARTS_N = 3;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount'].map(extractFn).join('\n');
   const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
@@ -95,7 +95,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   failing.calls.local = 0;
   // rebuild with a failing runFitLocal
   const dom = failing.dom;
-  const src = ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax'].map(extractFn).join('\n');
+  const src = 'const _STARTS_N = 3;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount'].map(extractFn).join('\n');
   const noop = () => {};
   const owner = { id: 1 };
   const state = failing.state;
@@ -128,7 +128,7 @@ test('the engine/objective labels of a fit result survive spectrum and project s
   assert.match(save, /objective: state\.fitResult\.objective/);
   assert.match(save, /engine: state\.fitResult\.engine/);
   const load = grab('function _loadSpectrumFile(', 6000);
-  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat'\]/);
+  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'chosenAlternative'\]/);
   // project save: the whitelisted fitResult record carries them
   const proj = grab('const buildTabData = (t) =>', 3000);
   assert.match(proj, /objective: t\.fitResult\.objective/);
@@ -259,7 +259,7 @@ test('project save derives the designation from the objective for an older local
   for (let i = start; i < html.length; i++) { const ch = html[i]; if (ch === '{') { depth++; seen = true; } else if (ch === '}') { depth--; if (seen && depth === 0) { end = i + 1; break; } } }
   const src = html.slice(start, end) + ';';
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
-  const helpers = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat'].map(extractFn).join('\n');
+  const helpers = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave'].map(extractFn).join('\n');
   const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
     { serializeRefOverlays: () => null }, a => a, a => a);
   const older = { id: 1, name: 't', rawBE: [1, 2], rawIntensity: [1, 1], ccShift: 0, peaks: [], nextId: 1, ui: {},
@@ -354,7 +354,7 @@ test('fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV e
   assert.match(grab('const buildTabData = (t) =>', 4000), /modelProvenance: t\.modelProvenance \|\| null/, 'project save carries provenance');
   assert.match(grab('function _loadProjectJSON(', 8000), /modelProvenance: t\.modelProvenance \|\| null/, 'project load carries provenance');
   assert.match(grab('function renderResults()', 1200), /_isLocalModel\(\)/, 'no-result placeholder designates an imported local model');
-  for (const fn of ['function runFitLocal(', 'async function runFit()', 'function applyAutoFitResult(', 'function clearAllPeaks()']) {
+  for (const fn of ['function runFitLocal(', 'async function runFit(', 'function applyAutoFitResult(', 'function clearAllPeaks()']) {
     assert.match(grab(fn, 25000), /modelProvenance = null/, fn + ' clears imported provenance');
   }
 });

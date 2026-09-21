@@ -101,7 +101,7 @@ test('async operations capture their owning record before the first await', () =
   assert.match(ap, /const owner = _opOwner\(\)/);
   assert.ok(ap.indexOf('_ownerActive(owner)') > ap.indexOf('await _showFindPeaksApplyConfirmModal'), 'owner must be re-validated after the confirmation await');
   // fits: owner is the record OBJECT, not an id, and EVERY request input is read before the upload await
-  for (const fn of ['async function runFit()', 'async function runAutoFitC1sGraphite()']) {
+  for (const fn of ['async function runFit(', 'async function runAutoFitC1sGraphite()']) {
     const body = grab(fn, 7000);
     assert.doesNotMatch(body, /fittingTabId = tabManager\.activeId/);
     const up = body.indexOf('await uploadToBackend');

@@ -252,3 +252,20 @@ same way.
 
 RARE → the proposed order stands: (a) scattered-starts check, (b) the
 unsupported-component outcome, (c) the Auto-Fit refit.
+
+## 7. Step (a) as built — measured with the shipped code (2026-09-21)
+
+`scripts/scattered_starts_measure.py`, all 202 targets, Trust-Region,
+`n_perturb: 3`, `n_starts: 3`, inputs rounded as the upload does. The check
+ran on 178 (24 single-component). Re-fits of a saved solution: 3 of 3 same
+on 67 of 94, a lower-χ²ᵣ alternative on 0, only not-better solutions
+elsewhere on 27. Not-yet-fitted starts: 3 of 3 same on 63 of 84, an
+alternative on 6 (7.1 %) — 1-GTA C1s Scan_4 (19.04 → 18.21, the finding
+that started this), 1-GTA U4f Scan_6, Cl2p_projfit C1s Scan_4 and 8-JT C1s
+Scan_5/6/7, the last three with "Adventitious 2" moved −1.40 to −1.43 eV
+(red band) — only not-better elsewhere on 15. Time added: median 0.54 s,
+90th percentile 1.84 s, maximum 17.8 s (the fit itself: median 0.98 s, 90th
+percentile 22.8 s). Design deviations from §3: adopting an alternative
+re-fits from it instead of writing its parameters as a result (so σ,
+exports, saves and history need no new consumer sites); two same-lineshape
+components that swapped labels count as one solution.

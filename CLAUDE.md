@@ -351,6 +351,45 @@ sitting near a boundary between two solutions can still resolve
 differently, and that is precisely the situation the multiple-starts check
 is designed to surface.
 
+**Scattered-starts check (step (a) of the 2026-09-21 unit; plan in
+`docs/superpowers/plans/2026-09-21-scattered-starts-and-unsupported-components.md`).**
+Every Run Fit with ≥ 2 unlinked components sends `n_starts: 3`; after the
+normal fit (unchanged: THE FIT is what the student's method returned,
+byte-identical with and without the check, and `n_starts` is not part of
+the seed) `run_fit` runs three more fits of the SAME method from scattered
+starts — drawn from a third stream of the request seed, anchored to the
+REQUEST's start (amplitude ×/÷ 3, width ×/÷ 1.5, free centres ± 0.5 eV,
+other bounded parameters redrawn inside the middle 90 % of their range),
+always inside the request's bounds. "Same solution" = every area fraction
+within 1 pp and every centre within 0.1 eV, also after same-lineshape
+components trade places. The response's `starts` reports how many reached
+the fit, how many ended in a solution that is NOT better (counted, never
+listed — ~25 % of fits have one and listing them would train people to
+ignore the panel), and `alternatives`: solutions whose χ²ᵣ is lower by more
+than 0.1 %, each with its own areas and every component's centre shift
+from the STUDENT'S START. Not run for `differential_evolution` /
+`basinhopping`, single-component models, a fit that did not converge,
+Batch Fit or the local fallback; a failure inside the check never fails
+the fit. Page: one line under the Results table ("2 of 3 scattered starts
+reached this solution; …" — counts, never certification language) and,
+when alternatives exist, an "Other solutions found" table (your fit first;
+the largest move named, amber > 0.5 eV, red > 1 eV) with Preview (the
+history-preview overlay, on a copy) and "Use this solution": explicit, one
+undo entry, recorded as `fitResult.chosenAlternative`, and implemented as
+the START of an ordinary Run Fit so σ, exports and saves come through the
+one existing path. In the RED band — and only there — it first asks,
+naming the component and the distance ("This solution moves C-O by
+−1.47 eV from where you placed it. Apply?"): a lower χ²ᵣ bought by
+relocating a component is the measured trap (8-JT C1s Scan_1/5/6/7), and
+the app must never substitute a chemical interpretation because it scored
+better. Saves persist the counts (`_startsForSave`), not the alternatives'
+parameter sets (regenerable from the seeded request). Measured with the
+shipped code on the 202 committed targets: an alternative is shown on 0 of
+94 re-fits of a saved solution and 6 of 84 not-yet-fitted starts (7.1 %;
+three of them in the red band), median +0.54 s per Run Fit (90th
+percentile +1.8 s). It shows that a decomposition is not unique; it cannot
+say which one is correct, and four known targets defeat even ten starts.
+
 ### Client-side fallback
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
