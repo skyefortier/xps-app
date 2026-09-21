@@ -22,6 +22,8 @@ Spin‑orbit constraints are handled via lmfit parameter expressions.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import warnings
 from typing import Any
@@ -1096,6 +1098,48 @@ def _global_or_local_candidate(model, params, requested, y_sub, x, weights, kws)
     return searched
 
 
+_STOCHASTIC_METHODS = ("differential_evolution", "basinhopping")
+
+
+def _canonical(value):
+    """Request content in a spelling-independent form: keys sorted, every
+    number a float (a browser writes 1.0 as ``1``), arrays as lists."""
+    if isinstance(value, dict):
+        return {str(k): _canonical(value[k]) for k in sorted(value, key=str)}
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return [_canonical(v) for v in value]
+    if isinstance(value, (bool, np.bool_)) or value is None or isinstance(value, str):
+        return bool(value) if isinstance(value, np.bool_) else value
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return float(value)
+    return repr(value)
+
+
+def _request_seed(energy, counts, peak_specs, *, background_method, bg_start_idx, bg_end_idx,
+                  endpoint_avg, manual_bg, fit_kws, n_perturb) -> int:
+    """The seed for every random draw of one fit: a pure function of the
+    request (SHA-256 of the data as little-endian float64 and of the
+    canonical JSON of everything else), so the same request gives the same
+    fit on any press, session, worker or machine. A seed the caller passes
+    in ``fit_kws["fit_kws"]["seed"]`` is left out of the hash (it replaces
+    the result). Changing this derivation changes what saved projects
+    regenerate: bump the version tag and say so.
+    """
+    kws = dict(fit_kws or {})
+    solver = {k: v for k, v in dict(kws.pop("fit_kws", None) or {}).items() if k != "seed"}
+    rest = _canonical({
+        "peaks": peak_specs, "background_method": background_method,
+        "bg_start_idx": bg_start_idx, "bg_end_idx": bg_end_idx, "endpoint_avg": endpoint_avg,
+        "manual_bg": manual_bg, "fit_kws": kws, "solver": solver, "n_perturb": n_perturb,
+    })
+    h = hashlib.sha256(b"xps-fit-seed-v1\0")
+    for arr in (energy, counts):
+        a = np.ascontiguousarray(arr, dtype="<f8")
+        h.update(str(a.size).encode() + b"\0" + a.tobytes())
+    h.update(json.dumps(rest, sort_keys=True, separators=(",", ":"), allow_nan=True).encode())
+    return int.from_bytes(h.digest()[:4], "little")            # 32 bits: what scipy's seed accepts
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1141,6 +1185,21 @@ def run_fit(
 
     # Apply charge correction
     energy = energy + charge_shift_ev
+
+    # Every random draw below (the perturbed restarts; the populations of the
+    # two stochastic methods, which lmfit otherwise takes from numpy's GLOBAL
+    # generator) comes from this one seed, so an identical request gives an
+    # identical fit.
+    caller_seed = ((fit_kws or {}).get("fit_kws") or {}).get("seed")
+    if isinstance(caller_seed, (int, np.integer)) and not isinstance(caller_seed, bool):
+        random_seed = int(caller_seed)
+    else:
+        random_seed = _request_seed(
+            energy, counts, peak_specs, background_method=background_method,
+            bg_start_idx=bg_start_idx, bg_end_idx=bg_end_idx, endpoint_avg=endpoint_avg,
+            manual_bg=manual_bg, fit_kws=fit_kws, n_perturb=n_perturb)
+    perturb_rng, solver_rng = (np.random.default_rng(child)
+                               for child in np.random.SeedSequence(random_seed).spawn(2))
 
     # The fit runs on the ENTIRE incoming ROI; bg_start_idx / bg_end_idx
     # narrow only the anchor window used to construct the background
@@ -1274,14 +1333,24 @@ def run_fit(
     # open above: each candidate is searched in a generated box and then
     # refined under the request's own bounds (_search_then_refine). Every
     # other method fits the request's parameters exactly as before.
+    def seeded(call_kws):
+        """``call_kws`` with a fresh solver seed for the stochastic methods
+        (one per minimisation, else every perturbed restart of differential
+        evolution would replay the same population); unchanged otherwise."""
+        if call_kws.get("method") not in _STOCHASTIC_METHODS:
+            return call_kws
+        solver_kws = dict(call_kws.get("fit_kws") or {})
+        solver_kws["seed"] = int(solver_rng.integers(0, 2 ** 32 - 1))
+        return {**call_kws, "fit_kws": solver_kws}
+
     if kws.get("method") == "differential_evolution":
         requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
 
         def fit_once(params):
-            return _global_or_local_candidate(composite_model, params, requested_bounds, y_sub, x, weights, kws)
+            return _global_or_local_candidate(composite_model, params, requested_bounds, y_sub, x, weights, seeded(kws))
     else:
         def fit_once(params):
-            return composite_model.fit(y_sub, params, x=x, weights=weights, **kws)
+            return composite_model.fit(y_sub, params, x=x, weights=weights, **seeded(kws))
 
     # ── Diagnostic logging: BEFORE optimisation ──────────────────────────────
     if log.isEnabledFor(logging.DEBUG):
@@ -1312,7 +1381,7 @@ def run_fit(
     if n_perturb > 0 and result.success:
         best_result = result
         best_redchi = result.redchi if result.redchi is not None else float('inf')
-        rng = np.random.default_rng()
+        rng = perturb_rng
 
         for attempt in range(n_perturb):
             perturbed_params = result.params.copy()
@@ -1452,6 +1521,7 @@ def run_fit(
             "bic": float(result.bic) if result.bic is not None else None,
         },
         "charge_shift_applied": charge_shift_ev,
+        "random_seed": random_seed,
     }
 
 

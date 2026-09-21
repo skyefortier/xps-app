@@ -279,6 +279,36 @@ exhaust DE's evaluation budget in every search and are rescued by the
 refinement). It is not a gold standard: on one 3-component B 1s target it
 returned χ²ᵣ 1.92 where Trust-Region found 1.81.
 
+**Reproducibility (2026-09-21).** Every random draw in `run_fit` — the
+`n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
+and the populations of `differential_evolution` and `basinhopping`, which
+lmfit otherwise takes from numpy's GLOBAL generator — comes from one seed
+that is a pure function of the request (`_request_seed`: SHA-256 of the
+energies and counts as little-endian float64 plus the canonical JSON of
+peaks, background settings, method and `n_perturb`; tag `xps-fit-seed-v1`,
+pinned by a test — changing the derivation changes what saved projects
+regenerate). The response reports it as `random_seed`; a caller's own
+`fit_kws.fit_kws.seed` replaces it. Until this unit the generator was
+unseeded and five presses of Run Fit on one committed C 1s scan gave χ²ᵣ
+70.6 / 18.5 / 70.6 / 38.3 / 18.5. What seeding buys, measured on the 202
+committed targets × 5 presses (before → after): Levenberg-Marquardt
+byte-identical on 145 → 202 targets; Trust-Region (the default) on
+51 → 146, area fractions moving by more than 1 pp between presses on
+8 → 0 targets, by more than 0.01 pp on 14 → 1 (0.33 pp, one U 4f scan
+where one press in five lands in a neighbouring minimum), all others
+≤ 0.005 pp. Trust-Region is NOT byte-identical and cannot be made so by
+seeding: OpenBLAS's dot product rounds one unit in the last place
+differently depending on where its argument sits in memory (verified:
+`w.dot(w)` gives two values over 16 alignments, `np.sum(w*w)` one), and
+scipy's trust-region iteration (`norm` inside `_lsq/trf.py` is the first
+call to return different output for identical input) amplifies that to
+~1e-4 relative in an area at its stopping tolerance of 1e-8. Do not "fix"
+that by patching scipy internals. Tightening the tolerance to 1e-12 shrinks
+the jitter ~20× but made 2 % of the committed Trust-Region fits abort on
+the evaluation budget — measured, not adopted; an owner decision.
+Across machines the seed and the draws are identical; the arithmetic is
+whatever that machine's BLAS does.
+
 ### Client-side fallback
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
