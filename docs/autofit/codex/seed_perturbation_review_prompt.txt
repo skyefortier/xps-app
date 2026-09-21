@@ -1,0 +1,30 @@
+Review ONE commit (HEAD of branch fix-seed-perturbation; parent = main). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO.
+
+CONTEXT
+fitting.run_fit (Flask /api/fit and /api/analyze reach it). The page sends n_perturb: 3: after the first minimisation the server refits from random +-15 % perturbations and keeps the lowest reduced chi-square. The generator was np.random.default_rng() with no seed, and lmfit's differential_evolution / basinhopping run with seed=None (numpy's GLOBAL generator). Measured on a committed C 1s scan: five presses of Run Fit gave chi2r 70.6 / 18.5 / 70.6 / 38.3 / 18.5. Owner requirement: identical requests must give identical answers — seed derived from the request so it is stable across sessions and machines.
+
+THE CHANGE (git show HEAD -- fitting.py)
+- _canonical / _request_seed: SHA-256 over a version tag, energies and counts as little-endian float64 (with their lengths), and the canonical JSON (keys sorted, every number a float, no whitespace) of peaks, background method/indices/endpoint_avg/manual_bg, fit_kws (method; nested solver kwargs minus any seed) and n_perturb -> 32-bit int.
+- run_fit: random_seed = caller's fit_kws["fit_kws"]["seed"] if an int, else _request_seed(...) computed AFTER the charge shift is applied to energy. SeedSequence(random_seed).spawn(2) -> perturb_rng (replaces the unseeded generator in the perturb loop) and solver_rng; `seeded(kws)` injects a fresh fit_kws.seed per minimisation for differential_evolution and basinhopping only. Response gains "random_seed".
+- tests/test_fit_reproducibility.py (15), CLAUDE.md paragraph.
+
+WHAT IS CLAIMED, AND WHAT IS NOT
+Claimed: every random draw is a pure function of the request; LM and Nelder-Mead results are byte-identical press to press; the seed value is pinned.
+NOT claimed: byte-identical Trust-Region (least_squares). Evidence in CLAUDE.md: OpenBLAS ddot gives two values for the same vector at different memory alignments; inside scipy's _lsq/trf.py `norm` is the first call to return different output for identical input; the iteration amplifies it to ~1e-4 relative in an area. Measured on 202 committed targets x 5 presses, before -> after seeding: Trust-Region byte-identical on 51 -> 146 targets; > 1 pp between presses on 8 -> 0; > 0.01 pp on 14 -> 1 (0.33 pp); LM byte-identical 145 -> 202.
+
+SITE TABLE — break it:
+1. perturb loop generator (fitting.py, `rng = perturb_rng`).
+2. differential_evolution candidates: fit_once -> _global_or_local_candidate -> _search_then_refine (DE call gets the seed; the least_squares refinement and the local candidate build fresh kwargs and get none).
+3. basinhopping: composite_model.fit(**seeded(kws)).
+4. Other randomness reachable from /api/fit or /api/analyze that is NOT covered: grep np.random / default_rng / random. across fitting.py, app.py, autofit/ (autofit/engine.py and bayesian_exchange_mc.py already take explicit seeds — confirm they do not also depend on the global generator, and whether autofit's calls into run_fit now behave differently).
+5. Response consumers: the page stores json as fitResult.backendResult; does any consumer (frontend, autofit, tests, saved-file schema validators) break on the new top-level key "random_seed"?
+
+QUESTIONS
+a. Canonicalisation: find two requests that are "the same" to a user but hash differently in practice for the PAGE (e.g. peak id as 1 vs "1", -0.0 vs 0.0, NaN, key present-with-null vs absent, float vs int bg indices), and two DIFFERENT requests that hash the same. The page's request is built by peakToBackendSpec + uploadToBackend (intensities rounded to 2 dp) — is the uploaded/parsed data (CSV round trip through /api/upload -> .npz) bit-stable across presses?
+b. 32-bit seed space / SeedSequence.spawn usage: any correlation or reuse problem (e.g. solver seeds identical across perturb trials; perturb stream depending on the method).
+c. A caller-supplied seed replaces the request seed entirely — acceptable? bool/float/str seeds?
+d. Does seeding change which minimum students get on average (it should not — same distribution, one fixed draw per request)? Any way the fixed draw is systematically worse (e.g. the same three scale factors reused for every request because the hash ignores something)?
+e. Is the Trust-Region non-determinism analysis in CLAUDE.md correct and is "do not patch scipy internals" the right call, or is there a sound way to make it byte-identical that I missed?
+f. Tests: do they fail on main, and what is untested?
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

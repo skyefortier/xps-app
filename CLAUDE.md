@@ -279,6 +279,78 @@ exhaust DE's evaluation budget in every search and are rescued by the
 refinement). It is not a gold standard: on one 3-component B 1s target it
 returned χ²ᵣ 1.92 where Trust-Region found 1.81.
 
+**Reproducibility (2026-09-21).** Every random draw in `run_fit` — the
+`n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
+and the populations of `differential_evolution` and `basinhopping`, which
+lmfit otherwise takes from numpy's GLOBAL generator — comes from one seed
+that is a pure function of THE NUMBERS THE OPTIMISER IS HANDED
+(`_request_seed`: SHA-256 of the energies, counts and the COMPUTED
+background curve as little-endian float64, plus the canonical JSON of each
+component's lineshape, each lmfit parameter's effective role — a
+constrained one is its expression, a fixed one its value, a free one its
+value and bounds — the method, solver options and `n_perturb`; tag
+`xps-fit-seed-v1`). Settings are hashed by their EFFECT, never as sent, so
+nothing the fit ignores can change the draws: a peak's name or colour, the
+`fix_gl_ratio` the page still sends for a Gaussian, stale shape parameters
+kept after a shape switch, the `endpoint_avg` a linear background does not
+use, bounds of a fixed parameter, start values a link overrides, anchor
+order, and the peaks' internal ids (parameter names and constraint
+references are hashed by component POSITION: the page never reuses an id,
+so a model rebuilt after deleting a peak would otherwise fit differently)
+(in review each such no-op edit moved an area fraction by 15–45 pp
+while the request was hashed as sent). It is a seed,
+not an identity (32 bits collide; never a cache key). The response reports
+it as `random_seed`; a caller's `fit_kws.fit_kws.seed` (integer in
+[0, 2³²)) replaces it and is consumed, never forwarded to a solver.
+`run_fit` itself accepts only the five supported methods, case-folded
+(`_FIT_METHODS`): `/api/analyze` forwards `options.fit_method` without the
+route's allowlist, and lmfit's `ampgo`, `dual_annealing`, … would draw
+from the global generator. The seed value and the draws `run_fit` actually
+makes (observed through Levenberg-Marquardt) are pinned by tests; numpy does not promise the same `default_rng` stream across
+versions, so a failing pin after an upgrade is a release note ("saved
+projects regenerate differently"), not something to re-pin silently.
+
+What seeding buys and what it does not. "Identical request" means the same
+data, model START values and settings — after a fit the page holds the
+fitted values, so a second press is a different request; re-loading a
+saved project and pressing Run Fit is the repeatable case. Measured on the
+202 committed targets × 5 presses of the identical request, before → after:
+Levenberg-Marquardt byte-identical on 145 → 202 targets;
+Trust-Region on 51 → 145, area fractions moving by more than 1 pp between
+presses on 8 → 0 targets, by more than 0.01 pp on 14 → 2 (worst 0.30 pp,
+one U 4f scan where two presses in five land in a neighbouring minimum). Levenberg-Marquardt (MINPACK) and Nelder-Mead are
+byte-identical. Trust-Region, the default, is NOT and cannot be made so by
+seeding: the BLAS dot product (Apple Accelerate on the i9) rounds one unit
+in the last place differently depending on where its argument sits in
+memory (`w.dot(w)` gives two values over 16 alignments, `np.sum(w*w)`
+one), `norm` inside scipy's `_lsq/trf.py` is the first call to return
+different output for identical input, and the iteration amplifies that to
+~1e-4 relative in an area at its stopping tolerance of 1e-8. Worse, the
+perturbed restarts start from that jittering solution, and near a basin
+boundary 1e-5 in a start is enough to send a restart into another minimum:
+on the lab's targets that happened once (0.30 pp), but on a synthetic
+five-component model two presses of the seeded request differed by 29 pp
+(`tests/test_fit_reproducibility.py` docstring). Do not patch scipy
+internals for this, and do not tighten the tolerance: ftol = xtol = gtol =
+1e-12 on the same 202 × 5 gave FEWER byte-identical targets (123 vs 146)
+and made two targets that converge today abort on the evaluation budget.
+OWNER DECISION 2026-09-21: ACCEPT AND DISCLOSE; no unit for bit-identity.
+Byte-identity is a software property, not a scientific one. The scientific
+requirement — reloading a saved project and pressing Run Fit regenerates
+the figure within meaningful precision — is met (2 of 202 targets move
+more than 0.01 pp, worst 0.30 pp). The 29 pp synthetic case is the SAME
+phenomenon as the local-minimum problem (near a basin boundary 1e-4 of
+jitter flips the answer), so the scattered-starts cross-check unit is
+already the mitigation: it exposes exactly those fits. Do not build a
+second thing (a reviewer tried a deterministic perturbation base: identical
+starts, results still differed; a reproducible-arithmetic BLAS is a large
+project with uncertain payoff). Disclosure wording, for docs and the
+student note: identical requests now give identical results on real data
+in practice; the underlying arithmetic is not bit-reproducible, so a fit
+sitting near a boundary between two solutions can still resolve
+differently, and that is precisely the situation the multiple-starts check
+is designed to surface.
+
 ### Client-side fallback
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
