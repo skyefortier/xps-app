@@ -345,6 +345,7 @@ def test_refinement_runs_only_for_differential_evolution(monkeypatch):
         raise AssertionError("the search box is for differential evolution only")
 
     monkeypatch.setattr(fitting, "_search_then_refine", boom)
+    monkeypatch.setattr(fitting, "_global_or_local_candidate", boom)
     x, y = _two_peak_spectrum()
     for method in ("leastsq", "least_squares", "nelder"):
         res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=1,
@@ -584,3 +585,50 @@ def test_a_converged_refinement_is_returned_without_a_chi_square_gate(monkeypatc
     res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=0,
                           fit_kws={"method": "differential_evolution"})
     assert res["success"] is True
+
+
+# ── Codex round 9 (both runs NO-GO): DE ignores the start and can lose a
+#    needle-narrow peak; a local fit from the start competes. ─────────────────
+
+@pytest.mark.parametrize("n_perturb", [0, 3])
+@pytest.mark.parametrize("case", [
+    dict(x=(1399.75, 1400.25, 101), w=0.05, extra=dict(fwhm_min=0.05)),
+    dict(x=(1399.5, 1400.5, 101), w=0.1, extra={}),
+])
+def test_differential_evolution_is_never_worse_than_least_squares_from_the_same_start(case, n_perturb):
+    # Seed 0: the search converges with the centre outside the ROI
+    # (chi-square 10 613 408); least_squares from the request's start is exact.
+    np.random.seed(0)
+    x = np.linspace(*case["x"])
+    y = 1000.0 + 1e6 * np.exp(-4 * np.log(2) * ((x - 1400.0) / case["w"]) ** 2)
+    spec = {"id": 1, "shape": "gaussian", "center": 1400.0, "center_min": 1400.0, "amplitude": 1e6,
+            "amplitude_min": 0, "fwhm": case["w"], "fix_fwhm": True, **case["extra"]}
+    bg = [[x[0], 1000.0], [x[-1], 1000.0]]
+    de = fitting.run_fit(x, y, [spec], background_method="manual", manual_bg=bg, n_perturb=n_perturb,
+                         fit_kws={"method": "differential_evolution"})
+    ls = fitting.run_fit(x, y, [spec], background_method="manual", manual_bg=bg, n_perturb=0,
+                         fit_kws={"method": "least_squares"})
+    assert de["success"] is True and ls["success"] is True
+    assert de["statistics"]["chi_square"] <= ls["statistics"]["chi_square"] * (1 + 1e-6) + 1e-9
+    assert de["individual_peaks"][0]["params"]["center"]["value"] == pytest.approx(1400.0, abs=1e-4)
+
+
+def test_the_search_still_wins_when_it_is_better_than_the_local_fit():
+    # A start in the wrong basin: least_squares stays there, the search does not.
+    rng = np.random.default_rng(7)
+    x = np.arange(280.0, 295.0, 0.05)
+    y = rng.poisson(200.0 + 5000.0 * np.exp(-4 * np.log(2) * ((x - 284.0) / 1.0) ** 2)
+                    + 3000.0 * np.exp(-4 * np.log(2) * ((x - 291.5) / 1.0) ** 2)).astype(float)
+    specs = [{"id": 1, "shape": "gaussian", "center": 287.5, "center_min": 281.0, "center_max": 294.0,
+              "amplitude": 500.0, "amplitude_min": 0, "fwhm": 1.0},
+             {"id": 2, "shape": "gaussian", "center": 288.0, "center_min": 281.0, "center_max": 294.0,
+              "amplitude": 500.0, "amplitude_min": 0, "fwhm": 1.0}]
+    np.random.seed(1)
+    de = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0,
+                         fit_kws={"method": "differential_evolution"})
+    ls = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0,
+                         fit_kws={"method": "least_squares"})
+    assert de["success"] is True
+    assert de["statistics"]["chi_square"] <= ls["statistics"]["chi_square"] * (1 + 1e-6)
+    centres = sorted(p["params"]["center"]["value"] for p in de["individual_peaks"])
+    assert centres[0] == pytest.approx(284.0, abs=0.05) and centres[1] == pytest.approx(291.5, abs=0.05)

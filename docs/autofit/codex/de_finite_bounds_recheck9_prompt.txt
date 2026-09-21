@@ -1,0 +1,13 @@
+ROUND 10 recheck of branch fix-de-finite-bounds (HEAD; unit parent = main 35b950e). Read-only. Round 9 was NO-GO x2 with ONE finding, the same from both runs (archived docs/autofit/codex/de_finite_bounds_r9_verdict_run{A,B}.md); you both cleared the gate removal.
+
+DISPOSITION (your suggested cure)
+MAJOR DE ignores the start and can return success=true with a needle-narrow component outside the ROI (chi-square 10 613 408 vs 1e-4 for direct least_squares) -> fitting._global_or_local_candidate: for differential_evolution every candidate (first search and each perturbed refit) is the better of (i) _search_then_refine and (ii) a least_squares fit from the candidate's own start under the REQUEST's bounds (bounds reset from requested_bounds, fresh kwargs). Selection: a local fit that did not converge or raised is ignored; otherwise the local fit wins if the searched candidate is box_unverified, or not successful, or has the higher chi-square. Every other method is untouched.
+Tests: test_differential_evolution_is_never_worse_than_least_squares_from_the_same_start (both of your requests, seed 0, n_perturb 0 and 3), test_the_search_still_wins_when_it_is_better_than_the_local_fit (start in the wrong basin: least_squares stays, the search finds both peaks). 55 unit tests; CLAUDE.md states the rule; full suite re-run on HEAD.
+
+JUDGE ON REACHABLE BEHAVIOUR (no patched solver outputs):
+(a) differential_evolution returns success=false where direct least_squares on the same request succeeds;
+(b) differential_evolution returns success=true with a materially worse chi-square than direct least_squares on the same request (n_perturb 0), or than a candidate it held;
+(c) anything in git diff 35b950e..HEAD -- fitting.py not already cleared, including response consistency when the local candidate wins.
+Report fault-injection-only observations separately as MINOR.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

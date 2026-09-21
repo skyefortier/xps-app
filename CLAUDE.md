@@ -263,6 +263,12 @@ refinement did not converge or raised, the search result
 stays marked unverified, never displaces a verified candidate in the
 perturb loop, and, if it is what `run_fit` returns, is `success: false`
 naming the generated limits.
+Because differential evolution ignores the start and can "converge" with
+a needle-narrow component outside the fitted range, each candidate also
+competes with a `least_squares` fit from its own start under the request's
+bounds (`_global_or_local_candidate`: verified beats unverified, then the
+lower χ² wins), so this method never returns worse than the default method
+would from the same start.
 Generated sides are never echoed back as `min`/`max` (the page saves
 returned bounds and warns within 1 % of them). A returned DE result
 therefore normally carries `least_squares` uncertainties and message.

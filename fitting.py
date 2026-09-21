@@ -1066,6 +1066,36 @@ def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
     return found
 
 
+def _global_or_local_candidate(model, params, requested, y_sub, x, weights, kws):
+    """A differential-evolution candidate that is never worse than the
+    default method from the same start.
+
+    Differential evolution ignores the starting values. On a needle-narrow
+    peak in a wide box it can converge, "successfully", with the component
+    outside the fitted range (chi-square 1e7 where ``least_squares`` from the
+    request's start reaches 1e-4), and the refinement has nothing to descend
+    to from there. So a ``least_squares`` fit from the candidate's own start,
+    under the request's bounds, competes with the search: a verified result
+    beats an unverified one, then the lower chi-square wins.
+    """
+    searched = _search_then_refine(model, params, requested, y_sub, x, weights, kws)
+    start = params.copy()
+    for name, (lo, hi) in requested.items():
+        start[name].set(min=lo, max=hi)
+    try:
+        local = model.fit(y_sub, start, x=x, weights=weights,
+                          method="least_squares", nan_policy=kws.get("nan_policy", "omit"))
+    except Exception:
+        log.debug("local candidate from the start raised", exc_info=True)
+        return searched
+    if not local.success:
+        return searched
+    local.box_unverified, local.search_box = False, {}
+    if searched.box_unverified or not searched.success or local.chisqr < searched.chisqr:
+        return local
+    return searched
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1248,7 +1278,7 @@ def run_fit(
         requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
 
         def fit_once(params):
-            return _search_then_refine(composite_model, params, requested_bounds, y_sub, x, weights, kws)
+            return _global_or_local_candidate(composite_model, params, requested_bounds, y_sub, x, weights, kws)
     else:
         def fit_once(params):
             return composite_model.fit(y_sub, params, x=x, weights=weights, **kws)
