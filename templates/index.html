@@ -6817,11 +6817,33 @@ function _autoFitCheckGraphiteFraction(graphiteId) {
   return _autoFitDecideAreaWarning(peakAreas, graphiteId);
 }
 
+// A component can anchor the charge correction only if the fit gave it
+// intensity: a finite amplitude above one millionth of the strongest
+// component's (no real spectrum resolves a component that weak; a bound-
+// pinned amplitude is 0 or ~1e-12). Not a quality gate — a weak but real
+// Graphite component still passes and gets the existing < 40 % area warning.
+function _autoFitGraphiteIsSupported(gPeak, peaks) {
+  const amp = gPeak && gPeak.amplitude;
+  if (!Number.isFinite(amp) || amp <= 0) return false;
+  let top = 0;
+  for (const p of peaks || []) if (Number.isFinite(p.amplitude) && p.amplitude > top) top = p.amplitude;
+  return amp > 1e-6 * top;
+}
+
 function applyAutoFitResult(json, graphiteRaw, roi) {
   // 1. Locate the graphite peak in state.peaks (named "Graphite").
   const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
   if (!gPeak || !Number.isFinite(gPeak.center)) {
     notify('Auto-fit failed: graphite center not found in fit result.', 'red', true);
+    return false;
+  }
+  // 1b. The charge correction below is derived from this component's fitted
+  // centre and then shifts EVERY binding energy in the spectrum, so the
+  // component has to exist. A Graphite amplitude driven to its lower bound
+  // (the server's floor is zero; lmfit returns ~1e-12 there) still comes back
+  // with a centre inside the ±0.3 eV window — a position of nothing.
+  if (!_autoFitGraphiteIsSupported(gPeak, state.peaks)) {
+    notify('Auto-fit: the Graphite component fitted to zero intensity — the data do not support it, so no charge correction was derived from it and the fit was not applied.', 'red', true);
     return false;
   }
   // 2. Validate within ±0.3 of 284.50 (the LA center bound).
