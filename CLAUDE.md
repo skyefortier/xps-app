@@ -334,12 +334,22 @@ five-component model two presses of the seeded request differed by 29 pp
 internals for this, and do not tighten the tolerance: ftol = xtol = gtol =
 1e-12 on the same 202 × 5 gave FEWER byte-identical targets (123 vs 146)
 and made two targets that converge today abort on the evaluation budget.
-Possible MITIGATIONS are owner decisions: perturbing from the request's
-start instead of the jittering first solution makes the restarts' starting
-points identical but not their results (a reviewer tried it: the returned
-fits still differed, because each Trust-Region run jitters); a
-reproducible-arithmetic BLAS (e.g. oneMKL CNR) would need end-to-end
-validation. Nothing small guarantees it.
+OWNER DECISION 2026-09-21: ACCEPT AND DISCLOSE; no unit for bit-identity.
+Byte-identity is a software property, not a scientific one. The scientific
+requirement — reloading a saved project and pressing Run Fit regenerates
+the figure within meaningful precision — is met (2 of 202 targets move
+more than 0.01 pp, worst 0.30 pp). The 29 pp synthetic case is the SAME
+phenomenon as the local-minimum problem (near a basin boundary 1e-4 of
+jitter flips the answer), so the scattered-starts cross-check unit is
+already the mitigation: it exposes exactly those fits. Do not build a
+second thing (a reviewer tried a deterministic perturbation base: identical
+starts, results still differed; a reproducible-arithmetic BLAS is a large
+project with uncertain payoff). Disclosure wording, for docs and the
+student note: identical requests now give identical results on real data
+in practice; the underlying arithmetic is not bit-reproducible, so a fit
+sitting near a boundary between two solutions can still resolve
+differently, and that is precisely the situation the multiple-starts check
+is designed to surface.
 
 ### Client-side fallback
 
