@@ -1,0 +1,38 @@
+Review step (a) of a three-step unit: branch feature-scattered-starts-check, git diff main..HEAD (fitting.py, app.py, templates/index.html, tests/test_scattered_starts.py, tests/js/scattered_starts.test.js, harness updates, CLAUDE.md, the plan). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario; then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+READ FIRST: docs/superpowers/plans/2026-09-21-scattered-starts-and-unsupported-components.md (§1 owner decisions, §3 design, §5 answered decisions, §7 as built). Owner decisions are NOT up for review; judge whether the code honours them:
+ - the student's method result REMAINS THE FIT (byte-identical with and without the check; nothing about success/statistics/uncertainties changes; n_starts is not part of the seed);
+ - only LOWER-chi2r solutions are listed, with their own areas and each component's centre move from the STUDENT'S START; solutions that are not better are counted, never listed;
+ - wording is counts ("N of 3 scattered starts reached this solution"), never certification;
+ - runs on every Run Fit with >= 2 unlinked components, K = 3; not for differential_evolution / basinhopping, single-component models, Batch Fit, the local fallback, Find Peaks;
+ - "Use this solution" is explicit, undoable, recorded; when the largest centre move is > 1 eV (red band) — and only then — it must first ask, NAMING the component and the distance;
+ - saves persist the counts, never the alternatives' parameter sets.
+Steps (b) "component not supported by the data" and (c) the Auto-Fit refit are NOT in this diff.
+
+SITE TABLE — everything I believe step (a) touches. Your first job is to BREAK this list (a consumer I missed, or a site that now shows something stale or wrong).
+ Server
+  S1 fitting.run_fit: n_starts validation; third SeedSequence child (spawn(3)); the block after the perturb loop; "starts" in the response.
+  S2 helpers: _scattered_start, _solution_components, _same_solution, _largest_shift, _scattered_starts.
+  S3 app.py /api/fit: n_starts parsed/validated (400), passed through. /api/analyze and the autofit wrapper do NOT pass it (default 0).
+ Page (templates/index.html)
+  P1 runFit(opts): sends n_starts (3 when >= 2 unlinked peaks, else 0); stores fitResult.starts and fitResult.chosenAlternative; opts.skipUndo.
+  P2 _applyBackendParams (extracted from applyBackendResult; shared with alternatives so locks are honoured identically).
+  P3 renderResults -> _startsPanelHtml / _startsSummaryText / _startsShiftHtml / _startsPeakName.
+  P4 previewAlternative (reuses the _historyPreview overlay with snapId 'alt:k'), _altPeaks (copy; null when the model changed since the fit).
+  P5 useAlternative: red-band confirm(), pushUndo once, state.peaks replaced, runFit({skipUndo, chosenAlternative}).
+  P6 persistence: _doSaveFit.fitStatistics, _doSaveSpectrum statistics, buildTabData fitResult subset (all via _startsForSave); _loadSpectrumFile whitelist; project load restores fitResult wholesale; history snapshots spread fitResult (starts carried by reference).
+  P7 exportFitTable: one "Scattered starts" line in CSV and XLSX.
+  P8 NOT touched on purpose: runAutoFitC1sGraphite's own /api/fit request (no n_starts), runPropagation / runFitLocal, Find Peaks, exportResults TSV, publication figure, stack views, Quantify.
+ Evidence: scripts/scattered_starts_measure.py on the 202 committed targets (plan §7): alternative on 0 of 94 re-fits, 6 of 84 fresh starts; median +0.54 s.
+
+QUESTIONS
+ a. Can the check change THE FIT in any way (shared lmfit objects mutated by a start, result.params aliasing, the DE/seeded closures, model state)? The byte-identity test uses LM; is there a path where it would differ for another supported method for a reason other than Trust-Region's known arithmetic jitter?
+ b. _scattered_start: any parameter class mishandled (expr/linked, fixed, one-sided bounds, negative amplitudes with amplitude_min null, fwhm at a bound, DS+G open centre, la_casaxps m)? Can it produce a start outside the request's bounds or a NaN?
+ c. Clustering: _same_solution's label-swap rule — can it MERGE two chemically different solutions (same lineshape, different names, e.g. "C-O" and "C=O" both GL trading places)? Is that acceptable given the rows show per-component fractions by NAME? Propose the right rule if not.
+ d. Staleness on the page: fitResult.starts after the student edits/deletes/adds a peak, switches tabs mid-fit, undoes, restores a history snapshot, loads a project; previewAlternative when a history preview is active; _historyPreview consumers that assume a numeric snapId or a snapshot's fitResult (e.g. the local-model banner, _historyRestoreSnap, hist-row highlighting).
+ e. useAlternative: the undo story (exactly one entry returning to the pre-apply MODEL — and what happens to fitResult on undo, which is existing behaviour for every Run Fit); a fit that FAILS after the alternative's parameters were written (model left on the alternative with the old fitResult?); tab switched during the re-fit; native confirm() in this codebase's conventions.
+ f. Wording/UX honesty: anything in the strings that certifies, or that would mislead a chemist (e.g. "Your fit" row's "starts" column showing n_same_as_fit; the fit's own largest move shown in red).
+ g. Persistence: a saved summary reloaded (no alternatives array) — every consumer safe? XLSX/CSV line correct when starts did not run?
+ h. Tests: what important behaviour is untested?
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
