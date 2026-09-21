@@ -33,7 +33,7 @@ function makeEnv(peaks) {
   const calls = { notify: [], chargeCorrection: 0 };
   const state = { peaks, ccShift: 0.4, fitResult: { marker: 'previous' } };
   const src = ['applyAutoFitResult', '_autoFitGraphiteIsSupported'].map(extractFn).join('\n');
-  const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_MIN_SIGNAL_FRACTION'));
+  const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_ZERO_FRACTION'));
   assert.ok(konst, 'threshold constant not found');
   const factory = new Function('document', 'state', 'notify', 'updateChargeCorrection', 'getROIData',
     konst + '\n' + src + '\nreturn { applyAutoFitResult, _autoFitGraphiteIsSupported };');
@@ -86,7 +86,7 @@ test('a real Graphite component still drives the charge correction from its fitt
 });
 
 test('a weak but real Graphite component passes (the < 40 % area warning covers it)', () => {
-  // 15 % of the largest background-subtracted intensity, 40 standard errors from zero: exists; whether it is a GOOD anchor is the amber warning's job
+  // far above zero on any scale, 40 standard errors from zero: exists; whether it is a GOOD anchor is the amber warning's job
   const weak = spectrum(g(284.6, 9000, 0.7), g(285.1, 60000, 1.9));
   const env = makeEnv(model(9000));
   assert.throws(() => env.applyAutoFitResult(json([9000, 60000, 0], [220, 300, null], weak), 284.9, {}), e => e === PAST_THE_GATE);
@@ -140,14 +140,35 @@ test('a resolved Graphite line on a steep background is a real anchor', () => {
   assert.strictEqual(env.calls.chargeCorrection, 1);
 });
 
-test('a response without the fitted data cannot vouch for an anchor', () => {
-  const env = makeEnv(model(86000));
-  rejected(env, env.applyAutoFitResult({ statistics: {}, individual_peaks: [] }, 284.9, {}));
+// -- Codex round 3: the rule is scoped to a ZERO amplitude ---------------------
+test('residue on data the server saw as constant is zero whatever the background left behind', () => {
+  // baseline 10.009999 -> uploaded as 10.01; a manual background at the unrounded
+  // endpoints leaves a constant 1e-6; least_squares returned 3.1649e-5 +- 7.2876e-6
+  const amps = [3.1649e-5, 1e-6, 1e-7];
+  const peaks = amps.map((a, i) => ({ id: i + 1, name: i ? 'c' + i : 'Graphite', center: 284.203953 + i, amplitude: a, fwhm: 1 }));
+  const flat = be.map(() => 10.009999);
+  const env = makeEnv(peaks);
+  rejected(env, env.applyAutoFitResult({ ...json(amps, [7.2876e-6, 1e-6, 1e-7], flat), background_y: flat.map(() => 10.009999) }, 284.9, {}));
 });
 
-test('a flat region supports no anchor at all', () => {
-  const env = makeEnv(model(500));
-  rejected(env, env.applyAutoFitResult(json([500, 14000, 2300], null, be.map(() => 1000)), 284.9, {}));
+test('a one-channel spike does not reject a resolved anchor', () => {
+  // 300 000 counts added to one channel: a rule scaled by the largest SIGNAL demanded 15 512 of a 10 342-count line
+  const spiky = REAL.slice(); spiky[90] += 300000;
+  const env = makeEnv(model(10342));
+  assert.throws(() => env.applyAutoFitResult(json([10342, 14000, 2300], [1432, 90, 60], spiky), 284.9, {}), e => e === PAST_THE_GATE);
+  assert.strictEqual(env.calls.chargeCorrection, 1);
+});
+
+test('scope: a NON-zero anchor on featureless data is not this rule\'s business', () => {
+  // amplitude 5.77 fitted to a constant 10 with background None. Not zero. Whether Auto-Fit should
+  // run on featureless data at all is a separate, older question (recorded in CLAUDE.md).
+  const env = makeEnv([{ id: 1, name: 'Graphite', center: 284.2, amplitude: 5.76639, fwhm: 1 }]);
+  assert.throws(() => env.applyAutoFitResult(json([5.76639], null, be.map(() => 10)), 284.9, {}), e => e === PAST_THE_GATE);
+});
+
+test('a response without the fitted counts cannot vouch for an anchor', () => {
+  const env = makeEnv(model(86000));
+  rejected(env, env.applyAutoFitResult({ statistics: {}, individual_peaks: [] }, 284.9, {}));
 });
 
 test('an amplitude within three of its own standard errors of zero anchors nothing', () => {

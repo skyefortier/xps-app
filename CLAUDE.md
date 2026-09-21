@@ -369,24 +369,27 @@ A rigid shift (`state.ccShift`) is applied to all binding energies
 before fitting. The corrected axis is produced by `getCorrectedBE()`.
 
 Auto-Fit C1s Graphite derives that shift from the FITTED centre of its
-"Graphite" component, so the DATA must support that component
-(`_autoFitGraphiteIsSupported`): amplitude finite and > 0; at least 5 % of
-the largest background-subtracted intensity IN THE SERVER'S RESPONSE
-(`counts − background_y`) — a reference in the data, not in the model
-(a collapsed fit, every amplitude ~1e-8, still has a "strongest
-component"), in the data the server FITTED (the upload rounds to 2 dp, so
-what the page sees may be a constant to the fit), and free of the
-background's slope (a real 1 000-count line on a 30 000-count ramp passes);
-and, when the server estimated it, more than three standard errors from
-zero. Otherwise the auto-fit is rejected and rolled back with a red notice
-before any charge-correction input is touched. On the 70 committed
-Graphite models the fitted amplitude is 62–95 % of that maximum and 12–200
-standard errors from zero. Until 2026-09-21 only the centre
-was checked (±0.3 eV of 284.50), which a zero-amplitude component always
-satisfies because its centre is bounded to that window. A weak but real
-component still passes and gets the existing "< 40 % of the area" amber
-warning. Known, not fixed here: a rejected Auto-Fit (any reason) leaves its
-`pushUndo()` entry and a cleared redo stack behind.
+"Graphite" component, so that component must not be one the fit drove to
+ZERO (`_autoFitGraphiteIsSupported`): amplitude finite and > 0; at least
+1e-4 of the largest |count| the SERVER fitted (`json.counts`; the upload
+rounds to 2 dp) — a bound-pinned amplitude is 0 or ~1e-12, a collapsed
+model leaves ~1e-8 on 1 000 counts, residue on data the server saw as
+constant ~3e-5 on 10; and, when the server estimated it, more than three
+standard errors from zero. Otherwise the auto-fit is rejected and rolled
+back with a red notice before any charge-correction input is touched. On
+the 70 committed Graphite models amplitude / max|counts| is 0.61–0.86 and
+amplitude / stderr 12–200. Until 2026-09-21 only the centre was checked
+(±0.3 eV of 284.50), which a zero-amplitude component always satisfies
+because its centre is bounded to that window. SCOPE: the rule asks "is the
+amplitude zero?", not "is the anchor a genuine feature?". Auto-Fit run on a
+single-channel spike, or on featureless data with background None, still
+produces a non-zero anchor and a charge correction from it (Codex round 3
+reproductions in `docs/autofit/codex/autofit_zero_graphite_r3_*`); three
+intensity-threshold attempts to answer that here each rejected real anchors
+or were fooled by synthetic data — it needs its own unit (robust feature
+test, e.g. a with/without-component comparison). Also known, not fixed
+here: a rejected Auto-Fit (any reason) leaves its `pushUndo()` entry and a
+cleared redo stack behind.
 
 Adventitious carbon referencing (284.8 eV) is the default for
 convenience but has known criticisms in the XPS literature — the C 1s

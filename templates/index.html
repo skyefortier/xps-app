@@ -6823,38 +6823,33 @@ function _autoFitCheckGraphiteFraction(graphiteId) {
   return _autoFitDecideAreaWarning(peakAreas, graphiteId);
 }
 
-// A component can anchor the charge correction only if the DATA support it.
-// The reference has to be in the data, not in the model: when a fit collapses
-// every component to numerical residue (amplitudes ~1e-8 on a weak scan with
-// an over-estimated background) the anchor is still "the strongest component"
-// and still has a centre inside its ±0.3 eV window. And it has to be the data
-// THE SERVER FITTED — the upload rounds intensities to 2 dp, so a feature the
-// page can see may be a constant to the fit. So:
-//   - the amplitude is finite and > 0;
-//   - it is at least 5 % of the largest background-subtracted intensity in
-//     the server's own response (counts − background_y): unit-free, free of
-//     the background's slope (a real 1 000-count line on a 30 000-count ramp
-//     must pass), and zero for a region the fit saw as flat, which supports
-//     nothing. Auto-Fit seeds Graphite on the tallest background-subtracted
-//     feature, so a real anchor is a large fraction of that maximum; 5 % is
-//     "exists", not "is good" (the < 40 % AREA warning is the quality signal
-//     and is unchanged);
-//   - and, when the server could estimate it, the amplitude is more than
-//     three of its own standard errors from zero.
-const _AUTOFIT_ANCHOR_MIN_SIGNAL_FRACTION = 0.05;
+// The anchor of the charge correction must not be a component the fit drove to
+// ZERO. Scope, deliberately narrow: this asks "is the amplitude zero?", not "is
+// the anchor a genuine spectral feature?" (Auto-Fit run on a one-channel spike
+// or on featureless data is a separate, older question; three attempts to
+// answer it here with intensity thresholds each rejected real anchors or were
+// fooled by synthetic data). Zero means:
+//   - not finite, or <= 0; or
+//   - below 1e-4 of the largest |count| THE SERVER FITTED (json.counts — the
+//     upload rounds to 2 dp). A bound-pinned amplitude is 0 or ~1e-12; a fit
+//     that collapses every component leaves ~1e-8 on 1 000 counts; residue
+//     fitted to data the server saw as constant is ~3e-5 on 10. A component
+//     10 000 times weaker than the data cannot anchor anything, whatever the
+//     background; and the scale does not vanish on a flat region, does not
+//     include the model (a collapsed model still has a "strongest
+//     component"), and a spike can only make it stricter by the spike's size
+//     x 1e-4; or
+//   - within three of its own standard errors of zero, when the server
+//     estimated one.
+// On the 70 committed Graphite models: amplitude / max|counts| = 0.61-0.86,
+// amplitude / stderr = 12-200.
+const _AUTOFIT_ANCHOR_ZERO_FRACTION = 1e-4;
 function _autoFitGraphiteIsSupported(gPeak, json) {
   const amp = gPeak && gPeak.amplitude;
   if (!Number.isFinite(amp) || amp <= 0) return false;
-  const counts = (json && json.counts) || [], bg = (json && json.background_y) || [];
-  if (!counts.length || counts.length !== bg.length) return false;      // nothing to judge against
-  let top = 0, scale = 0;
-  for (let i = 0; i < counts.length; i++) {
-    const v = counts[i] - bg[i];
-    if (Number.isFinite(v) && v > top) top = v;
-    if (Number.isFinite(counts[i]) && Math.abs(counts[i]) > scale) scale = Math.abs(counts[i]);
-  }
-  // "flat" includes floating-point residue of counts − background (1e-9 of the data's own magnitude)
-  if (!(top > 1e-9 * scale) || amp < _AUTOFIT_ANCHOR_MIN_SIGNAL_FRACTION * top) return false;
+  let scale = 0;
+  for (const c of (json && json.counts) || []) if (Number.isFinite(c) && Math.abs(c) > scale) scale = Math.abs(c);
+  if (!(scale > 0) || amp < _AUTOFIT_ANCHOR_ZERO_FRACTION * scale) return false;
   const fitted = (json.individual_peaks || []).find(ip => String(ip.id) === String(gPeak.id));
   const se = fitted && fitted.params && fitted.params.amplitude && fitted.params.amplitude.stderr;
   if (Number.isFinite(se) && se > 0 && amp <= 3 * se) return false;
