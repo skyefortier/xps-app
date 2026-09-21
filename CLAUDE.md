@@ -465,11 +465,34 @@ statistic is the natural definition for the planned "component not
 supported by the data" outcome. Fixtures are real `run_fit` responses:
 `scripts/gen_autofit_anchor_fixtures.py` →
 `tests/js/fixtures/autofit_anchor.json`. SCOPE: it answers "do the data
-support this component?", not "is it graphite?" — Auto-Fit run on a
-one-channel spike, or on a plateau under background None, is supported and
-still yields a charge correction (needs its own unit). Also known, not
-fixed here: a rejected Auto-Fit (any reason) leaves its `pushUndo()` entry
-and a cleared redo stack behind.
+support this component?", not "is it graphite?".
+
+KNOWN LIMITS of that check (owner decision 2026-09-21: shipped with them
+after six Codex rounds, all NO-GO; do NOT write a seventh rule — six
+intensity floors failing is the data saying no threshold on intensity can
+mean "zero" independently of the data):
+- It REJECTS A REAL ANCHOR when the fitted region carries a gross
+  single-channel artefact (a spike of millions of counts, or a dead
+  zero-count channel): that channel dominates χ²_with and drags F under 10.
+  The user gets a red notice and a rolled-back model; removing the artefact
+  or narrowing the ROI recovers. A recoverable refusal beats main's old
+  failure mode — a non-existent component silently setting the energy
+  reference for a whole spectrum.
+- REDUNDANCY UNDER OVERLAP is out of scope: a large anchor the other
+  components could absorb if refitted still passes (χ²_without holds them
+  fixed). That is fit determinacy; "is the anchor actually required?" moves
+  to the unsupported-component unit, where a REFIT without the component is
+  the natural test.
+- One rounding-residue construction still passes (unrounded manual
+  background a rounding step under data the upload flattened; F ≈ 280).
+
+LOGGED FOR ONE LATER UNIT (untouched): Auto-Fit anchors on a one-channel
+spike, and on a featureless plateau under background None, and still
+derives a charge correction from it; a rejected Auto-Fit (any reason)
+leaves its `pushUndo()` entry and a cleared redo stack behind. The spike
+case shares a root with the false rejection above — gross single-channel
+artefacts are unhandled generally — so if this becomes a despike /
+outlier-flag unit, those three are one piece of work.
 
 Adventitious carbon referencing (284.8 eV) is the default for
 convenience but has known criticisms in the XPS literature — the C 1s

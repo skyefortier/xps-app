@@ -6848,6 +6848,20 @@ function _autoFitCheckGraphiteFraction(graphiteId) {
 // resolved anchor seen.
 // SCOPE: it answers "do the data support this component?", not "is it graphite?"
 // — a one-channel spike or a plateau under background None is supported.
+// KNOWN LIMITS (owner decision 2026-09-21: ship with these, write no seventh rule):
+//   - It REJECTS A REAL ANCHOR when the fitted region carries a gross
+//     single-channel artefact — a spike of millions of counts, or a dead
+//     (zero-count) channel: that channel's misfit dominates chi2_with and
+//     drags F under 10. The user gets the red notice and the model is rolled
+//     back; removing the artefact or narrowing the ROI recovers. A recoverable
+//     refusal beats main's failure mode, a non-existent component silently
+//     setting the energy reference of a whole spectrum.
+//   - It does NOT ask whether the anchor is REQUIRED. With strong overlap the
+//     other components could absorb it if refitted (chi2_without holds them at
+//     their fitted values). That is fit determinacy, out of scope here: the
+//     unsupported-component unit gets the refit-without-the-component test.
+//   - Residue can still pass when an UNROUNDED manual background sits a
+//     rounding step under data the upload flattened (Codex round 6, F ~ 280).
 const _AUTOFIT_ANCHOR_MIN_F = 10;
 function _autoFitGraphiteIsSupported(gPeak, json) {
   const amp = gPeak && gPeak.amplitude;
