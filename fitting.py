@@ -1013,7 +1013,7 @@ def _finite_search_box(params: Parameters, x: np.ndarray,
     return generated
 
 
-def _search_then_refine(model, params, requested, y_sub, x, weights, raw, kws):
+def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
     """One differential-evolution candidate: search inside a generated box,
     then refine FROM that solution with ``least_squares`` under the request's
     own (open) bounds.
@@ -1024,8 +1024,8 @@ def _search_then_refine(model, params, requested, y_sub, x, weights, raw, kws):
     capped amplitude), and an unrefined boundary candidate can lose the
     perturb loop's comparison to a worse interior one, so every candidate is
     freed from the box before it is compared or returned. The refined fit
-    replaces the search result only if it converged to an equal or lower
-    chi-square; otherwise the search result is returned marked
+    replaces the search result whenever it converged; if it did not (or
+    raised) the search result is returned marked
     ``box_unverified`` (with the sides we generated, so they are not
     reported as bounds) and ``run_fit`` does not call it a success.
     """
@@ -1050,18 +1050,17 @@ def _search_then_refine(model, params, requested, y_sub, x, weights, raw, kws):
     except Exception:
         log.debug("refinement outside the search box raised", exc_info=True)
         return found
-    # "Equal or lower" up to numerical noise. The local solver moves a start
-    # that sits exactly on a REQUESTED bound ~1e-10 (relative) inside it, which
-    # raises the chi-square of an exact fit from ~0 by up to ~1e-12 of the
-    # weighted power of the data; without an allowance an exact fit is
-    # refused and the box blamed. The allowance is 1e-11 of the power of the
-    # RAW intensities over the channels the objective uses (total counts under
-    # Poisson weights: it does not vanish on a flat or empty region, and at
-    # 1e9 total counts it is 0.01 in chi-square), plus 1e-6 relative.
-    used = np.isfinite(x) & np.isfinite(y_sub) & np.isfinite(weights) & np.isfinite(raw)
-    power = float(np.sum((np.asarray(weights, float)[used] * np.asarray(raw, float)[used]) ** 2))
-    allowance = found.chisqr * 1e-6 + 1e-11 * power + np.finfo(float).eps * max(found.ndata, 1)
-    if refined.success and refined.chisqr <= found.chisqr + allowance:
+    # A converged refinement IS the result: it is a least_squares fit of the
+    # requested model under the requested bounds, which is what the default
+    # method returns and the acceptance rule accepts. It is deliberately NOT
+    # compared with the boxed search's chi-square. least_squares descends
+    # from its start, so it cannot end materially above it (four review
+    # rounds found no reachable case), but it does end a hair above an EXACT
+    # start that sits on a requested bound (the bound transform is degenerate
+    # there; the centre moves ~1e-7 eV), by an amount that depends on peak
+    # width, position and counts. Every tolerance tried for that comparison
+    # produced reachable false failures and no reachable protection.
+    if refined.success:
         refined.box_unverified, refined.search_box = False, {}
         return refined
     return found
@@ -1249,7 +1248,7 @@ def run_fit(
         requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
 
         def fit_once(params):
-            return _search_then_refine(composite_model, params, requested_bounds, y_sub, x, weights, y, kws)
+            return _search_then_refine(composite_model, params, requested_bounds, y_sub, x, weights, kws)
     else:
         def fit_once(params):
             return composite_model.fit(y_sub, params, x=x, weights=weights, **kws)

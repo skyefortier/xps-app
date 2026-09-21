@@ -419,7 +419,7 @@ def test_a_perturbed_search_starts_from_the_requests_bounds_not_the_last_box():
     params["p1_center"].set(value=285.0, vary=False)
     params["p1_fwhm"].set(value=1.0, vary=False)
     requested = {"p1_amplitude": (0.0, np.inf), "p1_center": (-np.inf, np.inf), "p1_fwhm": (-np.inf, np.inf)}
-    res = fitting._search_then_refine(model, params, requested, y, x, np.ones_like(y), y,
+    res = fitting._search_then_refine(model, params, requested, y, x, np.ones_like(y),
                                       {"method": "differential_evolution", "nan_policy": "omit"})
     assert res.box_unverified is False
     assert res.params["p1_amplitude"].value == pytest.approx(10000.0, rel=1e-3)
@@ -462,9 +462,9 @@ def test_an_unverified_perturbed_candidate_does_not_displace_a_verified_fit(monk
     real = fitting._search_then_refine
     calls = {"n": 0}
 
-    def later_candidates_unverified(model, params, requested, y_sub, x, weights, raw, kws):
+    def later_candidates_unverified(model, params, requested, y_sub, x, weights, kws):
         calls["n"] += 1
-        res = real(model, params, requested, y_sub, x, weights, raw, kws)
+        res = real(model, params, requested, y_sub, x, weights, kws)
         if calls["n"] > 1:
             res.box_unverified, res.search_box = True, {"p1_amplitude": {"max": 1.0}}
             res.chisqr, res.redchi = res.chisqr * 0.5, res.redchi * 0.5     # and "better"
@@ -482,9 +482,9 @@ def test_a_verified_candidate_displaces_an_unverified_one_even_at_higher_chi_squ
     real = fitting._search_then_refine
     calls = {"n": 0}
 
-    def first_candidate_unverified(model, params, requested, y_sub, x, weights, raw, kws):
+    def first_candidate_unverified(model, params, requested, y_sub, x, weights, kws):
         calls["n"] += 1
-        res = real(model, params, requested, y_sub, x, weights, raw, kws)
+        res = real(model, params, requested, y_sub, x, weights, kws)
         if calls["n"] == 1:
             res.box_unverified, res.search_box = True, {"p1_amplitude": {"max": 1.0}}
             res.chisqr, res.redchi = res.chisqr * 0.5, res.redchi * 0.5
@@ -518,23 +518,6 @@ def test_exact_refinement_is_accepted_at_any_intensity_scale(scale, n_perturb):
     assert res["individual_peaks"][0]["params"]["amplitude"]["value"] == pytest.approx(scale, rel=1e-5)
 
 
-def test_a_materially_worse_refinement_is_still_rejected(monkeypatch):
-    real_fit = fitting.Model.fit
-
-    def worse_polish(self, data, params, **kw):
-        res = real_fit(self, data, params, **kw)
-        if kw.get("method") == "least_squares":
-            res.chisqr = res.chisqr * 1.01          # one percent worse than it really is
-        return res
-
-    monkeypatch.setattr(fitting.Model, "fit", worse_polish)
-    x, y = _two_peak_spectrum()
-    res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=0,
-                          fit_kws={"method": "differential_evolution"})
-    assert res["success"] is False
-    assert "generated limits" in res["message"]
-
-
 # ── Codex round 7 (both runs NO-GO): the allowance ──────────────────────────
 
 @pytest.mark.parametrize("n_perturb", [0, 3])
@@ -555,57 +538,49 @@ def test_zero_signal_fit_is_accepted(n_perturb):
     assert res["individual_peaks"][0]["params"]["amplitude"]["value"] == pytest.approx(0.0, abs=1e-6)
 
 
-def _refinement_reported_worse_by(monkeypatch, factor):
+# ── Codex round 8 (both runs NO-GO): the chi-square gate is gone. A converged
+#    refinement under the request's bounds is the result. ────────────────────
+
+@pytest.mark.parametrize("n_perturb", [0, 3])
+@pytest.mark.parametrize("case", [
+    dict(x=(1399.75, 1400.25, 101), c=1400.0, w=0.05, spec=dict(center_min=1400.0, fwhm_min=0.05)),
+    dict(x=(1499.0, 1501.0, 201), c=1500.0, w=0.05, spec=dict(center_min=1500.0, center_max=1500.1, fwhm_min=0.01)),
+    dict(x=(2999.0, 3001.0, 201), c=3000.0, w=0.1, spec=dict(center_min=3000.0, center_max=3000.1)),
+])
+def test_narrow_exact_peak_on_a_requested_centre_bound_is_accepted(case, n_perturb):
+    # Refinement moves the centre ~7e-8 eV off the requested bound; chi-square
+    # 6.6e-25 -> 1.1e-4 (max residual 0.003 sigma). Direct least_squares
+    # accepts the same request, so differential evolution must too, and the
+    # perturb loop must not swap it for a fit with the component outside the ROI.
+    np.random.seed(4)
+    x = np.linspace(*case["x"])
+    y = 1000.0 + 1e6 * np.exp(-4 * np.log(2) * ((x - case["c"]) / case["w"]) ** 2)
+    spec = {"id": 1, "shape": "gaussian", "center": case["c"], "amplitude": 1e6, "amplitude_min": 0,
+            "fwhm": case["w"], "fix_fwhm": True, **case["spec"]}
+    bg = [[x[0], 1000.0], [x[-1], 1000.0]]
+    res = fitting.run_fit(x, y, [spec], background_method="manual", manual_bg=bg, n_perturb=n_perturb,
+                          fit_kws={"method": "differential_evolution"})
+    ls = fitting.run_fit(x, y, [spec], background_method="manual", manual_bg=bg, n_perturb=0,
+                         fit_kws={"method": "least_squares"})
+    assert ls["success"] is True
+    assert res["success"] is True, res["message"]
+    assert res["statistics"]["chi_square"] <= max(ls["statistics"]["chi_square"] * 10, 1e-2)
+    assert res["individual_peaks"][0]["params"]["center"]["value"] == pytest.approx(case["c"], abs=1e-4)
+
+
+def test_a_converged_refinement_is_returned_without_a_chi_square_gate(monkeypatch):
+    # Contract: the refinement's own convergence decides. (A gate on its
+    # chi-square produced only false failures; see the helper's comment.)
     real_fit = fitting.Model.fit
 
-    def worse(self, data, params, **kw):
+    def hair_above(self, data, params, **kw):
         res = real_fit(self, data, params, **kw)
         if kw.get("method") == "least_squares":
-            res.chisqr = res.chisqr * factor
+            res.chisqr = res.chisqr * (1 + 1e-3)
         return res
 
-    monkeypatch.setattr(fitting.Model, "fit", worse)
-
-
-def test_one_percent_worse_is_refused_on_a_high_count_spectrum(monkeypatch):
-    # 1e6-count Poisson spectrum, 1000 points: the old allowance (1e-8 of the
-    # power) was ~10 in chi-square and let a 1 % worse refinement through.
-    _refinement_reported_worse_by(monkeypatch, 1.01)
-    rng = np.random.default_rng(0)
-    x = np.linspace(999.0, 1001.0, 1000)
-    y = rng.poisson(1e6 * np.exp(-4 * np.log(2) * ((x - 1000.0) / 15.0) ** 2)).astype(float)
-    specs = [{"id": 1, "shape": "gaussian", "center": 1000.0, "fix_center": True, "fwhm": 15.0,
-              "fix_fwhm": True, "amplitude": 9e5, "amplitude_min": 0}]
-    res = fitting.run_fit(x, y, specs, background_method="none", n_perturb=0,
+    monkeypatch.setattr(fitting.Model, "fit", hair_above)
+    x, y = _two_peak_spectrum()
+    res = fitting.run_fit(x, y, _page_like_specs(), background_method="linear", n_perturb=0,
                           fit_kws={"method": "differential_evolution"})
-    assert res["success"] is False
-
-
-def test_one_percent_worse_is_refused_on_normalised_data(monkeypatch):
-    _refinement_reported_worse_by(monkeypatch, 1.01)
-    rng = np.random.default_rng(1)
-    x = np.linspace(280.0, 290.0, 201)
-    y = np.exp(-4 * np.log(2) * ((x - 285.0) / 1.2) ** 2) + rng.normal(0, 2e-3, x.size)
-    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "amplitude": 0.9, "fwhm": 1.0,
-              "amplitude_min": 0}]
-    res = fitting.run_fit(x, y, specs, background_method="none", n_perturb=0,
-                          fit_kws={"method": "differential_evolution"})
-    assert res["success"] is False
-
-
-def test_a_channel_the_objective_omits_does_not_loosen_the_allowance(monkeypatch):
-    # One channel with a NaN energy and a huge intensity is dropped from the
-    # residual; counted in the allowance it let a 100-fold worse chi-square pass.
-    _refinement_reported_worse_by(monkeypatch, 100.0)
-    rng = np.random.default_rng(2)
-    x = np.linspace(280.0, 290.0, 101)
-    y = 1e-4 * np.exp(-4 * np.log(2) * ((x - 285.0) / 1.2) ** 2) + rng.normal(0, 1e-6, x.size)
-    x[50], y[50] = np.nan, 1.0
-    specs = [{"id": 1, "shape": "gaussian", "center": 285.0, "fix_center": True, "amplitude": 9e-5,
-              "fwhm": 1.2, "fix_fwhm": True, "amplitude_min": 0}]
-    try:
-        res = fitting.run_fit(x, y, specs, background_method="none", n_perturb=0,
-                              fit_kws={"method": "differential_evolution"})
-    except (ValueError, RuntimeError):
-        return                                  # refusing such input outright is also fine
-    assert res["success"] is False
+    assert res["success"] is True

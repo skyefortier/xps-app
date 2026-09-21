@@ -252,9 +252,14 @@ itself; centre = the fitted energy range, always a real interval), then —
 whenever a side was generated — an UNCONDITIONAL `least_squares`
 refinement from that solution under the request's own open bounds. A box
 can shape an answer that lies nowhere near its sides, so nothing is
-inferred from nearness; the refined fit replaces the search result when it
-converged to an equal or lower χ² (relative 1e-6 plus 1e-11 of the raw data's weighted power,
-the size of the local solver's nudge off a requested bound), and otherwise the search result
+inferred from nearness. A refinement that CONVERGED is the result — a
+`least_squares` fit of the requested model under the requested bounds,
+which is what the default method returns; its χ² is deliberately not
+compared with the boxed search's (a descent cannot end materially above
+its start, but it ends a hair above an exact start sitting on a requested
+bound, and every tolerance tried for that comparison produced reachable
+false failures and no reachable protection — Codex rounds 5–8). If the
+refinement did not converge or raised, the search result
 stays marked unverified, never displaces a verified candidate in the
 perturb loop, and, if it is what `run_fit` returns, is `success: false`
 naming the generated limits.
