@@ -6827,25 +6827,35 @@ function _autoFitCheckGraphiteFraction(graphiteId) {
 // The reference has to be in the data, not in the model: when a fit collapses
 // every component to numerical residue (amplitudes ~1e-8 on a weak scan with
 // an over-estimated background) the anchor is still "the strongest component"
-// and still has a centre inside its ±0.3 eV window. So:
+// and still has a centre inside its ±0.3 eV window. And it has to be the data
+// THE SERVER FITTED — the upload rounds intensities to 2 dp, so a feature the
+// page can see may be a constant to the fit. So:
 //   - the amplitude is finite and > 0;
-//   - it is at least 5 % of the span (max − min) of the RAW intensities in the
-//     fitted region — unit-free, independent of the background choice, and
-//     zero only for a flat region, which supports nothing. Auto-Fit seeds
-//     Graphite on the tallest feature, so a real anchor is a large fraction of
-//     that span; 5 % is "exists", not "is good" (the < 40 % AREA warning is
-//     the quality signal and is unchanged);
+//   - it is at least 5 % of the largest background-subtracted intensity in
+//     the server's own response (counts − background_y): unit-free, free of
+//     the background's slope (a real 1 000-count line on a 30 000-count ramp
+//     must pass), and zero for a region the fit saw as flat, which supports
+//     nothing. Auto-Fit seeds Graphite on the tallest background-subtracted
+//     feature, so a real anchor is a large fraction of that maximum; 5 % is
+//     "exists", not "is good" (the < 40 % AREA warning is the quality signal
+//     and is unchanged);
 //   - and, when the server could estimate it, the amplitude is more than
 //     three of its own standard errors from zero.
-const _AUTOFIT_ANCHOR_MIN_SPAN_FRACTION = 0.05;
-function _autoFitGraphiteIsSupported(gPeak, roiInten, json) {
+const _AUTOFIT_ANCHOR_MIN_SIGNAL_FRACTION = 0.05;
+function _autoFitGraphiteIsSupported(gPeak, json) {
   const amp = gPeak && gPeak.amplitude;
   if (!Number.isFinite(amp) || amp <= 0) return false;
-  let lo = Infinity, hi = -Infinity;
-  for (const v of roiInten || []) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const span = hi - lo;
-  if (!(span > 0) || amp < _AUTOFIT_ANCHOR_MIN_SPAN_FRACTION * span) return false;
-  const fitted = ((json && json.individual_peaks) || []).find(ip => String(ip.id) === String(gPeak.id));
+  const counts = (json && json.counts) || [], bg = (json && json.background_y) || [];
+  if (!counts.length || counts.length !== bg.length) return false;      // nothing to judge against
+  let top = 0, scale = 0;
+  for (let i = 0; i < counts.length; i++) {
+    const v = counts[i] - bg[i];
+    if (Number.isFinite(v) && v > top) top = v;
+    if (Number.isFinite(counts[i]) && Math.abs(counts[i]) > scale) scale = Math.abs(counts[i]);
+  }
+  // "flat" includes floating-point residue of counts − background (1e-9 of the data's own magnitude)
+  if (!(top > 1e-9 * scale) || amp < _AUTOFIT_ANCHOR_MIN_SIGNAL_FRACTION * top) return false;
+  const fitted = (json.individual_peaks || []).find(ip => String(ip.id) === String(gPeak.id));
   const se = fitted && fitted.params && fitted.params.amplitude && fitted.params.amplitude.stderr;
   if (Number.isFinite(se) && se > 0 && amp <= 3 * se) return false;
   return true;
@@ -6863,7 +6873,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   // component has to exist. A Graphite amplitude driven to its lower bound
   // (the server's floor is zero; lmfit returns ~1e-12 there) still comes back
   // with a centre inside the ±0.3 eV window — a position of nothing.
-  if (!_autoFitGraphiteIsSupported(gPeak, roi && roi.inten, json)) {
+  if (!_autoFitGraphiteIsSupported(gPeak, json)) {
     notify('Auto-fit: the Graphite component fitted to no significant intensity — the data do not support it, so no charge correction was derived from it and the fit was not applied.', 'red', true);
     return false;
   }

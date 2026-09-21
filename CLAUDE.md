@@ -371,13 +371,17 @@ before fitting. The corrected axis is produced by `getCorrectedBE()`.
 Auto-Fit C1s Graphite derives that shift from the FITTED centre of its
 "Graphite" component, so the DATA must support that component
 (`_autoFitGraphiteIsSupported`): amplitude finite and > 0; at least 5 % of
-the span (max − min) of the raw intensities in the fitted region — a
-reference in the data, not in the model, because a collapsed fit (every
-amplitude ~1e-8) still has a "strongest component"; and, when the server
-estimated it, more than three standard errors from zero. Otherwise the
-auto-fit is rejected and rolled back with a red notice before any
-charge-correction input is touched. On the 70 committed Graphite models the
-fitted amplitude is 61–95 % of that span. Until 2026-09-21 only the centre
+the largest background-subtracted intensity IN THE SERVER'S RESPONSE
+(`counts − background_y`) — a reference in the data, not in the model
+(a collapsed fit, every amplitude ~1e-8, still has a "strongest
+component"), in the data the server FITTED (the upload rounds to 2 dp, so
+what the page sees may be a constant to the fit), and free of the
+background's slope (a real 1 000-count line on a 30 000-count ramp passes);
+and, when the server estimated it, more than three standard errors from
+zero. Otherwise the auto-fit is rejected and rolled back with a red notice
+before any charge-correction input is touched. On the 70 committed
+Graphite models the fitted amplitude is 62–95 % of that maximum and 12–200
+standard errors from zero. Until 2026-09-21 only the centre
 was checked (±0.3 eV of 284.50), which a zero-amplitude component always
 satisfies because its centre is bounded to that window. A weak but real
 component still passes and gets the existing "< 40 % of the area" amber

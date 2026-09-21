@@ -33,7 +33,7 @@ function makeEnv(peaks) {
   const calls = { notify: [], chargeCorrection: 0 };
   const state = { peaks, ccShift: 0.4, fitResult: { marker: 'previous' } };
   const src = ['applyAutoFitResult', '_autoFitGraphiteIsSupported'].map(extractFn).join('\n');
-  const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_MIN_SPAN_FRACTION'));
+  const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_MIN_SIGNAL_FRACTION'));
   assert.ok(konst, 'threshold constant not found');
   const factory = new Function('document', 'state', 'notify', 'updateChargeCorrection', 'getROIData',
     konst + '\n' + src + '\nreturn { applyAutoFitResult, _autoFitGraphiteIsSupported };');
@@ -51,8 +51,12 @@ const model = gAmp => [
   { id: 2, name: 'Adventitious 1', center: 285.1, amplitude: 14000, fwhm: 1.9 },
   { id: 3, name: 'Adventitious 2', center: 286.4, amplitude: 2300, fwhm: 1.4 },
 ];
-const json = (amps, ses) => ({ statistics: {}, individual_peaks: amps.map((a, i) => ({ id: String(i + 1),
-  params: { amplitude: { value: a, stderr: ses ? ses[i] : null } } })) });
+// what /api/fit returns: the counts IT fitted (upload-rounded to 2 dp) and its background
+const round2 = v => Math.round(v * 100) / 100;
+const linearBg = y => y.map((_, i) => y[0] + (y[y.length - 1] - y[0]) * i / (y.length - 1));
+const json = (amps, ses, inten = REAL, ids) => { const counts = inten.map(round2); return { statistics: {}, counts,
+  background_y: linearBg(counts), individual_peaks: amps.map((a, i) => ({ id: String(ids ? ids[i] : i + 1),
+  params: { amplitude: { value: a, stderr: ses ? ses[i] : null } } })) }; };
 function rejected(env, ok) {
   assert.strictEqual(ok, false, 'caller rolls the model back on false');
   assert.strictEqual(env.calls.chargeCorrection, 0, 'updateChargeCorrection must not run');
@@ -67,13 +71,13 @@ function rejected(env, ok) {
 for (const gAmp of [0, 3.2e-12, -5, NaN, 0.013]) {
   test(`a Graphite amplitude of ${gAmp} sets no charge correction and rejects the auto-fit`, () => {
     const env = makeEnv(model(gAmp));
-    rejected(env, env.applyAutoFitResult(json([gAmp, 14000, 2300]), 284.9, { inten: REAL }));
+    rejected(env, env.applyAutoFitResult(json([gAmp, 14000, 2300]), 284.9, {}));
   });
 }
 
 test('a real Graphite component still drives the charge correction from its fitted centre', () => {
   const env = makeEnv(model(86000));
-  assert.throws(() => env.applyAutoFitResult(json([86000, 14000, 2300], [120, 90, 60]), 284.9, { inten: REAL }), e => e === PAST_THE_GATE);
+  assert.throws(() => env.applyAutoFitResult(json([86000, 14000, 2300], [120, 90, 60]), 284.9, {}), e => e === PAST_THE_GATE);
   assert.strictEqual(env.calls.chargeCorrection, 1);
   assert.strictEqual(env.dom['cc-method'].value, 'c1s');
   assert.strictEqual(env.dom['cc-obs'].value, (284.62 + 0.4).toFixed(3));
@@ -82,16 +86,16 @@ test('a real Graphite component still drives the charge correction from its fitt
 });
 
 test('a weak but real Graphite component passes (the < 40 % area warning covers it)', () => {
-  // 12 % of the region's span, 40 standard errors from zero: exists; whether it is a GOOD anchor is the amber warning's job
+  // 15 % of the largest background-subtracted intensity, 40 standard errors from zero: exists; whether it is a GOOD anchor is the amber warning's job
   const weak = spectrum(g(284.6, 9000, 0.7), g(285.1, 60000, 1.9));
   const env = makeEnv(model(9000));
-  assert.throws(() => env.applyAutoFitResult(json([9000, 60000, 0], [220, 300, null]), 284.9, { inten: weak }), e => e === PAST_THE_GATE);
+  assert.throws(() => env.applyAutoFitResult(json([9000, 60000, 0], [220, 300, null], weak), 284.9, {}), e => e === PAST_THE_GATE);
   assert.strictEqual(env.calls.chargeCorrection, 1);
 });
 
 test('no standard errors from the server (covariance failed) does not reject a real anchor', () => {
   const env = makeEnv(model(86000));
-  assert.throws(() => env.applyAutoFitResult(json([86000, 14000, 2300], null), 284.9, { inten: REAL }), e => e === PAST_THE_GATE);
+  assert.throws(() => env.applyAutoFitResult(json([86000, 14000, 2300], null), 284.9, {}), e => e === PAST_THE_GATE);
 });
 
 // ── Codex round 1 (both runs): the reference must be in the DATA. A threshold
@@ -102,7 +106,7 @@ test('a collapsed model (every amplitude numerical residue) anchors nothing', ()
   const peaks = amps.map((a, i) => ({ id: i + 1, name: i ? 'c' + i : 'Graphite', center: i ? 285 + i : 284.200000028, amplitude: a, fwhm: 1 }));
   const weakScan = be.map(x => 1000 + 30 * Math.exp(-4 * Math.LN2 * ((x - 284.5) / 0.3) ** 2));
   const env = makeEnv(peaks);
-  rejected(env, env.applyAutoFitResult(json(amps), 284.9, { inten: weakScan }));
+  rejected(env, env.applyAutoFitResult({ ...json(amps, null, weakScan), background_y: weakScan.map(() => 1020) }, 284.9, {}));
 });
 
 test('a signal below the upload rounding (server fitted a constant) anchors nothing', () => {
@@ -111,17 +115,44 @@ test('a signal below the upload rounding (server fitted a constant) anchors noth
   const peaks = amps.map((a, i) => ({ id: i + 1, name: i ? 'c' + i : 'Graphite', center: 284.23 + i, amplitude: a, fwhm: 1 }));
   const tiny = be.map(x => 10 + 0.004 * Math.exp(-4 * Math.LN2 * ((x - 284.5) / 0.4) ** 2));
   const env = makeEnv(peaks);
-  rejected(env, env.applyAutoFitResult(json(amps), 284.9, { inten: tiny }));
+  rejected(env, env.applyAutoFitResult(json(amps, null, tiny), 284.9, {}));
+});
+
+// ── Codex round 2 (both runs) ───────────────────────────────────────────────
+test('data the SERVER saw as constant anchor nothing, even with a small standard error', () => {
+  // the page sees a 0.0001 bump on 10; the upload rounds it away; least_squares
+  // returned 3.096e-5 +- 7.461e-6 at 284.204 — 4 sigma from zero, of nothing
+  const amps = [3.096e-5, 1e-6, 1e-7];
+  const peaks = amps.map((a, i) => ({ id: i + 1, name: i ? 'c' + i : 'Graphite', center: 284.204003 + i, amplitude: a, fwhm: 1 }));
+  const bump = be.map(x => 10 + 0.0001 * Math.exp(-4 * Math.LN2 * ((x - 284.5) / 0.4) ** 2));
+  const env = makeEnv(peaks);
+  rejected(env, env.applyAutoFitResult(json(amps, [7.461e-6, 1e-6, 1e-7], bump), 284.9, {}));
+});
+
+test('a resolved Graphite line on a steep background is a real anchor', () => {
+  // background ramp of 30 000 counts across the region, line height 1 000: the
+  // raw span said "3 %", the background-subtracted signal says "all of it"
+  const ramp = be.map(x => 1000 + 2000 * (x - 280));
+  const line = g(284.5, 1000, 0.7);
+  const steep = be.map((_, i) => ramp[i] + line[i]);
+  const env = makeEnv([{ id: 1, name: 'Graphite', center: 284.500674, amplitude: 981.925, fwhm: 0.7 }]);
+  assert.throws(() => env.applyAutoFitResult(json([981.925], [25], steep), 284.9, {}), e => e === PAST_THE_GATE);
+  assert.strictEqual(env.calls.chargeCorrection, 1);
+});
+
+test('a response without the fitted data cannot vouch for an anchor', () => {
+  const env = makeEnv(model(86000));
+  rejected(env, env.applyAutoFitResult({ statistics: {}, individual_peaks: [] }, 284.9, {}));
 });
 
 test('a flat region supports no anchor at all', () => {
   const env = makeEnv(model(500));
-  rejected(env, env.applyAutoFitResult(json([500, 14000, 2300]), 284.9, { inten: be.map(() => 1000) }));
+  rejected(env, env.applyAutoFitResult(json([500, 14000, 2300], null, be.map(() => 1000)), 284.9, {}));
 });
 
 test('an amplitude within three of its own standard errors of zero anchors nothing', () => {
   const env = makeEnv(model(9000));
-  rejected(env, env.applyAutoFitResult(json([9000, 14000, 2300], [4000, 90, 60]), 284.9, { inten: REAL }));
+  rejected(env, env.applyAutoFitResult(json([9000, 14000, 2300], [4000, 90, 60]), 284.9, {}));
 });
 
 test('the support check precedes every write of the charge-correction inputs', () => {
@@ -135,7 +166,7 @@ test('the support check precedes every write of the charge-correction inputs', (
 test('the fallback "first peak" anchor is held to the same rule', () => {
   const peaks = [{ id: 9, name: 'sp2', center: 284.5, amplitude: 0, fwhm: 0.7 }, { id: 10, name: 'x', center: 286, amplitude: 900, fwhm: 1 }];
   const env = makeEnv(peaks);
-  assert.strictEqual(env.applyAutoFitResult(json([0, 900]), 284.9, { inten: REAL }), false);
+  assert.strictEqual(env.applyAutoFitResult(json([0, 900], null, REAL, [9, 10]), 284.9, {}), false);
   assert.strictEqual(env.calls.chargeCorrection, 0);
 });
 

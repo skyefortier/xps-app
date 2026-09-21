@@ -1,0 +1,15 @@
+ROUND 3 recheck of branch fix-autofit-zero-graphite-cc (HEAD; parent = main). Read-only. Round 2 was NO-GO x2 with the same two MAJORs (archived docs/autofit/codex/autofit_zero_graphite_r2_verdict_run{A,B}.md).
+
+DISPOSITIONS — one change addresses both.
+_autoFitGraphiteIsSupported(gPeak, json) now judges the anchor against the background-subtracted data THE SERVER FITTED, taken from its own response (json.counts - json.background_y), not against the page's unrounded raw intensities:
+1. MAJOR upload-rounded flat data accepted -> the server's counts are the rounded ones; counts - background_y is zero for a region the fit saw as flat ("flat" = not above 1e-9 of max|counts|, to absorb floating-point residue) -> rejected. Test: 'data the SERVER saw as constant anchor nothing, even with a small standard error' (your 3.096e-5 +- 7.461e-6 case).
+2. MAJOR raw span includes the background slope and rejected a resolved line on a steep ramp -> the scale is the largest background-subtracted intensity, so the ramp drops out. Test: 'a resolved Graphite line on a steep background is a real anchor' (your 981.925-count case on a 30 000-count ramp).
+Rule in full: amplitude finite and > 0; >= 5 % of max(counts - background_y); and > 3 x its stderr when the server gave one; a response without counts/background_y cannot vouch for an anchor (rejected). Measured on the 70 committed Graphite models with the shipped server: amplitude / max(counts - background_y) = 0.62-0.95; amplitude / stderr = 11.7-200 (missing on 1).
+18 Node tests. CLAUDE.md updated. Undo/redo after a rejected Auto-Fit: unchanged, documented as known.
+
+TRY TO BREAK (reachable through the shipped path: buildAutoFitModel + detection + uploadToBackend rounding + /api/fit with n_perturb 3):
+a. a REAL anchor rejected (consider run B's 100-scan-averaged noisy steep-background case: amplitude 9 686 +- 517; spikes; manual or Shirley/Tougaard backgrounds that overshoot so counts - background_y is small or negative near the line);
+b. an UNSUPPORTED anchor accepted;
+c. json.counts / json.background_y: confirm both are always present and equal length on a success response from /api/fit for every background method Auto-Fit can use, and that they are the fitted ROI.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.
