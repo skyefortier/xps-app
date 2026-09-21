@@ -1,0 +1,25 @@
+ROUND 6 recheck of branch fix-autofit-zero-graphite-cc (HEAD; parent = main). Read-only. Round 5 was NO-GO x2 with the same two in-scope MAJORs (archived docs/autofit/codex/autofit_zero_graphite_r5_verdict_run{A,B}.md).
+
+WHAT CHANGED — the intensity floor is gone, replaced by the statistic your own round-5 wording pointed to ("zero amplitudes would fit the server's signal exactly"; "removing Graphite changes 428 uploaded samples").
+_autoFitGraphiteIsSupported(gPeak, json), from the /api/fit response alone:
+    w = 1/max(counts,1)            (the server's weights)
+    chi2_with    = sum w (counts - fitted_y)^2
+    chi2_without = sum w (counts - fitted_y + y_component)^2      (y_component = individual_peaks[].y of the anchor)
+    supported  <=>  amplitude finite and > 0, arrays present and equal length, chi2_without > chi2_with,
+                    and ( chi2_with == 0  or  ((chi2_without - chi2_with)/p) / (chi2_with/dof) >= 10 )
+    p = the anchor's freely varying parameters, dof = n - statistics.n_free_params.
+Five intensity floors were tried over rounds 1-5 (relative to the strongest component, raw span, background-subtracted maximum, raw magnitude, the upload's 0.01 resolution); each rejected real anchors or accepted residue. There is no intensity that means "zero" independently of the data.
+
+EVIDENCE (scripts/gen_autofit_anchor_fixtures.py -> tests/js/fixtures/autofit_anchor.json; REAL fitting.run_fit responses, inputs rounded to 2 dp as uploadToBackend does, least_squares, n_perturb 3):
+  unsupported, all with chi2_without <= chi2_with: round-5 residue (1e7 flat, fitted amplitude 0.03-0.08); round-3 residue (10.009999 -> 10.01, unrounded manual background); round-2 residue (10 + 1e-4 bump); round-1 collapsed model (amplitude 1e-10).
+  supported: round-5 resolved 0.0058 line (F ~ 6e2); round-4 50 counts on 1e6 (F ~ 1e9); round-2 noisy steep ramp (F ~ 1.7e5); round-3 anchor behind a 300 000-count spike (F ~ 1.7e2); ordinary noisy C 1s. The 70 committed Graphite models: F >= 1.1e3.
+20 Node tests run the SHIPPED function (extracted from templates/index.html) on those responses, plus edge cases (missing arrays -> unsupported; exact fit that needs the component -> supported; non-finite / non-positive amplitude).
+Scope unchanged: "do the data support this component?", not "is it graphite?" — list feature-authenticity cases (one-channel spike anchor, plateau under background None) under OUT-OF-SCOPE; they are recorded in CLAUDE.md as needing their own unit.
+
+TRY TO BREAK, in scope, through the shipped path (buildAutoFitModel + detection + uploadToBackend + /api/fit n_perturb 3):
+a. an anchor that is zero / bound-pinned / residue and is ACCEPTED (chi2_without > chi2_with with F >= 10);
+b. a resolved anchor REJECTED (F < 10 or chi2_without <= chi2_with) — consider strong overlap with another component that can absorb the anchor's area (note: chi2_without is evaluated with the OTHER components held at their fitted values, not refitted — is that the right comparison for this purpose, and can it misfire?);
+c. numerical issues: counts <= 0 (weights), descending-BE grids, NaN, very large n, the y array being on a different grid than counts.
+Please budget your time; a verdict is required within the run.
+
+Finish with in-scope findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario), a separate OUT-OF-SCOPE list, and VERDICT: GO or VERDICT: NO-GO.

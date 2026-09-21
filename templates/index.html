@@ -6823,33 +6823,56 @@ function _autoFitCheckGraphiteFraction(graphiteId) {
   return _autoFitDecideAreaWarning(peakAreas, graphiteId);
 }
 
-// The anchor of the charge correction must not be a component the fit drove to
-// ZERO. Scope, deliberately narrow: this asks "is the amplitude zero?", not "is
-// the anchor a genuine spectral feature?" (Auto-Fit run on a one-channel spike
-// or on featureless data is a separate, older question; four attempts to
-// answer it here with intensity thresholds each rejected real anchors or were
-// fooled by synthetic data). Zero means:
-//   - not finite, or <= 0; or
-//   - below the RESOLUTION of the data the server fitted. uploadToBackend
-//     writes every intensity with toFixed(2), so the fit cannot distinguish
-//     an amplitude under 0.01 from none: a bound-pinned amplitude is 0 or
-//     ~1e-12, a collapsed model leaves ~1e-8, residue fitted to data the
-//     server saw as constant ~3e-5. This is a property of the pipeline, not
-//     a fraction of anything: it does not depend on the background level (a
-//     resolved 50-count line on 1 000 000 counts passes), on the background
-//     choice, on the other components, or on a spike; or
-//   - within three of its own standard errors of zero, when the server
-//     estimated one.
-// On the 70 committed Graphite models the amplitude is 36 000-98 000 counts
-// and 12-200 standard errors from zero.
-const _AUTOFIT_ANCHOR_RESOLUTION = 0.01;      // = the toFixed(2) in uploadToBackend (pinned by a test)
+// The anchor of the charge correction must be a component THE DATA SUPPORT, in
+// the one sense that needs no intensity threshold: taking it out of the fitted
+// model must make the fit to the server's own data significantly worse.
+// Computed from the /api/fit response alone (counts, fitted_y, the component's
+// curve individual_peaks[].y, the server's weights 1/max(counts, 1)):
+//     chi2_with    = sum w (counts - fitted)^2
+//     chi2_without = sum w (counts - fitted + component)^2
+//     F = ((chi2_without - chi2_with) / p) / (chi2_with / dof)
+// p = the component's freely varying parameters, dof = points - free params.
+// A component driven to zero, pinned on its bound, or fitted to numerical
+// residue has chi2_without <= chi2_with: removing it costs nothing (measured on
+// every such reproduction in docs/autofit/codex/autofit_zero_graphite_*: delta
+// chi2 <= 0). A resolved anchor has F from 1.7e2 (behind a 300 000-count
+// one-channel spike) to 1e9 (50 counts on a noise-free 1e6 background); the 70
+// committed Graphite models have F >= 1.1e3. Five earlier attempts with
+// intensity floors (relative to the strongest component, the raw span, the
+// background-subtracted maximum, the raw magnitude, the upload's 0.01
+// resolution) each rejected real anchors or accepted residue: there is no
+// intensity that means "zero" independently of the data. This statistic is
+// unit-free, ignores the background level and choice, and a spike adds to both
+// chi-squares. 10 is the conventional "clearly significant" level for a nested
+// model (p ~ 1e-9 at these sizes) and sits a factor 17 below the weakest
+// resolved anchor seen.
+// SCOPE: it answers "do the data support this component?", not "is it graphite?"
+// — a one-channel spike or a plateau under background None is supported.
+const _AUTOFIT_ANCHOR_MIN_F = 10;
 function _autoFitGraphiteIsSupported(gPeak, json) {
   const amp = gPeak && gPeak.amplitude;
-  if (!Number.isFinite(amp) || amp < _AUTOFIT_ANCHOR_RESOLUTION) return false;
-  const fitted = ((json && json.individual_peaks) || []).find(ip => String(ip.id) === String(gPeak.id));
-  const se = fitted && fitted.params && fitted.params.amplitude && fitted.params.amplitude.stderr;
-  if (Number.isFinite(se) && se > 0 && amp <= 3 * se) return false;
-  return true;
+  if (!Number.isFinite(amp) || amp <= 0) return false;
+  const counts = (json && json.counts) || [], fit = (json && json.fitted_y) || [];
+  const ip = ((json && json.individual_peaks) || []).find(q => String(q.id) === String(gPeak.id));
+  const comp = (ip && ip.y) || [];
+  const n = counts.length;
+  if (!n || fit.length !== n || comp.length !== n) return false;          // nothing to judge against
+  let withC = 0, withoutC = 0;
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(counts[i]) || !Number.isFinite(fit[i]) || !Number.isFinite(comp[i])) continue;
+    const w = 1 / Math.max(counts[i], 1), r = counts[i] - fit[i];
+    withC += w * r * r;
+    withoutC += w * (r + comp[i]) * (r + comp[i]);
+  }
+  const delta = withoutC - withC;
+  if (!(delta > 0)) return false;
+  let p = 0;
+  for (const k in (ip.params || {})) { const q = ip.params[k]; if (q && q.vary === true && (q.expr == null || q.expr === '')) p++; }
+  p = Math.max(1, p);
+  const nFree = (json.statistics && Number.isFinite(json.statistics.n_free_params)) ? json.statistics.n_free_params : 0;
+  const dof = Math.max(1, n - nFree);
+  if (withC === 0) return true;                                           // exact fit that the component is needed for
+  return (delta / p) / (withC / dof) >= _AUTOFIT_ANCHOR_MIN_F;
 }
 
 function applyAutoFitResult(json, graphiteRaw, roi) {
@@ -6865,7 +6888,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   // (the server's floor is zero; lmfit returns ~1e-12 there) still comes back
   // with a centre inside the ±0.3 eV window — a position of nothing.
   if (!_autoFitGraphiteIsSupported(gPeak, json)) {
-    notify('Auto-fit: the Graphite component fitted to no significant intensity — the data do not support it, so no charge correction was derived from it and the fit was not applied.', 'red', true);
+    notify('Auto-fit: the data do not support the Graphite component (removing it does not worsen the fit), so no charge correction was derived from it and the fit was not applied.', 'red', true);
     return false;
   }
   // 2. Validate within ±0.3 of 284.50 (the LA center bound).

@@ -369,30 +369,35 @@ A rigid shift (`state.ccShift`) is applied to all binding energies
 before fitting. The corrected axis is produced by `getCorrectedBE()`.
 
 Auto-Fit C1s Graphite derives that shift from the FITTED centre of its
-"Graphite" component, so that component must not be one the fit drove to
-ZERO (`_autoFitGraphiteIsSupported`): amplitude finite and at least 0.01 —
-the RESOLUTION of the data the server fitted, because `uploadToBackend`
-writes intensities with `toFixed(2)` (pinned by a test; change them
-together) — a bound-pinned amplitude is 0 or ~1e-12, a collapsed model
-leaves ~1e-8, residue on data the server saw as constant ~3e-5; and, when
-the server estimated it, more than three standard errors from zero. It is a
-property of the pipeline, not a fraction of anything, so it does not depend
-on the background level, the background choice, the other components or a
-spike. Otherwise the auto-fit is rejected and rolled back with a red notice
-before any charge-correction input is touched. On the 70 committed Graphite
-models the amplitude is 36 000–98 000 counts and 12–200 standard errors
-from zero. Until 2026-09-21 only the centre was checked
-(±0.3 eV of 284.50), which a zero-amplitude component always satisfies
-because its centre is bounded to that window. SCOPE: the rule asks "is the
-amplitude zero?", not "is the anchor a genuine feature?". Auto-Fit run on a
-single-channel spike, or on featureless data with background None, still
-produces a non-zero anchor and a charge correction from it (Codex round 3
-reproductions in `docs/autofit/codex/autofit_zero_graphite_r3_*`); four
-intensity-threshold attempts to answer that here each rejected real anchors
-or were fooled by synthetic data — it needs its own unit (robust feature
-test, e.g. a with/without-component comparison). Also known, not fixed
-here: a rejected Auto-Fit (any reason) leaves its `pushUndo()` entry and a
-cleared redo stack behind.
+"Graphite" component, so the data must SUPPORT that component
+(`_autoFitGraphiteIsSupported`), in the one sense that needs no intensity
+threshold: removing it from the fitted model must make the fit to the
+server's own data significantly worse. From the `/api/fit` response alone —
+`counts`, `fitted_y`, the component's curve `individual_peaks[].y`, the
+server's weights 1/max(counts, 1) — F = ((χ²_without − χ²_with)/p) /
+(χ²_with/dof), p = the component's free parameters; supported means
+χ²_without > χ²_with and F ≥ 10 (or χ²_with = 0). A component driven to
+zero, pinned on its bound or fitted to numerical residue has
+χ²_without ≤ χ²_with — removing it costs nothing (true of every such
+reproduction in `docs/autofit/codex/autofit_zero_graphite_*`); resolved
+anchors measured F from 1.7e2 (behind a 300 000-count one-channel spike) to
+1e9, and the 70 committed Graphite models F ≥ 1.1e3. Otherwise the auto-fit
+is rejected and rolled back with a red notice before any charge-correction
+input is touched. Until 2026-09-21 only the centre was checked (±0.3 eV of
+284.50), which a zero-amplitude component always satisfies because its
+centre is bounded to that window. Do NOT replace this with an intensity
+floor: five were tried (relative to the strongest component, the raw span,
+the background-subtracted maximum, the raw magnitude, the upload's 0.01
+resolution) and each rejected real anchors or accepted residue. The same
+statistic is the natural definition for the planned "component not
+supported by the data" outcome. Fixtures are real `run_fit` responses:
+`scripts/gen_autofit_anchor_fixtures.py` →
+`tests/js/fixtures/autofit_anchor.json`. SCOPE: it answers "do the data
+support this component?", not "is it graphite?" — Auto-Fit run on a
+one-channel spike, or on a plateau under background None, is supported and
+still yields a charge correction (needs its own unit). Also known, not
+fixed here: a rejected Auto-Fit (any reason) leaves its `pushUndo()` entry
+and a cleared redo stack behind.
 
 Adventitious carbon referencing (284.8 eV) is the default for
 convenience but has known criticisms in the XPS literature — the C 1s
