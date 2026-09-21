@@ -1,0 +1,25 @@
+Review ONE small commit (HEAD of branch fix-autofit-zero-graphite-cc; parent = main). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO.
+
+CONTEXT
+templates/index.html, "Auto-Fit C1s Graphite": runAutoFitC1sGraphite builds a model (buildAutoFitModel), posts /api/fit (n_perturb 3, amplitude_min 0, the Graphite centre bounded to 284.50 +- 0.30 via _afCenterMin/Max), calls applyBackendResult(json) then applyAutoFitResult(json, ...). applyAutoFitResult takes the fitted centre of the peak named "Graphite" (fallback: state.peaks[0]), writes cc-method/cc-obs/cc-lit and calls updateChargeCorrection(), which rigidly shifts EVERY peak centre and the axis. Returning false makes the caller run _autoFitRestore(snap, fittingTab) (model, fitResult, provenance rolled back).
+
+BUG FIXED
+Only the centre was validated. A Graphite component whose amplitude the fit drove to its lower bound (0, or ~1e-12 from lmfit's bound transform) still has a centre inside the window, so the whole spectrum's charge correction could be derived from a component that does not exist.
+
+THE CHANGE (git show HEAD)
+- new _autoFitGraphiteIsSupported(gPeak, peaks): amplitude finite, > 0, and > 1e-6 x the largest component amplitude.
+- applyAutoFitResult: that check runs right after the anchor is located and BEFORE any charge-correction input is touched; on failure: red notice, return false.
+- tests/js/autofit_zero_graphite.test.js (extracts the shipped functions; 9 cases), CLAUDE.md note.
+
+SITE TABLE — break it if you can:
+1. applyAutoFitResult (the only place a fitted component centre feeds the charge correction — verify: grep updateChargeCorrection, cc-obs, ccShift writers).
+2. runAutoFitC1sGraphite's false branch -> _autoFitRestore: confirm that everything applyBackendResult already wrote (peak values, _backendParams) is rolled back, and that the PROVISIONAL charge shift applied before the fit (graphiteRaw / state.ccShift) is restored too — or tell me what is left behind.
+3. The amber "< 40 % area" check is unchanged and still runs only on success.
+4. Linked/multiplet or locked amplitudes: can the Graphite amplitude be legitimately fixed by the user or linked so that this rule misfires?
+
+QUESTIONS
+a. Is 1e-6 x strongest amplitude a sound "does not exist" threshold? Give a realistic spectrum where a REAL graphite anchor is rejected, or where a bound-pinned amplitude passes.
+b. Is rejecting the whole auto-fit (rollback) the right outcome versus keeping the fit but skipping the charge correction? Consider what the user sees and that Auto-Fit's purpose is model + charge correction together.
+c. Any other path where a zero-amplitude component's centre drives something global (not the per-component display suppression, which is a separate planned unit).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
