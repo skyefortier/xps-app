@@ -269,3 +269,16 @@ percentile 22.8 s). Design deviations from §3: adopting an alternative
 re-fits from it instead of writing its parameters as a result (so σ,
 exports, saves and history need no new consumer sites); two same-lineshape
 components that swapped labels count as one solution.
+
+## 8. Step (b) as built (2026-09-22)
+
+Server: `_component_support` per component in every `run_fit` response
+(`support: {f, delta_chi2, supported}`, linked components `follows` their
+parent). Page: `p.support` written by `applyBackendResult`, nulled by the
+local engine and Batch Fit; `_isUnsupported` at all 15 sites of §3.5 except
+#14 (charge correction, covered by the Auto-Fit anchor check) and #15 (Find
+Peaks, out of scope as stated); JS twin for loaded files. Local amplitude
+floor 1 → 0. Deviation from §3.4: the twin is applied only when the
+response carries the arrays; older saved peaks without `support` read as
+"not established" and display as before (no retroactive verdicts).
+Browser-checked on UCl4_on_graphite C1s Scan_4 ("Unknown 2", F = 2.0).

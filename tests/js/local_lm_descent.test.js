@@ -191,12 +191,23 @@ test('bound stationarity: amplitude at its lower wall with the optimum inside th
 });
 
 test('bound stationarity: amplitude at its lower wall with the optimum OUTSIDE the box is a legitimate converged fit', () => {
+  // The floor is 0 since unit step (b) (owner decision: zero allowed in both
+  // engines). Data pulling the amplitude NEGATIVE leave it on the wall at 0.
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05);
+  const { data, bg } = gaussCase(env, { be, dataAmp: -0.5, dataFwhm: 1.2, start: { center: 285.0, fwhm: 1.2, amplitude: 1, fixCenter: true, fixFwhm: true } });
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.equal(env.state.peaks[0].amplitude, 0, 'stays on the wall');
+});
+
+test('a weak component the data DO hold is no longer forced up to an amplitude of 1', () => {
   const env = makeEnv();
   const be = grid(280, 290, 0.05);
   const { data, bg } = gaussCase(env, { be, dataAmp: 0.5, dataFwhm: 1.2, start: { center: 285.0, fwhm: 1.2, amplitude: 1, fixCenter: true, fixFwhm: true } });
   const out = env.runFitLocal(be, data, bg);
   assert.equal(out.success, true, JSON.stringify(out));
-  assert.equal(env.state.peaks[0].amplitude, 1, 'stays on the wall');
+  assert.ok(Math.abs(env.state.peaks[0].amplitude - 0.5) < 1e-3, `amplitude ${env.state.peaks[0].amplitude}`);
 });
 
 test('derivative accuracy: a free centre on a narrow peak lands on the true centre from either side (fixed wrong width)', () => {
@@ -307,12 +318,13 @@ test('round-2 replay A: a peak that can only shrink at a wall is left at a const
 test('round-2 replay B: amplitude pinned at its wall must not stop the width from reaching its constrained optimum', () => {
   const env = makeEnv();
   const be = grid(283, 287, 0.01);
-  const data = be.map(x => 0.5 * env.gaussian(x, 285.0, 1.0));
+  // Floor 0 since unit step (b): a NEGATIVE feature pins the amplitude on the
+  // wall at 0; the width must still reach its constrained optimum there.
+  const data = be.map(x => -0.5 * env.gaussian(x, 285.0, 1.0) + 0.02 * env.gaussian(x, 285.0, 0.3));
   env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 1.5, amplitude: 5, fixCenter: true }];
   const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
   assert.equal(out.success, true, JSON.stringify(out));
-  assert.equal(env.state.peaks[0].amplitude, 1, 'amplitude on its wall');
-  assert.ok(env.state.peaks[0].fwhm < 0.6, `width must move to its constrained optimum, got ${env.state.peaks[0].fwhm}`);
+  assert.equal(env.state.peaks[0].amplitude, 0, 'amplitude on its wall');
   assertConstrainedStationary(env, be, data, 1e-8, 'replay B');
 });
 

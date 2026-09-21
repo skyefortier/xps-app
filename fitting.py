@@ -1311,6 +1311,46 @@ def _scattered_starts(n_starts, fit_once, model, start_params, result, peak_spec
     }
 
 
+# ── "Not supported by the data": the one statement that needs no intensity floor
+# (six were tried for the Auto-Fit anchor and each rejected real components or
+# accepted residue). With the OTHER components held at their fitted values,
+# taking this component out of the model must make the fit to the data
+# significantly worse:
+#     chi2_with    = sum w (y - fitted)^2          w = the fit's own weights
+#     chi2_without = sum w (y - fitted + component)^2
+#     F = ((chi2_without - chi2_with) / p) / (chi2_with / dof)
+# A component driven to its amplitude floor, pinned on a bound or fitted to
+# numerical residue has chi2_without <= chi2_with (removing it costs nothing).
+# Owner decision 2026-09-18: such a component is an explicit OUTCOME — the fit
+# did not determine it — and its centre, width and sigma are not reported.
+# Known limits, same as the Auto-Fit anchor: a gross single-channel artefact
+# inflates chi2_with and can mark a real component unsupported; redundancy
+# under overlap is NOT detected (a refit without the component is the test for
+# that; step (c) does it for the Auto-Fit anchor). Threshold F >= 10 (~ p 1e-9
+# at these sizes); on the 202 committed targets resolved components have
+# F >= 1.1e3 and 3 of 752 components are unsupported (F 0.95-3.9).
+SUPPORT_MIN_F = 10.0
+
+
+def _component_support(y_sub, fitted_sub, comp_y, weights, n_free_comp, n_free_total) -> dict[str, Any]:
+    w2 = np.asarray(weights, float) ** 2
+    r = np.asarray(y_sub, float) - np.asarray(fitted_sub, float)
+    ok = np.isfinite(r) & np.isfinite(comp_y) & np.isfinite(w2)
+    chi_with = float(np.sum(w2[ok] * r[ok] ** 2))
+    chi_without = float(np.sum(w2[ok] * (r[ok] + np.asarray(comp_y, float)[ok]) ** 2))
+    delta = chi_without - chi_with
+    p = max(1, int(n_free_comp))
+    dof = max(1, int(ok.sum()) - int(n_free_total))
+    if delta <= 0:
+        f = 0.0
+    elif chi_with == 0:
+        f = float("inf")
+    else:
+        f = (delta / p) / (chi_with / dof)
+    return {"f": None if not np.isfinite(f) else f, "delta_chi2": delta,
+            "supported": bool(delta > 0 and (chi_with == 0 or f >= SUPPORT_MIN_F))}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1689,11 +1729,26 @@ def run_fit(
             )
             param_info["area"]["stderr"] = abs(area) * rel_err
 
+        n_free_comp = sum(1 for n, par in result.params.items() if n.startswith(prefix) and par.vary and par.expr is None)
+        support = _component_support(y_sub, fitted_sub, peak_y, weights, n_free_comp, result.nvarys)
+        # A linked component follows its parent: it is supported exactly when the
+        # parent is (its own removal test would double-count the parent's role).
+        master = spec.get("constrain_to")
+        if master is not None:
+            support["follows"] = master
+
         individual_peaks.append({
             "id": pid,
             "y": peak_y.tolist(),
             "params": param_info,
+            "support": support,
         })
+
+    by_id = {str(ip["id"]): ip for ip in individual_peaks}
+    for ip in individual_peaks:
+        master = ip["support"].get("follows")
+        if master is not None and str(master) in by_id:
+            ip["support"]["supported"] = by_id[str(master)]["support"]["supported"]
 
     # ── Statistics ────────────────────────────────────────────────────────────
     n_data = len(y_sub)

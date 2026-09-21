@@ -816,6 +816,16 @@
   }
 
   /* Multiplet link indicator */
+  .unsupported-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: var(--amber-dim);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    cursor: help;
+    white-space: nowrap;
+  }
   .linked-badge {
     font-size: 9px;
     padding: 1px 5px;
@@ -5886,7 +5896,7 @@ function renderPeakList() {
   const _peakAreas = {};
   let totalArea = 0;
   if (_roiBE.length) {
-    for (const p of state.peaks) { const a = _peakArea(p, _roiBE); _peakAreas[p.id] = a; totalArea += a; }
+    for (const p of state.peaks) { const a = _peakArea(p, _roiBE); _peakAreas[p.id] = a; if (!_isUnsupported(p)) totalArea += a; }
   }
 
   for (const p of state.peaks) {
@@ -5896,21 +5906,23 @@ function renderPeakList() {
     item.style.borderLeftColor = p.color;
     const isLinked = !!p.linked;
     const pArea = _peakAreas[p.id] || 0;
-    const areaPct = totalArea > 0 && pArea > 0 ? ((pArea / totalArea) * 100).toFixed(1) : '\u2014';
+    const unsupported = _isUnsupported(p);
+    const areaPct = unsupported ? '\u2014' : (totalArea > 0 && pArea > 0 ? ((pArea / totalArea) * 100).toFixed(1) : '\u2014');
+    const dash = '\u2014';
 
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
         <div class="peak-color" style="background:${p.color}"></div>
-        <span class="peak-name">${_escHtml(p.name)}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}</span>
-        <span class="peak-info">${p.center.toFixed(2)} eV</span>
+        <span class="peak-name">${_escHtml(p.name)}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}${unsupported ? ' ' + _unsupportedBadge() : ''}</span>
+        <span class="peak-info">${unsupported ? dash : p.center.toFixed(2) + ' eV'}</span>
         <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">&times;</button>
       </div>
       <div class="peak-summary" onclick="togglePeakBody(${p.id})">
         <span class="peak-summary-label">Center</span>
         <span class="peak-summary-label">FWHM</span>
         <span class="peak-summary-label">Area</span>
-        <span class="peak-summary-val">${p.center.toFixed(2)}</span>
-        <span class="peak-summary-val">${p.fwhm.toFixed(2)}</span>
+        <span class="peak-summary-val">${unsupported ? dash : p.center.toFixed(2)}</span>
+        <span class="peak-summary-val">${unsupported ? dash : p.fwhm.toFixed(2)}</span>
         <span class="peak-summary-val">${areaPct === '\u2014' ? areaPct : areaPct + '%'}</span>
       </div>
       <div class="peak-body" id="peak-body-${p.id}">
@@ -6282,6 +6294,7 @@ function _applyBackendParams(p, par) {
 }
 
 function applyBackendResult(result) {
+  _applySupport(state.peaks, result);
   for (const ipeak of result.individual_peaks) {
     // Backend returns string IDs; state.peaks uses numeric IDs
     const p = getPeak(Number(ipeak.id)) || getPeak(ipeak.id);
@@ -6870,6 +6883,57 @@ function _autoFitCheckGraphiteFraction(graphiteId) {
 //     unsupported-component unit gets the refit-without-the-component test.
 //   - Residue can still pass when an UNROUNDED manual background sits a
 //     rounding step under data the upload flattened (Codex round 6, F ~ 280).
+// ── "Not supported by the data" (unit step (b), 2026-09-22) ───────────────────
+// A component whose amplitude the fit drove to its floor, pinned on a bound, or
+// fitted to numerical residue is an explicit OUTCOME: the fit did not determine
+// it. Owner decision 2026-09-18: flag it, and do not report its centre, width
+// or sigma as if they were determined. The statement that needs no intensity
+// floor (six were tried and failed): with the other components held at their
+// fitted values, removing this one must make the fit significantly worse — the
+// F statistic the Auto-Fit anchor check uses (F >= 10). The SERVER computes it
+// per component and returns `support: {f, delta_chi2, supported}`; the twin
+// below recomputes it from any response that carries counts, fitted_y and the
+// component's curve, for loaded files. Known limits are the anchor check's: a
+// gross single-channel artefact can mark a real component unsupported;
+// redundancy under overlap is not detected. A linked component follows its
+// parent. Peaks carry the verdict as `p.support` (written with every server
+// result; null = not established: no server result yet, a local-engine result,
+// or a fit older than this unit).
+const _SUPPORT_MIN_F = 10;
+const _UNSUPPORTED_LABEL = 'not supported by the data';
+const _UNSUPPORTED_TIP = 'Removing this component from the fitted model does not make the fit to the data significantly worse (F < 10 with the other components held), so the fit did not determine it: its intensity is at or near zero and its centre, width and uncertainties are not reported. This is an outcome of the fit, not a bug. The data may still contain the species: try a different starting position or width, or lock the centre where chemistry says it belongs, and refit.';
+function _componentSupportFromResponse(json, peakId) {
+  const counts = (json && json.counts) || [], fit = (json && json.fitted_y) || [];
+  const ip = ((json && json.individual_peaks) || []).find(q => String(q.id) === String(peakId));
+  if (ip && ip.support && typeof ip.support.supported === 'boolean') return ip.support;
+  const comp = (ip && ip.y) || [], n = counts.length;
+  if (!n || fit.length !== n || comp.length !== n) return null;
+  let withC = 0, withoutC = 0, used = 0;
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(counts[i]) || !Number.isFinite(fit[i]) || !Number.isFinite(comp[i])) continue;
+    const w = 1 / Math.max(counts[i], 1), r = counts[i] - fit[i];
+    withC += w * r * r; withoutC += w * (r + comp[i]) * (r + comp[i]); used++;
+  }
+  const delta = withoutC - withC;
+  let p = 0;
+  for (const k in ((ip && ip.params) || {})) { const q = ip.params[k]; if (q && q.vary === true && (q.expr == null || q.expr === '')) p++; }
+  p = Math.max(1, p);
+  const nFree = (json.statistics && Number.isFinite(json.statistics.n_free_params)) ? json.statistics.n_free_params : 0;
+  const dof = Math.max(1, used - nFree);
+  const f = delta <= 0 ? 0 : (withC === 0 ? Infinity : (delta / p) / (withC / dof));
+  return { f: Number.isFinite(f) ? f : null, delta_chi2: delta, supported: delta > 0 && (withC === 0 || f >= _SUPPORT_MIN_F) };
+}
+// Write p.support for every peak from a server response (null where the response says nothing).
+function _applySupport(peaks, json) {
+  for (const p of peaks) {
+    let sup = _componentSupportFromResponse(json, p.id);
+    if (p.linked) { const par = peaks.find(q => String(q.id) === String(p.linked)); const ps = par && _componentSupportFromResponse(json, par.id); if (ps) sup = { ...ps, follows: par.id }; }
+    p.support = sup ? { f: sup.f ?? null, delta_chi2: sup.delta_chi2 ?? null, supported: !!sup.supported, ...(sup.follows != null ? { follows: sup.follows } : {}) } : null;
+  }
+}
+function _isUnsupported(p) { return !!(p && p.support && p.support.supported === false); }
+function _unsupportedBadge() { return `<span class="unsupported-badge" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</span>`; }
+
 const _AUTOFIT_ANCHOR_MIN_F = 10;
 function _autoFitGraphiteIsSupported(gPeak, json) {
   const amp = gPeak && gPeak.amplitude;
@@ -7771,10 +7835,14 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   }
   if (!freeParams.every(Number.isFinite)) return fail('a free parameter is not a finite number.');
 
-  // Parameter box (unchanged from the previous implementation).
+  // Parameter box. The amplitude floor is 0, the server's, since unit step (b)
+  // (owner decision 2026-09-18: zero allowed in both engines; a component at
+  // its floor is an explicit outcome). The active-set step holds a parameter
+  // pushed into the wall, and paramScale is floored at 1, so a zero amplitude
+  // is a valid, stationary point rather than a division by zero.
   function clamp(param, v) {
     if (param === 'fwhm')         return Math.max(0.1, Math.min(15, v));
-    if (param === 'amplitude')    return Math.max(1, v);
+    if (param === 'amplitude')    return Math.max(0, v);
     if (param === 'glMix')        return Math.max(0, Math.min(100, v));
     if (param === 'asymmetry')    return Math.max(0, Math.min(1, v));
     if (param === 'dsAlpha')      return Math.max(0, Math.min(0.49, v));
@@ -8014,6 +8082,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     const live = getPeak(p.id);
     if (!live) continue;
     Object.assign(live, p);
+    live.support = null;      // the local engine establishes nothing about support
     // A local fit has no backend covariance; any _backendParams on the peak
     // belong to an earlier server fit (or, in Batch Fit, to the SOURCE
     // spectrum's fit) and must not travel with this result.
@@ -8170,7 +8239,9 @@ function renderResults() {
   }
   if (!be) be = [];
   const areas = state.peaks.map(p => _peakArea(p, be));
-  const totalArea = areas.reduce((s, v) => s + v, 0);
+  // percentages are over the components the fit DID determine
+  const totalArea = areas.reduce((s, v, i) => s + (_isUnsupported(state.peaks[i]) ? 0 : v), 0);
+  const unsupportedPeaks = state.peaks.filter(_isUnsupported);
 
   state.peaks.forEach((p, i) => {
     const pct = totalArea > 0 ? (areas[i] / totalArea * 100) : 0;
@@ -8178,6 +8249,17 @@ function renderResults() {
     const centerSE = par.center ? par.center.stderr : null;
     const fwhmSE   = par.fwhm   ? par.fwhm.stderr   :
                      par.fwhm_l ? par.fwhm_l.stderr  : null;
+    if (_isUnsupported(p)) {
+      // the fit did not determine this component: no centre, width or sigma is reported
+      html += `<tr class="unsupported-row" style="color:var(--text3)">
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px;opacity:.4"></span>${_escHtml(p.name)} ${_unsupportedBadge()}</td>
+      <td style="font-family:var(--mono)">&mdash;</td>
+      <td style="font-family:var(--mono)">&mdash;</td>
+      <td>${areas[i].toFixed(0)}</td>
+      <td>&mdash;</td>
+    </tr>`;
+      return;
+    }
     html += `<tr>
       <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${_escHtml(p.name)}</td>
       <td style="font-family:var(--mono)">${fmtVal(p.center, centerSE, 3)} eV</td>
@@ -8188,6 +8270,10 @@ function renderResults() {
   });
 
   html += '</tbody></table>';
+  if (unsupportedPeaks.length) {
+    html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px" title="${_escAttr(_UNSUPPORTED_TIP)}">
+      ${unsupportedPeaks.length === 1 ? 'One component is' : unsupportedPeaks.length + ' components are'} <b>${_UNSUPPORTED_LABEL}</b> (${unsupportedPeaks.map(q => _escHtml(q.name)).join(', ')}): removing ${unsupportedPeaks.length === 1 ? 'it' : 'them'} does not make the fit worse, so the fit did not determine ${unsupportedPeaks.length === 1 ? 'its' : 'their'} position or width. ${unsupportedPeaks.length === 1 ? 'Its' : 'Their'} area is excluded from the percentages and from Quantify.</div>`;
+  }
   html += _startsPanelHtml(state.fitResult);
 
   // Uncertainty warnings (backend fit only). Genuine alarms go in the amber
@@ -8272,6 +8358,7 @@ function renderQuantify(areas, totalArea) {
   `;
 
   state.peaks.forEach((p, i) => {
+    if (_isUnsupported(p)) return;            // listed beneath the table, not quantified
     const { key, rsf } = _detectPeakRSF(p);
     // Use stored RSF if present, otherwise detected
     const storedRSF = p._rsf != null ? p._rsf : rsf;
@@ -8300,6 +8387,10 @@ function renderQuantify(areas, totalArea) {
   });
 
   html += '</tbody><tfoot><tr><td colspan="4" style="font-weight:500;color:var(--text2)">Total</td><td id="qtotal-norm">&mdash;</td><td id="qtotal-pct" style="font-weight:500">100%</td></tr></tfoot></table>';
+  const qUnsupported = state.peaks.filter(_isUnsupported);
+  if (qUnsupported.length) {
+    html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:8px" title="${_escAttr(_UNSUPPORTED_TIP)}">Not quantified — <b>${_UNSUPPORTED_LABEL}</b>: ${qUnsupported.map(q => _escHtml(q.name)).join(', ')}. The fit did not determine ${qUnsupported.length === 1 ? 'this component' : 'these components'}; an atomic percentage of 0.0 % would be a measurement claim.</div>`;
+  }
   html += `<button class="btn btn-sm btn-accent" style="margin-top:10px" onclick="recalcQuantify()">Recalculate</button>`;
   el.innerHTML = html;
   el._areas = areas;
@@ -8363,6 +8454,7 @@ function recalcQuantify() {
   const areas = el._areas;
 
   const normAreas = state.peaks.map((p, i) => {
+    if (_isUnsupported(p)) return 0;          // not quantified (no row either)
     const rsf = parseFloat(document.getElementById('rsf-' + p.id)?.value || 1);
     return areas[i] / (rsf || 1);
   });
@@ -8653,7 +8745,7 @@ function _buildStackDatasets(stackTab) {
     for (const pc of rdPeaks) {
       datasets.push({
         _stackKey: e.id + ':peak:' + pc.peak.id,
-        label: pc.peak.name || ('peak ' + pc.peak.id),
+        label: (pc.peak.name || ('peak ' + pc.peak.id)) + (_isUnsupported(pc.peak) ? ' (' + _UNSUPPORTED_LABEL + ')' : ''),
         // BG-sub view: pure peak shape (bg-subtracted level).
         // Raw view: peak + bg (raw level).
         data: useBgSub
@@ -9048,7 +9140,7 @@ function updatePlot() {
       const fillTarget = showFill ? { target: pi, above: p.color + '40', below: 'transparent' } : false;
       const peakY = evalPeakArray(plotBE, p);
       datasets.push({
-        label: p.name,
+        label: _isUnsupported(p) ? p.name + ' (' + _UNSUPPORTED_LABEL + ')' : p.name,
         data: plotBE.map((b, i) => ({ x: b, y: peakY[i] + (bgSubView ? 0 : plotBG[i]) })),
         borderColor: p.color,
         backgroundColor: p.color + '40',
@@ -10413,7 +10505,7 @@ function exportResults() {
   const peakCols = state.peaks.map(p => evalPeakArray(be, p));
 
   const rows = [['BE (eV)', 'Intensity', 'Background', 'BG-subtracted', 'Model', 'Residual',
-    ...state.peaks.map(p => p.name)]];
+    ...state.peaks.map(p => _isUnsupported(p) ? p.name + ' (not supported by the data)' : p.name)]];
 
   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
   const resid = bgSub.map((v, i) => v - modelFull[i]);
@@ -10685,7 +10777,7 @@ function _doPublicationExport() {
     ctx.font = '38px Arial,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.save(); ctx.beginPath(); ctx.rect(plotX, mainTop, plotW, mainH); ctx.clip();
     for (const p of state.peaks) {
-      if (!p.visible) continue;
+      if (!p.visible || _isUnsupported(p)) continue;     // no label on a component the fit did not determine
       // evalPeakArray(), not per-point evalPeak: see fill/outline loops above.
       const pArr = evalPeakArray(be, p);
       let maxVal = -Infinity, maxBE = be[0];
@@ -10706,7 +10798,7 @@ function _doPublicationExport() {
   if (showIndiv) {
     for (const p of state.peaks) {
       if (!p.visible) continue;
-      lgItems.push({ label: p.name, type: 'fill', color: p.color.length === 7 ? p.color : '#888888' });
+      lgItems.push({ label: _isUnsupported(p) ? p.name + ' (not supported by the data)' : p.name, type: 'fill', color: p.color.length === 7 ? p.color : '#888888' });
     }
   }
 
@@ -10839,7 +10931,9 @@ function exportFitTable(fmt) {
     const el = document.getElementById('rsf-' + p.id);
     return el ? (parseFloat(el.value) || 1) : 1;
   });
-  const normAreas = areas.map((a,i) => a / rsfVals[i]);
+  // an unsupported component is not quantified (same rule as the Quantify tab)
+  const normAreas = areas.map((a,i) => _isUnsupported(state.peaks[i]) ? 0 : a / rsfVals[i]);
+  const unsupportedNames = state.peaks.filter(_isUnsupported).map(p => p.name);
   const normTotal = normAreas.reduce((s,v)=>s+v,0);
   const atPcts = normAreas.map(n => normTotal > 0 ? n/normTotal*100 : 0);
 
@@ -10849,7 +10943,7 @@ function exportFitTable(fmt) {
   const _statName = !_isLocalFit(state.fitResult) ? 'Chi-squared reduced'
     : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, unweighted)' : 'Chi-squared reduced (local fit, Poisson-weighted)');
 
-  const headers = ['Peak Name','Center (eV)','Center StdErr','FWHM (eV)','FWHM StdErr',
+  const headers = ['Peak Name','Status','Center (eV)','Center StdErr','FWHM (eV)','FWHM StdErr',
     'Amplitude','Amplitude StdErr','Area','Line Shape','GL Ratio','Alpha','Beta','M_Gauss',
     'RSF','Norm Area','At%'];
 
@@ -10859,8 +10953,13 @@ function exportFitTable(fmt) {
     const fse  = (par.fwhm?.stderr ?? par.fwhm_l?.stderr) ?? '';
     const ase  = par.amplitude?.stderr ?? '';
     const sc = _shapeExportCols(p);
+    if (_isUnsupported(p)) {
+      // the fit did not determine this component: no centre, width or sigma
+      return [p.name, _UNSUPPORTED_LABEL, '', '', '', '', p.amplitude.toFixed(2), '', areas[i].toFixed(2),
+              p.shape, sc.gl, sc.alpha, sc.beta, sc.m, rsfVals[i].toFixed(4), '', ''];
+    }
     return [
-      p.name, p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
+      p.name, p.support ? 'supported' : '', p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
       p.fwhm.toFixed(4), fse !== '' ? Number(fse).toFixed(5) : '',
       p.amplitude.toFixed(2), ase !== '' ? Number(ase).toFixed(3) : '',
       areas[i].toFixed(2), p.shape, sc.gl, sc.alpha,
@@ -10875,6 +10974,7 @@ function exportFitTable(fmt) {
       ['XPS Fitting Studio Export'], ['Date', date],
       [_statName, chiStr], ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
+      ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
       ...(_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey())) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))]] : []),
       ...(_startsChosenText(state.fitResult) ? [['Chosen alternative', _startsChosenText(state.fitResult)]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
@@ -10887,6 +10987,7 @@ function exportFitTable(fmt) {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
     csv += `# ${_statName}: ${chiStr}\n# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
+    if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;
     if (_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))}\n`;
     if (_startsChosenText(state.fitResult)) csv += `# Chosen alternative: ${_startsChosenText(state.fitResult)}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
@@ -11066,6 +11167,13 @@ function _validateUncertainties() {
   for (const [rawId, params] of Object.entries(stderrMap)) {
     const p = getPeak(Number(rawId));
     if (!p) continue;
+    // Rule 0: the fit did not determine this component at all. Reported once,
+    // here, instead of the per-parameter alarms (or, after Auto-Fit's centre
+    // lock, the neutral "locked" note) that would otherwise misdescribe it.
+    if (_isUnsupported(p)) {
+      warnings.push(`<li><b>${_escHtml(p.name)}:</b> ${_UNSUPPORTED_LABEL} — removing it does not make the fit worse${p.support.f != null ? ' (F = ' + p.support.f.toFixed(1) + ', threshold 10)' : ''}. Its centre, width and uncertainties are not reported. Try another starting position or width, lock the centre where chemistry says it belongs, or drop the component.</li>`);
+      continue;
+    }
     const init = preFit[Number(rawId)] || {};
 
     for (const [pName, pData] of Object.entries(params)) {
@@ -11556,7 +11664,8 @@ async function runPropagation() {
     // Deep-clone source peaks, scaled
     const clonedPeaks = srcPeaks.map(p => ({
       ...p,
-      amplitude: p.linked ? p.amplitude : p.amplitude * scale
+      amplitude: p.linked ? p.amplitude : p.amplitude * scale,
+      support: null           // a propagated model has not been fitted: nothing is established
     }));
 
     // Copy peak nextId

@@ -441,21 +441,53 @@ the integer-clamped `caM` is not optimised (carried at its start value).
 `_localFitCaveat`). Measured in unit W1: weighted, it matches the server
 on GL-type models (≤ 4 meV, ≤ 1.4 % area on the lab's C1s scans) but still
 differs for Voigt components (the server fits their mix free — audit A03),
-LA components (`caM` held), very weak components (local amplitude floor 1,
-server 0), and where the model has several minima. Both engines weight by
+LA components (`caM` held), and where the model has several minima
+(both engines' amplitude floor is 0 since unit step (b)). Both engines weight by
 √intensity whether the data are counts or CPS (a convention, not a
 calibrated uncertainty for rates); the formula is the same but the inputs
 are not bit-identical, because `uploadToBackend` rounds intensities to
 2 dp before the server weights them. Retire the designation only on a
-re-measurement after A03, the `caM` clamp and the amplitude-bound change
-DECIDED 2026-09-18 (`docs/findings/2026-09-fit-determinacy.md` §3): zero
-allowed in both engines, and a component at its lower bound is an explicit
-outcome — flagged as unsupported by the data, with its centre, width and σ
-suppressed. Not yet implemented. The same file records that a
+re-measurement after A03 and the `caM` clamp. (The amplitude-bound change
+DECIDED 2026-09-18 — `docs/findings/2026-09-fit-determinacy.md` §3 — is
+implemented: unit step (b), 2026-09-22, below.) The same file records that a
 converged server fit is not ground truth: on a committed C 1s scan the
 server's default method stopped in a local minimum the local engine
 avoided.
 See `docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md`.
+
+**"Not supported by the data" (unit step (b), 2026-09-22; owner decision
+2026-09-18).** A component whose amplitude the fit drove to its floor,
+pinned on a bound or fitted to numerical residue is an explicit OUTCOME —
+the fit did not determine it — and its centre, width and σ are not reported
+as if they were. The statement needs no intensity floor (six were tried for
+the Auto-Fit anchor and each rejected real components or accepted residue):
+with the other components held at their fitted values, removing this one
+must make the fit significantly worse — `fitting._component_support`, the
+Auto-Fit anchor's F statistic (F ≥ 10; `SUPPORT_MIN_F`). The SERVER computes
+it once per component (`individual_peaks[].support = {f, delta_chi2,
+supported}`; a linked component `follows` its parent); the page's twin
+`_componentSupportFromResponse` recomputes it from any response carrying
+`counts`, `fitted_y` and the component's curve. Peaks carry the verdict as
+`p.support` — written by `applyBackendResult` with every server result,
+persisted with the peak (saves spread the peak whole), set to `null` by the
+local engine's commit and by Batch Fit's copy (nothing established). Sites
+(`_isUnsupported`): sidebar card (badge; centre/width "—"; excluded from the
+area total), Results table (greyed row, no centre/width/σ, area kept,
+percentage "—", note beneath; percentages over supported components),
+uncertainty panel (one rule-0 warning, before the per-parameter alarms and
+instead of the neutral "locked" note Auto-Fit's centre lock would produce),
+Quantify (no row; listed beneath: "an atomic percentage of 0.0 % would be a
+measurement claim"), chart / stack / figure legend labels, no figure label at
+the component's (zero) maximum, CSV/XLSX (Status column, empty cells, no
+At%, WARNING line), TSV (column kept, header says so). Both engines' amplitude
+floor is 0 (`runFitLocal`'s clamp was 1). Measured on the 202 committed
+targets: 3 of 752 components (three C 1s re-fits, F 0.95–3.9), 0 of 95 fresh
+starts — but committed projects are survivorship-biased (a collapsed
+component may have been deleted before saving), so the working-fit rate is
+plausibly higher. Known limits, the anchor check's: a gross single-channel
+artefact can mark a real component unsupported; REDUNDANCY UNDER OVERLAP is
+not detected (a refit without the component is the test; step (c) does it
+for the Auto-Fit anchor).
 
 **Acceptance rule for fit outcomes (unit A0, 2026-09-15):** a fit OUTCOME
 from Run Fit, Batch Fit or the local engine is shown, stored or exported
