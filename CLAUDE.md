@@ -283,22 +283,27 @@ returned χ²ᵣ 1.92 where Trust-Region found 1.81.
 `n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
 and the populations of `differential_evolution` and `basinhopping`, which
 lmfit otherwise takes from numpy's GLOBAL generator — comes from one seed
-that is a pure function of what the fit computes from (`_request_seed`:
+that is a pure function of what the OPTIMISER IS GIVEN (`_request_seed`:
 SHA-256 of the energies and counts as little-endian float64 plus the
-canonical JSON of the peak-spec keys the fit READS (`_SEED_SPEC_KEYS`; a
-test greps `_make_peak_params` so a new key cannot be forgotten), the
-background settings with manual anchors in sorted order, the method,
-solver options and `n_perturb`; tag `xps-fit-seed-v1`). A peak's name,
-colour or RSF, `null` vs absent, `1` vs `"1"`, `-0.0` and method-name case
-do not change it, so a cosmetic rename cannot change a fit. It is a seed,
+canonical JSON of each component's lineshape and of every lmfit parameter
+as built from the request — value, bounds, vary flag, expression — the
+background settings with manual anchors in sorted order, the method, solver
+options and `n_perturb`; tag `xps-fit-seed-v1`). Hashing the effective
+parameters, not the request's peak dicts, means nothing the fit ignores can
+change the draws: a peak's name or colour, the `fix_gl_ratio` the page
+still sends for a Gaussian, stale shape parameters kept after a shape
+switch, fields a linked peak overrides (in review such a no-op edit moved
+an area fraction by 45 pp when the peak dicts were hashed). `null` and
+absent differ exactly when the fit treats them differently
+(`amplitude_min: null` opens the floor). It is a seed,
 not an identity (32 bits collide; never a cache key). The response reports
 it as `random_seed`; a caller's `fit_kws.fit_kws.seed` (integer in
 [0, 2³²)) replaces it and is consumed, never forwarded to a solver.
 `run_fit` itself accepts only the five supported methods, case-folded
 (`_FIT_METHODS`): `/api/analyze` forwards `options.fit_method` without the
 route's allowlist, and lmfit's `ampgo`, `dual_annealing`, … would draw
-from the global generator. The seed value and the first draws are pinned by
-tests; numpy does not promise the same `default_rng` stream across
+from the global generator. The seed value and the draws `run_fit` actually
+makes (observed through Levenberg-Marquardt) are pinned by tests; numpy does not promise the same `default_rng` stream across
 versions, so a failing pin after an upgrade is a release note ("saved
 projects regenerate differently"), not something to re-pin silently.
 
@@ -326,9 +331,12 @@ five-component model two presses of the seeded request differed by 29 pp
 internals for this, and do not tighten the tolerance: ftol = xtol = gtol =
 1e-12 on the same 202 × 5 gave FEWER byte-identical targets (123 vs 146)
 and made two targets that converge today abort on the evaluation budget.
-Real cures are owner decisions and unmeasured: a reproducible-arithmetic
-BLAS (e.g. oneMKL CNR) validated end to end, or a deterministic
-perturbation base.
+Possible MITIGATIONS are owner decisions: perturbing from the request's
+start instead of the jittering first solution makes the restarts' starting
+points identical but not their results (a reviewer tried it: the returned
+fits still differed, because each Trust-Region run jitters); a
+reproducible-arithmetic BLAS (e.g. oneMKL CNR) would need end-to-end
+validation. Nothing small guarantees it.
 
 ### Client-side fallback
 

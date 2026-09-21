@@ -1106,71 +1106,51 @@ def _global_or_local_candidate(model, params, requested, y_sub, x, weights, kws)
 _FIT_METHODS = ("leastsq", "least_squares", "nelder", "differential_evolution", "basinhopping")
 _STOCHASTIC_METHODS = ("differential_evolution", "basinhopping")
 
-# Every peak-spec key the fit reads (a test greps this module for spec.get /
-# spec[...] and fails if one is missing here). The seed hashes THESE and
-# nothing else, so a cosmetic edit — renaming "C-C" to "Graphite", a colour —
-# cannot change the fit.
-_SEED_SPEC_KEYS = (
-    "id", "shape", "center", "amplitude", "fwhm",
-    "center_min", "center_max", "amplitude_min", "amplitude_max", "fwhm_min", "fwhm_max",
-    "fix_center", "fix_amplitude", "fix_fwhm",
-    "gl_ratio", "fix_gl_ratio", "asymmetry", "asymmetry_min", "asymmetry_max", "fix_asymmetry",
-    "alpha", "fix_alpha", "beta", "fix_beta", "gamma_asym", "fix_gamma_asym",
-    "m", "fix_m", "m_gauss", "fix_m_gauss",
-    "constrain_to", "splitting", "area_ratio",
-)
-
-
 def _canonical(value):
-    """Request content in a spelling-independent form: keys sorted, entries
-    whose value is None dropped (absent and null mean the same to the fit),
-    every number a float (a browser writes 1.0 as ``1``), arrays as lists."""
+    """Spelling-independent form: keys sorted, every number a float (a browser
+    writes 1.0 as ``1``; -0.0 folds to 0.0), arrays as lists."""
     if isinstance(value, dict):
-        return {str(k): _canonical(value[k]) for k in sorted(value, key=str) if value[k] is not None}
+        return {str(k): _canonical(value[k]) for k in sorted(value, key=str)}
     if isinstance(value, (list, tuple, np.ndarray)):
         return [_canonical(v) for v in value]
     if isinstance(value, (bool, np.bool_)) or value is None or isinstance(value, str):
         return bool(value) if isinstance(value, np.bool_) else value
     if isinstance(value, (int, float, np.integer, np.floating)):
-        return float(value) + 0.0                      # -0.0 -> 0.0
+        return float(value) + 0.0
     return repr(value)
 
 
-def _seed_view_of_peaks(peak_specs):
-    out = []
-    for spec in peak_specs:
-        view = {k: spec[k] for k in _SEED_SPEC_KEYS if spec.get(k) is not None}
-        for ident in ("id", "constrain_to"):                # 1 and "1" name the same peak
-            if ident in view:
-                view[ident] = str(view[ident])
-        out.append(view)
-    return out
-
-
-def _request_seed(energy, counts, peak_specs, *, background_method, bg_start_idx, bg_end_idx,
+def _request_seed(x, counts, shapes, params, *, background_method, bg_start_idx, bg_end_idx,
                   endpoint_avg, manual_bg, fit_kws, n_perturb) -> int:
     """The seed for every random draw of one fit: a pure function of what the
-    fit COMPUTES FROM (SHA-256 of the data as little-endian float64 and of the
-    canonical JSON of the consumed peak-spec keys, the background settings
-    with manual anchors in the order the background sorts them into, the
-    method, solver options and ``n_perturb``), so the same request gives the
-    same draws on any press, session, worker or machine. It is a seed, not an
-    identity: 32 bits collide, never use it as a cache key. Changing this
-    derivation changes what saved projects regenerate: bump the version tag
-    and say so.
+    optimiser is actually GIVEN — the data (little-endian float64), the
+    lineshape of each component in fitting order, and every lmfit parameter's
+    value, bounds, vary flag and expression as built from the request — plus
+    the background settings (manual anchors in the order the background
+    sorts them into), the method, solver options and ``n_perturb``.
+
+    Hashing the effective parameters rather than the request's peak dicts
+    means nothing the fit ignores can change the draws: a peak's name or
+    colour, a ``fix_gl_ratio`` the page still sends for a Gaussian, stale
+    shape parameters kept after a shape switch, fields a linked peak
+    overrides. (Measured in review: such a no-op edit moved an area fraction
+    by 45 percentage points when the peak dicts were hashed.) It is a seed,
+    not an identity: 32 bits collide, never use it as a cache key. Changing
+    this derivation changes what saved projects regenerate: bump the version
+    tag and say so.
     """
     kws = dict(fit_kws or {})
     solver = {k: v for k, v in dict(kws.pop("fit_kws", None) or {}).items() if k != "seed"}
-    if "method" in kws:
-        kws["method"] = str(kws["method"]).lower()
     anchors = sorted(([float(a[0]), float(a[1])] for a in manual_bg), key=lambda a: a[0]) if manual_bg else None
     rest = _canonical({
-        "peaks": _seed_view_of_peaks(peak_specs), "background_method": background_method,
-        "bg_start_idx": bg_start_idx, "bg_end_idx": bg_end_idx, "endpoint_avg": endpoint_avg,
-        "manual_bg": anchors, "fit_kws": kws, "solver": solver or None, "n_perturb": n_perturb,
+        "shapes": list(shapes),
+        "params": [[name, par.value, par.min, par.max, bool(par.vary), par.expr] for name, par in params.items()],
+        "background_method": background_method, "bg_start_idx": bg_start_idx, "bg_end_idx": bg_end_idx,
+        "endpoint_avg": endpoint_avg, "manual_bg": anchors, "fit_kws": kws, "solver": solver,
+        "n_perturb": n_perturb,
     })
     h = hashlib.sha256(b"xps-fit-seed-v1\0")
-    for arr in (energy, counts):
+    for arr in (x, counts):
         a = np.ascontiguousarray(arr, dtype="<f8")
         h.update(str(a.size).encode() + b"\0" + a.tobytes())
     h.update(json.dumps(rest, sort_keys=True, separators=(",", ":"), allow_nan=True).encode())
@@ -1223,10 +1203,6 @@ def run_fit(
     # Apply charge correction
     energy = energy + charge_shift_ev
 
-    # Every random draw below (the perturbed restarts; the populations of the
-    # two stochastic methods, which lmfit otherwise takes from numpy's GLOBAL
-    # generator) comes from this one seed, so an identical request gives an
-    # identical fit.
     fit_kws = dict(fit_kws or {})
     method = str(fit_kws.get("method", "leastsq")).lower()
     if method not in _FIT_METHODS:
@@ -1239,18 +1215,10 @@ def run_fit(
     caller_seed = solver_kws.pop("seed", None)
     if solver_kws:
         fit_kws["fit_kws"] = solver_kws
-    if caller_seed is not None:
-        if (isinstance(caller_seed, (bool, np.bool_)) or not isinstance(caller_seed, (int, np.integer))
-                or not 0 <= int(caller_seed) < 2 ** 32):
-            raise ValueError("fit_kws.fit_kws.seed must be an integer in [0, 2**32)")
-        random_seed = int(caller_seed)
-    else:
-        random_seed = _request_seed(
-            energy, counts, peak_specs, background_method=background_method,
-            bg_start_idx=bg_start_idx, bg_end_idx=bg_end_idx, endpoint_avg=endpoint_avg,
-            manual_bg=manual_bg, fit_kws=fit_kws, n_perturb=n_perturb)
-    perturb_rng, solver_rng = (np.random.default_rng(child)
-                               for child in np.random.SeedSequence(random_seed).spawn(2))
+    if caller_seed is not None and (
+            isinstance(caller_seed, (bool, np.bool_)) or not isinstance(caller_seed, (int, np.integer))
+            or not 0 <= int(caller_seed) < 2 ** 32):
+        raise ValueError("fit_kws.fit_kws.seed must be an integer in [0, 2**32)")
 
     # The fit runs on the ENTIRE incoming ROI; bg_start_idx / bg_end_idx
     # narrow only the anchor window used to construct the background
@@ -1374,6 +1342,21 @@ def run_fit(
 
     if composite_model is None:
         raise RuntimeError("No peaks were built")
+
+    # Every random draw below (the perturbed restarts; the populations of the
+    # two stochastic methods, which lmfit otherwise takes from numpy's GLOBAL
+    # generator) comes from this one seed, so an identical request gives
+    # identical DRAWS. (Not an identical Trust-Region result: see CLAUDE.md,
+    # "Reproducibility".)
+    if caller_seed is not None:
+        random_seed = int(caller_seed)
+    else:
+        random_seed = _request_seed(
+            x, y, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered], all_params,
+            background_method=background_method, bg_start_idx=bg_start_idx, bg_end_idx=bg_end_idx,
+            endpoint_avg=endpoint_avg, manual_bg=manual_bg, fit_kws=fit_kws, n_perturb=n_perturb)
+    perturb_rng, solver_rng = (np.random.default_rng(child)
+                               for child in np.random.SeedSequence(random_seed).spawn(2))
 
     # ── Fit ───────────────────────────────────────────────────────────────────
     kws = {"method": "leastsq", "nan_policy": "omit"}

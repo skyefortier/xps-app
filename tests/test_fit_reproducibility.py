@@ -9,8 +9,8 @@ Every random draw in ``run_fit`` is now derived from the request itself.
 What that does and does not buy (measured while writing these tests):
 Levenberg-Marquardt (MINPACK) and Nelder-Mead are then BYTE-identical from
 press to press. Trust-Region (scipy ``least_squares``, the page's default) is
-not and cannot be made so by seeding: OpenBLAS's dot product rounds
-differently (one unit in the last place) depending on where its argument
+not and cannot be made so by seeding: the BLAS dot product (Apple
+Accelerate on the production machine) rounds differently (one unit in the last place) depending on where its argument
 sits in memory, and scipy's trust-region iteration amplifies that to ~1e-4
 relative in component areas at its stopping tolerance of 1e-8. Worse, the
 perturbed restarts start from that jittering solution, and on a model with
@@ -186,58 +186,60 @@ def test_deterministic_methods_receive_no_solver_seed(monkeypatch, method):
     assert [r["seed"] for r in records[0]] == [None, None]
 
 
-def test_the_seed_is_a_pure_function_of_the_request():
+def _seed(x, y, specs, **kw):
+    kw = {"background_method": "linear", "n_perturb": 3, "fit_kws": {"method": "leastsq"}, **kw}
+    return fitting.run_fit(x, y, specs, **kw)["random_seed"]
+
+
+def test_the_seed_is_a_pure_function_of_what_the_optimiser_is_given():
     x, y, specs = _two_peaks()
-    kw = dict(background_method="linear", bg_start_idx=None, bg_end_idx=None, endpoint_avg=1,
-              manual_bg=None, fit_kws={"method": "least_squares"}, n_perturb=3)
-    base = fitting._request_seed(x, y, specs, **kw)
-    assert base == fitting._request_seed(x.copy(), y.copy(), json.loads(json.dumps(specs)), **kw)
-    # key order and int-vs-float spelling of the same number do not matter (JSON from a browser)
-    respelt = [dict(reversed(list({**s, "amplitude_min": 0.0}.items()))) for s in specs]
-    assert base == fitting._request_seed(x, y, respelt, **kw)
-    # nothing COSMETIC or merely spelt differently changes it (Codex round 1: renaming
-    # "C-C" to "Graphite" moved a component's area fraction from 19 % to 5 %)
+    base = _seed(x, y, specs)
+    assert base == _seed(x.copy(), y.copy(), json.loads(json.dumps(specs)))
+    # key order, int-vs-float spelling, id spelling, method-name case
+    respelt = [dict(reversed(list({**s, "amplitude_min": 0.0, "id": str(s["id"])}.items()))) for s in specs]
+    assert base == _seed(x, y, respelt)
+    assert base == _seed(x, y, specs, fit_kws={"method": "LeastSq"})
+    # NOTHING the fit ignores: presentation fields, and settings that are inert for the shape
     cosmetic = [{**s, "name": "Graphite", "color": "#ff0000", "visible": False, "_rsf": 0.3} for s in specs]
-    assert base == fitting._request_seed(x, y, cosmetic, **kw)
-    assert base == fitting._request_seed(x, y, [{**s, "id": str(s["id"]), "constrain_to": None} for s in specs], **kw)
-    assert base == fitting._request_seed(x, y, [{**s, "amplitude_min": -0.0} for s in specs], **kw)
-    assert base == fitting._request_seed(x, y, specs, **{**kw, "fit_kws": {"method": "Least_Squares"}})
+    assert base == _seed(x, y, cosmetic)
+    inert = [{**s, "asymmetry": 0.4, "fix_asymmetry": True, "alpha": 0.2, "m": 12, "fix_m": False} for s in specs]
+    assert base == _seed(x, y, inert)                       # a GL peak reads none of these
     anchors = [[280.0, 200.0], [287.0, 210.0], [294.9, 205.0]]
-    manual = {**kw, "background_method": "manual"}
-    assert (fitting._request_seed(x, y, specs, **{**manual, "manual_bg": anchors})
-            == fitting._request_seed(x, y, specs, **{**manual, "manual_bg": anchors[::-1]}))
-    # anything that changes the request changes the seed
+    assert (_seed(x, y, specs, background_method="manual", manual_bg=anchors)
+            == _seed(x, y, specs, background_method="manual", manual_bg=anchors[::-1]))
+    # anything that changes what the optimiser is given changes the seed
     y2 = y.copy(); y2[7] += 1
-    moved = [{**specs[0], "center": 284.61}, specs[1]]
-    assert len({base,
-                fitting._request_seed(x, y2, specs, **kw),
-                fitting._request_seed(x, y, moved, **kw),
-                fitting._request_seed(x, y, specs, **{**kw, "n_perturb": 2}),
-                fitting._request_seed(x, y, specs, **{**kw, "background_method": "shirley"}),
-                fitting._request_seed(x, y, specs, **{**kw, "fit_kws": {"method": "leastsq"}})}) == 6
+    variants = [
+        _seed(x, y2, specs),
+        _seed(x, y, [{**specs[0], "center": 284.61}, specs[1]]),
+        _seed(x, y, [{**specs[0], "fix_gl_ratio": True}, specs[1]]),          # active for a GL peak
+        _seed(x, y, [{**specs[0], "amplitude_min": None}, specs[1]]),         # null OPENS the floor; absent means 0
+        _seed(x, y, [{**specs[0], "shape": "gaussian"}, specs[1]]),
+        _seed(x, y, specs, n_perturb=2),
+        _seed(x, y, specs, background_method="shirley"),
+        _seed(x, y, specs, fit_kws={"method": "least_squares"}),
+    ]
+    assert len({base, *variants}) == len(variants) + 1
 
 
 def test_the_seed_derivation_is_pinned():
     # Changing how the seed is derived silently changes the answer every saved
     # project regenerates. If this fails, that is a versioned, announced change.
-    x = np.array([1.0, 2.0, 3.0])
-    y = np.array([10.0, 20.0, 10.0])
-    specs = [{"id": 1, "shape": "gaussian", "center": 2.0, "amplitude": 10.0, "fwhm": 1.0}]
-    seed = fitting._request_seed(x, y, specs, background_method="none", bg_start_idx=None, bg_end_idx=None,
-                                 endpoint_avg=1, manual_bg=None, fit_kws={"method": "least_squares"}, n_perturb=3)
-    assert seed == PINNED_SEED
+    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    y = np.array([10.0, 20.0, 40.0, 20.0, 10.0])
+    specs = [{"id": 1, "shape": "gaussian", "center": 3.0, "amplitude": 30.0, "fwhm": 1.5, "amplitude_min": 0}]
+    assert _seed(x, y, specs, background_method="none") == PINNED_SEED
 
 
-PINNED_SEED = 8582179  # xps-fit-seed-v1; recorded once from the implementation, never edited
+PINNED_SEED = 3254515587  # xps-fit-seed-v1; recorded once from the implementation, never edited
 
 
 def test_the_response_reports_its_seed():
     x, y, specs = _two_peaks()
     res = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=3,
                           fit_kws={"method": "least_squares"})
-    assert res["random_seed"] == fitting._request_seed(
-        x, y, specs, background_method="linear", bg_start_idx=None, bg_end_idx=None, endpoint_avg=1,
-        manual_bg=None, fit_kws={"method": "least_squares"}, n_perturb=3)
+    assert isinstance(res["random_seed"], int) and 0 <= res["random_seed"] < 2 ** 32
+    assert res["random_seed"] == _seed(x, y, specs, fit_kws={"method": "least_squares"})
 
 
 def test_a_caller_supplied_seed_wins_and_is_reported():
@@ -283,14 +285,19 @@ def test_a_cosmetic_rename_does_not_change_the_fit():
     assert _dump(a) == _dump(b)
 
 
-def test_the_seed_hashes_every_spec_key_the_fit_reads():
-    import re
-    from pathlib import Path
-    src = Path(fitting.__file__).read_text()
-    body = src[src.index("def _make_peak_params("):src.index("def _finite_search_box(")]
-    read = set(re.findall(r'spec(?:\.get\(|\[)"([a-z_A-Z]+)"', body))
-    assert read, "parser found nothing: the source moved"
-    assert read <= set(fitting._SEED_SPEC_KEYS), sorted(read - set(fitting._SEED_SPEC_KEYS))
+@pytest.mark.parametrize("which", [1, 4])
+def test_a_setting_that_is_inert_for_the_shape_does_not_change_the_fit(which):
+    # Codex round 2: the page always sends fix_gl_ratio, also after a peak is
+    # switched to Gaussian, where nothing reads it. Flipping it changed the
+    # seed and moved the third component's area fraction from 8 % to 53 %.
+    x, y, specs = _crowded_c1s()
+    gaussian = [dict(s) for s in specs]
+    gaussian[which].update(shape="gaussian", fix_gl_ratio=False)
+    gaussian[which].pop("gl_ratio")
+    flipped = [dict(s) for s in gaussian]
+    flipped[which]["fix_gl_ratio"] = True
+    kw = dict(background_method="shirley", n_perturb=3, fit_kws={"method": "leastsq"})
+    assert _dump(fitting.run_fit(x, y, gaussian, **kw)) == _dump(fitting.run_fit(x, y, flipped, **kw))
 
 
 @pytest.mark.parametrize("method", ["ampgo", "dual_annealing", "shgo", "powell", "emcee"])
@@ -337,12 +344,29 @@ def test_an_unusable_caller_seed_is_a_validation_error_not_a_silent_fallback(see
                         fit_kws={"method": "least_squares", "fit_kws": {"seed": seed}})
 
 
-def test_the_perturbation_draws_are_pinned():
-    # numpy does not promise the same stream from default_rng across versions.
-    # If this fails after an upgrade, saved projects regenerate differently:
-    # that is a release note, not a silent change.
-    rng = np.random.default_rng(np.random.SeedSequence(705102460).spawn(2)[0])
-    assert [round(float(v), 12) for v in rng.uniform(-0.15, 0.15, 3)] == PINNED_DRAWS
+def _production_draws(monkeypatch, seed):
+    records = _spy_on_fits(monkeypatch)
+    records.append([])
+    x, y, specs = _two_peaks()
+    fitting.run_fit(x, y, specs, background_method="linear", n_perturb=1,
+                    fit_kws={"method": "leastsq", "fit_kws": {"seed": seed}})
+    first, restart = records[0][0]["end"], records[0][1]["start"]
+    return [round(restart[n] / first[n], 12) for n in sorted(first) if records[0][0]["vary"][n] and first[n] != 0]
 
 
-PINNED_DRAWS = [-0.090153485234, -0.101472558174, -0.146139265021]   # numpy 2.4.4
+def test_the_perturbation_draws_run_fit_makes_are_pinned(monkeypatch):
+    # Observed FROM run_fit (Levenberg-Marquardt is bitwise repeatable), so
+    # swapping the production generator, or a numpy upgrade that changes the
+    # default_rng stream, fails here. After an upgrade that is a release note
+    # ("saved projects regenerate differently"), not something to re-pin silently.
+    draws = _production_draws(monkeypatch, 7)
+    assert all(0.85 <= d <= 1.15 for d in draws) and len(draws) == 8
+    assert draws == PINNED_DRAWS
+
+
+def test_another_seed_gives_other_draws(monkeypatch):
+    assert _production_draws(monkeypatch, 8) != PINNED_DRAWS
+
+
+PINNED_DRAWS = [1.089357756053, 0.992278281701, 1.027405335229, 1.110647543005,
+                1.068801900063, 0.994101892228, 0.876487722334, 1.069307873054]   # seed 7, numpy 2.4.4
