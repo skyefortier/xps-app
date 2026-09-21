@@ -299,12 +299,23 @@ test('_isUnsupported is never handed an array index as its key (Array.filter pas
   assert.deepStrictEqual([p].filter(q => c._isUnsupported(q)), [p]);
 });
 
-test('a key change re-renders every consumer of the verdict', () => {
+test('a key change re-renders every consumer of the verdict — each compared with ITS OWN rendering', () => {
   const src = extractFn('_refreshStartsEvidence');
-  assert.match(src, /flaggedNow/);
-  assert.match(src, /renderPeakList\(\);\s*\n\s*if \(state\.fitResult && typeof renderResults === 'function'\) renderResults\(\);/);
+  assert.match(src, /shownIn\('#peak-list \.unsupported-badge'\) !== flaggedNow[^\n]*renderPeakList\(\)/);
+  assert.match(src, /shownIn\('\.results-table \.unsupported-row'\) !== flaggedNow[^\n]*renderResults\(\)/);
+  assert.match(src, /chartFlagged !== flaggedNow\) \{ updatePlot\(\); return; \}/);
+  assert.match(extractFn('updatePlot'), /_refreshStartsEvidence\(false, true\);/, 'no re-entrant repaint from inside updatePlot');
+  // Codex round 3: a caller that redrew the sidebar first (addPeak, Lock All) must still get the tables refreshed
+  const calls = [];
+  const state = { peaks: [{ id: 2, support: { supported: false, fitKey: 'OLD' } }], fitResult: {}, chart: { data: { datasets: [{ _peakId: 2, _unsupported: true }] } } };
+  const document = { querySelectorAll: sel => sel.includes('peak-list') ? [] : [{ getAttribute: () => '2' }], querySelector: () => null };
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', 'renderPeakList', 'renderResults', 'updatePlot', '_startsPanelHtml',
+    src + '\nreturn _refreshStartsEvidence;')(state, document, () => 'NEW', (p, k) => p.support.supported === false && p.support.fitKey === k, null, () => {},
+    () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '');
+  fn(false);
+  assert.deepStrictEqual(calls, ['results', 'plot'], 'sidebar already clean; Results and the chart still stale');
   for (const fn of ['toggleLock', 'toggleAllLocks']) assert.match(extractFn(fn), /_refreshStartsEvidence\(true\);/, fn);
-  assert.match(extractFn('updatePlot'), /_refreshStartsEvidence\(false\);/);
+  assert.match(extractFn('updatePlot'), /_refreshStartsEvidence\(false, true\);/);
 });
 
 test('stack tabs judge a source component against the SOURCE record\'s key', () => {

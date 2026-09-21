@@ -1,0 +1,12 @@
+ROUND 4 recheck of step (b), branch feature-unsupported-components (git diff main..HEAD). Read-only. Round 3: NO-GO x2 on one shared MAJOR + one MINOR (archived docs/autofit/codex/unsupported_components_r3_verdict_run{A,B}.md). Everything cleared in rounds 1-3 is unchanged. Budget your time: a verdict is required within the run.
+
+DISPOSITIONS
+1. MAJOR the sidebar's badges were the sole record of rendered suppression, so a caller that redrew the sidebar first (Add Peak, Lock All) left Results/Quantify stale -> _refreshStartsEvidence now compares the set of components flagged NOW with what EACH consumer has rendered: sidebar badges (data-peak-id), Results rows (.unsupported-row[data-peak-id]) and chart datasets (_unsupported / _peakId), and re-renders exactly the consumers that differ (renderResults renders Quantify and the starts panel). Unit test with a pre-cleaned sidebar: Results and the chart are still refreshed. Browser-verified through the real toggleAllLocks, addPeak and undo: row, badge, Quantify row and chart flag all follow, and undo brings the verdict back.
+2. MINOR lock toggles left the chart label stale -> covered by the chart-dataset comparison above (updatePlot when the chart's flags differ); updatePlot itself calls the refresher with fromPlot=true so it never rebuilds the chart from inside its own rebuild.
+
+TRY TO BREAK
+a. any path that changes the live key WITHOUT reaching _refreshStartsEvidence (it is called from toggleLock, toggleAllLocks and every updatePlot; which edit handlers do not call updatePlot? e.g. removePeak / unlink / link / a shape switch / undo — reproduce a consumer left stale);
+b. a render loop: renderResults -> renderQuantify -> ... -> updatePlot -> _refreshStartsEvidence -> renderResults; or repeated re-renders on every plot;
+c. anything else in the diff not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

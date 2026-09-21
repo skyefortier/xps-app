@@ -5914,7 +5914,7 @@ function renderPeakList() {
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
         <div class="peak-color" style="background:${p.color}"></div>
-        <span class="peak-name">${_escHtml(p.name)}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}${unsupported ? ' ' + _unsupportedBadge() : ''}</span>
+        <span class="peak-name">${_escHtml(p.name)}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}${unsupported ? ' ' + _unsupportedBadge(p.id) : ''}</span>
         <span class="peak-info">${unsupported ? dash : p.center.toFixed(2) + ' eV'}</span>
         <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">&times;</button>
       </div>
@@ -6973,7 +6973,7 @@ function _restampSupport() {
   const key = _startsLiveKey();
   for (const p of state.peaks) if (p.support) p.support.fitKey = key;
 }
-function _unsupportedBadge() { return `<span class="unsupported-badge" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</span>`; }
+function _unsupportedBadge(id) { return `<span class="unsupported-badge" data-peak-id="${id}" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</span>`; }
 
 const _AUTOFIT_ANCHOR_MIN_F = 10;
 function _autoFitGraphiteIsSupported(gPeak, json) {
@@ -7341,7 +7341,7 @@ function _startsIfCurrent(fr, key) {
 // through a Results re-render (a lock toggle, Lock All, a background or ROI
 // control): take a stale alternative overlay off the chart and bring the
 // VISIBLE panel up to date (counts -> "the model has changed since this fit").
-function _refreshStartsEvidence(repaint) {
+function _refreshStartsEvidence(repaint, fromPlot) {
   const hadAlt = !!(_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:'));
   _dropStaleAltPreview();
   if (repaint && hadAlt && !_historyPreview && typeof updatePlot === 'function') updatePlot();
@@ -7349,15 +7349,19 @@ function _refreshStartsEvidence(repaint) {
   // current again after an undo), every consumer that renders it must follow:
   // the Results table, the Quantify tab and the sidebar cards, not only the
   // starts panel. Rendered once, only when the visible state would change.
+  // Each consumer is compared with ITS OWN rendering (a caller may have
+  // redrawn the sidebar already, so the sidebar cannot vouch for the tables).
   const key = _startsLiveKey();
-  const flaggedNow = new Set(state.peaks.filter(p => _isUnsupported(p, key)).map(p => String(p.id)));
-  const flaggedShown = new Set(Array.from(document.querySelectorAll('#peak-list .peak-item')).filter(it => it.querySelector('.unsupported-badge')).map(it => it.id.replace('peak-item-', '')));
-  const differs = flaggedNow.size !== flaggedShown.size || [...flaggedNow].some(id => !flaggedShown.has(id));
-  if (differs) {
-    if (typeof renderPeakList === 'function') renderPeakList();
-    if (state.fitResult && typeof renderResults === 'function') renderResults();      // renders Quantify and the starts panel too
-    return;
+  const flaggedNow = state.peaks.filter(p => _isUnsupported(p, key)).map(p => String(p.id)).sort().join(',');
+  const shownIn = sel => Array.from(document.querySelectorAll(sel)).map(e => e.getAttribute('data-peak-id')).sort().join(',');
+  let rendered = false;
+  if (shownIn('#peak-list .unsupported-badge') !== flaggedNow && typeof renderPeakList === 'function') { renderPeakList(); rendered = true; }
+  if (state.fitResult && shownIn('.results-table .unsupported-row') !== flaggedNow && typeof renderResults === 'function') { renderResults(); rendered = true; }   // renders Quantify and the starts panel too
+  if (!fromPlot && state.chart && state.chart.data && typeof updatePlot === 'function') {
+    const chartFlagged = (state.chart.data.datasets || []).filter(d => d._unsupported).map(d => String(d._peakId)).sort().join(',');
+    if (chartFlagged !== flaggedNow) { updatePlot(); return; }
   }
+  if (rendered) return;
   const el = document.querySelector('.starts-panel');
   if (el && state.fitResult) el.outerHTML = _startsPanelHtml(state.fitResult);
 }
@@ -8337,8 +8341,8 @@ function renderResults() {
                      par.fwhm_l ? par.fwhm_l.stderr  : null;
     if (_isUnsupported(p)) {
       // the fit did not determine this component: no centre, width or sigma is reported
-      html += `<tr class="unsupported-row" style="color:var(--text3)">
-      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px;opacity:.4"></span>${_escHtml(p.name)} ${_unsupportedBadge()}</td>
+      html += `<tr class="unsupported-row" data-peak-id="${p.id}" style="color:var(--text3)">
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px;opacity:.4"></span>${_escHtml(p.name)} ${_unsupportedBadge(p.id)}</td>
       <td style="font-family:var(--mono)">&mdash;</td>
       <td style="font-family:var(--mono)">&mdash;</td>
       <td>${areas[i].toFixed(0)}</td>
@@ -9229,6 +9233,7 @@ function updatePlot() {
       const peakY = evalPeakArray(plotBE, p);
       datasets.push({
         label: _isUnsupported(p) ? p.name + ' (' + _UNSUPPORTED_LABEL + ')' : p.name,
+        _unsupported: _isUnsupported(p),
         data: plotBE.map((b, i) => ({ x: b, y: peakY[i] + (bgSubView ? 0 : plotBG[i]) })),
         borderColor: p.color,
         backgroundColor: p.color + '40',
@@ -9286,7 +9291,7 @@ function updatePlot() {
     });
   }
 
-  _refreshStartsEvidence(false);   // background / ROI controls only repaint the chart: keep the visible panel honest
+  _refreshStartsEvidence(false, true);   // background / ROI controls only repaint the chart: keep the visible consumers honest (fromPlot: the chart itself is being rebuilt)
   // History snapshot preview overlay (cyan dashed, drawn on top)
   if (_historyPreview && _historyPreview.peaks && _historyPreview.peaks.length && plotBE.length) {
     const prevPeakY = evalAllPeaks(plotBE, _historyPreview.peaks);

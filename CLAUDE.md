@@ -481,9 +481,14 @@ charge correction, or an undo brings back other values, nothing is
 suppressed or excluded until a new fit writes a new verdict (a verdict
 without a key, from an older save, is never applied; exports write a
 Status only from a CURRENT verdict — stale means "not established", never
-"supported"). When the key changes, `_refreshStartsEvidence` re-renders the
-sidebar, Results and Quantify if the set of flagged components differs
-from what is on screen (a lock toggle goes through it). Auto-Fit locks
+"supported"). When the key changes, `_refreshStartsEvidence` compares the
+set of flagged components with what EACH consumer has rendered — sidebar
+badges, Results rows and chart datasets carry the peak id / flag — and
+re-renders the ones that differ (a caller that already redrew the sidebar,
+such as Lock All or Add Peak, therefore still gets Results, Quantify and the
+chart refreshed); it runs from the lock toggles, Lock All and every
+`updatePlot` (which passes `fromPlot` so the chart is not rebuilt from
+inside its own rebuild). Auto-Fit locks
 every centre and refines the charge shift AFTER the result is applied, so
 it re-stamps its verdicts (`_restampSupport`) — those changes are part of
 its result. `p.support` is persisted with the peak (saves spread the peak

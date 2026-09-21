@@ -263,7 +263,7 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
   assert.match(runFit, /chosenAlternative: opts\.chosenAlternative \|\| null/);
   assert.match(extractFn('renderResults'), /_startsPanelHtml\(state\.fitResult\)/);
   assert.doesNotMatch(extractFn('_invalidateFittedY'), /starts/, 'validity is by key comparison: a rename (which calls this) must not delete evidence');
-  assert.match(extractFn('updatePlot'), /_refreshStartsEvidence\(false\);/);
+  assert.match(extractFn('updatePlot'), /_refreshStartsEvidence\(false, true\);/);
   assert.match(extractFn('toggleLock'), /_refreshStartsEvidence\(true\);/);
   assert.match(extractFn('toggleAllLocks'), /_refreshStartsEvidence\(true\);/);
   assert.match(runFit, /snapId\.startsWith\('alt:'\)\) _historyPreview = null;/, 'a successful fit clears an alternative overlay unconditionally');
