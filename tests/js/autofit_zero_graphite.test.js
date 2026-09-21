@@ -33,7 +33,7 @@ function makeEnv(peaks) {
   const calls = { notify: [], chargeCorrection: 0 };
   const state = { peaks, ccShift: 0.4, fitResult: { marker: 'previous' } };
   const src = ['applyAutoFitResult', '_autoFitGraphiteIsSupported'].map(extractFn).join('\n');
-  const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_ZERO_FRACTION'));
+  const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_RESOLUTION'));
   assert.ok(konst, 'threshold constant not found');
   const factory = new Function('document', 'state', 'notify', 'updateChargeCorrection', 'getROIData',
     konst + '\n' + src + '\nreturn { applyAutoFitResult, _autoFitGraphiteIsSupported };');
@@ -68,7 +68,7 @@ function rejected(env, ok) {
   assert.match(env.calls.notify[0].msg, /no charge correction/);
 }
 
-for (const gAmp of [0, 3.2e-12, -5, NaN, 0.013]) {
+for (const gAmp of [0, 3.2e-12, -5, NaN, 0.0099]) {
   test(`a Graphite amplitude of ${gAmp} sets no charge correction and rejects the auto-fit`, () => {
     const env = makeEnv(model(gAmp));
     rejected(env, env.applyAutoFitResult(json([gAmp, 14000, 2300]), 284.9, {}));
@@ -166,9 +166,19 @@ test('scope: a NON-zero anchor on featureless data is not this rule\'s business'
   assert.throws(() => env.applyAutoFitResult(json([5.76639], null, be.map(() => 10)), 284.9, {}), e => e === PAST_THE_GATE);
 });
 
-test('a response without the fitted counts cannot vouch for an anchor', () => {
-  const env = makeEnv(model(86000));
-  rejected(env, env.applyAutoFitResult({ statistics: {}, individual_peaks: [] }, 284.9, {}));
+// -- Codex round 4: no fraction of the data's magnitude separates residue from a
+//    resolved line on a huge background; the data's RESOLUTION does. -------------
+test('a resolved 50-count line on a 1 000 000-count background is a real anchor', () => {
+  const big = be.map((x, i) => 1e6 + g(284.5, 50, 0.7)[i]);
+  const env = makeEnv([{ id: 1, name: 'Graphite', center: 284.479995, amplitude: 49.9978, fwhm: 0.69998 }]);
+  assert.throws(() => env.applyAutoFitResult(json([49.9978], [0.02646], big), 284.9, {}), e => e === PAST_THE_GATE);
+  assert.strictEqual(env.calls.chargeCorrection, 1);
+});
+
+test('the resolution is the precision uploadToBackend writes intensities with', () => {
+  const up = extractFn('uploadToBackend');
+  assert.match(up, /inten\[i\]\.toFixed\(2\)/, 'if the upload precision changes, _AUTOFIT_ANCHOR_RESOLUTION must change with it');
+  assert.ok(lines.some(l => /^const _AUTOFIT_ANCHOR_RESOLUTION = 0\.01;/.test(l)));
 });
 
 test('an amplitude within three of its own standard errors of zero anchors nothing', () => {

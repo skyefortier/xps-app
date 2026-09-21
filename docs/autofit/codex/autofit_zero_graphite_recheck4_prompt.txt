@@ -1,0 +1,13 @@
+ROUND 5 recheck of branch fix-autofit-zero-graphite-cc (HEAD; parent = main). Read-only. Round 4: run B NO-GO with one in-scope MAJOR; run A hit the 900 s timeout without a verdict while probing the same case (archived docs/autofit/codex/autofit_zero_graphite_r4_verdict_run{A,B}.md). Scope is unchanged from round 4's prompt (autofit_zero_graphite_recheck3_prompt.txt): this unit answers "is the anchor's amplitude ZERO?", not "is the anchor a genuine feature?"; list feature-authenticity observations separately as OUT-OF-SCOPE.
+
+DISPOSITION
+MAJOR a resolved 50-count line on a 1 000 000-count background was rejected by "1e-4 of max|counts|" -> no fraction of the data's magnitude can separate residue (3e-5 on 10) from a resolved line on a huge background (50 on 1e6), so the rule no longer uses one. Zero is now defined by the RESOLUTION of the data the server fitted: uploadToBackend writes every intensity with toFixed(2), so an amplitude below 0.01 is indistinguishable from none. _autoFitGraphiteIsSupported(gPeak, json): amplitude finite and >= 0.01, and > 3 x its stderr when the server gave one. Nothing else. A test pins that uploadToBackend still uses toFixed(2) and that the constant is 0.01, so they change together.
+All earlier reproductions remain tests: bound-pinned 0 / 3.2e-12; collapsed model 3.25e-8; sub-rounding residue 6.18e-5, 3.096e-5 +- 7.461e-6, 3.1649e-5 +- 7.2876e-6 -> rejected; steep 30 000-count ramp, 300 000-count spike, 50 on 1e6 -> accepted; 3-sigma rule; missing stderr does not reject a real anchor. 21 Node tests. 70 committed Graphite models: amplitude 36 000-98 000 counts, 12-200 sigma.
+
+TRY TO BREAK, in scope, through the shipped path (buildAutoFitModel + detection + uploadToBackend + /api/fit, n_perturb 3):
+a. an anchor that is numerically zero / bound-pinned / fitted to residue, ACCEPTED (amplitude >= 0.01 and > 3 sigma or no sigma);
+b. a resolved anchor REJECTED;
+c. data legitimately in small units (normalised to 1, or CPS well below 1): say what happens and whether it differs from what the SERVER can resolve after the 2-dp upload — the claim is that the rule tracks exactly what the fit can see.
+Please budget your time: a verdict is required within the run.
+
+Finish with in-scope findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario), a separate OUT-OF-SCOPE list, and VERDICT: GO or VERDICT: NO-GO.
