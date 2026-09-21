@@ -385,14 +385,24 @@ discarded on a tab switch or cannot reach the server (no local fallback
 here) leaves peaks and result exactly as they were, and σ, exports and
 saves come through the one existing path. Every row shows EACH component's
 own area % and its own move from the student's start. The evidence is
-BOUND TO THE FITTED MODEL (`fitResult.startsModelKey` over every peak field
-the fit reads, taken after the result is applied, persisted with the
-counts): after any edit, lock, shape or link change, added/removed peak or
-undo the panel says the comparison no longer applies, nothing can be
-previewed or applied, and saves/exports carry no counts
-(`_startsIfCurrent`); background / ROI edits clear it through
-`_invalidateFittedY`. The trigger (`n_starts`) is decided with the other
-request inputs before the first await. In the RED band — and only there — it first asks,
+BOUND TO THE FIT THAT PRODUCED IT by COMPARISON, never by hand
+invalidation (so no edit path can be forgotten): `fitResult.startsModelKey`
+covers every peak field the request reads (incl. the auto-fit asymmetry
+bounds) AND the fit context — background type and window, endpoint
+averaging, Shirley iterations, ROI, manual anchors, charge shift — taken
+after the result is applied and persisted with the counts.
+`_startsIfCurrent(fr, key)` is the single accessor (`_startsLiveKey()` for
+the active tab, `_startsRecordKey(t)` for a record): after any such change,
+an undo or a history restore that brings back other values, the panel says
+the comparison no longer applies, nothing can be previewed or applied, an
+open alternative preview is dropped (`_dropStaleAltPreview`), and
+saves/exports carry neither counts nor the recorded choice. A name, colour
+or visibility is not part of a fit and does not invalidate it. `runFit`
+captures the same key before its first await and DISCARDS a result whose
+model or context was edited while it ran (the peak controls stay editable
+during a fit; a newly locked centre would otherwise keep its edited value
+under the server's statistics). The trigger (`n_starts`) is decided with
+the other request inputs before the first await. In the RED band — and only there — it first asks,
 naming the component and the distance ("This solution moves C-O by
 −1.47 eV from where you placed it. Apply?"): a lower χ²ᵣ bought by
 relocating a component is the measured trap (8-JT C1s Scan_1/5/6/7), and

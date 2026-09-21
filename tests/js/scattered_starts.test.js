@@ -30,27 +30,29 @@ function extractFn(name) {
 }
 const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
 
-const FNS = ['_startsUnlinkedCount', '_startsModelKey', '_startsIfCurrent', '_startsForSave', '_startsSummaryText', '_startsPeakName',
+const FNS = ['_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsRecordKey', '_startsIfCurrent', '_dropStaleAltPreview',
+  '_startsChosenText', '_startsForSave', '_startsSummaryText', '_startsPeakName',
   '_startsShiftColour', '_startsEv', '_startsShiftHtml', '_startsPanelHtml', '_altPeaks', '_currentAlternative',
   'previewAlternative', 'useAlternative', '_applyBackendParams'];
 function makeEnv({ peaks, starts, confirmAnswer = true, staleKey = false }) {
   const calls = { confirm: [], pushUndo: 0, runFit: [], notify: [], updatePlot: 0, renderPeakList: 0 };
-  const state = { peaks, fitResult: { chiReduced: starts && starts.fit ? starts.fit.chi2r : 1, starts } };
-  const keyLater = [];
+  const state = { peaks, ccShift: -4.74, fitResult: { chiReduced: starts && starts.fit ? starts.fit.chi2r : 1, starts } };
+  const ui = { bgType: 'shirley', bgStart: '281.0', bgEnd: '294.0', shirleyIter: '5', endpointAvg: '3', roiMin: '280', roiMax: '295' };
+  const anchors = [];
   const fieldsStart = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
-  const fields = lines.slice(fieldsStart, fieldsStart + 4).join('\n');
+  const fields = lines.slice(fieldsStart, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
   const src = [constLine('_STARTS_N'), constLine('_STARTS_SHIFT_AMBER_EV'), constLine('_STARTS_TOOLTIP'), constLine('_STARTS_STALE_MSG'), fields,
     'let _historyPreview = null; const document = { querySelectorAll: () => [] };', ...FNS.map(extractFn)].join('\n');
   const factory = new Function('state', 'getPeak', '_escHtml', 'confirm', 'pushUndo', 'runFit', 'notify', 'updatePlot',
-    'renderPeakList', '_updateLocalModelBanner', '_historyClearPreview',
+    'renderPeakList', '_updateLocalModelBanner', '_historyClearPreview', 'tabManager', '_getManualAnchors',
     src + '\nreturn { ' + FNS.join(', ') + ', preview: () => _historyPreview, clear: () => { _historyPreview = null; } };');
   const api = factory(state, id => state.peaks.find(p => p.id === id || String(p.id) === String(id)),
     s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'),
     msg => { calls.confirm.push(msg); return confirmAnswer; }, () => { calls.pushUndo++; },
     async o => { calls.runFit.push(o); }, (m, k) => calls.notify.push([k, m]), () => { calls.updatePlot++; },
-    () => { calls.renderPeakList++; }, () => {}, () => { api.clear(); });
-  state.fitResult.startsModelKey = staleKey ? 'a different model' : api._startsModelKey(peaks);
-  return { ...api, state, calls };
+    () => { calls.renderPeakList++; }, () => {}, () => { api.clear(); }, { _captureUI: () => ({ ...ui }) }, () => anchors);
+  state.fitResult.startsModelKey = staleKey ? 'a different model' : api._startsLiveKey();
+  return { ...api, state, calls, ui, anchors };
 }
 
 const PEAKS = () => [
@@ -162,10 +164,17 @@ for (const [label, edit] of [
   ['a lock toggled', ps => { ps[1].fixCenter = true; return ps; }],
   ['a link added', ps => { ps[2].linked = 1; ps[2].linkOffset = 6.7; return ps; }],
   ['an undo that restored other values', ps => { ps[0].amplitude = 50000; return ps; }],
+  ['an auto-fit asymmetry bound changed', ps => { ps[0]._afAsymMax = 0.8; return ps; }],
+  ['the background type changed', (ps, env) => { env.ui.bgType = 'linear'; return ps; }],
+  ['the background window moved', (ps, env) => { env.ui.bgEnd = '292.5'; return ps; }],
+  ['endpoint averaging changed', (ps, env) => { env.ui.endpointAvg = '5'; return ps; }],
+  ['the ROI changed', (ps, env) => { env.ui.roiMax = '293'; return ps; }],
+  ['a manual anchor was added', (ps, env) => { env.anchors.push({ x: 288, y: 1200 }); return ps; }],
+  ['the charge correction changed', (ps, env) => { env.state.ccShift = -4.6; return ps; }],
 ]) {
   test(`evidence is bound to the fitted model — ${label}: the panel says so and nothing can be applied`, async () => {
     const env = makeEnv({ peaks: PEAKS(), starts: STARTS([ALT(0.3)]) });
-    env.state.peaks = edit(env.state.peaks);
+    env.state.peaks = edit(env.state.peaks, env);
     const h = env._startsPanelHtml(env.state.fitResult);
     assert.match(h, /model has changed since this fit/);
     assert.doesNotMatch(h, /<table|useAlternative|scattered starts reached/);
@@ -175,7 +184,8 @@ for (const [label, edit] of [
     assert.strictEqual(env.preview(), null);
     assert.strictEqual(env.calls.notify.length, 2);
     assert.match(env.calls.notify[0][1], /model has changed since this fit/);
-    assert.strictEqual(env._startsIfCurrent(env.state.fitResult, env.state.peaks), null, 'saves and exports get nothing');
+    assert.strictEqual(env._startsIfCurrent(env.state.fitResult, env._startsLiveKey()), null, 'saves and exports get nothing');
+    assert.strictEqual(env._startsChosenText({ ...env.state.fitResult, chosenAlternative: { fromChi: 2, toChi: 1, shiftName: 'x', shiftEv: 0.1 } }), '');
   });
 }
 
@@ -195,6 +205,22 @@ test('preview overlays a COPY and toggles off; the model is untouched', () => {
   assert.strictEqual(env.calls.updatePlot, 1);
   env.previewAlternative(0);
   assert.strictEqual(env.preview(), null);
+  // Codex round 2: an open preview must not survive its evidence
+  env.previewAlternative(0);
+  assert.strictEqual(env.preview().altKey, env.state.fitResult.startsModelKey);
+  env._dropStaleAltPreview();
+  assert.ok(env.preview(), 'still valid: kept');
+  env.state.peaks[1].fwhm = 2.0;
+  env._dropStaleAltPreview();
+  assert.strictEqual(env.preview(), null, 'the model was edited: the overlay goes');
+});
+
+test('a record is keyed like the live tab (project save of a non-active tab)', () => {
+  const env = makeEnv({ peaks: PEAKS(), starts: STARTS([]) });
+  const rec = { peaks: env.state.peaks, ui: { ...env.ui, ccObs: '279.7', bgSubtractedView: true }, ccShift: -4.74, manualAnchors: [] };
+  assert.strictEqual(env._startsRecordKey(rec), env._startsLiveKey(), 'charge-correction inputs and the view toggle are not fit context');
+  assert.notStrictEqual(env._startsRecordKey({ ...rec, ui: { ...rec.ui, endpointAvg: 1 } }), env._startsLiveKey());
+  assert.strictEqual(env._startsRecordKey({ ...rec, ui: { ...rec.ui, endpointAvg: 3 } }), env._startsLiveKey(), 'a number and its string are the same setting');
 });
 
 test('what is saved: the counts, never the alternatives\' parameter sets', () => {
@@ -229,11 +255,15 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
   assert.match(runFit, /n_starts: nStarts/);
   assert.doesNotMatch(runFit.slice(runFit.indexOf('await uploadToBackend(')), /_startsUnlinkedCount\(state\.peaks\)/);
   assert.match(runFit, /const startModel = opts\.startPeaks \|\| state\.peaks;\n\s*const peakSpecs = startModel\.map\(peakToBackendSpec\);/);
-  assert.match(runFit, /startsModelKey: _startsModelKey\(state\.peaks\),/);
-  assert.ok(runFit.indexOf('applyBackendResult(backendResult);') < runFit.indexOf('startsModelKey: _startsModelKey(state.peaks)'), 'the key describes the model AFTER the result was applied');
+  assert.match(runFit, /startsModelKey: _startsLiveKey\(\),/);
+  assert.ok(runFit.indexOf('applyBackendResult(backendResult);') < runFit.indexOf('startsModelKey: _startsLiveKey()'), 'the key describes the model AFTER the result was applied');
+  const captured = runFit.indexOf('const ctxAtRequest = _startsLiveKey();');
+  assert.ok(captured > 0 && captured < runFit.indexOf('await uploadToBackend('), 'context captured before the first await');
+  assert.ok(runFit.indexOf('if (_startsLiveKey() !== ctxAtRequest)') < runFit.indexOf('applyBackendResult(backendResult);'), 'and checked before anything is applied');
   assert.match(runFit, /chosenAlternative: opts\.chosenAlternative \|\| null/);
   assert.match(extractFn('renderResults'), /_startsPanelHtml\(state\.fitResult\)/);
-  assert.match(extractFn('_invalidateFittedY'), /state\.fitResult\.starts = null;/, 'background / ROI edits clear the evidence');
+  assert.doesNotMatch(extractFn('_invalidateFittedY'), /starts/, 'validity is by key comparison: a rename (which calls this) must not delete evidence');
+  assert.match(extractFn('updatePlot'), /_dropStaleAltPreview\(\);/);
   // Batch Fit and the local fallback never request it (local engine; starting point, not a result)
   assert.doesNotMatch(extractFn('runPropagation'), /n_starts/);
   assert.doesNotMatch(extractFn('runFitLocal'), /n_starts|_STARTS_N/);
@@ -242,12 +272,30 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
 test('persistence and export sites carry the summary', () => {
   // only evidence that still describes the saved model is written, with the key that binds it
   for (const fn of ['_doSaveFit', '_doSaveSpectrum']) {
-    assert.match(extractFn(fn), /starts: _startsForSave\(_startsIfCurrent\(state\.fitResult, state\.peaks\)\),\n\s*startsModelKey: state\.fitResult\.startsModelKey \|\| null,/, fn);
+    assert.match(extractFn(fn), /starts: _startsForSave\(_startsIfCurrent\(state\.fitResult, _startsLiveKey\(\)\)\),\n\s*startsModelKey: state\.fitResult\.startsModelKey \|\| null,/, fn);
   }
-  assert.strictEqual((html.match(/starts: _startsForSave\(_startsIfCurrent\(t\.fitResult, t\.peaks\)\)/g) || []).length, 1, 'project save (buildTabData)');
+  assert.strictEqual((html.match(/starts: _startsForSave\(_startsIfCurrent\(t\.fitResult, _startsRecordKey\(t\)\)\)/g) || []).length, 1, 'project save (buildTabData)');
   assert.strictEqual((html.match(/starts: _startsForSave\(/g) || []).length, 3, 'exactly three save sites');
   assert.match(extractFn('_loadSpectrumFile'), /'caveat', 'starts', 'startsModelKey', 'chosenAlternative'\]/);
   const ex = extractFn('exportFitTable');
-  assert.match(ex, /\['Scattered starts', _startsSummaryText\(_startsIfCurrent\(state\.fitResult, state\.peaks\)\)\]/);
-  assert.match(ex, /# Scattered starts: \$\{_startsSummaryText\(_startsIfCurrent\(state\.fitResult, state\.peaks\)\)\}/);
+  assert.match(ex, /\['Scattered starts', _startsSummaryText\(_startsIfCurrent\(state\.fitResult, _startsLiveKey\(\)\)\)\]/);
+  assert.match(ex, /# Scattered starts: \$\{_startsSummaryText\(_startsIfCurrent\(state\.fitResult, _startsLiveKey\(\)\)\)\}/);
+  assert.match(ex, /\['Chosen alternative', _startsChosenText\(state\.fitResult\)\]/);
+  assert.match(ex, /# Chosen alternative: \$\{_startsChosenText\(state\.fitResult\)\}/);
+});
+
+
+test('the tooltip reports what the starts found and claims nothing about the data', () => {
+  const tip = constLine('_STARTS_TOOLTIP');
+  assert.doesNotMatch(tip, /pin it down|proves?|guarantee|determined by the data|reliable|trust/i);
+  assert.match(tip, /that is what those starts found, no more/);
+  assert.match(tip, /A lower .* is not a better chemical model/);
+});
+
+test('the recorded adoption is worded once, for the exports', () => {
+  const env = makeEnv({ peaks: PEAKS(), starts: STARTS([]) });
+  env.state.fitResult.chosenAlternative = { fromChi: 35.772, toChi: 15.47, shiftName: 'Adventitious 2', shiftEv: -1.417 };
+  assert.strictEqual(env._startsChosenText(env.state.fitResult),
+    'this fit started from a solution chosen from the scattered starts (χ²ᵣ 35.77 → 15.47; largest move from the original start: Adventitious 2 −1.42 eV)');
+  assert.strictEqual(env._startsChosenText({ starts: null }), '');
 });

@@ -4500,11 +4500,7 @@ function _invalidateBgCache() {
 
 // Clear stored fit envelope so the fallback (modelFull + bg) is used after a manual peak edit
 function _invalidateFittedY() {
-  if (!state.fitResult) return;
-  state.fitResult.fittedY = null;
-  // the scattered-starts evidence was about the data as fitted (background, ROI)
-  state.fitResult.starts = null;
-  state.fitResult.chosenAlternative = null;
+  if (state.fitResult) state.fitResult.fittedY = null;
 }
 
 function _clampShirleyIter() {
@@ -7191,29 +7187,52 @@ function isC1sTab(tab) {
 // check can show a decomposition is not unique, never that one is correct.
 const _STARTS_N = 3;
 const _STARTS_SHIFT_AMBER_EV = 0.5, _STARTS_SHIFT_RED_EV = 1.0;
-const _STARTS_TOOLTIP = "After your fit, the same method is run again from a few scattered starting points. If they all come back to your solution, the data pin it down from those starts; if one finds a different solution with a lower χ²ᵣ it is listed here with how far each component moved from where you put it. Your fit is never replaced. A lower χ²ᵣ is not a better chemical model. Identical requests give identical results on real data in practice, but the underlying arithmetic is not bit-reproducible, so a fit sitting near a boundary between two solutions can still resolve differently; that is the situation this check is designed to surface.";
+const _STARTS_TOOLTIP = "After your fit, the same method is run again from a few scattered starting points. If they all come back to your solution, that is what those starts found, no more: other starts or another method might not. If one finds a different solution with a lower χ²ᵣ it is listed here with how far each component moved from where you put it. Your fit is never replaced. A lower χ²ᵣ is not a better chemical model. Identical requests give identical results on real data in practice, but the underlying arithmetic is not bit-reproducible, so a fit sitting near a boundary between two solutions can still resolve differently; that is the situation this check is designed to surface.";
 
 function _startsUnlinkedCount(peaks) { return (peaks || []).filter(p => !p.linked).length; }
 
-// The evidence belongs to the MODEL THAT WAS FITTED. Everything the fit read
-// from a peak goes into the key taken when the result is stored; any later
-// edit (a parameter, a lock, a shape, a link, a peak added or removed, an undo)
-// makes the key differ, and then the panel says so, offers nothing to apply,
-// and saves/exports carry no counts. Background and ROI edits clear it through
-// _invalidateFittedY, which already marks the fitted curve as no longer valid.
+// The evidence belongs to the FIT THAT PRODUCED IT: the model (everything the
+// request reads from a peak) AND its context (background type and window,
+// endpoint averaging, Shirley iterations, ROI, manual anchors, charge shift).
+// The key is taken when the result is stored; it is compared, never
+// invalidated by hand, so no edit path can be forgotten: after any change to
+// a parameter, lock, shape, link, the peak list, the background, the ROI, the
+// anchors or the charge correction — or an undo / history restore that brings
+// back other values — the panel says the comparison no longer applies,
+// nothing can be previewed or applied, and saves/exports carry no counts. A
+// name, colour or visibility is not part of a fit and does not invalidate it.
 const _STARTS_MODEL_FIELDS = ['id', 'shape', 'center', 'fwhm', 'amplitude', 'glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
-  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM', 'linked', 'linkOffset', 'linkRatio',
+  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM', 'linked', 'linkOffset', 'linkRatio', '_afAsymMin', '_afAsymMax',
   'fixCenter', 'fixFwhm', 'fixAmplitude', 'fixGlMix', 'fixAsymmetry', 'fixDsAlpha', 'fixDsGamma',
   'fixLaAlpha', 'fixLaBeta', 'fixLaM', 'fixCaAlpha', 'fixCaBeta', 'fixCaM'];
-function _startsModelKey(peaks) {
-  return JSON.stringify((peaks || []).map(p => _STARTS_MODEL_FIELDS.map(k => (p[k] === undefined ? null : p[k]))));
+const _STARTS_UI_FIELDS = ['bgType', 'bgStart', 'bgEnd', 'shirleyIter', 'endpointAvg', 'roiMin', 'roiMax'];
+function _startsModelKey(peaks, ui, ccShift, anchors) {
+  return JSON.stringify({
+    p: (peaks || []).map(q => _STARTS_MODEL_FIELDS.map(k => (q[k] === undefined ? null : q[k]))),
+    u: _STARTS_UI_FIELDS.map(k => String((ui || {})[k] ?? '')),
+    s: Number(ccShift) || 0,
+    a: (anchors || []).map(v => [v.x, v.y]),
+  });
 }
-// The starts evidence of `fr` if it still describes `peaks`, else null.
-function _startsIfCurrent(fr, peaks) {
+// The key of the ACTIVE tab as it stands now (live model, live controls).
+function _startsLiveKey() {
+  const ui = (typeof tabManager !== 'undefined' && tabManager && tabManager._captureUI) ? tabManager._captureUI() : {};
+  return _startsModelKey(state.peaks, ui, state.ccShift, typeof _getManualAnchors === 'function' ? _getManualAnchors() : []);
+}
+// The key of a tab RECORD (project save runs after _syncActiveToRecord).
+function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, t.manualAnchors); }
+// The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
+function _startsIfCurrent(fr, key) {
   const st = fr && fr.starts;
-  if (!st) return null;
-  if (fr.startsModelKey && fr.startsModelKey !== _startsModelKey(peaks)) return null;
+  if (!st || !fr.startsModelKey || fr.startsModelKey !== key) return null;
   return st;
+}
+// An alternative's preview overlay is only valid beside the result it came from.
+function _dropStaleAltPreview() {
+  if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:') &&
+      !(state.fitResult && _historyPreview.altKey === state.fitResult.startsModelKey && _startsIfCurrent(state.fitResult, _startsLiveKey()))) {
+    _historyPreview = null;
+  }
 }
 
 // What is persisted with a saved fit: the counts, never the alternatives'
@@ -7248,6 +7267,13 @@ function _startsSummaryText(st) {
   return t + '.' + (nSol ? ' Your fit is unchanged.' : '');
 }
 
+// The recorded adoption, for the panel and the exports (only beside current evidence).
+function _startsChosenText(fr) {
+  const c = fr && fr.chosenAlternative;
+  if (!c || !_startsIfCurrent(fr, _startsLiveKey())) return '';
+  return `this fit started from a solution chosen from the scattered starts (\u03c7\u00b2\u1d63 ${Number(c.fromChi).toFixed(2)} \u2192 ${Number(c.toChi).toFixed(2)}; largest move from the original start: ${c.shiftName} ${_startsEv(c.shiftEv)})`;
+}
+
 function _startsPeakName(id) { const p = getPeak(Number(id)) || getPeak(id); return p ? p.name : String(id); }
 
 function _startsShiftColour(ev) {
@@ -7263,7 +7289,7 @@ function _startsShiftHtml(shift) {
 
 function _startsPanelHtml(fr) {
   if (!fr || !fr.starts || !fr.starts.ran) return '';
-  const st = _startsIfCurrent(fr, state.peaks);
+  const st = _startsIfCurrent(fr, _startsLiveKey());
   if (!st) {
     return `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--text3)">&#8635; The model has changed since this fit, so its scattered-starts comparison no longer applies. Run the fit again to compare starts.</div>`;
   }
@@ -7299,7 +7325,7 @@ function _startsPanelHtml(fr) {
 // The alternative's parameters on a COPY of the current peaks (null when the
 // evidence no longer describes the current model).
 function _altPeaks(alt) {
-  if (!_startsIfCurrent(state.fitResult, state.peaks)) return null;
+  if (!_startsIfCurrent(state.fitResult, _startsLiveKey())) return null;
   const peaks = JSON.parse(JSON.stringify(state.peaks));
   if (peaks.length !== alt.components.length) return null;
   for (const c of alt.components) {
@@ -7313,7 +7339,7 @@ function _altPeaks(alt) {
 }
 
 function _currentAlternative(k) {
-  const st = _startsIfCurrent(state.fitResult, state.peaks);
+  const st = _startsIfCurrent(state.fitResult, _startsLiveKey());
   return (st && st.ran && st.alternatives && st.alternatives[k]) || null;
 }
 
@@ -7325,7 +7351,7 @@ function previewAlternative(k) {
   if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
   const key = 'alt:' + k;
   if (_historyPreview && _historyPreview.snapId === key) { _historyClearPreview(); return; }
-  _historyPreview = { snapId: key, peaks, fitResult: { chiReduced: alt.chi2r } };
+  _historyPreview = { snapId: key, altKey: state.fitResult.startsModelKey, peaks, fitResult: { chiReduced: alt.chi2r } };
   _updateLocalModelBanner();
   document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
   updatePlot();
@@ -7392,6 +7418,9 @@ async function runFit(opts = {}) {
     // scattered-starts check: decided HERE, with the other request inputs,
     // before the first await (a tab switch during the upload must not turn it off)
     const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;
+    // the live model and its fit context as the student pressed the button: a
+    // result must not be written over a model that was edited while it ran
+    const ctxAtRequest = _startsLiveKey();
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
@@ -7464,6 +7493,16 @@ async function runFit(opts = {}) {
       return;
     }
 
+    // The peak controls stay editable while the fit runs. A result computed for
+    // the model as it was must not be applied over an edited one (a newly locked
+    // centre would keep its edited value under the server's statistics).
+    if (_startsLiveKey() !== ctxAtRequest) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
+      return;
+    }
+
     // Capture pre-fit values for uncertainty validation
     const _preFit = {};
     for (const p of state.peaks) {
@@ -7479,8 +7518,9 @@ async function runFit(opts = {}) {
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
                         fittedY: backendResult.fitted_y, roiRange, _preFit,
                         starts: backendResult.starts || null,
-                        startsModelKey: _startsModelKey(state.peaks),     // taken AFTER the result was applied
+                        startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
                         chosenAlternative: opts.chosenAlternative || null };
+    _dropStaleAltPreview();      // a preview of an alternative belongs to the PREVIOUS result
     state.fitResult.rFactor = _computeRFactor(state.fitResult);
     _applyStatDisplay(state.fitResult);
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
@@ -9050,6 +9090,7 @@ function updatePlot() {
     });
   }
 
+  _dropStaleAltPreview();
   // History snapshot preview overlay (cyan dashed, drawn on top)
   if (_historyPreview && _historyPreview.peaks && _historyPreview.peaks.length && plotBE.length) {
     const prevPeakY = evalAllPeaks(plotBE, _historyPreview.peaks);
@@ -9651,9 +9692,9 @@ function _doSaveFit() {
       objective: state.fitResult.objective || null,
       weighting: state.fitResult.weighting || null,
       status: state.fitResult.status || null,
-      starts: _startsForSave(_startsIfCurrent(state.fitResult, state.peaks)),
+      starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
       startsModelKey: state.fitResult.startsModelKey || null,
-      chosenAlternative: _startsIfCurrent(state.fitResult, state.peaks) ? (state.fitResult.chosenAlternative || null) : null,
+      chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
     } : ((_activeTab() && _activeTab().modelProvenance) ? {
@@ -9708,9 +9749,9 @@ function _doSaveSpectrum() {
     objective: state.fitResult.objective || null,
     weighting: state.fitResult.weighting || null,
     status: state.fitResult.status || null,
-    starts: _startsForSave(_startsIfCurrent(state.fitResult, state.peaks)),
+    starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
     startsModelKey: state.fitResult.startsModelKey || null,
-    chosenAlternative: _startsIfCurrent(state.fitResult, state.peaks) ? (state.fitResult.chosenAlternative || null) : null,
+    chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -9803,9 +9844,9 @@ async function _doSaveProject() {
         objective: t.fitResult.objective || null,
         weighting: t.fitResult.weighting || null,
         status: t.fitResult.status || null,
-        starts: _startsForSave(_startsIfCurrent(t.fitResult, t.peaks)),
+        starts: _startsForSave(_startsIfCurrent(t.fitResult, _startsRecordKey(t))),
         startsModelKey: t.fitResult.startsModelKey || null,
-        chosenAlternative: _startsIfCurrent(t.fitResult, t.peaks) ? (t.fitResult.chosenAlternative || null) : null,
+        chosenAlternative: _startsIfCurrent(t.fitResult, _startsRecordKey(t)) ? (t.fitResult.chosenAlternative || null) : null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -10818,7 +10859,8 @@ function exportFitTable(fmt) {
       ['XPS Fitting Studio Export'], ['Date', date],
       [_statName, chiStr], ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
-      ...(_startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks)) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks))]] : []),
+      ...(_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey())) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))]] : []),
+      ...(_startsChosenText(state.fitResult) ? [['Chosen alternative', _startsChosenText(state.fitResult)]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
@@ -10829,7 +10871,8 @@ function exportFitTable(fmt) {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
     csv += `# ${_statName}: ${chiStr}\n# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
-    if (_startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, state.peaks))}\n`;
+    if (_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))}\n`;
+    if (_startsChosenText(state.fitResult)) csv += `# Chosen alternative: ${_startsChosenText(state.fitResult)}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
