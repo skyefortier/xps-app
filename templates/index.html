@@ -5791,6 +5791,7 @@ function toggleLock(id, key, btn) {
   btn.innerHTML = p[key] ? '&#x1f512;' : '&#x1f513;';
   btn.title = (p[key] ? 'Unlock' : 'Lock') + ' during fitting';
   _updateLockAllBtn();
+  _refreshStartsEvidence(true);      // a lock is part of the fitted model
 }
 
 const LOCK_ALL_KEYS = ['fixCenter', 'fixFwhm', 'fixAmplitude', 'fixAsymmetry', 'fixGlMix', 'fixDsAlpha', 'fixDsGamma'];
@@ -5817,6 +5818,7 @@ function toggleAllLocks() {
     for (const k of LOCK_ALL_KEYS) p[k] = newVal;
   }
   renderPeakList();
+  _refreshStartsEvidence(true);
 }
 
 function _updateLockAllBtn() {
@@ -7227,6 +7229,18 @@ function _startsIfCurrent(fr, key) {
   if (!st || !fr.startsModelKey || fr.startsModelKey !== key) return null;
   return st;
 }
+// After anything that may have changed the model or its context without going
+// through a Results re-render (a lock toggle, Lock All, a background or ROI
+// control): take a stale alternative overlay off the chart and bring the
+// VISIBLE panel up to date (counts -> "the model has changed since this fit").
+function _refreshStartsEvidence(repaint) {
+  const hadAlt = !!(_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:'));
+  _dropStaleAltPreview();
+  if (repaint && hadAlt && !_historyPreview && typeof updatePlot === 'function') updatePlot();
+  const el = document.querySelector('.starts-panel');
+  if (el && state.fitResult) el.outerHTML = _startsPanelHtml(state.fitResult);
+}
+
 // An alternative's preview overlay is only valid beside the result it came from.
 function _dropStaleAltPreview() {
   if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:') &&
@@ -7520,7 +7534,9 @@ async function runFit(opts = {}) {
                         starts: backendResult.starts || null,
                         startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
                         chosenAlternative: opts.chosenAlternative || null };
-    _dropStaleAltPreview();      // a preview of an alternative belongs to the PREVIOUS result
+    // a preview of an alternative always belongs to the PREVIOUS result (an identical
+    // key does not make it this one's): clear it unconditionally
+    if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:')) _historyPreview = null;
     state.fitResult.rFactor = _computeRFactor(state.fitResult);
     _applyStatDisplay(state.fitResult);
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
@@ -9090,7 +9106,7 @@ function updatePlot() {
     });
   }
 
-  _dropStaleAltPreview();
+  _refreshStartsEvidence(false);   // background / ROI controls only repaint the chart: keep the visible panel honest
   // History snapshot preview overlay (cyan dashed, drawn on top)
   if (_historyPreview && _historyPreview.peaks && _historyPreview.peaks.length && plotBE.length) {
     const prevPeakY = evalAllPeaks(plotBE, _historyPreview.peaks);
