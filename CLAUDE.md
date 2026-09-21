@@ -495,10 +495,6 @@ Typical regions for hand-testing:
   (`templates/index.html` around the `data-xps-tip` listeners); events
   targeting non-Elements throw `e.target.closest is not a function`.
   Needs an `instanceof Element` guard in a future pass.
-- **Differential Evolution cannot run from the UI** (confirmed 2026-09-18):
-  the request never carries an `amplitude_max`, and lmfit's DE needs finite
-  bounds on every varying parameter, so `/api/fit` answers HTTP 422 for any
-  model with a free amplitude. See `docs/findings/2026-09-fit-determinacy.md` §4.
 - Gunicorn `--reload` watches Python files only — **edits to
   `templates/index.html` are NOT picked up** outside Flask debug mode
   because Jinja caches compiled templates per worker. Restart the dev

@@ -162,7 +162,7 @@ the optimiser-disagreement frequency measurement, not before. Until then
 the difference stays listed among the reasons a local result is a starting
 point.
 
-## 4. CONFIRMED BUG (not yet fixed) — Differential Evolution cannot run from the UI
+## 4. FIXED 2026-09-20 — Differential Evolution could not run from the UI
 
 Checked 2026-09-18 with the shipped `peakToBackendSpec` and the real
 `/api/fit` route: the UI sends `amplitude_min: 0` and never an
@@ -178,3 +178,28 @@ user sees a red "Fit failed". The Method dropdown therefore offers an
 option that cannot work. Fix options (own unit): send a finite
 `amplitude_max` (e.g. a multiple of the ROI maximum) for DE, or remove DE
 from the dropdown. Repro: the commands in this section's commit message.
+
+**Fixed and deployed 2026-09-20** (branch `fix-de-finite-bounds`, Codex GO ×2
+at round 10). For that method only, each candidate is searched inside
+generated limits, refined by `least_squares` under the request's own bounds,
+and competes with a plain `least_squares` fit from the same start, so it is
+never worse than the default method from the same start; generated limits
+are never reported or stored. Mechanism and measurements: CLAUDE.md,
+"Fitting Algorithm → Backend".
+
+## 5. Owner decisions, 2026-09-20 (after the correction above)
+
+- The second opinion is SCATTERED STARTS of the student's own method, not a
+  second method (Trust-Region and LM are not independent: §2).
+- The student's method result REMAINS THE FIT. Lower-χ²ᵣ solutions appear
+  beside it as alternatives with their own areas and their centre
+  displacements from the student's start. The app presents evidence; the
+  chemist decides; it never substitutes a different chemical interpretation
+  because it scored better (8-JT C1s Scan_1).
+- Agreement is worded "N starts reached the same solution", never as
+  certification; no "best of N" claim.
+- First, ahead of that unit: SEED the `n_perturb` perturbation from the
+  request, so identical requests are byte-identical across presses, sessions
+  and machines.
+- Own small unit: Auto-Fit C1s must not derive the charge correction from a
+  zero-amplitude Graphite component.
