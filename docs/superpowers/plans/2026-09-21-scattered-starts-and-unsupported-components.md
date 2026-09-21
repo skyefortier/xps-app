@@ -1,7 +1,8 @@
 # Scattered-starts check + "component not supported by the data" — plan
 
-Status: PROPOSAL for owner approval (2026-09-21). Nothing in this unit is
-implemented. Evidence and owner decisions it rests on:
+Status: APPROVED by the owner 2026-09-21 with the decisions in §5 (now
+answered) and the order settled by the measurement in §6. Implementation in
+three separately deployable steps, each with its own Codex pass. Evidence and owner decisions it rests on:
 `docs/findings/2026-09-fit-determinacy.md` (§2, §3, §5),
 `docs/findings/optimizer-disagreement/REPORT*.md`.
 
@@ -198,18 +199,56 @@ of `n_starts`, `/api/analyze` wrapper allowlist.
   starts where the page now SHOWS the better solution (target: the 8 % row)
   and the time added per Run Fit.
 
-## 5. Decisions needed before implementation
+## 5. Decisions (owner, 2026-09-21)
 
-1. Trigger: every multi-component Run Fit (proposed) or fresh starts only
-   via the 50 % χ²-drop rule?
-2. K = 3 (proposed; 5 adds ~2 pp of finds and ~7 pp more "worse elsewhere").
-3. Higher-χ²ᵣ clusters: counted in the one-line summary only (proposed), or
-   also listed?
-4. "Use this solution": offered (proposed, explicit + undoable + recorded),
-   or view-only?
-5. Unsupported components: excluded from the Quantify body (proposed) or
-   kept at 0.0 %?
-6. Auto-Fit "required?" refit: in this unit (proposed) or its own?
-7. Order of delivery: (a) server `starts` + results table, (b) `support`
-   outcome across the site table, (c) Auto-Fit refit — as three deployable
-   steps on one branch, each with its own Codex pass, or one drop?
+1. TRIGGER: every Run Fit with ≥ 2 unlinked components (deviation accepted:
+   "a classifier with 5 % / 12 % error rates is worse than not classifying";
+   "3 of 3 starts reached this solution" on a re-opened project is positive
+   information). Exclusions as listed in §3.1.
+2. K = 3.
+3. Worse solutions are COUNTED, not listed ("counting them is what tells the
+   student the search was real; listing 30 % of fits' worth of bad minima
+   would train people to ignore the panel").
+4. "Use this solution" is offered — explicit, undoable, recorded — WITH ONE
+   ADDITION: when the alternative's largest centre displacement is in the RED
+   band (> 1 eV), applying it requires a confirmation that NAMES the moved
+   component and the distance ("This solution moves C-O by +1.47 eV.
+   Apply?"). Not a modal for every alternative; only for the case measured
+   and known to be chemically dangerous (8-JT C1s Scan_1).
+5. Unsupported components are excluded from the Quantify body and listed
+   beneath ("0.0 % is a measurement claim; exclusion plus a named listing is
+   the honest statement that the fit did not determine it").
+6. The Auto-Fit "is the anchor required?" refit is in this unit, step (c).
+7. Three separately deployable steps, each with its own Codex pass; (a) and
+   (b) are additive and leave no inconsistent intermediate state.
+
+## 6. Order of steps — decided by measurement (owner: "one number decides it")
+
+Question: (b) fixes a SILENT OVERCLAIM that is live today (a component at
+zero amplitude reports a centre, width and σ as though determined); (a) adds
+a capability. If components land at the floor often, (b) goes first.
+
+Measured (`scripts/amplitude_floor_frequency.py` →
+`docs/findings/optimizer-disagreement/amplitude_floor.jsonl`): all 202
+committed targets fitted as the page sends them (Trust-Region, `n_perturb: 3`,
+seeded, inputs rounded to 2 dp), the shipped support statistic applied to
+every unlinked component.
+
+| | targets with ≥ 1 unsupported component | components unsupported |
+|---|---:|---:|
+| all | 3 of 202 (1.5 %, Wilson 0.5–4.3) | 3 of 752 (0.4 %) |
+| re-fit of a saved solution | 3 of 107 | 3 of 399 |
+| fresh start | 0 of 95 (Wilson 0–3.9) | 0 of 353 |
+
+None is literally at zero (none below 1e-6 of the strongest component); the
+three are weak C 1s components at 0.25–0.65 % of the strongest line with
+F = 0.95, 2.0 and 3.9 (UCl4_on_graphite C1s Scan_4 "Unknown 2", Cl2p_projfit
+C1s Scan_0 "Unknown 2", 8-JT C1s Scan_6 "Adventitious 2"). All three are
+reported today WITH a centre and a width ± σ, so the overclaim is real where
+it occurs. B 1s, Cl 2p, U 4f: 0 of 132. Caveat: committed projects are fits
+students chose to keep; a component that collapsed may have been deleted
+before saving (survivorship) — but the fresh-start rate, 0 of 95, points the
+same way.
+
+RARE → the proposed order stands: (a) scattered-starts check, (b) the
+unsupported-component outcome, (c) the Auto-Fit refit.
