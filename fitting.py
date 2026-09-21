@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import warnings
 from typing import Any
 
@@ -1120,7 +1121,7 @@ def _canonical(value):
     return repr(value)
 
 
-def _request_seed(x, counts, background, shapes, params, *, fit_kws, n_perturb) -> int:
+def _request_seed(x, counts, background, shapes, prefixes, params, *, fit_kws, n_perturb) -> int:
     """The seed for every random draw of one fit: a pure function of the
     NUMBERS THE OPTIMISER IS HANDED — energies, counts and the computed
     background curve (little-endian float64), the lineshape of each component
@@ -1134,7 +1135,11 @@ def _request_seed(x, counts, background, shapes, params, *, fit_kws, n_perturb) 
     ignores can change the draws: a peak's name or colour, the
     ``fix_gl_ratio`` the page still sends for a Gaussian, stale shape
     parameters kept after a shape switch, the ``endpoint_avg`` a linear
-    background does not use, anchor order. (Measured in review: each such
+    background does not use, anchor order, and the peaks' internal IDs —
+    parameter names and constraint references are rewritten by component
+    POSITION (``prefixes`` lists each component's lmfit prefix in fitting
+    order), because the page never reuses an ID and the same model rebuilt
+    after deleting a peak would otherwise fit differently. (Measured in review: each such
     no-op edit moved an area fraction by 15-45 percentage points while the
     request was hashed as sent.) It is a seed, not an identity: 32 bits
     collide, never use it as a cache key. Changing this derivation changes
@@ -1142,10 +1147,19 @@ def _request_seed(x, counts, background, shapes, params, *, fit_kws, n_perturb) 
     """
     kws = dict(fit_kws or {})
     solver = {k: v for k, v in dict(kws.pop("fit_kws", None) or {}).items() if k != "seed"}
+    # longest prefix first so "p1_" cannot match inside "p11_"
+    alias = sorted(((pre, f"c{k}_") for k, pre in enumerate(prefixes)), key=lambda a: -len(a[0]))
+
+    def by_position(text):
+        for pre, pos in alias:
+            text = re.sub(r"(?<![A-Za-z0-9_])" + re.escape(pre), pos, text)
+        return text
+
     roles = []
     for name, par in params.items():
+        name = by_position(name)
         if par.expr is not None:
-            roles.append([name, "expr", par.expr])
+            roles.append([name, "expr", by_position(par.expr)])
         elif not par.vary:
             roles.append([name, "fixed", par.value])
         else:
@@ -1196,6 +1210,11 @@ def run_fit(
     dict with keys: energy, fitted_y, background_y, residuals,
                     individual_peaks, statistics, charge_shift_applied, success
     """
+    # One computation dtype: the weights are a function of the counts AND of
+    # the precision they are held in (float32 counts give weights that differ
+    # at 1e-8 and a different fit), and the seed hashes float64.
+    energy = np.asarray(energy, dtype=float)
+    counts = np.asarray(counts, dtype=float)
     if len(energy) != len(counts):
         raise ValueError("energy and counts must have the same length")
     if not peak_specs:
@@ -1355,7 +1374,8 @@ def run_fit(
         random_seed = int(caller_seed)
     else:
         random_seed = _request_seed(
-            x, y, bg, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered], all_params,
+            x, y, bg, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
+            [f"p{spec['id']}_" for spec in ordered], all_params,
             fit_kws=fit_kws, n_perturb=n_perturb)
     perturb_rng, solver_rng = (np.random.default_rng(child)
                                for child in np.random.SeedSequence(random_seed).spawn(2))

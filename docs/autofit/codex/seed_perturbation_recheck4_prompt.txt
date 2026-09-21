@@ -1,0 +1,14 @@
+ROUND 5 recheck of branch fix-seed-perturbation (HEAD; parent = main). Read-only. Round 4 was NO-GO x2 with one shared MAJOR and one shared MINOR (archived docs/autofit/codex/seed_perturbation_r4_verdict_run{A,B}.md). Everything you cleared in rounds 1-4 is unchanged.
+
+DISPOSITIONS
+1. MAJOR peak ids changed the fit (ids 1-5 vs 2-6: 39 % -> 5 %) -> _request_seed receives each component's lmfit prefix in fitting order and rewrites parameter names AND constraint expressions by component position (p<id>_ -> c<k>_, longest prefix first, not preceded by an identifier character) before hashing. Tests: test_peak_ids_do_not_change_the_fit (renumbered, string ids, and ids chosen to collide as prefixes: 11 / 1 / 111 / 21 / 12 -> same seed and byte-identical LM result once ids are normalised in the output), test_linked_peaks_are_hashed_by_position_too (linked pairs with ids (1,2), (7,12), ("1","11") share a seed; removing the link changes it).
+2. MINOR float32 vs float64 counts aliased while the weights differed -> run_fit converts energy and counts to float64 once, at entry, so the computation dtype is fixed and equals what is hashed. Test: test_counts_held_in_float32_give_the_same_fit_as_float64 (byte-identical result).
+43 tests in the file; CLAUDE.md updated; seed pin re-recorded (never shipped); draw pin unchanged; full suite re-run on HEAD.
+
+TRY TO BREAK
+a. One more class of page-reachable no-op that still changes the seed — think about what ELSE the optimiser receives by name or order: component ORDER (the page's peak array order; masters-before-slaves sort is stable), and whether reordering peaks in the page is a no-op for the fit itself (if the fit's own result depends on order, the seed may too — say so rather than count it).
+b. The prefix rewrite: an expression or name where substitution corrupts something (ids containing regex metacharacters, an id that makes a prefix equal to an alias like "c0", ids with underscores).
+c. float64 conversion at entry: any caller for which this changes behaviour other than removing the float32 discrepancy (object arrays, masked arrays, lists).
+d. Anything else in git diff main..HEAD not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

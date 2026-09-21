@@ -294,7 +294,10 @@ nothing the fit ignores can change the draws: a peak's name or colour, the
 `fix_gl_ratio` the page still sends for a Gaussian, stale shape parameters
 kept after a shape switch, the `endpoint_avg` a linear background does not
 use, bounds of a fixed parameter, start values a link overrides, anchor
-order (in review each such no-op edit moved an area fraction by 15–45 pp
+order, and the peaks' internal ids (parameter names and constraint
+references are hashed by component POSITION: the page never reuses an id,
+so a model rebuilt after deleting a peak would otherwise fit differently)
+(in review each such no-op edit moved an area fraction by 15–45 pp
 while the request was hashed as sent). It is a seed,
 not an identity (32 bits collide; never a cache key). The response reports
 it as `random_seed`; a caller's `fit_kws.fit_kws.seed` (integer in
