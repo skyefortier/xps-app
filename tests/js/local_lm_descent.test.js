@@ -39,7 +39,8 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
   'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
   'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
-  '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner'];
+  '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
+  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts'];
 const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg) || []).join('\n');
 
 // One isolated environment per test: a fresh `state`, a stub DOM, and the
@@ -53,7 +54,7 @@ function makeEnv() {
   const calls = { notify: [] };
   const notify = (msg, kind) => calls.notify.push({ msg, kind });
   const noop = () => {};
-  const src = CAVEAT_CONST + '\n' + NAMES.map(extractFn).join('\n\n');
+  const src = CAVEAT_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extractFn).join('\n\n');
   const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
     'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
     src + '\nreturn { runFitLocal, computeBackgroundCore, evalAllPeaks, evalPeakArray, gaussian };');
@@ -266,7 +267,7 @@ test('linked child follows its parent even when the parent width is locked (beha
 // ── Codex round-2 finding (2026-09-15): constrained stationarity oracle ──────
 // A converged result must be a stationary point of the BOX-CONSTRAINED
 // problem: no small feasible move of any free parameter reduces the residual.
-const BOX = { fwhm: [0.1, 15], amplitude: [1, Infinity], glMix: [0, 100], asymmetry: [0, 1], dsAlpha: [0, 0.49],
+const BOX = { fwhm: [0.1, 15], amplitude: [0, Infinity], glMix: [0, 100], asymmetry: [0, 1], dsAlpha: [0, 0.49],
   dsGamma: [0, 5], laAlpha: [0, 0.49], laBeta: [0.05, 2], laM: [0.05, 4], caAlpha: [0.1, 5], caBeta: [0.1, 5] };
 function freeParamsOf(p) {
   const out = [];
@@ -492,4 +493,15 @@ test('reduced chi-square does not count the held caM as a varied parameter', () 
   const a = run(true), b = run(false);
   assert.ok(Math.abs(a.amp - b.amp) < 1e-9 && Math.abs(a.chi - b.chi) < 1e-9, 'identical fit either way');
   assert.ok(Math.abs(a.chiReduced - b.chiReduced) < 1e-12, `same fit, same reduced chi-square: ${a.chiReduced} vs ${b.chiReduced}`);
+});
+
+
+test('recovery from an amplitude of exactly zero (the new floor is not a trap)', () => {
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05);
+  const { data, bg } = gaussCase(env, { be, dataAmp: 0.1, dataFwhm: 1.2, start: { center: 285.0, fwhm: 1.2, amplitude: 0, fixCenter: true, fixFwhm: true } });
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.ok(Math.abs(env.state.peaks[0].amplitude - 0.1) < 1e-3, `amplitude ${env.state.peaks[0].amplitude}`);
+  assertConstrainedStationary(env, be, data, 1e-8, 'from zero');
 });

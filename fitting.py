@@ -1733,10 +1733,6 @@ def run_fit(
         support = _component_support(y_sub, fitted_sub, peak_y, weights, n_free_comp, result.nvarys)
         # A linked component follows its parent: it is supported exactly when the
         # parent is (its own removal test would double-count the parent's role).
-        master = spec.get("constrain_to")
-        if master is not None:
-            support["follows"] = master
-
         individual_peaks.append({
             "id": pid,
             "y": peak_y.tolist(),
@@ -1744,11 +1740,24 @@ def run_fit(
             "support": support,
         })
 
+    # A linked component follows its ROOT ancestor (a grandchild follows the
+    # root), whatever the request order; a cycle or a missing master leaves
+    # its own verdict.
     by_id = {str(ip["id"]): ip for ip in individual_peaks}
+    master_of = {str(spec["id"]): spec.get("constrain_to") for spec in peak_specs}
+
+    def root_of(pid: str) -> str:
+        seen = set()
+        while master_of.get(pid) is not None and str(master_of[pid]) in by_id and pid not in seen:
+            seen.add(pid)
+            pid = str(master_of[pid])
+        return pid
+
     for ip in individual_peaks:
-        master = ip["support"].get("follows")
-        if master is not None and str(master) in by_id:
-            ip["support"]["supported"] = by_id[str(master)]["support"]["supported"]
+        root = root_of(str(ip["id"]))
+        if root != str(ip["id"]):
+            ip["support"]["follows"] = by_id[root]["id"]
+            ip["support"]["supported"] = by_id[root]["support"]["supported"]
 
     # ── Statistics ────────────────────────────────────────────────────────────
     n_data = len(y_sub)

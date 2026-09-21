@@ -117,3 +117,21 @@ def test_on_the_committed_targets_the_three_known_unsupported_components_are_the
     R = [json.loads(l) for l in path.read_text().splitlines()]
     flagged = {(r["tab"], c["name"]) for r in R for c in r.get("components", []) if c["unsupported"] and not c["linked"]}
     assert flagged == {("C1s Scan_4", "Unknown 2"), ("C1s Scan_0", "Unknown 2"), ("C1s Scan_6", "Adventitious 2")}
+
+
+def test_a_grandchild_follows_the_root_whatever_the_request_order():
+    # Codex round 1: request order [3, 2, 1] with links 3 -> 2 -> 1 and an
+    # unsupported root gave [False, True, True] after a single forward pass.
+    x, y = _spectrum()
+    root = {"id": 7, "shape": "gaussian", "center": 292.5, "center_min": 291.5, "center_max": 293.5,
+            "amplitude": 300.0, "amplitude_min": 0, "fwhm": 1.0}
+    child = {"id": 8, "shape": "gaussian", "center": 293.0, "amplitude": 30.0, "fwhm": 1.0, "amplitude_min": 0,
+             "constrain_to": 7, "splitting": 0.5, "area_ratio": 0.1}
+    grandchild = {"id": 9, "shape": "gaussian", "center": 293.5, "amplitude": 3.0, "fwhm": 1.0, "amplitude_min": 0,
+                  "constrain_to": 8, "splitting": 0.5, "area_ratio": 0.1}
+    for order in ([grandchild, child, root], [root, child, grandchild], [child, grandchild, root]):
+        res = fitting.run_fit(x, y, order + _specs(), **KW)
+        by = {str(ip["id"]): ip for ip in res["individual_peaks"]}
+        assert by["7"]["support"]["supported"] is False
+        assert by["8"]["support"]["supported"] is False and by["8"]["support"]["follows"] == 7
+        assert by["9"]["support"]["supported"] is False and by["9"]["support"]["follows"] == 7

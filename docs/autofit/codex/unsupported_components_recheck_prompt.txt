@@ -1,0 +1,20 @@
+ROUND 2 recheck of step (b), branch feature-unsupported-components (git diff main..HEAD). Read-only. Round 1 was NO-GO x2 (archived docs/autofit/codex/unsupported_components_verdict_run{A,B}.md; owner decisions and the site table are in unsupported_components_review_prompt.txt and are not up for review). Budget your time: a verdict is required within the run.
+
+DISPOSITIONS
+1. MAJOR local fits erased the outcome -> the local engine now computes the SAME statistic from its own residuals and weights (_componentSupportCore, shared with the twin) and writes verdicts through _applySupportVerdicts, so a component Batch Fit drives to the zero floor is an outcome there too. Browser-verified: a Batch Fit target carries [true..., false] verdicts.
+2. MAJOR the scattered-starts table bypassed suppression -> in the "Your fit" row an unsupported component shows neither area % nor a move (its cell says why) and cannot be the largest move; an alternative is a DIFFERENT solution for which no verdict was computed, so its components are shown as they are (stated in the code). Test: 'the scattered-starts table: …'.
+3. MAJOR DS+G / LA widths leaked into CSV/XLSX -> beta and m cells are blank for an unsupported component (alpha, an asymmetry, is kept). Test with a DS+G peak.
+4. MAJOR support survived edits unqualified -> the verdict is bound to the fit exactly as step (a)'s evidence is: p.support.fitKey = _startsLiveKey() taken AFTER the values are applied (model + background/ROI/anchors/charge shift); _isUnsupported compares it with the live key at every read, so after ANY edit nothing is suppressed or excluded until a new fit; a verdict without a key (older save) is never applied. Browser-verified: editing the amplitude lifts the verdict everywhere. The verdict remains on the peak (history) but is inert.
+5. MAJOR linked support depended on order -> the server resolves each linked component to its ROOT ancestor after the loop (cycle-safe); the page's _applySupport does the same from the peaks' link fields (_supportRootOf), so server and page agree. Test: chain 9 -> 8 -> 7 in three request orders. (A fixture of mine reused ids 1/2 and hit lmfit's duplicate-name error — my error, not a product one.)
+6. MINOR wording -> "with the other components held as fitted, removing it does not make the fit significantly worse"; "at or near zero" removed; the plural note says "removing any one of them"; the tooltip states the artefact limit.
+7. MINOR the stationarity oracle's BOX.amplitude was [1, Inf] -> [0, Inf]; a recovery-from-zero test added (start at amplitude 0, data 0.1 -> recovered, oracle passes).
+Twin: your finding that loaders never call it and saved arrays differ is accepted — it serves an older backend response lacking the field; stated in CLAUDE.md as such? (It says "for loaded files" — tell me if that should be reworded to "for a response lacking the field".)
+7 Python + 13 Node tests; whole JS suite green; full pytest suite re-run on HEAD.
+
+TRY TO BREAK
+a. any remaining consumer of centre/width/sigma/area %/At% for an unsupported component that still reports them; anything that now hides something it should not (a SUPPORTED component's cell, an alternative's);
+b. the key binding: a false lift (something that changes the live key on every render or tab switch so verdicts never apply) or a false keep (an edit that should lift the verdict but is not in the key — compare _STARTS_MODEL_FIELDS with what the fit reads);
+c. the local engine's verdict: weights/dof/nFreeComp consistent with the server's definition; linked peaks; a model where the local result is a starting point anyway (does a verdict on a local result over-claim? my position: it is the same statistic on the same residuals, and the local caveat still applies to everything);
+d. anything else in the diff not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

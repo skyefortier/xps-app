@@ -6294,7 +6294,6 @@ function _applyBackendParams(p, par) {
 }
 
 function applyBackendResult(result) {
-  _applySupport(state.peaks, result);
   for (const ipeak of result.individual_peaks) {
     // Backend returns string IDs; state.peaks uses numeric IDs
     const p = getPeak(Number(ipeak.id)) || getPeak(ipeak.id);
@@ -6303,6 +6302,8 @@ function applyBackendResult(result) {
     _applyBackendParams(p, ipeak.params);
     p._backendParams = ipeak.params;
   }
+  // the verdict describes the model as it now stands (values applied) in its fit context
+  _applySupport(state.peaks, result, _startsLiveKey());
 }
 
 // LEVENBERG-MARQUARDT FITTING (local JS engine)
@@ -6888,50 +6889,76 @@ function _autoFitCheckGraphiteFraction(graphiteId) {
 // fitted to numerical residue is an explicit OUTCOME: the fit did not determine
 // it. Owner decision 2026-09-18: flag it, and do not report its centre, width
 // or sigma as if they were determined. The statement that needs no intensity
-// floor (six were tried and failed): with the other components held at their
+// floor (six were tried and failed): with the OTHER components held at their
 // fitted values, removing this one must make the fit significantly worse — the
 // F statistic the Auto-Fit anchor check uses (F >= 10). The SERVER computes it
-// per component and returns `support: {f, delta_chi2, supported}`; the twin
-// below recomputes it from any response that carries counts, fitted_y and the
-// component's curve, for loaded files. Known limits are the anchor check's: a
-// gross single-channel artefact can mark a real component unsupported;
-// redundancy under overlap is not detected. A linked component follows its
-// parent. Peaks carry the verdict as `p.support` (written with every server
-// result; null = not established: no server result yet, a local-engine result,
-// or a fit older than this unit).
+// per component (`support: {f, delta_chi2, supported}`); the LOCAL engine
+// computes the same statistic from its own residuals (_componentSupportCore);
+// the twin below recomputes it from any response carrying counts, fitted_y
+// and the component's curve. Known limits are the anchor check's: a gross
+// single-channel artefact can mark a real component unsupported; redundancy
+// under overlap is not detected. A linked component follows its parent.
+//
+// The verdict is a property of THE FIT THAT PRODUCED IT, conditional on the
+// other components as fitted: peaks carry it as `p.support` together with
+// `p.support.fitKey`, the key of the model and fit context at that time, and
+// every consumer reads it through _isUnsupported, which compares that key
+// with the live one. After the student edits ANY peak, lock, link, the
+// background, the ROI, anchors or the charge correction — or an undo brings
+// back other values — the verdict no longer applies and nothing is suppressed
+// or excluded; a new fit writes a new verdict. null = not established (no
+// converged fit of this model yet, or a fit older than this unit).
 const _SUPPORT_MIN_F = 10;
 const _UNSUPPORTED_LABEL = 'not supported by the data';
-const _UNSUPPORTED_TIP = 'Removing this component from the fitted model does not make the fit to the data significantly worse (F < 10 with the other components held), so the fit did not determine it: its intensity is at or near zero and its centre, width and uncertainties are not reported. This is an outcome of the fit, not a bug. The data may still contain the species: try a different starting position or width, or lock the centre where chemistry says it belongs, and refit.';
+const _UNSUPPORTED_TIP = 'With the other components held at their fitted values, removing this component does not make the fit to the data significantly worse (F < 10), so this fit did not determine it: its centre, width and uncertainties are not reported. This is an outcome of the fit, not a bug, and it is conditional on the other components. The data may still contain the species: try a different starting position or width, or lock the centre where chemistry says it belongs, and refit. Known limit: a gross single-channel artefact in the region can produce this verdict for a real component.';
+// The statistic, from residuals of the fit (counts − fitted) and the component's curve.
+function _componentSupportCore(counts, fitted, comp, weights, nFreeComp, nFreeTotal) {
+  let withC = 0, withoutC = 0, used = 0;
+  for (let i = 0; i < counts.length; i++) {
+    if (!Number.isFinite(counts[i]) || !Number.isFinite(fitted[i]) || !Number.isFinite(comp[i])) continue;
+    const w2 = weights[i] * weights[i], r = counts[i] - fitted[i];
+    withC += w2 * r * r; withoutC += w2 * (r + comp[i]) * (r + comp[i]); used++;
+  }
+  const delta = withoutC - withC, p = Math.max(1, nFreeComp), dof = Math.max(1, used - nFreeTotal);
+  const f = delta <= 0 ? 0 : (withC === 0 ? Infinity : (delta / p) / (withC / dof));
+  return { f: Number.isFinite(f) ? f : null, delta_chi2: delta, supported: delta > 0 && (withC === 0 || f >= _SUPPORT_MIN_F) };
+}
 function _componentSupportFromResponse(json, peakId) {
   const counts = (json && json.counts) || [], fit = (json && json.fitted_y) || [];
   const ip = ((json && json.individual_peaks) || []).find(q => String(q.id) === String(peakId));
   if (ip && ip.support && typeof ip.support.supported === 'boolean') return ip.support;
   const comp = (ip && ip.y) || [], n = counts.length;
   if (!n || fit.length !== n || comp.length !== n) return null;
-  let withC = 0, withoutC = 0, used = 0;
-  for (let i = 0; i < n; i++) {
-    if (!Number.isFinite(counts[i]) || !Number.isFinite(fit[i]) || !Number.isFinite(comp[i])) continue;
-    const w = 1 / Math.max(counts[i], 1), r = counts[i] - fit[i];
-    withC += w * r * r; withoutC += w * (r + comp[i]) * (r + comp[i]); used++;
-  }
-  const delta = withoutC - withC;
   let p = 0;
   for (const k in ((ip && ip.params) || {})) { const q = ip.params[k]; if (q && q.vary === true && (q.expr == null || q.expr === '')) p++; }
-  p = Math.max(1, p);
   const nFree = (json.statistics && Number.isFinite(json.statistics.n_free_params)) ? json.statistics.n_free_params : 0;
-  const dof = Math.max(1, used - nFree);
-  const f = delta <= 0 ? 0 : (withC === 0 ? Infinity : (delta / p) / (withC / dof));
-  return { f: Number.isFinite(f) ? f : null, delta_chi2: delta, supported: delta > 0 && (withC === 0 || f >= _SUPPORT_MIN_F) };
+  return _componentSupportCore(counts, fit, comp, counts.map(c => 1 / Math.sqrt(Math.max(c, 1))), p, nFree);
 }
-// Write p.support for every peak from a server response (null where the response says nothing).
-function _applySupport(peaks, json) {
+// Resolve links by ANCESTRY (a grandchild follows the root), independent of order.
+function _supportRootOf(peaks, p, seen = new Set()) {
+  if (!p.linked || seen.has(p.id)) return p;
+  seen.add(p.id);
+  const par = peaks.find(q => String(q.id) === String(p.linked));
+  return par ? _supportRootOf(peaks, par, seen) : p;
+}
+// Write p.support for every peak from per-peak verdicts {id -> verdict|null}, stamped with the fit key.
+function _applySupportVerdicts(peaks, verdictOf, fitKey) {
   for (const p of peaks) {
-    let sup = _componentSupportFromResponse(json, p.id);
-    if (p.linked) { const par = peaks.find(q => String(q.id) === String(p.linked)); const ps = par && _componentSupportFromResponse(json, par.id); if (ps) sup = { ...ps, follows: par.id }; }
-    p.support = sup ? { f: sup.f ?? null, delta_chi2: sup.delta_chi2 ?? null, supported: !!sup.supported, ...(sup.follows != null ? { follows: sup.follows } : {}) } : null;
+    const root = _supportRootOf(peaks, p);
+    const v = verdictOf(root.id);
+    p.support = v ? { f: v.f ?? null, delta_chi2: v.delta_chi2 ?? null, supported: !!v.supported, fitKey,
+                      ...(root !== p ? { follows: root.id } : {}) } : null;
   }
 }
-function _isUnsupported(p) { return !!(p && p.support && p.support.supported === false); }
+function _applySupport(peaks, json, fitKey) {
+  _applySupportVerdicts(peaks, id => _componentSupportFromResponse(json, id), fitKey);
+}
+// TRUE only for a verdict that describes the CURRENT model and fit context.
+function _isUnsupported(p) {
+  if (!(p && p.support && p.support.supported === false)) return false;
+  if (!p.support.fitKey) return false;                              // a verdict from before keys existed: not applied
+  return typeof _startsLiveKey === 'function' ? p.support.fitKey === _startsLiveKey() : false;
+}
 function _unsupportedBadge() { return `<span class="unsupported-badge" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</span>`; }
 
 const _AUTOFIT_ANCHOR_MIN_F = 10;
@@ -7381,19 +7408,31 @@ function _startsPanelHtml(fr) {
   if (!alts.length) return html + '</div>';
   const comps = st.fit.components;
   const head = comps.map(c => `<th style="text-align:right;padding:2px 4px">${_escHtml(_startsPeakName(c.id))}<br><span style="font-weight:400;color:var(--text3)">area % &middot; move</span></th>`).join('');
-  // every component: its OWN area fraction and its OWN move from the student's start
-  const cell = c => `<td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${c.area_percent.toFixed(1)}<br><span style="color:${_startsShiftColour(c.center_shift_from_start)}">${_startsEv(c.center_shift_from_start)}</span></td>`;
-  const row = (label, chi, n, cs, shift, actions) => `<tr style="border-top:1px solid var(--border)">
+  // every component: its OWN area fraction and its OWN move from the student's start.
+  // A component this fit did not support shows neither (the same rule as the
+  // Results table); an alternative's components are unjudged (no verdict was
+  // computed for that solution) and are shown as they are.
+  const cell = (c, judged) => {
+    const pk = getPeak(Number(c.id)) || getPeak(c.id);
+    if (judged && pk && _isUnsupported(pk)) return `<td style="text-align:right;padding:2px 4px;color:var(--text3)" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</td>`;
+    return `<td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${c.area_percent.toFixed(1)}<br><span style="color:${_startsShiftColour(c.center_shift_from_start)}">${_startsEv(c.center_shift_from_start)}</span></td>`;
+  };
+  const largest = (cs, judged) => {
+    // the largest move among components this fit supports (an unsupported one has no position to move)
+    const eligible = cs.filter(c => { const pk = getPeak(Number(c.id)) || getPeak(c.id); return !(judged && pk && _isUnsupported(pk)); });
+    return eligible.length ? eligible.reduce((m, c) => Math.abs(c.center_shift_from_start) > Math.abs(m.center_shift_from_start) ? c : m) : null;
+  };
+  const row = (label, chi, n, cs, judged, actions) => { const big = largest(cs, judged); return `<tr style="border-top:1px solid var(--border)">
       <td style="padding:2px 4px">${label}</td><td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${chi.toFixed(2)}</td>
       <td style="text-align:right;padding:2px 4px">${n}</td>
-      ${cs.map(cell).join('')}
-      <td style="padding:2px 4px">${_startsShiftHtml(shift)}</td><td style="padding:2px 4px;white-space:nowrap">${actions}</td></tr>`;
+      ${cs.map(c => cell(c, judged)).join('')}
+      <td style="padding:2px 4px">${big ? _startsShiftHtml({ id: big.id, ev: big.center_shift_from_start }) : '&mdash;'}</td><td style="padding:2px 4px;white-space:nowrap">${actions}</td></tr>`; };
   html += `<h4 style="font-size:11px;margin:8px 0 4px" title="Solutions other starts reached with a lower reduced chi-square than your fit. A lower value is not a better chemical model: look at where the components went.">Other solutions found</h4>
     <div style="overflow-x:auto"><table style="width:100%;font-size:10px;border-collapse:collapse">
     <thead><tr><th style="text-align:left;padding:2px 4px">solution</th><th style="text-align:right;padding:2px 4px">χ²ᵣ</th><th style="text-align:right;padding:2px 4px" title="how many of the scattered starts ended here">starts here</th>${head}<th style="text-align:left;padding:2px 4px">largest move from your start</th><th></th></tr></thead><tbody>`;
-  html += row('<b>Your fit</b>', st.fit.chi2r, st.n_same_as_fit, comps, st.fit.largest_centre_shift_from_start, '');
+  html += row('<b>Your fit</b>', st.fit.chi2r, st.n_same_as_fit, comps, true, '');
   alts.forEach((a, k) => {
-    html += row('Alternative ' + (k + 1), a.chi2r, a.n_starts, a.components, a.largest_centre_shift_from_start,
+    html += row('Alternative ' + (k + 1), a.chi2r, a.n_starts, a.components, false,
       `<button class="btn btn-sm" onclick="previewAlternative(${k})" title="Overlay this solution on the chart; click again to clear">Preview</button>
        <button class="btn btn-sm" onclick="useAlternative(${k})" title="Run the fit again starting from this solution. Your model changes only if that fit succeeds; you can undo it.">Use this solution</button>`);
   });
@@ -8082,7 +8121,6 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     const live = getPeak(p.id);
     if (!live) continue;
     Object.assign(live, p);
-    live.support = null;      // the local engine establishes nothing about support
     // A local fit has no backend covariance; any _backendParams on the peak
     // belong to an earlier server fit (or, in Batch Fit, to the SOURCE
     // spectrum's fit) and must not travel with this result.
@@ -8097,6 +8135,20 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   const chiReduced = chi / dof;                       // weighted reduced chi-square, as lmfit's redchi
   const _raw = rawResiduals(params);
   const rmse = Math.sqrt(_raw.reduce((a, v) => a + v * v, 0) / be.length);   // unweighted RMS, as the server path reports
+  // "Not supported by the data": the same removal statistic the server
+  // computes, from this engine's own residuals and weights (a component driven
+  // to the zero floor is an outcome here too, not something to hide).
+  {
+    const model = evalAllPeaks(be, work);
+    const verdicts = {};
+    for (const wp of work) {
+      if (wp.linked) continue;
+      const comp = evalPeakArray(be, wp);
+      const nFreeComp = paramMap.filter(d => d.id === wp.id && !isDiscrete(paramMap.indexOf(d))).length;
+      verdicts[String(wp.id)] = _componentSupportCore(bgSubtracted, model, comp, _w, nFreeComp, nVaried);
+    }
+    _applySupportVerdicts(state.peaks, id => verdicts[String(id)] || null, _startsLiveKey());
+  }
 
   // KNOWN LIMITATION: this engine produces no parameter uncertainties; the
   // results panel shows blank sigma for every parameter after a local fit.
@@ -8272,7 +8324,7 @@ function renderResults() {
   html += '</tbody></table>';
   if (unsupportedPeaks.length) {
     html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px" title="${_escAttr(_UNSUPPORTED_TIP)}">
-      ${unsupportedPeaks.length === 1 ? 'One component is' : unsupportedPeaks.length + ' components are'} <b>${_UNSUPPORTED_LABEL}</b> (${unsupportedPeaks.map(q => _escHtml(q.name)).join(', ')}): removing ${unsupportedPeaks.length === 1 ? 'it' : 'them'} does not make the fit worse, so the fit did not determine ${unsupportedPeaks.length === 1 ? 'its' : 'their'} position or width. ${unsupportedPeaks.length === 1 ? 'Its' : 'Their'} area is excluded from the percentages and from Quantify.</div>`;
+      ${unsupportedPeaks.length === 1 ? 'One component is' : unsupportedPeaks.length + ' components are'} <b>${_UNSUPPORTED_LABEL}</b> (${unsupportedPeaks.map(q => _escHtml(q.name)).join(', ')}): with the other components held as fitted, removing ${unsupportedPeaks.length === 1 ? 'it' : 'any one of them'} does not make the fit significantly worse, so this fit did not determine ${unsupportedPeaks.length === 1 ? 'its' : 'their'} position or width. ${unsupportedPeaks.length === 1 ? 'Its' : 'Their'} area is excluded from the percentages and from Quantify.</div>`;
   }
   html += _startsPanelHtml(state.fitResult);
 
@@ -10955,8 +11007,9 @@ function exportFitTable(fmt) {
     const sc = _shapeExportCols(p);
     if (_isUnsupported(p)) {
       // the fit did not determine this component: no centre, width or sigma
+      // beta (DS+G Lorentzian half-width) and m (Gaussian FWHM / LA kernel width) are widths too
       return [p.name, _UNSUPPORTED_LABEL, '', '', '', '', p.amplitude.toFixed(2), '', areas[i].toFixed(2),
-              p.shape, sc.gl, sc.alpha, sc.beta, sc.m, rsfVals[i].toFixed(4), '', ''];
+              p.shape, sc.gl, sc.alpha, '', '', rsfVals[i].toFixed(4), '', ''];
     }
     return [
       p.name, p.support ? 'supported' : '', p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
@@ -11171,7 +11224,7 @@ function _validateUncertainties() {
     // here, instead of the per-parameter alarms (or, after Auto-Fit's centre
     // lock, the neutral "locked" note) that would otherwise misdescribe it.
     if (_isUnsupported(p)) {
-      warnings.push(`<li><b>${_escHtml(p.name)}:</b> ${_UNSUPPORTED_LABEL} — removing it does not make the fit worse${p.support.f != null ? ' (F = ' + p.support.f.toFixed(1) + ', threshold 10)' : ''}. Its centre, width and uncertainties are not reported. Try another starting position or width, lock the centre where chemistry says it belongs, or drop the component.</li>`);
+      warnings.push(`<li><b>${_escHtml(p.name)}:</b> ${_UNSUPPORTED_LABEL} — with the other components held as fitted, removing it does not make the fit significantly worse${p.support.f != null ? ' (F = ' + p.support.f.toFixed(1) + ', threshold 10)' : ''}. Its centre, width and uncertainties are not reported. Try another starting position or width, lock the centre where chemistry says it belongs, or drop the component.</li>`);
       continue;
     }
     const init = preFit[Number(rawId)] || {};
@@ -11665,7 +11718,7 @@ async function runPropagation() {
     const clonedPeaks = srcPeaks.map(p => ({
       ...p,
       amplitude: p.linked ? p.amplitude : p.amplitude * scale,
-      support: null           // a propagated model has not been fitted: nothing is established
+      support: null           // a propagated model has not been fitted: nothing is established (a copied verdict could never match this tab's key anyway)
     }));
 
     // Copy peak nextId

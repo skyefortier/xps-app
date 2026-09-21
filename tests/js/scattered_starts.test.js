@@ -30,7 +30,7 @@ function extractFn(name) {
 }
 const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
 
-const FNS = ['_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsRecordKey', '_startsIfCurrent', '_dropStaleAltPreview',
+const FNS = ['_isUnsupported', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsRecordKey', '_startsIfCurrent', '_dropStaleAltPreview',
   '_startsChosenText', '_startsForSave', '_startsSummaryText', '_startsPeakName',
   '_startsShiftColour', '_startsEv', '_startsShiftHtml', '_startsPanelHtml', '_altPeaks', '_currentAlternative',
   'previewAlternative', 'useAlternative', '_applyBackendParams'];
@@ -41,7 +41,7 @@ function makeEnv({ peaks, starts, confirmAnswer = true, staleKey = false }) {
   const anchors = [];
   const fieldsStart = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
   const fields = lines.slice(fieldsStart, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
-  const src = [constLine('_STARTS_N'), constLine('_STARTS_SHIFT_AMBER_EV'), constLine('_STARTS_TOOLTIP'), constLine('_STARTS_STALE_MSG'), fields,
+  const src = [constLine('_STARTS_N'), constLine('_STARTS_SHIFT_AMBER_EV'), constLine('_STARTS_TOOLTIP'), constLine('_STARTS_STALE_MSG'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), fields,
     'let _historyPreview = null; const document = { querySelectorAll: () => [] };', ...FNS.map(extractFn)].join('\n');
   const factory = new Function('state', 'getPeak', '_escHtml', 'confirm', 'pushUndo', 'runFit', 'notify', 'updatePlot',
     'renderPeakList', '_updateLocalModelBanner', '_historyClearPreview', 'tabManager', '_getManualAnchors',
@@ -67,7 +67,7 @@ const STARTS = (alts, over = {}) => ({ ran: true, n_run: 3, n_converged: 3, n_sa
     components: [comp(1, 58, 284.40, 0), comp(2, 3, 286.43, 0.02), comp(3, 39, 291.1, 0)] }, alternatives: alts, ...over });
 const ALT = (shiftEv, chi = 12.3) => ({ chi2r: chi, n_starts: 1, largest_fraction_difference_pp: 21.1,
   largest_centre_shift_from_start: { id: 2, ev: shiftEv },
-  components: [comp(1, 49, 284.95, 0.55), comp(2, 24, 286.41 + shiftEv, shiftEv), comp(3, 27, 291.1, 0)] });
+  components: [comp(1, 49, 284.45, 0.05), comp(2, 24, 286.41 + shiftEv, shiftEv), comp(3, 27, 291.1, 0)] });
 
 test('summary wording: counts of STARTS and of SOLUTIONS, never certification', () => {
   const { _startsSummaryText } = makeEnv({ peaks: PEAKS(), starts: STARTS([]) });
@@ -108,7 +108,7 @@ test('alternatives: "Your fit" first, own areas per component, the moved compone
   assert.ok(h.includes('area % &middot; move'));
   assert.ok(h.includes('>24.0<br>') && h.includes('>49.0<br>'), 'the alternative shows its OWN area fractions');
   // Codex round 1: EVERY component's move from the student's start, not only the largest
-  assert.match(h, /49\.0<br><span style="color:var\(--amber,#f59e0b\)">\+0\.55 eV/, 'Graphite moved +0.55 eV in the alternative');
+  assert.match(h, /49\.0<br><span style="color:var\(--text2\)">\+0\.05 eV/, 'Graphite moved +0.05 eV in the alternative');
   assert.match(h, /24\.0<br><span style="color:var\(--red,#ef4444\)">−1\.40 eV/);
   assert.match(h, /27\.0<br><span style="color:var\(--text2\)">\+0\.00 eV/);
   assert.match(h, /color:var\(--red,#ef4444\)[^>]*>C-O −1\.40 eV/, '> 1 eV is red');

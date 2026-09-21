@@ -467,10 +467,21 @@ Auto-Fit anchor's F statistic (F ≥ 10; `SUPPORT_MIN_F`). The SERVER computes
 it once per component (`individual_peaks[].support = {f, delta_chi2,
 supported}`; a linked component `follows` its parent); the page's twin
 `_componentSupportFromResponse` recomputes it from any response carrying
-`counts`, `fitted_y` and the component's curve. Peaks carry the verdict as
-`p.support` — written by `applyBackendResult` with every server result,
-persisted with the peak (saves spread the peak whole), set to `null` by the
-local engine's commit and by Batch Fit's copy (nothing established). Sites
+`counts`, `fitted_y` and the component's curve; the LOCAL engine computes
+the same statistic from its own residuals and weights
+(`_componentSupportCore`), so a component driven to the zero floor by Batch
+Fit is an outcome there too. Linked components follow their ROOT ancestor
+whatever the request order. The verdict is a property of the fit that
+produced it, CONDITIONAL on the other components as fitted, so it is bound
+to that fit: `p.support.fitKey` is the model-plus-context key
+(`_startsLiveKey()`) taken after the values are applied, and
+`_isUnsupported(p)` compares it with the live key at every read — after
+the student edits any peak, lock, link, the background, ROI, anchors or
+charge correction, or an undo brings back other values, nothing is
+suppressed or excluded until a new fit writes a new verdict (a verdict
+without a key, from an older save, is never applied). `p.support` is
+persisted with the peak (saves spread the peak whole); Batch Fit's copy
+sets it to `null` (nothing established for that tab). Sites
 (`_isUnsupported`): sidebar card (badge; centre/width "—"; excluded from the
 area total), Results table (greyed row, no centre/width/σ, area kept,
 percentage "—", note beneath; percentages over supported components),
@@ -479,7 +490,11 @@ instead of the neutral "locked" note Auto-Fit's centre lock would produce),
 Quantify (no row; listed beneath: "an atomic percentage of 0.0 % would be a
 measurement claim"), chart / stack / figure legend labels, no figure label at
 the component's (zero) maximum, CSV/XLSX (Status column, empty cells, no
-At%, WARNING line), TSV (column kept, header says so). Both engines' amplitude
+At%, WARNING line — and no width of any kind: DS+G β / m and LA m are widths
+too), TSV (column kept, header says so), the scattered-starts table ("Your
+fit" row shows neither area % nor a move for it, and it is never the
+largest move; an alternative's components are unjudged and shown as they
+are). Both engines' amplitude
 floor is 0 (`runFitLocal`'s clamp was 1). Measured on the 202 committed
 targets: 3 of 752 components (three C 1s re-fits, F 0.95–3.9), 0 of 95 fresh
 starts — but committed projects are survivorship-biased (a collapsed

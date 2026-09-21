@@ -30,10 +30,10 @@ function extractFn(name) {
 const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
-const CORE = ['_componentSupportFromResponse', '_applySupport', '_isUnsupported', '_unsupportedBadge'];
+const CORE = ['_componentSupportCore', '_componentSupportFromResponse', '_supportRootOf', '_applySupportVerdicts', '_applySupport', '_isUnsupported', '_unsupportedBadge'];
 function core() {
   const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...CORE.map(extractFn)].join('\n');
-  return new Function('_escAttr', src + '\nreturn { ' + CORE.join(', ') + ' };')(esc);
+  return new Function('_escAttr', '_startsLiveKey', src + '\nreturn { ' + CORE.join(', ') + ' };')(esc, () => 'KEY');
 }
 
 const FIX = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/autofit_anchor.json'), 'utf8'));
@@ -51,22 +51,49 @@ test('the twin reproduces the server verdict on real responses, and defers to th
   assert.strictEqual(c._componentSupportFromResponse({ counts: [1, 2], fitted_y: [1], individual_peaks: [{ id: '1', y: [1, 2] }] }, 1), null);
 });
 
-test('_applySupport writes every peak, follows links, and leaves null where the response says nothing', () => {
+test('_applySupport writes every peak, follows ancestry to the root, stamps the fit key, and leaves null where the response says nothing', () => {
   const c = core();
-  const peaks = [{ id: 1, name: 'a' }, { id: 2, name: 'b', linked: 1, linkRatio: 0.5 }, { id: 9, name: 'not in the response' }];
-  c._applySupport(peaks, { individual_peaks: [{ id: '1', support: { f: 0.5, delta_chi2: -3, supported: false } }] });
-  assert.deepStrictEqual(peaks[0].support, { f: 0.5, delta_chi2: -3, supported: false });
-  assert.deepStrictEqual(peaks[1].support, { f: 0.5, delta_chi2: -3, supported: false, follows: 1 });
-  assert.strictEqual(peaks[2].support, null);
-  assert.ok(c._isUnsupported(peaks[0]) && c._isUnsupported(peaks[1]) && !c._isUnsupported(peaks[2]));
-  assert.ok(!c._isUnsupported({ support: null }) && !c._isUnsupported({}) && !c._isUnsupported(null));
+  const peaks = [{ id: 1, name: 'root' }, { id: 2, name: 'child', linked: 1 }, { id: 3, name: 'grandchild', linked: 2 }, { id: 9, name: 'not in the response' }];
+  c._applySupport(peaks, { individual_peaks: [
+    { id: '1', support: { f: 0.5, delta_chi2: -3, supported: false } },
+    { id: '2', support: { f: 99, delta_chi2: 9, supported: true } },       // the server resolves this too; the page uses the ROOT regardless of order
+    { id: '3', support: { f: 99, delta_chi2: 9, supported: true } } ] }, 'KEY');
+  assert.deepStrictEqual(peaks[0].support, { f: 0.5, delta_chi2: -3, supported: false, fitKey: 'KEY' });
+  assert.deepStrictEqual(peaks[1].support, { f: 0.5, delta_chi2: -3, supported: false, fitKey: 'KEY', follows: 1 });
+  assert.deepStrictEqual(peaks[2].support, { f: 0.5, delta_chi2: -3, supported: false, fitKey: 'KEY', follows: 1 });
+  assert.strictEqual(peaks[3].support, null);
+  assert.ok(c._isUnsupported(peaks[0]) && c._isUnsupported(peaks[2]) && !c._isUnsupported(peaks[3]));
+  // a link cycle does not hang
+  const cyc = [{ id: 1, linked: 2 }, { id: 2, linked: 1 }];
+  c._applySupport(cyc, { individual_peaks: [{ id: '1', support: { f: 0, supported: false } }, { id: '2', support: { f: 0, supported: false } }] }, 'KEY');
+  assert.ok(cyc[0].support && cyc[1].support);
+});
+
+test('the verdict applies only to the model and context it was computed for', () => {
+  const c = core();
+  const p = { id: 1, support: { f: 1, supported: false, fitKey: 'KEY' } };
+  assert.strictEqual(c._isUnsupported(p), true);
+  p.support.fitKey = 'ANOTHER MODEL';                      // the student edited something since the fit
+  assert.strictEqual(c._isUnsupported(p), false, 'nothing is suppressed or excluded on a model the verdict does not describe');
+  assert.strictEqual(c._isUnsupported({ id: 1, support: { f: 1, supported: false } }), false, 'a verdict without a key (older save) is not applied');
+});
+
+test('the local engine computes the same statistic from its own residuals', () => {
+  const c = core();
+  const counts = [1000, 1000, 1010, 1000, 1000], fitted = [1000, 1000, 1005, 1000, 1000], comp = [0, 0, 5, 0, 0];
+  const w = counts.map(v => 1 / Math.sqrt(v));
+  const mine = c._componentSupportCore(counts, fitted, comp, w, 3, 3);
+  const twin = c._componentSupportFromResponse({ counts, fitted_y: fitted, statistics: { n_free_params: 3 },
+    individual_peaks: [{ id: '1', y: comp, params: { a: { vary: true }, b: { vary: true }, c: { vary: true } } }] }, 1);
+  assert.deepStrictEqual(mine, twin);
+  assert.match(extractFn('runFitLocal'), /_applySupportVerdicts\(state\.peaks, id => verdicts\[String\(id\)\] \|\| null, _startsLiveKey\(\)\);/);
 });
 
 // ── sites ───────────────────────────────────────────────────────────────────
 const PEAKS = () => [
-  { id: 1, name: 'Graphite', color: '#112233', visible: true, shape: 'asym-GL', center: 284.40, fwhm: 0.64, amplitude: 86000, glMix: 16, asymmetry: 0.1, support: { f: 1e4, supported: true } },
-  { id: 2, name: 'Unknown 2', color: '#445566', visible: true, shape: 'GL', center: 282.25, fwhm: 0.42, amplitude: 215, glMix: 0, support: { f: 2.01, delta_chi2: 1.2, supported: false } },
-  { id: 3, name: 'sat', color: '#778899', visible: true, shape: 'GL', center: 291.10, fwhm: 3.5, amplitude: 2600, glMix: 59, support: { f: 500, supported: true } },
+  { id: 1, name: 'Graphite', color: '#112233', visible: true, shape: 'asym-GL', center: 284.40, fwhm: 0.64, amplitude: 86000, glMix: 16, asymmetry: 0.1, support: { f: 1e4, supported: true, fitKey: 'KEY' } },
+  { id: 2, name: 'Unknown 2', color: '#445566', visible: true, shape: 'GL', center: 282.25, fwhm: 0.42, amplitude: 215, glMix: 0, support: { f: 2.01, delta_chi2: 1.2, supported: false, fitKey: 'KEY' } },
+  { id: 3, name: 'sat', color: '#778899', visible: true, shape: 'GL', center: 291.10, fwhm: 3.5, amplitude: 2600, glMix: 59, support: { f: 500, supported: true, fitKey: 'KEY' } },
 ];
 function pageEnv(fns, extraArgs = {}) {
   const dom = {}; const els = {};
@@ -81,12 +108,13 @@ function pageEnv(fns, extraArgs = {}) {
   const names = [...CORE, ...fns];
   const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...names.map(extractFn)].join('\n');
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
+    _startsLiveKey: () => 'KEY',
     _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
     _isLocalFit: () => false, _localFitCaveat: () => '', _localFitDetail: () => '', _startsPanelHtml: () => '', _validateUncertainties: () => ({ warnings: [], info: [] }),
     renderQuantify: () => {}, recalcQuantify: () => {}, _detectPeakRSF: () => ({ key: 'C 1s', rsf: 1 }), SCOFIELD_RSF: { 'C 1s': 1 }, notify: () => {},
     _clearDisallowedChargeRef: () => {}, _updateLocalModelBanner: () => {}, _updateLockAllBtn: () => {}, renderPeakForm: () => '', _highlightChartPeak: () => {},
     _isChargeRefAllowed: () => false, _fitStatLabel: () => 'χ²ᵣ', _isUnweightedLocal: () => false, _applyStatCaption: () => {}, _applyStatDisplay: () => {},
-    _CHISQ_TOOLTIP: '', _LOCALFIT_TOOLTIP: '', _startsSummaryText: () => '', _startsChosenText: () => '', _startsIfCurrent: () => null, _startsLiveKey: () => '',
+    _CHISQ_TOOLTIP: '', _LOCALFIT_TOOLTIP: '', _startsSummaryText: () => '', _startsChosenText: () => '', _startsIfCurrent: () => null,
     _isLocalModel: () => false, _updateRFactorUI: () => {}, _activeTab: () => ({}), _renderRFactorPanel: () => '', _statIsChi: true,
     ...extraArgs };
   const api = new Function(...Object.keys(args), src + '\nreturn { ' + names.join(', ') + ' };')(...Object.values(args));
@@ -130,7 +158,7 @@ test('uncertainty panel: one rule-0 warning for the component, no per-parameter 
   const { warnings, info } = env._validateUncertainties();
   const mine = warnings.filter(w => /Unknown 2/.test(w));
   assert.strictEqual(mine.length, 1);
-  assert.match(mine[0], /not supported by the data — removing it does not make the fit worse \(F = 2\.0, threshold 10\)/);
+  assert.match(mine[0], /not supported by the data — with the other components held as fitted, removing it does not make the fit significantly worse \(F = 2\.0, threshold 10\)/);
   assert.match(mine[0], /centre, width and uncertainties are not reported/);
   assert.ok(!info.some(i => /Unknown 2/.test(i)), 'not described as merely "locked"');
 });
@@ -180,8 +208,8 @@ test('publication figure: no label at the (zero) component, legend entry says so
 });
 
 test('write-back: a server result sets support; the local engine and a propagated model reset it', () => {
-  assert.match(extractFn('applyBackendResult'), /^function applyBackendResult\(result\) \{\n  _applySupport\(state\.peaks, result\);/);
-  assert.match(extractFn('runFitLocal'), /Object\.assign\(live, p\);\n\s*live\.support = null;/);
+  const abr = extractFn('applyBackendResult');
+  assert.ok(abr.indexOf('_applyBackendParams(p, ipeak.params);') < abr.indexOf('_applySupport(state.peaks, result, _startsLiveKey());'), 'the key is taken AFTER the values are applied');
   assert.match(extractFn('runPropagation'), /amplitude: p\.linked \? p\.amplitude : p\.amplitude \* scale,\n\s*support: null/);
   assert.match(extractFn('runFitLocal'), /if \(param === 'amplitude'\)\s+return Math\.max\(0, v\);/, 'local amplitude floor is 0 (owner decision)');
 });
@@ -190,4 +218,39 @@ test('persistence: support travels with the peak object through every save (the 
   assert.match(extractFn('_doSaveFit'), /peaks: state\.peaks\.map\(p => \(\{\.\.\.p\}\)\)/);
   assert.match(extractFn('_doSaveSpectrum'), /peaks: tab\.peaks\.map\(p => \(\{\.\.\.p\}\)\)/);
   assert.match(html, /peaks: _normalizePeaksCRef\(\(t\.peaks \|\| \[\]\)\.map\(p => \(\{\.\.\.p\}\)\)\)/);
+});
+
+
+test('CSV / XLSX: an unsupported DS+G component exports no width of any kind (beta, m)', () => {
+  const rows = [];
+  const env = pageEnv(['exportFitTable', '_shapeExportCols'], {
+    XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
+    _downloadBlob: () => {}, _isUnweightedLocal: () => false,
+  });
+  Object.assign(env.state.peaks[1], { shape: 'DSG_LA', laAlpha: 0.1, laBeta: 0.3, laM: 0.4 });
+  env.state.fitResult.chiReduced = 2.1;
+  env.exportFitTable('xlsx');
+  const table = rows[1], u = table.find(r => r[0] === 'Unknown 2');
+  const hdr = table[0];
+  assert.strictEqual(u[hdr.indexOf('Beta')], '');
+  assert.strictEqual(u[hdr.indexOf('M_Gauss')], '');
+  assert.strictEqual(u[hdr.indexOf('Alpha')], 0.1, 'alpha is an asymmetry, not a width: kept');
+});
+
+test('the scattered-starts table: an unsupported component shows neither area % nor a move in "Your fit", and is not the largest move', () => {
+  const env = pageEnv(['_startsPanelHtml', '_startsSummaryText', '_startsShiftHtml', '_startsShiftColour', '_startsEv', '_startsPeakName', '_startsIfCurrent'], {
+    _STARTS_SHIFT_AMBER_EV: 0.5, _STARTS_SHIFT_RED_EV: 1.0, _STARTS_TOOLTIP: '' });
+  const comp = (id, pct, shift) => ({ id, area_percent: pct, center_shift_from_start: shift, params: { center: 285 } });
+  const st = { ran: true, n_run: 3, n_converged: 3, n_same_as_fit: 2, n_in_alternatives: 1, n_not_better_elsewhere: 0, not_better_chi2r: [],
+    fit: { chi2r: 5.3, largest_centre_shift_from_start: { id: 2, ev: 1.4 }, components: [comp(1, 60, 0.02), comp(2, 0.3, 1.4), comp(3, 39.7, 0)] },
+    alternatives: [{ chi2r: 4.3, n_starts: 1, largest_centre_shift_from_start: { id: 2, ev: -0.9 }, largest_fraction_difference_pp: 10,
+      components: [comp(1, 50, 0.1), comp(2, 12, -0.9), comp(3, 38, 0)] }] };
+  env.state.fitResult.starts = st; env.state.fitResult.startsModelKey = 'KEY';
+  const h = env._startsPanelHtml(env.state.fitResult);
+  const yours = h.slice(h.indexOf('Your fit'), h.indexOf('Alternative 1'));
+  assert.match(yours, /not supported by the data/);
+  assert.doesNotMatch(yours, /0\.3<br>|\+1\.40 eV/, 'no area % and no move for the unsupported component');
+  assert.match(yours, /sat \+0\.00 eV|Graphite \+0\.02 eV/, 'largest move among SUPPORTED components');
+  const alt = h.slice(h.indexOf('Alternative 1'));
+  assert.match(alt, /12\.0<br>/, 'an alternative is a different solution: its components are shown as they are');
 });
