@@ -1168,7 +1168,7 @@ def _request_seed(x, counts, background, shapes, prefixes, params, *, fit_kws, n
                        "n_perturb": n_perturb})
     h = hashlib.sha256(b"xps-fit-seed-v1\0")
     for arr in (x, counts, background):
-        a = np.ascontiguousarray(arr, dtype="<f8")
+        a = np.ascontiguousarray(arr, dtype="<f8") + 0.0       # -0.0 -> 0.0 (the CSV path keeps "-0.00")
         h.update(str(a.size).encode() + b"\0" + a.tobytes())
     h.update(json.dumps(rest, sort_keys=True, separators=(",", ":"), allow_nan=True).encode())
     return int.from_bytes(h.digest()[:4], "little")            # 32 bits: what scipy's seed accepts

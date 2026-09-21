@@ -446,3 +446,11 @@ def test_counts_held_in_float32_give_the_same_fit_as_float64():
     x, y, specs = _two_peaks()
     kw = dict(background_method="none", n_perturb=1, fit_kws={"method": "leastsq"})
     assert _dump(fitting.run_fit(x, y.astype(np.float32), specs, **kw)) == _dump(fitting.run_fit(x, y, specs, **kw))
+
+
+def test_a_negative_zero_count_is_the_same_request():
+    # Codex round 5 (GO x2, minor): the page writes -0.001 as "-0.00" and the parser keeps the sign.
+    x, y, specs = _two_peaks()
+    y0, y1 = y.copy(), y.copy()
+    y0[0], y1[0] = 0.0, -0.0
+    assert _seed(x, y0, specs, background_method="none") == _seed(x, y1, specs, background_method="none")
