@@ -283,34 +283,52 @@ returned χ²ᵣ 1.92 where Trust-Region found 1.81.
 `n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
 and the populations of `differential_evolution` and `basinhopping`, which
 lmfit otherwise takes from numpy's GLOBAL generator — comes from one seed
-that is a pure function of the request (`_request_seed`: SHA-256 of the
-energies and counts as little-endian float64 plus the canonical JSON of
-peaks, background settings, method and `n_perturb`; tag `xps-fit-seed-v1`,
-pinned by a test — changing the derivation changes what saved projects
-regenerate). The response reports it as `random_seed`; a caller's own
-`fit_kws.fit_kws.seed` replaces it. Until this unit the generator was
-unseeded and five presses of Run Fit on one committed C 1s scan gave χ²ᵣ
-70.6 / 18.5 / 70.6 / 38.3 / 18.5. What seeding buys, measured on the 202
-committed targets × 5 presses (before → after): Levenberg-Marquardt
-byte-identical on 145 → 202 targets; Trust-Region (the default) on
-51 → 146, area fractions moving by more than 1 pp between presses on
-8 → 0 targets, by more than 0.01 pp on 14 → 1 (0.33 pp, one U 4f scan
-where one press in five lands in a neighbouring minimum), all others
-≤ 0.005 pp. Trust-Region is NOT byte-identical and cannot be made so by
-seeding: OpenBLAS's dot product rounds one unit in the last place
-differently depending on where its argument sits in memory (verified:
-`w.dot(w)` gives two values over 16 alignments, `np.sum(w*w)` one), and
-scipy's trust-region iteration (`norm` inside `_lsq/trf.py` is the first
-call to return different output for identical input) amplifies that to
-~1e-4 relative in an area at its stopping tolerance of 1e-8. Do not "fix"
-that by patching scipy internals, and do not tighten the tolerance for it:
-measured on the same 202 targets × 5 presses, ftol = xtol = gtol = 1e-12
-gave FEWER byte-identical targets (123 vs 146), two targets above 0.01 pp
-instead of one, and made two targets that converge today abort on the
-evaluation budget in every press (it shrinks the jitter ~20× only on a
-well-conditioned synthetic model).
-Across machines the seed and the draws are identical; the arithmetic is
-whatever that machine's BLAS does.
+that is a pure function of what the fit computes from (`_request_seed`:
+SHA-256 of the energies and counts as little-endian float64 plus the
+canonical JSON of the peak-spec keys the fit READS (`_SEED_SPEC_KEYS`; a
+test greps `_make_peak_params` so a new key cannot be forgotten), the
+background settings with manual anchors in sorted order, the method,
+solver options and `n_perturb`; tag `xps-fit-seed-v1`). A peak's name,
+colour or RSF, `null` vs absent, `1` vs `"1"`, `-0.0` and method-name case
+do not change it, so a cosmetic rename cannot change a fit. It is a seed,
+not an identity (32 bits collide; never a cache key). The response reports
+it as `random_seed`; a caller's `fit_kws.fit_kws.seed` (integer in
+[0, 2³²)) replaces it and is consumed, never forwarded to a solver.
+`run_fit` itself accepts only the five supported methods, case-folded
+(`_FIT_METHODS`): `/api/analyze` forwards `options.fit_method` without the
+route's allowlist, and lmfit's `ampgo`, `dual_annealing`, … would draw
+from the global generator. The seed value and the first draws are pinned by
+tests; numpy does not promise the same `default_rng` stream across
+versions, so a failing pin after an upgrade is a release note ("saved
+projects regenerate differently"), not something to re-pin silently.
+
+What seeding buys and what it does not. "Identical request" means the same
+data, model START values and settings — after a fit the page holds the
+fitted values, so a second press is a different request; re-loading a
+saved project and pressing Run Fit is the repeatable case. Measured on the
+202 committed targets × 5 presses of the identical request, before → after:
+Levenberg-Marquardt byte-identical on 145 → 202 targets;
+Trust-Region on 51 → 145, area fractions moving by more than 1 pp between
+presses on 8 → 0 targets, by more than 0.01 pp on 14 → 2 (worst 0.30 pp,
+one U 4f scan where two presses in five land in a neighbouring minimum). Levenberg-Marquardt (MINPACK) and Nelder-Mead are
+byte-identical. Trust-Region, the default, is NOT and cannot be made so by
+seeding: the BLAS dot product (Apple Accelerate on the i9) rounds one unit
+in the last place differently depending on where its argument sits in
+memory (`w.dot(w)` gives two values over 16 alignments, `np.sum(w*w)`
+one), `norm` inside scipy's `_lsq/trf.py` is the first call to return
+different output for identical input, and the iteration amplifies that to
+~1e-4 relative in an area at its stopping tolerance of 1e-8. Worse, the
+perturbed restarts start from that jittering solution, and near a basin
+boundary 1e-5 in a start is enough to send a restart into another minimum:
+on the lab's targets that happened once (0.30 pp), but on a synthetic
+five-component model two presses of the seeded request differed by 29 pp
+(`tests/test_fit_reproducibility.py` docstring). Do not patch scipy
+internals for this, and do not tighten the tolerance: ftol = xtol = gtol =
+1e-12 on the same 202 × 5 gave FEWER byte-identical targets (123 vs 146)
+and made two targets that converge today abort on the evaluation budget.
+Real cures are owner decisions and unmeasured: a reproducible-arithmetic
+BLAS (e.g. oneMKL CNR) validated end to end, or a deterministic
+perturbation base.
 
 ### Client-side fallback
 
