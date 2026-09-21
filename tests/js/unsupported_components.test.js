@@ -30,10 +30,10 @@ function extractFn(name) {
 const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
-const CORE = ['_componentSupportCore', '_componentSupportFromResponse', '_supportRootOf', '_applySupportVerdicts', '_applySupport', '_isUnsupported', '_unsupportedBadge'];
+const CORE = ['_componentSupportCore', '_componentSupportFromResponse', '_supportRootOf', '_applySupportVerdicts', '_applySupport', '_isUnsupported', '_currentSupport', '_restampSupport', '_unsupportedBadge'];
 function core() {
   const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...CORE.map(extractFn)].join('\n');
-  return new Function('_escAttr', '_startsLiveKey', src + '\nreturn { ' + CORE.join(', ') + ' };')(esc, () => 'KEY');
+  return new Function('_escAttr', '_startsLiveKey', 'state', src + '\nreturn { ' + CORE.join(', ') + ' };')(esc, () => 'KEY', { peaks: [] });
 }
 
 const FIX = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/autofit_anchor.json'), 'utf8'));
@@ -203,7 +203,7 @@ test('publication figure: no label at the (zero) component, legend entry says so
   assert.match(fig, /if \(!p\.visible \|\| _isUnsupported\(p\)\) continue;\s*\/\/ no label/);
   assert.match(fig, /label: _isUnsupported\(p\) \? p\.name \+ ' \(not supported by the data\)' : p\.name, type: 'fill'/);
   assert.match(extractFn('updatePlot'), /label: _isUnsupported\(p\) \? p\.name \+ ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : p\.name,/);
-  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak\) \? ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : ''/);
+  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\)\) \? ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : ''/);
   assert.match(extractFn('exportResults'), /_isUnsupported\(p\) \? p\.name \+ ' \(not supported by the data\)' : p\.name/);
 });
 
@@ -253,4 +253,81 @@ test('the scattered-starts table: an unsupported component shows neither area % 
   assert.match(yours, /sat \+0\.00 eV|Graphite \+0\.02 eV/, 'largest move among SUPPORTED components');
   const alt = h.slice(h.indexOf('Alternative 1'));
   assert.match(alt, /12\.0<br>/, 'an alternative is a different solution: its components are shown as they are');
+});
+
+
+// ── Codex round 2 ───────────────────────────────────────────────────────────
+test('exports: a stale or keyless verdict is "not established", never "supported"', () => {
+  const c = core();
+  assert.strictEqual(c._currentSupport({ support: { supported: false, fitKey: 'OLD' } }), null);
+  assert.strictEqual(c._currentSupport({ support: { supported: true } }), null);
+  assert.deepStrictEqual(c._currentSupport({ support: { supported: true, fitKey: 'KEY' } }), { supported: true, fitKey: 'KEY' });
+  const rows = [];
+  const env = pageEnv(['exportFitTable', '_shapeExportCols'], {
+    XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
+    _downloadBlob: () => {}, _isUnweightedLocal: () => false,
+  });
+  env.state.peaks[1].support.fitKey = 'A MODEL THE STUDENT SINCE EDITED';
+  env.state.fitResult.chiReduced = 2.1;
+  env.exportFitTable('xlsx');
+  const table = rows[1];
+  assert.strictEqual(table.find(r => r[0] === 'Unknown 2')[1], '', 'stale: no status either way');
+  assert.notStrictEqual(table.find(r => r[0] === 'Unknown 2')[2], '', 'and its centre is reported again');
+  assert.strictEqual(table.find(r => r[0] === 'Graphite')[1], 'supported');
+});
+
+test('Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: _restampSupport, called after the locks', () => {
+  const src = extractFn('applyAutoFitResult');
+  assert.ok(src.indexOf('for (const p of state.peaks) p.fixCenter = true;') < src.indexOf('_restampSupport()'), 're-stamped after the lock');
+  assert.ok(src.indexOf('_restampSupport()') < src.indexOf('renderPeakList()'), 'and before anything renders');
+  const c = core();
+  const peaks = [{ id: 1, support: { supported: false, fitKey: 'BEFORE THE LOCKS' } }, { id: 2, support: null }];
+  const api = new Function('_startsLiveKey', 'state', extractFn('_restampSupport') + '\nreturn _restampSupport;')(() => 'AFTER', { peaks });
+  api();
+  assert.strictEqual(peaks[0].support.fitKey, 'AFTER');
+  assert.strictEqual(peaks[1].support, null);
+});
+
+test('a .fit.json import onto this tab\'s data carries no verdict', () => {
+  assert.match(html, /state\.peaks = _normalizePeaksCRef\(\(data\.peaks \|\| \[\]\)\.map\(p => \(\{\.\.\.p, support: null\}\)\)\);/);
+});
+
+test('_isUnsupported is never handed an array index as its key (Array.filter passes one)', () => {
+  assert.strictEqual((html.match(/filter\(_isUnsupported\)/g) || []).length, 0);
+  const c = core();
+  const p = { id: 1, support: { supported: false, fitKey: 'KEY' } };
+  assert.deepStrictEqual([p].filter(q => c._isUnsupported(q)), [p]);
+});
+
+test('a key change re-renders every consumer of the verdict', () => {
+  const src = extractFn('_refreshStartsEvidence');
+  assert.match(src, /flaggedNow/);
+  assert.match(src, /renderPeakList\(\);\s*\n\s*if \(state\.fitResult && typeof renderResults === 'function'\) renderResults\(\);/);
+  for (const fn of ['toggleLock', 'toggleAllLocks']) assert.match(extractFn(fn), /_refreshStartsEvidence\(true\);/, fn);
+  assert.match(extractFn('updatePlot'), /_refreshStartsEvidence\(false\);/);
+});
+
+test('stack tabs judge a source component against the SOURCE record\'s key', () => {
+  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\)\)/);
+  const c = core();
+  const p = { id: 1, support: { supported: false, fitKey: 'SRC' } };
+  assert.strictEqual(c._isUnsupported(p, 'SRC'), true);
+  assert.strictEqual(c._isUnsupported(p, 'the active stack tab'), false);
+});
+
+test('"Your fit" percentages are over supported components; an empty Quantify shows no 100 %', () => {
+  const env = pageEnv(['_startsPanelHtml', '_startsSummaryText', '_startsShiftHtml', '_startsShiftColour', '_startsEv', '_startsPeakName', '_startsIfCurrent'], {
+    _STARTS_SHIFT_AMBER_EV: 0.5, _STARTS_SHIFT_RED_EV: 1.0, _STARTS_TOOLTIP: '' });
+  const comp = (id, pct, shift) => ({ id, area_percent: pct, center_shift_from_start: shift, params: { center: 285 } });
+  env.state.fitResult.starts = { ran: true, n_run: 3, n_converged: 3, n_same_as_fit: 2, n_in_alternatives: 1, n_not_better_elsewhere: 0, not_better_chi2r: [],
+    fit: { chi2r: 5.3, largest_centre_shift_from_start: { id: 2, ev: 1.4 }, components: [comp(1, 60, 0.02), comp(2, 0.3, 1.4), comp(3, 39.7, 0)] },
+    alternatives: [{ chi2r: 4.3, n_starts: 1, largest_centre_shift_from_start: { id: 2, ev: -0.9 }, largest_fraction_difference_pp: 10, components: [comp(1, 50, 0.1), comp(2, 12, -0.9), comp(3, 38, 0)] }] };
+  env.state.fitResult.startsModelKey = 'KEY';
+  const yours = env._startsPanelHtml(env.state.fitResult); const y = yours.slice(yours.indexOf('Your fit'), yours.indexOf('Alternative 1'));
+  assert.match(y, /60\.2<br>/); assert.match(y, /39\.8<br>/);
+  const q = pageEnv(['renderQuantify', 'recalcQuantify']);
+  for (const p of q.state.peaks) p.support = { supported: false, fitKey: 'KEY' };
+  q.document.getElementById('quantify-area');
+  q.renderQuantify([1, 1, 1], 0);
+  assert.strictEqual(q.els['qtotal-pct'].textContent, '—');
 });

@@ -138,7 +138,8 @@ worse (χ²_without ≤ χ²_with, or F < 10). A bound-pinned amplitude always
 satisfies this. No intensity threshold (six failed; owner: no seventh).
 Computed server-side once per fit and returned per component as
 `support: {f, supported}` so every consumer reads one field; the JS twin
-stays for the local engine and for loaded files.
+recomputes it for a response lacking the field, and the local engine
+computes the same statistic from its own residuals.
 
 Engines: server floor stays 0; local engine floor 1 → 0 (one line in
 `runFitLocal`'s clamp; the active-set logic already holds a wall-blocked
@@ -277,7 +278,9 @@ Server: `_component_support` per component in every `run_fit` response
 parent). Page: `p.support` written by `applyBackendResult`, nulled by the
 local engine and Batch Fit; `_isUnsupported` at all 15 sites of §3.5 except
 #14 (charge correction, covered by the Auto-Fit anchor check) and #15 (Find
-Peaks, out of scope as stated); JS twin for loaded files. Local amplitude
+Peaks, out of scope as stated); JS twin for a response lacking the field;
+the verdict is bound to the fit by key (Codex round 1) and every consumer
+follows a key change (round 2). Local amplitude
 floor 1 → 0. Deviation from §3.4: the twin is applied only when the
 response carries the arrays; older saved peaks without `support` read as
 "not established" and display as before (no retroactive verdicts).

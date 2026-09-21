@@ -479,9 +479,17 @@ to that fit: `p.support.fitKey` is the model-plus-context key
 the student edits any peak, lock, link, the background, ROI, anchors or
 charge correction, or an undo brings back other values, nothing is
 suppressed or excluded until a new fit writes a new verdict (a verdict
-without a key, from an older save, is never applied). `p.support` is
-persisted with the peak (saves spread the peak whole); Batch Fit's copy
-sets it to `null` (nothing established for that tab). Sites
+without a key, from an older save, is never applied; exports write a
+Status only from a CURRENT verdict — stale means "not established", never
+"supported"). When the key changes, `_refreshStartsEvidence` re-renders the
+sidebar, Results and Quantify if the set of flagged components differs
+from what is on screen (a lock toggle goes through it). Auto-Fit locks
+every centre and refines the charge shift AFTER the result is applied, so
+it re-stamps its verdicts (`_restampSupport`) — those changes are part of
+its result. `p.support` is persisted with the peak (saves spread the peak
+whole); Batch Fit's copy and a `.fit.json` import set it to `null`
+(parameters on other data: nothing established); stack tabs judge a source
+component against the SOURCE record's key. Sites
 (`_isUnsupported`): sidebar card (badge; centre/width "—"; excluded from the
 area total), Results table (greyed row, no centre/width/σ, area kept,
 percentage "—", note beneath; percentages over supported components),

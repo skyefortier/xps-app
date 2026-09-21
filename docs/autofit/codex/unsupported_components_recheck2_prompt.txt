@@ -1,0 +1,20 @@
+ROUND 3 recheck of step (b), branch feature-unsupported-components (git diff main..HEAD). Read-only. Round 2 was NO-GO x2 (archived docs/autofit/codex/unsupported_components_r2_verdict_run{A,B}.md; owner decisions and the site table in unsupported_components_review_prompt.txt are not up for review). Everything cleared in rounds 1-2 is unchanged. Budget your time: a verdict is required within the run.
+
+DISPOSITIONS
+1. MAJOR Auto-Fit invalidated its own verdicts (locks + charge shift after the result) -> applyAutoFitResult re-stamps every verdict with the live key AFTER its centre locks and charge refinement (_restampSupport), before anything renders: those changes are part of ITS result. Browser-verified on a real C 1s tab: all verdicts current after Auto-Fit.
+2. MAJOR a stale verdict exported as "supported" -> Status is written only from a CURRENT verdict (_currentSupport): stale or keyless = '' (not established), never 'supported'. Test with a stale key.
+3. MAJOR a key change did not refresh rendered suppression -> _refreshStartsEvidence (already on the lock toggles, Lock All and every updatePlot) now compares the set of components flagged NOW with the set whose badge is ON SCREEN and, if they differ, re-renders the sidebar and Results (which renders Quantify and the starts panel); statelessly — no module-level memory. Browser-verified through the real toggleLock: row, badge and Quantify row all follow.
+4. (run B MAJOR) a .fit.json import reused verdicts -> fromJSON's .fit.json branch writes support: null (parameters on this tab's data establish nothing).
+5. MINOR stack labels compared against the active tab -> _isUnsupported(p, key) takes an optional key; _buildStackDatasets passes _startsRecordKey(src).
+6. MINOR "Your fit" percentages kept the unsupported denominator -> the judged row is renormalised over supported components (alternatives unchanged).
+7. MINOR empty Quantify totalled 100 % -> the total shows "—" when nothing is quantified.
+Found by the new tests while doing this: Array.prototype.filter passes the index as the second argument, so `state.peaks.filter(_isUnsupported)` handed an index as the key and silently disabled three sites; every call is now `filter(p => _isUnsupported(p))` and a test forbids the bare form.
+Plan wording "for loaded files" -> "for a response lacking the field" (both places). 7 Python + 21 Node tests; JS suite green; full pytest suite re-run on HEAD.
+
+TRY TO BREAK
+a. _restampSupport: any caller other than Auto-Fit that changes the model as part of producing a result and would need it (Find Peaks apply? useAlternative — no: it re-fits); any way it re-stamps a verdict that should have been lifted (e.g. Auto-Fit rejected/rolled back — does _autoFitRestore restore the peaks' support too?).
+b. the on-screen comparison in _refreshStartsEvidence: a state where the sidebar is not rendered / hidden / another tab's list is on screen so the comparison misfires (re-render storm or missed refresh); a stack tab active.
+c. _isUnsupported(p, key) with key === null / a legitimately absent _startsLiveKey (e.g. a test harness) — behaviour and any site passing a wrong second argument (map/forEach/filter).
+d. anything else in the diff not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

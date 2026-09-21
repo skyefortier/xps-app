@@ -3412,8 +3412,9 @@ class TabManager {
       // Peaks result produced for the previous model no longer applies.
       pushUndo({ endpointAvg: document.getElementById('bg-endpoint-avg')?.value });
       active.findPeaks = null;
-      // Apply peaks
-      state.peaks = _normalizePeaksCRef((data.peaks || []).map(p => ({...p})));
+      // Apply peaks. Parameters imported onto this tab's data carry no verdict:
+      // "not supported by the data" was about the data they were fitted to.
+      state.peaks = _normalizePeaksCRef((data.peaks || []).map(p => ({...p, support: null})));
       state.nextId = data.nextId || (Math.max(0, ...state.peaks.map(p => p.id)) + 1);
       state.fitResult = null;
       active.peaks = state.peaks;
@@ -6954,10 +6955,23 @@ function _applySupport(peaks, json, fitKey) {
   _applySupportVerdicts(peaks, id => _componentSupportFromResponse(json, id), fitKey);
 }
 // TRUE only for a verdict that describes the CURRENT model and fit context.
-function _isUnsupported(p) {
+function _isUnsupported(p, key) {
   if (!(p && p.support && p.support.supported === false)) return false;
   if (!p.support.fitKey) return false;                              // a verdict from before keys existed: not applied
-  return typeof _startsLiveKey === 'function' ? p.support.fitKey === _startsLiveKey() : false;
+  if (key === undefined) key = typeof _startsLiveKey === 'function' ? _startsLiveKey() : null;
+  return p.support.fitKey === key;
+}
+// A CURRENT verdict, either way (for exports: a stale or keyless verdict is "not established", never "supported").
+function _currentSupport(p) {
+  if (!(p && p.support && p.support.fitKey)) return null;
+  return p.support.fitKey === _startsLiveKey() ? p.support : null;
+}
+// Re-stamp every verdict with the live key: for a caller that changes the
+// model or context AS PART OF producing the result (Auto-Fit locks every
+// centre and refines the charge correction after the fit is applied).
+function _restampSupport() {
+  const key = _startsLiveKey();
+  for (const p of state.peaks) if (p.support) p.support.fitKey = key;
 }
 function _unsupportedBadge() { return `<span class="unsupported-badge" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</span>`; }
 
@@ -7063,6 +7077,9 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   // converged auto-fit positions can drift. The user can manually unlock
   // any center via the existing padlock icon in the peak editor.
   for (const p of state.peaks) p.fixCenter = true;
+  // the locks and the refined charge shift are part of THIS result: the
+  // support verdicts describe the model as finalised here
+  if (typeof _restampSupport === 'function') _restampSupport();
   if (typeof renderPeakList === 'function') renderPeakList();
   if (typeof updatePlot === 'function') updatePlot();
   if (typeof renderResults === 'function') renderResults();
@@ -7328,6 +7345,19 @@ function _refreshStartsEvidence(repaint) {
   const hadAlt = !!(_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:'));
   _dropStaleAltPreview();
   if (repaint && hadAlt && !_historyPreview && typeof updatePlot === 'function') updatePlot();
+  // The support verdicts are keyed the same way. If any is now stale (or
+  // current again after an undo), every consumer that renders it must follow:
+  // the Results table, the Quantify tab and the sidebar cards, not only the
+  // starts panel. Rendered once, only when the visible state would change.
+  const key = _startsLiveKey();
+  const flaggedNow = new Set(state.peaks.filter(p => _isUnsupported(p, key)).map(p => String(p.id)));
+  const flaggedShown = new Set(Array.from(document.querySelectorAll('#peak-list .peak-item')).filter(it => it.querySelector('.unsupported-badge')).map(it => it.id.replace('peak-item-', '')));
+  const differs = flaggedNow.size !== flaggedShown.size || [...flaggedNow].some(id => !flaggedShown.has(id));
+  if (differs) {
+    if (typeof renderPeakList === 'function') renderPeakList();
+    if (state.fitResult && typeof renderResults === 'function') renderResults();      // renders Quantify and the starts panel too
+    return;
+  }
   const el = document.querySelector('.starts-panel');
   if (el && state.fitResult) el.outerHTML = _startsPanelHtml(state.fitResult);
 }
@@ -7412,20 +7442,24 @@ function _startsPanelHtml(fr) {
   // A component this fit did not support shows neither (the same rule as the
   // Results table); an alternative's components are unjudged (no verdict was
   // computed for that solution) and are shown as they are.
-  const cell = (c, judged) => {
+  const cell = (c, judged, scale) => {
     const pk = getPeak(Number(c.id)) || getPeak(c.id);
     if (judged && pk && _isUnsupported(pk)) return `<td style="text-align:right;padding:2px 4px;color:var(--text3)" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</td>`;
-    return `<td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${c.area_percent.toFixed(1)}<br><span style="color:${_startsShiftColour(c.center_shift_from_start)}">${_startsEv(c.center_shift_from_start)}</span></td>`;
+    return `<td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${(c.area_percent * scale).toFixed(1)}<br><span style="color:${_startsShiftColour(c.center_shift_from_start)}">${_startsEv(c.center_shift_from_start)}</span></td>`;
   };
   const largest = (cs, judged) => {
     // the largest move among components this fit supports (an unsupported one has no position to move)
     const eligible = cs.filter(c => { const pk = getPeak(Number(c.id)) || getPeak(c.id); return !(judged && pk && _isUnsupported(pk)); });
     return eligible.length ? eligible.reduce((m, c) => Math.abs(c.center_shift_from_start) > Math.abs(m.center_shift_from_start) ? c : m) : null;
   };
-  const row = (label, chi, n, cs, judged, actions) => { const big = largest(cs, judged); return `<tr style="border-top:1px solid var(--border)">
+  const row = (label, chi, n, cs, judged, actions) => { const big = largest(cs, judged);
+    // the judged row's percentages are over the components this fit supports (as in the Results table)
+    const supportedPct = judged ? cs.reduce((t, c) => { const pk = getPeak(Number(c.id)) || getPeak(c.id); return t + ((pk && _isUnsupported(pk)) ? 0 : c.area_percent); }, 0) : 100;
+    const scale = supportedPct > 0 ? 100 / supportedPct : 1;
+    return `<tr style="border-top:1px solid var(--border)">
       <td style="padding:2px 4px">${label}</td><td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${chi.toFixed(2)}</td>
       <td style="text-align:right;padding:2px 4px">${n}</td>
-      ${cs.map(c => cell(c, judged)).join('')}
+      ${cs.map(c => cell(c, judged, scale)).join('')}
       <td style="padding:2px 4px">${big ? _startsShiftHtml({ id: big.id, ev: big.center_shift_from_start }) : '&mdash;'}</td><td style="padding:2px 4px;white-space:nowrap">${actions}</td></tr>`; };
   html += `<h4 style="font-size:11px;margin:8px 0 4px" title="Solutions other starts reached with a lower reduced chi-square than your fit. A lower value is not a better chemical model: look at where the components went.">Other solutions found</h4>
     <div style="overflow-x:auto"><table style="width:100%;font-size:10px;border-collapse:collapse">
@@ -8293,7 +8327,7 @@ function renderResults() {
   const areas = state.peaks.map(p => _peakArea(p, be));
   // percentages are over the components the fit DID determine
   const totalArea = areas.reduce((s, v, i) => s + (_isUnsupported(state.peaks[i]) ? 0 : v), 0);
-  const unsupportedPeaks = state.peaks.filter(_isUnsupported);
+  const unsupportedPeaks = state.peaks.filter(p => _isUnsupported(p));
 
   state.peaks.forEach((p, i) => {
     const pct = totalArea > 0 ? (areas[i] / totalArea * 100) : 0;
@@ -8438,8 +8472,8 @@ function renderQuantify(areas, totalArea) {
     </tr>`;
   });
 
-  html += '</tbody><tfoot><tr><td colspan="4" style="font-weight:500;color:var(--text2)">Total</td><td id="qtotal-norm">&mdash;</td><td id="qtotal-pct" style="font-weight:500">100%</td></tr></tfoot></table>';
-  const qUnsupported = state.peaks.filter(_isUnsupported);
+  html += '</tbody><tfoot><tr><td colspan="4" style="font-weight:500;color:var(--text2)">Total</td><td id="qtotal-norm">&mdash;</td><td id="qtotal-pct" style="font-weight:500">&mdash;</td></tr></tfoot></table>';
+  const qUnsupported = state.peaks.filter(p => _isUnsupported(p));
   if (qUnsupported.length) {
     html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:8px" title="${_escAttr(_UNSUPPORTED_TIP)}">Not quantified — <b>${_UNSUPPORTED_LABEL}</b>: ${qUnsupported.map(q => _escHtml(q.name)).join(', ')}. The fit did not determine ${qUnsupported.length === 1 ? 'this component' : 'these components'}; an atomic percentage of 0.0 % would be a measurement claim.</div>`;
   }
@@ -8532,6 +8566,8 @@ function recalcQuantify() {
 
   const tn = document.getElementById('qtotal-norm');
   if (tn) tn.textContent = total.toFixed(0);
+  const tp = document.getElementById('qtotal-pct');
+  if (tp) tp.textContent = total > 0 ? '100%' : '\u2014';
 }
 
 // ═══════════════════════════════════════════════════
@@ -8797,7 +8833,7 @@ function _buildStackDatasets(stackTab) {
     for (const pc of rdPeaks) {
       datasets.push({
         _stackKey: e.id + ':peak:' + pc.peak.id,
-        label: (pc.peak.name || ('peak ' + pc.peak.id)) + (_isUnsupported(pc.peak) ? ' (' + _UNSUPPORTED_LABEL + ')' : ''),
+        label: (pc.peak.name || ('peak ' + pc.peak.id)) + (_isUnsupported(pc.peak, _startsRecordKey(src)) ? ' (' + _UNSUPPORTED_LABEL + ')' : ''),
         // BG-sub view: pure peak shape (bg-subtracted level).
         // Raw view: peak + bg (raw level).
         data: useBgSub
@@ -10985,7 +11021,7 @@ function exportFitTable(fmt) {
   });
   // an unsupported component is not quantified (same rule as the Quantify tab)
   const normAreas = areas.map((a,i) => _isUnsupported(state.peaks[i]) ? 0 : a / rsfVals[i]);
-  const unsupportedNames = state.peaks.filter(_isUnsupported).map(p => p.name);
+  const unsupportedNames = state.peaks.filter(p => _isUnsupported(p)).map(p => p.name);
   const normTotal = normAreas.reduce((s,v)=>s+v,0);
   const atPcts = normAreas.map(n => normTotal > 0 ? n/normTotal*100 : 0);
 
@@ -11012,7 +11048,7 @@ function exportFitTable(fmt) {
               p.shape, sc.gl, sc.alpha, '', '', rsfVals[i].toFixed(4), '', ''];
     }
     return [
-      p.name, p.support ? 'supported' : '', p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
+      p.name, (_currentSupport(p) && _currentSupport(p).supported) ? 'supported' : '', p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
       p.fwhm.toFixed(4), fse !== '' ? Number(fse).toFixed(5) : '',
       p.amplitude.toFixed(2), ase !== '' ? Number(ase).toFixed(3) : '',
       areas[i].toFixed(2), p.shape, sc.gl, sc.alpha,
