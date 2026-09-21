@@ -1120,37 +1120,40 @@ def _canonical(value):
     return repr(value)
 
 
-def _request_seed(x, counts, shapes, params, *, background_method, bg_start_idx, bg_end_idx,
-                  endpoint_avg, manual_bg, fit_kws, n_perturb) -> int:
-    """The seed for every random draw of one fit: a pure function of what the
-    optimiser is actually GIVEN — the data (little-endian float64), the
-    lineshape of each component in fitting order, and every lmfit parameter's
-    value, bounds, vary flag and expression as built from the request — plus
-    the background settings (manual anchors in the order the background
-    sorts them into), the method, solver options and ``n_perturb``.
+def _request_seed(x, counts, background, shapes, params, *, fit_kws, n_perturb) -> int:
+    """The seed for every random draw of one fit: a pure function of the
+    NUMBERS THE OPTIMISER IS HANDED — energies, counts and the computed
+    background curve (little-endian float64), the lineshape of each component
+    in fitting order, each lmfit parameter's effective role, the method,
+    solver options and ``n_perturb``.
 
-    Hashing the effective parameters rather than the request's peak dicts
-    means nothing the fit ignores can change the draws: a peak's name or
-    colour, a ``fix_gl_ratio`` the page still sends for a Gaussian, stale
-    shape parameters kept after a shape switch, fields a linked peak
-    overrides. (Measured in review: such a no-op edit moved an area fraction
-    by 45 percentage points when the peak dicts were hashed.) It is a seed,
-    not an identity: 32 bits collide, never use it as a cache key. Changing
-    this derivation changes what saved projects regenerate: bump the version
-    tag and say so.
+    A parameter's role is what it can do to the fit: a constrained one is its
+    expression (its own start value and bounds are overridden), a fixed one
+    is its value (its bounds cannot act), a free one is its value and bounds.
+    Settings are hashed by their EFFECT, never as sent, so nothing the fit
+    ignores can change the draws: a peak's name or colour, the
+    ``fix_gl_ratio`` the page still sends for a Gaussian, stale shape
+    parameters kept after a shape switch, the ``endpoint_avg`` a linear
+    background does not use, anchor order. (Measured in review: each such
+    no-op edit moved an area fraction by 15-45 percentage points while the
+    request was hashed as sent.) It is a seed, not an identity: 32 bits
+    collide, never use it as a cache key. Changing this derivation changes
+    what saved projects regenerate: bump the version tag and say so.
     """
     kws = dict(fit_kws or {})
     solver = {k: v for k, v in dict(kws.pop("fit_kws", None) or {}).items() if k != "seed"}
-    anchors = sorted(([float(a[0]), float(a[1])] for a in manual_bg), key=lambda a: a[0]) if manual_bg else None
-    rest = _canonical({
-        "shapes": list(shapes),
-        "params": [[name, par.value, par.min, par.max, bool(par.vary), par.expr] for name, par in params.items()],
-        "background_method": background_method, "bg_start_idx": bg_start_idx, "bg_end_idx": bg_end_idx,
-        "endpoint_avg": endpoint_avg, "manual_bg": anchors, "fit_kws": kws, "solver": solver,
-        "n_perturb": n_perturb,
-    })
+    roles = []
+    for name, par in params.items():
+        if par.expr is not None:
+            roles.append([name, "expr", par.expr])
+        elif not par.vary:
+            roles.append([name, "fixed", par.value])
+        else:
+            roles.append([name, "free", par.value, par.min, par.max])
+    rest = _canonical({"shapes": list(shapes), "params": roles, "fit_kws": kws, "solver": solver,
+                       "n_perturb": n_perturb})
     h = hashlib.sha256(b"xps-fit-seed-v1\0")
-    for arr in (x, counts):
+    for arr in (x, counts, background):
         a = np.ascontiguousarray(arr, dtype="<f8")
         h.update(str(a.size).encode() + b"\0" + a.tobytes())
     h.update(json.dumps(rest, sort_keys=True, separators=(",", ":"), allow_nan=True).encode())
@@ -1352,9 +1355,8 @@ def run_fit(
         random_seed = int(caller_seed)
     else:
         random_seed = _request_seed(
-            x, y, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered], all_params,
-            background_method=background_method, bg_start_idx=bg_start_idx, bg_end_idx=bg_end_idx,
-            endpoint_avg=endpoint_avg, manual_bg=manual_bg, fit_kws=fit_kws, n_perturb=n_perturb)
+            x, y, bg, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered], all_params,
+            fit_kws=fit_kws, n_perturb=n_perturb)
     perturb_rng, solver_rng = (np.random.default_rng(child)
                                for child in np.random.SeedSequence(random_seed).spawn(2))
 

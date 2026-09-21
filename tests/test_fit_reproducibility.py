@@ -231,7 +231,7 @@ def test_the_seed_derivation_is_pinned():
     assert _seed(x, y, specs, background_method="none") == PINNED_SEED
 
 
-PINNED_SEED = 3254515587  # xps-fit-seed-v1; recorded once from the implementation, never edited
+PINNED_SEED = 1893807978  # xps-fit-seed-v1; recorded once from the implementation, never edited
 
 
 def test_the_response_reports_its_seed():
@@ -370,3 +370,40 @@ def test_another_seed_gives_other_draws(monkeypatch):
 
 PINNED_DRAWS = [1.089357756053, 0.992278281701, 1.027405335229, 1.110647543005,
                 1.068801900063, 0.994101892228, 0.876487722334, 1.069307873054]   # seed 7, numpy 2.4.4
+
+
+# ── Codex round 3 (both runs NO-GO): settings are hashed by their EFFECT ───────
+
+def test_a_background_setting_the_method_ignores_does_not_change_the_fit():
+    # The page keeps sending endpoint_avg after the user switches from Shirley
+    # to Linear, which does not use it: changing it moved the third
+    # component's area fraction from 17 % to 46 %.
+    x, y, specs = _crowded_c1s()
+    kw = dict(background_method="linear", n_perturb=3, fit_kws={"method": "leastsq"})
+    a = fitting.run_fit(x, y, specs, endpoint_avg=1, **kw)
+    b = fitting.run_fit(x, y, specs, endpoint_avg=3, **kw)
+    assert np.array_equal(a["background_y"], b["background_y"])
+    assert _dump(a) == _dump(b)
+    # where the setting DOES act, the draws may differ
+    assert (_seed(x, y, specs, background_method="shirley", endpoint_avg=1)
+            != _seed(x, y, specs, background_method="shirley", endpoint_avg=5))
+
+
+def test_bounds_that_cannot_act_and_values_a_constraint_overrides_do_not_change_the_seed():
+    x, y, specs = _two_peaks()
+    fixed = [{**specs[0], "fix_center": True, "center_min": 282.0}, specs[1]]
+    assert _seed(x, y, fixed) == _seed(x, y, [{**fixed[0], "center_min": 283.0}, specs[1]])
+    linked = [specs[0], {**specs[1], "constrain_to": 1, "splitting": 3.8, "area_ratio": 0.2}]
+    moved = [specs[0], {**linked[1], "center": 291.0, "amplitude": 5.0}]          # both overridden by the link
+    assert _seed(x, y, linked) == _seed(x, y, moved)
+    assert _seed(x, y, linked) != _seed(x, y, [specs[0], {**linked[1], "splitting": 3.9}])
+
+
+def test_a_broken_constraint_is_still_a_solver_failure_not_a_crash():
+    # A linked GL child of a Gaussian master refers to p1_gl_ratio, which does
+    # not exist. On main that surfaces inside the fit as RuntimeError (HTTP
+    # 422); deriving the seed must not turn it into an unhandled NameError (500).
+    x, y, specs = _two_peaks()
+    broken = [{**specs[0], "shape": "gaussian"}, {**specs[1], "constrain_to": 1, "splitting": 3.8}]
+    with pytest.raises(RuntimeError):
+        fitting.run_fit(x, y, broken, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})

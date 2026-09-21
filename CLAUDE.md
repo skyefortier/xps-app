@@ -283,19 +283,19 @@ returned χ²ᵣ 1.92 where Trust-Region found 1.81.
 `n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
 and the populations of `differential_evolution` and `basinhopping`, which
 lmfit otherwise takes from numpy's GLOBAL generator — comes from one seed
-that is a pure function of what the OPTIMISER IS GIVEN (`_request_seed`:
-SHA-256 of the energies and counts as little-endian float64 plus the
-canonical JSON of each component's lineshape and of every lmfit parameter
-as built from the request — value, bounds, vary flag, expression — the
-background settings with manual anchors in sorted order, the method, solver
-options and `n_perturb`; tag `xps-fit-seed-v1`). Hashing the effective
-parameters, not the request's peak dicts, means nothing the fit ignores can
-change the draws: a peak's name or colour, the `fix_gl_ratio` the page
-still sends for a Gaussian, stale shape parameters kept after a shape
-switch, fields a linked peak overrides (in review such a no-op edit moved
-an area fraction by 45 pp when the peak dicts were hashed). `null` and
-absent differ exactly when the fit treats them differently
-(`amplitude_min: null` opens the floor). It is a seed,
+that is a pure function of THE NUMBERS THE OPTIMISER IS HANDED
+(`_request_seed`: SHA-256 of the energies, counts and the COMPUTED
+background curve as little-endian float64, plus the canonical JSON of each
+component's lineshape, each lmfit parameter's effective role — a
+constrained one is its expression, a fixed one its value, a free one its
+value and bounds — the method, solver options and `n_perturb`; tag
+`xps-fit-seed-v1`). Settings are hashed by their EFFECT, never as sent, so
+nothing the fit ignores can change the draws: a peak's name or colour, the
+`fix_gl_ratio` the page still sends for a Gaussian, stale shape parameters
+kept after a shape switch, the `endpoint_avg` a linear background does not
+use, bounds of a fixed parameter, start values a link overrides, anchor
+order (in review each such no-op edit moved an area fraction by 15–45 pp
+while the request was hashed as sent). It is a seed,
 not an identity (32 bits collide; never a cache key). The response reports
 it as `random_seed`; a caller's `fit_kws.fit_kws.seed` (integer in
 [0, 2³²)) replaces it and is consumed, never forwarded to a solver.
