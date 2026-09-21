@@ -369,14 +369,20 @@ A rigid shift (`state.ccShift`) is applied to all binding energies
 before fitting. The corrected axis is produced by `getCorrectedBE()`.
 
 Auto-Fit C1s Graphite derives that shift from the FITTED centre of its
-"Graphite" component, so the component must exist: if its amplitude came
-back at zero (not finite, ≤ 0, or below one millionth of the strongest
-component — `_autoFitGraphiteIsSupported`) the auto-fit is rejected and
-rolled back with a red notice, and no charge-correction input is touched.
-Until 2026-09-21 only the centre was checked (±0.3 eV of 284.50), which a
-zero-amplitude component always satisfies because its centre is bounded to
-that window. A weak but real Graphite component still passes and gets the
-existing "< 40 % of the area" amber warning.
+"Graphite" component, so the DATA must support that component
+(`_autoFitGraphiteIsSupported`): amplitude finite and > 0; at least 5 % of
+the span (max − min) of the raw intensities in the fitted region — a
+reference in the data, not in the model, because a collapsed fit (every
+amplitude ~1e-8) still has a "strongest component"; and, when the server
+estimated it, more than three standard errors from zero. Otherwise the
+auto-fit is rejected and rolled back with a red notice before any
+charge-correction input is touched. On the 70 committed Graphite models the
+fitted amplitude is 61–95 % of that span. Until 2026-09-21 only the centre
+was checked (±0.3 eV of 284.50), which a zero-amplitude component always
+satisfies because its centre is bounded to that window. A weak but real
+component still passes and gets the existing "< 40 % of the area" amber
+warning. Known, not fixed here: a rejected Auto-Fit (any reason) leaves its
+`pushUndo()` entry and a cleared redo stack behind.
 
 Adventitious carbon referencing (284.8 eV) is the default for
 convenience but has known criticisms in the XPS literature — the C 1s

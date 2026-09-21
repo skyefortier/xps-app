@@ -1,0 +1,15 @@
+ROUND 2 recheck of branch fix-autofit-zero-graphite-cc (HEAD; parent = main). Read-only. Round 1 was NO-GO x2 with the same MAJOR (archived docs/autofit/codex/autofit_zero_graphite_verdict_run{A,B}.md; original prompt beside them).
+
+DISPOSITIONS
+1. MAJOR a threshold relative to the strongest COMPONENT passes when the whole model collapses -> the reference is now in the DATA. _autoFitGraphiteIsSupported(gPeak, roiInten, json): amplitude finite and > 0; amplitude >= 5 % of the span (max - min) of the RAW ROI intensities the caller already passes (roi.inten; unit-free, independent of the background choice, zero only for a flat region -> rejected); and, when the server returned a finite positive stderr for that amplitude, amplitude > 3 x stderr. The component-relative 1e-6 rule is gone. Measured on the 70 committed C 1s models with a Graphite component: fitted amplitude / raw span = 0.61 to 0.95, so 5 % is "exists", not a quality gate. Tests: your two reproductions (collapsed model on a weak scan with an over-estimated background; a signal below the upload rounding where least_squares returned 6.18e-5), flat region, 3-sigma rule, a weak-but-real anchor at 12 % of the span passing, no-stderr not rejecting a real anchor.
+2. MINOR rollback left the Custom reference field hidden -> _autoFitRestore restores cc-ref-field / cc-target-field visibility by the same rule the tab-restore path uses (no change event). Test: 'rolling back to a Custom reference shows its target field again'.
+3. MINOR rejection leaves the pushUndo() entry / cleared redo: pre-existing for every Auto-Fit failure path; NOT changed in this unit (recorded in CLAUDE.md as known).
+15 Node tests (node --test tests/js/autofit_zero_graphite.test.js).
+
+TRY TO BREAK
+a. A realistic C 1s spectrum where a REAL graphite anchor is rejected by the 5 %-of-raw-span rule or the 3-sigma rule (consider: steep background so span >> peak height; spikes/outliers inflating the span; ROI much wider than the C 1s region; Auto-Fit's own peak detection prerequisites).
+b. A fit where an unsupported anchor still passes (e.g. stderr null AND amplitude above 5 % of span while the component is not real — is that reachable given Graphite is seeded on the tallest feature and bounded to 284.5 +- 0.3 in the provisional frame?).
+c. roi.inten is the ROI captured BEFORE the await (be2/inten2) — confirm it is the same region the server fitted, and that a tab switch cannot make it another tab's data (the _ownerActive check precedes the call).
+d. The inactive-owner branch of _autoFitRestore (record restore) — does it need the same visibility fix, or does activateTab's restore path already cover it?
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.
