@@ -303,9 +303,12 @@ differently depending on where its argument sits in memory (verified:
 scipy's trust-region iteration (`norm` inside `_lsq/trf.py` is the first
 call to return different output for identical input) amplifies that to
 ~1e-4 relative in an area at its stopping tolerance of 1e-8. Do not "fix"
-that by patching scipy internals. Tightening the tolerance to 1e-12 shrinks
-the jitter ~20× but made 2 % of the committed Trust-Region fits abort on
-the evaluation budget — measured, not adopted; an owner decision.
+that by patching scipy internals, and do not tighten the tolerance for it:
+measured on the same 202 targets × 5 presses, ftol = xtol = gtol = 1e-12
+gave FEWER byte-identical targets (123 vs 146), two targets above 0.01 pp
+instead of one, and made two targets that converge today abort on the
+evaluation budget in every press (it shrinks the jitter ~20× only on a
+well-conditioned synthetic model).
 Across machines the seed and the draws are identical; the arithmetic is
 whatever that machine's BLAS does.
 
