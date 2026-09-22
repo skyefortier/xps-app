@@ -137,7 +137,7 @@ a rounded integer kernel; the server fits m continuously — the `caM` clamp
 unit) and DS+G with m ≥ 0.05 (the page's quadrature `laCasaXPS` sizes its
 step to the Lorentzian core, not the Gaussian kernel, and is wrong by up to
 80 % of amplitude across the fitted β/m range — 1e52 × at β = 2, m = 0.05;
-0 of 865 committed components use DS+G; its own unit). Details in
+0 of the 530 peak records in the seven committed projects use DS+G; its own unit). Details in
 `docs/superpowers/plans/2026-09-22-a03-voigt-eta-identity.md`.
 
 ---

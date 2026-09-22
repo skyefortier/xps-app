@@ -281,7 +281,7 @@ the refit (`scripts/voigt_saved_vs_refit.js`, 55 committed tabs with a
 saved fit and a Voigt, six projects; the saved side on the saved fit's own
 grid, the refit on the upload-rounded request): an area fraction moves by
 median 0.36 pp, p90 0.51 pp, max 0.69 pp (none > 1 pp); a Voigt's own area
-by median 3.3 %, p90 6.0 %, max 15.3 % per component (110 components). The
+by median 3.2 %, p90 6.0 %, max 15.3 % per component (110 components). The
 refit vs the server's own free-η fit is
 median 0.93 pp, max 2.04 pp, χ²ᵣ higher by median 9 % (the mix is one
 parameter fewer). The alternative — honour the fitted η on the page — would
@@ -335,7 +335,8 @@ Lorentzian core, blind to the Gaussian kernel — so at β = 2, m = 0.05 the
 step is 0.67 eV against σ = 0.021 eV, the kernel weights sample nothing,
 and the page's curve is 1e52 × amplitude; at β = 0.7, m = 0.05 the page's
 area is 23 % of the server's; at β = 2, m = 0.4 (the default m) 64 %. 0 of
-865 committed components use DS+G, so no saved figure is affected; it is the
+the 530 peak records in the seven committed projects use DS+G (and none of
+the 202 measurement targets), so no saved figure is affected; it is the
 fit's own bounds (β 0.05–2, m 0.05–4) nonetheless. Not fixed in A03 (scope);
 recorded as its own unit. The general lesson repeats §6's: a harness that
 evaluates one representative point per shape proves nothing about the range

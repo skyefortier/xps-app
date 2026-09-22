@@ -71,7 +71,9 @@ def assert_eval_parity(rf, tol=EVAL_PARITY_TOL):
     # for a fit under the A03 request, the free or held value the request
     # before A03 sent for an older save. One deterministic choice from the
     # record itself — never "the contract, or else the saved one" (A03 Codex
-    # round 4 showed that gate accepting a corrupted envelope).
+    # round 4 showed that gate accepting a corrupted envelope). A record left
+    # stale by the page's Undo (round 5) fails here, closed, with the message
+    # below; see autofit.parity.recorded_voigt_eta.
     relmax = eval_parity_relmax(rf)
     assert relmax < tol, (
         f"{rf.project}/{rf.name}: python eval of saved params deviates from "

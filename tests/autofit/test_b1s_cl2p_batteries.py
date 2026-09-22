@@ -25,10 +25,12 @@ _B1S_EXPECTED = bc.load_fixture("b1s_battery_expected.json")
 _CL2P = bc.battery_fits("Cl 2p")
 _CL2P_EXPECTED = bc.load_fixture("cl2p_battery_expected.json")
 
-# Cl 2p eval parity is bounded by the same bg-anchor drift documented in
-# battery_common.py (measured: 1.7e-2 on the uncorrected Scan_1 tab;
-# ≤6.8e-7 on the corrected tabs).
-CL2P_EVAL_TOL = 2.5e-2
+# Cl 2p eval parity, each Voigt evaluated with the mix the server recorded
+# for the saved fit (A03 round 5): <= 6.8e-7 on all three tabs. The 1.7e-2
+# measured on Scan_1 before A03 was the twin evaluating its two Voigt lines
+# at 0.3 against a curve fitted with eta free (15.7 %), not anchor drift;
+# the default 1e-5 now applies.
+CL2P_EVAL_TOL = bc.EVAL_PARITY_TOL
 
 
 def test_b1s_roster():

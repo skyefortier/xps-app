@@ -173,7 +173,15 @@ def recorded_voigt_eta(p: dict) -> float | None:
     the page keeps of that fit (``p._backendParams.gl_ratio.value``, written
     by applyBackendResult): 0.5 for a fit under the A03 request, the free or
     held value the request BEFORE A03 sent for an older save. None when the
-    peak carries no such record (never server-fitted)."""
+    peak carries no such record (never server-fitted).
+
+    KNOWN LIMIT (A03 Codex round 5): the page's Undo restores the peaks —
+    this record with them — without restoring the fit result, so a project
+    saved after an Undo can pair a record from an EARLIER fit with a newer
+    fittedY (the saved result itself carries no mix). Such a pair fails eval
+    parity CLOSED (a deviation is reported, never hidden); none of the 55
+    committed Voigt tabs is one. The page-side gap is the undo/redo item
+    already logged outside the acceptance rule (CLAUDE.md)."""
     bp = p.get("_backendParams")
     g = bp.get("gl_ratio") if isinstance(bp, dict) else None
     v = g.get("value") if isinstance(g, dict) else None

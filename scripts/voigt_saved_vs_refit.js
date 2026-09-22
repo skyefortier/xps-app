@@ -68,7 +68,8 @@ for (const zp of fs.readdirSync(DATA).filter(f => f.endsWith('.proj.zip')).sort(
   }
 }
 const ok = out.targets.filter(r => r.server_success);
-const q = v => { v = [...v].sort((a, b) => a - b); return { median: v[Math.floor(v.length / 2)], p90: v[Math.floor(0.9 * (v.length - 1))], max: v[v.length - 1] }; };
+// conventional median (the mean of the middle pair for an even count), as voigt_eta_measure.py's statistics.median
+const q = v => { v = [...v].sort((a, b) => a - b); const n = v.length; const median = n % 2 ? v[(n - 1) / 2] : 0.5 * (v[n / 2 - 1] + v[n / 2]); return { median, p90: v[Math.floor(0.9 * (n - 1))], max: v[n - 1] }; };
 const voigtComps = ok.flatMap(r => r.comps.filter(c => c.shape === 'Voigt' && c.dArea_pct != null).map(c => Math.abs(c.dArea_pct)));
 out.summary = { n_tabs: out.targets.length, n_converged: ok.length,
   dFrac_pp: q(ok.map(r => r.max_dFrac_pp)),                           // per tab: the largest fraction move

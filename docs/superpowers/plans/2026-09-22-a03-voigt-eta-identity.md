@@ -71,7 +71,7 @@ the rounded arrays and the window indices chosen on the display grid
 |---|---:|---:|---:|
 | largest area-fraction move, per tab | 0.36 pp | 0.51 pp | 0.69 pp (0 of 55 > 1 pp) |
 | largest Voigt area change, per tab | 4.6 % | 7.6 % | 15.3 % |
-| a Voigt component's own area change, per component (110) | 3.3 % | 6.0 % | 15.3 % |
+| a Voigt component's own area change, per component (110) | 3.2 % | 6.0 % | 15.3 % |
 
 That is the release-note number.
 
@@ -120,7 +120,7 @@ banner, `autofit/reference.py`, `scripts/endpoint_avg_sensitivity.py`,
 | Gaussian, Lorentzian, Voigt (glMix 0 and 100 ignored), GL, asym-GL, DS | ≤ 6.1e-16 of amplitude at every combination |
 | DS+G, m < 0.001 (delta branch); LACX, m = 0 | exact |
 | LACX, m > 0 | up to 0.89 % of amplitude where the kernel is wide against the peak (m = 50 points on a 0.1 eV peak): the tracked discretisation gap (rounded m + 2m+1 kernel on the page vs continuous m on the server). `todo`, the `caM` clamp unit. |
-| DS+G, m ≥ 0.05 | the page's `laCasaXPS` quadrature sizes its step to resolve the Lorentzian core (β/3) and never the Gaussian kernel (σ = m/2.355): at β = 2, m = 0.05 the step is 0.67 eV against σ = 0.021 eV and the curve is 1e52 × amplitude; at β = 0.7, m = 0.05 the page's area is 23 % of the server's; at β = 2, m = 0.4 (the default m) 64 %; at the schema default (α 0.1, β 0.3, m 0.4) 3.9 %. 0 of 865 committed components use DS+G. `todo`; NOT fixed here (scope) — its own unit: port the server's padded-grid convolution to a grid-aware array evaluator, as `dsgDeltaKernel_array` already does for m < 0.001. |
+| DS+G, m ≥ 0.05 | the page's `laCasaXPS` quadrature sizes its step to resolve the Lorentzian core (β/3) and never the Gaussian kernel (σ = m/2.355): at β = 2, m = 0.05 the step is 0.67 eV against σ = 0.021 eV and the curve is 1e52 × amplitude; at β = 0.7, m = 0.05 the page's area is 23 % of the server's; at β = 2, m = 0.4 (the default m) 64 %; at the schema default (α 0.1, β 0.3, m 0.4) 3.9 %. 0 of the 530 peak records in the seven committed projects use DS+G. `todo`; NOT fixed here (scope) — its own unit: port the server's padded-grid convolution to a grid-aware array evaluator, as `dsgDeltaKernel_array` already does for m < 0.001. |
 
 ## 6. The re-measurement (`scripts/local_server_gap.js` → `docs/findings/a03/local_server_gap.json`)
 
@@ -179,7 +179,7 @@ drawn; until now Run Fit let their mix vary on the server and the page
 reported the 50/50 curve's area under the other mix's parameters (up to
 20 % off per component). Re-fitting a saved project with Voigt components
 moves an area fraction by 0.36 pp at the median and 0.69 pp at most on the
-55 committed tabs (a Voigt component's own area by 3.3 % at the median,
+55 committed tabs (a Voigt component's own area by 3.2 % at the median,
 15 % at most). Use GL to fit the mix. Also fixed: an asym-GL mix of exactly 0 or a
 DS α of exactly 0 was sent to the server as 50 / 0.1, and a locked value
 outside the optimiser's search limits (a DS+G m locked at 0) was moved onto
@@ -293,7 +293,31 @@ items closed; found:**
    U 4f and 3 Cl 2p tabs pass.
 2. MINOR — the "Voigt component's own area" statistic was the per-tab
    maximum; relabelled, and the per-component quantiles added (110
-   components: median 3.3 %, p90 6.0 %, max 15.3 %).
+   components: median 3.2 %, p90 6.0 %, max 15.3 %).
 3. MINOR — the sweep's comment said a lock cannot take a parameter outside
    the optimiser's bounds; since round 2 a held value is honoured as
    requested. Corrected.
+
+**Round 5 (`a03_voigt_eta_r5_verdict_run{A,B}.md`): NO-GO ×2; round-4
+items closed; found:**
+1. MAJOR — the recorded mix lives on the PEAK (`_backendParams`) and the
+   page's Undo restores peaks without restoring the fit result, so a
+   project saved after an Undo can pair a record from an earlier fit with
+   a newer `fittedY`; the saved result carries no mix of its own (none of
+   the 55 committed Voigt tabs has `backendResult`). Such a pair fails eval
+   parity CLOSED — a deviation is reported, never hidden — so it is a
+   false-negative risk for the battery, not a loophole; none of the 55
+   committed tabs is one. Documented in `recorded_voigt_eta` and the
+   battery; the page-side gap is the undo/redo item already logged outside
+   the acceptance rule. Not changed on the page (scope).
+2. MINOR — the script's "median" was the upper middle value; now the
+   conventional median (3.2 %, not 3.3 %, for the 110 components).
+3. MINOR — the battery comments still justified their eval-parity
+   tolerances with pre-A03 measurements (6.0e-3 / 1.12e-2 U 4f, 1.7e-2
+   Cl 2p) that were in fact the old twin evaluating every Voigt at 0.3
+   against curves fitted free. With the recorded mix: U 4f median 2.0e-7,
+   max 7.9e-4; Cl 2p ≤ 6.8e-7. Tolerances tightened to 3e-3 and the 1e-5
+   default.
+4. MINOR — "0 of 865 committed components" counted the 202 measurement
+   targets (which repeat tabs); the seven committed projects hold 530 peak
+   records. Corrected everywhere.

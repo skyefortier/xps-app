@@ -34,10 +34,13 @@ MIN_PROJECTS = 3
 # 3.00971 vs frozen 3.00396 on that tab).  3e-3 covers the measured
 # cross-platform wobble with ~1.6x headroom while still catching any real
 # numerics change (C 1s pins the shared machinery at 1e-6).
-# Eval-parity across all 29 eligible fits: median 6.0e-3, max 1.12e-2
-# (bg-anchor drift) — 1.5e-2 keeps ~34% headroom without masking a real
-# 2%-level regression (Codex Stage-3 finding #4).
-EVAL_TOL = 1.5e-2
+# Eval parity across the 29 eligible fits, each Voigt evaluated with the mix
+# the server recorded for the saved fit (A03 round 5): median 2.0e-7, max
+# 7.9e-4. The 6.0e-3 / 1.12e-2 measured before A03 and read as "bg-anchor
+# drift" was the twin evaluating every Voigt at 0.3 against curves fitted
+# with eta free. 3e-3 keeps ~4x headroom over the measured maximum (LACX
+# kernel FP wobble across platforms is the remaining term).
+EVAL_TOL = 3e-3
 FIXTURE_RTOL = 3e-3
 
 _FITS = bc.battery_fits(REGION)

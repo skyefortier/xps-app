@@ -321,7 +321,8 @@ test('(C) evalPeak() has no direct callers outside evalPeakArray()', () => {
 //     the step is 0.67 eV against σ = 0.021 eV, the kernel weights sample
 //     nothing, and the curve is 1e52 × amplitude; at β = 0.7, m = 0.05 the
 //     page's area is 23 % of the server's; at β = 2, m = 0.4 (the default
-//     m) 64 %. Zero committed components use DS+G (0 of 865), so no saved
+//     m) 64 %. Zero committed components use DS+G (0 of the 530 peak records
+//     in the seven committed projects), so no saved
 //     figure is affected today; it is the fit range nonetheless. Its own
 //     unit (the file header already names it); recorded in
 //     docs/superpowers/plans/2026-09-22-a03-voigt-eta-identity.md.
