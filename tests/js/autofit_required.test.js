@@ -56,7 +56,9 @@ test('a required anchor proceeds; a check that did not run (older server, error,
 
 test('the request asks for the Graphite anchor by id, and the gate precedes the support gate and every cc write', () => {
   const run = extractFn('runAutoFitC1sGraphite');
-  assert.match(run, /require_component: String\(\(state\.peaks\.find\(p => p\.name === 'Graphite'\) \|\| state\.peaks\[0\]\)\.id\)/);
+  const captured = run.indexOf("const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);");
+  assert.ok(captured > 0 && captured < run.indexOf('await uploadToBackend('), 'the anchor id is captured before the first await');
+  assert.match(run, /require_component: anchorId,/);
   const apply = extractFn('applyAutoFitResult');
   const gate = apply.indexOf('req.required === false');
   assert.ok(gate > 0 && gate < apply.indexOf('_autoFitGraphiteIsSupported(gPeak, json)'));

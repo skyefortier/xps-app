@@ -1362,25 +1362,36 @@ def _component_support(y_sub, fitted_sub, comp_y, weights, n_free_comp, n_free_t
 # One extra fit, so it is done only when asked for (Auto-Fit asks for its
 # charge-reference anchor: an anchor that is not required must not set the
 # energy reference of a whole spectrum). Same threshold as `support`.
-def _component_required(model_without, params_full, removed_prefix, y_sub, x, weights, kws,
+def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weights,
                         chi2_with, n_free_comp, n_free_total) -> dict[str, Any]:
+    """``fit_reduced(params)`` is the run's own fitter for the reduced model
+    (the same candidate machinery and seeding the fit used, so differential
+    evolution's box/refinement and the request seed apply to the refit too).
+    ``removed_prefixes`` is the removed component AND everything linked to it,
+    transitively. The reduced start is built in dependency order: plain
+    parameters first, expressions after, so a child ordered before its parent
+    in the request still resolves."""
+    kept = [(name, par) for name, par in params_full.items() if not any(name.startswith(r) for r in removed_prefixes)]
     start = Parameters()
-    for name, par in params_full.items():
-        if name.startswith(removed_prefix):
-            continue
-        if par.expr and removed_prefix in par.expr:
-            # a component linked TO the removed one cannot stay: it is removed too
-            continue
-        start.add(name, value=par.value, min=par.min, max=par.max, vary=par.vary, expr=par.expr)
-    refit = model_without.fit(y_sub, start, x=x, weights=weights, **kws)
+    for name, par in kept:
+        if not par.expr:
+            start.add(name, value=par.value, min=par.min, max=par.max, vary=par.vary)
+    for name, par in kept:
+        if par.expr:
+            start.add(name, value=par.value, min=par.min, max=par.max, expr=par.expr)
+    refit = fit_reduced(start)
     chi2_without = float(refit.chisqr) if refit.chisqr is not None else float("inf")
     delta = chi2_without - chi2_with
     p = max(1, int(n_free_comp))
     dof = max(1, len(y_sub) - int(n_free_total))
+    # A removal that changes the weighted fit by less than a billionth of the
+    # data's weighted power is lossless to numerical precision (two identical
+    # half-amplitude components: chi2 1e-28 -> 1e-26 is not "required").
+    power = float(np.sum((np.asarray(weights, float) * np.asarray(y_sub, float)) ** 2))
     if not np.isfinite(chi2_without):
         f, required = None, True                     # the rest could not even be fitted without it
-    elif delta <= 0:
-        f, required = 0.0, False
+    elif delta <= 1e-9 * power:
+        f, required = 0.0 if delta <= 0 else ((delta / p) / (chi2_with / dof) if chi2_with > 0 else None), False
     elif chi2_with == 0:
         f, required = None, True
     else:
@@ -1627,14 +1638,19 @@ def run_fit(
         solver_kws["seed"] = int(solver_rng.integers(0, 2 ** 32 - 1))
         return {**call_kws, "fit_kws": solver_kws}
 
-    if kws.get("method") == "differential_evolution":
-        requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
+    # One fitter for any (sub)model of this request: the DE candidate machinery
+    # when the method is differential evolution, else a plain seeded fit. The
+    # scattered starts and the required-component refit go through it too.
+    requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
 
-        def fit_once(params):
-            return _global_or_local_candidate(composite_model, params, requested_bounds, y_sub, x, weights, seeded(kws))
-    else:
-        def fit_once(params):
-            return composite_model.fit(y_sub, params, x=x, weights=weights, **seeded(kws))
+    def fit_model(model, params):
+        if kws.get("method") == "differential_evolution":
+            bounds = {name: requested_bounds.get(name, (par.min, par.max)) for name, par in params.items()}
+            return _global_or_local_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
+        return model.fit(y_sub, params, x=x, weights=weights, **seeded(kws))
+
+    def fit_once(params):
+        return fit_model(composite_model, params)
 
     # ── Diagnostic logging: BEFORE optimisation ──────────────────────────────
     if log.isEnabledFor(logging.DEBUG):
@@ -1733,12 +1749,20 @@ def run_fit(
             required = {"ran": False, "reason": "fit_not_converged"}
         else:
             try:
+                # remove the component and everything linked to it, transitively
+                master_of = {str(sp["id"]): sp.get("constrain_to") for sp in peak_specs}
+                removed = {str(require_component)}
+                grew = True
+                while grew:
+                    grew = False
+                    for pid, master in master_of.items():
+                        if master is not None and str(master) in removed and pid not in removed:
+                            removed.add(pid); grew = True
+                removed_prefixes = [f"p{pid}_" for pid in removed]
                 without = None
                 for m in composite_model.components:
-                    if m.prefix == rprefix:
+                    if m.prefix in removed_prefixes:
                         continue
-                    if any(par.expr and rprefix in par.expr for n, par in all_params.items() if n.startswith(m.prefix)):
-                        continue                                   # linked to the removed one
                     without = m if without is None else without + m
                 if without is None:
                     required = {"ran": False, "reason": "nothing_left"}
@@ -1746,7 +1770,7 @@ def run_fit(
                     n_free_comp = sum(1 for n, par in result.params.items()
                                       if n.startswith(rprefix) and par.vary and par.expr is None)
                     required = {"ran": True, **_component_required(
-                        without, result.params, rprefix, y_sub, x, weights, kws,
+                        lambda params: fit_model(without, params), result.params, removed_prefixes, y_sub, weights,
                         float(result.chisqr), n_free_comp, result.nvarys)}
             except Exception as exc:                              # the check must never cost the student the fit
                 log.exception("required-component refit failed")

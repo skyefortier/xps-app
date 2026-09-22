@@ -1,0 +1,17 @@
+ROUND 2 recheck of step (c), branch feature-autofit-required-refit (git diff main..HEAD). Read-only. Round 1 was NO-GO x2 (archived docs/autofit/codex/autofit_required_verdict_run{A,B}.md; context and questions in autofit_required_review_prompt.txt). Budget your time: a verdict is required within the run.
+
+DISPOSITIONS
+1. MAJOR DE bypassed the check (direct model.fit failed on open bounds -> ran:false, anchor accepted) -> run_fit now has ONE fitter for any (sub)model of the request, fit_model(model, params): the DE candidate machinery (_global_or_local_candidate with the request's bounds for the retained parameters) when the method is differential evolution, else a plain seeded fit. fit_once, the scattered starts and the required refit all go through it. Test: test_differential_evolution_goes_through_its_own_candidate_machinery (the redundant-anchor fixture under DE -> ran:true, required:false).
+2. MAJOR transitive links / expression order broke the reduced model -> the removal set is the transitive closure over the request's constrain_to graph (both in the model and in the parameters); the reduced start is built plain parameters first, expressions after. Tests: 1 -> 9 -> 10 removed with 1; an unrelated removal with a kept child listed before its kept parent.
+3. MAJOR the anchor id was read after the upload await -> anchorId is captured beside peakSpecs before the first await (structural test pins the order).
+4. MINOR stochastic refits unseeded -> fit_model applies seeded(kws), so the refit gets its own request-derived solver seed (test: basinhopping receives two distinct integer seeds).
+5. MINOR exact lossless removal reported required from 1e-28 -> 1e-26 residue -> a removal whose chi-square change is below 1e-9 of the data's weighted power (sum (w*y_sub)^2) is lossless to numerical precision and "not required"; F is still reported. Test with two identical half-amplitude components under both local methods. (This is a floor on delta relative to the DATA, the scale-free form that survived the DE unit's rounds; it cannot mask a real anchor: a required anchor changes the fit by far more than a billionth of the data's power.)
+6. MINOR the corpus test depended on an uncommitted absolute path -> removed; the 70-model result stays in CLAUDE.md as a measurement, labelled as such.
+87 tests across the required / scattered-starts / DE files; full pytest suite re-run on HEAD.
+
+TRY TO BREAK
+a. fit_model under DE for the REDUCED model: requested_bounds is keyed by the full model's names; retained parameters keep their bounds, removed ones are absent — anything wrong for a linked parameter's expr bounds or for a start whose bounds came from result.params rather than the request?
+b. the 1e-9 x power floor: a reachable real anchor it would call "not required" (a genuinely tiny but real anchor on an enormous background? note the anchor's own chi-square contribution scales with its intensity, not the background's);
+c. anything else in the diff not already cleared, including the scattered starts now going through fit_model (byte-identical behaviour for non-DE methods: seeded(kws) was already applied there).
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

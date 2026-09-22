@@ -7229,6 +7229,10 @@ async function runAutoFitC1sGraphite() {
     const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const fitMethod = document.getElementById('fit-method').value;
 
+    // The anchor whose necessity the server must test — captured with the
+    // other request inputs, before the first await (a tab switch during the
+    // upload must not send another tab's id).
+    const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);
     // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
     const peakSpecs = state.peaks.map(p => {
       const spec = peakToBackendSpec(p);
@@ -7259,7 +7263,7 @@ async function runAutoFitC1sGraphite() {
         // step (c): is the charge-reference anchor REQUIRED? The server refits
         // the model without it; a redundant anchor must not set the energy
         // reference of a whole spectrum (see applyAutoFitResult).
-        require_component: String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id),
+        require_component: anchorId,
       }),
       signal: ctrl.signal,
     });

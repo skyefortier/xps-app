@@ -77,28 +77,6 @@ def test_a_real_graphite_anchor_is_required():
     assert req["chi2_without_refit"] > req["chi2_with"]
 
 
-def test_on_the_committed_graphite_models_the_anchor_is_always_required():
-    import json
-    from pathlib import Path
-    path = Path("/Users/skyefortier/xps-app/.claude/worktrees/investigate-optimizer-disagreement/docs/findings/optimizer-disagreement/targets.json")
-    if not path.exists():
-        pytest.skip("target file not present")
-    targets = [t for t in json.loads(path.read_text()) if any(s.get("name") == "Graphite" for s in t["specs"])]
-    assert len(targets) == 70
-    worst = float("inf")
-    for t in targets[::7]:                                  # a tenth of them keeps the test under a minute
-        g = next(s for s in t["specs"] if s.get("name") == "Graphite")
-        b = t["background"]
-        res = fitting.run_fit(np.asarray(t["be"], float), np.round(np.asarray(t["inten"], float), 2), t["specs"],
-                              background_method=b["method"], bg_start_idx=b["start_idx"], bg_end_idx=b["end_idx"],
-                              endpoint_avg=b["endpoint_avg"], n_perturb=0, fit_kws={"method": "least_squares"},
-                              require_component=g["id"])
-        assert res["required"]["required"] is True, t["tab"]
-        if res["required"]["f"] is not None:
-            worst = min(worst, res["required"]["f"])
-    assert worst > 10
-
-
 def test_the_fit_itself_is_unchanged_by_the_check():
     import json
     y = np.round(1000 + _gl(X, 10000, 284.8, 1.4) + _gl(X, 15000, 283.3, 1.8), 2)
@@ -110,13 +88,61 @@ def test_the_fit_itself_is_unchanged_by_the_check():
     assert strip(a) == strip(b) and a["required"] is None and b["required"]["ran"] is True
 
 
-def test_a_component_linked_to_the_removed_one_goes_with_it():
+def _linked(pid, master, offset):
+    return {"id": pid, "shape": "pseudo_voigt_gl", "center": 284.5 + offset, "amplitude": 100.0, "fwhm": 0.7, "gl_ratio": 0.3,
+            "amplitude_min": 0, "constrain_to": master, "splitting": offset, "area_ratio": 0.01}
+
+
+def test_everything_linked_to_the_removed_component_goes_with_it_transitively():
+    # Codex round 1: 1 -> 9 -> 10 raised NameError in the reduced model; and a
+    # child ordered BEFORE its parent broke expression construction.
     y = np.round(1000 + _gl(X, 10000, 284.8, 1.4) + _gl(X, 15000, 283.3, 1.8), 2)
     specs = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
-    specs.append({"id": "9", "shape": "pseudo_voigt_gl", "center": 285.5, "amplitude": 100.0, "fwhm": 0.7, "gl_ratio": 0.3,
-                  "amplitude_min": 0, "constrain_to": "1", "splitting": 1.0, "area_ratio": 0.1})
+    specs += [_linked("9", "1", 1.0), _linked("10", "9", 1.0)]
     res = fitting.run_fit(X, y, specs, require_component="1", **KW)
-    assert res["required"]["ran"] is True and res["required"]["required"] is False
+    assert res["required"]["ran"] is True, res["required"]
+    assert res["required"]["required"] is False
+    # remove an UNRELATED component while a kept child precedes its kept parent in the request
+    specs2 = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
+    specs2 = [specs2[0], _linked("4", "3", 0.8), specs2[1], specs2[2]]           # 4 -> 3, listed before 3
+    res2 = fitting.run_fit(X, y, specs2, require_component="2", **KW)
+    assert res2["required"]["ran"] is True, res2["required"]
+
+
+def test_differential_evolution_goes_through_its_own_candidate_machinery():
+    # Codex round 1: a direct model.fit under DE failed on the open amplitude bound -> ran:false
+    y = np.round(1000 + _gl(X, 10000, 284.8, 1.4) + _gl(X, 15000, 283.3, 1.8), 2)
+    specs = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
+    res = fitting.run_fit(X, y, specs, require_component="1", **{**KW, "n_perturb": 0, "fit_kws": {"method": "differential_evolution"}})
+    assert res["success"] is True and res["required"]["ran"] is True, res["required"]
+    assert res["required"]["required"] is False
+
+
+def test_the_refit_of_a_stochastic_method_is_seeded(monkeypatch):
+    seeds = []
+    real_fit = fitting.Model.fit
+
+    def spy(self, data, params, **kw):
+        seeds.append((kw.get("method"), (kw.get("fit_kws") or {}).get("seed")))
+        return real_fit(self, data, params, **kw)
+
+    monkeypatch.setattr(fitting.Model, "fit", spy)
+    y = np.round(1000 + _gl(X, 10000, 284.8, 1.4), 2)
+    specs = _autofit_model(1000, [(10000, 284.8, 1.4)])
+    fitting.run_fit(X, y, specs, require_component="1", **{**KW, "n_perturb": 0, "fit_kws": {"method": "basinhopping"}})
+    bh = [s for m, s in seeds if m == "basinhopping"]
+    assert len(bh) == 2 and all(isinstance(s, int) for s in bh) and bh[0] != bh[1]
+
+
+def test_an_exactly_lossless_removal_is_not_required():
+    # Codex round 1: one exact line as two identical half-amplitude components;
+    # removing either is lossless yet residue (1e-28 -> 1e-26) gave F ~ 1e3
+    y = np.round(1000 + _gl(X, 10000, 284.8, 1.4), 2)
+    specs = [{"id": "1", "name": "Graphite", "shape": "pseudo_voigt_gl", "center": 284.8, "amplitude": 5000.0, "fwhm": 1.4, "gl_ratio": 0.3, "amplitude_min": 0},
+             {"id": "2", "shape": "pseudo_voigt_gl", "center": 284.8, "amplitude": 5000.0, "fwhm": 1.4, "gl_ratio": 0.3, "amplitude_min": 0}]
+    for method in ("least_squares", "leastsq"):
+        res = fitting.run_fit(X, y, specs, require_component="1", **{**KW, "fit_kws": {"method": method}})
+        assert res["required"]["required"] is False, (method, res["required"])
 
 
 def test_validation_and_never_failing_the_fit(client, monkeypatch):

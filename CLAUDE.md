@@ -617,16 +617,23 @@ mean "zero" independently of the data):
   (χ²_without holds the other components fixed) and is CLOSED by step (c),
   2026-09-22: Auto-Fit's request carries `require_component: <Graphite id>`
   and the server refits the model WITHOUT that component from the others'
-  fitted values under the request's bounds (`fitting._component_required`;
-  a component linked to the removed one goes with it) and returns
+  fitted values under the request's bounds (`fitting._component_required`,
+  through the run's own fitter `fit_model` — so differential evolution's
+  box/refinement machinery and the request seed apply to the refit too;
+  everything linked to the removed component goes with it, transitively;
+  the reduced start is built plain parameters first, expressions after; a
+  removal that changes the weighted fit by less than 1e-9 of the data's
+  weighted power is lossless and "not required") and returns
   `required: {required, f, chi2_with, chi2_without_refit, refit_converged}`
   with the same F ≥ 10 rule. `applyAutoFitResult` refuses a supported-but-
   not-required anchor exactly like an unsupported one, before any
   charge-correction input is touched ("refitting the other components
-  without it fits the data as well"). One extra fit, Auto-Fit only; the fit
+  without it fits the data as well"); the anchor id is captured with the
+  other request inputs before the first await. One extra fit, Auto-Fit only; the fit
   itself is unchanged by the check, and a check that did not run never
   blocks. On the 70 committed Graphite models the anchor is required on
-  all 70 (F ≥ 54, median 6.1e3); the round-6 reproduction (two symmetric GL
+  all 70 (F ≥ 54, median 6.1e3 — a measurement with `require_component` over
+  the un-committed target file, not a test); the round-6 reproduction (two symmetric GL
   lines, no graphite: support F ~ 1e6 with the others held, refit without it
   equal to rounding) is now refused.
 - One rounding-residue construction still passes (unrounded manual
