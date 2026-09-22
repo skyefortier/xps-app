@@ -38,9 +38,14 @@ m < 0.001 delta branch, `dsgDeltaKernel_array`, was already mirrored):
 - Gaussian kernel of σ = m/(2√(2 ln 2)) on the same step, centred at
   (n − 1)/2, normalised to unit sum over the FULL padded length;
 - the server's circular convolution `irfft(rfft(ds)·rfft(ifftshift(k)))`
-  evaluated DIRECTLY: out[i] = Σⱼ ds[j]·k[(i − j + ⌊n/2⌋) mod n], the sum
-  restricted to |i − j| ≤ ⌈8σ/step⌉ + 1 (the kernel is e⁻³² ≈ 1e-14 of its
-  peak beyond 8σ; the circular wrap reaches no other kernel mass);
+  computed as what it is: `_circularConvolve` — a zero-padded linear
+  convolution by radix-2 FFT (`_fftRadix2`, length the power of two
+  ≥ 2n − 1) folded back to n. Every wrapped contribution the server
+  includes is included; O(n log n) on any grid. (The first cut summed
+  directly within 8 σ and clipped at the array ends; Codex round 1 showed a
+  centre outside the window 0.41 × amplitude off — the DS tail reaches the
+  padded array's far end and the server's FFT wraps it — and 13 s per
+  curve at 0.001 eV. Both gone.)
 - `np.interp` back to the data grid; normalised by the value interpolated AT
   the centre (fallbacks as the server's); non-finite → 0.
 
@@ -50,9 +55,10 @@ normalised DS core with m ignored — the same status as its LACX branch;
 guard (C) of the parity harness proves no shipped caller reaches it. The
 old quadrature is deleted, not tuned.
 
-Cost: 0.3–1.1 ms per evaluation on a 241-point grid for Find Peaks-like
-parameters, 5.5 ms at the box's far corner (β 2, m 4); a local fit of a
-DS+G component converges in 69 ms.
+Cost (FFT, one curve at the box's far corner β 2, m 4, α 0.49): 1.1 ms on a
+241-point 0.05 eV grid, 8 ms at 0.02 eV (601 points), 13 ms at 0.005 eV,
+58 ms at 0.001 eV over 10 eV (the first cut: 13 s); Find Peaks-like
+parameters 0.2–1.1 ms; a local fit of a DS+G component converges in 38 ms.
 
 ## 3. Acceptance (measured)
 
@@ -64,6 +70,24 @@ DS+G component converges in 69 ms.
 | round trip page → server → page, DS+G (was todo), and DS+G m locked at 0.05 and at 4 (curve comparison was disabled) | hard, pass |
 | (B) scalar vs array evaluator, DS+G | now `todo` like LACX: the convolution is a grid operation; guard (C) holds |
 | Find Peaks box (β 0.05, α 0–0.3, m 0.4–1.8, 0.05 and 0.1 eV grids) | agrees with the server to 1e-6 (was 5–21 % low in area) |
+| (D″) regressions: a centre 10 eV outside a [−5, 5] window; a 6-point irregular grid; alternating 0.05/0.06 steps (median ≠ mean); a 0.001 eV grid over 10 eV at β 2, m 4, α 0.49; 2- and 1-point grids | < 1e-6 (5e-12 relative on the outside-centre case whose server maximum is 48; 3.5e-13 at 0.001 eV) — hard; each curve under 2 s asserted |
+| (D″) m = 0.001, 0.002, 0.02, 0.05 on a 0.1 eV grid | page equals server at every m; at m ≤ 0.002 BOTH are an all-zero curve — a KNOWN SERVER LIMIT (§3a), pinned as such |
+
+### 3a. Server limit found on the way (not this unit's to change)
+
+Just above the 0.001 delta threshold on a coarse grid the server's Gaussian
+kernel underflows: σ = m/2.355 is far below the step, no padded-grid sample
+carries weight (for an even padded length the nearest sample is half a
+step from the centre), the kernel normalises to NaN and
+`_ds_g_dscore_gauss` returns an all-zero curve for the component (its final
+"suppress NaN/Inf" turns it to zeros). At 0.1 eV the zone is roughly
+0.001 ≤ m ≲ 0.004 and depends on the parity of the padded length; m = 0.02
+is already ordinary. A fit will not settle there (a zero curve fits
+nothing), but a LOCKED m in that zone is fitted as zero. The page mirrors
+it exactly (a vanished curve drawn as vanished, never a curve the server
+did not fit). Recorded for the owner; the fix belongs to the server (a
+kernel that collapses to a delta below the grid's resolution, as the
+threshold branch does).
 
 Nothing changed on the server, in `autofit/`, in Find Peaks or in the
 dropdown. Python suite untouched by this unit (no Python change); JS suite
@@ -80,7 +104,7 @@ every function-extractor list that names the lineshape block
 
 ## 5. Verification
 
-- JS suite: 382 tests, 377 pass, 0 fail, 5 todo (`node --test tests/js/*.test.js`).
+- JS suite: 392 tests, 387 pass, 0 fail, 5 todo (`node --test tests/js/*.test.js`).
   The five: LACX m > 0 in (A), (B) and (D); (B) DS+G (scalar evaluator
   ignores m, by design); the LACX round trip.
 - Python suite: untouched by this unit (no Python change); the A03 run on
@@ -111,4 +135,24 @@ whether the restarts should be skipped or capped for this shape).
 
 ## 6. Codex rounds
 
-(filled in as they run)
+**Round 1 (`docs/autofit/codex/dsg_page_evaluator_verdict_run{A,B}.md`):
+NO-GO ×2.** Fixed:
+1. MAJOR — the first cut's direct sum clipped at the padded array's ends
+   and so omitted the wrapped contributions the server's circular FFT
+   includes: a centre 10 eV outside a [−5, 5] window was 0.41 × amplitude
+   off (the normalisation at the clamped centre scales every value), a
+   6-point irregular grid 2.9e-4. Replaced by the same circular
+   convolution, computed by FFT (`_fftRadix2`, `_circularConvolve`); both
+   reproducers are regression tests, agreeing to 5e-12 and 1e-16.
+2. MAJOR — quadratic cost on fine grids (13.5 s per curve at 0.001 eV).
+   The FFT makes it O(n log n): 58 ms at 0.001 eV, 8 ms at 0.02 eV; a test
+   asserts each regression curve under 2 s.
+3. MINOR — (D′)'s "irregular-ish" grid was uniform, and its m = 0.001 case
+   passed on a curve that had vanished on BOTH sides. A genuinely
+   irregular grid (alternating 0.05/0.06 steps) is in (D″); the vanished
+   curve is the server's own kernel underflow just above the delta
+   threshold on a coarse grid — characterised in §3a and pinned as a known
+   server limit (page equals server; the server curve is asserted to be
+   zero there so a server change surfaces).
+4. MINOR — findings §7 said ≤ 3e-15 across seven grids; that was the base
+   grid (the seven are < 1e-6, measured ≤ 5.5e-15). Corrected.

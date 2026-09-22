@@ -424,3 +424,53 @@ for (const g of DSG_GRID_CASES) {
       `${g.label}: ${worst.filter(r => r.rel >= TIGHT_TOL).length} of ${worst.length} combinations diverge; worst ${(worst[0].rel * 100).toExponential(3)} % of amplitude at ${JSON.stringify(worst[0].c)}`);
   });
 }
+
+// ── (D″) DS+G: the cases Codex round 1 broke the first cut with, and the ──
+// server's own degenerate zone. The first cut summed the convolution
+// directly within 8 σ and clipped at the padded array's ends; the server's
+// FFT is CIRCULAR, so a DS tail that reaches the far end wraps — visible
+// with a centre outside the window (0.41 × amplitude off) and on a
+// short irregular grid. _circularConvolve now does what the FFT does.
+const DSG_REGRESSIONS = [
+  { label: 'centre 10 eV outside a [−5, 5] window (a free DS+G centre has no window on the server)', x: Array.from({ length: 200 }, (_, i) => (i - 99.5) * 0.05), center: 10, laAlpha: 0.25, laBeta: 0.05, laM: 0.4 },
+  { label: 'a 6-point irregular grid', x: [-3, -2.9, -2.8, 0, 2, 3], center: 0, laAlpha: 0.25, laBeta: 0.05, laM: 0.05 },
+  { label: 'genuinely irregular steps (0.05 / 0.06 alternating; median ≠ mean)', x: (() => { const o = []; let v = 280; for (let i = 0; i < 200; i++) { o.push(v); v += i % 2 ? 0.06 : 0.05; } return o; })(), center: 285.3, laAlpha: 0.3, laBeta: 0.7, laM: 1.2 },
+  { label: 'a 0.001 eV grid over 10 eV at the box corner β 2, m 4, α 0.49 (13 s per curve in the first cut)', x: Array.from({ length: 10001 }, (_, i) => 280 + 0.001 * i), center: 285, laAlpha: 0.49, laBeta: 2, laM: 4 },
+  { label: 'a 2-point grid', x: [284.4, 284.6], center: 284.5, laAlpha: 0.2, laBeta: 0.3, laM: 0.4 },
+  { label: 'a 1-point grid', x: [284.5], center: 284.5, laAlpha: 0.2, laBeta: 0.3, laM: 0.4 },
+];
+for (const c of DSG_REGRESSIONS) {
+  test(`(D″) DS+G regression: ${c.label}`, () => {
+    const p = { ...basePeak('DSG_LA'), amplitude: 1, center: c.center, laAlpha: c.laAlpha, laBeta: c.laBeta, laM: c.laM };
+    const { shape, params } = backendParamsFromRequest(p);
+    const beY = backendEval(shape, params, c.x);
+    const t0 = Date.now();
+    const jsY = evalPeakArray(c.x, p);
+    const ms = Date.now() - t0;
+    const rel = maxRelDiff(jsY, beY, 1);
+    assert.ok(rel < TIGHT_TOL, `${c.label}: max diff ${rel.toExponential(3)} of amplitude (server max ${Math.max(...beY.map(Math.abs)).toExponential(2)})`);
+    assert.ok(ms < 2000, `${c.label}: ${ms} ms for one curve — the cost must stay bounded (O(n log n))`);
+  });
+}
+
+// KNOWN SERVER LIMIT (not this unit's to change; recorded for the owner):
+// just above the 0.001 delta threshold the server's Gaussian kernel can
+// UNDERFLOW on a coarse grid — σ = m/2.355 far below the step, so no
+// padded-grid sample carries kernel weight (for an even padded length the
+// nearest sample is half a step from the centre) — and the server returns
+// an all-zero curve for the component. The page mirrors it exactly (a
+// vanished curve drawn as vanished, never a curve the server did not fit).
+// The zone closes quickly: at 0.1 eV, m = 0.02 is already ordinary.
+for (const laM of [0.001, 0.002, 0.02, 0.05]) {
+  test(`(D″) DS+G at m = ${laM} on a 0.1 eV grid: page equals server${laM <= 0.002 ? ' (both an all-zero curve — the server kernel underflows; known server limit)' : ''}`, () => {
+    const x = Array.from({ length: 120 }, (_, i) => 290 - 0.1 * i);
+    const p = { ...basePeak('DSG_LA'), amplitude: 1, center: 284.5, laAlpha: 0.25, laBeta: 0.7, laM };
+    const { shape, params } = backendParamsFromRequest(p);
+    const beY = backendEval(shape, params, x);
+    const jsY = evalPeakArray(x, p);
+    assert.ok(maxRelDiff(jsY, beY, 1) < TIGHT_TOL, `m = ${laM}: page vs server ${maxRelDiff(jsY, beY, 1).toExponential(3)}`);
+    const serverMax = Math.max(...beY.map(Math.abs));
+    if (laM <= 0.002) assert.equal(serverMax, 0, `m = ${laM}: the server curve is expected to vanish here (kernel underflow) — if it no longer does, the server changed; update this characterisation`);
+    else assert.ok(serverMax > 0.9, `m = ${laM}: a real curve`);
+  });
+}
