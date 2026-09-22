@@ -4162,8 +4162,10 @@ function evalPeak(x, p) {
   } else if (p.shape === 'Voigt') {
     y = pseudoVoigt(x, center, fwhm, 0.5);
   } else if (p.shape === 'DSG_LA') {
-    // laCasaXPS already returns a normalised [0,1] value
-    y = laCasaXPS(x, center, p.laAlpha, p.laBeta, p.laM);
+    // laCasaXPS already returns a normalised [0,1] value. α is clipped as
+    // the server clips it (_ds_g_dscore_gauss: 0 ≤ α ≤ 0.495) so a locked
+    // 0.5 is drawn as it is fitted (A03 Codex round 3: 0.9 % apart before).
+    y = laCasaXPS(x, center, _dsgAlpha(p.laAlpha), p.laBeta, p.laM);
   } else if (p.shape === 'LACX') {
     // Per-point fallback: m=0 base, ignores Gaussian conv. Chart series
     // build paths use laTrueCasaXPS_array via evalPeakArray.
@@ -4183,6 +4185,10 @@ function evalPeak(x, p) {
 // the analytic core value at eps=0 instead differs by ~1e-3 of amplitude
 // when the fitted center falls between grid points — the Codex run-A MAJOR
 // on the first cut of this fix. Pinned by tests/js/lineshape_parity.test.js.
+// The server's DS+G clips α to [0, 0.495] (_ds_g_dscore_gauss); the page
+// must evaluate the same α or a locked 0.5 is drawn 0.9 % from its fit.
+function _dsgAlpha(a) { return Math.min(Math.max(a, 0), 0.495); }
+
 function dsgDeltaKernel_array(beArr, center, alpha, beta) {
   const N = beArr.length;
   const core = new Array(N);
@@ -4234,7 +4240,7 @@ function evalPeakArray(beArr, p) {
     // (p.laM || 0): negative laM matches the backend's clamp-to-0-then-delta
     // path; NaN/undefined coerce to 0 → delta, which peakToBackendSpec's
     // non-finite→default sanitisation makes unreachable in fit flows.
-    const yArr = dsgDeltaKernel_array(beArr, p.center, p.laAlpha, p.laBeta);
+    const yArr = dsgDeltaKernel_array(beArr, p.center, _dsgAlpha(p.laAlpha), p.laBeta);
     const amp = p.amplitude;
     return yArr.map(v => amp * v);
   }

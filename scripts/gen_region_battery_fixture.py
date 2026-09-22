@@ -33,7 +33,10 @@ def main() -> None:
                     skipped.append({"project": rf.project, "name": rf.name,
                                     "reason": reason})
                 continue
-            records.append(refit_record(rf))
+            rec = refit_record(rf)
+            for pk in rec["peaks"]:
+                pk.pop("params", None)   # the fixture pins numbers, not the full model
+            records.append(rec)
     out = os.path.join(FIXTURES, out_name)
     os.makedirs(FIXTURES, exist_ok=True)
     with open(out, "w") as f:

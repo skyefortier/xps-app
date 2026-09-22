@@ -17,9 +17,14 @@ x = np.asarray(d["be"], float)
 y = np.asarray(d["inten"], float)
 ui = d["ui"]
 specs = [peak_to_backend_spec(p, d["peaks"]) for p in d["peaks"]]
-lo, hi = sorted([float(ui["bgStart"]), float(ui["bgEnd"])])
-idx = [i for i, b in enumerate(x) if lo <= b <= hi]
-res = fitting.run_fit(x, y, specs, background_method=ui["bgType"], bg_start_idx=idx[0], bg_end_idx=idx[-1] + 1,
+if d.get("bg_idx"):
+    # the caller selected the window on the page's DISPLAY grid (_bgWindowIndices), before upload rounding
+    i0, i1 = int(d["bg_idx"][0]), int(d["bg_idx"][1])
+else:
+    lo, hi = sorted([float(ui["bgStart"]), float(ui["bgEnd"])])
+    idx = [i for i, b in enumerate(x) if lo <= b <= hi]
+    i0, i1 = idx[0], idx[-1] + 1
+res = fitting.run_fit(x, y, specs, background_method=ui["bgType"], bg_start_idx=i0, bg_end_idx=i1,
                       endpoint_avg=int(ui.get("endpointAvg") or 1), fit_kws={"method": "least_squares"},
                       n_perturb=int(d.get("n_perturb") or 0))   # the page sends 3; the W1 test sends none
 print(json.dumps({"success": bool(res["success"]), "chi2r": res["statistics"]["reduced_chi_square"],

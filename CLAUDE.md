@@ -126,7 +126,13 @@ Python twin `autofit.reference.peak_to_backend_spec` to the page's builder,
 shape by shape); section (D) of `tests/js/lineshape_parity.test.js` sweeps
 each shape's FREE parameters across the fit's bounds. Both were added in A03
 (2026-09-22) after a "Voigt" was found to be fitted with η free while drawn
-at 0.5. Tracked gaps, `todo` in both files: LACX with m > 0 (the page draws
+at 0.5; the same harnesses then found `p.glMix || 50` / `p.dsAlpha || 0.1`
+sending a mix or α of exactly 0 as the default, lmfit clipping a HELD value
+to the optimiser's bounds (a DS+G m locked at 0 fitted at 0.05 —
+`_make_peak_params._set` now widens a limit to a held value), and the
+server clipping DS+G α to 0.495 where the page did not (`_dsgAlpha`). A
+held parameter is held at its value; what the page draws is what the
+server fitted. Tracked gaps, `todo` in both files: LACX with m > 0 (the page draws
 a rounded integer kernel; the server fits m continuously — the `caM` clamp
 unit) and DS+G with m ≥ 0.05 (the page's quadrature `laCasaXPS` sizes its
 step to the Lorentzian core, not the Gaussian kernel, and is wrong by up to

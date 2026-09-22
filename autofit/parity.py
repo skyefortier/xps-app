@@ -168,13 +168,23 @@ def grid_matches(rf: ReferenceFit, tol: float = 1e-3) -> bool:
     return float(np.max(np.abs(np.asarray(saved_be, dtype=float) - roi))) <= tol
 
 
-def eval_parity_relmax(rf: ReferenceFit) -> float:
+def eval_parity_relmax(rf: ReferenceFit, voigt_eta: str = "contract") -> float:
     """
     Max |python_eval − saved fittedY| / max|fittedY| on the reconstructed
     ROI grid.  Requires ``grid_matches(rf)``.
+
+    voigt_eta: "contract" evaluates a Voigt as the page's request now
+    defines it (eta = 0.5, A03 2026-09-22); "saved" evaluates it with the
+    mix the peak carries in ``glMix`` — what the request BEFORE A03 fitted
+    (eta free from 0.3) and wrote back. A save made under the old request
+    reproduces its own fittedY only with "saved".
     """
     fittedY = np.asarray(rf.fit_result["fittedY"], dtype=float)
     specs = rf.backend_peak_specs()
+    if voigt_eta == "saved":      # backend_peak_specs keeps the peaks' order
+        specs = [dict(s, gl_ratio=float(p["glMix"]) / 100.0)
+                 if p.get("shape") == "Voigt" and isinstance(p.get("glMix"), (int, float)) else s
+                 for s, p in zip(specs, rf.peaks)]
     model = evaluate_model(rf.roi_be, specs)
     i0, i1 = rf.bg_indices()
     bg = background_like_run_fit(

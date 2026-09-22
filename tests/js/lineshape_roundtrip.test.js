@@ -6,8 +6,8 @@
 // sent as pseudo_voigt_gl with gl_ratio FREE from 0.3 while evalPeak drew
 // η = 0.5, so every chart component, area, percentage and export for a
 // Voigt was the 0.5 curve under parameters fitted for another mix (on the
-// 90 committed Voigt targets: displayed areas 12 % off the fitted curve at
-// the median (13.9 %), 20 % at worst; 60 of 180 components had gone to pure
+// 90 committed Voigt targets: displayed areas 13.9 % off the fitted curve at
+// the median, 20 % at worst; 60 of 180 components had gone to pure
 // Gaussian, 16 to pure Lorentzian). This test closes that class: for every
 // shape, build the request with the PAGE's own peakToBackendSpec, fit it
 // on the server (fitting.run_fit, no background, Trust-Region), apply the
@@ -41,7 +41,7 @@ function extractFn(name) {
   assert.fail(`unbalanced braces extracting ${name}`);
 }
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
-  'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', 'laTrueCasaXPS_array', 'evalPeak', 'dsgDeltaKernel_array',
+  'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array',
   'evalPeakArray', 'getPeak', 'peakToBackendSpec', '_applyBackendParams'];
 const state = { peaks: [] };
 const env = new Function('state', NAMES.map(extractFn).join('\n\n') + '\nreturn { evalPeakArray, peakToBackendSpec, _applyBackendParams };')(state);
@@ -188,6 +188,13 @@ const LOCKED_AT_BOUNDS = [
   { label: 'LA alpha 5 locked (m = 0)',   truth: { shape: 'LACX', caAlpha: 5, caBeta: 1, caM: 0, fixCaAlpha: true, fixCaM: true }, held: { alpha: 5, m: 0 } },
   { label: 'LA beta 0.1 locked (m = 0)',  truth: { shape: 'LACX', caAlpha: 1, caBeta: 0.1, caM: 0, fixCaBeta: true, fixCaM: true }, held: { beta: 0.1, m: 0 } },
   { label: 'LA beta 5 locked (m = 0)',    truth: { shape: 'LACX', caAlpha: 1, caBeta: 5, caM: 0, fixCaBeta: true, fixCaM: true }, held: { beta: 5, m: 0 } },
+  // the page's input allows α = 0.5; the server's evaluator clips α to 0.495 and so, since round 3, does the page's
+  { label: 'DS+G alpha 0.5 locked (delta kernel; both evaluators clip to 0.495)', truth: { shape: 'DSG_LA', laAlpha: 0.5, laBeta: 0.5, laM: 0, fixLaAlpha: true, fixLaM: true }, held: { alpha: 0.5, m_gauss: 0 } },
+  // the convolved shapes' m locks at m > 0: request and server-held value are pinned; the drawn-vs-fitted
+  // comparison sits under the evaluator gaps marked todo above (curve: false)
+  { label: 'DS+G m 0.05 locked (request and hold only)', truth: { shape: 'DSG_LA', laAlpha: 0.15, laBeta: 0.5, laM: 0.05, fixLaM: true }, held: { m_gauss: 0.05 }, curve: false },
+  { label: 'DS+G m 4 locked (request and hold only)',    truth: { shape: 'DSG_LA', laAlpha: 0.15, laBeta: 0.5, laM: 4, fixLaM: true }, held: { m_gauss: 4 }, curve: false },
+  { label: 'LA m 499 locked (request and hold only)',    truth: { shape: 'LACX', caAlpha: 1, caBeta: 1, caM: 499, fixCaM: true }, held: { m: 499 }, curve: false },
 ];
 for (const c of LOCKED_AT_BOUNDS) {
   test(`locked at a bound, the request carries the value the page draws, the server holds it, and the fit is drawn as fitted — ${c.label}`, () => {
@@ -198,6 +205,7 @@ for (const c of LOCKED_AT_BOUNDS) {
       assert.equal(res.individual_peaks[0].params[name].vary, false, `${c.label}: the server held ${name}`);
       assert.equal(res.individual_peaks[0].params[name].value, value, `${c.label}: at the locked value`);
     }
+    if (c.curve === false) return;
     const rel = maxRelDiff(env.evalPeakArray(res.energy, p), res.individual_peaks[0].y, p.amplitude);
     assert.ok(rel < TIGHT_TOL, `${c.label}: drawn vs fitted curve differ by ${(rel * 100).toExponential(3)} % of amplitude`);
   });

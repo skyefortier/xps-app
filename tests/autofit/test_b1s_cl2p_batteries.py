@@ -7,6 +7,13 @@ Cl 2p: 3, incl. the uncorrected Scan_1).
 Regenerate fixtures ONLY for reviewed numerics changes:
     venv/bin/python scripts/gen_region_battery_fixture.py "B 1s" b1s_battery_expected.json
     venv/bin/python scripts/gen_region_battery_fixture.py "Cl 2p" cl2p_battery_expected.json
+
+A03 (2026-09-22): Cl2p Scan_1 is two Voigt lines saved under the old request
+(eta free, written back as glMix 15.7); the page now requests eta = 0.5, so
+its eval parity holds with the saved mix (battery_common.assert_eval_parity)
+and its refit is a fixed point only of a refit FROM the refit
+(stationarity="refit", as the U 4f battery). The Cl 2p fixture was
+regenerated for that reviewed change; B 1s is untouched.
 """
 
 import pytest
@@ -51,4 +58,4 @@ def test_cl2p_eval_parity(rf):
 
 @pytest.mark.parametrize("rf", _CL2P, ids=[f"{r.project}::{r.name}" for r in _CL2P])
 def test_cl2p_refit_stability_and_fixture(rf):
-    bc.assert_refit_stability_and_fixture(rf, _CL2P_EXPECTED)
+    bc.assert_refit_stability_and_fixture(rf, _CL2P_EXPECTED, stationarity="refit")

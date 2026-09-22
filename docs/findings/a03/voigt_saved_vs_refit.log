@@ -53,4 +53,4 @@ UCl4_on_graphite.proj.zip U4f Scan_5 server true max Δfrac 0.24 pp, max Voigt �
 UCl4_on_graphite.proj.zip U4f Scan_6 server true max Δfrac 0.24 pp, max Voigt Δarea 3.7 %
 UCl4_on_graphite.proj.zip U4f Scan_7 server true max Δfrac 0.13 pp, max Voigt Δarea 2.5 %
 UCl4_on_graphite.proj.zip U4f Scan_8 server true max Δfrac 0.27 pp, max Voigt Δarea 5.0 %
-{"n_tabs":55,"n_converged":55,"dFrac_pp":{"median":0.36397402720980065,"p90":0.5078511773598887,"max":0.6882979245316376},"gt_1pp":0,"voigt_dArea_pct":{"median":4.576866262303724,"p90":7.556793905659809,"max":15.300735561732603}}
+{"n_tabs":55,"n_converged":55,"dFrac_pp":{"median":0.3640236960289873,"p90":0.5078511773600608,"max":0.6882980473358474},"gt_1pp":0,"voigt_dArea_pct":{"median":4.576983178447858,"p90":7.556793905528403,"max":15.30071242466854}}

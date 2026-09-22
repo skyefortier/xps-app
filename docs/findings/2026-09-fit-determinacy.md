@@ -293,7 +293,14 @@ from the fitted one by 6.9 % / 8.8 % of amplitude. Fixed in both builders.
 Locking every shape parameter at each of its bounds then found a fourth:
 lmfit clips a held value to its bounds, so a DS+G with m locked at 0 (the
 page's delta-kernel branch) was fitted with m = 0.05, the free-parameter
-floor; `_set` now widens the limit to a held value.
+floor; `_set` now widens the limit to a held value. And a fifth: the
+server's DS+G evaluator clips α to 0.495 while the page's did not, so an α
+locked at 0.5 (the input allows it) was drawn 0.9 % from its fit; the page
+now clips as the server does. Two committed saves show the class in the
+lab's data: the U 4f expert fits (29) and the Cl 2p Scan_1 fit (two Voigt
+lines, η written back as 15.7 %) reproduce their own saved curves only with
+the mix the old request fitted; both batteries were re-based on that
+fact.
 
 **The re-measurement (W1 methodology, 18 targets).** C 1s unchanged (8 of 9
 within 3.8 meV / 0.5 % / 1.4 % / 0.32 pp; Scan_4 is the §2 finding). U 4f,

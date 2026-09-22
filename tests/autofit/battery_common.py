@@ -67,6 +67,18 @@ def assert_roster(fits, expected, min_size, min_projects, gen_script):
 
 def assert_eval_parity(rf, tol=EVAL_PARITY_TOL):
     relmax = eval_parity_relmax(rf)
+    if relmax >= tol and any(p.get("shape") == "Voigt" for p in rf.peaks):
+        # A03 (2026-09-22): a Voigt is now requested at eta = 0.5; a save made
+        # under the old request (eta free, written back into glMix) reproduces
+        # its own fittedY only with that saved mix. The parity that can hold
+        # for such a save is the saved-mix one; the contract-mix deviation is
+        # the A03 change itself, not a numerics regression.
+        saved = eval_parity_relmax(rf, voigt_eta="saved")
+        assert saved < tol, (
+            f"{rf.project}/{rf.name}: python eval of saved params deviates from saved fittedY by "
+            f"{relmax:.3e} with the Voigt contract mix and {saved:.3e} with the saved mix (tol {tol})"
+        )
+        return
     assert relmax < tol, (
         f"{rf.project}/{rf.name}: python eval of saved params deviates from "
         f"saved fittedY by {relmax:.3e} (tol {tol})"

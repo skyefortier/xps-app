@@ -8,11 +8,15 @@
 // page's area of the same peaks after the server refit (the page's request
 // builder, Trust-Region, the page's n_perturb 3, parameters written back
 // through the page's _applyBackendParams). Grids as the page holds them
-// (Codex round 2): the SAVED side integrates on the saved fit's own grid
-// (fitResult.be — what Results shows for a loaded project; the ROI only
-// when a save lacks it), the REFIT side on the grid the request carried,
-// rounded exactly as uploadToBackend rounds (energies 4 dp, intensities
-// 2 dp), which is the grid the page holds after Run Fit.
+// (Codex rounds 2–3): the page keeps its DISPLAY grid (the corrected ROI
+// energies, unrounded — fitResult.be after Run Fit, the integration grid
+// of Results) apart from the UPLOAD it sends (energies 4 dp, intensities
+// 2 dp, uploadToBackend), and selects the background window on the display
+// grid (_bgWindowIndices) before uploading. So here: the SAVED side
+// integrates on the saved fit's own grid (fitResult.be; the display grid
+// only when a save lacks it), the REFIT side on the display grid; the
+// request carries the rounded arrays and the window indices chosen on the
+// display grid.
 // Usage: node scripts/voigt_saved_vs_refit.js [out.json]
 const fs = require('fs'); const path = require('path'); const { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
@@ -25,9 +29,9 @@ function extractFn(name) {
   throw new Error('unbalanced ' + name);
 }
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS',
-  'laTrueCasaXPS', 'laTrueCasaXPS_array', 'evalPeak', 'dsgDeltaKernel_array', 'evalPeakArray', 'getPeak', '_applyBackendParams'];
+  'laTrueCasaXPS', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', 'evalPeakArray', 'getPeak', '_applyBackendParams', '_bgWindowIndices'];
 const state = { peaks: [] };
-const fns = new Function('state', NAMES.map(extractFn).join('\n\n') + '\nreturn { evalPeakArray, _applyBackendParams };')(state);
+const fns = new Function('state', NAMES.map(extractFn).join('\n\n') + '\nreturn { evalPeakArray, _applyBackendParams, _bgWindowIndices };')(state);
 const PY = [path.join(ROOT, 'venv/bin/python3'), '/Users/skyefortier/xps-app/venv/bin/python3', 'python3'].find(p => p === 'python3' || fs.existsSync(p));
 const DATA = path.join(ROOT, 'docs/autofit/test_data');
 const area = (be, p) => { const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1; return fns.evalPeakArray(be, p).reduce((s, y) => s + y, 0) * step; };
@@ -39,14 +43,16 @@ for (const zp of fs.readdirSync(DATA).filter(f => f.endsWith('.proj.zip')).sort(
     const ui = t.ui || {};
     const roiMin = parseFloat(ui.roiMin), roiMax = parseFloat(ui.roiMax);
     if (!Number.isFinite(roiMin) || !Number.isFinite(roiMax) || !ui.bgType) continue;
-    const be = [], inten = [];
-    t.rawBE.forEach((b, i) => { const c = b - (t.ccShift || 0); if (c >= roiMin && c <= roiMax) { be.push(+c.toFixed(4)); inten.push(+t.rawIntensity[i].toFixed(2)); } });
+    const be = [], inten = [];                       // the display grid and its intensities (getROIData)
+    t.rawBE.forEach((b, i) => { const c = b - (t.ccShift || 0); if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(t.rawIntensity[i]); } });
     if (be.length < 10) continue;
+    const upBe = be.map(v => +v.toFixed(4)), upInten = inten.map(v => +v.toFixed(2));   // what uploadToBackend sends
+    const bgWin = fns._bgWindowIndices(be, ui.bgStart, ui.bgEnd);                        // chosen on the display grid, as runFit does
     const savedGrid = (t.fitResult.be && t.fitResult.be.length) ? t.fitResult.be : be;
     const saved = JSON.parse(JSON.stringify(t.peaks));
     let srv;
     try {
-      srv = JSON.parse(execFileSync(PY, [path.join(ROOT, 'tests/js/local_lm_server_parity_backend.py'), ROOT], { input: JSON.stringify({ be, inten, peaks: saved, ui, n_perturb: 3 }), encoding: 'utf8', maxBuffer: 1 << 26 }));
+      srv = JSON.parse(execFileSync(PY, [path.join(ROOT, 'tests/js/local_lm_server_parity_backend.py'), ROOT], { input: JSON.stringify({ be: upBe, inten: upInten, peaks: saved, ui, n_perturb: 3, bg_idx: [bgWin.i0, bgWin.i1 + 1] }), encoding: 'utf8', maxBuffer: 1 << 26 }));
     } catch (e) { out.targets.push({ project: zp, tab: t.name, error: String(e.message).slice(0, 200) }); continue; }
     const refit = JSON.parse(JSON.stringify(saved));
     srv.peaks.forEach((pp, i) => { const par = {}; for (const [k, v] of Object.entries(pp)) par[k] = { value: v }; fns._applyBackendParams(refit[i], par); });

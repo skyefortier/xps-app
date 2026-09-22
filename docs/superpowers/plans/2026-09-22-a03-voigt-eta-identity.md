@@ -56,12 +56,16 @@ peak (`evalPeakArray` over the ROI grid × step, as `_peakArea` — a Voigt
 at 0.5, an LA at its rounded m, exactly the Results table) against the
 page's area of the same peaks after the server refit under the A03 request
 (Trust-Region, the page's `n_perturb: 3`, written back through
-`_applyBackendParams`). Grids as the page holds them (Codex round 2): the
-saved side on the saved fit's own grid (`fitResult.be`, what Results shows
-for a loaded project — 11 of the 55 tabs have a saved grid that differs
-from the current ROI), the refit side on the request's grid, rounded as
-`uploadToBackend` rounds (energies 4 dp, intensities 2 dp — the rounding
-also determines the request seed).
+`_applyBackendParams`). Grids as the page holds them (Codex rounds 2–3):
+the page keeps its DISPLAY grid (the corrected ROI energies, unrounded —
+`fitResult.be` after Run Fit and the integration grid of Results) apart
+from the UPLOAD it sends (energies 4 dp, intensities 2 dp; the rounding also
+determines the request seed) and selects the background window on the
+display grid before uploading. So: the saved side integrates on the saved
+fit's own grid (`fitResult.be`, present on 41 of the 55 tabs; the display
+grid otherwise), the refit side on the display grid; the request carries
+the rounded arrays and the window indices chosen on the display grid
+(`_bgWindowIndices`).
 
 | | median | p90 | max |
 |---|---:|---:|---:|
@@ -100,7 +104,7 @@ banner, `autofit/reference.py`, `scripts/endpoint_avg_sensitivity.py`,
   and write-back pins, a linked Voigt pair, a locked GL mix, and the Python
   twin deep-equal to the page's builder for every shape and a link. Run
   against main's page it fails on Voigt (0.93 % of amplitude), the Voigt
-  pins and the linked pair; on the branch 10 pass, 2 todo (below).
+  pins and the linked pair; on the branch 33 pass, 2 todo (below).
 - `tests/js/lineshape_parity.test.js` section (D): each shape's FREE
   parameters swept across `_make_peak_params`'s bounds (η 0–1, asymmetry
   0–1, DS α 0–0.5 / γ 0–5, DS+G α 0–0.49 / β 0.05–2 / m 0.05–4, LA α,β
@@ -146,7 +150,7 @@ engine cannot move.
 | target | local χ²ᵣ | server χ²ᵣ, m free | server χ²ᵣ, m held | local vs server, m free (Δcentre / ΔFWHM / Δarea / Δfrac) | local vs server, m held | local χ²ᵣ above the held-m server's |
 |---|---:|---:|---:|---|---|---:|
 | Scan_4 | 1.970 | 1.798 | 1.870 | 26.6 meV / 5.3 % / 8.3 % / 0.33 pp | 13.4 meV / 3.1 % / 5.3 % / 0.19 pp | +5.4 % |
-| Scan_5 | 2.393 | 2.174 | 2.182 | 4.7 meV / 4.3 % / 6.7 % / 0.35 pp | 6.3 meV / 3.5 % / 5.5 % / 0.25 pp | +9.7 % |
+| Scan_5 | 2.393 | 2.174 | 2.182 | 4.7 meV / 4.3 % / 6.6 % / 0.35 pp | 6.3 meV / 3.5 % / 5.5 % / 0.25 pp | +9.7 % |
 | Scan_6 | 2.657 | 2.798 | 2.629 | 28.8 meV / 15.8 % / 8.9 % / 0.77 pp | 3.6 meV / 1.1 % / 1.6 % / 0.07 pp | +1.1 % |
 | Scan_8 | 4.656 | 4.129 | 4.117 | 5.7 meV / 5.0 % / 8.3 % / 0.32 pp | 5.8 meV / 5.0 % / 8.2 % / 0.32 pp | +13.1 % |
 
@@ -184,9 +188,9 @@ random seed, since the seed hashes the parameters as the fit receives them.
 ## 8. Verification
 
 - `tests/test_voigt_contract.py` 6 passed; `lineshape_roundtrip.test.js`
-  29 passed, 2 todo; full `pytest tests/` and the JS suite (371 tests, 364
-  pass, 7 todo — `node --test tests/js/*.test.js`; the directory form does
-  not run in this node): see §9.
+  33 passed, 2 todo; the JS suite 375 tests, 368 pass, 7 todo (`node --test
+  tests/js/*.test.js`; the directory form does not run in this node); full
+  `pytest tests/`: see §9.
 - Browser check (`browser_check_a03.py`, dev gunicorn :5151 from the
   worktree, re-run after round 1): the request carries `gl_ratio 0.5, fix_gl_ratio true` for
   both Voigt components; the server returns `vary: false, 0.5`; drawn vs
@@ -246,3 +250,30 @@ items 1, 3, 4 confirmed closed; found:**
    stale test counts. Corrected. Commit 712e136's message carries the
    superseded round-0 numbers; the merge is fast-forward, so this plan and
    the deploy-log entry are the record.
+
+**Round 3 (`a03_voigt_eta_r3_verdict_run{A,B}.md`): NO-GO ×2; found:**
+1. MAJOR — a DS+G with α locked at 0.5 (the page's input allows it): the
+   server's evaluator clips α to 0.495, the page's did not — 0.9 % of
+   amplitude apart even in the exact delta branch. The page now clips as
+   the server does (`_dsgAlpha`, used by `evalPeak` and the delta-kernel
+   branch); the locked-0.5 case is in the round-trip test.
+2. MAJOR — the measurement's bridge selected the background window on the
+   ROUNDED grid where the page selects it on the display grid before
+   uploading (a window edge can move one channel), and the refit side
+   integrated on the rounded grid where the page integrates on the
+   unrounded one. Display and upload grids are now kept apart and the
+   window indices are passed to the bridge; re-run: unchanged to the
+   quoted precision (median 0.36 pp, max 0.69 pp).
+3. MINOR — the m locks of the convolved shapes (DS+G m 0.05 and 4, LA
+   m 499) are now pinned for the request value and the server's hold; their
+   drawn-vs-fitted comparison stays under the evaluator todo.
+4. MINOR — "12 %" in the harness header, "10 pass" and "6.7 %" in this
+   plan. Corrected.
+Also in this round: the full suite showed the Cl 2p battery's Scan_1 (two
+Voigt lines, saved under the old request with η written back as 15.7 %)
+failing exactly as the U 4f battery did. Eval parity for a save made under
+the old request holds with the SAVED mix, not the contract's
+(`battery_common.assert_eval_parity` tries the saved mix when the contract
+mix fails on a tab with a Voigt); its refit is a fixed point of a refit
+from the refit (stationarity="refit"); the Cl 2p fixture regenerated with
+its committed generator (B 1s untouched).
