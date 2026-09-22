@@ -1,0 +1,12 @@
+ROUND 3 recheck of step (c), branch feature-autofit-required-refit (git diff main..HEAD). Read-only. Round 2 was NO-GO x2 with two shared findings (archived docs/autofit/codex/autofit_required_r2_verdict_run{A,B}.md); everything cleared in rounds 1-2 is unchanged. Budget your time: a verdict is required within the run.
+
+DISPOSITIONS
+1. MAJOR retained transitive links in reverse request order broke the reduced start -> ALL retained parameters are created (without expressions) before any expression is assigned (`start[name].set(expr=...)` in a second pass), so any dependency order resolves. Tests: your two orderings (10 -> 9 -> 3 with 10 listed first, removing 1; 5 -> 4 -> 3 listed child-first, removing 1) plus the round-1 cases.
+2. MAJOR/MINOR the delta floor (1e-9 x power) masked real anchors (amplitude 10 beside 1e6, F ~ 1e5; amplitude 1e6 beside 1e10 on 1e7 background, F = 264) -> REMOVED. There is no floor on the chi-square change any more. The one numerical statement kept: if the REDUCED model reproduces the data to floating-point precision (chi2_without_refit <= 1e-20 x sum((w*y_sub)^2), i.e. residuals ~1e-10 relative) the component is not required — that is the two-identical-half-components case on noise-free data, and it is a condition on the absolute quality of the reduced fit, not on delta, so it cannot mask a real anchor (a reduced fit missing a real component, or fitting real noisy data, sits many orders above it). Tests: both of your anchors now required; the lossless case still not required under both local methods.
+
+TRY TO BREAK
+a. the exactness test: real (noisy, integer-count or 2-dp) data where the reduced fit's chi-square could fall below 1e-20 x power (it cannot for Poisson noise: chi2 ~ n) — or noise-free synthetic data where a REAL anchor's removal still leaves a floating-point-exact reduced fit (that would mean the anchor was not needed, by construction);
+b. expression assignment in the second pass when an expr references a parameter of the REMOVED set that the closure missed (e.g. an expr string mentioning a prefix not through constrain_to — can the page produce one? peakToBackendSpec only emits constrain_to/splitting/area_ratio);
+c. anything else in the diff not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

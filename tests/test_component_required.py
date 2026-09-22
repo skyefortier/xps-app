@@ -107,6 +107,15 @@ def test_everything_linked_to_the_removed_component_goes_with_it_transitively():
     specs2 = [specs2[0], _linked("4", "3", 0.8), specs2[1], specs2[2]]           # 4 -> 3, listed before 3
     res2 = fitting.run_fit(X, y, specs2, require_component="2", **KW)
     assert res2["required"]["ran"] is True, res2["required"]
+    # Codex round 2: a retained CHAIN in reverse order (10 -> 9 -> 3, listed 10 before 9), removing 1
+    specs3 = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)]) + [_linked("10", "9", 0.8), _linked("9", "3", 0.8)]
+    res3 = fitting.run_fit(X, y, specs3, require_component="1", **KW)
+    assert res3["required"]["ran"] is True, res3["required"]
+    specs4 = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
+    specs4 = [specs4[0], specs4[1], _linked("4", "3", 0.8), specs4[2]]
+    specs4[2]["constrain_to"] = "3"; specs4.append(_linked("5", "4", 0.8)); specs4 = [specs4[0], specs4[1], specs4[4], specs4[2], specs4[3]]
+    res4 = fitting.run_fit(X, y, specs4, require_component="1", **KW)
+    assert res4["required"]["ran"] is True, res4["required"]
 
 
 def test_differential_evolution_goes_through_its_own_candidate_machinery():
@@ -165,3 +174,17 @@ def test_validation_and_never_failing_the_fit(client, monkeypatch):
     ok = client.post("/api/fit", json={"session_id": sid, "background": {"method": "linear"}, "peaks": specs,
                                        "fit_method": "least_squares", "n_perturb": 0, "require_component": "1"})
     assert ok.status_code == 200 and ok.get_json()["required"]["ran"] is True
+
+
+def test_a_weak_real_anchor_beside_a_strong_line_is_required():
+    # Codex round 2: a delta floor relative to the data's power called a real
+    # anchor of amplitude 10 beside a 1e6 line (F ~ 1e5) "not required".
+    y = np.round(1000 + _agl(X, 10, 284.5, 0.7) + _gl(X, 1e6, 285.1, 1.9) + _gl(X, 2300, 286.4, 1.4), 2)
+    specs = _autofit_model(10, [(1e6, 285.1, 1.9), (2300, 286.4, 1.4)])
+    res = fitting.run_fit(X, y, specs, require_component="1", **KW)
+    assert res["required"]["ran"] and res["required"]["required"] is True, res["required"]
+    rng = np.random.default_rng(17)
+    y2 = rng.poisson(1e7 + _agl(X, 1e6, 284.5, 0.7) + _gl(X, 1e10, 285.1, 2.5)).astype(float)
+    specs2 = _autofit_model(1e6, [(1e10, 285.1, 2.5)])
+    res2 = fitting.run_fit(X, y2, specs2, require_component="1", **{**KW, "manual_bg": [[280.0, 1e7], [295.0, 1e7]]})
+    assert res2["required"]["ran"] and res2["required"]["required"] is True, res2["required"]

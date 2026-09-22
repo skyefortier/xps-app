@@ -1372,26 +1372,34 @@ def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weigh
     parameters first, expressions after, so a child ordered before its parent
     in the request still resolves."""
     kept = [(name, par) for name, par in params_full.items() if not any(name.startswith(r) for r in removed_prefixes)]
+    # ALL retained parameters exist before any expression is assigned, so a
+    # chain of links in any request order resolves (lmfit evaluates an
+    # expression when it is set).
     start = Parameters()
     for name, par in kept:
-        if not par.expr:
-            start.add(name, value=par.value, min=par.min, max=par.max, vary=par.vary)
+        start.add(name, value=par.value, min=par.min, max=par.max, vary=par.vary)
     for name, par in kept:
         if par.expr:
-            start.add(name, value=par.value, min=par.min, max=par.max, expr=par.expr)
+            start[name].set(expr=par.expr)
     refit = fit_reduced(start)
     chi2_without = float(refit.chisqr) if refit.chisqr is not None else float("inf")
     delta = chi2_without - chi2_with
     p = max(1, int(n_free_comp))
     dof = max(1, len(y_sub) - int(n_free_total))
-    # A removal that changes the weighted fit by less than a billionth of the
-    # data's weighted power is lossless to numerical precision (two identical
-    # half-amplitude components: chi2 1e-28 -> 1e-26 is not "required").
+    # No floor on DELTA: any floor relative to the data's power masks a real
+    # anchor of low intensity beside a strong line (Codex round 2). The one
+    # numerical statement that cannot: if the model WITHOUT the component
+    # reproduces the data to floating-point precision (chi-square below 1e-20
+    # of the data's weighted power, i.e. residuals ~1e-10 relative), the
+    # component is not required — two identical half-amplitude components on
+    # noise-free data. Real data carry noise, so a real reduced fit is many
+    # orders above that.
     power = float(np.sum((np.asarray(weights, float) * np.asarray(y_sub, float)) ** 2))
+    exact_without = np.isfinite(chi2_without) and chi2_without <= 1e-20 * power
     if not np.isfinite(chi2_without):
         f, required = None, True                     # the rest could not even be fitted without it
-    elif delta <= 1e-9 * power:
-        f, required = 0.0 if delta <= 0 else ((delta / p) / (chi2_with / dof) if chi2_with > 0 else None), False
+    elif exact_without or delta <= 0:
+        f, required = (0.0 if delta <= 0 or chi2_with <= 0 else (delta / p) / (chi2_with / dof)), False
     elif chi2_with == 0:
         f, required = None, True
     else:
