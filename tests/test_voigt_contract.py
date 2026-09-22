@@ -49,6 +49,25 @@ def test_twin_sends_a_zero_as_a_zero():
     assert peak_to_backend_spec(d2, [d2])["alpha"] == 0.1
 
 
+def test_a_locked_value_outside_the_optimiser_bounds_is_held_as_requested():
+    """lmfit clips a value to its bounds even when it does not vary: a DS+G
+    with m locked at 0 (the page's delta-kernel branch) was fitted with
+    m = 0.05, the free-parameter floor — a convolved curve the page never
+    drew (A03 Codex round 2). A held parameter is held at its value."""
+    x = np.arange(397.8, 385.8, -0.05)
+    y = fitting._SHAPE_FUNCS["ds_g"](x, amplitude=12000.0, center=391.8, alpha=0.0, beta=0.5, m_gauss=0.0) + 5.0
+    p = {"id": 1, "name": "d", "shape": "DSG_LA", "center": 391.8, "amplitude": 12000.0, "fwhm": 1.6,
+         "laAlpha": 0.0, "laBeta": 0.5, "laM": 0.0, "fixLaAlpha": True, "fixLaM": True}
+    res = fitting.run_fit(x, y, [peak_to_backend_spec(p, [p])], background_method="none", fit_kws={"method": "least_squares"})
+    par = res["individual_peaks"][0]["params"]
+    assert par["m_gauss"]["vary"] is False and par["m_gauss"]["value"] == 0.0
+    assert par["alpha"]["vary"] is False and par["alpha"]["value"] == 0.0
+    q = par
+    drawn = fitting._SHAPE_FUNCS["ds_g"](np.asarray(res["energy"]), amplitude=q["amplitude"]["value"], center=q["center"]["value"],
+                                         alpha=0.0, beta=q["beta"]["value"], m_gauss=0.0)
+    np.testing.assert_allclose(np.asarray(res["individual_peaks"][0]["y"]), drawn, rtol=0, atol=1e-9 * 12000.0)
+
+
 def test_run_fit_holds_eta_and_returns_the_half_mix_curve():
     x = np.arange(392.0, 380.0, -0.05)
     truth = fitting._SHAPE_FUNCS["pseudo_voigt_gl"](x, amplitude=3000.0, center=386.5, fwhm=1.4, gl_ratio=0.5)

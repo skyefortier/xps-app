@@ -13,11 +13,11 @@
 4-GTA UCl4-BN.proj.zip U4f Scan_1 server true max Δfrac 0.18 pp, max Voigt Δarea 0.0 %
 4-GTA UCl4-BN.proj.zip U4f Scan_2 server true max Δfrac 0.50 pp, max Voigt Δarea 4.7 %
 4-GTA UCl4-BN.proj.zip U4f Scan_3 server true max Δfrac 0.59 pp, max Voigt Δarea 6.0 %
-4-GTA UCl4-BN.proj.zip U4f Scan_4 server true max Δfrac 0.06 pp, max Voigt Δarea 0.7 %
+4-GTA UCl4-BN.proj.zip U4f Scan_4 server true max Δfrac 0.02 pp, max Voigt Δarea 0.7 %
 4-GTA UCl4-BN.proj.zip U4f Scan_5 server true max Δfrac 0.49 pp, max Voigt Δarea 3.3 %
 4-GTA UCl4-BN.proj.zip U4f Scan_6 server true max Δfrac 0.25 pp, max Voigt Δarea 2.4 %
 4-GTA UCl4-BN.proj.zip U4f Scan_7 server true max Δfrac 0.35 pp, max Voigt Δarea 2.9 %
-4-GTA UCl4-BN.proj.zip U4f Scan_8 server true max Δfrac 0.28 pp, max Voigt Δarea 2.5 %
+4-GTA UCl4-BN.proj.zip U4f Scan_8 server true max Δfrac 0.27 pp, max Voigt Δarea 2.5 %
 B4C-UCl4.proj.zip U4f Scan server true max Δfrac 0.40 pp, max Voigt Δarea 4.7 %
 B4C-UCl4.proj.zip U4f Scan_0 server true max Δfrac 0.53 pp, max Voigt Δarea 4.5 %
 B4C-UCl4.proj.zip U4f Scan_1 server true max Δfrac 0.43 pp, max Voigt Δarea 4.5 %
@@ -43,14 +43,14 @@ Project9_CasaXPS_newfit.proj U4f Scan_2 server true max Δfrac 0.33 pp, max Voig
 Project9_CasaXPS_newfit.proj U4f Scan_3 server true max Δfrac 0.41 pp, max Voigt Δarea 7.5 %
 Project9_CasaXPS_newfit.proj U4f Scan_4 server true max Δfrac 0.27 pp, max Voigt Δarea 4.1 %
 Project9_CasaXPS_newfit.proj U4f Scan_5 server true max Δfrac 0.39 pp, max Voigt Δarea 6.0 %
-UCl4_on_graphite.proj.zip U4f Scan server true max Δfrac 0.39 pp, max Voigt Δarea 5.1 %
+UCl4_on_graphite.proj.zip U4f Scan server true max Δfrac 0.44 pp, max Voigt Δarea 5.1 %
 UCl4_on_graphite.proj.zip U4f Scan_0 server true max Δfrac 0.31 pp, max Voigt Δarea 5.9 %
-UCl4_on_graphite.proj.zip U4f Scan_1 server true max Δfrac 0.31 pp, max Voigt Δarea 3.0 %
-UCl4_on_graphite.proj.zip U4f Scan_2 server true max Δfrac 0.54 pp, max Voigt Δarea 8.4 %
+UCl4_on_graphite.proj.zip U4f Scan_1 server true max Δfrac 0.39 pp, max Voigt Δarea 3.0 %
+UCl4_on_graphite.proj.zip U4f Scan_2 server true max Δfrac 0.56 pp, max Voigt Δarea 8.4 %
 UCl4_on_graphite.proj.zip U4f Scan_3 server true max Δfrac 0.36 pp, max Voigt Δarea 4.5 %
-UCl4_on_graphite.proj.zip U4f Scan_4 server true max Δfrac 0.61 pp, max Voigt Δarea 15.1 %
+UCl4_on_graphite.proj.zip U4f Scan_4 server true max Δfrac 0.59 pp, max Voigt Δarea 15.1 %
 UCl4_on_graphite.proj.zip U4f Scan_5 server true max Δfrac 0.24 pp, max Voigt Δarea 3.2 %
 UCl4_on_graphite.proj.zip U4f Scan_6 server true max Δfrac 0.24 pp, max Voigt Δarea 3.7 %
 UCl4_on_graphite.proj.zip U4f Scan_7 server true max Δfrac 0.13 pp, max Voigt Δarea 2.5 %
 UCl4_on_graphite.proj.zip U4f Scan_8 server true max Δfrac 0.27 pp, max Voigt Δarea 5.0 %
-{"n_tabs":55,"n_converged":55,"dFrac_pp":{"median":0.3510427011305217,"p90":0.5078582976864185,"max":0.6882340627316421},"gt_1pp":0,"voigt_dArea_pct":{"median":4.577004847485078,"p90":7.556697705435966,"max":15.300258030724901}}
+{"n_tabs":55,"n_converged":55,"dFrac_pp":{"median":0.36397402720980065,"p90":0.5078511773598887,"max":0.6882979245316376},"gt_1pp":0,"voigt_dArea_pct":{"median":4.576866262303724,"p90":7.556793905659809,"max":15.300735561732603}}

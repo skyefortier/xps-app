@@ -7,7 +7,13 @@
 // at eta 0.5, an LA at its rounded m — exactly the Results table) versus the
 // page's area of the same peaks after the server refit (the page's request
 // builder, Trust-Region, the page's n_perturb 3, parameters written back
-// through the page's _applyBackendParams). Usage: node scripts/voigt_saved_vs_refit.js [out.json]
+// through the page's _applyBackendParams). Grids as the page holds them
+// (Codex round 2): the SAVED side integrates on the saved fit's own grid
+// (fitResult.be — what Results shows for a loaded project; the ROI only
+// when a save lacks it), the REFIT side on the grid the request carried,
+// rounded exactly as uploadToBackend rounds (energies 4 dp, intensities
+// 2 dp), which is the grid the page holds after Run Fit.
+// Usage: node scripts/voigt_saved_vs_refit.js [out.json]
 const fs = require('fs'); const path = require('path'); const { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'templates/index.html'), 'utf8'); const lines = html.split('\n');
@@ -34,8 +40,9 @@ for (const zp of fs.readdirSync(DATA).filter(f => f.endsWith('.proj.zip')).sort(
     const roiMin = parseFloat(ui.roiMin), roiMax = parseFloat(ui.roiMax);
     if (!Number.isFinite(roiMin) || !Number.isFinite(roiMax) || !ui.bgType) continue;
     const be = [], inten = [];
-    t.rawBE.forEach((b, i) => { const c = b - (t.ccShift || 0); if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(t.rawIntensity[i]); } });
+    t.rawBE.forEach((b, i) => { const c = b - (t.ccShift || 0); if (c >= roiMin && c <= roiMax) { be.push(+c.toFixed(4)); inten.push(+t.rawIntensity[i].toFixed(2)); } });
     if (be.length < 10) continue;
+    const savedGrid = (t.fitResult.be && t.fitResult.be.length) ? t.fitResult.be : be;
     const saved = JSON.parse(JSON.stringify(t.peaks));
     let srv;
     try {
@@ -43,11 +50,11 @@ for (const zp of fs.readdirSync(DATA).filter(f => f.endsWith('.proj.zip')).sort(
     } catch (e) { out.targets.push({ project: zp, tab: t.name, error: String(e.message).slice(0, 200) }); continue; }
     const refit = JSON.parse(JSON.stringify(saved));
     srv.peaks.forEach((pp, i) => { const par = {}; for (const [k, v] of Object.entries(pp)) par[k] = { value: v }; fns._applyBackendParams(refit[i], par); });
-    const aS = saved.map(p => area(be, p)), aR = refit.map(p => area(be, p));
+    const aS = saved.map(p => area(savedGrid, p)), aR = refit.map(p => area(be, p));
     const tS = aS.reduce((s, v) => s + v, 0), tR = aR.reduce((s, v) => s + v, 0);
     const comps = saved.map((p, i) => ({ name: p.name, shape: p.shape, saved_area: aS[i], refit_area: aR[i],
       dArea_pct: aS[i] ? 100 * (aR[i] / aS[i] - 1) : null, dFrac_pp: 100 * (aR[i] / tR - aS[i] / tS) }));
-    const rec = { project: zp, tab: t.name, server_success: srv.success, chi2r: srv.chi2r,
+    const rec = { project: zp, tab: t.name, server_success: srv.success, chi2r: srv.chi2r, saved_grid: t.fitResult.be && t.fitResult.be.length ? 'fitResult.be' : 'roi',
       max_dFrac_pp: Math.max(...comps.map(c => Math.abs(c.dFrac_pp))),
       max_voigt_dArea_pct: Math.max(...comps.filter(c => c.shape === 'Voigt' && c.dArea_pct != null).map(c => Math.abs(c.dArea_pct))), comps };
     out.targets.push(rec);

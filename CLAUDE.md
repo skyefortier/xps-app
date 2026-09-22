@@ -488,7 +488,7 @@ U 4f targets (satellite areas up to 8.9 %, 0.77 pp) for two reasons,
 separated by a control arm (the server with every LA m held at its start):
 on one target the `caM` clamp (`caM` held at its start locally while the
 server fits m continuously; holding m on the server closes the gap), on
-three the local descent stopping at a χ²ᵣ 10–13 % above the server's from
+three the local descent stopping at a χ²ᵣ 5–13 % above the server's from
 the same start with the same free parameters — a worse minimum, the
 "several minima" case (both engines' amplitude floor is 0 since unit
 step (b)). Both engines weight by

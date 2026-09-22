@@ -56,11 +56,16 @@ peak (`evalPeakArray` over the ROI grid × step, as `_peakArea` — a Voigt
 at 0.5, an LA at its rounded m, exactly the Results table) against the
 page's area of the same peaks after the server refit under the A03 request
 (Trust-Region, the page's `n_perturb: 3`, written back through
-`_applyBackendParams`).
+`_applyBackendParams`). Grids as the page holds them (Codex round 2): the
+saved side on the saved fit's own grid (`fitResult.be`, what Results shows
+for a loaded project — 11 of the 55 tabs have a saved grid that differs
+from the current ROI), the refit side on the request's grid, rounded as
+`uploadToBackend` rounds (energies 4 dp, intensities 2 dp — the rounding
+also determines the request seed).
 
 | | median | p90 | max |
 |---|---:|---:|---:|
-| area fraction, per tab | 0.35 pp | 0.51 pp | 0.69 pp (0 of 55 > 1 pp) |
+| area fraction, per tab | 0.36 pp | 0.51 pp | 0.69 pp (0 of 55 > 1 pp) |
 | a Voigt component's own area | 4.6 % | 7.6 % | 15.3 % |
 
 That is the release-note number.
@@ -133,23 +138,27 @@ server's continuous LA m moved from its start of 8 to 2.7, 6.5, 10.0 and
 7.9 while the local engine holds it at 8, and χ²ᵣ (local/server − 1) is
 +9.6 %, +10.1 %, −5.0 % and +12.7 %. Movement in m alone does not
 attribute the residual (Codex round 1), so the script has a CONTROL arm:
-the server fitted with every LA m HELD at its start, the one thing the
-local engine cannot move.
+the server fitted with every LA m HELD at the value the local engine
+effectively uses — its start rounded to an integer, as
+`laTrueCasaXPS_array` rounds it (Codex round 2) — the one thing the local
+engine cannot move.
 
-| target | local χ²ᵣ | server χ²ᵣ, m free | server χ²ᵣ, m held | local vs server, m free (Δcentre / ΔFWHM / Δarea / Δfrac) | local vs server, m held |
-|---|---:|---:|---:|---|---|
-| Scan_4 | 1.970 | 1.798 | 1.878 | 26.6 meV / 5.3 % / 8.3 % / 0.33 pp | 13.7 meV / 3.0 % / 5.0 % / 0.19 pp |
-| Scan_5 | 2.393 | 2.174 | 2.187 | 4.7 meV / 4.3 % / 6.7 % / 0.35 pp | 6.5 meV / 3.4 % / 5.3 % / 0.25 pp |
-| Scan_6 | 2.657 | 2.798 | 2.634 | 28.8 meV / 15.8 % / 8.9 % / 0.77 pp | 3.7 meV / 1.3 % / 1.4 % / 0.07 pp |
-| Scan_8 | 4.656 | 4.129 | 4.118 | 5.7 meV / 5.0 % / 8.3 % / 0.32 pp | 6.3 meV / 4.9 % / 8.1 % / 0.33 pp |
+| target | local χ²ᵣ | server χ²ᵣ, m free | server χ²ᵣ, m held | local vs server, m free (Δcentre / ΔFWHM / Δarea / Δfrac) | local vs server, m held | local χ²ᵣ above the held-m server's |
+|---|---:|---:|---:|---|---|---:|
+| Scan_4 | 1.970 | 1.798 | 1.870 | 26.6 meV / 5.3 % / 8.3 % / 0.33 pp | 13.4 meV / 3.1 % / 5.3 % / 0.19 pp | +5.4 % |
+| Scan_5 | 2.393 | 2.174 | 2.182 | 4.7 meV / 4.3 % / 6.7 % / 0.35 pp | 6.3 meV / 3.5 % / 5.5 % / 0.25 pp | +9.7 % |
+| Scan_6 | 2.657 | 2.798 | 2.629 | 28.8 meV / 15.8 % / 8.9 % / 0.77 pp | 3.6 meV / 1.1 % / 1.6 % / 0.07 pp | +1.1 % |
+| Scan_8 | 4.656 | 4.129 | 4.117 | 5.7 meV / 5.0 % / 8.3 % / 0.32 pp | 5.8 meV / 5.0 % / 8.2 % / 0.32 pp | +13.1 % |
 
-So: on Scan_6 the residual IS the `caM` clamp (holding m on the server
-closes it to the agreeing-target envelope). On Scan_5 and Scan_8 holding m
-changes nothing — the local engine's descent stops at a χ²ᵣ 10–13 % above
-the server's from the same start with the same free parameters: a worse
-minimum, the "several minima" case (findings §2 had the mirror image on
-C 1s Scan_4, where the local engine found the better one). Scan_4 is half
-each. The residual is therefore two things, and `caM` is the smaller.
+(The 5 agreeing targets are within 1.6 % of the held-m server's χ²ᵣ and
+within 4.0 meV / 1.5 % / 2.1 % / 0.12 pp of it.) So: on Scan_6 the residual
+IS the `caM` clamp (holding m on the server closes it to the
+agreeing-target envelope). On Scan_5 and Scan_8 holding m changes nothing —
+the local engine's descent stops at a χ²ᵣ 10–13 % above the server's from
+the same start with the same free parameters: a worse minimum, the
+"several minima" case (findings §2 had the mirror image on C 1s Scan_4,
+where the local engine found the better one). Scan_4 is in between
+(+5.4 %). The residual is therefore two things, and `caM` is the smaller.
 
 **Decision: the "starting point" designation STAYS**, on two grounds now:
 the `caM` clamp (one target) and the local engine landing in a worse
@@ -164,16 +173,20 @@ Voigt components are now fitted at the fixed 50/50 mix the page has always
 drawn; until now Run Fit let their mix vary on the server and the page
 reported the 50/50 curve's area under the other mix's parameters (up to
 20 % off per component). Re-fitting a saved project with Voigt components
-moves an area fraction by 0.35 pp at the median and 0.69 pp at most on the
+moves an area fraction by 0.36 pp at the median and 0.69 pp at most on the
 55 committed tabs (a Voigt's own area by 4.6 % at the median, 15 % at
-most). Use GL to fit the mix. Also fixed: a GL mix of exactly 0 (asym-GL)
-or a DS α of exactly 0 was sent to the server as 50 / 0.1.
+most). Use GL to fit the mix. Also fixed: an asym-GL mix of exactly 0 or a
+DS α of exactly 0 was sent to the server as 50 / 0.1, and a locked value
+outside the optimiser's search limits (a DS+G m locked at 0) was moved onto
+the limit before fitting; such requests now also draw a different
+random seed, since the seed hashes the parameters as the fit receives them.
 
 ## 8. Verification
 
-- `tests/test_voigt_contract.py` 4 passed; full `pytest tests/` — see §9.
-- JS suite: `node --test tests/js/*.test.js` (the directory form does not
-  run in this node): see §9.
+- `tests/test_voigt_contract.py` 6 passed; `lineshape_roundtrip.test.js`
+  29 passed, 2 todo; full `pytest tests/` and the JS suite (371 tests, 364
+  pass, 7 todo — `node --test tests/js/*.test.js`; the directory form does
+  not run in this node): see §9.
 - Browser check (`browser_check_a03.py`, dev gunicorn :5151 from the
   worktree, re-run after round 1): the request carries `gl_ratio 0.5, fix_gl_ratio true` for
   both Voigt components; the server returns `vary: false, 0.5`; drawn vs
@@ -210,3 +223,26 @@ no blocker, converging findings.** Fixed:
    1.55 with the explicit arms); and attributing the whole residual to the
    `caM` clamp was an inference — the control arm (§6) shows it is one
    target of four.
+
+**Round 2 (`a03_voigt_eta_r2_verdict_run{A,B}.md`): NO-GO ×2; round-1
+items 1, 3, 4 confirmed closed; found:**
+1. MAJOR — the saved side of 2b integrated on the current ROI grid where
+   Results uses the saved fit's grid (11 tabs differ; 1.2 % on one area),
+   and the refit request bypassed the page's upload rounding (which also
+   sets the seed). Both fixed; re-run: median 0.35 → 0.36 pp, max 0.69 pp.
+2. MINOR — the control arm held m at the stored fractional value (8.199)
+   where the local engine rounds it (8). Now held at the rounded value;
+   re-run (table in §6).
+3. MINOR — "every shape parameter locked at its bounds" was seven cases.
+   Now 18: both bounds of every shape parameter of every shape, the
+   convolved shapes where their evaluators are exact. Doing so found a
+   FOURTH identity defect: lmfit clips a held value to its bounds, so a
+   DS+G with m locked at 0 (the delta-kernel branch the page draws) was
+   fitted with m = 0.05, the free-parameter floor — a convolved curve the
+   page never drew. `fitting._make_peak_params._set` now widens the limit
+   to a held value; pinned in `tests/test_voigt_contract.py`.
+4. MINOR — "10–13 %" (the three worse-minimum targets are +5.4, +9.7,
+   +13.1 % above the held-m server), "12 %" median in the harness header,
+   stale test counts. Corrected. Commit 712e136's message carries the
+   superseded round-0 numbers; the merge is fast-forward, so this plan and
+   the deploy-log entry are the record.
