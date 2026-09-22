@@ -6,6 +6,29 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-22 — "not supported by the data", step (b) (`feature-unsupported-components`)
+
+- **Release note:** a component the fit drove to zero is now reported as
+  "not supported by the data": its centre, width and uncertainties are not
+  shown, it is excluded from Quantify, and both engines allow a zero
+  amplitude.
+- Definition: with the other components held as fitted, removing the
+  component does not make the fit significantly worse (the Auto-Fit
+  anchor's F statistic, F ≥ 10). Computed by the server per component
+  (`individual_peaks[].support`) and by the local engine from its own
+  residuals; a linked component follows its root ancestor.
+- The verdict is bound to the fit that produced it (model + background /
+  ROI / anchors / charge shift) and lapses on any edit until a new fit;
+  exports write a Status only from a current verdict.
+- Sites: sidebar card, Results table (percentages over supported
+  components), uncertainty panel, Quantify (listed beneath), chart / stack
+  / figure labels, CSV/XLSX (Status column, empty cells, no At%, WARNING),
+  TSV header, the scattered-starts table. Local amplitude floor 1 → 0.
+- Measured on the 202 committed targets: 3 of 752 components (three C 1s
+  re-fits), 0 of 95 fresh starts — survivorship-biased (a collapsed
+  component may have been deleted before saving).
+- Codex GO ×2 (round 6); suite 975 passed / 7 skipped.
+
 ## 2026-09-22 — scattered-starts check, step (a) (`feature-scattered-starts-check`)
 
 - **CORRECTNESS FIX FOR EVERY RUN FIT: a result is discarded if the model

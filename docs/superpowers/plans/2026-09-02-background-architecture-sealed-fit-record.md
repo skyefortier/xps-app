@@ -334,3 +334,59 @@ docstring now says so). The durable fix
 is unit 1a's `settingsSnapshot` carrying the actual indices the fit used,
 so reconstruction never re-derives them. Until then, any new parity
 fixture must be generated with that caveat recorded.
+
+## Round-6 note (2026-09-22, owner instruction) — binding by key is this memo's principle, and the seal must absorb it
+
+Two units shipped before 1a–1d carry their own "does this evidence still
+describe the fit?" mechanism, and both are local instances of Part 1's
+invariant ("store what was fit", read only that):
+
+- **Scattered starts (2026-09-22):** `fitResult.startsModelKey` — the
+  JSON of every peak field the request reads plus the fit context
+  (background type and window, endpoint averaging, Shirley iterations,
+  ROI, manual anchors, charge shift) — taken after the result is applied.
+  `_startsIfCurrent(fr, key)` compares it with `_startsLiveKey()` (active
+  tab) or `_startsRecordKey(t)` (record) at every read; a mismatch means
+  "no longer applies": nothing shown, applied, saved or exported. `runFit`
+  also captures that key before its first await and discards a result
+  whose model or context was edited while it ran.
+- **Unsupported components (2026-09-22):** `p.support.fitKey`, the same
+  key, on each peak's verdict; `_isUnsupported(p, key)` compares at every
+  read; Auto-Fit re-stamps after its own locks and charge refinement
+  (exactly Part 1's "seal AFTER the final programmatic charge correction").
+
+Why it was done this way: hand invalidation in edit handlers was tried
+first and lost the review rounds (a rename path deleted evidence, a lock
+path missed it, an in-flight edit stamped a fresh key onto a mismatched
+model). Comparison against a key derived from what the fit actually
+consumed cannot forget an edit path. That is the seal's argument, made
+twice more in the small.
+
+**Instruction for 1a–1d:** absorb both into the seal; do not leave a second,
+narrower binding mechanism beside it. Concretely:
+
+1. `settingsSnapshot` + `peakResults` + `frame` ARE the key. The seal's
+   identity is the request it was produced from; `_startsLiveKey()` and
+   `_STARTS_MODEL_FIELDS` / `_STARTS_UI_FIELDS` become the definition of
+   "the live state matches the seal" and should move into the seal's own
+   `isCurrent()` (one function, one field list) rather than remain a
+   parallel list that can drift from `settingsSnapshot`.
+2. `fitResult.starts`, `fitResult.chosenAlternative` and each peak's
+   `support` are seal contents (they were produced from the same request
+   as the arrays), so they inherit the seal's currency test and its
+   persistence, and the separate `startsModelKey` / `support.fitKey`
+   fields are retired at migration.
+3. The in-flight guard in `runFit` (key captured before the first await,
+   result discarded if the live key changed) is the seal's producer-side
+   rule: a seal is only ever created for the request that was sent.
+4. Consumers already migrated to "read only the current evidence" — the
+   starts panel, `_isUnsupported` at 15 sites, the CSV/XLSX status column,
+   `_refreshStartsEvidence`'s per-consumer comparison — are the first
+   consumers on the Part 1 checklist to switch to the seal, and their tests
+   (`tests/js/scattered_starts.test.js`, `tests/js/unsupported_components.test.js`)
+   are the acceptance tests for that switch: identical behaviour, one
+   mechanism.
+5. What must survive the absorption: cosmetic fields (name, colour,
+   visibility) never invalidate; the sidebar is patched in place, never
+   re-rendered under a typing student; each consumer is compared with its
+   own rendering when currency changes.
