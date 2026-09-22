@@ -6,6 +6,40 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-22 — A03: Voigt η identity, parameter-range sweep, U 4f gap re-measured (`fix-voigt-eta-identity`)
+
+- **Release note:** Voigt components are now fitted at the fixed 50/50 mix
+  the page has always drawn; until now Run Fit let their mix vary on the
+  server and the page reported the 50/50 curve's area under the other
+  mix's parameters (up to 20 % off per component). Re-fitting a saved
+  project with Voigt components moves an area fraction by 0.36 pp at the
+  median and 0.69 pp at most on the 55 committed tabs (a Voigt component's
+  own area by 3.2 % at the median, 15 % at most). Use GL to fit the mix.
+  Also fixed: an asym-GL mix of exactly 0 or a DS α of exactly 0 was sent
+  to the server as 50 / 0.1; a locked value outside the optimiser's search
+  limits (a DS+G m locked at 0) was moved onto the limit before fitting;
+  the page now clips DS+G α to 0.495 as the server does. Such requests
+  also draw a different random seed.
+- Measured: on the 90 committed Voigt targets the server's free η ended at
+  pure Gaussian on 60 of 180 components and pure Lorentzian on 16; the
+  displayed 0.5 curve was 13.9 % off the fitted one at the median.
+- New harnesses: page → server → page identity for every shape
+  (`tests/js/lineshape_roundtrip.test.js`, incl. every shape parameter
+  locked at each bound, and the Python twins pinned to the page); parity
+  sweep of each shape's free parameters across the fit's bounds. Known
+  gaps, `todo`: LACX with m > 0 (`caM` clamp unit) and DS+G with m ≥ 0.05
+  (the page's quadrature is wrong across the fitted β/m range — next unit,
+  ahead of the ROI clamp).
+- U 4f gap re-measured (W1's 18 targets): max area gap 20.8 → 8.9 %,
+  fraction 1.4 → 0.77 pp; the Voigt part is gone; the residual is one
+  target's `caM` clamp and three where the local engine stops in a worse
+  minimum. The "starting point" label stays.
+- U 4f and Cl 2p parity batteries re-based (expert fits saved under the old
+  request; fixtures regenerated; each Voigt evaluated with the mix the
+  server recorded for that fit).
+- Codex GO ×2 (round 6); suite 989 passed / 7 skipped; JS 375 / 368 pass /
+  7 todo; browser-checked.
+
 ## 2026-09-22 — Auto-Fit "is the anchor required?", step (c) (`feature-autofit-required-refit`)
 
 - **Release note:** Auto-Fit C1s now also refits the model without its
