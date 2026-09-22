@@ -22,12 +22,14 @@ FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
 # Default tolerances (C 1s levels).  Per-region batteries may override:
 #
-# - eval_tol: bounded below by BACKGROUND-ANCHOR DRIFT — ui bg-start/end
-#   fields move with post-fit charge-correction nudges and round to 0.1 eV,
-#   so the nearest-index anchors can shift ±1 grid point vs fit time; for
-#   'smart' backgrounds that perturbs the recomputed background by
-#   O(100 counts) mid-window (measured U 4f: eval relmax ~7e-3 with the
-#   deviation profile exactly matching the background, not the shapes).
+# - eval_tol: the residual after each Voigt is evaluated with the mix the
+#   server RECORDED for the saved fit (A03, 2026-09-22; before that the
+#   twin evaluated every Voigt at 0.3 against curves fitted with eta free,
+#   and the ~7e-3 U 4f residual then read as "background-anchor drift" was
+#   that mismatch). Measured now: U 4f median 2.0e-7, max 7.9e-4 (on a tab
+#   whose LACX lines have m = 0, so not the convolution; the recomputed
+#   'smart' background is the candidate, not attributed); Cl 2p <= 6.8e-7;
+#   C 1s at the 1e-5 default.
 # - fixture_rtol: bounded below by CROSS-PROCESS FP wobble in the LACX
 #   convolution path (~6e-6 relative on fitted params; exactly 0.0 within
 #   one process).  Simple shapes (C 1s) reproduce at 1e-6.

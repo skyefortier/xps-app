@@ -321,3 +321,14 @@ items closed; found:**
 4. MINOR — "0 of 865 committed components" counted the 202 measurement
    targets (which repeat tabs); the seven committed projects hold 530 peak
    records. Corrected everywhere.
+
+**Round 6 (`a03_voigt_eta_r6_verdict_run{A,B}.md`): GO ×2.** Both runs
+hold the round-5 MAJOR acceptably closed for this unit ("a numerical
+comparison test, not a fit-provenance validator; one deterministic choice;
+the Undo atomicity belongs to the already-recorded unit"; no scope
+expansion required). One MINOR, fixed after the GO: the tolerance
+comments in `battery_common.py` and the U 4f battery still attributed
+the eval-parity residual to background-anchor drift / convolution wobble;
+they now state the recorded-mix measurements (the maximum tab's LACX lines
+have m = 0) and keep the fixture's cross-platform wobble figure with the
+quantity it actually measures (optimised-parameter drift).

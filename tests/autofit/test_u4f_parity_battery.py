@@ -26,20 +26,22 @@ REGION = "U 4f"
 FIXTURE = "u4f_battery_expected.json"
 MIN_BATTERY_SIZE = 20
 MIN_PROJECTS = 3
-# Bounded by background-anchor drift / LACX FP wobble — measured and
-# documented in battery_common.py.  The worst LACX tab (UCl4_on_graphite
-# U4f Scan_6, a flat alpha/beta/m valley) wobbles at 1.4e-4 relative
-# across PROCESSES on one platform, but 1.9e-3 across PLATFORMS (first CI
-# run on ubuntu/openBLAS vs the macOS/arm64 fixture, 2026-07-04 — fwhm
-# 3.00971 vs frozen 3.00396 on that tab).  3e-3 covers the measured
-# cross-platform wobble with ~1.6x headroom while still catching any real
-# numerics change (C 1s pins the shared machinery at 1e-6).
-# Eval parity across the 29 eligible fits, each Voigt evaluated with the mix
-# the server recorded for the saved fit (A03 round 5): median 2.0e-7, max
-# 7.9e-4. The 6.0e-3 / 1.12e-2 measured before A03 and read as "bg-anchor
-# drift" was the twin evaluating every Voigt at 0.3 against curves fitted
-# with eta free. 3e-3 keeps ~4x headroom over the measured maximum (LACX
-# kernel FP wobble across platforms is the remaining term).
+# FIXTURE_RTOL (refit numerics): the worst LACX tab (UCl4_on_graphite U4f
+# Scan_6, a flat alpha/beta/m valley) wobbles at 1.4e-4 relative across
+# PROCESSES on one platform, but 1.9e-3 across PLATFORMS (first CI run on
+# ubuntu/openBLAS vs the macOS/arm64 fixture, 2026-07-04 — fwhm 3.00971 vs
+# frozen 3.00396 on that tab): that is OPTIMISED-parameter drift. 3e-3
+# covers it with ~1.6x headroom while still catching any real numerics
+# change (C 1s pins the shared machinery at 1e-6).
+# EVAL_TOL (fixed-parameter evaluation, a different quantity): across the 29
+# eligible fits, each Voigt evaluated with the mix the server recorded for
+# the saved fit (A03 round 5), median 2.0e-7, max 7.9e-4 — the maximum on
+# 4-GTA UCl4-BN / U4f Scan, whose LACX lines have m = 0, so it is not the
+# convolution (the recomputed 'smart' background is the candidate; not
+# attributed). The 6.0e-3 / 1.12e-2 measured before A03 and read as
+# "bg-anchor drift" was the twin evaluating every Voigt at 0.3 against
+# curves fitted with eta free. 3e-3 keeps ~4x headroom over the measured
+# maximum.
 EVAL_TOL = 3e-3
 FIXTURE_RTOL = 3e-3
 
