@@ -1,0 +1,13 @@
+ROUND 5 recheck of step (b), branch feature-unsupported-components (git diff main..HEAD). Read-only. Round 4: run B GO; run A NO-GO on one MAJOR + one MINOR (archived docs/autofit/codex/unsupported_components_r4_verdict_run{A,B}.md). Everything cleared in rounds 1-4 is unchanged. Budget your time: a verdict is required within the run.
+
+DISPOSITIONS (one change addresses both)
+1. MAJOR restoring an exact fitted centre re-suppressed the tables while the centre input's inline continuation wrote the number over the sidebar's dash -> the inline continuation is gone; the input calls _patchPeakCardsForSupport(), which sets header / summary / badge from the CURRENT verdicts.
+2. MINOR invalidation re-rendered the sidebar under a typing student (focus lost on the first keystroke) -> _refreshStartsEvidence never calls renderPeakList any more; the sidebar is PATCHED IN PLACE (_patchPeakCardsForSupport: header centre, the three summary values, badge add/remove) — the area % column is left to the next full render. Results and the chart are still compared with their own rendering and re-rendered when they differ.
+Browser-verified with real keystrokes in the amplitude input of an unsupported peak: focus kept through three keystrokes, header lifts to the number, verdict lifted; undo brings it back; nudging the centre by 0.01 shows the number, restoring the exact fitted value shows the dash again with the tables suppressed. 23 Node + 7 Python tests; JS suite green; full pytest suite re-run on HEAD.
+
+TRY TO BREAK
+a. the in-place patch: a card state it gets wrong (linked child, charge-ref badge ordering, a collapsed vs expanded card, the area % column left stale — is that acceptable?), a peak with no card yet;
+b. any remaining consumer that re-renders under the student's cursor on a verdict change;
+c. anything else in the diff not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

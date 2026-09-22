@@ -301,7 +301,7 @@ test('_isUnsupported is never handed an array index as its key (Array.filter pas
 
 test('a key change re-renders every consumer of the verdict — each compared with ITS OWN rendering', () => {
   const src = extractFn('_refreshStartsEvidence');
-  assert.match(src, /shownIn\('#peak-list \.unsupported-badge'\) !== flaggedNow[^\n]*renderPeakList\(\)/);
+  assert.match(src, /shownIn\('#peak-list \.unsupported-badge'\) !== flaggedNow[^\n]*_patchPeakCardsForSupport\(\)/, 'the sidebar is patched in place, never re-rendered under a typing student');
   assert.match(src, /shownIn\('\.results-table \.unsupported-row'\) !== flaggedNow[^\n]*renderResults\(\)/);
   assert.match(src, /chartFlagged !== flaggedNow\) \{ updatePlot\(\); return; \}/);
   assert.match(extractFn('updatePlot'), /_refreshStartsEvidence\(false, true\);/, 'no re-entrant repaint from inside updatePlot');
@@ -309,7 +309,7 @@ test('a key change re-renders every consumer of the verdict — each compared wi
   const calls = [];
   const state = { peaks: [{ id: 2, support: { supported: false, fitKey: 'OLD' } }], fitResult: {}, chart: { data: { datasets: [{ _peakId: 2, _unsupported: true }] } } };
   const document = { querySelectorAll: sel => sel.includes('peak-list') ? [] : [{ getAttribute: () => '2' }], querySelector: () => null };
-  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', 'renderPeakList', 'renderResults', 'updatePlot', '_startsPanelHtml',
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', '_patchPeakCardsForSupport', 'renderResults', 'updatePlot', '_startsPanelHtml',
     src + '\nreturn _refreshStartsEvidence;')(state, document, () => 'NEW', (p, k) => p.support.supported === false && p.support.fitKey === k, null, () => {},
     () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '');
   fn(false);
@@ -341,4 +341,24 @@ test('"Your fit" percentages are over supported components; an empty Quantify sh
   q.document.getElementById('quantify-area');
   q.renderQuantify([1, 1, 1], 0);
   assert.strictEqual(q.els['qtotal-pct'].textContent, '—');
+});
+
+
+test('the sidebar is patched in place (header, summary, badge) — the centre input\'s inline continuation respects the verdict', () => {
+  assert.doesNotMatch(html, /\.peak-info'\)\.textContent=parseFloat\(this\.value\)\.toFixed\(2\)\+' eV'/, 'Codex round 4: the inline continuation wrote the centre over the dash');
+  assert.match(html, /oninput="updatePeakParam\(\$\{p\.id\},'center',parseFloat\(this\.value\)\);_patchPeakCardsForSupport\(\)"/);
+  const c = core();
+  const mk = () => { const el = { textContent: '' }; return el; };
+  const card = { info: mk(), vals: [mk(), mk(), mk()], name: { html: '', badge: null, querySelector() { return this.badge; }, insertAdjacentHTML(pos, h) { this.html += h; this.badge = { remove() { card.name.badge = null; }, previousSibling: null }; } },
+    querySelector(sel) { return sel === '.peak-info' ? this.info : this.name; }, querySelectorAll() { return this.vals; } };
+  const state = { peaks: [{ id: 2, center: 282.25, fwhm: 0.42, support: { supported: false, fitKey: 'KEY' } }] };
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', extractFn('_patchPeakCardsForSupport') + '\nreturn _patchPeakCardsForSupport;')(
+    state, { getElementById: () => card }, () => 'KEY', c._isUnsupported, c._unsupportedBadge);
+  fn();
+  assert.deepStrictEqual([card.info.textContent, card.vals[0].textContent, card.vals[1].textContent, card.vals[2].textContent], ['—', '—', '—', '—']);
+  assert.ok(card.name.badge, 'badge added');
+  state.peaks[0].support.fitKey = 'EDITED';
+  fn();
+  assert.deepStrictEqual([card.info.textContent, card.vals[0].textContent, card.vals[1].textContent], ['282.25 eV', '282.25', '0.42']);
+  assert.strictEqual(card.name.badge, null, 'badge removed');
 });

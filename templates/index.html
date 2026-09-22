@@ -5980,7 +5980,7 @@ function renderPeakForm(p) {
         </label>
         <input type="number" id="pk-center-${p.id}" value="${p.center.toFixed(3)}" step="0.05"
           ${isLinked ? 'readonly style="opacity:0.5"' : ''}
-          oninput="updatePeakParam(${p.id},'center',parseFloat(this.value));document.querySelector('#peak-item-${p.id} .peak-info').textContent=parseFloat(this.value).toFixed(2)+' eV'">
+          oninput="updatePeakParam(${p.id},'center',parseFloat(this.value));_patchPeakCardsForSupport()">
       </div>
       <div class="field" id="fwhm-field-${p.id}" ${p.shape === 'DSG_LA' ? 'style="opacity:0.4"' : ''}>
         <label data-xps-tip="${p.shape === 'DS' ? 'Lorentzian half-width parameter (γ = width/2). When α > 0, the measured FWHM of the peak is broader than this input value because of the asymmetric tail.' : 'Full width at half maximum. Typical XPS peak widths range from 0.5 to 3.0 eV depending on the element, chemical state, and spectrometer resolution. Peaks from the same chemical environment should have similar FWHM values.'}">${p.shape === 'DS' ? 'Width parameter γ (eV)' : 'FWHM (eV)'}${p.shape === 'DSG_LA' ? ' <em style="color:var(--amber);font-size:9px">set by \\u03b2, m</em>' : ''}
@@ -6973,6 +6973,26 @@ function _restampSupport() {
   const key = _startsLiveKey();
   for (const p of state.peaks) if (p.support) p.support.fitKey = key;
 }
+// Patch the sidebar cards in place for the current verdicts (a re-render would
+// replace an input the student is typing in): header centre, the three summary
+// values and the badge; the area % column is left to the next full render.
+function _patchPeakCardsForSupport() {
+  const key = _startsLiveKey();
+  for (const p of state.peaks) {
+    const item = document.getElementById('peak-item-' + p.id);
+    if (!item) continue;
+    const un = _isUnsupported(p, key), dash = '\u2014';
+    const info = item.querySelector('.peak-info');
+    if (info) info.textContent = un ? dash : p.center.toFixed(2) + ' eV';
+    const vals = item.querySelectorAll('.peak-summary-val');
+    if (vals[0]) vals[0].textContent = un ? dash : p.center.toFixed(2);
+    if (vals[1]) vals[1].textContent = un ? dash : p.fwhm.toFixed(2);
+    if (vals[2] && un) vals[2].textContent = dash;
+    const name = item.querySelector('.peak-name'), badge = name && name.querySelector('.unsupported-badge');
+    if (un && name && !badge) name.insertAdjacentHTML('beforeend', ' ' + _unsupportedBadge(p.id));
+    if (!un && badge) { badge.previousSibling && badge.previousSibling.nodeType === 3 && badge.previousSibling.textContent === ' ' ? badge.previousSibling.remove() : null; badge.remove(); }
+  }
+}
 function _unsupportedBadge(id) { return `<span class="unsupported-badge" data-peak-id="${id}" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</span>`; }
 
 const _AUTOFIT_ANCHOR_MIN_F = 10;
@@ -7355,7 +7375,7 @@ function _refreshStartsEvidence(repaint, fromPlot) {
   const flaggedNow = state.peaks.filter(p => _isUnsupported(p, key)).map(p => String(p.id)).sort().join(',');
   const shownIn = sel => Array.from(document.querySelectorAll(sel)).map(e => e.getAttribute('data-peak-id')).sort().join(',');
   let rendered = false;
-  if (shownIn('#peak-list .unsupported-badge') !== flaggedNow && typeof renderPeakList === 'function') { renderPeakList(); rendered = true; }
+  if (shownIn('#peak-list .unsupported-badge') !== flaggedNow) { _patchPeakCardsForSupport(); rendered = true; }
   if (state.fitResult && shownIn('.results-table .unsupported-row') !== flaggedNow && typeof renderResults === 'function') { renderResults(); rendered = true; }   // renders Quantify and the starts panel too
   if (!fromPlot && state.chart && state.chart.data && typeof updatePlot === 'function') {
     const chartFlagged = (state.chart.data.datasets || []).filter(d => d._unsupported).map(d => String(d._peakId)).sort().join(',');

@@ -484,7 +484,7 @@ Status only from a CURRENT verdict — stale means "not established", never
 "supported"). When the key changes, `_refreshStartsEvidence` compares the
 set of flagged components with what EACH consumer has rendered — sidebar
 badges, Results rows and chart datasets carry the peak id / flag — and
-re-renders the ones that differ (a caller that already redrew the sidebar,
+re-renders the ones that differ — the sidebar is PATCHED IN PLACE (header, summary, badge), never re-rendered, because the student may be typing in a card (a caller that already redrew the sidebar,
 such as Lock All or Add Peak, therefore still gets Results, Quantify and the
 chart refreshed); it runs from the lock toggles, Lock All and every
 `updatePlot` (which passes `fromPlot` so the chart is not rebuilt from
