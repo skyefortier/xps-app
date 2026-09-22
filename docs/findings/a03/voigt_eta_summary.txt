@@ -1,0 +1,7 @@
+targets 90, both fits converged 90
+free eta of 180 Voigt components: 46 at 0 (pure Gaussian), 17 at 1 (pure Lorentzian), 24 within 0.4–0.6
+per-Voigt-component DISPLAYED area vs the fitted curve (%): median 11.82, p90 19.18, max 20.11; > 10 % on 103 of 180; displayed high (eta < 0.5) 114, low 66
+A. displayed vs free-fit fractions, max |delta| pp per target: median 0.96, p90 1.49, max 1.61; > 1 pp on 35 targets
+B. fixed refit vs displayed (what changes on screen), max |delta| pp: median 0.30, p90 0.46, max 1.02; > 1 pp on 1 targets
+C. fixed refit vs free fit, max |delta| pp: median 0.93, p90 1.31, max 2.04; > 1 pp on 34 targets
+chi2r fixed/free: median 1.09, p90 1.18, max 5.39; fixed lower on 11 targets (the free fit in a worse minimum)

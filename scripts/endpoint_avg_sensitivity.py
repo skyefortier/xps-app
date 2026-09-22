@@ -45,7 +45,7 @@ def spec_of(p):
              amplitude_min=0, fix_center=bool(p.get('fixCenter')), fix_fwhm=bool(p.get('fixFwhm')),
              fix_amplitude=bool(p.get('fixAmplitude')), fix_gl_ratio=bool(p.get('fixGlMix')))
     sh = p['shape']
-    if sh == 'Voigt': s.update(shape='pseudo_voigt_gl', gl_ratio=0.3)
+    if sh == 'Voigt': s.update(shape='pseudo_voigt_gl', gl_ratio=0.5, fix_gl_ratio=True)  # A03: fixed 50/50 mix
     elif sh == 'GL': s.update(shape='pseudo_voigt_gl', gl_ratio=p['glMix'] / 100)
     elif sh == 'Gaussian': s.update(shape='gaussian')
     elif sh == 'Lorentzian': s.update(shape='lorentzian')

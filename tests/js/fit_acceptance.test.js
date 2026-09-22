@@ -527,7 +527,7 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
   assert.equal(h._localFitCaveat(server), '');
   assert.equal(h._fitStatusText(weighted), '\u03c7\u00b2\u1d63 = 4.35 (local, starting point)');
   assert.equal(h._fitStatusText(server), '\u03c7\u00b2\u1d63 = 4.36');
-  assert.match(h._localFitDetail(weighted), /Voigt or LA components/); assert.match(h._localFitDetail(legacy), /more than 100/);
+  assert.match(h._localFitDetail(weighted), /for LA components \(the page holds the smoothing parameter m/); assert.doesNotMatch(h._localFitDetail(weighted), /Voigt/, 'A03: Voigt no longer differs between the engines'); assert.match(h._localFitDetail(legacy), /more than 100/);
 });
 
 // ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
