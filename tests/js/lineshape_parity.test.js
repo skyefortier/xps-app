@@ -349,10 +349,24 @@ const SWEEP_KNOWN_GAP = {
   'LACX (m > 0)':   { caAlpha: [0.1, 1, 5], caBeta: [0.1, 1, 5], caM: [1, 5, 50, 499], fwhm: FWHM_RANGE },
 };
 function sweepShape(label) { return label.split(' ')[0]; }
+// The backend parameters of the sweep come from the PAGE's request builder,
+// not from a mapping of this file's own (Codex round 1: a mapping written
+// here could not see `p.glMix || 50` sending an asym-GL mix of 0 as 50).
+const _specState = { peaks: [] };
+const { peakToBackendSpec } = new Function('state', 'getPeak',
+  extract(/function peakToBackendSpec\(p\) \{[\s\S]*?\n\}\n/, 'peakToBackendSpec definition') + '\nreturn { peakToBackendSpec };')(_specState, id => _specState.peaks.find(q => q.id === id));
+function backendParamsFromRequest(p) {
+  const spec = peakToBackendSpec(p);
+  const keep = spec.shape === 'ds_g' ? ['amplitude', 'center', 'alpha', 'beta', 'm_gauss']
+    : ['amplitude', 'center', 'fwhm', 'gl_ratio', 'asymmetry', 'alpha', 'gamma_asym', 'beta', 'm'];
+  const params = {};
+  for (const k of keep) if (k in spec) params[k] = spec[k];
+  return { shape: spec.shape, params };
+}
 function runSweep(label, ranges) {
   const shape = sweepShape(label);
   const cases = combos(ranges).map(c => ({ c, p: { ...basePeak(shape), ...c } }));
-  const specs = cases.map(k => { const b = BACKEND[shape](k.p); return { ...b, x: grid(k.p.center) }; });
+  const specs = cases.map(k => { const b = backendParamsFromRequest(k.p); return { ...b, x: grid(k.p.center) }; });
   const beYs = backendEvalMany(specs);
   return cases.map((k, i) => {
     const x = grid(k.p.center);

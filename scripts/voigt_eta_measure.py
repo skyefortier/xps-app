@@ -7,17 +7,26 @@ committed target with a Voigt component this script fits the request BOTH
 ways with the page's settings (Trust-Region, n_perturb 3) — (free) as sent
 before A03, (fixed) eta held at 0.5 as sent since — and compares three
 things per target:
-  A. what the page DISPLAYED (the 0.5 curve under the free fit's parameters)
-     against the free fit's own curve — the reporting error that shipped;
-  B. the fixed fit against what the page displayed — what a student SEES
-     change on re-fitting a saved project;
+  A. the 0.5 curve under the free fit's parameters (what the page drew for
+     that fit) against the free fit's own curve — the reporting error that
+     shipped, per component and as area fractions;
+  B. the fixed fit against that 0.5 curve;
   C. the fixed fit against the free fit.
+All three use the SERVER's curves and trapezoidal integration on the fitted
+grid (non-Voigt components as the server fitted them); they characterise
+the two requests, not a screen. The student-visible change on re-fitting a
+SAVED project — the page's own integration of the saved peaks against the
+page's integration of the refit — is scripts/voigt_saved_vs_refit.js.
 
 Usage:
   python scripts/voigt_eta_measure.py targets.json out_dir shard n_shards   # one shard
   python scripts/voigt_eta_measure.py --summary out_dir                     # the numbers
 targets.json is the optimizer-disagreement target file (uncommitted; built by
-scripts/optimizer_disagreement_targets.py from the committed projects).
+scripts/optimizer_disagreement_targets.js from the committed projects with
+the page's CURRENT request builder). Both arms are constructed here
+explicitly from the target's shapes — the target file's own Voigt specs are
+never used as either baseline, so the numbers do not depend on which
+builder produced the file (A03 Codex round 1).
 """
 import copy
 import glob
@@ -56,10 +65,12 @@ def measure(targets_path, out_dir, shard, n_shards):
                       endpoint_avg=b["endpoint_avg"], n_perturb=3, fit_kws={"method": "least_squares"})
             x = np.asarray(t["be"], float)
             y = np.round(np.asarray(t["inten"], float), 2)   # the upload rounds to 2 dp
-            free = copy.deepcopy(t["specs"])                  # as sent before A03: gl_ratio 0.3, free
+            free = copy.deepcopy(t["specs"])
             fixed = copy.deepcopy(t["specs"])
             for i in vidx:
-                fixed[i]["gl_ratio"] = 0.5
+                free[i]["gl_ratio"] = 0.3                     # the request before A03: eta free from 0.3
+                free[i]["fix_gl_ratio"] = False
+                fixed[i]["gl_ratio"] = 0.5                    # the request since A03: eta held at 0.5
                 fixed[i]["fix_gl_ratio"] = True
             rec = {"id": t["id"], "project": t["project"], "tab": t["tab"], "kind": t["kind"],
                    "voigt_ids": [str(t["specs"][i]["id"]) for i in vidx]}
@@ -115,7 +126,7 @@ def summary(out_dir):
     print(f"per-Voigt-component DISPLAYED area vs the fitted curve (%): {q(e)}; > 10 % on {sum(v > 10 for v in e)} of {len(e)}; "
           f"displayed high (eta < 0.5) {sum(c > 0 for c in comp)}, low {sum(c < 0 for c in comp)}")
     print(f"A. displayed vs free-fit fractions, max |delta| pp per target: {q(dA)}; > 1 pp on {sum(v > 1 for v in dA)} targets")
-    print(f"B. fixed refit vs displayed (what changes on screen), max |delta| pp: {q(dB)}; > 1 pp on {sum(v > 1 for v in dB)} targets")
+    print(f"B. fixed refit vs the 0.5 curve of the free fit, max |delta| pp: {q(dB)}; > 1 pp on {sum(v > 1 for v in dB)} targets")
     print(f"C. fixed refit vs free fit, max |delta| pp: {q(dC)}; > 1 pp on {sum(v > 1 for v in dC)} targets")
     print(f"chi2r fixed/free: {q(chi_ratio)}; fixed lower on {sum(v < 1 for v in chi_ratio)} targets (the free fit in a worse minimum)")
 

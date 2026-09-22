@@ -1,0 +1,2395 @@
+{
+ "generated": "2026-09-22T06:02:17.309Z",
+ "n_perturb": 3,
+ "targets": [
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan",
+   "server_success": true,
+   "chi2r": 2.4547732853911195,
+   "max_dFrac_pp": 0.39349694352669023,
+   "max_voigt_dArea_pct": 5.126431961236233,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 55490.97274504559,
+     "refit_area": 54807.18397638877,
+     "dArea_pct": -1.232252265244116,
+     "dFrac_pp": -0.3185545897798625
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 35654.701140131656,
+     "refit_area": 35304.05003785611,
+     "dArea_pct": -0.9834638660899175,
+     "dFrac_pp": -0.11905141658866136
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6037.8966636276255,
+     "refit_area": 6045.093588685678,
+     "dArea_pct": 0.11919589650162266,
+     "dFrac_pp": 0.04410906284181976
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7071.933908830442,
+     "refit_area": 7434.471789010228,
+     "dArea_pct": 5.126431961236233,
+     "dFrac_pp": 0.39349694352669023
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_0",
+   "server_success": true,
+   "chi2r": 2.055187564437833,
+   "max_dFrac_pp": 0.3055324488266467,
+   "max_voigt_dArea_pct": 5.908429698508499,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 44230.985590177224,
+     "refit_area": 44654.862337239654,
+     "dArea_pct": 0.9583253490886845,
+     "dFrac_pp": 0.0830439566404495
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 28170.312322385595,
+     "refit_area": 28455.34807802891,
+     "dArea_pct": 1.011830299860783,
+     "dFrac_pp": 0.07139038168574863
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 3707.6008065250535,
+     "refit_area": 3488.5398193701867,
+     "dArea_pct": -5.908429698508499,
+     "dFrac_pp": -0.3055324488266467
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 4711.298847090711,
+     "refit_area": 4872.343180665616,
+     "dArea_pct": 3.418257656789314,
+     "dFrac_pp": 0.1510981105004451
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_1",
+   "server_success": true,
+   "chi2r": 2.37048319621612,
+   "max_dFrac_pp": 0.36706256117357977,
+   "max_voigt_dArea_pct": 2.81768871859176,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 60735.00946993101,
+     "refit_area": 59109.52815259688,
+     "dArea_pct": -2.676349821166779,
+     "dFrac_pp": -0.3268164218712344
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 39209.806924586854,
+     "refit_area": 38211.58312438184,
+     "dArea_pct": -2.5458523734251504,
+     "dFrac_pp": -0.16580344561009652
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7175.50506690655,
+     "refit_area": 7169.36776947071,
+     "dArea_pct": -0.08553122572716454,
+     "dFrac_pp": 0.12555730630777473
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 8509.450244116215,
+     "refit_area": 8749.220063658857,
+     "dArea_pct": 2.81768871859176,
+     "dFrac_pp": 0.36706256117357977
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_2",
+   "server_success": true,
+   "chi2r": 1.94006267795836,
+   "max_dFrac_pp": 0.1994222415056951,
+   "max_voigt_dArea_pct": 2.66399655352505,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 49753.65577070577,
+     "refit_area": 50094.60540920591,
+     "dArea_pct": 0.6852755505473596,
+     "dFrac_pp": 0.18226404842692778
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 32132.503533349704,
+     "refit_area": 32335.296272830146,
+     "dArea_pct": 0.6311140346408672,
+     "dFrac_pp": 0.09957367946831774
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6382.82806833298,
+     "refit_area": 6212.78974857516,
+     "dArea_pct": -2.66399655352505,
+     "dFrac_pp": -0.1994222415056951
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7360.570213155733,
+     "refit_area": 7306.061959495192,
+     "dArea_pct": -0.7405438992092783,
+     "dFrac_pp": -0.08241548638953655
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_3",
+   "server_success": true,
+   "chi2r": 1.7320297991775404,
+   "max_dFrac_pp": 0.36395561525183817,
+   "max_voigt_dArea_pct": 4.476649957724921,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 43704.03151016016,
+     "refit_area": 44516.91307969295,
+     "dArea_pct": 1.8599693013305219,
+     "dFrac_pp": 0.33260634027759695
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 28228.730719874377,
+     "refit_area": 28722.135730482012,
+     "dArea_pct": 1.747882380911503,
+     "dFrac_pp": 0.17755030066992084
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 5427.779664205423,
+     "refit_area": 5184.796968162369,
+     "dArea_pct": -4.476649957724921,
+     "dFrac_pp": -0.36395561525183817
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 6489.162076289152,
+     "refit_area": 6443.868859064277,
+     "dArea_pct": -0.6979825236662296,
+     "dFrac_pp": -0.1462010256956664
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_4",
+   "server_success": true,
+   "chi2r": 1.890303938810329,
+   "max_dFrac_pp": 0.6273039952880408,
+   "max_voigt_dArea_pct": 15.300258030724901,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 42050.85658922884,
+     "refit_area": 40583.98346966568,
+     "dArea_pct": -3.4883311269784945,
+     "dFrac_pp": 0.092539929144686
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 27064.68649250302,
+     "refit_area": 26229.052634090294,
+     "dArea_pct": -3.0875430928941294,
+     "dFrac_pp": 0.20361765944588162
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 4055.7902703574096,
+     "refit_area": 3435.2438938076907,
+     "dArea_pct": -15.300258030724901,
+     "dFrac_pp": -0.6273039952880408
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 4982.260849177173,
+     "refit_area": 5049.553284572024,
+     "dArea_pct": 1.3506405511859887,
+     "dFrac_pp": 0.3311464066974426
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_5",
+   "server_success": true,
+   "chi2r": 2.173852695207138,
+   "max_dFrac_pp": 0.23558400151796333,
+   "max_voigt_dArea_pct": 3.153990844703858,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 55155.04497885855,
+     "refit_area": 54195.640341972816,
+     "dArea_pct": -1.7394685060151405,
+     "dFrac_pp": -0.09913726565297099
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 35749.910306470294,
+     "refit_area": 35156.375603137145,
+     "dArea_pct": -1.6602410977957782,
+     "dFrac_pp": -0.036930957409125886
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6443.296654420716,
+     "refit_area": 6240.075667843176,
+     "dArea_pct": -3.153990844703858,
+     "dFrac_pp": -0.09951577845585952
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7934.526299810185,
+     "refit_area": 8055.466730641919,
+     "dArea_pct": 1.524230007714844,
+     "dFrac_pp": 0.23558400151796333
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_6",
+   "server_success": true,
+   "chi2r": 2.6124048041895325,
+   "max_dFrac_pp": 0.2379568091072648,
+   "max_voigt_dArea_pct": 3.804518367711296,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 51522.36024886125,
+     "refit_area": 51489.44340760031,
+     "dArea_pct": -0.06388845755891381,
+     "dFrac_pp": -0.01381489496894428
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 33328.80951873856,
+     "refit_area": 33324.69830522839,
+     "dArea_pct": -0.01233531461080073,
+     "dFrac_pp": 0.008583624285979363
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6058.883683041961,
+     "refit_area": 5828.372340442367,
+     "dArea_pct": -3.804518367711296,
+     "dFrac_pp": -0.23272553842430335
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7196.705239407153,
+     "refit_area": 7427.3637633213875,
+     "dArea_pct": 3.2050572621928675,
+     "dFrac_pp": 0.2379568091072648
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_7",
+   "server_success": true,
+   "chi2r": 1.7854796723272732,
+   "max_dFrac_pp": 0.16168990854558557,
+   "max_voigt_dArea_pct": 3.399767774950113,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 52937.17573366156,
+     "refit_area": 52749.771427041815,
+     "dArea_pct": -0.35401266505531437,
+     "dFrac_pp": 0.017224453072406387
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 34130.45137307829,
+     "refit_area": 34025.93329410206,
+     "dArea_pct": -0.3062311653419081,
+     "dFrac_pp": 0.027621292906576667
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 5297.7085529360775,
+     "refit_area": 5117.598764742581,
+     "dArea_pct": -3.399767774950113,
+     "dFrac_pp": -0.16168990854558557
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 6757.77884327712,
+     "refit_area": 6847.0566796102585,
+     "dArea_pct": 1.3211121346765387,
+     "dFrac_pp": 0.11684416256659835
+    }
+   ]
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_8",
+   "server_success": true,
+   "chi2r": 4.129258436823287,
+   "max_dFrac_pp": 0.2667018883498705,
+   "max_voigt_dArea_pct": 5.012993460652703,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 55951.14386589011,
+     "refit_area": 55800.64301380043,
+     "dArea_pct": -0.26898619347339725,
+     "dFrac_pp": 0.040439995556751374
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 36233.50417818192,
+     "refit_area": 36172.659949738605,
+     "dArea_pct": -0.1679225617928437,
+     "dFrac_pp": 0.06093554903299214
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6021.423802081853,
+     "refit_area": 5719.570220645304,
+     "dArea_pct": -5.012993460652703,
+     "dFrac_pp": -0.2667018883498705
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7546.342603878468,
+     "refit_area": 7694.528982818509,
+     "dArea_pct": 1.9636847505953403,
+     "dFrac_pp": 0.16532634376015265
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan",
+   "server_success": true,
+   "chi2r": 11.211063359221457,
+   "max_dFrac_pp": 0.03892800792669737,
+   "max_voigt_dArea_pct": 0.5967888752685946,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 21879.43476274228,
+     "refit_area": 21865.218671010964,
+     "dArea_pct": -0.06497467546795477,
+     "dFrac_pp": -0.0028670933017130307
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 16009.719244521513,
+     "refit_area": 15999.51718776204,
+     "dArea_pct": -0.06372414533730719,
+     "dFrac_pp": -0.0019906996032950652
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 6617.827794842467,
+     "refit_area": 6578.471464274266,
+     "dArea_pct": -0.5947016421139373,
+     "dFrac_pp": -0.01964208795509695
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4842.896440770196,
+     "refit_area": 4813.994573570901,
+     "dArea_pct": -0.5967888752685946,
+     "dFrac_pp": -0.014428127066609675
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 137445.5459237952,
+     "refit_area": 137462.55739437594,
+     "dArea_pct": 0.012376880215647645,
+     "dFrac_pp": 0.03892800792669737
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_0",
+   "server_success": true,
+   "chi2r": 10.243657848187816,
+   "max_dFrac_pp": 0.19032218508965304,
+   "max_voigt_dArea_pct": 0,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 19116.710283298875,
+     "refit_area": 18862.34862690096,
+     "dArea_pct": -1.3305723245706003,
+     "dFrac_pp": -0.12007603897718905
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 13985.427455361203,
+     "refit_area": 13803.125687551144,
+     "dArea_pct": -1.3035123051614361,
+     "dFrac_pp": -0.08562033590846785
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 5758.077905921436,
+     "refit_area": 5758.077905921436,
+     "dArea_pct": 0,
+     "dFrac_pp": 0.008877805599966787
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4213.50590372185,
+     "refit_area": 4213.50590372185,
+     "dArea_pct": 0,
+     "dFrac_pp": 0.006496384196033253
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 127457.95395195263,
+     "refit_area": 127447.4214495972,
+     "dArea_pct": -0.008263511243400412,
+     "dFrac_pp": 0.19032218508965304
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_1",
+   "server_success": true,
+   "chi2r": 8.979331254627896,
+   "max_dFrac_pp": 0.17641729934928518,
+   "max_voigt_dArea_pct": 0,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 18827.906560058538,
+     "refit_area": 18595.639199203037,
+     "dArea_pct": -1.2336334903436996,
+     "dFrac_pp": -0.11133409068712075
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 13779.9303763951,
+     "refit_area": 13613.501001006047,
+     "dArea_pct": -1.207766446150882,
+     "dFrac_pp": -0.07935341467231322
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 5639.880203705702,
+     "refit_area": 5639.880203705702,
+     "dArea_pct": 0,
+     "dFrac_pp": 0.008240311620357627
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4127.014070122279,
+     "refit_area": 4127.014070122279,
+     "dArea_pct": 0,
+     "dFrac_pp": 0.00602989438978907
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 125322.74273099896,
+     "refit_area": 125311.55260910655,
+     "dArea_pct": -0.008929043243510737,
+     "dFrac_pp": 0.17641729934928518
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_2",
+   "server_success": true,
+   "chi2r": 11.605821414588926,
+   "max_dFrac_pp": 0.498596109415983,
+   "max_voigt_dArea_pct": 4.697472062983287,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 18693.899809857474,
+     "refit_area": 18332.146171885626,
+     "dArea_pct": -1.9351427024397072,
+     "dFrac_pp": -0.14282895413741392
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 13688.626818919089,
+     "refit_area": 13430.030697777245,
+     "dArea_pct": -1.8891312077003786,
+     "dFrac_pp": -0.10087298312170118
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 6235.377258160657,
+     "refit_area": 5942.472153436947,
+     "dArea_pct": -4.697472062983287,
+     "dFrac_pp": -0.14919883173273724
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4547.662695148366,
+     "refit_area": 4339.329350532333,
+     "dArea_pct": -4.5811081116084456,
+     "dFrac_pp": -0.10569534042414314
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 127524.97213154276,
+     "refit_area": 127555.2745744045,
+     "dArea_pct": 0.023761967836755105,
+     "dFrac_pp": 0.498596109415983
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_3",
+   "server_success": true,
+   "chi2r": 14.90456093623538,
+   "max_dFrac_pp": 0.5909802038733369,
+   "max_voigt_dArea_pct": 5.955451068711803,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 17906.594339018466,
+     "refit_area": 17475.620755449865,
+     "dArea_pct": -2.406786993713872,
+     "dFrac_pp": -0.1741975395620654
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 13115.301024701095,
+     "refit_area": 12805.821765078346,
+     "dArea_pct": -2.3596809485339487,
+     "dFrac_pp": -0.1239939360009365
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 5628.7404952447705,
+     "refit_area": 5293.523609265701,
+     "dArea_pct": -5.955451068711803,
+     "dFrac_pp": -0.1709331381617378
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4112.250065254707,
+     "refit_area": 3872.547809418248,
+     "dArea_pct": -5.828980534568052,
+     "dFrac_pp": -0.12185559014860764
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 132441.87333171026,
+     "refit_area": 132485.57444330593,
+     "dArea_pct": 0.03299644628720344,
+     "dFrac_pp": 0.5909802038733369
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_4",
+   "server_success": true,
+   "chi2r": 18.238792325096465,
+   "max_dFrac_pp": 0.05842681743963851,
+   "max_voigt_dArea_pct": 0.6980120158225245,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 20756.40546987095,
+     "refit_area": 20709.726484968527,
+     "dArea_pct": -0.22488954058149657,
+     "dFrac_pp": -0.013525353433700704
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 15179.666845407603,
+     "refit_area": 15145.322164816107,
+     "dArea_pct": -0.2262545083582368,
+     "dFrac_pp": -0.010009199330369978
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 6508.60082861836,
+     "refit_area": 6463.170012772679,
+     "dArea_pct": -0.6980120158225245,
+     "dFrac_pp": -0.021745241519322694
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4746.170744919481,
+     "refit_area": 4717.809297190361,
+     "dArea_pct": -0.5975648423411584,
+     "dFrac_pp": -0.013147023156247217
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 128925.98215297979,
+     "refit_area": 128886.62174901263,
+     "dArea_pct": -0.030529458306127744,
+     "dFrac_pp": 0.05842681743963851
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_5",
+   "server_success": true,
+   "chi2r": 18.700572755377326,
+   "max_dFrac_pp": 0.49326606600346157,
+   "max_voigt_dArea_pct": 3.2773990083864613,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 20272.700281224814,
+     "refit_area": 20724.984324199322,
+     "dArea_pct": 2.2310004917962756,
+     "dFrac_pp": 0.1947798170569004
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 14853.87369294389,
+     "refit_area": 15176.066158996538,
+     "dArea_pct": 2.1690804211274672,
+     "dFrac_pp": 0.13735791788530294
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 6039.888651821995,
+     "refit_area": 6232.750122589971,
+     "dArea_pct": 3.1931295738340637,
+     "dFrac_pp": 0.09188320922882687
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4409.497247468552,
+     "refit_area": 4554.014066531914,
+     "dArea_pct": 3.2773990083864613,
+     "dFrac_pp": 0.06924512183241714
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 125094.57940929389,
+     "refit_area": 124975.4507434297,
+     "dArea_pct": -0.09523087765012095,
+     "dFrac_pp": -0.49326606600346157
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_6",
+   "server_success": true,
+   "chi2r": 17.48277256489943,
+   "max_dFrac_pp": 0.2495854384029217,
+   "max_voigt_dArea_pct": 2.3941498240584558,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 20436.586368464472,
+     "refit_area": 20238.63378896502,
+     "dArea_pct": -0.968618613355654,
+     "dFrac_pp": -0.07265944943780633
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 14963.29821613737,
+     "refit_area": 14820.3336010342,
+     "dArea_pct": -0.9554351790502236,
+     "dFrac_pp": -0.052066016238662416
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 6300.019072203462,
+     "refit_area": 6149.187176670654,
+     "dArea_pct": -2.3941498240584558,
+     "dFrac_pp": -0.0740218860484039
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4598.315287188227,
+     "refit_area": 4493.773826993909,
+     "dArea_pct": -2.2734730801428515,
+     "dFrac_pp": -0.05083808667805771
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 128283.2325640343,
+     "refit_area": 128268.32831750254,
+     "dArea_pct": -0.01161823430378961,
+     "dFrac_pp": 0.2495854384029217
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_7",
+   "server_success": true,
+   "chi2r": 18.101074794446152,
+   "max_dFrac_pp": 0.3510427011305217,
+   "max_voigt_dArea_pct": 2.9254825513790994,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 22391.197426882514,
+     "refit_area": 22078.362502109398,
+     "dArea_pct": -1.397133519967686,
+     "dFrac_pp": -0.11175388047436341
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 16395.7625765169,
+     "refit_area": 16170.389030696511,
+     "dArea_pct": -1.3745841022556826,
+     "dFrac_pp": -0.0798120564469762
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 7049.02944892,
+     "refit_area": 6842.8113223502705,
+     "dArea_pct": -2.9254825513790994,
+     "dFrac_pp": -0.09400772308831157
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 5144.351228219663,
+     "refit_area": 4999.599916336659,
+     "dArea_pct": -2.813791389066944,
+     "dFrac_pp": -0.06546904112087262
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 133047.77803308767,
+     "refit_area": 133047.93250225557,
+     "dArea_pct": 0.00011610052432775575,
+     "dFrac_pp": 0.3510427011305217
+    }
+   ]
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_8",
+   "server_success": true,
+   "chi2r": 16.396011270512822,
+   "max_dFrac_pp": 0.27712352381707994,
+   "max_voigt_dArea_pct": 2.514674346056356,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 19231.973430441005,
+     "refit_area": 19004.151335414095,
+     "dArea_pct": -1.1846007163586525,
+     "dFrac_pp": -0.08815448149832872
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 14083.758924057136,
+     "refit_area": 13919.42952047727,
+     "dArea_pct": -1.1668007416625659,
+     "dFrac_pp": -0.0631445219850757
+    },
+    {
+     "name": "U 4f7/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 6159.72477752927,
+     "refit_area": 6004.827758761065,
+     "dArea_pct": -2.514674346056356,
+     "dFrac_pp": -0.07437573440075979
+    },
+    {
+     "name": "U 4f5/2 satellite",
+     "shape": "Voigt",
+     "saved_area": 4497.076132902224,
+     "refit_area": 4389.052054145889,
+     "dArea_pct": -2.4020958410286286,
+     "dFrac_pp": -0.05144878593292511
+    },
+    {
+     "name": "N",
+     "shape": "asym-GL",
+     "saved_area": 134249.66316839008,
+     "refit_area": 134244.05929656202,
+     "dArea_pct": -0.004174216676455789,
+     "dFrac_pp": 0.27712352381707994
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan",
+   "server_success": true,
+   "chi2r": 2.0170158534201406,
+   "max_dFrac_pp": 0.40370657451814784,
+   "max_voigt_dArea_pct": 4.693494577969726,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 41255.08441470114,
+     "refit_area": 41323.25005845318,
+     "dArea_pct": 0.16522967949073042,
+     "dFrac_pp": 0.09773420356937179
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 26654.143370324648,
+     "refit_area": 26708.120595039538,
+     "dArea_pct": 0.20250969601591784,
+     "dFrac_pp": 0.07513014623647396
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7178.499471895235,
+     "refit_area": 6841.576988402247,
+     "dArea_pct": -4.693494577969726,
+     "dFrac_pp": -0.40370657451814784
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7841.152136120045,
+     "refit_area": 8030.083294926296,
+     "dArea_pct": 2.409482121076878,
+     "dFrac_pp": 0.23084222471229932
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_0",
+   "server_success": true,
+   "chi2r": 2.598070652109287,
+   "max_dFrac_pp": 0.5255529862200709,
+   "max_voigt_dArea_pct": 4.499436327772188,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 49088.45703632418,
+     "refit_area": 50135.13853436307,
+     "dArea_pct": 2.1322354810711763,
+     "dFrac_pp": 0.357037529764076
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 31437.05627507865,
+     "refit_area": 32093.217909949053,
+     "dArea_pct": 2.0872235273204254,
+     "dFrac_pp": 0.21452341819797605
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 8916.094327865001,
+     "refit_area": 8514.920340658608,
+     "dArea_pct": -4.499436327772188,
+     "dFrac_pp": -0.5255529862200709
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9321.544746348773,
+     "refit_area": 9406.324954462252,
+     "dArea_pct": 0.9095081386235604,
+     "dFrac_pp": -0.04600796174195482
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_1",
+   "server_success": true,
+   "chi2r": 2.2315755783919613,
+   "max_dFrac_pp": 0.42778935719604977,
+   "max_voigt_dArea_pct": 4.539645392286362,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 44744.96422142144,
+     "refit_area": 45152.120835504684,
+     "dArea_pct": 0.9099495801771607,
+     "dFrac_pp": 0.3115793015050716
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 28735.287148700536,
+     "refit_area": 28990.92683681799,
+     "dArea_pct": 0.8896367967181185,
+     "dFrac_pp": 0.19362457244935238
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 8001.580753631777,
+     "refit_area": 7638.33736163946,
+     "dArea_pct": -4.539645392286362,
+     "dFrac_pp": -0.42778935719604977
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 8450.038653308078,
+     "refit_area": 8404.046741514574,
+     "dArea_pct": -0.5442804900720688,
+     "dFrac_pp": -0.07741451675838257
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_2",
+   "server_success": true,
+   "chi2r": 2.382208159641706,
+   "max_dFrac_pp": 0.6882340627316421,
+   "max_voigt_dArea_pct": 8.521593289506168,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 44374.52024557097,
+     "refit_area": 44600.406202903185,
+     "dArea_pct": 0.5090442805514295,
+     "dFrac_pp": -0.25736004891879216
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 28519.75604125266,
+     "refit_area": 28730.701459056545,
+     "dArea_pct": 0.7396466417831871,
+     "dFrac_pp": -0.09248773614987105
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 8088.3800497798975,
+     "refit_area": 7866.6651461050205,
+     "dArea_pct": -2.74115338683808,
+     "dFrac_pp": -0.33838627766298174
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 8288.088513996463,
+     "refit_area": 8994.365708633517,
+     "dArea_pct": 8.521593289506168,
+     "dFrac_pp": 0.6882340627316421
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_3",
+   "server_success": true,
+   "chi2r": 2.7169280832383436,
+   "max_dFrac_pp": 0.40160927171314503,
+   "max_voigt_dArea_pct": 4.818905282867814,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 47826.20938946231,
+     "refit_area": 47905.870179970734,
+     "dArea_pct": 0.1665630446680888,
+     "dFrac_pp": -0.02907358918495806
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 30674.633821889485,
+     "refit_area": 30761.88417728282,
+     "dArea_pct": 0.2844381318451994,
+     "dFrac_pp": 0.019268848077730327
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 8312.358296895089,
+     "refit_area": 7957.38650957015,
+     "dArea_pct": -4.270410088765431,
+     "dFrac_pp": -0.3918045306059145
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 8335.982061276649,
+     "refit_area": 8737.685141206422,
+     "dArea_pct": 4.818905282867814,
+     "dFrac_pp": 0.40160927171314503
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_4",
+   "server_success": true,
+   "chi2r": 3.3623333889065243,
+   "max_dFrac_pp": 0.5078582976864185,
+   "max_voigt_dArea_pct": 4.989882113395305,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 48822.73145726746,
+     "refit_area": 49617.65548311553,
+     "dArea_pct": 1.6281842537708702,
+     "dFrac_pp": 0.330226332940764
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 31188.576265567925,
+     "refit_area": 31683.093108958343,
+     "dArea_pct": 1.5855704318775254,
+     "dFrac_pp": 0.19746786915376124
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 8410.470865979483,
+     "refit_area": 7990.7982845856495,
+     "dArea_pct": -4.989882113395305,
+     "dFrac_pp": -0.5078582976864185
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9199.190525561136,
+     "refit_area": 9268.094987523125,
+     "dArea_pct": 0.7490274472577774,
+     "dFrac_pp": -0.019835904408102567
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_5",
+   "server_success": true,
+   "chi2r": 2.847154602925499,
+   "max_dFrac_pp": 0.37164089080336943,
+   "max_voigt_dArea_pct": 4.371018601166754,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 47963.33047480879,
+     "refit_area": 47851.345316699815,
+     "dArea_pct": -0.23348078000503536,
+     "dFrac_pp": 0.06242145945548616
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 30679.96662786367,
+     "refit_area": 30628.98045482824,
+     "dArea_pct": -0.16618718544864075,
+     "dFrac_pp": 0.06138316983874126
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 8913.124505348742,
+     "refit_area": 8523.530175274796,
+     "dArea_pct": -4.371018601166754,
+     "dFrac_pp": -0.37164089080336943
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9017.728576593521,
+     "refit_area": 9223.867778153784,
+     "dArea_pct": 2.285932647111588,
+     "dFrac_pp": 0.24783626150913646
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_6",
+   "server_success": true,
+   "chi2r": 3.898959557338847,
+   "max_dFrac_pp": 0.47500974742341606,
+   "max_voigt_dArea_pct": 4.577004847485078,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 62520.987233769854,
+     "refit_area": 63516.86713151322,
+     "dArea_pct": 1.5928729564357536,
+     "dFrac_pp": 0.47500974742341606
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 39913.65300991317,
+     "refit_area": 40450.20138407483,
+     "dArea_pct": 1.3442727831211032,
+     "dFrac_pp": 0.22470576351415472
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 11152.872424366456,
+     "refit_area": 10642.404912869377,
+     "dArea_pct": -4.577004847485078,
+     "dFrac_pp": -0.4599487754990847
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 11951.344630357427,
+     "refit_area": 11724.095600368804,
+     "dArea_pct": -1.9014515689840583,
+     "dFrac_pp": -0.23976673543847776
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_7",
+   "server_success": true,
+   "chi2r": 2.989438425439023,
+   "max_dFrac_pp": 0.25427481127924395,
+   "max_voigt_dArea_pct": 3.2042742541929625,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 57166.73350912243,
+     "refit_area": 56691.6716324496,
+     "dArea_pct": -0.8310110575008078,
+     "dFrac_pp": -0.0602482236883084
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 36717.04327852851,
+     "refit_area": 36467.575866197425,
+     "dArea_pct": -0.6794321929428526,
+     "dFrac_pp": 0.011012881018618303
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 9214.860892358342,
+     "refit_area": 8919.591477224807,
+     "dArea_pct": -3.2042742541929625,
+     "dFrac_pp": -0.20503946860954275
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9667.340909438984,
+     "refit_area": 9883.10243350895,
+     "dArea_pct": 2.2318600956680923,
+     "dFrac_pp": 0.25427481127924395
+    }
+   ]
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_8",
+   "server_success": true,
+   "chi2r": 2.882632100818263,
+   "max_dFrac_pp": 0.32564355300795655,
+   "max_voigt_dArea_pct": 5.0051880082119915,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 54349.45035357562,
+     "refit_area": 53818.96059572909,
+     "dArea_pct": -0.9760719830566478,
+     "dFrac_pp": 0.125874257817149
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 34906.07061232181,
+     "refit_area": 34568.77394233787,
+     "dArea_pct": -0.96629802228404,
+     "dFrac_pp": 0.08404458656376956
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 9174.86018109154,
+     "refit_area": 8715.64117953733,
+     "dArea_pct": -5.0051880082119915,
+     "dFrac_pp": -0.32564355300795655
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9453.786910781786,
+     "refit_area": 9461.500517193657,
+     "dArea_pct": 0.08159276789996284,
+     "dFrac_pp": 0.11572470862705325
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan",
+   "server_success": true,
+   "chi2r": 2.174420909603723,
+   "max_dFrac_pp": 0.4471879476190502,
+   "max_voigt_dArea_pct": 7.862382994247175,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 46378.93887395782,
+     "refit_area": 47481.30810535845,
+     "dArea_pct": 2.3768746292287757,
+     "dFrac_pp": -0.008722022536189478
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 29921.46207361917,
+     "refit_area": 30658.38461771566,
+     "dArea_pct": 2.4628560672715683,
+     "dFrac_pp": 0.02237335561889875
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6147.258135173184,
+     "refit_area": 5883.5542706986125,
+     "dArea_pct": -4.289780234959051,
+     "dFrac_pp": -0.4471879476190502
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7284.54735386976,
+     "refit_area": 7857.286366228298,
+     "dArea_pct": 7.862382994247175,
+     "dFrac_pp": 0.43353661453631037
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_0",
+   "server_success": true,
+   "chi2r": 2.056952775369684,
+   "max_dFrac_pp": 0.4087713443770735,
+   "max_voigt_dArea_pct": 5.480170581708799,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 43057.24189113693,
+     "refit_area": 43257.1247310449,
+     "dArea_pct": 0.4642258331672533,
+     "dFrac_pp": -0.09170948414558566
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 27806.20316874839,
+     "refit_area": 27955.313229237938,
+     "dArea_pct": 0.5362474681805285,
+     "dFrac_pp": -0.03519428706738048
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 4899.547336981313,
+     "refit_area": 4696.095080960324,
+     "dArea_pct": -4.152470463655911,
+     "dFrac_pp": -0.28186757316409417
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7040.459926886349,
+     "refit_area": 7426.289140616573,
+     "dArea_pct": 5.480170581708799,
+     "dFrac_pp": 0.4087713443770735
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_1",
+   "server_success": true,
+   "chi2r": 1.854780427743404,
+   "max_dFrac_pp": 0.26427212441086506,
+   "max_voigt_dArea_pct": 3.4610426192811516,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 51546.22004652631,
+     "refit_area": 51562.94100926103,
+     "dArea_pct": 0.032438775762066996,
+     "dFrac_pp": 0.03418950372612306
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 33038.059754379465,
+     "refit_area": 33080.258436888944,
+     "dArea_pct": 0.1277274840689957,
+     "dFrac_pp": 0.05295419987032535
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7822.773540568854,
+     "refit_area": 7552.024014319916,
+     "dArea_pct": -3.4610426192811516,
+     "dFrac_pp": -0.26427212441086506
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9048.28163267147,
+     "refit_area": 9224.773670786975,
+     "dArea_pct": 1.9505586284829013,
+     "dFrac_pp": 0.17712842081442082
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_2",
+   "server_success": true,
+   "chi2r": 1.8118662623244612,
+   "max_dFrac_pp": 0.3255806515469431,
+   "max_voigt_dArea_pct": 4.976135853065388,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 52973.61222327121,
+     "refit_area": 52970.448738502506,
+     "dArea_pct": -0.0059718124476138,
+     "dFrac_pp": 0.24011707866078424
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 34058.236893659225,
+     "refit_area": 34053.8914744973,
+     "dArea_pct": -0.012758790701616896,
+     "dFrac_pp": 0.15213423634411471
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7448.052553387539,
+     "refit_area": 7077.42733992327,
+     "dArea_pct": -4.976135853065388,
+     "dFrac_pp": -0.3255806515469431
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9026.091254558492,
+     "refit_area": 8914.723138455041,
+     "dArea_pct": -1.2338465561956946,
+     "dFrac_pp": -0.06667066345797945
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_3",
+   "server_success": true,
+   "chi2r": 2.7319620150440844,
+   "max_dFrac_pp": 0.412169393861736,
+   "max_voigt_dArea_pct": 7.520420433545283,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 47593.629519407514,
+     "refit_area": 48129.35933468974,
+     "dArea_pct": 1.125633452821173,
+     "dFrac_pp": -0.11873208697704696
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 30480.582481904774,
+     "refit_area": 30858.210604272277,
+     "dArea_pct": 1.238913733330671,
+     "dFrac_pp": -0.03730350186864073
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 3924.678081279886,
+     "refit_area": 3749.273736778295,
+     "dArea_pct": -4.469267055003645,
+     "dFrac_pp": -0.256133805016031
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 5952.1907394562395,
+     "refit_area": 6399.820508069896,
+     "dArea_pct": 7.520420433545283,
+     "dFrac_pp": 0.412169393861736
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_4",
+   "server_success": true,
+   "chi2r": 1.8484536188463823,
+   "max_dFrac_pp": 0.27445516567694145,
+   "max_voigt_dArea_pct": 4.052413100073626,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 50782.41286463693,
+     "refit_area": 50704.97773917536,
+     "dArea_pct": -0.15248413986940212,
+     "dFrac_pp": 0.04121312572497038
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 32831.285363439245,
+     "refit_area": 32800.08839135166,
+     "dArea_pct": -0.09502208561814607,
+     "dFrac_pp": 0.04534298848850593
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7252.642721391248,
+     "refit_area": 6958.735677648053,
+     "dArea_pct": -4.052413100073626,
+     "dFrac_pp": -0.27445516567694145
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 10264.862581803196,
+     "refit_area": 10430.384440060334,
+     "dArea_pct": 1.6125092463542767,
+     "dFrac_pp": 0.18789905146347485
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_5",
+   "server_success": true,
+   "chi2r": 1.9462076301392501,
+   "max_dFrac_pp": 0.3855620375181952,
+   "max_voigt_dArea_pct": 5.9749203177828285,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 52522.50469314639,
+     "refit_area": 52824.93648651934,
+     "dArea_pct": 0.5758137300188926,
+     "dFrac_pp": 0.25888813959686896
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 33953.00848616422,
+     "refit_area": 34138.253215051365,
+     "dArea_pct": 0.5455915017446467,
+     "dFrac_pp": 0.15739090794830712
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6568.791181800967,
+     "refit_area": 6176.311142846815,
+     "dArea_pct": -5.9749203177828285,
+     "dFrac_pp": -0.3855620375181952
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9843.679435159807,
+     "refit_area": 9818.779239529338,
+     "dArea_pct": -0.25295618162382016,
+     "dFrac_pp": -0.030717010026973246
+    }
+   ]
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "Cl2p Scan_1",
+   "server_success": true,
+   "chi2r": 7.0052810965989805,
+   "max_dFrac_pp": 0.0034537880186480407,
+   "max_voigt_dArea_pct": 7.556697705435966,
+   "comps": [
+    {
+     "name": "Cl 2p3/2",
+     "shape": "Voigt",
+     "saved_area": 13250.127199099225,
+     "refit_area": 12250.758188827554,
+     "dArea_pct": -7.5423352187865,
+     "dFrac_pp": 0.0034537880186480407
+    },
+    {
+     "name": "Cl 2p1/2",
+     "shape": "Voigt",
+     "saved_area": 6634.183746392684,
+     "refit_area": 6132.858535454622,
+     "dArea_pct": -7.556697705435966,
+     "dFrac_pp": -0.0034537880186424896
+    }
+   ]
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan",
+   "server_success": true,
+   "chi2r": 2.1744209095953133,
+   "max_dFrac_pp": 0.4471877920634054,
+   "max_voigt_dArea_pct": 7.862384679751933,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 46378.93887395782,
+     "refit_area": 47481.306647662044,
+     "dArea_pct": 2.376871486215082,
+     "dFrac_pp": -0.008722325483523363
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 29921.46207361917,
+     "refit_area": 30658.38367370139,
+     "dArea_pct": 2.4628529122978415,
+     "dFrac_pp": 0.02237315697246056
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6147.258135173184,
+     "refit_area": 5883.554267487493,
+     "dArea_pct": -4.289780287195666,
+     "dFrac_pp": -0.4471877920634054
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7284.54735386976,
+     "refit_area": 7857.28648900969,
+     "dArea_pct": 7.862384679751933,
+     "dFrac_pp": 0.43353696057444047
+    }
+   ]
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_0",
+   "server_success": true,
+   "chi2r": 2.0569527753552284,
+   "max_dFrac_pp": 0.40877125798072095,
+   "max_voigt_dArea_pct": 5.480171650352084,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 43057.24189113693,
+     "refit_area": 43257.12562350866,
+     "dArea_pct": 0.46422790590512353,
+     "dFrac_pp": -0.09170944234299094
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 27806.20316874839,
+     "refit_area": 27955.31382748318,
+     "dArea_pct": 0.5362496196617661,
+     "dFrac_pp": -0.03519423427369994
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 4899.547336981313,
+     "refit_area": 4696.095167233015,
+     "dArea_pct": -4.152468702826084,
+     "dFrac_pp": -0.28186758136400436
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7040.459926886349,
+     "refit_area": 7426.2892158539735,
+     "dArea_pct": 5.480171650352084,
+     "dFrac_pp": 0.40877125798072095
+    }
+   ]
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_1",
+   "server_success": true,
+   "chi2r": 1.854780427743404,
+   "max_dFrac_pp": 0.26427212441086506,
+   "max_voigt_dArea_pct": 3.4610426192811516,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 51546.22004652631,
+     "refit_area": 51562.94100926103,
+     "dArea_pct": 0.032438775762066996,
+     "dFrac_pp": 0.03418950372612306
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 33038.059754379465,
+     "refit_area": 33080.258436888944,
+     "dArea_pct": 0.1277274840689957,
+     "dFrac_pp": 0.05295419987032535
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7822.773540568854,
+     "refit_area": 7552.024014319916,
+     "dArea_pct": -3.4610426192811516,
+     "dFrac_pp": -0.26427212441086506
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9048.28163267147,
+     "refit_area": 9224.773670786975,
+     "dArea_pct": 1.9505586284829013,
+     "dFrac_pp": 0.17712842081442082
+    }
+   ]
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_2",
+   "server_success": true,
+   "chi2r": 1.8118662623244612,
+   "max_dFrac_pp": 0.3255806515469431,
+   "max_voigt_dArea_pct": 4.976135853065388,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 52973.61222327121,
+     "refit_area": 52970.448738502506,
+     "dArea_pct": -0.0059718124476138,
+     "dFrac_pp": 0.24011707866078424
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 34058.236893659225,
+     "refit_area": 34053.8914744973,
+     "dArea_pct": -0.012758790701616896,
+     "dFrac_pp": 0.15213423634411471
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7448.052553387539,
+     "refit_area": 7077.42733992327,
+     "dArea_pct": -4.976135853065388,
+     "dFrac_pp": -0.3255806515469431
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9026.091254558492,
+     "refit_area": 8914.723138455041,
+     "dArea_pct": -1.2338465561956946,
+     "dFrac_pp": -0.06667066345797945
+    }
+   ]
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_3",
+   "server_success": true,
+   "chi2r": 2.7319620150440844,
+   "max_dFrac_pp": 0.412169393861736,
+   "max_voigt_dArea_pct": 7.520420433545283,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 47593.629519407514,
+     "refit_area": 48129.35933468974,
+     "dArea_pct": 1.125633452821173,
+     "dFrac_pp": -0.11873208697704696
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 30480.582481904774,
+     "refit_area": 30858.210604272277,
+     "dArea_pct": 1.238913733330671,
+     "dFrac_pp": -0.03730350186864073
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 3924.678081279886,
+     "refit_area": 3749.273736778295,
+     "dArea_pct": -4.469267055003645,
+     "dFrac_pp": -0.256133805016031
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 5952.1907394562395,
+     "refit_area": 6399.820508069896,
+     "dArea_pct": 7.520420433545283,
+     "dFrac_pp": 0.412169393861736
+    }
+   ]
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_4",
+   "server_success": true,
+   "chi2r": 1.848453618875723,
+   "max_dFrac_pp": 0.27445499315983946,
+   "max_voigt_dArea_pct": 4.052409463626039,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 50782.41286463693,
+     "refit_area": 50704.9781830663,
+     "dArea_pct": -0.1524832657657238,
+     "dFrac_pp": 0.04121291802643423
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 32831.285363439245,
+     "refit_area": 32800.08873669093,
+     "dArea_pct": -0.0950210337578028,
+     "dFrac_pp": 0.045342911811152575
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7252.642721391248,
+     "refit_area": 6958.735941386604,
+     "dArea_pct": -4.052409463626039,
+     "dFrac_pp": -0.27445499315983946
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 10264.862581803196,
+     "refit_area": 10430.384687338095,
+     "dArea_pct": 1.6125116553272312,
+     "dFrac_pp": 0.18789916332225265
+    }
+   ]
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_5",
+   "server_success": true,
+   "chi2r": 1.9462076301392501,
+   "max_dFrac_pp": 0.3855620375181952,
+   "max_voigt_dArea_pct": 5.9749203177828285,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 52522.50469314639,
+     "refit_area": 52824.93648651934,
+     "dArea_pct": 0.5758137300188926,
+     "dFrac_pp": 0.25888813959686896
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 33953.00848616422,
+     "refit_area": 34138.253215051365,
+     "dArea_pct": 0.5455915017446467,
+     "dFrac_pp": 0.15739090794830712
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6568.791181800967,
+     "refit_area": 6176.311142846815,
+     "dArea_pct": -5.9749203177828285,
+     "dFrac_pp": -0.3855620375181952
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 9843.679435159807,
+     "refit_area": 9818.779239529338,
+     "dArea_pct": -0.25295618162382016,
+     "dFrac_pp": -0.030717010026973246
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan",
+   "server_success": true,
+   "chi2r": 2.4547732875877757,
+   "max_dFrac_pp": 0.3934656169408135,
+   "max_voigt_dArea_pct": 5.125558770156213,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 55491.044124162545,
+     "refit_area": 54807.11695455702,
+     "dArea_pct": -1.2325000915016426,
+     "dFrac_pp": -0.3184813822848853
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 35654.75438332031,
+     "refit_area": 35303.998043741434,
+     "dArea_pct": -0.9837575539237586,
+     "dFrac_pp": -0.11901989158299431
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6037.931984658013,
+     "refit_area": 6045.029203840296,
+     "dArea_pct": 0.11754387429863122,
+     "dFrac_pp": 0.04403565692705155
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7071.952580682836,
+     "refit_area": 7434.429666403314,
+     "dArea_pct": 5.125558770156213,
+     "dFrac_pp": 0.3934656169408135
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_0",
+   "server_success": true,
+   "chi2r": 2.055187564443962,
+   "max_dFrac_pp": 0.3056158104869484,
+   "max_voigt_dArea_pct": 5.910066329793295,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 44230.87523834499,
+     "refit_area": 44654.86323468374,
+     "dArea_pct": 0.9585792595195652,
+     "dFrac_pp": 0.08313910992336915
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 28170.258215190595,
+     "refit_area": 28455.34869223761,
+     "dArea_pct": 1.0120264957077296,
+     "dFrac_pp": 0.07143102246177646
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 3707.6654266281366,
+     "refit_area": 3488.5399406276,
+     "dArea_pct": -5.910066329793295,
+     "dFrac_pp": -0.3056158104869484
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 4711.337617887034,
+     "refit_area": 4872.3432360063025,
+     "dArea_pct": 3.4174077762543664,
+     "dFrac_pp": 0.15104567810181255
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_1",
+   "server_success": true,
+   "chi2r": 2.4658954419409898,
+   "max_dFrac_pp": 0.3105736862876865,
+   "max_voigt_dArea_pct": 3.0305918846483815,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 60320.07742988709,
+     "refit_area": 59425.32347194712,
+     "dArea_pct": -1.483343516891178,
+     "dFrac_pp": -0.18920641395159254
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 38925.3678995307,
+     "refit_area": 38426.19752218827,
+     "dArea_pct": -1.282378059035505,
+     "dFrac_pp": -0.053286519241801944
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 7240.657697123209,
+     "refit_area": 7081.676988555822,
+     "dArea_pct": -2.195666681364472,
+     "dFrac_pp": -0.06808075309426703
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 8492.688665394347,
+     "refit_area": 8750.067398876241,
+     "dArea_pct": 3.0305918846483815,
+     "dFrac_pp": 0.3105736862876865
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_2",
+   "server_success": true,
+   "chi2r": 1.9400626772366325,
+   "max_dFrac_pp": 0.5401828553316126,
+   "max_voigt_dArea_pct": 8.402943534512586,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 50052.93523927436,
+     "refit_area": 50094.62071093386,
+     "dArea_pct": 0.08328277145031038,
+     "dFrac_pp": 0.44070555839965664
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 32294.948299034902,
+     "refit_area": 32335.308343231834,
+     "dArea_pct": 0.12497324294566958,
+     "dFrac_pp": 0.2983826163593106
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6782.7605973675845,
+     "refit_area": 6212.809054289618,
+     "dArea_pct": -8.402943534512586,
+     "dFrac_pp": -0.5401828553316126
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7554.450908308234,
+     "refit_area": 7306.074483703178,
+     "dArea_pct": -3.287815721085652,
+     "dFrac_pp": -0.19890531942736017
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_3",
+   "server_success": true,
+   "chi2r": 1.732029798871068,
+   "max_dFrac_pp": 0.36404899295717497,
+   "max_voigt_dArea_pct": 4.478096175304724,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 43703.91368841649,
+     "refit_area": 44516.8672273084,
+     "dArea_pct": 1.8601389904981946,
+     "dFrac_pp": 0.33271624601320937
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 28228.667643990117,
+     "refit_area": 28722.10196155472,
+     "dArea_pct": 1.747990106326025,
+     "dFrac_pp": 0.17760080240125653
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 5427.826605876076,
+     "refit_area": 5184.763310236168,
+     "dArea_pct": -4.478096175304724,
+     "dFrac_pp": -0.36404899295717497
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 6489.199693344672,
+     "refit_area": 6443.847358911087,
+     "dArea_pct": -0.6988894867898443,
+     "dFrac_pp": -0.1462680554572951
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_4",
+   "server_success": true,
+   "chi2r": 1.798270429277224,
+   "max_dFrac_pp": 0.6070880313317768,
+   "max_voigt_dArea_pct": 15.08219531597711,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 42049.05600146483,
+     "refit_area": 40514.377593784186,
+     "dArea_pct": -3.6497333201182425,
+     "dFrac_pp": 0.10023315173293135
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 27059.787051930816,
+     "refit_area": 26182.25614464988,
+     "dArea_pct": -3.24293352936168,
+     "dFrac_pp": 0.21097528548316702
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 4054.3438300267103,
+     "refit_area": 3442.8597748008146,
+     "dArea_pct": -15.08219531597711,
+     "dFrac_pp": -0.6070880313317768
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 4982.45776754746,
+     "refit_area": 5014.0495223350645,
+     "dArea_pct": 0.6340596601414727,
+     "dFrac_pp": 0.29587959411569026
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_5",
+   "server_success": true,
+   "chi2r": 2.1738526940885903,
+   "max_dFrac_pp": 0.23558441856597473,
+   "max_voigt_dArea_pct": 3.153737649158872,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 55155.044410800896,
+     "refit_area": 54195.628735391365,
+     "dArea_pct": -1.7394885375555114,
+     "dFrac_pp": -0.09914718905720266
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 35749.90992795161,
+     "refit_area": 35156.36818710732,
+     "dArea_pct": -1.660260800769786,
+     "dFrac_pp": -0.03693727575786454
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6443.29659449022,
+     "refit_area": 6240.09192394281,
+     "dArea_pct": -3.153737649158872,
+     "dFrac_pp": -0.09949995375090129
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7934.526252832614,
+     "refit_area": 8055.467000799557,
+     "dArea_pct": 1.5242340136409238,
+     "dFrac_pp": 0.23558441856597473
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_6",
+   "server_success": true,
+   "chi2r": 2.6124048025396145,
+   "max_dFrac_pp": 0.23669009113642808,
+   "max_voigt_dArea_pct": 3.7342008634281165,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 51477.11801839529,
+     "refit_area": 51489.60777949112,
+     "dArea_pct": 0.024262743480241156,
+     "dFrac_pp": -0.013172225469404442
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 33298.503914683824,
+     "refit_area": 33324.809490956184,
+     "dArea_pct": 0.07899927378045568,
+     "dFrac_pp": 0.010064511370222462
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6054.477942178833,
+     "refit_area": 5828.391574585926,
+     "dArea_pct": -3.7342008634281165,
+     "dFrac_pp": -0.23358237703724472
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7191.7185193224595,
+     "refit_area": 7427.390612122632,
+     "dArea_pct": 3.2769927266615984,
+     "dFrac_pp": 0.23669009113642808
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_7",
+   "server_success": true,
+   "chi2r": 1.7566316803288144,
+   "max_dFrac_pp": 0.12822745963520718,
+   "max_voigt_dArea_pct": 2.5468166281031324,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 54593.22225536316,
+     "refit_area": 54496.06000132689,
+     "dArea_pct": -0.17797493905339357,
+     "dFrac_pp": 0.056375933172114756
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 35054.16635114019,
+     "refit_area": 34993.76647345268,
+     "dArea_pct": -0.17230441905959903,
+     "dFrac_pp": 0.038147337845667595
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 5779.150976743743,
+     "refit_area": 5631.966598704848,
+     "dArea_pct": -2.5468166281031324,
+     "dFrac_pp": -0.12822745963520718
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 6877.994741895932,
+     "refit_area": 6892.891169957879,
+     "dArea_pct": 0.21658097484735794,
+     "dFrac_pp": 0.033704188617411646
+    }
+   ]
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_8",
+   "server_success": true,
+   "chi2r": 4.129258420450403,
+   "max_dFrac_pp": 0.26684455928078915,
+   "max_voigt_dArea_pct": 5.0177926386697935,
+   "comps": [
+    {
+     "name": "U 4f7/2",
+     "shape": "LACX",
+     "saved_area": 55952.027998427606,
+     "refit_area": 55800.279041266,
+     "dArea_pct": -0.27121261300102617,
+     "dFrac_pp": 0.04057223992595116
+    },
+    {
+     "name": "U 4f5/2",
+     "shape": "LACX",
+     "saved_area": 36234.11361294525,
+     "refit_area": 36172.413564634655,
+     "dArea_pct": -0.17028165493346847,
+     "dFrac_pp": 0.06097645416841546
+    },
+    {
+     "name": "Satellite 2",
+     "shape": "Voigt",
+     "saved_area": 6021.5982997132305,
+     "refit_area": 5719.4469834999545,
+     "dArea_pct": -5.0177926386697935,
+     "dFrac_pp": -0.26684455928078915
+    },
+    {
+     "name": "Satellite 1",
+     "shape": "Voigt",
+     "saved_area": 7546.479283687805,
+     "refit_area": 7694.445040960628,
+     "dArea_pct": 1.960725680287223,
+     "dFrac_pp": 0.16529586518641837
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "n_tabs": 55,
+  "n_converged": 55,
+  "dFrac_pp": {
+   "median": 0.3510427011305217,
+   "p90": 0.5078582976864185,
+   "max": 0.6882340627316421
+  },
+  "gt_1pp": 0,
+  "voigt_dArea_pct": {
+   "median": 4.577004847485078,
+   "p90": 7.556697705435966,
+   "max": 15.300258030724901
+  }
+ }
+}

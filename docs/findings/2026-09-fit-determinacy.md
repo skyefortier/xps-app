@@ -268,21 +268,27 @@ tables: `docs/superpowers/plans/2026-09-22-a03-voigt-eta-identity.md`.
 `runFitLocal` held 0.5; the dropdown said "50/50"; CLAUDE.md said fixed 0.5.
 On the 90 committed targets with a Voigt component (89 U 4f tabs across five
 projects, one Cl 2p; 180 Voigt components): the server's free η ended at
-pure Gaussian (< 0.01) on 46 of the 180 and pure Lorentzian (> 0.99) on
-17, within 0.4–0.6 on 24. Every area, percentage, chart
+pure Gaussian (< 0.01) on 60 of the 180 and pure Lorentzian (> 0.99) on
+16, within 0.4–0.6 on 24. Every area, percentage, chart
 component and export the page produced for those components was the 0.5
-curve under parameters fitted for another mix: displayed area vs the fitted
-curve median 11.8 %, p90 19.2 %, max 20.1 % (103 of 180 components > 10 %);
-area fractions off by median 0.96 pp, max 1.60 pp (35 of 90 targets > 1 pp).
-Fixed on both sides (η = 0.5 held in the request). What a student SEES
-change on re-fitting a saved project is small — the fixed refit vs what the
-page displayed: median 0.30 pp, max 1.02 pp (1 target > 1 pp) — because both
-are the 0.5 curve; the refit vs the server's own free-η fit is median
-0.93 pp, max 2.04 pp, χ²ᵣ higher by median 9.5 % (the mix is one parameter
-fewer). The alternative — honour the fitted η on the page — would have made
-"Voigt" a GL with a hidden slider and silently kept a shape the student had
-not chosen; 63 of 180 fitted values sitting on a bound says the parameter
-was not determined by the data in those fits anyway.
+curve under parameters fitted for another mix: that curve vs the fitted one
+median 13.9 %, p90 19.2 %, max 20.1 % (116 of 180 components > 10 %); as
+area fractions median 0.96 pp, max 1.55 pp (35 of 90 targets > 1 pp; server
+curves, trapezoid). Fixed on both sides (η = 0.5 held in the request). What
+a student SEES change on re-fitting a saved project, measured with the
+PAGE's own integration of the saved peaks against the page's integration of
+the refit (`scripts/voigt_saved_vs_refit.js`, 55 committed tabs with a
+saved fit and a Voigt, six projects): an area fraction moves by median
+0.35 pp, p90 0.51 pp, max 0.69 pp (none > 1 pp); a Voigt's own area by
+median 4.6 %, max 15.3 %. The refit vs the server's own free-η fit is
+median 0.93 pp, max 2.04 pp, χ²ᵣ higher by median 9 % (the mix is one
+parameter fewer). The alternative — honour the fitted η on the page — would
+have made "Voigt" a GL with a hidden slider and silently kept a shape the
+student had not chosen; 76 of 180 fitted values sitting on a bound says the
+parameter was not determined by the data in those fits anyway. The same
+review found the builder sending an asym-GL mix of exactly 0 as 50 and a
+DS α of exactly 0 as 0.1 (`||` defaults); locked, the drawn curve differed
+from the fitted one by 6.9 % / 8.8 % of amplitude. Fixed in both builders.
 
 **The re-measurement (W1 methodology, 18 targets).** C 1s unchanged (8 of 9
 within 3.8 meV / 0.5 % / 1.4 % / 0.32 pp; Scan_4 is the §2 finding). U 4f,
@@ -291,10 +297,18 @@ W1 → A03: max Δcentre 39.7 → 28.8 meV, ΔFWHM 17.2 → 15.8 %, Δarea 20.8 
 reach the same minimum (χ²ᵣ equal to 2–3 digits) every component is within
 4.3 meV, 2.6 %, 2.0 %, 0.12 pp — the Voigt gap is gone. On the other 4 the
 server's continuous LA m moved from its start of 8 to 2.7, 6.5, 10.0 and
-7.9 while the local engine holds it; χ²ᵣ differs by 8–20 % (the local engine
-LOWER on Scan_6, 2.657 vs 2.798), and the satellites, which share the
-region, differ by up to 8.9 % in area. That residual is the `caM` clamp,
-next; the "starting point" label stays until it is done and re-measured.
+7.9 while the local engine holds it; χ²ᵣ (local/server − 1) is +9.6, +10.1,
+−5.0 and +12.7 %, and the satellites, which share the region, differ by up
+to 8.9 % in area. A control arm (the server with every LA m HELD at its
+start) attributes it: on Scan_6 holding m closes the gap to 3.7 meV /
+1.3 % / 1.4 % / 0.07 pp — that one IS the `caM` clamp; on Scan_5 and Scan_8
+holding m changes nothing and the local engine's χ²ᵣ stays 10–13 % above
+the server's from the same start with the same free parameters — a WORSE
+MINIMUM (the mirror image of §2, where the local engine found the better
+one on C 1s Scan_4); Scan_4 is half each. The "starting point" label stays
+on both grounds; the `caM` clamp is the next unit, and the local engine's
+worse-minimum outcome on 3 of 9 U 4f targets is a finding for the
+local-engine work after it.
 
 **The sweep.** Gaussian, Lorentzian, Voigt, GL, asym-GL and DS agree with
 the server to 1e-15 across every bound. LACX with m > 0: up to 0.89 % of

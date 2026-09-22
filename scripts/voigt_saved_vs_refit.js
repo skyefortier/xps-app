@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+// A03 (Codex round 1): what a student SEES change when a saved project with
+// Voigt components is re-fitted under the fixed-eta request — measured with
+// the PAGE's own numbers on both sides. For every committed spectrum tab
+// that carries a saved fit and a Voigt component: the page's area of each
+// saved peak (evalPeakArray over the ROI grid × step, as _peakArea; a Voigt
+// at eta 0.5, an LA at its rounded m — exactly the Results table) versus the
+// page's area of the same peaks after the server refit (the page's request
+// builder, Trust-Region, the page's n_perturb 3, parameters written back
+// through the page's _applyBackendParams). Usage: node scripts/voigt_saved_vs_refit.js [out.json]
+const fs = require('fs'); const path = require('path'); const { execFileSync } = require('child_process');
+const ROOT = path.join(__dirname, '..');
+const html = fs.readFileSync(path.join(ROOT, 'templates/index.html'), 'utf8'); const lines = html.split('\n');
+function extractFn(name) {
+  const re = new RegExp('^(async )?function ' + name + '\\('); const start = lines.findIndex(l => re.test(l));
+  if (start < 0) throw new Error('missing ' + name);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) { for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; } if (seen && depth === 0) return lines.slice(start, i + 1).join('\n'); }
+  throw new Error('unbalanced ' + name);
+}
+const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS',
+  'laTrueCasaXPS', 'laTrueCasaXPS_array', 'evalPeak', 'dsgDeltaKernel_array', 'evalPeakArray', 'getPeak', '_applyBackendParams'];
+const state = { peaks: [] };
+const fns = new Function('state', NAMES.map(extractFn).join('\n\n') + '\nreturn { evalPeakArray, _applyBackendParams };')(state);
+const PY = [path.join(ROOT, 'venv/bin/python3'), '/Users/skyefortier/xps-app/venv/bin/python3', 'python3'].find(p => p === 'python3' || fs.existsSync(p));
+const DATA = path.join(ROOT, 'docs/autofit/test_data');
+const area = (be, p) => { const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1; return fns.evalPeakArray(be, p).reduce((s, y) => s + y, 0) * step; };
+const out = { generated: new Date().toISOString(), n_perturb: 3, targets: [] };
+for (const zp of fs.readdirSync(DATA).filter(f => f.endsWith('.proj.zip')).sort()) {
+  const tabs = JSON.parse(execFileSync(PY, ['-c', 'import sys, json; sys.path.insert(0, sys.argv[1]); from autofit.reference import load_project_tabs; print(json.dumps([t for t in load_project_tabs(sys.argv[2]) if not t.get("isStack") and t.get("rawBE")]))', ROOT, path.join(DATA, zp)], { encoding: 'utf8', maxBuffer: 1 << 26 }));
+  for (const t of tabs) {
+    if (!t.fitResult || !(t.peaks || []).some(p => p.shape === 'Voigt')) continue;
+    const ui = t.ui || {};
+    const roiMin = parseFloat(ui.roiMin), roiMax = parseFloat(ui.roiMax);
+    if (!Number.isFinite(roiMin) || !Number.isFinite(roiMax) || !ui.bgType) continue;
+    const be = [], inten = [];
+    t.rawBE.forEach((b, i) => { const c = b - (t.ccShift || 0); if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(t.rawIntensity[i]); } });
+    if (be.length < 10) continue;
+    const saved = JSON.parse(JSON.stringify(t.peaks));
+    let srv;
+    try {
+      srv = JSON.parse(execFileSync(PY, [path.join(ROOT, 'tests/js/local_lm_server_parity_backend.py'), ROOT], { input: JSON.stringify({ be, inten, peaks: saved, ui, n_perturb: 3 }), encoding: 'utf8', maxBuffer: 1 << 26 }));
+    } catch (e) { out.targets.push({ project: zp, tab: t.name, error: String(e.message).slice(0, 200) }); continue; }
+    const refit = JSON.parse(JSON.stringify(saved));
+    srv.peaks.forEach((pp, i) => { const par = {}; for (const [k, v] of Object.entries(pp)) par[k] = { value: v }; fns._applyBackendParams(refit[i], par); });
+    const aS = saved.map(p => area(be, p)), aR = refit.map(p => area(be, p));
+    const tS = aS.reduce((s, v) => s + v, 0), tR = aR.reduce((s, v) => s + v, 0);
+    const comps = saved.map((p, i) => ({ name: p.name, shape: p.shape, saved_area: aS[i], refit_area: aR[i],
+      dArea_pct: aS[i] ? 100 * (aR[i] / aS[i] - 1) : null, dFrac_pp: 100 * (aR[i] / tR - aS[i] / tS) }));
+    const rec = { project: zp, tab: t.name, server_success: srv.success, chi2r: srv.chi2r,
+      max_dFrac_pp: Math.max(...comps.map(c => Math.abs(c.dFrac_pp))),
+      max_voigt_dArea_pct: Math.max(...comps.filter(c => c.shape === 'Voigt' && c.dArea_pct != null).map(c => Math.abs(c.dArea_pct))), comps };
+    out.targets.push(rec);
+    console.error(zp.slice(0, 28), t.name, 'server', srv.success, 'max Δfrac', rec.max_dFrac_pp.toFixed(2), 'pp, max Voigt Δarea', rec.max_voigt_dArea_pct.toFixed(1), '%');
+  }
+}
+const ok = out.targets.filter(r => r.server_success);
+const q = v => { v = [...v].sort((a, b) => a - b); return { median: v[Math.floor(v.length / 2)], p90: v[Math.floor(0.9 * (v.length - 1))], max: v[v.length - 1] }; };
+out.summary = { n_tabs: out.targets.length, n_converged: ok.length, dFrac_pp: q(ok.map(r => r.max_dFrac_pp)), gt_1pp: ok.filter(r => r.max_dFrac_pp > 1).length, voigt_dArea_pct: q(ok.map(r => r.max_voigt_dArea_pct)) };
+console.error(JSON.stringify(out.summary));
+fs.writeFileSync(process.argv[2] || path.join(ROOT, 'docs/findings/a03/voigt_saved_vs_refit.json'), JSON.stringify(out, null, 1));

@@ -7,8 +7,8 @@
 // η = 0.5, so every chart component, area, percentage and export for a
 // Voigt was the 0.5 curve under parameters fitted for another mix (on the
 // 90 committed Voigt targets: displayed areas 12 % off the fitted curve at
-// the median, 20 % at worst; 46 of 180 components had gone to pure
-// Gaussian, 17 to pure Lorentzian). This test closes that class: for every
+// the median, 20 % at worst; 60 of 180 components had gone to pure
+// Gaussian, 16 to pure Lorentzian). This test closes that class: for every
 // shape, build the request with the PAGE's own peakToBackendSpec, fit it
 // on the server (fitting.run_fit, no background, Trust-Region), apply the
 // result with the page's own _applyBackendParams, and require the curve the
@@ -157,6 +157,33 @@ test('a linked Voigt follows its parent and both are drawn as fitted (η follows
   assert.equal(ipChild.params.gl_ratio.value, 0.5);
   assert.ok(ipChild.params.gl_ratio.expr, 'the child’s η is an expression on the parent');
 });
+
+// Codex round 1 reproduced two builder defects at ZERO endpoints: `p.glMix || 50`
+// sent an asym-GL mix of 0 as 50 and `p.dsAlpha || 0.1` a DS alpha of 0 as
+// 0.1 — values the page never drew; locked, the server held the substitute
+// and the drawn curve differed from the fitted one by 6.9 % / 8.8 % of
+// amplitude. Every shape parameter is now round-tripped LOCKED AT ITS BOUNDS.
+const LOCKED_AT_BOUNDS = [
+  { label: 'GL mix 0 locked',          truth: { shape: 'GL', glMix: 0, fixGlMix: true } },
+  { label: 'GL mix 100 locked',        truth: { shape: 'GL', glMix: 100, fixGlMix: true } },
+  { label: 'asym-GL mix 0 locked',     truth: { shape: 'asym-GL', glMix: 0, asymmetry: 0.3, fixGlMix: true } },
+  { label: 'asym-GL asymmetry 0 locked', truth: { shape: 'asym-GL', glMix: 40, asymmetry: 0, fixAsymmetry: true } },
+  { label: 'DS alpha 0 locked',        truth: { shape: 'DS', dsAlpha: 0, dsGamma: 0.2, fixDsAlpha: true } },
+  { label: 'DS gamma 0 locked',        truth: { shape: 'DS', dsAlpha: 0.2, dsGamma: 0, fixDsGamma: true } },
+  { label: 'DS alpha 0.5 locked',      truth: { shape: 'DS', dsAlpha: 0.5, dsGamma: 0.2, fixDsAlpha: true } },
+];
+for (const c of LOCKED_AT_BOUNDS) {
+  test(`locked at a bound, the request carries the value the page draws and the fit is drawn as fitted — ${c.label}`, () => {
+    const { res, peaks, specs } = roundTrip(c.truth.shape, { truth: c.truth, start: {} });
+    const p = peaks[0];
+    if (p.fixGlMix) { assert.equal(specs[0].gl_ratio, c.truth.glMix / 100); assert.equal(res.individual_peaks[0].params.gl_ratio.vary, false); assert.equal(p.glMix, c.truth.glMix); }
+    if (p.fixAsymmetry) { assert.equal(specs[0].asymmetry, c.truth.asymmetry); assert.equal(res.individual_peaks[0].params.asymmetry.vary, false); }
+    if (p.fixDsAlpha) { assert.equal(specs[0].alpha, c.truth.dsAlpha); assert.equal(res.individual_peaks[0].params.alpha.vary, false); assert.equal(p.dsAlpha, c.truth.dsAlpha); }
+    if (p.fixDsGamma) { assert.equal(specs[0].gamma_asym, c.truth.dsGamma); assert.equal(res.individual_peaks[0].params.gamma_asym.vary, false); }
+    const rel = maxRelDiff(env.evalPeakArray(res.energy, p), res.individual_peaks[0].y, p.amplitude);
+    assert.ok(rel < TIGHT_TOL, `${c.label}: drawn vs fitted curve differ by ${(rel * 100).toExponential(3)} % of amplitude`);
+  });
+}
 
 test('a locked GL mix is sent locked, held by the server and drawn at the locked value', () => {
   const { res, peaks, specs } = roundTrip('GL', { truth: { shape: 'GL', glMix: 72 }, start: { glMix: 30, fixGlMix: true } });

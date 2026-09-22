@@ -483,18 +483,22 @@ GL-type models (≤ 4 meV, ≤ 1.4 % area on the lab's C1s scans) and on Voigt
 components (fixed η = 0.5 on both sides since A03: on the 5 of 9 committed
 U 4f targets where both engines reach the same minimum every component
 agrees within 4.3 meV, 2.6 % FWHM, 2.0 % area, 0.12 pp — W1 had measured up
-to 20.8 % area on the Voigt satellites); it still differs for LA components
-(`caM` held at its start locally while the server fits m continuously: on
-the other 4 U 4f targets the server's m moved from 8 to 2.7–10.0, χ²ᵣ
-differs by 8–20 % and satellite areas by up to 8.9 %, 0.77 pp) and where the
-model has several minima (both engines' amplitude floor is 0 since unit
+to 20.8 % area on the Voigt satellites); it still differs on the other 4
+U 4f targets (satellite areas up to 8.9 %, 0.77 pp) for two reasons,
+separated by a control arm (the server with every LA m held at its start):
+on one target the `caM` clamp (`caM` held at its start locally while the
+server fits m continuously; holding m on the server closes the gap), on
+three the local descent stopping at a χ²ᵣ 10–13 % above the server's from
+the same start with the same free parameters — a worse minimum, the
+"several minima" case (both engines' amplitude floor is 0 since unit
 step (b)). Both engines weight by
 √intensity whether the data are counts or CPS (a convention, not a
 calibrated uncertainty for rates); the formula is the same but the inputs
 are not bit-identical, because `uploadToBackend` rounds intensities to
 2 dp before the server weights them. A03 is done and the designation
-STAYS: the `caM` clamp is what remains, and the label is reconsidered only
-on a re-measurement after it. (The amplitude-bound change
+STAYS on both grounds; the `caM` clamp is the next unit, the worse-minimum
+outcome is recorded for the local-engine work after it, and the label is
+reconsidered only on a re-measurement after both. (The amplitude-bound change
 DECIDED 2026-09-18 — `docs/findings/2026-09-fit-determinacy.md` §3 — is
 implemented: unit step (b), 2026-09-22, below.) The same file records that a
 converged server fit is not ground truth: on a committed C 1s scan the

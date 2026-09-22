@@ -23,25 +23,47 @@ after Run Fit was the η = 0.5 curve evaluated with amplitude, width and
 centre fitted for a different mix, and the chart's components did not sum
 to the envelope (`fittedY` is the server's).
 
-## 2. Measured before deciding (`scripts/voigt_eta_measure.py`)
+## 2. Measured before deciding
+
+### 2a. The two requests (`scripts/voigt_eta_measure.py` → `docs/findings/a03/voigt_eta_summary.txt`)
 
 The 90 committed targets with a Voigt component (89 U 4f tabs across five
-projects and one Cl 2p; 180 Voigt components), each fitted with the page's
-settings (Trust-Region, `n_perturb: 3`) both as sent before A03 (η free
-from 0.3) and as sent since (η held at 0.5). All 180 fits converged.
+projects and one Cl 2p; 180 Voigt components; 48 saved models and 42 Batch
+Fit starts from `scripts/optimizer_disagreement_targets.js`), each fitted
+with the page's settings (Trust-Region, `n_perturb: 3`) under BOTH requests,
+constructed explicitly by the script (Codex round 1: it used to take the
+target file's own Voigt specs as the "old" arm): before A03 (η free from
+0.3) and since (η held at 0.5). All 180 fits converged. These rows use the
+SERVER's curves and trapezoidal integration on the fitted grid; they
+characterise the two requests, not a screen (that is 2b).
 
 | | median | p90 | max |
 |---|---:|---:|---:|
-| free η of the 180 Voigt components | 46 < 0.01 (pure Gaussian), 17 > 0.99 (pure Lorentzian), 24 within 0.4–0.6 | | |
-| DISPLAYED area of a Voigt vs the curve the server fitted | 11.8 % | 19.2 % | 20.1 % (103 of 180 > 10 %) |
-| A. displayed vs free-fit area fractions, per target | 0.96 pp | 1.49 pp | 1.60 pp (35 of 90 > 1 pp) |
-| B. fixed-η refit vs displayed — what a student sees change | 0.30 pp | 0.46 pp | 1.02 pp (1 of 90 > 1 pp) |
-| C. fixed-η refit vs the free fit | 0.93 pp | 1.31 pp | 2.04 pp (34 of 90 > 1 pp) |
-| χ²ᵣ fixed / free | 1.095 | 1.186 | 5.4 (fixed LOWER on 11 of 90: the free fit was in a worse minimum) |
+| free η of the 180 Voigt components | 60 < 0.01 (pure Gaussian), 16 > 0.99 (pure Lorentzian), 24 within 0.4–0.6 | | |
+| the 0.5 curve under the free fit's parameters (what the page drew) vs the curve the server fitted, per Voigt | 13.9 % | 19.2 % | 20.1 % (116 of 180 > 10 %) |
+| A. the same, as area fractions per target | 0.96 pp | 1.48 pp | 1.55 pp (35 of 90 > 1 pp) |
+| B. fixed-η refit vs that 0.5 curve | 0.34 pp | 0.54 pp | 1.02 pp (1 of 90 > 1 pp) |
+| C. fixed-η refit vs the free fit | 0.93 pp | 1.31 pp | 2.04 pp (33 of 90 > 1 pp) |
+| χ²ᵣ fixed / free | 1.09 | 1.19 | 5.4 (fixed LOWER on 10 of 90: the free fit was in a worse minimum) |
 
-Row B is the release-note number: re-fitting a saved U 4f project moves an
-area fraction by 0.3 pp at the median and 1.0 pp at most, because the page
-already showed the 0.5 curve. Row A is the error that was shipping.
+Row A is the error that was shipping.
+
+### 2b. What a student sees change (`scripts/voigt_saved_vs_refit.js` → `docs/findings/a03/voigt_saved_vs_refit.json`)
+
+Every committed spectrum tab with a saved fit and a Voigt component (55
+tabs across six projects, all converged): the PAGE's area of each saved
+peak (`evalPeakArray` over the ROI grid × step, as `_peakArea` — a Voigt
+at 0.5, an LA at its rounded m, exactly the Results table) against the
+page's area of the same peaks after the server refit under the A03 request
+(Trust-Region, the page's `n_perturb: 3`, written back through
+`_applyBackendParams`).
+
+| | median | p90 | max |
+|---|---:|---:|---:|
+| area fraction, per tab | 0.35 pp | 0.51 pp | 0.69 pp (0 of 55 > 1 pp) |
+| a Voigt component's own area | 4.6 % | 7.6 % | 15.3 % |
+
+That is the release-note number.
 
 ## 3. Contract chosen: fixed η = 0.5 on BOTH sides
 
@@ -52,7 +74,7 @@ Voigt keeps the mix it carries for a later switch to GL); the dropdown says
 page honour the fitted η — would have turned "Voigt" into a GL with a
 hidden slider and kept, silently, a shape the student never chose (the
 owner's rule from the scattered-starts unit: never substitute an
-interpretation because it scored better); 63 of 180 fitted η values on a
+interpretation because it scored better); 76 of 180 fitted η values on a
 bound says the data did not determine the parameter in those fits. The
 seed hashes each parameter's effective role, so a Voigt request draws
 differently from the old one (test `test_seed_reflects_the_held_eta…`).
@@ -108,24 +130,44 @@ engine vs server from the same scaled start, page semantics on both sides.
 On the 5 agreeing targets the Voigt satellites match within 2 % — the W1
 gap on them (7–21 %) was the η identity and is gone. On the other 4 the
 server's continuous LA m moved from its start of 8 to 2.7, 6.5, 10.0 and
-7.9 while the local engine holds it at 8; χ²ᵣ differs by 8–20 % (the local
-engine is LOWER on Scan_6: 2.657 vs 2.798, so neither side is the
-reference), and the satellites, which share the region with the main
-lines, differ by up to 8.9 % in area.
+7.9 while the local engine holds it at 8, and χ²ᵣ (local/server − 1) is
++9.6 %, +10.1 %, −5.0 % and +12.7 %. Movement in m alone does not
+attribute the residual (Codex round 1), so the script has a CONTROL arm:
+the server fitted with every LA m HELD at its start, the one thing the
+local engine cannot move.
 
-**Decision: the "starting point" designation STAYS.** The residual is the
-`caM` clamp (the local engine cannot move m; the page draws it rounded),
-the next unit the W1 plan named; the label is reconsidered only on a
-re-measurement after it. Wording in the page updated to say so (LA
-components and several minima; no longer Voigt).
+| target | local χ²ᵣ | server χ²ᵣ, m free | server χ²ᵣ, m held | local vs server, m free (Δcentre / ΔFWHM / Δarea / Δfrac) | local vs server, m held |
+|---|---:|---:|---:|---|---|
+| Scan_4 | 1.970 | 1.798 | 1.878 | 26.6 meV / 5.3 % / 8.3 % / 0.33 pp | 13.7 meV / 3.0 % / 5.0 % / 0.19 pp |
+| Scan_5 | 2.393 | 2.174 | 2.187 | 4.7 meV / 4.3 % / 6.7 % / 0.35 pp | 6.5 meV / 3.4 % / 5.3 % / 0.25 pp |
+| Scan_6 | 2.657 | 2.798 | 2.634 | 28.8 meV / 15.8 % / 8.9 % / 0.77 pp | 3.7 meV / 1.3 % / 1.4 % / 0.07 pp |
+| Scan_8 | 4.656 | 4.129 | 4.118 | 5.7 meV / 5.0 % / 8.3 % / 0.32 pp | 6.3 meV / 4.9 % / 8.1 % / 0.33 pp |
+
+So: on Scan_6 the residual IS the `caM` clamp (holding m on the server
+closes it to the agreeing-target envelope). On Scan_5 and Scan_8 holding m
+changes nothing — the local engine's descent stops at a χ²ᵣ 10–13 % above
+the server's from the same start with the same free parameters: a worse
+minimum, the "several minima" case (findings §2 had the mirror image on
+C 1s Scan_4, where the local engine found the better one). Scan_4 is half
+each. The residual is therefore two things, and `caM` is the smaller.
+
+**Decision: the "starting point" designation STAYS**, on two grounds now:
+the `caM` clamp (one target) and the local engine landing in a worse
+minimum than Trust-Region on three of nine U 4f targets. The `caM` clamp
+remains the next unit; the worse-minimum finding is recorded in findings
+§7 for the local-engine work that follows it. Wording in the page updated
+to say so (LA components and several minima; no longer Voigt).
 
 ## 7. Release-note line
 
 Voigt components are now fitted at the fixed 50/50 mix the page has always
 drawn; until now Run Fit let their mix vary on the server and the page
 reported the 50/50 curve's area under the other mix's parameters (up to
-20 % off per component). Re-fitting a saved U 4f project moves an area
-fraction by 0.3 pp at the median and 1.0 pp at most. Use GL to fit the mix.
+20 % off per component). Re-fitting a saved project with Voigt components
+moves an area fraction by 0.35 pp at the median and 0.69 pp at most on the
+55 committed tabs (a Voigt's own area by 4.6 % at the median, 15 % at
+most). Use GL to fit the mix. Also fixed: a GL mix of exactly 0 (asym-GL)
+or a DS α of exactly 0 was sent to the server as 50 / 0.1.
 
 ## 8. Verification
 
@@ -133,7 +175,7 @@ fraction by 0.3 pp at the median and 1.0 pp at most. Use GL to fit the mix.
 - JS suite: `node --test tests/js/*.test.js` (the directory form does not
   run in this node): see §9.
 - Browser check (`browser_check_a03.py`, dev gunicorn :5151 from the
-  worktree): the request carries `gl_ratio 0.5, fix_gl_ratio true` for
+  worktree, re-run after round 1): the request carries `gl_ratio 0.5, fix_gl_ratio true` for
   both Voigt components; the server returns `vary: false, 0.5`; drawn vs
   fitted curve 1.3e-13 of amplitude for the Voigts (LACX 5.6e-3 — the caM
   rounding); the Results area of a Voigt equals the server curve's to
@@ -143,4 +185,28 @@ fraction by 0.3 pp at the median and 1.0 pp at most. Use GL to fit the mix.
 
 ## 9. Codex rounds
 
-(filled in below as they run)
+**Round 1 (`docs/autofit/codex/a03_voigt_eta_verdict_run{A,B}.md`): NO-GO ×2,
+no blocker, converging findings.** Fixed:
+1. MAJOR — the measurement script took the target file's own Voigt specs as
+   the "old" arm, so a target file regenerated with the A03 builder would
+   have made both arms identical. Both requests are now constructed
+   explicitly; the generator is named correctly (`.js`); re-run (§2a).
+2. MAJOR — the release-note number was a server-curve/trapezoid comparison
+   of two refits, not the page's saved numbers against the page's refit
+   numbers. Replaced by `scripts/voigt_saved_vs_refit.js` (§2b); the old
+   rows relabelled as what they are.
+3. MAJOR/MINOR — the builder sent an asym-GL mix of 0 as 50 and a DS α of 0
+   as 0.1 (`p.glMix || 50`, `p.dsAlpha || 0.1`; the Python twin likewise);
+   locked, the server held the substitute and the drawn curve differed from
+   the fitted one by 6.9 % / 8.8 % of amplitude. Fixed in both builders
+   (only a non-number falls back); the round-trip test now locks every shape
+   parameter at its bounds; the sweep's backend parameters now come THROUGH
+   `peakToBackendSpec` rather than a mapping of the harness's own.
+4. MINOR — the uncertainty panel told a Voigt's user to "unlock the padlock"
+   for a mix that has none: it now says the shape fixes the mix and points
+   to GL.
+5. MINOR — "χ²ᵣ differs by 8–20 %" was wrong (the four are +9.6, +10.1,
+   −5.0, +12.7 %), the comment's "24 %" was 20 %, row A's 1.60 was 1.61 (now
+   1.55 with the explicit arms); and attributing the whole residual to the
+   `caM` clamp was an inference — the control arm (§6) shows it is one
+   target of four.
