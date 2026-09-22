@@ -6,6 +6,18 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-22 — Auto-Fit "is the anchor required?", step (c) (`feature-autofit-required-refit`)
+
+- **Release note:** Auto-Fit C1s now also refits the model without its
+  Graphite anchor and refuses to set the charge correction from an anchor
+  the other components can absorb.
+- `POST /api/fit` accepts `require_component: <peak id>` and returns
+  `required` (the refit without that component, through the run's own
+  fitter, F ≥ 10, no tolerance of any kind). Closes the
+  redundancy-under-overlap limit of the anchor check; all 70 committed
+  Graphite anchors are required (F ≥ 54).
+- Codex GO ×2 (round 4); suite 983 passed / 7 skipped.
+
 ## 2026-09-22 — "not supported by the data", step (b) (`feature-unsupported-components`)
 
 - **Release note:** a component the fit drove to zero is now reported as

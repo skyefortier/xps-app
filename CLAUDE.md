@@ -119,6 +119,27 @@ tab reordering exists.
 
 ---
 
+## Design Rules
+
+### Thresholds on data-scaled quantities fail
+
+XPS spans many orders of magnitude within one spectrum, so any absolute
+floor, delta or exactness cutoff will misjudge at some dynamic range. Two
+units learned this independently — five intensity floors on the Auto-Fit
+anchor (answer: a scale-free F test), then two tolerances on that F test
+(answer: none). Prefer a scale-free comparison with no tolerance. If a
+check seems to need a magnitude threshold, that is evidence the check is
+formulated wrong.
+
+(Owner, 2026-09-22. The record: the anchor unit's six Codex rounds in
+`docs/autofit/codex/autofit_zero_graphite_*`, the DE unit's tolerance rounds
+5–8 in `de_finite_bounds_*`, and the required-refit unit's rounds 2–3 in
+`autofit_required_*`. The DE unit is the same rule seen from the other
+side: every χ² comparison tolerance produced reachable false failures and
+no reachable protection, and the fix was to delete the comparison.)
+
+---
+
 ## Lineshape Physics — Critical Rules
 
 ### DS (Doniach-Šunjić) Asymmetric Lineshape
