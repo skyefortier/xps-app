@@ -1,0 +1,18 @@
+Review step (c), the last of a three-step unit: branch feature-autofit-required-refit, git diff main..HEAD (fitting.py, app.py, templates/index.html, tests/test_component_required.py, tests/js/autofit_required.test.js, CLAUDE.md, plan §9). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+CONTEXT (read docs/superpowers/plans/2026-09-21-scattered-starts-and-unsupported-components.md §3.4, §5.6, §9 and the "Auto-Fit C1s Graphite" paragraphs of CLAUDE.md). Auto-Fit C1s derives the spectrum's charge correction from the fitted centre of its "Graphite" component. Step (b)'s `support` statistic (removing the component with the OTHER components HELD) cannot see redundancy under overlap: the Auto-Fit anchor unit's round-6 reviewers reproduced a large Graphite component that the other two components absorb completely if refitted (support F ~ 1e6, refit without it equal to rounding). Owner decision: the refit without the component is the test; one extra fit, Auto-Fit only.
+
+THE CHANGE
+- fitting.run_fit(require_component=<id>): after the fit (and never changing it), build the composite model without that component (and without any component whose expr references it), start the rest from result.params (value/min/max/vary/expr), fit with the same kws, and return `required = {ran, required, f, chi2_with, chi2_without_refit, refit_converged}` with F = ((chi2_without_refit − chi2_with)/p)/(chi2_with/dof), p = the removed component's free parameters, dof = n − nvarys of the FULL model, required iff F ≥ SUPPORT_MIN_F (10); a refit that cannot be evaluated (inf) → required; delta ≤ 0 → not required; an exception → {ran:false, reason:'error'}; validation: the id must be a peak, ≥ 2 components.
+- app.py: `require_component` (str/int) passed through; anything else → 400.
+- Page: runAutoFitC1sGraphite sends require_component = the Graphite peak's id; applyAutoFitResult refuses `required.ran === true && required.required === false` BEFORE the support gate and before any charge-correction input is written (red notice naming F); a missing / not-run check never blocks.
+- Evidence: the round-6 reproduction is now refused (test); real anchors required; the 70 committed Graphite models all required (F min 54, median 6.1e3); the fit is byte-identical with and without the check (LM); browser-checked both branches.
+
+TRY TO BREAK
+a. The refit: is starting the others from their FITTED values (not the request's start) the right comparison — can it make a REQUIRED anchor look redundant (the others slide onto the graphite line because they start next to it) or a redundant one look required (the refit stalls in the with-anchor basin)? Is n_perturb applied to the refit (kws carries the method; the perturb loop is not rerun) and should it be?
+b. dof / p definitions; F with chi2_with tiny (exact synthetic data); the refit under differential_evolution (kws → the DE candidate machinery is NOT used for the refit; is that a problem?) or basinhopping.
+c. Linked children of the removed component are dropped from the refit; a component linked to a NON-removed one keeps its expr — anything broken by parameter names missing from the refit's Parameters?
+d. Page: the id sent when there is no "Graphite" peak (falls back to peaks[0]); the gate ordering; the message; the rollback path (_autoFitRestore) is unchanged — confirm nothing about `required` leaks into the applied result or saves (it is in fitResult.backendResult like everything else).
+e. Anything that changes for an ordinary Run Fit (require_component absent → required: null).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

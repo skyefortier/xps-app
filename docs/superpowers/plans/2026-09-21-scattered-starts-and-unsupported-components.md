@@ -285,3 +285,16 @@ floor 1 → 0. Deviation from §3.4: the twin is applied only when the
 response carries the arrays; older saved peaks without `support` read as
 "not established" and display as before (no retroactive verdicts).
 Browser-checked on UCl4_on_graphite C1s Scan_4 ("Unknown 2", F = 2.0).
+
+## 9. Step (c) as built (2026-09-22)
+
+Server-side, in the same `/api/fit` request (no second upload, no race):
+`require_component=<id>` → `_component_required` refits the model without
+that component (others from their fitted values, request's bounds, same
+method; linked children of the removed component go with it) and returns
+`required` with the F rule. Auto-Fit sends the Graphite id;
+`applyAutoFitResult` refuses `required === false` before the support gate
+and before any charge-correction write. A check that did not run (older
+server, error, non-converged fit) does not block. 6 Python + 3 Node tests;
+browser-checked (real anchor F = 5409 → completes; tampered `required:false`
+→ refused, nothing touched).

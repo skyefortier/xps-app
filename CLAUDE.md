@@ -613,11 +613,22 @@ mean "zero" independently of the data):
   or narrowing the ROI recovers. A recoverable refusal beats main's old
   failure mode — a non-existent component silently setting the energy
   reference for a whole spectrum.
-- REDUNDANCY UNDER OVERLAP is out of scope: a large anchor the other
-  components could absorb if refitted still passes (χ²_without holds them
-  fixed). That is fit determinacy; "is the anchor actually required?" moves
-  to the unsupported-component unit, where a REFIT without the component is
-  the natural test.
+- REDUNDANCY UNDER OVERLAP was out of scope for the support check
+  (χ²_without holds the other components fixed) and is CLOSED by step (c),
+  2026-09-22: Auto-Fit's request carries `require_component: <Graphite id>`
+  and the server refits the model WITHOUT that component from the others'
+  fitted values under the request's bounds (`fitting._component_required`;
+  a component linked to the removed one goes with it) and returns
+  `required: {required, f, chi2_with, chi2_without_refit, refit_converged}`
+  with the same F ≥ 10 rule. `applyAutoFitResult` refuses a supported-but-
+  not-required anchor exactly like an unsupported one, before any
+  charge-correction input is touched ("refitting the other components
+  without it fits the data as well"). One extra fit, Auto-Fit only; the fit
+  itself is unchanged by the check, and a check that did not run never
+  blocks. On the 70 committed Graphite models the anchor is required on
+  all 70 (F ≥ 54, median 6.1e3); the round-6 reproduction (two symmetric GL
+  lines, no graphite: support F ~ 1e6 with the others held, refit without it
+  equal to rounding) is now refused.
 - One rounding-residue construction still passes (unrounded manual
   background a rounding step under data the upload flattened; F ≈ 280).
 

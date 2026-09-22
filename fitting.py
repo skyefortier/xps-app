@@ -1351,6 +1351,45 @@ def _component_support(y_sub, fitted_sub, comp_y, weights, n_free_comp, n_free_t
             "supported": bool(delta > 0 and (chi_with == 0 or f >= SUPPORT_MIN_F))}
 
 
+# ── "Is this component REQUIRED?" — the refit test ───────────────────────────
+# `support` (above) holds the OTHER components at their fitted values, so it
+# cannot see redundancy under overlap: a component the others could absorb if
+# they were refitted still passes. The test for that is the refit itself:
+# remove the component, refit the rest from their fitted values under the
+# request's own bounds, and compare the fit to the data with and without it:
+#     F = ((chi2_without_refit - chi2_with) / p) / (chi2_with / dof)
+# p = the component's free parameters, dof = n - nvarys of the full model.
+# One extra fit, so it is done only when asked for (Auto-Fit asks for its
+# charge-reference anchor: an anchor that is not required must not set the
+# energy reference of a whole spectrum). Same threshold as `support`.
+def _component_required(model_without, params_full, removed_prefix, y_sub, x, weights, kws,
+                        chi2_with, n_free_comp, n_free_total) -> dict[str, Any]:
+    start = Parameters()
+    for name, par in params_full.items():
+        if name.startswith(removed_prefix):
+            continue
+        if par.expr and removed_prefix in par.expr:
+            # a component linked TO the removed one cannot stay: it is removed too
+            continue
+        start.add(name, value=par.value, min=par.min, max=par.max, vary=par.vary, expr=par.expr)
+    refit = model_without.fit(y_sub, start, x=x, weights=weights, **kws)
+    chi2_without = float(refit.chisqr) if refit.chisqr is not None else float("inf")
+    delta = chi2_without - chi2_with
+    p = max(1, int(n_free_comp))
+    dof = max(1, len(y_sub) - int(n_free_total))
+    if not np.isfinite(chi2_without):
+        f, required = None, True                     # the rest could not even be fitted without it
+    elif delta <= 0:
+        f, required = 0.0, False
+    elif chi2_with == 0:
+        f, required = None, True
+    else:
+        f = (delta / p) / (chi2_with / dof)
+        required = f >= SUPPORT_MIN_F
+    return {"required": bool(required), "f": f, "chi2_with": float(chi2_with), "chi2_without_refit": chi2_without,
+            "refit_converged": bool(refit.success)}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1368,6 +1407,7 @@ def run_fit(
     manual_bg: list | None = None,
     endpoint_avg: int = 1,
     n_starts: int = 0,
+    require_component=None,
 ) -> dict[str, Any]:
     """
     Run XPS peak fitting and return a serialisable result dict.
@@ -1542,6 +1582,12 @@ def run_fit(
 
     if composite_model is None:
         raise RuntimeError("No peaks were built")
+    if require_component is not None:
+        ids = [str(spec["id"]) for spec in peak_specs]
+        if str(require_component) not in ids:
+            raise ValueError(f"require_component '{require_component}' is not one of the peaks")
+        if len(ids) < 2:
+            raise ValueError("require_component needs at least two components")
 
     # Every random draw below (the perturbed restarts; the populations of the
     # two stochastic methods, which lmfit otherwise takes from numpy's GLOBAL
@@ -1679,6 +1725,33 @@ def run_fit(
                 log.exception("scattered starts failed")
                 starts = {"ran": False, "reason": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
 
+    # ── "Is this component required?" (never changes `result`) ─────────────
+    required = None
+    if require_component is not None:
+        rprefix = f"p{require_component}_"
+        if not result.success:
+            required = {"ran": False, "reason": "fit_not_converged"}
+        else:
+            try:
+                without = None
+                for m in composite_model.components:
+                    if m.prefix == rprefix:
+                        continue
+                    if any(par.expr and rprefix in par.expr for n, par in all_params.items() if n.startswith(m.prefix)):
+                        continue                                   # linked to the removed one
+                    without = m if without is None else without + m
+                if without is None:
+                    required = {"ran": False, "reason": "nothing_left"}
+                else:
+                    n_free_comp = sum(1 for n, par in result.params.items()
+                                      if n.startswith(rprefix) and par.vary and par.expr is None)
+                    required = {"ran": True, **_component_required(
+                        without, result.params, rprefix, y_sub, x, weights, kws,
+                        float(result.chisqr), n_free_comp, result.nvarys)}
+            except Exception as exc:                              # the check must never cost the student the fit
+                log.exception("required-component refit failed")
+                required = {"ran": False, "reason": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
+
     # Sides WE closed on the returned result (non-empty only for a
     # differential-evolution result whose refinement did not take over).
     search_box = getattr(result, "search_box", {})
@@ -1803,6 +1876,7 @@ def run_fit(
         "charge_shift_applied": charge_shift_ev,
         "random_seed": random_seed,
         "starts": starts,
+        "required": required,
     }
 
 

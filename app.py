@@ -832,6 +832,10 @@ def _register_routes(app: Flask) -> None:
         n_starts = body.get("n_starts", 0)
         if isinstance(n_starts, bool) or not isinstance(n_starts, int) or not 0 <= n_starts <= fitting.MAX_N_STARTS:
             return _err(f"n_starts must be an integer between 0 and {fitting.MAX_N_STARTS}")
+        # "Is this component required?" (one extra fit; Auto-Fit asks for its anchor)
+        require_component = body.get("require_component")
+        if require_component is not None and not isinstance(require_component, (str, int)):
+            return _err("require_component must be a peak id")
 
         try:
             result = fitting.run_fit(
@@ -847,6 +851,7 @@ def _register_routes(app: Flask) -> None:
                 n_perturb=n_perturb,
                 endpoint_avg=endpoint_avg,
                 n_starts=n_starts,
+                require_component=require_component,
             )
         except ValueError as exc:
             # Our own validation: unknown shape/method, self/circular constraint,
