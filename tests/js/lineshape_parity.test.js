@@ -304,7 +304,9 @@ test('(C) evalPeak() has no direct callers outside evalPeakArray()', () => {
 // invisible to it. The ranges below are fitting.py `_make_peak_params`'s
 // bounds for a free peak (gl_ratio 0–1, asymmetry 0–1, DS α 0–0.5 and
 // γ 0–5, DS+G α 0–0.49 / β 0.05–2 / m 0.05–4, LA α,β 0.1–5 / m 0–499,
-// fwhm 0.1–15); a lock or a link cannot take a parameter outside them.
+// fwhm 0.1–15) — what the OPTIMISER can reach. A lock can hold a value
+// outside them (a held value is honoured as requested since A03 round 2;
+// the round-trip harness covers those), a link follows its parent.
 // One interpreter start per shape (the bridge accepts a list of specs).
 //
 // Measured on the first run of this sweep (worktree fix-voigt-eta-identity):

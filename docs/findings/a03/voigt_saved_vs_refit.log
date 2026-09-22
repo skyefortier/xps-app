@@ -13,7 +13,7 @@
 4-GTA UCl4-BN.proj.zip U4f Scan_1 server true max Δfrac 0.18 pp, max Voigt Δarea 0.0 %
 4-GTA UCl4-BN.proj.zip U4f Scan_2 server true max Δfrac 0.50 pp, max Voigt Δarea 4.7 %
 4-GTA UCl4-BN.proj.zip U4f Scan_3 server true max Δfrac 0.59 pp, max Voigt Δarea 6.0 %
-4-GTA UCl4-BN.proj.zip U4f Scan_4 server true max Δfrac 0.02 pp, max Voigt Δarea 0.7 %
+4-GTA UCl4-BN.proj.zip U4f Scan_4 server true max Δfrac 0.06 pp, max Voigt Δarea 0.7 %
 4-GTA UCl4-BN.proj.zip U4f Scan_5 server true max Δfrac 0.49 pp, max Voigt Δarea 3.3 %
 4-GTA UCl4-BN.proj.zip U4f Scan_6 server true max Δfrac 0.25 pp, max Voigt Δarea 2.4 %
 4-GTA UCl4-BN.proj.zip U4f Scan_7 server true max Δfrac 0.35 pp, max Voigt Δarea 2.9 %
@@ -53,4 +53,4 @@ UCl4_on_graphite.proj.zip U4f Scan_5 server true max Δfrac 0.24 pp, max Voigt �
 UCl4_on_graphite.proj.zip U4f Scan_6 server true max Δfrac 0.24 pp, max Voigt Δarea 3.7 %
 UCl4_on_graphite.proj.zip U4f Scan_7 server true max Δfrac 0.13 pp, max Voigt Δarea 2.5 %
 UCl4_on_graphite.proj.zip U4f Scan_8 server true max Δfrac 0.27 pp, max Voigt Δarea 5.0 %
-{"n_tabs":55,"n_converged":55,"dFrac_pp":{"median":0.3640236960289873,"p90":0.5078511773600608,"max":0.6882980473358474},"gt_1pp":0,"voigt_dArea_pct":{"median":4.576983178447858,"p90":7.556793905528403,"max":15.30071242466854}}
+{"n_tabs":55,"n_converged":55,"dFrac_pp":{"median":0.3640215087774637,"p90":0.5078511773600608,"max":0.6882978905471321},"gt_1pp":0,"voigt_dArea_pct_tab_max":{"median":4.576983178447858,"p90":7.556793905528403,"max":15.30072477001817},"voigt_dArea_pct_component":{"median":3.2748648211409437,"p90":5.981860444395726,"max":15.30072477001817},"n_voigt_components":110}

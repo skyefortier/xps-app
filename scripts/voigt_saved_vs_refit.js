@@ -69,6 +69,11 @@ for (const zp of fs.readdirSync(DATA).filter(f => f.endsWith('.proj.zip')).sort(
 }
 const ok = out.targets.filter(r => r.server_success);
 const q = v => { v = [...v].sort((a, b) => a - b); return { median: v[Math.floor(v.length / 2)], p90: v[Math.floor(0.9 * (v.length - 1))], max: v[v.length - 1] }; };
-out.summary = { n_tabs: out.targets.length, n_converged: ok.length, dFrac_pp: q(ok.map(r => r.max_dFrac_pp)), gt_1pp: ok.filter(r => r.max_dFrac_pp > 1).length, voigt_dArea_pct: q(ok.map(r => r.max_voigt_dArea_pct)) };
+const voigtComps = ok.flatMap(r => r.comps.filter(c => c.shape === 'Voigt' && c.dArea_pct != null).map(c => Math.abs(c.dArea_pct)));
+out.summary = { n_tabs: out.targets.length, n_converged: ok.length,
+  dFrac_pp: q(ok.map(r => r.max_dFrac_pp)),                           // per tab: the largest fraction move
+  gt_1pp: ok.filter(r => r.max_dFrac_pp > 1).length,
+  voigt_dArea_pct_tab_max: q(ok.map(r => r.max_voigt_dArea_pct)),     // per tab: the largest Voigt area change
+  voigt_dArea_pct_component: q(voigtComps), n_voigt_components: voigtComps.length };   // per component, all Voigts
 console.error(JSON.stringify(out.summary));
 fs.writeFileSync(process.argv[2] || path.join(ROOT, 'docs/findings/a03/voigt_saved_vs_refit.json'), JSON.stringify(out, null, 1));

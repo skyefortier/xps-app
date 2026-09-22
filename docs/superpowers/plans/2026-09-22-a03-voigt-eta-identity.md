@@ -69,8 +69,9 @@ the rounded arrays and the window indices chosen on the display grid
 
 | | median | p90 | max |
 |---|---:|---:|---:|
-| area fraction, per tab | 0.36 pp | 0.51 pp | 0.69 pp (0 of 55 > 1 pp) |
-| a Voigt component's own area | 4.6 % | 7.6 % | 15.3 % |
+| largest area-fraction move, per tab | 0.36 pp | 0.51 pp | 0.69 pp (0 of 55 > 1 pp) |
+| largest Voigt area change, per tab | 4.6 % | 7.6 % | 15.3 % |
+| a Voigt component's own area change, per component (110) | 3.3 % | 6.0 % | 15.3 % |
 
 That is the release-note number.
 
@@ -178,8 +179,8 @@ drawn; until now Run Fit let their mix vary on the server and the page
 reported the 50/50 curve's area under the other mix's parameters (up to
 20 % off per component). Re-fitting a saved project with Voigt components
 moves an area fraction by 0.36 pp at the median and 0.69 pp at most on the
-55 committed tabs (a Voigt's own area by 4.6 % at the median, 15 % at
-most). Use GL to fit the mix. Also fixed: an asym-GL mix of exactly 0 or a
+55 committed tabs (a Voigt component's own area by 3.3 % at the median,
+15 % at most). Use GL to fit the mix. Also fixed: an asym-GL mix of exactly 0 or a
 DS α of exactly 0 was sent to the server as 50 / 0.1, and a locked value
 outside the optimiser's search limits (a DS+G m locked at 0) was moved onto
 the limit before fitting; such requests now also draw a different
@@ -277,3 +278,22 @@ the old request holds with the SAVED mix, not the contract's
 mix fails on a tab with a Voigt); its refit is a fixed point of a refit
 from the refit (stationarity="refit"); the Cl 2p fixture regenerated with
 its committed generator (B 1s untouched).
+
+**Round 4 (`a03_voigt_eta_r4_verdict_run{A,B}.md`): NO-GO ×2; round-3
+items closed; found:**
+1. MAJOR — the eval-parity gate written above ("the contract mix, or else
+   the saved mix") was a loophole: either reproducer — a post-A03 Voigt
+   whose stored curve is wrong, or a legacy envelope with 3.5 % of a LACX
+   line added — passed on whichever mix fit. Replaced by ONE deterministic
+   choice from the record itself: a Voigt is evaluated with the mix the
+   server RECORDED for the fit that produced `fittedY`
+   (`autofit.parity.recorded_voigt_eta`, from the peak's `_backendParams`;
+   0.5 for an A03 fit, the free or held value of an older save; the
+   contract when there is no record). Both reproducers now fail; the 29
+   U 4f and 3 Cl 2p tabs pass.
+2. MINOR — the "Voigt component's own area" statistic was the per-tab
+   maximum; relabelled, and the per-component quantiles added (110
+   components: median 3.3 %, p90 6.0 %, max 15.3 %).
+3. MINOR — the sweep's comment said a lock cannot take a parameter outside
+   the optimiser's bounds; since round 2 a held value is honoured as
+   requested. Corrected.

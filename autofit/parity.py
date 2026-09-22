@@ -168,22 +168,37 @@ def grid_matches(rf: ReferenceFit, tol: float = 1e-3) -> bool:
     return float(np.max(np.abs(np.asarray(saved_be, dtype=float) - roi))) <= tol
 
 
-def eval_parity_relmax(rf: ReferenceFit, voigt_eta: str = "contract") -> float:
+def recorded_voigt_eta(p: dict) -> float | None:
+    """The mix the server actually fitted this Voigt with, from the record
+    the page keeps of that fit (``p._backendParams.gl_ratio.value``, written
+    by applyBackendResult): 0.5 for a fit under the A03 request, the free or
+    held value the request BEFORE A03 sent for an older save. None when the
+    peak carries no such record (never server-fitted)."""
+    bp = p.get("_backendParams")
+    g = bp.get("gl_ratio") if isinstance(bp, dict) else None
+    v = g.get("value") if isinstance(g, dict) else None
+    return float(v) if isinstance(v, (int, float)) and np.isfinite(v) else None
+
+
+def eval_parity_relmax(rf: ReferenceFit, voigt_eta: str = "recorded") -> float:
     """
     Max |python_eval − saved fittedY| / max|fittedY| on the reconstructed
     ROI grid.  Requires ``grid_matches(rf)``.
 
-    voigt_eta: "contract" evaluates a Voigt as the page's request now
-    defines it (eta = 0.5, A03 2026-09-22); "saved" evaluates it with the
-    mix the peak carries in ``glMix`` — what the request BEFORE A03 fitted
-    (eta free from 0.3) and wrote back. A save made under the old request
-    reproduces its own fittedY only with "saved".
+    voigt_eta: "recorded" (default) evaluates each Voigt with the mix the
+    server recorded for the fit that produced ``fittedY``
+    (``recorded_voigt_eta``; the contract's 0.5 when there is no record) —
+    ONE deterministic choice from the record itself, never "whichever
+    passes" (A03 Codex round 4). "contract" evaluates every Voigt at the
+    page's current request (eta = 0.5, A03 2026-09-22); saves made under the
+    old request (eta free from 0.3) cannot reproduce their own fittedY that
+    way, and that difference is the A03 change, not a numerics regression.
     """
     fittedY = np.asarray(rf.fit_result["fittedY"], dtype=float)
     specs = rf.backend_peak_specs()
-    if voigt_eta == "saved":      # backend_peak_specs keeps the peaks' order
-        specs = [dict(s, gl_ratio=float(p["glMix"]) / 100.0)
-                 if p.get("shape") == "Voigt" and isinstance(p.get("glMix"), (int, float)) else s
+    if voigt_eta == "recorded":   # backend_peak_specs keeps the peaks' order
+        specs = [dict(s, gl_ratio=recorded_voigt_eta(p))
+                 if p.get("shape") == "Voigt" and recorded_voigt_eta(p) is not None else s
                  for s, p in zip(specs, rf.peaks)]
     model = evaluate_model(rf.roi_be, specs)
     i0, i1 = rf.bg_indices()

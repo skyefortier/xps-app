@@ -281,7 +281,8 @@ the refit (`scripts/voigt_saved_vs_refit.js`, 55 committed tabs with a
 saved fit and a Voigt, six projects; the saved side on the saved fit's own
 grid, the refit on the upload-rounded request): an area fraction moves by
 median 0.36 pp, p90 0.51 pp, max 0.69 pp (none > 1 pp); a Voigt's own area
-by median 4.6 %, max 15.3 %. The refit vs the server's own free-η fit is
+by median 3.3 %, p90 6.0 %, max 15.3 % per component (110 components). The
+refit vs the server's own free-η fit is
 median 0.93 pp, max 2.04 pp, χ²ᵣ higher by median 9 % (the mix is one
 parameter fewer). The alternative — honour the fitted η on the page — would
 have made "Voigt" a GL with a hidden slider and silently kept a shape the
@@ -300,7 +301,9 @@ now clips as the server does. Two committed saves show the class in the
 lab's data: the U 4f expert fits (29) and the Cl 2p Scan_1 fit (two Voigt
 lines, η written back as 15.7 %) reproduce their own saved curves only with
 the mix the old request fitted; both batteries were re-based on that
-fact.
+fact — each Voigt is evaluated with the mix the server RECORDED for the fit
+that produced the saved curve (the peak's `_backendParams`), one
+deterministic choice, never "whichever mix passes".
 
 **The re-measurement (W1 methodology, 18 targets).** C 1s unchanged (8 of 9
 within 3.8 meV / 0.5 % / 1.4 % / 0.32 pp; Scan_4 is the §2 finding). U 4f,
