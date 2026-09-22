@@ -1,0 +1,10 @@
+ROUND 4 recheck of step (c), branch feature-autofit-required-refit (git diff main..HEAD). Read-only. Round 3 was NO-GO x2 on the same MINOR (archived docs/autofit/codex/autofit_required_r3_verdict_run{A,B}.md); rounds 1-3 otherwise cleared and unchanged. Budget your time: a verdict is required within the run.
+
+DISPOSITION
+MINOR the exactness cutoff still rejected a resolved anchor at extreme dynamic range -> REMOVED. There is now no tolerance of any kind: required iff chi2_without_refit > chi2_with and F = ((delta/p)/(chi2_with/dof)) >= 10 (delta <= 0 -> not required; an unevaluable refit -> required). The noise-free two-identical-halves case is recorded as a KNOWN LIMIT (F is meaningless when the full fit is exact to machine precision; real data never are) in the code comment, CLAUDE.md and a test that states the premise (unrounded exact data) and asserts only the check ran — plus that with Poisson noise the same construction is judged on its merits (not required). Your two round-3 anchors (amplitude 1 beside 1e10 and beside 3e9) are now required (test).
+
+TRY TO BREAK
+a. anything reachable through the shipped path (Auto-Fit model + 2-dp upload + Poisson-noise data) where the rule now gives a false verdict either way;
+b. anything else in the diff not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

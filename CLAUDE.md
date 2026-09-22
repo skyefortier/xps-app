@@ -622,12 +622,13 @@ mean "zero" independently of the data):
   box/refinement machinery and the request seed apply to the refit too;
   everything linked to the removed component goes with it, transitively;
   every retained parameter is created before any expression is assigned,
-  so a chain of links in any request order resolves; NO floor on the
-  chi-square change — a delta floor relative to the data's power masked a
-  real anchor of amplitude 10 beside a 1e6 line, Codex round 2 — the one
-  numerical statement kept is that a reduced model reproducing the data to
-  floating-point precision, χ² ≤ 1e-20 of the data's weighted power, makes
-  the component "not required") and returns
+  so a chain of links in any request order resolves; NO tolerance of any
+  kind on the comparison — a delta floor relative to the data's power and
+  then an "exactness" cutoff on the reduced fit each masked a resolved
+  anchor at high dynamic range, Codex rounds 2–3, the DE unit's lesson
+  again. Known limit, accepted: on NOISE-FREE data whose full fit is exact
+  to machine precision F is meaningless and a truly redundant component can
+  read "required"; real data never fit to machine precision) and returns
   `required: {required, f, chi2_with, chi2_without_refit, refit_converged}`
   with the same F ≥ 10 rule. `applyAutoFitResult` refuses a supported-but-
   not-required anchor exactly like an unsupported one, before any

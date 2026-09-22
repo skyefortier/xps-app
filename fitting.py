@@ -1386,20 +1386,17 @@ def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weigh
     delta = chi2_without - chi2_with
     p = max(1, int(n_free_comp))
     dof = max(1, len(y_sub) - int(n_free_total))
-    # No floor on DELTA: any floor relative to the data's power masks a real
-    # anchor of low intensity beside a strong line (Codex round 2). The one
-    # numerical statement that cannot: if the model WITHOUT the component
-    # reproduces the data to floating-point precision (chi-square below 1e-20
-    # of the data's weighted power, i.e. residuals ~1e-10 relative), the
-    # component is not required — two identical half-amplitude components on
-    # noise-free data. Real data carry noise, so a real reduced fit is many
-    # orders above that.
-    power = float(np.sum((np.asarray(weights, float) * np.asarray(y_sub, float)) ** 2))
-    exact_without = np.isfinite(chi2_without) and chi2_without <= 1e-20 * power
+    # No tolerance of any kind (Codex rounds 2-3: a floor on the chi-square
+    # change relative to the data's power, and then an "exactness" cutoff on
+    # the reduced fit, each masked a resolved anchor at high dynamic range —
+    # the same lesson as the DE unit). Known limit, accepted: on NOISE-FREE
+    # data whose full fit is numerically exact (chi2_with ~ 1e-28) F is not
+    # meaningful and a truly redundant component (two identical half-amplitude
+    # components) reports "required"; real data never fit to machine precision.
     if not np.isfinite(chi2_without):
         f, required = None, True                     # the rest could not even be fitted without it
-    elif exact_without or delta <= 0:
-        f, required = (0.0 if delta <= 0 or chi2_with <= 0 else (delta / p) / (chi2_with / dof)), False
+    elif delta <= 0:
+        f, required = 0.0, False
     elif chi2_with == 0:
         f, required = None, True
     else:
