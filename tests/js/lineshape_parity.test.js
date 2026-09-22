@@ -164,8 +164,9 @@ for (const shape of ['Gaussian', 'Lorentzian', 'GL', 'Voigt', 'DS', 'asym-GL']) 
 //   (β 0.05, α 0-0.3, m 0.4-1.8) — the A03 sweep, section (D) below. The
 //   m < 0.001 delta branch (dsgDeltaKernel_array) had been mirrored in
 //   2026-08; dsgConvolved_array now mirrors the server's padded-grid
-//   convolution for every m (≤ 3e-15 of amplitude across the fitted box,
-//   every grid step, orientation and off-grid centre tested below).
+//   convolution for every m (< 1e-6 of amplitude, measured ≤ 2e-14, across
+//   the fitted box, every grid step, orientation and off-grid centre tested
+//   below).
 //
 test('(A) frontend vs backend parity: LACX (m>0) — KNOWN GAP, unit 2 (kernel discretization)', { todo: 'unit 2 fast-follow: LACX Gaussian-conv kernel mismatch vs backend, grows with m (~0.15% at m=50, measured 2026-08-30)' }, () => {
   const p = basePeak('LACX');

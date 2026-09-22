@@ -64,8 +64,8 @@ parameters 0.2–1.1 ms; a local fit of a DS+G component converges in 38 ms.
 
 | check | result |
 |---|---|
-| parity sweep (D), DS+G box α {0, 0.25, 0.49} × β {0.05, 0.7, 2} × m {0.001, 0.05, 0.4, 2, 4}, base grid | ≤ 3e-15 of amplitude (was 1e52 at β 2, m 0.05) — now a hard assertion |
-| (D′) the same box on: 0.1 eV step; 0.02 eV step; descending grid; centre half a step off-grid; descending + 0.03 eV off-grid; a 30-point window narrower than the pad; a 0.0503 eV step | < 1e-6 on every combination — hard assertions |
+| parity sweep (D), DS+G box α {0, 0.25, 0.49} × β {0.05, 0.7, 2} × m {0.001, 0.05, 0.4, 2, 4}, base grid | ≤ 2e-14 of amplitude (3e-15 at the harness amplitude, 1.95e-14 at unit amplitude; was 1e52 at β 2, m 0.05) — now a hard assertion at 1e-6 |
+| (D′) the same box on: 0.1 eV step; 0.02 eV step; descending grid; centre half a step off-grid; descending + 0.03 eV off-grid; a 30-point window narrower than the pad; a 0.0503 eV step | < 1e-6 on every combination (measured ≤ 6e-14) — hard assertions |
 | (A) DS+G at the base peak (was todo) | hard, passes |
 | round trip page → server → page, DS+G (was todo), and DS+G m locked at 0.05 and at 4 (curve comparison was disabled) | hard, pass |
 | (B) scalar vs array evaluator, DS+G | now `todo` like LACX: the convolution is a grid operation; guard (C) holds |
@@ -80,14 +80,34 @@ kernel underflows: σ = m/2.355 is far below the step, no padded-grid sample
 carries weight (for an even padded length the nearest sample is half a
 step from the centre), the kernel normalises to NaN and
 `_ds_g_dscore_gauss` returns an all-zero curve for the component (its final
-"suppress NaN/Inf" turns it to zeros). At 0.1 eV the zone is roughly
-0.001 ≤ m ≲ 0.004 and depends on the parity of the padded length; m = 0.02
-is already ordinary. A fit will not settle there (a zero curve fits
+"suppress NaN/Inf" turns it to zeros). It happens only for an EVEN padded
+length (the nearest sample is half a step from the centre); an odd length
+has a sample at the centre and the kernel collapses to a delta instead. On
+a 120-point 0.1 eV grid the zone is 0.001 ≤ m ≤ 0.003 (m = 0.00305 is
+already a normal curve); on 121 points there is none. A fit will not settle there (a zero curve fits
 nothing), but a LOCKED m in that zone is fitted as zero. The page mirrors
 it exactly (a vanished curve drawn as vanished, never a curve the server
 did not fit). Recorded for the owner; the fix belongs to the server (a
 kernel that collapses to a delta below the grid's resolution, as the
 threshold branch does).
+
+### 3b. Server limit found in round 2 (not this unit's to change)
+
+The server normalises the convolved curve by its value interpolated AT THE
+CENTRE, falling back to the curve's maximum only when that value is ≤ 0.
+With the centre far OUTSIDE the padded grid (e.g. 10 eV outside a
+[−5, 5] window at β 0.05, m 0.05, or 15 eV outside on the low-BE side)
+the interpolated value is the clamped end value of a tail of order 1e-20 —
+rounding noise whose SIGN decides which of two unrelated curves the server
+returns: the max-normalised tail (sign negative) or that tail divided by
+~1e-20 (sign positive). The page mirrors the rule and the arithmetic, but
+not the rounding sign of a 1e-20 number, and Codex round 2 reproduced a
+case where the two sides fall on different branches (server maximum 1,
+page 5e16). No committed model is near this regime (a component centred
+outside its own window has no physical reading, and a fit does not settle
+there), and the server's own output there is arbitrary. The fix belongs to
+the server: normalise by the maximum whenever the centre lies outside the
+padded grid — after which the page mirrors it trivially.
 
 Nothing changed on the server, in `autofit/`, in Find Peaks or in the
 dropdown. Python suite untouched by this unit (no Python change); JS suite
@@ -156,3 +176,18 @@ NO-GO ×2.** Fixed:
    zero there so a server change surfaces).
 4. MINOR — findings §7 said ≤ 3e-15 across seven grids; that was the base
    grid (the seven are < 1e-6, measured ≤ 5.5e-15). Corrected.
+
+**Round 2 (`dsg_page_evaluator_r2_verdict_run{A,B}.md`): NO-GO ×2.**
+Round-1 items 1–3 confirmed closed. Found: MAJOR — the normalisation
+conditioning of §3b (centre far outside the padded grid; the server's own
+output there is decided by the sign of rounding noise); MINOR — the
+precision figures were quoted at the harness amplitude (at unit amplitude
+1.95e-14 base grid, 5.8e-14 at 0.02 eV; corrected above); MINOR — the
+underflow zone's description (corrected in §3a: even lengths only, up to
+m = 0.003 on 120 points). **Stopped here per the owner's rule (a third
+round): the remaining MAJOR is a server conditioning limit outside this
+unit, documented in §3b with the fix that belongs to the server;
+everything physically reachable on the page is a hard 1e-6 assertion.**
+The interim red notice was NOT added: its wording ("the page's curve and
+area for this shape are not yet exact") would now be false. Decision to
+the owner.

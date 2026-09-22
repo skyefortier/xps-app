@@ -343,10 +343,13 @@ Find Peaks emits DS+G: it does (every A- and M-family C 1s candidate's
 graphitic main line, β fixed at 0.05, α 0–0.3, m 0.4–1.8), and on that box
 the page's area was 5–21 % low for α 0.15–0.3. `dsgConvolved_array` mirrors
 the server's padded-grid convolution by the same FFT circular convolution:
-≤ 3e-15 of amplitude across the whole β/m box on the base grid, < 1e-6
-(measured ≤ 5.5e-15) on seven other grids, and exact on the reviewers'
+< 1e-6 of amplitude (measured ≤ 2e-14 at unit amplitude) across the whole
+β/m box on the base grid and seven other grids, and on the reviewers'
 reproducers (a centre outside the window, irregular grids, a 0.001 eV
-grid); nothing changed in Find Peaks or the dropdown
+grid); two SERVER limits found on the way (plan §3a: kernel underflow for
+m ≤ 0.003 on an even padded length at 0.1 eV gives an all-zero curve;
+§3b: a centre far outside the padded grid is normalised by rounding
+noise); nothing changed in Find Peaks or the dropdown
 (a science decision is not altered to work around a rendering bug —
 owner, 2026-09-22). The general lesson repeats §6's: a harness that
 evaluates one representative point per shape proves nothing about the range
