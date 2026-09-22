@@ -1,0 +1,10 @@
+ROUND 6 recheck of step (b), branch feature-unsupported-components (git diff main..HEAD). Read-only. Round 5: NO-GO x2 on ONE shared MINOR (archived docs/autofit/codex/unsupported_components_r5_verdict_run{A,B}.md); rounds 1-5 otherwise cleared and unchanged. Budget your time: a verdict is required within the run.
+
+DISPOSITION
+MINOR the sidebar's area % column stayed stale after a verdict change -> _patchPeakCardsForSupport now recomputes every card's area % in place over the components the CURRENT verdicts support (the same rule renderPeakList uses: _peakArea over the ROI grid; an unsupported component shows the dash; total over supported components only). Test: the supported card reads 100.0 % while the other is unsupported and 90.0 % once the verdict is lifted.
+
+TRY TO BREAK
+a. the in-place percentage (no ROI yet / no raw data / a component with zero area / linked children) versus renderPeakList's own numbers after a full render — any disagreement between the patched value and the rendered one;
+b. anything else in the diff not already cleared.
+
+Finish with findings ranked BLOCKER / MAJOR / MINOR (file:line, concrete scenario) and VERDICT: GO or VERDICT: NO-GO.

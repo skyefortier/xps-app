@@ -352,13 +352,19 @@ test('the sidebar is patched in place (header, summary, badge) — the centre in
   const card = { info: mk(), vals: [mk(), mk(), mk()], name: { html: '', badge: null, querySelector() { return this.badge; }, insertAdjacentHTML(pos, h) { this.html += h; this.badge = { remove() { card.name.badge = null; }, previousSibling: null }; } },
     querySelector(sel) { return sel === '.peak-info' ? this.info : this.name; }, querySelectorAll() { return this.vals; } };
   const state = { peaks: [{ id: 2, center: 282.25, fwhm: 0.42, support: { supported: false, fitKey: 'KEY' } }] };
-  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', extractFn('_patchPeakCardsForSupport') + '\nreturn _patchPeakCardsForSupport;')(
-    state, { getElementById: () => card }, () => 'KEY', c._isUnsupported, c._unsupportedBadge);
+  const other = { info: mk(), vals: [mk(), mk(), mk()], name: { badge: null, querySelector() { return null; }, insertAdjacentHTML() {} }, querySelector(sel) { return sel === '.peak-info' ? this.info : this.name; }, querySelectorAll() { return this.vals; } };
+  state.peaks.push({ id: 1, center: 284.4, fwhm: 0.64, support: { supported: true, fitKey: 'KEY' } });
+  state.rawBE = [1, 2, 3];
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', 'getROIData', '_peakArea',
+    extractFn('_patchPeakCardsForSupport') + '\nreturn _patchPeakCardsForSupport;')(
+    state, { getElementById: id => id === 'peak-item-2' ? card : other }, () => 'KEY', c._isUnsupported, c._unsupportedBadge, () => ({ be: [280, 285, 290] }), p => p.id === 2 ? 10 : 90);
   fn();
   assert.deepStrictEqual([card.info.textContent, card.vals[0].textContent, card.vals[1].textContent, card.vals[2].textContent], ['—', '—', '—', '—']);
+  assert.strictEqual(other.vals[2].textContent, '100.0%', 'the supported component is 100 % of the SUPPORTED area');
   assert.ok(card.name.badge, 'badge added');
   state.peaks[0].support.fitKey = 'EDITED';
   fn();
-  assert.deepStrictEqual([card.info.textContent, card.vals[0].textContent, card.vals[1].textContent], ['282.25 eV', '282.25', '0.42']);
+  assert.deepStrictEqual([card.info.textContent, card.vals[0].textContent, card.vals[1].textContent, card.vals[2].textContent], ['282.25 eV', '282.25', '0.42', '10.0%']);
+  assert.strictEqual(other.vals[2].textContent, '90.0%', 'Codex round 5: the percentages follow the verdict too');
   assert.strictEqual(card.name.badge, null, 'badge removed');
 });

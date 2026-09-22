@@ -6975,9 +6975,15 @@ function _restampSupport() {
 }
 // Patch the sidebar cards in place for the current verdicts (a re-render would
 // replace an input the student is typing in): header centre, the three summary
-// values and the badge; the area % column is left to the next full render.
+// values, the area % column (over the components the current verdicts
+// support) and the badge.
 function _patchPeakCardsForSupport() {
   const key = _startsLiveKey();
+  // area % over the components the CURRENT verdicts support (as renderPeakList computes it)
+  const { be: roiBE } = (typeof getROIData === 'function' && state.rawBE && state.rawBE.length) ? getROIData() : { be: [] };
+  const areas = {};
+  let total = 0;
+  if (roiBE.length) for (const p of state.peaks) { areas[p.id] = _peakArea(p, roiBE); if (!_isUnsupported(p, key)) total += areas[p.id]; }
   for (const p of state.peaks) {
     const item = document.getElementById('peak-item-' + p.id);
     if (!item) continue;
@@ -6987,7 +6993,7 @@ function _patchPeakCardsForSupport() {
     const vals = item.querySelectorAll('.peak-summary-val');
     if (vals[0]) vals[0].textContent = un ? dash : p.center.toFixed(2);
     if (vals[1]) vals[1].textContent = un ? dash : p.fwhm.toFixed(2);
-    if (vals[2] && un) vals[2].textContent = dash;
+    if (vals[2]) vals[2].textContent = (un || !(total > 0 && areas[p.id] > 0)) ? dash : ((areas[p.id] / total) * 100).toFixed(1) + '%';
     const name = item.querySelector('.peak-name'), badge = name && name.querySelector('.unsupported-badge');
     if (un && name && !badge) name.insertAdjacentHTML('beforeend', ' ' + _unsupportedBadge(p.id));
     if (!un && badge) { badge.previousSibling && badge.previousSibling.nodeType === 3 && badge.previousSibling.textContent === ' ' ? badge.previousSibling.remove() : null; badge.remove(); }
