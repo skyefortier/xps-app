@@ -49,21 +49,36 @@ KW = dict(background_method="manual", manual_bg=[[280.0, 1000.0], [295.0, 1000.0
           fit_kws={"method": "least_squares"})
 
 
-def test_a_redundant_anchor_is_supported_but_not_required():
+@pytest.mark.parametrize("method", ["least_squares", "leastsq"])
+def test_a_redundant_anchor_is_supported_but_not_required(method):
     # Codex, Auto-Fit anchor unit round 6 (run B): two symmetric GL lines at
-    # 284.8/1.4 eV and 283.3/1.8 eV, no graphite. Auto-Fit's model puts an
-    # asymmetric-GL Graphite at 284.5 with the ±0.3 eV window; the fit gives it
-    # a large amplitude (F ~ 1e6 with the others HELD) — yet the other two
-    # components fit the data to rounding precision without it.
+    # 284.8/1.4 eV and 283.3/1.8 eV, no graphite. In that reproduction the
+    # full fit kept a LARGE Graphite (amplitude 1,081-1,894, held-others F ~
+    # 1e6) because it stopped in a minimum where the anchor carries weight;
+    # yet the other two components fit the data to rounding precision
+    # without it.
+    #
+    # The premise is posed deterministically by HOLDING the anchor at 1,500
+    # (inside that observed range). Until 2026-09-25 this test instead
+    # started the other components at the exact truth, which lets the fit
+    # drive the anchor to residue (~0.01) - the premise never formed, the
+    # held-others F landed at 11-24 against the threshold of 10, and
+    # Trust-Region's documented last-digit jitter (identical seed in every
+    # process) moved it across: the test passed 2 of 3 runs on main. Now
+    # F ~ 4e7 and the refit without the anchor is ~1e4 x better, under both
+    # methods, in every process.
     y = np.round(1000 + _gl(X, 10000, 284.8, 1.4) + _gl(X, 15000, 283.3, 1.8), 2)
-    specs = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
-    res = fitting.run_fit(X, y, specs, require_component="1", **KW)
+    specs = _autofit_model(1500, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
+    specs[0]["fix_amplitude"] = True
+    kw = dict(KW, fit_kws={"method": method})
+    res = fitting.run_fit(X, y, specs, require_component="1", **kw)
     assert res["success"] is True
     g = next(ip for ip in res["individual_peaks"] if ip["id"] == "1")
     assert g["support"]["supported"] is True, "held-others statistic passes: that is the gap"
+    assert g["support"]["f"] > 1e6, g["support"]["f"]           # far from the threshold, not on it
     req = res["required"]
     assert req["ran"] is True and req["refit_converged"] is True
-    assert req["chi2_without_refit"] <= req["chi2_with"] * 1.001
+    assert req["chi2_without_refit"] < 1e-2 * req["chi2_with"]
     assert req["required"] is False
 
 
