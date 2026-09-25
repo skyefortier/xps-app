@@ -21,6 +21,7 @@ function extractFn(name) {
   assert.fail('unbalanced ' + name);
 }
 const NAMES = ['getCorrectedBE', 'getROIData', '_roiWindowStatus', '_roiHintFor', '_refreshRoiHint', '_centreOutsideData', '_outsideDataBadge', '_escAttr'];
+const FP_UPLOAD_ROUND = v => +v.toFixed(4);   // uploadToBackend: energies to 4 dp
 function makeEnv({ rawBE, ccShift = 0, roiMin, roiMax }) {
   const dom = { 'roi-min': { value: String(roiMin) }, 'roi-max': { value: String(roiMax) },
     'roi-hint': { textContent: '', className: 'roi-hint', style: { display: 'none' } } };
@@ -132,4 +133,33 @@ test('the fit and Find Peaks still read the ROI exactly as before (getROIData / 
   assert.match(html, /roi: \{ be_min: parseFloat\(document\.getElementById\('roi-min'\)\.value\),\s*\n\s*be_max: parseFloat\(document\.getElementById\('roi-max'\)\.value\) \}/, 'Find Peaks payload unchanged');
   const rp = extractFn('runPropagation');
   assert.match(rp, /const roiSt = _roiWindowStatus\(\);[^\n]*\n\s*const \{ be, inten \} = getROIData\(\);/, 'Batch Fit reads the status beside, not instead of, getROIData');
+});
+
+test('an unsupported component: the badge warns without reporting its suppressed centre', () => {
+  const e = makeEnv({ rawBE: DATA, roiMin: 282, roiMax: 293 });
+  const st = e._roiWindowStatus();
+  const b = e._outsideDataBadge({ id: 3, center: 310 }, st, true);
+  assert.doesNotMatch(b, /310/, 'the suppressed centre must not appear');
+  assert.match(b, /Its centre lies outside the fitted data \(282\.00–293\.00 eV\)/);
+});
+
+// "One fix covers both" (plan §3): manual fit filters the corrected
+// energies, then uploads them rounded to 4 dp; Find Peaks uploads the
+// corrected energies rounded to 4 dp and the SERVER applies the same
+// inclusive mask. The two selections are identical except for an energy
+// within 5e-5 eV of an ROI edge, where rounding can move it across. Pinned
+// both ways so the qualification stays true.
+function serverMask(corr, lo, hi) { return corr.map(FP_UPLOAD_ROUND).filter(v => v >= lo && v <= hi); }
+test('manual fit and Find Peaks select the same points whenever no energy lies within 5e-5 eV of an ROI edge', () => {
+  for (const [lo, hi] of [[270, 320], [283.2, 300], [282, 293], [281.37, 291.83]]) {
+    const e = makeEnv({ rawBE: DATA, roiMin: lo, roiMax: hi });
+    const page = e.getROIData().be.map(FP_UPLOAD_ROUND);
+    assert.deepStrictEqual(serverMask(DATA, lo, hi), page, `ROI ${lo}–${hi}`);
+  }
+});
+test('…and can differ by one edge point when an energy lies within 5e-5 eV of an edge (pre-existing, logged, not changed)', () => {
+  const raw = Array.from({ length: 21 }, (_, i) => 280.00004 + 0.1 * i);   // Codex round 1 reproducer
+  const e = makeEnv({ rawBE: raw, roiMin: 280.00002, roiMax: 282.1 });
+  assert.equal(e.getROIData().be.length, 21);
+  assert.equal(serverMask(raw, 280.00002, 282.1).length, 20, 'rounding 280.00004 to 280.0 moves it below the edge');
 });

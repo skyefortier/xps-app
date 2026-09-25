@@ -1,0 +1,51 @@
+Review unit fix-roi-clamp: git diff main..HEAD (templates/index.html, tests/js/roi_clamp_centre_warning.test.js, tests/js/unsupported_components.test.js, tests/test_component_required.py, CLAUDE.md, docs/superpowers/plans/2026-09-25-roi-clamp-and-centre-warning.md). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+OWNER'S BRIEF (verbatim): "ROI CLAMP + CENTRE-OUTSIDE-DATA WARNING (one unit, UI only, no fitting math): 1. ROI beyond the data range: today it silently clips to the data edge, which users read as truncation. Clamp the ROI to the data range and show a quiet hint ('ROI extends past your data — clipped to X–Y eV'). roi-min/roi-max are shared by manual fit and Find Peaks, so one fix covers both — verify that. Check the saved-ROI restore path (ui.roiMin / roiMax) so loading an old file doesn't silently change behaviour. 2. Peak centre outside the data window: warn on the peak card. It is almost always a user error, and it is the only way to reach the §3c DS+G limit, so the warning closes that exposure without touching fitting math. Do not auto-move the user's ROI or peaks. Warn; don't reinterpret. Enumerate the consumer sites first (ROI and peak-centre readers), put the table in the plan and in the first Codex prompt." Also in the branch: "the pseudo-Voigt F >= 10 test passing 2 of 3 on main ... find out why this one still varies — unseeded path, or Trust-Region jitter reaching it. Fix it or make it deterministic; don't leave a flaky gate."
+
+READ THE PLAN FIRST. Its interpretation of "clamp": getROIData() already selects only corrected energies inside [roi-min, roi-max] (inclusive; empty field = ±inf), so the fit, background, areas and exports already use the clamped window; the unit makes it VISIBLE and never rewrites the fields (the owner's "do not auto-move the user's ROI"). Challenge that interpretation if you think the brief meant something else.
+
+THE SITE TABLE (plan §2, verbatim):
+
+## 2. Consumer sites — every reader of the ROI and of a peak centre
+
+ROI readers (`roi-min`, `roi-max`, `ui.roiMin`, `ui.roiMax`, `getROIData`):
+
+| # | site | what it reads | window semantics | this unit |
+|---|---|---|---|---|
+| 1 | `getROIData` | DOM fields | inclusive filter of corrected BE; empty = ±∞; min > max → EMPTY | unchanged; the hint's source of truth |
+| 2 | `runFit` (Run Fit, `/api/fit`) | `getROIData` | as 1 (the request carries the filtered arrays) | unchanged |
+| 3 | `runFitLocal` via Batch Fit `runPropagation` | `getROIData` on each target, target keeps its own ROI (`propagateFitUi` keep) | as 1 | unchanged; summary row notes a clipped target |
+| 4 | Find Peaks `/api/analyze` payload (`fpMethodMeta` block) | DOM fields as numbers + `getCorrectedBE()` | server `app._validate_analyze_request`: `(corrected >= be_min) & (corrected <= be_max)` — the SAME inclusive mask on the SAME corrected frame | unchanged — verified identical to 1 (§3); an EMPTY field differs (page: full range; server: 400 "must be numbers") — logged, not changed |
+| 5 | Find Peaks ROI auto-fill (`coverage` block) | writes `entries[0].roi.be_min/max` (curated nominal window, can exceed the data) | — | unchanged; the hint now fires when the suggested window overshoots |
+| 6 | `updatePlot` (chart fitted region, preview) | `getROIData` | as 1 | hosts the hint + centre-warning refresh |
+| 7 | `renderPeakList` / `_patchPeakCardsForSupport` (area %) | `getROIData` | as 1 | cards get the centre warning |
+| 8 | `renderResults` fallback grid, `exportResults`, figure export, `_doSaveSpectrum`, `applyAutoFitResult`, `runAutoFitC1sGraphite`, `handleChartClick` | `getROIData` | as 1 | unchanged |
+| 9 | `zoomToROI` | DOM fields, swapped if min > max | axis only | unchanged |
+| 10 | `isC1sTab` (Auto-Fit enable gate) | `ui.roiMin/roiMax` MIDPOINT of the typed values | typed window, not the data it selects | unchanged — logged: with an ROI past the data the gate judges a window the fit never sees |
+| 11 | `_buildEntryRenderData` Path B (stack tabs) | `ui.roiMin/roiMax`, SWAPPED if min > max | differs from 1 for an inverted ROI (1 selects nothing) | unchanged — logged; the source tab's hint says "no data selected" |
+| 12 | `_captureUI` / `_restoreUI` / `toJSON` / `fromJSON` / `_doSaveFit` / `_autoFitSnapshot` / `_autoFitRestore` | read/write the field values verbatim | — | unchanged: loading a file restores the same numbers and the fit selects the same data as before; the hint is computed from the live fields and data, so an old file only GAINS a message |
+| 13 | `updateChargeCorrection` | shifts both fields by the correction delta | ROI follows the data | unchanged; the hint re-evaluates after the redraw |
+| 14 | `autoSetROI` / `maxROI` | write fields from the data range (`toFixed(1)`) | may land a rounding step inside or outside the data edge | unchanged; the hint's criterion (§4) ignores sub-step overshoot |
+| 15 | `_STARTS_UI_FIELDS` (fit-evidence key) | `roiMin`, `roiMax` | — | unchanged (the hint writes nothing into the model or key) |
+| 16 | Python twin `autofit/reference.py` `ReferenceFit._roi_bounds` / `roi_mask` | saved `ui` | inclusive, empty = ±∞ | unchanged |
+| 17 | `_getSuggestedPresets` | `bg-start` / `bg-end` (not the ROI) | — | not an ROI reader (named `roiMin` locally) |
+
+Peak-centre readers relevant to "outside the data": the card header and
+summary (`renderPeakList`, patched in place by `_patchPeakCardsForSupport`).
+The data window a component is fitted against is the ROI selection of
+row 1, so the warning compares `p.center` with min/max of `getROIData().be`
+— the grid the request carries.
+
+
+THE CHANGE. _roiWindowStatus() (corrected data range, parsed fields, the getROIData selection, a one-sampling-step criterion for "past", states ok/past/inverted/no-overlap/no-data); _roiHintFor / _refreshRoiHint (the #roi-hint line: quiet for 'past', amber for inverted / no-overlap); _centreOutsideData / _outsideDataBadge / _patchPeakCardsForCentre (an "outside data" badge on a card whose centre lies outside the SELECTED data, patched in place); _refreshRoiAndCentreWarnings() called at the end of updatePlot next to _refreshStartsEvidence; the stack branch of updatePlot hides the hint; renderPeakList patches badges on creation; runPropagation records _roiHintFor(_roiWindowStatus()) beside getROIData() and shows it on the target's summary row. Measured on the committed projects: 30 of 166 spectrum tabs show the quiet hint (overshoot median 0.39 eV, max 4.85 eV), 0 inverted or disjoint, 0 of 530 peaks outside their data. Browser-checked (plan §7). The flaky test: plan §6 and commit 2e7cc33 (same seed in every process; Trust-Region jitter; the construction did not reproduce its own premise; now the anchor is held at 1,500).
+
+TRY TO BREAK
+a. Site completeness: any reader of the ROI or of a peak centre the table misses (grep roi-min, roi-max, roiMin, roiMax, getROIData, be_min, be_max, and the peak-centre renderers: results table, stack legend, figure export, Find Peaks candidate preview/apply). Any path that sets the ROI fields WITHOUT a following updatePlot, so the hint goes stale (Find Peaks ROI auto-fill, Auto-Fit restore, history restore, undo, charge-correction change, project load, tab close, the "Auto from data"/"Max" buttons, programmatic .value writes)?
+b. "One fix covers both": is the Find Peaks window REALLY identical to getROIData's for every numeric ROI (the server's corrected frame with cc_shift 0; float round-trip through JSON; min > max; a partially overlapping window)? The empty-field divergence is logged - is anything else different?
+c. The criterion: one sampling step (median |Δ corrected BE|) past the data. Irregular grids, a 1-point spectrum, duplicate energies (step 0), a spectrum with a gap; does "past" ever fire when nothing is clipped, or stay silent when a meaningful part of the window has no data?
+d. The badge: in place, never re-rendering under a typing student; stale after an edit path that does not reach updatePlot (updatePeakParam on a LINKED child? Lock All? shape switch? an alternative preview? a history-preview overlay?); unsupported components (their centre is suppressed - does the badge leak it?); linked children; the title text and escaping.
+e. No reinterpretation: confirm nothing in the diff changes the fit request, Find Peaks' payload, saves, the fit-evidence key (_STARTS_UI_FIELDS), or the fields. The structural test's regexes - could a write slip past them?
+f. The flaky-test fix: is the diagnosis right (seed identical; jitter) and is holding the anchor at 1,500 a faithful stand-in for the reproduction, or does it test something weaker than step (c)'s claim? Any OTHER test with the same knife-edge pattern (a threshold assertion on a Trust-Region fit of noise-free data)?
+g. Docs vs code and vs measured numbers.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

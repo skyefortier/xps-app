@@ -5130,8 +5130,11 @@ function _refreshRoiHint(st) {
 function _centreOutsideData(p, st) {
   return !!(st && st.n > 0 && Number.isFinite(p.center) && (p.center < st.sMin || p.center > st.sMax));
 }
-function _outsideDataBadge(p, st) {
-  const tip = `Centre ${p.center.toFixed(2)} eV lies outside the fitted data (${st.sMin.toFixed(2)}–${st.sMax.toFixed(2)} eV). `
+function _outsideDataBadge(p, st, unsupported) {
+  // a component the fit did not determine has its centre suppressed
+  // everywhere (unit step (b)); the warning must not report it either
+  const where = unsupported ? 'Its centre lies' : `Centre ${p.center.toFixed(2)} eV lies`;
+  const tip = `${where} outside the fitted data (${st.sMin.toFixed(2)}–${st.sMax.toFixed(2)} eV). `
     + 'A component centred outside the measured data is almost always a placement error: the fit sees only its tail. Nothing has been moved.';
   return `<span class="outside-data-badge" data-peak-id="${p.id}" title="${_escAttr(tip)}">outside data</span>`;
 }
@@ -5146,7 +5149,7 @@ function _patchPeakCardsForCentre(st) {
     const badge = name.querySelector('.outside-data-badge');
     const out = _centreOutsideData(p, st);
     if (out) {
-      const html = _outsideDataBadge(p, st);
+      const html = _outsideDataBadge(p, st, typeof _isUnsupported === 'function' && _isUnsupported(p));
       if (!badge) name.insertAdjacentHTML('beforeend', html);
       else { const tmp = document.createElement('span'); tmp.innerHTML = html; const t = tmp.firstChild.getAttribute('title'); if (badge.getAttribute('title') !== t) badge.setAttribute('title', t); }
     } else if (badge) badge.remove();
@@ -9900,6 +9903,7 @@ function updatePlot() {
 }
 
 function renderEmptyChart() {
+  if (typeof _refreshRoiHint === 'function') _refreshRoiHint(null);   // no data: no window to describe
   // Reference mode (A7): overlays selected + no spectrum loaded (palette open or
   // closed) → draw markers on a labeled 0–1200 eV axis instead of the onboarding
   // card. No overlays → the onboarding card (the chart is torn down below).
@@ -15495,6 +15499,9 @@ function _fpSyncSelectionUI() {
   if (entries.length === 1 && entries[0].roi) {
     document.getElementById('roi-min').value = entries[0].roi.be_min;
     document.getElementById('roi-max').value = entries[0].roi.be_max;
+    // a programmatic write fires no 'input' event: the hint and the card
+    // badges describe the new window now (Codex round 1 of fix-roi-clamp)
+    if (typeof _refreshRoiAndCentreWarnings === 'function' && state.rawBE && state.rawBE.length) _refreshRoiAndCentreWarnings();
   }
   _fpRenderPtGrid(document.getElementById('fp-regions-filter').value);
   _fpRenderExpandedPanel();

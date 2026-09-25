@@ -55,15 +55,23 @@ The data window a component is fitted against is the ROI selection of
 row 1, so the warning compares `p.center` with min/max of `getROIData().be`
 — the grid the request carries.
 
-## 3. "One fix covers both" — verified
+## 3. "One fix covers both" — verified, with one exact qualification
 
 Manual fit (row 2) and Find Peaks (row 4) apply the same inclusive
-[min, max] filter to the same corrected energies (the page sends
-`getCorrectedBE()` with `cc_shift: 0`; the server masks those numbers with
-the two field values). For any numeric ROI the selected points are
-identical, so the one clamped window the hint names is the window both
-use. The only divergence is an EMPTY field (row 4): not an ROI past the
-data, logged for the fail-open sweep.
+[min, max] filter to the same corrected energies, with one difference in
+ORDER (Codex round 1): manual fit filters first and then uploads the
+selection rounded to 4 dp (`uploadToBackend`), while Find Peaks uploads
+the corrected energies rounded to 4 dp and the server filters those. The
+selections are therefore identical except for an energy lying within
+5e-5 eV of an ROI edge, which the rounding can move across it (Codex's
+reproducer: 21 energies 280.00004 + 0.1 i, ROI 280.00002–282.1 — manual 21
+points, Find Peaks 20). Real ROIs are typed to 0.1–0.5 eV and energies
+rarely carry more than 4 decimals, so the one window the hint names is the
+window both use for every ROI a user sets; both directions are pinned in
+`tests/js/roi_clamp_centre_warning.test.js`. The edge divergence is
+pre-existing and is not changed here (it would change Find Peaks'
+request); logged with the empty-field divergence (row 4) for the
+fail-open sweep.
 
 ## 4. The hint
 
@@ -135,4 +143,27 @@ without it ~1e4× better, 5 of 5 runs of the file pass.
 
 ## 8. Codex rounds
 
-(filled in as they run)
+**Round 1 (`docs/autofit/codex/roi_clamp_verdict_run{A,B}.md`): NO-GO ×2.**
+Both confirmed the warn-only reading of "clamp" and found no write to the
+fields, the fit inputs, saves or the evidence key. Fixed:
+1. MAJOR — Find Peaks' ROI auto-fill (`_fpSyncSelectionUI`, table row 5)
+   writes the fields programmatically, which fires no `input` event, so
+   the hint and badges stayed stale. It now refreshes them. Every other
+   programmatic writer was checked: `maxROI`, `autoSetROI`,
+   `_autoFitRestore` and `updateChargeCorrection` redraw in the same
+   function; the three callers of `_restoreUI` redraw right after.
+   Browser-checked on the real selection path (C 1s suggests 278–298; the
+   hint names 279.16–297.96).
+2. MAJOR — §3's "identical" was wrong at the rounding edge; stated exactly
+   above and pinned both ways.
+3. MAJOR/MINOR — the badge's tooltip revealed the centre of a component
+   step (b) suppresses; it now warns without the number for an
+   unsupported component. Pinned and browser-checked.
+4. MINOR — closing the last tab left the hint showing (`closeTab` goes
+   straight to `renderEmptyChart`, as does `updatePlot`'s no-data
+   branch); `renderEmptyChart` now clears it.
+Also: both reviewers noted that five runs do not prove the flake gone and
+that holding the anchor poses the premise rather than reproducing the
+free local minimum. The second is stated in the test's docstring; for the
+first, 20 more separate-process runs are recorded in §6.
+
