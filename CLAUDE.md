@@ -814,6 +814,17 @@ invariants worth knowing before touching the code:
 - **Auto-Fit C1s Graphite** (Actions menu): one-click C1s peak model
   + charge correction. Enabled only when the active ROI midpoint is in
   270–315 eV.
+- **ROI past the data / centre outside the data** (2026-09-25, warn only):
+  `getROIData()` has always clamped an ROI to the data it selects; the page
+  now SAYS so under the ROI fields ("ROI extends past your data — clipped
+  to X–Y eV" when a field reaches more than one sampling step past the
+  data; amber when min > max or the window misses the data) and badges a
+  peak card whose centre lies outside the selected data ("outside data").
+  Neither the fields nor the peaks are ever moved; the fit, Find Peaks
+  (same inclusive mask on the same corrected energies) and saves read the
+  ROI exactly as before. `_roiWindowStatus` / `_refreshRoiAndCentreWarnings`,
+  refreshed in place from `updatePlot`; plan
+  `docs/superpowers/plans/2026-09-25-roi-clamp-and-centre-warning.md`.
 - **Manual anchor background**: place anchors on the chart for
   per-spectrum hand-tuned background curves; persisted as
   `tab.manualAnchors`.

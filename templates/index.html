@@ -816,6 +816,11 @@
   }
 
   /* Multiplet link indicator */
+  /* ROI past the data / centre outside the data (2026-09-25): warn, never move */
+  .roi-hint { font-size: 10px; line-height: 1.4; color: var(--text3); margin: 2px 0 6px; }
+  .roi-hint.amber { color: var(--amber); }
+  .outside-data-badge { font-size: 9px; padding: 1px 4px; border-radius: 3px; margin-left: 4px;
+    color: var(--amber); border: 1px solid var(--amber); white-space: nowrap; cursor: help; }
   .unsupported-badge {
     font-size: 9px;
     padding: 1px 5px;
@@ -2063,6 +2068,7 @@
                 <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot();_recomputeAutoFitMenuState()">
               </div>
             </div>
+            <div id="roi-hint" class="roi-hint" style="display:none" aria-live="polite"></div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-sm" onclick="autoSetROI()">Auto from data</button>
               <button class="btn btn-sm" onclick="maxROI()" title="Set ROI to the full raw spectrum range">Max</button>
@@ -5069,6 +5075,90 @@ function getROIData() {
   return { be, inten };
 }
 
+// ── ROI past the data / centre outside the data (2026-09-25) ─────────────
+// WARN, NEVER REINTERPRET. getROIData() already selects the corrected
+// energies inside [roi-min, roi-max], so an ROI past the data is clamped to
+// the data in every fit, background, area and export — the defect was that
+// nothing said so. This reports the window actually used; it writes nothing
+// back into the fields, the peaks or the fit-evidence key. Find Peaks sends
+// the same two numbers against the same corrected energies to a server mask
+// of the same inclusive form, so this one window is the one both use.
+// Plan: docs/superpowers/plans/2026-09-25-roi-clamp-and-centre-warning.md.
+function _roiWindowStatus() {
+  const corrBE = (typeof getCorrectedBE === 'function' && state.rawBE && state.rawBE.length) ? getCorrectedBE() : [];
+  if (!corrBE.length) return { state: 'no-data' };
+  let dMin = Infinity, dMax = -Infinity;
+  for (const v of corrBE) { if (v < dMin) dMin = v; if (v > dMax) dMax = v; }
+  const lo = parseFloat(document.getElementById('roi-min').value);
+  const hi = parseFloat(document.getElementById('roi-max').value);
+  const { be } = getROIData();
+  let sMin = Infinity, sMax = -Infinity;
+  for (const v of be) { if (v < sMin) sMin = v; if (v > sMax) sMax = v; }
+  const base = { dMin, dMax, lo, hi, sMin, sMax, n: be.length };
+  if (Number.isFinite(lo) && Number.isFinite(hi) && lo > hi) return { ...base, state: 'inverted' };
+  if (!be.length) return { ...base, state: 'no-overlap' };
+  // one sampling step = median |Δ corrected BE|: within a step there is no
+  // sample the window could have included, so a toFixed(1) rounding of an
+  // edge is not "past the data" (a grid-relative criterion, not a threshold
+  // on intensity)
+  const d = [];
+  for (let i = 1; i < corrBE.length; i++) d.push(Math.abs(corrBE[i] - corrBE[i - 1]));
+  d.sort((a, b) => a - b);
+  const step = d.length ? (d.length % 2 ? d[(d.length - 1) / 2] : 0.5 * (d[d.length / 2 - 1] + d[d.length / 2])) : 0;
+  const past = (Number.isFinite(lo) && lo < dMin - step) || (Number.isFinite(hi) && hi > dMax + step);
+  return { ...base, step, state: past ? 'past' : 'ok' };
+}
+function _roiHintFor(st) {
+  const f = v => v.toFixed(2);
+  if (st.state === 'past') return { cls: '', text: `ROI extends past your data — clipped to ${f(st.sMin)}–${f(st.sMax)} eV.` };
+  if (st.state === 'inverted') return { cls: 'amber', text: 'BE min is above BE max — no data is selected.' };
+  if (st.state === 'no-overlap') return { cls: 'amber', text: `ROI does not overlap your data (${f(st.dMin)}–${f(st.dMax)} eV) — no data is selected.` };
+  return null;
+}
+function _refreshRoiHint(st) {
+  const el = document.getElementById('roi-hint');
+  if (!el) return;
+  const h = st ? _roiHintFor(st) : null;
+  if (!h) { if (el.style.display !== 'none') { el.style.display = 'none'; el.textContent = ''; } return; }
+  if (el.textContent !== h.text) el.textContent = h.text;
+  el.className = 'roi-hint' + (h.cls ? ' ' + h.cls : '');
+  el.style.display = '';
+}
+// A component centred outside the selected data: the fit sees only its tail.
+// Almost always a placement error — and the one way to reach the DS+G
+// normalisation limit (plan 2026-09-22-dsg-page-evaluator §3c).
+function _centreOutsideData(p, st) {
+  return !!(st && st.n > 0 && Number.isFinite(p.center) && (p.center < st.sMin || p.center > st.sMax));
+}
+function _outsideDataBadge(p, st) {
+  const tip = `Centre ${p.center.toFixed(2)} eV lies outside the fitted data (${st.sMin.toFixed(2)}–${st.sMax.toFixed(2)} eV). `
+    + 'A component centred outside the measured data is almost always a placement error: the fit sees only its tail. Nothing has been moved.';
+  return `<span class="outside-data-badge" data-peak-id="${p.id}" title="${_escAttr(tip)}">outside data</span>`;
+}
+// Patched IN PLACE (the student may be typing in a card): add, update or
+// remove each card's badge; never re-render the list.
+function _patchPeakCardsForCentre(st) {
+  for (const p of state.peaks) {
+    const item = document.getElementById('peak-item-' + p.id);
+    if (!item) continue;
+    const name = item.querySelector('.peak-name');
+    if (!name) continue;
+    const badge = name.querySelector('.outside-data-badge');
+    const out = _centreOutsideData(p, st);
+    if (out) {
+      const html = _outsideDataBadge(p, st);
+      if (!badge) name.insertAdjacentHTML('beforeend', html);
+      else { const tmp = document.createElement('span'); tmp.innerHTML = html; const t = tmp.firstChild.getAttribute('title'); if (badge.getAttribute('title') !== t) badge.setAttribute('title', t); }
+    } else if (badge) badge.remove();
+  }
+}
+function _refreshRoiAndCentreWarnings() {
+  const st = _roiWindowStatus();
+  _refreshRoiHint(st);
+  _patchPeakCardsForCentre(st);
+  return st;
+}
+
 function maxROI() {
   if (!state.rawBE.length) return;
   const be = getCorrectedBE();
@@ -6054,6 +6144,7 @@ function renderPeakList() {
     item.addEventListener('mouseenter', () => _highlightChartPeak(p.id, true));
     item.addEventListener('mouseleave', () => _highlightChartPeak(p.id, false));
   }
+  if (state.rawBE && state.rawBE.length) _patchPeakCardsForCentre(_roiWindowStatus());
 }
 
 function renderPeakForm(p) {
@@ -9324,6 +9415,7 @@ function updatePlot() {
     const _emptyEl = document.getElementById('stack-empty-state');
     const _canvas = document.getElementById('mainChart');
     if (isStackTab(_activeTab)) {
+      _refreshRoiHint(null);   // a stack tab has no ROI of its own
       _updateStackChart(_activeTab);
       return;
     } else {
@@ -9477,6 +9569,7 @@ function updatePlot() {
   }
 
   _refreshStartsEvidence(false, true);   // background / ROI controls only repaint the chart: keep the visible consumers honest (fromPlot: the chart itself is being rebuilt)
+  _refreshRoiAndCentreWarnings();         // ROI past the data / centre outside the data: warn, never move
   // History snapshot preview overlay (cyan dashed, drawn on top)
   if (_historyPreview && _historyPreview.peaks && _historyPreview.peaks.length && plotBE.length) {
     const prevPeakY = evalAllPeaks(plotBE, _historyPreview.peaks);
@@ -11997,6 +12090,7 @@ async function runPropagation() {
     }
 
     // Run local fit
+    const roiSt = _roiWindowStatus();    // warn only: the fit below uses getROIData() exactly as before
     const { be, inten } = getROIData();
     const bgI = computeBackground(be, inten);
     const bgSub = inten.map((v, idx) => v - bgI[idx]);
@@ -12008,7 +12102,7 @@ async function runPropagation() {
     // Read the statistic from the fit's own return value, not from live
     // state: the active tab can change while the fit runs.
     const ok = !!(outcome && outcome.success);
-    results.push({ name: tgt.name, ok,
+    results.push({ name: tgt.name, ok, roiHint: _roiHintFor(roiSt),
                    chi: ok && Number.isFinite(outcome.chiReduced) ? outcome.chiReduced : null,
                    message: ok ? null : ((outcome && outcome.message) || 'local fit did not converge') });
 
@@ -12023,9 +12117,10 @@ async function runPropagation() {
   const nOk = results.filter(r => r.ok).length;
   const nFail = results.length - nOk;
   prog.textContent = `Batch complete: ${nOk} converged as starting points, ${nFail} not fitted. Run Fit on each spectrum before reporting.`;
+  const roiNote = r => r.roiHint ? ` <span class="roi-hint${r.roiHint.cls ? ' ' + r.roiHint.cls : ''}" style="display:inline">${_escHtml(r.roiHint.text)}</span>` : '';
   summary.innerHTML = results.map(r => r.ok
-    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local fit: a starting point, not a reportable result)</div>`
-    : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)</div>`
+    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local fit: a starting point, not a reportable result)${roiNote(r)}</div>`
+    : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)${roiNote(r)}</div>`
   ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
   summary.style.display = 'block';
   btn.disabled = false;
