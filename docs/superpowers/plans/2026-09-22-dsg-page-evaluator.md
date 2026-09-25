@@ -144,8 +144,7 @@ every function-extractor list that names the lineshape block
 - JS suite: 392 tests, 387 pass, 0 fail, 5 todo (`node --test tests/js/*.test.js`).
   The five: LACX m > 0 in (A), (B) and (D); (B) DS+G (scalar evaluator
   ignores m, by design); the LACX round trip.
-- Python suite on the guarded-branch commit (ce9fb66): see the line
-  recorded below after the run.
+- Python suite on the guarded-branch commit (ce9fb66): 1 failed, 991 passed, 7 skipped in 1242.96s (0:20:42).
 - Browser check (`browser_check_dsg.py`, dev gunicorn :5151 with the
   production `--timeout 300`): the committed UCl4-graphite C1s Scan with its
   Graphite line switched to DS+G at Find Peaks' parameters (β 0.05, α 0.2,
