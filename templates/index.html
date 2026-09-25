@@ -4319,8 +4319,19 @@ function dsgConvolved_array(beArr, center, alpha, beta, mGauss) {
   };
   const out = new Array(N);
   for (let i = 0; i < N; i++) out[i] = interp(beArr[i]);
-  let peakVal = interp(center);
-  if (!(peakVal > 0)) { let mx = 0; for (let i = 0; i < N; i++) mx = Math.max(mx, Math.abs(out[i])); peakVal = mx; }
+  // Normalisation: at the interpolated centre when it lies inside the padded
+  // grid (the server's rule, with its fallbacks); by the curve's maximum when
+  // it lies OUTSIDE it (the server's guarded branch of 2026-09-25 — there the
+  // "value at the centre" was the clamped end value of a 1e-20 tail, and its
+  // rounding sign chose between two unrelated curves).
+  let peakVal;
+  const maxAbs = () => { let mx = 0; for (let i = 0; i < N; i++) mx = Math.max(mx, Math.abs(out[i])); return mx; };
+  if (center < xp[0] || center > xp[nTot - 1]) {
+    peakVal = maxAbs();
+  } else {
+    peakVal = interp(center);
+    if (!(peakVal > 0)) peakVal = maxAbs();
+  }
   if (!(peakVal > 0)) return new Array(N).fill(0);
   for (let i = 0; i < N; i++) { const v = out[i] / peakVal; out[i] = Number.isFinite(v) ? v : 0; }
   return out;

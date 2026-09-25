@@ -91,7 +91,7 @@ did not fit). Recorded for the owner; the fix belongs to the server (a
 kernel that collapses to a delta below the grid's resolution, as the
 threshold branch does).
 
-### 3b. Server limit found in round 2 (not this unit's to change)
+### 3b. Server limit found in round 2 — FIXED by a guarded branch (2026-09-25, owner's option 2)
 
 The server normalises the convolved curve by its value interpolated AT THE
 CENTRE, falling back to the curve's maximum only when that value is ≤ 0.
@@ -105,9 +105,26 @@ not the rounding sign of a 1e-20 number, and Codex round 2 reproduced a
 case where the two sides fall on different branches (server maximum 1,
 page 5e16). No committed model is near this regime (a component centred
 outside its own window has no physical reading, and a fit does not settle
-there), and the server's own output there is arbitrary. The fix belongs to
-the server: normalise by the maximum whenever the centre lies outside the
-padded grid — after which the page mirrors it trivially.
+there), and the server's own output there is arbitrary.
+
+Owner's condition (2026-09-25): a NEW GUARDED BRANCH, not a modification
+of the existing normalisation, PROVEN byte-identical for every centre
+inside the padded grid — otherwise stop and take option 1. Done:
+`_ds_g_dscore_gauss` now has `if center < x_padded[0] or center >
+x_padded[-1]: peak_val = max|result|` with the pre-existing code in the
+`else`. Proof (`scripts/dsg_outside_centre_identity.py`, main's function
+loaded from `git show main:fitting.py` beside the new one, output in
+`docs/findings/dsg-evaluator/identity_proof_vs_main_b3c9e37.txt`):
+3,780 box × grid × centre cases (centres at the window centre, off-grid,
+at each data edge and 1e-9 inside each padded edge) and 2,000 random
+draws with the centre inside the padded grid — 5,780 of 5,780
+`np.array_equal`; `run_fit` on the committed UCl4-graphite C1s Scan with
+its Graphite line as DS+G (n_perturb 0 and 3, Levenberg-Marquardt, the
+byte-identical method): the whole JSON response identical; the committed
+batteries hold no DS+G component and pass unchanged. The two outside
+cases: old maximum 5.4e4 and 2.6e3 × amplitude, new 1. The page mirrors
+the branch (`dsgConvolved_array`); both reproducers are hard regressions
+in (D″), plus a centre just outside and just inside the padded edge.
 
 Nothing changed on the server, in `autofit/`, in Find Peaks or in the
 dropdown. Python suite untouched by this unit (no Python change); JS suite
@@ -191,3 +208,12 @@ everything physically reachable on the page is a hard 1e-6 assertion.**
 The interim red notice was NOT added: its wording ("the page's curve and
 area for this shape are not yet exact") would now be false. Decision to
 the owner.
+
+**Owner decision (2026-09-25): option 2 with a hard condition** — the
+server change as a new guarded branch, byte-identical for in-range centres
+on the committed battery, else stop; then mirror on the page and one Codex
+round; no interim notice; §3a documented and left (it degrades honestly:
+an all-zero curve reads as a zero-amplitude component, which step (b)
+flags as not supported by the data). Done as §3b records. Logged
+separately, not urgent: the ~110 s DS+G Run Fit (§5a) — likely the same
+evaluation-budget question as the Find Peaks speed item.

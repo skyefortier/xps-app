@@ -1,0 +1,6 @@
+1. box x grids x centres inside the padded grid: 3780 byte-identical, 0 differ (worst |delta| 0)
+2. 2000 random draws, centre inside the padded grid: 2000 byte-identical, 0 differ
+3. run_fit (leastsq, n_perturb 0) on the C1s Scan with a DS+G Graphite line: byte-identical JSON (43172 bytes)
+3. run_fit (leastsq, n_perturb 3) on the C1s Scan with a DS+G Graphite line: byte-identical JSON (43169 bytes)
+4. centre 10 eV outside [-5, 5]: old max 5.35e+04, new max 1 (the guarded branch)
+4. centre -10 eV, low-BE side: old max 2.61e+03, new max 1 (the guarded branch)

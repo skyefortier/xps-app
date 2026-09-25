@@ -139,8 +139,16 @@ unit). DS+G was the other gap until 2026-09-22 (the page's quadrature
 and was wrong by up to 1e52 × amplitude at β = 2, m = 0.05 and 5–21 % low
 in area on the very box Find Peaks emits for a graphitic C 1s line);
 `dsgConvolved_array` now mirrors the server's padded-grid convolution for
-every m, pinned at 1e-6 across the full β/m box on seven grids
-(`docs/superpowers/plans/2026-09-22-dsg-page-evaluator.md`). Details of
+every m — the same FFT circular convolution — pinned at 1e-6 across the
+full β/m box on eight grids, irregular grids and centres outside the
+window (`docs/superpowers/plans/2026-09-22-dsg-page-evaluator.md`). Two
+server limits found there: a DS+G m just above the 0.001 delta threshold
+on a coarse grid (m ≤ 0.003 at 0.1 eV, even padded length) underflows the
+kernel and returns an all-zero curve — left as is, it reads as a
+zero-amplitude component and step (b) flags it; and a centre OUTSIDE the
+padded grid was normalised by rounding noise — fixed 2026-09-25 by a NEW
+GUARDED BRANCH (normalise by the maximum), proven byte-identical for every
+in-range centre against main's function (`scripts/dsg_outside_centre_identity.py`). Details of
 A03 in `docs/superpowers/plans/2026-09-22-a03-voigt-eta-identity.md`.
 
 ---

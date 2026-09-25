@@ -348,8 +348,9 @@ the server's padded-grid convolution by the same FFT circular convolution:
 reproducers (a centre outside the window, irregular grids, a 0.001 eV
 grid); two SERVER limits found on the way (plan §3a: kernel underflow for
 m ≤ 0.003 on an even padded length at 0.1 eV gives an all-zero curve;
-§3b: a centre far outside the padded grid is normalised by rounding
-noise); nothing changed in Find Peaks or the dropdown
+§3b: a centre far outside the padded grid was normalised by rounding
+noise — fixed 2026-09-25 by a guarded branch proven byte-identical for
+in-range centres); nothing changed in Find Peaks or the dropdown
 (a science decision is not altered to work around a rendering bug —
 owner, 2026-09-22). The general lesson repeats §6's: a harness that
 evaluates one representative point per shape proves nothing about the range

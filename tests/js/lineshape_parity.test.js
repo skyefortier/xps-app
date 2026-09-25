@@ -437,6 +437,11 @@ const DSG_REGRESSIONS = [
   { label: 'a 6-point irregular grid', x: [-3, -2.9, -2.8, 0, 2, 3], center: 0, laAlpha: 0.25, laBeta: 0.05, laM: 0.05 },
   { label: 'genuinely irregular steps (0.05 / 0.06 alternating; median ≠ mean)', x: (() => { const o = []; let v = 280; for (let i = 0; i < 200; i++) { o.push(v); v += i % 2 ? 0.06 : 0.05; } return o; })(), center: 285.3, laAlpha: 0.3, laBeta: 0.7, laM: 1.2 },
   { label: 'a 0.001 eV grid over 10 eV at the box corner β 2, m 4, α 0.49 (13 s per curve in the first cut)', x: Array.from({ length: 10001 }, (_, i) => 280 + 0.001 * i), center: 285, laAlpha: 0.49, laBeta: 2, laM: 4 },
+  // the guarded branch (server 2026-09-25, mirrored): a centre OUTSIDE the padded grid is normalised by the maximum
+  { label: 'centre 10 eV outside [−5, 5] on a 0.5 eV grid, β 0.05, m 0.05 (Codex round 2 reproducer: was 5e16 × amplitude)', x: Array.from({ length: 21 }, (_, i) => -5 + 0.5 * i), center: 10, laAlpha: 0.49, laBeta: 0.05, laM: 0.05 },
+  { label: 'centre −10 eV on the low-BE side, 201 points at 0.05 eV, m 0.001', x: Array.from({ length: 201 }, (_, i) => -5 + 0.05 * i), center: -10, laAlpha: 0.49, laBeta: 0.05, laM: 0.001 },
+  { label: 'centre just outside the padded grid (6.5 eV, pad 1 eV)', x: Array.from({ length: 200 }, (_, i) => (i - 99.5) * 0.05), center: 6.5, laAlpha: 0.25, laBeta: 0.05, laM: 0.05 },
+  { label: 'centre just inside the padded grid (5.999 eV, pad 1 eV)', x: Array.from({ length: 200 }, (_, i) => (i - 99.5) * 0.05), center: 5.999, laAlpha: 0.25, laBeta: 0.05, laM: 0.05 },
   { label: 'a 2-point grid', x: [284.4, 284.6], center: 284.5, laAlpha: 0.2, laBeta: 0.3, laM: 0.4 },
   { label: 'a 1-point grid', x: [284.5], center: 284.5, laAlpha: 0.2, laBeta: 0.3, laM: 0.4 },
 ];

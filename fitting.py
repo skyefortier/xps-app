@@ -288,13 +288,26 @@ def _ds_g_dscore_gauss(
     result = np.interp(x, x_padded, ds_conv)
 
     # ── Normalise so value at x = center equals amplitude ─────────────────────
-    # Interpolate at exact center rather than nearest grid point to avoid
-    # normalization error when center falls between data points.
-    peak_val = float(np.interp(center, x_padded, ds_conv))
-    if peak_val <= 0.0:
-        peak_val = np.max(np.abs(result))
-    if peak_val <= 0.0:
-        return np.zeros_like(x)
+    if center < x_padded[0] or center > x_padded[-1]:
+        # NEW GUARDED BRANCH (2026-09-25, unit fix-dsg-page-evaluator): the
+        # centre lies OUTSIDE the padded grid, so "the value at the centre"
+        # is np.interp's clamped end value — the tail of a curve whose peak
+        # is not on the grid, of order 1e-20 once the tapers have acted, and
+        # its SIGN decided which of two unrelated curves came back (the
+        # max-normalised tail, or that tail divided by ~1e-20; Codex round 2
+        # of the unit). Normalise by the curve's maximum instead. A centre
+        # inside the padded grid takes the branch below, unchanged.
+        peak_val = float(np.max(np.abs(result)))
+        if peak_val <= 0.0:
+            return np.zeros_like(x)
+    else:
+        # Interpolate at exact center rather than nearest grid point to avoid
+        # normalization error when center falls between data points.
+        peak_val = float(np.interp(center, x_padded, ds_conv))
+        if peak_val <= 0.0:
+            peak_val = np.max(np.abs(result))
+        if peak_val <= 0.0:
+            return np.zeros_like(x)
 
     result = amplitude * result / peak_val
 
