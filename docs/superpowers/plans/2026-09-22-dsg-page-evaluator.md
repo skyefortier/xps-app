@@ -126,9 +126,9 @@ cases: old maximum 5.4e4 and 2.6e3 × amplitude, new 1. The page mirrors
 the branch (`dsgConvolved_array`); both reproducers are hard regressions
 in (D″), plus a centre just outside and just inside the padded edge.
 
-Nothing changed on the server, in `autofit/`, in Find Peaks or in the
-dropdown. Python suite untouched by this unit (no Python change); JS suite
-and browser check in §5.
+Nothing changed in `autofit/`, in Find Peaks or in the dropdown. The
+server changed in ONE guarded branch (§3b, 2026-09-25); the full Python
+suite was re-run on that commit (§5).
 
 ## 4. Sites
 
@@ -144,8 +144,8 @@ every function-extractor list that names the lineshape block
 - JS suite: 392 tests, 387 pass, 0 fail, 5 todo (`node --test tests/js/*.test.js`).
   The five: LACX m > 0 in (A), (B) and (D); (B) DS+G (scalar evaluator
   ignores m, by design); the LACX round trip.
-- Python suite: untouched by this unit (no Python change); the A03 run on
-  the same server code was 989 passed / 7 skipped.
+- Python suite on the guarded-branch commit (ce9fb66): see the line
+  recorded below after the run.
 - Browser check (`browser_check_dsg.py`, dev gunicorn :5151 with the
   production `--timeout 300`): the committed UCl4-graphite C1s Scan with its
   Graphite line switched to DS+G at Find Peaks' parameters (β 0.05, α 0.2,
@@ -208,6 +208,34 @@ everything physically reachable on the page is a hard 1e-6 assertion.**
 The interim red notice was NOT added: its wording ("the page's curve and
 area for this shape are not yet exact") would now be false. Decision to
 the owner.
+
+**Round 3 (`dsg_page_evaluator_r3_verdict_run{A,B}.md`; the one round
+the owner allowed for option 2): NO-GO ×2.** The guarded branch and its
+byte-identity proof were confirmed. Found: MAJOR — the same conditioning
+survives for a centre INSIDE the padded grid but outside the data window
+(e.g. exactly at the padded edge, or 1e-9 inside it): there the old rule
+still applies by the owner's condition — normalisation by the clamped end
+value of a ~1e-20 tail, whose rounding sign the page cannot mirror
+(reproducer: 121 points at 0.5 eV, centre 56 = the padded edge, α 0.49,
+β 0.05, m 0.05: server maximum 1, page 4e17). Widening the guard to the
+data window would change the in-range output and violate the condition.
+Two MINORs (the findings summary's precision figure; the verification
+text still saying "no Python change") fixed. Stopped per the owner's
+rule; residual regime stated in §3c.
+
+### 3c. Residual limit after the guarded branch
+
+A DS+G centre that lies outside the DATA window but inside the PADDED
+grid (by up to max(10 m, 20 β) eV — 1 eV at Find Peaks' β 0.05, m 0.05;
+40 eV at β 2) still takes the pre-existing normalisation, by the owner's
+byte-identity condition, and there the server's value "at the centre" is
+the clamped end value of a tail that can be rounding noise; the page
+mirrors the rule but not the rounding sign. No committed model is in this
+regime and a fit does not settle there (the curve is a tail with no peak
+on the grid). Closing it requires changing the in-range path (normalise by
+the maximum whenever the centre is outside the DATA window), which the
+condition forbids; it is the owner's call whether that trade is ever
+worth making.
 
 **Owner decision (2026-09-25): option 2 with a hard condition** — the
 server change as a new guarded branch, byte-identical for in-range centres
