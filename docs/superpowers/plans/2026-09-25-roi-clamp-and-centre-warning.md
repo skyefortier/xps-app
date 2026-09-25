@@ -115,7 +115,13 @@ reproduction had a large anchor (1,081–1,894, F ≈ 1e6) because that fit
 stopped in a minimum where the anchor carries weight. Fixed by holding the
 anchor at 1,500 (inside that range) so the fit must carry it,
 parametrised over Trust-Region and Levenberg-Marquardt: F ≈ 4e7, refit
-without it ~1e4× better, 5 of 5 runs of the file pass.
+without it ~1e4× better, 5 of 5 runs of the file pass, and 20 of 20
+separate-process runs of the test itself pass (after Codex round 1).
+Holding the anchor POSES the premise (a fit carrying a large redundant
+anchor) rather than reproducing the free local minimum Codex found; the
+property under test — a refit without the component fits as well, so it
+is not required, even though the held-others statistic supports it — is
+the same.
 
 ## 7. Verification
 
@@ -126,8 +132,8 @@ without it ~1e4× better, 5 of 5 runs of the file pass.
   and trigger no edit or re-render; `getROIData`'s filter and the Find
   Peaks payload pinned unchanged; Batch Fit reads the status BESIDE
   `getROIData`.
-- JS suite: 408 tests, 403 pass, 0 fail, 5 todo (the documented LACX gap
-  and the scalar DS+G evaluator).
+- JS suite (after round 1): 411 tests, 406 pass, 0 fail, 5 todo (the
+  documented LACX gap and the scalar DS+G evaluator).
 - Browser check (`browser_check_roi.py`, dev gunicorn :5151): the committed
   UCl4-graphite C1s Scan loads with its saved ROI 279.0–298.5 over data
   279.16–298.16 — fields unchanged, the fit selects the same 191 points,
@@ -139,7 +145,8 @@ without it ~1e4× better, 5 of 5 runs of the file pass.
   Run Fit's grid equals `getROIData()`'s; a stack tab hides the hint;
   Batch Fit onto C1s Scan_8 converges and its summary row names the
   clipped window; no page errors.
-- Python suite: see below after the run.
+- Python suite: 993 passed, 7 skipped on the round-0 tree; re-run on the
+  round-1 commit recorded below.
 
 ## 8. Codex rounds
 
