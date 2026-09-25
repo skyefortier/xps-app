@@ -151,7 +151,7 @@ the same.
   Batch Fit onto C1s Scan_8 converges and its summary row names the
   clipped window; no page errors.
 - Python suite: 993 passed, 7 skipped on the round-0 tree and again on the
-  round-1 commit (5733406).
+  round-1 commit (5733406) and on the final commit (aafc1cc).
 
 ## 8. Codex rounds
 
