@@ -129,8 +129,12 @@ test('async operations capture their owning record before the first await', () =
   for (const fn of ['function pushUndo(', 'function undo()', 'function redo()']) assert.match(grab(fn, 400), /_flushUndoDebounce\(\)/, fn);
   assert.match(grab('function _autoFitRestore(', 300), /_autoFitRestore\(snap, owner\)/);
   // batch propagation re-validates the target after its yield
-  const rp = grab('async function runPropagation', 5000);
-  assert.ok(rp.indexOf('_activeTab() !== tgt') > rp.indexOf('setTimeout(r, 20)'), 'propagation must re-check the target after yielding');
+  // the WHOLE function (a fixed 5000-character window silently stopped
+  // reaching the re-check when the function grew — fix-roi-clamp round 2)
+  const rpAt = html.indexOf('async function runPropagation');
+  const rp = html.slice(rpAt, html.indexOf('\n}\n', rpAt));
+  const yieldAt = rp.indexOf('setTimeout(r, 20)'), recheckAt = rp.indexOf('_activeTab() !== tgt');
+  assert.ok(yieldAt > 0 && recheckAt > yieldAt, 'propagation must re-check the target after yielding');
   // debounce binds owner + snapshot at schedule time
   assert.match(grab('function _pushUndoDebounced()', 900), /_historyTab\(\)/);
 });

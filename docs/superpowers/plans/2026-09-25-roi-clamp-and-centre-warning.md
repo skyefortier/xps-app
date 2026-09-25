@@ -63,11 +63,16 @@ ORDER (Codex round 1): manual fit filters first and then uploads the
 selection rounded to 4 dp (`uploadToBackend`), while Find Peaks uploads
 the corrected energies rounded to 4 dp and the server filters those. The
 selections are therefore identical except for an energy lying within
-5e-5 eV of an ROI edge, which the rounding can move across it (Codex's
-reproducer: 21 energies 280.00004 + 0.1 i, ROI 280.00002–282.1 — manual 21
-points, Find Peaks 20). Real ROIs are typed to 0.1–0.5 eV and energies
-rarely carry more than 4 decimals, so the one window the hint names is the
-window both use for every ROI a user sets; both directions are pinned in
+5e-5 eV of an ROI edge, which the rounding can move across it IN EITHER
+DIRECTION — dropping a point (Codex round 1: 21 energies 280.00004 + 0.1 i,
+ROI 280.00002–282.1, manual 21 points, Find Peaks 20) or adding one (round
+2: 279.99996 + 0.1 i, ROI 280–282.1, manual 20, Find Peaks 21). It is
+reachable with an ordinary ROI on a clean grid: a charge shift's float
+subtraction turns 282.1 − 0.2 into 281.90000000000003, outside a typed
+281.9 on the page and inside it after the upload rounds it (round 2,
+run A). So the window the hint names can differ from Find Peaks' by one
+point at an edge; it never differs by more, and the hint's X–Y (2 dp)
+cannot show a difference that small. All three cases are pinned in
 `tests/js/roi_clamp_centre_warning.test.js`. The edge divergence is
 pre-existing and is not changed here (it would change Find Peaks'
 request); logged with the empty-field divergence (row 4) for the
@@ -145,8 +150,8 @@ the same.
   Run Fit's grid equals `getROIData()`'s; a stack tab hides the hint;
   Batch Fit onto C1s Scan_8 converges and its summary row names the
   clipped window; no page errors.
-- Python suite: 993 passed, 7 skipped on the round-0 tree; re-run on the
-  round-1 commit recorded below.
+- Python suite: 993 passed, 7 skipped on the round-0 tree and again on the
+  round-1 commit (5733406).
 
 ## 8. Codex rounds
 
@@ -158,7 +163,9 @@ fields, the fit inputs, saves or the evidence key. Fixed:
    the hint and badges stayed stale. It now refreshes them. Every other
    programmatic writer was checked: `maxROI`, `autoSetROI`,
    `_autoFitRestore` and `updateChargeCorrection` redraw in the same
-   function; the three callers of `_restoreUI` redraw right after.
+   function; three of the four callers of `_restoreUI` redraw right after,
+   and the fourth — Batch Fit's already-active-target branch, missed in
+   this audit and found in round 2 — now refreshes the warnings itself.
    Browser-checked on the real selection path (C 1s suggests 278–298; the
    hint names 279.16–297.96).
 2. MAJOR — §3's "identical" was wrong at the rounding edge; stated exactly
@@ -174,3 +181,13 @@ that holding the anchor poses the premise rather than reproducing the
 free local minimum. The second is stated in the test's docstring; for the
 first, 20 more separate-process runs are recorded in §6.
 
+**Round 2 (`roi_clamp_r2_verdict_run{A,B}.md`): GO ×2.** Two MINORs, fixed
+after the GO: Batch Fit's already-active-target branch (a fourth
+`_restoreUI` caller) did not refresh the hint; and §3 still claimed
+identical windows "for every ROI a user sets" — rounding can add a point
+as well as drop one, and a charge shift can produce such an energy from a
+clean grid. Both corrected; the reverse and charge-shift cases pinned.
+Adding the Batch Fit line pushed `per_tab_state.test.js`'s re-check past
+its fixed 5,000-character window (it read −1 and failed); that assertion
+now reads the whole function. JS suite after the fixes: 411 tests, 406
+pass, 5 todo.

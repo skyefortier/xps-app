@@ -12079,6 +12079,7 @@ async function runPropagation() {
       state.fitResult = null;   // live copy of tgt.fitResult = null above (unit A0)
       tabManager._restoreUI(tgt.ui);
       renderPeakList();
+      _refreshRoiAndCentreWarnings();   // this branch does not redraw: the hint must describe the target's window (Codex round 2)
     } else {
       tabManager.activateTab(tid);
     }

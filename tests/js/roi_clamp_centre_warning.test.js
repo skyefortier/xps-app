@@ -157,9 +157,20 @@ test('manual fit and Find Peaks select the same points whenever no energy lies w
     assert.deepStrictEqual(serverMask(DATA, lo, hi), page, `ROI ${lo}–${hi}`);
   }
 });
-test('…and can differ by one edge point when an energy lies within 5e-5 eV of an edge (pre-existing, logged, not changed)', () => {
-  const raw = Array.from({ length: 21 }, (_, i) => 280.00004 + 0.1 * i);   // Codex round 1 reproducer
+test('…and can differ by one edge point, IN EITHER DIRECTION, when an energy lies within 5e-5 eV of an edge (pre-existing, logged, not changed)', () => {
+  // rounding DROPS a point (Codex round 1)
+  const raw = Array.from({ length: 21 }, (_, i) => 280.00004 + 0.1 * i);
   const e = makeEnv({ rawBE: raw, roiMin: 280.00002, roiMax: 282.1 });
   assert.equal(e.getROIData().be.length, 21);
   assert.equal(serverMask(raw, 280.00002, 282.1).length, 20, 'rounding 280.00004 to 280.0 moves it below the edge');
+  // rounding ADDS a point, with an ordinary ROI (Codex round 2)
+  const raw2 = Array.from({ length: 21 }, (_, i) => 279.99996 + 0.1 * i);
+  const e2 = makeEnv({ rawBE: raw2, roiMin: 280, roiMax: 282.1 });
+  assert.equal(e2.getROIData().be.length, 20);
+  assert.equal(serverMask(raw2, 280, 282.1).length, 21, 'rounding 279.99996 to 280.0 moves it onto the edge');
+  // …and a charge shift's float subtraction can produce such an energy from a clean grid (Codex round 2, run A)
+  const raw3 = Array.from({ length: 21 }, (_, i) => +(280.1 + 0.1 * i).toFixed(1));
+  const e3 = makeEnv({ rawBE: raw3, ccShift: 0.2, roiMin: 279.9, roiMax: 281.9 });
+  const corr3 = raw3.map(b => b - 0.2);
+  assert.equal(e3.getROIData().be.length, serverMask(corr3, 279.9, 281.9).length - 1, 'the corrected 281.90000000000003 is outside the page ROI and inside the server one');
 });
