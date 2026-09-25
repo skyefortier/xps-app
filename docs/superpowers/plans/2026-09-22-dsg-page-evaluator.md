@@ -145,6 +145,13 @@ every function-extractor list that names the lineshape block
   The five: LACX m > 0 in (A), (B) and (D); (B) DS+G (scalar evaluator
   ignores m, by design); the LACX round trip.
 - Python suite on the guarded-branch commit (ce9fb66): 1 failed, 991 passed, 7 skipped in 1242.96s (0:20:42).
+  The one failure, `tests/test_component_required.py::test_a_redundant_anchor_is_supported_but_not_required`,
+  fits pseudo-Voigt lines only (no DS+G) and is FLAKY on main as well:
+  re-run three times in this worktree it passed 3/3, and against the main
+  checkout it failed 1 of 3. Its assertion ("held-others statistic passes:
+  that is the gap") sits on the F ≥ 10 threshold of a Trust-Region fit,
+  the non-bit-reproducibility CLAUDE.md records. Not this unit's; logged
+  for the fail-open-guards / flaky-test queue.
 - Browser check (`browser_check_dsg.py`, dev gunicorn :5151 with the
   production `--timeout 300`): the committed UCl4-graphite C1s Scan with its
   Graphite line switched to DS+G at Find Peaks' parameters (β 0.05, α 0.2,
