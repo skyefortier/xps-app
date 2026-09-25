@@ -6,6 +6,37 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-25 — DS+G page evaluator (`fix-dsg-page-evaluator`)
+
+- **Release note:** DS+G components are now drawn, integrated and exported
+  exactly as the server fits them. Until now the page used a numerical
+  quadrature that was wrong across most of the shape's range, and on the
+  parameters Find Peaks proposes for a graphitic C 1s line (every A- and
+  M-family candidate) the page showed the component 5–21 % low in area.
+  Nothing in Find Peaks or the shape dropdown changed.
+- The page's `dsgConvolved_array` mirrors the server's padded-grid
+  convolution with the same FFT circular convolution: < 1e-6 of amplitude
+  (measured ≤ 6e-14) across the full α/β/m box the optimiser can reach, on
+  eight grids, irregular grids and 1- and 2-point grids; browser check on a
+  committed C 1s scan agrees to 1e-12.
+- **Server change, one guarded branch:** a DS+G centre OUTSIDE the padded
+  grid is normalised by the curve's maximum (it was normalised by a ~1e-20
+  tail whose rounding sign picked one of two unrelated curves). Proven
+  byte-identical to the previous function for every centre inside the padded
+  grid: 5,780 of 5,780 cases `np.array_equal`, and `run_fit` on a committed
+  C 1s model with a DS+G line returns identical JSON
+  (`scripts/dsg_outside_centre_identity.py`,
+  `docs/findings/dsg-evaluator/identity_proof_vs_main_b3c9e37.txt`).
+- Server limits documented and left (plan §3a, §3c): a DS+G m just above the
+  0.001 delta threshold on a coarse grid can underflow the kernel and return
+  an all-zero curve (it then reads as "not supported by the data"); a centre
+  inside the padded grid but outside the measured data is still normalised
+  by the old rule, where the page can diverge loudly. Only a peak centred
+  outside the data reaches the second; the next unit warns on it.
+- Codex: round 3 NO-GO x2 on the §3c residual only (owner: option 1, deploy).
+  Python 991 passed / 7 skipped / 1 pre-existing flaky test (being fixed
+  next); JS 396 / 391 pass / 5 todo; browser-checked.
+
 ## 2026-09-22 — A03: Voigt η identity, parameter-range sweep, U 4f gap re-measured (`fix-voigt-eta-identity`)
 
 - **Release note:** Voigt components are now fitted at the fixed 50/50 mix
