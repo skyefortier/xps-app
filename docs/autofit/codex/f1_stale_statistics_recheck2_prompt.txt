@@ -1,0 +1,21 @@
+Re-review unit F1 (stale statistics after an edit), round 3: branch fix-stale-statistics. Round-2 fix commit = HEAD (git diff 9c94347..HEAD); the whole unit is git diff main..HEAD. Earlier rounds: docs/autofit/codex/f1_stale_statistics_verdict_run{A,B}.md (round 1), f1_stale_statistics_r2_verdict_run{A,B}.md (round 2); the round-1 prompt holds the brief and the creators / consumers tables; plan section 5 lists every round-1 finding and its fix. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+ROUND-2 FINDINGS AND FIXES (plan section 5, verbatim):
+
+**Round 2 — NO-GO ×2** (`f1_stale_statistics_r2_verdict_run{A,B}.md`; both
+runs confirmed every round-1 fix and that each new behavioural test fails
+without its fix; the same two findings in both):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | `_fitKeyCanon` used `Number()`; the iteration / averaging counts are read by `parseInt()`: fitted at endpoint avg 30, typing `3e1` (read as 3) stayed `current` and slipped past both mid-fit discards | each form field is canonicalised through ITS READERS' parser — the four energies `parseFloat` (getROIData, `_bgWindowIndices`, stack Path B), `shirleyIter` / `endpointAvg` `parseInt` (computeBackgroundCore, both request builders); a field that parses to nothing keeps its text. Equal canonical keys ⇒ equal reads; a reader's default (`parseInt('0') \|\| 5`) is deliberately not folded in (errs towards stale). Browser: fit at 30 → `3e1` stale → `30.0` current. |
+| 2 | closing the LAST tab nulls the result but left Results, header and status χ² on screen | the last-tab branch of `closeTab` calls `renderResults()` (its no-result path clears all three). Browser: all tabs closed → "Run the fit to see results.", "χ² —", "—". |
+
+
+TRY TO BREAK
+a. _fitKeyCanon now reads each field through its readers' parser. Check EVERY reader of each of the seven _STARTS_UI_FIELDS (bgType, bgStart, bgEnd, shirleyIter, endpointAvg, roiMin, roiMax) in templates/index.html and static/js/*: is any read by something other than parseFloat / parseInt (Number(), +v, a string compare, the request body sending the RAW string, _restoreUI writing it back, a save writing the text), such that two canonically-equal spellings still produce a different fit or a different saved record? Is any field read by BOTH parseInt and parseFloat somewhere?
+b. The last-tab close: every other transition to no result (closing a non-last active tab onto a tab without a fit, switching to a stack tab, loading a file into a fresh tab, clearing peaks by deleting the last one) - does the Results panel / header / status bar agree with the new active state?
+c. Round 1's fixes, as re-checked in round 2 - anything still reachable after this commit's changes?
+d. Tests: the new canonicalisation cases and the close-last-tab pin - real, and would they fail without the fix?
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

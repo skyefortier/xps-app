@@ -121,3 +121,12 @@ All findings reproduced and fixed:
 | 6 | Clear All leaves the previous Results table (B) | the refresh also handles the transition to `none` (only when a state was rendered before: a fresh page is left alone). |
 | 7 | MINOR: "280" vs "280.0" reads stale (A, B) | `_sameFitKey` compares keys after canonicalising the form-field numbers; keys are COMPARED canonically, never rewritten, so keys already in saved files keep matching. Used by every key comparison (statistics, starts evidence, support verdicts, both mid-fit discards). |
 
+**Round 2 — NO-GO ×2** (`f1_stale_statistics_r2_verdict_run{A,B}.md`; both
+runs confirmed every round-1 fix and that each new behavioural test fails
+without its fix; the same two findings in both):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | `_fitKeyCanon` used `Number()`; the iteration / averaging counts are read by `parseInt()`: fitted at endpoint avg 30, typing `3e1` (read as 3) stayed `current` and slipped past both mid-fit discards | each form field is canonicalised through ITS READERS' parser — the four energies `parseFloat` (getROIData, `_bgWindowIndices`, stack Path B), `shirleyIter` / `endpointAvg` `parseInt` (computeBackgroundCore, both request builders); a field that parses to nothing keeps its text. Equal canonical keys ⇒ equal reads; a reader's default (`parseInt('0') \|\| 5`) is deliberately not folded in (errs towards stale). Browser: fit at 30 → `3e1` stale → `30.0` current. |
+| 2 | closing the LAST tab nulls the result but left Results, header and status χ² on screen | the last-tab branch of `closeTab` calls `renderResults()` (its no-result path clears all three). Browser: all tabs closed → "Run the fit to see results.", "χ² —", "—". |
+

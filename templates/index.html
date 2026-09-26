@@ -3316,6 +3316,9 @@ class TabManager {
       this._updateCCVerifiedUI(true);
       _updateRFactorUI(null);
       _updateROIDisplay(null);
+      // F1 (Codex round 2): the closed spectrum's Results, header and status
+      // statistics go too (renderResults' no-result path clears all three)
+      if (typeof renderResults === 'function') renderResults();
       const notesEl = document.getElementById('spectrum-notes');
       if (notesEl) notesEl.value = '';
       return;
@@ -7631,18 +7634,33 @@ function _startsModelKey(peaks, ui, ccShift, anchors) {
     a: (anchors || []).map(v => [v.x, v.y]),
   });
 }
-// Two keys describe the same fit when they are equal after the form fields'
-// numbers are canonicalised: '280' and '280.0' select the same data and send
-// the same request (F1, Codex round 1). Compared, never rewritten, so keys
-// already persisted in saved files keep matching.
+// Two keys describe the same fit when they are equal after each form field is
+// read THE WAY ITS READERS READ IT: '280' and '280.0' select the same data and
+// send the same request (F1, Codex round 1). Each field goes through its own
+// parser — the energies through parseFloat (getROIData, _bgWindowIndices,
+// Path B), the iteration / averaging counts through parseInt
+// (computeBackgroundCore, both request builders) — never Number(): '3e1' is
+// 30 to Number but 3 to parseInt (Codex round 2). A field that parses to
+// nothing keeps its text. Equal canonical keys therefore mean equal reads;
+// the converse is not claimed (a reader's default, parseInt('0') || 5, is
+// not folded in: that errs towards "stale", never towards "current").
+// Compared, never rewritten, so keys already persisted in saved files keep
+// matching.
 function _fitKeyCanon(k) {
   if (typeof k !== 'string') return k;
+  const PARSE = { bgStart: parseFloat, bgEnd: parseFloat, roiMin: parseFloat, roiMax: parseFloat,
+                  shirleyIter: v => parseInt(v), endpointAvg: v => parseInt(v) };
   const memo = _fitKeyCanon._memo || (_fitKeyCanon._memo = new Map());
   let c = memo.get(k);
   if (c !== undefined) return c;
   try {
     const o = JSON.parse(k);
-    if (o && Array.isArray(o.u)) o.u = o.u.map(v => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) ? String(Number(v)) : v);
+    if (o && Array.isArray(o.u)) o.u = o.u.map((v, i) => {
+      const read = PARSE[_STARTS_UI_FIELDS[i]];
+      if (!read || typeof v !== 'string') return v;
+      const n = read(v);
+      return Number.isFinite(n) ? String(n) : v;
+    });
     c = JSON.stringify(o);
   } catch (_) { c = k; }
   if (memo.size > 256) memo.clear();

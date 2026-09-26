@@ -629,7 +629,9 @@ current peaks; saves keep the key (a reload judges again) and add
 `statisticsState` / `statisticsNote`. Refreshed from `updatePlot`
 via `_refreshStartsEvidence` (`_refreshStatsState`, Results carries
 `data-stats-state`; lock toggles and Lock All reach it too). Keys are
-compared by `_sameFitKey` (form numbers canonicalised: "280" = "280.0").
+compared by `_sameFitKey` (each form field canonicalised through its
+readers' parser: energies parseFloat, "280" = "280.0"; counts parseInt,
+"3e1" ≠ "30").
 Auto-Fit now discards a response whose model or context was edited while
 it ran, and a transport failure after such an edit runs no local fit. A
 stale save's curve and R are never re-installed on load. The model

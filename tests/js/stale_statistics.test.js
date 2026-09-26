@@ -318,6 +318,23 @@ test('an equivalent spelling of a form number ("280" / "280.0") is the same fit;
   assert.ok(!k._sameFitKey(a, k._startsModelKey(peaks, { ...ui, bgType: 'linear' }, 0, [])), 'a background change');
   assert.ok(!k._sameFitKey(a, k._startsModelKey(peaks, { ...ui, roiMin: '' }, 0, [])), 'an emptied field is not "0"');
   assert.strictEqual(k._statsState({ startsModelKey: a }, k._startsModelKey(peaks, { ...ui, roiMin: '280.0' }, 0, [])), 'current');
+  // Codex round 2: each field is read as ITS READERS read it — the counts through parseInt
+  for (const [field, fitted, typed, same] of [
+    ['endpointAvg', '30', '3e1', false],     // Number('3e1') = 30, parseInt('3e1') = 3: a different background
+    ['endpointAvg', '10', '1e1', false],
+    ['shirleyIter', '5', '5.0', true],       // parseInt: 5 either way
+    ['shirleyIter', '5', '5.9', true],       // parseInt reads 5 — the same fit
+    ['endpointAvg', '3', '03', true],
+    ['roiMin', '280', '2.8e2', true],        // parseFloat reads 280 either way
+    ['roiMin', '280', '280abc', true],       // parseFloat reads 280 (what getROIData selects)
+    ['bgStart', '295', '295.5', false],
+  ]) {
+    const fk = k._startsModelKey(peaks, { ...ui, [field]: fitted }, 0, []);
+    const lk = k._startsModelKey(peaks, { ...ui, [field]: typed }, 0, []);
+    const pf = /Iter|Avg/.test(field) ? parseInt : parseFloat;
+    assert.strictEqual(pf(fitted) === pf(typed), same, 'fixture: the reader agrees with the expectation');
+    assert.strictEqual(k._sameFitKey(fk, lk), same, `${field} ${fitted} vs ${typed}`);
+  }
   assert.ok(!k._sameFitKey(null, null) && !k._sameFitKey(a, null), 'no key never matches');
   assert.ok(!k._sameFitKey('not json', 'not json ') && k._sameFitKey('not json', 'not json'));
 });
@@ -372,6 +389,12 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
   const clean = await run(false);
   assert.strictEqual(clean.applied, 1, 'an unedited run is applied as before');
   assert.strictEqual(clean.restored, false);
+});
+
+test('closing the last tab clears the Results panel, header and status statistics too', () => {
+  const close = html.slice(html.indexOf('  closeTab(id) {'));
+  const last = close.slice(close.indexOf('if (this.tabs.length === 0) {'));
+  assert.ok(/renderResults\(\)/.test(last.slice(0, last.indexOf('return;'))), 'the no-result render runs before the early return');
 });
 
 test('reload never installs an edited-model curve or R under the original key, and activation never computes R over an edited model', () => {
