@@ -130,3 +130,24 @@ without its fix; the same two findings in both):
 | 1 | `_fitKeyCanon` used `Number()`; the iteration / averaging counts are read by `parseInt()`: fitted at endpoint avg 30, typing `3e1` (read as 3) stayed `current` and slipped past both mid-fit discards | each form field is canonicalised through ITS READERS' parser — the four energies `parseFloat` (getROIData, `_bgWindowIndices`, stack Path B), `shirleyIter` / `endpointAvg` `parseInt` (computeBackgroundCore, both request builders); a field that parses to nothing keeps its text. Equal canonical keys ⇒ equal reads; a reader's default (`parseInt('0') \|\| 5`) is deliberately not folded in (errs towards stale). Browser: fit at 30 → `3e1` stale → `30.0` current. |
 | 2 | closing the LAST tab nulls the result but left Results, header and status χ² on screen | the last-tab branch of `closeTab` calls `renderResults()` (its no-result path clears all three). Browser: all tabs closed → "Run the fit to see results.", "χ² —", "—". |
 
+
+**Round 3 — GO ×2, no findings** (`f1_stale_statistics_r3_verdict_run{A,B}.md`).
+Both runs traced all seven keyed fields through every reader, request, save
+and restore (no conflicting parser); checked close-last, close-active,
+stack / fresh-tab activation, Clear All and last-peak deletion; found no
+reopened round-1 finding; confirmed both round-2 tests fail against
+`9c94347`.
+
+## 6. Release note
+
+Statistics now follow the model they came from. After any edit to a
+component, a lock, the background, the ROI, the anchors or the charge
+correction — or a Find Peaks apply / undo that keeps an older result — the
+previous fit's χ², RMSE, R-factor and uncertainties are marked as belonging
+to the previous model and are not shown, exported or drawn as the fit (the
+Results panel says so; exports carry a WARNING; saves record it). Undo back
+to the fitted values and they return. Projects saved before this release
+show their statistics with a note that they cannot be confirmed to describe
+the saved model (re-run Run Fit to confirm). Auto-Fit, and a fit that falls
+back to the in-page engine, now discard a result whose model was edited while
+it ran, as Run Fit already did.
