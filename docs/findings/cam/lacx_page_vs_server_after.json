@@ -1,0 +1,991 @@
+{
+ "summary": {
+  "components": 108,
+  "integer_caM": 2,
+  "locked": 1,
+  "maxDiffRel": {
+   "n": 108,
+   "median": 3.2301494382596917e-16,
+   "max": 7.3638750138241e-16
+  },
+  "absDAreaPct": {
+   "n": 108,
+   "median": 1.1102230246251565e-14,
+   "max": 5.551115123125783e-14
+  }
+ },
+ "rows": [
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f7/2",
+   "caM": 8.19934520780095,
+   "fixCaM": false,
+   "maxDiffRel": 3.540625494029813e-16,
+   "dAreaPct": -2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f5/2",
+   "caM": 8.19934520780095,
+   "fixCaM": false,
+   "maxDiffRel": 4.085337108495938e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f7/2",
+   "caM": 9.859888380824296,
+   "fixCaM": false,
+   "maxDiffRel": 3.9684834384329703e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f5/2",
+   "caM": 9.859888380824296,
+   "fixCaM": false,
+   "maxDiffRel": 4.070239424033816e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f7/2",
+   "caM": 7.506925282018743,
+   "fixCaM": false,
+   "maxDiffRel": 4.580904005319643e-16,
+   "dAreaPct": -3.3306690738754696e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f5/2",
+   "caM": 7.506925282018743,
+   "fixCaM": false,
+   "maxDiffRel": 4.69836308237912e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f7/2",
+   "caM": 8.351028919863579,
+   "fixCaM": false,
+   "maxDiffRel": 3.0274081172907007e-16,
+   "dAreaPct": -2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f5/2",
+   "caM": 8.351028919863579,
+   "fixCaM": false,
+   "maxDiffRel": 3.105033966452001e-16,
+   "dAreaPct": -2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f7/2",
+   "caM": 8.001658173857885,
+   "fixCaM": false,
+   "maxDiffRel": 4.671392546152319e-16,
+   "dAreaPct": -5.551115123125783e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f5/2",
+   "caM": 8.001658173857885,
+   "fixCaM": false,
+   "maxDiffRel": 5.390068322483444e-16,
+   "dAreaPct": -4.440892098500626e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f7/2",
+   "caM": 5.582827686142615,
+   "fixCaM": false,
+   "maxDiffRel": 2.8383788956519143e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f5/2",
+   "caM": 5.582827686142615,
+   "fixCaM": false,
+   "maxDiffRel": 2.183368381270703e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f7/2",
+   "caM": 7.109481039594523,
+   "fixCaM": false,
+   "maxDiffRel": 4.760723819277406e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f5/2",
+   "caM": 7.109481039594523,
+   "fixCaM": false,
+   "maxDiffRel": 2.44139683039867e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f7/2",
+   "caM": 7.656464156414737,
+   "fixCaM": false,
+   "maxDiffRel": 3.7797023491518475e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f5/2",
+   "caM": 7.656464156414737,
+   "fixCaM": false,
+   "maxDiffRel": 2.907463345501421e-16,
+   "dAreaPct": -2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f7/2",
+   "caM": 6.550245848482404,
+   "fixCaM": false,
+   "maxDiffRel": 4.082910842125291e-16,
+   "dAreaPct": -2.220446049250313e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f5/2",
+   "caM": 6.550245848482404,
+   "fixCaM": false,
+   "maxDiffRel": 3.140700647788685e-16,
+   "dAreaPct": 4.440892098500626e-14
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f7/2",
+   "caM": 9.161920727933342,
+   "fixCaM": false,
+   "maxDiffRel": 2.9604035198715606e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f5/2",
+   "caM": 9.161920727933342,
+   "fixCaM": false,
+   "maxDiffRel": 4.554466953648555e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f7/2",
+   "caM": 0,
+   "fixCaM": true,
+   "maxDiffRel": 1.191097591952322e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f5/2",
+   "caM": 0,
+   "fixCaM": false,
+   "maxDiffRel": 1.5881301226030958e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f7/2",
+   "caM": 0.03129175223819014,
+   "fixCaM": false,
+   "maxDiffRel": 1.3731924015116756e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f5/2",
+   "caM": 0.03129175223819014,
+   "fixCaM": false,
+   "maxDiffRel": 1.8309232020155673e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f7/2",
+   "caM": 0.29418216588029783,
+   "fixCaM": false,
+   "maxDiffRel": 1.3720668639800376e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f5/2",
+   "caM": 0.29418216588029783,
+   "fixCaM": false,
+   "maxDiffRel": 1.8294224853067166e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f7/2",
+   "caM": 3.9451120036330267,
+   "fixCaM": false,
+   "maxDiffRel": 4.1405918073876983e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f5/2",
+   "caM": 3.9451120036330267,
+   "fixCaM": false,
+   "maxDiffRel": 3.6805260510112867e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f7/2",
+   "caM": 1.8791236767997688,
+   "fixCaM": false,
+   "maxDiffRel": 4.253752763613685e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f5/2",
+   "caM": 1.8791236767997688,
+   "fixCaM": false,
+   "maxDiffRel": 3.781113567656609e-16,
+   "dAreaPct": -4.440892098500626e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f7/2",
+   "caM": 0.3007478374164745,
+   "fixCaM": false,
+   "maxDiffRel": 1.2848976859485631e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f5/2",
+   "caM": 0.3007478374164745,
+   "fixCaM": false,
+   "maxDiffRel": 1.7131969145980843e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f7/2",
+   "caM": 4.405013865339606,
+   "fixCaM": false,
+   "maxDiffRel": 2.4452189064835584e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f5/2",
+   "caM": 4.405013865339606,
+   "fixCaM": false,
+   "maxDiffRel": 3.2602918753114107e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f7/2",
+   "caM": 3.194734572884084e-9,
+   "fixCaM": false,
+   "maxDiffRel": 1.2266609741386156e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f5/2",
+   "caM": 3.194734572884084e-9,
+   "fixCaM": false,
+   "maxDiffRel": 8.17773982759077e-17,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f7/2",
+   "caM": 2.2517602935984757,
+   "fixCaM": false,
+   "maxDiffRel": 2.258315423547893e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f5/2",
+   "caM": 2.2517602935984757,
+   "fixCaM": false,
+   "maxDiffRel": 3.01108723139719e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f7/2",
+   "caM": 2.601947915123374,
+   "fixCaM": false,
+   "maxDiffRel": 2.653992741919402e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f5/2",
+   "caM": 2.601947915123374,
+   "fixCaM": false,
+   "maxDiffRel": 2.653992741919402e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f7/2",
+   "caM": 5.274564884095105,
+   "fixCaM": false,
+   "maxDiffRel": 3.375483334684161e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f5/2",
+   "caM": 5.274564884095105,
+   "fixCaM": false,
+   "maxDiffRel": 1.731017094709826e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f7/2",
+   "caM": 8.977708339562373,
+   "fixCaM": false,
+   "maxDiffRel": 5.544090518111405e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f5/2",
+   "caM": 8.977708339562373,
+   "fixCaM": false,
+   "maxDiffRel": 5.686246685242466e-16,
+   "dAreaPct": 4.440892098500626e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f7/2",
+   "caM": 8.18614094502097,
+   "fixCaM": false,
+   "maxDiffRel": 3.200007001207973e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f5/2",
+   "caM": 8.18614094502097,
+   "fixCaM": false,
+   "maxDiffRel": 4.923087694166112e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f7/2",
+   "caM": 9.500856163118732,
+   "fixCaM": false,
+   "maxDiffRel": 4.1502110075477066e-16,
+   "dAreaPct": -4.440892098500626e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f5/2",
+   "caM": 9.500856163118732,
+   "fixCaM": false,
+   "maxDiffRel": 3.192470005805928e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f7/2",
+   "caM": 8.949662164848407,
+   "fixCaM": false,
+   "maxDiffRel": 1.9389457073298307e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f5/2",
+   "caM": 8.949662164848407,
+   "fixCaM": false,
+   "maxDiffRel": 4.47449009383807e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f7/2",
+   "caM": 9.46272426236025,
+   "fixCaM": false,
+   "maxDiffRel": 7.3638750138241e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f5/2",
+   "caM": 9.46272426236025,
+   "fixCaM": false,
+   "maxDiffRel": 4.2483894310523653e-16,
+   "dAreaPct": -2.220446049250313e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f7/2",
+   "caM": 8.98912726402828,
+   "fixCaM": false,
+   "maxDiffRel": 1.9066167078636904e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f5/2",
+   "caM": 8.98912726402828,
+   "fixCaM": false,
+   "maxDiffRel": 4.39988471045467e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f7/2",
+   "caM": 9.81392144894354,
+   "fixCaM": false,
+   "maxDiffRel": 4.3009676182808395e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f5/2",
+   "caM": 9.81392144894354,
+   "fixCaM": false,
+   "maxDiffRel": 4.4112488392623997e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f7/2",
+   "caM": 7.8930510258187905,
+   "fixCaM": false,
+   "maxDiffRel": 3.184070061134857e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f5/2",
+   "caM": 7.8930510258187905,
+   "fixCaM": false,
+   "maxDiffRel": 3.061605828014285e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f7/2",
+   "caM": 7.679225762323879,
+   "fixCaM": false,
+   "maxDiffRel": 3.393336756417396e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f5/2",
+   "caM": 7.679225762323879,
+   "fixCaM": false,
+   "maxDiffRel": 2.6102590433979967e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f7/2",
+   "caM": 7.452503588846346,
+   "fixCaM": false,
+   "maxDiffRel": 4.3456794348601027e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f5/2",
+   "caM": 7.452503588846346,
+   "fixCaM": false,
+   "maxDiffRel": 3.342830334507771e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f7/2",
+   "caM": 8.940808754218997,
+   "fixCaM": false,
+   "maxDiffRel": 3.602880637493051e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f5/2",
+   "caM": 8.940808754218997,
+   "fixCaM": false,
+   "maxDiffRel": 2.771446644225424e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f7/2",
+   "caM": 13.248791283084197,
+   "fixCaM": false,
+   "maxDiffRel": 6.217807078680524e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f5/2",
+   "caM": 13.248791283084197,
+   "fixCaM": false,
+   "maxDiffRel": 5.580083275738932e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f7/2",
+   "caM": 7.229921060086857,
+   "fixCaM": false,
+   "maxDiffRel": 3.810259114777649e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f5/2",
+   "caM": 7.229921060086857,
+   "fixCaM": false,
+   "maxDiffRel": 1.4654842749144803e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f7/2",
+   "caM": 0.1921440819458686,
+   "fixCaM": false,
+   "maxDiffRel": 2.8256182390512084e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f5/2",
+   "caM": 0.1921440819458686,
+   "fixCaM": false,
+   "maxDiffRel": 2.1735524915778524e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f7/2",
+   "caM": 13.759703248318894,
+   "fixCaM": false,
+   "maxDiffRel": 3.637376908276309e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f5/2",
+   "caM": 13.759703248318894,
+   "fixCaM": false,
+   "maxDiffRel": 4.196973355703433e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f7/2",
+   "caM": 10.541027157816622,
+   "fixCaM": false,
+   "maxDiffRel": 1.8448758749756038e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f5/2",
+   "caM": 10.541027157816622,
+   "fixCaM": false,
+   "maxDiffRel": 4.257405865328316e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f7/2",
+   "caM": 7.452503588846346,
+   "fixCaM": false,
+   "maxDiffRel": 4.3456794348601027e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f5/2",
+   "caM": 7.452503588846346,
+   "fixCaM": false,
+   "maxDiffRel": 3.342830334507771e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f7/2",
+   "caM": 8.940808754218997,
+   "fixCaM": false,
+   "maxDiffRel": 3.602880637493051e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f5/2",
+   "caM": 8.940808754218997,
+   "fixCaM": false,
+   "maxDiffRel": 2.771446644225424e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f7/2",
+   "caM": 13.248791283084197,
+   "fixCaM": false,
+   "maxDiffRel": 6.217807078680524e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f5/2",
+   "caM": 13.248791283084197,
+   "fixCaM": false,
+   "maxDiffRel": 5.580083275738932e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f7/2",
+   "caM": 7.229921060086857,
+   "fixCaM": false,
+   "maxDiffRel": 3.810259114777649e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f5/2",
+   "caM": 7.229921060086857,
+   "fixCaM": false,
+   "maxDiffRel": 1.4654842749144803e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f7/2",
+   "caM": 0.1921440819458686,
+   "fixCaM": false,
+   "maxDiffRel": 2.8256182390512084e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f5/2",
+   "caM": 0.1921440819458686,
+   "fixCaM": false,
+   "maxDiffRel": 2.1735524915778524e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f7/2",
+   "caM": 13.759703248318894,
+   "fixCaM": false,
+   "maxDiffRel": 3.637376908276309e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f5/2",
+   "caM": 13.759703248318894,
+   "fixCaM": false,
+   "maxDiffRel": 4.196973355703433e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f7/2",
+   "caM": 10.541027157816622,
+   "fixCaM": false,
+   "maxDiffRel": 1.8448758749756038e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f5/2",
+   "caM": 10.541027157816622,
+   "fixCaM": false,
+   "maxDiffRel": 4.257405865328316e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f7/2",
+   "caM": 8.199206946287239,
+   "fixCaM": false,
+   "maxDiffRel": 5.310937425483646e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan",
+   "peak": "U 4f5/2",
+   "caM": 8.199206946287239,
+   "fixCaM": false,
+   "maxDiffRel": 2.723557654094177e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f7/2",
+   "caM": 9.859849427386386,
+   "fixCaM": false,
+   "maxDiffRel": 6.614140850567994e-16,
+   "dAreaPct": -4.440892098500626e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_0",
+   "peak": "U 4f5/2",
+   "caM": 9.859849427386386,
+   "fixCaM": false,
+   "maxDiffRel": 5.087800654283071e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f7/2",
+   "caM": 8.026279793961638,
+   "fixCaM": false,
+   "maxDiffRel": 3.056751332132334e-16,
+   "dAreaPct": -2.220446049250313e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_1",
+   "peak": "U 4f5/2",
+   "caM": 8.026279793961638,
+   "fixCaM": false,
+   "maxDiffRel": 2.351347178563334e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f7/2",
+   "caM": 9.359471871164365,
+   "fixCaM": false,
+   "maxDiffRel": 4.0376417387969038e-16,
+   "dAreaPct": -3.3306690738754696e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_2",
+   "peak": "U 4f5/2",
+   "caM": 9.359471871164365,
+   "fixCaM": false,
+   "maxDiffRel": 3.1058782606130026e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f7/2",
+   "caM": 8.001524130457923,
+   "fixCaM": false,
+   "maxDiffRel": 2.335697900511293e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_3",
+   "peak": "U 4f5/2",
+   "caM": 8.001524130457923,
+   "fixCaM": false,
+   "maxDiffRel": 3.5933813854019887e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f7/2",
+   "caM": 5.5825368027045545,
+   "fixCaM": false,
+   "maxDiffRel": 2.8383779583882814e-16,
+   "dAreaPct": -1.1102230246251565e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_4",
+   "peak": "U 4f5/2",
+   "caM": 5.5825368027045545,
+   "fixCaM": false,
+   "maxDiffRel": 2.183367660298678e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f7/2",
+   "caM": 7.109481852560603,
+   "fixCaM": false,
+   "maxDiffRel": 3.173815882508402e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_5",
+   "peak": "U 4f5/2",
+   "caM": 7.109481852560603,
+   "fixCaM": false,
+   "maxDiffRel": 3.662095249048156e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f7/2",
+   "caM": 7.739886734617352,
+   "fixCaM": false,
+   "maxDiffRel": 1.9164686306393363e-16,
+   "dAreaPct": 0
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_6",
+   "peak": "U 4f5/2",
+   "caM": 7.739886734617352,
+   "fixCaM": false,
+   "maxDiffRel": 2.948413277906671e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f7/2",
+   "caM": 7.93892273598672,
+   "fixCaM": false,
+   "maxDiffRel": 2.0310966968716946e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_7",
+   "peak": "U 4f5/2",
+   "caM": 7.93892273598672,
+   "fixCaM": false,
+   "maxDiffRel": 3.1247641490333767e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f7/2",
+   "caM": 9.160767536954989,
+   "fixCaM": false,
+   "maxDiffRel": 2.9604017768592553e-16,
+   "dAreaPct": 2.220446049250313e-14
+  },
+  {
+   "project": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_8",
+   "peak": "U 4f5/2",
+   "caM": 9.160767536954989,
+   "fixCaM": false,
+   "maxDiffRel": 3.4158482040683715e-16,
+   "dAreaPct": 0
+  }
+ ]
+}

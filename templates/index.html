@@ -4061,10 +4061,11 @@ function laCasaXPS(x, center, alpha, beta, mGauss) {
   return laCasaXPSCore(x - center, alpha, beta) / peakVal;
 }
 
-// True LA(α, β, m) [CasaXPS] — piecewise-asymmetric Lorentzian + integer-kernel Gauss conv.
-// Mirrors fitting.py:_la_casaxps_true. BE axis: high-BE side (eps ≥ 0)
-// gets exponent α; low-BE side (eps < 0) gets β. m is integer 0–499 in
-// data-points; σ_pts = m/3.
+// True LA(α, β, m) [CasaXPS] — piecewise-asymmetric Lorentzian + Gauss conv.
+// BE axis: high-BE side (eps ≥ 0) gets exponent α; low-BE side (eps < 0)
+// gets β. Per-point: the base curve only, m IGNORED — the convolution is a
+// grid operation (laTrueCasaXPS_array, via evalPeakArray; parity guard (C)
+// proves no shipped caller reaches the scalar path).
 function laTrueCasaXPS(x, center, fwhm, alpha, beta, m) {
   const F = Math.max(fwhm, 1e-9);
   const A = Math.max(alpha, 1e-3);
@@ -4076,49 +4077,56 @@ function laTrueCasaXPS(x, center, fwhm, alpha, beta, m) {
   return eps >= 0 ? Math.pow(L, A) : Math.pow(L, B);
 }
 
+// LA(α, β, m) on a grid — a literal mirror of fitting._la_casaxps_true
+// (caM unit, 2026-09-25). m is CONTINUOUS in data points (the server fits it
+// continuously so its derivative exists; the page used to round it and
+// build an integer 2m+1 kernel, drawing a curve up to 0.97 % of amplitude
+// and an area up to 1.2 % away from the fitted one on the lab's U 4f
+// components): σ = m/3 points, half-width max(1, ⌈3.5σ⌉), kernel
+// normalised to unit sum, np.convolve(base, kernel, 'same') with the
+// server's trim when the kernel is longer than the grid, normalisation at
+// the grid point nearest the centre (np.argmin |ε|; fallback max), m < 1e-3
+// = the bare base curve (no normalisation), m clamped to [0, 499].
+// Returns the curve for unit amplitude; the caller applies the amplitude.
 function laTrueCasaXPS_array(xArr, center, fwhm, alpha, beta, m) {
   const N = xArr.length;
   const F = Math.max(fwhm, 1e-9);
   const A = Math.max(alpha, 1e-3);
   const B = Math.max(beta,  1e-3);
-  const mInt = Math.max(0, Math.min(499, Math.round(m || 0)));
+  const mc = Math.max(0, Math.min(499, Number.isFinite(m) ? m : 0));
   const base = new Float64Array(N);
   for (let i = 0; i < N; i++) {
     const eps = xArr[i] - center;
     const L = 1.0 / (1.0 + 4.0 * (eps / F) * (eps / F));
     base[i] = eps >= 0 ? Math.pow(L, A) : Math.pow(L, B);
   }
-  if (mInt === 0) return base;
-  const sigma = mInt / 3.0;
-  const klen = 2 * mInt + 1;
-  const kern = new Float64Array(klen);
+  if (mc < 1e-3) return Array.from(base);
+  const sigma = mc / 3.0;
+  const half = Math.max(1, Math.ceil(3.5 * sigma));
+  const K = 2 * half + 1;
+  const kern = new Float64Array(K);
   let ksum = 0;
-  for (let k = 0; k < klen; k++) {
-    const dk = k - mInt;
-    kern[k] = Math.exp(-(dk * dk) / (2.0 * sigma * sigma));
-    ksum += kern[k];
-  }
-  for (let k = 0; k < klen; k++) kern[k] /= ksum;
-  const out = new Float64Array(N);
+  for (let t = 0; t < K; t++) { const k = t - half; kern[t] = Math.exp(-(k * k) / (2.0 * sigma * sigma)); ksum += kern[t]; }
+  for (let t = 0; t < K; t++) kern[t] /= ksum;
+  // np.convolve(base, kern, 'same'), then the server's trim to len(base):
+  // out[i] = full[off + i], full[j] = Σ_t base[j − t]·kern[t],
+  // off = (K−1)/2 when K ≤ N, else ⌊(N−1)/2⌋ + ⌊(K−N)/2⌋ (pinned against
+  // numpy on 3,000 random (N, K) — plan §2)
+  const off = K <= N ? (K - 1) / 2 : Math.floor((N - 1) / 2) + Math.floor((K - N) / 2);
+  const out = new Array(N);
   for (let i = 0; i < N; i++) {
-    let s = 0;
-    for (let k = 0; k < klen; k++) {
-      const j = i + (k - mInt);
-      if (j >= 0 && j < N) s += base[j] * kern[k];
-    }
-    out[i] = s;
+    const j = off + i;
+    let acc = 0;
+    const t0 = Math.max(0, j - (N - 1)), t1 = Math.min(K - 1, j);
+    for (let t = t0; t <= t1; t++) acc += base[j - t] * kern[t];
+    out[i] = acc;
   }
-  let pkIdx = 0;
-  for (let i = 1; i < N; i++) {
-    if (Math.abs(xArr[i] - center) < Math.abs(xArr[pkIdx] - center)) pkIdx = i;
-  }
-  let pkVal = out[pkIdx];
-  if (pkVal <= 0) {
-    let mx = 0; for (let i = 0; i < N; i++) if (out[i] > mx) mx = out[i];
-    pkVal = mx;
-  }
-  if (pkVal <= 0) return out;
-  for (let i = 0; i < N; i++) out[i] = out[i] / pkVal;
+  let pk = 0;
+  for (let i = 1; i < N; i++) if (Math.abs(xArr[i] - center) < Math.abs(xArr[pk] - center)) pk = i;   // np.argmin: first minimum
+  let pv = N ? out[pk] : 0;
+  if (!(pv > 0)) { let mx = -Infinity; for (let i = 0; i < N; i++) if (out[i] > mx) mx = out[i]; pv = mx; }
+  if (!(pv > 0)) return new Array(N).fill(0);
+  for (let i = 0; i < N; i++) out[i] = out[i] / pv;
   return out;
 }
 
@@ -4348,7 +4356,9 @@ function dsgConvolved_array(beArr, center, alpha, beta, mGauss) {
 // DSG_LA (every m: the delta branch below 0.001, the convolution above) so
 // the padding, kernel and normalisation see the whole grid.
 function evalPeakArray(beArr, p) {
-  if (p.shape === 'LACX' && Math.round(p.caM || 0) > 0) {
+  if (p.shape === 'LACX') {
+    // every m, continuous, as the server (caM unit 2026-09-25; it was
+    // Math.round(p.caM) > 0 → integer kernel)
     const yArr = laTrueCasaXPS_array(beArr, p.center, p.fwhm, p.caAlpha, p.caBeta, p.caM);
     const out = new Array(beArr.length);
     const amp = p.amplitude;
@@ -6334,10 +6344,10 @@ function renderShapeControls(p) {
         </div>
       </div>
       <div class="field">
-        <label data-xps-tip="Gaussian convolution kernel width in DATA POINTS (not eV). Integer 0–499. m=0 = no convolution. Effective eV width ≈ (m/3) × dx where dx is the data step size.">m (Gauss kernel pts)
+        <label data-xps-tip="Gaussian convolution kernel width in DATA POINTS (not eV), 0–499. Continuous: the fit returns a fractional value and the curve is drawn with it. m=0 = no convolution. Effective eV width ≈ (m/3) × dx where dx is the data step size.">m (Gauss kernel pts)
           ${!isLinked ? `<button class="lock-btn${p.fixCaM ? ' locked' : ''}" onclick="event.stopPropagation();toggleLock(${p.id},'fixCaM',this)" title="${p.fixCaM ? 'Unlock' : 'Lock'} during fitting">${p.fixCaM ? '&#x1f512;' : '&#x1f513;'}</button>` : ''}
         </label>
-        <input type="number" value="${Math.round(p.caM ?? 50)}" step="1" min="0" max="499"
+        <input type="number" value="${Number.isFinite(p.caM) ? +p.caM.toFixed(2) : 50}" step="0.1" min="0" max="499"
           oninput="updatePeakParam(${p.id},'caM',parseFloat(this.value))">
       </div>
     `;
@@ -8013,12 +8023,11 @@ function _fitStatLabel(fr) {
 // (2026-09-22: Voigt = fixed eta 0.5 on BOTH sides), on Voigt components
 // wherever the two engines reach the same minimum (5 of 9 committed U 4f
 // targets: every component within 4.3 meV, 2.6 % FWHM, 2 % area, 0.12 pp);
-// it still differs on the other 4 U 4f targets (satellite areas up to
-// 8.9 %, 0.77 pp): on one because the LA m is held at its start locally
-// (the gap closes when the server holds m too), on three because the local
-// descent stops at a higher chi2r than the server from the same start
-// (+5 to +13 %, with m held as well) - several minima - and it gives no
-// uncertainties. Unweighted A0-era results differed by more than 100 %.
+// since the caM unit (2026-09-25: LA m continuous and optimised locally) the
+// remaining U 4f differences are all a different minimum, in both
+// directions (docs/findings/cam/local_server_gap_after_cam.json): the local
+// engine above the server by 4.9-13 % chi2r on three targets, below it by
+// 5.7 % on one - and it gives no uncertainties. Unweighted A0-era results differed by more than 100 %.
 // Every site that shows, exports or saves a fit result carries the
 // designation, keyed on persisted identity so reloaded results are labelled.
 const _LOCAL_FIT_CAVEAT = 'Local fit (Poisson-weighted like the server, no uncertainties): a starting point, not a reportable result. Run Fit before reporting.';
@@ -8037,7 +8046,7 @@ function _governingProvenance() {
 function _localFitDetail(fr) {
   return _isUnweightedLocal(fr)
     ? 'Its areas can differ from the server fit by more than 100&nbsp;%.'
-    : 'It can differ from the server fit for LA components (the page holds the smoothing parameter m at its start; the server fits it) or where the model has several minima.';
+    : 'It can differ from the server fit where the model has several minima (either engine can stop in the worse one).';
 }
 // The designation follows the MODEL, not only a live fit result: parameters
 // imported from a .fit.json that was saved from a local fit are a starting
@@ -8208,7 +8217,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     if (param === 'laM')          return Math.max(0.05, Math.min(4.0, v));
     if (param === 'caAlpha')      return Math.max(0.1, Math.min(5.0, v));
     if (param === 'caBeta')       return Math.max(0.1, Math.min(5.0, v));
-    if (param === 'caM')          return Math.max(0,   Math.min(499, Math.round(v)));
+    if (param === 'caM')          return Math.max(0,   Math.min(499, v));   // continuous, as the server (caM unit 2026-09-25)
     return v;
   }
   const LINK_SYNC_KEYS = ['glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
@@ -8296,10 +8305,10 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     }
     return Math.max(1, Math.abs(vec[j]));
   };
-  // caM is rounded to an integer by its clamp, so a finite difference cannot
-  // see it: it is carried at its starting value (inherited behaviour; see the
-  // A0 follow-up list) and excluded from the stationarity test.
-  const isDiscrete = j => paramMap[j].param === 'caM';
+  // No parameter is discrete: caM was rounded by its clamp and carried at
+  // its start until the caM unit (2026-09-25); it is now continuous, as the
+  // server fits it, and is optimised and tested like any other.
+  const isDiscrete = () => false;
   // MINPACK-style termination: (ftol) actual AND predicted relative
   // reductions both below FTOL, with the linearised model agreeing with
   // the actual reduction; (xtol) relative step below XTOL; (gtol) the
@@ -8444,9 +8453,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     delete live._backendParams;
   }
 
-  // Degrees of freedom count the parameters this engine actually varies: the
-  // integer-clamped caM is carried at its start value and is not one of them
-  // (continuous parameters temporarily blocked at a wall still count).
+  // Degrees of freedom count the parameters this engine varies (every free
+  // one, since caM became continuous; parameters temporarily blocked at a
+  // wall still count).
   const nVaried = params.filter((_, j) => !isDiscrete(j)).length;
   const dof = Math.max(1, be.length - nVaried);
   const chiReduced = chi / dof;                       // weighted reduced chi-square, as lmfit's redchi
@@ -11486,7 +11495,7 @@ function _updateROIDisplay(roiRange) {
   el.textContent = `ROI: ${roiRange.min}\u2013${roiRange.max} eV`;
 }
 
-const _LOCALFIT_TOOLTIP = "Statistic of the local (in-page) fit. Since unit W1 (2026-09) the local engine is Poisson-weighted like the server, so its \u03c7\u00b2\u1d63 is comparable with the server's, but it gives no parameter uncertainties and can differ from the server fit for LA components (m held at its start locally) or where the model has several minima. Local results saved earlier were unweighted and are labelled 'Residual variance'. Run Fit with the server available for a reportable result.";
+const _LOCALFIT_TOOLTIP = "Statistic of the local (in-page) fit. Since unit W1 (2026-09) the local engine is Poisson-weighted like the server, so its \u03c7\u00b2\u1d63 is comparable with the server's, but it gives no parameter uncertainties and can differ from the server fit where the model has several minima. Local results saved earlier were unweighted and are labelled 'Residual variance'. Run Fit with the server available for a reportable result.";
 const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty. Computed within the ROI range.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
 
 // Wire up custom tooltip for data-xps-tip elements (R-factor, chi-squared, etc.)
@@ -14529,7 +14538,7 @@ document.addEventListener('mousedown', function(e) {
 <div id="localfit-warn-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:460px;border-color:var(--amber,#f59e0b)">
     <h3 style="color:var(--amber,#f59e0b)">&#9888; Local fit used (server unreachable) <button class="btn btn-sm" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged and is Poisson-weighted like the server, but it gives <strong>no parameter uncertainties</strong> and can differ from the server fit for LA components (m held at its start locally) or where the model has several minima. Treat it as a <strong>starting point, not a reportable result</strong>. Run Fit again when the server is available before quantifying, exporting or reporting.</p>
+    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged and is Poisson-weighted like the server, but it gives <strong>no parameter uncertainties</strong> and can differ from the server fit where the model has several minima. Treat it as a <strong>starting point, not a reportable result</strong>. Run Fit again when the server is available before quantifying, exporting or reporting.</p>
     <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px"><strong style="color:var(--text)">Possible causes:</strong><br>
     &bull; The server may be offline or restarting<br>
     &bull; The fit request may have timed out<br>

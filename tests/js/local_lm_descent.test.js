@@ -477,22 +477,30 @@ test('server parity on GL-type models: weighted local Batch Fit matches lmfit fr
   }
 });
 
-// ── W1 Codex round 1: a never-optimised parameter (integer-clamped caM) is not a degree of freedom ──
-test('reduced chi-square does not count the held caM as a varied parameter', () => {
-  const run = (fixCaM) => {
+// ── caM unit (2026-09-25): m is continuous and OPTIMISED by the local engine, as by the server ──
+// Until this unit the local clamp rounded caM, the finite difference could
+// not see it, and it was carried at its start and left out of the degrees
+// of freedom (W1 Codex round 1 pinned that). Now it moves and counts.
+test('the local engine optimises a free LA m continuously and counts it as a degree of freedom', () => {
+  const be = grid(280, 283, 0.05);
+  const truth = { id: 1, name: 'la', shape: 'LACX', center: 281.5, fwhm: 0.8, amplitude: 5000, caAlpha: 1.2, caBeta: 1.5, caM: 8.66, glMix: 50, asymmetry: 0 };
+  const fitFrom = (fixCaM) => {
     const env = makeEnv();
-    const be = grid(280, 282, 0.1);
-    const truth = { id: 1, name: 'la', shape: 'LACX', center: 281.0, fwhm: 1.0, amplitude: 50, caAlpha: 1.2, caBeta: 1.5, caM: 6, glMix: 50, asymmetry: 0 };
     env.state.peaks = [{ ...truth }];
-    const data = env.evalAllPeaks(be, env.state.peaks).map((v, i) => v * (1 + 0.05 * Math.sin(3 * i)) + 20);
-    env.state.peaks = [{ ...truth, amplitude: 40, fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true, fixCaM }];
-    const out = env.runFitLocal(be, data.map(v => v - 20), new Array(be.length).fill(20));
+    const data = env.evalAllPeaks(be, env.state.peaks);          // noise-free truth at a FRACTIONAL m
+    env.state.peaks = [{ ...truth, caM: 5, amplitude: 4000, fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true, fixCaM }];
+    const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
     assert.equal(out.success, true, JSON.stringify(out));
-    return { chi: env.state.fitResult.chi, chiReduced: out.chiReduced, amp: env.state.peaks[0].amplitude };
+    return { out, p: env.state.peaks[0], fr: env.state.fitResult };
   };
-  const a = run(true), b = run(false);
-  assert.ok(Math.abs(a.amp - b.amp) < 1e-9 && Math.abs(a.chi - b.chi) < 1e-9, 'identical fit either way');
-  assert.ok(Math.abs(a.chiReduced - b.chiReduced) < 1e-12, `same fit, same reduced chi-square: ${a.chiReduced} vs ${b.chiReduced}`);
+  const free = fitFrom(false);
+  assert.ok(Math.abs(free.p.caM - 8.66) < 1e-3, `m recovered continuously: ${free.p.caM}`);
+  assert.ok(!Number.isInteger(free.p.caM), 'not rounded');
+  assert.ok(Math.abs(free.p.amplitude - 5000) < 1e-2, `amplitude ${free.p.amplitude}`);
+  const held = fitFrom(true);
+  assert.equal(held.p.caM, 5, 'a locked m stays where it was locked');
+  // the free fit varies two parameters (amplitude, m), the held one one: dof differ by exactly one
+  assert.equal(Math.round(held.fr.chi / held.out.chiReduced) - Math.round(free.fr.chi / free.out.chiReduced), 1, 'm counts as a degree of freedom when free');
 });
 
 

@@ -115,7 +115,7 @@ tab reordering exists.
 | `asym-GL` | GL with asymmetric FWHM broadening on high-BE side |
 | `DS` | Doniach-Šunjić, `dsAlpha` (0–0.5) + `dsGamma` |
 | `DSG_LA` | DS+G — DS asymmetric core convolved with Gaussian. Frontend params `laAlpha`/`laBeta`/`laM`; backend id `ds_g`. |
-| `LACX` | True CasaXPS LA(α,β,m) — asymmetric Lorentzian + integer-kernel Gauss conv. Frontend params `caAlpha`/`caBeta`/`caM`; backend id `la_casaxps`. |
+| `LACX` | True CasaXPS LA(α,β,m) — asymmetric Lorentzian + Gauss conv with a CONTINUOUS m (data points; σ = m/3, half-width ⌈3.5σ⌉) on both sides since the caM unit (2026-09-25). Frontend params `caAlpha`/`caBeta`/`caM`; backend id `la_casaxps`. |
 
 **What the page draws must be what the server fitted.** Two harnesses pin
 it: `tests/js/lineshape_roundtrip.test.js` builds the request with the
@@ -132,9 +132,16 @@ to the optimiser's bounds (a DS+G m locked at 0 fitted at 0.05 —
 `_make_peak_params._set` now widens a limit to a held value), and the
 server clipping DS+G α to 0.495 where the page did not (`_dsgAlpha`). A
 held parameter is held at its value; what the page draws is what the
-server fitted. Tracked gap, `todo` in both files: LACX with m > 0 (the page draws
-a rounded integer kernel; the server fits m continuously — the `caM` clamp
-unit). DS+G was the other gap until 2026-09-22 (the page's quadrature
+server fitted. No shape carries a tracked gap any more. LACX with m > 0 was
+the last (the page drew m rounded to an integer 2m+1 kernel while the
+server fits it continuously: up to 0.97 % of amplitude and 1.2 % of area on
+the lab's U 4f components) until the `caM` unit, 2026-09-25:
+`laTrueCasaXPS_array` now mirrors `_la_casaxps_true` (continuous σ = m/3,
+half-width max(1, ⌈3.5σ⌉), `np.convolve` 'same' with the server's trim,
+normalisation at the grid point nearest the centre) — ≤ 7e-16 of amplitude
+on all 108 committed LA components, pinned across the α/β/m box on seven
+grids incl. grids shorter than the kernel
+(`docs/superpowers/plans/2026-09-25-cam-continuous.md`). DS+G was the other gap until 2026-09-22 (the page's quadrature
 `laCasaXPS` sized its step to the Lorentzian core, not the Gaussian kernel,
 and was wrong by up to 1e52 × amplitude at β = 2, m = 0.05 and 5–21 % low
 in area on the very box Find Peaks emits for a graphitic C 1s line);
@@ -228,7 +235,7 @@ names `caAlpha` / `caBeta` / `caM` so users do not confuse them with DS+G's
 |-----------|---------|
 | α (`caAlpha`) | High-BE-side exponent on the unit-amplitude Lorentzian; dimensionless, default 1.0, bounds 0.1–5.0 |
 | β (`caBeta`) | Low-BE-side exponent; dimensionless, default 1.0, bounds 0.1–5.0 |
-| m (`caM`) | Gaussian convolution kernel width in DATA POINTS (not eV); integer, default 50, bounds 0–499 |
+| m (`caM`) | Gaussian convolution kernel width in DATA POINTS (not eV); continuous (the server fits it continuously so its derivative exists; the page draws and the local engine optimises the same continuous value since 2026-09-25 — it was rounded to an integer kernel on the page and held at its start by the local engine), default 50, bounds 0–499 |
 
 α=β=1, m=0 reduces exactly to a pure Lorentzian. Increasing α
 **suppresses** the high-BE tail; decreasing α extends it (BE-axis
@@ -488,8 +495,9 @@ Damping exhaustion is a FAILURE. Poisson-weighted since unit W1
 (2026-09-18): it minimises Σ(w·r)² with w = 1/√max(raw counts, 1), the
 server's weighting, so its statistic is a real χ²ᵣ (objective
 `poisson_weighted_chi_square`); results saved by unit A0 were unweighted
-and stay labelled "Residual variance". It produces no uncertainties, and
-the integer-clamped `caM` is not optimised (carried at its start value).
+and stay labelled "Residual variance". It produces no uncertainties. Since
+the `caM` unit (2026-09-25) it optimises LA's m continuously, as the server
+does (it was rounded by the clamp and carried at its start).
 
 **A local result is a STARTING POINT, not a reportable result** (keyed on
 `engine: 'local'`, helpers `_isLocalFit` / `_isLocalModel` /
@@ -500,22 +508,21 @@ GL-type models (≤ 4 meV, ≤ 1.4 % area on the lab's C1s scans) and on Voigt
 components (fixed η = 0.5 on both sides since A03: on the 5 of 9 committed
 U 4f targets where both engines reach the same minimum every component
 agrees within 4.3 meV, 2.6 % FWHM, 2.0 % area, 0.12 pp — W1 had measured up
-to 20.8 % area on the Voigt satellites); it still differs on the other 4
-U 4f targets (satellite areas up to 8.9 %, 0.77 pp) for two reasons,
-separated by a control arm (the server with every LA m held at its start):
-on one target the `caM` clamp (`caM` held at its start locally while the
-server fits m continuously; holding m on the server closes the gap), on
-three the local descent stopping at a χ²ᵣ 5–13 % above the server's from
-the same start with the same free parameters — a worse minimum, the
-"several minima" case (both engines' amplitude floor is 0 since unit
+to 20.8 % area on the Voigt satellites) and, since the `caM` unit
+(2026-09-25, LA m continuous and optimised locally), on LA components
+wherever the engines reach the same minimum (4 of 9 U 4f targets within
+3.0 meV / 0.49 % / 0.34 % / 0.02 pp). What remains is a different minimum,
+in BOTH directions (`docs/findings/cam/local_server_gap_after_cam.json`):
+the local engine 4.9–13 % above the server on three U 4f targets and
+5.7 % below it on one (both engines' amplitude floor is 0 since unit
 step (b)). Both engines weight by
 √intensity whether the data are counts or CPS (a convention, not a
 calibrated uncertainty for rates); the formula is the same but the inputs
 are not bit-identical, because `uploadToBackend` rounds intensities to
-2 dp before the server weights them. A03 is done and the designation
-STAYS on both grounds; the `caM` clamp is the next unit, the worse-minimum
-outcome is recorded for the local-engine work after it, and the label is
-reconsidered only on a re-measurement after both. (The amplitude-bound change
+2 dp before the server weights them. A03 and the `caM` unit are done and
+the designation STAYS: the worse-minimum outcome (three of nine U 4f
+targets) is the remaining ground, and the label is reconsidered only on a
+re-measurement after that work. (The amplitude-bound change
 DECIDED 2026-09-18 — `docs/findings/2026-09-fit-determinacy.md` §3 — is
 implemented: unit step (b), 2026-09-22, below.) The same file records that a
 converged server fit is not ground truth: on a committed C 1s scan the

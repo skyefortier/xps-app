@@ -15,10 +15,10 @@
 // page then DRAWS (evalPeakArray on the fitted grid) to be the curve the
 // server FITTED (individual_peaks[].y).
 //
-// One shape carries a known drawn-vs-fitted gap and is marked todo with the
-// unit that owns it: LACX (the page sends m free and draws it ROUNDED — the
-// caM clamp unit). DSG_LA was the other until 2026-09-22 (the page's
-// quadrature; now dsgConvolved_array mirrors the server).
+// No shape carries a known drawn-vs-fitted gap any more. DSG_LA did until
+// 2026-09-22 (the page's quadrature; now dsgConvolved_array mirrors the
+// server) and LACX until 2026-09-25 (the page drew m rounded to an integer
+// kernel; now laTrueCasaXPS_array mirrors the server's continuous-m one).
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { execFileSync } = require('node:child_process');
@@ -91,9 +91,7 @@ const CASES = {
   'LACX':       { truth: { shape: 'LACX', caAlpha: 1.6, caBeta: 0.7, caM: 20 }, start: { caAlpha: 1.0, caBeta: 1.0, caM: 30 } },
 };
 const TIGHT_TOL = 1e-6;      // of amplitude; both curves are the same closed form on the same grid
-const KNOWN_GAP = {
-  'LACX':   'LACX: the page sends m FREE and draws it rounded to an integer kernel (laTrueCasaXPS_array) — the caM clamp unit',
-};
+const KNOWN_GAP = {};   // LACX was the last (the page drew m rounded to an integer kernel) — closed by the caM unit, 2026-09-25
 
 function roundTrip(shape, { truth, start, extraPeaks = [] }) {
   const truthPeaks = [fullPeak(truth), ...extraPeaks.map(e => fullPeak(e.truth))];
@@ -193,7 +191,8 @@ const LOCKED_AT_BOUNDS = [
   // comparison sits under the caM evaluator gap marked todo above (curve: false)
   { label: 'DS+G m 0.05 locked', truth: { shape: 'DSG_LA', laAlpha: 0.15, laBeta: 0.5, laM: 0.05, fixLaM: true }, held: { m_gauss: 0.05 } },
   { label: 'DS+G m 4 locked',    truth: { shape: 'DSG_LA', laAlpha: 0.15, laBeta: 0.5, laM: 4, fixLaM: true }, held: { m_gauss: 4 } },
-  { label: 'LA m 499 locked (request and hold only)',    truth: { shape: 'LACX', caAlpha: 1, caBeta: 1, caM: 499, fixCaM: true }, held: { m: 499 }, curve: false },
+  { label: 'LA m 499 locked',    truth: { shape: 'LACX', caAlpha: 1, caBeta: 1, caM: 499, fixCaM: true }, held: { m: 499 } },
+  { label: 'LA m 8.66 locked (a fractional m, as a fit returns it)', truth: { shape: 'LACX', caAlpha: 1.3, caBeta: 0.9, caM: 8.66, fixCaM: true }, held: { m: 8.66 } },
 ];
 for (const c of LOCKED_AT_BOUNDS) {
   test(`locked at a bound, the request carries the value the page draws, the server holds it, and the fit is drawn as fitted — ${c.label}`, () => {

@@ -168,7 +168,7 @@ for (const shape of ['Gaussian', 'Lorentzian', 'GL', 'Voigt', 'DS', 'asym-GL']) 
 //   the fitted box, every grid step, orientation and off-grid centre tested
 //   below).
 //
-test('(A) frontend vs backend parity: LACX (m>0) — KNOWN GAP, unit 2 (kernel discretization)', { todo: 'unit 2 fast-follow: LACX Gaussian-conv kernel mismatch vs backend, grows with m (~0.15% at m=50, measured 2026-08-30)' }, () => {
+test('(A) frontend vs backend parity: LACX (m>0) (FIXED 2026-09-25, caM unit: continuous-m kernel mirrored)', () => {
   const p = basePeak('LACX');
   const x = grid(p.center);
   const jsY = evalPeakArray(x, p);
@@ -347,10 +347,10 @@ const SWEEP = {
   // the full β/m box the optimiser can reach, incl. the corner that made the
   // old quadrature 1e52 × amplitude (β 2, m 0.05) and the delta threshold
   'DSG_LA (m > 0)': { laAlpha: [0, 0.25, 0.49], laBeta: [0.05, 0.7, 2], laM: [0.001, 0.05, 0.4, 2, 4] },
+  // continuous m (caM unit, 2026-09-25): fractional values, the 1e-3 threshold, and the 499 ceiling
+  'LACX (m > 0)':   { caAlpha: [0.1, 1, 5], caBeta: [0.1, 1, 5], caM: [0.001, 0.5, 1, 5, 8.66, 50, 123.4, 499], fwhm: FWHM_RANGE },
 };
-const SWEEP_KNOWN_GAP = {
-  'LACX (m > 0)':   { caAlpha: [0.1, 1, 5], caBeta: [0.1, 1, 5], caM: [1, 5, 50, 499], fwhm: FWHM_RANGE },
-};
+const SWEEP_KNOWN_GAP = {};
 function sweepShape(label) { return label.split(' ')[0]; }
 // The backend parameters of the sweep come from the PAGE's request builder,
 // not from a mapping of this file's own (Codex round 1: a mapping written
@@ -478,5 +478,29 @@ for (const laM of [0.001, 0.002, 0.02, 0.05]) {
     const serverMax = Math.max(...beY.map(Math.abs));
     if (laM <= 0.002) assert.equal(serverMax, 0, `m = ${laM}: the server curve is expected to vanish here (kernel underflow) — if it no longer does, the server changed; update this characterisation`);
     else assert.ok(serverMax > 0.9, `m = ${laM}: a real curve`);
+  });
+}
+
+// ── (D‴) LA convergence beyond the base grid (caM unit, 2026-09-25) ──────────
+// The kernel is built in DATA POINTS, so the grid decides it: steps, a
+// descending grid, an off-grid centre, and grids SHORTER than the kernel
+// (np.convolve 'same' then the server's trim — the branch the old integer
+// kernel never exercised).
+const LA_BOX = { caAlpha: [0.1, 1.4, 5], caBeta: [0.1, 0.8, 5], caM: [0.001, 2.5, 8.66, 50, 499] };
+const LA_GRIDS = [
+  { label: 'step 0.1 eV, 120 pts', step: 0.1, n: 120 },
+  { label: 'step 0.02 eV, 500 pts', step: 0.02, n: 500 },
+  { label: 'step 0.05 eV, descending', step: 0.05, n: 200, descending: true },
+  { label: 'step 0.05 eV, centre 0.013 eV off-grid', step: 0.05, n: 200, offset: 0.013 },
+  { label: '9 points (kernel longer than the grid for m ≥ 3)', step: 0.1, n: 9 },
+  { label: '2 points', step: 0.1, n: 2 },
+];
+for (const g of LA_GRIDS) {
+  test(`(D‴) LA continuous-m convolution matches the server on another grid: ${g.label}`, () => {
+    const cases = combos(LA_BOX).map(c => ({ c, p: { ...basePeak('LACX'), ...c } }));
+    const specs = cases.map(k => { const b = backendParamsFromRequest(k.p); return { ...b, x: gridOf(k.p.center, g.step, g.n, g) }; });
+    const beYs = backendEvalMany(specs);
+    const worst = cases.map((k, i) => ({ c: k.c, rel: maxRelDiff(evalPeakArray(specs[i].x, k.p), beYs[i], k.p.amplitude) })).sort((a, b) => b.rel - a.rel);
+    assert.ok(worst[0].rel < TIGHT_TOL, `${g.label}: ${worst.filter(r => r.rel >= TIGHT_TOL).length} of ${worst.length} diverge; worst ${(worst[0].rel * 100).toExponential(3)} % of amplitude at ${JSON.stringify(worst[0].c)}`);
   });
 }
