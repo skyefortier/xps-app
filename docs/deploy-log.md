@@ -6,6 +6,24 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-25 — LA's m continuous on the page; held exactly by the local engine (`fix-cam-continuous`)
+
+- **Release note:** LA(α, β, m) components are now drawn, integrated and
+  exported with the same continuous m the server fits (the page rounded it
+  to a whole number of points): opening a saved U 4f project moves an LA
+  component's area by 0.33 % at the median and 1.2 % at most, to the curve
+  that was actually fitted. m is shown to 0.01. Batch Fit keeps m exactly
+  at the value it is given (it used to round it to a whole number).
+- Page vs server on the 108 committed LA components: max 0.97 % of
+  amplitude → 7e-16. Every LA parity and round-trip check is now a hard
+  assertion.
+- Fitting m in the local engine was tried and withdrawn after two Codex
+  rounds: LA's curve jumps at every m = 6k/7 and a smooth optimiser cannot
+  fit it (owner: right call; Batch Fit fitting m declined — it would close
+  only Scan_6, and the starting-point label stays either way).
+- Codex GO x2 (round 3); Python 993 passed / 7 skipped; JS 422 / 420 pass /
+  2 todo; browser-checked.
+
 ## 2026-09-25 — ROI past the data + peak centre outside the data (`fix-roi-clamp`)
 
 - **Release note:** when the Region of Interest extends past your data, the

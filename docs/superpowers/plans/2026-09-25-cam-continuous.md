@@ -163,3 +163,12 @@ comment still described the withdrawn derivative, and
 both now hold m — relabelled unlocked/locked, its round-1 free-m result
 marked historical. Python suite on the final commit: 993 passed, 7
 skipped.
+
+## 8. Owner decisions at deploy (2026-09-25)
+
+- Deploy approved; withdrawing the fit-m half after two failed rounds "was
+  the right call".
+- Batch Fit fitting m (a derivative-free search): DECLINED — it would only
+  close Scan_6; Scans 4/5/8 are a worse-minimum problem, so the
+  starting-point label stays either way.
+
