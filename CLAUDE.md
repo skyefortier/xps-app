@@ -235,7 +235,7 @@ names `caAlpha` / `caBeta` / `caM` so users do not confuse them with DS+G's
 |-----------|---------|
 | α (`caAlpha`) | High-BE-side exponent on the unit-amplitude Lorentzian; dimensionless, default 1.0, bounds 0.1–5.0 |
 | β (`caBeta`) | Low-BE-side exponent; dimensionless, default 1.0, bounds 0.1–5.0 |
-| m (`caM`) | Gaussian convolution kernel width in DATA POINTS (not eV); continuous (the server fits it continuously so its derivative exists; the page draws and the local engine optimises the same continuous value since 2026-09-25 — it was rounded to an integer kernel on the page and held at its start by the local engine), default 50, bounds 0–499 |
+| m (`caM`) | Gaussian convolution kernel width in DATA POINTS (not eV); continuous (the server fits it continuously so its derivative exists; the page draws the same continuous value since 2026-09-25 — it drew an integer kernel; the local engine HOLDS it exactly, since LA's curve jumps at m = 6k/7 and a smooth optimiser cannot fit it), default 50, bounds 0–499 |
 
 α=β=1, m=0 reduces exactly to a pure Lorentzian. Increasing α
 **suppresses** the high-BE tail; decreasing α extends it (BE-axis
@@ -495,9 +495,10 @@ Damping exhaustion is a FAILURE. Poisson-weighted since unit W1
 (2026-09-18): it minimises Σ(w·r)² with w = 1/√max(raw counts, 1), the
 server's weighting, so its statistic is a real χ²ᵣ (objective
 `poisson_weighted_chi_square`); results saved by unit A0 were unweighted
-and stay labelled "Residual variance". It produces no uncertainties. Since
-the `caM` unit (2026-09-25) it optimises LA's m continuously, as the server
-does (it was rounded by the clamp and carried at its start).
+and stay labelled "Residual variance". It produces no uncertainties, and it
+HOLDS LA's `caM` at its exact value (it used to round it in its clamp; a
+free m was tried in the `caM` unit and withdrawn: LA's curve is
+discontinuous in m, `docs/superpowers/plans/2026-09-25-cam-continuous.md`).
 
 **A local result is a STARTING POINT, not a reportable result** (keyed on
 `engine: 'local'`, helpers `_isLocalFit` / `_isLocalModel` /
@@ -508,20 +509,20 @@ GL-type models (≤ 4 meV, ≤ 1.4 % area on the lab's C1s scans) and on Voigt
 components (fixed η = 0.5 on both sides since A03: on the 5 of 9 committed
 U 4f targets where both engines reach the same minimum every component
 agrees within 4.3 meV, 2.6 % FWHM, 2.0 % area, 0.12 pp — W1 had measured up
-to 20.8 % area on the Voigt satellites) and, since the `caM` unit
-(2026-09-25, LA m continuous and optimised locally), on LA components
-wherever the engines reach the same minimum (4 of 9 U 4f targets within
-3.0 meV / 0.49 % / 0.34 % / 0.02 pp). What remains is a different minimum,
-in BOTH directions (`docs/findings/cam/local_server_gap_after_cam.json`):
-the local engine 4.9–13 % above the server on three U 4f targets and
-5.7 % below it on one (both engines' amplitude floor is 0 since unit
-step (b)). Both engines weight by
+to 20.8 % area on the Voigt satellites); it still differs on the other U 4f
+targets for two reasons, separated by a control arm (the server with LA's
+m held at the same value): the `caM` hold (the server fits m, the local
+engine holds it — on Scan_6 the whole gap), and the local descent stopping
+in a worse minimum (5–13 % χ²ᵣ above the held-m server on Scan_4/5/8) —
+the "several minima" case (`docs/findings/cam/local_server_gap_after_cam.json`;
+both engines' amplitude floor is 0 since unit step (b)). Both engines weight by
 √intensity whether the data are counts or CPS (a convention, not a
 calibrated uncertainty for rates); the formula is the same but the inputs
 are not bit-identical, because `uploadToBackend` rounds intensities to
 2 dp before the server weights them. A03 and the `caM` unit are done and
-the designation STAYS: the worse-minimum outcome (three of nine U 4f
-targets) is the remaining ground, and the label is reconsidered only on a
+the designation STAYS on both grounds: fitting m locally needs a
+derivative-free search (its own unit), and the worse-minimum outcome
+(three of nine U 4f targets) remains; the label is reconsidered only on a
 re-measurement after that work. (The amplitude-bound change
 DECIDED 2026-09-18 — `docs/findings/2026-09-fit-determinacy.md` §3 — is
 implemented: unit step (b), 2026-09-22, below.) The same file records that a

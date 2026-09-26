@@ -13,8 +13,8 @@
 // ROI grid × step) — so the comparison is about parameters, not about which
 // side integrated. A third arm (Codex round 1: "movement in m alone does not
 // establish that the residual is the local clamp") fits the server with every
-// LA m HELD at the value the local engine effectively uses — its start
-// ROUNDED to an integer, as laTrueCasaXPS_array rounds it (Codex round 2) —
+// LA m HELD at the value the local engine effectively uses — its exact
+// start since the caM unit (2026-09-25; before it, the start rounded) —
 // the one thing the local engine cannot move: if that arm agrees with the local engine where the
 // free-m arm did not, the attribution is established by a controlled
 // comparison, not inferred. Usage: node scripts/local_server_gap.js [out.json]
@@ -77,7 +77,8 @@ for (const [region, sourceName] of [['C1s', 'C1s Scan'], ['U4f', 'U4f Scan']]) {
       return { r, peaks };
     };
     const { r: srv, peaks: serverPeaks } = serverFit(T.start);
-    const heldStart = T.start.map(p => p.shape === 'LACX' ? { ...p, caM: Math.round(p.caM || 0), fixCaM: true } : p);
+    // held at the value the local engine holds: its exact start since the caM unit (it rounded it before)
+    const heldStart = T.start.map(p => p.shape === 'LACX' ? { ...p, fixCaM: true } : p);
     const { r: srvHeld, peaks: serverHeldPeaks } = serverFit(heldStart);
     // linked peaks: the local engine syncs them; the server returns resolved values for them too (applied above)
     const aL = localPeaks.map(p => area(env, T.be, p)), aS = serverPeaks.map(p => area(env, T.be, p)), aH = serverHeldPeaks.map(p => area(env, T.be, p));

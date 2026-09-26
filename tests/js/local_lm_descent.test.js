@@ -477,37 +477,35 @@ test('server parity on GL-type models: weighted local Batch Fit matches lmfit fr
   }
 });
 
-// ── caM unit (2026-09-25): m is continuous and OPTIMISED by the local engine, as by the server ──
-// Until this unit the local clamp rounded caM, the finite difference could
-// not see it, and it was carried at its start and left out of the degrees
-// of freedom (W1 Codex round 1 pinned that). Now it moves and counts.
-test('the local engine optimises a free LA m continuously and counts it as a degree of freedom', () => {
+// ── caM unit (2026-09-25): the local engine HOLDS LA's m, exactly ──
+// It used to make a free caM free and then ROUND it in its clamp, so a
+// fractional server-fitted 8.2 was silently fitted as 8 and not counted
+// as a degree of freedom. Freeing it properly failed on the curve's jumps
+// in m (Codex rounds 1–2), so it is held at its exact value.
+test('the local engine holds LA m at its exact fractional value, free or locked, and does not count it as a degree of freedom', () => {
   const be = grid(280, 283, 0.05);
   const truth = { id: 1, name: 'la', shape: 'LACX', center: 281.5, fwhm: 0.8, amplitude: 5000, caAlpha: 1.2, caBeta: 1.5, caM: 8.66, glMix: 50, asymmetry: 0 };
   const fitFrom = (fixCaM) => {
     const env = makeEnv();
     env.state.peaks = [{ ...truth }];
-    const data = env.evalAllPeaks(be, env.state.peaks);          // noise-free truth at a FRACTIONAL m
-    env.state.peaks = [{ ...truth, caM: 5, amplitude: 4000, fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true, fixCaM }];
+    const data = env.evalAllPeaks(be, env.state.peaks);
+    env.state.peaks = [{ ...truth, caM: 5.37, amplitude: 4000, fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true, fixCaM }];
     const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
     assert.equal(out.success, true, JSON.stringify(out));
     return { out, p: env.state.peaks[0], fr: env.state.fitResult };
   };
-  const free = fitFrom(false);
-  assert.ok(Math.abs(free.p.caM - 8.66) < 1e-3, `m recovered continuously: ${free.p.caM}`);
-  assert.ok(!Number.isInteger(free.p.caM), 'not rounded');
-  assert.ok(Math.abs(free.p.amplitude - 5000) < 1e-2, `amplitude ${free.p.amplitude}`);
-  const held = fitFrom(true);
-  assert.equal(held.p.caM, 5, 'a locked m stays where it was locked');
-  // the free fit varies two parameters (amplitude, m), the held one one: dof differ by exactly one
-  assert.equal(Math.round(held.fr.chi / held.out.chiReduced) - Math.round(free.fr.chi / free.out.chiReduced), 1, 'm counts as a degree of freedom when free');
+  const free = fitFrom(false), held = fitFrom(true);
+  assert.equal(free.p.caM, 5.37, 'held exactly — not rounded to 5, not moved');
+  assert.equal(held.p.caM, 5.37);
+  assert.ok(Math.abs(free.p.amplitude - held.p.amplitude) < 1e-9, 'the same fit either way');
+  assert.ok(Math.abs(free.out.chiReduced - held.out.chiReduced) < 1e-12, 'm is not a degree of freedom either way');
 });
 
 
-// caM unit, Codex round 1: LA's curve JUMPS where the kernel half-width
-// max(1, ceil(3.5 m/3)) changes (m = 6k/7). A central difference straddling
-// a jump stalled fits that converge with m held. The derivative for m now
-// stays inside one piece; both reviewers' reproducers must converge.
+// caM unit, Codex rounds 1–2: LA's curve JUMPS where the kernel half-width
+// max(1, ceil(3.5 m/3)) changes (m = 6k/7). With m made free, these fits
+// stalled (round 1) or failed next to the no-convolution threshold (round
+// 2). m is held, so each must converge whether or not it is locked.
 for (const c of [
   { label: 'run A: 201 pts at 0.03 eV, m 48 (a transition), noisy', be: grid(280, 286, 0.03),
     truth: { center: 283.013, fwhm: 0.8, amplitude: 5000, caAlpha: 1.2, caBeta: 1.5, caM: 48 }, noise: i => 5 * Math.sin(1.77 * i),
@@ -529,7 +527,25 @@ for (const c of [
     const free = run(false), held = run(true);
     assert.equal(held.out.success, true, 'held: ' + JSON.stringify(held.out));
     assert.equal(free.out.success, true, 'free: ' + JSON.stringify(free.out));
-    assert.ok(free.chi <= held.chi * (1 + 1e-9), `freeing m cannot end worse than holding it: ${free.chi} vs ${held.chi}`);
+    assert.ok(Math.abs(free.chi - held.chi) <= 1e-12 * Math.max(1, held.chi), `an unlocked m is held: the same fit either way (${free.chi} vs ${held.chi})`);
+  });
+}
+
+// Codex round 2's two reproducers: an exact-transition start (m = 18/7)
+// with amplitude and m free, and noiseless m = 0 data started at m = 0.001.
+for (const c of [
+  { label: 'exact transition m = 18/7, 61 pts at 0.03 eV', be: grid(280, 281.8, 0.03), truth: { center: 280.913, fwhm: 0.8, amplitude: 5000, caAlpha: 1.2, caBeta: 1.5, caM: 18 / 7 }, noise: i => 0.1 * Math.sin(3 * i), start: {}, lock: { fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true } },
+  { label: 'm = 0 data, start m = 0.001', be: grid(280, 283, 0.05), truth: { center: 281.513, fwhm: 0.8, amplitude: 5000, caAlpha: 1.2, caBeta: 1.5, caM: 0 }, noise: () => 0, start: { caM: 0.001, amplitude: 4500 }, lock: { fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true } },
+]) {
+  test(`round-2 reproducer converges with m unlocked (m is held) — ${c.label}`, () => {
+    const env = makeEnv();
+    const truth = { id: 1, name: 'la', shape: 'LACX', glMix: 50, asymmetry: 0, ...c.truth };
+    env.state.peaks = [{ ...truth }];
+    const data = env.evalAllPeaks(c.be, env.state.peaks).map((v, i) => v + c.noise(i));
+    env.state.peaks = [{ ...truth, ...c.start, ...c.lock, fixCaM: false }];
+    const out = env.runFitLocal(c.be, data, new Array(c.be.length).fill(0));
+    assert.equal(out.success, true, JSON.stringify(out));
+    assert.equal(env.state.peaks[0].caM, c.start.caM ?? c.truth.caM, 'm held exactly');
   });
 }
 

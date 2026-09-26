@@ -8034,11 +8034,9 @@ function _fitStatLabel(fr) {
 // (2026-09-22: Voigt = fixed eta 0.5 on BOTH sides), on Voigt components
 // wherever the two engines reach the same minimum (5 of 9 committed U 4f
 // targets: every component within 4.3 meV, 2.6 % FWHM, 2 % area, 0.12 pp);
-// since the caM unit (2026-09-25: LA m continuous and optimised locally) the
-// remaining U 4f differences are all a different minimum, in both
-// directions (docs/findings/cam/local_server_gap_after_cam.json): the local
-// engine above the server by 4.9-13 % chi2r on three targets, below it by
-// 5.7 % on one - and it gives no uncertainties. Unweighted A0-era results differed by more than 100 %.
+// it still differs where an LA component's m moves on the server (held,
+// exactly, at its start locally - LA is discontinuous in m, caM unit) and
+// where the model has several minima; and it gives no uncertainties. Unweighted A0-era results differed by more than 100 %.
 // Every site that shows, exports or saves a fit result carries the
 // designation, keyed on persisted identity so reloaded results are labelled.
 const _LOCAL_FIT_CAVEAT = 'Local fit (Poisson-weighted like the server, no uncertainties): a starting point, not a reportable result. Run Fit before reporting.';
@@ -8057,7 +8055,7 @@ function _governingProvenance() {
 function _localFitDetail(fr) {
   return _isUnweightedLocal(fr)
     ? 'Its areas can differ from the server fit by more than 100&nbsp;%.'
-    : 'It can differ from the server fit where the model has several minima (either engine can stop in the worse one).';
+    : 'It can differ from the server fit for LA components (the page holds the smoothing parameter m at its start; the server fits it) or where the model has several minima.';
 }
 // The designation follows the MODEL, not only a live fit result: parameters
 // imported from a .fit.json that was saved from a local fit are a starting
@@ -8205,7 +8203,13 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
       if (p.shape === 'LACX') {
         if (!p.fixCaAlpha) { freeParams.push(Number.isFinite(p.caAlpha) ? p.caAlpha : 1.0); paramMap.push({id: p.id, param: 'caAlpha'}); }
         if (!p.fixCaBeta)  { freeParams.push(Number.isFinite(p.caBeta)  ? p.caBeta  : 1.0); paramMap.push({id: p.id, param: 'caBeta'}); }
-        if (!p.fixCaM)     { freeParams.push(Number.isFinite(p.caM)     ? p.caM     : 50);  paramMap.push({id: p.id, param: 'caM'}); }
+        // caM is HELD at its value — exactly, not rounded, not a degree of
+        // freedom. LA's curve jumps where its kernel half-width changes
+        // (m = 6k/7), and a smooth local optimiser cannot fit a discontinuous
+        // parameter: freeing it (caM unit, 2026-09-25) stalled fits at the
+        // jumps and a derivative confined to one piece failed next to the
+        // no-convolution threshold (Codex rounds 1–2). The server fits m;
+        // Batch Fit carries the value it is given.
       }
     }
   }
@@ -8228,7 +8232,6 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     if (param === 'laM')          return Math.max(0.05, Math.min(4.0, v));
     if (param === 'caAlpha')      return Math.max(0.1, Math.min(5.0, v));
     if (param === 'caBeta')       return Math.max(0.1, Math.min(5.0, v));
-    if (param === 'caM')          return Math.max(0,   Math.min(499, v));   // continuous, as the server (caM unit 2026-09-25)
     return v;
   }
   const LINK_SYNC_KEYS = ['glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
@@ -8316,9 +8319,10 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     }
     return Math.max(1, Math.abs(vec[j]));
   };
-  // No parameter is discrete: caM was rounded by its clamp and carried at
-  // its start until the caM unit (2026-09-25); it is now continuous, as the
-  // server fits it, and is optimised and tested like any other.
+  // No free parameter is discrete: caM is never made free here (it is held
+  // at its exact value, see the free-parameter block). Until the caM unit it
+  // was made free and then ROUNDED by its clamp — a fractional server-fitted
+  // m of 8.2 was silently fitted as 8.
   const isDiscrete = () => false;
   // MINPACK-style termination: (ftol) actual AND predicted relative
   // reductions both below FTOL, with the linearised model agreeing with
@@ -8360,22 +8364,6 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
       const pPlus = [...params], pMinus = [...params];
       pPlus[j] = clamp(param, params[j] + step);
       pMinus[j] = clamp(param, params[j] - step);
-      if (param === 'caM') {
-        // LA's curve jumps where its kernel half-width changes (m = 6k/7):
-        // a difference straddling a jump is not a derivative and stalled
-        // fits that converge with m held (Codex round 1, caM unit). Keep
-        // each side inside the current piece — one-sided when one side
-        // crosses, the step halved when both would.
-        const piece = _laKernelHalf(params[j]);
-        let hh = step;
-        for (let t = 0; t < 40; t++) {
-          const up = clamp(param, params[j] + hh), dn = clamp(param, params[j] - hh);
-          const upOk = _laKernelHalf(up) === piece, dnOk = _laKernelHalf(dn) === piece;
-          if (upOk || dnOk) { pPlus[j] = upOk ? up : params[j]; pMinus[j] = dnOk ? dn : params[j]; break; }
-          hh /= 2;
-          if (t === 39) { pPlus[j] = params[j]; pMinus[j] = params[j]; }
-        }
-      }
       const span = pPlus[j] - pMinus[j];
       if (span === 0) { J.push(r.map(() => 0)); continue; }
       const rPlus = pPlus[j] === params[j] ? r : residuals(pPlus);
@@ -8480,9 +8468,8 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     delete live._backendParams;
   }
 
-  // Degrees of freedom count the parameters this engine varies (every free
-  // one, since caM became continuous; parameters temporarily blocked at a
-  // wall still count).
+  // Degrees of freedom count the parameters this engine varies (caM is held,
+  // not one of them; parameters temporarily blocked at a wall still count).
   const nVaried = params.filter((_, j) => !isDiscrete(j)).length;
   const dof = Math.max(1, be.length - nVaried);
   const chiReduced = chi / dof;                       // weighted reduced chi-square, as lmfit's redchi
@@ -11522,7 +11509,7 @@ function _updateROIDisplay(roiRange) {
   el.textContent = `ROI: ${roiRange.min}\u2013${roiRange.max} eV`;
 }
 
-const _LOCALFIT_TOOLTIP = "Statistic of the local (in-page) fit. Since unit W1 (2026-09) the local engine is Poisson-weighted like the server, so its \u03c7\u00b2\u1d63 is comparable with the server's, but it gives no parameter uncertainties and can differ from the server fit where the model has several minima. Local results saved earlier were unweighted and are labelled 'Residual variance'. Run Fit with the server available for a reportable result.";
+const _LOCALFIT_TOOLTIP = "Statistic of the local (in-page) fit. Since unit W1 (2026-09) the local engine is Poisson-weighted like the server, so its \u03c7\u00b2\u1d63 is comparable with the server's, but it gives no parameter uncertainties and can differ from the server fit for LA components (m held at its start locally) or where the model has several minima. Local results saved earlier were unweighted and are labelled 'Residual variance'. Run Fit with the server available for a reportable result.";
 const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty. Computed within the ROI range.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
 
 // Wire up custom tooltip for data-xps-tip elements (R-factor, chi-squared, etc.)
@@ -14565,7 +14552,7 @@ document.addEventListener('mousedown', function(e) {
 <div id="localfit-warn-overlay" class="xps-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="xps-modal" style="max-width:460px;border-color:var(--amber,#f59e0b)">
     <h3 style="color:var(--amber,#f59e0b)">&#9888; Local fit used (server unreachable) <button class="btn btn-sm" onclick="document.getElementById('localfit-warn-overlay').classList.remove('open')">&#x2715;</button></h3>
-    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged and is Poisson-weighted like the server, but it gives <strong>no parameter uncertainties</strong> and can differ from the server fit where the model has several minima. Treat it as a <strong>starting point, not a reportable result</strong>. Run Fit again when the server is available before quantifying, exporting or reporting.</p>
+    <p style="font-size:12px;color:var(--text);line-height:1.6;margin:0 0 10px">The server fitting engine (lmfit) could not be reached, so the page's built-in optimiser fitted this spectrum instead. It converged and is Poisson-weighted like the server, but it gives <strong>no parameter uncertainties</strong> and can differ from the server fit for LA components (m held at its start locally) or where the model has several minima. Treat it as a <strong>starting point, not a reportable result</strong>. Run Fit again when the server is available before quantifying, exporting or reporting.</p>
     <p style="font-size:11px;color:var(--text2);line-height:1.6;margin:0 0 12px"><strong style="color:var(--text)">Possible causes:</strong><br>
     &bull; The server may be offline or restarting<br>
     &bull; The fit request may have timed out<br>
