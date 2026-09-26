@@ -1,1 +1,1 @@
-{"cases":210,"free_failed":0,"held_failed":0,"free_ended_worse_than_held":0,"first_fails":[]}
+{"note":"since the caM withdrawal the local engine HOLDS m, so unlocked and locked are the same fit; the free-m evidence of Codex round 1 (0 of 210 failing with m free) is historical, plan §7","cases":210,"unlocked_failed":0,"locked_failed":0,"unlocked_differs_from_locked":0,"first_fails":[]}

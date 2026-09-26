@@ -4090,9 +4090,9 @@ function laTrueCasaXPS(x, center, fwhm, alpha, beta, m) {
 // Returns the curve for unit amplitude; the caller applies the amplitude.
 // The LA kernel's half-width in points for a given m — the server's
 // `max(1, ceil(3.5·σ))`, σ = m/3, and 0 below the 1e-3 no-convolution
-// threshold. The curve is smooth in m BETWEEN changes of this integer and
-// jumps where it changes (m = 6k/7); the local engine's derivative for m
-// uses it to stay inside one piece (Codex round 1 of the caM unit).
+// threshold. Used by the evaluator only. The curve is smooth in m BETWEEN
+// changes of this integer and JUMPS where it changes (m = 6k/7) — the
+// reason the local engine holds m rather than fitting it (caM unit).
 function _laKernelHalf(m) {
   const mc = Math.max(0, Math.min(499, Number.isFinite(m) ? m : 0));
   if (mc < 1e-3) return 0;

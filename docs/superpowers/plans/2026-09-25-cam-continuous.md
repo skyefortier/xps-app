@@ -151,3 +151,15 @@ engine holds m exactly (§1), the piece-confined derivative is removed,
 all four reproducers are regression tests that converge, and the control
 arm of `local_server_gap.js` now holds the server's m at the same exact
 value. The page half (the user-facing defect) was clean in both rounds.
+
+**Round 3 (`cam_continuous_r3_verdict_run{A,B}.md`): GO ×2.** Both
+confirmed caM never enters the local parameter vector, clamp, derivative
+or certificate and counts neither as a dof nor in component support;
+linked children take the parent's exact value; Batch Fit's copy and
+scaling preserve it; the 108-component rerun and the §4 table match their
+JSON. Two documentation MINORs fixed after the GO: `_laKernelHalf`'s
+comment still described the withdrawn derivative, and
+`scripts/cam_transition_sweep.js` labelled its arms free/held although
+both now hold m — relabelled unlocked/locked, its round-1 free-m result
+marked historical. Python suite on the final commit: 993 passed, 7
+skipped.
