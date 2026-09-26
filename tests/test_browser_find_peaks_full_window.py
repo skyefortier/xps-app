@@ -150,6 +150,10 @@ def _load_c1s_with_stale_narrow_fit(pg):
             be: narrowBE, bgIntensity: narrowBG, bgSubtracted: narrowSub,
             fittedY: narrowBE.map((b, i) => narrowSub[i] + 300),
             roiRange: { min: '278.0', max: '290.4' },
+            // a real fit stores its R-factor with the result; since F1
+            // (2026-09-25) the status bar is re-applied from the stored
+            // result on every repaint, so it must be where a fit puts it
+            rFactor: { rPct: 3.2, level: 'good' },
         };
         document.getElementById('roi-min').value = 278.0;
         document.getElementById('roi-max').value = 298.0;
@@ -243,6 +247,34 @@ def test_checkbox_off_preserves_todays_cropped_behavior(browser, server):
         assert status_after == status_before, (
             f"unchecked must not touch the status bar either: "
             f"{status_before} -> {status_after}")
+    finally:
+        pg.close()
+
+
+def test_checkbox_off_marks_a_keyed_result_stale_after_find_peaks_apply(browser, server):
+    """F1 (2026-09-25): the default Find Peaks apply keeps the old result over
+    a REPLACED model. A result that carries its fit key (every result since
+    the scattered-starts unit) is then judged against the new model: its
+    chi-square, sigma and R are marked as the previous model's, and the
+    chart's envelope is composed from the new peaks, not the old curve. A
+    keyless result (the test above) is shown as before, with the unverified
+    note."""
+    pg = _new_page(browser, server)
+    try:
+        _load_c1s_with_stale_narrow_fit(pg)
+        pg.evaluate("() => { state.fitResult.startsModelKey = _startsLiveKey(); renderResults(); }")
+        assert pg.evaluate("() => _statsLiveState()") == "current"
+        _run_and_apply_find_peaks(pg, full_window=False)
+        assert pg.evaluate("() => state.fitResult !== null"), "the old result is kept, as before"
+        st = pg.evaluate("""() => ({ state: _statsLiveState(),
+            header: document.getElementById('fit-quality').textContent,
+            sbChi: document.getElementById('sb-chi').textContent,
+            sbRuns: document.getElementById('sb-runs').textContent,
+            banner: !!document.querySelector('#results-area .stats-stale-note') })""")
+        assert st["state"] == "stale", st
+        assert "model changed" in st["header"], st
+        assert st["sbChi"] == "\u2014" and st["sbRuns"] == "R: \u2014", st
+        assert st["banner"], st
     finally:
         pg.close()
 

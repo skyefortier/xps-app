@@ -1,0 +1,67 @@
+Review unit F1 (stale statistics after an edit): branch fix-stale-statistics, git diff main..HEAD (templates/index.html, tests/js/stale_statistics.test.js, tests/js/fit_acceptance.test.js, tests/js/local_lm_descent.test.js, tests/js/unsupported_components.test.js, tests/test_browser_find_peaks_full_window.py, CLAUDE.md, docs/superpowers/plans/2026-09-25-f1-stale-statistics.md). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+OWNER'S BRIEF (verbatim): "Reuse step (b)'s fit key (model + background/ROI/anchors/charge shift). When the current key does not match the key the statistics came from, mark chi2, sigma and R stale in the Results panel, CSV, XLSX, TSV, figure export and saves - say plainly they belong to the previous model, or omit them. Do not build a second binding mechanism; this is a down payment on the sealed fit record and must be absorbable by it. Enumerate every consumer of the statistics first."
+
+Source finding: sweep H1 (docs/findings/2026-09-25-fail-open-guards-sweep.md on branch sweep-fail-open-guards): after an edit, a Find Peaks apply in the default window, or an undo, the previous fit's chi2, sigma, R and fittedY stayed on screen, in exports and in saves beside a model they do not describe.
+
+THE CREATORS AND CONSUMERS TABLES (plan sections 2-3, verbatim):
+
+## 2. Creators of a fit result
+
+| creator | stamps the key today | after |
+|---|---|---|
+| `runFit` (server) | yes, after `applyBackendResult` | unchanged |
+| `runFitLocal` (fallback; Batch Fit targets) | no | yes, after the values are committed |
+| `applyAutoFitResult` | no; and it locks every centre and refines the charge shift AFTER applying (so its verdicts are re-stamped by `_restampSupport`) | stamped at creation AND re-stamped by `_restampSupport` (those changes are part of its result) |
+| `_loadSpectrumFile` | restores a saved `startsModelKey` if present | unchanged (an older file has none → `unverified`) |
+| project load (`fromJSON` / tab records) | the saved `fitResult` object, key included if present | unchanged |
+| `_historyRestoreSnap`, `_autoFitRestore` | restore an older result WITH its key | unchanged — the comparison judges it |
+| `applyFindPeaks` (default mode), undo / redo | keep the old result over a replaced model | unchanged — the key comparison now makes that result `stale` (CLAUDE.md lists these as "not covered"; they are covered here for the statistics) |
+| `clearAllPeaks`, `closeTab`, Batch Fit's copy, `.fit.json` import | set `fitResult = null` | unchanged |
+
+## 3. Consumers of χ², σ, R (and the stored fitted curve)
+
+| # | consumer | reads | `stale` | `unverified` |
+|---|---|---|---|---|
+| 1 | Results panel (`renderResults`): statistic card, RMSE card, R panel, σ in the peak table | `chiReduced`, `rmse`, `rFactor`, `backendResult` σ | amber banner: the statistics belong to the previous model, Run Fit; statistic, RMSE and R shown as "—"; σ omitted | a plain note; values shown |
+| 2 | Header statistic + status bar (`_applyStatDisplay`, `_fitStatusText`, caption) | `chiReduced` | "χ²ᵣ — (model changed)"; status value "—"; tooltip says why | value shown; tooltip adds the note |
+| 3 | Status-bar R (`_updateRFactorUI`) | `rFactor` | cleared, tooltip says why | shown |
+| 4 | Uncertainty panel (`_validateUncertainties`) | `backendResult` σ, bounds | nothing: no per-parameter rule is judged on the previous model's σ (the Results banner is the one line; the panel's boxes are titled "Uncertainty Warnings" / "Locked Parameters", neither fits) | unchanged |
+| 5 | CSV / XLSX (`exportFitTable`) | `chiReduced`, σ | statistic line omitted, σ cells empty, a WARNING line naming why | values kept, a NOTE line |
+| 6 | TSV (`exportResults`) | no statistics; Model / Residual computed from the current peaks | a NOTE: those columns are the edited, unfitted model | unchanged |
+| 7 | Publication figure (`_doPublicationExport`) | `chiReduced` | χ² annotation omitted | "(unverified)" appended |
+| 8 | `_doSaveSpectrum`, `_doSaveFit` | `chi`, `chiReduced`, `rmse`, key, `fittedY` | key saved as always, so a reload judges the result again (a stale save reloads stale); `statisticsState: 'stale'` and a plain `statisticsNote` added; the spectrum file's `fittedY` is the current model + background (it then matches the file's `residuals`, which were always the current model) | `statisticsState: 'unverified'` |
+| 9 | `_doSaveProject` (per tab) | the tab's `fitResult` | the same two fields, judged against the RECORD's key | the same |
+| 10 | History snapshots (`_autoSnapshot`, `_renderHistoryList`) | `chiReduced`, `rFactor` at snapshot | NOT a consumer: a snapshot is taken only by the three creators, right after a result is applied, so peaks, result and key are one state; restoring one brings back its key and the comparison judges it | — |
+| 11 | Chart (`updatePlot`, stored `fittedY` → envelope and residuals) | `fittedY` | not used (edits already null it; Find Peaks apply and undo did not): the envelope is composed from the current peaks | used |
+| 12 | Stack tabs (`_buildEntryRenderData` Path A) | the source's `fittedY` | not used; Path A2/B (from the source's peaks) | used |
+| 13 | Scattered-starts panel, support verdicts | already keyed by the same key | unchanged | unchanged |
+| 14 | Batch Fit summary | the fit's own return value (fresh) | not a consumer of a stored result | — |
+| 15 | Quantify | areas from the current peaks, no statistics | not a consumer | — |
+
+Refresh: when the live key changes the Results panel re-renders if its
+rendered state differs (it carries `data-stats-state`), and the header,
+status bar and R are re-applied — from `updatePlot`, next to
+`_refreshStartsEvidence`, so every edit path that repaints reaches it.
+
+Residual, logged for the sealed fit record: each peak carries
+`p._backendParams` (the server's per-parameter value, σ and bounds of the
+LAST fit), persisted whole with the peak. It is not displayed anywhere
+(the σ above come from `fitResult.backendResult`), but it rides in a stale
+save; the save's `statisticsState` / `statisticsNote` cover the file.
+`autofit/parity.py` reads `_backendParams.gl_ratio.value` from saved peaks,
+so it is not stripped here — the sealed record owns per-parameter results.
+
+
+TRY TO BREAK
+a. Completeness: grep every read of chiReduced, chi, rmse, rFactor, backendResult (sigma, bounds), fittedY, _buildStderrMap and startsModelKey in templates/index.html (and static/js/*) - is any consumer that SHOWS, EXPORTS or SAVES a statistic missing from the table or unguarded? (e.g. the history list, the Batch Fit summary, notifications, the stack legend, the scattered-starts panel, the local-model banner, a clipboard/report path, the Quantify tab, _computeRFactor recomputation on tab activation.)
+b. Creators: is there any path that creates or REPLACES state.fitResult (or a tab record's fitResult) without stamping the key, or stamps it BEFORE the model/context is final (Auto-Fit's centre lock + charge refinement; runFit's alternative adoption; runFitLocal's commit; Batch Fit's target writes to a record, not state)? A result stamped too early reads stale immediately; one stamped too late (after an edit) reads current wrongly.
+c. False stale: anything that changes the live key WITHOUT changing the model the fit saw - _captureUI string formatting after a tab switch or project reload (the browser check shows a project round trip stays current - try other UI states: manual background with anchors, Tougaard, a charge shift, an ROI typed as '280' vs '280.0', endpoint avg), undo after a fit, a name/colour edit, ccShift float noise, the Find Peaks full-window apply path.
+d. False current: an edit that changes what the fit would compute but NOT the key (a field missing from _STARTS_MODEL_FIELDS / _STARTS_UI_FIELDS that the request reads - e.g. the fit method, a bound field, amplitude min, LA/DS+G shape switch leftovers, 'visible', the ROI when getROIData clamps) - is the key's coverage enough for the STATISTICS (it was designed for the starts evidence)?
+e. Refresh: the visible state after each edit path - peak param edit, lock toggle, Lock All, add/delete peak, background controls, ROI fields, charge correction, manual anchors, undo/redo, history restore, tab switch, stack tab active, Find Peaks apply both modes, clearAllPeaks. Does every path end with header, status bar, R and Results agreeing? Any path that re-renders Results while an RSF input in Quantify is being typed (renderResults re-renders Quantify)?
+f. Saves and reloads: the three saves (_doSaveFit, _doSaveSpectrum, _doSaveProject), their loaders; a stale save reloads stale, a current one current; older files (no key) unverified - and is 'unverified' shown honestly without hiding values on every committed project? Is the spectrum save's fittedY change (current model when stale) safe for its loader and for autofit/* readers of .spec.json?
+g. Absorbable by the sealed fit record: is anything here a second binding mechanism (a new key, a hand invalidation, a flag set on edit)?
+h. Tests: are the new assertions real (not vacuous) - the stubbed sandboxes, the source-regex checks - and do the edited existing tests still test what they tested?
+i. Docs vs code (CLAUDE.md, plan).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

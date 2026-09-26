@@ -260,8 +260,9 @@ test('project save derives the designation from the objective for an older local
   const src = html.slice(start, end) + ';';
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const fieldsAt = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
-  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey'].map(extractFn).join('\n');
-  const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
+  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey', '_statsState', '_statsRecordState', '_statsNote', '_statsSaveFields'].map(extractFn).join('\n');
+  const statsConsts = html.match(/^const _STATS_\w+_NOTE = .*$/mg).join('\n');
+  const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + statsConsts + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
     { serializeRefOverlays: () => null }, a => a, a => a);
   const older = { id: 1, name: 't', rawBE: [1, 2], rawIntensity: [1, 1], ccShift: 0, peaks: [], nextId: 1, ui: {},
     fitResult: { chi: 1, chiReduced: 1e4, rmse: 100, objective: 'unweighted_residual_variance', be: [1, 2], bgIntensity: [0, 0], bgSubtracted: [1, 1] } };
@@ -296,7 +297,7 @@ test('_applyStatDisplay keeps header, tooltip, caption and value consistent thro
   const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
-  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {});
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
   apply({ objective: 'unweighted_residual_variance', chiReduced: 12345 });
   assert.equal(dom['fit-quality'].textContent, 'Residual variance = 12345.00 (starting point)');
   assert.equal(dom['fit-quality'].tip, 'LOCAL'); assert.match(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '12345.000');
@@ -329,7 +330,7 @@ test('_applyStatDisplay clears header, tooltip, caption and value together on lo
   const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
-  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {});
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
   apply({ objective: 'unweighted_residual_variance', chiReduced: 999 });
   apply(null);
   assert.match(dom['fit-quality'].innerHTML, /&mdash;/); assert.equal(dom['fit-quality'].tip, null);
@@ -487,7 +488,7 @@ test('the sidebar banner shows on a stack tab whose visible entries draw a local
   assert.equal(run({ isStack: true, entries: [{ sourceTabId: 2, visible: true, showFit: false }] }).style.display, 'none', 'fit curves hidden → no designation needed');
   assert.equal(run({ isStack: true, entries: [{ sourceTabId: 3, visible: true, showFit: true }] }).style.display, 'none', 'weighted source only');
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
-  assert.match(grab('function _applyStatDisplay(', 900), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
+  assert.match(grab('function _applyStatDisplay(', 1800), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
   const legendAt = html.indexOf("row.querySelector('.name').textContent = name;");
   assert.match(html.slice(legendAt, legendAt + 2500), /_updateLocalModelBanner\(\)/, 'stack legend rebuild refreshes the banner');
 });
@@ -532,7 +533,8 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
 
 // ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
 test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isUnsupported'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isUnsupported'].map(extractFn).join('\n')
+    + '\nconst _statsLiveState = () => "current";';   // F1's stale note is pinned in stale_statistics.test.js
   const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const run = (fitResult, modelProvenance) => {
     let text = null;

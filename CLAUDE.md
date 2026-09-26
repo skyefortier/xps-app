@@ -610,9 +610,28 @@ result if that key changed: amber notice, "Fit discarded (model edited)",
 previous peaks and result kept. Before this, a centre changed and locked
 mid-fit kept its edited value (`applyBackendResult` honours locks) under the
 server's χ², σ and fitted curve for a different model.
-Not covered by this rule (separate units): model replacement that
-keeps an older result (Find Peaks apply in the default window, undo/redo)
-and loaded files without convergence provenance. From the initial commit
+STATISTICS AFTER AN EDIT (unit F1, 2026-09-25; plan
+`docs/superpowers/plans/2026-09-25-f1-stale-statistics.md`): χ², σ, RMSE,
+the R-factor and the stored fitted curve are bound to their fit by the SAME
+key (`fitResult.startsModelKey`, now stamped by every creator — `runFit`,
+`runFitLocal`, `applyAutoFitResult`, re-stamped by `_restampSupport`); no
+second mechanism. One accessor, `_statsState(fr, key)` (`_statsLiveState()`,
+`_statsRecordState(t)`): `current` / `stale` (the model or its context
+changed since — an edit, a Find Peaks apply in the default window, an undo
+or history restore to other values) / `unverified` (no key: saved before
+this unit — values shown with a note to re-run). Stale: Results banner
+("belong to the previous model"), statistic / RMSE "—", no R panel, no σ;
+header "χ²ᵣ — (model changed)", status "—", "R: —"; no per-parameter
+uncertainty rule; CSV/XLSX a WARNING instead of the statistic, σ cells
+empty; TSV a NOTE (its columns are the current, unfitted model); figure no
+χ² and no stored "Fit" curve; chart and stack envelopes composed from the
+current peaks; saves keep the key (a reload judges again) and add
+`statisticsState` / `statisticsNote`. Refreshed from `updatePlot`
+(`_refreshStatsState`, Results carries `data-stats-state`). The model
+replacement that keeps an older result is thereby covered for the
+statistics. Not covered (separate units): loaded files without convergence
+provenance; `p._backendParams` still rides in a stale save (not displayed;
+the sealed fit record owns it). From the initial commit
 until this unit the local LM step had the wrong sign and returned the
 starting model as "Fit complete"; see
 `docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and

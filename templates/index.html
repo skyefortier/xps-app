@@ -7222,6 +7222,7 @@ function _currentSupport(p) {
 function _restampSupport() {
   const key = _startsLiveKey();
   for (const p of state.peaks) if (p.support) p.support.fitKey = key;
+  if (state.fitResult) state.fitResult.startsModelKey = key;   // F1: the statistics are the same result's
 }
 // Patch the sidebar cards in place for the current verdicts (a re-render would
 // replace an input the student is typing in): header centre, the three summary
@@ -7341,6 +7342,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
     backendResult: json,
     fittedY: json.fitted_y,
     roiRange,
+    startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
   };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
@@ -7631,6 +7633,43 @@ function _startsIfCurrent(fr, key) {
   if (!st || !fr.startsModelKey || fr.startsModelKey !== key) return null;
   return st;
 }
+// Unit F1 (2026-09-25): the fit STATISTICS (chi-square, sigma, R-factor, RMSE
+// and the stored fitted curve) are bound to the fit that produced them by the
+// SAME key — no second mechanism. One accessor classifies a result:
+//   'current'    the key matches: they describe the model shown;
+//   'stale'      the key differs: they belong to the previous model (an edit,
+//                a Find Peaks apply, an undo or a history restore since);
+//   'unverified' the result carries no key (saved before this unit): whether
+//                it described the saved model cannot be known — shown, with a
+//                note to re-run;
+//   'none'       no result.
+// The sealed fit record absorbs this: its record carries key and statistics.
+function _statsState(fr, key) {
+  if (!fr) return 'none';
+  if (!fr.startsModelKey) return 'unverified';
+  return fr.startsModelKey === key ? 'current' : 'stale';
+}
+function _statsLiveState() { return _statsState(state.fitResult, _startsLiveKey()); }
+// A record's result judged against the RECORD's key (project save, stack tabs).
+function _statsRecordState(t) { return _statsState(t && t.fitResult, t ? _startsRecordKey(t) : ''); }
+const _STATS_STALE_NOTE = 'The model or its fit settings changed after this fit: its \u03c7\u00b2, R-factor, RMSE and uncertainties belong to the previous model and are not reported. Run Fit to obtain statistics for this model.';
+const _STATS_UNVERIFIED_NOTE = 'This result was saved without the record that binds it to its model, so it cannot be confirmed that its \u03c7\u00b2, R-factor and uncertainties describe the model shown. Run Fit to confirm.';
+function _statsNote(st) { return st === 'stale' ? _STATS_STALE_NOTE : st === 'unverified' ? _STATS_UNVERIFIED_NOTE : ''; }
+// Fields a save adds beside the result (the key itself is saved as always).
+function _statsSaveFields(st) {
+  return (st === 'stale' || st === 'unverified') ? { statisticsState: st, statisticsNote: _statsNote(st) } : {};
+}
+// Keep the visible statistics honest after an edit that only repainted the
+// chart: re-render Results when the state it rendered differs; re-apply the
+// header / status bar / R always (cheap, no inputs there).
+function _refreshStatsState() {
+  const st = _statsLiveState();
+  const el = document.getElementById('results-area');
+  if (el && state.fitResult && el.getAttribute('data-stats-state') !== st && typeof renderResults === 'function') renderResults();   // applies the header / status bar too
+  else _applyStatDisplay(state.fitResult);
+  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
+}
+
 // After anything that may have changed the model or its context without going
 // through a Results re-render (a lock toggle, Lock All, a background or ROI
 // control): take a stale alternative overlay off the chart and bring the
@@ -8125,8 +8164,14 @@ function _applyStatCaption(fr) {
 function _applyStatDisplay(fr) {
   const fq = document.getElementById('fit-quality');
   const sb = document.getElementById('sb-chi');
-  if (fr && Number.isFinite(fr.chiReduced)) {
-    if (fq) { fq.textContent = _fitStatusText(fr); fq.setAttribute('data-xps-tip', _isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP); }
+  const st = (fr && fr === state.fitResult) ? _statsLiveState() : 'current';
+  if (fr && Number.isFinite(fr.chiReduced) && st === 'stale') {
+    // F1: the statistic belongs to the previous model: say so, show no number
+    if (fq) { fq.textContent = _fitStatLabel(fr) + ' \u2014 (model changed)'; fq.setAttribute('data-xps-tip', _STATS_STALE_NOTE); }
+    if (sb) sb.textContent = '\u2014';
+  } else if (fr && Number.isFinite(fr.chiReduced)) {
+    const tip = (_isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP) + (st === 'unverified' ? '\n\n' + _STATS_UNVERIFIED_NOTE : '');
+    if (fq) { fq.textContent = _fitStatusText(fr); fq.setAttribute('data-xps-tip', tip); }
     if (sb) sb.textContent = fr.chiReduced.toFixed(3);
   } else {
     if (fq) { fq.innerHTML = '&#967;&#178; &mdash;'; fq.removeAttribute('data-xps-tip'); }
@@ -8497,7 +8542,8 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
                       engine: 'local', status: 'converged',
                       objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))', iterations,
-                      reportable: false, caveat: _LOCAL_FIT_CAVEAT };
+                      reportable: false, caveat: _LOCAL_FIT_CAVEAT,
+                      startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
   _applyStatDisplay(state.fitResult);
@@ -8564,6 +8610,8 @@ function _peakArea(p, be) {
 
 function renderResults() {
   const el = document.getElementById('results-area');
+  const _stats = _statsLiveState();   // F1: current / stale / unverified / none
+  if (el) el.setAttribute('data-stats-state', _stats);
   _applyStatDisplay(state.fitResult);   // header + status bar track every result change (clear, restore, auto-fit) as one unit
   _updateLocalModelBanner();
   if (!state.fitResult) {
@@ -8583,7 +8631,14 @@ function renderResults() {
 
   const { chiReduced, rmse, backendResult } = state.fitResult;
   const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
-  const stderrMap = _buildStderrMap(state.fitResult);
+  const _stale = _stats === 'stale';
+  // F1: a stale result's sigma belongs to the previous model: none is shown
+  const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
+  const _statsBanner = _stale ? `
+    <div class="stats-stale-note" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
+      &#9888; <strong>The model has changed since this fit.</strong> Its &#967;&#178;, RMSE, R-factor and uncertainties belong to the previous model and are not shown. The table below is the current model, not a fitted result. Press <strong>Run Fit</strong> to obtain statistics for it.
+    </div>` : _stats === 'unverified' ? `
+    <div class="stats-unverified-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">${_escHtml(_STATS_UNVERIFIED_NOTE)}</div>` : '';
   // A local (unweighted) result is a STARTING POINT: its areas can differ
   // from the server's Poisson-weighted fit by more than 100 % (measured on
   // the lab's C1s scans, unit A0). It is shown as such, never as a result.
@@ -8598,22 +8653,23 @@ function renderResults() {
     return val.toFixed(decimals);
   }
 
-  let html = _localBanner + `
+  const _dash = '<span style="color:var(--text3)">&mdash;</span>';
+  let html = _statsBanner + _localBanner + `
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${_escHtml(_fitStatLabel(state.fitResult))}</div>
-        <div style="font-family:var(--mono);font-size:16px;color:${_statIsChi ? (chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)') : 'var(--text)'}">${chiReduced.toFixed(3)}</div>
+        <div style="font-family:var(--mono);font-size:16px;color:${_stale ? 'var(--text3)' : _statIsChi ? (chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)') : 'var(--text)'}">${_stale ? _dash : chiReduced.toFixed(3)}</div>
       </div>
       <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">RMSE</div>
-        <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${rmse.toFixed(1)}</div>
+        <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${_stale ? _dash : rmse.toFixed(1)}</div>
       </div>
       ${backendResult ? `<div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Engine</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--green)">lmfit</div>
       </div>` : ''}
     </div>
-    ${_renderRFactorPanel(state.fitResult.rFactor)}
+    ${_stale ? '' : _renderRFactorPanel(state.fitResult.rFactor)}
     <table class="results-table">
       <thead><tr>
         <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
@@ -9015,8 +9071,9 @@ function _buildEntryRenderData(entry) {
 
   // Envelope (raw-level)
   let fittedY;
-  if (Array.isArray(fr.fittedY) && fr.fittedY.length === be.length) {
-    // Path A: backend fittedY directly (already raw-level).
+  if (Array.isArray(fr.fittedY) && fr.fittedY.length === be.length && _statsRecordState(src) !== 'stale') {
+    // Path A: backend fittedY directly (already raw-level). Never a stale
+    // result's curve (F1: judged against the SOURCE record's key).
     fittedY = fr.fittedY.slice();
   } else {
     // Path A2/B: compose envelope from peaks + bg.
@@ -9491,8 +9548,11 @@ function updatePlot() {
   const modelFull = evalAllPeaks(plotBE, state.peaks);
   // Use backend fitted_y when available (authoritative lmfit result);
   // fall back to JS-recomputed modelFull + bg for pre-fit / local-LM fits.
+  // F1: never a stale result's curve (Find Peaks apply / undo keep the old
+  // result over a replaced model): the envelope is then the current peaks
   const fittedYBacked = haveFit && state.fitResult.fittedY &&
-                        state.fitResult.fittedY.length === plotBE.length
+                        state.fitResult.fittedY.length === plotBE.length &&
+                        _statsLiveState() !== 'stale'
                         ? state.fitResult.fittedY : null;
   const rawResiduals = fittedYBacked
     ? plotInten.map((v, i) => v - fittedYBacked[i])
@@ -9594,6 +9654,7 @@ function updatePlot() {
     });
   }
 
+  _refreshStatsState();                  // F1: chi-square / sigma / R follow the same key
   _refreshStartsEvidence(false, true);   // background / ROI controls only repaint the chart: keep the visible consumers honest (fromPlot: the chart itself is being rebuilt)
   _refreshRoiAndCentreWarnings();         // ROI past the data / centre outside the data: warn, never move
   // History snapshot preview overlay (cyan dashed, drawn on top)
@@ -10203,6 +10264,7 @@ function _doSaveFit() {
       chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
+      ..._statsSaveFields(_statsLiveState()),   // F1: says plainly when the statistics belong to the previous model
     } : ((_activeTab() && _activeTab().modelProvenance) ? {
       ..._activeTab().modelProvenance, reportable: false, caveat: _localFitCaveat(_activeTab().modelProvenance),
     } : null),
@@ -10226,7 +10288,10 @@ function _doSaveSpectrum() {
   const modelFull = evalAllPeaks(be, state.peaks);
   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
   const residuals = bgSub.map((v, i) => v - modelFull[i]);
-  const fittedY = state.fitResult?.fittedY || modelFull.map((v, i) => v + bgIntensity[i]);
+  // F1: a stale result's stored curve is the previous model's; the file's
+  // fittedY then matches its residuals (the current model), as with no fit
+  const _saveStats = _statsLiveState();
+  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || modelFull.map((v, i) => v + bgIntensity[i]);
 
   // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
   // for LACX with caM > 0, only the array evaluator applies the shape's
@@ -10262,6 +10327,7 @@ function _doSaveSpectrum() {
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
     caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
+    ..._statsSaveFields(_saveStats),
   } : null;
 
   const data = {
@@ -10356,6 +10422,7 @@ async function _doSaveProject() {
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
+        ..._statsSaveFields(_statsRecordState(t)),   // F1: judged against the RECORD's key
       } : null,
       modelProvenance: t.modelProvenance || null,
       notes: t.notes || '',
@@ -10917,7 +10984,11 @@ function exportResults() {
   }
 
   const warning = _isLocalModel() ? '# WARNING: ' + _localFitCaveat(_governingProvenance()) + '\n' : '';
-  const csv = warning + rows.map(r => r.join('\t')).join('\n');
+  // F1: the columns are computed from the CURRENT peaks; after an edit they
+  // are the edited, unfitted model, not the last fit's curve
+  const staleNote = _statsLiveState() === 'stale'
+    ? '# NOTE: the model has changed since the last fit: Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n' : '';
+  const csv = warning + staleNote + rows.map(r => r.join('\t')).join('\n');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -10951,7 +11022,9 @@ function _doPublicationExport() {
   if (!be.length) { notify('No data in ROI.', 'red'); return; }
 
   const bgArr   = computeBackground(be, inten);
-  const fittedY = (state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
+  // F1: a stale result's fitted curve is the previous model's: not drawn as "Fit"
+  const _figStats = _statsLiveState();
+  const fittedY = (_figStats !== 'stale' && state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
   const residArr = fittedY ? inten.map((v, i) => v - fittedY[i]) : null;
   const invert   = document.getElementById('invert-be').checked;
   const showIndiv = document.getElementById('show-individual').checked;
@@ -11160,10 +11233,12 @@ function _doPublicationExport() {
   if (state.fitResult || _isLocalModel()) {
     ctx.font = '38px Arial,sans-serif';
     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    if (state.fitResult) {
+    if (state.fitResult && _figStats === 'stale') {
+      ctx.fillText('Model changed since the fit: no statistics, not a fitted result', plotX + 14, mainTop + 14);
+    } else if (state.fitResult) {
       const statLabel = !_isLocalFit(state.fitResult) ? '\u03c7\u00b2_r'
         : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r (local fit, not reportable)');
-      ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
+      ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3) + (_figStats === 'unverified' ? ' (unverified)' : ''),
                    plotX + 14, mainTop + 14);
     } else {
       ctx.fillText('Imported local fit: starting point, not reportable', plotX + 14, mainTop + 14);
@@ -11322,7 +11397,10 @@ function _shapeExportCols(p) {
 function exportFitTable(fmt) {
   if (!state.fitResult) { notify('Run a fit first.', 'red'); return; }
   const { be } = state.fitResult;
-  const stderrMap = _buildStderrMap(state.fitResult);
+  // F1: a stale result's chi-square and sigma belong to the previous model:
+  // neither is written; a WARNING line says why
+  const _stats = _statsLiveState();
+  const stderrMap = _stats === 'stale' ? {} : _buildStderrMap(state.fitResult);
   const areas = state.peaks.map(p => _peakArea(p, be));
   const totalArea = areas.reduce((s,v)=>s+v,0);
   const rsfVals = state.peaks.map(p => {
@@ -11371,7 +11449,9 @@ function exportFitTable(fmt) {
     const wb = XLSX.utils.book_new();
     const metaWS = XLSX.utils.aoa_to_sheet([
       ['XPS Fitting Studio Export'], ['Date', date],
-      [_statName, chiStr], ['Background type', bgType],
+      ...(_stats === 'stale' ? [['WARNING', _STATS_STALE_NOTE]] : [[_statName, chiStr]]),
+      ...(_stats === 'unverified' ? [['NOTE', _STATS_UNVERIFIED_NOTE]] : []),
+      ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
       ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
       ...(_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey())) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))]] : []),
@@ -11384,7 +11464,9 @@ function exportFitTable(fmt) {
     notify('Exported XLSX table', 'green');
   } else {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
-    csv += `# ${_statName}: ${chiStr}\n# Background: ${bgType}\n`;
+    csv += _stats === 'stale' ? `# WARNING: ${_STATS_STALE_NOTE}\n` : `# ${_statName}: ${chiStr}\n`;
+    if (_stats === 'unverified') csv += `# NOTE: ${_STATS_UNVERIFIED_NOTE}\n`;
+    csv += `# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
     if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;
     if (_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))}\n`;
@@ -11491,6 +11573,13 @@ function _renderRFactorPanel(rf) {
 function _updateRFactorUI(rf) {
   const el = document.getElementById('sb-runs');
   if (!el) return;
+  if (rf && state.fitResult && rf === state.fitResult.rFactor && _statsLiveState() === 'stale') {
+    // F1: the previous model's R-factor is not shown beside the edited model
+    el.style.color = 'var(--text3)';
+    el.textContent = 'R: \u2014';
+    el.setAttribute('data-xps-tip', _STATS_STALE_NOTE);
+    return;
+  }
   if (!rf) {
     el.textContent = '';
     el.removeAttribute('data-xps-tip');
@@ -11556,6 +11645,9 @@ const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the go
 // ═══════════════════════════════════════════════════
 function _validateUncertainties() {
   if (!state.fitResult?.backendResult?.individual_peaks) return { warnings: [], info: [] };
+  // F1: a stale result's sigma and bounds describe the previous model; the
+  // Results banner says so once — no per-parameter rule is judged on them
+  if (_statsLiveState() === 'stale') return { warnings: [], info: [] };
   const warnings = [];
   const info = [];
   const stderrMap = _buildStderrMap(state.fitResult);
