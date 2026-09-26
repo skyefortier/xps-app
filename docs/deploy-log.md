@@ -6,6 +6,27 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-25 — ROI past the data + peak centre outside the data (`fix-roi-clamp`)
+
+- **Release note:** when the Region of Interest extends past your data, the
+  page now says so under the ROI fields ("ROI extends past your data —
+  clipped to X–Y eV"), and warns in amber when BE min is above BE max or
+  the window misses the data. A peak whose centre lies outside the fitted
+  data gets an "outside data" badge on its card. Nothing is moved: the
+  fields, the peaks and every fit, Find Peaks request and save behave
+  exactly as before — the page always used only the data inside the ROI.
+- Measured on the committed projects: the quiet hint shows on 30 of 166
+  tabs (median overshoot 0.39 eV); no peak is centred outside its data.
+  Review later whether the 18 % is noise (owner).
+- Manual fit and Find Peaks use the same window except for one edge point
+  when an energy lies within 5e-5 eV of an ROI edge — a symptom of the
+  upload rounding, filed under audit item 8 / R6-1, not patched separately.
+- Also: the required-anchor test that passed 2 of 3 on main (Trust-Region
+  jitter on a test that never formed its premise) now holds the anchor;
+  20 of 20 separate-process runs pass.
+- Codex GO x2 (round 2); Python 993 passed / 7 skipped; JS 411 / 406 pass /
+  5 todo; browser check 16/16.
+
 ## 2026-09-25 — DS+G page evaluator (`fix-dsg-page-evaluator`)
 
 - **Release note:** DS+G components are now drawn, integrated and exported

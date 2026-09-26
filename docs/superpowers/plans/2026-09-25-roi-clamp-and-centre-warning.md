@@ -74,9 +74,13 @@ run A). So the window the hint names can differ from Find Peaks' by one
 point at an edge; it never differs by more, and the hint's X–Y (2 dp)
 cannot show a difference that small. All three cases are pinned in
 `tests/js/roi_clamp_centre_warning.test.js`. The edge divergence is
-pre-existing and is not changed here (it would change Find Peaks'
-request); logged with the empty-field divergence (row 4) for the
-fail-open sweep.
+pre-existing and is NOT patched on its own (owner, 2026-09-25): it is a
+SYMPTOM of the upload rounding, not a separate defect, and disappears when
+that rounding does. Filed against Codex audit item 8 "Upload rounding
+removal" (`docs/superpowers/plans/2026-09-15-codex-audit-harvest-triage.md`,
+branch `design-audit-harvest`) and the sealed-fit-record memo's amendment
+R6-1 ("remove the upload rounding"). The empty-field divergence (row 4) is
+logged for the fail-open sweep.
 
 ## 4. The hint
 
@@ -191,3 +195,12 @@ Adding the Batch Fit line pushed `per_tab_state.test.js`'s re-check past
 its fixed 5,000-character window (it read −1 and failed); that assertion
 now reads the whole function. JS suite after the fixes: 411 tests, 406
 pass, 5 todo.
+
+## 9. Owner decisions at deploy (2026-09-25)
+
+- Deploy approved.
+- The manual-fit / Find Peaks edge difference is filed under audit item 8 /
+  R6-1 (above); do not patch the mask on its own.
+- REVIEW LATER: the quiet hint appears on 30 of 166 committed tabs (18 %).
+  If it proves to be noise in real use, raise the criterion so that only a
+  meaningful overshoot, or the amber cases, show.
