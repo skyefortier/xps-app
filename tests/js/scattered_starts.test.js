@@ -30,7 +30,7 @@ function extractFn(name) {
 }
 const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
 
-const FNS = ['_isUnsupported', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsRecordKey', '_startsIfCurrent', '_dropStaleAltPreview',
+const FNS = ['_fitKeyCanon', '_sameFitKey', '_isUnsupported', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsRecordKey', '_startsIfCurrent', '_dropStaleAltPreview',
   '_startsChosenText', '_startsForSave', '_startsSummaryText', '_startsPeakName',
   '_startsShiftColour', '_startsEv', '_startsShiftHtml', '_startsPanelHtml', '_altPeaks', '_currentAlternative',
   'previewAlternative', 'useAlternative', '_applyBackendParams'];
@@ -257,9 +257,9 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
   assert.match(runFit, /const startModel = opts\.startPeaks \|\| state\.peaks;\n\s*const peakSpecs = startModel\.map\(peakToBackendSpec\);/);
   assert.match(runFit, /startsModelKey: _startsLiveKey\(\),/);
   assert.ok(runFit.indexOf('applyBackendResult(backendResult);') < runFit.indexOf('startsModelKey: _startsLiveKey()'), 'the key describes the model AFTER the result was applied');
-  const captured = runFit.indexOf('const ctxAtRequest = _startsLiveKey();');
+  const captured = runFit.indexOf('ctxAtRequest = _startsLiveKey();');
   assert.ok(captured > 0 && captured < runFit.indexOf('await uploadToBackend('), 'context captured before the first await');
-  assert.ok(runFit.indexOf('if (_startsLiveKey() !== ctxAtRequest)') < runFit.indexOf('applyBackendResult(backendResult);'), 'and checked before anything is applied');
+  assert.ok(runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') > 0 && runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') < runFit.indexOf('applyBackendResult(backendResult);'), 'and checked before anything is applied');
   assert.match(runFit, /chosenAlternative: opts\.chosenAlternative \|\| null/);
   assert.match(extractFn('renderResults'), /_startsPanelHtml\(state\.fitResult\)/);
   assert.doesNotMatch(extractFn('_invalidateFittedY'), /starts/, 'validity is by key comparison: a rename (which calls this) must not delete evidence');

@@ -1,0 +1,27 @@
+Re-review unit F1 (stale statistics after an edit), round 2: branch fix-stale-statistics. The round-1 commit is ececf7e; the fixes are the commit after it (git diff ececf7e..HEAD; the whole unit is git diff main..HEAD). Round-1 verdicts: docs/autofit/codex/f1_stale_statistics_verdict_runA.md / runB.md; the round-1 prompt (brief, creators and consumers tables): docs/autofit/codex/f1_stale_statistics_review_prompt.txt. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+ROUND-1 FINDINGS AND FIXES (plan section 5, verbatim):
+
+**Round 1 — NO-GO ×2** (`docs/autofit/codex/f1_stale_statistics_verdict_run{A,B}.md`).
+All findings reproduced and fixed:
+
+| # | finding (run) | fix |
+|---|---|---|
+| 1 | Auto-Fit stamps a response over a context edited while it ran as `current` (A) | `runAutoFitC1sGraphite` captures the key with the other request inputs, before the first await; after the owner check a different live key DISCARDS and rolls back (amber notice), as `runFit` already did. Behavioural test drives the real function. |
+| 2 | Local fallback after a transport failure fits the press-time arrays and stamps the EDITED key (A, B) | `ctxAtRequest` hoisted out of the `try`; a transport failure with a changed key runs no local fit ("Fit discarded (model edited)"). Behavioural test in `fit_acceptance`. |
+| 3 | Stale spectrum save → reload → restore the value: the edited-model `fittedY` sits under the original key and becomes "current" (A) | the loader installs neither `fittedY` nor `rFactor` from a save marked `statisticsState: 'stale'` (the file keeps them for its readers). |
+| 4 | Project saves dropped `rFactor`; tab activation recomputed it from the EDITED peaks and cached it under the original key (B) | both saves persist the fit's own `rFactor`; activation computes a missing R only when not stale. Browser: stale project → reload → restore amplitude → R 3.087 % = the fit's. |
+| 5 | Lock toggle / Lock All leave the visible statistics current (A, B) | `_refreshStatsState()` is now the first statement of `_refreshStartsEvidence`, which the lock toggles, Lock All and `updatePlot` all call (the separate call in `updatePlot` removed). |
+| 6 | Clear All leaves the previous Results table (B) | the refresh also handles the transition to `none` (only when a state was rendered before: a fresh page is left alone). |
+| 7 | MINOR: "280" vs "280.0" reads stale (A, B) | `_sameFitKey` compares keys after canonicalising the form-field numbers; keys are COMPARED canonically, never rewritten, so keys already in saved files keep matching. Used by every key comparison (statistics, starts evidence, support verdicts, both mid-fit discards). |
+
+
+TRY TO BREAK
+a. Each fix: is it complete (every path of that class), and does it introduce a regression? E.g. the Auto-Fit discard: does anything Auto-Fit ITSELF changes between the captured key and the check (provisional charge shift, the model it builds, _af bounds, ROI/background it sets) make every Auto-Fit discard itself? (The browser check ran Auto-Fit on C1s Scan_3 before the discard was added; verify the order in runAutoFitC1sGraphite.) The runFit fallback: a transport failure BEFORE ctxAtRequest is set.
+b. _sameFitKey: can canonicalisation make two DIFFERENT fits compare equal (a field where '1e3' vs '1000', '0x10', ' 280', '280 ' or '' vs '0' change what the fit reads; parseInt vs parseFloat readers like shirleyIter '3.5' vs '3.50'; the ROI read by getROIData vs the key)? Is every comparison of the key now through it (grep ===/!== on startsModelKey, fitKey, ctxAtRequest, altKey)? Memo growth.
+c. The refresh inside _refreshStartsEvidence: re-entrancy (renderResults -> ... -> updatePlot -> _refreshStartsEvidence), render count per edit, a Quantify RSF input being typed while Results re-renders, stack tabs, the 'none' transition on tab switch / close / empty tab.
+d. Reload: a CURRENT save (no statisticsState) still installs fittedY and rFactor; an unverified older file; project saves (whose loader takes the fitResult object whole - does statisticsState ride into memory and matter later?).
+e. Anything round 1 raised that is still reachable, and anything new in the consumers table (plan section 3) the fixes touched.
+f. Tests: the new behavioural tests (fit_acceptance fallback discard, stale_statistics Auto-Fit discard / canonical key / Clear All) - would each fail without its fix?
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

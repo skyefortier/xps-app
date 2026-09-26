@@ -1,0 +1,6652 @@
+OpenAI Codex v0.153.4
+--------
+workdir: /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: high
+reasoning summaries: none
+session id: 01a0dc38-2b8f-7692-a893-a5de3aadb14a
+--------
+user
+Review unit F1 (stale statistics after an edit): branch fix-stale-statistics, git diff main..HEAD (templates/index.html, tests/js/stale_statistics.test.js, tests/js/fit_acceptance.test.js, tests/js/local_lm_descent.test.js, tests/js/unsupported_components.test.js, tests/test_browser_find_peaks_full_window.py, CLAUDE.md, docs/superpowers/plans/2026-09-25-f1-stale-statistics.md). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+OWNER'S BRIEF (verbatim): "Reuse step (b)'s fit key (model + background/ROI/anchors/charge shift). When the current key does not match the key the statistics came from, mark chi2, sigma and R stale in the Results panel, CSV, XLSX, TSV, figure export and saves - say plainly they belong to the previous model, or omit them. Do not build a second binding mechanism; this is a down payment on the sealed fit record and must be absorbable by it. Enumerate every consumer of the statistics first."
+
+Source finding: sweep H1 (docs/findings/2026-09-25-fail-open-guards-sweep.md on branch sweep-fail-open-guards): after an edit, a Find Peaks apply in the default window, or an undo, the previous fit's chi2, sigma, R and fittedY stayed on screen, in exports and in saves beside a model they do not describe.
+
+THE CREATORS AND CONSUMERS TABLES (plan sections 2-3, verbatim):
+
+## 2. Creators of a fit result
+
+| creator | stamps the key today | after |
+|---|---|---|
+| `runFit` (server) | yes, after `applyBackendResult` | unchanged |
+| `runFitLocal` (fallback; Batch Fit targets) | no | yes, after the values are committed |
+| `applyAutoFitResult` | no; and it locks every centre and refines the charge shift AFTER applying (so its verdicts are re-stamped by `_restampSupport`) | stamped at creation AND re-stamped by `_restampSupport` (those changes are part of its result) |
+| `_loadSpectrumFile` | restores a saved `startsModelKey` if present | unchanged (an older file has none → `unverified`) |
+| project load (`fromJSON` / tab records) | the saved `fitResult` object, key included if present | unchanged |
+| `_historyRestoreSnap`, `_autoFitRestore` | restore an older result WITH its key | unchanged — the comparison judges it |
+| `applyFindPeaks` (default mode), undo / redo | keep the old result over a replaced model | unchanged — the key comparison now makes that result `stale` (CLAUDE.md lists these as "not covered"; they are covered here for the statistics) |
+| `clearAllPeaks`, `closeTab`, Batch Fit's copy, `.fit.json` import | set `fitResult = null` | unchanged |
+
+## 3. Consumers of χ², σ, R (and the stored fitted curve)
+
+| # | consumer | reads | `stale` | `unverified` |
+|---|---|---|---|---|
+| 1 | Results panel (`renderResults`): statistic card, RMSE card, R panel, σ in the peak table | `chiReduced`, `rmse`, `rFactor`, `backendResult` σ | amber banner: the statistics belong to the previous model, Run Fit; statistic, RMSE and R shown as "—"; σ omitted | a plain note; values shown |
+| 2 | Header statistic + status bar (`_applyStatDisplay`, `_fitStatusText`, caption) | `chiReduced` | "χ²ᵣ — (model changed)"; status value "—"; tooltip says why | value shown; tooltip adds the note |
+| 3 | Status-bar R (`_updateRFactorUI`) | `rFactor` | cleared, tooltip says why | shown |
+| 4 | Uncertainty panel (`_validateUncertainties`) | `backendResult` σ, bounds | nothing: no per-parameter rule is judged on the previous model's σ (the Results banner is the one line; the panel's boxes are titled "Uncertainty Warnings" / "Locked Parameters", neither fits) | unchanged |
+| 5 | CSV / XLSX (`exportFitTable`) | `chiReduced`, σ | statistic line omitted, σ cells empty, a WARNING line naming why | values kept, a NOTE line |
+| 6 | TSV (`exportResults`) | no statistics; Model / Residual computed from the current peaks | a NOTE: those columns are the edited, unfitted model | unchanged |
+| 7 | Publication figure (`_doPublicationExport`) | `chiReduced` | χ² annotation omitted | "(unverified)" appended |
+| 8 | `_doSaveSpectrum`, `_doSaveFit` | `chi`, `chiReduced`, `rmse`, key, `fittedY` | key saved as always, so a reload judges the result again (a stale save reloads stale); `statisticsState: 'stale'` and a plain `statisticsNote` added; the spectrum file's `fittedY` is the current model + background (it then matches the file's `residuals`, which were always the current model) | `statisticsState: 'unverified'` |
+| 9 | `_doSaveProject` (per tab) | the tab's `fitResult` | the same two fields, judged against the RECORD's key | the same |
+| 10 | History snapshots (`_autoSnapshot`, `_renderHistoryList`) | `chiReduced`, `rFactor` at snapshot | NOT a consumer: a snapshot is taken only by the three creators, right after a result is applied, so peaks, result and key are one state; restoring one brings back its key and the comparison judges it | — |
+| 11 | Chart (`updatePlot`, stored `fittedY` → envelope and residuals) | `fittedY` | not used (edits already null it; Find Peaks apply and undo did not): the envelope is composed from the current peaks | used |
+| 12 | Stack tabs (`_buildEntryRenderData` Path A) | the source's `fittedY` | not used; Path A2/B (from the source's peaks) | used |
+| 13 | Scattered-starts panel, support verdicts | already keyed by the same key | unchanged | unchanged |
+| 14 | Batch Fit summary | the fit's own return value (fresh) | not a consumer of a stored result | — |
+| 15 | Quantify | areas from the current peaks, no statistics | not a consumer | — |
+
+Refresh: when the live key changes the Results panel re-renders if its
+rendered state differs (it carries `data-stats-state`), and the header,
+status bar and R are re-applied — from `updatePlot`, next to
+`_refreshStartsEvidence`, so every edit path that repaints reaches it.
+
+Residual, logged for the sealed fit record: each peak carries
+`p._backendParams` (the server's per-parameter value, σ and bounds of the
+LAST fit), persisted whole with the peak. It is not displayed anywhere
+(the σ above come from `fitResult.backendResult`), but it rides in a stale
+save; the save's `statisticsState` / `statisticsNote` cover the file.
+`autofit/parity.py` reads `_backendParams.gl_ratio.value` from saved peaks,
+so it is not stripped here — the sealed record owns per-parameter results.
+
+
+TRY TO BREAK
+a. Completeness: grep every read of chiReduced, chi, rmse, rFactor, backendResult (sigma, bounds), fittedY, _buildStderrMap and startsModelKey in templates/index.html (and static/js/*) - is any consumer that SHOWS, EXPORTS or SAVES a statistic missing from the table or unguarded? (e.g. the history list, the Batch Fit summary, notifications, the stack legend, the scattered-starts panel, the local-model banner, a clipboard/report path, the Quantify tab, _computeRFactor recomputation on tab activation.)
+b. Creators: is there any path that creates or REPLACES state.fitResult (or a tab record's fitResult) without stamping the key, or stamps it BEFORE the model/context is final (Auto-Fit's centre lock + charge refinement; runFit's alternative adoption; runFitLocal's commit; Batch Fit's target writes to a record, not state)? A result stamped too early reads stale immediately; one stamped too late (after an edit) reads current wrongly.
+c. False stale: anything that changes the live key WITHOUT changing the model the fit saw - _captureUI string formatting after a tab switch or project reload (the browser check shows a project round trip stays current - try other UI states: manual background with anchors, Tougaard, a charge shift, an ROI typed as '280' vs '280.0', endpoint avg), undo after a fit, a name/colour edit, ccShift float noise, the Find Peaks full-window apply path.
+d. False current: an edit that changes what the fit would compute but NOT the key (a field missing from _STARTS_MODEL_FIELDS / _STARTS_UI_FIELDS that the request reads - e.g. the fit method, a bound field, amplitude min, LA/DS+G shape switch leftovers, 'visible', the ROI when getROIData clamps) - is the key's coverage enough for the STATISTICS (it was designed for the starts evidence)?
+e. Refresh: the visible state after each edit path - peak param edit, lock toggle, Lock All, add/delete peak, background controls, ROI fields, charge correction, manual anchors, undo/redo, history restore, tab switch, stack tab active, Find Peaks apply both modes, clearAllPeaks. Does every path end with header, status bar, R and Results agreeing? Any path that re-renders Results while an RSF input in Quantify is being typed (renderResults re-renders Quantify)?
+f. Saves and reloads: the three saves (_doSaveFit, _doSaveSpectrum, _doSaveProject), their loaders; a stale save reloads stale, a current one current; older files (no key) unverified - and is 'unverified' shown honestly without hiding values on every committed project? Is the spectrum save's fittedY change (current model when stale) safe for its loader and for autofit/* readers of .spec.json?
+g. Absorbable by the sealed fit record: is anything here a second binding mechanism (a new key, a hand invalidation, a flag set on edit)?
+h. Tests: are the new assertions real (not vacuous) - the stubbed sandboxes, the source-regex checks - and do the edited existing tests still test what they tested?
+i. Docs vs code (CLAUDE.md, plan).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
+codex
+I’ll trace the statistic readers and fit-result writers, then check the key comparison, refresh paths, and save/reload behavior against the brief. I’ll keep the review read-only and end with ranked findings and a verdict.
+exec
+/bin/zsh -lc 'pwd && git status --short && git diff --stat main..HEAD && rg --files -g AGENTS.md -g CLAUDE.md' in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-miLOn0MO' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-JChSpSrx' (errno=Operation not permitted)
+?? docs/autofit/codex/f1_stale_statistics_verdict_runA.md
+?? docs/autofit/codex/f1_stale_statistics_verdict_runB.md
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-8czNGhhE' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-Q5aZ1qPH' (errno=Operation not permitted)
+ CLAUDE.md                                          |  25 +-
+ .../codex/f1_stale_statistics_review_prompt.txt    |  67 +++++
+ .../plans/2026-09-25-f1-stale-statistics.md        | 111 ++++++++
+ templates/index.html                               | 130 +++++++--
+ tests/js/fit_acceptance.test.js                    |  14 +-
+ tests/js/local_lm_descent.test.js                  |   4 +-
+ tests/js/stale_statistics.test.js                  | 300 +++++++++++++++++++++
+ tests/js/unsupported_components.test.js            |   1 +
+ tests/test_browser_find_peaks_full_window.py       |  32 +++
+ 9 files changed, 654 insertions(+), 30 deletions(-)
+CLAUDE.md
+
+exec
+/bin/zsh -lc 'git diff main..HEAD -- templates/index.html' in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-YYxgQMi6' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-GamEn03Q' (errno=Operation not permitted)
+diff --git a/templates/index.html b/templates/index.html
+index 0b9268d..9f032ae 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -7222,6 +7222,7 @@ function _currentSupport(p) {
+ function _restampSupport() {
+   const key = _startsLiveKey();
+   for (const p of state.peaks) if (p.support) p.support.fitKey = key;
++  if (state.fitResult) state.fitResult.startsModelKey = key;   // F1: the statistics are the same result's
+ }
+ // Patch the sidebar cards in place for the current verdicts (a re-render would
+ // replace an input the student is typing in): header centre, the three summary
+@@ -7341,6 +7342,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
+     backendResult: json,
+     fittedY: json.fitted_y,
+     roiRange,
++    startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
+   };
+   state.fitResult.rFactor = _computeRFactor(state.fitResult);
+ 
+@@ -7631,6 +7633,43 @@ function _startsIfCurrent(fr, key) {
+   if (!st || !fr.startsModelKey || fr.startsModelKey !== key) return null;
+   return st;
+ }
++// Unit F1 (2026-09-25): the fit STATISTICS (chi-square, sigma, R-factor, RMSE
++// and the stored fitted curve) are bound to the fit that produced them by the
++// SAME key — no second mechanism. One accessor classifies a result:
++//   'current'    the key matches: they describe the model shown;
++//   'stale'      the key differs: they belong to the previous model (an edit,
++//                a Find Peaks apply, an undo or a history restore since);
++//   'unverified' the result carries no key (saved before this unit): whether
++//                it described the saved model cannot be known — shown, with a
++//                note to re-run;
++//   'none'       no result.
++// The sealed fit record absorbs this: its record carries key and statistics.
++function _statsState(fr, key) {
++  if (!fr) return 'none';
++  if (!fr.startsModelKey) return 'unverified';
++  return fr.startsModelKey === key ? 'current' : 'stale';
++}
++function _statsLiveState() { return _statsState(state.fitResult, _startsLiveKey()); }
++// A record's result judged against the RECORD's key (project save, stack tabs).
++function _statsRecordState(t) { return _statsState(t && t.fitResult, t ? _startsRecordKey(t) : ''); }
++const _STATS_STALE_NOTE = 'The model or its fit settings changed after this fit: its \u03c7\u00b2, R-factor, RMSE and uncertainties belong to the previous model and are not reported. Run Fit to obtain statistics for this model.';
++const _STATS_UNVERIFIED_NOTE = 'This result was saved without the record that binds it to its model, so it cannot be confirmed that its \u03c7\u00b2, R-factor and uncertainties describe the model shown. Run Fit to confirm.';
++function _statsNote(st) { return st === 'stale' ? _STATS_STALE_NOTE : st === 'unverified' ? _STATS_UNVERIFIED_NOTE : ''; }
++// Fields a save adds beside the result (the key itself is saved as always).
++function _statsSaveFields(st) {
++  return (st === 'stale' || st === 'unverified') ? { statisticsState: st, statisticsNote: _statsNote(st) } : {};
++}
++// Keep the visible statistics honest after an edit that only repainted the
++// chart: re-render Results when the state it rendered differs; re-apply the
++// header / status bar / R always (cheap, no inputs there).
++function _refreshStatsState() {
++  const st = _statsLiveState();
++  const el = document.getElementById('results-area');
++  if (el && state.fitResult && el.getAttribute('data-stats-state') !== st && typeof renderResults === 'function') renderResults();   // applies the header / status bar too
++  else _applyStatDisplay(state.fitResult);
++  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
++}
++
+ // After anything that may have changed the model or its context without going
+ // through a Results re-render (a lock toggle, Lock All, a background or ROI
+ // control): take a stale alternative overlay off the chart and bring the
+@@ -8125,8 +8164,14 @@ function _applyStatCaption(fr) {
+ function _applyStatDisplay(fr) {
+   const fq = document.getElementById('fit-quality');
+   const sb = document.getElementById('sb-chi');
+-  if (fr && Number.isFinite(fr.chiReduced)) {
+-    if (fq) { fq.textContent = _fitStatusText(fr); fq.setAttribute('data-xps-tip', _isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP); }
++  const st = (fr && fr === state.fitResult) ? _statsLiveState() : 'current';
++  if (fr && Number.isFinite(fr.chiReduced) && st === 'stale') {
++    // F1: the statistic belongs to the previous model: say so, show no number
++    if (fq) { fq.textContent = _fitStatLabel(fr) + ' \u2014 (model changed)'; fq.setAttribute('data-xps-tip', _STATS_STALE_NOTE); }
++    if (sb) sb.textContent = '\u2014';
++  } else if (fr && Number.isFinite(fr.chiReduced)) {
++    const tip = (_isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP) + (st === 'unverified' ? '\n\n' + _STATS_UNVERIFIED_NOTE : '');
++    if (fq) { fq.textContent = _fitStatusText(fr); fq.setAttribute('data-xps-tip', tip); }
+     if (sb) sb.textContent = fr.chiReduced.toFixed(3);
+   } else {
+     if (fq) { fq.innerHTML = '&#967;&#178; &mdash;'; fq.removeAttribute('data-xps-tip'); }
+@@ -8497,7 +8542,8 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+   state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
+                       engine: 'local', status: 'converged',
+                       objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))', iterations,
+-                      reportable: false, caveat: _LOCAL_FIT_CAVEAT };
++                      reportable: false, caveat: _LOCAL_FIT_CAVEAT,
++                      startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
+   state.fitResult.rFactor = _computeRFactor(state.fitResult);
+ 
+   _applyStatDisplay(state.fitResult);
+@@ -8564,6 +8610,8 @@ function _peakArea(p, be) {
+ 
+ function renderResults() {
+   const el = document.getElementById('results-area');
++  const _stats = _statsLiveState();   // F1: current / stale / unverified / none
++  if (el) el.setAttribute('data-stats-state', _stats);
+   _applyStatDisplay(state.fitResult);   // header + status bar track every result change (clear, restore, auto-fit) as one unit
+   _updateLocalModelBanner();
+   if (!state.fitResult) {
+@@ -8583,7 +8631,14 @@ function renderResults() {
+ 
+   const { chiReduced, rmse, backendResult } = state.fitResult;
+   const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
+-  const stderrMap = _buildStderrMap(state.fitResult);
++  const _stale = _stats === 'stale';
++  // F1: a stale result's sigma belongs to the previous model: none is shown
++  const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
++  const _statsBanner = _stale ? `
++    <div class="stats-stale-note" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
++      &#9888; <strong>The model has changed since this fit.</strong> Its &#967;&#178;, RMSE, R-factor and uncertainties belong to the previous model and are not shown. The table below is the current model, not a fitted result. Press <strong>Run Fit</strong> to obtain statistics for it.
++    </div>` : _stats === 'unverified' ? `
++    <div class="stats-unverified-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">${_escHtml(_STATS_UNVERIFIED_NOTE)}</div>` : '';
+   // A local (unweighted) result is a STARTING POINT: its areas can differ
+   // from the server's Poisson-weighted fit by more than 100 % (measured on
+   // the lab's C1s scans, unit A0). It is shown as such, never as a result.
+@@ -8598,22 +8653,23 @@ function renderResults() {
+     return val.toFixed(decimals);
+   }
+ 
+-  let html = _localBanner + `
++  const _dash = '<span style="color:var(--text3)">&mdash;</span>';
++  let html = _statsBanner + _localBanner + `
+     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+       <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${_escHtml(_fitStatLabel(state.fitResult))}</div>
+-        <div style="font-family:var(--mono);font-size:16px;color:${_statIsChi ? (chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)') : 'var(--text)'}">${chiReduced.toFixed(3)}</div>
++        <div style="font-family:var(--mono);font-size:16px;color:${_stale ? 'var(--text3)' : _statIsChi ? (chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)') : 'var(--text)'}">${_stale ? _dash : chiReduced.toFixed(3)}</div>
+       </div>
+       <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">RMSE</div>
+-        <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${rmse.toFixed(1)}</div>
++        <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${_stale ? _dash : rmse.toFixed(1)}</div>
+       </div>
+       ${backendResult ? `<div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Engine</div>
+         <div style="font-family:var(--mono);font-size:11px;color:var(--green)">lmfit</div>
+       </div>` : ''}
+     </div>
+-    ${_renderRFactorPanel(state.fitResult.rFactor)}
++    ${_stale ? '' : _renderRFactorPanel(state.fitResult.rFactor)}
+     <table class="results-table">
+       <thead><tr>
+         <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
+@@ -9015,8 +9071,9 @@ function _buildEntryRenderData(entry) {
+ 
+   // Envelope (raw-level)
+   let fittedY;
+-  if (Array.isArray(fr.fittedY) && fr.fittedY.length === be.length) {
+-    // Path A: backend fittedY directly (already raw-level).
++  if (Array.isArray(fr.fittedY) && fr.fittedY.length === be.length && _statsRecordState(src) !== 'stale') {
++    // Path A: backend fittedY directly (already raw-level). Never a stale
++    // result's curve (F1: judged against the SOURCE record's key).
+     fittedY = fr.fittedY.slice();
+   } else {
+     // Path A2/B: compose envelope from peaks + bg.
+@@ -9491,8 +9548,11 @@ function updatePlot() {
+   const modelFull = evalAllPeaks(plotBE, state.peaks);
+   // Use backend fitted_y when available (authoritative lmfit result);
+   // fall back to JS-recomputed modelFull + bg for pre-fit / local-LM fits.
++  // F1: never a stale result's curve (Find Peaks apply / undo keep the old
++  // result over a replaced model): the envelope is then the current peaks
+   const fittedYBacked = haveFit && state.fitResult.fittedY &&
+-                        state.fitResult.fittedY.length === plotBE.length
++                        state.fitResult.fittedY.length === plotBE.length &&
++                        _statsLiveState() !== 'stale'
+                         ? state.fitResult.fittedY : null;
+   const rawResiduals = fittedYBacked
+     ? plotInten.map((v, i) => v - fittedYBacked[i])
+@@ -9594,6 +9654,7 @@ function updatePlot() {
+     });
+   }
+ 
++  _refreshStatsState();                  // F1: chi-square / sigma / R follow the same key
+   _refreshStartsEvidence(false, true);   // background / ROI controls only repaint the chart: keep the visible consumers honest (fromPlot: the chart itself is being rebuilt)
+   _refreshRoiAndCentreWarnings();         // ROI past the data / centre outside the data: warn, never move
+   // History snapshot preview overlay (cyan dashed, drawn on top)
+@@ -10203,6 +10264,7 @@ function _doSaveFit() {
+       chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
+       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
+       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
++      ..._statsSaveFields(_statsLiveState()),   // F1: says plainly when the statistics belong to the previous model
+     } : ((_activeTab() && _activeTab().modelProvenance) ? {
+       ..._activeTab().modelProvenance, reportable: false, caveat: _localFitCaveat(_activeTab().modelProvenance),
+     } : null),
+@@ -10226,7 +10288,10 @@ function _doSaveSpectrum() {
+   const modelFull = evalAllPeaks(be, state.peaks);
+   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
+   const residuals = bgSub.map((v, i) => v - modelFull[i]);
+-  const fittedY = state.fitResult?.fittedY || modelFull.map((v, i) => v + bgIntensity[i]);
++  // F1: a stale result's stored curve is the previous model's; the file's
++  // fittedY then matches its residuals (the current model), as with no fit
++  const _saveStats = _statsLiveState();
++  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || modelFull.map((v, i) => v + bgIntensity[i]);
+ 
+   // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
+   // for LACX with caM > 0, only the array evaluator applies the shape's
+@@ -10262,6 +10327,7 @@ function _doSaveSpectrum() {
+     // these fields existed) is designated on re-save too.
+     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
+     caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
++    ..._statsSaveFields(_saveStats),
+   } : null;
+ 
+   const data = {
+@@ -10356,6 +10422,7 @@ async function _doSaveProject() {
+         iterations: t.fitResult.iterations ?? null,
+         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
+         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
++        ..._statsSaveFields(_statsRecordState(t)),   // F1: judged against the RECORD's key
+       } : null,
+       modelProvenance: t.modelProvenance || null,
+       notes: t.notes || '',
+@@ -10917,7 +10984,11 @@ function exportResults() {
+   }
+ 
+   const warning = _isLocalModel() ? '# WARNING: ' + _localFitCaveat(_governingProvenance()) + '\n' : '';
+-  const csv = warning + rows.map(r => r.join('\t')).join('\n');
++  // F1: the columns are computed from the CURRENT peaks; after an edit they
++  // are the edited, unfitted model, not the last fit's curve
++  const staleNote = _statsLiveState() === 'stale'
++    ? '# NOTE: the model has changed since the last fit: Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n' : '';
++  const csv = warning + staleNote + rows.map(r => r.join('\t')).join('\n');
+   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
+   const url = URL.createObjectURL(blob);
+   const a = document.createElement('a');
+@@ -10951,7 +11022,9 @@ function _doPublicationExport() {
+   if (!be.length) { notify('No data in ROI.', 'red'); return; }
+ 
+   const bgArr   = computeBackground(be, inten);
+-  const fittedY = (state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
++  // F1: a stale result's fitted curve is the previous model's: not drawn as "Fit"
++  const _figStats = _statsLiveState();
++  const fittedY = (_figStats !== 'stale' && state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
+   const residArr = fittedY ? inten.map((v, i) => v - fittedY[i]) : null;
+   const invert   = document.getElementById('invert-be').checked;
+   const showIndiv = document.getElementById('show-individual').checked;
+@@ -11160,10 +11233,12 @@ function _doPublicationExport() {
+   if (state.fitResult || _isLocalModel()) {
+     ctx.font = '38px Arial,sans-serif';
+     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+-    if (state.fitResult) {
++    if (state.fitResult && _figStats === 'stale') {
++      ctx.fillText('Model changed since the fit: no statistics, not a fitted result', plotX + 14, mainTop + 14);
++    } else if (state.fitResult) {
+       const statLabel = !_isLocalFit(state.fitResult) ? '\u03c7\u00b2_r'
+         : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r (local fit, not reportable)');
+-      ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3),
++      ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3) + (_figStats === 'unverified' ? ' (unverified)' : ''),
+                    plotX + 14, mainTop + 14);
+     } else {
+       ctx.fillText('Imported local fit: starting point, not reportable', plotX + 14, mainTop + 14);
+@@ -11322,7 +11397,10 @@ function _shapeExportCols(p) {
+ function exportFitTable(fmt) {
+   if (!state.fitResult) { notify('Run a fit first.', 'red'); return; }
+   const { be } = state.fitResult;
+-  const stderrMap = _buildStderrMap(state.fitResult);
++  // F1: a stale result's chi-square and sigma belong to the previous model:
++  // neither is written; a WARNING line says why
++  const _stats = _statsLiveState();
++  const stderrMap = _stats === 'stale' ? {} : _buildStderrMap(state.fitResult);
+   const areas = state.peaks.map(p => _peakArea(p, be));
+   const totalArea = areas.reduce((s,v)=>s+v,0);
+   const rsfVals = state.peaks.map(p => {
+@@ -11371,7 +11449,9 @@ function exportFitTable(fmt) {
+     const wb = XLSX.utils.book_new();
+     const metaWS = XLSX.utils.aoa_to_sheet([
+       ['XPS Fitting Studio Export'], ['Date', date],
+-      [_statName, chiStr], ['Background type', bgType],
++      ...(_stats === 'stale' ? [['WARNING', _STATS_STALE_NOTE]] : [[_statName, chiStr]]),
++      ...(_stats === 'unverified' ? [['NOTE', _STATS_UNVERIFIED_NOTE]] : []),
++      ['Background type', bgType],
+       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
+       ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
+       ...(_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey())) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))]] : []),
+@@ -11384,7 +11464,9 @@ function exportFitTable(fmt) {
+     notify('Exported XLSX table', 'green');
+   } else {
+     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
+-    csv += `# ${_statName}: ${chiStr}\n# Background: ${bgType}\n`;
++    csv += _stats === 'stale' ? `# WARNING: ${_STATS_STALE_NOTE}\n` : `# ${_statName}: ${chiStr}\n`;
++    if (_stats === 'unverified') csv += `# NOTE: ${_STATS_UNVERIFIED_NOTE}\n`;
++    csv += `# Background: ${bgType}\n`;
+     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
+     if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;
+     if (_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))}\n`;
+@@ -11491,6 +11573,13 @@ function _renderRFactorPanel(rf) {
+ function _updateRFactorUI(rf) {
+   const el = document.getElementById('sb-runs');
+   if (!el) return;
++  if (rf && state.fitResult && rf === state.fitResult.rFactor && _statsLiveState() === 'stale') {
++    // F1: the previous model's R-factor is not shown beside the edited model
++    el.style.color = 'var(--text3)';
++    el.textContent = 'R: \u2014';
++    el.setAttribute('data-xps-tip', _STATS_STALE_NOTE);
++    return;
++  }
+   if (!rf) {
+     el.textContent = '';
+     el.removeAttribute('data-xps-tip');
+@@ -11556,6 +11645,9 @@ const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the go
+ // ═══════════════════════════════════════════════════
+ function _validateUncertainties() {
+   if (!state.fitResult?.backendResult?.individual_peaks) return { warnings: [], info: [] };
++  // F1: a stale result's sigma and bounds describe the previous model; the
++  // Results banner says so once — no per-parameter rule is judged on them
++  if (_statsLiveState() === 'stale') return { warnings: [], info: [] };
+   const warnings = [];
+   const info = [];
+   const stderrMap = _buildStderrMap(state.fitResult);
+
+exec
+/bin/zsh -lc 'cat CLAUDE.md && cat docs/superpowers/plans/2026-09-25-f1-stale-statistics.md' in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+# XPS Fitting Studio
+
+Web application for XPS (X-ray Photoelectron Spectroscopy) peak fitting,
+multi-spectrum visualization, and project management. Python/Flask backend
+with an lmfit-driven peak-fitting pipeline; single-page frontend in
+`templates/index.html`. Deployed at xps.fortierlab.org via a gunicorn
+LaunchAgent + Cloudflare Tunnel.
+
+## Stack
+
+- **Backend:** Python/Flask, served by gunicorn. App factory in [app.py](app.py).
+- **Fitting engine:** lmfit ≥ 1.3 (5 methods: leastsq, least_squares, nelder, differential_evolution, basinhopping).
+- **Numerics:** numpy, scipy.
+- **File parsing:** pandas, openpyxl (xlsx), olefile (vgd).
+- **Frontend:** Single-page HTML/JS in `templates/index.html` (~8500 LOC). Vanilla JS, no build step.
+- **Charting:** Chart.js 4.4 (CDN).
+- **Deployment:** macOS LaunchAgent runs gunicorn on **127.0.0.1:5050** (NOT :5000 — macOS AirTunes intercepts :5000 and returns 403, so health-check :5050); Cloudflare Tunnel publishes to xps.fortierlab.org. Dev gunicorn typically runs on :5151 with `--reload` for pre-merge verification. See [DEPLOY.md](DEPLOY.md) for the full deploy sequence.
+
+## Project Layout
+
+```
+app.py                    # Flask app factory + REST routes
+fitting.py                # lmfit pipeline, lineshape impls, background algorithms
+parser.py                 # File parsers (csv / tsv / txt / xy / xlsx / xls / vgd)
+vgd_parser.py             # Thermo Avantage VGD binary parser (uses olefile)
+templates/index.html      # Frontend — CSS + HTML + JS in one file
+tests/                    # pytest suite (focused on LA + DS+G correctness)
+docs/superpowers/plans/   # Agent-authored design memos and implementation plans
+uploads/                  # Per-session .npz storage (gitignored)
+requirements.txt
+venv/                     # virtualenv (do not commit)
+```
+
+The Flask backend serves the frontend via `render_template('index.html')`
+and exposes a REST API consumed by the page through fetch.
+
+## Backend API
+
+Per-upload sessions store parsed `(energy, counts)` arrays as compressed
+`.npz` in `uploads/<session_id>.npz`. No server-side memory state —
+compatible with multi-worker gunicorn.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET`    | `/`                       | Serve the frontend (`templates/index.html`). |
+| `GET`    | `/api/health`             | Liveness probe. Returns `{status: "ok"}`. |
+| `GET`    | `/api/peak-shapes`        | List backend-registered lineshapes (gaussian / lorentzian / pseudo_voigt_gl / asymmetric_gl / doniach_sunjic / ds_g / la_casaxps). |
+| `GET`    | `/api/elements`           | Spin-orbit element presets (splitting + area ratio). |
+| `POST`   | `/api/upload`             | Upload a spectrum file; returns `session_id` + downsampled preview. |
+| `POST`   | `/api/parse-vgd`          | Parse Thermo Avantage VGD binary directly (no session storage). |
+| `GET`    | `/api/session/<id>`       | Retrieve a stored session's preview data. |
+| `DELETE` | `/api/session/<id>`       | Delete session files. |
+| `POST`   | `/api/background`         | Compute background curve for a session. |
+| `POST`   | `/api/fit`                | Run lmfit on a session with peak specs; returns chi², bgIntensity, bgSubtracted, fittedY, per-peak refined params + σ. |
+
+## Frontend Architecture
+
+### State
+
+Module-global `state` holds the currently-active tab's working values
+(swapped on tab switch by `TabManager.activateTab`):
+
+```js
+state = {
+  rawBE, rawIntensity,   // full spectrum as loaded
+  ccShift,               // charge-correction rigid shift (eV)
+  peaks[],               // array of peak objects
+  nextId,                // auto-increment peak ID
+  chart,                 // Chart.js instance
+  residChart,            // Residuals sub-chart instance
+  fitResult,             // last fit diagnostics (be, bgIntensity, bgSubtracted, fittedY, chi, etc.)
+  lineWidth,             // per-tab line width (sync of tab.lineWidth)
+}
+```
+
+### Tab model
+
+`TabManager` (a class in `templates/index.html`) holds `tabs[]` and an
+`activeId`. Two tab types share the array:
+
+- **Spectrum tab:** has `rawBE`, `rawIntensity`, `peaks`, `fitResult`, `ccShift`, `manualAnchors`, `lineWidth`, `ui` (form field snapshot incl. bg settings, ROI, charge correction method).
+- **Stack tab** (`isStack: true`): viewer-only container for references to other spectrum tabs. Has `entries[{id, sourceTabId, color, visible, showFit}]`, `lineWidth`, `verticalOffset`, `_nextColorIdx`. No raw data of its own — entries resolve their source tab at render time.
+
+Lifecycle: `createTab`, `createStackTab`, `activateTab`, `closeTab`,
+`_syncActiveToRecord` (writes state-back-to-tab on switch-away). Drag-and-drop
+tab reordering exists.
+
+### Peak Object Schema — core fields
+
+(Non-exhaustive. Additional optional fields appear for multiplet linkage, fix-flags per parameter, auto-fit asymmetry bounds, etc. Search the source for `defaultPeak` to see the full shape.)
+
+```js
+{
+  id, name, color, visible,
+  center, fwhm, amplitude,
+  shape,       // 'Gaussian'|'Lorentzian'|'Voigt'|'GL'|'asym-GL'|'DS'|'DSG_LA'|'LACX'
+  glMix,       // 0–100 (Gauss → Lorentz)
+  asymmetry,   // asym-GL asymmetry index
+  dsAlpha, dsGamma,                       // DS params
+  laAlpha, laBeta, laM,                   // DS+G params (laAlpha=α, laBeta=Lorentzian half-width, laM=Gauss FWHM)
+  caAlpha, caBeta, caM,                   // CasaXPS LA params (caM is in DATA POINTS, not eV)
+  linked, linkOffset, linkRatio,          // multiplet linkage to parent peak
+  isChargeReference,                      // marks this peak as the cc anchor
+}
+```
+
+### Lineshapes
+
+| ID | Description |
+|----|-------------|
+| `Gaussian` | Pure Gaussian |
+| `Lorentzian` | Pure Lorentzian |
+| `Voigt` | Pseudo-Voigt, fixed η = 0.5 on BOTH sides (A03, 2026-09-22: the request sends `gl_ratio: 0.5, fix_gl_ratio: true`; until then the server fitted η FREE from 0.3 while the page drew, integrated and exported 0.5). Use `GL` to fit the mix. |
+| `GL` | Pseudo-Voigt with adjustable GL mixing (0–100) |
+| `asym-GL` | GL with asymmetric FWHM broadening on high-BE side |
+| `DS` | Doniach-Šunjić, `dsAlpha` (0–0.5) + `dsGamma` |
+| `DSG_LA` | DS+G — DS asymmetric core convolved with Gaussian. Frontend params `laAlpha`/`laBeta`/`laM`; backend id `ds_g`. |
+| `LACX` | True CasaXPS LA(α,β,m) — asymmetric Lorentzian + Gauss conv with a CONTINUOUS m (data points; σ = m/3, half-width ⌈3.5σ⌉) on both sides since the caM unit (2026-09-25). Frontend params `caAlpha`/`caBeta`/`caM`; backend id `la_casaxps`. |
+
+**What the page draws must be what the server fitted.** Two harnesses pin
+it: `tests/js/lineshape_roundtrip.test.js` builds the request with the
+page's own `peakToBackendSpec`, fits it with `fitting.run_fit`, applies the
+result with `_applyBackendParams` and requires `evalPeakArray` on the fitted
+grid to equal `individual_peaks[].y` for every shape (it also pins the
+Python twin `autofit.reference.peak_to_backend_spec` to the page's builder,
+shape by shape); section (D) of `tests/js/lineshape_parity.test.js` sweeps
+each shape's FREE parameters across the fit's bounds. Both were added in A03
+(2026-09-22) after a "Voigt" was found to be fitted with η free while drawn
+at 0.5; the same harnesses then found `p.glMix || 50` / `p.dsAlpha || 0.1`
+sending a mix or α of exactly 0 as the default, lmfit clipping a HELD value
+to the optimiser's bounds (a DS+G m locked at 0 fitted at 0.05 —
+`_make_peak_params._set` now widens a limit to a held value), and the
+server clipping DS+G α to 0.495 where the page did not (`_dsgAlpha`). A
+held parameter is held at its value; what the page draws is what the
+server fitted. No shape carries a tracked gap any more. LACX with m > 0 was
+the last (the page drew m rounded to an integer 2m+1 kernel while the
+server fits it continuously: up to 0.97 % of amplitude and 1.2 % of area on
+the lab's U 4f components) until the `caM` unit, 2026-09-25:
+`laTrueCasaXPS_array` now mirrors `_la_casaxps_true` (continuous σ = m/3,
+half-width max(1, ⌈3.5σ⌉), `np.convolve` 'same' with the server's trim,
+normalisation at the grid point nearest the centre) — ≤ 7e-16 of amplitude
+on all 108 committed LA components, pinned across the α/β/m box on seven
+grids incl. grids shorter than the kernel
+(`docs/superpowers/plans/2026-09-25-cam-continuous.md`). DS+G was the other gap until 2026-09-22 (the page's quadrature
+`laCasaXPS` sized its step to the Lorentzian core, not the Gaussian kernel,
+and was wrong by up to 1e52 × amplitude at β = 2, m = 0.05 and 5–21 % low
+in area on the very box Find Peaks emits for a graphitic C 1s line);
+`dsgConvolved_array` now mirrors the server's padded-grid convolution for
+every m — the same FFT circular convolution — pinned at 1e-6 across the
+full β/m box on eight grids, irregular grids and centres outside the
+window (`docs/superpowers/plans/2026-09-22-dsg-page-evaluator.md`). Two
+server limits found there: a DS+G m just above the 0.001 delta threshold
+on a coarse grid (m ≤ 0.003 at 0.1 eV, even padded length) underflows the
+kernel and returns an all-zero curve — left as is, it reads as a
+zero-amplitude component and step (b) flags it; and a centre OUTSIDE the
+padded grid was normalised by rounding noise — fixed 2026-09-25 by a NEW
+GUARDED BRANCH (normalise by the maximum), proven byte-identical for every
+in-range centre against main's function (`scripts/dsg_outside_centre_identity.py`). Details of
+A03 in `docs/superpowers/plans/2026-09-22-a03-voigt-eta-identity.md`.
+
+---
+
+## Design Rules
+
+### Thresholds on data-scaled quantities fail
+
+XPS spans many orders of magnitude within one spectrum, so any absolute
+floor, delta or exactness cutoff will misjudge at some dynamic range. Two
+units learned this independently — five intensity floors on the Auto-Fit
+anchor (answer: a scale-free F test), then two tolerances on that F test
+(answer: none). Prefer a scale-free comparison with no tolerance. If a
+check seems to need a magnitude threshold, that is evidence the check is
+formulated wrong.
+
+(Owner, 2026-09-22. The record: the anchor unit's six Codex rounds in
+`docs/autofit/codex/autofit_zero_graphite_*`, the DE unit's tolerance rounds
+5–8 in `de_finite_bounds_*`, and the required-refit unit's rounds 2–3 in
+`autofit_required_*`. The DE unit is the same rule seen from the other
+side: every χ² comparison tolerance produced reachable false failures and
+no reachable protection, and the fix was to delete the comparison.)
+
+---
+
+## Lineshape Physics — Critical Rules
+
+### DS (Doniach-Šunjić) Asymmetric Lineshape
+
+The DS tail MUST always point toward **higher binding energy** (the left
+side on a standard inverted BE axis). Asymmetric broadening in metals
+arises from low-energy electron-hole pair excitations at the Fermi level,
+which produce intensity only on the high-BE side of the core-level peak.
+
+**Never invert the DS tail toward lower binding energy.**
+
+Implementation convention: `dx = center − x`. The power-law term
+extends the tail toward higher BE (`x > center` ⇒ `dx < 0`). The
+optional exponential cutoff `gamma_asym` decays **only** on that
+side — `Math.exp(gamma_asym * Math.min(dx, 0))` in the JS
+`doniachSunjic`, equivalent to `exp(−gamma_asym · max(x − center, 0))`
+in `fitting.py`'s `_doniach_sunjic`. When adding DS-derived shapes,
+preserve this convention: the high-BE side is where `dx < 0` and where
+the exponential envelope must decay.
+
+### DS+G (formerly mislabeled "LA(α, β, m) [CasaXPS]")
+
+The shape registered as `ds_g` in the backend (frontend enum `'DSG_LA'`,
+dropdown text "DS+G") is a Doniach-Šunjić asymmetric core convolved with
+a Gaussian. Despite its old label, this is NOT the CasaXPS LA
+formulation. Frontend field names `laAlpha` / `laBeta` / `laM` are kept
+for save-state compatibility:
+
+| Parameter | Meaning |
+|-----------|---------|
+| α (`laAlpha`) | DS asymmetry index, dimensionless, 0 ≤ α < 0.5 |
+| β (`laBeta`) | Lorentzian HALF-width (eV) of the DS core |
+| m (`laM`) | Gaussian FWHM (eV) used in the convolution |
+
+Tail points toward **higher** binding energy (DS physics: low-energy
+electron-hole pair excitations on the high-BE side only).
+
+Saved fits using the old `'LA'` shape value are auto-migrated on load to
+`'DSG_LA'` — math is unchanged, only the label. Saved fits using the
+short-lived `'DSG'` shape are auto-migrated to `'DS'` (the shape they
+were actually being fit against, due to a pre-existing preview/backend
+mismatch).
+
+### LA(α, β, m) [CasaXPS] — true CasaXPS formulation
+
+The shape registered as `la_casaxps` (frontend enum `'LACX'`, dropdown
+"LA(α,β,m) [CasaXPS]") implements the genuine CasaXPS LA. Distinct field
+names `caAlpha` / `caBeta` / `caM` so users do not confuse them with DS+G's
+`laAlpha` / `laBeta` / `laM` (which have totally different units):
+
+| Parameter | Meaning |
+|-----------|---------|
+| α (`caAlpha`) | High-BE-side exponent on the unit-amplitude Lorentzian; dimensionless, default 1.0, bounds 0.1–5.0 |
+| β (`caBeta`) | Low-BE-side exponent; dimensionless, default 1.0, bounds 0.1–5.0 |
+| m (`caM`) | Gaussian convolution kernel width in DATA POINTS (not eV); continuous (the server fits it continuously so its derivative exists; the page draws the same continuous value since 2026-09-25 — it drew an integer kernel; the local engine HOLDS it exactly, since LA's curve jumps at m = 6k/7 and a smooth optimiser cannot fit it), default 50, bounds 0–499 |
+
+α=β=1, m=0 reduces exactly to a pure Lorentzian. Increasing α
+**suppresses** the high-BE tail; decreasing α extends it (BE-axis
+convention; sign-flipped from CasaXPS's KE-axis description). m controls
+Gaussian broadening; effective eV width ≈ (m/3) × dx where dx is the
+data step size.
+
+When implementing new LA-related lineshape parameters, **always** add
+them to (use grep to find current line numbers — the file evolves):
+
+- `defaultPeak` defaults block in `templates/index.html`
+- `syncKeys` array
+- `renderShapeControls` LACX param row
+- `peakToBackendSpec` LACX branch
+- `applyBackendResult` LACX backend-param mapping
+- `runFit` JS LM free-params block + per-param clamps + linked-peak sync
+- `evalPeak` switch + grid-aware `laTrueCasaXPS_array` evaluator (called via `evalPeakArray`; DS+G's grid-aware twin is `dsgConvolved_array` — a convolved shape's scalar `evalPeak` branch ignores m and must have no caller, parity guard (C))
+- `_migrateLineshapeAliases` if backwards-compat alias needed
+
+### UCl4 U 4f Asymmetric Broadening
+
+The asymmetric broadening in the UCl4 U 4f spectrum is due to **5f²
+multiplet coupling**, not metallic screening. Do not attribute it to
+Kondo screening or Doniach-Šunjić metallic behaviour. Use
+multiplet-split component models, not a single DS peak.
+
+When modeling U 4f, use `asym-GL` for the U 4f₇/₂ and 4f₅/₂ main lines,
+with separate symmetric GL peaks for the multiplet satellites.
+
+### Satellite Peaks
+
+Satellite peaks (shake-up, shake-off, plasmon loss) use **symmetric**
+lineshapes — Voigt or GL. Do not apply DS or LA lineshapes to satellites.
+
+### Linked (Multiplet) Peaks
+
+A linked peak derives its center, amplitude, and **all lineshape
+parameters** from its parent. The sync block must cover every shape
+parameter — failing to add a new param breaks spin-orbit constraints
+during fitting. Search for the `syncKeys` array and the `applyParams`
+closure in `runFit` when adding parameters; both need the new key.
+
+| Parent param changes | Linked peak receives |
+|----------------------|----------------------|
+| `center` | `parent.center + linkOffset` |
+| `amplitude` | `parent.amplitude × linkRatio` |
+| `fwhm` / `shape` / `glMix` / `asymmetry` / `dsAlpha` / `dsGamma` | same value |
+| `laAlpha` / `laBeta` / `laM` (DS+G params) | same value |
+| `caAlpha` / `caBeta` / `caM` (CasaXPS LA params) | same value |
+
+---
+
+## Fitting Algorithm
+
+### Backend (default)
+
+`POST /api/fit` runs lmfit on the server. Selectable methods: `leastsq`
+(Levenberg-Marquardt), `least_squares` (Trust-Region), `nelder`,
+`differential_evolution`, `basinhopping`. The UI Method dropdown
+defaults to **Trust-Region** (`least_squares`); the backend falls back
+to **`leastsq`** when a request omits `fit_method`. The endpoint
+returns the full result including refined params, σ bounds, χ²,
+`bgIntensity`, `bgSubtracted`, and `fittedY`. Linked peaks are
+constrained via lmfit parameter expressions.
+
+`differential_evolution` samples from the parameter bounds and refuses an
+open one, and the page sends `amplitude_min: 0` with no `amplitude_max`
+(a free DS+G centre has no default window either), so until 2026-09-19
+every ordinary request for that method returned HTTP 422. For THAT METHOD
+ONLY, every candidate (the first search and each perturbed refit) is now
+`_search_then_refine`: differential evolution inside a generated box
+(`_finite_search_box`: open sides of freely varying parameters only —
+amplitude ± max(10 × the largest |background-subtracted intensity|,
+2 × |start|, 1), just the ceiling for the page, which sets the floor
+itself; centre = the fitted energy range, always a real interval), then —
+whenever a side was generated — an UNCONDITIONAL `least_squares`
+refinement from that solution under the request's own open bounds. A box
+can shape an answer that lies nowhere near its sides, so nothing is
+inferred from nearness. A refinement that CONVERGED is the result — a
+`least_squares` fit of the requested model under the requested bounds,
+which is what the default method returns; its χ² is deliberately not
+compared with the boxed search's (a descent cannot end materially above
+its start, but it ends a hair above an exact start sitting on a requested
+bound, and every tolerance tried for that comparison produced reachable
+false failures and no reachable protection — Codex rounds 5–8). If the
+refinement did not converge or raised, the search result
+stays marked unverified, never displaces a verified candidate in the
+perturb loop, and, if it is what `run_fit` returns, is `success: false`
+naming the generated limits.
+Because differential evolution ignores the start and can "converge" with
+a needle-narrow component outside the fitted range, each candidate also
+competes with a `least_squares` fit from its own start under the request's
+bounds (`_global_or_local_candidate`: verified beats unverified, then the
+lower χ² wins), so this method never returns worse than the default method
+would from the same start.
+Generated sides are never echoed back as `min`/`max` (the page saves
+returned bounds and warns within 1 % of them). A returned DE result
+therefore normally carries `least_squares` uncertainties and message.
+Every other method's parameters are unchanged; `/api/analyze` reaches the
+same code through `options.fit_method`. Measured on committed targets with
+the page's `n_perturb: 3`: 2–75 s per fit (6–7-component C 1s models
+exhaust DE's evaluation budget in every search and are rescued by the
+refinement). It is not a gold standard: on one 3-component B 1s target it
+returned χ²ᵣ 1.92 where Trust-Region found 1.81.
+
+**Reproducibility (2026-09-21).** Every random draw in `run_fit` — the
+`n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
+and the populations of `differential_evolution` and `basinhopping`, which
+lmfit otherwise takes from numpy's GLOBAL generator — comes from one seed
+that is a pure function of THE NUMBERS THE OPTIMISER IS HANDED
+(`_request_seed`: SHA-256 of the energies, counts and the COMPUTED
+background curve as little-endian float64, plus the canonical JSON of each
+component's lineshape, each lmfit parameter's effective role — a
+constrained one is its expression, a fixed one its value, a free one its
+value and bounds — the method, solver options and `n_perturb`; tag
+`xps-fit-seed-v1`). Settings are hashed by their EFFECT, never as sent, so
+nothing the fit ignores can change the draws: a peak's name or colour, the
+`fix_gl_ratio` the page still sends for a Gaussian, stale shape parameters
+kept after a shape switch, the `endpoint_avg` a linear background does not
+use, bounds of a fixed parameter, start values a link overrides, anchor
+order, and the peaks' internal ids (parameter names and constraint
+references are hashed by component POSITION: the page never reuses an id,
+so a model rebuilt after deleting a peak would otherwise fit differently)
+(in review each such no-op edit moved an area fraction by 15–45 pp
+while the request was hashed as sent). It is a seed,
+not an identity (32 bits collide; never a cache key). The response reports
+it as `random_seed`; a caller's `fit_kws.fit_kws.seed` (integer in
+[0, 2³²)) replaces it and is consumed, never forwarded to a solver.
+`run_fit` itself accepts only the five supported methods, case-folded
+(`_FIT_METHODS`): `/api/analyze` forwards `options.fit_method` without the
+route's allowlist, and lmfit's `ampgo`, `dual_annealing`, … would draw
+from the global generator. The seed value and the draws `run_fit` actually
+makes (observed through Levenberg-Marquardt) are pinned by tests; numpy does not promise the same `default_rng` stream across
+versions, so a failing pin after an upgrade is a release note ("saved
+projects regenerate differently"), not something to re-pin silently.
+
+What seeding buys and what it does not. "Identical request" means the same
+data, model START values and settings — after a fit the page holds the
+fitted values, so a second press is a different request; re-loading a
+saved project and pressing Run Fit is the repeatable case. Measured on the
+202 committed targets × 5 presses of the identical request, before → after:
+Levenberg-Marquardt byte-identical on 145 → 202 targets;
+Trust-Region on 51 → 145, area fractions moving by more than 1 pp between
+presses on 8 → 0 targets, by more than 0.01 pp on 14 → 2 (worst 0.30 pp,
+one U 4f scan where two presses in five land in a neighbouring minimum). Levenberg-Marquardt (MINPACK) and Nelder-Mead are
+byte-identical. Trust-Region, the default, is NOT and cannot be made so by
+seeding: the BLAS dot product (Apple Accelerate on the i9) rounds one unit
+in the last place differently depending on where its argument sits in
+memory (`w.dot(w)` gives two values over 16 alignments, `np.sum(w*w)`
+one), `norm` inside scipy's `_lsq/trf.py` is the first call to return
+different output for identical input, and the iteration amplifies that to
+~1e-4 relative in an area at its stopping tolerance of 1e-8. Worse, the
+perturbed restarts start from that jittering solution, and near a basin
+boundary 1e-5 in a start is enough to send a restart into another minimum:
+on the lab's targets that happened once (0.30 pp), but on a synthetic
+five-component model two presses of the seeded request differed by 29 pp
+(`tests/test_fit_reproducibility.py` docstring). Do not patch scipy
+internals for this, and do not tighten the tolerance: ftol = xtol = gtol =
+1e-12 on the same 202 × 5 gave FEWER byte-identical targets (123 vs 146)
+and made two targets that converge today abort on the evaluation budget.
+OWNER DECISION 2026-09-21: ACCEPT AND DISCLOSE; no unit for bit-identity.
+Byte-identity is a software property, not a scientific one. The scientific
+requirement — reloading a saved project and pressing Run Fit regenerates
+the figure within meaningful precision — is met (2 of 202 targets move
+more than 0.01 pp, worst 0.30 pp). The 29 pp synthetic case is the SAME
+phenomenon as the local-minimum problem (near a basin boundary 1e-4 of
+jitter flips the answer), so the scattered-starts cross-check unit is
+already the mitigation: it exposes exactly those fits. Do not build a
+second thing (a reviewer tried a deterministic perturbation base: identical
+starts, results still differed; a reproducible-arithmetic BLAS is a large
+project with uncertain payoff). Disclosure wording, for docs and the
+student note: identical requests now give identical results on real data
+in practice; the underlying arithmetic is not bit-reproducible, so a fit
+sitting near a boundary between two solutions can still resolve
+differently, and that is precisely the situation the multiple-starts check
+is designed to surface.
+
+**Scattered-starts check (step (a) of the 2026-09-21 unit; plan in
+`docs/superpowers/plans/2026-09-21-scattered-starts-and-unsupported-components.md`).**
+Every Run Fit with ≥ 2 unlinked components sends `n_starts: 3`; after the
+normal fit (unchanged: THE FIT is what the student's method returned,
+byte-identical with and without the check, and `n_starts` is not part of
+the seed) `run_fit` runs three more fits of the SAME method from scattered
+starts — drawn from a third stream of the request seed, anchored to the
+REQUEST's start (amplitude ×/÷ 3, width ×/÷ 1.5, free centres ± 0.5 eV,
+other bounded parameters redrawn inside the middle 90 % of their range),
+clamped into the request's bounds (amplitude sign kept). "Same solution" =
+every area fraction within 1 pp and every centre within 0.1 eV, COMPONENT
+BY COMPONENT by id — no permutations: "C-O" and "C=O" trading places is a
+different chemical reading even when both are GL lines. The response's
+`starts` reports how many reached
+the fit, how many ended in a solution that is NOT better (counted, never
+listed — ~25 % of fits have one and listing them would train people to
+ignore the panel), and `alternatives`: solutions whose χ²ᵣ is lower by more
+than 0.1 %, each with its own areas and every component's centre shift
+from the STUDENT'S START. Not run for `differential_evolution` /
+`basinhopping`, single-component models, a fit that did not converge,
+Batch Fit or the local fallback; a failure inside the check never fails
+the fit. Page: one line under the Results table ("2 of 3 scattered starts
+reached this solution; …" — counts, never certification language) and,
+when alternatives exist, an "Other solutions found" table (your fit first;
+the largest move named, amber > 0.5 eV, red > 1 eV) with Preview (the
+history-preview overlay, on a copy) and "Use this solution": explicit, one
+undo entry, recorded as `fitResult.chosenAlternative`, and ATOMIC by
+construction — the alternative is only the START of an ordinary server fit
+(`runFit({startPeaks})`); the live model is written by that fit's success
+path and by nothing else, so a fit that fails, does not converge, is
+discarded on a tab switch or cannot reach the server (no local fallback
+here) leaves peaks and result exactly as they were, and σ, exports and
+saves come through the one existing path. Every row shows EACH component's
+own area % and its own move from the student's start. The evidence is
+BOUND TO THE FIT THAT PRODUCED IT by COMPARISON, never by hand
+invalidation (so no edit path can be forgotten): `fitResult.startsModelKey`
+covers every peak field the request reads (incl. the auto-fit asymmetry
+bounds) AND the fit context — background type and window, endpoint
+averaging, Shirley iterations, ROI, manual anchors, charge shift — taken
+after the result is applied and persisted with the counts.
+`_startsIfCurrent(fr, key)` is the single accessor (`_startsLiveKey()` for
+the active tab, `_startsRecordKey(t)` for a record): after any such change,
+an undo or a history restore that brings back other values, the panel says
+the comparison no longer applies, nothing can be previewed or applied, an
+open alternative preview is dropped (`_dropStaleAltPreview`), and
+saves/exports carry neither counts nor the recorded choice. A name, colour
+or visibility is not part of a fit and does not invalidate it. `runFit`
+captures the same key before its first await and DISCARDS a result whose
+model or context was edited while it ran (the peak controls stay editable
+during a fit; a newly locked centre would otherwise keep its edited value
+under the server's statistics). The trigger (`n_starts`) is decided with
+the other request inputs before the first await. In the RED band — and only there — it first asks,
+naming the component and the distance ("This solution moves C-O by
+−1.47 eV from where you placed it. Apply?"): a lower χ²ᵣ bought by
+relocating a component is the measured trap (8-JT C1s Scan_1/5/6/7), and
+the app must never substitute a chemical interpretation because it scored
+better. Saves persist the counts (`_startsForSave`), not the alternatives'
+parameter sets (regenerable from the seeded request). Measured with the
+shipped code on the 202 committed targets: an alternative is shown on 0 of
+94 re-fits of a saved solution and 6 of 84 not-yet-fitted starts (7.1 %;
+three of them in the red band), median +0.54 s per Run Fit (90th
+percentile +1.8 s). It shows that a decomposition is not unique; it cannot
+say which one is correct, and four known targets defeat even ten starts.
+
+### Client-side fallback
+
+`runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
+implementation used as a fallback when the backend is unreachable, and
+the ONLY engine Batch Fit uses. Central-difference Jacobian (centre
+step scaled by the peak width), active-set step (parameters pushed into a
+box wall are held fixed), max 3000 iterations. Terminates on a gradient
+cosine < 1e-6, on actual and predicted relative χ² reductions both < 1e-6
+in agreement, or on a relative step < 1e-8, and only after a
+feasible-descent CERTIFICATE passes: no single free parameter moved by
+1e-3 (scaled, inside its box) reduces the residual by more than 1e-6 of
+its value, otherwise that point is taken and iteration continues. The
+certificate is a coordinate (single-parameter) check, not a proof of a
+local minimum along coupled directions; no exit is exempt from it.
+Damping exhaustion is a FAILURE. Poisson-weighted since unit W1
+(2026-09-18): it minimises Σ(w·r)² with w = 1/√max(raw counts, 1), the
+server's weighting, so its statistic is a real χ²ᵣ (objective
+`poisson_weighted_chi_square`); results saved by unit A0 were unweighted
+and stay labelled "Residual variance". It produces no uncertainties, and it
+HOLDS LA's `caM` at its exact value (it used to round it in its clamp; a
+free m was tried in the `caM` unit and withdrawn: LA's curve is
+discontinuous in m, `docs/superpowers/plans/2026-09-25-cam-continuous.md`).
+
+**A local result is a STARTING POINT, not a reportable result** (keyed on
+`engine: 'local'`, helpers `_isLocalFit` / `_isLocalModel` /
+`_localFitCaveat`). Measured in unit W1 and RE-MEASURED after A03
+(2026-09-22, `docs/superpowers/plans/2026-09-22-a03-voigt-eta-identity.md`,
+generator `scripts/local_server_gap.js`): weighted, it matches the server on
+GL-type models (≤ 4 meV, ≤ 1.4 % area on the lab's C1s scans) and on Voigt
+components (fixed η = 0.5 on both sides since A03: on the 5 of 9 committed
+U 4f targets where both engines reach the same minimum every component
+agrees within 4.3 meV, 2.6 % FWHM, 2.0 % area, 0.12 pp — W1 had measured up
+to 20.8 % area on the Voigt satellites); it still differs on the other U 4f
+targets for two reasons, separated by a control arm (the server with LA's
+m held at the same value): the `caM` hold (the server fits m, the local
+engine holds it — on Scan_6 the whole gap), and the local descent stopping
+in a worse minimum (5–13 % χ²ᵣ above the held-m server on Scan_4/5/8) —
+the "several minima" case (`docs/findings/cam/local_server_gap_after_cam.json`;
+both engines' amplitude floor is 0 since unit step (b)). Both engines weight by
+√intensity whether the data are counts or CPS (a convention, not a
+calibrated uncertainty for rates); the formula is the same but the inputs
+are not bit-identical, because `uploadToBackend` rounds intensities to
+2 dp before the server weights them. A03 and the `caM` unit are done and
+the designation STAYS on both grounds: fitting m locally needs a
+derivative-free search (its own unit), and the worse-minimum outcome
+(three of nine U 4f targets) remains; the label is reconsidered only on a
+re-measurement after that work. (The amplitude-bound change
+DECIDED 2026-09-18 — `docs/findings/2026-09-fit-determinacy.md` §3 — is
+implemented: unit step (b), 2026-09-22, below.) The same file records that a
+converged server fit is not ground truth: on a committed C 1s scan the
+server's default method stopped in a local minimum the local engine
+avoided.
+See `docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md`.
+
+**"Not supported by the data" (unit step (b), 2026-09-22; owner decision
+2026-09-18).** A component whose amplitude the fit drove to its floor,
+pinned on a bound or fitted to numerical residue is an explicit OUTCOME —
+the fit did not determine it — and its centre, width and σ are not reported
+as if they were. The statement needs no intensity floor (six were tried for
+the Auto-Fit anchor and each rejected real components or accepted residue):
+with the other components held at their fitted values, removing this one
+must make the fit significantly worse — `fitting._component_support`, the
+Auto-Fit anchor's F statistic (F ≥ 10; `SUPPORT_MIN_F`). The SERVER computes
+it once per component (`individual_peaks[].support = {f, delta_chi2,
+supported}`; a linked component `follows` its parent); the page's twin
+`_componentSupportFromResponse` recomputes it from any response carrying
+`counts`, `fitted_y` and the component's curve; the LOCAL engine computes
+the same statistic from its own residuals and weights
+(`_componentSupportCore`), so a component driven to the zero floor by Batch
+Fit is an outcome there too. Linked components follow their ROOT ancestor
+whatever the request order. The verdict is a property of the fit that
+produced it, CONDITIONAL on the other components as fitted, so it is bound
+to that fit: `p.support.fitKey` is the model-plus-context key
+(`_startsLiveKey()`) taken after the values are applied, and
+`_isUnsupported(p)` compares it with the live key at every read — after
+the student edits any peak, lock, link, the background, ROI, anchors or
+charge correction, or an undo brings back other values, nothing is
+suppressed or excluded until a new fit writes a new verdict (a verdict
+without a key, from an older save, is never applied; exports write a
+Status only from a CURRENT verdict — stale means "not established", never
+"supported"). When the key changes, `_refreshStartsEvidence` compares the
+set of flagged components with what EACH consumer has rendered — sidebar
+badges, Results rows and chart datasets carry the peak id / flag — and
+re-renders the ones that differ — the sidebar is PATCHED IN PLACE (header, summary values, area % over the currently supported components, badge), never re-rendered, because the student may be typing in a card (a caller that already redrew the sidebar,
+such as Lock All or Add Peak, therefore still gets Results, Quantify and the
+chart refreshed); it runs from the lock toggles, Lock All and every
+`updatePlot` (which passes `fromPlot` so the chart is not rebuilt from
+inside its own rebuild). Auto-Fit locks
+every centre and refines the charge shift AFTER the result is applied, so
+it re-stamps its verdicts (`_restampSupport`) — those changes are part of
+its result. `p.support` is persisted with the peak (saves spread the peak
+whole); Batch Fit's copy and a `.fit.json` import set it to `null`
+(parameters on other data: nothing established); stack tabs judge a source
+component against the SOURCE record's key. Sites
+(`_isUnsupported`): sidebar card (badge; centre/width "—"; excluded from the
+area total), Results table (greyed row, no centre/width/σ, area kept,
+percentage "—", note beneath; percentages over supported components),
+uncertainty panel (one rule-0 warning, before the per-parameter alarms and
+instead of the neutral "locked" note Auto-Fit's centre lock would produce),
+Quantify (no row; listed beneath: "an atomic percentage of 0.0 % would be a
+measurement claim"), chart / stack / figure legend labels, no figure label at
+the component's (zero) maximum, CSV/XLSX (Status column, empty cells, no
+At%, WARNING line — and no width of any kind: DS+G β / m and LA m are widths
+too), TSV (column kept, header says so), the scattered-starts table ("Your
+fit" row shows neither area % nor a move for it, and it is never the
+largest move; an alternative's components are unjudged and shown as they
+are). Both engines' amplitude
+floor is 0 (`runFitLocal`'s clamp was 1). Measured on the 202 committed
+targets: 3 of 752 components (three C 1s re-fits, F 0.95–3.9), 0 of 95 fresh
+starts — but committed projects are survivorship-biased (a collapsed
+component may have been deleted before saving), so the working-fit rate is
+plausibly higher. Known limits, the anchor check's: a gross single-channel
+artefact can mark a real component unsupported; REDUNDANCY UNDER OVERLAP is
+not detected (a refit without the component is the test; step (c) does it
+for the Auto-Fit anchor).
+
+**Acceptance rule for fit outcomes (unit A0, 2026-09-15):** a fit OUTCOME
+from Run Fit, Batch Fit or the local engine is shown, stored or exported
+only if it converged. `runFitLocal` works on a copy and commits only on
+success, returning `{success, iterations, chiReduced}`; `runFit`
+treats `success !== true` from `/api/fit` as a failed fit and falls back to
+the local engine only on a transport failure, never on a server-side
+error. A RESULT IS DISCARDED IF THE MODEL WAS EDITED WHILE THE FIT WAS RUNNING
+(2026-09-22; a correctness fix for EVERY Run Fit, shipped with the
+scattered-starts check but independent of it). The peak controls stay
+editable during a fit. `runFit` captures the model-plus-context key
+(`_startsLiveKey()`: every peak field the request reads, background type and
+window, endpoint averaging, ROI, anchors, charge shift) beside `peakSpecs`,
+before its first await, and after the tab-owner check refuses to apply a
+result if that key changed: amber notice, "Fit discarded (model edited)",
+previous peaks and result kept. Before this, a centre changed and locked
+mid-fit kept its edited value (`applyBackendResult` honours locks) under the
+server's χ², σ and fitted curve for a different model.
+STATISTICS AFTER AN EDIT (unit F1, 2026-09-25; plan
+`docs/superpowers/plans/2026-09-25-f1-stale-statistics.md`): χ², σ, RMSE,
+the R-factor and the stored fitted curve are bound to their fit by the SAME
+key (`fitResult.startsModelKey`, now stamped by every creator — `runFit`,
+`runFitLocal`, `applyAutoFitResult`, re-stamped by `_restampSupport`); no
+second mechanism. One accessor, `_statsState(fr, key)` (`_statsLiveState()`,
+`_statsRecordState(t)`): `current` / `stale` (the model or its context
+changed since — an edit, a Find Peaks apply in the default window, an undo
+or history restore to other values) / `unverified` (no key: saved before
+this unit — values shown with a note to re-run). Stale: Results banner
+("belong to the previous model"), statistic / RMSE "—", no R panel, no σ;
+header "χ²ᵣ — (model changed)", status "—", "R: —"; no per-parameter
+uncertainty rule; CSV/XLSX a WARNING instead of the statistic, σ cells
+empty; TSV a NOTE (its columns are the current, unfitted model); figure no
+χ² and no stored "Fit" curve; chart and stack envelopes composed from the
+current peaks; saves keep the key (a reload judges again) and add
+`statisticsState` / `statisticsNote`. Refreshed from `updatePlot`
+(`_refreshStatsState`, Results carries `data-stats-state`). The model
+replacement that keeps an older result is thereby covered for the
+statistics. Not covered (separate units): loaded files without convergence
+provenance; `p._backendParams` still rides in a stale save (not displayed;
+the sealed fit record owns it). From the initial commit
+until this unit the local LM step had the wrong sign and returned the
+starting model as "Fit complete"; see
+`docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and
+`scripts/scan_batch_fit_signature.py`, which lists suspected saved files.
+
+## Background Methods
+
+| Backend id | Notes |
+|---|---|
+| `shirley` | Iterative Shirley (Proctor & Sherwood, *Anal. Chem.* **1982**, 54, 13, 2438–2439). Default. |
+| `smart` | Shirley variant with smarter endpoint handling. |
+| `smart_exp` | Experimental Shirley variant. |
+| `shirley_linear` | Shirley with a linear-fallback bridge. |
+| `linear` | Straight line between ROI endpoints. |
+| `tougaard` | Single-pass universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV). Order-robust (either BE direction); amplitude anchored to the data at the high-BE edge. JS twin `tougaardBackground` must stay in numerical agreement (pinned by `tests/js/tougaard_twin.test.js`). |
+| `manual` (frontend only) | User-placed anchor points; `manualAnchorBackground` in JS. |
+
+Use Shirley for standard core-level regions. Linear only when the
+spectral window is very narrow and featureless.
+
+## Quantification
+
+Peak areas are integrated numerically (trapezoidal over BE grid). RSF
+(relative sensitivity factor) corrections are applied in the Quantify
+tab. Atomic percent = (area/RSF) / Σ(area/RSF) × 100.
+
+---
+
+## Charge Correction
+
+Reference: **C 1s adventitious carbon at 284.8 eV** is the default. The
+UI dropdown also offers **C 1s graphitic carbon (sp²) at 284.5 eV** as
+an alternative; the Auto-Fit C1s Graphite feature uses 284.5 eV as the
+fixed reference for the graphitic component it identifies.
+
+A rigid shift (`state.ccShift`) is applied to all binding energies
+before fitting. The corrected axis is produced by `getCorrectedBE()`.
+
+Auto-Fit C1s Graphite derives that shift from the FITTED centre of its
+"Graphite" component, so the data must SUPPORT that component
+(`_autoFitGraphiteIsSupported`), in the one sense that needs no intensity
+threshold: removing it from the fitted model must make the fit to the
+server's own data significantly worse. From the `/api/fit` response alone —
+`counts`, `fitted_y`, the component's curve `individual_peaks[].y`, the
+server's weights 1/max(counts, 1) — F = ((χ²_without − χ²_with)/p) /
+(χ²_with/dof), p = the component's free parameters; supported means
+χ²_without > χ²_with and F ≥ 10 (or χ²_with = 0). A component driven to
+zero, pinned on its bound or fitted to numerical residue has
+χ²_without ≤ χ²_with — removing it costs nothing (true of every such
+reproduction in `docs/autofit/codex/autofit_zero_graphite_*`); resolved
+anchors measured F from 1.7e2 (behind a 300 000-count one-channel spike) to
+1e9, and the 70 committed Graphite models F ≥ 1.1e3. Otherwise the auto-fit
+is rejected and rolled back with a red notice before any charge-correction
+input is touched. Until 2026-09-21 only the centre was checked (±0.3 eV of
+284.50), which a zero-amplitude component always satisfies because its
+centre is bounded to that window. Do NOT replace this with an intensity
+floor: five were tried (relative to the strongest component, the raw span,
+the background-subtracted maximum, the raw magnitude, the upload's 0.01
+resolution) and each rejected real anchors or accepted residue. The same
+statistic is the natural definition for the planned "component not
+supported by the data" outcome. Fixtures are real `run_fit` responses:
+`scripts/gen_autofit_anchor_fixtures.py` →
+`tests/js/fixtures/autofit_anchor.json`. SCOPE: it answers "do the data
+support this component?", not "is it graphite?".
+
+KNOWN LIMITS of that check (owner decision 2026-09-21: shipped with them
+after six Codex rounds, all NO-GO; do NOT write a seventh rule — six
+intensity floors failing is the data saying no threshold on intensity can
+mean "zero" independently of the data):
+- It REJECTS A REAL ANCHOR when the fitted region carries a gross
+  single-channel artefact (a spike of millions of counts, or a dead
+  zero-count channel): that channel dominates χ²_with and drags F under 10.
+  The user gets a red notice and a rolled-back model; removing the artefact
+  or narrowing the ROI recovers. A recoverable refusal beats main's old
+  failure mode — a non-existent component silently setting the energy
+  reference for a whole spectrum.
+- REDUNDANCY UNDER OVERLAP was out of scope for the support check
+  (χ²_without holds the other components fixed) and is CLOSED by step (c),
+  2026-09-22: Auto-Fit's request carries `require_component: <Graphite id>`
+  and the server refits the model WITHOUT that component from the others'
+  fitted values under the request's bounds (`fitting._component_required`,
+  through the run's own fitter `fit_model` — so differential evolution's
+  box/refinement machinery and the request seed apply to the refit too;
+  everything linked to the removed component goes with it, transitively;
+  every retained parameter is created before any expression is assigned,
+  so a chain of links in any request order resolves; NO tolerance of any
+  kind on the comparison — a delta floor relative to the data's power and
+  then an "exactness" cutoff on the reduced fit each masked a resolved
+  anchor at high dynamic range, Codex rounds 2–3, the DE unit's lesson
+  again. Known limit, accepted: on NOISE-FREE data whose full fit is exact
+  to machine precision F is meaningless and a truly redundant component can
+  read "required"; real data never fit to machine precision) and returns
+  `required: {required, f, chi2_with, chi2_without_refit, refit_converged}`
+  with the same F ≥ 10 rule. `applyAutoFitResult` refuses a supported-but-
+  not-required anchor exactly like an unsupported one, before any
+  charge-correction input is touched ("refitting the other components
+  without it fits the data as well"); the anchor id is captured with the
+  other request inputs before the first await. One extra fit, Auto-Fit only; the fit
+  itself is unchanged by the check, and a check that did not run never
+  blocks. On the 70 committed Graphite models the anchor is required on
+  all 70 (F ≥ 54, median 6.1e3 — a measurement with `require_component` over
+  the un-committed target file, not a test); the round-6 reproduction (two symmetric GL
+  lines, no graphite: support F ~ 1e6 with the others held, refit without it
+  equal to rounding) is now refused.
+- One rounding-residue construction still passes (unrounded manual
+  background a rounding step under data the upload flattened; F ≈ 280).
+
+LOGGED FOR ONE LATER UNIT (untouched): Auto-Fit anchors on a one-channel
+spike, and on a featureless plateau under background None, and still
+derives a charge correction from it; a rejected Auto-Fit (any reason)
+leaves its `pushUndo()` entry and a cleared redo stack behind. The spike
+case shares a root with the false rejection above — gross single-channel
+artefacts are unhandled generally — so if this becomes a despike /
+outlier-flag unit, those three are one piece of work.
+
+Adventitious carbon referencing (284.8 eV) is the default for
+convenience but has known criticisms in the XPS literature — the C 1s
+position of adventitious carbon depends on surface chemistry and is not
+a true universal standard. Graphitic carbon (284.5 eV) or a known
+internal reference is preferable when available.
+
+Additional fixed references in the dropdown: Au 4f₇/₂ (83.98 eV), B 1s
+for B₂O₃ (192.99 eV), N 1s for BN (398.31 eV), B 1s for BN (190.74 eV),
+plus a free-entry "Custom reference" option.
+
+## File Formats Supported
+
+| Extension | Notes |
+|-----------|-------|
+| `.csv`, `.tsv`, `.txt`, `.xy` | Whitespace/comma/tab/semicolon delimited. Backend `parseCSV` + frontend equivalent. |
+| `.xlsx`, `.xls` | Backend `parseXLSX` (openpyxl); frontend XLSX.js for client-side parse. |
+| `.vgd` | Thermo Avantage binary. Backend uses `vgd_parser.py` (olefile); frontend `parseVGD` does a heuristic Float32 extraction. |
+
+Spectrum columns: first = BE (eV), second = intensity (counts/s). Rows
+with non-numeric or missing values are skipped.
+
+---
+
+## Multi-Tab + Project Save/Load
+
+The app supports multiple spectrum tabs simultaneously. Project state
+saves to `.proj.json` (< 5 tabs) or `.proj.zip` (≥ 5 tabs; manifest +
+per-spectrum JSON inside the archive). Schema version 3.
+
+- **Tab IDs** are preserved across save/load. Field is top-level
+  `data.activeId`; the saved active tab is re-activated on load.
+- **Stack tabs persist.** Saved with `isStack: true` + their entries
+  + line-width + offset; spectrum tab data lives elsewhere and is
+  reached by `entry.sourceTabId` at render time.
+- **Stale stack entry pruning:** if a saved stack references a source
+  tab that didn't load, the entry is dropped and an amber toast tells
+  the user.
+
+## Spectrum Stacking
+
+A stack tab visualizes multiple spectra on shared axes with per-entry
+fit visualization (envelope + shaded peak components, raw-level).
+The whole stack chart's behavior is governed by a small set of
+invariants worth knowing before touching the code:
+
+- **Dataset keying.** Each entry contributes 2 + 2×N_peaks datasets to
+  the chart, each tagged with a stable `_stackKey` of the form
+  `<entryId>:raw`, `<entryId>:env`, `<entryId>:peak:<peakId>`,
+  `<entryId>:pbg:<peakId>` (the `:pbg` is a transparent fill anchor for
+  the matching peak's shaded fill — Chart.js requires a real dataset
+  for fill targets). Keys let in-place updates target specific datasets
+  without relying on array indices, which shift when datasets reorder.
+
+- **In-place updates preserve zoom.** `_updateStackChart` mutates
+  `data` / `hidden` / `borderWidth` / `fill` on existing datasets and
+  calls `chart.update('none')`. `_renderStackChart` is the destroy +
+  rebuild path, used only on entry add/remove or when the active chart
+  is the wrong chart (see next bullet).
+
+- **Chart-type discriminator.** `state.chart._xpsStackTabId` is set on
+  every stack chart at creation. `_updateStackChart` rebuilds whenever
+  the active chart isn't tagged for the current stack tab — guards
+  against in-place updates running against a stale spectrum chart or
+  a different stack's chart.
+
+- **3 render-data paths** in `_buildEntryRenderData` cover fresh
+  backend fits (Path A: use fitResult.fittedY directly), fresh local-LM
+  fits (Path A2: compose envelope from peaks + bgIntensity), and
+  post-load reconstruction (Path B: recompute bg from raw via the
+  source tab's persisted bg settings using `_computeBackgroundForSource`).
+  Render data is cached on the entry as `_renderDataCache` and
+  invalidated only at `_renderStackChart` rebuild.
+
+- **Layered visibility model.** Per-entry `entry.showFit` gates whether
+  the entry participates in fit visualization at all; the toolbar pills
+  (Envelope, Individual Peaks, Fill, Bkgrd Sub) act as global layer
+  switches on top. The `peak-fit-control` CSS class hides peak/fit
+  toolbar items entirely on stack tabs (Run Fit, Batch Fit, etc.).
+
+## Toolbar Highlights (frontend)
+
+- **Line Width slider** (right panel, always visible): per-tab,
+  persisted. Drives raw + per-peak `borderWidth`; envelope uses
+  `min(width + 1, 6)` so it stays visually distinct.
+- **Vertical Offset slider** (right panel, stack tabs only): vertical
+  separation between visible entries.
+- **`⇅ Organize Tabs`** (chart toolbar): sorts spectrum tabs as
+  Survey → element-alphabetical → Other; stack tabs cluster at the
+  end as a block, preserving their relative order.
+- **`+ Stack` / `+ Add Spectrum ▾`** (chart toolbar): create a new
+  empty stack and add open spectrum tabs to the active stack.
+- **Auto-Fit C1s Graphite** (Actions menu): one-click C1s peak model
+  + charge correction. Enabled only when the active ROI midpoint is in
+  270–315 eV.
+- **ROI past the data / centre outside the data** (2026-09-25, warn only):
+  `getROIData()` has always clamped an ROI to the data it selects; the page
+  now SAYS so under the ROI fields ("ROI extends past your data — clipped
+  to X–Y eV" when a field reaches more than one sampling step past the
+  data; amber when min > max or the window misses the data) and badges a
+  peak card whose centre lies outside the selected data ("outside data").
+  Neither the fields nor the peaks are ever moved; the fit, Find Peaks
+  (same inclusive mask on the same corrected energies) and saves read the
+  ROI exactly as before. `_roiWindowStatus` / `_refreshRoiAndCentreWarnings`,
+  refreshed in place from `updatePlot`; plan
+  `docs/superpowers/plans/2026-09-25-roi-clamp-and-centre-warning.md`.
+- **Manual anchor background**: place anchors on the chart for
+  per-spectrum hand-tuned background curves; persisted as
+  `tab.manualAnchors`.
+
+## Tests
+
+```
+tests/test_la_continuous_m.py   # LA(α,β,m) continuity across integer-m kernel widths
+tests/test_la_short_input.py    # LA edge cases on very-short input arrays
+tests/test_mixed_ds_lacx_e2e.py # End-to-end: a fit with both DS+G and CasaXPS LA peaks
+```
+
+Run via `pytest tests/`.
+
+## Reference Energies for Common Regions
+
+There is **no demo-spectrum loader** in the app (a `loadDemo(...)`
+function does not exist — earlier versions of this file were stale).
+Typical regions for hand-testing:
+
+| Region | Window | Notes |
+|--------|--------|-------|
+| Fe 2p | 700–740 eV | Fe(0) at 706.6, Fe(III) at 710.5, satellite at 713.5 |
+| U 4f | 370–415 eV | UCl4-like U(IV); 4f₇/₂ at 380.9, 4f₅/₂ at 391.8 (offset 10.9 eV) |
+| C 1s | 280–295 eV | sp², sp³, C-O, C=O, COOH components; charge ref at 284.8 eV |
+
+## Known Issues
+
+- Legacy document-level tooltip handlers call `e.target.closest(...)`
+  without checking that the event target is an Element
+  (`templates/index.html` around the `data-xps-tip` listeners); events
+  targeting non-Elements throw `e.target.closest is not a function`.
+  Needs an `instanceof Element` guard in a future pass.
+- Gunicorn `--reload` watches Python files only — **edits to
+  `templates/index.html` are NOT picked up** outside Flask debug mode
+  because Jinja caches compiled templates per worker. Restart the dev
+  gunicorn after template changes before browser-verifying.
+
+## Development Workflow
+
+- Develop on feature branches off `main`.
+- Production gunicorn serves whatever is on disk at
+  `templates/index.html`. Browser-verify changes on a separate dev
+  gunicorn on **port 5151** (run with `--reload`) before merging.
+- Merge to main only after browser verification.
+- Design memos and implementation plans live under
+  `docs/superpowers/plans/` and are committed alongside the changes
+  they describe.
+# F1 — statistics after an edit belong to the previous model (2026-09-25)
+
+Branch `fix-stale-statistics` off main `4475023` (caM unit deployed). Owner's
+brief, first of the three sweep units: "Reuse step (b)'s fit key (model +
+background/ROI/anchors/charge shift). When the current key does not match
+the key the statistics came from, mark χ², σ and R stale in the Results
+panel, CSV, XLSX, TSV, figure export and saves — say plainly they belong to
+the previous model, or omit them. Do not build a second binding mechanism;
+this is a down payment on the sealed fit record and must be absorbable by
+it. Enumerate every consumer of the statistics first."
+
+Source finding: `docs/findings/2026-09-25-fail-open-guards-sweep.md` H1
+(`sweep-fail-open-guards`).
+
+## 1. The one mechanism
+
+The key already exists and already binds two things to their fit:
+`_startsModelKey(peaks, ui, ccShift, anchors)` — every peak field a request
+reads, background type and window, endpoint averaging, Shirley iterations,
+ROI, manual anchors, charge shift. `fitResult.startsModelKey` (the starts
+evidence) and `p.support.fitKey` (step (b)'s verdicts) both hold it, taken
+after the result is applied, and are compared with `_startsLiveKey()` /
+`_startsRecordKey(t)` at every read. F1 adds NO new key and no new field
+name: every creator of a fit result stamps `fitResult.startsModelKey`, and
+ONE accessor classifies a result against a key:
+
+- `current` — the key matches: the statistics describe the model shown;
+- `stale` — the key differs: they belong to the previous model;
+- `unverified` — the result carries no key (saved before this unit, or an
+  older local / Auto-Fit result): whether it described the saved model
+  cannot be known. Shown, with a plain note to re-run. Treating these as
+  stale would hide χ² and σ on nearly every existing lab project.
+
+The sealed fit record absorbs this directly: its record will carry the key
+and the statistics together; `_statsState` becomes a read of the seal.
+
+## 2. Creators of a fit result
+
+| creator | stamps the key today | after |
+|---|---|---|
+| `runFit` (server) | yes, after `applyBackendResult` | unchanged |
+| `runFitLocal` (fallback; Batch Fit targets) | no | yes, after the values are committed |
+| `applyAutoFitResult` | no; and it locks every centre and refines the charge shift AFTER applying (so its verdicts are re-stamped by `_restampSupport`) | stamped at creation AND re-stamped by `_restampSupport` (those changes are part of its result) |
+| `_loadSpectrumFile` | restores a saved `startsModelKey` if present | unchanged (an older file has none → `unverified`) |
+| project load (`fromJSON` / tab records) | the saved `fitResult` object, key included if present | unchanged |
+| `_historyRestoreSnap`, `_autoFitRestore` | restore an older result WITH its key | unchanged — the comparison judges it |
+| `applyFindPeaks` (default mode), undo / redo | keep the old result over a replaced model | unchanged — the key comparison now makes that result `stale` (CLAUDE.md lists these as "not covered"; they are covered here for the statistics) |
+| `clearAllPeaks`, `closeTab`, Batch Fit's copy, `.fit.json` import | set `fitResult = null` | unchanged |
+
+## 3. Consumers of χ², σ, R (and the stored fitted curve)
+
+| # | consumer | reads | `stale` | `unverified` |
+|---|---|---|---|---|
+| 1 | Results panel (`renderResults`): statistic card, RMSE card, R panel, σ in the peak table | `chiReduced`, `rmse`, `rFactor`, `backendResult` σ | amber banner: the statistics belong to the previous model, Run Fit; statistic, RMSE and R shown as "—"; σ omitted | a plain note; values shown |
+| 2 | Header statistic + status bar (`_applyStatDisplay`, `_fitStatusText`, caption) | `chiReduced` | "χ²ᵣ — (model changed)"; status value "—"; tooltip says why | value shown; tooltip adds the note |
+| 3 | Status-bar R (`_updateRFactorUI`) | `rFactor` | cleared, tooltip says why | shown |
+| 4 | Uncertainty panel (`_validateUncertainties`) | `backendResult` σ, bounds | nothing: no per-parameter rule is judged on the previous model's σ (the Results banner is the one line; the panel's boxes are titled "Uncertainty Warnings" / "Locked Parameters", neither fits) | unchanged |
+| 5 | CSV / XLSX (`exportFitTable`) | `chiReduced`, σ | statistic line omitted, σ cells empty, a WARNING line naming why | values kept, a NOTE line |
+| 6 | TSV (`exportResults`) | no statistics; Model / Residual computed from the current peaks | a NOTE: those columns are the edited, unfitted model | unchanged |
+| 7 | Publication figure (`_doPublicationExport`) | `chiReduced` | χ² annotation omitted | "(unverified)" appended |
+| 8 | `_doSaveSpectrum`, `_doSaveFit` | `chi`, `chiReduced`, `rmse`, key, `fittedY` | key saved as always, so a reload judges the result again (a stale save reloads stale); `statisticsState: 'stale'` and a plain `statisticsNote` added; the spectrum file's `fittedY` is the current model + background (it then matches the file's `residuals`, which were always the current model) | `statisticsState: 'unverified'` |
+| 9 | `_doSaveProject` (per tab) | the tab's `fitResult` | the same two fields, judged against the RECORD's key | the same |
+| 10 | History snapshots (`_autoSnapshot`, `_renderHistoryList`) | `chiReduced`, `rFactor` at snapshot | NOT a consumer: a snapshot is taken only by the three creators, right after a result is applied, so peaks, result and key are one state; restoring one brings back its key and the comparison judges it | — |
+| 11 | Chart (`updatePlot`, stored `fittedY` → envelope and residuals) | `fittedY` | not used (edits already null it; Find Peaks apply and undo did not): the envelope is composed from the current peaks | used |
+| 12 | Stack tabs (`_buildEntryRenderData` Path A) | the source's `fittedY` | not used; Path A2/B (from the source's peaks) | used |
+| 13 | Scattered-starts panel, support verdicts | already keyed by the same key | unchanged | unchanged |
+| 14 | Batch Fit summary | the fit's own return value (fresh) | not a consumer of a stored result | — |
+| 15 | Quantify | areas from the current peaks, no statistics | not a consumer | — |
+
+Refresh: when the live key changes the Results panel re-renders if its
+rendered state differs (it carries `data-stats-state`), and the header,
+status bar and R are re-applied — from `updatePlot`, next to
+`_refreshStartsEvidence`, so every edit path that repaints reaches it.
+
+Residual, logged for the sealed fit record: each peak carries
+`p._backendParams` (the server's per-parameter value, σ and bounds of the
+LAST fit), persisted whole with the peak. It is not displayed anywhere
+(the σ above come from `fitResult.backendResult`), but it rides in a stale
+save; the save's `statisticsState` / `statisticsNote` cover the file.
+`autofit/parity.py` reads `_backendParams.gl_ratio.value` from saved peaks,
+so it is not stripped here — the sealed record owns per-parameter results.
+
+## 4. Verification
+
+- JS: `tests/js/stale_statistics.test.js` (12 tests: the accessor; every
+  creator stamps the key and `_restampSupport` re-stamps the result; the
+  Results panel current / stale / unverified, header, status bar, R,
+  uncertainty panel on stubs; CSV / XLSX / TSV run for real on stubs;
+  chart / stack / figure / spectrum-save curve gates; the saves' fields;
+  the refresh re-renders once per state change and writes R on both
+  paths). Existing sandboxes in `local_lm_descent`, `fit_acceptance`,
+  `unsupported_components` given the accessor (or a `'current'` stub).
+- Browser (`scratchpad/browser_check_f1.py`, :5151, committed UCl4-graphite
+  project): on load every tab is `unverified` (committed before this unit)
+  → note shown, values kept; Run Fit → `current`; centre edit → `stale`:
+  header "χ²ᵣ — (model changed)", status "—", "R: —", banner, no σ, no R
+  panel, chart envelope NOT the stored curve; CSV head carries the
+  WARNING; spectrum save has `statisticsState: 'stale'` + key; undo →
+  `current` again; project save → reload → `current` (the key survives the
+  round trip); the stale spectrum save reloads `stale`; a stack entry over
+  the edited source does not use the stored curve. Auto-Fit C1s Graphite on
+  C1s Scan_3 → `current` with every centre locked (the re-stamp). No page
+  errors.
+- pytest: `test_browser_find_peaks_full_window.py`'s default-path guard
+  hand-wrote an R display the injected result did not carry; the fixture
+  now stores `rFactor` where a fit puts it. New test there: a KEYED result
+  kept over a Find Peaks apply is `stale` (header, status, R, banner).
+
+## 5. Codex rounds
+
+(filled in as they run)
+
+exec
+/bin/zsh -lc "rg -n 'chiReduced|\\.chi\\b|\\brmse\\b|rFactor|backendResult|fittedY|_buildStderrMap|startsModelKey' templates/index.html static/js" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+templates/index.html:3250:    if (state.fitResult && state.fitResult.rFactor == null) {
+templates/index.html:3251:      state.fitResult.rFactor = _computeRFactor(state.fitResult);
+templates/index.html:3253:    _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
+templates/index.html:4660:  if (state.fitResult) state.fitResult.fittedY = null;
+templates/index.html:7225:  if (state.fitResult) state.fitResult.startsModelKey = key;   // F1: the statistics are the same result's
+templates/index.html:7335:  const chiReduced = stats.reduced_chi_square || 0;
+templates/index.html:7336:  const rmse = Math.sqrt((json.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be2.length));
+templates/index.html:7339:    chi: chiReduced * Math.max(1, be2.length - state.peaks.length * 3),
+templates/index.html:7340:    chiReduced, rmse,
+templates/index.html:7342:    backendResult: json,
+templates/index.html:7343:    fittedY: json.fitted_y,
+templates/index.html:7345:    startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
+templates/index.html:7347:  state.fitResult.rFactor = _computeRFactor(state.fitResult);
+templates/index.html:7352:    fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
+templates/index.html:7358:  if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
+templates/index.html:7361:  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult.rFactor);
+templates/index.html:7543:    notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
+templates/index.html:7615:function _startsModelKey(peaks, ui, ccShift, anchors) {
+templates/index.html:7626:  return _startsModelKey(state.peaks, ui, state.ccShift, typeof _getManualAnchors === 'function' ? _getManualAnchors() : []);
+templates/index.html:7629:function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, t.manualAnchors); }
+templates/index.html:7633:  if (!st || !fr.startsModelKey || fr.startsModelKey !== key) return null;
+templates/index.html:7649:  if (!fr.startsModelKey) return 'unverified';
+templates/index.html:7650:  return fr.startsModelKey === key ? 'current' : 'stale';
+templates/index.html:7670:  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
+templates/index.html:7705:      !(state.fitResult && _historyPreview.altKey === state.fitResult.startsModelKey && _startsIfCurrent(state.fitResult, _startsLiveKey()))) {
+templates/index.html:7842:  _historyPreview = { snapId: key, altKey: state.fitResult.startsModelKey, peaks, fitResult: { chiReduced: alt.chi2r } };
+templates/index.html:7891:  let backendResult = null;
+templates/index.html:7973:    backendResult = json;
+templates/index.html:7999:    applyBackendResult(backendResult);
+templates/index.html:8001:    const stats = backendResult.statistics || {};
+templates/index.html:8002:    const chiReduced = stats.reduced_chi_square || 0;
+templates/index.html:8003:    const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
+templates/index.html:8005:    state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
+templates/index.html:8006:                        chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
+templates/index.html:8007:                        fittedY: backendResult.fitted_y, roiRange, _preFit,
+templates/index.html:8008:                        starts: backendResult.starts || null,
+templates/index.html:8009:                        startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
+templates/index.html:8014:    state.fitResult.rFactor = _computeRFactor(state.fitResult);
+templates/index.html:8017:    _updateRFactorUI(state.fitResult.rFactor);
+templates/index.html:8020:    notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
+templates/index.html:8143:           weighting: fr.weighting || null, chiReduced: fr.chiReduced ?? null,
+templates/index.html:8152:  return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + tag;
+templates/index.html:8168:  if (fr && Number.isFinite(fr.chiReduced) && st === 'stale') {
+templates/index.html:8172:  } else if (fr && Number.isFinite(fr.chiReduced)) {
+templates/index.html:8175:    if (sb) sb.textContent = fr.chiReduced.toFixed(3);
+templates/index.html:8520:  const chiReduced = chi / dof;                       // weighted reduced chi-square, as lmfit's redchi
+templates/index.html:8522:  const rmse = Math.sqrt(_raw.reduce((a, v) => a + v * v, 0) / be.length);   // unweighted RMS, as the server path reports
+templates/index.html:8542:  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
+templates/index.html:8546:                      startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
+templates/index.html:8547:  state.fitResult.rFactor = _computeRFactor(state.fitResult);
+templates/index.html:8551:  _updateRFactorUI(state.fitResult.rFactor);
+templates/index.html:8560:         '. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3) + ' (Poisson-weighted; no uncertainties). Starting point only: run Fit before reporting.', 'amber');
+templates/index.html:8562:  return { success: true, engine: 'local', iterations, acceptedSteps, chiReduced, certifyRestarts };
+templates/index.html:8594:function _buildStderrMap(fitResult) {
+templates/index.html:8596:  const peaks = fitResult?.backendResult?.individual_peaks;
+templates/index.html:8632:  const { chiReduced, rmse, backendResult } = state.fitResult;
+templates/index.html:8636:  const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
+templates/index.html:8661:        <div style="font-family:var(--mono);font-size:16px;color:${_stale ? 'var(--text3)' : _statIsChi ? (chiReduced<2?'var(--green)':chiReduced<5?'var(--amber)':'var(--red)') : 'var(--text)'}">${_stale ? _dash : chiReduced.toFixed(3)}</div>
+templates/index.html:8665:        <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${_stale ? _dash : rmse.toFixed(1)}</div>
+templates/index.html:8667:      ${backendResult ? `<div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+templates/index.html:8672:    ${_stale ? '' : _renderRFactorPanel(state.fitResult.rFactor)}
+templates/index.html:8993://   { be, bg, fittedY, peaks: [{peak, y}] }
+templates/index.html:8995:// `fittedY` is the raw-level envelope; each peak's `y` is the raw-level
+templates/index.html:8999://   A:  fitResult.be + fitResult.fittedY both present, lengths match
+templates/index.html:9000://       → use fittedY directly (already raw-level). Frozen to fit-time
+templates/index.html:9002://   A2: fitResult.be + fitResult.bgIntensity present, no fittedY (local
+templates/index.html:9003://       LM fit) → fittedY = evalAllPeaks(be, peaks) + bg.
+templates/index.html:9034:    return { be: [], bg: [], rawY: [], fittedY: [], peaks: [] };
+templates/index.html:9039:    return { be: [], bg: [], rawY: [], fittedY: [], peaks: [] };
+templates/index.html:9073:  let fittedY;
+templates/index.html:9074:  if (Array.isArray(fr.fittedY) && fr.fittedY.length === be.length && _statsRecordState(src) !== 'stale') {
+templates/index.html:9075:    // Path A: backend fittedY directly (already raw-level). Never a stale
+templates/index.html:9077:    fittedY = fr.fittedY.slice();
+templates/index.html:9081:    fittedY = model.map((v, i) => v + bg[i]);
+templates/index.html:9092:  return { be, bg, rawY, fittedY, peaks: peakCurves };
+templates/index.html:9245:        ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedY[i] - rd.bg[i]) + yShift }))
+templates/index.html:9246:        : rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i]              + yShift }));
+templates/index.html:9419:            ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedY[i] - rd.bg[i]) + yShift }))
+templates/index.html:9420:            : rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i]              + yShift })))
+templates/index.html:9553:  const fittedYBacked = haveFit && state.fitResult.fittedY &&
+templates/index.html:9554:                        state.fitResult.fittedY.length === plotBE.length &&
+templates/index.html:9556:                        ? state.fitResult.fittedY : null;
+templates/index.html:9557:  const rawResiduals = fittedYBacked
+templates/index.html:9558:    ? plotInten.map((v, i) => v - fittedYBacked[i])
+templates/index.html:9562:    const d = fittedYBacked ? plotInten[i] : bgSubtracted[i];
+templates/index.html:9644:  if (showEnvelope && plotBE.length && (fittedYBacked || state.peaks.length)) {
+templates/index.html:9647:      data: fittedYBacked
+templates/index.html:9648:        ? plotBE.map((b, i) => ({ x: b, y: fittedYBacked[i] - (bgSubView ? plotBG[i] : 0) }))
+templates/index.html:10257:      chiReduced: state.fitResult.chiReduced ?? null,
+templates/index.html:10263:      startsModelKey: state.fitResult.startsModelKey || null,
+templates/index.html:10292:  // fittedY then matches its residuals (the current model), as with no fit
+templates/index.html:10294:  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || modelFull.map((v, i) => v + bgIntensity[i]);
+templates/index.html:10314:    chi: state.fitResult.chi,
+templates/index.html:10315:    chiReduced: state.fitResult.chiReduced,
+templates/index.html:10316:    rmse: state.fitResult.rmse,
+templates/index.html:10324:    startsModelKey: state.fitResult.startsModelKey || null,
+templates/index.html:10345:    fittedY: fittedY,
+templates/index.html:10403:        chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
+templates/index.html:10404:        rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
+templates/index.html:10420:        startsModelKey: t.fitResult.startsModelKey || null,
+templates/index.html:10640:    const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
+templates/index.html:10641:    for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative']) if (data.statistics[k]) fr[k] = data.statistics[k];
+templates/index.html:10643:    if (data.fittedY) fr.fittedY = data.fittedY;
+templates/index.html:11027:  const fittedY = (_figStats !== 'stale' && state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
+templates/index.html:11028:  const residArr = fittedY ? inten.map((v, i) => v - fittedY[i]) : null;
+templates/index.html:11055:  for (const arr of [inten, bgArr, fittedY]) {
+templates/index.html:11144:  if (fittedY) {
+templates/index.html:11146:    polyline(be, fittedY, yM);
+templates/index.html:11241:      ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3) + (_figStats === 'unverified' ? ' (unverified)' : ''),
+templates/index.html:11269:  if (fittedY) lgItems.push({ label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit', type: 'line', color: '#cc0000' });
+templates/index.html:11403:  const stderrMap = _stats === 'stale' ? {} : _buildStderrMap(state.fitResult);
+templates/index.html:11418:  const chiStr = state.fitResult.chiReduced.toFixed(4);
+templates/index.html:11539:  if (fitResult.fittedY && fitResult.fittedY.length === be.length) {
+templates/index.html:11542:      residuals = bgSub.map((v, i) => (v + bgI[i]) - fitResult.fittedY[i]);
+templates/index.html:11544:      residuals = bgSub.map((v, i) => v - (fitResult.fittedY[i] - (bgI ? bgI[i] : 0)));
+templates/index.html:11576:  if (rf && state.fitResult && rf === state.fitResult.rFactor && _statsLiveState() === 'stale') {
+templates/index.html:11647:  if (!state.fitResult?.backendResult?.individual_peaks) return { warnings: [], info: [] };
+templates/index.html:11653:  const stderrMap = _buildStderrMap(state.fitResult);
+templates/index.html:12226:                   chi: ok && Number.isFinite(outcome.chiReduced) ? outcome.chiReduced : null,
+templates/index.html:12242:    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local fit: a starting point, not a reportable result)${roiNote(r)}</div>`
+templates/index.html:13977:  const chi = state.fitResult.chiReduced;
+templates/index.html:13991:      fittedY: state.fitResult.fittedY ? [...state.fitResult.fittedY] : null,
+templates/index.html:13994:    rFactor: state.fitResult.rFactor ?? null,
+templates/index.html:14043:        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof s.chi === 'number' && isFinite(s.chi) ? ' &middot; <span class="hist-row-chi">' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + s.chi.toFixed(3) + (_isLocalFit(s.fitResult) ? ' (starting point)' : '') + '</span>' : ''}${typeof s.rFactor === 'number' && isFinite(s.rFactor) ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
+templates/index.html:16119:  // Peaks' own response has no be/fittedY/bgIntensity arrays to rebuild a
+
+exec
+/bin/zsh -lc "sed -n '7490,7638p' templates/index.html; sed -n '7760,8165p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+      const spec = peakToBackendSpec(p);
+      if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
+      if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
+      if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
+      if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
+      spec.amplitude_min = 0;
+      return spec;
+    });
+
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
+    const sessionId = await uploadToBackend(be2, inten2);   // after EVERY input above is captured
+    const resp = await fetch('/api/fit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        background: bgPayload,
+        peaks: peakSpecs,
+        fit_method: fitMethod,
+        n_perturb: 3,
+        // step (c): is the charge-reference anchor REQUIRED? The server refits
+        // the model without it; a redundant anchor must not set the energy
+        // reference of a whole spectrum (see applyAutoFitResult).
+        require_component: anchorId,
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    const json = await resp.json();
+    if (json.error) throw new Error(json.error);
+    if (json.success !== true) throw new Error(json.message || 'fit did not converge');
+    if (!_ownerActive(fittingTab)) {
+      _hideFitSpinner();
+      notify('Auto-fit discarded — tab switched during fit.', 'amber');
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+
+    applyBackendResult(json);
+
+    const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
+    if (!ok) {
+      _hideFitSpinner();
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+
+    _hideFitSpinner();
+    notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
+  } catch (e) {
+    clearTimeout(timer);
+    _hideFitSpinner();
+    // The catch path can also fire after a mid-flight tab switch (fetch
+    // error/timeout after the user moved on) — same wrong-tab hazard as
+    // the explicit discard branch, so it gets the same tab-aware restore.
+    _autoFitRestore(snap, fittingTab);
+    let msg;
+    if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('aborted')))) {
+      msg = 'Auto-fit exceeded the 2-minute timeout.';
+    } else if (e && e.message) {
+      msg = 'Fit failed to converge or produced an unphysical graphite position.';
+      console.warn('Auto-fit error:', e);
+    } else {
+      msg = 'Auto-fit failed.';
+    }
+    notify(msg, 'red', true);
+  }
+}
+
+function isC1sTab(tab) {
+  if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
+  const ui = tab.ui || {};
+  let lo = parseFloat(ui.roiMin);
+  let hi = parseFloat(ui.roiMax);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+    // Fall back to full raw range (no UI ROI set yet)
+    let rmin = Infinity, rmax = -Infinity;
+    for (const v of tab.rawBE) {
+      if (v < rmin) rmin = v;
+      if (v > rmax) rmax = v;
+    }
+    lo = rmin; hi = rmax;
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return false;
+  const mid = (lo + hi) / 2;
+  return mid >= 270.0 && mid <= 315.0;
+}
+
+// ── Scattered-starts check (2026-09-21) ───────────────────────────────────────
+// Every Run Fit with two or more unlinked components asks the server for three
+// more fits of the SAME method from scattered starts. The student's result
+// stays THE FIT; a solution with a lower reduced chi-square is listed beside it
+// with its own areas and how far each component moved from the student's start
+// (a relocated component must be visible at a glance: on a committed C 1s scan
+// the better-scoring solution slid C-O 1.4 eV under the main line). Solutions
+// that are not better are only counted. Measured on the lab's 202 fit targets:
+// an alternative appears on 0 % of re-fits of a saved solution and 7 % of
+// not-yet-fitted starts, for a median +0.5 s. No certification language: the
+// check can show a decomposition is not unique, never that one is correct.
+const _STARTS_N = 3;
+const _STARTS_SHIFT_AMBER_EV = 0.5, _STARTS_SHIFT_RED_EV = 1.0;
+const _STARTS_TOOLTIP = "After your fit, the same method is run again from a few scattered starting points. If they all come back to your solution, that is what those starts found, no more: other starts or another method might not. If one finds a different solution with a lower χ²ᵣ it is listed here with how far each component moved from where you put it. Your fit is never replaced. A lower χ²ᵣ is not a better chemical model. Identical requests give identical results on real data in practice, but the underlying arithmetic is not bit-reproducible, so a fit sitting near a boundary between two solutions can still resolve differently; that is the situation this check is designed to surface.";
+
+function _startsUnlinkedCount(peaks) { return (peaks || []).filter(p => !p.linked).length; }
+
+// The evidence belongs to the FIT THAT PRODUCED IT: the model (everything the
+// request reads from a peak) AND its context (background type and window,
+// endpoint averaging, Shirley iterations, ROI, manual anchors, charge shift).
+// The key is taken when the result is stored; it is compared, never
+// invalidated by hand, so no edit path can be forgotten: after any change to
+// a parameter, lock, shape, link, the peak list, the background, the ROI, the
+// anchors or the charge correction — or an undo / history restore that brings
+// back other values — the panel says the comparison no longer applies,
+// nothing can be previewed or applied, and saves/exports carry no counts. A
+// name, colour or visibility is not part of a fit and does not invalidate it.
+const _STARTS_MODEL_FIELDS = ['id', 'shape', 'center', 'fwhm', 'amplitude', 'glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
+  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM', 'linked', 'linkOffset', 'linkRatio', '_afAsymMin', '_afAsymMax',
+  'fixCenter', 'fixFwhm', 'fixAmplitude', 'fixGlMix', 'fixAsymmetry', 'fixDsAlpha', 'fixDsGamma',
+  'fixLaAlpha', 'fixLaBeta', 'fixLaM', 'fixCaAlpha', 'fixCaBeta', 'fixCaM'];
+const _STARTS_UI_FIELDS = ['bgType', 'bgStart', 'bgEnd', 'shirleyIter', 'endpointAvg', 'roiMin', 'roiMax'];
+function _startsModelKey(peaks, ui, ccShift, anchors) {
+  return JSON.stringify({
+    p: (peaks || []).map(q => _STARTS_MODEL_FIELDS.map(k => (q[k] === undefined ? null : q[k]))),
+    u: _STARTS_UI_FIELDS.map(k => String((ui || {})[k] ?? '')),
+    s: Number(ccShift) || 0,
+    a: (anchors || []).map(v => [v.x, v.y]),
+  });
+}
+// The key of the ACTIVE tab as it stands now (live model, live controls).
+function _startsLiveKey() {
+  const ui = (typeof tabManager !== 'undefined' && tabManager && tabManager._captureUI) ? tabManager._captureUI() : {};
+  return _startsModelKey(state.peaks, ui, state.ccShift, typeof _getManualAnchors === 'function' ? _getManualAnchors() : []);
+}
+// The key of a tab RECORD (project save runs after _syncActiveToRecord).
+function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, t.manualAnchors); }
+// The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
+function _startsIfCurrent(fr, key) {
+  const st = fr && fr.starts;
+  if (!st || !fr.startsModelKey || fr.startsModelKey !== key) return null;
+  return st;
+}
+// Unit F1 (2026-09-25): the fit STATISTICS (chi-square, sigma, R-factor, RMSE
+// and the stored fitted curve) are bound to the fit that produced them by the
+// SAME key — no second mechanism. One accessor classifies a result:
+}
+
+function _startsPanelHtml(fr) {
+  if (!fr || !fr.starts || !fr.starts.ran) return '';
+  const st = _startsIfCurrent(fr, _startsLiveKey());
+  if (!st) {
+    return `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--text3)">&#8635; The model has changed since this fit, so its scattered-starts comparison no longer applies. Run the fit again to compare starts.</div>`;
+  }
+  let html = `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5">
+    <div data-xps-tip="${_escHtml(_STARTS_TOOLTIP)}" style="color:var(--text2)">&#8635; ${_escHtml(_startsSummaryText(st))}</div>`;
+  if (fr.chosenAlternative) {
+    const c = fr.chosenAlternative;
+    html += `<div style="color:var(--text3);margin-top:2px">This fit started from a solution you chose from the scattered starts (χ²ᵣ ${Number(c.fromChi).toFixed(2)} → ${Number(c.toChi).toFixed(2)}; largest move from your original start: ${_escHtml(c.shiftName)} ${_startsEv(c.shiftEv)}).</div>`;
+  }
+  const alts = st.alternatives || [];
+  if (!alts.length) return html + '</div>';
+  const comps = st.fit.components;
+  const head = comps.map(c => `<th style="text-align:right;padding:2px 4px">${_escHtml(_startsPeakName(c.id))}<br><span style="font-weight:400;color:var(--text3)">area % &middot; move</span></th>`).join('');
+  // every component: its OWN area fraction and its OWN move from the student's start.
+  // A component this fit did not support shows neither (the same rule as the
+  // Results table); an alternative's components are unjudged (no verdict was
+  // computed for that solution) and are shown as they are.
+  const cell = (c, judged, scale) => {
+    const pk = getPeak(Number(c.id)) || getPeak(c.id);
+    if (judged && pk && _isUnsupported(pk)) return `<td style="text-align:right;padding:2px 4px;color:var(--text3)" title="${_escAttr(_UNSUPPORTED_TIP)}">${_UNSUPPORTED_LABEL}</td>`;
+    return `<td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${(c.area_percent * scale).toFixed(1)}<br><span style="color:${_startsShiftColour(c.center_shift_from_start)}">${_startsEv(c.center_shift_from_start)}</span></td>`;
+  };
+  const largest = (cs, judged) => {
+    // the largest move among components this fit supports (an unsupported one has no position to move)
+    const eligible = cs.filter(c => { const pk = getPeak(Number(c.id)) || getPeak(c.id); return !(judged && pk && _isUnsupported(pk)); });
+    return eligible.length ? eligible.reduce((m, c) => Math.abs(c.center_shift_from_start) > Math.abs(m.center_shift_from_start) ? c : m) : null;
+  };
+  const row = (label, chi, n, cs, judged, actions) => { const big = largest(cs, judged);
+    // the judged row's percentages are over the components this fit supports (as in the Results table)
+    const supportedPct = judged ? cs.reduce((t, c) => { const pk = getPeak(Number(c.id)) || getPeak(c.id); return t + ((pk && _isUnsupported(pk)) ? 0 : c.area_percent); }, 0) : 100;
+    const scale = supportedPct > 0 ? 100 / supportedPct : 1;
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:2px 4px">${label}</td><td style="text-align:right;padding:2px 4px;font-family:var(--mono)">${chi.toFixed(2)}</td>
+      <td style="text-align:right;padding:2px 4px">${n}</td>
+      ${cs.map(c => cell(c, judged, scale)).join('')}
+      <td style="padding:2px 4px">${big ? _startsShiftHtml({ id: big.id, ev: big.center_shift_from_start }) : '&mdash;'}</td><td style="padding:2px 4px;white-space:nowrap">${actions}</td></tr>`; };
+  html += `<h4 style="font-size:11px;margin:8px 0 4px" title="Solutions other starts reached with a lower reduced chi-square than your fit. A lower value is not a better chemical model: look at where the components went.">Other solutions found</h4>
+    <div style="overflow-x:auto"><table style="width:100%;font-size:10px;border-collapse:collapse">
+    <thead><tr><th style="text-align:left;padding:2px 4px">solution</th><th style="text-align:right;padding:2px 4px">χ²ᵣ</th><th style="text-align:right;padding:2px 4px" title="how many of the scattered starts ended here">starts here</th>${head}<th style="text-align:left;padding:2px 4px">largest move from your start</th><th></th></tr></thead><tbody>`;
+  html += row('<b>Your fit</b>', st.fit.chi2r, st.n_same_as_fit, comps, true, '');
+  alts.forEach((a, k) => {
+    html += row('Alternative ' + (k + 1), a.chi2r, a.n_starts, a.components, false,
+      `<button class="btn btn-sm" onclick="previewAlternative(${k})" title="Overlay this solution on the chart; click again to clear">Preview</button>
+       <button class="btn btn-sm" onclick="useAlternative(${k})" title="Run the fit again starting from this solution. Your model changes only if that fit succeeds; you can undo it.">Use this solution</button>`);
+  });
+  return html + '</tbody></table></div></div>';
+}
+
+// The alternative's parameters on a COPY of the current peaks (null when the
+// evidence no longer describes the current model).
+function _altPeaks(alt) {
+  if (!_startsIfCurrent(state.fitResult, _startsLiveKey())) return null;
+  const peaks = JSON.parse(JSON.stringify(state.peaks));
+  if (peaks.length !== alt.components.length) return null;
+  for (const c of alt.components) {
+    const p = peaks.find(q => String(q.id) === String(c.id));
+    if (!p) return null;
+    const par = {};
+    for (const k in c.params) par[k] = { value: c.params[k] };
+    _applyBackendParams(p, par);
+  }
+  return peaks;
+}
+
+function _currentAlternative(k) {
+  const st = _startsIfCurrent(state.fitResult, _startsLiveKey());
+  return (st && st.ran && st.alternatives && st.alternatives[k]) || null;
+}
+
+const _STARTS_STALE_MSG = 'The model has changed since this fit. Run the fit again to compare solutions.';
+
+function previewAlternative(k) {
+  const alt = _currentAlternative(k);
+  const peaks = alt && _altPeaks(alt);
+  if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
+  const key = 'alt:' + k;
+  if (_historyPreview && _historyPreview.snapId === key) { _historyClearPreview(); return; }
+  _historyPreview = { snapId: key, altKey: state.fitResult.startsModelKey, peaks, fitResult: { chiReduced: alt.chi2r } };
+  _updateLocalModelBanner();
+  document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
+  updatePlot();
+}
+
+// Adopting an alternative is the student's decision: explicit, undoable, and
+// recorded. It is ATOMIC by construction: the alternative is only the START of
+// an ordinary server fit (runFit's opts.startPeaks); the live model is written
+// by that fit's success path and by nothing else, so a fit that fails, does
+// not converge, is discarded because the tab changed, or cannot reach the
+// server leaves peaks and result exactly as they were (no local fallback
+// here: the local engine would start from the live model, not from the
+// alternative). runFit's own pushUndo is the single undo entry. A solution
+// that moves a component more than 1 eV from where the student put it is the
+// measured trap (a lower chi-square bought by a chemically absurd relocation),
+// so that case — and only that case — asks first, naming the component and
+// the distance.
+async function useAlternative(k) {
+  const alt = _currentAlternative(k);
+  const peaks = alt && _altPeaks(alt);
+  if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
+  const shift = alt.largest_centre_shift_from_start;
+  const name = _startsPeakName(shift.id);
+  if (Math.abs(shift.ev) > _STARTS_SHIFT_RED_EV &&
+      !confirm(`This solution moves ${name} by ${_startsEv(shift.ev)} from where you placed it. Apply?`)) return;
+  const chosen = { fromChi: state.fitResult.starts.fit.chi2r, toChi: alt.chi2r, shiftName: name, shiftEv: shift.ev };
+  if (_historyPreview) _historyClearPreview();
+  await runFit({ startPeaks: peaks, chosenAlternative: chosen });
+}
+
+async function runFit(opts = {}) {
+  if (!state.rawBE.length) { notify('Load a spectrum first.', 'red', true); return; }
+  if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
+  pushUndo();
+
+  _showFitSpinner();
+  document.getElementById('sb-msg').textContent = 'Fitting\u2026';
+
+  // Capture the tab that owns this fit so that if the user switches tabs
+  // mid-request, we can discard the stale result instead of corrupting the
+  // now-active tab's state.
+  const fittingTab = _opOwner();
+
+  const { be, inten } = getROIData();
+  const bgIntensity = computeBackground(be, inten);
+  const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
+
+  // Try Flask backend first
+  let backendResult = null;
+  try {
+    const bgType  = document.getElementById('bg-type').value;
+    const bgStart = parseFloat(document.getElementById('bg-start').value);
+    const bgEnd   = parseFloat(document.getElementById('bg-end').value);
+    // Inclusive bg window — the same point set computeBackgroundCore draws;
+    // the backend slices end-exclusive, so the request sends i1 + 1.
+    const bgWin = _bgWindowIndices(be, bgStart, bgEnd);
+    // EVERY request input is read from the owner before the upload await:
+    // peaks, method, endpoint averaging and manual anchors (Codex round 2: a
+    // request could carry A's spectrum with B's averaging and anchors).
+    // opts.startPeaks: the request starts from an adopted alternative; the live
+    // model is still the student's until this fit succeeds (useAlternative).
+    const startModel = opts.startPeaks || state.peaks;
+    const peakSpecs = startModel.map(peakToBackendSpec);
+    // scattered-starts check: decided HERE, with the other request inputs,
+    // before the first await (a tab switch during the upload must not turn it off)
+    const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;
+    // the live model and its fit context as the student pressed the button: a
+    // result must not be written over a model that was edited while it ran
+    const ctxAtRequest = _startsLiveKey();
+    const fitMethod = document.getElementById('fit-method').value;
+    const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
+    // Transport failures (server unreachable, timeout, non-JSON reply) are
+    // the ONLY reason to fall back to the local optimiser. A server-side
+    // validation error or a non-converged optimisation surfaces its message
+    // and leaves the model untouched (unit A0: nothing is shown as a fit
+    // result unless it converged; an HTTP 400 is not a reason to silently
+    // switch engines).
+    // Only a genuine transport failure (network rejection, abort, unparsable
+    // 2xx body) is marked for fallback; server errors carry `serverError`.
+    const _asTransport = (e) => {
+      if (e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError' || e instanceof SyntaxError)) e.transportFailure = true;
+      throw e;
+    };
+    let sessionId;
+    try { sessionId = await uploadToBackend(be, inten); } catch (e) { _asTransport(e); }
+    const fitReq = {
+      session_id: sessionId,
+      background: bgPayload,
+      peaks: peakSpecs,
+      fit_method: fitMethod,
+      n_perturb: 3,
+      n_starts: nStarts       // the server also skips it for the global methods
+    };
+    let resp, json;
+    try {
+      resp = await fetch('/api/fit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fitReq)
+      });
+    } catch (e) { _asTransport(e); }
+    if (resp.ok === false) {
+      // HTTP failure: read a message if the body is JSON, but a 502 HTML
+      // page is still a SERVER failure, never a reason to switch engines.
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.serverError = true;
+      throw err;
+    }
+    try { json = await resp.json(); } catch (e) { _asTransport(e); }
+    if (json.error) {
+      const err = new Error(json.error);
+      err.serverError = true;
+      throw err;
+    }
+    // ACCEPTANCE RULE: the backend reports lmfit's own convergence flag. A
+    // result that did not converge is a failed fit, not a result (audit A08:
+    // until this unit success:false was applied and announced as complete).
+    if (json.success !== true) {
+      const err = new Error(json.message || 'the optimizer did not converge.');
+      err.notConverged = true;
+      throw err;
+    }
+    backendResult = json;
+
+    // If the user switched tabs while the fit was running, discard the result
+    // rather than overwriting the now-active tab's peaks.
+    if (!_ownerActive(fittingTab)) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit result discarded because you switched tabs during the fit.', 'amber');
+      return;
+    }
+
+    // The peak controls stay editable while the fit runs. A result computed for
+    // the model as it was must not be applied over an edited one (a newly locked
+    // centre would keep its edited value under the server's statistics).
+    if (_startsLiveKey() !== ctxAtRequest) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
+      return;
+    }
+
+    // Capture pre-fit values for uncertainty validation
+    const _preFit = {};
+    for (const p of state.peaks) {
+      _preFit[p.id] = { center: p.center, fwhm: p.fwhm, amplitude: p.amplitude, glMix: p.glMix };
+    }
+    applyBackendResult(backendResult);
+    { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
+    const stats = backendResult.statistics || {};
+    const chiReduced = stats.reduced_chi_square || 0;
+    const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
+    const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
+    state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
+                        chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
+                        fittedY: backendResult.fitted_y, roiRange, _preFit,
+                        starts: backendResult.starts || null,
+                        startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
+                        chosenAlternative: opts.chosenAlternative || null };
+    // a preview of an alternative always belongs to the PREVIOUS result (an identical
+    // key does not make it this one's): clear it unconditionally
+    if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:')) _historyPreview = null;
+    state.fitResult.rFactor = _computeRFactor(state.fitResult);
+    _applyStatDisplay(state.fitResult);
+    document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
+    _updateRFactorUI(state.fitResult.rFactor);
+    _updateROIDisplay(roiRange);
+    _hideFitSpinner();
+    notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
+  } catch (e) {
+    // Fall back to local Levenberg-Marquardt
+    _hideFitSpinner();
+    if (!_ownerActive(fittingTab)) {
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit cancelled — tab switched during fit.', 'amber');
+      return;
+    }
+    if (e && e.transportFailure && opts.startPeaks) {
+      // Adopting an alternative needs the server: the local engine would start
+      // from the live model, not from the alternative. Nothing was changed.
+      document.getElementById('sb-msg').textContent = 'Fit failed';
+      notify('The server could not be reached, so the alternative was not applied. Previous peaks and result kept.', 'red', true);
+      return;
+    }
+    if (e && e.transportFailure) {
+      // Server unreachable: the local optimiser is the honest fallback, and
+      // the overlay saying so opens only if it actually converged.
+      if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
+      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+      if (local && local.success && !_snapshotSuppressed) {
+        document.getElementById('localfit-warn-overlay').classList.add('open');
+      }
+      return;
+    }
+    // Server-side error or non-converged optimisation: report it; the
+    // previous peaks and fit result stay exactly as they were.
+    const notConverged = !!(e && e.notConverged);
+    document.getElementById('sb-msg').textContent = notConverged ? 'Fit did not converge' : 'Fit failed';
+    notify((notConverged ? 'Fit did not converge: ' : 'Fit failed: ') + ((e && e.message) || 'unknown error') +
+           ' Previous peaks and result kept.', 'red', true);
+    return;
+  }
+
+  renderPeakList();
+  updatePlot();
+  renderResults();
+  _autoSnapshot();
+}
+
+// Label for the goodness-of-fit statistic a fit result carries. The server
+// and (since unit W1, 2026-09-18) the local engine both minimise a
+// counting-noise-weighted chi-square; local results saved by unit A0 were
+// UNWEIGHTED and keep the label "Residual variance", never chi-square.
+function _isUnweightedLocal(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
+function _fitStatLabel(fr) {
+  return _isUnweightedLocal(fr) ? 'Residual variance' : 'χ²ᵣ';
+}
+// A LOCAL result is a STARTING POINT, not a reportable result. Measured in
+// unit W1 (docs/superpowers/plans/2026-09-18-local-engine-poisson-weighting.md):
+// with Poisson weighting the local engine matches the server on GL-type
+// models (<= 4 meV, <= 1.4 % area on the lab's C1s scans) and, since A03
+// (2026-09-22: Voigt = fixed eta 0.5 on BOTH sides), on Voigt components
+// wherever the two engines reach the same minimum (5 of 9 committed U 4f
+// targets: every component within 4.3 meV, 2.6 % FWHM, 2 % area, 0.12 pp);
+// it still differs where an LA component's m moves on the server (held,
+// exactly, at its start locally - LA is discontinuous in m, caM unit) and
+// where the model has several minima; and it gives no uncertainties. Unweighted A0-era results differed by more than 100 %.
+// Every site that shows, exports or saves a fit result carries the
+// designation, keyed on persisted identity so reloaded results are labelled.
+const _LOCAL_FIT_CAVEAT = 'Local fit (Poisson-weighted like the server, no uncertainties): a starting point, not a reportable result. Run Fit before reporting.';
+const _LOCAL_FIT_CAVEAT_UNWEIGHTED = 'Local unweighted fit: a starting point, not a reportable result. Run Fit before reporting.';
+function _isLocalProvenance(p) {
+  return !!(p && (p.engine === 'local' || p.objective === 'unweighted_residual_variance' || p.objective === 'poisson_weighted_chi_square'));
+}
+function _isLocalFit(fr) { return _isLocalProvenance(fr); }
+// The record that governs the active model's designation: its live result,
+// else the provenance it was imported / copied / restored with.
+function _governingProvenance() {
+  if (state.fitResult) return state.fitResult;
+  const t = _activeTab();
+  return (t && t.modelProvenance) || null;
+}
+function _localFitDetail(fr) {
+  return _isUnweightedLocal(fr)
+    ? 'Its areas can differ from the server fit by more than 100&nbsp;%.'
+    : 'It can differ from the server fit for LA components (the page holds the smoothing parameter m at its start; the server fits it) or where the model has several minima.';
+}
+// The designation follows the MODEL, not only a live fit result: parameters
+// imported from a .fit.json that was saved from a local fit are a starting
+// point too (tab.modelProvenance, set by fromJSON, cleared by any new fit).
+function _isLocalModel() {
+  if (state.fitResult) return _isLocalFit(state.fitResult);
+  const t = _activeTab();
+  return !!(t && _isLocalProvenance(t.modelProvenance));
+}
+// The designation a tab's MODEL carries: its stored provenance (imported or
+// copied), else one derived from its live local result — so that undo
+// snapshots and batch copies taken while a local result exists keep it.
+// Persistent designation in the Peaks sidebar (visible whatever panel is
+// open), refreshed with the peak list and the results.
+function _updateLocalModelBanner() {
+  const el = document.getElementById('local-model-banner');
+  if (!el) return;
+  const t = _activeTab();
+  // Stack view: entries that DRAW a local source's fit curves carry the
+  // designation too (the stack legend rows scroll; this banner does not).
+  let stackLocal = [];
+  if (t && t.isStack) {
+    const tm = (typeof tabManager !== 'undefined' && tabManager) ? tabManager : null;
+    stackLocal = (t.entries || []).filter(e => e.visible && e.showFit).map(e => tm && tm._getTab(e.sourceTabId))
+      .filter(src => src && _isLocalFit(src.fitResult)).map(src => src.name);
+  }
+  const previewLocal = (typeof _historyPreview !== 'undefined') && !!_historyPreview && _isLocalFit(_historyPreview.fitResult);
+  const modelLocal = !(t && t.isStack) && _isLocalModel();
+  if (!modelLocal && !previewLocal && !stackLocal.length) { el.style.display = 'none'; return; }
+  el.style.backgroundImage = 'linear-gradient(rgba(245,158,11,0.14), rgba(245,158,11,0.14))';
+  const governing = _governingProvenance();
+  el.innerHTML = modelLocal
+    ? '&#9888; <strong>' + (_isUnweightedLocal(governing) ? 'Local (unweighted) model' : 'Local model (Poisson-weighted, no uncertainties)') +
+      ' &mdash; a starting point, not a reportable result.</strong> ' + _localFitDetail(governing) + ' Run Fit before quantifying, exporting or reporting.'
+    : stackLocal.length
+      ? '&#9888; <strong>Local fit curves shown for: ' + stackLocal.map(_escHtml).join(', ') + '</strong> &mdash; starting points, not reportable results. Run Fit on those spectra before reporting.'
+      : '&#9888; <strong>The history preview overlay is a local fit &mdash; a starting point, not a reportable result.</strong>';
+  el.style.display = 'block';
+}
+function _provenanceOf(tab) {
+  if (!tab) return null;
+  if (tab.modelProvenance) return JSON.parse(JSON.stringify(tab.modelProvenance));
+  const fr = tab.fitResult;
+  if (!_isLocalFit(fr)) return null;
+  return { objective: fr.objective || null, engine: fr.engine || 'local', status: fr.status || null,
+           weighting: fr.weighting || null, chiReduced: fr.chiReduced ?? null,
+           reportable: false, caveat: _localFitCaveat(fr), derivedFrom: 'local_fit' };
+}
+function _localFitCaveat(fr) {
+  if (!_isLocalFit(fr)) return '';
+  return _isUnweightedLocal(fr) ? _LOCAL_FIT_CAVEAT_UNWEIGHTED : _LOCAL_FIT_CAVEAT;
+}
+function _fitStatusText(fr) {
+  const tag = !_isLocalFit(fr) ? '' : (_isUnweightedLocal(fr) ? ' (starting point)' : ' (local, starting point)');
+  return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + tag;
+}
+function _applyStatCaption(fr) {
+  const cap = document.getElementById('sb-chi-caption');
+  if (!cap) return;
+  cap.innerHTML = !_isLocalFit(fr) ? '&#967;&#178;&#7523;:'
+    : (_isUnweightedLocal(fr) ? 'Residual variance (starting point):' : '&#967;&#178;&#7523; (local, starting point):');
+}
+// The statistic is displayed as ONE unit — header text + tooltip, status-bar
+// caption + value — from the same fit result, or all cleared. Refreshing
+// any one of them alone can pair a local value with a chi-square caption
+// (Codex round 9).
+function _applyStatDisplay(fr) {
+  const fq = document.getElementById('fit-quality');
+
+exec
+/bin/zsh -lc 'cat tests/js/stale_statistics.test.js; git diff main..HEAD -- tests/js/fit_acceptance.test.js tests/js/local_lm_descent.test.js tests/js/unsupported_components.test.js tests/test_browser_find_peaks_full_window.py' in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+// Unit F1 (2026-09-25): the fit STATISTICS (chi-square, sigma, R-factor, RMSE
+// and the stored fitted curve) are bound to the fit that produced them by the
+// SAME model-plus-context key step (b) uses — no second mechanism. After an
+// edit (or a Find Peaks apply / undo that keeps the old result over a replaced
+// model) they belong to the previous model: the Results panel, header, status
+// bar, R, uncertainty panel, CSV/XLSX, TSV, figure and saves say so or omit
+// them. Plan: docs/superpowers/plans/2026-09-25-f1-stale-statistics.md.
+//
+// Functions are extracted verbatim from templates/index.html and run against
+// a small DOM stub.
+
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const html = fs.readFileSync(path.join(__dirname, '../../templates/index.html'), 'utf8');
+const lines = html.split('\n');
+function extractFn(name) {
+  const re = new RegExp('^(async )?function ' + name + '\\(');
+  const start = lines.findIndex(l => re.test(l));
+  assert.ok(start >= 0, `function ${name} not found`);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+    if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
+  }
+  assert.fail('unbalanced ' + name);
+}
+const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
+
+// ── a DOM stub: elements by id, attributes, textContent / innerHTML ─────────
+function makeDoc() {
+  const els = {};
+  const mk = id => ({
+    id, textContent: '', innerHTML: '', style: {}, attrs: {},
+    setAttribute(k, v) { this.attrs[k] = String(v); }, getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
+    removeAttribute(k) { delete this.attrs[k]; },
+  });
+  for (const id of ['results-area', 'fit-quality', 'sb-chi', 'sb-runs', 'sb-chi-caption', 'quantify-area']) els[id] = mk(id);
+  return { els, getElementById: id => els[id] || null, querySelector: () => null, querySelectorAll: () => [] };
+}
+
+const STATE_FNS = ['_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields'];
+const STATE_CONSTS = ['_STATS_STALE_NOTE', '_STATS_UNVERIFIED_NOTE'];
+
+// Build a sandbox with the F1 accessor, the display functions and renderResults.
+function sandbox({ liveKey = 'K1' } = {}) {
+  const doc = makeDoc();
+  const env = { key: liveKey, quantified: null };
+  const fns = [...STATE_FNS, '_fitStatLabel', '_isUnweightedLocal', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay',
+    '_updateRFactorUI', '_renderRFactorPanel', 'renderResults', '_validateUncertainties'];
+  const src = [...STATE_CONSTS.map(constLine), constLine('_RFACTOR_TOOLTIP'), constLine('_LOCALFIT_TOOLTIP'), constLine('_CHISQ_TOOLTIP'),
+    ...fns.map(extractFn)].join('\n');
+  const state = { peaks: [], fitResult: null, rawBE: [1] };
+  const api = new Function('document', 'state', 'env', `
+    const _startsLiveKey = () => env.key;
+    const _startsRecordKey = t => t.key;
+    const _isLocalFit = fr => !!(fr && fr.engine === 'local');
+    const _isLocalModel = () => false;
+    const _localFitCaveat = () => '';
+    const _localFitDetail = () => '';
+    const _updateLocalModelBanner = () => {};
+    const _escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const _escAttr = _escHtml;
+    const _buildStderrMap = fr => {
+      const out = {};
+      for (const ip of ((fr && fr.backendResult && fr.backendResult.individual_peaks) || [])) out[String(ip.id)] = ip.params;
+      return out;
+    };
+    const _peakArea = p => p.amplitude;
+    const _isUnsupported = () => false;
+    const _unsupportedBadge = () => '';
+    const _startsPanelHtml = () => '';
+    const renderQuantify = (a, t) => { env.quantified = [a, t]; };
+    const getROIData = () => ({ be: [1, 2, 3] });
+    const getPeak = id => state.peaks.find(p => p.id === id);
+    const _UNSUPPORTED_LABEL = 'not supported by the data', _UNSUPPORTED_TIP = '';
+    ${src}
+    return { ${[...STATE_FNS, '_applyStatDisplay', '_updateRFactorUI', 'renderResults', '_validateUncertainties'].join(', ')} };
+  `)(doc, state, env);
+  return { api, doc, state, env };
+}
+
+function serverResult(key) {
+  return {
+    chi: 12, chiReduced: 1.2346, rmse: 7.5, be: [1, 2, 3], bgIntensity: [0, 0, 0], bgSubtracted: [1, 2, 1],
+    fittedY: [1, 2, 1], rFactor: { rPct: 3.21, level: 'good' },
+    backendResult: { individual_peaks: [{ id: '1', params: {
+      center: { value: 284.5, stderr: 0.0123, vary: true }, fwhm: { value: 1.1, stderr: 0.0456, vary: true },
+      amplitude: { value: 100, stderr: 1.5, vary: true } } }] },
+    startsModelKey: key,
+  };
+}
+const PEAK = { id: 1, name: 'C-C', color: '#f00', center: 284.5, fwhm: 1.1, amplitude: 100, shape: 'GL' };
+
+test('one accessor classifies a result against a key: none / unverified / current / stale', () => {
+  const { api } = sandbox();
+  assert.strictEqual(api._statsState(null, 'K'), 'none');
+  assert.strictEqual(api._statsState({ chiReduced: 1 }, 'K'), 'unverified', 'saved before this unit: no key');
+  assert.strictEqual(api._statsState({ startsModelKey: 'K' }, 'K'), 'current');
+  assert.strictEqual(api._statsState({ startsModelKey: 'K' }, 'K2'), 'stale');
+  assert.strictEqual(api._statsRecordState({ key: 'R', fitResult: { startsModelKey: 'R' } }), 'current', 'a record is judged against ITS key');
+  assert.strictEqual(api._statsRecordState({ key: 'R2', fitResult: { startsModelKey: 'R' } }), 'stale');
+  assert.deepStrictEqual(api._statsSaveFields('current'), {});
+  assert.strictEqual(api._statsSaveFields('stale').statisticsState, 'stale');
+  assert.match(api._statsSaveFields('stale').statisticsNote, /previous model/);
+  assert.strictEqual(api._statsSaveFields('unverified').statisticsState, 'unverified');
+});
+
+test('the key is the step (b) key: F1 adds no second binding mechanism and no new key field', () => {
+  // every creator of a fit result stamps fitResult.startsModelKey from _startsLiveKey()
+  assert.match(extractFn('runFit'), /startsModelKey: _startsLiveKey\(\)/);
+  assert.match(extractFn('runFitLocal'), /startsModelKey: _startsLiveKey\(\)/, 'the local engine stamps its result');
+  assert.match(extractFn('applyAutoFitResult'), /startsModelKey: _startsLiveKey\(\)/, 'Auto-Fit stamps its result');
+  // Auto-Fit locks every centre and refines the charge shift AFTER applying: the re-stamp covers the statistics
+  const restamp = new Function('state', '_startsLiveKey', extractFn('_restampSupport') + '\nreturn _restampSupport;');
+  const st = { peaks: [{ id: 1, support: { fitKey: 'OLD' } }], fitResult: { startsModelKey: 'OLD' } };
+  restamp(st, () => 'NEW')();
+  assert.strictEqual(st.fitResult.startsModelKey, 'NEW');
+  assert.strictEqual(st.peaks[0].support.fitKey, 'NEW');
+  // no other key-like field was introduced
+  assert.ok(!/statsModelKey|statisticsKey/.test(html), 'no second key');
+});
+
+test('Results panel, current: statistic, RMSE, R and sigma are shown', () => {
+  const { api, doc, state } = sandbox({ liveKey: 'K1' });
+  state.peaks = [{ ...PEAK }];
+  state.fitResult = serverResult('K1');
+  api.renderResults();
+  const h = doc.els['results-area'].innerHTML;
+  assert.strictEqual(doc.els['results-area'].getAttribute('data-stats-state'), 'current');
+  assert.match(h, /1\.235/);
+  assert.match(h, /7\.5/);
+  assert.match(h, /R-factor/);
+  assert.match(h, /± 0\.012/, 'sigma on the centre');
+  assert.ok(!/stats-stale-note/.test(h));
+  assert.strictEqual(doc.els['sb-chi'].textContent, '1.235');
+});
+
+test('Results panel, stale: a banner says the statistics belong to the previous model; no chi-square, RMSE, R or sigma', () => {
+  const { api, doc, state } = sandbox({ liveKey: 'EDITED' });
+  state.peaks = [{ ...PEAK, center: 285.0 }];
+  state.fitResult = serverResult('K1');
+  api.renderResults();
+  const h = doc.els['results-area'].innerHTML;
+  assert.strictEqual(doc.els['results-area'].getAttribute('data-stats-state'), 'stale');
+  assert.match(h, /stats-stale-note/);
+  assert.match(h, /belong to the previous model/);
+  assert.ok(!/1\.23/.test(h), 'no chi-square value');
+  assert.ok(!/>7\.5</.test(h), 'no RMSE value');
+  assert.ok(!/R-factor:/.test(h), 'no R panel');
+  assert.ok(!/±/.test(h), 'no sigma');
+  assert.match(h, /285\.000 eV/, 'the table shows the current model');
+  // header + status bar
+  assert.match(doc.els['fit-quality'].textContent, /model changed/);
+  assert.ok(!/1\.2/.test(doc.els['fit-quality'].textContent));
+  assert.strictEqual(doc.els['sb-chi'].textContent, '—');
+  assert.match(doc.els['fit-quality'].getAttribute('data-xps-tip'), /previous model/);
+  // uncertainty panel judges no per-parameter rule on the previous model's sigma
+  assert.deepStrictEqual(api._validateUncertainties(), { warnings: [], info: [] });
+});
+
+test('Results panel, unverified (older save, no key): values shown with a plain note', () => {
+  const { api, doc, state } = sandbox({ liveKey: 'K1' });
+  state.peaks = [{ ...PEAK }];
+  const fr = serverResult('K1'); delete fr.startsModelKey;
+  state.fitResult = fr;
+  api.renderResults();
+  const h = doc.els['results-area'].innerHTML;
+  assert.strictEqual(doc.els['results-area'].getAttribute('data-stats-state'), 'unverified');
+  assert.match(h, /stats-unverified-note/);
+  assert.match(h, /1\.235/);
+  assert.match(h, /± 0\.012/);
+  assert.match(doc.els['fit-quality'].getAttribute('data-xps-tip'), /cannot be confirmed/);
+});
+
+test('status-bar R: the previous model\'s R is not shown on a stale result; an unrelated rFactor argument is untouched', () => {
+  const { api, doc, state, env } = sandbox({ liveKey: 'EDITED' });
+  state.fitResult = serverResult('K1');
+  api._updateRFactorUI(state.fitResult.rFactor);
+  assert.strictEqual(doc.els['sb-runs'].textContent, 'R: —');
+  env.key = 'K1';
+  api._updateRFactorUI(state.fitResult.rFactor);
+  assert.strictEqual(doc.els['sb-runs'].textContent, 'R: 3.2%');
+  api._updateRFactorUI(null);
+  assert.strictEqual(doc.els['sb-runs'].textContent, '');
+});
+
+test('the stored fitted curve is never drawn, saved or stacked as the fit once stale', () => {
+  const up = extractFn('updatePlot');
+  assert.match(up, /fittedYBacked = haveFit[\s\S]*?_statsLiveState\(\) !== 'stale'/, 'chart envelope / residuals');
+  assert.match(up, /_refreshStatsState\(\)/, 'every repaint keeps the visible statistics honest');
+  assert.match(extractFn('_buildEntryRenderData'), /_statsRecordState\(src\) !== 'stale'/, 'stack Path A judged against the SOURCE record');
+  assert.match(extractFn('_doPublicationExport'), /_figStats !== 'stale' && state\.fitResult\?\.fittedY/, 'figure');
+  assert.match(extractFn('_doSaveSpectrum'), /_saveStats !== 'stale' && state\.fitResult\?\.fittedY/, 'spectrum save');
+});
+
+test('saves keep the key and say plainly when the statistics are stale or unverified', () => {
+  assert.match(extractFn('_doSaveFit'), /_statsSaveFields\(_statsLiveState\(\)\)/);
+  assert.match(extractFn('_doSaveSpectrum'), /_statsSaveFields\(_saveStats\)/);
+  assert.match(extractFn('_doSaveProject'), /_statsSaveFields\(_statsRecordState\(t\)\)/, 'project: the RECORD\'s key');
+  for (const f of ['_doSaveFit', '_doSaveSpectrum', '_doSaveProject']) assert.match(extractFn(f), /startsModelKey:/, f + ' keeps the key');
+});
+
+// ── CSV / XLSX / TSV: run the real exporters on stubs ───────────────────────
+function exportSandbox(liveKey, fr) {
+  const out = {};
+  const src = [...STATE_CONSTS.map(constLine), ...STATE_FNS.map(extractFn), extractFn('exportFitTable'), extractFn('exportResults')].join('\n');
+  const state = { peaks: [{ ...PEAK }], fitResult: fr, ccShift: 0 };
+  const api = new Function('state', 'out', `
+    const _startsLiveKey = () => ${JSON.stringify(liveKey)};
+    const _startsRecordKey = t => t.key;
+    const document = { getElementById: () => null };
+    const notify = () => {};
+    const _buildStderrMap = fr => { const o = {}; for (const ip of fr.backendResult.individual_peaks) o[ip.id] = ip.params; return o; };
+    const _peakArea = p => p.amplitude;
+    const _isUnsupported = () => false, _currentSupport = () => null;
+    const _isLocalFit = () => false, _isUnweightedLocal = () => false, _localFitCaveat = () => '';
+    const _isLocalModel = () => false, _governingProvenance = () => null;
+    const _startsSummaryText = () => '', _startsIfCurrent = () => null, _startsChosenText = () => '';
+    const _shapeExportCols = () => ({ gl: '', alpha: '', beta: '', m: '' });
+    const _UNSUPPORTED_LABEL = 'not supported by the data';
+    const _downloadBlob = (b, name) => { out.blob = b; out.name = name; };
+    const getROIData = () => ({ be: [1, 2, 3], inten: [1, 2, 1] });
+    const computeBackground = be => be.map(() => 0);
+    const evalAllPeaks = be => be.map(() => 0.5);
+    const evalPeakArray = be => be.map(() => 0.5);
+    const XLSX = { utils: { book_new: () => ({ sheets: [] }), aoa_to_sheet: a => a, book_append_sheet: (wb, ws, n) => wb.sheets.push([n, ws]) },
+                   writeFile: wb => { out.wb = wb; } };
+    const Blob = function (parts) { this.text = parts.join(''); };
+    const URL = { createObjectURL: b => { out.blob = b; return 'u'; }, revokeObjectURL: () => {} };
+    ${src.replace(/document\.createElement\('a'\)/g, '({ click() {} })')}
+    return { exportFitTable, exportResults };
+  `)(state, out);
+  return { api, out };
+}
+
+test('CSV: current writes the statistic and sigma; stale writes a WARNING, no statistic, no sigma', () => {
+  let { api, out } = exportSandbox('K1', serverResult('K1'));
+  api.exportFitTable('csv');
+  assert.match(out.blob.text, /# .*: 1\.2346/);
+  assert.match(out.blob.text, /"0\.01230"/);
+  ({ api, out } = exportSandbox('EDITED', serverResult('K1')));
+  api.exportFitTable('csv');
+  assert.match(out.blob.text, /# WARNING: .*previous model/);
+  assert.ok(!/1\.2346/.test(out.blob.text), 'no statistic');
+  assert.ok(!/0\.0123/.test(out.blob.text) && !/0\.0456/.test(out.blob.text), 'no sigma');
+  const fr = serverResult('K1'); delete fr.startsModelKey;
+  ({ api, out } = exportSandbox('K1', fr));
+  api.exportFitTable('csv');
+  assert.match(out.blob.text, /# NOTE: .*cannot be confirmed/);
+  assert.match(out.blob.text, /1\.2346/, 'unverified: shown, with the note');
+});
+
+test('XLSX: stale writes a WARNING row instead of the statistic, and no sigma', () => {
+  const { api, out } = exportSandbox('EDITED', serverResult('K1'));
+  api.exportFitTable('xlsx');
+  const info = out.wb.sheets.find(s => s[0] === 'Info')[1];
+  assert.ok(info.some(r => r[0] === 'WARNING' && /previous model/.test(r[1])));
+  assert.ok(!info.some(r => r[1] === '1.2346'));
+  const rows = out.wb.sheets.find(s => s[0] === 'Fit Results')[1];
+  assert.strictEqual(rows[1][3], '', 'centre sigma empty');
+  assert.strictEqual(rows[1][5], '', 'width sigma empty');
+});
+
+test('TSV: stale says the Model / Residual columns are the current, unfitted model', () => {
+  let { api, out } = exportSandbox('EDITED', serverResult('K1'));
+  api.exportResults();
+  assert.match(out.blob.text, /^# NOTE: the model has changed since the last fit/);
+  ({ api, out } = exportSandbox('K1', serverResult('K1')));
+  api.exportResults();
+  assert.ok(!/# NOTE/.test(out.blob.text));
+});
+
+test('the refresh re-renders Results only when its rendered state differs', () => {
+  const src = [...STATE_CONSTS.map(constLine), ...STATE_FNS.map(extractFn), extractFn('_refreshStatsState')].join('\n');
+  const doc = makeDoc();
+  const env = { key: 'K1', renders: 0, applied: 0 };
+  const state = { fitResult: serverResult('K1') };
+  const refresh = new Function('document', 'state', 'env', `
+    const _startsLiveKey = () => env.key, _startsRecordKey = t => t.key;
+    const renderResults = () => { env.renders++; document.getElementById('results-area').setAttribute('data-stats-state', _statsLiveState()); };
+    const _applyStatDisplay = () => { env.applied++; };
+    const _updateRFactorUI = () => { env.r = (env.r || 0) + 1; };
+    ${src}
+    return _refreshStatsState;`)(doc, state, env);
+  doc.els['results-area'].setAttribute('data-stats-state', 'current');
+  refresh();
+  assert.strictEqual(env.renders, 0, 'unchanged: no re-render');
+  env.key = 'EDITED';
+  refresh();
+  assert.strictEqual(env.renders, 1, 'the edit made it stale: re-rendered once');
+  assert.strictEqual(env.r, 2, 'the status-bar R follows on the re-render path too (renderResults does not write it)');
+  refresh();
+  assert.strictEqual(env.renders, 1);
+  env.key = 'K1';               // an undo brings the fitted model back
+  refresh();
+  assert.strictEqual(env.renders, 2, 'current again');
+});
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-BxAb60gx' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-V5aGaudx' (errno=Operation not permitted)
+diff --git a/tests/js/fit_acceptance.test.js b/tests/js/fit_acceptance.test.js
+index 63e2e50..995460c 100644
+--- a/tests/js/fit_acceptance.test.js
++++ b/tests/js/fit_acceptance.test.js
+@@ -260,8 +260,9 @@ test('project save derives the designation from the objective for an older local
+   const src = html.slice(start, end) + ';';
+   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+   const fieldsAt = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
+-  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey'].map(extractFn).join('\n');
+-  const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
++  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey', '_statsState', '_statsRecordState', '_statsNote', '_statsSaveFields'].map(extractFn).join('\n');
++  const statsConsts = html.match(/^const _STATS_\w+_NOTE = .*$/mg).join('\n');
++  const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + statsConsts + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
+     { serializeRefOverlays: () => null }, a => a, a => a);
+   const older = { id: 1, name: 't', rawBE: [1, 2], rawIntensity: [1, 1], ccShift: 0, peaks: [], nextId: 1, ui: {},
+     fitResult: { chi: 1, chiReduced: 1e4, rmse: 100, objective: 'unweighted_residual_variance', be: [1, 2], bgIntensity: [0, 0], bgSubtracted: [1, 1] } };
+@@ -296,7 +297,7 @@ test('_applyStatDisplay keeps header, tooltip, caption and value consistent thro
+   const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
+-  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {});
++  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
+   apply({ objective: 'unweighted_residual_variance', chiReduced: 12345 });
+   assert.equal(dom['fit-quality'].textContent, 'Residual variance = 12345.00 (starting point)');
+   assert.equal(dom['fit-quality'].tip, 'LOCAL'); assert.match(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '12345.000');
+@@ -329,7 +330,7 @@ test('_applyStatDisplay clears header, tooltip, caption and value together on lo
+   const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
+-  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {});
++  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
+   apply({ objective: 'unweighted_residual_variance', chiReduced: 999 });
+   apply(null);
+   assert.match(dom['fit-quality'].innerHTML, /&mdash;/); assert.equal(dom['fit-quality'].tip, null);
+@@ -487,7 +488,7 @@ test('the sidebar banner shows on a stack tab whose visible entries draw a local
+   assert.equal(run({ isStack: true, entries: [{ sourceTabId: 2, visible: true, showFit: false }] }).style.display, 'none', 'fit curves hidden → no designation needed');
+   assert.equal(run({ isStack: true, entries: [{ sourceTabId: 3, visible: true, showFit: true }] }).style.display, 'none', 'weighted source only');
+   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+-  assert.match(grab('function _applyStatDisplay(', 900), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
++  assert.match(grab('function _applyStatDisplay(', 1800), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
+   const legendAt = html.indexOf("row.querySelector('.name').textContent = name;");
+   assert.match(html.slice(legendAt, legendAt + 2500), /_updateLocalModelBanner\(\)/, 'stack legend rebuild refreshes the banner');
+ });
+@@ -532,7 +533,8 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
+ 
+ // ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
+ test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
+-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isUnsupported'].map(extractFn).join('\n');
++  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isUnsupported'].map(extractFn).join('\n')
++    + '\nconst _statsLiveState = () => "current";';   // F1's stale note is pinned in stale_statistics.test.js
+   const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+   const run = (fitResult, modelProvenance) => {
+     let text = null;
+diff --git a/tests/js/local_lm_descent.test.js b/tests/js/local_lm_descent.test.js
+index 3901fdc..342ad9f 100644
+--- a/tests/js/local_lm_descent.test.js
++++ b/tests/js/local_lm_descent.test.js
+@@ -40,8 +40,8 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
+   'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
+   'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
+   '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
+-  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts'];
+-const CAVEAT_CONST = (html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg) || []).join('\n');
++  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_statsState', '_statsLiveState'];
++const CAVEAT_CONST = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
+ 
+ // One isolated environment per test: a fresh `state`, a stub DOM, and the
+ // extracted functions bound to them.
+diff --git a/tests/js/unsupported_components.test.js b/tests/js/unsupported_components.test.js
+index 7e002bd..5de224f 100644
+--- a/tests/js/unsupported_components.test.js
++++ b/tests/js/unsupported_components.test.js
+@@ -114,6 +114,7 @@ function pageEnv(fns, extraArgs = {}) {
+     renderQuantify: () => {}, recalcQuantify: () => {}, _detectPeakRSF: () => ({ key: 'C 1s', rsf: 1 }), SCOFIELD_RSF: { 'C 1s': 1 }, notify: () => {},
+     _clearDisallowedChargeRef: () => {}, _updateLocalModelBanner: () => {}, _updateLockAllBtn: () => {}, renderPeakForm: () => '', _highlightChartPeak: () => {},
+     _roiWindowStatus: () => ({ state: 'ok', n: 0 }), _patchPeakCardsForCentre: () => {},   // the ROI / centre warnings: tests/js/roi_clamp_centre_warning.test.js
++    _statsLiveState: () => 'current', _STATS_STALE_NOTE: '', _STATS_UNVERIFIED_NOTE: '',   // F1's stale statistics: tests/js/stale_statistics.test.js
+     _isChargeRefAllowed: () => false, _fitStatLabel: () => 'χ²ᵣ', _isUnweightedLocal: () => false, _applyStatCaption: () => {}, _applyStatDisplay: () => {},
+     _CHISQ_TOOLTIP: '', _LOCALFIT_TOOLTIP: '', _startsSummaryText: () => '', _startsChosenText: () => '', _startsIfCurrent: () => null,
+     _isLocalModel: () => false, _updateRFactorUI: () => {}, _activeTab: () => ({}), _renderRFactorPanel: () => '', _statIsChi: true,
+diff --git a/tests/test_browser_find_peaks_full_window.py b/tests/test_browser_find_peaks_full_window.py
+index c20dab7..079860f 100644
+--- a/tests/test_browser_find_peaks_full_window.py
++++ b/tests/test_browser_find_peaks_full_window.py
+@@ -150,6 +150,10 @@ def _load_c1s_with_stale_narrow_fit(pg):
+             be: narrowBE, bgIntensity: narrowBG, bgSubtracted: narrowSub,
+             fittedY: narrowBE.map((b, i) => narrowSub[i] + 300),
+             roiRange: { min: '278.0', max: '290.4' },
++            // a real fit stores its R-factor with the result; since F1
++            // (2026-09-25) the status bar is re-applied from the stored
++            // result on every repaint, so it must be where a fit puts it
++            rFactor: { rPct: 3.2, level: 'good' },
+         };
+         document.getElementById('roi-min').value = 278.0;
+         document.getElementById('roi-max').value = 298.0;
+@@ -247,6 +251,34 @@ def test_checkbox_off_preserves_todays_cropped_behavior(browser, server):
+         pg.close()
+ 
+ 
++def test_checkbox_off_marks_a_keyed_result_stale_after_find_peaks_apply(browser, server):
++    """F1 (2026-09-25): the default Find Peaks apply keeps the old result over
++    a REPLACED model. A result that carries its fit key (every result since
++    the scattered-starts unit) is then judged against the new model: its
++    chi-square, sigma and R are marked as the previous model's, and the
++    chart's envelope is composed from the new peaks, not the old curve. A
++    keyless result (the test above) is shown as before, with the unverified
++    note."""
++    pg = _new_page(browser, server)
++    try:
++        _load_c1s_with_stale_narrow_fit(pg)
++        pg.evaluate("() => { state.fitResult.startsModelKey = _startsLiveKey(); renderResults(); }")
++        assert pg.evaluate("() => _statsLiveState()") == "current"
++        _run_and_apply_find_peaks(pg, full_window=False)
++        assert pg.evaluate("() => state.fitResult !== null"), "the old result is kept, as before"
++        st = pg.evaluate("""() => ({ state: _statsLiveState(),
++            header: document.getElementById('fit-quality').textContent,
++            sbChi: document.getElementById('sb-chi').textContent,
++            sbRuns: document.getElementById('sb-runs').textContent,
++            banner: !!document.querySelector('#results-area .stats-stale-note') })""")
++        assert st["state"] == "stale", st
++        assert "model changed" in st["header"], st
++        assert st["sbChi"] == "\u2014" and st["sbRuns"] == "R: \u2014", st
++        assert st["banner"], st
++    finally:
++        pg.close()
++
++
+ def test_checkbox_on_extends_fit_and_background_to_the_full_window(browser, server):
+     """The actual fix: checked must make the background/fit-curve span
+     the FULL user-set ROI (278-298), not the stale frozen 278.0-290.4
+
+exec
+/bin/zsh -lc "sed -n '7607,7632p' templates/index.html; rg -n 'function peakToBackendSpec|_captureUI|_restoreUI|function updatePeak|function undo|function redo|fitResult\\s*=|_restampSupport\\(|_autoSnapshot\\(' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+// back other values — the panel says the comparison no longer applies,
+// nothing can be previewed or applied, and saves/exports carry no counts. A
+// name, colour or visibility is not part of a fit and does not invalidate it.
+const _STARTS_MODEL_FIELDS = ['id', 'shape', 'center', 'fwhm', 'amplitude', 'glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
+  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM', 'linked', 'linkOffset', 'linkRatio', '_afAsymMin', '_afAsymMax',
+  'fixCenter', 'fixFwhm', 'fixAmplitude', 'fixGlMix', 'fixAsymmetry', 'fixDsAlpha', 'fixDsGamma',
+  'fixLaAlpha', 'fixLaBeta', 'fixLaM', 'fixCaAlpha', 'fixCaBeta', 'fixCaM'];
+const _STARTS_UI_FIELDS = ['bgType', 'bgStart', 'bgEnd', 'shirleyIter', 'endpointAvg', 'roiMin', 'roiMax'];
+function _startsModelKey(peaks, ui, ccShift, anchors) {
+  return JSON.stringify({
+    p: (peaks || []).map(q => _STARTS_MODEL_FIELDS.map(k => (q[k] === undefined ? null : q[k]))),
+    u: _STARTS_UI_FIELDS.map(k => String((ui || {})[k] ?? '')),
+    s: Number(ccShift) || 0,
+    a: (anchors || []).map(v => [v.x, v.y]),
+  });
+}
+// The key of the ACTIVE tab as it stands now (live model, live controls).
+function _startsLiveKey() {
+  const ui = (typeof tabManager !== 'undefined' && tabManager && tabManager._captureUI) ? tabManager._captureUI() : {};
+  return _startsModelKey(state.peaks, ui, state.ccShift, typeof _getManualAnchors === 'function' ? _getManualAnchors() : []);
+}
+// The key of a tab RECORD (project save runs after _syncActiveToRecord).
+function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, t.manualAnchors); }
+// The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
+function _startsIfCurrent(fr, key) {
+  const st = fr && fr.starts;
+2447:function undo() {
+2465:function redo() {
+3237:    state.fitResult = tab.fitResult;
+3241:    this._restoreUI(tab.ui);
+3303:      state.peaks = []; state.fitResult = null;
+3425:      state.fitResult = null;
+3428:      active.fitResult = null;
+3478:      this._restoreUI(active.ui);
+3815:    t.fitResult = state.fitResult;
+3821:    t.ui = this._captureUI();
+3824:  _captureUI() {
+3840:  _restoreUI(ui) {
+5952:  state.fitResult = null;
+5988:function updatePeakParam(id, key, value) {
+6440:function peakToBackendSpec(p) {
+7015:    t.fitResult = snap.fitResult;
+7027:  state.fitResult = snap.fitResult;
+7222:function _restampSupport() {
+7338:  state.fitResult = {
+7370:  if (typeof _restampSupport === 'function') _restampSupport();
+7374:  if (typeof _autoSnapshot === 'function') _autoSnapshot();
+7447:  state.fitResult = null;
+7625:  const ui = (typeof tabManager !== 'undefined' && tabManager && tabManager._captureUI) ? tabManager._captureUI() : {};
+8005:    state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
+8058:  _autoSnapshot();
+8542:  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
+8561:  _autoSnapshot();
+10624:  // restore below: _restoreUI refreshes the manual-anchor count label from
+10636:  tabManager._restoreUI(active.ui);
+10644:    active.fitResult = fr;
+10645:    state.fitResult = fr;
+12184:    tgt.fitResult = null;
+12194:      state.fitResult = null;   // live copy of tgt.fitResult = null above (unit A0)
+12195:      tabManager._restoreUI(tgt.ui);
+13967:function _autoSnapshot() {
+14135:  state.fitResult = snap.fitResult ? { ...snap.fitResult } : null;
+16128:    state.fitResult = null;
+16151:    // state.fitResult === null correctly (falls back to its own
+
+exec
+/bin/zsh -lc "sed -n '7860,8040p' templates/index.html; sed -n '7270,7410p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+async function useAlternative(k) {
+  const alt = _currentAlternative(k);
+  const peaks = alt && _altPeaks(alt);
+  if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
+  const shift = alt.largest_centre_shift_from_start;
+  const name = _startsPeakName(shift.id);
+  if (Math.abs(shift.ev) > _STARTS_SHIFT_RED_EV &&
+      !confirm(`This solution moves ${name} by ${_startsEv(shift.ev)} from where you placed it. Apply?`)) return;
+  const chosen = { fromChi: state.fitResult.starts.fit.chi2r, toChi: alt.chi2r, shiftName: name, shiftEv: shift.ev };
+  if (_historyPreview) _historyClearPreview();
+  await runFit({ startPeaks: peaks, chosenAlternative: chosen });
+}
+
+async function runFit(opts = {}) {
+  if (!state.rawBE.length) { notify('Load a spectrum first.', 'red', true); return; }
+  if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
+  pushUndo();
+
+  _showFitSpinner();
+  document.getElementById('sb-msg').textContent = 'Fitting\u2026';
+
+  // Capture the tab that owns this fit so that if the user switches tabs
+  // mid-request, we can discard the stale result instead of corrupting the
+  // now-active tab's state.
+  const fittingTab = _opOwner();
+
+  const { be, inten } = getROIData();
+  const bgIntensity = computeBackground(be, inten);
+  const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
+
+  // Try Flask backend first
+  let backendResult = null;
+  try {
+    const bgType  = document.getElementById('bg-type').value;
+    const bgStart = parseFloat(document.getElementById('bg-start').value);
+    const bgEnd   = parseFloat(document.getElementById('bg-end').value);
+    // Inclusive bg window — the same point set computeBackgroundCore draws;
+    // the backend slices end-exclusive, so the request sends i1 + 1.
+    const bgWin = _bgWindowIndices(be, bgStart, bgEnd);
+    // EVERY request input is read from the owner before the upload await:
+    // peaks, method, endpoint averaging and manual anchors (Codex round 2: a
+    // request could carry A's spectrum with B's averaging and anchors).
+    // opts.startPeaks: the request starts from an adopted alternative; the live
+    // model is still the student's until this fit succeeds (useAlternative).
+    const startModel = opts.startPeaks || state.peaks;
+    const peakSpecs = startModel.map(peakToBackendSpec);
+    // scattered-starts check: decided HERE, with the other request inputs,
+    // before the first await (a tab switch during the upload must not turn it off)
+    const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;
+    // the live model and its fit context as the student pressed the button: a
+    // result must not be written over a model that was edited while it ran
+    const ctxAtRequest = _startsLiveKey();
+    const fitMethod = document.getElementById('fit-method').value;
+    const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
+    // Transport failures (server unreachable, timeout, non-JSON reply) are
+    // the ONLY reason to fall back to the local optimiser. A server-side
+    // validation error or a non-converged optimisation surfaces its message
+    // and leaves the model untouched (unit A0: nothing is shown as a fit
+    // result unless it converged; an HTTP 400 is not a reason to silently
+    // switch engines).
+    // Only a genuine transport failure (network rejection, abort, unparsable
+    // 2xx body) is marked for fallback; server errors carry `serverError`.
+    const _asTransport = (e) => {
+      if (e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError' || e instanceof SyntaxError)) e.transportFailure = true;
+      throw e;
+    };
+    let sessionId;
+    try { sessionId = await uploadToBackend(be, inten); } catch (e) { _asTransport(e); }
+    const fitReq = {
+      session_id: sessionId,
+      background: bgPayload,
+      peaks: peakSpecs,
+      fit_method: fitMethod,
+      n_perturb: 3,
+      n_starts: nStarts       // the server also skips it for the global methods
+    };
+    let resp, json;
+    try {
+      resp = await fetch('/api/fit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fitReq)
+      });
+    } catch (e) { _asTransport(e); }
+    if (resp.ok === false) {
+      // HTTP failure: read a message if the body is JSON, but a 502 HTML
+      // page is still a SERVER failure, never a reason to switch engines.
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.serverError = true;
+      throw err;
+    }
+    try { json = await resp.json(); } catch (e) { _asTransport(e); }
+    if (json.error) {
+      const err = new Error(json.error);
+      err.serverError = true;
+      throw err;
+    }
+    // ACCEPTANCE RULE: the backend reports lmfit's own convergence flag. A
+    // result that did not converge is a failed fit, not a result (audit A08:
+    // until this unit success:false was applied and announced as complete).
+    if (json.success !== true) {
+      const err = new Error(json.message || 'the optimizer did not converge.');
+      err.notConverged = true;
+      throw err;
+    }
+    backendResult = json;
+
+    // If the user switched tabs while the fit was running, discard the result
+    // rather than overwriting the now-active tab's peaks.
+    if (!_ownerActive(fittingTab)) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit result discarded because you switched tabs during the fit.', 'amber');
+      return;
+    }
+
+    // The peak controls stay editable while the fit runs. A result computed for
+    // the model as it was must not be applied over an edited one (a newly locked
+    // centre would keep its edited value under the server's statistics).
+    if (_startsLiveKey() !== ctxAtRequest) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
+      return;
+    }
+
+    // Capture pre-fit values for uncertainty validation
+    const _preFit = {};
+    for (const p of state.peaks) {
+      _preFit[p.id] = { center: p.center, fwhm: p.fwhm, amplitude: p.amplitude, glMix: p.glMix };
+    }
+    applyBackendResult(backendResult);
+    { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
+    const stats = backendResult.statistics || {};
+    const chiReduced = stats.reduced_chi_square || 0;
+    const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
+    const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
+    state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
+                        chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
+                        fittedY: backendResult.fitted_y, roiRange, _preFit,
+                        starts: backendResult.starts || null,
+                        startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
+                        chosenAlternative: opts.chosenAlternative || null };
+    // a preview of an alternative always belongs to the PREVIOUS result (an identical
+    // key does not make it this one's): clear it unconditionally
+    if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:')) _historyPreview = null;
+    state.fitResult.rFactor = _computeRFactor(state.fitResult);
+    _applyStatDisplay(state.fitResult);
+    document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
+    _updateRFactorUI(state.fitResult.rFactor);
+    _updateROIDisplay(roiRange);
+    _hideFitSpinner();
+    notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
+  } catch (e) {
+    // Fall back to local Levenberg-Marquardt
+    _hideFitSpinner();
+    if (!_ownerActive(fittingTab)) {
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit cancelled — tab switched during fit.', 'amber');
+      return;
+    }
+    if (e && e.transportFailure && opts.startPeaks) {
+      // Adopting an alternative needs the server: the local engine would start
+      // from the live model, not from the alternative. Nothing was changed.
+      document.getElementById('sb-msg').textContent = 'Fit failed';
+      notify('The server could not be reached, so the alternative was not applied. Previous peaks and result kept.', 'red', true);
+      return;
+    }
+    if (e && e.transportFailure) {
+      // Server unreachable: the local optimiser is the honest fallback, and
+      // the overlay saying so opens only if it actually converged.
+      if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
+      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+  }
+  const delta = withoutC - withC;
+  if (!(delta > 0)) return false;
+  let p = 0;
+  for (const k in (ip.params || {})) { const q = ip.params[k]; if (q && q.vary === true && (q.expr == null || q.expr === '')) p++; }
+  p = Math.max(1, p);
+  const nFree = (json.statistics && Number.isFinite(json.statistics.n_free_params)) ? json.statistics.n_free_params : 0;
+  const dof = Math.max(1, n - nFree);
+  if (withC === 0) return true;                                           // exact fit that the component is needed for
+  return (delta / p) / (withC / dof) >= _AUTOFIT_ANCHOR_MIN_F;
+}
+
+function applyAutoFitResult(json, graphiteRaw, roi) {
+  // 1. Locate the graphite peak in state.peaks (named "Graphite").
+  const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
+  if (!gPeak || !Number.isFinite(gPeak.center)) {
+    notify('Auto-fit failed: graphite center not found in fit result.', 'red', true);
+    return false;
+  }
+  // 1b. The charge correction below is derived from this component's fitted
+  // centre and then shifts EVERY binding energy in the spectrum, so the
+  // component has to exist. A Graphite amplitude driven to its lower bound
+  // (the server's floor is zero; lmfit returns ~1e-12 there) still comes back
+  // with a centre inside the ±0.3 eV window — a position of nothing.
+  // 1c. Supported (the fit cannot drop it without cost, other components held)
+  // is necessary but not sufficient: with strong overlap the OTHER components
+  // could absorb the anchor if refitted. The server refits without it when
+  // asked (require_component) and reports whether that made the fit
+  // significantly worse. A redundant anchor is refused the same way.
+  const req = json && json.required;
+  if (req && req.ran === true && req.required === false) {
+    notify('Auto-fit: the Graphite component is not required by the data — refitting the other components without it fits the data as well' + (req.f != null ? ' (F = ' + Number(req.f).toFixed(1) + ', threshold 10)' : '') + '. No charge correction was derived from it and the fit was not applied. The model gives the other components enough freedom to absorb the graphite line; lock or narrow them and try again.', 'red', true);
+    return false;
+  }
+  if (!_autoFitGraphiteIsSupported(gPeak, json)) {
+    notify('Auto-fit: the data do not support the Graphite component (removing it does not worsen the fit), so no charge correction was derived from it and the fit was not applied.', 'red', true);
+    return false;
+  }
+  // 2. Validate within ±0.3 of 284.50 (the LA center bound).
+  if (Math.abs(gPeak.center - 284.50) > 0.30 + 1e-6) {
+    notify('Fit failed to converge or produced an unphysical graphite position.', 'red', true);
+    return false;
+  }
+  // 3. Compute fitted raw center using APP CONVENTION:
+  //    raw = corrected + state.ccShift (state.ccShift is the provisional value).
+  const graphiteFittedRaw = gPeak.center + (Number.isFinite(state.ccShift) ? state.ccShift : 0);
+
+  // 4. Drive updateChargeCorrection() to refine the shift.
+  // Self-consistency: cc-obs = graphite_fitted_raw (NOT graphite_raw_BE),
+  // approved design point.
+  const cm = document.getElementById('cc-method');
+  const co = document.getElementById('cc-obs');
+  const cl = document.getElementById('cc-lit');
+  if (cm && co && cl) {
+    cm.value = 'c1s';
+    co.value = graphiteFittedRaw.toFixed(3);
+    cl.value = '284.50';
+    if (typeof updateChargeCorrection === 'function') updateChargeCorrection();
+  }
+
+  // 5. Build state.fitResult exactly as runFit() does.
+  const { be: be2, inten: inten2 } = getROIData();
+  const bgI2 = computeBackground(be2, inten2);
+  const bgSub2 = inten2.map((v, i) => v - bgI2[i]);
+  const stats = json.statistics || {};
+  const chiReduced = stats.reduced_chi_square || 0;
+  const rmse = Math.sqrt((json.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be2.length));
+  const roiRange = { min: _arrMin(be2).toFixed(1), max: _arrMax(be2).toFixed(1) };
+  state.fitResult = {
+    chi: chiReduced * Math.max(1, be2.length - state.peaks.length * 3),
+    chiReduced, rmse,
+    be: be2, bgSubtracted: bgSub2, bgIntensity: bgI2,
+    backendResult: json,
+    fittedY: json.fitted_y,
+    roiRange,
+    startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
+  };
+  state.fitResult.rFactor = _computeRFactor(state.fitResult);
+
+  // 6. Update the same DOM elements runFit() updates.
+  const fq = document.getElementById('fit-quality');
+  if (fq) {
+    fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
+    if (typeof _CHISQ_TOOLTIP !== 'undefined') fq.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
+  }
+  { const _t = typeof _activeTab === 'function' ? _activeTab() : null; if (_t) _t.modelProvenance = null; }
+  if (typeof _applyStatDisplay === 'function') _applyStatDisplay(state.fitResult);
+  const sbChi = document.getElementById('sb-chi');
+  if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
+  const sbMsg = document.getElementById('sb-msg');
+  if (sbMsg) sbMsg.textContent = 'Auto-fit complete';
+  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult.rFactor);
+  if (typeof _updateROIDisplay === 'function') _updateROIDisplay(roiRange);
+  // Lock all peak centers after a successful auto-fit. Users frequently
+  // run "Run Fit" again to refine FWHMs/amplitudes; without this lock the
+  // converged auto-fit positions can drift. The user can manually unlock
+  // any center via the existing padlock icon in the peak editor.
+  for (const p of state.peaks) p.fixCenter = true;
+  // the locks and the refined charge shift are part of THIS result: the
+  // support verdicts describe the model as finalised here
+  if (typeof _restampSupport === 'function') _restampSupport();
+  if (typeof renderPeakList === 'function') renderPeakList();
+  if (typeof updatePlot === 'function') updatePlot();
+  if (typeof renderResults === 'function') renderResults();
+  if (typeof _autoSnapshot === 'function') _autoSnapshot();
+
+  // 7. Sync to tab record so tab switching preserves the result.
+  if (typeof tabManager !== 'undefined' && tabManager._syncActiveToRecord) {
+    tabManager._syncActiveToRecord();
+  }
+
+  // 8. Sanity check: warn if graphite area fraction is below 40%. The fit
+  // is kept regardless — this is a triage signal, not a fit-quality gate.
+  // Uses _peakArea so the warning matches the user-visible AREA column
+  // exactly (and so it doesn't depend on backend response shape).
+  const gPeak2 = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
+  if (gPeak2) {
+    const check = _autoFitCheckGraphiteFraction(gPeak2.id);
+    if (check) notify(check.warning, 'amber', true);
+  }
+
+  return true;
+}
+
+// Top-level entry point. Wired to the Actions menu item.
+async function runAutoFitC1sGraphite() {
+  // Pre-conditions
+  if (!state.rawBE || !state.rawBE.length) { notify('Load a spectrum first.', 'amber'); return; }
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab) { notify('No active tab.', 'amber'); return; }
+  if (!isC1sTab(tab)) {
+    notify('Auto-Fit C1s Graphite is only available for C1s spectra (ROI midpoint 270–315 eV).', 'amber');
+    return;
+  }
+  // OWNER FIRST: the confirmation below is an await; the tab that is active
+  // when it resolves may not be the one the user asked to auto-fit.
+  const fittingTab = _opOwner();
+  if (!fittingTab) { notify('No active spectrum tab.', 'amber'); return; }
+  // Confirmation if existing peaks
+  if (state.peaks.length >= 1) {
+    const proceed = await _showAutoFitConfirmModal(state.peaks.length);
+
+exec
+/bin/zsh -lc "sed -n '11525,11670p' templates/index.html; sed -n '9430,9515p' templates/index.html; sed -n '8620,8640p' templates/index.html; sed -n '8720,8765p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+}
+
+// ═══════════════════════════════════════════════════
+// RUNS TEST — residual randomness diagnostic
+// ═══════════════════════════════════════════════════
+// R-FACTOR (reliability factor)
+// R = Σ|residual| / Σ|data| × 100%
+// ═══════════════════════════════════════════════════
+function _computeRFactor(fitResult) {
+  if (!fitResult || !fitResult.be) return null;
+  const be = fitResult.be;
+  const bgSub = fitResult.bgSubtracted;
+  if (!bgSub || bgSub.length !== be.length) return null;
+  let residuals;
+  if (fitResult.fittedY && fitResult.fittedY.length === be.length) {
+    const bgI = fitResult.bgIntensity;
+    if (bgI && bgI.length === be.length) {
+      residuals = bgSub.map((v, i) => (v + bgI[i]) - fitResult.fittedY[i]);
+    } else {
+      residuals = bgSub.map((v, i) => v - (fitResult.fittedY[i] - (bgI ? bgI[i] : 0)));
+    }
+  } else {
+    const modelY = evalAllPeaks(be, state.peaks);
+    residuals = bgSub.map((v, i) => v - modelY[i]);
+  }
+  const sumAbsResid = residuals.reduce((s, v) => s + Math.abs(v), 0);
+  const sumAbsData = bgSub.reduce((s, v) => s + Math.abs(v), 0);
+  if (sumAbsData === 0) return null;
+  const rPct = (sumAbsResid / sumAbsData) * 100;
+  let level;
+  if (rPct < 5) level = 'good';
+  else if (rPct <= 10) level = 'amber';
+  else level = 'red';
+  return { rPct, level };
+}
+
+const _RFACTOR_TOOLTIP = "The R-factor (reliability factor) measures the overall agreement between the fit and the data as a percentage. Computed within the ROI range.\n\nR = \u03a3|residual| / \u03a3|data| \u00d7 100%\n\n\u2022 R < 5% = excellent fit\n\u2022 R = 5\u201310% = acceptable fit, check residuals visually\n\u2022 R > 10% = poor fit, the model is likely incomplete\n\nUnlike chi-squared, the R-factor is intuitive \u2014 it represents the fraction of the total signal that is unexplained by the model.";
+
+function _renderRFactorPanel(rf) {
+  if (!rf) return '';
+  const pct = rf.rPct.toFixed(1);
+  const color = rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
+  const label = rf.level === 'good' ? 'Excellent fit' : rf.level === 'amber' ? 'Acceptable \u2014 check residuals' : 'Poor fit \u2014 model likely incomplete';
+  return `<div data-xps-tip="${_RFACTOR_TOOLTIP.replace(/"/g, '&quot;')}" style="background:var(--bg3);border:1px solid ${color};border-radius:var(--radius);padding:8px 10px;margin-bottom:12px;font-size:11px;color:${color};cursor:help">
+    R-factor: <span style="font-family:var(--mono)">${pct}%</span> \u2014 ${label}
+  </div>`;
+}
+
+function _updateRFactorUI(rf) {
+  const el = document.getElementById('sb-runs');
+  if (!el) return;
+  if (rf && state.fitResult && rf === state.fitResult.rFactor && _statsLiveState() === 'stale') {
+    // F1: the previous model's R-factor is not shown beside the edited model
+    el.style.color = 'var(--text3)';
+    el.textContent = 'R: \u2014';
+    el.setAttribute('data-xps-tip', _STATS_STALE_NOTE);
+    return;
+  }
+  if (!rf) {
+    el.textContent = '';
+    el.removeAttribute('data-xps-tip');
+    return;
+  }
+  const pct = rf.rPct.toFixed(1);
+  el.style.color = rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
+  el.textContent = `R: ${pct}%`;
+  el.setAttribute('data-xps-tip', _RFACTOR_TOOLTIP);
+}
+
+function _updateROIDisplay(roiRange) {
+  const el = document.getElementById('sb-roi');
+  if (!el) return;
+  if (!roiRange) { el.textContent = ''; return; }
+  el.textContent = `ROI: ${roiRange.min}\u2013${roiRange.max} eV`;
+}
+
+const _LOCALFIT_TOOLTIP = "Statistic of the local (in-page) fit. Since unit W1 (2026-09) the local engine is Poisson-weighted like the server, so its \u03c7\u00b2\u1d63 is comparable with the server's, but it gives no parameter uncertainties and can differ from the server fit for LA components (m held at its start locally) or where the model has several minima. Local results saved earlier were unweighted and are labelled 'Residual variance'. Run Fit with the server available for a reportable result.";
+const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the goodness of fit weighted by data uncertainty. Computed within the ROI range.\n\n\u2022 \u03c7\u00b2 \u2248 1.0 = ideal fit (residuals match expected noise)\n\u2022 \u03c7\u00b2 >> 1 = poor fit or underestimated uncertainties\n\u2022 \u03c7\u00b2 << 1 = possible overfitting or overestimated uncertainties\n\nNote: a low \u03c7\u00b2 does not guarantee a correct model \u2014 always check the R-factor and visually inspect residuals.";
+
+// Wire up custom tooltip for data-xps-tip elements (R-factor, chi-squared, etc.)
+(function () {
+  const DELAY = 300;
+  let timer = null;
+  document.addEventListener('mouseenter', function (e) {
+    const el = e.target instanceof Element ? e.target.closest('[data-xps-tip]') : null;
+    if (!el) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const tip = document.getElementById('xps-tooltip');
+      if (!tip) return;
+      tip.textContent = '';
+      const lines = el.dataset.xpsTip.split('\n');
+      lines.forEach((line, i) => {
+        if (i > 0) tip.appendChild(document.createElement('br'));
+        tip.appendChild(document.createTextNode(line));
+      });
+      tip.classList.remove('tip-above', 'visible');
+      const rect = el.getBoundingClientRect();
+      const tipH = 160;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < tipH && rect.top > tipH) {
+        tip.classList.add('tip-above');
+        tip.style.top = (rect.top - tipH - 6) + 'px';
+      } else {
+        tip.style.top = (rect.bottom + 6) + 'px';
+      }
+      tip.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+      tip.classList.add('visible');
+    }, DELAY);
+  }, true);
+  document.addEventListener('mouseleave', function (e) {
+    if (!(e.target instanceof Element) || !e.target.closest('[data-xps-tip]')) return;
+    clearTimeout(timer);
+    const tip = document.getElementById('xps-tooltip');
+    if (tip) tip.classList.remove('visible');
+  }, true);
+})();
+
+// ═══════════════════════════════════════════════════
+// UNCERTAINTY VALIDATION
+// ═══════════════════════════════════════════════════
+function _validateUncertainties() {
+  if (!state.fitResult?.backendResult?.individual_peaks) return { warnings: [], info: [] };
+  // F1: a stale result's sigma and bounds describe the previous model; the
+  // Results banner says so once — no per-parameter rule is judged on them
+  if (_statsLiveState() === 'stale') return { warnings: [], info: [] };
+  const warnings = [];
+  const info = [];
+  const stderrMap = _buildStderrMap(state.fitResult);
+  const preFit = state.fitResult._preFit || {};
+  // Map backend param names to pre-fit property names
+  const nameMap = { center: 'center', fwhm: 'fwhm', fwhm_l: 'fwhm', amplitude: 'amplitude', gl_ratio: 'glMix' };
+
+  for (const [rawId, params] of Object.entries(stderrMap)) {
+    const p = getPeak(Number(rawId));
+    if (!p) continue;
+    // Rule 0: the fit did not determine this component at all. Reported once,
+    // here, instead of the per-parameter alarms (or, after Auto-Fit's centre
+    // lock, the neutral "locked" note) that would otherwise misdescribe it.
+    if (_isUnsupported(p)) {
+      warnings.push(`<li><b>${_escHtml(p.name)}:</b> ${_UNSUPPORTED_LABEL} — with the other components held as fitted, removing it does not make the fit significantly worse${p.support.f != null ? ' (F = ' + p.support.f.toFixed(1) + ', threshold 10)' : ''}. Its centre, width and uncertainties are not reported. Try another starting position or width, lock the centre where chemistry says it belongs, or drop the component.</li>`);
+      continue;
+    }
+    const init = preFit[Number(rawId)] || {};
+
+    for (const [pName, pData] of Object.entries(params)) {
+        if (pbgIdx !== undefined) {
+          const ds = state.chart.data.datasets[pbgIdx];
+          // BG-sub view: pbg flattens to zero so peak fills anchor at baseline.
+          ds.data = useBgSub
+            ? rd.be.map((b, i) => ({ x: b, y: 0 + yShift }))
+            : rd.be.map((b, i) => ({ x: b, y: rd.bg[i] + yShift }));
+          // pbg stays "not hidden" so its fill anchor still works; it's
+          // transparent so nothing is drawn anyway.
+          const m = state.chart.getDatasetMeta(pbgIdx);
+          if (m) m.hidden = false;
+        }
+        const pkIdx = dsByKey.get(e.id + ':peak:' + pc.peak.id);
+        if (pkIdx !== undefined) {
+          const ds = state.chart.data.datasets[pkIdx];
+          ds.borderWidth = lineWidth;
+          ds.data = useBgSub
+            ? rd.be.map((b, i) => ({ x: b, y: pc.peakOnly[i] + yShift }))
+            : rd.be.map((b, i) => ({ x: b, y: pc.y[i]        + yShift }));
+          // Fill pill: mutate fill config in place. Chart.js v4 picks
+          // this up on update('none') for the filler plugin. If a future
+          // Chart.js version regresses on that, fall back by calling
+          // _updateStackChart(stack, { invalidate: 'datasets' }) from
+          // the show-fill onchange handler instead.
+          ds.fill = pills.showFill
+            ? { target: pbgIdx !== undefined ? pbgIdx : (pi), above: pc.peak.color + '40', below: 'transparent' }
+            : false;
+          const m = state.chart.getDatasetMeta(pkIdx);
+          if (m) m.hidden = !peaksShown;
+        }
+        pi++;
+      }
+    }
+    if (isVisible) visIdx++;
+  }
+  // Sync Y-axis label/ticks for offset state, and X-axis reverse for
+  // the Invert BE pill. Mutate leaf fields only — assigning back
+  // y.ticks / y.title would round-trip through Chart.js's options
+  // resolver proxy and store a self-referencing object whose scriptable
+  // callback property cycles when next resolved ("Recursion detected:
+  // callback->callback"). _renderStackChart creates both ticks and
+  // title at construction, so they always exist here. scales.x.reverse
+  // is a boolean leaf — safe to mutate directly.
+  const offsetActive = (stackTab.verticalOffset || 0) > 0;
+  if (state.chart.options && state.chart.options.scales) {
+    const sc = state.chart.options.scales;
+    if (sc.x) {
+      const invert = document.getElementById('invert-be')?.checked ?? true;
+      sc.x.reverse = invert;
+    }
+    if (sc.y) {
+      if (sc.y.ticks) sc.y.ticks.display = !offsetActive;
+      if (sc.y.title) {
+        sc.y.title.display = true;
+        sc.y.title.text = offsetActive ? 'Intensity (offset stacked)' : 'Intensity (counts/s)';
+      }
+    }
+  }
+  state.chart.update('none');
+}
+
+function updatePlot() {
+  // Stack-tab early branch: render multi-spectrum overlay, no peaks/fits.
+  // Route through _updateStackChart so toolbar-pill toggles (Envelope,
+  // Individual Peaks, Fill, Bkgrd Sub) and other state changes preserve
+  // zoom by in-place updating. _updateStackChart delegates to
+  // _renderStackChart automatically when no chart exists.
+  {
+    const _activeTab = (typeof tabManager !== 'undefined') ? tabManager._getTab(tabManager.activeId) : null;
+    const _emptyEl = document.getElementById('stack-empty-state');
+    const _canvas = document.getElementById('mainChart');
+    if (isStackTab(_activeTab)) {
+      _refreshRoiHint(null);   // a stack tab has no ROI of its own
+      _updateStackChart(_activeTab);
+      return;
+    } else {
+      if (_canvas) _canvas.style.display = '';
+      if (_emptyEl) _emptyEl.style.display = 'none';
+    }
+  }
+
+  // Full corrected spectrum (for raw data display and axis range)
+  const corrBE = getCorrectedBE();
+  const fullInten = state.rawIntensity;
+
+  // ROI-filtered data (for fitting, background, peaks)
+  const { be, inten } = getROIData();
+      : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
+    // Quantify (#quantify-area) is populated by renderQuantify(), called
+    // only from the non-null path below — without this it kept showing
+    // a PRIOR fit's area/RSF/At% table after state.fitResult was cleared
+    // elsewhere (Codex review finding, 2026-07-14: same class of stale-
+    // DOM bug as the Results panel itself). Reset it to the same
+    // no-fit placeholder as its initial static markup.
+    const qEl = document.getElementById('quantify-area');
+    if (qEl) qEl.innerHTML = '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0;">Run fit to quantify.</p>';
+    return;
+  }
+
+  const { chiReduced, rmse, backendResult } = state.fitResult;
+  const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
+  const _stale = _stats === 'stale';
+  // F1: a stale result's sigma belongs to the previous model: none is shown
+  const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
+  const _statsBanner = _stale ? `
+    <div class="stats-stale-note" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
+      &#9888; <strong>The model has changed since this fit.</strong> Its &#967;&#178;, RMSE, R-factor and uncertainties belong to the previous model and are not shown. The table below is the current model, not a fitted result. Press <strong>Run Fit</strong> to obtain statistics for it.
+    </div>` : _stats === 'unverified' ? `
+  html += '</tbody></table>';
+  if (unsupportedPeaks.length) {
+    html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px" title="${_escAttr(_UNSUPPORTED_TIP)}">
+      ${unsupportedPeaks.length === 1 ? 'One component is' : unsupportedPeaks.length + ' components are'} <b>${_UNSUPPORTED_LABEL}</b> (${unsupportedPeaks.map(q => _escHtml(q.name)).join(', ')}): with the other components held as fitted, removing ${unsupportedPeaks.length === 1 ? 'it' : 'any one of them'} does not make the fit significantly worse, so this fit did not determine ${unsupportedPeaks.length === 1 ? 'its' : 'their'} position or width. ${unsupportedPeaks.length === 1 ? 'Its' : 'Their'} area is excluded from the percentages and from Quantify.</div>`;
+  }
+  html += _startsPanelHtml(state.fitResult);
+
+  // Uncertainty warnings (backend fit only). Genuine alarms go in the amber
+  // warn-box; intentionally locked params get a neutral info-box so they
+  // stop reading as scary regressions after auto-fit locks centers.
+  const { warnings: uncWarnings, info: uncInfo } = _validateUncertainties();
+  if (uncWarnings.length) {
+    html += `<div class="unc-warn-box">
+      <div class="uw-title">&#9888; Uncertainty Warnings</div>
+      <ul>${uncWarnings.join('')}</ul>
+    </div>`;
+  }
+  if (uncInfo.length) {
+    html += `<div class="unc-info-box">
+      <div class="uw-title">&#128274; Locked Parameters</div>
+      <ul>${uncInfo.join('')}</ul>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+
+  renderQuantify(areas, totalArea);
+}
+
+// Auto-detect element/orbital from peak name, then by center BE
+function _detectPeakRSF(p) {
+  // Try parsing the name: "Fe 2p", "Fe2p", "Fe 2p3/2", "O1s", "U 4f7/2", etc.
+  const name = (p.name || '').trim();
+  // Match patterns like "Fe 2p", "Fe2p", "U 4f", "O 1s", "Cu 2p3/2"
+  const m = name.match(/^([A-Z][a-z]?)\s*(\d[spdf])/i);
+  if (m) {
+    const elem = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+    const orb = m[2].toLowerCase();
+    const key = elem + ' ' + orb;
+    if (SCOFIELD_RSF[key] != null) return { key, rsf: SCOFIELD_RSF[key] };
+  }
+  // Fall back to center BE matching
+  const center = p.center;
+  let bestKey = null, bestDist = 6;
+  for (const [elem, data] of Object.entries(_accSurveyElements())) {
+    for (const [orb, be] of Object.entries(data.lines)) {
+
+codex
+The display and export guards cover the main statistic readers and reuse the existing key. I’m now checking whether that key reliably describes the fitted state—particularly across asynchronous fits, saves, and reloads, where a bad stamp would bypass every guard.
+exec
+/bin/zsh -lc "sed -n '3810,3895p' templates/index.html; sed -n '6440,6570p' templates/index.html; sed -n '10580,10675p' templates/index.html; sed -n '10385,10430p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+    if (t.isStack) return;  // stack tabs have no UI/form state to sync back
+    // Re-capture peaks reference in case removePeak/clearAllPeaks replaced the array
+    t.peaks = state.peaks;
+    t.ccShift = isNaN(state.ccShift) ? 0 : state.ccShift;
+    t.nextId = state.nextId;
+    t.fitResult = state.fitResult;
+    t.lineWidth = state.lineWidth ?? 1.5;
+    t.yZoom = state._mainYMax || null;
+    t.xZoomMin = state._mainXMin ?? null;
+    t.xZoomMax = state._mainXMax ?? null;
+    t.notes = document.getElementById('spectrum-notes')?.value || '';
+    t.ui = this._captureUI();
+  }
+
+  _captureUI() {
+    return {
+      bgType:      document.getElementById('bg-type')?.value || 'shirley',
+      bgStart:     document.getElementById('bg-start')?.value || '',
+      bgEnd:       document.getElementById('bg-end')?.value || '',
+      shirleyIter: document.getElementById('shirley-iter')?.value || '5',
+      endpointAvg: document.getElementById('bg-endpoint-avg')?.value || LEGACY_ENDPOINT_AVG,
+      roiMin:      document.getElementById('roi-min')?.value || '',
+      roiMax:      document.getElementById('roi-max')?.value || '',
+      ccMethod:    document.getElementById('cc-method')?.value || 'none',
+      ccObs:       document.getElementById('cc-obs')?.value || '',
+      ccLit:       document.getElementById('cc-lit')?.value || '',
+      bgSubtractedView: !!document.getElementById('bg-sub-toggle')?.checked,
+    };
+  }
+
+  _restoreUI(ui) {
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined) el.value = val;
+    };
+    set('bg-type', ui.bgType);
+    _syncLegacyBgOption();
+    set('bg-start', ui.bgStart);
+    set('bg-end', ui.bgEnd);
+    set('shirley-iter', ui.shirleyIter);
+    set('bg-endpoint-avg', ui.endpointAvg || LEGACY_ENDPOINT_AVG);
+    set('roi-min', ui.roiMin);
+    set('roi-max', ui.roiMax);
+    set('cc-method', ui.ccMethod);
+    set('cc-obs', ui.ccObs);
+    set('cc-lit', ui.ccLit);
+    // Update cc field visibility without dispatching change event
+    // (which would overwrite state.ccShift and trigger a double updatePlot)
+    const refField = document.getElementById('cc-ref-field');
+    const targetField = document.getElementById('cc-target-field');
+    if (refField) refField.style.display = (ui.ccMethod === 'none') ? 'none' : 'block';
+    if (targetField) targetField.style.display = (ui.ccMethod === 'custom') ? 'block' : 'none';
+    // Update shift display from the already-restored state.ccShift
+    const shift = -state.ccShift;
+    document.getElementById('cc-shift-display').textContent = (shift >= 0 ? '+' : '') + shift.toFixed(3) + ' eV';
+    // Update manual bg controls and Shirley iteration state for restored bg type
+    if (typeof _onBgTypeChange === 'function') {
+      const mc = document.getElementById('manual-bg-controls');
+      if (mc) mc.style.display = ui.bgType === 'manual' ? 'block' : 'none';
+      const needsIter = (ui.bgType === 'shirley' || ui.bgType === 'smart' || ui.bgType === 'smart_exp' || ui.bgType === 'shirley_linear');
+      const si = document.getElementById('shirley-iter');
+      if (si) {
+        si.disabled = !needsIter;
+        si.style.opacity = needsIter ? '1' : '0.4';
+      }
+      // Endpoint averaging also applies to Tougaard (it sets the high-BE
+      // amplitude anchor), not just the Shirley iteration family.
+      const needsEpAvg = needsIter || ui.bgType === 'tougaard';
+      const epAvg = document.getElementById('bg-endpoint-avg');
+      if (epAvg) {
+        epAvg.disabled = !needsEpAvg;
+        epAvg.style.opacity = needsEpAvg ? '1' : '0.4';
+      }
+      if (typeof _updateManualAnchorCount === 'function') _updateManualAnchorCount();
+    }
+    // Bkgrd Sub: restore checked state, sync visual class, refresh enable,
+    // and re-gate the dependent overlay controls so they reflect the
+    // restored sub-view state.
+    const bgSubToggle = document.getElementById('bg-sub-toggle');
+    const bgSubPill = document.getElementById('bg-sub-pill');
+    if (bgSubToggle && bgSubPill) {
+      const want = !!ui.bgSubtractedView;
+      bgSubToggle.checked = want;
+      bgSubPill.classList.toggle('active', want);
+    }
+    if (typeof _updateBgSubPillEnabled === 'function') _updateBgSubPillEnabled();
+function peakToBackendSpec(p) {
+  // All initial values go at top level — fitting.py reads spec.get("center") etc.
+  const spec = {
+    id: String(p.id),
+    name: p.name,
+    center: p.center,
+    amplitude: p.amplitude,
+    fwhm: p.fwhm,
+    amplitude_min: 0,
+    fix_center: !!p.fixCenter,
+    fix_fwhm: !!p.fixFwhm,
+    fix_amplitude: !!p.fixAmplitude,
+    fix_gl_ratio: !!p.fixGlMix
+  };
+  const shape = p.shape;
+  if (shape === 'Gaussian') {
+    spec.shape = 'gaussian';
+  } else if (shape === 'Lorentzian') {
+    spec.shape = 'lorentzian';
+  } else if (shape === 'Voigt') {
+    // A03 (2026-09-22): Voigt IS the fixed 50/50 mix the page draws, exports
+    // and fits locally (evalPeak: eta = 0.5; runFitLocal holds it). Until A03
+    // the request sent eta FREE from 0.3, so the server fitted a mix the page
+    // never showed — on the 90 committed Voigt targets 60 of 180 components
+    // went to pure Gaussian and 16 to pure Lorentzian, and every area the page
+    // reported for them was the 0.5 curve's, up to 20 % off the fitted one.
+    // Fixed on both sides; use GL to fit the mix.
+    spec.shape = 'pseudo_voigt_gl';
+    spec.gl_ratio = 0.5;
+    spec.fix_gl_ratio = true;
+  } else if (shape === 'GL') {
+    spec.shape = 'pseudo_voigt_gl';
+    spec.gl_ratio = p.glMix / 100;   // frontend 0-100 → backend 0-1
+  } else if (shape === 'asym-GL') {
+    spec.shape = 'asymmetric_gl';
+    // A03 Codex round 1: `p.glMix || 50` sent a mix of 0 as 50 (and a DS α of 0
+    // as 0.1 below) — a value the page draws but never requested; locked, the
+    // server held the substitute and the drawn curve differed from the fitted
+    // one by 6.9 % (asym-GL) and 8.8 % (DS) of amplitude. Only a NON-NUMBER
+    // falls back to the default.
+    spec.gl_ratio = (Number.isFinite(p.glMix) ? p.glMix : 50) / 100;
+    spec.asymmetry = Number.isFinite(p.asymmetry) ? p.asymmetry : 0;
+    spec.fix_asymmetry = !!p.fixAsymmetry;
+    // Forward auto-fit asymmetry bounds when present (set by buildAutoFitModel).
+    // For non-auto-fit peaks these fields are absent and the backend falls back
+    // to its [0.0, 1.0] default.
+    if (Number.isFinite(p._afAsymMin)) spec.asymmetry_min = p._afAsymMin;
+    if (Number.isFinite(p._afAsymMax)) spec.asymmetry_max = p._afAsymMax;
+  } else if (shape === 'DS') {
+    spec.shape = 'doniach_sunjic';
+    spec.alpha      = Number.isFinite(p.dsAlpha) ? p.dsAlpha : 0.1;
+    spec.gamma_asym = Number.isFinite(p.dsGamma) ? p.dsGamma : 0.0;
+    spec.fix_alpha      = !!p.fixDsAlpha;
+    spec.fix_gamma_asym = !!p.fixDsGamma;
+  } else if (shape === 'DSG_LA') {
+    spec.shape = 'ds_g';
+    spec.alpha   = Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10;
+    spec.beta    = Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3;
+    spec.m_gauss = Number.isFinite(p.laM)     ? p.laM     : 0.4;
+    spec.fix_alpha   = !!p.fixLaAlpha;
+    spec.fix_beta    = !!p.fixLaBeta;
+    spec.fix_m_gauss = !!p.fixLaM;
+  } else if (shape === 'LACX') {
+    spec.shape = 'la_casaxps';
+    spec.alpha = Number.isFinite(p.caAlpha) ? p.caAlpha : 1.0;
+    spec.beta  = Number.isFinite(p.caBeta)  ? p.caBeta  : 1.0;
+    spec.m     = Number.isFinite(p.caM)     ? p.caM     : 50.0;
+    spec.fix_alpha = !!p.fixCaAlpha;
+    spec.fix_beta  = !!p.fixCaBeta;
+    spec.fix_m     = !!p.fixCaM;
+  } else {
+    spec.shape = 'gaussian';
+  }
+  if (p.linked) {
+    const parent = getPeak(p.linked);
+    if (parent) {
+      spec.constrain_to = String(p.linked);
+      spec.splitting = p.linkOffset;
+      spec.area_ratio = p.linkRatio;
+      spec.fix_fwhm = true;
+    }
+  }
+  return spec;
+}
+
+// Server parameter names -> the peak's fields, honouring the peak's locks.
+// Shared by a fit result and by an alternative solution (previewed on a COPY
+// of the peaks, or adopted as the start of a new fit).
+function _applyBackendParams(p, par) {
+  if (par.center    && !p.fixCenter)    p.center    = par.center.value;
+  if (par.amplitude && !p.fixAmplitude) p.amplitude = par.amplitude.value;
+  if (par.fwhm      && !p.fixFwhm)     p.fwhm      = par.fwhm.value;
+  // glMix is read only by GL / asym-GL; a Voigt's fixed 0.5 (A03) is not a
+  // fitted value and must not overwrite the mix the peak carries for a later
+  // switch to GL.
+  if (par.gl_ratio  && (p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) p.glMix = par.gl_ratio.value * 100;
+  if (par.asymmetry && p.shape === 'asym-GL' && !p.fixAsymmetry) p.asymmetry = par.asymmetry.value;
+  if (par.alpha && p.shape === 'DS' && !p.fixDsAlpha) p.dsAlpha = par.alpha.value;
+  if (par.gamma_asym && p.shape === 'DS' && !p.fixDsGamma) p.dsGamma = par.gamma_asym.value;
+  if (par.alpha   && p.shape === 'DSG_LA' && !p.fixLaAlpha) p.laAlpha = par.alpha.value;
+  if (par.beta    && p.shape === 'DSG_LA' && !p.fixLaBeta)  p.laBeta  = par.beta.value;
+  if (par.m_gauss && p.shape === 'DSG_LA' && !p.fixLaM)     p.laM     = par.m_gauss.value;
+  if (par.alpha   && p.shape === 'LACX' && !p.fixCaAlpha) p.caAlpha = par.alpha.value;
+  if (par.beta    && p.shape === 'LACX' && !p.fixCaBeta)  p.caBeta  = par.beta.value;
+  if (par.m       && p.shape === 'LACX' && !p.fixCaM)     p.caM     = par.m.value;
+}
+
+function applyBackendResult(result) {
+  for (const ipeak of result.individual_peaks) {
+    // Backend returns string IDs; state.peaks uses numeric IDs
+    const p = getPeak(Number(ipeak.id)) || getPeak(ipeak.id);
+    if (!p) continue;
+    // Only apply parameters that were NOT locked — locked params must stay unchanged
+    _applyBackendParams(p, ipeak.params);
+    p._backendParams = ipeak.params;
+  }
+  // the verdict describes the model as it now stands (values applied) in its fit context
+  _applySupport(state.peaks, result, _startsLiveKey());
+}
+
+// LEVENBERG-MARQUARDT FITTING (local JS engine)
+// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// BKGRD SUB VIEW TOGGLE
+// ═══════════════════════════════════════════════════
+// The pill at id="bg-sub-pill" / id="bg-sub-toggle" can be in three
+// visual states (active, inactive, disabled). The disabled state
+// applies whenever subtraction is meaningless: no spectrum loaded,
+// bg-type is "none", or a fit is running. The pill's checked state
+// is preserved across disable cycles so users get their preference
+// back when bg becomes available again.
+    }
+    if (hasPeaks) {
+      if (!_ownerActive(owner)) { notify('Fit file not applied — the tab changed while the file was being read.', 'amber'); return; }
+      _applyFitJSON(data); return;
+    }
+
+    // No recognized structure — try as spectral data (CSV-like)
+    _loadSpectralFile(file);
+  } catch (err) {
+    notify('Failed to load file: ' + err.message, 'red');
+  }
+}
+
+async function handleSessionLoad(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  await _loadSessionFile(file);
+}
+
+function _loadSpectrumFile(data, sessionFile) {
+  // Audit F1/F4/F5: reject unsafe peak ids/links/colors before rendering.
+  const pe = _peaksLoadError(data && data.peaks);
+  if (pe) { notify('Spectrum not loaded: ' + pe + '.', 'red', true); return; }
+  // Create a new tab with the saved spectrum data
+  const srcPath = data.sourcePath || (sessionFile ? sessionFile : '(restored)');
+  const active = tabManager.createTab(
+    (data.spectrumName || 'Spectrum') + '.json',
+    data.rawBE,
+    data.rawIntensity,
+    srcPath
+  );
+  if (!active) return;
+  // Apply saved settings on top of the created tab
+  active.ccShift = data.ccShift || 0;
+  state.ccShift = active.ccShift;
+  active.peaks = _normalizePeaksCRef((data.peaks || []).map(p => ({...p})));
+  state.peaks = active.peaks;
+  active.nextId = data.nextId || 1;
+  state.nextId = active.nextId;
+  // Manual bg anchors: saved by _doSaveSpectrum but previously never read
+  // back here — the one anchor-persisting load path that dropped them (the
+  // v1 fit-file loader and the project tab deserializer both restore).
+  // Same verbatim convention as those two paths. Assigned BEFORE the ui
+  // restore below: _restoreUI refreshes the manual-anchor count label from
+  // the active tab, so assigning after it left the label stale (Codex
+  // round-2 MINOR).
+  if (Array.isArray(data.manualAnchors)) {
+    active.manualAnchors = data.manualAnchors;
+  }
+  // Saved-ui boundary: a file whose ui lacks endpointAvg was fitted at 1
+  // (the field did not exist), so it must NOT inherit the new-tab default;
+  // saved values are honoured verbatim. Restore the DOM either way so the
+  // record and the inputs agree before any switch-away capture.
+  const savedEp = data.ui && data.ui.endpointAvg;
+  active.ui = { ...active.ui, ...(data.ui || {}), endpointAvg: savedEp || LEGACY_ENDPOINT_AVG };
+  tabManager._restoreUI(active.ui);
+  if (data.notes) active.notes = data.notes;
+  active.modelProvenance = _isLocalProvenance(data.modelProvenance) ? data.modelProvenance : null;
+  if (data.statistics) {
+    const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
+    for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative']) if (data.statistics[k]) fr[k] = data.statistics[k];
+    if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
+    if (data.fittedY) fr.fittedY = data.fittedY;
+    active.fitResult = fr;
+    state.fitResult = fr;
+  }
+  const notesEl = document.getElementById('spectrum-notes');
+  if (notesEl) notesEl.value = active.notes || '';
+  renderPeakList();
+  updatePlot();
+  renderResults();   // installs the restored result's designation in Results/Quantify and the statistic display (unit A0)
+  notify('Spectrum loaded as new tab: ' + active.name, 'green');
+}
+
+// ── Project-load resource caps (audit F8) ─────────────────────────────
+// Generous bounds, far above any real spectrum (a Thermo Nexsa survey is
+// well under 10^6 points), so no legitimate file is ever rejected. They
+// exist only to stop a crafted file from inflating the JS heap and freezing
+// the tab. Adjust here if a genuinely larger dataset ever needs to load.
+const MAX_PROJECT_TABS      = 100;                  // tabs per project
+const MAX_SPECTRUM_POINTS   = 1000000;              // rawBE / rawIntensity length per tab
+const MAX_ZIP_SPECTRA       = 100;                  // manifest.spectra entries (zip path)
+const MAX_ZIP_UNCOMPRESSED  = 500 * 1024 * 1024;    // 500 MB total inflated (zip-bomb guard)
+const MAX_ZIP_COMPRESSED_FALLBACK = 50 * 1024 * 1024; // 50 MB, used only if sizes are unreadable
+
+function _loadProjectJSON(data, sessionFile) {
+  // Per-tab peaks live under data.tabs[i].peaks (v2+) and/or top-level
+  // data.peaks (v1). Migrate both shapes.
+  if (data && Array.isArray(data.peaks)) _migrateLineshapeAliases(data.peaks);
+  if (data && Array.isArray(data.tabs)) {
+    for (const t of data.tabs) {
+      if (t && Array.isArray(t.peaks)) _migrateLineshapeAliases(t.peaks);
+    }
+  }
+
+        lineWidth: t.lineWidth ?? 1.5,
+        verticalOffset: t.verticalOffset ?? 0,
+        entries: (t.entries || []).map(e => ({
+          id: e.id,
+          sourceTabId: e.sourceTabId,
+          color: e.color,
+          visible: !!e.visible,
+          showFit: !!e.showFit,
+        })),
+      };
+    }
+    const rec = {
+      id: t.id, name: t.name, color: t.color, isSurvey: t.isSurvey,
+      rawBE: t.rawBE, rawIntensity: t.rawIntensity,
+      ccShift: t.ccShift, chargeVerified: t.chargeVerified ?? true,
+      peaks: t.peaks.map(p => ({...p})),
+      nextId: t.nextId,
+      fitResult: t.fitResult ? {
+        chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
+        rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
+        // Frozen fit grid: persisted so post-load updatePlot() renders the
+        // recorded fit (haveFit path) instead of recomputing background and
+        // residuals from current settings. Absent in older saves — loaders
+        // fall back to reconstruction.
+        be: _roundBE(t.fitResult.be),
+        bgIntensity: _roundIntensity(t.fitResult.bgIntensity),
+        bgSubtracted: _roundIntensity(t.fitResult.bgSubtracted),
+        roiRange: t.fitResult.roiRange || null,
+        // Engine identity (unit A0): a local-engine result stays labelled
+        // "Residual variance" after reload instead of becoming chi-square.
+        engine: t.fitResult.engine || null,
+        objective: t.fitResult.objective || null,
+        weighting: t.fitResult.weighting || null,
+        status: t.fitResult.status || null,
+        starts: _startsForSave(_startsIfCurrent(t.fitResult, _startsRecordKey(t))),
+        startsModelKey: t.fitResult.startsModelKey || null,
+        chosenAlternative: _startsIfCurrent(t.fitResult, _startsRecordKey(t)) ? (t.fitResult.chosenAlternative || null) : null,
+        iterations: t.fitResult.iterations ?? null,
+        reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
+        caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
+        ..._statsSaveFields(_statsRecordState(t)),   // F1: judged against the RECORD's key
+      } : null,
+      modelProvenance: t.modelProvenance || null,
+      notes: t.notes || '',
+      manualAnchors: t.manualAnchors || [],
+      lineWidth: t.lineWidth ?? 1.5,
+
+exec
+/bin/zsh -lc "sed -n '2430,2490p' templates/index.html; sed -n '4620,4675p' templates/index.html; sed -n '5980,6090p' templates/index.html; sed -n '13965,14010p' templates/index.html; sed -n '14100,14165p' templates/index.html; sed -n '12150,12240p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+  _undoDebounceTimer = setTimeout(_flushUndoDebounce, 500);
+}
+function _flushUndoDebounce() {
+  clearTimeout(_undoDebounceTimer);
+  const d = _undoDebounce; _undoDebounce = null;
+  if (!d || !_ownerLive(d.owner)) return;      // owner closed: drop the entry
+  _pushSnapshot(d.owner, d.snap);
+}
+
+function _updateUndoButtons() {
+  const t = _activeTab();
+  const u = document.getElementById('btn-undo');
+  const r = document.getElementById('btn-redo');
+  if (u) u.disabled = !(t && !t.isStack && t.undoStack && t.undoStack.length);
+  if (r) r.disabled = !(t && !t.isStack && t.redoStack && t.redoStack.length);
+}
+
+function undo() {
+  _flushUndoDebounce();     // never undo past a pending burst
+  const t = _historyTab();
+  if (!t || !t.undoStack.length) return;
+  const snap = t.undoStack.pop();
+  // Mirror the averaging into the redo entry only when the undo entry
+  // carried one, so a redo re-applies exactly what the action did.
+  t.redoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
+    ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
+  state.peaks = snap;
+  _restoreSnapshotEndpointAvg(t, snap);
+  _restoreSnapshotProvenance(t, snap);
+  renderPeakList();
+  updatePlot();
+  renderResults();   // the restored model's designation (or its absence) must be visible immediately
+  _updateUndoButtons();
+}
+
+function redo() {
+  _flushUndoDebounce();
+  const t = _historyTab();
+  if (!t || !t.redoStack.length) return;
+  const snap = t.redoStack.pop();
+  t.undoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
+    ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
+  state.peaks = snap;
+  _restoreSnapshotEndpointAvg(t, snap);
+  _restoreSnapshotProvenance(t, snap);
+  renderPeakList();
+  updatePlot();
+  renderResults();   // the restored model's designation (or its absence) must be visible immediately
+  _updateUndoButtons();
+}
+
+// ═══════════════════════════════════════════════════
+// STACK FEATURE — data model
+// ═══════════════════════════════════════════════════
+// Wong colorblind-safe palette for stack-entry traces.
+const STACK_PALETTE = ['#E69F00','#56B4E9','#009E73','#F0E442','#0072B2','#D55E00','#CC79A7'];
+
+let _nextStackNum = 1;  // monotonic counter for '▦ Stack N' default names
+
+function isStackTab(tab) { return !!(tab && tab.isStack); }
+
+
+  let bg = new Array(n).fill(0);      // Shirley correction term
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const newBg = new Array(n).fill(0);
+    // Cumulative integral of (flattened signal - current bg) from right to left
+    let totalInt = 0;
+    for (let j = 0; j < n - 1; j++) {
+      totalInt += ((Math.max(flat[j] - bg[j], 0) + Math.max(flat[j + 1] - bg[j + 1], 0)) / 2)
+                  * Math.abs(be[j + 1] - be[j]);
+    }
+    if (totalInt <= 0) break;
+
+    for (let i = 0; i < n; i++) {
+      let sumRight = 0;
+      for (let j = i; j < n - 1; j++) {
+        sumRight += ((Math.max(flat[j] - bg[j], 0) + Math.max(flat[j + 1] - bg[j + 1], 0)) / 2)
+                    * Math.abs(be[j + 1] - be[j]);
+      }
+      // Scale by step height, normalised by total integral
+      newBg[i] = stepH * (sumRight / totalInt);
+    }
+    bg = newBg;
+  }
+
+  // 5. Combine: linear baseline + Shirley correction, clamped to data
+  const result = new Array(n);
+  for (let i = 0; i < n; i++) {
+    result[i] = Math.min(linear[i] + bg[i], intensity[i]);
+  }
+  return result;
+}
+
+// Clear stored background so updatePlot recomputes it
+function _invalidateBgCache() {
+  if (state.fitResult) state.fitResult.bgIntensity = null;
+}
+
+// Clear stored fit envelope so the fallback (modelFull + bg) is used after a manual peak edit
+function _invalidateFittedY() {
+  if (state.fitResult) state.fitResult.fittedY = null;
+}
+
+function _clampShirleyIter() {
+  const el = document.getElementById('shirley-iter');
+  let v = parseInt(el.value);
+  if (isNaN(v)) return;
+  if (v < 1) el.value = 1;
+  else if (v > 50) el.value = 50;
+}
+
+// The background window. The user types two binding energies; the window
+// is every grid point with lo <= BE <= hi, INCLUSIVE at both ends — the same
+// rule getROIData uses for the ROI. This is the single definition shared by
+// the preview (computeBackgroundCore) and both /api/fit request builders,
+// which send end_idx = i1 + 1 because the backend slices Python-end-exclusive
+  let r = parseFloat(rawVal);
+  if (!isFinite(r) || r < 0.01) r = 0.01;
+  if (r > 2) r = 2;
+  child.linkRatio = r;
+  child.amplitude = parent.amplitude * r;
+  updatePeakParam(id, 'amplitude', child.amplitude);
+}
+
+function updatePeakParam(id, key, value) {
+  _pushUndoDebounced();
+  const p = getPeak(id);
+  if (!p) return;
+  // asymmetry: clamp to the backend's own bound (fitting.py np.clip(asymmetry,
+  // 0, 1)) — a plain assignment let out-of-range values (e.g. pasted/loaded)
+  // sit on the peak until a backend fit result overwrote them.
+  if (key === 'asymmetry') value = Math.max(0, Math.min(1, value));
+  p[key] = value;
+
+  const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM','caAlpha','caBeta','caM'];
+  if (syncKeys.includes(key)) {
+    // Resolve canonical parent: if p is a child, find its parent first
+    let parent = p.linked ? getPeak(p.linked) : p;
+    if (!parent) parent = p;
+
+    if (p.linked && parent) {
+      // p is a child — back-propagate changed value to parent
+      if (key === 'center') parent.center = p.center - p.linkOffset;
+      else if (key === 'amplitude') {
+        // Only divide back to the parent when the ratio is meaningfully >0.
+        // Otherwise (child was zeroed or ratio is tiny) leave the parent alone.
+        if (p.linkRatio && p.linkRatio > 1e-6) {
+          parent.amplitude = p.amplitude / p.linkRatio;
+        }
+      }
+      else parent[key] = p[key];
+      renderPeakControls(parent);
+    }
+
+    // Forward-propagate from parent to all children (including p if it is one)
+    for (const child of state.peaks.filter(q => q.linked === parent.id)) {
+      if (key === 'center') child.center = parent.center + child.linkOffset;
+      else if (key === 'amplitude') child.amplitude = parent.amplitude * child.linkRatio;
+      else child[key] = parent[key];
+      if (child.id !== id) renderPeakControls(child);
+    }
+  }
+  _invalidateFittedY();
+  updatePlot();
+}
+
+function toggleLock(id, key, btn) {
+  const p = getPeak(id);
+  if (!p) return;
+  p[key] = !p[key];
+  btn.className = 'lock-btn' + (p[key] ? ' locked' : '');
+  btn.innerHTML = p[key] ? '&#x1f512;' : '&#x1f513;';
+  btn.title = (p[key] ? 'Unlock' : 'Lock') + ' during fitting';
+  _updateLockAllBtn();
+  _refreshStartsEvidence(true);      // a lock is part of the fitted model
+}
+
+const LOCK_ALL_KEYS = ['fixCenter', 'fixFwhm', 'fixAmplitude', 'fixAsymmetry', 'fixGlMix', 'fixDsAlpha', 'fixDsGamma'];
+
+function _lockAllStats() {
+  let locked = 0, total = 0;
+  for (const p of state.peaks) {
+    if (p.linked) continue;
+    for (const k of LOCK_ALL_KEYS) {
+      total++;
+      if (p[k]) locked++;
+    }
+  }
+  return { locked, total };
+}
+
+function toggleAllLocks() {
+  if (!state.peaks.length) return;
+  const { locked, total } = _lockAllStats();
+  // Majority unlocked → lock all; majority locked → unlock all
+  const newVal = locked <= total / 2;
+  for (const p of state.peaks) {
+    if (p.linked) continue;
+    for (const k of LOCK_ALL_KEYS) p[k] = newVal;
+  }
+  renderPeakList();
+  _refreshStartsEvidence(true);
+}
+
+function _updateLockAllBtn() {
+  const wrap = document.getElementById('peak-lock-all-wrap');
+  const btn = document.getElementById('btn-lock-all');
+  if (!wrap || !btn) return;
+  const hasLockable = state.peaks.some(p => !p.linked);
+  if (!hasLockable) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const { locked, total } = _lockAllStats();
+  if (locked > total / 2) {
+    btn.innerHTML = '&#x1f513; Unlock All';
+    btn.title = 'Unlock all fit parameters on all peaks';
+  } else {
+    btn.innerHTML = '&#x1f512; Lock All';
+    btn.title = 'Lock all fit parameters on all peaks';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// PEAK LIST UI
+// ═══════════════════════════════════════════════════
+// The per-peak "Charge-correction reference (C 1s graphite)" checkbox is
+// only meaningful when the user is on a C 1s spectrum AND the global
+// charge-correction method is set to graphite. When either condition is
+let _historyPreview = null;
+
+function _autoSnapshot() {
+  if (_snapshotSuppressed) return;
+  if (!tabManager.activeId || !state.peaks.length || !state.fitResult) return;
+
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab) return;
+  if (!tab.snapshots) tab.snapshots = [];
+  if (!tab._fitCount) tab._fitCount = 0;
+  tab._fitCount++;
+
+  const chi = state.fitResult.chiReduced;
+  const n = state.peaks.length;
+  const label = `Fit #${tab._fitCount} (${n} peak${n !== 1 ? 's' : ''})`;
+
+  const snap = {
+    id: Date.now(),
+    label,
+    timestamp: new Date().toLocaleTimeString(),
+    peaks: JSON.parse(JSON.stringify(state.peaks)),
+    fitResult: {
+      ...state.fitResult,
+      be: [...(state.fitResult.be || [])],
+      bgSubtracted: [...(state.fitResult.bgSubtracted || [])],
+      bgIntensity: state.fitResult.bgIntensity ? [...state.fitResult.bgIntensity] : null,
+      fittedY: state.fitResult.fittedY ? [...state.fitResult.fittedY] : null,
+    },
+    chi,
+    rFactor: state.fitResult.rFactor ?? null,
+  };
+
+  tab.snapshots.unshift(snap);
+  if (tab.snapshots.length > SNAPSHOT_MAX) tab.snapshots.pop();
+}
+
+function showHistoryModal() {
+  _renderHistoryList();
+  const panel = document.getElementById('history-panel');
+  if (!panel.classList.contains('open')) {
+    // Position at top-right of viewport, offset from the right panel
+    const rp = document.getElementById('right-panel');
+    const rpLeft = rp ? rp.getBoundingClientRect().left : window.innerWidth - 360;
+    panel.style.top = '60px';
+    panel.style.left = Math.max(20, rpLeft - 360) + 'px';
+    panel.style.right = '';
+  if (!snap) return;
+
+  if (_historyPreview && _historyPreview.snapId === snapId) {
+    _historyClearPreview();
+    return;
+  }
+
+  if (!snap.peaks || !snap.peaks.length) {
+    notify('Preview not available for this snapshot.', 'amber');
+    return;
+  }
+
+  _historyPreview = { snapId, peaks: snap.peaks, fitResult: snap.fitResult };
+  _updateLocalModelBanner();
+  document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
+  const row = document.getElementById('hist-row-' + snapId);
+  if (row) row.classList.add('hist-preview-active');
+  updatePlot();
+}
+
+function _historyClearPreview() {
+  _historyPreview = null;
+  _updateLocalModelBanner();
+  document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
+  updatePlot();
+}
+
+function _historyRestoreSnap(snapId) {
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab || !tab.snapshots) return;
+  const snap = tab.snapshots.find(s => s.id === snapId);
+  if (!snap) return;
+
+  pushUndo();
+  state.peaks = _normalizePeaksCRef(JSON.parse(JSON.stringify(snap.peaks)));
+  state.fitResult = snap.fitResult ? { ...snap.fitResult } : null;
+  tab.modelProvenance = null;   // the restored result governs the designation (unit A0)
+  tabManager._syncActiveToRecord();
+
+  _historyClearPreview();
+  renderPeakList();
+  updatePlot();
+  renderResults();
+  _closeHistoryPanel();
+  notify('Snapshot restored.', 'green');
+}
+
+function _historyDeleteSnap(snapId) {
+  const tab = tabManager._getTab(tabManager.activeId);
+  if (!tab || !tab.snapshots) return;
+  tab.snapshots = tab.snapshots.filter(s => s.id !== snapId);
+  if (_historyPreview && _historyPreview.snapId === snapId) _historyClearPreview();
+  _renderHistoryList();
+}
+
+// History panel drag logic
+(function () {
+  const panel = document.getElementById('history-panel');
+  const bar = document.getElementById('history-panel-titlebar');
+  if (!panel || !bar) return;
+  let dragging = false, offX = 0, offY = 0;
+  bar.addEventListener('mousedown', e => {
+    if (e.target.closest('button')) return;
+    dragging = true;
+    const r = panel.getBoundingClientRect();
+    offX = e.clientX - r.left;
+    const tgt = targets[i];
+    const tid = tgt.id;
+    if (!_ownerLive(tgt)) continue;                 // closed (or replaced by a reload) since the batch started
+
+    prog.textContent = `Fitting spectrum ${i + 1}/${targets.length}: ${tgt.name}…`;
+
+    // Scale factor based on max intensity ratio
+    const tgtMaxInten = _arrMax(tgt.rawIntensity);
+    const scale = srcMaxInten > 0 ? tgtMaxInten / srcMaxInten : 1;
+
+    // Deep-clone source peaks, scaled
+    const clonedPeaks = srcPeaks.map(p => ({
+      ...p,
+      amplitude: p.linked ? p.amplitude : p.amplitude * scale,
+      support: null           // a propagated model has not been fitted: nothing is established (a copied verdict could never match this tab's key anyway)
+    }));
+
+    // Copy peak nextId
+    const nextId = Math.max(0, ...clonedPeaks.map(p => p.id)) + 1;
+
+    // Propagate background + ROI settings from source (BatchPropagation is the
+    // single source of truth for the merge — see static/js/batch_propagation.js).
+    // ccShift is copied separately just below.
+    const newUi = BatchPropagation.propagateFitUi(srcUi, tgt.ui);
+
+    // Apply to target tab record (without switching UI) — undoable on that record
+    _pushUndoFor(tgt, { endpointAvg: tgt.ui && tgt.ui.endpointAvg });
+    tgt.peaks = clonedPeaks;
+    tgt.nextId = nextId;
+    tgt.ui = newUi;
+    tgt.ccShift = srcShift;
+    tgt.chargeVerified = false;
+    // A propagated model has not been fitted yet: the target's previous
+    // result belonged to its previous peaks (unit A0 acceptance rule).
+    tgt.fitResult = null;
+    tgt.modelProvenance = srcProvenance ? { ...srcProvenance, copiedFrom: sourceTab.name } : null;
+
+    // Now activate this tab so state is populated. activateTab is a no-op
+    // when the target is ALREADY active (the user switched to it during the
+    // previous target's fit): then live state still holds the target's old
+    // model and the post-fit sync would overwrite the propagated record —
+    // load the record into live state explicitly (Codex round 3, run B).
+    if (tabManager.activeId === tid) {
+      state.peaks = tgt.peaks; state.nextId = tgt.nextId; state.ccShift = tgt.ccShift;
+      state.fitResult = null;   // live copy of tgt.fitResult = null above (unit A0)
+      tabManager._restoreUI(tgt.ui);
+      renderPeakList();
+      _refreshRoiAndCentreWarnings();   // this branch does not redraw: the hint must describe the target's window (Codex round 2)
+    } else {
+      tabManager.activateTab(tid);
+    }
+
+    // Small yield so progress message renders
+    await new Promise(r => setTimeout(r, 20));
+    if (_activeTab() !== tgt) {
+      // The user switched tabs during the yield: fitting would read and
+      // write whichever tab is active now. Stop here; targets already
+      // fitted keep their results.
+      notify('Batch fit stopped at ' + tgt.name + ' — the tab changed while it was running.', 'amber');
+      break;
+    }
+
+    // Run local fit
+    const roiSt = _roiWindowStatus();    // warn only: the fit below uses getROIData() exactly as before
+    const { be, inten } = getROIData();
+    const bgI = computeBackground(be, inten);
+    const bgSub = inten.map((v, idx) => v - bgI[idx]);
+    const outcome = runFitLocal(be, bgSub, bgI);
+
+    // Sync result back to record
+    tabManager._syncActiveToRecord();
+
+    // Read the statistic from the fit's own return value, not from live
+    // state: the active tab can change while the fit runs.
+    const ok = !!(outcome && outcome.success);
+    results.push({ name: tgt.name, ok, roiHint: _roiHintFor(roiSt),
+                   chi: ok && Number.isFinite(outcome.chiReduced) ? outcome.chiReduced : null,
+                   message: ok ? null : ((outcome && outcome.message) || 'local fit did not converge') });
+
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  _snapshotSuppressed = false;
+
+  // Return to source tab
+  tabManager.activateTab(sourceId);
+
+  const nOk = results.filter(r => r.ok).length;
+  const nFail = results.length - nOk;
+  prog.textContent = `Batch complete: ${nOk} converged as starting points, ${nFail} not fitted. Run Fit on each spectrum before reporting.`;
+  const roiNote = r => r.roiHint ? ` <span class="roi-hint${r.roiHint.cls ? ' ' + r.roiHint.cls : ''}" style="display:inline">${_escHtml(r.roiHint.text)}</span>` : '';
+
+exec
+/bin/zsh -lc 'node --test tests/js/stale_statistics.test.js tests/js/fit_acceptance.test.js tests/js/local_lm_descent.test.js tests/js/unsupported_components.test.js' in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ exited 1 in 5984ms:
+# Subtest: A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown
+ok 1 - A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown
+  ---
+  duration_ms: 7.383601
+  type: 'test'
+  ...
+# Subtest: a server validation error (HTTP 400 with error) surfaces its message and does NOT hand off to the local optimiser
+ok 2 - a server validation error (HTTP 400 with error) surfaces its message and does NOT hand off to the local optimiser
+  ---
+  duration_ms: 4.159484
+  type: 'test'
+  ...
+# Subtest: a transport failure (fetch throws) still falls back to the local optimiser and shows the local-fit overlay
+ok 3 - a transport failure (fetch throws) still falls back to the local optimiser and shows the local-fit overlay
+  ---
+  duration_ms: 3.051093
+  type: 'test'
+  ...
+# Subtest: a transport failure whose local fallback does NOT converge shows no "local fit performed" overlay
+ok 4 - a transport failure whose local fallback does NOT converge shows no "local fit performed" overlay
+  ---
+  duration_ms: 6.263836
+  type: 'test'
+  ...
+# Subtest: a converged backend result is applied (sanity)
+ok 5 - a converged backend result is applied (sanity)
+  ---
+  duration_ms: 2.099737
+  type: 'test'
+  ...
+# Subtest: the engine/objective labels of a fit result survive spectrum and project save/load
+ok 6 - the engine/objective labels of a fit result survive spectrum and project save/load
+  ---
+  duration_ms: 0.599156
+  type: 'test'
+  ...
+# Subtest: an HTTP 502 with an HTML body on /api/fit is a server failure: message shown, no local fallback
+ok 7 - an HTTP 502 with an HTML body on /api/fit is a server failure: message shown, no local fallback
+  ---
+  duration_ms: 2.057637
+  type: 'test'
+  ...
+# Subtest: an HTTP 502 on the upload is a server failure, not a transport failure
+ok 8 - an HTTP 502 on the upload is a server failure, not a transport failure
+  ---
+  duration_ms: 2.100496
+  type: 'test'
+  ...
+# Subtest: uploadToBackend itself classifies HTTP errors as server errors and rejects a reply without a session id
+ok 9 - uploadToBackend itself classifies HTTP errors as server errors and rejects a reply without a session id
+  ---
+  duration_ms: 1.552428
+  type: 'test'
+  ...
+# Subtest: every consumer that prints the goodness-of-fit statistic routes through the statistic identity
+ok 10 - every consumer that prints the goodness-of-fit statistic routes through the statistic identity
+  ---
+  duration_ms: 0.740484
+  type: 'test'
+  ...
+# Subtest: uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is a server error, not a transport failure
+ok 11 - uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is a server error, not a transport failure
+  ---
+  duration_ms: 0.586751
+  type: 'test'
+  ...
+# Subtest: a local (unweighted) result is labelled a STARTING POINT, not a reportable result, everywhere it is shown
+ok 12 - a local (unweighted) result is labelled a STARTING POINT, not a reportable result, everywhere it is shown
+  ---
+  duration_ms: 1.418823
+  type: 'test'
+  ...
+# Subtest: starting-point helpers: keyed on the persisted objective, weighted results untouched
+ok 13 - starting-point helpers: keyed on the persisted objective, weighted results untouched
+  ---
+  duration_ms: 2.905401
+  type: 'test'
+  ...
+# Subtest: Quantify shows the starting-point banner for a local result and not for a weighted one
+ok 14 - Quantify shows the starting-point banner for a local result and not for a weighted one
+  ---
+  duration_ms: 4.074736
+  type: 'test'
+  ...
+# Subtest: every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels
+ok 15 - every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels
+  ---
+  duration_ms: 1.355256
+  type: 'test'
+  ...
+# Subtest: project save derives the designation from the objective for an older local result lacking the new fields
+ok 16 - project save derives the designation from the objective for an older local result lacking the new fields
+  ---
+  duration_ms: 6.107193
+  type: 'test'
+  ...
+# Subtest: stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately
+ok 17 - stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately
+  ---
+  duration_ms: 0.766414
+  type: 'test'
+  ...
+# Subtest: _applyStatDisplay keeps header, tooltip, caption and value consistent through local → weighted → none
+ok 18 - _applyStatDisplay keeps header, tooltip, caption and value consistent through local → weighted → none
+  ---
+  duration_ms: 2.804848
+  type: 'test'
+  ...
+# Subtest: history preview glow is keyed on the dataset flag, not the label text
+ok 19 - history preview glow is keyed on the dataset flag, not the label text
+  ---
+  duration_ms: 0.554147
+  type: 'test'
+  ...
+# Subtest: spectrum load renders the Results panel after restoring a saved result, and Save Fit carries the designation
+ok 20 - spectrum load renders the Results panel after restoring a saved result, and Save Fit carries the designation
+  ---
+  duration_ms: 0.389708
+  type: 'test'
+  ...
+# Subtest: _applyStatDisplay clears header, tooltip, caption and value together on local → none
+ok 21 - _applyStatDisplay clears header, tooltip, caption and value together on local → none
+  ---
+  duration_ms: 2.880372
+  type: 'test'
+  ...
+# Subtest: _isLocalModel: a model imported from a local .fit.json is a starting point even with no fit result
+ok 22 - _isLocalModel: a model imported from a local .fit.json is a starting point even with no fit result
+  ---
+  duration_ms: 1.337152
+  type: 'test'
+  ...
+# Subtest: fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV export use it, saves and loads carry it, new fits clear it
+ok 23 - fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV export use it, saves and loads carry it, new fits clear it
+  ---
+  duration_ms: 1.185047
+  type: 'test'
+  ...
+# Subtest: undo/redo snapshots carry and restore model provenance
+ok 24 - undo/redo snapshots carry and restore model provenance
+  ---
+  duration_ms: 3.066191
+  type: 'test'
+  ...
+# Subtest: round-12 sites: undo/redo restore provenance, spectrum save/load carry it, import re-renders Results, figure/chart key on the model, Find Peaks clears it
+ok 25 - round-12 sites: undo/redo restore provenance, spectrum save/load carry it, import re-renders Results, figure/chart key on the model, Find Peaks clears it
+  ---
+  duration_ms: 1.075547
+  type: 'test'
+  ...
+# Subtest: _provenanceOf derives a designation from a live local result, and undo snapshots use it
+ok 26 - _provenanceOf derives a designation from a live local result, and undo snapshots use it
+  ---
+  duration_ms: 2.282054
+  type: 'test'
+  ...
+# Subtest: batch propagation copies the source model provenance onto each target (cleared again only by a successful fit)
+ok 27 - batch propagation copies the source model provenance onto each target (cleared again only by a successful fit)
+  ---
+  duration_ms: 0.300006
+  type: 'test'
+  ...
+# Subtest: the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise
+ok 28 - the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise
+  ---
+  duration_ms: 2.663214
+  type: 'test'
+  ...
+# Subtest: round-14 sites: banner element and refresh hooks, undo/redo re-render Results, auto-fit snapshot/restore carry provenance
+ok 29 - round-14 sites: banner element and refresh hooks, undo/redo re-render Results, auto-fit snapshot/restore carry provenance
+  ---
+  duration_ms: 0.566412
+  type: 'test'
+  ...
+# Subtest: the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview
+ok 30 - the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview
+  ---
+  duration_ms: 2.176702
+  type: 'test'
+  ...
+# Subtest: the sidebar banner is sticky at the top of the scrolling panel body
+ok 31 - the sidebar banner is sticky at the top of the scrolling panel body
+  ---
+  duration_ms: 0.272924
+  type: 'test'
+  ...
+# Subtest: the sidebar banner shows on a stack tab whose visible entries draw a local source fit
+ok 32 - the sidebar banner shows on a stack tab whose visible entries draw a local source fit
+  ---
+  duration_ms: 2.103391
+  type: 'test'
+  ...
+# Subtest: every stack chart repaint path refreshes the sidebar designation before any early return
+ok 33 - every stack chart repaint path refreshes the sidebar designation before any early return
+  ---
+  duration_ms: 0.332018
+  type: 'test'
+  ...
+# Subtest: closeTab rebuilds the active stack chart when it prunes entries that referenced the closed tab
+ok 34 - closeTab rebuilds the active stack chart when it prunes entries that referenced the closed tab
+  ---
+  duration_ms: 0.158969
+  type: 'test'
+  ...
+# Subtest: W1 helpers: weighted local results are chi-square but still designated; legacy unweighted keep Residual variance; server untouched
+ok 35 - W1 helpers: weighted local results are chi-square but still designated; legacy unweighted keep Residual variance; server untouched
+  ---
+  duration_ms: 2.418441
+  type: 'test'
+  ...
+# Subtest: TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result
+ok 36 - TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result
+  ---
+  duration_ms: 3.739144
+  type: 'test'
+  ...
+# Subtest: adoption: the REQUEST starts from the alternative, asks for the starts check by ITS model, and the live model is untouched until success
+ok 37 - adoption: the REQUEST starts from the alternative, asks for the starts check by ITS model, and the live model is untouched until success
+  ---
+  duration_ms: 1.989025
+  type: 'test'
+  ...
+# Subtest: adoption: a transport failure does NOT fall back to the local engine (it would start from the live model)
+ok 38 - adoption: a transport failure does NOT fall back to the local engine (it would start from the live model)
+  ---
+  duration_ms: 2.655867
+  type: 'test'
+  ...
+# Subtest: adoption: a tab switch during the re-fit discards it and leaves the originating model as it was
+ok 39 - adoption: a tab switch during the re-fit discards it and leaves the originating model as it was
+  ---
+  duration_ms: 2.51311
+  type: 'test'
+  ...
+# Subtest: adoption: success records the choice, the starts evidence and the key of the model it describes
+ok 40 - adoption: success records the choice, the starts evidence and the key of the model it describes
+  ---
+  duration_ms: 1.992415
+  type: 'test'
+  ...
+# Subtest: an ordinary Run Fit on one unlinked component does not ask for the starts check
+ok 41 - an ordinary Run Fit on one unlinked component does not ask for the starts check
+  ---
+  duration_ms: 1.808261
+  type: 'test'
+  ...
+# Subtest: a model edited WHILE the fit runs does not receive the result (Codex round 2: a newly locked centre kept its edited value under the server's statistics, with a fresh evidence key)
+ok 42 - a model edited WHILE the fit runs does not receive the result (Codex round 2: a newly locked centre kept its edited value under the server's statistics, with a fresh evidence key)
+  ---
+  duration_ms: 1.813912
+  type: 'test'
+  ...
+# Traceback (most recent call last):
+#   File "/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/tests/js/local_lm_server_parity_backend.py", line 12, in <module>
+#     import fitting  \# noqa: E402
+#     ^^^^^^^^^^^^^^
+#   File "/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/fitting.py", line 33, in <module>
+#     from lmfit import Model, Parameters
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/__init__.py", line 38, in <module>
+#     from .confidence import conf_interval, conf_interval2d
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/confidence.py", line 10, in <module>
+#     from .minimizer import MinimizerException
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py", line 41, in <module>
+#     from .parameter import Parameter, Parameters
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/parameter.py", line 14, in <module>
+#     from .jsonutils import decode4js, encode4js
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/jsonutils.py", line 8, in <module>
+#     import dill
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/__init__.py", line 33, in <module>
+#     from .session import (
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/session.py", line 25, in <module>
+#     TEMPDIR = pathlib.PurePath(tempfile.gettempdir())
+#                                ^^^^^^^^^^^^^^^^^^^^^
+#   File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 315, in gettempdir
+#     return _os.fsdecode(_gettempdir())
+#                         ^^^^^^^^^^^^^
+#   File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 308, in _gettempdir
+#     tempdir = _get_default_tempdir()
+#               ^^^^^^^^^^^^^^^^^^^^^^
+#   File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 223, in _get_default_tempdir
+#     raise FileNotFoundError(_errno.ENOENT,
+# FileNotFoundError: [Errno 2] No usable temporary directory found in ['/var/folders/tv/_6g9gqh555q9xg8pshyzch7w0000gn/T/', '/tmp', '/var/tmp', '/usr/tmp', '/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics']
+# Subtest: A01 replay: Batch Fit on the committed UCl4-graphite C1s scans actually moves the parameters
+ok 43 - A01 replay: Batch Fit on the committed UCl4-graphite C1s scans actually moves the parameters
+  ---
+  duration_ms: 1219.119541
+  type: 'test'
+  ...
+# Subtest: A01 replay: the linked U 4f pair also descends
+ok 44 - A01 replay: the linked U 4f pair also descends
+  ---
+  duration_ms: 235.760244
+  type: 'test'
+  ...
+# Subtest: noiseless Gaussian: amplitude 10 started at 5 is recovered
+ok 45 - noiseless Gaussian: amplitude 10 started at 5 is recovered
+  ---
+  duration_ms: 11.528433
+  type: 'test'
+  ...
+# Subtest: acceptance rule: a non-converged attempt refuses to overwrite peaks or the previous fit result
+ok 46 - acceptance rule: a non-converged attempt refuses to overwrite peaks or the previous fit result
+  ---
+  duration_ms: 8.15151
+  type: 'test'
+  ...
+# Subtest: a local fit result is Poisson-weighted: objective, weighting and the designated statistic text
+ok 47 - a local fit result is Poisson-weighted: objective, weighting and the designated statistic text
+  ---
+  duration_ms: 10.45153
+  type: 'test'
+  ...
+# Subtest: bound stationarity: amplitude at its lower wall with the optimum inside the box must move off the wall
+ok 48 - bound stationarity: amplitude at its lower wall with the optimum inside the box must move off the wall
+  ---
+  duration_ms: 8.406575
+  type: 'test'
+  ...
+# Subtest: bound stationarity: amplitude at its lower wall with the optimum OUTSIDE the box is a legitimate converged fit
+ok 49 - bound stationarity: amplitude at its lower wall with the optimum OUTSIDE the box is a legitimate converged fit
+  ---
+  duration_ms: 7.794231
+  type: 'test'
+  ...
+# Subtest: a weak component the data DO hold is no longer forced up to an amplitude of 1
+ok 50 - a weak component the data DO hold is no longer forced up to an amplitude of 1
+  ---
+  duration_ms: 8.196111
+  type: 'test'
+  ...
+# Subtest: derivative accuracy: a free centre on a narrow peak lands on the true centre from either side (fixed wrong width)
+ok 51 - derivative accuracy: a free centre on a narrow peak lands on the true centre from either side (fixed wrong width)
+  ---
+  duration_ms: 40.246894
+  type: 'test'
+  ...
+# Subtest: derivative accuracy: centre-only fit on a 0.005 eV grid with a mis-scaled amplitude reaches the least-squares optimum
+ok 52 - derivative accuracy: centre-only fit on a 0.005 eV grid with a mis-scaled amplitude reaches the least-squares optimum
+  ---
+  duration_ms: 23.152141
+  type: 'test'
+  ...
+# Subtest: a genuinely stalled start (no sensitivity: peak far outside the data window) is reported as a failure, not convergence
+ok 53 - a genuinely stalled start (no sensitivity: peak far outside the data window) is reported as a failure, not convergence
+  ---
+  duration_ms: 7.415097
+  type: 'test'
+  ...
+# Subtest: linked child follows its parent even when the parent width is locked (behaviour documented in unit A0)
+ok 54 - linked child follows its parent even when the parent width is locked (behaviour documented in unit A0)
+  ---
+  duration_ms: 12.662913
+  type: 'test'
+  ...
+# Subtest: round-2 replay A: a peak that can only shrink at a wall is left at a constrained stationary point
+ok 55 - round-2 replay A: a peak that can only shrink at a wall is left at a constrained stationary point
+  ---
+  duration_ms: 11.051743
+  type: 'test'
+  ...
+# Subtest: round-2 replay B: amplitude pinned at its wall must not stop the width from reaching its constrained optimum
+ok 56 - round-2 replay B: amplitude pinned at its wall must not stop the width from reaching its constrained optimum
+  ---
+  duration_ms: 8.924247
+  type: 'test'
+  ...
+# Subtest: round-2: predicted reduction <= 0 never counts as convergence (start at FWHM 0.5 on replay A data)
+ok 57 - round-2: predicted reduction <= 0 never counts as convergence (start at FWHM 0.5 on replay A data)
+  ---
+  duration_ms: 9.992872
+  type: 'test'
+  ...
+# Subtest: A01 replay targets converge to constrained stationary points (C1s and U 4f)
+ok 58 - A01 replay targets converge to constrained stationary points (C1s and U 4f)
+  ---
+  duration_ms: 1418.326094
+  type: 'test'
+  ...
+# Subtest: round-3 A1: a weak satellite next to a 100x stronger line is determined and must be fitted, not frozen
+ok 59 - round-3 A1: a weak satellite next to a 100x stronger line is determined and must be fitted, not frozen
+  ---
+  duration_ms: 57.907058
+  type: 'test'
+  ...
+# Subtest: round-3 B1: a 10-count satellite beside a 100000-count line (centres/widths locked) recovers its amplitude
+ok 60 - round-3 B1: a 10-count satellite beside a 100000-count line (centres/widths locked) recovers its amplitude
+  ---
+  duration_ms: 21.646104
+  type: 'test'
+  ...
+# Subtest: round-3 A2: (285.3, 1, 8) fitted to (285, 1.5, 0.1) ends at a constrained stationary point
+ok 61 - round-3 A2: (285.3, 1, 8) fitted to (285, 1.5, 0.1) ends at a constrained stationary point
+  ---
+  duration_ms: 11.462922
+  type: 'test'
+  ...
+# Subtest: round-3 B2: (286, 0.3 locked, 20) fitted to (285, 1.5, 5) ends at a constrained stationary point
+ok 62 - round-3 B2: (286, 0.3 locked, 20) fitted to (285, 1.5, 5) ends at a constrained stationary point
+  ---
+  duration_ms: 74.915223
+  type: 'test'
+  ...
+# Subtest: round-4: near-zero residual with no data still passes the feasible-descent certificate (centre free, zero data)
+ok 63 - round-4: near-zero residual with no data still passes the feasible-descent certificate (centre free, zero data)
+  ---
+  duration_ms: 1183.663887
+  type: 'test'
+  ...
+# Subtest: round-4: near-zero residual on the accepted-step exit is certified (amplitude free, peak mostly outside the window)
+ok 64 - round-4: near-zero residual on the accepted-step exit is certified (amplitude free, peak mostly outside the window)
+  ---
+  duration_ms: 19.970785
+  type: 'test'
+  ...
+# Subtest: round-5: a single Gaussian between two symmetric peaks is certified with the CURRENT width, not a Jacobian-perturbed one
+ok 65 - round-5: a single Gaussian between two symmetric peaks is certified with the CURRENT width, not a Jacobian-perturbed one
+  ---
+  duration_ms: 9.839794
+  type: 'test'
+  ...
+# Subtest: weighted least squares: a locked-shape amplitude lands on the closed-form WEIGHTED solution, not the unweighted one
+ok 66 - weighted least squares: a locked-shape amplitude lands on the closed-form WEIGHTED solution, not the unweighted one
+  ---
+  duration_ms: 8.491177
+  type: 'test'
+  ...
+# Subtest: server parity on GL-type models: weighted local Batch Fit matches lmfit from the same start (committed C1s targets)
+not ok 67 - server parity on GL-type models: weighted local Batch Fit matches lmfit from the same start (committed C1s targets)
+  ---
+  duration_ms: 1389.130451
+  type: 'test'
+  location: '/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/tests/js/local_lm_descent.test.js:455:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Command failed: /Users/skyefortier/xps-app/venv/bin/python3 /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/tests/js/local_lm_server_parity_backend.py /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+    Traceback (most recent call last):
+      File "/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/tests/js/local_lm_server_parity_backend.py", line 12, in <module>
+        import fitting  # noqa: E402
+        ^^^^^^^^^^^^^^
+      File "/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/fitting.py", line 33, in <module>
+        from lmfit import Model, Parameters
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/__init__.py", line 38, in <module>
+        from .confidence import conf_interval, conf_interval2d
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/confidence.py", line 10, in <module>
+        from .minimizer import MinimizerException
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py", line 41, in <module>
+        from .parameter import Parameter, Parameters
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/parameter.py", line 14, in <module>
+        from .jsonutils import decode4js, encode4js
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/jsonutils.py", line 8, in <module>
+        import dill
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/__init__.py", line 33, in <module>
+        from .session import (
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/session.py", line 25, in <module>
+        TEMPDIR = pathlib.PurePath(tempfile.gettempdir())
+                                   ^^^^^^^^^^^^^^^^^^^^^
+      File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 315, in gettempdir
+        return _os.fsdecode(_gettempdir())
+                            ^^^^^^^^^^^^^
+      File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 308, in _gettempdir
+        tempdir = _get_default_tempdir()
+                  ^^^^^^^^^^^^^^^^^^^^^^
+      File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 223, in _get_default_tempdir
+        raise FileNotFoundError(_errno.ENOENT,
+    FileNotFoundError: [Errno 2] No usable temporary directory found in ['/var/folders/tv/_6g9gqh555q9xg8pshyzch7w0000gn/T/', '/tmp', '/var/tmp', '/usr/tmp', '/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics']
+    
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    genericNodeError (node:internal/errors:983:15)
+    wrappedFn (node:internal/errors:537:14)
+    checkExecSyncError (node:child_process:916:11)
+    execFileSync (node:child_process:952:15)
+    TestContext.<anonymous> (/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/tests/js/local_lm_descent.test.js:468:31)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+  ...
+# Subtest: the local engine holds LA m at its exact fractional value, free or locked, and does not count it as a degree of freedom
+ok 68 - the local engine holds LA m at its exact fractional value, free or locked, and does not count it as a degree of freedom
+  ---
+  duration_ms: 21.687442
+  type: 'test'
+  ...
+# Subtest: an LA fit with m free converges across a kernel-width transition — run A: 201 pts at 0.03 eV, m 48 (a transition), noisy
+ok 69 - an LA fit with m free converges across a kernel-width transition — run A: 201 pts at 0.03 eV, m 48 (a transition), noisy
+  ---
+  duration_ms: 27.873374
+  type: 'test'
+  ...
+# Subtest: an LA fit with m free converges across a kernel-width transition — run B: 61 pts at 0.05 eV, m 18/7 − 0.001, all free
+ok 70 - an LA fit with m free converges across a kernel-width transition — run B: 61 pts at 0.05 eV, m 18/7 − 0.001, all free
+  ---
+  duration_ms: 21.266467
+  type: 'test'
+  ...
+# Subtest: round-2 reproducer converges with m unlocked (m is held) — exact transition m = 18/7, 61 pts at 0.03 eV
+ok 71 - round-2 reproducer converges with m unlocked (m is held) — exact transition m = 18/7, 61 pts at 0.03 eV
+  ---
+  duration_ms: 10.110124
+  type: 'test'
+  ...
+# Subtest: round-2 reproducer converges with m unlocked (m is held) — m = 0 data, start m = 0.001
+ok 72 - round-2 reproducer converges with m unlocked (m is held) — m = 0 data, start m = 0.001
+  ---
+  duration_ms: 9.484926
+  type: 'test'
+  ...
+# Subtest: recovery from an amplitude of exactly zero (the new floor is not a trap)
+ok 73 - recovery from an amplitude of exactly zero (the new floor is not a trap)
+  ---
+  duration_ms: 13.287164
+  type: 'test'
+  ...
+# Subtest: one accessor classifies a result against a key: none / unverified / current / stale
+ok 74 - one accessor classifies a result against a key: none / unverified / current / stale
+  ---
+  duration_ms: 14.050521
+  type: 'test'
+  ...
+# Subtest: the key is the step (b) key: F1 adds no second binding mechanism and no new key field
+ok 75 - the key is the step (b) key: F1 adds no second binding mechanism and no new key field
+  ---
+  duration_ms: 3.505717
+  type: 'test'
+  ...
+# Subtest: Results panel, current: statistic, RMSE, R and sigma are shown
+ok 76 - Results panel, current: statistic, RMSE, R and sigma are shown
+  ---
+  duration_ms: 7.589834
+  type: 'test'
+  ...
+# Subtest: Results panel, stale: a banner says the statistics belong to the previous model; no chi-square, RMSE, R or sigma
+ok 77 - Results panel, stale: a banner says the statistics belong to the previous model; no chi-square, RMSE, R or sigma
+  ---
+  duration_ms: 6.443402
+  type: 'test'
+  ...
+# Subtest: Results panel, unverified (older save, no key): values shown with a plain note
+ok 78 - Results panel, unverified (older save, no key): values shown with a plain note
+  ---
+  duration_ms: 6.366121
+  type: 'test'
+  ...
+# Subtest: status-bar R: the previous model's R is not shown on a stale result; an unrelated rFactor argument is untouched
+ok 79 - status-bar R: the previous model's R is not shown on a stale result; an unrelated rFactor argument is untouched
+  ---
+  duration_ms: 6.155866
+  type: 'test'
+  ...
+# Subtest: the stored fitted curve is never drawn, saved or stacked as the fit once stale
+ok 80 - the stored fitted curve is never drawn, saved or stacked as the fit once stale
+  ---
+  duration_ms: 1.902041
+  type: 'test'
+  ...
+# Subtest: saves keep the key and say plainly when the statistics are stale or unverified
+ok 81 - saves keep the key and say plainly when the statistics are stale or unverified
+  ---
+  duration_ms: 2.013712
+  type: 'test'
+  ...
+# Subtest: CSV: current writes the statistic and sigma; stale writes a WARNING, no statistic, no sigma
+ok 82 - CSV: current writes the statistic and sigma; stale writes a WARNING, no statistic, no sigma
+  ---
+  duration_ms: 10.847773
+  type: 'test'
+  ...
+# Subtest: XLSX: stale writes a WARNING row instead of the statistic, and no sigma
+ok 83 - XLSX: stale writes a WARNING row instead of the statistic, and no sigma
+  ---
+  duration_ms: 3.62985
+  type: 'test'
+  ...
+# Subtest: TSV: stale says the Model / Residual columns are the current, unfitted model
+ok 84 - TSV: stale says the Model / Residual columns are the current, unfitted model
+  ---
+  duration_ms: 5.357002
+  type: 'test'
+  ...
+# Subtest: the refresh re-renders Results only when its rendered state differs
+ok 85 - the refresh re-renders Results only when its rendered state differs
+  ---
+  duration_ms: 2.410129
+  type: 'test'
+  ...
+# Subtest: the twin reproduces the server verdict on real responses, and defers to the server field when present
+ok 86 - the twin reproduces the server verdict on real responses, and defers to the server field when present
+  ---
+  duration_ms: 9.23504
+  type: 'test'
+  ...
+# Subtest: _applySupport writes every peak, follows ancestry to the root, stamps the fit key, and leaves null where the response says nothing
+ok 87 - _applySupport writes every peak, follows ancestry to the root, stamps the fit key, and leaves null where the response says nothing
+  ---
+  duration_ms: 4.494387
+  type: 'test'
+  ...
+# Subtest: the verdict applies only to the model and context it was computed for
+ok 88 - the verdict applies only to the model and context it was computed for
+  ---
+  duration_ms: 4.159642
+  type: 'test'
+  ...
+# Subtest: the local engine computes the same statistic from its own residuals
+ok 89 - the local engine computes the same statistic from its own residuals
+  ---
+  duration_ms: 5.001605
+  type: 'test'
+  ...
+# Subtest: sidebar card: badge; centre and width shown as a dash; area % excluded and the others renormalised
+ok 90 - sidebar card: badge; centre and width shown as a dash; area % excluded and the others renormalised
+  ---
+  duration_ms: 5.16624
+  type: 'test'
+  ...
+# Subtest: results table: greyed row, no centre / width / sigma, area kept, percentage dash, and the note beneath
+ok 91 - results table: greyed row, no centre / width / sigma, area kept, percentage dash, and the note beneath
+  ---
+  duration_ms: 10.542665
+  type: 'test'
+  ...
+# Subtest: uncertainty panel: one rule-0 warning for the component, no per-parameter alarms and no "locked" note for it
+ok 92 - uncertainty panel: one rule-0 warning for the component, no per-parameter alarms and no "locked" note for it
+  ---
+  duration_ms: 3.932537
+  type: 'test'
+  ...
+# Subtest: Quantify: excluded from the body, listed beneath with the reason; total and percentages over the rest
+ok 93 - Quantify: excluded from the body, listed beneath with the reason; total and percentages over the rest
+  ---
+  duration_ms: 4.10542
+  type: 'test'
+  ...
+# Subtest: CSV / XLSX export: Status column, suppressed cells, At% empty, WARNING line
+ok 94 - CSV / XLSX export: Status column, suppressed cells, At% empty, WARNING line
+  ---
+  duration_ms: 5.74102
+  type: 'test'
+  ...
+# Subtest: publication figure: no label at the (zero) component, legend entry says so; chart and stack labels say so
+ok 95 - publication figure: no label at the (zero) component, legend entry says so; chart and stack labels say so
+  ---
+  duration_ms: 2.168553
+  type: 'test'
+  ...
+# Subtest: write-back: a server result sets support; the local engine and a propagated model reset it
+ok 96 - write-back: a server result sets support; the local engine and a propagated model reset it
+  ---
+  duration_ms: 1.30108
+  type: 'test'
+  ...
+# Subtest: persistence: support travels with the peak object through every save (the peak is spread whole)
+ok 97 - persistence: support travels with the peak object through every save (the peak is spread whole)
+  ---
+  duration_ms: 0.83332
+  type: 'test'
+  ...
+# Subtest: CSV / XLSX: an unsupported DS+G component exports no width of any kind (beta, m)
+ok 98 - CSV / XLSX: an unsupported DS+G component exports no width of any kind (beta, m)
+  ---
+  duration_ms: 4.630633
+  type: 'test'
+  ...
+# Subtest: the scattered-starts table: an unsupported component shows neither area % nor a move in "Your fit", and is not the largest move
+ok 99 - the scattered-starts table: an unsupported component shows neither area % nor a move in "Your fit", and is not the largest move
+  ---
+  duration_ms: 5.352247
+  type: 'test'
+  ...
+# Subtest: exports: a stale or keyless verdict is "not established", never "supported"
+ok 100 - exports: a stale or keyless verdict is "not established", never "supported"
+  ---
+  duration_ms: 6.855339
+  type: 'test'
+  ...
+# Subtest: Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: _restampSupport, called after the locks
+ok 101 - Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: _restampSupport, called after the locks
+  ---
+  duration_ms: 3.782221
+  type: 'test'
+  ...
+# Subtest: a .fit.json import onto this tab's data carries no verdict
+ok 102 - a .fit.json import onto this tab's data carries no verdict
+  ---
+  duration_ms: 0.112553
+  type: 'test'
+  ...
+# Subtest: _isUnsupported is never handed an array index as its key (Array.filter passes one)
+ok 103 - _isUnsupported is never handed an array index as its key (Array.filter passes one)
+  ---
+  duration_ms: 4.249985
+  type: 'test'
+  ...
+# Subtest: a key change re-renders every consumer of the verdict — each compared with ITS OWN rendering
+ok 104 - a key change re-renders every consumer of the verdict — each compared with ITS OWN rendering
+  ---
+  duration_ms: 2.811626
+  type: 'test'
+  ...
+# Subtest: stack tabs judge a source component against the SOURCE record's key
+ok 105 - stack tabs judge a source component against the SOURCE record's key
+  ---
+  duration_ms: 3.40833
+  type: 'test'
+  ...
+# Subtest: "Your fit" percentages are over supported components; an empty Quantify shows no 100 %
+ok 106 - "Your fit" percentages are over supported components; an empty Quantify shows no 100 %
+  ---
+  duration_ms: 11.335317
+  type: 'test'
+  ...
+# Subtest: the sidebar is patched in place (header, summary, badge) — the centre input's inline continuation respects the verdict
+ok 107 - the sidebar is patched in place (header, summary, badge) — the centre input's inline continuation respects the verdict
+  ---
+  duration_ms: 4.409376
+  type: 'test'
+  ...
+1..107
+# tests 107
+# suites 0
+# pass 106
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6040.398812
+
+exec
+/bin/zsh -lc "sed -n '1,155p' tests/js/fit_acceptance.test.js; sed -n '1,145p' tests/js/local_lm_descent.test.js; sed -n '10280,10360p' templates/index.html; sed -n '5975,6025p' templates/index.html; sed -n '9514,9548p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+// Fit acceptance rule for the backend path (unit A0, 2026-09-15): nothing is
+// shown, stored or exported as a fit result unless it converged, and a
+// server-side error surfaces its message instead of silently handing the
+// model to the local optimiser.
+//
+// Before this unit runFit checked `json.error` only: an lmfit result with
+// success:false was applied and announced as "Fit complete (lmfit)" (audit
+// A08), and ANY thrown error — a 400 validation error included — fell back
+// to runFitLocal, which then returned the starting model (A01).
+//
+// runFit is extracted verbatim from templates/index.html; its collaborators
+// are stubbed at the boundary (DOM, fetch, upload, chart/list renderers).
+
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const REPO_ROOT = path.join(__dirname, '../..');
+const html = fs.readFileSync(path.join(REPO_ROOT, 'templates/index.html'), 'utf8');
+const lines = html.split('\n');
+function extractFn(name) {
+  const re = new RegExp('^(async )?function ' + name + '\\(');
+  const start = lines.findIndex(l => re.test(l));
+  assert.ok(start >= 0, `function ${name} not found`);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+    if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
+  }
+  assert.fail('unbalanced ' + name);
+}
+
+function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
+  const dom = {};
+  const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, disabled: false,
+    setAttribute() {}, removeAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, contains() { return false; }, _c: null } });
+  const document = { getElementById: el, querySelector: () => el('.btn-green'), querySelectorAll: () => [] };
+  const be = Array.from({ length: 50 }, (_, i) => 280 + 0.2 * i);
+  const state = { rawBE: be.slice(), rawIntensity: be.map(() => 100), ccShift: 0, fitResult: { marker: 'previous' },
+    peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
+  const owner = { id: 7 };
+  const calls = { notify: [], local: 0, applied: 0 };
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsIfCurrent'].map(extractFn).join('\n');
+  const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
+    '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
+    '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab',
+    src + '\nreturn { runFit };');
+  const noop = () => {};
+  const { runFit } = factory(document, state, fetchImpl, uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
+    noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
+    b => b.map(() => 0), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
+    () => 0.1, '', noop, noop, noop, noop, noop, noop,
+    () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop, () => owner);
+  return { runFit, state, dom, calls };
+}
+
+const okResponse = body => async () => ({ ok: true, status: 200, json: async () => body });
+
+test('A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown', async () => {
+  const env = makeEnv({ fetchImpl: okResponse({ success: false, message: 'Fit did not converge: max evaluations', statistics: { reduced_chi_square: 999 }, individual_peaks: [] }) });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit();
+  assert.equal(env.calls.applied, 0, 'applyBackendResult must not run');
+  assert.equal(env.calls.local, 0, 'no silent local fallback');
+  assert.equal(JSON.stringify(env.state.peaks), before, 'peaks unchanged');
+  assert.equal(env.state.fitResult.marker, 'previous', 'previous fit result retained');
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /did not converge/i.test(n.msg)), JSON.stringify(env.calls.notify));
+  assert.ok(!/complete/i.test(env.dom['sb-msg'].textContent), env.dom['sb-msg'].textContent);
+});
+
+test('a server validation error (HTTP 400 with error) surfaces its message and does NOT hand off to the local optimiser', async () => {
+  const env = makeEnv({ fetchImpl: async () => ({ ok: false, status: 400, json: async () => ({ error: 'peak 1: fwhm_min must be positive' }) }) });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit();
+  assert.equal(env.calls.local, 0, 'a 400 is not a reason to run the local fitter');
+  assert.equal(env.calls.applied, 0);
+  assert.equal(JSON.stringify(env.state.peaks), before);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /fwhm_min must be positive/.test(n.msg)), JSON.stringify(env.calls.notify));
+  assert.notEqual(env.dom['localfit-warn-overlay']?.classList._c, 'open', 'no "local fit performed" overlay');
+});
+
+test('a transport failure (fetch throws) still falls back to the local optimiser and shows the local-fit overlay', async () => {
+  const env = makeEnv({ fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  await env.runFit();
+  assert.equal(env.calls.local, 1, 'local fallback used for a genuine network failure');
+  assert.equal(env.dom['localfit-warn-overlay'].classList._c, 'open');
+});
+
+test('a transport failure whose local fallback does NOT converge shows no "local fit performed" overlay', async () => {
+  const env = makeEnv({ fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  // replace the stubbed local fitter with a failing one
+  const failing = makeEnv({ fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  failing.calls.local = 0;
+  // rebuild with a failing runFitLocal
+  const dom = failing.dom;
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsIfCurrent'].map(extractFn).join('\n');
+  const noop = () => {};
+  const owner = { id: 1 };
+  const state = failing.state;
+  const { runFit } = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
+    '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
+    '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab', src + '\nreturn { runFit };')(
+    { getElementById: id => (dom[id] ||= { value: '', textContent: '', style: {}, setAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, _c: null } }), querySelector: () => ({}), querySelectorAll: () => [] },
+    state, async () => { throw new TypeError('Failed to fetch'); }, async () => 'sid', noop, noop, noop, noop, () => owner, o => o === owner,
+    () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }), b => b.map(() => 0), p => ({ id: p.id }), () => [], noop,
+    () => 0.1, '', noop, noop, noop, noop, noop, noop, () => ({ success: false, message: 'did not converge' }), false, { warn: noop }, noop, () => owner);
+  await runFit();
+  assert.notEqual(dom['localfit-warn-overlay']?.classList._c, 'open', 'overlay must not claim a local fit was performed');
+  void env;
+});
+
+test('a converged backend result is applied (sanity)', async () => {
+  const env = makeEnv({ fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1.2 }, residuals: [], fitted_y: [], individual_peaks: [] }) });
+  await env.runFit();
+  assert.equal(env.calls.applied, 1);
+  assert.equal(env.calls.local, 0);
+  assert.notEqual(env.state.fitResult.marker, 'previous');
+  assert.equal(env.dom['sb-msg'].textContent, 'Fit complete (lmfit)', 'the success path must run to completion, not die in an exception');
+});
+
+test('the engine/objective labels of a fit result survive spectrum and project save/load', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // spectrum save: statistics block carries objective/engine; loader restores them
+  const save = grab('function _doSaveSpectrum()', 2500);
+  assert.match(save, /objective: state\.fitResult\.objective/);
+  assert.match(save, /engine: state\.fitResult\.engine/);
+  const load = grab('function _loadSpectrumFile(', 6000);
+  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative'\]/);
+  // project save: the whitelisted fitResult record carries them
+  const proj = grab('const buildTabData = (t) =>', 3000);
+  assert.match(proj, /objective: t\.fitResult\.objective/);
+  assert.match(proj, /engine: t\.fitResult\.engine/);
+});
+
+// ── Codex round-1 findings (2026-09-15): HTTP failures with non-JSON bodies ──
+
+function envWithFetch(fetchImpl, uploadImpl) { return makeEnv({ fetchImpl, uploadImpl }); }
+
+test('an HTTP 502 with an HTML body on /api/fit is a server failure: message shown, no local fallback', async () => {
+  const env = envWithFetch(async () => ({ ok: false, status: 502, json: async () => { throw new SyntaxError('Unexpected token <'); } }));
+  await env.runFit();
+  assert.equal(env.calls.local, 0, 'no fallback on a 502');
+  assert.equal(env.calls.applied, 0);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /502/.test(n.msg)), JSON.stringify(env.calls.notify));
+});
+
+test('an HTTP 502 on the upload is a server failure, not a transport failure', async () => {
+  const env = envWithFetch(async () => { throw new Error('fit must not be reached'); }, async () => { const e = new Error('Upload failed (HTTP 502).'); e.serverError = true; throw e; });
+  await env.runFit();
+  assert.equal(env.calls.local, 0);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /502/.test(n.msg)));
+});
+// Local Levenberg–Marquardt: it must DESCEND and it must never present a
+// non-converged attempt as a result (unit A0, 2026-09-15).
+//
+// Background: from the initial commit (f20d71b) until this unit, runFitLocal
+// solved JᵀJ·dp = +Jᵀr with r = data − model, so every step was an ascent
+// step, no step was ever accepted, and after 24 rejections λ passed 1e8 and
+// the loop exited with the STARTING parameters, announced as "Fit complete
+// (local LM)". Every Batch Fit called that path. The empirical proof is in
+// docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md; this file is
+// that proof turned into a regression test on the SHIPPED functions.
+//
+// Everything under test is extracted verbatim from templates/index.html by
+// function name (brace-matched) — the same functions the browser runs.
+
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+
+const REPO_ROOT = path.join(__dirname, '../..');
+const html = fs.readFileSync(path.join(REPO_ROOT, 'templates/index.html'), 'utf8');
+const lines = html.split('\n');
+
+function extractFn(name) {
+  const re = new RegExp('^(async )?function ' + name.replace(/\$/g, '\\$') + '\\(');
+  const start = lines.findIndex(l => re.test(l));
+  assert.ok(start >= 0, `function ${name} not found in templates/index.html`);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+    if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
+  }
+  assert.fail(`unbalanced braces extracting ${name}`);
+}
+
+const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
+  'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
+  'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
+  'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
+  'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
+  '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
+  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_statsState', '_statsLiveState'];
+const CAVEAT_CONST = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
+
+// One isolated environment per test: a fresh `state`, a stub DOM, and the
+// extracted functions bound to them.
+function makeEnv() {
+  const dom = {};
+  const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, setAttribute() {}, removeAttribute() {},
+    classList: { add() {}, remove() {}, contains: () => false } });
+  const document = { getElementById: el, querySelectorAll: () => [] };
+  const state = { peaks: [], fitResult: null, rawBE: [], rawIntensity: [], ccShift: 0 };
+  const calls = { notify: [] };
+  const notify = (msg, kind) => calls.notify.push({ msg, kind });
+  const noop = () => {};
+  const src = CAVEAT_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extractFn).join('\n\n');
+  const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
+    'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
+    src + '\nreturn { runFitLocal, computeBackgroundCore, evalAllPeaks, evalPeakArray, gaussian };');
+  const fns = factory(document, state, notify, '', '', () => null, x => String(x), null, null, noop, noop, noop, noop, noop, noop, noop,
+    be => new Array(be.length).fill(0));
+  return { ...fns, state, dom, calls };
+}
+
+// ── Committed lab project, replayed exactly as runPropagation does ──────────
+const PROJECT = path.join(REPO_ROOT, 'docs/autofit/test_data/1-GTA UCl4-graphite one set of U doublets.proj.zip');
+const BatchPropagation = require(path.join(REPO_ROOT, 'static/js/batch_propagation.js'));
+
+function loadProjectTabs() {
+  const py = fs.existsSync(path.join(REPO_ROOT, 'venv/bin/python3')) ? path.join(REPO_ROOT, 'venv/bin/python3')
+    : (fs.existsSync('/Users/skyefortier/xps-app/venv/bin/python3') ? '/Users/skyefortier/xps-app/venv/bin/python3' : 'python3');
+  const script = 'import sys, json; sys.path.insert(0, sys.argv[1]); from autofit.reference import load_project_tabs; ' +
+    'print(json.dumps([t for t in load_project_tabs(sys.argv[2]) if not t.get("isStack") and t.get("rawBE")]))';
+  return JSON.parse(execFileSync(py, ['-c', script, REPO_ROOT, PROJECT], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+}
+
+function batchTarget(env, tabs, sourceName, targetName) {
+  const src = tabs.find(t => t.name === sourceName), tgt = tabs.find(t => t.name === targetName);
+  assert.ok(src && tgt, 'source/target tabs present in committed project');
+  const scale = Math.max(...tgt.rawIntensity) / Math.max(...src.rawIntensity);
+  const cloned = JSON.parse(JSON.stringify(src.peaks)).map(p => ({ ...p, amplitude: p.linked ? p.amplitude : p.amplitude * scale }));
+  const ui = BatchPropagation.propagateFitUi({ ...src.ui }, { ...tgt.ui });
+  const roiMin = parseFloat(ui.roiMin), roiMax = parseFloat(ui.roiMax);
+  const be = [], inten = [];
+  tgt.rawBE.forEach((b, i) => { const c = b - (src.ccShift || 0); if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(tgt.rawIntensity[i]); } });
+  const bg = env.computeBackgroundCore(be, inten, ui);
+  const bgSub = inten.map((v, i) => v - bg[i]);
+  env.state.peaks = cloned;
+  env.state.fitResult = null;
+  return { be, bgSub, bg, initial: JSON.parse(JSON.stringify(cloned)) };
+}
+
+// The objective the local engine minimises since unit W1: the Poisson-weighted
+// sum of squares, w = 1/sqrt(max(raw counts, 1)), raw = bgSub + bg.
+function residualSS(env, be, bgSub, bg) {
+  const m = env.evalAllPeaks(be, env.state.peaks);
+  return be.reduce((s, _, i) => { const raw = bgSub[i] + (bg ? bg[i] : 0); return s + (bgSub[i] - m[i]) ** 2 / Math.max(raw, 1); }, 0);
+}
+
+test('A01 replay: Batch Fit on the committed UCl4-graphite C1s scans actually moves the parameters', () => {
+  const tabs = loadProjectTabs();
+  for (const target of ['C1s Scan_0', 'C1s Scan_4', 'C1s Scan_8']) {
+    const env = makeEnv();
+    const { be, bgSub, bg, initial } = batchTarget(env, tabs, 'C1s Scan', target);
+    const chi0 = residualSS(env, be, bgSub, bg);
+    const out = env.runFitLocal(be, bgSub, bg);
+    assert.ok(out && out.success === true, `${target}: runFitLocal must report success, got ${JSON.stringify(out)}`);
+    const chi1 = residualSS(env, be, bgSub, bg);
+    assert.ok(chi1 < 0.5 * chi0, `${target}: residual must drop substantially (before ${chi0.toExponential(3)}, after ${chi1.toExponential(3)})`);
+    const moved = env.state.peaks.some((p, i) => Math.abs(p.center - initial[i].center) > 1e-3 || Math.abs(p.fwhm / initial[i].fwhm - 1) > 1e-3);
+    assert.ok(moved, `${target}: at least one free centre/width must move — the shipped code returned the starting model on 18/18 targets`);
+    assert.ok(env.state.fitResult && env.state.fitResult.status === 'converged', 'a converged local fit records status: converged');
+  }
+});
+
+test('A01 replay: the linked U 4f pair also descends', () => {
+  const tabs = loadProjectTabs();
+  const env = makeEnv();
+  const { be, bgSub, bg } = batchTarget(env, tabs, 'U4f Scan', 'U4f Scan_3');
+  const chi0 = residualSS(env, be, bgSub, bg);
+  const out = env.runFitLocal(be, bgSub, bg);
+  assert.equal(out.success, true);
+  assert.ok(residualSS(env, be, bgSub, bg) < 0.5 * chi0);
+  const parent = env.state.peaks.find(p => !p.linked && p.shape === 'LACX');
+  const child = env.state.peaks.find(p => p.linked);
+  assert.ok(Math.abs(child.center - (parent.center + child.linkOffset)) < 1e-9, 'linked centre follows the parent');
+  assert.ok(Math.abs(child.amplitude - parent.amplitude * child.linkRatio) < 1e-6, 'linked amplitude follows the parent');
+});
+
+test('noiseless Gaussian: amplitude 10 started at 5 is recovered', () => {
+  const env = makeEnv();
+  const be = Array.from({ length: 201 }, (_, i) => 280 + 0.05 * i);
+  const truth = { id: 1, name: 'g', shape: 'Gaussian', center: 285.0, fwhm: 1.2, amplitude: 10, glMix: 50, asymmetry: 0 };
+  const data = be.map(x => 10 * env.gaussian(x, 285.0, 1.2));
+  env.state.peaks = [{ ...truth, center: 284.8, fwhm: 1.5, amplitude: 5 }];
+  const out = env.runFitLocal(be, data, new Array(be.length).fill(0));
+  assert.equal(out.success, true);
+  const p = env.state.peaks[0];
+  assert.ok(Math.abs(p.amplitude - 10) < 1e-3, `amplitude ${p.amplitude}`);
+  assert.ok(Math.abs(p.center - 285.0) < 1e-4, `center ${p.center}`);
+  assert.ok(Math.abs(p.fwhm - 1.2) < 1e-3, `fwhm ${p.fwhm}`);
+  assert.ok(out.iterations > 1, 'a real descent takes more than one accepted step');
+});
+
+// ── 2. Save Spectrum (v2) — active tab only ──────────
+function _doSaveSpectrum() {
+  tabManager._syncActiveToRecord();
+  const tab = tabManager._getTab(tabManager.activeId);
+
+  // Compute current curves
+  const { be, inten } = getROIData();
+  const bgIntensity = computeBackground(be, inten);
+  const modelFull = evalAllPeaks(be, state.peaks);
+  const bgSub = inten.map((v, i) => v - bgIntensity[i]);
+  const residuals = bgSub.map((v, i) => v - modelFull[i]);
+  // F1: a stale result's stored curve is the previous model's; the file's
+  // fittedY then matches its residuals (the current model), as with no fit
+  const _saveStats = _statsLiveState();
+  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || modelFull.map((v, i) => v + bgIntensity[i]);
+
+  // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
+  // for LACX with caM > 0, only the array evaluator applies the shape's
+  // Gaussian convolution — evalPeak silently ignores caM. These curves
+  // and areas are written into the saved .spec.json file.
+  const peakCurves = state.peaks.map(p => {
+    const yArr = evalPeakArray(be, p);
+    return {
+      id: p.id, name: p.name,
+      y: yArr,
+      area: yArr.reduce((sum, y, i) => {
+        if (i === 0) return 0;
+        const dx = Math.abs(be[i] - be[i - 1]);
+        return sum + 0.5 * (yArr[i - 1] + y) * dx;
+      }, 0)
+    };
+  });
+
+  const stats = state.fitResult ? {
+    chi: state.fitResult.chi,
+    chiReduced: state.fitResult.chiReduced,
+    rmse: state.fitResult.rmse,
+    // Engine identity travels with the statistic so a reloaded local-engine
+    // result is never relabelled as chi-square (unit A0).
+    engine: state.fitResult.engine || null,
+    objective: state.fitResult.objective || null,
+    weighting: state.fitResult.weighting || null,
+    status: state.fitResult.status || null,
+    starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
+    startsModelKey: state.fitResult.startsModelKey || null,
+    chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
+    // Derived from the objective so an older local result (saved before
+    // these fields existed) is designated on re-save too.
+    reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
+    caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
+    ..._statsSaveFields(_saveStats),
+  } : null;
+
+  const data = {
+    version: 2,
+    timestamp: new Date().toISOString(),
+    spectrumName: tab.name,
+    rawBE: tab.rawBE,
+    rawIntensity: tab.rawIntensity,
+    ccShift: tab.ccShift,
+    peaks: tab.peaks.map(p => ({...p})),
+    nextId: tab.nextId,
+    ui: {...tab.ui},
+    roiBE: be,
+    background: bgIntensity,
+    fittedY: fittedY,
+    residuals: residuals,
+    peakCurves: peakCurves,
+    statistics: stats,
+    notes: tab.notes || '',
+    manualAnchors: tab.manualAnchors || [],
+    modelProvenance: tab.modelProvenance || null,
+  };
+
+  const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
+  _downloadBlob(
+    new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}),
+    fname + '.spec.json'
+  );
+  notify('Spectrum + fit saved.', 'green');
+}
+function _onLinkRatioInput(id, rawVal) {
+  const child = getPeak(id);
+  if (!child || !child.linked) return;
+  const parent = getPeak(child.linked);
+  if (!parent) return;
+  let r = parseFloat(rawVal);
+  if (!isFinite(r) || r < 0.01) r = 0.01;
+  if (r > 2) r = 2;
+  child.linkRatio = r;
+  child.amplitude = parent.amplitude * r;
+  updatePeakParam(id, 'amplitude', child.amplitude);
+}
+
+function updatePeakParam(id, key, value) {
+  _pushUndoDebounced();
+  const p = getPeak(id);
+  if (!p) return;
+  // asymmetry: clamp to the backend's own bound (fitting.py np.clip(asymmetry,
+  // 0, 1)) — a plain assignment let out-of-range values (e.g. pasted/loaded)
+  // sit on the peak until a backend fit result overwrote them.
+  if (key === 'asymmetry') value = Math.max(0, Math.min(1, value));
+  p[key] = value;
+
+  const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM','caAlpha','caBeta','caM'];
+  if (syncKeys.includes(key)) {
+    // Resolve canonical parent: if p is a child, find its parent first
+    let parent = p.linked ? getPeak(p.linked) : p;
+    if (!parent) parent = p;
+
+    if (p.linked && parent) {
+      // p is a child — back-propagate changed value to parent
+      if (key === 'center') parent.center = p.center - p.linkOffset;
+      else if (key === 'amplitude') {
+        // Only divide back to the parent when the ratio is meaningfully >0.
+        // Otherwise (child was zeroed or ratio is tiny) leave the parent alone.
+        if (p.linkRatio && p.linkRatio > 1e-6) {
+          parent.amplitude = p.amplitude / p.linkRatio;
+        }
+      }
+      else parent[key] = p[key];
+      renderPeakControls(parent);
+    }
+
+    // Forward-propagate from parent to all children (including p if it is one)
+    for (const child of state.peaks.filter(q => q.linked === parent.id)) {
+      if (key === 'center') child.center = parent.center + child.linkOffset;
+      else if (key === 'amplitude') child.amplitude = parent.amplitude * child.linkRatio;
+      else child[key] = parent[key];
+      if (child.id !== id) renderPeakControls(child);
+    }
+  }
+  // ROI-filtered data (for fitting, background, peaks)
+  const { be, inten } = getROIData();
+  const invert = document.getElementById('invert-be').checked;
+  const showIndividual = document.getElementById('show-individual').checked;
+  const showResiduals = document.getElementById('show-residuals').checked;
+
+  const _ob = document.getElementById('main-chart-wrap').querySelector('.onboard-wrap');
+  if (_ob) _ob.remove();
+
+  if (!corrBE.length) {
+    renderEmptyChart();
+    return;
+  }
+
+  // After a fit, freeze all curve data to the stored fit state so that
+  // changing ROI never re-draws or recomputes the fit, background, or peaks.
+  const haveFit = !!(state.fitResult && Array.isArray(state.fitResult.be) &&
+                     state.fitResult.be.length > 0 &&
+                     Array.isArray(state.fitResult.bgIntensity) &&
+                     state.fitResult.bgIntensity.length === state.fitResult.be.length);
+
+  // plotBE/plotBG/plotInten drive all fit-related curves (peaks, background, envelope).
+  // When a fit exists, they come from the frozen fit state — ROI changes don't affect them.
+  // Before fitting, they come from the current ROI so live peak previews still work.
+  const plotBE = haveFit ? state.fitResult.be : be;
+  const plotBG = haveFit ? state.fitResult.bgIntensity
+                         : (be.length ? computeBackground(be, inten) : []);
+  const plotInten = haveFit && Array.isArray(state.fitResult.bgSubtracted)
+                    ? state.fitResult.bgSubtracted.map((v, i) => v + plotBG[i])
+                    : inten;
+  const bgSubtracted = haveFit && Array.isArray(state.fitResult.bgSubtracted)
+                       ? state.fitResult.bgSubtracted
+                       : plotInten.map((v, i) => v - plotBG[i]);
+
+  const modelFull = evalAllPeaks(plotBE, state.peaks);
+
+exec
+/bin/zsh -lc "rg -n '_showFitSpinner|pointerEvents|pointer-events|bg-type.*(change|onchange)|roi-min.*on|roi-max.*on' templates/index.html; sed -n '3170,3265p' templates/index.html; sed -n '9008,9088p' templates/index.html; sed -n '16085,16165p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+410:    pointer-events: none; max-width: 45%;
+413:    pointer-events: auto; display: inline-flex; align-items: center; gap: 6px;
+440:    padding: 6px 8px; box-shadow: 0 8px 24px -10px rgba(0,0,0,0.7); pointer-events: none;
+517:  .btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+603:    pointer-events: auto;
+926:    pointer-events: none;
+1406:    pointer-events: none;
+1658:    pointer-events: none;
+1702:    pointer-events: none;
+2000:              <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
+2064:                <input type="number" id="roi-min" value="706" step="0.5" oninput="updatePlot();_recomputeAutoFitMenuState()">
+2068:                <input type="number" id="roi-max" value="726" step="0.5" oninput="updatePlot();_recomputeAutoFitMenuState()">
+2158:          pointer-events:none;line-height:1.6;letter-spacing:0.04em">&#9679; Smoothed</div>
+2167:              pointer-events:none;padding:40px;">
+2808:      el.style.pointerEvents = 'none';
+5525:    overlay.style.cssText = 'position:absolute;top:0;bottom:0;background:rgba(74,158,255,0.15);border-left:1px solid rgba(74,158,255,0.5);border-right:1px solid rgba(74,158,255,0.5);pointer-events:none;z-index:10;';
+6683:function _showFitSpinner() {
+6692:  _showFitSpinner._timer = setTimeout(() => {
+6700:  clearTimeout(_showFitSpinner._timer);
+7464:  _showFitSpinner();
+7878:  _showFitSpinner();
+      fitResult: null,
+      markedElements: [],
+      notes: '',
+      lineWidth: 1.5,
+      ui: {
+        bgType: 'shirley', bgStart: maxBE, bgEnd: minBE,
+        shirleyIter: '5', endpointAvg: NEW_TAB_ENDPOINT_AVG,
+        roiMin: minBE, roiMax: maxBE,
+        ccMethod: 'none', ccObs: '', ccLit: '',
+      }
+    };
+
+    if (isSurvey) {
+      this.tabs.unshift(tab);
+    } else {
+      this.tabs.push(tab);
+    }
+
+    this.activateTab(id);
+    this._updateSurveyPanel();
+    return tab;
+  }
+
+  createStackTab() {
+    const id = 'tab_' + Math.random().toString(36).slice(2, 9);
+    const tab = {
+      id,
+      name: '▦ Stack ' + (_nextStackNum++),
+      color: '#7a7a7a',           // inert — stack tabs render no dot
+      isStack: true,
+      entries: [],
+      _nextColorIdx: 0,
+      lineWidth: 1.5,
+      verticalOffset: 0,
+      // Inert spectrum-tab fields kept to satisfy existing lifecycle code paths.
+      isSurvey: false, chargeVerified: true,
+      rawBE: [], rawIntensity: [], ccShift: 0,
+      peaks: [], nextId: 1, fitResult: null,
+      markedElements: [], notes: '', sourcePath: null,
+      ui: { bgType: 'shirley', bgStart: '', bgEnd: '', shirleyIter: '5',
+            endpointAvg: '1', roiMin: '', roiMax: '',
+            ccMethod: 'none', ccObs: '', ccLit: '' },
+    };
+    this.tabs.push(tab);
+    this.activateTab(id);
+    return tab;
+  }
+
+  activateTab(id) {
+    if (this.activeId === id) return;
+    const tab = this._getTab(id);
+    if (!tab) return;
+    // Cancel any armed placement mode so a click on the new tab's chart
+    // isn't consumed by a placement aimed at the previous spectrum.
+    if (placeMode) togglePlaceMode(placeMode);
+    // Clear stale history preview from previous tab
+    if (typeof _historyPreview !== 'undefined') _historyPreview = null;
+    // Save current tab's live state
+    this._syncActiveToRecord();
+    this.activeId = id;
+
+    // Swap global state fields — peaks uses reference sharing
+    state.rawBE = tab.rawBE;
+    state.rawIntensity = tab.rawIntensity;
+    state.ccShift = tab.ccShift;
+    state.peaks = tab.peaks;
+    state.nextId = tab.nextId;
+    state.fitResult = tab.fitResult;
+    state.lineWidth = tab.lineWidth ?? 1.5;
+
+    // Restore DOM form fields
+    this._restoreUI(tab.ui);
+    _updateUndoButtons();   // history is per tab: buttons reflect the incoming record
+    const notesEl = document.getElementById('spectrum-notes');
+    if (notesEl) notesEl.value = tab.notes || '';
+    this._updateCCVerifiedUI(tab.chargeVerified ?? true);
+    this._updateInfoBadge(tab);
+    if (typeof _recomputeAutoFitMenuState === 'function') _recomputeAutoFitMenuState();
+    // Update chi-squared display for this tab's fit result
+    _applyStatDisplay(state.fitResult);
+    if (state.fitResult && state.fitResult.rFactor == null) {
+      state.fitResult.rFactor = _computeRFactor(state.fitResult);
+    }
+    _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
+    _updateROIDisplay(state.fitResult ? state.fitResult.roiRange : null);
+    // Reset Y zoom so chart auto-scales to this tab's data range
+    // (prevents survey zoom from squishing narrow-region spectra)
+    state._mainYMax = tab.yZoom || null;
+    state._mainXMin = tab.xZoomMin ?? null;
+    state._mainXMax = tab.xZoomMax ?? null;
+
+    this.renderTabBar();
+    renderPeakList();
+    renderResults();
+    _applyRightPanelMode(tab);
+    if (typeof _refOnTabChange === 'function') _refOnTabChange();
+//
+// Returns empty arrays if source isn't available or has no fit.
+// Align src.rawIntensity to a fit-time `be` array (Path A/A2). fr.be is
+// a contiguous slice of corrBE at fit time; if ccShift hasn't drifted,
+// we can find the matching window in current rawBE by locating the
+// index where (rawBE - shift) is closest to be[0]. Returns rawIntensity
+// slice of length matching `be` (or shorter if data runs out).
+function _alignRawToFitBe(src, be) {
+  if (!Array.isArray(src.rawBE) || !Array.isArray(src.rawIntensity)
+      || src.rawBE.length === 0 || !be || be.length === 0) return [];
+  const shift = src.ccShift || 0;
+  const target = be[0];
+  let i0 = 0;
+  let minDiff = Math.abs((src.rawBE[0] - shift) - target);
+  for (let i = 1; i < src.rawBE.length; i++) {
+    const d = Math.abs((src.rawBE[i] - shift) - target);
+    if (d < minDiff) { minDiff = d; i0 = i; }
+    else if (i0 > 0) break;  // rawBE is monotonic; past the closest match.
+  }
+  const len = Math.min(be.length, src.rawBE.length - i0);
+  return src.rawIntensity.slice(i0, i0 + len);
+}
+
+function _buildEntryRenderData(entry) {
+  const src = tabManager._getTab(entry.sourceTabId);
+  if (!src || !Array.isArray(src.rawBE) || src.rawBE.length < 2) {
+    return { be: [], bg: [], rawY: [], fittedY: [], peaks: [] };
+  }
+  const peaks = Array.isArray(src.peaks) ? src.peaks : [];
+  const fr = src.fitResult;
+  if (!fr || peaks.length === 0) {
+    return { be: [], bg: [], rawY: [], fittedY: [], peaks: [] };
+  }
+  const shift = src.ccShift || 0;
+
+  // be + bg + rawY
+  let be, bg, rawY;
+  if (Array.isArray(fr.be) && fr.be.length >= 2
+      && Array.isArray(fr.bgIntensity)
+      && fr.bgIntensity.length === fr.be.length) {
+    // Path A/A2: fit-time be + bg both present (frozen).
+    be = fr.be.slice();
+    bg = fr.bgIntensity.slice();
+    rawY = _alignRawToFitBe(src, be);
+  } else {
+    // Path B: post-load — derive ROI-window be from rawBE + ui.roiMin/Max,
+    // recompute bg from raw via source's persisted bg settings.
+    const corrBE = src.rawBE.map(b => b - shift);
+    const roiMinV = parseFloat(src.ui && src.ui.roiMin);
+    const roiMaxV = parseFloat(src.ui && src.ui.roiMax);
+    let i0 = 0, i1 = corrBE.length - 1;
+    if (isFinite(roiMinV) && isFinite(roiMaxV)) {
+      const lo = Math.min(roiMinV, roiMaxV);
+      const hi = Math.max(roiMinV, roiMaxV);
+      // corrBE is descending (highest BE first); locate ROI bounds.
+      while (i0 < corrBE.length && corrBE[i0] > hi) i0++;
+      while (i1 >= 0 && corrBE[i1] < lo) i1--;
+      if (i1 < i0) { i0 = 0; i1 = corrBE.length - 1; }
+    }
+    be = corrBE.slice(i0, i1 + 1);
+    rawY = src.rawIntensity.slice(i0, i1 + 1);
+    bg = _computeBackgroundForSource(be, rawY, src.ui);
+  }
+
+  // Envelope (raw-level)
+  let fittedY;
+  if (Array.isArray(fr.fittedY) && fr.fittedY.length === be.length && _statsRecordState(src) !== 'stale') {
+    // Path A: backend fittedY directly (already raw-level). Never a stale
+    // result's curve (F1: judged against the SOURCE record's key).
+    fittedY = fr.fittedY.slice();
+  } else {
+    // Path A2/B: compose envelope from peaks + bg.
+    const model = evalAllPeaks(be, peaks);
+    fittedY = model.map((v, i) => v + bg[i]);
+  }
+
+  // Per-peak curves. peakOnly = pure peak shape (bg-subtracted level);
+  // y = peakOnly + bg (raw level). Both kept so Bkgrd Sub view can
+  // pick the appropriate one without recomputing.
+  const peakCurves = peaks.map(p => {
+    const peakOnly = evalPeakArray(be, p);
+    const fp = _fpPeakFromBackend(p, i);
+    fp._findPeaks = review;
+    return fp;
+  });
+  { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // the replaced model's provenance does not describe these peaks
+  const active = tabManager.tabs.find(t => t.id === tabManager.activeId);
+  if (active) active._findPeaksReview = review;
+  // Find Peaks now sends the Background panel's endpoint averaging (see
+  // runFindPeaks), so normally this is a no-op. It still guards preview ==
+  // fit when the panel was changed between the run and the apply, or when
+  // the Advanced JSON named a different value: the panel and the tab
+  // record are set to what the engine actually used, with a notice.
+  // (No _invalidateBgCache() here: with "fit the entire window" OFF the
+  // frozen fit display must stay exactly as today — invalidating the cache
+  // un-froze it, caught by test_checkbox_off_preserves_todays_cropped_behavior;
+  // with it ON, state.fitResult is cleared below and the preview recomputes
+  // from the panel value anyway.)
+  const usedEp = (_fpLast && _fpLast.endpointAvg) || LEGACY_ENDPOINT_AVG;
+  const epEl = document.getElementById('bg-endpoint-avg');
+  const epChanged = !!epEl && epEl.value !== usedEp;
+  if (epEl) epEl.value = usedEp;
+  if (active) active.ui.endpointAvg = usedEp;   // unconditional: the record must match the fit even if the field was hand-edited
+  if (epChanged) {
+    notify('Find Peaks fitted with endpoint averaging ' + usedEp + '; the Background panel was set to ' +
+           usedEp + ' so the preview matches the fit.', 'amber');
+  }
+  // The chart FREEZES its background/fit-curve display to state.fitResult's
+  // OWN be/bgIntensity arrays once a fit exists (updatePlot's "haveFit"
+  // branch) — a prior manual Run Fit or Auto-Fit C1s Graphite leaves this
+  // set, frozen to THAT fit's own (possibly narrower) range. Applying new
+  // Find Peaks peaks on top never touched it, so the chart kept showing
+  // background/fit cropped to the OLD frozen range regardless of how wide
+  // a window Find Peaks actually used — root cause of "fit + background
+  // don't span the full selected window" (2026-07-14 bug report). Find
+  // Peaks' own response has no be/fittedY/bgIntensity arrays to rebuild a
+  // proper fitResult from, so when this run used "fit the entire window,"
+  // clear it instead: updatePlot() then falls back to its existing
+  // unfit-preview path (getROIData() + client-side computeBackground()),
+  // exactly like peaks placed manually before any Run Fit — spanning the
+  // CURRENT #roi-min/#roi-max, i.e., the full window Find Peaks just used.
+  // Default (unchecked) leaves state.fitResult untouched — today's
+  // behavior, unchanged.
+  if (_fpLast && _fpLast.fitFullWindow) {
+    state.fitResult = null;
+    // Clearing state.fitResult fixes the CHART (updatePlot's "haveFit"
+    // branch), but the status-bar widgets (χ²ᵣ, R-factor, "ROI: ...")
+    // are a SEPARATE piece of DOM state that only refreshes when
+    // explicitly told to (Codex review finding, 2026-07-14: this was
+    // the other half of the bug report's exact symptom — the header
+    // could still read the OLD fit's stale "ROI: 278.0-290.4 eV" even
+    // after the chart itself had been fixed). Reset them to the SAME
+    // "no committed fit yet" state TabManager.activateTab already uses
+    // when a tab has no state.fitResult, rather than inventing a new
+    // convention.
+    const fqEl = document.getElementById('fit-quality');
+    if (fqEl) { fqEl.innerHTML = '&#967;&#178; &mdash;'; fqEl.removeAttribute('data-xps-tip'); }
+    const chiEl = document.getElementById('sb-chi');
+    if (chiEl) chiEl.textContent = '—';
+    _updateRFactorUI(null);
+    _updateROIDisplay(null);
+    // The right-side Results panel (#results-area) is a THIRD piece of
+    // DOM state keyed off state.fitResult, separate from both the chart
+    // and the status bar (Codex recheck finding, 2026-07-14): without
+    // this call it kept showing the OLD fit's chi/RMSE/table after
+    // state.fitResult was cleared, until some unrelated later action
+    // happened to re-render it. renderResults() already handles
+    // state.fitResult === null correctly (falls back to its own
+    // "Run the fit to see results." placeholder).
+    renderResults();
+  }
+  renderPeakList();
+  updatePlot();
+  closeFindPeaksModal();
+  notify(_fpFmt(FP_STRINGS.toastApplied, { n: peaks.length }), 'amber', true);
+}
+</script>
+</body>
+</html>
+
+exec
+/bin/zsh -lc "sed -n '6020,6055p' templates/index.html; sed -n '4640,4670p' templates/index.html; sed -n '6680,6715p' templates/index.html; rg -n '_invalidateBgCache\\(' templates/index.html; sed -n '320,355p' tests/js/stale_statistics.test.js" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+      if (key === 'center') child.center = parent.center + child.linkOffset;
+      else if (key === 'amplitude') child.amplitude = parent.amplitude * child.linkRatio;
+      else child[key] = parent[key];
+      if (child.id !== id) renderPeakControls(child);
+    }
+  }
+  _invalidateFittedY();
+  updatePlot();
+}
+
+function toggleLock(id, key, btn) {
+  const p = getPeak(id);
+  if (!p) return;
+  p[key] = !p[key];
+  btn.className = 'lock-btn' + (p[key] ? ' locked' : '');
+  btn.innerHTML = p[key] ? '&#x1f512;' : '&#x1f513;';
+  btn.title = (p[key] ? 'Unlock' : 'Lock') + ' during fitting';
+  _updateLockAllBtn();
+  _refreshStartsEvidence(true);      // a lock is part of the fitted model
+}
+
+const LOCK_ALL_KEYS = ['fixCenter', 'fixFwhm', 'fixAmplitude', 'fixAsymmetry', 'fixGlMix', 'fixDsAlpha', 'fixDsGamma'];
+
+function _lockAllStats() {
+  let locked = 0, total = 0;
+  for (const p of state.peaks) {
+    if (p.linked) continue;
+    for (const k of LOCK_ALL_KEYS) {
+      total++;
+      if (p[k]) locked++;
+    }
+  }
+  return { locked, total };
+}
+
+function toggleAllLocks() {
+      newBg[i] = stepH * (sumRight / totalInt);
+    }
+    bg = newBg;
+  }
+
+  // 5. Combine: linear baseline + Shirley correction, clamped to data
+  const result = new Array(n);
+  for (let i = 0; i < n; i++) {
+    result[i] = Math.min(linear[i] + bg[i], intensity[i]);
+  }
+  return result;
+}
+
+// Clear stored background so updatePlot recomputes it
+function _invalidateBgCache() {
+  if (state.fitResult) state.fitResult.bgIntensity = null;
+}
+
+// Clear stored fit envelope so the fallback (modelFull + bg) is used after a manual peak edit
+function _invalidateFittedY() {
+  if (state.fitResult) state.fitResult.fittedY = null;
+}
+
+function _clampShirleyIter() {
+  const el = document.getElementById('shirley-iter');
+  let v = parseInt(el.value);
+  if (isNaN(v)) return;
+  if (v < 1) el.value = 1;
+  else if (v > 50) el.value = 50;
+}
+
+  }
+}
+
+function _showFitSpinner() {
+  const overlay = document.getElementById('fit-spinner-overlay');
+  const label = document.getElementById('fit-spinner-label');
+  if (overlay) overlay.style.display = 'flex';
+  if (label) label.innerHTML = 'Fitting<span class="ellipsis"></span>';
+  document.querySelector('.btn-green').disabled = true;
+  _bgSubFitInFlight = true;
+  _updateBgSubPillEnabled();
+  // After 2s, update label to hint at perturbations
+  _showFitSpinner._timer = setTimeout(() => {
+    if (label) label.innerHTML = 'Running perturbations<span class="ellipsis"></span>';
+  }, 2000);
+}
+function _hideFitSpinner() {
+  const overlay = document.getElementById('fit-spinner-overlay');
+  if (overlay) overlay.style.display = 'none';
+  document.querySelector('.btn-green').disabled = false;
+  clearTimeout(_showFitSpinner._timer);
+  _bgSubFitInFlight = false;
+  _updateBgSubPillEnabled();
+}
+
+// Sync the Auto-Fit menu item's disabled state with the active tab.
+// Called from activateTab and from ROI-input event handlers.
+function _recomputeAutoFitMenuState() {
+  const item = document.getElementById('auto-fit-c1s-menu-item');
+  if (!item) return;
+  const tab = (typeof tabManager !== 'undefined' && tabManager.activeId)
+    ? tabManager._getTab(tabManager.activeId)
+    : null;
+  const enabled = !!tab && isC1sTab(tab);
+  item.disabled = !enabled;
+  if (enabled) {
+2035:                <input type="number" id="bg-start" value="726" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
+2039:                <input type="number" id="bg-end" value="706" step="0.5" oninput="_invalidateBgCache(); updatePlot()">
+2045:                <input type="number" id="shirley-iter" value="5" min="1" max="50" step="1" oninput="_clampShirleyIter(); _invalidateBgCache(); updatePlot()" title="Number of iterations for the Shirley background calculation. The algorithm converges quickly — most of the change happens between 1 and 5 iterations. Values above 10 rarely produce visible differences. Default: 5.">
+2049:                <input type="number" id="bg-endpoint-avg" value="3" min="1" max="50" step="1" oninput="_invalidateBgCache(); updatePlot()" title="Number of points to average at each endpoint for smoother background anchoring">
+4654:function _invalidateBgCache() {
+5049:    _invalidateBgCache();
+14246:  _invalidateBgCache();
+16097:  // (No _invalidateBgCache() here: with "fit the entire window" OFF the
+
+exec
+/bin/zsh -lc "sed -n '7673,7730p' templates/index.html; sed -n '6050,6085p' templates/index.html; sed -n '8860,8935p' templates/index.html; sed -n '7410,7495p' templates/index.html; git diff main..HEAD -- CLAUDE.md" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+// After anything that may have changed the model or its context without going
+// through a Results re-render (a lock toggle, Lock All, a background or ROI
+// control): take a stale alternative overlay off the chart and bring the
+// VISIBLE panel up to date (counts -> "the model has changed since this fit").
+function _refreshStartsEvidence(repaint, fromPlot) {
+  const hadAlt = !!(_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:'));
+  _dropStaleAltPreview();
+  if (repaint && hadAlt && !_historyPreview && typeof updatePlot === 'function') updatePlot();
+  // The support verdicts are keyed the same way. If any is now stale (or
+  // current again after an undo), every consumer that renders it must follow:
+  // the Results table, the Quantify tab and the sidebar cards, not only the
+  // starts panel. Rendered once, only when the visible state would change.
+  // Each consumer is compared with ITS OWN rendering (a caller may have
+  // redrawn the sidebar already, so the sidebar cannot vouch for the tables).
+  const key = _startsLiveKey();
+  const flaggedNow = state.peaks.filter(p => _isUnsupported(p, key)).map(p => String(p.id)).sort().join(',');
+  const shownIn = sel => Array.from(document.querySelectorAll(sel)).map(e => e.getAttribute('data-peak-id')).sort().join(',');
+  let rendered = false;
+  if (shownIn('#peak-list .unsupported-badge') !== flaggedNow) { _patchPeakCardsForSupport(); rendered = true; }
+  if (state.fitResult && shownIn('.results-table .unsupported-row') !== flaggedNow && typeof renderResults === 'function') { renderResults(); rendered = true; }   // renders Quantify and the starts panel too
+  if (!fromPlot && state.chart && state.chart.data && typeof updatePlot === 'function') {
+    const chartFlagged = (state.chart.data.datasets || []).filter(d => d._unsupported).map(d => String(d._peakId)).sort().join(',');
+    if (chartFlagged !== flaggedNow) { updatePlot(); return; }
+  }
+  if (rendered) return;
+  const el = document.querySelector('.starts-panel');
+  if (el && state.fitResult) el.outerHTML = _startsPanelHtml(state.fitResult);
+}
+
+// An alternative's preview overlay is only valid beside the result it came from.
+function _dropStaleAltPreview() {
+  if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:') &&
+      !(state.fitResult && _historyPreview.altKey === state.fitResult.startsModelKey && _startsIfCurrent(state.fitResult, _startsLiveKey()))) {
+    _historyPreview = null;
+  }
+}
+
+// What is persisted with a saved fit: the counts, never the alternatives'
+// parameter sets (regenerable: the starts are a pure function of the request).
+function _startsForSave(st) {
+  if (!st) return null;
+  if (!st.ran) return { ran: false, reason: st.reason || null };
+  const alts = st.alternatives || [];
+  return { ran: true, n_run: st.n_run, n_converged: st.n_converged, n_same_as_fit: st.n_same_as_fit,
+           n_not_better_elsewhere: st.n_not_better_elsewhere,
+           n_in_alternatives: st.n_in_alternatives ?? alts.reduce((n, a) => n + a.n_starts, 0),
+           n_alternatives: alts.length || st.n_alternatives || 0,
+           best_alternative_chi2r: alts.length ? alts[0].chi2r : (st.best_alternative_chi2r ?? null) };
+}
+
+// Counts STARTS and SOLUTIONS separately: three starts reaching one different
+// solution is "3 starts found a DIFFERENT solution", not "one start".
+function _startsSummaryText(st) {
+  if (!st || !st.ran) return '';
+  const nSol = (st.alternatives ? st.alternatives.length : st.n_alternatives) || 0;
+  const nIn = st.n_in_alternatives ?? (st.alternatives || []).reduce((n, a) => n + a.n_starts, 0);
+  const nb = st.n_not_better_elsewhere || 0, failed = st.n_run - st.n_converged;
+  let t = `${st.n_same_as_fit} of ${st.n_run} scattered starts reached this solution`;
+    }
+  }
+  return { locked, total };
+}
+
+function toggleAllLocks() {
+  if (!state.peaks.length) return;
+  const { locked, total } = _lockAllStats();
+  // Majority unlocked → lock all; majority locked → unlock all
+  const newVal = locked <= total / 2;
+  for (const p of state.peaks) {
+    if (p.linked) continue;
+    for (const k of LOCK_ALL_KEYS) p[k] = newVal;
+  }
+  renderPeakList();
+  _refreshStartsEvidence(true);
+}
+
+function _updateLockAllBtn() {
+  const wrap = document.getElementById('peak-lock-all-wrap');
+  const btn = document.getElementById('btn-lock-all');
+  if (!wrap || !btn) return;
+  const hasLockable = state.peaks.some(p => !p.linked);
+  if (!hasLockable) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const { locked, total } = _lockAllStats();
+  if (locked > total / 2) {
+    btn.innerHTML = '&#x1f513; Unlock All';
+    btn.title = 'Unlock all fit parameters on all peaks';
+  } else {
+    btn.innerHTML = '&#x1f512; Lock All';
+    btn.title = 'Lock all fit parameters on all peaks';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+  if (source === 'wagner') {
+    notify('Wagner RSFs coming soon — using Scofield values.', 'amber');
+    // Fall through to Scofield
+    el._rsfSource = 'scofield';
+    document.getElementById('rsf-source').value = 'scofield';
+  }
+  // Refresh RSF input values
+  if (!el._areas) return;
+  state.peaks.forEach(p => {
+    const inp = document.getElementById('rsf-' + p.id);
+    if (!inp) return;
+    if (el._rsfSource === 'custom') {
+      inp.value = (p._rsf != null ? p._rsf : 1.000).toFixed(3);
+    } else {
+      const { rsf } = _detectPeakRSF(p);
+      p._rsf = rsf;
+      inp.value = rsf.toFixed(3);
+    }
+  });
+  recalcQuantify();
+}
+
+function onRSFInputChange(peakId, val) {
+  const p = state.peaks.find(pk => pk.id === peakId);
+  if (p) p._rsf = parseFloat(val) || 1;
+  recalcQuantify();
+}
+
+function onRSFElemChange(peakId, elemKey) {
+  const p = state.peaks.find(pk => pk.id === peakId);
+  if (!p) return;
+  p._rsfKey = elemKey || null;
+  const rsf = elemKey && SCOFIELD_RSF[elemKey] ? SCOFIELD_RSF[elemKey] : 1.000;
+  p._rsf = rsf;
+  const inp = document.getElementById('rsf-' + peakId);
+  if (inp) inp.value = rsf.toFixed(3);
+  recalcQuantify();
+}
+
+function recalcQuantify() {
+  const el = document.getElementById('quantify-area');
+  if (!el._areas) return;
+  const areas = el._areas;
+
+  const normAreas = state.peaks.map((p, i) => {
+    if (_isUnsupported(p)) return 0;          // not quantified (no row either)
+    const rsf = parseFloat(document.getElementById('rsf-' + p.id)?.value || 1);
+    return areas[i] / (rsf || 1);
+  });
+  const total = normAreas.reduce((s, v) => s + v, 0);
+  const maxPct = total > 0 ? Math.max(...normAreas.map(v => v / total * 100)) : 1;
+
+  state.peaks.forEach((p, i) => {
+    const pct = total > 0 ? (normAreas[i] / total * 100) : 0;
+    const ne = document.getElementById('qnorm-' + p.id);
+    const pe = document.getElementById('qpct-' + p.id);
+    if (ne) ne.textContent = normAreas[i].toFixed(0);
+    if (pe) {
+      pe.textContent = pct.toFixed(1) + '%';
+      // Color saturation proportional to percentage
+      const sat = maxPct > 0 ? pct / maxPct : 0;
+      pe.style.color = sat > 0.6
+        ? 'var(--accent2)'
+        : sat > 0.3
+          ? 'var(--text)'
+          : 'var(--text2)';
+    }
+  });
+
+  const tn = document.getElementById('qtotal-norm');
+  if (tn) tn.textContent = total.toFixed(0);
+  const tp = document.getElementById('qtotal-pct');
+  if (tp) tp.textContent = total > 0 ? '100%' : '\u2014';
+}
+
+// ═══════════════════════════════════════════════════
+    const proceed = await _showAutoFitConfirmModal(state.peaks.length);
+    if (!proceed) return;
+    if (!_ownerActive(fittingTab)) {
+      notify('Auto-fit cancelled — the tab changed while the confirmation was open.', 'amber');
+      return;
+    }
+  }
+
+  // Snapshot for failure rollback (separate from pushUndo, which only covers peaks).
+  const snap = _autoFitSnapshot();
+
+  // Step 1: find graphite in raw BE
+  const { be: corrBE, inten } = getROIData();
+  if (!corrBE.length) {
+    notify('ROI is empty. Set roi-min and roi-max before auto-fit.', 'red', true);
+    return;
+  }
+  const bgI = computeBackground(corrBE, inten);
+  const bgSub = inten.map((v, i) => v - bgI[i]);
+  // App convention: raw = corrected + state.ccShift
+  const curShift = Number.isFinite(state.ccShift) ? state.ccShift : 0;
+  const rawBE = corrBE.map(b => b + curShift);
+  const graphiteRaw = findGraphiteRawBE(rawBE, bgSub);
+  if (graphiteRaw == null) {
+    notify('No strong peak found in the C1s ROI; Auto-Fit cannot proceed.', 'red', true);
+    return;
+  }
+
+  // Step 2: provisional shift (APP CONVENTION).
+  const provisionalShift = graphiteRaw - 284.50;
+
+  // Step 3: assess low-BE region using provisional shift (no state mutation yet).
+  const assessment = assessLowBERegion(rawBE, bgSub, provisionalShift);
+
+  // Step 4: build the peak model (in corrected frame after provisional shift).
+  pushUndo();
+  state.peaks = [];
+  state.fitResult = null;
+  // Apply provisional shift via updateChargeCorrection so ROI/bg DOM fields
+  // shift along with state.ccShift.
+  const cm = document.getElementById('cc-method');
+  const co = document.getElementById('cc-obs');
+  const cl = document.getElementById('cc-lit');
+  cm.value = 'c1s';
+  co.value = graphiteRaw.toFixed(3);
+  cl.value = '284.50';
+  updateChargeCorrection();
+  // Now build the peak list (graphite center 284.50 in this frame).
+  const newPeaks = buildAutoFitModel(assessment);
+  state.peaks = newPeaks;
+  state.nextId = Math.max(0, ...state.peaks.map(p => p.id)) + 1;
+  renderPeakList();
+
+  // Step 5: run /api/fit with AbortController + spinner.
+  _showFitSpinner();
+  const spinLabel = document.getElementById('fit-spinner-label');
+  if (spinLabel) spinLabel.textContent = 'Auto-fitting…';
+  const runBtn = document.querySelector('.btn-green');
+  if (runBtn) runBtn.disabled = true;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
+
+  try {
+    const { be: be2, inten: inten2 } = getROIData();
+    const bgType = document.getElementById('bg-type').value;
+    const bgStart = parseFloat(document.getElementById('bg-start').value);
+    const bgEnd = parseFloat(document.getElementById('bg-end').value);
+    // Inclusive bg window — the same point set computeBackgroundCore draws;
+    // the backend slices end-exclusive, so the request sends i1 + 1.
+    const bgWin = _bgWindowIndices(be2, bgStart, bgEnd);
+    const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const fitMethod = document.getElementById('fit-method').value;
+
+    // The anchor whose necessity the server must test — captured with the
+    // other request inputs, before the first await (a tab switch during the
+    // upload must not send another tab's id).
+    const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);
+    // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
+    const peakSpecs = state.peaks.map(p => {
+      const spec = peakToBackendSpec(p);
+      if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
+      if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
+      if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
+      if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
+      spec.amplitude_min = 0;
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-WH0pKExA' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-hj4qLcu5' (errno=Operation not permitted)
+diff --git a/CLAUDE.md b/CLAUDE.md
+index ea02c0a..bfc19b8 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -610,9 +610,28 @@ result if that key changed: amber notice, "Fit discarded (model edited)",
+ previous peaks and result kept. Before this, a centre changed and locked
+ mid-fit kept its edited value (`applyBackendResult` honours locks) under the
+ server's χ², σ and fitted curve for a different model.
+-Not covered by this rule (separate units): model replacement that
+-keeps an older result (Find Peaks apply in the default window, undo/redo)
+-and loaded files without convergence provenance. From the initial commit
++STATISTICS AFTER AN EDIT (unit F1, 2026-09-25; plan
++`docs/superpowers/plans/2026-09-25-f1-stale-statistics.md`): χ², σ, RMSE,
++the R-factor and the stored fitted curve are bound to their fit by the SAME
++key (`fitResult.startsModelKey`, now stamped by every creator — `runFit`,
++`runFitLocal`, `applyAutoFitResult`, re-stamped by `_restampSupport`); no
++second mechanism. One accessor, `_statsState(fr, key)` (`_statsLiveState()`,
++`_statsRecordState(t)`): `current` / `stale` (the model or its context
++changed since — an edit, a Find Peaks apply in the default window, an undo
++or history restore to other values) / `unverified` (no key: saved before
++this unit — values shown with a note to re-run). Stale: Results banner
++("belong to the previous model"), statistic / RMSE "—", no R panel, no σ;
++header "χ²ᵣ — (model changed)", status "—", "R: —"; no per-parameter
++uncertainty rule; CSV/XLSX a WARNING instead of the statistic, σ cells
++empty; TSV a NOTE (its columns are the current, unfitted model); figure no
++χ² and no stored "Fit" curve; chart and stack envelopes composed from the
++current peaks; saves keep the key (a reload judges again) and add
++`statisticsState` / `statisticsNote`. Refreshed from `updatePlot`
++(`_refreshStatsState`, Results carries `data-stats-state`). The model
++replacement that keeps an older result is thereby covered for the
++statistics. Not covered (separate units): loaded files without convergence
++provenance; `p._backendParams` still rides in a stale save (not displayed;
++the sealed fit record owns it). From the initial commit
+ until this unit the local LM step had the wrong sign and returned the
+ starting model as "Fit complete"; see
+ `docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md` and
+
+codex
+I found a missed refresh path: with no unsupported peaks or alternative preview, toggling a lock changes the key but leaves χ², σ, and R visible as current. I’m also testing whether a fit completed after an in-flight edit, or a saved curve restored later, can incorrectly pass the key check.
+
+The four JS suites produced 106 passes and one environment failure: the Python parity helper could not create a temporary directory in this read-only sandbox.
+exec
+/bin/zsh -lc "node -e '
+const fs = require('\\''fs'\\''); const html = fs.readFileSync('\\''templates/index.html'\\'','\\''utf8'\\''); const lines=html.split('\\''\\n'\\'');
+function fn(n){const s=lines.findIndex(l=>new RegExp('\\''"'^(async )?function '"'\\''+n+'\\''\\\\('\\'').test(l));let d=0;for(let i=s;i<lines.length;i++){for(const c of lines[i]){if(c==='\\''{'\\'')d++;if(c==='\\''}'\\'')d--;}if(d===0)return lines.slice(s,i+1).join('\\''\\n'\\'');}}
+const constants=lines.slice(lines.findIndex(l=>l.startsWith('\\''const _STARTS_MODEL_FIELDS'\\'')),lines.findIndex(l=>l.startsWith('\\''function _startsModelKey'\\''))).join('\\''\\n'\\'');
+const state={peaks:[{id:1,shape:'\\''Gaussian'\\'',amplitude:100,fixCenter:false}],ccShift:0,chart:{data:{datasets:[]}}};let renders=0,plots=0;
+const api=new Function('\\''state'\\'','\\''renderResults'\\'','\\''updatePlot'\\'',constants + '\\''\\n'\\'' + 
+'\\''const tabManager={_captureUI:()=>({roiMin:\"280\",roiMax:\"290\"})};const _getManualAnchors=()=>[];'\\''+
+'\\''const document={querySelectorAll:()=>[],querySelector:()=>null}; let _historyPreview=null;'\\''+
+'\\''const _isUnsupported=()=>false; const _updateLockAllBtn=()=>{};const getPeak=id=>state.peaks.find(p=>p.id===id);'\\''+
+['\\''_startsModelKey'\\'','\\''_startsLiveKey'\\'','\\''_statsState'\\'','\\''_statsLiveState'\\'','\\''_dropStaleAltPreview'\\'','\\''_refreshStartsEvidence'\\'','\\''toggleLock'\\''].map(fn).join('\\''\\n'\\'')+
+'\\''\\nreturn {key:_startsLiveKey,stats:_statsLiveState,toggleLock};'\\'')(state,()=>renders++,()=>plots++);
+state.fitResult={startsModelKey:api.key(),chiReduced:1.23,rFactor:{rPct:3.2}};
+api.toggleLock(1,'\\''fixCenter'\\'',{});
+console.log('\\''lock toggle:'\\'',JSON.stringify({statistics:api.stats(),resultsRenders:renders,plotRefreshes:plots}));
+const key=new Function(constants+'\\''\\n'\\''+fn('\\''_startsModelKey'\\'')+'\\''\\nreturn _startsModelKey;'\\'')();
+console.log('\\''equivalent ROI spelling:'\\'',key(state.peaks,{roiMin:'\\''280'\\''},0,[])===key(state.peaks,{roiMin:'\\''280.0'\\''},0,[])?'\\''current'\\'':'\\''stale'\\'');
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+lock toggle: {"statistics":"stale","resultsRenders":0,"plotRefreshes":0}
+equivalent ROI spelling: stale
+
+exec
+/bin/zsh -lc "node -e '
+const fs = require('\\''fs'\\''); const html = fs.readFileSync('\\''templates/index.html'\\'','\\''utf8'\\''); const lines=html.split('\\''\\n'\\'');
+function fn(n){const s=lines.findIndex(l=>new RegExp('\\''"'^(async )?function '"'\\''+n+'\\''\\\\('\\'').test(l));let d=0;for(let i=s;i<lines.length;i++){for(const c of lines[i]){if(c==='\\''{'\\'')d++;if(c==='\\''}'\\'')d--;}if(d===0)return lines.slice(s,i+1).join('\\''\\n'\\'');}}
+const constants=lines.slice(lines.findIndex(l=>l.startsWith('\\''const _STARTS_MODEL_FIELDS'\\'')),lines.findIndex(l=>l.startsWith('\\''function _startsModelKey'\\''))).join('\\''\\n'\\'');
+
+let h=fs.readFileSync('\\''tests/js/local_lm_descent.test.js'\\'','\\''utf8'\\'');
+h=h.slice(0,h.indexOf('\\''// ── Committed lab project'\\''));
+h=h.replace(\"const REPO_ROOT = path.join(__dirname, '\\''../..'\\'');\",\"const REPO_ROOT = process.cwd();\");
+h=h.replace('\\''const _startsLiveKey = () => \"KEY\";'\\'', '\\''const _startsLiveKey = () => _startsModelKey(state.peaks, {roiMin:document.getElementById(\"roi-min\").value},state.ccShift,[]);'\\'');
+h=h.replace(\"const src = CAVEAT_CONST +\", \"const src = \"+JSON.stringify(constants+'\\''\\n'\\''+fn('\\''_startsModelKey'\\'')+'\\''\\n'\\'')+\" + CAVEAT_CONST +\");
+const env=new Function('\\''require'\\'',h+'\\''\\nreturn makeEnv();'\\'')(require);
+env.state.rawBE=Array.from({length:101},(_,i)=>280+i/10);
+env.state.rawIntensity=env.state.rawBE.map(b=>env.gaussian(b,285,1,10));
+env.state.peaks=[{id:1,shape:'\\''Gaussian'\\'',center:285,fwhm:1,amplitude:5,fixCenter:true,fixFwhm:true,fixAmplitude:false}];
+env.dom['\\''roi-min'\\'']={value:'\\''280'\\''};
+const noop=()=>{};const document={getElementById:id=>env.dom[id]??={value:'\\'''\\'',classList:{add:noop}},querySelector:()=>({})};
+const deps={state:env.state,document,pushUndo:noop,_showFitSpinner:noop,_hideFitSpinner:noop,_opOwner:()=>1,_ownerActive:()=>true,
+getROIData:()=>({be:env.state.rawBE.filter(b=>b>=+env.dom['\\''roi-min'\\''].value),inten:env.state.rawIntensity.filter((_,i)=>env.state.rawBE[i]>=+env.dom['\\''roi-min'\\''].value)}),
+computeBackground:b=>b.map(()=>0),peakToBackendSpec:p=>({...p}),_getManualAnchors:()=>[],notify:noop,
+uploadToBackend:async()=>{env.dom['\\''roi-min'\\''].value='\\''285'\\'';throw new TypeError('\\''network failed after ROI edit'\\'');},
+runFitLocal:env.runFitLocal,renderPeakList:noop,updatePlot:noop,renderResults:noop,_autoSnapshot:noop,console:{warn:noop}};
+const src=constants+'\\''\\nconst _STARTS_N=3;let _historyPreview=null;const tabManager={_captureUI:()=>({roiMin:document.getElementById(\"roi-min\").value})};\\n'\\''+
+['\\''runFit'\\'','\\''_bgWindowIndices'\\'','\\''_arrMin'\\'','\\''_arrMax'\\'','\\''_startsUnlinkedCount'\\'','\\''_startsModelKey'\\'','\\''_startsLiveKey'\\'','\\''_statsState'\\''].map(fn).join('\\''\\n'\\'')+
+'\\''\\nreturn {runFit,stats:()=>_statsState(state.fitResult,_startsLiveKey())};'\\'';
+const api=new Function(...Object.keys(deps),src)(...Object.values(deps));
+api.runFit().then(()=>console.log('\\''fallback after ROI edit:'\\'',JSON.stringify({stats:api.stats(),fitPoints:env.state.fitResult.be.length,currentROIPoints:deps.getROIData().be.length,liveROI:env.dom['\\''roi-min'\\''].value,success:env.state.fitResult.status})));
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ exited 1 in 0ms:
+<anonymous_script>:177
+      if (local && local.success && !_snapshotSuppressed) {
+                                     ^
+
+ReferenceError: _snapshotSuppressed is not defined
+    at Object.runFit (eval at <anonymous> ([eval]:25:11), <anonymous>:177:38)
+
+Node.js v22.22.2
+
+exec
+/bin/zsh -lc "node -e '
+const fs = require('\\''fs'\\''); const html = fs.readFileSync('\\''templates/index.html'\\'','\\''utf8'\\''); const lines=html.split('\\''\\n'\\'');
+function fn(n){const s=lines.findIndex(l=>new RegExp('\\''"'^(async )?function '"'\\''+n+'\\''\\\\('\\'').test(l));let d=0;for(let i=s;i<lines.length;i++){for(const c of lines[i]){if(c==='\\''{'\\'')d++;if(c==='\\''}'\\'')d--;}if(d===0)return lines.slice(s,i+1).join('\\''\\n'\\'');}}
+const constants=lines.slice(lines.findIndex(l=>l.startsWith('\\''const _STARTS_MODEL_FIELDS'\\'')),lines.findIndex(l=>l.startsWith('\\''function _startsModelKey'\\''))).join('\\''\\n'\\'');
+
+let h=fs.readFileSync('\\''tests/js/local_lm_descent.test.js'\\'','\\''utf8'\\'').split('\\''// ── Committed lab project'\\'')[0];
+h=h.replace(\"const REPO_ROOT = path.join(__dirname, '\\''../..'\\'');\",\"const REPO_ROOT = process.cwd();\")
+.replace('\\''const _startsLiveKey = () => \"KEY\";'\\'','\\''const _startsLiveKey = () => _startsModelKey(state.peaks,{roiMin:document.getElementById(\"roi-min\").value},state.ccShift,[]);'\\'')
+.replace(\"const src = CAVEAT_CONST +\",\"const src = \"+JSON.stringify(constants+'\\''\\n'\\''+fn('\\''_startsModelKey'\\'')+'\\''\\n'\\'')+\" + CAVEAT_CONST +\");
+const env=new Function('\\''require'\\'',h+'\\''\\nreturn makeEnv();'\\'')(require);
+env.state.rawBE=Array.from({length:101},(_,i)=>280+i/10);
+env.state.rawIntensity=env.state.rawBE.map(b=>env.gaussian(b,285,1,10));
+env.state.peaks=[{id:1,shape:'\\''Gaussian'\\'',center:285,fwhm:1,amplitude:5,fixCenter:true,fixFwhm:true,fixAmplitude:false}];
+env.dom['\\''roi-min'\\'']={value:'\\''280'\\''};
+const noop=()=>{};const document={getElementById:id=>env.dom[id]??={value:'\\'''\\'',classList:{add:noop}},querySelector:()=>({})};
+const deps={state:env.state,document,pushUndo:noop,_showFitSpinner:noop,_hideFitSpinner:noop,_opOwner:()=>1,_ownerActive:()=>true,_snapshotSuppressed:false,
+getROIData:()=>({be:env.state.rawBE.filter(b=>b>=+env.dom['\\''roi-min'\\''].value),inten:env.state.rawIntensity.filter((_,i)=>env.state.rawBE[i]>=+env.dom['\\''roi-min'\\''].value)}),
+computeBackground:b=>b.map(()=>0),peakToBackendSpec:p=>({...p}),_getManualAnchors:()=>[],notify:noop,
+uploadToBackend:async()=>{env.dom['\\''roi-min'\\''].value='\\''285'\\'';throw new TypeError('\\''network failed after ROI edit'\\'');},
+runFitLocal:env.runFitLocal,renderPeakList:noop,updatePlot:noop,renderResults:noop,_autoSnapshot:noop,console:{warn:noop}};
+const src=constants+'\\''\\nconst _STARTS_N=3;let _historyPreview=null;const tabManager={_captureUI:()=>({roiMin:document.getElementById(\"roi-min\").value})};\\n'\\''+
+['\\''runFit'\\'','\\''_bgWindowIndices'\\'','\\''_arrMin'\\'','\\''_arrMax'\\'','\\''_startsUnlinkedCount'\\'','\\''_startsModelKey'\\'','\\''_startsLiveKey'\\'','\\''_statsState'\\''].map(fn).join('\\''\\n'\\'')+
+'\\''\\nreturn {runFit,stats:()=>_statsState(state.fitResult,_startsLiveKey())};'\\'';
+const api=new Function(...Object.keys(deps),src)(...Object.values(deps));
+api.runFit().then(()=>console.log('\\''fallback after ROI edit:'\\'',JSON.stringify({stats:api.stats(),fitPoints:env.state.fitResult.be.length,currentROIPoints:deps.getROIData().be.length,liveROI:env.dom['\\''roi-min'\\''].value,success:env.state.fitResult.status})));
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+fallback after ROI edit: {"stats":"current","fitPoints":101,"currentROIPoints":51,"liveROI":"285","success":"converged"}
+
+exec
+/bin/zsh -lc "sed -n '10276,10296p' templates/index.html; sed -n '8524,8552p' templates/index.html; sed -n '1,125p' tests/js/stale_statistics.test.js; sed -n '4670,4735p' templates/index.html; rg -n 'function _normalizePeaksCRef|function _computeBackgroundForSource' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+  );
+  notify('Fit parameters saved.', 'green');
+}
+
+// ── 2. Save Spectrum (v2) — active tab only ──────────
+function _doSaveSpectrum() {
+  tabManager._syncActiveToRecord();
+  const tab = tabManager._getTab(tabManager.activeId);
+
+  // Compute current curves
+  const { be, inten } = getROIData();
+  const bgIntensity = computeBackground(be, inten);
+  const modelFull = evalAllPeaks(be, state.peaks);
+  const bgSub = inten.map((v, i) => v - bgIntensity[i]);
+  const residuals = bgSub.map((v, i) => v - modelFull[i]);
+  // F1: a stale result's stored curve is the previous model's; the file's
+  // fittedY then matches its residuals (the current model), as with no fit
+  const _saveStats = _statsLiveState();
+  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || modelFull.map((v, i) => v + bgIntensity[i]);
+
+  // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
+  // computes, from this engine's own residuals and weights (a component driven
+  // to the zero floor is an outcome here too, not something to hide).
+  {
+    const model = evalAllPeaks(be, work);
+    const verdicts = {};
+    for (const wp of work) {
+      if (wp.linked) continue;
+      const comp = evalPeakArray(be, wp);
+      const nFreeComp = paramMap.filter(d => d.id === wp.id && !isDiscrete(paramMap.indexOf(d))).length;
+      verdicts[String(wp.id)] = _componentSupportCore(bgSubtracted, model, comp, _w, nFreeComp, nVaried);
+    }
+    _applySupportVerdicts(state.peaks, id => verdicts[String(id)] || null, _startsLiveKey());
+  }
+
+  // KNOWN LIMITATION: this engine produces no parameter uncertainties; the
+  // results panel shows blank sigma for every parameter after a local fit.
+  const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
+  { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
+  state.fitResult = { chi, chiReduced, rmse, be, bgSubtracted, bgIntensity, roiRange,
+                      engine: 'local', status: 'converged',
+                      objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))', iterations,
+                      reportable: false, caveat: _LOCAL_FIT_CAVEAT,
+                      startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
+  state.fitResult.rFactor = _computeRFactor(state.fitResult);
+
+  _applyStatDisplay(state.fitResult);
+  document.getElementById('sb-msg').textContent = 'Fit complete (local)';
+  _updateRFactorUI(state.fitResult.rFactor);
+  _updateROIDisplay(roiRange);
+// Unit F1 (2026-09-25): the fit STATISTICS (chi-square, sigma, R-factor, RMSE
+// and the stored fitted curve) are bound to the fit that produced them by the
+// SAME model-plus-context key step (b) uses — no second mechanism. After an
+// edit (or a Find Peaks apply / undo that keeps the old result over a replaced
+// model) they belong to the previous model: the Results panel, header, status
+// bar, R, uncertainty panel, CSV/XLSX, TSV, figure and saves say so or omit
+// them. Plan: docs/superpowers/plans/2026-09-25-f1-stale-statistics.md.
+//
+// Functions are extracted verbatim from templates/index.html and run against
+// a small DOM stub.
+
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const html = fs.readFileSync(path.join(__dirname, '../../templates/index.html'), 'utf8');
+const lines = html.split('\n');
+function extractFn(name) {
+  const re = new RegExp('^(async )?function ' + name + '\\(');
+  const start = lines.findIndex(l => re.test(l));
+  assert.ok(start >= 0, `function ${name} not found`);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+    if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
+  }
+  assert.fail('unbalanced ' + name);
+}
+const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
+
+// ── a DOM stub: elements by id, attributes, textContent / innerHTML ─────────
+function makeDoc() {
+  const els = {};
+  const mk = id => ({
+    id, textContent: '', innerHTML: '', style: {}, attrs: {},
+    setAttribute(k, v) { this.attrs[k] = String(v); }, getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
+    removeAttribute(k) { delete this.attrs[k]; },
+  });
+  for (const id of ['results-area', 'fit-quality', 'sb-chi', 'sb-runs', 'sb-chi-caption', 'quantify-area']) els[id] = mk(id);
+  return { els, getElementById: id => els[id] || null, querySelector: () => null, querySelectorAll: () => [] };
+}
+
+const STATE_FNS = ['_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields'];
+const STATE_CONSTS = ['_STATS_STALE_NOTE', '_STATS_UNVERIFIED_NOTE'];
+
+// Build a sandbox with the F1 accessor, the display functions and renderResults.
+function sandbox({ liveKey = 'K1' } = {}) {
+  const doc = makeDoc();
+  const env = { key: liveKey, quantified: null };
+  const fns = [...STATE_FNS, '_fitStatLabel', '_isUnweightedLocal', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay',
+    '_updateRFactorUI', '_renderRFactorPanel', 'renderResults', '_validateUncertainties'];
+  const src = [...STATE_CONSTS.map(constLine), constLine('_RFACTOR_TOOLTIP'), constLine('_LOCALFIT_TOOLTIP'), constLine('_CHISQ_TOOLTIP'),
+    ...fns.map(extractFn)].join('\n');
+  const state = { peaks: [], fitResult: null, rawBE: [1] };
+  const api = new Function('document', 'state', 'env', `
+    const _startsLiveKey = () => env.key;
+    const _startsRecordKey = t => t.key;
+    const _isLocalFit = fr => !!(fr && fr.engine === 'local');
+    const _isLocalModel = () => false;
+    const _localFitCaveat = () => '';
+    const _localFitDetail = () => '';
+    const _updateLocalModelBanner = () => {};
+    const _escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const _escAttr = _escHtml;
+    const _buildStderrMap = fr => {
+      const out = {};
+      for (const ip of ((fr && fr.backendResult && fr.backendResult.individual_peaks) || [])) out[String(ip.id)] = ip.params;
+      return out;
+    };
+    const _peakArea = p => p.amplitude;
+    const _isUnsupported = () => false;
+    const _unsupportedBadge = () => '';
+    const _startsPanelHtml = () => '';
+    const renderQuantify = (a, t) => { env.quantified = [a, t]; };
+    const getROIData = () => ({ be: [1, 2, 3] });
+    const getPeak = id => state.peaks.find(p => p.id === id);
+    const _UNSUPPORTED_LABEL = 'not supported by the data', _UNSUPPORTED_TIP = '';
+    ${src}
+    return { ${[...STATE_FNS, '_applyStatDisplay', '_updateRFactorUI', 'renderResults', '_validateUncertainties'].join(', ')} };
+  `)(doc, state, env);
+  return { api, doc, state, env };
+}
+
+function serverResult(key) {
+  return {
+    chi: 12, chiReduced: 1.2346, rmse: 7.5, be: [1, 2, 3], bgIntensity: [0, 0, 0], bgSubtracted: [1, 2, 1],
+    fittedY: [1, 2, 1], rFactor: { rPct: 3.21, level: 'good' },
+    backendResult: { individual_peaks: [{ id: '1', params: {
+      center: { value: 284.5, stderr: 0.0123, vary: true }, fwhm: { value: 1.1, stderr: 0.0456, vary: true },
+      amplitude: { value: 100, stderr: 1.5, vary: true } } }] },
+    startsModelKey: key,
+  };
+}
+const PEAK = { id: 1, name: 'C-C', color: '#f00', center: 284.5, fwhm: 1.1, amplitude: 100, shape: 'GL' };
+
+test('one accessor classifies a result against a key: none / unverified / current / stale', () => {
+  const { api } = sandbox();
+  assert.strictEqual(api._statsState(null, 'K'), 'none');
+  assert.strictEqual(api._statsState({ chiReduced: 1 }, 'K'), 'unverified', 'saved before this unit: no key');
+  assert.strictEqual(api._statsState({ startsModelKey: 'K' }, 'K'), 'current');
+  assert.strictEqual(api._statsState({ startsModelKey: 'K' }, 'K2'), 'stale');
+  assert.strictEqual(api._statsRecordState({ key: 'R', fitResult: { startsModelKey: 'R' } }), 'current', 'a record is judged against ITS key');
+  assert.strictEqual(api._statsRecordState({ key: 'R2', fitResult: { startsModelKey: 'R' } }), 'stale');
+  assert.deepStrictEqual(api._statsSaveFields('current'), {});
+  assert.strictEqual(api._statsSaveFields('stale').statisticsState, 'stale');
+  assert.match(api._statsSaveFields('stale').statisticsNote, /previous model/);
+  assert.strictEqual(api._statsSaveFields('unverified').statisticsState, 'unverified');
+});
+
+test('the key is the step (b) key: F1 adds no second binding mechanism and no new key field', () => {
+  // every creator of a fit result stamps fitResult.startsModelKey from _startsLiveKey()
+  assert.match(extractFn('runFit'), /startsModelKey: _startsLiveKey\(\)/);
+  assert.match(extractFn('runFitLocal'), /startsModelKey: _startsLiveKey\(\)/, 'the local engine stamps its result');
+  assert.match(extractFn('applyAutoFitResult'), /startsModelKey: _startsLiveKey\(\)/, 'Auto-Fit stamps its result');
+  // Auto-Fit locks every centre and refines the charge shift AFTER applying: the re-stamp covers the statistics
+  const restamp = new Function('state', '_startsLiveKey', extractFn('_restampSupport') + '\nreturn _restampSupport;');
+  const st = { peaks: [{ id: 1, support: { fitKey: 'OLD' } }], fitResult: { startsModelKey: 'OLD' } };
+  restamp(st, () => 'NEW')();
+  assert.strictEqual(st.fitResult.startsModelKey, 'NEW');
+  assert.strictEqual(st.peaks[0].support.fitKey, 'NEW');
+  // no other key-like field was introduced
+  assert.ok(!/statsModelKey|statisticsKey/.test(html), 'no second key');
+});
+
+
+// The background window. The user types two binding energies; the window
+// is every grid point with lo <= BE <= hi, INCLUSIVE at both ends — the same
+// rule getROIData uses for the ROI. This is the single definition shared by
+// the preview (computeBackgroundCore) and both /api/fit request builders,
+// which send end_idx = i1 + 1 because the backend slices Python-end-exclusive
+// (unit 1c of docs/superpowers/plans/2026-09-02-background-architecture-
+// sealed-fit-record.md, round-5 amendment — before 1c the builders sent the
+// nearest grid index per bound and end_idx = i1, so the fit anchored one
+// point inside the window the user drew).
+// Returns inclusive indices { i0, i1 }. A blank/NaN bound, or fewer than two
+// grid points inside the bounds, falls back to the full range.
+// Contract notes (Codex round 1, both runs): (a) the window is the contiguous
+// index span from the FIRST to the LAST in-range point — exact on a monotonic
+// grid, which is what createTab guarantees (it sorts descending) and what
+// every saved project written by this app carries; a hand-edited
+// non-monotonic rawBE would make the span include out-of-window rows, and
+// the preview and the request would still agree. (b) Indices are computed on
+// the frontend grid before uploadToBackend rounds BE to 4 decimals; the
+// backend only ever applies the indices to that same-length, same-order
+// session grid, so rounding cannot change which rows are used.
+function _bgWindowIndices(be, bgStart, bgEnd) {
+  const n = be.length;
+  const full = { i0: 0, i1: n - 1 };
+  const a = parseFloat(bgStart), b = parseFloat(bgEnd);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return full;
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  let i0 = -1, i1 = -1;
+  for (let i = 0; i < n; i++) {
+    if (be[i] >= lo && be[i] <= hi) { if (i0 < 0) i0 = i; i1 = i; }
+  }
+  if (i0 < 0 || i1 - i0 < 1) return full;
+  return { i0, i1 };
+}
+
+// Pure-functional background computation. Takes explicit `settings`
+// (matches the shape of tab.ui — bgType, bgStart, bgEnd, shirleyIter,
+// endpointAvg) instead of reading from DOM. Used by stack-view render
+// to reproduce a source tab's background from its persisted ui state.
+// computeBackground() below is a thin DOM-reading wrapper for callers
+// in the single-tab plot path.
+function computeBackgroundCore(be, intensity, settings) {
+  const type = settings.bgType;
+  const iter = parseInt(settings.shirleyIter) || 5;
+  const nAvg = parseInt(settings.endpointAvg) || 1;
+
+  // Manual anchor background uses its own anchor points, not bg-start/end
+  if (type === 'manual') return manualAnchorBackground(be, intensity);
+
+  // The background window — the one definition shared with both /api/fit
+  // request builders (see _bgWindowIndices). A blank bound or a window with
+  // fewer than two points falls back to the full range inside the helper;
+  // slicing the full range below is then a no-op.
+  const { i0, i1 } = _bgWindowIndices(be, settings.bgStart, settings.bgEnd);
+
+  // Slice data to background region
+  const beSub = be.slice(i0, i1 + 1);
+  const inSub = intensity.slice(i0, i1 + 1);
+
+  // Compute background on the sliced region — apply endpoint averaging for Shirley types
+  let bgSub;
+  if (type === 'shirley') bgSub = shirleyBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter);
+  else if (type === 'smart') bgSub = smartBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter);
+  else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, iter, nAvg);
+  else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, iter, nAvg);
+  else if (type === 'linear') bgSub = linearBackground(beSub, inSub);
+5215:function _normalizePeaksCRef(peaks) {
+8977:function _computeBackgroundForSource(be, inten, srcUi) {
+
+exec
+/bin/zsh -lc "node -e '
+const fs = require('\\''fs'\\''); const html = fs.readFileSync('\\''templates/index.html'\\'','\\''utf8'\\''); const lines=html.split('\\''\\n'\\'');
+function fn(n){const s=lines.findIndex(l=>new RegExp('\\''"'^(async )?function '"'\\''+n+'\\''\\\\('\\'').test(l));let d=0;for(let i=s;i<lines.length;i++){for(const c of lines[i]){if(c==='\\''{'\\'')d++;if(c==='\\''}'\\'')d--;}if(d===0)return lines.slice(s,i+1).join('\\''\\n'\\'');}}
+const constants=lines.slice(lines.findIndex(l=>l.startsWith('\\''const _STARTS_MODEL_FIELDS'\\'')),lines.findIndex(l=>l.startsWith('\\''function _startsModelKey'\\''))).join('\\''\\n'\\'');
+
+let ui={roiMin:'\\''280'\\'',roiMax:'\\''290'\\'',endpointAvg:'\\''3'\\''},saved,tab;
+const state={peaks:[{id:1,name:'\\''p'\\'',shape:'\\''Gaussian'\\'',center:285,fwhm:1,amplitude:100}],ccShift:0,rawBE:Array.from({length:121},(_,i)=>292-i/10)};
+state.rawIntensity=state.rawBE.map(()=>100);
+const noop=()=>{};
+const tabManager={activeId:1,_captureUI:()=>ui,_getTab:()=>tab,
+_syncActiveToRecord:()=>Object.assign(tab,{ui:{...ui},peaks:state.peaks,ccShift:state.ccShift,fitResult:state.fitResult}),
+_restoreUI:v=>{ui={...v}},
+createTab:(name,be,inten)=>{tab={name,rawBE:be,rawIntensity:inten,ui:{}};state.rawBE=be;state.rawIntensity=inten;return tab;}};
+tab={name:'\\''test'\\'',rawBE:state.rawBE,rawIntensity:state.rawIntensity,nextId:2,manualAnchors:[]};
+const deps={state,tabManager,document:{getElementById:()=>({value:'\\''test'\\''})},getROIData:()=>{
+const be=state.rawBE.filter(b=>b>=+ui.roiMin&&b<=+ui.roiMax);return {be,inten:be.map(()=>100)}},
+computeBackground:be=>be.map(()=>0),_getManualAnchors:()=>[],_isLocalFit:()=>false,_isLocalProvenance:()=>false,
+_localFitCaveat:()=>'\\'''\\'',_downloadBlob:b=>{saved=JSON.parse(b.parts.join('\\'''\\''));},Blob:function(parts){this.parts=parts;},
+notify:noop,_peaksLoadError:()=>null,_normalizePeaksCRef:p=>p,renderPeakList:noop,updatePlot:noop,renderResults:noop,LEGACY_ENDPOINT_AVG:'\\''1'\\''};
+const src=constants+'\\''\\n'\\''+lines.filter(l=>/"'^const _STATS_'"\\w+_NOTE =/.test(l)).join('\\''\\n'\\'')+'\\''\\n'\\''+
+['\\''gaussian'\\'','\\''evalPeak'\\'','\\''evalPeakArray'\\'','\\''evalAllPeaks'\\'','\\''_startsModelKey'\\'','\\''_startsLiveKey'\\'','\\''_startsIfCurrent'\\'','\\''_startsForSave'\\'','\\''_statsState'\\'','\\''_statsLiveState'\\'','\\''_statsSaveFields'\\'','\\''_statsNote'\\'','\\''_doSaveSpectrum'\\'','\\''_loadSpectrumFile'\\''].map(fn).join('\\''\\n'\\'')+
+'\\''\\nreturn {save:_doSaveSpectrum,load:_loadSpectrumFile,key:_startsLiveKey,stats:_statsLiveState,model:()=>evalAllPeaks(getROIData().be,state.peaks)};'\\'';
+const api=new Function(...Object.keys(deps),src)(...Object.values(deps));
+state.fitResult={chi:1,chiReduced:1,rmse:1,startsModelKey:api.key(),fittedY:api.model()};
+ui.roiMin='\\''281'\\'';ui.roiMax='\\''291'\\'';api.save();
+api.load(saved);
+const loadState=api.stats();
+ui.roiMin='\\''280'\\'';ui.roiMax='\\''290'\\'';
+const model=api.model(),curve=state.fitResult.fittedY;
+console.log('\\''stale spectrum round trip:'\\'',JSON.stringify({savedState:saved.statistics.statisticsState,loadState,afterRestoringROI:api.stats(),sameLength:curve.length===model.length,maxCurveError:Math.max(...model.map((v,i)=>Math.abs(v-curve[i])))}));
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+stale spectrum round trip: {"savedState":"stale","loadState":"stale","afterRestoringROI":"current","sameLength":true,"maxCurveError":93.77397243475211}
+
+exec
+/bin/zsh -lc "rg --files tests/js | rg 'auto|owner'; rg -n 'runAutoFitC1sGraphite|applyAutoFitResult' tests/js/*.js; nl -ba templates/index.html | sed -n '7336,7373p'; nl -ba templates/index.html | sed -n '7510,7545p'; nl -ba templates/index.html | sed -n '7659,7673p'; nl -ba templates/index.html | sed -n '8028,8049p'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+tests/js/fixtures/autofit_anchor.json
+tests/js/autofit_required.test.js
+tests/js/autofit_zero_graphite.test.js
+tests/js/autofit_required.test.js:28:  const src = [constLine('_AUTOFIT_ANCHOR_MIN_F'), extractFn('_autoFitGraphiteIsSupported'), extractFn('applyAutoFitResult')].join('\n');
+tests/js/autofit_required.test.js:29:  const f = new Function('document', 'state', 'notify', 'updateChargeCorrection', 'getROIData', '_escAttr', src + '\nreturn applyAutoFitResult;')(
+tests/js/autofit_required.test.js:58:  const run = extractFn('runAutoFitC1sGraphite');
+tests/js/autofit_required.test.js:62:  const apply = extractFn('applyAutoFitResult');
+tests/js/fit_acceptance.test.js:282:  assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatDisplay\(state\.fitResult\)/, 'auto-fit refreshes the statistic display');
+tests/js/fit_acceptance.test.js:359:  for (const fn of ['function runFitLocal(', 'async function runFit(', 'function applyAutoFitResult(', 'function clearAllPeaks()']) {
+tests/js/stale_statistics.test.js:115:  assert.match(extractFn('applyAutoFitResult'), /startsModelKey: _startsLiveKey\(\)/, 'Auto-Fit stamps its result');
+tests/js/unsupported_components.test.js:282:  const src = extractFn('applyAutoFitResult');
+tests/js/per_tab_state.test.js:105:  for (const fn of ['async function runFit(', 'async function runAutoFitC1sGraphite()']) {
+tests/js/per_tab_state.test.js:116:  const af = grab('async function runAutoFitC1sGraphite()', 3000);
+tests/js/autofit_zero_graphite.test.js:8:// applyAutoFitResult is extracted verbatim from templates/index.html.
+tests/js/autofit_zero_graphite.test.js:35:  const src = ['applyAutoFitResult', '_autoFitGraphiteIsSupported'].map(extractFn).join('\n');
+tests/js/autofit_zero_graphite.test.js:39:    konst + '\n' + src + '\nreturn { applyAutoFitResult, _autoFitGraphiteIsSupported };');
+tests/js/autofit_zero_graphite.test.js:68:    if (!fx.supported) return rejected(env, env.applyAutoFitResult(fx.json, 284.9, {}));
+tests/js/autofit_zero_graphite.test.js:69:    assert.throws(() => env.applyAutoFitResult(fx.json, 284.9, {}), e => e === PAST_THE_GATE);
+tests/js/autofit_zero_graphite.test.js:82:    rejected(env, env.applyAutoFitResult(real.json, 284.9, {}));
+tests/js/autofit_zero_graphite.test.js:90:    rejected(env, env.applyAutoFitResult(j, 284.9, {}));
+tests/js/autofit_zero_graphite.test.js:93:  rejected(env, env.applyAutoFitResult({ ...real.json, individual_peaks: [] }, 284.9, {}));
+tests/js/autofit_zero_graphite.test.js:102:  assert.throws(() => env.applyAutoFitResult(json, 284.9, {}), e => e === PAST_THE_GATE);
+tests/js/autofit_zero_graphite.test.js:112:  rejected(env, env.applyAutoFitResult(json, 284.9, {}));
+tests/js/autofit_zero_graphite.test.js:116:  const src = extractFn('applyAutoFitResult');
+tests/js/autofit_zero_graphite.test.js:126:  assert.strictEqual(env.applyAutoFitResult(fx.json, 284.9, {}), false);
+  7336	  const rmse = Math.sqrt((json.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be2.length));
+  7337	  const roiRange = { min: _arrMin(be2).toFixed(1), max: _arrMax(be2).toFixed(1) };
+  7338	  state.fitResult = {
+  7339	    chi: chiReduced * Math.max(1, be2.length - state.peaks.length * 3),
+  7340	    chiReduced, rmse,
+  7341	    be: be2, bgSubtracted: bgSub2, bgIntensity: bgI2,
+  7342	    backendResult: json,
+  7343	    fittedY: json.fitted_y,
+  7344	    roiRange,
+  7345	    startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
+  7346	  };
+  7347	  state.fitResult.rFactor = _computeRFactor(state.fitResult);
+  7348	
+  7349	  // 6. Update the same DOM elements runFit() updates.
+  7350	  const fq = document.getElementById('fit-quality');
+  7351	  if (fq) {
+  7352	    fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
+  7353	    if (typeof _CHISQ_TOOLTIP !== 'undefined') fq.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
+  7354	  }
+  7355	  { const _t = typeof _activeTab === 'function' ? _activeTab() : null; if (_t) _t.modelProvenance = null; }
+  7356	  if (typeof _applyStatDisplay === 'function') _applyStatDisplay(state.fitResult);
+  7357	  const sbChi = document.getElementById('sb-chi');
+  7358	  if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
+  7359	  const sbMsg = document.getElementById('sb-msg');
+  7360	  if (sbMsg) sbMsg.textContent = 'Auto-fit complete';
+  7361	  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult.rFactor);
+  7362	  if (typeof _updateROIDisplay === 'function') _updateROIDisplay(roiRange);
+  7363	  // Lock all peak centers after a successful auto-fit. Users frequently
+  7364	  // run "Run Fit" again to refine FWHMs/amplitudes; without this lock the
+  7365	  // converged auto-fit positions can drift. The user can manually unlock
+  7366	  // any center via the existing padlock icon in the peak editor.
+  7367	  for (const p of state.peaks) p.fixCenter = true;
+  7368	  // the locks and the refined charge shift are part of THIS result: the
+  7369	  // support verdicts describe the model as finalised here
+  7370	  if (typeof _restampSupport === 'function') _restampSupport();
+  7371	  if (typeof renderPeakList === 'function') renderPeakList();
+  7372	  if (typeof updatePlot === 'function') updatePlot();
+  7373	  if (typeof renderResults === 'function') renderResults();
+  7510	        session_id: sessionId,
+  7511	        background: bgPayload,
+  7512	        peaks: peakSpecs,
+  7513	        fit_method: fitMethod,
+  7514	        n_perturb: 3,
+  7515	        // step (c): is the charge-reference anchor REQUIRED? The server refits
+  7516	        // the model without it; a redundant anchor must not set the energy
+  7517	        // reference of a whole spectrum (see applyAutoFitResult).
+  7518	        require_component: anchorId,
+  7519	      }),
+  7520	      signal: ctrl.signal,
+  7521	    });
+  7522	    clearTimeout(timer);
+  7523	    const json = await resp.json();
+  7524	    if (json.error) throw new Error(json.error);
+  7525	    if (json.success !== true) throw new Error(json.message || 'fit did not converge');
+  7526	    if (!_ownerActive(fittingTab)) {
+  7527	      _hideFitSpinner();
+  7528	      notify('Auto-fit discarded — tab switched during fit.', 'amber');
+  7529	      _autoFitRestore(snap, fittingTab);
+  7530	      return;
+  7531	    }
+  7532	
+  7533	    applyBackendResult(json);
+  7534	
+  7535	    const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
+  7536	    if (!ok) {
+  7537	      _hideFitSpinner();
+  7538	      _autoFitRestore(snap, fittingTab);
+  7539	      return;
+  7540	    }
+  7541	
+  7542	    _hideFitSpinner();
+  7543	    notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
+  7544	  } catch (e) {
+  7545	    clearTimeout(timer);
+  7659	function _statsSaveFields(st) {
+  7660	  return (st === 'stale' || st === 'unverified') ? { statisticsState: st, statisticsNote: _statsNote(st) } : {};
+  7661	}
+  7662	// Keep the visible statistics honest after an edit that only repainted the
+  7663	// chart: re-render Results when the state it rendered differs; re-apply the
+  7664	// header / status bar / R always (cheap, no inputs there).
+  7665	function _refreshStatsState() {
+  7666	  const st = _statsLiveState();
+  7667	  const el = document.getElementById('results-area');
+  7668	  if (el && state.fitResult && el.getAttribute('data-stats-state') !== st && typeof renderResults === 'function') renderResults();   // applies the header / status bar too
+  7669	  else _applyStatDisplay(state.fitResult);
+  7670	  if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
+  7671	}
+  7672	
+  7673	// After anything that may have changed the model or its context without going
+  8028	    }
+  8029	    if (e && e.transportFailure && opts.startPeaks) {
+  8030	      // Adopting an alternative needs the server: the local engine would start
+  8031	      // from the live model, not from the alternative. Nothing was changed.
+  8032	      document.getElementById('sb-msg').textContent = 'Fit failed';
+  8033	      notify('The server could not be reached, so the alternative was not applied. Previous peaks and result kept.', 'red', true);
+  8034	      return;
+  8035	    }
+  8036	    if (e && e.transportFailure) {
+  8037	      // Server unreachable: the local optimiser is the honest fallback, and
+  8038	      // the overlay saying so opens only if it actually converged.
+  8039	      if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
+  8040	      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+  8041	      if (local && local.success && !_snapshotSuppressed) {
+  8042	        document.getElementById('localfit-warn-overlay').classList.add('open');
+  8043	      }
+  8044	      return;
+  8045	    }
+  8046	    // Server-side error or non-converged optimisation: report it; the
+  8047	    // previous peaks and fit result stay exactly as they were.
+  8048	    const notConverged = !!(e && e.notConverged);
+  8049	    document.getElementById('sb-msg').textContent = notConverged ? 'Fit did not converge' : 'Fit failed';
+
+exec
+/bin/zsh -lc "sed -n '25,68p' tests/js/autofit_zero_graphite.test.js; sed -n '118,146p' tests/js/stale_statistics.test.js; sed -n '11135,11152p' templates/index.html; rg -n 'rawBE\\s*=|rawIntensity\\s*=' templates/index.html | head -35" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+  }
+  assert.fail('unbalanced ' + name);
+}
+
+const PAST_THE_GATE = new Error('reached the result-building step');
+function makeEnv(peaks) {
+  const dom = {};
+  const el = id => (dom[id] ||= { value: '', textContent: '', setAttribute() {} });
+  const calls = { notify: [], chargeCorrection: 0 };
+  const state = { peaks, ccShift: 0.4, fitResult: { marker: 'previous' } };
+  const src = ['applyAutoFitResult', '_autoFitGraphiteIsSupported'].map(extractFn).join('\n');
+  const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_MIN_F'));
+  assert.ok(konst, 'threshold constant not found');
+  const factory = new Function('document', 'state', 'notify', 'updateChargeCorrection', 'getROIData',
+    konst + '\n' + src + '\nreturn { applyAutoFitResult, _autoFitGraphiteIsSupported };');
+  const api = factory({ getElementById: el }, state, (msg, kind) => calls.notify.push({ msg, kind }),
+    () => { calls.chargeCorrection++; }, () => { throw PAST_THE_GATE; });
+  return { ...api, state, dom, calls };
+}
+function rejected(env, ok) {
+  assert.strictEqual(ok, false, 'caller rolls the model back on false');
+  assert.strictEqual(env.calls.chargeCorrection, 0, 'updateChargeCorrection must not run');
+  assert.deepStrictEqual(env.dom, {}, 'cc-method / cc-obs / cc-lit must not be touched');
+  assert.deepStrictEqual(env.state.fitResult, { marker: 'previous' });
+  assert.strictEqual(env.calls.notify.length, 1);
+  assert.strictEqual(env.calls.notify[0].kind, 'red');
+  assert.match(env.calls.notify[0].msg, /data do not support the Graphite component/);
+  assert.match(env.calls.notify[0].msg, /no charge correction/);
+}
+
+// Real fitting.run_fit responses (scripts/gen_autofit_anchor_fixtures.py): every case the Codex
+// reviews produced while five intensity-floor rules failed, plus an ordinary C 1s.
+const FIXTURES = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/autofit_anchor.json'), 'utf8'));
+const peaksOf = fx => [{ id: Number(fx.graphite.id), name: 'Graphite', center: fx.graphite.center, amplitude: fx.graphite.amplitude, fwhm: 0.7 }];
+
+test('the fixture set covers both outcomes', () => {
+  assert.ok(FIXTURES.filter(f => f.supported).length >= 5 && FIXTURES.filter(f => !f.supported).length >= 4);
+  assert.ok(FIXTURES.every(f => f.json.success === true), 'every case is a fit the server called successful');
+});
+
+for (const fx of FIXTURES) {
+  test(`${fx.supported ? 'anchors the correction' : 'anchors NOTHING'} — ${fx.name}`, () => {
+    const env = makeEnv(peaksOf(fx));
+    if (!fx.supported) return rejected(env, env.applyAutoFitResult(fx.json, 284.9, {}));
+  const st = { peaks: [{ id: 1, support: { fitKey: 'OLD' } }], fitResult: { startsModelKey: 'OLD' } };
+  restamp(st, () => 'NEW')();
+  assert.strictEqual(st.fitResult.startsModelKey, 'NEW');
+  assert.strictEqual(st.peaks[0].support.fitKey, 'NEW');
+  // no other key-like field was introduced
+  assert.ok(!/statsModelKey|statisticsKey/.test(html), 'no second key');
+});
+
+test('Results panel, current: statistic, RMSE, R and sigma are shown', () => {
+  const { api, doc, state } = sandbox({ liveKey: 'K1' });
+  state.peaks = [{ ...PEAK }];
+  state.fitResult = serverResult('K1');
+  api.renderResults();
+  const h = doc.els['results-area'].innerHTML;
+  assert.strictEqual(doc.els['results-area'].getAttribute('data-stats-state'), 'current');
+  assert.match(h, /1\.235/);
+  assert.match(h, /7\.5/);
+  assert.match(h, /R-factor/);
+  assert.match(h, /± 0\.012/, 'sigma on the centre');
+  assert.ok(!/stats-stale-note/.test(h));
+  assert.strictEqual(doc.els['sb-chi'].textContent, '1.235');
+});
+
+test('Results panel, stale: a banner says the statistics belong to the previous model; no chi-square, RMSE, R or sigma', () => {
+  const { api, doc, state } = sandbox({ liveKey: 'EDITED' });
+  state.peaks = [{ ...PEAK, center: 285.0 }];
+  state.fitResult = serverResult('K1');
+  api.renderResults();
+  const h = doc.els['results-area'].innerHTML;
+  ctx.strokeStyle = '#999999'; ctx.lineWidth = 1.5; ctx.setLineDash([10, 6]);
+  polyline(be, bgArr, yM);
+  ctx.setLineDash([]);
+
+  // Raw data (black)
+  ctx.strokeStyle = '#000000'; ctx.lineWidth = 2;
+  polyline(be, inten, yM);
+
+  // Fit envelope (red)
+  if (fittedY) {
+    ctx.strokeStyle = '#cc0000'; ctx.lineWidth = 2.5;
+    polyline(be, fittedY, yM);
+  }
+
+  // Individual peak outlines
+  if (showIndiv) {
+    for (const p of state.peaks) {
+      if (!p.visible) continue;
+3232:    state.rawBE = tab.rawBE;
+3233:    state.rawIntensity = tab.rawIntensity;
+3302:      state.rawBE = []; state.rawIntensity = [];
+7431:  const rawBE = corrBE.map(b => b + curShift);
+10577:      if (!data.rawBE && data.be) data.rawBE = data.be;
+10578:      if (!data.rawIntensity && data.inten) data.rawIntensity = data.inten;
+
+codex
+The in-memory reproductions confirmed two more failures. After an ROI edit during a failed network request, the local fallback fitted 101 points but stamped the result “current” for an ROI containing 51 points. A stale spectrum save also reloads an edited-window curve under the original fit key; restoring the original ROI makes that wrong curve eligible for export as a current fit.
+
+I’m checking the analogous Auto-Fit completion path before issuing the verdict.
+exec
+/bin/zsh -lc "node -e '
+const fs = require('\\''fs'\\''); const html = fs.readFileSync('\\''templates/index.html'\\'','\\''utf8'\\''); const lines=html.split('\\''\\n'\\'');
+function fn(n){const s=lines.findIndex(l=>new RegExp('\\''"'^(async )?function '"'\\''+n+'\\''\\\\('\\'').test(l));let d=0;for(let i=s;i<lines.length;i++){for(const c of lines[i]){if(c==='\\''{'\\'')d++;if(c==='\\''}'\\'')d--;}if(d===0)return lines.slice(s,i+1).join('\\''\\n'\\'');}}
+const constants=lines.slice(lines.findIndex(l=>l.startsWith('\\''const _STARTS_MODEL_FIELDS'\\'')),lines.findIndex(l=>l.startsWith('\\''function _startsModelKey'\\''))).join('\\''\\n'\\'');
+
+const state={peaks:[],ccShift:0,rawBE:[285,284.5,284],rawIntensity:[10,20,10]},ui={bgType:'\\''none'\\'',roiMin:'\\''284'\\'',roiMax:'\\''285'\\''};
+const noop=()=>{};let requestedBG,restored=false;
+const dom={};const document={getElementById:id=>dom[id]??={value:({'\\''bg-type'\\'':ui.bgType,'\\''bg-start'\\'':'\\''285'\\'','\\''bg-end'\\'':'\\''284'\\'','\\''bg-endpoint-avg'\\'':'\\''3'\\'','\\''fit-method'\\'':'\\''leastsq'\\''}[id]||'\\'''\\''),style:{},setAttribute:noop},querySelector:()=>({})};
+const tab={id:1}; const tabManager={activeId:1,_getTab:()=>tab,_captureUI:()=>({...ui,bgType:document.getElementById('\\''bg-type'\\'').value}),_syncActiveToRecord:noop};
+const result={success:true,statistics:{reduced_chi_square:1},fitted_y:[10,20,10],residuals:[0,0,0]};
+const deps={state,document,tabManager,notify:noop,_opOwner:()=>tab,_ownerActive:()=>true,isC1sTab:()=>true,_autoFitSnapshot:()=>({}),_autoFitRestore:()=>{restored=true;},
+getROIData:()=>({be:state.rawBE,inten:state.rawIntensity}),computeBackground:be=>be.map(()=>document.getElementById('\\''bg-type'\\'').value==='\\''none'\\''?0:100),
+findGraphiteRawBE:()=>284.5,assessLowBERegion:()=>({}),pushUndo:noop,updateChargeCorrection:noop,
+buildAutoFitModel:()=>[{id:1,name:'\\''Graphite'\\'',shape:'\\''Gaussian'\\'',center:284.5,fwhm:1,amplitude:20}],
+renderPeakList:noop,_showFitSpinner:noop,_hideFitSpinner:noop,AbortController,setTimeout:()=>1,clearTimeout:noop,
+peakToBackendSpec:p=>({...p}),_getManualAnchors:()=>[],
+uploadToBackend:async()=>{document.getElementById('\\''bg-type'\\'').value='\\''linear'\\'';return '\\''session'\\'';},
+fetch:async(url,req)=>{requestedBG=JSON.parse(req.body).background.method;return {json:async()=>result};},
+applyBackendResult:noop,_autoFitGraphiteIsSupported:()=>true,_computeRFactor:()=>({rPct:0}),_activeTab:()=>tab,
+_autoFitCheckGraphiteFraction:()=>null};
+const src=constants+'\\''\\n'\\''+['\\''runAutoFitC1sGraphite'\\'','\\''applyAutoFitResult'\\'','\\''_restampSupport'\\'','\\''_bgWindowIndices'\\'','\\''_arrMin'\\'','\\''_arrMax'\\'','\\''_startsModelKey'\\'','\\''_startsLiveKey'\\'','\\''_statsState'\\'','\\''_statsLiveState'\\''].map(fn).join('\\''\\n'\\'')+
+'\\''\\nreturn {run:runAutoFitC1sGraphite,stats:_statsLiveState};'\\'';
+const api=new Function(...Object.keys(deps),src)(...Object.values(deps));
+api.run().then(()=>console.log('\\''Auto-Fit after background edit:'\\'',JSON.stringify({requestedBG,liveBG:document.getElementById('\\''bg-type'\\'').value,stats:api.stats(),fitChi:state.fitResult?.chiReduced,restored})));
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics
+ succeeded in 0ms:
+Auto-Fit after background edit: {"requestedBG":"none","liveBG":"linear","stats":"current","fitChi":1,"restored":false}
+
+codex
+1. **MAJOR — Auto-Fit stamps edits made during the request as current.** [templates/index.html:7345](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:7345)  
+   Start Auto-Fit with background None, then select Linear while the request is pending. Completion checks the tab owner but never compares the request’s model/context key. It stamps the old response with the edited context, then re-stamps it again. Reproduced: request background `none`, live background `linear`, statistics state `current`. χ², uncertainties and the stored curve consequently bypass every stale guard. Compare the captured request key before applying the response.
+
+2. **MAJOR — Local fallback binds old data to the new ROI.** [templates/index.html:8546](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:8546)  
+   Start Run Fit, edit the ROI while upload is pending, then let upload fail with a transport error. The fallback receives the original `be/bgSubtracted/bgIntensity` arrays but stamps the current UI key. Running the actual local optimizer reproduced a converged, `current` result fitted over **101 points**, while the current ROI contained **51 points**. The request-context check must also cover the fallback path.
+
+3. **MAJOR — Stale spectrum saves put a different curve under the original fit key.** [templates/index.html:10294](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:10294)  
+   Fit ROI 280–290, change it to 281–291, save the stale spectrum, reload, then restore ROI 280–290. Saving replaces `fittedY` with the edited-window curve but retains the original statistics key; loading installs that curve into `fitResult`. Restoring the original ROI now classifies it as `current`. With equal-length windows, figure export and stack rendering accept the wrong curve. Reproduced with a Gaussian: matching key and array length, but maximum curve error approximately **93.77** for amplitude 100. Keep the recomputed export curve out of the restored fit result.
+
+4. **MAJOR — Lock changes leave visible statistics current until another repaint.** [templates/index.html:6037](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:6037)  
+   After a fit with supported components and no alternative preview, toggle a parameter lock or Lock All. These paths call `_refreshStartsEvidence`, which need not repaint or render Results. F1’s refresh runs only through `updatePlot`. Reproduced: the accessor returned `stale`, with **zero Results renders and zero plot refreshes**. χ², σ and R remain visible, while exports correctly classify them as stale. Wire these paths into the statistics refresh.
+
+5. **MINOR — Equivalent numeric formatting falsely invalidates statistics.** [templates/index.html:7618](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:7618)  
+   Changing an ROI bound from `280` to `280.0` changes the string-based key although the selected data and fit request are identical. Reproduced with the real key function. F1 then hides valid statistics and adds stale-save warnings. Normalize numeric values within the existing shared key.
+
+Validation: **106/107 targeted JS tests passed**; the remaining Python parity subprocess failed because the read-only sandbox has no writable temporary directory. Additional in-memory reproductions confirmed the failures above. The new mocked-key and source-regex tests do not exercise these lifecycle interactions. No files changed.
+
+**VERDICT: NO-GO**
+tokens used
+105,525
+1. **MAJOR — Auto-Fit stamps edits made during the request as current.** [templates/index.html:7345](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:7345)  
+   Start Auto-Fit with background None, then select Linear while the request is pending. Completion checks the tab owner but never compares the request’s model/context key. It stamps the old response with the edited context, then re-stamps it again. Reproduced: request background `none`, live background `linear`, statistics state `current`. χ², uncertainties and the stored curve consequently bypass every stale guard. Compare the captured request key before applying the response.
+
+2. **MAJOR — Local fallback binds old data to the new ROI.** [templates/index.html:8546](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:8546)  
+   Start Run Fit, edit the ROI while upload is pending, then let upload fail with a transport error. The fallback receives the original `be/bgSubtracted/bgIntensity` arrays but stamps the current UI key. Running the actual local optimizer reproduced a converged, `current` result fitted over **101 points**, while the current ROI contained **51 points**. The request-context check must also cover the fallback path.
+
+3. **MAJOR — Stale spectrum saves put a different curve under the original fit key.** [templates/index.html:10294](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:10294)  
+   Fit ROI 280–290, change it to 281–291, save the stale spectrum, reload, then restore ROI 280–290. Saving replaces `fittedY` with the edited-window curve but retains the original statistics key; loading installs that curve into `fitResult`. Restoring the original ROI now classifies it as `current`. With equal-length windows, figure export and stack rendering accept the wrong curve. Reproduced with a Gaussian: matching key and array length, but maximum curve error approximately **93.77** for amplitude 100. Keep the recomputed export curve out of the restored fit result.
+
+4. **MAJOR — Lock changes leave visible statistics current until another repaint.** [templates/index.html:6037](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:6037)  
+   After a fit with supported components and no alternative preview, toggle a parameter lock or Lock All. These paths call `_refreshStartsEvidence`, which need not repaint or render Results. F1’s refresh runs only through `updatePlot`. Reproduced: the accessor returned `stale`, with **zero Results renders and zero plot refreshes**. χ², σ and R remain visible, while exports correctly classify them as stale. Wire these paths into the statistics refresh.
+
+5. **MINOR — Equivalent numeric formatting falsely invalidates statistics.** [templates/index.html:7618](/Users/skyefortier/xps-app/.claude/worktrees/fix-stale-statistics/templates/index.html:7618)  
+   Changing an ROI bound from `280` to `280.0` changes the string-based key although the selected data and fit request are identical. Reproduced with the real key function. F1 then hides valid statistics and adds stale-save warnings. Normalize numeric values within the existing shared key.
+
+Validation: **106/107 targeted JS tests passed**; the remaining Python parity subprocess failed because the read-only sandbox has no writable temporary directory. Additional in-memory reproductions confirmed the failures above. The new mocked-key and source-regex tests do not exercise these lifecycle interactions. No files changed.
+
+**VERDICT: NO-GO**

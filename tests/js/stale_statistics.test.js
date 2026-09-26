@@ -41,7 +41,7 @@ function makeDoc() {
   return { els, getElementById: id => els[id] || null, querySelector: () => null, querySelectorAll: () => [] };
 }
 
-const STATE_FNS = ['_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields'];
+const STATE_FNS = ['_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields'];
 const STATE_CONSTS = ['_STATS_STALE_NOTE', '_STATS_UNVERIFIED_NOTE'];
 
 // Build a sandbox with the F1 accessor, the display functions and renderResults.
@@ -190,7 +190,9 @@ test('status-bar R: the previous model\'s R is not shown on a stale result; an u
 test('the stored fitted curve is never drawn, saved or stacked as the fit once stale', () => {
   const up = extractFn('updatePlot');
   assert.match(up, /fittedYBacked = haveFit[\s\S]*?_statsLiveState\(\) !== 'stale'/, 'chart envelope / residuals');
-  assert.match(up, /_refreshStatsState\(\)/, 'every repaint keeps the visible statistics honest');
+  assert.match(up, /_refreshStartsEvidence\(false, true\)/, 'every repaint reaches the refresh');
+  assert.match(extractFn('_refreshStartsEvidence'), /^function _refreshStartsEvidence[^\n]*\n(\s*\/\/[^\n]*\n)*\s*_refreshStatsState\(\);/, 'first thing, for EVERY caller (lock toggles, Lock All, updatePlot)');
+  for (const fn of ['toggleLock', 'toggleAllLocks']) assert.match(extractFn(fn), /_refreshStartsEvidence\(true\);/, fn + ' reaches the statistics refresh');
   assert.match(extractFn('_buildEntryRenderData'), /_statsRecordState\(src\) !== 'stale'/, 'stack Path A judged against the SOURCE record');
   assert.match(extractFn('_doPublicationExport'), /_figStats !== 'stale' && state\.fitResult\?\.fittedY/, 'figure');
   assert.match(extractFn('_doSaveSpectrum'), /_saveStats !== 'stale' && state\.fitResult\?\.fittedY/, 'spectrum save');
@@ -297,4 +299,86 @@ test('the refresh re-renders Results only when its rendered state differs', () =
   env.key = 'K1';               // an undo brings the fitted model back
   refresh();
   assert.strictEqual(env.renders, 2, 'current again');
+});
+
+// ── Codex round 1 ───────────────────────────────────────────────────────────
+function keyFns() {
+  const src = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n')
+    + '\n' + ['_startsModelKey', '_fitKeyCanon', '_sameFitKey', '_statsState'].map(extractFn).join('\n');
+  return new Function(src + '\nreturn { _startsModelKey, _sameFitKey, _statsState };')();
+}
+
+test('an equivalent spelling of a form number ("280" / "280.0") is the same fit; a different value is not', () => {
+  const k = keyFns();
+  const peaks = [{ id: 1, shape: 'GL', center: 284.5, fwhm: 1, amplitude: 10 }];
+  const ui = { bgType: 'shirley', bgStart: '295', bgEnd: '280', shirleyIter: '10', endpointAvg: '3', roiMin: '280', roiMax: '295' };
+  const a = k._startsModelKey(peaks, ui, 0, []);
+  assert.ok(k._sameFitKey(a, k._startsModelKey(peaks, { ...ui, roiMin: '280.0', roiMax: '295.00' }, 0, [])), 'same data, same request');
+  assert.ok(!k._sameFitKey(a, k._startsModelKey(peaks, { ...ui, roiMin: '280.5' }, 0, [])), 'a real ROI change');
+  assert.ok(!k._sameFitKey(a, k._startsModelKey(peaks, { ...ui, bgType: 'linear' }, 0, [])), 'a background change');
+  assert.ok(!k._sameFitKey(a, k._startsModelKey(peaks, { ...ui, roiMin: '' }, 0, [])), 'an emptied field is not "0"');
+  assert.strictEqual(k._statsState({ startsModelKey: a }, k._startsModelKey(peaks, { ...ui, roiMin: '280.0' }, 0, [])), 'current');
+  assert.ok(!k._sameFitKey(null, null) && !k._sameFitKey(a, null), 'no key never matches');
+  assert.ok(!k._sameFitKey('not json', 'not json ') && k._sameFitKey('not json', 'not json'));
+});
+
+test('Clear All (result -> none) re-renders Results back to its empty state; a page that never had a result is left alone', () => {
+  const src = [...STATE_CONSTS.map(constLine), ...['_fitKeyCanon', '_sameFitKey', ...STATE_FNS].map(extractFn), extractFn('_refreshStatsState')].join('\n');
+  const doc = makeDoc();
+  const env = { renders: 0 };
+  const state = { fitResult: null };
+  const refresh = new Function('document', 'state', 'env', `
+    const _startsLiveKey = () => 'K', _startsRecordKey = t => t.key;
+    const renderResults = () => { env.renders++; document.getElementById('results-area').setAttribute('data-stats-state', _statsLiveState()); };
+    const _applyStatDisplay = () => {}, _updateRFactorUI = () => {};
+    ${src}
+    return _refreshStatsState;`)(doc, state, env);
+  refresh();
+  assert.strictEqual(env.renders, 0, 'fresh page: nothing rendered yet, nothing to clear');
+  doc.els['results-area'].setAttribute('data-stats-state', 'current');   // a fit was shown
+  refresh();
+  assert.strictEqual(env.renders, 1, 'the shown result was cleared: back to the empty state');
+  refresh();
+  assert.strictEqual(env.renders, 1);
+});
+
+test('Auto-Fit discards (and rolls back) a response when the model or context was edited while it ran; an unedited run applies', async () => {
+  const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
+  const run = async (editDuringUpload) => {
+    const state = { peaks: [], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
+    const dom = {};
+    const document = { getElementById: id => (dom[id] ??= { value: ({ 'bg-type': 'none', 'bg-start': '285', 'bg-end': '284', 'bg-endpoint-avg': '3', 'fit-method': 'leastsq' })[id] || '', style: {}, textContent: '', setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) };
+    const tab = { id: 1 };
+    const out = { restored: false, applied: 0, notes: [] };
+    const tabManager = { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: document.getElementById('bg-type').value, roiMin: '284', roiMax: '285' }), _syncActiveToRecord() {} };
+    const deps = { state, document, tabManager, notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
+      _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
+      getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => be.map(() => 0),
+      findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
+      buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
+      renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
+      peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [],
+      uploadToBackend: async () => { if (editDuringUpload) document.getElementById('bg-type').value = 'linear'; return 'sid'; },
+      fetch: async () => ({ json: async () => ({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
+      applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true };
+    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
+    await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
+    return out;
+  };
+  const edited = await run(true);
+  assert.strictEqual(edited.applied, 0, 'nothing applied over the edited model');
+  assert.strictEqual(edited.restored, true, 'rolled back');
+  assert.ok(edited.notes.some(([m, k]) => k === 'amber' && /edited while it was running/.test(m)), JSON.stringify(edited.notes));
+  const clean = await run(false);
+  assert.strictEqual(clean.applied, 1, 'an unedited run is applied as before');
+  assert.strictEqual(clean.restored, false);
+});
+
+test('reload never installs an edited-model curve or R under the original key, and activation never computes R over an edited model', () => {
+  const load = extractFn('_loadSpectrumFile');
+  assert.match(load, /if \(data\.fittedY && data\.statistics\.statisticsState !== 'stale'\) fr\.fittedY = data\.fittedY;/);
+  assert.match(load, /if \(data\.statistics\.rFactor && data\.statistics\.statisticsState !== 'stale'\) fr\.rFactor = data\.statistics\.rFactor;/);
+  assert.match(html, /state\.fitResult\.rFactor == null && _statsLiveState\(\) !== 'stale'\) \{\s*state\.fitResult\.rFactor = _computeRFactor/, 'tab activation');
+  assert.match(extractFn('_doSaveProject'), /rFactor: t\.fitResult\.rFactor \|\| null/, 'project saves keep the fit\'s own R');
+  assert.match(extractFn('_doSaveSpectrum'), /rFactor: state\.fitResult\.rFactor \|\| null/, 'spectrum saves keep it too');
 });

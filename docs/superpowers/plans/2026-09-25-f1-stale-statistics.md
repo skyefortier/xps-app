@@ -108,4 +108,16 @@ so it is not stripped here — the sealed record owns per-parameter results.
 
 ## 5. Codex rounds
 
-(filled in as they run)
+**Round 1 — NO-GO ×2** (`docs/autofit/codex/f1_stale_statistics_verdict_run{A,B}.md`).
+All findings reproduced and fixed:
+
+| # | finding (run) | fix |
+|---|---|---|
+| 1 | Auto-Fit stamps a response over a context edited while it ran as `current` (A) | `runAutoFitC1sGraphite` captures the key with the other request inputs, before the first await; after the owner check a different live key DISCARDS and rolls back (amber notice), as `runFit` already did. Behavioural test drives the real function. |
+| 2 | Local fallback after a transport failure fits the press-time arrays and stamps the EDITED key (A, B) | `ctxAtRequest` hoisted out of the `try`; a transport failure with a changed key runs no local fit ("Fit discarded (model edited)"). Behavioural test in `fit_acceptance`. |
+| 3 | Stale spectrum save → reload → restore the value: the edited-model `fittedY` sits under the original key and becomes "current" (A) | the loader installs neither `fittedY` nor `rFactor` from a save marked `statisticsState: 'stale'` (the file keeps them for its readers). |
+| 4 | Project saves dropped `rFactor`; tab activation recomputed it from the EDITED peaks and cached it under the original key (B) | both saves persist the fit's own `rFactor`; activation computes a missing R only when not stale. Browser: stale project → reload → restore amplitude → R 3.087 % = the fit's. |
+| 5 | Lock toggle / Lock All leave the visible statistics current (A, B) | `_refreshStatsState()` is now the first statement of `_refreshStartsEvidence`, which the lock toggles, Lock All and `updatePlot` all call (the separate call in `updatePlot` removed). |
+| 6 | Clear All leaves the previous Results table (B) | the refresh also handles the transition to `none` (only when a state was rendered before: a fresh page is left alone). |
+| 7 | MINOR: "280" vs "280.0" reads stale (A, B) | `_sameFitKey` compares keys after canonicalising the form-field numbers; keys are COMPARED canonically, never rewritten, so keys already in saved files keep matching. Used by every key comparison (statistics, starts evidence, support verdicts, both mid-fit discards). |
+

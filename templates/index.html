@@ -3247,7 +3247,9 @@ class TabManager {
     if (typeof _recomputeAutoFitMenuState === 'function') _recomputeAutoFitMenuState();
     // Update chi-squared display for this tab's fit result
     _applyStatDisplay(state.fitResult);
-    if (state.fitResult && state.fitResult.rFactor == null) {
+    // F1: never computed over an edited model and cached under the fit's key
+    // (without a stored curve _computeRFactor evaluates the CURRENT peaks)
+    if (state.fitResult && state.fitResult.rFactor == null && _statsLiveState() !== 'stale') {
       state.fitResult.rFactor = _computeRFactor(state.fitResult);
     }
     _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
@@ -7209,12 +7211,12 @@ function _isUnsupported(p, key) {
   if (!(p && p.support && p.support.supported === false)) return false;
   if (!p.support.fitKey) return false;                              // a verdict from before keys existed: not applied
   if (key === undefined) key = typeof _startsLiveKey === 'function' ? _startsLiveKey() : null;
-  return p.support.fitKey === key;
+  return _sameFitKey(p.support.fitKey, key);
 }
 // A CURRENT verdict, either way (for exports: a stale or keyless verdict is "not established", never "supported").
 function _currentSupport(p) {
   if (!(p && p.support && p.support.fitKey)) return null;
-  return p.support.fitKey === _startsLiveKey() ? p.support : null;
+  return _sameFitKey(p.support.fitKey, _startsLiveKey()) ? p.support : null;
 }
 // Re-stamp every verdict with the live key: for a caller that changes the
 // model or context AS PART OF producing the result (Auto-Fit locks every
@@ -7485,6 +7487,9 @@ async function runAutoFitC1sGraphite() {
     // other request inputs, before the first await (a tab switch during the
     // upload must not send another tab's id).
     const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);
+    // the model and its fit context as sent (F1, Codex round 1): a result must
+    // not be applied, and stamped current, over a model edited while it ran
+    const ctxAtRequest = _startsLiveKey();
     // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
     const peakSpecs = state.peaks.map(p => {
       const spec = peakToBackendSpec(p);
@@ -7526,6 +7531,12 @@ async function runAutoFitC1sGraphite() {
     if (!_ownerActive(fittingTab)) {
       _hideFitSpinner();
       notify('Auto-fit discarded — tab switched during fit.', 'amber');
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+    if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
+      _hideFitSpinner();
+      notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
       _autoFitRestore(snap, fittingTab);
       return;
     }
@@ -7620,6 +7631,25 @@ function _startsModelKey(peaks, ui, ccShift, anchors) {
     a: (anchors || []).map(v => [v.x, v.y]),
   });
 }
+// Two keys describe the same fit when they are equal after the form fields'
+// numbers are canonicalised: '280' and '280.0' select the same data and send
+// the same request (F1, Codex round 1). Compared, never rewritten, so keys
+// already persisted in saved files keep matching.
+function _fitKeyCanon(k) {
+  if (typeof k !== 'string') return k;
+  const memo = _fitKeyCanon._memo || (_fitKeyCanon._memo = new Map());
+  let c = memo.get(k);
+  if (c !== undefined) return c;
+  try {
+    const o = JSON.parse(k);
+    if (o && Array.isArray(o.u)) o.u = o.u.map(v => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) ? String(Number(v)) : v);
+    c = JSON.stringify(o);
+  } catch (_) { c = k; }
+  if (memo.size > 256) memo.clear();
+  memo.set(k, c);
+  return c;
+}
+function _sameFitKey(a, b) { return !!a && !!b && (a === b || _fitKeyCanon(a) === _fitKeyCanon(b)); }
 // The key of the ACTIVE tab as it stands now (live model, live controls).
 function _startsLiveKey() {
   const ui = (typeof tabManager !== 'undefined' && tabManager && tabManager._captureUI) ? tabManager._captureUI() : {};
@@ -7630,7 +7660,7 @@ function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, 
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
 function _startsIfCurrent(fr, key) {
   const st = fr && fr.starts;
-  if (!st || !fr.startsModelKey || fr.startsModelKey !== key) return null;
+  if (!st || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;
   return st;
 }
 // Unit F1 (2026-09-25): the fit STATISTICS (chi-square, sigma, R-factor, RMSE
@@ -7647,7 +7677,7 @@ function _startsIfCurrent(fr, key) {
 function _statsState(fr, key) {
   if (!fr) return 'none';
   if (!fr.startsModelKey) return 'unverified';
-  return fr.startsModelKey === key ? 'current' : 'stale';
+  return _sameFitKey(fr.startsModelKey, key) ? 'current' : 'stale';
 }
 function _statsLiveState() { return _statsState(state.fitResult, _startsLiveKey()); }
 // A record's result judged against the RECORD's key (project save, stack tabs).
@@ -7665,7 +7695,8 @@ function _statsSaveFields(st) {
 function _refreshStatsState() {
   const st = _statsLiveState();
   const el = document.getElementById('results-area');
-  if (el && state.fitResult && el.getAttribute('data-stats-state') !== st && typeof renderResults === 'function') renderResults();   // applies the header / status bar too
+  // 'none' too: Clear All nulls the result and only repaints (Codex round 1)
+  if (el && el.getAttribute('data-stats-state') !== st && (state.fitResult || el.getAttribute('data-stats-state')) && typeof renderResults === 'function') renderResults();   // applies the header / status bar too
   else _applyStatDisplay(state.fitResult);
   if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
 }
@@ -7675,6 +7706,9 @@ function _refreshStatsState() {
 // control): take a stale alternative overlay off the chart and bring the
 // VISIBLE panel up to date (counts -> "the model has changed since this fit").
 function _refreshStartsEvidence(repaint, fromPlot) {
+  // F1: chi-square / sigma / R follow the same key, from every caller (lock
+  // toggles and Lock All reach here without a repaint; Codex round 1)
+  _refreshStatsState();
   const hadAlt = !!(_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:'));
   _dropStaleAltPreview();
   if (repaint && hadAlt && !_historyPreview && typeof updatePlot === 'function') updatePlot();
@@ -7889,6 +7923,7 @@ async function runFit(opts = {}) {
 
   // Try Flask backend first
   let backendResult = null;
+  let ctxAtRequest = null;   // set with the other request inputs; read again by the local fallback
   try {
     const bgType  = document.getElementById('bg-type').value;
     const bgStart = parseFloat(document.getElementById('bg-start').value);
@@ -7908,7 +7943,7 @@ async function runFit(opts = {}) {
     const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;
     // the live model and its fit context as the student pressed the button: a
     // result must not be written over a model that was edited while it ran
-    const ctxAtRequest = _startsLiveKey();
+    ctxAtRequest = _startsLiveKey();
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
@@ -7984,7 +8019,7 @@ async function runFit(opts = {}) {
     // The peak controls stay editable while the fit runs. A result computed for
     // the model as it was must not be applied over an edited one (a newly locked
     // centre would keep its edited value under the server's statistics).
-    if (_startsLiveKey() !== ctxAtRequest) {
+    if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
       _hideFitSpinner();
       document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
       notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
@@ -8031,6 +8066,14 @@ async function runFit(opts = {}) {
       // from the live model, not from the alternative. Nothing was changed.
       document.getElementById('sb-msg').textContent = 'Fit failed';
       notify('The server could not be reached, so the alternative was not applied. Previous peaks and result kept.', 'red', true);
+      return;
+    }
+    if (e && e.transportFailure && ctxAtRequest !== null && !_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
+      // The fallback would fit the arrays captured at the press over a model or
+      // context edited since, and stamp the edited one (F1, Codex round 1).
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('The server could not be reached, and the model or its background / ROI settings were edited while the fit was running, so no local fit was run. Previous peaks and result kept. Run the fit again.', 'amber', true);
       return;
     }
     if (e && e.transportFailure) {
@@ -9654,7 +9697,6 @@ function updatePlot() {
     });
   }
 
-  _refreshStatsState();                  // F1: chi-square / sigma / R follow the same key
   _refreshStartsEvidence(false, true);   // background / ROI controls only repaint the chart: keep the visible consumers honest (fromPlot: the chart itself is being rebuilt)
   _refreshRoiAndCentreWarnings();         // ROI past the data / centre outside the data: warn, never move
   // History snapshot preview overlay (cyan dashed, drawn on top)
@@ -10314,6 +10356,7 @@ function _doSaveSpectrum() {
     chi: state.fitResult.chi,
     chiReduced: state.fitResult.chiReduced,
     rmse: state.fitResult.rmse,
+    rFactor: state.fitResult.rFactor || null,   // F1: the fit's own R (restored only while current)
     // Engine identity travels with the statistic so a reloaded local-engine
     // result is never relabelled as chi-square (unit A0).
     engine: state.fitResult.engine || null,
@@ -10402,6 +10445,7 @@ async function _doSaveProject() {
       fitResult: t.fitResult ? {
         chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
         rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
+        rFactor: t.fitResult.rFactor || null,   // F1: the fit's own R, not one recomputed from edited peaks on reload
         // Frozen fit grid: persisted so post-load updatePlot() renders the
         // recorded fit (haveFit path) instead of recomputing background and
         // residuals from current settings. Absent in older saves — loaders
@@ -10640,7 +10684,10 @@ function _loadSpectrumFile(data, sessionFile) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative']) if (data.statistics[k]) fr[k] = data.statistics[k];
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
-    if (data.fittedY) fr.fittedY = data.fittedY;
+    // F1: a stale save's fittedY is the EDITED model's curve (written for the
+    // file's readers); it is never installed under the original fit's key
+    if (data.fittedY && data.statistics.statisticsState !== 'stale') fr.fittedY = data.fittedY;
+    if (data.statistics.rFactor && data.statistics.statisticsState !== 'stale') fr.rFactor = data.statistics.rFactor;
     active.fitResult = fr;
     state.fitResult = fr;
   }

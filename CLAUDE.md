@@ -627,7 +627,12 @@ empty; TSV a NOTE (its columns are the current, unfitted model); figure no
 χ² and no stored "Fit" curve; chart and stack envelopes composed from the
 current peaks; saves keep the key (a reload judges again) and add
 `statisticsState` / `statisticsNote`. Refreshed from `updatePlot`
-(`_refreshStatsState`, Results carries `data-stats-state`). The model
+via `_refreshStartsEvidence` (`_refreshStatsState`, Results carries
+`data-stats-state`; lock toggles and Lock All reach it too). Keys are
+compared by `_sameFitKey` (form numbers canonicalised: "280" = "280.0").
+Auto-Fit now discards a response whose model or context was edited while
+it ran, and a transport failure after such an edit runs no local fit. A
+stale save's curve and R are never re-installed on load. The model
 replacement that keeps an older result is thereby covered for the
 statistics. Not covered (separate units): loaded files without convergence
 provenance; `p._backendParams` still rides in a stale save (not displayed;

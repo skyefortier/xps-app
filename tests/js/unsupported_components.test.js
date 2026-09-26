@@ -30,7 +30,7 @@ function extractFn(name) {
 const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
-const CORE = ['_componentSupportCore', '_componentSupportFromResponse', '_supportRootOf', '_applySupportVerdicts', '_applySupport', '_isUnsupported', '_currentSupport', '_restampSupport', '_unsupportedBadge'];
+const CORE = ['_componentSupportCore', '_componentSupportFromResponse', '_supportRootOf', '_applySupportVerdicts', '_applySupport', '_fitKeyCanon', '_sameFitKey', '_isUnsupported', '_currentSupport', '_restampSupport', '_unsupportedBadge'];
 function core() {
   const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...CORE.map(extractFn)].join('\n');
   return new Function('_escAttr', '_startsLiveKey', 'state', src + '\nreturn { ' + CORE.join(', ') + ' };')(esc, () => 'KEY', { peaks: [] });
@@ -311,9 +311,9 @@ test('a key change re-renders every consumer of the verdict — each compared wi
   const calls = [];
   const state = { peaks: [{ id: 2, support: { supported: false, fitKey: 'OLD' } }], fitResult: {}, chart: { data: { datasets: [{ _peakId: 2, _unsupported: true }] } } };
   const document = { querySelectorAll: sel => sel.includes('peak-list') ? [] : [{ getAttribute: () => '2' }], querySelector: () => null };
-  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', '_patchPeakCardsForSupport', 'renderResults', 'updatePlot', '_startsPanelHtml',
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', '_patchPeakCardsForSupport', 'renderResults', 'updatePlot', '_startsPanelHtml', '_refreshStatsState',
     src + '\nreturn _refreshStartsEvidence;')(state, document, () => 'NEW', (p, k) => p.support.supported === false && p.support.fitKey === k, null, () => {},
-    () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '');
+    () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '', () => {});   // F1's refresh: stale_statistics.test.js
   fn(false);
   assert.deepStrictEqual(calls, ['results', 'plot'], 'sidebar already clean; Results and the chart still stale');
   for (const fn of ['toggleLock', 'toggleAllLocks']) assert.match(extractFn(fn), /_refreshStartsEvidence\(true\);/, fn);
