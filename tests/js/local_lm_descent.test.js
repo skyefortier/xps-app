@@ -35,7 +35,7 @@ function extractFn(name) {
 }
 
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
-  'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
+  'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
   'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
   'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
   'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
@@ -503,6 +503,35 @@ test('the local engine optimises a free LA m continuously and counts it as a deg
   assert.equal(Math.round(held.fr.chi / held.out.chiReduced) - Math.round(free.fr.chi / free.out.chiReduced), 1, 'm counts as a degree of freedom when free');
 });
 
+
+// caM unit, Codex round 1: LA's curve JUMPS where the kernel half-width
+// max(1, ceil(3.5 m/3)) changes (m = 6k/7). A central difference straddling
+// a jump stalled fits that converge with m held. The derivative for m now
+// stays inside one piece; both reviewers' reproducers must converge.
+for (const c of [
+  { label: 'run A: 201 pts at 0.03 eV, m 48 (a transition), noisy', be: grid(280, 286, 0.03),
+    truth: { center: 283.013, fwhm: 0.8, amplitude: 5000, caAlpha: 1.2, caBeta: 1.5, caM: 48 }, noise: i => 5 * Math.sin(1.77 * i),
+    start: { amplitude: 4900 }, lock: { fixCenter: true, fixFwhm: true, fixCaAlpha: true, fixCaBeta: true } },
+  { label: 'run B: 61 pts at 0.05 eV, m 18/7 − 0.001, all free', be: grid(280, 283, 0.05),
+    truth: { center: 281.538, fwhm: 0.8, amplitude: 5000, caAlpha: 1.2, caBeta: 1.5, caM: 18 / 7 - 0.001 }, noise: i => 0.1 * Math.sin(3 * i),
+    start: { amplitude: 4000, caM: 2.6 }, lock: {} },
+]) {
+  test(`an LA fit with m free converges across a kernel-width transition — ${c.label}`, () => {
+    const run = (fixCaM) => {
+      const env = makeEnv();
+      const truth = { id: 1, name: 'la', shape: 'LACX', glMix: 50, asymmetry: 0, ...c.truth };
+      env.state.peaks = [{ ...truth }];
+      const data = env.evalAllPeaks(c.be, env.state.peaks).map((v, i) => v + c.noise(i));
+      env.state.peaks = [{ ...truth, ...c.start, ...c.lock, fixCaM }];
+      const out = env.runFitLocal(c.be, data, new Array(c.be.length).fill(0));
+      return { out, chi: env.state.fitResult && env.state.fitResult.chi };
+    };
+    const free = run(false), held = run(true);
+    assert.equal(held.out.success, true, 'held: ' + JSON.stringify(held.out));
+    assert.equal(free.out.success, true, 'free: ' + JSON.stringify(free.out));
+    assert.ok(free.chi <= held.chi * (1 + 1e-9), `freeing m cannot end worse than holding it: ${free.chi} vs ${held.chi}`);
+  });
+}
 
 test('recovery from an amplitude of exactly zero (the new floor is not a trap)', () => {
   const env = makeEnv();

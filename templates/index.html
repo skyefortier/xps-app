@@ -4088,6 +4088,17 @@ function laTrueCasaXPS(x, center, fwhm, alpha, beta, m) {
 // the grid point nearest the centre (np.argmin |ε|; fallback max), m < 1e-3
 // = the bare base curve (no normalisation), m clamped to [0, 499].
 // Returns the curve for unit amplitude; the caller applies the amplitude.
+// The LA kernel's half-width in points for a given m — the server's
+// `max(1, ceil(3.5·σ))`, σ = m/3, and 0 below the 1e-3 no-convolution
+// threshold. The curve is smooth in m BETWEEN changes of this integer and
+// jumps where it changes (m = 6k/7); the local engine's derivative for m
+// uses it to stay inside one piece (Codex round 1 of the caM unit).
+function _laKernelHalf(m) {
+  const mc = Math.max(0, Math.min(499, Number.isFinite(m) ? m : 0));
+  if (mc < 1e-3) return 0;
+  return Math.max(1, Math.ceil(3.5 * (mc / 3.0)));
+}
+
 function laTrueCasaXPS_array(xArr, center, fwhm, alpha, beta, m) {
   const N = xArr.length;
   const F = Math.max(fwhm, 1e-9);
@@ -4102,7 +4113,7 @@ function laTrueCasaXPS_array(xArr, center, fwhm, alpha, beta, m) {
   }
   if (mc < 1e-3) return Array.from(base);
   const sigma = mc / 3.0;
-  const half = Math.max(1, Math.ceil(3.5 * sigma));
+  const half = _laKernelHalf(mc);
   const K = 2 * half + 1;
   const kern = new Float64Array(K);
   let ksum = 0;
@@ -8349,6 +8360,22 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
       const pPlus = [...params], pMinus = [...params];
       pPlus[j] = clamp(param, params[j] + step);
       pMinus[j] = clamp(param, params[j] - step);
+      if (param === 'caM') {
+        // LA's curve jumps where its kernel half-width changes (m = 6k/7):
+        // a difference straddling a jump is not a derivative and stalled
+        // fits that converge with m held (Codex round 1, caM unit). Keep
+        // each side inside the current piece — one-sided when one side
+        // crosses, the step halved when both would.
+        const piece = _laKernelHalf(params[j]);
+        let hh = step;
+        for (let t = 0; t < 40; t++) {
+          const up = clamp(param, params[j] + hh), dn = clamp(param, params[j] - hh);
+          const upOk = _laKernelHalf(up) === piece, dnOk = _laKernelHalf(dn) === piece;
+          if (upOk || dnOk) { pPlus[j] = upOk ? up : params[j]; pMinus[j] = dnOk ? dn : params[j]; break; }
+          hh /= 2;
+          if (t === 39) { pPlus[j] = params[j]; pMinus[j] = params[j]; }
+        }
+      }
       const span = pPlus[j] - pMinus[j];
       if (span === 0) { J.push(r.map(() => 0)); continue; }
       const rPlus = pPlus[j] === params[j] ? r : residuals(pPlus);

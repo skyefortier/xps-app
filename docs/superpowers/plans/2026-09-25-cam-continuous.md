@@ -86,14 +86,15 @@ minimum. Recommendation: the label STAYS; its wording now names only
   with the curve compared. `tests/js/local_lm_descent.test.js`: the
   W1-round-1 test pinning "held caM is not a dof" replaced by one pinning
   continuous recovery of m (8.66 from 5), a locked m unmoved, and one more
-  dof when free. JS suite: 418 tests, 416 pass, 2 todo (the scalar
-  evaluators of the two convolved shapes, by design).
+  dof when free. JS suite (after round 1): 420 tests, 418 pass, 2 todo
+  (the scalar evaluators of the two convolved shapes, by design).
 - Browser check (`browser_check_cam.py`, dev :5151): committed
   UCl4-graphite U4f Scan loads with m 8.2 shown as "8.2"; Run Fit → LA
   drawn vs fitted 1.1e-13 of amplitude (was 5.6e-3), Results area equal to
   the server curve's (was −0.66 %); Batch Fit onto U4f Scan_1 converges and
   moves m (6.49 → 7.66); no page errors.
-- Python suite: recorded below.
+- Python suite: 993 passed, 7 skipped (on the round-0 commit df388ce; the
+  round-1 change is page-only).
 
 ## 6. Release-note line
 
@@ -105,4 +106,20 @@ fitted. Batch Fit now fits m instead of holding it. m is shown to 0.01.
 
 ## 7. Codex rounds
 
-(filled in as they run)
+**Round 1 (`docs/autofit/codex/cam_continuous_verdict_run{A,B}.md`):
+NO-GO ×2, one finding, the same in both.** MAJOR — LA's curve JUMPS where
+the kernel half-width max(1, ⌈3.5 m/3⌉) changes (m = 6k/7), so a
+central-difference step for m that straddles a jump is not a derivative;
+with m now free, local fits that converge with m held stalled and failed
+(run A: 201 points at 0.03 eV, m 48; run B: 61 points at 0.05 eV,
+m 18/7 − 0.001). lmfit escapes it only because its step is ~1e-8. Fixed
+in the local engine's Jacobian, not in the mirror: one shared
+`_laKernelHalf(m)` (used by the evaluator and the Jacobian, so they cannot
+disagree) and a difference that stays inside the current piece —
+one-sided when one side crosses, the step halved when both would. Both
+reproducers are regression tests (they fail on df388ce, pass now; freeing
+m never ends worse than holding it). `scripts/cam_transition_sweep.js`
+(→ `docs/findings/cam/transition_sweep.json`): 210 local LA fits started
+around 7 transitions × 5 offsets × 3 grid steps × 2 starts — 0 fail with m
+free, 0 with m held, 0 end worse free than held. The §4 re-measurement,
+re-run on the fixed engine, is unchanged to the digits quoted.
