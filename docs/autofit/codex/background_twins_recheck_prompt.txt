@@ -1,0 +1,20 @@
+Re-review unit 4 (the background twins), round 2: branch fix-background-twins. The round-1 fixes are the latest commit (git diff cbf3058..HEAD); the whole unit is git diff 895f323..HEAD. Round-1 verdicts: docs/autofit/codex/background_twins_verdict_run{A,B}.md; the round-1 prompt (brief, sites, measurement): docs/autofit/codex/background_twins_review_prompt.txt. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+ROUND-1 FINDINGS AND FIXES (plan section 4, verbatim):
+
+**Round 1 — NO-GO ×2** (`background_twins_verdict_run{A,B}.md`; both first
+confirmed the parity test fails on the unfixed page exactly as claimed):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR: the clamp, combined with the JS's zero start and its index-linear fallback when the net integral vanishes, reached a DIFFERENT fixed point from fitting.py on data that dip below the baseline — `[10,5,5,17,20]`: fitting.py keeps the straight line `[10,12.5,15,17.5,20]`, the JS gave `[10,10,10,15,20]` (33 % of the span); descending and uniform-grid cases 57 %; at every iteration count | the JS Shirley now runs fitting.py's iteration step for step (row S4); the reproducers are parity tests at 5, 50 and 200 iterations |
+| 2 | MINOR: CLAUDE.md claimed parity for linear without Task 4's non-uniform-grid exception (index vs energy interpolation, 16.7 % on `[0,1,3]`) | the claim is qualified to the tested cases; the linear gap is pinned as a known gap (not this unit) |
+
+
+TRY TO BREAK
+a. The new shirleyBackground against fitting.shirley_background line by line: the initial line (Python's np.linspace on the ascending copy vs the JS index line on the array as given — equal for descending input?), the cumulative integral's direction and endpoints, `total <= 0` (Python breaks keeping B; the JS breaks keeping bg — including on the FIRST iteration, where both keep the straight line), the 1e-6 stop (Python compares against B_prev after assignment), NaN / Infinity in the data, n = 2, equal energies (zero-width steps), non-uniform and descending grids, a maxIter of 0 or 1 (the UI can send 1).
+b. Anything that depended on the OLD JS iteration (a zero start): the UI's iteration-count semantics, tests or fixtures pinning a JS background, smartExperimentalBackground / shirleyLinearBackground if they call shirleyBackground, the local engine, Batch Fit, stack Path B, saved bgIntensity re-use.
+c. The new tests: non-vacuous (fail on cbf3058's page), the linear known-gap pin, the tolerance.
+d. Docs vs code vs measurement.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

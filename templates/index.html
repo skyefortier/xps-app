@@ -4406,31 +4406,38 @@ function evalAllPeaks(beArray, peaks) {
 // BACKGROUND SUBTRACTION
 // ═══════════════════════════════════════════════════
 function shirleyBackground(be, intensity, maxIter) {
+  // fitting.shirley_background's iteration, step for step (unit 4, Codex
+  // round 1): the straight line between the endpoints as the first guess,
+  // the net signal clamped at zero (Proctor–Sherwood), the background KEPT
+  // when no net signal is left, and the same 1e-6 convergence stop. The
+  // clamp alone, on the old zero start and index-linear fallback, reached a
+  // different fixed point on data that dip below the baseline (33–58 % of the
+  // span on small cases). The array order does not matter: the cumulative
+  // integral runs to the array's end and the endpoints are the array's, which
+  // is fitting.py's ascending-copy form mirrored.
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
   const I0 = intensity[0], I1 = intensity[n - 1];
-  let bg = new Array(n).fill(0);
-
+  let bg = intensity.map((_, i) => I0 + (I1 - I0) * i / (n - 1));
   for (let iter = 0; iter < maxIter; iter++) {
-    const newBg = new Array(n).fill(0);
-    for (let i = 0; i < n; i++) {
-      // Net signal clamped at zero, max(y - B, 0), as fitting.shirley_background
-      // (Proctor–Sherwood): a noise channel below the background contributes
-      // no loss, never NEGATIVE loss (Task 4 S4, unit 4 2026-09-27 — the JS
-      // integrated the raw difference and converged to a different fixed point,
-      // 0.015–0.24 % of the span away from the background the server fits).
-      let sumRight = 0;
-      for (let j = i; j < n - 1; j++) {
-        sumRight += (Math.max(intensity[j] - bg[j], 0) + Math.max(intensity[j + 1] - bg[j + 1], 0)) / 2 * Math.abs(be[j + 1] - be[j]);
-      }
-      let sumTotal = 0;
-      for (let j = 0; j < n - 1; j++) {
-        sumTotal += (Math.max(intensity[j] - bg[j], 0) + Math.max(intensity[j + 1] - bg[j + 1], 0)) / 2 * Math.abs(be[j + 1] - be[j]);
-      }
-      const frac = sumTotal > 0 ? sumRight / sumTotal : (n - 1 - i) / (n - 1);
-      newBg[i] = I1 + (I0 - I1) * frac;
+    const cum = new Array(n).fill(0);            // cum[i] = ∫ net signal from point i to the array end
+    let sPrev = Math.max(intensity[n - 1] - bg[n - 1], 0);
+    for (let j = n - 2; j >= 0; j--) {
+      const sj = Math.max(intensity[j] - bg[j], 0);
+      cum[j] = cum[j + 1] + 0.5 * (sj + sPrev) * Math.abs(be[j + 1] - be[j]);
+      sPrev = sj;
     }
-    bg = newBg;
+    const total = cum[0];
+    if (!(total > 0)) break;                     // no net signal left: keep the current background
+    let maxChange = 0;
+    const next = new Array(n);
+    for (let i = 0; i < n; i++) {
+      next[i] = I1 + (I0 - I1) * cum[i] / total;
+      const d = Math.abs(next[i] - bg[i]);
+      if (d > maxChange) maxChange = d;
+    }
+    bg = next;
+    if (maxChange < 1e-6) break;                 // fitting.py's tolerance
   }
   return bg;
 }
