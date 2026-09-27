@@ -112,3 +112,10 @@ all five methods):
 |---|---|---|
 | 1 | MAJOR (B), MINOR (A): the string-blanking regex was quadratic on an unterminated string of escaped quotes — 128 KB took 10 s on the page's thread | one linear scan tracking string and escape state (no regex); 128 KB stress case in the tests (< 500 ms) |
 | 2 | MINOR (A, B): a body cut off INSIDE a string still read "non-finite number" | the scan keeps a string open to the end of the body; the truncated case reads "could not be read" |
+
+**Round 3 — GO ×2** (`f2_acceptance_holes_r3_verdict_run{A,B}.md`; both
+measured the round-2 scanner at ~4 ms on the 128 KB stress case, < 124 ms on
+10 MB bodies, the old one at 9.6 s). One MINOR from both, fixed: a minus sign
+before `Infinity` counted without a boundary before it (`x-Infinity`,
+`--Infinity` read "non-finite number"); the sign now needs a boundary too.
+Regression test. Round 4 confirms the fix.

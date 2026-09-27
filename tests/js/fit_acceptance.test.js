@@ -705,3 +705,14 @@ test('the token scan is linear and keeps a truncated string a string (Codex roun
   await assert.rejects(read(reply('[-Infinity]')), e => /non-finite number/.test(e.message));
   await assert.rejects(read(reply('{"a":1,"b":Infinity}')), e => /non-finite number/.test(e.message));
 });
+
+test('a minus sign counts only after a boundary: "x-Infinity" is malformed, "-Infinity" a token (Codex round 3)', async () => {
+  const read = new Function(extractFn('_readFitReply') + '\nreturn _readFitReply;')();
+  const reply = t => ({ text: async () => t });
+  for (const bad of ['{"a":x-Infinity}', '{"a":--Infinity}', '{"v":foo-Infinity}']) {
+    await assert.rejects(read(reply(bad)), e => e.unreadableReply && /could not be read/.test(e.message), bad);
+  }
+  for (const tok of ['{"a":-Infinity}', '[1, -Infinity]', '{"a": -Infinity }']) {
+    await assert.rejects(read(reply(tok)), e => /non-finite number/.test(e.message), tok);
+  }
+});

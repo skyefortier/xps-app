@@ -7432,7 +7432,7 @@ async function _readFitReply(resp) {
         }
         if (ch === '"') { inStr = true; continue; }
         if (ch === 'N' && t.startsWith('NaN', i) && bound(t[i - 1]) && bound(t[i + 3])) return true;
-        if (ch === 'I' && t.startsWith('Infinity', i) && (bound(t[i - 1]) || t[i - 1] === '-') && bound(t[i + 8])) return true;
+        if (ch === 'I' && t.startsWith('Infinity', i) && (bound(t[i - 1]) || (t[i - 1] === '-' && bound(t[i - 2]))) && bound(t[i + 8])) return true;   // a sign only after a boundary (round 3)
       }
       return false;
     })(text);
