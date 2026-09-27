@@ -53,26 +53,56 @@ returned as a CLEAN survivor. Under LR the same component is occupied (its
 gain per parameter is far above 10 Poisson units) and the result is
 conditional, as today.
 
+## Codex review of this write-up (F3 round 1, `f3_c1s_gate_verdict_run{A,B}.md`) — the recommendation below replaces the first draft's
+
+Both runs reproduced the measurements and the mechanism (P3's third component:
+Δχ² ≈ 10 702, F ≈ 9.42 with four free parameters → persistence 0, orphan rate 1,
+out of the decisive-override pool). They also found three things wrong with
+the first draft's recommendation of LR, all of which hold:
+
+1. **LR is not scale-free.** "Dimensionless" is not "invariant under a change
+   of intensity units": with Poisson weights the gain Δχ² scales with the
+   counts, so multiplying a spectrum by 0.1 (CPS instead of counts, a
+   normalisation) turned Δχ²/p = 32 into 3.2 and flipped the verdict, while F
+   stayed at 16 — F is a RATIO of two χ² quantities and is invariant. The
+   design rule asks for exactly that invariance. (The statistic is also a
+   gain with the other components held fixed, not a refitted likelihood
+   ratio; the draft's name overstated it.)
+2. **The LR patch is internally inconsistent**: occupancy used Δχ²/p while
+   detectability still used `support.supported` and reported
+   `basis: support_f_test`, so a component could be "unoccupied" and
+   `above_floor` at once, and a proposal rejection could print "F = 32.00 < 10".
+3. **The stress case does not show F rejecting a real peak.** The fixture
+   (`tests/autofit/stress_cases.py`) has TWO true peaks; P3's third component
+   compensates for the wrong background. F calls it unsupported — defensibly —
+   and the honesty flag then disappears because the "conditional" tier
+   depended on keeping that background-compensating component. The F result
+   also still carries `filtered_dominant_alternative` (P3, ΔBIC ≈ 153), which
+   the page shows: not a silent clean answer.
+
+Both runs, independently: **start from F** (one support definition across
+the app, invariant to intensity units) and fix two things around it before
+shipping:
+
+- an unsupported component INSIDE its slot's window must not become an
+  "orphan" (an unexplained extra peak) — today (and in both patches) a
+  component that fails occupancy has no accepting slot and counts toward
+  `orphan_rate`, a plausibility violation; "slot empty" and "peak nobody
+  expects" need distinct treatment;
+- the model-mismatch honesty signal must not depend on a component that only
+  compensates for a wrong background — report the mismatch (χ²ᵣ ≫ 1, the
+  residual structure) on its own terms.
+
 ## The decision (owner)
 
-- **F** keeps ONE definition of "supported" across the app (Find Peaks would
-  judge components exactly as Run Fit's "not supported by the data" does), but
-  in a grossly mis-modelled fit it declares real components absent and can
-  turn an honest "conditional" answer into a clean one.
-- **LR** keeps today's behaviour on every gate and the honesty case; its
-  statistic differs from the server's support verdict, so after "Apply" a
-  component Find Peaks counted as occupied could still read "not supported"
-  in Run Fit's results on a very badly fitted model (the two agree whenever
-  χ²ᵣ ≈ 1).
+- **Adopt F as the occupancy statistic** (recommended, both reviewers), as a
+  unit of its own with the two follow-ups above, measured on the gated and
+  always-on suites; the honesty test is then re-examined against a
+  mismatch signal that does not ride on P3.
+- **LR**: withdrawn as a recommendation (not invariant to intensity units).
+- Either way `noise_floor` survives only as the Poisson variance floor (both
+  patches leave it; it keeps the raw-count assumption the server's weights
+  make, which a unit change would also move).
 
-**Recommendation: LR.** Occupancy asks "did the fit put something real
-here", which is a question about the signal against counting noise, not
-against the model's own misfit; normalising by the misfit makes the answer
-depend on how wrong the rest of the model is, which is exactly what the
-honesty tier exists to report. Measured: LR changes nothing on any gate; F
-breaks the honesty contract.
-
-To apply the chosen variant: `git apply docs/findings/noise-floor-occupancy/variant_<X>.patch`
-on this branch, then the full suite, the gated suite (`RUN_AUTOFIT_GATE=1`)
-and Codex ×2. The `test_methods_seam` detectability assertion and the schema
-round-trip fixture already accept both variants' status strings.
+The two patches stay here as the measured starting points:
+`git apply docs/findings/noise-floor-occupancy/variant_F_support_test.patch`.

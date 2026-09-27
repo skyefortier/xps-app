@@ -7650,16 +7650,15 @@ function isC1sTab(tab) {
   if (isActive && typeof getROIData === 'function') {
     be = getROIData().be;
   } else {
-    const shift = Number.isFinite(tab.ccShift) ? tab.ccShift : 0;
-    const corr = tab.rawBE.map(v => v - shift);
+    // the SAME selection getROIData() makes, on the record's own data: each
+    // bound independently open when blank, never reordered (min > max selects
+    // nothing), inclusive, corrected frame (Codex round 1)
+    const shift = isNaN(tab.ccShift) ? 0 : tab.ccShift;   // read as getCorrectedBE() reads state.ccShift
     const ui = tab.ui || {};
     const a = parseFloat(ui.roiMin), b = parseFloat(ui.roiMax);
-    if (Number.isFinite(a) && Number.isFinite(b)) {
-      const lo = Math.min(a, b), hi = Math.max(a, b);
-      be = corr.filter(v => v >= lo && v <= hi);
-    } else {
-      be = corr;                               // no window set yet: the whole scan
-    }
+    const lo = isNaN(a) ? -Infinity : a, hi = isNaN(b) ? Infinity : b;
+    be = [];
+    for (const v of tab.rawBE) { const c = v - shift; if (c >= lo && c <= hi) be.push(c); }
   }
   if (!be || !be.length) return false;
   let lo = Infinity, hi = -Infinity;

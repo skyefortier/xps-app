@@ -1,0 +1,9 @@
+Re-review unit F3 (the Auto-Fit C1s gate on live data), round 2: branch fix-noise-floor-scale-free. Round 1 was GO x2 (docs/autofit/codex/f3_c1s_gate_verdict_run{A,B}.md) with two MINORs on the shipped change, fixed in the latest non-merge commit: (1) isC1sTab's record path now makes exactly getROIData()'s selection (each bound open on its own side when blank, never reordered — min > max selects nothing — inclusive, corrected frame, the shift read as getCorrectedBE reads state.ccShift); (2) the caller test now proves each caller looks the tab up by tabManager.activeId and judges that tab. The parked half's write-up (docs/findings/noise-floor-occupancy/README.md) was revised after your round-1 review: the LR recommendation is withdrawn, F is recommended with the two follow-ups you named. Review git diff 895f323..HEAD for the round-1 fixes (ignore any merge of fix-fit-start-poll: those are unit 2's changes, reviewed separately), and git diff 07e0839..HEAD minus unit-2 merges for the whole unit. Plan: docs/superpowers/plans/2026-09-27-f3-noise-floor-and-c1s-gate.md. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The record path vs getROIData()/getCorrectedBE(): every input (blank / NaN / reversed / equal bounds, Infinity or NaN ccShift, an empty rawBE); performance on a long record.
+b. The strengthened caller test: would it catch a caller judging an inactive record?
+c. The revised parked write-up: does it now state the evidence and your round-1 findings correctly; is the recommendation sound.
+d. Anything round 1 verified that these changes touched.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

@@ -33,11 +33,22 @@ fields refresh the menu).
 
 ## 2. PARKED for an owner decision: the occupancy floor (M9)
 
-`docs/findings/noise-floor-occupancy/README.md`: both scale-free variants
-implemented as patches and measured (the server's support F test breaks the
-background-mismatch honesty case; a Poisson likelihood ratio passes every
-gated and always-on suite). Recommendation: the likelihood ratio.
+`docs/findings/noise-floor-occupancy/README.md`: two variants implemented as
+patches and measured. The first draft recommended the likelihood ratio; Codex
+round 1 (both runs) showed it is NOT invariant to intensity units and its
+patch was inconsistent, and that the honesty failure under F comes from a
+background-compensating component in a two-peak fixture. Revised
+recommendation, both reviewers: F, as its own unit, with an unsupported
+in-window component kept distinct from an orphan and a mismatch signal that
+does not ride on that component.
 
 ## 3. Codex rounds
 
-(filled in as they run)
+**Round 1 — GO ×2 for the shipped gate** (`f3_c1s_gate_verdict_run{A,B}.md`).
+MINORs fixed: the record path now makes exactly getROIData()'s selection
+(each bound open on its own side when blank, never reordered, the shift read
+as getCorrectedBE reads it) — nonblocking, all callers pass the active tab;
+the caller test now proves each caller looks the tab up by
+`tabManager.activeId` and judges that tab. Three of the four gate tests fail
+on the old code. The parked half's review is recorded in the findings README
+(recommendation revised to F). Round 2 confirms the MINOR fixes.
