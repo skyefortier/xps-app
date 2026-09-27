@@ -7414,7 +7414,9 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
 async function _readFitReply(resp) {
   const text = await resp.text();                 // rejects only on transport
   try { return JSON.parse(text); } catch (_) {
-    const nonFinite = /(^|[\[,:\s])(-?Infinity|NaN)([\],\x7d\s]|$)/.test(text);   // \x7d = closing brace
+    // a NaN / Infinity TOKEN, not the word inside a JSON string (Codex round 1)
+    const unquoted = text.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    const nonFinite = /(^|[\[,:\s])(-?Infinity|NaN)([\],\x7d\s]|$)/.test(unquoted);   // \x7d = closing brace
     const err = new Error(nonFinite
       ? 'The server\'s reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed.'
       : 'The server\'s reply could not be read. The fit is treated as failed.');

@@ -1,0 +1,20 @@
+Re-review unit F2 (holes in the acceptance rule), round 2: branch fix-acceptance-holes. Round-1 commit 9210786; the fixes are the commit after it (git diff 9210786..HEAD); the whole unit is git diff main..HEAD. Round-1 verdicts: docs/autofit/codex/f2_acceptance_holes_verdict_run{A,B}.md; the round-1 prompt (brief, owner decisions, sites, measurements): docs/autofit/codex/f2_acceptance_holes_review_prompt.txt. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Reminder (owner instruction, in the unit): basinhopping runs no perturbed restarts; Auto-Fit checks the HTTP status before parsing. Out of scope: the public URL's Cloudflare ~100 s ceiling (a separate unit is in progress on another branch).
+
+ROUND-1 FINDINGS AND FIXES (plan section 5, verbatim):
+
+**Round 1 — run A GO, run B NO-GO** (`f2_acceptance_holes_verdict_run{A,B}.md`):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B): the required-refit guard read only `refit.success`; differential evolution can return `success: true, box_unverified: true` (its boxed search converged, both verifications failed) — reproduced as `required: true, refit_converged: true`, F ≈ 1.2e6 | `_component_required` treats `box_unverified` as not verified: no verdict, `refit_converged: false` (the main fit's acceptance rule already rejects such a candidate). Regression test. |
+| 2 | MINOR (A, B): the non-finite diagnosis matched "NaN" inside a JSON string of a malformed body | JSON strings are blanked before the token test; the malformed body now reads "could not be read". Regression test (string, token, escaped quote, valid JSON with the word). |
+
+TRY TO BREAK
+a. The required guard: any other way a refit returns success true without being a verified fit of the reduced model (basinhopping's candidate, an aborted DE box, a least_squares competitor that won); does required still run for every method, and is the page's refusal reached for box_unverified too.
+b. The token test: escaped quotes, a string containing a backslash at its end, a body cut inside a string, very large bodies (regex cost), Infinity inside a number like 1e999 serialised by Python (Flask writes Infinity).
+c. Anything round 1 raised or verified that the fixes changed.
+d. Tests: real and non-vacuous.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

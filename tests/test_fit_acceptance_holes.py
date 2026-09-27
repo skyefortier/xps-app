@@ -101,3 +101,16 @@ def test_an_unconverged_refit_gives_no_required_verdict():
                                       chi2_with=1.0, n_free_comp=1, n_free_total=2)
     assert out["refit_converged"] is True and out["required"] is False
     assert out["f"] == pytest.approx(1.17)
+
+
+def test_an_unverified_differential_evolution_refit_gives_no_required_verdict():
+    """Codex round 1: DE can return success=True with box_unverified=True (its
+    boxed search converged, both verifications failed); the main fit's
+    acceptance rule rejects that candidate, so the required verdict must too."""
+    params = Parameters()
+    params.add("p1_amplitude", value=1.0)
+    params.add("p2_amplitude", value=1.0)
+    unverified = SimpleNamespace(success=True, box_unverified=True, chisqr=500.0, message="boxed")
+    out = fitting._component_required(lambda p: unverified, params, ["p1_"], np.ones(50), np.ones(50),
+                                      chi2_with=1.0, n_free_comp=1, n_free_total=2)
+    assert out["required"] is None and out["refit_converged"] is False

@@ -1451,8 +1451,11 @@ def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weigh
             start[name].set(expr=par.expr)
     refit = fit_reduced(start)
     chi2_without = float(refit.chisqr) if refit.chisqr is not None else float("inf")
-    if not refit.success:
+    if not refit.success or getattr(refit, "box_unverified", False):
         # F2 (2026-09-26): a refit that did not converge establishes nothing
+        # (nor does a differential-evolution candidate whose search box no
+        # refinement verified — the main fit's acceptance rule rejects it too;
+        # Codex round 1)
         # either way — its chi-square is wherever the optimiser stopped (a
         # redundant anchor read "required", F 992, from a refit stopped early;
         # F 1.17 once it completed). No verdict; the caller decides.

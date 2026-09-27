@@ -1,0 +1,5974 @@
+OpenAI Codex v0.153.4
+--------
+workdir: /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: high
+reasoning summaries: none
+session id: 01a0e18f-a404-71d3-8b5d-b6ec0923d679
+--------
+user
+Review unit F2 (holes in the acceptance rule): branch fix-acceptance-holes, git diff main..HEAD (fitting.py, templates/index.html, tests/test_fit_acceptance_holes.py, tests/test_basinhopping_outcome.py, tests/test_fit_reproducibility.py, tests/js/fit_acceptance.test.js, tests/js/stale_statistics.test.js, tests/js/autofit_required.test.js, tests/js/local_lm_descent.test.js, CLAUDE.md, docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+OWNER'S BRIEF (verbatim): "nothing is a fit unless it converged and is determined: basinhopping success from the real scipy result; a NaN in an /api/fit reply is a failed fit with a message, not a local fallback; n_free > n_data is refused as undetermined; the required verdict requires a converged refit."
+Owner decisions since (verbatim in the plan, section 2): basinhopping is verified by refinement AND competes with a plain least_squares fit from the same start (the full DE pattern), because scipy's own flag failed 23 of 24 sampled fits that sit at Trust-Region's minimum; refusal at n_free >= n_data (equality accepted); an unconverged required-refit blocks the Auto-Fit anchor.
+
+NOTE — ALSO IN THIS UNIT, BY OWNER INSTRUCTION: BASINHOPPING RUNS NO PERTURBED RESTARTS. Measured with the page's request (n_perturb 3) after the refinement change: 14 of 16 multi-component targets exceeded the production server's 300 s timeout (median 386 s, max 1066 s); without the restarts median 96 s, max 256 s, chi2r identical to 1e-8 on all 16. run_fit skips the perturb loop for basinhopping only. Review that change like the rest.
+
+Out of scope (reported separately, docs/findings/2026-09-26-public-request-ceiling.md; do NOT treat as a finding against F2): the public URL's Cloudflare 524 ceiling between 88 s and 125 s.
+
+PLAN SECTIONS 1-3 (sites, decisions, measurements), verbatim:
+
+## 1. Sites
+
+| # | hole | site | before | after |
+|---|---|---|---|---|
+| 1 | basinhopping always "converged" (H2) | `fitting.fit_model` → new `_basinhopping_candidate` | lmfit sets `success = True` before minimising and its basinhopping never reads scipy's result | the DE pattern in full (owner decision, §2): search → unconditional `least_squares` refinement from its point under the request's bounds (the refinement's convergence is the verdict; no χ² comparison, no tolerance) → competition with a `least_squares` fit from the same start (verified beats unverified, then lower χ²). An unverifiable search is `success: false` with its own message. `fit_model` is the ONE fitter, so the main fit, every perturbed restart and the required refit all go through it; scattered starts do not run for basinhopping. |
+| 2 | a 2xx `/api/fit` reply with NaN switched to the local engine (M1) | page `_readFitReply` (new), used by `runFit` and `runAutoFitC1sGraphite` (the only two `/api/fit` callers) | `resp.json()` threw a SyntaxError, which `_asTransport` classified as a transport failure → `runFitLocal` replaced the server's converged result, verdicts and starts evidence | the body is read as text (a failure THERE is transport: the connection dropped) and parsed by the page; a body that was read but is not JSON is the server's reply → `serverError`, a failed fit with its message ("contains a non-finite number (NaN or Infinity) …" / "could not be read"), previous peaks and result kept, no fallback. Auto-Fit fails closed with the same message (it used to say "failed to converge or produced an unphysical graphite position"). The server is unchanged: the page, not a sanitiser, decides that a non-finite reply is not a fit. |
+| 3 | n_data ≤ n_free read as a near-perfect, fully supported fit (M2) | `fitting.run_fit` before the fit; page `runFitLocal` after its free-parameter list | lmfit `redchi = χ²/max(1, nfree)`; the support / required F tests clamp dof to 1; the local engine clamps too | refused: `ValueError` "not determined by these data: N free parameters for M data points leaves no degrees of freedom …" (HTTP 400 on `/api/fit`; the same message through Find Peaks' refit, `/api/analyze`); the local engine fails with the same text, nothing written. A COUNT, not a threshold. Refused at n_free ≥ n_data (§2). |
+| 4 | the required verdict ignored its refit's convergence (M3) | `fitting._component_required`; page `applyAutoFitResult` | `required` computed whether or not the refit converged (a refit stopped early read "required", F 992, for a redundant anchor); the page never read `refit_converged` | an unconverged refit returns `required: null, f: null, refit_converged: false, reason: "refit_not_converged"` (+ the solver message); Auto-Fit REFUSES that anchor before any charge-correction input is touched (red notice) — an anchor whose necessity could not be established must not set the energy reference of the whole spectrum. A check that did not RUN at all (older server, exception, nothing left, main fit not converged) still never blocks, as documented. |
+
+| 5 | Auto-Fit parsed a non-2xx reply (owner, 2026-09-27) | page `runAutoFitC1sGraphite` | a Cloudflare 524 or gunicorn 500 reached `_readFitReply` and read as "the server's reply could not be read" — F2's own message misfiring | `resp.ok === false` is a failed REQUEST with its status in the message ("Auto-fit failed: Fit request failed (HTTP 524)."; a JSON `error` body's text when there is one), before any parsing, as Run Fit has done since A0 |
+
+## 2. Decisions
+
+- **Basinhopping (owner, 2026-09-26).** The brief said "success from the real
+  scipy result". Measured first (scipy's flag recorded by a pass-through
+  wrapper around the name lmfit calls): on a 1-in-8 sample of the 202
+  committed targets (24 of 26 run), scipy marks **23 of 24** basinhopping fits
+  failed — BFGS "Desired error not necessarily achieved due to precision
+  loss" — while their χ²ᵣ equals Trust-Region's from the same start (median
+  relative difference 1.3e-9; one 0.14 % worse; several better). Taken
+  literally the method would fail on almost every correct fit. Owner chose:
+  verify by refinement AND compete with a plain `least_squares` fit from the
+  same start — the guarantee differential evolution already has ("never worse
+  than the default method from the same start"). The wrapper was removed; no
+  monkeypatching remains.
+- **n_free = n_data is refused too.** The brief says "n_free > n_data". At
+  equality there are zero degrees of freedom: the model interpolates every
+  point, reduced χ² is undefined (lmfit divides by max(1, 0)) and the F tests
+  run on a clamped dof of 1 — the same fault as the sweep's reproduction. The
+  refusal is at n_free ≥ n_data; one degree of freedom is fitted as before.
+- **An unconverged required-refit blocks Auto-Fit.** "The required verdict
+  requires a converged refit": the server gives no verdict, and the page does
+  not let an anchor with no verdict set the charge reference. The documented
+  "a check that did not run never blocks" is kept for checks that did not
+  run.
+
+- **No perturbed restarts for basinhopping (owner, 2026-09-26).** Measured
+  after the refinement change, with the page's request (`n_perturb` 3), on 16
+  committed multi-component targets spread over 2–7 components (4 processes,
+  8 physical cores — production runs 4 workers): median 386 s, max 1066 s,
+  **14 of 16 over the 300 s server timeout**. Without the restarts: median
+  96 s, max 256 s, none over 300 s, and χ²ᵣ identical on all 16 (worst
+  relative difference 1e-8) — a global search gains nothing from them, the
+  reason the scattered-starts check already excludes basinhopping and DE.
+  `run_fit` skips the perturb loop for basinhopping (the request's
+  `n_perturb` is still hashed into the seed; nothing else changes). DE keeps
+  its restarts (2–75 s; not in the brief).
+
+## 3. Measurements
+
+| measurement | before F2 | after F2 |
+|---|---|---|
+| basinhopping, 1-in-8 sample of the 202 targets (26), `n_perturb` 0 | lmfit `success: true` on all (unconditional); scipy's own flag "failed" on 23 of 24 (BFGS precision loss) at Trust-Region's minimum | 26 of 26 verified; never worse than Trust-Region from the same start; up to 19 % lower χ²ᵣ; median relative difference −1.9e-10 |
+| basinhopping wall time, page request, 16 multi-component targets | — | with restarts: median 386 s, max 1066 s, 14/16 > 300 s → restarts skipped: median 96 s, max 256 s, 0/16 > 300 s |
+
+The public URL has a lower ceiling (Cloudflare 524 between 88 s and 125 s):
+5 of those 16 still exceed it without restarts. Reported separately, not
+fixed here: `docs/findings/2026-09-26-public-request-ceiling.md`.
+
+
+TRY TO BREAK
+a. _basinhopping_candidate: is every basinhopping minimisation (main fit, required refit, anything else that calls fit_model) verified; can an unverified search ever be returned with success true; does the competitor ever get the search's generated state instead of the request's start and bounds; seeding (the search seeded, the two least_squares not; the request seed unchanged; n_perturb still hashed); the 'aborted' case; the message returned; the result's params/stderr/bounds vs what the page stores; a linked (expr) parameter across the refinement; nan_policy.
+b. The restart skip: anything else keyed on n_perturb (the seed, perturb_rng stream alignment for OTHER methods, the response, /api/analyze), DE unchanged, the page still sending n_perturb 3.
+c. _readFitReply and Auto-Fit's new resp.ok check (site 5): is every 2xx /api/fit body read through it (Run Fit, alternative adoption, Auto-Fit) and every non-2xx one reported with its status before any parsing; can a truncated body (network) be misclassified as a server error or vice versa; the non-finite regex on a body where 'NaN' appears inside a string; the error path's message; _asTransport no longer reachable with a SyntaxError from the fit reply; resp.ok false paths unchanged; Auto-Fit's catch.
+d. Determinacy refusal: count vs lmfit's nvarys (expr parameters, fixed parameters, the DE box, n_starts, the required refit's reduced model), NaN / non-finite y excluded consistently with nan_policy omit, the local engine's count vs its dof (caM held, discrete), Batch Fit's per-target message, Find Peaks' refit (/api/analyze) surfacing the ValueError, Auto-Fit.
+e. Required: _component_required's new branch vs the existing non-finite branch; the page's refusal ordering (before any charge-correction input); required null from other reasons still non-blocking; the Python twin in autofit/* if any reads 'required'.
+f. Tests: real, non-vacuous (would each fail without its fix?); the edited existing tests still test what they tested.
+g. Docs vs code vs measurements (CLAUDE.md, plan).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
+codex
+I’ll check the diff against the acceptance rules, trace the affected call paths, and run focused checks where the read-only environment permits. I’ll finish with ranked findings and a verdict.
+exec
+/bin/zsh -lc "pwd; git status --short; git diff --stat main..HEAD; rg --files -g AGENTS.md -g '*acceptance*' -g '*basinhopping*'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 17ms:
+docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md
+tests/test_fit_acceptance_holes.py
+tests/test_basinhopping_outcome.py
+tests/js/fit_acceptance.test.js
+docs/autofit/codex/a0_local_lm_acceptance_r11_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck8_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r5_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck13_prompt.txt
+docs/autofit/codex/f2_acceptance_holes_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck5_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r14_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r13_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r7_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck16_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r19_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r2_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r16_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r8_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r12_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r6_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r18_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r3_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r17_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck7_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_recheck11_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r9_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r20_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck2_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r10_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck14_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r4_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck19_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r15_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck17_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r10_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r4_verdict_runA.md
+docs/autofit/codex/f2_acceptance_holes_review_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r15_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r12_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r6_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r18_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck9_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r3_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r17_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck12_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_recheck4_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r9_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r20_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r13_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r7_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_review_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_recheck3_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_recheck15_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r19_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r2_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r16_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r8_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck18_prompt.txt
+docs/autofit/codex/a0_local_lm_acceptance_r11_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_r5_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_verdict_runA.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck6_prompt.txt
+docs/autofit/codex/f2_acceptance_holes_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_r14_verdict_runB.md
+docs/autofit/codex/a0_local_lm_acceptance_recheck10_prompt.txt
+
+exec
+/bin/zsh -lc "ls -a; rg --files -g 'AGENTS.md' /Users/skyefortier/xps-app /Users/skyefortier/.codex 2>/dev/null | head -40" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+.
+..
+.codex
+.git
+.github
+.gitignore
+.impeccable
+.stage9
+CLAUDE.md
+DEPLOY.md
+DESIGN.md
+PRODUCT.md
+__pycache__
+app.py
+autofit
+data
+docs
+fitting.py
+parser.py
+requirements-dev.txt
+requirements.txt
+scripts
+static
+templates
+tests
+uploads
+vgd_parser.py
+xps-fitting-tool.html
+xps_reference.py
+
+exec
+/bin/zsh -lc 'git diff main..HEAD -- fitting.py templates/index.html' in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+exec
+/bin/zsh -lc 'git diff main..HEAD -- tests/test_fit_acceptance_holes.py tests/test_basinhopping_outcome.py tests/test_fit_reproducibility.py tests/js/fit_acceptance.test.js tests/js/stale_statistics.test.js tests/js/autofit_required.test.js tests/js/local_lm_descent.test.js CLAUDE.md docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md' in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-mVLGcBMm' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-eC6dGfNQ' (errno=Operation not permitted)
+diff --git a/fitting.py b/fitting.py
+index 03a6690..c8cdff6 100644
+--- a/fitting.py
++++ b/fitting.py
+@@ -1128,6 +1128,50 @@ def _global_or_local_candidate(model, params, requested, y_sub, x, weights, kws)
+ # options.fit_method straight to run_fit, and lmfit also understands e.g.
+ # "ampgo", "dual_annealing" and "BasinHopping", which would run with
+ # numpy's global generator, unseeded.
++# ── basinhopping: verified by refinement (unit F2, 2026-09-26) ─────────────
++# lmfit 1.3 sets MinimizerResult.success = True before minimising and its
++# basinhopping never reads scipy's result, so a basinhopping fit always
++# "converged" (sweep H2). scipy's own flag is no better a verdict: on 23 of 24
++# sampled committed targets it reports the lowest local minimisation as failed
++# (BFGS "Desired error not necessarily achieved due to precision loss") while
++# the point equals Trust-Region's minimum (median relative chi2r difference
++# 1e-9). Owner decision 2026-09-26: the DE pattern, in full. Basinhopping
++# searches; an UNCONDITIONAL least_squares refinement from its point under the
++# request's bounds decides — a refinement that converged IS the candidate (no
++# chi-square comparison with the search, no tolerance: the DE unit's lesson);
++# then that candidate competes with a least_squares fit from the same start
++# (verified beats unverified, then the lower chi-square), so basinhopping is
++# never worse than the default method from the same start.
++def _basinhopping_candidate(model, params, requested, y_sub, x, weights, kws):
++    nan_policy = kws.get("nan_policy", "omit")
++    start = params.copy()
++    for name, (lo, hi) in requested.items():
++        start[name].set(min=lo, max=hi)
++    found = model.fit(y_sub, start.copy(), x=x, weights=weights, **kws)
++    candidate = None
++    try:   # from wherever the search stopped, even an evaluation-budget abort (as DE)
++        refined = model.fit(y_sub, found.params.copy(), x=x, weights=weights,
++                            method="least_squares", nan_policy=nan_policy)
++        if refined.success:
++            candidate = refined
++    except Exception:
++        log.debug("basin-hopping refinement raised", exc_info=True)
++    if candidate is None:
++        # the search's point could not be verified: it is not a converged fit
++        found.success = False
++        found.message = ("basin-hopping: the local refinement from the point it found did not converge, "
++                         "so the result is not a verified fit")
++        candidate = found
++    try:
++        local = model.fit(y_sub, start.copy(), x=x, weights=weights, method="least_squares", nan_policy=nan_policy)
++    except Exception:
++        log.debug("local candidate from the start raised", exc_info=True)
++        return candidate
++    if local.success and (not candidate.success or local.chisqr < candidate.chisqr):
++        return local
++    return candidate
++
++
+ _FIT_METHODS = ("leastsq", "least_squares", "nelder", "differential_evolution", "basinhopping")
+ _STOCHASTIC_METHODS = ("differential_evolution", "basinhopping")
+ 
+@@ -1407,6 +1451,14 @@ def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weigh
+             start[name].set(expr=par.expr)
+     refit = fit_reduced(start)
+     chi2_without = float(refit.chisqr) if refit.chisqr is not None else float("inf")
++    if not refit.success:
++        # F2 (2026-09-26): a refit that did not converge establishes nothing
++        # either way — its chi-square is wherever the optimiser stopped (a
++        # redundant anchor read "required", F 992, from a refit stopped early;
++        # F 1.17 once it completed). No verdict; the caller decides.
++        return {"required": None, "f": None, "chi2_with": float(chi2_with), "chi2_without_refit": chi2_without,
++                "refit_converged": False, "reason": "refit_not_converged",
++                "message": str(getattr(refit, "message", "") or "")[:200]}
+     delta = chi2_without - chi2_with
+     p = max(1, int(n_free_comp))
+     dof = max(1, len(y_sub) - int(n_free_total))
+@@ -1648,6 +1700,22 @@ def run_fit(
+     if isinstance(n_starts, bool) or not isinstance(n_starts, (int, np.integer)) or not 0 <= n_starts <= MAX_N_STARTS:
+         raise ValueError(f"n_starts must be an integer between 0 and {MAX_N_STARTS}")
+ 
++    # ── Determinacy (unit F2, 2026-09-26) ─────────────────────────────────────
++    # "Nothing is a fit unless it converged and is determined." With at least
++    # as many free parameters as data points the model can pass through every
++    # point: lmfit reports redchi = chi2 / max(1, nfree) as if it were a fit,
++    # and the support / required F tests clamp their dof to 1, so such a model
++    # read as a near-perfect, fully supported fit (sweep M2: 6 points, 2 GL
++    # components, chi2r 2.8e-6, both "supported"). A count, not a threshold:
++    # zero or negative degrees of freedom is refused outright.
++    n_free_request = sum(1 for par in all_params.values() if par.vary and not par.expr)
++    n_data_request = int(np.count_nonzero(np.isfinite(y_sub)))
++    if n_free_request >= n_data_request:
++        raise ValueError(
++            f"The model is not determined by these data: {n_free_request} free parameters for "
++            f"{n_data_request} data points leaves no degrees of freedom. Widen the fitted range, "
++            f"remove components or lock parameters.")
++
+     # ── Fit ───────────────────────────────────────────────────────────────────
+     kws = {"method": "leastsq", "nan_policy": "omit"}
+     if fit_kws:
+@@ -1676,6 +1744,9 @@ def run_fit(
+         if kws.get("method") == "differential_evolution":
+             bounds = {name: requested_bounds.get(name, (par.min, par.max)) for name, par in params.items()}
+             return _global_or_local_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
++        if kws.get("method") == "basinhopping":
++            bounds = {name: requested_bounds.get(name, (par.min, par.max)) for name, par in params.items()}
++            return _basinhopping_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
+         return model.fit(y_sub, params, x=x, weights=weights, **seeded(kws))
+ 
+     def fit_once(params):
+@@ -1707,7 +1778,13 @@ def run_fit(
+                       f"{par.stderr:.6f}" if par.stderr is not None else 'None', delta)
+ 
+     # ── Perturb and refit to escape local minima ─────────────────────────
+-    if n_perturb > 0 and result.success:
++    # Not for basinhopping (unit F2, 2026-09-26, owner): it is already a global
++    # search, so perturbed restarts add nothing — the reason the scattered-
++    # starts check excludes it — and with the page's n_perturb 3 they
++    # quadrupled its time past the server's 300 s timeout on 14 of 16 sampled
++    # multi-component targets (median 386 s, max 1066 s; without them median
++    # 96 s, max 256 s, and chi2r identical to 1e-8 on all 16).
++    if n_perturb > 0 and result.success and kws.get("method") != "basinhopping":
+         best_result = result
+         best_redchi = result.redchi if result.redchi is not None else float('inf')
+         rng = perturb_rng
+diff --git a/templates/index.html b/templates/index.html
+index fedb356..c5d62fd 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -7306,6 +7306,14 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
+     notify('Auto-fit: the Graphite component is not required by the data — refitting the other components without it fits the data as well' + (req.f != null ? ' (F = ' + Number(req.f).toFixed(1) + ', threshold 10)' : '') + '. No charge correction was derived from it and the fit was not applied. The model gives the other components enough freedom to absorb the graphite line; lock or narrow them and try again.', 'red', true);
+     return false;
+   }
++  // F2 (2026-09-26): the refit without the anchor did not converge, so the
++  // server could not establish that the anchor is required. The anchor would
++  // set the energy reference of the whole spectrum: refused, like a
++  // redundant one (a check that did not RUN at all still never blocks).
++  if (req && req.ran === true && req.refit_converged === false) {
++    notify('Auto-fit: it could not be established that the data require the Graphite component — refitting the other components without it did not converge. No charge correction was derived from it and the fit was not applied. Try Run Fit, or narrow the ROI, and run Auto-Fit again.', 'red', true);
++    return false;
++  }
+   if (!_autoFitGraphiteIsSupported(gPeak, json)) {
+     notify('Auto-fit: the data do not support the Graphite component (removing it does not worsen the fit), so no charge correction was derived from it and the fit was not applied.', 'red', true);
+     return false;
+@@ -7397,6 +7405,25 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
+ }
+ 
+ // Top-level entry point. Wired to the Actions menu item.
++// Read a 2xx /api/fit reply (unit F2, 2026-09-26). A failure to READ the body
++// is a transport failure (the caller may fall back to the local engine); a
++// body that was read but is not JSON is the SERVER's reply, so it is a failed
++// fit with a message — never a reason to switch engines. The case seen: an
++// uncertainty that could not be computed, serialised as NaN (Flask writes
++// NaN / Infinity tokens, which JSON.parse rejects).
++async function _readFitReply(resp) {
++  const text = await resp.text();                 // rejects only on transport
++  try { return JSON.parse(text); } catch (_) {
++    const nonFinite = /(^|[\[,:\s])(-?Infinity|NaN)([\],\x7d\s]|$)/.test(text);   // \x7d = closing brace
++    const err = new Error(nonFinite
++      ? 'The server\'s reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed.'
++      : 'The server\'s reply could not be read. The fit is treated as failed.');
++    err.serverError = true;
++    err.unreadableReply = true;
++    throw err;
++  }
++}
++
+ async function runAutoFitC1sGraphite() {
+   // Pre-conditions
+   if (!state.rawBE || !state.rawBE.length) { notify('Load a spectrum first.', 'amber'); return; }
+@@ -7528,7 +7555,17 @@ async function runAutoFitC1sGraphite() {
+       signal: ctrl.signal,
+     });
+     clearTimeout(timer);
+-    const json = await resp.json();
++    // F2: a non-2xx reply is a failed REQUEST with its status in the message,
++    // as Run Fit has done since A0 (a Cloudflare 524 or a gunicorn 500 used to
++    // reach the parser and read as "the server's reply could not be read")
++    if (resp.ok === false) {
++      let msg = null;
++      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
++      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
++      err.httpStatus = resp.status;
++      throw err;
++    }
++    const json = await _readFitReply(resp);   // F2: an unreadable reply is a failed fit with its own message
+     if (json.error) throw new Error(json.error);
+     if (json.success !== true) throw new Error(json.message || 'fit did not converge');
+     if (!_ownerActive(fittingTab)) {
+@@ -7565,6 +7602,8 @@ async function runAutoFitC1sGraphite() {
+     let msg;
+     if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('aborted')))) {
+       msg = 'Auto-fit exceeded the 2-minute timeout.';
++    } else if (e && (e.unreadableReply || e.httpStatus)) {
++      msg = 'Auto-fit failed: ' + e.message;
+     } else if (e && e.message) {
+       msg = 'Fit failed to converge or produced an unphysical graphite position.';
+       console.warn('Auto-fit error:', e);
+@@ -7976,8 +8015,9 @@ async function runFit(opts = {}) {
+     // and leaves the model untouched (unit A0: nothing is shown as a fit
+     // result unless it converged; an HTTP 400 is not a reason to silently
+     // switch engines).
+-    // Only a genuine transport failure (network rejection, abort, unparsable
+-    // 2xx body) is marked for fallback; server errors carry `serverError`.
++    // Only a genuine transport failure (network rejection, abort, a body that
++    // could not be read) is marked for fallback; server errors — including a
++    // 2xx body that was read but is not JSON (F2) — carry `serverError`.
+     const _asTransport = (e) => {
+       if (e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError' || e instanceof SyntaxError)) e.transportFailure = true;
+       throw e;
+@@ -8009,7 +8049,9 @@ async function runFit(opts = {}) {
+       err.serverError = true;
+       throw err;
+     }
+-    try { json = await resp.json(); } catch (e) { _asTransport(e); }
++    // F2: reading the body can fail in transport; a body that was read but is
++    // not JSON is the server's reply — a failed fit, not a fallback
++    try { json = await _readFitReply(resp); } catch (e) { _asTransport(e); }
+     if (json.error) {
+       const err = new Error(json.error);
+       err.serverError = true;
+@@ -8320,6 +8362,13 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+     }
+   }
+   if (!freeParams.every(Number.isFinite)) return fail('a free parameter is not a finite number.');
++  // F2 (2026-09-26): with at least as many free parameters as data points the
++  // model passes through every point and reads as a near-perfect fit (the
++  // dof below is clamped to 1) — refused, as the server refuses it. A count.
++  if (freeParams.length >= be.length) {
++    return fail('the model is not determined by these data: ' + freeParams.length + ' free parameters for ' +
++                be.length + ' data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.');
++  }
+ 
+   // Parameter box. The amplitude floor is 0, the server's, since unit step (b)
+   // (owner decision 2026-09-18: zero allowed in both engines; a component at
+
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-aq1uxOpz' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-SEvY3UP9' (errno=Operation not permitted)
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 610c751..67207b4 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -196,6 +196,17 @@ must read each field exactly the way its consumer reads it — integers as
+ integers, energies through `parseFloat` — never a generic conversion
+ (`_fitKeyCanon`). (Owner, 2026-09-26.)
+ 
++### Timing claims are measured through the public URL
++
++A request from a student reaches the server through Cloudflare, whose edge
++ends a proxied request at ~100 s (HTTP 524; probes through
++xps.fortierlab.org on 2026-09-26: 88 s passed, 125 s gave 524) — well short
++of gunicorn's `--timeout 300`. "300 s covers it" was written for the DS+G
++Run Fit in 2026-09-22 and was true on the i9 and false through the public
++URL. A claim that a request fits inside a limit is measured through
++xps.fortierlab.org, not on 127.0.0.1. (Owner, 2026-09-27;
++`docs/findings/2026-09-26-public-request-ceiling.md`.)
++
+ ---
+ 
+ ## Lineshape Physics — Critical Rules
+@@ -358,6 +369,34 @@ exhaust DE's evaluation budget in every search and are rescued by the
+ refinement). It is not a gold standard: on one 3-component B 1s target it
+ returned χ²ᵣ 1.92 where Trust-Region found 1.81.
+ 
++`basinhopping` follows THE SAME PATTERN since unit F2 (2026-09-26; owner
++decision; plan `docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md`):
++`_basinhopping_candidate` — the search, then an unconditional
++`least_squares` refinement from its point under the request's bounds (the
++refinement's convergence is the verdict, no χ² comparison), then a
++competition with a `least_squares` fit from the same start (verified beats
++unverified, then the lower χ²), for the main fit, every perturbed restart and
++the required refit. Until then basinhopping always reported `success: true`
++(lmfit sets it before minimising and never reads scipy's result), and
++scipy's own flag is no verdict either: it marked 23 of 24 sampled committed
++targets failed (BFGS "precision loss") at points equal to Trust-Region's
++minimum (median relative χ²ᵣ difference 1e-9). An unverifiable search is
++`success: false`. Basinhopping runs NO perturbed restarts (a global search:
++with the page's `n_perturb` 3 they took 14 of 16 multi-component targets past
++the 300 s server timeout, median 386 s, for χ²ᵣ identical to 1e-8; without
++them median 96 s, max 256 s). NOTE: the public URL's ceiling is lower —
++Cloudflare returns 524 between 88 s and 125 s — so the largest basinhopping
++models still fail there
++(`docs/findings/2026-09-26-public-request-ceiling.md`, not yet addressed).
++
++**Determinacy (unit F2).** `run_fit` refuses a model with at least as many
++free parameters as data points (`ValueError`, HTTP 400, "not determined by
++these data: N free parameters for M data points"), and so does the local
++engine: lmfit divides by max(1, nfree) and the F tests clamp dof to 1, so such
++a model read as a near-perfect, fully supported fit (6 points, 2 GL
++components: χ²ᵣ 2.8e-6, both "supported"). A count, not a threshold; one
++degree of freedom is fitted as before.
++
+ **Reproducibility (2026-09-21).** Every random draw in `run_fit` — the
+ `n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
+ and the populations of `differential_evolution` and `basinhopping`, which
+@@ -616,7 +655,13 @@ only if it converged. `runFitLocal` works on a copy and commits only on
+ success, returning `{success, iterations, chiReduced}`; `runFit`
+ treats `success !== true` from `/api/fit` as a failed fit and falls back to
+ the local engine only on a transport failure, never on a server-side
+-error. A RESULT IS DISCARDED IF THE MODEL WAS EDITED WHILE THE FIT WAS RUNNING
++error. A 2xx body that was READ but is not JSON is the server's reply, not a
++transport failure (unit F2): `_readFitReply` reads the text (a failure there
++is transport) and parses it; a NaN / Infinity token (Flask serialises a σ it
++could not compute that way) or any unparseable body is a failed fit with its
++message, for Run Fit and Auto-Fit alike — until F2 it sent Run Fit to the
++local engine, replacing the server's converged result, verdicts and starts
++evidence with a starting point. A RESULT IS DISCARDED IF THE MODEL WAS EDITED WHILE THE FIT WAS RUNNING
+ (2026-09-22; a correctness fix for EVERY Run Fit, shipped with the
+ scattered-starts check but independent of it). The peak controls stay
+ editable during a fit. `runFit` captures the model-plus-context key
+@@ -749,7 +794,10 @@ mean "zero" independently of the data):
+   to machine precision F is meaningless and a truly redundant component can
+   read "required"; real data never fit to machine precision) and returns
+   `required: {required, f, chi2_with, chi2_without_refit, refit_converged}`
+-  with the same F ≥ 10 rule. `applyAutoFitResult` refuses a supported-but-
++  with the same F ≥ 10 rule (a refit that did not converge gives NO verdict
++  since unit F2 — `required: null, refit_converged: false` — and Auto-Fit
++  refuses that anchor too: a refit stopped early had read "required", F 992,
++  for a redundant anchor). `applyAutoFitResult` refuses a supported-but-
+   not-required anchor exactly like an unsupported one, before any
+   charge-correction input is touched ("refitting the other components
+   without it fits the data as well"); the anchor id is captured with the
+diff --git a/docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md b/docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md
+new file mode 100644
+index 0000000..0fd8e8c
+--- /dev/null
++++ b/docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md
+@@ -0,0 +1,100 @@
++# F2 — holes in the acceptance rule (2026-09-26)
++
++Branch `fix-acceptance-holes` off main `07e8f46` (F1 deployed). Owner's
++brief, second of the three sweep units: "nothing is a fit unless it
++converged and is determined":
++
++- basinhopping success from the real scipy result;
++- a NaN in an /api/fit reply is a failed fit with a message, not a local
++  fallback;
++- n_free > n_data is refused as undetermined;
++- the required verdict requires a converged refit.
++
++Source findings: `docs/findings/2026-09-25-fail-open-guards-sweep.md` H2, M1,
++M2, M3 (`sweep-fail-open-guards`). Medium effort.
++
++## 1. Sites
++
++| # | hole | site | before | after |
++|---|---|---|---|---|
++| 1 | basinhopping always "converged" (H2) | `fitting.fit_model` → new `_basinhopping_candidate` | lmfit sets `success = True` before minimising and its basinhopping never reads scipy's result | the DE pattern in full (owner decision, §2): search → unconditional `least_squares` refinement from its point under the request's bounds (the refinement's convergence is the verdict; no χ² comparison, no tolerance) → competition with a `least_squares` fit from the same start (verified beats unverified, then lower χ²). An unverifiable search is `success: false` with its own message. `fit_model` is the ONE fitter, so the main fit, every perturbed restart and the required refit all go through it; scattered starts do not run for basinhopping. |
++| 2 | a 2xx `/api/fit` reply with NaN switched to the local engine (M1) | page `_readFitReply` (new), used by `runFit` and `runAutoFitC1sGraphite` (the only two `/api/fit` callers) | `resp.json()` threw a SyntaxError, which `_asTransport` classified as a transport failure → `runFitLocal` replaced the server's converged result, verdicts and starts evidence | the body is read as text (a failure THERE is transport: the connection dropped) and parsed by the page; a body that was read but is not JSON is the server's reply → `serverError`, a failed fit with its message ("contains a non-finite number (NaN or Infinity) …" / "could not be read"), previous peaks and result kept, no fallback. Auto-Fit fails closed with the same message (it used to say "failed to converge or produced an unphysical graphite position"). The server is unchanged: the page, not a sanitiser, decides that a non-finite reply is not a fit. |
++| 3 | n_data ≤ n_free read as a near-perfect, fully supported fit (M2) | `fitting.run_fit` before the fit; page `runFitLocal` after its free-parameter list | lmfit `redchi = χ²/max(1, nfree)`; the support / required F tests clamp dof to 1; the local engine clamps too | refused: `ValueError` "not determined by these data: N free parameters for M data points leaves no degrees of freedom …" (HTTP 400 on `/api/fit`; the same message through Find Peaks' refit, `/api/analyze`); the local engine fails with the same text, nothing written. A COUNT, not a threshold. Refused at n_free ≥ n_data (§2). |
++| 4 | the required verdict ignored its refit's convergence (M3) | `fitting._component_required`; page `applyAutoFitResult` | `required` computed whether or not the refit converged (a refit stopped early read "required", F 992, for a redundant anchor); the page never read `refit_converged` | an unconverged refit returns `required: null, f: null, refit_converged: false, reason: "refit_not_converged"` (+ the solver message); Auto-Fit REFUSES that anchor before any charge-correction input is touched (red notice) — an anchor whose necessity could not be established must not set the energy reference of the whole spectrum. A check that did not RUN at all (older server, exception, nothing left, main fit not converged) still never blocks, as documented. |
++
++| 5 | Auto-Fit parsed a non-2xx reply (owner, 2026-09-27) | page `runAutoFitC1sGraphite` | a Cloudflare 524 or gunicorn 500 reached `_readFitReply` and read as "the server's reply could not be read" — F2's own message misfiring | `resp.ok === false` is a failed REQUEST with its status in the message ("Auto-fit failed: Fit request failed (HTTP 524)."; a JSON `error` body's text when there is one), before any parsing, as Run Fit has done since A0 |
++
++## 2. Decisions
++
++- **Basinhopping (owner, 2026-09-26).** The brief said "success from the real
++  scipy result". Measured first (scipy's flag recorded by a pass-through
++  wrapper around the name lmfit calls): on a 1-in-8 sample of the 202
++  committed targets (24 of 26 run), scipy marks **23 of 24** basinhopping fits
++  failed — BFGS "Desired error not necessarily achieved due to precision
++  loss" — while their χ²ᵣ equals Trust-Region's from the same start (median
++  relative difference 1.3e-9; one 0.14 % worse; several better). Taken
++  literally the method would fail on almost every correct fit. Owner chose:
++  verify by refinement AND compete with a plain `least_squares` fit from the
++  same start — the guarantee differential evolution already has ("never worse
++  than the default method from the same start"). The wrapper was removed; no
++  monkeypatching remains.
++- **n_free = n_data is refused too.** The brief says "n_free > n_data". At
++  equality there are zero degrees of freedom: the model interpolates every
++  point, reduced χ² is undefined (lmfit divides by max(1, 0)) and the F tests
++  run on a clamped dof of 1 — the same fault as the sweep's reproduction. The
++  refusal is at n_free ≥ n_data; one degree of freedom is fitted as before.
++- **An unconverged required-refit blocks Auto-Fit.** "The required verdict
++  requires a converged refit": the server gives no verdict, and the page does
++  not let an anchor with no verdict set the charge reference. The documented
++  "a check that did not run never blocks" is kept for checks that did not
++  run.
++
++- **No perturbed restarts for basinhopping (owner, 2026-09-26).** Measured
++  after the refinement change, with the page's request (`n_perturb` 3), on 16
++  committed multi-component targets spread over 2–7 components (4 processes,
++  8 physical cores — production runs 4 workers): median 386 s, max 1066 s,
++  **14 of 16 over the 300 s server timeout**. Without the restarts: median
++  96 s, max 256 s, none over 300 s, and χ²ᵣ identical on all 16 (worst
++  relative difference 1e-8) — a global search gains nothing from them, the
++  reason the scattered-starts check already excludes basinhopping and DE.
++  `run_fit` skips the perturb loop for basinhopping (the request's
++  `n_perturb` is still hashed into the seed; nothing else changes). DE keeps
++  its restarts (2–75 s; not in the brief).
++
++## 3. Measurements
++
++| measurement | before F2 | after F2 |
++|---|---|---|
++| basinhopping, 1-in-8 sample of the 202 targets (26), `n_perturb` 0 | lmfit `success: true` on all (unconditional); scipy's own flag "failed" on 23 of 24 (BFGS precision loss) at Trust-Region's minimum | 26 of 26 verified; never worse than Trust-Region from the same start; up to 19 % lower χ²ᵣ; median relative difference −1.9e-10 |
++| basinhopping wall time, page request, 16 multi-component targets | — | with restarts: median 386 s, max 1066 s, 14/16 > 300 s → restarts skipped: median 96 s, max 256 s, 0/16 > 300 s |
++
++The public URL has a lower ceiling (Cloudflare 524 between 88 s and 125 s):
++5 of those 16 still exceed it without restarts. Reported separately, not
++fixed here: `docs/findings/2026-09-26-public-request-ceiling.md`.
++
++## 4. Verification
++
++- Python: `tests/test_fit_acceptance_holes.py` (refusal at 6 and 8 points for
++  8 free parameters, fitted at 9; locked mixes free the count; `/api/fit`
++  400 with the message; unconverged refit → no verdict, converged refit
++  unchanged); `tests/test_basinhopping_outcome.py` (never worse than
++  Trust-Region; search → refine → compete call sequence; an unverifiable
++  search is not converged; a failed refinement rescued by the competitor;
++  the required refit verified the same way; no perturbed restarts);
++  `test_fit_reproducibility.py` updated (one seeded basinhopping
++  minimisation per fit; the call sequence).
++- JS: `fit_acceptance` (a 200 reply with NaN, and one that is not JSON, are
++  failed fits; a body that cannot be READ is still transport → local);
++  `stale_statistics` (Auto-Fit on a NaN reply fails closed, rolls back);
++  `autofit_required` (unconverged refit refused before any charge input);
++  `local_lm_descent` (the local engine refuses 6 free parameters for 5 and
++  6 points, fits 40). Mocks gain `text()` (`withText`).
++- Browser (:5151, committed UCl4-graphite project, replies intercepted where
++  the case cannot be produced on demand): NaN reply → "Fit failed" with the
++  non-finite message, no local overlay, peaks and result unchanged; a
++  5-point ROI → "16 free parameters for 5 data points"; Auto-Fit with an
++  unconverged refit → refused, charge correction unchanged. No page errors.
++
++## 5. Codex rounds
++
++(filled in as they run)
+diff --git a/tests/js/autofit_required.test.js b/tests/js/autofit_required.test.js
+index 6f81e18..81f9811 100644
+--- a/tests/js/autofit_required.test.js
++++ b/tests/js/autofit_required.test.js
+@@ -46,7 +46,7 @@ test('a supported but NOT required anchor is refused before any charge-correctio
+   assert.match(e.calls.notify[0][1], /No charge correction was derived/);
+ });
+ 
+-test('a required anchor proceeds; a check that did not run (older server, error, non-converged) does not block', () => {
++test('a required anchor proceeds; a check that did not RUN (older server, error, main fit not converged) does not block', () => {
+   for (const required of [{ ran: true, required: true, f: 6120 }, null, undefined, { ran: false, reason: 'error', error: 'x' }]) {
+     const e = env(peaks());
+     assert.throws(() => e.f({ ...real.json, required }, 284.9, {}), x => x === PAST, JSON.stringify(required));
+@@ -64,3 +64,22 @@ test('the request asks for the Graphite anchor by id, and the gate precedes the
+   assert.ok(gate > 0 && gate < apply.indexOf('_autoFitGraphiteIsSupported(gPeak, json)'));
+   for (const m of ["getElementById('cc-method')", "getElementById('cc-obs')", 'updateChargeCorrection()']) assert.ok(apply.indexOf(m) > gate, m);
+ });
++
++// F2 (2026-09-26): an unconverged refit establishes nothing — the server sends
++// required: null with refit_converged: false; Auto-Fit refuses rather than let
++// an anchor whose necessity is unknown set the charge reference.
++test('a refit that did not converge: no verdict, and Auto-Fit refuses before any charge-correction input is touched', () => {
++  const e = env(peaks());
++  const ok = e.f({ ...real.json, required: { ran: true, required: null, f: null, chi2_with: 1.2, chi2_without_refit: 3.4,
++                                             refit_converged: false, reason: 'refit_not_converged' } }, 284.9, {});
++  assert.strictEqual(ok, false);
++  assert.strictEqual(e.calls.cc, 0);
++  assert.deepStrictEqual(e.dom, {});
++  assert.strictEqual(e.calls.notify.length, 1);
++  assert.strictEqual(e.calls.notify[0][0], 'red');
++  assert.match(e.calls.notify[0][1], /could not be established that the data require the Graphite component/);
++  // the old server shape (a verdict computed from an unconverged refit) is refused too
++  const old = env(peaks());
++  assert.strictEqual(old.f({ ...real.json, required: { ran: true, required: true, f: 992, refit_converged: false } }, 284.9, {}), false);
++  assert.strictEqual(old.calls.cc, 0);
++});
+diff --git a/tests/js/fit_acceptance.test.js b/tests/js/fit_acceptance.test.js
+index 44acd50..09d61b4 100644
+--- a/tests/js/fit_acceptance.test.js
++++ b/tests/js/fit_acceptance.test.js
+@@ -41,14 +41,14 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
+     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
+   const owner = { id: 7 };
+   const calls = { notify: [], local: 0, applied: 0 };
+-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
++  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
+   const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
+     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
+     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
+     '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab',
+     src + '\nreturn { runFit };');
+   const noop = () => {};
+-  const { runFit } = factory(document, state, fetchImpl, uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
++  const { runFit } = factory(document, state, withText(fetchImpl), uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
+     noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
+     b => b.map(() => 0), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
+     () => 0.1, '', noop, noop, noop, noop, noop, noop,
+@@ -57,6 +57,15 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
+ }
+ 
+ const okResponse = body => async () => ({ ok: true, status: 200, json: async () => body });
++// F2: the page reads a 2xx /api/fit body as text and parses it itself
++// (_readFitReply). A mock that only defines json() gets the matching text().
++function withText(fetchImpl) {
++  return async (...a) => {
++    const r = await fetchImpl(...a);
++    if (r && typeof r.text !== 'function' && typeof r.json === 'function') r.text = async () => JSON.stringify(await r.json());
++    return r;
++  };
++}
+ 
+ test('A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown', async () => {
+   const env = makeEnv({ fetchImpl: okResponse({ success: false, message: 'Fit did not converge: max evaluations', statistics: { reduced_chi_square: 999 }, individual_peaks: [] }) });
+@@ -95,7 +104,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
+   failing.calls.local = 0;
+   // rebuild with a failing runFitLocal
+   const dom = failing.dom;
+-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
++  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
+   const noop = () => {};
+   const owner = { id: 1 };
+   const state = failing.state;
+@@ -645,3 +654,29 @@ test('a transport failure after the model was edited mid-fit runs NO local fit (
+   await same.runFit();
+   assert.equal(same.calls.local, 1);
+ });
++
++// ── F2 (2026-09-26): a 2xx reply that was read but is not JSON is the SERVER's
++// failed fit, never a transport failure (the local engine used to replace the
++// server's converged result, its verdicts and its starts evidence) ──
++test('a 200 reply containing NaN is a FAILED fit with a message: nothing applied, no local fallback', async () => {
++  const body = '{"success": true, "statistics": {"reduced_chi_square": 1.1}, "individual_peaks": [{"id": "1", "params": {"center": {"value": 285, "stderr": NaN}}}]}';
++  const env = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => body }) });
++  const before = JSON.stringify(env.state.peaks);
++  await env.runFit();
++  assert.equal(env.calls.local, 0, 'no local fallback');
++  assert.equal(env.calls.applied, 0, 'nothing applied');
++  assert.equal(JSON.stringify(env.state.peaks), before);
++  assert.equal(env.state.fitResult.marker, 'previous');
++  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /non-finite number \(NaN or Infinity\)/.test(n.msg) && /treated as failed/.test(n.msg)), JSON.stringify(env.calls.notify));
++  assert.match(env.dom['sb-msg'].textContent, /Fit failed/);
++});
++
++test('a 200 reply that is not JSON at all is a failed fit too; a body that cannot be READ is still a transport failure', async () => {
++  const garbled = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => '<html>proxy error</html>' }) });
++  await garbled.runFit();
++  assert.equal(garbled.calls.local, 0);
++  assert.ok(garbled.calls.notify.some(n => n.kind === 'red' && /reply could not be read/.test(n.msg)), JSON.stringify(garbled.calls.notify));
++  const dropped = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => { throw new TypeError('network error'); } }) });
++  await dropped.runFit();
++  assert.equal(dropped.calls.local, 1, 'the connection dropped while reading: the local fallback, as before');
++});
+diff --git a/tests/js/local_lm_descent.test.js b/tests/js/local_lm_descent.test.js
+index 37c2127..0d52331 100644
+--- a/tests/js/local_lm_descent.test.js
++++ b/tests/js/local_lm_descent.test.js
+@@ -558,3 +558,26 @@ test('recovery from an amplitude of exactly zero (the new floor is not a trap)',
+   assert.ok(Math.abs(env.state.peaks[0].amplitude - 0.1) < 1e-3, `amplitude ${env.state.peaks[0].amplitude}`);
+   assertConstrainedStationary(env, be, data, 1e-8, 'from zero');
+ });
++
++// F2 (2026-09-26): at least as many free parameters as data points is refused
++// as undetermined (it read as a near-perfect fit: dof clamped to 1).
++test('the local engine refuses a model with no degrees of freedom; one more point and it fits', () => {
++  const mk = n => {
++    const env = makeEnv();
++    const be = Array.from({ length: n }, (_, i) => 284 + 0.5 * i);
++    env.state.peaks = [{ id: 1, name: 'a', shape: 'Gaussian', center: 285, fwhm: 1, amplitude: 10, glMix: 50, asymmetry: 0 },
++                       { id: 2, name: 'b', shape: 'Gaussian', center: 286, fwhm: 1, amplitude: 5, glMix: 50, asymmetry: 0 }];
++    const before = JSON.stringify(env.state.peaks);
++    const data = be.map(x => 10 * env.gaussian(x, 285, 1) + 5 * env.gaussian(x, 286, 1));
++    return { env, out: env.runFitLocal(be, data, new Array(n).fill(0)), before };
++  };
++  for (const n of [5, 6]) {                                   // 6 free parameters: 5 and 6 points leave no dof
++    const { env, out, before } = mk(n);
++    assert.strictEqual(out.success, false, n + ' points');
++    assert.match(out.message, /not determined by these data: 6 free parameters for \d+ data points/);
++    assert.strictEqual(JSON.stringify(env.state.peaks), before, 'peaks untouched');
++    assert.strictEqual(env.state.fitResult, null, 'no result written');
++  }
++  const { out } = mk(40);
++  assert.strictEqual(out.success, true, 'a determined model still fits');
++});
+diff --git a/tests/js/stale_statistics.test.js b/tests/js/stale_statistics.test.js
+index c594984..3b36b46 100644
+--- a/tests/js/stale_statistics.test.js
++++ b/tests/js/stale_statistics.test.js
+@@ -376,9 +376,9 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
+       renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
+       peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [],
+       uploadToBackend: async () => { if (editDuringUpload) document.getElementById('bg-type').value = 'linear'; return 'sid'; },
+-      fetch: async () => ({ json: async () => ({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
++      fetch: async () => ({ text: async () => JSON.stringify({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
+       applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true };
+-    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
++    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
+     await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
+     return out;
+   };
+@@ -405,3 +405,55 @@ test('reload never installs an edited-model curve or R under the original key, a
+   assert.match(extractFn('_doSaveProject'), /rFactor: t\.fitResult\.rFactor \|\| null/, 'project saves keep the fit\'s own R');
+   assert.match(extractFn('_doSaveSpectrum'), /rFactor: state\.fitResult\.rFactor \|\| null/, 'spectrum saves keep it too');
+ });
++
++test('F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply message, and rolls back', async () => {
++  const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
++  const state = { peaks: [], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
++  const dom = {};
++  const document = { getElementById: id => (dom[id] ??= { value: ({ 'bg-type': 'none', 'bg-start': '285', 'bg-end': '284', 'bg-endpoint-avg': '3', 'fit-method': 'leastsq' })[id] || '', style: {}, textContent: '', setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) };
++  const tab = { id: 1 };
++  const out = { restored: false, applied: 0, notes: [] };
++  const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
++    notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
++    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
++    getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => be.map(() => 0),
++    findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
++    buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
++    renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
++    peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
++    fetch: async () => ({ text: async () => '{"success": true, "statistics": {"reduced_chi_square": NaN}}' }),
++    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
++  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
++  await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
++  assert.strictEqual(out.applied, 0);
++  assert.strictEqual(out.restored, true);
++  assert.ok(out.notes.some(([m, k]) => k === 'red' && /^Auto-fit failed: .*non-finite number/.test(m)), JSON.stringify(out.notes));
++});
++
++for (const [label, reply, expect] of [
++  ['a Cloudflare 524 (plain-text body)', { ok: false, status: 524, json: async () => { throw new SyntaxError('error code: 524'); }, text: async () => 'error code: 524' }, /^Auto-fit failed: Fit request failed \(HTTP 524\)\.$/],
++  ['a 500 with a JSON error', { ok: false, status: 500, json: async () => ({ error: 'Internal fitting error' }) }, /^Auto-fit failed: Internal fitting error$/],
++]) test(`F2: Auto-Fit on ${label} is a failed request with its status, never "could not be read"`, async () => {
++  const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
++  const state = { peaks: [], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
++  const dom = {};
++  const document = { getElementById: id => (dom[id] ??= { value: ({ 'bg-type': 'none', 'bg-start': '285', 'bg-end': '284', 'bg-endpoint-avg': '3', 'fit-method': 'leastsq' })[id] || '', style: {}, textContent: '', setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) };
++  const tab = { id: 1 };
++  const out = { restored: false, applied: 0, notes: [] };
++  const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
++    notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
++    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
++    getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => be.map(() => 0),
++    findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
++    buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
++    renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
++    peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
++    fetch: async () => reply,
++    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
++  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
++  await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
++  assert.strictEqual(out.applied, 0);
++  assert.strictEqual(out.restored, true);
++  assert.ok(out.notes.some(([m, k]) => k === 'red' && expect.test(m)), JSON.stringify(out.notes));
++  assert.ok(!out.notes.some(([m]) => /could not be read/.test(m)));
++});
+diff --git a/tests/test_basinhopping_outcome.py b/tests/test_basinhopping_outcome.py
+new file mode 100644
+index 0000000..bfd88e3
+--- /dev/null
++++ b/tests/test_basinhopping_outcome.py
+@@ -0,0 +1,125 @@
++"""Unit F2 (2026-09-26), sweep H2: basinhopping's convergence.
++
++lmfit 1.3 marks every basinhopping fit successful (it sets success before
++minimising and never reads scipy's result). scipy's own flag is no verdict
++either: on 23 of 24 sampled committed targets it reports BFGS "precision
++loss" at a point equal to Trust-Region's minimum. Owner decision: the
++differential-evolution pattern in full — the search, an unconditional
++least_squares refinement from its point under the request's bounds (the
++refinement's convergence is the verdict), then a competition with a
++least_squares fit from the same start (verified beats unverified, then the
++lower chi-square), so basinhopping is never worse than the default method.
++"""
++
++import numpy as np
++import pytest
++
++import fitting
++
++
++def _gl(x, a, c, w):
++    return a * np.exp(-4 * np.log(2) * ((x - c) / w) ** 2)
++
++
++X = np.linspace(280.0, 292.0, 121)
++
++
++def _two_peaks():
++    y = np.round(200 + _gl(X, 5000, 284.8, 1.2) + _gl(X, 1800, 286.4, 1.3), 2)
++    specs = [
++        {"id": "1", "shape": "gaussian", "center": 284.6, "fwhm": 1.0, "amplitude": 4000.0, "amplitude_min": 0},
++        {"id": "2", "shape": "gaussian", "center": 286.6, "fwhm": 1.0, "amplitude": 1500.0, "amplitude_min": 0},
++    ]
++    return y, specs
++
++
++def _spy(monkeypatch, fail_methods=()):
++    calls = []
++    real = fitting.Model.fit
++
++    def spy(self, data, params, **kw):
++        res = real(self, data, params, **kw)
++        calls.append(kw.get("method"))
++        if kw.get("method") in fail_methods:
++            res.success = False
++        return res
++
++    monkeypatch.setattr(fitting.Model, "fit", spy)
++    return calls
++
++
++def test_a_basinhopping_fit_is_the_refined_least_squares_result_and_never_worse_than_the_default():
++    y, specs = _two_peaks()
++    kw = dict(background_method="linear", n_perturb=0)
++    bh = fitting.run_fit(X, y, specs, fit_kws={"method": "basinhopping"}, **kw)
++    tr = fitting.run_fit(X, y, specs, fit_kws={"method": "least_squares"}, **kw)
++    assert bh["success"] is True
++    assert bh["statistics"]["reduced_chi_square"] <= tr["statistics"]["reduced_chi_square"] * (1 + 1e-12)
++    # the returned result carries least_squares uncertainties (the refinement or the competitor)
++    assert all(ip["params"]["center"]["stderr"] is not None for ip in bh["individual_peaks"])
++
++
++def test_the_call_sequence_is_search_refine_compete(monkeypatch):
++    calls = _spy(monkeypatch)
++    y, specs = _two_peaks()
++    fitting.run_fit(X, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "basinhopping"})
++    assert calls == ["basinhopping", "least_squares", "least_squares"]
++
++
++def test_an_unverifiable_search_does_not_converge_when_the_competitor_fails_too(monkeypatch):
++    # every least_squares (the refinement AND the competitor) reports failure:
++    # nothing verified the point, so it is not a converged fit — the old
++    # behaviour returned lmfit's unconditional success here
++    _spy(monkeypatch, fail_methods=("least_squares",))
++    y, specs = _two_peaks()
++    res = fitting.run_fit(X, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "basinhopping"})
++    assert res["success"] is False
++    assert "not a verified fit" in res["message"]
++
++
++def test_a_failed_refinement_is_rescued_by_a_converged_competitor(monkeypatch):
++    real = fitting.Model.fit
++    seen = []
++
++    def spy(self, data, params, **kw):
++        res = real(self, data, params, **kw)
++        seen.append(kw.get("method"))
++        if kw.get("method") == "least_squares" and seen.count("least_squares") == 1:
++            res.success = False                  # the refinement from the search's point
++        return res
++
++    monkeypatch.setattr(fitting.Model, "fit", spy)
++    y, specs = _two_peaks()
++    res = fitting.run_fit(X, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "basinhopping"})
++    assert res["success"] is True, res["message"]
++
++
++def test_the_required_refit_goes_through_the_same_verification(monkeypatch):
++    calls = _spy(monkeypatch)
++    y, specs = _two_peaks()
++    res = fitting.run_fit(X, y, specs, background_method="linear", n_perturb=0, require_component="2",
++                          fit_kws={"method": "basinhopping"})
++    # the main fit and the required refit: two verified candidates
++    assert calls.count("basinhopping") == 2
++    assert calls.count("least_squares") == 4
++    assert res["required"]["ran"] is True and res["required"]["refit_converged"] is True
++
++
++def test_basinhopping_runs_no_perturbed_restarts(monkeypatch):
++    # a global search already; with the page's n_perturb 3 the restarts took it
++    # past the 300 s server timeout on 14 of 16 multi-component targets
++    calls = _spy(monkeypatch)
++    y, specs = _two_peaks()
++    with_restarts_asked = fitting.run_fit(X, y, specs, background_method="linear", n_perturb=3,
++                                          fit_kws={"method": "basinhopping"})
++    assert calls.count("basinhopping") == 1
++    assert with_restarts_asked["success"] is True
++    # the answer is the one the same request without restarts gets
++    without = fitting.run_fit(X, y, specs, background_method="linear", n_perturb=0,
++                              fit_kws={"method": "basinhopping"})
++    assert with_restarts_asked["statistics"]["reduced_chi_square"] == pytest.approx(
++        without["statistics"]["reduced_chi_square"], rel=1e-9)
++    # differential evolution and the local methods still run the restarts they are asked for
++    calls.clear()
++    fitting.run_fit(X, y, specs, background_method="linear", n_perturb=2, fit_kws={"method": "leastsq"})
++    assert calls.count("leastsq") == 3
+diff --git a/tests/test_fit_acceptance_holes.py b/tests/test_fit_acceptance_holes.py
+new file mode 100644
+index 0000000..3a0800f
+--- /dev/null
++++ b/tests/test_fit_acceptance_holes.py
+@@ -0,0 +1,103 @@
++"""Unit F2 (2026-09-26): holes in the acceptance rule — "nothing is a fit
++unless it converged and is determined".
++
++- A model with at least as many free parameters as data points is refused as
++  undetermined (it read as a near-perfect, fully supported fit: sweep M2).
++- The required-anchor verdict needs a CONVERGED refit (sweep M3): an
++  unconverged refit gives no verdict.
++
++The basinhopping outcome (sweep H2) and the page's handling of a NaN reply
++(sweep M1) are pinned in tests/test_basinhopping_outcome.py and
++tests/js/fit_acceptance.test.js.
++"""
++
++import io
++from types import SimpleNamespace
++
++import numpy as np
++import pytest
++from lmfit import Parameters
++
++import fitting
++from app import create_app
++
++
++def _gl(x, c, a, w):
++    return a * np.exp(-4 * np.log(2) * ((x - c) / w) ** 2)
++
++
++def _two_gl_specs():
++    # two GL components, every parameter free: centre, fwhm, amplitude, gl mix = 8
++    return [
++        {"id": "1", "shape": "pseudo_voigt_gl", "center": 284.5, "fwhm": 1.0, "amplitude": 1000.0,
++         "gl_ratio": 0.3, "fix_gl_ratio": False, "amplitude_min": 0},
++        {"id": "2", "shape": "pseudo_voigt_gl", "center": 286.0, "fwhm": 1.0, "amplitude": 400.0,
++         "gl_ratio": 0.3, "fix_gl_ratio": False, "amplitude_min": 0},
++    ]
++
++
++def _data(n):
++    x = np.linspace(283.0, 288.0, n)
++    y = 100.0 + _gl(x, 284.5, 1000.0, 1.0) + _gl(x, 286.0, 400.0, 1.0)
++    return x, y
++
++
++@pytest.mark.parametrize("n", [6, 8])          # the sweep's reproduction (6 < 8) and zero dof (8 = 8)
++def test_no_degrees_of_freedom_is_refused_as_undetermined(n):
++    x, y = _data(n)
++    with pytest.raises(ValueError, match=r"not determined by these data: 8 free parameters for %d data points" % n):
++        fitting.run_fit(x, y, _two_gl_specs(), background_method="none", fit_kws={"method": "least_squares"})
++
++
++def test_one_degree_of_freedom_is_still_a_fit_and_linked_or_locked_parameters_do_not_count():
++    x, y = _data(9)                              # 8 free, 9 points: dof 1 — determined, fitted as before
++    res = fitting.run_fit(x, y, _two_gl_specs(), background_method="none", fit_kws={"method": "least_squares"})
++    assert res["statistics"]["n_free_params"] == 8
++    # locking the mixes leaves 6 free: 7 points are then enough
++    x7, y7 = _data(7)
++    specs = _two_gl_specs()
++    for s in specs:
++        s["fix_gl_ratio"] = True
++    res = fitting.run_fit(x7, y7, specs, background_method="none", fit_kws={"method": "least_squares"})
++    assert res["statistics"]["n_free_params"] == 6
++
++
++@pytest.fixture()
++def client(tmp_path):
++    app = create_app(upload_folder=str(tmp_path))
++    app.config["TESTING"] = True
++    with app.test_client() as c:
++        yield c
++
++
++def test_api_fit_returns_the_refusal_as_a_400_with_its_message(client):
++    x, y = _data(6)
++    csv = "\n".join(f"{a:.4f},{b:.2f}" for a, b in zip(x, y))
++    sid = client.post("/api/upload", data={"file": (io.BytesIO(csv.encode()), "tiny.csv")}).get_json()["session_id"]
++    resp = client.post("/api/fit", json={"session_id": sid, "background": {"method": "none"},
++                                         "peaks": _two_gl_specs(), "fit_method": "least_squares"})
++    assert resp.status_code == 400
++    assert "not determined by these data" in resp.get_json()["error"]
++
++
++def test_an_unconverged_refit_gives_no_required_verdict():
++    """The sweep's reproduction: a refit stopped early read required: true
++    (F 992) for an anchor that is redundant (F 1.17 once the refit completes)."""
++    params = Parameters()
++    params.add("p1_amplitude", value=1.0)
++    params.add("p2_amplitude", value=1.0)
++    y_sub = np.ones(50)
++    stopped = SimpleNamespace(success=False, chisqr=992.0, message="max evaluations reached")
++    out = fitting._component_required(lambda p: stopped, params, ["p1_"], y_sub, np.ones(50),
++                                      chi2_with=1.0, n_free_comp=1, n_free_total=2)
++    assert out["required"] is None
++    assert out["f"] is None
++    assert out["refit_converged"] is False
++    assert out["reason"] == "refit_not_converged"
++    assert "max evaluations" in out["message"]
++    # a converged refit still gives its verdict, unchanged
++    done = SimpleNamespace(success=True, chisqr=1.0 + 1.17 / 48, message="ok")
++    out = fitting._component_required(lambda p: done, params, ["p1_"], y_sub, np.ones(50),
++                                      chi2_with=1.0, n_free_comp=1, n_free_total=2)
++    assert out["refit_converged"] is True and out["required"] is False
++    assert out["f"] == pytest.approx(1.17)
+diff --git a/tests/test_fit_reproducibility.py b/tests/test_fit_reproducibility.py
+index 9ca3a77..31809a2 100644
+--- a/tests/test_fit_reproducibility.py
++++ b/tests/test_fit_reproducibility.py
+@@ -158,8 +158,12 @@ def _two_peaks():
+     return x, y, specs
+ 
+ 
+-@pytest.mark.parametrize("method,n_perturb", [("differential_evolution", 2), ("basinhopping", 1)])
+-def test_stochastic_methods_get_request_derived_seeds_not_the_global_generator(monkeypatch, method, n_perturb):
++# basinhopping runs no perturbed restarts since unit F2 (a global search; the
++# restarts took it past the 300 s timeout): one seeded minimisation per fit.
++# That each further minimisation (the required refit) gets its own population
++# is pinned in tests/test_component_required.py.
++@pytest.mark.parametrize("method,n_perturb,n_min", [("differential_evolution", 2, 3), ("basinhopping", 1, 1)])
++def test_stochastic_methods_get_request_derived_seeds_not_the_global_generator(monkeypatch, method, n_perturb, n_min):
+     # lmfit passes seed=None to both, i.e. numpy's GLOBAL generator: another
+     # request in the same worker, or a restart, changed the answer.
+     records = _spy_on_fits(monkeypatch)
+@@ -169,9 +173,9 @@ def test_stochastic_methods_get_request_derived_seeds_not_the_global_generator(m
+         records.append([])
+         fitting.run_fit(x, y, specs, background_method="linear", n_perturb=n_perturb, fit_kws={"method": method})
+     seeds = [[r["seed"] for r in run if r["method"] == method] for run in records]
+-    assert len(seeds[0]) == n_perturb + 1
++    assert len(seeds[0]) == n_min
+     assert all(isinstance(s, int) for s in seeds[0])
+-    assert len(set(seeds[0])) == n_perturb + 1       # each minimisation its own population
++    assert len(set(seeds[0])) == n_min               # each minimisation its own population
+     assert seeds[0] == seeds[1]                      # and the same ones on every press
+     # the local refinement / local candidate never receives a solver seed
+     assert all(r["seed"] is None for run in records for r in run if r["method"] != method)
+@@ -314,8 +318,11 @@ def test_a_differently_cased_method_name_is_the_same_seeded_method(monkeypatch):
+     records.append([])
+     x, y, specs = _two_peaks()
+     res = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "BasinHopping"})
+-    assert [r["method"] for r in records[0]] == ["basinhopping"]
++    # F2 (2026-09-26): the seeded search, then its refinement and the competing
++    # fit from the start (least_squares: deterministic, carry no seed)
++    assert [r["method"] for r in records[0]] == ["basinhopping", "least_squares", "least_squares"]
+     assert isinstance(records[0][0]["seed"], int)
++    assert records[0][1]["seed"] is None and records[0][2]["seed"] is None
+     assert res["random_seed"] == fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0,
+                                                  fit_kws={"method": "basinhopping"})["random_seed"]
+ 
+
+exec
+/bin/zsh -lc "sed -n '980,1130p' fitting.py; sed -n '1390,1498p' fitting.py; sed -n '1510,1770p' fitting.py; sed -n '1785,1930p' fitting.py" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+
+
+def _finite_search_box(params: Parameters, x: np.ndarray,
+                       y_sub: np.ndarray) -> dict[str, dict[str, float]]:
+    """Give every freely varying parameter a finite box, in place.
+
+    lmfit's ``differential_evolution`` samples its population from the
+    parameter bounds and refuses to run when any varying parameter has an
+    open one. The page sends ``amplitude_min: 0`` and no ``amplitude_max``,
+    and a free DS+G centre has no default window, so without this every
+    ordinary request for that method failed (HTTP 422). Only open sides of
+    freely varying parameters are closed; fixed and expression-constrained
+    parameters, and bounds the request did set, are left alone.
+
+    The box is a SEARCH limit, not a constraint the request made: an
+    amplitude reaches max(10 x the largest |background-subtracted
+    intensity|, 2 x |start|, 1) (both signs when the request leaves the
+    floor open too; the page never does), a centre the fitted energy range.
+    A component centred outside a narrowed ROI can need far more than the
+    visible intensity, and a box can shape an answer that lies nowhere near
+    its sides, so ``_search_then_refine`` refines every boxed search under
+    the request's own bounds.
+
+    Returns ``{name: {side: width}}`` for the sides it generated (``width``
+    is the extent it gave that side).
+    """
+    xf = np.asarray(x, float)
+    yf = np.asarray(y_sub, float)
+    xf, yf = xf[np.isfinite(xf)], yf[np.isfinite(yf)]
+    if xf.size == 0 or yf.size == 0:
+        raise ValueError("differential_evolution needs finite energy and intensity values")
+    x_lo, x_hi = float(xf.min()), float(xf.max())
+    span = (x_hi - x_lo) or 1.0
+    y_top = float(np.max(np.abs(yf)))
+    generated: dict[str, dict[str, float]] = {}
+    for name, par in params.items():
+        if not par.vary or par.expr is not None:
+            continue
+        open_min, open_max = not np.isfinite(par.min), not np.isfinite(par.max)
+        if not (open_min or open_max):
+            continue
+        if name.endswith("_amplitude"):
+            width = max(10.0 * y_top, 2.0 * abs(par.value), 1.0)
+            lo, hi = -width, width
+        elif name.endswith("_center"):
+            width = span
+            lo, hi = min(x_lo, par.value), max(x_hi, par.value)
+        else:
+            raise ValueError(
+                f"differential_evolution needs finite bounds for '{name}'")
+        new_min = lo if open_min else par.min
+        new_max = hi if open_max else par.max
+        # A bound the request did set can sit at or beyond the generated
+        # side (centre_min = 300 on a 280-290 eV ROI): keep a real interval.
+        if open_max and new_max <= new_min:
+            new_max = new_min + width
+        if open_min and new_min >= new_max:
+            new_min = new_max - width
+        par.set(min=new_min, max=new_max)
+        generated[name] = {side: width for side, is_open in (("min", open_min), ("max", open_max)) if is_open}
+    return generated
+
+
+def _search_then_refine(model, params, requested, y_sub, x, weights, kws):
+    """One differential-evolution candidate: search inside a generated box,
+    then refine FROM that solution with ``least_squares`` under the request's
+    own (open) bounds.
+
+    Whenever a side was generated the refinement is unconditional (a request
+    that bounds everything itself is returned as found). A box can shape the answer without the
+    solution lying anywhere near a side (centre and width compensate for a
+    capped amplitude), and an unrefined boundary candidate can lose the
+    perturb loop's comparison to a worse interior one, so every candidate is
+    freed from the box before it is compared or returned. The refined fit
+    replaces the search result whenever it converged; if it did not (or
+    raised) the search result is returned marked
+    ``box_unverified`` (with the sides we generated, so they are not
+    reported as bounds) and ``run_fit`` does not call it a success.
+    """
+    # ``params`` may come from an earlier candidate and still carry that
+    # candidate's generated sides: always start from the request's bounds.
+    boxed = params.copy()
+    for name, (lo, hi) in requested.items():
+        boxed[name].set(min=lo, max=hi)
+    generated = _finite_search_box(boxed, x, y_sub)
+    found = model.fit(y_sub, boxed, x=x, weights=weights, **kws)
+    found.box_unverified, found.search_box = bool(generated), generated
+    if not generated:
+        return found
+    free = found.params.copy()
+    for name in generated:
+        free[name].set(min=requested[name][0], max=requested[name][1])
+    # Only what a local solver understands: DE options (seed, popsize, ...)
+    # passed through fit_kws would make least_squares raise.
+    refine_kws = {"method": "least_squares", "nan_policy": kws.get("nan_policy", "omit")}
+    try:
+        refined = model.fit(y_sub, free, x=x, weights=weights, **refine_kws)
+    except Exception:
+        log.debug("refinement outside the search box raised", exc_info=True)
+        return found
+    # A converged refinement IS the result: it is a least_squares fit of the
+    # requested model under the requested bounds, which is what the default
+    # method returns and the acceptance rule accepts. It is deliberately NOT
+    # compared with the boxed search's chi-square. least_squares descends
+    # from its start, so it cannot end materially above it (four review
+    # rounds found no reachable case), but it does end a hair above an EXACT
+    # start that sits on a requested bound (the bound transform is degenerate
+    # there; the centre moves ~1e-7 eV), by an amount that depends on peak
+    # width, position and counts. Every tolerance tried for that comparison
+    # produced reachable false failures and no reachable protection.
+    if refined.success:
+        refined.box_unverified, refined.search_box = False, {}
+        return refined
+    return found
+
+
+def _global_or_local_candidate(model, params, requested, y_sub, x, weights, kws):
+    """A differential-evolution candidate that is never worse than the
+    default method from the same start.
+
+    Differential evolution ignores the starting values. On a needle-narrow
+    peak in a wide box it can converge, "successfully", with the component
+    outside the fitted range (chi-square 1e7 where ``least_squares`` from the
+    request's start reaches 1e-4), and the refinement has nothing to descend
+    to from there. So a ``least_squares`` fit from the candidate's own start,
+    under the request's bounds, competes with the search: a verified result
+    beats an unverified one, then the lower chi-square wins.
+    """
+    searched = _search_then_refine(model, params, requested, y_sub, x, weights, kws)
+    start = params.copy()
+    for name, (lo, hi) in requested.items():
+        start[name].set(min=lo, max=hi)
+    try:
+        local = model.fit(y_sub, start, x=x, weights=weights,
+                          method="least_squares", nan_policy=kws.get("nan_policy", "omit"))
+    except Exception:
+        log.debug("local candidate from the start raised", exc_info=True)
+        return searched
+    if not local.success:
+        return searched
+    local.box_unverified, local.search_box = False, {}
+    if searched.box_unverified or not searched.success or local.chisqr < searched.chisqr:
+        return local
+    return searched
+
+
+# The methods run_fit accepts, and the two of them that draw random numbers.
+# Validated HERE, not only in the /api/fit route: /api/analyze forwards
+# options.fit_method straight to run_fit, and lmfit also understands e.g.
+# "ampgo", "dual_annealing" and "BasinHopping", which would run with
+# numpy's global generator, unseeded.
+# A component driven to its amplitude floor, pinned on a bound or fitted to
+# numerical residue has chi2_without <= chi2_with (removing it costs nothing).
+# Owner decision 2026-09-18: such a component is an explicit OUTCOME — the fit
+# did not determine it — and its centre, width and sigma are not reported.
+# Known limits, same as the Auto-Fit anchor: a gross single-channel artefact
+# inflates chi2_with and can mark a real component unsupported; redundancy
+# under overlap is NOT detected (a refit without the component is the test for
+# that; step (c) does it for the Auto-Fit anchor). Threshold F >= 10 (~ p 1e-9
+# at these sizes); on the 202 committed targets resolved components have
+# F >= 1.1e3 and 3 of 752 components are unsupported (F 0.95-3.9).
+SUPPORT_MIN_F = 10.0
+
+
+def _component_support(y_sub, fitted_sub, comp_y, weights, n_free_comp, n_free_total) -> dict[str, Any]:
+    w2 = np.asarray(weights, float) ** 2
+    r = np.asarray(y_sub, float) - np.asarray(fitted_sub, float)
+    ok = np.isfinite(r) & np.isfinite(comp_y) & np.isfinite(w2)
+    chi_with = float(np.sum(w2[ok] * r[ok] ** 2))
+    chi_without = float(np.sum(w2[ok] * (r[ok] + np.asarray(comp_y, float)[ok]) ** 2))
+    delta = chi_without - chi_with
+    p = max(1, int(n_free_comp))
+    dof = max(1, int(ok.sum()) - int(n_free_total))
+    if delta <= 0:
+        f = 0.0
+    elif chi_with == 0:
+        f = float("inf")
+    else:
+        f = (delta / p) / (chi_with / dof)
+    return {"f": None if not np.isfinite(f) else f, "delta_chi2": delta,
+            "supported": bool(delta > 0 and (chi_with == 0 or f >= SUPPORT_MIN_F))}
+
+
+# ── "Is this component REQUIRED?" — the refit test ───────────────────────────
+# `support` (above) holds the OTHER components at their fitted values, so it
+# cannot see redundancy under overlap: a component the others could absorb if
+# they were refitted still passes. The test for that is the refit itself:
+# remove the component, refit the rest from their fitted values under the
+# request's own bounds, and compare the fit to the data with and without it:
+#     F = ((chi2_without_refit - chi2_with) / p) / (chi2_with / dof)
+# p = the component's free parameters, dof = n - nvarys of the full model.
+# One extra fit, so it is done only when asked for (Auto-Fit asks for its
+# charge-reference anchor: an anchor that is not required must not set the
+# energy reference of a whole spectrum). Same threshold as `support`.
+def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weights,
+                        chi2_with, n_free_comp, n_free_total) -> dict[str, Any]:
+    """``fit_reduced(params)`` is the run's own fitter for the reduced model
+    (the same candidate machinery and seeding the fit used, so differential
+    evolution's box/refinement and the request seed apply to the refit too).
+    ``removed_prefixes`` is the removed component AND everything linked to it,
+    transitively. The reduced start is built in dependency order: plain
+    parameters first, expressions after, so a child ordered before its parent
+    in the request still resolves."""
+    kept = [(name, par) for name, par in params_full.items() if not any(name.startswith(r) for r in removed_prefixes)]
+    # ALL retained parameters exist before any expression is assigned, so a
+    # chain of links in any request order resolves (lmfit evaluates an
+    # expression when it is set).
+    start = Parameters()
+    for name, par in kept:
+        start.add(name, value=par.value, min=par.min, max=par.max, vary=par.vary)
+    for name, par in kept:
+        if par.expr:
+            start[name].set(expr=par.expr)
+    refit = fit_reduced(start)
+    chi2_without = float(refit.chisqr) if refit.chisqr is not None else float("inf")
+    if not refit.success:
+        # F2 (2026-09-26): a refit that did not converge establishes nothing
+        # either way — its chi-square is wherever the optimiser stopped (a
+        # redundant anchor read "required", F 992, from a refit stopped early;
+        # F 1.17 once it completed). No verdict; the caller decides.
+        return {"required": None, "f": None, "chi2_with": float(chi2_with), "chi2_without_refit": chi2_without,
+                "refit_converged": False, "reason": "refit_not_converged",
+                "message": str(getattr(refit, "message", "") or "")[:200]}
+    delta = chi2_without - chi2_with
+    p = max(1, int(n_free_comp))
+    dof = max(1, len(y_sub) - int(n_free_total))
+    # No tolerance of any kind (Codex rounds 2-3: a floor on the chi-square
+    # change relative to the data's power, and then an "exactness" cutoff on
+    # the reduced fit, each masked a resolved anchor at high dynamic range —
+    # the same lesson as the DE unit). Known limit, accepted: on NOISE-FREE
+    # data whose full fit is numerically exact (chi2_with ~ 1e-28) F is not
+    # meaningful and a truly redundant component (two identical half-amplitude
+    # components) reports "required"; real data never fit to machine precision.
+    if not np.isfinite(chi2_without):
+        f, required = None, True                     # the rest could not even be fitted without it
+    elif delta <= 0:
+        f, required = 0.0, False
+    elif chi2_with == 0:
+        f, required = None, True
+    else:
+        f = (delta / p) / (chi2_with / dof)
+        required = f >= SUPPORT_MIN_F
+    return {"required": bool(required), "f": f, "chi2_with": float(chi2_with), "chi2_without_refit": chi2_without,
+            "refit_converged": bool(refit.success)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main fitting API
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_fit(
+    energy: np.ndarray,
+    counts: np.ndarray,
+    peak_specs: list[dict[str, Any]],
+    background_method: str = "shirley",
+    bg_start_idx: int | None = None,
+    bg_end_idx: int | None = None,
+    charge_shift_ev: float = 0.0,
+    fit_kws: dict | None = None,
+    n_perturb: int = 0,
+    counts            : 1‑D array of intensities (counts / CPS)
+    peak_specs        : list of peak specification dicts (see _make_peak_params)
+    background_method : 'shirley' | 'linear' | 'none'
+    bg_start_idx      : slice start for background region (None → 0)
+    bg_end_idx        : slice end for background region   (None → len)
+    charge_shift_ev   : shift to apply to energy axis before fitting
+    fit_kws           : extra kwargs forwarded to lmfit minimize
+
+    Returns
+    -------
+    dict with keys: energy, fitted_y, background_y, residuals,
+                    individual_peaks, statistics, charge_shift_applied, success
+    """
+    # One computation dtype: the weights are a function of the counts AND of
+    # the precision they are held in (float32 counts give weights that differ
+    # at 1e-8 and a different fit), and the seed hashes float64.
+    energy = np.asarray(energy, dtype=float)
+    counts = np.asarray(counts, dtype=float)
+    if len(energy) != len(counts):
+        raise ValueError("energy and counts must have the same length")
+    if not peak_specs:
+        raise ValueError("At least one peak specification is required")
+    # Reject self/cyclic spin-orbit constraints before building lmfit exprs (F11)
+    _validate_constraint_graph(peak_specs)
+
+    # Apply charge correction
+    energy = energy + charge_shift_ev
+
+    fit_kws = dict(fit_kws or {})
+    method = str(fit_kws.get("method", "leastsq")).lower()
+    if method not in _FIT_METHODS:
+        raise ValueError(f"Unknown fit method '{fit_kws.get('method')}'. Choices: {list(_FIT_METHODS)}")
+    fit_kws["method"] = method
+    # A caller's seed is consumed HERE: it replaces the request-derived one
+    # and is never forwarded as a solver option (least_squares, leastsq and
+    # nelder reject a 'seed' keyword).
+    solver_kws = dict(fit_kws.pop("fit_kws", None) or {})
+    caller_seed = solver_kws.pop("seed", None)
+    if solver_kws:
+        fit_kws["fit_kws"] = solver_kws
+    if caller_seed is not None and (
+            isinstance(caller_seed, (bool, np.bool_)) or not isinstance(caller_seed, (int, np.integer))
+            or not 0 <= int(caller_seed) < 2 ** 32):
+        raise ValueError("fit_kws.fit_kws.seed must be an integer in [0, 2**32)")
+
+    # The fit runs on the ENTIRE incoming ROI; bg_start_idx / bg_end_idx
+    # narrow only the anchor window used to construct the background
+    # curve. Reusing the slice for both was the bug where putting bg
+    # anchors inside the ROI silently chopped the fit window — and the
+    # reported χ², residuals, and σ — down to that same sub-slice.
+    i0 = bg_start_idx if bg_start_idx is not None else 0
+    i1 = bg_end_idx if bg_end_idx is not None else len(energy)
+    i0 = max(0, i0)
+    i1 = min(len(energy), i1)
+    # Normalize the user-supplied anchor pair: reversed order is a valid
+    # choice — the frontend sends bg-start = higher BE and bg-end = lower
+    # BE, so the index order depends on whether the data array is
+    # BE-ascending or BE-descending. Treat the pair as an unordered
+    # anchor window regardless of direction.
+    if i0 > i1:
+        i0, i1 = i1, i0
+    # Bail to the full ROI only if the normalized window is genuinely
+    # unusable (< 2 points): the integral / interp / linear-fit
+    # functions below all need at least two distinct anchor points.
+    if i1 - i0 < 2:
+        i0, i1 = 0, len(energy)
+
+    x = energy
+    y = counts
+    x_bg = energy[i0:i1]
+    y_bg = counts[i0:i1]
+
+    # ── Background ────────────────────────────────────────────────────────────
+    # Integral backgrounds (Shirley, Tougaard, Smart variants) are
+    # physically defined only between the user's two anchor points: the
+    # integral represents inelastic-loss cumulation through the peaks
+    # *between* those anchors. Computing them over the full ROI would
+    # let peaks outside the anchor window contribute to the loss
+    # integral, which violates the model's premise. We therefore
+    # compute them on [i0:i1] and flat-hold the endpoint value across
+    # the rest of the ROI — Shirley/Tougaard asymptote to the anchor
+    # values by construction, so constant extension is the least-bad
+    # continuation. Linear backgrounds are extrapolated across the
+    # full ROI (the line is well-defined outside the anchor window).
+    bg_method = background_method.lower()
+    bg_inner: np.ndarray | None = None
+
+    if manual_bg is not None and bg_method == "manual":
+        # manual_bg is a list of [be, intensity] anchor points from the
+        # frontend. The anchors are BE-anchored (independent of i0/i1),
+        # so interpolate them across the full ROI grid.
+        anchors = sorted(manual_bg, key=lambda a: a[0])
+        if len(anchors) >= 2:
+            anchor_x = np.array([a[0] for a in anchors])
+            anchor_y = np.array([a[1] for a in anchors])
+            bg = np.interp(x, anchor_x, anchor_y)
+        else:
+            bg = linear_background(x, y)
+    elif bg_method == "shirley":
+        bg_inner = shirley_background(x_bg, y_bg, n_avg=endpoint_avg)
+    elif bg_method == "smart":
+        bg_inner = smart_background(x_bg, y_bg, n_avg=endpoint_avg)
+    elif bg_method == "smart_exp":
+        bg_inner = smart_experimental_background(x_bg, y_bg, n_avg=endpoint_avg)
+    elif bg_method == "shirley_linear":
+        bg_inner = shirley_linear_background(x_bg, y_bg, n_avg=endpoint_avg)
+    elif bg_method == "tougaard":
+        bg_inner = tougaard_background(x_bg, y_bg, n_avg=endpoint_avg)
+    elif bg_method == "linear":
+        # Extrapolate the line through (E[i0], y[i0]) ↔ (E[i1-1], y[i1-1])
+        # across the full ROI. The line is well-defined everywhere, so
+        # constant extension would discard real information.
+        if x[i1 - 1] != x[i0]:
+            slope = (y[i1 - 1] - y[i0]) / (x[i1 - 1] - x[i0])
+        else:
+            slope = 0.0
+        bg = y[i0] + slope * (x - x[i0])
+    elif bg_method in ("none", "flat", "", "manual"):
+        bg = np.zeros_like(y)
+    else:
+        raise ValueError(f"Unknown background method '{background_method}'")
+
+    if bg_inner is not None:
+        # Embed the anchor-window integral background into a full-ROI
+        # array; flat-hold the endpoint value outside [i0, i1]. In the
+        # common case where the user keeps bg anchors at the ROI edges
+        # this is a no-op (i0=0, i1=len(y)).
+        bg = np.zeros_like(y)
+        if len(bg_inner) > 0:
+            bg[i0:i1] = bg_inner
+            if i0 > 0:
+                bg[:i0] = bg_inner[0]
+            if i1 < len(y):
+                bg[i1:] = bg_inner[-1]
+
+    y_sub = y - bg
+
+    # Poisson weights: σ = √(raw counts), weight = 1/σ
+    # Use raw counts (before background subtraction) for uncertainty estimate,
+    # since the noise comes from the total photon counting statistics.
+    # Floor at 1.0 to avoid division by zero for zero-count channels.
+    sigma = np.sqrt(np.maximum(y, 1.0))
+    weights = 1.0 / sigma
+
+    # ── Build composite lmfit model ───────────────────────────────────────────
+    # Sort so unconstrained (master) peaks come before constrained ones
+    ordered = sorted(
+        peak_specs,
+        key=lambda s: 0 if s.get("constrain_to") is None else 1,
+    )
+
+    composite_model: Model | None = None
+    all_params = Parameters()
+
+    for spec in ordered:
+        shape = spec.get("shape", "pseudo_voigt_gl")
+        if shape not in _SHAPE_FUNCS:
+            raise ValueError(f"Unknown peak shape '{shape}'. Choices: {AVAILABLE_SHAPES}")
+        func = _SHAPE_FUNCS[shape]
+        prefix = f"p{spec['id']}_"
+        m = Model(func, prefix=prefix)
+        p = _make_peak_params(m, spec, prefix, ordered)
+        all_params.update(p)
+        composite_model = m if composite_model is None else composite_model + m
+
+    if composite_model is None:
+        raise RuntimeError("No peaks were built")
+    if require_component is not None:
+        ids = [str(spec["id"]) for spec in peak_specs]
+        if str(require_component) not in ids:
+            raise ValueError(f"require_component '{require_component}' is not one of the peaks")
+        if len(ids) < 2:
+            raise ValueError("require_component needs at least two components")
+
+    # Every random draw below (the perturbed restarts; the populations of the
+    # two stochastic methods, which lmfit otherwise takes from numpy's GLOBAL
+    # generator) comes from this one seed, so an identical request gives
+    # identical DRAWS. (Not an identical Trust-Region result: see CLAUDE.md,
+    # "Reproducibility".)
+    if caller_seed is not None:
+        random_seed = int(caller_seed)
+    else:
+        random_seed = _request_seed(
+            x, y, bg, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
+            [f"p{spec['id']}_" for spec in ordered], all_params,
+            fit_kws=fit_kws, n_perturb=n_perturb)
+    # spawn(3) yields the same first two children as spawn(2): adding the
+    # scattered-starts stream leaves every existing draw (and its pins) alone.
+    perturb_rng, solver_rng, starts_rng = (np.random.default_rng(child)
+                                           for child in np.random.SeedSequence(random_seed).spawn(3))
+    if isinstance(n_starts, bool) or not isinstance(n_starts, (int, np.integer)) or not 0 <= n_starts <= MAX_N_STARTS:
+        raise ValueError(f"n_starts must be an integer between 0 and {MAX_N_STARTS}")
+
+    # ── Determinacy (unit F2, 2026-09-26) ─────────────────────────────────────
+    # "Nothing is a fit unless it converged and is determined." With at least
+    # as many free parameters as data points the model can pass through every
+    # point: lmfit reports redchi = chi2 / max(1, nfree) as if it were a fit,
+    # and the support / required F tests clamp their dof to 1, so such a model
+    # read as a near-perfect, fully supported fit (sweep M2: 6 points, 2 GL
+    # components, chi2r 2.8e-6, both "supported"). A count, not a threshold:
+    # zero or negative degrees of freedom is refused outright.
+    n_free_request = sum(1 for par in all_params.values() if par.vary and not par.expr)
+    n_data_request = int(np.count_nonzero(np.isfinite(y_sub)))
+    if n_free_request >= n_data_request:
+        raise ValueError(
+            f"The model is not determined by these data: {n_free_request} free parameters for "
+            f"{n_data_request} data points leaves no degrees of freedom. Widen the fitted range, "
+            f"remove components or lock parameters.")
+
+    # ── Fit ───────────────────────────────────────────────────────────────────
+    kws = {"method": "leastsq", "nan_policy": "omit"}
+    if fit_kws:
+        kws.update(fit_kws)
+
+    # Differential evolution needs a finite box and the page leaves amplitudes
+    # open above: each candidate is searched in a generated box and then
+    # refined under the request's own bounds (_search_then_refine). Every
+    # other method fits the request's parameters exactly as before.
+    def seeded(call_kws):
+        """``call_kws`` with a fresh solver seed for the stochastic methods
+        (one per minimisation, else every perturbed restart of differential
+        evolution would replay the same population); unchanged otherwise."""
+        if call_kws.get("method") not in _STOCHASTIC_METHODS:
+            return call_kws
+        solver_kws = dict(call_kws.get("fit_kws") or {})
+        solver_kws["seed"] = int(solver_rng.integers(0, 2 ** 32 - 1))
+        return {**call_kws, "fit_kws": solver_kws}
+
+    # One fitter for any (sub)model of this request: the DE candidate machinery
+    # when the method is differential evolution, else a plain seeded fit. The
+    # scattered starts and the required-component refit go through it too.
+    requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
+
+    def fit_model(model, params):
+        if kws.get("method") == "differential_evolution":
+            bounds = {name: requested_bounds.get(name, (par.min, par.max)) for name, par in params.items()}
+            return _global_or_local_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
+        if kws.get("method") == "basinhopping":
+            bounds = {name: requested_bounds.get(name, (par.min, par.max)) for name, par in params.items()}
+            return _basinhopping_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
+        return model.fit(y_sub, params, x=x, weights=weights, **seeded(kws))
+
+    def fit_once(params):
+        return fit_model(composite_model, params)
+
+    # ── Diagnostic logging: BEFORE optimisation ──────────────────────────────
+    if log.isEnabledFor(logging.DEBUG):
+        log.debug("═══ FIT START ═══  method=%s  n_data=%d", kws.get('method'), len(y_sub))
+        for pname, par in sorted(all_params.items()):
+            log.debug("  BEFORE  %-30s value=%12.6f  vary=%-5s  expr=%s  min=%s  max=%s",
+                      pname, par.value, str(par.vary), par.expr,
+                      f"{par.min:.4f}" if np.isfinite(par.min) else '-inf',
+                      f"{par.max:.4f}" if np.isfinite(par.max) else 'inf')
+
+    try:
+        result = fit_once(all_params)
+    except Exception as exc:
+        raise RuntimeError(f"lmfit fitting failed: {exc}") from exc
+
+    # ── Diagnostic logging: AFTER optimisation ───────────────────────────────
+    if log.isEnabledFor(logging.DEBUG):
+    # multi-component targets (median 386 s, max 1066 s; without them median
+    # 96 s, max 256 s, and chi2r identical to 1e-8 on all 16).
+    if n_perturb > 0 and result.success and kws.get("method") != "basinhopping":
+        best_result = result
+        best_redchi = result.redchi if result.redchi is not None else float('inf')
+        rng = perturb_rng
+
+        for attempt in range(n_perturb):
+            perturbed_params = result.params.copy()
+            for pname, par in perturbed_params.items():
+                if par.vary and par.value != 0:
+                    # Perturb by ±15% random
+                    scale = 1.0 + rng.uniform(-0.15, 0.15)
+                    new_val = par.value * scale
+                    # Respect bounds
+                    if np.isfinite(par.min):
+                        new_val = max(new_val, par.min)
+                    if np.isfinite(par.max):
+                        new_val = min(new_val, par.max)
+                    perturbed_params[pname].set(value=new_val)
+                elif par.vary and par.value == 0:
+                    # For zero-valued params, add small absolute perturbation
+                    perturbed_params[pname].set(value=rng.uniform(0.001, 0.05))
+
+            try:
+                trial = fit_once(perturbed_params)
+                trial_redchi = trial.redchi if trial.redchi is not None else float('inf')
+                log.debug("  PERTURB %d/%d  redchi=%.4f  (best=%.4f)",
+                          attempt + 1, n_perturb, trial_redchi, best_redchi)
+                # A candidate whose search box was never cleared by its
+                # refinement (differential evolution only) does not displace
+                # one that was; for every other method both flags are False.
+                trial_rank = (getattr(trial, "box_unverified", False), trial_redchi)
+                best_rank = (getattr(best_result, "box_unverified", False), best_redchi)
+                if trial.success and trial_rank < best_rank:
+                    best_result = trial
+                    best_redchi = trial_redchi
+                    log.debug("  *** New best found! redchi improved to %.4f", best_redchi)
+            except Exception:
+                log.debug("  PERTURB %d/%d  failed (exception)", attempt + 1, n_perturb)
+                continue
+
+        if best_result is not result:
+            log.debug("═══ PERTURB IMPROVED FIT ═══  redchi: %.4f → %.4f",
+                      result.redchi, best_redchi)
+            result = best_result
+
+    # ── Scattered starts (never changes `result`) ────────────────────────────
+    starts = None
+    if n_starts:
+        n_unlinked = sum(1 for spec in peak_specs if spec.get("constrain_to") is None)
+        if kws.get("method") not in _STARTS_METHODS:
+            starts = {"ran": False, "reason": "method"}          # a global method already searches
+        elif n_unlinked < 2:
+            starts = {"ran": False, "reason": "single_component"}
+        elif not result.success:
+            starts = {"ran": False, "reason": "fit_not_converged"}
+        else:
+            try:
+                starts = _scattered_starts(int(n_starts), fit_once, composite_model, all_params, result,
+                                           peak_specs, x, starts_rng)
+            except Exception as exc:                              # the check must never cost the student the fit
+                log.exception("scattered starts failed")
+                starts = {"ran": False, "reason": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
+
+    # ── "Is this component required?" (never changes `result`) ─────────────
+    required = None
+    if require_component is not None:
+        rprefix = f"p{require_component}_"
+        if not result.success:
+            required = {"ran": False, "reason": "fit_not_converged"}
+        else:
+            try:
+                # remove the component and everything linked to it, transitively
+                master_of = {str(sp["id"]): sp.get("constrain_to") for sp in peak_specs}
+                removed = {str(require_component)}
+                grew = True
+                while grew:
+                    grew = False
+                    for pid, master in master_of.items():
+                        if master is not None and str(master) in removed and pid not in removed:
+                            removed.add(pid); grew = True
+                removed_prefixes = [f"p{pid}_" for pid in removed]
+                without = None
+                for m in composite_model.components:
+                    if m.prefix in removed_prefixes:
+                        continue
+                    without = m if without is None else without + m
+                if without is None:
+                    required = {"ran": False, "reason": "nothing_left"}
+                else:
+                    n_free_comp = sum(1 for n, par in result.params.items()
+                                      if n.startswith(rprefix) and par.vary and par.expr is None)
+                    required = {"ran": True, **_component_required(
+                        lambda params: fit_model(without, params), result.params, removed_prefixes, y_sub, weights,
+                        float(result.chisqr), n_free_comp, result.nvarys)}
+            except Exception as exc:                              # the check must never cost the student the fit
+                log.exception("required-component refit failed")
+                required = {"ran": False, "reason": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
+
+    # Sides WE closed on the returned result (non-empty only for a
+    # differential-evolution result whose refinement did not take over).
+    search_box = getattr(result, "search_box", {})
+
+    fitted_sub = result.best_fit
+    fitted_y = fitted_sub + bg
+
+    # ── Per‑peak results ──────────────────────────────────────────────────────
+    individual_peaks = []
+    for spec in peak_specs:
+        pid = spec["id"]
+        prefix = f"p{pid}_"
+        peak_y = composite_model.components[
+            next(i for i, c in enumerate(composite_model.components)
+                 if c.prefix == prefix)
+        ].eval(result.params, x=x)
+
+        # Area by numerical integration. abs(): real XPS grids are
+        # BE-descending, which makes the raw trapezoid integral negative —
+        # the area is a magnitude by convention (matches autofit/engine.py).
+        area = float(abs(trapezoid(peak_y, x)))
+
+        # Parameter extraction with stderr
+        param_info: dict[str, Any] = {}
+        for pname in result.params:
+            if pname.startswith(prefix):
+                short = pname[len(prefix):]
+                par = result.params[pname]
+                param_info[short] = {
+                    "value": float(par.value),
+                    "stderr": float(par.stderr) if par.stderr is not None else None,
+                    "vary": par.vary,
+                    "expr": par.expr,
+                    "min": float(par.min) if np.isfinite(par.min) and "min" not in search_box.get(pname, {}) else None,
+                    "max": float(par.max) if np.isfinite(par.max) and "max" not in search_box.get(pname, {}) else None,
+                }
+
+        param_info["area"] = {"value": area, "stderr": None}
+
+        # Approximate area stderr via amplitude + fwhm propagation
+        amp_par = result.params.get(prefix + "amplitude")
+        fwhm_par = result.params.get(prefix + "fwhm")
+        if (amp_par and fwhm_par and amp_par.stderr and fwhm_par.stderr
+                and amp_par.value and fwhm_par.value):
+            rel_err = np.sqrt(
+                (amp_par.stderr / amp_par.value) ** 2
+
+exec
+/bin/zsh -lc "rg -n 'required|refit_converged|n_perturb|run_fit\\(' autofit app.py; rg -n 'api/fit|runFit\\(|applyAutoFitResult|runFitLocal|freeParams|caM' templates/index.html | tail -90; cat requirements-dev.txt; command -v python python3 node; ls /Users/skyefortier/xps-app/.venv/bin/python*" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ exited 1 in 0ms:
+app.py:16:is required, making the app compatible with multi‑worker gunicorn.
+app.py:360:                        "required before export (spec §8)",
+app.py:379:                    "ground truth — a named human review is required "
+app.py:411:    """Atomic write (temp file + os.replace) — required because the
+app.py:655:            # "olefile is required: pip install olefile" (audit F10).
+app.py:820:        # Bounded, type-checked n_perturb (audit F7; also covers the F9
+app.py:824:            n_perturb = int(body.get("n_perturb", 5))
+app.py:826:            return _err(f"n_perturb must be an integer between 0 and {MAX_N_PERTURB}")
+app.py:827:        if n_perturb < 0 or n_perturb > MAX_N_PERTURB:
+app.py:828:            return _err(f"n_perturb must be between 0 and {MAX_N_PERTURB}")
+app.py:831:        # treatment as n_perturb; run_fit validates again for other callers.
+app.py:835:        # "Is this component required?" (one extra fit; Auto-Fit asks for its anchor)
+app.py:841:            result = fitting.run_fit(
+app.py:851:                n_perturb=n_perturb,
+app.py:925:        a NAMED human review is required before export (spec §8).
+autofit/cited_values.py:103:        raise _reject(i, f"missing required field(s) {sorted(missing)}")
+autofit/cited_values.py:128:                         "a real source citation is required")
+autofit/engine.py:2674:                "at %s (%s; region-unassigned; human assignment required)",
+autofit/parity.py:69:def background_like_run_fit(
+autofit/parity.py:213:    bg = background_like_run_fit(
+autofit/parity.py:240:    res = run_fit(
+autofit/parity.py:248:        n_perturb=0,
+autofit/methods/ic_model_comparison.py:95:                         "prescriptive: manual attention required)"
+autofit/methods/least_squares.py:6:explicit ``peak_specs``; no grammar required.
+autofit/methods/least_squares.py:22:    "fit_method", "n_perturb", "manual_bg",
+autofit/methods/least_squares.py:50:        res = run_fit(
+autofit/methods/least_squares.py:58:            n_perturb=opts.pop("n_perturb", 0),
+autofit/methods/multivariate_mcr.py:29:``build_matrix``).  A grammar is NOT required (requires_grammar=False) —
+1904:      <button class="btn btn-green peak-fit-control" id="btn-run-fit" onclick="runFit()">Run Fit</button>
+4086:// (caM unit, 2026-09-25). m is CONTINUOUS in data points (the server fits it
+4100:// reason the local engine holds m rather than fitting it (caM unit).
+4173:    y = laTrueCasaXPS(x, center, p.fwhm, p.caAlpha, p.caBeta, p.caM);
+4376:    // every m, continuous, as the server (caM unit 2026-09-25; it was
+4377:    // Math.round(p.caM) > 0 → integer kernel)
+4378:    const yArr = laTrueCasaXPS_array(beArr, p.center, p.fwhm, p.caAlpha, p.caBeta, p.caM);
+4679:// the preview (computeBackgroundCore) and both /api/fit request builders,
+4724:  // The background window — the one definition shared with both /api/fit
+5276:    caM: 50,
+5330:  'LACX':       { caAlpha: 1.0,  fixCaAlpha: false, caBeta: 1.0, fixCaBeta: false, caM: 50, fixCaM: true },
+5894:    if (k === 'f')                 { e.preventDefault(); runFit(); return; }
+6003:  const syncKeys = ['center','amplitude','fwhm','shape','glMix','asymmetry','dsAlpha','dsGamma','laAlpha','laBeta','laM','caAlpha','caBeta','caM'];
+6366:        <input type="number" value="${Number.isFinite(p.caM) ? +p.caM.toFixed(2) : 50}" step="0.1" min="0" max="499"
+6367:          oninput="updatePeakParam(${p.id},'caM',parseFloat(this.value))">
+6466:    // and fits locally (evalPeak: eta = 0.5; runFitLocal holds it). Until A03
+6511:    spec.m     = Number.isFinite(p.caM)     ? p.caM     : 50.0;
+6549:  if (par.m       && p.shape === 'LACX' && !p.fixCaM)     p.caM     = par.m.value;
+7107:// Computed from the /api/fit response alone (counts, fitted_y, the component's
+7287:function applyAutoFitResult(json, graphiteRaw, roi) {
+7343:  // 5. Build state.fitResult exactly as runFit() does.
+7362:  // 6. Update the same DOM elements runFit() updates.
+7408:// Read a 2xx /api/fit reply (unit F2, 2026-09-26). A failure to READ the body
+7495:  // Step 5: run /api/fit with AbortController + spinner.
+7541:    const resp = await fetch('/api/fit', {
+7552:        // reference of a whole spectrum (see applyAutoFitResult).
+7586:    const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
+7664:  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM', 'linked', 'linkOffset', 'linkRatio', '_afAsymMin', '_afAsymMax',
+7961:  await runFit({ startPeaks: peaks, chosenAlternative: chosen });
+7964:async function runFit(opts = {}) {
+8037:      resp = await fetch('/api/fit', {
+8143:      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+8180:// exactly, at its start locally - LA is discontinuous in m, caM unit) and
+8304:function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+8327:  const freeParams = [];
+8331:      if (!p.fixCenter)    { freeParams.push(p.center);    paramMap.push({id: p.id, param: 'center'}); }
+8332:      if (!p.fixFwhm && p.shape !== 'DSG_LA') { freeParams.push(p.fwhm); paramMap.push({id: p.id, param: 'fwhm'}); }
+8333:      if (!p.fixAmplitude) { freeParams.push(p.amplitude); paramMap.push({id: p.id, param: 'amplitude'}); }
+8335:        freeParams.push(p.glMix); paramMap.push({id: p.id, param: 'glMix'});
+8338:        freeParams.push(p.asymmetry); paramMap.push({id: p.id, param: 'asymmetry'});
+8341:        freeParams.push(p.dsAlpha); paramMap.push({id: p.id, param: 'dsAlpha'});
+8344:        freeParams.push(p.dsGamma); paramMap.push({id: p.id, param: 'dsGamma'});
+8347:        if (!p.fixLaAlpha) { freeParams.push(Number.isFinite(p.laAlpha) ? p.laAlpha : 0.10); paramMap.push({id: p.id, param: 'laAlpha'}); }
+8348:        if (!p.fixLaBeta)  { freeParams.push(Number.isFinite(p.laBeta)  ? p.laBeta  : 0.3);  paramMap.push({id: p.id, param: 'laBeta'}); }
+8349:        if (!p.fixLaM)     { freeParams.push(Number.isFinite(p.laM)     ? p.laM     : 0.4);  paramMap.push({id: p.id, param: 'laM'}); }
+8352:        if (!p.fixCaAlpha) { freeParams.push(Number.isFinite(p.caAlpha) ? p.caAlpha : 1.0); paramMap.push({id: p.id, param: 'caAlpha'}); }
+8353:        if (!p.fixCaBeta)  { freeParams.push(Number.isFinite(p.caBeta)  ? p.caBeta  : 1.0); paramMap.push({id: p.id, param: 'caBeta'}); }
+8354:        // caM is HELD at its value — exactly, not rounded, not a degree of
+8357:        // parameter: freeing it (caM unit, 2026-09-25) stalled fits at the
+8364:  if (!freeParams.every(Number.isFinite)) return fail('a free parameter is not a finite number.');
+8368:  if (freeParams.length >= be.length) {
+8369:    return fail('the model is not determined by these data: ' + freeParams.length + ' free parameters for ' +
+8393:    'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM'];
+8430:  let params = freeParams.map((v, i) => clamp(paramMap[i].param, v));
+8477:  // No free parameter is discrete: caM is never made free here (it is held
+8478:  // at its exact value, see the free-parameter block). Until the caM unit it
+8626:  // Degrees of freedom count the parameters this engine varies (caM is held,
+8714:  // evalPeakArray(), not a per-point evalPeak map: for LACX with caM > 0,
+8716:  // evalPeak silently returns the unconvolved base regardless of caM.
+10406:  // for LACX with caM > 0, only the array evaluator applies the shape's
+10407:  // Gaussian convolution — evalPeak silently ignores caM. These curves
+11080:  // LACX with caM > 0, only the array evaluator applies the shape's
+11081:  // Gaussian convolution — evalPeak silently ignores caM, which would
+11236:      // convolution for LACX with caM > 0, which evalPeak ignores.
+11268:      // convolution for LACX with caM > 0, which evalPeak ignores.
+11506:    case 'LACX':    return { gl: '',            alpha: p.caAlpha ?? '', beta: p.caBeta ?? '', m: p.caM ?? '' };
+12331:    const outcome = runFitLocal(be, bgSub, bgI);
+14822:     STRICTLY ADDITIVE: the manual fit path (/api/fit, Run Fit, peak
+16136:      o.caAlpha = p.alpha ?? 1; o.caBeta = p.beta ?? 1; o.caM = p.m ?? 50; break;
+# Test/development dependencies (runtime deps live in requirements.txt).
+# The browser tests (tests/test_browser_*.py, tests/autofit/test_browser_*)
+# additionally need a Playwright Chromium build:  playwright install chromium
+# They self-skip when playwright/gunicorn/chromium are absent.
+pytest>=9.0
+playwright>=1.60
+/usr/bin/python3
+/Users/skyefortier/.local/bin/node
+zsh:1: no matches found: /Users/skyefortier/xps-app/.venv/bin/python*
+
+exec
+/bin/zsh -lc "sed -n '1638,1705p' fitting.py; sed -n '1940,2055p' fitting.py; sed -n '790,880p' app.py; cat autofit/methods/least_squares.py" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+        if len(bg_inner) > 0:
+            bg[i0:i1] = bg_inner
+            if i0 > 0:
+                bg[:i0] = bg_inner[0]
+            if i1 < len(y):
+                bg[i1:] = bg_inner[-1]
+
+    y_sub = y - bg
+
+    # Poisson weights: σ = √(raw counts), weight = 1/σ
+    # Use raw counts (before background subtraction) for uncertainty estimate,
+    # since the noise comes from the total photon counting statistics.
+    # Floor at 1.0 to avoid division by zero for zero-count channels.
+    sigma = np.sqrt(np.maximum(y, 1.0))
+    weights = 1.0 / sigma
+
+    # ── Build composite lmfit model ───────────────────────────────────────────
+    # Sort so unconstrained (master) peaks come before constrained ones
+    ordered = sorted(
+        peak_specs,
+        key=lambda s: 0 if s.get("constrain_to") is None else 1,
+    )
+
+    composite_model: Model | None = None
+    all_params = Parameters()
+
+    for spec in ordered:
+        shape = spec.get("shape", "pseudo_voigt_gl")
+        if shape not in _SHAPE_FUNCS:
+            raise ValueError(f"Unknown peak shape '{shape}'. Choices: {AVAILABLE_SHAPES}")
+        func = _SHAPE_FUNCS[shape]
+        prefix = f"p{spec['id']}_"
+        m = Model(func, prefix=prefix)
+        p = _make_peak_params(m, spec, prefix, ordered)
+        all_params.update(p)
+        composite_model = m if composite_model is None else composite_model + m
+
+    if composite_model is None:
+        raise RuntimeError("No peaks were built")
+    if require_component is not None:
+        ids = [str(spec["id"]) for spec in peak_specs]
+        if str(require_component) not in ids:
+            raise ValueError(f"require_component '{require_component}' is not one of the peaks")
+        if len(ids) < 2:
+            raise ValueError("require_component needs at least two components")
+
+    # Every random draw below (the perturbed restarts; the populations of the
+    # two stochastic methods, which lmfit otherwise takes from numpy's GLOBAL
+    # generator) comes from this one seed, so an identical request gives
+    # identical DRAWS. (Not an identical Trust-Region result: see CLAUDE.md,
+    # "Reproducibility".)
+    if caller_seed is not None:
+        random_seed = int(caller_seed)
+    else:
+        random_seed = _request_seed(
+            x, y, bg, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
+            [f"p{spec['id']}_" for spec in ordered], all_params,
+            fit_kws=fit_kws, n_perturb=n_perturb)
+    # spawn(3) yields the same first two children as spawn(2): adding the
+    # scattered-starts stream leaves every existing draw (and its pins) alone.
+    perturb_rng, solver_rng, starts_rng = (np.random.default_rng(child)
+                                           for child in np.random.SeedSequence(random_seed).spawn(3))
+    if isinstance(n_starts, bool) or not isinstance(n_starts, (int, np.integer)) or not 0 <= n_starts <= MAX_N_STARTS:
+        raise ValueError(f"n_starts must be an integer between 0 and {MAX_N_STARTS}")
+
+    # ── Determinacy (unit F2, 2026-09-26) ─────────────────────────────────────
+    # "Nothing is a fit unless it converged and is determined." With at least
+    # as many free parameters as data points the model can pass through every
+            "id": pid,
+            "y": peak_y.tolist(),
+            "params": param_info,
+            "support": support,
+        })
+
+    # A linked component follows its ROOT ancestor (a grandchild follows the
+    # root), whatever the request order; a cycle or a missing master leaves
+    # its own verdict.
+    by_id = {str(ip["id"]): ip for ip in individual_peaks}
+    master_of = {str(spec["id"]): spec.get("constrain_to") for spec in peak_specs}
+
+    def root_of(pid: str) -> str:
+        seen = set()
+        while master_of.get(pid) is not None and str(master_of[pid]) in by_id and pid not in seen:
+            seen.add(pid)
+            pid = str(master_of[pid])
+        return pid
+
+    for ip in individual_peaks:
+        root = root_of(str(ip["id"]))
+        if root != str(ip["id"]):
+            ip["support"]["follows"] = by_id[root]["id"]
+            ip["support"]["supported"] = by_id[root]["support"]["supported"]
+
+    # ── Statistics ────────────────────────────────────────────────────────────
+    n_data = len(y_sub)
+    n_free = result.nvarys
+    chi_sq = float(result.chisqr) if result.chisqr is not None else None
+    red_chi_sq = float(result.redchi) if result.redchi is not None else None
+
+    residuals = (y_sub - fitted_sub).tolist()
+
+    # R‑factor (like in crystallography: sum|obs-calc| / sum|obs|)
+    r_factor = (float(np.sum(np.abs(y_sub - fitted_sub)) / np.sum(np.abs(y_sub)))
+                if np.sum(np.abs(y_sub)) > 0 else None)
+
+    success, message = result.success, result.message
+    if getattr(result, "box_unverified", False):
+        # Searched inside limits the request never set, and the refinement
+        # that would show they did not matter did not converge to an equal
+        # or better solution. The acceptance rule shows this as a failed fit.
+        success = False
+        message = ("differential_evolution searched inside generated limits for "
+                   + ", ".join(sorted(search_box))
+                   + " and a local refinement without them did not converge to an equal or better"
+                     " solution. Set bounds for those parameters or use another method.")
+
+    return {
+        "success": success,
+        "message": message,
+        "energy": x.tolist(),
+        "counts": y.tolist(),
+        "fitted_y": fitted_y.tolist(),
+        "background_y": bg.tolist(),
+        "residuals": residuals,
+        "individual_peaks": individual_peaks,
+        "statistics": {
+            "chi_square": chi_sq,
+            "reduced_chi_square": red_chi_sq,
+            "r_factor": r_factor,
+            "n_data": n_data,
+            "n_free_params": n_free,
+            "aic": float(result.aic) if result.aic is not None else None,
+            "bic": float(result.bic) if result.bic is not None else None,
+        },
+        "charge_shift_applied": charge_shift_ev,
+        "random_seed": random_seed,
+        "starts": starts,
+        "required": required,
+    }
+
+
+def compute_background_only(
+    energy: np.ndarray,
+    counts: np.ndarray,
+    method: str = "shirley",
+    start_idx: int | None = None,
+    end_idx: int | None = None,
+    endpoint_avg: int = 1,
+) -> dict[str, Any]:
+    """Return just the background array without fitting peaks."""
+    i0 = start_idx if start_idx is not None else 0
+    i1 = end_idx if end_idx is not None else len(energy)
+    x, y = energy[i0:i1], counts[i0:i1]
+
+    if method == "shirley":
+        bg = shirley_background(x, y, n_avg=endpoint_avg)
+    elif method == "smart":
+        bg = smart_background(x, y, n_avg=endpoint_avg)
+    elif method == "smart_exp":
+        bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
+    elif method == "shirley_linear":
+        bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
+    elif method == "tougaard":
+        bg = tougaard_background(x, y, n_avg=endpoint_avg)
+    elif method == "linear":
+        bg = linear_background(x, y)
+    elif method in ("none", "flat", "", "manual"):
+        bg = np.zeros_like(y)
+    else:
+        raise ValueError(f"Unknown background method '{method}'")
+
+    return {
+        "energy": x.tolist(),
+        "background": bg.tolist(),
+        "net_counts": (y - bg).tolist(),
+    }
+        # Background config
+        bg_cfg = body.get("background", {})
+        bg_method = bg_cfg.get("method", "shirley")
+        bg_start = _parse_int(bg_cfg.get("start_idx"), 0, len(energy))
+        bg_end = _parse_int(bg_cfg.get("end_idx"), 0, len(energy), default=len(energy))
+        # Clean 400 for malformed endpoint_avg instead of a 500 (audit F9).
+        try:
+            endpoint_avg = max(1, int(bg_cfg.get("endpoint_avg", 1)))
+        except (TypeError, ValueError):
+            return _err("endpoint_avg must be an integer")
+        manual_bg = bg_cfg.get("manual_bg")
+
+        # Peak specs
+        peak_specs = body.get("peaks", [])
+        if not peak_specs:
+            return _err("'peaks' list is empty – provide at least one peak")
+
+        # Validate peak ids are unique
+        ids = [p.get("id") for p in peak_specs]
+        if len(ids) != len(set(ids)):
+            return _err("Duplicate peak ids found – each peak must have a unique 'id'")
+
+        _ALLOWED_METHODS = {
+            "leastsq", "least_squares", "nelder",
+            "differential_evolution", "basinhopping",
+        }
+        fit_method = body.get("fit_method", "leastsq")
+        if fit_method not in _ALLOWED_METHODS:
+            return _err(f"Unknown fit_method '{fit_method}'")
+
+        # Bounded, type-checked n_perturb (audit F7; also covers the F9
+        # ValueError-on-bad-input case for this field). Reject out-of-range or
+        # non-integer values with a clean 400 instead of a 500 or a worker hang.
+        try:
+            n_perturb = int(body.get("n_perturb", 5))
+        except (TypeError, ValueError):
+            return _err(f"n_perturb must be an integer between 0 and {MAX_N_PERTURB}")
+        if n_perturb < 0 or n_perturb > MAX_N_PERTURB:
+            return _err(f"n_perturb must be between 0 and {MAX_N_PERTURB}")
+
+        # Scattered-starts check (optional; the page sends 3). Same clean-400
+        # treatment as n_perturb; run_fit validates again for other callers.
+        n_starts = body.get("n_starts", 0)
+        if isinstance(n_starts, bool) or not isinstance(n_starts, int) or not 0 <= n_starts <= fitting.MAX_N_STARTS:
+            return _err(f"n_starts must be an integer between 0 and {fitting.MAX_N_STARTS}")
+        # "Is this component required?" (one extra fit; Auto-Fit asks for its anchor)
+        require_component = body.get("require_component")
+        if require_component is not None and not isinstance(require_component, (str, int)):
+            return _err("require_component must be a peak id")
+
+        try:
+            result = fitting.run_fit(
+                energy=energy,
+                counts=counts,
+                peak_specs=peak_specs,
+                background_method=bg_method,
+                bg_start_idx=bg_start,
+                bg_end_idx=bg_end,
+                charge_shift_ev=0.0,
+                fit_kws={"method": fit_method},
+                manual_bg=manual_bg,
+                n_perturb=n_perturb,
+                endpoint_avg=endpoint_avg,
+                n_starts=n_starts,
+                require_component=require_component,
+            )
+        except ValueError as exc:
+            # Our own validation: unknown shape/method, self/circular constraint,
+            # "Master peak not found", bad numeric field, etc. (audit F10/F11).
+            return _err(str(exc))
+        except RuntimeError:
+            # Solver-internal failure (e.g. lmfit non-convergence). Log the
+            # detail; return a generic 422 that leaks no library internals.
+            app.logger.exception("Fit failed")
+            return _err("Fit failed — see server log for details.", 422)
+        except Exception:
+            app.logger.exception("Unexpected fitting error")
+            return _err("Internal fitting error — see server log.", 500)
+
+        return jsonify(result)
+
+    # ── Autofit analyze (opt-in Find Peaks; STRICTLY ADDITIVE — the manual
+    #    /api/fit path above is untouched) ──────────────────────────────────
+
+    @app.get("/api/analyze/meta")
+    def analyze_meta():
+        """Registered regions, material classes, the method menu with its
+        ADJUSTABLE defaults, and the full coverage-tier index (unit 3,
+        2026-07-11) — everything the opt-in Find Peaks UI needs to build
+        its form.  ``regions`` is UNCHANGED (still just the 5 curated
+        modules; existing consumers untouched); ``coverage`` is additive —
+"""
+Method 1 — classical constrained least-squares (the manual-model baseline).
+
+Thin wrapper over the EXISTING ``fitting.run_fit`` (unchanged, same code the
+manual UI uses) so the method seam has an honest baseline entry.  Consumes
+explicit ``peak_specs``; no grammar required.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Callable, Optional
+
+import numpy as np
+
+from fitting import run_fit
+
+from ..grammar import CandidateGrammar
+from .base import MethodResult, PeakFitMethod, pop_endpoint_avg
+
+_ALLOWED_OPTIONS = {
+    "background_method", "bg_start_idx", "bg_end_idx", "endpoint_avg",
+    "fit_method", "n_perturb", "manual_bg",
+}
+
+
+class LeastSquaresMethod(PeakFitMethod):
+    id = "least_squares"
+    label = "Least-squares (manual model)"
+    requires_grammar = False
+
+    def run(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        weights: Optional[np.ndarray] = None,
+        grammar: Optional[CandidateGrammar] = None,
+        peak_specs: Optional[list[dict]] = None,
+        options: Optional[dict[str, Any]] = None,
+        progress_cb: Optional[Callable[[dict], None]] = None,
+    ) -> MethodResult:
+        if not peak_specs:
+            raise ValueError("least_squares requires explicit peak_specs (manual model)")
+        opts = dict(options or {})
+        unknown = set(opts) - _ALLOWED_OPTIONS
+        if unknown:
+            raise ValueError(f"unknown least_squares options: {sorted(unknown)}")
+        fit_method = opts.pop("fit_method", None)
+        fit_kws = {"method": fit_method} if fit_method else None
+
+        res = run_fit(
+            np.asarray(x, dtype=float),
+            np.asarray(y, dtype=float),
+            peak_specs,
+            background_method=opts.pop("background_method", "shirley"),
+            bg_start_idx=opts.pop("bg_start_idx", None),
+            bg_end_idx=opts.pop("bg_end_idx", None),
+            endpoint_avg=pop_endpoint_avg(opts),
+            n_perturb=opts.pop("n_perturb", 0),
+            manual_bg=opts.pop("manual_bg", None),
+            fit_kws=fit_kws,
+        )
+
+        peaks = []
+        confidence: dict[str, dict] = {}
+        for ip in res["individual_peaks"]:
+            par = ip["params"]
+            rec = {"id": ip["id"]}
+            for name, info in par.items():
+                rec[name] = info["value"]
+            peaks.append(rec)
+            stderr = {name: info.get("stderr") for name, info in par.items()}
+            has_cov = any(v is not None for v in stderr.values())
+            confidence[str(ip["id"])] = {
+                "sigma_stat": {
+                    "uncertainty_kind": "covariance" if has_cov else "unavailable",
+                    "values": stderr if has_cov else None,
+                },
+                "reference_sensitivity_range": {
+                    "kind": "unavailable_single_fit", "range_ev": None,
+                },
+            }
+
+        stats = res["statistics"]
+        return MethodResult(
+            method_id=self.id,
+            success=bool(res["success"]),
+            peaks=peaks,
+            analysis={
+                "method": self.id,
+                "statistics": stats,
+                "note": "manual-model baseline; no candidate enumeration",
+            },
+            confidence=confidence,
+            diagnostics={"lmfit_message": res.get("message")},
+            message=res.get("message") or "",
+        )
+
+exec
+/bin/zsh -lc "sed -n '7280,7348p' templates/index.html; sed -n '7490,7635p' templates/index.html; sed -n '8000,8170p' templates/index.html; sed -n '8304,8334p' templates/index.html; sed -n '12290,12370p' templates/index.html" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+  p = Math.max(1, p);
+  const nFree = (json.statistics && Number.isFinite(json.statistics.n_free_params)) ? json.statistics.n_free_params : 0;
+  const dof = Math.max(1, n - nFree);
+  if (withC === 0) return true;                                           // exact fit that the component is needed for
+  return (delta / p) / (withC / dof) >= _AUTOFIT_ANCHOR_MIN_F;
+}
+
+function applyAutoFitResult(json, graphiteRaw, roi) {
+  // 1. Locate the graphite peak in state.peaks (named "Graphite").
+  const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
+  if (!gPeak || !Number.isFinite(gPeak.center)) {
+    notify('Auto-fit failed: graphite center not found in fit result.', 'red', true);
+    return false;
+  }
+  // 1b. The charge correction below is derived from this component's fitted
+  // centre and then shifts EVERY binding energy in the spectrum, so the
+  // component has to exist. A Graphite amplitude driven to its lower bound
+  // (the server's floor is zero; lmfit returns ~1e-12 there) still comes back
+  // with a centre inside the ±0.3 eV window — a position of nothing.
+  // 1c. Supported (the fit cannot drop it without cost, other components held)
+  // is necessary but not sufficient: with strong overlap the OTHER components
+  // could absorb the anchor if refitted. The server refits without it when
+  // asked (require_component) and reports whether that made the fit
+  // significantly worse. A redundant anchor is refused the same way.
+  const req = json && json.required;
+  if (req && req.ran === true && req.required === false) {
+    notify('Auto-fit: the Graphite component is not required by the data — refitting the other components without it fits the data as well' + (req.f != null ? ' (F = ' + Number(req.f).toFixed(1) + ', threshold 10)' : '') + '. No charge correction was derived from it and the fit was not applied. The model gives the other components enough freedom to absorb the graphite line; lock or narrow them and try again.', 'red', true);
+    return false;
+  }
+  // F2 (2026-09-26): the refit without the anchor did not converge, so the
+  // server could not establish that the anchor is required. The anchor would
+  // set the energy reference of the whole spectrum: refused, like a
+  // redundant one (a check that did not RUN at all still never blocks).
+  if (req && req.ran === true && req.refit_converged === false) {
+    notify('Auto-fit: it could not be established that the data require the Graphite component — refitting the other components without it did not converge. No charge correction was derived from it and the fit was not applied. Try Run Fit, or narrow the ROI, and run Auto-Fit again.', 'red', true);
+    return false;
+  }
+  if (!_autoFitGraphiteIsSupported(gPeak, json)) {
+    notify('Auto-fit: the data do not support the Graphite component (removing it does not worsen the fit), so no charge correction was derived from it and the fit was not applied.', 'red', true);
+    return false;
+  }
+  // 2. Validate within ±0.3 of 284.50 (the LA center bound).
+  if (Math.abs(gPeak.center - 284.50) > 0.30 + 1e-6) {
+    notify('Fit failed to converge or produced an unphysical graphite position.', 'red', true);
+    return false;
+  }
+  // 3. Compute fitted raw center using APP CONVENTION:
+  //    raw = corrected + state.ccShift (state.ccShift is the provisional value).
+  const graphiteFittedRaw = gPeak.center + (Number.isFinite(state.ccShift) ? state.ccShift : 0);
+
+  // 4. Drive updateChargeCorrection() to refine the shift.
+  // Self-consistency: cc-obs = graphite_fitted_raw (NOT graphite_raw_BE),
+  // approved design point.
+  const cm = document.getElementById('cc-method');
+  const co = document.getElementById('cc-obs');
+  const cl = document.getElementById('cc-lit');
+  if (cm && co && cl) {
+    cm.value = 'c1s';
+    co.value = graphiteFittedRaw.toFixed(3);
+    cl.value = '284.50';
+    if (typeof updateChargeCorrection === 'function') updateChargeCorrection();
+  }
+
+  // 5. Build state.fitResult exactly as runFit() does.
+  const { be: be2, inten: inten2 } = getROIData();
+  const bgI2 = computeBackground(be2, inten2);
+  const bgSub2 = inten2.map((v, i) => v - bgI2[i]);
+  const stats = json.statistics || {};
+  const chiReduced = stats.reduced_chi_square || 0;
+  const newPeaks = buildAutoFitModel(assessment);
+  state.peaks = newPeaks;
+  state.nextId = Math.max(0, ...state.peaks.map(p => p.id)) + 1;
+  renderPeakList();
+
+  // Step 5: run /api/fit with AbortController + spinner.
+  _showFitSpinner();
+  const spinLabel = document.getElementById('fit-spinner-label');
+  if (spinLabel) spinLabel.textContent = 'Auto-fitting…';
+  const runBtn = document.querySelector('.btn-green');
+  if (runBtn) runBtn.disabled = true;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
+
+  try {
+    const { be: be2, inten: inten2 } = getROIData();
+    const bgType = document.getElementById('bg-type').value;
+    const bgStart = parseFloat(document.getElementById('bg-start').value);
+    const bgEnd = parseFloat(document.getElementById('bg-end').value);
+    // Inclusive bg window — the same point set computeBackgroundCore draws;
+    // the backend slices end-exclusive, so the request sends i1 + 1.
+    const bgWin = _bgWindowIndices(be2, bgStart, bgEnd);
+    const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const fitMethod = document.getElementById('fit-method').value;
+
+    // The anchor whose necessity the server must test — captured with the
+    // other request inputs, before the first await (a tab switch during the
+    // upload must not send another tab's id).
+    const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);
+    // the model and its fit context as sent (F1, Codex round 1): a result must
+    // not be applied, and stamped current, over a model edited while it ran
+    const ctxAtRequest = _startsLiveKey();
+    // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
+    const peakSpecs = state.peaks.map(p => {
+      const spec = peakToBackendSpec(p);
+      if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
+      if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
+      if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
+      if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
+      spec.amplitude_min = 0;
+      return spec;
+    });
+
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
+    const sessionId = await uploadToBackend(be2, inten2);   // after EVERY input above is captured
+    const resp = await fetch('/api/fit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        background: bgPayload,
+        peaks: peakSpecs,
+        fit_method: fitMethod,
+        n_perturb: 3,
+        // step (c): is the charge-reference anchor REQUIRED? The server refits
+        // the model without it; a redundant anchor must not set the energy
+        // reference of a whole spectrum (see applyAutoFitResult).
+        require_component: anchorId,
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    // F2: a non-2xx reply is a failed REQUEST with its status in the message,
+    // as Run Fit has done since A0 (a Cloudflare 524 or a gunicorn 500 used to
+    // reach the parser and read as "the server's reply could not be read")
+    if (resp.ok === false) {
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.httpStatus = resp.status;
+      throw err;
+    }
+    const json = await _readFitReply(resp);   // F2: an unreadable reply is a failed fit with its own message
+    if (json.error) throw new Error(json.error);
+    if (json.success !== true) throw new Error(json.message || 'fit did not converge');
+    if (!_ownerActive(fittingTab)) {
+      _hideFitSpinner();
+      notify('Auto-fit discarded — tab switched during fit.', 'amber');
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+    if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
+      _hideFitSpinner();
+      notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+
+    applyBackendResult(json);
+
+    const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
+    if (!ok) {
+      _hideFitSpinner();
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+
+    _hideFitSpinner();
+    notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
+  } catch (e) {
+    clearTimeout(timer);
+    _hideFitSpinner();
+    // The catch path can also fire after a mid-flight tab switch (fetch
+    // error/timeout after the user moved on) — same wrong-tab hazard as
+    // the explicit discard branch, so it gets the same tab-aware restore.
+    _autoFitRestore(snap, fittingTab);
+    let msg;
+    if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('aborted')))) {
+      msg = 'Auto-fit exceeded the 2-minute timeout.';
+    } else if (e && (e.unreadableReply || e.httpStatus)) {
+      msg = 'Auto-fit failed: ' + e.message;
+    } else if (e && e.message) {
+      msg = 'Fit failed to converge or produced an unphysical graphite position.';
+      console.warn('Auto-fit error:', e);
+    } else {
+      msg = 'Auto-fit failed.';
+    }
+    notify(msg, 'red', true);
+  }
+}
+
+function isC1sTab(tab) {
+  if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
+  const ui = tab.ui || {};
+  let lo = parseFloat(ui.roiMin);
+  let hi = parseFloat(ui.roiMax);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+    // Fall back to full raw range (no UI ROI set yet)
+    let rmin = Infinity, rmax = -Infinity;
+    for (const v of tab.rawBE) {
+      if (v < rmin) rmin = v;
+      if (v > rmax) rmax = v;
+    }
+    lo = rmin; hi = rmax;
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return false;
+  const mid = (lo + hi) / 2;
+  return mid >= 270.0 && mid <= 315.0;
+}
+
+    const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;
+    // the live model and its fit context as the student pressed the button: a
+    // result must not be written over a model that was edited while it ran
+    ctxAtRequest = _startsLiveKey();
+    const fitMethod = document.getElementById('fit-method').value;
+    const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
+    // Transport failures (server unreachable, timeout, non-JSON reply) are
+    // the ONLY reason to fall back to the local optimiser. A server-side
+    // validation error or a non-converged optimisation surfaces its message
+    // and leaves the model untouched (unit A0: nothing is shown as a fit
+    // result unless it converged; an HTTP 400 is not a reason to silently
+    // switch engines).
+    // Only a genuine transport failure (network rejection, abort, a body that
+    // could not be read) is marked for fallback; server errors — including a
+    // 2xx body that was read but is not JSON (F2) — carry `serverError`.
+    const _asTransport = (e) => {
+      if (e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError' || e instanceof SyntaxError)) e.transportFailure = true;
+      throw e;
+    };
+    let sessionId;
+    try { sessionId = await uploadToBackend(be, inten); } catch (e) { _asTransport(e); }
+    const fitReq = {
+      session_id: sessionId,
+      background: bgPayload,
+      peaks: peakSpecs,
+      fit_method: fitMethod,
+      n_perturb: 3,
+      n_starts: nStarts       // the server also skips it for the global methods
+    };
+    let resp, json;
+    try {
+      resp = await fetch('/api/fit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fitReq)
+      });
+    } catch (e) { _asTransport(e); }
+    if (resp.ok === false) {
+      // HTTP failure: read a message if the body is JSON, but a 502 HTML
+      // page is still a SERVER failure, never a reason to switch engines.
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.serverError = true;
+      throw err;
+    }
+    // F2: reading the body can fail in transport; a body that was read but is
+    // not JSON is the server's reply — a failed fit, not a fallback
+    try { json = await _readFitReply(resp); } catch (e) { _asTransport(e); }
+    if (json.error) {
+      const err = new Error(json.error);
+      err.serverError = true;
+      throw err;
+    }
+    // ACCEPTANCE RULE: the backend reports lmfit's own convergence flag. A
+    // result that did not converge is a failed fit, not a result (audit A08:
+    // until this unit success:false was applied and announced as complete).
+    if (json.success !== true) {
+      const err = new Error(json.message || 'the optimizer did not converge.');
+      err.notConverged = true;
+      throw err;
+    }
+    backendResult = json;
+
+    // If the user switched tabs while the fit was running, discard the result
+    // rather than overwriting the now-active tab's peaks.
+    if (!_ownerActive(fittingTab)) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit result discarded because you switched tabs during the fit.', 'amber');
+      return;
+    }
+
+    // The peak controls stay editable while the fit runs. A result computed for
+    // the model as it was must not be applied over an edited one (a newly locked
+    // centre would keep its edited value under the server's statistics).
+    if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
+      return;
+    }
+
+    // Capture pre-fit values for uncertainty validation
+    const _preFit = {};
+    for (const p of state.peaks) {
+      _preFit[p.id] = { center: p.center, fwhm: p.fwhm, amplitude: p.amplitude, glMix: p.glMix };
+    }
+    applyBackendResult(backendResult);
+    { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
+    const stats = backendResult.statistics || {};
+    const chiReduced = stats.reduced_chi_square || 0;
+    const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
+    const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
+    state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
+                        chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
+                        fittedY: backendResult.fitted_y, roiRange, _preFit,
+                        starts: backendResult.starts || null,
+                        startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
+                        chosenAlternative: opts.chosenAlternative || null };
+    // a preview of an alternative always belongs to the PREVIOUS result (an identical
+    // key does not make it this one's): clear it unconditionally
+    if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:')) _historyPreview = null;
+    state.fitResult.rFactor = _computeRFactor(state.fitResult);
+    _applyStatDisplay(state.fitResult);
+    document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
+    _updateRFactorUI(state.fitResult.rFactor);
+    _updateROIDisplay(roiRange);
+    _hideFitSpinner();
+    notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
+  } catch (e) {
+    // Fall back to local Levenberg-Marquardt
+    _hideFitSpinner();
+    if (!_ownerActive(fittingTab)) {
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit cancelled — tab switched during fit.', 'amber');
+      return;
+    }
+    if (e && e.transportFailure && opts.startPeaks) {
+      // Adopting an alternative needs the server: the local engine would start
+      // from the live model, not from the alternative. Nothing was changed.
+      document.getElementById('sb-msg').textContent = 'Fit failed';
+      notify('The server could not be reached, so the alternative was not applied. Previous peaks and result kept.', 'red', true);
+      return;
+    }
+    if (e && e.transportFailure && ctxAtRequest !== null && !_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
+      // The fallback would fit the arrays captured at the press over a model or
+      // context edited since, and stamp the edited one (F1, Codex round 1).
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('The server could not be reached, and the model or its background / ROI settings were edited while the fit was running, so no local fit was run. Previous peaks and result kept. Run the fit again.', 'amber', true);
+      return;
+    }
+    if (e && e.transportFailure) {
+      // Server unreachable: the local optimiser is the honest fallback, and
+      // the overlay saying so opens only if it actually converged.
+      if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
+      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+      if (local && local.success && !_snapshotSuppressed) {
+        document.getElementById('localfit-warn-overlay').classList.add('open');
+      }
+      return;
+    }
+    // Server-side error or non-converged optimisation: report it; the
+    // previous peaks and fit result stay exactly as they were.
+    const notConverged = !!(e && e.notConverged);
+    document.getElementById('sb-msg').textContent = notConverged ? 'Fit did not converge' : 'Fit failed';
+    notify((notConverged ? 'Fit did not converge: ' : 'Fit failed: ') + ((e && e.message) || 'unknown error') +
+           ' Previous peaks and result kept.', 'red', true);
+    return;
+  }
+
+  renderPeakList();
+  updatePlot();
+  renderResults();
+  _autoSnapshot();
+}
+
+// Label for the goodness-of-fit statistic a fit result carries. The server
+// and (since unit W1, 2026-09-18) the local engine both minimise a
+// counting-noise-weighted chi-square; local results saved by unit A0 were
+// UNWEIGHTED and keep the label "Residual variance", never chi-square.
+function _isUnweightedLocal(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
+function _fitStatLabel(fr) {
+  return _isUnweightedLocal(fr) ? 'Residual variance' : 'χ²ᵣ';
+function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+  const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
+  const fail = (message, iterations) => {
+    _hideFitSpinner();
+    document.getElementById('sb-msg').textContent = 'Local fit failed';
+    notify('Local fit did not converge: ' + message + ' Previous peaks and result kept.', 'red', true);
+    return { success: false, engine: 'local', message, iterations: iterations || 0 };
+  };
+  if (!Array.isArray(be) || be.length < 2 ||
+      !Array.isArray(bgSubtracted) || bgSubtracted.length !== be.length ||
+      !Array.isArray(bgIntensity) || bgIntensity.length !== be.length ||
+      !be.every(Number.isFinite) || !bgSubtracted.every(Number.isFinite) || !bgIntensity.every(Number.isFinite)) {
+    return fail('invalid or non-finite data in the fitting region.');
+  }
+  // POISSON WEIGHTS (unit W1): the same weighting fitting.run_fit applies on
+  // the server — sigma = sqrt(raw counts), floored at 1, where the raw
+  // counts are the background-subtracted signal plus the background.
+  const _w = be.map((_, i) => 1 / Math.sqrt(Math.max(bgSubtracted[i] + bgIntensity[i], 1)));
+  // Work on copies: live peaks are touched only on success.
+  const work = state.peaks.map(p => ({ ...p }));
+  if (!work.length) return fail('no peaks to fit.');
+  const workPeak = id => work.find(q => q.id === id);
+
+  const freeParams = [];
+  const paramMap = [];
+  for (const p of work) {
+    if (!p.linked) {
+      if (!p.fixCenter)    { freeParams.push(p.center);    paramMap.push({id: p.id, param: 'center'}); }
+      if (!p.fixFwhm && p.shape !== 'DSG_LA') { freeParams.push(p.fwhm); paramMap.push({id: p.id, param: 'fwhm'}); }
+      if (!p.fixAmplitude) { freeParams.push(p.amplitude); paramMap.push({id: p.id, param: 'amplitude'}); }
+      if ((p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) {
+    _pushUndoFor(tgt, { endpointAvg: tgt.ui && tgt.ui.endpointAvg });
+    tgt.peaks = clonedPeaks;
+    tgt.nextId = nextId;
+    tgt.ui = newUi;
+    tgt.ccShift = srcShift;
+    tgt.chargeVerified = false;
+    // A propagated model has not been fitted yet: the target's previous
+    // result belonged to its previous peaks (unit A0 acceptance rule).
+    tgt.fitResult = null;
+    tgt.modelProvenance = srcProvenance ? { ...srcProvenance, copiedFrom: sourceTab.name } : null;
+
+    // Now activate this tab so state is populated. activateTab is a no-op
+    // when the target is ALREADY active (the user switched to it during the
+    // previous target's fit): then live state still holds the target's old
+    // model and the post-fit sync would overwrite the propagated record —
+    // load the record into live state explicitly (Codex round 3, run B).
+    if (tabManager.activeId === tid) {
+      state.peaks = tgt.peaks; state.nextId = tgt.nextId; state.ccShift = tgt.ccShift;
+      state.fitResult = null;   // live copy of tgt.fitResult = null above (unit A0)
+      tabManager._restoreUI(tgt.ui);
+      renderPeakList();
+      _refreshRoiAndCentreWarnings();   // this branch does not redraw: the hint must describe the target's window (Codex round 2)
+    } else {
+      tabManager.activateTab(tid);
+    }
+
+    // Small yield so progress message renders
+    await new Promise(r => setTimeout(r, 20));
+    if (_activeTab() !== tgt) {
+      // The user switched tabs during the yield: fitting would read and
+      // write whichever tab is active now. Stop here; targets already
+      // fitted keep their results.
+      notify('Batch fit stopped at ' + tgt.name + ' — the tab changed while it was running.', 'amber');
+      break;
+    }
+
+    // Run local fit
+    const roiSt = _roiWindowStatus();    // warn only: the fit below uses getROIData() exactly as before
+    const { be, inten } = getROIData();
+    const bgI = computeBackground(be, inten);
+    const bgSub = inten.map((v, idx) => v - bgI[idx]);
+    const outcome = runFitLocal(be, bgSub, bgI);
+
+    // Sync result back to record
+    tabManager._syncActiveToRecord();
+
+    // Read the statistic from the fit's own return value, not from live
+    // state: the active tab can change while the fit runs.
+    const ok = !!(outcome && outcome.success);
+    results.push({ name: tgt.name, ok, roiHint: _roiHintFor(roiSt),
+                   chi: ok && Number.isFinite(outcome.chiReduced) ? outcome.chiReduced : null,
+                   message: ok ? null : ((outcome && outcome.message) || 'local fit did not converge') });
+
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  _snapshotSuppressed = false;
+
+  // Return to source tab
+  tabManager.activateTab(sourceId);
+
+  const nOk = results.filter(r => r.ok).length;
+  const nFail = results.length - nOk;
+  prog.textContent = `Batch complete: ${nOk} converged as starting points, ${nFail} not fitted. Run Fit on each spectrum before reporting.`;
+  const roiNote = r => r.roiHint ? ` <span class="roi-hint${r.roiHint.cls ? ' ' + r.roiHint.cls : ''}" style="display:inline">${_escHtml(r.roiHint.text)}</span>` : '';
+  summary.innerHTML = results.map(r => r.ok
+    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local fit: a starting point, not a reportable result)${roiNote(r)}</div>`
+    : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)${roiNote(r)}</div>`
+  ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
+  summary.style.display = 'block';
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════
+// FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
+// ══════════════════════════════════════════════════════════════
+
+// Legacy chemical-state constant removed at Stage 9 cutover — NIST-modal
+// reference data is now served verbatim via the unified accessor over
+// data/xps/legacy/chemical-states.json (see _accChemicalStates).
+
+
+exec
+/bin/zsh -lc "python3 -B -c 'import sys; print(sys.executable); import lmfit, pytest; print(lmfit.__version__)'; ls /Users/skyefortier; cat tests/conftest.py; cat tests/js/fit_acceptance.test.js" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+python3: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+python3: error: couldn't create cache file '/tmp/xcrun_db-aQN1qdKU' (errno=Operation not permitted)
+python3: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+python3: error: couldn't create cache file '/tmp/xcrun_db-lqOOLBiL' (errno=Operation not permitted)
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+/Library/Developer/CommandLineTools/usr/bin/python3
+ModuleNotFoundError: No module named 'lmfit'
+2021-08-11-1628706852-1_vault-86_items.enpassbackup
+2022-06-05-1654443207-1_vault-103_items.enpassbackup
+Applications
+Applications (Parallels)
+CCDC
+Desktop
+Documents
+Downloads
+Dropbox
+GL-Extensions.txt
+Impervious
+Library
+Movies
+Music
+OneDrive - The University of Texas at El Paso
+Parallels
+Pictures
+Public
+ShelXle_message.txt
+closet_storage_schematic.html
+closet_storage_schematic.png
+closet_storage_schematic_portrait.png
+closet_storage_schematic_portrait.svg
+closet_top_layout.png
+closet_top_layout.svg
+closet_wall_elevations.png
+closet_wall_elevations.svg
+hermes-os
+hermes_outputs
+license.lic
+shaderlog.txt
+xps-app
+xps-app-backups
+xps-charge
+xps-verify
+"""Make the repo root importable regardless of how pytest is invoked."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+// Fit acceptance rule for the backend path (unit A0, 2026-09-15): nothing is
+// shown, stored or exported as a fit result unless it converged, and a
+// server-side error surfaces its message instead of silently handing the
+// model to the local optimiser.
+//
+// Before this unit runFit checked `json.error` only: an lmfit result with
+// success:false was applied and announced as "Fit complete (lmfit)" (audit
+// A08), and ANY thrown error — a 400 validation error included — fell back
+// to runFitLocal, which then returned the starting model (A01).
+//
+// runFit is extracted verbatim from templates/index.html; its collaborators
+// are stubbed at the boundary (DOM, fetch, upload, chart/list renderers).
+
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const REPO_ROOT = path.join(__dirname, '../..');
+const html = fs.readFileSync(path.join(REPO_ROOT, 'templates/index.html'), 'utf8');
+const lines = html.split('\n');
+function extractFn(name) {
+  const re = new RegExp('^(async )?function ' + name + '\\(');
+  const start = lines.findIndex(l => re.test(l));
+  assert.ok(start >= 0, `function ${name} not found`);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+    if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
+  }
+  assert.fail('unbalanced ' + name);
+}
+
+function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
+  const dom = {};
+  const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, disabled: false,
+    setAttribute() {}, removeAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, contains() { return false; }, _c: null } });
+  const document = { getElementById: el, querySelector: () => el('.btn-green'), querySelectorAll: () => [] };
+  const be = Array.from({ length: 50 }, (_, i) => 280 + 0.2 * i);
+  const state = { rawBE: be.slice(), rawIntensity: be.map(() => 100), ccShift: 0, fitResult: { marker: 'previous' },
+    peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
+  const owner = { id: 7 };
+  const calls = { notify: [], local: 0, applied: 0 };
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
+  const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
+    '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
+    '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab',
+    src + '\nreturn { runFit };');
+  const noop = () => {};
+  const { runFit } = factory(document, state, withText(fetchImpl), uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
+    noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
+    b => b.map(() => 0), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
+    () => 0.1, '', noop, noop, noop, noop, noop, noop,
+    () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop, () => owner);
+  return { runFit, state, dom, calls };
+}
+
+const okResponse = body => async () => ({ ok: true, status: 200, json: async () => body });
+// F2: the page reads a 2xx /api/fit body as text and parses it itself
+// (_readFitReply). A mock that only defines json() gets the matching text().
+function withText(fetchImpl) {
+  return async (...a) => {
+    const r = await fetchImpl(...a);
+    if (r && typeof r.text !== 'function' && typeof r.json === 'function') r.text = async () => JSON.stringify(await r.json());
+    return r;
+  };
+}
+
+test('A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown', async () => {
+  const env = makeEnv({ fetchImpl: okResponse({ success: false, message: 'Fit did not converge: max evaluations', statistics: { reduced_chi_square: 999 }, individual_peaks: [] }) });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit();
+  assert.equal(env.calls.applied, 0, 'applyBackendResult must not run');
+  assert.equal(env.calls.local, 0, 'no silent local fallback');
+  assert.equal(JSON.stringify(env.state.peaks), before, 'peaks unchanged');
+  assert.equal(env.state.fitResult.marker, 'previous', 'previous fit result retained');
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /did not converge/i.test(n.msg)), JSON.stringify(env.calls.notify));
+  assert.ok(!/complete/i.test(env.dom['sb-msg'].textContent), env.dom['sb-msg'].textContent);
+});
+
+test('a server validation error (HTTP 400 with error) surfaces its message and does NOT hand off to the local optimiser', async () => {
+  const env = makeEnv({ fetchImpl: async () => ({ ok: false, status: 400, json: async () => ({ error: 'peak 1: fwhm_min must be positive' }) }) });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit();
+  assert.equal(env.calls.local, 0, 'a 400 is not a reason to run the local fitter');
+  assert.equal(env.calls.applied, 0);
+  assert.equal(JSON.stringify(env.state.peaks), before);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /fwhm_min must be positive/.test(n.msg)), JSON.stringify(env.calls.notify));
+  assert.notEqual(env.dom['localfit-warn-overlay']?.classList._c, 'open', 'no "local fit performed" overlay');
+});
+
+test('a transport failure (fetch throws) still falls back to the local optimiser and shows the local-fit overlay', async () => {
+  const env = makeEnv({ fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  await env.runFit();
+  assert.equal(env.calls.local, 1, 'local fallback used for a genuine network failure');
+  assert.equal(env.dom['localfit-warn-overlay'].classList._c, 'open');
+});
+
+test('a transport failure whose local fallback does NOT converge shows no "local fit performed" overlay', async () => {
+  const env = makeEnv({ fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  // replace the stubbed local fitter with a failing one
+  const failing = makeEnv({ fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  failing.calls.local = 0;
+  // rebuild with a failing runFitLocal
+  const dom = failing.dom;
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
+  const noop = () => {};
+  const owner = { id: 1 };
+  const state = failing.state;
+  const { runFit } = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
+    '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
+    '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
+    '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab', src + '\nreturn { runFit };')(
+    { getElementById: id => (dom[id] ||= { value: '', textContent: '', style: {}, setAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, _c: null } }), querySelector: () => ({}), querySelectorAll: () => [] },
+    state, async () => { throw new TypeError('Failed to fetch'); }, async () => 'sid', noop, noop, noop, noop, () => owner, o => o === owner,
+    () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }), b => b.map(() => 0), p => ({ id: p.id }), () => [], noop,
+    () => 0.1, '', noop, noop, noop, noop, noop, noop, () => ({ success: false, message: 'did not converge' }), false, { warn: noop }, noop, () => owner);
+  await runFit();
+  assert.notEqual(dom['localfit-warn-overlay']?.classList._c, 'open', 'overlay must not claim a local fit was performed');
+  void env;
+});
+
+test('a converged backend result is applied (sanity)', async () => {
+  const env = makeEnv({ fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1.2 }, residuals: [], fitted_y: [], individual_peaks: [] }) });
+  await env.runFit();
+  assert.equal(env.calls.applied, 1);
+  assert.equal(env.calls.local, 0);
+  assert.notEqual(env.state.fitResult.marker, 'previous');
+  assert.equal(env.dom['sb-msg'].textContent, 'Fit complete (lmfit)', 'the success path must run to completion, not die in an exception');
+});
+
+test('the engine/objective labels of a fit result survive spectrum and project save/load', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // spectrum save: statistics block carries objective/engine; loader restores them
+  const save = grab('function _doSaveSpectrum()', 2500);
+  assert.match(save, /objective: state\.fitResult\.objective/);
+  assert.match(save, /engine: state\.fitResult\.engine/);
+  const load = grab('function _loadSpectrumFile(', 6000);
+  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative'\]/);
+  // project save: the whitelisted fitResult record carries them
+  const proj = grab('const buildTabData = (t) =>', 3000);
+  assert.match(proj, /objective: t\.fitResult\.objective/);
+  assert.match(proj, /engine: t\.fitResult\.engine/);
+});
+
+// ── Codex round-1 findings (2026-09-15): HTTP failures with non-JSON bodies ──
+
+function envWithFetch(fetchImpl, uploadImpl) { return makeEnv({ fetchImpl, uploadImpl }); }
+
+test('an HTTP 502 with an HTML body on /api/fit is a server failure: message shown, no local fallback', async () => {
+  const env = envWithFetch(async () => ({ ok: false, status: 502, json: async () => { throw new SyntaxError('Unexpected token <'); } }));
+  await env.runFit();
+  assert.equal(env.calls.local, 0, 'no fallback on a 502');
+  assert.equal(env.calls.applied, 0);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /502/.test(n.msg)), JSON.stringify(env.calls.notify));
+});
+
+test('an HTTP 502 on the upload is a server failure, not a transport failure', async () => {
+  const env = envWithFetch(async () => { throw new Error('fit must not be reached'); }, async () => { const e = new Error('Upload failed (HTTP 502).'); e.serverError = true; throw e; });
+  await env.runFit();
+  assert.equal(env.calls.local, 0);
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /502/.test(n.msg)));
+});
+
+test('uploadToBackend itself classifies HTTP errors as server errors and rejects a reply without a session id', async () => {
+  const src = extractFn('uploadToBackend');
+  const make = fetchImpl => new Function('fetch', 'FormData', 'Blob', src + '\nreturn uploadToBackend;')(fetchImpl, class { append() {} }, class {});
+  await assert.rejects(make(async () => ({ ok: false, status: 502, json: async () => { throw new SyntaxError('<html>'); } }))([1], [1]), e => e.serverError === true && /502/.test(e.message));
+  await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => ({}) }))([1], [1]), e => e.serverError === true && /session/i.test(e.message));
+  await assert.rejects(make(async () => { throw new TypeError('Failed to fetch'); })([1], [1]), e => !e.serverError);
+});
+
+test('every consumer that prints the goodness-of-fit statistic routes through the statistic identity', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // figure export annotation
+  const fig = grab('function exportFigure()', 60000);
+  assert.match(fig, /_isLocalFit\(state\.fitResult\)/, 'figure export must label the statistic by engine');
+  assert.match(fig, /Residual variance \(local fit, not reportable\)/, 'figure annotation names the legacy unweighted statistic');
+  assert.match(fig, /\\u03c7\\u00b2_r \(local fit, not reportable\)/, 'figure annotation designates a weighted local chi-square');
+  // fit-history rows
+  const hist = grab('function _renderHistoryList(', 3000);
+  assert.match(hist, /_fitStatLabel\(/, 'history rows must label the statistic by engine');
+  // tab activation tooltip
+  const act = grab("// Update chi-squared display for this tab's fit result", 300);
+  assert.match(act, /_applyStatDisplay\(state\.fitResult\)/, 'tab activation refreshes the whole statistic display');
+});
+
+test('uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is a server error, not a transport failure', async () => {
+  const src = extractFn('uploadToBackend');
+  const make = fetchImpl => new Function('fetch', 'FormData', 'Blob', src + '\nreturn uploadToBackend;')(fetchImpl, class { append() {} }, class {});
+  await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => null }))([1], [1]), e => e.serverError === true);
+  await assert.rejects(make(async () => ({ ok: true, status: 200, json: async () => 'nope' }))([1], [1]), e => e.serverError === true);
+});
+
+test('a local (unweighted) result is labelled a STARTING POINT, not a reportable result, everywhere it is shown', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  // Results panel banner, keyed on the statistic identity
+  const rr = grab('function renderResults()', 6000);
+  assert.match(rr, /starting point/i, 'results panel must say the local result is a starting point');
+  assert.match(rr, /Run Fit/, 'results panel must tell the user to press Run Fit');
+  // batch summary rows
+  const rp = grab('async function runPropagation', 9000);
+  assert.match(rp, /starting point/i, 'batch summary must say converged rows are starting points');
+  // table exports carry the warning
+  const ex = grab('function exportFitTable(fmt)', 6000);
+  assert.match(ex, /_localFitCaveat\(state\.fitResult\)/, 'CSV/XLSX export must carry the designation text for a local result');
+  // figure annotation
+  const fig = grab('function exportFigure()', 60000);
+  assert.match(fig, /local fit, not reportable/i, 'figure annotation must say not reportable');
+  // local-fit overlay
+  assert.match(html, /id="localfit-warn-overlay"[\s\S]{0,1500}starting point/i, 'overlay must say starting point');
+});
+
+// ── Codex round-7: the starting-point designation at every site, behaviourally ──
+test('starting-point helpers: keyed on the persisted objective, weighted results untouched', () => {
+  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_fitStatusText'].map(extractFn).join('\n');
+  const constLine = [html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n')]; assert.ok(constLine[0], '_LOCAL_FIT_CAVEAT constants');
+  const h = new Function(constLine[0] + '\n' + src + '\nreturn { _fitStatLabel, _isLocalFit, _localFitCaveat, _fitStatusText };')();
+  const local = { objective: 'unweighted_residual_variance', chiReduced: 34523.31 };
+  const reloaded = { objective: 'unweighted_residual_variance', chiReduced: 1.5 };   // engine field absent, as older saves may be
+  const weighted = { chiReduced: 4.97 };
+  assert.equal(h._isLocalFit(local), true); assert.equal(h._isLocalFit(reloaded), true); assert.equal(h._isLocalFit(weighted), false);
+  assert.match(h._localFitCaveat(local), /starting point, not a reportable result/i);
+  assert.equal(h._localFitCaveat(weighted), '');
+  assert.match(h._fitStatusText(local), /^Residual variance = 34523\.31 \(starting point\)$/);
+  assert.match(h._fitStatusText(weighted), /^χ²ᵣ = 4\.97$/);
+});
+
+test('Quantify shows the starting-point banner for a local result and not for a weighted one', () => {
+  const src = 'const _UNSUPPORTED_LABEL = "not supported by the data"; const _UNSUPPORTED_TIP = "";\n' + ['renderQuantify', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_isUnsupported'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const rsf = html.match(/^const SCOFIELD_RSF = \{[\s\S]*?^\};/m); assert.ok(rsf, 'SCOFIELD_RSF table');
+  const run = (fitResult) => {
+    const el = { innerHTML: '', _rsfSource: 'scofield' };
+    const document = { getElementById: () => el, querySelectorAll: () => [] };
+    const state = { fitResult, peaks: [{ id: 1, name: 'C 1s', shape: 'Gaussian', center: 284.8, fwhm: 1, amplitude: 10, rsfKey: 'C 1s' }] };
+    new Function('document', 'state', '_escHtml', '_detectPeakRSF', 'recalcQuantify', constLine + '\n' + rsf[0] + '\n' + src + '\nrenderQuantify([100], 100);')(
+      document, state, s => String(s), () => ({ key: 'C 1s', rsf: 1 }), () => {});
+    return el.innerHTML;
+  };
+  assert.match(run({ objective: 'unweighted_residual_variance', chiReduced: 3e4 }), /starting point, not a reportable result/i);
+  assert.doesNotMatch(run({ chiReduced: 2.0 }), /starting point/i);
+});
+
+test('every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function exportResults()', 2500), /_LOCAL_FIT_CAVEAT|_localFitCaveat\(/, 'TSV export');
+  assert.match(grab('function _doSaveSpectrum()', 2500), /caveat: _localFitCaveat\(state\.fitResult\) \|\| state\.fitResult\.caveat/, 'spectrum save persists caveat');
+  assert.match(grab('function _doSaveSpectrum()', 2500), /reportable: _isLocalFit\(state\.fitResult\) \? false : \(state\.fitResult\.reportable/, 'spectrum save persists reportable');
+  assert.match(grab('const buildTabData = (t) =>', 3500), /caveat: _localFitCaveat\(t\.fitResult\) \|\| t\.fitResult\.caveat/, 'project save persists caveat');
+  assert.match(grab('function _loadSpectrumFile(', 6000), /'caveat'/, 'spectrum load restores caveat');
+  assert.match(grab("// Update chi-squared display for this tab's fit result", 300), /_applyStatDisplay\(/, 'tab activation');
+  assert.match(html, /id="sb-chi-caption"/, 'status-bar caption element');
+  assert.match(grab('function _renderHistoryList(', 3000), /starting point/, 'history rows');
+  assert.match(grab("label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit'", 100), /Fit \(local/, 'chart envelope label');
+  const fig = grab('function exportFigure()', 60000);
+  assert.match(fig, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'figure legend label');
+  // the local fit result itself declares it
+  const rfl = grab('function runFitLocal(', 20000);
+  assert.match(rfl, /reportable: false, caveat: _LOCAL_FIT_CAVEAT/, 'runFitLocal marks its result');
+});
+
+// ── Codex round-8: stack/preview labels, save-time normalisation, auto-fit caption ──
+test('project save derives the designation from the objective for an older local result lacking the new fields', () => {
+  const start = html.indexOf('const buildTabData = (t) =>'); assert.ok(start > 0);
+  let depth = 0, seen = false, end = -1;
+  for (let i = start; i < html.length; i++) { const ch = html[i]; if (ch === '{') { depth++; seen = true; } else if (ch === '}') { depth--; if (seen && depth === 0) { end = i + 1; break; } } }
+  const src = html.slice(start, end) + ';';
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const fieldsAt = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
+  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey', '_statsState', '_statsRecordState', '_statsNote', '_statsSaveFields'].map(extractFn).join('\n');
+  const statsConsts = html.match(/^const _STATS_\w+_NOTE = .*$/mg).join('\n');
+  const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + statsConsts + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
+    { serializeRefOverlays: () => null }, a => a, a => a);
+  const older = { id: 1, name: 't', rawBE: [1, 2], rawIntensity: [1, 1], ccShift: 0, peaks: [], nextId: 1, ui: {},
+    fitResult: { chi: 1, chiReduced: 1e4, rmse: 100, objective: 'unweighted_residual_variance', be: [1, 2], bgIntensity: [0, 0], bgSubtracted: [1, 1] } };
+  const rec = build(older);
+  assert.strictEqual(rec.fitResult.reportable, false);
+  assert.match(rec.fitResult.caveat, /starting point, not a reportable result/i);
+  const weighted = { ...older, fitResult: { chi: 1, chiReduced: 2, rmse: 100, be: [1, 2], bgIntensity: [0, 0], bgSubtracted: [1, 1] } };
+  assert.strictEqual(build(weighted).fitResult.reportable, null);
+  assert.strictEqual(build(weighted).fitResult.caveat, null);
+});
+
+test('stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(html, /_isLocalFit\(src\.fitResult\) \? ' \(fit: local, starting point\)' : ' \(fit\)'/, 'stack envelope dataset label');
+  assert.match(html, /local fit: starting point/, 'stack legend row name');
+  assert.match(html, /label: _isLocalFit\(_historyPreview\.fitResult\) \? 'Preview \(local, starting point\)' : 'Preview'/, 'history preview label');
+  assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatDisplay\(state\.fitResult\)/, 'auto-fit refreshes the statistic display');
+  assert.match(grab('function renderResults()', 800), /_applyStatDisplay\(state\.fitResult\)/, 'renderResults refreshes the statistic display on every result change');
+  const spec = grab('function _doSaveSpectrum()', 3000);
+  assert.match(spec, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'spectrum save derives reportable');
+  assert.match(spec, /caveat: _localFitCaveat\(state\.fitResult\)/, 'spectrum save derives caveat');
+  const ex = grab('function exportFitTable(fmt)', 6000);
+  const xlsxPart = ex.slice(ex.indexOf("if (fmt === 'xlsx')"), ex.indexOf('} else {'));
+  const csvPart = ex.slice(ex.indexOf('} else {'));
+  assert.match(xlsxPart, /WARNING/, 'XLSX warning row');
+  assert.match(csvPart, /# WARNING/, 'CSV warning line');
+});
+
+
+// ── Codex round-9: header, tooltip, caption and value move as one unit ──
+test('_applyStatDisplay keeps header, tooltip, caption and value consistent through local → weighted → none', () => {
+  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
+  apply({ objective: 'unweighted_residual_variance', chiReduced: 12345 });
+  assert.equal(dom['fit-quality'].textContent, 'Residual variance = 12345.00 (starting point)');
+  assert.equal(dom['fit-quality'].tip, 'LOCAL'); assert.match(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '12345.000');
+  apply({ chiReduced: 1.25 });
+  assert.equal(dom['fit-quality'].textContent, '\u03c7\u00b2\u1d63 = 1.25'); assert.equal(dom['fit-quality'].tip, 'CHI');
+  assert.doesNotMatch(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '1.250');
+  apply(null);
+  assert.equal(dom['sb-chi'].textContent, '\u2014'); assert.equal(dom['fit-quality'].tip, null);
+});
+
+test('history preview glow is keyed on the dataset flag, not the label text', () => {
+  assert.match(html, /_historyPreview: true/, 'preview dataset carries the flag');
+  assert.doesNotMatch(html, /\?\.label !== 'Preview'/, 'plugin no longer compares the label text');
+  assert.equal((html.match(/\?\._historyPreview\) return;/g) || []).length, 2, 'both glow hooks key on the flag');
+});
+
+// ── Codex round-10: spectrum reload re-renders Results; Save Fit carries the designation; clear-state asserts all four ──
+test('spectrum load renders the Results panel after restoring a saved result, and Save Fit carries the designation', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  const load = grab('function _loadSpectrumFile(', 7000);
+  const tail = load.slice(load.indexOf("notify('Spectrum loaded as new tab") - 200, load.indexOf("notify('Spectrum loaded as new tab"));
+  assert.match(tail, /renderResults\(\)/, 'Results (and the statistic display) must be rendered after the restored result is installed');
+  const save = grab('function _doSaveFit()', 3000);
+  assert.match(save, /fitStatistics: state\.fitResult \? \{/, 'Save Fit writes a fitStatistics block');
+  assert.match(save, /caveat: _localFitCaveat\(state\.fitResult\)/, 'Save Fit derives the caveat');
+  assert.match(save, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'Save Fit derives reportable');
+});
+
+test('_applyStatDisplay clears header, tooltip, caption and value together on local → none', () => {
+  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
+  const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
+  apply({ objective: 'unweighted_residual_variance', chiReduced: 999 });
+  apply(null);
+  assert.match(dom['fit-quality'].innerHTML, /&mdash;/); assert.equal(dom['fit-quality'].tip, null);
+  assert.doesNotMatch(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '—');
+});
+
+// ── Codex round-11: the designation follows the MODEL through a .fit.json round trip ──
+test('_isLocalModel: a model imported from a local .fit.json is a starting point even with no fit result', () => {
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel'].map(extractFn).join('\n');
+  const mk = (fitResult, tab) => new Function('state', '_activeTab', src + '\nreturn _isLocalModel;')({ fitResult }, () => tab);
+  assert.equal(mk(null, { modelProvenance: { objective: 'unweighted_residual_variance' } })(), true);
+  assert.equal(mk(null, { modelProvenance: null })(), false);
+  assert.equal(mk({ chiReduced: 2 }, { modelProvenance: { objective: 'unweighted_residual_variance' } })(), false, 'a weighted fit result supersedes imported provenance');
+  assert.equal(mk({ objective: 'unweighted_residual_variance', chiReduced: 2 }, null)(), true);
+});
+
+test('fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV export use it, saves and loads carry it, new fits clear it', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('  fromJSON(data) {', 6000), /active\.modelProvenance = /, 'fromJSON records imported provenance');
+  const save = grab('function _doSaveFit()', 3500);
+  assert.match(save, /modelProvenance/, 'Save Fit falls back to imported provenance');
+  assert.match(grab('function exportResults()', 2500), /_isLocalModel\(\)/, 'TSV export keys on the model provenance');
+  assert.match(grab('const buildTabData = (t) =>', 4000), /modelProvenance: t\.modelProvenance \|\| null/, 'project save carries provenance');
+  assert.match(grab('function _loadProjectJSON(', 8000), /modelProvenance: t\.modelProvenance \|\| null/, 'project load carries provenance');
+  assert.match(grab('function renderResults()', 1200), /_isLocalModel\(\)/, 'no-result placeholder designates an imported local model');
+  for (const fn of ['function runFitLocal(', 'async function runFit(', 'function applyAutoFitResult(', 'function clearAllPeaks()']) {
+    assert.match(grab(fn, 25000), /modelProvenance = null/, fn + ' clears imported provenance');
+  }
+});
+
+// ── Codex round-12: provenance survives undo/redo and spectrum save/load; import refreshes Results; figure/chart key on the model; Find Peaks clears it ──
+test('undo/redo snapshots carry and restore model provenance', () => {
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_provenanceOf', '_peaksSnapshot', '_restoreSnapshotEndpointAvg', '_restoreSnapshotProvenance'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const tab = { modelProvenance: { objective: 'unweighted_residual_variance', caveat: 'x' }, ui: {} };
+  const fns = new Function('state', '_historyTab', 'document', constLine + '\n' + src + '\nreturn { _peaksSnapshot, _restoreSnapshotProvenance };')(
+    { peaks: [{ id: 1, center: 285 }], fitResult: null }, () => tab, { getElementById: () => null });
+  const snap = fns._peaksSnapshot(null);
+  assert.deepEqual(snap._modelProvenance, tab.modelProvenance, 'snapshot captures the active tab provenance');
+  tab.modelProvenance = null;
+  fns._restoreSnapshotProvenance(tab, snap);
+  assert.deepEqual(tab.modelProvenance, { objective: 'unweighted_residual_variance', caveat: 'x' }, 'restore reinstates it');
+  tab.modelProvenance = null;
+  const snap2 = fns._peaksSnapshot(null);   // provenance now null
+  assert.strictEqual(snap2._modelProvenance, null);
+  fns._restoreSnapshotProvenance(tab, snap2);
+  assert.strictEqual(tab.modelProvenance, null, 'restore also clears it when the snapshot had none');
+});
+
+test('round-12 sites: undo/redo restore provenance, spectrum save/load carry it, import re-renders Results, figure/chart key on the model, Find Peaks clears it', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function undo()', 900), /_restoreSnapshotProvenance\(t, snap\)/, 'undo');
+  assert.match(grab('function redo()', 900), /_restoreSnapshotProvenance\(t, snap\)/, 'redo');
+  assert.match(grab('function _pushUndoFor(', 600), /_modelProvenance/, 'batch history entry carries provenance');
+  assert.match(grab('function _doSaveSpectrum()', 4000), /modelProvenance: tab\.modelProvenance \|\| null/, 'spectrum save');
+  assert.match(grab('function _loadSpectrumFile(', 7000), /active\.modelProvenance = /, 'spectrum load');
+  const fj = grab('  fromJSON(data) {', 7000);
+  assert.match(fj.slice(fj.indexOf('this._restoreUI(active.ui);')), /renderResults\(\)/, 'import renders Results');
+  assert.match(grab('function exportFigure()', 60000), /if \(state\.fitResult \|\| _isLocalModel\(\)\)/, 'figure annotation keys on the model');
+  assert.match(html, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'chart/figure envelope labels key on the model');
+  assert.match(grab('async function applyFindPeaks()', 6000), /modelProvenance = null/, 'Find Peaks apply clears superseded provenance');
+});
+
+// ── Codex round-13: provenance derived from a LIVE local result for undo snapshots; batch clones carry the source's ──
+test('_provenanceOf derives a designation from a live local result, and undo snapshots use it', () => {
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_provenanceOf', '_peaksSnapshot'].map(extractFn).join('\n');
+  const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const tab = { modelProvenance: null, fitResult: null };
+  const state = { peaks: [{ id: 1 }], fitResult: { objective: 'unweighted_residual_variance', engine: 'local', chiReduced: 3e4, status: 'converged' } };
+  const fns = new Function('state', '_historyTab', constLine + '\n' + src + '\nreturn { _provenanceOf, _peaksSnapshot };')(state, () => tab);
+  const p = fns._provenanceOf({ modelProvenance: null, fitResult: state.fitResult });
+  assert.equal(p.objective, 'unweighted_residual_variance'); assert.equal(p.reportable, false); assert.match(p.caveat, /starting point/i);
+  assert.equal(fns._provenanceOf({ modelProvenance: null, fitResult: { chiReduced: 2 } }), null, 'weighted result → no designation');
+  assert.equal(fns._provenanceOf({ modelProvenance: { objective: 'unweighted_residual_variance' }, fitResult: null }).objective, 'unweighted_residual_variance');
+  const snap = fns._peaksSnapshot(null);   // active tab has no stored provenance but a live local result
+  assert.equal(snap._modelProvenance && snap._modelProvenance.objective, 'unweighted_residual_variance', 'snapshot derives provenance from the live local result');
+});
+
+test('batch propagation copies the source model provenance onto each target (cleared again only by a successful fit)', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  const rp = grab('async function runPropagation', 9000);
+  assert.match(rp, /const srcProvenance = _provenanceOf\(sourceTab\)/, 'source provenance captured with the source snapshot');
+  assert.match(rp, /tgt\.modelProvenance = srcProvenance/, 'target carries it with the copied model');
+  assert.match(grab('function _pushUndoFor(', 700), /_provenanceOf\(tab\)/, 'batch history entry derives provenance too');
+});
+
+// ── Codex round-14: persistent designation in the Peaks sidebar; undo/redo re-render; auto-fit rollback carries provenance ──
+test('the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise', () => {
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const run = (fitResult, tab) => {
+    const el = { style: { display: 'block' } };
+    new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null }, null);
+    return el.style.display;
+  };
+  assert.equal(run({ objective: 'unweighted_residual_variance', chiReduced: 1 }, { modelProvenance: null }), 'block');
+  assert.equal(run(null, { modelProvenance: { objective: 'unweighted_residual_variance' } }), 'block');
+  assert.equal(run({ chiReduced: 2 }, { modelProvenance: { objective: 'unweighted_residual_variance' } }), 'none', 'a weighted result supersedes');
+  assert.equal(run(null, { modelProvenance: null }), 'none');
+});
+
+test('round-14 sites: banner element and refresh hooks, undo/redo re-render Results, auto-fit snapshot/restore carry provenance', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(html, /id="local-model-banner"/, 'banner element in the Peaks sidebar');
+  assert.match(grab('function renderPeakList()', 1200), /_updateLocalModelBanner\(\)/, 'peak list refresh updates the banner');
+  assert.match(grab('function renderResults()', 1500), /_updateLocalModelBanner\(\)/, 'results refresh updates the banner');
+  assert.match(grab('function undo()', 1000), /renderResults\(\)/, 'undo re-renders Results');
+  assert.match(grab('function redo()', 1000), /renderResults\(\)/, 'redo re-renders Results');
+  assert.match(grab('function _autoFitSnapshot()', 1500), /modelProvenance:/, 'auto-fit snapshot carries provenance');
+  assert.match(grab('function _autoFitRestore(', 3000), /modelProvenance = snap\.modelProvenance/, 'auto-fit restore reinstates it');
+});
+
+
+// ── Codex round-15: banner outside the switchable panels; local history preview designated; history restore reconciles provenance ──
+test('the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview', () => {
+  const bannerAt = html.indexOf('id="local-model-banner"'), tabsAt = html.indexOf('<div class="tabs">'), peaksPanelAt = html.indexOf('id="tab-peaks"');
+  assert.ok(bannerAt > 0 && bannerAt < tabsAt && bannerAt < peaksPanelAt, 'banner precedes the tab bar and every panel');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const run = (fitResult, preview) => {
+    const el = { style: { display: 'block' }, innerHTML: '' };
+    new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => ({ modelProvenance: null }), { getElementById: id => id === 'local-model-banner' ? el : null }, preview);
+    return el;
+  };
+  const shown = run({ chiReduced: 2 }, { fitResult: { objective: 'unweighted_residual_variance' } });
+  assert.equal(shown.style.display, 'block', 'a local preview overlay is designated even over a weighted current fit');
+  assert.match(shown.innerHTML, /preview/i);
+  assert.equal(run({ chiReduced: 2 }, { fitResult: { chiReduced: 1 } }).style.display, 'none');
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function _historyPreviewSnap(', 1400), /_updateLocalModelBanner\(\)/, 'preview start refreshes the banner');
+  assert.match(grab('function _historyClearPreview(', 400), /_updateLocalModelBanner\(\)/, 'preview clear refreshes the banner');
+  assert.match(grab('function _historyRestoreSnap(', 900), /modelProvenance = null/, 'history restore lets the restored result govern');
+});
+
+// ── Codex round-16: the sidebar designation stays in view when the panel body scrolls ──
+test('the sidebar banner is sticky at the top of the scrolling panel body', () => {
+  const m = html.match(/<div id="local-model-banner" style="([^"]*)"/);
+  assert.ok(m, 'banner element');
+  assert.match(m[1], /position:\s*sticky/, 'sticky positioning');
+  assert.match(m[1], /top:\s*0/, 'pinned to the top of its scroll container');
+  assert.match(m[1], /z-index:\s*[1-9]/, 'stacked above the peak cards');
+});
+
+// ── Codex round-17: a stack view showing a local source's fit curves is designated too ──
+test('the sidebar banner shows on a stack tab whose visible entries draw a local source fit', () => {
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const local = { id: 2, fitResult: { objective: 'unweighted_residual_variance', chiReduced: 1 }, name: 'C1s local' };
+  const weighted = { id: 3, fitResult: { chiReduced: 2 }, name: 'C1s server' };
+  const tabManager = { _getTab: id => ({ 2: local, 3: weighted })[id] };
+  const run = (tab) => {
+    const el = { style: { display: 'block' }, innerHTML: '' };
+    new Function('state', '_activeTab', 'document', '_historyPreview', 'tabManager', '_escHtml', src + '\n_updateLocalModelBanner();')({ fitResult: null }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null }, null, tabManager, x => String(x));
+    return el;
+  };
+  const shown = run({ isStack: true, entries: [{ sourceTabId: 2, visible: true, showFit: true }, { sourceTabId: 3, visible: true, showFit: true }] });
+  assert.equal(shown.style.display, 'block'); assert.match(shown.innerHTML, /C1s local/); assert.match(shown.innerHTML, /starting point/i);
+  assert.equal(run({ isStack: true, entries: [{ sourceTabId: 2, visible: true, showFit: false }] }).style.display, 'none', 'fit curves hidden → no designation needed');
+  assert.equal(run({ isStack: true, entries: [{ sourceTabId: 3, visible: true, showFit: true }] }).style.display, 'none', 'weighted source only');
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  assert.match(grab('function _applyStatDisplay(', 1800), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
+  const legendAt = html.indexOf("row.querySelector('.name').textContent = name;");
+  assert.match(html.slice(legendAt, legendAt + 2500), /_updateLocalModelBanner\(\)/, 'stack legend rebuild refreshes the banner');
+});
+
+// ── Codex round-18: stack visibility / fit toggles refresh the designation ──
+test('every stack chart repaint path refreshes the sidebar designation before any early return', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  for (const fn of ['function _updateStackChart(', 'function _renderStackChart(']) {
+    const body = grab(fn, 400);
+    const firstReturn = body.indexOf('return');
+    const bannerAt = body.indexOf('_updateLocalModelBanner()');
+    assert.ok(bannerAt > 0 && (firstReturn < 0 || bannerAt < firstReturn), fn + ' must refresh the banner before its first return');
+  }
+});
+
+// ── Codex round-19: closing a source tab prunes its curves from an ACTIVE stack's chart, not only its legend ──
+test('closeTab rebuilds the active stack chart when it prunes entries that referenced the closed tab', () => {
+  const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
+  const ct = grab('  closeTab(', 3000);
+  const prune = ct.slice(ct.indexOf('t.entries = t.entries.filter(e => e.sourceTabId !== id)'), ct.indexOf('t.entries = t.entries.filter(e => e.sourceTabId !== id)') + 600);
+  assert.match(prune, /_renderStackChart\(t\)/, 'the active stack chart is rebuilt after pruning');
+});
+
+
+// ── Unit W1: designation helpers are objective-aware (weighted local vs legacy unweighted vs server) ──
+test('W1 helpers: weighted local results are chi-square but still designated; legacy unweighted keep Residual variance; server untouched', () => {
+  const src = ['_isUnweightedLocal', '_fitStatLabel', '_isLocalProvenance', '_isLocalFit', '_localFitDetail', '_localFitCaveat', '_fitStatusText'].map(extractFn).join('\n');
+  const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const h = new Function(consts + '\n' + src + '\nreturn { _fitStatLabel, _isLocalFit, _localFitCaveat, _fitStatusText, _localFitDetail };')();
+  const weighted = { engine: 'local', objective: 'poisson_weighted_chi_square', chiReduced: 4.353 };
+  const legacy = { engine: 'local', objective: 'unweighted_residual_variance', chiReduced: 34523.31 };
+  const server = { chiReduced: 4.357 };
+  assert.equal(h._fitStatLabel(weighted), '\u03c7\u00b2\u1d63'); assert.equal(h._fitStatLabel(legacy), 'Residual variance');
+  assert.equal(h._isLocalFit(weighted), true); assert.equal(h._isLocalFit(legacy), true); assert.equal(h._isLocalFit(server), false);
+  assert.match(h._localFitCaveat(weighted), /Poisson-weighted like the server, no uncertainties.*starting point, not a reportable result/);
+  assert.match(h._localFitCaveat(legacy), /unweighted fit: a starting point/);
+  assert.equal(h._localFitCaveat(server), '');
+  assert.equal(h._fitStatusText(weighted), '\u03c7\u00b2\u1d63 = 4.35 (local, starting point)');
+  assert.equal(h._fitStatusText(server), '\u03c7\u00b2\u1d63 = 4.36');
+  assert.match(h._localFitDetail(weighted), /for LA components \(the page holds the smoothing parameter m/); assert.doesNotMatch(h._localFitDetail(weighted), /Voigt/, 'A03: Voigt no longer differs between the engines'); assert.match(h._localFitDetail(legacy), /more than 100/);
+});
+
+// ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
+test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isUnsupported'].map(extractFn).join('\n')
+    + '\nconst _statsLiveState = () => "current";';   // F1's stale note is pinned in stale_statistics.test.js
+  const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
+  const run = (fitResult, modelProvenance) => {
+    let text = null;
+    class Blob { constructor(parts) { text = parts.join(''); } }
+    const state = { fitResult, peaks: [{ id: 1, name: 'p' }] };
+    new Function('state', '_activeTab', 'getROIData', 'computeBackground', 'evalAllPeaks', 'evalPeakArray', 'Blob', 'URL', 'document', 'notify',
+      consts + '\n' + src + '\nexportResults();')(state, () => ({ modelProvenance }), () => ({ be: [1, 2], inten: [5, 6] }), () => [0, 0],
+      () => [1, 1], () => [1, 1], Blob, { createObjectURL: () => 'u', revokeObjectURL() {} }, { createElement: () => ({ click() {} }) }, () => {});
+    return text.split('\n')[0];
+  };
+  assert.match(run({ engine: 'local', objective: 'unweighted_residual_variance', chiReduced: 3e4 }, null), /^# WARNING: Local unweighted fit/);
+  assert.match(run(null, { engine: 'local', objective: 'unweighted_residual_variance' }), /^# WARNING: Local unweighted fit/, 'imported legacy model');
+  assert.match(run({ engine: 'local', objective: 'poisson_weighted_chi_square', chiReduced: 4 }, null), /^# WARNING: Local fit \(Poisson-weighted/);
+  assert.doesNotMatch(run({ chiReduced: 4 }, null), /WARNING/);
+});
+
+
+// ── Scattered starts, adoption of an alternative (2026-09-21, Codex round 1) ──
+// "Use this solution" passes the alternative as runFit's opts.startPeaks. The
+// live model is written only by the success path, so every other outcome must
+// leave peaks and result exactly as they were — with a message that is TRUE.
+const ALT_START = [{ id: 1, name: 'p', shape: 'Gaussian', center: 286.7, fwhm: 0.9, amplitude: 70, glMix: 50, asymmetry: 0 },
+                   { id: 2, name: 'q', shape: 'Gaussian', center: 288.0, fwhm: 1.0, amplitude: 20, glMix: 50, asymmetry: 0 }];
+const CHOSEN = { fromChi: 30.3, toChi: 1.16, shiftName: 'p', shiftEv: 1.7 };
+const spec = p => ({ id: p.id, center: p.center });
+
+test('adoption: the REQUEST starts from the alternative, asks for the starts check by ITS model, and the live model is untouched until success', async () => {
+  let body = null;
+  const env = makeEnv({ specImpl: spec, fetchImpl: async (url, init) => { body = JSON.parse(init.body); return { ok: true, status: 200, json: async () => ({ success: false, message: 'max evaluations' }) }; } });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.deepStrictEqual(body.peaks, [{ id: 1, center: 286.7 }, { id: 2, center: 288.0 }]);
+  assert.strictEqual(body.n_starts, 3, 'two unlinked components in the START model (the live model has one)');
+  assert.strictEqual(JSON.stringify(env.state.peaks), before, 'a non-converged adoption changes nothing');
+  assert.strictEqual(env.state.fitResult.marker, 'previous');
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /Previous peaks and result kept/.test(n.msg)), 'and that message is now true');
+});
+
+test('adoption: a transport failure does NOT fall back to the local engine (it would start from the live model)', async () => {
+  const env = makeEnv({ specImpl: spec, fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.strictEqual(env.calls.local, 0);
+  assert.strictEqual(JSON.stringify(env.state.peaks), before);
+  assert.strictEqual(env.state.fitResult.marker, 'previous');
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /alternative was not applied/.test(n.msg)));
+  assert.notEqual(env.dom['localfit-warn-overlay']?.classList._c, 'open');
+});
+
+test('adoption: a tab switch during the re-fit discards it and leaves the originating model as it was', async () => {
+  const env = makeEnv({ specImpl: spec, ownerActive: () => false,
+    fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1.16 }, residuals: [], fitted_y: [], individual_peaks: [] }) });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.strictEqual(env.calls.applied, 0);
+  assert.strictEqual(JSON.stringify(env.state.peaks), before);
+  assert.strictEqual(env.state.fitResult.marker, 'previous');
+});
+
+test('adoption: success records the choice, the starts evidence and the key of the model it describes', async () => {
+  const starts = { ran: true, n_run: 3, n_converged: 3, n_same_as_fit: 3, n_in_alternatives: 0, n_not_better_elsewhere: 0, alternatives: [] };
+  const env = makeEnv({ specImpl: spec, fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1.16 }, residuals: [], fitted_y: [], individual_peaks: [], starts }) });
+  await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
+  assert.strictEqual(env.calls.applied, 1);
+  assert.deepStrictEqual(env.state.fitResult.chosenAlternative, CHOSEN);
+  assert.deepStrictEqual(env.state.fitResult.starts, starts);
+  assert.strictEqual(typeof env.state.fitResult.startsModelKey, 'string');
+});
+
+test('an ordinary Run Fit on one unlinked component does not ask for the starts check', async () => {
+  let body = null;
+  const env = makeEnv({ fetchImpl: async (url, init) => { body = JSON.parse(init.body); return { ok: true, status: 200, json: async () => ({ success: true, statistics: {}, residuals: [], fitted_y: [], individual_peaks: [] }) }; } });
+  await env.runFit();
+  assert.strictEqual(body.n_starts, 0);
+  assert.strictEqual(env.state.fitResult.chosenAlternative, null);
+});
+
+
+test('a model edited WHILE the fit runs does not receive the result (Codex round 2: a newly locked centre kept its edited value under the server\'s statistics, with a fresh evidence key)', async () => {
+  let env;
+  env = makeEnv({ specImpl: spec, fetchImpl: async () => {
+    env.state.peaks[0].center = 290; env.state.peaks[0].fixCenter = true;          // the student edits while waiting
+    return { ok: true, status: 200, json: async () => ({ success: true, statistics: { reduced_chi_square: 1.2 }, residuals: [], fitted_y: [], individual_peaks: [] }) };
+  } });
+  await env.runFit();
+  assert.strictEqual(env.calls.applied, 0, 'the result is not applied over the edited model');
+  assert.strictEqual(env.state.fitResult.marker, 'previous');
+  assert.strictEqual(env.state.peaks[0].center, 290, 'the edit itself is kept');
+  assert.ok(env.calls.notify.some(n => n.kind === 'amber' && /edited while the fit was running/.test(n.msg)), JSON.stringify(env.calls.notify));
+  assert.match(env.dom['sb-msg'].textContent, /discarded/);
+});
+
+// ── F1 Codex round 1: the local fallback never fits the press-time arrays over an edited model ──
+test('a transport failure after the model was edited mid-fit runs NO local fit (it would stamp the edited key on the old arrays)', async () => {
+  let envRef = null;
+  const env = makeEnv({
+    uploadImpl: async () => { envRef.state.peaks[0].center = 286; return 'sid'; },   // the student edits while the upload runs
+    fetchImpl: async () => { throw new TypeError('Failed to fetch'); },
+  });
+  envRef = env;
+  await env.runFit();
+  assert.equal(env.calls.local, 0, 'no local fit over the edited model');
+  assert.equal(env.state.fitResult.marker, 'previous', 'previous result kept');
+  assert.match(env.dom['sb-msg'].textContent, /discarded \(model edited\)/);
+  assert.ok(env.calls.notify.some(n => n.kind === 'amber' && /edited while the fit was running/.test(n.msg)), JSON.stringify(env.calls.notify));
+  // unchanged model: the fallback still runs (the earlier test) — and an equivalent ROI spelling is not an edit
+  const same = makeEnv({ fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  await same.runFit();
+  assert.equal(same.calls.local, 1);
+});
+
+// ── F2 (2026-09-26): a 2xx reply that was read but is not JSON is the SERVER's
+// failed fit, never a transport failure (the local engine used to replace the
+// server's converged result, its verdicts and its starts evidence) ──
+test('a 200 reply containing NaN is a FAILED fit with a message: nothing applied, no local fallback', async () => {
+  const body = '{"success": true, "statistics": {"reduced_chi_square": 1.1}, "individual_peaks": [{"id": "1", "params": {"center": {"value": 285, "stderr": NaN}}}]}';
+  const env = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => body }) });
+  const before = JSON.stringify(env.state.peaks);
+  await env.runFit();
+  assert.equal(env.calls.local, 0, 'no local fallback');
+  assert.equal(env.calls.applied, 0, 'nothing applied');
+  assert.equal(JSON.stringify(env.state.peaks), before);
+  assert.equal(env.state.fitResult.marker, 'previous');
+  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /non-finite number \(NaN or Infinity\)/.test(n.msg) && /treated as failed/.test(n.msg)), JSON.stringify(env.calls.notify));
+  assert.match(env.dom['sb-msg'].textContent, /Fit failed/);
+});
+
+test('a 200 reply that is not JSON at all is a failed fit too; a body that cannot be READ is still a transport failure', async () => {
+  const garbled = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => '<html>proxy error</html>' }) });
+  await garbled.runFit();
+  assert.equal(garbled.calls.local, 0);
+  assert.ok(garbled.calls.notify.some(n => n.kind === 'red' && /reply could not be read/.test(n.msg)), JSON.stringify(garbled.calls.notify));
+  const dropped = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => { throw new TypeError('network error'); } }) });
+  await dropped.runFit();
+  assert.equal(dropped.calls.local, 1, 'the connection dropped while reading: the local fallback, as before');
+});
+
+codex
+Both `/api/fit` callers use the new parser, and alternative adoption goes through Run Fit. Basinhopping’s refinement and competitor also cover the required refit. I’m checking linked parameters, solver aborts, and the determinacy count against lmfit’s effective parameter count.
+exec
+/bin/zsh -lc "python3 -B -c 'import sys; print(sys.executable); import lmfit, pytest; print(lmfit.__version__)'; ls /Users/skyefortier/xps-app/.codex; ls /Users/skyefortier/xps-app/../; cat tests/conftest.py; git diff main..HEAD -- tests/js/fit_acceptance.test.js tests/js/stale_statistics.test.js tests/js/local_lm_descent.test.js tests/js/autofit_required.test.js" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+python3: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+python3: error: couldn't create cache file '/tmp/xcrun_db-zaTXNTkV' (errno=Operation not permitted)
+python3: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+python3: error: couldn't create cache file '/tmp/xcrun_db-xjDlbmDf' (errno=Operation not permitted)
+/Library/Developer/CommandLineTools/usr/bin/python3
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'lmfit'
+config.toml
+2021-08-11-1628706852-1_vault-86_items.enpassbackup
+2022-06-05-1654443207-1_vault-103_items.enpassbackup
+Applications
+Applications (Parallels)
+CCDC
+Desktop
+Documents
+Downloads
+Dropbox
+GL-Extensions.txt
+Impervious
+Library
+Movies
+Music
+OneDrive - The University of Texas at El Paso
+Parallels
+Pictures
+Public
+ShelXle_message.txt
+closet_storage_schematic.html
+closet_storage_schematic.png
+closet_storage_schematic_portrait.png
+closet_storage_schematic_portrait.svg
+closet_top_layout.png
+closet_top_layout.svg
+closet_wall_elevations.png
+closet_wall_elevations.svg
+hermes-os
+hermes_outputs
+license.lic
+shaderlog.txt
+xps-app
+xps-app-backups
+xps-charge
+xps-verify
+"""Make the repo root importable regardless of how pytest is invoked."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-D7G4bSzK' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-Wh8Ccz1D' (errno=Operation not permitted)
+diff --git a/tests/js/autofit_required.test.js b/tests/js/autofit_required.test.js
+index 6f81e18..81f9811 100644
+--- a/tests/js/autofit_required.test.js
++++ b/tests/js/autofit_required.test.js
+@@ -46,7 +46,7 @@ test('a supported but NOT required anchor is refused before any charge-correctio
+   assert.match(e.calls.notify[0][1], /No charge correction was derived/);
+ });
+ 
+-test('a required anchor proceeds; a check that did not run (older server, error, non-converged) does not block', () => {
++test('a required anchor proceeds; a check that did not RUN (older server, error, main fit not converged) does not block', () => {
+   for (const required of [{ ran: true, required: true, f: 6120 }, null, undefined, { ran: false, reason: 'error', error: 'x' }]) {
+     const e = env(peaks());
+     assert.throws(() => e.f({ ...real.json, required }, 284.9, {}), x => x === PAST, JSON.stringify(required));
+@@ -64,3 +64,22 @@ test('the request asks for the Graphite anchor by id, and the gate precedes the
+   assert.ok(gate > 0 && gate < apply.indexOf('_autoFitGraphiteIsSupported(gPeak, json)'));
+   for (const m of ["getElementById('cc-method')", "getElementById('cc-obs')", 'updateChargeCorrection()']) assert.ok(apply.indexOf(m) > gate, m);
+ });
++
++// F2 (2026-09-26): an unconverged refit establishes nothing — the server sends
++// required: null with refit_converged: false; Auto-Fit refuses rather than let
++// an anchor whose necessity is unknown set the charge reference.
++test('a refit that did not converge: no verdict, and Auto-Fit refuses before any charge-correction input is touched', () => {
++  const e = env(peaks());
++  const ok = e.f({ ...real.json, required: { ran: true, required: null, f: null, chi2_with: 1.2, chi2_without_refit: 3.4,
++                                             refit_converged: false, reason: 'refit_not_converged' } }, 284.9, {});
++  assert.strictEqual(ok, false);
++  assert.strictEqual(e.calls.cc, 0);
++  assert.deepStrictEqual(e.dom, {});
++  assert.strictEqual(e.calls.notify.length, 1);
++  assert.strictEqual(e.calls.notify[0][0], 'red');
++  assert.match(e.calls.notify[0][1], /could not be established that the data require the Graphite component/);
++  // the old server shape (a verdict computed from an unconverged refit) is refused too
++  const old = env(peaks());
++  assert.strictEqual(old.f({ ...real.json, required: { ran: true, required: true, f: 992, refit_converged: false } }, 284.9, {}), false);
++  assert.strictEqual(old.calls.cc, 0);
++});
+diff --git a/tests/js/fit_acceptance.test.js b/tests/js/fit_acceptance.test.js
+index 44acd50..09d61b4 100644
+--- a/tests/js/fit_acceptance.test.js
++++ b/tests/js/fit_acceptance.test.js
+@@ -41,14 +41,14 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
+     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
+   const owner = { id: 7 };
+   const calls = { notify: [], local: 0, applied: 0 };
+-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
++  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
+   const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
+     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
+     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
+     '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab',
+     src + '\nreturn { runFit };');
+   const noop = () => {};
+-  const { runFit } = factory(document, state, fetchImpl, uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
++  const { runFit } = factory(document, state, withText(fetchImpl), uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
+     noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
+     b => b.map(() => 0), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
+     () => 0.1, '', noop, noop, noop, noop, noop, noop,
+@@ -57,6 +57,15 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
+ }
+ 
+ const okResponse = body => async () => ({ ok: true, status: 200, json: async () => body });
++// F2: the page reads a 2xx /api/fit body as text and parses it itself
++// (_readFitReply). A mock that only defines json() gets the matching text().
++function withText(fetchImpl) {
++  return async (...a) => {
++    const r = await fetchImpl(...a);
++    if (r && typeof r.text !== 'function' && typeof r.json === 'function') r.text = async () => JSON.stringify(await r.json());
++    return r;
++  };
++}
+ 
+ test('A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown', async () => {
+   const env = makeEnv({ fetchImpl: okResponse({ success: false, message: 'Fit did not converge: max evaluations', statistics: { reduced_chi_square: 999 }, individual_peaks: [] }) });
+@@ -95,7 +104,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
+   failing.calls.local = 0;
+   // rebuild with a failing runFitLocal
+   const dom = failing.dom;
+-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
++  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
+   const noop = () => {};
+   const owner = { id: 1 };
+   const state = failing.state;
+@@ -645,3 +654,29 @@ test('a transport failure after the model was edited mid-fit runs NO local fit (
+   await same.runFit();
+   assert.equal(same.calls.local, 1);
+ });
++
++// ── F2 (2026-09-26): a 2xx reply that was read but is not JSON is the SERVER's
++// failed fit, never a transport failure (the local engine used to replace the
++// server's converged result, its verdicts and its starts evidence) ──
++test('a 200 reply containing NaN is a FAILED fit with a message: nothing applied, no local fallback', async () => {
++  const body = '{"success": true, "statistics": {"reduced_chi_square": 1.1}, "individual_peaks": [{"id": "1", "params": {"center": {"value": 285, "stderr": NaN}}}]}';
++  const env = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => body }) });
++  const before = JSON.stringify(env.state.peaks);
++  await env.runFit();
++  assert.equal(env.calls.local, 0, 'no local fallback');
++  assert.equal(env.calls.applied, 0, 'nothing applied');
++  assert.equal(JSON.stringify(env.state.peaks), before);
++  assert.equal(env.state.fitResult.marker, 'previous');
++  assert.ok(env.calls.notify.some(n => n.kind === 'red' && /non-finite number \(NaN or Infinity\)/.test(n.msg) && /treated as failed/.test(n.msg)), JSON.stringify(env.calls.notify));
++  assert.match(env.dom['sb-msg'].textContent, /Fit failed/);
++});
++
++test('a 200 reply that is not JSON at all is a failed fit too; a body that cannot be READ is still a transport failure', async () => {
++  const garbled = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => '<html>proxy error</html>' }) });
++  await garbled.runFit();
++  assert.equal(garbled.calls.local, 0);
++  assert.ok(garbled.calls.notify.some(n => n.kind === 'red' && /reply could not be read/.test(n.msg)), JSON.stringify(garbled.calls.notify));
++  const dropped = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => { throw new TypeError('network error'); } }) });
++  await dropped.runFit();
++  assert.equal(dropped.calls.local, 1, 'the connection dropped while reading: the local fallback, as before');
++});
+diff --git a/tests/js/local_lm_descent.test.js b/tests/js/local_lm_descent.test.js
+index 37c2127..0d52331 100644
+--- a/tests/js/local_lm_descent.test.js
++++ b/tests/js/local_lm_descent.test.js
+@@ -558,3 +558,26 @@ test('recovery from an amplitude of exactly zero (the new floor is not a trap)',
+   assert.ok(Math.abs(env.state.peaks[0].amplitude - 0.1) < 1e-3, `amplitude ${env.state.peaks[0].amplitude}`);
+   assertConstrainedStationary(env, be, data, 1e-8, 'from zero');
+ });
++
++// F2 (2026-09-26): at least as many free parameters as data points is refused
++// as undetermined (it read as a near-perfect fit: dof clamped to 1).
++test('the local engine refuses a model with no degrees of freedom; one more point and it fits', () => {
++  const mk = n => {
++    const env = makeEnv();
++    const be = Array.from({ length: n }, (_, i) => 284 + 0.5 * i);
++    env.state.peaks = [{ id: 1, name: 'a', shape: 'Gaussian', center: 285, fwhm: 1, amplitude: 10, glMix: 50, asymmetry: 0 },
++                       { id: 2, name: 'b', shape: 'Gaussian', center: 286, fwhm: 1, amplitude: 5, glMix: 50, asymmetry: 0 }];
++    const before = JSON.stringify(env.state.peaks);
++    const data = be.map(x => 10 * env.gaussian(x, 285, 1) + 5 * env.gaussian(x, 286, 1));
++    return { env, out: env.runFitLocal(be, data, new Array(n).fill(0)), before };
++  };
++  for (const n of [5, 6]) {                                   // 6 free parameters: 5 and 6 points leave no dof
++    const { env, out, before } = mk(n);
++    assert.strictEqual(out.success, false, n + ' points');
++    assert.match(out.message, /not determined by these data: 6 free parameters for \d+ data points/);
++    assert.strictEqual(JSON.stringify(env.state.peaks), before, 'peaks untouched');
++    assert.strictEqual(env.state.fitResult, null, 'no result written');
++  }
++  const { out } = mk(40);
++  assert.strictEqual(out.success, true, 'a determined model still fits');
++});
+diff --git a/tests/js/stale_statistics.test.js b/tests/js/stale_statistics.test.js
+index c594984..3b36b46 100644
+--- a/tests/js/stale_statistics.test.js
++++ b/tests/js/stale_statistics.test.js
+@@ -376,9 +376,9 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
+       renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
+       peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [],
+       uploadToBackend: async () => { if (editDuringUpload) document.getElementById('bg-type').value = 'linear'; return 'sid'; },
+-      fetch: async () => ({ json: async () => ({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
++      fetch: async () => ({ text: async () => JSON.stringify({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
+       applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true };
+-    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
++    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
+     await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
+     return out;
+   };
+@@ -405,3 +405,55 @@ test('reload never installs an edited-model curve or R under the original key, a
+   assert.match(extractFn('_doSaveProject'), /rFactor: t\.fitResult\.rFactor \|\| null/, 'project saves keep the fit\'s own R');
+   assert.match(extractFn('_doSaveSpectrum'), /rFactor: state\.fitResult\.rFactor \|\| null/, 'spectrum saves keep it too');
+ });
++
++test('F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply message, and rolls back', async () => {
++  const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
++  const state = { peaks: [], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
++  const dom = {};
++  const document = { getElementById: id => (dom[id] ??= { value: ({ 'bg-type': 'none', 'bg-start': '285', 'bg-end': '284', 'bg-endpoint-avg': '3', 'fit-method': 'leastsq' })[id] || '', style: {}, textContent: '', setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) };
++  const tab = { id: 1 };
++  const out = { restored: false, applied: 0, notes: [] };
++  const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
++    notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
++    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
++    getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => be.map(() => 0),
++    findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
++    buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
++    renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
++    peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
++    fetch: async () => ({ text: async () => '{"success": true, "statistics": {"reduced_chi_square": NaN}}' }),
++    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
++  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
++  await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
++  assert.strictEqual(out.applied, 0);
++  assert.strictEqual(out.restored, true);
++  assert.ok(out.notes.some(([m, k]) => k === 'red' && /^Auto-fit failed: .*non-finite number/.test(m)), JSON.stringify(out.notes));
++});
++
++for (const [label, reply, expect] of [
++  ['a Cloudflare 524 (plain-text body)', { ok: false, status: 524, json: async () => { throw new SyntaxError('error code: 524'); }, text: async () => 'error code: 524' }, /^Auto-fit failed: Fit request failed \(HTTP 524\)\.$/],
++  ['a 500 with a JSON error', { ok: false, status: 500, json: async () => ({ error: 'Internal fitting error' }) }, /^Auto-fit failed: Internal fitting error$/],
++]) test(`F2: Auto-Fit on ${label} is a failed request with its status, never "could not be read"`, async () => {
++  const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
++  const state = { peaks: [], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
++  const dom = {};
++  const document = { getElementById: id => (dom[id] ??= { value: ({ 'bg-type': 'none', 'bg-start': '285', 'bg-end': '284', 'bg-endpoint-avg': '3', 'fit-method': 'leastsq' })[id] || '', style: {}, textContent: '', setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) };
++  const tab = { id: 1 };
++  const out = { restored: false, applied: 0, notes: [] };
++  const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
++    notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
++    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
++    getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => be.map(() => 0),
++    findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
++    buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
++    renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
++    peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
++    fetch: async () => reply,
++    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
++  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
++  await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
++  assert.strictEqual(out.applied, 0);
++  assert.strictEqual(out.restored, true);
++  assert.ok(out.notes.some(([m, k]) => k === 'red' && expect.test(m)), JSON.stringify(out.notes));
++  assert.ok(!out.notes.some(([m]) => /could not be read/.test(m)));
++});
+
+exec
+/bin/zsh -lc 'ls -d /opt/homebrew/bin/python* /usr/local/bin/python* /tmp/*venv* /Users/skyefortier/xps-verify/* /Users/skyefortier/xps-app/venv/bin/python* /Users/skyefortier/.local/bin/*python* 2>/dev/null' in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ exited 1 in 0ms:
+zsh:1: no matches found: /opt/homebrew/bin/python*
+
+exec
+/bin/zsh -lc "sed -n '7500,7635p' templates/index.html; sed -n '8010,8067p' templates/index.html; sed -n '8100,8168p' templates/index.html; sed -n '8304,8334p' templates/index.html; sed -n '12295,12365p' templates/index.html; cat docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+  if (runBtn) runBtn.disabled = true;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
+
+  try {
+    const { be: be2, inten: inten2 } = getROIData();
+    const bgType = document.getElementById('bg-type').value;
+    const bgStart = parseFloat(document.getElementById('bg-start').value);
+    const bgEnd = parseFloat(document.getElementById('bg-end').value);
+    // Inclusive bg window — the same point set computeBackgroundCore draws;
+    // the backend slices end-exclusive, so the request sends i1 + 1.
+    const bgWin = _bgWindowIndices(be2, bgStart, bgEnd);
+    const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+    const fitMethod = document.getElementById('fit-method').value;
+
+    // The anchor whose necessity the server must test — captured with the
+    // other request inputs, before the first await (a tab switch during the
+    // upload must not send another tab's id).
+    const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);
+    // the model and its fit context as sent (F1, Codex round 1): a result must
+    // not be applied, and stamped current, over a model edited while it ran
+    const ctxAtRequest = _startsLiveKey();
+    // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
+    const peakSpecs = state.peaks.map(p => {
+      const spec = peakToBackendSpec(p);
+      if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
+      if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
+      if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
+      if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
+      spec.amplitude_min = 0;
+      return spec;
+    });
+
+    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
+    if (bgType === 'manual') {
+      // Anchors are stored in corrected-BE space, same frame as the uploaded
+      // session data; backend expects [x, y] pairs.
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
+    const sessionId = await uploadToBackend(be2, inten2);   // after EVERY input above is captured
+    const resp = await fetch('/api/fit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        background: bgPayload,
+        peaks: peakSpecs,
+        fit_method: fitMethod,
+        n_perturb: 3,
+        // step (c): is the charge-reference anchor REQUIRED? The server refits
+        // the model without it; a redundant anchor must not set the energy
+        // reference of a whole spectrum (see applyAutoFitResult).
+        require_component: anchorId,
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    // F2: a non-2xx reply is a failed REQUEST with its status in the message,
+    // as Run Fit has done since A0 (a Cloudflare 524 or a gunicorn 500 used to
+    // reach the parser and read as "the server's reply could not be read")
+    if (resp.ok === false) {
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.httpStatus = resp.status;
+      throw err;
+    }
+    const json = await _readFitReply(resp);   // F2: an unreadable reply is a failed fit with its own message
+    if (json.error) throw new Error(json.error);
+    if (json.success !== true) throw new Error(json.message || 'fit did not converge');
+    if (!_ownerActive(fittingTab)) {
+      _hideFitSpinner();
+      notify('Auto-fit discarded — tab switched during fit.', 'amber');
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+    if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
+      _hideFitSpinner();
+      notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+
+    applyBackendResult(json);
+
+    const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
+    if (!ok) {
+      _hideFitSpinner();
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+
+    _hideFitSpinner();
+    notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
+  } catch (e) {
+    clearTimeout(timer);
+    _hideFitSpinner();
+    // The catch path can also fire after a mid-flight tab switch (fetch
+    // error/timeout after the user moved on) — same wrong-tab hazard as
+    // the explicit discard branch, so it gets the same tab-aware restore.
+    _autoFitRestore(snap, fittingTab);
+    let msg;
+    if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('aborted')))) {
+      msg = 'Auto-fit exceeded the 2-minute timeout.';
+    } else if (e && (e.unreadableReply || e.httpStatus)) {
+      msg = 'Auto-fit failed: ' + e.message;
+    } else if (e && e.message) {
+      msg = 'Fit failed to converge or produced an unphysical graphite position.';
+      console.warn('Auto-fit error:', e);
+    } else {
+      msg = 'Auto-fit failed.';
+    }
+    notify(msg, 'red', true);
+  }
+}
+
+function isC1sTab(tab) {
+  if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
+  const ui = tab.ui || {};
+  let lo = parseFloat(ui.roiMin);
+  let hi = parseFloat(ui.roiMax);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+    // Fall back to full raw range (no UI ROI set yet)
+    let rmin = Infinity, rmax = -Infinity;
+    for (const v of tab.rawBE) {
+      if (v < rmin) rmin = v;
+      if (v > rmax) rmax = v;
+    }
+    lo = rmin; hi = rmax;
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return false;
+  const mid = (lo + hi) / 2;
+  return mid >= 270.0 && mid <= 315.0;
+}
+
+      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+    }
+    // Transport failures (server unreachable, timeout, non-JSON reply) are
+    // the ONLY reason to fall back to the local optimiser. A server-side
+    // validation error or a non-converged optimisation surfaces its message
+    // and leaves the model untouched (unit A0: nothing is shown as a fit
+    // result unless it converged; an HTTP 400 is not a reason to silently
+    // switch engines).
+    // Only a genuine transport failure (network rejection, abort, a body that
+    // could not be read) is marked for fallback; server errors — including a
+    // 2xx body that was read but is not JSON (F2) — carry `serverError`.
+    const _asTransport = (e) => {
+      if (e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError' || e instanceof SyntaxError)) e.transportFailure = true;
+      throw e;
+    };
+    let sessionId;
+    try { sessionId = await uploadToBackend(be, inten); } catch (e) { _asTransport(e); }
+    const fitReq = {
+      session_id: sessionId,
+      background: bgPayload,
+      peaks: peakSpecs,
+      fit_method: fitMethod,
+      n_perturb: 3,
+      n_starts: nStarts       // the server also skips it for the global methods
+    };
+    let resp, json;
+    try {
+      resp = await fetch('/api/fit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fitReq)
+      });
+    } catch (e) { _asTransport(e); }
+    if (resp.ok === false) {
+      // HTTP failure: read a message if the body is JSON, but a 502 HTML
+      // page is still a SERVER failure, never a reason to switch engines.
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
+      err.serverError = true;
+      throw err;
+    }
+    // F2: reading the body can fail in transport; a body that was read but is
+    // not JSON is the server's reply — a failed fit, not a fallback
+    try { json = await _readFitReply(resp); } catch (e) { _asTransport(e); }
+    if (json.error) {
+      const err = new Error(json.error);
+      err.serverError = true;
+      throw err;
+    }
+    // ACCEPTANCE RULE: the backend reports lmfit's own convergence flag. A
+    // result that did not converge is a failed fit, not a result (audit A08:
+    // until this unit success:false was applied and announced as complete).
+    if (json.success !== true) {
+      const err = new Error(json.message || 'the optimizer did not converge.');
+      err.notConverged = true;
+      throw err;
+    }
+    state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
+                        chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
+                        fittedY: backendResult.fitted_y, roiRange, _preFit,
+                        starts: backendResult.starts || null,
+                        startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
+                        chosenAlternative: opts.chosenAlternative || null };
+    // a preview of an alternative always belongs to the PREVIOUS result (an identical
+    // key does not make it this one's): clear it unconditionally
+    if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:')) _historyPreview = null;
+    state.fitResult.rFactor = _computeRFactor(state.fitResult);
+    _applyStatDisplay(state.fitResult);
+    document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
+    _updateRFactorUI(state.fitResult.rFactor);
+    _updateROIDisplay(roiRange);
+    _hideFitSpinner();
+    notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
+  } catch (e) {
+    // Fall back to local Levenberg-Marquardt
+    _hideFitSpinner();
+    if (!_ownerActive(fittingTab)) {
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit cancelled — tab switched during fit.', 'amber');
+      return;
+    }
+    if (e && e.transportFailure && opts.startPeaks) {
+      // Adopting an alternative needs the server: the local engine would start
+      // from the live model, not from the alternative. Nothing was changed.
+      document.getElementById('sb-msg').textContent = 'Fit failed';
+      notify('The server could not be reached, so the alternative was not applied. Previous peaks and result kept.', 'red', true);
+      return;
+    }
+    if (e && e.transportFailure && ctxAtRequest !== null && !_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
+      // The fallback would fit the arrays captured at the press over a model or
+      // context edited since, and stamp the edited one (F1, Codex round 1).
+      _hideFitSpinner();
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('The server could not be reached, and the model or its background / ROI settings were edited while the fit was running, so no local fit was run. Previous peaks and result kept. Run the fit again.', 'amber', true);
+      return;
+    }
+    if (e && e.transportFailure) {
+      // Server unreachable: the local optimiser is the honest fallback, and
+      // the overlay saying so opens only if it actually converged.
+      if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
+      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+      if (local && local.success && !_snapshotSuppressed) {
+        document.getElementById('localfit-warn-overlay').classList.add('open');
+      }
+      return;
+    }
+    // Server-side error or non-converged optimisation: report it; the
+    // previous peaks and fit result stay exactly as they were.
+    const notConverged = !!(e && e.notConverged);
+    document.getElementById('sb-msg').textContent = notConverged ? 'Fit did not converge' : 'Fit failed';
+    notify((notConverged ? 'Fit did not converge: ' : 'Fit failed: ') + ((e && e.message) || 'unknown error') +
+           ' Previous peaks and result kept.', 'red', true);
+    return;
+  }
+
+  renderPeakList();
+  updatePlot();
+  renderResults();
+  _autoSnapshot();
+}
+
+// Label for the goodness-of-fit statistic a fit result carries. The server
+// and (since unit W1, 2026-09-18) the local engine both minimise a
+// counting-noise-weighted chi-square; local results saved by unit A0 were
+// UNWEIGHTED and keep the label "Residual variance", never chi-square.
+function _isUnweightedLocal(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
+function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+  const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
+  const fail = (message, iterations) => {
+    _hideFitSpinner();
+    document.getElementById('sb-msg').textContent = 'Local fit failed';
+    notify('Local fit did not converge: ' + message + ' Previous peaks and result kept.', 'red', true);
+    return { success: false, engine: 'local', message, iterations: iterations || 0 };
+  };
+  if (!Array.isArray(be) || be.length < 2 ||
+      !Array.isArray(bgSubtracted) || bgSubtracted.length !== be.length ||
+      !Array.isArray(bgIntensity) || bgIntensity.length !== be.length ||
+      !be.every(Number.isFinite) || !bgSubtracted.every(Number.isFinite) || !bgIntensity.every(Number.isFinite)) {
+    return fail('invalid or non-finite data in the fitting region.');
+  }
+  // POISSON WEIGHTS (unit W1): the same weighting fitting.run_fit applies on
+  // the server — sigma = sqrt(raw counts), floored at 1, where the raw
+  // counts are the background-subtracted signal plus the background.
+  const _w = be.map((_, i) => 1 / Math.sqrt(Math.max(bgSubtracted[i] + bgIntensity[i], 1)));
+  // Work on copies: live peaks are touched only on success.
+  const work = state.peaks.map(p => ({ ...p }));
+  if (!work.length) return fail('no peaks to fit.');
+  const workPeak = id => work.find(q => q.id === id);
+
+  const freeParams = [];
+  const paramMap = [];
+  for (const p of work) {
+    if (!p.linked) {
+      if (!p.fixCenter)    { freeParams.push(p.center);    paramMap.push({id: p.id, param: 'center'}); }
+      if (!p.fixFwhm && p.shape !== 'DSG_LA') { freeParams.push(p.fwhm); paramMap.push({id: p.id, param: 'fwhm'}); }
+      if (!p.fixAmplitude) { freeParams.push(p.amplitude); paramMap.push({id: p.id, param: 'amplitude'}); }
+      if ((p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) {
+    tgt.chargeVerified = false;
+    // A propagated model has not been fitted yet: the target's previous
+    // result belonged to its previous peaks (unit A0 acceptance rule).
+    tgt.fitResult = null;
+    tgt.modelProvenance = srcProvenance ? { ...srcProvenance, copiedFrom: sourceTab.name } : null;
+
+    // Now activate this tab so state is populated. activateTab is a no-op
+    // when the target is ALREADY active (the user switched to it during the
+    // previous target's fit): then live state still holds the target's old
+    // model and the post-fit sync would overwrite the propagated record —
+    // load the record into live state explicitly (Codex round 3, run B).
+    if (tabManager.activeId === tid) {
+      state.peaks = tgt.peaks; state.nextId = tgt.nextId; state.ccShift = tgt.ccShift;
+      state.fitResult = null;   // live copy of tgt.fitResult = null above (unit A0)
+      tabManager._restoreUI(tgt.ui);
+      renderPeakList();
+      _refreshRoiAndCentreWarnings();   // this branch does not redraw: the hint must describe the target's window (Codex round 2)
+    } else {
+      tabManager.activateTab(tid);
+    }
+
+    // Small yield so progress message renders
+    await new Promise(r => setTimeout(r, 20));
+    if (_activeTab() !== tgt) {
+      // The user switched tabs during the yield: fitting would read and
+      // write whichever tab is active now. Stop here; targets already
+      // fitted keep their results.
+      notify('Batch fit stopped at ' + tgt.name + ' — the tab changed while it was running.', 'amber');
+      break;
+    }
+
+    // Run local fit
+    const roiSt = _roiWindowStatus();    // warn only: the fit below uses getROIData() exactly as before
+    const { be, inten } = getROIData();
+    const bgI = computeBackground(be, inten);
+    const bgSub = inten.map((v, idx) => v - bgI[idx]);
+    const outcome = runFitLocal(be, bgSub, bgI);
+
+    // Sync result back to record
+    tabManager._syncActiveToRecord();
+
+    // Read the statistic from the fit's own return value, not from live
+    // state: the active tab can change while the fit runs.
+    const ok = !!(outcome && outcome.success);
+    results.push({ name: tgt.name, ok, roiHint: _roiHintFor(roiSt),
+                   chi: ok && Number.isFinite(outcome.chiReduced) ? outcome.chiReduced : null,
+                   message: ok ? null : ((outcome && outcome.message) || 'local fit did not converge') });
+
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  _snapshotSuppressed = false;
+
+  // Return to source tab
+  tabManager.activateTab(sourceId);
+
+  const nOk = results.filter(r => r.ok).length;
+  const nFail = results.length - nOk;
+  prog.textContent = `Batch complete: ${nOk} converged as starting points, ${nFail} not fitted. Run Fit on each spectrum before reporting.`;
+  const roiNote = r => r.roiHint ? ` <span class="roi-hint${r.roiHint.cls ? ' ' + r.roiHint.cls : ''}" style="display:inline">${_escHtml(r.roiHint.text)}</span>` : '';
+  summary.innerHTML = results.map(r => r.ok
+    ? `<div class="prop-row">${_escHtml(r.name)}: converged &mdash; &#967;&#178;<sub>r</sub> = ${r.chi != null ? r.chi.toFixed(3) : 'n/a'} (local fit: a starting point, not a reportable result)${roiNote(r)}</div>`
+    : `<div class="prop-row" style="color:var(--red,#f87171)">${_escHtml(r.name)}: NOT fitted &mdash; ${_escHtml(r.message)} (model copied, no result stored)${roiNote(r)}</div>`
+  ).join('') + `<div class="prop-row" style="color:var(--red,#f87171);margin-top:4px">&#9888; Charge corrections marked in red need verification</div>`;
+  summary.style.display = 'block';
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════
+// FEATURE 2: NIST XPS DATABASE — CHEMICAL STATE LOOKUP
+// ══════════════════════════════════════════════════════════════
+# F2 — holes in the acceptance rule (2026-09-26)
+
+Branch `fix-acceptance-holes` off main `07e8f46` (F1 deployed). Owner's
+brief, second of the three sweep units: "nothing is a fit unless it
+converged and is determined":
+
+- basinhopping success from the real scipy result;
+- a NaN in an /api/fit reply is a failed fit with a message, not a local
+  fallback;
+- n_free > n_data is refused as undetermined;
+- the required verdict requires a converged refit.
+
+Source findings: `docs/findings/2026-09-25-fail-open-guards-sweep.md` H2, M1,
+M2, M3 (`sweep-fail-open-guards`). Medium effort.
+
+## 1. Sites
+
+| # | hole | site | before | after |
+|---|---|---|---|---|
+| 1 | basinhopping always "converged" (H2) | `fitting.fit_model` → new `_basinhopping_candidate` | lmfit sets `success = True` before minimising and its basinhopping never reads scipy's result | the DE pattern in full (owner decision, §2): search → unconditional `least_squares` refinement from its point under the request's bounds (the refinement's convergence is the verdict; no χ² comparison, no tolerance) → competition with a `least_squares` fit from the same start (verified beats unverified, then lower χ²). An unverifiable search is `success: false` with its own message. `fit_model` is the ONE fitter, so the main fit, every perturbed restart and the required refit all go through it; scattered starts do not run for basinhopping. |
+| 2 | a 2xx `/api/fit` reply with NaN switched to the local engine (M1) | page `_readFitReply` (new), used by `runFit` and `runAutoFitC1sGraphite` (the only two `/api/fit` callers) | `resp.json()` threw a SyntaxError, which `_asTransport` classified as a transport failure → `runFitLocal` replaced the server's converged result, verdicts and starts evidence | the body is read as text (a failure THERE is transport: the connection dropped) and parsed by the page; a body that was read but is not JSON is the server's reply → `serverError`, a failed fit with its message ("contains a non-finite number (NaN or Infinity) …" / "could not be read"), previous peaks and result kept, no fallback. Auto-Fit fails closed with the same message (it used to say "failed to converge or produced an unphysical graphite position"). The server is unchanged: the page, not a sanitiser, decides that a non-finite reply is not a fit. |
+| 3 | n_data ≤ n_free read as a near-perfect, fully supported fit (M2) | `fitting.run_fit` before the fit; page `runFitLocal` after its free-parameter list | lmfit `redchi = χ²/max(1, nfree)`; the support / required F tests clamp dof to 1; the local engine clamps too | refused: `ValueError` "not determined by these data: N free parameters for M data points leaves no degrees of freedom …" (HTTP 400 on `/api/fit`; the same message through Find Peaks' refit, `/api/analyze`); the local engine fails with the same text, nothing written. A COUNT, not a threshold. Refused at n_free ≥ n_data (§2). |
+| 4 | the required verdict ignored its refit's convergence (M3) | `fitting._component_required`; page `applyAutoFitResult` | `required` computed whether or not the refit converged (a refit stopped early read "required", F 992, for a redundant anchor); the page never read `refit_converged` | an unconverged refit returns `required: null, f: null, refit_converged: false, reason: "refit_not_converged"` (+ the solver message); Auto-Fit REFUSES that anchor before any charge-correction input is touched (red notice) — an anchor whose necessity could not be established must not set the energy reference of the whole spectrum. A check that did not RUN at all (older server, exception, nothing left, main fit not converged) still never blocks, as documented. |
+
+| 5 | Auto-Fit parsed a non-2xx reply (owner, 2026-09-27) | page `runAutoFitC1sGraphite` | a Cloudflare 524 or gunicorn 500 reached `_readFitReply` and read as "the server's reply could not be read" — F2's own message misfiring | `resp.ok === false` is a failed REQUEST with its status in the message ("Auto-fit failed: Fit request failed (HTTP 524)."; a JSON `error` body's text when there is one), before any parsing, as Run Fit has done since A0 |
+
+## 2. Decisions
+
+- **Basinhopping (owner, 2026-09-26).** The brief said "success from the real
+  scipy result". Measured first (scipy's flag recorded by a pass-through
+  wrapper around the name lmfit calls): on a 1-in-8 sample of the 202
+  committed targets (24 of 26 run), scipy marks **23 of 24** basinhopping fits
+  failed — BFGS "Desired error not necessarily achieved due to precision
+  loss" — while their χ²ᵣ equals Trust-Region's from the same start (median
+  relative difference 1.3e-9; one 0.14 % worse; several better). Taken
+  literally the method would fail on almost every correct fit. Owner chose:
+  verify by refinement AND compete with a plain `least_squares` fit from the
+  same start — the guarantee differential evolution already has ("never worse
+  than the default method from the same start"). The wrapper was removed; no
+  monkeypatching remains.
+- **n_free = n_data is refused too.** The brief says "n_free > n_data". At
+  equality there are zero degrees of freedom: the model interpolates every
+  point, reduced χ² is undefined (lmfit divides by max(1, 0)) and the F tests
+  run on a clamped dof of 1 — the same fault as the sweep's reproduction. The
+  refusal is at n_free ≥ n_data; one degree of freedom is fitted as before.
+- **An unconverged required-refit blocks Auto-Fit.** "The required verdict
+  requires a converged refit": the server gives no verdict, and the page does
+  not let an anchor with no verdict set the charge reference. The documented
+  "a check that did not run never blocks" is kept for checks that did not
+  run.
+
+- **No perturbed restarts for basinhopping (owner, 2026-09-26).** Measured
+  after the refinement change, with the page's request (`n_perturb` 3), on 16
+  committed multi-component targets spread over 2–7 components (4 processes,
+  8 physical cores — production runs 4 workers): median 386 s, max 1066 s,
+  **14 of 16 over the 300 s server timeout**. Without the restarts: median
+  96 s, max 256 s, none over 300 s, and χ²ᵣ identical on all 16 (worst
+  relative difference 1e-8) — a global search gains nothing from them, the
+  reason the scattered-starts check already excludes basinhopping and DE.
+  `run_fit` skips the perturb loop for basinhopping (the request's
+  `n_perturb` is still hashed into the seed; nothing else changes). DE keeps
+  its restarts (2–75 s; not in the brief).
+
+## 3. Measurements
+
+| measurement | before F2 | after F2 |
+|---|---|---|
+| basinhopping, 1-in-8 sample of the 202 targets (26), `n_perturb` 0 | lmfit `success: true` on all (unconditional); scipy's own flag "failed" on 23 of 24 (BFGS precision loss) at Trust-Region's minimum | 26 of 26 verified; never worse than Trust-Region from the same start; up to 19 % lower χ²ᵣ; median relative difference −1.9e-10 |
+| basinhopping wall time, page request, 16 multi-component targets | — | with restarts: median 386 s, max 1066 s, 14/16 > 300 s → restarts skipped: median 96 s, max 256 s, 0/16 > 300 s |
+
+The public URL has a lower ceiling (Cloudflare 524 between 88 s and 125 s):
+5 of those 16 still exceed it without restarts. Reported separately, not
+fixed here: `docs/findings/2026-09-26-public-request-ceiling.md`.
+
+## 4. Verification
+
+- Python: `tests/test_fit_acceptance_holes.py` (refusal at 6 and 8 points for
+  8 free parameters, fitted at 9; locked mixes free the count; `/api/fit`
+  400 with the message; unconverged refit → no verdict, converged refit
+  unchanged); `tests/test_basinhopping_outcome.py` (never worse than
+  Trust-Region; search → refine → compete call sequence; an unverifiable
+  search is not converged; a failed refinement rescued by the competitor;
+  the required refit verified the same way; no perturbed restarts);
+  `test_fit_reproducibility.py` updated (one seeded basinhopping
+  minimisation per fit; the call sequence).
+- JS: `fit_acceptance` (a 200 reply with NaN, and one that is not JSON, are
+  failed fits; a body that cannot be READ is still transport → local);
+  `stale_statistics` (Auto-Fit on a NaN reply fails closed, rolls back);
+  `autofit_required` (unconverged refit refused before any charge input);
+  `local_lm_descent` (the local engine refuses 6 free parameters for 5 and
+  6 points, fits 40). Mocks gain `text()` (`withText`).
+- Browser (:5151, committed UCl4-graphite project, replies intercepted where
+  the case cannot be produced on demand): NaN reply → "Fit failed" with the
+  non-finite message, no local overlay, peaks and result unchanged; a
+  5-point ROI → "16 free parameters for 5 data points"; Auto-Fit with an
+  unconverged refit → refused, charge correction unchanged. No page errors.
+
+## 5. Codex rounds
+
+(filled in as they run)
+
+exec
+/bin/zsh -lc 'node --test tests/js/fit_acceptance.test.js tests/js/stale_statistics.test.js tests/js/autofit_required.test.js tests/js/local_lm_descent.test.js' in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ exited 1 in 6055ms:
+# Subtest: a supported but NOT required anchor is refused before any charge-correction input is touched
+ok 1 - a supported but NOT required anchor is refused before any charge-correction input is touched
+  ---
+  duration_ms: 4.622236
+  type: 'test'
+  ...
+# Subtest: a required anchor proceeds; a check that did not RUN (older server, error, main fit not converged) does not block
+ok 2 - a required anchor proceeds; a check that did not RUN (older server, error, main fit not converged) does not block
+  ---
+  duration_ms: 8.68365
+  type: 'test'
+  ...
+# Subtest: the request asks for the Graphite anchor by id, and the gate precedes the support gate and every cc write
+ok 3 - the request asks for the Graphite anchor by id, and the gate precedes the support gate and every cc write
+  ---
+  duration_ms: 0.939268
+  type: 'test'
+  ...
+# Subtest: a refit that did not converge: no verdict, and Auto-Fit refuses before any charge-correction input is touched
+ok 4 - a refit that did not converge: no verdict, and Auto-Fit refuses before any charge-correction input is touched
+  ---
+  duration_ms: 2.504575
+  type: 'test'
+  ...
+# Subtest: A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown
+ok 5 - A08: a 200 response with success:false is a FAILED fit — nothing applied, no local fallback, message shown
+  ---
+  duration_ms: 9.254127
+  type: 'test'
+  ...
+# Subtest: a server validation error (HTTP 400 with error) surfaces its message and does NOT hand off to the local optimiser
+ok 6 - a server validation error (HTTP 400 with error) surfaces its message and does NOT hand off to the local optimiser
+  ---
+  duration_ms: 6.883653
+  type: 'test'
+  ...
+# Subtest: a transport failure (fetch throws) still falls back to the local optimiser and shows the local-fit overlay
+ok 7 - a transport failure (fetch throws) still falls back to the local optimiser and shows the local-fit overlay
+  ---
+  duration_ms: 3.523336
+  type: 'test'
+  ...
+# Subtest: a transport failure whose local fallback does NOT converge shows no "local fit performed" overlay
+ok 8 - a transport failure whose local fallback does NOT converge shows no "local fit performed" overlay
+  ---
+  duration_ms: 8.530957
+  type: 'test'
+  ...
+# Subtest: a converged backend result is applied (sanity)
+ok 9 - a converged backend result is applied (sanity)
+  ---
+  duration_ms: 2.721957
+  type: 'test'
+  ...
+# Subtest: the engine/objective labels of a fit result survive spectrum and project save/load
+ok 10 - the engine/objective labels of a fit result survive spectrum and project save/load
+  ---
+  duration_ms: 0.772264
+  type: 'test'
+  ...
+# Subtest: an HTTP 502 with an HTML body on /api/fit is a server failure: message shown, no local fallback
+ok 11 - an HTTP 502 with an HTML body on /api/fit is a server failure: message shown, no local fallback
+  ---
+  duration_ms: 2.691481
+  type: 'test'
+  ...
+# Subtest: an HTTP 502 on the upload is a server failure, not a transport failure
+ok 12 - an HTTP 502 on the upload is a server failure, not a transport failure
+  ---
+  duration_ms: 2.429625
+  type: 'test'
+  ...
+# Subtest: uploadToBackend itself classifies HTTP errors as server errors and rejects a reply without a session id
+ok 13 - uploadToBackend itself classifies HTTP errors as server errors and rejects a reply without a session id
+  ---
+  duration_ms: 1.67921
+  type: 'test'
+  ...
+# Subtest: every consumer that prints the goodness-of-fit statistic routes through the statistic identity
+ok 14 - every consumer that prints the goodness-of-fit statistic routes through the statistic identity
+  ---
+  duration_ms: 0.883087
+  type: 'test'
+  ...
+# Subtest: uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is a server error, not a transport failure
+ok 15 - uploadToBackend: an HTTP 200 whose body is JSON null (or not an object) is a server error, not a transport failure
+  ---
+  duration_ms: 0.752667
+  type: 'test'
+  ...
+# Subtest: a local (unweighted) result is labelled a STARTING POINT, not a reportable result, everywhere it is shown
+ok 16 - a local (unweighted) result is labelled a STARTING POINT, not a reportable result, everywhere it is shown
+  ---
+  duration_ms: 1.7535
+  type: 'test'
+  ...
+# Subtest: starting-point helpers: keyed on the persisted objective, weighted results untouched
+ok 17 - starting-point helpers: keyed on the persisted objective, weighted results untouched
+  ---
+  duration_ms: 2.79763
+  type: 'test'
+  ...
+# Subtest: Quantify shows the starting-point banner for a local result and not for a weighted one
+ok 18 - Quantify shows the starting-point banner for a local result and not for a weighted one
+  ---
+  duration_ms: 3.766592
+  type: 'test'
+  ...
+# Subtest: every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels
+ok 19 - every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels
+  ---
+  duration_ms: 1.982597
+  type: 'test'
+  ...
+# Subtest: project save derives the designation from the objective for an older local result lacking the new fields
+ok 20 - project save derives the designation from the objective for an older local result lacking the new fields
+  ---
+  duration_ms: 6.507417
+  type: 'test'
+  ...
+# Subtest: stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately
+ok 21 - stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately
+  ---
+  duration_ms: 0.881122
+  type: 'test'
+  ...
+# Subtest: _applyStatDisplay keeps header, tooltip, caption and value consistent through local → weighted → none
+ok 22 - _applyStatDisplay keeps header, tooltip, caption and value consistent through local → weighted → none
+  ---
+  duration_ms: 2.933536
+  type: 'test'
+  ...
+# Subtest: history preview glow is keyed on the dataset flag, not the label text
+ok 23 - history preview glow is keyed on the dataset flag, not the label text
+  ---
+  duration_ms: 0.559775
+  type: 'test'
+  ...
+# Subtest: spectrum load renders the Results panel after restoring a saved result, and Save Fit carries the designation
+ok 24 - spectrum load renders the Results panel after restoring a saved result, and Save Fit carries the designation
+  ---
+  duration_ms: 0.387826
+  type: 'test'
+  ...
+# Subtest: _applyStatDisplay clears header, tooltip, caption and value together on local → none
+ok 25 - _applyStatDisplay clears header, tooltip, caption and value together on local → none
+  ---
+  duration_ms: 2.79114
+  type: 'test'
+  ...
+# Subtest: _isLocalModel: a model imported from a local .fit.json is a starting point even with no fit result
+ok 26 - _isLocalModel: a model imported from a local .fit.json is a starting point even with no fit result
+  ---
+  duration_ms: 1.339266
+  type: 'test'
+  ...
+# Subtest: fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV export use it, saves and loads carry it, new fits clear it
+ok 27 - fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV export use it, saves and loads carry it, new fits clear it
+  ---
+  duration_ms: 1.174635
+  type: 'test'
+  ...
+# Subtest: undo/redo snapshots carry and restore model provenance
+ok 28 - undo/redo snapshots carry and restore model provenance
+  ---
+  duration_ms: 3.368178
+  type: 'test'
+  ...
+# Subtest: round-12 sites: undo/redo restore provenance, spectrum save/load carry it, import re-renders Results, figure/chart key on the model, Find Peaks clears it
+ok 29 - round-12 sites: undo/redo restore provenance, spectrum save/load carry it, import re-renders Results, figure/chart key on the model, Find Peaks clears it
+  ---
+  duration_ms: 1.617921
+  type: 'test'
+  ...
+# Subtest: _provenanceOf derives a designation from a live local result, and undo snapshots use it
+ok 30 - _provenanceOf derives a designation from a live local result, and undo snapshots use it
+  ---
+  duration_ms: 2.702096
+  type: 'test'
+  ...
+# Subtest: batch propagation copies the source model provenance onto each target (cleared again only by a successful fit)
+ok 31 - batch propagation copies the source model provenance onto each target (cleared again only by a successful fit)
+  ---
+  duration_ms: 0.30833
+  type: 'test'
+  ...
+# Subtest: the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise
+ok 32 - the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise
+  ---
+  duration_ms: 2.645957
+  type: 'test'
+  ...
+# Subtest: round-14 sites: banner element and refresh hooks, undo/redo re-render Results, auto-fit snapshot/restore carry provenance
+ok 33 - round-14 sites: banner element and refresh hooks, undo/redo re-render Results, auto-fit snapshot/restore carry provenance
+  ---
+  duration_ms: 0.819199
+  type: 'test'
+  ...
+# Subtest: the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview
+ok 34 - the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview
+  ---
+  duration_ms: 2.229581
+  type: 'test'
+  ...
+# Subtest: the sidebar banner is sticky at the top of the scrolling panel body
+ok 35 - the sidebar banner is sticky at the top of the scrolling panel body
+  ---
+  duration_ms: 0.232789
+  type: 'test'
+  ...
+# Subtest: the sidebar banner shows on a stack tab whose visible entries draw a local source fit
+ok 36 - the sidebar banner shows on a stack tab whose visible entries draw a local source fit
+  ---
+  duration_ms: 2.144546
+  type: 'test'
+  ...
+# Subtest: every stack chart repaint path refreshes the sidebar designation before any early return
+ok 37 - every stack chart repaint path refreshes the sidebar designation before any early return
+  ---
+  duration_ms: 0.328659
+  type: 'test'
+  ...
+# Subtest: closeTab rebuilds the active stack chart when it prunes entries that referenced the closed tab
+ok 38 - closeTab rebuilds the active stack chart when it prunes entries that referenced the closed tab
+  ---
+  duration_ms: 0.169004
+  type: 'test'
+  ...
+# Subtest: W1 helpers: weighted local results are chi-square but still designated; legacy unweighted keep Residual variance; server untouched
+ok 39 - W1 helpers: weighted local results are chi-square but still designated; legacy unweighted keep Residual variance; server untouched
+  ---
+  duration_ms: 2.418505
+  type: 'test'
+  ...
+# Subtest: TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result
+ok 40 - TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result
+  ---
+  duration_ms: 3.553962
+  type: 'test'
+  ...
+# Subtest: adoption: the REQUEST starts from the alternative, asks for the starts check by ITS model, and the live model is untouched until success
+ok 41 - adoption: the REQUEST starts from the alternative, asks for the starts check by ITS model, and the live model is untouched until success
+  ---
+  duration_ms: 2.797007
+  type: 'test'
+  ...
+# Subtest: adoption: a transport failure does NOT fall back to the local engine (it would start from the live model)
+ok 42 - adoption: a transport failure does NOT fall back to the local engine (it would start from the live model)
+  ---
+  duration_ms: 2.482629
+  type: 'test'
+  ...
+# Subtest: adoption: a tab switch during the re-fit discards it and leaves the originating model as it was
+ok 43 - adoption: a tab switch during the re-fit discards it and leaves the originating model as it was
+  ---
+  duration_ms: 2.506261
+  type: 'test'
+  ...
+# Subtest: adoption: success records the choice, the starts evidence and the key of the model it describes
+ok 44 - adoption: success records the choice, the starts evidence and the key of the model it describes
+  ---
+  duration_ms: 2.769479
+  type: 'test'
+  ...
+# Subtest: an ordinary Run Fit on one unlinked component does not ask for the starts check
+ok 45 - an ordinary Run Fit on one unlinked component does not ask for the starts check
+  ---
+  duration_ms: 2.487594
+  type: 'test'
+  ...
+# Subtest: a model edited WHILE the fit runs does not receive the result (Codex round 2: a newly locked centre kept its edited value under the server's statistics, with a fresh evidence key)
+ok 46 - a model edited WHILE the fit runs does not receive the result (Codex round 2: a newly locked centre kept its edited value under the server's statistics, with a fresh evidence key)
+  ---
+  duration_ms: 2.555814
+  type: 'test'
+  ...
+# Subtest: a transport failure after the model was edited mid-fit runs NO local fit (it would stamp the edited key on the old arrays)
+ok 47 - a transport failure after the model was edited mid-fit runs NO local fit (it would stamp the edited key on the old arrays)
+  ---
+  duration_ms: 6.533616
+  type: 'test'
+  ...
+# Subtest: a 200 reply containing NaN is a FAILED fit with a message: nothing applied, no local fallback
+ok 48 - a 200 reply containing NaN is a FAILED fit with a message: nothing applied, no local fallback
+  ---
+  duration_ms: 3.315947
+  type: 'test'
+  ...
+# Subtest: a 200 reply that is not JSON at all is a failed fit too; a body that cannot be READ is still a transport failure
+ok 49 - a 200 reply that is not JSON at all is a failed fit too; a body that cannot be READ is still a transport failure
+  ---
+  duration_ms: 5.597798
+  type: 'test'
+  ...
+# Traceback (most recent call last):
+#   File "/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/tests/js/local_lm_server_parity_backend.py", line 12, in <module>
+#     import fitting  \# noqa: E402
+#     ^^^^^^^^^^^^^^
+#   File "/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/fitting.py", line 33, in <module>
+#     from lmfit import Model, Parameters
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/__init__.py", line 38, in <module>
+#     from .confidence import conf_interval, conf_interval2d
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/confidence.py", line 10, in <module>
+#     from .minimizer import MinimizerException
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py", line 41, in <module>
+#     from .parameter import Parameter, Parameters
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/parameter.py", line 14, in <module>
+#     from .jsonutils import decode4js, encode4js
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/jsonutils.py", line 8, in <module>
+#     import dill
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/__init__.py", line 33, in <module>
+#     from .session import (
+#   File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/session.py", line 25, in <module>
+#     TEMPDIR = pathlib.PurePath(tempfile.gettempdir())
+#                                ^^^^^^^^^^^^^^^^^^^^^
+#   File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 315, in gettempdir
+#     return _os.fsdecode(_gettempdir())
+#                         ^^^^^^^^^^^^^
+#   File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 308, in _gettempdir
+#     tempdir = _get_default_tempdir()
+#               ^^^^^^^^^^^^^^^^^^^^^^
+#   File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 223, in _get_default_tempdir
+#     raise FileNotFoundError(_errno.ENOENT,
+# FileNotFoundError: [Errno 2] No usable temporary directory found in ['/var/folders/tv/_6g9gqh555q9xg8pshyzch7w0000gn/T/', '/tmp', '/var/tmp', '/usr/tmp', '/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes']
+# Subtest: A01 replay: Batch Fit on the committed UCl4-graphite C1s scans actually moves the parameters
+ok 50 - A01 replay: Batch Fit on the committed UCl4-graphite C1s scans actually moves the parameters
+  ---
+  duration_ms: 1353.685269
+  type: 'test'
+  ...
+# Subtest: A01 replay: the linked U 4f pair also descends
+ok 51 - A01 replay: the linked U 4f pair also descends
+  ---
+  duration_ms: 249.142625
+  type: 'test'
+  ...
+# Subtest: noiseless Gaussian: amplitude 10 started at 5 is recovered
+ok 52 - noiseless Gaussian: amplitude 10 started at 5 is recovered
+  ---
+  duration_ms: 11.838146
+  type: 'test'
+  ...
+# Subtest: acceptance rule: a non-converged attempt refuses to overwrite peaks or the previous fit result
+ok 53 - acceptance rule: a non-converged attempt refuses to overwrite peaks or the previous fit result
+  ---
+  duration_ms: 8.813753
+  type: 'test'
+  ...
+# Subtest: a local fit result is Poisson-weighted: objective, weighting and the designated statistic text
+ok 54 - a local fit result is Poisson-weighted: objective, weighting and the designated statistic text
+  ---
+  duration_ms: 11.56568
+  type: 'test'
+  ...
+# Subtest: bound stationarity: amplitude at its lower wall with the optimum inside the box must move off the wall
+ok 55 - bound stationarity: amplitude at its lower wall with the optimum inside the box must move off the wall
+  ---
+  duration_ms: 9.211237
+  type: 'test'
+  ...
+# Subtest: bound stationarity: amplitude at its lower wall with the optimum OUTSIDE the box is a legitimate converged fit
+ok 56 - bound stationarity: amplitude at its lower wall with the optimum OUTSIDE the box is a legitimate converged fit
+  ---
+  duration_ms: 8.450135
+  type: 'test'
+  ...
+# Subtest: a weak component the data DO hold is no longer forced up to an amplitude of 1
+ok 57 - a weak component the data DO hold is no longer forced up to an amplitude of 1
+  ---
+  duration_ms: 9.143983
+  type: 'test'
+  ...
+# Subtest: derivative accuracy: a free centre on a narrow peak lands on the true centre from either side (fixed wrong width)
+ok 58 - derivative accuracy: a free centre on a narrow peak lands on the true centre from either side (fixed wrong width)
+  ---
+  duration_ms: 47.747682
+  type: 'test'
+  ...
+# Subtest: derivative accuracy: centre-only fit on a 0.005 eV grid with a mis-scaled amplitude reaches the least-squares optimum
+ok 59 - derivative accuracy: centre-only fit on a 0.005 eV grid with a mis-scaled amplitude reaches the least-squares optimum
+  ---
+  duration_ms: 25.125281
+  type: 'test'
+  ...
+# Subtest: a genuinely stalled start (no sensitivity: peak far outside the data window) is reported as a failure, not convergence
+ok 60 - a genuinely stalled start (no sensitivity: peak far outside the data window) is reported as a failure, not convergence
+  ---
+  duration_ms: 8.503229
+  type: 'test'
+  ...
+# Subtest: linked child follows its parent even when the parent width is locked (behaviour documented in unit A0)
+ok 61 - linked child follows its parent even when the parent width is locked (behaviour documented in unit A0)
+  ---
+  duration_ms: 11.801387
+  type: 'test'
+  ...
+# Subtest: round-2 replay A: a peak that can only shrink at a wall is left at a constrained stationary point
+ok 62 - round-2 replay A: a peak that can only shrink at a wall is left at a constrained stationary point
+  ---
+  duration_ms: 11.207139
+  type: 'test'
+  ...
+# Subtest: round-2 replay B: amplitude pinned at its wall must not stop the width from reaching its constrained optimum
+ok 63 - round-2 replay B: amplitude pinned at its wall must not stop the width from reaching its constrained optimum
+  ---
+  duration_ms: 9.757426
+  type: 'test'
+  ...
+# Subtest: round-2: predicted reduction <= 0 never counts as convergence (start at FWHM 0.5 on replay A data)
+ok 64 - round-2: predicted reduction <= 0 never counts as convergence (start at FWHM 0.5 on replay A data)
+  ---
+  duration_ms: 10.553385
+  type: 'test'
+  ...
+# Subtest: A01 replay targets converge to constrained stationary points (C1s and U 4f)
+ok 65 - A01 replay targets converge to constrained stationary points (C1s and U 4f)
+  ---
+  duration_ms: 1284.581081
+  type: 'test'
+  ...
+# Subtest: round-3 A1: a weak satellite next to a 100x stronger line is determined and must be fitted, not frozen
+ok 66 - round-3 A1: a weak satellite next to a 100x stronger line is determined and must be fitted, not frozen
+  ---
+  duration_ms: 56.108993
+  type: 'test'
+  ...
+# Subtest: round-3 B1: a 10-count satellite beside a 100000-count line (centres/widths locked) recovers its amplitude
+ok 67 - round-3 B1: a 10-count satellite beside a 100000-count line (centres/widths locked) recovers its amplitude
+  ---
+  duration_ms: 19.339963
+  type: 'test'
+  ...
+# Subtest: round-3 A2: (285.3, 1, 8) fitted to (285, 1.5, 0.1) ends at a constrained stationary point
+ok 68 - round-3 A2: (285.3, 1, 8) fitted to (285, 1.5, 0.1) ends at a constrained stationary point
+  ---
+  duration_ms: 14.665954
+  type: 'test'
+  ...
+# Subtest: round-3 B2: (286, 0.3 locked, 20) fitted to (285, 1.5, 5) ends at a constrained stationary point
+ok 69 - round-3 B2: (286, 0.3 locked, 20) fitted to (285, 1.5, 5) ends at a constrained stationary point
+  ---
+  duration_ms: 79.211698
+  type: 'test'
+  ...
+# Subtest: round-4: near-zero residual with no data still passes the feasible-descent certificate (centre free, zero data)
+ok 70 - round-4: near-zero residual with no data still passes the feasible-descent certificate (centre free, zero data)
+  ---
+  duration_ms: 1192.09987
+  type: 'test'
+  ...
+# Subtest: round-4: near-zero residual on the accepted-step exit is certified (amplitude free, peak mostly outside the window)
+ok 71 - round-4: near-zero residual on the accepted-step exit is certified (amplitude free, peak mostly outside the window)
+  ---
+  duration_ms: 20.414501
+  type: 'test'
+  ...
+# Subtest: round-5: a single Gaussian between two symmetric peaks is certified with the CURRENT width, not a Jacobian-perturbed one
+ok 72 - round-5: a single Gaussian between two symmetric peaks is certified with the CURRENT width, not a Jacobian-perturbed one
+  ---
+  duration_ms: 10.692688
+  type: 'test'
+  ...
+# Subtest: weighted least squares: a locked-shape amplitude lands on the closed-form WEIGHTED solution, not the unweighted one
+ok 73 - weighted least squares: a locked-shape amplitude lands on the closed-form WEIGHTED solution, not the unweighted one
+  ---
+  duration_ms: 8.907747
+  type: 'test'
+  ...
+# Subtest: server parity on GL-type models: weighted local Batch Fit matches lmfit from the same start (committed C1s targets)
+not ok 74 - server parity on GL-type models: weighted local Batch Fit matches lmfit from the same start (committed C1s targets)
+  ---
+  duration_ms: 1391.304489
+  type: 'test'
+  location: '/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/tests/js/local_lm_descent.test.js:455:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Command failed: /Users/skyefortier/xps-app/venv/bin/python3 /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/tests/js/local_lm_server_parity_backend.py /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+    Traceback (most recent call last):
+      File "/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/tests/js/local_lm_server_parity_backend.py", line 12, in <module>
+        import fitting  # noqa: E402
+        ^^^^^^^^^^^^^^
+      File "/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/fitting.py", line 33, in <module>
+        from lmfit import Model, Parameters
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/__init__.py", line 38, in <module>
+        from .confidence import conf_interval, conf_interval2d
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/confidence.py", line 10, in <module>
+        from .minimizer import MinimizerException
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py", line 41, in <module>
+        from .parameter import Parameter, Parameters
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/parameter.py", line 14, in <module>
+        from .jsonutils import decode4js, encode4js
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/jsonutils.py", line 8, in <module>
+        import dill
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/__init__.py", line 33, in <module>
+        from .session import (
+      File "/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/dill/session.py", line 25, in <module>
+        TEMPDIR = pathlib.PurePath(tempfile.gettempdir())
+                                   ^^^^^^^^^^^^^^^^^^^^^
+      File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 315, in gettempdir
+        return _os.fsdecode(_gettempdir())
+                            ^^^^^^^^^^^^^
+      File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 308, in _gettempdir
+        tempdir = _get_default_tempdir()
+                  ^^^^^^^^^^^^^^^^^^^^^^
+      File "/usr/local/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/tempfile.py", line 223, in _get_default_tempdir
+        raise FileNotFoundError(_errno.ENOENT,
+    FileNotFoundError: [Errno 2] No usable temporary directory found in ['/var/folders/tv/_6g9gqh555q9xg8pshyzch7w0000gn/T/', '/tmp', '/var/tmp', '/usr/tmp', '/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes']
+    
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    genericNodeError (node:internal/errors:983:15)
+    wrappedFn (node:internal/errors:537:14)
+    checkExecSyncError (node:child_process:916:11)
+    execFileSync (node:child_process:952:15)
+    TestContext.<anonymous> (/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/tests/js/local_lm_descent.test.js:468:31)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+  ...
+# Subtest: the local engine holds LA m at its exact fractional value, free or locked, and does not count it as a degree of freedom
+ok 75 - the local engine holds LA m at its exact fractional value, free or locked, and does not count it as a degree of freedom
+  ---
+  duration_ms: 22.185206
+  type: 'test'
+  ...
+# Subtest: an LA fit with m free converges across a kernel-width transition — run A: 201 pts at 0.03 eV, m 48 (a transition), noisy
+ok 76 - an LA fit with m free converges across a kernel-width transition — run A: 201 pts at 0.03 eV, m 48 (a transition), noisy
+  ---
+  duration_ms: 22.474139
+  type: 'test'
+  ...
+# Subtest: an LA fit with m free converges across a kernel-width transition — run B: 61 pts at 0.05 eV, m 18/7 − 0.001, all free
+ok 77 - an LA fit with m free converges across a kernel-width transition — run B: 61 pts at 0.05 eV, m 18/7 − 0.001, all free
+  ---
+  duration_ms: 18.912975
+  type: 'test'
+  ...
+# Subtest: round-2 reproducer converges with m unlocked (m is held) — exact transition m = 18/7, 61 pts at 0.03 eV
+ok 78 - round-2 reproducer converges with m unlocked (m is held) — exact transition m = 18/7, 61 pts at 0.03 eV
+  ---
+  duration_ms: 8.396163
+  type: 'test'
+  ...
+# Subtest: round-2 reproducer converges with m unlocked (m is held) — m = 0 data, start m = 0.001
+ok 79 - round-2 reproducer converges with m unlocked (m is held) — m = 0 data, start m = 0.001
+  ---
+  duration_ms: 13.592125
+  type: 'test'
+  ...
+# Subtest: recovery from an amplitude of exactly zero (the new floor is not a trap)
+ok 80 - recovery from an amplitude of exactly zero (the new floor is not a trap)
+  ---
+  duration_ms: 10.236452
+  type: 'test'
+  ...
+# Subtest: the local engine refuses a model with no degrees of freedom; one more point and it fits
+ok 81 - the local engine refuses a model with no degrees of freedom; one more point and it fits
+  ---
+  duration_ms: 25.154742
+  type: 'test'
+  ...
+# Subtest: one accessor classifies a result against a key: none / unverified / current / stale
+ok 82 - one accessor classifies a result against a key: none / unverified / current / stale
+  ---
+  duration_ms: 16.941836
+  type: 'test'
+  ...
+# Subtest: the key is the step (b) key: F1 adds no second binding mechanism and no new key field
+ok 83 - the key is the step (b) key: F1 adds no second binding mechanism and no new key field
+  ---
+  duration_ms: 4.045557
+  type: 'test'
+  ...
+# Subtest: Results panel, current: statistic, RMSE, R and sigma are shown
+ok 84 - Results panel, current: statistic, RMSE, R and sigma are shown
+  ---
+  duration_ms: 8.472124
+  type: 'test'
+  ...
+# Subtest: Results panel, stale: a banner says the statistics belong to the previous model; no chi-square, RMSE, R or sigma
+ok 85 - Results panel, stale: a banner says the statistics belong to the previous model; no chi-square, RMSE, R or sigma
+  ---
+  duration_ms: 6.742655
+  type: 'test'
+  ...
+# Subtest: Results panel, unverified (older save, no key): values shown with a plain note
+ok 86 - Results panel, unverified (older save, no key): values shown with a plain note
+  ---
+  duration_ms: 7.643915
+  type: 'test'
+  ...
+# Subtest: status-bar R: the previous model's R is not shown on a stale result; an unrelated rFactor argument is untouched
+ok 87 - status-bar R: the previous model's R is not shown on a stale result; an unrelated rFactor argument is untouched
+  ---
+  duration_ms: 6.438807
+  type: 'test'
+  ...
+# Subtest: the stored fitted curve is never drawn, saved or stacked as the fit once stale
+ok 88 - the stored fitted curve is never drawn, saved or stacked as the fit once stale
+  ---
+  duration_ms: 2.851185
+  type: 'test'
+  ...
+# Subtest: saves keep the key and say plainly when the statistics are stale or unverified
+ok 89 - saves keep the key and say plainly when the statistics are stale or unverified
+  ---
+  duration_ms: 2.023611
+  type: 'test'
+  ...
+# Subtest: CSV: current writes the statistic and sigma; stale writes a WARNING, no statistic, no sigma
+ok 90 - CSV: current writes the statistic and sigma; stale writes a WARNING, no statistic, no sigma
+  ---
+  duration_ms: 12.517662
+  type: 'test'
+  ...
+# Subtest: XLSX: stale writes a WARNING row instead of the statistic, and no sigma
+ok 91 - XLSX: stale writes a WARNING row instead of the statistic, and no sigma
+  ---
+  duration_ms: 5.660781
+  type: 'test'
+  ...
+# Subtest: TSV: stale says the Model / Residual columns are the current, unfitted model
+ok 92 - TSV: stale says the Model / Residual columns are the current, unfitted model
+  ---
+  duration_ms: 7.481875
+  type: 'test'
+  ...
+# Subtest: the refresh re-renders Results only when its rendered state differs
+ok 93 - the refresh re-renders Results only when its rendered state differs
+  ---
+  duration_ms: 2.650281
+  type: 'test'
+  ...
+# Subtest: an equivalent spelling of a form number ("280" / "280.0") is the same fit; a different value is not
+ok 94 - an equivalent spelling of a form number ("280" / "280.0") is the same fit; a different value is not
+  ---
+  duration_ms: 2.543542
+  type: 'test'
+  ...
+# Subtest: Clear All (result -> none) re-renders Results back to its empty state; a page that never had a result is left alone
+ok 95 - Clear All (result -> none) re-renders Results back to its empty state; a page that never had a result is left alone
+  ---
+  duration_ms: 2.943877
+  type: 'test'
+  ...
+# Subtest: Auto-Fit discards (and rolls back) a response when the model or context was edited while it ran; an unedited run applies
+ok 96 - Auto-Fit discards (and rolls back) a response when the model or context was edited while it ran; an unedited run applies
+  ---
+  duration_ms: 6.913152
+  type: 'test'
+  ...
+# Subtest: closing the last tab clears the Results panel, header and status statistics too
+ok 97 - closing the last tab clears the Results panel, header and status statistics too
+  ---
+  duration_ms: 0.294779
+  type: 'test'
+  ...
+# Subtest: reload never installs an edited-model curve or R under the original key, and activation never computes R over an edited model
+ok 98 - reload never installs an edited-model curve or R under the original key, and activation never computes R over an edited model
+  ---
+  duration_ms: 1.285946
+  type: 'test'
+  ...
+# Subtest: F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply message, and rolls back
+ok 99 - F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply message, and rolls back
+  ---
+  duration_ms: 3.894989
+  type: 'test'
+  ...
+# Subtest: F2: Auto-Fit on a Cloudflare 524 (plain-text body) is a failed request with its status, never "could not be read"
+ok 100 - F2: Auto-Fit on a Cloudflare 524 (plain-text body) is a failed request with its status, never "could not be read"
+  ---
+  duration_ms: 3.570014
+  type: 'test'
+  ...
+# Subtest: F2: Auto-Fit on a 500 with a JSON error is a failed request with its status, never "could not be read"
+ok 101 - F2: Auto-Fit on a 500 with a JSON error is a failed request with its status, never "could not be read"
+  ---
+  duration_ms: 2.813114
+  type: 'test'
+  ...
+1..101
+# tests 101
+# suites 0
+# pass 100
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6116.305123
+
+exec
+/bin/zsh -lc 'setopt nonomatch
+ls -d /usr/local/bin/python* /tmp/*venv* /Users/skyefortier/xps-verify/* /Users/skyefortier/xps-app/venv/bin/python* /Users/skyefortier/.local/bin/*python* /Users/skyefortier/xps-app/.claude/worktrees/*/.venv/bin/python* 2>/dev/null
+ls /Library/Frameworks/Python.framework/Versions' in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ exited 1 in 0ms:
+/Users/skyefortier/xps-app/venv/bin/python
+/Users/skyefortier/xps-app/venv/bin/python3
+/Users/skyefortier/xps-app/venv/bin/python3.12
+/Users/skyefortier/xps-verify/CLAUDE.md
+/Users/skyefortier/xps-verify/DEPLOY.md
+/Users/skyefortier/xps-verify/DESIGN.md
+/Users/skyefortier/xps-verify/PRODUCT.md
+/Users/skyefortier/xps-verify/__pycache__
+/Users/skyefortier/xps-verify/app.py
+/Users/skyefortier/xps-verify/autofit
+/Users/skyefortier/xps-verify/data
+/Users/skyefortier/xps-verify/docs
+/Users/skyefortier/xps-verify/fitting.py
+/Users/skyefortier/xps-verify/parser.py
+/Users/skyefortier/xps-verify/requirements-dev.txt
+/Users/skyefortier/xps-verify/requirements.txt
+/Users/skyefortier/xps-verify/scripts
+/Users/skyefortier/xps-verify/static
+/Users/skyefortier/xps-verify/templates
+/Users/skyefortier/xps-verify/tests
+/Users/skyefortier/xps-verify/uploads
+/Users/skyefortier/xps-verify/vgd_parser.py
+/Users/skyefortier/xps-verify/xps-fitting-tool.html
+/Users/skyefortier/xps-verify/xps_reference.py
+/usr/local/bin/python3.12
+/usr/local/bin/python3.12-config
+ls: /Library/Frameworks/Python.framework/Versions: No such file or directory
+
+exec
+/bin/zsh -lc "rg -n 'basinhopping|abort|nan_policy|params.copy|coerce_arraylike|ndata' /Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/model.py /Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py | tail -55; sed -n '675,835p' fitting.py; sed -n '905,925p' app.py; sed -n '200,285p' autofit/parity.py" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1096:            raise AbortFitException("fit aborted by user.")
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1098:            out = coerce_float64(out, nan_policy=self.nan_policy)
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1099:        lnprob = coerce_float64(out, nan_policy=self.nan_policy)
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1374:                         'nan_policy': self.nan_policy}
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1426:            result.aborted = True
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1427:            result.message = "Fit aborted by user callback. Could not estimate error-bars."
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1435:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1468:        result.residual = coerce_float64(out, nan_policy=self.nan_policy,
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1482:            result.ndata = 1
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1493:            result.bic = _neg2_log_likel + np.log(result.ndata) * result.nvarys
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1570:            result.aborted = True
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1575:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1584:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1678:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1684:            errmsg = 'Fit aborted.'
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1726:    def basinhopping(self, params=None, max_nfev=None, **kws):
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1727:        """Use the `basinhopping` algorithm to find the global minimum.
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1729:        This method calls :scipydoc:`optimize.basinhopping` using the
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1743:            Minimizer options to pass to :scipydoc:`optimize.basinhopping`.
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1749:            basinhopping algorithm.
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1756:        result.method = 'basinhopping'
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1758:        basinhopping_kws = dict(niter=100, T=1.0, stepsize=0.5,
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1764:        basinhopping_kws.update(self.kws)
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1765:        basinhopping_kws.update(kws)
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1768:        result.call_kws = basinhopping_kws
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1770:            ret = scipy_basinhopping(self.penalty, x0, **basinhopping_kws)
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1774:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1786:        if (not result.aborted and self.calc_covar and HAS_NUMDIFFTOOLS and
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:1926:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2075:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2095:        if (not result.aborted and self.calc_covar and HAS_NUMDIFFTOOLS and
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2156:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2172:        if (not result.aborted and self.calc_covar and HAS_NUMDIFFTOOLS and
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2235:        if not result.aborted:
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2252:        if (not result.aborted and self.calc_covar and HAS_NUMDIFFTOOLS and
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2273:            - `'basinhopping'`: basinhopping
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2339:        elif user_method == 'basinhopping':
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2340:            function = self.basinhopping
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2377:def coerce_float64(arr, nan_policy='raise', handle_inf=True,
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2387:    nan_policy : {'raise', 'propagate', 'omit'}, optional
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2394:        Whether to apply the `nan_policy` to +/-Inf (default is True).
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2403:        ndarray of type np.float64, possibly after applying the `nan_policy`,
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2427:    if nan_policy not in ('propagate', 'omit', 'raise'):
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2428:        raise ValueError("nan_policy must be 'propagate', 'omit', or 'raise'.")
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2435:    if nan_policy == 'omit':
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2441:    if nan_policy == 'raise':
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2464:# coerce_float64 replaces _nan_policy.  That was never part of the public API,
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2468:def _nan_policy(arr, nan_policy='raise', handle_inf=True, **kws):
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2469:    warnings.warn('`_nan_policy` has been replaced with coerce_float64`', DeprecationWarning)
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2470:    return coerce_float64(arr, nan_policy=nan_policy, handle_inf=handle_inf, **kws)
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2474:             scale_covar=True, nan_policy='raise', reduce_fcn=None,
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2504:        - `'basinhopping'`: basinhopping
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2549:    nan_policy : {'raise', 'propagate', 'omit'}, optional
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2607:                           nan_policy=nan_policy, reduce_fcn=reduce_fcn,
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py:2614:                       nan_policy=nan_policy, reduce_fcn=reduce_fcn,
+    alpha: float,
+    beta: float,
+    m: float,
+) -> np.ndarray:
+    """
+    True CasaXPS LA(α, β, m) lineshape.
+
+    Built in two steps per the CasaXPS LA manual:
+
+    1.  Asymmetric base Lorentzian. Start with a unit-amplitude Lorentzian
+        of FWHM `fwhm` centered at `center`:
+            L(x) = 1 / (1 + 4·((x − center)/fwhm)²)
+        Apply piecewise exponents to introduce asymmetry. CasaXPS defines
+        these on a kinetic-energy axis. We use a binding-energy axis, so
+        the sides flip:
+            LA_base(x) = L(x)^α   for x ≥ center  (high-BE side)
+            LA_base(x) = L(x)^β   for x <  center  (low-BE side)
+        Increasing α relative to β SUPPRESSES the high-BE tail; decreasing
+        α extends it.
+
+    2.  Gaussian convolution with a continuous-m kernel: σ_pts = m/3,
+        kernel half-width max(1, ceil(3.5·σ_pts)) (±3.5σ; see the inline
+        comment for why 3.5, not 3), truncation-renormalized, convolved
+        with mode='same' on the uniform x grid. m < 1e-3 means no
+        convolution. NOTE this deliberately deviates from the original
+        integer 2m+1 design (still implemented by the frontend's
+        laTrueCasaXPS_array — a tracked ~0.15%-at-m=50 parity gap, todo
+        in tests/js/lineshape_parity.test.js): m flows through
+        continuously so lmfit's finite-difference Jacobian in m is
+        non-singular.
+
+    With α=β=1 and m=0, this reduces exactly to amplitude × L(x) (a pure
+    Lorentzian of peak height = amplitude, FWHM = `fwhm`).
+
+    Parameters
+    ----------
+    fwhm  : Lorentzian FWHM in eV (must be > 0)
+    alpha : high-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
+    beta  : low-BE-side exponent, dimensionless, default 1.0, bounds (0.1, 5.0)
+    m     : Gaussian convolution kernel width in DATA POINTS (not eV);
+            0–499, used CONTINUOUSLY (no rounding — see kernel note above).
+    """
+    fwhm = max(float(fwhm), 1e-9)
+    alpha = max(float(alpha), 1e-3)
+    beta = max(float(beta), 1e-3)
+    # Continuous-σ kernel: m flows through to the kernel weights as a real
+    # number, so the Jacobian column for m is well-defined under lmfit's
+    # finite-difference perturbation. Previously m was rounded with
+    # int(round(m)), making the function locally constant in m and
+    # producing a singular Hessian whenever m varied — that poisoned
+    # covariance estimation for every other free param too.
+    # Defensive guard preserves the prior [0, 499] cap in case a saved
+    # spec or caller bypasses the lmfit bound.
+    m_cont = max(0.0, min(499.0, float(m)))
+
+    eps = x - center
+    # Base unit-amplitude Lorentzian
+    L = 1.0 / (1.0 + 4.0 * (eps / fwhm) ** 2)
+    # Piecewise exponentiation. BE-axis: high-BE side is eps ≥ 0.
+    high = eps >= 0
+    base = np.where(high, np.power(L, alpha), np.power(L, beta))
+
+    # Below ε, treat as un-convolved Lorentzian so an optimizer that lands
+    # exactly at m=0 returns the bare base curve rather than degenerating.
+    if m_cont < 1e-3:
+        return amplitude * base
+
+    sigma_pts = m_cont / 3.0
+    # Kernel half-width: ±3.5σ captures > 99.95% of the Gaussian. Use 3.5
+    # rather than 3 specifically so the kernel-length quantization step
+    # `ceil(3.5σ)` doesn't coincide with integer m — that would put a
+    # discrete jump in the output exactly at integer m and re-break
+    # backwards compat with previously-saved (integer-m) fits. With 3.5
+    # the next jump from m=N is at m = 6(N+1)/7 ≠ integer.
+    half = max(1, int(np.ceil(3.5 * sigma_pts)))
+    k = np.arange(-half, half + 1, dtype=float)
+    kern = np.exp(-(k ** 2) / (2.0 * sigma_pts ** 2))
+    kern = kern / kern.sum()
+
+    convolved = np.convolve(base, kern, mode='same')
+    # np.convolve mode='same' returns max(len(base), len(kern)) — not
+    # len(base). When the input grid is shorter than the kernel, trim
+    # back to len(base) so the function's len(output) == len(x) contract
+    # holds. lmfit's composite-fit residual path will broadcast the
+    # per-peak arrays against the data grid, so a kernel-length return
+    # surfaces as a cryptic shape mismatch downstream.
+    if len(convolved) > len(base):
+        excess = len(convolved) - len(base)
+        start = excess // 2
+        convolved = convolved[start:start + len(base)]
+
+    peak_idx = int(np.argmin(np.abs(eps)))
+    peak_val = convolved[peak_idx]
+    if peak_val <= 0:
+        peak_val = float(np.max(convolved))
+    if peak_val <= 0:
+        return np.zeros_like(x)
+    return amplitude * convolved / peak_val
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# lmfit Model factory
+# ─────────────────────────────────────────────────────────────────────────────
+
+_SHAPE_FUNCS = {
+    "gaussian": _gaussian,
+    "lorentzian": _lorentzian,
+    "pseudo_voigt_gl": _pseudo_voigt_gl,
+    "asymmetric_gl": _asymmetric_gl,
+    "doniach_sunjic": _doniach_sunjic,
+    "ds_g": _ds_g_dscore_gauss,
+    "la_casaxps": _la_casaxps_true,
+}
+
+AVAILABLE_SHAPES = list(_SHAPE_FUNCS.keys())
+
+
+def _validate_constraint_graph(peak_specs: list[dict]) -> None:
+    """Reject self-referential or circular spin-orbit constraints (audit F11).
+
+    A peak whose ``constrain_to`` names its own id — or a cycle such as
+    A→B→A — produces a self-referencing lmfit expression that recurses to
+    "maximum recursion depth exceeded". Catch it here with a clean ValueError
+    (→ 400) before any lmfit parameter/expression is built. A ``constrain_to``
+    that names a non-existent peak is left for ``_make_peak_params`` to report.
+    """
+    parent: dict = {}
+    for s in peak_specs:
+        sid = s.get("id")
+        master = s.get("constrain_to")
+        if master is None:
+            continue
+        if master == sid:
+            raise ValueError(f"Peak '{sid}' cannot constrain to itself")
+        parent[sid] = master
+
+    # Walk each constrained peak's master chain; a repeat is a cycle.
+    for start in parent:
+        chain = [start]
+        cur = parent[start]
+        while cur is not None:
+            chain.append(cur)
+            if cur == start or cur in chain[:-1]:
+                pretty = " → ".join(str(x) for x in chain)
+                raise ValueError(f"Circular peak constraint detected: {pretty}")
+            cur = parent.get(cur)
+
+
+def _make_peak_params(
+    model: Model,
+    spec: dict[str, Any],
+    prefix: str,
+    all_specs: list[dict],
+) -> Parameters:
+    """
+    Build lmfit Parameters for one peak from a spec dict.
+
+    Spec keys
+    ---------
+    shape          : str   – one of AVAILABLE_SHAPES
+    center         : float – initial centre (eV)
+
+        Request body
+        ------------
+        {
+          "session_id":     "...",
+          "cc_shift":       0.0,          // frontend charge shift (corrected = raw − cc_shift)
+          "roi":            {"be_min": ..., "be_max": ...},   // corrected frame
+          "material_class": "conductor" | "insulator" | "semiconductor" | "mixed",
+          "regions":        ["Cl 2p", ...],   // registered region names
+          "phase":          {"id": "sample", "material": "graphite"},  // optional
+          "method":         "ic_model_comparison" | "least_squares"
+                            | "bayesian_exchange_mc" | "sparse_map",
+          "options":        {...},        // per-method; validated by the method
+          "peak_specs":     [...]         // least_squares only (manual baseline)
+        }
+
+        Returns the full MethodResult: candidate peaks with the per-peak
+        confidence vector, the analysis namespace (ambiguity flags, ranked
+        alternatives, constants provenance), diagnostics, and a review-gate
+        stub — results are candidates + honesty flags, not ground truth;
+        a NAMED human review is required before export (spec §8).
+    passes" (A03 Codex round 4). "contract" evaluates every Voigt at the
+    page's current request (eta = 0.5, A03 2026-09-22); saves made under the
+    old request (eta free from 0.3) cannot reproduce their own fittedY that
+    way, and that difference is the A03 change, not a numerics regression.
+    """
+    fittedY = np.asarray(rf.fit_result["fittedY"], dtype=float)
+    specs = rf.backend_peak_specs()
+    if voigt_eta == "recorded":   # backend_peak_specs keeps the peaks' order
+        specs = [dict(s, gl_ratio=recorded_voigt_eta(p))
+                 if p.get("shape") == "Voigt" and recorded_voigt_eta(p) is not None else s
+                 for s, p in zip(specs, rf.peaks)]
+    model = evaluate_model(rf.roi_be, specs)
+    i0, i1 = rf.bg_indices()
+    bg = background_like_run_fit(
+        rf.roi_be, rf.roi_intensity, rf.bg_method, i0, i1, rf.endpoint_avg
+    )
+    scale = max(float(np.max(np.abs(fittedY))), 1.0)
+    return float(np.max(np.abs(model + bg - fittedY)) / scale)
+
+
+def refit_record(rf: ReferenceFit, start: dict[str, Any] | None = None) -> dict[str, Any]:
+    """
+    Deterministic seeded refit (leastsq, no perturbation) from the saved
+    parameters.  Returns a serializable record for fixture freezing; each
+    peak also carries ``params`` (every server parameter's fitted value) so
+    the record can be the START of another refit: with ``start`` (a record
+    from this function) the saved peaks are first overwritten with that
+    record's parameters through the page's write-back twin, exactly as the
+    page holds a model after Run Fit.
+    """
+    import copy
+    peaks = rf.peaks
+    if start is not None:
+        peaks = copy.deepcopy(rf.peaks)
+        by_id = {str(pk["id"]): pk for pk in start["peaks"]}
+        for p in peaks:
+            pk = by_id.get(str(p["id"]))
+            if pk is not None and pk.get("params"):
+                apply_backend_params(p, pk["params"])
+    i0, i1 = rf.bg_indices()
+    res = run_fit(
+        rf.roi_be,
+        rf.roi_intensity,
+        [peak_to_backend_spec(p, peaks) for p in peaks],
+        background_method=rf.bg_method,
+        bg_start_idx=i0,
+        bg_end_idx=i1,
+        endpoint_avg=rf.endpoint_avg,
+        n_perturb=0,
+    )
+    peaks = []
+    for ip in res["individual_peaks"]:
+        par = ip["params"]
+        peaks.append({
+            "id": ip["id"],
+            "center": par["center"]["value"],
+            "fwhm": par["fwhm"]["value"],
+            "amplitude": par["amplitude"]["value"],
+            "area": par["area"]["value"],
+            "params": {k: v["value"] for k, v in par.items() if k != "area"},
+        })
+    return {
+        "project": rf.project,
+        "name": rf.name,
+        "reduced_chi_square": res["statistics"]["reduced_chi_square"],
+        "r_factor": res["statistics"]["r_factor"],
+        "success": bool(res["success"]),
+        "peaks": peaks,
+    }
+
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 /Users/skyefortier/xps-app/venv/bin/python -B -c 'import tempfile; tempfile.tempdir=\"/tmp\"; import pytest; raise SystemExit(pytest.main([\"-q\",\"-s\",\"-p\",\"no:cacheprovider\",\"tests/test_fit_acceptance_holes.py\",\"tests/test_basinhopping_outcome.py\",\"tests/test_fit_reproducibility.py\",\"-k\",\"not api_fit_returns\"]))'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+exec
+/bin/zsh -lc "sed -n '1750,1800p' /Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py; sed -n '1135,1185p' /Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/model.py; sed -n '2405,2445p' /Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/minimizer.py; rg -n 'nan_policy|isfinite|notnull' /Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/model.py | head -30" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+
+
+        .. versionadded:: 0.9.10
+
+        """
+        result = self.prepare_fit(params=params)
+        result.method = 'basinhopping'
+        self.set_max_nfev(max_nfev, 200000*(result.nvarys+1))
+        basinhopping_kws = dict(niter=100, T=1.0, stepsize=0.5,
+                                minimizer_kwargs=None, take_step=None,
+                                accept_test=None, callback=None, interval=50,
+                                disp=False, niter_success=None, seed=None,
+                                target_accept_rate=0.5, stepwise_factor=0.9)
+
+        basinhopping_kws.update(self.kws)
+        basinhopping_kws.update(kws)
+
+        x0 = result._init_vals_internal
+        result.call_kws = basinhopping_kws
+        try:
+            ret = scipy_basinhopping(self.penalty, x0, **basinhopping_kws)
+        except AbortFitException:
+            pass
+
+        if not result.aborted:
+            result.message = ret.message
+            result.residual = self.__residual(ret.x)
+            result.nfev -= 1
+        elif result.nfev > self.max_nfev-5:
+            result.nfev -= 2
+            _best = result.last_internal_values
+            result.residual = self.__residual(_best, False)
+
+        result._calculate_statistics()
+
+        # calculate the cov_x and estimate uncertainties/correlations
+        if (not result.aborted and self.calc_covar and HAS_NUMDIFFTOOLS and
+                len(result.residual) > len(result.var_names)):
+            _covar_ndt = self._calculate_covariance_matrix(ret.x)
+            if _covar_ndt is not None:
+                result.covar = self._int2ext_cov_x(_covar_ndt, ret.x)
+                self._calculate_uncertainties_correlations()
+
+        return result
+
+    def brute(self, params=None, Ns=20, keep=50, workers=1, max_nfev=None):
+        """Use the `brute` method to find the global minimum of a function.
+
+        The following parameters are passed to :scipydoc:`optimize.brute`
+        and cannot be changed:
+
+        if missing_param or blank_param:
+            msg = ('Assign each parameter an initial value by passing '
+                   'Parameters or keyword arguments to fit.\n')
+            missing = [p for p in self.param_names if p not in params.keys()]
+            blank = [name for name, p in params.items()
+                     if p.value is None and p.expr is None]
+            msg += f'Missing parameters: {str(missing)}\n'
+            msg += f'Non initialized parameters: {str(blank)}'
+            raise ValueError(msg)
+
+        # Handle null/missing values.
+        if nan_policy is not None:
+            self.nan_policy = nan_policy
+
+        mask = None
+        if self.nan_policy == 'omit':
+            mask = ~isnull(data)
+            if mask is not None:
+                data = data[mask]
+            if weights is not None:
+                weights = _align(weights, mask, data)
+
+        # If independent_vars and data are alignable (pandas), align them,
+        # and apply the mask from above if there is one.
+        for var in self.independent_vars:
+            if var not in params and var not in self.opts:
+                if var not in kwargs:
+                    raise ValueError(f"'Missing independent variable '{var}'")
+                if not np.isscalar(kwargs[var]):
+                    kwargs[var] = _align(kwargs[var], mask, data)
+
+        if coerce_farray:
+            # coerce data and independent variable(s) that are 'array-like' (list,
+            # tuples, pandas Series) to float64/complex128.
+            data = coerce_arraylike(data)
+            for var in self.independent_vars:
+                if var not in params and var in kwargs:
+                    kwargs[var] = coerce_arraylike(kwargs[var])
+
+        if fit_kws is None:
+            fit_kws = {}
+
+        output = ModelResult(self, params, method=method, iter_cb=iter_cb,
+                             scale_covar=scale_covar, fcn_kws=kwargs,
+                             nan_policy=self.nan_policy, calc_covar=calc_covar,
+                             max_nfev=max_nfev, **fit_kws)
+        output.fit(data=data, weights=weights)
+        output.components = self.components
+        return output
+
+    def __add__(self, other):
+
+    Notes
+    -----
+    Parts of this fudtype=np.float64nction are based on scipy/stats/stats.py/_contains_nan
+
+    support for 'array-like` objects is from numpy `asarray`, which includes
+    lists of numbers, pandas.Series, h5py.Datasets, and many other array-like
+    Python objects
+    """
+    if issparse(arr):
+        arr = arr.toarray().astype(np.float64)
+    elif isinstance(arr, LinearOperator):
+        identity = np.eye(arr.shape[1], dtype=np.float64)
+        arr = (arr * identity).astype(np.float64)
+    elif np.iscomplexobj(arr):
+        arr = np.asarray(arr, dtype=np.complex128).view(np.float64)
+    else:
+        arr = np.asarray(arr, dtype=np.float64)
+
+    if ravel:
+        arr = arr.ravel(order=ravel_order)
+
+    if nan_policy not in ('propagate', 'omit', 'raise'):
+        raise ValueError("nan_policy must be 'propagate', 'omit', or 'raise'.")
+
+    if handle_inf:
+        handler_func = lambda x: ~np.isfinite(x)
+    else:
+        handler_func = isnull
+
+    if nan_policy == 'omit':
+        # mask locates any values to remove
+        mask = ~handler_func(arr)
+        if not np.all(mask):  # there are some NaNs/infs/missing values
+            return arr[mask]
+
+    if nan_policy == 'raise':
+        try:
+            # Calling np.sum to avoid creating a huge array into memory
+            # e.g. np.isnan(a).any()
+            with np.errstate(invalid='ignore'):
+218:                 nan_policy='raise', prefix='', name=None, **kws):
+235:        nan_policy : {'raise', 'propagate', 'omit'}, optional
+258:        4. `nan_policy` sets what to do when a NaN or missing value is
+298:        self.nan_policy = nan_policy
+338:                self.param_hints, self.nan_policy, self.opts)
+356:                     nan_policy=self.nan_policy,
+877:        if self.nan_policy == 'raise' and not np.all(np.isfinite(model)):
+881:                   'this, using "nan_policy=\'omit\'" will probably not work.')
+1035:            nan_policy=None, calc_covar=True, max_nfev=None,
+1061:        nan_policy : {'raise', 'propagate', 'omit'}, optional
+1146:        if nan_policy is not None:
+1147:            self.nan_policy = nan_policy
+1150:        if self.nan_policy == 'omit':
+1179:                             nan_policy=self.nan_policy, calc_covar=calc_covar,
+1259:        if 'nan_policy' not in kws:
+1260:            kws['nan_policy'] = self.left.nan_policy
+1391:             phints, nan_policy, opts) = left
+1402:            nan_policy = left.get('nan_policy', None)
+1422:                                    nan_policy=nan_policy, **opts)
+1427:                          nan_policy=nan_policy, **opts)
+1487:                 iter_cb=None, scale_covar=True, nan_policy='raise',
+1510:        nan_policy : {'raise', 'propagate', 'omit'}, optional
+1532:                           iter_cb=iter_cb, nan_policy=nan_policy,
+1537:            nan_policy=None, **kwargs):
+1550:        nan_policy : {'raise', 'propagate', 'omit'}, optional
+1567:        if nan_policy is not None:
+1568:            self.nan_policy = nan_policy
+1869:          ``lmdif_message``, ``ier``, ``nan_policy``, ``scale_covar``,
+1888:                     'nan_policy', 'scale_covar', 'calc_covar', 'ci_out',
+1932:                     'method', 'nan_policy', 'ndata', 'nfev', 'nfree',
+
+exec
+/bin/zsh -lc "sed -n '842,980p' fitting.py; sed -n '1,95p' tests/js/local_lm_descent.test.js; rg -n 'parity|execFileSync|PYTHON' tests/js/local_lm_descent.test.js; rg -n 'refit|except ValueError|str\\(exc\\)' app.py | tail -35; sed -n '1100,1136p' /Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/lmfit/model.py" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+    fwhm_max       : float – upper bound   (default 15.0)
+    gl_ratio       : float – Lorentzian fraction for *_gl shapes  [0–1]
+    asymmetry      : float – high-BE broadening factor for asymmetric_gl [0–1]
+    alpha          : float – DS asymmetry index
+    constrain_to   : str   – id of master peak (spin‑orbit slave)
+    splitting      : float – centre offset from master (eV)
+    area_ratio     : float – amplitude = master_amplitude × area_ratio
+    fix_fwhm       : bool  – if True, lock FWHM to master value
+    """
+    shape = spec["shape"]
+    p = model.make_params()
+
+    center = spec.get("center", 285.0)
+    amp = spec.get("amplitude", 1000.0)
+    fwhm = spec.get("fwhm", 1.5)
+    asymmetry = spec.get("asymmetry", 0.0)
+
+    def _set(name, value, min_=None, max_=None, expr=None, vary=True):
+        full = prefix + name
+        if full not in p:
+            return
+        if not vary and expr is None:
+            # A HELD parameter is held at the value requested. The bounds are
+            # the optimiser's search limits; lmfit clips a value outside them
+            # even when it does not vary, which silently changed a locked
+            # DS+G m of 0 (the page's delta-kernel branch, drawn without
+            # convolution) into 0.05 (a convolved fit) — A03 Codex round 2's
+            # locked-at-bounds round trips. Widen the limit to the value.
+            if min_ is not None and value < min_:
+                min_ = value
+            if max_ is not None and value > max_:
+                max_ = value
+        p[full].set(value=value)
+        if expr is not None:
+            p[full].expr = expr
+            p[full].vary = False
+        else:
+            if min_ is not None:
+                p[full].min = min_
+            if max_ is not None:
+                p[full].max = max_
+            p[full].vary = vary
+
+    # Constrain to a master peak (spin‑orbit doublet)?
+    master_id = spec.get("constrain_to")
+    if master_id is not None:
+        # Find the master spec to get its prefix
+        master_spec = next((s for s in all_specs if s["id"] == master_id), None)
+        if master_spec is None:
+            raise ValueError(f"Master peak '{master_id}' not found for spin‑orbit constraint")
+        m_prefix = f"p{master_spec['id']}_"
+        splitting = float(spec.get("splitting", 0.0))
+        area_ratio = float(spec.get("area_ratio", 1.0))
+
+        _set("center", center, expr=f"{m_prefix}center + {splitting}")
+        _set("amplitude", amp, expr=f"{m_prefix}amplitude * {area_ratio}")
+        _set("fwhm", fwhm, expr=f"{m_prefix}fwhm" if spec.get("fix_fwhm", True) else None,
+             min_=spec.get("fwhm_min", 0.1), max_=spec.get("fwhm_max", 15.0))
+        if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
+            _set("gl_ratio", spec.get("gl_ratio", 0.3),
+                 expr=f"{m_prefix}gl_ratio" if spec.get("fix_fwhm", True) else None,
+                 min_=0.0, max_=1.0)
+        if shape == "asymmetric_gl":
+            _set("asymmetry", asymmetry,
+                 expr=f"{m_prefix}asymmetry" if spec.get("fix_fwhm", True) else None,
+                 min_=spec.get("asymmetry_min", 0.0),
+                 max_=spec.get("asymmetry_max", 1.0))
+        if shape == "doniach_sunjic":
+            _set("alpha", spec.get("alpha", 0.1),
+                 expr=f"{m_prefix}alpha" if spec.get("fix_fwhm", True) else None,
+                 min_=0.0, max_=0.5)
+            _set("gamma_asym", spec.get("gamma_asym", 0.0),
+                 expr=f"{m_prefix}gamma_asym" if spec.get("fix_fwhm", True) else None,
+                 min_=0.0, max_=1.0)
+        if shape == "ds_g":
+            fix = spec.get("fix_fwhm", True)
+            _set("alpha",   spec.get("alpha",   0.10), expr=f"{m_prefix}alpha"   if fix else None, min_=0.0,  max_=0.49)
+            _set("beta",    spec.get("beta",    0.3),  expr=f"{m_prefix}beta"    if fix else None, min_=0.05, max_=2.0)
+            _set("m_gauss", spec.get("m_gauss", 0.4),  expr=f"{m_prefix}m_gauss" if fix else None, min_=0.0,  max_=4.0)
+        if shape == "la_casaxps":
+            fix = spec.get("fix_fwhm", True)
+            _set("alpha", spec.get("alpha", 1.0),
+                 expr=f"{m_prefix}alpha" if fix else None,
+                 min_=0.1, max_=5.0)
+            _set("beta",  spec.get("beta",  1.0),
+                 expr=f"{m_prefix}beta" if fix else None,
+                 min_=0.1, max_=5.0)
+            _set("m",     spec.get("m",    50.0),
+                 expr=f"{m_prefix}m" if fix else None,
+                 min_=0.0, max_=499.0)
+        return p
+
+    # Free (master or unconstrained) peak
+    # Non-DS+G peaks (satellites, etc.) get a default ±2 eV constraint to prevent
+    # the optimizer from drifting to physically unreasonable positions.
+    c_min = spec.get("center_min")
+    c_max = spec.get("center_max")
+    if shape != "ds_g" and c_min is None:
+        c_min = center - 2.0
+    if shape != "ds_g" and c_max is None:
+        c_max = center + 2.0
+    _set("center", center, min_=c_min, max_=c_max, vary=not spec.get("fix_center", False))
+    _set("amplitude", amp,
+         min_=spec.get("amplitude_min", 0.0), max_=spec.get("amplitude_max"),
+         vary=not spec.get("fix_amplitude", False))
+    _set("fwhm", fwhm,
+         min_=spec.get("fwhm_min", 0.1), max_=spec.get("fwhm_max", 15.0),
+         vary=not spec.get("fix_fwhm", False))
+
+    if shape in ("pseudo_voigt_gl", "asymmetric_gl"):
+        _set("gl_ratio", spec.get("gl_ratio", 0.3), min_=0.0, max_=1.0,
+             vary=not spec.get("fix_gl_ratio", False))
+    if shape == "asymmetric_gl":
+        _set("asymmetry", asymmetry,
+             min_=spec.get("asymmetry_min", 0.0),
+             max_=spec.get("asymmetry_max", 1.0),
+             vary=not spec.get("fix_asymmetry", False))
+    if shape == "doniach_sunjic":
+        _set("alpha", spec.get("alpha", 0.1), min_=0.0, max_=0.5,
+             vary=not spec.get("fix_alpha", False))
+        _set("gamma_asym", spec.get("gamma_asym", 0.0), min_=0.0, max_=5.0,
+             vary=not spec.get("fix_gamma_asym", False))
+    if shape == "ds_g":
+        _set("alpha",   spec.get("alpha",   0.10), min_=0.0,  max_=0.49,
+             vary=not spec.get("fix_alpha", False))
+        _set("beta",    spec.get("beta",    0.3),  min_=0.05, max_=2.0,
+             vary=not spec.get("fix_beta", False))
+        _set("m_gauss", spec.get("m_gauss", 0.4),  min_=0.05, max_=4.0,
+             vary=not spec.get("fix_m_gauss", False))
+    if shape == "la_casaxps":
+        _set("alpha", spec.get("alpha", 1.0), min_=0.1, max_=5.0,
+             vary=not spec.get("fix_alpha", False))
+        _set("beta",  spec.get("beta",  1.0), min_=0.1, max_=5.0,
+             vary=not spec.get("fix_beta", False))
+        _set("m",     spec.get("m",    50.0), min_=0.0, max_=499.0,
+             vary=not spec.get("fix_m", True))
+
+    return p
+
+// Local Levenberg–Marquardt: it must DESCEND and it must never present a
+// non-converged attempt as a result (unit A0, 2026-09-15).
+//
+// Background: from the initial commit (f20d71b) until this unit, runFitLocal
+// solved JᵀJ·dp = +Jᵀr with r = data − model, so every step was an ascent
+// step, no step was ever accepted, and after 24 rejections λ passed 1e8 and
+// the loop exited with the STARTING parameters, announced as "Fit complete
+// (local LM)". Every Batch Fit called that path. The empirical proof is in
+// docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md; this file is
+// that proof turned into a regression test on the SHIPPED functions.
+//
+// Everything under test is extracted verbatim from templates/index.html by
+// function name (brace-matched) — the same functions the browser runs.
+
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+
+const REPO_ROOT = path.join(__dirname, '../..');
+const html = fs.readFileSync(path.join(REPO_ROOT, 'templates/index.html'), 'utf8');
+const lines = html.split('\n');
+
+function extractFn(name) {
+  const re = new RegExp('^(async )?function ' + name.replace(/\$/g, '\\$') + '\\(');
+  const start = lines.findIndex(l => re.test(l));
+  assert.ok(start >= 0, `function ${name} not found in templates/index.html`);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+    if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
+  }
+  assert.fail(`unbalanced braces extracting ${name}`);
+}
+
+const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
+  'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
+  'evalPeakArray', 'evalAllPeaks', 'shirleyBackground', 'smartBackground', 'linearBackground',
+  'tougaardBackground', '_applyEndpointAveraging', '_bgWindowIndices', 'computeBackgroundCore',
+  'smartExperimentalBackground', 'shirleyLinearBackground', 'getPeak', 'runFitLocal', 'solveLinear',
+  '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
+  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState'];
+const CAVEAT_CONST = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
+
+// One isolated environment per test: a fresh `state`, a stub DOM, and the
+// extracted functions bound to them.
+function makeEnv() {
+  const dom = {};
+  const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, setAttribute() {}, removeAttribute() {},
+    classList: { add() {}, remove() {}, contains: () => false } });
+  const document = { getElementById: el, querySelectorAll: () => [] };
+  const state = { peaks: [], fitResult: null, rawBE: [], rawIntensity: [], ccShift: 0 };
+  const calls = { notify: [] };
+  const notify = (msg, kind) => calls.notify.push({ msg, kind });
+  const noop = () => {};
+  const src = CAVEAT_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extractFn).join('\n\n');
+  const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
+    'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
+    src + '\nreturn { runFitLocal, computeBackgroundCore, evalAllPeaks, evalPeakArray, gaussian };');
+  const fns = factory(document, state, notify, '', '', () => null, x => String(x), null, null, noop, noop, noop, noop, noop, noop, noop,
+    be => new Array(be.length).fill(0));
+  return { ...fns, state, dom, calls };
+}
+
+// ── Committed lab project, replayed exactly as runPropagation does ──────────
+const PROJECT = path.join(REPO_ROOT, 'docs/autofit/test_data/1-GTA UCl4-graphite one set of U doublets.proj.zip');
+const BatchPropagation = require(path.join(REPO_ROOT, 'static/js/batch_propagation.js'));
+
+function loadProjectTabs() {
+  const py = fs.existsSync(path.join(REPO_ROOT, 'venv/bin/python3')) ? path.join(REPO_ROOT, 'venv/bin/python3')
+    : (fs.existsSync('/Users/skyefortier/xps-app/venv/bin/python3') ? '/Users/skyefortier/xps-app/venv/bin/python3' : 'python3');
+  const script = 'import sys, json; sys.path.insert(0, sys.argv[1]); from autofit.reference import load_project_tabs; ' +
+    'print(json.dumps([t for t in load_project_tabs(sys.argv[2]) if not t.get("isStack") and t.get("rawBE")]))';
+  return JSON.parse(execFileSync(py, ['-c', script, REPO_ROOT, PROJECT], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+}
+
+function batchTarget(env, tabs, sourceName, targetName) {
+  const src = tabs.find(t => t.name === sourceName), tgt = tabs.find(t => t.name === targetName);
+  assert.ok(src && tgt, 'source/target tabs present in committed project');
+  const scale = Math.max(...tgt.rawIntensity) / Math.max(...src.rawIntensity);
+  const cloned = JSON.parse(JSON.stringify(src.peaks)).map(p => ({ ...p, amplitude: p.linked ? p.amplitude : p.amplitude * scale }));
+  const ui = BatchPropagation.propagateFitUi({ ...src.ui }, { ...tgt.ui });
+  const roiMin = parseFloat(ui.roiMin), roiMax = parseFloat(ui.roiMax);
+  const be = [], inten = [];
+  tgt.rawBE.forEach((b, i) => { const c = b - (src.ccShift || 0); if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(tgt.rawIntensity[i]); } });
+  const bg = env.computeBackgroundCore(be, inten, ui);
+  const bgSub = inten.map((v, i) => v - bg[i]);
+  env.state.peaks = cloned;
+  env.state.fitResult = null;
+  return { be, bgSub, bg, initial: JSON.parse(JSON.stringify(cloned)) };
+}
+
+// The objective the local engine minimises since unit W1: the Poisson-weighted
+// sum of squares, w = 1/sqrt(max(raw counts, 1)), raw = bgSub + bg.
+19:const { execFileSync } = require('node:child_process');
+75:  return JSON.parse(execFileSync(py, ['-c', script, REPO_ROOT, PROJECT], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+455:test('server parity on GL-type models: weighted local Batch Fit matches lmfit from the same start (committed C1s targets)', () => {
+457:  const bridge = path.join(__dirname, 'local_lm_server_parity_backend.py');
+468:    const server = JSON.parse(execFileSync(py, [bridge, REPO_ROOT], { input: JSON.stringify({ be, inten, peaks: initial, ui }), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
+172:    "ic_model_comparison": {"n_refits": 4, "rng_seed": 0,
+249:    except ValueError:
+302:            raise _AnalyzeError(str(exc))
+319:        # a malformed option VALUE (e.g. n_refits: []) raises TypeError
+583:        except ValueError as exc:
+641:        except ValueError:
+656:            return _err(str(exc))
+731:        except ValueError as exc:
+733:            return _err(str(exc))
+856:        except ValueError as exc:
+859:            return _err(str(exc))
+942:            return _err(str(exc), exc.status)
+981:            return _err(str(exc), exc.status)
+1018:                    "message": "failed", "error": str(exc),
+1047:        except ValueError:
+
+        >>> result = my_model.fit(data, tau=5, N=3, t=t)
+
+        Or, for more control, pass a Parameters object.
+
+        >>> result = my_model.fit(data, params, t=t)
+
+        """
+        if params is None:
+            params = self.make_params(verbose=verbose)
+        else:
+            params = deepcopy(params)
+
+        # If any kwargs match parameter names, override params.
+        param_kwargs = set(kwargs.keys()) & set(self.param_names)
+        for name in param_kwargs:
+            p = kwargs[name]
+            if isinstance(p, Parameter):
+                p.name = name  # allows N=Parameter(value=5) with implicit name
+                params[name] = deepcopy(p)
+            else:
+                params[name].set(value=p)
+            del kwargs[name]
+
+        # All remaining kwargs should correspond to independent variables.
+        for name in kwargs:
+            if name not in self.independent_vars:
+                warnings.warn(f"The keyword argument {name} does not " +
+                              "match any arguments of the model function. " +
+                              "It will be ignored.", UserWarning)
+
+        # If any parameter is not initialized raise a more helpful error.
+        missing_param = any(p not in params.keys() for p in self.param_names)
+        blank_param = any((p.value is None and p.expr is None)
+                          for p in params.values())
+        if missing_param or blank_param:
+            msg = ('Assign each parameter an initial value by passing '
+
+codex
+The JavaScript run passed 100 of 101 tests, including all new F2 cases. The remaining parity test failed while importing Python because the sandbox has no writable temporary directory. I’ve started the focused Python suite with an in-memory workaround for that import check; it leaves files unchanged.
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 /Users/skyefortier/xps-app/venv/bin/python -B -c '
+import tempfile; tempfile.tempdir=\"/tmp\"
+import fitting, numpy as np
+x=np.linspace(280,290,51)
+specs=[dict(id=\"1\",shape=\"gaussian\",center=284.5,amplitude=90,fwhm=1),dict(id=\"2\",shape=\"gaussian\",center=286,amplitude=45,fwhm=1,constrain_to=\"1\",splitting=1.5,area_ratio=.5)]
+y=100*np.exp(-4*np.log(2)*(x-284.6)**2)+50*np.exp(-4*np.log(2)*(x-286.1)**2)
+calls=[]; real=fitting.Model.fit
+def spy(self,data,params,**kw):
+    initial={n:(p.value,p.min,p.max,p.expr) for n,p in params.items()}
+    r=real(self,data,params,**kw)
+    calls.append((kw.get(\"method\"),bool(r.success),bool(r.aborted),initial,r.nvarys))
+    return r
+fitting.Model.fit=spy
+r=fitting.run_fit(x,y,specs,background_method=\"none\",fit_kws={\"method\":\"basinhopping\",\"max_nfev\":2})
+print(\"ABORT+LINK\",r[\"success\"],r[\"message\"],r[\"statistics\"][\"n_free_params\"])
+print(\"CALLS\",[(a,b,c,e) for a,b,c,d,e in calls])
+print(\"SAME_START\",calls[0][3]==calls[2][3])
+print(\"LINK\",r[\"individual_peaks\"][1][\"params\"][\"center\"])
+for n in [3,4]:
+    try:
+        z=fitting.run_fit(x[:n],y[:n],specs,background_method=\"none\",fit_kws={\"method\":\"least_squares\"})
+        print(\"DETERMINACY\",n,z[\"statistics\"][\"n_free_params\"])
+    except Exception as e: print(\"DETERMINACY\",n,type(e).__name__,str(e))
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+exec
+/bin/zsh -lc "node --test --test-reporter=dot tests/js/fit_acceptance.test.js tests/js/stale_statistics.test.js tests/js/autofit_required.test.js; node --test --test-reporter=dot --test-name-pattern='local engine refuses' tests/js/local_lm_descent.test.js" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 435ms:
+....................
+....................
+....................
+.........
+.
+
+ succeeded in 1659ms:
+/Users/skyefortier/.matplotlib is not a writable directory
+ABORT+LINK True `gtol` termination condition is satisfied. 3
+CALLS [('basinhopping', False, True, 3), ('least_squares', True, False, 3), ('least_squares', True, False, 3)]
+SAME_START True
+LINK {'value': 286.09999999999997, 'stderr': 1.1467220254099632e-13, 'vary': False, 'expr': 'p1_center + 1.5', 'min': None, 'max': None}
+DETERMINACY 3 ValueError The model is not determined by these data: 3 free parameters for 3 data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.
+DETERMINACY 4 3
+
+exec
+/bin/zsh -lc "rg -n '"'^def test_|max_nfev|nan|expr|basinhopping'"' tests/test_component_required.py tests/test_fit_reproducibility.py; sed -n '285,329p' app.py; sed -n '625,707p' CLAUDE.md; git diff --check main..HEAD" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 8ms:
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 /Users/skyefortier/xps-app/venv/bin/python -B -c '
+import tempfile; tempfile.tempdir=\"/tmp\"
+import fitting, numpy as np
+from autofit.methods.least_squares import LeastSquaresMethod
+spec=[dict(id=\"1\",shape=\"gaussian\",center=284.5,amplitude=100,fwhm=1)]
+x=np.linspace(283,286,6); y=100*np.exp(-4*np.log(2)*(x-284.5)**2)
+for missing in (np.nan,np.inf):
+    z=y.copy(); z[3:]=missing
+    try: fitting.run_fit(x,z,spec,background_method=\"none\",fit_kws={\"method\":\"least_squares\"})
+    except Exception as e: print(\"NONFINITE_COUNT\",type(e).__name__,str(e))
+try: LeastSquaresMethod().run(x[:3],y[:3],peak_specs=spec,options={\"background_method\":\"none\"})
+except Exception as e: print(\"ANALYZE_WRAPPER\",type(e).__name__,str(e))
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 1893ms:
+/Users/skyefortier/.matplotlib is not a writable directory
+NONFINITE_COUNT ValueError The model is not determined by these data: 3 free parameters for 3 data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.
+NONFINITE_COUNT ValueError The model is not determined by these data: 3 free parameters for 3 data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.
+ANALYZE_WRAPPER ValueError The model is not determined by these data: 3 free parameters for 3 data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.
+
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 /Users/skyefortier/xps-app/venv/bin/python -B -c '
+import tempfile; tempfile.tempdir=\"/tmp\"
+import app, numpy as np
+x=np.linspace(283,286,3); y=np.array([10.,100.,10.]); app._load_session=lambda *args:(x,y)
+a=app.create_app(); a.config[\"TESTING\"]=True
+specs=[dict(id=\"1\",shape=\"gaussian\",center=284.5,amplitude=100,fwhm=1)]
+with a.test_client() as c:
+    for route,body in [(\"/api/fit\",dict(session_id=\"a\"*32,background={\"method\":\"none\"},peaks=specs,fit_method=\"least_squares\")),(\"/api/analyze\",dict(session_id=\"a\"*32,method=\"least_squares\",peak_specs=specs,options={\"background_method\":\"none\"},regions=[\"C 1s\"]))]:
+        r=c.post(route,json=body); print(route,r.status_code,r.get_json())
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 1976ms:
+/Users/skyefortier/.matplotlib is not a writable directory
+/api/fit 400 {'error': 'The model is not determined by these data: 3 free parameters for 3 data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.'}
+/api/analyze 400 {'error': "Unknown material_class ''"}
+
+codex
+The extra probes passed: an aborted basinhopping search is refined successfully, linked expressions survive refinement, and the competitor receives the original start and bounds. The determinacy check also counts linked parameters correctly and excludes NaN/Infinity observations. I’ve found no acceptance-rule violation so far; I’m finishing the API and reproducibility checks.
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 /Users/skyefortier/xps-app/venv/bin/python -B -c 'import tempfile; tempfile.tempdir=\"/tmp\"; import pytest; raise SystemExit(pytest.main([\"-q\",\"-s\",\"-p\",\"no:cacheprovider\",\"tests/test_fit_reproducibility.py\",\"-k\",\"stochastic_methods_get or differently_cased or seed_derivation_is_pinned or perturbation_draws_run_fit_makes_are_pinned\"]))'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 /Users/skyefortier/xps-app/venv/bin/python -B -c '
+import tempfile; tempfile.tempdir=\"/tmp\"
+import app,numpy as np
+app._load_session=lambda *args:(np.array([283.,284.5,286.]),np.array([10.,100.,10.]))
+a=app.create_app(); a.config[\"TESTING\"]=True
+with a.test_client() as c:
+    r=c.post(\"/api/analyze\",json=dict(session_id=\"a\"*32,method=\"least_squares\",material_class=\"conductor\",regions=[\"C 1s\"],peak_specs=[dict(id=\"1\",shape=\"gaussian\",center=284.5,amplitude=100,fwhm=1)],options={\"background_method\":\"none\"})); print(r.status_code,r.get_json())
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 1976ms:
+/Users/skyefortier/.matplotlib is not a writable directory
+400 {'error': 'ROI selects fewer than 20 points'}
+
+exec
+/bin/zsh -lc "git status --short; git branch --show-current; nl -ba templates/index.html | sed -n '7412,7428p'; rg -n 'n_perturb' fitting.py" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-iUd4GI5N' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-nxQPaXbA' (errno=Operation not permitted)
+?? docs/autofit/codex/f2_acceptance_holes_verdict_runA.md
+?? docs/autofit/codex/f2_acceptance_holes_verdict_runB.md
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-BoDkgH3n' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-JXzF2eEy' (errno=Operation not permitted)
+fix-acceptance-holes
+  7412	// uncertainty that could not be computed, serialised as NaN (Flask writes
+  7413	// NaN / Infinity tokens, which JSON.parse rejects).
+  7414	async function _readFitReply(resp) {
+  7415	  const text = await resp.text();                 // rejects only on transport
+  7416	  try { return JSON.parse(text); } catch (_) {
+  7417	    const nonFinite = /(^|[\[,:\s])(-?Infinity|NaN)([\],\x7d\s]|$)/.test(text);   // \x7d = closing brace
+  7418	    const err = new Error(nonFinite
+  7419	      ? 'The server\'s reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed.'
+  7420	      : 'The server\'s reply could not be read. The fit is treated as failed.');
+  7421	    err.serverError = true;
+  7422	    err.unreadableReply = true;
+  7423	    throw err;
+  7424	  }
+  7425	}
+  7426	
+  7427	async function runAutoFitC1sGraphite() {
+  7428	  // Pre-conditions
+1192:def _request_seed(x, counts, background, shapes, prefixes, params, *, fit_kws, n_perturb) -> int:
+1197:    solver options and ``n_perturb``.
+1236:                       "n_perturb": n_perturb})
+1498:    n_perturb: int = 0,
+1695:            fit_kws=fit_kws, n_perturb=n_perturb)
+1783:    # starts check excludes it — and with the page's n_perturb 3 they
+1787:    if n_perturb > 0 and result.success and kws.get("method") != "basinhopping":
+1792:        for attempt in range(n_perturb):
+1813:                          attempt + 1, n_perturb, trial_redchi, best_redchi)
+1824:                log.debug("  PERTURB %d/%d  failed (exception)", attempt + 1, n_perturb)
+
+exec
+/bin/zsh -lc "node -e 'const fs=require(\"node:fs\");const html=fs.readFileSync(\"templates/index.html\",\"utf8\");const start=html.indexOf(\"async function _readFitReply(\");const end=html.indexOf(\"\\nasync function runAutoFitC1sGraphite\",start);const read=new Function(html.slice(start,end)+\";return _readFitReply\")();(async()=>{for(const text of [JSON.stringify({message:\"diagnostic mentioned NaN in text\"}),JSON.stringify({message:\"diagnostic mentioned NaN in text\"}).slice(0,-1)]){try{console.log(await read({text:async()=>text}));}catch(e){console.log(JSON.stringify({body:text,message:e.message,serverError:e.serverError}));}}})();'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 0ms:
+{ message: 'diagnostic mentioned NaN in text' }
+{"body":"{\"message\":\"diagnostic mentioned NaN in text\"","message":"The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed.","serverError":true}
+
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 /Users/skyefortier/xps-app/venv/bin/python -B -c '
+import tempfile; tempfile.tempdir=\"/tmp\"
+import app,numpy as np
+app._load_session=lambda *args:(np.linspace(280,290,20),np.ones(20)*100)
+a=app.create_app(); a.config[\"TESTING\"]=True
+specs=[dict(id=str(i),shape=\"pseudo_voigt_gl\",center=281+i,amplitude=10,fwhm=1,fix_gl_ratio=False) for i in range(5)]
+with a.test_client() as c:
+    r=c.post(\"/api/analyze\",json=dict(session_id=\"a\"*32,method=\"least_squares\",material_class=\"conductor\",regions=[\"C 1s\"],peak_specs=specs,options={\"background_method\":\"none\"})); print(r.status_code,r.get_json())
+'" in /Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes
+ succeeded in 64216ms:
+.....
+5 passed, 39 deselected in 63.76s (0:01:03)
+
+ succeeded in 1962ms:
+/Users/skyefortier/.matplotlib is not a writable directory
+400 {'error': 'invalid option or spec: The model is not determined by these data: 20 free parameters for 20 data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.'}
+
+codex
+I found one minor diagnostic issue: if malformed JSON contains “NaN” only inside a quoted message, the regex reports it as a non-finite number. The fit still fails closed, so this does not block release. The targeted seed and restart checks passed, and both API routes returned HTTP 400 with the determinacy refusal.
+ exited 2 in 216149ms:
+.............
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/Users/skyefortier/xps-app/venv/lib/python3.12/site-packages/numpy/_core/_methods.py:113: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)
+13 passed, 1 deselected in 215.74s (0:03:35)
+
+codex
+- **MINOR — [templates/index.html:7417](/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/templates/index.html:7417): misleading non-finite diagnostic.** A malformed body such as `{"message":"diagnostic mentioned NaN in text"` triggers the non-finite-number message, although `NaN` occurs only inside a string. Reproduced against `_readFitReply`. Ignore quoted strings when detecting non-finite tokens. Acceptance remains safe: nothing is applied and no local fallback runs.
+
+No BLOCKER or MAJOR findings.
+
+Verification: 100/101 JavaScript tests passed; the remaining Python-backed parity test was blocked by sandbox temporary-directory restrictions. Python checks recorded 13 passes before the broader run was stopped for time; five targeted reproducibility checks also passed. Additional probes confirmed aborted-search refinement, preserved linked expressions, unchanged competitor starts, and determinacy refusals through both API routes.
+
+Files unchanged. The public Cloudflare timeout ceiling was excluded as instructed.
+
+**VERDICT: GO**
+tokens used
+98,403
+- **MINOR — [templates/index.html:7417](/Users/skyefortier/xps-app/.claude/worktrees/fix-acceptance-holes/templates/index.html:7417): misleading non-finite diagnostic.** A malformed body such as `{"message":"diagnostic mentioned NaN in text"` triggers the non-finite-number message, although `NaN` occurs only inside a string. Reproduced against `_readFitReply`. Ignore quoted strings when detecting non-finite tokens. Acceptance remains safe: nothing is applied and no local fallback runs.
+
+No BLOCKER or MAJOR findings.
+
+Verification: 100/101 JavaScript tests passed; the remaining Python-backed parity test was blocked by sandbox temporary-directory restrictions. Python checks recorded 13 passes before the broader run was stopped for time; five targeted reproducibility checks also passed. Additional probes confirmed aborted-search refinement, preserved linked expressions, unchanged competitor starts, and determinacy refusals through both API routes.
+
+Files unchanged. The public Cloudflare timeout ceiling was excluded as instructed.
+
+**VERDICT: GO**
