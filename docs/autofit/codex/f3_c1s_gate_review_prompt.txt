@@ -1,0 +1,11 @@
+Review unit F3 (the Auto-Fit C1s gate on live data): branch fix-noise-floor-scale-free, stacked on fix-fit-start-poll. Review git diff 07e0839..HEAD (07e0839 is the unit-2 commit F3 was cut from; later unit-2 commits are NOT part of F3): templates/index.html (isC1sTab only), tests/js/autofit_c1s_gate.test.js, CLAUDE.md, docs/superpowers/plans/2026-09-27-f3-noise-floor-and-c1s-gate.md, and the PARKED half's write-up docs/findings/noise-floor-occupancy/ (README + two patches that are NOT applied — review the write-up's claims and the patches as proposals, and say which variant you would choose and why). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO (for the shipped gate change; the parked half is advice). Budget your time: a verdict is required within the run.
+
+OWNER'S BRIEF (verbatim): "Find Peaks' absolute 1.0-count noise floor -> scale-free, per the design rule. Include the Auto-Fit C1s gate judging a stale typed window." Source: docs/findings/2026-09-25-fail-open-guards-sweep.md (branch sweep-fail-open-guards) M5 and M9.
+
+TRY TO BREAK
+a. isC1sTab: every caller and the moment it runs (menu state on ROI input, charge-reference permission, the Auto-Fit run at click time), the active tab vs a record (tab switch in progress, a stack tab active, a survey tab, a tab with no ROI typed, a reversed min/max, an ROI outside the data, an empty selection, a charge shift), getROIData()'s own semantics (corrected frame, inclusive, clipped), a very long scan (performance of the record path).
+b. Anything the old behaviour allowed that users rely on (e.g. enabling Auto-Fit before the ROI is set).
+c. The tests: real and non-vacuous (would fail on the old isC1sTab).
+d. The parked half: are the measurements and the causal explanation in the README right (engine.py _extract_fitted_components / match_components_to_slots / rank_and_filter / the decisive override); is the recommendation sound; is anything in either patch wrong regardless of the choice (the variance floor left alone, orphans, the detectability payload, the grammar.contains change).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

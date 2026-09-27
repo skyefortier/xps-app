@@ -7748,20 +7748,35 @@ async function runAutoFitC1sGraphite() {
   }
 }
 
+// Is this a C 1s spectrum, as Auto-Fit C1s Graphite would fit it? Unit F3
+// (2026-09-27, sweep M5): judged on the DATA the fit would use — for the active
+// tab the live selection getROIData() returns (the typed fields, clipped to the
+// data, in the corrected frame); for any other record its saved window over
+// its own corrected data. It used to read tab.ui, which for the ACTIVE tab is
+// synced only on a tab switch or save, and the TYPED midpoint: a wide scan with
+// the record's C 1s window but a U 4f window typed in the fields passed the
+// gate, and the fit then took the U 4f line as "Graphite".
 function isC1sTab(tab) {
   if (!tab || !tab.rawBE || !tab.rawBE.length) return false;
-  const ui = tab.ui || {};
-  let lo = parseFloat(ui.roiMin);
-  let hi = parseFloat(ui.roiMax);
-  if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
-    // Fall back to full raw range (no UI ROI set yet)
-    let rmin = Infinity, rmax = -Infinity;
-    for (const v of tab.rawBE) {
-      if (v < rmin) rmin = v;
-      if (v > rmax) rmax = v;
+  let be;
+  const isActive = typeof tabManager !== 'undefined' && tabManager && tab.id === tabManager.activeId;
+  if (isActive && typeof getROIData === 'function') {
+    be = getROIData().be;
+  } else {
+    const shift = Number.isFinite(tab.ccShift) ? tab.ccShift : 0;
+    const corr = tab.rawBE.map(v => v - shift);
+    const ui = tab.ui || {};
+    const a = parseFloat(ui.roiMin), b = parseFloat(ui.roiMax);
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      be = corr.filter(v => v >= lo && v <= hi);
+    } else {
+      be = corr;                               // no window set yet: the whole scan
     }
-    lo = rmin; hi = rmax;
   }
+  if (!be || !be.length) return false;
+  let lo = Infinity, hi = -Infinity;
+  for (const v of be) { if (v < lo) lo = v; if (v > hi) hi = v; }
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) return false;
   const mid = (lo + hi) / 2;
   return mid >= 270.0 && mid <= 315.0;
