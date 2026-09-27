@@ -195,3 +195,12 @@ Tests: the reproductions as JS tests (response-order reversal; a poll in
 flight when a newer claim arrives, for a late `done`, `cancelled` and
 `error`; an Auto-Fit timeout after a newer claim) and the callers claim
 before their first code await.
+
+**Round 3 — run A GO, run B NO-GO** (`fit_start_poll_r3_verdict_run{A,B}.md`;
+both confirmed round 2's response-order, late-poll, timeout and admission
+fixes on the old code vs the new):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B): Auto-Fit claimed its operation AFTER its confirmation modal (its first await): a Run Fit pressed while the modal was open was cancelled when the student confirmed, and the older Auto-Fit's result applied | an operation is NUMBERED at the press (`_newFitOp`, before the modal) and INSTALLED as the tab's current one after it (`_installFitOp`), only if no newer operation claimed the tab meanwhile — otherwise the confirmed Auto-Fit returns having changed nothing (no snapshot, no request). Claiming at the press would have cancelled a running Run Fit merely for opening the modal. Run Fit, which has no modal, claims = numbers + installs at once. |
+| 2 | MINOR (A, B): the fit spinner is page-wide; a fit discarded on tab A hid tab B's running spinner, re-enabled Run Fit and cleared the in-flight flag | the spinner belongs to the operation that showed it (`_fitSpinnerOp`); every hide after a caller's claim is `_hideFitSpinnerFor(op)`, a no-op for any other operation |

@@ -1,0 +1,20 @@
+Re-review unit 2 (long fits via start-then-poll), round 4 (the last allowed): branch fix-fit-start-poll. The round-3 fixes are the latest commit (git diff HEAD~1..HEAD); the whole unit is git diff fix-acceptance-holes..HEAD. Earlier verdicts: docs/autofit/codex/fit_start_poll_verdict_run{A,B}.md, _r2_, _r3_; the round-1 prompt holds the brief, design, sites and acceptance; plan docs/superpowers/plans/2026-09-27-long-fits-start-poll.md section 6 lists every finding and fix. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+ROUND-3 FINDINGS AND FIXES (plan section 6, verbatim):
+
+**Round 3 — run A GO, run B NO-GO** (`fit_start_poll_r3_verdict_run{A,B}.md`;
+both confirmed round 2's response-order, late-poll, timeout and admission
+fixes on the old code vs the new):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B): Auto-Fit claimed its operation AFTER its confirmation modal (its first await): a Run Fit pressed while the modal was open was cancelled when the student confirmed, and the older Auto-Fit's result applied | an operation is NUMBERED at the press (`_newFitOp`, before the modal) and INSTALLED as the tab's current one after it (`_installFitOp`), only if no newer operation claimed the tab meanwhile — otherwise the confirmed Auto-Fit returns having changed nothing (no snapshot, no request). Claiming at the press would have cancelled a running Run Fit merely for opening the modal. Run Fit, which has no modal, claims = numbers + installs at once. |
+| 2 | MINOR (A, B): the fit spinner is page-wide; a fit discarded on tab A hid tab B's running spinner, re-enabled Run Fit and cleared the in-flight flag | the spinner belongs to the operation that showed it (`_fitSpinnerOp`); every hide after a caller's claim is `_hideFitSpinnerFor(op)`, a no-op for any other operation |
+
+TRY TO BREAK
+a. Numbered-then-installed operations: every caller path (Run Fit, "Use this solution", Auto-Fit with and without its modal — no peaks = no modal), the install check before ANY change (snapshot, provisional shift, model build, upload), a cancelled modal (the numbered op is never installed and changes nothing), two Auto-Fits, an Auto-Fit numbered BEFORE a Run Fit but confirmed AFTER it, the seq comparison.
+b. Spinner ownership: every show and hide in both callers (incl. early returns before the claim, the success path, errors, discards, supersession), Batch Fit or Find Peaks spinners if they share it, a tab closed mid-fit.
+c. Anything earlier rounds verified that these changes touched; the six browser scenarios the plan records.
+d. The tests: real and non-vacuous.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

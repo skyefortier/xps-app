@@ -7479,14 +7479,32 @@ const _runningFitJobs = new Set();
 // share a tab.
 let _fitOpSeq = 0;
 const _fitOpByOwner = new WeakMap();
-function _claimFitOp(owner) {
-  const prev = owner ? _fitOpByOwner.get(owner) : null;
-  if (prev && prev.jobId) _cancelFitJob(prev.jobId);
-  const op = { seq: ++_fitOpSeq, owner: owner || null, jobId: null };
-  if (owner) _fitOpByOwner.set(owner, op);
-  return op;
+// An operation is NUMBERED when the student presses the button (_newFitOp) and
+// INSTALLED as its tab's current one when it is about to change anything
+// (_installFitOp) — only if no newer operation has claimed the tab meanwhile
+// (Codex round 3: Auto-Fit's confirmation modal sits between the two; a Run
+// Fit pressed while it is open must win, and opening the modal must not kill
+// a running fit the student may still keep by cancelling the modal).
+function _newFitOp(owner) { return { seq: ++_fitOpSeq, owner: owner || null, jobId: null }; }
+function _installFitOp(op) {
+  if (!op || !op.owner) return true;
+  const cur = _fitOpByOwner.get(op.owner);
+  if (cur && cur.seq > op.seq) return false;          // a newer operation owns the tab
+  if (cur && cur !== op && cur.jobId) _cancelFitJob(cur.jobId);
+  _fitOpByOwner.set(op.owner, op);
+  return true;
 }
+function _claimFitOp(owner) { const op = _newFitOp(owner); _installFitOp(op); return op; }
 function _fitOpCurrent(op) { return !op || !op.owner || _fitOpByOwner.get(op.owner) === op; }
+// The fit spinner is page-wide, one per page; the operation that showed it
+// owns it. A fit that ends after another tab's fit took the spinner leaves it
+// alone (Codex round 3: a discarded tab-A fit hid tab B's running spinner).
+let _fitSpinnerOp = null;
+function _hideFitSpinnerFor(op) {
+  if (_fitSpinnerOp !== op) return;
+  _fitSpinnerOp = null;
+  _hideFitSpinner();
+}
 function _cancelFitJob(jobId) {
   try { fetch('/api/fit/cancel/' + encodeURIComponent(jobId), { method: 'POST', keepalive: true }).catch(() => {}); } catch (_) { /* best effort */ }
 }
@@ -7605,6 +7623,9 @@ async function runAutoFitC1sGraphite() {
   // when it resolves may not be the one the user asked to auto-fit.
   const fittingTab = _opOwner();
   if (!fittingTab) { notify('No active spectrum tab.', 'amber'); return; }
+  // unit 2: this press's fit operation, numbered NOW (before the modal) and
+  // installed after it, only if no newer operation claimed the tab meanwhile
+  const afOp = _newFitOp(fittingTab);
   // Confirmation if existing peaks
   if (state.peaks.length >= 1) {
     const proceed = await _showAutoFitConfirmModal(state.peaks.length);
@@ -7615,6 +7636,9 @@ async function runAutoFitC1sGraphite() {
     }
   }
 
+  // a Run Fit pressed while the confirmation was open is newer: it wins, and
+  // this Auto-Fit does nothing at all (nothing has been changed yet)
+  if (!_installFitOp(afOp)) return;
   // Snapshot for failure rollback (separate from pushUndo, which only covers peaks).
   const snap = _autoFitSnapshot();
 
@@ -7662,13 +7686,13 @@ async function runAutoFitC1sGraphite() {
 
   // Step 5: run /api/fit with AbortController + spinner.
   _showFitSpinner();
+  _fitSpinnerOp = afOp;
   const spinLabel = document.getElementById('fit-spinner-label');
   if (spinLabel) spinLabel.textContent = 'Auto-fitting…';
   const runBtn = document.querySelector('.btn-green');
   if (runBtn) runBtn.disabled = true;
 
   const ctrl = new AbortController();
-  let afOp = null;   // unit 2: this tab's fit operation (claimed below, before the first server await)
   const timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
 
   try {
@@ -7689,7 +7713,6 @@ async function runAutoFitC1sGraphite() {
     // the model and its fit context as sent (F1, Codex round 1): a result must
     // not be applied, and stamped current, over a model edited while it ran
     const ctxAtRequest = _startsLiveKey();
-    afOp = _claimFitOp(fittingTab);   // unit 2: before the first server await; the newest claim for a tab is current
     // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
     const peakSpecs = state.peaks.map(p => {
       const spec = peakToBackendSpec(p);
@@ -7733,13 +7756,13 @@ async function runAutoFitC1sGraphite() {
     // (_serverFitJob throws it with httpStatus); an unreadable reply is a
     // failed fit with its own message (unreadableReply).
     if (json && json._abandoned === 'tab') {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       notify('Auto-fit discarded — tab switched during fit.', 'amber');
       _autoFitRestore(snap, fittingTab);
       return;
     }
     if (json && json._abandoned === 'model') {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
       _autoFitRestore(snap, fittingTab);
       return;
@@ -7747,13 +7770,13 @@ async function runAutoFitC1sGraphite() {
     if (json.error) throw new Error(json.error);
     if (json.success !== true) throw new Error(json.message || 'fit did not converge');
     if (!_ownerActive(fittingTab)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       notify('Auto-fit discarded — tab switched during fit.', 'amber');
       _autoFitRestore(snap, fittingTab);
       return;
     }
     if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
       _autoFitRestore(snap, fittingTab);
       return;
@@ -7763,19 +7786,19 @@ async function runAutoFitC1sGraphite() {
 
     const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
     if (!ok) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       _autoFitRestore(snap, fittingTab);
       return;
     }
 
-    _hideFitSpinner();
+    _hideFitSpinnerFor(afOp);
     notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
   } catch (e) {
     clearTimeout(timer);
     // superseded (Run Fit pressed during Auto-Fit): nothing at all — no
     // rollback (it would overwrite the newer fit's model), no message
     if (afOp && !_fitOpCurrent(afOp)) return;
-    _hideFitSpinner();
+    _hideFitSpinnerFor(afOp);
     // The catch path can also fire after a mid-flight tab switch (fetch
     // error/timeout after the user moved on) — same wrong-tab hazard as
     // the explicit discard branch, so it gets the same tab-aware restore.
@@ -8184,6 +8207,7 @@ async function runFit(opts = {}) {
     // result must not be written over a model that was edited while it ran
     ctxAtRequest = _startsLiveKey();
     fitOp = _claimFitOp(fittingTab);   // before the first await: the newest claim for a tab is current
+    _fitSpinnerOp = fitOp;             // the spinner shown above is this operation's
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
@@ -8227,13 +8251,13 @@ async function runFit(opts = {}) {
     });
     if (json && json._abandoned === 'superseded') return;   // a newer fit on this tab owns the spinner and the result
     if (json && json._abandoned === 'tab') {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
       notify('Fit result discarded because you switched tabs during the fit.', 'amber');
       return;
     }
     if (json && json._abandoned === 'model') {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
       notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
       return;
@@ -8256,7 +8280,7 @@ async function runFit(opts = {}) {
     // If the user switched tabs while the fit was running, discard the result
     // rather than overwriting the now-active tab's peaks.
     if (!_ownerActive(fittingTab)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
       notify('Fit result discarded because you switched tabs during the fit.', 'amber');
       return;
@@ -8266,7 +8290,7 @@ async function runFit(opts = {}) {
     // the model as it was must not be applied over an edited one (a newly locked
     // centre would keep its edited value under the server's statistics).
     if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
       notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
       return;
@@ -8297,14 +8321,14 @@ async function runFit(opts = {}) {
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
     _updateRFactorUI(state.fitResult.rFactor);
     _updateROIDisplay(roiRange);
-    _hideFitSpinner();
+    _hideFitSpinnerFor(fitOp);
     notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
   } catch (e) {
     // superseded (a newer fit on this tab): nothing at all — no message, no
     // local fallback, the newer fit owns the spinner and the result
     if (fitOp && !_fitOpCurrent(fitOp)) return;
     // Fall back to local Levenberg-Marquardt
-    _hideFitSpinner();
+    _hideFitSpinnerFor(fitOp);
     if (!_ownerActive(fittingTab)) {
       document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
       notify('Fit cancelled — tab switched during fit.', 'amber');
@@ -8320,7 +8344,7 @@ async function runFit(opts = {}) {
     if (e && e.transportFailure && ctxAtRequest !== null && !_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
       // The fallback would fit the arrays captured at the press over a model or
       // context edited since, and stamp the edited one (F1, Codex round 1).
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
       notify('The server could not be reached, and the model or its background / ROI settings were edited while the fit was running, so no local fit was run. Previous peaks and result kept. Run the fit again.', 'amber', true);
       return;

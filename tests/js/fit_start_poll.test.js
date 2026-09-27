@@ -42,8 +42,8 @@ const bad = (status, obj) => ({ ok: false, status, json: async () => { if (obj =
 
 function make(fetch) {
   const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
-    'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap();',
-    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
+    'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
+    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_newFitOp'), extractFn('_installFitOp'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
     extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
   return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _runningFitJobs, _claimFitOp };')(
     fetch, f => f(), class extends Error { constructor(m, n) { super(m); this.name = n; } });
@@ -150,8 +150,8 @@ test('Run Fit and Auto-Fit both go through _serverFitJob; nothing on the page po
 // exit (a result, an error, a timeout).
 function makeAsync(fetch) {
   const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
-    'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap();',
-    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
+    'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
+    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_newFitOp'), extractFn('_installFitOp'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
     extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
   return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _claimFitOp };')(
     fetch, f => { setImmediate(f); return 0; }, class extends Error {});   // yield to the event loop between polls
@@ -235,9 +235,66 @@ test('both callers claim their operation before the first await and do nothing a
   assert.match(run, /if \(json && json\._abandoned === 'superseded'\) return;/);
   assert.match(run, /\} catch \(e\) \{\n(\s*\/\/[^\n]*\n)*\s*if \(fitOp && !_fitOpCurrent\(fitOp\)\) return;/, 'runFit: a superseded operation never reaches the local fallback');
   const af = extractFn('runAutoFitC1sGraphite');
-  const claim = af.indexOf('afOp = _claimFitOp(fittingTab);');
-  assert.ok(claim > 0 && claim < af.indexOf('await uploadToBackend('), 'Auto-Fit claims before its first server await');
+  const num = af.indexOf('const afOp = _newFitOp(fittingTab);');
+  assert.ok(num > 0 && num < af.indexOf('await _showAutoFitConfirmModal('), 'Auto-Fit numbers its operation before its FIRST await (the modal)');
+  const inst = af.indexOf('if (!_installFitOp(afOp)) return;');
+  assert.ok(inst > af.indexOf('await _showAutoFitConfirmModal(') && inst < af.indexOf('_autoFitSnapshot()') && inst < af.indexOf('await uploadToBackend('),
+    'and installs it after the modal, before anything is changed or sent');
   assert.match(af, /op: afOp,/);
   assert.match(af, /if \(json && json\._abandoned === 'superseded'\) return;/);
   assert.match(af, /if \(afOp && !_fitOpCurrent\(afOp\)\) return;/, 'Auto-Fit: no rollback when superseded');
+});
+
+test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open WINS; the confirmed Auto-Fit changes nothing (Codex round 3)', async () => {
+  const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
+  const modal = deferred();
+  const tab = { id: 't1' };
+  const out = { starts: 0, restored: 0, snapshots: 0, applied: 0, cancels: [] };
+  const state = { peaks: [{ id: 1 }], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
+  const deps = {
+    state, tabManager: { activeId: 't1', _getTab: () => tab, _captureUI: () => ({}) },
+    document: { getElementById: () => ({ value: '', style: {}, setAttribute() {}, classList: { add() {}, remove() {} } }) },
+    notify() {}, _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
+    _showAutoFitConfirmModal: () => modal.p, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore: () => { out.restored++; },
+    fetch: async (u, i) => { if (u === '/api/fit/start') out.starts++; if (u.startsWith('/api/fit/cancel/')) out.cancels.push(u); return ok({ job_id: 'X' }, 202); },
+    applyBackendResult: () => { out.applied++; }, _showFitSpinner() {}, _hideFitSpinner() {}, setTimeout, clearTimeout, AbortController, DOMException: Error,
+    getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => be.map(() => 0), findGraphiteRawBE: () => 284.5,
+    uploadToBackend: async () => 'sid', pushUndo() {}, buildAutoFitModel: () => [], renderPeakList() {}, peakToBackendSpec: p => p, _getManualAnchors: () => [],
+  };
+  const src = constants + '\n' + [
+    'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
+    ...['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpCurrent', '_hideFitSpinnerFor', '_readFitReply', '_serverFitJob',
+        'runAutoFitC1sGraphite', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn)].join('\n');
+  const api = new Function(...Object.keys(deps), src + '\nreturn { runAutoFitC1sGraphite, _claimFitOp, _fitOpCurrent };')(...Object.values(deps));
+  const af = api.runAutoFitC1sGraphite();             // Auto-Fit pressed: the modal is open
+  await new Promise(r => setImmediate(r));
+  const runFitOp = api._claimFitOp(tab);              // Run Fit pressed (Ctrl/Cmd+F) while the modal is open
+  modal.res(true);                                    // the student confirms Auto-Fit
+  await af;
+  assert.strictEqual(out.snapshots, 0, 'the superseded Auto-Fit took no snapshot (changed nothing)');
+  assert.strictEqual(out.starts, 0, 'and sent nothing');
+  assert.strictEqual(out.applied + out.restored, 0);
+  assert.ok(api._fitOpCurrent(runFitOp), 'the Run Fit still owns the tab');
+  assert.deepStrictEqual(out.cancels, [], "the Run Fit's job was not cancelled");
+});
+
+test("the spinner belongs to the operation that showed it: an ended fit never hides another fit's spinner (Codex round 3)", () => {
+  const hides = [];
+  const api = new Function('_hideFitSpinner', 'let _fitSpinnerOp = null;\n' + extractFn('_hideFitSpinnerFor') +
+    '\nreturn { hideFor: _hideFitSpinnerFor, set: op => { _fitSpinnerOp = op; }, get: () => _fitSpinnerOp };')(() => hides.push('hide'));
+  const a = { seq: 1 }, b = { seq: 2 };
+  api.set(b);                                         // tab B's fit showed the spinner last
+  api.hideFor(a);                                     // tab A's fit ends (discarded)
+  assert.deepStrictEqual(hides, [], "A leaves B's spinner alone");
+  api.hideFor(b);
+  assert.deepStrictEqual(hides, ['hide']);
+  assert.strictEqual(api.get(), null);
+  // and every hide after each caller's claim is an owned hide
+  for (const [fn, op, mark] of [['runFit', 'fitOp', '_fitSpinnerOp = fitOp;'], ['runAutoFitC1sGraphite', 'afOp', '_fitSpinnerOp = afOp;']]) {
+    const src = extractFn(fn);
+    const after = src.slice(src.indexOf(mark));
+    assert.ok(src.indexOf(mark) > 0, fn + ' takes the spinner');
+    assert.ok(!/_hideFitSpinner\(\);/.test(after), fn + ': no unowned hide after the claim');
+    assert.ok(new RegExp('_hideFitSpinnerFor\\(' + op + '\\)').test(after), fn);
+  }
 });
