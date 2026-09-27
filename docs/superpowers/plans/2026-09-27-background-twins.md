@@ -80,3 +80,15 @@ confirmed the round-2 decimal regression fails on f543afa):
 
 Suite at the round-3 fix: JS 482 tests, 480 pass, 2 todo (by design);
 pytest below. Round 4 is the last allowed round.
+
+**Round 4 (the last allowed) — GO ×2** (`background_twins_r4_verdict_run{A,B}.md`).
+Both reproduced the round-3 reproducer failing on 7de5f2b (62.5 %) and ran
+their own probes: run A 624 more background comparisons and 672 mean probes,
+run B 1 194 smart_exp cases and reduction-boundary probes to 32 769 values —
+exact except one MINOR, found by both:
+
+| # | finding | fix (after the GO; one expression, not re-reviewed) |
+|---|---|---|
+| 1 | MINOR: `_npMean(Array(8).fill(-0))` is −0, numpy's +0 (its reduction starts from the +0 identity); no effect on any background, but the "bit for bit" claim was false | `_npMean` = (0 + pairwise sum) / n — identical for every value but the sign of a zero; pinned with `Object.is` (JSON cannot carry −0) |
+
+READY FOR DEPLOY.
