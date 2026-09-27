@@ -98,7 +98,7 @@ test('computeBackgroundCore uses exactly the helper window', () => {
   const src = extract('computeBackgroundCore');
   const factory = new Function('_bgWindowIndices', 'linearBackground', 'manualAnchorBackground',
     'shirleyBackground', 'smartBackground', 'smartExperimentalBackground',
-    'shirleyLinearBackground', 'tougaardBackground', '_applyEndpointAveraging',
+    'shirleyLinearBackground', 'tougaardBackground', '_npPairwiseSum', '_npMean', '_applyEndpointAveraging',
     src + '\nreturn computeBackgroundCore;');
   const marker = (beSub) => beSub.slice();
   const unused = () => { throw new Error('unexpected background type call'); };

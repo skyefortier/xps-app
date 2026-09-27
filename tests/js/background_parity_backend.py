@@ -4,7 +4,9 @@
 stdin {"mode": "cases"} -> the spectra the parity test runs on: seeded
 synthetic spectra (a narrow C 1s, a wide U 4f doublet) and the committed real
 U 4f Scan_0 (1-GTA UCl4-graphite project), each ascending AND descending.
-stdin {"mode": "bg", "items": [{"method", "be", "inten", "n_avg"}...]} -> the
+stdin {"mode": "mean", "arrays": [[...]...]} -> np.mean of each (the page's
+_npMean must equal it bit for bit).
+stdin {"mode": "bg", "items": [{"method", "be", "inten", "n_avg", "n_iter"?}...]} -> the
 background fitting.py's OWN function returns for each (the functions run_fit
 calls for the anchor window, never a reimplementation).
 """
@@ -21,12 +23,12 @@ sys.path.insert(0, ROOT)
 import fitting  # noqa: E402
 
 FUNCS = {
-    "shirley": lambda x, y, n: fitting.shirley_background(x, y, n_avg=n),
-    "smart": lambda x, y, n: fitting.smart_background(x, y, n_avg=n),
-    "smart_exp": lambda x, y, n: fitting.smart_experimental_background(x, y, n_avg=n),
-    "shirley_linear": lambda x, y, n: fitting.shirley_linear_background(x, y, n_avg=n),
-    "tougaard": lambda x, y, n: fitting.tougaard_background(x, y, n_avg=n),
-    "linear": lambda x, y, n: fitting.linear_background(x, y),
+    "shirley": lambda x, y, n, it: fitting.shirley_background(x, y, n_iter=it, n_avg=n),
+    "smart": lambda x, y, n, it: fitting.smart_background(x, y, n_iter=it, n_avg=n),
+    "smart_exp": lambda x, y, n, it: fitting.smart_experimental_background(x, y, n_iter=it, n_avg=n),
+    "shirley_linear": lambda x, y, n, it: fitting.shirley_linear_background(x, y, n_iter=it, n_avg=n),
+    "tougaard": lambda x, y, n, it: fitting.tougaard_background(x, y, n_avg=n),
+    "linear": lambda x, y, n, it: fitting.linear_background(x, y),
 }
 
 
@@ -72,11 +74,14 @@ def main():
     if req["mode"] == "cases":
         json.dump(cases(), sys.stdout)
         return
+    if req["mode"] == "mean":
+        json.dump([float(np.mean(np.asarray(a, float))) for a in req["arrays"]], sys.stdout)
+        return
     out = []
     for it in req["items"]:
         x = np.asarray(it["be"], float)
         y = np.asarray(it["inten"], float)
-        out.append([float(v) for v in FUNCS[it["method"]](x, y, int(it["n_avg"]))])
+        out.append([float(v) for v in FUNCS[it["method"]](x, y, int(it["n_avg"]), int(it.get("n_iter", 200)))])
     json.dump(out, sys.stdout)
 
 

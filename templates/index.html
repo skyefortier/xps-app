@@ -4471,64 +4471,46 @@ function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
 
-  // Averaged endpoints
-  const cap = Math.min(nAvg || 1, Math.floor(n / 4)) || 1;
-  let sL = 0, sR = 0;
-  for (let i = 0; i < cap; i++) sL += intensity[i];
-  for (let i = n - cap; i < n; i++) sR += intensity[i];
-  const I0 = sL / cap;   // left endpoint (index 0, typically high-BE)
-  const I1 = sR / cap;   // right endpoint (index n-1, typically low-BE)
+  // fitting.py's smart_experimental_background operation for operation (unit 4,
+  // Codex round 4 prep): an ascending copy, numpy's endpoint means and linspace
+  // start, the 1e-6 stop, flipped back. The page's own version stopped at 1e-4
+  // and integrated a descending grid from the other end: up to 1.4 % of the span
+  // on the parity test's randomised spectra.
+  const flipped = be[0] > be[n - 1];
+  const xs = flipped ? be.slice().reverse() : be.slice();
+  const ys = flipped ? intensity.slice().reverse() : intensity.slice();
+  const cap = Math.max(1, Math.min(nAvg || 1, Math.floor(n / 4)));
+  const bLow = _npMean(ys.slice(0, cap));        // low-BE endpoint
+  const bHigh = _npMean(ys.slice(n - cap));      // high-BE endpoint
+  const step = bLow - bHigh;
 
-  // Step height for the Shirley component
-  const step = I0 - I1;
-
-  // bg[i] = background value at point i
-  let bg = new Array(n);
-  for (let i = 0; i < n; i++) bg[i] = I1 + step * (n - 1 - i) / (n - 1); // linear init
+  // Linear initial guess: np.linspace(bLow, bHigh, n)
+  const inc = (bHigh - bLow) / (n - 1);
+  let B = new Array(n);
+  for (let k = 0; k < n; k++) B[k] = k * inc + bLow;
+  B[n - 1] = bHigh;
 
   for (let iter = 0; iter < maxIter; iter++) {
-    const prev = bg;
-    const newBg = new Array(n);
-
-    // Signal = data above current background, nonneg
+    const prev = B;
     const signal = new Array(n);
-    for (let i = 0; i < n; i++) signal[i] = Math.max(intensity[i] - bg[i], 0);
-
-    // Cumulative integral from right (index n-1) to each point i
+    for (let k = 0; k < n; k++) signal[k] = Math.max(ys[k] - B[k], 0);
+    // Cumulative integral from the high-BE end (right) back to each point
     const cumRight = new Array(n).fill(0);
-    for (let j = n - 2; j >= 0; j--) {
-      const dx = Math.abs(be[j + 1] - be[j]);
-      cumRight[j] = cumRight[j + 1] + (signal[j] + signal[j + 1]) / 2 * dx;
-    }
-    const totalInt = cumRight[0];
-    if (totalInt <= 0) break;
-
-    // Build unconstrained Shirley background
-    for (let i = 0; i < n; i++) {
-      newBg[i] = I1 + step * (cumRight[i] / totalInt);
-    }
-
-    // Constrain during iteration: where bg exceeds data, lock to data.
-    // This effectively moves the Shirley start inward at those points.
-    for (let i = 0; i < n; i++) {
-      newBg[i] = Math.min(newBg[i], intensity[i]);
-    }
-
-    bg = newBg;
-
-    // Convergence check
-    let maxDelta = 0;
-    for (let i = 0; i < n; i++) {
-      const d = Math.abs(bg[i] - prev[i]);
-      if (d > maxDelta) maxDelta = d;
-    }
-    if (maxDelta < 1e-4) break;
+    for (let i = n - 2; i >= 0; i--) cumRight[i] = cumRight[i + 1] + (signal[i] + signal[i + 1]) / 2 * (xs[i + 1] - xs[i]);
+    const total = cumRight[0];
+    if (total <= 0) break;
+    // Constrain during iteration: where the background exceeds the data, lock
+    // to the data (this moves the effective Shirley start inward).
+    const next = new Array(n);
+    for (let k = 0; k < n; k++) next[k] = Math.min(bHigh + step * (cumRight[k] / total), ys[k]);
+    B = next;
+    let maxChange = 0;
+    for (let k = 0; k < n; k++) maxChange = Math.max(maxChange, Math.abs(B[k] - prev[k]));
+    if (maxChange < 1e-6) break;
   }
 
-  // Final clamp to data (safety)
-  for (let i = 0; i < n; i++) bg[i] = Math.min(bg[i], intensity[i]);
-
-  return bg;
+  for (let k = 0; k < n; k++) B[k] = Math.min(B[k], ys[k]);   // final safety clamp
+  return flipped ? B.reverse() : B;
 }
 
 function linearBackground(be, intensity) {
@@ -4606,15 +4588,34 @@ function tougaardBackground(be, intensity, nAvg) {
 // Apply endpoint averaging: replace first/last N points with their mean so
 // existing Shirley/Smart functions pick up averaged endpoint intensities.
 // Returns a new array — does not mutate the input.
+// numpy's mean, operation for operation: np.mean = np.add.reduce / n, and the
+// reduction is numpy's pairwise_sum (sequential below 8 values, eight running
+// sums up to 128, halves above). A sequential sum differs from it by rounding,
+// and an iterative background can turn that rounding into a DIFFERENT FIXED
+// POINT (unit 4 Codex round 3: 62.7 % of the span at endpoint average 10).
+// Checked equal to numpy 2.4 on 909 arrays of 1–4097 values; the parity test
+// (tests/js/background_parity.test.js) pins it through every caller.
+function _npPairwiseSum(a, lo, n) {
+  if (n < 8) { let r = 0; for (let i = 0; i < n; i++) r += a[lo + i]; return r; }
+  if (n <= 128) {
+    const r = [a[lo], a[lo + 1], a[lo + 2], a[lo + 3], a[lo + 4], a[lo + 5], a[lo + 6], a[lo + 7]];
+    let i;
+    for (i = 8; i < n - (n % 8); i += 8) for (let j = 0; j < 8; j++) r[j] += a[lo + i + j];
+    let res = ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]));
+    for (; i < n; i++) res += a[lo + i];
+    return res;
+  }
+  let n2 = Math.floor(n / 2); n2 -= n2 % 8;
+  return _npPairwiseSum(a, lo, n2) + _npPairwiseSum(a, lo + n2, n - n2);
+}
+function _npMean(values) { return _npPairwiseSum(values, 0, values.length) / values.length; }
+
 function _applyEndpointAveraging(intensity, nAvg) {
   const n = intensity.length;
   if (nAvg <= 1 || n < 4) return intensity;
   const cap = Math.min(nAvg, Math.floor(n / 4));
   const out = [...intensity];
-  let sumL = 0, sumR = 0;
-  for (let i = 0; i < cap; i++) sumL += intensity[i];
-  for (let i = n - cap; i < n; i++) sumR += intensity[i];
-  const avgL = sumL / cap, avgR = sumR / cap;
+  const avgL = _npMean(intensity.slice(0, cap)), avgR = _npMean(intensity.slice(n - cap));
   for (let i = 0; i < cap; i++) out[i] = avgL;
   for (let i = n - cap; i < n; i++) out[i] = avgR;
   return out;

@@ -720,20 +720,27 @@ starting model as "Fit complete"; see
 
 The page's background twins (`computeBackgroundCore`: what it draws, freezes
 into `fitResult.bgIntensity` at fit time, saves, and what the local engine
-fits against) equal fitting.py's to 1e-6 of the intensity span on the tested
-cases — shirley, smart, smart_exp and tougaard on uniform and non-uniform
-grids, linear on uniform grids, endpoint averaging 1 and 10, and data that
-dip below the baseline (`tests/js/background_parity.test.js`, unit 4
-2026-09-27: the JS Shirley now runs fitting.py's iteration operation for
-operation on an ascending copy — numpy's linspace start with the endpoint
-pinned exactly, the net signal clamped at zero, the background kept when no
-net signal is left, the 1e-6 stop; finite inputs — and smart clamps
-against the raw data; Task 4's S4 / S5; smart at averaging 10 was 1.2 % of
-the span away). Known gaps, pinned: `shirley_linear` (de-listed) diverges on
-descending grids; linear interpolates by index on the page and by energy on
-the server, equal only on uniform grids (Task 4 cause 4); the UI's Shirley
-iteration count (default 5) stops before fitting.py's convergence (Part 5 of
-the sealed-fit-record memo).
+fits against) equal fitting.py's on the tested cases — shirley, smart and
+smart_exp EXACTLY (0 difference, at equal iteration caps), tougaard to
+rounding, linear on uniform grids — within the test's 1e-6 of the intensity
+span, on uniform and non-uniform grids, both directions, endpoint averaging
+1, 3 and 10, repeated energies and data that dip below the baseline
+(`tests/js/background_parity.test.js`, unit 4 2026-09-27). The Shirley and
+smart_exp twins run fitting.py's iteration operation for operation on an
+ascending copy — numpy's linspace start with the endpoint pinned exactly, the
+net signal clamped at zero, the background kept when no net signal is left,
+the 1e-6 stop; smart clamps against the raw data; every endpoint mean is
+numpy's (`_npMean`, numpy's pairwise summation: a sequential sum one rounding
+step off became a different fixed point, 62.7 % of the span, Codex round 3);
+finite inputs. Before the unit: Task 4's S4 / S5 (smart at averaging 10 was
+1.2 % of the span away) and smart_exp 1.4 % (a 1e-4 stop, a descending grid
+integrated from the other end). An iterative background is fragile: rounding
+differences of one unit in the last place select different fixed points, so a
+twin must match its arithmetic, not only its formula. Known gaps, pinned:
+`shirley_linear` (de-listed) diverges on descending grids; linear
+interpolates by index on the page and by energy on the server, equal only on
+uniform grids (Task 4 cause 4); the UI's Shirley iteration count (default 5)
+stops before fitting.py's convergence (Part 5 of the sealed-fit-record memo).
 
 Use Shirley for standard core-level regions. Linear only when the
 spectral window is very narrow and featureless.
