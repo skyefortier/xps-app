@@ -390,3 +390,30 @@ narrower binding mechanism beside it. Concretely:
    visibility) never invalidate; the sidebar is patched in place, never
    re-rendered under a typing student; each consumer is compared with its
    own rendering when currency changes.
+
+## Round-7 note (2026-09-26, owner instruction) — legacy verification on load belongs in the seal's legacy adapter
+
+Unit F1 (`docs/superpowers/plans/2026-09-25-f1-stale-statistics.md`) binds
+χ², σ, RMSE, R and the stored fitted curve to their fit by the step (b) key.
+A result saved before that key existed has none, so it reads `unverified`
+("cannot be confirmed … Run Fit to confirm") — on EVERY tab of EVERY
+project saved before 2026-09-26 (all 20 tabs of the committed UCl4-graphite
+project). F1 deliberately does not try to recover those; the seal does.
+
+The seal's legacy adapter, on load of a result with no key: recompute the
+envelope from the SAVED peaks on the SAVED fit grid (`fitResult.be`) with the
+saved background (`fitResult.bgIntensity`) and compare it with the SAVED
+fitted curve (`fitResult.fittedY`). Where they agree, the statistics
+demonstrably belong to that model, and the result is sealed with the loaded
+model's key and reads `current`; where they disagree, or anything needed is
+missing (no `fittedY`, no `be`, an older save's grid), it stays `unverified`.
+Open questions for that unit, not decided here: the agreement criterion
+(the design rule on data-scaled thresholds applies — prefer a comparison
+with no magnitude tolerance, e.g. the same evaluator on the same grid
+reproducing the saved curve to the precision the save rounded it to:
+project saves round intensities to 6 significant figures); whether the
+context half of the key (background type and window, ROI, anchors, charge
+shift) can be taken from the saved `ui` at all, since the saved controls
+are not proof of the fit's context; and local-engine results, which saved
+no `fittedY`.
+

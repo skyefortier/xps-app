@@ -179,6 +179,23 @@ formulated wrong.
 side: every χ² comparison tolerance produced reachable false failures and
 no reachable protection, and the fix was to delete the comparison.)
 
+### Two readings of one field
+
+When two places read the same input — the page and the server, a preview
+and a fit, a comparison and the thing it compares — they must read it the
+same way, or equivalent inputs get treated as different and different inputs
+as equivalent. The instances so far: a "Voigt" meant η = 0.5 to the page and
+a free η to the server (A03); the ROI, the preview background and the fitted
+background meant three different point sets until one inclusive-bound
+definition (`_bgWindowIndices`, sealed-fit-record memo Part 3); and in F1 the
+fit key compared form numbers with `Number()` while the background code reads
+the iteration and averaging counts with `parseInt()`, so typing "3e1" (read
+as 3) matched a fit made at 30 (Codex round 2,
+`docs/autofit/codex/f1_stale_statistics_r2_verdict_run{A,B}.md`). A comparison
+must read each field exactly the way its consumer reads it — integers as
+integers, energies through `parseFloat` — never a generic conversion
+(`_fitKeyCanon`). (Owner, 2026-09-26.)
+
 ---
 
 ## Lineshape Physics — Critical Rules
