@@ -68,3 +68,15 @@ confirmed the round-1 test fails on cbf3058 and the measurements):
 | # | finding | fix |
 |---|---|---|
 | 1 | MAJOR: the straight-line start `I0 + (I1 − I0)·i/(n−1)` ended a rounding step OFF the endpoint (0.19999999999999996 for 0.2); the tiny endpoint residue became the whole integral and moved the curve by 50 % of the span on decimal data (`[1.1,0.5,0.2]` → `[1.1,1.1,0.2]`, fitting.py `[1.1,0.65,0.2]`), and the descending form differed from the ascending one | the JS now mirrors fitting.py operation for operation on an ascending copy (row S4), numpy's linspace included (last point pinned); six decimal cases in both directions added to the below-baseline parity test (which fails on f543afa's page) |
+| — | (not a finding) run B's validation note: NaN / Infinity behaviour differs from Python, so the equivalence is for finite inputs | CLAUDE.md says "finite inputs" |
+
+**Round 3 — NO-GO ×2** (`background_twins_r3_verdict_run{A,B}.md`; both
+confirmed the round-2 decimal regression fails on f543afa):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR: with endpoint averaging the page summed the endpoint values SEQUENTIALLY, numpy PAIRWISE; one rounding step in a mean (0.1 → 0.09999999999999999) left a residue the iteration turned into a different fixed point — run A (repeated energies, eight 0.1 / eight 3.2 endpoints) 62.5 % of the span for Shirley, 21.9 % for smart; run B (44 decimals, not converged by 200 iterations) 62.7 %; both directions, every iteration count. The round-2 tests all ran at averaging 1 | `_npMean` = numpy's `pairwise_sum` operation for operation (sequential below 8 values, eight running sums to 128, halves above), checked bit-equal to numpy 2.4.4 on 909 arrays of 1–4097 values; `_applyEndpointAveraging` uses it. Tests: both reproducers in both directions for shirley / smart / smart_exp / tougaard at averaging 10 and 1, 5, 50, 200 iterations, with fitting.py at the SAME cap (bridge takes `n_iter`); `_npMean` bit-equal to `np.mean` on 302 arrays; a randomised test at averaging 1, 3 and 10 with flat decimal endpoint runs and repeated energies. On 7de5f2b's page the reproducer test fails (62.5 %) |
+| — | FOUND BY THAT RANDOMISED TEST (not in the verdicts): the page's `smart_exp` was 1.4 % of the span from fitting.py at EVERY averaging, 22 of 200 random spectra over 1e-6 — it stopped at a change of 1e-4 where fitting.py stops at 1e-6, and did not flip a descending grid (fitting.py works on an ascending copy); the fixed cases had passed at 1e-6 by luck of their shape. `smart_exp` is offered ("Smart (experimental)") | `smartExperimentalBackground` mirrors `smart_experimental_background` operation for operation (ascending copy, `_npMean` endpoints over the ascending order, numpy's linspace start, 1e-6 stop, flipped back) — the round-2 Shirley pattern. smart_exp added to the below-baseline test. After the fix: shirley, smart and smart_exp EXACTLY equal (0 difference) on all 200 × 3 averagings, tougaard ≤ 5e-15 of the span |
+
+Suite at the round-3 fix: JS 482 tests, 480 pass, 2 todo (by design);
+pytest below. Round 4 is the last allowed round.

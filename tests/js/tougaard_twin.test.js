@@ -26,6 +26,9 @@ const tougaardBackground = eval('(' + match[0] + ')');
 
 const avgMatch = html.match(/function _applyEndpointAveraging\([\s\S]*?\n\}/);
 assert.ok(avgMatch, '_applyEndpointAveraging not found in templates/index.html');
+// _applyEndpointAveraging takes numpy's mean (_npMean, unit 4 round 3).
+const _npPairwiseSum = eval('(' + html.match(/function _npPairwiseSum\([\s\S]*?\n\}/)[0] + ')');
+const _npMean = eval('(' + html.match(/function _npMean\(.*\}$/m)[0] + ')');
 const _applyEndpointAveraging = eval('(' + avgMatch[0] + ')');
 
 function syntheticSpectrum() {
