@@ -204,3 +204,23 @@ fixes on the old code vs the new):
 |---|---|---|
 | 1 | MAJOR (B): Auto-Fit claimed its operation AFTER its confirmation modal (its first await): a Run Fit pressed while the modal was open was cancelled when the student confirmed, and the older Auto-Fit's result applied | an operation is NUMBERED at the press (`_newFitOp`, before the modal) and INSTALLED as the tab's current one after it (`_installFitOp`), only if no newer operation claimed the tab meanwhile — otherwise the confirmed Auto-Fit returns having changed nothing (no snapshot, no request). Claiming at the press would have cancelled a running Run Fit merely for opening the modal. Run Fit, which has no modal, claims = numbers + installs at once. |
 | 2 | MINOR (A, B): the fit spinner is page-wide; a fit discarded on tab A hid tab B's running spinner, re-enabled Run Fit and cleared the in-flight flag | the spinner belongs to the operation that showed it (`_fitSpinnerOp`); every hide after a caller's claim is `_hideFitSpinnerFor(op)`, a no-op for any other operation |
+
+**Round 4 (the last allowed) — NO-GO ×2** (`fit_start_poll_r4_verdict_run{A,B}.md`).
+Both runs confirmed the round-3 fixes (cancelled modal, late confirmation,
+cross-tab spinner ownership). Remaining:
+
+| # | finding | suggested fix (not done: the round limit) |
+|---|---|---|
+| 1 | MAJOR (A, B): Auto-Fit INSTALLS its operation — cancelling a running Run Fit on the tab — before its own preflight checks; when a preflight check then refuses ("No strong peak found in the C1s ROI", an empty ROI, …) it returns before taking the spinner, the superseded Run Fit returns silently, and the page is left with the spinner visible, Run Fit disabled and `_bgSubFitInFlight` true, with no fit running | install the operation only AFTER Auto-Fit's preflight has passed (it changes nothing before that), or give every exit after the install an owned cleanup; add the preliminary-failure case to the tests |
+| 2 | MINOR (A): Batch Fit's local fitter hides the shared spinner unconditionally; a quick batch while a server fit is pending leaves that fit running without a spinner | route Batch Fit's show / hide through the spinner owner (its own operation) |
+
+## 7. PARKED (2026-09-27, overnight): four Codex rounds, NO-GO at round 4
+
+Not deployable as is (finding 1 is a regression against main in a rare
+interleaving: a Run Fit running when an Auto-Fit is confirmed on a spectrum
+Auto-Fit then refuses). Everything else in the unit held across rounds:
+acceptance (five largest C 1s basinhopping models through the poll path,
+longest request 0.28 s), identical results (LM byte-identical; the hook
+changes nothing), cancellation, bounded concurrency, the ownership races of
+rounds 1–3. The two fixes above are small; they need a fifth review round,
+which is the owner's call.
