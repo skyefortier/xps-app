@@ -80,6 +80,36 @@ for (const method of ['shirley', 'smart', 'smart_exp', 'tougaard', 'linear']) {
   }
 }
 
+// Codex round 1: data that dip below the baseline. With the clamp but the old
+// zero start and index-linear fallback, the JS reached another fixed point
+// (33–58 % of the span); fitting.py starts from the straight line and keeps it
+// when no net signal is left. Exact small cases, every iteration count.
+const BELOW = [
+  { be: [0, 1, 2, 3, 4], inten: [10, 5, 5, 17, 20] },
+  { be: [3.5, 1.1, 1, 0], inten: [6, 7, 13, 19] },
+  { be: [3, 2, 1, 0], inten: [100, 107, 120, 127] },
+  { be: [0, 1, 3, 6, 10], inten: [10, 5, 5, 17, 20] },
+];
+test('below-baseline data: shirley and smart equal fitting.py at 5, 50 and 200 iterations (Codex round 1)', () => {
+  for (const method of ['shirley', 'smart']) {
+    const server = py({ mode: 'bg', items: BELOW.map(c => ({ method, be: c.be, inten: c.inten, n_avg: 1 })) });
+    BELOW.forEach((c, k) => {
+      for (const it of [5, 50, 200]) {
+        const js = JS.computeBackgroundCore(c.be, c.inten, { bgType: method, shirleyIter: String(it), endpointAvg: '1', bgStart: '', bgEnd: '' });
+        const rel = maxRelDiff(js, server[k], span(c.inten));
+        assert.ok(rel <= TOL, `${method} ${JSON.stringify(c.be)} at ${it} iterations: ${rel.toExponential(2)} of the span (js ${js.map(v => v.toFixed(3))}, server ${server[k].map(v => v.toFixed(3))})`);
+      }
+    });
+  }
+});
+
+test('KNOWN GAP (Task 4 cause 4, not this unit): linear interpolates by index on the page, by energy on the server — equal on uniform grids only', () => {
+  const nonUniform = { be: [0, 1, 3], inten: [10, 20, 40] };
+  const server = py({ mode: 'bg', items: [{ method: 'linear', be: nonUniform.be, inten: nonUniform.inten, n_avg: 1 }] })[0];
+  const js = jsBg(nonUniform.be, nonUniform.inten, 'linear', 1);
+  assert.ok(maxRelDiff(js, server, span(nonUniform.inten)) > 0.05, 'still differs on a non-uniform grid — if this starts failing the gap was closed; update the pin and CLAUDE.md');
+});
+
 test('KNOWN GAP (de-listed, not fixed): shirley_linear agrees on ascending grids and diverges on descending ones (Task 4 cause 3)', () => {
   const rows = compare('shirley_linear', 1);
   for (const r of rows.filter(r => /ascending/.test(r.label))) assert.ok(r.rel <= 1e-3, `${r.label}: ${r.rel}`);

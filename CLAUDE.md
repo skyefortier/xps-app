@@ -720,15 +720,19 @@ starting model as "Fit complete"; see
 
 The page's background twins (`computeBackgroundCore`: what it draws, freezes
 into `fitResult.bgIntensity` at fit time, saves, and what the local engine
-fits against) equal fitting.py's to 1e-6 of the intensity span at a converged
-iteration count for shirley, smart, smart_exp, tougaard and linear, with
-endpoint averaging 1 and 10 (`tests/js/background_parity.test.js`, unit 4
-2026-09-27: the JS Shirley now clamps the net signal at zero and smart clamps
-against the raw data — Task 4's S4 / S5; smart at averaging 10 was 1.2 % of
+fits against) equal fitting.py's to 1e-6 of the intensity span on the tested
+cases — shirley, smart, smart_exp and tougaard on uniform and non-uniform
+grids, linear on uniform grids, endpoint averaging 1 and 10, and data that
+dip below the baseline (`tests/js/background_parity.test.js`, unit 4
+2026-09-27: the JS Shirley now runs fitting.py's iteration step for step —
+the straight line as the first guess, the net signal clamped at zero, the
+background kept when no net signal is left, the 1e-6 stop — and smart clamps
+against the raw data; Task 4's S4 / S5; smart at averaging 10 was 1.2 % of
 the span away). Known gaps, pinned: `shirley_linear` (de-listed) diverges on
-descending grids; the UI's Shirley iteration count (default 5) leaves
-0.016–0.019 % of the span of unfinished iteration (Part 5 of the
-sealed-fit-record memo).
+descending grids; linear interpolates by index on the page and by energy on
+the server, equal only on uniform grids (Task 4 cause 4); the UI's Shirley
+iteration count (default 5) stops before fitting.py's convergence (Part 5 of
+the sealed-fit-record memo).
 
 Use Shirley for standard core-level regions. Linear only when the
 spectral window is very narrow and featureless.
