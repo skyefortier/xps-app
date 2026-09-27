@@ -57,9 +57,22 @@ test('a non-active record is judged on its saved window over its own corrected d
   assert.strictEqual(g({ id: 't1', rawBE: [], ui: {} }), false);
 });
 
-test('every caller of the gate is for the active tab (menu state, charge-reference permission, the Auto-Fit run)', () => {
+test('the record path makes the SAME selection getROIData() makes (Codex round 1)', () => {
+  const g = gate({ activeId: 'other', liveSel: [] });
+  // reversed bounds select nothing, exactly as the live selector does
+  assert.strictEqual(g({ id: 't1', rawBE: RAW, ccShift: 0, ui: { roiMin: '295', roiMax: '280' } }), false);
+  // a blank bound is open on its own side only: 270-295 is C 1s
+  assert.strictEqual(g({ id: 't1', rawBE: RAW, ccShift: 0, ui: { roiMin: '', roiMax: '295' } }), true);
+  assert.strictEqual(g({ id: 't1', rawBE: RAW, ccShift: 0, ui: { roiMin: '370', roiMax: '' } }), false);
+});
+
+test('every caller of the gate passes the ACTIVE tab record (menu state, charge-reference permission, the Auto-Fit run)', () => {
   for (const fn of ['_recomputeAutoFitMenuState', '_isChargeRefAllowed', 'runAutoFitC1sGraphite']) {
-    assert.match(extractFn(fn), /isC1sTab\(tab\)/, fn);
+    const src = extractFn(fn);
+    const lookup = src.search(/const tab = [^;]*tabManager\._getTab\(tabManager\.activeId\)/);
+    assert.ok(lookup >= 0, fn + ': the tab is looked up by tabManager.activeId');
+    assert.ok(src.indexOf('isC1sTab(tab)') > lookup, fn + ': and that tab is the one judged');
+    assert.ok(!/\btab\s*=(?!=)/.test(src.slice(lookup + 10, src.indexOf('isC1sTab(tab)'))), fn + ': not reassigned in between');
   }
   // and the ROI fields refresh the menu on every keystroke
   assert.match(html, /id="roi-min"[^>]*oninput="updatePlot\(\);_recomputeAutoFitMenuState\(\)"/);
