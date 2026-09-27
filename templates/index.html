@@ -4414,13 +4414,18 @@ function shirleyBackground(be, intensity, maxIter) {
   for (let iter = 0; iter < maxIter; iter++) {
     const newBg = new Array(n).fill(0);
     for (let i = 0; i < n; i++) {
+      // Net signal clamped at zero, max(y - B, 0), as fitting.shirley_background
+      // (Proctor–Sherwood): a noise channel below the background contributes
+      // no loss, never NEGATIVE loss (Task 4 S4, unit 4 2026-09-27 — the JS
+      // integrated the raw difference and converged to a different fixed point,
+      // 0.015–0.24 % of the span away from the background the server fits).
       let sumRight = 0;
       for (let j = i; j < n - 1; j++) {
-        sumRight += ((intensity[j] - bg[j]) + (intensity[j + 1] - bg[j + 1])) / 2 * Math.abs(be[j + 1] - be[j]);
+        sumRight += (Math.max(intensity[j] - bg[j], 0) + Math.max(intensity[j + 1] - bg[j + 1], 0)) / 2 * Math.abs(be[j + 1] - be[j]);
       }
       let sumTotal = 0;
       for (let j = 0; j < n - 1; j++) {
-        sumTotal += ((intensity[j] - bg[j]) + (intensity[j + 1] - bg[j + 1])) / 2 * Math.abs(be[j + 1] - be[j]);
+        sumTotal += (Math.max(intensity[j] - bg[j], 0) + Math.max(intensity[j + 1] - bg[j + 1], 0)) / 2 * Math.abs(be[j + 1] - be[j]);
       }
       const frac = sumTotal > 0 ? sumRight / sumTotal : (n - 1 - i) / (n - 1);
       newBg[i] = I1 + (I0 - I1) * frac;
@@ -4430,12 +4435,19 @@ function shirleyBackground(be, intensity, maxIter) {
   return bg;
 }
 
-function smartBackground(be, intensity, maxIter) {
+function smartBackground(be, intensity, maxIter, rawIntensity) {
   // Smart (constrained Shirley): standard Shirley clamped to never exceed data.
+  // The Shirley runs on `intensity` (the endpoint-averaged copy); the clamp is
+  // against the RAW data (`rawIntensity`, defaulting to `intensity`), as
+  // fitting.smart_background does: averaging only ever moves the background,
+  // never the reported net counts (Task 4 S5, unit 4 2026-09-27 — at an
+  // endpoint average of 10 the two sides differed by up to 1 % of the span at
+  // the averaged edges).
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
+  const raw = rawIntensity || intensity;
   const shir = shirleyBackground(be, intensity, maxIter);
-  for (let i = 0; i < n; i++) shir[i] = Math.min(shir[i], intensity[i]);
+  for (let i = 0; i < n; i++) shir[i] = Math.min(shir[i], raw[i]);
   return shir;
 }
 
@@ -4734,7 +4746,7 @@ function computeBackgroundCore(be, intensity, settings) {
   // Compute background on the sliced region — apply endpoint averaging for Shirley types
   let bgSub;
   if (type === 'shirley') bgSub = shirleyBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter);
-  else if (type === 'smart') bgSub = smartBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter);
+  else if (type === 'smart') bgSub = smartBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter, inSub);   // clamp against the raw slice
   else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, iter, nAvg);
   else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, iter, nAvg);
   else if (type === 'linear') bgSub = linearBackground(beSub, inSub);

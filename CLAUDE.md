@@ -718,6 +718,18 @@ starting model as "Fit complete"; see
 | `tougaard` | Single-pass universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV). Order-robust (either BE direction); amplitude anchored to the data at the high-BE edge. JS twin `tougaardBackground` must stay in numerical agreement (pinned by `tests/js/tougaard_twin.test.js`). |
 | `manual` (frontend only) | User-placed anchor points; `manualAnchorBackground` in JS. |
 
+The page's background twins (`computeBackgroundCore`: what it draws, freezes
+into `fitResult.bgIntensity` at fit time, saves, and what the local engine
+fits against) equal fitting.py's to 1e-6 of the intensity span at a converged
+iteration count for shirley, smart, smart_exp, tougaard and linear, with
+endpoint averaging 1 and 10 (`tests/js/background_parity.test.js`, unit 4
+2026-09-27: the JS Shirley now clamps the net signal at zero and smart clamps
+against the raw data — Task 4's S4 / S5; smart at averaging 10 was 1.2 % of
+the span away). Known gaps, pinned: `shirley_linear` (de-listed) diverges on
+descending grids; the UI's Shirley iteration count (default 5) leaves
+0.016–0.019 % of the span of unfinished iteration (Part 5 of the
+sealed-fit-record memo).
+
 Use Shirley for standard core-level regions. Linear only when the
 spectral window is very narrow and featureless.
 
