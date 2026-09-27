@@ -28,9 +28,16 @@ differ in ONE line — what "occupied" means:
 | variant | occupied when | patch |
 |---|---|---|
 | **F** — the server's support test | `fitting._component_support` "supported": Δχ² > 0 and F = (Δχ²/p) / (χ²_with/dof) ≥ 10 — the step (b) "not supported by the data" statistic and threshold | `variant_F_support_test.patch` |
-| **LR** — Poisson likelihood ratio | Δχ²/p ≥ 10 on the Poisson-weighted χ², NOT divided by the fit's own misfit χ²_with/dof | `variant_LR_likelihood_ratio.patch` |
+| **LR** — the weighted removal gain per parameter (first draft called it a "Poisson likelihood ratio"; it is neither a likelihood nor a refit) | Δχ²/p ≥ 10 on the Poisson-weighted χ², with the other components held, NOT divided by the fit's own misfit χ²_with/dof | `variant_LR_likelihood_ratio.patch` |
 
-Both are scale-free (the weights make χ² dimensionless) and carry no tolerance.
+Neither carries a tolerance. Only F is a RATIO of χ² quantities and so
+invariant to a uniform rescaling of the intensities; LR is not (Codex rounds
+1–2: ×0.1 turns Δχ²/p = 32 into 3.2 and flips it, while F stays 16). F's
+invariance is itself QUALIFIED by the Poisson variance floor both patches
+keep (σ² = max(counts, 1)): a channel at or below 1 count weighs differently
+after a rescaling, so F can move (round 2: 11.67 → 3.18, and 10.07 → 9.32,
+on data with a channel near 1 count). Exact invariance holds only where every
+channel stays above the floor.
 
 ## The evidence
 
@@ -102,7 +109,8 @@ shipping:
 - **LR**: withdrawn as a recommendation (not invariant to intensity units).
 - Either way `noise_floor` survives only as the Poisson variance floor (both
   patches leave it; it keeps the raw-count assumption the server's weights
-  make, which a unit change would also move).
+  make). That floor is what limits F's invariance to data whose channels stay
+  above 1 count (see above) — a property the server's step (b) verdict shares.
 
 The two patches stay here as the measured starting points:
 `git apply docs/findings/noise-floor-occupancy/variant_F_support_test.patch`.

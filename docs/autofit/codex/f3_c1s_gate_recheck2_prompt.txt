@@ -1,0 +1,8 @@
+Re-review unit F3 (the Auto-Fit C1s gate on live data), round 3: branch fix-noise-floor-scale-free. Round 2 was GO x2 (docs/autofit/codex/f3_c1s_gate_r2_verdict_run{A,B}.md) with MINORs fixed in the latest commit (git diff HEAD~1..HEAD): a behavioural caller test in tests/js/autofit_c1s_gate.test.js (each caller executed; the record reaching isC1sTab must be the active one), and the parked write-up docs/findings/noise-floor-occupancy/README.md corrected (LR described as what it is; F's invariance qualified by the Poisson variance floor). Earlier prompts: docs/autofit/codex/f3_c1s_gate_review_prompt.txt, _recheck_prompt.txt; plan docs/superpowers/plans/2026-09-27-f3-noise-floor-and-c1s-gate.md. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The behavioural test: does it now fail for your round-2 mutations (tabs[0] || ..., _getTab('inactive') || ...) and for any other way a caller could judge a non-active record; is it robust (not passing because a caller returned early before the gate).
+b. The corrected README: accurate now, nothing overstated, recommendation sound.
+c. Anything else in the unit (git diff 07e0839..HEAD, excluding merges of fix-fit-start-poll).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
