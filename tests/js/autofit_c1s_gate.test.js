@@ -79,12 +79,14 @@ test('every caller of the gate passes the ACTIVE tab record (menu state, charge-
   assert.match(html, /id="roi-max"[^>]*oninput="updatePlot\(\);_recomputeAutoFitMenuState\(\)"/);
 });
 
-test('BEHAVIOURAL: each caller hands isC1sTab the ACTIVE record, not merely a record looked up the right way (Codex round 2)', async () => {
-  const inactive = { id: 't1', rawBE: RAW, ccShift: 0, ui: { roiMin: '280', roiMax: '295' } };   // C 1s
-  const active   = { id: 't2', rawBE: RAW, ccShift: 0, ui: { roiMin: '370', roiMax: '415' } };   // U 4f
+for (const order of ['inactive first', 'active first']) for (const inactiveId of ['t1', 'inactive'])
+test(`BEHAVIOURAL: each caller hands isC1sTab the ACTIVE record (${order}, inactive id "${inactiveId}") (Codex rounds 2-3)`, async () => {
+  const inactive = { id: inactiveId, rawBE: RAW, ccShift: 0, ui: { roiMin: '280', roiMax: '295' } };   // C 1s
+  const active   = { id: 't2', rawBE: RAW, ccShift: 0, ui: { roiMin: '370', roiMax: '415' } };           // U 4f
   const seen = [];
   const isC1sTab = t => { seen.push(t); return false; };
-  const tabManager = { activeId: 't2', tabs: [inactive, active], _getTab: id => [inactive, active].find(t => t.id === id) };
+  const tabs = order === 'inactive first' ? [inactive, active] : [active, inactive];
+  const tabManager = { activeId: 't2', tabs, _getTab: id => tabs.find(t => t.id === id) };
   const el = { disabled: false, value: 'c1s', setAttribute() {}, removeAttribute() {}, title: '' };
   const document = { getElementById: () => el };
   const notes = [];

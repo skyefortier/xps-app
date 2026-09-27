@@ -61,3 +61,10 @@ one — the reviewers' mutation `tabs[0] || _getTab(activeId)` now fails it);
 the parked README's stale claims replaced (LR described as what it is; only F
 is a ratio; F's invariance qualified by the retained Poisson variance floor).
 Round 3 confirms.
+
+**Round 3 — GO ×2** (`f3_c1s_gate_r3_verdict_run{A,B}.md`). One MINOR from
+both, fixed: the behavioural caller test ran one fixture order and an
+inactive id a mutation could miss (`tabs[tabs.length − 1] || …`, `tabs[1] ||
+…`, `_getTab('inactive') || …` passed); it now runs both tab orders × both
+inactive ids, each caught. **Ready for deploy** (GO ×2 at rounds 1–3; the
+round-3 fix is test-only).
