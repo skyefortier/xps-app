@@ -4608,7 +4608,8 @@ function _npPairwiseSum(a, lo, n) {
   let n2 = Math.floor(n / 2); n2 -= n2 % 8;
   return _npPairwiseSum(a, lo, n2) + _npPairwiseSum(a, lo + n2, n - n2);
 }
-function _npMean(values) { return _npPairwiseSum(values, 0, values.length) / values.length; }
+// numpy's reduction starts from its identity, +0 (so eight −0 average to +0).
+function _npMean(values) { return (0 + _npPairwiseSum(values, 0, values.length)) / values.length; }
 
 function _applyEndpointAveraging(intensity, nAvg) {
   const n = intensity.length;

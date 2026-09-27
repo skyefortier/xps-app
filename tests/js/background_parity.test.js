@@ -185,6 +185,9 @@ test("_npMean is numpy's mean bit for bit (1–300 values, 1025 and 4097; decima
   }
   const want = py({ mode: 'mean', arrays });
   arrays.forEach((a, k) => assert.strictEqual(JS._npMean(a), want[k], `n ${a.length}`));
+  // Codex round 4 (MINOR): numpy's reduction starts from +0, so np.mean of
+  // negative zeros is +0 at every size (JSON cannot carry −0, so pinned here)
+  for (const n of [1, 7, 8, 9, 128, 129, 300]) assert.ok(Object.is(JS._npMean(Array(n).fill(-0)), 0), `n ${n}: −0 in, +0 out`);
 });
 
 // This test also found the page's smart_exp 1.4 % of the span away at every
