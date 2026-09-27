@@ -180,3 +180,18 @@ findings in both):
 | 4 | MINOR: `public_fit_poll_check.py` could poll a dead worker's record forever | a heartbeat older than 30 s is FAIL "lost"; a 20-minute deadline per target (the job is cancelled) |
 
 
+
+**Round 2 — NO-GO ×2** (`fit_start_poll_r2_verdict_run{A,B}.md`; both confirmed
+round 1's cancellation normalisation, checker and concurrency; the same three
+findings):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR: ownership was registered when the START RESPONSE arrived, so response order decided it — A pressed first, B second, A's late response cancelled B and A's stale result applied | an OPERATION per tab, claimed BEFORE THE CALLER'S FIRST AWAIT (`_claimFitOp`; runFit right after its context key, Auto-Fit before its upload): the newest claim is current whatever order the responses come in; a claim cancels the previous operation's job; a start response that arrives for a superseded operation cancels its own job |
+| 2 | MAJOR: supersession was checked only before a poll, never after its reply — a late `done` applied a stale result, a late `cancelled` threw and Auto-Fit rolled back over the newer fit | `_serverFitJob` rechecks `_fitOpCurrent(op)` after every await and before every exit, and its outer catch turns ANY error of a superseded operation (incl. the Auto-Fit timeout) into `{ _abandoned: 'superseded' }`; both callers' catch paths check it first (runFit: no local fallback; Auto-Fit: no rollback, no message) |
+| 3 | MINOR: if the heartbeat thread failed to start after the fit thread had, the admission was released twice (seven outstanding against six) | the heartbeat thread starts FIRST; a failure to start either thread raises before the worker runs (the route releases once); once the worker has started only its finally releases. Fault-injection test fails on round 1's code, passes now. |
+
+Tests: the reproductions as JS tests (response-order reversal; a poll in
+flight when a newer claim arrives, for a late `done`, `cancelled` and
+`error`; an Auto-Fit timeout after a newer claim) and the callers claim
+before their first code await.

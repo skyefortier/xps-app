@@ -42,9 +42,10 @@ const bad = (status, obj) => ({ ok: false, status, json: async () => { if (obj =
 
 function make(fetch) {
   const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
-    'const _runningFitJobs = new Set(); const _fitJobByOwner = new WeakMap();',
-    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
-  return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _runningFitJobs };')(
+    'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap();',
+    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
+    extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
+  return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _runningFitJobs, _claimFitOp };')(
     fetch, f => f(), class extends Error { constructor(m, n) { super(m); this.name = n; } });
 }
 const START = '/api/fit/start';
@@ -142,35 +143,101 @@ test('Run Fit and Auto-Fit both go through _serverFitJob; nothing on the page po
   assert.match(html, /addEventListener\('pagehide'/, 'a closed page cancels its running fits');
 });
 
-test('a new start for the same tab SUPERSEDES the previous job: cancelled on the server, its loop returns quietly (Codex round 1)', async () => {
-  let n = 0;
-  let releaseFirst;
-  const gate = new Promise(r => { releaseFirst = r; });
-  const s = server(u => u === START ? ok({ job_id: 'J' + (++n) }, 202)
-    : isProgress(u) ? ok({ status: 'running', heartbeat_age_sec: 0 }) : ok({}));
-  // a poll loop that yields between polls, so two jobs can interleave
+// Round 2: ownership is an OPERATION claimed before the caller's first await
+// (_claimFitOp); the newest claim for a tab is current whatever order the
+// server's responses arrive in, and a superseded operation returns
+// { _abandoned: 'superseded' } at every step after an await and before every
+// exit (a result, an error, a timeout).
+function makeAsync(fetch) {
   const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
-    'const _runningFitJobs = new Set(); const _fitJobByOwner = new WeakMap();',
-    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
-  const { _serverFitJob } = new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob };')(
-    s.fetch, f => { setImmediate(f); return 0; }, class extends Error {});   // yield to the event loop between polls
+    'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap();',
+    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
+    extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
+  return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _claimFitOp };')(
+    fetch, f => { setImmediate(f); return 0; }, class extends Error {});   // yield to the event loop between polls
+}
+const deferred = () => { let res; const p = new Promise(r => { res = r; }); return { p, res }; };
+
+test('the NEWEST claim is current whatever order the start responses arrive in (Codex round 2)', async () => {
+  const calls = [];
+  const aStart = deferred();
+  let n = 0;
+  const fetch = async (url, init) => {
+    calls.push({ url, method: (init && init.method) || 'GET' });
+    if (url === '/api/fit/start') {
+      const id = 'J' + (++n);
+      if (id === 'J1') await aStart.p;                 // A's start response is delayed
+      return ok({ job_id: id }, 202);
+    }
+    if (url.startsWith('/api/fit/progress/')) return ok({ status: 'done', result: { which: url.split('/').pop() } });
+    return ok({});
+  };
+  const { _serverFitJob, _claimFitOp } = makeAsync(fetch);
   const owner = { id: 'tab-1' };
-  let polls2 = 0;
-  const first = _serverFitJob({}, { owner });
-  await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
-  const second = _serverFitJob({}, { owner, abandoned: () => (++polls2 > 3 ? 'tab' : null) });
-  assert.deepStrictEqual(await first, { _abandoned: 'superseded' });
-  assert.ok(s.calls.some(c => c.url === '/api/fit/cancel/J1' && c.method === 'POST'), 'the first job is cancelled on the server');
-  assert.deepStrictEqual(await second, { _abandoned: 'tab' }, 'the second runs on, owning the tab');
-  // another tab's job is not touched
-  const other = _serverFitJob({}, { owner: { id: 'tab-2' }, abandoned: () => 'model' });
-  assert.deepStrictEqual(await other, { _abandoned: 'model' });
+  const opA = _claimFitOp(owner);                      // A pressed first
+  const a = _serverFitJob({}, { op: opA });
+  await new Promise(r => setImmediate(r));
+  const opB = _claimFitOp(owner);                      // B pressed second
+  const b = _serverFitJob({}, { op: opB });
+  assert.deepStrictEqual(await b, { which: 'J2' }, 'B, the newer, gets its result');
+  aStart.res();
+  assert.deepStrictEqual(await a, { _abandoned: 'superseded' }, 'A, older, is superseded though its response came last');
+  assert.ok(calls.some(c => c.url === '/api/fit/cancel/J1' && c.method === 'POST'), "A's late job is cancelled by A itself");
+  assert.ok(!calls.some(c => c.url === '/api/fit/cancel/J2'), "B's job is never cancelled");
 });
 
-test('both callers pass their tab as the owner and do nothing at all when superseded', () => {
-  for (const fn of ['runFit', 'runAutoFitC1sGraphite']) {
-    const src = extractFn(fn);
-    assert.match(src, /owner: fittingTab,/, fn);
-    assert.match(src, /if \(json && json\._abandoned === 'superseded'\) return;/, fn);
+test('a poll in flight when a newer claim arrives: its reply is never applied, never an error (Codex round 2)', async () => {
+  for (const late of [{ status: 'done', result: { stale: true } }, { status: 'cancelled' }, { status: 'error', http_status: 500, error: 'x' }]) {
+    const calls = [];
+    const polled = deferred();
+    const release = deferred();
+    const fetch = async (url, init) => {
+      calls.push({ url, method: (init && init.method) || 'GET' });
+      if (url === '/api/fit/start') return ok({ job_id: 'J1' }, 202);
+      if (url.startsWith('/api/fit/progress/')) { polled.res(); await release.p; return ok(late); }
+      return ok({});
+    };
+    const { _serverFitJob, _claimFitOp } = makeAsync(fetch);
+    const owner = { id: 'tab-1' };
+    const a = _serverFitJob({}, { op: _claimFitOp(owner) });
+    await polled.p;                                    // A's poll is in flight
+    _claimFitOp(owner);                                // B claims the tab
+    release.res();                                     // A's late reply arrives
+    assert.deepStrictEqual(await a, { _abandoned: 'superseded' }, late.status);
+    assert.ok(calls.some(c => c.url === '/api/fit/cancel/J1'), late.status + ': the newer claim cancelled A');
   }
+});
+
+test('an Auto-Fit timeout after a newer claim is superseded, not a timeout (Codex round 2)', async () => {
+  const signal = { aborted: false, reason: null };
+  const polled = deferred();
+  const release = deferred();
+  const fetch = async (url) => {
+    if (url === '/api/fit/start') return ok({ job_id: 'J1' }, 202);
+    if (url.startsWith('/api/fit/progress/')) { polled.res(); await release.p; signal.aborted = true;
+      signal.reason = Object.assign(new Error('timeout'), { name: 'AbortError' }); throw signal.reason; }
+    return ok({});
+  };
+  const { _serverFitJob, _claimFitOp } = makeAsync(fetch);
+  const owner = {};
+  const a = _serverFitJob({}, { op: _claimFitOp(owner), signal });
+  await polled.p;
+  _claimFitOp(owner);
+  release.res();
+  assert.deepStrictEqual(await a, { _abandoned: 'superseded' });
+});
+
+test('both callers claim their operation before the first await and do nothing at all when superseded', () => {
+  const run = extractFn('runFit');
+  assert.ok(run.indexOf('fitOp = _claimFitOp(fittingTab);') > 0 && run.indexOf('fitOp = _claimFitOp(fittingTab);') < run.indexOf('await uploadToBackend('), 'runFit claims before its first await');
+  assert.ok(!/\bawait\s+[\w(]/.test(run.slice(0, run.indexOf('fitOp = _claimFitOp(fittingTab);')).replace(/\/\/[^\n]*/g, '')), 'no code await before the claim');
+  assert.match(run, /op: fitOp,/);
+  assert.match(run, /if \(json && json\._abandoned === 'superseded'\) return;/);
+  assert.match(run, /\} catch \(e\) \{\n(\s*\/\/[^\n]*\n)*\s*if \(fitOp && !_fitOpCurrent\(fitOp\)\) return;/, 'runFit: a superseded operation never reaches the local fallback');
+  const af = extractFn('runAutoFitC1sGraphite');
+  const claim = af.indexOf('afOp = _claimFitOp(fittingTab);');
+  assert.ok(claim > 0 && claim < af.indexOf('await uploadToBackend('), 'Auto-Fit claims before its first server await');
+  assert.match(af, /op: afOp,/);
+  assert.match(af, /if \(json && json\._abandoned === 'superseded'\) return;/);
+  assert.match(af, /if \(afOp && !_fitOpCurrent\(afOp\)\) return;/, 'Auto-Fit: no rollback when superseded');
 });

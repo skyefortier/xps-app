@@ -712,8 +712,16 @@ def _fit_job_start(job_id: str, upload_folder: str, fit_args: dict, run) -> None
             except OSError:
                 pass
 
-    threading.Thread(target=worker, daemon=True, name=f"fit-{job_id[:8]}").start()
+    # The heartbeat thread starts FIRST: if either thread fails to start this
+    # raises BEFORE the worker runs, and the route returns the admission; once
+    # the worker has started, only the worker's finally returns it (exactly
+    # one owner; Codex round 2).
     threading.Thread(target=heartbeat, daemon=True, name=f"fit-hb-{job_id[:8]}").start()
+    try:
+        threading.Thread(target=worker, daemon=True, name=f"fit-{job_id[:8]}").start()
+    except Exception:
+        finished.set()                # stop the heartbeat of a job that never ran
+        raise
 
 
 def _require_json(f):

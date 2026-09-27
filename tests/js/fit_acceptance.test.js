@@ -36,7 +36,7 @@ function extractFn(name) {
 // that reply as a finished job (start -> 202 + id; progress -> done + result),
 // and a start that throws is still a transport failure.
 const POLL_SRC = [constLineOf('FIT_POLL_MS'), constLineOf('FIT_POLL_TRANSPORT_RETRIES'), constLineOf('FIT_HEARTBEAT_LOST_SEC'),
-  'const _runningFitJobs = new Set(); const _fitJobByOwner = new WeakMap();', ...['_cancelFitJob', '_fitHttpError', '_serverFitJob'].map(n => extractFn(n))].join('\n');
+  'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap();', ...['_cancelFitJob', '_fitHttpError', '_claimFitOp', '_fitOpCurrent', '_serverFitJob'].map(n => extractFn(n))].join('\n');
 function constLineOf(n) { const l = lines.find(x => x.startsWith('const ' + n)); assert.ok(l, n); return l; }
 function jobAdapter(fetchImpl) {
   let reply = null;

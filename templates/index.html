@@ -7467,13 +7467,26 @@ const FIT_POLL_MS = 500;
 const FIT_POLL_TRANSPORT_RETRIES = 5;
 const FIT_HEARTBEAT_LOST_SEC = 30;
 const _runningFitJobs = new Set();
-// The current server fit of each tab record (unit 2, Codex round 1): a new
-// start for the same tab — Ctrl/Cmd+F bypasses the disabled button, and
-// Auto-Fit and Run Fit share a tab — SUPERSEDES the previous job: it is
-// cancelled on the server and its loop returns { _abandoned: 'superseded' },
-// on which the caller does nothing at all (the new fit owns the spinner and
-// the result).
-const _fitJobByOwner = new WeakMap();
+// One fit OPERATION per tab record (unit 2, Codex rounds 1-2). A caller claims
+// its operation BEFORE ITS FIRST AWAIT (_claimFitOp): the newest claim for a
+// tab is the current one, whatever order the server's responses come back in.
+// A claim cancels the previous operation's server job; the previous
+// operation's _serverFitJob, at every step after an await and before every
+// exit — a result, an error, a timeout — sees it is no longer current,
+// cancels its own job if it has one, and returns { _abandoned: 'superseded' },
+// on which its caller does NOTHING (the newer fit owns spinner and result).
+// Ctrl/Cmd+F bypasses the disabled Run Fit button, and Run Fit and Auto-Fit
+// share a tab.
+let _fitOpSeq = 0;
+const _fitOpByOwner = new WeakMap();
+function _claimFitOp(owner) {
+  const prev = owner ? _fitOpByOwner.get(owner) : null;
+  if (prev && prev.jobId) _cancelFitJob(prev.jobId);
+  const op = { seq: ++_fitOpSeq, owner: owner || null, jobId: null };
+  if (owner) _fitOpByOwner.set(owner, op);
+  return op;
+}
+function _fitOpCurrent(op) { return !op || !op.owner || _fitOpByOwner.get(op.owner) === op; }
 function _cancelFitJob(jobId) {
   try { fetch('/api/fit/cancel/' + encodeURIComponent(jobId), { method: 'POST', keepalive: true }).catch(() => {}); } catch (_) { /* best effort */ }
 }
@@ -7492,42 +7505,46 @@ function _fitHttpError(status, msg, prefix) {
 }
 async function _serverFitJob(fitReq, guard) {
   guard = guard || {};
+  const op = guard.op || null;
+  const SUP = { _abandoned: 'superseded' };
+  let jobId = null;
+  const gone = () => !_fitOpCurrent(op);
+  const superseded = () => { if (jobId) _cancelFitJob(jobId); return SUP; };
   const isTransport = e => e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError');
-  let resp;
   try {
-    resp = await fetch('/api/fit/start', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                           body: JSON.stringify(fitReq), signal: guard.signal });
-  } catch (e) { if (isTransport(e)) e.transportFailure = true; throw e; }
-  if (resp.ok === false) {
-    let msg = null;
-    try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
-    throw _fitHttpError(resp.status, msg);
-  }
-  let started;
-  try { started = await _readFitReply(resp); } catch (e) { if (isTransport(e)) e.transportFailure = true; throw e; }
-  const jobId = started && started.job_id;
-  if (!jobId) throw _fitHttpError(resp.status, 'The server did not start the fit (no job id).');
-  _runningFitJobs.add(jobId);
-  if (guard.owner) {
-    const prev = _fitJobByOwner.get(guard.owner);
-    if (prev && prev !== jobId) _cancelFitJob(prev);
-    _fitJobByOwner.set(guard.owner, jobId);
-  }
-  let misses = 0;
-  try {
+    if (gone()) return SUP;
+    let resp;
+    try {
+      resp = await fetch('/api/fit/start', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                             body: JSON.stringify(fitReq), signal: guard.signal });
+    } catch (e) { if (isTransport(e)) e.transportFailure = true; throw e; }
+    if (resp.ok === false) {
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      throw _fitHttpError(resp.status, msg);
+    }
+    let started;
+    try { started = await _readFitReply(resp); } catch (e) { if (isTransport(e)) e.transportFailure = true; throw e; }
+    jobId = started && started.job_id;
+    if (!jobId) throw _fitHttpError(resp.status, 'The server did not start the fit (no job id).');
+    _runningFitJobs.add(jobId);
+    if (gone()) return superseded();            // a newer claim came while this start was in flight
+    if (op) op.jobId = jobId;
+    let misses = 0;
     while (true) {
       await new Promise(r => setTimeout(r, FIT_POLL_MS));
+      if (gone()) return superseded();
       if (guard.signal && guard.signal.aborted) {
         _cancelFitJob(jobId);
         throw guard.signal.reason || new DOMException('aborted', 'AbortError');
       }
-      if (guard.owner && _fitJobByOwner.get(guard.owner) !== jobId) return { _abandoned: 'superseded' };   // its successor cancelled it
       const why = guard.abandoned ? guard.abandoned() : null;
       if (why) { _cancelFitJob(jobId); return { _abandoned: why }; }
       let pr, rec;
       try {
         pr = await fetch('/api/fit/progress/' + encodeURIComponent(jobId), { signal: guard.signal });
       } catch (e) {
+        if (gone()) return superseded();
         if (e && e.name === 'AbortError') { _cancelFitJob(jobId); throw e; }
         if (++misses >= FIT_POLL_TRANSPORT_RETRIES) {
           _cancelFitJob(jobId);
@@ -7537,6 +7554,7 @@ async function _serverFitJob(fitReq, guard) {
         }
         continue;
       }
+      if (gone()) return superseded();            // the reply of a poll made before a newer claim
       if (pr.ok === false) {
         _cancelFitJob(jobId);
         let msg = null;
@@ -7544,6 +7562,7 @@ async function _serverFitJob(fitReq, guard) {
         throw _fitHttpError(pr.status, msg, 'Lost the fit\'s progress');
       }
       try { rec = await _readFitReply(pr); } catch (e) {
+        if (gone()) return superseded();
         if (e && e.unreadableReply) { _cancelFitJob(jobId); throw e; }
         if (++misses >= FIT_POLL_TRANSPORT_RETRIES) {
           _cancelFitJob(jobId);
@@ -7552,6 +7571,7 @@ async function _serverFitJob(fitReq, guard) {
         }
         continue;
       }
+      if (gone()) return superseded();
       misses = 0;
       if (rec.status === 'done') return rec.result;
       if (rec.status === 'error') throw _fitHttpError(rec.http_status || 500, rec.error);
@@ -7563,9 +7583,12 @@ async function _serverFitJob(fitReq, guard) {
       }
       if (typeof guard.onProgress === 'function') guard.onProgress(rec);
     }
+  } catch (e) {
+    if (gone()) return superseded();              // superseded wins over any error, incl. a timeout
+    throw e;
   } finally {
-    _runningFitJobs.delete(jobId);
-    if (guard.owner && _fitJobByOwner.get(guard.owner) === jobId) _fitJobByOwner.delete(guard.owner);
+    if (jobId) _runningFitJobs.delete(jobId);
+    if (op && op.jobId === jobId) op.jobId = null;
   }
 }
 
@@ -7645,6 +7668,7 @@ async function runAutoFitC1sGraphite() {
   if (runBtn) runBtn.disabled = true;
 
   const ctrl = new AbortController();
+  let afOp = null;   // unit 2: this tab's fit operation (claimed below, before the first server await)
   const timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
 
   try {
@@ -7665,6 +7689,7 @@ async function runAutoFitC1sGraphite() {
     // the model and its fit context as sent (F1, Codex round 1): a result must
     // not be applied, and stamped current, over a model edited while it ran
     const ctxAtRequest = _startsLiveKey();
+    afOp = _claimFitOp(fittingTab);   // unit 2: before the first server await; the newest claim for a tab is current
     // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
     const peakSpecs = state.peaks.map(p => {
       const spec = peakToBackendSpec(p);
@@ -7695,7 +7720,7 @@ async function runAutoFitC1sGraphite() {
         // reference of a whole spectrum (see applyAutoFitResult).
         require_component: anchorId,
     }, {
-      owner: fittingTab,
+      op: afOp,
       signal: ctrl.signal,
       abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxAtRequest) ? 'model' : null)),
     });
@@ -7747,6 +7772,9 @@ async function runAutoFitC1sGraphite() {
     notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
   } catch (e) {
     clearTimeout(timer);
+    // superseded (Run Fit pressed during Auto-Fit): nothing at all — no
+    // rollback (it would overwrite the newer fit's model), no message
+    if (afOp && !_fitOpCurrent(afOp)) return;
     _hideFitSpinner();
     // The catch path can also fire after a mid-flight tab switch (fetch
     // error/timeout after the user moved on) — same wrong-tab hazard as
@@ -8134,6 +8162,7 @@ async function runFit(opts = {}) {
   // Try Flask backend first
   let backendResult = null;
   let ctxAtRequest = null;   // set with the other request inputs; read again by the local fallback
+  let fitOp = null;         // unit 2: this tab's fit operation, claimed before the first await
   try {
     const bgType  = document.getElementById('bg-type').value;
     const bgStart = parseFloat(document.getElementById('bg-start').value);
@@ -8154,6 +8183,7 @@ async function runFit(opts = {}) {
     // the live model and its fit context as the student pressed the button: a
     // result must not be written over a model that was edited while it ran
     ctxAtRequest = _startsLiveKey();
+    fitOp = _claimFitOp(fittingTab);   // before the first await: the newest claim for a tab is current
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
@@ -8192,7 +8222,7 @@ async function runFit(opts = {}) {
     // request was. The ownership checks below also run inside the poll loop,
     // so a switched tab or an edited model stops the server's work at once.
     const json = await _serverFitJob(fitReq, {
-      owner: fittingTab,
+      op: fitOp,
       abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxAtRequest) ? 'model' : null)),
     });
     if (json && json._abandoned === 'superseded') return;   // a newer fit on this tab owns the spinner and the result
@@ -8270,6 +8300,9 @@ async function runFit(opts = {}) {
     _hideFitSpinner();
     notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
   } catch (e) {
+    // superseded (a newer fit on this tab): nothing at all — no message, no
+    // local fallback, the newer fit owns the spinner and the result
+    if (fitOp && !_fitOpCurrent(fitOp)) return;
     // Fall back to local Levenberg-Marquardt
     _hideFitSpinner();
     if (!_ownerActive(fittingTab)) {

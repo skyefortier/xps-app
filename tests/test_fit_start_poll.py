@@ -214,3 +214,41 @@ def test_a_cancel_observed_mid_fit_is_a_cancellation_never_a_solver_error(method
     with pytest.raises(fitting.FitCancelled):
         fitting.run_fit(x, y, _specs(SLOW), background_method="linear", n_perturb=0,
                         fit_kws={"method": method}, cancel=cancel)
+
+
+@pytest.mark.parametrize("failing", ["fit-hb-", "fit-"])
+def test_a_thread_that_fails_to_start_returns_its_admission_exactly_once(client, monkeypatch, failing):
+    """Codex round 2: admission has exactly one owner — the route until the
+    worker thread has started, the worker after."""
+    real_start = app_module.threading.Thread.start
+
+    def start(self):
+        name = self.name or ""
+        if name.startswith(failing) and not (failing == "fit-" and name.startswith("fit-hb-")):
+            raise RuntimeError("cannot start thread")
+        return real_start(self)
+
+    import threading as _th
+    # three run slots, so the faulted (fast) worker can RUN and finish while the
+    # held jobs are still outstanding — the double release is then visible
+    monkeypatch.setattr(app_module, "_FIT_JOB_RUN_SLOTS", _th.BoundedSemaphore(3))
+    sid = _upload(client)
+    # a job held OUTSTANDING (the counter is clamped at 0, so a double release
+    # only shows while another admission is live)
+    slow_sid = _upload(client, n=300, comps=SLOW)
+    slow = [client.post("/api/fit/start", json=_body(slow_sid, SLOW, method="basinhopping", n_perturb=0)).get_json()["job_id"]
+            for _ in range(2)]                     # TWO held: one running, one queued
+    before = app_module._FIT_JOB_ADMITTED[0]
+    assert before >= 2
+    monkeypatch.setattr(app_module.threading.Thread, "start", start)
+    with pytest.raises(RuntimeError):
+        client.post("/api/fit/start", json=_body(sid, COMPS))
+    monkeypatch.setattr(app_module.threading.Thread, "start", real_start)
+    time.sleep(3.0)                                # long enough for a started (fast) worker to finish and release
+    assert app_module._FIT_JOB_ADMITTED[0] == before, "released exactly once, by the route"
+    for j in slow:
+        client.post(f"/api/fit/cancel/{j}")
+    for j in slow:
+        _poll(client, j, limit=60)
+    time.sleep(0.3)
+    assert app_module._FIT_JOB_ADMITTED[0] == before - 2, "and the held jobs released their own, once each"
