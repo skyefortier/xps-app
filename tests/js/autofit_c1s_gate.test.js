@@ -78,3 +78,23 @@ test('every caller of the gate passes the ACTIVE tab record (menu state, charge-
   assert.match(html, /id="roi-min"[^>]*oninput="updatePlot\(\);_recomputeAutoFitMenuState\(\)"/);
   assert.match(html, /id="roi-max"[^>]*oninput="updatePlot\(\);_recomputeAutoFitMenuState\(\)"/);
 });
+
+test('BEHAVIOURAL: each caller hands isC1sTab the ACTIVE record, not merely a record looked up the right way (Codex round 2)', async () => {
+  const inactive = { id: 't1', rawBE: RAW, ccShift: 0, ui: { roiMin: '280', roiMax: '295' } };   // C 1s
+  const active   = { id: 't2', rawBE: RAW, ccShift: 0, ui: { roiMin: '370', roiMax: '415' } };   // U 4f
+  const seen = [];
+  const isC1sTab = t => { seen.push(t); return false; };
+  const tabManager = { activeId: 't2', tabs: [inactive, active], _getTab: id => [inactive, active].find(t => t.id === id) };
+  const el = { disabled: false, value: 'c1s', setAttribute() {}, removeAttribute() {}, title: '' };
+  const document = { getElementById: () => el };
+  const notes = [];
+  const deps = { tabManager, isC1sTab, document, notify: (m, k) => notes.push([m, k]), state: { rawBE: RAW, peaks: [] } };
+  const src = ['_recomputeAutoFitMenuState', '_isChargeRefAllowed', 'runAutoFitC1sGraphite'].map(extractFn).join('\n');
+  const fns = new Function(...Object.keys(deps), src + '\nreturn { _recomputeAutoFitMenuState, _isChargeRefAllowed, runAutoFitC1sGraphite };')(...Object.values(deps));
+  fns._recomputeAutoFitMenuState();
+  fns._isChargeRefAllowed();
+  await fns.runAutoFitC1sGraphite();                 // returns at the gate (isC1sTab false)
+  assert.strictEqual(seen.length, 3, 'each caller consulted the gate once');
+  for (const t of seen) assert.strictEqual(t, active, 'the active record, never ' + (t && t.id));
+  assert.ok(notes.some(([m]) => /only available for C1s spectra/.test(m)), 'the run stopped at the gate');
+});

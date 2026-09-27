@@ -52,3 +52,12 @@ the caller test now proves each caller looks the tab up by
 `tabManager.activeId` and judges that tab. Three of the four gate tests fail
 on the old code. The parked half's review is recorded in the findings README
 (recommendation revised to F). Round 2 confirms the MINOR fixes.
+
+**Round 2 — GO ×2** (`f3_c1s_gate_r2_verdict_run{A,B}.md`; the record path
+matched getROIData() on 18 900 and 43 350 exact comparisons). MINORs fixed:
+a BEHAVIOURAL caller test (each caller run with an inactive C 1s record first
+and an active U 4f record; the record reaching `isC1sTab` must be the active
+one — the reviewers' mutation `tabs[0] || _getTab(activeId)` now fails it);
+the parked README's stale claims replaced (LR described as what it is; only F
+is a ratio; F's invariance qualified by the retained Poisson variance floor).
+Round 3 confirms.
