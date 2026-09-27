@@ -1,0 +1,21 @@
+Re-review unit F2 (holes in the acceptance rule), round 3: branch fix-acceptance-holes. Round-2 fixes = HEAD (git diff a5a14a0..HEAD); the whole unit is git diff main..HEAD. Earlier verdicts: docs/autofit/codex/f2_acceptance_holes_verdict_run{A,B}.md, f2_acceptance_holes_r2_verdict_run{A,B}.md; the round-1 prompt holds the brief and the sites. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Out of scope: the public URL's Cloudflare ~100 s ceiling (another branch).
+
+ROUND-2 FINDINGS AND FIXES (plan section 5, verbatim):
+
+**Round 2 — run A GO, run B NO-GO** (`f2_acceptance_holes_r2_verdict_run{A,B}.md`;
+both confirmed the round-1 required-refit fix with real solver probes across
+all five methods):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B), MINOR (A): the string-blanking regex was quadratic on an unterminated string of escaped quotes — 128 KB took 10 s on the page's thread | one linear scan tracking string and escape state (no regex); 128 KB stress case in the tests (< 500 ms) |
+| 2 | MINOR (A, B): a body cut off INSIDE a string still read "non-finite number" | the scan keeps a string open to the end of the body; the truncated case reads "could not be read" |
+
+TRY TO BREAK
+a. The scanner in _readFitReply: linear on every input (unterminated strings, long runs of backslashes, a body of only quotes, 10 MB of digits); the string/escape state machine (\\ then ", \u escapes, a quote right after a backslash pair); token boundaries (NaN at the very start/end, -Infinity, "NaNx", 1e999 serialised as Infinity by Python, Infinity inside an object key position); a valid JSON body always parses first (the scanner only chooses the message of a body that did not parse).
+b. Anything earlier rounds raised or verified that this change touched.
+c. The tests: real and non-vacuous.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

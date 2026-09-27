@@ -7414,9 +7414,28 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
 async function _readFitReply(resp) {
   const text = await resp.text();                 // rejects only on transport
   try { return JSON.parse(text); } catch (_) {
-    // a NaN / Infinity TOKEN, not the word inside a JSON string (Codex round 1)
-    const unquoted = text.replace(/"(?:[^"\\]|\\.)*"/g, '""');
-    const nonFinite = /(^|[\[,:\s])(-?Infinity|NaN)([\],\x7d\s]|$)/.test(unquoted);   // \x7d = closing brace
+    // A NaN / Infinity TOKEN, never the word inside a JSON string (Codex
+    // round 1) — one linear pass that tracks string and escape state to the
+    // end of the body, so a string cut off by a truncated body stays a string
+    // and no body, however malformed, costs more than one scan (round 2: a
+    // regex that blanked strings was quadratic on an unterminated escaped
+    // string, 10 s for 128 KB on the page's thread).
+    const nonFinite = (function (t) {
+      const bound = ch => ch === undefined || ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t' ||
+        ch === ',' || ch === ':' || ch === '[' || ch === ']' || ch === '\x7b' || ch === '\x7d';   // \x7b \x7d = braces
+      let inStr = false, esc = false;
+      for (let i = 0; i < t.length; i++) {
+        const ch = t[i];
+        if (inStr) {
+          if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false;
+          continue;
+        }
+        if (ch === '"') { inStr = true; continue; }
+        if (ch === 'N' && t.startsWith('NaN', i) && bound(t[i - 1]) && bound(t[i + 3])) return true;
+        if (ch === 'I' && t.startsWith('Infinity', i) && (bound(t[i - 1]) || t[i - 1] === '-') && bound(t[i + 8])) return true;
+      }
+      return false;
+    })(text);
     const err = new Error(nonFinite
       ? 'The server\'s reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed.'
       : 'The server\'s reply could not be read. The fit is treated as failed.');
