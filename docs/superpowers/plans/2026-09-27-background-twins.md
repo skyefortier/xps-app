@@ -92,3 +92,24 @@ exact except one MINOR, found by both:
 | 1 | MINOR: `_npMean(Array(8).fill(-0))` is −0, numpy's +0 (its reduction starts from the +0 identity); no effect on any background, but the "bit for bit" claim was false | `_npMean` = (0 + pairwise sum) / n — identical for every value but the sign of a zero; pinned with `Object.is` (JSON cannot carry −0) |
 
 READY FOR DEPLOY.
+
+## Rebuilt onto F2 (2026-09-27, overnight)
+
+Unit 2 was parked, and this unit had been branched from F3's FIRST commit
+(895f323), so neither the unit-2 stack nor F3's later rounds sat under it.
+`fix-background-twins-on-f2` is this unit's five commits cherry-picked onto
+`fix-noise-floor-on-f2` (F3 on F2) without conflicts: per file, the added and
+removed lines equal `git diff 895f323 fix-background-twins` exactly (only the
+context differs, from F3's rounds 1–3). It is the first branch to COMBINE this
+unit with F3's rounds 1–3 (disjoint code: isC1sTab vs the background twins);
+its own suite is below. The original branch is kept as is.
+
+Suite on this branch: JS 477 tests, 475 pass, 2 todo (by design); pytest
+1006 passed, 7 skipped (unit 2's tests are absent). Browser check on a dev
+gunicorn (:5152) from this branch, the committed 1-GTA project, C 1s Scan,
+endpoint average 10: the page's `computeBackgroundCore` on the server's own
+`energy` / `counts` equals the reply's `background_y` EXACTLY for shirley,
+smart and smart_exp (1e-15 of the span for tougaard), at 50 and 200
+iterations; the drawn curve is within 7e-8 of the span (the upload's 2-dp
+rounding); the Auto-Fit C 1s gate reads true on C1s Scan and false on U4f
+Scan; no page errors. READY FOR DEPLOY (after `fix-noise-floor-on-f2`).
