@@ -172,6 +172,15 @@ takes ~18 s (28,821 evaluations — the perturbed descent runs to the
 optimiser's evaluation budget), and with `n_starts: 3` the request takes
 110 s. Production's gunicorn `--timeout 300` covers it; a dev server on the
 30 s default returns a worker timeout and the page reports "Fit failed".
+
+CORRECTION (2026-09-26, unit F2): "300 s covers it" was true on the i9 and
+FALSE through the public URL. Cloudflare's edge ends a proxied request at
+~100 s (probes through xps.fortierlab.org: 88 s passed, 125 s returned HTTP
+524), well short of gunicorn's 300 s. The same DS+G Run Fit measured on the
+production page through the public URL took 78.7 s and passed — under the
+ceiling today, with little margin
+(`docs/findings/2026-09-26-public-request-ceiling.md`). Timing claims must be
+measured through xps.fortierlab.org, not on 127.0.0.1.
 Every A- and M-family Find Peaks candidate applied and re-fitted pays this.
 Logged for its own look (why the perturbed DS+G descent does not converge;
 whether the restarts should be skipped or capped for this shape).

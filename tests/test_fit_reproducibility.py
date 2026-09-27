@@ -158,8 +158,12 @@ def _two_peaks():
     return x, y, specs
 
 
-@pytest.mark.parametrize("method,n_perturb", [("differential_evolution", 2), ("basinhopping", 1)])
-def test_stochastic_methods_get_request_derived_seeds_not_the_global_generator(monkeypatch, method, n_perturb):
+# basinhopping runs no perturbed restarts since unit F2 (a global search; the
+# restarts took it past the 300 s timeout): one seeded minimisation per fit.
+# That each further minimisation (the required refit) gets its own population
+# is pinned in tests/test_component_required.py.
+@pytest.mark.parametrize("method,n_perturb,n_min", [("differential_evolution", 2, 3), ("basinhopping", 1, 1)])
+def test_stochastic_methods_get_request_derived_seeds_not_the_global_generator(monkeypatch, method, n_perturb, n_min):
     # lmfit passes seed=None to both, i.e. numpy's GLOBAL generator: another
     # request in the same worker, or a restart, changed the answer.
     records = _spy_on_fits(monkeypatch)
@@ -169,9 +173,9 @@ def test_stochastic_methods_get_request_derived_seeds_not_the_global_generator(m
         records.append([])
         fitting.run_fit(x, y, specs, background_method="linear", n_perturb=n_perturb, fit_kws={"method": method})
     seeds = [[r["seed"] for r in run if r["method"] == method] for run in records]
-    assert len(seeds[0]) == n_perturb + 1
+    assert len(seeds[0]) == n_min
     assert all(isinstance(s, int) for s in seeds[0])
-    assert len(set(seeds[0])) == n_perturb + 1       # each minimisation its own population
+    assert len(set(seeds[0])) == n_min               # each minimisation its own population
     assert seeds[0] == seeds[1]                      # and the same ones on every press
     # the local refinement / local candidate never receives a solver seed
     assert all(r["seed"] is None for run in records for r in run if r["method"] != method)
@@ -314,8 +318,11 @@ def test_a_differently_cased_method_name_is_the_same_seeded_method(monkeypatch):
     records.append([])
     x, y, specs = _two_peaks()
     res = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "BasinHopping"})
-    assert [r["method"] for r in records[0]] == ["basinhopping"]
+    # F2 (2026-09-26): the seeded search, then its refinement and the competing
+    # fit from the start (least_squares: deterministic, carry no seed)
+    assert [r["method"] for r in records[0]] == ["basinhopping", "least_squares", "least_squares"]
     assert isinstance(records[0][0]["seed"], int)
+    assert records[0][1]["seed"] is None and records[0][2]["seed"] is None
     assert res["random_seed"] == fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0,
                                                  fit_kws={"method": "basinhopping"})["random_seed"]
 

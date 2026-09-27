@@ -558,3 +558,26 @@ test('recovery from an amplitude of exactly zero (the new floor is not a trap)',
   assert.ok(Math.abs(env.state.peaks[0].amplitude - 0.1) < 1e-3, `amplitude ${env.state.peaks[0].amplitude}`);
   assertConstrainedStationary(env, be, data, 1e-8, 'from zero');
 });
+
+// F2 (2026-09-26): at least as many free parameters as data points is refused
+// as undetermined (it read as a near-perfect fit: dof clamped to 1).
+test('the local engine refuses a model with no degrees of freedom; one more point and it fits', () => {
+  const mk = n => {
+    const env = makeEnv();
+    const be = Array.from({ length: n }, (_, i) => 284 + 0.5 * i);
+    env.state.peaks = [{ id: 1, name: 'a', shape: 'Gaussian', center: 285, fwhm: 1, amplitude: 10, glMix: 50, asymmetry: 0 },
+                       { id: 2, name: 'b', shape: 'Gaussian', center: 286, fwhm: 1, amplitude: 5, glMix: 50, asymmetry: 0 }];
+    const before = JSON.stringify(env.state.peaks);
+    const data = be.map(x => 10 * env.gaussian(x, 285, 1) + 5 * env.gaussian(x, 286, 1));
+    return { env, out: env.runFitLocal(be, data, new Array(n).fill(0)), before };
+  };
+  for (const n of [5, 6]) {                                   // 6 free parameters: 5 and 6 points leave no dof
+    const { env, out, before } = mk(n);
+    assert.strictEqual(out.success, false, n + ' points');
+    assert.match(out.message, /not determined by these data: 6 free parameters for \d+ data points/);
+    assert.strictEqual(JSON.stringify(env.state.peaks), before, 'peaks untouched');
+    assert.strictEqual(env.state.fitResult, null, 'no result written');
+  }
+  const { out } = mk(40);
+  assert.strictEqual(out.success, true, 'a determined model still fits');
+});

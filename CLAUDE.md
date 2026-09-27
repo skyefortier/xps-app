@@ -196,6 +196,17 @@ must read each field exactly the way its consumer reads it — integers as
 integers, energies through `parseFloat` — never a generic conversion
 (`_fitKeyCanon`). (Owner, 2026-09-26.)
 
+### Timing claims are measured through the public URL
+
+A request from a student reaches the server through Cloudflare, whose edge
+ends a proxied request at ~100 s (HTTP 524; probes through
+xps.fortierlab.org on 2026-09-26: 88 s passed, 125 s gave 524) — well short
+of gunicorn's `--timeout 300`. "300 s covers it" was written for the DS+G
+Run Fit in 2026-09-22 and was true on the i9 and false through the public
+URL. A claim that a request fits inside a limit is measured through
+xps.fortierlab.org, not on 127.0.0.1. (Owner, 2026-09-27;
+`docs/findings/2026-09-26-public-request-ceiling.md`.)
+
 ---
 
 ## Lineshape Physics — Critical Rules
@@ -357,6 +368,34 @@ the page's `n_perturb: 3`: 2–75 s per fit (6–7-component C 1s models
 exhaust DE's evaluation budget in every search and are rescued by the
 refinement). It is not a gold standard: on one 3-component B 1s target it
 returned χ²ᵣ 1.92 where Trust-Region found 1.81.
+
+`basinhopping` follows THE SAME PATTERN since unit F2 (2026-09-26; owner
+decision; plan `docs/superpowers/plans/2026-09-26-f2-acceptance-holes.md`):
+`_basinhopping_candidate` — the search, then an unconditional
+`least_squares` refinement from its point under the request's bounds (the
+refinement's convergence is the verdict, no χ² comparison), then a
+competition with a `least_squares` fit from the same start (verified beats
+unverified, then the lower χ²), for the main fit, every perturbed restart and
+the required refit. Until then basinhopping always reported `success: true`
+(lmfit sets it before minimising and never reads scipy's result), and
+scipy's own flag is no verdict either: it marked 23 of 24 sampled committed
+targets failed (BFGS "precision loss") at points equal to Trust-Region's
+minimum (median relative χ²ᵣ difference 1e-9). An unverifiable search is
+`success: false`. Basinhopping runs NO perturbed restarts (a global search:
+with the page's `n_perturb` 3 they took 14 of 16 multi-component targets past
+the 300 s server timeout, median 386 s, for χ²ᵣ identical to 1e-8; without
+them median 96 s, max 256 s). NOTE: the public URL's ceiling is lower —
+Cloudflare returns 524 between 88 s and 125 s — so the largest basinhopping
+models still fail there
+(`docs/findings/2026-09-26-public-request-ceiling.md`, not yet addressed).
+
+**Determinacy (unit F2).** `run_fit` refuses a model with at least as many
+free parameters as data points (`ValueError`, HTTP 400, "not determined by
+these data: N free parameters for M data points"), and so does the local
+engine: lmfit divides by max(1, nfree) and the F tests clamp dof to 1, so such
+a model read as a near-perfect, fully supported fit (6 points, 2 GL
+components: χ²ᵣ 2.8e-6, both "supported"). A count, not a threshold; one
+degree of freedom is fitted as before.
 
 **Reproducibility (2026-09-21).** Every random draw in `run_fit` — the
 `n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
@@ -616,7 +655,13 @@ only if it converged. `runFitLocal` works on a copy and commits only on
 success, returning `{success, iterations, chiReduced}`; `runFit`
 treats `success !== true` from `/api/fit` as a failed fit and falls back to
 the local engine only on a transport failure, never on a server-side
-error. A RESULT IS DISCARDED IF THE MODEL WAS EDITED WHILE THE FIT WAS RUNNING
+error. A 2xx body that was READ but is not JSON is the server's reply, not a
+transport failure (unit F2): `_readFitReply` reads the text (a failure there
+is transport) and parses it; a NaN / Infinity token (Flask serialises a σ it
+could not compute that way) or any unparseable body is a failed fit with its
+message, for Run Fit and Auto-Fit alike — until F2 it sent Run Fit to the
+local engine, replacing the server's converged result, verdicts and starts
+evidence with a starting point. A RESULT IS DISCARDED IF THE MODEL WAS EDITED WHILE THE FIT WAS RUNNING
 (2026-09-22; a correctness fix for EVERY Run Fit, shipped with the
 scattered-starts check but independent of it). The peak controls stay
 editable during a fit. `runFit` captures the model-plus-context key
@@ -749,7 +794,10 @@ mean "zero" independently of the data):
   to machine precision F is meaningless and a truly redundant component can
   read "required"; real data never fit to machine precision) and returns
   `required: {required, f, chi2_with, chi2_without_refit, refit_converged}`
-  with the same F ≥ 10 rule. `applyAutoFitResult` refuses a supported-but-
+  with the same F ≥ 10 rule (a refit that did not converge gives NO verdict
+  since unit F2 — `required: null, refit_converged: false` — and Auto-Fit
+  refuses that anchor too: a refit stopped early had read "required", F 992,
+  for a redundant anchor). `applyAutoFitResult` refuses a supported-but-
   not-required anchor exactly like an unsupported one, before any
   charge-correction input is touched ("refitting the other components
   without it fits the data as well"); the anchor id is captured with the

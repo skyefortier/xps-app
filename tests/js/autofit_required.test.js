@@ -46,7 +46,7 @@ test('a supported but NOT required anchor is refused before any charge-correctio
   assert.match(e.calls.notify[0][1], /No charge correction was derived/);
 });
 
-test('a required anchor proceeds; a check that did not run (older server, error, non-converged) does not block', () => {
+test('a required anchor proceeds; a check that did not RUN (older server, error, main fit not converged) does not block', () => {
   for (const required of [{ ran: true, required: true, f: 6120 }, null, undefined, { ran: false, reason: 'error', error: 'x' }]) {
     const e = env(peaks());
     assert.throws(() => e.f({ ...real.json, required }, 284.9, {}), x => x === PAST, JSON.stringify(required));
@@ -63,4 +63,23 @@ test('the request asks for the Graphite anchor by id, and the gate precedes the 
   const gate = apply.indexOf('req.required === false');
   assert.ok(gate > 0 && gate < apply.indexOf('_autoFitGraphiteIsSupported(gPeak, json)'));
   for (const m of ["getElementById('cc-method')", "getElementById('cc-obs')", 'updateChargeCorrection()']) assert.ok(apply.indexOf(m) > gate, m);
+});
+
+// F2 (2026-09-26): an unconverged refit establishes nothing — the server sends
+// required: null with refit_converged: false; Auto-Fit refuses rather than let
+// an anchor whose necessity is unknown set the charge reference.
+test('a refit that did not converge: no verdict, and Auto-Fit refuses before any charge-correction input is touched', () => {
+  const e = env(peaks());
+  const ok = e.f({ ...real.json, required: { ran: true, required: null, f: null, chi2_with: 1.2, chi2_without_refit: 3.4,
+                                             refit_converged: false, reason: 'refit_not_converged' } }, 284.9, {});
+  assert.strictEqual(ok, false);
+  assert.strictEqual(e.calls.cc, 0);
+  assert.deepStrictEqual(e.dom, {});
+  assert.strictEqual(e.calls.notify.length, 1);
+  assert.strictEqual(e.calls.notify[0][0], 'red');
+  assert.match(e.calls.notify[0][1], /could not be established that the data require the Graphite component/);
+  // the old server shape (a verdict computed from an unconverged refit) is refused too
+  const old = env(peaks());
+  assert.strictEqual(old.f({ ...real.json, required: { ran: true, required: true, f: 992, refit_converged: false } }, 284.9, {}), false);
+  assert.strictEqual(old.calls.cc, 0);
 });
