@@ -301,6 +301,31 @@ test('the refresh re-renders Results only when its rendered state differs', () =
   assert.strictEqual(env.renders, 2, 'current again');
 });
 
+// Unit 2: Auto-Fit starts the fit and polls for it (_serverFitJob). Each
+// sandbox scripts the single /api/fit reply it always did; pollify serves it
+// as a finished job, and runs the poll loop's short waits at once (the
+// 2-minute Auto-Fit timer is left pending, as before).
+const POLL_SRC = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
+  'const _runningFitJobs = new Set();', ...['_cancelFitJob', '_fitHttpError', '_serverFitJob'].map(extractFn)].join('\n');
+function pollify(deps) {
+  const inner = deps.fetch;
+  let reply = null;
+  deps.fetch = async (url, init) => {
+    if (url === '/api/fit/start') {
+      const r = await inner('/api/fit', init);
+      if (r && r.ok === false) return r;
+      reply = r;
+      return { ok: true, status: 202, text: async () => JSON.stringify({ job_id: 'job-1' }) };
+    }
+    if (url.startsWith('/api/fit/progress/')) return { ok: true, status: 200, text: async () => '{"status": "done", "result": ' + (await reply.text()) + '}' };
+    if (url.startsWith('/api/fit/cancel/')) return { ok: true, status: 200, json: async () => ({}) };
+    return inner(url, init);
+  };
+  deps.setTimeout = (f, ms) => { if (!(ms >= 60000)) f(); return 1; };
+  deps.DOMException = class extends Error { constructor(m, n) { super(m); this.name = n; } };
+  return deps;
+}
+
 // ── Codex round 1 ───────────────────────────────────────────────────────────
 function keyFns() {
   const src = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n')
@@ -379,7 +404,7 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
       fetch: async () => ({ text: async () => JSON.stringify({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
       applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true };
     const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
-    await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
+    await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
     return out;
   };
   const edited = await run(true);
@@ -424,7 +449,7 @@ test('F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply mes
     fetch: async () => ({ text: async () => '{"success": true, "statistics": {"reduced_chi_square": NaN}}' }),
     applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
   const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
-  await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
+  await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);
   assert.ok(out.notes.some(([m, k]) => k === 'red' && /^Auto-fit failed: .*non-finite number/.test(m)), JSON.stringify(out.notes));
@@ -451,7 +476,7 @@ for (const [label, reply, expect] of [
     fetch: async () => reply,
     applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
   const src = constants + '\n' + ['runAutoFitC1sGraphite', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
-  await new Function(...Object.keys(deps), src + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
+  await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);
   assert.ok(out.notes.some(([m, k]) => k === 'red' && expect.test(m)), JSON.stringify(out.notes));

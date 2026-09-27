@@ -31,6 +31,32 @@ function extractFn(name) {
   assert.fail('unbalanced ' + name);
 }
 
+// Unit 2: Run Fit starts the fit and polls for it (_serverFitJob). These
+// tests script the single /api/fit reply they always did; jobAdapter serves
+// that reply as a finished job (start -> 202 + id; progress -> done + result),
+// and a start that throws is still a transport failure.
+const POLL_SRC = [constLineOf('FIT_POLL_MS'), constLineOf('FIT_POLL_TRANSPORT_RETRIES'), constLineOf('FIT_HEARTBEAT_LOST_SEC'),
+  'const _runningFitJobs = new Set();', ...['_cancelFitJob', '_fitHttpError', '_serverFitJob'].map(n => extractFn(n))].join('\n');
+function constLineOf(n) { const l = lines.find(x => x.startsWith('const ' + n)); assert.ok(l, n); return l; }
+function jobAdapter(fetchImpl) {
+  let reply = null;
+  return async (url, init) => {
+    if (url === '/api/fit/start') {
+      const r = await fetchImpl('/api/fit', init);
+      if (r && r.ok === false) return r;
+      reply = r;
+      return { ok: true, status: 202, text: async () => JSON.stringify({ job_id: 'job-1' }) };
+    }
+    if (url.startsWith('/api/fit/progress/')) {
+      const r = reply;
+      return { ok: true, status: 200, text: async () => '{"status": "done", "result": ' + (await r.text()) + '}' };
+    }
+    if (url.startsWith('/api/fit/cancel/')) return { ok: true, status: 200, json: async () => ({}) };
+    return fetchImpl(url, init);
+  };
+}
+const immediate = f => { f(); return 0; };
+
 function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
   const dom = {};
   const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, disabled: false,
@@ -41,14 +67,14 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
   const owner = { id: 7 };
   const calls = { notify: [], local: 0, applied: 0 };
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
-  const factory = new Function('document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n') + '\n' + POLL_SRC;
+  const factory = new Function('setTimeout', 'document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
     '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab',
     src + '\nreturn { runFit };');
   const noop = () => {};
-  const { runFit } = factory(document, state, withText(fetchImpl), uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
+  const { runFit } = factory(immediate, document, state, jobAdapter(withText(fetchImpl)), uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
     noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
     b => b.map(() => 0), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
     () => 0.1, '', noop, noop, noop, noop, noop, noop,
@@ -104,7 +130,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   failing.calls.local = 0;
   // rebuild with a failing runFitLocal
   const dom = failing.dom;
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n');
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n') + '\n' + POLL_SRC;
   const noop = () => {};
   const owner = { id: 1 };
   const state = failing.state;
@@ -679,4 +705,29 @@ test('a 200 reply that is not JSON at all is a failed fit too; a body that canno
   const dropped = makeEnv({ fetchImpl: async () => ({ ok: true, status: 200, text: async () => { throw new TypeError('network error'); } }) });
   await dropped.runFit();
   assert.equal(dropped.calls.local, 1, 'the connection dropped while reading: the local fallback, as before');
+});
+
+test('the non-finite diagnosis looks at TOKENS: "NaN" inside a string is a malformed reply, not a non-finite number (Codex round 1)', async () => {
+  const read = new Function(extractFn('_readFitReply') + '\nreturn _readFitReply;')();
+  const reply = t => ({ text: async () => t });
+  await assert.rejects(read(reply('{"success":true,"message":"contains NaN in label"')), e => e.unreadableReply && /could not be read/.test(e.message));
+  await assert.rejects(read(reply('{"a": NaN, "m": "x"}')), e => e.unreadableReply && /non-finite number/.test(e.message));
+  await assert.rejects(read(reply('{"m": "say \\"NaN\\"", "v": [1, -Infinity]}')), e => /non-finite number/.test(e.message));
+  assert.deepStrictEqual(await read(reply('{"m":"NaN in a label"}')), { m: 'NaN in a label' });
+});
+
+test('the token scan is linear and keeps a truncated string a string (Codex round 2)', async () => {
+  const read = new Function(extractFn('_readFitReply') + '\nreturn _readFitReply;')();
+  const reply = t => ({ text: async () => t });
+  // a body cut off INSIDE a string: the word is string content, not a token
+  await assert.rejects(read(reply('{"message":"contains NaN in label')), e => e.unreadableReply && /could not be read/.test(e.message));
+  // the round-2 stress case: an unterminated string of escaped quotes, 128 KB
+  const big = '{"m":"' + '\\"'.repeat(64000);
+  const t0 = Date.now();
+  await assert.rejects(read(reply(big)), e => e.unreadableReply && /could not be read/.test(e.message));
+  assert.ok(Date.now() - t0 < 500, `took ${Date.now() - t0} ms`);
+  // tokens still found in any position, incl. after an escaped quote inside a string
+  await assert.rejects(read(reply('{"a":"x\\"y","b":NaN}')), e => /non-finite number/.test(e.message));
+  await assert.rejects(read(reply('[-Infinity]')), e => /non-finite number/.test(e.message));
+  await assert.rejects(read(reply('{"a":1,"b":Infinity}')), e => /non-finite number/.test(e.message));
 });

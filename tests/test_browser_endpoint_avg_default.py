@@ -119,7 +119,7 @@ def test_fresh_tab_defaults_to_3_and_the_fit_request_carries_it(browser, server)
             return { tabUi: tabManager._getTab(tabManager.activeId).ui.endpointAvg,
                      dom: document.getElementById('bg-endpoint-avg').value }; }""")
         assert ui == {"tabUi": "3", "dom": "3"}, ui
-        with pg.expect_request("**/api/fit", timeout=30000) as req:
+        with pg.expect_request("**/api/fit/start", timeout=30000) as req:   # unit 2: the same request body, started then polled
             pg.evaluate("() => { runFit(); }")
         assert req.value.post_data_json["background"]["endpoint_avg"] == 3
         pg.wait_for_timeout(300)
