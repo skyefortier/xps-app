@@ -6,6 +6,29 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-26 — statistics after an edit belong to the previous model (`fix-stale-statistics`, sweep unit F1)
+
+- **Release note:** statistics now follow the model they came from. After
+  any edit to a component, a lock, the background, the ROI, the anchors or
+  the charge correction — or a Find Peaks apply / undo that keeps an older
+  result — the previous fit's χ², RMSE, R-factor and uncertainties are
+  marked as belonging to the previous model and are not shown, exported or
+  drawn as the fit (the Results panel says so; exports carry a WARNING;
+  saves record it). Undo back to the fitted values and they return.
+- **Every project saved before this release** shows its statistics with a
+  note that they cannot be confirmed to describe the saved model, on every
+  tab, until Run Fit is pressed (owner: the fix is legacy verification in
+  the sealed record's adapter, logged in its memo).
+- **Auto-Fit, and a Run Fit that falls back to the in-page engine, now
+  discard a result whose model was edited while it ran**, as Run Fit already
+  did for server results.
+- One mechanism: the step (b) fit key, now stamped by every result creator;
+  keys compared with each form field read the way its consumer reads it
+  (new design rule "Two readings of one field" in CLAUDE.md).
+- Codex: round 1 NO-GO ×2 (7 findings), round 2 NO-GO ×2 (2), round 3 GO ×2;
+  Python 994 passed / 7 skipped; JS 440 / 438 pass / 2 todo; browser-checked
+  on :5151 and in production.
+
 ## 2026-09-25 — LA's m continuous on the page; held exactly by the local engine (`fix-cam-continuous`)
 
 - **Release note:** LA(α, β, m) components are now drawn, integrated and
