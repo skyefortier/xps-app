@@ -68,3 +68,18 @@ inactive id a mutation could miss (`tabs[tabs.length − 1] || …`, `tabs[1] ||
 …`, `_getTab('inactive') || …` passed); it now runs both tab orders × both
 inactive ids, each caught. **Ready for deploy** (GO ×2 at rounds 1–3; the
 round-3 fix is test-only).
+
+## Rebuilt onto F2 (2026-09-27, overnight)
+
+Unit 2 (`fix-fit-start-poll`) was parked at its round-4 limit, and the
+original F3 branch `fix-noise-floor-scale-free` sits on a unit-2 merge
+(07e0839), so it could not deploy fast-forward without unit 2. This branch,
+`fix-noise-floor-on-f2`, is F3's four commits cherry-picked onto F2
+(`fix-acceptance-holes` 3d38d73) without conflicts. `git diff 07e0839
+fix-noise-floor-scale-free` and `git diff fix-acceptance-holes
+fix-noise-floor-on-f2` have the same patch-id (ec9694d8…): the same
+changes, and no unit-2 code. The Codex verdicts (GO ×2 in rounds 1–3) were
+given on those changes. The original branch is kept as is. Suite on this
+branch: JS 459 tests, 457 pass, 2 todo (by design); pytest 1006 passed,
+7 skipped (fewer than on the unit-2 base: unit 2's own tests are absent).
+READY FOR DEPLOY (after F2).
