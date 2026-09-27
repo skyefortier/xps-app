@@ -911,8 +911,10 @@ invariants worth knowing before touching the code:
 - **`+ Stack` / `+ Add Spectrum ▾`** (chart toolbar): create a new
   empty stack and add open spectrum tabs to the active stack.
 - **Auto-Fit C1s Graphite** (Actions menu): one-click C1s peak model
-  + charge correction. Enabled only when the active ROI midpoint is in
-  270–315 eV.
+  + charge correction. Enabled only when the midpoint of the DATA the fit
+  would use is in 270–315 eV — for the active tab the live selection
+  `getROIData()` returns, never the tab record's stale window or a typed
+  window reaching past the data (`isC1sTab`, unit F3 2026-09-27, sweep M5).
 - **ROI past the data / centre outside the data** (2026-09-25, warn only):
   `getROIData()` has always clamped an ROI to the data it selects; the page
   now SAYS so under the ROI fields ("ROI extends past your data — clipped

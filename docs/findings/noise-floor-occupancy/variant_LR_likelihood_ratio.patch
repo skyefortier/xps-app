@@ -1,0 +1,201 @@
+diff --git a/autofit/confidence.py b/autofit/confidence.py
+index bb74778..ab2897f 100644
+--- a/autofit/confidence.py
++++ b/autofit/confidence.py
+@@ -83,6 +83,9 @@ def _max_correlation(report: ModelReport, role: str) -> Optional[float]:
+     return float(np.max(sub)) if sub.size else None
+ 
+ 
++from fitting import SUPPORT_MIN_F as _SUPPORT_MIN_F  # F3: one threshold, the server's
++
++
+ def build_confidence_vector(
+     report: ModelReport,
+     role: str,
+@@ -96,12 +99,19 @@ def build_confidence_vector(
+                 if h.startswith(f"{role}:")]
+ 
+     amplitude = float(comp.amplitude) if comp is not None else None
+-    floor = detection_floor_multiple * noise_floor
++    # F3 (2026-09-27): detectability is the support F test on the fit
++    # (fitting._component_support, the server's statistic), not multiples of an
++    # absolute 1-count floor. above_floor = supported (F >= SUPPORT_MIN_F);
++    # present_but_poorly_constrained = the fit gains from it but not
++    # significantly; not_confidently_detected = removing it costs nothing.
++    support = getattr(comp, "support", None) if comp is not None else None
+     if amplitude is None:
+         detect_status = "not_fitted"
+-    elif amplitude >= floor:
++    elif support is None:
++        detect_status = "above_floor" if amplitude > 0 else "not_confidently_detected"
++    elif support.get("supported"):
+         detect_status = "above_floor"
+-    elif amplitude > noise_floor:
++    elif (support.get("delta_chi2") or 0.0) > 0:
+         detect_status = "present_but_poorly_constrained"
+     else:
+         detect_status = "not_confidently_detected"
+@@ -122,9 +132,9 @@ def build_confidence_vector(
+         },
+         "detectability": {
+             "amplitude": amplitude,
+-            "noise_floor": noise_floor,
+-            "floor_multiple": detection_floor_multiple,
+-            "floor_multiple_is_tunable": True,
++            "basis": "support_f_test",       # F3: fitting._component_support, F >= SUPPORT_MIN_F
++            "support_f": (support or {}).get("f"),
++            "support_min_f": _SUPPORT_MIN_F,
+             "status": detect_status,
+         },
+         "identifiability": {
+diff --git a/autofit/engine.py b/autofit/engine.py
+index dbf4fd7..e1a729e 100644
+--- a/autofit/engine.py
++++ b/autofit/engine.py
+@@ -36,6 +36,7 @@ from typing import Callable, Optional
+ 
+ import numpy as np
+ from lmfit import Model, Parameters
++import fitting as _fitting  # F3: the server's support statistic, one definition
+ from lmfit.model import ModelResult
+ from scipy.integrate import trapezoid
+ 
+@@ -637,6 +638,17 @@ class FittedComponent:
+     amplitude: float
+     shape_params: dict
+     line_shape: Optional[LineShape] = None
++    # Unit F3 (2026-09-27): does the fit that produced this component need it?
++    # fitting._component_support on that fit — with the other components held
++    # as fitted, removing this one must make the fit significantly worse (F >=
++    # SUPPORT_MIN_F). The occupancy decisions (slot matching, the proposal
++    # gate, detectability) read this instead of an absolute amplitude floor
++    # of 1 count, which judged a slot "occupied" at amplitude 1.5 and not at
++    # 0.5 whatever the data's scale (sweep M9; design rule "thresholds on
++    # data-scaled quantities fail"). None only where no fit is behind the
++    # component (hand-built in tests): then occupancy falls back to amplitude
++    # > 0, a sign test.
++    support: Optional[dict] = None
+ 
+ 
+ @dataclass
+@@ -652,10 +664,50 @@ class FitOutcome:
+     boundary_hits: list[str] = field(default_factory=list)
+ 
+ 
++def _component_supports(result: ModelResult) -> dict[str, dict]:
++    """``fitting._component_support`` for every peak component of an lmfit
++    result, keyed by prefix — the one definition the server uses (step (b)).
++    Empty when the result carries no data (never raises: occupancy then falls
++    back to the sign test)."""
++    try:
++        comps = result.eval_components()
++        data = np.asarray(result.data, float)
++        fitted = np.asarray(result.best_fit, float)
++        w = result.weights if result.weights is not None else np.ones_like(data)
++        w = np.broadcast_to(np.asarray(w, float), data.shape)
++        n_free_total = int(result.nvarys)
++    except Exception:
++        return {}
++    out = {}
++    for prefix, comp_y in comps.items():
++        n_free_comp = sum(1 for n, par in result.params.items()
++                          if n.startswith(prefix) and par.vary and par.expr is None)
++        try:
++            out[prefix] = _fitting._component_support(data, fitted, np.asarray(comp_y, float), w,
++                                                      n_free_comp, n_free_total)
++            out[prefix]["_p"] = max(1, n_free_comp)
++        except Exception:
++            continue
++    return out
++
++
++def _occupies(comp: "FittedComponent") -> bool:
++    """A slot is occupied by a component the data support (F3). No threshold
++    on any data-scaled quantity: the support F test where a fit is behind the
++    component, else the sign of its amplitude."""
++    if comp.support is not None:
++        # PROBE (likelihood-ratio variant, not for shipping): the Poisson-weighted
++        # chi-square gain per free parameter, NOT normalised by the fit's misfit
++        d = comp.support.get("delta_chi2") or 0.0
++        return bool(d > 0 and d / max(1, comp.support.get("_p", 1)) >= _fitting.SUPPORT_MIN_F)
++    return comp.amplitude > 0
++
++
+ def _extract_fitted_components(
+     result: ModelResult, model: CandidateModel
+ ) -> list[FittedComponent]:
+     out: list[FittedComponent] = []
++    supports = _component_supports(result)
+     for slot in model.slots:
+         prefix = _slot_prefix(slot.role)
+         pars = result.params
+@@ -676,6 +728,7 @@ def _extract_fitted_components(
+             slot_role=slot.role, position=center, fwhm=fwhm,
+             amplitude=amplitude, shape_params=shape_params,
+             line_shape=slot.line_shape,
++            support=supports.get(prefix),
+         ))
+     return out
+ 
+@@ -1055,7 +1108,7 @@ def match_components_to_slots(
+                                       (bound_overrides or {}).get(slot.role))
+         return (lo <= comp.position <= hi
+                 and slot.fwhm_range[0] <= comp.fwhm <= slot.fwhm_range[1]
+-                and comp.amplitude > noise_floor)
++                and _occupies(comp))       # F3: supported by the data, not amplitude > 1 count
+ 
+     def _window_center(slot: ComponentSlot) -> float:
+         # NEVER the widened bound (Codex-caught, round 2): this is a
+@@ -1077,7 +1130,7 @@ def match_components_to_slots(
+             orphans.append(FittedComponent(
+                 slot_role="unmatched", position=comp.position, fwhm=comp.fwhm,
+                 amplitude=comp.amplitude, shape_params=comp.shape_params,
+-                line_shape=comp.line_shape,
++                line_shape=comp.line_shape, support=comp.support,
+             ))
+             continue
+ 
+@@ -1095,7 +1148,7 @@ def match_components_to_slots(
+         claimed = FittedComponent(
+             slot_role=best_slot.role, position=comp.position, fwhm=comp.fwhm,
+             amplitude=comp.amplitude, shape_params=comp.shape_params,
+-            line_shape=comp.line_shape,
++            line_shape=comp.line_shape, support=comp.support,
+         )
+         if incumbent is None:
+             slot_map[best_slot.role] = claimed
+@@ -2229,8 +2282,10 @@ def _attempt_proposal(
+     # to a wall (Codex fwhm-cap review, run B BLOCKER).
+     width_cap_hit = f"{spec.role}:fwhm@max"
+     pr.boundary_hits = _proposed_slot_pegs(primary, spec.role)
+-    if comp.amplitude <= noise_floor:
+-        return _fast(f"amplitude {comp.amplitude:.1f} ≤ noise_floor {noise_floor:.1f}")
++    if not _occupies(comp):
++        f = (comp.support or {}).get("f")
++        return _fast("not supported by the data (removing it does not make the fit significantly worse"
++                     + (f", F = {f:.2f} < {_fitting.SUPPORT_MIN_F:.0f}" if f is not None else "") + ")")
+     spurious_hits = [h for h in pr.boundary_hits if h != width_cap_hit]
+     if spurious_hits:
+         return _fast(f"proposed slot boundary pegs: {spurious_hits}")
+diff --git a/autofit/grammar.py b/autofit/grammar.py
+index c9a85cd..bed2606 100644
+--- a/autofit/grammar.py
++++ b/autofit/grammar.py
+@@ -181,11 +181,15 @@ class ComponentSlot:
+     broad_justification: Optional[str] = None
+ 
+     def contains(self, be: float, fwhm: float, amplitude: float,
+-                 noise_floor: float) -> bool:
++                 noise_floor: float = 0.0) -> bool:
++        # F3 (2026-09-27): occupancy is decided by the support F test on the
++        # fit (engine._occupies); this geometric check keeps only the sign of
++        # the amplitude. ``noise_floor`` is accepted and ignored (no caller in
++        # the engine passes it any more).
+         return (
+             self.be_window[0] <= be <= self.be_window[1]
+             and self.fwhm_range[0] <= fwhm <= self.fwhm_range[1]
+-            and amplitude > noise_floor
++            and amplitude > 0
+         )
+ 
+ 
