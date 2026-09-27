@@ -749,9 +749,10 @@ fits against) equal fitting.py's to 1e-6 of the intensity span on the tested
 cases — shirley, smart, smart_exp and tougaard on uniform and non-uniform
 grids, linear on uniform grids, endpoint averaging 1 and 10, and data that
 dip below the baseline (`tests/js/background_parity.test.js`, unit 4
-2026-09-27: the JS Shirley now runs fitting.py's iteration step for step —
-the straight line as the first guess, the net signal clamped at zero, the
-background kept when no net signal is left, the 1e-6 stop — and smart clamps
+2026-09-27: the JS Shirley now runs fitting.py's iteration operation for
+operation on an ascending copy — numpy's linspace start with the endpoint
+pinned exactly, the net signal clamped at zero, the background kept when no
+net signal is left, the 1e-6 stop; finite inputs — and smart clamps
 against the raw data; Task 4's S4 / S5; smart at averaging 10 was 1.2 % of
 the span away). Known gaps, pinned: `shirley_linear` (de-listed) diverges on
 descending grids; linear interpolates by index on the page and by energy on

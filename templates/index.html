@@ -4406,40 +4406,44 @@ function evalAllPeaks(beArray, peaks) {
 // BACKGROUND SUBTRACTION
 // ═══════════════════════════════════════════════════
 function shirleyBackground(be, intensity, maxIter) {
-  // fitting.shirley_background's iteration, step for step (unit 4, Codex
-  // round 1): the straight line between the endpoints as the first guess,
-  // the net signal clamped at zero (Proctor–Sherwood), the background KEPT
-  // when no net signal is left, and the same 1e-6 convergence stop. The
-  // clamp alone, on the old zero start and index-linear fallback, reached a
-  // different fixed point on data that dip below the baseline (33–58 % of the
-  // span on small cases). The array order does not matter: the cumulative
-  // integral runs to the array's end and the endpoints are the array's, which
-  // is fitting.py's ascending-copy form mirrored.
+  // fitting.shirley_background's iteration, OPERATION FOR OPERATION (unit 4,
+  // Codex rounds 1-2): an ASCENDING copy; the first guess is numpy's
+  // linspace — k·step + start, the last point pinned EXACTLY to the high-BE
+  // endpoint (an endpoint one rounding step off leaves a residue that becomes
+  // the whole integral: 50 % of the span on decimal data); the net signal
+  // clamped at zero; the cumulative integral from the high-BE end; the
+  // update b_high + ((b_low − b_high)·cum)/total in the same order; the
+  // background KEPT when no net signal is left; the 1e-6 stop; flipped back.
+  // Finite inputs (NaN / Infinity are not mirrored).
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-  const I0 = intensity[0], I1 = intensity[n - 1];
-  let bg = intensity.map((_, i) => I0 + (I1 - I0) * i / (n - 1));
+  const flipped = be[0] > be[n - 1];
+  const xs = flipped ? be.slice().reverse() : be.slice();
+  const ys = flipped ? intensity.slice().reverse() : intensity.slice();
+  const bLow = ys[0], bHigh = ys[n - 1];
+  const step = (bHigh - bLow) / (n - 1);
+  let B = new Array(n);
+  for (let k = 0; k < n; k++) B[k] = k * step + bLow;
+  B[n - 1] = bHigh;
+  const d = bLow - bHigh;
   for (let iter = 0; iter < maxIter; iter++) {
-    const cum = new Array(n).fill(0);            // cum[i] = ∫ net signal from point i to the array end
-    let sPrev = Math.max(intensity[n - 1] - bg[n - 1], 0);
-    for (let j = n - 2; j >= 0; j--) {
-      const sj = Math.max(intensity[j] - bg[j], 0);
-      cum[j] = cum[j + 1] + 0.5 * (sj + sPrev) * Math.abs(be[j + 1] - be[j]);
-      sPrev = sj;
-    }
+    const sig = new Array(n);
+    for (let k = 0; k < n; k++) sig[k] = Math.max(ys[k] - B[k], 0);
+    const cum = new Array(n).fill(0);
+    for (let k = n - 2; k >= 0; k--) cum[k] = cum[k + 1] + 0.5 * (sig[k] + sig[k + 1]) * (xs[k + 1] - xs[k]);
     const total = cum[0];
-    if (!(total > 0)) break;                     // no net signal left: keep the current background
+    if (total <= 0) break;                       // no net signal left: keep the current background
     let maxChange = 0;
     const next = new Array(n);
-    for (let i = 0; i < n; i++) {
-      next[i] = I1 + (I0 - I1) * cum[i] / total;
-      const d = Math.abs(next[i] - bg[i]);
-      if (d > maxChange) maxChange = d;
+    for (let k = 0; k < n; k++) {
+      next[k] = bHigh + (d * cum[k]) / total;
+      const c = Math.abs(next[k] - B[k]);
+      if (c > maxChange) maxChange = c;
     }
-    bg = next;
+    B = next;
     if (maxChange < 1e-6) break;                 // fitting.py's tolerance
   }
-  return bg;
+  return flipped ? B.reverse() : B;
 }
 
 function smartBackground(be, intensity, maxIter, rawIntensity) {

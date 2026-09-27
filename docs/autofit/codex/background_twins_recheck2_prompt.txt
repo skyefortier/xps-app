@@ -1,0 +1,9 @@
+Re-review unit 4 (the background twins), round 3: branch fix-background-twins. The round-2 fix is the latest commit (git diff HEAD~1..HEAD): shirleyBackground now mirrors fitting.shirley_background operation for operation on an ascending copy (numpy's linspace start with the last point pinned exactly; the same integral direction, update order, zero-integral break and 1e-6 stop; flipped back), plus six decimal below-baseline parity cases in both directions. The whole unit is git diff 895f323..HEAD. Earlier verdicts: docs/autofit/codex/background_twins_verdict_run{A,B}.md, background_twins_r2_verdict_run{A,B}.md; plan docs/superpowers/plans/2026-09-27-background-twins.md section 4. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Operation-for-operation equality with fitting.shirley_background for FINITE inputs: numpy linspace's exact arithmetic (arange(n) * step + start; the last point set to stop; n = 2), the ascending copy and flip for descending input, equal energies, the cumulative loop, the update expression's evaluation order, np.max(np.abs(B - B_prev)) < tol, n_iter vs maxIter (the UI's count; 0 and 1), endpoint averaging applied before the flip on both sides. Search for any input where the converged JS and Python differ by more than rounding — randomised decimal data, both directions, uniform and non-uniform grids.
+b. smart (raw clamp) and every caller; nothing else depends on the old iteration.
+c. The tests: the new decimal cases fail on f543afa's page; nothing vacuous.
+d. Docs vs code.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

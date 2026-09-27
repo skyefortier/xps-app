@@ -89,8 +89,19 @@ const BELOW = [
   { be: [3.5, 1.1, 1, 0], inten: [6, 7, 13, 19] },
   { be: [3, 2, 1, 0], inten: [100, 107, 120, 127] },
   { be: [0, 1, 3, 6, 10], inten: [10, 5, 5, 17, 20] },
+  // round 2: decimal endpoints — a start line one rounding step off the
+  // endpoint left a residue that became the whole integral (50 % of the span)
+  { be: [0, 1, 2], inten: [1.1, 0.5, 0.2] },
+  { be: [2, 1, 0], inten: [0.2, 0.5, 1.1] },
+  { be: [2, 1, 0], inten: [10.2, 4, 1.1] },
+  { be: [0, 1, 2], inten: [1.1, 4, 10.2] },
+  { be: [0.3, 0.7, 1.9, 2.2, 3.1], inten: [7.3, 2.1, 0.9, 3.3, 9.7] },
+  { be: [3.1, 2.2, 1.9, 0.7, 0.3], inten: [9.7, 3.3, 0.9, 2.1, 7.3] },
 ];
-test('below-baseline data: shirley and smart equal fitting.py at 5, 50 and 200 iterations (Codex round 1)', () => {
+// 5, 50 and 200 iterations: these small cases converge within 5 (fitting.py
+// runs to its 1e-6 tolerance; a count short of convergence is the UI's
+// iteration-count gap, Part 5 — not a different fixed point).
+test('below-baseline data, integer and decimal, both directions: shirley and smart equal fitting.py at 5, 50 and 200 iterations (Codex rounds 1-2)', () => {
   for (const method of ['shirley', 'smart']) {
     const server = py({ mode: 'bg', items: BELOW.map(c => ({ method, be: c.be, inten: c.inten, n_avg: 1 })) });
     BELOW.forEach((c, k) => {
@@ -117,4 +128,30 @@ test('KNOWN GAP (de-listed, not fixed): shirley_linear agrees on ascending grids
   assert.ok(desc.some(r => r.rel > 0.05), 'still diverges on descending grids: ' + desc.map(r => r.rel.toFixed(3)).join(', ') +
     ' — if this starts failing, the gap was closed; update the pin and CLAUDE.md');
   assert.match(html, /<option value="shirley_linear" disabled hidden/, 'shirley_linear stays de-listed (disabled, hidden; shown only for saved files that use it)');
+});
+
+test('randomised: 200 decimal spectra, uniform and non-uniform, both directions — shirley and smart equal fitting.py at convergence', () => {
+  let seed = 20260927;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const cases = [];
+  for (let c = 0; c < 200; c++) {
+    const n = 3 + Math.floor(rnd() * 40);
+    let x = 0;
+    const be = [], inten = [];
+    for (let i = 0; i < n; i++) {
+      x += c % 2 ? 0.1 + rnd() : 0.5;                    // odd cases: non-uniform steps
+      be.push(Math.round(x * 1000) / 1000);
+      inten.push(Math.round((5 + 20 * rnd() + (i === Math.floor(n / 2) ? 40 * rnd() : 0)) * 100) / 100);
+    }
+    if (c % 4 >= 2) { be.reverse(); inten.reverse(); }   // half descending
+    cases.push({ be, inten });
+  }
+  for (const method of ['shirley', 'smart']) {
+    const server = py({ mode: 'bg', items: cases.map(c => ({ method, be: c.be, inten: c.inten, n_avg: 1 })) });
+    cases.forEach((c, k) => {
+      const js = jsBg(c.be, c.inten, method, 1);
+      const rel = maxRelDiff(js, server[k], span(c.inten));
+      assert.ok(rel <= TOL, `${method} case ${k} (n ${c.be.length}): ${rel.toExponential(2)} of the span`);
+    });
+  }
 });
