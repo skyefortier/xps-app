@@ -119,3 +119,23 @@ measured the round-2 scanner at ~4 ms on the 128 KB stress case, < 124 ms on
 before `Infinity` counted without a boundary before it (`x-Infinity`,
 `--Infinity` read "non-finite number"); the sign now needs a boundary too.
 Regression test. Round 4 confirms the fix.
+
+**Round 4 — GO ×2, no findings** (`f2_acceptance_holes_r4_verdict_run{A,B}.md`;
+500+ scanner probes each, 10 MB malformed bodies in ≤ 129 ms, the round-3
+regression test fails on HEAD~1). **Ready for deploy.**
+
+## 6. Release note
+
+- Basinhopping results are now verified: the search is refined to a
+  converged Trust-Region fit and competes with a plain Trust-Region fit from
+  the same start, so it is never worse than the default method; it no longer
+  runs perturbed restarts (they quadrupled its time for no change in χ²ᵣ).
+- A server reply containing a non-finite number (an uncertainty that could
+  not be computed) is a failed fit with a message — it used to switch to the
+  in-page engine silently.
+- A model with at least as many free parameters as data points is refused
+  with the counts in the message (it used to read as a near-perfect,
+  "supported" fit).
+- Auto-Fit refuses its Graphite anchor when the refit without it did not
+  converge, and reports an HTTP failure (e.g. a Cloudflare 524) with its
+  status instead of "the server's reply could not be read".
