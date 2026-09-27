@@ -36,6 +36,12 @@ basinhopping on the large C 1s models takes 183–256 s even without restarts.
   returned. `/api/fit/progress/<id>` reads the record (short); `/api/fit/cancel/<id>`
   marks it cancelled (short). The synchronous `/api/fit` stays for scripts,
   tests and the Python twins.
+- **Concurrency (round 1).** One fit runs per worker process at a time; the
+  rest wait `queued`; at most 6 running + queued per process, beyond that a
+  503. With production's 4 workers, at most 4 concurrent fits — the bound the
+  synchronous route had.
+- **Supersede (round 1).** A new start for the same tab cancels that tab's
+  previous job; the superseded loop returns quietly.
 - **Heartbeat.** A second daemon thread per job rewrites a heartbeat time
   every 2 s while the fit thread is alive; a poll reports `heartbeat_age`. A
   killed or recycled worker takes both threads down, the heartbeat stops, and
@@ -163,5 +169,14 @@ minutes; DevTools → Network: every `/api/fit/*` request short, no 524.
 
 ## 6. Codex rounds
 
-(filled in as they run)
+**Round 1 — NO-GO ×2** (`fit_start_poll_verdict_run{A,B}.md`; the same four
+findings in both):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR: a re-run did not supersede — Ctrl/Cmd+F calls `runFit` past the disabled button; two jobs for one tab, the older could finish first and get the newer discarded as "model edited" | `_fitJobByOwner` (WeakMap keyed by the tab record): a new start for the same tab cancels the previous job on the server; the superseded loop returns `{ _abandoned: 'superseded' }` and its caller does NOTHING (the new fit owns spinner and result; Auto-Fit does not roll back, which would overwrite the new fit's model). Run Fit and Auto-Fit both pass their tab as `owner`. |
+| 2 | MAJOR: unbounded concurrency — a thread per start, where four sync workers used to bound concurrent fits at four | each worker process runs at most `FIT_JOB_MAX_RUNNING` = 1 fit (a semaphore); the rest wait `queued` (heartbeating, cancellable, a queued job cancelled or abandoned never runs); at most `FIT_JOB_MAX_ADMITTED` = 6 running + queued per process, beyond that `/api/fit/start` answers 503 "The server is busy with other fits" at once (the page shows it as a failed fit). Production: ≤ 4 concurrent fits, as before. |
+| 3 | MINOR: a cancellation observed mid-fit could surface as the solver's own error (AttributeError from Levenberg-Marquardt, RuntimeError from Nelder-Mead / DE) — an abandoned job became `error` 500 / 422 | `run_fit(cancel=)` turns any exception raised after cancellation was observed into `FitCancelled`; unrelated errors propagate unchanged |
+| 4 | MINOR: `public_fit_poll_check.py` could poll a dead worker's record forever | a heartbeat older than 30 s is FAIL "lost"; a 20-minute deadline per target (the job is cancelled) |
+
 

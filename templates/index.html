@@ -7432,7 +7432,7 @@ async function _readFitReply(resp) {
         }
         if (ch === '"') { inStr = true; continue; }
         if (ch === 'N' && t.startsWith('NaN', i) && bound(t[i - 1]) && bound(t[i + 3])) return true;
-        if (ch === 'I' && t.startsWith('Infinity', i) && (bound(t[i - 1]) || t[i - 1] === '-') && bound(t[i + 8])) return true;
+        if (ch === 'I' && t.startsWith('Infinity', i) && (bound(t[i - 1]) || (t[i - 1] === '-' && bound(t[i - 2]))) && bound(t[i + 8])) return true;   // a sign only after a boundary (round 3)
       }
       return false;
     })(text);
@@ -7467,6 +7467,13 @@ const FIT_POLL_MS = 500;
 const FIT_POLL_TRANSPORT_RETRIES = 5;
 const FIT_HEARTBEAT_LOST_SEC = 30;
 const _runningFitJobs = new Set();
+// The current server fit of each tab record (unit 2, Codex round 1): a new
+// start for the same tab — Ctrl/Cmd+F bypasses the disabled button, and
+// Auto-Fit and Run Fit share a tab — SUPERSEDES the previous job: it is
+// cancelled on the server and its loop returns { _abandoned: 'superseded' },
+// on which the caller does nothing at all (the new fit owns the spinner and
+// the result).
+const _fitJobByOwner = new WeakMap();
 function _cancelFitJob(jobId) {
   try { fetch('/api/fit/cancel/' + encodeURIComponent(jobId), { method: 'POST', keepalive: true }).catch(() => {}); } catch (_) { /* best effort */ }
 }
@@ -7501,6 +7508,11 @@ async function _serverFitJob(fitReq, guard) {
   const jobId = started && started.job_id;
   if (!jobId) throw _fitHttpError(resp.status, 'The server did not start the fit (no job id).');
   _runningFitJobs.add(jobId);
+  if (guard.owner) {
+    const prev = _fitJobByOwner.get(guard.owner);
+    if (prev && prev !== jobId) _cancelFitJob(prev);
+    _fitJobByOwner.set(guard.owner, jobId);
+  }
   let misses = 0;
   try {
     while (true) {
@@ -7509,6 +7521,7 @@ async function _serverFitJob(fitReq, guard) {
         _cancelFitJob(jobId);
         throw guard.signal.reason || new DOMException('aborted', 'AbortError');
       }
+      if (guard.owner && _fitJobByOwner.get(guard.owner) !== jobId) return { _abandoned: 'superseded' };   // its successor cancelled it
       const why = guard.abandoned ? guard.abandoned() : null;
       if (why) { _cancelFitJob(jobId); return { _abandoned: why }; }
       let pr, rec;
@@ -7552,6 +7565,7 @@ async function _serverFitJob(fitReq, guard) {
     }
   } finally {
     _runningFitJobs.delete(jobId);
+    if (guard.owner && _fitJobByOwner.get(guard.owner) === jobId) _fitJobByOwner.delete(guard.owner);
   }
 }
 
@@ -7681,10 +7695,15 @@ async function runAutoFitC1sGraphite() {
         // reference of a whole spectrum (see applyAutoFitResult).
         require_component: anchorId,
     }, {
+      owner: fittingTab,
       signal: ctrl.signal,
       abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxAtRequest) ? 'model' : null)),
     });
     clearTimeout(timer);
+    // superseded by a newer fit on this tab (Run Fit pressed during Auto-Fit):
+    // that fit started from the model now on the tab and owns the result — no
+    // rollback here, which would overwrite it
+    if (json && json._abandoned === 'superseded') return;
     // F2: a non-2xx reply is a failed REQUEST with its status in the message
     // (_serverFitJob throws it with httpStatus); an unreadable reply is a
     // failed fit with its own message (unreadableReply).
@@ -8173,8 +8192,10 @@ async function runFit(opts = {}) {
     // request was. The ownership checks below also run inside the poll loop,
     // so a switched tab or an edited model stops the server's work at once.
     const json = await _serverFitJob(fitReq, {
+      owner: fittingTab,
       abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxAtRequest) ? 'model' : null)),
     });
+    if (json && json._abandoned === 'superseded') return;   // a newer fit on this tab owns the spinner and the result
     if (json && json._abandoned === 'tab') {
       _hideFitSpinner();
       document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';

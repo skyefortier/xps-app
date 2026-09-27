@@ -36,7 +36,7 @@ function extractFn(name) {
 // that reply as a finished job (start -> 202 + id; progress -> done + result),
 // and a start that throws is still a transport failure.
 const POLL_SRC = [constLineOf('FIT_POLL_MS'), constLineOf('FIT_POLL_TRANSPORT_RETRIES'), constLineOf('FIT_HEARTBEAT_LOST_SEC'),
-  'const _runningFitJobs = new Set();', ...['_cancelFitJob', '_fitHttpError', '_serverFitJob'].map(n => extractFn(n))].join('\n');
+  'const _runningFitJobs = new Set(); const _fitJobByOwner = new WeakMap();', ...['_cancelFitJob', '_fitHttpError', '_serverFitJob'].map(n => extractFn(n))].join('\n');
 function constLineOf(n) { const l = lines.find(x => x.startsWith('const ' + n)); assert.ok(l, n); return l; }
 function jobAdapter(fetchImpl) {
   let reply = null;
@@ -730,4 +730,15 @@ test('the token scan is linear and keeps a truncated string a string (Codex roun
   await assert.rejects(read(reply('{"a":"x\\"y","b":NaN}')), e => /non-finite number/.test(e.message));
   await assert.rejects(read(reply('[-Infinity]')), e => /non-finite number/.test(e.message));
   await assert.rejects(read(reply('{"a":1,"b":Infinity}')), e => /non-finite number/.test(e.message));
+});
+
+test('a minus sign counts only after a boundary: "x-Infinity" is malformed, "-Infinity" a token (Codex round 3)', async () => {
+  const read = new Function(extractFn('_readFitReply') + '\nreturn _readFitReply;')();
+  const reply = t => ({ text: async () => t });
+  for (const bad of ['{"a":x-Infinity}', '{"a":--Infinity}', '{"v":foo-Infinity}']) {
+    await assert.rejects(read(reply(bad)), e => e.unreadableReply && /could not be read/.test(e.message), bad);
+  }
+  for (const tok of ['{"a":-Infinity}', '[1, -Infinity]', '{"a": -Infinity }']) {
+    await assert.rejects(read(reply(tok)), e => /non-finite number/.test(e.message), tok);
+  }
 });

@@ -61,7 +61,7 @@ def _poll(client, job_id, limit=300.0):
         longest = max(longest, time.time() - q0)
         assert r.status_code == 200
         rec = json.loads(r.get_data(as_text=True))
-        if rec["status"] != "running":
+        if rec["status"] not in ("queued", "running"):
             return rec, longest
         assert time.time() - t0 < limit, "job did not finish"
         time.sleep(0.2)
@@ -131,7 +131,7 @@ def test_cancel_stops_a_running_fit_within_seconds(client):
     job = client.post("/api/fit/start", json=_body(sid, SLOW, method="basinhopping", n_perturb=0)).get_json()["job_id"]
     time.sleep(1.0)
     rec = json.loads(client.get(f"/api/fit/progress/{job}").get_data(as_text=True))
-    assert rec["status"] == "running", "the fixture must still be running when cancelled"
+    assert rec["status"] in ("queued", "running"), "the fixture must still be running when cancelled"
     t0 = time.time()
     assert client.post(f"/api/fit/cancel/{job}").status_code == 200
     rec, _ = _poll(client, job, limit=30)
@@ -153,7 +153,7 @@ def test_the_heartbeat_moves_while_the_fit_runs(client):
     job = client.post("/api/fit/start", json=_body(sid, SLOW, method="basinhopping", n_perturb=0)).get_json()["job_id"]
     time.sleep(4.5)
     rec = json.loads(client.get(f"/api/fit/progress/{job}").get_data(as_text=True))
-    assert rec["status"] == "running"
+    assert rec["status"] in ("queued", "running")
     assert rec["heartbeat_age_sec"] is not None and rec["heartbeat_age_sec"] < 3.0
     assert rec["elapsed_sec"] >= 2.0
     client.post(f"/api/fit/cancel/{job}")
@@ -173,3 +173,44 @@ def test_a_non_finite_result_reaches_the_page_unsanitised(tmp_path):
                               {"status": "done", "result": {"x": float("nan")}})
     text = (tmp_path / "11111111-1111-1111-1111-111111111111.job.json").read_text()
     assert "NaN" in text
+
+
+def test_concurrency_is_bounded_one_fit_runs_per_process_the_rest_queue_and_admission_is_capped(client, monkeypatch):
+    """Codex round 1: four sync workers used to bound concurrent fits at four;
+    a thread per start would not. One fit runs per worker process; the rest
+    wait "queued" (heartbeating, cancellable); beyond FIT_JOB_MAX_ADMITTED the
+    start is refused at once with 503."""
+    sid = _upload(client, n=300, comps=SLOW)
+    body = _body(sid, SLOW, method="basinhopping", n_perturb=0)
+    jobs = [client.post("/api/fit/start", json=body).get_json()["job_id"] for _ in range(3)]
+    time.sleep(1.5)
+    states = [json.loads(client.get(f"/api/fit/progress/{j}").get_data(as_text=True))["status"] for j in jobs]
+    assert states.count("running") == 1 and states.count("queued") == 2, states
+    monkeypatch.setattr(app_module, "FIT_JOB_MAX_ADMITTED", 3)
+    busy = client.post("/api/fit/start", json=body)
+    assert busy.status_code == 503 and "busy" in busy.get_json()["error"]
+    for j in jobs:
+        client.post(f"/api/fit/cancel/{j}")
+    for j in jobs:
+        rec, _ = _poll(client, j, limit=60)
+        assert rec["status"] == "cancelled"
+    # the slots are returned: a new start is admitted again
+    ok = client.post("/api/fit/start", json=body)
+    assert ok.status_code == 202
+    client.post(f"/api/fit/cancel/{ok.get_json()['job_id']}")
+    _poll(client, ok.get_json()["job_id"], limit=60)
+
+
+@pytest.mark.parametrize("method", ["leastsq", "nelder", "differential_evolution"])
+def test_a_cancel_observed_mid_fit_is_a_cancellation_never_a_solver_error(method):
+    """Codex round 1: an aborted minimisation can surface as the solver's own
+    error (AttributeError from Levenberg-Marquardt, RuntimeError from
+    Nelder-Mead / DE); once cancellation was observed run_fit raises
+    FitCancelled."""
+    import fitting
+    x = np.linspace(281.0, 292.0, 300)
+    y = 300 + sum(_gl(x, c, a, w) for c, a, w in SLOW)
+    cancel = lambda: True               # observed at the first check: the minimisation is aborted mid-fit
+    with pytest.raises(fitting.FitCancelled):
+        fitting.run_fit(x, y, _specs(SLOW), background_method="linear", n_perturb=0,
+                        fit_kws={"method": method}, cancel=cancel)

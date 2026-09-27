@@ -1,0 +1,24 @@
+Re-review unit 2 (long fits via start-then-poll), round 2: branch fix-fit-start-poll (stacked on fix-acceptance-holes, F2). The round-1 fixes are the latest commit on this branch that is not a merge of fix-acceptance-holes; review git diff fix-acceptance-holes..HEAD for the whole unit. Round-1 verdicts: docs/autofit/codex/fit_start_poll_verdict_run{A,B}.md; the round-1 prompt (brief, design, sites, acceptance): docs/autofit/codex/fit_start_poll_review_prompt.txt. Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+ROUND-1 FINDINGS AND FIXES (plan section 6, verbatim):
+
+**Round 1 — NO-GO ×2** (`fit_start_poll_verdict_run{A,B}.md`; the same four
+findings in both):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR: a re-run did not supersede — Ctrl/Cmd+F calls `runFit` past the disabled button; two jobs for one tab, the older could finish first and get the newer discarded as "model edited" | `_fitJobByOwner` (WeakMap keyed by the tab record): a new start for the same tab cancels the previous job on the server; the superseded loop returns `{ _abandoned: 'superseded' }` and its caller does NOTHING (the new fit owns spinner and result; Auto-Fit does not roll back, which would overwrite the new fit's model). Run Fit and Auto-Fit both pass their tab as `owner`. |
+| 2 | MAJOR: unbounded concurrency — a thread per start, where four sync workers used to bound concurrent fits at four | each worker process runs at most `FIT_JOB_MAX_RUNNING` = 1 fit (a semaphore); the rest wait `queued` (heartbeating, cancellable, a queued job cancelled or abandoned never runs); at most `FIT_JOB_MAX_ADMITTED` = 6 running + queued per process, beyond that `/api/fit/start` answers 503 "The server is busy with other fits" at once (the page shows it as a failed fit). Production: ≤ 4 concurrent fits, as before. |
+| 3 | MINOR: a cancellation observed mid-fit could surface as the solver's own error (AttributeError from Levenberg-Marquardt, RuntimeError from Nelder-Mead / DE) — an abandoned job became `error` 500 / 422 | `run_fit(cancel=)` turns any exception raised after cancellation was observed into `FitCancelled`; unrelated errors propagate unchanged |
+| 4 | MINOR: `public_fit_poll_check.py` could poll a dead worker's record forever | a heartbeat older than 30 s is FAIL "lost"; a 20-minute deadline per target (the job is cancelled) |
+
+
+
+TRY TO BREAK
+a. Supersede: the WeakMap keyed by the tab record — is the SAME object passed by Run Fit, "Use this solution" (runFit({startPeaks})) and Auto-Fit; a superseded Auto-Fit that had already built its model and provisional shift (is leaving it correct?); a superseded Run Fit whose successor then fails; the spinner (who hides it); two tabs fitting at once (not superseded); the pagehide beacon; the ownership-reason order (superseded checked before tab/model).
+b. Concurrency: the per-process semaphore + admission counter — can the counter leak (an exception between admit and the worker's finally; a worker thread that never starts), can a queued job starve, is the 'queued' status handled by every page path (heartbeat, abandonment, the acceptance script), does a 503 at start reach the page as a failed fit with the message (not a transport failure / local fallback), do polls stay fast while a fit runs in the same process (GIL); is 1 running per process too low (four students in parallel = four fits, as before; a fifth waits)?
+c. Cancellation normalisation: FitCancelled only when cancellation was observed; an unrelated exception during a cancel-enabled fit still reports its own error; the thread-local cleared on every path.
+d. Anything round 1 verified that these changes touched; the merged F2 changes (only its documents and one scanner line).
+e. Tests: real, non-vacuous.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

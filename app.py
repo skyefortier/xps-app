@@ -558,6 +558,31 @@ def _sweep_expired_jobs(upload_folder: str) -> None:
 # FIT_JOB_ABANDON_SEC (a closed tab, a sleeping laptop; 180 s, above the ~1 min timer throttling browsers apply to hidden tabs).
 FIT_JOB_ABANDON_SEC = 180   # > Chrome's 1-minute timer throttling in a hidden tab: a student who switches browser tabs keeps the fit
 FIT_JOB_HEARTBEAT_SEC = 2.0
+# Concurrency (unit 2, Codex round 1). Before start-then-poll, gunicorn's four
+# SYNC workers bounded concurrent fits at four; a fit thread per start would
+# not. Each worker process runs at most FIT_JOB_MAX_RUNNING fits at once (the
+# rest wait "queued", heartbeating, cancellable) and admits at most
+# FIT_JOB_MAX_ADMITTED running + queued jobs; beyond that /api/fit/start
+# answers 503 "busy" immediately. With production's 4 workers: at most 4
+# concurrent fits, as before.
+FIT_JOB_MAX_RUNNING = 1
+FIT_JOB_MAX_ADMITTED = 6
+_FIT_JOB_RUN_SLOTS = threading.BoundedSemaphore(FIT_JOB_MAX_RUNNING)
+_FIT_JOB_ADMITTED = [0]
+_FIT_JOB_ADMIT_LOCK = threading.Lock()
+
+
+def _fit_job_admit() -> bool:
+    with _FIT_JOB_ADMIT_LOCK:
+        if _FIT_JOB_ADMITTED[0] >= FIT_JOB_MAX_ADMITTED:
+            return False
+        _FIT_JOB_ADMITTED[0] += 1
+        return True
+
+
+def _fit_job_release() -> None:
+    with _FIT_JOB_ADMIT_LOCK:
+        _FIT_JOB_ADMITTED[0] = max(0, _FIT_JOB_ADMITTED[0] - 1)
 
 
 def _fit_job_marker(job_id: str, upload_folder: str, kind: str) -> Path:
@@ -622,7 +647,7 @@ def _fit_job_start(job_id: str, upload_folder: str, fit_args: dict, run) -> None
     returns ``(status, body)``; ``(None, None)`` means cancelled."""
     started = time.time()
     lock = threading.Lock()
-    rec = {"status": "running", "elapsed_sec": 0.0, "heartbeat": started}
+    rec = {"status": "queued", "elapsed_sec": 0.0, "heartbeat": started}
     _fit_job_write(job_id, upload_folder, rec)
     _fit_job_marker(job_id, upload_folder, "polled").touch()
     cancel_path = _fit_job_marker(job_id, upload_folder, "cancel")
@@ -640,7 +665,7 @@ def _fit_job_start(job_id: str, upload_folder: str, fit_args: dict, run) -> None
     def heartbeat() -> None:
         while not finished.wait(FIT_JOB_HEARTBEAT_SEC):
             with lock:
-                if rec["status"] != "running":
+                if rec["status"] not in ("running", "queued"):
                     return
                 rec["heartbeat"] = time.time()
                 rec["elapsed_sec"] = round(time.time() - started, 1)
@@ -648,10 +673,28 @@ def _fit_job_start(job_id: str, upload_folder: str, fit_args: dict, run) -> None
 
     def worker() -> None:
         try:
-            status, body = run(fit_args, cancelled)
+            # queued until a run slot is free; a job cancelled or abandoned
+            # while queued never runs
+            got = False
+            while not got:
+                if cancelled():
+                    status, body = None, None
+                    break
+                got = _FIT_JOB_RUN_SLOTS.acquire(timeout=0.5)
+            if got:
+                try:
+                    with lock:
+                        rec["status"] = "running"
+                        rec["heartbeat"] = time.time()
+                        _fit_job_write(job_id, upload_folder, rec)   # visible at once, not at the next heartbeat
+                    status, body = run(fit_args, cancelled)
+                finally:
+                    _FIT_JOB_RUN_SLOTS.release()
         except Exception as exc:                       # the record must always leave "running"
             logging.getLogger(__name__).exception("fit job %s crashed", job_id)
             status, body = 500, {"error": "Internal fitting error — see server log."}
+        finally:
+            _fit_job_release()
         with lock:
             rec["elapsed_sec"] = round(time.time() - started, 1)
             rec["heartbeat"] = time.time()
@@ -1215,7 +1258,7 @@ def _register_routes(app: Flask) -> None:
     # minutes. The fit runs in a background thread on Find Peaks' job
     # infrastructure (an atomic JSON record under the upload folder, readable
     # by whichever gunicorn worker serves a poll); every HTTP request is short.
-    # The record: {status: running|done|error|cancelled, elapsed_sec,
+    # The record: {status: queued|running|done|error|cancelled, elapsed_sec,
     # heartbeat (epoch s, rewritten every 2 s while the fit thread lives),
     # result (done: EXACTLY the /api/fit body), error + http_status (error:
     # exactly what /api/fit would have answered)}.
@@ -1230,11 +1273,17 @@ def _register_routes(app: Flask) -> None:
         if error is not None:
             return error
         upload_folder = app.config["UPLOAD_FOLDER"]
+        if not _fit_job_admit():
+            return _err("The server is busy with other fits. Try again in a moment.", 503)
         job_id = str(uuid.uuid4())
-        _sweep_expired_jobs(upload_folder)
-        _sweep_fit_job_markers(upload_folder)
-        _fit_job_start(job_id, upload_folder, fit_args,
-                       lambda args, cancel: _run_fit_outcome(app, args, cancel=cancel))
+        try:
+            _sweep_expired_jobs(upload_folder)
+            _sweep_fit_job_markers(upload_folder)
+            _fit_job_start(job_id, upload_folder, fit_args,
+                           lambda args, cancel: _run_fit_outcome(app, args, cancel=cancel))
+        except Exception:
+            _fit_job_release()          # the job never started: its admission is returned
+            raise
         return jsonify({"job_id": job_id}), 202
 
     @app.get("/api/fit/progress/<job_id>")

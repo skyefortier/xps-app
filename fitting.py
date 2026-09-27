@@ -2103,6 +2103,14 @@ def run_fit(*args, cancel=None, **kwargs):
     _CANCEL.fn, _CANCEL.hit = cancel, False
     try:
         result = _run_fit_impl(*args, **kwargs)
+    except Exception as exc:
+        # An aborted minimisation can surface as the solver's own error (an
+        # AttributeError from Levenberg-Marquardt, a RuntimeError from
+        # Nelder-Mead or DE): once cancellation was observed it is a
+        # cancellation, never a failed fit (unit 2, Codex round 1).
+        if getattr(_CANCEL, "hit", False):
+            raise FitCancelled("the fit was cancelled") from exc
+        raise
     finally:
         hit = getattr(_CANCEL, "hit", False)
         _CANCEL.fn, _CANCEL.hit = None, False

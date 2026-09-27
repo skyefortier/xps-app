@@ -24,6 +24,8 @@ import urllib.request
 import uuid
 
 MAX_REQUEST_S = 10.0
+HEARTBEAT_LOST_S = 30.0      # as the page: a record whose heartbeat stopped is a lost fit
+DEADLINE_S = 20 * 60         # per target: never poll forever
 DEFAULT_TARGETS = ["edf39ecb66ce", "d2bd62d2f976", "496c4edd97af", "0a5f464daf3d", "8b4c2f656a80"]
 
 
@@ -61,7 +63,15 @@ def run(base, t):
         st, body, d = _req(base + f"/api/fit/progress/{job}")
         durations.append(("poll", st, d))
         rec = json.loads(body) if st == 200 else {"status": f"http {st}"}
-        if rec.get("status") != "running":
+        if rec.get("status") not in ("running", "queued"):
+            break
+        hb = rec.get("heartbeat_age_sec")
+        if isinstance(hb, (int, float)) and hb > HEARTBEAT_LOST_S:
+            rec = {"status": "lost", "error": f"heartbeat stopped {hb:.0f} s ago (worker restarted?)"}
+            break
+        if time.time() - t0 > DEADLINE_S:
+            _req(base + f"/api/fit/cancel/{job}", b"", method="POST")
+            rec = {"status": "deadline", "error": f"no result after {DEADLINE_S} s"}
             break
     longest = max(x[2] for x in durations)
     res = rec.get("result") or {}

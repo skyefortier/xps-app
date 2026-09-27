@@ -42,7 +42,7 @@ const bad = (status, obj) => ({ ok: false, status, json: async () => { if (obj =
 
 function make(fetch) {
   const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
-    'const _runningFitJobs = new Set();',
+    'const _runningFitJobs = new Set(); const _fitJobByOwner = new WeakMap();',
     extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
   return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _runningFitJobs };')(
     fetch, f => f(), class extends Error { constructor(m, n) { super(m); this.name = n; } });
@@ -140,4 +140,37 @@ test('Run Fit and Auto-Fit both go through _serverFitJob; nothing on the page po
     assert.match(src, /_abandoned === 'model'/, fn);
   }
   assert.match(html, /addEventListener\('pagehide'/, 'a closed page cancels its running fits');
+});
+
+test('a new start for the same tab SUPERSEDES the previous job: cancelled on the server, its loop returns quietly (Codex round 1)', async () => {
+  let n = 0;
+  let releaseFirst;
+  const gate = new Promise(r => { releaseFirst = r; });
+  const s = server(u => u === START ? ok({ job_id: 'J' + (++n) }, 202)
+    : isProgress(u) ? ok({ status: 'running', heartbeat_age_sec: 0 }) : ok({}));
+  // a poll loop that yields between polls, so two jobs can interleave
+  const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
+    'const _runningFitJobs = new Set(); const _fitJobByOwner = new WeakMap();',
+    extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
+  const { _serverFitJob } = new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob };')(
+    s.fetch, f => { setImmediate(f); return 0; }, class extends Error {});   // yield to the event loop between polls
+  const owner = { id: 'tab-1' };
+  let polls2 = 0;
+  const first = _serverFitJob({}, { owner });
+  await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+  const second = _serverFitJob({}, { owner, abandoned: () => (++polls2 > 3 ? 'tab' : null) });
+  assert.deepStrictEqual(await first, { _abandoned: 'superseded' });
+  assert.ok(s.calls.some(c => c.url === '/api/fit/cancel/J1' && c.method === 'POST'), 'the first job is cancelled on the server');
+  assert.deepStrictEqual(await second, { _abandoned: 'tab' }, 'the second runs on, owning the tab');
+  // another tab's job is not touched
+  const other = _serverFitJob({}, { owner: { id: 'tab-2' }, abandoned: () => 'model' });
+  assert.deepStrictEqual(await other, { _abandoned: 'model' });
+});
+
+test('both callers pass their tab as the owner and do nothing at all when superseded', () => {
+  for (const fn of ['runFit', 'runAutoFitC1sGraphite']) {
+    const src = extractFn(fn);
+    assert.match(src, /owner: fittingTab,/, fn);
+    assert.match(src, /if \(json && json\._abandoned === 'superseded'\) return;/, fn);
+  }
 });
