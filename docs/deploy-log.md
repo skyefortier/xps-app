@@ -6,6 +6,33 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-27 — long fits start and poll (`fix-fit-start-poll-r5`, sweep unit 2)
+
+- **Release note:** Run Fit (including "Use this solution") and Auto-Fit no
+  longer hold one web request open for the whole fit. The page starts the fit
+  and checks on it every half second, so a fit that runs for minutes —
+  basinhopping on a large C 1s model — now finishes instead of failing with
+  Cloudflare's HTTP 524 at ~100 s. Results are identical to before (the same
+  `run_fit`; Levenberg-Marquardt byte-identical). Switching tabs or editing
+  the model during a fit stops it on the server too; closing the page cancels
+  it; a fit nobody is polling is cancelled after 3 minutes.
+- **Each server worker runs one fit at a time** (others wait "queued") and
+  admits at most 6; beyond that the page is told "The server is busy with
+  other fits. Try again in a moment." (HTTP 503).
+- Public-URL check right after deploy (`scripts/public_fit_poll_check.py`,
+  the five largest committed C 1s models, basinhopping, through
+  xps.fortierlab.org): all five PASS — fits 209–312 s, 328–491 requests each,
+  longest single request 1.16 s, no 524.
+- Codex: rounds 1–2 NO-GO ×2, round 3 split, round 4 NO-GO ×2 (parked),
+  round 5 (owner-approved) GO ×2 with no findings. Round 5 fixed an Auto-Fit
+  refused by its preflight cancelling a running Run Fit (spinner stuck) and
+  Batch Fit hiding another fit's spinner. Rebased onto main as one commit
+  (per-round history on `fix-fit-start-poll`). Python 1026 passed / 7
+  skipped; JS 496 / 494 pass / 2 todo; production browser check (Run Fit and
+  Auto-Fit through start/poll, tab-switch and edit cancel the server job, start
+  unreachable → local fallback, a second Run Fit supersedes, an Auto-Fit
+  refusal leaves a running Run Fit alone; no page errors).
+
 ## 2026-09-27 — background twins: the page draws the background the server fits (`fix-background-twins-on-f2`, sweep unit 4)
 
 - **Release note:** the background the page draws, freezes into a fit,
