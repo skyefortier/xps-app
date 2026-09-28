@@ -7520,6 +7520,15 @@ function _installFitOp(op) {
   return true;
 }
 function _claimFitOp(owner) { const op = _newFitOp(owner); _installFitOp(op); return op; }
+// true when a NEWER operation has claimed op's tab (without installing op):
+// Auto-Fit asks this before its preflight, and installs only after the
+// preflight passed (Codex round 4: a preflight refusal after the install had
+// cancelled a running Run Fit and stranded its spinner).
+function _fitOpOutdated(op) {
+  if (!op || !op.owner) return false;
+  const cur = _fitOpByOwner.get(op.owner);
+  return !!(cur && cur.seq > op.seq);
+}
 function _fitOpCurrent(op) { return !op || !op.owner || _fitOpByOwner.get(op.owner) === op; }
 // The fit spinner is page-wide, one per page; the operation that showed it
 // owns it. A fit that ends after another tab's fit took the spinner leaves it
@@ -7663,7 +7672,7 @@ async function runAutoFitC1sGraphite() {
 
   // a Run Fit pressed while the confirmation was open is newer: it wins, and
   // this Auto-Fit does nothing at all (nothing has been changed yet)
-  if (!_installFitOp(afOp)) return;
+  if (_fitOpOutdated(afOp)) return;
   // Snapshot for failure rollback (separate from pushUndo, which only covers peaks).
   const snap = _autoFitSnapshot();
 
@@ -7683,6 +7692,11 @@ async function runAutoFitC1sGraphite() {
     notify('No strong peak found in the C1s ROI; Auto-Fit cannot proceed.', 'red', true);
     return;
   }
+  // The preflight passed: from here Auto-Fit changes the tab, so it becomes
+  // the tab's current operation NOW (cancelling a running fit on it) — never
+  // before a refusal above, which must leave a running Run Fit alone. No
+  // await since the check above, so this cannot fail; kept as the guard.
+  if (!_installFitOp(afOp)) return;
 
   // Step 2: provisional shift (APP CONVENTION).
   const provisionalShift = graphiteRaw - 284.50;
@@ -8392,7 +8406,7 @@ async function runFit(opts = {}) {
       // Server unreachable: the local optimiser is the honest fallback, and
       // the overlay saying so opens only if it actually converged.
       if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
-      const local = runFitLocal(be, bgSubtracted, bgIntensity);
+      const local = runFitLocal(be, bgSubtracted, bgIntensity, { spinnerOp: fitOp });
       if (local && local.success && !_snapshotSuppressed) {
         document.getElementById('localfit-warn-overlay').classList.add('open');
       }
@@ -8555,8 +8569,12 @@ function _applyStatDisplay(fr) {
 // docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md.
 function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
+  // The page-wide spinner belongs to the operation that showed it (unit 2):
+  // Run Fit's fallback passes its operation; Batch Fit shows no spinner and
+  // passes none, so it never hides a running server fit's (Codex round 4).
+  const hideSpinner = () => { if (options.spinnerOp) _hideFitSpinnerFor(options.spinnerOp); };
   const fail = (message, iterations) => {
-    _hideFitSpinner();
+    hideSpinner();
     document.getElementById('sb-msg').textContent = 'Local fit failed';
     notify('Local fit did not converge: ' + message + ' Previous peaks and result kept.', 'red', true);
     return { success: false, engine: 'local', message, iterations: iterations || 0 };
@@ -8917,7 +8935,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   updatePlot();
   renderResults();
 
-  _hideFitSpinner();
+  hideSpinner();
   notify('Local fit converged in ' + iterations + ' iteration' + (iterations === 1 ? '' : 's') +
          '. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3) + ' (Poisson-weighted; no uncertainties). Starting point only: run Fit before reporting.', 'amber');
   _autoSnapshot();

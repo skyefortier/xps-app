@@ -237,14 +237,22 @@ test('both callers claim their operation before the first await and do nothing a
   const af = extractFn('runAutoFitC1sGraphite');
   const num = af.indexOf('const afOp = _newFitOp(fittingTab);');
   assert.ok(num > 0 && num < af.indexOf('await _showAutoFitConfirmModal('), 'Auto-Fit numbers its operation before its FIRST await (the modal)');
+  const outdated = af.indexOf('if (_fitOpOutdated(afOp)) return;');
+  assert.ok(outdated > af.indexOf('await _showAutoFitConfirmModal(') && outdated < af.indexOf('_autoFitSnapshot()'),
+    'after the modal it steps aside for a newer operation before anything is done');
   const inst = af.indexOf('if (!_installFitOp(afOp)) return;');
-  assert.ok(inst > af.indexOf('await _showAutoFitConfirmModal(') && inst < af.indexOf('_autoFitSnapshot()') && inst < af.indexOf('await uploadToBackend('),
-    'and installs it after the modal, before anything is changed or sent');
+  // round 5: installed only AFTER the preflight refusals (installing cancels a running fit on the tab)
+  assert.ok(inst > af.indexOf("notify('ROI is empty.") && inst > af.indexOf("notify('No strong peak found"), 'installed after every preflight refusal');
+  assert.ok(inst < af.indexOf('pushUndo();') && inst < af.indexOf('_showFitSpinner();') && inst < af.indexOf('await uploadToBackend('),
+    'and before anything is changed, shown or sent');
+  assert.ok(!/\bawait\s+[\w(]/.test(af.slice(outdated, inst).replace(/\/\/[^\n]*/g, '')), 'no await between the check and the install');
   assert.match(af, /op: afOp,/);
   assert.match(af, /if \(json && json\._abandoned === 'superseded'\) return;/);
   assert.match(af, /if \(afOp && !_fitOpCurrent\(afOp\)\) return;/, 'Auto-Fit: no rollback when superseded');
 });
 
+const AF_FNS = ['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor',
+  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
 test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open WINS; the confirmed Auto-Fit changes nothing (Codex round 3)', async () => {
   const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
   const modal = deferred();
@@ -263,8 +271,7 @@ test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open 
   };
   const src = constants + '\n' + [
     'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
-    ...['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpCurrent', '_hideFitSpinnerFor', '_readFitReply', '_serverFitJob',
-        'runAutoFitC1sGraphite', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn)].join('\n');
+    ...AF_FNS.map(extractFn)].join('\n');
   const api = new Function(...Object.keys(deps), src + '\nreturn { runAutoFitC1sGraphite, _claimFitOp, _fitOpCurrent };')(...Object.values(deps));
   const af = api.runAutoFitC1sGraphite();             // Auto-Fit pressed: the modal is open
   await new Promise(r => setImmediate(r));
@@ -296,5 +303,86 @@ test("the spinner belongs to the operation that showed it: an ended fit never hi
     assert.ok(src.indexOf(mark) > 0, fn + ' takes the spinner');
     assert.ok(!/_hideFitSpinner\(\);/.test(after), fn + ': no unowned hide after the claim');
     assert.ok(new RegExp('_hideFitSpinnerFor\\(' + op + '\\)').test(after), fn);
+  }
+});
+
+// Round 5 (Codex round 4, MAJOR): Auto-Fit installed its operation — which
+// cancels a running fit on the tab — BEFORE its preflight; a refusal there
+// ("No strong peak found", an empty ROI) then returned with the Run Fit's job
+// cancelled, its spinner up, Run Fit disabled and nothing running. Now a
+// refusal leaves the running Run Fit exactly as it was: its job is not
+// cancelled, its spinner stays, and it completes with its own result.
+test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not cancelled, spinner kept, its result arrives (Codex round 4)', async () => {
+  const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
+  for (const refusal of ['no strong peak', 'empty ROI', 'no strong peak, no modal (no peaks yet)']) {
+    const tab = { id: 't1' };
+    const out = { cancels: [], hides: 0, notes: [], snapshots: 0, undo: 0 };
+    const poll = deferred();
+    const state = { peaks: /no peaks/.test(refusal) ? [] : [{ id: 1 }], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
+    const deps = {
+      state, tabManager: { activeId: 't1', _getTab: () => tab, _captureUI: () => ({}) },
+      document: { getElementById: () => ({ value: '', style: {}, setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) },
+      notify: (m) => out.notes.push(m), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
+      _showAutoFitConfirmModal: async () => true, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore() {},
+      fetch: async (u) => {
+        if (u.startsWith('/api/fit/cancel/')) { out.cancels.push(u); return ok({}); }
+        if (u === '/api/fit/start') return ok({ job_id: 'RUN1' }, 202);
+        if (u.startsWith('/api/fit/progress/')) { await poll.p; return ok({ status: 'done', result: { success: true, mine: 'RUN1' } }); }
+        return ok({});
+      },
+      applyBackendResult() {}, _showFitSpinner() {}, _hideFitSpinner: () => { out.hides++; }, setTimeout: f => { setImmediate(f); return 0; }, clearTimeout() {},
+      AbortController, DOMException: Error,
+      getROIData: () => (refusal === 'empty ROI' ? { be: [], inten: [] } : { be: state.rawBE, inten: state.rawIntensity }),
+      computeBackground: be => be.map(() => 0), findGraphiteRawBE: () => null,
+      uploadToBackend: async () => 'sid', pushUndo: () => { out.undo++; }, buildAutoFitModel: () => [], renderPeakList() {}, peakToBackendSpec: p => p, _getManualAnchors: () => [],
+    };
+    const src = constants + '\n' + [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
+      'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
+      ...AF_FNS.map(extractFn)].join('\n');
+    const api = new Function(...Object.keys(deps), src +
+      '\nreturn { runAutoFitC1sGraphite, _claimFitOp, _fitOpCurrent, _serverFitJob, _hideFitSpinnerFor, takeSpinner: op => { _fitSpinnerOp = op; }, spinner: () => _fitSpinnerOp };')(...Object.values(deps));
+    // a Run Fit is running on the tab: it claimed its operation, owns the spinner, its job is being polled
+    const runOp = api._claimFitOp(tab);
+    api.takeSpinner(runOp);
+    const run = api._serverFitJob({}, { op: runOp });
+    await new Promise(r => setImmediate(r));
+    assert.strictEqual(runOp.jobId, 'RUN1', refusal + ': the Run Fit job is running');
+    // the student confirms Auto-Fit on the same tab; its preflight refuses
+    await api.runAutoFitC1sGraphite();
+    assert.ok(out.notes.some(m => /No strong peak found|ROI is empty/.test(m)), refusal + ': Auto-Fit refused: ' + out.notes.join(' | '));
+    assert.deepStrictEqual(out.cancels, [], refusal + ": the Run Fit's job was NOT cancelled");
+    assert.ok(api._fitOpCurrent(runOp), refusal + ': the Run Fit still owns the tab');
+    assert.strictEqual(api.spinner(), runOp, refusal + ': the spinner is still the Run Fit\'s');
+    assert.strictEqual(out.hides, 0, refusal + ': nobody hid it');
+    assert.strictEqual(out.undo, 0, refusal + ': Auto-Fit changed nothing');
+    poll.res();
+    assert.deepStrictEqual(await run, { success: true, mine: 'RUN1' }, refusal + ': the Run Fit gets its own result (not superseded)');
+    api._hideFitSpinnerFor(runOp);
+    assert.strictEqual(out.hides, 1, refusal + ': and hides its own spinner at the end');
+  }
+});
+
+// Round 5 (Codex round 4, MINOR): Batch Fit's local fits hid the page-wide
+// spinner unconditionally — a quick batch while a server fit was pending left
+// that fit running with no spinner. runFitLocal now hides only the spinner of
+// the operation it is given (Run Fit's fallback); Batch Fit gives none.
+test("runFitLocal hides only its caller's spinner: Batch Fit (no operation) never hides a running fit's (Codex round 4)", () => {
+  const src = extractFn('runFitLocal');
+  assert.ok(!/_hideFitSpinner\(\)/.test(src), 'no unowned hide inside runFitLocal');
+  assert.match(src, /const hideSpinner = \(\) => \{ if \(options\.spinnerOp\) _hideFitSpinnerFor\(options\.spinnerOp\); \};/);
+  assert.match(extractFn('runFit'), /runFitLocal\(be, bgSubtracted, bgIntensity, \{ spinnerOp: fitOp \}\)/, "Run Fit's fallback passes its operation");
+  const batchCall = html.match(/const outcome = runFitLocal\(([^)]*)\);/);
+  assert.ok(batchCall && batchCall[1] === 'be, bgSub, bgI', 'Batch Fit passes no operation: ' + (batchCall && batchCall[1]));
+  // behaviour on the failure path (invalid data returns before any fitting)
+  for (const [label, opts, owned, want] of [['Batch Fit (no op)', {}, 'RUN', 0], ['another op', { spinnerOp: 'B' }, 'RUN', 0], ['its own op', { spinnerOp: 'RUN' }, 'RUN', 1]]) {
+    let hides = 0, spinnerOp = owned;
+    const deps = {
+      _hideFitSpinnerFor: op => { if (spinnerOp !== op) return; spinnerOp = null; hides++; },
+      document: { getElementById: () => ({ textContent: '' }) }, notify() {},
+    };
+    const f = new Function(...Object.keys(deps), src + '\nreturn runFitLocal;')(...Object.values(deps));
+    const r = f([1], [1], [0], opts);
+    assert.strictEqual(r.success, false, label);
+    assert.strictEqual(hides, want, label + ': hides');
   }
 });

@@ -224,3 +224,28 @@ longest request 0.28 s), identical results (LM byte-identical; the hook
 changes nothing), cancellation, bounded concurrency, the ownership races of
 rounds 1–3. The two fixes above are small; they need a fifth review round,
 which is the owner's call.
+
+## 8. Round 5 (owner-approved, 2026-09-27, after the F2 / F3 / unit-4 deploys)
+
+Rebased onto main 4da2f6d as one commit (`fix-fit-start-poll-r5`; per file the
+changed lines equal `git diff 3d38d73 fix-fit-start-poll`; the per-round
+history stays on `fix-fit-start-poll`). The two round-4 findings, fixed as §7
+proposed:
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR: Auto-Fit installed its operation (cancelling a running Run Fit on the tab) before its preflight; a refusal ("No strong peak found", an empty ROI) then left the spinner up, Run Fit disabled and nothing running | after the modal Auto-Fit only asks `_fitOpOutdated(afOp)` (a newer operation owns the tab → do nothing, as before); it INSTALLS after the last preflight refusal, immediately before its first change (`pushUndo`), with no await between; a refusal therefore leaves a running Run Fit's job, spinner and result alone |
+| 2 | MINOR: Batch Fit's local fits hid the page-wide spinner unconditionally | `runFitLocal` hides only `options.spinnerOp`'s spinner (`_hideFitSpinnerFor`); Run Fit's transport fallback passes its `fitOp`; Batch Fit (which shows no spinner) passes none |
+
+Tests (`tests/js/fit_start_poll.test.js`): behavioural — a Run Fit job in
+flight, Auto-Fit confirmed and refused by its preflight (no strong peak; empty
+ROI; no peaks, so no modal): no cancel, the Run Fit still owns tab and
+spinner, nothing hidden or changed, and the Run Fit receives its own result
+(fails when the install is moved back before the preflight); `runFitLocal`
+hides for its own operation only (no operation, another operation, its own);
+the static order test now pins check → preflight → install → first change.
+Browser (dev gunicorn :5153 from this branch, committed 1-GTA project): the
+six scenarios of §5 unchanged, plus 7 — a basinhopping Run Fit running, Auto-Fit
+confirmed and refused ("No strong peak found", `findGraphiteRawBE` stubbed):
+while refused the job is still running, no cancel posted, spinner up; the Run
+Fit then completes (job done, spinner hidden, Run Fit enabled); no page errors.

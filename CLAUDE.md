@@ -218,7 +218,9 @@ fallback); a poll that cannot is retried, five in a row are; a stopped
 heartbeat (> 30 s) is a failed fit; a closed page sends a cancel beacon, and
 the server cancels a job nobody has polled for 180 s (above the ~1-minute
 timer throttling of hidden browser tabs). A new start for the same tab
-supersedes (cancels) the previous one. Each worker process RUNS one fit at a
+supersedes (cancels) the previous one — Auto-Fit only once its preflight has
+passed, so a refused Auto-Fit leaves a running Run Fit alone; the spinner
+belongs to the operation that showed it (Batch Fit shows none and hides none). Each worker process RUNS one fit at a
 time (the rest wait `queued`) and admits at most 6, beyond that a 503 — with 4
 workers, at most 4 concurrent fits, the bound the synchronous route had. The synchronous `/api/fit` stays
 for scripts, tests and the Python twins. Plan:
