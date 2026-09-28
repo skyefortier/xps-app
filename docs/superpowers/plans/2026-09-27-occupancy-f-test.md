@@ -270,3 +270,15 @@ fail). Two MINORs, fixed after the GO:
 
 **READY FOR DEPLOY — pending the owner's §3 decision** (option A implemented;
 choosing C means the branch waits). NOT deployed (owner: build to ready only).
+
+## 5. Owner's pre-deploy questions (2026-09-28) — `docs/findings/find-peaks-scale/`
+
+Owner accepted option A's reasoning and asked for a diagnosis before any
+deploy. The findings CORRECT two statements above: the Scan_6 move (§2) was
+not an unsupported MG2 component but a refit capped at 18 000 evaluations plus
+the 25 s wall-clock budget, and it happens on main too under the same load; and
+the "6 of 16 runs change" table mixed load-dependent budget effects into this
+unit's effect — deterministically (budgets off) the unit changes 3 of 16. The
+×0.1 sensitivity is three pre-existing sites (wall-clock budgets, the
+detection layer's Poisson SNR gates, Shirley's absolute stop tolerance),
+amplified by refits that stop on `xtol` after ~30 evaluations. NOT deployed.

@@ -1,0 +1,966 @@
+{
+ "D0_detected": [
+  {
+   "converged": true,
+   "chi2": 9542.871084293041,
+   "support": {
+    "detected_peak_0": [
+     14.87,
+     true,
+     null
+    ],
+    "detected_peak_1": [
+     2511.75,
+     true,
+     null
+    ],
+    "detected_peak_2": [
+     112.02,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "detected_peak_0": 2830.0,
+    "detected_peak_1": 61246.8,
+    "detected_peak_2": 1895.3
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 9537.705915597135,
+   "support": {
+    "detected_peak_0": [
+     14.8,
+     true,
+     null
+    ],
+    "detected_peak_1": [
+     2513.43,
+     true,
+     null
+    ],
+    "detected_peak_2": [
+     112.02,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "detected_peak_0": 2824.7,
+    "detected_peak_1": 61340.0,
+    "detected_peak_2": 1894.8
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 9537.755100981836,
+   "support": {
+    "detected_peak_0": [
+     14.81,
+     true,
+     null
+    ],
+    "detected_peak_1": [
+     2513.37,
+     true,
+     null
+    ],
+    "detected_peak_2": [
+     112.04,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "detected_peak_0": 2825.4,
+    "detected_peak_1": 61347.1,
+    "detected_peak_2": 1894.9
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 9539.539095485747,
+   "support": {
+    "detected_peak_0": [
+     14.83,
+     true,
+     null
+    ],
+    "detected_peak_1": [
+     2512.8,
+     true,
+     null
+    ],
+    "detected_peak_2": [
+     112.03,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "detected_peak_0": 2827.2,
+    "detected_peak_1": 61306.6,
+    "detected_peak_2": 1895.0
+   }
+  }
+ ],
+ "D0_detected#primary": {
+  "chi2": 9538.803742452006,
+  "support": {
+   "detected_peak_0": [
+    14.82,
+    true
+   ],
+   "detected_peak_1": [
+    2513.02,
+    true
+   ],
+   "detected_peak_2": [
+    112.04,
+    true
+   ]
+  }
+ },
+ "D0_detected#persistence": {
+  "detected_peak_0": 1.0,
+  "detected_peak_1": 1.0,
+  "detected_peak_2": 1.0
+ },
+ "D0_detected#n_attempted": 4,
+ "A2_linked+preseed": [
+  {
+   "converged": true,
+   "chi2": 1326.7948974109413,
+   "support": {
+    "main_graphitic": [
+     12981.02,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     243.63,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     1034.88,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     94.39,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1483.19,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 56316.9,
+    "satellite_pi": 1375.4,
+    "contamination_CO": 4684.3,
+    "contamination_C=O": 1061.7,
+    "preseed_curvature_0": 7553.5
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 1326.7949238178348,
+   "support": {
+    "main_graphitic": [
+     12980.48,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     243.56,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     1034.76,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     94.37,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1483.35,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 56316.6,
+    "satellite_pi": 1375.3,
+    "contamination_CO": 4683.8,
+    "contamination_C=O": 1061.5,
+    "preseed_curvature_0": 7553.6
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 1249.7436584007296,
+   "support": {
+    "main_graphitic": [
+     10247.54,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     278.74,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     1089.16,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     110.68,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     2324.33,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 51774.6,
+    "satellite_pi": 1416.0,
+    "contamination_CO": 4533.5,
+    "contamination_C=O": 1082.3,
+    "preseed_curvature_0": 8945.8
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 1326.795222859027,
+   "support": {
+    "main_graphitic": [
+     12981.28,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     243.69,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     1034.84,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     94.39,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1483.19,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 56317.4,
+    "satellite_pi": 1375.4,
+    "contamination_CO": 4684.6,
+    "contamination_C=O": 1061.8,
+    "preseed_curvature_0": 7553.6
+   }
+  }
+ ],
+ "A2_linked+preseed#primary": {
+  "chi2": 24286.56565943693,
+  "support": {
+   "main_graphitic": [
+    862.07,
+    true
+   ],
+   "satellite_pi": [
+    0.65,
+    false
+   ],
+   "contamination_CO": [
+    10.11,
+    true
+   ],
+   "contamination_C=O": [
+    0,
+    false
+   ],
+   "preseed_curvature_0": [
+    53.72,
+    true
+   ]
+  }
+ },
+ "A2_linked+preseed#persistence": {
+  "main_graphitic": 1.0,
+  "satellite_pi": 1.0,
+  "contamination_CO": 1.0,
+  "contamination_C=O": 1.0,
+  "preseed_curvature_0": 1.0
+ },
+ "A2_linked+preseed#n_attempted": 4,
+ "AG2_linked+preseed": [
+  {
+   "converged": true,
+   "chi2": 627.3311368094539,
+   "support": {
+    "main_graphitic": [
+     22540.98,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     1120.97,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2245.66,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     237.85,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1886.13,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 58713.6,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.4,
+    "contamination_C=O": 1183.0,
+    "preseed_curvature_0": 5962.3
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 627.3311245622097,
+   "support": {
+    "main_graphitic": [
+     22541.04,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     1121.05,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2245.49,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     237.85,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1886.25,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 58713.7,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.4,
+    "contamination_C=O": 1183.1,
+    "preseed_curvature_0": 5962.4
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 627.3311836813602,
+   "support": {
+    "main_graphitic": [
+     22538.97,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     1120.88,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2245.9,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     237.85,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1886.81,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 58712.5,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.4,
+    "contamination_C=O": 1182.9,
+    "preseed_curvature_0": 5963.0
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 627.3311472680339,
+   "support": {
+    "main_graphitic": [
+     22541.31,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     1121.01,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2245.5,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     237.85,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1886.1,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 58713.9,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.3,
+    "contamination_C=O": 1183.0,
+    "preseed_curvature_0": 5962.3
+   }
+  }
+ ],
+ "AG2_linked+preseed#primary": {
+  "chi2": 5803.342167455073,
+  "support": {
+   "main_graphitic": [
+    2558.49,
+    true
+   ],
+   "satellite_pi": [
+    103.92,
+    true
+   ],
+   "contamination_CO": [
+    218.78,
+    true
+   ],
+   "contamination_C=O": [
+    22.31,
+    true
+   ],
+   "preseed_curvature_0": [
+    153.08,
+    true
+   ]
+  }
+ },
+ "AG2_linked+preseed#persistence": {
+  "main_graphitic": 1.0,
+  "satellite_pi": 1.0,
+  "contamination_CO": 1.0,
+  "contamination_C=O": 1.0,
+  "preseed_curvature_0": 1.0
+ },
+ "AG2_linked+preseed#n_attempted": 4,
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed": [
+  {
+   "converged": true,
+   "chi2": 379.22868652300576,
+   "support": {
+    "main_graphitic": [
+     21591.67,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     2791.1,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     2046.08,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2984.52,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     443.71,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     3747.01,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 49557.9,
+    "main_aliphatic": 10212.1,
+    "satellite_pi": 1786.7,
+    "contamination_CO": 5114.7,
+    "contamination_C=O": 1421.0,
+    "preseed_curvature_0": 6473.0
+   }
+  },
+  {
+   "converged": false,
+   "chi2": 374.30510184669197,
+   "support": {
+    "main_graphitic": [
+     23436.36,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     2198.9,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     2045.79,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2970.05,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     409.3,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     3688.35,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 50869.9,
+    "main_aliphatic": 8556.0,
+    "satellite_pi": 1779.9,
+    "contamination_CO": 4983.1,
+    "contamination_C=O": 1351.2,
+    "preseed_curvature_0": 6362.9
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 336.3661601822051,
+   "support": {
+    "main_graphitic": [
+     23171.41,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     9977.8,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     2353.76,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     500.38,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     604.24,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1650.69,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 48972.6,
+    "main_aliphatic": 11485.0,
+    "satellite_pi": 1798.7,
+    "contamination_CO": 2083.1,
+    "contamination_C=O": 1570.5,
+    "preseed_curvature_0": 4164.6
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 354.705411819667,
+   "support": {
+    "main_graphitic": [
+     23741.78,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     7829.75,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     2201.53,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     448.17,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     541.03,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1928.0,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 50277.4,
+    "main_aliphatic": 10375.3,
+    "satellite_pi": 1790.7,
+    "contamination_CO": 1998.7,
+    "contamination_C=O": 1522.8,
+    "preseed_curvature_0": 4553.1
+   }
+  }
+ ],
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed#primary": {
+  "chi2": 706.9676251161646,
+  "support": {
+   "main_graphitic": [
+    1587.13,
+    true
+   ],
+   "main_aliphatic": [
+    13347.28,
+    true
+   ],
+   "satellite_pi": [
+    1051.82,
+    true
+   ],
+   "contamination_CO": [
+    1757.86,
+    true
+   ],
+   "contamination_C=O": [
+    128.29,
+    true
+   ],
+   "preseed_curvature_0": [
+    1833.51,
+    true
+   ]
+  }
+ },
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed#persistence": {
+  "main_graphitic": 0.75,
+  "main_aliphatic": 0.75,
+  "satellite_pi": 0.75,
+  "contamination_CO": 0.75,
+  "contamination_C=O": 0.75,
+  "preseed_curvature_0": 0.75
+ },
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed#n_attempted": 4,
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed": [
+  {
+   "converged": true,
+   "chi2": 374.67348716740844,
+   "support": {
+    "main_graphitic": [
+     20380.21,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     3158.25,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     2032.7,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2995.36,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     413.92,
+     true,
+     null
+    ],
+    "contamination_OC=O": [
+     16.78,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     3841.41,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 48711.8,
+    "main_aliphatic": 11234.5,
+    "satellite_pi": 1792.5,
+    "contamination_CO": 5296.5,
+    "contamination_C=O": 1543.4,
+    "contamination_OC=O": 349.9,
+    "preseed_curvature_0": 6585.0
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 367.29455434307977,
+   "support": {
+    "main_graphitic": [
+     21220.89,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     2977.12,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     2084.51,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2986.56,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     426.11,
+     true,
+     null
+    ],
+    "contamination_OC=O": [
+     9.82,
+     false,
+     null
+    ],
+    "preseed_curvature_0": [
+     4101.69,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 49202.7,
+    "main_aliphatic": 10245.7,
+    "satellite_pi": 1795.6,
+    "contamination_CO": 5160.7,
+    "contamination_C=O": 1493.2,
+    "contamination_OC=O": 265.5,
+    "preseed_curvature_0": 6728.9
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 605.3897610948229,
+   "support": {
+    "main_graphitic": [
+     21812.39,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     0.0,
+     false,
+     null
+    ],
+    "satellite_pi": [
+     1091.9,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     1860.11,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     113.48,
+     true,
+     null
+    ],
+    "contamination_OC=O": [
+     10.49,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     1853.18,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 58473.5,
+    "main_aliphatic": 0.2,
+    "satellite_pi": 1720.4,
+    "contamination_CO": 4905.4,
+    "contamination_C=O": 1115.2,
+    "contamination_OC=O": 363.5,
+    "preseed_curvature_0": 5960.3
+   }
+  },
+  {
+   "converged": true,
+   "chi2": 362.75784949032857,
+   "support": {
+    "main_graphitic": [
+     20246.39,
+     true,
+     null
+    ],
+    "main_aliphatic": [
+     5284.87,
+     true,
+     null
+    ],
+    "satellite_pi": [
+     2129.54,
+     true,
+     null
+    ],
+    "contamination_CO": [
+     2129.84,
+     true,
+     null
+    ],
+    "contamination_C=O": [
+     464.51,
+     true,
+     null
+    ],
+    "contamination_OC=O": [
+     17.97,
+     true,
+     null
+    ],
+    "preseed_curvature_0": [
+     3716.08,
+     true,
+     null
+    ]
+   },
+   "amp": {
+    "main_graphitic": 48235.3,
+    "main_aliphatic": 12156.6,
+    "satellite_pi": 1801.2,
+    "contamination_CO": 4462.7,
+    "contamination_C=O": 1626.0,
+    "contamination_OC=O": 358.5,
+    "preseed_curvature_0": 6357.0
+   }
+  }
+ ],
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed#primary": {
+  "chi2": 685.1068805634034,
+  "support": {
+   "main_graphitic": [
+    1578.74,
+    true
+   ],
+   "main_aliphatic": [
+    13485.28,
+    true
+   ],
+   "satellite_pi": [
+    1026.72,
+    true
+   ],
+   "contamination_CO": [
+    1805.33,
+    true
+   ],
+   "contamination_C=O": [
+    116.67,
+    true
+   ],
+   "contamination_OC=O": [
+    20.26,
+    true
+   ],
+   "preseed_curvature_0": [
+    1898.43,
+    true
+   ]
+  }
+ },
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed#persistence": {
+  "main_graphitic": 1.0,
+  "main_aliphatic": 0.75,
+  "satellite_pi": 1.0,
+  "contamination_CO": 1.0,
+  "contamination_C=O": 1.0,
+  "contamination_OC=O": 0.75,
+  "preseed_curvature_0": 1.0
+ },
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed#n_attempted": 4
+}

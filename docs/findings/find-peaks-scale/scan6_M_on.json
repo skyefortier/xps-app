@@ -1,0 +1,466 @@
+{
+ "D0_detected": [
+  {
+   "sec": 2.47,
+   "nfev": 21,
+   "converged": true,
+   "chi2": 9542.871084293041,
+   "support": {
+    "detected_peak_0": null,
+    "detected_peak_1": null,
+    "detected_peak_2": null
+   },
+   "amp": {
+    "detected_peak_0": 2830.0,
+    "detected_peak_1": 61246.8,
+    "detected_peak_2": 1895.3
+   }
+  },
+  {
+   "sec": 0.62,
+   "nfev": 4402,
+   "converged": true,
+   "chi2": 9537.705915597135,
+   "support": {
+    "detected_peak_0": null,
+    "detected_peak_1": null,
+    "detected_peak_2": null
+   },
+   "amp": {
+    "detected_peak_0": 2824.7,
+    "detected_peak_1": 61340.0,
+    "detected_peak_2": 1894.8
+   }
+  },
+  {
+   "sec": 1.55,
+   "nfev": 11053,
+   "converged": true,
+   "chi2": 9537.755100981836,
+   "support": {
+    "detected_peak_0": null,
+    "detected_peak_1": null,
+    "detected_peak_2": null
+   },
+   "amp": {
+    "detected_peak_0": 2825.4,
+    "detected_peak_1": 61347.1,
+    "detected_peak_2": 1894.9
+   }
+  },
+  {
+   "sec": 2.44,
+   "nfev": 20,
+   "converged": true,
+   "chi2": 9539.539095485747,
+   "support": {
+    "detected_peak_0": null,
+    "detected_peak_1": null,
+    "detected_peak_2": null
+   },
+   "amp": {
+    "detected_peak_0": 2827.2,
+    "detected_peak_1": 61306.6,
+    "detected_peak_2": 1895.0
+   }
+  }
+ ],
+ "D0_detected#primary": {
+  "chi2": 9538.803742452006,
+  "support": {
+   "detected_peak_0": null,
+   "detected_peak_1": null,
+   "detected_peak_2": null
+  }
+ },
+ "D0_detected#persistence": {
+  "detected_peak_0": 1.0,
+  "detected_peak_1": 1.0,
+  "detected_peak_2": 1.0
+ },
+ "D0_detected#n_attempted": 4,
+ "A2_linked+preseed": [
+  {
+   "sec": 1.89,
+   "nfev": 2660,
+   "converged": true,
+   "chi2": 1326.7948974109413,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 56316.9,
+    "satellite_pi": 1375.4,
+    "contamination_CO": 4684.3,
+    "contamination_C=O": 1061.7,
+    "preseed_curvature_0": 7553.5
+   }
+  },
+  {
+   "sec": 2.01,
+   "nfev": 2995,
+   "converged": true,
+   "chi2": 1326.7949238178348,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 56316.6,
+    "satellite_pi": 1375.3,
+    "contamination_CO": 4683.8,
+    "contamination_C=O": 1061.5,
+    "preseed_curvature_0": 7553.6
+   }
+  },
+  {
+   "sec": 7.91,
+   "nfev": 13856,
+   "converged": true,
+   "chi2": 1249.7436584007296,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 51774.6,
+    "satellite_pi": 1416.0,
+    "contamination_CO": 4533.5,
+    "contamination_C=O": 1082.3,
+    "preseed_curvature_0": 8945.8
+   }
+  },
+  {
+   "sec": 2.93,
+   "nfev": 5165,
+   "converged": true,
+   "chi2": 1326.795222859027,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 56317.4,
+    "satellite_pi": 1375.4,
+    "contamination_CO": 4684.6,
+    "contamination_C=O": 1061.8,
+    "preseed_curvature_0": 7553.6
+   }
+  }
+ ],
+ "A2_linked+preseed#primary": {
+  "chi2": 24286.56565943693,
+  "support": {
+   "main_graphitic": null,
+   "satellite_pi": null,
+   "contamination_CO": null,
+   "contamination_C=O": null,
+   "preseed_curvature_0": null
+  }
+ },
+ "A2_linked+preseed#persistence": {
+  "main_graphitic": 1.0,
+  "satellite_pi": 1.0,
+  "contamination_CO": 1.0,
+  "contamination_C=O": 1.0,
+  "preseed_curvature_0": 1.0
+ },
+ "A2_linked+preseed#n_attempted": 4,
+ "AG2_linked+preseed": [
+  {
+   "sec": 0.84,
+   "nfev": 2558,
+   "converged": true,
+   "chi2": 627.3311368094539,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 58713.6,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.4,
+    "contamination_C=O": 1183.0,
+    "preseed_curvature_0": 5962.3
+   }
+  },
+  {
+   "sec": 0.7,
+   "nfev": 2178,
+   "converged": true,
+   "chi2": 627.3311245622097,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 58713.7,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.4,
+    "contamination_C=O": 1183.1,
+    "preseed_curvature_0": 5962.4
+   }
+  },
+  {
+   "sec": 0.88,
+   "nfev": 2749,
+   "converged": true,
+   "chi2": 627.3311836813602,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 58712.5,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.4,
+    "contamination_C=O": 1182.9,
+    "preseed_curvature_0": 5963.0
+   }
+  },
+  {
+   "sec": 0.84,
+   "nfev": 2539,
+   "converged": true,
+   "chi2": 627.3311472680339,
+   "support": {
+    "main_graphitic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 58713.9,
+    "satellite_pi": 1716.9,
+    "contamination_CO": 4770.3,
+    "contamination_C=O": 1183.0,
+    "preseed_curvature_0": 5962.3
+   }
+  }
+ ],
+ "AG2_linked+preseed#primary": {
+  "chi2": 5803.342167455073,
+  "support": {
+   "main_graphitic": null,
+   "satellite_pi": null,
+   "contamination_CO": null,
+   "contamination_C=O": null,
+   "preseed_curvature_0": null
+  }
+ },
+ "AG2_linked+preseed#persistence": {
+  "main_graphitic": 1.0,
+  "satellite_pi": 1.0,
+  "contamination_CO": 1.0,
+  "contamination_C=O": 1.0,
+  "preseed_curvature_0": 1.0
+ },
+ "AG2_linked+preseed#n_attempted": 4,
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed": [
+  {
+   "sec": 6.8,
+   "nfev": 34,
+   "converged": true,
+   "chi2": 379.22868652300576,
+   "support": {
+    "main_graphitic": null,
+    "main_aliphatic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 49557.9,
+    "main_aliphatic": 10212.1,
+    "satellite_pi": 1786.7,
+    "contamination_CO": 5114.7,
+    "contamination_C=O": 1421.0,
+    "preseed_curvature_0": 6473.0
+   }
+  },
+  {
+   "sec": 8.41,
+   "nfev": 18000,
+   "converged": false,
+   "chi2": 374.30510184669197,
+   "support": {
+    "main_graphitic": null,
+    "main_aliphatic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 50869.9,
+    "main_aliphatic": 8556.0,
+    "satellite_pi": 1779.9,
+    "contamination_CO": 4983.1,
+    "contamination_C=O": 1351.2,
+    "preseed_curvature_0": 6362.9
+   }
+  },
+  {
+   "sec": 4.71,
+   "nfev": 13027,
+   "converged": true,
+   "chi2": 336.3661601822051,
+   "support": {
+    "main_graphitic": null,
+    "main_aliphatic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 48972.6,
+    "main_aliphatic": 11485.0,
+    "satellite_pi": 1798.7,
+    "contamination_CO": 2083.1,
+    "contamination_C=O": 1570.5,
+    "preseed_curvature_0": 4164.6
+   }
+  }
+ ],
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed#primary": {
+  "chi2": 706.9676251161646,
+  "support": {
+   "main_graphitic": null,
+   "main_aliphatic": null,
+   "satellite_pi": null,
+   "contamination_CO": null,
+   "contamination_C=O": null,
+   "preseed_curvature_0": null
+  }
+ },
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed#persistence": {
+  "main_graphitic": 0.67,
+  "main_aliphatic": 0.67,
+  "satellite_pi": 0.67,
+  "contamination_CO": 0.67,
+  "contamination_C=O": 0.67,
+  "preseed_curvature_0": 0.67
+ },
+ "MG2_graphAsymGL_aliph_sat_CO_C=O+preseed#n_attempted": 3,
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed": [
+  {
+   "sec": 7.56,
+   "nfev": 38,
+   "converged": true,
+   "chi2": 374.67348716740844,
+   "support": {
+    "main_graphitic": null,
+    "main_aliphatic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "contamination_OC=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 48711.8,
+    "main_aliphatic": 11234.5,
+    "satellite_pi": 1792.5,
+    "contamination_CO": 5296.5,
+    "contamination_C=O": 1543.4,
+    "contamination_OC=O": 349.9,
+    "preseed_curvature_0": 6585.0
+   }
+  },
+  {
+   "sec": 8.14,
+   "nfev": 38,
+   "converged": true,
+   "chi2": 367.29455434307977,
+   "support": {
+    "main_graphitic": null,
+    "main_aliphatic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "contamination_OC=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 49202.7,
+    "main_aliphatic": 10245.7,
+    "satellite_pi": 1795.6,
+    "contamination_CO": 5160.7,
+    "contamination_C=O": 1493.2,
+    "contamination_OC=O": 265.5,
+    "preseed_curvature_0": 6728.9
+   }
+  },
+  {
+   "sec": 7.61,
+   "nfev": 39,
+   "converged": true,
+   "chi2": 605.3897610948229,
+   "support": {
+    "main_graphitic": null,
+    "main_aliphatic": null,
+    "satellite_pi": null,
+    "contamination_CO": null,
+    "contamination_C=O": null,
+    "contamination_OC=O": null,
+    "preseed_curvature_0": null
+   },
+   "amp": {
+    "main_graphitic": 58473.5,
+    "main_aliphatic": 0.2,
+    "satellite_pi": 1720.4,
+    "contamination_CO": 4905.4,
+    "contamination_C=O": 1115.2,
+    "contamination_OC=O": 363.5,
+    "preseed_curvature_0": 5960.3
+   }
+  }
+ ],
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed#primary": {
+  "chi2": 685.1068805634034,
+  "support": {
+   "main_graphitic": null,
+   "main_aliphatic": null,
+   "satellite_pi": null,
+   "contamination_CO": null,
+   "contamination_C=O": null,
+   "contamination_OC=O": null,
+   "preseed_curvature_0": null
+  }
+ },
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed#persistence": {
+  "main_graphitic": 1.0,
+  "main_aliphatic": 0.67,
+  "satellite_pi": 1.0,
+  "contamination_CO": 1.0,
+  "contamination_C=O": 1.0,
+  "contamination_OC=O": 1.0,
+  "preseed_curvature_0": 1.0
+ },
+ "MG3_graphAsymGL_aliph_sat_CO_C=O_OC=O+preseed#n_attempted": 3
+}
