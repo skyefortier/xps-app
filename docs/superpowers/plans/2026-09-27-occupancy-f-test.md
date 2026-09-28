@@ -38,8 +38,10 @@ test.**
 Where the support comes from: `engine._component_supports(result)` evaluates
 `fitting._component_support` for every component of an lmfit result (data,
 best fit, the component's curve, the fit's own weights, its free-parameter
-count — a parameter belongs to the LONGEST component prefix it starts with, so
-roles "main" / "main_extra" do not share parameters; Codex round 1) once, in
+count — a parameter belongs to the slot that DECLARES it (`_slot_param_names`:
+centre, amplitude, width, its shape's own parameters and only the auxiliaries
+it creates; `_param_owner_by_name`), never to a prefix, which cannot tell
+"main" + "gl_ratio" from "main_gl" + "ratio" (Codex rounds 1–2)) once, in
 `_extract_fitted_components`; it rides on
 `FittedComponent.support` through slot matching. A component with no fit
 behind it (hand-built in tests) falls back to `amplitude > 0`.
@@ -254,3 +256,17 @@ Also pinned: on every built-in grammar (≥ 40 candidates) each parameter the
 engine creates is declared by exactly one slot or is a shared width parameter —
 so for the shipped grammars declared ownership equals what prefix matching
 found, and the gate / real-data measurements above are unchanged.
+
+**Round 3 — GO ×2** (`occupancy_f_test_r3_verdict_run{A,B}.md`; run B
+checked declarations against actual parameter creation on a 1 728-case matrix
+— every shape, auxiliary condition, width constraint, region prefix and
+full-window mode; both restored the earlier functions and saw each regression
+fail). Two MINORs, fixed after the GO:
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MINOR (A, B): the cross-site attribution test checked source text only | behavioural tests for the payload σ, the cross-slot correlation and the Bayesian intervals on the main / main_gl model; each fails when that site's prefix matching is restored |
+| 2 | MINOR (B): §1 still described longest-prefix ownership | §1 now describes declared ownership |
+
+**READY FOR DEPLOY — pending the owner's §3 decision** (option A implemented;
+choosing C means the branch waits). NOT deployed (owner: build to ready only).

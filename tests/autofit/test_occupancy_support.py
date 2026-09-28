@@ -303,10 +303,55 @@ def test_one_ownership_map_for_every_attribution_site():
     assert _role_for_param(p_main + "gl_ratio", owner) == "main"      # == p_gl + "ratio"
     assert _role_for_param(p_gl + "fwhm", owner) == "main_gl"
     assert _role_for_param("shared_contamination_fwhm", owner) is None
-    import inspect
-    import autofit.confidence as conf
-    import autofit.methods.bayesian_exchange_mc as bx
-    import autofit.methods.ic_model_comparison as ic
-    for fn in (conf._max_correlation, ic._peaks_from_report, bx):
-        src = inspect.getsource(fn)
-        assert "_param_owner_by_name" in src, fn
+
+
+def _main_and_main_gl():
+    weak = ComponentSlot(role="main", region="C 1s", phase_id="p", be_window=(286.0, 287.0),
+                         line_shape=LineShape.PSEUDO_VOIGT, fwhm_range=(0.5, 2.5))
+    strong = ComponentSlot(role="main_gl", region="C 1s", phase_id="p", be_window=(284.0, 285.0),
+                           line_shape=LineShape.GAUSSIAN, fwhm_range=(0.5, 2.5))
+    return CandidateModel(name="m", background=BackgroundType.LINEAR, slots=(weak, strong))
+
+
+MAIN_OWN = {"center", "amplitude", "fwhm", "gl_ratio"}
+GL_OWN = {"center", "amplitude", "fwhm"}
+
+
+def test_payload_sigma_attributes_each_parameter_to_its_slot():
+    """Codex round 3 (MINOR): behaviour, not source text. With a prefix, main
+    received main_gl's parameters and main_gl a 'ratio' that is main's gl_ratio."""
+    from autofit.methods.ic_model_comparison import _peaks_from_report
+    model = _main_and_main_gl()
+    y = _spectrum(1e4, 1e4, 0.0) + _g(X, 286.5, 800.0, 1.2)
+    out = fit_candidate(X, y, 1.0 / np.sqrt(np.maximum(y, 1.0)), model)
+    assert out.converged
+    report = type("R", (), {"model": model, "primary_fit": out})()
+    peaks = {p["role"]: p for p in _peaks_from_report(report)}
+    assert set(peaks["main"]["stderr"]) == MAIN_OWN, peaks["main"].get("stderr")
+    assert set(peaks["main_gl"]["stderr"]) == GL_OWN, peaks["main_gl"].get("stderr")
+
+
+def test_cross_slot_correlation_attributes_each_parameter_to_its_slot():
+    from autofit.confidence import _max_correlation
+    model = _main_and_main_gl()
+    pm, pg = _slot_prefix("main"), _slot_prefix("main_gl")
+    names = [pm + n for n in ("center", "amplitude", "fwhm", "gl_ratio")] + [pg + n for n in ("center", "amplitude", "fwhm")]
+    cov = np.eye(len(names))
+    i, j = names.index(pm + "gl_ratio"), names.index(pg + "center")
+    cov[i, j] = cov[j, i] = 0.9            # only main's gl_ratio couples to main_gl
+    lm = type("L", (), {"var_names": names, "covar": cov})()
+    report = type("R", (), {"model": model, "primary_fit": type("P", (), {"lmfit_result": lm})()})()
+    assert _max_correlation(report, "main") == pytest.approx(0.9)
+    assert _max_correlation(report, "main_gl") == pytest.approx(0.9)
+
+
+def test_bayesian_intervals_attribute_each_parameter_to_its_slot():
+    from autofit.methods.bayesian_exchange_mc import _param_space, _posterior_peaks
+    model = _main_and_main_gl()
+    space = _param_space(model, X, None)
+    rng = np.random.default_rng(1)
+    samples = rng.uniform(space.lows, space.highs, size=(64, len(space.names)))
+    run = {"samples": samples, "names": list(space.names), "ess": [100.0] * len(space.names)}
+    _, conf = _posterior_peaks({"run": run, "model": model, "space": space}, 0.9)
+    assert set(conf["main"]["sigma_stat"]["values"]) == MAIN_OWN
+    assert set(conf["main_gl"]["sigma_stat"]["values"]) == GL_OWN

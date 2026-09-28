@@ -679,6 +679,20 @@ artefact can mark a real component unsupported; REDUNDANCY UNDER OVERLAP is
 not detected (a refit without the component is the test; step (c) does it
 for the Auto-Fit anchor).
 
+Find Peaks (`autofit/`) decides OCCUPANCY with the same statistic since the
+noise-floor unit (2026-09-27; plan
+`docs/superpowers/plans/2026-09-27-occupancy-f-test.md`): a fitted component
+occupies its grammar slot, survives a proposal and reads "above_floor" only
+if `fitting._component_support` on the fit that produced it says supported —
+not `amplitude > 1.0` count, which judged occupancy by the data's scale. An
+unsupported component leaves its slot EMPTY and is not an orphan; an
+amplitude-tied linked slot follows its root. A slot's parameters are the ones
+it DECLARES (`_slot_param_names`), never a name prefix ("main" + "gl_ratio" is
+"main_gl" + "ratio"). `noise_floor` survives only as the Poisson variance
+floor. Known limits: meaningless on noise-free data; the occupancy test is
+scale-free but Find Peaks' outcome is not (detection gates, fits), and the
+background-mismatch honesty signal it used to ride on is deferred (plan §3).
+
 **Acceptance rule for fit outcomes (unit A0, 2026-09-15):** a fit OUTCOME
 from Run Fit, Batch Fit or the local engine is shown, stored or exported
 only if it converged. `runFitLocal` works on a copy and commits only on
