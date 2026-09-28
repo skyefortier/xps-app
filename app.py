@@ -59,6 +59,113 @@ MAX_N_PERTURB = 100
 SESSION_TTL_DAYS = 7
 
 # ─────────────────────────────────────────────────────────────────────────────
+# /api/fit request handling, shared by /api/fit and /api/fit/start (unit 2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _prepare_fit_request(app, body):
+    """/api/fit's request validation, shared VERBATIM with /api/fit/start
+    (unit 2, 2026-09-27): every 400 / 404 is immediate and word-for-word the
+    same on both routes. Returns ``(kwargs_for_run_fit, None)`` or
+    ``(None, error_response)``."""
+    session_id = body.get("session_id", "")
+    _validate_session_id(session_id)
+
+    try:
+        energy, counts = _load_session(session_id, app.config["UPLOAD_FOLDER"])
+    except KeyError:
+        return None, _err(f"Session '{session_id}' not found", 404)
+
+    # Background config
+    bg_cfg = body.get("background", {})
+    bg_method = bg_cfg.get("method", "shirley")
+    bg_start = _parse_int(bg_cfg.get("start_idx"), 0, len(energy))
+    bg_end = _parse_int(bg_cfg.get("end_idx"), 0, len(energy), default=len(energy))
+    # Clean 400 for malformed endpoint_avg instead of a 500 (audit F9).
+    try:
+        endpoint_avg = max(1, int(bg_cfg.get("endpoint_avg", 1)))
+    except (TypeError, ValueError):
+        return None, _err("endpoint_avg must be an integer")
+    manual_bg = bg_cfg.get("manual_bg")
+
+    # Peak specs
+    peak_specs = body.get("peaks", [])
+    if not peak_specs:
+        return None, _err("'peaks' list is empty – provide at least one peak")
+
+    # Validate peak ids are unique
+    ids = [p.get("id") for p in peak_specs]
+    if len(ids) != len(set(ids)):
+        return None, _err("Duplicate peak ids found – each peak must have a unique 'id'")
+
+    _ALLOWED_METHODS = {
+        "leastsq", "least_squares", "nelder",
+        "differential_evolution", "basinhopping",
+    }
+    fit_method = body.get("fit_method", "leastsq")
+    if fit_method not in _ALLOWED_METHODS:
+        return None, _err(f"Unknown fit_method '{fit_method}'")
+
+    # Bounded, type-checked n_perturb (audit F7; also covers the F9
+    # ValueError-on-bad-input case for this field). Reject out-of-range or
+    # non-integer values with a clean 400 instead of a 500 or a worker hang.
+    try:
+        n_perturb = int(body.get("n_perturb", 5))
+    except (TypeError, ValueError):
+        return None, _err(f"n_perturb must be an integer between 0 and {MAX_N_PERTURB}")
+    if n_perturb < 0 or n_perturb > MAX_N_PERTURB:
+        return None, _err(f"n_perturb must be between 0 and {MAX_N_PERTURB}")
+
+    # Scattered-starts check (optional; the page sends 3). Same clean-400
+    # treatment as n_perturb; run_fit validates again for other callers.
+    n_starts = body.get("n_starts", 0)
+    if isinstance(n_starts, bool) or not isinstance(n_starts, int) or not 0 <= n_starts <= fitting.MAX_N_STARTS:
+        return None, _err(f"n_starts must be an integer between 0 and {fitting.MAX_N_STARTS}")
+    # "Is this component required?" (one extra fit; Auto-Fit asks for its anchor)
+    require_component = body.get("require_component")
+    if require_component is not None and not isinstance(require_component, (str, int)):
+        return None, _err("require_component must be a peak id")
+    return dict(
+        energy=energy,
+        counts=counts,
+        peak_specs=peak_specs,
+        background_method=bg_method,
+        bg_start_idx=bg_start,
+        bg_end_idx=bg_end,
+        charge_shift_ev=0.0,
+        fit_kws={"method": fit_method},
+        manual_bg=manual_bg,
+        n_perturb=n_perturb,
+        endpoint_avg=endpoint_avg,
+        n_starts=n_starts,
+        require_component=require_component,
+    ), None
+
+
+def _run_fit_outcome(app, fit_args, cancel=None):
+    """Run the fit; return ``(status_code, body)`` exactly as /api/fit has
+    always answered (a ValueError is our own validation, 400; a RuntimeError
+    a solver-internal failure, 422 without library internals; anything else
+    500). A cancelled job returns ``(None, None)``."""
+    try:
+        result = fitting.run_fit(**fit_args, cancel=cancel)
+    except fitting.FitCancelled:
+        return None, None
+    except ValueError as exc:
+        # Our own validation: unknown shape/method, self/circular constraint,
+        # "Master peak not found", bad numeric field, etc. (audit F10/F11).
+        return 400, {"error": str(exc)}
+    except RuntimeError:
+        # Solver-internal failure (e.g. lmfit non-convergence). Log the
+        # detail; return a generic 422 that leaks no library internals.
+        app.logger.exception("Fit failed")
+        return 422, {"error": "Fit failed — see server log for details."}
+    except Exception:
+        app.logger.exception("Unexpected fitting error")
+        return 500, {"error": "Internal fitting error — see server log."}
+    return 200, result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Application factory
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -443,6 +550,180 @@ def _sweep_expired_jobs(upload_folder: str) -> None:
             pass
 
 
+# ── Fit jobs (unit 2, 2026-09-27) ────────────────────────────────────────────
+# Records are the Find Peaks job files (<job>.job.json, the same TTL sweep);
+# two small markers beside each: <job>.cancel (written by /api/fit/cancel,
+# any worker) and <job>.polled (touched by every poll). The fit thread's
+# cancel condition: the cancel marker exists, OR no poll for
+# FIT_JOB_ABANDON_SEC (a closed tab, a sleeping laptop; 180 s, above the ~1 min timer throttling browsers apply to hidden tabs).
+FIT_JOB_ABANDON_SEC = 180   # > Chrome's 1-minute timer throttling in a hidden tab: a student who switches browser tabs keeps the fit
+FIT_JOB_HEARTBEAT_SEC = 2.0
+# Concurrency (unit 2, Codex round 1). Before start-then-poll, gunicorn's four
+# SYNC workers bounded concurrent fits at four; a fit thread per start would
+# not. Each worker process runs at most FIT_JOB_MAX_RUNNING fits at once (the
+# rest wait "queued", heartbeating, cancellable) and admits at most
+# FIT_JOB_MAX_ADMITTED running + queued jobs; beyond that /api/fit/start
+# answers 503 "busy" immediately. With production's 4 workers: at most 4
+# concurrent fits, as before.
+FIT_JOB_MAX_RUNNING = 1
+FIT_JOB_MAX_ADMITTED = 6
+_FIT_JOB_RUN_SLOTS = threading.BoundedSemaphore(FIT_JOB_MAX_RUNNING)
+_FIT_JOB_ADMITTED = [0]
+_FIT_JOB_ADMIT_LOCK = threading.Lock()
+
+
+def _fit_job_admit() -> bool:
+    with _FIT_JOB_ADMIT_LOCK:
+        if _FIT_JOB_ADMITTED[0] >= FIT_JOB_MAX_ADMITTED:
+            return False
+        _FIT_JOB_ADMITTED[0] += 1
+        return True
+
+
+def _fit_job_release() -> None:
+    with _FIT_JOB_ADMIT_LOCK:
+        _FIT_JOB_ADMITTED[0] = max(0, _FIT_JOB_ADMITTED[0] - 1)
+
+
+def _fit_job_marker(job_id: str, upload_folder: str, kind: str) -> Path:
+    return Path(upload_folder) / f"{job_id}.{kind}"
+
+
+def _fit_job_write(job_id: str, upload_folder: str, data: dict) -> None:
+    """Atomic like _write_job_progress, but WITHOUT sanitising: a result's
+    NaN / Infinity reach the page exactly as /api/fit sends them (the page's
+    _readFitReply refuses them as a failed fit — unit F2)."""
+    path = _job_progress_path(job_id, upload_folder)
+    tmp = path.with_suffix(f".{threading.get_ident()}.tmp")
+    try:
+        tmp.write_text(json.dumps(data, allow_nan=True))
+        os.replace(tmp, path)
+    except OSError:
+        logging.getLogger(__name__).exception("failed to write fit job %s", job_id)
+
+
+def _fit_job_read(job_id: str, upload_folder: str):
+    path = _job_progress_path(job_id, upload_folder)
+    if not path.exists():
+        return None
+    try:
+        _fit_job_marker(job_id, upload_folder, "polled").touch()
+    except OSError:
+        pass
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        data = {"status": "running", "elapsed_sec": 0.0}      # a read racing the first write
+    hb = data.get("heartbeat")
+    data["heartbeat_age_sec"] = round(time.time() - hb, 1) if isinstance(hb, (int, float)) else None
+    return data
+
+
+def _sweep_fit_job_markers(upload_folder: str) -> None:
+    """Markers left by a job whose worker died (they are removed when a job
+    finishes): same TTL as the job records, never raises."""
+    cutoff = time.time() - _ANALYZE_JOB_TTL_SEC
+    for pattern in ("*.cancel", "*.polled"):
+        try:
+            for m in Path(upload_folder).glob(pattern):
+                try:
+                    if m.stat().st_mtime < cutoff:
+                        m.unlink(missing_ok=True)
+                except OSError:
+                    pass
+        except OSError:
+            pass
+
+
+def _fit_job_cancel(job_id: str, upload_folder: str) -> None:
+    try:
+        _fit_job_marker(job_id, upload_folder, "cancel").touch()
+    except OSError:
+        pass
+
+
+def _fit_job_start(job_id: str, upload_folder: str, fit_args: dict, run) -> None:
+    """Start the fit thread and its heartbeat thread. ``run(fit_args, cancel)``
+    returns ``(status, body)``; ``(None, None)`` means cancelled."""
+    started = time.time()
+    lock = threading.Lock()
+    rec = {"status": "queued", "elapsed_sec": 0.0, "heartbeat": started}
+    _fit_job_write(job_id, upload_folder, rec)
+    _fit_job_marker(job_id, upload_folder, "polled").touch()
+    cancel_path = _fit_job_marker(job_id, upload_folder, "cancel")
+    polled_path = _fit_job_marker(job_id, upload_folder, "polled")
+    finished = threading.Event()
+
+    def cancelled() -> bool:
+        if cancel_path.exists():
+            return True
+        try:
+            return time.time() - polled_path.stat().st_mtime > FIT_JOB_ABANDON_SEC
+        except OSError:
+            return False
+
+    def heartbeat() -> None:
+        while not finished.wait(FIT_JOB_HEARTBEAT_SEC):
+            with lock:
+                if rec["status"] not in ("running", "queued"):
+                    return
+                rec["heartbeat"] = time.time()
+                rec["elapsed_sec"] = round(time.time() - started, 1)
+                _fit_job_write(job_id, upload_folder, rec)
+
+    def worker() -> None:
+        try:
+            # queued until a run slot is free; a job cancelled or abandoned
+            # while queued never runs
+            got = False
+            while not got:
+                if cancelled():
+                    status, body = None, None
+                    break
+                got = _FIT_JOB_RUN_SLOTS.acquire(timeout=0.5)
+            if got:
+                try:
+                    with lock:
+                        rec["status"] = "running"
+                        rec["heartbeat"] = time.time()
+                        _fit_job_write(job_id, upload_folder, rec)   # visible at once, not at the next heartbeat
+                    status, body = run(fit_args, cancelled)
+                finally:
+                    _FIT_JOB_RUN_SLOTS.release()
+        except Exception as exc:                       # the record must always leave "running"
+            logging.getLogger(__name__).exception("fit job %s crashed", job_id)
+            status, body = 500, {"error": "Internal fitting error — see server log."}
+        finally:
+            _fit_job_release()
+        with lock:
+            rec["elapsed_sec"] = round(time.time() - started, 1)
+            rec["heartbeat"] = time.time()
+            if status is None or cancel_path.exists():
+                rec.update(status="cancelled")
+            elif status == 200:
+                rec.update(status="done", result=body)
+            else:
+                rec.update(status="error", error=body.get("error"), http_status=status)
+            finished.set()
+            _fit_job_write(job_id, upload_folder, rec)
+        for kind in ("cancel", "polled"):
+            try:
+                _fit_job_marker(job_id, upload_folder, kind).unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    # The heartbeat thread starts FIRST: if either thread fails to start this
+    # raises BEFORE the worker runs, and the route returns the admission; once
+    # the worker has started, only the worker's finally returns it (exactly
+    # one owner; Codex round 2).
+    threading.Thread(target=heartbeat, daemon=True, name=f"fit-hb-{job_id[:8]}").start()
+    try:
+        threading.Thread(target=worker, daemon=True, name=f"fit-{job_id[:8]}").start()
+    except Exception:
+        finished.set()                # stop the heartbeat of a job that never ran
+        raise
+
+
 def _require_json(f):
     """Decorator: return 400 if request body is not valid JSON."""
     @wraps(f)
@@ -779,94 +1060,13 @@ def _register_routes(app: Flask) -> None:
         }
         """
         body = request.get_json()
-        session_id = body.get("session_id", "")
-        _validate_session_id(session_id)
-
-        try:
-            energy, counts = _load_session(session_id, app.config["UPLOAD_FOLDER"])
-        except KeyError:
-            return _err(f"Session '{session_id}' not found", 404)
-
-        # Background config
-        bg_cfg = body.get("background", {})
-        bg_method = bg_cfg.get("method", "shirley")
-        bg_start = _parse_int(bg_cfg.get("start_idx"), 0, len(energy))
-        bg_end = _parse_int(bg_cfg.get("end_idx"), 0, len(energy), default=len(energy))
-        # Clean 400 for malformed endpoint_avg instead of a 500 (audit F9).
-        try:
-            endpoint_avg = max(1, int(bg_cfg.get("endpoint_avg", 1)))
-        except (TypeError, ValueError):
-            return _err("endpoint_avg must be an integer")
-        manual_bg = bg_cfg.get("manual_bg")
-
-        # Peak specs
-        peak_specs = body.get("peaks", [])
-        if not peak_specs:
-            return _err("'peaks' list is empty – provide at least one peak")
-
-        # Validate peak ids are unique
-        ids = [p.get("id") for p in peak_specs]
-        if len(ids) != len(set(ids)):
-            return _err("Duplicate peak ids found – each peak must have a unique 'id'")
-
-        _ALLOWED_METHODS = {
-            "leastsq", "least_squares", "nelder",
-            "differential_evolution", "basinhopping",
-        }
-        fit_method = body.get("fit_method", "leastsq")
-        if fit_method not in _ALLOWED_METHODS:
-            return _err(f"Unknown fit_method '{fit_method}'")
-
-        # Bounded, type-checked n_perturb (audit F7; also covers the F9
-        # ValueError-on-bad-input case for this field). Reject out-of-range or
-        # non-integer values with a clean 400 instead of a 500 or a worker hang.
-        try:
-            n_perturb = int(body.get("n_perturb", 5))
-        except (TypeError, ValueError):
-            return _err(f"n_perturb must be an integer between 0 and {MAX_N_PERTURB}")
-        if n_perturb < 0 or n_perturb > MAX_N_PERTURB:
-            return _err(f"n_perturb must be between 0 and {MAX_N_PERTURB}")
-
-        # Scattered-starts check (optional; the page sends 3). Same clean-400
-        # treatment as n_perturb; run_fit validates again for other callers.
-        n_starts = body.get("n_starts", 0)
-        if isinstance(n_starts, bool) or not isinstance(n_starts, int) or not 0 <= n_starts <= fitting.MAX_N_STARTS:
-            return _err(f"n_starts must be an integer between 0 and {fitting.MAX_N_STARTS}")
-        # "Is this component required?" (one extra fit; Auto-Fit asks for its anchor)
-        require_component = body.get("require_component")
-        if require_component is not None and not isinstance(require_component, (str, int)):
-            return _err("require_component must be a peak id")
-
-        try:
-            result = fitting.run_fit(
-                energy=energy,
-                counts=counts,
-                peak_specs=peak_specs,
-                background_method=bg_method,
-                bg_start_idx=bg_start,
-                bg_end_idx=bg_end,
-                charge_shift_ev=0.0,
-                fit_kws={"method": fit_method},
-                manual_bg=manual_bg,
-                n_perturb=n_perturb,
-                endpoint_avg=endpoint_avg,
-                n_starts=n_starts,
-                require_component=require_component,
-            )
-        except ValueError as exc:
-            # Our own validation: unknown shape/method, self/circular constraint,
-            # "Master peak not found", bad numeric field, etc. (audit F10/F11).
-            return _err(str(exc))
-        except RuntimeError:
-            # Solver-internal failure (e.g. lmfit non-convergence). Log the
-            # detail; return a generic 422 that leaks no library internals.
-            app.logger.exception("Fit failed")
-            return _err("Fit failed — see server log for details.", 422)
-        except Exception:
-            app.logger.exception("Unexpected fitting error")
-            return _err("Internal fitting error — see server log.", 500)
-
-        return jsonify(result)
+        fit_args, error = _prepare_fit_request(app, body)
+        if error is not None:
+            return error
+        status, out = _run_fit_outcome(app, fit_args)
+        if status != 200:
+            return _err(out["error"], status)
+        return jsonify(out)
 
     # ── Autofit analyze (opt-in Find Peaks; STRICTLY ADDITIVE — the manual
     #    /api/fit path above is untouched) ──────────────────────────────────
@@ -1059,6 +1259,60 @@ def _register_routes(app: Flask) -> None:
                     "candidate_name": None, "elapsed_sec": 0.0,
                     "message": "starting analysis…"}
         return jsonify(data)
+
+    # ── Long fits via start-then-poll (unit 2, 2026-09-27) ───────────────────
+    # The public URL ends a proxied request at ~100 s (Cloudflare 524; 88 s
+    # passed, 125 s failed); basinhopping on the large C 1s models takes 3–4
+    # minutes. The fit runs in a background thread on Find Peaks' job
+    # infrastructure (an atomic JSON record under the upload folder, readable
+    # by whichever gunicorn worker serves a poll); every HTTP request is short.
+    # The record: {status: queued|running|done|error|cancelled, elapsed_sec,
+    # heartbeat (epoch s, rewritten every 2 s while the fit thread lives),
+    # result (done: EXACTLY the /api/fit body), error + http_status (error:
+    # exactly what /api/fit would have answered)}.
+
+    @app.post("/api/fit/start")
+    @_require_json
+    def fit_start():
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _err("request body must be a JSON object")
+        fit_args, error = _prepare_fit_request(app, body)
+        if error is not None:
+            return error
+        upload_folder = app.config["UPLOAD_FOLDER"]
+        if not _fit_job_admit():
+            return _err("The server is busy with other fits. Try again in a moment.", 503)
+        job_id = str(uuid.uuid4())
+        try:
+            _sweep_expired_jobs(upload_folder)
+            _sweep_fit_job_markers(upload_folder)
+            _fit_job_start(job_id, upload_folder, fit_args,
+                           lambda args, cancel: _run_fit_outcome(app, args, cancel=cancel))
+        except Exception:
+            _fit_job_release()          # the job never started: its admission is returned
+            raise
+        return jsonify({"job_id": job_id}), 202
+
+    @app.get("/api/fit/progress/<job_id>")
+    def fit_progress(job_id):
+        try:
+            uuid.UUID(job_id)
+        except ValueError:
+            return _err("Invalid job_id format (expected UUID)", 400)
+        data = _fit_job_read(job_id, app.config["UPLOAD_FOLDER"])
+        if data is None:
+            return _err(f"Job '{job_id}' not found", 404)
+        return app.response_class(json.dumps(data, allow_nan=True), mimetype="application/json")
+
+    @app.post("/api/fit/cancel/<job_id>")
+    def fit_cancel(job_id):
+        try:
+            uuid.UUID(job_id)
+        except ValueError:
+            return _err("Invalid job_id format (expected UUID)", 400)
+        _fit_job_cancel(job_id, app.config["UPLOAD_FOLDER"])
+        return jsonify({"cancelled": True})
 
     # ── Health check ──────────────────────────────────────────────────────────
 

@@ -133,7 +133,7 @@ def _setup(page, bg_start, bg_end):
 
 
 def _captured_fit_request(page):
-    with page.expect_request("**/api/fit", timeout=30000) as req_info:
+    with page.expect_request("**/api/fit/start", timeout=30000) as req_info:   # unit 2: the same request body, started then polled
         page.evaluate("() => { runFit(); }")
     body = req_info.value.post_data_json
     page.wait_for_timeout(300)

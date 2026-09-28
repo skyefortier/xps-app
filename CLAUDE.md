@@ -52,6 +52,9 @@ compatible with multi-worker gunicorn.
 | `DELETE` | `/api/session/<id>`       | Delete session files. |
 | `POST`   | `/api/background`         | Compute background curve for a session. |
 | `POST`   | `/api/fit`                | Run lmfit on a session with peak specs; returns chi², bgIntensity, bgSubtracted, fittedY, per-peak refined params + σ. |
+| `POST`   | `/api/fit/start`          | The same request and validation as `/api/fit` (an immediate identical 400 / 404); runs the SAME `run_fit` in a background thread; returns `{job_id}` 202 (unit 2, 2026-09-27). |
+| `GET`    | `/api/fit/progress/<id>`  | The job record: `status` running / done / error / cancelled, `elapsed_sec`, `heartbeat_age_sec`; `result` = exactly the `/api/fit` body; `error` + `http_status` = exactly what `/api/fit` would answer. |
+| `POST`   | `/api/fit/cancel/<id>`    | Stop the job (every minimisation aborts via lmfit's `iter_cb`); also automatic after 180 s without a poll. |
 
 ## Frontend Architecture
 
@@ -195,6 +198,31 @@ as 3) matched a fit made at 30 (Codex round 2,
 must read each field exactly the way its consumer reads it — integers as
 integers, energies through `parseFloat` — never a generic conversion
 (`_fitKeyCanon`). (Owner, 2026-09-26.)
+
+### Long fits start and poll (unit 2, 2026-09-27)
+
+Run Fit (incl. "Use this solution") and Auto-Fit never hold a request open
+for a fit: `_serverFitJob` starts it (`/api/fit/start`), polls every 0.5 s
+and reads the finished record's `result` (the `/api/fit` body) with F2's
+`_readFitReply` rules. So no request meets the public ~100 s ceiling (the five
+largest C 1s basinhopping models completed in 213–414 s through the poll
+path with no request longer than 0.28 s). Server: Find Peaks' job records
+(atomic JSON under the upload folder, readable by any worker), a fit thread
+and a 2 s heartbeat thread per job; `run_fit(cancel=)` gives every
+`model.fit` an `iter_cb` that aborts once the job is cancelled — without it
+the calls are made exactly as before (Levenberg-Marquardt byte-identical
+either way). Page: the ownership rules run INSIDE the poll loop (a switched
+tab or an edited model cancels the job and discards with the usual message);
+a START that cannot reach the server is still a transport failure (local
+fallback); a poll that cannot is retried, five in a row are; a stopped
+heartbeat (> 30 s) is a failed fit; a closed page sends a cancel beacon, and
+the server cancels a job nobody has polled for 180 s (above the ~1-minute
+timer throttling of hidden browser tabs). A new start for the same tab
+supersedes (cancels) the previous one. Each worker process RUNS one fit at a
+time (the rest wait `queued`) and admits at most 6, beyond that a 503 — with 4
+workers, at most 4 concurrent fits, the bound the synchronous route had. The synchronous `/api/fit` stays
+for scripts, tests and the Python twins. Plan:
+`docs/superpowers/plans/2026-09-27-long-fits-start-poll.md`.
 
 ### Timing claims are measured through the public URL
 

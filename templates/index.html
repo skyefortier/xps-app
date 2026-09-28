@@ -7470,6 +7470,171 @@ async function _readFitReply(resp) {
   }
 }
 
+// ── Long fits via start-then-poll (unit 2, 2026-09-27) ──────────────────────
+// The public URL ends a proxied request at ~100 s (Cloudflare 524); a
+// basinhopping fit of a large C 1s model takes 3–4 minutes. So the fit is
+// STARTED (/api/fit/start: the same validation as /api/fit, an immediate 400
+// for a bad request, else 202 + a job id) and POLLED (/api/fit/progress, a
+// short request every FIT_POLL_MS); no request of this path lasts longer than
+// a poll. The final record's `result` is exactly the body /api/fit returns,
+// read with F2's rules (_readFitReply: a body read but not JSON — a NaN — is
+// the server's failed fit). The caller's ownership rules run INSIDE the loop:
+// `guard.abandoned()` returning a reason ('tab' | 'model') cancels the job on
+// the server and returns { _abandoned: reason } — the caller discards with
+// its usual message. Transport: a START that cannot reach the server is a
+// transport failure (the caller's local fallback, as before); a poll that
+// cannot is retried and only FIT_POLL_TRANSPORT_RETRIES in a row are. A
+// record whose heartbeat stops (a restarted worker takes the fit thread with
+// it) is a failed fit, never an endless spinner. Cancellation also reaches
+// the server when the page is closed (pagehide beacon) and, server-side,
+// when polls stop for three minutes (above the ~1-minute timer throttling of a hidden browser tab).
+const FIT_POLL_MS = 500;
+const FIT_POLL_TRANSPORT_RETRIES = 5;
+const FIT_HEARTBEAT_LOST_SEC = 30;
+const _runningFitJobs = new Set();
+// One fit OPERATION per tab record (unit 2, Codex rounds 1-2). A caller claims
+// its operation BEFORE ITS FIRST AWAIT (_claimFitOp): the newest claim for a
+// tab is the current one, whatever order the server's responses come back in.
+// A claim cancels the previous operation's server job; the previous
+// operation's _serverFitJob, at every step after an await and before every
+// exit — a result, an error, a timeout — sees it is no longer current,
+// cancels its own job if it has one, and returns { _abandoned: 'superseded' },
+// on which its caller does NOTHING (the newer fit owns spinner and result).
+// Ctrl/Cmd+F bypasses the disabled Run Fit button, and Run Fit and Auto-Fit
+// share a tab.
+let _fitOpSeq = 0;
+const _fitOpByOwner = new WeakMap();
+// An operation is NUMBERED when the student presses the button (_newFitOp) and
+// INSTALLED as its tab's current one when it is about to change anything
+// (_installFitOp) — only if no newer operation has claimed the tab meanwhile
+// (Codex round 3: Auto-Fit's confirmation modal sits between the two; a Run
+// Fit pressed while it is open must win, and opening the modal must not kill
+// a running fit the student may still keep by cancelling the modal).
+function _newFitOp(owner) { return { seq: ++_fitOpSeq, owner: owner || null, jobId: null }; }
+function _installFitOp(op) {
+  if (!op || !op.owner) return true;
+  const cur = _fitOpByOwner.get(op.owner);
+  if (cur && cur.seq > op.seq) return false;          // a newer operation owns the tab
+  if (cur && cur !== op && cur.jobId) _cancelFitJob(cur.jobId);
+  _fitOpByOwner.set(op.owner, op);
+  return true;
+}
+function _claimFitOp(owner) { const op = _newFitOp(owner); _installFitOp(op); return op; }
+function _fitOpCurrent(op) { return !op || !op.owner || _fitOpByOwner.get(op.owner) === op; }
+// The fit spinner is page-wide, one per page; the operation that showed it
+// owns it. A fit that ends after another tab's fit took the spinner leaves it
+// alone (Codex round 3: a discarded tab-A fit hid tab B's running spinner).
+let _fitSpinnerOp = null;
+function _hideFitSpinnerFor(op) {
+  if (_fitSpinnerOp !== op) return;
+  _fitSpinnerOp = null;
+  _hideFitSpinner();
+}
+function _cancelFitJob(jobId) {
+  try { fetch('/api/fit/cancel/' + encodeURIComponent(jobId), { method: 'POST', keepalive: true }).catch(() => {}); } catch (_) { /* best effort */ }
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('pagehide', () => {
+    for (const id of _runningFitJobs) {
+      try { navigator.sendBeacon('/api/fit/cancel/' + encodeURIComponent(id)); } catch (_) { /* best effort */ }
+    }
+  });
+}
+function _fitHttpError(status, msg, prefix) {
+  const err = new Error(msg || ((prefix || 'Fit request failed') + ' (HTTP ' + status + ').'));
+  err.serverError = true;
+  err.httpStatus = status;
+  return err;
+}
+async function _serverFitJob(fitReq, guard) {
+  guard = guard || {};
+  const op = guard.op || null;
+  const SUP = { _abandoned: 'superseded' };
+  let jobId = null;
+  const gone = () => !_fitOpCurrent(op);
+  const superseded = () => { if (jobId) _cancelFitJob(jobId); return SUP; };
+  const isTransport = e => e && !e.serverError && (e instanceof TypeError || e.name === 'AbortError');
+  try {
+    if (gone()) return SUP;
+    let resp;
+    try {
+      resp = await fetch('/api/fit/start', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                             body: JSON.stringify(fitReq), signal: guard.signal });
+    } catch (e) { if (isTransport(e)) e.transportFailure = true; throw e; }
+    if (resp.ok === false) {
+      let msg = null;
+      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
+      throw _fitHttpError(resp.status, msg);
+    }
+    let started;
+    try { started = await _readFitReply(resp); } catch (e) { if (isTransport(e)) e.transportFailure = true; throw e; }
+    jobId = started && started.job_id;
+    if (!jobId) throw _fitHttpError(resp.status, 'The server did not start the fit (no job id).');
+    _runningFitJobs.add(jobId);
+    if (gone()) return superseded();            // a newer claim came while this start was in flight
+    if (op) op.jobId = jobId;
+    let misses = 0;
+    while (true) {
+      await new Promise(r => setTimeout(r, FIT_POLL_MS));
+      if (gone()) return superseded();
+      if (guard.signal && guard.signal.aborted) {
+        _cancelFitJob(jobId);
+        throw guard.signal.reason || new DOMException('aborted', 'AbortError');
+      }
+      const why = guard.abandoned ? guard.abandoned() : null;
+      if (why) { _cancelFitJob(jobId); return { _abandoned: why }; }
+      let pr, rec;
+      try {
+        pr = await fetch('/api/fit/progress/' + encodeURIComponent(jobId), { signal: guard.signal });
+      } catch (e) {
+        if (gone()) return superseded();
+        if (e && e.name === 'AbortError') { _cancelFitJob(jobId); throw e; }
+        if (++misses >= FIT_POLL_TRANSPORT_RETRIES) {
+          _cancelFitJob(jobId);
+          const err = new Error('Lost contact with the server during the fit (' + ((e && e.message) || 'network error') + ').');
+          err.transportFailure = true;
+          throw err;
+        }
+        continue;
+      }
+      if (gone()) return superseded();            // the reply of a poll made before a newer claim
+      if (pr.ok === false) {
+        _cancelFitJob(jobId);
+        let msg = null;
+        try { const j = await pr.json(); msg = (j && j.error) || null; } catch (_) { /* non-JSON body */ }
+        throw _fitHttpError(pr.status, msg, 'Lost the fit\'s progress');
+      }
+      try { rec = await _readFitReply(pr); } catch (e) {
+        if (gone()) return superseded();
+        if (e && e.unreadableReply) { _cancelFitJob(jobId); throw e; }
+        if (++misses >= FIT_POLL_TRANSPORT_RETRIES) {
+          _cancelFitJob(jobId);
+          if (isTransport(e)) e.transportFailure = true;
+          throw e;
+        }
+        continue;
+      }
+      if (gone()) return superseded();
+      misses = 0;
+      if (rec.status === 'done') return rec.result;
+      if (rec.status === 'error') throw _fitHttpError(rec.http_status || 500, rec.error);
+      if (rec.status === 'cancelled') throw _fitHttpError(409, 'The fit was stopped on the server before it finished. Run it again.');
+      if (Number.isFinite(rec.heartbeat_age_sec) && rec.heartbeat_age_sec > FIT_HEARTBEAT_LOST_SEC) {
+        _cancelFitJob(jobId);
+        throw _fitHttpError(503, 'The server stopped working on the fit (no sign of it for ' + Math.round(rec.heartbeat_age_sec) +
+                                 ' s — it was probably restarted). Run the fit again.');
+      }
+      if (typeof guard.onProgress === 'function') guard.onProgress(rec);
+    }
+  } catch (e) {
+    if (gone()) return superseded();              // superseded wins over any error, incl. a timeout
+    throw e;
+  } finally {
+    if (jobId) _runningFitJobs.delete(jobId);
+    if (op && op.jobId === jobId) op.jobId = null;
+  }
+}
+
 async function runAutoFitC1sGraphite() {
   // Pre-conditions
   if (!state.rawBE || !state.rawBE.length) { notify('Load a spectrum first.', 'amber'); return; }
@@ -7483,6 +7648,9 @@ async function runAutoFitC1sGraphite() {
   // when it resolves may not be the one the user asked to auto-fit.
   const fittingTab = _opOwner();
   if (!fittingTab) { notify('No active spectrum tab.', 'amber'); return; }
+  // unit 2: this press's fit operation, numbered NOW (before the modal) and
+  // installed after it, only if no newer operation claimed the tab meanwhile
+  const afOp = _newFitOp(fittingTab);
   // Confirmation if existing peaks
   if (state.peaks.length >= 1) {
     const proceed = await _showAutoFitConfirmModal(state.peaks.length);
@@ -7493,6 +7661,9 @@ async function runAutoFitC1sGraphite() {
     }
   }
 
+  // a Run Fit pressed while the confirmation was open is newer: it wins, and
+  // this Auto-Fit does nothing at all (nothing has been changed yet)
+  if (!_installFitOp(afOp)) return;
   // Snapshot for failure rollback (separate from pushUndo, which only covers peaks).
   const snap = _autoFitSnapshot();
 
@@ -7540,6 +7711,7 @@ async function runAutoFitC1sGraphite() {
 
   // Step 5: run /api/fit with AbortController + spinner.
   _showFitSpinner();
+  _fitSpinnerOp = afOp;
   const spinLabel = document.getElementById('fit-spinner-label');
   if (spinLabel) spinLabel.textContent = 'Auto-fitting…';
   const runBtn = document.querySelector('.btn-green');
@@ -7584,10 +7756,8 @@ async function runAutoFitC1sGraphite() {
       bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
     }
     const sessionId = await uploadToBackend(be2, inten2);   // after EVERY input above is captured
-    const resp = await fetch('/api/fit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    // Unit 2: started and polled, like Run Fit (the 2-minute abort still applies)
+    const json = await _serverFitJob({
         session_id: sessionId,
         background: bgPayload,
         peaks: peakSpecs,
@@ -7597,31 +7767,41 @@ async function runAutoFitC1sGraphite() {
         // the model without it; a redundant anchor must not set the energy
         // reference of a whole spectrum (see applyAutoFitResult).
         require_component: anchorId,
-      }),
+    }, {
+      op: afOp,
       signal: ctrl.signal,
+      abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxAtRequest) ? 'model' : null)),
     });
     clearTimeout(timer);
-    // F2: a non-2xx reply is a failed REQUEST with its status in the message,
-    // as Run Fit has done since A0 (a Cloudflare 524 or a gunicorn 500 used to
-    // reach the parser and read as "the server's reply could not be read")
-    if (resp.ok === false) {
-      let msg = null;
-      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
-      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
-      err.httpStatus = resp.status;
-      throw err;
+    // superseded by a newer fit on this tab (Run Fit pressed during Auto-Fit):
+    // that fit started from the model now on the tab and owns the result — no
+    // rollback here, which would overwrite it
+    if (json && json._abandoned === 'superseded') return;
+    // F2: a non-2xx reply is a failed REQUEST with its status in the message
+    // (_serverFitJob throws it with httpStatus); an unreadable reply is a
+    // failed fit with its own message (unreadableReply).
+    if (json && json._abandoned === 'tab') {
+      _hideFitSpinnerFor(afOp);
+      notify('Auto-fit discarded — tab switched during fit.', 'amber');
+      _autoFitRestore(snap, fittingTab);
+      return;
     }
-    const json = await _readFitReply(resp);   // F2: an unreadable reply is a failed fit with its own message
+    if (json && json._abandoned === 'model') {
+      _hideFitSpinnerFor(afOp);
+      notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
     if (json.error) throw new Error(json.error);
     if (json.success !== true) throw new Error(json.message || 'fit did not converge');
     if (!_ownerActive(fittingTab)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       notify('Auto-fit discarded — tab switched during fit.', 'amber');
       _autoFitRestore(snap, fittingTab);
       return;
     }
     if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
       _autoFitRestore(snap, fittingTab);
       return;
@@ -7631,16 +7811,19 @@ async function runAutoFitC1sGraphite() {
 
     const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
     if (!ok) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(afOp);
       _autoFitRestore(snap, fittingTab);
       return;
     }
 
-    _hideFitSpinner();
+    _hideFitSpinnerFor(afOp);
     notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
   } catch (e) {
     clearTimeout(timer);
-    _hideFitSpinner();
+    // superseded (Run Fit pressed during Auto-Fit): nothing at all — no
+    // rollback (it would overwrite the newer fit's model), no message
+    if (afOp && !_fitOpCurrent(afOp)) return;
+    _hideFitSpinnerFor(afOp);
     // The catch path can also fire after a mid-flight tab switch (fetch
     // error/timeout after the user moved on) — same wrong-tab hazard as
     // the explicit discard branch, so it gets the same tab-aware restore.
@@ -8041,6 +8224,7 @@ async function runFit(opts = {}) {
   // Try Flask backend first
   let backendResult = null;
   let ctxAtRequest = null;   // set with the other request inputs; read again by the local fallback
+  let fitOp = null;         // unit 2: this tab's fit operation, claimed before the first await
   try {
     const bgType  = document.getElementById('bg-type').value;
     const bgStart = parseFloat(document.getElementById('bg-start').value);
@@ -8061,6 +8245,8 @@ async function runFit(opts = {}) {
     // the live model and its fit context as the student pressed the button: a
     // result must not be written over a model that was edited while it ran
     ctxAtRequest = _startsLiveKey();
+    fitOp = _claimFitOp(fittingTab);   // before the first await: the newest claim for a tab is current
+    _fitSpinnerOp = fitOp;             // the spinner shown above is this operation's
     const fitMethod = document.getElementById('fit-method').value;
     const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
     const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
@@ -8092,26 +8278,29 @@ async function runFit(opts = {}) {
       n_perturb: 3,
       n_starts: nStarts       // the server also skips it for the global methods
     };
-    let resp, json;
-    try {
-      resp = await fetch('/api/fit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fitReq)
-      });
-    } catch (e) { _asTransport(e); }
-    if (resp.ok === false) {
-      // HTTP failure: read a message if the body is JSON, but a 502 HTML
-      // page is still a SERVER failure, never a reason to switch engines.
-      let msg = null;
-      try { const j = await resp.json(); msg = (j && (j.error || j.message)) || null; } catch (_) { /* non-JSON body */ }
-      const err = new Error(msg || ('Fit request failed (HTTP ' + resp.status + ').'));
-      err.serverError = true;
-      throw err;
+    // Unit 2: started and polled (_serverFitJob) — no request lasts longer than
+    // a poll, so none meets the public URL's ~100 s ceiling. An HTTP failure is
+    // a SERVER failure (serverError), never a reason to switch engines; a
+    // START that cannot reach the server is a transport failure, as the single
+    // request was. The ownership checks below also run inside the poll loop,
+    // so a switched tab or an edited model stops the server's work at once.
+    const json = await _serverFitJob(fitReq, {
+      op: fitOp,
+      abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxAtRequest) ? 'model' : null)),
+    });
+    if (json && json._abandoned === 'superseded') return;   // a newer fit on this tab owns the spinner and the result
+    if (json && json._abandoned === 'tab') {
+      _hideFitSpinnerFor(fitOp);
+      document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
+      notify('Fit result discarded because you switched tabs during the fit.', 'amber');
+      return;
     }
-    // F2: reading the body can fail in transport; a body that was read but is
-    // not JSON is the server's reply — a failed fit, not a fallback
-    try { json = await _readFitReply(resp); } catch (e) { _asTransport(e); }
+    if (json && json._abandoned === 'model') {
+      _hideFitSpinnerFor(fitOp);
+      document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
+      notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
+      return;
+    }
     if (json.error) {
       const err = new Error(json.error);
       err.serverError = true;
@@ -8130,7 +8319,7 @@ async function runFit(opts = {}) {
     // If the user switched tabs while the fit was running, discard the result
     // rather than overwriting the now-active tab's peaks.
     if (!_ownerActive(fittingTab)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
       notify('Fit result discarded because you switched tabs during the fit.', 'amber');
       return;
@@ -8140,7 +8329,7 @@ async function runFit(opts = {}) {
     // the model as it was must not be applied over an edited one (a newly locked
     // centre would keep its edited value under the server's statistics).
     if (!_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
       notify('Fit result discarded because the model or its background / ROI settings were edited while the fit was running. Previous peaks and result kept. Run the fit again.', 'amber', true);
       return;
@@ -8171,11 +8360,14 @@ async function runFit(opts = {}) {
     document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
     _updateRFactorUI(state.fitResult.rFactor);
     _updateROIDisplay(roiRange);
-    _hideFitSpinner();
+    _hideFitSpinnerFor(fitOp);
     notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
   } catch (e) {
+    // superseded (a newer fit on this tab): nothing at all — no message, no
+    // local fallback, the newer fit owns the spinner and the result
+    if (fitOp && !_fitOpCurrent(fitOp)) return;
     // Fall back to local Levenberg-Marquardt
-    _hideFitSpinner();
+    _hideFitSpinnerFor(fitOp);
     if (!_ownerActive(fittingTab)) {
       document.getElementById('sb-msg').textContent = 'Fit discarded (tab changed)';
       notify('Fit cancelled — tab switched during fit.', 'amber');
@@ -8191,7 +8383,7 @@ async function runFit(opts = {}) {
     if (e && e.transportFailure && ctxAtRequest !== null && !_sameFitKey(_startsLiveKey(), ctxAtRequest)) {
       // The fallback would fit the arrays captured at the press over a model or
       // context edited since, and stamp the edited one (F1, Codex round 1).
-      _hideFitSpinner();
+      _hideFitSpinnerFor(fitOp);
       document.getElementById('sb-msg').textContent = 'Fit discarded (model edited)';
       notify('The server could not be reached, and the model or its background / ROI settings were edited while the fit was running, so no local fit was run. Previous peaks and result kept. Run the fit again.', 'amber', true);
       return;
