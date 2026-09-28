@@ -6,6 +6,71 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-27 — background twins: the page draws the background the server fits (`fix-background-twins-on-f2`, sweep unit 4)
+
+- **Release note:** the background the page draws, freezes into a fit,
+  saves and fits against in the browser is now the one the server fits
+  against, for Shirley, Smart and Smart (experimental) — exactly, on the
+  tested spectra, at every endpoint averaging. It differed by up to 1.2 % of
+  the intensity span for Smart at endpoint averaging 10, by up to 1.4 % for
+  Smart (experimental) (which also integrated a descending grid from the
+  wrong end), and on data dipping below the baseline or with decimal
+  endpoints the page's Shirley could land on a different curve entirely
+  (33–63 % of the span in review). **Saved projects using these backgrounds
+  may redraw slightly differently** — to the curve their fit actually used.
+- Why it took four rounds: an iterative background turns a one-ulp
+  difference into a different fixed point, so the page's twins now mirror
+  fitting.py's arithmetic operation for operation (numpy's linspace start,
+  numpy's pairwise mean for endpoint averaging). Pinned by
+  `tests/js/background_parity.test.js` against fitting.py's own functions.
+- Known gaps, pinned, unchanged: `shirley_linear` (de-listed) on descending
+  grids; linear on non-uniform grids; the UI's Shirley iteration count vs the
+  server's convergence (sealed-fit-record memo Part 5).
+- Codex: rounds 1–3 NO-GO ×2, round 4 GO ×2 (one MINOR, np.mean(−0) = +0,
+  fixed after the GO — owner accepted without another round); Python 1006
+  passed / 7 skipped; JS 477 / 475 pass / 2 todo; production browser check
+  (page background = server `background_y` exactly for shirley, smart,
+  smart_exp at endpoint average 10; no page errors).
+
+## 2026-09-27 — Auto-Fit C1s gate reads the data the fit would use (`fix-noise-floor-on-f2`, sweep unit F3, first half)
+
+- **Release note:** Auto-Fit C1s Graphite is offered only when the midpoint
+  of the data the fit would actually use is in 270–315 eV — for the active
+  tab the live selection, never the tab's stale saved window or a typed ROI
+  reaching past the data. Before, a C 1s tab could be refused (or another
+  region offered the C 1s auto-fit) from a window it no longer had.
+- The other half of F3 (Find Peaks' 1.0-count occupancy floor → a scale-free
+  test) was parked for an owner decision
+  (`docs/findings/noise-floor-occupancy/`) and is not in this deploy.
+- Rebuilt onto F2 without the parked unit 2 (same changes, patch-id
+  identical). Codex GO ×2 in rounds 1–3; Python 1006 passed / 7 skipped; JS
+  459 / 457 pass / 2 todo; production browser check (gate true on C1s Scan,
+  false on U4f Scan; Run Fit; no page errors).
+
+## 2026-09-27 — acceptance-rule holes (`fix-acceptance-holes`, sweep unit F2)
+
+- **Release note:** basinhopping results are now verified: the search is
+  refined to a converged Trust-Region fit and competes with a plain
+  Trust-Region fit from the same start, so it is never worse than the default
+  method; it no longer runs perturbed restarts (they quadrupled its time for
+  no change in χ²ᵣ: median 386 s → 96 s on 16 multi-component targets).
+- **A server reply containing a non-finite number** (an uncertainty that
+  could not be computed) is a failed fit with a message — it used to switch
+  to the in-page engine silently, replacing a converged server result.
+- **A model with at least as many free parameters as data points is
+  refused** (server and in-page engine), with the counts in the message; it
+  used to read as a near-perfect, "supported" fit.
+- **Auto-Fit refuses its Graphite anchor when the refit without it did not
+  converge**, and reports an HTTP failure (e.g. a Cloudflare 524) with its
+  status.
+- Found on the way: Cloudflare ends a proxied request at ~100 s (88 s
+  passed, 125 s gave 524), so the largest basinhopping models still fail
+  through the public URL; new CLAUDE.md rule "Timing claims are measured
+  through the public URL" (`docs/findings/2026-09-26-public-request-ceiling.md`).
+- Codex: round 1 split, round 2 split, round 3 GO ×2, round 4 GO ×2 (no
+  findings); Python 1006 passed / 7 skipped; JS 450 / 448 pass / 2 todo;
+  production browser check (load project, Run Fit, no page errors).
+
 ## 2026-09-26 — statistics after an edit belong to the previous model (`fix-stale-statistics`, sweep unit F1)
 
 - **Release note:** statistics now follow the model they came from. After
