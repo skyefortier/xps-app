@@ -58,6 +58,7 @@ from ..engine import (
     _default_params_from_slots,
     _build_composite_model,
     _extract_fitted_components,
+    _param_owner_by_name,
     _slot_prefix,
 )
 from ..grammar import BACKEND_SHAPE, CandidateGrammar, CandidateModel
@@ -526,9 +527,10 @@ def _posterior_peaks(win: dict, ci_level: float) -> tuple[list[dict], dict]:
             "amplitude": comp.amplitude, **comp.shape_params,
         })
         prefix = _slot_prefix(slot.role)
+        owner = _param_owner_by_name(model)         # declared ownership, not a prefix
         intervals, slot_ess = {}, []
         for name in names:
-            if name.startswith(prefix):
+            if owner.get(name) == slot.role:
                 j = by_name[name]
                 e = float(ess[j]) if j < len(ess) else None
                 if e is not None:

@@ -14,7 +14,7 @@ import numpy as np
 
 from ..confidence import build_confidence_vector
 from ..criteria import build_criteria_panel
-from ..engine import ComparisonResult, ModelReport, compare_models, _slot_prefix
+from ..engine import ComparisonResult, ModelReport, compare_models, _param_owner_by_name, _slot_prefix
 from ..grammar import BACKEND_SHAPE, CandidateGrammar
 from .base import MethodResult, PeakFitMethod, poisson_like_weights, pop_endpoint_avg
 
@@ -229,9 +229,10 @@ def _peaks_from_report(
         }
         if lm is not None:
             prefix = _slot_prefix(slot.role)
+            owner = _param_owner_by_name(report.model)   # declared ownership, not a prefix
             stderr = {}
             for pname, par in lm.params.items():
-                if pname.startswith(prefix) and par.stderr is not None:
+                if owner.get(pname) == slot.role and par.stderr is not None:
                     stderr[pname[len(prefix):]] = float(par.stderr)
             if stderr:
                 rec["stderr"] = stderr

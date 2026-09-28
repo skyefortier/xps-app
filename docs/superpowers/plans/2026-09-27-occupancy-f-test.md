@@ -231,3 +231,26 @@ this path):
 | 2 | MAJOR (B): a stability-promoted refit could carry an unsupported proposal past the gate (only pegs were re-checked) | support re-checked on the promoted refit ("not supported by the data in the promoted refit (post-stability)"); regression with an injected promotion (fails on a41ee81) |
 | 3 | MAJOR (A) / noted (B): option A narrows the stress test's contract and does not deliver the README's independent mismatch signal (`candidate_filter` P1/P2: P2 at χ²ᵣ 308.7, no warning at all — identical on main) | not a code fix: §3 now says so explicitly; it is the owner's decision (accept the deferral, or C) |
 | 4 | MINOR (A, B): the plan blamed BIC* for the rescale sensitivity; BIC* = n·log(RSS/n) + k·log(n) shifts equally for every candidate | corrected; Scan_7 traced (§2): the absent-slot k adjustment under F within a scale, and fits that change under rescale on both engines |
+
+**Round 2 — NO-GO ×2** (`occupancy_f_test_r2_verdict_run{A,B}.md`; both
+confirmed the round-1 fixes, the Scan_7 mechanism — MG3's adjusted k 25 → 21,
+BIC* 1778.10 → 1757.79 — and that §3 states the deferral accurately):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B): longest-prefix ownership is still wrong — `s_main_gl_ratio` is role "main"'s `gl_ratio`, not role "main_gl"'s (F 11.42 → 8.57, a supported component emptied) | ownership by DECLARATION: `_slot_param_names(slot)` lists the names a slot creates — centre, amplitude, width, its shape's parameters, and only the auxiliaries it actually creates (`offset` for a non-point offset range, `ratio` for an area-ratio range, `fwhm_excess`); a name two slots declare is owned by neither; shared width parameters by none. Regression parametrised over both reported collisions (main / main_extra, main / main_gl) |
+| 2 | MAJOR (A): the absent-slot BIC* adjustment (`_count_slot_free_params`, pre-existing) counted by prefix too — minor / minor_extra removed 6 parameters for a 3-parameter slot, a 16.9-point BIC* bias from naming alone, exposed now that F makes such slots absent | the same declared ownership; regression (fails on 383dafe) |
+| 3 | MINOR (B): the promotion regression injected no stability entry, so the old code rejected for another reason | a passing stability entry: on a41ee81 the test now fails with the false ACCEPTANCE itself; plus the supported-promotion counterpart (accepted) |
+
+The same declared map (`_param_owner_by_name`) now serves EVERY place autofit
+attributes a parameter to a slot — four more used a prefix (pre-existing,
+reporting only, and harmless on the shipped grammars): boundary-hit labels
+(`_role_for_param`, longest prefix), the per-slot correlation
+(`confidence._max_correlation`), the payload's per-slot σ
+(`ic_model_comparison._peaks_from_report`) and the Bayesian intervals. One
+ownership definition, pinned by `test_one_ownership_map_for_every_attribution_site`.
+
+Also pinned: on every built-in grammar (≥ 40 candidates) each parameter the
+engine creates is declared by exactly one slot or is a shared width parameter —
+so for the shipped grammars declared ownership equals what prefix matching
+found, and the gate / real-data measurements above are unchanged.

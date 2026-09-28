@@ -27,7 +27,7 @@ import numpy as np
 
 from fitting import SUPPORT_MIN_F as _SUPPORT_MIN_F  # the server's support threshold: one definition
 
-from .engine import ModelReport, _slot_prefix, _width_param
+from .engine import ModelReport, _param_owner_by_name, _slot_prefix, _width_param
 
 # No longer read (noise-floor unit, 2026-09-27): detectability is the support
 # F test (see build_confidence_vector). Kept so the keyword stays accepted.
@@ -75,8 +75,8 @@ def _max_correlation(report: ModelReport, role: str) -> Optional[float]:
     d = np.sqrt(np.diag(covar))
     with np.errstate(invalid="ignore", divide="ignore"):
         corr = covar / np.outer(d, d)
-    prefix = _slot_prefix(role)
-    idx = [i for i, n in enumerate(var_names) if n.startswith(prefix)]
+    owner = _param_owner_by_name(report.model)      # declared ownership, not a prefix
+    idx = [i for i, n in enumerate(var_names) if owner.get(n) == role]
     others = [i for i in range(len(var_names)) if i not in idx]
     if not idx or not others:
         return None

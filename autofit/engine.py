@@ -366,6 +366,53 @@ def _width_param(shape: LineShape) -> str:
     return "m_gauss" if shape is LineShape.DS_G else "fwhm"
 
 
+def _slot_param_names(slot: ComponentSlot) -> set[str]:
+    """Every parameter name this slot DECLARES: its centre, amplitude, width
+    and its line shape's own parameters, plus the auxiliaries it actually
+    creates (``_default_params_from_slots``): a linked slot's ``offset`` when
+    its offset range is not a point, its ``ratio`` when its area ratio is a
+    range, its ``fwhm_excess`` when it declares a width excess. Declaring an
+    auxiliary the slot never creates would collide with a neighbour's real
+    parameter ("main_gl" + "ratio" is "main" + "gl_ratio")."""
+    prefix = _slot_prefix(slot.role)
+    names = {"center", "amplitude", _width_param(slot.line_shape)}
+    names.update(n for n, _, _, _ in _SHAPE_PARAM_DEFAULTS[slot.line_shape])
+    if slot.linked_to is not None:
+        lo, hi = slot.linked_offset_range or (0.0, 0.0)
+        if hi > lo:
+            names.add("offset")
+        if slot.area_ratio_range is not None:
+            names.add("ratio")
+    if slot.fwhm_excess_range is not None:
+        names.add("fwhm_excess")
+    return {prefix + n for n in names}
+
+
+def _param_owner_by_name(model: CandidateModel) -> dict[str, str]:
+    """name -> the slot role that declares it — by DECLARATION, never by
+    prefix matching: a prefix cannot tell "main" + "gl_ratio" from "main_gl" +
+    "ratio" (Codex rounds 1-2 of the noise-floor unit: roles main / main_extra
+    and main / main_gl each moved a parameter to the wrong component and
+    halved an F). A name two slots declare is an engine naming collision and
+    is owned by NEITHER (no built-in grammar has one — pinned by
+    tests/autofit/test_occupancy_support.py). A parameter shared by several
+    slots (``shared_fwhm_params``) is declared by none."""
+    declared: dict[str, list[str]] = {}
+    for slot in model.slots:
+        for name in _slot_param_names(slot):
+            declared.setdefault(name, []).append(slot.role)
+    return {name: roles[0] for name, roles in declared.items() if len(roles) == 1}
+
+
+def _slot_free_param_count(slot: ComponentSlot, params: Parameters,
+                           owner: dict[str, str]) -> int:
+    """How many of the slot's OWN parameters the fit varied (an expression —
+    a link to a parent — is not the slot's free parameter)."""
+    return sum(1 for name in _slot_param_names(slot)
+               if owner.get(name) == slot.role and name in params
+               and params[name].vary and params[name].expr is None)
+
+
 def _add_shape_params(
     p: Parameters, prefix: str, slot: ComponentSlot, fwhm_init: float,
     parent_prefix: Optional[str] = None,
@@ -665,11 +712,12 @@ class FitOutcome:
     boundary_hits: list[str] = field(default_factory=list)
 
 
-def _component_supports(result: ModelResult) -> dict[str, dict]:
-    """``fitting._component_support`` for every peak component of an lmfit
+def _component_supports(result: ModelResult, model: CandidateModel) -> dict[str, dict]:
+    """``fitting._component_support`` for every slot component of an lmfit
     result, keyed by prefix — the one definition the server uses (step (b)).
-    Empty when the result carries no data (never raises: occupancy then falls
-    back to the sign test)."""
+    A component's free parameters are those its slot DECLARES
+    (``_param_owner_by_name``). Empty when the result carries no data (never
+    raises: occupancy then falls back to the sign test)."""
     try:
         comps = result.eval_components()
         data = np.asarray(result.data, float)
@@ -679,23 +727,15 @@ def _component_supports(result: ModelResult) -> dict[str, dict]:
         n_free_total = int(result.nvarys)
     except Exception:
         return {}
-    # A parameter belongs to the LONGEST component prefix it starts with:
-    # roles "main" and "main_extra" give prefixes where one starts the other,
-    # and a plain startswith gave "main" both components' parameters (Codex
-    # round 1: F halved, a supported peak read unsupported). Auxiliary
-    # parameters (a linked slot's offset / ratio / width excess) carry their
-    # slot's prefix and are counted there.
-    prefixes = list(comps.keys())
-    n_free_by_prefix = {pf: 0 for pf in prefixes}
-    for name, par in result.params.items():
-        owners = [pf for pf in prefixes if name.startswith(pf)]
-        if owners and par.vary and par.expr is None:
-            n_free_by_prefix[max(owners, key=len)] += 1
+    owner = _param_owner_by_name(model)
     out = {}
-    for prefix, comp_y in comps.items():
-        n_free_comp = n_free_by_prefix[prefix]
+    for slot in model.slots:
+        prefix = _slot_prefix(slot.role)
+        if prefix not in comps:
+            continue
+        n_free_comp = _slot_free_param_count(slot, result.params, owner)
         try:
-            out[prefix] = _fitting._component_support(data, fitted, np.asarray(comp_y, float), w,
+            out[prefix] = _fitting._component_support(data, fitted, np.asarray(comps[prefix], float), w,
                                                       n_free_comp, n_free_total)
         except Exception:
             continue
@@ -748,7 +788,7 @@ def _extract_fitted_components(
     result: ModelResult, model: CandidateModel
 ) -> list[FittedComponent]:
     out: list[FittedComponent] = []
-    supports = _followed_supports(result, model, _component_supports(result))
+    supports = _followed_supports(result, model, _component_supports(result, model))
     for slot in model.slots:
         prefix = _slot_prefix(slot.role)
         pars = result.params
@@ -787,17 +827,16 @@ _BOUNDARY_EXCLUDED: dict[LineShape, frozenset[str]] = {
 }
 
 
-def _role_for_param(pname: str, role_by_prefix: dict[str, str]) -> Optional[str]:
-    for prefix in sorted(role_by_prefix, key=len, reverse=True):
-        if pname.startswith(prefix):
-            return role_by_prefix[prefix]
-    return None
+def _role_for_param(pname: str, owner: dict[str, str]) -> Optional[str]:
+    """The slot that declares ``pname`` (``_param_owner_by_name``); None for a
+    shared parameter. Not by prefix: "main" + "gl_ratio" is "main_gl" + "ratio"."""
+    return owner.get(pname)
 
 
 def _detect_boundary_hits(params: Parameters, model: CandidateModel) -> list[str]:
     """Varying params within 1% of a finite bound → 'role:param@min|max'."""
     hits: list[str] = []
-    role_by_prefix = {_slot_prefix(s.role): s.role for s in model.slots}
+    owner = _param_owner_by_name(model)   # name -> role (declared ownership)
     shape_by_role = {s.role: s.line_shape for s in model.slots}
 
     for pname, par in params.items():
@@ -811,7 +850,7 @@ def _detect_boundary_hits(params: Parameters, model: CandidateModel) -> list[str
         at_max = (hi - par.value) < tol
         if not (at_min or at_max):
             continue
-        role = _role_for_param(pname, role_by_prefix)
+        role = _role_for_param(pname, owner)
         short = pname[len(_slot_prefix(role)):] if role is not None else pname
         shape = shape_by_role.get(role)
         if shape is not None and short in _BOUNDARY_EXCLUDED.get(shape, frozenset()):
@@ -1400,12 +1439,16 @@ class AbsentSlotReport:
     removed_n_params: int
 
 
-def _count_slot_free_params(slot: ComponentSlot, primary: FitOutcome) -> int:
+def _count_slot_free_params(slot: ComponentSlot, primary: FitOutcome,
+                            model: CandidateModel) -> int:
+    """Free parameters an absent slot's removal takes out of BIC*. By declared
+    ownership (``_param_owner_by_name``), not prefix matching (Codex round 2 of
+    the noise-floor unit: roles minor / minor_extra removed six parameters for
+    one three-parameter slot, a 16.9-point BIC* bias from naming alone)."""
     if primary.lmfit_result is None:
         return 0
-    prefix = _slot_prefix(slot.role)
-    return sum(1 for pname, par in primary.lmfit_result.params.items()
-               if pname.startswith(prefix) and par.vary)
+    return _slot_free_param_count(slot, primary.lmfit_result.params,
+                                  _param_owner_by_name(model))
 
 
 def _is_main_role(role: str) -> bool:
@@ -1485,7 +1528,7 @@ def _identify_absent_slots(
             role=slot.role, persistence=sstab.persistence, fitted_area=area,
             main_area=main_area, area_fraction=frac,
             threshold=area_fraction_threshold,
-            removed_n_params=_count_slot_free_params(slot, primary),
+            removed_n_params=_count_slot_free_params(slot, primary, model),
         )
 
     absent: list[AbsentSlotReport] = []
