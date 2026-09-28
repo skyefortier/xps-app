@@ -24,7 +24,7 @@ import pytest
 
 import fitting
 from autofit.confidence import build_confidence_vector
-from autofit.engine import (FittedComponent, _occupies, fit_candidate,
+from autofit.engine import (FittedComponent, _occupies, _slot_prefix, fit_candidate,
                             match_components_to_slots)
 from autofit.grammar import BackgroundType, CandidateModel, ComponentSlot, LineShape
 
@@ -159,3 +159,72 @@ def test_an_amplitude_tied_partner_follows_its_parents_verdict():
     assert comps["main_5_2"].support["follows"] == "main_7_2"
     assert comps["main_5_2"].support["supported"] == comps["main_7_2"].support["supported"] is True
     assert "follows" not in comps["main_7_2"].support
+
+
+def test_free_parameters_are_owned_by_the_longest_prefix():
+    """Codex round 1 (MAJOR): roles "main" and "main_extra" give component
+    prefixes where one starts the other; counting by a plain startswith gave
+    "main" both components' free parameters and halved its F."""
+    model = CandidateModel(name="m", background=BackgroundType.LINEAR,
+                           slots=(_slot("main", (286.0, 287.0)), _slot("main_extra", (284.0, 285.0))))
+    y = _spectrum(1e4, 1e4, 0.0) + _g(X, 286.5, 150.0, 1.2)     # a weak 'main' beside a strong 'main_extra'
+    w = 1.0 / np.sqrt(np.maximum(y, 1.0))
+    out = fit_candidate(X, y, w, model)
+    assert out.converged
+    res = out.lmfit_result
+    comps = res.eval_components()
+    data, best = np.asarray(res.data, float), np.asarray(res.best_fit, float)
+    wr = np.broadcast_to(np.asarray(res.weights if res.weights is not None else 1.0, float), data.shape)
+    got = {c.slot_role: c.support for c in out.components}
+    for role in ("main", "main_extra"):
+        prefix = _slot_prefix(role)
+        assert prefix in comps
+        own = [n for n, par in res.params.items() if par.vary and par.expr is None
+               and max((p for p in comps if n.startswith(p)), key=len) == prefix]
+        assert len(own) == 3, (role, own)                 # centre, amplitude, width — its own only
+        want = fitting._component_support(data, best, np.asarray(comps[prefix], float), wr, 3, int(res.nvarys))
+        assert got[role]["f"] == pytest.approx(want["f"], rel=1e-12), role
+
+
+def test_a_proposal_whose_promoted_refit_does_not_support_it_is_rejected(monkeypatch):
+    """Codex round 1 (MAJOR): the stability pass can promote a deeper refit;
+    the proposal must be supported in THAT fit (what would be emitted), not
+    only in the initial augmented one — as the boundary pegs already were."""
+    import dataclasses
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+    import autofit.engine as eng
+    from autofit.methods.base import poisson_like_weights
+    from stress_cases import isolated_missing_peak_case
+
+    case = isolated_missing_peak_case(seed=71)
+    x, y = case.x, case.y
+    w = poisson_like_weights(y)
+    res = eng.compare_models(x, y, w, case.grammar, n_refits=2, rng_seed=0,
+                             enable_proposal_pass=False, enable_preseed=False)
+    base = res.reports[0]
+    y_fit = base.primary_fit.lmfit_result.best_fit + base.primary_fit.background
+    spec = eng._detect_residual_proposals(x, y, y_fit, 1.0, base.model,
+                                          fitted_components=base.primary_fit.components)[0]
+    aug_model = eng._augmented_candidate(base.model, spec)
+    bg = eng._compute_background(x, y, aug_model.background)
+    init = eng._initial_params_for_augmented(aug_model, base.primary_fit, spec, x, y - bg)
+    real = eng.fit_candidate(x, y, w, aug_model, initial_params=init)
+    assert next(c for c in real.components if c.slot_role == spec.role).support["supported"], \
+        "the initial augmented fit supports the proposal (else this test proves nothing)"
+    unsupported = {"f": 3.0, "delta_chi2": 5.0, "supported": False}
+    promoted = dataclasses.replace(
+        real, weighted_chi_sq=0.0, boundary_hits=[],
+        components=[dataclasses.replace(c, support=unsupported) if c.slot_role == spec.role else c
+                    for c in real.components])
+    fake_stab = eng.ModelStability(per_slot={}, orphan_rate=0.0, convergence_rate=1.0,
+                                   best_outcome=promoted, best_basin_support=1, n_attempted=2)
+    monkeypatch.setattr(eng, "run_stability_analysis", lambda *a, **k: fake_stab)
+    _, pr, outcome = eng._attempt_proposal(
+        x=x, y=y, weights=w, base_report=base, spec=spec,
+        noise_floor=1.0, n_refits=2, rng_seed=0,
+        absent_slot_area_fraction=0.02, absent_slot_persistence_threshold=0.7,
+        diagnostic_windows=dict(case.grammar.diagnostic_windows), budget_remaining=1e6)
+    assert outcome == "stability_rejected"
+    assert "not supported by the data in the promoted refit" in (pr.rejection_reason or "")

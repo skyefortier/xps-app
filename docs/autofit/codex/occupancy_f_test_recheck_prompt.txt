@@ -1,0 +1,10 @@
+Re-review the noise-floor unit (Find Peaks occupancy: the server's support F test instead of the 1-count floor), round 2: branch fix-occupancy-f-test. The round-1 fixes are the latest commit (git diff HEAD~1..HEAD); the whole unit is git diff main..HEAD. Round-1 verdicts: docs/autofit/codex/occupancy_f_test_verdict_run{A,B}.md; the round-1 prompt (occupancy_f_test_review_prompt.txt) holds the brief. Plan: docs/superpowers/plans/2026-09-27-occupancy-f-test.md — §4 lists every round-1 finding and its fix; §3 is an OWNER DECISION (the background-mismatch honesty test, option A implemented; round-1 finding 3 is recorded there as the owner's to accept or reject — do not re-raise it as a code defect unless the plan misstates it). Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Parameter ownership by the longest prefix: every parameter kind (centre, amplitude, width, shape, a linked slot's offset / ratio / fwhm_excess, shared contamination widths like "?:shared_contamination_fwhm", anything with no component prefix), expressions, and whether the total free count still matches result.nvarys.
+b. The post-stability support re-check: every exit of _attempt_proposal after promotion; the payload (pr fields) on rejection; that a promotion which keeps support still accepts.
+c. The trace and corrected reasoning in plan §2 (Scan_7): is the absent-slot BIC* k adjustment really how F moves the ranking within a scale? Anything there that should block shipping?
+d. Everything round 1 verified, re-checked against the new commit.
+e. Tests real and non-vacuous (both new regressions fail on a41ee81).
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

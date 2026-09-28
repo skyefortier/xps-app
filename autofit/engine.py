@@ -679,10 +679,21 @@ def _component_supports(result: ModelResult) -> dict[str, dict]:
         n_free_total = int(result.nvarys)
     except Exception:
         return {}
+    # A parameter belongs to the LONGEST component prefix it starts with:
+    # roles "main" and "main_extra" give prefixes where one starts the other,
+    # and a plain startswith gave "main" both components' parameters (Codex
+    # round 1: F halved, a supported peak read unsupported). Auxiliary
+    # parameters (a linked slot's offset / ratio / width excess) carry their
+    # slot's prefix and are counted there.
+    prefixes = list(comps.keys())
+    n_free_by_prefix = {pf: 0 for pf in prefixes}
+    for name, par in result.params.items():
+        owners = [pf for pf in prefixes if name.startswith(pf)]
+        if owners and par.vary and par.expr is None:
+            n_free_by_prefix[max(owners, key=len)] += 1
     out = {}
     for prefix, comp_y in comps.items():
-        n_free_comp = sum(1 for n, par in result.params.items()
-                          if n.startswith(prefix) and par.vary and par.expr is None)
+        n_free_comp = n_free_by_prefix[prefix]
         try:
             out[prefix] = _fitting._component_support(data, fitted, np.asarray(comp_y, float), w,
                                                       n_free_comp, n_free_total)
@@ -2395,6 +2406,15 @@ def _attempt_proposal(
     if spurious_hits:
         pr.rejection_reason = (
             f"proposed slot boundary pegs (post-stability): {spurious_hits}")
+        return None, pr, "stability_rejected"
+    # ... and its SUPPORT, for the same reason (Codex round 1): the promoted
+    # deeper minimum is what would be emitted, and the data must support the
+    # proposed component in THAT fit, not only in the initial one.
+    if not _occupies(comp):
+        f = (comp.support or {}).get("f")
+        pr.rejection_reason = (
+            "not supported by the data in the promoted refit (post-stability)"
+            + (f": F = {f:.2f} < {_fitting.SUPPORT_MIN_F:.0f}" if f is not None else ""))
         return None, pr, "stability_rejected"
     pr.width_capped = pr.boundary_hits == [width_cap_hit]
     sstab = stability.per_slot.get(spec.role)

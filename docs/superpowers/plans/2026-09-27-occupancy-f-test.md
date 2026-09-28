@@ -31,14 +31,16 @@ test.**
 | # | site | before | after |
 |---|---|---|---|
 | B1 | `engine.match_components_to_slots._accepts` | a component occupies a slot if its window/width fit AND amplitude > 1 count | window/width only decide WHICH slot; whether it is THERE is `_occupies(comp)` = `fitting._component_support(...)["supported"]` on the fit that produced it (F ≥ `SUPPORT_MIN_F`) |
-| B2 | `engine._attempt_proposal` | a proposed slot is rejected if amplitude ≤ 1 count | rejected if `not _occupies(comp)`; the message names F |
+| B2 | `engine._attempt_proposal` | a proposed slot is rejected if amplitude ≤ 1 count | rejected if `not _occupies(comp)`; the message names F — checked on the initial augmented fit AND again on the stability-promoted refit that would be emitted (Codex round 1; the boundary pegs were already re-checked there) |
 | B3 | `confidence.build_confidence_vector` detectability | `above_floor` ≥ 3 × floor, `present_but_poorly_constrained` > floor | `above_floor` = supported; `present_but_poorly_constrained` = Δχ² > 0 but F < 10; `not_confidently_detected` = removing it costs nothing. Status values unchanged (the payload's consumers: `test_methods_seam`, `test_browser_schema_roundtrip`; the page reads none of the detectability fields) |
 | B4 | `grammar.ComponentSlot.contains` | amplitude > noise_floor | amplitude > 0 (sign only; no engine caller) |
 
 Where the support comes from: `engine._component_supports(result)` evaluates
 `fitting._component_support` for every component of an lmfit result (data,
 best fit, the component's curve, the fit's own weights, its free-parameter
-count) once, in `_extract_fitted_components`; it rides on
+count — a parameter belongs to the LONGEST component prefix it starts with, so
+roles "main" / "main_extra" do not share parameters; Codex round 1) once, in
+`_extract_fitted_components`; it rides on
 `FittedComponent.support` through slot matching. A component with no fit
 behind it (hand-built in tests) falls back to `amplitude > 0`.
 
@@ -63,8 +65,8 @@ parent's (a spin-orbit partner at a fixed area ratio): `_followed_supports`
 copies the root's verdict with `follows: <root role>`. A linked slot with a
 free amplitude (only its position tied) keeps its own verdict.
 
-**D. The model-mismatch honesty signal (README follow-up 2).** See §3 — an
-owner decision.
+**D. The model-mismatch honesty signal (README follow-up 2).** NOT delivered —
+see §3: an owner decision.
 
 ## 2. Measurements
 
@@ -101,10 +103,12 @@ is no longer `conditional`.
 * So no residual- or χ²ᵣ-based signal distinguishes "the background is wrong"
   from "the lineshape is not perfect" without a chosen cutoff.
 
-(Also found, pre-existing and unchanged by this unit: the engine's model
-selection itself is not rescale-invariant — on main a ×0.1 rescale changes the
-winner or the conditional tier on 2 of the 8 real scans (Scan_8 UCl4, Scan_7 8-JT); BIC with Poisson
-weights assumes counts.)
+(Also found, pre-existing and unchanged by this unit: the engine's OUTCOME is
+not rescale-invariant — on main a ×0.1 rescale changes the winner or the
+conditional tier on 2 of the 8 real scans (Scan_8 UCl4, Scan_7 8-JT). Not the
+ranking: BIC* = n·log(RSS/n) + k·log(n), and a rescale adds the same 2n·log(c)
+to every candidate's score for corresponding fits (Codex round 1). See the
+trace below.)
 
 ### Real-data gates (`RUN_AUTOFIT_GATE=1`: C 1s, U 4f, B 1s / Cl 2p parity; Bayesian real and U 4f unresolved; candidate-pool real; stress honesty)
 
@@ -133,8 +137,9 @@ changes its result under ×0.1 on 2 of 8 scans, this branch on 6 of 8 (Scan_8,
 Scan_6, Scan_5, 1-GTA Scan_2, Scan_3, Scan_7). The occupancy statistic itself
 is invariant (pinned in `test_occupancy_support.py`), but the pipeline around
 it is not: the candidate-detection and proposal gates are Poisson signal-to-
-noise ratios, and BIC* with Poisson weights assumes counts, so ×0.1 changes
-the candidate set and the ranking. Under the 1-count floor that never reached
+noise ratios, so ×0.1 can change the candidate set (NOT the ranking: BIC* is
+n·log(RSS/n) + k·log(n), shifted equally for every candidate by a rescale —
+Codex round 1 corrected the first draft here). Under the 1-count floor that never reached
 occupancy on real data (every real amplitude is far above 1 count, so the
 floor never flipped); under F — the likely mechanism, NOT traced scan by
 scan — a MARGINAL component (F near 10) now decides a candidate's stability,
@@ -144,6 +149,30 @@ components, and in doing so exposes that the rest of Find Peaks is not
 scale-free. Owner-relevant: it is not a reason for C by itself (the ×1 results
 are what students get from counts data), but it is not the "scale-free Find
 Peaks" the design rule might suggest.
+
+### Traced: 8-JT Scan_7 (Codex round 1 asked for the mechanism)
+
+| | ×1 main | ×1 this branch | ×0.1 main | ×0.1 this branch |
+|---|---|---|---|---|
+| MG2 | BIC* 1765.1, χ²ᵣ 5.21, plausibility-flagged (C=O width at its cap) | 1765.1, 5.21, flagged | 1024.5, 0.52, CLEAN | 1024.5, 0.52, CLEAN |
+| MG3 | BIC* **1778.1**, χ²ᵣ 5.19, persistence 0.75 | BIC* **1757.8**, χ²ᵣ 5.19, 0.75 | filtered | filtered |
+| winner | MG2 (conditional) | MG3 (conditional) | MG2 (clean) | MG2 (clean) |
+
+Two separate effects:
+
+1. **This branch, within one scale:** the same fit (same χ²ᵣ) scores a lower
+   BIC* — BIC* removes an ABSENT slot's parameters, and under F more of MG3's
+   slots are absent (unsupported → low persistence, small area), so MG3
+   overtakes MG2 at ×1. (On Scan_6 the effect is persistence instead: MG2 no
+   longer counts as stable.)
+2. **Both engines, across scales:** the FIT changes under ×0.1 — MG2 presses
+   a width bound at ×1 and not at ×0.1 — so plausibility, and with it the tier,
+   differ. Under exact Poisson scaling the weighted fit would be identical, so
+   something in the fit is not scale-free (absolute amplitude bounds or start
+   values are the obvious suspects; not traced further here).
+
+So 2/8 → 6/8 is effect 2 (pre-existing) made visible more often by effect 1,
+which moves BIC* and stability for marginal components.
 
 ### A browser test's NOISE-FREE fixture
 
@@ -176,3 +205,29 @@ signals at hand either are not scale-free (χ²ᵣ) or fire on every real fit
 | C | keep the 1-count floor until a background-comparison check exists | the occupancy floor stays scale-dependent |
 
 A is what this branch ships; if the owner prefers C the branch waits.
+
+What choosing A MEANS (Codex round 1, both runs): it narrows the test's
+contract; it does NOT provide the README's independent mismatch signal. The
+remaining warning (`filtered_dominant_alternative`) still needs a better-scoring
+candidate to have been evaluated and set aside. Reproduced: `bg_mismatch_case`
+with `candidate_filter=["P1", "P2"]` returns P2 at χ²ᵣ 308.7 with
+`conditional` false, no `filtered_dominant_alternative` and no message — the
+page then reads it as clean. That configuration behaves the same on main (it
+has no P3 either), so it is a requirement left open, not a regression this
+branch introduces; choosing A is choosing to defer follow-up 2 to the
+background-comparison unit.
+
+## 4. Codex rounds
+
+**Round 1 — NO-GO ×2** (`occupancy_f_test_verdict_run{A,B}.md`; both confirmed
+the central wiring: the producing fit's data, background-subtracted best fit,
+weights and total parameter count; `SUPPORT_MIN_F` reused; `__unsupported__`
+removed by the only production iterator; the Bayesian method does not read
+this path):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): free parameters counted by `startswith(prefix)` — roles "main" / "main_extra" gave "main" both components' parameters (F 12.85 → 6.42, a supported peak read unsupported) | a parameter belongs to the LONGEST component prefix it starts with; regression `test_free_parameters_are_owned_by_the_longest_prefix` (fails on a41ee81). No resolved built-in grammar has an overlapping pair (48 grammars, 16 roles), so the gate and real-data measurements are unaffected |
+| 2 | MAJOR (B): a stability-promoted refit could carry an unsupported proposal past the gate (only pegs were re-checked) | support re-checked on the promoted refit ("not supported by the data in the promoted refit (post-stability)"); regression with an injected promotion (fails on a41ee81) |
+| 3 | MAJOR (A) / noted (B): option A narrows the stress test's contract and does not deliver the README's independent mismatch signal (`candidate_filter` P1/P2: P2 at χ²ᵣ 308.7, no warning at all — identical on main) | not a code fix: §3 now says so explicitly; it is the owner's decision (accept the deferral, or C) |
+| 4 | MINOR (A, B): the plan blamed BIC* for the rescale sensitivity; BIC* = n·log(RSS/n) + k·log(n) shifts equally for every candidate | corrected; Scan_7 traced (§2): the absent-slot k adjustment under F within a scale, and fits that change under rescale on both engines |
