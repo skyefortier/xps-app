@@ -124,14 +124,25 @@ def test_bg_matched_control_recovers():
 
 def test_bg_mismatch_surfaces_loudly():
     """Shirley-shaped truth fit with a straight line: the mismatch must be
-    machine-visible (conditional tier + grossly elevated χ²ᵣ), never a
-    clean confident result."""
+    machine-visible, never a silent clean result.
+
+    Re-stated in the noise-floor unit (2026-09-27; plan
+    docs/superpowers/plans/2026-09-27-occupancy-f-test.md §3, option A —
+    OWNER DECISION PENDING). Occupancy is now the server's support F test, so
+    the third component that only compensated for the wrong background is
+    "not supported" and the engine returns the TRUE two-peak model — which the
+    old conditional flag depended on NOT happening (the flag rode on that
+    compensating component, the README's follow-up 2). What stays visible,
+    without any new threshold: the winner is the true model, its χ²ᵣ is
+    grossly elevated, and the set-aside better-scoring model is flagged
+    (filtered_dominant_alternative — the page's red banner)."""
     case = bg_mismatch_case(seed=61)
     res = _ic(case)
-    assert res.diagnostics["conditional"] is True
+    assert res.diagnostics["winner"] in case.true_candidates
     wc = next(c for c in res.analysis["candidates"]
               if c["name"] == res.diagnostics["winner"])
     assert wc["reduced_chi_sq"] > 10.0
+    assert res.diagnostics["filtered_dominant_alternative"] is not None
 
 
 def test_preseed_catches_isolated_missing_peak():

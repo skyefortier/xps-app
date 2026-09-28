@@ -135,11 +135,21 @@ def _load_c1s_with_stale_narrow_fit(pg):
     narrow" scenario exactly."""
     pg.evaluate("""() => {
         const raw = [], inten = [];
+        // Fixed pseudo-random Poisson-like noise (noise-occupancy unit,
+        // 2026-09-27): a NOISE-FREE spectrum is fitted to rounding, where the
+        // support F test that decides Find Peaks' occupancy is meaningless
+        // (CLAUDE.md, the required-refit known limit) and the engine's result
+        // turned on the upload's rounding and wall-clock budgets — on main
+        // too. This test is about the apply path, not the fit.
+        let seed = 20260927;
+        const u = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return (seed + 1) / 2147483649; };
+        const z = () => Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u());
         for (let i = 0; i <= 400; i++) {
             const be = 275.0 + i * 0.05625;
             raw.push(be);
             const g = (c, a, w) => a * Math.exp(-4 * Math.log(2) * ((be - c) / w) ** 2);
-            inten.push(300 + g(284.5, 6000, 0.8));
+            const truth = 300 + g(284.5, 6000, 0.8);
+            inten.push(truth + Math.sqrt(truth) * z());
         }
         tabManager.createTab('C1s', raw, inten);
         const narrowBE = raw.filter(b => b >= 278.0 && b <= 290.4);

@@ -39,6 +39,8 @@ from lmfit import Model, Parameters
 from lmfit.model import ModelResult
 from scipy.integrate import trapezoid
 
+import fitting as _fitting  # the server's support statistic: one definition (noise-floor unit)
+
 from fitting import _SHAPE_FUNCS, linear_background, shirley_background, smart_background
 
 from .candidates import (build_candidate_pool, build_detection_candidate,
@@ -637,6 +639,17 @@ class FittedComponent:
     amplitude: float
     shape_params: dict
     line_shape: Optional[LineShape] = None
+    # Noise-floor unit (2026-09-27): does the fit that produced this component need it?
+    # fitting._component_support on that fit — with the other components held
+    # as fitted, removing this one must make the fit significantly worse (F >=
+    # SUPPORT_MIN_F). The occupancy decisions (slot matching, the proposal
+    # gate, detectability) read this instead of an absolute amplitude floor
+    # of 1 count, which judged a slot "occupied" at amplitude 1.5 and not at
+    # 0.5 whatever the data's scale (sweep M9; design rule "thresholds on
+    # data-scaled quantities fail"). None only where no fit is behind the
+    # component (hand-built in tests): then occupancy falls back to amplitude
+    # > 0, a sign test.
+    support: Optional[dict] = None
 
 
 @dataclass
@@ -652,10 +665,79 @@ class FitOutcome:
     boundary_hits: list[str] = field(default_factory=list)
 
 
+def _component_supports(result: ModelResult) -> dict[str, dict]:
+    """``fitting._component_support`` for every peak component of an lmfit
+    result, keyed by prefix — the one definition the server uses (step (b)).
+    Empty when the result carries no data (never raises: occupancy then falls
+    back to the sign test)."""
+    try:
+        comps = result.eval_components()
+        data = np.asarray(result.data, float)
+        fitted = np.asarray(result.best_fit, float)
+        w = result.weights if result.weights is not None else np.ones_like(data)
+        w = np.broadcast_to(np.asarray(w, float), data.shape)
+        n_free_total = int(result.nvarys)
+    except Exception:
+        return {}
+    out = {}
+    for prefix, comp_y in comps.items():
+        n_free_comp = sum(1 for n, par in result.params.items()
+                          if n.startswith(prefix) and par.vary and par.expr is None)
+        try:
+            out[prefix] = _fitting._component_support(data, fitted, np.asarray(comp_y, float), w,
+                                                      n_free_comp, n_free_total)
+        except Exception:
+            continue
+    return out
+
+
+def _followed_supports(result: ModelResult, model: CandidateModel,
+                       supports: dict[str, dict]) -> dict[str, dict]:
+    """A linked slot whose AMPLITUDE is an expression of its parent's (a
+    spin-orbit partner at a fixed area ratio) has no amplitude of its own to
+    judge: it FOLLOWS its root's verdict, as the server's support check makes
+    a linked component follow its root (`individual_peaks[].support.follows`).
+    A linked slot with a free amplitude (only its position tied) keeps its own
+    verdict. Walks the chain to the root; a cycle or a missing parent leaves
+    the slot's own verdict."""
+    by_role = {s.role: s for s in model.slots}
+
+    def _tied(slot: ComponentSlot) -> bool:
+        par = result.params.get(f"{_slot_prefix(slot.role)}amplitude")
+        return (slot.linked_to is not None and slot.linked_to in by_role
+                and par is not None and par.expr is not None)
+
+    out = dict(supports)
+    for slot in model.slots:
+        if not _tied(slot):
+            continue
+        root, seen = slot, {slot.role}
+        while _tied(root):
+            root = by_role[root.linked_to]
+            if root.role in seen:
+                break
+            seen.add(root.role)
+        else:
+            rs = supports.get(_slot_prefix(root.role))
+            if rs is not None:
+                out[_slot_prefix(slot.role)] = {**rs, "follows": root.role}
+    return out
+
+
+def _occupies(comp: "FittedComponent") -> bool:
+    """A slot is occupied by a component the data support. No threshold
+    on any data-scaled quantity: the support F test where a fit is behind the
+    component, else the sign of its amplitude."""
+    if comp.support is not None:
+        return bool(comp.support.get("supported"))
+    return comp.amplitude > 0
+
+
 def _extract_fitted_components(
     result: ModelResult, model: CandidateModel
 ) -> list[FittedComponent]:
     out: list[FittedComponent] = []
+    supports = _followed_supports(result, model, _component_supports(result))
     for slot in model.slots:
         prefix = _slot_prefix(slot.role)
         pars = result.params
@@ -676,6 +758,7 @@ def _extract_fitted_components(
             slot_role=slot.role, position=center, fwhm=fwhm,
             amplitude=amplitude, shape_params=shape_params,
             line_shape=slot.line_shape,
+            support=supports.get(prefix),
         ))
     return out
 
@@ -1045,17 +1128,27 @@ def match_components_to_slots(
     """Assign fitted peaks to grammar slots (role + effective window + width).
 
     ``bound_overrides`` (fit_full_window) — see ``_effective_be_window``.
+
+    Occupancy (noise-floor unit, 2026-09-27): a component OCCUPIES a slot only
+    if the data support it (``_occupies``: the server's support F test on the
+    fit that produced it). A component the data do not support is NOT THERE:
+    it occupies no slot (the slot stays empty for persistence) and it is not
+    an orphan either — an orphan is a supported peak no slot expects, a
+    plausibility violation; "slot empty" is a different outcome. Such
+    components are returned under ``"__unsupported__"`` (reporting only). The
+    1-count floor this replaces made every component at amplitude <= 1 an
+    orphan wherever it sat.
     """
     slot_map: dict[str, Optional[FittedComponent]] = {s.role: None for s in model.slots}
     orphans: list[FittedComponent] = []
+    unsupported: list[FittedComponent] = []
     asym_shapes = {LineShape.ASYM_GL, LineShape.DS, LineShape.DS_G, LineShape.LACX}
 
     def _accepts(slot: ComponentSlot, comp: FittedComponent) -> bool:
         lo, hi = _effective_be_window(slot, components,
                                       (bound_overrides or {}).get(slot.role))
         return (lo <= comp.position <= hi
-                and slot.fwhm_range[0] <= comp.fwhm <= slot.fwhm_range[1]
-                and comp.amplitude > noise_floor)
+                and slot.fwhm_range[0] <= comp.fwhm <= slot.fwhm_range[1])
 
     def _window_center(slot: ComponentSlot) -> float:
         # NEVER the widened bound (Codex-caught, round 2): this is a
@@ -1072,12 +1165,15 @@ def match_components_to_slots(
         return 0.5 * (lo + hi)
 
     for comp in components:
+        if not _occupies(comp):
+            unsupported.append(comp)   # not there: neither an occupant nor an orphan
+            continue
         candidate_slots = [s for s in model.slots if _accepts(s, comp)]
         if not candidate_slots:
             orphans.append(FittedComponent(
                 slot_role="unmatched", position=comp.position, fwhm=comp.fwhm,
                 amplitude=comp.amplitude, shape_params=comp.shape_params,
-                line_shape=comp.line_shape,
+                line_shape=comp.line_shape, support=comp.support,
             ))
             continue
 
@@ -1095,7 +1191,7 @@ def match_components_to_slots(
         claimed = FittedComponent(
             slot_role=best_slot.role, position=comp.position, fwhm=comp.fwhm,
             amplitude=comp.amplitude, shape_params=comp.shape_params,
-            line_shape=comp.line_shape,
+            line_shape=comp.line_shape, support=comp.support,
         )
         if incumbent is None:
             slot_map[best_slot.role] = claimed
@@ -1108,6 +1204,7 @@ def match_components_to_slots(
                 orphans.append(comp)
 
     slot_map["__orphans__"] = orphans  # type: ignore[assignment]
+    slot_map["__unsupported__"] = unsupported  # type: ignore[assignment]
     return slot_map
 
 
@@ -1235,6 +1332,7 @@ def run_stability_analysis(
                                             bound_overrides=bound_overrides)
         if slot_map.pop("__orphans__", []):
             n_with_orphans += 1
+        slot_map.pop("__unsupported__", None)   # reporting only: those slots are empty
         for role, comp in slot_map.items():
             if comp is None:
                 continue
@@ -2229,8 +2327,10 @@ def _attempt_proposal(
     # to a wall (Codex fwhm-cap review, run B BLOCKER).
     width_cap_hit = f"{spec.role}:fwhm@max"
     pr.boundary_hits = _proposed_slot_pegs(primary, spec.role)
-    if comp.amplitude <= noise_floor:
-        return _fast(f"amplitude {comp.amplitude:.1f} ≤ noise_floor {noise_floor:.1f}")
+    if not _occupies(comp):
+        f = (comp.support or {}).get("f")
+        return _fast("not supported by the data (removing it does not make the fit significantly worse"
+                     + (f", F = {f:.2f} < {_fitting.SUPPORT_MIN_F:.0f}" if f is not None else "") + ")")
     spurious_hits = [h for h in pr.boundary_hits if h != width_cap_hit]
     if spurious_hits:
         return _fast(f"proposed slot boundary pegs: {spurious_hits}")

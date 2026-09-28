@@ -25,10 +25,12 @@ from typing import Optional
 
 import numpy as np
 
+from fitting import SUPPORT_MIN_F as _SUPPORT_MIN_F  # the server's support threshold: one definition
+
 from .engine import ModelReport, _slot_prefix, _width_param
 
-# UNVERIFIED tunable (spec §9): detection floor as a multiple of the noise
-# estimate. Calibrate on the labeled set; do not treat as physics.
+# No longer read (noise-floor unit, 2026-09-27): detectability is the support
+# F test (see build_confidence_vector). Kept so the keyword stays accepted.
 DETECTION_FLOOR_MULTIPLE = 5.0
 
 
@@ -89,19 +91,29 @@ def build_confidence_vector(
     noise_floor: float,
     detection_floor_multiple: float = DETECTION_FLOOR_MULTIPLE,
 ) -> dict:
-    """The per-peak `_confidence` payload for one grammar slot."""
+    """The per-peak `_confidence` payload for one grammar slot.
+
+    ``noise_floor`` / ``detection_floor_multiple`` are accepted and not read
+    (the Poisson variance floor lives in the fit's weights, not here)."""
     sstab = report.stability.per_slot.get(role)
     comp = next((c for c in report.primary_fit.components if c.slot_role == role), None)
     boundary = [h for h in report.primary_fit.boundary_hits
                 if h.startswith(f"{role}:")]
 
     amplitude = float(comp.amplitude) if comp is not None else None
-    floor = detection_floor_multiple * noise_floor
+    # Noise-floor unit (2026-09-27): detectability is the support F test on the fit
+    # (fitting._component_support, the server's statistic), not multiples of an
+    # absolute 1-count floor. above_floor = supported (F >= SUPPORT_MIN_F);
+    # present_but_poorly_constrained = the fit gains from it but not
+    # significantly; not_confidently_detected = removing it costs nothing.
+    support = getattr(comp, "support", None) if comp is not None else None
     if amplitude is None:
         detect_status = "not_fitted"
-    elif amplitude >= floor:
+    elif support is None:
+        detect_status = "above_floor" if amplitude > 0 else "not_confidently_detected"
+    elif support.get("supported"):
         detect_status = "above_floor"
-    elif amplitude > noise_floor:
+    elif (support.get("delta_chi2") or 0.0) > 0:
         detect_status = "present_but_poorly_constrained"
     else:
         detect_status = "not_confidently_detected"
@@ -122,9 +134,9 @@ def build_confidence_vector(
         },
         "detectability": {
             "amplitude": amplitude,
-            "noise_floor": noise_floor,
-            "floor_multiple": detection_floor_multiple,
-            "floor_multiple_is_tunable": True,
+            "basis": "support_f_test",       # fitting._component_support, F >= SUPPORT_MIN_F
+            "support_f": (support or {}).get("f"),
+            "support_min_f": _SUPPORT_MIN_F,
             "status": detect_status,
         },
         "identifiability": {
