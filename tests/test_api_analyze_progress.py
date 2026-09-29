@@ -184,3 +184,31 @@ def test_progress_invalid_job_id_format_400(client):
     resp2 = client.get("/api/analyze/progress/not-a-uuid-at-all")
     assert resp2.status_code == 400
 
+
+
+def test_a_running_job_keeps_a_fresh_heartbeat(client, monkeypatch):
+    """Unit A1 (2026-09-29): the engine no longer stops on a wall-clock budget,
+    so the page judges a job lost by LIVENESS, not total time. The record's
+    heartbeat is rewritten every 2 s while the worker thread lives — also
+    between the engine's progress events — and the poll reports its age."""
+    import app as app_module
+    real = app_module._run_analyze_method
+
+    def slow(ctx, progress_cb=None):
+        time.sleep(5.0)                          # a long stretch with no progress event
+        return real(ctx, progress_cb=progress_cb)
+    monkeypatch.setattr(app_module, "_run_analyze_method", slow)
+    sid = _upload_doublet(client)
+    job_id = client.post("/api/analyze/start", json=_BODY(sid)).get_json()["job_id"]
+    ages = []
+    t_end = time.time() + 4.5
+    while time.time() < t_end:
+        rec = client.get(f"/api/analyze/progress/{job_id}").get_json()
+        assert rec["status"] == "running"
+        ages.append(rec["heartbeat_age_sec"])
+        time.sleep(0.25)
+    assert all(isinstance(a, (int, float)) for a in ages), ages
+    assert max(ages) <= 3.0, ages                # 2 s heartbeat, never stale while the thread lives
+    final = _poll_until_terminal(client, job_id, timeout_sec=60.0)
+    assert final["status"] == "done"
+    assert final["result"]["success"] in (True, False)

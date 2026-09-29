@@ -1183,21 +1183,42 @@ def _register_routes(app: Flask) -> None:
         job_id = str(uuid.uuid4())
         _sweep_expired_jobs(upload_folder)
         start_time = time.time()
-        _write_job_progress(job_id, upload_folder, {
-            "status": "running", "phase": "starting",
-            "candidate_index": None, "candidate_total": None,
-            "candidate_name": None, "elapsed_sec": 0.0,
-            "message": "starting analysis…",
-        })
+        # Unit A1 (2026-09-29): the record carries a HEARTBEAT, rewritten every
+        # FIT_JOB_HEARTBEAT_SEC while the worker thread lives (fit jobs' pattern,
+        # unit 2). The engine no longer stops on a wall-clock budget, so a long
+        # counted run under load is normal; the page judges the job lost only
+        # when the heartbeat stops (a recycled worker), never by total time.
+        lock = threading.Lock()
+        finished = threading.Event()
+        rec = {"status": "running", "phase": "starting",
+               "candidate_index": None, "candidate_total": None,
+               "candidate_name": None, "elapsed_sec": 0.0,
+               "message": "starting analysis…", "heartbeat": start_time}
+        _write_job_progress(job_id, upload_folder, rec)
+
+        def _publish(update: dict) -> None:
+            with lock:
+                rec.update(update)
+                rec["elapsed_sec"] = round(time.time() - start_time, 1)
+                rec["heartbeat"] = time.time()
+                _write_job_progress(job_id, upload_folder, rec)
+
+        def _heartbeat() -> None:
+            while not finished.wait(FIT_JOB_HEARTBEAT_SEC):
+                with lock:
+                    if rec["status"] != "running":
+                        return
+                    rec["heartbeat"] = time.time()
+                    rec["elapsed_sec"] = round(time.time() - start_time, 1)
+                    _write_job_progress(job_id, upload_folder, rec)
 
         def _progress_cb(evt: dict) -> None:
-            _write_job_progress(job_id, upload_folder, {
+            _publish({
                 "status": "running",
                 "phase": evt.get("phase"),
                 "candidate_index": evt.get("candidate_index"),
                 "candidate_total": evt.get("candidate_total"),
                 "candidate_name": evt.get("candidate_name"),
-                "elapsed_sec": round(time.time() - start_time, 1),
                 "message": _analyze_progress_message(evt),
             })
 
@@ -1205,33 +1226,26 @@ def _register_routes(app: Flask) -> None:
             try:
                 res = _run_analyze_method(ctx, progress_cb=_progress_cb)
                 payload = _build_analyze_payload(ctx, res)
-                _write_job_progress(job_id, upload_folder, {
-                    "status": "done", "phase": "done",
-                    "elapsed_sec": round(time.time() - start_time, 1),
-                    "message": "done",
-                    "result": payload,
-                })
+                final = {"status": "done", "phase": "done", "message": "done", "result": payload}
             except _AnalyzeError as exc:
-                _write_job_progress(job_id, upload_folder, {
-                    "status": "error", "phase": "done",
-                    "elapsed_sec": round(time.time() - start_time, 1),
-                    "message": "failed", "error": str(exc),
-                    "http_status": exc.status,
-                })
+                final = {"status": "error", "phase": "done", "message": "failed",
+                         "error": str(exc), "http_status": exc.status}
             except Exception as exc:      # belt-and-suspenders: the
                 # indicator must ALWAYS clear, even on a bug we didn't
                 # anticipate — never let a job hang the poll forever.
                 logging.getLogger(__name__).exception(
                     "analyze job %s crashed", job_id)
-                _write_job_progress(job_id, upload_folder, {
-                    "status": "error", "phase": "done",
-                    "elapsed_sec": round(time.time() - start_time, 1),
-                    "message": "failed",
-                    "error": f"internal error: {exc}",
-                    "http_status": 500,
-                })
+                final = {"status": "error", "phase": "done", "message": "failed",
+                         "error": f"internal error: {exc}", "http_status": 500}
+            finished.set()
+            _publish(final)
 
-        threading.Thread(target=_worker, daemon=True).start()
+        threading.Thread(target=_heartbeat, daemon=True, name=f"fp-hb-{job_id[:8]}").start()
+        try:
+            threading.Thread(target=_worker, daemon=True, name=f"fp-{job_id[:8]}").start()
+        except Exception:
+            finished.set()                # no heartbeat for a job that never ran
+            raise
         return jsonify({"job_id": job_id}), 202
 
     @app.get("/api/analyze/progress/<job_id>")
@@ -1258,6 +1272,8 @@ def _register_routes(app: Flask) -> None:
                     "candidate_index": None, "candidate_total": None,
                     "candidate_name": None, "elapsed_sec": 0.0,
                     "message": "starting analysis…"}
+        hb = data.get("heartbeat")
+        data["heartbeat_age_sec"] = round(time.time() - hb, 1) if isinstance(hb, (int, float)) else None
         return jsonify(data)
 
     # ── Long fits via start-then-poll (unit 2, 2026-09-27) ───────────────────

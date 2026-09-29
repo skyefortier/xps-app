@@ -478,6 +478,48 @@ def test_screen_phase_records_and_selects():
     assert res.diagnostics["winner"].startswith("G2")
 
 
+def test_no_wall_clock_can_change_the_screen_or_the_refit_counts(monkeypatch):
+    """Unit A1, Codex round 1 (MINOR): the clock test above never reached the
+    screen (one candidate). With more than SCREEN_TOP_K candidates and a clock
+    that jumps a million seconds per read, EVERY candidate is still screened,
+    every deep candidate runs exactly n_refits refits, and the result is
+    identical to the one under a normal clock."""
+    x, y, _ = _covered_spectrum(seed=13)
+    grammar = _many_candidate_grammar(x, y)
+    assert len(grammar.candidates) > eng.SCREEN_TOP_K
+    from autofit.methods.base import poisson_like_weights
+    w = poisson_like_weights(y)
+    attempted = []
+    real_stab = eng.run_stability_analysis
+
+    def stab(*a, **k):
+        st = real_stab(*a, **k)
+        attempted.append((st.n_attempted, k.get("n_refits")))
+        return st
+    monkeypatch.setattr(eng, "run_stability_analysis", stab)
+
+    def run():
+        attempted.clear()
+        r = eng.compare_models(x, y, w, grammar, n_refits=3, rng_seed=0, enable_proposal_pass=False, enable_preseed=False)
+        return ([row["name"] for row in r.screen], [(row["converged"], row["selected"]) for row in r.screen],
+                [rep.model.name for rep in r.reports], [rep.bic_adjusted for rep in r.reports],
+                r.analysis_truncated, list(attempted))
+
+    normal = run()
+    ticks = {"t": 0.0}
+
+    def jumpy():
+        ticks["t"] += 1.0e6
+        return ticks["t"]
+    monkeypatch.setattr(eng.time, "perf_counter", jumpy)
+    jumped = run()
+    assert jumped == normal
+    names, _, reports, _, truncated, att = jumped
+    assert len(names) == len(grammar.candidates), "every candidate screened"
+    assert not truncated
+    assert att and all(n == want == 3 for n, want in att), att
+
+
 def test_small_candidate_set_takes_classic_path():
     """≤ SCREEN_TOP_K candidates → no screen phase (screen is None) — every
     existing gate/battery path is unchanged."""

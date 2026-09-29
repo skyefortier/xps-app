@@ -135,3 +135,18 @@ def test_the_warm_restart_is_gone():
     src = inspect.getsource(eng.fit_candidate)
     assert "retry" not in src and "WARM_RESTART" not in src
     assert "converged=bool(certified)" in src
+
+
+def test_a_restart_cut_off_by_its_evaluation_cap_never_certifies():
+    """Codex A1 round 1 (MAJOR): with the restart capped, an unfinished descent
+    can end a hair ABOVE its start (chi2 959072.771 vs 959072.740); the
+    negative improvement passed '< ftol' and a point 3000x above the minimum
+    was certified. A capped restart never certifies."""
+    x, y, w, model = _two_peak()
+    comp = eng._build_composite_model(model)
+    good = eng.fit_candidate(x, y, w, model)
+    far = good.lmfit_result.params.copy()
+    far["s_a_center"].set(value=284.05); far["s_b_amplitude"].set(value=50.0); far["s_a_fwhm"].set(value=2.3)
+    out = eng.fit_candidate(x, y, w, model, initial_params=far, max_nfev=2)   # the fit AND its restarts capped
+    assert not out.converged, out.weighted_chi_sq
+    assert out.weighted_chi_sq > 100 * good.weighted_chi_sq, "really far from the minimum"

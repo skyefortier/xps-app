@@ -1,0 +1,12 @@
+Review unit A1 (Find Peaks determinism), round 2: branch fix-find-peaks-determinism, git diff main..HEAD (round-1 fixes: git diff HEAD~1..HEAD) (autofit/engine.py; tests/autofit/test_fit_certificate.py; tests/autofit/test_preseed_dominants.py; CLAUDE.md; docs/superpowers/plans/2026-09-29-a1-find-peaks-determinism.md; the scope-check findings under docs/findings/fit-termination-scope/). Owner's brief: "Find Peaks' answer must not depend on server load or on the optimiser's own termination flags. Count refits, not seconds … REMOVE the warm restart from the cap stall point … apply the certificate to refits. Certificate accepted as proposed: restart from the end point until a restart improves chi2 by less than the optimiser's own stopping tolerance; fixed restart count; out of restarts = 'not converged'. No new constant. Acceptance: identical output under light and heavy load; Scan_6 -> MG2." Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Round-1 verdicts: docs/autofit/codex/a1_determinism_verdict_run{A,B}.md; plan section 5 lists each finding and its fix; section 4 records a measured screen option that is an OWNER DECISION (not built).
+
+TRY TO BREAK
+a. The capped-restart rule in _certify_minimum: every exit (capped and lowered / capped and not lowered / not capped), lmfit's `aborted` semantics for least_squares and for max_nfev exhaustion of the INITIAL leastsq fit, the loop's count, the returned point.
+b. The analyze job heartbeat (app.py analyze_start): the shared record under a lock, the heartbeat thread's lifetime (stops on done/error, never after the final write, no write racing the final record), a worker that fails to start, crashes, and the progress route's heartbeat_age_sec; the page's _fpPollJob: no total-duration cap anywhere, the stale-heartbeat rule (FIT_HEARTBEAT_LOST_SEC), a first poll without a heartbeat, transport errors, a job whose progress events are minutes apart.
+c. The new clock test through the screen.
+d. Everything round 1 verified, re-checked against the new commit.
+e. Tests real and non-vacuous.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

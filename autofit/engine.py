@@ -831,7 +831,8 @@ CERTIFY_MAX_RESTARTS = 50
 
 
 def _certify_minimum(composite, y_sub, result, x, weights, max_nfev):
-    """Return (the lowest-chi2 point reached, certified)."""
+    """Return (the lowest-chi2 point reached, certified). ``max_nfev`` caps
+    each restart like the fit it certifies."""
     current = result
     chi = float(result.chisqr) if result.chisqr is not None else float("nan")
     if not np.isfinite(chi):
@@ -848,8 +849,19 @@ def _certify_minimum(composite, y_sub, result, x, weights, max_nfev):
         if not np.isfinite(new):
             return current, False
         improvement = (chi - new) / chi if chi > 0 else 0.0
-        if new < chi:
+        lowered = new < chi
+        if lowered:
             current, chi = r, new
+        # A restart cut off by its EVALUATION CAP (lmfit's `aborted` — a fact
+        # about the budget, not the optimiser's convergence verdict) never
+        # certifies: an unfinished descent can end a hair ABOVE its start, and
+        # that negative "improvement" passed the test (Codex A1 round 1). If
+        # it still lowered chi2 the next restart continues from there; if not,
+        # no progress is possible within the cap — not converged.
+        if getattr(r, "aborted", False):
+            if not lowered:
+                return current, False
+            continue
         if improvement < CERTIFY_FTOL:
             return current, True
     return current, False

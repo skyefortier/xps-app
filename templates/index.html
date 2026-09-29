@@ -16136,15 +16136,15 @@ function _fpProgressText(poll) {
 }
 
 const FP_POLL_INTERVAL_MS = 350;
-// Client-side watchdog: the actual analysis has its own server-side budget
-// (TOTAL_ANALYSIS_TIMEOUT_SEC, well under this), so this only fires if a
-// job's progress file stops updating entirely (e.g. a recycled gunicorn
-// worker process taking the background thread down with it) — the
-// indicator must NEVER spin forever even in that pathological case.
-const FP_POLL_WATCHDOG_SEC = 600;
-
+// Liveness, not total time (unit A1, 2026-09-29): the engine no longer stops
+// on a wall-clock budget, so a counted run under heavy load legitimately takes
+// longer than any fixed limit — a 600 s total cap turned such a run into
+// "Try again" (Codex A1 round 1). The server rewrites the job's heartbeat every
+// 2 s while its thread lives; a heartbeat older than FIT_HEARTBEAT_LOST_SEC
+// means the thread is gone (e.g. a recycled gunicorn worker), and the
+// indicator must never spin forever in that case. A record without a
+// heartbeat age yet (the very first poll) is waited on.
 async function _fpPollJob(jobId) {
-  const started = Date.now();
   while (true) {
     const resp = await fetch('/api/analyze/progress/' + encodeURIComponent(jobId));
     if (!resp.ok) {
@@ -16156,9 +16156,10 @@ async function _fpPollJob(jobId) {
     if (poll.status === 'error') {
       throw new Error(poll.error || 'Analysis failed.');
     }
-    if ((Date.now() - started) / 1000 > FP_POLL_WATCHDOG_SEC) {
-      throw new Error('This is taking unusually long — the analysis may ' +
-        'have been lost. Try again.');
+    const hb = poll.heartbeat_age_sec;
+    if (typeof hb === 'number' && hb > FIT_HEARTBEAT_LOST_SEC) {
+      throw new Error('The analysis stopped responding (its server process was ' +
+        'probably restarted). Try again.');
     }
     await new Promise(r => setTimeout(r, FP_POLL_INTERVAL_MS));
   }

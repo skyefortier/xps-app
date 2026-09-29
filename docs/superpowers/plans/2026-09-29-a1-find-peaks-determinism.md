@@ -96,3 +96,37 @@ the last MG2 on both). 3 differ:
 The two screen cases pick a model with a WORSE BIC* than main's. The screen's
 single-start ranking is pre-existing; the certificate changes which candidates
 it happens to favour. OWNER DECISION (see the report).
+
+**Real-data gates** (`RUN_AUTOFIT_GATE=1`: C 1s, U 4f, B 1s / Cl 2p parity;
+Bayesian real and U 4f unresolved; candidate-pool real incl. the local-only
+held-out datasets, symlinked in for the run; stress honesty): **27 passed, 0
+failed** (main: 26 / 1 — the held-out ds8 candidate-pool gate failed there
+because the 240 s sweep budget stopped after 3 of 6 candidates; it passes now).
+Runtime 36 min against ~18 on main (no truncation, certificate restarts).
+
+## 4. Screen option measured (NOT built — owner decision)
+
+Probe (`screen each candidate from its primary start PLUS 2 seeded perturbed
+starts, keep the best certified outcome`), page request:
+
+| scan | main | A1 as built | A1 + 2 extra screen starts |
+|---|---|---|---|
+| 8-JT Scan_5 | MG2, BIC* 1882.6 | MG3, 1901.5 | **MG2, 1882.7** |
+| 8-JT Scan_7 | MG2, 1776.8 | MG3, 1787.6 | **MG2, 1776.5** |
+| 1-GTA Scan_6 | MG2+preseed, 1888.8 | MG2+preseed, 1888.4 | MG2+preseed, 1888.4 |
+
+Wall time 386–405 s per run (measured while Codex and the gates were also
+running — inflated) against A1's 236–239 s and main's 208–213 s.
+
+## 5. Codex rounds
+
+**Round 1 — NO-GO ×2** (`a1_determinism_verdict_run{A,B}.md`; both: no clock
+decision left in the engine, the Bayesian method or the analyze worker; §3's
+screen cases need explicit acceptance but do not violate A1's contract; the
+jitter is not a clock cutoff; Scan_6 → MG2 reproduced):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A): a certificate restart cut off by its EVALUATION CAP can end a hair ABOVE its start; the negative improvement passed "< ftol" and a point 3000× above the minimum was certified (reproduced at max_nfev = 2, not at the production 6000 / 18000) | a capped restart (lmfit's `aborted` — the budget, not a convergence verdict) never certifies: if it lowered chi2 the next restart continues from there, if not the fit is not converged. Regression caps the certificate's own restarts (fails on 3d419eb) |
+| 2 | MAJOR (B): the page's Find Peaks poll gave up after 600 s TOTAL, even while the job progressed; with the server budgets gone, load could turn a result into "Try again" | liveness, not duration: the analyze job now has a heartbeat thread (the fit jobs' pattern, 2 s), `/api/analyze/progress` reports `heartbeat_age_sec`, the page judges a job lost only when the heartbeat is older than `FIT_HEARTBEAT_LOST_SEC` (30 s). Tests: `test_a_running_job_keeps_a_fresh_heartbeat` (Python), `tests/js/find_peaks_poll_liveness.test.js` |
+| 3 | MINOR (A, B): the clock-independence test never reached the screen (one candidate) | `test_no_wall_clock_can_change_the_screen_or_the_refit_counts`: > SCREEN_TOP_K candidates under a jumping clock — every candidate screened, exactly n_refits refits each, identical result (fails on main's engine: nothing screened) |
