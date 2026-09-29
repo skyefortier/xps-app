@@ -138,3 +138,14 @@ accepted; both new findings are in the heartbeat added for round 1's #2):
 |---|---|---|
 | 1 | MAJOR (A, B): `finished.set()` sat after the worker's `try`, not in a `finally`; an exit that bypasses `except Exception` (SystemExit, KeyboardInterrupt) left the heartbeat thread rewriting a fresh "running" record for a dead worker, so the page polled forever | the worker's cleanup is a `finally`: it stops the heartbeat and publishes a terminal record on EVERY exit, an error record ("the analysis worker stopped unexpectedly", 500) unless the normal paths set another. Regression `test_a_worker_exit_past_except_exception_stops_the_heartbeat` (SystemExit in `_run_analyze_method`; fails on 4ff9829) |
 | 2 | MAJOR (A) / MINOR (B): a progress record that persistently cannot be read returns 200 "running" with no heartbeat age, and the page waited on a missing age without limit | the page ages its latest heartbeat EVIDENCE: `lastAlive` = the time implied by the last valid `heartbeat_age_sec` (the poll's start before any), and the job is lost once no evidence is newer than `FIT_HEARTBEAT_LOST_SEC` — the same limit, no new constant; the first missing age is still waited on. Tests: persistent null ages end in "stopped responding" (the loop never ended on 4ff9829); missing ages between valid ones do not |
+
+**Round 3 — GO ×2, no findings** (`a1_determinism_r3_verdict_run{A,B}.md`, commit
+c5278eb): worker cleanup probed on completion, `_AnalyzeError`, Exception,
+SystemExit, KeyboardInterrupt, payload and publication failures and a failed
+start, with forced lock orderings — no heartbeat write after the terminal
+record; the poll bounded persistent missing / non-finite evidence, tolerated
+intermittent missing ages, completed a healthy 1050 s job; both round-2
+regressions fail on 4ff9829; Scan_6 → MG2 reproduced independently by both
+runs (30 candidates screened). Not re-run by the reviewers (read-only
+sandbox): the disk-backed API suite and the heavy-load matrix (§2). The §4
+screen option remains an owner decision.
