@@ -58,8 +58,26 @@ test('the first poll without a heartbeat age yet is waited on', async () => {
   assert.strictEqual((await api._fpPollJob('j')).status, 'done');
 });
 
+test('a job that never shows valid heartbeat evidence is lost after the liveness limit', async () => {
+  // A progress record that persistently cannot be read comes back "running"
+  // with no heartbeat age (Codex A1 round 2): the first such poll is waited
+  // on, but time WITHOUT evidence is bounded by FIT_HEARTBEAT_LOST_SEC.
+  const { api, polls } = make(() => ({ status: 'running', heartbeat_age_sec: null }));
+  await assert.rejects(api._fpPollJob('j'), /stopped responding/);
+  assert.ok(polls() < 40, `gave up after ${polls()} polls`);
+});
+
+test('missing ages between valid ones do not end a live job', async () => {
+  const { api } = make(k => k < 500
+    ? { status: 'running', heartbeat_age_sec: k % 4 === 0 ? 1 : null }
+    : { status: 'done', result: {} });
+  assert.strictEqual((await api._fpPollJob('j')).status, 'done');
+});
+
 test('no total-duration watchdog remains in the poll loop', () => {
   const src = extractFn('_fpPollJob');
-  assert.ok(!/Date\.now\(\)/.test(src) && !/WATCHDOG/.test(src), src);
+  // the clock is read only to age the latest heartbeat evidence
+  assert.ok(!/WATCHDOG/.test(src) && !/startedAt|t0\b|pollStart/.test(src), src);
+  assert.ok(/lastAlive/.test(src));
   assert.ok(!/FP_POLL_WATCHDOG_SEC/.test(html));
 });

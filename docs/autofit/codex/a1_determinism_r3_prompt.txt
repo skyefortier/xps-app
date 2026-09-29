@@ -1,0 +1,13 @@
+Review unit A1 (Find Peaks determinism), round 3: branch fix-find-peaks-determinism, git diff main..HEAD (round-2 fixes: git diff HEAD~1..HEAD — app.py analyze_start `_worker`, templates/index.html `_fpPollJob`, tests/test_api_analyze_progress.py, tests/js/find_peaks_poll_liveness.test.js, plan section 5). Owner's brief: "Find Peaks' answer must not depend on server load or on the optimiser's own termination flags. Count refits, not seconds … REMOVE the warm restart from the cap stall point … apply the certificate to refits. Certificate accepted as proposed: restart from the end point until a restart improves chi2 by less than the optimiser's own stopping tolerance; fixed restart count; out of restarts = 'not converged'. No new constant. Acceptance: identical output under light and heavy load; Scan_6 -> MG2." Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Earlier verdicts: docs/autofit/codex/a1_determinism_verdict_run{A,B}.md (round 1), a1_determinism_r2_verdict_run{A,B}.md (round 2). Plan section 5 lists each finding and its fix; section 4 records a measured screen option that is an OWNER DECISION (not built).
+
+TRY TO BREAK
+a. Round-2 #1: the worker's `finally` — every exit (done, _AnalyzeError, Exception, BaseException such as SystemExit / KeyboardInterrupt, a failure inside _build_analyze_payload or inside _publish itself); the heartbeat thread stops and never writes after the final record; the default terminal record; a worker that fails to start.
+b. Round-2 #2: `_fpPollJob`'s `lastAlive` — no total-duration cap (the clock only ages heartbeat evidence), the first missing age waited on, persistent missing ages end in "stopped responding" after FIT_HEARTBEAT_LOST_SEC, intermittent missing ages between valid ones, a stale age, non-finite / negative ages, transport errors, a job whose progress events are minutes apart.
+c. Everything rounds 1–2 verified, re-checked against the new commit (certificate exits, clock test through the screen, heartbeat lifetime, lock / race with the final write).
+d. Tests real and non-vacuous: the new Python regression fails on 4ff9829 (verified: 1 failed) and the persistent-null JS test never terminates on 4ff9829 (verified: the old loop polls forever).
+
+Suites at the round-3 commit: see the commit message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

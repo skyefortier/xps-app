@@ -212,3 +212,25 @@ def test_a_running_job_keeps_a_fresh_heartbeat(client, monkeypatch):
     final = _poll_until_terminal(client, job_id, timeout_sec=60.0)
     assert final["status"] == "done"
     assert final["result"]["success"] in (True, False)
+
+
+def test_a_worker_exit_past_except_exception_stops_the_heartbeat(client, monkeypatch):
+    """Codex A1 round 2: an exit that bypasses `except Exception` (SystemExit,
+    KeyboardInterrupt) must still end the job — a terminal record, and no
+    further heartbeats. Before the fix the heartbeat thread kept rewriting a
+    fresh "running" record for a dead worker, so the page polled forever."""
+    import app as app_module
+
+    def die(ctx, progress_cb=None):
+        raise SystemExit(3)
+    monkeypatch.setattr(app_module, "_run_analyze_method", die)
+    sid = _upload_doublet(client)
+    job_id = client.post("/api/analyze/start", json=_BODY(sid)).get_json()["job_id"]
+    final = _poll_until_terminal(client, job_id, timeout_sec=10.0)
+    assert final["status"] == "error"
+    assert final["http_status"] == 500
+    hb = final.get("heartbeat")
+    time.sleep(4.5)                              # two heartbeat periods
+    later = client.get(f"/api/analyze/progress/{job_id}").get_json()
+    assert later["status"] == "error"
+    assert later.get("heartbeat") == hb, "the heartbeat thread outlived the worker"

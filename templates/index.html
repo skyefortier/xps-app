@@ -16143,8 +16143,12 @@ const FP_POLL_INTERVAL_MS = 350;
 // 2 s while its thread lives; a heartbeat older than FIT_HEARTBEAT_LOST_SEC
 // means the thread is gone (e.g. a recycled gunicorn worker), and the
 // indicator must never spin forever in that case. A record without a
-// heartbeat age yet (the very first poll) is waited on.
+// heartbeat age yet (the very first poll) is waited on — but only for as long
+// as a heartbeat may be stale: time WITHOUT valid heartbeat evidence is
+// bounded by the same limit (a record that persistently cannot be read comes
+// back "running" with no age; Codex A1 round 2).
 async function _fpPollJob(jobId) {
+  let lastAlive = Date.now();                    // time of the latest evidence the job lives
   while (true) {
     const resp = await fetch('/api/analyze/progress/' + encodeURIComponent(jobId));
     if (!resp.ok) {
@@ -16157,7 +16161,8 @@ async function _fpPollJob(jobId) {
       throw new Error(poll.error || 'Analysis failed.');
     }
     const hb = poll.heartbeat_age_sec;
-    if (typeof hb === 'number' && hb > FIT_HEARTBEAT_LOST_SEC) {
+    if (typeof hb === 'number' && Number.isFinite(hb)) lastAlive = Date.now() - Math.max(0, hb) * 1000;
+    if ((Date.now() - lastAlive) / 1000 > FIT_HEARTBEAT_LOST_SEC) {
       throw new Error('The analysis stopped responding (its server process was ' +
         'probably restarted). Try again.');
     }

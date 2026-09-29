@@ -1223,6 +1223,12 @@ def _register_routes(app: Flask) -> None:
             })
 
         def _worker() -> None:
+            # The heartbeat must stop, and a terminal record must be written,
+            # on EVERY exit — including one that bypasses `except Exception`
+            # (SystemExit, KeyboardInterrupt): a dead worker with a live
+            # heartbeat looks like a healthy job forever (Codex A1 round 2).
+            final = {"status": "error", "phase": "done", "message": "failed",
+                     "error": "The analysis worker stopped unexpectedly.", "http_status": 500}
             try:
                 res = _run_analyze_method(ctx, progress_cb=_progress_cb)
                 payload = _build_analyze_payload(ctx, res)
@@ -1237,8 +1243,9 @@ def _register_routes(app: Flask) -> None:
                     "analyze job %s crashed", job_id)
                 final = {"status": "error", "phase": "done", "message": "failed",
                          "error": f"internal error: {exc}", "http_status": 500}
-            finished.set()
-            _publish(final)
+            finally:
+                finished.set()
+                _publish(final)
 
         threading.Thread(target=_heartbeat, daemon=True, name=f"fp-hb-{job_id[:8]}").start()
         try:
