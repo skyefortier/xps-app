@@ -16,6 +16,19 @@ at χ²ᵣ 37.6 after 18 000 evaluations; the warm restart "succeeds" there in 3
 `least_squares` from the same start reaches χ²ᵣ 5.21 in 507. The code comment
 assumes the failed fit had already reached the minimum; here it had not.
 
+**Correction (unit A1, 2026-09-29; owner-recorded).** The Scan_7 example is
+NOT a point short of a minimum in the sense "χ²ᵣ 5.21 was just further
+downhill". The warm restart's point was indeed not a minimum (a descent still
+lowers χ² — `tests/autofit/test_fit_certificate.py`, KKT check), but carrying
+it to convergence ends at χ² 5166 — a GENUINE constrained local minimum (free
+gradients ~0, every parameter on a bound pushing outward) in a WORSE BASIN
+than the one `least_squares` reaches along another path from the same start
+(χ²ᵣ 5.21). "37.6 vs 5.21" therefore compares two basins, not a stopped fit
+with its own minimum; the certificate correctly calls the 5166 point
+converged. The single-start local-minimum problem, not early stopping, is
+what separates them (plan
+`docs/superpowers/plans/2026-09-29-a1-find-peaks-determinism.md` §2).
+
 ## Run Fit and the scattered-starts check
 
 `scripts/fit_termination_scope.py` runs every one of the 202 committed targets
