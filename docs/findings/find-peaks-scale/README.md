@@ -52,6 +52,13 @@ on rounding-level differences: toggles are not additive (main with all three
 off still differs on 1 scan; this branch with budgets off + background scaled
 but detection on differs on a scan none of the other combinations flipped).
 
+*Correction (unit A1, 2026-09-29):* the Scan_7 "37.6 vs 5.21" is not a refit
+stopped far from ITS minimum. Carried to convergence (the A1 certificate) it
+ends at χ² 5166, a genuine constrained local minimum in a worse basin than the
+5.21 one — two basins, not early stopping. The ~30-evaluation "convergence"
+itself was the warm restart at the cap stall point, removed in A1
+(`docs/findings/fit-termination-scope/README.md`).
+
 **This unit's own effect**, deterministic (budgets off, detection on): main and
 this branch differ on 3 of 16 runs (1-GTA Scan_2 and 8-JT Scan_7 ×1: MG2 → MG3
 through the absent-slot BIC* adjustment; 8-JT Scan_5 ×0.1: tier). The earlier
