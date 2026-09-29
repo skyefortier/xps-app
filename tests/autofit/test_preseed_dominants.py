@@ -345,8 +345,7 @@ def test_proposal_rejected_when_stability_promotes_spurious_center_peg(monkeypat
         x=x, y=y, weights=w, base_report=base, spec=spec,
         noise_floor=1.0, n_refits=2, rng_seed=0,
         absent_slot_area_fraction=0.02, absent_slot_persistence_threshold=0.7,
-        diagnostic_windows=dict(case.grammar.diagnostic_windows),
-        budget_remaining=1e6)
+        diagnostic_windows=dict(case.grammar.diagnostic_windows))
     assert outcome == "stability_rejected"
     assert "post-stability" in (pr.rejection_reason or "")
     assert any("center@min" in h for h in pr.boundary_hits)
@@ -418,80 +417,30 @@ def test_next_proposal_index_is_max_suffix_plus_one():
     assert eng._next_proposal_index(m0) == 0
 
 
-def test_proposal_pass_respects_sweep_budget(monkeypatch):
-    """Codex c1s-fix MAJOR (run B): an augmented fit has no internal wall
-    clock, so a proposal attempt must fast-reject when too little sweep
-    budget remains rather than running an unbounded fit past the total
-    timeout.  With the fit-budget floor raised above any real remaining
-    budget, EVERY proposal attempt must be 'insufficient_budget' — no
-    augmented fit runs, no proposal is accepted, and the sweep still
-    returns cleanly."""
-    monkeypatch.setattr(eng, "PROPOSAL_MIN_FIT_BUDGET_SEC", 10_000.0)
+def test_no_wall_clock_can_change_the_answer(monkeypatch):
+    """Unit A1 (2026-09-29): the sweep, screen, stability and proposal
+    budgets were wall-clock and made the answer depend on server load; they
+    are gone. A clock that jumps a million seconds on every read must leave
+    the result IDENTICAL."""
     x = _grid()
     truth = [{"center": 196.5, "fwhm": 1.2, "height": 9000.0},
              {"center": 201.5, "fwhm": 1.2, "height": 2500.0}]
     sig = sum(_pv(x, t["height"], t["center"], t["fwhm"], ETA) for t in truth)
     y = _noisy(sig + _linear_bg(x), 71)
-    cands = [_cand("single_main", [_slot("main_a", (195.5, 197.5))])]
-    grammar = _grammar(cands)
-    res = get_method("ic_model_comparison").run(
-        x, y, grammar=grammar,
-        options={**IC_OPTS, "enable_preseed": False})
-    assert not res.diagnostics["winner"].endswith("+prop")
-    reasons = [p["rejection_reason"] for c in res.analysis["candidates"]
-               for p in c.get("proposed_peaks", [])]
-    assert reasons, "expected at least one attempted-then-rejected proposal"
-    assert all("insufficient_budget" in (r or "") for r in reasons), reasons
+    grammar = _grammar([_cand("single_main", [_slot("main_a", (195.5, 197.5))])])
 
+    def run():
+        res = get_method("ic_model_comparison").run(x, y, grammar=grammar, options={**IC_OPTS, "enable_preseed": False})
+        return res.diagnostics, res.peaks, res.analysis, res.confidence
 
-def test_stability_not_started_without_budget_after_augmented_fit(monkeypatch):
-    """Codex c1s-fix RE-CHECK (run B): the top budget guard alone did NOT
-    close the overrun — an augmented fit that PASSES the top guard then
-    consumes most of the budget must not let run_stability_analysis start
-    an unbounded refit with only a few seconds left.  The pre-stability
-    guard now fast-rejects when the DYNAMIC remaining budget is below the
-    fit floor.  Deterministic via a fake clock: attempt_start = 1000 s,
-    every later perf_counter reads 1013 s, so with budget_remaining=20 the
-    post-fit remaining is 7 s < 15 s floor — stability must NOT run."""
-    from autofit.methods.base import poisson_like_weights
-    from stress_cases import isolated_missing_peak_case
+    normal = run()
+    ticks = {"t": 0.0}
 
-    case = isolated_missing_peak_case(seed=71)
-    x, y = case.x, case.y
-    w = poisson_like_weights(y)
-    model = case.grammar.candidates[0]
-    # real base report (unpatched clock), proposal + preseed off
-    res = eng.compare_models(x, y, w, case.grammar, n_refits=2, rng_seed=0,
-                             enable_proposal_pass=False, enable_preseed=False)
-    base_report = res.reports[0]
-    y_fit = (base_report.primary_fit.lmfit_result.best_fit
-             + base_report.primary_fit.background)
-    specs = eng._detect_residual_proposals(
-        x, y, y_fit, 1.0, model,
-        fitted_components=base_report.primary_fit.components)
-    assert specs, "expected a residual proposal at the unmodeled peak"
-
-    calls = {"n": 0}
-
-    def fake_pc():
-        calls["n"] += 1
-        return 1000.0 + (0.0 if calls["n"] == 1 else 13.0)
-
-    def boom(*a, **k):
-        raise AssertionError("run_stability_analysis started without budget")
-
-    monkeypatch.setattr(eng.time, "perf_counter", fake_pc)
-    monkeypatch.setattr(eng, "run_stability_analysis", boom)
-
-    aug_report, pr, outcome = eng._attempt_proposal(
-        x=x, y=y, weights=w, base_report=base_report, spec=specs[0],
-        noise_floor=1.0, n_refits=4, rng_seed=0,
-        absent_slot_area_fraction=0.02, absent_slot_persistence_threshold=0.7,
-        diagnostic_windows=dict(case.grammar.diagnostic_windows),
-        budget_remaining=20.0)          # passes the 15 s TOP guard...
-    assert outcome == "fast_rejected"   # ...but post-fit remaining 7 s < 15
-    assert aug_report is None
-    assert "insufficient_budget before stability" in (pr.rejection_reason or "")
+    def jumpy():
+        ticks["t"] += 1.0e6
+        return ticks["t"]
+    monkeypatch.setattr(eng.time, "perf_counter", jumpy)
+    assert run() == normal
 
 
 # ── F3: two-phase sweep ────────────────────────────────────────────────────

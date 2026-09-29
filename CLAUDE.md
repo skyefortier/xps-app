@@ -226,6 +226,25 @@ workers, at most 4 concurrent fits, the bound the synchronous route had. The syn
 for scripts, tests and the Python twins. Plan:
 `docs/superpowers/plans/2026-09-27-long-fits-start-poll.md`.
 
+### Find Peaks does not read the clock (unit A1, 2026-09-29)
+
+Find Peaks' answer must not depend on server load or on the optimiser's own
+termination flags. No wall-clock budget anywhere in `autofit/engine.py`
+(the 25 s per-candidate, 240 s sweep, proposal and screen budgets are gone —
+on 1-GTA C1s Scan_6 MG2 won or lost on whether its fourth refit started
+before 25 s): every candidate is screened, `SCREEN_TOP_K` are evaluated with
+exactly `n_refits` refits, and work is bounded by counts and evaluation caps.
+A fit's convergence is CERTIFIED (`_certify_minimum`): Trust-Region restarts
+from the end point until one improves chi2 by less than Trust-Region's own
+ftol (scipy's default, no new constant), at most `CERTIFY_MAX_RESTARTS` = 50
+(measured: 2 for most fits, 21 at most on the committed C 1s set); out of
+restarts = not converged. The old warm restart from a failed fit's exit point
+is gone (it met MINPACK's xtol at the stall and reported success). Under
+light and heavy load every structural field of the output is identical; the
+numbers carry Trust-Region's arithmetic jitter (≤ 0.25 meV, ≤ 5e-4 relative
+amplitude, the same idle-to-idle). Plan:
+`docs/superpowers/plans/2026-09-29-a1-find-peaks-determinism.md`.
+
 ### Timing claims are measured through the public URL
 
 A request from a student reaches the server through Cloudflare, whose edge

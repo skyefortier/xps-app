@@ -134,59 +134,22 @@ PROPOSAL_AMPLITUDE_SNR = 5.0
 # keeps those guards and bounds the rounds.  UNVERIFIED tunable.
 PROPOSAL_MAX_PER_CANDIDATE = 3
 PROPOSAL_MAX_ATTEMPTS_PER_CANDIDATE = 3
-# Whole ITERATIVE proposal pass per candidate (all F2 rounds share it).
-# Raised 30 → 60 with F2: the pass may now legitimately do up to
-# PROPOSAL_MAX_PER_CANDIDATE accepted rounds of (augmented fit + stability).
-# UNVERIFIED tunable.
-PROPOSAL_CANDIDATE_TIMEOUT_SEC = 60.0
-# One augmented-model stability pass inside the proposal pass.  Replaces the
-# old min(budget, CANDIDATE_TIMEOUT_SEC) clamp, whose 25 s ceiling cut the
-# n_refits=4 stability of a slow augmented model to 3 attempts and QUANTIZED
-# the persistence gate below its threshold — measured on the real C 1s
-# motivating case (PROGRESS.md diagnosis follow-up): a ΔBIC* −86 proposal
-# with no boundary hits was rejected at persistence 2/3 = 0.67 < 0.70 purely
-# because the 4th refit never ran.  35 s fits n_refits=4 at the measured
-# ~7-8 s worst-case per refit on 191-point real data.  UNVERIFIED tunable.
-PROPOSAL_STABILITY_TIMEOUT_SEC = 35.0
-# Minimum budget (s) that must remain before an augmented-model FIT is
-# started inside the proposal pass.  A single fit_candidate at
-# FIT_CANDIDATE_MAX_NFEV runs ~10-12 s worst-case on 191-point data with no
-# internal wall clock, so starting one with less than this left would
-# overrun TOTAL_ANALYSIS_TIMEOUT_SEC — and hence the gunicorn --timeout
-# (Codex c1s-fix review, run B MAJOR).  A proposal attempt that cannot fit
-# this budget fast-rejects with 'insufficient_budget'.  UNVERIFIED tunable.
-PROPOSAL_MIN_FIT_BUDGET_SEC = 15.0
 
 # See fit_candidate() docstring: deterministic per-call ceiling on lmfit's
 # own effort, replacing its effectively-unbounded default.
 FIT_CANDIDATE_MAX_NFEV = 18000
-WARM_RESTART_MAX_NFEV = 2000     # single retry budget for a failed-but-
-                                 # finite fit (measured need: ~33 evals;
-                                 # generous headroom, still bounded)
 
-# Wall-clock ceiling on ONE candidate's entire primary-fit + stability-refit
-# pass (compare_models -> run_stability_analysis). Mirrors
-# PROPOSAL_CANDIDATE_TIMEOUT_SEC's existing per-candidate budget for the
-# later residual-proposal pass: a candidate that blows this budget stops
-# taking further stability refits rather than consuming the rest of the
-# request's time. FIT_CANDIDATE_MAX_NFEV already bounds any single call to
-# roughly 10-12s on this pipeline's DS+G cost profile, so this allows a
-# couple of such calls (primary + 1-2 refits) before cutting the rest.
-CANDIDATE_TIMEOUT_SEC = 25.0
-
-# Wall-clock ceiling on the ENTIRE compare_models sweep over all candidates
-# in the grammar. Per-candidate budgets (CANDIDATE_TIMEOUT_SEC,
-# PROPOSAL_CANDIDATE_TIMEOUT_SEC) bound any one candidate but not their sum
-# — a 29-candidate grammar at ~7s/candidate for ordinary (non-degenerate)
-# fits already runs ~3-4 minutes, and several candidates hitting the
-# DS+G-style degenerate corner push that further. Checked once per outer
-# loop iteration (compare_models): once exceeded, remaining candidates are
-# skipped and the sweep returns best-so-far, ranked normally, with
-# ComparisonResult.analysis_truncated=True — an honest partial result
-# instead of a request timeout. Deliberately below the gunicorn dev
-# --timeout so this truncation path always gets to run and respond before
-# the worker is aborted (see DEPLOY.md / dev gunicorn --timeout).
-TOTAL_ANALYSIS_TIMEOUT_SEC = 240.0
+# Unit A1 (2026-09-29): NO wall-clock budget anywhere in the sweep. The
+# per-candidate 25 s, the 240 s sweep, the 60 s / 35 s proposal budgets, the
+# 15 s minimum-fit budget and the screen's share of the sweep all made Find
+# Peaks' ANSWER depend on server load (1-GTA C1s Scan_6: MG2 won or lost on
+# whether its fourth refit started before 25 s). Work is bounded by counts:
+# every candidate is screened once, SCREEN_TOP_K are deep-evaluated with
+# n_refits refits each, a proposal pass makes at most
+# PROPOSAL_MAX_PER_CANDIDATE × PROPOSAL_MAX_ATTEMPTS_PER_CANDIDATE attempts,
+# every fit is capped at FIT_CANDIDATE_MAX_NFEV / SCREEN_MAX_NFEV evaluations
+# and certified with at most CERTIFY_MAX_RESTARTS restarts. The page runs
+# Find Peaks as a polled job (/api/analyze/start), so no request waits on it.
 PROPOSAL_ENDPOINT_WARNING_BE = 1.0
 PROPOSAL_COINCIDENCE_BE = 0.5
 
@@ -251,8 +214,8 @@ GRAMMAR_AUGMENT_MAX_SEEDS = 3        # of those, at most this many augment
 # ── Two-phase sweep: screen → stabilize (unit F3, 2026-07-07) ──────────────
 # Measured motivation (PROGRESS.md diagnosis, cause a): a 29-candidate C 1s
 # grammar at 25 s/candidate stability budgets + a 30-60 s proposal pass can
-# never finish inside TOTAL_ANALYSIS_TIMEOUT_SEC (240 s, deliberately below
-# the gunicorn --timeout 300) — the real spectra truncated at 8/29 with the
+# never finish inside the then 240 s sweep budget (removed in unit A1; it sat
+# below the gunicorn --timeout 300) — the real spectra truncated at 8/29 with the
 # expert-structure MG family (candidates #21-24) never evaluated.  When the
 # candidate set is larger than SCREEN_TOP_K, compare_models first fits EVERY
 # candidate once (primary fit only, SCREEN_MAX_NFEV effort cap), ranks the
@@ -269,10 +232,6 @@ SCREEN_MAX_NFEV = 6000     # measured: converging primaries on real 191-pt
                            # C 1s data use 3-5k evals; hopeless landscapes
                            # burn ≥ 18k without converging
 SCREEN_TOP_K = 6
-# The screen may spend at most this fraction of TOTAL_ANALYSIS_TIMEOUT_SEC —
-# the deep phase must always retain budget, else a very large (joint) grammar
-# could burn the whole sweep screening and deep-evaluate NOTHING.
-SCREEN_BUDGET_FRACTION = 0.6
 
 
 def _slot_prefix(role: str) -> str:
@@ -849,6 +808,53 @@ def _unphysical_width_flags(
     return flags
 
 
+# ── Convergence certificate (unit A1, 2026-09-29) ─────────────────────────────
+# A fit has reached a minimum when a fresh descent from its end point cannot
+# improve chi2 by more than the descent's OWN stopping tolerance. The descent
+# is Trust-Region (scipy least_squares, native bounds): a Levenberg-Marquardt
+# restart from a stall point reproduces the stall (MINPACK's xtol test fires in
+# ~30 evaluations — the false convergence this replaces). Restarts are repeated
+# from each improved point; a FIXED number of them (a count, not a time); out
+# of restarts, or a non-finite restart, is "not converged". No new constant:
+# the tolerance is scipy's own least_squares ftol default, read from its
+# signature, and the improvement is relative (dimensionless, scale-free).
+import inspect as _inspect
+import scipy.optimize as _scipy_optimize
+CERTIFY_FTOL = float(_inspect.signature(_scipy_optimize.least_squares).parameters["ftol"].default)
+# A COUNT, set from measurement (unit A1, 8 committed C 1s scans × 4 gate
+# candidates, primaries + all refits = 208 fits): restarts needed to certify —
+# 1: 10, 2: 173, 3: 14, 4: 5, then one fit each at 5, 6, 8, 9, 11 and 21 (flat
+# valleys: each Trust-Region run stops on its own ftol while a whole restart
+# still gains more than that). 5 left four real minima uncertified (8-JT
+# Scan_5's MG2 and MG3 primaries, so MG lost to AG2 at chi2r 42.5).
+CERTIFY_MAX_RESTARTS = 50
+
+
+def _certify_minimum(composite, y_sub, result, x, weights, max_nfev):
+    """Return (the lowest-chi2 point reached, certified)."""
+    current = result
+    chi = float(result.chisqr) if result.chisqr is not None else float("nan")
+    if not np.isfinite(chi):
+        return current, False
+    for _ in range(CERTIFY_MAX_RESTARTS):
+        try:
+            r = composite.fit(y_sub, current.params.copy(), x=x, weights=weights,
+                              method="least_squares", nan_policy="omit",
+                              max_nfev=max_nfev)
+        except Exception as exc:
+            log.debug("certificate restart raised: %s", exc)
+            return current, False
+        new = float(r.chisqr) if r.chisqr is not None else float("nan")
+        if not np.isfinite(new):
+            return current, False
+        improvement = (chi - new) / chi if chi > 0 else 0.0
+        if new < chi:
+            current, chi = r, new
+        if improvement < CERTIFY_FTOL:
+            return current, True
+    return current, False
+
+
 def fit_candidate(
     x: np.ndarray,
     y: np.ndarray,
@@ -889,25 +895,13 @@ def fit_candidate(
         result = composite.fit(y_sub, params, x=x, weights=weights,
                                method="leastsq", nan_policy="omit",
                                max_nfev=max_nfev)
-        if (not result.success and result.chisqr is not None
-                and np.isfinite(result.chisqr)):
-            # ONE warm restart (Stage-2, measured on the real diagnosis
-            # scans): a model whose optimum sits against parameter bounds
-            # stalls MINPACK on a flat transformed gradient — it reaches
-            # the minimum, then burns the whole nfev budget without
-            # satisfying ftol (success=False at a genuinely converged
-            # χ²).  Restarting AT the exit point resets leastsq's internal
-            # diag scaling and it certifies in tens of evaluations
-            # (measured: 6000 nfev burned cold → 33 nfev warm, identical
-            # χ²).  Fires ONLY on a failed-but-finite fit, so converging
-            # fits are byte-identical; cost is bounded by one
-            # WARM_RESTART_MAX_NFEV fit.
-            retry = composite.fit(y_sub, result.params.copy(), x=x,
-                                  weights=weights, method="leastsq",
-                                  nan_policy="omit",
-                                  max_nfev=WARM_RESTART_MAX_NFEV)
-            if retry.success:
-                result = retry
+        # Unit A1 (2026-09-29): convergence is CERTIFIED, not read from the
+        # optimiser's flag (_certify_minimum). The old ONE warm restart from a
+        # failed fit's exit point is gone: from a stall point MINPACK's restart
+        # satisfies xtol in ~30 evaluations and reported success at a
+        # non-minimum (8-JT C1s Scan_7: chi2r 37.6 "converged" where
+        # least_squares from the same start reaches 5.21).
+        result, certified = _certify_minimum(composite, y_sub, result, x, weights, max_nfev)
     except Exception as exc:
         log.debug("fit_candidate failed for %s: %s", model.name, exc)
         return FitOutcome(
@@ -917,9 +911,13 @@ def fit_candidate(
             n_data=len(y_sub), lmfit_result=None, background=bg,
         )
 
+    if not certified:
+        # out of restarts (or a non-finite restart): the fit did not reach a
+        # minimum — reported as not converged, whatever the optimiser's flag
+        log.debug("fit_candidate: %s not certified", model.name)
     unweighted_r = y_sub - result.best_fit
     return FitOutcome(
-        converged=bool(result.success),
+        converged=bool(certified),
         components=_extract_fitted_components(result, model),
         residual_sum_sq=float(np.sum(unweighted_r ** 2)),
         weighted_chi_sq=float(result.chisqr) if result.chisqr is not None else float("inf"),
@@ -1144,11 +1142,9 @@ class ModelStability:
     # one-off deeper minimum is a different product than a reproducible one).
     # Reporting-only; never used in ranking.
     best_basin_support: int = 0
-    # How many of the requested n_refits were actually attempted before the
-    # candidate's wall-clock budget (CANDIDATE_TIMEOUT_SEC) ran out. Equal to
-    # n_refits unless timed_out is True — used as the honest denominator for
-    # persistence/orphan_rate/convergence_rate instead of silently
-    # understating them against the full nominal n_refits.
+    # Refits attempted — always n_refits since unit A1 (no wall-clock
+    # budget); the denominator of persistence / orphan_rate / convergence_rate.
+    # timed_out is never set (kept for the payload's shape).
     n_attempted: int = 0
     timed_out: bool = False
 
@@ -1169,16 +1165,16 @@ def run_stability_analysis(
     n_refits: int = 20,
     rng_seed: int = 0,
     fixed_param_values: Optional[dict[str, float]] = None,
-    deadline: Optional[float] = None,
     fit_full_window: bool = False,
     endpoint_avg: int = 1,
 ) -> ModelStability:
     """
-    ``deadline`` is an absolute ``time.perf_counter()`` timestamp (set by
-    the caller from CANDIDATE_TIMEOUT_SEC) shared across this candidate's
-    primary fit + all its refits. Once passed, remaining refits are
-    skipped — not run and not counted as failures — so one candidate stuck
-    in a slow-but-nfev-capped region can't consume the rest of the request.
+    Unit A1 (2026-09-29): exactly ``n_refits`` refits, always — no wall-clock
+    deadline. The 25 s per-candidate budget this replaced made persistence
+    (refits reached / refits attempted) depend on server load: on 1-GTA C1s
+    Scan_6 MG2 got 3 or 4 refits depending on how busy the machine was, and
+    2/3 vs 3/4 decided the winner. Work is bounded by counts (n_refits, each
+    fit's max_nfev, the certificate's restarts).
     """
     rng = np.random.default_rng(rng_seed)
     pos: dict[str, list[float]] = {s.role: [] for s in model.slots}
@@ -1205,14 +1201,6 @@ def run_stability_analysis(
     n_attempted = 0
     timed_out = False
     for _ in range(n_refits):
-        if deadline is not None and time.perf_counter() >= deadline:
-            timed_out = True
-            log.warning(
-                "run_stability_analysis: candidate %s hit its %.0fs budget "
-                "after %d/%d refits — remaining refits skipped",
-                model.name, CANDIDATE_TIMEOUT_SEC, n_attempted, n_refits,
-            )
-            break
         n_attempted += 1
         seed = int(rng.integers(0, 2**31 - 1))
         init = perturb_initial_params(model, seed=seed, x=x, y_net=y_net,
@@ -1616,11 +1604,9 @@ class ComparisonResult:
     # weighted_bic_top, note} or None (BIC/IC math review blocker:
     # selection must not silently rest on a likelihood the fits reject).
     weighted_ic_disagreement: Optional[dict] = None
-    # Set when the sweep hit TOTAL_ANALYSIS_TIMEOUT_SEC and stopped before
-    # evaluating every candidate in the grammar. The candidates evaluated so
-    # far are still ranked/reported normally (best-so-far) — this only flags
-    # that the comparison is partial, so a slow/pathological spectrum
-    # returns an honest incomplete result instead of a request timeout.
+    # Never set since unit A1 (the sweep budget it reported is gone: every
+    # candidate is evaluated); kept so the payload and the page keep their
+    # shape.
     analysis_truncated: bool = False
     n_candidates_evaluated: int = 0
     n_candidates_total: int = 0
@@ -2166,11 +2152,12 @@ def _attempt_proposal(
     absent_slot_area_fraction: float,
     absent_slot_persistence_threshold: float,
     diagnostic_windows: dict[str, tuple[float, float]],
-    budget_remaining: float = float("inf"),
     fit_full_window: bool = False,
     endpoint_avg: int = 1,
 ) -> tuple[Optional[ModelReport], ProposedPeakReport, str]:
-    attempt_start = time.perf_counter()
+    # Unit A1 (2026-09-29): no wall-clock budget — an attempt either runs its
+    # counted work (one augmented fit, n_refits refits) or is rejected on a
+    # data criterion; whether a proposal is accepted must not depend on load.
     base_model = base_report.model
     base_fit = base_report.primary_fit
     aug_model = _augmented_candidate(base_model, spec)
@@ -2186,16 +2173,6 @@ def _attempt_proposal(
     def _fast(reason: str):
         pr.rejection_reason = reason
         return None, pr, "fast_rejected"
-
-    # An augmented fit_candidate has no internal wall clock and runs
-    # ~10-12 s worst-case; starting one with less than PROPOSAL_MIN_FIT_
-    # BUDGET_SEC of sweep budget left would overrun TOTAL_ANALYSIS_TIMEOUT_SEC
-    # and the gunicorn --timeout (Codex c1s-fix review, run B MAJOR).  The
-    # caller passes budget_remaining = min(pass budget, sweep budget) left.
-    if budget_remaining < PROPOSAL_MIN_FIT_BUDGET_SEC:
-        return _fast(
-            f"insufficient_budget: {budget_remaining:.1f}s left < "
-            f"{PROPOSAL_MIN_FIT_BUDGET_SEC:.0f}s needed for one augmented fit")
 
     bg = _compute_background(x, y, aug_model.background, endpoint_avg=endpoint_avg)
     try:
@@ -2251,28 +2228,9 @@ def _attempt_proposal(
             f"base BIC* {base_report.bic_adjusted:.2f} by {PROPOSAL_DELTABIC_THRESHOLD:.1f}"
         )
 
-    # budget_remaining was a snapshot BEFORE the augmented fit; that fit has
-    # since consumed wall time, so the stability deadline must be computed
-    # from what's ACTUALLY left, not the stale snapshot (Codex c1s-fix
-    # review, run B MAJOR — otherwise the stability pass could run
-    # min(stale_budget, 35) s past the fit and overrun the sweep budget).
-    # The floor (not just <= 0) matters because run_stability_analysis
-    # checks its deadline at the TOP of the loop and then runs an unbounded
-    # fit_candidate — so starting stability with only a few seconds left
-    # would still overrun by ~one worst-case fit (Codex c1s-fix RE-CHECK,
-    # run B MAJOR: disposition 2 was not fully closed by the top guard).
-    remaining = budget_remaining - (time.perf_counter() - attempt_start)
-    if remaining < PROPOSAL_MIN_FIT_BUDGET_SEC:
-        pr.rejection_reason = (
-            f"insufficient_budget before stability: {remaining:.1f}s left < "
-            f"{PROPOSAL_MIN_FIT_BUDGET_SEC:.0f}s (one refit could overrun)")
-        return None, pr, "fast_rejected"
-
     stability = run_stability_analysis(
         x, y, weights, aug_model, primary,
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
-        deadline=time.perf_counter() + min(remaining,
-                                           PROPOSAL_STABILITY_TIMEOUT_SEC),
         fit_full_window=fit_full_window,
         endpoint_avg=endpoint_avg,
     )
@@ -2445,7 +2403,6 @@ def _bound_fixed_refit(
         x, y, weights, report.model, outcome,
         noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
         fixed_param_values=fixed,
-        deadline=time.perf_counter() + CANDIDATE_TIMEOUT_SEC,
         fit_full_window=fit_full_window,
         endpoint_avg=endpoint_avg,
     )
@@ -2738,7 +2695,6 @@ def compare_models(
     proposal_attempts: list[tuple[str, ProposedPeakReport]] = []
     timings: list[ProposalPassTiming] = []
     n_cand = len(candidates)
-    sweep_start = time.perf_counter()
     n_evaluated = 0
     analysis_truncated = False
 
@@ -2750,16 +2706,9 @@ def compare_models(
     if n_cand > SCREEN_TOP_K:
         screen_rows: list[dict] = []
         screened: list[tuple[CandidateModel, FitOutcome, float]] = []
-        screen_deadline = sweep_start + SCREEN_BUDGET_FRACTION * TOTAL_ANALYSIS_TIMEOUT_SEC
+        # Unit A1: EVERY candidate is screened (no wall-clock screen budget —
+        # which candidates reached the deep phase used to depend on load)
         for idx, model in enumerate(candidates, 1):
-            if time.perf_counter() > screen_deadline:
-                analysis_truncated = True
-                log.warning(
-                    "compare_models: screen budget (%.0f%% of the sweep) "
-                    "exhausted after %d/%d candidates — the deep phase runs "
-                    "on what screened so far",
-                    100 * SCREEN_BUDGET_FRACTION, idx - 1, n_cand)
-                break
             log.info("[screen %2d/%d] %s", idx, n_cand, model.name)
             _report_progress(progress_cb, "screening", idx, n_cand, model.name)
             outcome = fit_candidate(x, y, weights, model,
@@ -2789,30 +2738,11 @@ def compare_models(
             [m.name for m in candidates])
 
     for idx, model in enumerate(candidates, 1):
-        # Pre-check with the candidate's own worst-case budget: a candidate
-        # STARTED just under the wire used to overshoot the sweep budget by
-        # its full stability + proposal cost (measured 310 s wall vs the
-        # 240 s budget on real data — past the gunicorn --timeout 300, i.e.
-        # the exact worker-kill this budget exists to prevent).  Truncating
-        # BEFORE starting a candidate that cannot finish keeps the worst-case
-        # wall ≈ TOTAL_ANALYSIS_TIMEOUT_SEC.
-        elapsed = time.perf_counter() - sweep_start
-        if elapsed > TOTAL_ANALYSIS_TIMEOUT_SEC - CANDIDATE_TIMEOUT_SEC:
-            analysis_truncated = True
-            log.warning(
-                "compare_models: sweep budget cannot fit another candidate "
-                "(%.0fs elapsed of %.0fs) after %d/%d — remaining candidates "
-                "skipped, returning best-so-far",
-                elapsed, TOTAL_ANALYSIS_TIMEOUT_SEC, n_evaluated, len(candidates),
-            )
-            break
+        # Unit A1: every selected candidate is evaluated — no sweep budget
         n_evaluated += 1
         log.info("[%2d/%d] %s: primary fit", idx, len(candidates), model.name)
         _report_progress(progress_cb, "stabilizing", idx, len(candidates),
                          model.name)
-        # Shared wall-clock budget for this candidate's primary fit + all its
-        # stability refits (CANDIDATE_TIMEOUT_SEC) — see run_stability_analysis.
-        candidate_deadline = time.perf_counter() + CANDIDATE_TIMEOUT_SEC
         # reuse the screen fit as this candidate's primary (no repeated work)
         primary = screen_fit.get(model.name) or fit_candidate(
             x, y, weights, model, fit_full_window=fit_full_window,
@@ -2824,7 +2754,6 @@ def compare_models(
         stability = run_stability_analysis(
             x, y, weights, model, primary,
             noise_floor=noise_floor, n_refits=n_refits, rng_seed=rng_seed,
-            deadline=candidate_deadline,
             fit_full_window=fit_full_window,
             endpoint_avg=endpoint_avg,
         )
@@ -2864,20 +2793,12 @@ def compare_models(
             # per-candidate wall budget.  Gates are unchanged per round.
             counts = dict(n_flagged=0, n_over_cap=0, n_attempted=0,
                           n_fast=0, n_stab=0, n_acc=0)
-            timed_out = False
-            pass_start = time.perf_counter()
-            # the pass never spends beyond the sweep's remaining budget —
-            # same worst-case-wall reasoning as the candidate pre-check
-            pass_budget = min(
-                PROPOSAL_CANDIDATE_TIMEOUT_SEC,
-                TOTAL_ANALYSIS_TIMEOUT_SEC - (pass_start - sweep_start))
+            timed_out = False                 # unit A1: never set (no pass budget)
+            pass_start = time.perf_counter()  # telemetry only (wall_time_sec)
             rejected: list[ProposedPeakReport] = []
             current = base_report
             current_y_fit = y_fit
             while counts["n_acc"] < PROPOSAL_MAX_PER_CANDIDATE:
-                if time.perf_counter() - pass_start > pass_budget:
-                    timed_out = True
-                    break
                 specs = _detect_residual_proposals(
                     x, y, current_y_fit, noise_floor, current.model,
                     fitted_components=current.primary_fit.components,
@@ -2894,10 +2815,6 @@ def compare_models(
                 counts["n_over_cap"] += max(len(specs) - len(attempts), 0)
                 accepted_this_round = False
                 for spec in attempts:
-                    elapsed = time.perf_counter() - pass_start
-                    if elapsed > pass_budget:
-                        timed_out = True
-                        break
                     counts["n_attempted"] += 1
                     aug_report, pr, outcome = _attempt_proposal(
                         x=x, y=y, weights=weights, base_report=current, spec=spec,
@@ -2905,7 +2822,6 @@ def compare_models(
                         absent_slot_area_fraction=absent_slot_area_fraction,
                         absent_slot_persistence_threshold=absent_slot_persistence_threshold,
                         diagnostic_windows=diagnostic_windows,
-                        budget_remaining=pass_budget - elapsed,
                         fit_full_window=fit_full_window,
                         endpoint_avg=endpoint_avg,
                     )
