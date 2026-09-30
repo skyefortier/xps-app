@@ -303,3 +303,13 @@ verified; 398 recorded replays pass):
 | 1 | MAJOR (A, B): gaussian and lorentzian share parameter names, so an alternative's curve was reconstructed with BOTH and both compared — a Lorentzian inside the resolution (0.096 %) was rejected by its fictitious Gaussian twin (0.106 %) | the lineshape's identity is taken from the response: the one lineshape that reproduces the returned component of the same id from its own parameters; the alternative is evaluated with it; test (the reviewers' case) |
 | 2 | MINOR (A, B): a reconstruction that raised silently removed the curve check | fails closed: "its curve cannot be reconstructed"; test with an injected failure |
 | 3 | MINOR (B): a 1e-11 bound span rejected a one-ULP difference | a machine-precision floor (4 ULP of the value) beside the span, not a wider span; test (the reviewer's real fits) |
+
+**Round 9 — NO-GO ×2** (`a2_runfit_certificate_r9_verdict_run{A,B}.md`, commit
+fe2120f; the resolution ruling stands; round 8's fixes verified — unmatched
+shapes, non-finite returned curves, mismatched parameter sets, reconstruction
+exceptions):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): lineshape identity cannot be inferred from a curve — a very broad Gaussian and Lorentzian agree to 1e-13 on the grid, identification was ambiguous and a byte-identical copy failed closed | the identity is carried explicitly: `run_fit` reports each `individual_peaks[]` entry's `shape` (additive; no numerical effect — the fit is unchanged, `fitting.py`'s measured numerics stand); the comparison reads it (inference only for a response without it, failing closed when ambiguous); test |
+| 2 | MINOR (B): a reconstruction returning NaN at the alternative's parameters matched NaN masks and passed | a non-finite reconstruction is a failed one (fails closed); test |

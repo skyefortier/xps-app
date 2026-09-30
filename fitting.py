@@ -1887,9 +1887,10 @@ def _run_fit_impl(
             return _basinhopping_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
         fitted = model.fit(y_sub, params, x=x, weights=weights, **seeded(kws), **_cancel_kw())
         if certify and kws.get("method") in _CERTIFIED_METHODS:
-            # every local candidate — the fit, each perturbed restart, each
-            # scattered start, the required-component refit — is judged by
-            # the certificate, never by the optimiser's flag (unit A2)
+            # each scattered start and the required-component refit are judged
+            # by the certificate, never by the optimiser's flag (unit A2); the
+            # fit and its perturbed restarts pass certify=False and the WINNER
+            # is certified after the search (V3)
             fitted = _certified(model, fitted, y_sub, x, weights, kws)
         return fitted
 
@@ -2091,6 +2092,9 @@ def _run_fit_impl(
         # parent is (its own removal test would double-count the parent's role).
         individual_peaks.append({
             "id": pid,
+            # the lineshape, explicitly: a curve cannot always tell it apart (a very broad
+            # Gaussian and Lorentzian agree to 1e-13 on a grid); additive, no numerical effect
+            "shape": spec.get("shape", "pseudo_voigt_gl"),
             "y": peak_y.tolist(),
             "params": param_info,
             "support": support,

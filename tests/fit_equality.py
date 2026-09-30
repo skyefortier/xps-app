@@ -20,10 +20,10 @@ less than ftol, relative):
     OWN SCALE: each component's curve against that component's own height;
     its centre (and every centre shift) against its own half-maximum width
     (a scattered-start alternative's centres against the half-maximum width of
-    its own curve — evaluated from its parameters with ITS lineshape, the one
-    that reproduces the returned component of the same id; not reconstructible
-    = fails closed — and that curve against its own height, like a returned
-    component's);
+    its own curve — evaluated from its parameters with ITS lineshape, the
+    returned component's (same id) explicit `shape`; not reconstructible, or
+    non-finite = fails closed — and that curve against its own height, like a
+    returned component's);
     a bounded parameter against its bound span ALONE, floored at a few ULPs of
     the value (a value pinned at a
     bound, 1e-14 vs 1e-12, is the same value), a LINKED parameter against the
@@ -86,13 +86,17 @@ def _evaluate(func, x, params):
         y = np.asarray(func(np.asarray(x, float), **{k: float(v) for k, v in params.items()}), float)
     except Exception:
         return None
-    return y if y.shape == np.shape(x) else None
+    # a non-finite reconstruction is a failed one (Codex A2 round 9: NaNs matched NaNs)
+    return y if y.shape == np.shape(x) and np.isfinite(y).all() else None
 
 
 def _lineshape_of(x, peak):
-    """The server lineshape that reproduces this returned component's own curve from its own
-    parameters — the component's identity, taken from the response (gaussian and lorentzian share
-    parameter names; Codex A2 round 8). None when no lineshape, or more than one, reproduces it."""
+    """The component's lineshape: the response's explicit `shape` (fitting.run_fit reports it —
+    a curve cannot always tell lineshapes apart, Codex A2 round 9); for a response without it,
+    the one server lineshape that reproduces the component's own curve from its own parameters.
+    None when that is not unique (the caller fails closed)."""
+    if peak.get("shape") is not None:
+        return fitting._SHAPE_FUNCS.get(peak["shape"])
     values = {k: v["value"] for k, v in (peak.get("params") or {}).items() if k != "area" and isinstance(v, dict)}
     y = _as_curve(peak.get("y") or [])
     if not y.size or not np.isfinite(y).all():

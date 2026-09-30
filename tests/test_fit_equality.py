@@ -33,6 +33,7 @@ def _set_shape(resp, k, shape, params):
     x = np.asarray(resp["energy"], float)
     pk = resp["individual_peaks"][k]
     func = fitting._SHAPE_FUNCS[shape]
+    pk["shape"] = shape
     pk["params"] = {name: {"value": float(v), "stderr": None, "vary": True, "expr": None, "min": None, "max": None}
                     for name, v in params.items()} | {"area": pk["params"]["area"]}
     pk["y"] = list(np.asarray(func(x, **params), float))
@@ -414,3 +415,29 @@ def test_one_ulp_inside_a_very_narrow_bound_is_the_same_fit():
     a, b = fit(start), fit(float(np.nextafter(start, np.inf)))
     assert a["certificate"]["certified"] and b["certificate"]["certified"]
     assert_same_fit(a, b)
+
+
+def test_an_ambiguous_broad_component_is_identified_by_its_shape_not_its_curve():
+    # Codex A2 round 9 (runs A, B): a very broad Gaussian and Lorentzian agree to 1e-13 on the
+    # grid, so identification from the curve was ambiguous and a byte-identical copy failed
+    # closed. The response carries the lineshape.
+    x, y, specs = SS._two_basin_problem()
+    specs = specs + [{"id": 9, "shape": "gaussian", "center": 287.0, "amplitude": 1.0, "fwhm": 1e7,
+                      "fix_center": True, "fix_amplitude": True, "fix_fwhm": True}]
+    a = fitting.run_fit(x, y + 1.0, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    assert [pk["shape"] for pk in a["individual_peaks"]] == [s_["shape"] for s_ in specs]
+    assert_same_fit(a, copy.deepcopy(a))
+
+
+def test_a_non_finite_reconstruction_fails_closed(monkeypatch):
+    # Codex A2 round 9 (run B): an evaluator returning NaN at the alternative's parameters passed
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    b = copy.deepcopy(a)
+    real = fitting._SHAPE_FUNCS["gaussian"]
+    alt_centres = {c["params"]["center"] for alt in a["starts"]["alternatives"] for c in alt["components"]}
+    def nan_at_alternatives(x_, amplitude, center, fwhm):
+        return np.full_like(np.asarray(x_, float), np.nan) if center in alt_centres else real(x_, amplitude, center, fwhm)
+    monkeypatch.setitem(fitting._SHAPE_FUNCS, "gaussian", nan_at_alternatives)
+    with pytest.raises(AssertionError, match="cannot be reconstructed"):
+        assert_same_fit(a, b)

@@ -624,7 +624,9 @@ scattered starts reported "did not converge" on 30 → 4 LM targets; added time
 median +0.07 s (TR) / +0.04 s (LM), 90th percentile +0.5 / +0.9 s; two presses
 of LM agree to 0.074 pp (main: 0.23 pp). The response carries
 `certificate: {certified, restarts, moved, optimiser_flag, centre_moves[],
-largest_centre_move}`. When the continuation moves a component's centre more
+largest_centre_move}`, and each `individual_peaks[]` entry its `shape` (a curve
+cannot always identify a lineshape: a very broad Gaussian and Lorentzian agree
+to 1e-13 on a grid). When the continuation moves a component's centre more
 than the red-band distance (`_STARTS_SHIFT_RED_EV`, 1 eV) the page says so
 under the Results table with the scattered-starts displacement indicator —
 "Fit continued past where the optimiser stopped; C-O moved −1.47 eV" — a

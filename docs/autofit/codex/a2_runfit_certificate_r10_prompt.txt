@@ -1,0 +1,11 @@
+Review unit A2 (the minimum certificate on Run Fit), round 10: branch fix-runfit-certificate, git diff main..HEAD (round-9 fixes: git diff fe2120f..HEAD — fitting.py: each individual_peaks[] entry reports its `shape` (additive, no numerical effect) and a corrected comment in fit_model; tests/fit_equality.py reads the explicit shape (inference only when it is absent) and treats a non-finite reconstruction as failed; tests/test_fit_equality.py; CLAUDE.md; README "Codex rounds"). Earlier verdicts: docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md and a2_runfit_certificate_r{2,3,4,5,6,7,8,9}_verdict_run{A,B}.md. In rounds 4-9 both runs ruled that the stated finite resolution (tests/fit_equality.py docstring) satisfies the owner's requirement; round 9's open findings were lineshape identity inferred from a curve (ambiguous for very broad components) and a non-finite reconstruction passing. The owner's brief is in the round-1 prompt (docs/autofit/codex/a2_runfit_certificate_review_prompt.txt).
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The round-9 fixes: the explicit `shape` (every consumer of individual_peaks on the page and in the Python twins — is an extra field harmless everywhere? saved projects, exports, the lineshape round-trip harnesses), the comparison's use of it (a response or a mutated copy without it, an unknown shape name, alias names), the non-finite rule. And any remaining place where a quantity is compared on a scale other than its own: false acceptance above the stated resolution, or false rejection of the same minimum.
+b. Everything rounds 1-9 verified, against the new commit.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
