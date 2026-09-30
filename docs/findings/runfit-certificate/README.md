@@ -284,3 +284,12 @@ pass):
 |---|---|---|
 | 1 | MAJOR (A, B): a scattered-start alternative's parameters are bare values, so a bounded one (LA m, 0–499) was compared relatively and equivalent alternatives — identical curves and chi2r — were rejected | an alternative is the same model: its bare values take the model's bounds (or linked master) from the returned fit's matching parameter; test |
 | 2 | MINOR (B): link references were parsed with a restricted pattern (ids with underscores, e.g. proot_1_m, not resolved) | any lmfit identifier in the expression is looked up; test |
+
+**Round 7 — NO-GO ×2** (`a2_runfit_certificate_r7_verdict_run{A,B}.md`, commit
+577e6aa; the resolution ruling stands; round 6's fixes, the certificate and
+398 recorded replays verified):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A): the bounded rule was 1e-3 × max(span, |value|): a narrow bound far from zero ([1.1, 1.101]) allowed 0.0011 where its span allows 1e-6 — two certified minima with swapped widths accepted | the span ALONE; test (the reviewer's pair, real fits) |
+| 2 | MAJOR (B): alternatives' curves were reconstructed only for the centre scale, never compared — once round 6 gave their parameters the model's span, an LA α / β swap changing the curve by 0.147 % of its height passed | an alternative's reconstructed component curves are compared against their own height, like a returned component's (both its curve and its parameters must agree); the round-6 test now uses an m change below one data point (identical curves, the reviewers' case); test |

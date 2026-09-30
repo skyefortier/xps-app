@@ -296,16 +296,52 @@ def test_a_chain_of_links_is_judged_on_the_bounded_masters_span():
 
 def test_an_alternatives_bounded_parameter_uses_the_models_bounds():
     # Codex A2 round 6 (runs A, B): an alternative's parameters are bare values; its LA m
-    # (bounds 0-499) was compared relatively and equivalent alternatives were rejected
+    # (bounds 0-499) was compared relatively, and equivalent alternatives (m 0.001 vs 0.300,
+    # below one data point: identical curves) were rejected
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    cid = a["individual_peaks"][0]["id"]
+    for r in (a,):
+        r["individual_peaks"][0]["params"]["m"] = {"value": 0.001, "stderr": None, "vary": True, "expr": None, "min": 0.0, "max": 499.0}
+        alt = r["starts"]["alternatives"][0]["components"][0]
+        alt["params"] = {"amplitude": alt["params"]["amplitude"], "center": alt["params"]["center"], "fwhm": alt["params"]["fwhm"],
+                         "alpha": 1.0, "beta": 1.0, "m": 0.001}
+    b = copy.deepcopy(a)
+    for r in (a, b):
+        r["individual_peaks"][0]["params"]["m"]["value"] = 0.001
+    b["starts"]["alternatives"][0]["components"][0]["params"]["m"] = 0.300
+    assert str(b["starts"]["alternatives"][0]["components"][0]["id"]) == str(cid)
+    assert_same_fit(a, b)
+
+
+def test_an_alternatives_curve_is_compared_against_its_own_height():
+    # Codex A2 round 7 (run B): parameters inside their span, the reconstructed curve changed
+    # by more than 1e-3 of its height — accepted, because alternatives' curves were not compared
     x, y, specs = SS._two_basin_problem()
     a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
     a["individual_peaks"][0]["params"]["fwhm"].update(min=0.0, max=499.0)
     b = copy.deepcopy(a)
-    alt = b["starts"]["alternatives"][0]["components"][0]
-    alt["params"]["fwhm"] += 0.3                         # inside 1e-3 of the 499 span — the same value
-    assert_same_fit(a, b)
-    alt["params"]["fwhm"] += 0.4
-    _rejects(a, b, "starts.alternatives.0.components.0.params.fwhm")
+    b["starts"]["alternatives"][0]["components"][0]["params"]["fwhm"] += 0.3   # inside 1e-3 of the 499 span
+    _rejects(a, b, "starts.alternatives.0.components.0.curve")
+
+
+def test_a_narrow_bound_far_from_zero_is_judged_on_its_span():
+    # Codex A2 round 7 (run A): widths bounded to [1.1, 1.101], two certified minima with
+    # the widths swapped; max(span, |value|) allowed 0.0011 where the span allows 1e-6
+    x = np.linspace(-50.0, 50.0, 2001)
+    g = lambda w: 100 * np.exp(-4 * np.log(2) * (x / w) ** 2)
+    y = g(1.1003) + g(1.1007) + 1.0 * (np.abs(x) > 20)
+
+    def fit(w1, w2):
+        specs = [{"id": i, "shape": "gaussian", "center": 0.0, "amplitude": 100.0, "fwhm": w, "fix_center": True, "fix_amplitude": True,
+                  "fwhm_min": 1.1, "fwhm_max": 1.101} for i, w in ((1, w1), (2, w2))]
+        return fitting.run_fit(x, y, specs, background_method="none", n_perturb=0, fit_kws={"method": "leastsq", "fit_kws": SEED})
+    a, b = fit(1.1003, 1.1007), fit(1.1007, 1.1003)
+    assert a["certificate"]["certified"] and b["certificate"]["certified"]
+    wa = [pk["params"]["fwhm"]["value"] for pk in a["individual_peaks"]]
+    wb = [pk["params"]["fwhm"]["value"] for pk in b["individual_peaks"]]
+    assert abs(wa[0] - wb[0]) > 1e-4                       # the widths stayed swapped: two minima
+    _rejects(a, b, "params.fwhm")
 
 
 def test_a_link_to_a_master_whose_id_has_underscores_is_resolved():

@@ -20,8 +20,9 @@ less than ftol, relative):
     OWN SCALE: each component's curve against that component's own height;
     its centre (and every centre shift) against its own half-maximum width
     (a scattered-start alternative's centres against the half-maximum width of
-    its own curve, evaluated from its parameters through the server's lineshape);
-    a bounded parameter against its bound span (a value pinned at a
+    its own curve, evaluated from its parameters through the server's lineshape,
+    and that curve against its own height, like a returned component's);
+    a bounded parameter against its bound span ALONE (a value pinned at a
     bound, 1e-14 vs 1e-12, is the same value), a LINKED parameter against the
     span of the bounded master its expression follows, through any chain of links;
     a scattered-start alternative's bare parameter values take the same bounds
@@ -167,7 +168,7 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
         elif k in _PERCENTAGES:
             tol = rel * 100.0
         elif bounds and bounds[0] is not None and bounds[1] is not None:
-            tol = rel * max(abs(bounds[1] - bounds[0]), abs(x_), abs(y_))
+            tol = rel * abs(bounds[1] - bounds[0])          # the span alone (Codex A2 round 7: max(span, |value|) widened a narrow bound far from zero)
         else:
             tol = rel * max(abs(x_), abs(y_))
         if abs(x_ - y_) > tol:
@@ -218,6 +219,12 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
                 b_ = linked_bounds(x_) or b_
             if len(path) >= 2 and path[-2] == "alternatives":
                 widths = alternative_widths(x_, y_)
+                # an alternative's component curves, evaluated from its parameters, against their
+                # own height — the returned components' rule (Codex A2 round 7)
+                for i, (ca, cb) in enumerate(zip(x_.get("components") or [], y_.get("components") or [])):
+                    if isinstance(ca.get("params"), dict) and isinstance(cb.get("params"), dict):
+                        for ya, yb in zip(_curve_from_params(x, ca["params"]), _curve_from_params(x, cb["params"])):
+                            curve(list(ya), list(yb), f"{where}.components.{i}.curve", True)
             if path and path[-1] == "params" and comp_id is not None and all(not isinstance(v, dict) for v in x_.values()):
                 for k in x_:                                           # bare values: the model's bounds
                     cmp(x_[k], y_[k], path + (k,), comp_id, model_bounds(comp_id, k), widths)
