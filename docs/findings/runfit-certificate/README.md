@@ -273,3 +273,14 @@ parameter / curve replays pass, incl. round 4's four):
 |---|---|---|
 | 1 | MAJOR (A, B): a DS+G alternative (α, β, m — no fwhm parameter) still took the returned fit's width (0.62 eV allowance for lines 0.1 eV wide, 0.5 eV apart) | the CLASS fix: one width definition everywhere — the half-maximum width of the component's own curve. An alternative's curve is evaluated from its parameters through the server's own lineshape (the one whose arguments are exactly those parameters); no match fails closed at one grid step. No shape-specific width parameter anywhere; test |
 | 2 | MAJOR (A, B): bound inheritance stopped after one link (p4_m → p3_m → p2_m: the grandchild fell back to a relative allowance) | resolved transitively to the bounded master (cycle-guarded); test |
+
+**Round 6 — NO-GO ×2** (`a2_runfit_certificate_r6_verdict_run{A,B}.md`, commit
+2157625; the resolution ruling stands; round 5's fixes verified — all seven
+lineshapes, unmatched / raising shapes, negative and zero curves, real
+three-component link chains with factors and offsets; 398 recorded replays
+pass):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): a scattered-start alternative's parameters are bare values, so a bounded one (LA m, 0–499) was compared relatively and equivalent alternatives — identical curves and chi2r — were rejected | an alternative is the same model: its bare values take the model's bounds (or linked master) from the returned fit's matching parameter; test |
+| 2 | MINOR (B): link references were parsed with a restricted pattern (ids with underscores, e.g. proot_1_m, not resolved) | any lmfit identifier in the expression is looked up; test |

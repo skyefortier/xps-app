@@ -23,7 +23,9 @@ less than ftol, relative):
     its own curve, evaluated from its parameters through the server's lineshape);
     a bounded parameter against its bound span (a value pinned at a
     bound, 1e-14 vs 1e-12, is the same value), a LINKED parameter against the
-    span of the bounded master its expression follows, through any chain of links; the fitted curve against the signal;
+    span of the bounded master its expression follows, through any chain of links;
+    a scattered-start alternative's bare parameter values take the same bounds
+    from the model (the returned fit's matching parameter); the fitted curve against the signal;
     percentages of 100; everything else relatively. Measured press-to-press
     on the tests' models: <= 1.4e-6.
 No component is exempt — not a small one beside a dominant line, not one the
@@ -111,7 +113,7 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
 
     def linked_bounds(info, seen=()):
         # through a chain of links (p4_m -> p3_m -> p2_m) to the bounded master
-        for ref in re.findall(r"p[0-9A-Za-z]+_[A-Za-z_]+", info.get("expr") or ""):
+        for ref in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", info.get("expr") or ""):   # any lmfit identifier
             master = info_of.get(ref)
             if master is None or ref in seen:
                 continue
@@ -173,6 +175,16 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
 
     step = float(np.median(np.abs(np.diff(x)))) if len(x) > 1 else 1.0
 
+    def model_bounds(comp_id, name):
+        # the model's metadata for a bare parameter value (a scattered-start alternative is the
+        # same model): its bounds, or those of the bounded master it is linked to
+        info = info_of.get(f"p{comp_id}_{name}")
+        if info is None:
+            return None
+        if info.get("min") is not None and info.get("max") is not None:
+            return (info["min"], info["max"])
+        return linked_bounds(info) if info.get("expr") else None
+
     def alternative_widths(xa, xb):
         # a scattered-start alternative has no curves in the response: each component's curve
         # is evaluated from its own parameters through the server's lineshape, and its
@@ -206,6 +218,10 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
                 b_ = linked_bounds(x_) or b_
             if len(path) >= 2 and path[-2] == "alternatives":
                 widths = alternative_widths(x_, y_)
+            if path and path[-1] == "params" and comp_id is not None and all(not isinstance(v, dict) for v in x_.values()):
+                for k in x_:                                           # bare values: the model's bounds
+                    cmp(x_[k], y_[k], path + (k,), comp_id, model_bounds(comp_id, k), widths)
+                return
             for k in x_:
                 if k == "y" and len(path) >= 2 and path[-2] == "individual_peaks":
                     curve(x_[k], y_[k], where + ".y", True)          # a component: against its own height

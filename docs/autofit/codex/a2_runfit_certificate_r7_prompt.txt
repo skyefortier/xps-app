@@ -1,0 +1,11 @@
+Review unit A2 (the minimum certificate on Run Fit), round 7: branch fix-runfit-certificate, git diff main..HEAD (round-6 fixes: git diff 2157625..HEAD — tests/fit_equality.py: an alternative's bare parameter values take the model's bounds from the returned fit's matching parameter; link references parsed as any identifier; tests/test_fit_equality.py; README "Codex rounds"). Earlier verdicts: docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md and a2_runfit_certificate_r{2,3,4,5,6}_verdict_run{A,B}.md. In rounds 4-6 both runs ruled that the stated finite resolution (tests/fit_equality.py docstring) satisfies the owner's requirement; round 6's open findings were alternatives' bare bounded parameters compared relatively, and link references with underscores. The owner's brief is in the round-1 prompt (docs/autofit/codex/a2_runfit_certificate_review_prompt.txt).
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The two round-6 fixes: alternatives whose component ids or parameter names do not match the returned fit, linked parameters inside alternatives, expressions with functions or constants; and any remaining place where a quantity is compared on a scale other than its own (false acceptance above the resolution, or false rejection of the same minimum).
+b. Everything rounds 1-6 verified, against the new commit.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

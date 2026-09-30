@@ -292,3 +292,30 @@ def test_a_chain_of_links_is_judged_on_the_bounded_masters_span():
     for k in (0, 1, 2):
         b["individual_peaks"][k]["params"]["fwhm"]["value"] += 0.2
     _rejects(a, b, "individual_peaks.2.params.fwhm")
+
+
+def test_an_alternatives_bounded_parameter_uses_the_models_bounds():
+    # Codex A2 round 6 (runs A, B): an alternative's parameters are bare values; its LA m
+    # (bounds 0-499) was compared relatively and equivalent alternatives were rejected
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a["individual_peaks"][0]["params"]["fwhm"].update(min=0.0, max=499.0)
+    b = copy.deepcopy(a)
+    alt = b["starts"]["alternatives"][0]["components"][0]
+    alt["params"]["fwhm"] += 0.3                         # inside 1e-3 of the 499 span — the same value
+    assert_same_fit(a, b)
+    alt["params"]["fwhm"] += 0.4
+    _rejects(a, b, "starts.alternatives.0.components.0.params.fwhm")
+
+
+def test_a_link_to_a_master_whose_id_has_underscores_is_resolved():
+    # Codex A2 round 6 (run B): proot_1_m was not recognised as a parameter name
+    x, y, specs = R._two_peaks()
+    a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
+    a["individual_peaks"][0]["id"] = "root_1"
+    root = a["individual_peaks"][0]["params"]["fwhm"]; root.update(min=0.0, max=499.0)
+    c = a["individual_peaks"][1]["params"]["fwhm"]; c.update(expr="proot_1_fwhm", min=None, max=None, vary=False, value=root["value"])
+    b = copy.deepcopy(a)
+    for k in (0, 1):
+        b["individual_peaks"][k]["params"]["fwhm"]["value"] += 0.4
+    assert_same_fit(a, b)
