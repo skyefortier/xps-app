@@ -95,3 +95,15 @@ Also in this round (found while fixing, not raised by Codex): the pass floor was
 500 against 508 passing, so the archive file's four tests could stop registering
 with CI still green. The workflow's floor is now the current pass count, 508
 (raise it when tests are added; a lower count fails).
+
+**Round 4 — NO-GO ×2** (`archive_find_peaks_r4_verdict_run{A,B}.md`, commit
+d334b0e; both: ordinary skips, failures, cancellations, early exit, complete
+concatenations and interleaved console output handled; the 508 floor matches
+node's registration (510 tests, 2 todos, no machine-dependent registration);
+runtime HTML, backend, serialisation and shared Run Fit code unchanged; no launch
+or cached-result path):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): a test NAME can carry an escaped directive — `describe.skip('Find Peaks # TODO archive')` emits `ok 509 - Find Peaks \# TODO archive # SKIP`; the guard took the first match (a TODO) and missed the SKIP; conversely a passing test named `handles # SKIP` failed the guard | THE CLASS, not the case: three rounds each found another way TAP text misleads a parser, so the guard no longer reads text. `scripts/ci_node_events_reporter.mjs`, a second node reporter (the TAP one still prints to the log), writes node's STRUCTURED results — skip, todo, suite / test, failure are node's own fields — one JSON object per line between a `start` and an `end` written only after node's stream finished; `scripts/ci_check_node_events.py` (renamed from `ci_check_node_tap.py`) reads those. Names never matter |
+| 2 | MINOR (A, B): partial trailing text, a failed fragment spliced into a green log, results removed with the summary kept, an unfinished `# Subtest:` after the summary — all passed | every line must be a JSON event; exactly one `start` (first), one `end` (last) and one run summary; passes are COUNTED from the results and must equal the summary's; any failed result fails (a todo test that fails is a todo — node's own semantics — counted against the todo bound). `tests/test_ci_check_node_events.py` (14 real-node cases) adds the escaped-name skip, the name that merely mentions `# SKIP`, a file that does not load, a failing todo, two green runs, a missing `end`, a partial line, a spliced failed fragment and removed results |

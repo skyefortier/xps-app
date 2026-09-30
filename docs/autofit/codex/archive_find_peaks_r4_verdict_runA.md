@@ -1,0 +1,11 @@
+# Archive Find Peaks round 4 — run A (commit d334b0e; codex exec, reasoning high)
+
+- **MAJOR — Escaped test names can conceal skipped suites.** [scripts/ci_check_node_tap.py:41](/Users/skyefortier/xps-app/.claude/worktrees/archive-find-peaks/scripts/ci_check_node_tap.py:41) takes the first `# TODO` or `# SKIP` match, including escaped hashes inside names. Reproduced under **Node 22.22.2, `--test --test-reporter=tap`**: 508 passing tests plus `describe.skip('Find Peaks # TODO archive', ...)` emits `ok 509 - Find Peaks \# TODO archive # SKIP`. The guard mistakes the name for a TODO and misses the actual SKIP. **Node exits 0; the guard exits 0 with the workflow’s exact arguments; the suite’s assertion never executes.** Conversely, a passing test named `handles # SKIP` falsely fails the guard. Parse unescaped directive delimiters and add both regression cases.
+
+- **MINOR — Partial log fragments still bypass stream validation.** [scripts/ci_check_node_tap.py:32](/Users/skyefortier/xps-app/.claude/worktrees/archive-find-peaks/scripts/ci_check_node_tap.py:32) counts headers without enforcing their position, and line 38 never rejects ordinary `not ok` results independently. Reproduced by taking a real failed run’s test-result fragment, excluding its header and summary, and prepending it to a complete 508-pass run: **guard exits 0 despite the failed assertion in the stream**. Appending `# Subtest: unfinished` after a green summary also exits 0. Validate stream boundaries and unfinished subtests. The workflow’s `pipefail` still protects ordinary failures from its single Node invocation.
+
+Validation: **364 JS tests passed**, and their real TAP stream passed the guard. Ordinary skips, cancellation, failure, early exit, and the committed concatenation scenarios were rejected. Registration inspection found **510 tests, two TODOs**, consistent with the 508 floor; no machine-dependent registration path emerged.
+
+The archive test rejects `main`. Runtime HTML remains identical apart from comments and the removed button; backend, serialization, and shared Run Fit code are unchanged. No additional launch or cached-result display path emerged. Full Python/browser and Ubuntu execution remain unverified; Python imports hit the read-only temporary-directory restriction.
+
+**VERDICT: NO-GO**

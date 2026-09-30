@@ -2,7 +2,7 @@
 #
 # Two jobs:
 # - fast-suite: the full always-on pytest suite, then the page's JS suite
-#   (node --test, guarded by scripts/ci_check_node_tap.py). The junit guard fails the
+#   (node --test, guarded by scripts/ci_check_node_events.py). The junit guard fails the
 #   job if fewer than the floor of tests actually RAN or if more than the
 #   three KNOWN env-gated module skips appear — a new silent skip is a
 #   failure, not a pass.
@@ -55,10 +55,11 @@ jobs:
         if: always()
         run: |
           set -o pipefail
-          node --test --test-reporter=tap tests/js/*.test.js 2>&1 | tee js.log
-      - name: JS guard (no silent shrink, no failure, no cancellation)
+          rm -f js-events.jsonl
+          node --test --test-reporter=tap --test-reporter-destination=stdout --test-reporter=./scripts/ci_node_events_reporter.mjs --test-reporter-destination=js-events.jsonl tests/js/*.test.js 2>&1 | tee js.log
+      - name: JS guard (no skip, no failure, no silent shrink, run finished)
         if: always()
-        run: python scripts/ci_check_node_tap.py js.log --min-passed 508 --max-todo 2
+        run: python scripts/ci_check_node_events.py js-events.jsonl --min-passed 508 --max-todo 2
 
   required-gates:
     runs-on: ubuntu-latest
