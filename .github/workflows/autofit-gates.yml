@@ -1,7 +1,8 @@
 # CI for the autofit engine (run-brief item: gates cannot silently skip).
 #
 # Two jobs:
-# - fast-suite: the full always-on pytest suite. The junit guard fails the
+# - fast-suite: the full always-on pytest suite, then the page's JS suite
+#   (node --test, guarded by scripts/ci_check_node_tap.py). The junit guard fails the
 #   job if fewer than the floor of tests actually RAN or if more than the
 #   three KNOWN env-gated module skips appear — a new silent skip is a
 #   failure, not a pass.
@@ -43,6 +44,20 @@ jobs:
       - name: no-silent-skip guard (3 known env-gated module skips allowed)
         if: always()
         run: python scripts/ci_check_junit.py fast-suite.xml --min-tests 350 --max-skipped 3 --tail pytest.log
+      # The page's JS suite (node --test) — incl. Find Peaks' own JS tests, kept
+      # running while Find Peaks is archived (owner, 2026-09-30). Several tests
+      # call the Python backend through `python3` (the interpreter set up above).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JS suite (node --test)
+        if: always()
+        run: |
+          set -o pipefail
+          node --test tests/js/*.test.js 2>&1 | tee js.log
+      - name: JS guard (no silent shrink, no failure, no cancellation)
+        if: always()
+        run: python scripts/ci_check_node_tap.py js.log --min-tests 500
 
   required-gates:
     runs-on: ubuntu-latest

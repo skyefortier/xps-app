@@ -56,3 +56,16 @@ browser) drive it programmatically and stay in the suite.
 
 Find Peaks is archived: it is no longer offered in the Actions menu. Saved
 projects whose peaks came from Find Peaks load and fit exactly as before.
+
+## 6. Codex rounds
+
+**Round 1 — NO-GO ×2** (`docs/autofit/codex/archive_find_peaks_verdict_run{A,B}.md`,
+commit 9dc28a3; both: no remaining launch path, no cached-result or provenance
+display path, runtime HTML identical to main's apart from the removed button,
+backend / engine / shared fitting code unchanged, the static test fails on
+main with valid block boundaries, the browser test's analysis is real):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the JS tests — Find Peaks' own among them — do not run in CI: the workflow runs pytest only (a gap older than this unit; the owner's criterion is "all Find Peaks tests … running in CI") | `.github/workflows/autofit-gates.yml` fast-suite: `setup-node` + `node --test tests/js/*.test.js`, guarded by `scripts/ci_check_node_tap.py` (fails on any failure / cancellation or fewer than 500 tests). The JS tests that call the backend fall back to `python3`, the job's set-up interpreter. (Runs on GitHub are not observable from this machine — no `gh`.) |
+| 2 | MINOR (A, B): PROGRESS.md's Unit B row cited a record absent from this branch, gave a range (k = 0.43–0.75, 1.3–2.3×) the record does not contain, and grouped the support F test with what calibration would change — a constant variance factor cancels in it | the row cites the record with its branch and commit, gives the range that record implies (0.83–2.5×) and the owner's note separately, and states that only the displayed chi2r's absolute value changes (fit, sigmas and F test are invariant) |
