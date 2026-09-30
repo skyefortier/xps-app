@@ -33,12 +33,12 @@ b_high read as the end means; T(B)(E) = b_low + (b_high − b_low) · ∫_{E_min
 
 | method | defining statement | does the implementation solve it? (121 committed spectra) | verdict |
 |---|---|---|---|
-| shirley | B = T(B), reading "data" | yes: ≤ 1.7e-11 of span on all 121 | coherent; not always unique (F9); F1, F5, F10 |
-| smart | B = min(T(B), I) | at n_avg = 1 yes (≤ 1.7e-11); at n_avg > 1 **no** — it mixes the readings (up to 1.1e-3) | coherent at n_avg = 1; F1, F2, F3 |
-| smart_exp | B = min(T(B), I), reading "levels" | yes: ≤ 1.7e-11 on all 121 | coherent; F2, F3 |
-| shirley_linear | B = min(L + d(1 − F(B)), I), L affine in index | yes: ≤ 3.3e-11 — except equal edge levels, where it returns L unclamped; the page's twin only on ascending grids | a coherent equation with no physical basis — a reversed step; should not return (F4) |
+| shirley | B = T(B), reading "data" | yes: ≤ 1.7e-11 of span on all 121 | coherent; not always unique (F9); the iteration can cycle (F12); F1, F5, F10 |
+| smart | B = min(T(B), I) | at n_avg = 1 yes (≤ 1.7e-11); at n_avg > 1 **no** — it mixes the readings (up to 1.1e-3) | coherent at n_avg = 1; F1, F2, F3, F12 |
+| smart_exp | B = min(T(B), I), reading "levels" | yes: ≤ 1.7e-11 on all 121 | coherent; F2, F3, F12 |
+| shirley_linear | B = min(L + d(1 − F(B)), I), L affine in index | yes: ≤ 3.3e-11 — except equal edge levels, where it returns L unclamped; the page's twin only on ascending grids | a coherent equation with no physical basis — a reversed step; should not return (F4); can cycle (F12) |
 | linear | B affine in E through the raw end points | yes: exact (≤ 1.3e-16) | coherent, narrow validity; the page reads it by index (F8) |
-| tougaard | B = C0 + λ Σ_{E′≤E} K(E−E′)(D(E′)−C0) w, λ from B(E_high) = D(E_high), reading "data" | yes: ≤ 9.2e-14 vs an independent sum; anchor exact; ≤ 8.4e-6 of an independent 10×-refined integral; a vanishing loss sum leaves λ undetermined (F11) | coherent; F1, F6, F11 |
+| tougaard | B = C0 + λ Σ_{E′≤E} K(E−E′)(D(E′)−C0) w, λ from B(E_high) = D(E_high), reading "data" | yes: ≤ 9.2e-14 vs an independent sum; anchor exact; ≤ 8.4e-6 of an independent 10×-refined integral; a vanishing loss sum leaves λ undetermined (F11); the near-uniform fast branch approximates the sum | coherent; F1, F6, F11 |
 | manual | piecewise-affine through the anchors, constant outside | yes (server and page, to 1e-9) | a user curve, no physics; F8 |
 
 ## Per method
@@ -57,7 +57,8 @@ positive part) — B itself is not kept below the data: it rises above it on 116
 (c) Under its own reading, residual ≤ 1.7e-11 on all 121 spectra; an independent
 reference solution agrees to 1.8e-11. **Not unique in general (F9):** the tests
 carry two 4-point spectra with several exact solutions and different net areas;
-the implementation returns the solution reached from the edge-to-edge line. On the
+the implementation, when it converges, returns the solution reached from the
+edge-to-edge line; it can also cycle and return a non-solution (F12). On the
 committed spectra a second start (below the data) reaches the same solution to
 1e-13 — no second solution found from that start, which is not a proof that none
 exists. Corroboration: Shirley, Phys. Rev. B 5, 4709 (1972); Proctor & Sherwood,
@@ -110,8 +111,9 @@ where the equation gives [10, 10, 5, 10, 10]); and the iteration stops if the ne
 integral is not positive. The page's twin (`shirleyLinearBackground`) solves the
 same equation only on an ASCENDING grid: it does not reverse a descending one
 (the usual XPS order), so there its step is accumulated from the other edge — a
-different curve (Codex round 2: 7.6 % of the span on a 5-point example; the
-pinned page / server gap). The unclamped curve meets the high-BE level, but its
+different curve (on a 5-point example its equation residual is 7.6 % of the span
+and it differs from the server's curve by 7.8 %; the pinned page / server gap).
+Like the Shirley iteration it can cycle (F12). The unclamped curve meets the high-BE level, but its
 step is **largest at the low-BE edge and shrinks as net signal accumulates toward
 higher BE — the reverse of inelastic scattering**, and it sits d above the low-BE
 level there (a median 5 %, up to 41 %, of the span); the clamp to the data is
@@ -135,9 +137,16 @@ edge, λ from B(E_high) = D(E_high). Explicit in D — one pass is the relation.
 When the discrete loss sum at the high-BE edge is zero (e.g. a two-point window:
 the kernel vanishes at T = 0, so the sum has no term, although the continuum
 integral of the interpolated data would not vanish) λ is not fixed by the anchor:
-if D(E_high) = C0 every λ solves the statement and the flat C0 returned is a
-solution; if D(E_high) ≠ C0 there is no solution and the returned C0 misses the
-anchor (F11; none of the committed spectra). (b) Homogeneous depth distribution and the universal
+if D(E_high) = C0 the solutions form a family, one per λ, and the flat C0
+returned is its λ = 0 member (every member is flat only when the whole loss
+vector vanishes, as on a two-point window); if D(E_high) ≠ C0 there is no
+solution and the returned C0 misses the anchor (F11; none of the committed
+spectra). On a grid uniform to 1e-6 of its first step the implementation
+evaluates the sum as if EXACTLY uniform (index gap × first step, one weight): the
+stated sum to ~1e-8 of the span at that tolerance, exact on a uniform grid, but a
+nearly cancelling high-edge sum can come out exactly zero — a constructed 4-point
+case then misses the anchor by 33 % of the span where the stated sum has a (badly
+conditioned) solution (Codex round 3). (b) Homogeneous depth distribution and the universal
 cross-section (fitted to noble / transition metals) — fails for layered or
 particulate samples and sharp-plasmon materials; the below-window contribution
 constant; the high-BE edge free of primary signal. (c) Against an independent
@@ -189,8 +198,9 @@ spectra; pinned in the tests.
 
   So the Shirley estimator on noisy data is itself biased at a large step
   (Codex round 1), and the constraint adds ~+1 % on top. Endpoint averaging of
-  10 at the large step cuts the per-draw spread ~3× and both biases, not the
-  increment: unconstrained +1.43 % ± 0.06, constrained +2.40 % ± 0.05. Whether
+  10 at the large step cuts the per-draw spread ~3× and both biases, and reduces
+  but does not remove the increment: unconstrained +1.43 % ± 0.06, constrained
+  +2.40 % ± 0.05, increment +1.28 → +0.97 % (paired reduction 0.30 ± 0.04 pp). Whether
   the positive-part integrand is the source of the unconstrained bias is NOT
   established: the same iteration with a signed integrand fails to solve its own
   equation on ~20 of the 1000 draws at the large step (its integral turns
@@ -204,7 +214,7 @@ spectra; pinned in the tests.
 - **F5. Shirley's stop is absolute** (a change < 1e-6 intensity units) — the
   design rule "thresholds on data-scaled quantities fail". The same spectrum in
   other units stops elsewhere; negligible on the committed spectra (at 10⁻⁶ of the
-  units: ≤ 1.4e-5 of the span, ≤ 0.0023 % of net area, same reading). Change: a
+  units: ≤ 1.5e-5 of the span, ≤ 0.0023 % of net area, same reading). Change: a
   relative stop on the relation's residual.
 - **F10. When the data lie below the edge line everywhere, the Shirley iteration
   cannot start.** The first step's net-signal integral is zero, so the relation is
@@ -227,7 +237,7 @@ spectra; pinned in the tests.
   of the span on U 4f (0.02–0.7 % on the narrower windows): the universal
   cross-section's shape matters on those windows, so its assumptions (homogeneous
   depth, transition-metal-like losses) bear directly on the U 4f backgrounds.
-- **F7. The page's Shirley preview (5 iterations) vs the fit:** within 8.5e-5 of
+- **F7. The page's Shirley preview (5 iterations) vs the fit:** within 8.6e-5 of
   the span and 0.0064 % of net area on every committed spectrum, same reading —
   the gap recorded in the sealed-fit-record memo Part 5 is negligible in practice.
 - **F8. Linear in index vs linear in energy.** The page's `linearBackground`
@@ -241,9 +251,24 @@ spectra; pinned in the tests.
 - **F11. Tougaard when its discrete loss sum at the high-BE edge vanishes**
   (the sampled quadrature, not the continuum integral: a two-point window has no
   term with T > 0). λ is then not determined by the anchor. With equal anchor
-  levels, D(E_high) = C0, the returned flat C0 solves the statement for every λ;
-  with unequal levels there is no solution and C0 misses the anchor. Both pinned;
-  none of the committed spectra.
+  levels, D(E_high) = C0, the solutions form a family, one per λ, and the returned
+  flat C0 is its λ = 0 member (all flat only when the whole loss vector vanishes);
+  with unequal levels there is no solution and C0 misses the anchor. The
+  near-uniform fast branch can produce such a zero where the stated sum has none
+  (see tougaard above). All pinned; none of the committed spectra.
+- **F12. The fixed-point iterations can cycle** (Codex round 3). On small
+  positive spectra on uniform ascending grids `shirley`, `smart`, `smart_exp` and
+  `shirley_linear` alternate between two curves forever — 2000 iterations give
+  what 200 give — and return a curve that solves nothing: `shirley` 14 % of the
+  span on E = 0…3, I = [2, 3, 10, 13] (an exact solution exists: [2, z, z + 5.5,
+  13], z = (17 − √37)/4) and 21 % on E = 0…4, I = [11, 14, 1, 33, 40] (the Smart
+  methods 11 % there), `shirley_linear` 12.5 % on I = [20, 44, 34, 41, 47]. A
+  larger cap cannot help; the checker's own reference solver does not converge
+  on them either. Every implementation converged on all 121 committed spectra
+  (residual ≤ 1.7e-11). Options: test the returned background against its
+  statement and report non-convergence as an outcome (as a fit that did not
+  converge is); a solver that finds the fixed point (damped iteration, a root
+  finder) — which changes numbers on those inputs only. Owner decision.
 
 ## Docstrings
 
@@ -280,7 +305,19 @@ Carlo, smart's "neither reading" and the constrained-area statistics survive):
 | 1 | MAJOR (A, B): F2's signed-integrand figure (−3.6 % ± 0.9) mixes failed solves — ~20 of 1000 draws end on a non-positive integral or out of iterations (one −606 % in area, residual 1.6 × span) — with solutions; the "+1.4 % at averaging 10" is the positive-part method's | the inference withdrawn: F2 says the signed comparison establishes nothing; averaging 10 re-measured for BOTH methods (unconstrained +1.43 % ± 0.06, constrained +2.40 % ± 0.05) |
 | 2 | MAJOR (A): the page's `shirleyLinearBackground` comment claimed the server's equation; on a descending grid it accumulates from the other edge (7.6 % of span) | comment states it solves the equation on ascending grids only; `tests/js/shirley_linear_statement.test.js` pins both (ascending uniform / non-uniform, averaging 1 / 5, residual < 1e-9; the descending example > 5 %) |
 | 3 | MAJOR (A, B): `shirley_linear`'s statement omitted the equal-edge-level early return (L returned unclamped: residual 1/3–1/2 of span on a 5-point example) and did not say L is affine in INDEX | docstring, README, CLAUDE.md state both; tests pin the exception and the index-affine line (an energy-affine L differs by > 4 % on the example) |
-| 4 | MAJOR (B) / MINOR (A): F11 conflated "no solution" with "λ undetermined": for equal anchor levels the flat C0 solves the statement for every λ; and the zero is the discrete sum's, not the continuum integral's | F11, the docstring and the checker distinguish the two; both cases pinned |
+| 4 | MAJOR (B) / MINOR (A): F11 conflated "no solution" with "λ undetermined"; and the zero is the discrete sum's, not the continuum integral's | F11, the docstring and the checker distinguish the two; both cases pinned. (Round 3 corrected this fix's own claim that the flat C0 then solves the statement "for every λ": it is the λ = 0 member of a family.) |
 | 5 | MINOR (B): the Smart tooltip did not say it solves neither reading at n_avg > 1 | the tooltip says so (up to ~0.1 % of span); smart_exp's no longer calls it "the same problem as Smart" |
 | 6 | MINOR (A, B): the Shirley docstring kept "≤ 0.32 %" (measured 0.3225 %) | ≤ 0.33 % |
 
+**Round 3 — NO-GO ×2** (`docs/autofit/codex/background_math_r3_verdict_run{A,B}.md`,
+commit e1077be; both: no fitted number changed; all 121 records and the Monte
+Carlo — incl. averaging 10: +1.4307 % ± 0.0555 / +2.4032 % ± 0.0456 — reproduce;
+the round-2 fixes hold; the degenerate branches are covered):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the iterations can CYCLE and never converge on small positive spectra (shirley 14 % / 21 % of span, the Smart methods 11 %, shirley_linear 12.5 %; 2000 iterations = 200), so "returns the solution reached" was an overclaim | F12; every "returns the solution" qualified by "when it converges" (README, docstrings, CLAUDE.md, the page comment); the four cycles and the exact solution pinned |
+| 2 | MAJOR (A) / MINOR (B): Tougaard's near-uniform fast branch approximates the stated sum (index separations, one weight): ~1e-8 of span at the tolerance, and a nearly cancelling high-edge sum can become exactly zero (anchor missed by 33 %) | stated in the docstring, the code comment (no longer "a pure optimization"), the README; both pinned |
+| 3 | MINOR (A, B): F11's "the flat C0 solves it for every λ" is false when interior loss terms are non-zero | the flat C0 is the λ = 0 member of a family; all flat only when the whole loss vector vanishes; pinned on a uniform 4-point case |
+| 4 | MINOR (B): averaging does reduce the constraint's increment (+1.28 → +0.97 %, 0.30 ± 0.04 pp) | "reduces but does not remove" |
+| 5 | MINOR (A): the page comment called 7.6 % (the equation residual) the page / server gap (7.8 %); F5 ≤ 1.4e-5 and F7 ≤ 8.5e-5 were exceeded (1.442e-5, 8.517e-5) | both numbers named; ≤ 1.5e-5 and ≤ 8.6e-5 |

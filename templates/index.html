@@ -4626,11 +4626,13 @@ function _applyEndpointAveraging(intensity, nAvg) {
 }
 
 // A REVERSED-STEP background (fitting.shirley_linear_background's docstring). On an
-// ASCENDING grid it solves the server's B = min(L + d(1 - F(B)), I) — a line (affine
+// ASCENDING grid, when its iteration converges (it can cycle: background-math F12),
+// it solves the server's B = min(L + d(1 - F(B)), I) — a line (affine
 // in index) plus a step that is largest at the LOW-BE edge, the reverse of inelastic
 // scattering. It does NOT reverse a descending grid (the usual XPS order), so there
 // it accumulates from the other edge and draws a different curve from the server's
-// (Codex round 2: 7.6 % of the span on a 5-point example; the pinned page / server
+// (Codex rounds 2-3: on a 5-point example its equation residual is 7.6 % of the span
+// and it differs from the server's curve by 7.8 %; the pinned page / server
 // gap; tests/js/shirley_linear_statement.test.js). Equal edge levels return the line
 // unclamped. De-listed; kept so saved files restore. Completely standalone — does
 // not call shirleyBackground.

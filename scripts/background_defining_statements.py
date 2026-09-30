@@ -230,8 +230,9 @@ def tougaard_loss(x, y, n_avg=1, how="data", kernel=None):
 
 def tougaard_statement(x, y, n_avg=1, how="data", kernel=None):
     """The Tougaard statement's solution. When the discrete loss sum at the high-BE edge is
-    zero the anchor does not fix lam (Codex round 2): with equal anchor levels (D_high = C0)
-    the flat C0 solves the statement for every lam and is returned; with unequal levels there
+    zero the anchor does not fix lam (Codex rounds 2-3): with equal anchor levels (D_high = C0)
+    the solutions form a family, one per lam, and its lam = 0 member, the flat C0, is returned
+    (every member is flat only when the whole loss vector vanishes); with unequal levels there
     is no solution and None is returned."""
     loss, xa, D, c0, dhi, flip = tougaard_loss(x, y, n_avg, how, kernel)
     if loss[0] == 0.0:

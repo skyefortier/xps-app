@@ -358,8 +358,13 @@ def shirley_background(
     (either BE order) and solved by fixed-point iteration from the straight line
     between the edge levels. The relation can have MORE THAN ONE solution (exact
     counterexamples with different net areas in
-    tests/test_background_defining_statements.py); this returns the one its
-    iteration reaches from that line. Measured on every committed spectrum
+    tests/test_background_defining_statements.py); when the iteration
+    converges this returns the one it reaches from that line. It need NOT
+    converge: on some small positive spectra it alternates between two curves
+    forever (a larger ``n_iter`` does not help) and the returned curve does not
+    satisfy the relation although a solution exists — 14 % of the span on
+    E = 0..3, I = [2, 3, 10, 13], exact solution [2, z, z + 5.5, 13],
+    z = (17 - sqrt(37)) / 4 (findings F12). Measured on every committed spectrum
     (docs/findings/background-math/): the output satisfies the relation — with
     the data as this function reads them (``n_avg`` below) — to <= 2e-11 of the
     span. When the data lie below the edge line everywhere, the first step's
@@ -460,7 +465,8 @@ def smart_background(
     smart_experimental_background to 1.3e-16 (findings F3). With ``n_avg`` > 1
     the integrand reads the endpoint-averaged data and the clamp the raw data,
     and the result satisfies the constrained statement under neither reading
-    (up to 1.1e-3 of the span on the committed spectra, findings F1).
+    (up to 1.1e-3 of the span on the committed spectra, findings F1). The underlying Shirley iteration can also CYCLE between two curves and never converge — the returned curve then solves nothing (findings F12); not on
+    the committed spectra.
 
     ASSUMPTIONS: those of shirley_background, plus B <= I POINTWISE ON THE
     MEASURED COUNTS. Net intensity is non-negative in EXPECTATION; measured counts
@@ -515,7 +521,7 @@ def smart_experimental_background(
     B <- min(T(B), I) from the straight line between the edge levels, the edge
     levels read from the ``n_avg``-averaged ends and the integral taken over the
     MEASURED data. Measured on every committed spectrum and every n_avg used
-    there: residual <= 2e-11 of the span.
+    there: residual <= 2e-11 of the span. The iteration can also CYCLE between two curves and never converge — the returned curve then solves nothing (findings F12); not on the committed spectra.
 
     For n_avg = 1 this is the same problem as smart_background, and on every
     committed spectrum the same background (to 1.3e-16; findings F3 — an
@@ -584,7 +590,10 @@ def shirley_linear_background(
     the span on every committed spectrum). Not covered by that equation (Codex
     round 2): equal edge levels (d below an absolute 1e-12) return L itself,
     UNCLAMPED — above the data wherever it dips below the line — and the
-    iteration stops early if the net integral is not positive. The unclamped curve meets the high-BE level, but
+    iteration stops early if the net integral is not positive. It can also cycle
+    between two curves and never converge (E = 0..4, I = [20, 44, 34, 41, 47]:
+    12.5 % of the span, the same at 2000 iterations; findings F12). The
+    unclamped curve meets the high-BE level, but
     its step is LARGEST AT THE LOW-BE EDGE and shrinks as net signal accumulates
     toward higher BE — the reverse of inelastic scattering, whose background
     grows with the signal at lower BE — and it sits d above the low-BE level
@@ -658,9 +667,17 @@ def tougaard_background(
     edge). Explicit in J — one pass, no iteration. When the discrete loss sum
     at the high-BE edge is zero (the sampled quadrature: a two-point window has
     no term with T > 0, although the continuum integral of the interpolated data
-    would not vanish) the anchor does not fix lam: the flat C0 returned then
-    solves the statement for every lam if J(E_high) = C0, and no solution exists
-    if J(E_high) != C0 — the anchor is missed (findings F11). Measured on
+    would not vanish; or net intensities whose terms cancel) the anchor does not
+    fix lam. If J(E_high) = C0 the solutions form a family, one per lam, and the
+    flat C0 returned is its lam = 0 member (every member is flat only when the
+    whole loss vector vanishes, as on a two-point window); if J(E_high) != C0
+    no solution exists and the anchor is missed (findings F11). On a grid
+    uniform to 1e-6 of its first step the sum is evaluated as if EXACTLY
+    uniform (index gap x first step, one weight) — the stated sum to ~1e-8 of
+    the span at that tolerance, but it can turn a nearly cancelling high-edge
+    sum into an exact zero (a constructed 4-point case misses the anchor by
+    33 % of the span where the stated sum has a, badly conditioned, solution).
+    Measured on
     the committed spectra, against an independent evaluation: equal to the
     discrete sum to <= 1e-13 of the span, the anchor met exactly, within 1e-5 of
     the span of the integral on a 10x finer grid.
@@ -770,7 +787,11 @@ def tougaard_background(
     # branch written precisely because the grid is not uniform — up to ~24%
     # error on a genuinely nonuniform grid). np.gradient returns dx exactly
     # on a uniform grid, so both branches agree to floating point and the
-    # uniformity test is a pure optimization, not a semantic fork.
+    # uniformity test is an optimization on a truly uniform grid. The test
+    # accepts grids uniform to 1e-6 of the first step, where the convolution
+    # APPROXIMATES the stated sum (index separations, one weight): ~1e-8 of the
+    # span at that tolerance, but a high-edge sum that nearly cancels can come
+    # out exactly zero (background-math findings, tougaard; Codex round 3).
     diffs = np.diff(xa)
     uniform = bool(dx > 0.0 and np.max(np.abs(diffs - diffs[0])) <= 1e-6 * dx)
 

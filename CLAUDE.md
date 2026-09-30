@@ -874,8 +874,9 @@ implementation is tested against its defining statement, under its own reading o
 endpoint averaging, on all 121 committed spectra, never by resemblance to another
 program: `shirley` B = T(B), T the Shirley relation's right-hand side over the
 positive net signal (the relation can have SEVERAL solutions — exact
-counterexamples in the tests — and the iteration returns the one reached from the
-edge-to-edge line); `smart_exp`, and `smart` at n_avg = 1, the constrained problem
+counterexamples in the tests — and the iteration, when it converges, returns the one
+reached from the edge-to-edge line; on some small spectra it cycles and returns a
+non-solution, F12); `smart_exp`, and `smart` at n_avg = 1, the constrained problem
 B = min(T(B), I) (clamping a Shirley solution gives a constrained solution,
 because s(min(B, I)) = s(B); at n_avg = 1 the two returned the same background on
 every committed spectrum); `linear` affine in energy through the end points;

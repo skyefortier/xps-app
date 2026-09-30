@@ -241,9 +241,39 @@ def test_FINDING_tougaard_when_the_discrete_loss_sum_vanishes():
     E, I = np.array([0.0, 1.0]), np.array([10.0, 20.0])
     assert D.tougaard_statement(E, I) is None
     assert np.array_equal(fitting.tougaard_background(E, I), [10.0, 10.0])
-    # Equal levels: every lam solves it, and production's flat C0 is a solution
+    # Equal levels on a two-point window: the whole loss vector vanishes, every lam gives the
+    # flat C0, and production's flat C0 is a solution
     E, I = np.array([0.0, 1.0]), np.array([10.0, 10.0])
     assert np.array_equal(fitting.tougaard_background(E, I), D.tougaard_statement(E, I))
+
+
+def _K(t):
+    return D.KB * t / (D.KC + t * t) ** 2
+
+
+def test_FINDING_tougaard_equal_levels_leave_a_family_when_interior_loss_remains():
+    # Codex round 3: the high-edge sum cancels exactly but an interior loss term does not; every
+    # lam meets the anchor, the backgrounds differ with lam, and the flat C0 is the lam = 0 member
+    r = 2 * (1644 / 1647) ** 2
+    E, I = np.arange(4.0), np.array([10.0, 11.0, 10.0 - r, 10.0])
+    loss, xa, Dd, c0, dhi, flip = D.tougaard_loss(E, I)
+    assert loss[0] == 0.0 and np.any(loss != 0.0) and dhi == c0
+    assert np.array_equal(fitting.tougaard_background(E, I), [10.0] * 4)
+    other = c0 + 1644.0 ** 2 * loss                      # lam = 1644^2: also meets both anchors
+    assert other[0] == dhi and np.max(np.abs(other - c0)) > 0.5
+
+
+def test_FINDING_tougaard_near_uniform_fast_branch_approximates_the_sum():
+    # Codex round 3: grids uniform to 1e-6 of the step take the convolution branch (index
+    # separations, one weight). ~1e-8 of span away from the stated sum at that tolerance ...
+    E, I = np.array([0, 1, 2.0000009, 3.0000009, 4.0000009]), np.array([10.0, 20.0, 30.0, 25.0, 12.0])
+    d = np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I))) / D.span_of(I)
+    assert 1e-9 < d < 1e-7
+    # ... and a nearly cancelling high-edge sum comes out exactly zero: the anchor is missed,
+    # where the stated sum is non-zero and has a (badly conditioned) solution
+    E, I = np.array([0, 1, 2.0000005, 3.0000005]), np.array([2.0, 3.0, 2 - _K(2) / _K(1), 3.0])
+    assert np.array_equal(fitting.tougaard_background(E, I), [2.0] * 4)
+    assert D.tougaard_statement(E, I) is not None
 
 
 def test_FINDING_the_kernel_shape_matters_on_the_wider_windows():
@@ -311,3 +341,29 @@ def test_degenerate_windows():
     assert D.band(8, 10) == 2 and D.band(3, 10) == 1
     y = np.arange(8.0)
     assert np.array_equal(fitting._apply_endpoint_averaging(y, 10), [0.5, 0.5, 2, 3, 4, 5, 6.5, 6.5])
+
+
+@pytest.mark.parametrize("I", [[2.0, 3.0, 10.0, 13.0], [11.0, 14.0, 1.0, 33.0, 40.0]])
+def test_FINDING_the_shirley_iterations_can_cycle(I):
+    # Codex round 3 (findings F12): small positive spectra on uniform ascending grids; the
+    # iterations alternate between two curves, 2000 iterations give what 200 give, and the
+    # returned curve solves nothing
+    I = np.array(I)
+    E = np.arange(float(len(I)))
+    for f, check in ((fitting.shirley_background, lambda B: D.shirley_residual(E, I, B, 1, "data")),
+                     (fitting.smart_background, lambda B: D.constrained_residual(E, I, B, 1, "data")[0]),
+                     (fitting.smart_experimental_background, lambda B: D.constrained_residual(E, I, B, 1, "levels")[0])):
+        assert check(f(E, I)) > 0.1
+    assert np.array_equal(fitting.shirley_background(E, I), fitting.shirley_background(E, I, n_iter=2000))
+    assert not D.solve(E, I, 1, "data", False)[2]           # the reference solver does not converge either
+
+
+def test_FINDING_a_cycling_case_has_an_exact_solution():
+    z = (17 - np.sqrt(37)) / 4
+    assert D.shirley_residual(np.arange(4.0), np.array([2.0, 3.0, 10.0, 13.0]), np.array([2, z, z + 5.5, 13])) < ROUND
+
+
+def test_FINDING_shirley_linear_can_cycle():
+    E, I = np.arange(5.0), np.array([20.0, 44.0, 34.0, 41.0, 47.0])
+    for n_iter in (200, 2000):
+        assert D.shirley_linear_residual(E, I, fitting.shirley_linear_background(E, I, n_iter=n_iter))[0] > 0.1
