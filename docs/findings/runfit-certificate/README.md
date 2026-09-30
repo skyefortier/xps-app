@@ -119,3 +119,38 @@ predates the continuous-m LA (2026-09-25). Not addressed here.
 Nelder-Mead fit, the returned numbers are Trust-Region's and carry its
 jitter. 19 existing tests pin LM / Nelder byte-identity or observe the
 optimiser's calls; they fail as the code stands (list in the plan).
+
+## V3 — main's search path, only the winner certified (added after the above)
+
+V2 certified the fit BEFORE the perturbed restarts, which moved the point they
+start from — the cause of V2's basin flips. V3 is the brief read literally and
+without that side effect: the fit and its perturbed restarts run exactly as on
+main (judged by the flag, perturbed from main's point), then the WINNER is
+certified; the scattered starts (and the required refit) are certified.
+
+| V3 | Trust-Region | Levenberg-Marquardt |
+|---|---|---|
+| converged | 202 → 202 | 197 → 202 |
+| area %: max / > 1 pp / > 0.1 pp | 21.9 pp / 5 / 9 | 13.4 pp / 2 / 16 |
+| atomic %: max / > 1 pp | 22.6 pp / 6 | 13.8 pp / 2 |
+| chi2r lower by > 1 % / higher | 6 / 2 | 6 / 1 (+0.68 %) |
+| returned fit moved | 12 | 98 |
+| added time: median / p90 / max | +0.07 / +0.54 / +32 s | +0.04 / +0.91 / +37 s |
+| Run Fits over 60 s | 0 → 1 | 1 → 0 |
+| "N of 3" line changed; alternatives listed | 37; 8 → 5 | 45; 7 → 6 |
+| targets with a start "did not converge" | 3 → 1 | 30 → 4 |
+| two presses: byte-identical / max / > 1 pp | 109 / 21.9 pp / 2 | 138 / **0.074 pp** / 0 |
+
+LM V3's largest change is 8-JT C1s Scan_7, 13.4 pp to a BETTER minimum
+(chi2r 21.0 → 15.5); its repeat presses agree better than main's (0.074 vs
+0.23 pp).
+
+TR V3's largest change and repeat difference are the SAME target, 8-JT C1s
+Scan_5 (33.9 vs 51.9), and in the press that returned 51.9 the certificate did
+not move the fit (1 restart): main's own search landed there. **Main alone,
+pressed 12 times in fresh processes, returns 51.9 every time; in both full
+runs (the target is the 92nd in the process) it returned 33.9.** The basin
+main's Trust-Region reaches on this target depends on the process's history
+(memory alignment → BLAS rounding → basin). So "two presses" understates
+main's own instability, and TR flips of this kind are pre-existing; the
+certificate changes how often they occur, it does not create the class.
