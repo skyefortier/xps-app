@@ -20,9 +20,12 @@ less than ftol, relative):
     OWN SCALE: each component's curve against that component's own height;
     its centre (and every centre shift) against its own half-maximum width
     (a scattered-start alternative's centres against the half-maximum width of
-    its own curve, evaluated from its parameters through the server's lineshape,
-    and that curve against its own height, like a returned component's);
-    a bounded parameter against its bound span ALONE (a value pinned at a
+    its own curve — evaluated from its parameters with ITS lineshape, the one
+    that reproduces the returned component of the same id; not reconstructible
+    = fails closed — and that curve against its own height, like a returned
+    component's);
+    a bounded parameter against its bound span ALONE, floored at a few ULPs of
+    the value (a value pinned at a
     bound, 1e-14 vs 1e-12, is the same value), a LINKED parameter against the
     span of the bounded master its expression follows, through any chain of links;
     a scattered-start alternative's bare parameter values take the same bounds
@@ -71,18 +74,33 @@ def _as_curve(v):
     return np.array([np.nan if e is None else e for e in v], dtype=float)
 
 
-def _curve_from_params(x, params):
-    """The component's curve from its parameters alone, through the server's own lineshape
-    (the one whose arguments are exactly these parameters); None if none matches."""
-    keys = set(params)
-    curves = []
-    for func in fitting._SHAPE_FUNCS.values():
-        if set(list(inspect.signature(func).parameters)[1:]) == keys:
-            try:
-                curves.append(np.asarray(func(np.asarray(x, float), **{k: float(v) for k, v in params.items()}), float))
-            except Exception:
-                continue
-    return curves
+def _args(func):
+    return set(list(inspect.signature(func).parameters)[1:])
+
+
+def _evaluate(func, x, params):
+    """func's curve at these parameters, or None when it cannot be evaluated."""
+    if func is None or set(params) != _args(func):
+        return None
+    try:
+        y = np.asarray(func(np.asarray(x, float), **{k: float(v) for k, v in params.items()}), float)
+    except Exception:
+        return None
+    return y if y.shape == np.shape(x) else None
+
+
+def _lineshape_of(x, peak):
+    """The server lineshape that reproduces this returned component's own curve from its own
+    parameters — the component's identity, taken from the response (gaussian and lorentzian share
+    parameter names; Codex A2 round 8). None when no lineshape, or more than one, reproduces it."""
+    values = {k: v["value"] for k, v in (peak.get("params") or {}).items() if k != "area" and isinstance(v, dict)}
+    y = _as_curve(peak.get("y") or [])
+    if not y.size or not np.isfinite(y).all():
+        return None
+    scale = float(np.max(np.abs(y))) or 1.0
+    found = [f for f in fitting._SHAPE_FUNCS.values()
+             if (c := _evaluate(f, x, values)) is not None and np.allclose(c, y, rtol=1e-9, atol=1e-12 * scale)]
+    return found[0] if len(found) == 1 else None
 
 
 def _half_max_width(x, y):
@@ -168,7 +186,9 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
         elif k in _PERCENTAGES:
             tol = rel * 100.0
         elif bounds and bounds[0] is not None and bounds[1] is not None:
-            tol = rel * abs(bounds[1] - bounds[0])          # the span alone (Codex A2 round 7: max(span, |value|) widened a narrow bound far from zero)
+            # the span alone (Codex A2 round 7: max(span, |value|) widened a narrow bound far from
+            # zero), plus a machine-precision floor: a 1e-11 span must not reject one ULP (round 8)
+            tol = rel * abs(bounds[1] - bounds[0]) + 4 * np.finfo(float).eps * max(abs(x_), abs(y_))
         else:
             tol = rel * max(abs(x_), abs(y_))
         if abs(x_ - y_) > tol:
@@ -186,20 +206,22 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
             return (info["min"], info["max"])
         return linked_bounds(info) if info.get("expr") else None
 
+    shape_of = {str(pk.get("id")): _lineshape_of(x, pk) for pk in a.get("individual_peaks") or []}
+
+    def alt_curve(comp):
+        # an alternative's component curve: ITS OWN lineshape (the returned component's, same
+        # id), evaluated at its parameters; None when that is impossible (the caller fails closed)
+        params = comp.get("params")
+        return _evaluate(shape_of.get(str(comp.get("id"))), x, params) if isinstance(params, dict) else None
+
     def alternative_widths(xa, xb):
         # a scattered-start alternative has no curves in the response: each component's curve
-        # is evaluated from its own parameters through the server's lineshape, and its
-        # half-maximum width — the returned components' definition — scales its centres; never
-        # the returned fit's width (Codex A2 rounds 4-5). No matching lineshape: one grid
-        # step (fails closed).
+        # is reconstructed (alt_curve) and its half-maximum width — the returned components'
+        # definition — scales its centres; never the returned fit's width (Codex A2 rounds
+        # 4-5). Not reconstructible: one grid step, and the curve check fails closed.
         out = {}
         for ca, cb in zip(xa.get("components") or [], xb.get("components") or []):
-            ws = []
-            for c in (ca, cb):
-                for yc in (_curve_from_params(x, c["params"]) if isinstance(c.get("params"), dict) else []):
-                    w = _half_max_width(x, yc)
-                    if w:
-                        ws.append(w)
+            ws = [w for w in (_half_max_width(x, c) for c in (alt_curve(ca), alt_curve(cb)) if c is not None) if w]
             out[str(ca.get("id"))] = min(ws) if ws else step
         return out
 
@@ -222,9 +244,12 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
                 # an alternative's component curves, evaluated from its parameters, against their
                 # own height — the returned components' rule (Codex A2 round 7)
                 for i, (ca, cb) in enumerate(zip(x_.get("components") or [], y_.get("components") or [])):
-                    if isinstance(ca.get("params"), dict) and isinstance(cb.get("params"), dict):
-                        for ya, yb in zip(_curve_from_params(x, ca["params"]), _curve_from_params(x, cb["params"])):
-                            curve(list(ya), list(yb), f"{where}.components.{i}.curve", True)
+                    ya, yb = alt_curve(ca), alt_curve(cb)
+                    if ya is None or yb is None:               # fails closed (Codex A2 round 8)
+                        problems.append(f"{where}.components.{i}: its curve cannot be reconstructed "
+                                        "(its lineshape is not identified, or evaluating it failed)")
+                    else:
+                        curve(list(ya), list(yb), f"{where}.components.{i}.curve", True)
             if path and path[-1] == "params" and comp_id is not None and all(not isinstance(v, dict) for v in x_.values()):
                 for k in x_:                                           # bare values: the model's bounds
                     cmp(x_[k], y_[k], path + (k,), comp_id, model_bounds(comp_id, k), widths)

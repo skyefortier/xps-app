@@ -293,3 +293,13 @@ pass):
 |---|---|---|
 | 1 | MAJOR (A): the bounded rule was 1e-3 × max(span, |value|): a narrow bound far from zero ([1.1, 1.101]) allowed 0.0011 where its span allows 1e-6 — two certified minima with swapped widths accepted | the span ALONE; test (the reviewer's pair, real fits) |
 | 2 | MAJOR (B): alternatives' curves were reconstructed only for the centre scale, never compared — once round 6 gave their parameters the model's span, an LA α / β swap changing the curve by 0.147 % of its height passed | an alternative's reconstructed component curves are compared against their own height, like a returned component's (both its curve and its parameters must agree); the round-6 test now uses an m change below one data point (identical curves, the reviewers' case); test |
+
+**Round 8 — NO-GO ×2** (`a2_runfit_certificate_r8_verdict_run{A,B}.md`, commit
+01cbb80; the resolution ruling stands; narrow bounds down to 1e-11 span
+verified; 398 recorded replays pass):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): gaussian and lorentzian share parameter names, so an alternative's curve was reconstructed with BOTH and both compared — a Lorentzian inside the resolution (0.096 %) was rejected by its fictitious Gaussian twin (0.106 %) | the lineshape's identity is taken from the response: the one lineshape that reproduces the returned component of the same id from its own parameters; the alternative is evaluated with it; test (the reviewers' case) |
+| 2 | MINOR (A, B): a reconstruction that raised silently removed the curve check | fails closed: "its curve cannot be reconstructed"; test with an injected failure |
+| 3 | MINOR (B): a 1e-11 bound span rejected a one-ULP difference | a machine-precision floor (4 ULP of the value) beside the span, not a wider span; test (the reviewer's real fits) |

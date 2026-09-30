@@ -1,0 +1,11 @@
+Review unit A2 (the minimum certificate on Run Fit), round 9: branch fix-runfit-certificate, git diff main..HEAD (round-8 fixes: git diff 01cbb80..HEAD — tests/fit_equality.py: an alternative's lineshape identified from the returned component it corresponds to; a reconstruction that fails makes the comparison fail; a machine-precision floor beside a bounded parameter's span; tests/test_fit_equality.py; README "Codex rounds"). Earlier verdicts: docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md and a2_runfit_certificate_r{2,3,4,5,6,7,8}_verdict_run{A,B}.md. In rounds 4-8 both runs ruled that the stated finite resolution (tests/fit_equality.py docstring) satisfies the owner's requirement; round 8's open findings were gaussian / lorentzian ambiguity in reconstructing an alternative, a silent reconstruction failure, and a one-ULP rejection inside a 1e-11 bound. The owner's brief is in the round-1 prompt (docs/autofit/codex/a2_runfit_certificate_review_prompt.txt).
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The round-8 fixes: the lineshape identification (a returned component whose curve two lineshapes reproduce, none reproduce, a non-finite returned curve, an alternative whose parameter set differs from the returned component's), the fail-closed path (can it now reject the same minimum?), the ULP floor. And any remaining place where a quantity is compared on a scale other than its own: false acceptance above the stated resolution, or false rejection of the same minimum.
+b. Everything rounds 1-8 verified, against the new commit.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

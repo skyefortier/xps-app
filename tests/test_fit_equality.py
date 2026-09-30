@@ -27,6 +27,21 @@ def _rejects(a, b, *fields):
         assert f in msg, msg
 
 
+def _set_shape(resp, k, shape, params):
+    """Give returned component k (and every scattered-start alternative's component of the same
+    id) a lineshape consistently: its parameters, and its curve computed from them."""
+    x = np.asarray(resp["energy"], float)
+    pk = resp["individual_peaks"][k]
+    func = fitting._SHAPE_FUNCS[shape]
+    pk["params"] = {name: {"value": float(v), "stderr": None, "vary": True, "expr": None, "min": None, "max": None}
+                    for name, v in params.items()} | {"area": pk["params"]["area"]}
+    pk["y"] = list(np.asarray(func(x, **params), float))
+    for alt in (resp.get("starts") or {}).get("alternatives") or []:
+        for c in alt["components"]:
+            if str(c["id"]) == str(pk["id"]):
+                c["params"] = dict(params, center=c["params"]["center"])
+
+
 def test_the_tolerances_are_the_certificates_own_scales():
     assert SAME_MINIMUM_REL == pytest.approx(10 * fitting.CERTIFY_FTOL ** 0.5)
     assert OBJECTIVE_REL == pytest.approx(10 * fitting.CERTIFY_FTOL)
@@ -266,14 +281,14 @@ def test_an_alternative_without_a_fwhm_parameter_is_scaled_by_its_own_curve():
     # fell back to the returned fit's width
     x, y, specs = SS._two_basin_problem()
     a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
-    for c in a["starts"]["alternatives"][0]["components"]:
-        c["params"] = {"amplitude": 500.0, "center": c["params"]["center"], "alpha": 0.0, "beta": 0.05, "m_gauss": 0.0}
+    c0 = a["individual_peaks"][0]["params"]["center"]["value"]
+    _set_shape(a, 0, "ds_g", {"amplitude": 500.0, "center": c0, "alpha": 0.0, "beta": 0.05, "m_gauss": 0.0})
     b = copy.deepcopy(a)
+    assert_same_fit(a, b)
     comp = b["starts"]["alternatives"][0]["components"][0]
     comp["params"]["center"] += 0.24
     comp["center_shift_from_start"] += 0.24
-    _rejects(a, b, "starts.alternatives.0.components.0")
-
+    _rejects(a, b, "starts.alternatives.0.components.0.params.center")
 
 def test_a_chain_of_links_is_judged_on_the_bounded_masters_span():
     # Codex A2 round 5 (runs A, B): p4_m -> p3_m -> p2_m — the grandchild fell back to a
@@ -300,19 +315,12 @@ def test_an_alternatives_bounded_parameter_uses_the_models_bounds():
     # below one data point: identical curves) were rejected
     x, y, specs = SS._two_basin_problem()
     a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
-    cid = a["individual_peaks"][0]["id"]
-    for r in (a,):
-        r["individual_peaks"][0]["params"]["m"] = {"value": 0.001, "stderr": None, "vary": True, "expr": None, "min": 0.0, "max": 499.0}
-        alt = r["starts"]["alternatives"][0]["components"][0]
-        alt["params"] = {"amplitude": alt["params"]["amplitude"], "center": alt["params"]["center"], "fwhm": alt["params"]["fwhm"],
-                         "alpha": 1.0, "beta": 1.0, "m": 0.001}
+    c0 = a["individual_peaks"][0]["params"]["center"]["value"]
+    _set_shape(a, 0, "la_casaxps", {"amplitude": 3000.0, "center": c0, "fwhm": 1.5, "alpha": 1.0, "beta": 1.0, "m": 0.001})
+    a["individual_peaks"][0]["params"]["m"].update(min=0.0, max=499.0)
     b = copy.deepcopy(a)
-    for r in (a, b):
-        r["individual_peaks"][0]["params"]["m"]["value"] = 0.001
     b["starts"]["alternatives"][0]["components"][0]["params"]["m"] = 0.300
-    assert str(b["starts"]["alternatives"][0]["components"][0]["id"]) == str(cid)
     assert_same_fit(a, b)
-
 
 def test_an_alternatives_curve_is_compared_against_its_own_height():
     # Codex A2 round 7 (run B): parameters inside their span, the reconstructed curve changed
@@ -354,4 +362,55 @@ def test_a_link_to_a_master_whose_id_has_underscores_is_resolved():
     b = copy.deepcopy(a)
     for k in (0, 1):
         b["individual_peaks"][k]["params"]["fwhm"]["value"] += 0.4
+    assert_same_fit(a, b)
+
+
+def test_a_lorentzian_alternative_is_not_judged_by_a_gaussian_twin():
+    # Codex A2 round 8 (runs A, B): gaussian and lorentzian share parameter names; both curves
+    # were reconstructed and compared, and a Lorentzian inside the resolution was rejected by
+    # its fictitious Gaussian twin. The lineshape is the one reproducing the returned component.
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    c0 = a["individual_peaks"][0]["params"]["center"]["value"]
+    _set_shape(a, 0, "lorentzian", {"amplitude": 3000.0, "center": c0, "fwhm": 1.0})
+    xs = np.asarray(a["energy"], float)
+    alt0 = a["starts"]["alternatives"][0]["components"][0]["params"]
+    def rel_diff(f, d):
+        u = f(xs, 3000.0, alt0["center"], 1.0); v = f(xs, 3000.0, alt0["center"] + d, 1.0)
+        return np.max(np.abs(u - v)) / np.max(np.abs(u))
+    d = next(d for d in np.linspace(1e-5, 9e-4, 400)
+             if rel_diff(fitting._lorentzian, d) < 0.98e-3 < 1.02e-3 < rel_diff(fitting._gaussian, d))
+    b = copy.deepcopy(a)
+    b["starts"]["alternatives"][0]["components"][0]["params"]["center"] += d
+    b["starts"]["alternatives"][0]["components"][0]["center_shift_from_start"] += d
+    assert_same_fit(a, b)                                   # its own (Lorentzian) curve is within 1e-3
+
+
+def test_an_alternative_whose_curve_cannot_be_reconstructed_fails_closed(monkeypatch):
+    # Codex A2 round 8 (runs A, B): an evaluation that raised removed the curve check silently
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    b = copy.deepcopy(a)
+    assert_same_fit(a, b)
+    def broken(*args, **kw):
+        raise ValueError("evaluation failed")
+    monkeypatch.setitem(fitting._SHAPE_FUNCS, "gaussian", broken)
+    monkeypatch.setitem(fitting._SHAPE_FUNCS, "pseudo_voigt_gl", broken)
+    with pytest.raises(AssertionError, match="cannot be reconstructed"):
+        assert_same_fit(a, b)
+
+
+def test_one_ulp_inside_a_very_narrow_bound_is_the_same_fit():
+    # Codex A2 round 8 (run B): amplitude bounded to [100, 100 + 1.1e-11]; two certified fits one
+    # ULP apart were rejected by the span-only rule — a machine-precision floor, not a wider span
+    x = np.linspace(-50.0, 50.0, 2001)
+    y = 100.0 * np.exp(-4 * np.log(2) * (x / 1.1) ** 2) + 1.0 * (np.abs(x) > 20)
+
+    def fit(amp):
+        specs = [{"id": 1, "shape": "gaussian", "center": 0.0, "amplitude": amp, "fwhm": 1.1, "fix_center": True, "fix_fwhm": True,
+                  "amplitude_min": 100.0, "amplitude_max": 100.0 + 1.1e-11}]
+        return fitting.run_fit(x, y, specs, background_method="none", n_perturb=0, fit_kws={"method": "leastsq", "fit_kws": SEED})
+    start = 100.0000000000055
+    a, b = fit(start), fit(float(np.nextafter(start, np.inf)))
+    assert a["certificate"]["certified"] and b["certificate"]["certified"]
     assert_same_fit(a, b)
