@@ -230,3 +230,14 @@ verified; the Scan_5 answer confirmed):
 | 4 | MINOR (A): the different-minimum proofs could pass on the seed alone | proofs pin one seed; a rejection must name a fitted quantity and never `random_seed` |
 | 5 | MINOR (B): the note called every changed TR fit "better", incl. Scan_5's basin flip | the note separates the certificate's changes (all to a lower chi2r; final run: 4 TR, 2 LM) from the pre-existing two-solution variability |
 | 6 | MINOR (B): the branch diff "deleted" A1's deploy-log entry (the branch was cut before that commit) | main merged into the branch (no rebase, no force-push) |
+
+**Round 2 — NO-GO ×2** (`a2_runfit_certificate_r2_verdict_run{A,B}.md`, commit
+b66d6fe; round-1 fixes verified: the small-component proof, seed-pinned
+rejections, the battery injections, stability over three processes):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): skipping components both fits call unsupported hid distinct certified minima (an unsupported narrow line certified at −0.25 and +0.25 eV, the objective rising between) | no skip and no per-quantity scales: ONE metric, the fit's own — the fitted curve as sum(w² Δy²) with the fit's weights, against 10 × ftol × chi2 (what certification means); every fitted parameter in units of its own sigma on the same scale (sqrt(10 × ftol × dof) × sigma: if the fitted curve is within tolerance every parameter is within that bound, Cauchy-Schwarz in the H norm); a component the fit determines (a free parameter with a sigma) is judged by its parameters, one it does not (no sigma) by its curve in the objective norm — zero-amplitude jitter counts ~0, a relocated line jumps by many sigma. (A first version judged every component's CURVE in the objective norm; the full suite then failed on two overlapping components trading intensity along a flat direction of one minimum — the sum within tolerance, each curve 3× past it — so determined components are judged by their parameters; test added.) Support statistic relatively, floored by the objective tolerance. Test: the reviewers' unsupported pair, rejected |
+| 2 | MAJOR (B) / MINOR (A): matching infinities made a component's scale infinite, so a 1e6-count finite change passed | the weighted norm runs over the finite samples after the non-finite masks are checked; test |
+| 3 | MINOR (B) / MAJOR (A): the scattered starts' chi2r (fit, alternatives, not-better list) got the parameter tolerance (+0.09 % passed) | chi2r and not_better_chi2r at the objective scale; three tests |
+| 4 | MINOR (A, B): the note mixed runs (4 / 202 is the final run's, where 198 — not 197 — stay below 1 pp and starts' non-convergence is 30 → 3) and called two U 4f satellites C 1s | the note takes the changes, convergence and the notice from the final run, labels the time as V3's clean measurement, and names the regions |

@@ -1,0 +1,15 @@
+Review unit A2 (the minimum certificate on Run Fit), round 3: branch fix-runfit-certificate, git diff main..HEAD (round-2 fixes: git diff b66d6fe..HEAD — tests/fit_equality.py rewritten on ONE metric, tests/test_fit_equality.py, docs/comms/2026-09-30-run-fit-certificate-note.md, docs/findings/runfit-certificate/README.md "Codex rounds"). Earlier verdicts: docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md (round 1), a2_runfit_certificate_r2_verdict_run{A,B}.md (round 2); the README's tables list each finding and its fix. The owner's brief and decisions are in the round-1 prompt (docs/autofit/codex/a2_runfit_certificate_review_prompt.txt); in particular "the rewritten tests must still FAIL if a fit lands in a different minimum. Use a relative, rounding-scale tolerance, and add one test that proves a genuine minimum change is caught."
+
+The comparison's design now: the fitted curve as sum(w^2 (y_a - y_b)^2) with the fit's own weights w = 1/sqrt(max(counts, 1)), against 10 x ftol x chi2; each fitted parameter in units of its own sigma, |dp| <= sqrt(10 x ftol x dof) x sigma; a component the fit determines (a free parameter with a sigma) judged by its parameters, one it does not by its curve in the objective norm (a first version judged every component's curve; the full suite failed on two overlapping components trading intensity along a flat direction of one minimum — see the README); the support statistic relatively, floored by the objective tolerance; chi2 values (statistics and the scattered starts' chi2r) at 10 x ftol; quantities with no curve (scattered-start alternatives) at 10 x sqrt(ftol) (area % of 100, centres of the component's own half-maximum width, others relatively); structure / flags / ids / counts / seed exact; non-finite values in the same places.
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Distinct certified minima the comparison accepts — on the tests' models, on constructions like rounds 1-2 (small, unsupported, swapped, linked components, a component whose curve hardly changes while its parameters jump, a fit with chi2 ~ 0), and on the committed data in docs/findings/runfit-certificate/data. Is 10 x ftol x chi2 in the weighted norm really below the smallest separation between distinct minima you can construct, and is the argument for it sound?
+b. Identical-minimum presses it would reject (flakiness): Trust-Region jitter on moved fits, poorly determined parameters with small sigma, the sigma rule, the delta-chi2 bound, alternatives' parameters without sigma.
+c. The proofs in tests/test_fit_equality.py: real certified minima, rejected through fitted quantities with the seed pinned.
+d. Everything rounds 1-2 verified, against the new commit (certificate exits, cancellation, V3 order, the notice, the battery, the numbers in the note / CLAUDE.md / README).
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

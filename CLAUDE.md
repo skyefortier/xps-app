@@ -494,8 +494,11 @@ whose float64 inner product is the same alignment-dependent BLAS dot; and
 since A2 a fit the minimum certificate MOVES carries Trust-Region's
 arithmetic. The requirement is regeneration within meaningful precision
 (below), and the tests compare fits WITHIN ROUNDING
-(`tests/fit_equality.py`: 10·√ftol of each quantity's scale, proven to reject
-a fit that landed in a different minimum). Trust-Region, the default, is NOT and cannot be made so by
+(`tests/fit_equality.py`: the fitted curve in the fit's own weighted norm to
+10·ftol·χ², each parameter to √(10·ftol·dof)·σ, a component the fit does not
+determine by its curve; proven to reject fits that landed in a different
+minimum, incl. small, unsupported and swapped components —
+`tests/test_fit_equality.py`). Trust-Region, the default, is NOT and cannot be made so by
 seeding: the BLAS dot product (Apple Accelerate on the i9) rounds one unit
 in the last place differently depending on where its argument sits in
 memory (`w.dot(w)` gives two values over 16 alignments, `np.sum(w*w)`

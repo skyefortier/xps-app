@@ -93,7 +93,7 @@ def test_a_small_component_relocated_beside_a_dominant_one_is_caught():
     assert abs(ca - 399.5) < 0.05 and abs(cb - 400.5) < 0.05          # two certified minima, 1 eV apart
     d = float(np.max(np.abs(np.asarray(a["fitted_y"]) - np.asarray(b["fitted_y"]))))
     assert d < SAME_MINIMUM_REL * 1e6                                    # invisible on the signal's scale
-    _rejects(a, b, "individual_peaks.1.y", "individual_peaks.1.params.center")
+    _rejects(a, b, "individual_peaks.1.params.center")
 
 
 def test_two_minor_components_that_swap_places_are_caught():
@@ -126,14 +126,90 @@ def test_a_non_finite_or_missing_value_in_a_curve_is_caught(bad, where):
     _rejects(a, b, "non-finite")
 
 
-def test_an_unsupported_component_is_compared_by_its_verdict_only():
-    # its parameters are undetermined — that is what "not supported" says
+def _unsupported_pair(centre):
+    # Codex A2 round 2 (run B): a held dominant line, two equal narrow lines at
+    # +-0.25 eV and a symmetric residual; one free narrow component certifies at
+    # either line — two minima five widths apart, the component NOT supported
+    # (F < 10) in both. "Unsupported" does not make them one minimum.
+    x = np.linspace(-500.0, 500.0, 20001)
+    g = lambda c, a, w: a * np.exp(-4 * np.log(2) * ((x - c) / w) ** 2)
+    dom = g(0.0, 1e6, 300.0)
+    y = dom + g(-0.25, 500, 0.1) + g(0.25, 500, 0.1) + 5 * np.sqrt(dom) * np.cos(3 * x) * (np.abs(x) > 2)
+    specs = [{"id": 1, "shape": "gaussian", "center": 0.0, "amplitude": 1e6, "fwhm": 300.0, "fix_center": True, "fix_amplitude": True, "fix_fwhm": True},
+             {"id": 2, "shape": "gaussian", "center": centre, "amplitude": 400.0, "fwhm": 0.1, "amplitude_min": 0,
+              "center_min": -1.0, "center_max": 1.0, "fwhm_min": 0.05, "fwhm_max": 0.15}]
+    return fitting.run_fit(x, y, specs, background_method="none", n_perturb=0, fit_kws={"method": "leastsq", "fit_kws": SEED})
+
+
+def test_an_unsupported_component_at_another_minimum_is_caught():
+    a, b = _unsupported_pair(-0.25), _unsupported_pair(0.25)
+    assert a["certificate"]["certified"] and b["certificate"]["certified"]
+    assert a["individual_peaks"][1]["support"]["supported"] is False is b["individual_peaks"][1]["support"]["supported"]
+    ca, cb = (r["individual_peaks"][1]["params"]["center"]["value"] for r in (a, b))
+    assert ca < -0.2 and cb > 0.2
+    _rejects(a, b, "individual_peaks.1")
+
+
+def test_a_zero_amplitude_components_jitter_is_the_same_fit():
+    # a component driven to its floor has no position to reproduce: its curve is ~0 either way
     x, y, specs = R._two_peaks()
     a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
     b = copy.deepcopy(a)
-    for r in (a, b):
-        r["individual_peaks"][1]["support"]["supported"] = False
-    b["individual_peaks"][1]["params"]["center"]["value"] += 2.0
+    for r, amp in ((a, 1e-12), (b, 3e-13)):
+        c = r["individual_peaks"][1]
+        c["y"] = [amp * v / max(c["y"]) for v in c["y"]]
+        for k in ("center", "fwhm", "amplitude"):
+            c["params"][k]["stderr"] = None
+        c["params"]["area"]["stderr"] = None
+    b["individual_peaks"][1]["params"]["center"]["value"] += 1.5
+    b["individual_peaks"][1]["params"]["amplitude"]["value"] = 3e-13
     assert_same_fit(a, b)
-    b["individual_peaks"][1]["support"]["supported"] = True
-    _rejects(a, b, "individual_peaks.1")
+
+
+def test_matching_infinities_do_not_hide_a_finite_difference():
+    # Codex A2 round 2: +inf at one sample of both copies made the scale infinite
+    x, y, specs = R._two_peaks()
+    a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
+    b = copy.deepcopy(a)
+    a["fitted_y"][3] = b["fitted_y"][3] = float("inf")
+    b["fitted_y"][40] += 1e6
+    _rejects(a, b, "fitted_y")
+    # and in the curve of a component the fit does not determine (no sigma: its curve decides)
+    a2, b2 = copy.deepcopy(a), copy.deepcopy(a)
+    for r in (a2, b2):
+        for info in r["individual_peaks"][0]["params"].values():
+            info["stderr"] = None
+    a2["individual_peaks"][0]["y"][3] = b2["individual_peaks"][0]["y"][3] = float("inf")
+    b2["individual_peaks"][0]["y"][40] += 1e6
+    _rejects(a2, b2, "individual_peaks.0.y")
+
+
+@pytest.mark.parametrize("where", ["fit", "alternative", "not_better"])
+def test_a_scattered_start_objective_is_compared_at_the_objective_scale(where):
+    # Codex A2 round 2: the starts' chi2r got the parameter tolerance (+0.09 % passed)
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    b = copy.deepcopy(a)
+    st = b["starts"]
+    if where == "fit":
+        st["fit"]["chi2r"] *= 1.0009
+    elif where == "alternative":
+        st["alternatives"][0]["chi2r"] *= 1.0009
+    else:
+        assert st["not_better_chi2r"], "the model's starts include a not-better solution"
+        st["not_better_chi2r"][0] *= 1.0009
+    _rejects(a, b, "starts")
+
+
+def test_two_components_trading_along_a_flat_direction_are_the_same_fit():
+    # The full suite found it (test_api_fit_from_separate_uploads_repeats): two
+    # overlapping components exchange intensity between presses while their sum
+    # — the fitted curve, what the objective sees — stays within tolerance. The
+    # parameters stay within their sigma-scaled bound; that is one minimum.
+    x, y, specs = R._crowded_c1s()
+    a = fitting.run_fit(x, y, specs, background_method="shirley", n_perturb=3, fit_kws={"method": "leastsq"})
+    b = copy.deepcopy(a)
+    p, q = b["individual_peaks"][1], b["individual_peaks"][2]
+    shift = 1e-3 * np.asarray(p["y"])                       # trade 0.1 % of one curve into the other
+    p["y"] = list(np.asarray(p["y"]) - shift); q["y"] = list(np.asarray(q["y"]) + shift)
+    assert_same_fit(a, b)
