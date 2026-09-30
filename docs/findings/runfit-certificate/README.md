@@ -214,3 +214,19 @@ the four (`BEYOND_THE_EXPERT_FIT`: the certified refit must be LOWER than the
 saved fit; `NOT_CERTIFIED`: the verdict is pinned), keeps the old rule for the
 other 25, and its regenerated fixture is compared within rounding
 (`fit_equality.SAME_MINIMUM_REL`).
+
+## Codex rounds
+
+**Round 1 — NO-GO ×2** (`docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md`,
+commit 79dfa58; both: the certificate's exits, cancellation during a restart
+(`FitCancelled`), V3's unchanged search order and the 0 / 202 notice count
+verified; the Scan_5 answer confirmed):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): `assert_same_fit` accepted distinct minima of a SMALL component — curves on the whole signal's scale, centres on the energy span (A: a 10-count line beside a held 1e6 one, certified at ±0.25 eV; B: two minor lines swapped) | each quantity on its OWN scale: a component's curve against that component's height, its centre against its own half-maximum width; chi2 at the objective's scale (10 × ftol), parameters at 10 × √ftol; a component the fit calls unsupported in both responses is compared by its verdict only (its parameters are undetermined — no magnitude floor). Tests: both counterexamples (the small line relocated 1 eV in a dominant line's tail, invisible on the signal's scale), a 1 %-of-width centre move |
+| 2 | MAJOR (A, B): a NaN or None in a curve compared equal (NaN > tol is false) | non-finite values must sit in the same places, then finite parts are compared; tests for NaN / None / inf in fitted_y, residuals and a component |
+| 3 | MAJOR (B): the battery fixture admitted +0.09 % chi2r and +0.010 eV (chi2 at the parameter tolerance, a centre against the span) | fixture chi2 at 10 × ftol (1e-7; same-minimum presses measured ≤ 8.9e-9), centres at 1e-3 of the component's own FWHM; both injections now fail; stable over 3 separate processes |
+| 4 | MINOR (A): the different-minimum proofs could pass on the seed alone | proofs pin one seed; a rejection must name a fitted quantity and never `random_seed` |
+| 5 | MINOR (B): the note called every changed TR fit "better", incl. Scan_5's basin flip | the note separates the certificate's changes (all to a lower chi2r; final run: 4 TR, 2 LM) from the pre-existing two-solution variability |
+| 6 | MINOR (B): the branch diff "deleted" A1's deploy-log entry (the branch was cut before that commit) | main merged into the branch (no rebase, no force-push) |

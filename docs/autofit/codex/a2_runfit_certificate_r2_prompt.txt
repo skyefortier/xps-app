@@ -1,0 +1,14 @@
+Review unit A2 (the minimum certificate on Run Fit), round 2: branch fix-runfit-certificate, git diff main..HEAD (round-1 fixes: git diff 79dfa58..HEAD — tests/fit_equality.py rewritten, tests/test_fit_equality.py, tests/autofit/test_c1s_parity_battery.py, docs/comms/2026-09-30-run-fit-certificate-note.md, docs/findings/runfit-certificate/README.md "Codex rounds"; main merged in for the deploy log). Round-1 verdicts: docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md; the README's round-1 table lists each finding and its fix. The round-1 prompt (docs/autofit/codex/a2_runfit_certificate_review_prompt.txt) holds the owner's brief and decisions; they still apply, in particular: "the rewritten tests must still FAIL if a fit lands in a different minimum. Use a relative, rounding-scale tolerance, and add one test that proves a genuine minimum change is caught."
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The new assert_same_fit: each quantity on its own scale (a component's curve against its own height, a centre against its own half-maximum width, chi2 at 10 x ftol, aic/bic, parameters at 10 x sqrt(ftol), percentages, bounded parameters); the unsupported-in-both rule (can a real different minimum hide behind it? what if only one response calls a component unsupported?); non-finite handling; the half-maximum width of a negative, asymmetric, flat or zero curve; linked components; scattered-starts alternatives (no curves); anything it still skips. Construct distinct minima it accepts, or identical-minimum presses it would reject (flaky), on the tests' models and on real committed data (docs/findings/runfit-certificate/data holds per-target values).
+b. The proofs: do they now fail only through fitted quantities? Is the small-component construction a real pair of certified minima, invisible at the signal scale?
+c. The battery: chi2 at 1e-7 and centres at 1e-3 x FWHM — could they be flaky across processes (the certificate moves some of these fits onto Trust-Region arithmetic)? Could a real numerics regression still pass?
+d. Everything round 1 verified, against the new commit.
+e. Documents: the note's corrected wording and numbers against the data.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

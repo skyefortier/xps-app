@@ -1,0 +1,17 @@
+# A2 round 1 — run B (commit 79dfa58; codex exec, reasoning high)
+
+1. **MAJOR — distinct minima pass `assert_same_fit`.** [tests/fit_equality.py:69](/Users/skyefortier/xps-app/.claude/worktrees/fix-runfit-certificate/tests/fit_equality.py:69), and line 85. Component curves use the entire spectrum’s signal scale; centres use its entire energy span. I reproduced two actual certified Gaussian fits over 200–400 eV: a 10,000-height component plus two 1-height components at 280.00 and 280.15 eV. Swapping the two minor components produces distinct parameter minima, but the helper accepts them. Their entire curves fit beneath its tolerance. This violates the owner’s explicit different-minimum condition. Compare component changes on component-specific scales and add this counterexample.
+
+2. **MAJOR — invalid curves compare equal to valid curves.** [tests/fit_equality.py:70](/Users/skyefortier/xps-app/.claude/worktrees/fix-runfit-certificate/tests/fit_equality.py:70). Replacing a finite `fitted_y` element with either `NaN` or `None` passes. NumPy converts `None` to NaN; the maximum difference becomes NaN, and `NaN > tolerance` is false. The same hole covers residuals, backgrounds and component curves. Validate finiteness and missing-value correspondence before calculating differences.
+
+3. **MAJOR — the parity fixture now admits measurable numerical regressions.** [tests/autofit/test_c1s_parity_battery.py:147](/Users/skyefortier/xps-app/.claude/worktrees/fix-runfit-certificate/tests/autofit/test_c1s_parity_battery.py:147), and line 159. I injected **+0.09% χ²ᵣ and +0.010 eV centre drift** into Scan_3’s frozen record; the complete test still passed. Listing the four non-minima is honest, but applying the parameter tolerance to χ² and dropping their expert-position checks leaves excessive room around the regenerated fixture. The square-root argument for parameter uncertainty does not justify the same tolerance on the objective. Tighten objective and position comparisons independently.
+
+4. **MINOR — the held note attributes a worse-basin result to improvement.** [docs/comms/2026-09-30-run-fit-certificate-note.md:37](/Users/skyefortier/xps-app/.claude/worktrees/fix-runfit-certificate/docs/comms/2026-09-30-run-fit-certificate-note.md:37). Its five changed V3 Trust-Region targets include Scan_5’s **33.9 → 51.9**, the largest area change, where `certificate.moved` is false. Calling these changes “better” and attributing them to continuation misrepresents the measurements. Separate certificate improvements from the documented basin variability.
+
+5. **MINOR — unrelated deployment history is deleted.** [docs/deploy-log.md:9](/Users/skyefortier/xps-app/.claude/worktrees/fix-runfit-certificate/docs/deploy-log.md:9). The diff removes the entire September 29 A1 deployment entry, including its production verification and known limitations. Restore that entry.
+
+**Scan_5 check: No—the line does not reliably expose the 33.9/51.9 pair.** From 51.9, the documented alternative is 17.26 and 33.9 is missed. It does flag non-uniqueness in both cases.
+
+Validation: **78 Python tests and 72 JS tests passed**, despite the reproduced comparison holes. Cancellation during a certificate restart correctly raised `FitCancelled`; certificate exit probes behaved correctly. V3’s perturb-search ordering appears preserved. The final measurements confirm zero >1 eV notices for either method and the reported LA non-reproducibility. Scan_6’s 50-restart exhaustion fails closed, including the documented no-perturbation path.
+
+**VERDICT: NO-GO**

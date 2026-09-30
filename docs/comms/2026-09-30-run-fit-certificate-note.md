@@ -34,11 +34,17 @@ What you will notice
 
 - Almost nothing, most of the time: on 197 of 202 fits (default method) the
   component areas moved by less than 1 percentage point, typically not at all.
-- On a few multi-component C 1s fits the result is better and different: with
-  the default method areas moved by more than 1 point on 5 of 202 fits, with
-  Levenberg-Marquardt on 2 (the largest, 13 points, reached a clearly better
-  fit: reduced chi-square 21.0 -> 15.5). If you re-run a saved C 1s fit and
-  the areas shift, that is why.
+- On a few multi-component C 1s fits the result is different, and in every
+  such case the finished fit is better (a lower reduced chi-square): with the
+  default method areas moved by more than 1 point on 4 of 202 fits, with
+  Levenberg-Marquardt on 2 (the largest, 13 points: reduced chi-square
+  21.0 -> 15.5). If you re-run a saved C 1s fit and the areas shift, that is
+  why.
+- Separately, and not new: a few C 1s models have two solutions so close in
+  quality that the default method can land in either from one run to the
+  next (on one of our scans the areas differ by 22 points between the two).
+  This happened before this change too; the scattered-starts line is what
+  tells you when it applies to your fit.
 - Five Levenberg-Marquardt fits that used to fail now complete, and the
   scattered-starts line says "did not converge" far less often (30 -> 4 fits).
 - It costs almost no time: a median of well under a tenth of a second per

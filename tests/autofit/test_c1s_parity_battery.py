@@ -36,7 +36,7 @@ import pytest
 
 from autofit.parity import battery_eligible, eval_parity_relmax, refit_record
 from autofit.reference import load_reference_fits
-from fit_equality import SAME_MINIMUM_REL
+from fit_equality import OBJECTIVE_REL, SAME_MINIMUM_REL
 
 REPO = os.path.join(os.path.dirname(__file__), "..", "..")
 DATA = os.path.join(REPO, "docs", "autofit", "test_data")
@@ -47,10 +47,13 @@ CENTER_DRIFT_TOL_EV = 0.005     # measured worst case 2e-4 eV
 REL_DRIFT_TOL = 0.005           # FWHM / amplitude, measured worst case 1e-4
 # Unit A2 (2026-09-29): the refit is certified by Trust-Region restarts, so a
 # refit the certificate moves carries Trust-Region's rounding (measured press
-# to press <= 1.4e-6 relative): the fixture is compared WITHIN ROUNDING, on the
-# scale of tests/fit_equality.py (10 x sqrt(ftol) = 1e-3; a centre to that
-# fraction of the fitted energy span) — owner decision 2026-09-29.
-FIXTURE_CHI_RTOL = SAME_MINIMUM_REL
+# to press, chi2 <= 8.9e-9 relative on the committed targets): the fixture is
+# compared WITHIN ROUNDING on the scales of tests/fit_equality.py — the
+# OBJECTIVE to 10 x ftol (1e-7), parameters to 10 x sqrt(ftol) (1e-3), a
+# centre to that fraction of the component's own width (Codex A2 round 1: a
+# centre against the energy span and chi2 at the parameter scale let an
+# injected +0.09 % chi2 and +0.010 eV pass) — owner decision 2026-09-29.
+FIXTURE_CHI_RTOL = OBJECTIVE_REL
 FIXTURE_PARAM_RTOL = SAME_MINIMUM_REL
 # The certificate showed four saved expert fits are NOT minima (unit A2,
 # docs/findings/runfit-certificate/README.md). The old rule — the seeded
@@ -151,12 +154,11 @@ def test_refit_stability_and_fixture(rf):
     )
     assert rec["success"] == exp["success"], f"{rf.name}: the verdict changed"
     exp_peaks = {str(p["id"]): p for p in exp["peaks"]}
-    span = float(np.ptp(np.asarray(rf.roi_be, float)))
     for pk in rec["peaks"]:
         ep = exp_peaks[str(pk["id"])]
         for field in ("center", "fwhm", "amplitude", "area"):
             if field == "center":
-                close = abs(pk[field] - ep[field]) <= FIXTURE_PARAM_RTOL * span
+                close = abs(pk[field] - ep[field]) <= FIXTURE_PARAM_RTOL * abs(ep["fwhm"])
             else:
                 close = np.isclose(pk[field], ep[field], rtol=FIXTURE_PARAM_RTOL, atol=1e-9)
             assert close, f"{rf.name} peak {pk['id']}: {field} {pk[field]} != frozen {ep[field]}"
