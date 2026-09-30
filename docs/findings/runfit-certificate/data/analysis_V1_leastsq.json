@@ -1,0 +1,230 @@
+{
+ "method": "leastsq",
+ "variant": "V1",
+ "n_both": 202,
+ "success": {
+  "main_true": 197,
+  "after_true": 202,
+  "lost": [],
+  "gained": [
+   [
+    "ef7760dcf9c4",
+    "U4f Scan_4"
+   ],
+   [
+    "533111c6e029",
+    "U4f Scan_5"
+   ],
+   [
+    "058f36221969",
+    "U4f Scan_8"
+   ],
+   [
+    "4afa73305e4c",
+    "U4f Scan_4"
+   ],
+   [
+    "75add21f96ae",
+    "U4f Scan_5"
+   ]
+  ]
+ },
+ "area_pp": {
+  "median": 0.001,
+  "p90": 0.107,
+  "max": 29.565,
+  "over_1pp": 8,
+  "over_0_1pp": 22,
+  "n": 197
+ },
+ "atomic_pp": {
+  "median": 0.001,
+  "p90": 0.133,
+  "max": 30.408,
+  "over_1pp": 8,
+  "over_0_1pp": 22,
+  "n": 197
+ },
+ "chi2r_rel": {
+  "median": -1.0328333985981577e-8,
+  "min": -0.3469552141118535,
+  "max": 0.7018065661923693,
+  "lower_by_1pct": 11,
+  "higher": 2
+ },
+ "sec": {
+  "main_median": 4.22,
+  "after_median": 6.452,
+  "added_median": 1.029,
+  "added_p90": 13.822,
+  "added_max": 69.179,
+  "main_p90": 23.468,
+  "after_p90": 32.94,
+  "main_max": 63.838,
+  "after_max": 87.824,
+  "after_over_60s": 1,
+  "main_over_60s": 1
+ },
+ "certificate": {
+  "moved": 185,
+  "uncertified": 0,
+  "restarts_median": 2,
+  "restarts_max": 8
+ },
+ "support_flips": [],
+ "starts_line": {
+  "changed": 49,
+  "examples": [
+   [
+    "C1s Scan",
+    "2/3 same; 0 in 0 lower; 0 not better; 1 not converged",
+    "→",
+    "2/3 same; 0 in 0 lower; 1 not better; 0 not converged"
+   ],
+   [
+    "C1s Scan_0",
+    "2/3 same; 1 in 1 lower; 0 not better; 0 not converged",
+    "→",
+    "1/3 same; 0 in 0 lower; 2 not better; 0 not converged"
+   ],
+   [
+    "C1s Scan_4",
+    "3/3 same; 0 in 0 lower; 0 not better; 0 not converged",
+    "→",
+    "0/3 same; 0 in 0 lower; 3 not better; 0 not converged"
+   ],
+   [
+    "C1s Scan_1",
+    "2/3 same; 0 in 0 lower; 0 not better; 1 not converged",
+    "→",
+    "2/3 same; 0 in 0 lower; 1 not better; 0 not converged"
+   ],
+   [
+    "C1s Scan_4",
+    "2/3 same; 0 in 0 lower; 0 not better; 1 not converged",
+    "→",
+    "2/3 same; 1 in 1 lower; 0 not better; 0 not converged"
+   ],
+   [
+    "C1s Scan_8",
+    "1/3 same; 0 in 0 lower; 1 not better; 1 not converged",
+    "→",
+    "1/3 same; 0 in 0 lower; 2 not better; 0 not converged"
+   ],
+   [
+    "U4f Scan",
+    "2/3 same; 0 in 0 lower; 0 not better; 1 not converged",
+    "→",
+    "3/3 same; 0 in 0 lower; 0 not better; 0 not converged"
+   ],
+   [
+    "U4f Scan_1",
+    "2/3 same; 0 in 0 lower; 1 not better; 0 not converged",
+    "→",
+    "3/3 same; 0 in 0 lower; 0 not better; 0 not converged"
+   ],
+   [
+    "U4f Scan_3",
+    "2/3 same; 0 in 0 lower; 1 not better; 0 not converged",
+    "→",
+    "3/3 same; 0 in 0 lower; 0 not better; 0 not converged"
+   ],
+   [
+    "U4f Scan_4",
+    "1/3 same; 0 in 0 lower; 1 not better; 1 not converged",
+    "→",
+    "3/3 same; 0 in 0 lower; 0 not better; 0 not converged"
+   ],
+   [
+    "U4f Scan_5",
+    "2/3 same; 0 in 0 lower; 1 not better; 0 not converged",
+    "→",
+    "3/3 same; 0 in 0 lower; 0 not better; 0 not converged"
+   ],
+   [
+    "U4f Scan_8",
+    "1/3 same; 0 in 0 lower; 1 not better; 1 not converged",
+    "→",
+    "3/3 same; 0 in 0 lower; 0 not better; 0 not converged"
+   ]
+  ],
+  "alt_main": 7,
+  "alt_after": 6,
+  "failed_main": 30,
+  "failed_after": 4
+ },
+ "worst_area": [
+  [
+   29.565,
+   "7205f2094254",
+   "8-JT Graphite.proj.zip",
+   "C1s Scan_7",
+   "Graphite",
+   21.02,
+   35.772
+  ],
+  [
+   28.431,
+   "56d1cb170a80",
+   "8-JT Graphite.proj.zip",
+   "C1s Scan_8",
+   "Graphite",
+   35.545,
+   32.348
+  ],
+  [
+   26.014,
+   "e547e4647e85",
+   "8-JT Graphite.proj.zip",
+   "C1s Scan_3",
+   "Graphite",
+   26.906,
+   25.857
+  ],
+  [
+   21.914,
+   "d3f78df20301",
+   "8-JT Graphite.proj.zip",
+   "C1s Scan_5",
+   "Adventitious 2",
+   51.907,
+   33.898
+  ],
+  [
+   11.652,
+   "14b636ea6af7",
+   "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "C1s Scan_4",
+   "Adventitious 2",
+   3.983,
+   3.443
+  ],
+  [
+   10.824,
+   "adb8e03c67d1",
+   "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "C1s Scan_0",
+   "Adventitious 3",
+   4.617,
+   3.815
+  ],
+  [
+   10.64,
+   "3081b83af679",
+   "Cl2p_projfit_test.proj.zip",
+   "C1s Scan_4",
+   "Graphite",
+   4.308,
+   5.291
+  ],
+  [
+   1.008,
+   "6d5a6bd78f91",
+   "8-JT Graphite.proj.zip",
+   "C1s Scan_8",
+   "Graphite",
+   4.739,
+   4.554
+  ]
+ ]
+}

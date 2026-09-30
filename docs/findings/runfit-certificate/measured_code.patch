@@ -1,0 +1,181 @@
+diff --git a/fitting.py b/fitting.py
+index 6b8f511..95f86a1 100644
+--- a/fitting.py
++++ b/fitting.py
+@@ -23,6 +23,7 @@ Spin‑orbit constraints are handled via lmfit parameter expressions.
+ from __future__ import annotations
+ 
+ import hashlib
++import inspect
+ import json
+ import logging
+ import re
+@@ -34,6 +35,7 @@ from typing import Any
+ import numpy as np
+ from lmfit import Model, Parameters
+ from scipy.integrate import trapezoid
++from scipy.optimize import least_squares as _scipy_least_squares
+ 
+ log = logging.getLogger(__name__)
+ 
+@@ -1213,6 +1215,82 @@ def _basinhopping_candidate(model, params, requested, y_sub, x, weights, kws):
+     return candidate
+ 
+ 
++# ── The minimum certificate (unit A2, 2026-09-29; owner-accepted in A1) ─────
++# A local fit's success flag says only that its optimiser stopped by its own
++# rule; the scope check (docs/findings/fit-termination-scope/) found the fit
++# returned to the student short of its minimum on 8 of 202 committed targets
++# with Trust-Region and 32 of 196 with Levenberg-Marquardt, and perturbed
++# restarts and scattered starts "succeeding" > 10 % short by the hundred. The
++# verdict is instead: restart Trust-Region from the end point, and again from
++# each point that restart improves, until a restart improves chi-square by less
++# than Trust-Region's OWN stopping tolerance (scipy's ftol default, read from
++# its signature: relative, so scale-free, and no new constant). Out of restarts,
++# a non-finite or raising restart = not converged. A restart cut off by its
++# evaluation cap (lmfit's ``aborted``) is no verdict: if it lowered chi-square
++# the next restart continues from there, otherwise the fit is not converged.
++# The point returned is the one the final restart CERTIFIED — the fit itself
++# when it was already at its minimum, so a Levenberg-Marquardt fit that reached
++# it is returned byte-identical (its values, sigma and message). Trust-Region
++# restarts, not the student's method: a Levenberg-Marquardt restart from a
++# stall point reproduces the stall (the warm restart A1 removed). Find Peaks
++# has the same rule (autofit.engine._certify_minimum), which keeps the
++# restart's point instead — immaterial there, and deployed as reviewed.
++CERTIFY_FTOL = float(inspect.signature(_scipy_least_squares).parameters["ftol"].default)
++CERTIFY_MAX_RESTARTS = 50        # a count: A1 measured 1-21 restarts on 208 real fits
++_CERTIFY_PERTURBED = True       # MEASUREMENT SWITCH (A2 variants V1 / V2) — decided before review
++_CERTIFIED_METHODS = ("leastsq", "least_squares", "nelder")   # the local methods; DE / basinhopping end in their own refinement
++
++
++def _certify_fit(model, result, y_sub, x, weights, nan_policy, max_nfev=None):
++    """(point, certified, restarts, why) — see the block comment above. A
++    caller's ``max_nfev`` limits each restart too (a restart it cuts off is
++    no verdict), so the certificate never exceeds a limit the request set."""
++    cap = {} if max_nfev is None else {"max_nfev": max_nfev}
++    def chi_of(r):
++        return float(r.chisqr) if r.chisqr is not None else float("nan")
++    current, chi = result, chi_of(result)
++    if not np.isfinite(chi):
++        return current, False, 0, "the fit's chi-square is not finite"
++    for k in range(1, CERTIFY_MAX_RESTARTS + 1):
++        try:
++            r = model.fit(y_sub, current.params.copy(), x=x, weights=weights,
++                          method="least_squares", nan_policy=nan_policy, **cap, **_cancel_kw())
++        except Exception as exc:
++            log.debug("certificate restart raised", exc_info=True)
++            return current, False, k, f"a restart from the end point failed ({type(exc).__name__})"
++        new = chi_of(r)
++        if not np.isfinite(new):
++            return current, False, k, "a restart from the end point gave a non-finite chi-square"
++        if getattr(r, "aborted", False):
++            if new < chi:
++                current, chi = r, new
++                continue
++            return current, False, k, "a restart from the end point was cut off by its evaluation limit"
++        improvement = (chi - new) / chi if chi > 0 else 0.0
++        if improvement < CERTIFY_FTOL:
++            return current, True, k, ""
++        current, chi = r, new
++    return current, False, CERTIFY_MAX_RESTARTS, (
++        f"restarting from where it stopped still lowered chi-square after {CERTIFY_MAX_RESTARTS} restarts")
++
++
++def _certified(model, result, y_sub, x, weights, kws):
++    """``result`` judged by the certificate: the certified point, with
++    ``success`` = the verdict and ``certificate`` = what it took."""
++    flagged, flag_message = bool(result.success), result.message
++    point, ok, restarts, why = _certify_fit(model, result, y_sub, x, weights, kws.get("nan_policy", "omit"),
++                                            kws.get("max_nfev"))
++    point.success = bool(ok)
++    point.certificate = {"certified": bool(ok), "restarts": int(restarts), "moved": point is not result,
++                         "optimiser_flag": flagged}
++    if not ok:
++        point.message = "The fit did not reach a minimum: " + why + "."
++    elif point is not result or not flagged:
++        point.message = ("Reached a minimum (checked by restarting from the end point); the optimiser itself "
++                         "had stopped with: " + str(flag_message))
++    return point
++
++
+ _FIT_METHODS = ("leastsq", "least_squares", "nelder", "differential_evolution", "basinhopping")
+ _STOCHASTIC_METHODS = ("differential_evolution", "basinhopping")
+ 
+@@ -1784,14 +1862,20 @@ def _run_fit_impl(
+     # scattered starts and the required-component refit go through it too.
+     requested_bounds = {name: (par.min, par.max) for name, par in all_params.items()}
+ 
+-    def fit_model(model, params):
++    def fit_model(model, params, certify=True):
+         if kws.get("method") == "differential_evolution":
+             bounds = {name: requested_bounds.get(name, (par.min, par.max)) for name, par in params.items()}
+             return _global_or_local_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
+         if kws.get("method") == "basinhopping":
+             bounds = {name: requested_bounds.get(name, (par.min, par.max)) for name, par in params.items()}
+             return _basinhopping_candidate(model, params, bounds, y_sub, x, weights, seeded(kws))
+-        return model.fit(y_sub, params, x=x, weights=weights, **seeded(kws), **_cancel_kw())
++        fitted = model.fit(y_sub, params, x=x, weights=weights, **seeded(kws), **_cancel_kw())
++        if certify and kws.get("method") in _CERTIFIED_METHODS:
++            # every local candidate — the fit, each perturbed restart, each
++            # scattered start, the required-component refit — is judged by
++            # the certificate, never by the optimiser's flag (unit A2)
++            fitted = _certified(model, fitted, y_sub, x, weights, kws)
++        return fitted
+ 
+     def fit_once(params):
+         return fit_model(composite_model, params)
+@@ -1851,7 +1935,7 @@ def _run_fit_impl(
+                     perturbed_params[pname].set(value=rng.uniform(0.001, 0.05))
+ 
+             try:
+-                trial = fit_once(perturbed_params)
++                trial = fit_model(composite_model, perturbed_params, certify=_CERTIFY_PERTURBED)
+                 trial_redchi = trial.redchi if trial.redchi is not None else float('inf')
+                 log.debug("  PERTURB %d/%d  redchi=%.4f  (best=%.4f)",
+                           attempt + 1, n_perturb, trial_redchi, best_redchi)
+@@ -1872,6 +1956,8 @@ def _run_fit_impl(
+             log.debug("═══ PERTURB IMPROVED FIT ═══  redchi: %.4f → %.4f",
+                       result.redchi, best_redchi)
+             result = best_result
++            if not _CERTIFY_PERTURBED and kws.get("method") in _CERTIFIED_METHODS:
++                result = _certified(composite_model, result, y_sub, x, weights, kws)
+ 
+     # ── Scattered starts (never changes `result`) ────────────────────────────
+     starts = None
+@@ -2051,6 +2137,9 @@ def _run_fit_impl(
+         "random_seed": random_seed,
+         "starts": starts,
+         "required": required,
++        # the returned fit's certificate (unit A2): None for differential
++        # evolution / basinhopping, whose verdict is their own refinement
++        "certificate": getattr(result, "certificate", None),
+     }
+ 
+ 
+diff --git a/tests/test_component_required.py b/tests/test_component_required.py
+index e48cac4..b90b8f0 100644
+--- a/tests/test_component_required.py
++++ b/tests/test_component_required.py
+@@ -99,8 +99,20 @@ def test_the_fit_itself_is_unchanged_by_the_check():
+     kw = {**KW, "fit_kws": {"method": "leastsq"}}
+     a = fitting.run_fit(X, y, specs, **kw)
+     b = fitting.run_fit(X, y, specs, require_component="1", **kw)
+-    strip = lambda r: json.dumps({k: v for k, v in r.items() if k != "required"}, sort_keys=True)  # noqa: E731
+-    assert strip(a) == strip(b) and a["required"] is None and b["required"]["ran"] is True
++    assert a["required"] is None and b["required"]["ran"] is True
++    # Unit A2: the certificate's Trust-Region restarts carry Trust-Region's
++    # arithmetic jitter (BLAS alignment; owner decision 2026-09-21) into a fit
++    # they move, and on these noise-free data they move it every time, so two
++    # identical requests are equal to rounding, not byte-for-byte. The check
++    # still adds a report only: same structure, same values to rounding.
++    strip = lambda r: {k: v for k, v in r.items() if k not in ("required", "certificate", "message")}  # noqa: E731
++    sa, sb = strip(a), strip(b)
++    assert sa.keys() == sb.keys() and a["success"] is b["success"] is True
++    for pa, pb in zip(a["individual_peaks"], b["individual_peaks"]):
++        assert pa["id"] == pb["id"] and pa["params"].keys() == pb["params"].keys()
++        for k in pa["params"]:
++            assert pb["params"][k]["value"] == pytest.approx(pa["params"][k]["value"], rel=1e-6, abs=1e-9)
++    assert np.allclose(a["fitted_y"], b["fitted_y"], rtol=1e-9, atol=0)
+ 
+ 
+ def _linked(pid, master, offset):
