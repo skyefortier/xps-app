@@ -386,7 +386,7 @@ def shirley_background(
         end sample otherwise sets a whole edge level), so the integral is taken
         over that modified spectrum. smart_experimental_background reads only the
         edge LEVELS from the averaged ends and integrates the measured data —
-        two readings of one setting; <= 0.32 % of net area on the 13 committed
+        two readings of one setting; <= 0.33 % of net area on the 13 committed
         spectra with n_avg > 1 (findings F1).
       * the stop is an absolute 1e-6 change in intensity units, not relative to
         the data, with at most ``n_iter`` iterations (findings F5; negligible on
@@ -493,6 +493,8 @@ def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     raises the high-BE side; both end points lie on background. The RAW end
     points are used (no endpoint averaging): one noisy end sample tilts the
     whole line. Exact to rounding (tests/test_background_defining_statements.py).
+    When the two end energies are equal the line is undefined and the flat
+    I_first is returned.
     """
     slope = (y[-1] - y[0]) / (x[-1] - x[0]) if x[-1] != x[0] else 0.0
     return y[0] + slope * (x - x[0])
@@ -576,9 +578,13 @@ def shirley_linear_background(
 
     DEFINING STATEMENT (what it solves; Codex round 1 corrected an earlier
     "none"): B = min(L + d (1 - F(B)), I), L the line between the averaged edge
-    levels, d = |b_low - b_high|, F(B) the cumulative fraction of max(I - B, 0)
-    counted from the low-BE edge (measured: satisfied to 3.3e-11 of the span on
-    every committed spectrum). The unclamped curve meets the high-BE level, but
+    levels AFFINE IN THE POINT INDEX (np.linspace; affine in energy only on a
+    uniform grid), d = |b_low - b_high|, F(B) the cumulative fraction of
+    max(I - B, 0) counted from the low-BE edge (measured: satisfied to 3.3e-11 of
+    the span on every committed spectrum). Not covered by that equation (Codex
+    round 2): equal edge levels (d below an absolute 1e-12) return L itself,
+    UNCLAMPED — above the data wherever it dips below the line — and the
+    iteration stops early if the net integral is not positive. The unclamped curve meets the high-BE level, but
     its step is LARGEST AT THE LOW-BE EDGE and shrinks as net signal accumulates
     toward higher BE — the reverse of inelastic scattering, whose background
     grows with the signal at lower BE — and it sits d above the low-BE level
@@ -649,9 +655,12 @@ def tougaard_background(
         K(T) = T / (C + T^2)^2,   C = 1643 eV^2,
 
     with lam fixed by B(E_high) = J(E_high) (no primary signal at the high-BE
-    edge). Explicit in J — one pass, no iteration. Undefined when the loss
-    integral at the high-BE edge is zero (lam has no value; the flat C0 is
-    returned and the anchor is not met — e.g. a two-point window). Measured on
+    edge). Explicit in J — one pass, no iteration. When the discrete loss sum
+    at the high-BE edge is zero (the sampled quadrature: a two-point window has
+    no term with T > 0, although the continuum integral of the interpolated data
+    would not vanish) the anchor does not fix lam: the flat C0 returned then
+    solves the statement for every lam if J(E_high) = C0, and no solution exists
+    if J(E_high) != C0 — the anchor is missed (findings F11). Measured on
     the committed spectra, against an independent evaluation: equal to the
     discrete sum to <= 1e-13 of the span, the anchor met exactly, within 1e-5 of
     the span of the integral on a 10x finer grid.

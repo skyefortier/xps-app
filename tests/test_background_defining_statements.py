@@ -235,11 +235,15 @@ def test_tougaard_solves_its_integral_relation_and_meets_its_anchor():
         assert np.max(np.abs(Bt - D.tougaard_refined(x, y, ep, "data"))) / sp < 1e-5
 
 
-def test_FINDING_tougaard_has_no_solution_when_the_loss_integral_vanishes():
-    # lam is undefined; production returns the flat C0, which misses the high-BE anchor
+def test_FINDING_tougaard_when_the_discrete_loss_sum_vanishes():
+    # Codex round 2: a two-point window has no term with T > 0, so the anchor does not fix lam.
+    # Unequal anchor levels: no solution; production's flat C0 misses the high-BE anchor.
     E, I = np.array([0.0, 1.0]), np.array([10.0, 20.0])
     assert D.tougaard_statement(E, I) is None
     assert np.array_equal(fitting.tougaard_background(E, I), [10.0, 10.0])
+    # Equal levels: every lam solves it, and production's flat C0 is a solution
+    E, I = np.array([0.0, 1.0]), np.array([10.0, 10.0])
+    assert np.array_equal(fitting.tougaard_background(E, I), D.tougaard_statement(E, I))
 
 
 def test_FINDING_the_kernel_shape_matters_on_the_wider_windows():
@@ -273,3 +277,37 @@ def test_FINDING_shirley_linear_solves_a_reversed_step_that_misses_the_low_edge(
         assert r < ROUND and hi < ROUND
         lows.append(lo); clamped.append(cf)
     assert np.median(lows) > 0.01 and np.median(clamped) > 0.3
+
+
+def test_FINDING_shirley_linear_equal_edge_levels_return_the_line_unclamped():
+    # Codex round 2: equal edge levels skip the equation and the clamp; the equation's answer
+    # here is min(L, I) = [10, 10, 5, 10, 10] (d = 0), production returns a flat 10 above the data
+    E, I = np.arange(5.0), np.array([10.0, 15.0, 5.0, 15.0, 10.0])
+    B = fitting.shirley_linear_background(E, I)
+    assert np.array_equal(B, [10.0] * 5)
+    assert D.shirley_linear_residual(E, I, np.minimum(B, I))[0] < ROUND
+    assert D.shirley_linear_residual(E, I, B)[0] == pytest.approx(0.5)
+
+
+def test_shirley_linear_line_is_affine_in_index_not_energy():
+    # Codex round 2: on a non-uniform grid the implementation's L is np.linspace (by index);
+    # the statement is satisfied with that L, and an energy-affine L would differ by ~4.5 %
+    E, I = np.array([0.0, 0.1, 0.2, 2.0, 4.0]), np.array([10.0, 20.0, 30.0, 25.0, 12.0])
+    B = fitting.shirley_linear_background(E, I)
+    assert D.shirley_linear_residual(E, I, B)[0] < ROUND
+    by_index = np.linspace(I[0], I[-1], len(I))
+    by_energy = I[0] + (I[-1] - I[0]) * (E - E[0]) / (E[-1] - E[0])
+    assert np.max(np.abs(by_index - by_energy)) / D.span_of(I) > 0.04
+
+
+def test_degenerate_windows():
+    # README "Degenerate windows": fewer than two points give zeros; equal end energies give
+    # the flat first intensity for linear; averaging reads at most n // 4 points per edge
+    one = (np.array([1.0]), np.array([5.0]))
+    for f in (fitting.shirley_background, fitting.smart_background, fitting.smart_experimental_background,
+              fitting.shirley_linear_background, fitting.tougaard_background):
+        assert np.array_equal(f(*one), [0.0])
+    assert np.array_equal(fitting.linear_background(np.array([2.0, 2.0]), np.array([3.0, 7.0])), [3.0, 3.0])
+    assert D.band(8, 10) == 2 and D.band(3, 10) == 1
+    y = np.arange(8.0)
+    assert np.array_equal(fitting._apply_endpoint_averaging(y, 10), [0.5, 0.5, 2, 3, 4, 5, 6.5, 6.5])

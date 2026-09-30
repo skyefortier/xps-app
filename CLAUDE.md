@@ -875,14 +875,16 @@ endpoint averaging, on all 121 committed spectra, never by resemblance to anothe
 program: `shirley` B = T(B), T the Shirley relation's right-hand side over the
 positive net signal (the relation can have SEVERAL solutions — exact
 counterexamples in the tests — and the iteration returns the one reached from the
-edge-to-edge line); `smart` and `smart_exp` the constrained problem
+edge-to-edge line); `smart_exp`, and `smart` at n_avg = 1, the constrained problem
 B = min(T(B), I) (clamping a Shirley solution gives a constrained solution,
 because s(min(B, I)) = s(B); at n_avg = 1 the two returned the same background on
 every committed spectrum); `linear` affine in energy through the end points;
 `tougaard` the loss-integral relation over the end-averaged data with a constant
 below-window level and the high-BE anchor; `manual` piecewise-affine through the
-anchors; `shirley_linear` B = min(L + d(1 − F(B)), I) — a REVERSED step (largest at
-the low-BE edge), no physical basis, and it should not return to the menu.
+anchors; `shirley_linear` B = min(L + d(1 − F(B)), I), L affine in index — a REVERSED
+step (largest at the low-BE edge), no physical basis, and it should not return to the
+menu (equal edge levels return L unclamped; the page's twin solves it only on
+ascending grids).
 Reported, not implemented (owner decisions): endpoint averaging is read two ways
 (`shirley`, `smart`'s integrand and `tougaard` average the DATA, `smart_exp` only
 the edge levels; `smart` at n_avg > 1 then satisfies neither reading; ≤ 0.33 % of

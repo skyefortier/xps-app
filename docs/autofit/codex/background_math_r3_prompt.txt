@@ -1,0 +1,15 @@
+Review the "background math foundation" findings, round 3: branch bg-math-foundation, git diff main..HEAD; the round-2 fixes are git diff 4af19e7..HEAD — docs/findings/background-math/README.md (F2's signed-integrand inference withdrawn and averaging 10 re-measured for both methods; shirley_linear's index-affine L, its equal-edge-level exception and the page twin's ascending-only behaviour; F11 split into "no solution" and "λ undetermined"; the round-2 table at the end), the docstrings in fitting.py, the page's shirleyLinearBackground comment and the two Smart tooltips in templates/index.html, CLAUDE.md, scripts/background_defining_statements.py (tougaard_statement's vanishing-sum case), tests/test_background_defining_statements.py (26), the new tests/js/shirley_linear_statement.test.js. Round-2 verdicts: docs/autofit/codex/background_math_r2_verdict_run{A,B}.md; round 1: background_math_verdict_run{A,B}.md; the owner's brief and the round-1 attack list: background_math_review_prompt.txt.
+
+Confirm that NO fitted number changed (fitting.py's executable AST identical to main's; index.html differs only in comments and tooltip text).
+
+Read-only. Be adversarial — about the MATH and the MEASUREMENTS. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Every round-2 finding: is its fix real and complete, everywhere the claim appears (README, docstrings, page comments, tooltips, CLAUDE.md, tests)?
+b. Any remaining executable branch of any method (early returns, iteration caps, absolute thresholds, the n_avg cap at n // 4, grid direction, repeated energies) that its stated defining statement does not cover — state each or show it is covered.
+c. Every number in the README, docstrings, tooltips and CLAUDE.md against data/measure.jsonl, the tests and a rerun of the Monte Carlo (e.g. averaging 10 at step 4000: unconstrained +1.43 % ± 0.06, constrained +2.40 % ± 0.05).
+d. Anything overclaimed, any number that changed, any statement defended by resemblance to another program.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

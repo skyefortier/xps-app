@@ -153,7 +153,8 @@ def net_area(x, y, B):
 
 def shirley_linear_residual(x, y, B, n_avg=1):
     """Its statement (Codex round 1): B = min(L + d (1 - F(B)), I), L the line between the
-    averaged edge levels, d = |b_low - b_high|, F the cumulative fraction of max(I - B, 0)
+    averaged edge levels AFFINE IN THE POINT INDEX (as the implementation draws it; Codex
+    round 2), d = |b_low - b_high|, F the cumulative fraction of max(I - B, 0)
     from the low-BE edge. Returns (residual, low-edge excess of the unclamped curve / span,
     high-edge mismatch of the unclamped curve / span, fraction clamped)."""
     flip, (xa, ya, Ba) = ascending(x, y, B)
@@ -228,11 +229,13 @@ def tougaard_loss(x, y, n_avg=1, how="data", kernel=None):
 
 
 def tougaard_statement(x, y, n_avg=1, how="data", kernel=None):
-    """The Tougaard statement's solution (None when the loss integral at the high-BE edge is
-    zero: lam is then undefined — production returns the flat C0 there)."""
+    """The Tougaard statement's solution. When the discrete loss sum at the high-BE edge is
+    zero the anchor does not fix lam (Codex round 2): with equal anchor levels (D_high = C0)
+    the flat C0 solves the statement for every lam and is returned; with unequal levels there
+    is no solution and None is returned."""
     loss, xa, D, c0, dhi, flip = tougaard_loss(x, y, n_avg, how, kernel)
     if loss[0] == 0.0:
-        return None
+        return np.full(len(xa), c0) if dhi == c0 else None
     out = c0 + loss * ((dhi - c0) / loss[0])
     return out[::-1] if flip else out
 

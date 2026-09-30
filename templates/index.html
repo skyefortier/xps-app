@@ -1999,8 +1999,8 @@
               <label>Type</label>
               <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
                 <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra.">Shirley (iterative)</option>
-                <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them. The constraint assumes net intensity is non-negative; on noisy data it binds on noise dips and lowers the background slightly (net areas a little high).">Smart (constrained Shirley)</option>
-                <option value="smart_exp" data-tip="The same constrained Shirley problem as Smart, solved directly (the constraint inside the iteration). With endpoint averaging above 1 it averages only the edge levels, not the data itself; at an averaging of 1 it has given the same background as Smart on every spectrum tested.">Smart (experimental)</option>
+                <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them. The constraint assumes net intensity is non-negative; on noisy data it binds on noise dips and lowers the background slightly (net areas a little high). With endpoint averaging above 1 it integrates the averaged data but clamps against the measured data, so it solves the constrained problem exactly under neither reading (up to about 0.1 % of the span on the spectra tested).">Smart (constrained Shirley)</option>
+                <option value="smart_exp" data-tip="The constrained Shirley problem, solved directly (the constraint inside the iteration). With endpoint averaging above 1 it averages only the edge levels, not the data itself; at an averaging of 1 it has given the same background as Smart on every spectrum tested.">Smart (experimental)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
                 <!-- De-listed 2026-09-03 pending scientific review (task-4 parity
                      report: the JS preview of this method diverges 27-33 % of span
@@ -4625,11 +4625,15 @@ function _applyEndpointAveraging(intensity, nAvg) {
   return out;
 }
 
-// A REVERSED-STEP background (fitting.shirley_linear_background's docstring): it
-// solves B = min(L + d(1 - F(B)), I) — a line plus a step that is largest at the
-// LOW-BE edge, the reverse of inelastic scattering, sitting d above the low-BE level
-// there. De-listed; kept so saved files restore. Completely standalone — does not
-// call shirleyBackground.
+// A REVERSED-STEP background (fitting.shirley_linear_background's docstring). On an
+// ASCENDING grid it solves the server's B = min(L + d(1 - F(B)), I) — a line (affine
+// in index) plus a step that is largest at the LOW-BE edge, the reverse of inelastic
+// scattering. It does NOT reverse a descending grid (the usual XPS order), so there
+// it accumulates from the other edge and draws a different curve from the server's
+// (Codex round 2: 7.6 % of the span on a 5-point example; the pinned page / server
+// gap; tests/js/shirley_linear_statement.test.js). Equal edge levels return the line
+// unclamped. De-listed; kept so saved files restore. Completely standalone — does
+// not call shirleyBackground.
 function shirleyLinearBackground(be, intensity, maxIter, nAvg) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
