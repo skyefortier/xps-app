@@ -48,6 +48,7 @@ jobs:
       # running while Find Peaks is archived (owner, 2026-09-30). Several tests
       # call the Python backend through `python3` (the interpreter set up above).
       - uses: actions/setup-node@v4
+        if: always()
         with:
           node-version: "22"
       - name: JS suite (node --test)
@@ -57,7 +58,7 @@ jobs:
           node --test tests/js/*.test.js 2>&1 | tee js.log
       - name: JS guard (no silent shrink, no failure, no cancellation)
         if: always()
-        run: python scripts/ci_check_node_tap.py js.log --min-tests 500
+        run: python scripts/ci_check_node_tap.py js.log --min-passed 500 --max-skipped 0 --max-todo 2
 
   required-gates:
     runs-on: ubuntu-latest
