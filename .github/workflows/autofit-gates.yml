@@ -55,10 +55,10 @@ jobs:
         if: always()
         run: |
           set -o pipefail
-          node --test tests/js/*.test.js 2>&1 | tee js.log
+          node --test --test-reporter=tap tests/js/*.test.js 2>&1 | tee js.log
       - name: JS guard (no silent shrink, no failure, no cancellation)
         if: always()
-        run: python scripts/ci_check_node_tap.py js.log --min-passed 500 --max-skipped 0 --max-todo 2
+        run: python scripts/ci_check_node_tap.py js.log --min-passed 508 --max-todo 2
 
   required-gates:
     runs-on: ubuntu-latest

@@ -78,3 +78,20 @@ Unit B range and the invariance claim match their sources; round 1's checks hold
 | # | finding | fix |
 |---|---|---|
 | 1 | MAJOR (A, B): the guard counted `# tests`, which includes skipped tests: 510 skipped, 0 passed exited 0; a truncated log with only `# tests` passed too | the guard requires the complete summary, a floor on PASSED tests (500), 0 skipped, at most the 2 documented todos, no failure or cancellation, and counts that add up; `setup-node` runs `if: always()`; `tests/test_ci_check_node_tap.py` pins every case (fully skipped, shrunk, failed, cancelled, extra todo, mismatched counts, truncated) |
+
+**Round 3 — NO-GO ×2** (`archive_find_peaks_r3_verdict_run{A,B}.md`, commit
+312396a; both: the archive test fails on main; every committed guard scenario
+returns its expected status; node version, glob, `always()`, dependencies and
+fixtures suit CI; runtime HTML equivalent to main's apart from comments and the
+removed button; backend, serialisation and shared fitting code unchanged; the
+Unit B rationale matches its record):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): Node 22 leaves a skipped `describe` SUITE out of `# skipped` — the archive test wrapped in `describe.skip` beside 504 passes gave node exit 0, guard exit 0 | the guard reads the TAP STREAM (`--test-reporter=tap`): any `# SKIP` directive on a test or suite line at any nesting level fails it, whatever the summary says |
+| 2 | MINOR (A, B): the guard kept the last value PER FIELD, so a green summary followed by a partial one, or a failed run followed by a green one, passed | exactly one `TAP version` header and exactly one complete, contiguous summary block after the last test line; anything else fails. `tests/test_ci_check_node_tap.py` now runs REAL node for every case (green, skipped suite, nested skip, everything skipped, failure, too many todos, too few passes, crash before the summary, concatenated runs, trailing partial summary); the round-2 guard fails the skipped-suite and concatenation cases, this one passes all nine |
+
+Also in this round (found while fixing, not raised by Codex): the pass floor was
+500 against 508 passing, so the archive file's four tests could stop registering
+with CI still green. The workflow's floor is now the current pass count, 508
+(raise it when tests are added; a lower count fails).
