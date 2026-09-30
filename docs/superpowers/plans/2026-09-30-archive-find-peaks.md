@@ -130,3 +130,13 @@ summaries, concatenation, truncation and a misplaced summary rejected even besid
 |---|---|---|
 | 1 | MAJOR (B): the reporter wrote `d.skip \|\| false`, so an EMPTY skip reason (`{ skip: '' }`, which node reports as `# SKIP`) became `false`; node leaves skipped suites out of its counters, so an empty skipped suite passed every reconciliation | a directive is PRESENT when node sets the field at all (`directive(d, key)`), whatever its reason; the same for todo. Pinned: an empty-reason skipped suite, an empty-reason skipped test, empty-reason todos over the bound |
 | 2 | MINOR (A): the splice tests shared one roster, so the green run was checked against the failing run's files and every splice failed for the wrong reason | each run carries its own roster (`Run.files`); spliced logs name theirs explicitly; each test asserts its unaltered baseline passes |
+
+**Round 7 — GO ×2, no findings** (`archive_find_peaks_r7_verdict_run{A,B}.md`,
+commit 900c0c7): the round-6 fixes hold; adversarial node runs (skips at every
+nesting with any reason, empty files, early exits, load / hook failures,
+timeouts, cancellations, late errors, truncation, concatenation, deleted or
+duplicated records) are rejected even beside 508 genuine passes; a 508-pass /
+2-todo run passes and losing one pass fails; runtime HTML equivalent to main
+apart from comments and the removed button; backend, serialisation and shared
+Run Fit infrastructure unchanged; no launch or cached-result / provenance path.
+Ready for the owner's deploy decision.
