@@ -5,6 +5,10 @@
 // guard reads these STRUCTURED events — skip, todo, suite / test and failure are
 // node's own fields — never the TAP text, where a test name can carry an escaped
 // "# SKIP" or "# TODO" (Codex archive round 4).
+// A directive is present when node sets the field at all: its value is true or the
+// reason, and an EMPTY reason ('') is still a skip / todo (Codex archive round 6).
+function directive(d, key) { return key in d && d[key] !== undefined && d[key] !== false; }
+
 export default async function* ciEvents(source) {
   yield JSON.stringify({ type: 'start' }) + '\n';
   for await (const e of source) {
@@ -12,7 +16,7 @@ export default async function* ciEvents(source) {
     if (e.type === 'test:pass' || e.type === 'test:fail') {
       yield JSON.stringify({
         type: e.type, name: d.name, nesting: d.nesting, file: d.file,
-        kind: d.details && d.details.type, skip: d.skip || false, todo: d.todo || false,
+        kind: d.details && d.details.type, skip: directive(d, 'skip'), todo: directive(d, 'todo'),
         failureType: (d.details && d.details.error && d.details.error.failureType) || null,
       }) + '\n';
     } else if (e.type === 'test:summary') {

@@ -119,3 +119,14 @@ todos, nothing machine-dependent; implementation unchanged):
 |---|---|---|
 | 1 | MAJOR (A, B): a file whose process exits before its tests run (or an empty file, or one defining no test) gets a SYNTHETIC pass from node under the file's name, which the guard counted: 507 real passes + that = 508, node and guard exit 0 | the reporter keeps each file's own summary, which node emits only for a file that ran to completion; the guard takes `--expect-files` (the glob node runs) and requires exactly one clean summary per expected file, refuses a result from a file without one, and counts passes only from completed files |
 | 2 | MINOR (A): only `passed` was reconciled with the summary; deleting a todo or a suite result line passed | every counter (tests, passed, todo, suites, topLevel) of every file summary and of the run summary is reconciled with the results, and the run summary must be the last event before `end`. `tests/test_ci_check_node_events.py` (21): the four no-completion files beside a file that alone meets the floor, an expected file absent, deleted todo / suite lines, a misplaced summary |
+
+**Round 6 — run A GO, run B NO-GO** (`archive_find_peaks_r6_verdict_run{A,B}.md`,
+commit c6358d9; both: early exits, empty files, load / hook failures, timeouts,
+cancellations, late errors, nested skips, deleted / duplicated results and file
+summaries, concatenation, truncation and a misplaced summary rejected even beside
+508 genuine passes; the real stream passes; implementation unchanged):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B): the reporter wrote `d.skip \|\| false`, so an EMPTY skip reason (`{ skip: '' }`, which node reports as `# SKIP`) became `false`; node leaves skipped suites out of its counters, so an empty skipped suite passed every reconciliation | a directive is PRESENT when node sets the field at all (`directive(d, key)`), whatever its reason; the same for todo. Pinned: an empty-reason skipped suite, an empty-reason skipped test, empty-reason todos over the bound |
+| 2 | MINOR (A): the splice tests shared one roster, so the green run was checked against the failing run's files and every splice failed for the wrong reason | each run carries its own roster (`Run.files`); spliced logs name theirs explicitly; each test asserts its unaltered baseline passes |
