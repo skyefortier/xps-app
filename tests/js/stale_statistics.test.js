@@ -71,7 +71,7 @@ function sandbox({ liveKey = 'K1' } = {}) {
     const _peakArea = p => p.amplitude;
     const _isUnsupported = () => false;
     const _unsupportedBadge = () => '';
-    const _startsPanelHtml = () => '';
+    const _startsPanelHtml = () => '', _certificateNoticeHtml = () => '';
     const renderQuantify = (a, t) => { env.quantified = [a, t]; };
     const getROIData = () => ({ be: [1, 2, 3] });
     const getPeak = id => state.peaks.find(p => p.id === id);
@@ -220,7 +220,7 @@ function exportSandbox(liveKey, fr) {
     const _isUnsupported = () => false, _currentSupport = () => null;
     const _isLocalFit = () => false, _isUnweightedLocal = () => false, _localFitCaveat = () => '';
     const _isLocalModel = () => false, _governingProvenance = () => null;
-    const _startsSummaryText = () => '', _startsIfCurrent = () => null, _startsChosenText = () => '';
+    const _startsSummaryText = () => '', _startsIfCurrent = () => null, _startsChosenText = () => '', _certificateMoveText = () => '';
     const _shapeExportCols = () => ({ gl: '', alpha: '', beta: '', m: '' });
     const _UNSUPPORTED_LABEL = 'not supported by the data';
     const _downloadBlob = (b, name) => { out.blob = b; out.name = name; };

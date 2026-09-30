@@ -20,6 +20,18 @@ differed by 29 percentage points (on the lab's 202 committed targets that
 happened once, by 0.30). So for Trust-Region these tests pin what is exactly
 true — the seed and the draws — and deliberately assert nothing about the
 result; for Levenberg-Marquardt and Nelder-Mead they assert byte identity.
+
+Unit A2 (2026-09-29): the returned fit is now certified by Trust-Region
+restarts from where the optimiser stopped (fitting._certify_fit), so a
+Levenberg-Marquardt or Nelder-Mead fit the certificate MOVES carries
+Trust-Region's rounding; and main's own Levenberg-Marquardt was already not
+byte-identical across processes on LA(alpha,beta,m) models (np.convolve's
+BLAS dot). Owner decision: the requirement is regeneration within meaningful
+precision (2026-09-21), so the RESULT assertions compare with
+``fit_equality.assert_same_fit`` — equal within rounding, and still failing
+when a fit lands in a different minimum (tests/test_fit_equality.py). What
+stays exact: the seed, the draws, and the perturbed starting points (the
+search before the certificate is unchanged).
 """
 
 import io
@@ -30,6 +42,7 @@ import pytest
 
 import fitting
 from app import create_app
+from fit_equality import assert_same_fit
 
 
 @pytest.fixture()
@@ -92,7 +105,8 @@ def test_perturbed_starts_are_byte_identical_with_a_deterministic_method(monkeyp
     for _ in range(3):
         records.append([])
         fitting.run_fit(x, y, specs, background_method="shirley", n_perturb=3, fit_kws={"method": "leastsq"})
-    starts = [[tuple(sorted(r["start"].items())) for r in run] for run in records]
+    # the certificate's Trust-Region restarts come after the search and are not draws
+    starts = [[tuple(sorted(r["start"].items())) for r in run if r["method"] == "leastsq"] for run in records]
     assert len(starts[0]) == 4                       # the first fit + three perturbed refits
     assert len(set(starts[0][1:])) == 3              # the three perturbations differ from each other
     assert starts[0] == starts[1] == starts[2]
@@ -136,11 +150,12 @@ def test_trust_region_perturbation_draws_are_exactly_identical(monkeypatch):
 
 
 @pytest.mark.parametrize("method", ["leastsq", "nelder"])
-def test_repeated_fits_are_byte_identical(method):
+def test_repeated_fits_are_the_same_fit(method):
     x, y, specs = _crowded_c1s()
-    dumps = {_dump(fitting.run_fit(x, y, specs, background_method="shirley", n_perturb=3,
-                                   fit_kws={"method": method})) for _ in range(3)}
-    assert len(dumps) == 1
+    runs = [fitting.run_fit(x, y, specs, background_method="shirley", n_perturb=3,
+                            fit_kws={"method": method}) for _ in range(3)]
+    assert_same_fit(runs[0], runs[1])
+    assert_same_fit(runs[0], runs[2])
 
 
 def _two_peaks():
@@ -187,7 +202,8 @@ def test_deterministic_methods_receive_no_solver_seed(monkeypatch, method):
     records.append([])
     x, y, specs = _two_peaks()
     fitting.run_fit(x, y, specs, background_method="linear", n_perturb=1, fit_kws={"method": method})
-    assert [r["seed"] for r in records[0]] == [None, None]
+    assert [r["seed"] for r in records[0] if r["method"] == method][:2] == [None, None]   # the fit + one perturbed restart
+    assert all(r["seed"] is None for r in records[0])                                     # and the certificate's restarts
 
 
 def _seed(x, y, specs, **kw):
@@ -271,7 +287,9 @@ def test_api_fit_from_separate_uploads_repeats(client, method, exact):
         assert resp.status_code == 200
         bodies.append(resp.get_data())
     if exact:
-        assert bodies[0] == bodies[1] == bodies[2]
+        # the same fit within rounding (module docstring, unit A2)
+        assert_same_fit(json.loads(bodies[0]), json.loads(bodies[1]))
+        assert_same_fit(json.loads(bodies[0]), json.loads(bodies[2]))
         return
     # Trust-Region: the seed is the same on every press; the result is not
     # asserted (module docstring).
@@ -286,7 +304,8 @@ def test_a_cosmetic_rename_does_not_change_the_fit():
     renamed = [{**s, "name": n} for s, n in zip(specs, ["Graphite", "b", "c", "d", "e"])]
     a = fitting.run_fit(x, y, named, background_method="shirley", n_perturb=3, fit_kws={"method": "leastsq"})
     b = fitting.run_fit(x, y, renamed, background_method="shirley", n_perturb=3, fit_kws={"method": "leastsq"})
-    assert _dump(a) == _dump(b)
+    assert a["random_seed"] == b["random_seed"]
+    assert_same_fit(a, b)
 
 
 @pytest.mark.parametrize("which", [1, 4])
@@ -301,7 +320,7 @@ def test_a_setting_that_is_inert_for_the_shape_does_not_change_the_fit(which):
     flipped = [dict(s) for s in gaussian]
     flipped[which]["fix_gl_ratio"] = True
     kw = dict(background_method="shirley", n_perturb=3, fit_kws={"method": "leastsq"})
-    assert _dump(fitting.run_fit(x, y, gaussian, **kw)) == _dump(fitting.run_fit(x, y, flipped, **kw))
+    assert_same_fit(fitting.run_fit(x, y, gaussian, **kw), fitting.run_fit(x, y, flipped, **kw))
 
 
 @pytest.mark.parametrize("method", ["ampgo", "dual_annealing", "shgo", "powell", "emcee"])
@@ -390,7 +409,8 @@ def test_a_background_setting_the_method_ignores_does_not_change_the_fit():
     a = fitting.run_fit(x, y, specs, endpoint_avg=1, **kw)
     b = fitting.run_fit(x, y, specs, endpoint_avg=3, **kw)
     assert np.array_equal(a["background_y"], b["background_y"])
-    assert _dump(a) == _dump(b)
+    assert a["random_seed"] == b["random_seed"]
+    assert_same_fit(a, b)
     # where the setting DOES act, the draws may differ
     assert (_seed(x, y, specs, background_method="shirley", endpoint_avg=1)
             != _seed(x, y, specs, background_method="shirley", endpoint_avg=5))
@@ -439,7 +459,7 @@ def test_peak_ids_do_not_change_the_fit(ids):
     kw = dict(background_method="linear", n_perturb=3, fit_kws={"method": "leastsq"})
     a, b = fitting.run_fit(x, y, specs, **kw), fitting.run_fit(x, y, renumbered, **kw)
     assert a["random_seed"] == b["random_seed"]
-    assert _without_ids(a) == _without_ids(b)
+    assert_same_fit(json.loads(_without_ids(a)), json.loads(_without_ids(b)))
 
 
 def test_linked_peaks_are_hashed_by_position_too():
@@ -452,7 +472,7 @@ def test_linked_peaks_are_hashed_by_position_too():
 def test_counts_held_in_float32_give_the_same_fit_as_float64():
     x, y, specs = _two_peaks()
     kw = dict(background_method="none", n_perturb=1, fit_kws={"method": "leastsq"})
-    assert _dump(fitting.run_fit(x, y.astype(np.float32), specs, **kw)) == _dump(fitting.run_fit(x, y, specs, **kw))
+    assert_same_fit(fitting.run_fit(x, y.astype(np.float32), specs, **kw), fitting.run_fit(x, y, specs, **kw))
 
 
 def test_a_negative_zero_count_is_the_same_request():

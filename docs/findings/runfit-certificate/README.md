@@ -154,3 +154,63 @@ main's Trust-Region reaches on this target depends on the process's history
 (memory alignment → BLAS rounding → basin). So "two presses" understates
 main's own instability, and TR flips of this kind are pre-existing; the
 certificate changes how often they occur, it does not create the class.
+
+
+## Final code (V3 only, the displacement report added; 2026-09-30)
+
+The shipped code (`fitting.py` sha256 13433ac0…, switches removed), all 202
+targets, both methods (`data/final_*.jsonl`, `data/analysis_final_*.json`):
+reproduces V3 — TR: converged 202 → 202, area > 1 pp on 4 (max 15.2 pp, 1-GTA
+C1s Scan_4 to a better minimum; 8-JT Scan_5's history-dependent basin did not
+flip in this run), chi2r higher on 0; LM: converged 197 → 202, area > 1 pp on 2
+(max 13.4 pp, 8-JT C1s Scan_7, chi2r 21.0 → 15.5), higher on 0, scattered
+starts "did not converge" 30 → 3 targets. (Added time in this run is inflated
+by the full test suite running alongside; V3's clean timings stand.)
+
+**The > 1 eV displacement notice** (owner, 2026-09-29): **0 of 202 targets
+with either method.** The certificate moved the returned fit on 10 (TR) and 100
+(LM) targets, and the largest centre move was 0.043 eV (TR, 1-GTA C1s Scan_4)
+and 0.011 eV (LM); none > 0.1 eV. The area changes above come from amplitudes
+and widths (many of these models lock their centres). The notice exists for the
+fit that stopped far from a minimum — the two-basin test model, where
+Levenberg-Marquardt reports success at chi2r ~286 and the continuation moves
+components > 1 eV (`tests/test_runfit_certificate.py`).
+
+**Scan_5 check (owner: does the scattered-starts line flag the 33.9 / 51.9
+minima?)** — partly. Twenty presses of main at shifted memory alignments
+(`scripts/runfit_certificate_scan5_presses.py`): 10 at 33.9, 10 at 51.9. From
+33.9 the line reads "0 of 3 scattered starts reached this solution; 1 found a
+DIFFERENT solution with a lower χ²ᵣ; 2 ended in a solution that is not better
+(χ²ᵣ 51.91)" — 51.9 is named. From 51.9: "2 of 3 scattered starts reached this
+solution; 1 found a DIFFERENT solution with a lower χ²ᵣ" — the alternative is
+χ²ᵣ 17.26 (a component moved −1.43 eV, 21.8 pp), and 33.9 is not found. Either
+way the student is told the fit is not unique; only one direction names the
+other minimum.
+
+## The C 1s parity battery (found by the full suite, 2026-09-30)
+
+`tests/autofit/test_c1s_parity_battery.py` refits each of the 29 eligible saved
+expert C 1s fits with Levenberg-Marquardt and NO perturbed restarts, and
+asserted the refit stays within 5 meV / 0.5 % of the saved fit. With the
+certificate, 25 are unchanged; four are not minima:
+
+| target | saved fit chi2r | certified refit | largest move |
+|---|---|---|---|
+| 8-JT C1s Scan_2 | 5.49378 | 5.47705 | 0.0013 eV, 0.58 % |
+| 8-JT C1s Scan_3 | 5.99467 | 5.97492 | 0.0105 eV, 4.3 % |
+| 8-JT C1s Scan_5 | 6.94134 | 6.91861 | 0.0084 eV, 1.8 % |
+| 8-JT C1s Scan_6 | 8.95275 | NOT certified in 50 restarts (8.918 at the cap) | — |
+
+Scan_6 is a flat valley: each Trust-Region restart stops on its own tolerance
+after 34–51 evaluations while still improving by > 1e-8; 106 restarts certify
+it at chi2 −3.1 %, with a zero-amplitude component resurrected as a 0.2 eV
+needle (amplitude 0 → 649, FWHM 4.18 → 0.20 eV). The cap (50, a count) is not
+raised: on the page's own requests (3 perturbed restarts) the most any
+returned fit needed was 32 (Trust-Region) / 5 (Levenberg-Marquardt), and
+Scan_6's own model certifies there in 32 / 1. The one page path that sends no
+perturbed restarts — Find Peaks' "Refit my current peaks" (`/api/analyze`,
+`n_perturb` 0) — reports this model as not converged. The battery now lists
+the four (`BEYOND_THE_EXPERT_FIT`: the certified refit must be LOWER than the
+saved fit; `NOT_CERTIFIED`: the verdict is pinned), keeps the old rule for the
+other 25, and its regenerated fixture is compared within rounding
+(`fit_equality.SAME_MINIMUM_REL`).

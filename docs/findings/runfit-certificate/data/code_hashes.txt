@@ -1,3 +1,4 @@
 0d3292e8b7a09127db1e3ec00f6c6c9e5b7f6db315b6cdcac12164d83b2311f1  /Users/skyefortier/xps-app/.claude/worktrees/fix-runfit-certificate/fitting.py
 cb54e9c80f626377d8bee1a47c53944e8804adbe7f43cb238541b78cf2f570ac  /Users/skyefortier/xps-app/.claude/worktrees/a2-baseline/fitting.py
 c0484e4d633463940293aad259de88ef47c73f0c3fe28464f60fdfd382f4fe33  fitting.py
+13433ac0f1ac1c6113fa0885ff7e36ec8bf1080f6473d3d084e46af1f67fa6b4  fitting.py

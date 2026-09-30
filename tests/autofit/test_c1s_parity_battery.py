@@ -36,6 +36,7 @@ import pytest
 
 from autofit.parity import battery_eligible, eval_parity_relmax, refit_record
 from autofit.reference import load_reference_fits
+from fit_equality import SAME_MINIMUM_REL
 
 REPO = os.path.join(os.path.dirname(__file__), "..", "..")
 DATA = os.path.join(REPO, "docs", "autofit", "test_data")
@@ -44,8 +45,29 @@ FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "c1s_battery_expec
 EVAL_PARITY_TOL = 1e-5          # measured worst case 1.2e-7
 CENTER_DRIFT_TOL_EV = 0.005     # measured worst case 2e-4 eV
 REL_DRIFT_TOL = 0.005           # FWHM / amplitude, measured worst case 1e-4
-FIXTURE_CHI_RTOL = 1e-6
-FIXTURE_PARAM_RTOL = 1e-6
+# Unit A2 (2026-09-29): the refit is certified by Trust-Region restarts, so a
+# refit the certificate moves carries Trust-Region's rounding (measured press
+# to press <= 1.4e-6 relative): the fixture is compared WITHIN ROUNDING, on the
+# scale of tests/fit_equality.py (10 x sqrt(ftol) = 1e-3; a centre to that
+# fraction of the fitted energy span) — owner decision 2026-09-29.
+FIXTURE_CHI_RTOL = SAME_MINIMUM_REL
+FIXTURE_PARAM_RTOL = SAME_MINIMUM_REL
+# The certificate showed four saved expert fits are NOT minima (unit A2,
+# docs/findings/runfit-certificate/README.md). The old rule — the seeded
+# refit stays within 5 meV / 0.5 % of the saved fit — held only because the
+# optimiser's flag stopped the refit there. chi2r below is the saved fit's
+# (main's refit, which did not move it); the certified refit must be LOWER.
+# 8-JT C1s Scan_6 is not certified within CERTIFY_MAX_RESTARTS: a flat valley
+# (106 restarts, chi2 -3.1 %, a zero-amplitude component resurrected as a
+# 0.2 eV needle); the page's Run Fit (3 perturbed restarts) certifies its own
+# model in 32 (Trust-Region) / 1 (Levenberg-Marquardt) restarts.
+BEYOND_THE_EXPERT_FIT = {
+    ("8-JT Graphite.proj.zip", "C1s Scan_2"): 5.49378,
+    ("8-JT Graphite.proj.zip", "C1s Scan_3"): 5.99467,
+    ("8-JT Graphite.proj.zip", "C1s Scan_5"): 6.94134,
+    ("8-JT Graphite.proj.zip", "C1s Scan_6"): 8.95275,
+}
+NOT_CERTIFIED = {("8-JT Graphite.proj.zip", "C1s Scan_6")}
 MIN_BATTERY_SIZE = 25           # roster shrinking silently = data loss — fail
 
 
@@ -92,11 +114,19 @@ def test_eval_parity(rf):
 @pytest.mark.parametrize("rf", _FITS, ids=_IDS)
 def test_refit_stability_and_fixture(rf):
     rec = refit_record(rf)
-    assert rec["success"], f"{rf.project}/{rf.name}: seeded refit did not converge"
+    key = (rf.project, rf.name)
+    if key in NOT_CERTIFIED:
+        assert not rec["success"], f"{rf.project}/{rf.name}: now certified — update NOT_CERTIFIED"
+    else:
+        assert rec["success"], f"{rf.project}/{rf.name}: seeded refit did not converge"
 
-    # (2) stays at the expert minimum
+    # (2) stays at the expert minimum — or, where the certificate showed the
+    # saved fit is not one, descends below it
     by_id = {str(p["id"]): p for p in rf.peaks}
-    for pk in rec["peaks"]:
+    if key in BEYOND_THE_EXPERT_FIT:
+        assert rec["reduced_chi_square"] < BEYOND_THE_EXPERT_FIT[key], (
+            f"{rf.name}: the certified refit did not descend below the saved fit")
+    for pk in rec["peaks"] if key not in BEYOND_THE_EXPERT_FIT else []:
         saved = by_id[str(pk["id"])]
         dc = abs(pk["center"] - saved["center"])
         dfw = abs(pk["fwhm"] - saved["fwhm"]) / max(saved["fwhm"], 1e-9)
@@ -119,10 +149,14 @@ def test_refit_stability_and_fixture(rf):
         f"{rf.name}: χ²ᵣ {rec['reduced_chi_square']} != frozen "
         f"{exp['reduced_chi_square']} — fitting.py numerics changed"
     )
+    assert rec["success"] == exp["success"], f"{rf.name}: the verdict changed"
     exp_peaks = {str(p["id"]): p for p in exp["peaks"]}
+    span = float(np.ptp(np.asarray(rf.roi_be, float)))
     for pk in rec["peaks"]:
         ep = exp_peaks[str(pk["id"])]
-        for key in ("center", "fwhm", "amplitude", "area"):
-            assert np.isclose(pk[key], ep[key], rtol=FIXTURE_PARAM_RTOL, atol=1e-9), (
-                f"{rf.name} peak {pk['id']}: {key} {pk[key]} != frozen {ep[key]}"
-            )
+        for field in ("center", "fwhm", "amplitude", "area"):
+            if field == "center":
+                close = abs(pk[field] - ep[field]) <= FIXTURE_PARAM_RTOL * span
+            else:
+                close = np.isclose(pk[field], ep[field], rtol=FIXTURE_PARAM_RTOL, atol=1e-9)
+            assert close, f"{rf.name} peak {pk['id']}: {field} {pk[field]} != frozen {ep[field]}"

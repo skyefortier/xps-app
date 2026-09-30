@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 import fitting
+from fit_equality import assert_same_fit
 from app import create_app
 
 
@@ -93,15 +94,21 @@ def test_a_real_graphite_anchor_is_required():
 
 
 def test_the_fit_itself_is_unchanged_by_the_check():
+    # Poisson noise: on noise-free data the extra Auto-Fit components are not
+    # determined and the certificate (unit A2) lands on a different degenerate
+    # point on every press (component curves 50 % apart) — the noise-free
+    # limit CLAUDE.md records. With noise the fit is determined and the check
+    # must add a report only: the same fit within rounding.
     import json
-    y = np.round(1000 + _gl(X, 10000, 284.8, 1.4) + _gl(X, 15000, 283.3, 1.8), 2)
+    rng = np.random.default_rng(4)
+    y = rng.poisson(1000 + _gl(X, 10000, 284.8, 1.4) + _gl(X, 15000, 283.3, 1.8)).astype(float)
     specs = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
     kw = {**KW, "fit_kws": {"method": "leastsq"}}
     a = fitting.run_fit(X, y, specs, **kw)
     b = fitting.run_fit(X, y, specs, require_component="1", **kw)
-    strip = lambda r: json.dumps({k: v for k, v in r.items() if k != "required"}, sort_keys=True)  # noqa: E731
-    assert strip(a) == strip(b) and a["required"] is None and b["required"]["ran"] is True
-
+    assert a["required"] is None and b["required"]["ran"] is True
+    strip = lambda r: json.loads(json.dumps({k: v for k, v in r.items() if k != "required"}))  # noqa: E731
+    assert_same_fit(strip(a), strip(b))
 
 def _linked(pid, master, offset):
     return {"id": pid, "shape": "pseudo_voigt_gl", "center": 284.5 + offset, "amplitude": 100.0, "fwhm": 0.7, "gl_ratio": 0.3,

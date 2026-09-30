@@ -485,8 +485,17 @@ saved project and pressing Run Fit is the repeatable case. Measured on the
 Levenberg-Marquardt byte-identical on 145 → 202 targets;
 Trust-Region on 51 → 145, area fractions moving by more than 1 pp between
 presses on 8 → 0 targets, by more than 0.01 pp on 14 → 2 (worst 0.30 pp,
-one U 4f scan where two presses in five land in a neighbouring minimum). Levenberg-Marquardt (MINPACK) and Nelder-Mead are
-byte-identical. Trust-Region, the default, is NOT and cannot be made so by
+one U 4f scan where two presses in five land in a neighbouring minimum). Levenberg-Marquardt (MINPACK) and Nelder-Mead were
+byte-identical then. CORRECTED 2026-09-29 (unit A2): across processes main's
+Levenberg-Marquardt is NOT byte-identical on the U 4f models containing
+LA(α,β,m) — 56 of 64 differ between two presses, ≤ 0.23 pp; every other shape
+family 0 — because the continuous-m LA (2026-09-25) evaluates `np.convolve`,
+whose float64 inner product is the same alignment-dependent BLAS dot; and
+since A2 a fit the minimum certificate MOVES carries Trust-Region's
+arithmetic. The requirement is regeneration within meaningful precision
+(below), and the tests compare fits WITHIN ROUNDING
+(`tests/fit_equality.py`: 10·√ftol of each quantity's scale, proven to reject
+a fit that landed in a different minimum). Trust-Region, the default, is NOT and cannot be made so by
 seeding: the BLAS dot product (Apple Accelerate on the i9) rounds one unit
 in the last place differently depending on where its argument sits in
 memory (`w.dot(w)` gives two values over 16 alignments, `np.sum(w*w)`
@@ -522,7 +531,7 @@ is designed to surface.
 `docs/superpowers/plans/2026-09-21-scattered-starts-and-unsupported-components.md`).**
 Every Run Fit with ≥ 2 unlinked components sends `n_starts: 3`; after the
 normal fit (unchanged: THE FIT is what the student's method returned,
-byte-identical with and without the check, and `n_starts` is not part of
+the same fit with and without the check, and `n_starts` is not part of
 the seed) `run_fit` runs three more fits of the SAME method from scattered
 starts — drawn from a third stream of the request seed, anchored to the
 REQUEST's start (amplitude ×/÷ 3, width ×/÷ 1.5, free centres ± 0.5 eV,
@@ -581,6 +590,64 @@ shipped code on the 202 committed targets: an alternative is shown on 0 of
 three of them in the red band), median +0.54 s per Run Fit (90th
 percentile +1.8 s). It shows that a decomposition is not unique; it cannot
 say which one is correct, and four known targets defeat even ten starts.
+
+**Minimum certificate on Run Fit (unit A2, 2026-09-29; owner decisions the
+same day; measurements `docs/findings/runfit-certificate/README.md`).** The
+returned fit is judged by the certificate Find Peaks uses since A1, not by the
+optimiser's flag (`fitting._certify_fit` / `_certified`, local methods only —
+leastsq, least_squares, nelder; differential evolution and basinhopping keep
+their own refinement verdict, `certificate: null`): Trust-Region restarts from
+where the optimiser stopped, again from each point a restart improves, until
+one improves chi2 by less than Trust-Region's own ftol (scipy's default);
+at most 50; out of restarts, a non-finite, raising or evaluation-capped
+restart without improvement = `success: false` with the reason. The point
+returned is the one the last restart certified — the fit itself, exactly as
+its method returned it, when it was already at its minimum. SCOPE (variant V3,
+owner): the fit and its perturbed restarts run EXACTLY as before (flag-judged,
+perturbed from the point the optimiser returned — pinned by
+`test_the_search_before_the_certificate_is_unchanged`), then the WINNER is
+certified; each scattered start and the required-component refit are
+certified too. Certifying every perturbed restart (V1) or the fit before them
+(V2) changed where the restarts start and so the basin they reach: identical
+presses differed by 16–37 pp (V1 Trust-Region) and > 20 pp (V2
+Levenberg-Marquardt). Measured on the 202 committed targets, main → V3:
+converged 202 → 202 (TR), 197 → 202 (LM); area % changes > 1 pp on 5 (TR,
+max 21.9 pp — a target whose basin main itself chooses by rounding, below) and
+2 (LM, max 13.4 pp: 8-JT C1s Scan_7 to a better minimum, chi2r 21.0 → 15.5);
+scattered starts reported "did not converge" on 30 → 4 LM targets; added time
+median +0.07 s (TR) / +0.04 s (LM), 90th percentile +0.5 / +0.9 s; two presses
+of LM agree to 0.074 pp (main: 0.23 pp). The response carries
+`certificate: {certified, restarts, moved, optimiser_flag, centre_moves[],
+largest_centre_move}`. When the continuation moves a component's centre more
+than the red-band distance (`_STARTS_SHIFT_RED_EV`, 1 eV) the page says so
+under the Results table with the scattered-starts displacement indicator —
+"Fit continued past where the optimiser stopped; C-O moved −1.47 eV" — a
+NOTICE, not a confirmation (it is the student's own fit continued, not a
+solution chosen for its score); bound to the fit by the starts model key
+(`_certificateMoveIfCurrent`), saved while current, exported (CSV / XLSX "Fit
+continued"). On the committed targets: 0 of 202 targets with either method (the largest continuation
+moved a centre 0.043 eV with Trust-Region, 0.011 eV with Levenberg-Marquardt;
+none > 0.1 eV) — it is there for the fit that stopped far from a minimum. A certificate can carry a
+fit a long way: on the scattered-starts test's two-basin model
+Levenberg-Marquardt reports success at chi2r ~286, which is not a minimum,
+and the continuation relocates components by > 1 eV to chi2r 1.37.
+The C 1s parity battery (`tests/autofit/test_c1s_parity_battery.py`, seeded
+Levenberg-Marquardt refit from each saved expert fit, no perturbed restarts)
+showed 4 of 29 saved expert fits are NOT minima: the certificate carries
+8-JT C1s Scan_2 / 3 / 5 to a lower chi2 (0.3–0.4 %, centre ≤ 0.011 eV, width /
+amplitude ≤ 4.3 %) and does not certify 8-JT C1s Scan_6 within 50 restarts (a
+flat valley: 106 restarts, chi2 −3.1 %, a zero-amplitude component resurrected
+as a 0.2 eV needle) — the page's Run Fit (3 perturbed restarts) certifies it,
+but a request with no perturbed restarts (Find Peaks' "Refit my current
+peaks", `n_perturb` 0) reports it not converged. The battery lists the four
+explicitly (`BEYOND_THE_EXPERT_FIT`, `NOT_CERTIFIED`) and compares its
+regenerated fixture within rounding.
+KNOWN, pre-existing, not fixed: which minimum main's Trust-Region reaches on a
+several-minima target can depend on memory alignment — 8-JT C1s Scan_5 lands
+at chi2r 33.9 or 51.9, 10 / 10 over twenty presses. The scattered-starts line
+flags it from one side only: from 33.9 it lists 51.9 as "not better"; from
+51.9 it does not find 33.9 (it lists a lower 17.26 solution instead), so the
+student is told the fit is not unique either way.
 
 ### Client-side fallback
 

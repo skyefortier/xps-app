@@ -5,8 +5,10 @@ sys.path.insert(0, '.')
 OUT, METHOD = sys.argv[1], sys.argv[2]
 A, B = (int(v) for v in (sys.argv[3] if len(sys.argv) > 3 else '0:100000').split(':'))
 import fitting
-if os.environ.get('A2_VARIANT') == 'V2': fitting._CERTIFY_PERTURBED = False
-if os.environ.get('A2_VARIANT') == 'V3': fitting._CERTIFY_PERTURBED = False; fitting._CERTIFY_WINNER_ONLY = True
+# The V1 / V2 / V3 runs of 2026-09-29 set measurement switches (_CERTIFY_PERTURBED,
+# _CERTIFY_WINNER_ONLY) that existed only in the measured code (docs/findings/
+# runfit-certificate/measured_code.patch + the V3 switch; hashes in data/code_hashes.txt).
+# The shipped code is V3 alone: run this from the branch for "after", from main for "before".
 from app import create_app
 app = create_app(); cl = app.test_client()
 T = json.load(open('/Users/skyefortier/xps-app/.claude/worktrees/investigate-optimizer-disagreement/docs/findings/optimizer-disagreement/targets.json'))

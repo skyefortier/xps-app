@@ -67,7 +67,7 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
   const owner = { id: 7 };
   const calls = { notify: [], local: 0, applied: 0 };
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n') + '\n' + POLL_SRC;
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom'].map(extractFn).join('\n') + '\n' + POLL_SRC;
   const factory = new Function('setTimeout', 'document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
@@ -130,7 +130,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   failing.calls.local = 0;
   // rebuild with a failing runFitLocal
   const dom = failing.dom;
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent'].map(extractFn).join('\n') + '\n' + POLL_SRC;
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom'].map(extractFn).join('\n') + '\n' + POLL_SRC;
   const noop = () => {};
   const owner = { id: 1 };
   const state = failing.state;
@@ -163,7 +163,7 @@ test('the engine/objective labels of a fit result survive spectrum and project s
   assert.match(save, /objective: state\.fitResult\.objective/);
   assert.match(save, /engine: state\.fitResult\.engine/);
   const load = grab('function _loadSpectrumFile(', 6000);
-  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative'\]/);
+  assert.match(load, /\['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative', 'certificateMove'\]/);
   // project save: the whitelisted fitResult record carries them
   const proj = grab('const buildTabData = (t) =>', 3000);
   assert.match(proj, /objective: t\.fitResult\.objective/);
@@ -272,8 +272,8 @@ test('Quantify shows the starting-point banner for a local result and not for a 
 test('every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
   assert.match(grab('function exportResults()', 2500), /_LOCAL_FIT_CAVEAT|_localFitCaveat\(/, 'TSV export');
-  assert.match(grab('function _doSaveSpectrum()', 2500), /caveat: _localFitCaveat\(state\.fitResult\) \|\| state\.fitResult\.caveat/, 'spectrum save persists caveat');
-  assert.match(grab('function _doSaveSpectrum()', 2500), /reportable: _isLocalFit\(state\.fitResult\) \? false : \(state\.fitResult\.reportable/, 'spectrum save persists reportable');
+  assert.match(grab('function _doSaveSpectrum()', 3200), /caveat: _localFitCaveat\(state\.fitResult\) \|\| state\.fitResult\.caveat/, 'spectrum save persists caveat');
+  assert.match(grab('function _doSaveSpectrum()', 3200), /reportable: _isLocalFit\(state\.fitResult\) \? false : \(state\.fitResult\.reportable/, 'spectrum save persists reportable');
   assert.match(grab('const buildTabData = (t) =>', 3500), /caveat: _localFitCaveat\(t\.fitResult\) \|\| t\.fitResult\.caveat/, 'project save persists caveat');
   assert.match(grab('function _loadSpectrumFile(', 6000), /'caveat'/, 'spectrum load restores caveat');
   assert.match(grab("// Update chi-squared display for this tab's fit result", 300), /_applyStatDisplay\(/, 'tab activation');
@@ -295,7 +295,7 @@ test('project save derives the designation from the objective for an older local
   const src = html.slice(start, end) + ';';
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const fieldsAt = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
-  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey', '_statsState', '_statsRecordState', '_statsNote', '_statsSaveFields'].map(extractFn).join('\n');
+  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey', '_statsState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_certificateMoveIfCurrent'].map(extractFn).join('\n');
   const statsConsts = html.match(/^const _STATS_\w+_NOTE = .*$/mg).join('\n');
   const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + statsConsts + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
     { serializeRefOverlays: () => null }, a => a, a => a);

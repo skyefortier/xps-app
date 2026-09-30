@@ -279,7 +279,7 @@ test('persistence and export sites carry the summary', () => {
   }
   assert.strictEqual((html.match(/starts: _startsForSave\(_startsIfCurrent\(t\.fitResult, _startsRecordKey\(t\)\)\)/g) || []).length, 1, 'project save (buildTabData)');
   assert.strictEqual((html.match(/starts: _startsForSave\(/g) || []).length, 3, 'exactly three save sites');
-  assert.match(extractFn('_loadSpectrumFile'), /'caveat', 'starts', 'startsModelKey', 'chosenAlternative'\]/);
+  assert.match(extractFn('_loadSpectrumFile'), /'caveat', 'starts', 'startsModelKey', 'chosenAlternative', 'certificateMove'\]/);
   const ex = extractFn('exportFitTable');
   assert.match(ex, /\['Scattered starts', _startsSummaryText\(_startsIfCurrent\(state\.fitResult, _startsLiveKey\(\)\)\)\]/);
   assert.match(ex, /# Scattered starts: \$\{_startsSummaryText\(_startsIfCurrent\(state\.fitResult, _startsLiveKey\(\)\)\)\}/);

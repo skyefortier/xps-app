@@ -110,13 +110,13 @@ function pageEnv(fns, extraArgs = {}) {
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
     _startsLiveKey: () => 'KEY',
     _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
-    _isLocalFit: () => false, _localFitCaveat: () => '', _localFitDetail: () => '', _startsPanelHtml: () => '', _validateUncertainties: () => ({ warnings: [], info: [] }),
+    _isLocalFit: () => false, _localFitCaveat: () => '', _localFitDetail: () => '', _startsPanelHtml: () => '', _certificateNoticeHtml: () => '', _validateUncertainties: () => ({ warnings: [], info: [] }),
     renderQuantify: () => {}, recalcQuantify: () => {}, _detectPeakRSF: () => ({ key: 'C 1s', rsf: 1 }), SCOFIELD_RSF: { 'C 1s': 1 }, notify: () => {},
     _clearDisallowedChargeRef: () => {}, _updateLocalModelBanner: () => {}, _updateLockAllBtn: () => {}, renderPeakForm: () => '', _highlightChartPeak: () => {},
     _roiWindowStatus: () => ({ state: 'ok', n: 0 }), _patchPeakCardsForCentre: () => {},   // the ROI / centre warnings: tests/js/roi_clamp_centre_warning.test.js
     _statsLiveState: () => 'current', _STATS_STALE_NOTE: '', _STATS_UNVERIFIED_NOTE: '',   // F1's stale statistics: tests/js/stale_statistics.test.js
     _isChargeRefAllowed: () => false, _fitStatLabel: () => 'χ²ᵣ', _isUnweightedLocal: () => false, _applyStatCaption: () => {}, _applyStatDisplay: () => {},
-    _CHISQ_TOOLTIP: '', _LOCALFIT_TOOLTIP: '', _startsSummaryText: () => '', _startsChosenText: () => '', _startsIfCurrent: () => null,
+    _CHISQ_TOOLTIP: '', _LOCALFIT_TOOLTIP: '', _startsSummaryText: () => '', _startsChosenText: () => '', _certificateMoveText: () => '', _startsIfCurrent: () => null,
     _isLocalModel: () => false, _updateRFactorUI: () => {}, _activeTab: () => ({}), _renderRFactorPanel: () => '', _statIsChi: true,
     ...extraArgs };
   const api = new Function(...Object.keys(args), src + '\nreturn { ' + names.join(', ') + ' };')(...Object.values(args));

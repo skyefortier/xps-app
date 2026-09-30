@@ -8045,6 +8045,8 @@ function _refreshStartsEvidence(repaint, fromPlot) {
   if (rendered) return;
   const el = document.querySelector('.starts-panel');
   if (el && state.fitResult) el.outerHTML = _startsPanelHtml(state.fitResult);
+  const cn = document.querySelector('.certificate-move-note');
+  if (cn && state.fitResult) cn.outerHTML = _certificateNoticeHtml(state.fitResult);
 }
 
 // An alternative's preview overlay is only valid beside the result it came from.
@@ -8085,6 +8087,38 @@ function _startsSummaryText(st) {
   if (failed > 0) parts.push(`${failed} did not converge`);
   if (parts.length) t += '; ' + parts.join('; ');
   return t + '.' + (nSol ? ' Your fit is unchanged.' : '');
+}
+
+// ── The certificate's displacement notice (unit A2, 2026-09-29) ─────────────
+// The server certifies the returned fit by continuing it from where the
+// optimiser stopped until it stops improving (fitting._certify_fit). When that
+// continuation carries a component's centre further than the red-band distance
+// (_STARTS_SHIFT_RED_EV) the student is TOLD, with the same displacement
+// indicator as the scattered-starts table — a notice, not a confirmation: it is
+// the student's own fit continued, not a different solution chosen for its
+// score. Bound to the fit by the same model key as the starts evidence.
+function _certificateMoveFrom(cert) {
+  const m = cert && cert.moved && cert.largest_centre_move;
+  return (m && Math.abs(m.ev) > _STARTS_SHIFT_RED_EV) ? { id: m.id, ev: m.ev } : null;
+}
+function _certificateMoveIfCurrent(fr, key) {
+  if (!fr || !fr.certificateMove || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;
+  return fr.certificateMove;
+}
+function _certificateMoveText(fr) {
+  const m = _certificateMoveIfCurrent(fr, _startsLiveKey());
+  return m ? `fit continued past where the optimiser stopped; ${_startsPeakName(m.id)} moved ${_startsEv(m.ev)}` : '';
+}
+function _certificateMoveTip() {
+  return 'The optimiser stopped before the fit reached a minimum. The server continued the same fit ' +
+    'from that point until it stopped improving (it is still your model and your start), and on the way this ' +
+    'component moved more than ' + _STARTS_SHIFT_RED_EV + ' eV. Check that it still describes the chemical state you meant.';
+}
+function _certificateNoticeHtml(fr) {
+  const m = _certificateMoveIfCurrent(fr, _startsLiveKey());
+  if (!m) return '<div class="certificate-move-note"></div>';
+  const bold = Math.abs(m.ev) > _STARTS_SHIFT_AMBER_EV ? 600 : 400;
+  return `<div class="certificate-move-note" data-peak-id="${_escAttr(String(m.id))}" data-xps-tip="${_escAttr(_certificateMoveTip())}" style="margin-top:8px;font-size:11px;line-height:1.5;color:var(--text2)">&#9888; Fit continued past where the optimiser stopped; <span style="color:${_startsShiftColour(m.ev)};font-weight:${bold}">${_escHtml(_startsPeakName(m.id))} moved ${_startsEv(m.ev)}</span>.</div>`;
 }
 
 // The recorded adoption, for the panel and the exports (only beside current evidence).
@@ -8364,6 +8398,7 @@ async function runFit(opts = {}) {
                         chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult,
                         fittedY: backendResult.fitted_y, roiRange, _preFit,
                         starts: backendResult.starts || null,
+                        certificateMove: _certificateMoveFrom(backendResult.certificate),
                         startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
                         chosenAlternative: opts.chosenAlternative || null };
     // a preview of an alternative always belongs to the PREVIOUS result (an identical
@@ -9102,6 +9137,7 @@ function renderResults() {
     html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px" title="${_escAttr(_UNSUPPORTED_TIP)}">
       ${unsupportedPeaks.length === 1 ? 'One component is' : unsupportedPeaks.length + ' components are'} <b>${_UNSUPPORTED_LABEL}</b> (${unsupportedPeaks.map(q => _escHtml(q.name)).join(', ')}): with the other components held as fitted, removing ${unsupportedPeaks.length === 1 ? 'it' : 'any one of them'} does not make the fit significantly worse, so this fit did not determine ${unsupportedPeaks.length === 1 ? 'its' : 'their'} position or width. ${unsupportedPeaks.length === 1 ? 'Its' : 'Their'} area is excluded from the percentages and from Quantify.</div>`;
   }
+  html += _certificateNoticeHtml(state.fitResult);
   html += _startsPanelHtml(state.fitResult);
 
   // Uncertainty warnings (backend fit only). Genuine alarms go in the amber
@@ -10641,6 +10677,7 @@ function _doSaveFit() {
       starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
       startsModelKey: state.fitResult.startsModelKey || null,
       chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
+      certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
       ..._statsSaveFields(_statsLiveState()),   // F1: says plainly when the statistics belong to the previous model
@@ -10703,6 +10740,7 @@ function _doSaveSpectrum() {
     starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
     startsModelKey: state.fitResult.startsModelKey || null,
     chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
+    certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -10800,6 +10838,7 @@ async function _doSaveProject() {
         starts: _startsForSave(_startsIfCurrent(t.fitResult, _startsRecordKey(t))),
         startsModelKey: t.fitResult.startsModelKey || null,
         chosenAlternative: _startsIfCurrent(t.fitResult, _startsRecordKey(t)) ? (t.fitResult.chosenAlternative || null) : null,
+        certificateMove: _certificateMoveIfCurrent(t.fitResult, _startsRecordKey(t)),
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -11019,7 +11058,7 @@ function _loadSpectrumFile(data, sessionFile) {
   active.modelProvenance = _isLocalProvenance(data.modelProvenance) ? data.modelProvenance : null;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
-    for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative']) if (data.statistics[k]) fr[k] = data.statistics[k];
+    for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative', 'certificateMove']) if (data.statistics[k]) fr[k] = data.statistics[k];
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key
@@ -11840,6 +11879,7 @@ function exportFitTable(fmt) {
       ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
       ...(_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey())) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))]] : []),
       ...(_startsChosenText(state.fitResult) ? [['Chosen alternative', _startsChosenText(state.fitResult)]] : []),
+      ...(_certificateMoveText(state.fitResult) ? [['Fit continued', _certificateMoveText(state.fitResult)]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
@@ -11855,6 +11895,7 @@ function exportFitTable(fmt) {
     if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;
     if (_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))}\n`;
     if (_startsChosenText(state.fitResult)) csv += `# Chosen alternative: ${_startsChosenText(state.fitResult)}\n`;
+    if (_certificateMoveText(state.fitResult)) csv += `# Fit continued: ${_certificateMoveText(state.fitResult)}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');

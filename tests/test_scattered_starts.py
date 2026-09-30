@@ -19,6 +19,7 @@ from lmfit import Parameters
 
 import fitting
 from app import create_app
+from fit_equality import assert_same_fit
 
 
 @pytest.fixture()
@@ -81,14 +82,15 @@ def test_a_well_posed_fit_reports_that_every_start_reached_it():
     assert [c["id"] for c in st["fit"]["components"]] == [1, 2]
 
 
-def test_the_fit_is_byte_identical_with_and_without_the_check():
+def test_the_fit_is_the_same_with_and_without_the_check():
     # THE FIT is what the student asked for; the check only adds a report.
-    # (Levenberg-Marquardt is bitwise repeatable; Trust-Region is not.)
+    # Equal within rounding (unit A2: a fit the minimum certificate moves
+    # carries Trust-Region's arithmetic; tests/fit_equality.py).
     for make in (_well_posed, _two_basin_problem):
         x, y, specs = make()
         a = fitting.run_fit(x, y, specs, fit_kws={"method": "leastsq"}, **KW)
         b = fitting.run_fit(x, y, specs, n_starts=5, fit_kws={"method": "leastsq"}, **KW)
-        assert _strip(a) == _strip(b)
+        assert_same_fit(json.loads(_strip(a)), json.loads(_strip(b)))
 
 
 def test_a_lower_chi_square_solution_is_reported_beside_the_fit_not_instead_of_it():
@@ -113,9 +115,8 @@ def test_a_lower_chi_square_solution_is_reported_beside_the_fit_not_instead_of_i
     assert abs(big["ev"]) > 1.0                       # a relocated component is visible at a glance
     assert alt["largest_fraction_difference_pp"] > 1.0
     # and the fit's own parameters are what the student's method returned
-    centres = sorted(p["params"]["center"]["value"] for p in res["individual_peaks"])
     no_check = fitting.run_fit(x, y, specs, fit_kws={"method": "leastsq"}, **KW)
-    assert centres == sorted(p["params"]["center"]["value"] for p in no_check["individual_peaks"])
+    assert_same_fit(json.loads(_strip(res)), json.loads(_strip(no_check)))
 
 
 def test_solutions_that_are_not_better_are_counted_not_listed(monkeypatch):
@@ -145,10 +146,11 @@ def test_solutions_that_are_not_better_are_counted_not_listed(monkeypatch):
 
 def test_the_starts_are_a_pure_function_of_the_request():
     x, y, specs = _two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)["starts"]
+    a = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)
     np.random.seed(99)                                 # the global generator is irrelevant
-    b = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)["starts"]
-    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    b = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)
+    assert a["starts"]["ran"] and a["starts"]["alternatives"]
+    assert_same_fit(a, b)                              # the whole response, the starts report included
 
 
 def test_the_third_stream_leaves_the_existing_draws_alone():
