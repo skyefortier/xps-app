@@ -1,0 +1,17 @@
+Review unit A2 (the minimum certificate on Run Fit), round 4: branch fix-runfit-certificate, git diff main..HEAD (round-3 fixes: git diff 03916fa..HEAD — tests/fit_equality.py, tests/test_fit_equality.py, docs/findings/runfit-certificate/README.md "Codex rounds"). Earlier verdicts: docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md, a2_runfit_certificate_r2_verdict_run{A,B}.md, a2_runfit_certificate_r3_verdict_run{A,B}.md; the README's tables list each finding and its fix. The owner's brief and decisions are in the round-1 prompt (docs/autofit/codex/a2_runfit_certificate_review_prompt.txt): "rewrite the 19 to 'equal within rounding' ... Condition: the rewritten tests must still FAIL if a fit lands in a different minimum. Use a relative, rounding-scale tolerance, and add one test that proves a genuine minimum change is caught."
+
+The comparison's design now (tests/fit_equality.py docstring): every quantity on its OWN scale with no exemption — each component's curve against that component's own height, its centre against its own half-maximum width, bounded parameters against their bound span, the fitted curve against the signal, everything else relatively, all at 10 x sqrt(ftol) = 1e-3; chi-square values (statistics and scattered starts) at 10 x ftol = 1e-7; uncertainties NOT compared (committed evidence that they are not reproducible within one minimum near a bound). Rounds 2-3 tried statistical criteria (objective norm, sigma units, "unsupported" skips) and each let statistically indistinguishable but distinct minima through.
+
+PROPORTIONALITY RULING REQUESTED. A relative, rounding-scale tolerance — what the owner asked for — necessarily has a resolution: two distinct minima closer than 1e-3 of EVERY quantity's own scale (every component curve within 0.1 % of its own height, every centre within 0.1 % of its own width, every chi2 within 1e-7) are not told apart, and nothing short of bit-identity (which the owner rejected, 2026-09-21) could tell them apart. Rule explicitly whether that stated resolution satisfies the owner's condition, or whether you can construct distinct minima that differ by MORE than 1e-3 of some quantity's own scale and are still accepted (that would be a real finding). Separately, rule whether the comparison would reject same-minimum presses (flaky) on the tests' models and on the committed data (docs/findings/runfit-certificate/data holds per-target values for repeat presses).
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Distinct minima that differ by more than the stated resolution in some quantity and are accepted.
+b. Same-minimum presses rejected (flaky): Trust-Region jitter on moved fits, two overlapping components trading intensity along a flat direction (the full suite once caught a comparison that rejected this), bounded parameters, small components.
+c. The proofs in tests/test_fit_equality.py and the rewritten tests' intent (seed / draw / structure assertions that must stay exact).
+d. Everything rounds 1-3 verified, against the new commit.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

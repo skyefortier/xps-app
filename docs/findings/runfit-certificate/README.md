@@ -241,3 +241,14 @@ rejections, the battery injections, stability over three processes):
 | 2 | MAJOR (B) / MINOR (A): matching infinities made a component's scale infinite, so a 1e6-count finite change passed | the weighted norm runs over the finite samples after the non-finite masks are checked; test |
 | 3 | MINOR (B) / MAJOR (A): the scattered starts' chi2r (fit, alternatives, not-better list) got the parameter tolerance (+0.09 % passed) | chi2r and not_better_chi2r at the objective scale; three tests |
 | 4 | MINOR (A, B): the note mixed runs (4 / 202 is the final run's, where 198 — not 197 — stay below 1 pp and starts' non-convergence is 30 → 3) and called two U 4f satellites C 1s | the note takes the changes, convergence and the notice from the final run, labels the time as V3's clean measurement, and names the regions |
+
+**Round 3 — NO-GO ×2** (`a2_runfit_certificate_r3_verdict_run{A,B}.md`, commit
+03916fa; the certificate, cancellation, V3 order, the battery and the note's
+numbers verified again):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): distinct certified minima still compared equal — two 10-count lines at ±0.25 eV beside a 1e6-count one: the saddle 6e-10 relative in chi2 (below ftol), the centre's sigma 17 eV, so both the objective-norm curve test and the sigma-unit parameter test accepted a five-width relocation | the statistical criteria are gone: judging sameness through the fit's own statistics lets statistically indistinguishable but DISTINCT minima through, and the owner's condition is about minima. Every quantity on its OWN scale with no exemption: each component's curve against its own height, its centre against its own half-maximum width, bounded parameters against their span, everything else relatively, all at 10 × √ftol; objectives at 10 × ftol. The pair is rejected (test). Resolution, stated in the helper: minima closer than 1e-3 of every quantity's own scale are not told apart; a component driven exactly to zero amplitude fails closed (none in the tests' models) |
+| 2 | MAJOR (B): the sigma-value comparison rejects recorded same-minimum presses (B4C-UCl4 U4f Scan_1: chi2 8.9e-9 apart, a GL-mix sigma 0.544 vs 0.129) | uncertainties are not compared (documented with that evidence); test |
+| 3 | MAJOR (A, B): determined components' curves and every area went unchecked (+1e6 counts in a curve, area × 2 or NaN passed) | every component curve against its own height; areas relatively, non-finite correspondence; tests |
+| 4 | MINOR (A): NaN vs inf sigma compared equal | uncertainties are not compared (#2) |

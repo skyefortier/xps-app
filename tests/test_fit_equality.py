@@ -150,20 +150,37 @@ def test_an_unsupported_component_at_another_minimum_is_caught():
     _rejects(a, b, "individual_peaks.1")
 
 
-def test_a_zero_amplitude_components_jitter_is_the_same_fit():
-    # a component driven to its floor has no position to reproduce: its curve is ~0 either way
+def test_a_statistically_indistinguishable_pair_of_minima_is_still_told_apart():
+    # Codex A2 round 3 (runs A and B): the unsupported pair with both true lines
+    # at height 10: the saddle between the minima is 6e-10 relative in chi2 and
+    # the centre's sigma 17 eV, so no statistical criterion separates them — on
+    # its own width the centre moved five widths.
+    import test_fit_equality as me
+    x = np.linspace(-500.0, 500.0, 20001)
+    g = lambda c, a_, w: a_ * np.exp(-4 * np.log(2) * ((x - c) / w) ** 2)
+    dom = g(0.0, 1e6, 300.0)
+    y = dom + g(-0.25, 10, 0.1) + g(0.25, 10, 0.1) + 5 * np.sqrt(dom) * np.cos(3 * x) * (np.abs(x) > 2)
+
+    def fit(c):
+        specs = [{"id": 1, "shape": "gaussian", "center": 0.0, "amplitude": 1e6, "fwhm": 300.0, "fix_center": True, "fix_amplitude": True, "fix_fwhm": True},
+                 {"id": 2, "shape": "gaussian", "center": c, "amplitude": 10.0, "fwhm": 0.1, "fix_fwhm": True, "amplitude_min": 0,
+                  "center_min": -1.0, "center_max": 1.0}]
+        return fitting.run_fit(x, y, specs, background_method="none", n_perturb=0, fit_kws={"method": "leastsq", "fit_kws": SEED})
+    a, b = fit(-0.25), fit(0.25)
+    assert a["certificate"]["certified"] and b["certificate"]["certified"]
+    assert a["statistics"]["chi_square"] == pytest.approx(b["statistics"]["chi_square"], rel=1e-9)
+    _rejects(a, b, "individual_peaks.1.params.center", "individual_peaks.1.y")
+
+
+def test_a_component_curve_or_area_regression_is_caught():
+    # Codex A2 round 3: a determined component's curve and every area were unchecked
     x, y, specs = R._two_peaks()
     a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
-    b = copy.deepcopy(a)
-    for r, amp in ((a, 1e-12), (b, 3e-13)):
-        c = r["individual_peaks"][1]
-        c["y"] = [amp * v / max(c["y"]) for v in c["y"]]
-        for k in ("center", "fwhm", "amplitude"):
-            c["params"][k]["stderr"] = None
-        c["params"]["area"]["stderr"] = None
-    b["individual_peaks"][1]["params"]["center"]["value"] += 1.5
-    b["individual_peaks"][1]["params"]["amplitude"]["value"] = 3e-13
-    assert_same_fit(a, b)
+    for mutate, field in ((lambda r: r["individual_peaks"][0]["y"].__setitem__(40, r["individual_peaks"][0]["y"][40] + 1e6), "individual_peaks.0.y"),
+                          (lambda r: r["individual_peaks"][0]["params"]["area"].__setitem__("value", r["individual_peaks"][0]["params"]["area"]["value"] * 2), "area"),
+                          (lambda r: r["individual_peaks"][0]["params"]["area"].__setitem__("value", float("nan")), "area")):
+        b = copy.deepcopy(a); mutate(b)
+        _rejects(a, b, field)
 
 
 def test_matching_infinities_do_not_hide_a_finite_difference():
@@ -201,15 +218,10 @@ def test_a_scattered_start_objective_is_compared_at_the_objective_scale(where):
     _rejects(a, b, "starts")
 
 
-def test_two_components_trading_along_a_flat_direction_are_the_same_fit():
-    # The full suite found it (test_api_fit_from_separate_uploads_repeats): two
-    # overlapping components exchange intensity between presses while their sum
-    # — the fitted curve, what the objective sees — stays within tolerance. The
-    # parameters stay within their sigma-scaled bound; that is one minimum.
-    x, y, specs = R._crowded_c1s()
-    a = fitting.run_fit(x, y, specs, background_method="shirley", n_perturb=3, fit_kws={"method": "leastsq"})
+def test_uncertainties_are_not_compared():
+    # not reproducible within one minimum near a bound (committed evidence in fit_equality's docstring)
+    x, y, specs = R._two_peaks()
+    a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
     b = copy.deepcopy(a)
-    p, q = b["individual_peaks"][1], b["individual_peaks"][2]
-    shift = 1e-3 * np.asarray(p["y"])                       # trade 0.1 % of one curve into the other
-    p["y"] = list(np.asarray(p["y"]) - shift); q["y"] = list(np.asarray(q["y"]) + shift)
+    b["individual_peaks"][0]["params"]["gl_ratio"]["stderr"] = 4 * (a["individual_peaks"][0]["params"]["gl_ratio"]["stderr"] or 1)
     assert_same_fit(a, b)
