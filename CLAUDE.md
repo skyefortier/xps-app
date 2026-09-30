@@ -226,6 +226,17 @@ workers, at most 4 concurrent fits, the bound the synchronous route had. The syn
 for scripts, tests and the Python twins. Plan:
 `docs/superpowers/plans/2026-09-27-long-fits-start-poll.md`.
 
+### Find Peaks is ARCHIVED (owner, 2026-09-30)
+
+Hidden, not deleted: its only entry point (the Actions-menu item) is removed;
+the modal and its code, `/api/analyze`, `autofit/` and every Find Peaks test
+stay and run in CI (they drive it programmatically). A cached result
+(`tab.findPeaks.last`, runtime-only) and the provenance on applied peaks
+(`peak._findPeaks`) are never read outside its block. Revive by restoring the
+button (the comment in its place says how). Parked with it (why, and what
+would bring each back): `docs/autofit/PROGRESS.md` "PARKED". Plan:
+`docs/superpowers/plans/2026-09-30-archive-find-peaks.md`.
+
 ### Find Peaks does not read the clock (unit A1, 2026-09-29)
 
 Find Peaks' answer must not depend on server load or on the optimiser's own

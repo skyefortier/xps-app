@@ -1,0 +1,58 @@
+# Archive Find Peaks (hide, don't delete) — 2026-09-30
+
+Owner: "archive Find Peaks for now. Hide it, don't delete it. Hide Find Peaks
+from the UI: remove the Actions-menu entry and every other entry point so it
+cannot be started. KEEP on main, running in CI: the backend, the autofit
+engine, /api/analyze, and all Find Peaks tests, so it can be revived.
+Everything Run Fit now shares must stay intact and working — the job/polling
+infrastructure, the support F test, the scattered-starts check, the fit key,
+the certificate. Saved projects whose peaks came from Find Peaks must load and
+fit exactly as before. If a cached Find Peaks result exists in a saved tab, it
+must not resurface anywhere in the UI. Release-note line only, no student note."
+
+## 1. Entry points (enumerated before the change)
+
+| site | what | disposition |
+|---|---|---|
+| Actions menu, `#find-peaks-menu-item` (`onclick="openFindPeaksModal()"`) | the ONLY caller of `openFindPeaksModal` anywhere in the page | removed; an HTML comment in its place says how to revive it |
+| `#find-peaks-overlay` (the modal) | opened only by `openFindPeaksModal` | kept, unreachable |
+| `runFindPeaks` / `applyFindPeaks` / `_fpRenderResults` | called only from the modal's own buttons (`#fp-run`, `#fp-apply`) and from each other | kept |
+| keyboard shortcuts, context menus, other buttons, tooltips, help text | none reference Find Peaks (grep: outside its own block the menu item was the only mention, user-visible or in code) | — |
+
+The Find Peaks block (`<!-- Find Peaks (beta) — opt-in grammar-driven
+analysis -->` … `</script>`) is self-contained: no function outside it calls
+into it (`_fp*`, `openFindPeaksModal`, `runFindPeaks`, `applyFindPeaks`).
+
+## 2. What a saved project can carry
+
+| data | where | disposition |
+|---|---|---|
+| a cached result, `tab.findPeaks.last` | runtime-only: no save path writes it; the `.fit.json` import clears it (`active.findPeaks = null`) | never rendered outside the (unreachable) modal; an injected legacy `findPeaks` in a saved tab is not restored (browser test) |
+| the provenance record on applied peaks, `peak._findPeaks`; `tab._findPeaksReview` | saved with the peaks (saves spread the peak whole) | read nowhere — not rendered, not exported as a column; kept as data (the peaks load and fit exactly as before) |
+
+## 3. Shared with Run Fit (untouched by this change — only the menu entry moved)
+
+`/api/analyze` + its job records and heartbeat (app.py) share the fit jobs'
+infrastructure (`_job_progress_path`, `FIT_JOB_HEARTBEAT_SEC`); the page's
+`FIT_HEARTBEAT_LOST_SEC`; `fitting._component_support` (the F test);
+the scattered-starts check; the fit key (`_startsLiveKey` / `_sameFitKey`);
+the certificate (`fitting._certify_fit`, `autofit.engine._certify_minimum`).
+No Python file changes. Find Peaks' own tests (Python engine, API, JS and
+browser) drive it programmatically and stay in the suite.
+
+## 4. Tests
+
+- `tests/js/find_peaks_archived.test.js` (static): no entry point outside
+  the block; the functions and modal kept; outside the block `findPeaks` is
+  only cleared and `_findPeaks` / `_findPeaksReview` never read. Fails on main.
+- `tests/test_browser_find_peaks_archived.py` (real browser + server): the
+  page and the open Actions menu show no Find Peaks; a project whose peaks came
+  from Find Peaks (run and applied programmatically) saves without a cache,
+  reloads in a fresh page with an injected legacy cache, the peaks identical,
+  nothing of Find Peaks visible, and Run Fit succeeds on the server with
+  current statistics. The first test fails on main.
+
+## 5. Release note (at deploy)
+
+Find Peaks is archived: it is no longer offered in the Actions menu. Saved
+projects whose peaks came from Find Peaks load and fit exactly as before.

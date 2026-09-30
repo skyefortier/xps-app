@@ -9,6 +9,20 @@ path untouched.
 
 ---
 
+## PARKED (owner, 2026-09-30) — why, and what would bring each back
+
+Find Peaks is ARCHIVED (hidden from the UI, not deleted: backend, engine,
+`/api/analyze` and every Find Peaks test stay on main and run in CI; plan
+`docs/superpowers/plans/2026-09-30-archive-find-peaks.md`). With it:
+
+| unit | state | why parked | what would bring it back |
+|---|---|---|---|
+| Finalists-only extra screen starts | not built | Find Peaks archived. The measured motivation: after A1 the screen compares certified minima and MG2's single screen start lands in a poor one on 8-JT C1s Scan_5 / Scan_7 (MG2 → MG3); two extra starts for EVERY candidate recover MG2 (BIC* 1882.7 / 1776.5) at +60–70 % time, measured under concurrent load (`docs/superpowers/plans/2026-09-29-a1-find-peaks-determinism.md` §3–4). The proposal: screen all once, then two extra starts for the top 3 by rank (a count, not a BIC threshold), measured on an idle machine | Find Peaks revived |
+| Noise-floor unit (occupancy by the F test) | READY, not deployed — `087fcc9` on `fix-occupancy-f-test` | Find Peaks archived; and its scale-invariance acceptance (a ×0.1 rescale changing 0 of 8 scans) was shown to depend on wall-clock budgets (removed in A1), the detection layer's absolute SNR gates and Shirley's absolute stop — i.e. on Unit B (`docs/findings/find-peaks-scale/README.md`) | Find Peaks revived; then re-measure it on top of A1 and Unit B |
+| Math-first migration | design + step 1 on `feature-autofit-stage2` (`877bb31`, `854c40a`; not on main) | it redesigns Find Peaks' detection (limits derived from the measurement and quantum-number physics; curated grammars demoted to post-fit labels) — no use while Find Peaks is archived | Find Peaks revived: this is the design for a revived Find Peaks |
+| Unit B — data-estimated noise | **DEFERRED, not dropped** | its Find Peaks consumers (detection / proposal gates, occupancy floor) are archived. It still matters for RUN FIT: the displayed chi2r assumes Poisson variance in the file's units; the measured dispersion on the committed C 1s scans is 0.4–1.2 × mean (k = 0.43–0.75), so a calibrated chi2r would read ~1.3–2.3× the displayed one (docs/findings/find-peaks-scale/README.md §2) | an owner decision to calibrate the displayed chi2r (Run Fit's statistic, sigma and the support F test are all read from it), or Find Peaks revived |
+
+
 ## Status board
 
 | Unit | Status | Tested | Notes |
