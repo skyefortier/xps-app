@@ -259,3 +259,36 @@ def test_a_linked_parameter_is_judged_on_its_masters_span():
     for pk in b["individual_peaks"]:
         pk["params"]["fwhm"]["value"] += 0.2                 # beyond it
     _rejects(a, b, "individual_peaks.1.params.fwhm")
+
+
+def test_an_alternative_without_a_fwhm_parameter_is_scaled_by_its_own_curve():
+    # Codex A2 round 5 (runs A, B): a DS+G alternative (alpha, beta, m_gauss — no fwhm)
+    # fell back to the returned fit's width
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    for c in a["starts"]["alternatives"][0]["components"]:
+        c["params"] = {"amplitude": 500.0, "center": c["params"]["center"], "alpha": 0.0, "beta": 0.05, "m_gauss": 0.0}
+    b = copy.deepcopy(a)
+    comp = b["starts"]["alternatives"][0]["components"][0]
+    comp["params"]["center"] += 0.24
+    comp["center_shift_from_start"] += 0.24
+    _rejects(a, b, "starts.alternatives.0.components.0")
+
+
+def test_a_chain_of_links_is_judged_on_the_bounded_masters_span():
+    # Codex A2 round 5 (runs A, B): p4_m -> p3_m -> p2_m — the grandchild fell back to a
+    # relative allowance
+    x, y, specs = R._crowded_c1s()
+    a = fitting.run_fit(x, y, specs, background_method="shirley", n_perturb=0, fit_kws={"method": "leastsq"})
+    ids = [pk["id"] for pk in a["individual_peaks"]]
+    root = a["individual_peaks"][0]["params"]["fwhm"]; root.update(min=0.0, max=499.0)
+    for k in (1, 2):
+        c = a["individual_peaks"][k]["params"]["fwhm"]
+        c.update(expr=f"p{ids[k - 1]}_fwhm", min=None, max=None, vary=False, value=root["value"])
+    b = copy.deepcopy(a)
+    for k in (0, 1, 2):
+        b["individual_peaks"][k]["params"]["fwhm"]["value"] += 0.4        # inside 1e-3 of the root's 499 span
+    assert_same_fit(a, b)
+    for k in (0, 1, 2):
+        b["individual_peaks"][k]["params"]["fwhm"]["value"] += 0.2
+    _rejects(a, b, "individual_peaks.2.params.fwhm")

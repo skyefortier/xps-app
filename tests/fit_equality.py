@@ -19,10 +19,11 @@ less than ftol, relative):
     parameters, areas — to SAME_MINIMUM_REL = 10 x sqrt(ftol) (1e-3) OF ITS
     OWN SCALE: each component's curve against that component's own height;
     its centre (and every centre shift) against its own half-maximum width
-    (a scattered-start alternative's centres against that alternative's own
-    FWHM); a bounded parameter against its bound span (a value pinned at a
+    (a scattered-start alternative's centres against the half-maximum width of
+    its own curve, evaluated from its parameters through the server's lineshape);
+    a bounded parameter against its bound span (a value pinned at a
     bound, 1e-14 vs 1e-12, is the same value), a LINKED parameter against the
-    span of the master its expression follows; the fitted curve against the signal;
+    span of the bounded master its expression follows, through any chain of links; the fitted curve against the signal;
     percentages of 100; everything else relatively. Measured press-to-press
     on the tests' models: <= 1.4e-6.
 No component is exempt — not a small one beside a dominant line, not one the
@@ -44,6 +45,7 @@ two presses of the identical request, chi2 8.9e-9 apart, one GL-mix sigma
 Everything that is not a real number — structure, flags, ids, counts, the
 seed — must be identical; non-finite values must sit in the same places.
 """
+import inspect
 import math
 import re
 
@@ -64,6 +66,20 @@ _NOT_COMPARED = ("message", "stderr")
 
 def _as_curve(v):
     return np.array([np.nan if e is None else e for e in v], dtype=float)
+
+
+def _curve_from_params(x, params):
+    """The component's curve from its parameters alone, through the server's own lineshape
+    (the one whose arguments are exactly these parameters); None if none matches."""
+    keys = set(params)
+    curves = []
+    for func in fitting._SHAPE_FUNCS.values():
+        if set(list(inspect.signature(func).parameters)[1:]) == keys:
+            try:
+                curves.append(np.asarray(func(np.asarray(x, float), **{k: float(v) for k, v in params.items()}), float))
+            except Exception:
+                continue
+    return curves
 
 
 def _half_max_width(x, y):
@@ -87,16 +103,23 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
         width[str(pa.get("id"))] = min(ws) if ws else span
     # every fitted parameter's bounds by its lmfit name (p<id>_<name>), so a LINKED parameter
     # (expr, no bounds of its own) is judged on the span of the master it follows
-    bounds_of = {}
+    info_of = {}
     for pk in a.get("individual_peaks") or []:
         for name, info in (pk.get("params") or {}).items():
-            if isinstance(info, dict) and info.get("min") is not None and info.get("max") is not None:
-                bounds_of[f"p{pk.get('id')}_{name}"] = (info["min"], info["max"])
+            if isinstance(info, dict):
+                info_of[f"p{pk.get('id')}_{name}"] = info
 
-    def linked_bounds(info):
+    def linked_bounds(info, seen=()):
+        # through a chain of links (p4_m -> p3_m -> p2_m) to the bounded master
         for ref in re.findall(r"p[0-9A-Za-z]+_[A-Za-z_]+", info.get("expr") or ""):
-            if ref in bounds_of:
-                return bounds_of[ref]
+            master = info_of.get(ref)
+            if master is None or ref in seen:
+                continue
+            if master.get("min") is not None and master.get("max") is not None:
+                return (master["min"], master["max"])
+            found = linked_bounds(master, seen + (ref,))
+            if found:
+                return found
         return None
 
     problems = []
@@ -148,15 +171,23 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
         if abs(x_ - y_) > tol:
             problems.append(f"{where}: {x_!r} vs {y_!r}")
 
+    step = float(np.median(np.abs(np.diff(x)))) if len(x) > 1 else 1.0
+
     def alternative_widths(xa, xb):
-        # a scattered-start alternative has no curves: its components' own FWHM parameters
-        # scale its centres, never the returned fit's (Codex A2 round 4)
-        out = dict(width)
+        # a scattered-start alternative has no curves in the response: each component's curve
+        # is evaluated from its own parameters through the server's lineshape, and its
+        # half-maximum width — the returned components' definition — scales its centres; never
+        # the returned fit's width (Codex A2 rounds 4-5). No matching lineshape: one grid
+        # step (fails closed).
+        out = {}
         for ca, cb in zip(xa.get("components") or [], xb.get("components") or []):
-            ws = [abs(c["params"]["fwhm"]) for c in (ca, cb)
-                  if isinstance(c.get("params"), dict) and isinstance(c["params"].get("fwhm"), (int, float)) and c["params"]["fwhm"]]
-            if ws:
-                out[str(ca.get("id"))] = min(ws)
+            ws = []
+            for c in (ca, cb):
+                for yc in (_curve_from_params(x, c["params"]) if isinstance(c.get("params"), dict) else []):
+                    w = _half_max_width(x, yc)
+                    if w:
+                        ws.append(w)
+            out[str(ca.get("id"))] = min(ws) if ws else step
         return out
 
     def cmp(x_, y_, path, comp_id=None, bounds=None, widths=None):

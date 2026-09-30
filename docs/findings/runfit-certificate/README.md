@@ -264,3 +264,12 @@ order and 0 / 202 notices verified again.
 |---|---|---|
 | 1 | MAJOR (A): a scattered-start alternative's centres were scaled by the RETURNED fit's component width — a 0.04 eV alternative line took a 0.29 eV allowance, and two alternatives 0.24 eV apart passed | an alternative's centres and shifts are scaled by that alternative's own components' FWHM; test |
 | 2 | MAJOR (A, B): a LINKED parameter (expr, no bounds of its own) was compared relatively while its master used its bound span: recorded same-minimum Trust-Region repeats of LA doublets (4-GTA UCl4-BN U4f Scan_4 and three more: m 0.477 → 0.001 inside 0–499) would be rejected | a linked parameter is judged on the span of the master its expression references; test |
+
+**Round 5 — NO-GO ×2** (`a2_runfit_certificate_r5_verdict_run{A,B}.md`, commit
+68fbf47; the resolution ruling stands; all 398 eligible recorded same-minimum
+parameter / curve replays pass, incl. round 4's four):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): a DS+G alternative (α, β, m — no fwhm parameter) still took the returned fit's width (0.62 eV allowance for lines 0.1 eV wide, 0.5 eV apart) | the CLASS fix: one width definition everywhere — the half-maximum width of the component's own curve. An alternative's curve is evaluated from its parameters through the server's own lineshape (the one whose arguments are exactly those parameters); no match fails closed at one grid step. No shape-specific width parameter anywhere; test |
+| 2 | MAJOR (A, B): bound inheritance stopped after one link (p4_m → p3_m → p2_m: the grandchild fell back to a relative allowance) | resolved transitively to the bounded master (cycle-guarded); test |
