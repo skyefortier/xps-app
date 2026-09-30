@@ -331,3 +331,17 @@ quantity on its own scale with no statistical exemption, lineshape identity
 carried explicitly, links resolved to their bounded master, fail-closed
 reconstruction, and a stated finite resolution both reviewers ruled
 sufficient (rounds 4–10).
+
+
+## Owner's record (2026-09-30, at deploy)
+
+- **Expert fits are a comparison, not ground truth.** 4 of the 29 C 1s expert
+  fits in the parity battery are not minima: 8-JT C1s Scan_2, 3 and 5 certify
+  at a lower chi2; Scan_6 needs 106 restarts against the cap of 50.
+- **Known limit, logged, not fixed:** the certificate's 50-restart cap gives a
+  false "not converged" on slow, flat-valley fits when no perturbed restarts
+  run — Find Peaks' "Refit my current peaks" (`/api/analyze`, `n_perturb` 0).
+  Not fixed because Find Peaks is being archived (owner, 2026-09-30).
+- **Scan_5:** the scattered-starts line flags the fit as not unique from
+  either minimum, but names the other minimum only from 33.9. Acceptable as is
+  (owner).

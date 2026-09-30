@@ -6,6 +6,39 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-30 — Run Fit checks that a fit reached its minimum (`fix-runfit-certificate`, unit A2)
+
+- **Release note:** Run Fit's result is no longer "complete" just because the
+  optimiser stopped. After the usual search (unchanged: the fit and its
+  perturbed restarts exactly as before) the server continues the returned fit
+  from where it stopped until continuing no longer improves it — Trust-Region
+  restarts until one improves chi-square by less than Trust-Region's own
+  tolerance, at most 50; otherwise the fit is reported as not converged, with
+  the reason. The same check judges each scattered start and Auto-Fit's
+  required-component refit. On the 202 committed fits: Trust-Region 202 / 202
+  converged, areas moved > 1 pp on 4 (every one to a lower chi-square);
+  Levenberg-Marquardt 197 → 202 converged, > 1 pp on 2 (largest 13 pp,
+  chi2r 21.0 → 15.5); scattered starts "did not converge" 30 → 3 (LM);
+  median +0.04–0.07 s per Run Fit, 90th percentile under 1 s. **Re-running a
+  saved multi-component fit may shift its areas** where the old fit had
+  stopped short.
+- **New line under Results** when finishing the fit moved a component's centre
+  more than 1 eV ("Fit continued past where the optimiser stopped; C-O moved
+  −1.47 eV"): a notice, not a confirmation; bound to the fit; saved while
+  current; CSV / XLSX. 0 of the 202 committed fits trigger it.
+- **Levenberg-Marquardt is no longer byte-reproducible where the certificate
+  moves a fit** (it then carries Trust-Region's arithmetic); repeat presses
+  agree to 0.074 pp (main: 0.23 pp — main was already not byte-identical on LA
+  models). Tests compare fits within rounding (`tests/fit_equality.py`, owner
+  decision).
+- The response adds `certificate` and each component's `shape` (additive).
+- Codex: 10 rounds — every finding after round 1 was in the within-rounding
+  comparison; round 10 GO ×2, no findings. Python 1085 passed / 7 skipped; JS
+  506 / 504 pass / 2 todo; browser check on dev and on production through
+  xps.fortierlab.org (a certified Run Fit on 1-GTA C1s Scan; the notice
+  renders with no button, exports, and disappears after an edit; no page
+  errors). Student note held for the owner.
+
 ## 2026-09-29 — Find Peaks does not read the clock (`fix-find-peaks-determinism`, unit A1)
 
 - **Release note:** Find Peaks' answer no longer depends on how busy the
