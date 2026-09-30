@@ -834,7 +834,7 @@ starting model as "Fit complete"; see
 
 | Backend id | Notes |
 |---|---|
-| `shirley` | Solves the Shirley relation B = T(B) (below). Default. Corroboration: Shirley, *Phys. Rev. B* **5**, 4709 (1972); the iterative form: Proctor & Sherwood, *Anal. Chem.* **54**, 13 (1982). |
+| `shirley` | Iterates the Shirley relation B = T(B) (below; a solution when the iteration converges). Default. Corroboration: Shirley, *Phys. Rev. B* **5**, 4709 (1972); the iterative form: Proctor & Sherwood, *Anal. Chem.* **54**, 13 (1982). |
 | `smart` | Shirley variant with smarter endpoint handling. |
 | `smart_exp` | Experimental Shirley variant. |
 | `shirley_linear` | Shirley with a linear-fallback bridge. |
@@ -885,7 +885,8 @@ below-window level and the high-BE anchor; `manual` piecewise-affine through the
 anchors; `shirley_linear` B = min(L + d(1 − F(B)), I), L affine in index — a REVERSED
 step (largest at the low-BE edge), no physical basis, and it should not return to the
 menu (equal edge levels return L unclamped; the page's twin solves it only on
-ascending grids).
+ascending grids). Every "solves" here holds when the iteration converges (it can
+cycle, F12).
 Reported, not implemented (owner decisions): endpoint averaging is read two ways
 (`shirley`, `smart`'s integrand and `tougaard` average the DATA, `smart_exp` only
 the edge levels; `smart` at n_avg > 1 then satisfies neither reading; ≤ 0.33 % of

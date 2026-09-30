@@ -2000,7 +2000,7 @@
               <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
                 <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra.">Shirley (iterative)</option>
                 <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them. The constraint assumes net intensity is non-negative; on noisy data it binds on noise dips and lowers the background slightly (net areas a little high). With endpoint averaging above 1 it integrates the averaged data but clamps against the measured data, so it solves the constrained problem exactly under neither reading (up to about 0.1 % of the span on the spectra tested).">Smart (constrained Shirley)</option>
-                <option value="smart_exp" data-tip="The constrained Shirley problem, solved directly (the constraint inside the iteration). With endpoint averaging above 1 it averages only the edge levels, not the data itself; at an averaging of 1 it has given the same background as Smart on every spectrum tested.">Smart (experimental)</option>
+                <option value="smart_exp" data-tip="The constrained Shirley problem, iterated with the constraint inside the iteration (a solution when that iteration converges). With endpoint averaging above 1 it averages only the edge levels, not the data itself; at an averaging of 1 it has given the same background as Smart on every spectrum tested.">Smart (experimental)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
                 <!-- De-listed 2026-09-03 pending scientific review (task-4 parity
                      report: the JS preview of this method diverges 27-33 % of span
@@ -4464,7 +4464,7 @@ function smartBackground(be, intensity, maxIter, rawIntensity) {
   return shir;
 }
 
-// Constrained Shirley solved directly, B <- min(T(B), I): the problem of
+// Constrained Shirley, the constraint inside the iteration, B <- min(T(B), I): the problem of
 // smartBackground with the edge LEVELS averaged and the measured data integrated —
 // fitting.smart_experimental_background's docstring (docs/findings/background-math/).
 function smartExperimentalBackground(be, intensity, maxIter, nAvg) {

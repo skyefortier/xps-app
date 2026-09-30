@@ -513,7 +513,7 @@ def smart_experimental_background(
     tol: float = 1e-6,
     n_avg: int = 1,
 ) -> np.ndarray:
-    """Constrained Shirley background solved directly: B = min(T(B), I).
+    """Constrained Shirley background, the constraint inside the iteration: B = min(T(B), I).
 
     DEFINING STATEMENT: the constrained problem of smart_background — the
     Shirley relation wherever B < I, the constraint B = I where the relation
@@ -673,10 +673,12 @@ def tougaard_background(
     whole loss vector vanishes, as on a two-point window); if J(E_high) != C0
     no solution exists and the anchor is missed (findings F11). On a grid
     uniform to 1e-6 of its first step the sum is evaluated as if EXACTLY
-    uniform (index gap x first step, one weight) — the stated sum to ~1e-8 of
-    the span at that tolerance, but it can turn a nearly cancelling high-edge
-    sum into an exact zero (a constructed 4-point case misses the anchor by
-    33 % of the span where the stated sum has a, badly conditioned, solution).
+    uniform (index gap x first step, one weight): each separation and weight is
+    perturbed by up to ~1e-6 relative, but the error is not bounded by that —
+    1e-8 and 2.5e-7 of the span on two small examples, and the anchor divides
+    by the high-edge sum, so near cancellation it is amplified (16 % of the
+    span on a constructed case with both sums non-zero; a nearly cancelling sum
+    can become exactly zero and the anchor is missed by 33 %).
     Measured on
     the committed spectra, against an independent evaluation: equal to the
     discrete sum to <= 1e-13 of the span, the anchor met exactly, within 1e-5 of
@@ -789,9 +791,11 @@ def tougaard_background(
     # on a uniform grid, so both branches agree to floating point and the
     # uniformity test is an optimization on a truly uniform grid. The test
     # accepts grids uniform to 1e-6 of the first step, where the convolution
-    # APPROXIMATES the stated sum (index separations, one weight): ~1e-8 of the
-    # span at that tolerance, but a high-edge sum that nearly cancels can come
-    # out exactly zero (background-math findings, tougaard; Codex round 3).
+    # APPROXIMATES the stated sum (index separations, one weight). The error is
+    # not bounded by the 1e-6: the anchor divides by the high-edge sum, so near
+    # cancellation it is amplified (16 % of the span on a constructed case) and a
+    # nearly cancelling sum can come out exactly zero (background-math findings,
+    # tougaard; Codex rounds 3-4).
     diffs = np.diff(xa)
     uniform = bool(dx > 0.0 and np.max(np.abs(diffs - diffs[0])) <= 1e-6 * dx)
 

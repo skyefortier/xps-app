@@ -75,7 +75,8 @@ def test_shirley_solves_its_relation_on_every_committed_spectrum():
 def test_FINDING_the_shirley_relation_can_have_several_solutions():
     # Codex round 1 (runs A, B): exact solutions of B = T(B) (and of B = min(T(B), I)) that differ,
     # with different net areas — the relation is not well posed in general; an implementation
-    # returns the solution its iteration reaches from the straight line between the edge levels.
+    # returns, when its iteration converges, the solution reached from the straight line
+    # between the edge levels (it can also cycle: findings F12).
     for E, I, sols in (
         ([0, 1, 2, 3], [1, 1.72, 1.98, 2], [[1, 1.40, 1.90, 2], [1, 1.45, 1.95, 2], [1, 1.50, 2.00, 2]]),
         ([0, 1, 2, 3], [1, 1.45, 1.90, 2], [[1, 1.30, 1.80, 2], [1, 1.375, 1.875, 2]]),
@@ -265,7 +266,7 @@ def test_FINDING_tougaard_equal_levels_leave_a_family_when_interior_loss_remains
 
 def test_FINDING_tougaard_near_uniform_fast_branch_approximates_the_sum():
     # Codex round 3: grids uniform to 1e-6 of the step take the convolution branch (index
-    # separations, one weight). ~1e-8 of span away from the stated sum at that tolerance ...
+    # separations, one weight). Measured 1e-8 of span away from the stated sum on this grid ...
     E, I = np.array([0, 1, 2.0000009, 3.0000009, 4.0000009]), np.array([10.0, 20.0, 30.0, 25.0, 12.0])
     d = np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I))) / D.span_of(I)
     assert 1e-9 < d < 1e-7
@@ -367,3 +368,25 @@ def test_FINDING_shirley_linear_can_cycle():
     E, I = np.arange(5.0), np.array([20.0, 44.0, 34.0, 41.0, 47.0])
     for n_iter in (200, 2000):
         assert D.shirley_linear_residual(E, I, fitting.shirley_linear_background(E, I, n_iter=n_iter))[0] > 0.1
+
+
+def test_FINDING_the_near_uniform_error_is_not_bounded_by_the_tolerance():
+    # Codex round 4: 2.5e-7 of span on a non-cancelling grid; and near cancellation the anchor
+    # amplifies it — 16 % of span with BOTH high-edge sums non-zero
+    E, I = np.array([0, 1.0000009, 2.0000018, 3.0000018]), np.array([10.0, 11.0, 11.0, 20.0])
+    d = np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I))) / D.span_of(I)
+    assert 1e-7 < d < 1e-6
+    E, I = np.array([0, 1, 2.0000005, 3.0000005]), np.array([2.0, 3.0, 2 - _K(2) / _K(1) + 0.001, 3.0])
+    assert D.tougaard_loss(E, I)[0][0] != 0.0
+    d = np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I))) / D.span_of(I)
+    assert 0.1 < d < 0.2
+
+
+def test_FINDING_a_general_solver_replacement_would_move_converged_answers():
+    # Codex round 4 (F12 option iii): production stops at its absolute 1e-6 step (F5) short of the
+    # exact solution on a converging case; a solver that reached it would change the net area
+    E, I = np.arange(4.0), np.array([1.0, 1.72, 1.98, 2.0])
+    B = fitting.shirley_background(E, I)
+    exact = np.array([1.0, 1.4, 1.9, 2.0])
+    assert D.shirley_residual(E, I, exact) < ROUND
+    assert np.trapezoid(I - B, E) - np.trapezoid(I - exact, E) > 1e-6

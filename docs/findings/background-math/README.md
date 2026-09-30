@@ -91,8 +91,9 @@ to 46 % of the points on the committed spectra. Consequence: F2.
 
 ### smart_exp — B = min(T(B), I), reading "levels"
 
-The same constrained problem, solved by the projected iteration B ← min(T(B), I)
-with only the edge levels averaged: residual ≤ 1.7e-11 on all 121 spectra and
+The same constrained problem, iterated by the projection B ← min(T(B), I) with
+only the edge levels averaged — a solution when that iteration converges (it can
+cycle, F12): residual ≤ 1.7e-11 on all 121 spectra and
 every averaging used. At n_avg = 1 it returned the same background as `smart` on
 every committed spectrum (to 1.3e-16) — an agreement of the two iterations from
 the same line, not a uniqueness result (F3).
@@ -109,7 +110,7 @@ below an absolute 1e-12) it returns L itself, UNCLAMPED, above the data wherever
 data dip below the line (e.g. E = 0…4, I = [10, 15, 5, 15, 10] gives a flat 10,
 where the equation gives [10, 10, 5, 10, 10]); and the iteration stops if the net
 integral is not positive. The page's twin (`shirleyLinearBackground`) solves the
-same equation only on an ASCENDING grid: it does not reverse a descending one
+same equation — when its iteration converges — only on an ASCENDING grid: it does not reverse a descending one
 (the usual XPS order), so there its step is accumulated from the other edge — a
 different curve (on a 5-point example its equation residual is 7.6 % of the span
 and it differs from the server's curve by 7.8 %; the pinned page / server gap).
@@ -142,11 +143,13 @@ returned is its λ = 0 member (every member is flat only when the whole loss
 vector vanishes, as on a two-point window); if D(E_high) ≠ C0 there is no
 solution and the returned C0 misses the anchor (F11; none of the committed
 spectra). On a grid uniform to 1e-6 of its first step the implementation
-evaluates the sum as if EXACTLY uniform (index gap × first step, one weight): the
-stated sum to ~1e-8 of the span at that tolerance, exact on a uniform grid, but a
-nearly cancelling high-edge sum can come out exactly zero — a constructed 4-point
-case then misses the anchor by 33 % of the span where the stated sum has a (badly
-conditioned) solution (Codex round 3). (b) Homogeneous depth distribution and the universal
+evaluates the sum as if EXACTLY uniform (index gap × first step, one weight) —
+exact on a uniform grid; otherwise each separation and weight is perturbed by up
+to ~1e-6 relative, and the resulting error is NOT bounded by that: measured
+1.0e-8 and 2.5e-7 of the span on two 4–5-point examples, and because the anchor
+divides by the high-edge sum, near cancellation it is amplified — 16 % of the
+span on a constructed case where both sums are non-zero, and a nearly cancelling
+sum can come out exactly zero (the anchor then missed by 33 %) (Codex rounds 3–4). (b) Homogeneous depth distribution and the universal
 cross-section (fitted to noble / transition metals) — fails for layered or
 particulate samples and sharp-plasmon materials; the below-window contribution
 constant; the high-BE edge free of primary signal. (c) Against an independent
@@ -214,13 +217,14 @@ spectra; pinned in the tests.
 - **F5. Shirley's stop is absolute** (a change < 1e-6 intensity units) — the
   design rule "thresholds on data-scaled quantities fail". The same spectrum in
   other units stops elsewhere; negligible on the committed spectra (at 10⁻⁶ of the
-  units: ≤ 1.5e-5 of the span, ≤ 0.0023 % of net area, same reading). Change: a
-  relative stop on the relation's residual.
+  units: ≤ 1.5e-5 of the span, ≤ 0.0023 % of net area, same reading). Option: a
+  relative stop on the relation's residual. Owner decision.
 - **F10. When the data lie below the edge line everywhere, the Shirley iteration
   cannot start.** The first step's net-signal integral is zero, so the relation is
   undefined there; production returns the line (`shirley`) or the data (`smart`,
   `smart_exp`), none of which solves its statement — although solutions exist
-  (Codex round 1's case, pinned). None of the committed spectra.
+  (Codex round 1's case, pinned). None of the committed spectra. Options: report
+  it as an outcome (no background), or start from another curve. Owner decision.
 
 **Decisions, no number changes:**
 
@@ -229,7 +233,7 @@ spectra; pinned in the tests.
   F1. Offering both suggests a difference that, at n_avg = 1, was not measured.
 - **F4. `shirley_linear` should not return to the menu:** its equation is
   coherent, its physics reversed (see above). It stays importable so the saved
-  files that use it restore (de-listed 2026-09-03).
+  files that use it restore (de-listed 2026-09-03). Owner decision.
 - **F6. Tougaard's kernel shape.** B 1s, C 1s and Cl 2p windows (10–20 eV)
   sample no loss beyond the kernel maximum (23.4 eV); the U 4f windows (31–35 eV)
   draw up to 30 % of the high-BE edge's integral from beyond it. Replacing K by
@@ -245,17 +249,21 @@ spectra; pinned in the tests.
   statement — and the server — is affine in energy. Equal on uniform grids only
   (already pinned as Task 4 cause 4).
 - **F9. The Shirley relation is not well posed in general** (several solutions;
-  exact counterexamples pinned). The implementations return the solution reached
-  from the edge-to-edge line. On the committed spectra no second solution was
-  found from a second start — which cannot rule one out.
+  exact counterexamples pinned). When they converge, the implementations return
+  the solution reached from the edge-to-edge line; they can also cycle and return
+  a non-solution (F12). On the committed spectra no second solution was found from
+  a second start — which cannot rule one out.
 - **F11. Tougaard when its discrete loss sum at the high-BE edge vanishes**
   (the sampled quadrature, not the continuum integral: a two-point window has no
   term with T > 0). λ is then not determined by the anchor. With equal anchor
   levels, D(E_high) = C0, the solutions form a family, one per λ, and the returned
   flat C0 is its λ = 0 member (all flat only when the whole loss vector vanishes);
   with unequal levels there is no solution and C0 misses the anchor. The
-  near-uniform fast branch can produce such a zero where the stated sum has none
-  (see tougaard above). All pinned; none of the committed spectra.
+  near-uniform fast branch can produce such a zero where the stated sum has none,
+  and amplifies its approximation near cancellation (see tougaard above). All
+  pinned; none of the committed spectra. Options: report the undetermined and
+  unsatisfiable cases as outcomes; evaluate the stated sum on every non-uniform
+  grid. Owner decision.
 - **F12. The fixed-point iterations can cycle** (Codex round 3). On small
   positive spectra on uniform ascending grids `shirley`, `smart`, `smart_exp` and
   `shirley_linear` alternate between two curves forever — 2000 iterations give
@@ -264,11 +272,20 @@ spectra; pinned in the tests.
   13], z = (17 − √37)/4) and 21 % on E = 0…4, I = [11, 14, 1, 33, 40] (the Smart
   methods 11 % there), `shirley_linear` 12.5 % on I = [20, 44, 34, 41, 47]. A
   larger cap cannot help; the checker's own reference solver does not converge
-  on them either. Every implementation converged on all 121 committed spectra
-  (residual ≤ 1.7e-11). Options: test the returned background against its
+  on them either. On all 121 committed spectra every iteration converged: each
+  method's residual against its own statement is as in the summary — `shirley`
+  and `smart_exp` ≤ 1.7e-11, `shirley_linear` ≤ 3.3e-11, `smart` ≤ 1.7e-11 at
+  n_avg = 1 (at n_avg > 1 its underlying Shirley iteration converged too — ≤ 1.7e-11
+  under its own reading — and its gap of up to 1.1e-3 is F1's mixed reading, not
+  non-convergence). Options: (i) CERTIFY the returned background against its
   statement and report non-convergence as an outcome (as a fit that did not
-  converge is); a solver that finds the fixed point (damped iteration, a root
-  finder) — which changes numbers on those inputs only. Owner decision.
+  converge is) — no number changes where it converges; (ii) a fixed-point solver
+  (damped iteration, a root finder) used ONLY as a fallback after a failed
+  certification — changes numbers on the failing inputs only; (iii) replacing the
+  iteration generally — changes numbers elsewhere too: on a converging 4-point case
+  production stops at net area 0.40000537 (its absolute 1e-6 stop, F5) where the
+  exact solution gives 0.4, and where several solutions exist (F9) another solver
+  may select another. Owner decision.
 
 ## Docstrings
 
@@ -316,8 +333,21 @@ the round-2 fixes hold; the degenerate branches are covered):
 
 | # | finding | fix |
 |---|---|---|
-| 1 | MAJOR (A, B): the iterations can CYCLE and never converge on small positive spectra (shirley 14 % / 21 % of span, the Smart methods 11 %, shirley_linear 12.5 %; 2000 iterations = 200), so "returns the solution reached" was an overclaim | F12; every "returns the solution" qualified by "when it converges" (README, docstrings, CLAUDE.md, the page comment); the four cycles and the exact solution pinned |
-| 2 | MAJOR (A) / MINOR (B): Tougaard's near-uniform fast branch approximates the stated sum (index separations, one weight): ~1e-8 of span at the tolerance, and a nearly cancelling high-edge sum can become exactly zero (anchor missed by 33 %) | stated in the docstring, the code comment (no longer "a pure optimization"), the README; both pinned |
+| 1 | MAJOR (A, B): the iterations can CYCLE and never converge on small positive spectra (shirley 14 % / 21 % of span, the Smart methods 11 %, shirley_linear 12.5 %; 2000 iterations = 200), so "returns the solution reached" was an overclaim | F12; "returns the solution" qualified by "when it converges" (README, docstrings, CLAUDE.md, the page comment); the four cycles and the exact solution pinned. (Round 4: F9, a test comment and the smart_exp tooltip had been missed; now qualified.) |
+| 2 | MAJOR (A) / MINOR (B): Tougaard's near-uniform fast branch approximates the stated sum (index separations, one weight), and a nearly cancelling high-edge sum can become exactly zero (anchor missed by 33 %) | stated in the docstring, the code comment (no longer "a pure optimization"), the README; both pinned. (Round 4: the "~1e-8 of span" quoted here was one example, not a bound — corrected.) |
 | 3 | MINOR (A, B): F11's "the flat C0 solves it for every λ" is false when interior loss terms are non-zero | the flat C0 is the λ = 0 member of a family; all flat only when the whole loss vector vanishes; pinned on a uniform 4-point case |
 | 4 | MINOR (B): averaging does reduce the constraint's increment (+1.28 → +0.97 %, 0.30 ± 0.04 pp) | "reduces but does not remove" |
 | 5 | MINOR (A): the page comment called 7.6 % (the equation residual) the page / server gap (7.8 %); F5 ≤ 1.4e-5 and F7 ≤ 8.5e-5 were exceeded (1.442e-5, 8.517e-5) | both numbers named; ≤ 1.5e-5 and ≤ 8.6e-5 |
+
+**Round 4 — NO-GO ×2** (`docs/autofit/codex/background_math_r4_verdict_run{A,B}.md`,
+commit 84f3ee0; both: no fitted number changed; 121 records and the Monte Carlo —
+incl. the averaging reduction 0.3049 ± 0.0380 pp — reproduce; the F11 family,
+the averaging increment, both shirley_linear numbers and the F5 / F7 bounds hold):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A) / MINOR (B): F9, a test comment and the smart_exp tooltip ("solved directly") still claimed a solution without the convergence condition (both Smart methods return a 14 % non-solution on the pinned cycle) | qualified there and in CLAUDE.md's method row; the smart_exp docstring's and page comment's "solved directly" replaced; the round-3 table annotated |
+| 2 | MAJOR (A) / MINOR (B): F12's "every implementation … ≤ 1.7e-11" contradicted smart at n_avg > 1 (1.1e-3) and shirley_linear (3.3e-11) | method-specific bounds; smart's gap attributed to F1 (its underlying Shirley iteration converged, ≤ 1.7e-11 under its own reading) |
+| 3 | MAJOR (B) / MINOR (A): Tougaard's "~1e-8 of span" was one example, not a bound: 2.5e-7 on a non-cancelling grid, and 16 % of span where both high-edge sums are non-zero but nearly cancel (the anchor amplifies the error) | stated as measurements with the amplification (docstring, code comment, README); both pinned |
+| 4 | MINOR (A, B): F12's "a new solver changes numbers on those inputs only" does not follow — a root finder moves a converged case (net area 0.40000537 → 0.4) and may pick another solution where several exist | three options with their scope: certify and report; a fallback solver after a failed certification (failing inputs only); a general replacement (numbers move elsewhere too); pinned |
+| 5 | (A) F4, F5, F10, F11 lacked the explicit "owner decision" F1 / F2 / F12 carry | labelled, with their options |
