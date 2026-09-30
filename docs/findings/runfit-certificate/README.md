@@ -313,3 +313,21 @@ exceptions):
 |---|---|---|
 | 1 | MAJOR (A, B): lineshape identity cannot be inferred from a curve — a very broad Gaussian and Lorentzian agree to 1e-13 on the grid, identification was ambiguous and a byte-identical copy failed closed | the identity is carried explicitly: `run_fit` reports each `individual_peaks[]` entry's `shape` (additive; no numerical effect — the fit is unchanged, `fitting.py`'s measured numerics stand); the comparison reads it (inference only for a response without it, failing closed when ambiguous); test |
 | 2 | MINOR (B): a reconstruction returning NaN at the alternative's parameters matched NaN masks and passed | a non-finite reconstruction is a failed one (fails closed); test |
+
+**Round 10 — GO ×2, no findings** (`a2_runfit_certificate_r10_verdict_run{A,B}.md`,
+commit a06e2da): the explicit shape resolves broad-component ambiguity; unknown
+and alias shape names and omitted-shape inference behave as documented;
+non-finite reconstructions fail closed; the added field is harmless in every
+page, save / export and Python consumer inspected; no above-resolution false
+acceptance or same-minimum false rejection reproduced; the finite-resolution
+ruling stands; certificate exits, evaluation caps, restart cancellation and
+the 0 / 202 notices verified again.
+
+Summary of the review: ten rounds. Round 1's findings on the certificate and
+page were test / document gaps; every finding from round 1 on was in the
+same-fit comparison (`tests/fit_equality.py`) — the owner's condition that
+the rewritten tests still fail on a different minimum. What converged: every
+quantity on its own scale with no statistical exemption, lineshape identity
+carried explicitly, links resolved to their bounded master, fail-closed
+reconstruction, and a stated finite resolution both reviewers ruled
+sufficient (rounds 4–10).
