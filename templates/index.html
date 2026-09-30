@@ -1999,8 +1999,8 @@
               <label>Type</label>
               <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
                 <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra.">Shirley (iterative)</option>
-                <option value="smart" data-tip="Shirley background with the constraint that it never exceeds the data. Prevents overshoot artifacts between well-separated peaks.">Smart (constrained Shirley)</option>
-                <option value="smart_exp" data-tip="Experimental constrained Shirley closer to Avantage Smart behavior. Constraint is applied during iteration, not after. Better for narrow windows and sloped baselines.">Smart (experimental)</option>
+                <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them. The constraint assumes net intensity is non-negative; on noisy data it binds on noise dips and lowers the background slightly (net areas a little high).">Smart (constrained Shirley)</option>
+                <option value="smart_exp" data-tip="The same constrained Shirley problem as Smart, solved directly (the constraint inside the iteration). With endpoint averaging above 1 it averages only the edge levels, not the data itself; otherwise it gives the same background as Smart.">Smart (experimental)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
                 <!-- De-listed 2026-09-03 pending scientific review (task-4 parity
                      report: the JS preview of this method diverges 27-33 % of span
@@ -4447,7 +4447,9 @@ function shirleyBackground(be, intensity, maxIter) {
 }
 
 function smartBackground(be, intensity, maxIter, rawIntensity) {
-  // Smart (constrained Shirley): standard Shirley clamped to never exceed data.
+  // Constrained Shirley: B = min(T(B), I) — the problem, why clamping the Shirley
+  // solution solves it, its assumptions and its noise bias: fitting.smart_background's
+  // docstring (docs/findings/background-math/).
   // The Shirley runs on `intensity` (the endpoint-averaged copy); the clamp is
   // against the RAW data (`rawIntensity`, defaulting to `intensity`), as
   // fitting.smart_background does: averaging only ever moves the background,
@@ -4462,11 +4464,9 @@ function smartBackground(be, intensity, maxIter, rawIntensity) {
   return shir;
 }
 
-// Experimental constrained Shirley background, closer to the public Avantage
-// Smart description: the data-constraint is enforced *during* iteration, not as
-// a post-hoc clamp.  Where the background would exceed the data, it locks to
-// the data and the effective Shirley start moves inward, improving behaviour on
-// narrow windows with sloped baselines.
+// Constrained Shirley solved directly, B <- min(T(B), I): the problem of
+// smartBackground with the edge LEVELS averaged and the measured data integrated —
+// fitting.smart_experimental_background's docstring (docs/findings/background-math/).
 function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
@@ -4513,6 +4513,9 @@ function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
   return flipped ? B.reverse() : B;
 }
 
+// A straight line from the first to the last point BY INDEX. fitting.linear_background
+// solves "affine in ENERGY through the end points"; the two agree only on uniform
+// grids (Task 4 cause 4, pinned) — two readings of one method.
 function linearBackground(be, intensity) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
@@ -4622,8 +4625,10 @@ function _applyEndpointAveraging(intensity, nAvg) {
   return out;
 }
 
-// Shirley + Linear: a linear baseline plus a Shirley-like cumulative correction.
-// Completely standalone — does not call shirleyBackground / smartBackground.
+// NO DEFINING STATEMENT (fitting.shirley_linear_background's docstring): a line
+// plus a second full Shirley-shaped step, starting above the low-BE edge level;
+// only the final clamp to the data restores the edges. De-listed; kept so saved
+// files restore. Completely standalone — does not call shirleyBackground.
 function shirleyLinearBackground(be, intensity, maxIter, nAvg) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
@@ -14697,6 +14702,12 @@ function _manualClearAnchors() {
 }
 
 // Linear interpolation between sorted anchor points
+// Manual background: B is the piecewise-affine curve through the user's anchor
+// points (sorted by energy), constant beyond the outermost anchors — the server's
+// np.interp of the same anchors (tests/test_background_defining_statements.py).
+// No physical model: the defence is the user's judgement of where the background
+// lies. With fewer than 2 anchors it falls back to linearBackground (by index; the
+// server's fallback is linear in energy — the same two readings as Linear).
 function manualAnchorBackground(be, intensity) {
   const anchors = _getManualAnchors();
   const n = be.length;

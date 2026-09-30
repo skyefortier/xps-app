@@ -834,7 +834,7 @@ starting model as "Fit complete"; see
 
 | Backend id | Notes |
 |---|---|
-| `shirley` | Iterative Shirley (Proctor & Sherwood, *Anal. Chem.* **1982**, 54, 13, 2438–2439). Default. |
+| `shirley` | Solves the Shirley relation B = T(B) (below). Default. Corroboration: Shirley, *Phys. Rev. B* **5**, 4709 (1972); the iterative form: Proctor & Sherwood, *Anal. Chem.* **54**, 13 (1982). |
 | `smart` | Shirley variant with smarter endpoint handling. |
 | `smart_exp` | Experimental Shirley variant. |
 | `shirley_linear` | Shirley with a linear-fallback bridge. |
@@ -865,6 +865,27 @@ twin must match its arithmetic, not only its formula. Known gaps, pinned:
 interpolates by index on the page and by energy on the server, equal only on
 uniform grids (Task 4 cause 4); the UI's Shirley iteration count (default 5)
 stops before fitting.py's convergence (Part 5 of the sealed-fit-record memo).
+
+WHAT EACH METHOD SOLVES (background math foundation, 2026-09-30;
+`docs/findings/background-math/README.md`, checker
+`scripts/background_defining_statements.py`, tests
+`tests/test_background_defining_statements.py`). Each implementation is tested
+against its defining statement on all 121 committed spectra, never by
+resemblance to another program: `shirley` B = T(B), T the Shirley relation's
+right-hand side over the positive net signal; `smart` and `smart_exp` the
+constrained problem B = min(T(B), I) — the SAME problem with the same unique
+solution (clamping the Shirley solution solves it exactly, because s(min(B, I))
+= s(B)); `linear` affine in energy through the end points; `tougaard` the
+loss-integral relation with a constant below-window level and the high-BE
+anchor; `manual` piecewise-affine through the anchors. `shirley_linear` has NO
+coherent defining statement and should not return to the menu. Reported, not
+implemented (owner decisions): endpoint averaging is read two ways (`shirley`
+integrates the averaged DATA, `smart_exp` averages only the edge levels; ≤ 0.32 %
+of net area on 13 spectra); the constraint B ≤ I on noisy counts biases net areas
+high (+0.8 % in a Poisson Monte Carlo; unconstrained Shirley unbiased); Shirley's
+stop is absolute (negligible); the page's linear background is linear in index,
+not energy; Tougaard's universal cross-section is barely exercised on windows of
+10–35 eV (its kernel peaks at 23.4 eV of loss).
 
 Use Shirley for standard core-level regions. Linear only when the
 spectral window is very narrow and featureless.

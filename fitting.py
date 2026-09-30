@@ -344,26 +344,50 @@ def shirley_background(
     tol: float = 1e-6,
     n_avg: int = 1,
 ) -> np.ndarray:
-    """
-    Iterative Shirley background (Proctor & Sherwood, Surf. Sci. 1982).
+    """Shirley background: the solution of the Shirley integral relation.
 
-    Works on ascending or descending binding energy arrays.
+    DEFINING STATEMENT. On the window [E_min, E_max] the background B satisfies
 
-    ``n_avg`` averages the first/last ``n_avg`` points before the endpoint
-    levels B_low/B_high are read (audit F3, 2026-07-17). Shirley scales the
-    ENTIRE background off those two levels, so a single noisy endpoint
-    sample propagates straight into the net area. n_avg=1 = raw endpoints =
-    previous behaviour. Callers previously had to pre-average the input
-    array themselves via _apply_endpoint_averaging; that convention was
-    easy to forget (autofit/engine.py did), so the knob now lives here,
-    matching smart_experimental_background / shirley_linear_background.
+        B(E) = b_low + (b_high - b_low) * INT_{E_min}^{E} s dE' / INT_{E_min}^{E_max} s dE',
+        s = max(I - B, 0),
 
-    At each energy Eᵢ the background equals:
-        B(Eᵢ) = B_high + (B_low – B_high) · ∫_{Eᵢ}^{E_max} s(E) dE
-                                               ─────────────────────────
-                                               ∫_{E_min}^{E_max} s(E) dE
-    where s(E) = max(y(E) – B(E), 0) is the net signal.
-    B_low  = y(E_min),  B_high = y(E_max)  (the endpoint levels).
+    with b_low, b_high the intensity levels at the low- and high-BE edges: the
+    background rises above the low-BE level in proportion to the net (no-loss)
+    intensity already accumulated at LOWER binding energy, reaching the high-BE
+    level at the far edge. Discretised by the trapezoid rule on the data's grid
+    (either BE order) and solved by fixed-point iteration from the straight line
+    between the edge levels. Measured on every committed spectrum
+    (docs/findings/background-math/): the output satisfies the relation to
+    <= 2e-11 of the span when the data are read as measured (n_avg = 1), and the
+    fixed point is unique (a start below the data reaches it to 5e-15).
+
+    ASSUMPTIONS, and when they fail:
+      * each no-loss electron at lower BE adds the same, energy-independent step
+        to the background at every higher BE in the window (a constant loss
+        probability, all losses inside the window). Fails for structured losses
+        (plasmons, shake-up) and for windows wide enough that the loss function
+        varies across them — a loss cross-section (tougaard_background) models that.
+      * both edges lie where the net signal is zero, so B meets the edge levels.
+        Fails when the window cuts through a peak tail: the edge level then
+        includes signal and the step is mis-sized.
+      * only positive net intensity scatters (s = max(I - B, 0)); B itself is NOT
+        required to stay below the data — it rises above it (mostly at noise
+        dips) on 116 of the 121 committed spectra, by up to 6 % of the span. For
+        B <= I see smart_background.
+
+    IMPLEMENTATION NOTES (measured; reported, not changed):
+      * ``n_avg`` > 1 replaces the first / last ``n_avg`` points OF THE DATA by
+        their mean before the relation is solved (audit F3, 2026-07-17: one noisy
+        end sample otherwise sets a whole edge level), so the integral is taken
+        over that modified spectrum. smart_experimental_background reads only the
+        edge LEVELS from the averaged ends and integrates the measured data —
+        two readings of one setting; <= 0.32 % of net area on the 13 committed
+        spectra with n_avg > 1 (findings F1).
+      * the stop is an absolute 1e-6 change in intensity units, not relative to
+        the data (findings F5; negligible on the committed spectra).
+
+    Corroboration (not the defence): D. A. Shirley, Phys. Rev. B 5, 4709 (1972);
+    the iterative form: A. Proctor and P. M. A. Sherwood, Anal. Chem. 54, 13 (1982).
     """
     if len(x) < 2:
         return np.zeros_like(y)
@@ -408,12 +432,35 @@ def smart_background(
     tol: float = 1e-6,
     n_avg: int = 1,
 ) -> np.ndarray:
-    """Smart (constrained Shirley): standard Shirley clamped to never exceed data.
+    """Constrained Shirley background: the solution of B = min(T(B), I).
 
-    ``n_avg`` is forwarded to shirley_background (audit F3). The clamp is
-    applied against the RAW data, not the endpoint-averaged copy, so
-    averaging only ever moves the background — never the reported net
-    counts.
+    DEFINING STATEMENT. At every point of the window either the Shirley relation
+    holds and the background is at or below the data, or the constraint B = I is
+    active where the relation would put it above:
+
+        B = min(T(B), I),   T(B) = the right-hand side of shirley_background's relation.
+
+    Justification of B <= I: the net (no-loss) intensity is a non-negative count rate.
+
+    WHY A CLAMP OF THE SHIRLEY SOLUTION SOLVES IT (not a truncation of a
+    different problem): shirley_background integrates s = max(I - B, 0), and
+    s(min(B, I)) = s(B) — clamping changes the background only where the net
+    signal is already zero. So T(min(B, I)) = T(B) = B, and min(B, I) is a fixed
+    point of the constrained problem, which has a unique solution. Measured on
+    every committed spectrum read as measured (n_avg = 1): residual <= 2e-11 of
+    the span, equal to smart_experimental_background to rounding (the two are
+    the same method, findings F3).
+
+    ASSUMPTIONS: those of shirley_background, plus B <= I POINTWISE ON THE
+    MEASURED COUNTS. Net intensity is non-negative in EXPECTATION; measured counts
+    scatter below the background, so the constraint binds on noise dips (a median
+    12 % and up to 46 % of the points on the committed spectra) and pulls B down:
+    against a known Shirley-shaped background in a Poisson Monte Carlo the net
+    area is biased +0.8 % (unconstrained Shirley: unbiased) — findings F2.
+
+    ``n_avg`` is forwarded to shirley_background (which then integrates the
+    endpoint-averaged data, findings F1); the clamp is against the RAW data, so
+    averaging only ever moves the background, never the reported net counts.
     """
     if len(x) < 2:
         return np.zeros_like(y)
@@ -422,7 +469,17 @@ def smart_background(
 
 
 def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Straight‑line background connecting the first and last data points."""
+    """Linear background: the affine function of energy through the end points,
+
+        B(E) = I_first + (I_last - I_first) (E - E_first) / (E_last - E_first).
+
+    ASSUMPTIONS: the background varies linearly across the window and no loss
+    intensity builds up under the peaks (no inelastic step) — reasonable for a
+    narrow window around small peaks, not for a core level whose loss tail
+    raises the high-BE side; both end points lie on background. The RAW end
+    points are used (no endpoint averaging): one noisy end sample tilts the
+    whole line. Exact to rounding (tests/test_background_defining_statements.py).
+    """
     slope = (y[-1] - y[0]) / (x[-1] - x[0]) if x[-1] != x[0] else 0.0
     return y[0] + slope * (x - x[0])
 
@@ -434,11 +491,21 @@ def smart_experimental_background(
     tol: float = 1e-6,
     n_avg: int = 1,
 ) -> np.ndarray:
-    """Experimental constrained Shirley background, closer to public Avantage
-    Smart description.  The data constraint is enforced *during* iteration,
-    not as a post-hoc clamp.  Where the background would exceed the data it
-    locks to the data, effectively moving the Shirley start inward.  Better
-    for narrow spectral windows with sloped baselines."""
+    """Constrained Shirley background solved directly: B = min(T(B), I).
+
+    DEFINING STATEMENT: the constrained problem of smart_background — the
+    Shirley relation wherever B < I, the constraint B = I where the relation
+    would exceed the data — solved by the projected fixed-point iteration
+    B <- min(T(B), I) from the straight line between the edge levels, the edge
+    levels read from the ``n_avg``-averaged ends and the integral taken over the
+    MEASURED data. Measured on every committed spectrum and every n_avg used
+    there: residual <= 2e-11 of the span.
+
+    For n_avg = 1 this is the same problem as smart_background with the same
+    (unique) solution — the two are one method (findings F3); they differ only
+    in how n_avg > 1 is read (findings F1). Assumptions and the noise bias of the
+    constraint: see smart_background.
+    """
     if len(x) < 2:
         return np.zeros_like(y)
 
@@ -490,15 +557,18 @@ def shirley_linear_background(
     tol: float = 1e-6,
     n_avg: int = 1,
 ) -> np.ndarray:
-    """Hybrid Shirley + Linear background.
+    """NO DEFINING STATEMENT — kept only so saved files that use it restore.
 
-    1. Average *n_avg* points at each endpoint.
-    2. Compute a linear baseline between the averaged endpoints.
-    3. Subtract the linear baseline → flattened data.
-    4. Iteratively compute a Shirley‑like cumulative correction on the
-       flattened data, scaled by the endpoint step height.
-    5. Add the correction back onto the linear baseline.
-    6. Clamp so the background never exceeds the data.
+    Returns min(L + S, I): L is the line between the averaged edge levels, S a
+    Shirley-shaped term of the FULL edge difference, S = |b_low - b_high| (1 - F),
+    F the cumulative fraction of the net signal above L counted from the low-BE
+    edge. At the low-BE edge L + S = b_low + |b_low - b_high|: above the edge
+    level on any sloped window, so the unclamped curve meets neither edge
+    condition, and it adds a second full step on top of a line that already
+    carries the edge difference. No assumption about inelastic scattering
+    produces that curve; only the final clamp to the data brings the edges back
+    (active on a median 43 %, up to 72 %, of the points on the committed spectra).
+    De-listed from the page (2026-09-03); findings F4: it should not return.
     """
     if len(x) < 2:
         return np.zeros_like(y)
@@ -550,8 +620,39 @@ def tougaard_background(
     y: np.ndarray,
     n_avg: int = 1,
 ) -> np.ndarray:
-    """Single-pass Tougaard universal-cross-section background, with the
-    constant (pre-loss) term the window-limited integral cannot generate.
+    """Tougaard background: the solution of the loss-integral relation.
+
+    DEFINING STATEMENT. With C0 the low-BE edge level and J the measured
+    intensity, the background at binding energy E is the constant plus the
+    electrons emitted at LOWER BE (higher kinetic energy) E' that lost T = E - E':
+
+        B(E) = C0 + lam * INT_{E_min}^{E} K(E - E') (J(E') - C0) dE',
+        K(T) = T / (C + T^2)^2,   C = 1643 eV^2,
+
+    with lam fixed by B(E_high) = J(E_high) (no primary signal at the high-BE
+    edge). Explicit in J — one pass, no iteration. Measured on the committed
+    spectra: equal to the explicit double sum to <= 1e-13 of the span, and within
+    1e-5 of the span of the integral on a 10x finer grid.
+
+    ASSUMPTIONS, and when they fail:
+      * the emitters are homogeneously distributed in depth and lose energy by
+        the universal cross-section K (fitted to noble / transition metals).
+        Fails for layered or particulate samples and for materials with sharp
+        plasmon losses (free-electron-like metals, many polymers).
+      * everything emitted BELOW the window contributes a constant, C0. Fails
+        when a strong line just below the window feeds a sloping loss tail in.
+      * the window extends far enough into the loss region for K's shape to
+        matter: K peaks at T = sqrt(C/3) = 23.4 eV. Every committed window is
+        10–35 eV wide (C 1s 14–19, B 1s 10–16, U 4f 31–35 eV), so the integral
+        samples only the kernel's rising part and the curve is effectively a
+        smooth one-parameter shape anchored at both edges; the physics of K is
+        barely exercised there.
+      * the high-BE edge carries no primary signal (the anchor).
+
+    Corroboration (not the defence): S. Tougaard, Surf. Interface Anal. 11, 453
+    (1988); the coefficient values B = 2866 eV^2, C = 1643 eV^2 are the universal
+    cross-section's as attributed there (not re-verified against the paper text
+    in the 2026-09-30 review). B cancels in the anchor; C alone sets the shape.
 
     Uses the two-parameter universal loss function
     K(T) = B·T / (C + T²)² with B = 2866 eV², C = 1643 eV²
