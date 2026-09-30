@@ -107,3 +107,15 @@ or cached-result path):
 |---|---|---|
 | 1 | MAJOR (A, B): a test NAME can carry an escaped directive — `describe.skip('Find Peaks # TODO archive')` emits `ok 509 - Find Peaks \# TODO archive # SKIP`; the guard took the first match (a TODO) and missed the SKIP; conversely a passing test named `handles # SKIP` failed the guard | THE CLASS, not the case: three rounds each found another way TAP text misleads a parser, so the guard no longer reads text. `scripts/ci_node_events_reporter.mjs`, a second node reporter (the TAP one still prints to the log), writes node's STRUCTURED results — skip, todo, suite / test, failure are node's own fields — one JSON object per line between a `start` and an `end` written only after node's stream finished; `scripts/ci_check_node_events.py` (renamed from `ci_check_node_tap.py`) reads those. Names never matter |
 | 2 | MINOR (A, B): partial trailing text, a failed fragment spliced into a green log, results removed with the summary kept, an unfinished `# Subtest:` after the summary — all passed | every line must be a JSON event; exactly one `start` (first), one `end` (last) and one run summary; passes are COUNTED from the results and must equal the summary's; any failed result fails (a todo test that fails is a todo — node's own semantics — counted against the todo bound). `tests/test_ci_check_node_events.py` (14 real-node cases) adds the escaped-name skip, the name that merely mentions `# SKIP`, a file that does not load, a failing todo, two green runs, a missing `end`, a partial line, a spliced failed fragment and removed results |
+
+**Round 5 — NO-GO ×2** (`archive_find_peaks_r5_verdict_run{A,B}.md`, commits
+b94a847 + e6e617a — b94a847 carried only the renames, a failed `git add`, and
+e6e617a the rest; both: ordinary skips, load errors, hook failures, timeouts,
+cancellations, late uncaught errors, nested skips, concatenated streams and
+truncations rejected; the real stream passes; 510 registered tests, 508 + 2
+todos, nothing machine-dependent; implementation unchanged):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): a file whose process exits before its tests run (or an empty file, or one defining no test) gets a SYNTHETIC pass from node under the file's name, which the guard counted: 507 real passes + that = 508, node and guard exit 0 | the reporter keeps each file's own summary, which node emits only for a file that ran to completion; the guard takes `--expect-files` (the glob node runs) and requires exactly one clean summary per expected file, refuses a result from a file without one, and counts passes only from completed files |
+| 2 | MINOR (A): only `passed` was reconciled with the summary; deleting a todo or a suite result line passed | every counter (tests, passed, todo, suites, topLevel) of every file summary and of the run summary is reconciled with the results, and the run summary must be the last event before `end`. `tests/test_ci_check_node_events.py` (21): the four no-completion files beside a file that alone meets the floor, an expected file absent, deleted todo / suite lines, a misplaced summary |

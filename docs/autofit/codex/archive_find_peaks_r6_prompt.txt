@@ -1,0 +1,12 @@
+Review the "archive Find Peaks" unit, round 6: branch archive-find-peaks, git diff main..HEAD (round-5 fixes: git diff e6e617a..HEAD — the reporter keeps each file's own summary; scripts/ci_check_node_events.py takes --expect-files and requires every expected file to have run to completion (node gives a synthetic pass, and no summary, to a file that exits early, is empty or defines no test), reconciles every summary counter per file and for the run, and requires the run summary last; tests/test_ci_check_node_events.py (21); the workflow; the plan's §6). Earlier verdicts: docs/autofit/codex/archive_find_peaks_verdict_run{A,B}.md (round 1), archive_find_peaks_r2_verdict_run{A,B}.md (round 2), archive_find_peaks_r3_verdict_run{A,B}.md (round 3), archive_find_peaks_r4_verdict_run{A,B}.md (round 4), archive_find_peaks_r5_verdict_run{A,B}.md (round 5); the owner's brief is in docs/autofit/codex/archive_find_peaks_review_prompt.txt.
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The guard: can any node run in which a Find Peaks (or any other) test did not execute, failed, was skipped (test or suite, any nesting), was cancelled, or stopped registering, still exit 0 — now that it reads node's structured events? Does the reporter see every result node produces with process isolation over many files (a file that fails to load, a test that exits the process, a hook failure, a timeout, an uncaught error after a test ended, a file that exits before or during its tests, an empty file)? Can any file contribute passes without having run to completion, or a result line be removed or added without a counter disagreeing? Concatenated, partial, spliced logs? Does the real green run pass? Is there any reading of the events (todo that fails, a suite result, nesting) that lets a non-executed test count as passed?
+b. The CI step on ubuntu-latest: two reporters with --test-reporter-destination, a stale js-events.jsonl, `set -o pipefail`, `if: always()`, the exact floor (is 508 what a fresh ubuntu checkout would pass — any test whose registration depends on the machine?).
+c. Everything rounds 1-5 verified, against the new commit (no entry point to Find Peaks, no cached result or provenance displayed, shared Run Fit infrastructure unchanged, saved projects load and fit as before).
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

@@ -15,19 +15,29 @@ several or partial summaries; a test NAME carrying an escaped "# SKIP" or
   * at most --max-todo todo results (a todo test may fail — node reports it as
     test:fail with todo set, and the run still succeeds — so a todo result
     counts against --max-todo, never as a failure);
+  * every file named by --expect-files (the glob node runs) ran to completion:
+    exactly one successful summary of its own (failed = cancelled = skipped =
+    0). node gives no such summary to a file that exited early, was empty or
+    defined no test — it emits a synthetic pass under the file's name instead
+    (Codex round 5) — and a result from a file without its summary is refused;
+    EVERY counter of each file's summary (tests, passed, todo, suites,
+    topLevel) equals what its results show, and the same for the run summary,
+    which must come immediately before "end" (after every result) — a deleted
+    result line is caught (Codex round 5);
   * at least --min-passed passed tests (non-todo tests, not suites), and the
     run summary agrees: passed equals that count, failed = cancelled =
     skipped = 0, success true. The workflow's floor is the suite's CURRENT pass
     count, so a test that stops registering fails CI; raise it when tests are
     added.
 
-Usage: python scripts/ci_check_node_events.py js-events.jsonl --min-passed 508 [--max-todo 2]"""
+Usage: python scripts/ci_check_node_events.py js-events.jsonl --min-passed 508 [--max-todo 2] --expect-files tests/js/*.test.js"""
 import argparse
 import json
+import os
 import sys
 
 
-def check(text, min_passed, max_todo):
+def check(text, min_passed, max_todo, expect_files):
     problems = []
     events = []
     for n, line in enumerate(text.split("\n"), 1):
@@ -50,12 +60,54 @@ def check(text, min_passed, max_todo):
     summaries = [e for e in events if e["type"] == "summary"]
     if len(summaries) != 1:
         problems.append(f"{len(summaries)} run summaries (exactly one expected)")
+    real = lambda f: os.path.realpath(f) if f else f
+    expected = {real(f) for f in expect_files}
+    per_file = {}
+    for e in events:
+        if e["type"] == "file_summary":
+            per_file.setdefault(real(e.get("file")), []).append(e)
+    for f in sorted(expected):
+        got = per_file.get(f, [])
+        if len(got) != 1:
+            problems.append(f"{os.path.basename(f)}: {len(got)} summaries of its own (it did not run to completion)")
+            continue
+        c = got[0].get("counts") or {}
+        if got[0].get("success") is not True or any(c.get(k) != 0 for k in ("failed", "cancelled", "skipped")):
+            problems.append(f"{os.path.basename(f)}: its summary does not report a clean success")
+    for f in sorted(set(per_file) - expected):
+        problems.append(f"{os.path.basename(str(f))}: a file not named by --expect-files")
     results = [e for e in events if e["type"] in ("test:pass", "test:fail")]
     fails = [e for e in results if e["type"] == "test:fail" and not e.get("todo")]
     skips = [e for e in results if e.get("skip")]
     todos = [e for e in results if e.get("todo")]
+    orphans = [e for e in results if real(e.get("file")) not in per_file]
+    if orphans:
+        problems.append(f"{len(orphans)} result(s) from a file that did not run to completion: "
+                        + ", ".join(repr(e.get("name")) for e in orphans[:5]))
     passed = [e for e in results if e["type"] == "test:pass" and e.get("kind") == "test"
-              and not e.get("skip") and not e.get("todo")]
+              and not e.get("skip") and not e.get("todo") and real(e.get("file")) in per_file]
+    def tally(rs):
+        tests = [e for e in rs if e.get("kind") == "test"]
+        return {"tests": len(tests),
+                "passed": sum(1 for e in tests if e["type"] == "test:pass" and not e.get("skip") and not e.get("todo")),
+                "todo": sum(1 for e in tests if e.get("todo")),
+                "suites": sum(1 for e in rs if e.get("kind") == "suite"),
+                "topLevel": sum(1 for e in rs if e.get("nesting") == 0)}
+    for f, got in per_file.items():
+        if len(got) != 1:
+            continue
+        have = tally([e for e in results if real(e.get("file")) == f])
+        c = got[0].get("counts") or {}
+        for k, v in have.items():
+            if c.get(k) != v:
+                problems.append(f"{os.path.basename(str(f))}: its summary's {k} = {c.get(k)}, its results show {v}")
+    if len(summaries) == 1:
+        c = summaries[0].get("counts") or {}
+        for k, v in tally(results).items():
+            if c.get(k) != v:
+                problems.append(f"the run summary's {k} = {c.get(k)}, the results show {v}")
+        if len(types) < 2 or types[-2] != "summary":
+            problems.append("the run summary is not the last event before 'end'")
     if fails:
         problems.append(f"{len(fails)} failed result(s): " + ", ".join(repr(e.get("name")) for e in fails[:5]))
     if skips:
@@ -83,8 +135,10 @@ def main():
     ap.add_argument("log")
     ap.add_argument("--min-passed", type=int, required=True)
     ap.add_argument("--max-todo", type=int, default=2)
+    ap.add_argument("--expect-files", nargs="+", required=True)
     a = ap.parse_args()
-    found, problems = check(open(a.log, encoding="utf8", errors="replace").read(), a.min_passed, a.max_todo)
+    found, problems = check(open(a.log, encoding="utf8", errors="replace").read(), a.min_passed, a.max_todo,
+                            a.expect_files)
     print(found)
     if problems:
         print("JS suite guard FAILED: " + "; ".join(problems))

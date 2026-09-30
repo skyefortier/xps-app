@@ -1,10 +1,12 @@
 """The JS-suite CI guard (scripts/ci_check_node_events.py, reading the events of
 scripts/ci_node_events_reporter.mjs) against REAL node --test runs: a green run
 passes; every way a run can look green without running its tests fails (Codex
-archive rounds 2-4: a fully skipped suite, a skipped `describe` node leaves out
+archive rounds 2-5: a fully skipped suite, a skipped `describe` node leaves out
 of `# skipped`, a skipped suite whose NAME carries an escaped "# TODO",
-concatenated, partial or truncated logs, a failed fragment prepended), and a
-test whose name merely mentions "# SKIP" is not mistaken for a skip."""
+concatenated, partial or truncated logs, a failed fragment prepended, a file that
+exits before its tests or defines none — node emits a synthetic pass for it —
+and a deleted result line), and a test whose name merely mentions "# SKIP" is
+not mistaken for a skip."""
 import os
 import shutil
 import subprocess
@@ -22,6 +24,9 @@ HEAD = "const { test, describe } = require('node:test');\n"
 GREEN = HEAD + "test('a', () => {}); test('b', () => {}); test('c', () => {}); test('later', { todo: true }, () => {});\n"
 
 
+FILES = {}   # the files each run was given: the guard's --expect-files
+
+
 def _events(tmp_path, name, *srcs):
     files = []
     for i, src in enumerate(srcs):
@@ -29,16 +34,18 @@ def _events(tmp_path, name, *srcs):
         f.write_text(src)
         files.append(str(f))
     dest = tmp_path / f"{name}.jsonl"
+    FILES[str(tmp_path)] = files
     subprocess.run([NODE, "--test", "--test-reporter=tap", "--test-reporter-destination=stdout",
                     f"--test-reporter={REPORTER}", f"--test-reporter-destination={dest}", *files],
                    capture_output=True, text=True)
     return dest.read_text()
 
 
-def _guard(tmp_path, text, min_passed=3):
+def _guard(tmp_path, text, min_passed=3, files=None):
     log = tmp_path / "events.jsonl"
     log.write_text(text)
-    return subprocess.run([sys.executable, GUARD, str(log), "--min-passed", str(min_passed), "--max-todo", "1"],
+    return subprocess.run([sys.executable, GUARD, str(log), "--min-passed", str(min_passed), "--max-todo", "1",
+                           "--expect-files", *(files or FILES[str(tmp_path)])],
                           capture_output=True, text=True)
 
 
@@ -100,3 +107,48 @@ def test_concatenated_truncated_or_spliced_logs_fail(tmp_path):
     assert _guard(tmp_path, lines[0] + fragment + "".join(lines[1:])).returncode != 0   # a failed fragment spliced in
     no_results = "".join(l for l in lines if '"test:pass"' not in l)
     assert _guard(tmp_path, no_results).returncode != 0                         # results removed, summary kept
+
+
+GOOD = HEAD + "test('a', () => {}); test('b', () => {}); test('c', () => {});\n"
+
+
+@pytest.mark.parametrize("name,other", [
+    ("exits_before_registering", HEAD + "process.exit(0);\ntest('Find Peaks', () => { throw new Error('unreached'); });\n"),
+    ("exits_inside_its_only_test", HEAD + "test('Find Peaks', () => { process.exit(0); throw new Error('unreached'); });\n"),
+    ("an_empty_file", ""),
+    ("a_file_with_no_tests", "console.log('no tests');\n"),
+])
+def test_a_file_that_did_not_run_its_tests_fails_even_when_the_floor_is_met(tmp_path, name, other):
+    # Codex round 5: node substitutes a synthetic PASS under the file's name; the other file alone
+    # meets the floor of 3, so only the per-file completion check can catch it
+    r = _guard(tmp_path, _events(tmp_path, name, GOOD, other))
+    assert r.returncode != 0, r.stdout
+    assert "did not run to completion" in r.stdout
+
+
+def test_an_expected_file_absent_from_the_run_fails(tmp_path):
+    text = _events(tmp_path, "one", GOOD)
+    missing = tmp_path / "never_run.test.js"
+    missing.write_text(GOOD)
+    assert _guard(tmp_path, text, files=FILES[str(tmp_path)] + [str(missing)]).returncode != 0
+
+
+def test_a_deleted_result_line_fails(tmp_path):
+    # Codex round 5: every summary counter is reconciled with the results, per file and for the run
+    text = _events(tmp_path, "del", HEAD + "test('a', () => {}); test('b', () => {}); test('c', () => {}); "
+                   "test('t', { todo: true }, () => {}); describe('s', () => { test('d', () => {}); });\n")
+    assert _guard(tmp_path, text).returncode == 0
+    lines = text.splitlines(keepends=True)
+    todo = [i for i, l in enumerate(lines) if '"todo":true' in l]
+    suite = [i for i, l in enumerate(lines) if '"kind":"suite"' in l]
+    assert todo and suite
+    for i in (todo[0], suite[0]):
+        assert _guard(tmp_path, "".join(l for j, l in enumerate(lines) if j != i)).returncode != 0
+
+
+def test_the_run_summary_must_close_the_stream(tmp_path):
+    lines = _events(tmp_path, "order", GOOD).splitlines(keepends=True)
+    k = next(i for i, l in enumerate(lines) if l.startswith('{"type":"summary"'))
+    early = [lines[0], lines[k]] + [l for i, l in enumerate(lines[1:], 1) if i != k]   # summary right after start
+    assert _guard(tmp_path, "".join(lines)).returncode == 0
+    assert _guard(tmp_path, "".join(early)).returncode != 0
