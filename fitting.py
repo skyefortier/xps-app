@@ -356,10 +356,15 @@ def shirley_background(
     intensity already accumulated at LOWER binding energy, reaching the high-BE
     level at the far edge. Discretised by the trapezoid rule on the data's grid
     (either BE order) and solved by fixed-point iteration from the straight line
-    between the edge levels. Measured on every committed spectrum
-    (docs/findings/background-math/): the output satisfies the relation to
-    <= 2e-11 of the span when the data are read as measured (n_avg = 1), and the
-    fixed point is unique (a start below the data reaches it to 5e-15).
+    between the edge levels. The relation can have MORE THAN ONE solution (exact
+    counterexamples with different net areas in
+    tests/test_background_defining_statements.py); this returns the one its
+    iteration reaches from that line. Measured on every committed spectrum
+    (docs/findings/background-math/): the output satisfies the relation — with
+    the data as this function reads them (``n_avg`` below) — to <= 2e-11 of the
+    span. When the data lie below the edge line everywhere, the first step's
+    net-signal integral is zero, the relation is undefined there and the line is
+    returned although solutions may exist (none of the committed spectra).
 
     ASSUMPTIONS, and when they fail:
       * each no-loss electron at lower BE adds the same, energy-independent step
@@ -384,7 +389,8 @@ def shirley_background(
         two readings of one setting; <= 0.32 % of net area on the 13 committed
         spectra with n_avg > 1 (findings F1).
       * the stop is an absolute 1e-6 change in intensity units, not relative to
-        the data (findings F5; negligible on the committed spectra).
+        the data, with at most ``n_iter`` iterations (findings F5; negligible on
+        the committed spectra, which reach the relation to 2e-11 of the span).
 
     Corroboration (not the defence): D. A. Shirley, Phys. Rev. B 5, 4709 (1972);
     the iterative form: A. Proctor and P. M. A. Sherwood, Anal. Chem. 54, 13 (1982).
@@ -445,18 +451,26 @@ def smart_background(
     WHY A CLAMP OF THE SHIRLEY SOLUTION SOLVES IT (not a truncation of a
     different problem): shirley_background integrates s = max(I - B, 0), and
     s(min(B, I)) = s(B) — clamping changes the background only where the net
-    signal is already zero. So T(min(B, I)) = T(B) = B, and min(B, I) is a fixed
-    point of the constrained problem, which has a unique solution. Measured on
-    every committed spectrum read as measured (n_avg = 1): residual <= 2e-11 of
-    the span, equal to smart_experimental_background to rounding (the two are
-    the same method, findings F3).
+    signal is already zero. So T(min(B, I)) = T(B) = B: the clamp of a solution
+    of the Shirley relation is a solution of the constrained problem (a
+    correspondence between solutions; neither problem need have only one).
+    That holds when the integrand and the clamp read the SAME data — i.e. for
+    ``n_avg`` = 1. Measured on every committed spectrum at n_avg = 1: residual
+    <= 2e-11 of the span, and the same background as
+    smart_experimental_background to 1.3e-16 (findings F3). With ``n_avg`` > 1
+    the integrand reads the endpoint-averaged data and the clamp the raw data,
+    and the result satisfies the constrained statement under neither reading
+    (up to 1.1e-3 of the span on the committed spectra, findings F1).
 
     ASSUMPTIONS: those of shirley_background, plus B <= I POINTWISE ON THE
     MEASURED COUNTS. Net intensity is non-negative in EXPECTATION; measured counts
     scatter below the background, so the constraint binds on noise dips (a median
-    12 % and up to 46 % of the points on the committed spectra) and pulls B down:
-    against a known Shirley-shaped background in a Poisson Monte Carlo the net
-    area is biased +0.8 % (unconstrained Shirley: unbiased) — findings F2.
+    12 % and up to 46 % of the points on the committed spectra) and pulls B down.
+    Poisson Monte Carlo against a background that satisfies the relation exactly
+    (findings F2): the constraint ADDS +0.90 % (+- 0.02) of net area to the
+    unconstrained estimate at one step size and +1.28 % (+- 0.04) at a ten times
+    larger one — on top of the unconstrained estimator's own bias, which is not
+    resolved at the small step and +2.3 % at the large one.
 
     ``n_avg`` is forwarded to shirley_background (which then integrates the
     endpoint-averaged data, findings F1); the clamp is against the RAW data, so
@@ -501,8 +515,9 @@ def smart_experimental_background(
     MEASURED data. Measured on every committed spectrum and every n_avg used
     there: residual <= 2e-11 of the span.
 
-    For n_avg = 1 this is the same problem as smart_background with the same
-    (unique) solution — the two are one method (findings F3); they differ only
+    For n_avg = 1 this is the same problem as smart_background, and on every
+    committed spectrum the same background (to 1.3e-16; findings F3 — an
+    agreement of the two iterations, not a uniqueness result); they differ only
     in how n_avg > 1 is read (findings F1). Assumptions and the noise bias of the
     constraint: see smart_background.
     """
@@ -557,18 +572,20 @@ def shirley_linear_background(
     tol: float = 1e-6,
     n_avg: int = 1,
 ) -> np.ndarray:
-    """NO DEFINING STATEMENT — kept only so saved files that use it restore.
+    """A REVERSED-STEP background — kept only so saved files that use it restore.
 
-    Returns min(L + S, I): L is the line between the averaged edge levels, S a
-    Shirley-shaped term of the FULL edge difference, S = |b_low - b_high| (1 - F),
-    F the cumulative fraction of the net signal above L counted from the low-BE
-    edge. At the low-BE edge L + S = b_low + |b_low - b_high|: above the edge
-    level on any sloped window, so the unclamped curve meets neither edge
-    condition, and it adds a second full step on top of a line that already
-    carries the edge difference. No assumption about inelastic scattering
-    produces that curve; only the final clamp to the data brings the edges back
-    (active on a median 43 %, up to 72 %, of the points on the committed spectra).
-    De-listed from the page (2026-09-03); findings F4: it should not return.
+    DEFINING STATEMENT (what it solves; Codex round 1 corrected an earlier
+    "none"): B = min(L + d (1 - F(B)), I), L the line between the averaged edge
+    levels, d = |b_low - b_high|, F(B) the cumulative fraction of max(I - B, 0)
+    counted from the low-BE edge (measured: satisfied to 3.3e-11 of the span on
+    every committed spectrum). The unclamped curve meets the high-BE level, but
+    its step is LARGEST AT THE LOW-BE EDGE and shrinks as net signal accumulates
+    toward higher BE — the reverse of inelastic scattering, whose background
+    grows with the signal at lower BE — and it sits d above the low-BE level
+    there (a median 5 %, up to 41 %, of the span on the committed spectra); the
+    clamp to the data is active on a median 43 % (up to 72 %) of the points. No
+    physical assumption yields that curve. De-listed from the page (2026-09-03);
+    findings F4: it should not return.
     """
     if len(x) < 2:
         return np.zeros_like(y)
@@ -622,17 +639,22 @@ def tougaard_background(
 ) -> np.ndarray:
     """Tougaard background: the solution of the loss-integral relation.
 
-    DEFINING STATEMENT. With C0 the low-BE edge level and J the measured
-    intensity, the background at binding energy E is the constant plus the
-    electrons emitted at LOWER BE (higher kinetic energy) E' that lost T = E - E':
+    DEFINING STATEMENT. With J the intensity as this function reads it (the
+    measured data with its first / last ``n_avg`` points replaced by their mean,
+    as shirley_background reads them — findings F1) and C0 = J at the low-BE
+    edge, the background at binding energy E is the constant plus the electrons
+    emitted at LOWER BE (higher kinetic energy) E' that lost T = E - E':
 
         B(E) = C0 + lam * INT_{E_min}^{E} K(E - E') (J(E') - C0) dE',
         K(T) = T / (C + T^2)^2,   C = 1643 eV^2,
 
     with lam fixed by B(E_high) = J(E_high) (no primary signal at the high-BE
-    edge). Explicit in J — one pass, no iteration. Measured on the committed
-    spectra: equal to the explicit double sum to <= 1e-13 of the span, and within
-    1e-5 of the span of the integral on a 10x finer grid.
+    edge). Explicit in J — one pass, no iteration. Undefined when the loss
+    integral at the high-BE edge is zero (lam has no value; the flat C0 is
+    returned and the anchor is not met — e.g. a two-point window). Measured on
+    the committed spectra, against an independent evaluation: equal to the
+    discrete sum to <= 1e-13 of the span, the anchor met exactly, within 1e-5 of
+    the span of the integral on a 10x finer grid.
 
     ASSUMPTIONS, and when they fail:
       * the emitters are homogeneously distributed in depth and lose energy by
@@ -641,12 +663,13 @@ def tougaard_background(
         plasmon losses (free-electron-like metals, many polymers).
       * everything emitted BELOW the window contributes a constant, C0. Fails
         when a strong line just below the window feeds a sloping loss tail in.
-      * the window extends far enough into the loss region for K's shape to
-        matter: K peaks at T = sqrt(C/3) = 23.4 eV. Every committed window is
-        10–35 eV wide (C 1s 14–19, B 1s 10–16, U 4f 31–35 eV), so the integral
-        samples only the kernel's rising part and the curve is effectively a
-        smooth one-parameter shape anchored at both edges; the physics of K is
-        barely exercised there.
+      * the window samples enough of the loss region for K's shape to be what the
+        data test: K peaks at T = sqrt(C/3) = 23.4 eV. On the committed B 1s, C 1s
+        and Cl 2p windows (10–20 eV) no loss beyond the maximum is sampled; on
+        the U 4f windows (31–35 eV) up to 30 % of the high-BE edge's integral
+        comes from beyond it, and replacing K by its small-loss linear form moves
+        the background by up to 3.9 % of the span (0.02–0.7 % on the narrower
+        windows) — the shape does matter there (findings F6).
       * the high-BE edge carries no primary signal (the anchor).
 
     Corroboration (not the defence): S. Tougaard, Surf. Interface Anal. 11, 453

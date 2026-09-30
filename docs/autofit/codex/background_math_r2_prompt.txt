@@ -1,0 +1,16 @@
+Review the "background math foundation" findings, round 2: branch bg-math-foundation, git diff main..HEAD; the round-1 fixes are git diff 8436631..HEAD — the checker scripts/background_defining_statements.py REWRITTEN to be independent of fitting.py (its own endpoint preprocessing, integrals, reference solver whose convergence is declared on the RETURNED point's residual, an independent Tougaard double sum and refined integral), tests/test_background_defining_statements.py rewritten (24 tests incl. exact non-uniqueness counterexamples, the zero-integral case, an exact-truth Monte Carlo), docs/findings/background-math/README.md revised (its "Codex rounds" table maps each round-1 finding to its fix), data/measure.jsonl regenerated, the docstrings in fitting.py, the page's twin comments and two tooltips in templates/index.html, CLAUDE.md's "WHAT EACH METHOD SOLVES" paragraph. Round-1 verdicts: docs/autofit/codex/background_math_verdict_run{A,B}.md. The owner's brief and the round-1 attack list: docs/autofit/codex/background_math_review_prompt.txt.
+
+Confirm that NO fitted number changed (fitting.py's executable AST identical to main's; index.html differs only in comments and tooltip text).
+
+Read-only. Be adversarial — about the MATH and the MEASUREMENTS. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Every round-1 finding: is its fix real and complete (uniqueness claims gone everywhere — README, docstrings, CLAUDE.md, tooltips, tests; the checker's independence; the reference solver's convergence semantics; the Monte Carlo's exact truth and what it now claims; F6; shirley_linear's statement; the F5 / F7 reading)?
+b. Each defining statement and each "does the implementation solve it" verdict in the README's summary table, against the data and the tests — especially smart at n_avg > 1 ("satisfies neither reading"), smart_exp's "levels" reading, tougaard's "data" reading and its undefined case (F11), shirley_linear's reversed step.
+c. The numbers: every figure in the README, docstrings, tooltips and CLAUDE.md against data/measure.jsonl (121 records) and the tests (e.g. 116/121 exceed the data up to 6 %; constrained vs unconstrained median 0.20 %, p90 1.3 %, max 11.8 %; F1 max 0.33 % / median 0.18 %; the MC table).
+d. The recommendations and the claims of what is NOT established (F2's options, F3, F4, F9's "no second solution found from a second start, which is not a proof").
+e. Anything overclaimed, any number that changed, any statement defended by resemblance to another program.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
