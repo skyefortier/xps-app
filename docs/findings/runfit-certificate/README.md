@@ -252,3 +252,15 @@ numbers verified again):
 | 2 | MAJOR (B): the sigma-value comparison rejects recorded same-minimum presses (B4C-UCl4 U4f Scan_1: chi2 8.9e-9 apart, a GL-mix sigma 0.544 vs 0.129) | uncertainties are not compared (documented with that evidence); test |
 | 3 | MAJOR (A, B): determined components' curves and every area went unchecked (+1e6 counts in a curve, area × 2 or NaN passed) | every component curve against its own height; areas relatively, non-finite correspondence; tests |
 | 4 | MINOR (A): NaN vs inf sigma compared equal | uncertainties are not compared (#2) |
+
+**Round 4 — NO-GO ×2** (`a2_runfit_certificate_r4_verdict_run{A,B}.md`, commit
+711da78). **Proportionality ruling, both runs: the stated finite resolution
+satisfies the owner's "equal within rounding" requirement; sub-resolution
+distinct minima alone are not a finding.** No false rejection on the tests'
+models (incl. the overlapping-component case); certificate, cancellation, V3
+order and 0 / 202 notices verified again.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A): a scattered-start alternative's centres were scaled by the RETURNED fit's component width — a 0.04 eV alternative line took a 0.29 eV allowance, and two alternatives 0.24 eV apart passed | an alternative's centres and shifts are scaled by that alternative's own components' FWHM; test |
+| 2 | MAJOR (A, B): a LINKED parameter (expr, no bounds of its own) was compared relatively while its master used its bound span: recorded same-minimum Trust-Region repeats of LA doublets (4-GTA UCl4-BN U4f Scan_4 and three more: m 0.477 → 0.001 inside 0–499) would be rejected | a linked parameter is judged on the span of the master its expression references; test |

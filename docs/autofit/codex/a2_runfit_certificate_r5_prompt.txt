@@ -1,0 +1,11 @@
+Review unit A2 (the minimum certificate on Run Fit), round 5: branch fix-runfit-certificate, git diff main..HEAD (round-4 fixes: git diff 711da78..HEAD — tests/fit_equality.py: scattered-start alternatives scaled by their own components' FWHM; linked parameters judged on their master's bound span; tests/test_fit_equality.py; README "Codex rounds"). Earlier verdicts: docs/autofit/codex/a2_runfit_certificate_verdict_run{A,B}.md and a2_runfit_certificate_r{2,3,4}_verdict_run{A,B}.md. In round 4 both runs ruled that the stated finite resolution (tests/fit_equality.py docstring) satisfies the owner's requirement; the open findings were the two above. The owner's brief is in the round-1 prompt (docs/autofit/codex/a2_runfit_certificate_review_prompt.txt).
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The two round-4 fixes: alternatives without a fwhm parameter (DS+G, LA, asymmetric shapes), components whose ids differ between the two responses, linked expressions with a factor or offset (p2_amplitude * 0.75, p2_center + 10.9), chains of links, a linked parameter whose master is unbounded or fixed. Construct distinct minima above the stated resolution that are accepted, or recorded same-minimum repeats (docs/findings/runfit-certificate/data) that are rejected.
+b. Everything rounds 1-4 verified, against the new commit.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

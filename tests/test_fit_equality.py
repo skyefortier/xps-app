@@ -225,3 +225,37 @@ def test_uncertainties_are_not_compared():
     b = copy.deepcopy(a)
     b["individual_peaks"][0]["params"]["gl_ratio"]["stderr"] = 4 * (a["individual_peaks"][0]["params"]["gl_ratio"]["stderr"] or 1)
     assert_same_fit(a, b)
+
+
+def test_an_alternatives_centres_are_scaled_by_its_own_widths():
+    # Codex A2 round 4 (run A): an alternative's narrow line took the returned
+    # fit's broad width as its scale, so two alternatives 0.24 eV apart passed
+    x, y, specs = SS._two_basin_problem()
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    b = copy.deepcopy(a)
+    for r in (a, b):
+        for c in r["starts"]["alternatives"][0]["components"]:
+            c["params"]["fwhm"] = 0.04
+    comp = b["starts"]["alternatives"][0]["components"][0]
+    comp["params"]["center"] += 0.24
+    comp["center_shift_from_start"] += 0.24
+    _rejects(a, b, "starts.alternatives.0.components.0")
+
+
+def test_a_linked_parameter_is_judged_on_its_masters_span():
+    # Codex A2 round 4 (runs A, B): recorded same-minimum presses of an LA doublet move m
+    # 0.477 -> 0.001 inside its 0-499 span; the master passed, its linked copy (expr, no
+    # bounds of its own) was compared relatively and failed
+    x, y, specs = R._two_peaks()
+    a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
+    for r in (a,):
+        m = r["individual_peaks"][0]["params"]["fwhm"]; m.update(min=0.0, max=499.0)
+        c = r["individual_peaks"][1]["params"]["fwhm"]; c.update(expr=f"p{r['individual_peaks'][0]['id']}_fwhm", min=None, max=None, vary=False)
+        c["value"] = m["value"]
+    b = copy.deepcopy(a)
+    for pk in b["individual_peaks"]:
+        pk["params"]["fwhm"]["value"] += 0.4                 # inside 1e-3 of the master's 499 span
+    assert_same_fit(a, b)
+    for pk in b["individual_peaks"]:
+        pk["params"]["fwhm"]["value"] += 0.2                 # beyond it
+    _rejects(a, b, "individual_peaks.1.params.fwhm")

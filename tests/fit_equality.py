@@ -18,9 +18,11 @@ less than ftol, relative):
   * everything the objective determines only to second order — curves,
     parameters, areas — to SAME_MINIMUM_REL = 10 x sqrt(ftol) (1e-3) OF ITS
     OWN SCALE: each component's curve against that component's own height;
-    its centre (and every centre shift) against its own half-maximum width;
-    a bounded parameter against its bound span (a value pinned at a bound,
-    1e-14 vs 1e-12, is the same value); the fitted curve against the signal;
+    its centre (and every centre shift) against its own half-maximum width
+    (a scattered-start alternative's centres against that alternative's own
+    FWHM); a bounded parameter against its bound span (a value pinned at a
+    bound, 1e-14 vs 1e-12, is the same value), a LINKED parameter against the
+    span of the master its expression follows; the fitted curve against the signal;
     percentages of 100; everything else relatively. Measured press-to-press
     on the tests' models: <= 1.4e-6.
 No component is exempt — not a small one beside a dominant line, not one the
@@ -43,6 +45,7 @@ Everything that is not a real number — structure, flags, ids, counts, the
 seed — must be identical; non-finite values must sit in the same places.
 """
 import math
+import re
 
 import numpy as np
 
@@ -82,6 +85,20 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
     for pa, pb in zip(a.get("individual_peaks") or [], b.get("individual_peaks") or []):
         ws = [w for w in (_half_max_width(x, pa.get("y") or []), _half_max_width(x, pb.get("y") or [])) if w]
         width[str(pa.get("id"))] = min(ws) if ws else span
+    # every fitted parameter's bounds by its lmfit name (p<id>_<name>), so a LINKED parameter
+    # (expr, no bounds of its own) is judged on the span of the master it follows
+    bounds_of = {}
+    for pk in a.get("individual_peaks") or []:
+        for name, info in (pk.get("params") or {}).items():
+            if isinstance(info, dict) and info.get("min") is not None and info.get("max") is not None:
+                bounds_of[f"p{pk.get('id')}_{name}"] = (info["min"], info["max"])
+
+    def linked_bounds(info):
+        for ref in re.findall(r"p[0-9A-Za-z]+_[A-Za-z_]+", info.get("expr") or ""):
+            if ref in bounds_of:
+                return bounds_of[ref]
+        return None
+
     problems = []
 
     def curve(xs, ys, where, scale_from_self):
@@ -104,7 +121,7 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
                 return p
         return ""
 
-    def number(x_, y_, path, comp_id, bounds):
+    def number(x_, y_, path, comp_id, bounds, widths):
         where = ".".join(path)
         if isinstance(x_, bool) or isinstance(y_, bool) or not isinstance(x_, (int, float)) or not isinstance(y_, (int, float)):
             if x_ != y_:
@@ -121,7 +138,7 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
         elif k in _LOG_OBJECTIVE:
             tol = objective_rel * n_data
         elif k in _POSITIONS:
-            tol = rel * (width.get(comp_id) or span)
+            tol = rel * (widths.get(comp_id) or span)
         elif k in _PERCENTAGES:
             tol = rel * 100.0
         elif bounds and bounds[0] is not None and bounds[1] is not None:
@@ -131,7 +148,19 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
         if abs(x_ - y_) > tol:
             problems.append(f"{where}: {x_!r} vs {y_!r}")
 
-    def cmp(x_, y_, path, comp_id=None, bounds=None):
+    def alternative_widths(xa, xb):
+        # a scattered-start alternative has no curves: its components' own FWHM parameters
+        # scale its centres, never the returned fit's (Codex A2 round 4)
+        out = dict(width)
+        for ca, cb in zip(xa.get("components") or [], xb.get("components") or []):
+            ws = [abs(c["params"]["fwhm"]) for c in (ca, cb)
+                  if isinstance(c.get("params"), dict) and isinstance(c["params"].get("fwhm"), (int, float)) and c["params"]["fwhm"]]
+            if ws:
+                out[str(ca.get("id"))] = min(ws)
+        return out
+
+    def cmp(x_, y_, path, comp_id=None, bounds=None, widths=None):
+        widths = width if widths is None else widths
         where = ".".join(path) or "response"
         if path and path[-1] in _NOT_COMPARED:
             return
@@ -142,11 +171,15 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
                 problems.append(f"{where}: keys {sorted(set(x_) ^ set(y_))}"); return
             cid = str(x_["id"]) if "id" in x_ else comp_id
             b_ = (x_.get("min"), x_.get("max")) if "value" in x_ and ("min" in x_ or "max" in x_) else None
+            if b_ is not None and (b_[0] is None or b_[1] is None) and x_.get("expr"):
+                b_ = linked_bounds(x_) or b_
+            if len(path) >= 2 and path[-2] == "alternatives":
+                widths = alternative_widths(x_, y_)
             for k in x_:
                 if k == "y" and len(path) >= 2 and path[-2] == "individual_peaks":
                     curve(x_[k], y_[k], where + ".y", True)          # a component: against its own height
                 else:
-                    cmp(x_[k], y_[k], path + (k,), cid, b_ if k == "value" else None)
+                    cmp(x_[k], y_[k], path + (k,), cid, b_ if k == "value" else None, widths)
             return
         if isinstance(x_, list) and isinstance(y_, list):
             if path and path[-1] in _SIGNAL_CURVES:
@@ -156,10 +189,10 @@ def assert_same_fit(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
             if len(x_) != len(y_):
                 problems.append(f"{where}: length {len(x_)} vs {len(y_)}"); return
             for i, (p, q) in enumerate(zip(x_, y_)):
-                cmp(p, q, path + (str(i),), comp_id)
+                cmp(p, q, path + (str(i),), comp_id, None, widths)
             return
         if isinstance(x_, float) or isinstance(y_, float):
-            number(x_, y_, path, comp_id, bounds)
+            number(x_, y_, path, comp_id, bounds, widths)
             return
         if x_ != y_:
             problems.append(f"{where}: {x_!r} vs {y_!r}")
