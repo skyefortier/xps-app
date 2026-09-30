@@ -6,6 +6,42 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-09-29 — Find Peaks does not read the clock (`fix-find-peaks-determinism`, unit A1)
+
+- **Release note:** Find Peaks' answer no longer depends on how busy the
+  server is. It used to stop refits, the screen and the sweep on wall-clock
+  budgets (25 s per candidate, 240 s per analysis), so the same spectrum could
+  get a different model under load (1-GTA C1s Scan_6: AG2 under load, MG2
+  idle). Every candidate is now screened and gets its full count of refits.
+  A fit's convergence is decided by restarting from where it stopped until a
+  restart no longer improves χ² by more than the optimiser's own tolerance —
+  not by the optimiser's success flag. The old warm restart at the
+  evaluation-cap stall point, which reported success ~30 evaluations later at
+  a point that was not a minimum, is removed. **Find Peaks takes longer**
+  (page request, idle: 236–239 s vs 208–213 s; under heavy load ~350 s,
+  where it used to cut work short) and **may suggest a different model than
+  before on some spectra**: of 7 committed C 1s scans 4 unchanged, 8-JT
+  Scan_5 and Scan_7 MG2 → MG3 (the screen's single start lands MG2 in a poor
+  local minimum — owner: ship as is, the known single-start problem made
+  consistent; a finalists-only extra-starts unit follows), 1-GTA Scan_2
+  MG3 → MG2 (an "empty slot" credit that came from mis-flagged refits is gone).
+- **The Find Peaks progress poll judges a job lost by its heartbeat** (2 s,
+  lost after 30 s without one), not by a 600 s total, so a long counted
+  analysis is waited for.
+- Load acceptance: winner, tier, candidates, ranks and roles identical idle /
+  idle / 8 CPU burners; numbers within Trust-Region's rounding jitter (≤ 0.24
+  meV, ≤ 9.4e-4 pp). Real-data gates 27 / 27 (main 26 / 27).
+- Codex: rounds 1–2 NO-GO ×2 (a capped certificate restart could certify;
+  the poll's total-time cap; the heartbeat outliving a worker killed past
+  `except Exception`; unreadable progress records polled forever), round 3
+  GO ×2 with no findings. Python 1034 passed / 7 skipped; JS 502 / 500 pass /
+  2 todo. Browser check on dev and on production through xps.fortierlab.org
+  (page Find Peaks on 1-GTA C1s Scan_6 → MG2, 976 of 977 polls with a
+  heartbeat ≤ 2.7 s old, then Run Fit on the server; no page errors).
+- Finding corrected: 8-JT Scan_7's "χ²ᵣ 37.6 vs 5.21" was a genuine
+  constrained local minimum in a worse basin, not a fit stopped short of its
+  minimum (`docs/findings/fit-termination-scope/README.md`).
+
 ## 2026-09-27 — long fits start and poll (`fix-fit-start-poll-r5`, sweep unit 2)
 
 - **Release note:** Run Fit (including "Use this solution") and Auto-Fit no
