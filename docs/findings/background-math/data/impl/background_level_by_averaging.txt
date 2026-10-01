@@ -1,0 +1,13 @@
+net-area change, main -> branch, per committed spectrum (121), by method and averaging (%)
+  shirley   avg  1: median 0.0000 p90 0.0000 max 0.0000  >1 %: 0  >0.1 %: 0  not converged: 0
+  shirley   avg  3: median 0.0028 p90 0.0255 max 0.0418  >1 %: 0  >0.1 %: 0  not converged: 0
+  shirley   avg 10: median 0.0218 p90 0.0857 max 0.1752  >1 %: 0  >0.1 %: 8  not converged: 0
+  smart     avg  1: median 0.0000 p90 0.0000 max 0.0000  >1 %: 0  >0.1 %: 0  not converged: 0
+  smart     avg  3: median 0.0023 p90 0.0215 max 0.0378  >1 %: 0  >0.1 %: 0  not converged: 0
+  smart     avg 10: median 0.0166 p90 0.0712 max 0.1105  >1 %: 0  >0.1 %: 2  not converged: 0
+  smart_exp avg  1: median 0.0000 p90 0.0000 max 0.0000  >1 %: 0  >0.1 %: 0  not converged: 0
+  smart_exp avg  3: median 0.0000 p90 0.0000 max 0.0000  >1 %: 0  >0.1 %: 0  not converged: 0
+  smart_exp avg 10: median 0.0000 p90 0.0000 max 0.0000  >1 %: 0  >0.1 %: 0  not converged: 0
+  tougaard  avg  1: median 0.0000 p90 0.0000 max 0.0000  >1 %: 0  >0.1 %: 0  not converged: 0
+  tougaard  avg  3: median 0.0000 p90 0.0001 max 0.0005  >1 %: 0  >0.1 %: 0  not converged: 0
+  tougaard  avg 10: median 0.0003 p90 0.0013 max 0.0057  >1 %: 0  >0.1 %: 0  not converged: 0

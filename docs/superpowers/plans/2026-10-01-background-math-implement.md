@@ -140,8 +140,111 @@ refuses up front on `_bgFailure(computeBackground(...))`); verified by mutation
 
 ## 4. Measurements
 
-(below, filled from `scripts/bg_math_impl_measure.py` / `bg_math_impl_analyze.js`)
+Data and generators: `docs/findings/background-math/data/impl/` (JSONL per run, the
+analyses, `background_level_by_averaging.txt`); `scripts/bg_math_impl_measure.py`
+(the 202 committed targets through `/api/fit` exactly as the page sends them —
+Trust-Region, `n_perturb` 3 — and each target's net area on its own background
+window), `scripts/bg_math_impl_seeded.py` (the same fits through `run_fit` with main's
+seed forced on the branch), `scripts/bg_math_impl_analyze.js`. Runs: `main` (twice:
+`main2` is Trust-Region's own press-to-press noise), `levels_abs` (the branch with its
+old absolute 1e-6 stop restored and no certificate — item 1 alone), `both` (the branch
+as shipped); each at the committed settings and with every target at endpoint
+averaging 3 (the page's default: 171 of the 202 committed fits were saved at 1, where
+item 1 changes nothing). Area % = the Results table's (largest component change per
+target, pp); at % = the Quantify tab's area/RSF with the page's own `_detectPeakRSF`.
+
+**Background level — net area on each target's own window (%):**
+
+| | median | max | > 1 % |
+|---|---|---|---|
+| item 1, committed settings | 0 | 0.001 | 0 |
+| item 3, committed settings | 0 | 0.000 | 0 |
+| both, committed settings | 0 | 0.001 | 0 |
+| both, every target at averaging 3 | 0.002 | 0.039 | 0 |
+
+On the 121 reference spectra, per method (main -> branch): at averaging 3 Shirley max
+0.042 %, Smart max 0.038 %, Smart (experimental) 0 (it already read the levels),
+Tougaard max 0.0005 %; at averaging 10 Shirley max 0.18 % (8 over 0.1 %), Smart max
+0.11 %. Why so small on the committed data: the averaged committed fits are Smart
+(experimental) B 1s (unchanged) and Smart U 4f at averaging 6 on 322-point windows
+with flat ends (~1e-6 of the span). No committed background is refused.
+
+**Fits — area % and atomic % (pp, largest component per target), 202 targets:**
+
+| comparison | area median | area max | area > 1 pp | at % max | at % > 1 pp |
+|---|---|---|---|---|---|
+| main vs main (Trust-Region's own noise), committed | 0 | 1.40 | 1 | 3.66 | 1 |
+| main vs main, averaging 3 | 0 | 0.001 | 0 | 0.001 | 0 |
+| item 1 (main -> levels_abs), committed | 0 | 28.44 | 1 | 29.39 | 2 |
+| item 3 (levels_abs -> both), committed | 0 | 0.60 | 0 | 0.95 | 0 |
+| both (main -> branch), committed | 0 | 28.43 | 2 | 29.38 | 2 |
+| item 1, averaging 3 | 0.002 | 23.33 | 3 | 24.04 | 3 |
+| item 3, averaging 3 | 0 | 0.16 | 0 | 0.16 | 0 |
+| both, averaging 3 | 0.002 | 23.33 | 3 | 24.04 | 3 |
+| **the background's effect alone (main's seed forced), committed** | 0 | 1.39 | 1 | 3.64 | 1 |
+| **the background's effect alone, averaging 3** | 0.002 | 0.10 | 0 | 0.10 | 0 |
+
+Every target that moves more than 1 pp is the REQUEST SEED, not the background's shape:
+the seed hashes the computed background, so a change of ~1e-6 of the span redraws the
+perturbed restarts, and on a several-minima target they land in another basin. Each was
+re-fitted on the branch with main's seed and reproduces main to <= 0.006 pp:
+
+| target | settings | main chi2r | branch chi2r | area pp | branch with main's seed |
+|---|---|---|---|---|---|
+| 8-JT C1s Scan_8 (Batch Fit copy) | committed (averaging 1) | 35.55 | 32.35 | 28.4 | main to 1e-8 in chi2r, areas to 3 dp |
+| 8-JT C1s Scan_7 | averaging 3 | 65.52 | 16.31 | 23.3 | main to 0.001 pp |
+| 8-JT C1s Scan_5 | averaging 3 | 51.70 | 33.86 | 22.0 | main to 0.001 pp |
+| UCl4_on_graphite C1s Scan_7 | averaging 3 | 5.743 | 5.989 | 4.4 | main to 0.006 pp |
+| B4C-UCl4 U4f Scan_7 | committed | 2.933 | 2.802 | 1.1 | — (1.40 pp between two presses of main) |
+
+The one target over 1 pp with the seed forced is B4C-UCl4 U4f Scan_7 (1.39 pp area,
+3.64 pp at %) — the target that moves 1.40 / 3.66 pp between two identical presses of
+main. Three of the four seed-driven moves end at a LOWER chi2r (two of them on the
+known several-minima 8-JT C 1s scans — A2 found Scan_5 landing at 33.9 or 51.9 by
+memory alignment); UCl4_on_graphite C1s Scan_7 ends higher (5.74 -> 5.99). No fit lost
+or gained convergence; every committed background is certified.
+
+**Item 5 (F3) — smart vs smart_exp after item 1:** bit-identical on all 376 committed
+spectrum x averaging cases (each spectrum at its own averaging and at 1, 3, 10); on
+40 000 random small spectra the same converged / not-converged verdict every time,
+37 902 of 39 408 converged pairs bit-identical, the rest within 3.5e-12 of the span —
+the stop tolerance, as the argument predicts (with the clamp identity exact, the
+projected iterates ARE the clamped Shirley iterates, P_k = min(B_k, I) for k >= 1; the
+projected iteration's steps are never larger, so it can stop a step earlier). Far
+within fit_equality.py's rounding (1e-3 of each quantity's own scale). PROPOSAL (not
+implemented): one menu entry "Smart (constrained Shirley)"; `smart_exp` kept as a
+backend id and in the saved-file loader, mapped to the same computation, so old files
+load and fit as before (a file saved as `smart_exp` would re-save as `smart` — or keep
+the id as saved; an owner choice).
+
+**F13 (new): featureless windows.** On 300-point synthetic Poisson windows with no
+peak the Shirley family is not converged on 200 / 200 linear drifts, 185–186 / 200
+peakless steps, 6 / 200 pure-noise windows (mostly alternation; the checker's
+independent reference solver does not converge either); 0 / 200 with a peak or a
+spike; Tougaard never. Until now those windows got a non-solution silently; now a
+student who selects a window without a peak gets the message and no fit. Two Find
+Peaks tests on such inputs now accept the refusal (nothing seeded, nothing emitted).
+
+**Other number changes:** the C 1s parity battery's frozen fixture regenerated — only
+8-JT C1s Scan_6 moved materially (chi2r 1.5e-4 relative; parameters up to 25 %
+relative on its near-zero component: the flat valley the battery already lists as
+NOT_CERTIFIED); the other 28 records within 2.6e-10 (chi2r) and 5.4e-5 (parameters).
+The page now draws every background at convergence (it stopped at the 5-iteration
+setting: up to 8.6e-5 of the span, F7) and draws de-listed Shirley + linear files as
+the server computes them (up to 7.8 % of the span on descending grids before).
 
 ## 5. Release note (at deploy)
 
-(below)
+Backgrounds: endpoint averaging now sets only the two edge levels the background is
+anchored to; the background itself is computed from the measured data, the same way
+for every method (Shirley, Smart and Tougaard used to replace the end points of the
+data by their average). Every background is checked against its own defining
+equation; when it has no solution — most often a window with no peak in it — the page
+says "… background not converged" under the method menu and nothing is fitted,
+subtracted or exported against it. Every background now runs to convergence; the
+"Shirley iterations" setting is gone. On the committed fits the backgrounds moved by at
+most 0.04 % of net area (at averaging 3); fitted areas moved by at most 0.1 pp —
+except where a fit sits between two solutions, which a changed background can tip
+either way (four committed scans moved 4–28 pp, three of them to a better fit). The
+Smart tooltips now say that constraining against noisy counts raises net area by about
+1 %.

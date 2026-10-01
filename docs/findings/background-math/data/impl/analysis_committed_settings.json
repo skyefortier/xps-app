@@ -1,0 +1,494 @@
+{
+ "comparisons": [
+  {
+   "compare": "main -> main2",
+   "net_area_pct": {
+    "n": 202,
+    "median": 0,
+    "p90": 0,
+    "max": 0,
+    "over_1": 0,
+    "over_0_1": 0
+   },
+   "area_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0,
+    "max": 1.401,
+    "over_1": 1,
+    "over_0_1": 2
+   },
+   "atomic_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0,
+    "max": 3.657,
+    "over_1": 1,
+    "over_0_1": 2
+   },
+   "success_changes": [],
+   "worst": [
+    [
+     1.401,
+     3.657,
+     "B4C-UCl4.proj.zip",
+     "U4f Scan_7",
+     "Satellite 1",
+     "smart",
+     1,
+     2.933,
+     2.851
+    ],
+    [
+     0.327,
+     0.86,
+     "Cl2p_projfit_test.proj.zip",
+     "U4f Scan_4",
+     "Satellite 1",
+     "smart",
+     1,
+     1.533,
+     1.568
+    ],
+    [
+     0.005,
+     0.005,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_6",
+     "Adventitious 2",
+     "shirley",
+     1,
+     38.311,
+     38.311
+    ],
+    [
+     0.003,
+     0.004,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_3",
+     "Adventitious 2",
+     "shirley",
+     1,
+     25.857,
+     25.857
+    ],
+    [
+     0.003,
+     0.003,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_7",
+     "Adventitious 2",
+     "shirley",
+     1,
+     35.772,
+     35.772
+    ],
+    [
+     0.002,
+     0.002,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_8",
+     "Adventitious 1",
+     "shirley",
+     1,
+     35.545,
+     35.545
+    ],
+    [
+     0.001,
+     0.001,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_4",
+     "Graphite",
+     "shirley",
+     1,
+     7.318,
+     7.318
+    ],
+    [
+     0.001,
+     0.001,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_4",
+     "Graphite",
+     "shirley",
+     1,
+     18.749,
+     18.749
+    ]
+   ]
+  },
+  {
+   "compare": "main -> levels_abs",
+   "net_area_pct": {
+    "n": 202,
+    "median": 0,
+    "p90": 0,
+    "max": 0.001,
+    "over_1": 0,
+    "over_0_1": 0
+   },
+   "area_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0.001,
+    "max": 28.438,
+    "over_1": 1,
+    "over_0_1": 3
+   },
+   "atomic_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0.001,
+    "max": 29.389,
+    "over_1": 2,
+    "over_0_1": 3
+   },
+   "success_changes": [],
+   "worst": [
+    [
+     28.438,
+     29.389,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_8",
+     "Graphite",
+     "shirley",
+     1,
+     35.545,
+     32.348
+    ],
+    [
+     0.617,
+     2.175,
+     "B4C-UCl4.proj.zip",
+     "U4f Scan_7",
+     "Satellite 1",
+     "smart",
+     1,
+     2.933,
+     2.773
+    ],
+    [
+     0.135,
+     0.27,
+     "UCl4_on_graphite.proj.zip",
+     "U4f Scan_6",
+     "U 4f7/2",
+     "smart",
+     1,
+     2.485,
+     2.462
+    ],
+    [
+     0.042,
+     0.043,
+     "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+     "C1s Scan_1",
+     "Graphite",
+     "shirley",
+     1,
+     13.066,
+     13.066
+    ],
+    [
+     0.017,
+     0.018,
+     "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+     "C1s Scan_4",
+     "Graphite",
+     "shirley",
+     1,
+     18.212,
+     18.212
+    ],
+    [
+     0.01,
+     0.01,
+     "Cl2p_projfit_test.proj.zip",
+     "C1s Scan_4",
+     "Graphite",
+     "shirley",
+     1,
+     5.291,
+     5.291
+    ],
+    [
+     0.005,
+     0.005,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_7",
+     "Graphite",
+     "shirley",
+     1,
+     35.772,
+     35.772
+    ],
+    [
+     0.005,
+     0.005,
+     "UCl4_on_graphite.proj.zip",
+     "C1s Scan_4",
+     "Adventitious 1",
+     "shirley",
+     1,
+     19.023,
+     19.023
+    ]
+   ]
+  },
+  {
+   "compare": "levels_abs -> both",
+   "net_area_pct": {
+    "n": 202,
+    "median": 0,
+    "p90": 0,
+    "max": 0,
+    "over_1": 0,
+    "over_0_1": 0
+   },
+   "area_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0.001,
+    "max": 0.598,
+    "over_1": 0,
+    "over_0_1": 3
+   },
+   "atomic_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0.001,
+    "max": 0.95,
+    "over_1": 0,
+    "over_0_1": 3
+   },
+   "success_changes": [],
+   "worst": [
+    [
+     0.598,
+     0.95,
+     "B4C-UCl4.proj.zip",
+     "U4f Scan_7",
+     "U 4f7/2",
+     "smart",
+     1,
+     2.773,
+     2.802
+    ],
+    [
+     0.434,
+     0.432,
+     "Cl2p_projfit_test.proj.zip",
+     "U4f Scan_1",
+     "Satellite 1",
+     "smart",
+     1,
+     1.562,
+     1.579
+    ],
+    [
+     0.136,
+     0.27,
+     "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+     "U4f Scan_6",
+     "U 4f7/2",
+     "smart",
+     1,
+     2.462,
+     2.485
+    ],
+    [
+     0.042,
+     0.043,
+     "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+     "C1s Scan_1",
+     "Graphite",
+     "shirley",
+     1,
+     13.066,
+     13.066
+    ],
+    [
+     0.034,
+     0.041,
+     "Cl2p_projfit_test.proj.zip",
+     "U4f Scan_5",
+     "Satellite 1",
+     "smart",
+     1,
+     1.588,
+     1.588
+    ],
+    [
+     0.017,
+     0.018,
+     "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+     "C1s Scan_4",
+     "Graphite",
+     "shirley",
+     1,
+     18.212,
+     18.212
+    ],
+    [
+     0.01,
+     0.01,
+     "Cl2p_projfit_test.proj.zip",
+     "C1s Scan_4",
+     "Graphite",
+     "shirley",
+     1,
+     5.291,
+     5.291
+    ],
+    [
+     0.009,
+     0.009,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_6",
+     "Adventitious 2",
+     "shirley",
+     1,
+     38.311,
+     38.311
+    ]
+   ]
+  },
+  {
+   "compare": "main -> both",
+   "net_area_pct": {
+    "n": 202,
+    "median": 0,
+    "p90": 0,
+    "max": 0.001,
+    "over_1": 0,
+    "over_0_1": 0
+   },
+   "area_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0.001,
+    "max": 28.43,
+    "over_1": 2,
+    "over_0_1": 5
+   },
+   "atomic_pp": {
+    "n": 202,
+    "median": 0,
+    "p90": 0,
+    "max": 29.381,
+    "over_1": 2,
+    "over_0_1": 5
+   },
+   "success_changes": [],
+   "worst": [
+    [
+     28.43,
+     29.381,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_8",
+     "Graphite",
+     "shirley",
+     1,
+     35.545,
+     32.348
+    ],
+    [
+     1.075,
+     3.064,
+     "B4C-UCl4.proj.zip",
+     "U4f Scan_7",
+     "Satellite 1",
+     "smart",
+     1,
+     2.933,
+     2.802
+    ],
+    [
+     0.434,
+     0.432,
+     "Cl2p_projfit_test.proj.zip",
+     "U4f Scan_1",
+     "Satellite 1",
+     "smart",
+     1,
+     1.562,
+     1.579
+    ],
+    [
+     0.136,
+     0.27,
+     "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+     "U4f Scan_6",
+     "U 4f7/2",
+     "smart",
+     1,
+     2.462,
+     2.485
+    ],
+    [
+     0.135,
+     0.27,
+     "UCl4_on_graphite.proj.zip",
+     "U4f Scan_6",
+     "U 4f7/2",
+     "smart",
+     1,
+     2.485,
+     2.462
+    ],
+    [
+     0.034,
+     0.041,
+     "Cl2p_projfit_test.proj.zip",
+     "U4f Scan_5",
+     "Satellite 1",
+     "smart",
+     1,
+     1.588,
+     1.588
+    ],
+    [
+     0.006,
+     0.006,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_6",
+     "Graphite",
+     "shirley",
+     1,
+     38.311,
+     38.311
+    ],
+    [
+     0.004,
+     0.004,
+     "8-JT Graphite.proj.zip",
+     "C1s Scan_7",
+     "Graphite",
+     "shirley",
+     1,
+     35.772,
+     35.772
+    ]
+   ]
+  }
+ ],
+ "net_area_main_to_both_by_averaging": {
+  "endpoint_avg=1": {
+   "n": 171,
+   "median": 0,
+   "p90": 0,
+   "max": 0,
+   "over_1": 0,
+   "over_0_1": 0
+  },
+  "endpoint_avg>1": {
+   "n": 31,
+   "median": 0,
+   "p90": 0.001,
+   "max": 0.001,
+   "over_1": 0,
+   "over_0_1": 0
+  }
+ }
+}
