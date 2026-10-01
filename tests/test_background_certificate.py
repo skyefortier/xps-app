@@ -279,3 +279,10 @@ def test_the_residual_is_rounded_half_up_on_the_exact_value():
     # one definition the page computes exactly (toExponential); Python's %.3g rounds ties to even
     assert [fitting._fmt3(v) for v in (12.25, 1.125, 0.125, 1.234e-5, 999.6, 1234.0, 0.0001, 100.0)] == \
         ["12.3", "1.13", "0.125", "1.23e-05", "1e+03", "1.23e+03", "0.0001", "100"]
+
+
+def test_an_empty_linear_or_manual_window_is_an_empty_curve_not_a_500(client):
+    sid = _upload(client)
+    for m in ("linear", "manual"):
+        r = client.post("/api/background", json={"session_id": sid, "method": m, "start_idx": 1, "end_idx": 1})
+        assert r.status_code == 200 and r.get_json()["background"] == [], (m, r.status_code, r.get_json())

@@ -9743,7 +9743,13 @@ function _buildEntryRenderData(entry) {
     // Path A/A2: fit-time be + bg both present (frozen).
     be = fr.be.slice();
     bg = fr.bgIntensity.slice();
-    rawY = _alignRawToFitBe(src, be);
+    // the fit's OWN counts, frozen with it (as updatePlot draws them: bgSubtracted +
+    // the frozen background) — never re-derived from the record's current charge
+    // shift or ROI, which can select other samples after a change or a history
+    // restore (Codex impl round 8); the alignment only for a result without them
+    rawY = Array.isArray(fr.bgSubtracted) && fr.bgSubtracted.length === be.length
+      ? fr.bgSubtracted.map((v, i) => v + bg[i])
+      : _alignRawToFitBe(src, be);
   } else {
     // Path B: post-load — derive ROI-window be from rawBE + ui.roiMin/Max,
     // recompute bg from raw via source's persisted bg settings.

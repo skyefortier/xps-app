@@ -1,0 +1,26 @@
+Review the "background math — implementation" unit, round 9: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-8 fixes = git diff b4c5e25..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..8}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-8 fixes in short:
+- A stack's Path A takes the fit's own frozen counts: bgSubtracted plus the frozen background, as updatePlot draws them. It never re-derives them from the record's current charge shift or ROI. The alignment is used only for a result without bgSubtracted.
+- An empty linear / manual window on /api/background is an empty curve, as on the page (it was HTTP 500).
+- JS CI floor 536 (unchanged; the new test is a browser test).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. The round-8 fixes:
+   - every other place a frozen fit is drawn, exported, saved or compared against data selected NOW (charge shift, ROI, anchors or method changed after the fit; undo / history restore; tab switch; stacks; figure export);
+   - results that lack bgSubtracted (older saves, local fits, Auto-Fit).
+b. Everything rounds 1-8 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

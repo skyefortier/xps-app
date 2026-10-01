@@ -483,3 +483,15 @@ reproduce; A: 216 grid-pathology parity cases agree):
 | 4 | MINOR (A, B): the residual text differed on exact binary ties (12.25: '12.3' page, '12.2' server — %.3g rounds ties to even) | one definition both compute exactly: three significant digits rounded half up on the exact value (`fitting._fmt3` via Decimal; the page's `_fmt3` via toExponential / toFixed); pinned on 29 values incl. ties |
 
 Mutation-verified (7 of 7 killed).
+
+**Round 8 — NO-GO ×2** (`background_math_impl_r8_verdict_run{A,B}.md`, commit b4c5e25;
+both: the census, the four measurement summaries and the smart / smart_exp identity
+reproduce; `_fmt3` page = server on 104 207 (A) and 29 988 (B) random finite doubles;
+A: 256 loader round trips):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): after the charge shift changed (or a history restore), a stack re-derived the frozen fit grid's raw counts from the CURRENT shift and subtracted the background from other samples | Path A takes the fit's own frozen counts (`bgSubtracted` + the frozen background, as `updatePlot` draws them); the alignment only for a result without them; browser test with an interior ROI (at the data's edge the old slice lands right by coincidence) |
+| 2 | MINOR (A, B): an empty linear / manual window on `/api/background` raised IndexError (HTTP 500) | an empty window is an empty curve, as the page |
+
+Mutation-verified (2 of 2 killed).

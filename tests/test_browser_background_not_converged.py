@@ -311,3 +311,30 @@ def test_an_ascending_spectrum_with_repeated_energies_restores_its_fit(browser, 
         assert got["raw"] == saved["rawBE"], "the file's order is kept"
     finally:
         pg.close()
+
+
+def test_a_stack_shows_the_fits_own_counts_after_the_charge_shift_changes(browser, server):
+    # Codex impl round 8: the stack re-derived raw counts for the frozen fit grid from the
+    # CURRENT charge shift, subtracting the background from other samples
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        # an ROI INSIDE the data (at the data's edge the old nearest-start slice happens to land right)
+        pg.evaluate("""() => { document.getElementById('roi-min').value = 281; document.getElementById('roi-max').value = 291;
+            document.getElementById('bg-start').value = 291; document.getElementById('bg-end').value = 281; updatePlot(); }""")
+        pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
+        pg.wait_for_function("() => window.__d === true", timeout=120000)
+        got = pg.evaluate("""() => {
+            const src = tabManager._getTab(tabManager.activeId);
+            const net = state.fitResult.bgSubtracted.slice();
+            src.ccShift = 1.0; state.ccShift = 1.0; tabManager._syncActiveToRecord();
+            const id = src.id; tabManager.createStackTab();
+            const st = tabManager._getTab(tabManager.activeId); _addSpectrumToStack(st, id);
+            const rd = _buildEntryRenderData(st.entries[0]);
+            const shown = rd.rawY.map((v, i) => v - rd.bg[i]);
+            return { n: net.length, m: shown.length, worst: Math.max(...shown.map((v, i) => Math.abs(v - net[i]))),
+                     scale: Math.max(...net.map(Math.abs)) };
+        }""")
+        assert got["n"] == got["m"] > 0 and got["worst"] <= 1e-12 * got["scale"], got
+    finally:
+        pg.close()

@@ -552,6 +552,8 @@ def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     points and BackgroundNotConverged is raised (Codex impl round 4: the flat
     I_first used to be returned and fitted against).
     """
+    if len(x) == 0:
+        return np.zeros(0)        # an empty window: an empty curve, as the page (round 8)
     return _line_through(x, x[0], y[0], x[-1], y[-1])
 
 
