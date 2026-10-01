@@ -4552,7 +4552,9 @@ function _bgAnchorFailure(anchors) {
 
 function linearBackground(be, intensity) {
   const n = be.length;
-  if (n < 2) return new Array(n).fill(0);
+  // one point: the line through it is its own value (fitting.linear_background;
+  // Codex impl round 7 — it returned 0)
+  if (n < 2) return intensity.slice(0, n);
   const x0 = be[0], y0 = intensity[0], x1 = be[n - 1], y1 = intensity[n - 1];
   const slope = x1 !== x0 ? (y1 - y0) / (x1 - x0) : 0;
   return be.map(e => y0 + slope * (e - x0));
@@ -4663,13 +4665,14 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
   const residual = span > 0 ? diff / span : (diff === 0 ? 0 : Infinity);
   // the SAME predicate the iterations stop on (diff <= tol·span), not the quotient
   if (diff <= BG_REL_TOL * span) return { converged: true, residual, reason: null };
-  return { converged: false, residual, reason: 'its iteration did not settle on a solution (it alternates or ran out of steps); the result misses the ' + label + ' relation by ' + _pyG3(100 * residual) + ' % of the intensity span' };
+  return { converged: false, residual, reason: 'its iteration did not settle on a solution (it alternates or ran out of steps); the result misses the ' + label + ' relation by ' + _fmt3(100 * residual) + ' % of the intensity span' };
 }
 
-// Python's '%.3g' (the server's reason text), so page and server give the same words:
-// 3 significant digits, trailing zeros stripped, exponent form below 1e-4 and from
-// 1e3 with a sign and at least two exponent digits ('1.23e-05').
-function _pyG3(v) {
+// fitting._fmt3, so page and server give the same words: 3 significant digits ROUNDED
+// HALF UP ON THE EXACT VALUE (toExponential / toFixed do exactly that; Python's '%.3g'
+// rounds ties to even and differed on 12.25 — Codex impl round 7), trailing zeros
+// stripped, exponent form below 1e-4 and from 1e3 ('1.23e-05').
+function _fmt3(v) {
   if (v === 0) return '0';
   if (!Number.isFinite(v)) return Number.isNaN(v) ? 'nan' : (v > 0 ? 'inf' : '-inf');
   const [mant, ex] = v.toExponential(2).split('e');
@@ -4893,6 +4896,17 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
   // fewer than two points falls back to the full range inside the helper;
   // slicing the full range below is then a no-op.
   const { i0, i1 } = _bgWindowIndices(be, settings.bgStart, settings.bgEnd);
+
+  // An integral background is held flat beyond its window at the nearer edge's value
+  // — by array position, which is by energy only when the whole region is in order
+  // (fitting._region_in_order, its words; Codex impl round 7)
+  if (BG_LABELS[type]) {
+    let up = true, down = true;
+    for (let k = 1; k < be.length; k++) { if (be[k] < be[k - 1]) up = false; if (be[k] > be[k - 1]) down = false; }
+    if (!up && !down) return _bgMark(new Array(be.length).fill(NaN), false, BG_LABELS[type] +
+      ' background not converged: the energies in the fitted region are not in order (neither ascending nor descending), and the ' +
+      BG_LABELS[type] + ' background is held flat beyond its window along the energy axis.');
+  }
 
   // Slice data to background region
   const beSub = be.slice(i0, i1 + 1);
@@ -9616,11 +9630,16 @@ function _alignRawToFitBe(src, be) {
   // The fit's grid is the ROI selection (_roiSelect: an order-preserving subsequence of
   // the raw points, not necessarily contiguous — an unsorted record, Codex impl round
   // 6): match it point for point, exactly or as the save rounds energies (4 dp).
+  // (Codex impl round 7: a rounded match let an excluded neighbour 5e-5 eV away stand
+  // in for a selected point.) First the selection itself, when it reproduces the grid;
+  // then an EXACT point-for-point match; never a rounded one.
   {
+    const sel = _roiSelect(src.rawBE, src.rawIntensity, shift, src.ui && src.ui.roiMin, src.ui && src.ui.roiMax);
+    if (sel.be.length === be.length && sel.be.every((c, k) => c === be[k] || Math.round(c * 1e4) / 1e4 === be[k]))
+      return sel.inten;
     const out = [];
     for (let i = 0, k = 0; i < src.rawBE.length && k < be.length; i++) {
-      const c = src.rawBE[i] - shift;
-      if (c === be[k] || Math.round(c * 1e4) / 1e4 === be[k]) { out.push(src.rawIntensity[i]); k++; }
+      if (src.rawBE[i] - shift === be[k]) { out.push(src.rawIntensity[i]); k++; }
     }
     if (out.length === be.length) return out;
   }

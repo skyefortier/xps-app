@@ -981,7 +981,50 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
         return {"converged": True, "residual": residual, "reason": None}
     return {"converged": False, "residual": residual, "reason": (
         "its iteration did not settle on a solution (it alternates or ran out of steps); the "
-        "result misses the %s relation by %.3g %% of the intensity span" % (label, 100.0 * residual))}
+        "result misses the %s relation by %s %% of the intensity span" % (label, _fmt3(100.0 * residual)))}
+
+
+def _fmt3(v: float) -> str:
+    """Three significant digits, ROUNDED HALF UP ON THE EXACT BINARY VALUE, trailing
+    zeros stripped, exponent form below 1e-4 and from 1e3 ('1.23e-05', '1.23e+03').
+    One definition the page computes exactly too (JavaScript's toExponential rounds
+    the exact value half up; its twin is the page's _fmt3) — Python's '%.3g' rounds
+    ties to even and differed from the page on exact ties such as 12.25 (Codex impl
+    round 7)."""
+    from decimal import Decimal, ROUND_HALF_UP
+    if v == 0:
+        return "0"
+    if not math.isfinite(v):
+        return "nan" if math.isnan(v) else ("inf" if v > 0 else "-inf")
+    d = Decimal(v)                                   # exact
+    e = d.adjusted()
+    q = d.quantize(Decimal(1).scaleb(e - 2), rounding=ROUND_HALF_UP)
+    if q.adjusted() != e:                            # 999.6 -> 1.00e+03
+        e = q.adjusted()
+        q = d.quantize(Decimal(1).scaleb(e - 2), rounding=ROUND_HALF_UP)
+
+    def strip(t):
+        return t.rstrip("0").rstrip(".") if "." in t else t
+    if e < -4 or e >= 3:
+        m = strip(f"{q.scaleb(-e):.2f}")
+        return f"{m}e{'-' if e < 0 else '+'}{abs(e):02d}"
+    return strip(f"{q:.{max(0, 2 - e)}f}")
+
+
+def _region_in_order(x, method):
+    """An integral background is computed on its window and held flat beyond it at
+    the nearer edge's value — by array POSITION, which is by energy only when the
+    whole fitted region is in order (Codex impl round 7: a sorted window inside an
+    unsorted region gave the high-BE side the low-edge level). Raises
+    BackgroundNotConverged otherwise; the page's twin is in computeBackgroundCore."""
+    xv = np.asarray(x, dtype=float)
+    dx = np.diff(xv)
+    if len(xv) > 1 and not (np.all(dx >= 0) or np.all(dx <= 0)):
+        label = _BG_LABELS.get(method, method)
+        raise BackgroundNotConverged(
+            f"{label} background not converged: the energies in the fitted region are not in order "
+            f"(neither ascending nor descending), and the {label} background is held flat beyond its "
+            "window along the energy axis.")
 
 
 def compute_background(x, y, method, n_avg=1) -> np.ndarray:
@@ -2082,6 +2125,7 @@ def _run_fit_impl(
     elif bg_method in _BG_LABELS:
         # certified: a background that does not satisfy its statement raises
         # BackgroundNotConverged and no fit is made against it
+        _region_in_order(x, bg_method)                  # the flat hold below is by energy
         bg_inner = compute_background(x_bg, y_bg, bg_method, n_avg=endpoint_avg)
     elif bg_method == "linear":
         # Extrapolate the line through (E[i0], y[i0]) ↔ (E[i1-1], y[i1-1])

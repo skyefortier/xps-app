@@ -153,7 +153,7 @@ function recordEnv() {
     ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground',
      '_restoredFitBgFailure', '_dropRestoredFit'].map(fn).join('\n') +
     '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
-    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _pyG3 };';
+    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3 };';
   return new Function(src)();
 }
 const R = recordEnv();
@@ -289,6 +289,7 @@ for c in json.load(sys.stdin):
         elif c['m'] == 'linear':
             fitting.linear_background(x, y)
         else:
+            fitting._region_in_order(x, c['m'])          # run_fit's order: the region, then the window
             fitting.compute_background(x, y, c['m'], n_avg=c.get('n', 1))
         res.append(None)
     except fitting.BackgroundNotConverged as e:
@@ -317,12 +318,15 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
   assert.ok(S.filter(v => v).length >= 10, 'the cases are refusals');
   // the residual text: Python's %.3g, value for value
   const { execFileSync } = require('node:child_process');
-  const vals = [1.234e-5, 0.0001234, 1e-4, 0.001, 0.1, 1, 12.5, 99.95, 100, 123.4, 999.6, 1234, 2.5e-7, 5.555e-3, 0.00995, 4.2e12];
+  // incl. exact binary ties (12.25, 1.125, 0.125·10^k): fitting._fmt3 rounds them half up, as toExponential does
+  const vals = [1.234e-5, 0.0001234, 1e-4, 0.001, 0.1, 1, 12.5, 99.95, 100, 123.4, 999.6, 1234, 2.5e-7, 5.555e-3, 0.00995, 4.2e12,
+                12.25, 1.125, 0.125, 12.75, 0.0625, 1.375, 99.96, 0.000099996, 9.995, 2.675, 1e-10, 3.14159e-8, 6.02e23];
   const PY = ['/Users/skyefortier/xps-app/venv/bin/python3', path.join(__dirname, '../../venv/bin/python3')].find(p => fs.existsSync(p)) || 'python3';
-  const py = JSON.parse(execFileSync(PY, ['-c', 'import json,sys; print(json.dumps(["%.3g" % v for v in json.load(sys.stdin)]))'], { input: JSON.stringify(vals), encoding: 'utf8' }));
-  assert.deepStrictEqual(vals.map(R._pyG3), py);
+  const py = JSON.parse(execFileSync(PY, ['-c', 'import json,sys; sys.path.insert(0, "."); import fitting; print(json.dumps([fitting._fmt3(v) for v in json.load(sys.stdin)]))'],
+    { input: JSON.stringify(vals), encoding: 'utf8', cwd: path.join(__dirname, '../..') }));
+  assert.deepStrictEqual(vals.map(R._fmt3), py);
   // the certificate's residual is written with it (a residual below 1e-4 % reads '1.23e-05' on both sides)
-  assert.match(enclosingFunction(lines.findIndex(l => l.startsWith('function _bgCertificate('))).body, /\+ _pyG3\(100 \* residual\) \+ ' % of the intensity span'/);
+  assert.match(enclosingFunction(lines.findIndex(l => l.startsWith('function _bgCertificate('))).body, /\+ _fmt3\(100 \* residual\) \+ ' % of the intensity span'/);
   // a lone anchor is checked too (it would otherwise fall back to the line silently)
   for (const lone of [[{ x: NaN, y: 1 }], [{ x: 2, y: null }], [{ x: true, y: 1 }], [null]])
     assert.throws(() => R._computeBackgroundForSource([0, 1, 2], [1, 2, 3], { bgType: 'manual' }, lone),
@@ -331,11 +335,29 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
 
 test('a stack aligns raw counts to the fit grid point for point, also on an unsorted record', () => {
   const fn = name => enclosingFunction(lines.findIndex(l => l.startsWith('function ' + name + '('))).body;
-  const align = new Function(fn('_alignRawToFitBe') + '\nreturn _alignRawToFitBe;')();
-  for (const [rawBE, mn, mx] of [[[5, 1, 4, 0, 3, 2], '1', '4'], [[10, 6, 8, 5, 4, 3, 2, 1, 0], '', '4'], [[0, 1, 2, 3, 4, 5], '1', '3'], [[5, 4, 3, 2, 1, 0], '', '']]) {
+  const align = new Function(fn('_roiSelect') + '\n' + fn('_alignRawToFitBe') + '\nreturn _alignRawToFitBe;')();
+  // incl. Codex round 7's rounding collisions: an excluded point 5e-5 / 1e-5 eV from a selected one
+  for (const [rawBE, mn, mx] of [[[5, 1, 4, 0, 3, 2], '1', '4'], [[10, 6, 8, 5, 4, 3, 2, 1, 0], '', '4'], [[0, 1, 2, 3, 4, 5], '1', '3'],
+                                 [[5, 4, 3, 2, 1, 0], '', ''], [[0.99996, 1, 2, 3, 4, 5, 6], '1', '6'], [[3.00001, 3, 2, 1, 0], '', '3'],
+                                 [[5.123456, 1.123456, 4.123456, 0.123456, 3.123456, 2.123456], '1', '4.5']]) {   // saved grid != exact
     const rawIntensity = rawBE.map(e => 10 * e + 1);
     const sel = R._roiSelect(rawBE, rawIntensity, 0, mn, mx);
-    assert.deepStrictEqual(align({ rawBE, rawIntensity, ccShift: 0 }, sel.be), sel.inten, JSON.stringify(rawBE));
-    assert.deepStrictEqual(align({ rawBE, rawIntensity, ccShift: 0 }, sel.be.map(e => Math.round(e * 1e4) / 1e4)), sel.inten, 'as saved (4 dp)');
+    const rec = { rawBE, rawIntensity, ccShift: 0, ui: { roiMin: mn, roiMax: mx } };
+    assert.deepStrictEqual(align(rec, sel.be), sel.inten, JSON.stringify(rawBE));
+    assert.deepStrictEqual(align(rec, sel.be.map(e => Math.round(e * 1e4) / 1e4)), sel.inten, 'as saved (4 dp)');
+    // the ROI changed since the fit: an exact point-for-point match, never a rounded one
+    assert.deepStrictEqual(align({ ...rec, ui: { roiMin: '', roiMax: '' } }, sel.be), sel.inten, 'exact match ' + JSON.stringify(rawBE));
   }
+});
+
+test('an integral background on an unsorted fitted region is not converged; a one-point manual fallback is its point (round 7)', () => {
+  const E = [5, 0, 1, 2, 3, -1], I = [20, 10, 10, 40, 20, 10];
+  for (const t of ['shirley', 'smart', 'smart_exp', 'tougaard', 'shirley_linear']) {
+    const bg = R.computeBackgroundCore(E, I, { bgType: t, endpointAvg: '1', bgStart: '1', bgEnd: '3' });
+    assert.strictEqual(bg.converged, false, t);
+    assert.match(bg.failure, /the energies in the fitted region are not in order/, t);
+  }
+  assert.strictEqual(R.computeBackgroundCore(E, I, { bgType: 'linear', endpointAvg: '1', bgStart: '1', bgEnd: '3' }).converged, true, 'a line is affine in energy whatever the order');
+  const one = R._computeBackgroundForSource([1], [20], { bgType: 'manual' }, []);
+  assert.deepStrictEqual(Array.from(one), [20]);
 });

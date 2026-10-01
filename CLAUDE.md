@@ -873,7 +873,9 @@ edge line (F10), Tougaard's amplitude is undetermined or has no solution (F11), 
 it: nothing is fitted against such a background. No fallback solver (owner). The
 integral relations run along the energy axis: a window whose data are not finite or
 whose energies are not in order (ascending or descending, repeats allowed) is not
-converged, and neither is one whose span or difference overflows. The
+converged, and neither is one whose span or difference overflows; an integral
+background also needs the whole fitted region in order (it is held flat beyond its
+window by position, `_region_in_order`). The
 EXPLICIT backgrounds (linear, manual, none) have nothing to converge but must exist,
 checked the same way, server and page, in the same words: no line when the window's
 end points share an energy and not an intensity, no manual curve when two anchors do,

@@ -258,3 +258,24 @@ def test_manual_without_anchors_is_the_line_and_every_anchor_is_checked():
     for lone in ([[float("nan"), 1]], [[2, None]], [[True, 1]], [None, [5, 0]], ["ab", [5, 0]]):
         with pytest.raises(fitting.BackgroundNotConverged, match="an anchor is not a pair of finite numbers"):
             fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=lone)
+
+
+# ── Codex implementation round 7 ─────────────────────────────────────────────
+
+def test_an_integral_background_on_an_unsorted_region_is_not_converged():
+    # a sorted window inside an unsorted region: the flat hold beyond the window is by array
+    # position, so the high-BE side took the low-edge level
+    from autofit.parity import background_like_run_fit
+    E, I = np.array([5.0, 0, 1, 2, 3, -1]), np.array([20.0, 10, 10, 40, 20, 10])
+    for m in ("shirley", "smart", "smart_exp", "shirley_linear", "tougaard"):
+        with pytest.raises(fitting.BackgroundNotConverged, match="energies in the fitted region are not in order"):
+            fitting.run_fit(E, I, GPEAK, background_method=m, bg_start_idx=2, bg_end_idx=5)
+        with pytest.raises(fitting.BackgroundNotConverged, match="fitted region are not in order"):
+            background_like_run_fit(E, I, m, 2, 5)
+    fitting.run_fit(E, I, GPEAK, background_method="linear", bg_start_idx=2, bg_end_idx=5, n_perturb=0)  # affine in energy
+
+
+def test_the_residual_is_rounded_half_up_on_the_exact_value():
+    # one definition the page computes exactly (toExponential); Python's %.3g rounds ties to even
+    assert [fitting._fmt3(v) for v in (12.25, 1.125, 0.125, 1.234e-5, 999.6, 1234.0, 0.0001, 100.0)] == \
+        ["12.3", "1.13", "0.125", "1.23e-05", "1e+03", "1.23e+03", "0.0001", "100"]

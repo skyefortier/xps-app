@@ -239,7 +239,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 535, exact (the owner's 512 for the two landed branches + this unit's 23 tests).
+- JS CI floor 508 -> 536, exact (the owner's 512 for the two landed branches + this unit's 24 tests).
 
 ## 4. Measurements
 
@@ -466,7 +466,20 @@ reproduce):
 | 6 | MINOR (A, B): manual-fallback overflow said "Manual" on the page, "Linear" on the server | the page's fallback is the server's line with its words |
 
 Also: the certificate's residual is written with a JS twin of Python's `%.3g`
-(`_pyG3`), so "misses the relation by 1.23e-05 %" reads the same on both sides; a
+(`_pyG3`; round 7 replaced both with `_fmt3`, below), so "misses the relation by 1.23e-05 %" reads the same on both sides; a
 new test compares verdict AND words page = server across every refusal kind (order,
 overflow, cycling, no net signal, NaN data, linear, manual) by running the server.
 Mutation-verified (12 of 12 killed).
+
+**Round 7 — NO-GO ×2** (`background_math_impl_r7_verdict_run{A,B}.md`, commit 11733d8;
+both: the census, the four measurement summaries and the smart / smart_exp identity
+reproduce; A: 216 grid-pathology parity cases agree):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B): a sorted background window inside an UNSORTED fitted region — the integral background is held flat beyond its window by array position, so the high-BE side took the low-edge level; `run_fit` fitted | an integral background needs the whole fitted region in order (`fitting._region_in_order`, in `run_fit` and the parity reference; the page's `computeBackgroundCore`), same words; a line is affine in energy and still fits |
+| 2 | MAJOR (A, B): the stack's rounded (4 dp) point match let an excluded neighbour 1e-5 / 5e-5 eV away stand in for a selected point (net 890 where it is 0) | the alignment takes the ROI selection itself when it reproduces the fit grid (sample identity kept), otherwise an EXACT point-for-point match, never a rounded one |
+| 3 | MAJOR (A): a one-point ROI under manual with no anchors gave 0 on the page, the point on the server | the page's line through one point is that point (as `linear_background`) |
+| 4 | MINOR (A, B): the residual text differed on exact binary ties (12.25: '12.3' page, '12.2' server — %.3g rounds ties to even) | one definition both compute exactly: three significant digits rounded half up on the exact value (`fitting._fmt3` via Decimal; the page's `_fmt3` via toExponential / toFixed); pinned on 29 values incl. ties |
+
+Mutation-verified (7 of 7 killed).

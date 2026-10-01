@@ -29,6 +29,7 @@ import numpy as np
 from fitting import (
     _SHAPE_FUNCS,
     _line_through,
+    _region_in_order,
     compute_background,
     linear_background,
     run_fit,
@@ -92,6 +93,7 @@ def background_like_run_fit(
     m = (method or "shirley").lower()
 
     if m in ("shirley", "smart", "smart_exp", "shirley_linear", "tougaard"):
+        _region_in_order(x, m)                                         # as run_fit
         bg_inner = compute_background(xb, yb, m, n_avg=endpoint_avg)   # certified, as run_fit
     elif m == "linear":
         # run_fit's own rule (raises BackgroundNotConverged: no line, or not finite)
