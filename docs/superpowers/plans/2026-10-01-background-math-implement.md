@@ -132,6 +132,19 @@ must run to convergence, as the server's always has. The field is hidden (kept: 
 files restore it and fit keys still compare it — removing it from the key would make
 every saved fit stale on load) and never read.
 
+**Linear and short records (Codex round 4).** Linear (and manual with fewer than two
+anchors, which is linear through the ROI's ends) is "explicit — nothing to converge",
+but its statement — the line through the window's two end points — has no solution
+when those points share an energy and not an intensity (a repeated energy at both
+window edges): the flat first intensity used to be drawn and fitted against. Now
+`fitting._line_through` raises `BackgroundNotConverged` and the page's
+`_bgLineFailure` marks it not converged, with the same words. A restored fit whose
+raw data are missing or incomplete is dropped (the certificate needs them; a
+truncated record used to skip the check). The spectrum-file loader puts the fit's
+stored grid, background and fitted curve in the order `createTab` gives the raw
+data (BE descending, stable) — an ascending file's current fit used to be dropped as
+"fitted on other points".
+
 **Item 6.** The amber notice for files that use Shirley + linear stays; its stated
 reason ("its on-screen curve can differ from the background the backend fit actually
 subtracts") is no longer true (the twin now mirrors the server), so it now says why the
@@ -218,7 +231,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 529, exact (the owner's 512 for the two landed branches + this unit's 17 tests).
+- JS CI floor 508 -> 531, exact (the owner's 512 for the two landed branches + this unit's 19 tests).
 
 ## 4. Measurements
 
@@ -393,3 +406,14 @@ bit-identical; B: 36 current-project round trips kept):
 | 4 | MAJOR (A): a non-number stored value made the comparison NaN and the check failed open | fails closed: anything that is not this number (or as saved) is a mismatch; pinned for string, null, undefined |
 | 5 | MINOR (A, B): the guard still accepted an ignored failure, a check in a multi-line `if (false)`, an unrelated inline check | the class closed by construction: producers throw (§2); mutation-verified |
 | 6 | MINOR (A, B): "no older saved fit is restored" was false (3 committed Cl 2p fits pass the rounding rule; a constructed case too) | measured with the page's function: 3 of 121 restored, 62 differ, 56 stored no curve (§1); release note and CLAUDE.md corrected |
+
+**Round 4 — NO-GO ×2** (`background_math_impl_r4_verdict_run{A,B}.md`, commit b03344c;
+both: the census reproduces exactly — 3 restored, 62 differing, 56 without curves —
+and the owner consequence is accurately stated; the four measurement summaries and
+the 376 smart / smart_exp pairs reproduce; B: 512 project round trips kept):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A): linear certified an impossible line — window ends at one energy, different intensities — and the server fitted against the flat first intensity | `fitting._line_through` raises, the page's `_bgLineFailure` refuses, same words (also manual with < 2 anchors); ordinary windows bit-for-bit unchanged; pinned both sides |
+| 2 | MAJOR (A, B): a record with missing / short raw data skipped the restore check and drew its stored curve | dropped: "its raw data are missing or incomplete"; pinned (one point, empty, absent, unequal lengths) |
+| 3 | MAJOR (A, B): an ascending spectrum file's current fit was dropped (createTab sorts the raw data; the fit's arrays were left in file order) | grid, background and fitted curve put in createTab's order (stable descending); browser test on the reversed file, point for point |

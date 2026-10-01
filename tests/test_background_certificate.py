@@ -162,3 +162,21 @@ def test_a_non_finite_evaluation_is_not_converged():
     E, I = np.arange(4.0), np.array([1.0, 1e308, 1e308, 3.0])
     with pytest.raises(fitting.BackgroundNotConverged):
         fitting.compute_background(E, I, "shirley")
+
+
+# ── Codex implementation round 4 ─────────────────────────────────────────────
+
+def test_a_linear_window_whose_ends_share_an_energy_but_not_an_intensity_is_not_converged():
+    # no line passes through (1, 10) and (1, 30): the flat 10 used to be fitted against
+    E = np.array([3.0, 2.0, 1.0, 1.0, 0.0])
+    I = np.array([20.0, 25.0, 10.0, 30.0, 5.0])
+    with pytest.raises(fitting.BackgroundNotConverged, match="no line passes through both"):
+        fitting.run_fit(E, I, [{"id": "1", "shape": "gaussian", "center": 2.0, "fwhm": 1.0, "amplitude": 10.0,
+                                 "amplitude_min": 0}], background_method="linear", bg_start_idx=2, bg_end_idx=4)
+    with pytest.raises(fitting.BackgroundNotConverged, match="no line passes through both"):
+        fitting.compute_background_only(np.array([1.0, 1.0]), np.array([10.0, 30.0]), method="linear")
+    # equal intensities: the flat line exists
+    assert np.array_equal(fitting.linear_background(np.array([1.0, 1.0]), np.array([10.0, 10.0])), [10.0, 10.0])
+    # an ordinary window is unchanged, bit for bit
+    x, y = np.array([3.0, 2.0, 1.0, 0.0]), np.array([20.0, 25.0, 10.0, 5.0])
+    assert np.array_equal(fitting.linear_background(x, y), y[0] + ((y[-1] - y[0]) / (x[-1] - x[0])) * (x - x[0]))

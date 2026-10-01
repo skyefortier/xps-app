@@ -1,0 +1,27 @@
+Review the "background math — implementation" unit, round 5: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-4 fixes = git diff b03344c..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1,2,3,4}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-4 fixes in short:
+- Linear's statement (the line through the window's two end points) has no solution when the end points share an energy but not an intensity. fitting._line_through now raises BackgroundNotConverged in that case (linear_background, run_fit's linear branch, /api/background). The page's _bgLineFailure refuses it with the same words. Manual with fewer than two anchors (the line through the ROI's ends) gets the same rule. Ordinary windows are unchanged bit for bit.
+- A restored fit whose raw data are missing or incomplete (fewer than two points, absent, or unequal lengths) is dropped, because the certificate needs them.
+- The spectrum-file loader puts the fit's stored grid, background and fitted curve into the order createTab gives the raw data (BE descending, stable sort). An ascending file's current fit is now restored, point for point.
+- JS CI floor 531 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The round-4 fixes:
+   - Any other degenerate input where an "explicit" background (linear, manual, none) is marked converged but does not satisfy its statement, on the server or the page.
+   - Any page / server disagreement in verdict or words.
+   - The reordering: duplicate energies, NaN or non-number entries, fittedY of another length, a stale file, a file whose roiBE and background lengths differ.
+   - Any other loader or restore path with a different point order.
+b. Everything rounds 1-4 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both BE orders;
+   - page = server bit-identity, incl. manual;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

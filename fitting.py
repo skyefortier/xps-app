@@ -546,11 +546,26 @@ def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     raises the high-BE side; both end points lie on background. The RAW end
     points are used (no endpoint averaging): one noisy end sample tilts the
     whole line. Exact to rounding (tests/test_background_defining_statements.py).
-    When the two end energies are equal the line is undefined and the flat
-    I_first is returned.
+    When the two end energies are equal the line is the flat I_first if the two
+    end intensities are equal too; otherwise NO line passes through both end
+    points and BackgroundNotConverged is raised (Codex impl round 4: the flat
+    I_first used to be returned and fitted against).
     """
-    slope = (y[-1] - y[0]) / (x[-1] - x[0]) if x[-1] != x[0] else 0.0
-    return y[0] + slope * (x - x[0])
+    return _line_through(x, x[0], y[0], x[-1], y[-1])
+
+
+def _line_through(x, x0, y0, x1, y1):
+    """The affine function of energy through (x0, y0) and (x1, y1), evaluated on x;
+    raises BackgroundNotConverged when x0 == x1 and y0 != y1 (no such line)."""
+    if x1 != x0:
+        slope = (y1 - y0) / (x1 - x0)
+    elif y1 == y0:
+        slope = 0.0
+    else:
+        raise BackgroundNotConverged(
+            "Linear background not converged: its two end points are at the same energy "
+            "(%.6g eV) with different intensities, so no line passes through both." % x0)
+    return y0 + slope * (x - x0)
 
 
 def smart_experimental_background(
@@ -2006,11 +2021,9 @@ def _run_fit_impl(
         # Extrapolate the line through (E[i0], y[i0]) ↔ (E[i1-1], y[i1-1])
         # across the full ROI. The line is well-defined everywhere, so
         # constant extension would discard real information.
-        if x[i1 - 1] != x[i0]:
-            slope = (y[i1 - 1] - y[i0]) / (x[i1 - 1] - x[i0])
-        else:
-            slope = 0.0
-        bg = y[i0] + slope * (x - x[i0])
+        # (raises BackgroundNotConverged when the window's ends share an energy but
+        # not an intensity: no line passes through both)
+        bg = _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1])
     elif bg_method in ("none", "flat", "", "manual"):
         bg = np.zeros_like(y)
     else:

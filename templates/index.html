@@ -4529,6 +4529,15 @@ function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
 // The line affine in ENERGY through the end points — fitting.linear_background's
 // statement (since 2026-10-01: the page drew it by index, equal only on uniform
 // grids — findings F8). Equal end energies give the flat first intensity.
+// fitting._line_through's refusal, the same words: a line through two end points
+// at one energy exists only when their intensities agree (Codex impl round 4: the
+// flat first intensity used to be drawn and fitted against). Null when it exists.
+function _bgLineFailure(x0, y0, x1, y1) {
+  if (x1 !== x0 || y1 === y0) return null;
+  return 'Linear background not converged: its two end points are at the same energy (' +
+    Number(x0.toPrecision(6)) + ' eV) with different intensities, so no line passes through both.';
+}
+
 function linearBackground(be, intensity) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
@@ -4813,7 +4822,16 @@ function computeBackgroundCore(be, intensity, settings) {
   const nAvg = parseInt(settings.endpointAvg) || 1;
 
   // Manual anchor background uses its own anchor points, not bg-start/end
-  if (type === 'manual') return _bgMark(manualAnchorBackground(be, intensity, settings.anchors), true);
+  if (type === 'manual') {
+    // the user's anchors are the curve (nothing to converge); with fewer than two
+    // it is the line through the ROI's end points, which must exist
+    const anchors = settings.anchors || _getManualAnchors();
+    const n = be.length;
+    const lineFail = (!anchors || anchors.length < 2) && n >= 2
+      ? _bgLineFailure(be[0], intensity[0], be[n - 1], intensity[n - 1]) : null;
+    if (lineFail) return _bgMark(new Array(n).fill(NaN), false, lineFail);
+    return _bgMark(manualAnchorBackground(be, intensity, anchors), true);
+  }
 
   // The background window — the one definition shared with both /api/fit
   // request builders (see _bgWindowIndices). A blank bound or a window with
@@ -4836,6 +4854,8 @@ function computeBackgroundCore(be, intensity, settings) {
     // run_fit extrapolates the line through the WINDOW's end points across the whole
     // ROI (it is defined everywhere); the integral backgrounds are flat-held outside
     const x0 = beSub[0], y0 = inSub[0], x1 = beSub[beSub.length - 1], y1 = inSub[inSub.length - 1];
+    const lineFail = _bgLineFailure(x0, y0, x1, y1);
+    if (lineFail) return _bgMark(new Array(be.length).fill(NaN), false, lineFail);
     const slope = x1 !== x0 ? (y1 - y0) / (x1 - x0) : 0;
     return _bgMark(be.map(e => y0 + slope * (e - x0)), true);
   }
@@ -9577,7 +9597,12 @@ function _recordBackground(src) {
 // is zero, and each must equal what was stored (Codex impl round 3: an exemption
 // read the CURRENT method and kept a stale curve). Returns the plain reason, or null.
 function _restoredFitBgFailure(rec) {
-  if (!rec || !rec.fitResult || rec.isStack || !Array.isArray(rec.rawBE) || rec.rawBE.length < 2) return null;
+  if (!rec || !rec.fitResult || rec.isStack) return null;
+  // the certificate needs the raw data: a fit without them cannot be checked, so it
+  // is not restored (Codex impl round 4: a truncated record used to skip the check)
+  if (!Array.isArray(rec.rawBE) || !Array.isArray(rec.rawIntensity) || rec.rawBE.length < 2 ||
+      rec.rawIntensity.length !== rec.rawBE.length)
+    return 'its raw data are missing or incomplete, so the background it was fitted against cannot be checked';
   const fr = rec.fitResult;
   const stored = fr.bgIntensity;
   if (!Array.isArray(fr.be) || !Array.isArray(stored) || stored.length !== fr.be.length)
@@ -11248,8 +11273,16 @@ function _loadSpectrumFile(data, sessionFile) {
     // it is never offered as the fit's (Codex impl round 3).
     const stale = data.statistics.statisticsState === 'stale';
     if (!stale && Array.isArray(data.roiBE) && Array.isArray(data.background)) {
-      fr.be = data.roiBE.slice();
-      fr.bgIntensity = data.background.slice();
+      // createTab sorts the raw data by BE descending (stably); the fit's per-point
+      // arrays were saved in the file's order, so they are put in the same order
+      // (Codex impl round 4: an ascending file's current fit was dropped as "fitted
+      // on other points", and its fitted curve drawn reversed)
+      const n = data.roiBE.length;
+      const order = data.roiBE.map((_, i) => i).sort((a, b) => data.roiBE[b] - data.roiBE[a]);
+      const ordered = arr => order.map(i => arr[i]);
+      fr.be = ordered(data.roiBE);
+      if (data.background.length === n) fr.bgIntensity = ordered(data.background);
+      if (Array.isArray(fr.fittedY) && fr.fittedY.length === n) fr.fittedY = ordered(fr.fittedY);
     }
     active.fitResult = fr;
     state.fitResult = fr;

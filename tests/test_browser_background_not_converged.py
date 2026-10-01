@@ -222,7 +222,14 @@ def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server)
         finally:
             pg.close()
     assert saves["current"]["background"] and saves["current"]["statistics"]
-    for name, kept in (("current", True), ("stale", False)):
+    # Codex impl round 4: the same file written in ascending BE order (as a spectrum saved from an
+    # ascending record is) — createTab re-sorts the raw data, so the fit's arrays must follow
+    import copy
+    asc = copy.deepcopy(saves["current"])
+    for k in ("rawBE", "rawIntensity", "roiBE", "background", "fittedY"):
+        asc[k] = list(reversed(asc[k]))
+    saves["ascending"] = asc
+    for name, kept in (("current", True), ("ascending", True), ("stale", False)):
         pg = _new_page(browser, server)
         errors = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
@@ -230,10 +237,14 @@ def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server)
             pg.evaluate(NOTIFY)
             pg.evaluate("data => _loadSpectrumFile(data, 'p.spec.json')", saves[name])
             pg.wait_for_timeout(400)
-            got = pg.evaluate("() => ({ fit: !!state.fitResult, n: window.__n, bgOk: !!(state.fitResult && state.fitResult.bgIntensity && state.fitResult.bgIntensity.converged === true) })")
-            assert got["fit"] is kept, (name, got)
+            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n,
+                bgOk: !!(state.fitResult && state.fitResult.bgIntensity && state.fitResult.bgIntensity.converged === true),
+                be: state.fitResult && state.fitResult.be, fittedY: state.fitResult && state.fitResult.fittedY })""")
+            assert got["fit"] is kept, (name, got["n"])
             if kept:
                 assert got["bgOk"], "the certified curve replaces the stored one"
+                # the fit's grid and curve in the tab's (descending) order, point for point
+                assert got["be"] == saves["current"]["roiBE"] and got["fittedY"] == saves["current"]["fittedY"], name
             else:
                 assert any("saved after its model or settings changed" in m for m in got["n"]), got["n"]
         finally:

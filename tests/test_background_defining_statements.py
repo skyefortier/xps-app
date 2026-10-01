@@ -341,7 +341,11 @@ def test_degenerate_windows():
     for f in (fitting.shirley_background, fitting.smart_background, fitting.smart_experimental_background,
               fitting.shirley_linear_background, fitting.tougaard_background):
         assert np.array_equal(f(*one), [0.0])
-    assert np.array_equal(fitting.linear_background(np.array([2.0, 2.0]), np.array([3.0, 7.0])), [3.0, 3.0])
+    # equal end energies: flat when the end intensities agree; otherwise no line passes
+    # through both end points and the background is not converged (Codex impl round 4)
+    assert np.array_equal(fitting.linear_background(np.array([2.0, 2.0]), np.array([3.0, 3.0])), [3.0, 3.0])
+    with pytest.raises(fitting.BackgroundNotConverged, match="no line passes through both"):
+        fitting.linear_background(np.array([2.0, 2.0]), np.array([3.0, 7.0]))
     assert D.band(8, 10) == 2 and D.band(3, 10) == 1
     y = np.arange(8.0)
     assert np.array_equal(fitting._apply_endpoint_averaging(y, 10), [0.5, 0.5, 2, 3, 4, 5, 6.5, 6.5])

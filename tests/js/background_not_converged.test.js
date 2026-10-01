@@ -220,3 +220,27 @@ test('restore: kept only when the stored curve IS the certified one — no metho
   const rounded = fitWith(peakRec()); rounded.fitResult.bgIntensity = rounded.fitResult.bgIntensity.map(v => Number(v.toPrecision(6)));
   assert.strictEqual(R._restoredFitBgFailure(rounded), null, 'as the save rounds it');
 });
+
+// ── Codex impl round 4 ──
+test('linear: ends at one energy with different intensities have no line through them — not converged, the server\'s words', () => {
+  const E = [3, 2, 1, 1, 0], I = [20, 25, 10, 30, 5];
+  const want = 'Linear background not converged: its two end points are at the same energy (1 eV) with different intensities, so no line passes through both.';
+  const lin = B.computeBackgroundCore(E, I, { bgType: 'linear', endpointAvg: '1', bgStart: '1', bgEnd: '1' });
+  assert.strictEqual(lin.converged, false);
+  assert.strictEqual(lin.failure, want, 'fitting._line_through raises the same text (tests/test_background_certificate.py)');
+  assert.throws(() => R._computeBackgroundForSource(E, I, { bgType: 'linear', endpointAvg: '1', bgStart: '1', bgEnd: '1' }), e => R._isBgNotConverged(e));
+  // manual with fewer than two anchors is the line through the ROI's ends: the same rule
+  assert.throws(() => R._computeBackgroundForSource([1, 1], [10, 30], { bgType: 'manual' }, []), e => e.message === want);
+  assert.strictEqual(R._computeBackgroundForSource([1, 1], [10, 10], { bgType: 'manual' }, []).converged, true);
+  assert.strictEqual(B.computeBackgroundCore([1, 1], [10, 10], { bgType: 'linear', endpointAvg: '1', bgStart: '', bgEnd: '' }).converged, true);
+});
+
+test('restore: a fit whose raw data are missing or incomplete is not restored (the check needs them)', () => {
+  const ok = peakRec(); const { be, bg } = R._recordBackground(ok);
+  const withFit = over => ({ ...peakRec(), fitResult: { be: be.slice(), bgIntensity: Array.from(bg) }, ...over });
+  assert.strictEqual(R._restoredFitBgFailure(withFit({})), null);
+  for (const over of [{ rawBE: [281], rawIntensity: [100] }, { rawBE: [] }, { rawBE: undefined }, { rawIntensity: undefined },
+                      { rawIntensity: [1, 2, 3] }]) {
+    assert.match(R._restoredFitBgFailure(withFit(over)) || '', /raw data are missing or incomplete/, JSON.stringify(Object.keys(over)));
+  }
+});
