@@ -4780,6 +4780,24 @@ function _bgFailure(bg) {
   if (bg && bg.converged === true) return null;
   return (bg && bg.failure) || 'the background has no convergence certificate';
 }
+// A background that does not satisfy its statement is never HANDED OUT (Codex
+// implementation round 3: a check written beside each consumer can always be
+// bypassed by one that forgets it). The producers consumers call —
+// computeBackground, _computeBackgroundForSource, _recordBackground — THROW
+// BgNotConverged instead of returning it, so code that does not refuse it aborts
+// rather than using it; callers catch it to say why.
+function BgNotConverged(message) { const e = new Error(message); e.name = 'BgNotConverged'; e.bgNotConverged = true; return e; }
+function _isBgNotConverged(e) { return !!(e && e.bgNotConverged === true); }
+function _certifiedBg(bg) {
+  if (bg && bg.converged === true) return bg;
+  throw BgNotConverged((bg && bg.failure) || 'the background has no convergence certificate');
+}
+// For a caller that refuses with a message: {bg, failure}; any other error propagates.
+function _bgOrFailure(thunk) {
+  try { return { bg: thunk(), failure: null }; }
+  catch (e) { if (_isBgNotConverged(e)) return { bg: null, failure: e.message }; throw e; }
+}
+
 // The plain message under the method menu while the live background is not converged.
 function _refreshBgConvergenceNote(failure) {
   const el = document.getElementById('bg-not-converged');
@@ -4795,7 +4813,7 @@ function computeBackgroundCore(be, intensity, settings) {
   const nAvg = parseInt(settings.endpointAvg) || 1;
 
   // Manual anchor background uses its own anchor points, not bg-start/end
-  if (type === 'manual') return _bgMark(manualAnchorBackground(be, intensity), true);
+  if (type === 'manual') return _bgMark(manualAnchorBackground(be, intensity, settings.anchors), true);
 
   // The background window — the one definition shared with both /api/fit
   // request builders (see _bgWindowIndices). A blank bound or a window with
@@ -4846,13 +4864,13 @@ function computeBackgroundCore(be, intensity, settings) {
 // Thin DOM-reading wrapper used by single-tab updatePlot. Stack render
 // path calls computeBackgroundCore directly with source-tab settings.
 function computeBackground(be, intensity) {
-  return computeBackgroundCore(be, intensity, {
+  return _certifiedBg(computeBackgroundCore(be, intensity, {
     bgType:      document.getElementById('bg-type').value,
     shirleyIter: document.getElementById('shirley-iter').value,
     endpointAvg: document.getElementById('bg-endpoint-avg').value,
     bgStart:     document.getElementById('bg-start').value,
     bgEnd:       document.getElementById('bg-end').value,
-  });
+  }));
 }
 
 // ═══════════════════════════════════════════════════
@@ -5167,18 +5185,24 @@ function getCorrectedBE() {
 // ROI FILTERING
 // ═══════════════════════════════════════════════════
 function getROIData() {
-  const roiMinRaw = parseFloat(document.getElementById('roi-min').value);
-  const roiMaxRaw = parseFloat(document.getElementById('roi-max').value);
+  return _roiSelect(state.rawBE, state.rawIntensity, state.ccShift,
+                    document.getElementById('roi-min').value, document.getElementById('roi-max').value);
+}
+
+// The ROI rule, pure: every point whose corrected energy (raw − ccShift) lies in
+// [roiMin, roiMax], inclusive; a blank / non-numeric bound is open on that side.
+// getROIData and the record reconstruction (_recordBackground) share it.
+function _roiSelect(rawBE, rawIntensity, ccShift, roiMinField, roiMaxField) {
+  const roiMinRaw = parseFloat(roiMinField);
+  const roiMaxRaw = parseFloat(roiMaxField);
   // NaN bounds mean the field is empty — use full range rather than filtering everything out
   const roiMin = isNaN(roiMinRaw) ? -Infinity : roiMinRaw;
   const roiMax = isNaN(roiMaxRaw) ?  Infinity : roiMaxRaw;
-  const corrBE = getCorrectedBE();
+  const shift = isNaN(ccShift) ? 0 : ccShift;
   const be = [], inten = [];
-  for (let i = 0; i < corrBE.length; i++) {
-    if (corrBE[i] >= roiMin && corrBE[i] <= roiMax) {
-      be.push(corrBE[i]);
-      inten.push(state.rawIntensity[i]);
-    }
+  for (let i = 0; i < rawBE.length; i++) {
+    const c = rawBE[i] - shift;
+    if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(rawIntensity[i]); }
   }
   return { be, inten };
 }
@@ -5887,10 +5911,10 @@ function handleChartClick(event) {
 
   // Use clicked y-position for amplitude (accounts for background)
   // Subtract background to get net amplitude
-  const bgIntensity = computeBackground(be, inten);
   // a background that did not converge is not subtracted (background math, 2026-10-01):
   // the clicked height is the starting amplitude
-  const bgAt = _bgFailure(bgIntensity) ? 0 : bgIntensity[closestIdx];
+  const bgR = _bgOrFailure(() => computeBackground(be, inten));
+  const bgAt = bgR.failure ? 0 : bgR.bg[closestIdx];
   const netAmplitude = Math.max(intensityValue - bgAt, 100);
 
   if (placeMode === 'peak') {
@@ -7427,14 +7451,15 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
 
   // 5. Build state.fitResult exactly as runFit() does.
   const { be: be2, inten: inten2 } = getROIData();
-  const bgI2 = computeBackground(be2, inten2);
   // After the charge shift the window may hold other points: a background that
   // does not satisfy its statement is refused (the caller restores everything,
   // the charge correction included).
-  if (_bgFailure(bgI2)) {
-    notify('Auto-fit not applied: ' + _bgFailure(bgI2), 'red', true);
+  const bgR2 = _bgOrFailure(() => computeBackground(be2, inten2));
+  if (bgR2.failure) {
+    notify('Auto-fit not applied: ' + bgR2.failure, 'red', true);
     return false;
   }
+  const bgI2 = bgR2.bg;
   const bgSub2 = inten2.map((v, i) => v - bgI2[i]);
   const stats = json.statistics || {};
   const chiReduced = stats.reduced_chi_square || 0;
@@ -7749,13 +7774,14 @@ async function runAutoFitC1sGraphite() {
     notify('ROI is empty. Set roi-min and roi-max before auto-fit.', 'red', true);
     return;
   }
-  const bgI = computeBackground(corrBE, inten);
   // A background that does not satisfy its statement is not used (background
   // math, 2026-10-01): refused here, in the preflight, so a running Run Fit is left alone.
-  if (_bgFailure(bgI)) {
-    notify('Auto-Fit not run: ' + _bgFailure(bgI), 'red', true);
+  const bgR = _bgOrFailure(() => computeBackground(corrBE, inten));
+  if (bgR.failure) {
+    notify('Auto-Fit not run: ' + bgR.failure, 'red', true);
     return;
   }
+  const bgI = bgR.bg;
   const bgSub = inten.map((v, i) => v - bgI[i]);
   // App convention: raw = corrected + state.ccShift
   const curShift = Number.isFinite(state.ccShift) ? state.ccShift : 0;
@@ -8332,11 +8358,10 @@ async function runFit(opts = {}) {
   // against (background math, 2026-10-01) — refused before anything changes:
   // no undo entry, no spinner, no request, no local fallback. The server
   // refuses the same background (HTTP 422) by the same certificate.
-  {
-    const r = getROIData();
-    const failure = _bgFailure(computeBackground(r.be, r.inten));
-    if (failure) { notify('Fit not run: ' + failure, 'red', true); return; }
-  }
+  const { be, inten } = getROIData();
+  const bgPre = _bgOrFailure(() => computeBackground(be, inten));
+  if (bgPre.failure) { notify('Fit not run: ' + bgPre.failure, 'red', true); return; }
+  const bgIntensity = bgPre.bg;
   pushUndo();
 
   _showFitSpinner();
@@ -8347,8 +8372,6 @@ async function runFit(opts = {}) {
   // now-active tab's state.
   const fittingTab = _opOwner();
 
-  const { be, inten } = getROIData();
-  const bgIntensity = computeBackground(be, inten);
   const bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
 
   // Try Flask backend first
@@ -9468,13 +9491,12 @@ function _colorWithAlpha(hex, a) {
   return hex + alphaHex;
 }
 
-// Reproduce a source tab's background using its persisted ui state.
-// Falls back to shirley for manual-anchor sources (see follow-up:
-// "Stack view of post-load fits: support manual-anchor background
-// reconstruction from persisted anchor points").
-function _computeBackgroundForSource(be, inten, srcUi) {
+// Reproduce a source tab's background using its persisted ui state and, for a
+// manual background, its own anchors. Throws BgNotConverged for a background
+// that does not satisfy its statement.
+function _computeBackgroundForSource(be, inten, srcUi, srcAnchors) {
   if (!be || !be.length || !inten || !inten.length) {
-    return new Array(be ? be.length : 0).fill(0);
+    return _certifiedBg(_bgMark(new Array(be ? be.length : 0).fill(0), true));
   }
   let settings = {
     bgType:      (srcUi && srcUi.bgType)      || 'shirley',
@@ -9483,8 +9505,10 @@ function _computeBackgroundForSource(be, inten, srcUi) {
     bgStart:     (srcUi && srcUi.bgStart)     || '',
     bgEnd:       (srcUi && srcUi.bgEnd)       || '',
   };
-  if (settings.bgType === 'manual') settings = { ...settings, bgType: 'shirley' };
-  return computeBackgroundCore(be, inten, settings);
+  // manual: the RECORD's own anchors (it used to substitute a Shirley background,
+  // the anchors being read from the active tab — Codex impl rounds 2-3)
+  if (settings.bgType === 'manual') settings = { ...settings, anchors: srcAnchors || [] };
+  return _certifiedBg(computeBackgroundCore(be, inten, settings));
 }
 
 // Build all render data for one entry's fit visualization:
@@ -9530,21 +9554,9 @@ function _alignRawToFitBe(src, be) {
 // rawBE + ui.roiMin/Max on the corrected axis, the background from the raw data
 // via the record's persisted settings (stack Path B; the restored-fit check).
 function _recordBackground(src) {
-  const corrBE = src.rawBE.map(b => b - (src.ccShift || 0));
-  const roiMinV = parseFloat(src.ui && src.ui.roiMin);
-  const roiMaxV = parseFloat(src.ui && src.ui.roiMax);
-  let i0 = 0, i1 = corrBE.length - 1;
-  if (isFinite(roiMinV) && isFinite(roiMaxV)) {
-    const lo = Math.min(roiMinV, roiMaxV);
-    const hi = Math.max(roiMinV, roiMaxV);
-    // corrBE is descending (highest BE first); locate ROI bounds.
-    while (i0 < corrBE.length && corrBE[i0] > hi) i0++;
-    while (i1 >= 0 && corrBE[i1] < lo) i1--;
-    if (i1 < i0) { i0 = 0; i1 = corrBE.length - 1; }
-  }
-  const be = corrBE.slice(i0, i1 + 1);
-  const rawY = src.rawIntensity.slice(i0, i1 + 1);
-  const bg = _computeBackgroundForSource(be, rawY, src.ui);
+  const { be, inten: rawY } = _roiSelect(src.rawBE, src.rawIntensity, src.ccShift || 0,
+                                         src.ui && src.ui.roiMin, src.ui && src.ui.roiMax);
+  const bg = _computeBackgroundForSource(be, rawY, src.ui, src.manualAnchors);   // throws BgNotConverged
   return { be, rawY, bg };
 }
 
@@ -9556,31 +9568,39 @@ function _recordBackground(src) {
 // curve must equal it exactly, or exactly as the save rounds it (6 significant
 // figures, _roundIntensity) — no tolerance. When it does, the certified curve
 // itself replaces the stored one (and the grid and net signal with it); when it
-// does not — a curve computed by an earlier version (every fit saved before
-// 2026-10-01 stored the old page's 5-iteration Shirley: 0 of the 65 committed saved
-// fits match), or with other settings, or a fit that stored no curve — the fit is
-// dropped, its model (the fitted peaks) kept and the student told why; Run Fit
-// regenerates it. Manual is the user's own curve (nothing to converge). Returns the
-// plain reason, or null.
+// does not — a curve computed by an earlier version, a STALE fit (its background
+// settings, ROI, anchors or charge shift changed after it was fitted and before
+// the save: the stored curve is the fit's, the settings are not), a value that
+// is not a number, or a fit that stored no curve — the fit is dropped, its model
+// (the fitted peaks) kept and the student told why; Run Fit regenerates it. No
+// method is exempt: manual is recomputed from the record's own anchors and none
+// is zero, and each must equal what was stored (Codex impl round 3: an exemption
+// read the CURRENT method and kept a stale curve). Returns the plain reason, or null.
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack || !Array.isArray(rec.rawBE) || rec.rawBE.length < 2) return null;
-  const fr = rec.fitResult, type = (rec.ui && rec.ui.bgType) || 'shirley';
-  if (type === 'manual' || type === 'none') return null;
+  const fr = rec.fitResult;
   const stored = fr.bgIntensity;
   if (!Array.isArray(fr.be) || !Array.isArray(stored) || stored.length !== fr.be.length)
     return 'it was saved without the background it was fitted against, so that background cannot be checked';
-  const { be, rawY, bg } = _recordBackground(rec);
-  if (_bgFailure(bg)) return 'its background settings give no converged background now: ' + _bgFailure(bg);
+  let be, rawY, bg;
+  try { ({ be, rawY, bg } = _recordBackground(rec)); }
+  catch (e) { if (_isBgNotConverged(e)) return 'its background settings give no converged background now: ' + e.message; throw e; }
   if (be.length !== fr.be.length || be.some((e, i) => !(e === fr.be[i] || Math.round(e * 1e4) / 1e4 === fr.be[i])))
     return 'it was fitted on other points than its saved settings select now';
-  let worst = 0;
+  // fails CLOSED: any value that is not this number (or this number as saved) is a
+  // mismatch — a string or null is not compared arithmetically (Codex impl round 3)
+  let differ = false, worst = 0;
   for (let i = 0; i < bg.length; i++) {
-    if (stored[i] === bg[i] || stored[i] === Number(bg[i].toPrecision(6))) continue;
-    worst = Math.max(worst, Math.abs(stored[i] - bg[i]));
+    const v = stored[i];
+    if (typeof v === 'number' && (v === bg[i] || v === Number(bg[i].toPrecision(6)))) continue;
+    differ = true;
+    const d = typeof v === 'number' ? Math.abs(v - bg[i]) : NaN;
+    if (d > worst) worst = d;
   }
-  if (worst > 0) {
-    return 'the background it was fitted against is not the background its settings give now (it differs by ' +
-      (100 * worst / (_bgSpan(rawY) || 1)).toPrecision(2) + ' % of the intensity span — computed by an earlier version or with other settings)';
+  if (differ) {
+    const by = worst > 0 && Number.isFinite(worst) ? ' (it differs by ' + (100 * worst / (_bgSpan(rawY) || 1)).toPrecision(2) + ' % of the intensity span)' : '';
+    return 'the background it was fitted against is not the background its settings give now' + by +
+      ' — computed by an earlier version, or the settings were changed after the fit';
   }
   fr.bgIntensity = bg;                                   // the certified curve itself
   fr.be = be;
@@ -9616,10 +9636,13 @@ function _buildEntryRenderData(entry) {
   } else {
     // Path B: post-load — derive ROI-window be from rawBE + ui.roiMin/Max,
     // recompute bg from raw via source's persisted bg settings.
-    ({ be, rawY, bg } = _recordBackground(src));
     // a reconstructed background that does not satisfy its statement is not
     // drawn under a fit (background math, 2026-10-01): the entry shows no fit
-    if (_bgFailure(bg)) return { be: [], bg: [], rawY: [], fittedY: [], peaks: [], bgFailure: _bgFailure(bg) };
+    try { ({ be, rawY, bg } = _recordBackground(src)); }
+    catch (e) {
+      if (_isBgNotConverged(e)) return { be: [], bg: [], rawY: [], fittedY: [], peaks: [], bgFailure: e.message };
+      throw e;
+    }
   }
 
   // Envelope (raw-level)
@@ -10094,8 +10117,9 @@ function updatePlot() {
   // and, before a fit, nothing is drawn, subtracted or fitted against it (peak
   // previews sit on zero, which claims no background). After a fit the fit's own
   // background stays frozen as drawn; its statistics go stale on the change.
-  const liveBg = be.length ? computeBackground(be, inten) : [];
-  const liveBgFailure = _bgFailure(liveBg);
+  const liveR = be.length ? _bgOrFailure(() => computeBackground(be, inten)) : { bg: [], failure: null };
+  const liveBg = liveR.bg;
+  const liveBgFailure = liveR.failure;
   _refreshBgConvergenceNote(liveBgFailure);
   const preFitBgFails = !haveFit && !!liveBgFailure;
   const plotBG = haveFit ? state.fitResult.bgIntensity
@@ -10847,11 +10871,12 @@ function _doSaveSpectrum() {
 
   // Compute current curves
   const { be, inten } = getROIData();
-  const bgIntensity = computeBackground(be, inten);
   // a background that does not satisfy its statement is not written as one
   // (background math, 2026-10-01): no background, residuals or composed
-  // envelope; the file says why
-  const bgFail = _bgFailure(bgIntensity);
+  // envelope; the file says why (NaN, never numbers, stands in for it)
+  const bgR = _bgOrFailure(() => computeBackground(be, inten));
+  const bgFail = bgR.failure;
+  const bgIntensity = bgR.bg || new Array(be.length).fill(NaN);
   const modelFull = evalAllPeaks(be, state.peaks);
   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
   const residuals = bgSub.map((v, i) => v - modelFull[i]);
@@ -11216,15 +11241,25 @@ function _loadSpectrumFile(data, sessionFile) {
     // file's readers); it is never installed under the original fit's key
     if (data.fittedY && data.statistics.statisticsState !== 'stale') fr.fittedY = data.fittedY;
     if (data.statistics.rFactor && data.statistics.statisticsState !== 'stale') fr.rFactor = data.statistics.rFactor;
+    // background math (2026-10-01): the file stores the grid and background curve
+    // (_doSaveSpectrum: the live ones, at full precision); the fit is restored only
+    // if that curve IS the certified background its settings give now. A STALE
+    // save's curve is the edited state's, not the one the fit was made against, so
+    // it is never offered as the fit's (Codex impl round 3).
+    const stale = data.statistics.statisticsState === 'stale';
+    if (!stale && Array.isArray(data.roiBE) && Array.isArray(data.background)) {
+      fr.be = data.roiBE.slice();
+      fr.bgIntensity = data.background.slice();
+    }
     active.fitResult = fr;
     state.fitResult = fr;
-    // background math (2026-10-01): a fit whose background has no converged
-    // solution now is not restored
-    const failure = _restoredFitBgFailure(active);
+    const failure = stale
+      ? 'it was saved after its model or settings changed, and the file stores the background of that edited state, not the one it was fitted against'
+      : _restoredFitBgFailure(active);
     if (failure) {
       _dropRestoredFit(active);
       state.fitResult = null;
-      notify('Saved fit not restored: ' + failure + ' The model is kept; change the background settings and run Fit.', 'amber', true);
+      notify('Saved fit not restored: ' + failure + ' The model (the fitted peaks) is kept; run Fit to fit it again.', 'amber', true);
     }
   }
   const notesEl = document.getElementById('spectrum-notes');
@@ -11407,7 +11442,7 @@ function _loadProjectJSON(data, sessionFile) {
     if (failure) { _dropRestoredFit(tab); droppedFits.push(tab.name + ' — ' + failure); }
   }
   if (droppedFits.length) {
-    notify('Saved fit not restored: ' + droppedFits.join(' ') + ' The model is kept; change the background settings and run Fit.', 'amber', true);
+    notify('Saved fit not restored: ' + droppedFits.join(' ') + ' The model (the fitted peaks) is kept; run Fit to fit it again.', 'amber', true);
   }
 
   // Rewrite stack-entry source references through idMap BEFORE pruning.
@@ -11553,10 +11588,11 @@ function exportResults() {
   const { be, inten } = getROIData();
   if (!be.length) { notify('No data to export.', 'red'); return; }
 
-  const bgIntensity = computeBackground(be, inten);
   // a background that does not satisfy its statement is not exported as one
   // (background math, 2026-10-01): its columns stay empty and the file says why
-  const bgFail = _bgFailure(bgIntensity);
+  const bgR = _bgOrFailure(() => computeBackground(be, inten));
+  const bgFail = bgR.failure;
+  const bgIntensity = bgR.bg || new Array(be.length).fill(NaN);
   const modelFull = evalAllPeaks(be, state.peaks);
   // evalPeakArray() per peak, once, not per-point evalPeak per row: for
   // LACX with caM > 0, only the array evaluator applies the shape's
@@ -11618,10 +11654,11 @@ function _doPublicationExport() {
   const { be, inten } = getROIData();
   if (!be.length) { notify('No data in ROI.', 'red'); return; }
 
-  const bgArr   = computeBackground(be, inten);
   // every component is drawn on the background: one that does not satisfy its
   // statement makes no figure (background math, 2026-10-01)
-  if (_bgFailure(bgArr)) { notify('Figure not exported: ' + _bgFailure(bgArr), 'red', true); return; }
+  const bgR = _bgOrFailure(() => computeBackground(be, inten));
+  if (bgR.failure) { notify('Figure not exported: ' + bgR.failure, 'red', true); return; }
+  const bgArr = bgR.bg;
   // F1: a stale result's fitted curve is the previous model's: not drawn as "Fit"
   const _figStats = _statsLiveState();
   const fittedY = (_figStats !== 'stale' && state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
@@ -12814,10 +12851,11 @@ async function runPropagation() {
     // Run local fit
     const roiSt = _roiWindowStatus();    // warn only: the fit below uses getROIData() exactly as before
     const { be, inten } = getROIData();
-    const bgI = computeBackground(be, inten);
     // a background that does not satisfy its statement is never fitted against
     // (background math, 2026-10-01): this target is NOT fitted, and says why
-    const bgFail = _bgFailure(bgI);
+    const bgR = _bgOrFailure(() => computeBackground(be, inten));
+    const bgFail = bgR.failure;
+    const bgI = bgR.bg || new Array(be.length).fill(NaN);
     const bgSub = inten.map((v, idx) => v - bgI[idx]);
     const outcome = bgFail ? { success: false, message: bgFail } : runFitLocal(be, bgSub, bgI);
 
@@ -14883,8 +14921,9 @@ function _manualClearAnchors() {
 // No physical model: the defence is the user's judgement of where the background
 // lies. With fewer than 2 anchors it falls back to linearBackground (by index; the
 // server's fallback is linear in energy — the same two readings as Linear).
-function manualAnchorBackground(be, intensity) {
-  const anchors = _getManualAnchors();
+function manualAnchorBackground(be, intensity, anchorsGiven) {
+  // a record's own anchors when given (stacks, restored fits); else the active tab's
+  const anchors = anchorsGiven || _getManualAnchors();
   const n = be.length;
   // With fewer than 2 anchors, fall back to a linear baseline between
   // ROI endpoints so that existing peaks stay visible while the user

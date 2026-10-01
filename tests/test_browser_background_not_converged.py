@@ -126,20 +126,6 @@ PEAK_TAB = """() => {
 }"""
 
 
-def _save_and_reload(browser, server, setup):
-    import json
-    pg = _new_page(browser, server)
-    try:
-        pg.evaluate(setup)
-        pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
-        pg.wait_for_function("() => window.__d === true", timeout=120000)
-        fit_ok = pg.evaluate("() => !!state.fitResult")
-        return pg, fit_ok
-    except Exception:
-        pg.close()
-        raise
-
-
 def test_restored_fits_keep_only_a_stored_curve_that_satisfies_its_statement(browser, server):
     # Codex implementation round 2: a fit whose settings converge NOW used to keep its OLD stored
     # curve uncertified. Now the stored curve itself is certified: a fit saved by this version is
@@ -206,3 +192,78 @@ def test_a_manual_background_fit_is_restored(browser, server):
         assert pg.evaluate("() => !!state.fitResult")
     finally:
         pg.close()
+
+
+def _fit_and_capture(pg, setup, save, after_fit="() => {}"):
+    import json
+    pg.evaluate(setup)
+    pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
+    pg.wait_for_function("() => window.__d === true", timeout=120000)
+    assert pg.evaluate("() => !!state.fitResult")
+    pg.evaluate(after_fit)
+    pg.evaluate(CAPTURE)
+    pg.evaluate(save)
+    pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+    return json.loads(pg.evaluate("() => window.__dl[0].text"))
+
+
+NOTIFY = "() => { window.__n = []; const o = notify; window.notify = (m, k) => { window.__n.push(m); return o(m, k); }; }"
+
+
+def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server):
+    # Codex implementation round 3: the spectrum loader built its fit without the stored grid and
+    # curve, so EVERY fit saved to a .spec.json was dropped on load
+    saves = {}
+    for name, after in (("current", "() => {}"),
+                        ("stale", "() => { state.peaks[0].fwhm = 1.4; updatePlot(); }")):
+        pg = _new_page(browser, server)
+        try:
+            saves[name] = _fit_and_capture(pg, PEAK_TAB, "() => _doSaveSpectrum()", after)
+        finally:
+            pg.close()
+    assert saves["current"]["background"] and saves["current"]["statistics"]
+    for name, kept in (("current", True), ("stale", False)):
+        pg = _new_page(browser, server)
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        try:
+            pg.evaluate(NOTIFY)
+            pg.evaluate("data => _loadSpectrumFile(data, 'p.spec.json')", saves[name])
+            pg.wait_for_timeout(400)
+            got = pg.evaluate("() => ({ fit: !!state.fitResult, n: window.__n, bgOk: !!(state.fitResult && state.fitResult.bgIntensity && state.fitResult.bgIntensity.converged === true) })")
+            assert got["fit"] is kept, (name, got)
+            if kept:
+                assert got["bgOk"], "the certified curve replaces the stored one"
+            else:
+                assert any("saved after its model or settings changed" in m for m in got["n"]), got["n"]
+        finally:
+            pg.close()
+        assert errors == [], errors
+
+
+def test_a_manual_fit_whose_anchors_moved_after_the_fit_is_not_restored(browser, server):
+    # Codex implementation round 3 (BLOCKER): manual / none were exempt by the CURRENT method, so a
+    # fit whose anchors (or method) changed after it was fitted drew its old stored curve
+    setup_manual = PEAK_TAB[:-1] + """;
+        _setManualAnchors([{ x: 280, y: 300 }, { x: 292, y: 700 }]);
+        document.getElementById('bg-type').value = 'manual'; _onBgTypeChange(); updatePlot(); }"""
+    for name, after in (("anchors moved", "() => { _setManualAnchors([{ x: 280, y: 300 }, { x: 292, y: 900 }]); updatePlot(); }"),
+                        ("method changed to none", "() => { document.getElementById('bg-type').value = 'none'; _onBgTypeChange(); updatePlot(); tabManager._syncActiveToRecord(); }")):
+        pg = _new_page(browser, server)
+        try:
+            saved = _fit_and_capture(pg, setup_manual, "() => _doSaveProject()", after)
+        finally:
+            pg.close()
+        pg = _new_page(browser, server)
+        try:
+            pg.evaluate(NOTIFY)
+            pg.evaluate("data => _loadProjectJSON(data, 'm.proj.json')", saved)
+            pg.wait_for_timeout(400)
+            got = pg.evaluate("() => ({ fit: !!state.fitResult, n: window.__n, peaks: state.peaks.length })")
+            assert not got["fit"] and got["peaks"] == 2, (name, got)
+            # a method change also clears the live fit's frozen curve (_invalidateBgCache, pre-existing),
+            # so that save carries none: either way the old curve is not drawn
+            assert any("is not the background its settings give now" in m or "saved without the background" in m
+                       for m in got["n"]), (name, got["n"])
+        finally:
+            pg.close()

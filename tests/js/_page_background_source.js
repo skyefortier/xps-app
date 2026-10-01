@@ -12,7 +12,8 @@ const FUNCTIONS = [
   '_bgCumFromHigh', '_bgShirleyMap', '_bgMaxAbsDiff', 'shirleyBackground', 'smartBackground',
   'smartExperimentalBackground', 'linearBackground', '_tougaardLoss', 'tougaardBackground',
   '_bgCertificate', '_applyEndpointAveraging', 'shirleyLinearBackground', '_bgWindowIndices',
-  '_bgMark', '_bgFailure', 'computeBackgroundCore',
+  '_bgMark', '_bgFailure', 'BgNotConverged', '_isBgNotConverged', '_certifiedBg', '_bgOrFailure',
+  'computeBackgroundCore',
 ];
 const CONSTANTS = ['BG_REL_TOL', 'BG_MAX_ITER', 'BG_LABELS'];
 

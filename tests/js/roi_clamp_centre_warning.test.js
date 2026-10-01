@@ -20,7 +20,7 @@ function extractFn(name) {
   }
   assert.fail('unbalanced ' + name);
 }
-const NAMES = ['getCorrectedBE', 'getROIData', '_roiWindowStatus', '_roiHintFor', '_refreshRoiHint', '_centreOutsideData', '_outsideDataBadge', '_escAttr'];
+const NAMES = ['getCorrectedBE', 'getROIData', '_roiSelect', '_roiWindowStatus', '_roiHintFor', '_refreshRoiHint', '_centreOutsideData', '_outsideDataBadge', '_escAttr'];
 const FP_UPLOAD_ROUND = v => +v.toFixed(4);   // uploadToBackend: energies to 4 dp
 function makeEnv({ rawBE, ccShift = 0, roiMin, roiMax }) {
   const dom = { 'roi-min': { value: String(roiMin) }, 'roi-max': { value: String(roiMax) },
@@ -128,8 +128,9 @@ test('the helpers write nothing: no assignment to a field value, a peak or the f
 });
 
 test('the fit and Find Peaks still read the ROI exactly as before (getROIData / the two field values)', () => {
-  const g = extractFn('getROIData');
-  assert.match(g, /corrBE\[i\] >= roiMin && corrBE\[i\] <= roiMax/, 'inclusive filter unchanged');
+  // background math (Codex impl round 3): the rule lives in _roiSelect, shared with the record path
+  assert.match(extractFn('getROIData'), /return _roiSelect\(state\.rawBE, state\.rawIntensity, state\.ccShift,/);
+  assert.match(extractFn('_roiSelect'), /const c = rawBE\[i\] - shift;\s*\n?\s*if \(c >= roiMin && c <= roiMax\)/, 'inclusive filter unchanged');
   assert.match(html, /roi: \{ be_min: parseFloat\(document\.getElementById\('roi-min'\)\.value\),\s*\n\s*be_max: parseFloat\(document\.getElementById\('roi-max'\)\.value\) \}/, 'Find Peaks payload unchanged');
   const rp = extractFn('runPropagation');
   assert.match(rp, /const roiSt = _roiWindowStatus\(\);[^\n]*\n\s*const \{ be, inten \} = getROIData\(\);/, 'Batch Fit reads the status beside, not instead of, getROIData');

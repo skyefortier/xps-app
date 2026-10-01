@@ -88,25 +88,43 @@ array (a stored or serialized curve) is not a certified background.
 `_bgMaxAbsDiff` treats a NaN as infinite (it used to skip it and read a non-finite
 step as "no change").
 
-**Restored fits (Codex rounds 1-2, BLOCKER both times).** A fit loaded from a
+**Restored fits (Codex rounds 1-3, BLOCKER in each).** A fit loaded from a
 project or a spectrum file carried its stored background, which no certificate had
 ever seen. `_restoredFitBgFailure` recomputes the record's background from its raw
-data (saved at full precision) under its saved settings (`_recordBackground`, the
-stack's Path B computation), certifies it, and keeps the fit ONLY IF the stored curve
+data (saved at full precision) under its saved settings and, for manual, its own
+anchors (`_recordBackground`: the ROI selection `_roiSelect` that `getROIData` uses,
+then `_computeBackgroundForSource`, the stack's Path B computation), certifies it, and
+keeps the fit ONLY IF the stored curve
 IS that certified background — equal exactly, or exactly as the save rounds it (6
 significant figures, `_roundIntensity`); no tolerance. A kept fit then carries the
 certified curve itself (grid and net signal with it). Otherwise — the settings give
-no converged background, the curve was computed by an earlier version or with other
-settings, or the fit stored no curve — the fit is dropped (`fitResult` null, its
-support verdicts cleared), the model (the fitted peaks) kept, and an amber notice
-names the tab and the reason. Manual is the user's own curve (nothing to converge).
-CONSEQUENCE — an owner decision: every fit saved before this unit stored the old
-page's curve (a 5-iteration Shirley, the old averaging reading): measured on the
-committed projects, 0 of 65 saved fits' stored curves satisfy the current statement
-(residuals 6.6e-8 to 6.0e-3 of the span, median 8.0e-5), so NO older saved fit is
-restored; each needs Run Fit (its model loads). The alternatives, not implemented:
-keep an older fit with its statistics marked stale and the certified curve drawn; or
-keep it as it was (round 1's policy, which both reviewers rejected).
+no converged background, the curve was computed by an earlier version, the fit is
+STALE (its method, window, averaging, ROI, anchors or charge shift changed after it
+was fitted: the stored curve is the fit's, the settings are not), a stored value is
+not a number (fails closed), or the fit stored no curve — the fit is dropped
+(`fitResult` null, its support verdicts cleared), the model (the fitted peaks) kept,
+and an amber notice names the tab and the reason. No method is exempt (round 3: an
+exemption for manual / none read the CURRENT method, so a stale fit switched to
+"none" before saving drew its old curve): manual is recomputed from the record's
+anchors and none is zero, and each must equal what was stored. The spectrum-file
+loader hands the check the grid and curve the file stores (round 3: it passed
+neither, dropping every `.spec.json` fit); a STALE spectrum file is dropped outright,
+because its stored curve is the edited state's (`_doSaveSpectrum` writes the live
+one), not the fit's. A change of background settings after a fit already clears the
+fit's frozen curve (`_invalidateBgCache`, unchanged), so such a save carries none.
+CONSEQUENCE — an owner decision: a fit saved before this unit is restored only if
+the curve it stored happens to equal today's certified background as the save rounds
+it. Measured with the page's own function on the committed projects
+(`scripts/bg_math_restore_census.py`, `data/impl/restore_census.json`): 121 spectrum
+tabs carry a saved fit; **3 are restored** (`Cl2p_projfit_test`: Cl2p Scan, Scan_0,
+Scan_1 — smart_exp at averaging 1, where the old 5-iteration curve already agrees
+with today's to 6 significant figures); 62 stored a curve that differs (residuals
+6.6e-8 to 6.0e-3 of the span, median 8.0e-5) and 56 stored none (saved before the
+grid was persisted); those 118 load their model and need Run Fit. (Round 2's
+"0 of 65, no older fit is restored" counted the strict certificate, not the restore
+rule, which allows the save's rounding — Codex round 3.) The alternatives, not
+implemented: keep an older fit with its statistics marked stale and the certified
+curve drawn; or keep it as it was (round 1's policy, which both reviewers rejected).
 
 **The "Shirley iterations" setting is retired.** A 5-iteration preview is not a
 solution (F7: up to 8.6e-5 of the span from it), so under item 2 every page background
@@ -140,20 +158,29 @@ Page — every assignment of a computed background (`computeBackground`,
 | `_doSaveSpectrum` | `background: null`, no residuals or composed envelope, `backgroundFailure` |
 | `exportResults` (TSV) | Background / BG-subtracted / Residual cells empty, WARNING line |
 | `_doPublicationExport` | refused: "Figure not exported: <reason>" |
-| `_loadProjectJSON`, `.spec.json` load | a restored fit whose background does not converge now is dropped (model kept, notice) |
+| `_loadProjectJSON`, `.spec.json` load | a restored fit whose stored curve is not the certified background now is dropped (model kept, notice) |
 | `_restoredFitBgFailure`, `_buildEntryRenderData` | through `_recordBackground` |
 
-A CLASS guard pins it: `tests/js/background_not_converged.test.js` — every textual
-reference to a producer (`computeBackground`, `computeBackgroundCore`,
-`_computeBackgroundForSource`, `_recordBackground`) outside those dispatchers must be
-an assignment that ENDS at the producer call, whose FIRST later reference is
-`_bgFailure(<that variable>)` in a refusal statement (`if (_bgFailure(x))`, an
-assigned failure or a ternary on it, `return _bgFailure(x)`), or an inline
-`_bgFailure(computeBackground(...))` refusal; any other form fails. Verified by
-mutation: removing the figure's check, an alias `const cb = computeBackground;`, a use
-before the check, a check inside `if (false)`, and `computeBackground(...).map(...)`
-on the assignment line each fail it, naming the function and line. It is structural:
-it cannot prove control flow; the lifecycle is pinned behaviourally (browser tests).
+THE CLASS IS CLOSED BY CONSTRUCTION (Codex round 3; rounds 1-3 each found a call form
+past a guard that recognised each consumer's own refusal — an ignored assigned
+failure, a check in a multi-line `if (false)`, an unrelated inline check). The three
+producers a consumer can call — `computeBackground`, `_computeBackgroundForSource`,
+`_recordBackground` — THROW `BgNotConverged` (`_certifiedBg`) instead of returning a
+background that failed its statement, so a consumer that forgets to refuse ABORTS: it
+cannot draw, subtract, fit, save or export the curve. Consumers refuse through
+`_bgOrFailure(() => producer(...))` (`{bg, failure}`; any other error propagates) or a
+`try` whose catch tests `_isBgNotConverged`; save, TSV and Batch Fit carry NaN, never
+numbers, in place of a refused curve, behind their existing gates. What
+`tests/js/background_not_converged.test.js` pins: (1) only the producers call
+`computeBackgroundCore` (each through `_certifiedBg`) and only `computeBackgroundCore`
+calls the method twins — no road to an unchecked curve; (2) the producers throw
+(behavioural); (3) every consumer call is handled, so the student is told why rather
+than the page aborting (this one is structural; it found runFit computing the
+background a second time after its refusal, now reused). Mutation-verified: the
+producer returning anyway, a direct `computeBackgroundCore` call in a consumer, an
+unhandled producer call, the manual / none exemption restored, the `typeof` check
+removed, manual substituted by Shirley or read from the active tab, and the record
+path's own ROI loop each fail it.
 
 ## 3. Tests
 
@@ -169,15 +196,21 @@ it cannot prove control flow; the lifecycle is pinned behaviourally (browser tes
 - `tests/js/background_parity.test.js`: bit-identity (Shirley family) / 1e-12
   (Tougaard), the certificate's verdict and reason page = server; twins at each
   iteration cap; Shirley + linear equal on both directions.
-- `tests/js/background_not_converged.test.js` (7): the class guard; the marker; the
-  note; Run Fit's refusal order; Auto-Fit's preflight; the retired setting; the
-  tooltips (F2) and Shirley + linear's menu state and notice.
+- `tests/js/background_not_converged.test.js` (12): only the producers reach
+  `computeBackgroundCore` and the twins; every consumer call is handled; the producers
+  throw; one ROI rule (`_roiSelect`) for the page and the record path; a record's
+  manual background from its own anchors; the restore check (every method, a stale
+  method or moved anchors, non-numbers, the save's rounding); the marker; the note;
+  Run Fit's refusal order; Auto-Fit's preflight; the retired setting; the tooltips
+  (F2) and Shirley + linear's menu state and notice.
 - `tests/test_browser_background_not_converged.py`: real page, real server — the note,
   nothing drawn, Run Fit refused with no undo entry; an explicit background fits; a
   project saved with a fit on such a window reloads with the fit dropped, the model
   kept, the notice shown, and a stack entry built on it shows no fit; a fit saved by
   this version is restored; the same project with an older version's stored curve (a
-  5-iteration Shirley) is not; a manual-background fit is restored.
+  5-iteration Shirley) is not; a manual-background fit is restored, and one whose
+  anchors moved or whose method changed after the fit is not; a spectrum file's
+  current fit is restored, a stale one is not.
 - `tests/js/manual_background_statement.test.js`: the page's manual background is
   np.interp's arithmetic, bit-identical to the server on 62 cases.
 - Codex round 1's cases pinned: the stop / certificate boundary (two), Tougaard near
@@ -185,7 +218,7 @@ it cannot prove control flow; the lifecycle is pinned behaviourally (browser tes
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 524 (the owner's 512 for the two landed branches + this unit's tests).
+- JS CI floor 508 -> 529, exact (the owner's 512 for the two landed branches + this unit's 17 tests).
 
 ## 4. Measurements
 
@@ -307,8 +340,9 @@ data by their average). Every background is checked against its own defining
 equation; when it has no solution — most often a window with no peak in it — the page
 says "… background not converged" under the method menu and nothing is fitted,
 subtracted or exported against it. A saved fit is restored only when the background
-it was fitted against is exactly today's — so fits saved before this version are not
-restored: their models load, and Run Fit regenerates them. Every background now runs to convergence; the "Shirley
+it was fitted against is today's (as the file stores it) — so most fits saved before
+this version are not restored (on the lab's committed projects 3 of 121 are): their
+models load, and Run Fit regenerates them. Every background now runs to convergence; the "Shirley
 iterations" setting is gone. The page now draws exactly the background the server fits
 (the linear background affine in energy, as the server always had it). On the
 committed fits the backgrounds moved by at most 0.04 % of net area (at averaging 3) and
@@ -342,8 +376,20 @@ better / four worse / two level classification; serialisation matches the page o
 
 | # | finding | fix |
 |---|---|---|
-| 1 | BLOCKER (A, B): a restored fit was kept when a NEW background converged, and its OLD stored curve was drawn uncertified (2.4e-6 and 0.26 % of the span on two examples) | the stored curve must BE the certified background (exactly, or exactly as the save rounds it); otherwise the fit is dropped. 0 of 65 committed saved fits pass: no older fit is restored — an owner decision (§1) |
+| 1 | BLOCKER (A, B): a restored fit was kept when a NEW background converged, and its OLD stored curve was drawn uncertified (2.4e-6 and 0.26 % of the span on two examples) | the stored curve must BE the certified background (exactly, or exactly as the save rounds it); otherwise the fit is dropped. 0 of 65 committed saved fits pass: no older fit is restored — an owner decision (§1) [CORRECTED in round 3: 3 of 121 are restored] |
 | 2 | MAJOR (A, B): the restore check reused the stack helper that substitutes Shirley for manual, dropping valid manual fits | manual is accepted as the user's curve; browser test |
 | 3 | MINOR (A, B): the guard accepted a check inside `if (false)` and consumption on the assignment line | the assignment must end at the call; the check must be a refusal statement; mutation-verified |
 | 4 | MINOR (A, B): "every method bit-identical" was false for manual (one rounding step) | the page's manual background is np.interp's arithmetic; pinned bit-identical |
 
+**Round 3 — NO-GO ×2** (`background_math_impl_r3_verdict_run{A,B}.md`, commit 056a3ce;
+both: all four measurement summaries reproduce, the 376 smart / smart_exp pairs
+bit-identical; B: 36 current-project round trips kept):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | BLOCKER (A): the manual / none exemption read the CURRENT method — a stale fit switched to "none" before saving drew its old, uncertified curve | no exemption: manual from the record's own anchors, none = zero, each must equal the stored curve; browser test (anchors moved, method changed) |
+| 2 | MAJOR (A, B): the spectrum-file loader passed neither the stored grid nor the curve, so every `.spec.json` fit was dropped; a manual source's stack reconstructed Shirley | the loader passes `roiBE` / `background`; a stale spectrum file is dropped outright (its curve is the edited state's); `_computeBackgroundForSource` takes the record's anchors; browser round trip |
+| 3 | MAJOR (A, B): the record path selected other ROI points than `getROIData` (both bounds required; descending grids assumed) | one rule, `_roiSelect`, used by both; pinned on descending and ascending grids, one blank bound, a bad field, a charge shift |
+| 4 | MAJOR (A): a non-number stored value made the comparison NaN and the check failed open | fails closed: anything that is not this number (or as saved) is a mismatch; pinned for string, null, undefined |
+| 5 | MINOR (A, B): the guard still accepted an ignored failure, a check in a multi-line `if (false)`, an unrelated inline check | the class closed by construction: producers throw (§2); mutation-verified |
+| 6 | MINOR (A, B): "no older saved fit is restored" was false (3 committed Cl 2p fits pass the rounding rule; a constructed case too) | measured with the page's function: 3 of 121 restored, 62 differ, 56 stored no curve (§1); release note and CLAUDE.md corrected |

@@ -881,9 +881,14 @@ verdict and reason, through the same acceptance predicate (diff <= tol·span) th
 iterations stop on (`tests/js/background_parity.test.js`). `computeBackgroundCore`
 marks every result `converged` / `failure`; `_bgFailure(bg)` reads it and FAILS
 CLOSED (an unmarked array — a stored or serialized curve — is not a certified
-background), and EVERY consumer checks it — a class guard: every reference to a
-producer must be an assignment whose next use is the check, or an inline refusal;
-any other form fails (`tests/js/background_not_converged.test.js`):
+background). The producers a consumer can call — `computeBackground`,
+`_computeBackgroundForSource`, `_recordBackground` — THROW `BgNotConverged`
+(`_certifiedBg`) rather than return a failed curve, so a consumer that forgets to
+refuse aborts instead of using it; consumers refuse through `_bgOrFailure(() => …)`
+or a `try` testing `_isBgNotConverged`. Pinned in
+`tests/js/background_not_converged.test.js`: only the producers reach
+`computeBackgroundCore` and the method twins, the producers throw, every consumer
+call is handled. The consumers:
 the preview (a red note under the method menu; before a fit nothing is drawn or
 subtracted, peak previews sit on zero), Run Fit and "Use this solution" (refused
 before the undo entry, the spinner and any request — no local fallback), Auto-Fit
@@ -893,12 +898,15 @@ clicked height, nothing subtracted), stack reconstruction (the entry shows no fi
 spectrum save (`background: null` + `backgroundFailure`), TSV export (empty columns +
 WARNING) and the publication figure (refused). A RESTORED fit (project or spectrum
 file) is kept only when the curve it stored IS the certified background its saved
-settings give now — exactly, or exactly as the save rounds it (6 significant
-figures); the certified curve then replaces it (`_restoredFitBgFailure`,
-`_recordBackground`). Otherwise the fit is dropped, the model kept, and the student
-told why. Every fit saved before 2026-10-01 stored the old page's 5-iteration curve
-(0 of 65 committed saved fits pass), so no older fit is restored — Run Fit
-regenerates it (owner decision pending). The "Shirley iterations" setting is
+settings (and, for manual, its own anchors) give now — exactly, or exactly as the
+save rounds it (6 significant figures); no method exempt, a non-number fails closed,
+a stale spectrum file is dropped; the certified curve then replaces it
+(`_restoredFitBgFailure`, `_recordBackground` — whose ROI selection is
+`getROIData`'s own, `_roiSelect`). Otherwise the fit is dropped, the model kept, and
+the student told why. Fits saved before 2026-10-01 stored the old page's 5-iteration
+curve: on the committed projects 3 of 121 saved fits are restored (Cl 2p, where the
+old curve agrees to 6 significant figures), 118 load their model and need Run Fit
+(`scripts/bg_math_restore_census.py`; owner decision pending). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never
 read. Known, not fixed: `uploadToBackend` rounds intensities to 2 dp, so on a
 borderline spectrum the page's and the server's certificates could disagree (either

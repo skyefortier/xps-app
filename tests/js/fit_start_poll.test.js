@@ -252,7 +252,7 @@ test('both callers claim their operation before the first await and do nothing a
 });
 
 const AF_FNS = ['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor',
-  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', '_bgFailure', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
+  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
 test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open WINS; the confirmed Auto-Fit changes nothing (Codex round 3)', async () => {
   const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
   const modal = deferred();

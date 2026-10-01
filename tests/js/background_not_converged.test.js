@@ -1,11 +1,8 @@
 // A background that does not satisfy its defining statement is "not converged"
 // and nothing on the page uses it as a background (owner, 2026-10-01; background
 // math F10, F11, F12). computeBackgroundCore marks every result with its
-// certificate (converged / failure); every consumer must read it. The guard below
-// is a CLASS guard: every assignment of a computed background must be followed,
-// in its own function, by a _bgFailure check of that variable (or the function
-// must refuse up front on _bgFailure(computeBackground(...))) — a new consumer
-// that forgets fails here.
+// certificate (converged / failure), and the producers consumers call throw
+// BgNotConverged rather than hand out a failed curve (Codex impl round 3).
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -14,7 +11,7 @@ const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, '../../templates/index.html'), 'utf8');
 const lines = html.split('\n');
 const B = new Function(require('./_page_background_source.js')() +
-  '\nreturn { computeBackgroundCore, _bgFailure };')();
+  '\nreturn { computeBackgroundCore, _bgFailure, _certifiedBg, _bgOrFailure, _isBgNotConverged };')();
 
 function enclosingFunction(lineIdx) {
   let start = lineIdx;
@@ -27,69 +24,65 @@ function enclosingFunction(lineIdx) {
   throw new Error('unbalanced function around line ' + (lineIdx + 1));
 }
 
-// Codex impl round 1: the guard must not be evadable by another call form, an alias,
-// a chained use or a check placed after consumption. Every textual reference to a
-// PRODUCER outside the DISPATCHERS must be one of exactly two forms:
-//   (A) `[const|let|var] NAME = [be.length ? ]PRODUCER(` or a destructuring
-//       `{ ..., bg, ... } = _recordBackground(` — and the FIRST later reference to
-//       NAME in its function must be `_bgFailure(NAME)`;
-//   (B) `_bgFailure(PRODUCER(` — an inline refusal; an (A) site later in the same
-//       function is then covered by it (runFit refuses up front).
-// Anything else — `(computeBackground)(`, `computeBackground (`, an alias, a
-// `return ...computeBackground(...).map(...)` — fails.
-const PRODUCERS = ['computeBackground', 'computeBackgroundCore', '_computeBackgroundForSource', '_recordBackground'];
-const DISPATCHERS = ['computeBackground', 'computeBackgroundCore', '_computeBackgroundForSource', '_recordBackground'];
+// Codex impl round 3: a guard that checks each consumer's own refusal is always one
+// call form behind (rounds 1-3 each found a way past it). The CLASS is closed by
+// construction instead: the producers a consumer can call THROW BgNotConverged rather
+// than return a background that failed its statement, so a consumer that forgets to
+// refuse aborts — it cannot draw, subtract, fit, save or export the curve. What is
+// pinned here: (1) the only callers of computeBackgroundCore and of the method twins
+// are the producers (nothing reaches an unchecked curve by another road); (2) the
+// producers throw (behavioural, below); (3) every consumer call is HANDLED — wrapped
+// in _bgOrFailure(() => ...) or inside a try whose catch tests _isBgNotConverged — so
+// the student is told why instead of the page aborting.
+const PRODUCERS = ['computeBackground', '_computeBackgroundForSource', '_recordBackground'];
 const stripComment = l => l.replace(/\/\/.*$/, '');
+const code = lines.map(stripComment);
 
-test('every computed background is checked for convergence by its consumer (class guard)', () => {
-  const sites = [];
-  const ref = new RegExp('\\b(' + PRODUCERS.join('|') + ')\\b');
-  lines.forEach((raw, i) => {
-    const l = stripComment(raw);
-    if (!ref.test(l) || /^\s*(async )?function /.test(l)) return;
-    const fn = enclosingFunction(i);
-    if (DISPATCHERS.includes(fn.name)) return;
-    sites.push({ line: i + 1, text: l.trim(), fn, idx: i });
+function callersOf(name) {
+  const re = new RegExp('\\b' + name.replace(/\$/g, '\\$') + '\\b');
+  const out = [];
+  code.forEach((l, i) => {
+    if (!re.test(l) || new RegExp('^\\s*(async )?function ' + name + '\\(').test(l)) return;
+    out.push({ line: i + 1, text: l.trim(), fn: enclosingFunction(i).name });
   });
-  assert.ok(sites.length >= 11, 'found the consumers: ' + sites.map(s => s.fn.name).join(', '));
-  const P = '(?:' + PRODUCERS.join('|') + ')';
-  const formA = new RegExp('^(?:(?:const|let|var)\\s+)?([A-Za-z_$][\\w$]*)\\s*=\\s*(?:be\\.length \\? )?' + P + '\\(');
-  const formAd = new RegExp('^\\(?(?:(?:const|let|var)\\s+)?\\{[^}]*\\bbg\\b[^}]*\\}\\s*=\\s*_recordBackground\\(');
-  const formB = new RegExp('_bgFailure\\(' + P + '\\(');
+  return out;
+}
+
+test('only the producers reach computeBackgroundCore and the method twins', () => {
+  const allowed = {
+    computeBackgroundCore: ['computeBackground', '_computeBackgroundForSource'],
+    shirleyBackground: ['computeBackgroundCore', 'smartBackground'],
+    smartBackground: ['computeBackgroundCore'], smartExperimentalBackground: ['computeBackgroundCore'],
+    shirleyLinearBackground: ['computeBackgroundCore'], tougaardBackground: ['computeBackgroundCore'],
+    manualAnchorBackground: ['computeBackgroundCore'], linearBackground: ['computeBackgroundCore', 'manualAnchorBackground'],
+  };
+  for (const [name, fns] of Object.entries(allowed)) {
+    const sites = callersOf(name);
+    assert.ok(sites.length > 0, name + ' is called');
+    for (const s of sites) assert.ok(fns.includes(s.fn), `${name} referenced from ${s.fn} (line ${s.line}): ${s.text}`);
+  }
+  for (const p of ['computeBackground', '_computeBackgroundForSource']) {
+    const body = enclosingFunction(lines.findIndex(l => l.startsWith('function ' + p + '('))).body;
+    const calls = body.match(/computeBackgroundCore\(/g) || [];
+    const certified = body.match(/_certifiedBg\(computeBackgroundCore\(/g) || [];
+    assert.ok(calls.length >= 1 && calls.length === certified.length, p + ' hands out computeBackgroundCore only through _certifiedBg');
+  }
+});
+
+test('every consumer call of a producer is handled (the student is told why, the page does not abort)', () => {
+  const sites = [];
+  for (const p of PRODUCERS) for (const s of callersOf(p)) if (!PRODUCERS.includes(s.fn)) sites.push({ ...s, p });
+  assert.ok(sites.length >= 11, 'found the consumers: ' + sites.map(s => s.fn).join(', '));
   for (const s of sites) {
-    if (formB.test(s.text)) continue;
-    let name = null;
-    const a = s.text.match(formA);
-    if (a) name = a[1];
-    else if (formAd.test(s.text)) name = 'bg';
-    assert.ok(name, `${s.fn.name} (line ${s.line}): a producer referenced outside the two allowed forms: ${s.text}`);
-    // Codex impl round 2: nothing may consume the background on the assignment line itself
-    // (`= computeBackground(...).map(...)`): the statement must END at the producer call
-    const callAt = s.text.search(new RegExp(P + '\\('));
-    let depth = 0, end = -1;
-    for (let k = s.text.indexOf('(', callAt); k < s.text.length; k++) {
-      if (s.text[k] === '(') depth++; else if (s.text[k] === ')') { depth--; if (depth === 0) { end = k; break; } }
-    }
-    assert.ok(end > 0 && /^\s*(?::\s*\[\])?\s*\)?\s*;?\s*$/.test(s.text.slice(end + 1)),
-      `${s.fn.name} (line ${s.line}): the background is used on the line that computes it: ${s.text}`);
-    // covered by an earlier inline refusal in the same function?
-    const before = s.fn.body.slice(0, s.fn.body.indexOf(s.text));
-    if (formB.test(before)) continue;
-    // the FIRST later reference to NAME in the function must be the check
-    const after = s.fn.body.slice(s.fn.body.indexOf(s.text) + s.text.length).split('\n').map(stripComment).join('\n');
-    const esc = name.replace(/\$/g, '\\$');
-    const m = after.match(new RegExp('\\b' + esc + '\\b'));
-    const isCheck = m && after.slice(Math.max(0, m.index - 11), m.index) === '_bgFailure(' && after[m.index + name.length] === ')';
-    // ... and that check is a REFUSAL: its statement is one of
-    //   if (_bgFailure(x)) ...;   const f = _bgFailure(x);   const v = _bgFailure(x) ? ... : ...;   return _bgFailure(x);
-    // (not, e.g., `if (false) _bgFailure(x);` — Codex impl round 2)
-    const lineStart = after.lastIndexOf('\n', m ? m.index : 0) + 1;
-    const stmt = m ? after.slice(lineStart, after.indexOf('\n', m.index) < 0 ? undefined : after.indexOf('\n', m.index)) : '';
-    const esc2 = '_bgFailure\\(' + esc + '\\)';
-    const refusal = [new RegExp('^\\s*if \\(' + esc2 + '\\)'), new RegExp('^\\s*(?:const|let|var) [A-Za-z_$][\\w$]* = ' + esc2 + '\\s*[;?]'),
-                     new RegExp('^\\s*return ' + esc2 + ';')].some(r => r.test(stmt));
-    assert.ok(isCheck && refusal,
-      `${s.fn.name} (line ${s.line}): the first use of ${name} after it is computed is not _bgFailure(${name})`);
+    if (new RegExp('_bgOrFailure\\(\\(\\) => ' + s.p + '\\(').test(s.text)) continue;
+    // otherwise: inside `try { ... }` whose catch tests _isBgNotConverged
+    const fn = enclosingFunction(s.line - 1);
+    const at = fn.body.indexOf(s.text) + s.text.indexOf(s.p + '(');
+    const before = fn.body.slice(0, at), after = fn.body.slice(at);
+    const tryAt = before.lastIndexOf('try {');
+    assert.ok(tryAt >= 0 && !/\}\s*catch/.test(before.slice(tryAt)), `${s.fn} (line ${s.line}): ${s.p} called outside _bgOrFailure and outside a try: ${s.text}`);
+    assert.ok(/^[^]*?catch \(e\) \{[^}]*_isBgNotConverged\(e\)/.test(after) && after.indexOf('catch (e)') < after.indexOf('\n}'),
+      `${s.fn} (line ${s.line}): its catch does not handle BgNotConverged`);
   }
 });
 
@@ -121,7 +114,7 @@ test('the note under the method menu shows the failure and hides when it clears'
 
 test('Run Fit refuses a non-converged background before anything changes (no undo entry, no spinner, no request)', () => {
   const body = enclosingFunction(lines.findIndex(l => l.startsWith('async function runFit('))).body;
-  const check = body.indexOf('_bgFailure(computeBackground(');
+  const check = body.indexOf('if (bgPre.failure)');
   assert.ok(check > 0);
   for (const later of ['pushUndo()', '_showFitSpinner()', 'uploadToBackend(', 'runFitLocal(']) {
     const at = body.indexOf(later);
@@ -131,7 +124,8 @@ test('Run Fit refuses a non-converged background before anything changes (no und
 
 test('Auto-Fit refuses in its preflight, before it claims the tab (a running Run Fit is left alone)', () => {
   const body = enclosingFunction(lines.findIndex(l => l.startsWith('async function runAutoFitC1sGraphite('))).body;
-  assert.ok(body.indexOf('_bgFailure(bgI)') > 0 && body.indexOf('_bgFailure(bgI)') < body.indexOf('_installFitOp(afOp)'));
+  const at = body.indexOf('_bgOrFailure(() => computeBackground(corrBE, inten))');
+  assert.ok(at > 0 && body.indexOf('if (bgR.failure)') > at && body.indexOf('if (bgR.failure)') < body.indexOf('_installFitOp(afOp)'));
 });
 
 test('the Shirley iterations setting is retired (hidden; kept for saved files and fit keys)', () => {
@@ -148,4 +142,81 @@ test('the background tooltips say the noise bias plainly (findings F2)', () => {
   assert.match(tip('shirley'), /its own net-area bias at large background steps/);
   assert.match(html, /<option value="shirley_linear" disabled hidden/, 'shirley_linear stays off the menu');
   assert.match(html, /id="bg-legacy-note"/, 'its notice stays');
+});
+
+// ── Codex impl round 3: the producers throw; the record path reads the record ──
+function recordEnv() {
+  const fn = name => enclosingFunction(lines.findIndex(l => new RegExp('^(async )?function ' + name + '\\(').test(l))).body;
+  const src = require('./_page_background_source.js')({ manual: 'real' }) + '\n' +
+    lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG =')) + '\n' +
+    ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground',
+     '_restoredFitBgFailure', '_dropRestoredFit'].map(fn).join('\n') +
+    '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
+    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure };';
+  return new Function(src)();
+}
+const R = recordEnv();
+const peakRec = (over = {}) => {
+  const rawBE = [], rawIntensity = [];
+  for (let i = 0; i <= 120; i++) { const x = 280 + 0.1 * i; rawBE.push(x); rawIntensity.push(100 + 40 / (1 + Math.exp(-(x - 286) * 3)) + 500 * Math.exp(-((x - 285.5) ** 2) / 0.5)); }
+  return { rawBE, rawIntensity, ccShift: 0, ui: { bgType: 'shirley', endpointAvg: '3', roiMin: '281', roiMax: '291', bgStart: '', bgEnd: '' },
+           manualAnchors: [], peaks: [{ id: 1, support: { f: 1 } }], ...over };
+};
+
+test('the producers THROW a background that fails its statement (never return it)', () => {
+  const cyc = { bgType: 'shirley', endpointAvg: '1' };
+  assert.throws(() => R._computeBackgroundForSource([0, 1, 2, 3], [2, 3, 10, 13], cyc), e => R._isBgNotConverged(e) && /not converged/.test(e.message));
+  assert.throws(() => R._recordBackground({ rawBE: [0, 1, 2, 3], rawIntensity: [2, 3, 10, 13], ccShift: 0, ui: cyc }), e => R._isBgNotConverged(e));
+  assert.throws(() => R._certifiedBg([1, 2, 3]), e => R._isBgNotConverged(e), 'an unmarked array is not a background');
+  const r = R._bgOrFailure(() => R._computeBackgroundForSource([0, 1, 2, 3], [2, 3, 10, 13], cyc));
+  assert.strictEqual(r.bg, null); assert.match(r.failure, /not converged/);
+  assert.throws(() => R._bgOrFailure(() => { throw new TypeError('x'); }), TypeError, 'any other error propagates');
+  assert.strictEqual(R._computeBackgroundForSource([0, 1, 2, 3, 4, 5], [10, 12, 40, 30, 22, 20], { bgType: 'shirley', endpointAvg: '1' }).converged, true);
+});
+
+test('getROIData and the record path select the same points: one rule (_roiSelect)', () => {
+  assert.ok(/function getROIData\(\) \{\s*return _roiSelect\(state\.rawBE, state\.rawIntensity, state\.ccShift,/.test(html));
+  const be = [295, 293, 291, 289, 287, 285], y = [1, 2, 3, 4, 5, 6];
+  const asc = be.slice().reverse(), yAsc = y.slice().reverse();
+  for (const [mn, mx, shift] of [['', '', 0], ['288', '', 0], ['', '290', 0], ['286', '292', 1], ['abc', '291', 0], ['289', '289', 0]]) {
+    const d = R._roiSelect(be, y, shift, mn, mx), a = R._roiSelect(asc, yAsc, shift, mn, mx);
+    const lo = isNaN(parseFloat(mn)) ? -Infinity : parseFloat(mn), hi = isNaN(parseFloat(mx)) ? Infinity : parseFloat(mx);
+    const want = be.map((e, i) => [e - shift, y[i]]).filter(([c]) => c >= lo && c <= hi);
+    assert.deepStrictEqual(d.be, want.map(w => w[0]), `descending, ${mn}..${mx} shift ${shift}`);
+    assert.deepStrictEqual(a.be, want.map(w => w[0]).reverse(), `ascending, ${mn}..${mx}`);
+    const rec = R._recordBackground({ rawBE: be, rawIntensity: y, ccShift: shift, ui: { bgType: 'none', roiMin: mn, roiMax: mx } });
+    assert.deepStrictEqual(rec.be, d.be, 'the record path is the same selection');
+  }
+});
+
+test('a manual background on a record is built from THAT record\'s anchors (no Shirley substitute, no active-tab read)', () => {
+  const anchors = [{ x: 282, y: 100 }, { x: 290, y: 140 }];
+  const rec = peakRec({ ui: { ...peakRec().ui, bgType: 'manual' }, manualAnchors: anchors });
+  const { be, bg } = R._recordBackground(rec);
+  be.forEach((x, i) => {
+    const want = x < 282 ? 100 : x >= 290 ? 140 : ((140 - 100) / (290 - 282)) * (x - 282) + 100;
+    assert.strictEqual(bg[i], want);
+  });
+});
+
+test('restore: kept only when the stored curve IS the certified one — no method exempt, non-numbers fail closed', () => {
+  const fitWith = rec => { const { be, bg } = R._recordBackground(rec); return { ...rec, fitResult: { be: be.slice(), bgIntensity: Array.from(bg) } }; };
+  for (const bgType of ['shirley', 'smart', 'tougaard', 'linear', 'none', 'manual']) {
+    const base = peakRec({ ui: { ...peakRec().ui, bgType }, manualAnchors: [{ x: 282, y: 100 }, { x: 290, y: 140 }] });
+    const rec = fitWith(base);
+    assert.strictEqual(R._restoredFitBgFailure(rec), null, bgType + ': its own curve is restored');
+    // a stale fit: the stored curve is the fit's, the settings changed after it
+    const stale = fitWith(base); stale.ui = { ...stale.ui, bgType: bgType === 'none' ? 'linear' : 'none' };
+    assert.match(R._restoredFitBgFailure(stale) || '', /is not the background its settings give now/, bgType + ': a changed method is refused, not exempt');
+    if (bgType === 'manual') {
+      const moved = fitWith(base); moved.manualAnchors = [{ x: 282, y: 100 }, { x: 290, y: 150 }];
+      assert.match(R._restoredFitBgFailure(moved) || '', /is not the background/, 'moved anchors are refused');
+    }
+    for (const bad of [v => String(v), () => null, () => 'abc', () => undefined]) {
+      const r = fitWith(base); r.fitResult.bgIntensity[3] = bad(r.fitResult.bgIntensity[3]);
+      assert.match(R._restoredFitBgFailure(r) || '', /is not the background/, bgType + ': a non-number fails closed');
+    }
+  }
+  const rounded = fitWith(peakRec()); rounded.fitResult.bgIntensity = rounded.fitResult.bgIntensity.map(v => Number(v.toPrecision(6)));
+  assert.strictEqual(R._restoredFitBgFailure(rounded), null, 'as the save rounds it');
 });
