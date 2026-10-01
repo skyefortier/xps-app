@@ -2,9 +2,10 @@
 // fitting.shirley_linear_background's docstring (background math foundation,
 // Codex round 2): B = min(L + d(1 - F(B)), I), L the line between the averaged
 // edge levels affine in the point INDEX, d = |b_low - b_high|, F the cumulative
-// fraction of max(I - B, 0) from the low-BE edge. The page solves it on an
-// ASCENDING grid only; it does not reverse a descending one, so there it
-// accumulates from the other edge (the pinned page / server gap).
+// fraction of max(I - B, 0) from the low-BE edge. When its iteration converges
+// (it can cycle: findings F12) the page solves it on an ASCENDING grid only; it
+// does not reverse a descending one, so there it accumulates from the other edge
+// (the pinned page / server gap).
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');

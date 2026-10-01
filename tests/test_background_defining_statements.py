@@ -390,3 +390,23 @@ def test_FINDING_a_general_solver_replacement_would_move_converged_answers():
     exact = np.array([1.0, 1.4, 1.9, 2.0])
     assert D.shirley_residual(E, I, exact) < ROUND
     assert np.trapezoid(I - B, E) - np.trapezoid(I - exact, E) > 1e-6
+
+
+def test_FINDING_averaging_reduces_but_does_not_remove_the_constraints_increment():
+    # Codex round 5: isolated with both equations on the SAME reading ("levels"), at the large
+    # step (measured over 1000 draws: +1.28 % at averaging 1, +0.83 % +- 0.01 at averaging 10)
+    y0, _ = _truth(4000.0)
+    a_true = np.trapezoid(PEAKS, X)
+    inc = {}
+    for nav in (1, 10):
+        rng = np.random.default_rng(1)
+        d = []
+        for _ in range(200):
+            y = rng.poisson(y0).astype(float)
+            B, _, ok, _ = D.solve(X, y, nav, "levels", False)
+            assert ok
+            d.append((np.trapezoid(B - fitting.smart_experimental_background(X, y, n_avg=nav), X)) / a_true)
+        inc[nav] = np.array(d)
+    assert inc[10].mean() > 10 * inc[10].std() / np.sqrt(len(inc[10]))            # still there
+    r = inc[1] - inc[10]
+    assert r.mean() > 3 * r.std() / np.sqrt(len(r))   # but reduced (4.5 SE at 200 seeded draws, 11.7 at 1000)

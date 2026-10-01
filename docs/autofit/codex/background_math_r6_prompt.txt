@@ -1,0 +1,15 @@
+Review the "background math foundation" findings, round 6: branch bg-math-foundation, git diff main..HEAD; the round-5 fixes are git diff 26fc9e2..HEAD — F2's averaging-10 constraint increment isolated on one reading (+0.83 % ± 0.01, reduction 0.44 ± 0.04 pp) and the production-method difference labelled; the Smart tooltip's convergence condition; the JS test header; the checker header's reading categories; the round-5 table at the end of docs/findings/background-math/README.md; tests/test_background_defining_statements.py (36). Earlier verdicts: docs/autofit/codex/background_math_r5_verdict_run{A,B}.md, background_math_r4_verdict_run{A,B}.md, background_math_r3_verdict_run{A,B}.md, background_math_r2_verdict_run{A,B}.md, background_math_verdict_run{A,B}.md; the owner's brief: background_math_review_prompt.txt.
+
+Confirm that NO fitted number changed (fitting.py's executable AST identical to main's; index.html differs only in comments and tooltip text).
+
+Read-only. Be adversarial — about the MATH and the MEASUREMENTS. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Every round-5 finding: is its fix real and complete everywhere the claim appears?
+b. Is any remaining claim that an implementation "solves" its statement stated without the conditions under which it does (convergence, n_avg, grid direction, uniformity tolerance, degenerate windows)? Is any claimed bound exceeded by the data or the tests?
+c. The recommendations (F1, F2, F4, F5, F10, F11, F12): does each follow from the evidence, and is each marked as the owner's decision?
+d. Anything overclaimed, any number that changed, any statement defended by resemblance to another program.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

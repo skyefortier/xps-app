@@ -202,8 +202,13 @@ spectra; pinned in the tests.
   So the Shirley estimator on noisy data is itself biased at a large step
   (Codex round 1), and the constraint adds ~+1 % on top. Endpoint averaging of
   10 at the large step cuts the per-draw spread ~3× and both biases, and reduces
-  but does not remove the increment: unconstrained +1.43 % ± 0.06, constrained
-  +2.40 % ± 0.05, increment +1.28 → +0.97 % (paired reduction 0.30 ± 0.04 pp). Whether
+  but does not remove the constraint's increment. Isolated — both equations
+  reading the averaged edge LEVELS, the same data: unconstrained +1.57 % ± 0.06,
+  constrained +2.40 % ± 0.05, increment +1.28 → +0.83 % ± 0.01 (paired reduction
+  0.44 ± 0.04 pp). The production methods at averaging 10 (`shirley` averages the
+  DATA, `smart_exp` only the levels — F1) give +1.43 % ± 0.06 and +2.40 %: that
+  +0.97 % difference includes 0.14 pp of F1's change of reading, not the
+  constraint (Codex round 5). Whether
   the positive-part integrand is the source of the unconstrained bias is NOT
   established: the same iteration with a signed integrand fails to solve its own
   equation on ~20 of the 1000 draws at the large step (its integral turns
@@ -351,3 +356,16 @@ the averaging increment, both shirley_linear numbers and the F5 / F7 bounds hold
 | 3 | MAJOR (B) / MINOR (A): Tougaard's "~1e-8 of span" was one example, not a bound: 2.5e-7 on a non-cancelling grid, and 16 % of span where both high-edge sums are non-zero but nearly cancel (the anchor amplifies the error) | stated as measurements with the amplification (docstring, code comment, README); both pinned |
 | 4 | MINOR (A, B): F12's "a new solver changes numbers on those inputs only" does not follow — a root finder moves a converged case (net area 0.40000537 → 0.4) and may pick another solution where several exist | three options with their scope: certify and report; a fallback solver after a failed certification (failing inputs only); a general replacement (numbers move elsewhere too); pinned |
 | 5 | (A) F4, F5, F10, F11 lacked the explicit "owner decision" F1 / F2 / F12 carry | labelled, with their options |
+
+**Round 5 — NO-GO ×2** (`docs/autofit/codex/background_math_r5_verdict_run{A,B}.md`,
+commit 26fc9e2; both: no fitted number changed; 121 records and the Monte Carlo
+reproduce; the round-4 repairs hold — convergence qualifications, F12's bounds and
+option scopes, Tougaard's measured errors, the owner-decision labels; the
+bibliography checked against the publishers' pages):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A): F2's averaging-10 "increment" compared `shirley` (averages the DATA) with `smart_exp` (averages the levels), so it mixed F1's reading into the constraint's effect | the isolated effect, both equations on the levels reading: +1.28 → +0.83 % ± 0.01 (paired reduction 0.44 ± 0.04 pp); the production-method difference (+0.97 %, 0.14 pp of it F1) labelled as such; a seeded test pins "reduced, not removed" |
+| 2 | MAJOR (B): the Smart tooltip's "wherever … it equals them" holds only when the iteration converges (a 6-point spectrum: 19.9 % of span) | "(when the iteration converges)" |
+| 3 | MINOR (B): the new JS test's header said the page solves the equation on ascending grids without the convergence condition (12.5 % on the pinned cycle) | qualified |
+| 4 | MINOR (A, B): the checker's header put `shirley_linear` under the "data" reading; it (and the checker's own residual) reads the levels and integrates the raw data | moved to "levels"; its statement written out; the header states that an output solves its statement only when its iteration converged |

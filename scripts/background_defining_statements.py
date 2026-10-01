@@ -1,15 +1,14 @@
 """Does each background method's implementation SOLVE the problem it states?
-(background math foundation, 2026-09-30; revised after Codex round 1.)
+(background math foundation, 2026-09-30; revised after Codex rounds 1-5.)
 
 Every statement is written here INDEPENDENTLY of fitting.py — its own endpoint
 preprocessing, its own integrals, its own reference solver — and evaluated on the
 method's output with the method's OWN reading of endpoint averaging:
 
   reading "data"   the first / last n_avg points of the DATA are replaced by their
-                   mean before anything else (shirley, smart's integrand, tougaard,
-                   shirley_linear's integrand)
+                   mean before anything else (shirley, smart's integrand, tougaard)
   reading "levels" only the two edge LEVELS are read as those means; the relation
-                   integrates the measured data (smart_exp)
+                   integrates the measured data (smart_exp, shirley_linear)
 
 Statements (T the discrete Shirley map, trapezoid rule, ascending grid,
 T(B)_i = b_low + (b_high - b_low) Q_i / Q_n, Q_i = INT_{x_0}^{x_i} max(D - B, 0),
@@ -17,7 +16,8 @@ D the data under the method's reading):
   shirley         B = T(B)
   smart           B = min(T(B), I)            (constrained Shirley)
   smart_exp       B = min(T(B), I)
-  shirley_linear  B = min(L + (b_high - b_low)... ) — see shirley_linear_residual
+  shirley_linear  B = min(L + d (1 - F(B)), I), L affine in index, d = |b_low - b_high| — see
+                  shirley_linear_residual
   linear          B affine in E through the raw end points
   tougaard        B = C0 + lam SUM_{E' <= E} K(E - E') (D(E') - C0) w(E'), lam from B(E_high) = D(E_high)
   manual          piecewise-affine through the anchors, constant outside
@@ -25,7 +25,8 @@ D the data under the method's reading):
 The Shirley relation can have MORE THAN ONE solution (Codex round 1: 4-point
 spectra with a family of exact solutions); nothing here claims uniqueness. The
 reference solver reports convergence only when the RETURNED point satisfies the
-statement (finite residual <= REF_TOL of the span).
+statement (finite residual <= REF_TOL of the span). An implementation's output solves
+its statement only when its iteration converged; they can cycle (findings F12).
 
 Usage: python scripts/background_defining_statements.py OUT.jsonl
 """
