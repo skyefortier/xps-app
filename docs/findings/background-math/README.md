@@ -341,13 +341,14 @@ the round-2 fixes hold; the degenerate branches are covered):
 | 1 | MAJOR (A, B): the iterations can CYCLE and never converge on small positive spectra (shirley 14 % / 21 % of span, the Smart methods 11 %, shirley_linear 12.5 %; 2000 iterations = 200), so "returns the solution reached" was an overclaim | F12; "returns the solution" qualified by "when it converges" (README, docstrings, CLAUDE.md, the page comment); the four cycles and the exact solution pinned. (Round 4: F9, a test comment and the smart_exp tooltip had been missed; now qualified.) |
 | 2 | MAJOR (A) / MINOR (B): Tougaard's near-uniform fast branch approximates the stated sum (index separations, one weight), and a nearly cancelling high-edge sum can become exactly zero (anchor missed by 33 %) | stated in the docstring, the code comment (no longer "a pure optimization"), the README; both pinned. (Round 4: the "~1e-8 of span" quoted here was one example, not a bound — corrected.) |
 | 3 | MINOR (A, B): F11's "the flat C0 solves it for every λ" is false when interior loss terms are non-zero | the flat C0 is the λ = 0 member of a family; all flat only when the whole loss vector vanishes; pinned on a uniform 4-point case |
-| 4 | MINOR (B): averaging does reduce the constraint's increment (+1.28 → +0.97 %, 0.30 ± 0.04 pp) | "reduces but does not remove" |
+| 4 | MINOR (B): averaging does reduce the constraint's increment (+1.28 → +0.97 %, 0.30 ± 0.04 pp) | "reduces but does not remove". (SUPERSEDED in round 5: +0.97 % / 0.30 pp compared two readings; the constraint's own increment is +0.83 % ± 0.01, reduction 0.44 ± 0.04 pp — see F2.) |
 | 5 | MINOR (A): the page comment called 7.6 % (the equation residual) the page / server gap (7.8 %); F5 ≤ 1.4e-5 and F7 ≤ 8.5e-5 were exceeded (1.442e-5, 8.517e-5) | both numbers named; ≤ 1.5e-5 and ≤ 8.6e-5 |
 
 **Round 4 — NO-GO ×2** (`docs/autofit/codex/background_math_r4_verdict_run{A,B}.md`,
 commit 84f3ee0; both: no fitted number changed; 121 records and the Monte Carlo —
-incl. the averaging reduction 0.3049 ± 0.0380 pp — reproduce; the F11 family,
-the averaging increment, both shirley_linear numbers and the F5 / F7 bounds hold):
+incl. the averaging reduction 0.3049 ± 0.0380 pp, a two-reading figure
+superseded in round 5 — reproduce; the F11 family, the averaging increment, both
+shirley_linear numbers and the F5 / F7 bounds hold):
 
 | # | finding | fix |
 |---|---|---|
@@ -369,3 +370,14 @@ bibliography checked against the publishers' pages):
 | 2 | MAJOR (B): the Smart tooltip's "wherever … it equals them" holds only when the iteration converges (a 6-point spectrum: 19.9 % of span) | "(when the iteration converges)" |
 | 3 | MINOR (B): the new JS test's header said the page solves the equation on ascending grids without the convergence condition (12.5 % on the pinned cycle) | qualified |
 | 4 | MINOR (A, B): the checker's header put `shirley_linear` under the "data" reading; it (and the checker's own residual) reads the levels and integrates the raw data | moved to "levels"; its statement written out; the header states that an output solves its statement only when its iteration converged |
+
+**Round 6 — GO ×2** (`docs/autofit/codex/background_math_r6_verdict_run{A,B}.md`,
+commit 211bf7f; both: no fitted number changed; 36 Python and 4 JS tests pass;
+121 records and the Monte Carlo — incl. the isolated averaging comparison,
++0.8334 % ± 0.0114, reduction 0.4440 ± 0.0378 pp — reproduce; the solution claims
+account for averaging, convergence, grid direction, the near-uniform approximation
+and degenerate windows; F1, F2, F4, F5, F10, F11, F12 follow from the evidence and
+are reserved for the owner; no resemblance-based defence). One MINOR (A, B): the
+round-3 table and the round-4 header still carried the superseded two-reading
+figure (+0.97 %, 0.30 pp) as the constraint's — both annotated as superseded.
+
