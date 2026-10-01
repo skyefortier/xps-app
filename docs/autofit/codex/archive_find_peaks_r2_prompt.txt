@@ -1,0 +1,12 @@
+Review the "archive Find Peaks" unit, round 2: branch archive-find-peaks, git diff main..HEAD (round-1 fixes: git diff 9dc28a3..HEAD — .github/workflows/autofit-gates.yml, scripts/ci_check_node_tap.py, docs/autofit/PROGRESS.md, the plan's §6). Round-1 verdicts: docs/autofit/codex/archive_find_peaks_verdict_run{A,B}.md; the owner's brief is in docs/autofit/codex/archive_find_peaks_review_prompt.txt.
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The CI step: would it actually run and fail on a failing JS test on ubuntu-latest (node version, the glob, `set -o pipefail`, `if: always()`, the guard's parsing of node's TAP summary, the `python3` the JS tests fall back to and the dependencies it needs, tests that read files absent from a fresh checkout)? Can the guard pass while tests failed or did not run?
+b. PROGRESS.md's corrected Unit B row against its cited record (branch fix-occupancy-f-test, commit 08a51d9) and the lmfit / F-test invariance claim.
+c. Everything round 1 verified, against the new commit.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

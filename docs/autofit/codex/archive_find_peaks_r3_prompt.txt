@@ -1,0 +1,12 @@
+Review the "archive Find Peaks" unit, round 3: branch archive-find-peaks, git diff main..HEAD (round-2 fixes: git diff 9593e13..HEAD — scripts/ci_check_node_tap.py (complete summary, passed-test floor, skip / todo bounds, counts add up), tests/test_ci_check_node_tap.py, the workflow, the plan's §6). Earlier verdicts: docs/autofit/codex/archive_find_peaks_verdict_run{A,B}.md (round 1), archive_find_peaks_r2_verdict_run{A,B}.md (round 2); the owner's brief is in docs/autofit/codex/archive_find_peaks_review_prompt.txt.
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The CI step: would it actually run and fail on a failing JS test on ubuntu-latest (node version, the glob, `set -o pipefail`, `if: always()`, the guard's parsing of node's TAP summary, the `python3` the JS tests fall back to and the dependencies it needs, tests that read files absent from a fresh checkout)? Can the guard pass while tests failed or did not run?
+b. Can the guard still pass a suite that did not run its tests (partial output, several summaries, skipped subtests, a crash before the summary)?
+c. Everything rounds 1-2 verified, against the new commit.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

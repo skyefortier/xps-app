@@ -1,0 +1,17 @@
+Review the "archive Find Peaks" unit, round 1: branch archive-find-peaks, git diff main..HEAD (templates/index.html, tests/js/find_peaks_archived.test.js, tests/test_browser_find_peaks_archived.py, CLAUDE.md, docs/autofit/PROGRESS.md "PARKED", docs/superpowers/plans/2026-09-30-archive-find-peaks.md).
+
+Owner's brief (verbatim): "archive Find Peaks for now. Hide it, don't delete it. ARCHIVE UNIT. Hide Find Peaks from the UI: remove the Actions-menu entry and every other entry point so it cannot be started. KEEP on main, running in CI: the backend, the autofit engine, /api/analyze, and all Find Peaks tests, so it can be revived. Everything Run Fit now shares must stay intact and working — the job/polling infrastructure, the support F test, the scattered-starts check, the fit key, the certificate. Saved projects whose peaks came from Find Peaks must load and fit exactly as before. If a cached Find Peaks result exists in a saved tab, it must not resurface anywhere in the UI. Release-note line only, no student note. Enumerate entry points and shared sites first." And: "PARK, with a note in PROGRESS.md saying why and what would bring each back: the finalists-only screen starts, the noise-floor (F test) unit, the math-first migration, and Unit B (noise estimator). Unit B is DEFERRED, not dropped: whether the displayed chi2r should be calibrated still matters for Run Fit."
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Any remaining way to start Find Peaks from the page: other buttons, keyboard shortcuts, context menus, URL parameters, drag-and-drop, tab restore, history restore, a stale DOM state, an event listener registered at load, the reference panel, tooltips with links.
+b. Any way a cached Find Peaks result or the peaks' Find Peaks provenance resurfaces in the UI: project / spectrum / .fit.json loads (current and older formats), tab switching, stack tabs, history, exports shown in the page, notifications.
+c. Saved projects whose peaks came from Find Peaks: load and fit exactly as before (peak fields, locks, links, bounds the apply wrote, the fit key, the support verdicts, the certificate).
+d. Everything Run Fit shares: nothing in app.py / fitting.py / autofit changed; the JS the page still needs (the heartbeat constant, the poll pattern, the fit key) intact.
+e. The tests: real and non-vacuous (the static test's block boundaries; the browser test's Find Peaks run is real; both fail on main); the Find Peaks tests kept and still run.
+f. The PROGRESS.md parking note: accurate against the committed records it cites.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
