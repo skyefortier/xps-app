@@ -252,7 +252,7 @@ test('both callers claim their operation before the first await and do nothing a
 });
 
 const AF_FNS = ['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor',
-  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
+  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', '_bgFailure', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
 test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open WINS; the confirmed Auto-Fit changes nothing (Codex round 3)', async () => {
   const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
   const modal = deferred();
@@ -371,7 +371,8 @@ test("runFitLocal hides only its caller's spinner: Batch Fit (no operation) neve
   assert.ok(!/_hideFitSpinner\(\)/.test(src), 'no unowned hide inside runFitLocal');
   assert.match(src, /const hideSpinner = \(\) => \{ if \(options\.spinnerOp\) _hideFitSpinnerFor\(options\.spinnerOp\); \};/);
   assert.match(extractFn('runFit'), /runFitLocal\(be, bgSubtracted, bgIntensity, \{ spinnerOp: fitOp \}\)/, "Run Fit's fallback passes its operation");
-  const batchCall = html.match(/const outcome = runFitLocal\(([^)]*)\);/);
+  // (since 2026-10-01 behind the background's convergence check: `bgFail ? {...} : runFitLocal(...)`)
+  const batchCall = html.match(/const outcome = (?:bgFail \? \{[^}]*\} : )?runFitLocal\(([^)]*)\);/);
   assert.ok(batchCall && batchCall[1] === 'be, bgSub, bgI', 'Batch Fit passes no operation: ' + (batchCall && batchCall[1]));
   // behaviour on the failure path (invalid data returns before any fitting)
   for (const [label, opts, owned, want] of [['Batch Fit (no op)', {}, 'RUN', 0], ['another op', { spinnerOp: 'B' }, 'RUN', 0], ['its own op', { spinnerOp: 'RUN' }, 'RUN', 1]]) {

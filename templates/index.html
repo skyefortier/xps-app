@@ -2003,9 +2003,9 @@
             <div class="field">
               <label>Type</label>
               <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
-                <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra.">Shirley (iterative)</option>
-                <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them (when the iteration converges). The constraint assumes net intensity is non-negative; on noisy data it binds on noise dips and lowers the background slightly (net areas a little high). With endpoint averaging above 1 it integrates the averaged data but clamps against the measured data, so it solves the constrained problem exactly under neither reading (up to about 0.1 % of the span on the spectra tested).">Smart (constrained Shirley)</option>
-                <option value="smart_exp" data-tip="The constrained Shirley problem, iterated with the constraint inside the iteration (a solution when that iteration converges). With endpoint averaging above 1 it averages only the edge levels, not the data itself; at an averaging of 1 it has given the same background as Smart on every spectrum tested.">Smart (experimental)</option>
+                <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra. On noisy data it carries its own net-area bias at large background steps (about +2 % in a Monte Carlo at a large step).">Shirley (iterative)</option>
+                <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them. The counts are noisy, so the constraint binds on noise dips and raises net area by about 1 % on noisy data — on top of the bias plain Shirley carries at large steps.">Smart (constrained Shirley)</option>
+                <option value="smart_exp" data-tip="The same constrained Shirley problem as Smart, solved with the constraint inside the iteration. Like Smart, it constrains against noisy counts, which raises net area by about 1 % on noisy data; plain Shirley carries its own bias at large steps.">Smart (experimental)</option>
                 <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
                 <!-- De-listed 2026-09-03 pending scientific review (task-4 parity
                      report: the JS preview of this method diverges 27-33 % of span
@@ -2019,8 +2019,9 @@
                 <option value="manual" data-tip="Click + Anchor in the Manual bg controls, then click the chart to place points. Background is linearly interpolated between anchors. Right-click on or near an anchor to remove it.">Manual (anchor)</option>
               </select>
               <div id="bg-legacy-note" style="display:none;background:var(--bg2);border:1px solid var(--amber);border-radius:var(--radius);padding:6px 8px;margin-top:6px;font-size:10.5px;color:var(--text2);line-height:1.45">
-                This file uses the <b>Shirley + Linear</b> background, which has been removed from the menu pending scientific review: on real spectra its on-screen curve can differ from the background the backend fit actually subtracts. The file still loads, renders and fits exactly as before (compatibility, not endorsement). Choosing any other type hides this option again.
+                This file uses the <b>Shirley + Linear</b> background, which has been removed from the menu permanently: its step is largest at the low-BE edge and shrinks toward higher binding energy — the reverse of inelastic scattering — so no physical model gives that curve. The file still loads, renders and fits (compatibility, not endorsement). Choosing any other type hides this option again.
               </div>
+              <div id="bg-not-converged" role="alert" style="display:none;background:var(--bg2);border:1px solid var(--red);border-radius:var(--radius);padding:6px 8px;margin-top:6px;font-size:10.5px;color:var(--text2);line-height:1.45"></div>
             </div>
             <div id="manual-bg-controls">
               <div style="display:flex;gap:6px;align-items:center">
@@ -2045,13 +2046,18 @@
               </div>
             </div>
             <div class="field-row">
-              <div class="field">
+              <!-- Retired 2026-10-01 (background math): every background now runs to
+                   convergence, as the server's always has, and is checked against its
+                   defining statement; an iteration count would only stop it short. The
+                   element stays (hidden) so saved files and fit keys that carry the
+                   value still restore and compare. -->
+              <div class="field" style="display:none" aria-hidden="true">
                 <label>Shirley iterations</label>
                 <input type="number" id="shirley-iter" value="5" min="1" max="50" step="1" oninput="_clampShirleyIter(); _invalidateBgCache(); updatePlot()" title="Number of iterations for the Shirley background calculation. The algorithm converges quickly — most of the change happens between 1 and 5 iterations. Values above 10 rarely produce visible differences. Default: 5.">
               </div>
               <div class="field">
                 <label>Endpoint avg</label>
-                <input type="number" id="bg-endpoint-avg" value="3" min="1" max="50" step="1" oninput="_invalidateBgCache(); updatePlot()" title="Number of points to average at each endpoint for smoother background anchoring">
+                <input type="number" id="bg-endpoint-avg" value="3" min="1" max="50" step="1" oninput="_invalidateBgCache(); updatePlot()" title="The two edge levels the background is anchored to are the means of this many points at each end (at most a quarter of the window). It sets the levels only: the background is computed from the measured data.">
               </div>
             </div>
           </div>
@@ -4410,111 +4416,107 @@ function evalAllPeaks(beArray, peaks) {
 // ═══════════════════════════════════════════════════
 // BACKGROUND SUBTRACTION
 // ═══════════════════════════════════════════════════
-function shirleyBackground(be, intensity, maxIter) {
-  // fitting.shirley_background's iteration, OPERATION FOR OPERATION (unit 4,
-  // Codex rounds 1-2): an ASCENDING copy; the first guess is numpy's
-  // linspace — k·step + start, the last point pinned EXACTLY to the high-BE
-  // endpoint (an endpoint one rounding step off leaves a residue that becomes
-  // the whole integral: 50 % of the span on decimal data); the net signal
-  // clamped at zero; the cumulative integral from the high-BE end; the
-  // update b_high + ((b_low − b_high)·cum)/total in the same order; the
-  // background KEPT when no net signal is left; the 1e-6 stop; flipped back.
-  // Finite inputs (NaN / Infinity are not mirrored).
+// ── Background twins of fitting.py, OPERATION FOR OPERATION (background math,
+// 2026-10-01; the arithmetic matters: an iterative background can turn one
+// rounding step into a different fixed point — unit 4, Codex round 3).
+// Endpoint averaging sets the two EDGE LEVELS only (_bgEdgeLevels: numpy's mean
+// of the first / last k = min(nAvg, floor(n/4)) points, k >= 1); every integral
+// and every B <= I clamp reads the RAW data. Every iteration stops when one more
+// step changes it by at most BG_REL_TOL of the window's intensity span and
+// returns the point the step was taken FROM (its residual was just measured);
+// _bgCertificate then checks the result against its defining statement, and a
+// background that fails it is "not converged" (computeBackgroundCore marks it;
+// nothing downstream uses it). The UI's "Shirley iterations" field no longer
+// stops anything: every background runs to convergence, as the server's does.
+const BG_REL_TOL = 1e-12;
+const BG_MAX_ITER = 200;
+const BG_LABELS = { shirley: 'Shirley', smart: 'Smart (constrained Shirley)', smart_exp: 'Smart (experimental)',
+                    shirley_linear: 'Shirley + linear', tougaard: 'Tougaard' };
+
+function _bgEdgeLevels(ys, nAvg) {
+  const n = ys.length;
+  const k = n >= 4 ? Math.max(1, Math.min(parseInt(nAvg) || 1, Math.floor(n / 4))) : 1;
+  return [_npMean(ys.slice(0, k)), _npMean(ys.slice(n - k))];
+}
+function _bgAscending(be, intensity) {
+  const n = be.length, flipped = be[0] > be[n - 1];
+  return { xs: flipped ? be.slice().reverse() : be.slice(),
+           ys: flipped ? intensity.slice().reverse() : intensity.slice(), flipped };
+}
+function _bgSpan(ys) { let lo = Infinity, hi = -Infinity; for (const v of ys) { if (v < lo) lo = v; if (v > hi) hi = v; } return hi - lo; }
+// numpy's linspace(start, stop, n): k·step + start, the last point pinned exactly
+function _npLinspace(a, b, n) {
+  const out = new Array(n), step = (b - a) / (n - 1);
+  for (let k = 0; k < n; k++) out[k] = k * step + a;
+  out[n - 1] = b;
+  return out;
+}
+// fitting._cum_from_high: trapezoid integral from each point to the high-x end
+function _bgCumFromHigh(xs, s) {
+  const n = s.length, cum = new Array(n).fill(0);
+  for (let i = n - 2; i >= 0; i--) cum[i] = cum[i + 1] + 0.5 * (s[i] + s[i + 1]) * (xs[i + 1] - xs[i]);
+  return cum;
+}
+// fitting._shirley_map: T(B), null where undefined (unequal levels, no net signal)
+function _bgShirleyMap(xs, ys, B, bLow, bHigh) {
+  const n = ys.length;
+  if (bLow === bHigh) return new Array(n).fill(bLow);
+  const sig = new Array(n);
+  for (let k = 0; k < n; k++) sig[k] = Math.max(ys[k] - B[k], 0);
+  const cum = _bgCumFromHigh(xs, sig), total = cum[0];
+  if (!(total > 0)) return null;
+  const d = bLow - bHigh, out = new Array(n);
+  for (let k = 0; k < n; k++) out[k] = bHigh + (d * cum[k]) / total;
+  return out;
+}
+function _bgMaxAbsDiff(a, b) { let m = 0; for (let k = 0; k < a.length; k++) { const c = Math.abs(a[k] - b[k]); if (c > m) m = c; } return m; }
+
+function shirleyBackground(be, intensity, maxIter, nAvg) {
+  // fitting.shirley_background: B = T(B), the levels from the averaged edges, the
+  // integral over the raw data, from numpy's linspace between the levels.
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-  const flipped = be[0] > be[n - 1];
-  const xs = flipped ? be.slice().reverse() : be.slice();
-  const ys = flipped ? intensity.slice().reverse() : intensity.slice();
-  const bLow = ys[0], bHigh = ys[n - 1];
-  const step = (bHigh - bLow) / (n - 1);
-  let B = new Array(n);
-  for (let k = 0; k < n; k++) B[k] = k * step + bLow;
-  B[n - 1] = bHigh;
-  const d = bLow - bHigh;
+  const { xs, ys, flipped } = _bgAscending(be, intensity);
+  const [bLow, bHigh] = _bgEdgeLevels(ys, nAvg);
+  const stop = BG_REL_TOL * _bgSpan(ys);
+  let B = _npLinspace(bLow, bHigh, n);
   for (let iter = 0; iter < maxIter; iter++) {
-    const sig = new Array(n);
-    for (let k = 0; k < n; k++) sig[k] = Math.max(ys[k] - B[k], 0);
-    const cum = new Array(n).fill(0);
-    for (let k = n - 2; k >= 0; k--) cum[k] = cum[k + 1] + 0.5 * (sig[k] + sig[k + 1]) * (xs[k + 1] - xs[k]);
-    const total = cum[0];
-    if (total <= 0) break;                       // no net signal left: keep the current background
-    let maxChange = 0;
-    const next = new Array(n);
-    for (let k = 0; k < n; k++) {
-      next[k] = bHigh + (d * cum[k]) / total;
-      const c = Math.abs(next[k] - B[k]);
-      if (c > maxChange) maxChange = c;
-    }
+    const next = _bgShirleyMap(xs, ys, B, bLow, bHigh);
+    if (next === null) break;                       // undefined: the certificate says so
+    if (_bgMaxAbsDiff(next, B) <= stop) break;      // B's residual is within the stop
     B = next;
-    if (maxChange < 1e-6) break;                 // fitting.py's tolerance
   }
   return flipped ? B.reverse() : B;
 }
 
-function smartBackground(be, intensity, maxIter, rawIntensity) {
-  // Constrained Shirley: B = min(T(B), I) — the problem, why clamping the Shirley
-  // solution solves it, its assumptions and its noise bias: fitting.smart_background's
-  // docstring (docs/findings/background-math/).
-  // The Shirley runs on `intensity` (the endpoint-averaged copy); the clamp is
-  // against the RAW data (`rawIntensity`, defaulting to `intensity`), as
-  // fitting.smart_background does: averaging only ever moves the background,
-  // never the reported net counts (Task 4 S5, unit 4 2026-09-27 — at an
-  // endpoint average of 10 the two sides differed by up to 1 % of the span at
-  // the averaged edges).
+function smartBackground(be, intensity, maxIter, nAvg) {
+  // fitting.smart_background: B = min(T(B), I) — the clamp of the Shirley solution
+  // (the integral and the clamp both read the raw data, so it solves the
+  // constrained problem: s(min(B, I)) = s(B)).
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-  const raw = rawIntensity || intensity;
-  const shir = shirleyBackground(be, intensity, maxIter);
-  for (let i = 0; i < n; i++) shir[i] = Math.min(shir[i], raw[i]);
+  const shir = shirleyBackground(be, intensity, maxIter, nAvg);
+  for (let i = 0; i < n; i++) shir[i] = Math.min(shir[i], intensity[i]);
   return shir;
 }
 
-// Constrained Shirley, the constraint inside the iteration, B <- min(T(B), I): the problem of
-// smartBackground with the edge LEVELS averaged and the measured data integrated —
-// fitting.smart_experimental_background's docstring (docs/findings/background-math/).
 function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
+  // fitting.smart_experimental_background: the projected iteration B <- min(T(B), I).
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-
-  // fitting.py's smart_experimental_background operation for operation (unit 4,
-  // Codex round 4 prep): an ascending copy, numpy's endpoint means and linspace
-  // start, the 1e-6 stop, flipped back. The page's own version stopped at 1e-4
-  // and integrated a descending grid from the other end: up to 1.4 % of the span
-  // on the parity test's randomised spectra.
-  const flipped = be[0] > be[n - 1];
-  const xs = flipped ? be.slice().reverse() : be.slice();
-  const ys = flipped ? intensity.slice().reverse() : intensity.slice();
-  const cap = Math.max(1, Math.min(nAvg || 1, Math.floor(n / 4)));
-  const bLow = _npMean(ys.slice(0, cap));        // low-BE endpoint
-  const bHigh = _npMean(ys.slice(n - cap));      // high-BE endpoint
-  const step = bLow - bHigh;
-
-  // Linear initial guess: np.linspace(bLow, bHigh, n)
-  const inc = (bHigh - bLow) / (n - 1);
-  let B = new Array(n);
-  for (let k = 0; k < n; k++) B[k] = k * inc + bLow;
-  B[n - 1] = bHigh;
-
+  const { xs, ys, flipped } = _bgAscending(be, intensity);
+  const [bLow, bHigh] = _bgEdgeLevels(ys, nAvg);
+  const stop = BG_REL_TOL * _bgSpan(ys);
+  let B = _npLinspace(bLow, bHigh, n);
   for (let iter = 0; iter < maxIter; iter++) {
-    const prev = B;
-    const signal = new Array(n);
-    for (let k = 0; k < n; k++) signal[k] = Math.max(ys[k] - B[k], 0);
-    // Cumulative integral from the high-BE end (right) back to each point
-    const cumRight = new Array(n).fill(0);
-    for (let i = n - 2; i >= 0; i--) cumRight[i] = cumRight[i + 1] + (signal[i] + signal[i + 1]) / 2 * (xs[i + 1] - xs[i]);
-    const total = cumRight[0];
-    if (total <= 0) break;
-    // Constrain during iteration: where the background exceeds the data, lock
-    // to the data (this moves the effective Shirley start inward).
+    const T = _bgShirleyMap(xs, ys, B, bLow, bHigh);
+    if (T === null) break;
     const next = new Array(n);
-    for (let k = 0; k < n; k++) next[k] = Math.min(bHigh + step * (cumRight[k] / total), ys[k]);
+    for (let k = 0; k < n; k++) next[k] = Math.min(T[k], ys[k]);
+    if (_bgMaxAbsDiff(next, B) <= stop) break;
     B = next;
-    let maxChange = 0;
-    for (let k = 0; k < n; k++) maxChange = Math.max(maxChange, Math.abs(B[k] - prev[k]));
-    if (maxChange < 1e-6) break;
   }
-
-  for (let k = 0; k < n; k++) B[k] = Math.min(B[k], ys[k]);   // final safety clamp
+  for (let k = 0; k < n; k++) B[k] = Math.min(B[k], ys[k]);   // the line, if the first step already stopped
   return flipped ? B.reverse() : B;
 }
 
@@ -4536,61 +4538,91 @@ function linearBackground(be, intensity) {
 // K(T) = B·T/(C+T²)² with B = 2866 eV², C = 1643 eV² (S. Tougaard,
 // Surf. Interface Anal. 11, 453 (1988); kernel max at sqrt(C/3) ≈ 23.4 eV).
 // C was long shipped squared (1643*1643) — fixed 2026-07-04 with the backend.
-function tougaardBackground(be, intensity, nAvg) {
+// The loss sum of fitting._tougaard_loss on the DESCENDING working grid: the
+// edge levels (endpoint averaging sets these only), C0 = the low-BE level, the
+// kernel run over the raw data's net above it with local quadrature weights.
+function _tougaardLoss(be, intensity, nAvg) {
   const n = be.length;
-  if (n < 2) return new Array(n).fill(0);
   const B = 2866, C = 1643;
-  // The one-sided loss sum (j >= i) is physical only on a DESCENDING BE
-  // grid (loss contributions come from lower-BE / higher-KE emitters).
-  // Normalize to descending internally and flip back, like the backend.
+  // The one-sided loss sum (j >= i) is physical only on a DESCENDING BE grid
+  // (loss contributions come from lower-BE / higher-KE emitters).
   const flipped = be[0] < be[n - 1];
   const beW = flipped ? [...be].reverse() : be;
-  let inW = flipped ? [...intensity].reverse() : intensity;
-  if (nAvg > 1) inW = _applyEndpointAveraging(inW, nAvg);
-  // C0 — the pre-loss constant (F1, 2026-07-17). The idealized Tougaard
-  // integral assumes the window BEGINS loss-free, so J at the low-BE edge is
-  // the zero-loss level. Real windows never satisfy that: the out-of-window
-  // inelastic baseline from every lower-BE (higher-KE) transition cannot be
-  // reproduced by a window-limited integral, and since K(0) = 0 the bare
-  // integral is identically zero at the low-BE edge REGARDLESS of the data —
-  // the background dove to ~0 there and a flat window produced phantom
-  // signal. Take the low-BE level as a constant offset, run the kernel over
-  // the net above it, then anchor the amplitude at the high-BE edge.
-  const c0 = inW[n - 1];
-  // Local quadrature weights (F2, 2026-07-17): weight each term by its own
-  // energy spacing instead of a single dx lifted from the first two points,
-  // which silently assumed a uniform grid.
+  const inW = flipped ? [...intensity].reverse() : intensity;
+  // C0 — the pre-loss constant (F1, 2026-07-17): the out-of-window inelastic
+  // baseline a window-limited integral cannot reproduce (K(0) = 0 makes the bare
+  // integral zero at the low-BE edge whatever the data). The low-BE LEVEL is the
+  // offset, the kernel runs over the net above it, the amplitude is anchored at
+  // the high-BE LEVEL.
+  const [aHigh, c0] = _bgEdgeLevels(inW, nAvg);
+  // Local quadrature weights (F2, 2026-07-17): each term's own energy spacing.
   const w = new Array(n);
   for (let i = 0; i < n; i++) {
     if (i === 0) w[0] = Math.abs(beW[1] - beW[0]);
     else if (i === n - 1) w[n - 1] = Math.abs(beW[n - 1] - beW[n - 2]);
     else w[i] = Math.abs(beW[i + 1] - beW[i - 1]) / 2;
   }
-  const bg = new Array(n).fill(0);
+  const loss = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
     let sum = 0;
     for (let j = i; j < n; j++) {
       const T = Math.abs(beW[j] - beW[i]);
       sum += (B * T) / Math.pow(C + T * T, 2) * (inW[j] - c0) * w[j];
     }
-    bg[i] = sum;
+    loss[i] = sum;
   }
-  // Amplitude anchor at the HIGH-BE edge (index 0 after normalization):
-  // scale so the background meets the measured intensity above the peak —
+  return { loss, aHigh, c0, flipped };
+}
+
+function tougaardBackground(be, intensity, nAvg) {
+  const n = be.length;
+  if (n < 2) return new Array(n).fill(0);
+  const { loss, aHigh, c0, flipped } = _tougaardLoss(be, intensity, nAvg);
+  // Amplitude anchor at the HIGH-BE edge level (index 0 after normalization) —
   // the practical Tougaard criterion (B effectively fitted; C alone sets the
-  // kernel shape). Guard: if no net loss signal accumulates at the high-BE
-  // edge (bg[0] === 0 — e.g. a flat or empty window) the honest background is
-  // the flat pre-loss level C0 itself, NOT zeros; zeros would report the
-  // whole baseline as net signal (the pre-F1 behaviour). Negative counts
-  // (physically invalid input) pass through signed; no clamping here.
+  // kernel shape). A zero loss sum there leaves the amplitude unfixed: the flat
+  // C0 is returned and the certificate judges it (findings F11).
   let out;
-  if (bg[0] === 0) {
-    out = new Array(n).fill(c0);
-  } else {
-    const scale = (inW[0] - c0) / bg[0];
-    out = bg.map(v => c0 + v * scale);
-  }
+  if (loss[0] === 0) out = new Array(n).fill(c0);
+  else { const scale = (aHigh - c0) / loss[0]; out = loss.map(v => c0 + v * scale); }
   return flipped ? out.reverse() : out;
+}
+
+// fitting.background_certificate's twin: is `bg` a solution of its method's
+// defining statement? { converged, residual, reason } — the same tests, the
+// same BG_REL_TOL, the same plain reasons.
+function _bgCertificate(be, intensity, bg, type, nAvg) {
+  const label = BG_LABELS[type];
+  if (!bg.every(Number.isFinite)) return { converged: false, residual: null, reason: 'the computed background is not finite' };
+  if (!label) return { converged: true, residual: null, reason: null };
+  const n = be.length;
+  if (n < 2) return { converged: false, residual: null, reason: 'the background window holds fewer than two data points' };
+  if (type === 'tougaard') {
+    const { loss, aHigh, c0 } = _tougaardLoss(be, intensity, nAvg);
+    if (loss[0] !== 0) return { converged: true, residual: null, reason: null };
+    if (aHigh === c0 && loss.every(v => v === 0)) return { converged: true, residual: null, reason: null };
+    if (aHigh === c0) return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge cancels to zero, so the edge does not fix the background\'s amplitude and different amplitudes give different backgrounds' };
+    return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level' };
+  }
+  const { xs, ys, flipped } = _bgAscending(be, intensity);
+  const Ba = flipped ? bg.slice().reverse() : bg;
+  const span = _bgSpan(ys);
+  const [bLow, bHigh] = _bgEdgeLevels(ys, nAvg);
+  let target = null;
+  if (type === 'shirley_linear') {
+    const L = _npLinspace(bLow, bHigh, n), d = Math.abs(bLow - bHigh);
+    const Q = _bgCumFromHigh(xs, ys.map((v, k) => Math.max(v - Ba[k], 0)));
+    if (d === 0) target = L.map((v, k) => Math.min(v, ys[k]));
+    else if (Q[0] > 0) target = L.map((v, k) => Math.min(v + d * Q[k] / Q[0], ys[k]));
+  } else {
+    const T = _bgShirleyMap(xs, ys, Ba, bLow, bHigh);
+    if (T !== null) target = type === 'shirley' ? T : T.map((v, k) => Math.min(v, ys[k]));
+  }
+  if (target === null) return { converged: false, residual: null, reason: 'the data lie at or below the line between the two edge levels, so there is no net signal and the ' + label + ' relation is undefined' };
+  const diff = _bgMaxAbsDiff(Ba, target);
+  const residual = span > 0 ? diff / span : (diff === 0 ? 0 : Infinity);
+  if (residual <= BG_REL_TOL) return { converged: true, residual, reason: null };
+  return { converged: false, residual, reason: 'its iteration did not settle on a solution (it alternates or ran out of steps); the result misses the ' + label + ' relation by ' + (100 * residual).toPrecision(3) + ' % of the intensity span' };
 }
 
 // Apply endpoint averaging: replace first/last N points with their mean so
@@ -4630,71 +4662,38 @@ function _applyEndpointAveraging(intensity, nAvg) {
   return out;
 }
 
-// A REVERSED-STEP background (fitting.shirley_linear_background's docstring). On an
-// ASCENDING grid, when its iteration converges (it can cycle: background-math F12),
-// it solves the server's B = min(L + d(1 - F(B)), I) — a line (affine
-// in index) plus a step that is largest at the LOW-BE edge, the reverse of inelastic
-// scattering. It does NOT reverse a descending grid (the usual XPS order), so there
-// it accumulates from the other edge and draws a different curve from the server's
-// (Codex rounds 2-3: on a 5-point example its equation residual is 7.6 % of the span
-// and it differs from the server's curve by 7.8 %; the pinned page / server
-// gap; tests/js/shirley_linear_statement.test.js). Equal edge levels return the line
-// unclamped. De-listed; kept so saved files restore. Completely standalone — does
-// not call shirleyBackground.
+// A REVERSED-STEP background (fitting.shirley_linear_background's docstring):
+// B = min(L + d(1 - F(B)), I), a line between the averaged edge levels (affine in
+// index) plus a step that is largest at the LOW-BE edge — the reverse of inelastic
+// scattering. De-listed; kept so saved files restore. Since 2026-10-01 it mirrors the
+// server operation for operation, including the ascending copy it used to skip (on a
+// descending grid it accumulated from the other edge: 7.8 % of the span from the
+// server's curve on a 5-point example). Equal edge levels return the line unclamped
+// (the certificate then reports it).
 function shirleyLinearBackground(be, intensity, maxIter, nAvg) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-
-  // 1. Averaged endpoints
-  const cap = Math.min(nAvg || 1, Math.floor(n / 4)) || 1;
-  let sL = 0, sR = 0;
-  for (let i = 0; i < cap; i++) sL += intensity[i];
-  for (let i = n - cap; i < n; i++) sR += intensity[i];
-  const IL = sL / cap;   // left (high-BE) endpoint
-  const IR = sR / cap;   // right (low-BE) endpoint
-
-  // 2. Linear baseline between averaged endpoints
-  const linear = new Array(n);
-  for (let i = 0; i < n; i++) linear[i] = IL + (IR - IL) * i / (n - 1);
-
-  // 3. Flatten: subtract linear baseline
-  const flat = intensity.map((v, i) => v - linear[i]);
-
-  // 4. Iterative Shirley-like correction on the flattened data.
-  //    Step height = |IL - IR| (the endpoint difference drives the Shirley step).
-  const stepH = Math.abs(IL - IR);
-  if (stepH < 1e-12) return linear;   // endpoints equal → pure linear
-
-  let bg = new Array(n).fill(0);      // Shirley correction term
-
+  const { xs, ys, flipped } = _bgAscending(be, intensity);
+  const [IL, IH] = _bgEdgeLevels(ys, nAvg);
+  const linear = _npLinspace(IL, IH, n);
+  const flat = ys.map((v, k) => v - linear[k]);
+  const stepH = Math.abs(IL - IH);
+  if (stepH < 1e-12) return flipped ? linear.reverse() : linear;
+  const stop = BG_REL_TOL * _bgSpan(ys);
+  let B = new Array(n).fill(0);
   for (let iter = 0; iter < maxIter; iter++) {
-    const newBg = new Array(n).fill(0);
-    // Cumulative integral of (flattened signal - current bg) from right to left
-    let totalInt = 0;
-    for (let j = 0; j < n - 1; j++) {
-      totalInt += ((Math.max(flat[j] - bg[j], 0) + Math.max(flat[j + 1] - bg[j + 1], 0)) / 2)
-                  * Math.abs(be[j + 1] - be[j]);
-    }
-    if (totalInt <= 0) break;
-
-    for (let i = 0; i < n; i++) {
-      let sumRight = 0;
-      for (let j = i; j < n - 1; j++) {
-        sumRight += ((Math.max(flat[j] - bg[j], 0) + Math.max(flat[j + 1] - bg[j + 1], 0)) / 2)
-                    * Math.abs(be[j + 1] - be[j]);
-      }
-      // Scale by step height, normalised by total integral
-      newBg[i] = stepH * (sumRight / totalInt);
-    }
-    bg = newBg;
+    const sig = new Array(n);
+    for (let k = 0; k < n; k++) sig[k] = Math.max(flat[k] - B[k], 0);
+    const cum = _bgCumFromHigh(xs, sig), total = cum[0];
+    if (!(total > 0)) break;
+    const next = new Array(n);
+    for (let k = 0; k < n; k++) next[k] = (stepH * cum[k]) / total;
+    if (_bgMaxAbsDiff(next, B) <= stop) break;
+    B = next;
   }
-
-  // 5. Combine: linear baseline + Shirley correction, clamped to data
   const result = new Array(n);
-  for (let i = 0; i < n; i++) {
-    result[i] = Math.min(linear[i] + bg[i], intensity[i]);
-  }
-  return result;
+  for (let k = 0; k < n; k++) result[k] = Math.min(linear[k] + B[k], ys[k]);
+  return flipped ? result.reverse() : result;
 }
 
 // Clear stored background so updatePlot recomputes it
@@ -4755,13 +4754,31 @@ function _bgWindowIndices(be, bgStart, bgEnd) {
 // to reproduce a source tab's background from its persisted ui state.
 // computeBackground() below is a thin DOM-reading wrapper for callers
 // in the single-tab plot path.
+// The returned array carries the background's CERTIFICATE (background math,
+// 2026-10-01): `converged` (true / false) and `failure` (the plain reason, or
+// null). A background that does not satisfy its method's defining statement is
+// "not converged" — _bgFailure(bg) — and no caller may draw, subtract, fit
+// against, save or export it as a background. The "Shirley iterations" setting
+// is not read: every iterative background runs to convergence (BG_MAX_ITER cap),
+// exactly as the server's.
+function _bgMark(bg, converged, failure) { bg.converged = converged; bg.failure = failure || null; return bg; }
+function _bgFailure(bg) { return bg && bg.converged === false ? (bg.failure || 'the background did not converge') : null; }
+// The plain message under the method menu while the live background is not converged.
+function _refreshBgConvergenceNote(failure) {
+  const el = document.getElementById('bg-not-converged');
+  if (!el) return;
+  if (!failure) { el.style.display = 'none'; el.textContent = ''; el.dataset.failed = '0'; return; }
+  el.textContent = failure + ' Nothing is subtracted or fitted against it — change the background window, the endpoint averaging or the method.';
+  el.style.display = 'block';
+  el.dataset.failed = '1';
+}
+
 function computeBackgroundCore(be, intensity, settings) {
   const type = settings.bgType;
-  const iter = parseInt(settings.shirleyIter) || 5;
   const nAvg = parseInt(settings.endpointAvg) || 1;
 
   // Manual anchor background uses its own anchor points, not bg-start/end
-  if (type === 'manual') return manualAnchorBackground(be, intensity);
+  if (type === 'manual') return _bgMark(manualAnchorBackground(be, intensity), true);
 
   // The background window — the one definition shared with both /api/fit
   // request builders (see _bgWindowIndices). A blank bound or a window with
@@ -4773,18 +4790,17 @@ function computeBackgroundCore(be, intensity, settings) {
   const beSub = be.slice(i0, i1 + 1);
   const inSub = intensity.slice(i0, i1 + 1);
 
-  // Compute background on the sliced region — apply endpoint averaging for Shirley types
+  // Compute the background on the sliced region. Endpoint averaging sets the
+  // edge LEVELS only; every integral and clamp reads the raw slice.
   let bgSub;
-  if (type === 'shirley') bgSub = shirleyBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter);
-  else if (type === 'smart') bgSub = smartBackground(beSub, _applyEndpointAveraging(inSub, nAvg), iter, inSub);   // clamp against the raw slice
-  else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, iter, nAvg);
-  else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, iter, nAvg);
+  if (type === 'shirley') bgSub = shirleyBackground(beSub, inSub, BG_MAX_ITER, nAvg);
+  else if (type === 'smart') bgSub = smartBackground(beSub, inSub, BG_MAX_ITER, nAvg);
+  else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, BG_MAX_ITER, nAvg);
+  else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, BG_MAX_ITER, nAvg);
   else if (type === 'linear') bgSub = linearBackground(beSub, inSub);
-  // Averaged for the same reason as Shirley types: the Tougaard amplitude
-  // is anchored at the high-BE edge, so endpoint noise feeds the anchor
-  // directly. Mirrors fitting.py's run_fit / compute_background_only.
-  else if (type === 'tougaard') bgSub = tougaardBackground(beSub, _applyEndpointAveraging(inSub, nAvg));
-  else return new Array(be.length).fill(0);
+  else if (type === 'tougaard') bgSub = tougaardBackground(beSub, inSub, nAvg);
+  else return _bgMark(new Array(be.length).fill(0), true);
+  const cert = _bgCertificate(beSub, inSub, bgSub, type, nAvg);
 
   // Extend background across full data range:
   // - Points before bg region: hold first bg value (flat)
@@ -4800,7 +4816,8 @@ function computeBackgroundCore(be, intensity, settings) {
     else full[i] = bgRight;
   }
 
-  return full;
+  return _bgMark(full, cert.converged, cert.converged ? null
+    : (BG_LABELS[type] || type) + ' background not converged: ' + cert.reason + '.');
 }
 
 // Thin DOM-reading wrapper used by single-tab updatePlot. Stack render
@@ -5848,7 +5865,10 @@ function handleChartClick(event) {
   // Use clicked y-position for amplitude (accounts for background)
   // Subtract background to get net amplitude
   const bgIntensity = computeBackground(be, inten);
-  const netAmplitude = Math.max(intensityValue - bgIntensity[closestIdx], 100);
+  // a background that did not converge is not subtracted (background math, 2026-10-01):
+  // the clicked height is the starting amplitude
+  const bgAt = _bgFailure(bgIntensity) ? 0 : bgIntensity[closestIdx];
+  const netAmplitude = Math.max(intensityValue - bgAt, 100);
 
   if (placeMode === 'peak') {
     addPeak({
@@ -7385,6 +7405,13 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   // 5. Build state.fitResult exactly as runFit() does.
   const { be: be2, inten: inten2 } = getROIData();
   const bgI2 = computeBackground(be2, inten2);
+  // After the charge shift the window may hold other points: a background that
+  // does not satisfy its statement is refused (the caller restores everything,
+  // the charge correction included).
+  if (_bgFailure(bgI2)) {
+    notify('Auto-fit not applied: ' + _bgFailure(bgI2), 'red', true);
+    return false;
+  }
   const bgSub2 = inten2.map((v, i) => v - bgI2[i]);
   const stats = json.statistics || {};
   const chiReduced = stats.reduced_chi_square || 0;
@@ -7700,6 +7727,12 @@ async function runAutoFitC1sGraphite() {
     return;
   }
   const bgI = computeBackground(corrBE, inten);
+  // A background that does not satisfy its statement is not used (background
+  // math, 2026-10-01): refused here, in the preflight, so a running Run Fit is left alone.
+  if (_bgFailure(bgI)) {
+    notify('Auto-Fit not run: ' + _bgFailure(bgI), 'red', true);
+    return;
+  }
   const bgSub = inten.map((v, i) => v - bgI[i]);
   // App convention: raw = corrected + state.ccShift
   const curShift = Number.isFinite(state.ccShift) ? state.ccShift : 0;
@@ -8272,6 +8305,15 @@ async function useAlternative(k) {
 async function runFit(opts = {}) {
   if (!state.rawBE.length) { notify('Load a spectrum first.', 'red', true); return; }
   if (!state.peaks.length) { notify('Add at least one peak.', 'red'); return; }
+  // A background that does not satisfy its defining statement is never fitted
+  // against (background math, 2026-10-01) — refused before anything changes:
+  // no undo entry, no spinner, no request, no local fallback. The server
+  // refuses the same background (HTTP 422) by the same certificate.
+  {
+    const r = getROIData();
+    const failure = _bgFailure(computeBackground(r.be, r.inten));
+    if (failure) { notify('Fit not run: ' + failure, 'red', true); return; }
+  }
   pushUndo();
 
   _showFitSpinner();
@@ -9500,6 +9542,9 @@ function _buildEntryRenderData(entry) {
     be = corrBE.slice(i0, i1 + 1);
     rawY = src.rawIntensity.slice(i0, i1 + 1);
     bg = _computeBackgroundForSource(be, rawY, src.ui);
+    // a reconstructed background that does not satisfy its statement is not
+    // drawn under a fit (background math, 2026-10-01): the entry shows no fit
+    if (_bgFailure(bg)) return { be: [], bg: [], rawY: [], fittedY: [], peaks: [], bgFailure: _bgFailure(bg) };
   }
 
   // Envelope (raw-level)
@@ -9969,8 +10014,17 @@ function updatePlot() {
   // When a fit exists, they come from the frozen fit state — ROI changes don't affect them.
   // Before fitting, they come from the current ROI so live peak previews still work.
   const plotBE = haveFit ? state.fitResult.be : be;
+  // Background math (2026-10-01): the live background is certified against its
+  // defining statement on every update; a failure is said under the method menu
+  // and, before a fit, nothing is drawn, subtracted or fitted against it (peak
+  // previews sit on zero, which claims no background). After a fit the fit's own
+  // background stays frozen as drawn; its statistics go stale on the change.
+  const liveBg = be.length ? computeBackground(be, inten) : [];
+  const liveBgFailure = _bgFailure(liveBg);
+  _refreshBgConvergenceNote(liveBgFailure);
+  const preFitBgFails = !haveFit && !!liveBgFailure;
   const plotBG = haveFit ? state.fitResult.bgIntensity
-                         : (be.length ? computeBackground(be, inten) : []);
+                         : (preFitBgFails ? new Array(be.length).fill(0) : liveBg);
   const plotInten = haveFit && Array.isArray(state.fitResult.bgSubtracted)
                     ? state.fitResult.bgSubtracted.map((v, i) => v + plotBG[i])
                     : inten;
@@ -10003,7 +10057,7 @@ function updatePlot() {
   // The flag is read once per updatePlot() call so all dataset branches
   // see a consistent value. _isBgSubViewActive() is defensive — it
   // returns false if bg-type is "none" even when the pill is checked.
-  const bgSubView = _isBgSubViewActive();
+  const bgSubView = _isBgSubViewActive() && !preFitBgFails;
 
   // Individual peaks drawn first (bottom layer) — frozen to fit range after fit
   const showFill = document.getElementById('show-fill').checked;
@@ -10042,8 +10096,9 @@ function updatePlot() {
     }
   }
 
-  // Background — frozen to fit range after fit. Hidden in subtracted view.
-  if (plotBE.length && !bgSubView) {
+  // Background — frozen to fit range after fit. Hidden in subtracted view, and
+  // never drawn when it did not converge.
+  if (plotBE.length && !bgSubView && !preFitBgFails) {
     datasets.push({
       label: 'Background',
       data: plotBE.map((b, i) => ({ x: b, y: plotBG[i] })),
@@ -10718,13 +10773,17 @@ function _doSaveSpectrum() {
   // Compute current curves
   const { be, inten } = getROIData();
   const bgIntensity = computeBackground(be, inten);
+  // a background that does not satisfy its statement is not written as one
+  // (background math, 2026-10-01): no background, residuals or composed
+  // envelope; the file says why
+  const bgFail = _bgFailure(bgIntensity);
   const modelFull = evalAllPeaks(be, state.peaks);
   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
   const residuals = bgSub.map((v, i) => v - modelFull[i]);
   // F1: a stale result's stored curve is the previous model's; the file's
   // fittedY then matches its residuals (the current model), as with no fit
   const _saveStats = _statsLiveState();
-  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || modelFull.map((v, i) => v + bgIntensity[i]);
+  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || (bgFail ? null : modelFull.map((v, i) => v + bgIntensity[i]));
 
   // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
   // for LACX with caM > 0, only the array evaluator applies the shape's
@@ -10776,9 +10835,10 @@ function _doSaveSpectrum() {
     nextId: tab.nextId,
     ui: {...tab.ui},
     roiBE: be,
-    background: bgIntensity,
+    background: bgFail ? null : bgIntensity,
+    backgroundFailure: bgFail || null,
     fittedY: fittedY,
-    residuals: residuals,
+    residuals: bgFail ? null : residuals,
     peakCurves: peakCurves,
     statistics: stats,
     notes: tab.notes || '',
@@ -11415,15 +11475,19 @@ function exportResults() {
   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
   const resid = bgSub.map((v, i) => v - modelFull[i]);
 
+  // a background that does not satisfy its statement is not exported as one
+  // (background math, 2026-10-01): its columns stay empty and the file says why
+  const bgFail = _bgFailure(bgIntensity);
   for (let i = 0; i < be.length; i++) {
     rows.push([
-      be[i].toFixed(4), inten[i].toFixed(2), bgIntensity[i].toFixed(2),
-      bgSub[i].toFixed(2), modelFull[i].toFixed(2), resid[i].toFixed(2),
+      be[i].toFixed(4), inten[i].toFixed(2), bgFail ? '' : bgIntensity[i].toFixed(2),
+      bgFail ? '' : bgSub[i].toFixed(2), modelFull[i].toFixed(2), bgFail ? '' : resid[i].toFixed(2),
       ...peakCols.map(col => col[i].toFixed(2))
     ]);
   }
 
-  const warning = _isLocalModel() ? '# WARNING: ' + _localFitCaveat(_governingProvenance()) + '\n' : '';
+  const warning = (_isLocalModel() ? '# WARNING: ' + _localFitCaveat(_governingProvenance()) + '\n' : '') +
+    (bgFail ? '# WARNING: ' + bgFail + ' The Background, BG-subtracted and Residual columns are empty.\n' : '');
   // F1: the columns are computed from the CURRENT peaks; after an edit they
   // are the edited, unfitted model, not the last fit's curve
   const staleNote = _statsLiveState() === 'stale'
@@ -11462,6 +11526,9 @@ function _doPublicationExport() {
   if (!be.length) { notify('No data in ROI.', 'red'); return; }
 
   const bgArr   = computeBackground(be, inten);
+  // every component is drawn on the background: one that does not satisfy its
+  // statement makes no figure (background math, 2026-10-01)
+  if (_bgFailure(bgArr)) { notify('Figure not exported: ' + _bgFailure(bgArr), 'red', true); return; }
   // F1: a stale result's fitted curve is the previous model's: not drawn as "Fit"
   const _figStats = _statsLiveState();
   const fittedY = (_figStats !== 'stale' && state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
@@ -12655,8 +12722,11 @@ async function runPropagation() {
     const roiSt = _roiWindowStatus();    // warn only: the fit below uses getROIData() exactly as before
     const { be, inten } = getROIData();
     const bgI = computeBackground(be, inten);
+    // a background that does not satisfy its statement is never fitted against
+    // (background math, 2026-10-01): this target is NOT fitted, and says why
+    const bgFail = _bgFailure(bgI);
     const bgSub = inten.map((v, idx) => v - bgI[idx]);
-    const outcome = runFitLocal(be, bgSub, bgI);
+    const outcome = bgFail ? { success: false, message: bgFail } : runFitLocal(be, bgSub, bgI);
 
     // Sync result back to record
     tabManager._syncActiveToRecord();

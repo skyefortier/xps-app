@@ -3,9 +3,9 @@
 // Codex round 2): B = min(L + d(1 - F(B)), I), L the line between the averaged
 // edge levels affine in the point INDEX, d = |b_low - b_high|, F the cumulative
 // fraction of max(I - B, 0) from the low-BE edge. When its iteration converges
-// (it can cycle: findings F12) the page solves it on an ASCENDING grid only; it
-// does not reverse a descending one, so there it accumulates from the other edge
-// (the pinned page / server gap).
+// (it can cycle: findings F12 — the certificate then says so) the page solves it
+// on BOTH grid directions since 2026-10-01: it used to skip the server's
+// ascending copy and accumulate a descending grid from the other edge.
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -22,7 +22,7 @@ function extractFn(name) {
     if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
   }
 }
-const shirleyLinearBackground = new Function(extractFn('shirleyLinearBackground') + '\nreturn shirleyLinearBackground;')();
+const { shirleyLinearBackground } = new Function(require('./_page_background_source.js')() + '\nreturn { shirleyLinearBackground };')();
 
 // the statement, written independently, on the grid as ordered ASCENDING in energy
 function residual(E, I, B, nAvg) {
@@ -60,8 +60,10 @@ test('on an ascending grid the page solves the stated equation (uniform and non-
   }
 });
 
-test('on a descending grid it does not (the known page / server gap)', () => {
+test('on a descending grid it solves it too, and gives the ascending answer reversed (the page / server gap is closed)', () => {
   const E = [4, 3, 2, 1, 0], I = [12, 25, 30, 20, 10];          // Codex round 2's example
   const B = shirleyLinearBackground(E, I, 200, 1);
-  assert.ok(residual(E, I, B, 1) > 0.05, `residual ${residual(E, I, B, 1)}`);
+  assert.ok(residual(E, I, B, 1) < 1e-9, `residual ${residual(E, I, B, 1)}`);
+  const asc = shirleyLinearBackground([...E].reverse(), [...I].reverse(), 200, 1).reverse();
+  assert.deepStrictEqual(B, asc);
 });

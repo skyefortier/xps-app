@@ -65,11 +65,12 @@ def test_shirley_solves_the_shirley_relation(descending):
     y = np.random.default_rng(0).poisson(y).astype(float)
     x, y = (X[::-1].copy(), y[::-1].copy()) if descending else (X, y)
     for ep in (1, 3, 10):
-        assert D.shirley_residual(x, y, fitting.shirley_background(x, y, n_avg=ep), ep, "data") < ROUND
+        assert D.shirley_residual(x, y, fitting.shirley_background(x, y, n_avg=ep), ep, "levels") < ROUND
 
 
 def test_shirley_solves_its_relation_on_every_committed_spectrum():
-    assert max(D.shirley_residual(x, y, fitting.shirley_background(x, y, n_avg=ep), ep, "data") for _, x, y, ep in SPECTRA) < ROUND
+    # endpoint averaging sets the edge LEVELS only (owner, 2026-10-01; findings F1)
+    assert max(D.shirley_residual(x, y, fitting.shirley_background(x, y, n_avg=ep), ep, "levels") for _, x, y, ep in SPECTRA) < ROUND
 
 
 def test_FINDING_the_shirley_relation_can_have_several_solutions():
@@ -130,16 +131,18 @@ def test_FINDING_the_two_readings_of_endpoint_averaging():
     assert len(gaps) == 13 and 1e-4 < max(gaps) < 1.1e-3
 
 
-def test_FINDING_the_shirley_stop_is_absolute():
-    # 1e-6 INTENSITY UNITS, not relative: the same spectrum in other units stops elsewhere;
-    # negligible on the committed spectra (findings F5)
+def test_the_shirley_stop_is_relative_to_the_span():
+    # findings F5, fixed 2026-10-01: the stop was 1e-6 INTENSITY UNITS, so the same spectrum in
+    # other units stopped elsewhere (at 1e-6 of the units: 1.4e-5 of the span from the solution);
+    # now it is BG_REL_TOL of the span, so every scale reaches the same relative answer
     _, x, y, ep = next(s for s in SPECTRA if s[3] == 1)
-    rel = []
-    for scale in (1.0, 1e-6):
-        ref, _, ok, _ = D.solve(x, y * scale, ep, "data")
+    base = fitting.shirley_background(x, y, n_avg=ep)
+    for scale in (1.0, 1e-6, 1e6):
+        ref, _, ok, _ = D.solve(x, y * scale, ep, "levels")
         assert ok
-        rel.append(np.max(np.abs(fitting.shirley_background(x, y * scale, n_avg=ep) - ref)) / D.span_of(y * scale))
-    assert rel[0] < ROUND and rel[1] > 10 * rel[0]
+        B = fitting.shirley_background(x, y * scale, n_avg=ep)
+        assert np.max(np.abs(B - ref)) / D.span_of(y * scale) < ROUND
+        assert np.max(np.abs(B / scale - base)) / D.span_of(y) < ROUND
 
 
 # ── smart and smart_exp: B = min(T(B), I) ────────────────────────────────────
@@ -153,15 +156,13 @@ def test_smart_solves_the_constrained_problem_when_it_reads_the_data_as_measured
         assert res < ROUND and viol == 0.0
 
 
-def test_FINDING_smart_with_endpoint_averaging_solves_no_single_statement():
-    # its integrand reads the averaged data, its clamp the raw data: on the committed spectra with
-    # n_avg > 1 it misses the constrained statement under either reading (findings F1)
+def test_smart_solves_the_constrained_problem_at_every_averaging():
+    # findings F1, fixed 2026-10-01: its integrand read the averaged DATA and its clamp the raw
+    # data, so at n_avg > 1 it missed the statement under either reading (up to 1.1e-3 of the
+    # span); now both read the raw data and averaging sets the levels only
     for _, x, y, ep in SPECTRA:
-        if ep > 1:
-            B = fitting.smart_background(x, y, n_avg=ep)
-            worst = min(D.constrained_residual(x, y, B, ep, how)[0] for how in ("data", "levels"))
-            if ep >= 25:
-                assert worst > 1e-5
+        B = fitting.smart_background(x, y, n_avg=ep)
+        assert D.constrained_residual(x, y, B, ep, "levels")[0] < ROUND
 
 
 @pytest.mark.parametrize("descending", [True, False])
@@ -225,15 +226,17 @@ def test_linear_is_the_affine_line_through_the_endpoints():
 
 
 def test_tougaard_solves_its_integral_relation_and_meets_its_anchor():
-    # an independent double sum under its own reading ("data"); the anchor B(E_high) = D(E_high);
-    # within 1e-5 of the span of an independent 10x-refined integral
+    # an independent double sum under its reading since 2026-10-01 ("levels": the edge levels from
+    # the averaged ends, the raw data integrated); the anchor B(E_high) = the high-BE level;
+    # within 2e-5 of the span of an independent 10x-refined integral (measured: <= 1.35e-5 on
+    # all 121 committed spectra, 2.7e-3 % of net area; 8.4e-6 under the old "data" reading)
     for _, x, y, ep in SPECTRA[::4]:
         Bt = fitting.tougaard_background(x, y, n_avg=ep)
         sp = D.span_of(y)
-        assert np.max(np.abs(Bt - D.tougaard_statement(x, y, ep, "data"))) / sp < ROUND
-        loss, xa, Dd, c0, dhi, flip = D.tougaard_loss(x, y, ep, "data")
+        assert np.max(np.abs(Bt - D.tougaard_statement(x, y, ep, "levels"))) / sp < ROUND
+        loss, xa, Dd, c0, dhi, flip = D.tougaard_loss(x, y, ep, "levels")
         assert abs((Bt[-1] if flip else Bt[0]) - dhi) / sp < ROUND
-        assert np.max(np.abs(Bt - D.tougaard_refined(x, y, ep, "data"))) / sp < 1e-5
+        assert np.max(np.abs(Bt - D.tougaard_refined(x, y, ep, "levels"))) / sp < 2e-5
 
 
 def test_FINDING_tougaard_when_the_discrete_loss_sum_vanishes():
@@ -382,14 +385,14 @@ def test_FINDING_the_near_uniform_error_is_not_bounded_by_the_tolerance():
     assert 0.1 < d < 0.2
 
 
-def test_FINDING_a_general_solver_replacement_would_move_converged_answers():
-    # Codex round 4 (F12 option iii): production stops at its absolute 1e-6 step (F5) short of the
-    # exact solution on a converging case; a solver that reached it would change the net area
+def test_the_relative_stop_reaches_the_exact_solution_on_a_converging_case():
+    # Codex round 4 (F12 option iii) found the absolute 1e-6 stop (F5) leaving this case short of
+    # its exact solution (net area 0.40000537 vs 0.4); the relative stop (2026-10-01) reaches it
     E, I = np.arange(4.0), np.array([1.0, 1.72, 1.98, 2.0])
     B = fitting.shirley_background(E, I)
     exact = np.array([1.0, 1.4, 1.9, 2.0])
     assert D.shirley_residual(E, I, exact) < ROUND
-    assert np.trapezoid(I - B, E) - np.trapezoid(I - exact, E) > 1e-6
+    assert np.max(np.abs(B - exact)) / D.span_of(I) < 1e-11
 
 
 def test_FINDING_averaging_reduces_but_does_not_remove_the_constraints_increment():

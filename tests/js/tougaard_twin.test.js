@@ -20,16 +20,11 @@ const path = require('node:path');
 
 const html = fs.readFileSync(
   path.join(__dirname, '../../templates/index.html'), 'utf8');
-const match = html.match(/function tougaardBackground\([\s\S]*?\n\}/);
-assert.ok(match, 'tougaardBackground not found in templates/index.html');
-const tougaardBackground = eval('(' + match[0] + ')');
-
-const avgMatch = html.match(/function _applyEndpointAveraging\([\s\S]*?\n\}/);
-assert.ok(avgMatch, '_applyEndpointAveraging not found in templates/index.html');
-// _applyEndpointAveraging takes numpy's mean (_npMean, unit 4 round 3).
-const _npPairwiseSum = eval('(' + html.match(/function _npPairwiseSum\([\s\S]*?\n\}/)[0] + ')');
-const _npMean = eval('(' + html.match(/function _npMean\(.*\}$/m)[0] + ')');
-const _applyEndpointAveraging = eval('(' + avgMatch[0] + ')');
+// The page's whole background section (shared helper: tougaardBackground now
+// shares _tougaardLoss / _bgEdgeLevels / _npMean with the other twins).
+const { tougaardBackground, computeBackgroundCore, _applyEndpointAveraging } = new Function(
+  require('./_page_background_source.js')() +
+  '\nreturn { tougaardBackground, computeBackgroundCore, _applyEndpointAveraging };')();
 
 function syntheticSpectrum() {
   // Same C 1s-like region as the Python tests: descending BE, dx = 0.1 eV.
@@ -143,33 +138,13 @@ test('agrees with the backend implementation (fitting.py) on the same spectrum',
   }
 });
 
-// --- Codex review finding (2026-07-04, both runs, MAJOR): the shipped
-// caller computeBackgroundCore passed RAW intensity to tougaardBackground
-// while every backend caller applies endpoint averaging first. With the
-// high-BE-edge anchor, averaging directly sets the anchor amplitude, so
-// the caller contract — not just the function — must match the backend
-// (fitting.py run_fit / compute_background_only both do
-// tougaard_background(x, _apply_endpoint_averaging(y, n))).
-test('computeBackgroundCore applies endpoint averaging for tougaard (both branches)', () => {
-  const coreMatch = html.match(/function computeBackgroundCore\([\s\S]*?\n\}/);
-  assert.ok(coreMatch, 'computeBackgroundCore not found in templates/index.html');
-  // Stubs for background types this test never routes to; the eval'd
-  // function closes over this scope, so these names resolve at call time.
-  const manualAnchorBackground = () => { throw new Error('unexpected route: manual'); };
-  const shirleyBackground = () => { throw new Error('unexpected route: shirley'); };
-  const smartBackground = () => { throw new Error('unexpected route: smart'); };
-  const smartExperimentalBackground = () => { throw new Error('unexpected route: smart_exp'); };
-  const shirleyLinearBackground = () => { throw new Error('unexpected route: shirley_linear'); };
-  const linearBackground = () => { throw new Error('unexpected route: linear'); };
-  // The window helper computeBackgroundCore now shares with the /api/fit
-  // request builders (unit 1c); evaluate the shipped one, not a stub.
-  const winMatch = html.match(/function _bgWindowIndices\([\s\S]*?\n\}/);
-  assert.ok(winMatch, '_bgWindowIndices not found in templates/index.html');
-  const _bgWindowIndices = eval('(' + winMatch[0] + ')');
-  const computeBackgroundCore = eval('(' + coreMatch[0] + ')');
-
-  // Descending grid with an outlier at the high-BE edge: raw vs 3-point
-  // averaged anchors differ by construction (Codex's concrete scenario).
+// --- Endpoint averaging sets the EDGE LEVELS only (owner, 2026-10-01; background
+// math F1): the anchor is the mean of the first k high-BE points, C0 the mean of
+// the last k, and the loss sum runs over the RAW data — the server's reading
+// (fitting._tougaard_loss). Until then the page and the server replaced the end
+// bands of the DATA by their means and integrated that modified spectrum.
+test('computeBackgroundCore reads tougaard endpoint averaging as the edge levels only (both window branches)', () => {
+  // Descending grid with an outlier at the high-BE edge and a peak.
   const n = 21;
   const be = [], intensity = [];
   for (let i = 0; i < n; i++) { be.push(292.0 - 0.5 * i); intensity.push(100); }
@@ -177,24 +152,16 @@ test('computeBackgroundCore applies endpoint averaging for tougaard (both branch
   intensity[10] = 4000;   // a peak so the correlation is non-trivial
 
   const nAvg = 3;
-  const expected = tougaardBackground(be, _applyEndpointAveraging(intensity, nAvg));
+  const expected = tougaardBackground(be, intensity, nAvg);
+  const anchor = (10000 + 100 + 100) / 3;
+  assert.ok(Math.abs(expected[0] - anchor) <= 1e-12 * anchor, `the high-BE level is the 3-point mean: ${expected[0]} vs ${anchor}`);
+  const dataReading = tougaardBackground(be, _applyEndpointAveraging(intensity, nAvg), 1);
+  assert.ok(expected.some((v, i) => Math.abs(v - dataReading[i]) > 1e-6), 'the levels reading differs from the old data-replacement reading here');
 
-  // Branch 1: bg window covers the data (main sliced path)
-  const mainOut = computeBackgroundCore(be, intensity, {
-    bgType: 'tougaard', shirleyIter: '5', endpointAvg: String(nAvg),
-    bgStart: '292', bgEnd: '282',
-  });
-  // Branch 2: bg window misses the data entirely (helper falls back to the full range)
-  const fallbackOut = computeBackgroundCore(be, intensity, {
-    bgType: 'tougaard', shirleyIter: '5', endpointAvg: String(nAvg),
-    bgStart: '900', bgEnd: '905',
-  });
-
+  const mainOut = computeBackgroundCore(be, intensity, { bgType: 'tougaard', endpointAvg: String(nAvg), bgStart: '292', bgEnd: '282' });
+  const fallbackOut = computeBackgroundCore(be, intensity, { bgType: 'tougaard', endpointAvg: String(nAvg), bgStart: '900', bgEnd: '905' });
   for (const [label, out] of [['main', mainOut], ['fallback', fallbackOut]]) {
-    for (let i = 0; i < n; i++) {
-      assert.strictEqual(out[i], expected[i],
-        `${label} branch: caller bypasses endpoint averaging at index ${i}: ` +
-        `${out[i]} vs averaged ${expected[i]}`);
-    }
+    assert.strictEqual(out.converged, true, label);
+    for (let i = 0; i < n; i++) assert.strictEqual(out[i], expected[i], `${label} branch at index ${i}: ${out[i]} vs ${expected[i]}`);
   }
 });

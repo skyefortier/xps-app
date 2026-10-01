@@ -95,14 +95,12 @@ test('computeBackgroundCore uses exactly the helper window', () => {
   // Evaluate the shipped computeBackgroundCore with a marker linearBackground:
   // inside the window the result equals the BE value, outside it is a flat
   // hold — so the positions where result[i] === be[i] ARE the window.
-  const src = extract('computeBackgroundCore');
-  const factory = new Function('_bgWindowIndices', 'linearBackground', 'manualAnchorBackground',
-    'shirleyBackground', 'smartBackground', 'smartExperimentalBackground',
-    'shirleyLinearBackground', 'tougaardBackground', '_npPairwiseSum', '_npMean', '_applyEndpointAveraging',
-    src + '\nreturn computeBackgroundCore;');
-  const marker = (beSub) => beSub.slice();
-  const unused = () => { throw new Error('unexpected background type call'); };
-  const core = factory(_bgWindowIndices, marker, unused, unused, unused, unused, unused, unused, (y) => y);
+  // The page's whole background section (shared helper), with linearBackground
+  // replaced by a marker — the later declaration wins.
+  const src = require('./_page_background_source.js')({ manual: 'none' });
+  const core = new Function(src + '\nfunction linearBackground(beSub) { return beSub.slice(); }' +
+    '\nfunction manualAnchorBackground() { throw new Error("unexpected background type call"); }' +
+    '\nreturn computeBackgroundCore;')();
 
   const be = descending(298.16, 191, 0.1);
   const inten = be.map(() => 1000);

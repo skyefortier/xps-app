@@ -29,6 +29,30 @@ their mean; reading "levels": the measured data, with only the edge levels b_low
 b_high read as the end means; T(B)(E) = b_low + (b_high − b_low) · ∫_{E_min}^{E} s /
 ∫_{E_min}^{E_max} s, s = max(D − B, 0), trapezoid rule on the data's grid.
 
+## Implementation (owner, 2026-10-01) — what the findings became
+
+Branch `bg-math-implement`; plan `docs/superpowers/plans/2026-10-01-background-math-implement.md`
+(design, every consumer, tests, measurements). In short:
+
+| finding | now |
+|---|---|
+| F1 two readings of averaging | ONE: averaging sets the two edge levels only; every integral and clamp reads the raw data, every method (linear never read it and still does not) |
+| F2 the constraint's noise bias | documented plainly in the docstrings and the menu's tooltips (about +1 % of net area on noisy data; plain Shirley's own bias at large steps); not changed |
+| F3 smart = smart_exp | re-measured under the one reading: bit-identical on all 376 committed spectrum x averaging cases; 40 000 random spectra: the same verdict every time, max 3.5e-12 of the span. Collapsing the two menu entries is PROPOSED, not done |
+| F4 shirley_linear | off the menu permanently; its notice stays (its stated reason corrected) |
+| F5 absolute stop | relative: BG_REL_TOL = 1e-12 of the span, every iteration |
+| F10 / F11 / F12 | every result is certified against its statement; a failure is "not converged" with a plain message, and nothing — server or page — fits against, subtracts, draws, saves or exports it |
+
+**F13 (new, found while implementing). Featureless windows now report "not
+converged".** On realistic-size synthetic windows with no peak (300 points, Poisson
+noise) the Shirley family's iteration has no converged solution far more often than the
+small pathological cases suggested: a linear drift 200 / 200, a smooth peakless step
+185–186 / 200, pure noise 6 / 200 (mostly alternation; the checker's independent
+reference solver does not converge on them either); a window with a peak, and the 121
+committed spectra, never; Tougaard never. Until now those windows got a non-solution
+silently. A student who selects a window without a peak (or without enough net signal)
+now gets the message under the method menu and no fit.
+
 ## Summary
 
 | method | defining statement | does the implementation solve it? (121 committed spectra) | verdict |

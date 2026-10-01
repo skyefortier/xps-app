@@ -54,15 +54,24 @@ def test_shirley_background_n_avg_changes_output_on_noisy_endpoints():
     )
 
 
-def test_shirley_background_n_avg_matches_external_pre_averaging():
-    """Calling shirley_background(x, y, n_avg=N) must equal the OLD calling
-    convention -- shirley_background(x, _apply_endpoint_averaging(y, N)) --
-    so this is a pure convenience wrapper, not a new averaging algorithm."""
+def test_shirley_background_n_avg_sets_the_edge_levels_only():
+    """Since 2026-10-01 (background math, findings F1) n_avg sets the two EDGE
+    LEVELS only -- the means of the first / last N points -- and the integral
+    reads the raw data: the background meets those levels, and differs from the
+    OLD reading, which replaced the end bands of the data by their means and
+    integrated that modified spectrum (shirley_background(x,
+    _apply_endpoint_averaging(y, N)))."""
     x, y = _noisy_endpoint_fixture()
-    for n_avg in (1, 4, 8):
-        direct = shirley_background(x, y, n_avg=n_avg)
-        pre_averaged = shirley_background(x, _apply_endpoint_averaging(y, n_avg))
-        assert np.array_equal(direct, pre_averaged), f"mismatch at n_avg={n_avg}"
+    asc = x[0] < x[-1]
+    lo, hi = (y, y) if asc else (y[::-1], y[::-1])
+    for n_avg in (4, 8):
+        B = shirley_background(x, y, n_avg=n_avg)
+        Ba = B if asc else B[::-1]
+        assert np.isclose(Ba[0], np.mean(lo[:n_avg]), rtol=0, atol=1e-12 * np.ptp(y))
+        assert np.isclose(Ba[-1], np.mean(hi[-n_avg:]), rtol=0, atol=1e-12 * np.ptp(y))
+        old = shirley_background(x, _apply_endpoint_averaging(y, n_avg))
+        assert not np.allclose(B, old), f"n_avg={n_avg}: the levels reading equals the old data reading here"
+    assert np.array_equal(shirley_background(x, y, n_avg=1), shirley_background(x, _apply_endpoint_averaging(y, 1)))
 
 
 def test_smart_background_default_n_avg_matches_pre_f3_output():

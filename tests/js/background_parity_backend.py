@@ -6,6 +6,8 @@ synthetic spectra (a narrow C 1s, a wide U 4f doublet) and the committed real
 U 4f Scan_0 (1-GTA UCl4-graphite project), each ascending AND descending.
 stdin {"mode": "mean", "arrays": [[...]...]} -> np.mean of each (the page's
 _npMean must equal it bit for bit).
+stdin {"mode": "cert", "items": [...as "bg"]} -> fitting.background_certificate's
+verdict {converged, reason} on that background (background math, 2026-10-01).
 stdin {"mode": "bg", "items": [{"method", "be", "inten", "n_avg", "n_iter"?}...]} -> the
 background fitting.py's OWN function returns for each (the functions run_fit
 calls for the anchor window, never a reimplementation).
@@ -76,6 +78,15 @@ def main():
         return
     if req["mode"] == "mean":
         json.dump([float(np.mean(np.asarray(a, float))) for a in req["arrays"]], sys.stdout)
+        return
+    if req["mode"] == "cert":
+        res = []
+        for it in req["items"]:
+            x, y = np.asarray(it["be"], float), np.asarray(it["inten"], float)
+            bg = FUNCS[it["method"]](x, y, int(it["n_avg"]), int(it.get("n_iter", 200)))
+            c = fitting.background_certificate(x, y, bg, it["method"], int(it["n_avg"]))
+            res.append({"converged": bool(c["converged"]), "reason": c["reason"]})
+        json.dump(res, sys.stdout)
         return
     out = []
     for it in req["items"]:

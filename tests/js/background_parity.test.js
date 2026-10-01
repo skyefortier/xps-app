@@ -45,15 +45,16 @@ const PYTHON = (() => {
 const BRIDGE = path.join(__dirname, 'background_parity_backend.py');
 const py = req => JSON.parse(execFileSync(PYTHON, [BRIDGE], { input: JSON.stringify(req), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
 
-const JS = new Function([
-  'shirleyBackground', 'smartBackground', 'smartExperimentalBackground', 'shirleyLinearBackground',
-  'linearBackground', 'tougaardBackground', '_npPairwiseSum', '_npMean', '_applyEndpointAveraging', '_bgWindowIndices',
-  'computeBackgroundCore',
-].map(extractFn).join('\n') + '\nconst manualAnchorBackground = () => { throw new Error("not in this test"); };' +
-  '\nreturn { computeBackgroundCore, _npMean };')();
-const CONVERGED_ITER = 200;
+// The page's whole background section (background math, 2026-10-01: the twins
+// share helpers and constants).
+const JS = new Function(require('./_page_background_source.js')() +
+  '\nreturn { computeBackgroundCore, _npMean, shirleyBackground, smartBackground, smartExperimentalBackground };')();
+// computeBackgroundCore runs every background to convergence (the page no
+// longer reads the "Shirley iterations" setting); the twins at a given cap are
+// compared directly below.
 const jsBg = (be, inten, method, nAvg) => JS.computeBackgroundCore(be, inten,
-  { bgType: method, shirleyIter: String(CONVERGED_ITER), endpointAvg: String(nAvg), bgStart: '', bgEnd: '' });
+  { bgType: method, endpointAvg: String(nAvg), bgStart: '', bgEnd: '' });
+const TWIN = { shirley: JS.shirleyBackground, smart: JS.smartBackground, smart_exp: JS.smartExperimentalBackground };
 
 const CASES = py({ mode: 'cases' });
 const span = y => Math.max(...y) - Math.min(...y);
@@ -70,11 +71,51 @@ test('the cases include the committed real U 4f scan, ascending and descending',
 });
 
 // Parity tolerance: 1e-6 of the intensity span — far below Task 4's smallest
-// measured gap (1.5e-4 of the span, the unclamped Shirley) and far above the
-// difference between 200 JS iterations and the server's 1e-6-count stopping
-// tolerance.
+// measured gap (1.5e-4 of the span, the unclamped Shirley). The twins now run
+// the server's arithmetic and stop exactly where it does; tougaard sums in
+// another order (numpy's convolution).
 const TOL = 1e-6;
-for (const method of ['shirley', 'smart', 'smart_exp', 'tougaard', 'linear']) {
+// Measured 2026-10-01: the Shirley family is BIT-IDENTICAL to the server on every
+// case of this file (the twins run its arithmetic); tougaard within 5.4e-14 of
+// the span (another summation order). Pinned here at those levels.
+test('the Shirley family is bit-identical to the server, tougaard within 1e-12 of the span (synthetic, real U 4f and 200 randomised spectra; averaging 1, 3, 10)', () => {
+  const cases = [...CASES, ...randomCases(20260928, 200, true)];
+  for (const method of ['shirley', 'smart', 'smart_exp', 'shirley_linear', 'tougaard']) {
+    for (const nAvg of [1, 3, 10]) {
+      const server = py({ mode: 'bg', items: cases.map(c => ({ method, be: c.be, inten: c.inten, n_avg: nAvg })) });
+      cases.forEach((c, k) => {
+        const js = jsBg(c.be, c.inten, method, nAvg);
+        const rel = maxRelDiff(js, server[k], span(c.inten));
+        if (method === 'tougaard') assert.ok(rel <= 1e-12, `${method} n_avg ${nAvg} case ${k}: ${rel}`);
+        else assert.strictEqual(rel, 0, `${method} n_avg ${nAvg} case ${k}: ${rel}`);
+      });
+    }
+  }
+});
+
+test("the page's certificate equals the server's on every case: the same converged verdict and the same reason", () => {
+  const cases = [...CASES, ...randomCases(20260928, 200, true), ...BELOW,
+    { be: [0, 1, 2, 3], inten: [2, 3, 10, 13] }, { be: [0, 1, 2, 3, 4], inten: [11, 14, 1, 33, 40] },
+    { be: [0, 1, 2, 3, 4], inten: [20, 44, 34, 41, 47] }, { be: [0, 1], inten: [10, 20] }, { be: [0, 1], inten: [10, 10] }];
+  let failures = 0;
+  for (const method of ['shirley', 'smart', 'smart_exp', 'shirley_linear', 'tougaard']) {
+    for (const nAvg of [1, 3, 10]) {
+      const server = py({ mode: 'cert', items: cases.map(c => ({ method, be: c.be, inten: c.inten, n_avg: nAvg })) });
+      cases.forEach((c, k) => {
+        const js = jsBg(c.be, c.inten, method, nAvg);
+        assert.strictEqual(js.converged, server[k].converged, `${method} n_avg ${nAvg} case ${k}`);
+        if (!server[k].converged) {
+          failures++;
+          const stem = r => r.replace(/ by [^ ]+ % of the intensity span$/, '');   // the % is formatted per language
+          assert.ok(js.failure.includes(stem(server[k].reason)), `${method} case ${k}: "${js.failure}" vs "${server[k].reason}"`);
+        }
+      });
+    }
+  }
+  assert.ok(failures > 0, 'the cases include non-converged backgrounds');
+});
+
+for (const method of ['shirley', 'smart', 'smart_exp', 'tougaard', 'shirley_linear', 'linear']) {
   for (const nAvg of [1, 10]) {
     test(`${method}, endpoint average ${nAvg}: the page's background equals the server's within ${TOL} of the span on every case`, () => {
       for (const r of compare(method, nAvg)) assert.ok(r.rel <= TOL, `${r.label}: ${r.rel.toExponential(2)} of the span`);
@@ -100,14 +141,14 @@ const BELOW = [
   { be: [0.3, 0.7, 1.9, 2.2, 3.1], inten: [7.3, 2.1, 0.9, 3.3, 9.7] },
   { be: [3.1, 2.2, 1.9, 0.7, 0.3], inten: [9.7, 3.3, 0.9, 2.1, 7.3] },
 ];
-// 5, 50 and 200 iterations, the same cap on both sides (fitting.py also stops
-// at its 1e-6 tolerance; the UI's count against the server's is Part 5).
+// 5, 50 and 200 iterations, the same cap on both sides: the twins themselves
+// (computeBackgroundCore always runs the 200 cap).
 test('below-baseline data, integer and decimal, both directions: shirley, smart and smart_exp equal fitting.py at 5, 50 and 200 iterations (Codex rounds 1-2)', () => {
   for (const method of ['shirley', 'smart', 'smart_exp']) {
     for (const it of [5, 50, 200]) {
       const server = py({ mode: 'bg', items: BELOW.map(c => ({ method, be: c.be, inten: c.inten, n_avg: 1, n_iter: it })) });
       BELOW.forEach((c, k) => {
-        const js = JS.computeBackgroundCore(c.be, c.inten, { bgType: method, shirleyIter: String(it), endpointAvg: '1', bgStart: '', bgEnd: '' });
+        const js = TWIN[method](c.be, c.inten, it, 1);
         const rel = maxRelDiff(js, server[k], span(c.inten));
         assert.ok(rel <= TOL, `${method} ${JSON.stringify(c.be)} at ${it} iterations: ${rel.toExponential(2)} of the span (js ${js.map(v => v.toFixed(3))}, server ${server[k].map(v => v.toFixed(3))})`);
       });
@@ -122,12 +163,8 @@ test('KNOWN GAP (Task 4 cause 4, not this unit): linear interpolates by index on
   assert.ok(maxRelDiff(js, server, span(nonUniform.inten)) > 0.05, 'still differs on a non-uniform grid — if this starts failing the gap was closed; update the pin and CLAUDE.md');
 });
 
-test('KNOWN GAP (de-listed, not fixed): shirley_linear agrees on ascending grids and diverges on descending ones (Task 4 cause 3)', () => {
-  const rows = compare('shirley_linear', 1);
-  for (const r of rows.filter(r => /ascending/.test(r.label))) assert.ok(r.rel <= 1e-3, `${r.label}: ${r.rel}`);
-  const desc = rows.filter(r => /descending/.test(r.label));
-  assert.ok(desc.some(r => r.rel > 0.05), 'still diverges on descending grids: ' + desc.map(r => r.rel.toFixed(3)).join(', ') +
-    ' — if this starts failing, the gap was closed; update the pin and CLAUDE.md');
+test('shirley_linear (de-listed) equals the server on BOTH grid directions since 2026-10-01 (Task 4 cause 3 closed) and stays off the menu', () => {
+  for (const nAvg of [1, 10]) for (const r of compare('shirley_linear', nAvg)) assert.ok(r.rel <= TOL, `${r.label}, n_avg ${nAvg}: ${r.rel}`);
   assert.match(html, /<option value="shirley_linear" disabled hidden/, 'shirley_linear stays de-listed (disabled, hidden; shown only for saved files that use it)');
 });
 
@@ -166,7 +203,7 @@ test('Codex round 3 reproducers, both directions: every averaged method equals f
     for (const it of [1, 5, 50, 200]) {
       const server = py({ mode: 'bg', items: ROUND3.map(([, c]) => ({ method, be: c.be, inten: c.inten, n_avg: 10, n_iter: it })) });
       ROUND3.forEach(([label, c], k) => {
-        const js = JS.computeBackgroundCore(c.be, c.inten, { bgType: method, shirleyIter: String(it), endpointAvg: '10', bgStart: '', bgEnd: '' });
+        const js = method === 'tougaard' ? jsBg(c.be, c.inten, method, 10) : TWIN[method](c.be, c.inten, it, 10);
         const rel = maxRelDiff(js, server[k], span(c.inten));
         assert.ok(rel <= TOL, `${method} ${label} at ${it} iterations: ${rel.toExponential(2)} of the span`);
       });

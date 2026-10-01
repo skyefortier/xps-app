@@ -845,69 +845,73 @@ starting model as "Fit complete"; see
 
 | Backend id | Notes |
 |---|---|
-| `shirley` | Iterates the Shirley relation B = T(B) (below; a solution when the iteration converges). Default. Corroboration: Shirley, *Phys. Rev. B* **5**, 4709 (1972); the iterative form: Proctor & Sherwood, *Anal. Chem.* **54**, 13 (1982). |
-| `smart` | Shirley variant with smarter endpoint handling. |
-| `smart_exp` | Experimental Shirley variant. |
-| `shirley_linear` | Shirley with a linear-fallback bridge. |
-| `linear` | Straight line between ROI endpoints. |
-| `tougaard` | Single-pass universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV). Order-robust (either BE direction); amplitude anchored to the data at the high-BE edge. JS twin `tougaardBackground` must stay in numerical agreement (pinned by `tests/js/tougaard_twin.test.js`). |
+| `shirley` | Solves the Shirley relation B = T(B) — iterated to convergence and certified (below). Default. Corroboration: Shirley, *Phys. Rev. B* **5**, 4709 (1972); the iterative form: Proctor & Sherwood, *Anal. Chem.* **54**, 13 (1982). On noisy data it carries its own net-area bias at large steps (F2). |
+| `smart` | Constrained Shirley, B = min(T(B), I): the clamp of the Shirley solution (exact, s(min(B, I)) = s(B)). Constraining against noisy counts raises net area by about 1 % on noisy data (F2). |
+| `smart_exp` | The same constrained problem with the constraint inside the iteration. Bit-identical to `smart` on every committed spectrum and averaging; collapsing the two menu entries is PROPOSED, not done (F3). |
+| `shirley_linear` | A reversed step (largest at the low-BE edge): off the menu permanently (owner, 2026-10-01; F4); kept so saved files that use it load; its amber notice stays. |
+| `linear` | Affine in energy through the raw end points (the page draws it by index: equal on uniform grids only, F8). |
+| `tougaard` | Universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV), over the raw data above the low-BE level C0, anchored at the high-BE level. Order-robust (either BE direction). |
 | `manual` (frontend only) | User-placed anchor points; `manualAnchorBackground` in JS. |
 
-The page's background twins (`computeBackgroundCore`: what it draws, freezes
-into `fitResult.bgIntensity` at fit time, saves, and what the local engine
-fits against) equal fitting.py's on the tested cases — shirley, smart and
-smart_exp EXACTLY (0 difference, at equal iteration caps), tougaard to
-rounding, linear on uniform grids — within the test's 1e-6 of the intensity
-span, on uniform and non-uniform grids, both directions, endpoint averaging
-1, 3 and 10, repeated energies and data that dip below the baseline
-(`tests/js/background_parity.test.js`, unit 4 2026-09-27). The Shirley and
-smart_exp twins run fitting.py's iteration operation for operation on an
-ascending copy — numpy's linspace start with the endpoint pinned exactly, the
-net signal clamped at zero, the background kept when no net signal is left,
-the 1e-6 stop; smart clamps against the raw data; every endpoint mean is
-numpy's (`_npMean`, numpy's pairwise summation: a sequential sum one rounding
-step off became a different fixed point, 62.7 % of the span, Codex round 3);
-finite inputs. Before the unit: Task 4's S4 / S5 (smart at averaging 10 was
-1.2 % of the span away) and smart_exp 1.4 % (a 1e-4 stop, a descending grid
-integrated from the other end). An iterative background is fragile: rounding
-differences of one unit in the last place select different fixed points, so a
-twin must match its arithmetic, not only its formula. Known gaps, pinned:
-`shirley_linear` (de-listed) diverges on descending grids; linear
-interpolates by index on the page and by energy on the server, equal only on
-uniform grids (Task 4 cause 4); the UI's Shirley iteration count (default 5)
-stops before fitting.py's convergence (Part 5 of the sealed-fit-record memo).
+ONE READING, ONE STOP, ONE CERTIFICATE (background-math implementation, owner
+2026-10-01; plan `docs/superpowers/plans/2026-10-01-background-math-implement.md`,
+findings `docs/findings/background-math/README.md`). Endpoint averaging sets the two
+EDGE LEVELS only (`fitting._edge_levels` / page `_bgEdgeLevels`: the means of the
+first / last min(n_avg, n // 4) points); every integral and every B ≤ I clamp reads
+the raw data (F1 — until then Shirley, Smart's integrand and Tougaard replaced the
+end bands of the DATA, and Smart at n_avg > 1 solved neither reading). Every
+iteration stops when one more step changes it by at most `BG_REL_TOL` = 1e-12 of the
+window's intensity span (F5: relative, not 1e-6 intensity units) and returns the
+point the step was taken from; every committed spectrum converges within 19 steps
+(cap 200). `fitting.background_certificate` checks each result against its defining
+statement and `fitting.compute_background` raises `BackgroundNotConverged` (HTTP 422
+from `/api/fit`, `/api/fit/start`'s record and `/api/background`, with a plain
+message) when it fails: the iteration cycles (F12), there is no net signal above the
+edge line (F10), Tougaard's amplitude is undetermined or has no solution (F11), or
+`shirley_linear`'s equal-edge branch returns its line unclamped. `run_fit`,
+`compute_background_only`, Find Peaks' engine and `autofit/parity.py` all go through
+it: nothing is fitted against such a background. No fallback solver (owner).
 
-WHAT EACH METHOD SOLVES (background math foundation, 2026-09-30, revised after
-Codex round 1; `docs/findings/background-math/README.md`, checker
+The page's twins (`computeBackgroundCore`) run the server's arithmetic operation for
+operation: the Shirley family is BIT-IDENTICAL to fitting.py (tougaard within
+5.4e-14 of the span; `shirley_linear` now too, both grid directions) on the parity
+file's synthetic, real and 200 randomised spectra at averaging 1, 3 and 10, and
+`_bgCertificate` gives the server's verdict and reason (`tests/js/background_parity.test.js`).
+`computeBackgroundCore` marks every result `converged` / `failure`; `_bgFailure(bg)`
+reads it, and EVERY consumer checks it — a class guard fails any new assignment of a
+computed background whose function does not (`tests/js/background_not_converged.test.js`):
+the preview (a red note under the method menu; before a fit nothing is drawn or
+subtracted, peak previews sit on zero), Run Fit and "Use this solution" (refused
+before the undo entry, the spinner and any request — no local fallback), Auto-Fit
+(its preflight, and again after the charge shift; the caller restores everything),
+Batch Fit (that target is NOT fitted, with the reason), chart-click placement (the
+clicked height, nothing subtracted), stack reconstruction (the entry shows no fit),
+spectrum save (`background: null` + `backgroundFailure`), TSV export (empty columns +
+WARNING) and the publication figure (refused). The "Shirley iterations" setting is
+retired: hidden (kept for saved files and fit keys, which still compare it), never
+read. Known, not fixed: `uploadToBackend` rounds intensities to 2 dp, so on a
+borderline spectrum the page's and the server's certificates could disagree (either
+way no fit is made); linear by index on the page (F8); Tougaard's near-uniform fast
+branch approximates the stated sum and is not certified (its error is amplified near
+cancellation — findings tougaard).
+
+WHAT EACH METHOD SOLVES (background math foundation, 2026-09-30; checker
 `scripts/background_defining_statements.py` — its own preprocessing, integrals and
-reference solver — tests `tests/test_background_defining_statements.py`). Each
-implementation is tested against its defining statement, under its own reading of
-endpoint averaging, on all 121 committed spectra, never by resemblance to another
-program: `shirley` B = T(B), T the Shirley relation's right-hand side over the
-positive net signal (the relation can have SEVERAL solutions — exact
-counterexamples in the tests — and the iteration, when it converges, returns the one
-reached from the edge-to-edge line; on some small spectra it cycles and returns a
-non-solution, F12); `smart_exp`, and `smart` at n_avg = 1, the constrained problem
-B = min(T(B), I) (clamping a Shirley solution gives a constrained solution,
-because s(min(B, I)) = s(B); at n_avg = 1 the two returned the same background on
-every committed spectrum); `linear` affine in energy through the end points;
-`tougaard` the loss-integral relation over the end-averaged data with a constant
-below-window level and the high-BE anchor; `manual` piecewise-affine through the
-anchors; `shirley_linear` B = min(L + d(1 − F(B)), I), L affine in index — a REVERSED
-step (largest at the low-BE edge), no physical basis, and it should not return to the
-menu (equal edge levels return L unclamped; the page's twin solves it only on
-ascending grids). Every "solves" here holds when the iteration converges (it can
-cycle, F12).
-Reported, not implemented (owner decisions): endpoint averaging is read two ways
-(`shirley`, `smart`'s integrand and `tougaard` average the DATA, `smart_exp` only
-the edge levels; `smart` at n_avg > 1 then satisfies neither reading; ≤ 0.33 % of
-net area on 13 spectra); the constraint B ≤ I on noisy counts adds +0.9–1.3 % of net
-area in a Poisson Monte Carlo, on top of unconstrained Shirley's own bias (not
-resolved at a small step, +2.3 % at a large one); when the data lie below the edge
-line the Shirley iteration cannot start (the line or the data are returned);
-Shirley's stop is absolute (negligible); the page's linear background is linear in
-index, not energy; Tougaard's kernel shape matters on the 31–35 eV U 4f windows (a
-linear small-loss kernel moves the background up to 3.9 % of the span).
+reference solver — tests `tests/test_background_defining_statements.py`), never by
+resemblance to another program: `shirley` B = T(B), T the Shirley relation's
+right-hand side over the positive net signal (the relation can have SEVERAL
+solutions — exact counterexamples in the tests — and a certified result is the one
+reached from the edge-to-edge line, F9); `smart` and `smart_exp` the constrained
+problem B = min(T(B), I); `linear` affine in energy through the end points;
+`tougaard` the loss-integral relation over the raw data with a constant below-window
+level and the high-BE anchor; `manual` piecewise-affine through the anchors;
+`shirley_linear` B = min(L + d(1 − F(B)), I), L affine in index — a REVERSED step,
+no physical basis. Documented, not changed: the constraint B ≤ I on noisy counts
+adds about +1 % of net area (Poisson Monte Carlo: +0.9 % / +1.3 % at two step sizes,
++0.8 % with averaging 10), on top of unconstrained Shirley's own bias (not resolved
+at a small step, +2.3 % at a large one) — said in the docstrings and the menu's
+tooltips (F2); Tougaard's kernel shape matters on the 31–35 eV U 4f windows (a
+linear small-loss kernel moves the background up to 3.9 % of the span, F6).
 
 Use Shirley for standard core-level regions. Linear only when the
 spectral window is very narrow and featureless.

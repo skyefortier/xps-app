@@ -28,12 +28,8 @@ import numpy as np
 
 from fitting import (
     _SHAPE_FUNCS,
+    compute_background,
     linear_background,
-    shirley_background,
-    shirley_linear_background,
-    smart_background,
-    smart_experimental_background,
-    tougaard_background,
     run_fit,
 )
 from .reference import ReferenceFit, apply_backend_params, peak_to_backend_spec
@@ -94,16 +90,8 @@ def background_like_run_fit(
     xb, yb = x[i0:i1], y[i0:i1]
     m = (method or "shirley").lower()
 
-    if m == "shirley":
-        bg_inner = shirley_background(xb, yb, n_avg=endpoint_avg)
-    elif m == "smart":
-        bg_inner = smart_background(xb, yb, n_avg=endpoint_avg)
-    elif m == "smart_exp":
-        bg_inner = smart_experimental_background(xb, yb, n_avg=endpoint_avg)
-    elif m == "shirley_linear":
-        bg_inner = shirley_linear_background(xb, yb, n_avg=endpoint_avg)
-    elif m == "tougaard":
-        bg_inner = tougaard_background(xb, yb, n_avg=endpoint_avg)
+    if m in ("shirley", "smart", "smart_exp", "shirley_linear", "tougaard"):
+        bg_inner = compute_background(xb, yb, m, n_avg=endpoint_avg)   # certified, as run_fit
     elif m == "linear":
         if x[i1 - 1] != x[i0]:
             slope = (y[i1 - 1] - y[i0]) / (x[i1 - 1] - x[i0])

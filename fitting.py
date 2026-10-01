@@ -324,7 +324,11 @@ def _ds_g_dscore_gauss(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _apply_endpoint_averaging(y: np.ndarray, n_avg: int) -> np.ndarray:
-    """Return a copy of *y* with the first/last *n_avg* points replaced by their mean."""
+    """Return a copy of *y* with the first/last *n_avg* points replaced by their mean.
+
+    No production caller since 2026-10-01: endpoint averaging sets the edge
+    LEVELS only (_edge_levels). Kept for the tests and scripts that reproduce
+    the old reading (background-math findings F1)."""
     n = len(y)
     if n_avg <= 1 or n < 4:
         return y.copy()
@@ -337,11 +341,78 @@ def _apply_endpoint_averaging(y: np.ndarray, n_avg: int) -> np.ndarray:
     return out
 
 
+# ── Backgrounds: one reading of endpoint averaging, one relative stop, a certificate ──
+#
+# Endpoint averaging sets the two EDGE LEVELS only (owner, 2026-10-01; findings
+# F1): b_low / b_high are the means of the first / last k = min(n_avg, n // 4)
+# points (k = 1 below 4 points); every integral and every B <= I constraint
+# reads the RAW data. Every iterative background stops when one more step
+# changes it by at most BG_REL_TOL of the window's intensity span (findings F5:
+# relative, not in intensity units) and returns the point that step was taken
+# FROM — the point whose residual against its statement was just measured.
+# background_certificate() checks each result against its defining statement;
+# compute_background() raises BackgroundNotConverged on a failure (findings
+# F10, F11, F12), and nothing downstream uses such a background.
+
+BG_REL_TOL = 1e-12
+"""Stop and certificate tolerance of every iterative background, as a fraction
+of the window's intensity span (max - min of the raw data). Measured on the 121
+committed spectra: every Shirley iteration reaches it within 19 steps (cap
+200); the residual floor the iteration reaches is <= 1.3e-16 of the span."""
+
+
+class BackgroundNotConverged(ValueError):
+    """A background that does not satisfy its defining statement: the iteration
+    cycled or ran out of steps, the Shirley relation is undefined (no net
+    signal), or Tougaard's anchor leaves its amplitude undetermined or has no
+    solution. The message is meant for the user."""
+
+
+def _edge_levels(ys: np.ndarray, n_avg: int) -> tuple[float, float]:
+    """(level at index 0, level at index -1): the means of the first / last
+    k = min(n_avg, n // 4) points, k >= 1 (1 below four points)."""
+    n = len(ys)
+    k = max(1, min(int(n_avg), n // 4)) if n >= 4 else 1
+    return float(np.mean(ys[:k])), float(np.mean(ys[-k:]))
+
+
+def _ascending(x, y):
+    xa = np.asarray(x, dtype=float)
+    ya = np.asarray(y, dtype=float)
+    if xa[0] > xa[-1]:
+        return xa[::-1].copy(), ya[::-1].copy(), True
+    return xa.copy(), ya.copy(), False
+
+
+def _cum_from_high(xs: np.ndarray, s: np.ndarray) -> np.ndarray:
+    """Trapezoid integral of s from each point to the high-x end (ascending xs)."""
+    n = len(s)
+    cum_right = np.zeros(n)
+    for i in range(n - 2, -1, -1):
+        cum_right[i] = cum_right[i + 1] + 0.5 * (s[i] + s[i + 1]) * (xs[i + 1] - xs[i])
+    return cum_right
+
+
+def _shirley_map(xs, ys, B, b_low, b_high):
+    """T(B) on an ascending grid: b_high + (b_low - b_high) * (integral of
+    max(I - B, 0) from E to E_max) / (the whole integral) — the Shirley
+    relation's right-hand side. None where it is undefined (unequal edge
+    levels and no positive net signal); the flat level when the levels are
+    equal (a zero step)."""
+    if b_low == b_high:
+        return np.full(len(ys), b_low)
+    cum_right = _cum_from_high(xs, np.maximum(ys - B, 0.0))
+    total = cum_right[0]
+    if not total > 0.0:
+        return None
+    return b_high + (b_low - b_high) * cum_right / total
+
+
 def shirley_background(
     x: np.ndarray,
     y: np.ndarray,
     n_iter: int = 200,
-    tol: float = 1e-6,
+    tol: float = BG_REL_TOL,
     n_avg: int = 1,
 ) -> np.ndarray:
     """Shirley background: the solution of the Shirley integral relation.
@@ -351,25 +422,30 @@ def shirley_background(
         B(E) = b_low + (b_high - b_low) * INT_{E_min}^{E} s dE' / INT_{E_min}^{E_max} s dE',
         s = max(I - B, 0),
 
-    with b_low, b_high the intensity levels at the low- and high-BE edges: the
-    background rises above the low-BE level in proportion to the net (no-loss)
-    intensity already accumulated at LOWER binding energy, reaching the high-BE
-    level at the far edge. Discretised by the trapezoid rule on the data's grid
-    (either BE order) and solved by fixed-point iteration from the straight line
-    between the edge levels. The relation can have MORE THAN ONE solution (exact
-    counterexamples with different net areas in
-    tests/test_background_defining_statements.py); when the iteration
-    converges this returns the one it reaches from that line. It need NOT
-    converge: on some small positive spectra it alternates between two curves
-    forever (a larger ``n_iter`` does not help) and the returned curve does not
-    satisfy the relation although a solution exists — 14 % of the span on
-    E = 0..3, I = [2, 3, 10, 13], exact solution [2, z, z + 5.5, 13],
-    z = (17 - sqrt(37)) / 4 (findings F12). Measured on every committed spectrum
-    (docs/findings/background-math/): the output satisfies the relation — with
-    the data as this function reads them (``n_avg`` below) — to <= 2e-11 of the
-    span. When the data lie below the edge line everywhere, the first step's
-    net-signal integral is zero, the relation is undefined there and the line is
-    returned although solutions may exist (none of the committed spectra).
+    with I the MEASURED data and b_low, b_high the intensity levels at the low-
+    and high-BE edges — the means of the first / last k = min(``n_avg``, n // 4)
+    points (k >= 1): endpoint averaging sets the levels only, so one noisy end
+    sample does not set a whole edge level (audit F3, 2026-07-17), and the
+    integral reads the raw data (owner, 2026-10-01; until then this function
+    replaced the end bands of the DATA by their means and integrated that
+    modified spectrum — findings F1). The background rises above the low-BE level
+    in proportion to the net (no-loss) intensity already accumulated at LOWER
+    binding energy, reaching the high-BE level at the far edge. Discretised by
+    the trapezoid rule on the data's grid (either BE order).
+
+    SOLVED by fixed-point iteration from the straight line between the levels
+    until one more step changes it by at most ``tol`` (BG_REL_TOL) of the
+    window's intensity span — relative, not in intensity units (findings F5) —
+    at most ``n_iter`` steps; the point returned is the one that step was taken
+    FROM. compute_background() certifies it against the relation
+    (background_certificate) and raises BackgroundNotConverged when it fails:
+    the iteration can alternate between two curves forever on some small
+    positive spectra (14 % of the span on E = 0..3, I = [2, 3, 10, 13], where an
+    exact solution [2, z, z + 5.5, 13], z = (17 - sqrt(37)) / 4, exists —
+    findings F12), and when the data lie at or below the edge line there is no
+    net signal and the relation is undefined (findings F10). The relation can
+    have MORE THAN ONE solution (findings F9); a certified result is the one
+    reached from the line. Every committed spectrum is certified within 19 steps.
 
     ASSUMPTIONS, and when they fail:
       * each no-loss electron at lower BE adds the same, energy-independent step
@@ -385,54 +461,27 @@ def shirley_background(
         dips) on 116 of the 121 committed spectra, by up to 6 % of the span. For
         B <= I see smart_background.
 
-    IMPLEMENTATION NOTES (measured; reported, not changed):
-      * ``n_avg`` > 1 replaces the first / last ``n_avg`` points OF THE DATA by
-        their mean before the relation is solved (audit F3, 2026-07-17: one noisy
-        end sample otherwise sets a whole edge level), so the integral is taken
-        over that modified spectrum. smart_experimental_background reads only the
-        edge LEVELS from the averaged ends and integrates the measured data —
-        two readings of one setting; <= 0.33 % of net area on the 13 committed
-        spectra with n_avg > 1 (findings F1).
-      * the stop is an absolute 1e-6 change in intensity units, not relative to
-        the data, with at most ``n_iter`` iterations (findings F5; negligible on
-        the committed spectra, which reach the relation to 2e-11 of the span).
+    NOISE (findings F2): on noisy data the Shirley estimate of net area carries
+    its own bias at large background steps — +2.3 % (+- 0.2) in a Poisson Monte
+    Carlo at a step of 4000 counts under a 20 000-count line, not resolved at a
+    step of 400.
 
     Corroboration (not the defence): D. A. Shirley, Phys. Rev. B 5, 4709 (1972);
     the iterative form: A. Proctor and P. M. A. Sherwood, Anal. Chem. 54, 13 (1982).
     """
     if len(x) < 2:
         return np.zeros_like(y)
-
-    if n_avg > 1:
-        y = _apply_endpoint_averaging(np.asarray(y, dtype=float), n_avg)
-
-    # Work on ascending copy
-    if x[0] > x[-1]:
-        xs, ys = x[::-1].copy(), y[::-1].copy()
-        flipped = True
-    else:
-        xs, ys = x.copy(), y.copy()
-        flipped = False
-
-    b_low = ys[0]    # background at low‑BE end
-    b_high = ys[-1]  # background at high‑BE end
-
-    B = np.linspace(b_low, b_high, len(ys))  # linear initial guess
-
+    xs, ys, flipped = _ascending(x, y)
+    b_low, b_high = _edge_levels(ys, n_avg)        # the levels only; the integral reads the raw data
+    stop = tol * float(np.max(ys) - np.min(ys))
+    B = np.linspace(b_low, b_high, len(ys))        # linear initial guess
     for _ in range(n_iter):
-        B_prev = B.copy()
-        signal = np.maximum(ys - B, 0.0)
-        # O(n) cumulative integral from high-x end back to each point
-        cum_right = np.zeros(len(ys))
-        for i in range(len(ys) - 2, -1, -1):
-            cum_right[i] = cum_right[i + 1] + 0.5 * (signal[i] + signal[i + 1]) * (xs[i + 1] - xs[i])
-        total = cum_right[0]
-        if total <= 0.0:
+        Bn = _shirley_map(xs, ys, B, b_low, b_high)
+        if Bn is None:                             # undefined: no net signal (certificate: not converged)
             break
-        B = b_high + (b_low - b_high) * cum_right / total
-        if np.max(np.abs(B - B_prev)) < tol:
+        if np.max(np.abs(Bn - B)) <= stop:         # B's residual against the relation is within the stop
             break
-
+        B = Bn
     return B[::-1] if flipped else B
 
 
@@ -440,7 +489,7 @@ def smart_background(
     x: np.ndarray,
     y: np.ndarray,
     n_iter: int = 200,
-    tol: float = 1e-6,
+    tol: float = BG_REL_TOL,
     n_avg: int = 1,
 ) -> np.ndarray:
     """Constrained Shirley background: the solution of B = min(T(B), I).
@@ -459,33 +508,31 @@ def smart_background(
     signal is already zero. So T(min(B, I)) = T(B) = B: the clamp of a solution
     of the Shirley relation is a solution of the constrained problem (a
     correspondence between solutions; neither problem need have only one).
-    That holds when the integrand and the clamp read the SAME data — i.e. for
-    ``n_avg`` = 1. Measured on every committed spectrum at n_avg = 1: residual
-    <= 2e-11 of the span, and the same background as
-    smart_experimental_background to 1.3e-16 (findings F3). With ``n_avg`` > 1
-    the integrand reads the endpoint-averaged data and the clamp the raw data,
-    and the result satisfies the constrained statement under neither reading
-    (up to 1.1e-3 of the span on the committed spectra, findings F1). The underlying Shirley iteration can also CYCLE between two curves and never converge — the returned curve then solves nothing (findings F12); not on
-    the committed spectra.
+    It holds because the integrand and the clamp read the SAME data at every
+    endpoint averaging: averaging sets only the two edge levels (owner,
+    2026-10-01 — until then the integrand read end-averaged data and the clamp
+    the raw data, and at n_avg > 1 the result solved neither reading, findings
+    F1). The clamp is exact in floating point (I - min(B, I) is 0 where it
+    clamps), so a certified Shirley solution gives a certified constrained one.
+    When the Shirley iteration does not converge (findings F10, F12) neither
+    does this: compute_background() raises BackgroundNotConverged.
 
     ASSUMPTIONS: those of shirley_background, plus B <= I POINTWISE ON THE
     MEASURED COUNTS. Net intensity is non-negative in EXPECTATION; measured counts
-    scatter below the background, so the constraint binds on noise dips (a median
-    12 % and up to 46 % of the points on the committed spectra) and pulls B down.
-    Poisson Monte Carlo against a background that satisfies the relation exactly
-    (findings F2): the constraint ADDS +0.90 % (+- 0.02) of net area to the
-    unconstrained estimate at one step size and +1.28 % (+- 0.04) at a ten times
-    larger one — on top of the unconstrained estimator's own bias, which is not
-    resolved at the small step and +2.3 % at the large one.
+    scatter below the background, so the constraint binds on noise dips and
+    pulls B down.
 
-    ``n_avg`` is forwarded to shirley_background (which then integrates the
-    endpoint-averaged data, findings F1); the clamp is against the RAW data, so
-    averaging only ever moves the background, never the reported net counts.
+    NOISE, PLAINLY (findings F2): the smart methods constrain against noisy
+    counts, which raises net area by about 1 % on noisy data — in a Poisson Monte
+    Carlo against a background that satisfies the relation exactly, +0.90 %
+    (+- 0.02) at one step size, +1.28 % (+- 0.04) at a ten times larger one and
+    +0.83 % (+- 0.01) there with endpoint averaging 10. Plain Shirley carries its
+    own bias at large steps (+2.3 % there; not resolved at the small step).
     """
     if len(x) < 2:
         return np.zeros_like(y)
     shir = shirley_background(x, y, n_iter, tol, n_avg=n_avg)
-    return np.minimum(shir, y)
+    return np.minimum(shir, np.asarray(y, dtype=float))
 
 
 def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -510,7 +557,7 @@ def smart_experimental_background(
     x: np.ndarray,
     y: np.ndarray,
     n_iter: int = 200,
-    tol: float = 1e-6,
+    tol: float = BG_REL_TOL,
     n_avg: int = 1,
 ) -> np.ndarray:
     """Constrained Shirley background, the constraint inside the iteration: B = min(T(B), I).
@@ -518,58 +565,30 @@ def smart_experimental_background(
     DEFINING STATEMENT: the constrained problem of smart_background — the
     Shirley relation wherever B < I, the constraint B = I where the relation
     would exceed the data — solved by the projected fixed-point iteration
-    B <- min(T(B), I) from the straight line between the edge levels, the edge
-    levels read from the ``n_avg``-averaged ends and the integral taken over the
-    MEASURED data. Measured on every committed spectrum and every n_avg used
-    there: residual <= 2e-11 of the span. The iteration can also CYCLE between two curves and never converge — the returned curve then solves nothing (findings F12); not on the committed spectra.
-
-    For n_avg = 1 this is the same problem as smart_background, and on every
-    committed spectrum the same background (to 1.3e-16; findings F3 — an
-    agreement of the two iterations, not a uniqueness result); they differ only
-    in how n_avg > 1 is read (findings F1). Assumptions and the noise bias of the
-    constraint: see smart_background.
+    B <- min(T(B), I) from the straight line between the edge levels (the means
+    of the averaged ends; the integral and the clamp read the raw data), with
+    smart_background's stop; compute_background() certifies the result and
+    raises BackgroundNotConverged when the iteration cycles or cannot start
+    (findings F10, F12). The same problem as smart_background, read the same way
+    since 2026-10-01 (findings F3: whether the two ever differ is measured in
+    docs/findings/background-math/). Assumptions and the noise bias of the
+    constraint — about +1 % of net area on noisy data: see smart_background.
     """
     if len(x) < 2:
         return np.zeros_like(y)
-
-    # Work on ascending copy
-    if x[0] > x[-1]:
-        xs, ys = x[::-1].copy(), y[::-1].copy()
-        flipped = True
-    else:
-        xs, ys = x.copy(), y.copy()
-        flipped = False
-
-    n = len(ys)
-    cap = max(1, min(n_avg, n // 4))
-    b_low = float(np.mean(ys[:cap]))      # low-BE endpoint
-    b_high = float(np.mean(ys[-cap:]))     # high-BE endpoint
-    step = b_low - b_high
-
-    # Linear initial guess
-    B = np.linspace(b_low, b_high, n)
-
+    xs, ys, flipped = _ascending(x, y)
+    b_low, b_high = _edge_levels(ys, n_avg)
+    stop = tol * float(np.max(ys) - np.min(ys))
+    B = np.linspace(b_low, b_high, len(ys))        # linear initial guess
     for _ in range(n_iter):
-        B_prev = B.copy()
-        signal = np.maximum(ys - B, 0.0)
-        # Cumulative integral from high-BE end (right) back to each point
-        cum_right = np.zeros(n)
-        for i in range(n - 2, -1, -1):
-            dx = xs[i + 1] - xs[i]
-            cum_right[i] = cum_right[i + 1] + (signal[i] + signal[i + 1]) / 2 * dx
-        total = cum_right[0]
-        if total <= 0.0:
+        Tn = _shirley_map(xs, ys, B, b_low, b_high)
+        if Tn is None:
             break
-
-        B = b_high + step * (cum_right / total)
-
-        # Constrain during iteration: lock to data where bg exceeds it
-        B = np.minimum(B, ys)
-
-        if np.max(np.abs(B - B_prev)) < tol:
+        Bn = np.minimum(Tn, ys)                    # the projection: lock to the data where T exceeds it
+        if np.max(np.abs(Bn - B)) <= stop:
             break
-
-    B = np.minimum(B, ys)  # final safety clamp
+        B = Bn
+    B = np.minimum(B, ys)                          # the line, if the first step already stopped
     return B[::-1] if flipped else B
 
 
@@ -577,7 +596,7 @@ def shirley_linear_background(
     x: np.ndarray,
     y: np.ndarray,
     n_iter: int = 200,
-    tol: float = 1e-6,
+    tol: float = BG_REL_TOL,
     n_avg: int = 1,
 ) -> np.ndarray:
     """A REVERSED-STEP background — kept only so saved files that use it restore.
@@ -586,37 +605,29 @@ def shirley_linear_background(
     "none"): B = min(L + d (1 - F(B)), I), L the line between the averaged edge
     levels AFFINE IN THE POINT INDEX (np.linspace; affine in energy only on a
     uniform grid), d = |b_low - b_high|, F(B) the cumulative fraction of
-    max(I - B, 0) counted from the low-BE edge (measured: satisfied to 3.3e-11 of
-    the span on every committed spectrum). Not covered by that equation (Codex
-    round 2): equal edge levels (d below an absolute 1e-12) return L itself,
-    UNCLAMPED — above the data wherever it dips below the line — and the
-    iteration stops early if the net integral is not positive. It can also cycle
-    between two curves and never converge (E = 0..4, I = [20, 44, 34, 41, 47]:
-    12.5 % of the span, the same at 2000 iterations; findings F12). The
+    max(I - B, 0) counted from the low-BE edge; the levels are the means of the
+    averaged ends, the integral reads the raw data; smart_background's relative
+    stop. compute_background() certifies the result and raises
+    BackgroundNotConverged where it fails: equal edge levels (d below an absolute
+    1e-12) return L itself, UNCLAMPED — not the equation's min(L, I) wherever the
+    data dip below the line; the net integral not positive; the iteration
+    cycling between two curves (E = 0..4, I = [20, 44, 34, 41, 47]: 12.5 % of the
+    span, the same at 2000 iterations; findings F12). The
     unclamped curve meets the high-BE level, but
     its step is LARGEST AT THE LOW-BE EDGE and shrinks as net signal accumulates
     toward higher BE — the reverse of inelastic scattering, whose background
     grows with the signal at lower BE — and it sits d above the low-BE level
     there (a median 5 %, up to 41 %, of the span on the committed spectra); the
     clamp to the data is active on a median 43 % (up to 72 %) of the points. No
-    physical assumption yields that curve. De-listed from the page (2026-09-03);
-    findings F4: it should not return.
+    physical assumption yields that curve. Off the page's menu permanently
+    (de-listed 2026-09-03; owner, 2026-10-01 — findings F4); kept so saved files
+    that use it restore.
     """
     if len(x) < 2:
         return np.zeros_like(y)
-
-    # Work on ascending copy
-    if x[0] > x[-1]:
-        xs, ys = x[::-1].copy(), y[::-1].copy()
-        flipped = True
-    else:
-        xs, ys = x.copy(), y.copy()
-        flipped = False
-
+    xs, ys, flipped = _ascending(x, y)
     n = len(ys)
-    cap = max(1, min(n_avg, n // 4))
-    IL = float(np.mean(ys[:cap]))      # low‑BE endpoint
-    IH = float(np.mean(ys[-cap:]))     # high‑BE endpoint
+    IL, IH = _edge_levels(ys, n_avg)   # low-BE, high-BE levels
 
     # Linear baseline
     linear = np.linspace(IL, IH, n)
@@ -628,23 +639,95 @@ def shirley_linear_background(
     if step_h < 1e-12:
         return linear[::-1] if flipped else linear
 
+    stop = tol * float(np.max(ys) - np.min(ys))
     B = np.zeros(n)
     for _ in range(n_iter):
-        B_prev = B.copy()
-        signal = np.maximum(flat - B, 0.0)
-        # O(n) cumulative integral from high-x end back to each point
-        cum_right = np.zeros(n)
-        for i in range(n - 2, -1, -1):
-            cum_right[i] = cum_right[i + 1] + 0.5 * (signal[i] + signal[i + 1]) * (xs[i + 1] - xs[i])
+        cum_right = _cum_from_high(xs, np.maximum(flat - B, 0.0))
         total = cum_right[0]
-        if total <= 0.0:
+        if not total > 0.0:
             break
-        B = step_h * cum_right / total
-        if np.max(np.abs(B - B_prev)) < tol:
+        Bn = step_h * cum_right / total
+        if np.max(np.abs(Bn - B)) <= stop:
             break
+        B = Bn
 
     result = np.minimum(linear + B, ys)
     return result[::-1] if flipped else result
+
+
+def _tougaard_loss(x, y, n_avg=1):
+    """The parts of tougaard_background's statement on the DESCENDING working
+    grid: (loss sum at every point, high-BE anchor level, C0, flipped)."""
+    n = len(x)
+
+    # Universal cross-section constants, Tougaard (1988): B = 2866 eV²,
+    # C = 1643 eV². A long-standing transcription slip shipped C = 1643²
+    # (~2.7e6 eV²), which pushed the kernel maximum from ~23 eV to ~949 eV
+    # of energy loss and flattened the background to ~zero over any real
+    # XPS window. Fixed 2026-07-04 together with the JS twin.
+    B_coef, C_coef = 2866.0, 1643.0
+
+    xa = np.asarray(x, dtype=float)
+    ya = np.asarray(y, dtype=float)
+
+    # The one-sided loss sum below (j >= i) is physical only when BE
+    # DESCENDS along the array: the loss contributions at x[i] must come
+    # from lower-BE (higher-KE) emitters, which sit at higher indices only
+    # on a descending grid. Normalize to descending internally and flip
+    # the result back — the mirror of shirley_background's ascending
+    # normalization — so both BE orderings give identical output.
+    flipped = bool(xa[0] < xa[-1])
+    if flipped:
+        xa, ya = xa[::-1].copy(), ya[::-1].copy()
+
+    # The edge levels (endpoint averaging sets these only; the integral reads
+    # the raw data): on the descending working array index -1 is the low-BE
+    # edge — C0, the out-of-window (pre-loss) baseline the kernel integral runs
+    # above — and index 0 the high-BE edge, the anchor.
+    a_high, c0 = _edge_levels(ya, n_avg)
+    net = ya - c0
+
+    dx = float(abs(xa[1] - xa[0]))
+
+    # bg[i] = Σ_{j>=i} K(|x[j]-x[i]|)·net[j]·w[j],  K(T) = B·T / (C + T²)²,
+    # w[j] = the local quadrature weight (energy spacing) at point j.
+    #
+    # On a uniformly spaced grid |x[j]-x[i]| = (j-i)·dx and w[j] == dx, so the
+    # kernel depends only on the index gap and this one-sided correlation
+    # collapses to a convolution against a single precomputed kernel vector —
+    # evaluated in C via np.convolve instead of an n-iteration Python loop
+    # (audit F7). On a NONUNIFORM grid neither identity holds, so we keep the
+    # exact per-point separation loop AND per-point weights (audit F2,
+    # 2026-07-17: the loop previously used exact separations but omitted the
+    # spacing weights, silently applying a uniform-grid quadrature inside the
+    # branch written precisely because the grid is not uniform — up to ~24%
+    # error on a genuinely nonuniform grid). np.gradient returns dx exactly
+    # on a uniform grid, so both branches agree to floating point and the
+    # uniformity test is an optimization on a truly uniform grid. The test
+    # accepts grids uniform to 1e-6 of the first step, where the convolution
+    # APPROXIMATES the stated sum (index separations, one weight). The error is
+    # not bounded by the 1e-6: the anchor divides by the high-edge sum, so near
+    # cancellation it is amplified (16 % of the span on a constructed case) and a
+    # nearly cancelling sum can come out exactly zero (background-math findings,
+    # tougaard; Codex rounds 3-4).
+    diffs = np.diff(xa)
+    uniform = bool(dx > 0.0 and np.max(np.abs(diffs - diffs[0])) <= 1e-6 * dx)
+
+    if uniform:
+        m = np.arange(n, dtype=float)
+        T = m * dx
+        k = (B_coef * T) / (C_coef + T * T) ** 2          # k[m] = K(m·dx)
+        # bg[i] = Σ_{m=0}^{n-1-i} k[m]·net[i+m]  =  conv(net, reverse(k))[n-1+i]
+        bg = np.convolve(net, k[::-1])[n - 1:] * dx
+    else:
+        w = np.abs(np.gradient(xa))
+        bg = np.zeros(n)
+        for i in range(n):
+            T = np.abs(xa[i:] - xa[i])
+            kernel = (B_coef * T) / (C_coef + T * T) ** 2
+            bg[i] = float(np.sum(kernel * net[i:] * w[i:]))
+
+    return bg, a_high, c0, flipped
 
 
 def tougaard_background(
@@ -654,24 +737,29 @@ def tougaard_background(
 ) -> np.ndarray:
     """Tougaard background: the solution of the loss-integral relation.
 
-    DEFINING STATEMENT. With J the intensity as this function reads it (the
-    measured data with its first / last ``n_avg`` points replaced by their mean,
-    as shirley_background reads them — findings F1) and C0 = J at the low-BE
-    edge, the background at binding energy E is the constant plus the electrons
-    emitted at LOWER BE (higher kinetic energy) E' that lost T = E - E':
+    DEFINING STATEMENT. With I the MEASURED data, C0 the low-BE edge level and
+    J_high the high-BE edge level (the means of the last / first k =
+    min(``n_avg``, n // 4) points on the descending grid: endpoint averaging
+    sets the levels only, as for every background — owner, 2026-10-01; until
+    then the end bands of the DATA were replaced by their means and that
+    modified spectrum integrated, findings F1), the background at binding
+    energy E is the constant plus the electrons emitted at LOWER BE (higher
+    kinetic energy) E' that lost T = E - E':
 
-        B(E) = C0 + lam * INT_{E_min}^{E} K(E - E') (J(E') - C0) dE',
+        B(E) = C0 + lam * INT_{E_min}^{E} K(E - E') (I(E') - C0) dE',
         K(T) = T / (C + T^2)^2,   C = 1643 eV^2,
 
-    with lam fixed by B(E_high) = J(E_high) (no primary signal at the high-BE
-    edge). Explicit in J — one pass, no iteration. When the discrete loss sum
+    with lam fixed by B(E_high) = J_high (no primary signal at the high-BE
+    edge). Explicit in I — one pass, no iteration. When the discrete loss sum
     at the high-BE edge is zero (the sampled quadrature: a two-point window has
     no term with T > 0, although the continuum integral of the interpolated data
     would not vanish; or net intensities whose terms cancel) the anchor does not
-    fix lam. If J(E_high) = C0 the solutions form a family, one per lam, and the
+    fix lam. If J_high = C0 the solutions form a family, one per lam, and the
     flat C0 returned is its lam = 0 member (every member is flat only when the
-    whole loss vector vanishes, as on a two-point window); if J(E_high) != C0
-    no solution exists and the anchor is missed (findings F11). On a grid
+    whole loss vector vanishes, as on a two-point window — then the flat C0 IS
+    the answer); if J_high != C0 no solution exists and the anchor is missed
+    (findings F11). Both are reported: compute_background() raises
+    BackgroundNotConverged for the undetermined and the unsolvable case. On a grid
     uniform to 1e-6 of its first step the sum is evaluated as if EXACTLY
     uniform (index gap x first step, one weight): each separation and weight is
     perturbed by up to ~1e-6 relative, but the error is not bounded by that —
@@ -681,8 +769,8 @@ def tougaard_background(
     can become exactly zero and the anchor is missed by 33 %).
     Measured on
     the committed spectra, against an independent evaluation: equal to the
-    discrete sum to <= 1e-13 of the span, the anchor met exactly, within 1e-5 of
-    the span of the integral on a 10x finer grid.
+    discrete sum to <= 1e-13 of the span, the anchor met exactly, within
+    1.4e-5 of the span (2.7e-3 % of net area) of the integral on a 10x finer grid.
 
     ASSUMPTIONS, and when they fail:
       * the emitters are homogeneously distributed in depth and lose energy by
@@ -730,10 +818,9 @@ def tougaard_background(
     nominal B_coef cancels; C alone sets the kernel shape).  Equivalent to
     fitting B together with an offset rather than B alone.
 
-    ``n_avg`` averages the first/last ``n_avg`` points before the endpoint
-    levels are read, so neither C0 nor the high-BE anchor rests on a single
-    noisy sample (see ``_apply_endpoint_averaging``).  n_avg=1 = raw
-    endpoints = previous behaviour.
+    ``n_avg``: C0 and the high-BE anchor are the means of the end bands, so
+    neither rests on a single noisy sample; the loss sum reads the raw data.
+    n_avg = 1 = raw endpoints = previous behaviour.
 
     The background at each binding energy accumulates loss contributions
     from electrons emitted at LOWER BE (higher kinetic energy), so the
@@ -744,75 +831,7 @@ def tougaard_background(
     n = len(x)
     if n < 2:
         return np.zeros_like(y, dtype=float)
-
-    # Universal cross-section constants, Tougaard (1988): B = 2866 eV²,
-    # C = 1643 eV². A long-standing transcription slip shipped C = 1643²
-    # (~2.7e6 eV²), which pushed the kernel maximum from ~23 eV to ~949 eV
-    # of energy loss and flattened the background to ~zero over any real
-    # XPS window. Fixed 2026-07-04 together with the JS twin.
-    B_coef, C_coef = 2866.0, 1643.0
-
-    xa = np.asarray(x, dtype=float)
-    ya = np.asarray(y, dtype=float)
-    if n_avg > 1:
-        ya = _apply_endpoint_averaging(ya, n_avg)
-
-    # The one-sided loss sum below (j >= i) is physical only when BE
-    # DESCENDS along the array: the loss contributions at x[i] must come
-    # from lower-BE (higher-KE) emitters, which sit at higher indices only
-    # on a descending grid. Normalize to descending internally and flip
-    # the result back — the mirror of shirley_background's ascending
-    # normalization — so both BE orderings give identical output.
-    flipped = bool(xa[0] < xa[-1])
-    if flipped:
-        xa, ya = xa[::-1].copy(), ya[::-1].copy()
-
-    # C0: the low-BE edge level = index -1 on the descending working array.
-    # This is the out-of-window (pre-loss) baseline; the kernel integral is
-    # run on the net above it.
-    c0 = float(ya[-1])
-    net = ya - c0
-
-    dx = float(abs(xa[1] - xa[0]))
-
-    # bg[i] = Σ_{j>=i} K(|x[j]-x[i]|)·net[j]·w[j],  K(T) = B·T / (C + T²)²,
-    # w[j] = the local quadrature weight (energy spacing) at point j.
-    #
-    # On a uniformly spaced grid |x[j]-x[i]| = (j-i)·dx and w[j] == dx, so the
-    # kernel depends only on the index gap and this one-sided correlation
-    # collapses to a convolution against a single precomputed kernel vector —
-    # evaluated in C via np.convolve instead of an n-iteration Python loop
-    # (audit F7). On a NONUNIFORM grid neither identity holds, so we keep the
-    # exact per-point separation loop AND per-point weights (audit F2,
-    # 2026-07-17: the loop previously used exact separations but omitted the
-    # spacing weights, silently applying a uniform-grid quadrature inside the
-    # branch written precisely because the grid is not uniform — up to ~24%
-    # error on a genuinely nonuniform grid). np.gradient returns dx exactly
-    # on a uniform grid, so both branches agree to floating point and the
-    # uniformity test is an optimization on a truly uniform grid. The test
-    # accepts grids uniform to 1e-6 of the first step, where the convolution
-    # APPROXIMATES the stated sum (index separations, one weight). The error is
-    # not bounded by the 1e-6: the anchor divides by the high-edge sum, so near
-    # cancellation it is amplified (16 % of the span on a constructed case) and a
-    # nearly cancelling sum can come out exactly zero (background-math findings,
-    # tougaard; Codex rounds 3-4).
-    diffs = np.diff(xa)
-    uniform = bool(dx > 0.0 and np.max(np.abs(diffs - diffs[0])) <= 1e-6 * dx)
-
-    if uniform:
-        m = np.arange(n, dtype=float)
-        T = m * dx
-        k = (B_coef * T) / (C_coef + T * T) ** 2          # k[m] = K(m·dx)
-        # bg[i] = Σ_{m=0}^{n-1-i} k[m]·net[i+m]  =  conv(net, reverse(k))[n-1+i]
-        bg = np.convolve(net, k[::-1])[n - 1:] * dx
-    else:
-        w = np.abs(np.gradient(xa))
-        bg = np.zeros(n)
-        for i in range(n):
-            T = np.abs(xa[i:] - xa[i])
-            kernel = (B_coef * T) / (C_coef + T * T) ** 2
-            bg[i] = float(np.sum(kernel * net[i:] * w[i:]))
-
+    bg, a_high, c0, flipped = _tougaard_loss(x, y, n_avg)
     # Amplitude anchor: scale the loss integral so the background equals the
     # measured intensity at the HIGH-BE edge (index 0 on the descending
     # working array), then sit it on the C0 pedestal. Guard semantics: if NO
@@ -825,8 +844,105 @@ def tougaard_background(
     if bg[0] == 0.0:
         out = np.full(n, c0)
     else:
-        out = c0 + bg * ((float(ya[0]) - c0) / bg[0])
+        out = c0 + bg * ((a_high - c0) / bg[0])
     return out[::-1] if flipped else out
+
+
+_BG_LABELS = {
+    "shirley": "Shirley",
+    "smart": "Smart (constrained Shirley)",
+    "smart_exp": "Smart (experimental)",
+    "shirley_linear": "Shirley + linear",
+    "tougaard": "Tougaard",
+}
+
+
+def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
+    """Check a background against its DEFINING STATEMENT (not against how it
+    was computed). Returns {"converged": bool, "residual": float | None,
+    "reason": str | None}; the residual is a fraction of the window's intensity
+    span and the test is ``residual <= BG_REL_TOL`` — the same number every
+    iteration stops on.
+
+      shirley         B = T(B)                       (_shirley_map)
+      smart, smart_exp  B = min(T(B), I)
+      shirley_linear  B = min(L + d (1 - F(B)), I)   (its docstring)
+      tougaard        the loss-sum anchor determines the amplitude: a zero
+                      high-edge sum with equal edge levels leaves it
+                      undetermined (unless the whole loss vector is zero:
+                      then the flat C0 is the one answer), with unequal levels
+                      there is no solution (findings F11)
+      linear, manual, none  explicit — nothing to converge
+
+    T and the edge levels read endpoint averaging as the backgrounds do (the
+    levels only; the integral and the clamp read the raw data)."""
+    m = (method or "").lower()
+    label = _BG_LABELS.get(m, m)
+    bg = np.asarray(bg, dtype=float)
+    if not np.all(np.isfinite(bg)):
+        return {"converged": False, "residual": None, "reason": "the computed background is not finite"}
+    if m not in _BG_LABELS:
+        return {"converged": True, "residual": None, "reason": None}
+    if len(x) < 2:
+        return {"converged": False, "residual": None,
+                "reason": "the background window holds fewer than two data points"}
+    if m == "tougaard":
+        loss, a_high, c0, _ = _tougaard_loss(x, y, n_avg)
+        if loss[0] != 0.0:
+            return {"converged": True, "residual": None, "reason": None}
+        if a_high == c0 and not np.any(loss):
+            return {"converged": True, "residual": None, "reason": None}
+        if a_high == c0:
+            return {"converged": False, "residual": None, "reason": (
+                "the loss sum at the high-BE edge cancels to zero, so the edge does not fix the "
+                "background's amplitude and different amplitudes give different backgrounds")}
+        return {"converged": False, "residual": None, "reason": (
+            "the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level")}
+    xs, ys, flipped = _ascending(x, y)
+    Ba = bg[::-1] if flipped else bg
+    span = float(np.max(ys) - np.min(ys))
+    b_low, b_high = _edge_levels(ys, n_avg)
+    if m == "shirley_linear":
+        L = np.linspace(b_low, b_high, len(ys))
+        d = abs(b_low - b_high)
+        Q = _cum_from_high(xs, np.maximum(ys - Ba, 0.0))
+        target = None if (d != 0.0 and not Q[0] > 0.0) else (
+            np.minimum(L, ys) if d == 0.0 else np.minimum(L + d * Q / Q[0], ys))
+    else:
+        Tb = _shirley_map(xs, ys, Ba, b_low, b_high)
+        target = None if Tb is None else (Tb if m == "shirley" else np.minimum(Tb, ys))
+    if target is None:
+        return {"converged": False, "residual": None, "reason": (
+            "the data lie at or below the line between the two edge levels, so there is no net "
+            "signal and the %s relation is undefined" % label)}
+    diff = float(np.max(np.abs(Ba - target)))
+    residual = diff / span if span > 0.0 else (0.0 if diff == 0.0 else float("inf"))
+    if residual <= BG_REL_TOL:
+        return {"converged": True, "residual": residual, "reason": None}
+    return {"converged": False, "residual": residual, "reason": (
+        "its iteration did not settle on a solution (it alternates or ran out of steps); the "
+        "result misses the %s relation by %.3g %% of the intensity span" % (label, 100.0 * residual))}
+
+
+def compute_background(x, y, method, n_avg=1) -> np.ndarray:
+    """The integral background of ``method`` on the window (x, y), CERTIFIED:
+    raises BackgroundNotConverged (a ValueError carrying a plain message) when
+    the result does not satisfy its defining statement. Every caller that fits
+    against, subtracts or reports a background goes through here."""
+    m = (method or "").lower()
+    fn = {"shirley": shirley_background, "smart": smart_background,
+          "smart_exp": smart_experimental_background,
+          "shirley_linear": shirley_linear_background,
+          "tougaard": tougaard_background}.get(m)
+    if fn is None:
+        raise ValueError(f"Unknown background method '{method}'")
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    bg = fn(x, y, n_avg=n_avg)
+    cert = background_certificate(x, y, bg, m, n_avg)
+    if not cert["converged"]:
+        raise BackgroundNotConverged(f"{_BG_LABELS[m]} background not converged: {cert['reason']}.")
+    return bg
 
 
 def _la_casaxps_true(
@@ -1901,16 +2017,10 @@ def _run_fit_impl(
             bg = np.interp(x, anchor_x, anchor_y)
         else:
             bg = linear_background(x, y)
-    elif bg_method == "shirley":
-        bg_inner = shirley_background(x_bg, y_bg, n_avg=endpoint_avg)
-    elif bg_method == "smart":
-        bg_inner = smart_background(x_bg, y_bg, n_avg=endpoint_avg)
-    elif bg_method == "smart_exp":
-        bg_inner = smart_experimental_background(x_bg, y_bg, n_avg=endpoint_avg)
-    elif bg_method == "shirley_linear":
-        bg_inner = shirley_linear_background(x_bg, y_bg, n_avg=endpoint_avg)
-    elif bg_method == "tougaard":
-        bg_inner = tougaard_background(x_bg, y_bg, n_avg=endpoint_avg)
+    elif bg_method in _BG_LABELS:
+        # certified: a background that does not satisfy its statement raises
+        # BackgroundNotConverged and no fit is made against it
+        bg_inner = compute_background(x_bg, y_bg, bg_method, n_avg=endpoint_avg)
     elif bg_method == "linear":
         # Extrapolate the line through (E[i0], y[i0]) ↔ (E[i1-1], y[i1-1])
         # across the full ROI. The line is well-defined everywhere, so
@@ -2356,16 +2466,8 @@ def compute_background_only(
     i1 = end_idx if end_idx is not None else len(energy)
     x, y = energy[i0:i1], counts[i0:i1]
 
-    if method == "shirley":
-        bg = shirley_background(x, y, n_avg=endpoint_avg)
-    elif method == "smart":
-        bg = smart_background(x, y, n_avg=endpoint_avg)
-    elif method == "smart_exp":
-        bg = smart_experimental_background(x, y, n_avg=endpoint_avg)
-    elif method == "shirley_linear":
-        bg = shirley_linear_background(x, y, n_avg=endpoint_avg)
-    elif method == "tougaard":
-        bg = tougaard_background(x, y, n_avg=endpoint_avg)
+    if method in _BG_LABELS:
+        bg = compute_background(x, y, method, n_avg=endpoint_avg)   # raises BackgroundNotConverged
     elif method == "linear":
         bg = linear_background(x, y)
     elif method in ("none", "flat", "", "manual"):

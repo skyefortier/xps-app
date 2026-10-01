@@ -188,7 +188,14 @@ def test_engine_no_hallucination_on_peakless_step():
     y = _noisy(step + 500.0, 91)
     grammar = _grammar([_cand("P1", [_slot("main_a", (195.5, 197.5))],
                               bg=BackgroundType.SHIRLEY)])
-    res = _ic(x, y, grammar)
+    # Since 2026-10-01 (background math, findings F12) a peakless step's Shirley iteration
+    # alternates and has no converged solution on this draw: the engine refuses the background
+    # — no analysis, nothing emitted, which is the no-hallucination guarantee at its source.
+    import fitting
+    try:
+        res = _ic(x, y, grammar)
+    except fitting.BackgroundNotConverged:
+        return
     assert res.analysis["preseeded_features"] == []
     for p in res.peaks:
         assert not p["role"].startswith("preseed_")

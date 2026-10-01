@@ -150,6 +150,10 @@ def _run_fit_outcome(app, fit_args, cancel=None):
         result = fitting.run_fit(**fit_args, cancel=cancel)
     except fitting.FitCancelled:
         return None, None
+    except fitting.BackgroundNotConverged as exc:
+        # The request is valid; its data give no background that satisfies the
+        # chosen method's statement — no fit is made against it (findings F10-F12).
+        return 422, {"error": str(exc)}
     except ValueError as exc:
         # Our own validation: unknown shape/method, self/circular constraint,
         # "Master peak not found", bad numeric field, etc. (audit F10/F11).
@@ -1009,6 +1013,8 @@ def _register_routes(app: Flask) -> None:
                 start_idx=start_idx, end_idx=end_idx,
                 endpoint_avg=ep_avg,
             )
+        except fitting.BackgroundNotConverged as exc:
+            return _err(str(exc), 422)
         except ValueError as exc:
             # Our own validation, e.g. "Unknown background method" (audit F10).
             return _err(str(exc))

@@ -260,18 +260,19 @@ def _compute_background(
     behaviour of this function and app.py's own default, so wiring alone
     changes nothing.
     """
+    # Certified (fitting.compute_background): a background that does not satisfy
+    # its defining statement raises BackgroundNotConverged (background math, 2026-10-01).
+    from fitting import compute_background
     if bg is BackgroundType.SHIRLEY:
-        return shirley_background(x, y, n_avg=endpoint_avg)
+        return compute_background(x, y, "shirley", n_avg=endpoint_avg)
     if bg is BackgroundType.SMART:
-        return smart_background(x, y, n_avg=endpoint_avg)
+        return compute_background(x, y, "smart", n_avg=endpoint_avg)
     if bg is BackgroundType.SMART_EXP:
-        from fitting import smart_experimental_background
-        return smart_experimental_background(x, y, n_avg=endpoint_avg)
+        return compute_background(x, y, "smart_exp", n_avg=endpoint_avg)
     if bg is BackgroundType.LINEAR:
         return linear_background(x, y)
     if bg is BackgroundType.TOUGAARD:
-        from fitting import tougaard_background
-        return tougaard_background(x, y, n_avg=endpoint_avg)
+        return compute_background(x, y, "tougaard", n_avg=endpoint_avg)
     raise ValueError(f"Unknown background type: {bg}")
 
 

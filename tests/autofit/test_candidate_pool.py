@@ -170,13 +170,24 @@ def test_pool_zero_seeds_on_negatives():
         spiked[100 + seed * 40] *= 12.0
         ys.append(spiked)
 
+    import fitting
+    refused = 0
     for y in ys:
-        bg = _compute_background(x, y, BackgroundType.SHIRLEY)
+        # Since 2026-10-01 (background math, findings F10 / F12) the Shirley background of a
+        # featureless window often has no converged solution (drift, a peakless step: the
+        # iteration alternates) and the engine REFUSES it — no background, no analysis, nothing
+        # seeded. The windows whose background converges must still seed nothing.
+        try:
+            bg = _compute_background(x, y, BackgroundType.SHIRLEY)
+        except fitting.BackgroundNotConverged:
+            refused += 1
+            continue
         pool = build_candidate_pool(
             x, y, bg, all_windows=[(195.5, 197.5)], labeled_windows={},
             dominant_seeds=[], **GATES)
         assert pool.curvature_seeds == []
         assert all(f.seeded_role is None for f in pool.features)
+    assert refused < len(ys), "some negatives still reach the pool (noise, the broad peak, spikes)"
 
 
 def test_pool_coincident_ridge_merges_with_dominant_seed():
