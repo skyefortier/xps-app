@@ -196,9 +196,11 @@ definition to 1e-9 on uniform and non-uniform grids.
 Branches no defining statement covers, stated here once (Codex round 3's brief):
 a window of fewer than two points returns zeros (every Shirley-family method and
 Tougaard); `linear` with equal end energies returns the flat first intensity
-(IMPLEMENTATION, Codex impl round 4: only when the two end intensities agree too —
+(IMPLEMENTATION, Codex impl rounds 4-5: only when the two end intensities agree too —
 otherwise no line passes through both end points and the background is not
-converged, server and page; the same for manual with fewer than two anchors);
+converged, server and page; the same for manual with fewer than two anchors, for
+two manual anchors at one energy with different intensities, and for any explicit
+background whose values are not all finite);
 endpoint averaging reads at most n // 4 points per edge and is ignored below four
 points (the checker's `band` follows the same rule). None occurs on the committed
 spectra; pinned in the tests.

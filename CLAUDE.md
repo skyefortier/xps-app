@@ -870,7 +870,13 @@ message) when it fails: the iteration cycles (F12), there is no net signal above
 edge line (F10), Tougaard's amplitude is undetermined or has no solution (F11), or
 `shirley_linear`'s equal-edge branch returns its line unclamped. `run_fit`,
 `compute_background_only`, Find Peaks' engine and `autofit/parity.py` all go through
-it: nothing is fitted against such a background. No fallback solver (owner).
+it: nothing is fitted against such a background. No fallback solver (owner). The
+EXPLICIT backgrounds (linear, manual, none) have nothing to converge but must exist,
+checked the same way, server and page, in the same words: no line when the window's
+end points share an energy and not an intensity, no manual curve when two anchors do,
+and every value finite (`fitting._line_through`, `manual_anchor_background`,
+`_explicit_background`; the page's `computeBackgroundCore` checks every method's
+result).
 
 The page's twins (`computeBackgroundCore`) run the server's arithmetic operation for
 operation: EVERY background is BIT-IDENTICAL to fitting.py (Tougaard's loss sum term

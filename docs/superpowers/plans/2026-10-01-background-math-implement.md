@@ -132,18 +132,26 @@ must run to convergence, as the server's always has. The field is hidden (kept: 
 files restore it and fit keys still compare it — removing it from the key would make
 every saved fit stale on load) and never read.
 
-**Linear and short records (Codex round 4).** Linear (and manual with fewer than two
-anchors, which is linear through the ROI's ends) is "explicit — nothing to converge",
-but its statement — the line through the window's two end points — has no solution
-when those points share an energy and not an intensity (a repeated energy at both
-window edges): the flat first intensity used to be drawn and fitted against. Now
-`fitting._line_through` raises `BackgroundNotConverged` and the page's
-`_bgLineFailure` marks it not converged, with the same words. A restored fit whose
-raw data are missing or incomplete is dropped (the certificate needs them; a
-truncated record used to skip the check). The spectrum-file loader puts the fit's
-stored grid, background and fitted curve in the order `createTab` gives the raw
-data (BE descending, stable) — an ascending file's current fit used to be dropped as
-"fitted on other points".
+**Explicit backgrounds must exist; short records; file order (Codex rounds 4-5).**
+Linear, manual and none are "explicit — nothing to converge", but each is a curve
+that must EXIST, and that is now checked like every other statement, server and page,
+in the same words: linear (and manual with fewer than two anchors, the line through
+the ROI's ends) has no line when the window's end points share an energy and not an
+intensity (`fitting._line_through` / `_bgLineFailure`); manual has no curve when two
+anchors share an energy and not an intensity (`fitting.manual_anchor_background` /
+`_bgAnchorFailure`); and every value must be a finite number — finite inputs can
+overflow (a slope over a 1e-309 eV window, intensities near 1e308)
+(`fitting._explicit_background`; on the page `computeBackgroundCore` checks the
+result of every method, `_computeBackgroundUnchecked` computes it). The flat first
+intensity, an interpolation between conflicting anchors and NaN / ±Infinity used to
+be drawn and fitted against; ordinary windows are bit-for-bit unchanged. The parity
+reference `autofit/parity.background_like_run_fit` uses `_line_through` too. A
+restored fit whose raw data are missing or incomplete is dropped (the certificate
+needs them). The spectrum-file loader keeps the FILE's point order, as the project
+loader does (round 4 re-sorted the fit's arrays to `createTab`'s BE-descending order;
+round 5 showed re-ordering is not neutral — repeated energies integrate in another
+order, 0.7-12 % of the span, and a line's arithmetic rounds differently — so a
+current fit was still dropped).
 
 **Item 6.** The amber notice for files that use Shirley + linear stays; its stated
 reason ("its on-screen curve can differ from the background the backend fit actually
@@ -231,7 +239,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 531, exact (the owner's 512 for the two landed branches + this unit's 19 tests).
+- JS CI floor 508 -> 533, exact (the owner's 512 for the two landed branches + this unit's 21 tests).
 
 ## 4. Measurements
 
@@ -417,3 +425,29 @@ the 376 smart / smart_exp pairs reproduce; B: 512 project round trips kept):
 | 1 | MAJOR (A): linear certified an impossible line — window ends at one energy, different intensities — and the server fitted against the flat first intensity | `fitting._line_through` raises, the page's `_bgLineFailure` refuses, same words (also manual with < 2 anchors); ordinary windows bit-for-bit unchanged; pinned both sides |
 | 2 | MAJOR (A, B): a record with missing / short raw data skipped the restore check and drew its stored curve | dropped: "its raw data are missing or incomplete"; pinned (one point, empty, absent, unequal lengths) |
 | 3 | MAJOR (A, B): an ascending spectrum file's current fit was dropped (createTab sorts the raw data; the fit's arrays were left in file order) | grid, background and fitted curve put in createTab's order (stable descending); browser test on the reversed file, point for point |
+
+**Round 5 — NO-GO ×2** (`background_math_impl_r5_verdict_run{A,B}.md`, commit dd1259a;
+both: the census (3 / 62 / 56), the four measurement summaries and the smart /
+smart_exp identity reproduce; A: 128 further project round trips kept):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): conflicting manual anchors (two at one energy, different intensities) certified an impossible curve; `run_fit` fitted against it | refused, server and page, same words; agreeing duplicates still fit |
+| 2 | MAJOR (A, B): ascending spectrum files with repeated energies (and a linear rounding case) still lost current fits — re-ordering is not neutral | the loader keeps the file's order (round 4's re-ordering removed); browser test with repeated energies |
+| 3 | MINOR (A, B): explicit backgrounds could overflow to NaN / ±Infinity and be certified | every result must be finite (`_explicit_background`; the page's `computeBackgroundCore` wraps every method); pinned on both overflow cases |
+| 4 | MINOR (A, B): the parity reference kept the impossible-line fallback | it uses `_line_through`; pinned |
+| 5 | MINOR (A, B): the "same words" differed in number formatting (1e-05 vs 0.00001) | the messages carry no formatted number; pinned equal strings both sides |
+
+Found in my own pre-review after the round-5 fixes, fixed with them: an anchor that is
+not a pair of finite numbers (NaN, Infinity, a string, null, a bool, a missing
+coordinate) is refused on both sides in the same words — a NaN anchor could
+interpolate to finite values and pass the finiteness check, and a string anchor
+("2") was read as a number by the server and refused by the page; and the page's
+interpolation now follows numpy's `arr_interp` on its edge branches (an anchor energy
+returns its intensity; a NaN from an overflowing slope is recomputed from the
+right-hand anchor), so the finiteness verdicts agree too — pinned bit-identical,
+NaN / Infinity included, on five such cases.
+
+Mutation-verified (11 of 11 killed): the page's finiteness check, its anchor checks
+(conflict, validity), the loader's order, the server's finiteness and anchor checks,
+the parity fallback, the page's two numpy edge branches, the round-4 linear refusals.

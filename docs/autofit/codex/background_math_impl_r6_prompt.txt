@@ -1,0 +1,36 @@
+Review the "background math — implementation" unit, round 6: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-5 fixes = git diff dd1259a..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..5}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-5 fixes in short:
+- The EXPLICIT backgrounds (linear, manual, none) are now checked for existence, server and page, in identical words (no formatted numbers in the messages). Three checks:
+  - no line when the window's end points share an energy but not an intensity (fitting._line_through / _bgLineFailure);
+  - no manual curve when two anchors share an energy but not an intensity (fitting.manual_anchor_background / _bgAnchorFailure);
+  - every value must be finite (fitting._explicit_background). On the page, computeBackgroundCore checks every method's result; _computeBackgroundUnchecked computes it.
+- Every manual anchor must be a pair of finite numbers (not NaN / Infinity / a string / null / a bool), refused in identical words on both sides. The page's interpolation follows numpy's arr_interp edge branches: an anchor energy returns its intensity, and a NaN from an overflowing slope is recomputed from the right-hand anchor. This is pinned bit-identical, NaN / Infinity included.
+- autofit/parity.background_like_run_fit uses _line_through.
+- The spectrum-file loader keeps the FILE's own point order, as the project loader does. Round 4's reordering is removed, because reordering is not neutral: repeated energies integrate in a different order, and a line's arithmetic rounds differently.
+- JS CI floor 533 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding by whether a reachable input violates that requirement. Rate an inconsistency that changes no verdict and no displayed number as MINOR.
+
+TRY TO BREAK
+a. The round-5 fixes. Look for any other way an explicit or integral background is certified without satisfying its statement, on the server or the page, or for any page / server disagreement in a verdict or its words. Probe these:
+   - anchors that are NaN, Infinity, strings, null, or one anchor;
+   - anchors outside the data;
+   - a manual background with no anchors on a record;
+   - a file whose rawBE is unsorted or has repeated energies;
+   - stale files;
+   - stacks built on such records.
+b. Does keeping the file's order break anything that assumed createTab's descending sort? Check the ROI hint, isSurvey, the charts, the stack, Batch Fit, Auto-Fit, Find Peaks (archived), exports, and the saves that follow.
+c. Everything rounds 1-5 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

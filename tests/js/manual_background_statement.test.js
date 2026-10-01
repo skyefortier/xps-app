@@ -62,13 +62,21 @@ test("the manual background is np.interp's arithmetic exactly — bit-identical 
     const k = 2 + Math.floor(rnd() * 4), anchors = Array.from({ length: k }, () => ({ x: Math.round((be[n - 1] - 1 + rnd() * (be[0] - be[n - 1] + 2)) * 100) / 100, y: Math.round(rnd() * 5000) / 10 }));
     if (new Set(anchors.map(a => a.x)).size === k) cases.push({ be, anchors });
   }
+  // numpy's edge branches (Codex impl round 5 probe): an exact anchor energy, an
+  // overflowing slope (numpy recomputes a NaN from the right-hand anchor), agreeing duplicates
+  cases.push({ be: [0, 1, 5], anchors: [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }] });
+  cases.push({ be: [0, 5e-301, 1e-300, 2], anchors: [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }] });
+  cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 1, y: 4 }, { x: 2, y: 9 }] });
+  cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 0, y: 1 }, { x: 2, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 2 }] });
+  cases.push({ be: [0, 1e-320, 1], anchors: [{ x: 0, y: 1e308 }, { x: 1e-320, y: 1e308 }, { x: 1, y: 0 }] });
   const server = execFileSync(PY, ['-c', `import json,sys,numpy as np
 out=[]
 for c in json.load(sys.stdin):
     a = sorted(c['anchors'], key=lambda p: p['x'])
-    out.append([float(v) for v in np.interp(np.array(c['be'], float), [p['x'] for p in a], [p['y'] for p in a])])
+    out.append([repr(float(v)) for v in np.interp(np.array(c['be'], float), [p['x'] for p in a], [p['y'] for p in a])])
 print(json.dumps(out))`], { input: JSON.stringify(cases), encoding: 'utf8' });
-  const S = JSON.parse(server);
+  const num = r => ({ inf: Infinity, '-inf': -Infinity, nan: NaN })[r] ?? Number(r);
+  const S = JSON.parse(server).map(row => row.map(num));
   cases.forEach((c, k) => {
     const got = make(c.anchors).manualAnchorBackground(c.be, c.be.map(() => 1000));
     assert.deepStrictEqual(got, S[k], `case ${k}`);

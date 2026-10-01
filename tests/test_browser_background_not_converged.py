@@ -243,8 +243,8 @@ def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server)
             assert got["fit"] is kept, (name, got["n"])
             if kept:
                 assert got["bgOk"], "the certified curve replaces the stored one"
-                # the fit's grid and curve in the tab's (descending) order, point for point
-                assert got["be"] == saves["current"]["roiBE"] and got["fittedY"] == saves["current"]["fittedY"], name
+                # the file's own order is kept (round 5): the grid and curve as saved, point for point
+                assert got["be"] == saves[name]["roiBE"] and got["fittedY"] == saves[name]["fittedY"], name
             else:
                 assert any("saved after its model or settings changed" in m for m in got["n"]), got["n"]
         finally:
@@ -278,3 +278,36 @@ def test_a_manual_fit_whose_anchors_moved_after_the_fit_is_not_restored(browser,
                        for m in got["n"]), (name, got["n"])
         finally:
             pg.close()
+
+
+def test_an_ascending_spectrum_with_repeated_energies_restores_its_fit(browser, server):
+    # Codex impl round 5: re-sorting is not neutral — repeated energies integrate in another
+    # order (12 % of the span on this case) — so the loader keeps the file's order
+    setup = """() => {
+        const raw = [0, 1, 2, 2, 3, 4, 5].map(e => 280 + e), inten = [10, 12, 40, 15, 30, 22, 20];
+        tabManager.createTab('Asc', raw, inten);
+        const t = tabManager._getTab(tabManager.activeId);
+        t.rawBE = raw.slice(); t.rawIntensity = inten.slice(); state.rawBE = t.rawBE; state.rawIntensity = t.rawIntensity;
+        document.getElementById('roi-min').value = 280; document.getElementById('roi-max').value = 285;
+        document.getElementById('bg-start').value = 285; document.getElementById('bg-end').value = 280;
+        document.getElementById('bg-endpoint-avg').value = 1;
+        document.getElementById('bg-type').value = 'shirley'; _onBgTypeChange();
+        addPeak({ center: 282, fwhm: 1.0, amplitude: 20, shape: 'Gaussian' });
+        updatePlot();
+    }"""
+    pg = _new_page(browser, server)
+    try:
+        saved = _fit_and_capture(pg, setup, "() => _doSaveSpectrum()")
+    finally:
+        pg.close()
+    assert saved["rawBE"][0] < saved["rawBE"][-1] and saved["background"], "an ascending file with its background"
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(NOTIFY)
+        pg.evaluate("data => _loadSpectrumFile(data, 'asc.spec.json')", saved)
+        pg.wait_for_timeout(400)
+        got = pg.evaluate("() => ({ fit: !!state.fitResult, n: window.__n, raw: state.rawBE })")
+        assert got["fit"], got["n"]
+        assert got["raw"] == saved["rawBE"], "the file's order is kept"
+    finally:
+        pg.close()

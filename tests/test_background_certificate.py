@@ -180,3 +180,48 @@ def test_a_linear_window_whose_ends_share_an_energy_but_not_an_intensity_is_not_
     # an ordinary window is unchanged, bit for bit
     x, y = np.array([3.0, 2.0, 1.0, 0.0]), np.array([20.0, 25.0, 10.0, 5.0])
     assert np.array_equal(fitting.linear_background(x, y), y[0] + ((y[-1] - y[0]) / (x[-1] - x[0])) * (x - x[0]))
+
+
+# ── Codex implementation round 5 ─────────────────────────────────────────────
+
+LINE_WORDS = ("Linear background not converged: its two end points are at the same energy with "
+              "different intensities, so no line passes through both.")
+ANCHOR_WORDS = ("Manual background not converged: two anchors are at the same energy with different "
+                "intensities, so no curve passes through both.")
+FINITE_WORDS = ("Linear background not converged: it is not a finite number at every point "
+                "(the arithmetic overflowed or an input is not finite).")
+GPEAK = [{"id": "1", "shape": "gaussian", "center": 2.0, "fwhm": 1.0, "amplitude": 10.0, "amplitude_min": 0}]
+
+
+def test_an_explicit_background_must_exist_server():
+    # the page's words are pinned to these in tests/js/background_not_converged.test.js
+    with pytest.raises(fitting.BackgroundNotConverged) as e:
+        fitting.linear_background(np.array([1.0, 1.0]), np.array([10.0, 30.0]))
+    assert str(e.value) == LINE_WORDS
+    # conflicting manual anchors: no curve through both
+    E, I = np.array([0.0, 1, 2, 3, 4, 5]), np.array([10.0, 12, 40, 30, 22, 20])
+    with pytest.raises(fitting.BackgroundNotConverged) as e:
+        fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[[0, 0], [2, 1], [2, 20], [5, 0]])
+    assert str(e.value) == ANCHOR_WORDS
+    fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[[0, 0], [2, 1], [2, 1], [5, 0]])  # agreeing duplicates exist
+    # finite inputs whose arithmetic overflows
+    for x, y in (([0.0, 1e-309], [0.0, 1.0]), ([0.0, 1.0, 2.0], [1e308, 1.0, -1e308])):
+        with pytest.raises(fitting.BackgroundNotConverged) as e:
+            fitting.compute_background_only(np.array(x), np.array(y), method="linear")
+        assert str(e.value) == FINITE_WORDS
+
+
+def test_the_parity_reference_follows_run_fits_linear_rule():
+    from autofit.parity import background_like_run_fit
+    E, I = np.array([3.0, 2.0, 1.0, 1.0, 0.0]), np.array([20.0, 25.0, 10.0, 30.0, 5.0])
+    with pytest.raises(fitting.BackgroundNotConverged, match="no line passes through both"):
+        background_like_run_fit(E, I, "linear", 2, 4)
+
+
+def test_an_anchor_that_is_not_a_pair_of_finite_numbers_is_not_converged():
+    E, I = np.array([0.0, 1, 2, 3, 4, 5]), np.array([10.0, 12, 40, 30, 22, 20])
+    for bad in ([[0, 0], [float("nan"), 1], [5, 0]], [[0, 0], [2, float("inf")], [5, 0]],
+                [[0, 0], ["2", 1], [5, 0]], [[0, 0], [2, None], [5, 0]], [[0, 0], [True, 1], [5, 0]], [[0, 0], [2], [5, 0]]):
+        with pytest.raises(fitting.BackgroundNotConverged) as e:
+            fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=bad)
+        assert str(e.value) == "Manual background not converged: an anchor is not a pair of finite numbers."

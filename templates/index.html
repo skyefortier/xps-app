@@ -4534,8 +4534,20 @@ function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
 // flat first intensity used to be drawn and fitted against). Null when it exists.
 function _bgLineFailure(x0, y0, x1, y1) {
   if (x1 !== x0 || y1 === y0) return null;
-  return 'Linear background not converged: its two end points are at the same energy (' +
-    Number(x0.toPrecision(6)) + ' eV) with different intensities, so no line passes through both.';
+  return 'Linear background not converged: its two end points are at the same energy with different intensities, so no line passes through both.';
+}
+// fitting.manual_anchor_background's refusal: two anchors at one energy with
+// different intensities have no curve through both (Codex impl round 5).
+function _bgAnchorFailure(anchors) {
+  // every anchor coordinate a finite number (fitting.manual_anchor_background's twin)
+  if (!anchors.every(p => p && typeof p.x === 'number' && typeof p.y === 'number' && Number.isFinite(p.x) && Number.isFinite(p.y)))
+    return 'Manual background not converged: an anchor is not a pair of finite numbers.';
+  const a = [...anchors].sort((p, q) => p.x - q.x);
+  for (let k = 1; k < a.length; k++) {
+    if (a[k].x === a[k - 1].x && a[k].y !== a[k - 1].y)
+      return 'Manual background not converged: two anchors are at the same energy with different intensities, so no curve passes through both.';
+  }
+  return null;
 }
 
 function linearBackground(be, intensity) {
@@ -4818,6 +4830,19 @@ function _refreshBgConvergenceNote(failure) {
 }
 
 function computeBackgroundCore(be, intensity, settings) {
+  // An explicit background (linear, manual) has nothing to converge but must exist:
+  // every value a finite number (Codex impl round 5 — finite inputs can overflow).
+  // The integral methods' certificate already requires it; fitting._explicit_background
+  // is the server's twin, with the same words.
+  const bg = _computeBackgroundUnchecked(be, intensity, settings);
+  if (bg.converged === true && !bg.every(Number.isFinite)) {
+    const label = { linear: 'Linear', manual: 'Manual' }[settings.bgType] || BG_LABELS[settings.bgType] || settings.bgType;
+    return _bgMark(bg, false, label + ' background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).');
+  }
+  return bg;
+}
+
+function _computeBackgroundUnchecked(be, intensity, settings) {
   const type = settings.bgType;
   const nAvg = parseInt(settings.endpointAvg) || 1;
 
@@ -4830,6 +4855,8 @@ function computeBackgroundCore(be, intensity, settings) {
     const lineFail = (!anchors || anchors.length < 2) && n >= 2
       ? _bgLineFailure(be[0], intensity[0], be[n - 1], intensity[n - 1]) : null;
     if (lineFail) return _bgMark(new Array(n).fill(NaN), false, lineFail);
+    const anchorFail = anchors && anchors.length >= 2 ? _bgAnchorFailure(anchors) : null;
+    if (anchorFail) return _bgMark(new Array(n).fill(NaN), false, anchorFail);
     return _bgMark(manualAnchorBackground(be, intensity, anchors), true);
   }
 
@@ -11232,6 +11259,17 @@ function _loadSpectrumFile(data, sessionFile) {
     srcPath
   );
   if (!active) return;
+  // The file's own point order, as the project loader keeps it (Codex impl rounds
+  // 4-5): createTab sorts by BE descending, but the saved fit was made on the
+  // file's order, and re-ordering is not neutral — duplicate energies integrate in
+  // another order and a line's arithmetic rounds differently — so a re-sorted
+  // record recomputes another background and a current fit would be dropped.
+  if (Array.isArray(data.rawBE) && Array.isArray(data.rawIntensity) && data.rawBE.length === data.rawIntensity.length) {
+    active.rawBE = data.rawBE.slice();
+    active.rawIntensity = data.rawIntensity.slice();
+    state.rawBE = active.rawBE;
+    state.rawIntensity = active.rawIntensity;
+  }
   // Apply saved settings on top of the created tab
   active.ccShift = data.ccShift || 0;
   state.ccShift = active.ccShift;
@@ -11273,16 +11311,8 @@ function _loadSpectrumFile(data, sessionFile) {
     // it is never offered as the fit's (Codex impl round 3).
     const stale = data.statistics.statisticsState === 'stale';
     if (!stale && Array.isArray(data.roiBE) && Array.isArray(data.background)) {
-      // createTab sorts the raw data by BE descending (stably); the fit's per-point
-      // arrays were saved in the file's order, so they are put in the same order
-      // (Codex impl round 4: an ascending file's current fit was dropped as "fitted
-      // on other points", and its fitted curve drawn reversed)
-      const n = data.roiBE.length;
-      const order = data.roiBE.map((_, i) => i).sort((a, b) => data.roiBE[b] - data.roiBE[a]);
-      const ordered = arr => order.map(i => arr[i]);
-      fr.be = ordered(data.roiBE);
-      if (data.background.length === n) fr.bgIntensity = ordered(data.background);
-      if (Array.isArray(fr.fittedY) && fr.fittedY.length === n) fr.fittedY = ordered(fr.fittedY);
+      fr.be = data.roiBE.slice();
+      fr.bgIntensity = data.background.slice();
     }
     active.fitResult = fr;
     state.fitResult = fr;
@@ -14975,8 +15005,17 @@ function manualAnchorBackground(be, intensity, anchorsGiven) {
     if (x >= xp[m - 1]) { result[i] = fp[m - 1]; continue; }
     let j = 0;
     while (j < m - 2 && xp[j + 1] <= x) j++;
+    // numpy's arr_interp exactly: an anchor energy returns its intensity, and a NaN
+    // from an overflowing slope is recomputed from the right-hand anchor (then, for
+    // equal intensities, that intensity) — Codex impl round 5 probe
+    if (xp[j] === x) { result[i] = fp[j]; continue; }
     const slope = (fp[j + 1] - fp[j]) / (xp[j + 1] - xp[j]);
-    result[i] = slope * (x - xp[j]) + fp[j];
+    let v = slope * (x - xp[j]) + fp[j];
+    if (Number.isNaN(v)) {
+      v = slope * (x - xp[j + 1]) + fp[j + 1];
+      if (Number.isNaN(v) && fp[j] === fp[j + 1]) v = fp[j];
+    }
+    result[i] = v;
   }
   return result;
 }

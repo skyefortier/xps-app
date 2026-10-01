@@ -28,6 +28,7 @@ import numpy as np
 
 from fitting import (
     _SHAPE_FUNCS,
+    _line_through,
     compute_background,
     linear_background,
     run_fit,
@@ -93,11 +94,8 @@ def background_like_run_fit(
     if m in ("shirley", "smart", "smart_exp", "shirley_linear", "tougaard"):
         bg_inner = compute_background(xb, yb, m, n_avg=endpoint_avg)   # certified, as run_fit
     elif m == "linear":
-        if x[i1 - 1] != x[i0]:
-            slope = (y[i1 - 1] - y[i0]) / (x[i1 - 1] - x[i0])
-        else:
-            slope = 0.0
-        return y[i0] + slope * (x - x[i0])
+        # run_fit's own rule (raises BackgroundNotConverged: no line, or not finite)
+        return _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1])
     elif m in ("none", "flat", "", "manual"):
         return np.zeros_like(y)
     else:

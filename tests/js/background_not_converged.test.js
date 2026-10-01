@@ -51,10 +51,11 @@ function callersOf(name) {
 test('only the producers reach computeBackgroundCore and the method twins', () => {
   const allowed = {
     computeBackgroundCore: ['computeBackground', '_computeBackgroundForSource'],
-    shirleyBackground: ['computeBackgroundCore', 'smartBackground'],
-    smartBackground: ['computeBackgroundCore'], smartExperimentalBackground: ['computeBackgroundCore'],
-    shirleyLinearBackground: ['computeBackgroundCore'], tougaardBackground: ['computeBackgroundCore'],
-    manualAnchorBackground: ['computeBackgroundCore'], linearBackground: ['computeBackgroundCore', 'manualAnchorBackground'],
+    _computeBackgroundUnchecked: ['computeBackgroundCore'],   // its finiteness check wraps every method (round 5)
+    shirleyBackground: ['_computeBackgroundUnchecked', 'smartBackground'],
+    smartBackground: ['_computeBackgroundUnchecked'], smartExperimentalBackground: ['_computeBackgroundUnchecked'],
+    shirleyLinearBackground: ['_computeBackgroundUnchecked'], tougaardBackground: ['_computeBackgroundUnchecked'],
+    manualAnchorBackground: ['_computeBackgroundUnchecked'], linearBackground: ['_computeBackgroundUnchecked', 'manualAnchorBackground'],
   };
   for (const [name, fns] of Object.entries(allowed)) {
     const sites = callersOf(name);
@@ -224,7 +225,7 @@ test('restore: kept only when the stored curve IS the certified one — no metho
 // ── Codex impl round 4 ──
 test('linear: ends at one energy with different intensities have no line through them — not converged, the server\'s words', () => {
   const E = [3, 2, 1, 1, 0], I = [20, 25, 10, 30, 5];
-  const want = 'Linear background not converged: its two end points are at the same energy (1 eV) with different intensities, so no line passes through both.';
+  const want = 'Linear background not converged: its two end points are at the same energy with different intensities, so no line passes through both.';
   const lin = B.computeBackgroundCore(E, I, { bgType: 'linear', endpointAvg: '1', bgStart: '1', bgEnd: '1' });
   assert.strictEqual(lin.converged, false);
   assert.strictEqual(lin.failure, want, 'fitting._line_through raises the same text (tests/test_background_certificate.py)');
@@ -242,5 +243,32 @@ test('restore: a fit whose raw data are missing or incomplete is not restored (t
   for (const over of [{ rawBE: [281], rawIntensity: [100] }, { rawBE: [] }, { rawBE: undefined }, { rawIntensity: undefined },
                       { rawIntensity: [1, 2, 3] }]) {
     assert.match(R._restoredFitBgFailure(withFit(over)) || '', /raw data are missing or incomplete/, JSON.stringify(Object.keys(over)));
+  }
+});
+
+// ── Codex impl round 5: an explicit background must exist (the server's words, tests/test_background_certificate.py) ──
+test('explicit backgrounds: conflicting anchors and non-finite results are not converged, page = server words', () => {
+  const ANCHOR = 'Manual background not converged: two anchors are at the same energy with different intensities, so no curve passes through both.';
+  const FINITE = 'Linear background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).';
+  const E = [0, 1, 2, 3, 4, 5], I = [10, 12, 40, 30, 22, 20];
+  const conflict = [{ x: 0, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 20 }, { x: 5, y: 0 }];
+  assert.throws(() => R._computeBackgroundForSource(E, I, { bgType: 'manual' }, conflict), e => R._isBgNotConverged(e) && e.message === ANCHOR);
+  const agree = [{ x: 0, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 1 }, { x: 5, y: 0 }];
+  assert.strictEqual(R._computeBackgroundForSource(E, I, { bgType: 'manual' }, agree).converged, true);
+  for (const [x, y] of [[[0, 1e-309], [0, 1]], [[0, 1, 2], [1e308, 1, -1e308]]]) {
+    const bg = B.computeBackgroundCore(x, y, { bgType: 'linear', endpointAvg: '1', bgStart: '', bgEnd: '' });
+    assert.strictEqual(bg.converged, false); assert.strictEqual(bg.failure, FINITE);
+  }
+  // the manual result's own finiteness: anchors near the largest double interpolate to Infinity
+  assert.throws(() => R._computeBackgroundForSource([0, 5e-301, 5], [1, 2, 3], { bgType: 'manual' }, [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }]),
+    e => /^Manual background not converged: it is not a finite number/.test(e.message));
+});
+
+test('manual: an anchor that is not a pair of finite numbers is not converged (the server\'s words)', () => {
+  const W = 'Manual background not converged: an anchor is not a pair of finite numbers.';
+  const E = [0, 1, 2, 3, 4, 5], I = [10, 12, 40, 30, 22, 20];
+  for (const bad of [{ x: NaN, y: 1 }, { x: 2, y: Infinity }, { x: '2', y: 1 }, { x: 2, y: null }, { x: true, y: 1 }, null]) {
+    assert.throws(() => R._computeBackgroundForSource(E, I, { bgType: 'manual' }, [{ x: 0, y: 0 }, bad, { x: 5, y: 0 }]),
+      e => R._isBgNotConverged(e) && e.message === W, JSON.stringify(bad));
   }
 });

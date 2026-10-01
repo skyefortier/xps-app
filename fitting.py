@@ -32,6 +32,7 @@ import time
 import warnings
 from typing import Any
 
+import math
 import numpy as np
 from lmfit import Model, Parameters
 from scipy.integrate import trapezoid
@@ -554,9 +555,24 @@ def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return _line_through(x, x[0], y[0], x[-1], y[-1])
 
 
+def _explicit_background(bg, label):
+    """An EXPLICIT background (linear, manual) has nothing to converge, but it must
+    exist (Codex impl round 5): every value a finite number — the arithmetic can
+    overflow on finite inputs (a slope over a 1e-309 eV window, intensities near
+    1e308). Raises BackgroundNotConverged otherwise. The page's twin is the
+    finiteness check in computeBackgroundCore, with the same words."""
+    bg = np.asarray(bg, dtype=float)
+    if not np.all(np.isfinite(bg)):
+        raise BackgroundNotConverged(
+            f"{label} background not converged: it is not a finite number at every point "
+            "(the arithmetic overflowed or an input is not finite).")
+    return bg
+
+
 def _line_through(x, x0, y0, x1, y1):
     """The affine function of energy through (x0, y0) and (x1, y1), evaluated on x;
-    raises BackgroundNotConverged when x0 == x1 and y0 != y1 (no such line)."""
+    raises BackgroundNotConverged when x0 == x1 and y0 != y1 (no such line) or when
+    the result is not finite."""
     if x1 != x0:
         slope = (y1 - y0) / (x1 - x0)
     elif y1 == y0:
@@ -564,8 +580,34 @@ def _line_through(x, x0, y0, x1, y1):
     else:
         raise BackgroundNotConverged(
             "Linear background not converged: its two end points are at the same energy "
-            "(%.6g eV) with different intensities, so no line passes through both." % x0)
-    return y0 + slope * (x - x0)
+            "with different intensities, so no line passes through both.")
+    return _explicit_background(y0 + slope * (x - x0), "Linear")
+
+
+def manual_anchor_background(x, anchors):
+    """The user's anchors interpolated across x (np.interp: constant beyond the
+    outermost anchors). Nothing to converge, but the curve must exist (Codex impl
+    round 5): two anchors at one energy with different intensities have no curve
+    through both, and every value must be finite; either raises
+    BackgroundNotConverged. Fewer than two anchors is the caller's case (the line
+    through the window's ends)."""
+    # every anchor coordinate a finite real number (not a string, bool or None): an
+    # anchor that is not one has no place on the curve (the page's twin refuses the same)
+    def _num(v):
+        return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_)) \
+            and math.isfinite(float(v))
+    if not all(len(p) >= 2 and _num(p[0]) and _num(p[1]) for p in anchors):
+        raise BackgroundNotConverged(
+            "Manual background not converged: an anchor is not a pair of finite numbers.")
+    a = sorted(anchors, key=lambda p: p[0])
+    ax = np.array([p[0] for p in a], dtype=float)
+    ay = np.array([p[1] for p in a], dtype=float)
+    for k in range(1, len(a)):
+        if ax[k] == ax[k - 1] and ay[k] != ay[k - 1]:
+            raise BackgroundNotConverged(
+                "Manual background not converged: two anchors are at the same energy with "
+                "different intensities, so no curve passes through both.")
+    return _explicit_background(np.interp(x, ax, ay), "Manual")
 
 
 def smart_experimental_background(
@@ -2006,11 +2048,8 @@ def _run_fit_impl(
         # manual_bg is a list of [be, intensity] anchor points from the
         # frontend. The anchors are BE-anchored (independent of i0/i1),
         # so interpolate them across the full ROI grid.
-        anchors = sorted(manual_bg, key=lambda a: a[0])
-        if len(anchors) >= 2:
-            anchor_x = np.array([a[0] for a in anchors])
-            anchor_y = np.array([a[1] for a in anchors])
-            bg = np.interp(x, anchor_x, anchor_y)
+        if len(manual_bg) >= 2:
+            bg = manual_anchor_background(x, manual_bg)   # raises BackgroundNotConverged
         else:
             bg = linear_background(x, y)
     elif bg_method in _BG_LABELS:
