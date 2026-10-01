@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 import fitting  # noqa: E402
 from app import create_app  # noqa: E402
 from test_background_defining_statements import SPECTRA, _K  # noqa: E402
@@ -135,3 +136,29 @@ def test_the_routes_answer_422_with_the_plain_message(client):
     assert rec["status"] == "error" and rec["http_status"] == 422 and "not converged" in rec["error"]
     r = client.post("/api/background", json={"session_id": sid, "method": "shirley"})
     assert r.status_code == 422 and "no net signal" in r.get_json()["error"]
+
+
+# ── Codex implementation round 1 ─────────────────────────────────────────────
+
+def test_the_stop_and_the_certificate_use_one_predicate():
+    # at the exact boundary diff == tol * span: the iteration stops, the certificate must accept
+    for E, I in ((np.arange(4.0), np.array([0.0, 0.0, 7.326101243535137, 2.1978303730605416e-11])),
+                 (np.array([0.0, 1.0, 3.0]), np.array([0.0, 31.620122043497105, 1.8972073226098264e-10]))):
+        fitting.compute_background(E, I, "shirley")
+
+
+def test_tougaard_is_the_stated_sum_on_a_near_uniform_grid():
+    # the server used to evaluate a convolution with index separations on grids uniform to 1e-6
+    # of the step; near cancellation that moved the background 16 % of the span and could turn the
+    # high-edge sum into an exact zero. Now the stated sum, on every grid.
+    import background_defining_statements as D
+    for third in (0.008279338821039262, 0.007279338821039261):
+        E, I = np.array([0.0, 1.0, 2.0000005, 3.0000005]), np.array([2.0, 3.0, third, 3.0])
+        B = fitting.compute_background(E, I, "tougaard")          # both have a (badly conditioned) solution
+        assert np.max(np.abs(B - D.tougaard_statement(E, I, 1, "levels"))) <= 1e-9 * np.max(np.abs(B))
+
+
+def test_a_non_finite_evaluation_is_not_converged():
+    E, I = np.arange(4.0), np.array([1.0, 1e308, 1e308, 3.0])
+    with pytest.raises(fitting.BackgroundNotConverged):
+        fitting.compute_background(E, I, "shirley")

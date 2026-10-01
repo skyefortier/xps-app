@@ -32,8 +32,9 @@ for t in T:
     if t["id"] in done:
         continue
     bg = t["background"]
-    x = np.round(np.asarray(t["be"], float), 4)
-    y = np.round(np.asarray(t["inten"], float), 4)
+    # exactly what the page's uploadToBackend sends: toFixed(4), toFixed(2)
+    x = np.asarray([float(f"{v:.4f}") for v in t["be"]], float)
+    y = np.asarray([float(f"{v:.2f}") for v in t["inten"]], float)
     kw = {"method": "least_squares"}
     if MODE == "force":
         kw["fit_kws"] = {"seed": SEEDS[t["id"]]}

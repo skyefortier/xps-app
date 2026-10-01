@@ -75,10 +75,11 @@ test('the cases include the committed real U 4f scan, ascending and descending',
 // the server's arithmetic and stop exactly where it does; tougaard sums in
 // another order (numpy's convolution).
 const TOL = 1e-6;
-// Measured 2026-10-01: the Shirley family is BIT-IDENTICAL to the server on every
-// case of this file (the twins run its arithmetic); tougaard within 5.4e-14 of
-// the span (another summation order). Pinned here at those levels.
-test('the Shirley family is bit-identical to the server, tougaard within 1e-12 of the span (synthetic, real U 4f and 200 randomised spectra; averaging 1, 3, 10)', () => {
+// Measured 2026-10-01: every background is BIT-IDENTICAL to the server on every
+// case of this file — the twins run its arithmetic, tougaard's loss sum term for
+// term with numpy's pairwise summation (Codex impl round 1: it summed in another
+// order, and the server approximated the sum on near-uniform grids).
+test('every background is bit-identical to the server (synthetic, real U 4f and 200 randomised spectra; averaging 1, 3, 10)', () => {
   const cases = [...CASES, ...randomCases(20260928, 200, true)];
   for (const method of ['shirley', 'smart', 'smart_exp', 'shirley_linear', 'tougaard']) {
     for (const nAvg of [1, 3, 10]) {
@@ -86,8 +87,7 @@ test('the Shirley family is bit-identical to the server, tougaard within 1e-12 o
       cases.forEach((c, k) => {
         const js = jsBg(c.be, c.inten, method, nAvg);
         const rel = maxRelDiff(js, server[k], span(c.inten));
-        if (method === 'tougaard') assert.ok(rel <= 1e-12, `${method} n_avg ${nAvg} case ${k}: ${rel}`);
-        else assert.strictEqual(rel, 0, `${method} n_avg ${nAvg} case ${k}: ${rel}`);
+        assert.strictEqual(rel, 0, `${method} n_avg ${nAvg} case ${k}: ${rel}`);
       });
     }
   }
@@ -96,7 +96,12 @@ test('the Shirley family is bit-identical to the server, tougaard within 1e-12 o
 test("the page's certificate equals the server's on every case: the same converged verdict and the same reason", () => {
   const cases = [...CASES, ...randomCases(20260928, 200, true), ...BELOW,
     { be: [0, 1, 2, 3], inten: [2, 3, 10, 13] }, { be: [0, 1, 2, 3, 4], inten: [11, 14, 1, 33, 40] },
-    { be: [0, 1, 2, 3, 4], inten: [20, 44, 34, 41, 47] }, { be: [0, 1], inten: [10, 20] }, { be: [0, 1], inten: [10, 10] }];
+    { be: [0, 1, 2, 3, 4], inten: [20, 44, 34, 41, 47] }, { be: [0, 1], inten: [10, 20] }, { be: [0, 1], inten: [10, 10] },
+    // Codex impl round 1: tougaard near cancellation on a near-uniform grid (the verdicts used to differ),
+    // the stop / certificate boundary, an overflowing evaluation
+    { be: [0, 1, 2.0000005, 3.0000005], inten: [2, 3, 0.008279338821039262, 3] }, { be: [0, 1, 2.0000005, 3.0000005], inten: [2, 3, 0.007279338821039261, 3] },
+    { be: [0, 1, 2, 3], inten: [0, 0, 7.326101243535137, 2.1978303730605416e-11] }, { be: [0, 1, 3], inten: [0, 31.620122043497105, 1.8972073226098264e-10] },
+    { be: [0, 1, 2, 3], inten: [1, 1e308, 1e308, 3] }];
   let failures = 0;
   for (const method of ['shirley', 'smart', 'smart_exp', 'shirley_linear', 'tougaard']) {
     for (const nAvg of [1, 3, 10]) {
@@ -156,11 +161,11 @@ test('below-baseline data, integer and decimal, both directions: shirley, smart 
   }
 });
 
-test('KNOWN GAP (Task 4 cause 4, not this unit): linear interpolates by index on the page, by energy on the server — equal on uniform grids only', () => {
-  const nonUniform = { be: [0, 1, 3], inten: [10, 20, 40] };
-  const server = py({ mode: 'bg', items: [{ method: 'linear', be: nonUniform.be, inten: nonUniform.inten, n_avg: 1 }] })[0];
-  const js = jsBg(nonUniform.be, nonUniform.inten, 'linear', 1);
-  assert.ok(maxRelDiff(js, server, span(nonUniform.inten)) > 0.05, 'still differs on a non-uniform grid — if this starts failing the gap was closed; update the pin and CLAUDE.md');
+test('linear is affine in ENERGY on the page as on the server, also on a non-uniform grid (Task 4 cause 4 / findings F8 closed 2026-10-01)', () => {
+  for (const c of [{ be: [0, 1, 3], inten: [10, 20, 40] }, { be: [3, 1, 0], inten: [40, 20, 10] }, ...randomCases(20261001, 50, false)]) {
+    const server = py({ mode: 'bg', items: [{ method: 'linear', be: c.be, inten: c.inten, n_avg: 1 }] })[0];
+    assert.strictEqual(maxRelDiff(jsBg(c.be, c.inten, 'linear', 1), server, span(c.inten)), 0, JSON.stringify(c.be));
+  }
 });
 
 test('shirley_linear (de-listed) equals the server on BOTH grid directions since 2026-10-01 (Task 4 cause 3 closed) and stays off the menu', () => {

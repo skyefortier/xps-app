@@ -76,7 +76,7 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
   const noop = () => {};
   const { runFit } = factory(immediate, document, state, jobAdapter(withText(fetchImpl)), uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
     noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
-    b => b.map(() => 0), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
+    b => Object.assign(b.map(() => 0), { converged: true }), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
     () => 0.1, '', noop, noop, noop, noop, noop, noop,
     () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop, () => owner);
   return { runFit, state, dom, calls };
@@ -140,7 +140,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
     '_autoSnapshot', 'runFitLocal', '_snapshotSuppressed', 'console', '_applyStatDisplay', '_activeTab', src + '\nreturn { runFit };')(
     { getElementById: id => (dom[id] ||= { value: '', textContent: '', style: {}, setAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, _c: null } }), querySelector: () => ({}), querySelectorAll: () => [] },
     state, async () => { throw new TypeError('Failed to fetch'); }, async () => 'sid', noop, noop, noop, noop, () => owner, o => o === owner,
-    () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }), b => b.map(() => 0), p => ({ id: p.id }), () => [], noop,
+    () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }), b => Object.assign(b.map(() => 0), { converged: true }), p => ({ id: p.id }), () => [], noop,
     () => 0.1, '', noop, noop, noop, noop, noop, noop, () => ({ success: false, message: 'did not converge' }), false, { warn: noop }, noop, () => owner);
   await runFit();
   assert.notEqual(dom['localfit-warn-overlay']?.classList._c, 'open', 'overlay must not claim a local fit was performed');
@@ -576,7 +576,7 @@ test('TSV export warning is objective-aware: legacy result, legacy imported mode
     class Blob { constructor(parts) { text = parts.join(''); } }
     const state = { fitResult, peaks: [{ id: 1, name: 'p' }] };
     new Function('state', '_activeTab', 'getROIData', 'computeBackground', 'evalAllPeaks', 'evalPeakArray', 'Blob', 'URL', 'document', 'notify',
-      consts + '\n' + src + '\nexportResults();')(state, () => ({ modelProvenance }), () => ({ be: [1, 2], inten: [5, 6] }), () => [0, 0],
+      consts + '\n' + src + '\nexportResults();')(state, () => ({ modelProvenance }), () => ({ be: [1, 2], inten: [5, 6] }), () => Object.assign([0, 0], { converged: true }),
       () => [1, 1], () => [1, 1], Blob, { createObjectURL: () => 'u', revokeObjectURL() {} }, { createElement: () => ({ click() {} }) }, () => {});
     return text.split('\n')[0];
   };

@@ -1,0 +1,16 @@
+Review the "background math — implementation" unit, round 2: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-1 fixes = git diff 0571228..HEAD. Round-1 verdicts: docs/autofit/codex/background_math_impl_r1_verdict_run{A,B}.md; the round-1 table maps each finding to its fix (plan docs/superpowers/plans/2026-10-01-background-math-implement.md §6). The round-1 prompt (the owner's items and the attack list): docs/autofit/codex/background_math_impl_review_prompt.txt.
+
+Round-1 fixes in short: restored fits (project / spectrum file) are dropped when their saved settings give no converged background now (_restoredFitBgFailure, _recordBackground), _bgFailure fails closed; Tougaard evaluates the stated sum on every grid (no convolution shortcut), the page sums term for term with numpy's pairwise summation — every background bit-identical page = server; the page's linear background affine in energy and extrapolated across the ROI as run_fit does; one acceptance predicate (diff <= tol x span) for stop and certificate, page and server; non-finite targets fail and the page's max-difference treats NaN as infinite; the class guard now requires every producer reference to be an assignment whose first later use is _bgFailure(var), or an inline refusal (mutation-verified); a browser lifecycle test for a reloaded project; the measurements re-run with the page's exact serialisation (toFixed(4), toFixed(2)) and a true "item 1 alone" (main's algorithms with only the levels reading, scripts/bg_math_impl_item1_only.py).
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. Every round-1 finding: is its fix real and complete? In particular: any remaining path where a stored, restored, imported, undone, history-restored or stack-reconstructed fit or background is used without a certificate; the policy that a restored fit is KEPT when its settings converge now (its stored curve was made by an older version) — is it stated honestly and is it defensible against the owner's "nothing downstream treats it as valid"?
+b. Page = server bit-identity for every method (Tougaard's pairwise sum, linear's extrapolation) and certificate parity; any case where they still differ (repeated energies, descending grids, n < 4, windows inside the ROI, manual's < 2-anchor fallback).
+c. The class guard: can a consumer still evade it, and does the browser test cover the lifecycle it claims?
+d. The measurements (§4) against docs/findings/background-math/data/impl/ (rerun scripts/bg_math_impl_analyze.js on it): the seeded "background's effect" numbers, the as-shipped seed-driven moves and their direction (two better, four worse, two level), item 1 alone; whether the harnesses now send exactly what the page sends; the release note (§5) against the numbers.
+e. No fitted number changed beyond the owner's items and the round-1 fixes; anything overclaimed.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

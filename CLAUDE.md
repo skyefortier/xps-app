@@ -849,8 +849,8 @@ starting model as "Fit complete"; see
 | `smart` | Constrained Shirley, B = min(T(B), I): the clamp of the Shirley solution (exact, s(min(B, I)) = s(B)). Constraining against noisy counts raises net area by about 1 % on noisy data (F2). |
 | `smart_exp` | The same constrained problem with the constraint inside the iteration. Bit-identical to `smart` on every committed spectrum and averaging; collapsing the two menu entries is PROPOSED, not done (F3). |
 | `shirley_linear` | A reversed step (largest at the low-BE edge): off the menu permanently (owner, 2026-10-01; F4); kept so saved files that use it load; its amber notice stays. |
-| `linear` | Affine in energy through the raw end points (the page draws it by index: equal on uniform grids only, F8). |
-| `tougaard` | Universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV), over the raw data above the low-BE level C0, anchored at the high-BE level. Order-robust (either BE direction). |
+| `linear` | Affine in energy through the raw end points of the background window, extrapolated across the ROI — page and server alike since 2026-10-01 (the page drew it by index, F8). |
+| `tougaard` | Universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV), over the raw data above the low-BE level C0, anchored at the high-BE level; the loss sum is evaluated as stated on every grid (no convolution shortcut since 2026-10-01). Order-robust (either BE direction). |
 | `manual` (frontend only) | User-placed anchor points; `manualAnchorBackground` in JS. |
 
 ONE READING, ONE STOP, ONE CERTIFICATE (background-math implementation, owner
@@ -873,13 +873,17 @@ edge line (F10), Tougaard's amplitude is undetermined or has no solution (F11), 
 it: nothing is fitted against such a background. No fallback solver (owner).
 
 The page's twins (`computeBackgroundCore`) run the server's arithmetic operation for
-operation: the Shirley family is BIT-IDENTICAL to fitting.py (tougaard within
-5.4e-14 of the span; `shirley_linear` now too, both grid directions) on the parity
-file's synthetic, real and 200 randomised spectra at averaging 1, 3 and 10, and
-`_bgCertificate` gives the server's verdict and reason (`tests/js/background_parity.test.js`).
-`computeBackgroundCore` marks every result `converged` / `failure`; `_bgFailure(bg)`
-reads it, and EVERY consumer checks it — a class guard fails any new assignment of a
-computed background whose function does not (`tests/js/background_not_converged.test.js`):
+operation: EVERY background is BIT-IDENTICAL to fitting.py (Tougaard's loss sum term
+for term with numpy's pairwise summation, `_npPairwiseSum`; `shirley_linear` on both
+grid directions; linear affine in energy) on the parity file's synthetic, real and 200
+randomised spectra at averaging 1, 3 and 10, and `_bgCertificate` gives the server's
+verdict and reason, through the same acceptance predicate (diff <= tol·span) the
+iterations stop on (`tests/js/background_parity.test.js`). `computeBackgroundCore`
+marks every result `converged` / `failure`; `_bgFailure(bg)` reads it and FAILS
+CLOSED (an unmarked array — a stored or serialized curve — is not a certified
+background), and EVERY consumer checks it — a class guard: every reference to a
+producer must be an assignment whose next use is the check, or an inline refusal;
+any other form fails (`tests/js/background_not_converged.test.js`):
 the preview (a red note under the method menu; before a fit nothing is drawn or
 subtracted, peak previews sit on zero), Run Fit and "Use this solution" (refused
 before the undo entry, the spinner and any request — no local fallback), Auto-Fit
@@ -887,13 +891,19 @@ before the undo entry, the spinner and any request — no local fallback), Auto-
 Batch Fit (that target is NOT fitted, with the reason), chart-click placement (the
 clicked height, nothing subtracted), stack reconstruction (the entry shows no fit),
 spectrum save (`background: null` + `backgroundFailure`), TSV export (empty columns +
-WARNING) and the publication figure (refused). The "Shirley iterations" setting is
+WARNING) and the publication figure (refused). A RESTORED fit (project or spectrum
+file) is kept only when its saved settings give a converged background now
+(`_restoredFitBgFailure`, `_recordBackground`): otherwise it is dropped, the model
+kept, and the student told why — a fit against a background with no solution is no
+fit. A kept fit keeps its stored curve and statistics (made by the version that saved
+it; Run Fit regenerates them). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never
 read. Known, not fixed: `uploadToBackend` rounds intensities to 2 dp, so on a
 borderline spectrum the page's and the server's certificates could disagree (either
-way no fit is made); linear by index on the page (F8); Tougaard's near-uniform fast
-branch approximates the stated sum and is not certified (its error is amplified near
-cancellation — findings tougaard).
+way no fit is made); Tougaard near cancellation is ill-conditioned (a small high-edge
+sum: tiny data changes move the background far) — the statement's property.
+Featureless windows (a drift, a peakless step) mostly have no converged Shirley
+background and are now refused (F13).
 
 WHAT EACH METHOD SOLVES (background math foundation, 2026-09-30; checker
 `scripts/background_defining_statements.py` — its own preprocessing, integrals and

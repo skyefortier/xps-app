@@ -687,45 +687,22 @@ def _tougaard_loss(x, y, n_avg=1):
     a_high, c0 = _edge_levels(ya, n_avg)
     net = ya - c0
 
-    dx = float(abs(xa[1] - xa[0]))
-
-    # bg[i] = Σ_{j>=i} K(|x[j]-x[i]|)·net[j]·w[j],  K(T) = B·T / (C + T²)²,
-    # w[j] = the local quadrature weight (energy spacing) at point j.
-    #
-    # On a uniformly spaced grid |x[j]-x[i]| = (j-i)·dx and w[j] == dx, so the
-    # kernel depends only on the index gap and this one-sided correlation
-    # collapses to a convolution against a single precomputed kernel vector —
-    # evaluated in C via np.convolve instead of an n-iteration Python loop
-    # (audit F7). On a NONUNIFORM grid neither identity holds, so we keep the
-    # exact per-point separation loop AND per-point weights (audit F2,
-    # 2026-07-17: the loop previously used exact separations but omitted the
-    # spacing weights, silently applying a uniform-grid quadrature inside the
-    # branch written precisely because the grid is not uniform — up to ~24%
-    # error on a genuinely nonuniform grid). np.gradient returns dx exactly
-    # on a uniform grid, so both branches agree to floating point and the
-    # uniformity test is an optimization on a truly uniform grid. The test
-    # accepts grids uniform to 1e-6 of the first step, where the convolution
-    # APPROXIMATES the stated sum (index separations, one weight). The error is
-    # not bounded by the 1e-6: the anchor divides by the high-edge sum, so near
-    # cancellation it is amplified (16 % of the span on a constructed case) and a
-    # nearly cancelling sum can come out exactly zero (background-math findings,
-    # tougaard; Codex rounds 3-4).
-    diffs = np.diff(xa)
-    uniform = bool(dx > 0.0 and np.max(np.abs(diffs - diffs[0])) <= 1e-6 * dx)
-
-    if uniform:
-        m = np.arange(n, dtype=float)
-        T = m * dx
-        k = (B_coef * T) / (C_coef + T * T) ** 2          # k[m] = K(m·dx)
-        # bg[i] = Σ_{m=0}^{n-1-i} k[m]·net[i+m]  =  conv(net, reverse(k))[n-1+i]
-        bg = np.convolve(net, k[::-1])[n - 1:] * dx
-    else:
-        w = np.abs(np.gradient(xa))
-        bg = np.zeros(n)
-        for i in range(n):
-            T = np.abs(xa[i:] - xa[i])
-            kernel = (B_coef * T) / (C_coef + T * T) ** 2
-            bg[i] = float(np.sum(kernel * net[i:] * w[i:]))
+    # bg[i] = SUM_{j>=i} K(|x[j]-x[i]|) * net[j] * w[j],  K(T) = B*T / (C + T^2)^2,
+    # w[j] = the local quadrature weight (energy spacing) at point j — the
+    # stated sum, evaluated as stated on EVERY grid (background math,
+    # 2026-10-01). A convolution against index separations used to stand in for
+    # it on grids uniform to 1e-6 of the step: an approximation whose error the
+    # anchor amplifies near cancellation (16 % of the span on a constructed case,
+    # and an exact zero where the stated sum has none — the page, which always
+    # summed exactly, then disagreed with the server). The sum is numpy's
+    # pairwise np.sum, which the page's twin reproduces (_npPairwiseSum).
+    w = np.abs(np.gradient(xa))
+    bg = np.zeros(n)
+    for i in range(n):
+        T = np.abs(xa[i:] - xa[i])
+        u = C_coef + T * T
+        kernel = (B_coef * T) / (u * u)
+        bg[i] = float(np.sum(kernel * net[i:] * w[i:]))
 
     return bg, a_high, c0, flipped
 
@@ -759,14 +736,13 @@ def tougaard_background(
     whole loss vector vanishes, as on a two-point window — then the flat C0 IS
     the answer); if J_high != C0 no solution exists and the anchor is missed
     (findings F11). Both are reported: compute_background() raises
-    BackgroundNotConverged for the undetermined and the unsolvable case. On a grid
-    uniform to 1e-6 of its first step the sum is evaluated as if EXACTLY
-    uniform (index gap x first step, one weight): each separation and weight is
-    perturbed by up to ~1e-6 relative, but the error is not bounded by that —
-    1e-8 and 2.5e-7 of the span on two small examples, and the anchor divides
-    by the high-edge sum, so near cancellation it is amplified (16 % of the
-    span on a constructed case with both sums non-zero; a nearly cancelling sum
-    can become exactly zero and the anchor is missed by 33 %).
+    BackgroundNotConverged for the undetermined and the unsolvable case. The sum
+    is evaluated AS STATED on every grid (since 2026-10-01: a convolution used to
+    stand in for it on grids uniform to 1e-6 of the step, an approximation the
+    anchor amplifies near cancellation — 16 % of the span on a constructed case).
+    Near cancellation the statement itself is ill-conditioned: the anchor divides
+    by a small high-edge sum, so a tiny change of the data moves the background a
+    long way; that is the statement's property, reported, not an error.
     Measured on
     the committed spectra, against an independent evaluation: equal to the
     discrete sum to <= 1e-13 of the span, the anchor met exactly, within
@@ -915,9 +891,14 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
         return {"converged": False, "residual": None, "reason": (
             "the data lie at or below the line between the two edge levels, so there is no net "
             "signal and the %s relation is undefined" % label)}
+    if not np.all(np.isfinite(target)):
+        return {"converged": False, "residual": None, "reason": (
+            "the %s relation does not evaluate to finite numbers on these data" % label)}
     diff = float(np.max(np.abs(Ba - target)))
     residual = diff / span if span > 0.0 else (0.0 if diff == 0.0 else float("inf"))
-    if residual <= BG_REL_TOL:
+    # the SAME predicate every iteration stops on (diff <= tol * span), not the
+    # quotient: they differ by a rounding step at the boundary
+    if diff <= BG_REL_TOL * span:
         return {"converged": True, "residual": residual, "reason": None}
     return {"converged": False, "residual": residual, "reason": (
         "its iteration did not settle on a solution (it alternates or ran out of steps); the "

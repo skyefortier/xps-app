@@ -95,17 +95,19 @@ test('computeBackgroundCore uses exactly the helper window', () => {
   // Evaluate the shipped computeBackgroundCore with a marker linearBackground:
   // inside the window the result equals the BE value, outside it is a flat
   // hold — so the positions where result[i] === be[i] ARE the window.
-  // The page's whole background section (shared helper), with linearBackground
-  // replaced by a marker — the later declaration wins.
+  // The page's whole background section (shared helper), with shirleyBackground
+  // replaced by a marker — the later declaration wins. (Shirley is flat-held
+  // outside the window; linear is extrapolated across the ROI since 2026-10-01,
+  // as run_fit does, so it cannot mark the window.)
   const src = require('./_page_background_source.js')({ manual: 'none' });
-  const core = new Function(src + '\nfunction linearBackground(beSub) { return beSub.slice(); }' +
+  const core = new Function(src + '\nfunction shirleyBackground(beSub) { return beSub.slice(); }' +
     '\nfunction manualAnchorBackground() { throw new Error("unexpected background type call"); }' +
     '\nreturn computeBackgroundCore;')();
 
   const be = descending(298.16, 191, 0.1);
   const inten = be.map(() => 1000);
   for (const [s, e] of [['298.2', '279.2'], ['290.0', '285.05'], ['', ''], ['380.01', '380.09']]) {
-    const out = core(be, inten, { bgType: 'linear', shirleyIter: '5', endpointAvg: '1', bgStart: s, bgEnd: e });
+    const out = core(be, inten, { bgType: 'shirley', endpointAvg: '1', bgStart: s, bgEnd: e });
     const w = _bgWindowIndices(be, s, e);
     const inWindow = [];
     for (let i = 0; i < be.length; i++) if (out[i] === be[i]) inWindow.push(i);

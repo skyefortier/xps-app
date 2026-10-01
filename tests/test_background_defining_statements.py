@@ -267,17 +267,17 @@ def test_FINDING_tougaard_equal_levels_leave_a_family_when_interior_loss_remains
     assert other[0] == dhi and np.max(np.abs(other - c0)) > 0.5
 
 
-def test_FINDING_tougaard_near_uniform_fast_branch_approximates_the_sum():
-    # Codex round 3: grids uniform to 1e-6 of the step take the convolution branch (index
-    # separations, one weight). Measured 1e-8 of span away from the stated sum on this grid ...
+def test_tougaard_is_the_stated_sum_on_near_uniform_grids():
+    # findings (Codex rounds 3-4) and Codex implementation round 1: grids uniform to 1e-6 of the
+    # step used to take a convolution with index separations — 1e-8 of span away from the stated
+    # sum here, and a nearly cancelling high-edge sum came out exactly zero. Since 2026-10-01 the
+    # sum is evaluated as stated on every grid.
     E, I = np.array([0, 1, 2.0000009, 3.0000009, 4.0000009]), np.array([10.0, 20.0, 30.0, 25.0, 12.0])
-    d = np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I))) / D.span_of(I)
-    assert 1e-9 < d < 1e-7
-    # ... and a nearly cancelling high-edge sum comes out exactly zero: the anchor is missed,
-    # where the stated sum is non-zero and has a (badly conditioned) solution
+    assert np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I, 1, "levels"))) / D.span_of(I) < 1e-14
     E, I = np.array([0, 1, 2.0000005, 3.0000005]), np.array([2.0, 3.0, 2 - _K(2) / _K(1), 3.0])
-    assert np.array_equal(fitting.tougaard_background(E, I), [2.0] * 4)
-    assert D.tougaard_statement(E, I) is not None
+    assert D.tougaard_loss(E, I, 1, "levels")[0][0] != 0.0
+    B = fitting.compute_background(E, I, "tougaard")                       # a (badly conditioned) solution
+    assert np.max(np.abs(B - D.tougaard_statement(E, I, 1, "levels"))) <= 1e-9 * np.max(np.abs(B))
 
 
 def test_FINDING_the_kernel_shape_matters_on_the_wider_windows():
@@ -373,16 +373,13 @@ def test_FINDING_shirley_linear_can_cycle():
         assert D.shirley_linear_residual(E, I, fitting.shirley_linear_background(E, I, n_iter=n_iter))[0] > 0.1
 
 
-def test_FINDING_the_near_uniform_error_is_not_bounded_by_the_tolerance():
-    # Codex round 4: 2.5e-7 of span on a non-cancelling grid; and near cancellation the anchor
-    # amplifies it — 16 % of span with BOTH high-edge sums non-zero
-    E, I = np.array([0, 1.0000009, 2.0000018, 3.0000018]), np.array([10.0, 11.0, 11.0, 20.0])
-    d = np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I))) / D.span_of(I)
-    assert 1e-7 < d < 1e-6
-    E, I = np.array([0, 1, 2.0000005, 3.0000005]), np.array([2.0, 3.0, 2 - _K(2) / _K(1) + 0.001, 3.0])
-    assert D.tougaard_loss(E, I)[0][0] != 0.0
-    d = np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I))) / D.span_of(I)
-    assert 0.1 < d < 0.2
+def test_tougaard_near_cancellation_is_the_statement_ill_conditioned_not_an_approximation():
+    # Codex round 4 measured the convolution 2.5e-7 of span from the stated sum on a non-cancelling
+    # grid and 16 % near cancellation; with the stated sum both are the statement itself
+    for E, I in ((np.array([0, 1.0000009, 2.0000018, 3.0000018]), np.array([10.0, 11.0, 11.0, 20.0])),
+                 (np.array([0, 1, 2.0000005, 3.0000005]), np.array([2.0, 3.0, 2 - _K(2) / _K(1) + 0.001, 3.0]))):
+        B = fitting.tougaard_background(E, I)
+        assert np.max(np.abs(B - D.tougaard_statement(E, I, 1, "levels"))) <= 1e-9 * np.max(np.abs(B))
 
 
 def test_the_relative_stop_reaches_the_exact_solution_on_a_converging_case():

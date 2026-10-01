@@ -42,6 +42,8 @@ Branch `bg-math-implement`; plan `docs/superpowers/plans/2026-10-01-background-m
 | F4 shirley_linear | off the menu permanently; its notice stays (its stated reason corrected) |
 | F5 absolute stop | relative: BG_REL_TOL = 1e-12 of the span, every iteration |
 | F10 / F11 / F12 | every result is certified against its statement; a failure is "not converged" with a plain message, and nothing — server or page — fits against, subtracts, draws, saves or exports it |
+| F8 linear by index on the page | affine in energy, extrapolated across the ROI as `run_fit` does — page = server bit for bit (Codex implementation round 1) |
+| Tougaard's near-uniform shortcut | gone: the loss sum is evaluated as stated on every grid, page = server bit for bit (Codex implementation round 1) |
 
 **F13 (new, found while implementing). Featureless windows now report "not
 converged".** On realistic-size synthetic windows with no peak (300 points, Poisson

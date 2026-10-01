@@ -266,7 +266,7 @@ test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open 
     _showAutoFitConfirmModal: () => modal.p, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore: () => { out.restored++; },
     fetch: async (u, i) => { if (u === '/api/fit/start') out.starts++; if (u.startsWith('/api/fit/cancel/')) out.cancels.push(u); return ok({ job_id: 'X' }, 202); },
     applyBackendResult: () => { out.applied++; }, _showFitSpinner() {}, _hideFitSpinner() {}, setTimeout, clearTimeout, AbortController, DOMException: Error,
-    getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => be.map(() => 0), findGraphiteRawBE: () => 284.5,
+    getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => Object.assign(be.map(() => 0), { converged: true }), findGraphiteRawBE: () => 284.5,
     uploadToBackend: async () => 'sid', pushUndo() {}, buildAutoFitModel: () => [], renderPeakList() {}, peakToBackendSpec: p => p, _getManualAnchors: () => [],
   };
   const src = constants + '\n' + [
@@ -333,7 +333,7 @@ test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not c
       applyBackendResult() {}, _showFitSpinner() {}, _hideFitSpinner: () => { out.hides++; }, setTimeout: f => { setImmediate(f); return 0; }, clearTimeout() {},
       AbortController, DOMException: Error,
       getROIData: () => (refusal === 'empty ROI' ? { be: [], inten: [] } : { be: state.rawBE, inten: state.rawIntensity }),
-      computeBackground: be => be.map(() => 0), findGraphiteRawBE: () => null,
+      computeBackground: be => Object.assign(be.map(() => 0), { converged: true }), findGraphiteRawBE: () => null,
       uploadToBackend: async () => 'sid', pushUndo: () => { out.undo++; }, buildAutoFitModel: () => [], renderPeakList() {}, peakToBackendSpec: p => p, _getManualAnchors: () => [],
     };
     const src = constants + '\n' + [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),

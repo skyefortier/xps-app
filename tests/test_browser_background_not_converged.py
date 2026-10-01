@@ -59,3 +59,52 @@ def test_a_non_converged_background_is_said_not_drawn_and_not_fitted(browser, se
     finally:
         pg.close()
     assert errors == [], errors
+
+
+CAPTURE = """() => { window.__dl = []; window._downloadBlob = async (blob, name) => {
+  window.__dl.push({ name, text: await blob.text() }); }; }"""
+
+
+def test_a_saved_fit_whose_background_no_longer_converges_is_not_restored(browser, server):
+    # Codex implementation round 1 (BLOCKER): a restored fit used to bypass the certificate —
+    # its stored background drew, fed the stack and was saved again
+    import json
+    pg = _new_page(browser, server)
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        pg.evaluate(U_TAB)
+        # an older version's fit on this window: its stored background is the line (no solution now)
+        pg.evaluate("""() => { const { be, inten } = getROIData();
+            const line = be.map((b, i) => inten[0] + (inten[inten.length - 1] - inten[0]) * i / (be.length - 1));
+            state.fitResult = { be, bgIntensity: line, bgSubtracted: inten.map((v, i) => v - line[i]), chiReduced: 1.0, chi: 100,
+                                startsModelKey: _startsLiveKey() };
+            tabManager._syncActiveToRecord(); }""")
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => _doSaveProject()")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        saved = json.loads(pg.evaluate("() => window.__dl[0].text"))
+    finally:
+        pg.close()
+    assert any(t.get("fitResult") for t in saved["tabs"] if not t.get("isStack")), "the fixture carries a saved fit"
+
+    pg = _new_page(browser, server)
+    errors2 = []
+    pg.on("pageerror", lambda e: errors2.append(str(e)))
+    try:
+        pg.evaluate("() => { window.__n = []; const o = notify; window.notify = (m, k) => { window.__n.push(m); return o(m, k); }; }")
+        pg.evaluate("data => _loadProjectJSON(data, 'old.proj.json')", saved)
+        pg.wait_for_timeout(500)
+        got = pg.evaluate("""() => ({ fit: tabManager.tabs.filter(t => !t.isStack).map(t => t.fitResult), live: state.fitResult,
+                                     n: window.__n, peaks: state.peaks.length })""")
+        assert all(f is None for f in got["fit"]) and got["live"] is None, got
+        assert got["peaks"] == 1, "the model is kept"
+        assert any(m.startswith("Saved fit not restored: U — Shirley background not converged") for m in got["n"]), got["n"]
+        # a stack built on it shows no fit
+        rd = pg.evaluate("""() => { const id = tabManager.tabs.find(t => !t.isStack).id; tabManager.createStackTab();
+            const st = tabManager._getTab(tabManager.activeId); _addSpectrumToStack(st, id);
+            return st.entries.map(e => _buildEntryRenderData(e).be.length); }""")
+        assert rd == [0], rd
+    finally:
+        pg.close()
+    assert errors == [] and errors2 == [], (errors, errors2)

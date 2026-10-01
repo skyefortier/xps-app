@@ -1,4 +1,4 @@
-net-area change, main -> branch, per committed spectrum (121), by method and averaging (%)
+net-area change, main (6bda9d1) -> branch, per committed reference spectrum (121), by method and averaging (%)
   shirley   avg  1: median 0.0000 p90 0.0000 max 0.0000  >1 %: 0  >0.1 %: 0  not converged: 0
   shirley   avg  3: median 0.0028 p90 0.0255 max 0.0418  >1 %: 0  >0.1 %: 0  not converged: 0
   shirley   avg 10: median 0.0218 p90 0.0857 max 0.1752  >1 %: 0  >0.1 %: 8  not converged: 0

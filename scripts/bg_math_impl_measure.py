@@ -5,8 +5,9 @@ under test (cwd). Resumable JSONL.
 
 Usage: python bg_math_impl_measure.py OUT.jsonl VARIANT [METHOD] [AVG]
   VARIANT  main        — run from a checkout of main (the old reading and stop)
-           levels_abs  — run from the branch with its ABSOLUTE 1e-6 stop restored and
-                         its certificate disabled (harness-only patch): owner item (1) alone
+           item1_only  — run from the branch: main's own algorithms with ONLY the levels
+                         reading (scripts/bg_math_impl_item1_only.py), no certificate:
+                         owner item (1) alone
            both        — the branch as shipped: items (1) + (3) and the certificate
   METHOD   lmfit method, default least_squares (the page's default)
   AVG      override every target's endpoint averaging (e.g. 3, the page's default since
@@ -26,21 +27,16 @@ METHOD = sys.argv[3] if len(sys.argv) > 3 else "least_squares"
 AVG = int(sys.argv[4]) if len(sys.argv) > 4 else None
 import fitting  # noqa: E402
 
-if VARIANT == "levels_abs":
-    # (1) alone: the levels reading, the OLD absolute stop (1e-6 intensity units = a relative
-    # stop of 1e-6 / span), no certificate. Patched in the harness only.
-    def _abs(fn):
-        def wrapped(x, y, n_iter=200, tol=None, n_avg=1):
-            y = np.asarray(y, float)
-            span = float(np.max(y) - np.min(y)) or 1.0
-            return fn(x, y, n_iter, 1e-6 / span, n_avg=n_avg)
-        return wrapped
-    _shir = fitting.shirley_background
-    fitting.shirley_background = _abs(_shir)
-    _sexp = fitting.smart_experimental_background
-    fitting.smart_experimental_background = _abs(_sexp)
-    _slin = fitting.shirley_linear_background
-    fitting.shirley_linear_background = _abs(_slin)
+if VARIANT == "item1_only":
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
+    import bg_math_impl_item1_only as I1
+    for _name in ("shirley_background", "smart_background", "smart_experimental_background",
+                  "shirley_linear_background", "tougaard_background"):
+        setattr(fitting, _name, getattr(I1, _name))
+    _fns = {"shirley": I1.shirley_background, "smart": I1.smart_background,
+            "smart_exp": I1.smart_experimental_background, "shirley_linear": I1.shirley_linear_background,
+            "tougaard": I1.tougaard_background}
+    fitting.compute_background = lambda x, y, m, n_avg=1: _fns[m.lower()](np.asarray(x, float), np.asarray(y, float), n_avg=n_avg)
     fitting.background_certificate = lambda *a, **k: {"converged": True, "residual": None, "reason": None}
 elif VARIANT not in ("main", "both"):
     raise SystemExit("unknown variant " + VARIANT)
@@ -65,7 +61,7 @@ for t in T:
     if AVG is not None:
         bg["endpoint_avg"] = AVG
     x = np.asarray(t["be"], float)
-    y = np.asarray([round(v, 4) for v in t["inten"]], float)        # the upload's own rounding below
+    y = np.asarray([float(f"{v:.2f}") for v in t["inten"]], float)   # what the server receives: the page's uploadToBackend sends 2 dp
     i0, i1 = int(bg["start_idx"]), int(bg["end_idx"])
     xw, yw = x[i0:i1], y[i0:i1]
     try:
@@ -75,7 +71,7 @@ for t in T:
         bgrec = {"net_area": net, "converged": None if cert is None else cert["converged"], "bg": [float(v) for v in B]}
     except Exception as e:  # noqa: BLE001
         bgrec = {"error": str(e)[:200]}
-    csv = "\n".join(f"{a:.4f},{b:.4f}" for a, b in zip(t["be"], t["inten"])).encode()
+    csv = "\n".join(f"{a:.4f},{b:.2f}" for a, b in zip(t["be"], t["inten"])).encode()   # uploadToBackend: toFixed(4), toFixed(2)
     sid = cl.post("/api/upload", data={"file": (io.BytesIO(csv), "t.csv")}, content_type="multipart/form-data").get_json()["session_id"]
     body = {"session_id": sid, "background": {k: bg[k] for k in ("method", "start_idx", "end_idx", "endpoint_avg")},
             "peaks": t["specs"], "fit_method": METHOD, "n_perturb": 3, "n_starts": 3}

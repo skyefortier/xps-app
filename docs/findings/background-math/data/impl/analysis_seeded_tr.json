@@ -12,45 +12,45 @@
   "n": 202,
   "median": 0,
   "p90": 0,
-  "max": 1.393,
-  "over_1": 1,
-  "over_0_1": 2
+  "max": 0.022,
+  "over_1": 0,
+  "over_0_1": 0
  },
  "atomic_pp": {
   "n": 202,
   "median": 0,
   "p90": 0,
-  "max": 3.643,
-  "over_1": 1,
-  "over_0_1": 2
+  "max": 0.046,
+  "over_1": 0,
+  "over_0_1": 0
  },
  "success_changes": [],
  "worst": [
   [
-   1.393,
-   3.643,
-   "B4C-UCl4.proj.zip",
-   "U4f Scan_7",
+   0.022,
+   0.021,
+   "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "U4f Scan_6",
    "Satellite 1",
    "smart",
    1,
-   2.933,
-   2.85
+   2.489,
+   2.489
   ],
   [
-   0.299,
-   0.797,
+   0.019,
+   0.046,
    "Cl2p_projfit_test.proj.zip",
    "U4f Scan_4",
-   "Satellite 1",
+   "Satellite 2",
    "smart",
    1,
-   1.533,
-   1.573
+   1.536,
+   1.533
   ],
   [
-   0.005,
-   0.006,
+   0.003,
+   0.003,
    "8-JT Graphite.proj.zip",
    "C1s Scan_7",
    "Adventitious 2",
@@ -60,37 +60,15 @@
    35.772
   ],
   [
-   0.003,
-   0.003,
-   "8-JT Graphite.proj.zip",
-   "C1s Scan_3",
-   "Graphite",
-   "shirley",
-   1,
-   25.857,
-   25.857
-  ],
-  [
-   0.003,
-   0.003,
-   "8-JT Graphite.proj.zip",
-   "C1s Scan_5",
-   "Graphite",
-   "shirley",
-   1,
-   51.907,
-   51.907
-  ],
-  [
    0.002,
    0.002,
    "8-JT Graphite.proj.zip",
-   "C1s Scan_8",
-   "Adventitious 1",
+   "C1s Scan_6",
+   "Adventitious 2",
    "shirley",
    1,
-   35.545,
-   35.545
+   38.311,
+   38.311
   ],
   [
    0.001,
@@ -113,6 +91,28 @@
    6,
    9.9,
    9.898
+  ],
+  [
+   0.001,
+   0,
+   "4-GTA UCl4-BN.proj.zip",
+   "U4f Scan_2",
+   "U 4f7/2",
+   "smart",
+   6,
+   10.904,
+   10.899
+  ],
+  [
+   0.001,
+   0,
+   "4-GTA UCl4-BN.proj.zip",
+   "U4f Scan_4",
+   "U 4f7/2 satellite",
+   "smart",
+   6,
+   13.225,
+   13.221
   ]
  ]
 }

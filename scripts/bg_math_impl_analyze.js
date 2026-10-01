@@ -1,6 +1,6 @@
 // Background-math implementation (2026-10-01): analysis of scripts/bg_math_impl_measure.py
 // runs. node bg_math_impl_analyze.js <dir> [suffix] — reads main_<suffix>, main2_<suffix>,
-// levels_abs_<suffix>, both_<suffix> .jsonl (suffix tr: the committed settings; avg3: every
+// item1_only_<suffix>, both_<suffix> .jsonl (suffix tr: the committed settings; avg3: every
 // target at endpoint averaging 3, the page's default) (+ legacy_reference.json, the page's RSF data) and prints, for each
 // comparison, the background-level NET-AREA change (%, on each target's own window,
 // method and averaging) and the fit-level AREA % and ATOMIC % changes (pp; the largest
@@ -27,7 +27,7 @@ const { _detectPeakRSF } = new Function('LEGACY_REFERENCE', ['let _accSurveyCach
   '\nreturn { _detectPeakRSF };')(LEGACY_REFERENCE);
 const read = f => Object.fromEntries(fs.readFileSync(path.join(dir, f), 'utf8').trim().split('\n').map(l => JSON.parse(l)).map(r => [r.id, r]));
 const RUNS = PAIR ? { a: read(PAIR[0]), b: read(PAIR[1]) }
-  : Object.fromEntries(['main', 'main2', 'levels_abs', 'both'].map(v => [v, read(`${v}_${suffix}.jsonl`)]));
+  : Object.fromEntries(['main', 'main2', 'item1_only', 'both'].map(v => [v, read(`${v}_${suffix}.jsonl`)]));
 function pct(r, rsf) {
   const sup = r.components.filter(c => c.supported !== false);
   const w = sup.map(c => c.area / (rsf ? _detectPeakRSF({ name: c.name || '', center: c.center }).rsf : 1));
@@ -61,7 +61,7 @@ function compare(an, bn) {
            worst: worst.sort((x, y) => y[0] - x[0]).slice(0, 8) };
 }
 if (PAIR) { console.log(JSON.stringify(compare('a', 'b'), null, 1)); process.exit(0); }
-const out = [compare('main', 'main2'), compare('main', 'levels_abs'), compare('levels_abs', 'both'), compare('main', 'both')];
+const out = [compare('main', 'main2'), compare('main', 'item1_only'), compare('item1_only', 'both'), compare('main', 'both')];
 // net area split by the targets' averaging (item 1 moves only averaged windows)
 const byAvg = {};
 for (const id of Object.keys(RUNS.main)) {

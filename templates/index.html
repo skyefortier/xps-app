@@ -4469,7 +4469,13 @@ function _bgShirleyMap(xs, ys, B, bLow, bHigh) {
   for (let k = 0; k < n; k++) out[k] = bHigh + (d * cum[k]) / total;
   return out;
 }
-function _bgMaxAbsDiff(a, b) { let m = 0; for (let k = 0; k < a.length; k++) { const c = Math.abs(a[k] - b[k]); if (c > m) m = c; } return m; }
+// the largest |a - b|; a NaN anywhere is Infinity (NaN > m is false, so it would
+// otherwise be skipped and a non-finite step read as "no change")
+function _bgMaxAbsDiff(a, b) {
+  let m = 0;
+  for (let k = 0; k < a.length; k++) { const c = Math.abs(a[k] - b[k]); if (!(c <= m)) m = Number.isNaN(c) ? Infinity : c; }
+  return m;
+}
 
 function shirleyBackground(be, intensity, maxIter, nAvg) {
   // fitting.shirley_background: B = T(B), the levels from the averaged edges, the
@@ -4520,16 +4526,15 @@ function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
   return flipped ? B.reverse() : B;
 }
 
-// A straight line from the first to the last point BY INDEX. fitting.linear_background
-// solves "affine in ENERGY through the end points"; the two agree only on uniform
-// grids (Task 4 cause 4, pinned) — two readings of one method.
+// The line affine in ENERGY through the end points — fitting.linear_background's
+// statement (since 2026-10-01: the page drew it by index, equal only on uniform
+// grids — findings F8). Equal end energies give the flat first intensity.
 function linearBackground(be, intensity) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-  const I0 = intensity[0], I1 = intensity[n - 1];
-  const bg = [];
-  for (let i = 0; i < n; i++) bg.push(I0 + (I1 - I0) * i / (n - 1));
-  return bg;
+  const x0 = be[0], y0 = intensity[0], x1 = be[n - 1], y1 = intensity[n - 1];
+  const slope = x1 !== x0 ? (y1 - y0) / (x1 - x0) : 0;
+  return be.map(e => y0 + slope * (e - x0));
 }
 
 // Single-pass Tougaard background — JS twin of fitting.py's
@@ -4562,14 +4567,19 @@ function _tougaardLoss(be, intensity, nAvg) {
     else if (i === n - 1) w[n - 1] = Math.abs(beW[n - 1] - beW[n - 2]);
     else w[i] = Math.abs(beW[i + 1] - beW[i - 1]) / 2;
   }
+  // fitting._tougaard_loss term for term — (B·T)/(u·u), u = C + T², times the net,
+  // times the weight — and numpy's pairwise sum (_npPairwiseSum), so page and
+  // server agree bit for bit, including near cancellation
+  const net = inW.map(v => v - c0);
   const loss = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
-    let sum = 0;
+    const terms = new Array(n - i);
     for (let j = i; j < n; j++) {
       const T = Math.abs(beW[j] - beW[i]);
-      sum += (B * T) / Math.pow(C + T * T, 2) * (inW[j] - c0) * w[j];
+      const u = C + T * T;
+      terms[j - i] = (B * T) / (u * u) * net[j] * w[j];
     }
-    loss[i] = sum;
+    loss[i] = 0 + _npPairwiseSum(terms, 0, terms.length);
   }
   return { loss, aHigh, c0, flipped };
 }
@@ -4619,9 +4629,11 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
     if (T !== null) target = type === 'shirley' ? T : T.map((v, k) => Math.min(v, ys[k]));
   }
   if (target === null) return { converged: false, residual: null, reason: 'the data lie at or below the line between the two edge levels, so there is no net signal and the ' + label + ' relation is undefined' };
+  if (!target.every(Number.isFinite)) return { converged: false, residual: null, reason: 'the ' + label + ' relation does not evaluate to finite numbers on these data' };
   const diff = _bgMaxAbsDiff(Ba, target);
   const residual = span > 0 ? diff / span : (diff === 0 ? 0 : Infinity);
-  if (residual <= BG_REL_TOL) return { converged: true, residual, reason: null };
+  // the SAME predicate the iterations stop on (diff <= tol·span), not the quotient
+  if (diff <= BG_REL_TOL * span) return { converged: true, residual, reason: null };
   return { converged: false, residual, reason: 'its iteration did not settle on a solution (it alternates or ran out of steps); the result misses the ' + label + ' relation by ' + (100 * residual).toPrecision(3) + ' % of the intensity span' };
 }
 
@@ -4762,7 +4774,12 @@ function _bgWindowIndices(be, bgStart, bgEnd) {
 // is not read: every iterative background runs to convergence (BG_MAX_ITER cap),
 // exactly as the server's.
 function _bgMark(bg, converged, failure) { bg.converged = converged; bg.failure = failure || null; return bg; }
-function _bgFailure(bg) { return bg && bg.converged === false ? (bg.failure || 'the background did not converge') : null; }
+// Fails CLOSED: only a background computeBackgroundCore marked converged is one;
+// an unmarked array (a stored or serialized curve, or anything else) is not.
+function _bgFailure(bg) {
+  if (bg && bg.converged === true) return null;
+  return (bg && bg.failure) || 'the background has no convergence certificate';
+}
 // The plain message under the method menu while the live background is not converged.
 function _refreshBgConvergenceNote(failure) {
   const el = document.getElementById('bg-not-converged');
@@ -4797,7 +4814,13 @@ function computeBackgroundCore(be, intensity, settings) {
   else if (type === 'smart') bgSub = smartBackground(beSub, inSub, BG_MAX_ITER, nAvg);
   else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, BG_MAX_ITER, nAvg);
   else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, BG_MAX_ITER, nAvg);
-  else if (type === 'linear') bgSub = linearBackground(beSub, inSub);
+  else if (type === 'linear') {
+    // run_fit extrapolates the line through the WINDOW's end points across the whole
+    // ROI (it is defined everywhere); the integral backgrounds are flat-held outside
+    const x0 = beSub[0], y0 = inSub[0], x1 = beSub[beSub.length - 1], y1 = inSub[inSub.length - 1];
+    const slope = x1 !== x0 ? (y1 - y0) / (x1 - x0) : 0;
+    return _bgMark(be.map(e => y0 + slope * (e - x0)), true);
+  }
   else if (type === 'tougaard') bgSub = tougaardBackground(beSub, inSub, nAvg);
   else return _bgMark(new Array(be.length).fill(0), true);
   const cert = _bgCertificate(beSub, inSub, bgSub, type, nAvg);
@@ -9503,6 +9526,45 @@ function _alignRawToFitBe(src, be) {
   return src.rawIntensity.slice(i0, i0 + len);
 }
 
+// A record's background as its saved settings give it NOW: the ROI window from
+// rawBE + ui.roiMin/Max on the corrected axis, the background from the raw data
+// via the record's persisted settings (stack Path B; the restored-fit check).
+function _recordBackground(src) {
+  const corrBE = src.rawBE.map(b => b - (src.ccShift || 0));
+  const roiMinV = parseFloat(src.ui && src.ui.roiMin);
+  const roiMaxV = parseFloat(src.ui && src.ui.roiMax);
+  let i0 = 0, i1 = corrBE.length - 1;
+  if (isFinite(roiMinV) && isFinite(roiMaxV)) {
+    const lo = Math.min(roiMinV, roiMaxV);
+    const hi = Math.max(roiMinV, roiMaxV);
+    // corrBE is descending (highest BE first); locate ROI bounds.
+    while (i0 < corrBE.length && corrBE[i0] > hi) i0++;
+    while (i1 >= 0 && corrBE[i1] < lo) i1--;
+    if (i1 < i0) { i0 = 0; i1 = corrBE.length - 1; }
+  }
+  const be = corrBE.slice(i0, i1 + 1);
+  const rawY = src.rawIntensity.slice(i0, i1 + 1);
+  const bg = _computeBackgroundForSource(be, rawY, src.ui);
+  return { be, rawY, bg };
+}
+
+// A RESTORED fit (a loaded project or spectrum file) is kept only when its saved
+// background settings give a converged background now (background math,
+// 2026-10-01): a fit made against a background that has no solution under the
+// current definition is no fit — it is dropped, the model kept, and the student
+// told why. A fit whose background converges keeps its stored curve and
+// statistics (made by the version that saved it; Run Fit regenerates them).
+// Returns the plain reason, or null.
+function _restoredFitBgFailure(rec) {
+  if (!rec || !rec.fitResult || rec.isStack || !Array.isArray(rec.rawBE) || rec.rawBE.length < 2) return null;
+  const { bg } = _recordBackground(rec);
+  return _bgFailure(bg);
+}
+function _dropRestoredFit(rec) {
+  rec.fitResult = null;
+  for (const p of rec.peaks || []) if (p.support) p.support = null;   // its verdicts belonged to that fit
+}
+
 function _buildEntryRenderData(entry) {
   const src = tabManager._getTab(entry.sourceTabId);
   if (!src || !Array.isArray(src.rawBE) || src.rawBE.length < 2) {
@@ -9527,21 +9589,7 @@ function _buildEntryRenderData(entry) {
   } else {
     // Path B: post-load — derive ROI-window be from rawBE + ui.roiMin/Max,
     // recompute bg from raw via source's persisted bg settings.
-    const corrBE = src.rawBE.map(b => b - shift);
-    const roiMinV = parseFloat(src.ui && src.ui.roiMin);
-    const roiMaxV = parseFloat(src.ui && src.ui.roiMax);
-    let i0 = 0, i1 = corrBE.length - 1;
-    if (isFinite(roiMinV) && isFinite(roiMaxV)) {
-      const lo = Math.min(roiMinV, roiMaxV);
-      const hi = Math.max(roiMinV, roiMaxV);
-      // corrBE is descending (highest BE first); locate ROI bounds.
-      while (i0 < corrBE.length && corrBE[i0] > hi) i0++;
-      while (i1 >= 0 && corrBE[i1] < lo) i1--;
-      if (i1 < i0) { i0 = 0; i1 = corrBE.length - 1; }
-    }
-    be = corrBE.slice(i0, i1 + 1);
-    rawY = src.rawIntensity.slice(i0, i1 + 1);
-    bg = _computeBackgroundForSource(be, rawY, src.ui);
+    ({ be, rawY, bg } = _recordBackground(src));
     // a reconstructed background that does not satisfy its statement is not
     // drawn under a fit (background math, 2026-10-01): the entry shows no fit
     if (_bgFailure(bg)) return { be: [], bg: [], rawY: [], fittedY: [], peaks: [], bgFailure: _bgFailure(bg) };
@@ -11143,6 +11191,14 @@ function _loadSpectrumFile(data, sessionFile) {
     if (data.statistics.rFactor && data.statistics.statisticsState !== 'stale') fr.rFactor = data.statistics.rFactor;
     active.fitResult = fr;
     state.fitResult = fr;
+    // background math (2026-10-01): a fit whose background has no converged
+    // solution now is not restored
+    const failure = _restoredFitBgFailure(active);
+    if (failure) {
+      _dropRestoredFit(active);
+      state.fitResult = null;
+      notify('Saved fit not restored: ' + failure + ' The model is kept; change the background settings and run Fit.', 'amber', true);
+    }
   }
   const notesEl = document.getElementById('spectrum-notes');
   if (notesEl) notesEl.value = active.notes || '';
@@ -11316,6 +11372,16 @@ function _loadProjectJSON(data, sessionFile) {
   for (const tab of newTabs) {
     tabManager.tabs.push(tab);
   }
+  // A restored fit whose background has no converged solution now is dropped
+  // (background math, 2026-10-01): nothing downstream may treat it as a fit.
+  const droppedFits = [];
+  for (const tab of newTabs) {
+    const failure = _restoredFitBgFailure(tab);
+    if (failure) { _dropRestoredFit(tab); droppedFits.push(tab.name + ' — ' + failure); }
+  }
+  if (droppedFits.length) {
+    notify('Saved fit not restored: ' + droppedFits.join(' ') + ' The model is kept; change the background settings and run Fit.', 'amber', true);
+  }
 
   // Rewrite stack-entry source references through idMap BEFORE pruning.
   // When the collision-detect path renamed a source spectrum tab, the
@@ -11461,6 +11527,9 @@ function exportResults() {
   if (!be.length) { notify('No data to export.', 'red'); return; }
 
   const bgIntensity = computeBackground(be, inten);
+  // a background that does not satisfy its statement is not exported as one
+  // (background math, 2026-10-01): its columns stay empty and the file says why
+  const bgFail = _bgFailure(bgIntensity);
   const modelFull = evalAllPeaks(be, state.peaks);
   // evalPeakArray() per peak, once, not per-point evalPeak per row: for
   // LACX with caM > 0, only the array evaluator applies the shape's
@@ -11475,9 +11544,6 @@ function exportResults() {
   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
   const resid = bgSub.map((v, i) => v - modelFull[i]);
 
-  // a background that does not satisfy its statement is not exported as one
-  // (background math, 2026-10-01): its columns stay empty and the file says why
-  const bgFail = _bgFailure(bgIntensity);
   for (let i = 0; i < be.length; i++) {
     rows.push([
       be[i].toFixed(4), inten[i].toFixed(2), bgFail ? '' : bgIntensity[i].toFixed(2),

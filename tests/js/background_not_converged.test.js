@@ -27,19 +27,52 @@ function enclosingFunction(lineIdx) {
   throw new Error('unbalanced function around line ' + (lineIdx + 1));
 }
 
+// Codex impl round 1: the guard must not be evadable by another call form, an alias,
+// a chained use or a check placed after consumption. Every textual reference to a
+// PRODUCER outside the DISPATCHERS must be one of exactly two forms:
+//   (A) `[const|let|var] NAME = [be.length ? ]PRODUCER(` or a destructuring
+//       `{ ..., bg, ... } = _recordBackground(` — and the FIRST later reference to
+//       NAME in its function must be `_bgFailure(NAME)`;
+//   (B) `_bgFailure(PRODUCER(` — an inline refusal; an (A) site later in the same
+//       function is then covered by it (runFit refuses up front).
+// Anything else — `(computeBackground)(`, `computeBackground (`, an alias, a
+// `return ...computeBackground(...).map(...)` — fails.
+const PRODUCERS = ['computeBackground', 'computeBackgroundCore', '_computeBackgroundForSource', '_recordBackground'];
+const DISPATCHERS = ['computeBackground', 'computeBackgroundCore', '_computeBackgroundForSource', '_recordBackground'];
+const stripComment = l => l.replace(/\/\/.*$/, '');
+
 test('every computed background is checked for convergence by its consumer (class guard)', () => {
   const sites = [];
-  lines.forEach((l, i) => {
-    const m = l.match(/(?:const|let|var)?\s*([A-Za-z_$][\w$]*)\s*=\s*(?:be\.length \? )?(computeBackground|computeBackgroundCore|_computeBackgroundForSource)\(/);
-    if (!m || /^\s*\/\//.test(l)) return;
+  const ref = new RegExp('\\b(' + PRODUCERS.join('|') + ')\\b');
+  lines.forEach((raw, i) => {
+    const l = stripComment(raw);
+    if (!ref.test(l) || /^\s*(async )?function /.test(l)) return;
     const fn = enclosingFunction(i);
-    if (['computeBackground', 'computeBackgroundCore', '_computeBackgroundForSource'].includes(fn.name)) return;
-    sites.push({ line: i + 1, variable: m[1], fn });
+    if (DISPATCHERS.includes(fn.name)) return;
+    sites.push({ line: i + 1, text: l.trim(), fn, idx: i });
   });
-  assert.ok(sites.length >= 10, 'found the consumers: ' + sites.map(s => s.fn.name).join(', '));
+  assert.ok(sites.length >= 11, 'found the consumers: ' + sites.map(s => s.fn.name).join(', '));
+  const P = '(?:' + PRODUCERS.join('|') + ')';
+  const formA = new RegExp('^(?:(?:const|let|var)\\s+)?([A-Za-z_$][\\w$]*)\\s*=\\s*(?:be\\.length \\? )?' + P + '\\(');
+  const formAd = new RegExp('^\\(?(?:(?:const|let|var)\\s+)?\\{[^}]*\\bbg\\b[^}]*\\}\\s*=\\s*_recordBackground\\(');
+  const formB = new RegExp('_bgFailure\\(' + P + '\\(');
   for (const s of sites) {
-    const checked = s.fn.body.includes('_bgFailure(' + s.variable + ')') || /_bgFailure\(computeBackground\(/.test(s.fn.body);
-    assert.ok(checked, `${s.fn.name} (line ${s.line}) uses ${s.variable} without checking _bgFailure(${s.variable})`);
+    if (formB.test(s.text)) continue;
+    let name = null;
+    const a = s.text.match(formA);
+    if (a) name = a[1];
+    else if (formAd.test(s.text)) name = 'bg';
+    assert.ok(name, `${s.fn.name} (line ${s.line}): a producer referenced outside the two allowed forms: ${s.text}`);
+    // covered by an earlier inline refusal in the same function?
+    const before = s.fn.body.slice(0, s.fn.body.indexOf(s.text));
+    if (formB.test(before)) continue;
+    // the FIRST later reference to NAME in the function must be the check
+    const after = s.fn.body.slice(s.fn.body.indexOf(s.text) + s.text.length).split('\n').map(stripComment).join('\n');
+    const esc = name.replace(/\$/g, '\\$');
+    const m = after.match(new RegExp('\\b' + esc + '\\b'));
+    const isCheck = m && after.slice(Math.max(0, m.index - 11), m.index) === '_bgFailure(' && after[m.index + name.length] === ')';
+    assert.ok(isCheck,
+      `${s.fn.name} (line ${s.line}): the first use of ${name} after it is computed is not _bgFailure(${name})`);
   }
 });
 

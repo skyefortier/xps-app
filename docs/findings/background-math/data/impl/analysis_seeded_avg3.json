@@ -12,7 +12,7 @@
   "n": 202,
   "median": 0.002,
   "p90": 0.006,
-  "max": 0.1,
+  "max": 0.36,
   "over_1": 0,
   "over_0_1": 1
  },
@@ -20,37 +20,37 @@
   "n": 202,
   "median": 0.003,
   "p90": 0.009,
-  "max": 0.104,
+  "max": 0.36,
   "over_1": 0,
   "over_0_1": 1
  },
  "success_changes": [],
  "worst": [
   [
-   0.1,
-   0.104,
+   0.36,
+   0.36,
    "1-GTA UCl4-graphite one set of U doublets.proj.zip",
    "C1s Scan_4",
-   "Adventitious 2",
+   "Graphite",
    "shirley",
    3,
    19.708,
-   19.71
+   19.695
   ],
   [
-   0.076,
-   0.078,
+   0.049,
+   0.051,
    "1-GTA UCl4-graphite one set of U doublets.proj.zip",
    "C1s Scan_1",
-   "Adventitious 1",
+   "Graphite",
    "shirley",
    3,
    13.028,
    13.028
   ],
   [
-   0.015,
-   0.047,
+   0.022,
+   0.064,
    "1-GTA UCl4-graphite one set of U doublets.proj.zip",
    "U4f Scan_6",
    "U 4f7/2",
@@ -58,17 +58,6 @@
    3,
    1.977,
    1.975
-  ],
-  [
-   0.014,
-   0.014,
-   "Cl2p_projfit_test.proj.zip",
-   "C1s Scan_1",
-   "Adventitious 1",
-   "shirley",
-   3,
-   4.392,
-   4.392
   ],
   [
    0.014,
@@ -82,6 +71,17 @@
    1.746
   ],
   [
+   0.013,
+   0.013,
+   "Cl2p_projfit_test.proj.zip",
+   "C1s Scan_1",
+   "Adventitious 1",
+   "shirley",
+   3,
+   4.392,
+   4.392
+  ],
+  [
    0.012,
    0.012,
    "Cl2p_projfit_test.proj.zip",
@@ -93,26 +93,26 @@
    2.231
   ],
   [
-   0.008,
-   0.008,
-   "UCl4_on_graphite.proj.zip",
-   "C1s Scan_3",
-   "Graphite",
+   0.009,
+   0.01,
+   "8-JT Graphite.proj.zip",
+   "C1s Scan_8",
+   "Adventitious 2",
    "shirley",
    3,
-   1.397,
-   1.398
+   32.386,
+   32.388
   ],
   [
    0.008,
    0.008,
-   "UCl4_on_graphite.proj.zip",
-   "C1s Scan_8",
+   "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "C1s Scan",
    "Graphite",
    "shirley",
    3,
-   1.539,
-   1.54
+   3.881,
+   3.881
   ]
  ]
 }
