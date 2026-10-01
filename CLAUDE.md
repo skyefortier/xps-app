@@ -919,9 +919,14 @@ curve: on the committed projects 3 of 121 saved fits are restored (Cl 2p, where 
 old curve agrees to 6 significant figures), 118 load their model and need Run Fit
 (`scripts/bg_math_restore_census.py`; owner decision pending). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never
-read. Known, not fixed: `uploadToBackend` rounds intensities to 2 dp, so on a
-borderline spectrum the page's and the server's certificates could disagree (either
-way no fit is made); Tougaard near cancellation is ill-conditioned (a small high-edge
+read. Known, not fixed: `uploadToBackend` rounds intensities to 2 dp, so the page's
+background (raw counts) and the server's (2-dp counts) are two readings — measured on
+the 202 committed targets at ≤ 8.6e-7 of the span with identical verdicts
+(`scripts/bg_math_upload_rounding_gap.py`), far apart only on ill-conditioned input
+(Tougaard near cancellation); the class fix, a full-precision upload, changes every
+fit's input and seed (owner decision pending). Auto-Fit's result after its charge
+shift pairs the re-selected samples with the pre-shift envelope (pre-existing; logged
+for its own unit); Tougaard near cancellation is ill-conditioned (a small high-edge
 sum: tiny data changes move the background far) — the statement's property.
 Featureless windows (a drift, a peakless step) mostly have no converged Shirley
 background and are now refused (F13).
@@ -1043,7 +1048,11 @@ derives a charge correction from it; a rejected Auto-Fit (any reason)
 leaves its `pushUndo()` entry and a cleared redo stack behind. The spike
 case shares a root with the false rejection above — gross single-channel
 artefacts are unhandled generally — so if this becomes a despike /
-outlier-flag unit, those three are one piece of work.
+outlier-flag unit, those three are one piece of work. Also logged (background math,
+Codex impl round 9): after its charge shift Auto-Fit assembles the result from the
+re-selected window (the shift rounds the ROI and background bounds to 0.1 eV) with the
+server's `fitted_y` for the original samples, so its R and stored envelope can describe
+other points (move the bounds by exactly the shift, freeze the fitted samples, or refit).
 
 Adventitious carbon referencing (284.8 eV) is the default for
 convenience but has known criticisms in the XPS literature — the C 1s

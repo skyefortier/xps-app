@@ -64,8 +64,9 @@ test("the manual background is np.interp's arithmetic exactly — bit-identical 
   }
   // numpy's edge branches (Codex impl round 5 probe): an exact anchor energy, an
   // overflowing slope (numpy recomputes a NaN from the right-hand anchor), agreeing duplicates
-  cases.push({ be: [0, 1, 5], anchors: [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }] });
-  cases.push({ be: [0, 5e-301, 1e-300, 2], anchors: [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }] });
+  // (anchor gaps that overflow — ±1.7e308 — are REFUSED since Codex impl round 9, pinned in
+  // background_not_converged.test.js; an overflowing slope over a finite gap still follows numpy)
+  cases.push({ be: [0, 5e-301, 1e-300, 2], anchors: [{ x: 0, y: -8e307 }, { x: 1e-300, y: 8e307 }, { x: 5, y: 1 }] });
   cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 1, y: 4 }, { x: 2, y: 9 }] });
   cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 0, y: 1 }, { x: 2, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 2 }] });
   cases.push({ be: [0, 1e-320, 1], anchors: [{ x: 0, y: 1e308 }, { x: 1e-320, y: 1e308 }, { x: 1, y: 0 }] });

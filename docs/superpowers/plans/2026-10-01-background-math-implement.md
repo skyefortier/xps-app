@@ -239,7 +239,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 536, exact (the owner's 512 for the two landed branches + this unit's 24 tests).
+- JS CI floor 508 -> 537, exact (the owner's 512 for the two landed branches + this unit's 25 tests).
 
 ## 4. Measurements
 
@@ -351,6 +351,31 @@ setting: up to 8.6e-5 of the span, F7), draws de-listed Shirley + linear files a
 server computes them (up to 7.8 % of the span on descending grids before), draws the
 linear background affine in energy and extrapolated across the ROI (by index and
 flat-held before), and Tougaard on near-uniform grids as the stated sum (both sides).
+
+**The page's and the server's readings of the data (Codex round 9, A2 — measured, held
+for the owner).** The page computes its background on the raw counts; the server on
+the counts as `uploadToBackend` sends them (BE toFixed(4), intensity toFixed(2)); Run
+Fit freezes the page's curve beside the server's envelope. On the 202 committed
+targets × shirley / smart / smart_exp / tougaard × averaging 1 / 3 / 10 (2 424 cases,
+`scripts/bg_math_upload_rounding_gap.py`, `data/impl/upload_rounding_gap.json`): the
+two backgrounds differ by at most 8.6e-7 of the span (median 8.0e-8, 99th percentile
+7.7e-7) and their verdicts agree on every case. A large gap needs an ill-conditioned
+input (Tougaard near cancellation, a constructed four-point case in the review: 1001.5
+vs 369.6). The class fix is to upload at full precision (one reading, page = server bit
+for bit, the frozen pair consistent by construction); it changes every fit's input by
+up to 0.005 counts and with it every request seed (the perturbed-restart lottery of §4
+again), so it is an OWNER DECISION, not made here.
+
+**Auto-Fit's result after its charge shift (Codex round 9, A1 — pre-existing, logged).**
+Auto-Fit refines the charge shift after the fit; the shift rounds the ROI and
+background bounds to 0.1 eV (`updateChargeCorrection`), so the window can then select
+other samples, and the result is assembled from the NEW selection with the server's
+`fitted_y` for the OLD one (an R of 18.6 % instead of 0.02 % on the review's case). The
+background on the new selection is certified; the pairing of samples and envelope is
+main's (unchanged since before this unit) and is a statistics problem of Auto-Fit, not a
+background that misses its statement. Logged for its own unit (options: move the bounds
+by exactly the shift, freeze the fitted samples, or refit after the shift) with the
+other Auto-Fit items in CLAUDE.md's "LOGGED FOR ONE LATER UNIT".
 
 ## 5. Release note (at deploy)
 
@@ -495,3 +520,17 @@ A: 256 loader round trips):
 | 2 | MINOR (A, B): an empty linear / manual window on `/api/background` raised IndexError (HTTP 500) | an empty window is an empty curve, as the page |
 
 Mutation-verified (2 of 2 killed).
+
+**Round 9 — NO-GO ×2** (`background_math_impl_r9_verdict_run{A,B}.md`, commit 530513f;
+both: the round-8 fixes hold; the census, the four measurement summaries and the
+smart / smart_exp identity reproduce; A: 128 loader round trips; B: 192 record round
+trips / frozen-stack cases):
+
+| # | finding | disposition |
+|---|---|---|
+| 1 | MAJOR (B): manual anchors whose gap overflows (±1e308): np.interp's slope is 0 and the curve a finite, wrong 0 — certified, fitted, saved | refused, server and page, same words: anchor and intensity gaps and every x − anchor must be finite; pinned, page = server |
+| 2 | MAJOR (A): Auto-Fit assembles its result from the post-shift selection with the pre-shift envelope | PRE-EXISTING (main assembles it so), a statistics problem, not a background that misses its statement — logged for its own unit (§4); not fixed here |
+| 3 | MAJOR (A): Run Fit freezes the page's background (raw counts) beside the server's envelope (2-dp counts); on an ill-conditioned constructed Tougaard case they differ by most of the span | PRE-EXISTING reading gap (documented since W1); MEASURED on the committed data: ≤ 8.6e-7 of the span, verdicts agree on all 2 424 cases (§4); the class fix (full-precision upload) changes every fit's input and seed — OWNER DECISION |
+| 4 | MINOR (A): the parity reference kept manual's zero fallback | the line through the ROI's ends, as run_fit; pinned |
+
+Mutation-verified (3 of 3 killed).

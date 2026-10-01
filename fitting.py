@@ -614,6 +614,15 @@ def manual_anchor_background(x, anchors):
             raise BackgroundNotConverged(
                 "Manual background not converged: two anchors are at the same energy with "
                 "different intensities, so no curve passes through both.")
+    # the interpolation's own arithmetic must not overflow (Codex impl round 9): an
+    # anchor gap of 2e308 is inf, the slope 0, and the curve finite and wrong
+    with np.errstate(over="ignore", invalid="ignore"):
+        gaps_ok = np.all(np.isfinite(np.diff(ax))) and np.all(np.isfinite(np.diff(ay))) \
+            and np.all(np.isfinite(np.subtract.outer(np.asarray(x, dtype=float), ax)))
+    if not gaps_ok:
+        raise BackgroundNotConverged(
+            "Manual background not converged: it is not a finite number at every point "
+            "(the arithmetic overflowed or an input is not finite).")
     return _explicit_background(np.interp(x, ax, ay), "Manual")
 
 

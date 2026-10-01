@@ -15063,6 +15063,13 @@ function manualAnchorBackground(be, intensity, anchorsGiven) {
   // slope·(x − xp[j]) + fp[j] with slope = (fp[j+1] − fp[j]) / (xp[j+1] − xp[j])
   const a = [...anchors].sort((p, q) => p.x - q.x);
   const xp = a.map(p => p.x), fp = a.map(p => p.y), m = xp.length;
+  // fitting.manual_anchor_background: the interpolation's own arithmetic must not
+  // overflow (an anchor gap of 2e308 gives a zero slope and a finite, wrong curve);
+  // NaN marks it, and computeBackgroundCore's finiteness check refuses it
+  for (let k = 1; k < m; k++) {
+    if (!Number.isFinite(xp[k] - xp[k - 1]) || !Number.isFinite(fp[k] - fp[k - 1])) return new Array(n).fill(NaN);
+  }
+  for (let i = 0; i < n; i++) for (let k = 0; k < m; k++) if (!Number.isFinite(be[i] - xp[k])) return new Array(n).fill(NaN);
   const result = new Array(n);
   for (let i = 0; i < n; i++) {
     const x = be[i];

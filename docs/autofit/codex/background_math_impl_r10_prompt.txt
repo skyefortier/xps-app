@@ -1,0 +1,27 @@
+Review the "background math — implementation" unit, round 10: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-9 fixes = git diff 530513f..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..9}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-9 dispositions in short:
+- Manual anchors whose interpolation arithmetic overflows (an anchor gap of ±1e308, or x − anchor) are refused, server and page, in the same words. The parity reference reads manual without anchors as run_fit does.
+- Two findings are PRE-EXISTING and are dispositioned, not fixed — do not re-raise them unless you show this unit made them worse:
+  (a) Auto-Fit pairs the post-shift selection with the pre-shift fitted_y. Main does this; it is logged for its own unit (plan §4, CLAUDE.md).
+  (b) The page's and the server's readings of the data (raw counts vs uploadToBackend's 2 dp). This is measured on the 202 committed targets × 4 methods × 3 averagings: at most 8.6e-7 of the span, with identical verdicts on all 2,424 cases (scripts/bg_math_upload_rounding_gap.py). The class fix (a full-precision upload) changes every fit's input and seed, so it is held as an owner decision.
+  You MAY check the measurement and whether these dispositions are stated accurately.
+- JS CI floor 537 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. The round-9 fixes, and anything still reachable in this unit's scope where a background that misses its statement is certified, drawn, fitted, saved or exported, or where page and server disagree on a verdict on the SAME numbers.
+b. Everything rounds 1-9 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

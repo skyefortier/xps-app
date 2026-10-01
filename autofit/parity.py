@@ -98,7 +98,11 @@ def background_like_run_fit(
     elif m == "linear":
         # run_fit's own rule (raises BackgroundNotConverged: no line, or not finite)
         return _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1])
-    elif m in ("none", "flat", "", "manual"):
+    elif m == "manual":
+        # no anchors here: run_fit's fewer-than-two-anchors case, the line through the
+        # ROI's ends (Codex impl round 9: this reference still returned zeros)
+        return linear_background(x, y)
+    elif m in ("none", "flat", ""):
         return np.zeros_like(y)
     else:
         raise ValueError(f"Unknown background method {method!r}")

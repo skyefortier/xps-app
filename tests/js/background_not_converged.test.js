@@ -361,3 +361,13 @@ test('an integral background on an unsorted fitted region is not converged; a on
   const one = R._computeBackgroundForSource([1], [20], { bgType: 'manual' }, []);
   assert.deepStrictEqual(Array.from(one), [20]);
 });
+
+test('manual: an anchor gap whose arithmetic overflows is refused, page = server (round 9)', () => {
+  const W = 'Manual background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).';
+  const E = Array.from({ length: 11 }, (_, i) => 280 + i), I = E.map(() => 50);
+  for (const anchors of [[{ x: -1e308, y: 0 }, { x: 1e308, y: 100 }], [{ x: 0, y: -1.7e308 }, { x: 5, y: 1.7e308 }]]) {
+    assert.throws(() => R._computeBackgroundForSource(E, I, { bgType: 'manual' }, anchors), e => e.message === W, JSON.stringify(anchors));
+  }
+  const S = serverWords([{ m: 'manual', x: E, y: I, anchors: [[-1e308, 0], [1e308, 100]] }, { m: 'manual', x: E, y: I, anchors: [[0, -1.7e308], [5, 1.7e308]] }]);
+  assert.deepStrictEqual(S, [W, W]);
+});

@@ -286,3 +286,19 @@ def test_an_empty_linear_or_manual_window_is_an_empty_curve_not_a_500(client):
     for m in ("linear", "manual"):
         r = client.post("/api/background", json={"session_id": sid, "method": m, "start_idx": 1, "end_idx": 1})
         assert r.status_code == 200 and r.get_json()["background"] == [], (m, r.status_code, r.get_json())
+
+
+# ── Codex implementation round 9 ─────────────────────────────────────────────
+
+def test_manual_interpolation_that_overflows_inside_is_refused():
+    # finite anchors whose gap is 2e308: np.interp's slope is 0 and the curve a finite, wrong 0
+    E = np.arange(280.0, 291.0)
+    I = np.array([50.0, 50, 60, 100, 500, 100, 60, 50, 50, 50, 50])
+    with pytest.raises(fitting.BackgroundNotConverged, match="the arithmetic overflowed"):
+        fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[[-1e308, 0], [1e308, 100]])
+
+
+def test_the_parity_reference_reads_manual_without_anchors_as_run_fit_does():
+    from autofit.parity import background_like_run_fit
+    E, I = np.array([0.0, 1, 2, 3, 4, 5]), np.array([10.0, 12, 40, 30, 22, 20])
+    assert np.array_equal(background_like_run_fit(E, I, "manual", 0, 6), fitting.linear_background(E, I))
