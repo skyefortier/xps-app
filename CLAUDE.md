@@ -871,6 +871,9 @@ edge line (F10), Tougaard's amplitude is undetermined or has no solution (F11), 
 `shirley_linear`'s equal-edge branch returns its line unclamped. `run_fit`,
 `compute_background_only`, Find Peaks' engine and `autofit/parity.py` all go through
 it: nothing is fitted against such a background. No fallback solver (owner). The
+integral relations run along the energy axis: a window whose data are not finite or
+whose energies are not in order (ascending or descending, repeats allowed) is not
+converged, and neither is one whose span or difference overflows. The
 EXPLICIT backgrounds (linear, manual, none) have nothing to converge but must exist,
 checked the same way, server and page, in the same words: no line when the window's
 end points share an energy and not an intensity, no manual curve when two anchors do,

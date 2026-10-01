@@ -225,3 +225,36 @@ def test_an_anchor_that_is_not_a_pair_of_finite_numbers_is_not_converged():
         with pytest.raises(fitting.BackgroundNotConverged) as e:
             fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=bad)
         assert str(e.value) == "Manual background not converged: an anchor is not a pair of finite numbers."
+
+
+# ── Codex implementation round 6 ─────────────────────────────────────────────
+
+def test_an_unsorted_window_is_not_converged_for_the_integral_methods():
+    # the integral relations run along the energy axis: an unsorted window integrated the
+    # array order, and its own certificate agreed (Shirley [10, 30, 20, 20] above both levels)
+    for E, I in (([0.0, 2, 1, 3], [10.0, 40, 12, 20]), ([3.0, 1, 2, 0], [20.0, 12, 40, 10])):
+        for m in ("shirley", "smart", "smart_exp", "shirley_linear", "tougaard"):
+            with pytest.raises(fitting.BackgroundNotConverged, match="energies in the window are not in order"):
+                fitting.compute_background(np.array(E), np.array(I), m)
+        with pytest.raises(fitting.BackgroundNotConverged, match="not in order"):
+            fitting.run_fit(np.array(E), np.array(I), GPEAK, background_method="shirley")
+    # repeated energies in order are fine
+    fitting.compute_background(np.array([0.0, 1, 1, 2, 3, 4, 5]), np.array([10.0, 12, 14, 40, 30, 22, 20]), "shirley")
+
+
+def test_an_overflowing_certificate_does_not_certify():
+    E, I = np.arange(5.0), np.array([1e308, -1e308, 1e308, -1e308, 1e308])
+    with pytest.raises(fitting.BackgroundNotConverged, match="its arithmetic overflows"):
+        fitting.compute_background(E, I, "shirley_linear")
+
+
+def test_manual_without_anchors_is_the_line_and_every_anchor_is_checked():
+    E, I = np.array([0.0, 1, 2, 3, 4, 5]), np.array([10.0, 12, 40, 30, 22, 20])
+    line = fitting.linear_background(E, I)
+    for absent in (None, []):
+        r = fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=absent, n_perturb=0)
+        assert np.array_equal(np.asarray(r["background_y"]), line)
+    assert np.array_equal(fitting.compute_background_only(E, I, method="manual")["background"], line)
+    for lone in ([[float("nan"), 1]], [[2, None]], [[True, 1]], [None, [5, 0]], ["ab", [5, 0]]):
+        with pytest.raises(fitting.BackgroundNotConverged, match="an anchor is not a pair of finite numbers"):
+            fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=lone)

@@ -584,6 +584,18 @@ def _line_through(x, x0, y0, x1, y1):
     return _explicit_background(y0 + slope * (x - x0), "Linear")
 
 
+def _check_anchors(anchors):
+    """Every anchor a pair of finite real numbers (not a string, bool or None) — an
+    anchor that is not one has no place on the curve; the page's twin refuses the
+    same, in the same words (Codex impl rounds 5-6)."""
+    def _num(v):
+        return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_)) \
+            and math.isfinite(float(v))
+    if not all(isinstance(p, (list, tuple)) and len(p) >= 2 and _num(p[0]) and _num(p[1]) for p in anchors):
+        raise BackgroundNotConverged(
+            "Manual background not converged: an anchor is not a pair of finite numbers.")
+
+
 def manual_anchor_background(x, anchors):
     """The user's anchors interpolated across x (np.interp: constant beyond the
     outermost anchors). Nothing to converge, but the curve must exist (Codex impl
@@ -591,14 +603,7 @@ def manual_anchor_background(x, anchors):
     through both, and every value must be finite; either raises
     BackgroundNotConverged. Fewer than two anchors is the caller's case (the line
     through the window's ends)."""
-    # every anchor coordinate a finite real number (not a string, bool or None): an
-    # anchor that is not one has no place on the curve (the page's twin refuses the same)
-    def _num(v):
-        return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_)) \
-            and math.isfinite(float(v))
-    if not all(len(p) >= 2 and _num(p[0]) and _num(p[1]) for p in anchors):
-        raise BackgroundNotConverged(
-            "Manual background not converged: an anchor is not a pair of finite numbers.")
+    _check_anchors(anchors)
     a = sorted(anchors, key=lambda p: p[0])
     ax = np.array([p[0] for p in a], dtype=float)
     ay = np.array([p[1] for p in a], dtype=float)
@@ -919,6 +924,18 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
     if len(x) < 2:
         return {"converged": False, "residual": None,
                 "reason": "the background window holds fewer than two data points"}
+    # the integral relations are defined along the energy axis (Codex impl round 6):
+    # the data must be finite numbers and the window's energies in order (ascending
+    # or descending, repeats allowed); an unsorted window integrates the array order
+    # and its own iteration and certificate agree on a curve no statement gives
+    xv, yv = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    if not (np.all(np.isfinite(xv)) and np.all(np.isfinite(yv))):
+        return {"converged": False, "residual": None, "reason": "the data in the window are not all finite numbers"}
+    dx = np.diff(xv)
+    if not (np.all(dx >= 0) or np.all(dx <= 0)):
+        return {"converged": False, "residual": None, "reason": (
+            "the energies in the window are not in order (neither ascending nor descending), and the "
+            "%s relation is an integral along the energy axis" % label)}
     if m == "tougaard":
         loss, a_high, c0, _ = _tougaard_loss(x, y, n_avg)
         if loss[0] != 0.0:
@@ -952,6 +969,11 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
         return {"converged": False, "residual": None, "reason": (
             "the %s relation does not evaluate to finite numbers on these data" % label)}
     diff = float(np.max(np.abs(Ba - target)))
+    # an overflowing span or difference cannot judge anything (Codex impl round 6:
+    # inf <= tol * inf accepted a constant that misses the relation)
+    if not (np.isfinite(span) and np.isfinite(diff)):
+        return {"converged": False, "residual": None, "reason": (
+            "the intensities are too large to check the %s relation (its arithmetic overflows)" % label)}
     residual = diff / span if span > 0.0 else (0.0 if diff == 0.0 else float("inf"))
     # the SAME predicate every iteration stops on (diff <= tol * span), not the
     # quotient: they differ by a rounding step at the boundary
@@ -2044,10 +2066,15 @@ def _run_fit_impl(
     bg_method = background_method.lower()
     bg_inner: np.ndarray | None = None
 
-    if manual_bg is not None and bg_method == "manual":
+    if bg_method == "manual":
+        # no anchors sent (an omitted / null manual_bg) is the page's "fewer than two
+        # anchors": the line through the ROI's ends — never a silent zero (Codex impl round 6)
+        manual_bg = manual_bg if manual_bg is not None else []
         # manual_bg is a list of [be, intensity] anchor points from the
         # frontend. The anchors are BE-anchored (independent of i0/i1),
         # so interpolate them across the full ROI grid.
+        if len(manual_bg) >= 1:
+            _check_anchors(manual_bg)                     # every anchor, even a lone one
         if len(manual_bg) >= 2:
             bg = manual_anchor_background(x, manual_bg)   # raises BackgroundNotConverged
         else:
@@ -2063,7 +2090,7 @@ def _run_fit_impl(
         # (raises BackgroundNotConverged when the window's ends share an energy but
         # not an intensity: no line passes through both)
         bg = _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1])
-    elif bg_method in ("none", "flat", "", "manual"):
+    elif bg_method in ("none", "flat", ""):
         bg = np.zeros_like(y)
     else:
         raise ValueError(f"Unknown background method '{background_method}'")
@@ -2501,9 +2528,11 @@ def compute_background_only(
 
     if method in _BG_LABELS:
         bg = compute_background(x, y, method, n_avg=endpoint_avg)   # raises BackgroundNotConverged
-    elif method == "linear":
+    elif method in ("linear", "manual"):
+        # manual has no anchors on this route: its fewer-than-two-anchors case, the line
+        # through the window's ends (as run_fit and the page) — never a silent zero
         bg = linear_background(x, y)
-    elif method in ("none", "flat", "", "manual"):
+    elif method in ("none", "flat", ""):
         bg = np.zeros_like(y)
     else:
         raise ValueError(f"Unknown background method '{method}'")

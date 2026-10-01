@@ -4628,6 +4628,12 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
   if (!label) return { converged: true, residual: null, reason: null };
   const n = be.length;
   if (n < 2) return { converged: false, residual: null, reason: 'the background window holds fewer than two data points' };
+  // fitting.background_certificate's order and finiteness checks (Codex impl round 6)
+  if (!be.every(Number.isFinite) || !intensity.every(Number.isFinite))
+    return { converged: false, residual: null, reason: 'the data in the window are not all finite numbers' };
+  let up = true, down = true;
+  for (let k = 1; k < n; k++) { if (be[k] < be[k - 1]) up = false; if (be[k] > be[k - 1]) down = false; }
+  if (!up && !down) return { converged: false, residual: null, reason: 'the energies in the window are not in order (neither ascending nor descending), and the ' + label + ' relation is an integral along the energy axis' };
   if (type === 'tougaard') {
     const { loss, aHigh, c0 } = _tougaardLoss(be, intensity, nAvg);
     if (loss[0] !== 0) return { converged: true, residual: null, reason: null };
@@ -4652,10 +4658,25 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
   if (target === null) return { converged: false, residual: null, reason: 'the data lie at or below the line between the two edge levels, so there is no net signal and the ' + label + ' relation is undefined' };
   if (!target.every(Number.isFinite)) return { converged: false, residual: null, reason: 'the ' + label + ' relation does not evaluate to finite numbers on these data' };
   const diff = _bgMaxAbsDiff(Ba, target);
+  if (!Number.isFinite(span) || !Number.isFinite(diff))
+    return { converged: false, residual: null, reason: 'the intensities are too large to check the ' + label + ' relation (its arithmetic overflows)' };
   const residual = span > 0 ? diff / span : (diff === 0 ? 0 : Infinity);
   // the SAME predicate the iterations stop on (diff <= tol·span), not the quotient
   if (diff <= BG_REL_TOL * span) return { converged: true, residual, reason: null };
-  return { converged: false, residual, reason: 'its iteration did not settle on a solution (it alternates or ran out of steps); the result misses the ' + label + ' relation by ' + (100 * residual).toPrecision(3) + ' % of the intensity span' };
+  return { converged: false, residual, reason: 'its iteration did not settle on a solution (it alternates or ran out of steps); the result misses the ' + label + ' relation by ' + _pyG3(100 * residual) + ' % of the intensity span' };
+}
+
+// Python's '%.3g' (the server's reason text), so page and server give the same words:
+// 3 significant digits, trailing zeros stripped, exponent form below 1e-4 and from
+// 1e3 with a sign and at least two exponent digits ('1.23e-05').
+function _pyG3(v) {
+  if (v === 0) return '0';
+  if (!Number.isFinite(v)) return Number.isNaN(v) ? 'nan' : (v > 0 ? 'inf' : '-inf');
+  const [mant, ex] = v.toExponential(2).split('e');
+  const e = parseInt(ex, 10);
+  const strip = t => t.includes('.') ? t.replace(/0+$/, '').replace(/\.$/, '') : t;
+  if (e < -4 || e >= 3) return strip(mant) + 'e' + (e < 0 ? '-' : '+') + String(Math.abs(e)).padStart(2, '0');
+  return strip(v.toFixed(Math.max(0, 2 - e)));
 }
 
 // Apply endpoint averaging: replace first/last N points with their mean so
@@ -4852,11 +4873,18 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
     // it is the line through the ROI's end points, which must exist
     const anchors = settings.anchors || _getManualAnchors();
     const n = be.length;
-    const lineFail = (!anchors || anchors.length < 2) && n >= 2
-      ? _bgLineFailure(be[0], intensity[0], be[n - 1], intensity[n - 1]) : null;
-    if (lineFail) return _bgMark(new Array(n).fill(NaN), false, lineFail);
-    const anchorFail = anchors && anchors.length >= 2 ? _bgAnchorFailure(anchors) : null;
+    // every anchor given is checked, even a lone one (Codex impl round 6)
+    const anchorFail = anchors && anchors.length >= 1 ? _bgAnchorFailure(anchors) : null;
     if (anchorFail) return _bgMark(new Array(n).fill(NaN), false, anchorFail);
+    if (!anchors || anchors.length < 2) {
+      // the line through the ROI's ends — the server's linear_background, its words
+      const lineFail = n >= 2 ? _bgLineFailure(be[0], intensity[0], be[n - 1], intensity[n - 1]) : null;
+      if (lineFail) return _bgMark(new Array(n).fill(NaN), false, lineFail);
+      const line = linearBackground(be, intensity);
+      if (!line.every(Number.isFinite))
+        return _bgMark(line, false, 'Linear background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).');
+      return _bgMark(line, true);
+    }
     return _bgMark(manualAnchorBackground(be, intensity, anchors), true);
   }
 
@@ -9585,6 +9613,18 @@ function _alignRawToFitBe(src, be) {
   if (!Array.isArray(src.rawBE) || !Array.isArray(src.rawIntensity)
       || src.rawBE.length === 0 || !be || be.length === 0) return [];
   const shift = src.ccShift || 0;
+  // The fit's grid is the ROI selection (_roiSelect: an order-preserving subsequence of
+  // the raw points, not necessarily contiguous — an unsorted record, Codex impl round
+  // 6): match it point for point, exactly or as the save rounds energies (4 dp).
+  {
+    const out = [];
+    for (let i = 0, k = 0; i < src.rawBE.length && k < be.length; i++) {
+      const c = src.rawBE[i] - shift;
+      if (c === be[k] || Math.round(c * 1e4) / 1e4 === be[k]) { out.push(src.rawIntensity[i]); k++; }
+    }
+    if (out.length === be.length) return out;
+  }
+  // otherwise (the charge shift changed since the fit): the old nearest-start slice
   const target = be[0];
   let i0 = 0;
   let minDiff = Math.abs((src.rawBE[0] - shift) - target);

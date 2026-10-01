@@ -153,7 +153,7 @@ function recordEnv() {
     ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground',
      '_restoredFitBgFailure', '_dropRestoredFit'].map(fn).join('\n') +
     '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
-    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure };';
+    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _pyG3 };';
   return new Function(src)();
 }
 const R = recordEnv();
@@ -270,5 +270,72 @@ test('manual: an anchor that is not a pair of finite numbers is not converged (t
   for (const bad of [{ x: NaN, y: 1 }, { x: 2, y: Infinity }, { x: '2', y: 1 }, { x: 2, y: null }, { x: true, y: 1 }, null]) {
     assert.throws(() => R._computeBackgroundForSource(E, I, { bgType: 'manual' }, [{ x: 0, y: 0 }, bad, { x: 5, y: 0 }]),
       e => R._isBgNotConverged(e) && e.message === W, JSON.stringify(bad));
+  }
+});
+
+// ── Codex impl round 6 ──
+function serverWords(cases) {
+  const { execFileSync } = require('node:child_process');
+  const PY = ['/Users/skyefortier/xps-app/venv/bin/python3', path.join(__dirname, '../../venv/bin/python3')].find(p => fs.existsSync(p)) || 'python3';
+  const out = execFileSync(PY, ['-c', `import json, sys, math
+sys.path.insert(0, ${JSON.stringify(path.join(__dirname, '../..'))})
+import numpy as np, fitting
+res = []
+for c in json.load(sys.stdin):
+    x, y = np.array(c['x'], float), np.array(c['y'], float)
+    try:
+        if c['m'] == 'manual':
+            fitting.manual_anchor_background(x, c['anchors']) if len(c['anchors']) >= 2 else fitting.linear_background(x, y)
+        elif c['m'] == 'linear':
+            fitting.linear_background(x, y)
+        else:
+            fitting.compute_background(x, y, c['m'], n_avg=c.get('n', 1))
+        res.append(None)
+    except fitting.BackgroundNotConverged as e:
+        res.append(str(e))
+print(json.dumps(res))`], { input: JSON.stringify(cases), encoding: 'utf8', cwd: path.join(__dirname, '../..') });
+  return JSON.parse(out);
+}
+
+test('every refusal: page = server, verdict and words (incl. order, overflow, anchors, the residual %)', () => {
+  const cases = [
+    { m: 'shirley', x: [0, 2, 1, 3], y: [10, 40, 12, 20] }, { m: 'tougaard', x: [3, 1, 2, 0], y: [20, 12, 40, 10] },
+    { m: 'smart', x: [0, 2, 1, 3], y: [10, 40, 12, 20] }, { m: 'shirley_linear', x: [0, 1, 2, 3, 4], y: [1e308, -1e308, 1e308, -1e308, 1e308] },
+    { m: 'shirley', x: [0, 1, 2, 3], y: [2, 3, 10, 13] }, { m: 'smart', x: [0, 1, 2, 3, 4], y: [10, 5, 5, 17, 20] },
+    { m: 'shirley', x: [0, 1, 1, 2, 3, 4, 5], y: [10, 12, 14, 40, 30, 22, 20] }, { m: 'shirley', x: [0, 1, 2], y: [1, NaN, 3] },
+    { m: 'linear', x: [1, 1], y: [10, 30] }, { m: 'linear', x: [0, 1e-309], y: [0, 1] },
+    { m: 'manual', x: [0, 1e-309], y: [0, 1], anchors: [] },
+    { m: 'manual', x: [0, 1, 2, 3, 4, 5], y: [10, 12, 40, 30, 22, 20], anchors: [[0, 0], [2, 1], [2, 20], [5, 0]] },
+  ];
+  const S = serverWords(cases);
+  cases.forEach((c, k) => {
+    const settings = { bgType: c.m, endpointAvg: String(c.n || 1), bgStart: '', bgEnd: '' };
+    if (c.m === 'manual') settings.anchors = c.anchors.map(([x, y]) => ({ x, y }));
+    const bg = R.computeBackgroundCore(c.x, c.y, settings);
+    assert.strictEqual(bg.converged ? null : bg.failure, S[k], `case ${k} (${c.m})`);
+  });
+  assert.ok(S.filter(v => v).length >= 10, 'the cases are refusals');
+  // the residual text: Python's %.3g, value for value
+  const { execFileSync } = require('node:child_process');
+  const vals = [1.234e-5, 0.0001234, 1e-4, 0.001, 0.1, 1, 12.5, 99.95, 100, 123.4, 999.6, 1234, 2.5e-7, 5.555e-3, 0.00995, 4.2e12];
+  const PY = ['/Users/skyefortier/xps-app/venv/bin/python3', path.join(__dirname, '../../venv/bin/python3')].find(p => fs.existsSync(p)) || 'python3';
+  const py = JSON.parse(execFileSync(PY, ['-c', 'import json,sys; print(json.dumps(["%.3g" % v for v in json.load(sys.stdin)]))'], { input: JSON.stringify(vals), encoding: 'utf8' }));
+  assert.deepStrictEqual(vals.map(R._pyG3), py);
+  // the certificate's residual is written with it (a residual below 1e-4 % reads '1.23e-05' on both sides)
+  assert.match(enclosingFunction(lines.findIndex(l => l.startsWith('function _bgCertificate('))).body, /\+ _pyG3\(100 \* residual\) \+ ' % of the intensity span'/);
+  // a lone anchor is checked too (it would otherwise fall back to the line silently)
+  for (const lone of [[{ x: NaN, y: 1 }], [{ x: 2, y: null }], [{ x: true, y: 1 }], [null]])
+    assert.throws(() => R._computeBackgroundForSource([0, 1, 2], [1, 2, 3], { bgType: 'manual' }, lone),
+      e => e.message === 'Manual background not converged: an anchor is not a pair of finite numbers.', JSON.stringify(lone));
+});
+
+test('a stack aligns raw counts to the fit grid point for point, also on an unsorted record', () => {
+  const fn = name => enclosingFunction(lines.findIndex(l => l.startsWith('function ' + name + '('))).body;
+  const align = new Function(fn('_alignRawToFitBe') + '\nreturn _alignRawToFitBe;')();
+  for (const [rawBE, mn, mx] of [[[5, 1, 4, 0, 3, 2], '1', '4'], [[10, 6, 8, 5, 4, 3, 2, 1, 0], '', '4'], [[0, 1, 2, 3, 4, 5], '1', '3'], [[5, 4, 3, 2, 1, 0], '', '']]) {
+    const rawIntensity = rawBE.map(e => 10 * e + 1);
+    const sel = R._roiSelect(rawBE, rawIntensity, 0, mn, mx);
+    assert.deepStrictEqual(align({ rawBE, rawIntensity, ccShift: 0 }, sel.be), sel.inten, JSON.stringify(rawBE));
+    assert.deepStrictEqual(align({ rawBE, rawIntensity, ccShift: 0 }, sel.be.map(e => Math.round(e * 1e4) / 1e4)), sel.inten, 'as saved (4 dp)');
   }
 });

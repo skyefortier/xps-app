@@ -1,0 +1,32 @@
+Review the "background math — implementation" unit, round 7: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-6 fixes = git diff 65da2c7..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..6}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-6 fixes in short:
+- The integral relations are integrals along the energy axis. The certificate (server background_certificate, page _bgCertificate) now requires finite data and a window whose energies are in order (ascending or descending, repeats allowed). A non-finite span or difference does not certify.
+- A stack aligns raw counts to the fit grid point for point, as _roiSelect selected it (exactly, or as saved to 4 dp). This works on unsorted records. The old nearest-start slice is used only when the charge shift changed after the fit.
+- A manual fit without manual_bg, and /api/background with manual, use the line through the window's ends — the page's fewer-than-two-anchors case, never zeros.
+- Every anchor given is validated, even a lone one; a non-list entry is refused in the same words.
+- The page's manual fallback uses the server's line words.
+- The certificate's residual is written with a JS twin of Python's %.3g (_pyG3). A new test runs the server and compares verdict AND words, page = server, across every refusal kind.
+- JS CI floor 535 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. The round-6 fixes:
+   - other grid pathologies: unsorted inside the window but sorted overall, NaN energies, ±0, a window of two equal energies, repeated energies at an edge;
+   - the alignment: duplicates, rounding collisions, a charge shift changed after the fit, stale fits;
+   - _pyG3 against Python's %.3g, including rounding ties and large or small exponents;
+   - the manual fallbacks on every route.
+b. Everything rounds 1-6 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

@@ -239,7 +239,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 533, exact (the owner's 512 for the two landed branches + this unit's 21 tests).
+- JS CI floor 508 -> 535, exact (the owner's 512 for the two landed branches + this unit's 23 tests).
 
 ## 4. Measurements
 
@@ -451,3 +451,22 @@ NaN / Infinity included, on five such cases.
 Mutation-verified (11 of 11 killed): the page's finiteness check, its anchor checks
 (conflict, validity), the loader's order, the server's finiteness and anchor checks,
 the parity fallback, the page's two numpy edge branches, the round-4 linear refusals.
+
+**Round 6 — NO-GO ×2** (`background_math_impl_r6_verdict_run{A,B}.md`, commit 65da2c7;
+both: the census, the four measurement summaries and the smart / smart_exp identity
+reproduce):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): an UNSORTED window (the spectrum loader keeps a file's order since round 5; a project always did) — the integral backgrounds integrated the array order and their certificate agreed: Shirley above both edge levels, Tougaard summing a higher-energy point as a lower one; `run_fit` fitted, stacks drew | the integral relations are integrals along the energy axis: the certificate requires finite data and a window in order (ascending or descending, repeats allowed), server and page, same words; committed data unchanged (census 3 / 62 / 56 again) |
+| 2 | MAJOR (A, B): a stack aligned raw counts to the fit grid by a contiguous slice from the nearest start — wrong samples on an unsorted record (a background-subtracted trace of 20-50 where it is 0) | `_alignRawToFitBe` matches the fit grid point for point as `_roiSelect` selected it (exactly or as saved, 4 dp); the old slice only when the charge shift changed since |
+| 3 | MAJOR (B): a manual fit with no `manual_bg` sent (or `/api/background` manual) silently used zeros | the fewer-than-two-anchors case: the line through the window's ends, as the page (the page always sends the array — its requests unchanged) |
+| 4 | MAJOR (B): an overflowing span / difference certified a non-solution (inf <= tol · inf) | a non-finite span or difference does not certify, server and page, same words |
+| 5 | MINOR (B): a lone invalid anchor took the fallback silently; `[null, …]` raised TypeError on the server | every anchor given is checked, even a lone one; a non-list entry is refused in the same words |
+| 6 | MINOR (A, B): manual-fallback overflow said "Manual" on the page, "Linear" on the server | the page's fallback is the server's line with its words |
+
+Also: the certificate's residual is written with a JS twin of Python's `%.3g`
+(`_pyG3`), so "misses the relation by 1.23e-05 %" reads the same on both sides; a
+new test compares verdict AND words page = server across every refusal kind (order,
+overflow, cycling, no net signal, NaN data, linear, manual) by running the server.
+Mutation-verified (12 of 12 killed).
