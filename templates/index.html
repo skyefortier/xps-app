@@ -15058,38 +15058,55 @@ function manualAnchorBackground(be, intensity, anchorsGiven) {
   // places anchor points.
   if (!anchors || anchors.length < 2) return linearBackground(be, intensity);
 
-  // np.interp's arithmetic exactly (the server interpolates the anchors with it):
-  // anchors ascending, constant beyond the outermost, and inside
-  // slope·(x − xp[j]) + fp[j] with slope = (fp[j+1] − fp[j]) / (xp[j+1] − xp[j])
+  // fitting.manual_anchor_background, bit for bit: the piecewise-affine function
+  // through the anchors (constant beyond the outermost), EVALUATED EXACTLY and
+  // rounded once to the nearest double, half to even (Codex impl rounds 9-10: the
+  // floating-point formula overflowed on far anchors and cancelled to a finite,
+  // wrong 0 on finite ones). Exact rationals in BigInt (_bgExact / _bgRatToDouble).
   const a = [...anchors].sort((p, q) => p.x - q.x);
   const xp = a.map(p => p.x), fp = a.map(p => p.y), m = xp.length;
-  // fitting.manual_anchor_background: the interpolation's own arithmetic must not
-  // overflow (an anchor gap of 2e308 gives a zero slope and a finite, wrong curve);
-  // NaN marks it, and computeBackgroundCore's finiteness check refuses it
-  for (let k = 1; k < m; k++) {
-    if (!Number.isFinite(xp[k] - xp[k - 1]) || !Number.isFinite(fp[k] - fp[k - 1])) return new Array(n).fill(NaN);
-  }
-  for (let i = 0; i < n; i++) for (let k = 0; k < m; k++) if (!Number.isFinite(be[i] - xp[k])) return new Array(n).fill(NaN);
   const result = new Array(n);
   for (let i = 0; i < n; i++) {
     const x = be[i];
-    if (x < xp[0]) { result[i] = fp[0]; continue; }
+    if (!Number.isFinite(x)) { result[i] = NaN; continue; }
+    if (x <= xp[0]) { result[i] = fp[0]; continue; }
     if (x >= xp[m - 1]) { result[i] = fp[m - 1]; continue; }
     let j = 0;
-    while (j < m - 2 && xp[j + 1] <= x) j++;
-    // numpy's arr_interp exactly: an anchor energy returns its intensity, and a NaN
-    // from an overflowing slope is recomputed from the right-hand anchor (then, for
-    // equal intensities, that intensity) — Codex impl round 5 probe
+    while (j < m - 2 && xp[j + 1] <= x) j++;            // xp[j] <= x < xp[j + 1]
     if (xp[j] === x) { result[i] = fp[j]; continue; }
-    const slope = (fp[j + 1] - fp[j]) / (xp[j + 1] - xp[j]);
-    let v = slope * (x - xp[j]) + fp[j];
-    if (Number.isNaN(v)) {
-      v = slope * (x - xp[j + 1]) + fp[j + 1];
-      if (Number.isNaN(v) && fp[j] === fp[j + 1]) v = fp[j];
-    }
-    result[i] = v;
+    const X = _bgExact(x), X0 = _bgExact(xp[j]), X1 = _bgExact(xp[j + 1]);
+    const num = _bgExact(fp[j]) * (X1 - X) + _bgExact(fp[j + 1]) * (X - X0);   // scaled by 2^-2148
+    result[i] = _bgRatToDouble(num, (X1 - X0) << 1074n);                       // / (2^-1074 · 2^-1074)
   }
   return result;
+}
+
+// A finite double as the exact integer N with v = N · 2^-1074 (every double is one).
+function _bgExact(v) {
+  const dv = new DataView(new ArrayBuffer(8));
+  dv.setFloat64(0, v);
+  const hi = dv.getUint32(0), lo = dv.getUint32(4);
+  const neg = (hi >>> 31) === 1, e = (hi >>> 20) & 0x7ff;
+  let m = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
+  if (e !== 0) m = (m | (1n << 52n)) << BigInt(e - 1);
+  return neg ? -m : m;
+}
+function _bgBitLen(a) { return a === 0n ? 0 : a.toString(2).length; }
+// num / den (den > 0) rounded to the nearest double, ties to even — what Python's
+// int / int (and so float(Fraction)) gives.
+function _bgRatToDouble(num, den) {
+  if (num === 0n) return 0;
+  const neg = num < 0n, A = neg ? -num : num;
+  let e = _bgBitLen(A) - _bgBitLen(den);                 // 2^(e-1) < A/den < 2^(e+1)
+  const ge = e >= 0 ? A >= (den << BigInt(e)) : (A << BigInt(-e)) >= den;
+  if (!ge) e -= 1;                                        // now 2^e <= A/den < 2^(e+1)
+  const k = Math.max(e - 52, -1074);                      // exponent of the last bit kept
+  const N = k <= 0 ? A << BigInt(-k) : A, D = k <= 0 ? den : den << BigInt(k);
+  let q = N / D;
+  const r2 = 2n * (N - q * D);
+  if (r2 > D || (r2 === D && (q & 1n) === 1n)) q += 1n;
+  const v = Number(q) * 2 ** k;                           // exact: q <= 2^53, a power-of-two scale
+  return neg ? -v : v;
 }
 
 // Chart click handler for placing anchors (called from existing chart click handler)

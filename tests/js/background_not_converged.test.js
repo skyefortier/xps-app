@@ -259,9 +259,10 @@ test('explicit backgrounds: conflicting anchors and non-finite results are not c
     const bg = B.computeBackgroundCore(x, y, { bgType: 'linear', endpointAvg: '1', bgStart: '', bgEnd: '' });
     assert.strictEqual(bg.converged, false); assert.strictEqual(bg.failure, FINITE);
   }
-  // the manual result's own finiteness: anchors near the largest double interpolate to Infinity
-  assert.throws(() => R._computeBackgroundForSource([0, 5e-301, 5], [1, 2, 3], { bgType: 'manual' }, [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }]),
-    e => /^Manual background not converged: it is not a finite number/.test(e.message));
+  // anchors near the largest double: the exact interpolation is a convex combination of
+  // finite values, so it is finite and correct (it overflowed before round 10)
+  const huge = R._computeBackgroundForSource([0, 5e-301, 5], [1, 2, 3], { bgType: 'manual' }, [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }]);
+  assert.strictEqual(huge.converged, true); assert.deepStrictEqual(Array.from(huge), [-1.7e308, 0, 1]);
 });
 
 test('manual: an anchor that is not a pair of finite numbers is not converged (the server\'s words)', () => {
@@ -362,12 +363,17 @@ test('an integral background on an unsorted fitted region is not converged; a on
   assert.deepStrictEqual(Array.from(one), [20]);
 });
 
-test('manual: an anchor gap whose arithmetic overflows is refused, page = server (round 9)', () => {
-  const W = 'Manual background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).';
+test('manual: far and huge anchors give the exact piecewise-affine value, page = server (rounds 9-10)', () => {
+  // np.interp's floating-point formula overflowed (±1e308) or cancelled to a finite, wrong 0
+  // (-1e20); exact evaluation, rounded once, gives the line the anchors define
   const E = Array.from({ length: 11 }, (_, i) => 280 + i), I = E.map(() => 50);
-  for (const anchors of [[{ x: -1e308, y: 0 }, { x: 1e308, y: 100 }], [{ x: 0, y: -1.7e308 }, { x: 5, y: 1.7e308 }]]) {
-    assert.throws(() => R._computeBackgroundForSource(E, I, { bgType: 'manual' }, anchors), e => e.message === W, JSON.stringify(anchors));
-  }
-  const S = serverWords([{ m: 'manual', x: E, y: I, anchors: [[-1e308, 0], [1e308, 100]] }, { m: 'manual', x: E, y: I, anchors: [[0, -1.7e308], [5, 1.7e308]] }]);
-  assert.deepStrictEqual(S, [W, W]);
+  const want = { a: E.map((_, i) => 80 + i), b: E.map((_, i) => 21 - i), c: E.map(() => 50) };
+  const got = {
+    a: R._computeBackgroundForSource(E, I, { bgType: 'manual' }, [{ x: -1e20, y: -1e20 }, { x: 300, y: 100 }]),
+    b: R._computeBackgroundForSource(E, I, { bgType: 'manual' }, [{ x: -1e20, y: 1e20 }, { x: 300, y: 1 }]),
+    c: R._computeBackgroundForSource(E, I, { bgType: 'manual' }, [{ x: -1e308, y: 0 }, { x: 1e308, y: 100 }]),
+  };
+  for (const k of ['a', 'b', 'c']) { assert.strictEqual(got[k].converged, true, k); assert.deepStrictEqual(Array.from(got[k]), want[k], k); }
+  const S = serverWords([{ m: 'manual', x: E, y: I, anchors: [[-1e20, -1e20], [300, 100]] }]);
+  assert.deepStrictEqual(S, [null], 'the server accepts it too (the values: manual_background_statement.test.js)');
 });

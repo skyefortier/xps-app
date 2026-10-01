@@ -233,7 +233,9 @@ path's own ROI loop each fail it.
   anchors moved or whose method changed after the fit is not; a spectrum file's
   current fit is restored, a stale one is not.
 - `tests/js/manual_background_statement.test.js`: the page's manual background is
-  np.interp's arithmetic, bit-identical to the server on 62 cases.
+  bit-identical to the server's — since round 10 both the exact piecewise-affine value
+  rounded once (half to even) — on ~100 cases incl. far / huge anchors, subnormals,
+  exact ties and random magnitudes from 1e-300 to 1e308.
 - Codex round 1's cases pinned: the stop / certificate boundary (two), Tougaard near
   cancellation on a near-uniform grid (both now the stated sum, page = server), an
   overflowing evaluation (not converged, page and server).
@@ -528,9 +530,26 @@ trips / frozen-stack cases):
 
 | # | finding | disposition |
 |---|---|---|
-| 1 | MAJOR (B): manual anchors whose gap overflows (±1e308): np.interp's slope is 0 and the curve a finite, wrong 0 — certified, fitted, saved | refused, server and page, same words: anchor and intensity gaps and every x − anchor must be finite; pinned, page = server |
+| 1 | MAJOR (B): manual anchors whose gap overflows (±1e308): np.interp's slope is 0 and the curve a finite, wrong 0 — certified, fitted, saved | refused, server and page, same words: anchor and intensity gaps and every x − anchor must be finite; pinned, page = server [SUPERSEDED in round 10: evaluated exactly instead, which gives these anchors their true line] |
 | 2 | MAJOR (A): Auto-Fit assembles its result from the post-shift selection with the pre-shift envelope | PRE-EXISTING (main assembles it so), a statistics problem, not a background that misses its statement — logged for its own unit (§4); not fixed here |
 | 3 | MAJOR (A): Run Fit freezes the page's background (raw counts) beside the server's envelope (2-dp counts); on an ill-conditioned constructed Tougaard case they differ by most of the span | PRE-EXISTING reading gap (documented since W1); MEASURED on the committed data: ≤ 8.6e-7 of the span, verdicts agree on all 2 424 cases (§4); the class fix (full-precision upload) changes every fit's input and seed — OWNER DECISION |
 | 4 | MINOR (A): the parity reference kept manual's zero fallback | the line through the ROI's ends, as run_fit; pinned |
 
 Mutation-verified (3 of 3 killed).
+
+**Round 10 — NO-GO ×2** (`background_math_impl_r10_verdict_run{A,B}.md`, commit ad80814;
+both: the round-9 refusal works; the census, the four measurement summaries, the
+smart / smart_exp identity and the upload-rounding measurement (8.59e-7, 2 424 matching
+verdicts) reproduce; the two dispositioned pre-existing items not re-raised; A: 900
+numerical parity probes, 96 loader round trips; B: 64 loader round trips):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): manual anchors at -1e20 eV against data at 280 eV — np.interp's formula loses the offsets and cancels to a finite, wrong 0 (the line is 80..90 / 21..11); every intermediate finite, so round 9's overflow checks pass; certified, saved, fitted | the CLASS, not another edge: the manual curve is the exact piecewise-affine value through the anchors, rounded once to the nearest double, half to even — `Fraction` on the server (`float()` rounds correctly), `BigInt` on the page (`_bgExact`, `_bgRatToDouble`); no tolerance, no overflow possible (a convex combination of finite values), page = server bit for bit (pinned on ~100 cases: far and huge anchors, subnormals, exact ties, random magnitudes 1e-300..1e308). Round 9's gap / overflow refusal is withdrawn: those anchors now give their true line. Ordinary anchors move by at most an ulp from np.interp; no committed target uses a manual background, so no measured number changes |
+
+Cost (i9, 4 000 points × 12 anchors — larger than any committed window): 0.055 s on
+the server, 0.035 s per evaluation on the page (a few ms on a typical few-hundred-point
+window; the page re-evaluates on each redraw in manual mode).
+
+Mutation-verified (3 of 3 killed): ties rounded up, the floating-point formula on the
+page, np.interp on the server.

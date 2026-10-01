@@ -599,31 +599,47 @@ def _check_anchors(anchors):
 
 
 def manual_anchor_background(x, anchors):
-    """The user's anchors interpolated across x (np.interp: constant beyond the
-    outermost anchors). Nothing to converge, but the curve must exist (Codex impl
-    round 5): two anchors at one energy with different intensities have no curve
-    through both, and every value must be finite; either raises
-    BackgroundNotConverged. Fewer than two anchors is the caller's case (the line
-    through the window's ends)."""
+    """The user's anchors as a curve: the piecewise-affine function through them,
+    constant beyond the outermost (as np.interp), EVALUATED EXACTLY and rounded once
+    to the nearest double (Codex impl rounds 9-10: np.interp's floating-point formula
+    overflowed on far anchors, and on finite ones cancelled to a finite, wrong 0 —
+    anchors at -1e20 eV against data at 280 eV). Every anchor and energy is an exact
+    rational, so (fp0 (xp1 - x) + fp1 (x - xp0)) / (xp1 - xp0) is computed in
+    Fraction arithmetic and float() rounds it correctly (half to even): no tolerance,
+    no overflow (a convex combination of finite values), and the page computes the
+    same value bit for bit (its BigInt twin in manualAnchorBackground). Nothing to
+    converge, but the curve must exist: two anchors at one energy with different
+    intensities have no curve through both, and every anchor must be a pair of finite
+    numbers; either raises BackgroundNotConverged. Fewer than two anchors is the
+    caller's case (the line through the window's ends)."""
+    import bisect
+    from fractions import Fraction
     _check_anchors(anchors)
     a = sorted(anchors, key=lambda p: p[0])
-    ax = np.array([p[0] for p in a], dtype=float)
-    ay = np.array([p[1] for p in a], dtype=float)
+    ax = [float(p[0]) for p in a]
+    ay = [float(p[1]) for p in a]
     for k in range(1, len(a)):
         if ax[k] == ax[k - 1] and ay[k] != ay[k - 1]:
             raise BackgroundNotConverged(
                 "Manual background not converged: two anchors are at the same energy with "
                 "different intensities, so no curve passes through both.")
-    # the interpolation's own arithmetic must not overflow (Codex impl round 9): an
-    # anchor gap of 2e308 is inf, the slope 0, and the curve finite and wrong
-    with np.errstate(over="ignore", invalid="ignore"):
-        gaps_ok = np.all(np.isfinite(np.diff(ax))) and np.all(np.isfinite(np.diff(ay))) \
-            and np.all(np.isfinite(np.subtract.outer(np.asarray(x, dtype=float), ax)))
-    if not gaps_ok:
-        raise BackgroundNotConverged(
-            "Manual background not converged: it is not a finite number at every point "
-            "(the arithmetic overflowed or an input is not finite).")
-    return _explicit_background(np.interp(x, ax, ay), "Manual")
+    xv = np.asarray(x, dtype=float)
+    out = np.empty(len(xv))
+    for i, v in enumerate(xv.tolist()):
+        if not math.isfinite(v):
+            out[i] = float("nan")
+        elif v <= ax[0]:
+            out[i] = ay[0]
+        elif v >= ax[-1]:
+            out[i] = ay[-1]
+        else:
+            j = bisect.bisect_right(ax, v) - 1          # ax[j] <= v < ax[j + 1]
+            if ax[j] == v:
+                out[i] = ay[j]
+            else:
+                X, X0, X1 = Fraction(v), Fraction(ax[j]), Fraction(ax[j + 1])
+                out[i] = float((Fraction(ay[j]) * (X1 - X) + Fraction(ay[j + 1]) * (X - X0)) / (X1 - X0))
+    return _explicit_background(out, "Manual")
 
 
 def smart_experimental_background(

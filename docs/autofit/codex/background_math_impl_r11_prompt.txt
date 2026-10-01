@@ -1,0 +1,35 @@
+Review the "background math — implementation" unit, round 11: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-10 fix = git diff ad80814..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..10}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-10 fix in short:
+- The manual curve is the exact piecewise-affine value through the anchors (constant beyond the outermost), rounded once to the nearest double, ties to even.
+  - Server: fitting.manual_anchor_background, Fraction arithmetic, float().
+  - Page: manualAnchorBackground with _bgExact / _bgRatToDouble, BigInt rationals.
+- There is no tolerance, and nothing can overflow (the curve is a convex combination of finite values).
+- Page = server bit for bit, pinned on about 100 cases: far and huge anchors, subnormals, exact ties, random magnitudes from 1e-300 to 1e308.
+- Round 9's gap / overflow refusal is withdrawn: those anchors now give their true line.
+- Ordinary anchors move by at most an ulp from np.interp. No committed target uses manual, so no measured number changes.
+- The two pre-existing items stay dispositioned, as in round 10: Auto-Fit's post-shift pairing (logged), and the page / server data readings (measured; an owner decision).
+- JS CI floor 537 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. The exact evaluation:
+   - _bgExact for every finite double (signed zeros, subnormals, the largest);
+   - _bgRatToDouble's rounding (ties, subnormal results, results at a power of two);
+   - page = server on any anchors and energies;
+   - performance on a realistic manual fit (a few thousand points, a dozen anchors) on the page and the server.
+   Also anything still reachable in this unit's scope where a background that misses its statement is certified, drawn, fitted, saved or exported, or where page and server disagree on a verdict on the SAME numbers.
+b. Everything rounds 1-10 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

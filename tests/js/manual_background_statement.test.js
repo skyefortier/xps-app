@@ -19,7 +19,7 @@ function extractFn(name) {
   }
 }
 function make(anchors) {
-  return new Function('_getManualAnchors', extractFn('linearBackground') + '\n' + extractFn('manualAnchorBackground') +
+  return new Function('_getManualAnchors', extractFn('linearBackground') + '\n' + extractFn('manualAnchorBackground') + '\n' + ['_bgExact', '_bgBitLen', '_bgRatToDouble'].map(extractFn).join('\n') +
     '\nreturn { manualAnchorBackground, linearBackground };')(() => anchors);
 }
 function definition(be, anchors) {
@@ -50,7 +50,7 @@ test('with fewer than two anchors the fallback is the page line (by index)', () 
   assert.deepStrictEqual(manualAnchorBackground(be, y), linearBackground(be, y));
 });
 
-test("the manual background is np.interp's arithmetic exactly — bit-identical to the server (Codex impl round 2)", () => {
+test("the manual background is the exact piecewise-affine value, correctly rounded — bit-identical to the server (Codex impl rounds 2, 9-10)", () => {
   const { execFileSync } = require('node:child_process');
   const PY = ['venv/bin/python3', '/Users/skyefortier/xps-app/venv/bin/python3'].map(p => path.join(__dirname, '../..', p)).concat(['/Users/skyefortier/xps-app/venv/bin/python3', 'python3'])
     .find(p => p === 'python3' || fs.existsSync(p));
@@ -64,18 +64,36 @@ test("the manual background is np.interp's arithmetic exactly — bit-identical 
   }
   // numpy's edge branches (Codex impl round 5 probe): an exact anchor energy, an
   // overflowing slope (numpy recomputes a NaN from the right-hand anchor), agreeing duplicates
-  // (anchor gaps that overflow — ±1.7e308 — are REFUSED since Codex impl round 9, pinned in
-  // background_not_converged.test.js; an overflowing slope over a finite gap still follows numpy)
+  // far and huge anchors (rounds 9-10: np.interp overflowed or cancelled to a finite 0;
+  // exact evaluation gives the true value), extreme magnitudes, subnormals, ties
   cases.push({ be: [0, 5e-301, 1e-300, 2], anchors: [{ x: 0, y: -8e307 }, { x: 1e-300, y: 8e307 }, { x: 5, y: 1 }] });
+  cases.push({ be: [0, 5e-301, 1e-300, 2], anchors: [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }] });
+  const E11 = Array.from({ length: 11 }, (_, i) => 280 + i);
+  cases.push({ be: E11, anchors: [{ x: -1e20, y: -1e20 }, { x: 300, y: 100 }] });
+  cases.push({ be: E11, anchors: [{ x: -1e20, y: 1e20 }, { x: 300, y: 1 }] });
+  cases.push({ be: E11, anchors: [{ x: -1e308, y: 0 }, { x: 1e308, y: 100 }] });
+  cases.push({ be: [1e-320, 3e-320, 1e-310], anchors: [{ x: 0, y: 4e-323 }, { x: 1e-300, y: -4e-323 }] });
+  cases.push({ be: [0.5, 1.5, 2.5], anchors: [{ x: 0, y: 0 }, { x: 4, y: 1 }] });
+  // exact ties between two doubles: 1 + 2^-53 -> 1 (even), 1 + 1.5·2^-52 -> 1 + 2^-51 (even)
+  cases.push({ be: [0.5], anchors: [{ x: 0, y: 1 }, { x: 1, y: 1 + 2 ** -52 }] });
+  cases.push({ be: [0.5], anchors: [{ x: 0, y: 1 + 2 ** -52 }, { x: 1, y: 1 + 2 ** -51 }] });
+  for (let c = 0; c < 40; c++) {
+    const big = () => (rnd() < 0.5 ? -1 : 1) * Math.pow(10, -300 + rnd() * 608);
+    const xs = Array.from({ length: 2 + Math.floor(rnd() * 4) }, big).sort((p, q) => p - q);
+    if (new Set(xs).size !== xs.length) continue;
+    const be = Array.from({ length: 6 }, () => xs[0] + rnd() * (xs[xs.length - 1] - xs[0]));
+    if (!be.every(Number.isFinite)) continue;
+    cases.push({ be, anchors: xs.map(x => ({ x, y: big() })) });
+  }
   cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 1, y: 4 }, { x: 2, y: 9 }] });
   cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 0, y: 1 }, { x: 2, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 2 }] });
   cases.push({ be: [0, 1e-320, 1], anchors: [{ x: 0, y: 1e308 }, { x: 1e-320, y: 1e308 }, { x: 1, y: 0 }] });
-  const server = execFileSync(PY, ['-c', `import json,sys,numpy as np
+  const server = execFileSync(PY, ['-c', `import json,sys,numpy as np; sys.path.insert(0, ".")
 out=[]
 for c in json.load(sys.stdin):
-    a = sorted(c['anchors'], key=lambda p: p['x'])
-    out.append([repr(float(v)) for v in np.interp(np.array(c['be'], float), [p['x'] for p in a], [p['y'] for p in a])])
-print(json.dumps(out))`], { input: JSON.stringify(cases), encoding: 'utf8' });
+    import fitting
+    out.append([repr(float(v)) for v in fitting.manual_anchor_background(np.array(c['be'], float), [[p['x'], p['y']] for p in c['anchors']])])
+print(json.dumps(out))`], { input: JSON.stringify(cases), encoding: 'utf8', cwd: path.join(__dirname, '../..') });
   const num = r => ({ inf: Infinity, '-inf': -Infinity, nan: NaN })[r] ?? Number(r);
   const S = JSON.parse(server).map(row => row.map(num));
   cases.forEach((c, k) => {

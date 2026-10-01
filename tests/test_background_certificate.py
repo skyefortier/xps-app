@@ -290,12 +290,23 @@ def test_an_empty_linear_or_manual_window_is_an_empty_curve_not_a_500(client):
 
 # ── Codex implementation round 9 ─────────────────────────────────────────────
 
-def test_manual_interpolation_that_overflows_inside_is_refused():
-    # finite anchors whose gap is 2e308: np.interp's slope is 0 and the curve a finite, wrong 0
+def test_manual_is_the_exact_piecewise_affine_curve_for_far_anchors():
+    # rounds 9-10: np.interp overflowed (a 2e308 gap: slope 0, a finite, wrong 0) and
+    # cancelled (-1e20 eV anchors against 280 eV data: 0 where the line is 80); the curve is
+    # now evaluated exactly and rounded once, and fits against the line the anchors define
     E = np.arange(280.0, 291.0)
     I = np.array([50.0, 50, 60, 100, 500, 100, 60, 50, 50, 50, 50])
-    with pytest.raises(fitting.BackgroundNotConverged, match="the arithmetic overflowed"):
-        fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[[-1e308, 0], [1e308, 100]])
+    for anchors, want in (([[-1e308, 0], [1e308, 100]], np.full(11, 50.0)),
+                          ([[-1e20, -1e20], [300, 100]], 80.0 + np.arange(11)),
+                          ([[-1e20, 1e20], [300, 1]], 21.0 - np.arange(11))):
+        assert np.array_equal(fitting.manual_anchor_background(E, anchors), want), anchors
+    r = fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[[-1e308, 0], [1e308, 100]], n_perturb=0)
+    assert np.array_equal(np.asarray(r["background_y"]), np.full(11, 50.0))
+    # ordinary anchors: within an ulp of np.interp (correctly rounded, where np.interp is not always)
+    x = np.linspace(280, 296, 40)
+    A = [[281.3, 120.0], [285.0, 400.5], [293.2, 210.25]]
+    ref = np.interp(x, [a[0] for a in A], [a[1] for a in A])
+    assert np.all(np.abs(fitting.manual_anchor_background(x, A) - ref) <= 2 * np.spacing(np.abs(ref)))
 
 
 def test_the_parity_reference_reads_manual_without_anchors_as_run_fit_does():

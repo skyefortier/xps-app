@@ -189,7 +189,10 @@ against the paper's text).
 
 A user-drawn curve: no physical model; the defence is the user's judgement. The
 server (np.interp) and the page (`manualAnchorBackground`) both equal the
-definition to 1e-9 on uniform and non-uniform grids.
+definition to 1e-9 on uniform and non-uniform grids. (IMPLEMENTATION, Codex impl
+rounds 9-10: both now evaluate it EXACTLY — Fraction / BigInt rationals — and round
+once to the nearest double: np.interp's formula overflowed on far anchors and cancelled
+to a finite, wrong 0 on finite ones.)
 
 ## Degenerate windows (every method)
 
