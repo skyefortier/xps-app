@@ -875,7 +875,7 @@ it: nothing is fitted against such a background. No fallback solver (owner).
 The page's twins (`computeBackgroundCore`) run the server's arithmetic operation for
 operation: EVERY background is BIT-IDENTICAL to fitting.py (Tougaard's loss sum term
 for term with numpy's pairwise summation, `_npPairwiseSum`; `shirley_linear` on both
-grid directions; linear affine in energy) on the parity file's synthetic, real and 200
+grid directions; linear affine in energy; manual np.interp's arithmetic) on the parity file's synthetic, real and 200
 randomised spectra at averaging 1, 3 and 10, and `_bgCertificate` gives the server's
 verdict and reason, through the same acceptance predicate (diff <= tol·span) the
 iterations stop on (`tests/js/background_parity.test.js`). `computeBackgroundCore`
@@ -892,11 +892,13 @@ Batch Fit (that target is NOT fitted, with the reason), chart-click placement (t
 clicked height, nothing subtracted), stack reconstruction (the entry shows no fit),
 spectrum save (`background: null` + `backgroundFailure`), TSV export (empty columns +
 WARNING) and the publication figure (refused). A RESTORED fit (project or spectrum
-file) is kept only when its saved settings give a converged background now
-(`_restoredFitBgFailure`, `_recordBackground`): otherwise it is dropped, the model
-kept, and the student told why — a fit against a background with no solution is no
-fit. A kept fit keeps its stored curve and statistics (made by the version that saved
-it; Run Fit regenerates them). The "Shirley iterations" setting is
+file) is kept only when the curve it stored IS the certified background its saved
+settings give now — exactly, or exactly as the save rounds it (6 significant
+figures); the certified curve then replaces it (`_restoredFitBgFailure`,
+`_recordBackground`). Otherwise the fit is dropped, the model kept, and the student
+told why. Every fit saved before 2026-10-01 stored the old page's 5-iteration curve
+(0 of 65 committed saved fits pass), so no older fit is restored — Run Fit
+regenerates it (owner decision pending). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never
 read. Known, not fixed: `uploadToBackend` rounds intensities to 2 dp, so on a
 borderline spectrum the page's and the server's certificates could disagree (either

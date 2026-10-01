@@ -9548,17 +9548,44 @@ function _recordBackground(src) {
   return { be, rawY, bg };
 }
 
-// A RESTORED fit (a loaded project or spectrum file) is kept only when its saved
-// background settings give a converged background now (background math,
-// 2026-10-01): a fit made against a background that has no solution under the
-// current definition is no fit — it is dropped, the model kept, and the student
-// told why. A fit whose background converges keeps its stored curve and
-// statistics (made by the version that saved it; Run Fit regenerates them).
-// Returns the plain reason, or null.
+// A RESTORED fit (a loaded project or spectrum file) is kept only when the
+// background it was fitted against — the curve it stored — IS the certified
+// background its saved settings give now (background math, 2026-10-01; Codex
+// implementation rounds 1-2: "check each result"). The record's background is
+// recomputed from its raw data (saved at full precision) and certified; the stored
+// curve must equal it exactly, or exactly as the save rounds it (6 significant
+// figures, _roundIntensity) — no tolerance. When it does, the certified curve
+// itself replaces the stored one (and the grid and net signal with it); when it
+// does not — a curve computed by an earlier version (every fit saved before
+// 2026-10-01 stored the old page's 5-iteration Shirley: 0 of the 65 committed saved
+// fits match), or with other settings, or a fit that stored no curve — the fit is
+// dropped, its model (the fitted peaks) kept and the student told why; Run Fit
+// regenerates it. Manual is the user's own curve (nothing to converge). Returns the
+// plain reason, or null.
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack || !Array.isArray(rec.rawBE) || rec.rawBE.length < 2) return null;
-  const { bg } = _recordBackground(rec);
-  return _bgFailure(bg);
+  const fr = rec.fitResult, type = (rec.ui && rec.ui.bgType) || 'shirley';
+  if (type === 'manual' || type === 'none') return null;
+  const stored = fr.bgIntensity;
+  if (!Array.isArray(fr.be) || !Array.isArray(stored) || stored.length !== fr.be.length)
+    return 'it was saved without the background it was fitted against, so that background cannot be checked';
+  const { be, rawY, bg } = _recordBackground(rec);
+  if (_bgFailure(bg)) return 'its background settings give no converged background now: ' + _bgFailure(bg);
+  if (be.length !== fr.be.length || be.some((e, i) => !(e === fr.be[i] || Math.round(e * 1e4) / 1e4 === fr.be[i])))
+    return 'it was fitted on other points than its saved settings select now';
+  let worst = 0;
+  for (let i = 0; i < bg.length; i++) {
+    if (stored[i] === bg[i] || stored[i] === Number(bg[i].toPrecision(6))) continue;
+    worst = Math.max(worst, Math.abs(stored[i] - bg[i]));
+  }
+  if (worst > 0) {
+    return 'the background it was fitted against is not the background its settings give now (it differs by ' +
+      (100 * worst / (_bgSpan(rawY) || 1)).toPrecision(2) + ' % of the intensity span — computed by an earlier version or with other settings)';
+  }
+  fr.bgIntensity = bg;                                   // the certified curve itself
+  fr.be = be;
+  fr.bgSubtracted = rawY.map((v, i) => v - bg[i]);
+  return null;
 }
 function _dropRestoredFit(rec) {
   rec.fitResult = null;
@@ -14864,24 +14891,20 @@ function manualAnchorBackground(be, intensity) {
   // places anchor points.
   if (!anchors || anchors.length < 2) return linearBackground(be, intensity);
 
-  // Sort anchors by BE descending (same direction as be array which is descending)
-  const sorted = [...anchors].sort((a, b) => b.x - a.x);
-
+  // np.interp's arithmetic exactly (the server interpolates the anchors with it):
+  // anchors ascending, constant beyond the outermost, and inside
+  // slope·(x − xp[j]) + fp[j] with slope = (fp[j+1] − fp[j]) / (xp[j+1] − xp[j])
+  const a = [...anchors].sort((p, q) => p.x - q.x);
+  const xp = a.map(p => p.x), fp = a.map(p => p.y), m = xp.length;
   const result = new Array(n);
   for (let i = 0; i < n; i++) {
-    const bv = be[i];
-    // Clamp outside range
-    if (bv >= sorted[0].x) { result[i] = sorted[0].y; continue; }
-    if (bv <= sorted[sorted.length - 1].x) { result[i] = sorted[sorted.length - 1].y; continue; }
-    // Find bracketing anchors
-    let lo = 0;
-    for (let j = 0; j < sorted.length - 1; j++) {
-      if (bv <= sorted[j].x && bv >= sorted[j + 1].x) { lo = j; break; }
-    }
-    const x0 = sorted[lo].x, y0 = sorted[lo].y;
-    const x1 = sorted[lo + 1].x, y1 = sorted[lo + 1].y;
-    const t = (x1 !== x0) ? (bv - x0) / (x1 - x0) : 0;
-    result[i] = y0 + t * (y1 - y0);
+    const x = be[i];
+    if (x < xp[0]) { result[i] = fp[0]; continue; }
+    if (x >= xp[m - 1]) { result[i] = fp[m - 1]; continue; }
+    let j = 0;
+    while (j < m - 2 && xp[j + 1] <= x) j++;
+    const slope = (fp[j + 1] - fp[j]) / (xp[j + 1] - xp[j]);
+    result[i] = slope * (x - xp[j]) + fp[j];
   }
   return result;
 }

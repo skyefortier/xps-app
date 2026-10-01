@@ -99,7 +99,7 @@ def test_a_saved_fit_whose_background_no_longer_converges_is_not_restored(browse
                                      n: window.__n, peaks: state.peaks.length })""")
         assert all(f is None for f in got["fit"]) and got["live"] is None, got
         assert got["peaks"] == 1, "the model is kept"
-        assert any(m.startswith("Saved fit not restored: U — Shirley background not converged") for m in got["n"]), got["n"]
+        assert any(m.startswith("Saved fit not restored: U — its background settings give no converged background now: Shirley background not converged") for m in got["n"]), got["n"]
         # a stack built on it shows no fit
         rd = pg.evaluate("""() => { const id = tabManager.tabs.find(t => !t.isStack).id; tabManager.createStackTab();
             const st = tabManager._getTab(tabManager.activeId); _addSpectrumToStack(st, id);
@@ -108,3 +108,101 @@ def test_a_saved_fit_whose_background_no_longer_converges_is_not_restored(browse
     finally:
         pg.close()
     assert errors == [] and errors2 == [], (errors, errors2)
+
+
+PEAK_TAB = """() => {
+    const raw = [], inten = [];
+    for (let i = 0; i <= 200; i++) { const be = 280 + i * 0.06; raw.push(be);
+      const g = (c, a, w) => a * Math.exp(-4 * Math.log(2) * ((be - c) / w) ** 2);
+      inten.push(Math.round((300 + g(284.5, 6000, 0.9) + g(286.4, 900, 1.2) + (be > 284.5 ? 400 : 0)) * 100) / 100); }
+    tabManager.createTab('P', raw, inten);
+    document.getElementById('roi-min').value = 280; document.getElementById('roi-max').value = 292;
+    document.getElementById('bg-start').value = 292; document.getElementById('bg-end').value = 280;
+    document.getElementById('bg-endpoint-avg').value = 3;
+    document.getElementById('bg-type').value = 'shirley'; _onBgTypeChange();
+    addPeak({ center: 284.4, fwhm: 1.0, amplitude: 5500, shape: 'GL', glMix: 30 });
+    addPeak({ center: 286.5, fwhm: 1.2, amplitude: 800, shape: 'GL', glMix: 30 });
+    updatePlot();
+}"""
+
+
+def _save_and_reload(browser, server, setup):
+    import json
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(setup)
+        pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
+        pg.wait_for_function("() => window.__d === true", timeout=120000)
+        fit_ok = pg.evaluate("() => !!state.fitResult")
+        return pg, fit_ok
+    except Exception:
+        pg.close()
+        raise
+
+
+def test_restored_fits_keep_only_a_stored_curve_that_satisfies_its_statement(browser, server):
+    # Codex implementation round 2: a fit whose settings converge NOW used to keep its OLD stored
+    # curve uncertified. Now the stored curve itself is certified: a fit saved by this version is
+    # restored; the same fit with an older version's curve (a 5-iteration Shirley) is not.
+    import json
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
+        pg.wait_for_function("() => window.__d === true", timeout=120000)
+        assert pg.evaluate("() => !!state.fitResult && state.fitResult.bgIntensity.converged === true")
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => _doSaveProject()")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        fresh = json.loads(pg.evaluate("() => window.__dl[0].text"))
+        # the same project as an older version saved it: its stored curve the old 5-iteration preview
+        old_curve = pg.evaluate("""() => { const { be, inten } = getROIData(); const w = _bgWindowIndices(be, '292', '280');
+            const ys = inten.slice(w.i0, w.i1 + 1), xs = be.slice(w.i0, w.i1 + 1);
+            const five = shirleyBackground(xs, ys, 5, 3);   // five iterations: no solution yet
+            const full = be.map((_, i) => i < w.i0 ? five[0] : i > w.i1 ? five[five.length - 1] : five[i - w.i0]);
+            return full; }""")
+    finally:
+        pg.close()
+    old = json.loads(json.dumps(fresh))
+    for t in old["tabs"]:
+        if t.get("fitResult"):
+            t["fitResult"]["bgIntensity"] = old_curve
+    for data, kept in ((fresh, True), (old, False)):
+        pg = _new_page(browser, server)
+        try:
+            pg.evaluate("() => { window.__n = []; const o = notify; window.notify = (m, k) => { window.__n.push(m); return o(m, k); }; }")
+            pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", data)
+            pg.wait_for_timeout(400)
+            got = pg.evaluate("() => ({ fit: !!state.fitResult, n: window.__n })")
+            assert got["fit"] is kept, got
+            if not kept:
+                assert any("is not the background its settings give now" in m and "earlier version" in m for m in got["n"]), got["n"]
+        finally:
+            pg.close()
+
+
+def test_a_manual_background_fit_is_restored(browser, server):
+    # Codex implementation round 2: the restore check used to compute a SHIRLEY background for a
+    # manual fit (the stack helper's substitution) and drop a valid fit
+    import json
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        pg.evaluate("""() => { _setManualAnchors([{ x: 280, y: 300 }, { x: 292, y: 700 }]);
+            document.getElementById('bg-type').value = 'manual'; _onBgTypeChange(); updatePlot(); }""")
+        pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
+        pg.wait_for_function("() => window.__d === true", timeout=120000)
+        assert pg.evaluate("() => !!state.fitResult")
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => _doSaveProject()")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        saved = json.loads(pg.evaluate("() => window.__dl[0].text"))
+    finally:
+        pg.close()
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate("data => _loadProjectJSON(data, 'm.proj.json')", saved)
+        pg.wait_for_timeout(400)
+        assert pg.evaluate("() => !!state.fitResult")
+    finally:
+        pg.close()

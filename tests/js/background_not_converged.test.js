@@ -63,6 +63,15 @@ test('every computed background is checked for convergence by its consumer (clas
     if (a) name = a[1];
     else if (formAd.test(s.text)) name = 'bg';
     assert.ok(name, `${s.fn.name} (line ${s.line}): a producer referenced outside the two allowed forms: ${s.text}`);
+    // Codex impl round 2: nothing may consume the background on the assignment line itself
+    // (`= computeBackground(...).map(...)`): the statement must END at the producer call
+    const callAt = s.text.search(new RegExp(P + '\\('));
+    let depth = 0, end = -1;
+    for (let k = s.text.indexOf('(', callAt); k < s.text.length; k++) {
+      if (s.text[k] === '(') depth++; else if (s.text[k] === ')') { depth--; if (depth === 0) { end = k; break; } }
+    }
+    assert.ok(end > 0 && /^\s*(?::\s*\[\])?\s*\)?\s*;?\s*$/.test(s.text.slice(end + 1)),
+      `${s.fn.name} (line ${s.line}): the background is used on the line that computes it: ${s.text}`);
     // covered by an earlier inline refusal in the same function?
     const before = s.fn.body.slice(0, s.fn.body.indexOf(s.text));
     if (formB.test(before)) continue;
@@ -71,7 +80,15 @@ test('every computed background is checked for convergence by its consumer (clas
     const esc = name.replace(/\$/g, '\\$');
     const m = after.match(new RegExp('\\b' + esc + '\\b'));
     const isCheck = m && after.slice(Math.max(0, m.index - 11), m.index) === '_bgFailure(' && after[m.index + name.length] === ')';
-    assert.ok(isCheck,
+    // ... and that check is a REFUSAL: its statement is one of
+    //   if (_bgFailure(x)) ...;   const f = _bgFailure(x);   const v = _bgFailure(x) ? ... : ...;   return _bgFailure(x);
+    // (not, e.g., `if (false) _bgFailure(x);` — Codex impl round 2)
+    const lineStart = after.lastIndexOf('\n', m ? m.index : 0) + 1;
+    const stmt = m ? after.slice(lineStart, after.indexOf('\n', m.index) < 0 ? undefined : after.indexOf('\n', m.index)) : '';
+    const esc2 = '_bgFailure\\(' + esc + '\\)';
+    const refusal = [new RegExp('^\\s*if \\(' + esc2 + '\\)'), new RegExp('^\\s*(?:const|let|var) [A-Za-z_$][\\w$]* = ' + esc2 + '\\s*[;?]'),
+                     new RegExp('^\\s*return ' + esc2 + ';')].some(r => r.test(stmt));
+    assert.ok(isCheck && refusal,
       `${s.fn.name} (line ${s.line}): the first use of ${name} after it is computed is not _bgFailure(${name})`);
   }
 });

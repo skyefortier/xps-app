@@ -88,14 +88,25 @@ array (a stored or serialized curve) is not a certified background.
 `_bgMaxAbsDiff` treats a NaN as infinite (it used to skip it and read a non-finite
 step as "no change").
 
-**Restored fits (Codex round 1, BLOCKER).** A fit loaded from a project or a
-spectrum file carried its stored background, which no certificate had ever seen.
-`_restoredFitBgFailure` recomputes the record's background from its saved settings
-(`_recordBackground`, the stack's Path B computation); when it does not converge the
-fit is dropped (`fitResult` null, its support verdicts cleared), the model kept, and
-an amber notice names the tab and the reason. A fit whose background converges keeps
-its stored curve and statistics (made by the version that saved it; Run Fit
-regenerates them) — the A2 rule "re-running a saved fit may shift its areas".
+**Restored fits (Codex rounds 1-2, BLOCKER both times).** A fit loaded from a
+project or a spectrum file carried its stored background, which no certificate had
+ever seen. `_restoredFitBgFailure` recomputes the record's background from its raw
+data (saved at full precision) under its saved settings (`_recordBackground`, the
+stack's Path B computation), certifies it, and keeps the fit ONLY IF the stored curve
+IS that certified background — equal exactly, or exactly as the save rounds it (6
+significant figures, `_roundIntensity`); no tolerance. A kept fit then carries the
+certified curve itself (grid and net signal with it). Otherwise — the settings give
+no converged background, the curve was computed by an earlier version or with other
+settings, or the fit stored no curve — the fit is dropped (`fitResult` null, its
+support verdicts cleared), the model (the fitted peaks) kept, and an amber notice
+names the tab and the reason. Manual is the user's own curve (nothing to converge).
+CONSEQUENCE — an owner decision: every fit saved before this unit stored the old
+page's curve (a 5-iteration Shirley, the old averaging reading): measured on the
+committed projects, 0 of 65 saved fits' stored curves satisfy the current statement
+(residuals 6.6e-8 to 6.0e-3 of the span, median 8.0e-5), so NO older saved fit is
+restored; each needs Run Fit (its model loads). The alternatives, not implemented:
+keep an older fit with its statistics marked stale and the certified curve drawn; or
+keep it as it was (round 1's policy, which both reviewers rejected).
 
 **The "Shirley iterations" setting is retired.** A 5-iteration preview is not a
 solution (F7: up to 8.6e-5 of the span from it), so under item 2 every page background
@@ -135,12 +146,14 @@ Page — every assignment of a computed background (`computeBackground`,
 A CLASS guard pins it: `tests/js/background_not_converged.test.js` — every textual
 reference to a producer (`computeBackground`, `computeBackgroundCore`,
 `_computeBackgroundForSource`, `_recordBackground`) outside those dispatchers must be
-an assignment whose FIRST later reference is `_bgFailure(<that variable>)`, or an
-inline `_bgFailure(computeBackground(...))` refusal; any other form (an alias, a
-parenthesised or spaced call, a chained `return ....map(...)`) fails. Verified by
-mutation: removing the figure's check, an alias `const cb = computeBackground;`, and a
-use before the check each fail it, naming the function and line. The restored-fit
-path is pinned behaviourally (browser test below).
+an assignment that ENDS at the producer call, whose FIRST later reference is
+`_bgFailure(<that variable>)` in a refusal statement (`if (_bgFailure(x))`, an
+assigned failure or a ternary on it, `return _bgFailure(x)`), or an inline
+`_bgFailure(computeBackground(...))` refusal; any other form fails. Verified by
+mutation: removing the figure's check, an alias `const cb = computeBackground;`, a use
+before the check, a check inside `if (false)`, and `computeBackground(...).map(...)`
+on the assignment line each fail it, naming the function and line. It is structural:
+it cannot prove control flow; the lifecycle is pinned behaviourally (browser tests).
 
 ## 3. Tests
 
@@ -162,13 +175,17 @@ path is pinned behaviourally (browser test below).
 - `tests/test_browser_background_not_converged.py`: real page, real server — the note,
   nothing drawn, Run Fit refused with no undo entry; an explicit background fits; a
   project saved with a fit on such a window reloads with the fit dropped, the model
-  kept, the notice shown, and a stack entry built on it shows no fit.
+  kept, the notice shown, and a stack entry built on it shows no fit; a fit saved by
+  this version is restored; the same project with an older version's stored curve (a
+  5-iteration Shirley) is not; a manual-background fit is restored.
+- `tests/js/manual_background_statement.test.js`: the page's manual background is
+  np.interp's arithmetic, bit-identical to the server on 62 cases.
 - Codex round 1's cases pinned: the stop / certificate boundary (two), Tougaard near
   cancellation on a near-uniform grid (both now the stated sum, page = server), an
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 523 (the owner's 512 for the two landed branches + this unit's tests).
+- JS CI floor 508 -> 524 (the owner's 512 for the two landed branches + this unit's tests).
 
 ## 4. Measurements
 
@@ -289,8 +306,9 @@ for every method (Shirley, Smart and Tougaard used to replace the end points of 
 data by their average). Every background is checked against its own defining
 equation; when it has no solution — most often a window with no peak in it — the page
 says "… background not converged" under the method menu and nothing is fitted,
-subtracted or exported against it, and a saved fit made on such a background is not
-restored (its model is). Every background now runs to convergence; the "Shirley
+subtracted or exported against it. A saved fit is restored only when the background
+it was fitted against is exactly today's — so fits saved before this version are not
+restored: their models load, and Run Fit regenerates them. Every background now runs to convergence; the "Shirley
 iterations" setting is gone. The page now draws exactly the background the server fits
 (the linear background affine in energy, as the server always had it). On the
 committed fits the backgrounds moved by at most 0.04 % of net area (at averaging 3) and
@@ -316,4 +334,16 @@ smart / smart_exp pairs bit-identical):
 | 6 | MINOR (A, B): stop and certificate disagreed at the tolerance boundary | one predicate, diff <= tol x span, server and page; pinned |
 | 7 | MINOR (A, B): the class guard could be evaded and did not check order | every producer reference must be one of two forms; first use after assignment must be the check; mutation-verified |
 | 8 | MINOR (B): a NaN in the page's maximum difference was skipped (an overflowing case certified) | NaN is infinite; non-finite targets fail; pinned |
+
+**Round 2 — NO-GO ×2** (`background_math_impl_r2_verdict_run{A,B}.md`, commit cf64e80;
+both: all four analysis summaries reproduce, incl. the seeded maxima and the two
+better / four worse / two level classification; serialisation matches the page on all
+202 targets; 2 160 further comparisons (A) bit-identical with identical verdicts):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | BLOCKER (A, B): a restored fit was kept when a NEW background converged, and its OLD stored curve was drawn uncertified (2.4e-6 and 0.26 % of the span on two examples) | the stored curve must BE the certified background (exactly, or exactly as the save rounds it); otherwise the fit is dropped. 0 of 65 committed saved fits pass: no older fit is restored — an owner decision (§1) |
+| 2 | MAJOR (A, B): the restore check reused the stack helper that substitutes Shirley for manual, dropping valid manual fits | manual is accepted as the user's curve; browser test |
+| 3 | MINOR (A, B): the guard accepted a check inside `if (false)` and consumption on the assignment line | the assignment must end at the call; the check must be a refusal statement; mutation-verified |
+| 4 | MINOR (A, B): "every method bit-identical" was false for manual (one rounding step) | the page's manual background is np.interp's arithmetic; pinned bit-identical |
 

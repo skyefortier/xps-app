@@ -30,7 +30,7 @@ several or partial summaries; a test NAME carrying an escaped "# SKIP" or
     count, so a test that stops registering fails CI; raise it when tests are
     added.
 
-Usage: python scripts/ci_check_node_events.py js-events.jsonl --min-passed 523 [--max-todo 2] --expect-files tests/js/*.test.js"""
+Usage: python scripts/ci_check_node_events.py js-events.jsonl --min-passed 524 [--max-todo 2] --expect-files tests/js/*.test.js"""
 import argparse
 import json
 import os

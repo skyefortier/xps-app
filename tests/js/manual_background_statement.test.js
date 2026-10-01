@@ -49,3 +49,28 @@ test('with fewer than two anchors the fallback is the page line (by index)', () 
   const { manualAnchorBackground, linearBackground } = make([{ x: 285, y: 1200 }]);
   assert.deepStrictEqual(manualAnchorBackground(be, y), linearBackground(be, y));
 });
+
+test("the manual background is np.interp's arithmetic exactly — bit-identical to the server (Codex impl round 2)", () => {
+  const { execFileSync } = require('node:child_process');
+  const PY = ['venv/bin/python3', '/Users/skyefortier/xps-app/venv/bin/python3'].map(p => path.join(__dirname, '../..', p)).concat(['/Users/skyefortier/xps-app/venv/bin/python3', 'python3'])
+    .find(p => p === 'python3' || fs.existsSync(p));
+  let seed = 11;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const cases = [{ be: [0, 1, 3], anchors: [{ x: 0, y: 0 }, { x: 3, y: 1 }] }, { be: [0, 1, 2], anchors: [{ x: 0, y: 0.1 }, { x: 3, y: 3.2 }] }];
+  for (let c = 0; c < 60; c++) {
+    const n = 3 + Math.floor(rnd() * 30), be = Array.from({ length: n }, (_, i) => Math.round((296 - i * (0.05 + rnd() * 0.3)) * 1e4) / 1e4);
+    const k = 2 + Math.floor(rnd() * 4), anchors = Array.from({ length: k }, () => ({ x: Math.round((be[n - 1] - 1 + rnd() * (be[0] - be[n - 1] + 2)) * 100) / 100, y: Math.round(rnd() * 5000) / 10 }));
+    if (new Set(anchors.map(a => a.x)).size === k) cases.push({ be, anchors });
+  }
+  const server = execFileSync(PY, ['-c', `import json,sys,numpy as np
+out=[]
+for c in json.load(sys.stdin):
+    a = sorted(c['anchors'], key=lambda p: p['x'])
+    out.append([float(v) for v in np.interp(np.array(c['be'], float), [p['x'] for p in a], [p['y'] for p in a])])
+print(json.dumps(out))`], { input: JSON.stringify(cases), encoding: 'utf8' });
+  const S = JSON.parse(server);
+  cases.forEach((c, k) => {
+    const got = make(c.anchors).manualAnchorBackground(c.be, c.be.map(() => 1000));
+    assert.deepStrictEqual(got, S[k], `case ${k}`);
+  });
+});

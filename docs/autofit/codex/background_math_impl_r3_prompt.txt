@@ -1,0 +1,15 @@
+Review the "background math — implementation" unit, round 3: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-2 fixes = git diff cf64e80..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r2_verdict_run{A,B}.md, background_math_impl_r1_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-2 fixes in short: a RESTORED fit is kept only if the curve it stored IS the certified background its saved settings give now (recomputed from the full-precision raw data and certified; equal exactly, or exactly as the save rounds it — 6 significant figures; the certified curve then replaces the stored one); otherwise it is dropped, the model kept, a notice given — and since every fit saved before this unit stored the old page's 5-iteration curve (0 of 65 committed saved fits pass) no older fit is restored (stated as an owner decision in §1); manual fits are accepted as the user's own curve (the check no longer substitutes Shirley); the class guard requires the assignment to end at the producer call and the first later reference to be a refusal statement; the page's manual background is np.interp's arithmetic (bit-identical, pinned); JS CI floor 524.
+
+Read-only. Be adversarial. Findings ranked BLOCKER / MAJOR / MINOR with file:line and a concrete failing scenario, then VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+TRY TO BREAK
+a. The restore rule: can a stored curve that is NOT the certified background still be kept (rounding coincidences, grids that select other points, a stale fit, a spectrum-file load, a .fit.json import, an undo / history restore, a stack entry), or a genuinely current fit be dropped (a fit saved by this version and reloaded: projects .proj.json and .proj.zip, spectrum files, both BE orders, windows inside the ROI, every method incl. linear, n_avg > 1)? Is replacing the stored curve with the certified one sound (fittedY, statistics, residuals and support verdicts still belong to that fit)?
+b. Everything rounds 1-2 verified, against the new commit (page = server bit-identity incl. manual; certificate parity; the measurements; no fitted number changed beyond the owner's items).
+c. The class guard after the round-2 tightening; anything that consumes a background without a refusal.
+d. Is the stated consequence (no older saved fit restored) accurate and plainly presented for the owner's decision?
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
