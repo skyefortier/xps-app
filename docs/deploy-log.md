@@ -6,6 +6,32 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-10-01 — Find Peaks archived (`archive-find-peaks`)
+
+- **Release note:** Find Peaks is archived: it is no longer offered in the
+  Actions menu. Saved projects whose peaks came from Find Peaks load and fit
+  exactly as before.
+- Hidden, not deleted (owner, 2026-09-30): its only entry point, the
+  Actions-menu item, is an HTML comment saying how to restore it; the modal and
+  its code, `/api/analyze`, `autofit/` and every Find Peaks test are kept. A
+  cached result or applied-peak provenance is never read outside its block.
+  Parked with it, with what would bring each back: `docs/autofit/PROGRESS.md`
+  "PARKED" (finalists' extra screen starts, the noise-floor F test, the
+  math-first migration, Unit B — deferred, not dropped).
+- **CI now runs the page's JS suite** (it never had — Find Peaks' own JS tests
+  included). A second node reporter writes node's structured results; the
+  guard (`scripts/ci_check_node_events.py`) fails on any skip (any nesting,
+  any reason), failure, a test file that did not run to completion, a counter
+  that does not reconcile, or fewer passes than the current count (508; raise
+  it when tests are added).
+- Codex: 7 rounds (rounds 2–6 all on the CI guard); round 7 GO ×2, no
+  findings. Python 1111 passed / 7 skipped; JS 510 / 508 pass / 2 todo; real
+  browser check in the suite (menu, save, reload with an injected stale Find
+  Peaks cache, Run Fit) and on production through xps.fortierlab.org (no Find
+  Peaks entry or text with the Actions menu open; the code still present; a
+  server Run Fit completes with current statistics; no page errors). No
+  student note.
+
 ## 2026-09-30 — Run Fit checks that a fit reached its minimum (`fix-runfit-certificate`, unit A2)
 
 - **Release note:** Run Fit's result is no longer "complete" just because the
