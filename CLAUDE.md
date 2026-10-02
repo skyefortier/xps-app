@@ -876,8 +876,12 @@ whose energies are not in order (ascending or descending, repeats allowed) is no
 converged, and neither is one whose span or difference overflows; an integral
 background also needs the whole fitted region in order (it is held flat beyond its
 window by position, `_region_in_order`); Tougaard's loss sum is NaN — refused — when an
-intermediate overflows, and is otherwise judged, like the iterative methods, by the
-span-relative predicate (a 1e20-count window rounds at its own scale, inside it). The
+intermediate overflows, and the closed-form curve is certified only if a rigorous
+first-order bound on its rounding meets the span-relative predicate (a nearly cancelling
+high-edge sum is refused; a 1e20-count window rounds at its own scale, inside it); the
+Shirley family's residual is computed EXACTLY (Fraction / BigInt), so the verdict is the
+statement's, not the arithmetic's (the iteration still stops on its float criterion).
+Measured on the committed targets: no verdict changes. The
 EXPLICIT backgrounds (linear, manual, none) have nothing to converge but must exist,
 checked the same way, server and page, in the same words: no line when the window's
 end points share an energy and not an intensity, no manual curve when two anchors do,

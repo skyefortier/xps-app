@@ -600,3 +600,22 @@ upload-rounding measurement reproduce):
 | 3 | MINOR (A) / note (B): the `_legacy_line` pin masks changed basin outcomes — unpinned, 3 tests fail (A: pure-function / curve-height / >1 eV continuation; B: centres-scaled / reconstruction / >1 eV continuation), 11 more are susceptible (A's list) | both: the pin is HONEST as the owner-accepted stopgap, the failures are the disclosed basin sensitivity, not a background defect; the lists are added to the PROGRESS.md follow-up (which tests the new fixture must re-establish) |
 
 Mutation-verified (2 of 2 killed).
+
+**Round 13 — NO-GO (A); B: no verdict (model capacity), B2: NO-GO**
+(`background_math_impl_r13_verdict_run{A,B,B2}.md`, commit 81234c4; A and B2 reproduce the
+census, the four measurement summaries, the smart / smart_exp identity and the
+upload-rounding measurement; the round-12 overflow refusal holds):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B2): Tougaard on ordinary-looking data whose high-edge loss sum nearly cancels (A: `[200, 300, 0.73, 300]`, 278 000 × the predicate; B2: `[2, 3, 0.0072794, 3]`, 0.6 % of the span) — the anchoring amplifies rounding; the certificate accepted any nonzero high-edge sum | the curve is closed-form, so its only error is rounding: it is certified only if a first-order RIGOROUS rounding bound (`fitting._tougaard_rounding_bound`, the page's `_tougaardRoundingBound`, operation for operation; per-term and summation-tree roundings, the edge means' rounding through the net, the anchoring) meets the predicate; otherwise "the loss sum at the high-BE edge nearly cancels…". Measured on the committed targets × averaging 1 / 3 (404 cases): the bound is at most 0.035 of the predicate (median 0.002) — no committed verdict changes; A's case: 4.2e6 × |
+| 2 | MAJOR (A, B2): the Shirley-family certificate re-did the iteration's arithmetic, so it confirmed its rounding — 1e12 ± 8 counts (A: residual 6.6e-7, predicate 8e-12, rounded to 0) and 1e-200 counts (B2: underflow, 25 % of the span), Shirley + linear too | the residual of the RETURNED curve is computed EXACTLY — exact edge means, exact trapezoids, exact map, `Fraction` on the server (`_exact_shirley_certificate`), BigInt integers over one common denominator on the page (`_bgExactShirleyCertificate`), the predicate decided by an integer comparison; page = server verdicts AND words on the full parity sweep. Measured on the committed targets (`scripts/bg_math_exact_certificate_margin.py`, 202 × 3 methods × averaging 1 / 3 = 1 212 cases): the same verdict on every case, the exact residual at most 0.993 of the predicate (median 0.31); every committed window sits ≥ 3 000 × inside double precision's resolution of the predicate (eps · max|I| / (tol · span) ≤ 3.2e-4). The reason no longer says the iteration "did not settle" (it may have, at double precision): "the result misses the … relation by X % of the intensity span (its iteration alternates or ran out of steps, or the data exceed what double precision resolves at this span)" |
+
+A consequence, by decision: the iteration still STOPS on its float criterion and the
+certificate now JUDGES exactly, so a background constructed at the float boundary (Codex
+round 1's two cases) is refused by a hair (the exact residual 1e-10 % of the span, over
+the 1e-10 % predicate) — the verdict is the statement's. Cost on the page, 400 points:
+2-3 ms per Shirley / Smart background with its certificate, 9 ms for Tougaard.
+
+Mutation-verified (4 of 4 killed): the bound bypassed and the exact check replaced, on
+each side.

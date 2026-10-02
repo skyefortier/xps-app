@@ -999,7 +999,15 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
     if m == "tougaard":
         loss, a_high, c0, _ = _tougaard_loss(x, y, n_avg)
         if loss[0] != 0.0:
-            return {"converged": True, "residual": None, "reason": None}
+            # the curve is closed-form (no iteration), so its only error is rounding:
+            # certified only if a rigorous bound on that rounding meets the predicate
+            # (Codex impl round 13: a high-edge sum that nearly cancels amplified it
+            # 280 000-fold past it, on four ordinary points)
+            if _tougaard_rounding_bound(x, y, n_avg) <= BG_REL_TOL * float(np.max(yv) - np.min(yv)):
+                return {"converged": True, "residual": None, "reason": None}
+            return {"converged": False, "residual": None, "reason": (
+                "the loss sum at the high-BE edge nearly cancels, so its rounding moves the background "
+                "by more than the certificate's precision")}
         if a_high == c0 and not np.any(loss):
             return {"converged": True, "residual": None, "reason": None}
         if a_high == c0:
@@ -1008,40 +1016,14 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
                 "background's amplitude and different amplitudes give different backgrounds")}
         return {"converged": False, "residual": None, "reason": (
             "the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level")}
-    xs, ys, flipped = _ascending(x, y)
-    Ba = bg[::-1] if flipped else bg
-    span = float(np.max(ys) - np.min(ys))
-    b_low, b_high = _edge_levels(ys, n_avg)
-    if m == "shirley_linear":
-        L = np.linspace(b_low, b_high, len(ys))
-        d = abs(b_low - b_high)
-        Q = _cum_from_high(xs, np.maximum(ys - Ba, 0.0))
-        target = None if (d != 0.0 and not Q[0] > 0.0) else (
-            np.minimum(L, ys) if d == 0.0 else np.minimum(L + d * Q / Q[0], ys))
-    else:
-        Tb = _shirley_map(xs, ys, Ba, b_low, b_high)
-        target = None if Tb is None else (Tb if m == "shirley" else np.minimum(Tb, ys))
-    if target is None:
-        return {"converged": False, "residual": None, "reason": (
-            "the data lie at or below the line between the two edge levels, so there is no net "
-            "signal and the %s relation is undefined" % label)}
-    if not np.all(np.isfinite(target)):
-        return {"converged": False, "residual": None, "reason": (
-            "the %s relation does not evaluate to finite numbers on these data" % label)}
-    diff = float(np.max(np.abs(Ba - target)))
-    # an overflowing span or difference cannot judge anything (Codex impl round 6:
-    # inf <= tol * inf accepted a constant that misses the relation)
-    if not (np.isfinite(span) and np.isfinite(diff)):
-        return {"converged": False, "residual": None, "reason": (
-            "the intensities are too large to check the %s relation (its arithmetic overflows)" % label)}
-    residual = diff / span if span > 0.0 else (0.0 if diff == 0.0 else float("inf"))
-    # the SAME predicate every iteration stops on (diff <= tol * span), not the
-    # quotient: they differ by a rounding step at the boundary
-    if diff <= BG_REL_TOL * span:
-        return {"converged": True, "residual": residual, "reason": None}
-    return {"converged": False, "residual": residual, "reason": (
-        "its iteration did not settle on a solution (it alternates or ran out of steps); the "
-        "result misses the %s relation by %s %% of the intensity span" % (label, _fmt3(100.0 * residual)))}
+    # The Shirley family: the residual of the RETURNED curve against its relation, in
+    # EXACT rational arithmetic — exact edge means, exact trapezoids, exact map — so the
+    # verdict is the statement's, not the arithmetic's (Codex impl round 13: on 1e12 ± 8
+    # counts the float check rounded a residual of 6.6e-7 to 0 against a predicate of
+    # 8e-12). Measured on the committed targets: the same verdict on all 1 212 cases,
+    # the exact residual at most 0.993 of the predicate
+    # (scripts/bg_math_exact_certificate_margin.py). The page's twin is _bgCertificate.
+    return _exact_shirley_certificate(x, y, bg, m, n_avg, label)
 
 
 def _fmt3(v: float) -> str:
@@ -1069,6 +1051,91 @@ def _fmt3(v: float) -> str:
         m = strip(f"{q.scaleb(-e):.2f}")
         return f"{m}e{'-' if e < 0 else '+'}{abs(e):02d}"
     return strip(f"{q:.{max(0, 2 - e)}f}")
+
+
+def _exact_shirley_certificate(x, y, bg, m, n_avg, label):
+    from fractions import Fraction as F
+    xs, ys, flipped = _ascending(x, y)
+    Ba = bg[::-1] if flipped else bg
+    X = [F(v) for v in xs.tolist()]
+    Y = [F(v) for v in ys.tolist()]
+    B = [F(v) for v in np.asarray(Ba, dtype=float).tolist()]
+    n = len(Y)
+    k = max(1, min(int(n_avg), n // 4)) if n >= 4 else 1
+    b_low, b_high = sum(Y[:k]) / k, sum(Y[-k:]) / k
+    cum = [F(0)] * n
+    for i in range(n - 2, -1, -1):
+        cum[i] = cum[i + 1] + (max(Y[i] - B[i], 0) + max(Y[i + 1] - B[i + 1], 0)) * (X[i + 1] - X[i]) / 2
+    if m == "shirley_linear":
+        d = abs(b_low - b_high)
+        L = [b_low + (b_high - b_low) * i / (n - 1) for i in range(n)]
+        if d != 0 and not cum[0] > 0:
+            target = None
+        elif d == 0:
+            target = [min(L[i], Y[i]) for i in range(n)]
+        else:
+            target = [min(L[i] + d * cum[i] / cum[0], Y[i]) for i in range(n)]
+    elif b_low == b_high:
+        target = [b_low] * n if m == "shirley" else [min(b_low, Y[i]) for i in range(n)]
+    elif not cum[0] > 0:
+        target = None
+    else:
+        T = [b_high + (b_low - b_high) * c / cum[0] for c in cum]
+        target = T if m == "shirley" else [min(T[i], Y[i]) for i in range(n)]
+    if target is None:
+        return {"converged": False, "residual": None, "reason": (
+            "the data lie at or below the line between the two edge levels, so there is no net "
+            "signal and the %s relation is undefined" % label)}
+    diff = max(abs(B[i] - target[i]) for i in range(n))
+    span = max(Y) - min(Y)
+    residual = float(diff / span) if span > 0 else (0.0 if diff == 0 else float("inf"))
+    if diff <= F(BG_REL_TOL) * span:
+        return {"converged": True, "residual": residual, "reason": None}
+    pct = _fmt3(float(100 * diff / span)) if span > 0 else "inf"
+    return {"converged": False, "residual": residual, "reason": (
+        "the result misses the %s relation by %s %% of the intensity span (its iteration alternates "
+        "or ran out of steps, or the data exceed what double precision resolves at this span)" % (label, pct))}
+
+
+def _tougaard_rounding_bound(x, y, n_avg=1) -> float:
+    """A first-order rigorous bound on how far rounding can move the computed Tougaard
+    background from the exact value of its relation, at the worst point (Codex impl
+    round 13). With u = eps/2 and, per row i, the computed loss sum L_i of m_i terms,
+    S_i = sum |term| and W_i = sum K w (the net's coefficient):
+      each term carries <= 16 roundings, any summation tree <= m_i - 1, so
+      dL_i <= (m_i + 15) u S_i;  the edge means are off by <= (k + 1) u max|I| each
+      (dc, da), which moves L_i by <= dc W_i;  then
+      E_i = |D| (dL_i + dc W_i) / |L_0| + |D| |L_i| (dL_0 + dc W_0) / L_0^2
+            + (da + dc) |L_i / L_0| + dc + 4 u (|c0| + |B_i| + |D| |L_i / L_0|),
+    D = J_high - C0. Second-order terms are O(u^2) of the same quantities. Computed
+    with the same operations as the page's twin (_tougaardRoundingBound), so the
+    verdicts agree bit for bit."""
+    u = np.finfo(float).eps / 2
+    xa, ya = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    if xa[0] < xa[-1]:
+        xa, ya = xa[::-1].copy(), ya[::-1].copy()
+    n = len(xa)
+    k = max(1, min(int(n_avg), n // 4)) if n >= 4 else 1
+    a_high, c0 = _edge_levels(ya, n_avg)
+    net = ya - c0
+    w = np.abs(np.gradient(xa))
+    L, S, W = np.zeros(n), np.zeros(n), np.zeros(n)
+    for i in range(n):
+        T = np.abs(xa[i:] - xa[i])
+        uu = (1643.0 + T * T) * (1643.0 + T * T)
+        kw = (2866.0 * T) / uu * w[i:]
+        t = kw * net[i:]
+        L[i], S[i], W[i] = float(np.sum(t)), float(np.sum(np.abs(t))), float(np.sum(kw))
+    M = float(np.max(np.abs(ya)))
+    dc = da = (k + 1) * u * M
+    D = abs(a_high - c0)
+    m = n - np.arange(n)
+    dL = (m + 15) * u * S
+    r = np.abs(L) / abs(L[0])
+    bg = c0 + L * ((a_high - c0) / L[0])
+    E = (D * (dL + dc * W) / abs(L[0]) + D * np.abs(L) * (dL[0] + dc * W[0]) / (L[0] * L[0])
+         + (da + dc) * r + dc + 4 * u * (abs(c0) + np.abs(bg) + D * r))
+    return float(np.max(E))
 
 
 def _region_in_order(x, method):

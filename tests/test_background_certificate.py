@@ -39,7 +39,7 @@ def test_a_cycling_iteration_is_not_converged(I, methods):
     # findings F12: the iteration alternates between two curves and returns a non-solution
     E = np.arange(float(len(I)))
     for m in methods:
-        with pytest.raises(fitting.BackgroundNotConverged, match="did not settle on a solution"):
+        with pytest.raises(fitting.BackgroundNotConverged, match="misses the .* relation by"):
             fitting.compute_background(E, np.array(I), m)
 
 
@@ -140,11 +140,15 @@ def test_the_routes_answer_422_with_the_plain_message(client):
 
 # ── Codex implementation round 1 ─────────────────────────────────────────────
 
-def test_the_stop_and_the_certificate_use_one_predicate():
-    # at the exact boundary diff == tol * span: the iteration stops, the certificate must accept
+def test_the_verdict_is_the_exact_statement_at_the_float_stops_boundary():
+    # Codex impl round 1 built these at the FLOAT boundary diff == tol * span (the iteration
+    # stops there). Since round 13 the certificate checks the returned curve EXACTLY, and the
+    # exact residual here is a hair over the predicate: the verdict is the statement's, so they
+    # are refused — the stop is the iteration's (float), the verdict governs
     for E, I in ((np.arange(4.0), np.array([0.0, 0.0, 7.326101243535137, 2.1978303730605416e-11])),
                  (np.array([0.0, 1.0, 3.0]), np.array([0.0, 31.620122043497105, 1.8972073226098264e-10]))):
-        fitting.compute_background(E, I, "shirley")
+        with pytest.raises(fitting.BackgroundNotConverged, match="misses the Shirley relation by 1e-10 %"):
+            fitting.compute_background(E, I, "shirley")
 
 
 def test_tougaard_is_the_stated_sum_on_a_near_uniform_grid():
@@ -154,8 +158,12 @@ def test_tougaard_is_the_stated_sum_on_a_near_uniform_grid():
     import background_defining_statements as D
     for third in (0.008279338821039262, 0.007279338821039261):
         E, I = np.array([0.0, 1.0, 2.0000005, 3.0000005]), np.array([2.0, 3.0, third, 3.0])
-        B = fitting.compute_background(E, I, "tougaard")          # both have a (badly conditioned) solution
+        B = fitting.tougaard_background(E, I)                     # both have a (badly conditioned) solution
         assert np.max(np.abs(B - D.tougaard_statement(E, I, 1, "levels"))) <= 1e-9 * np.max(np.abs(B))
+        # ... which the certificate refuses since round 13: so near cancellation the rounding
+        # bound exceeds the predicate
+        with pytest.raises(fitting.BackgroundNotConverged, match="nearly cancels"):
+            fitting.compute_background(E, I, "tougaard")
 
 
 def test_a_non_finite_evaluation_is_not_converged():
@@ -247,7 +255,7 @@ def test_an_unsorted_window_is_not_converged_for_the_integral_methods():
 
 def test_an_overflowing_certificate_does_not_certify():
     E, I = np.arange(5.0), np.array([1e308, -1e308, 1e308, -1e308, 1e308])
-    with pytest.raises(fitting.BackgroundNotConverged, match="its arithmetic overflows"):
+    with pytest.raises(fitting.BackgroundNotConverged, match="not converged"):     # exactly, since round 13
         fitting.compute_background(E, I, "shirley_linear")
 
 
@@ -368,3 +376,37 @@ def test_tougaard_whose_kernel_arithmetic_overflows_is_refused_and_large_data_me
         exact = _tougaard_exact(E, I)
         span = max(I) - min(I)
         assert max(abs(float(b - e)) for b, e in zip(map(float, bg), exact)) <= fitting.BG_REL_TOL * span
+
+
+# ── Codex implementation round 13 ────────────────────────────────────────────
+
+def test_the_certificate_claims_only_what_it_verified():
+    # Tougaard: a high-edge sum that nearly cancels amplified rounding 280 000-fold past the
+    # predicate on four ordinary points — refused by the rigorous rounding bound, both orders
+    for E, I in (([280.0, 281, 282, 283], [200, 300, 0.73, 300]), ([283.0, 282, 281, 280], [300, 0.73, 300, 200])):
+        with pytest.raises(fitting.BackgroundNotConverged, match="nearly cancels"):
+            fitting.compute_background(np.array(E), np.array(I), "tougaard")
+    # Shirley family on 1e12 +- 8 counts: the float check rounded a residual of 6.6e-7 to 0 against
+    # a predicate of 8e-12 — the exact check refuses, both orders, every Shirley-family method
+    I = [1e12, 1e12 + 4, 1e12 + 8, 1e12 + 2]
+    for E, Iv in ((np.arange(4.0), I), (np.arange(4.0)[::-1], I[::-1])):
+        for m in ("shirley", "smart", "smart_exp", "shirley_linear"):
+            with pytest.raises(fitting.BackgroundNotConverged, match="misses the .* relation by"):
+                fitting.compute_background(np.array(E), np.array(Iv), m)
+    # run B2's cases, the same two classes: another near-cancelling Tougaard (0.6 % of the span
+    # off), and a Shirley-family window at 1e-200 whose arithmetic underflowed (25 % off) while
+    # the float check repeated it — both refused, both orders, every method
+    for E, I in (([280.0, 281, 282, 283], [2, 3, 0.0072794, 3]),):
+        for o in (1, -1):
+            with pytest.raises(fitting.BackgroundNotConverged, match="nearly cancels"):
+                fitting.compute_background(np.array(E[::o]), np.array(I[::o]), "tougaard")
+    tiny = [1e-200, 5e-200, 4e-200, 2e-200]
+    for o in (1, -1):
+        for m in ("shirley", "smart", "smart_exp", "shirley_linear"):
+            with pytest.raises(fitting.BackgroundNotConverged, match="misses the .* relation by"):
+                fitting.compute_background(np.arange(280.0, 284.0)[::o], np.array(tiny[::o]), m)
+    # the committed data keep every verdict (scripts/bg_math_exact_certificate_margin.py: exact
+    # residual <= 0.993 of the predicate on all 1 212 cases); the rounding bound is far inside it
+    x = np.linspace(280, 295, 301)
+    y = 300 + 6000 * np.exp(-((x - 284.5) / 0.6) ** 2) + 400 / (1 + np.exp(-(x - 284.5) / 0.3))
+    assert fitting._tougaard_rounding_bound(x, y) < 0.05 * fitting.BG_REL_TOL * (y.max() - y.min())

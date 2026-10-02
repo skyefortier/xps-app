@@ -276,8 +276,10 @@ def test_tougaard_is_the_stated_sum_on_near_uniform_grids():
     assert np.max(np.abs(fitting.tougaard_background(E, I) - D.tougaard_statement(E, I, 1, "levels"))) / D.span_of(I) < 1e-14
     E, I = np.array([0, 1, 2.0000005, 3.0000005]), np.array([2.0, 3.0, 2 - _K(2) / _K(1), 3.0])
     assert D.tougaard_loss(E, I, 1, "levels")[0][0] != 0.0
-    B = fitting.compute_background(E, I, "tougaard")                       # a (badly conditioned) solution
+    B = fitting.tougaard_background(E, I)                                  # a (badly conditioned) solution
     assert np.max(np.abs(B - D.tougaard_statement(E, I, 1, "levels"))) <= 1e-9 * np.max(np.abs(B))
+    with pytest.raises(fitting.BackgroundNotConverged, match="nearly cancels"):  # refused since round 13
+        fitting.compute_background(E, I, "tougaard")
 
 
 def test_FINDING_the_kernel_shape_matters_on_the_wider_windows():

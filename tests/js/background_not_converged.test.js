@@ -90,7 +90,7 @@ test('every consumer call of a producer is handled (the student is told why, the
 test('computeBackgroundCore marks a non-converged background and its plain reason', () => {
   const cyc = B.computeBackgroundCore([0, 1, 2, 3], [2, 3, 10, 13], { bgType: 'shirley', endpointAvg: '1', bgStart: '', bgEnd: '' });
   assert.strictEqual(cyc.converged, false);
-  assert.match(B._bgFailure(cyc), /^Shirley background not converged: its iteration did not settle on a solution/);
+  assert.match(B._bgFailure(cyc), /^Shirley background not converged: the result misses the Shirley relation by /);
   const flat = B.computeBackgroundCore([0, 1, 2, 3, 4], [10, 5, 5, 17, 20], { bgType: 'smart', endpointAvg: '1', bgStart: '', bgEnd: '' });
   assert.match(B._bgFailure(flat), /no net signal/);
   const ok = B.computeBackgroundCore([0, 1, 2, 3, 4, 5], [10, 12, 40, 30, 22, 20], { bgType: 'shirley', endpointAvg: '1', bgStart: '', bgEnd: '' });
@@ -314,6 +314,11 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
     { m: 'linear', x: [1e20, 290, 289, 280], y: [1e20, 70, 80, 50] }, { m: 'manual', x: [-1e20, 280, 290, 300], y: [1e20, 50, 60, 1], anchors: [] },
     // round 12: Tougaard whose kernel arithmetic overflows (refused), and large data (certified)
     { m: 'tougaard', x: [0, 1, 9.999999999999999e79, 1e80], y: [0, 1e200, 1e145, 1e200] }, { m: 'tougaard', x: [280, 285, 290], y: [1e20, 2e20, 50] },
+    // round 13: near-cancelling Tougaard (the rounding bound refuses), Shirley family on 1e12 +- 8 (the exact check refuses)
+    { m: 'tougaard', x: [280, 281, 282, 283], y: [200, 300, 0.73, 300] }, { m: 'shirley', x: [0, 1, 2, 3], y: [1e12, 1e12 + 4, 1e12 + 8, 1e12 + 2] },
+    { m: 'smart', x: [3, 2, 1, 0], y: [1e12 + 2, 1e12 + 8, 1e12 + 4, 1e12] }, { m: 'shirley_linear', x: [0, 1, 2, 3], y: [1e12, 1e12 + 4, 1e12 + 8, 1e12 + 2] },
+    { m: 'tougaard', x: [280, 281, 282, 283], y: [2, 3, 0.0072794, 3] }, { m: 'shirley', x: [280, 281, 282, 283], y: [1e-200, 5e-200, 4e-200, 2e-200] },
+    { m: 'smart_exp', x: [283, 282, 281, 280], y: [2e-200, 4e-200, 5e-200, 1e-200] },
     { m: 'manual', x: [0, 1, 2, 3, 4, 5], y: [10, 12, 40, 30, 22, 20], anchors: [[0, 0], [2, 1], [2, 20], [5, 0]] },
   ];
   const S = serverWords(cases);
@@ -335,7 +340,7 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
     { input: JSON.stringify(vals), encoding: 'utf8', cwd: path.join(__dirname, '../..') }));
   assert.deepStrictEqual(vals.map(R._fmt3), py);
   // the certificate's residual is written with it (a residual below 1e-4 % reads '1.23e-05' on both sides)
-  assert.match(enclosingFunction(lines.findIndex(l => l.startsWith('function _bgCertificate('))).body, /\+ _fmt3\(100 \* residual\) \+ ' % of the intensity span'/);
+  assert.match(enclosingFunction(lines.findIndex(l => l.startsWith('function _bgExactShirleyCertificate('))).body, /_fmt3\(_bgRatToDouble\(100n \* maxNum, den \* SP\)\)/);
   // a lone anchor is checked too (it would otherwise fall back to the line silently)
   for (const lone of [[{ x: NaN, y: 1 }], [{ x: 2, y: null }], [{ x: true, y: 1 }], [null]])
     assert.throws(() => R._computeBackgroundForSource([0, 1, 2], [1, 2, 3], { bgType: 'manual' }, lone),

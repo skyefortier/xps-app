@@ -1,0 +1,37 @@
+Review the "background math — implementation" unit, round 14: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-13 fixes = git diff 81234c4..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..13}_verdict_run{A,B}.md (round 13: runs A and B2; B hit model capacity); the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-13 fixes in short — two classes, closed as classes:
+- The Shirley-family certificate no longer re-does the iteration's arithmetic. The residual of the RETURNED curve against its relation is computed EXACTLY (exact edge means, exact trapezoids, exact map): Fraction on the server (fitting._exact_shirley_certificate); BigInt integers over one common denominator on the page (_bgExactShirleyCertificate), with the predicate decided by an integer comparison.
+  - On the committed targets (scripts/bg_math_exact_certificate_margin.py, 1,212 cases): the same verdict on every case; the exact residual is at most 0.993 of the predicate.
+  - Every committed window sits at least 3,000× inside double precision's resolution of the predicate.
+  - The iteration still stops on its float criterion and the certificate judges exactly. A background built at the float boundary can therefore be refused by a hair: the verdict is the statement's, by decision.
+- Tougaard (closed form, so its only error is rounding) is certified only if a first-order RIGOROUS rounding bound meets the predicate: fitting._tougaard_rounding_bound, and the page's _tougaardRoundingBound operation for operation. On the committed targets the bound is at most 0.035 of the predicate, so no verdict changes.
+- Page = server verdicts AND words on the full parity sweep. Page cost at 400 points: 2-3 ms per Shirley / Smart background with its certificate, 9 ms for Tougaard.
+- Still dispositioned, do not re-raise unless this unit made them worse:
+  - errors INSIDE the predicate (BG_REL_TOL × span);
+  - the _legacy_line pin (owner-accepted, logged);
+  - Auto-Fit's post-shift pairing (logged);
+  - the page / server data readings (an owner decision).
+- JS CI floor 538 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. Any background, for any method on either side, certified while its error against its defining statement exceeds the certificate's predicate (BG_REL_TOL × the window's span). Also any page / server disagreement in a verdict on the SAME numbers, and any consumer that treats a refused background as valid.
+   In particular:
+   - Is the Tougaard bound rigorous at first order? Name any rounding it omits that can exceed it.
+   - Is the exact certificate the defining relation as the docstrings state it?
+   - Could either refuse a realistic XPS window? Use the committed data in docs/autofit/test_data and the margin script.
+b. Everything rounds 1-13 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

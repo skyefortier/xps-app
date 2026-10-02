@@ -4658,34 +4658,111 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
   if (!up && !down) return { converged: false, residual: null, reason: 'the energies in the window are not in order (neither ascending nor descending), and the ' + label + ' relation is an integral along the energy axis' };
   if (type === 'tougaard') {
     const { loss, aHigh, c0 } = _tougaardLoss(be, intensity, nAvg);
-    if (loss[0] !== 0) return { converged: true, residual: null, reason: null };
+    if (loss[0] !== 0) {
+      // fitting.background_certificate: closed-form, so only rounding can move it —
+      // certified only if a rigorous bound on that rounding meets the predicate
+      if (_tougaardRoundingBound(be, intensity, nAvg) <= BG_REL_TOL * _bgSpan(intensity)) return { converged: true, residual: null, reason: null };
+      return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge nearly cancels, so its rounding moves the background by more than the certificate\'s precision' };
+    }
     if (aHigh === c0 && loss.every(v => v === 0)) return { converged: true, residual: null, reason: null };
     if (aHigh === c0) return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge cancels to zero, so the edge does not fix the background\'s amplitude and different amplitudes give different backgrounds' };
     return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level' };
   }
+  return _bgExactShirleyCertificate(be, intensity, bg, type, nAvg, label);
+}
+
+// fitting._exact_shirley_certificate, bit for bit: the residual of the RETURNED curve
+// against its relation in EXACT rationals (Codex impl round 13). Every value is the
+// integer N with v = N·2^-1074 (_bgExact); edge means, trapezoids and the map are
+// carried as integer numerators over one common denominator, so the predicate
+// diff <= tol·span is decided by an integer comparison and nothing is rounded.
+function _bgExactShirleyCertificate(be, intensity, bg, type, nAvg, label) {
   const { xs, ys, flipped } = _bgAscending(be, intensity);
   const Ba = flipped ? bg.slice().reverse() : bg;
-  const span = _bgSpan(ys);
-  const [bLow, bHigh] = _bgEdgeLevels(ys, nAvg);
-  let target = null;
+  const n = ys.length;
+  const X = xs.map(_bgExact), Y = ys.map(_bgExact), Bn = Ba.map(_bgExact);
+  const k = n >= 4 ? Math.max(1, Math.min(parseInt(nAvg) || 1, Math.floor(n / 4))) : 1;
+  let Lsum = 0n, Hsum = 0n;
+  for (let i = 0; i < k; i++) { Lsum += Y[i]; Hsum += Y[n - k + i]; }
+  const K = BigInt(k);
+  // C[i] = 2 · (trapezoid integral of max(I − B, 0) from x_i to the high end), at scale 2^-2148
+  const s = Y.map((v, i) => (v - Bn[i] > 0n ? v - Bn[i] : 0n));
+  const C = new Array(n).fill(0n);
+  for (let i = n - 2; i >= 0; i--) C[i] = C[i + 1] + (s[i] + s[i + 1]) * (X[i + 1] - X[i]);
+  const minBig = (a, b) => (a < b ? a : b);
+  let den = null, tnum = null;                       // target_i = tnum[i] / den (at scale 2^-1074)
   if (type === 'shirley_linear') {
-    const L = _npLinspace(bLow, bHigh, n), d = Math.abs(bLow - bHigh);
-    const Q = _bgCumFromHigh(xs, ys.map((v, k) => Math.max(v - Ba[k], 0)));
-    if (d === 0) target = L.map((v, k) => Math.min(v, ys[k]));
-    else if (Q[0] > 0) target = L.map((v, k) => Math.min(v + d * Q[k] / Q[0], ys[k]));
+    const d = Lsum > Hsum ? Lsum - Hsum : Hsum - Lsum, N1 = BigInt(n - 1);
+    if (d !== 0n && !(C[0] > 0n)) tnum = null;
+    else if (d === 0n) { den = K * N1; tnum = Y.map((y, i) => minBig(Lsum * N1 + (Hsum - Lsum) * BigInt(i), y * den)); }
+    else { den = K * N1 * C[0]; tnum = Y.map((y, i) => minBig((Lsum * N1 + (Hsum - Lsum) * BigInt(i)) * C[0] + d * N1 * C[i], y * den)); }
+  } else if (Lsum === Hsum) {
+    den = K; tnum = Y.map(y => (type === 'shirley' ? Lsum : minBig(Lsum, y * den)));
+  } else if (!(C[0] > 0n)) {
+    tnum = null;
   } else {
-    const T = _bgShirleyMap(xs, ys, Ba, bLow, bHigh);
-    if (T !== null) target = type === 'shirley' ? T : T.map((v, k) => Math.min(v, ys[k]));
+    den = K * C[0];
+    tnum = Y.map((y, i) => { const t = Hsum * C[0] + (Lsum - Hsum) * C[i]; return type === 'shirley' ? t : minBig(t, y * den); });
   }
-  if (target === null) return { converged: false, residual: null, reason: 'the data lie at or below the line between the two edge levels, so there is no net signal and the ' + label + ' relation is undefined' };
-  if (!target.every(Number.isFinite)) return { converged: false, residual: null, reason: 'the ' + label + ' relation does not evaluate to finite numbers on these data' };
-  const diff = _bgMaxAbsDiff(Ba, target);
-  if (!Number.isFinite(span) || !Number.isFinite(diff))
-    return { converged: false, residual: null, reason: 'the intensities are too large to check the ' + label + ' relation (its arithmetic overflows)' };
-  const residual = span > 0 ? diff / span : (diff === 0 ? 0 : Infinity);
-  // the SAME predicate the iterations stop on (diff <= tol·span), not the quotient
-  if (diff <= BG_REL_TOL * span) return { converged: true, residual, reason: null };
-  return { converged: false, residual, reason: 'its iteration did not settle on a solution (it alternates or ran out of steps); the result misses the ' + label + ' relation by ' + _fmt3(100 * residual) + ' % of the intensity span' };
+  if (tnum === null) return { converged: false, residual: null, reason: 'the data lie at or below the line between the two edge levels, so there is no net signal and the ' + label + ' relation is undefined' };
+  let maxNum = 0n;
+  for (let i = 0; i < n; i++) { const r = Bn[i] * den - tnum[i]; const a = r < 0n ? -r : r; if (a > maxNum) maxNum = a; }
+  let yMax = Y[0], yMin = Y[0];
+  for (const v of Y) { if (v > yMax) yMax = v; if (v < yMin) yMin = v; }
+  const SP = yMax - yMin;
+  // diff = maxNum / den (scale 2^-1074); tol·span = TOL·SP (scale 2^-2148)
+  const ok = (maxNum << 1074n) <= _bgExact(BG_REL_TOL) * SP * den;
+  const residual = SP > 0n ? _bgRatToDouble(maxNum, den * SP) : (maxNum === 0n ? 0 : Infinity);
+  if (ok) return { converged: true, residual, reason: null };
+  const pct = SP > 0n ? _fmt3(_bgRatToDouble(100n * maxNum, den * SP)) : 'inf';
+  return { converged: false, residual, reason: 'the result misses the ' + label + ' relation by ' + pct + ' % of the intensity span (its iteration alternates or ran out of steps, or the data exceed what double precision resolves at this span)' };
+}
+
+// fitting._tougaard_rounding_bound, operation for operation (so the verdicts agree
+// bit for bit): a first-order rigorous bound on how far rounding moves the computed
+// Tougaard background from the exact value of its relation, at the worst point.
+function _tougaardRoundingBound(be, intensity, nAvg) {
+  const u = Number.EPSILON / 2;
+  const n = be.length;
+  const flipped = be[0] < be[n - 1];
+  const xa = flipped ? [...be].reverse() : be, ya = flipped ? [...intensity].reverse() : intensity;
+  const k = n >= 4 ? Math.max(1, Math.min(parseInt(nAvg) || 1, Math.floor(n / 4))) : 1;
+  const [aHigh, c0] = _bgEdgeLevels(ya, nAvg);
+  const net = ya.map(v => v - c0);
+  const w = new Array(n);
+  for (let i = 0; i < n; i++) {
+    if (i === 0) w[0] = Math.abs(xa[1] - xa[0]);
+    else if (i === n - 1) w[n - 1] = Math.abs(xa[n - 1] - xa[n - 2]);
+    else w[i] = Math.abs(xa[i + 1] - xa[i - 1]) / 2;
+  }
+  const L = new Array(n), S = new Array(n), W = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = new Array(n - i), at = new Array(n - i), kw = new Array(n - i);
+    for (let j = i; j < n; j++) {
+      const T = Math.abs(xa[j] - xa[i]);
+      const uu = (1643 + T * T) * (1643 + T * T);
+      kw[j - i] = (2866 * T) / uu * w[j];
+      t[j - i] = kw[j - i] * net[j];
+      at[j - i] = Math.abs(t[j - i]);
+    }
+    L[i] = 0 + _npPairwiseSum(t, 0, t.length); S[i] = 0 + _npPairwiseSum(at, 0, at.length); W[i] = 0 + _npPairwiseSum(kw, 0, kw.length);
+  }
+  let M = 0;
+  for (const v of ya) M = Math.max(M, Math.abs(v));
+  const dc = (k + 1) * u * M, da = dc;
+  const D = Math.abs(aHigh - c0);
+  const dL0 = (n + 15) * u * S[0];
+  let E = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const dL = ((n - i) + 15) * u * S[i];
+    const r = Math.abs(L[i]) / Math.abs(L[0]);
+    const bgi = c0 + L[i] * ((aHigh - c0) / L[0]);
+    const e = D * (dL + dc * W[i]) / Math.abs(L[0]) + D * Math.abs(L[i]) * (dL0 + dc * W[0]) / (L[0] * L[0])
+      + (da + dc) * r + dc + 4 * u * (Math.abs(c0) + Math.abs(bgi) + D * r);
+    if (Number.isNaN(e)) return NaN;                     // np.max propagates NaN (then: refused)
+    if (e > E) E = e;
+  }
+  return E;
 }
 
 // fitting._fmt3, so page and server give the same words: 3 significant digits ROUNDED
