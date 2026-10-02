@@ -192,7 +192,9 @@ server (np.interp) and the page (`manualAnchorBackground`) both equal the
 definition to 1e-9 on uniform and non-uniform grids. (IMPLEMENTATION, Codex impl
 rounds 9-10: both now evaluate it EXACTLY — Fraction / BigInt rationals — and round
 once to the nearest double: np.interp's formula overflowed on far anchors and cancelled
-to a finite, wrong 0 on finite ones.)
+to a finite, wrong 0 on finite ones. Round 11: the LINEAR background, and manual with
+fewer than two anchors, the same way — y0 + slope (x − x0) cancelled beside a 1e20 end
+point.)
 
 ## Degenerate windows (every method)
 

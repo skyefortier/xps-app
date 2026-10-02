@@ -10,7 +10,7 @@ const path = require('node:path');
 const FUNCTIONS = [
   '_npPairwiseSum', '_npMean', '_bgEdgeLevels', '_bgAscending', '_bgSpan', '_npLinspace',
   '_bgCumFromHigh', '_bgShirleyMap', '_bgMaxAbsDiff', 'shirleyBackground', 'smartBackground',
-  'smartExperimentalBackground', '_bgLineFailure', '_bgAnchorFailure', '_bgExact', '_bgBitLen', '_bgRatToDouble', 'linearBackground', '_tougaardLoss', 'tougaardBackground',
+  'smartExperimentalBackground', '_bgLineFailure', '_bgAnchorFailure', '_bgExact', '_bgBitLen', '_bgRatToDouble', '_bgExactLine', 'linearBackground', '_tougaardLoss', 'tougaardBackground',
   '_bgCertificate', '_fmt3', '_applyEndpointAveraging', 'shirleyLinearBackground', '_bgWindowIndices',
   '_bgMark', '_bgFailure', 'BgNotConverged', '_isBgNotConverged', '_certifiedBg', '_bgOrFailure',
   'computeBackgroundCore', '_computeBackgroundUnchecked',

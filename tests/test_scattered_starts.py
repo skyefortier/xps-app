@@ -20,6 +20,7 @@ from lmfit import Parameters
 import fitting
 from app import create_app
 from fit_equality import assert_same_fit
+from _legacy_line import legacy_line  # noqa: F401,E402  (autouse: the fixtures' background arithmetic)
 
 
 @pytest.fixture()

@@ -1,0 +1,35 @@
+Review the "background math — implementation" unit, round 12: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-11 fix = git diff 60025c7..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..11}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-11 fix in short:
+- The LINEAR background, and manual with fewer than two anchors, is now evaluated EXACTLY: the line through the window's ends, (y0 (x1 − x) + y1 (x − x0)) / (x1 − x0), in Fraction (fitting._line_through) or BigInt (the page's _bgExactLine), rounded once, ties to even. This is the same class fix as round 10's manual curve.
+- Cases that used to overflow now give their true line. Only an extrapolation past the largest double is not finite, and that is refused.
+- _bgRatToDouble takes either sign of denominator (a descending grid).
+- Ordinary windows are within an ulp of the old formula. No committed target uses linear or manual, so no measured number changes.
+- The two pre-existing items stay dispositioned: Auto-Fit's post-shift pairing (logged), and the page / server data readings (measured; an owner decision).
+- The synthetic two-basin fixture (tests/test_scattered_starts.py, shared by test_fit_equality.py and test_runfit_certificate.py) is chaotic in the last bit of its input. The exact line's one-ulp difference at 3 of its 300 points moved its basins, and Trust-Region's continuation went flaky. Those modules now pin the fixture's original background arithmetic through an autouse fixture (tests/_legacy_line.py); see plan §6, round 11.
+- JS CI floor 538 (exact).
+
+Every explicit background (linear, manual, none) is now exact arithmetic rounded once, or zero. The iterative ones are certified by their statements.
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+0. Is the _legacy_line pin honest? The owner accepted it as a stopgap; its follow-up is logged in docs/autofit/PROGRESS.md. Read every test in tests/test_scattered_starts.py, tests/test_fit_equality.py and tests/test_runfit_certificate.py. Does any of them depend on the background in a way that makes the pin hide a real change, i.e. would a test pass under the pin but fail, or mean something different, with the production line? Name each such test, or state that none does and why.
+a. The exact line:
+   - both grid directions, a window narrower than the ROI (extrapolation), repeated energies at the window's ends, signed zeros;
+   - page = server bit for bit;
+   - performance.
+   Also anything still reachable in this unit's scope where a background that misses its statement is certified, drawn, fitted, saved or exported, or where page and server disagree on a verdict on the SAME numbers.
+b. Everything rounds 1-11 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

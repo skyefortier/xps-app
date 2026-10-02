@@ -255,10 +255,14 @@ test('explicit backgrounds: conflicting anchors and non-finite results are not c
   assert.throws(() => R._computeBackgroundForSource(E, I, { bgType: 'manual' }, conflict), e => R._isBgNotConverged(e) && e.message === ANCHOR);
   const agree = [{ x: 0, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 1 }, { x: 5, y: 0 }];
   assert.strictEqual(R._computeBackgroundForSource(E, I, { bgType: 'manual' }, agree).converged, true);
-  for (const [x, y] of [[[0, 1e-309], [0, 1]], [[0, 1, 2], [1e308, 1, -1e308]]]) {
+  // since round 11 the line is evaluated exactly: these used to overflow and now give
+  // their true values; only an EXTRAPOLATION past the largest double is not finite
+  for (const [x, y, want] of [[[0, 1e-309], [0, 1], [0, 1]], [[0, 1, 2], [1e308, 1, -1e308], [1e308, 0, -1e308]]]) {
     const bg = B.computeBackgroundCore(x, y, { bgType: 'linear', endpointAvg: '1', bgStart: '', bgEnd: '' });
-    assert.strictEqual(bg.converged, false); assert.strictEqual(bg.failure, FINITE);
+    assert.strictEqual(bg.converged, true); assert.deepStrictEqual(Array.from(bg), want);
   }
+  const ex = B.computeBackgroundCore([0, 1, 2], [-1.7e308, 1.7e308, 0], { bgType: 'linear', endpointAvg: '1', bgStart: '0', bgEnd: '1' });
+  assert.strictEqual(ex.converged, false); assert.strictEqual(ex.failure, FINITE);
   // anchors near the largest double: the exact interpolation is a convex combination of
   // finite values, so it is finite and correct (it overflowed before round 10)
   const huge = R._computeBackgroundForSource([0, 5e-301, 5], [1, 2, 3], { bgType: 'manual' }, [{ x: 0, y: -1.7e308 }, { x: 1e-300, y: 1.7e308 }, { x: 5, y: 1 }]);
@@ -307,6 +311,7 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
     { m: 'shirley', x: [0, 1, 1, 2, 3, 4, 5], y: [10, 12, 14, 40, 30, 22, 20] }, { m: 'shirley', x: [0, 1, 2], y: [1, NaN, 3] },
     { m: 'linear', x: [1, 1], y: [10, 30] }, { m: 'linear', x: [0, 1e-309], y: [0, 1] },
     { m: 'manual', x: [0, 1e-309], y: [0, 1], anchors: [] },
+    { m: 'linear', x: [1e20, 290, 289, 280], y: [1e20, 70, 80, 50] }, { m: 'manual', x: [-1e20, 280, 290, 300], y: [1e20, 50, 60, 1], anchors: [] },
     { m: 'manual', x: [0, 1, 2, 3, 4, 5], y: [10, 12, 40, 30, 22, 20], anchors: [[0, 0], [2, 1], [2, 20], [5, 0]] },
   ];
   const S = serverWords(cases);
@@ -316,7 +321,8 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
     const bg = R.computeBackgroundCore(c.x, c.y, settings);
     assert.strictEqual(bg.converged ? null : bg.failure, S[k], `case ${k} (${c.m})`);
   });
-  assert.ok(S.filter(v => v).length >= 10, 'the cases are refusals');
+  assert.ok(S.filter(v => v).length >= 9, 'the cases are mostly refusals');
+  assert.ok(S.filter(v => v === null).length >= 4, 'and the exact lines converge on both sides');
   // the residual text: Python's %.3g, value for value
   const { execFileSync } = require('node:child_process');
   // incl. exact binary ties (12.25, 1.125, 0.125·10^k): fitting._fmt3 rounds them half up, as toExponential does
@@ -376,4 +382,13 @@ test('manual: far and huge anchors give the exact piecewise-affine value, page =
   for (const k of ['a', 'b', 'c']) { assert.strictEqual(got[k].converged, true, k); assert.deepStrictEqual(Array.from(got[k]), want[k], k); }
   const S = serverWords([{ m: 'manual', x: E, y: I, anchors: [[-1e20, -1e20], [300, 100]] }]);
   assert.deepStrictEqual(S, [null], 'the server accepts it too (the values: manual_background_statement.test.js)');
+});
+
+test('linear (and manual without anchors) is the exact line, page = server, also beside a 1e20 end point (round 11)', () => {
+  const E1 = [1e20, 290, 289, 288, 287, 286, 285, 284, 283, 282, 281, 280], I1 = [1e20, 70, 70, 80, 120, 500, 120, 80, 70, 70, 60, 50];
+  const lin = R.computeBackgroundCore(E1, I1, { bgType: 'linear', endpointAvg: '1', bgStart: '', bgEnd: '' });
+  assert.deepStrictEqual(Array.from(lin), [1e20, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50]);
+  const E2 = [-1e20, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 300], I2 = [1e20, 50, 50, 60, 100, 500, 100, 60, 50, 50, 50, 50, 1];
+  const man = R._computeBackgroundForSource(E2, I2, { bgType: 'manual' }, []);
+  assert.deepStrictEqual(Array.from(man), [1e20, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 1]);
 });

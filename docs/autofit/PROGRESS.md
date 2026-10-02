@@ -23,6 +23,12 @@ Find Peaks is ARCHIVED (hidden from the UI, not deleted: backend, engine,
 | Unit B — data-estimated noise | **DEFERRED, not dropped** | its Find Peaks consumers (detection / proposal gates, occupancy floor) are archived. It still matters for RUN FIT: the displayed chi2r assumes Poisson variance in the file's own units, and the measured dispersion on flat ends of the committed C 1s scans is 0.4–1.2 × the mean (`docs/findings/find-peaks-scale/README.md` §2, on branch `fix-occupancy-f-test` at `08a51d9`), so the absolute value of the displayed chi2r is not calibrated: divided by that dispersion, a calibrated chi2r would be ~0.83–2.5× the displayed one on those scans (the owner's note of 2026-09-29 gives a narrower k = 0.43–0.75, ~1.3–2.3×; that narrower range is not in the cited record). A constant variance factor changes ONLY that absolute value: the fit, the sigmas (lmfit scales the covariance by chi2r) and the support F test (a ratio of chi2 differences) are invariant to it | an owner decision to calibrate the displayed chi2r (what a reader compares with 1), or Find Peaks revived |
 
 
+## LOGGED — follow-up units (not started)
+
+| unit | logged | what | done when |
+|---|---|---|---|
+| Two-basin fit fixture inside one basin | owner, 2026-10-01 (background math, Codex impl round 11) | The synthetic `_two_basin_problem` of `tests/test_scattered_starts.py` (shared by `tests/test_fit_equality.py` and `tests/test_runfit_certificate.py`) sits ON a basin boundary: one rounding step of the linear background at 3 of its 300 points changes where Levenberg-Marquardt stalls, which basin the certificate and the scattered starts reach, and makes Trust-Region's continuation flaky run to run. Those modules now pin the old floating-point line (`tests/_legacy_line.py`, autouse) so the background-math unit could keep the exact line; the pin is a stopgap | the fixture is replaced by one clearly inside one basin (its outcome unchanged by rounding-level changes of the input), the `_legacy_line` pin is removed from the three modules, and — if boundary behaviour should be tested — it gets its own deliberate test |
+
 ## Status board
 
 | Unit | Status | Tested | Notes |

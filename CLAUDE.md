@@ -886,8 +886,8 @@ result).
 The page's twins (`computeBackgroundCore`) run the server's arithmetic operation for
 operation: EVERY background is BIT-IDENTICAL to fitting.py (Tougaard's loss sum term
 for term with numpy's pairwise summation, `_npPairwiseSum`; `shirley_linear` on both
-grid directions; linear affine in energy; manual the exact piecewise-affine value through
-the anchors, rounded once — `Fraction` on the server, `BigInt` on the page, since np.interp's
+grid directions; linear the exact line through the window's ends; manual the exact
+piecewise-affine value through the anchors — both rounded once — `Fraction` on the server, `BigInt` on the page, since np.interp's
 formula overflowed or cancelled on far anchors) on the parity file's synthetic, real and 200
 randomised spectra at averaging 1, 3 and 10, and `_bgCertificate` gives the server's
 verdict and reason, through the same acceptance predicate (diff <= tol·span) the

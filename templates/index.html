@@ -4555,9 +4555,26 @@ function linearBackground(be, intensity) {
   // one point: the line through it is its own value (fitting.linear_background;
   // Codex impl round 7 — it returned 0)
   if (n < 2) return intensity.slice(0, n);
-  const x0 = be[0], y0 = intensity[0], x1 = be[n - 1], y1 = intensity[n - 1];
-  const slope = x1 !== x0 ? (y1 - y0) / (x1 - x0) : 0;
-  return be.map(e => y0 + slope * (e - x0));
+  return _bgExactLine(be, be[0], intensity[0], be[n - 1], intensity[n - 1]);
+}
+
+// fitting._line_through's evaluation, bit for bit: the line through (x0, y0) and
+// (x1, y1) at each x, EXACTLY — (y0 (x1 − x) + y1 (x − x0)) / (x1 − x0) in BigInt
+// rationals — rounded once, half to even (Codex impl round 11: y0 + slope·(x − x0)
+// cancelled to a finite, wrong 0 beside a 1e20 end point). With x0 === x1 the flat y0
+// (the callers refuse y0 !== y1 first, _bgLineFailure). Non-finite x: NaN.
+function _bgExactLine(xs, x0, y0, x1, y1) {
+  if (![x0, y0, x1, y1].every(Number.isFinite)) return xs.map(() => NaN);   // refused by the finiteness check
+  if (x1 === x0) return xs.map(x => Number.isFinite(x) ? y0 : NaN);
+  const X0 = _bgExact(x0), X1 = _bgExact(x1), Y0 = _bgExact(y0), Y1 = _bgExact(y1);
+  const D = (X1 - X0) << 1074n;
+  return xs.map(x => {
+    if (!Number.isFinite(x)) return NaN;
+    if (x === x0) return y0;
+    if (x === x1) return y1;
+    const X = _bgExact(x);
+    return _bgRatToDouble(Y0 * (X1 - X) + Y1 * (X - X0), D);
+  });
 }
 
 // Single-pass Tougaard background — JS twin of fitting.py's
@@ -4925,8 +4942,7 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
     const x0 = beSub[0], y0 = inSub[0], x1 = beSub[beSub.length - 1], y1 = inSub[inSub.length - 1];
     const lineFail = _bgLineFailure(x0, y0, x1, y1);
     if (lineFail) return _bgMark(new Array(be.length).fill(NaN), false, lineFail);
-    const slope = x1 !== x0 ? (y1 - y0) / (x1 - x0) : 0;
-    return _bgMark(be.map(e => y0 + slope * (e - x0)), true);
+    return _bgMark(_bgExactLine(be, x0, y0, x1, y1), true);
   }
   else if (type === 'tougaard') bgSub = tougaardBackground(beSub, inSub, nAvg);
   else return _bgMark(new Array(be.length).fill(0), true);
@@ -15092,9 +15108,11 @@ function _bgExact(v) {
   return neg ? -m : m;
 }
 function _bgBitLen(a) { return a === 0n ? 0 : a.toString(2).length; }
-// num / den (den > 0) rounded to the nearest double, ties to even — what Python's
-// int / int (and so float(Fraction)) gives.
+// num / den rounded to the nearest double, ties to even — what Python's int / int
+// (and so float(Fraction)) gives. Either sign of den (a descending grid gives a
+// negative one).
 function _bgRatToDouble(num, den) {
+  if (den < 0n) { num = -num; den = -den; }
   if (num === 0n) return 0;
   const neg = num < 0n, A = neg ? -num : num;
   let e = _bgBitLen(A) - _bgBitLen(den);                 // 2^(e-1) < A/den < 2^(e+1)

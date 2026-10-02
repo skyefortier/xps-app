@@ -241,7 +241,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 537, exact (the owner's 512 for the two landed branches + this unit's 25 tests).
+- JS CI floor 508 -> 538, exact (the owner's 512 for the two landed branches + this unit's 26 tests).
 
 ## 4. Measurements
 
@@ -553,3 +553,36 @@ window; the page re-evaluates on each redraw in manual mode).
 
 Mutation-verified (3 of 3 killed): ties rounded up, the floating-point formula on the
 page, np.interp on the server.
+
+**Round 11 — NO-GO ×2** (`background_math_impl_r11_verdict_run{A,B}.md`, commit 60025c7;
+both: the round-10 manual evaluator holds — A: 10 006 exact-double, 12 890
+rational-rounding and 44 871 page = server values; B: 15 000 values, 5 006
+decompositions, 13 392 rounding probes incl. ties around every finite power of two; 4 000
+points × 12 anchors 29-36 ms page / 67 ms server; the census, the four measurement
+summaries, the smart / smart_exp identity and the upload-rounding measurement
+reproduce):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the LINEAR background (and manual with fewer than two anchors) beside a 1e20 end point: y0 + slope (x − x0) cancelled to a finite, wrong 0 (the line is 60..50 / 21..11); certified, saved, restored, fitted | the same class fix as round 10: the line through the window's ends evaluated exactly — (y0 (x1 − x) + y1 (x − x0)) / (x1 − x0) in Fraction / BigInt — rounded once (`fitting._line_through`, the page's `_bgExactLine`, used by the linear branch and the manual fallback); the round-5 "overflow" cases now give their true line; only an extrapolation past the largest double is not finite (refused). `_bgRatToDouble` takes either sign of denominator (a descending grid; the parity test found it). Ordinary windows within an ulp of the old formula; no committed target uses linear |
+
+The full suite then found the synthetic two-basin fixture of
+`tests/test_scattered_starts.py` (shared by `test_fit_equality.py` and
+`test_runfit_certificate.py`) CHAOTIC IN THE LAST BIT of its input: the exact line
+differs from the old formula by one ulp at 3 of its 300 points, and that moves
+Levenberg-Marquardt's stall (chi2r ~286, not a minimum), the basin the certificate and the
+scattered starts reach, and puts Trust-Region's alignment-dependent continuation on a
+basin boundary (identical requests differed run to run: 6 tests, 2 of them flaky). Those
+modules test the starts / certificate / equality machinery on a FIXED input, so they pin
+the background arithmetic the model was found with (`tests/_legacy_line.py`, an autouse
+fixture: the old floating-point line); the exact line is pinned by its own tests. 75 of
+75 pass, three runs in a row. The sensitivity itself is the accepted, disclosed property
+(CLAUDE.md, Reproducibility: near a basin boundary a rounding step decides the basin).
+OWNER (2026-10-01): the pin is accepted as a stopgap — the background is incidental
+there and the exact line keeps its own tests; the round-12 review is asked whether the
+pin hides a real change; the follow-up (a fixture clearly inside one basin, the pin
+removed, boundary behaviour given its own deliberate test if wanted) is logged in
+`docs/autofit/PROGRESS.md` "LOGGED — follow-up units".
+
+Mutation-verified (3 of 3 killed): the floating-point line on either side, the
+denominator sign.

@@ -13,6 +13,7 @@ import fitting
 from fit_equality import OBJECTIVE_REL, SAME_MINIMUM_REL, assert_same_fit
 import test_fit_reproducibility as R
 import test_scattered_starts as SS
+from _legacy_line import legacy_line  # noqa: F401,E402  (autouse: the fixtures' background arithmetic)
 
 SEED = {"seed": 123}
 

@@ -572,18 +572,42 @@ def _explicit_background(bg, label):
 
 
 def _line_through(x, x0, y0, x1, y1):
-    """The affine function of energy through (x0, y0) and (x1, y1), evaluated on x;
-    raises BackgroundNotConverged when x0 == x1 and y0 != y1 (no such line) or when
-    the result is not finite."""
-    if x1 != x0:
-        slope = (y1 - y0) / (x1 - x0)
-    elif y1 == y0:
-        slope = 0.0
-    else:
-        raise BackgroundNotConverged(
-            "Linear background not converged: its two end points are at the same energy "
-            "with different intensities, so no line passes through both.")
-    return _explicit_background(y0 + slope * (x - x0), "Linear")
+    """The affine function of energy through (x0, y0) and (x1, y1), evaluated on x
+    EXACTLY — (y0 (x1 - v) + y1 (v - x0)) / (x1 - x0) in Fraction arithmetic, rounded
+    once to the nearest double (half to even), as the manual curve (Codex impl round
+    11: y0 + slope (v - x0) cancelled to a finite, wrong 0 beside a 1e20 end point; the
+    page's twin is _bgExactLine). Raises BackgroundNotConverged when x0 == x1 and y0 !=
+    y1 (no such line) or when a value is not finite (an extrapolation past the largest
+    double)."""
+    from fractions import Fraction
+    x0, y0, x1, y1 = float(x0), float(y0), float(x1), float(y1)
+    xv = np.asarray(x, dtype=float)
+    if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
+        return _explicit_background(np.full(len(xv), np.nan), "Linear")   # raises: not finite
+    if x1 == x0:
+        if y1 != y0:
+            raise BackgroundNotConverged(
+                "Linear background not converged: its two end points are at the same energy "
+                "with different intensities, so no line passes through both.")
+        out = np.where(np.isfinite(xv), y0, np.nan)
+        return _explicit_background(out, "Linear")
+    X0, X1, Y0, Y1 = Fraction(x0), Fraction(x1), Fraction(y0), Fraction(y1)
+    D = X1 - X0
+    out = np.empty(len(xv))
+    for i, v in enumerate(xv.tolist()):
+        if not math.isfinite(v):
+            out[i] = float("nan")
+        elif v == x0:
+            out[i] = y0
+        elif v == x1:
+            out[i] = y1
+        else:
+            X = Fraction(v)
+            try:
+                out[i] = float((Y0 * (X1 - X) + Y1 * (X - X0)) / D)
+            except OverflowError:
+                out[i] = float("inf")
+    return _explicit_background(out, "Linear")
 
 
 def _check_anchors(anchors):

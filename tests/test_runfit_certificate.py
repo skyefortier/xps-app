@@ -14,6 +14,7 @@ import pytest
 import scipy.optimize
 
 import fitting
+from _legacy_line import legacy_line  # noqa: F401,E402  (autouse: the fixtures' background arithmetic)
 
 
 def _g(x, c, a, w):

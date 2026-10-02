@@ -204,11 +204,14 @@ def test_an_explicit_background_must_exist_server():
         fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[[0, 0], [2, 1], [2, 20], [5, 0]])
     assert str(e.value) == ANCHOR_WORDS
     fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[[0, 0], [2, 1], [2, 1], [5, 0]])  # agreeing duplicates exist
-    # finite inputs whose arithmetic overflows
-    for x, y in (([0.0, 1e-309], [0.0, 1.0]), ([0.0, 1.0, 2.0], [1e308, 1.0, -1e308])):
-        with pytest.raises(fitting.BackgroundNotConverged) as e:
-            fitting.compute_background_only(np.array(x), np.array(y), method="linear")
-        assert str(e.value) == FINITE_WORDS
+    # finite inputs that used to overflow are evaluated exactly since round 11 (their true line);
+    # only an EXTRAPOLATION past the largest double (a narrow window's line across the ROI) is not finite
+    assert np.array_equal(fitting.compute_background_only(np.array([0.0, 1e-309]), np.array([0.0, 1.0]), method="linear")["background"], [0.0, 1.0])
+    assert np.array_equal(fitting.compute_background_only(np.array([0.0, 1, 2]), np.array([1e308, 1, -1e308]), method="linear")["background"], [1e308, 0.0, -1e308])
+    with pytest.raises(fitting.BackgroundNotConverged) as e:
+        fitting.run_fit(np.array([0.0, 1, 2, 3]), np.array([-1.7e308, 1.7e308, 0, 0]), GPEAK, background_method="linear",
+                        bg_start_idx=0, bg_end_idx=2)
+    assert str(e.value) == FINITE_WORDS
 
 
 def test_the_parity_reference_follows_run_fits_linear_rule():
@@ -313,3 +316,22 @@ def test_the_parity_reference_reads_manual_without_anchors_as_run_fit_does():
     from autofit.parity import background_like_run_fit
     E, I = np.array([0.0, 1, 2, 3, 4, 5]), np.array([10.0, 12, 40, 30, 22, 20])
     assert np.array_equal(background_like_run_fit(E, I, "manual", 0, 6), fitting.linear_background(E, I))
+
+
+
+# ── Codex implementation round 11 ────────────────────────────────────────────
+
+def test_linear_is_the_exact_line_beside_a_huge_end_point():
+    # y0 + slope (x - x0) cancelled to a finite, wrong 0 beside a 1e20 end point
+    E = np.array([1e20, 290, 289, 288, 287, 286, 285, 284, 283, 282, 281, 280.0])
+    I = np.array([1e20, 70, 70, 80, 120, 500, 120, 80, 70, 70, 60, 50.0])
+    assert np.array_equal(fitting.linear_background(E, I), [1e20, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50])
+    E = np.array([-1e20] + list(range(280, 291)) + [300.0])
+    I = np.array([1e20, 50, 50, 60, 100, 500, 100, 60, 50, 50, 50, 50, 1.0])
+    r = fitting.run_fit(E, I, GPEAK, background_method="manual", manual_bg=[], n_perturb=0)
+    assert np.array_equal(np.asarray(r["background_y"]), [1e20] + list(range(21, 10, -1)) + [1.0])
+    # ordinary windows: within an ulp of the floating-point formula
+    x = np.linspace(280, 296, 50)
+    y = 100 + 30 * np.sin(x)
+    ref = y[0] + ((y[-1] - y[0]) / (x[-1] - x[0])) * (x - x[0])
+    assert np.all(np.abs(fitting.linear_background(x, y) - ref) <= 4 * np.spacing(np.abs(ref)))
