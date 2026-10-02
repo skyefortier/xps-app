@@ -245,7 +245,11 @@ path's own ROI loop each fail it.
 
 ## 4. Measurements
 
-(Re-run after Codex implementation round 1: every request now serialised exactly as
+(STILL CURRENT at the final commit, checked after round 17: on the 202 targets, each at
+its own method and at its committed averaging and at 3 — 404 cases — every background is
+bit-identical to the measured commit cf64e80 and none is refused; the request seed hashes
+the computed background, so the fits below are the final commit's fits. Re-run after
+Codex implementation round 1: every request now serialised exactly as
 the page's `uploadToBackend` sends it — BE toFixed(4), intensity toFixed(2); "item 1
 alone" is main's own algorithms with only the levels reading,
 `scripts/bg_math_impl_item1_only.py`.)
@@ -660,3 +664,14 @@ measurements, census and upload comparison reproduce; B: 128 loader cases):
 Two tests used perfectly FLAT data (span 0, so a predicate of 0 that any rounding
 misses): they now carry structure (their point is the curve through the anchors).
 Mutation-verified (4 of 4 killed): the check off for the line and for manual, each side.
+
+**Round 17 — GO ×2, no findings** (`background_math_impl_r17_verdict_run{A,B}.md`,
+commit e882d9d). A: 3 500 adversarial Tougaard probes with no false certificate against
+exact rational evaluation, 700 page / server comparisons bit for bit; the 606 committed
+Tougaard cases certified unchanged (bound ≤ 0.0433); the 1 212 Shirley-family cases within
+the predicate (≤ 0.9928); 128 valid / 128 altered records in both loaders; the census and
+measurements reproduce; 484 smart / smart_exp comparisons bit-identical. B: 2 000
+Tougaard and 2 000 linear / manual probes with no accepted violation or parity mismatch;
+128 loader cases; the same reproductions — with the caveat that it "does not establish a
+universal numerical proof" (normalisation can lose tiny components on extreme mixed-scale
+inputs; no violation found). REVIEW COMPLETE — stopped for the owner, not deployed.
