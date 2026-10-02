@@ -890,7 +890,8 @@ checked the same way, server and page, in the same words: no line when the windo
 end points share an energy and not an intensity, no manual curve when two anchors do,
 and every value finite (`fitting._line_through`, `manual_anchor_background`,
 `_explicit_background`; the page's `computeBackgroundCore` checks every method's
-result).
+result). The line and the manual curve are evaluated EXACTLY and rounded once, and that
+rounding must itself meet the predicate (refused where max|I| / span exceeds ~4 500).
 
 The page's twins (`computeBackgroundCore`) run the server's arithmetic operation for
 operation: EVERY background is BIT-IDENTICAL to fitting.py (Tougaard's loss sum term

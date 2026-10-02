@@ -4550,12 +4550,12 @@ function _bgAnchorFailure(anchors) {
   return null;
 }
 
-function linearBackground(be, intensity) {
+function linearBackground(be, intensity, span) {
   const n = be.length;
   // one point: the line through it is its own value (fitting.linear_background;
   // Codex impl round 7 — it returned 0)
   if (n < 2) return intensity.slice(0, n);
-  return _bgExactLine(be, be[0], intensity[0], be[n - 1], intensity[n - 1]);
+  return _bgExactLine(be, be[0], intensity[0], be[n - 1], intensity[n - 1], span);
 }
 
 // fitting._line_through's evaluation, bit for bit: the line through (x0, y0) and
@@ -4563,18 +4563,46 @@ function linearBackground(be, intensity) {
 // rationals — rounded once, half to even (Codex impl round 11: y0 + slope·(x − x0)
 // cancelled to a finite, wrong 0 beside a 1e20 end point). With x0 === x1 the flat y0
 // (the callers refuse y0 !== y1 first, _bgLineFailure). Non-finite x: NaN.
-function _bgExactLine(xs, x0, y0, x1, y1) {
+function _bgExactLine(xs, x0, y0, x1, y1, span) {
   if (![x0, y0, x1, y1].every(Number.isFinite)) return xs.map(() => NaN);   // refused by the finiteness check
   if (x1 === x0) return xs.map(x => Number.isFinite(x) ? y0 : NaN);
   const X0 = _bgExact(x0), X1 = _bgExact(x1), Y0 = _bgExact(y0), Y1 = _bgExact(y1);
   const D = (X1 - X0) << 1074n;
-  return xs.map(x => {
+  const lim = span === undefined ? null : _bgExact(BG_REL_TOL) * span;
+  let lost = false;
+  const out = xs.map(x => {
     if (!Number.isFinite(x)) return NaN;
     if (x === x0) return y0;
     if (x === x1) return y1;
     const X = _bgExact(x);
-    return _bgRatToDouble(Y0 * (X1 - X) + Y1 * (X - X0), D);
+    const num = Y0 * (X1 - X) + Y1 * (X - X0);
+    const v = _bgRatToDouble(num, D);
+    if (lim !== null && Number.isFinite(v) && !_bgRoundingWithin(v, num, D, lim)) lost = true;
+    return v;
   });
+  if (lost) out.precisionFail = true;
+  return out;
+}
+
+// fitting._line_through / manual_anchor_background's precision check (Codex impl round
+// 16): the rounding of the exact value num / den to the double v must meet the
+// predicate, |v − num/den| <= BG_REL_TOL · span, decided exactly — v = V·2^-1074,
+// lim = TOL·SPAN at 2^-2148, so the test is |V·den·2^1074 − num·2^2148| <= lim·|den|.
+function _bgRoundingWithin(v, num, den, lim) {
+  const d = _bgExact(v) * den * (1n << 1074n) - num * (1n << 2148n);
+  const ad = den < 0n ? -den : den;
+  return (d < 0n ? -d : d) <= lim * ad;
+}
+// The window's intensity span EXACTLY, at scale 2^-1074 (fitting._span): max − min of
+// two doubles can overflow in float. The `span` the exact curves take.
+function _bgExactSpan(ys) {
+  if (!ys.length) return 0n;
+  let hi = _bgExact(ys[0]), lo = hi;
+  for (const v of ys) { const e = _bgExact(v); if (e > hi) hi = e; if (e < lo) lo = e; }
+  return hi - lo;
+}
+function _bgPrecisionWords(label) {
+  return label + ' background not converged: its exact values cannot be represented within the certificate\'s precision at this span (the data exceed what double precision resolves).';
 }
 
 // Single-pass Tougaard background — JS twin of fitting.py's
@@ -5047,12 +5075,15 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
       // the line through the ROI's ends — the server's linear_background, its words
       const lineFail = n >= 2 ? _bgLineFailure(be[0], intensity[0], be[n - 1], intensity[n - 1]) : null;
       if (lineFail) return _bgMark(new Array(n).fill(NaN), false, lineFail);
-      const line = linearBackground(be, intensity);
+      const line = linearBackground(be, intensity, _bgExactSpan(intensity));
+      if (line.precisionFail) return _bgMark(new Array(n).fill(NaN), false, _bgPrecisionWords('Linear'));
       if (!line.every(Number.isFinite))
         return _bgMark(line, false, 'Linear background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).');
       return _bgMark(line, true);
     }
-    return _bgMark(manualAnchorBackground(be, intensity, anchors), true);
+    const curve = manualAnchorBackground(be, intensity, anchors, _bgExactSpan(intensity));
+    if (curve.precisionFail) return _bgMark(new Array(n).fill(NaN), false, _bgPrecisionWords('Manual'));
+    return _bgMark(curve, true);
   }
 
   // The background window — the one definition shared with both /api/fit
@@ -5089,7 +5120,9 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
     const x0 = beSub[0], y0 = inSub[0], x1 = beSub[beSub.length - 1], y1 = inSub[inSub.length - 1];
     const lineFail = _bgLineFailure(x0, y0, x1, y1);
     if (lineFail) return _bgMark(new Array(be.length).fill(NaN), false, lineFail);
-    return _bgMark(_bgExactLine(be, x0, y0, x1, y1), true);
+    const line = _bgExactLine(be, x0, y0, x1, y1, _bgExactSpan(inSub));
+    if (line.precisionFail) return _bgMark(new Array(be.length).fill(NaN), false, _bgPrecisionWords('Linear'));
+    return _bgMark(line, true);
   }
   else if (type === 'tougaard') bgSub = tougaardBackground(beSub, inSub, nAvg);
   else return _bgMark(new Array(be.length).fill(0), true);
@@ -15212,14 +15245,14 @@ function _manualClearAnchors() {
 // No physical model: the defence is the user's judgement of where the background
 // lies. With fewer than 2 anchors it falls back to linearBackground (by index; the
 // server's fallback is linear in energy — the same two readings as Linear).
-function manualAnchorBackground(be, intensity, anchorsGiven) {
+function manualAnchorBackground(be, intensity, anchorsGiven, span) {
   // a record's own anchors when given (stacks, restored fits); else the active tab's
   const anchors = anchorsGiven || _getManualAnchors();
   const n = be.length;
   // With fewer than 2 anchors, fall back to a linear baseline between
   // ROI endpoints so that existing peaks stay visible while the user
   // places anchor points.
-  if (!anchors || anchors.length < 2) return linearBackground(be, intensity);
+  if (!anchors || anchors.length < 2) return linearBackground(be, intensity, span);
 
   // fitting.manual_anchor_background, bit for bit: the piecewise-affine function
   // through the anchors (constant beyond the outermost), EVALUATED EXACTLY and
@@ -15228,6 +15261,8 @@ function manualAnchorBackground(be, intensity, anchorsGiven) {
   // wrong 0 on finite ones). Exact rationals in BigInt (_bgExact / _bgRatToDouble).
   const a = [...anchors].sort((p, q) => p.x - q.x);
   const xp = a.map(p => p.x), fp = a.map(p => p.y), m = xp.length;
+  const lim = span === undefined ? null : _bgExact(BG_REL_TOL) * span;
+  let lost = false;
   const result = new Array(n);
   for (let i = 0; i < n; i++) {
     const x = be[i];
@@ -15239,8 +15274,11 @@ function manualAnchorBackground(be, intensity, anchorsGiven) {
     if (xp[j] === x) { result[i] = fp[j]; continue; }
     const X = _bgExact(x), X0 = _bgExact(xp[j]), X1 = _bgExact(xp[j + 1]);
     const num = _bgExact(fp[j]) * (X1 - X) + _bgExact(fp[j + 1]) * (X - X0);   // scaled by 2^-2148
-    result[i] = _bgRatToDouble(num, (X1 - X0) << 1074n);                       // / (2^-1074 · 2^-1074)
+    const den = (X1 - X0) << 1074n;                                             // / (2^-1074 · 2^-1074)
+    result[i] = _bgRatToDouble(num, den);
+    if (lim !== null && !_bgRoundingWithin(result[i], num, den, lim)) lost = true;
   }
+  if (lost) result.precisionFail = true;
   return result;
 }
 

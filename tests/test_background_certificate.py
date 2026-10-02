@@ -477,3 +477,22 @@ def test_the_tougaard_bound_is_rigorous_when_the_computed_edge_difference_is_zer
     for o in (1, -1):
         with pytest.raises(fitting.BackgroundNotConverged, match="not finite"):
             fitting.compute_background(np.arange(11.0, -1.0, -1.0)[::o], np.array(I[::o]), "tougaard", n_avg=3)
+
+
+# ── Codex implementation round 16 ────────────────────────────────────────────
+
+def test_an_explicit_curves_rounding_must_meet_the_predicate():
+    # (A, B) the exact line rounds once to a double, and that rounding (4e-5 at 1e12 counts) is
+    # 2e7 / 4e7 x the predicate on a window whose span is 2 / 1: refused, linear and manual
+    W = "cannot be represented within the certificate's precision"
+    for E, I in (([280.0, 281, 283], [1e12, 1e12 + 2, 1e12 + 1]), ([0.0, 1, 3], [1e12, 1e12, 1e12 + 1])):
+        for o in (1, -1):
+            x, y = np.array(E[::o]), np.array(I[::o])
+            with pytest.raises(fitting.BackgroundNotConverged, match="^Linear background not converged: its exact values " + W[:6]):
+                fitting.compute_background_only(x, y, method="linear")
+            with pytest.raises(fitting.BackgroundNotConverged, match="^Manual background not converged: its exact values"):
+                fitting.run_fit(x, y, GPEAK, background_method="manual", manual_bg=[[E[0], I[0]], [E[-1], I[-1]]])
+            with pytest.raises(fitting.BackgroundNotConverged, match="^Linear background not converged: its exact values"):
+                fitting.run_fit(x, y, GPEAK, background_method="manual", manual_bg=[])
+    # ordinary data are far inside it: the round-11 line beside a 1e20 end point is exact anyway
+    assert fitting.linear_background(np.array([0.0, 1, 2]), np.array([10.0, 30, 20]))[1] == 15.0

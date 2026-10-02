@@ -18,7 +18,7 @@ import pytest
 import fitting
 
 
-def _legacy_line_through(x, x0, y0, x1, y1):
+def _legacy_line_through(x, x0, y0, x1, y1, span=None):
     if x1 != x0:
         slope = (y1 - y0) / (x1 - x0)
     elif y1 == y0:

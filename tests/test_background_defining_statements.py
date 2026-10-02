@@ -296,7 +296,9 @@ def test_FINDING_the_kernel_shape_matters_on_the_wider_windows():
 def test_the_servers_manual_background_is_the_piecewise_affine_curve_through_the_anchors():
     x = np.linspace(296.0, 280.0, 321)
     anchors = [[282.0, 1000.0], [289.5, 1400.0], [284.0, 1050.0], [294.0, 1500.0]]
-    res = fitting.run_fit(x, np.full_like(x, 5000.0), [{"id": 1, "shape": "gaussian", "center": 286.0, "amplitude": 100.0, "fwhm": 1.0, "amplitude_min": 0}],
+    # (data with a span: since round 16 the curve's rounding is judged against the data's span,
+    # and a perfectly flat window has span 0)
+    res = fitting.run_fit(x, 5000.0 + 100.0 * np.sin(x), [{"id": 1, "shape": "gaussian", "center": 286.0, "amplitude": 100.0, "fwhm": 1.0, "amplitude_min": 0}],
                           background_method="manual", manual_bg=anchors, n_perturb=0, fit_kws={"method": "leastsq"})
     assert np.max(np.abs(np.asarray(res["background_y"]) - D.manual_reference(x, anchors))) < 1e-9
 

@@ -554,7 +554,21 @@ def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """
     if len(x) == 0:
         return np.zeros(0)        # an empty window: an empty curve, as the page (round 8)
-    return _line_through(x, x[0], y[0], x[-1], y[-1])
+    return _line_through(x, x[0], y[0], x[-1], y[-1], _span(y))
+
+
+def _span(y):
+    """The window's intensity span EXACTLY (a Fraction: max - min of two doubles can
+    overflow in float), for the explicit curves' precision check."""
+    from fractions import Fraction
+    y = np.asarray(y, dtype=float)
+    return Fraction(float(np.max(y))) - Fraction(float(np.min(y))) if len(y) else Fraction(0)
+
+
+def _precision_words(label):
+    return (f"{label} background not converged: its exact values cannot be represented within "
+            "the certificate's precision at this span (the data exceed what double precision "
+            "resolves).")
 
 
 def _explicit_background(bg, label):
@@ -571,16 +585,20 @@ def _explicit_background(bg, label):
     return bg
 
 
-def _line_through(x, x0, y0, x1, y1):
+def _line_through(x, x0, y0, x1, y1, span=None):
     """The affine function of energy through (x0, y0) and (x1, y1), evaluated on x
     EXACTLY — (y0 (x1 - v) + y1 (v - x0)) / (x1 - x0) in Fraction arithmetic, rounded
     once to the nearest double (half to even), as the manual curve (Codex impl round
     11: y0 + slope (v - x0) cancelled to a finite, wrong 0 beside a 1e20 end point; the
     page's twin is _bgExactLine). Raises BackgroundNotConverged when x0 == x1 and y0 !=
     y1 (no such line) or when a value is not finite (an extrapolation past the largest
-    double)."""
+    double). The rounding of each exact value to a double is itself an error: it must
+    meet the certificate's predicate, BG_REL_TOL x `span` (the span of the data the
+    curve is judged against), exactly, or the background is refused (Codex impl round
+    16: a line at 1e12 counts over a span of 1 rounds by 4e-5)."""
     from fractions import Fraction
     x0, y0, x1, y1 = float(x0), float(y0), float(x1), float(y1)
+    tol = None if span is None else Fraction(BG_REL_TOL) * Fraction(span)
     xv = np.asarray(x, dtype=float)
     if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
         return _explicit_background(np.full(len(xv), np.nan), "Linear")   # raises: not finite
@@ -603,10 +621,14 @@ def _line_through(x, x0, y0, x1, y1):
             out[i] = y1
         else:
             X = Fraction(v)
+            q = (Y0 * (X1 - X) + Y1 * (X - X0)) / D
             try:
-                out[i] = float((Y0 * (X1 - X) + Y1 * (X - X0)) / D)
+                out[i] = float(q)
             except OverflowError:
                 out[i] = float("inf")
+                continue
+            if tol is not None and abs(Fraction(out[i]) - q) > tol:
+                raise BackgroundNotConverged(_precision_words("Linear"))
     return _explicit_background(out, "Linear")
 
 
@@ -622,7 +644,7 @@ def _check_anchors(anchors):
             "Manual background not converged: an anchor is not a pair of finite numbers.")
 
 
-def manual_anchor_background(x, anchors):
+def manual_anchor_background(x, anchors, span=None):
     """The user's anchors as a curve: the piecewise-affine function through them,
     constant beyond the outermost (as np.interp), EVALUATED EXACTLY and rounded once
     to the nearest double (Codex impl rounds 9-10: np.interp's floating-point formula
@@ -637,7 +659,7 @@ def manual_anchor_background(x, anchors):
     numbers; either raises BackgroundNotConverged. Fewer than two anchors is the
     caller's case (the line through the window's ends)."""
     import bisect
-    from fractions import Fraction
+    from fractions import Fraction as F
     _check_anchors(anchors)
     a = sorted(anchors, key=lambda p: p[0])
     ax = [float(p[0]) for p in a]
@@ -649,6 +671,7 @@ def manual_anchor_background(x, anchors):
                 "different intensities, so no curve passes through both.")
     xv = np.asarray(x, dtype=float)
     out = np.empty(len(xv))
+    tol = None if span is None else F(BG_REL_TOL) * F(span)
     for i, v in enumerate(xv.tolist()):
         if not math.isfinite(v):
             out[i] = float("nan")
@@ -661,8 +684,11 @@ def manual_anchor_background(x, anchors):
             if ax[j] == v:
                 out[i] = ay[j]
             else:
-                X, X0, X1 = Fraction(v), Fraction(ax[j]), Fraction(ax[j + 1])
-                out[i] = float((Fraction(ay[j]) * (X1 - X) + Fraction(ay[j + 1]) * (X - X0)) / (X1 - X0))
+                X, X0, X1 = F(v), F(ax[j]), F(ax[j + 1])
+                q = (F(ay[j]) * (X1 - X) + F(ay[j + 1]) * (X - X0)) / (X1 - X0)
+                out[i] = float(q)
+                if tol is not None and abs(F(out[i]) - q) > tol:
+                    raise BackgroundNotConverged(_precision_words("Manual"))
     return _explicit_background(out, "Manual")
 
 
@@ -2311,7 +2337,7 @@ def _run_fit_impl(
         if len(manual_bg) >= 1:
             _check_anchors(manual_bg)                     # every anchor, even a lone one
         if len(manual_bg) >= 2:
-            bg = manual_anchor_background(x, manual_bg)   # raises BackgroundNotConverged
+            bg = manual_anchor_background(x, manual_bg, _span(y))   # raises BackgroundNotConverged
         else:
             bg = linear_background(x, y)
     elif bg_method in _BG_LABELS:
@@ -2325,7 +2351,7 @@ def _run_fit_impl(
         # constant extension would discard real information.
         # (raises BackgroundNotConverged when the window's ends share an energy but
         # not an intensity: no line passes through both)
-        bg = _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1])
+        bg = _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1], _span(y[i0:i1]))
     elif bg_method in ("none", "flat", ""):
         bg = np.zeros_like(y)
     else:

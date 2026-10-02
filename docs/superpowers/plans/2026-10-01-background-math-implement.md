@@ -647,3 +647,16 @@ upload comparison reproduce):
 | 2 | MAJOR (B): scaling back rounded the whole curve to ZERO, which the subnormal guard exempted | the rescale must round-trip (`ldexp(ldexp(v, e), −e) == v`, both sides): a value that lost bits — to the subnormal range or to zero — is refused |
 
 Mutation-verified (4 of 4 killed): dD dropped, the zero exemption, each side.
+
+**Round 16 — NO-GO ×2** (`background_math_impl_r16_verdict_run{A,B}.md`, commit 848ff1e;
+both: no Tougaard violation in 2 500 (A) / 8 000 (B) further extreme-scale probes; the 606
+committed Tougaard backgrounds bit-identical, none refused, bound ≤ 0.0433; the margin,
+measurements, census and upload comparison reproduce; B: 128 loader cases):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the exact line / manual curve is correctly rounded, but that one rounding is itself an error — 4e-5 at 1e12 counts over a span of 1-2, 2-4e7 × the predicate — and the explicit backgrounds checked only finiteness | each exact value's rounding must meet the predicate, decided EXACTLY: \|round(q) − q\| ≤ BG_REL_TOL × span, span the exact span of the data the curve is judged against — the background window for linear (as its line is defined), the ROI for manual and its fallback — server (`_line_through`, `manual_anchor_background`, `_span` exact) and page (`_bgExactLine`, `manualAnchorBackground`, `_bgRoundingWithin`, `_bgExactSpan`), same words: "… its exact values cannot be represented within the certificate's precision at this span (the data exceed what double precision resolves)". It refuses only where max\|I\| / span exceeds ~4 500 (tol / u): with Poisson noise the span is a few √I, so ~7e8 noise-free counts; no committed target uses linear or manual, every committed window ≥ 3 000 × inside |
+
+Two tests used perfectly FLAT data (span 0, so a predicate of 0 that any rounding
+misses): they now carry structure (their point is the curve through the anchors).
+Mutation-verified (4 of 4 killed): the check off for the line and for manual, each side.

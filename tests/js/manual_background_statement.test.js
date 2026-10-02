@@ -19,7 +19,7 @@ function extractFn(name) {
   }
 }
 function make(anchors) {
-  return new Function('_getManualAnchors', extractFn('linearBackground') + '\n' + extractFn('manualAnchorBackground') + '\n' + ['_bgExact', '_bgBitLen', '_bgRatToDouble', '_bgExactLine'].map(extractFn).join('\n') +
+  return new Function('_getManualAnchors', extractFn('linearBackground') + '\n' + extractFn('manualAnchorBackground') + '\n' + ['_bgExact', '_bgBitLen', '_bgRatToDouble', '_bgExactLine', '_bgRoundingWithin', '_bgPrecisionWords'].map(extractFn).join('\n') +
     '\nreturn { manualAnchorBackground, linearBackground };')(() => anchors);
 }
 function definition(be, anchors) {

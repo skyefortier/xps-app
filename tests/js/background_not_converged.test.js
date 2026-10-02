@@ -290,7 +290,7 @@ for c in json.load(sys.stdin):
     x, y = np.array(c['x'], float), np.array(c['y'], float)
     try:
         if c['m'] == 'manual':
-            fitting.manual_anchor_background(x, c['anchors']) if len(c['anchors']) >= 2 else fitting.linear_background(x, y)
+            fitting.manual_anchor_background(x, c['anchors'], fitting._span(y)) if len(c['anchors']) >= 2 else fitting.linear_background(x, y)
         elif c['m'] == 'linear':
             fitting.linear_background(x, y)
         else:
@@ -329,6 +329,9 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
     { m: 'tougaard', n: 2, x: [55.4022790912908, 55.4022790912908, 32, 32, 31.999999999999996, 31.999999999999996, 24, 24], y: [12, 12.000000000000002, 15.999999999999998, 12, 12, 0.2988604543545996, 12, 12] },
     { m: 'tougaard', n: 3, x: [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0], y: [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0].map(v => v * 2 ** -1074) },
     { m: 'tougaard', n: 2, x: [1e6, 1e6 - 1e-3, 1e6 - 2e-3, 30, 25, 20, 15, 1, 0], y: [1, 1, 1, 400, 1000, 400, 1, 1, 1 + 2 ** -52] },
+    // round 16: an exact curve's rounding outside the predicate (1e12 counts, span 1-2)
+    { m: 'linear', x: [280, 281, 283], y: [1e12, 1e12 + 2, 1e12 + 1] }, { m: 'linear', x: [3, 1, 0], y: [1e12 + 1, 1e12, 1e12] },
+    { m: 'manual', x: [0, 1, 3], y: [1e12, 1e12, 1e12 + 1], anchors: [[0, 1e12], [3, 1e12 + 1]] }, { m: 'manual', x: [0, 1, 3], y: [1e12, 1e12, 1e12 + 1], anchors: [] },
     { m: 'manual', x: [0, 1, 2, 3, 4, 5], y: [10, 12, 40, 30, 22, 20], anchors: [[0, 0], [2, 1], [2, 20], [5, 0]] },
   ];
   const S = serverWords(cases);
@@ -390,7 +393,8 @@ test('an integral background on an unsorted fitted region is not converged; a on
 test('manual: far and huge anchors give the exact piecewise-affine value, page = server (rounds 9-10)', () => {
   // np.interp's floating-point formula overflowed (±1e308) or cancelled to a finite, wrong 0
   // (-1e20); exact evaluation, rounded once, gives the line the anchors define
-  const E = Array.from({ length: 11 }, (_, i) => 280 + i), I = E.map(() => 50);
+  // (data with a span: since round 16 each value's rounding is judged against the data's span)
+  const E = Array.from({ length: 11 }, (_, i) => 280 + i), I = [50, 50, 60, 100, 500, 100, 60, 50, 50, 50, 50];
   const want = { a: E.map((_, i) => 80 + i), b: E.map((_, i) => 21 - i), c: E.map(() => 50) };
   const got = {
     a: R._computeBackgroundForSource(E, I, { bgType: 'manual' }, [{ x: -1e20, y: -1e20 }, { x: 300, y: 100 }]),
