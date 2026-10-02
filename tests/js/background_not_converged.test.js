@@ -312,6 +312,8 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
     { m: 'linear', x: [1, 1], y: [10, 30] }, { m: 'linear', x: [0, 1e-309], y: [0, 1] },
     { m: 'manual', x: [0, 1e-309], y: [0, 1], anchors: [] },
     { m: 'linear', x: [1e20, 290, 289, 280], y: [1e20, 70, 80, 50] }, { m: 'manual', x: [-1e20, 280, 290, 300], y: [1e20, 50, 60, 1], anchors: [] },
+    // round 12: Tougaard whose kernel arithmetic overflows (refused), and large data (certified)
+    { m: 'tougaard', x: [0, 1, 9.999999999999999e79, 1e80], y: [0, 1e200, 1e145, 1e200] }, { m: 'tougaard', x: [280, 285, 290], y: [1e20, 2e20, 50] },
     { m: 'manual', x: [0, 1, 2, 3, 4, 5], y: [10, 12, 40, 30, 22, 20], anchors: [[0, 0], [2, 1], [2, 20], [5, 0]] },
   ];
   const S = serverWords(cases);

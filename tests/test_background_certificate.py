@@ -335,3 +335,36 @@ def test_linear_is_the_exact_line_beside_a_huge_end_point():
     y = 100 + 30 * np.sin(x)
     ref = y[0] + ((y[-1] - y[0]) / (x[-1] - x[0])) * (x - x[0])
     assert np.all(np.abs(fitting.linear_background(x, y) - ref) <= 4 * np.spacing(np.abs(ref)))
+
+
+# ── Codex implementation round 12 ────────────────────────────────────────────
+
+def _tougaard_exact(E, I):
+    """The stated Tougaard relation in exact rationals (descending working grid,
+    np.gradient's weights, averaging 1): c0 + (a_high - c0) L(i) / L(0)."""
+    from fractions import Fraction as F
+    x, y = list(map(F, E)), list(map(F, I))
+    flipped = x[0] < x[-1]
+    if flipped:
+        x, y = x[::-1], y[::-1]
+    n = len(x)
+    w = [abs(x[1] - x[0])] + [abs(x[i + 1] - x[i - 1]) / 2 for i in range(1, n - 1)] + [abs(x[-1] - x[-2])]
+    c0, a_high = y[-1], y[0]
+    K = lambda T: F(2866) * T / (F(1643) + T * T) ** 2  # noqa: E731
+    L = [sum(K(abs(x[j] - x[i])) * (y[j] - c0) * w[j] for j in range(i, n)) for i in range(n)]
+    out = [c0 + (a_high - c0) * L[i] / L[0] for i in range(n)]
+    return out[::-1] if flipped else out
+
+
+def test_tougaard_whose_kernel_arithmetic_overflows_is_refused_and_large_data_meet_the_predicate():
+    # energies near 1e80: u*u overflows and real terms became silent zeros (99.99999 % of the span)
+    with pytest.raises(fitting.BackgroundNotConverged, match="not finite"):
+        fitting.compute_background(np.array([0, 1, 9.999999999999999e79, 1e80]), np.array([0, 1e200, 1e145, 1e200]), "tougaard")
+    # intensities near 1e20: the anchoring rounds at the data's own scale — the curve meets the
+    # stated relation within the certificate's predicate (BG_REL_TOL of the span), as every
+    # certified background does; computed exactly it would be 50 at the high edge, it is 16384
+    for E, I in (([280.0, 285, 290], [1e20, 2e20, 50]), ([290.0, 285, 280], [50, 2e20, 1e20])):
+        bg = fitting.compute_background(np.array(E), np.array(I), "tougaard")
+        exact = _tougaard_exact(E, I)
+        span = max(I) - min(I)
+        assert max(abs(float(b - e)) for b, e in zip(map(float, bg), exact)) <= fitting.BG_REL_TOL * span

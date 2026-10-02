@@ -1,0 +1,28 @@
+Review the "background math — implementation" unit, round 13: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-12 fix = git diff b3fce06..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..12}_verdict_run{A,B}.md; the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-12 dispositions in short (run A: GO; run B: NO-GO on Tougaard):
+- Tougaard whose kernel arithmetic overflows (u·u, B·T or a term not finite, e.g. energies near 1e80) is now refused, server and page, in the same words. The loss sum is NaN, so the background is "not finite". Ordinary sums are untouched, bit for bit.
+- Tougaard on intensities near 1e20 is NOT CHANGED, by decision. Its anchoring rounds at the data's own scale: 16384 vs the exact 50 at the high edge, which is 8e-17 of the span. That is inside the certificate's predicate (BG_REL_TOL = 1e-12 of the span), by which every certified background is judged. It is pinned against an exact Fraction evaluation of the stated relation.
+  - The explicit closed-form curves (the line, manual) are exact because that is cheap. Tougaard's O(n²) loss sum is certified by the span-relative predicate, like the iterative methods.
+  - Do not re-raise errors INSIDE that predicate. Errors OUTSIDE it are findings.
+- The _legacy_line pin: both runs found it honest as the owner-accepted stopgap. The tests that fail or are susceptible unpinned are now listed in the PROGRESS.md follow-up. Do not re-raise the pin itself.
+- The two pre-existing items stay dispositioned: Auto-Fit's post-shift pairing (logged), and the page / server data readings (measured; an owner decision).
+- JS CI floor 538 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. Any background, for any method on either side, certified while its error against its defining statement exceeds the certificate's predicate (BG_REL_TOL × the window's span). Also any page / server disagreement in a verdict on the SAME numbers, and any consumer that treats a refused background as valid.
+b. Everything rounds 1-12 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

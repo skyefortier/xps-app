@@ -586,3 +586,17 @@ removed, boundary behaviour given its own deliberate test if wanted) is logged i
 
 Mutation-verified (3 of 3 killed): the floating-point line on either side, the
 denominator sign.
+
+**Round 12 — A: GO; B: NO-GO** (`background_math_impl_r12_verdict_run{A,B}.md`, commit
+b3fce06; both: the exact line holds — A: 2 175, B: 1 802 page = server cases incl.
+descending grids, extrapolation, signed zeros, subnormals; 4 000 points ~22 ms page /
+27-29 ms server; the census, the measurements, the smart / smart_exp identity and the
+upload-rounding measurement reproduce):
+
+| # | finding | disposition |
+|---|---|---|
+| 1 | MAJOR (B): Tougaard at energies near 1e80 — `u·u` overflows, real kernel terms become silent zeros, the curve misses the stated sum by 99.99999 % of the span; certified, saved, restored | an overflowing intermediate (u·u, B·T, a term) makes that loss sum NaN, server and page, and the background is refused as not finite (same words); ordinary sums untouched, bit for bit (the parity suite) |
+| 2 | (B, same finding): Tougaard on intensities near 1e20 — the anchoring rounds, the high edge is 16384 where the exact relation gives 50 | NOT CHANGED, measured: 8e-17 of the window's span, inside the certificate's predicate (BG_REL_TOL = 1e-12 of the span) by which every certified background is judged; pinned against an EXACT Fraction evaluation of the stated relation, both directions. The closed-form explicit curves (line, manual) are evaluated exactly because that is cheap; Tougaard's loss sum is O(n²) — in rationals too slow for the page's redraw — and is certified, like the iterative methods, by the span-relative predicate |
+| 3 | MINOR (A) / note (B): the `_legacy_line` pin masks changed basin outcomes — unpinned, 3 tests fail (A: pure-function / curve-height / >1 eV continuation; B: centres-scaled / reconstruction / >1 eV continuation), 11 more are susceptible (A's list) | both: the pin is HONEST as the owner-accepted stopgap, the failures are the disclosed basin sensitivity, not a background defect; the lists are added to the PROGRESS.md follow-up (which tests the new fixture must re-establish) |
+
+Mutation-verified (2 of 2 killed).

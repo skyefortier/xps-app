@@ -4614,12 +4614,15 @@ function _tougaardLoss(be, intensity, nAvg) {
   const loss = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
     const terms = new Array(n - i);
+    let ok = true;
     for (let j = i; j < n; j++) {
       const T = Math.abs(beW[j] - beW[i]);
-      const u = C + T * T;
-      terms[j - i] = (B * T) / (u * u) * net[j] * w[j];
+      const u = C + T * T, uu = u * u, bt = B * T;
+      terms[j - i] = (bt / uu) * net[j] * w[j];
+      if (!Number.isFinite(uu) || !Number.isFinite(bt) || !Number.isFinite(terms[j - i])) ok = false;
     }
-    loss[i] = 0 + _npPairwiseSum(terms, 0, terms.length);
+    // fitting._tougaard_loss: an overflowing intermediate makes the sum NaN (refused)
+    loss[i] = ok ? 0 + _npPairwiseSum(terms, 0, terms.length) : NaN;
   }
   return { loss, aHigh, c0, flipped };
 }

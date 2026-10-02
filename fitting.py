@@ -812,10 +812,19 @@ def _tougaard_loss(x, y, n_avg=1):
     w = np.abs(np.gradient(xa))
     bg = np.zeros(n)
     for i in range(n):
-        T = np.abs(xa[i:] - xa[i])
-        u = C_coef + T * T
-        kernel = (B_coef * T) / (u * u)
-        bg[i] = float(np.sum(kernel * net[i:] * w[i:]))
+        # an intermediate that overflows (u·u at energies near 1e80) turns real
+        # terms into silent zeros: the sum is then NaN, and the background is
+        # refused as not finite (Codex impl round 12); ordinary sums are untouched
+        with np.errstate(over="ignore", invalid="ignore"):
+            T = np.abs(xa[i:] - xa[i])
+            u = C_coef + T * T
+            uu = u * u
+            bt = B_coef * T
+            terms = (bt / uu) * net[i:] * w[i:]
+        if np.all(np.isfinite(uu)) and np.all(np.isfinite(bt)) and np.all(np.isfinite(terms)):
+            bg[i] = float(np.sum(terms))
+        else:
+            bg[i] = float("nan")
 
     return bg, a_high, c0, flipped
 
