@@ -319,6 +319,11 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
     { m: 'smart', x: [3, 2, 1, 0], y: [1e12 + 2, 1e12 + 8, 1e12 + 4, 1e12] }, { m: 'shirley_linear', x: [0, 1, 2, 3], y: [1e12, 1e12 + 4, 1e12 + 8, 1e12 + 2] },
     { m: 'tougaard', x: [280, 281, 282, 283], y: [2, 3, 0.0072794, 3] }, { m: 'shirley', x: [280, 281, 282, 283], y: [1e-200, 5e-200, 4e-200, 2e-200] },
     { m: 'smart_exp', x: [283, 282, 281, 280], y: [2e-200, 4e-200, 5e-200, 1e-200] },
+    // round 14: the bound at tiny scale (normalised frame), the zero-loss branch with exact means
+    { m: 'tougaard', x: [280, 281, 282, 283], y: [2e-110, 3e-110, 1.3e-112, 3e-110] }, { m: 'tougaard', x: [283, 282, 281, 280], y: [3e-118, 1.15e-120, 3e-118, 2e-118] },
+    { m: 'tougaard', n: 2, x: [281, 280, 280, 280, 280, 280, 280, 280], y: [1e12 + 2 ** -13, 1e12, 1e12 + 4, 1e12 + 8, 1e12 + 4, 1e12 + 8, 1e12, 1e12] },
+    { m: 'tougaard', n: 2, x: [280, 281, 282, 283, 284, 285, 286, 287], y: [1, 1, 1, 1, 1, 1, 1, 1.0000000000000002] },
+    { m: 'tougaard', x: [0, 1, 2, 3], y: [7, 7, 7, 7] }, { m: 'tougaard', x: [280, 281, 282, 283], y: [3e-307, 4.5e-307, 2.7e-307, 4.5e-307] },
     { m: 'manual', x: [0, 1, 2, 3, 4, 5], y: [10, 12, 40, 30, 22, 20], anchors: [[0, 0], [2, 1], [2, 20], [5, 0]] },
   ];
   const S = serverWords(cases);
@@ -330,6 +335,7 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
   });
   assert.ok(S.filter(v => v).length >= 9, 'the cases are mostly refusals');
   assert.ok(S.filter(v => v === null).length >= 4, 'and the exact lines converge on both sides');
+  assert.strictEqual(S[cases.findIndex(c => c.m === 'tougaard' && c.y[0] === 3e-307)], null, 'the normalised bound certifies the 1.5e-307 case');
   // the residual text: Python's %.3g, value for value
   const { execFileSync } = require('node:child_process');
   // incl. exact binary ties (12.25, 1.125, 0.125·10^k): fitting._fmt3 rounds them half up, as toExponential does

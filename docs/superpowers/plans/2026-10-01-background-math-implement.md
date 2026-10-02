@@ -608,7 +608,7 @@ upload-rounding measurement; the round-12 overflow refusal holds):
 
 | # | finding | fix |
 |---|---|---|
-| 1 | MAJOR (A, B2): Tougaard on ordinary-looking data whose high-edge loss sum nearly cancels (A: `[200, 300, 0.73, 300]`, 278 000 × the predicate; B2: `[2, 3, 0.0072794, 3]`, 0.6 % of the span) — the anchoring amplifies rounding; the certificate accepted any nonzero high-edge sum | the curve is closed-form, so its only error is rounding: it is certified only if a first-order RIGOROUS rounding bound (`fitting._tougaard_rounding_bound`, the page's `_tougaardRoundingBound`, operation for operation; per-term and summation-tree roundings, the edge means' rounding through the net, the anchoring) meets the predicate; otherwise "the loss sum at the high-BE edge nearly cancels…". Measured on the committed targets × averaging 1 / 3 (404 cases): the bound is at most 0.035 of the predicate (median 0.002) — no committed verdict changes; A's case: 4.2e6 × |
+| 1 | MAJOR (A, B2): Tougaard on ordinary-looking data whose high-edge loss sum nearly cancels (A: `[200, 300, 0.73, 300]`, 278 000 × the predicate; B2: `[2, 3, 0.0072794, 3]`, 0.6 % of the span) — the anchoring amplifies rounding; the certificate accepted any nonzero high-edge sum | the curve is closed-form, so its only error is rounding: it is certified only if a first-order RIGOROUS rounding bound (`fitting._tougaard_rounding_bound`, the page's `_tougaardRoundingBound`, operation for operation; per-term and summation-tree roundings, the edge means' rounding through the net, the anchoring) meets the predicate; otherwise "the loss sum at the high-BE edge nearly cancels…". Measured on the committed targets × averaging 1 / 3 (404 cases): the bound is at most 0.035 of the predicate (median 0.002; 0.043 after round 14's revision) — no committed verdict changes; A's case: 4.2e6 × |
 | 2 | MAJOR (A, B2): the Shirley-family certificate re-did the iteration's arithmetic, so it confirmed its rounding — 1e12 ± 8 counts (A: residual 6.6e-7, predicate 8e-12, rounded to 0) and 1e-200 counts (B2: underflow, 25 % of the span), Shirley + linear too | the residual of the RETURNED curve is computed EXACTLY — exact edge means, exact trapezoids, exact map, `Fraction` on the server (`_exact_shirley_certificate`), BigInt integers over one common denominator on the page (`_bgExactShirleyCertificate`), the predicate decided by an integer comparison; page = server verdicts AND words on the full parity sweep. Measured on the committed targets (`scripts/bg_math_exact_certificate_margin.py`, 202 × 3 methods × averaging 1 / 3 = 1 212 cases): the same verdict on every case, the exact residual at most 0.993 of the predicate (median 0.31); every committed window sits ≥ 3 000 × inside double precision's resolution of the predicate (eps · max|I| / (tol · span) ≤ 3.2e-4). The reason no longer says the iteration "did not settle" (it may have, at double precision): "the result misses the … relation by X % of the intensity span (its iteration alternates or ran out of steps, or the data exceed what double precision resolves at this span)" |
 
 A consequence, by decision: the iteration still STOPS on its float criterion and the
@@ -619,3 +619,19 @@ the 1e-10 % predicate) — the verdict is the statement's. Cost on the page, 400
 
 Mutation-verified (4 of 4 killed): the bound bypassed and the exact check replaced, on
 each side.
+
+**Round 14 — NO-GO ×2** (`background_math_impl_r14_verdict_run{A,B}.md`, commit d4aca1a;
+both: the 1 212-case exact margin, the measurements, the census and the upload-rounding
+comparison reproduce; all 404 committed Tougaard windows below the bound; no committed
+refusal):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the Tougaard bound's OWN arithmetic underflowed on 1e-110 / 1e-120-count data — `D·|L|·(dL0 + dc·W0)` became 0 and the bound dropped the error it bounds (2.6-9.7 × the predicate, certified) | Tougaard is computed — and the certificate judges it — on the intensities scaled by an exact power of two to max|I| in [0.5, 1) and scaled back (`_pow2_exp`, `np.ldexp`; the page's `_bgPow2Exp`, `_bgLdexp`): the relation is homogeneous in the intensity, so on ordinary data every intermediate is the same bits times 2^-e — measured on the committed targets × averaging 1 / 3 / 10 (606 cases): 0 backgrounds differ from the previous commit, bit for bit. The bound is evaluated ratio-first (no product of three small numbers), carries an absolute term for subnormal rounding (eta = 2^-1074 per rounding) and is enlarged by (1 + 64 u) for its own roundings; a value scaled back into the subnormal range is refused (it lost bits). Committed bound margin: at most 0.043 of the predicate |
+| 2 | MAJOR (A, B): the zero-loss branch certified the flat C0 when the FLOAT edge means compared equal — exact means 1 and 1 + 2^-53 (B), 1e12 + 0 and 1e12 + 2^-14 with repeated energies (A): no amplitude meets the anchor | the flat member is certified only if the EXACT loss vector is zero (every term has an exactly zero factor: T = 0, a zero weight, or a zero net against the exact low-edge mean — a float zero not proven so is refused as cancelling), the EXACT edge means agree, and the returned flat curve is the exact mean within the predicate (`fitting._tougaard_zero_loss_verdict`, the page's `_tougaardZeroLossVerdict`, Fraction / BigInt) |
+
+A separating case pins that the bound is the bound of the computation performed: at
+1.5e-307 counts the normalised bound certifies (0.012 of the predicate) and the result is
+within the predicate of the exact relation, where a bound at the data's own scale would
+have refused (1.1 ×). Mutation-verified (4 of 4 killed): the certificate unnormalised and
+the zero-loss branch on float means, each side.

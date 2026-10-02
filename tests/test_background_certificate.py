@@ -410,3 +410,38 @@ def test_the_certificate_claims_only_what_it_verified():
     x = np.linspace(280, 295, 301)
     y = 300 + 6000 * np.exp(-((x - 284.5) / 0.6) ** 2) + 400 / (1 + np.exp(-(x - 284.5) / 0.3))
     assert fitting._tougaard_rounding_bound(x, y) < 0.05 * fitting.BG_REL_TOL * (y.max() - y.min())
+
+
+# ── Codex implementation round 14 ────────────────────────────────────────────
+
+def test_the_tougaard_bound_holds_at_any_scale_and_the_zero_loss_branch_is_exact():
+    # (A, B) the bound's own products underflowed on 1e-110-count data and dropped the error it
+    # bounds: Tougaard now computes, and the bound evaluates, in a power-of-two-normalised frame
+    for E, I in (([280.0, 281, 282, 283], [2e-118, 3e-118, 1.15e-120, 3e-118]),
+                 ([280.0, 281, 282, 283], [2e-110, 3e-110, 1.3e-112, 3e-110])):
+        for o in (1, -1):
+            with pytest.raises(fitting.BackgroundNotConverged, match="nearly cancels"):
+                fitting.compute_background(np.array(E[::o]), np.array(I[::o]), "tougaard")
+    # ... and on ordinary data the normalisation is exact: the same bits as unnormalised
+    x = np.linspace(280, 295, 301)
+    y = 300 + 6000 * np.exp(-((x - 284.5) / 0.6) ** 2) + 400 / (1 + np.exp(-(x - 284.5) / 0.3))
+    bg, a_high, c0, flipped = fitting._tougaard_loss(x, y, 3)
+    out = c0 + bg * ((a_high - c0) / bg[0])
+    assert np.array_equal(fitting.tougaard_background(x, y, n_avg=3), out[::-1] if flipped else out)
+    # (A, B) every loss sum zero and float edge means equal, the EXACT means unequal: no
+    # amplitude meets the anchor — refused (it certified the flat C0)
+    for E, I, n_avg in (([281.0, 280, 280, 280, 280, 280, 280, 280],
+                         [1e12 + 2 ** -13, 1e12, 1e12 + 4, 1e12 + 8, 1e12 + 4, 1e12 + 8, 1e12, 1e12], 2),
+                        (list(np.arange(280.0, 288.0)), [1, 1, 1, 1, 1, 1, 1, 1.0000000000000002], 2)):
+        for o in (1, -1):
+            with pytest.raises(fitting.BackgroundNotConverged, match="no amplitude can meet"):
+                fitting.compute_background(np.array(E[::o]), np.array(I[::o]), "tougaard", n_avg=n_avg)
+    # the bound is the bound of the computation actually performed (in the normalised frame):
+    # at 1.5e-307 counts the result is certified — and it IS within the predicate of the exact
+    # relation — where a bound evaluated at the data's own scale would have refused (1.1 x)
+    I = [3e-307, 4.5e-307, 2.7e-307, 4.5e-307]
+    bg = fitting.compute_background(np.array([280.0, 281, 282, 283]), np.array(I), "tougaard")
+    exact = _tougaard_exact([280.0, 281, 282, 283], I)
+    assert max(abs(float(b - e)) for b, e in zip(map(float, bg), exact)) <= fitting.BG_REL_TOL * (max(I) - min(I))
+    # the flat window with exactly equal levels is still its own flat background
+    assert np.array_equal(fitting.compute_background(np.arange(4.0), np.full(4, 7.0), "tougaard"), np.full(4, 7.0))

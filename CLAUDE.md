@@ -878,7 +878,10 @@ background also needs the whole fitted region in order (it is held flat beyond i
 window by position, `_region_in_order`); Tougaard's loss sum is NaN — refused — when an
 intermediate overflows, and the closed-form curve is certified only if a rigorous
 first-order bound on its rounding meets the span-relative predicate (a nearly cancelling
-high-edge sum is refused; a 1e20-count window rounds at its own scale, inside it); the
+high-edge sum is refused; a 1e20-count window rounds at its own scale, inside it) —
+Tougaard computes and is judged on intensities scaled by an exact power of two (bit for
+bit the same on ordinary data), and its zero-loss flat member needs the EXACT loss and
+edge means; the
 Shirley family's residual is computed EXACTLY (Fraction / BigInt), so the verdict is the
 statement's, not the arithmetic's (the iteration still stops on its float criterion).
 Measured on the committed targets: no verdict changes. The

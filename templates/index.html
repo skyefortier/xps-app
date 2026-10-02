@@ -4630,7 +4630,11 @@ function _tougaardLoss(be, intensity, nAvg) {
 function tougaardBackground(be, intensity, nAvg) {
   const n = be.length;
   if (n < 2) return new Array(n).fill(0);
-  const { loss, aHigh, c0, flipped } = _tougaardLoss(be, intensity, nAvg);
+  // fitting.tougaard_background: computed on the intensities scaled by an exact power
+  // of two (max|I| in [0.5, 1)) and scaled back — bit for bit unchanged on ordinary
+  // data; the certificate's rounding bound, in the same frame, never under/overflows
+  const e = _bgPow2Exp(intensity);
+  const { loss, aHigh, c0, flipped } = _tougaardLoss(be, intensity.map(v => _bgLdexp(v, -e)), nAvg);
   // Amplitude anchor at the HIGH-BE edge level (index 0 after normalization) —
   // the practical Tougaard criterion (B effectively fitted; C alone sets the
   // kernel shape). A zero loss sum there leaves the amplitude unfixed: the flat
@@ -4638,7 +4642,28 @@ function tougaardBackground(be, intensity, nAvg) {
   let out;
   if (loss[0] === 0) out = new Array(n).fill(c0);
   else { const scale = (aHigh - c0) / loss[0]; out = loss.map(v => c0 + v * scale); }
+  // scaled back; a value scaled back into the subnormal range has lost bits (NaN: refused)
+  out = out.map(v => { const r = _bgLdexp(v, e); return r !== 0 && Math.abs(r) < 2.2250738585072014e-308 ? NaN : r; });
   return flipped ? out.reverse() : out;
+}
+
+// numpy's frexp exponent of max|I|: max|I| in [2^(e-1), 2^e); 0 for an all-zero window
+function _bgPow2Exp(ys) {
+  let M = 0;
+  for (const v of ys) M = Math.max(M, Math.abs(v));
+  if (!(M > 0) || !Number.isFinite(M)) return 0;
+  const dv = new DataView(new ArrayBuffer(8));
+  dv.setFloat64(0, M);
+  const be = (dv.getUint32(0) >>> 20) & 0x7ff;
+  if (be !== 0) return be - 1022;
+  return _bgBitLen(_bgExact(M)) - 1074;                       // subnormal
+}
+// v · 2^e, correctly rounded once (np.ldexp): one multiplication by an exact power of
+// two whenever 2^e is a double; otherwise two exact steps
+function _bgLdexp(v, e) {
+  if (e >= -1074 && e <= 1023) return v * 2 ** e;
+  if (e > 1023) return v * 2 ** 1023 * 2 ** (e - 1023);
+  return v * 2 ** -1074 * 2 ** (e + 1074);
 }
 
 // fitting.background_certificate's twin: is `bg` a solution of its method's
@@ -4657,16 +4682,19 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
   for (let k = 1; k < n; k++) { if (be[k] < be[k - 1]) up = false; if (be[k] > be[k - 1]) down = false; }
   if (!up && !down) return { converged: false, residual: null, reason: 'the energies in the window are not in order (neither ascending nor descending), and the ' + label + ' relation is an integral along the energy axis' };
   if (type === 'tougaard') {
-    const { loss, aHigh, c0 } = _tougaardLoss(be, intensity, nAvg);
+    // judged in the frame tougaardBackground computes in (power-of-two-normalised)
+    const e = _bgPow2Exp(intensity);
+    const yn = intensity.map(v => _bgLdexp(v, -e));
+    const { loss, aHigh, c0 } = _tougaardLoss(be, yn, nAvg);
     if (loss[0] !== 0) {
       // fitting.background_certificate: closed-form, so only rounding can move it —
       // certified only if a rigorous bound on that rounding meets the predicate
-      if (_tougaardRoundingBound(be, intensity, nAvg) <= BG_REL_TOL * _bgSpan(intensity)) return { converged: true, residual: null, reason: null };
-      return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge nearly cancels, so its rounding moves the background by more than the certificate\'s precision' };
+      if (_tougaardRoundingBound(be, yn, nAvg) <= BG_REL_TOL * _bgSpan(yn)) return { converged: true, residual: null, reason: null };
+      return { converged: false, residual: null, reason: _TOUGAARD_CANCELS };
     }
-    if (aHigh === c0 && loss.every(v => v === 0)) return { converged: true, residual: null, reason: null };
+    if (loss.every(v => v === 0)) return _tougaardZeroLossVerdict(be, intensity, bg, nAvg);
     if (aHigh === c0) return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge cancels to zero, so the edge does not fix the background\'s amplitude and different amplitudes give different backgrounds' };
-    return { converged: false, residual: null, reason: 'the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level' };
+    return { converged: false, residual: null, reason: _TOUGAARD_NO_AMPLITUDE };
   }
   return _bgExactShirleyCertificate(be, intensity, bg, type, nAvg, label);
 }
@@ -4718,6 +4746,39 @@ function _bgExactShirleyCertificate(be, intensity, bg, type, nAvg, label) {
   return { converged: false, residual, reason: 'the result misses the ' + label + ' relation by ' + pct + ' % of the intensity span (its iteration alternates or ran out of steps, or the data exceed what double precision resolves at this span)' };
 }
 
+const _TOUGAARD_CANCELS = 'the loss sum at the high-BE edge nearly cancels, so its rounding moves the background by more than the certificate\'s precision';
+const _TOUGAARD_NO_AMPLITUDE = 'the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level';
+
+// fitting._tougaard_zero_loss_verdict: every computed loss sum is zero — the flat C0 is
+// the answer only if the EXACT loss is zero (every term with an exactly zero factor:
+// T = 0, a zero weight, or a zero net against the exact low-edge mean) and the EXACT
+// edge means agree; certified only if the returned flat curve is that mean within
+// the predicate. BigInt rationals (_bgExact), integer comparisons.
+function _tougaardZeroLossVerdict(be, intensity, bg, nAvg) {
+  const n = be.length;
+  const flipped = be[0] < be[n - 1];
+  const xa = flipped ? [...be].reverse() : be, ya = flipped ? [...intensity].reverse() : intensity;
+  const k = n >= 4 ? Math.max(1, Math.min(parseInt(nAvg) || 1, Math.floor(n / 4))) : 1, K = BigInt(k);
+  const Y = ya.map(_bgExact);
+  let Asum = 0n, Csum = 0n;
+  for (let i = 0; i < k; i++) { Asum += Y[i]; Csum += Y[n - k + i]; }
+  const w = new Array(n);
+  for (let i = 0; i < n; i++) {
+    if (i === 0) w[0] = Math.abs(xa[1] - xa[0]);
+    else if (i === n - 1) w[n - 1] = Math.abs(xa[n - 1] - xa[n - 2]);
+    else w[i] = Math.abs(xa[i + 1] - xa[i - 1]) / 2;
+  }
+  for (let i = 0; i < n; i++) for (let j = i; j < n; j++) {
+    if (!(xa[j] === xa[i] || w[j] === 0 || Y[j] * K === Csum)) return { converged: false, residual: null, reason: _TOUGAARD_CANCELS };
+  }
+  if (Asum !== Csum) return { converged: false, residual: null, reason: _TOUGAARD_NO_AMPLITUDE };
+  let yMax = Y[0], yMin = Y[0];
+  for (const v of Y) { if (v > yMax) yMax = v; if (v < yMin) yMin = v; }
+  const bound = _bgExact(BG_REL_TOL) * (yMax - yMin) * K;
+  for (const v of bg) { const d = _bgExact(v) * K - Csum; if (((d < 0n ? -d : d) << 1074n) > bound) return { converged: false, residual: null, reason: _TOUGAARD_CANCELS }; }
+  return { converged: true, residual: null, reason: null };
+}
+
 // fitting._tougaard_rounding_bound, operation for operation (so the verdicts agree
 // bit for bit): a first-order rigorous bound on how far rounding moves the computed
 // Tougaard background from the exact value of its relation, at the worst point.
@@ -4747,22 +4808,24 @@ function _tougaardRoundingBound(be, intensity, nAvg) {
     }
     L[i] = 0 + _npPairwiseSum(t, 0, t.length); S[i] = 0 + _npPairwiseSum(at, 0, at.length); W[i] = 0 + _npPairwiseSum(kw, 0, kw.length);
   }
+  const eta = 2 ** -1074;
   let M = 0;
   for (const v of ya) M = Math.max(M, Math.abs(v));
   const dc = (k + 1) * u * M, da = dc;
   const D = Math.abs(aHigh - c0);
-  const dL0 = (n + 15) * u * S[0];
+  const aL0 = Math.abs(L[0]);
+  const q0 = ((n + 15) * (u * S[0] + 2 * eta) + dc * W[0]) / aL0;
   let E = -Infinity;
   for (let i = 0; i < n; i++) {
-    const dL = ((n - i) + 15) * u * S[i];
-    const r = Math.abs(L[i]) / Math.abs(L[0]);
+    const dL = ((n - i) + 15) * (u * S[i] + 2 * eta);
+    const r = Math.abs(L[i]) / aL0;
+    const q = (dL + dc * W[i]) / aL0;
     const bgi = c0 + L[i] * ((aHigh - c0) / L[0]);
-    const e = D * (dL + dc * W[i]) / Math.abs(L[0]) + D * Math.abs(L[i]) * (dL0 + dc * W[0]) / (L[0] * L[0])
-      + (da + dc) * r + dc + 4 * u * (Math.abs(c0) + Math.abs(bgi) + D * r);
+    const e = D * q + D * r * q0 + (da + dc) * r + dc + 4 * u * (Math.abs(c0) + Math.abs(bgi) + D * r) + eta;
     if (Number.isNaN(e)) return NaN;                     // np.max propagates NaN (then: refused)
     if (e > E) E = e;
   }
-  return E;
+  return E * (1 + 64 * u);
 }
 
 // fitting._fmt3, so page and server give the same words: 3 significant digits ROUNDED

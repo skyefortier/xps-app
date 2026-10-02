@@ -1,0 +1,36 @@
+Review the "background math — implementation" unit, round 15: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-14 fixes = git diff d4aca1a..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..14}_verdict_run{A,B}.md (round 13: A and B2); the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-14 fixes in short:
+- Tougaard is computed, and the certificate judges it, on the intensities scaled by an exact power of two to max|I| in [0.5, 1), then scaled back (fitting._pow2_exp, np.ldexp; the page's _bgPow2Exp, _bgLdexp). The relation is homogeneous in the intensity, so ordinary data give the same bits: 0 of 606 committed backgrounds differ from the previous commit. A value scaled back into the subnormal range is refused.
+- The rounding bound is the bound of that normalised computation. It is evaluated ratio-first, with an absolute term per rounding for subnormals (eta = 2^-1074), and enlarged by (1 + 64u) for its own roundings. Committed margin: at most 0.043 of the predicate. A separating case at 1.5e-307 counts is pinned.
+- The zero-loss branch certifies the flat C0 only under three exact conditions (fitting._tougaard_zero_loss_verdict, the page's _tougaardZeroLossVerdict): the EXACT loss vector is zero (every term has an exactly zero factor), the EXACT edge means agree, and the returned curve is the exact mean within the predicate.
+- The Shirley-family certificate is unchanged from round 13: an exact residual.
+- Still dispositioned, do not re-raise unless this unit made them worse:
+  - errors INSIDE the predicate;
+  - the _legacy_line pin;
+  - Auto-Fit's post-shift pairing;
+  - the page / server data readings.
+- JS CI floor 538 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. Any background, for any method on either side, certified while its error against its defining statement exceeds the certificate's predicate (BG_REL_TOL × the window's span). Also any page / server disagreement in a verdict on the SAME numbers, and any consumer that treats a refused background as valid.
+   In particular:
+   - Is the Tougaard bound rigorous at first order on ANY finite input, including subnormal data, huge dynamic range within a window, and repeated energies? Name any rounding it omits that can exceed it.
+   - Is the normalisation exact in every case it is applied to, and on both sides?
+   - Is the exact certificate the defining relation as the docstrings state it?
+   - Could either refuse a realistic XPS window? Use the committed data in docs/autofit/test_data and the margin script.
+b. Everything rounds 1-14 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

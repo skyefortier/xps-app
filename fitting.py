@@ -929,7 +929,13 @@ def tougaard_background(
     n = len(x)
     if n < 2:
         return np.zeros_like(y, dtype=float)
-    bg, a_high, c0, flipped = _tougaard_loss(x, y, n_avg)
+    # Computed on the intensities scaled by an exact power of two to max|I| in [0.5, 1)
+    # and scaled back (Codex impl round 14): the relation is homogeneous in the
+    # intensity, so on ordinary data every intermediate is the same bits times 2^-e and
+    # the result is bit for bit unchanged — and the certificate's rounding bound,
+    # computed in the same frame, never underflows on tiny data or overflows on huge.
+    e = _pow2_exp(y)
+    bg, a_high, c0, flipped = _tougaard_loss(x, np.ldexp(np.asarray(y, dtype=float), -e), n_avg)
     # Amplitude anchor: scale the loss integral so the background equals the
     # measured intensity at the HIGH-BE edge (index 0 on the descending
     # working array), then sit it on the C0 pedestal. Guard semantics: if NO
@@ -943,7 +949,16 @@ def tougaard_background(
         out = np.full(n, c0)
     else:
         out = c0 + bg * ((a_high - c0) / bg[0])
+    out = np.ldexp(out, e)
+    # a value scaled back into the subnormal range has lost bits: not exact, refused (NaN)
+    out = np.where((out != 0) & (np.abs(out) < np.finfo(float).tiny), np.nan, out)
     return out[::-1] if flipped else out
+
+
+def _pow2_exp(y) -> int:
+    """e with max|I| in [2^(e-1), 2^e) (numpy's frexp); 0 for an all-zero or empty window."""
+    M = float(np.max(np.abs(np.asarray(y, dtype=float)))) if len(y) else 0.0
+    return int(np.frexp(M)[1]) if (M > 0.0 and math.isfinite(M)) else 0
 
 
 _BG_LABELS = {
@@ -997,25 +1012,25 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
             "the energies in the window are not in order (neither ascending nor descending), and the "
             "%s relation is an integral along the energy axis" % label)}
     if m == "tougaard":
-        loss, a_high, c0, _ = _tougaard_loss(x, y, n_avg)
+        # judged in the frame tougaard_background computes in (power-of-two-normalised)
+        e = _pow2_exp(yv)
+        yn = np.ldexp(yv, -e)
+        loss, a_high, c0, _ = _tougaard_loss(x, yn, n_avg)
         if loss[0] != 0.0:
             # the curve is closed-form (no iteration), so its only error is rounding:
             # certified only if a rigorous bound on that rounding meets the predicate
             # (Codex impl round 13: a high-edge sum that nearly cancels amplified it
             # 280 000-fold past it, on four ordinary points)
-            if _tougaard_rounding_bound(x, y, n_avg) <= BG_REL_TOL * float(np.max(yv) - np.min(yv)):
+            if _tougaard_rounding_bound(x, yn, n_avg) <= BG_REL_TOL * float(np.max(yn) - np.min(yn)):
                 return {"converged": True, "residual": None, "reason": None}
-            return {"converged": False, "residual": None, "reason": (
-                "the loss sum at the high-BE edge nearly cancels, so its rounding moves the background "
-                "by more than the certificate's precision")}
-        if a_high == c0 and not np.any(loss):
-            return {"converged": True, "residual": None, "reason": None}
+            return {"converged": False, "residual": None, "reason": _TOUGAARD_CANCELS}
+        if not np.any(loss):
+            return _tougaard_zero_loss_verdict(x, yv, bg, n_avg)
         if a_high == c0:
             return {"converged": False, "residual": None, "reason": (
                 "the loss sum at the high-BE edge cancels to zero, so the edge does not fix the "
                 "background's amplitude and different amplitudes give different backgrounds")}
-        return {"converged": False, "residual": None, "reason": (
-            "the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level")}
+        return {"converged": False, "residual": None, "reason": _TOUGAARD_NO_AMPLITUDE}
     # The Shirley family: the residual of the RETURNED curve against its relation, in
     # EXACT rational arithmetic — exact edge means, exact trapezoids, exact map — so the
     # verdict is the statement's, not the arithmetic's (Codex impl round 13: on 1e12 ± 8
@@ -1097,20 +1112,59 @@ def _exact_shirley_certificate(x, y, bg, m, n_avg, label):
         "or ran out of steps, or the data exceed what double precision resolves at this span)" % (label, pct))}
 
 
+_TOUGAARD_CANCELS = ("the loss sum at the high-BE edge nearly cancels, so its rounding moves the "
+                     "background by more than the certificate's precision")
+_TOUGAARD_NO_AMPLITUDE = "the loss sum at the high-BE edge is zero, so no amplitude can meet the high-BE edge level"
+
+
+def _tougaard_zero_loss_verdict(x, y, bg, n_avg):
+    """Every computed loss sum is zero: the relation's flat member C0 is the answer only if
+    the EXACT loss vector is zero and the EXACT edge means agree (Codex impl round 14: float
+    means of 1 and 1 + 2^-53 compared equal and an unsolvable anchor was certified). The
+    exact loss is zero when every term has an exactly zero factor — K(T) = 0 only at T = 0,
+    a zero weight, or a zero net against the exact low-edge mean; a float zero that is not
+    proven so is refused as cancelling. Certified only if the returned flat curve is the
+    exact mean within the predicate."""
+    from fractions import Fraction as F
+    xa, ya = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    if xa[0] < xa[-1]:
+        xa, ya = xa[::-1], ya[::-1]
+    n = len(xa)
+    k = max(1, min(int(n_avg), n // 4)) if n >= 4 else 1
+    Y = [F(v) for v in ya.tolist()]
+    a_high, c0 = sum(Y[:k]) / k, sum(Y[-k:]) / k
+    w = np.abs(np.gradient(xa))
+    for i in range(n):
+        for j in range(i, n):
+            if not (xa[j] == xa[i] or w[j] == 0.0 or Y[j] == c0):
+                return {"converged": False, "residual": None, "reason": _TOUGAARD_CANCELS}
+    if a_high != c0:
+        return {"converged": False, "residual": None, "reason": _TOUGAARD_NO_AMPLITUDE}
+    span = max(Y) - min(Y)
+    if max(abs(F(float(v)) - c0) for v in np.asarray(bg, dtype=float).tolist()) <= F(BG_REL_TOL) * span:
+        return {"converged": True, "residual": None, "reason": None}
+    return {"converged": False, "residual": None, "reason": _TOUGAARD_CANCELS}
+
+
 def _tougaard_rounding_bound(x, y, n_avg=1) -> float:
     """A first-order rigorous bound on how far rounding can move the computed Tougaard
     background from the exact value of its relation, at the worst point (Codex impl
-    round 13). With u = eps/2 and, per row i, the computed loss sum L_i of m_i terms,
+    rounds 13-14). Called on the power-of-two-normalised intensities tougaard_background
+    computes with (max|I| in [0.5, 1)), so its own arithmetic neither underflows nor
+    overflows on any window. With u = eps/2, eta = 2^-1074 (the absolute error of a
+    subnormal rounding) and, per row i, the computed loss sum L_i of m_i terms,
     S_i = sum |term| and W_i = sum K w (the net's coefficient):
       each term carries <= 16 roundings, any summation tree <= m_i - 1, so
-      dL_i <= (m_i + 15) u S_i;  the edge means are off by <= (k + 1) u max|I| each
-      (dc, da), which moves L_i by <= dc W_i;  then
-      E_i = |D| (dL_i + dc W_i) / |L_0| + |D| |L_i| (dL_0 + dc W_0) / L_0^2
-            + (da + dc) |L_i / L_0| + dc + 4 u (|c0| + |B_i| + |D| |L_i / L_0|),
-    D = J_high - C0. Second-order terms are O(u^2) of the same quantities. Computed
-    with the same operations as the page's twin (_tougaardRoundingBound), so the
-    verdicts agree bit for bit."""
+      dL_i <= (m_i + 15) (u S_i + 2 eta);  the edge means are off by <= (k + 1) u max|I|
+      each (dc, da), which moves L_i by <= dc W_i;  with r_i = |L_i / L_0|,
+      q_i = (dL_i + dc W_i) / |L_0| and D = J_high - C0:
+      E_i = D q_i + D r_i q_0 + (da + dc) r_i + dc + 4 u (|C0| + |B_i| + D r_i) + eta,
+    evaluated ratio-first (no product of three small numbers), and the maximum
+    enlarged by (1 + 64 u) for the bound's own roundings. Second-order terms are O(u^2)
+    of the same quantities. The page's twin (_tougaardRoundingBound) uses the same
+    operations, so the verdicts agree bit for bit."""
     u = np.finfo(float).eps / 2
+    eta = 2.0 ** -1074
     xa, ya = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
     if xa[0] < xa[-1]:
         xa, ya = xa[::-1].copy(), ya[::-1].copy()
@@ -1130,12 +1184,13 @@ def _tougaard_rounding_bound(x, y, n_avg=1) -> float:
     dc = da = (k + 1) * u * M
     D = abs(a_high - c0)
     m = n - np.arange(n)
-    dL = (m + 15) * u * S
-    r = np.abs(L) / abs(L[0])
+    dL = (m + 15) * (u * S + 2 * eta)
+    aL0 = abs(L[0])
+    r = np.abs(L) / aL0
+    q = (dL + dc * W) / aL0
     bg = c0 + L * ((a_high - c0) / L[0])
-    E = (D * (dL + dc * W) / abs(L[0]) + D * np.abs(L) * (dL[0] + dc * W[0]) / (L[0] * L[0])
-         + (da + dc) * r + dc + 4 * u * (abs(c0) + np.abs(bg) + D * r))
-    return float(np.max(E))
+    E = D * q + D * r * q[0] + (da + dc) * r + dc + 4 * u * (abs(c0) + np.abs(bg) + D * r) + eta
+    return float(np.max(E)) * (1 + 64 * u)
 
 
 def _region_in_order(x, method):
