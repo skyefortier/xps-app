@@ -949,9 +949,10 @@ def tougaard_background(
         out = np.full(n, c0)
     else:
         out = c0 + bg * ((a_high - c0) / bg[0])
-    out = np.ldexp(out, e)
-    # a value scaled back into the subnormal range has lost bits: not exact, refused (NaN)
-    out = np.where((out != 0) & (np.abs(out) < np.finfo(float).tiny), np.nan, out)
+    back = np.ldexp(out, e)
+    # scaling back is exact only if it round-trips: a value that lost bits — into the
+    # subnormal range or all the way to zero (Codex impl round 15) — is refused (NaN)
+    out = np.where(np.ldexp(back, -e) == out, back, np.nan)
     return out[::-1] if flipped else out
 
 
@@ -1147,24 +1148,30 @@ def _tougaard_zero_loss_verdict(x, y, bg, n_avg):
 
 
 def _tougaard_rounding_bound(x, y, n_avg=1) -> float:
-    """A first-order rigorous bound on how far rounding can move the computed Tougaard
-    background from the exact value of its relation, at the worst point (Codex impl
-    rounds 13-14). Called on the power-of-two-normalised intensities tougaard_background
-    computes with (max|I| in [0.5, 1)), so its own arithmetic neither underflows nor
-    overflows on any window. With u = eps/2, eta = 2^-1074 (the absolute error of a
-    subnormal rounding) and, per row i, the computed loss sum L_i of m_i terms,
-    S_i = sum |term| and W_i = sum K w (the net's coefficient):
-      each term carries <= 16 roundings, any summation tree <= m_i - 1, so
-      dL_i <= (m_i + 15) (u S_i + 2 eta);  the edge means are off by <= (k + 1) u max|I|
-      each (dc, da), which moves L_i by <= dc W_i;  with r_i = |L_i / L_0|,
-      q_i = (dL_i + dc W_i) / |L_0| and D = J_high - C0:
-      E_i = D q_i + D r_i q_0 + (da + dc) r_i + dc + 4 u (|C0| + |B_i| + D r_i) + eta,
-    evaluated ratio-first (no product of three small numbers), and the maximum
-    enlarged by (1 + 64 u) for the bound's own roundings. Second-order terms are O(u^2)
-    of the same quantities. The page's twin (_tougaardRoundingBound) uses the same
-    operations, so the verdicts agree bit for bit."""
+    """A RIGOROUS bound on how far rounding can move the computed Tougaard background from
+    the exact value of its relation, at the worst point (Codex impl rounds 13-15); inf
+    when the high-edge sum's own uncertainty reaches its magnitude (its sign, and the
+    anchoring, are then undetermined). Called on the power-of-two-normalised intensities
+    tougaard_background computes with (max|I| in [0.5, 1)). With u = eps/2, eta = 2^-1074
+    (the absolute error of a subnormal rounding), g(m) = m u / (1 - m u) and, per row i,
+    the computed loss sum L_i of m_i terms, S_i = sum |term|, W_i = sum K w:
+      each term carries <= 16 roundings, any summation tree <= m_i - 1:
+        dL_i = g(m_i + 15) S_i + 2 (m_i + 15) eta + dc W_i (1 + g(m_i)),
+      the last for the edge mean C0 (off by <= dc) inside every net;
+      dc = da = g(k + 1) max|I| (each edge mean of k points);
+      the exact ratio s_i = L_i / L_0 then lies within
+        rho_i = (dL_i + r_i dL_0) / (|L_0| - dL_0)  of the computed one (r_i = |L_i / L_0|),
+      requiring dL_0 < |L_0|; the exact D = J_high - C0 within dD = da + dc + u |D|; so
+        E_i = dc + dD (r_i + rho_i) + |D| rho_i + 4 u (|C0| + |B_i| + |D| r_i) + eta,
+    and the maximum is enlarged by (1 + 64 u) for the bound's own roundings. No
+    first-order truncation: a computed D or L_0 of zero cannot hide the exact one. The
+    page's twin (_tougaardRoundingBound) uses the same operations, so the verdicts
+    agree bit for bit."""
     u = np.finfo(float).eps / 2
     eta = 2.0 ** -1074
+
+    def g(m):
+        return m * u / (1 - m * u)
     xa, ya = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
     if xa[0] < xa[-1]:
         xa, ya = xa[::-1].copy(), ya[::-1].copy()
@@ -1181,15 +1188,18 @@ def _tougaard_rounding_bound(x, y, n_avg=1) -> float:
         t = kw * net[i:]
         L[i], S[i], W[i] = float(np.sum(t)), float(np.sum(np.abs(t))), float(np.sum(kw))
     M = float(np.max(np.abs(ya)))
-    dc = da = (k + 1) * u * M
+    dc = da = g(k + 1) * M
     D = abs(a_high - c0)
     m = n - np.arange(n)
-    dL = (m + 15) * (u * S + 2 * eta)
+    dL = g(m + 15) * S + 2 * (m + 15) * eta + dc * W * (1 + g(m))
     aL0 = abs(L[0])
+    if not dL[0] < aL0:
+        return float("inf")
     r = np.abs(L) / aL0
-    q = (dL + dc * W) / aL0
+    rho = (dL + r * dL[0]) / (aL0 - dL[0])
+    dD = da + dc + u * D
     bg = c0 + L * ((a_high - c0) / L[0])
-    E = D * q + D * r * q[0] + (da + dc) * r + dc + 4 * u * (abs(c0) + np.abs(bg) + D * r) + eta
+    E = dc + dD * (r + rho) + D * rho + 4 * u * (abs(c0) + np.abs(bg) + D * r) + eta
     return float(np.max(E)) * (1 + 64 * u)
 
 

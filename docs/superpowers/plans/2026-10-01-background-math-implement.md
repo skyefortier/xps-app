@@ -635,3 +635,15 @@ A separating case pins that the bound is the bound of the computation performed:
 within the predicate of the exact relation, where a bound at the data's own scale would
 have refused (1.1 ×). Mutation-verified (4 of 4 killed): the certificate unnormalised and
 the zero-loss branch on float means, each side.
+
+**Round 15 — NO-GO ×2** (`background_math_impl_r15_verdict_run{A,B}.md`, commit 41b60d8;
+both: all 606 committed Tougaard backgrounds bit-identical to the previous computation,
+no refusal, bound at most 0.0432 of the predicate; the margin, measurements, census and
+upload comparison reproduce):
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the bound was FIRST-ORDER — with the computed edge difference D = 0 (exact 2^-45 / 3, 2^-50) and the high-edge sum's uncertainty above its magnitude (q0 ≈ 26) the truncated terms dominated: 7e11 / 2e13 × the predicate, certified | the bound is now RIGOROUS (no truncation): the exact ratio L_i / L_0 lies within rho_i = (dL_i + r_i dL_0) / (|L_0| − dL_0) of the computed one — refused (inf) when dL_0 ≥ |L_0|, the high-edge sum's sign then not established; the exact D within dD = da + dc + u|D| multiplies (r + rho), so a computed D of 0 cannot hide it; the gammas are g(m) = m u / (1 − m u); the C0 uncertainty enters every row through W. Committed: 606 / 606 bit-identical, none refused, bound ≤ 0.0433 of the predicate. A separating case pins dD: a well-determined high-edge sum, computed D 0, exact 2^-53, a far peak (ratio ~1e13) — refused; without dD the bound would be 3e-4 of the predicate while the returned curve misses the exact relation by 8.7 × |
+| 2 | MAJOR (B): scaling back rounded the whole curve to ZERO, which the subnormal guard exempted | the rescale must round-trip (`ldexp(ldexp(v, e), −e) == v`, both sides): a value that lost bits — to the subnormal range or to zero — is refused |
+
+Mutation-verified (4 of 4 killed): dD dropped, the zero exemption, each side.

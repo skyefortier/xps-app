@@ -445,3 +445,35 @@ def test_the_tougaard_bound_holds_at_any_scale_and_the_zero_loss_branch_is_exact
     assert max(abs(float(b - e)) for b, e in zip(map(float, bg), exact)) <= fitting.BG_REL_TOL * (max(I) - min(I))
     # the flat window with exactly equal levels is still its own flat background
     assert np.array_equal(fitting.compute_background(np.arange(4.0), np.full(4, 7.0), "tougaard"), np.full(4, 7.0))
+
+
+
+# ── Codex implementation round 15 ────────────────────────────────────────────
+
+def test_the_tougaard_bound_is_rigorous_when_the_computed_edge_difference_is_zero():
+    # (A, B) computed D = 0 while the exact edge difference is 2^-45 / 3 (A) or 2^-50 (B) and the
+    # high-edge sum's uncertainty exceeds its magnitude: the first-order bound vanished
+    # (7e11 / 2e13 x the predicate, certified). The bound is now rigorous (an interval for the
+    # exact ratio, the exact D's own uncertainty, no truncation) and refuses
+    for E, I, n_avg in (([333.0, 280.0 + 2 ** -44, 280.0] + [245.21875] * 9, [146.21875000000003, 162.78125, 75.0] + [128.0] * 9, 3),
+                        ([55.4022790912908, 55.4022790912908, 32, 32, 31.999999999999996, 31.999999999999996, 24, 24],
+                         [12, 12.000000000000002, 15.999999999999998, 12, 12, 0.2988604543545996, 12, 12], 2)):
+        for o in (1, -1):
+            with pytest.raises(fitting.BackgroundNotConverged, match="nearly cancels"):
+                fitting.compute_background(np.array(E[::o], float), np.array(I[::o], float), "tougaard", n_avg=n_avg)
+    # the exact D's own uncertainty is part of the bound: here the high-edge sum is well determined,
+    # the computed D is 0 and the exact one 2^-53, and a far peak makes the ratio ~1e13 — the
+    # returned flat curve misses the exact relation by 8.7 x the predicate; without dD the bound
+    # would have been 3e-4 of it (certified)
+    E = [1e6, 1e6 - 1e-3, 1e6 - 2e-3, 30, 25, 20, 15, 1, 0]
+    I = [1.0, 1.0, 1.0, 400.0, 1000.0, 400.0, 1.0, 1.0, 1.0 + 2 ** -52]
+    for o in (1, -1):
+        with pytest.raises(fitting.BackgroundNotConverged, match="nearly cancels"):
+            fitting.compute_background(np.array(E[::o]), np.array(I[::o]), "tougaard", n_avg=2)
+    # (B) scaling back rounded the whole curve to zero (exempt from the subnormal guard): the
+    # rescale must round-trip, so a value that lost bits even to zero is refused
+    eta = 2.0 ** -1074
+    I = [eta * v for v in (1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0)]
+    for o in (1, -1):
+        with pytest.raises(fitting.BackgroundNotConverged, match="not finite"):
+            fitting.compute_background(np.arange(11.0, -1.0, -1.0)[::o], np.array(I[::o]), "tougaard", n_avg=3)

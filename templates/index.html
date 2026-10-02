@@ -4642,8 +4642,9 @@ function tougaardBackground(be, intensity, nAvg) {
   let out;
   if (loss[0] === 0) out = new Array(n).fill(c0);
   else { const scale = (aHigh - c0) / loss[0]; out = loss.map(v => c0 + v * scale); }
-  // scaled back; a value scaled back into the subnormal range has lost bits (NaN: refused)
-  out = out.map(v => { const r = _bgLdexp(v, e); return r !== 0 && Math.abs(r) < 2.2250738585072014e-308 ? NaN : r; });
+  // scaled back; exact only if it round-trips — a value that lost bits, into the
+  // subnormal range or all the way to zero, is refused (NaN) (fitting.tougaard_background)
+  out = out.map(v => { const r = _bgLdexp(v, e); return _bgLdexp(r, -e) === v ? r : NaN; });
   return flipped ? out.reverse() : out;
 }
 
@@ -4780,8 +4781,9 @@ function _tougaardZeroLossVerdict(be, intensity, bg, nAvg) {
 }
 
 // fitting._tougaard_rounding_bound, operation for operation (so the verdicts agree
-// bit for bit): a first-order rigorous bound on how far rounding moves the computed
-// Tougaard background from the exact value of its relation, at the worst point.
+// bit for bit): a RIGOROUS bound on how far rounding moves the computed Tougaard
+// background from the exact value of its relation, at the worst point (Infinity when
+// the high-edge sum's uncertainty reaches its magnitude) — see its docstring.
 function _tougaardRoundingBound(be, intensity, nAvg) {
   const u = Number.EPSILON / 2;
   const n = be.length;
@@ -4809,19 +4811,21 @@ function _tougaardRoundingBound(be, intensity, nAvg) {
     L[i] = 0 + _npPairwiseSum(t, 0, t.length); S[i] = 0 + _npPairwiseSum(at, 0, at.length); W[i] = 0 + _npPairwiseSum(kw, 0, kw.length);
   }
   const eta = 2 ** -1074;
+  const g = m => m * u / (1 - m * u);
   let M = 0;
   for (const v of ya) M = Math.max(M, Math.abs(v));
-  const dc = (k + 1) * u * M, da = dc;
+  const dc = g(k + 1) * M, da = dc;
   const D = Math.abs(aHigh - c0);
-  const aL0 = Math.abs(L[0]);
-  const q0 = ((n + 15) * (u * S[0] + 2 * eta) + dc * W[0]) / aL0;
+  const dLof = i => g((n - i) + 15) * S[i] + 2 * ((n - i) + 15) * eta + dc * W[i] * (1 + g(n - i));
+  const aL0 = Math.abs(L[0]), dL0 = dLof(0);
+  if (!(dL0 < aL0)) return Infinity;                     // the high-edge sum's sign is not established
+  const dD = da + dc + u * D;
   let E = -Infinity;
   for (let i = 0; i < n; i++) {
-    const dL = ((n - i) + 15) * (u * S[i] + 2 * eta);
     const r = Math.abs(L[i]) / aL0;
-    const q = (dL + dc * W[i]) / aL0;
+    const rho = (dLof(i) + r * dL0) / (aL0 - dL0);
     const bgi = c0 + L[i] * ((aHigh - c0) / L[0]);
-    const e = D * q + D * r * q0 + (da + dc) * r + dc + 4 * u * (Math.abs(c0) + Math.abs(bgi) + D * r) + eta;
+    const e = dc + dD * (r + rho) + D * rho + 4 * u * (Math.abs(c0) + Math.abs(bgi) + D * r) + eta;
     if (Number.isNaN(e)) return NaN;                     // np.max propagates NaN (then: refused)
     if (e > E) E = e;
   }

@@ -1,0 +1,38 @@
+Review the "background math — implementation" unit, round 16: branch bg-math-implement; this unit = git diff d79b843..HEAD; the round-15 fixes = git diff 41b60d8..HEAD. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..15}_verdict_run{A,B}.md (round 13: A and B2); the plan's §6 maps every finding to its fix; the owner's items and the round-1 attack list: background_math_impl_review_prompt.txt.
+
+Round-15 fixes in short:
+- The Tougaard rounding bound is now RIGOROUS; nothing is truncated at first order (fitting._tougaard_rounding_bound docstring; the page's _tougaardRoundingBound uses the same operations).
+  - The exact ratio L_i / L_0 lies within rho_i = (dL_i + r_i dL_0) / (|L_0| − dL_0) of the computed one. When dL_0 ≥ |L_0|, the bound is inf and the background is refused.
+  - The exact edge difference D lies within dD = da + dc + u|D|, which multiplies (r + rho).
+  - The gammas are g(m) = m u / (1 − m u).
+  - Committed data: 606 of 606 backgrounds bit-identical to the previous computation, none refused, bound at most 0.0433 of the predicate. A separating case pins the dD term.
+- The power-of-two rescale must round-trip on both sides. A value that lost bits, to the subnormal range or to zero, is refused.
+- Still dispositioned, do not re-raise unless this unit made them worse:
+  - errors INSIDE the predicate;
+  - the _legacy_line pin;
+  - Auto-Fit's post-shift pairing;
+  - the page / server data readings.
+- JS CI floor 538 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: the unit's requirement is the owner's item 2 — every background satisfies its defining statement or reports failure, and nothing downstream treats a failure as valid. Rate a finding MAJOR or above only if a reachable input violates that requirement, or changes a displayed or saved number wrongly. Rate a wording or formatting inconsistency that changes no verdict and no number as MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. Any background, for any method on either side, certified while its error against its defining statement exceeds the certificate's predicate (BG_REL_TOL × the window's span). Also any page / server disagreement in a verdict on the SAME numbers, and any consumer that treats a refused background as valid.
+   In particular:
+   - Is the Tougaard bound rigorous at first order on ANY finite input, including subnormal data, huge dynamic range within a window, and repeated energies? Name any rounding it omits that can exceed it.
+   - Is the normalisation exact in every case it is applied to, and on both sides?
+   - Is the exact certificate the defining relation as the docstrings state it?
+   - Could either refuse a realistic XPS window? Use the committed data in docs/autofit/test_data and the margin script.
+b. Everything rounds 1-15 verified, against the new commit:
+   - the throwing producers and that every consumer handles them;
+   - the restore rule for every method, both file formats and both orders;
+   - page = server bit-identity;
+   - certificate parity;
+   - the measurements and the census;
+   - no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
