@@ -251,7 +251,7 @@ def test_the_seed_derivation_is_pinned():
     assert _seed(x, y, specs, background_method="none") == PINNED_SEED
 
 
-PINNED_SEED = 3015826926  # xps-fit-seed-v1; recorded once from the implementation, never edited
+PINNED_SEED = 2117573689  # xps-fit-seed-v2 (owner 2026-10-03: the background by its inputs); recorded once, never edited — v1 was 3015826926
 
 
 def test_the_response_reports_its_seed():
@@ -401,19 +401,33 @@ PINNED_DRAWS = [1.089357756053, 0.992278281701, 1.027405335229, 1.110647543005,
 # ── Codex round 3 (both runs NO-GO): settings are hashed by their EFFECT ───────
 
 def test_a_background_setting_the_method_ignores_does_not_change_the_fit():
-    # The page keeps sending endpoint_avg after the user switches from Shirley
-    # to Linear, which does not use it: changing it moved the third
-    # component's area fraction from 17 % to 46 %.
+    # The page keeps sending endpoint_avg after the user switches to a background that
+    # does not read it: changing it moved a component's area fraction from 17 % to 46 %
+    # (then: Linear; since 2026-10-03 Linear reads the averaged edge levels, so the
+    # cases are a background with nothing to average, and an averaging beyond the
+    # window's quarter, k = min(n_avg, n // 4), which acts as the quarter)
     x, y, specs = _crowded_c1s()
-    kw = dict(background_method="linear", n_perturb=3, fit_kws={"method": "leastsq"})
-    a = fitting.run_fit(x, y, specs, endpoint_avg=1, **kw)
-    b = fitting.run_fit(x, y, specs, endpoint_avg=3, **kw)
-    assert np.array_equal(a["background_y"], b["background_y"])
-    assert a["random_seed"] == b["random_seed"]
-    assert_same_fit(a, b)
-    # where the setting DOES act, the draws may differ
+    kw = dict(n_perturb=3, fit_kws={"method": "leastsq"})
+    # The property: the setting never reaches the fit's INPUTS (its background and its
+    # draws). Equal inputs make the two an identical request; the fits are then compared
+    # where this model repeats — under Shirley the minimum certificate's Trust-Region
+    # continuation (alignment-dependent BLAS, the accepted property in CLAUDE.md) sends
+    # identical requests on this several-minima model into different basins run to run
+    # (seen once in the full suite, 2026-10-04), so there the inputs are the claim
+    for method, (e1, e2), whole in (("none", (1, 3), True), ("linear", (10 ** 6, 10 ** 7), True),
+                                    ("shirley", (10 ** 6, 10 ** 7), False)):
+        a = fitting.run_fit(x, y, specs, background_method=method, endpoint_avg=e1, **kw)
+        b = fitting.run_fit(x, y, specs, background_method=method, endpoint_avg=e2, **kw)
+        assert np.array_equal(a["background_y"], b["background_y"]), method
+        assert a["random_seed"] == b["random_seed"], method
+        if whole:
+            assert_same_fit(a, b)
+    # where the setting DOES act, the background and the draws may differ
     assert (_seed(x, y, specs, background_method="shirley", endpoint_avg=1)
             != _seed(x, y, specs, background_method="shirley", endpoint_avg=5))
+    a = fitting.run_fit(x, y, specs, background_method="linear", endpoint_avg=1, **kw)
+    b = fitting.run_fit(x, y, specs, background_method="linear", endpoint_avg=3, **kw)
+    assert not np.array_equal(a["background_y"], b["background_y"]) and a["random_seed"] != b["random_seed"]
 
 
 def test_bounds_that_cannot_act_and_values_a_constraint_overrides_do_not_change_the_seed():

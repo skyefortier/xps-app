@@ -4,256 +4,288 @@
   "tab": "C1s Scan",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0085 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.044 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.767100597091475
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_0",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0037 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.19519140781068342
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_0",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.051 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.8538951808525589
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_1",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0082 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.9034131899215964
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_1",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.13 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.6509482755644109
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_2",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00071 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.5088798578640935
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_2",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.034 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_3",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00098 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.859778926154957
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_3",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.036 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.8054675391502539
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_4",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0065 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.5928713105179884
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_4",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.38 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.6891369232585367
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_5",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00066 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.5722517217074371
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_5",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.39 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.2634315413622351
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_6",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0024 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 2.36236985860475
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_6",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.13 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.9252394623418945
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_7",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0042 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.8839184260486177
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_7",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.11 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.3718960744393056
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "C1s Scan_8",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00049 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
   "tab": "U4f Scan_8",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.62 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.9426304609224768
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.32 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 5.073465073534439
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan",
   "bgType": "smart",
   "endpointAvg": "6",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.6469593369058235
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan_0",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 2.9104509883933525
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_0",
   "bgType": "smart",
   "endpointAvg": "6",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.6527749364822837
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan_1",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 2.954131704380448
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_1",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan_2",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_2",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.8933796062002595
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan_3",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_3",
   "bgType": "smart",
   "endpointAvg": "2",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.1688450776898773
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan_4",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.547378942592431
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_4",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.5076523818598605
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -261,47 +293,53 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_5",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00056 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.9208956136339388
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan_6",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.20 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_6",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "B1s Scan_7",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.19 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_7",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.2708209716992149
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -309,95 +347,107 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
   "tab": "U4f Scan_8",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00017 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.19791911888707067
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_0",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0000097 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.140818637429
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_1",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00024 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.1452408312711748
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_2",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0000068 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.3890908530434712
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_3",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00011 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_4",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.000047 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.6298466802285833
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_5",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00048 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.15849104784208806
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_6",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0000064 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.1815633899722581
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_7",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.000095 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.9076760345314471
  },
  {
   "project": "8-JT Graphite.proj.zip",
   "tab": "C1s Scan_8",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.000055 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.7278130641173058
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -405,7 +455,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -413,7 +464,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -421,7 +473,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -429,7 +482,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -437,7 +491,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "31",
   "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.52 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -445,7 +500,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -453,7 +509,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -461,15 +518,17 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "B1s Scan_7",
   "bgType": "smart_exp",
   "endpointAvg": "25",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.64 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.2300826150490691
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -477,87 +536,98 @@
   "bgType": "smart_exp",
   "endpointAvg": "25",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
+  "stalePct": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.64 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.2186968359138785
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_0",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.053 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.24852686570074808
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_1",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.099 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.7613396202723801
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_2",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.27 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.6670985057153154
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_3",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.22 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.678055424797293
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_4",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.11 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.4751355936691083
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_5",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.13 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.360681800974431
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_6",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.014 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.6147136896749971
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_7",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.15 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.809397697418702
  },
  {
   "project": "B4C-UCl4.proj.zip",
   "tab": "U4f Scan_8",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.20 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.450948069133061
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -565,7 +635,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -573,7 +644,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -581,7 +653,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -589,7 +662,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -597,7 +671,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -605,7 +680,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -613,7 +689,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -621,7 +698,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -629,7 +707,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -637,7 +716,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -645,7 +725,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -653,7 +734,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -661,7 +743,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -669,7 +752,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -677,7 +761,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "1",
   "kept": true,
-  "reason": null
+  "reason": null,
+  "stalePct": 3.109687040898683
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -685,7 +770,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "1",
   "kept": true,
-  "reason": null
+  "reason": null,
+  "stalePct": 3.6053356437248874
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -693,7 +779,8 @@
   "bgType": "smart_exp",
   "endpointAvg": "1",
   "kept": true,
-  "reason": null
+  "reason": null,
+  "stalePct": 2.0446894546491925
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -701,7 +788,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -709,7 +797,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -717,7 +806,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -725,7 +815,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -733,7 +824,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -741,7 +833,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -749,7 +842,8 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -757,7 +851,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -765,7 +860,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -773,7 +869,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -781,7 +878,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -789,7 +887,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -797,7 +896,8 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -805,47 +905,53 @@
   "bgType": "smart",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
+  "stalePct": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0086 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.299469080334322
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_0",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0029 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.601339617913261
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_1",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00073 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_2",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0037 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_3",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00084 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.3442428194921205
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -853,118 +959,133 @@
   "bgType": "shirley",
   "endpointAvg": "1",
   "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0016 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "reason": "its stored envelope and the energies it was fitted on have different lengths",
+  "stalePct": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_5",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0023 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.0092148566422
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_6",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.0024 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_7",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00038 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.4533433134545313
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "C1s Scan_8",
   "bgType": "shirley",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.00089 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.3982541159149036
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.767100597091475
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_0",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.051 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.8538951808525589
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_1",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_2",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.8781917253350453
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_3",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.036 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.8054675391502539
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_4",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "it was saved without the background it was fitted against, so that background cannot be checked"
+  "kept": true,
+  "reason": null,
+  "stalePct": 1.6891369232613294
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_5",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.39 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.2634315413622288
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_6",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.13 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.9252394623418945
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_7",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.095 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.37571618223713066
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
   "tab": "U4f Scan_8",
   "bgType": "smart",
   "endpointAvg": "1",
-  "kept": false,
-  "reason": "the background it was fitted against is not the background its settings give now (it differs by 0.62 % of the intensity span) \u2014 computed by an earlier version, or the settings were changed after the fit"
+  "kept": true,
+  "reason": null,
+  "stalePct": 0.9426304609224828
  }
 ]

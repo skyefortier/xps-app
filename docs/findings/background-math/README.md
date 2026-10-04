@@ -55,6 +55,46 @@ committed spectra, never; Tougaard never. Until now those windows got a non-solu
 silently. A student who selects a window without a peak (or without enough net signal)
 now gets the message under the method menu and no fit.
 
+## Saved fits after this unit (owner round, 2026-10-03)
+
+What a saved fit was fitted against is its stored envelope less its saved peaks (the
+stored background curve was the page's own preview, saved beside the server's fit).
+Compared with today's background on the fit's own points, within 1e-3 of the
+background's scale (`fit_equality.SAME_MINIMUM_REL`), on the 121 committed saved fits
+(`scripts/bg_math_restore_census.py` with the page's functions;
+`scripts/bg_math_restore_alternative.py` in Python agrees on all 121;
+`data/impl/restore_census.json`, `restore_alternative.json`):
+
+- 15 equal today's — they reload as they were (median 3.4e-6, max 8.9e-4 of the scale);
+- 60 differ only because older requests chose the background window by nearest index,
+  end-exclusive (today: inclusive bounds) — median 0.83 %, max 5.07 % (4-GTA UCl4-BN
+  B1s Scan); they reload marked stale;
+- 6 differ under either window rule, all `smart` — these were fitted against a
+  background that neither today's code nor main's server code gives on the same samples
+  (main misses them by 0.85–2.95 % too), or their peaks were edited after the fit in a
+  save older than F1 (no model key to tell). They reload marked stale:
+
+  | project / tab | difference of the fit's background from today's |
+  |---|---|
+  | 4-GTA UCl4-BN / B1s Scan_1 | 2.95 % |
+  | 4-GTA UCl4-BN / U4f Scan_0 | 1.65 % |
+  | 4-GTA UCl4-BN / U4f Scan | 1.65 % |
+  | 4-GTA UCl4-BN / B1s Scan_4 | 1.55 % |
+  | 4-GTA UCl4-BN / U4f Scan_3 | 1.17 % |
+  | UCl4_on_graphite / U4f Scan_2 | 0.878 % |
+
+- 40 cannot be checked (28 saved without the energies they were fitted on, 11 without
+  their fitted envelope, 1 with the two of different lengths) — peaks only.
+
+CORRECTION (2026-10-03, before the owner's decision was implemented): an earlier census
+reported "9 genuine differences, 4-GTA B 1s up to 127 %, 4-GTA U 4f ~97 %, UCl4 U 4f
+14.9 %". That was an artefact of matching a charge-shifted fit to its samples at the
+FIRST position a constant offset fitted — on a uniform grid, any position — so 16 fits
+were compared on samples 2.4–6 eV from their own. Pinned by the fit's own record (its
+stored counts, else its stored RMSE, reproduced to 4 significant figures at the chosen
+samples, the next candidate off by 139–2 150 counts), the true offsets are 0.001–0.13 eV
+and no saved fit's background differs from today's by more than 5.07 %.
+
 ## Summary
 
 | method | defining statement | does the implementation solve it? (121 committed spectra) | verdict |

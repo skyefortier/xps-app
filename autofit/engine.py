@@ -270,7 +270,7 @@ def _compute_background(
     if bg is BackgroundType.SMART_EXP:
         return compute_background(x, y, "smart_exp", n_avg=endpoint_avg)
     if bg is BackgroundType.LINEAR:
-        return linear_background(x, y)
+        return linear_background(x, y, n_avg=endpoint_avg)   # the averaged edge levels (2026-10-03)
     if bg is BackgroundType.TOUGAARD:
         return compute_background(x, y, "tougaard", n_avg=endpoint_avg)
     raise ValueError(f"Unknown background type: {bg}")

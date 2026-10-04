@@ -10,12 +10,12 @@ const path = require('node:path');
 const FUNCTIONS = [
   '_npPairwiseSum', '_npMean', '_bgEdgeLevels', '_bgAscending', '_bgSpan', '_npLinspace',
   '_bgCumFromHigh', '_bgShirleyMap', '_bgMaxAbsDiff', 'shirleyBackground', 'smartBackground',
-  'smartExperimentalBackground', '_bgLineFailure', '_bgAnchorFailure', '_bgExact', '_bgBitLen', '_bgRatToDouble', '_bgExactLine', '_bgRoundingWithin', '_bgExactSpan', '_bgPrecisionWords', 'linearBackground', '_tougaardLoss', 'tougaardBackground',
+  'smartExperimentalBackground', '_bgLineFailure', '_bgExactLevels', '_bgAnchorFailure', '_bgExact', '_bgBitLen', '_bgRatToDouble', '_bgExactLine', '_bgRoundingWithin', '_bgExactSpan', '_bgPrecisionWords', 'linearBackground', '_tougaardLoss', 'tougaardBackground',
   '_bgCertificate', '_bgExactShirleyCertificate', '_tougaardRoundingBound', '_tougaardZeroLossVerdict', '_bgPow2Exp', '_bgLdexp', '_fmt3', '_applyEndpointAveraging', 'shirleyLinearBackground', '_bgWindowIndices',
   '_bgMark', '_bgFailure', 'BgNotConverged', '_isBgNotConverged', '_certifiedBg', '_bgOrFailure',
   'computeBackgroundCore', '_computeBackgroundUnchecked',
 ];
-const CONSTANTS = ['BG_REL_TOL', 'BG_MAX_ITER', 'BG_LABELS', '_TOUGAARD_CANCELS', '_TOUGAARD_NO_AMPLITUDE'];
+const CONSTANTS = ['BG_REL_TOL', 'BG_MAX_ITER', 'BG_LABELS', '_TOUGAARD_CANCELS', '_TOUGAARD_NO_AMPLITUDE', '_BG_NO_PEAK'];
 
 module.exports = function pageBackgroundSource({ manual = 'stub' } = {}) {
   const lines = fs.readFileSync(path.join(__dirname, '../../templates/index.html'), 'utf8').split('\n');

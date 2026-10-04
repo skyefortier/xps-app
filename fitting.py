@@ -536,17 +536,18 @@ def smart_background(
     return np.minimum(shir, np.asarray(y, dtype=float))
 
 
-def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Linear background: the affine function of energy through the end points,
+def linear_background(x: np.ndarray, y: np.ndarray, n_avg: int = 1) -> np.ndarray:
+    """Linear background: the affine function of energy through the two edge LEVELS,
 
-        B(E) = I_first + (I_last - I_first) (E - E_first) / (E_last - E_first).
+        B(E) = J_first + (J_last - J_first) (E - E_first) / (E_last - E_first),
 
-    ASSUMPTIONS: the background varies linearly across the window and no loss
-    intensity builds up under the peaks (no inelastic step) — reasonable for a
-    narrow window around small peaks, not for a core level whose loss tail
-    raises the high-BE side; both end points lie on background. The RAW end
-    points are used (no endpoint averaging): one noisy end sample tilts the
-    whole line. Exact to rounding (tests/test_background_defining_statements.py).
+    J_first / J_last the means of the window's first / last k points (k = min(n_avg,
+    n // 4), k >= 1 — the levels every method reads; owner 2026-10-03: it used the raw
+    end points, so one noisy end sample tilted the whole line). ASSUMPTIONS: the
+    background varies linearly across the window and no loss intensity builds up under
+    the peaks (no inelastic step) — reasonable for a narrow window around small peaks,
+    not for a core level whose loss tail raises the high-BE side; both edges lie on
+    background. Evaluated exactly (tests/test_background_defining_statements.py).
     When the two end energies are equal the line is the flat I_first if the two
     end intensities are equal too; otherwise NO line passes through both end
     points and BackgroundNotConverged is raised (Codex impl round 4: the flat
@@ -554,7 +555,20 @@ def linear_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """
     if len(x) == 0:
         return np.zeros(0)        # an empty window: an empty curve, as the page (round 8)
-    return _line_through(x, x[0], y[0], x[-1], y[-1], _span(y))
+    lo, hi = _exact_edge_levels(y, n_avg)
+    return _line_through(x, x[0], lo, x[-1], hi, _span(y))
+
+
+def _exact_edge_levels(y, n_avg=1):
+    """The two edge LEVELS of the window as exact rationals: the means of its first and
+    last k points (_avg_k) — what endpoint averaging sets for every method (owner
+    2026-10-03: linear reads it too)."""
+    from fractions import Fraction
+    ys = np.asarray(y, dtype=float).tolist()
+    k = _avg_k(len(ys), n_avg)
+    if not all(math.isfinite(v) for v in ys[:k] + ys[-k:]):
+        return float("nan"), float("nan")            # refused by _line_through as not finite
+    return sum(map(Fraction, ys[:k])) / k, sum(map(Fraction, ys[-k:])) / k
 
 
 def _span(y):
@@ -597,38 +611,40 @@ def _line_through(x, x0, y0, x1, y1, span=None):
     curve is judged against), exactly, or the background is refused (Codex impl round
     16: a line at 1e12 counts over a span of 1 rounds by 4e-5)."""
     from fractions import Fraction
-    x0, y0, x1, y1 = float(x0), float(y0), float(x1), float(y1)
-    tol = None if span is None else Fraction(BG_REL_TOL) * Fraction(span)
+    x0, x1 = float(x0), float(x1)
     xv = np.asarray(x, dtype=float)
-    if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
+    # the levels: exact means (Fractions, linear_background / run_fit) or doubles
+    if not (math.isfinite(x0) and math.isfinite(x1)) or not all(
+            isinstance(v, Fraction) or math.isfinite(float(v)) for v in (y0, y1)):
         return _explicit_background(np.full(len(xv), np.nan), "Linear")   # raises: not finite
+    Y0 = y0 if isinstance(y0, Fraction) else Fraction(float(y0))
+    Y1 = y1 if isinstance(y1, Fraction) else Fraction(float(y1))
+    tol = None if span is None else Fraction(BG_REL_TOL) * Fraction(span)
     if x1 == x0:
-        if y1 != y0:
+        if Y1 != Y0:
             raise BackgroundNotConverged(
                 "Linear background not converged: its two end points are at the same energy "
                 "with different intensities, so no line passes through both.")
-        out = np.where(np.isfinite(xv), y0, np.nan)
-        return _explicit_background(out, "Linear")
-    X0, X1, Y0, Y1 = Fraction(x0), Fraction(x1), Fraction(y0), Fraction(y1)
+        flat = float(Y0)
+        if tol is not None and abs(Fraction(flat) - Y0) > tol:
+            raise BackgroundNotConverged(_precision_words("Linear"))
+        return _explicit_background(np.where(np.isfinite(xv), flat, np.nan), "Linear")
+    X0, X1 = Fraction(x0), Fraction(x1)
     D = X1 - X0
     out = np.empty(len(xv))
     for i, v in enumerate(xv.tolist()):
         if not math.isfinite(v):
             out[i] = float("nan")
-        elif v == x0:
-            out[i] = y0
-        elif v == x1:
-            out[i] = y1
-        else:
-            X = Fraction(v)
-            q = (Y0 * (X1 - X) + Y1 * (X - X0)) / D
-            try:
-                out[i] = float(q)
-            except OverflowError:
-                out[i] = float("inf")
-                continue
-            if tol is not None and abs(Fraction(out[i]) - q) > tol:
-                raise BackgroundNotConverged(_precision_words("Linear"))
+            continue
+        X = Fraction(v)
+        q = (Y0 * (X1 - X) + Y1 * (X - X0)) / D
+        try:
+            out[i] = float(q)
+        except OverflowError:
+            out[i] = float("inf")
+            continue
+        if tol is not None and abs(Fraction(out[i]) - q) > tol:
+            raise BackgroundNotConverged(_precision_words("Linear"))
     return _explicit_background(out, "Linear")
 
 
@@ -1095,6 +1111,11 @@ def _fmt3(v: float) -> str:
     return strip(f"{q:.{max(0, 2 - e)}f}")
 
 
+# F13 (owner 2026-10-03): a window without a peak has no Shirley-family background —
+# the refusal says what to use instead
+_NO_PEAK = " — for a window with no peak, use the Linear background"
+
+
 def _exact_shirley_certificate(x, y, bg, m, n_avg, label):
     from fractions import Fraction as F
     xs, ys, flipped = _ascending(x, y)
@@ -1127,7 +1148,7 @@ def _exact_shirley_certificate(x, y, bg, m, n_avg, label):
     if target is None:
         return {"converged": False, "residual": None, "reason": (
             "the data lie at or below the line between the two edge levels, so there is no net "
-            "signal and the %s relation is undefined" % label)}
+            "signal and the %s relation is undefined%s" % (label, _NO_PEAK))}
     diff = max(abs(B[i] - target[i]) for i in range(n))
     span = max(Y) - min(Y)
     residual = float(diff / span) if span > 0 else (0.0 if diff == 0 else float("inf"))
@@ -1136,7 +1157,8 @@ def _exact_shirley_certificate(x, y, bg, m, n_avg, label):
     pct = _fmt3(float(100 * diff / span)) if span > 0 else "inf"
     return {"converged": False, "residual": residual, "reason": (
         "the result misses the %s relation by %s %% of the intensity span (its iteration alternates "
-        "or ran out of steps, or the data exceed what double precision resolves at this span)" % (label, pct))}
+        "or ran out of steps, or the data exceed what double precision resolves at this span)%s"
+        % (label, pct, _NO_PEAK))}
 
 
 _TOUGAARD_CANCELS = ("the loss sum at the high-BE edge nearly cancels, so its rounding moves the "
@@ -1919,12 +1941,40 @@ def _canonical(value):
     return repr(value)
 
 
-def _request_seed(x, counts, background, shapes, prefixes, params, *, fit_kws, n_perturb) -> int:
-    """The seed for every random draw of one fit: a pure function of the
-    NUMBERS THE OPTIMISER IS HANDED — energies, counts and the computed
-    background curve (little-endian float64), the lineshape of each component
-    in fitting order, each lmfit parameter's effective role, the method,
-    solver options and ``n_perturb``.
+def _avg_k(n: int, n_avg) -> int:
+    """The number of points each edge level averages: k = min(n_avg, n // 4), k >= 1
+    (1 below four points) — _edge_levels' rule."""
+    return max(1, min(int(n_avg), n // 4)) if n >= 4 else 1
+
+
+def _background_effect(method, n_roi, i0, i1, endpoint_avg, manual_bg) -> dict:
+    """What the background is computed FROM, by its effect (the seed's background
+    term since v2): the method, the window (where the method reads one), the
+    averaging as it acts (k, not the field), and a manual background's anchors in
+    energy order. Two requests with equal effects compute the same background."""
+    m = (method or "").lower()
+    if m in ("none", "flat", ""):
+        return {"method": "none"}
+    if m == "manual":
+        anchors = manual_bg or []
+        if len(anchors) >= 2:
+            return {"method": "manual", "anchors": sorted([float(a[0]), float(a[1])] for a in anchors)}
+        return {"method": "manual-line", "k": _avg_k(n_roi, endpoint_avg)}   # the line through the ROI's ends
+    return {"method": m, "window": [int(i0), int(i1)], "k": _avg_k(int(i1) - int(i0), endpoint_avg)}
+
+
+def _request_seed(x, counts, background_effect, shapes, prefixes, params, *, fit_kws, n_perturb) -> int:
+    """The seed for every random draw of one fit: a pure function of the fit's
+    INPUTS — energies and counts (little-endian float64), what the background is
+    computed from (`_background_effect`: method, window, averaging as it acts,
+    anchors), the lineshape of each component in fitting order, each lmfit
+    parameter's effective role, the method, solver options and ``n_perturb``.
+
+    v2 (background math, owner 2026-10-03): the background enters by its INPUTS,
+    not as the computed curve, so a numerical change in a derived quantity (a
+    stop tolerance, an exact evaluation) no longer redraws the restarts — v1
+    hashed the curve, and a 1e-7-of-span change in it moved 8-JT C 1s fits between
+    basins by up to 28 pp.
 
     A parameter's role is what it can do to the fit: a constrained one is its
     expression (its own start value and bounds are overridden), a fixed one
@@ -1932,8 +1982,9 @@ def _request_seed(x, counts, background, shapes, prefixes, params, *, fit_kws, n
     Settings are hashed by their EFFECT, never as sent, so nothing the fit
     ignores can change the draws: a peak's name or colour, the
     ``fix_gl_ratio`` the page still sends for a Gaussian, stale shape
-    parameters kept after a shape switch, the ``endpoint_avg`` a linear
-    background does not use, anchor order, and the peaks' internal IDs —
+    parameters kept after a shape switch, an ``endpoint_avg`` beyond what the
+    window's quarter lets act (k) or one a background does not read (none,
+    manual anchors), anchor order, and the peaks' internal IDs —
     parameter names and constraint references are rewritten by component
     POSITION (``prefixes`` lists each component's lmfit prefix in fitting
     order), because the page never reuses an ID and the same model rebuilt
@@ -1963,9 +2014,9 @@ def _request_seed(x, counts, background, shapes, prefixes, params, *, fit_kws, n
         else:
             roles.append([name, "free", par.value, par.min, par.max])
     rest = _canonical({"shapes": list(shapes), "params": roles, "fit_kws": kws, "solver": solver,
-                       "n_perturb": n_perturb})
-    h = hashlib.sha256(b"xps-fit-seed-v1\0")
-    for arr in (x, counts, background):
+                       "n_perturb": n_perturb, "background": background_effect})
+    h = hashlib.sha256(b"xps-fit-seed-v2\0")
+    for arr in (x, counts):
         a = np.ascontiguousarray(arr, dtype="<f8") + 0.0       # -0.0 -> 0.0 (the CSV path keeps "-0.00")
         h.update(str(a.size).encode() + b"\0" + a.tobytes())
     h.update(json.dumps(rest, sort_keys=True, separators=(",", ":"), allow_nan=True).encode())
@@ -2339,7 +2390,7 @@ def _run_fit_impl(
         if len(manual_bg) >= 2:
             bg = manual_anchor_background(x, manual_bg, _span(y))   # raises BackgroundNotConverged
         else:
-            bg = linear_background(x, y)
+            bg = linear_background(x, y, n_avg=endpoint_avg)
     elif bg_method in _BG_LABELS:
         # certified: a background that does not satisfy its statement raises
         # BackgroundNotConverged and no fit is made against it
@@ -2351,7 +2402,10 @@ def _run_fit_impl(
         # constant extension would discard real information.
         # (raises BackgroundNotConverged when the window's ends share an energy but
         # not an intensity: no line passes through both)
-        bg = _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1], _span(y[i0:i1]))
+        # through the window's two edge LEVELS (the means of its first / last k points,
+        # owner 2026-10-03), extrapolated across the ROI
+        lo, hi = _exact_edge_levels(y_bg, endpoint_avg)
+        bg = _line_through(x, x[i0], lo, x[i1 - 1], hi, _span(y_bg))
     elif bg_method in ("none", "flat", ""):
         bg = np.zeros_like(y)
     else:
@@ -2418,7 +2472,8 @@ def _run_fit_impl(
         random_seed = int(caller_seed)
     else:
         random_seed = _request_seed(
-            x, y, bg, [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
+            x, y, _background_effect(background_method, len(y), i0, i1, endpoint_avg, manual_bg),
+            [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
             [f"p{spec['id']}_" for spec in ordered], all_params,
             fit_kws=fit_kws, n_perturb=n_perturb)
     # spawn(3) yields the same first two children as spawn(2): adding the
@@ -2792,8 +2847,8 @@ def compute_background_only(
         bg = compute_background(x, y, method, n_avg=endpoint_avg)   # raises BackgroundNotConverged
     elif method in ("linear", "manual"):
         # manual has no anchors on this route: its fewer-than-two-anchors case, the line
-        # through the window's ends (as run_fit and the page) — never a silent zero
-        bg = linear_background(x, y)
+        # through the window's edge levels (as run_fit and the page) — never a silent zero
+        bg = linear_background(x, y, n_avg=endpoint_avg)
     elif method in ("none", "flat", ""):
         bg = np.zeros_like(y)
     else:

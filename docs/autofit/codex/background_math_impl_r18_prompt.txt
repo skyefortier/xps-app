@@ -1,0 +1,37 @@
+Review the "background math — implementation" unit, round 18 (the OWNER ROUND of 2026-10-03): branch bg-math-implement; this unit = git diff d79b843..HEAD; this round = git diff 0c7ea15..HEAD (0c7ea15 was round 17, GO x2). Read the owner's items and decisions verbatim in docs/superpowers/plans/2026-10-01-background-math-implement.md §7 — they are the requirement for this round. Earlier verdicts: docs/autofit/codex/background_math_impl_r{1..17}_verdict_run{A,B}.md.
+
+This round in short:
+1. RESTORE (templates/index.html _restoredFitBgFailure, _restoredFitGrid, _restoredFitModel; loaders; _statsState / _bgStaleNote / _staleNoteOf):
+   - The evidence is the background the fit USED: stored fittedY less the saved peaks (a pre-A03 Voigt at its recorded eta, as GL). The stored background curve is NOT evidence.
+   - The fit's points: ROI selection; else stored energies matched to raw samples (exact or 4 dp); else a constant offset (charge correction changed after the fit), with the run of samples pinned by the fit's own record (stored counts = bgSubtracted + bgIntensity, else its stored RMSE); a tie or no record refuses.
+   - Compare with today's certified background there, worst |used - today| <= BG_RESTORE_REL (1e-3 = fit_equality.SAME_MINIMUM_REL) x max(|used|, |today|): CURRENT, certified curve installed. Beyond: STALE (fr.backgroundStale = {pct}; F1 stale rules for display, export and save; amber notice with the size). Uncheckable: peaks only, plain reason.
+   - Census on the 121 committed fits: 15 current, 66 stale, 40 peaks-only (scripts/bg_math_restore_census.py with the page's functions; the Python twin scripts/bg_math_restore_alternative.py agrees on all 121). data: docs/findings/background-math/data/impl/restore_census.json, restore_alternative.json.
+   - A CORRECTION I made before implementing: an earlier census (reported to the owner) named "9 genuine differences up to 127 %"; that was my offset matching taking the FIRST run of samples that fitted (any run, on a uniform grid). Check the correction (plan §7.2, findings README "Saved fits after this unit").
+2. SEED v2 (fitting._request_seed, _background_effect, _avg_k): the background enters by its inputs (method, window, k = averaging as it acts, manual anchors), never the computed curve. Pins re-recorded (tests/test_fit_reproducibility.py PINNED_SEED; the ignored-setting test rewritten because linear now reads averaging); tests/test_fit_equality.py's not-better case pins v1's seed for the two-basin fixture (already-accepted pin family, PROGRESS.md follow-up).
+3. FULL-PRECISION UPLOAD: uploadToBackend sends String(v). FOUND while pinning it: pandas' python engine is up to 2 ulp off on 17-digit text, so parser.parse_csv now converts the two chosen columns with float() (_exact_columns). tests/test_full_precision_upload.py.
+4. LINEAR through the exact averaged edge levels (_exact_edge_levels -> Fractions; page _bgExactLevels -> BigInt; _line_through / _bgExactLine), manual fallback likewise; needsEpAvg includes linear.
+5. F3: one "Smart" entry; smart_exp a hidden option shown only for a loaded file that selects it.
+6. F13: refusals end " — for a window with no peak, use the Linear background" (both sides, same words).
+- Measurements after 2+3+4 (plan §7.3; data final_tr.jsonl / final2_tr.jsonl vs main_tr / main2_tr; node scripts/bg_math_impl_analyze.js docs/findings/background-math/data/impl final -> final_analysis.json). The numbers in §7.3 are from the run AFTER the parser fix — verify them against the JSONL.
+- Student note (held): docs/comms/2026-10-03-background-math-note.md; its preview-vs-fit numbers: scripts/bg_math_preview_vs_fitted.py.
+- Still dispositioned, do not re-raise unless this round made them worse: errors INSIDE the predicate; the _legacy_line pin (and now the v1-seed pin in the same module family); Auto-Fit's post-shift pairing.
+- JS CI floor 539 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: rate a finding MAJOR or above only if a reachable input violates an owner item of §7 or of the unit, makes a stale or uncheckable fit display / export / save statistics as current, makes a current fit load stale or dropped, changes a displayed or saved number wrongly, or if a reported number (census, measurements, student note) is not what the committed data and generators give. Wording that changes no verdict and no number is MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. The restore rule:
+   - Can a fit whose used background differs from today's load as CURRENT, or a matching one load stale or dropped? Probe every method incl. manual (anchors moved), none, linear at averaging > 1; projects (.proj.json / .proj.zip) and spectrum files; both BE orders; a charge shift changed after the fit (offset by a multiple of the grid step and not); duplicated energies; rounded energies; a fit saved by THIS version (stale or not).
+   - The offset alignment: can it pick the wrong run (flat data, repeated counts, RMSE ties, a stored RMSE from the local engine, a stale save)? Is "nearest wins" sound when the stored record itself is stale?
+   - Stale reload: does every consumer honour backgroundStale (Results, header, R panel, uncertainty panel, CSV / XLSX / TSV, figure, stack Path A / A2 / B, Quantify, saves and a reload of that save, undo / history, Batch Fit, Auto-Fit, Run Fit replacing it)? Does anything show the implied background as certified or draw the certified one with the old fit's statistics?
+   - Does a peaks-only load clear everything of the old fit (support verdicts, starts evidence, certificate notice)?
+b. Seed v2: does _background_effect capture everything that changes the background run_fit computes (and nothing it ignores)? Two requests with equal effects but different backgrounds, or different effects and equal backgrounds where the old rule promised equality?
+c. Upload / parser: any file the old parser read that _exact_columns now reads differently beyond rounding, or refuses; header rows (skiprows), comment lines, NaN / inf cells, whitespace or semicolon delimiters, more than two columns, a column with mixed text. Does the page's String(v) round-trip for every double it can hold?
+d. The measurements and census: reproduce from the committed data and generators.
+e. Everything rounds 1-17 verified, against the new commit: the throwing producers and every consumer; page = server bit-identity (now with full-precision inputs); certificate parity; no fitted number changed beyond the owner's items.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

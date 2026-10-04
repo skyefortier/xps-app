@@ -27,7 +27,8 @@ const { _detectPeakRSF } = new Function('LEGACY_REFERENCE', ['let _accSurveyCach
   '\nreturn { _detectPeakRSF };')(LEGACY_REFERENCE);
 const read = f => Object.fromEntries(fs.readFileSync(path.join(dir, f), 'utf8').trim().split('\n').map(l => JSON.parse(l)).map(r => [r.id, r]));
 const RUNS = PAIR ? { a: read(PAIR[0]), b: read(PAIR[1]) }
-  : Object.fromEntries(['main', 'main2', 'item1_only', 'both'].map(v => [v, read(`${v}_${suffix}.jsonl`)]));
+  : Object.fromEntries((suffix === 'final' ? ['main', 'main2'] : ['main', 'main2', 'item1_only', 'both'])
+      .map(v => [v, read(`${v}_${suffix === 'final' ? 'tr' : suffix}.jsonl`)]));
 function pct(r, rsf) {
   const sup = r.components.filter(c => c.supported !== false);
   const w = sup.map(c => c.area / (rsf ? _detectPeakRSF({ name: c.name || '', center: c.center }).rsf : 1));
@@ -61,6 +62,34 @@ function compare(an, bn) {
            worst: worst.sort((x, y) => y[0] - x[0]).slice(0, 8) };
 }
 if (PAIR) { console.log(JSON.stringify(compare('a', 'b'), null, 1)); process.exit(0); }
+// `node bg_math_impl_analyze.js <dir> final` (owner round 2026-10-03: seed v2 + full-precision
+// upload + averaged linear, one redraw): main -> final, and each side's two identical presses;
+// every target moving > 1 pp with its chi2r before / after and what the scattered-starts line
+// says on the branch (n of 3 reached this solution, alternatives)
+if (suffix === 'final') {
+  Object.assign(RUNS, ...['final', 'final2'].map(v => ({ [v]: read(`${v}_tr.jsonl`) })));
+  const mf = compare('main', 'final');
+  const moved = [];
+  for (const id of Object.keys(RUNS.main)) {
+    const a = RUNS.main[id], b = RUNS.final[id]; if (!(a && b && a.success && b.success)) continue;
+    const pa = pct(a, false), pb = pct(b, false), ta = pct(a, true), tb = pct(b, true);
+    let mA = 0, mT = 0, who = null;
+    for (const c of a.components) {
+      const da = Math.abs((pa[c.id] ?? 0) - (pb[c.id] ?? 0)), dt = Math.abs((ta[c.id] ?? 0) - (tb[c.id] ?? 0));
+      if (da > mA) { mA = da; who = c.name; } mT = Math.max(mT, dt);
+    }
+    if (mA > 1 || mT > 1) {
+      const st = b.starts || {};
+      moved.push({ project: a.project, tab: a.tab, method: a.method, avg: a.endpoint_avg, component: who, area_pp: r3(mA), atomic_pp: r3(mT),
+                   chi2r_main: r3(a.chi2r), chi2r_branch: r3(b.chi2r), chi2r_press2: RUNS.final2[id] && r3(RUNS.final2[id].chi2r),
+                   starts: st.ran ? `${st.n_same_as_fit} of ${st.n_converged} reached this solution; ${st.n_alternatives} alternative(s)` : 'not run',
+                   flagged: !!(st.ran && (st.n_same_as_fit < 3 || st.n_alternatives > 0)) });
+    }
+  }
+  console.log(JSON.stringify({ comparisons: [mf, compare('main', 'main2'), compare('final', 'final2')],
+                               moved_over_1pp: moved.sort((x, y) => y.area_pp - x.area_pp) }, null, 1));
+  process.exit(0);
+}
 const out = [compare('main', 'main2'), compare('main', 'item1_only'), compare('item1_only', 'both'), compare('main', 'both')];
 // net area split by the targets' averaging (item 1 moves only averaged windows)
 const byAvg = {};

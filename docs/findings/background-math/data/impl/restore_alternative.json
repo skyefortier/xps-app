@@ -1,0 +1,890 @@
+[
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan",
+  "bgType": "shirley",
+  "old": 7.421561936577961e-07,
+  "today": 7.421561936577961e-07,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan",
+  "bgType": "smart",
+  "old": 3.583131540066403e-07,
+  "today": 0.00767100597091475,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_0",
+  "bgType": "shirley",
+  "old": 8.925495590612444e-07,
+  "today": 0.001951914078106834,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_0",
+  "bgType": "smart",
+  "old": 6.211192933114367e-07,
+  "today": 0.008538951808525588,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_1",
+  "bgType": "shirley",
+  "old": 3.785305181424947e-07,
+  "today": 0.009034131899215965,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_1",
+  "bgType": "smart",
+  "old": 3.3892210718196485e-07,
+  "today": 0.006509482755644109,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_2",
+  "bgType": "shirley",
+  "old": 9.258558841181898e-07,
+  "today": 0.005088798578640935,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_2",
+  "bgType": "smart",
+  "old": 3.996029414306004e-07,
+  "today": 0.00021308166844245482,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_3",
+  "bgType": "shirley",
+  "old": 1.43266693572351e-06,
+  "today": 0.00859778926154957,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_3",
+  "bgType": "smart",
+  "old": 4.5652059368716304e-07,
+  "today": 0.00805467539150254,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_4",
+  "bgType": "shirley",
+  "old": 1.4825447654978008e-07,
+  "today": 0.015928713105179883,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_4",
+  "bgType": "smart",
+  "old": 4.7201316643417135e-07,
+  "today": 0.016891369232585367,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_5",
+  "bgType": "shirley",
+  "old": 8.746205746939925e-07,
+  "today": 0.0057225172170743705,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_5",
+  "bgType": "smart",
+  "old": 3.4536191078986517e-07,
+  "today": 0.002634315413622351,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_6",
+  "bgType": "shirley",
+  "old": 1.043777073324059e-06,
+  "today": 0.0236236985860475,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_6",
+  "bgType": "smart",
+  "old": 4.3370940611348743e-07,
+  "today": 0.009252394623418946,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_7",
+  "bgType": "shirley",
+  "old": 7.238561342573286e-07,
+  "today": 0.008839184260486178,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_7",
+  "bgType": "smart",
+  "old": 3.7489234942596375e-07,
+  "today": 0.003718960744393056,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_8",
+  "bgType": "shirley",
+  "old": 8.041165322426431e-07,
+  "today": 8.041165322426431e-07,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_8",
+  "bgType": "smart",
+  "old": 4.98120783826754e-07,
+  "today": 0.009426304609224768,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan",
+  "bgType": "smart",
+  "old": 3.081633552429791e-06,
+  "today": 0.05073465073534438,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan",
+  "bgType": "smart",
+  "old": 0.016469593369058236,
+  "today": 0.016469593369058236,
+  "verdict": "differs (either window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_0",
+  "bgType": "smart",
+  "old": 3.1812850224203986e-06,
+  "today": 0.029104509883933524,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_0",
+  "bgType": "smart",
+  "old": 0.016527749364822836,
+  "today": 0.016527749364822836,
+  "verdict": "differs (either window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_1",
+  "bgType": "smart",
+  "old": 0.029541317043804482,
+  "today": 0.029541317043804482,
+  "verdict": "differs (either window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_1",
+  "bgType": "smart",
+  "old": 1.0796280952070985e-06,
+  "today": 0.0008930143947897062,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_2",
+  "bgType": "smart",
+  "old": 4.042257799003594e-06,
+  "today": 4.042257799003594e-06,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_2",
+  "bgType": "smart",
+  "old": 9.699618459955337e-07,
+  "today": 0.008933796062002595,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_3",
+  "bgType": "smart",
+  "old": 0.046952804391139025,
+  "today": 3.6030337400833684e-06,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_3",
+  "bgType": "smart",
+  "old": 0.01165525570057559,
+  "today": 0.011688450776898774,
+  "verdict": "differs (either window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_4",
+  "bgType": "smart",
+  "old": 0.01547378942592431,
+  "today": 0.01547378942592431,
+  "verdict": "differs (either window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_4",
+  "bgType": "smart",
+  "old": 7.832960572876627e-07,
+  "today": 0.005076523818598604,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_5",
+  "bgType": "smart",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_5",
+  "bgType": "smart",
+  "old": 9.27622308370518e-07,
+  "today": 0.01920895613633939,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_6",
+  "bgType": "smart",
+  "old": 3.3515881594040544e-06,
+  "today": 3.3515881594040544e-06,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_6",
+  "bgType": "smart",
+  "old": 9.309172313193931e-07,
+  "today": 0.0002922597665047425,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_7",
+  "bgType": "smart",
+  "old": 3.324549422035973e-06,
+  "today": 3.324549422035973e-06,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_7",
+  "bgType": "smart",
+  "old": 7.75645510454423e-07,
+  "today": 0.0027082097169921484,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_8",
+  "bgType": "smart",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_8",
+  "bgType": "smart",
+  "old": 9.135414424921275e-07,
+  "today": 0.0007093240684188604,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan",
+  "bgType": "shirley",
+  "old": 1.127240126082e-06,
+  "today": 0.0019791911888707068,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "bgType": "shirley",
+  "old": 1.231333705050336e-06,
+  "today": 0.011408186374289999,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "bgType": "shirley",
+  "old": 6.207558426096428e-07,
+  "today": 0.0014524083127117479,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "bgType": "shirley",
+  "old": 2.958882240655832e-07,
+  "today": 0.0038909085304347116,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "bgType": "shirley",
+  "old": 1.2857008589402453e-06,
+  "today": 9.412387412123655e-05,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "bgType": "shirley",
+  "old": 1.0116328823808095e-06,
+  "today": 0.006298466802285833,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "bgType": "shirley",
+  "old": 9.978396098704676e-07,
+  "today": 0.0015849104784208656,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "bgType": "shirley",
+  "old": 1.0156510005742417e-06,
+  "today": 0.001815633899722581,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "bgType": "smart",
+  "old": 1.2376140354800688e-06,
+  "today": 0.009076760345314471,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "bgType": "shirley",
+  "old": 1.176506153410058e-06,
+  "today": 0.007278130641173059,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_0",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_1",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_2",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_3",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_4",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_5",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_6",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_7",
+  "bgType": "smart_exp",
+  "old": 2.1417906420606502e-06,
+  "today": 0.012300826150490692,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_8",
+  "bgType": "smart_exp",
+  "verdict": "no stored envelope"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan",
+  "bgType": "smart",
+  "old": 5.694646410896296e-07,
+  "today": 0.002186968359138785,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_0",
+  "bgType": "smart",
+  "old": 4.430958784969765e-07,
+  "today": 0.002485268657007481,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_1",
+  "bgType": "smart",
+  "old": 4.4439058982863766e-07,
+  "today": 0.007613396202723802,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_2",
+  "bgType": "smart",
+  "old": 4.5700522086677285e-07,
+  "today": 0.016670985057153153,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_3",
+  "bgType": "smart",
+  "old": 4.451871161131454e-07,
+  "today": 0.00678055424797293,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_4",
+  "bgType": "smart",
+  "old": 4.4985815636853706e-07,
+  "today": 0.004751355936691083,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_5",
+  "bgType": "smart",
+  "old": 5.60269424081517e-07,
+  "today": 0.0036068180097443094,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_6",
+  "bgType": "smart",
+  "old": 3.878592254952171e-07,
+  "today": 0.00614713689674997,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_7",
+  "bgType": "smart",
+  "old": 3.9787731230746444e-07,
+  "today": 0.00809397697418702,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_8",
+  "bgType": "smart",
+  "old": 3.739505550848855e-07,
+  "today": 0.014509480691330609,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_0",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_1",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_2",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_3",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_4",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_5",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_0",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_1",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_2",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_3",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_4",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_5",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan",
+  "bgType": "smart_exp",
+  "old": 2.2682568127659367e-06,
+  "today": 0.031096870408986833,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_0",
+  "bgType": "smart_exp",
+  "old": 2.4849492047669167e-06,
+  "today": 0.03605335643724887,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_1",
+  "bgType": "smart_exp",
+  "old": 2.257685028223962e-06,
+  "today": 0.020446894546491925,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_0",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_1",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_2",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_3",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_4",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_5",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_0",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_1",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_2",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_3",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_4",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_5",
+  "bgType": "smart",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan",
+  "bgType": "shirley",
+  "old": 6.140795700623663e-07,
+  "today": 0.01299469080334322,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "bgType": "shirley",
+  "old": 1.1380643616244631e-06,
+  "today": 0.00601339617913261,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "bgType": "shirley",
+  "old": 7.777792278672668e-07,
+  "today": 7.777792278672668e-07,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "bgType": "shirley",
+  "old": 1.0911597234057992e-06,
+  "today": 1.0911597234057992e-06,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "bgType": "shirley",
+  "old": 6.750486123283828e-07,
+  "today": 0.013442428194921205,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "bgType": "shirley",
+  "verdict": "envelope on other points"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "bgType": "shirley",
+  "old": 3.620030077749732e-07,
+  "today": 0.010092148566422,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "bgType": "shirley",
+  "old": 6.570224054594192e-07,
+  "today": 6.570224054594192e-07,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "bgType": "shirley",
+  "old": 9.917505580134468e-07,
+  "today": 0.014533433134545314,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "bgType": "shirley",
+  "old": 4.129748792094073e-07,
+  "today": 0.013982541159149037,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan",
+  "bgType": "smart",
+  "old": 3.583131538752807e-07,
+  "today": 0.00767100597091475,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_0",
+  "bgType": "smart",
+  "old": 6.211192928072459e-07,
+  "today": 0.008538951808525588,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_1",
+  "bgType": "smart",
+  "old": 3.3929898824581183e-07,
+  "today": 3.3929898824581183e-07,
+  "verdict": "reloads (today's window)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_2",
+  "bgType": "smart",
+  "old": 0.009047160283727944,
+  "today": 0.008781917253350454,
+  "verdict": "differs (either window)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_3",
+  "bgType": "smart",
+  "old": 4.5652059368716304e-07,
+  "today": 0.00805467539150254,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_4",
+  "bgType": "smart",
+  "old": 4.7201316643417146e-07,
+  "today": 0.016891369232613293,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_5",
+  "bgType": "smart",
+  "old": 3.4536191078986517e-07,
+  "today": 0.002634315413622288,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_6",
+  "bgType": "smart",
+  "old": 4.3370940514393916e-07,
+  "today": 0.009252394623418946,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_7",
+  "bgType": "smart",
+  "old": 3.787432348905286e-07,
+  "today": 0.003757161822371306,
+  "verdict": "differs (today's window only)"
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_8",
+  "bgType": "smart",
+  "old": 4.981207840644019e-07,
+  "today": 0.009426304609224829,
+  "verdict": "differs (today's window only)"
+ }
+]

@@ -78,6 +78,7 @@ def test_a_saved_fit_whose_background_no_longer_converges_is_not_restored(browse
         pg.evaluate("""() => { const { be, inten } = getROIData();
             const line = be.map((b, i) => inten[0] + (inten[inten.length - 1] - inten[0]) * i / (be.length - 1));
             state.fitResult = { be, bgIntensity: line, bgSubtracted: inten.map((v, i) => v - line[i]), chiReduced: 1.0, chi: 100,
+                                fittedY: inten.slice(),
                                 startsModelKey: _startsLiveKey() };
             tabManager._syncActiveToRecord(); }""")
         pg.evaluate(CAPTURE)
@@ -128,8 +129,12 @@ PEAK_TAB = """() => {
 
 def test_restored_fits_keep_only_a_stored_curve_that_satisfies_its_statement(browser, server):
     # Codex implementation round 2: a fit whose settings converge NOW used to keep its OLD stored
-    # curve uncertified. Now the stored curve itself is certified: a fit saved by this version is
-    # restored; the same fit with an older version's curve (a 5-iteration Shirley) is not.
+    # curve uncertified. Owner 2026-10-03: the evidence is the background the fit USED (its
+    # envelope less its peaks), not the stored preview curve: a fit saved by this version reloads
+    # current, and so does one made against the old page's 5-iteration Shirley (1.7e-6 of its
+    # scale here: within rounding); one made against a genuinely different background (a single
+    # Shirley step, 4 %) reloads STALE, sized, with its own background — and a garbage stored
+    # preview is no evidence.
     import json
     pg = _new_page(browser, server)
     try:
@@ -142,27 +147,39 @@ def test_restored_fits_keep_only_a_stored_curve_that_satisfies_its_statement(bro
         pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
         fresh = json.loads(pg.evaluate("() => window.__dl[0].text"))
         # the same project as an older version saved it: its stored curve the old 5-iteration preview
-        old_curve = pg.evaluate("""() => { const { be, inten } = getROIData(); const w = _bgWindowIndices(be, '292', '280');
+        curve = lambda it: pg.evaluate("""it => { const { be, inten } = getROIData(); const w = _bgWindowIndices(be, '292', '280');
             const ys = inten.slice(w.i0, w.i1 + 1), xs = be.slice(w.i0, w.i1 + 1);
-            const five = shirleyBackground(xs, ys, 5, 3);   // five iterations: no solution yet
+            const five = shirleyBackground(xs, ys, it, 3);   // `it` iterations: no solution yet
             const full = be.map((_, i) => i < w.i0 ? five[0] : i > w.i1 ? five[five.length - 1] : five[i - w.i0]);
-            return full; }""")
+            return full; }""", it)
+        old_curve, one_step = curve(5), curve(1)
     finally:
         pg.close()
-    old = json.loads(json.dumps(fresh))
-    for t in old["tabs"]:
+    def against(c):
+        d = json.loads(json.dumps(fresh))
+        for t in d["tabs"]:
+            if t.get("fitResult"):
+                fr = t["fitResult"]
+                fr["fittedY"] = [y - b + o for y, b, o in zip(fr["fittedY"], fr["bgIntensity"], c)]
+        return d
+    five, old, preview = against(old_curve), against(one_step), json.loads(json.dumps(fresh))
+    for t in preview["tabs"]:
         if t.get("fitResult"):
             t["fitResult"]["bgIntensity"] = old_curve
-    for data, kept in ((fresh, True), (old, False)):
+    for data, stale in ((fresh, False), (preview, False), (five, False), (old, True)):
         pg = _new_page(browser, server)
         try:
             pg.evaluate("() => { window.__n = []; const o = notify; window.notify = (m, k) => { window.__n.push(m); return o(m, k); }; }")
             pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", data)
             pg.wait_for_timeout(400)
-            got = pg.evaluate("() => ({ fit: !!state.fitResult, n: window.__n })")
-            assert got["fit"] is kept, got
-            if not kept:
-                assert any("is not the background its settings give now" in m and "earlier version" in m for m in got["n"]), got["n"]
+            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n, stale: state.fitResult && state.fitResult.backgroundStale,
+                st: _statsLiveState(), certified: !!(state.fitResult && state.fitResult.bgIntensity.converged === true) })""")
+            assert got["fit"], got
+            if stale:
+                assert got["stale"] and got["stale"]["pct"] > 0.1 and got["st"] == "stale" and not got["certified"], got
+                assert any(m.startswith("Saved fit restored as STALE: ") and "differs from the one its settings give now" in m for m in got["n"]), got["n"]
+            else:
+                assert not got["stale"] and got["certified"], got
         finally:
             pg.close()
 
@@ -254,7 +271,9 @@ def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server)
 
 def test_a_manual_fit_whose_anchors_moved_after_the_fit_is_not_restored(browser, server):
     # Codex implementation round 3 (BLOCKER): manual / none were exempt by the CURRENT method, so a
-    # fit whose anchors (or method) changed after it was fitted drew its old stored curve
+    # fit whose anchors (or method) changed after it was fitted drew its old stored curve as
+    # current. Owner 2026-10-03: it reloads STALE — its own background and peaks, statistics not
+    # reported, the size of the difference said
     setup_manual = PEAK_TAB[:-1] + """;
         _setManualAnchors([{ x: 280, y: 300 }, { x: 292, y: 700 }]);
         document.getElementById('bg-type').value = 'manual'; _onBgTypeChange(); updatePlot(); }"""
@@ -270,12 +289,14 @@ def test_a_manual_fit_whose_anchors_moved_after_the_fit_is_not_restored(browser,
             pg.evaluate(NOTIFY)
             pg.evaluate("data => _loadProjectJSON(data, 'm.proj.json')", saved)
             pg.wait_for_timeout(400)
-            got = pg.evaluate("() => ({ fit: !!state.fitResult, n: window.__n, peaks: state.peaks.length })")
-            assert not got["fit"] and got["peaks"] == 2, (name, got)
-            # a method change also clears the live fit's frozen curve (_invalidateBgCache, pre-existing),
-            # so that save carries none: either way the old curve is not drawn
-            assert any("is not the background its settings give now" in m or "saved without the background" in m
-                       for m in got["n"]), (name, got["n"])
+            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n, peaks: state.peaks.length,
+                stale: state.fitResult && state.fitResult.backgroundStale, st: _statsLiveState() })""")
+            assert got["peaks"] == 2, (name, got)
+            if got["fit"]:
+                assert got["stale"] and got["st"] == "stale", (name, got)
+                assert any(m.startswith("Saved fit restored as STALE: ") for m in got["n"]), (name, got["n"])
+            else:   # a save that carried no envelope: peaks only, said plainly
+                assert any("saved without its fitted envelope" in m for m in got["n"]), (name, got["n"])
         finally:
             pg.close()
 

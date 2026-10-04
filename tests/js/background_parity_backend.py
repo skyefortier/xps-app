@@ -30,7 +30,7 @@ FUNCS = {
     "smart_exp": lambda x, y, n, it: fitting.smart_experimental_background(x, y, n_iter=it, n_avg=n),
     "shirley_linear": lambda x, y, n, it: fitting.shirley_linear_background(x, y, n_iter=it, n_avg=n),
     "tougaard": lambda x, y, n, it: fitting.tougaard_background(x, y, n_avg=n),
-    "linear": lambda x, y, n, it: fitting.linear_background(x, y),
+    "linear": lambda x, y, n, it: fitting.linear_background(x, y, n_avg=n),
 }
 
 

@@ -41,7 +41,7 @@ function makeDoc() {
   return { els, getElementById: id => els[id] || null, querySelector: () => null, querySelectorAll: () => [] };
 }
 
-const STATE_FNS = ['_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields'];
+const STATE_FNS = ['_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_staleNoteOf', '_bgStaleNote', '_fmt3'];
 const STATE_CONSTS = ['_STATS_STALE_NOTE', '_STATS_UNVERIFIED_NOTE'];
 
 // Build a sandbox with the F1 accessor, the display functions and renderResults.
@@ -199,9 +199,9 @@ test('the stored fitted curve is never drawn, saved or stacked as the fit once s
 });
 
 test('saves keep the key and say plainly when the statistics are stale or unverified', () => {
-  assert.match(extractFn('_doSaveFit'), /_statsSaveFields\(_statsLiveState\(\)\)/);
-  assert.match(extractFn('_doSaveSpectrum'), /_statsSaveFields\(_saveStats\)/);
-  assert.match(extractFn('_doSaveProject'), /_statsSaveFields\(_statsRecordState\(t\)\)/, 'project: the RECORD\'s key');
+  assert.match(extractFn('_doSaveFit'), /_statsSaveFields\(_statsLiveState\(\), state\.fitResult\)/);
+  assert.match(extractFn('_doSaveSpectrum'), /_statsSaveFields\(_saveStats, state\.fitResult\)/);
+  assert.match(extractFn('_doSaveProject'), /_statsSaveFields\(_statsRecordState\(t\), t\.fitResult\)/, 'project: the RECORD\'s key');
   for (const f of ['_doSaveFit', '_doSaveSpectrum', '_doSaveProject']) assert.match(extractFn(f), /startsModelKey:/, f + ' keeps the key');
 });
 

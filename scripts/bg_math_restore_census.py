@@ -1,9 +1,12 @@
-"""Which committed saved fits does the page RESTORE? (background math, Codex impl round 3)
+"""Which committed saved fits does the page RESTORE, and how? (background math; owner rule 2026-10-03)
 
 Runs the page's own `_restoredFitBgFailure` (with `_recordBackground`,
 `_computeBackgroundForSource`, `_roiSelect` and the background section, extracted from
 templates/index.html) over every spectrum tab with a saved fit in the committed
-projects, and prints each tab's verdict: kept, or the reason it is dropped. The
+projects, and prints each tab's verdict: CURRENT (the background the fit used — its envelope less its
+peaks — equals today's within BG_REL_TOL of its scale), STALE (it differs: reloaded with its
+own background, statistics not reported; the size printed), or PEAKS-ONLY (uncheckable: the
+reason). The
 tab record is the one `_loadProjectJSON` builds (its `ui` defaults applied).
 
     venv/bin/python scripts/bg_math_restore_census.py [--json OUT]
@@ -35,14 +38,21 @@ const fn = name => {
 };
 const src = require(path.join(root, 'tests/js/_page_background_source.js'))({ manual: 'real' }) + '\n' +
   lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG =')) + '\n' +
-  ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground', '_restoredFitBgFailure'].map(fn).join('\n') +
+  lines.find(l => l.startsWith('const BG_RESTORE_REL =')) + '\n' +
+  ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground', '_restoredFitBgFailure',
+   '_restoredFitGrid', '_restoredFitModel', 'evalAllPeaks', '_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt',
+   'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array',
+   'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
+   'evalPeakArray', 'getPeak', '_migrateLineshapeAliases'].map(fn).join('\n') +
   '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
-  '\nreturn { _restoredFitBgFailure };';
-const { _restoredFitBgFailure } = new Function(src)();
+  '\nreturn { _restoredFitBgFailure, _migrateLineshapeAliases };';
+const { _restoredFitBgFailure, _migrateLineshapeAliases } = new Function(src)();
 const out = tabs.map(t => {
+  _migrateLineshapeAliases(t.rec.peaks);                 // as the project loader does first
   const reason = _restoredFitBgFailure(t.rec);
   return { project: t.project, tab: t.rec.name, bgType: t.rec.ui.bgType, endpointAvg: t.rec.ui.endpointAvg ?? null,
-           kept: reason === null, reason };
+           kept: reason === null, reason,
+           stalePct: reason === null && t.rec.fitResult.backgroundStale ? t.rec.fitResult.backgroundStale.pct : null };
 });
 console.log(JSON.stringify(out));
 """
@@ -73,17 +83,24 @@ def main():
         res = json.loads(subprocess.run(["node", "-e", NODE, ROOT, tmp], capture_output=True, text=True, check=True).stdout)
     finally:
         os.unlink(tmp)
-    kept = [r for r in res if r["kept"]]
-    print(f"{len(files)} projects, {len(res)} spectrum tabs with a saved fit: {len(kept)} restored, {len(res) - len(kept)} dropped")
-    for r in kept:
-        print(f"  RESTORED  {r['project']} / {r['tab']}  ({r['bgType']}, averaging {r['endpointAvg']})")
+    cur = [r for r in res if r["kept"] and r["stalePct"] is None]
+    stale = sorted((r for r in res if r["kept"] and r["stalePct"] is not None), key=lambda r: -r["stalePct"])
+    print(f"{len(files)} projects, {len(res)} spectrum tabs with a saved fit: {len(cur)} current, "
+          f"{len(stale)} stale (reloaded, statistics not reported), {len(res) - len(cur) - len(stale)} peaks-only")
+    for r in cur:
+        print(f"  CURRENT  {r['project']} / {r['tab']}  ({r['bgType']}, averaging {r['endpointAvg']})")
+    pcts = sorted(r["stalePct"] for r in stale)
+    if pcts:
+        print(f"  STALE x{len(pcts)}: difference median {pcts[len(pcts) // 2]:.3g} %, max {pcts[-1]:.3g} % of the background's scale")
+        for r in stale:
+            print(f"    {r['stalePct']:9.3g} %  {r['project']} / {r['tab']}  ({r['bgType']})")
     reasons = {}
     for r in res:
         if not r["kept"]:
-            key = r["reason"].split(" (it differs")[0]
+            key = r["reason"].split(" by ")[0]
             reasons[key] = reasons.get(key, 0) + 1
     for k, n in sorted(reasons.items(), key=lambda kv: -kv[1]):
-        print(f"  dropped x{n}: {k}")
+        print(f"  PEAKS-ONLY x{n}: {k}")
     if a.json:
         with open(a.json, "w") as fh:
             json.dump(res, fh, indent=1)

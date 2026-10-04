@@ -131,6 +131,7 @@ def parse_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
     # Extract the first two numeric columns
     numeric_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+    skipped = 0
     if len(numeric_cols) < 2:
         # Possibly header row(s) still present – try skiprows
         for skip in range(1, min(20, len(df))):
@@ -147,6 +148,7 @@ def parse_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
             if len(nc) >= 2:
                 df = df2
                 numeric_cols = nc
+                skipped = skip
                 break
         else:
             raise ValueError(
@@ -154,14 +156,42 @@ def parse_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
                 "Expected (energy, counts)."
             )
 
-    energy = df[numeric_cols[0]].to_numpy(dtype=float)
-    counts = df[numeric_cols[1]].to_numpy(dtype=float)
+    energy, counts = _exact_columns(lines, delimiter, skipped, df, numeric_cols[:2])
 
     mask = np.isfinite(energy) & np.isfinite(counts)
     if mask.sum() < 2:
         raise ValueError("Fewer than 2 valid (finite) data points found")
 
     return energy[mask], counts[mask]
+
+
+def _exact_columns(lines, delimiter, skipped, df, cols):
+    """The two chosen columns, each value the double nearest its text.
+
+    pandas' python engine does not round decimal text correctly: a 17-significant-
+    digit value (the page's full-precision upload, `String(v)`) comes back up to 2 ulp
+    off for about one in twelve values (measured 2026-10-03; 2- and 4-decimal text is
+    exact). Python's float() is correctly rounded, so the same text is re-read as
+    strings — same rows, same columns — and converted value by value; a cell float()
+    cannot read keeps pandas' value (it was numeric to pandas, so it is read as before).
+    """
+    out = [np.array(df[c].to_numpy(dtype=float), dtype=float) for c in cols]   # writable copies
+    text = pd.read_csv(io.StringIO("\n".join(lines)), sep=delimiter, header=None, skiprows=skipped or None,
+                       comment="#", engine="python", dtype=str, keep_default_na=False)
+    if len(text) != len(df):
+        return tuple(out)
+    for k, c in enumerate(cols):
+        if c not in text.columns:
+            continue
+        col = out[k]
+        for i, cell in enumerate(text[c].tolist()):
+            if np.isfinite(col[i]):
+                try:
+                    v = float(cell)
+                except (TypeError, ValueError):
+                    continue
+                col[i] = v
+    return tuple(out)
 
 
 def _detect_delimiter(sample: str) -> str:

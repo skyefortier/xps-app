@@ -28,6 +28,7 @@ import numpy as np
 
 from fitting import (
     _SHAPE_FUNCS,
+    _exact_edge_levels,
     _line_through,
     _region_in_order,
     _span,
@@ -98,11 +99,12 @@ def background_like_run_fit(
         bg_inner = compute_background(xb, yb, m, n_avg=endpoint_avg)   # certified, as run_fit
     elif m == "linear":
         # run_fit's own rule (raises BackgroundNotConverged: no line, or not finite)
-        return _line_through(x, x[i0], y[i0], x[i1 - 1], y[i1 - 1], _span(y[i0:i1]))
+        lo, hi = _exact_edge_levels(y[i0:i1], endpoint_avg)
+        return _line_through(x, x[i0], lo, x[i1 - 1], hi, _span(y[i0:i1]))
     elif m == "manual":
         # no anchors here: run_fit's fewer-than-two-anchors case, the line through the
         # ROI's ends (Codex impl round 9: this reference still returned zeros)
-        return linear_background(x, y)
+        return linear_background(x, y, n_avg=endpoint_avg)
     elif m in ("none", "flat", ""):
         return np.zeros_like(y)
     else:

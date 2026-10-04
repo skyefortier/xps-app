@@ -2004,9 +2004,15 @@
               <label>Type</label>
               <select id="bg-type" class="xps-tip-select" onchange="_onBgTypeChange()">
                 <option value="shirley" data-tip="Standard XPS background. Accounts for inelastically scattered electrons. Most widely used — suitable for most spectra. On noisy data it carries its own net-area bias at large background steps (about +2 % in a Monte Carlo at a large step).">Shirley (iterative)</option>
-                <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them. The counts are noisy, so the constraint binds on noise dips and raises net area by about 1 % on noisy data — on top of the bias plain Shirley carries at large steps.">Smart (constrained Shirley)</option>
-                <option value="smart_exp" data-tip="The same constrained Shirley problem as Smart, solved with the constraint inside the iteration. Like Smart, it constrains against noisy counts, which raises net area by about 1 % on noisy data; plain Shirley carries its own bias at large steps.">Smart (experimental)</option>
-                <option value="linear" data-tip="Simple straight line between endpoints. Use for spectra with minimal background variation or when Shirley is inappropriate.">Linear</option>
+                <option value="smart" data-tip="Shirley background constrained never to exceed the data: wherever the Shirley relation would put the background above the measured counts, it equals them. The counts are noisy, so the constraint binds on noise dips and raises net area by about 1 % on noisy data — on top of the bias plain Shirley carries at large steps.">Smart</option>
+                <!-- F3 (owner 2026-10-03): one "Smart" in the menu. Smart (experimental)
+                     solves the same constrained problem and gives the same curve as Smart
+                     on every committed spectrum (bit for bit, 376 cases); the option stays
+                     in the DOM, disabled + hidden, so saved files that carry 'smart_exp'
+                     still restore and fit exactly as before; _syncLegacyBgOption un-hides it
+                     only while it is selected. -->
+                <option value="smart_exp" disabled hidden data-tip="Legacy: the same constrained Shirley problem as Smart, solved with the constraint inside the iteration — the same curve as Smart on every committed spectrum. Shown only for saved files that use it. Like Smart, it constrains against noisy counts, which raises net area by about 1 % on noisy data; plain Shirley carries its own bias at large steps.">Smart (experimental, legacy)</option>
+                <option value="linear" data-tip="Straight line between the two edge levels (the means of the endpoint-averaging points at each end). Use for spectra with minimal background variation, a window with no peak, or when Shirley is inappropriate.">Linear</option>
                 <!-- De-listed 2026-09-03 pending scientific review (task-4 parity
                      report: the JS preview of this method diverges 27-33 % of span
                      from the background the backend fits on real descending grids).
@@ -4532,9 +4538,24 @@ function smartExperimentalBackground(be, intensity, maxIter, nAvg) {
 // fitting._line_through's refusal, the same words: a line through two end points
 // at one energy exists only when their intensities agree (Codex impl round 4: the
 // flat first intensity used to be drawn and fitted against). Null when it exists.
-function _bgLineFailure(x0, y0, x1, y1) {
-  if (x1 !== x0 || y1 === y0) return null;
+function _bgLineFailure(x0, x1, lev) {
+  if (x1 !== x0 || lev === null || lev.lo === lev.hi) return null;
   return 'Linear background not converged: its two end points are at the same energy with different intensities, so no line passes through both.';
+}
+// The window's two edge LEVELS exactly (fitting._exact_edge_levels): the means of its
+// first and last k points (k = min(nAvg, n // 4), >= 1; 1 below four points) as
+// BigInt sums at scale 2^-1074 over the common divisor K — what endpoint averaging
+// sets for every method, linear too (owner 2026-10-03). null when a value read is
+// not finite (refused as not finite).
+function _bgExactLevels(ys, nAvg) {
+  const n = ys.length;
+  const k = n >= 4 ? Math.max(1, Math.min(parseInt(nAvg) || 1, Math.floor(n / 4))) : 1;
+  let lo = 0n, hi = 0n;
+  for (let i = 0; i < k; i++) {
+    if (!Number.isFinite(ys[i]) || !Number.isFinite(ys[n - k + i])) return null;
+    lo += _bgExact(ys[i]); hi += _bgExact(ys[n - k + i]);
+  }
+  return { lo, hi, K: BigInt(k) };
 }
 // fitting.manual_anchor_background's refusal: two anchors at one energy with
 // different intensities have no curve through both (Codex impl round 5).
@@ -4550,12 +4571,12 @@ function _bgAnchorFailure(anchors) {
   return null;
 }
 
-function linearBackground(be, intensity, span) {
+function linearBackground(be, intensity, span, nAvg) {
   const n = be.length;
   // one point: the line through it is its own value (fitting.linear_background;
   // Codex impl round 7 — it returned 0)
   if (n < 2) return intensity.slice(0, n);
-  return _bgExactLine(be, be[0], intensity[0], be[n - 1], intensity[n - 1], span);
+  return _bgExactLine(be, be[0], be[n - 1], _bgExactLevels(intensity, nAvg), span);
 }
 
 // fitting._line_through's evaluation, bit for bit: the line through (x0, y0) and
@@ -4563,23 +4584,29 @@ function linearBackground(be, intensity, span) {
 // rationals — rounded once, half to even (Codex impl round 11: y0 + slope·(x − x0)
 // cancelled to a finite, wrong 0 beside a 1e20 end point). With x0 === x1 the flat y0
 // (the callers refuse y0 !== y1 first, _bgLineFailure). Non-finite x: NaN.
-function _bgExactLine(xs, x0, y0, x1, y1, span) {
-  if (![x0, y0, x1, y1].every(Number.isFinite)) return xs.map(() => NaN);   // refused by the finiteness check
-  if (x1 === x0) return xs.map(x => Number.isFinite(x) ? y0 : NaN);
-  const X0 = _bgExact(x0), X1 = _bgExact(x1), Y0 = _bgExact(y0), Y1 = _bgExact(y1);
-  const D = (X1 - X0) << 1074n;
+function _bgExactLine(xs, x0, x1, lev, span) {
+  // through (x0, lo / K) and (x1, hi / K): the exact edge levels (_bgExactLevels)
+  if (lev === null || !Number.isFinite(x0) || !Number.isFinite(x1)) return xs.map(() => NaN);   // refused: not finite
   const lim = span === undefined ? null : _bgExact(BG_REL_TOL) * span;
   let lost = false;
-  const out = xs.map(x => {
-    if (!Number.isFinite(x)) return NaN;
-    if (x === x0) return y0;
-    if (x === x1) return y1;
-    const X = _bgExact(x);
-    const num = Y0 * (X1 - X) + Y1 * (X - X0);
-    const v = _bgRatToDouble(num, D);
-    if (lim !== null && Number.isFinite(v) && !_bgRoundingWithin(v, num, D, lim)) lost = true;
-    return v;
-  });
+  let out;
+  if (x1 === x0) {
+    // the callers refuse lo !== hi first (_bgLineFailure); the flat level, rounded once
+    const den = lev.K << 1074n, v = _bgRatToDouble(lev.lo, den);
+    if (lim !== null && !_bgRoundingWithin(v, lev.lo, den, lim)) lost = true;
+    out = xs.map(x => Number.isFinite(x) ? v : NaN);
+  } else {
+    const X0 = _bgExact(x0), X1 = _bgExact(x1);
+    const den = (lev.K * (X1 - X0)) << 1074n;
+    out = xs.map(x => {
+      if (!Number.isFinite(x)) return NaN;
+      const X = _bgExact(x);
+      const num = lev.lo * (X1 - X) + lev.hi * (X - X0);
+      const v = _bgRatToDouble(num, den);
+      if (lim !== null && Number.isFinite(v) && !_bgRoundingWithin(v, num, den, lim)) lost = true;
+      return v;
+    });
+  }
   if (lost) out.precisionFail = true;
   return out;
 }
@@ -4733,6 +4760,9 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
 // integer N with v = N·2^-1074 (_bgExact); edge means, trapezoids and the map are
 // carried as integer numerators over one common denominator, so the predicate
 // diff <= tol·span is decided by an integer comparison and nothing is rounded.
+// F13 (owner 2026-10-03; fitting._NO_PEAK): the refusal says what to use instead
+const _BG_NO_PEAK = ' — for a window with no peak, use the Linear background';
+
 function _bgExactShirleyCertificate(be, intensity, bg, type, nAvg, label) {
   const { xs, ys, flipped } = _bgAscending(be, intensity);
   const Ba = flipped ? bg.slice().reverse() : bg;
@@ -4761,7 +4791,7 @@ function _bgExactShirleyCertificate(be, intensity, bg, type, nAvg, label) {
     den = K * C[0];
     tnum = Y.map((y, i) => { const t = Hsum * C[0] + (Lsum - Hsum) * C[i]; return type === 'shirley' ? t : minBig(t, y * den); });
   }
-  if (tnum === null) return { converged: false, residual: null, reason: 'the data lie at or below the line between the two edge levels, so there is no net signal and the ' + label + ' relation is undefined' };
+  if (tnum === null) return { converged: false, residual: null, reason: 'the data lie at or below the line between the two edge levels, so there is no net signal and the ' + label + ' relation is undefined' + _BG_NO_PEAK };
   let maxNum = 0n;
   for (let i = 0; i < n; i++) { const r = Bn[i] * den - tnum[i]; const a = r < 0n ? -r : r; if (a > maxNum) maxNum = a; }
   let yMax = Y[0], yMin = Y[0];
@@ -4772,7 +4802,7 @@ function _bgExactShirleyCertificate(be, intensity, bg, type, nAvg, label) {
   const residual = SP > 0n ? _bgRatToDouble(maxNum, den * SP) : (maxNum === 0n ? 0 : Infinity);
   if (ok) return { converged: true, residual, reason: null };
   const pct = SP > 0n ? _fmt3(_bgRatToDouble(100n * maxNum, den * SP)) : 'inf';
-  return { converged: false, residual, reason: 'the result misses the ' + label + ' relation by ' + pct + ' % of the intensity span (its iteration alternates or ran out of steps, or the data exceed what double precision resolves at this span)' };
+  return { converged: false, residual, reason: 'the result misses the ' + label + ' relation by ' + pct + ' % of the intensity span (its iteration alternates or ran out of steps, or the data exceed what double precision resolves at this span)' + _BG_NO_PEAK };
 }
 
 const _TOUGAARD_CANCELS = 'the loss sum at the high-BE edge nearly cancels, so its rounding moves the background by more than the certificate\'s precision';
@@ -5073,15 +5103,15 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
     if (anchorFail) return _bgMark(new Array(n).fill(NaN), false, anchorFail);
     if (!anchors || anchors.length < 2) {
       // the line through the ROI's ends — the server's linear_background, its words
-      const lineFail = n >= 2 ? _bgLineFailure(be[0], intensity[0], be[n - 1], intensity[n - 1]) : null;
+      const lineFail = n >= 2 ? _bgLineFailure(be[0], be[n - 1], _bgExactLevels(intensity, nAvg)) : null;
       if (lineFail) return _bgMark(new Array(n).fill(NaN), false, lineFail);
-      const line = linearBackground(be, intensity, _bgExactSpan(intensity));
+      const line = linearBackground(be, intensity, _bgExactSpan(intensity), nAvg);
       if (line.precisionFail) return _bgMark(new Array(n).fill(NaN), false, _bgPrecisionWords('Linear'));
       if (!line.every(Number.isFinite))
         return _bgMark(line, false, 'Linear background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).');
       return _bgMark(line, true);
     }
-    const curve = manualAnchorBackground(be, intensity, anchors, _bgExactSpan(intensity));
+    const curve = manualAnchorBackground(be, intensity, anchors, _bgExactSpan(intensity), nAvg);
     if (curve.precisionFail) return _bgMark(new Array(n).fill(NaN), false, _bgPrecisionWords('Manual'));
     return _bgMark(curve, true);
   }
@@ -5115,12 +5145,13 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
   else if (type === 'smart_exp') bgSub = smartExperimentalBackground(beSub, inSub, BG_MAX_ITER, nAvg);
   else if (type === 'shirley_linear') bgSub = shirleyLinearBackground(beSub, inSub, BG_MAX_ITER, nAvg);
   else if (type === 'linear') {
-    // run_fit extrapolates the line through the WINDOW's end points across the whole
-    // ROI (it is defined everywhere); the integral backgrounds are flat-held outside
-    const x0 = beSub[0], y0 = inSub[0], x1 = beSub[beSub.length - 1], y1 = inSub[inSub.length - 1];
-    const lineFail = _bgLineFailure(x0, y0, x1, y1);
+    // run_fit extrapolates the line through the WINDOW's two edge LEVELS (the means of
+    // its first / last k points, owner 2026-10-03) across the whole ROI (it is defined
+    // everywhere); the integral backgrounds are flat-held outside
+    const x0 = beSub[0], x1 = beSub[beSub.length - 1], lev = _bgExactLevels(inSub, nAvg);
+    const lineFail = _bgLineFailure(x0, x1, lev);
     if (lineFail) return _bgMark(new Array(be.length).fill(NaN), false, lineFail);
-    const line = _bgExactLine(be, x0, y0, x1, y1, _bgExactSpan(inSub));
+    const line = _bgExactLine(be, x0, x1, lev, _bgExactSpan(inSub));
     if (line.precisionFail) return _bgMark(new Array(be.length).fill(NaN), false, _bgPrecisionWords('Linear'));
     return _bgMark(line, true);
   }
@@ -6817,7 +6848,12 @@ function _highlightChartPeak(peakId, highlight) {
 // FLASK BACKEND HELPERS
 // ═══════════════════════════════════════════════════
 async function uploadToBackend(be, inten) {
-  const csv = be.map((e, i) => e.toFixed(4) + ',' + inten[i].toFixed(2)).join('\n');
+  // FULL precision (owner 2026-10-03): String(v) is the shortest text that reads back
+  // as the same double (Python's float() and the parser's engine="python" read it
+  // exactly), so the server fits — and computes its background on — the numbers the
+  // page holds. It used to send BE toFixed(4) and intensity toFixed(2): two readings
+  // of one spectrum (the page's background on raw counts, the server's on rounded).
+  const csv = be.map((e, i) => String(e) + ',' + String(inten[i])).join('\n');
   const form = new FormData();
   form.append('file', new Blob([csv], { type: 'text/plain' }), 'spectrum.csv');
   const resp = await fetch('/api/upload', { method: 'POST', body: form });
@@ -8374,6 +8410,7 @@ function _startsIfCurrent(fr, key) {
 // The sealed fit record absorbs this: its record carries key and statistics.
 function _statsState(fr, key) {
   if (!fr) return 'none';
+  if (fr.backgroundStale) return 'stale';       // restored against an older background (2026-10-03)
   if (!fr.startsModelKey) return 'unverified';
   return _sameFitKey(fr.startsModelKey, key) ? 'current' : 'stale';
 }
@@ -8382,10 +8419,17 @@ function _statsLiveState() { return _statsState(state.fitResult, _startsLiveKey(
 function _statsRecordState(t) { return _statsState(t && t.fitResult, t ? _startsRecordKey(t) : ''); }
 const _STATS_STALE_NOTE = 'The model or its fit settings changed after this fit: its \u03c7\u00b2, R-factor, RMSE and uncertainties belong to the previous model and are not reported. Run Fit to obtain statistics for this model.';
 const _STATS_UNVERIFIED_NOTE = 'This result was saved without the record that binds it to its model, so it cannot be confirmed that its \u03c7\u00b2, R-factor and uncertainties describe the model shown. Run Fit to confirm.';
-function _statsNote(st) { return st === 'stale' ? _STATS_STALE_NOTE : st === 'unverified' ? _STATS_UNVERIFIED_NOTE : ''; }
+// A fit restored against a background other than today's (owner 2026-10-03,
+// _restoredFitBgFailure): its own stale note, with the size of the difference.
+function _bgStaleNote(fr) {
+  return 'This fit was made against a background that differs from the one its settings give now by ' +
+    _fmt3(fr.backgroundStale.pct) + ' % of the background\'s own scale (an earlier version\'s background, or settings changed after the fit): its \u03c7\u00b2, R-factor, RMSE and uncertainties are not reported. Run Fit to fit it against today\'s background.';
+}
+function _staleNoteOf(fr) { return fr && fr.backgroundStale ? _bgStaleNote(fr) : _STATS_STALE_NOTE; }
+function _statsNote(st, fr) { return st === 'stale' ? _staleNoteOf(fr) : st === 'unverified' ? _STATS_UNVERIFIED_NOTE : ''; }
 // Fields a save adds beside the result (the key itself is saved as always).
-function _statsSaveFields(st) {
-  return (st === 'stale' || st === 'unverified') ? { statisticsState: st, statisticsNote: _statsNote(st) } : {};
+function _statsSaveFields(st, fr) {
+  return (st === 'stale' || st === 'unverified') ? { statisticsState: st, statisticsNote: _statsNote(st, fr) } : {};
 }
 // Keep the visible statistics honest after an edit that only repainted the
 // chart: re-render Results when the state it rendered differs; re-apply the
@@ -8961,7 +9005,7 @@ function _applyStatDisplay(fr) {
   const st = (fr && fr === state.fitResult) ? _statsLiveState() : 'current';
   if (fr && Number.isFinite(fr.chiReduced) && st === 'stale') {
     // F1: the statistic belongs to the previous model: say so, show no number
-    if (fq) { fq.textContent = _fitStatLabel(fr) + ' \u2014 (model changed)'; fq.setAttribute('data-xps-tip', _STATS_STALE_NOTE); }
+    if (fq) { fq.textContent = _fitStatLabel(fr) + (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
     if (sb) sb.textContent = '\u2014';
   } else if (fr && Number.isFinite(fr.chiReduced)) {
     const tip = (_isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP) + (st === 'unverified' ? '\n\n' + _STATS_UNVERIFIED_NOTE : '');
@@ -9439,7 +9483,10 @@ function renderResults() {
   const _stale = _stats === 'stale';
   // F1: a stale result's sigma belongs to the previous model: none is shown
   const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
-  const _statsBanner = _stale ? `
+  const _statsBanner = _stale && state.fitResult.backgroundStale ? `
+    <div class="stats-stale-note" data-background-stale="1" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
+      &#9888; <strong>This fit was made against a different background.</strong> ${_escHtml(_bgStaleNote(state.fitResult))}
+    </div>` : _stale ? `
     <div class="stats-stale-note" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
       &#9888; <strong>The model has changed since this fit.</strong> Its &#967;&#178;, RMSE, R-factor and uncertainties belong to the previous model and are not shown. The table below is the current model, not a fitted result. Press <strong>Run Fit</strong> to obtain statistics for it.
     </div>` : _stats === 'unverified' ? `
@@ -9862,22 +9909,28 @@ function _recordBackground(src) {
   return { be, rawY, bg };
 }
 
-// A RESTORED fit (a loaded project or spectrum file) is kept only when the
-// background it was fitted against — the curve it stored — IS the certified
-// background its saved settings give now (background math, 2026-10-01; Codex
-// implementation rounds 1-2: "check each result"). The record's background is
-// recomputed from its raw data (saved at full precision) and certified; the stored
-// curve must equal it exactly, or exactly as the save rounds it (6 significant
-// figures, _roundIntensity) — no tolerance. When it does, the certified curve
-// itself replaces the stored one (and the grid and net signal with it); when it
-// does not — a curve computed by an earlier version, a STALE fit (its background
-// settings, ROI, anchors or charge shift changed after it was fitted and before
-// the save: the stored curve is the fit's, the settings are not), a value that
-// is not a number, or a fit that stored no curve — the fit is dropped, its model
-// (the fitted peaks) kept and the student told why; Run Fit regenerates it. No
-// method is exempt: manual is recomputed from the record's own anchors and none
-// is zero, and each must equal what was stored (Codex impl round 3: an exemption
-// read the CURRENT method and kept a stale curve). Returns the plain reason, or null.
+// A RESTORED fit (a loaded project or spectrum file) is kept when the background
+// it was ACTUALLY fitted against equals the certified background its saved
+// settings give now, within rounding on the background's own scale (owner
+// 2026-10-03: fit_equality.py's SAME_MINIMUM_REL, BG_RESTORE_REL).
+// Which curve is "the background it was fitted against": the stored ENVELOPE minus
+// the stored fitted peaks — fittedY (the server's model + its own background) less
+// the components (_restoredFitModel). NOT the stored background curve: before
+// 2026-10-01 the page saved its own 5-iteration PREVIEW beside the server's fit,
+// which the server had made against its own converged background, so that curve is
+// not evidence of the fit (a fit saved without an envelope loads peaks-only).
+// Today's background is computed on the fit's STORED points (_restoredFitGrid: the
+// record's current ROI selection when it reproduces them, else each stored point
+// matched to its raw sample) — refused only when they are not points of the raw
+// data. Equal: the certified curve replaces the stored one (with the grid and the
+// net signal), the envelope and statistics are kept. Not equal — an earlier
+// version's background, settings or a model changed after the fit — the fit is
+// dropped, its model (the fitted peaks) kept, and the notice gives the size. Measured
+// on the committed projects: scripts/bg_math_restore_census.py. Returns the plain
+// reason, or null.
+// fit_equality.py's SAME_MINIMUM_REL: 10·√ftol, ftol = scipy least_squares' default 1e-8
+// (pinned equal to the Python value by tests/js/background_not_converged.test.js)
+const BG_RESTORE_REL = 1e-3;
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack) return null;
   // the certificate needs the raw data: a fit without them cannot be checked, so it
@@ -9886,33 +9939,116 @@ function _restoredFitBgFailure(rec) {
       rec.rawIntensity.length !== rec.rawBE.length)
     return 'its raw data are missing or incomplete, so the background it was fitted against cannot be checked';
   const fr = rec.fitResult;
-  const stored = fr.bgIntensity;
-  if (!Array.isArray(fr.be) || !Array.isArray(stored) || stored.length !== fr.be.length)
-    return 'it was saved without the background it was fitted against, so that background cannot be checked';
-  let be, rawY, bg;
-  try { ({ be, rawY, bg } = _recordBackground(rec)); }
+  const env = fr.fittedY;
+  if (!Array.isArray(env) || !env.length)
+    return 'it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page\'s preview, not the fit\'s)';
+  if (!Array.isArray(fr.be) || !fr.be.length)
+    return 'it was saved without the energies it was fitted on (an earlier version\'s save), so its envelope cannot be placed on its data';
+  if (env.length !== fr.be.length)
+    return 'its stored envelope and the energies it was fitted on have different lengths';
+  if (!env.every(v => typeof v === 'number' && Number.isFinite(v)) || !fr.be.every(v => typeof v === 'number' && Number.isFinite(v)))
+    return 'its stored envelope is not a number at every point';
+  delete fr.backgroundStale;                             // judged afresh on every load
+  const grid = _restoredFitGrid(rec, fr.be);
+  if (grid === null) return 'its stored points are not points of its raw data, so the background cannot be recomputed on them';
+  let bg;
+  try { bg = _computeBackgroundForSource(grid.be, grid.inten, rec.ui, rec.manualAnchors); }
   catch (e) { if (_isBgNotConverged(e)) return 'its background settings give no converged background now: ' + e.message; throw e; }
-  if (be.length !== fr.be.length || be.some((e, i) => !(e === fr.be[i] || Math.round(e * 1e4) / 1e4 === fr.be[i])))
-    return 'it was fitted on other points than its saved settings select now';
-  // fails CLOSED: any value that is not this number (or this number as saved) is a
-  // mismatch — a string or null is not compared arithmetically (Codex impl round 3)
-  let differ = false, worst = 0;
+  // the background the fit used: its envelope less its components, at the points it was fitted on
+  const model = _restoredFitModel(grid.modelBe, rec.peaks || []);
+  let worst = 0, scale = 0;
   for (let i = 0; i < bg.length; i++) {
-    const v = stored[i];
-    if (typeof v === 'number' && (v === bg[i] || v === Number(bg[i].toPrecision(6)))) continue;
-    differ = true;
-    const d = typeof v === 'number' ? Math.abs(v - bg[i]) : NaN;
-    if (d > worst) worst = d;
+    const used = env[i] - model[i];
+    if (!Number.isFinite(used)) return 'its stored peaks do not evaluate to finite numbers at its stored points';
+    worst = Math.max(worst, Math.abs(used - bg[i]));
+    scale = Math.max(scale, Math.abs(used), Math.abs(bg[i]));
   }
-  if (differ) {
-    const by = worst > 0 && Number.isFinite(worst) ? ' (it differs by ' + (100 * worst / (_bgSpan(rawY) || 1)).toPrecision(2) + ' % of the intensity span)' : '';
-    return 'the background it was fitted against is not the background its settings give now' + by +
-      ' — computed by an earlier version, or the settings were changed after the fit';
+  if (worst > BG_RESTORE_REL * scale) {
+    // owner 2026-10-03: reloaded AS STALE — the fit's own background (envelope less
+    // peaks) and its peaks as saved, its statistics marked stale with the size of the
+    // difference from today's background (_statsState; F1: never exported or
+    // reported as current). Run Fit fits it against today's background.
+    const used = env.map((v, i) => v - model[i]);
+    fr.bgIntensity = used;
+    fr.be = grid.be;
+    fr.bgSubtracted = grid.inten.map((v, i) => v - used[i]);
+    fr.backgroundStale = { pct: 100 * worst / scale };
+    return null;
   }
   fr.bgIntensity = bg;                                   // the certified curve itself
-  fr.be = be;
-  fr.bgSubtracted = rawY.map((v, i) => v - bg[i]);
+  fr.be = grid.be;
+  fr.bgSubtracted = grid.inten.map((v, i) => v - bg[i]);
   return null;
+}
+// The fit's stored points as points of the record's raw data: the record's ROI
+// selection when it reproduces them (each sample's identity kept), else each stored
+// energy matched in order to a raw sample — exactly, then as the save rounds it
+// (4 dp); else the same samples at a CONSTANT offset (the charge correction changed
+// after the fit: every stored energy is today's corrected energy + delta, which
+// updateChargeCorrection applied to the peaks too). { be: today's corrected energies,
+// inten, modelBe: where the saved peaks reproduce the fit's components (the stored
+// points − delta) }; null when they are not points of the raw data.
+function _restoredFitGrid(rec, stored) {
+  const shift = rec.ccShift || 0;
+  const r4 = v => Math.round(v * 1e4) / 1e4;
+  const same = (c, s) => c === s || r4(c) === s;
+  const sel = _roiSelect(rec.rawBE, rec.rawIntensity, shift, rec.ui && rec.ui.roiMin, rec.ui && rec.ui.roiMax);
+  if (sel.be.length === stored.length && sel.be.every((c, k) => same(c, stored[k]))) return { ...sel, modelBe: stored };
+  const corr = rec.rawBE.map(b => b - shift);
+  for (const rounded of [false, true]) {
+    const be = [], inten = [];
+    for (let i = 0, k = 0; i < corr.length && k < stored.length; i++) {
+      if (corr[i] === stored[k] || (rounded && r4(corr[i]) === stored[k])) { be.push(corr[i]); inten.push(rec.rawIntensity[i]); k++; }
+    }
+    if (be.length === stored.length) return { be, inten, modelBe: stored };
+  }
+  // a constant offset (the charge correction changed after the fit; the peaks moved with
+  // it): the stored points are samples j.. + one delta (as the save rounds energies). On a
+  // uniform grid EVERY j is such a run, so the samples are pinned by the fit's own record:
+  // the counts it saw (its stored background plus what it subtracted) or, when it stored
+  // no background, its RMSE (the root-mean-square of counts less envelope on its points) —
+  // nearest wins; a tie, or neither record while two runs fit, cannot be resolved
+  const fr = rec.fitResult || {};
+  const n = stored.length, fy = fr.fittedY;
+  const seen = Array.isArray(fr.bgSubtracted) && Array.isArray(fr.bgIntensity) &&
+    fr.bgSubtracted.length === n && fr.bgIntensity.length === n
+    ? stored.map((_, k) => fr.bgSubtracted[k] + fr.bgIntensity[k]) : null;
+  const byRmse = !seen && typeof fr.rmse === 'number' && Number.isFinite(fr.rmse) && Array.isArray(fy) && fy.length === n;
+  const runs = [];
+  for (let j = 0; j + stored.length <= corr.length; j++) {
+    const delta = stored[0] - corr[j];
+    let ok = true;
+    for (let k = 0; k < stored.length && ok; k++) {
+      const c = corr[j + k] + delta;
+      ok = c === stored[k] || r4(c) === r4(stored[k]);
+    }
+    if (!ok) continue;
+    let dev = NaN;
+    if (seen) { dev = 0; for (let k = 0; k < n; k++) dev = Math.max(dev, Math.abs(seen[k] - rec.rawIntensity[j + k])); }
+    else if (byRmse) { let ss = 0; for (let k = 0; k < n; k++) ss += (rec.rawIntensity[j + k] - fy[k]) ** 2; dev = Math.abs(Math.sqrt(ss / n) - fr.rmse); }
+    runs.push({ j, delta, dev: Number.isFinite(dev) ? dev : NaN });
+  }
+  if (!runs.length) return null;
+  let pick = runs[0];
+  if (runs.length > 1) {
+    if (!seen && !byRmse) return null;
+    runs.sort((a, b) => a.dev - b.dev);
+    if (!(runs[0].dev < runs[1].dev)) return null;     // a tie or NaN: not resolved
+    pick = runs[0];
+  }
+  const { j, delta } = pick;
+  return { be: corr.slice(j, j + stored.length), inten: rec.rawIntensity.slice(j, j + stored.length),
+           modelBe: stored.map(v => v - delta) };
+}
+// The curve the fit's own components draw at its points; a Voigt saved before A03
+// (2026-09-22) is drawn with the mix the server fitted it with
+// (p._backendParams.gl_ratio — autofit.parity.recorded_voigt_eta), as GL.
+function _restoredFitModel(be, peaks) {
+  return evalAllPeaks(be, peaks.map(p => {
+    if (p.shape !== 'Voigt') return p;
+    const g = p._backendParams && p._backendParams.gl_ratio, v = g && g.value;
+    return typeof v === 'number' && Number.isFinite(v) ? { ...p, shape: 'GL', glMix: 100 * v } : p;
+  }));
 }
 function _dropRestoredFit(rec) {
   rec.fitResult = null;
@@ -11164,7 +11300,7 @@ function _doSaveFit() {
       certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
-      ..._statsSaveFields(_statsLiveState()),   // F1: says plainly when the statistics belong to the previous model
+      ..._statsSaveFields(_statsLiveState(), state.fitResult),   // F1: says plainly when the statistics belong to the previous model
     } : ((_activeTab() && _activeTab().modelProvenance) ? {
       ..._activeTab().modelProvenance, reportable: false, caveat: _localFitCaveat(_activeTab().modelProvenance),
     } : null),
@@ -11234,7 +11370,7 @@ function _doSaveSpectrum() {
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
     caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
-    ..._statsSaveFields(_saveStats),
+    ..._statsSaveFields(_saveStats, state.fitResult),
   } : null;
 
   const data = {
@@ -11332,7 +11468,7 @@ async function _doSaveProject() {
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
-        ..._statsSaveFields(_statsRecordState(t)),   // F1: judged against the RECORD's key
+        ..._statsSaveFields(_statsRecordState(t), t.fitResult),   // F1: judged against the RECORD's key
       } : null,
       modelProvenance: t.modelProvenance || null,
       notes: t.notes || '',
@@ -11565,21 +11701,28 @@ function _loadSpectrumFile(data, sessionFile) {
     // file's readers); it is never installed under the original fit's key
     if (data.fittedY && data.statistics.statisticsState !== 'stale') fr.fittedY = data.fittedY;
     if (data.statistics.rFactor && data.statistics.statisticsState !== 'stale') fr.rFactor = data.statistics.rFactor;
-    // background math (2026-10-01): the file stores the grid and background curve
-    // (_doSaveSpectrum: the live ones, at full precision); the fit is restored only
-    // if that curve IS the certified background its settings give now. A STALE
-    // save's curve is the edited state's, not the one the fit was made against, so
-    // it is never offered as the fit's (Codex impl round 3).
+    // background math: the file stores the grid, the envelope and a background curve
+    // (_doSaveSpectrum, full precision); the fit is restored only if the background it
+    // was fitted against — envelope less peaks — is the certified one its settings
+    // give now (_restoredFitBgFailure). A STALE save's envelope and curve are the edited
+    // state's, not the fit's, so it is never offered as the fit's (Codex impl round 3).
     const stale = data.statistics.statisticsState === 'stale';
-    if (!stale && Array.isArray(data.roiBE) && Array.isArray(data.background)) {
+    // the fit's points and envelope are what the restore check reads (2026-10-03:
+    // the background it was fitted against = envelope less peaks); a stored
+    // background curve, when there is one, is replaced by the certified one
+    if (!stale && Array.isArray(data.roiBE)) {
       fr.be = data.roiBE.slice();
-      fr.bgIntensity = data.background.slice();
+      if (Array.isArray(data.background)) fr.bgIntensity = data.background.slice();
     }
     active.fitResult = fr;
     state.fitResult = fr;
     const failure = stale
       ? 'it was saved after its model or settings changed, and the file stores the background of that edited state, not the one it was fitted against'
       : _restoredFitBgFailure(active);
+    if (!failure && fr.backgroundStale) {
+      notify('Saved fit restored as STALE: it was made against a background that differs from the one its settings give now by ' +
+        _fmt3(fr.backgroundStale.pct) + ' % of the background\'s own scale (an earlier version\'s background, or settings changed after the fit). Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it against today\'s background.', 'amber', true);
+    }
     if (failure) {
       _dropRestoredFit(active);
       state.fitResult = null;
@@ -11760,13 +11903,17 @@ function _loadProjectJSON(data, sessionFile) {
   }
   // A restored fit whose background has no converged solution now is dropped
   // (background math, 2026-10-01): nothing downstream may treat it as a fit.
-  const droppedFits = [];
+  const droppedFits = [], staleFits = [];
   for (const tab of newTabs) {
     const failure = _restoredFitBgFailure(tab);
     if (failure) { _dropRestoredFit(tab); droppedFits.push(tab.name + ' — ' + failure); }
+    else if (tab.fitResult && tab.fitResult.backgroundStale) staleFits.push(tab.name + ' (' + _fmt3(tab.fitResult.backgroundStale.pct) + ' %)');
   }
   if (droppedFits.length) {
     notify('Saved fit not restored: ' + droppedFits.join(' ') + ' The model (the fitted peaks) is kept; run Fit to fit it again.', 'amber', true);
+  }
+  if (staleFits.length) {
+    notify('Saved fit restored as STALE: ' + staleFits.join(', ') + ' — each was made against a background that differs from the one its settings give now by that much of the background\'s own scale (an earlier version\'s background, or settings changed after the fit). Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it against today\'s background.', 'amber', true);
   }
 
   // Rewrite stack-entry source references through idMap BEFORE pruning.
@@ -12410,7 +12557,7 @@ function exportFitTable(fmt) {
     const wb = XLSX.utils.book_new();
     const metaWS = XLSX.utils.aoa_to_sheet([
       ['XPS Fitting Studio Export'], ['Date', date],
-      ...(_stats === 'stale' ? [['WARNING', _STATS_STALE_NOTE]] : [[_statName, chiStr]]),
+      ...(_stats === 'stale' ? [['WARNING', _staleNoteOf(state.fitResult)]] : [[_statName, chiStr]]),
       ...(_stats === 'unverified' ? [['NOTE', _STATS_UNVERIFIED_NOTE]] : []),
       ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
@@ -12426,7 +12573,7 @@ function exportFitTable(fmt) {
     notify('Exported XLSX table', 'green');
   } else {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
-    csv += _stats === 'stale' ? `# WARNING: ${_STATS_STALE_NOTE}\n` : `# ${_statName}: ${chiStr}\n`;
+    csv += _stats === 'stale' ? `# WARNING: ${_staleNoteOf(state.fitResult)}\n` : `# ${_statName}: ${chiStr}\n`;
     if (_stats === 'unverified') csv += `# NOTE: ${_STATS_UNVERIFIED_NOTE}\n`;
     csv += `# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
@@ -12540,7 +12687,7 @@ function _updateRFactorUI(rf) {
     // F1: the previous model's R-factor is not shown beside the edited model
     el.style.color = 'var(--text3)';
     el.textContent = 'R: \u2014';
-    el.setAttribute('data-xps-tip', _STATS_STALE_NOTE);
+    el.setAttribute('data-xps-tip', _staleNoteOf(state.fitResult));
     return;
   }
   if (!rf) {
@@ -15178,11 +15325,14 @@ function _setManualAnchors(arr) {
 function _syncLegacyBgOption() {
   const sel = document.getElementById('bg-type');
   if (!sel) return;
-  const active = sel.value === 'shirley_linear';
-  const opt = sel.querySelector('option[value="shirley_linear"]');
-  if (opt) { opt.disabled = !active; opt.hidden = !active; }
+  // the de-listed options (Shirley + linear; Smart (experimental) since F3) show only
+  // while a saved file selects them
+  for (const v of ['shirley_linear', 'smart_exp']) {
+    const opt = sel.querySelector('option[value="' + v + '"]');
+    if (opt) { opt.disabled = sel.value !== v; opt.hidden = sel.value !== v; }
+  }
   const note = document.getElementById('bg-legacy-note');
-  if (note) note.style.display = active ? 'block' : 'none';
+  if (note) note.style.display = sel.value === 'shirley_linear' ? 'block' : 'none';
 }
 
 function _onBgTypeChange() {
@@ -15203,7 +15353,8 @@ function _onBgTypeChange() {
   // Grey out endpoint avg for types it can't affect. Tougaard keeps it:
   // averaging sets the high-BE amplitude anchor (and the backend applies
   // it for tougaard regardless, so the control must stay honest).
-  const needsEpAvg = needsIter || type === 'tougaard';
+  // linear reads the averaged edge levels too since 2026-10-03 (owner)
+  const needsEpAvg = needsIter || type === 'tougaard' || type === 'linear';
   const epAvg = document.getElementById('bg-endpoint-avg');
   if (epAvg) {
     epAvg.disabled = !needsEpAvg;
@@ -15245,14 +15396,14 @@ function _manualClearAnchors() {
 // No physical model: the defence is the user's judgement of where the background
 // lies. With fewer than 2 anchors it falls back to linearBackground (by index; the
 // server's fallback is linear in energy — the same two readings as Linear).
-function manualAnchorBackground(be, intensity, anchorsGiven, span) {
+function manualAnchorBackground(be, intensity, anchorsGiven, span, nAvg) {
   // a record's own anchors when given (stacks, restored fits); else the active tab's
   const anchors = anchorsGiven || _getManualAnchors();
   const n = be.length;
   // With fewer than 2 anchors, fall back to a linear baseline between
   // ROI endpoints so that existing peaks stay visible while the user
   // places anchor points.
-  if (!anchors || anchors.length < 2) return linearBackground(be, intensity, span);
+  if (!anchors || anchors.length < 2) return linearBackground(be, intensity, span, nAvg);
 
   // fitting.manual_anchor_background, bit for bit: the piecewise-affine function
   // through the anchors (constant beyond the outermost), EVALUATED EXACTLY and

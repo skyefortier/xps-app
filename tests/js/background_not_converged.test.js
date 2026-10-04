@@ -136,12 +136,15 @@ test('the Shirley iterations setting is retired (hidden; kept for saved files an
 });
 
 test('the background tooltips say the noise bias plainly (findings F2)', () => {
-  const tip = v => html.match(new RegExp('<option value="' + v + '" data-tip="([^"]*)"'))[1];
+  const tip = v => html.match(new RegExp('<option value="' + v + '"(?: disabled hidden)? data-tip="([^"]*)"'))[1];
   assert.match(tip('smart'), /raises net area by about 1 % on noisy data/);
   assert.match(tip('smart_exp'), /raises net area by about 1 % on noisy data/);
   assert.match(tip('smart_exp'), /plain Shirley carries its own bias at large steps/);
   assert.match(tip('shirley'), /its own net-area bias at large background steps/);
   assert.match(html, /<option value="shirley_linear" disabled hidden/, 'shirley_linear stays off the menu');
+  // F3 (owner 2026-10-03): one Smart entry; Smart (experimental) kept for saved files only
+  assert.match(html, /<option value="smart_exp" disabled hidden/, 'smart_exp is off the menu');
+  assert.match(html, /<option value="smart" data-tip="[^"]*">Smart<\/option>/, 'the one entry is "Smart"');
   assert.match(html, /id="bg-legacy-note"/, 'its notice stays');
 });
 
@@ -150,10 +153,14 @@ function recordEnv() {
   const fn = name => enclosingFunction(lines.findIndex(l => new RegExp('^(async )?function ' + name + '\\(').test(l))).body;
   const src = require('./_page_background_source.js')({ manual: 'real' }) + '\n' +
     lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG =')) + '\n' +
+    lines.find(l => l.startsWith('const BG_RESTORE_REL =')) + '\n' +
     ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground',
-     '_restoredFitBgFailure', '_dropRestoredFit'].map(fn).join('\n') +
+     '_restoredFitBgFailure', '_dropRestoredFit', '_restoredFitGrid', '_restoredFitModel', 'evalAllPeaks', '_arrMin', '_arrMax',
+     'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS',
+     '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve',
+     'dsgConvolved_array', 'evalPeakArray', 'getPeak'].map(fn).join('\n') +
     '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
-    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3 };';
+    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3, BG_RESTORE_REL, evalAllPeaks };';
   return new Function(src)();
 }
 const R = recordEnv();
@@ -200,26 +207,74 @@ test('a manual background on a record is built from THAT record\'s anchors (no S
   });
 });
 
-test('restore: kept only when the stored curve IS the certified one — no method exempt, non-numbers fail closed', () => {
-  const fitWith = rec => { const { be, bg } = R._recordBackground(rec); return { ...rec, fitResult: { be: be.slice(), bgIntensity: Array.from(bg) } }; };
+test('restore: the background the fit USED (envelope less peaks) against today\'s — current, stale (sized) or peaks-only', () => {
+  // owner 2026-10-03: the stored background curve was the page's preview; the fit's own
+  // background is its envelope less its peaks
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 285.5, fwhm: 1.0, amplitude: 300 }];
+  const fitWith = (rec, peaks = G) => {
+    const { be, bg } = R._recordBackground(rec);
+    const model = R.evalAllPeaks(be, peaks);
+    return { ...rec, peaks, fitResult: { be: be.slice(), fittedY: Array.from(bg).map((v, i) => v + model[i]), bgIntensity: be.map(() => 0) } };
+  };
   for (const bgType of ['shirley', 'smart', 'tougaard', 'linear', 'none', 'manual']) {
     const base = peakRec({ ui: { ...peakRec().ui, bgType }, manualAnchors: [{ x: 282, y: 100 }, { x: 290, y: 140 }] });
     const rec = fitWith(base);
-    assert.strictEqual(R._restoredFitBgFailure(rec), null, bgType + ': its own curve is restored');
-    // a stale fit: the stored curve is the fit's, the settings changed after it
+    assert.strictEqual(R._restoredFitBgFailure(rec), null, bgType + ': its own background reloads');
+    assert.strictEqual(rec.fitResult.backgroundStale, undefined, bgType + ': as current');
+    if (bgType !== 'none') assert.ok(Array.from(rec.fitResult.bgIntensity).some(v => v !== 0), bgType + ': the certified curve is installed');
+    // the settings changed after the fit: reloaded STALE with the fit's own background, sized
     const stale = fitWith(base); stale.ui = { ...stale.ui, bgType: bgType === 'none' ? 'linear' : 'none' };
-    assert.match(R._restoredFitBgFailure(stale) || '', /is not the background its settings give now/, bgType + ': a changed method is refused, not exempt');
+    const want = stale.fitResult.fittedY.map((v, i) => v - R.evalAllPeaks(stale.fitResult.be, G)[i]);
+    assert.strictEqual(R._restoredFitBgFailure(stale), null, bgType + ': a changed method reloads, stale');
+    assert.ok(stale.fitResult.backgroundStale && stale.fitResult.backgroundStale.pct > 0.1, bgType + ': marked stale with its size');
+    assert.deepStrictEqual(Array.from(stale.fitResult.bgIntensity), want, bgType + ': the fit\'s own background is shown');
     if (bgType === 'manual') {
       const moved = fitWith(base); moved.manualAnchors = [{ x: 282, y: 100 }, { x: 290, y: 150 }];
-      assert.match(R._restoredFitBgFailure(moved) || '', /is not the background/, 'moved anchors are refused');
+      assert.strictEqual(R._restoredFitBgFailure(moved), null); assert.ok(moved.fitResult.backgroundStale, 'moved anchors: stale');
     }
-    for (const bad of [v => String(v), () => null, () => 'abc', () => undefined]) {
-      const r = fitWith(base); r.fitResult.bgIntensity[3] = bad(r.fitResult.bgIntensity[3]);
-      assert.match(R._restoredFitBgFailure(r) || '', /is not the background/, bgType + ': a non-number fails closed');
+    for (const bad of [v => String(v), () => null, () => 'abc', () => undefined, () => NaN]) {
+      const r = fitWith(base); r.fitResult.fittedY[3] = bad(r.fitResult.fittedY[3]);
+      assert.match(R._restoredFitBgFailure(r) || '', /stored envelope is not a number at every point/, bgType + ': a non-number fails closed');
     }
   }
-  const rounded = fitWith(peakRec()); rounded.fitResult.bgIntensity = rounded.fitResult.bgIntensity.map(v => Number(v.toPrecision(6)));
-  assert.strictEqual(R._restoredFitBgFailure(rounded), null, 'as the save rounds it');
+  // within fit_equality's rounding on the background's own scale: current; beyond: stale, sized
+  const base2 = fitWith(peakRec()), used = base2.fitResult.fittedY.map((v, i) => v - R.evalAllPeaks(base2.fitResult.be, G)[i]);
+  const scale = Math.max(...used.map(Math.abs));
+  const near = fitWith(peakRec()); near.fitResult.fittedY[5] += 0.5 * R.BG_RESTORE_REL * scale;
+  assert.strictEqual(R._restoredFitBgFailure(near), null); assert.strictEqual(near.fitResult.backgroundStale, undefined, 'within the tolerance: current');
+  const far = fitWith(peakRec()); far.fitResult.fittedY[5] += 2 * R.BG_RESTORE_REL * scale;
+  assert.strictEqual(R._restoredFitBgFailure(far), null);
+  assert.ok(Math.abs(far.fitResult.backgroundStale.pct - 0.2) < 1e-9, 'beyond: stale, sized ' + far.fitResult.backgroundStale.pct);
+  // the stored background CURVE is not evidence: a garbage curve with a good envelope reloads current
+  const garbage = fitWith(peakRec()); garbage.fitResult.bgIntensity = garbage.fitResult.be.map(() => 12345);
+  assert.strictEqual(R._restoredFitBgFailure(garbage), null); assert.strictEqual(garbage.fitResult.backgroundStale, undefined);
+  // no envelope / no stored points: peaks-only, plain message
+  const noEnv = fitWith(peakRec()); delete noEnv.fitResult.fittedY;
+  assert.match(R._restoredFitBgFailure(noEnv) || '', /saved without its fitted envelope/);
+  const noBe = fitWith(peakRec()); delete noBe.fitResult.be;
+  assert.match(R._restoredFitBgFailure(noBe) || '', /saved without the energies it was fitted on/);
+  const short = fitWith(peakRec()); short.fitResult.fittedY.pop();
+  assert.match(R._restoredFitBgFailure(short) || '', /envelope and the energies it was fitted on have different lengths/);
+  const off = fitWith(peakRec()); off.fitResult.be = off.fitResult.be.map((v, k) => v + 0.013 * k);
+  assert.match(R._restoredFitBgFailure(off) || '', /not points of its raw data/);
+  // the charge correction changed after the fit: the same samples at a constant offset — compared in today's frame
+  const shifted = fitWith(peakRec()); shifted.fitResult.be = shifted.fitResult.be.map(v => v + 0.05);
+  { const inten = R._recordBackground(peakRec()).rawY;   // what the fit saw: its subtracted counts + its background
+    shifted.fitResult.bgSubtracted = inten.map(v => v - 7); shifted.fitResult.bgIntensity = inten.map(() => 7); }
+  shifted.peaks = G.map(p => ({ ...p }));            // the peaks moved with the correction (they are today's)
+  const fy = shifted.fitResult.fittedY.slice();
+  assert.strictEqual(R._restoredFitBgFailure(shifted), null, 'a charge shift after the fit: compared on the same samples');
+  assert.strictEqual(shifted.fitResult.backgroundStale, undefined); assert.deepStrictEqual(shifted.fitResult.fittedY, fy);
+  // on a uniform grid every run of samples is a constant offset: without the counts it saw, not resolved
+  const blind = fitWith(peakRec()); blind.fitResult.be = blind.fitResult.be.map(v => v + 0.05);
+  assert.match(R._restoredFitBgFailure(blind) || '', /not points of its raw data/);
+});
+
+test('BG_RESTORE_REL is fit_equality.py\'s SAME_MINIMUM_REL', () => {
+  const { execFileSync } = require('node:child_process');
+  const PY = ['/Users/skyefortier/xps-app/venv/bin/python3', path.join(__dirname, '../../venv/bin/python3')].find(p => fs.existsSync(p)) || 'python3';
+  const v = Number(execFileSync(PY, ['-c', 'import sys; sys.path[:0] = [".", "tests"]; import fit_equality; print(repr(fit_equality.SAME_MINIMUM_REL))'], { encoding: 'utf8', cwd: path.join(__dirname, '../..') }));
+  assert.ok(Math.abs(v - R.BG_RESTORE_REL) <= 1e-15 * v, v + ' vs ' + R.BG_RESTORE_REL);
 });
 
 // ── Codex impl round 4 ──
@@ -238,7 +293,7 @@ test('linear: ends at one energy with different intensities have no line through
 
 test('restore: a fit whose raw data are missing or incomplete is not restored (the check needs them)', () => {
   const ok = peakRec(); const { be, bg } = R._recordBackground(ok);
-  const withFit = over => ({ ...peakRec(), fitResult: { be: be.slice(), bgIntensity: Array.from(bg) }, ...over });
+  const withFit = over => ({ ...peakRec(), peaks: [], fitResult: { be: be.slice(), fittedY: Array.from(bg), bgIntensity: Array.from(bg) }, ...over });
   assert.strictEqual(R._restoredFitBgFailure(withFit({})), null);
   for (const over of [{ rawBE: [281], rawIntensity: [100] }, { rawBE: [] }, { rawBE: undefined }, { rawIntensity: undefined },
                       { rawIntensity: [1, 2, 3] }]) {
@@ -290,9 +345,9 @@ for c in json.load(sys.stdin):
     x, y = np.array(c['x'], float), np.array(c['y'], float)
     try:
         if c['m'] == 'manual':
-            fitting.manual_anchor_background(x, c['anchors'], fitting._span(y)) if len(c['anchors']) >= 2 else fitting.linear_background(x, y)
+            fitting.manual_anchor_background(x, c['anchors'], fitting._span(y)) if len(c['anchors']) >= 2 else fitting.linear_background(x, y, n_avg=c.get('n', 1))
         elif c['m'] == 'linear':
-            fitting.linear_background(x, y)
+            fitting.linear_background(x, y, n_avg=c.get('n', 1))
         else:
             fitting._region_in_order(x, c['m'])          # run_fit's order: the region, then the window
             fitting.compute_background(x, y, c['m'], n_avg=c.get('n', 1))

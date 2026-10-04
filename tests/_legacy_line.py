@@ -19,6 +19,7 @@ import fitting
 
 
 def _legacy_line_through(x, x0, y0, x1, y1, span=None):
+    y0, y1 = float(y0), float(y1)          # exact edge levels (Fractions) since 2026-10-03
     if x1 != x0:
         slope = (y1 - y0) / (x1 - x0)
     elif y1 == y0:

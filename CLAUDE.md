@@ -461,17 +461,21 @@ degree of freedom is fitted as before.
 `n_perturb` restarts (the page sends 3; ±15 % on every varying parameter)
 and the populations of `differential_evolution` and `basinhopping`, which
 lmfit otherwise takes from numpy's GLOBAL generator — comes from one seed
-that is a pure function of THE NUMBERS THE OPTIMISER IS HANDED
-(`_request_seed`: SHA-256 of the energies, counts and the COMPUTED
-background curve as little-endian float64, plus the canonical JSON of each
-component's lineshape, each lmfit parameter's effective role — a
-constrained one is its expression, a fixed one its value, a free one its
-value and bounds — the method, solver options and `n_perturb`; tag
-`xps-fit-seed-v1`). Settings are hashed by their EFFECT, never as sent, so
+that is a pure function of THE REQUEST'S INPUTS
+(`_request_seed`: SHA-256 of the energies and counts as little-endian
+float64, plus the canonical JSON of each component's lineshape, each lmfit
+parameter's effective role — a constrained one is its expression, a fixed
+one its value, a free one its value and bounds — the method, solver options,
+`n_perturb` and the background BY ITS EFFECT, `_background_effect`: method,
+window, the averaging as it acts (k = min(n_avg, n // 4)), a manual
+background's anchors in energy order; tag `xps-fit-seed-v2`, 2026-10-03 —
+v1 hashed the COMPUTED background curve, so an ulp in a background's
+arithmetic redrew every restart; owner: derive it from inputs, one redraw,
+bundled with the full-precision upload). Settings are hashed by their EFFECT, never as sent, so
 nothing the fit ignores can change the draws: a peak's name or colour, the
 `fix_gl_ratio` the page still sends for a Gaussian, stale shape parameters
-kept after a shape switch, the `endpoint_avg` a linear background does not
-use, bounds of a fixed parameter, start values a link overrides, anchor
+kept after a shape switch, the `endpoint_avg` of a method that reads no
+averaging (none; manual with anchors), bounds of a fixed parameter, start values a link overrides, anchor
 order, and the peaks' internal ids (parameter names and constraint
 references are hashed by component POSITION: the page never reuses an id,
 so a model rebuilt after deleting a peak would otherwise fit differently)
@@ -708,9 +712,9 @@ in a worse minimum (5–13 % χ²ᵣ above the held-m server on Scan_4/5/8) —
 the "several minima" case (`docs/findings/cam/local_server_gap_after_cam.json`;
 both engines' amplitude floor is 0 since unit step (b)). Both engines weight by
 √intensity whether the data are counts or CPS (a convention, not a
-calibrated uncertainty for rates); the formula is the same but the inputs
-are not bit-identical, because `uploadToBackend` rounds intensities to
-2 dp before the server weights them. A03 and the `caM` unit are done and
+calibrated uncertainty for rates); the formula and the inputs are the same
+(`uploadToBackend` sends full precision since 2026-10-03; it rounded
+intensities to 2 dp before). A03 and the `caM` unit are done and
 the designation STAYS on both grounds: fitting m locally needs a
 derivative-free search (its own unit), and the worse-minimum outcome
 (three of nine U 4f targets) remains; the label is reconsidered only on a
@@ -847,9 +851,9 @@ starting model as "Fit complete"; see
 |---|---|
 | `shirley` | Solves the Shirley relation B = T(B) — iterated to convergence and certified (below). Default. Corroboration: Shirley, *Phys. Rev. B* **5**, 4709 (1972); the iterative form: Proctor & Sherwood, *Anal. Chem.* **54**, 13 (1982). On noisy data it carries its own net-area bias at large steps (F2). |
 | `smart` | Constrained Shirley, B = min(T(B), I): the clamp of the Shirley solution (exact, s(min(B, I)) = s(B)). Constraining against noisy counts raises net area by about 1 % on noisy data (F2). |
-| `smart_exp` | The same constrained problem with the constraint inside the iteration. Bit-identical to `smart` on every committed spectrum and averaging; collapsing the two menu entries is PROPOSED, not done (F3). |
+| `smart_exp` | The same constrained problem with the constraint inside the iteration. Bit-identical to `smart` on every committed spectrum and averaging, so ONE menu entry, "Smart" (owner 2026-10-03, F3): `smart_exp` is a hidden option shown only when a loaded file selects it (`_syncLegacyBgOption`); both codes load and compute as before. |
 | `shirley_linear` | A reversed step (largest at the low-BE edge): off the menu permanently (owner, 2026-10-01; F4); kept so saved files that use it load; its amber notice stays. |
-| `linear` | Affine in energy through the raw end points of the background window, extrapolated across the ROI — page and server alike since 2026-10-01 (the page drew it by index, F8). |
+| `linear` | Affine in energy through the background window's two EDGE LEVELS (the means of its first / last k points, as every method reads averaging; owner 2026-10-03 — until then the raw end points), extrapolated across the ROI — page and server alike since 2026-10-01 (the page drew it by index, F8). |
 | `tougaard` | Universal cross-section K(T) = B·T/(C+T²)², B = 2866 eV², C = 1643 eV² (Tougaard, *Surf. Interface Anal.* **1988**, 11, 453; kernel max at √(C/3) ≈ 23.4 eV), over the raw data above the low-BE level C0, anchored at the high-BE level; the loss sum is evaluated as stated on every grid (no convolution shortcut since 2026-10-01). Order-robust (either BE direction). |
 | `manual` (frontend only) | User-placed anchor points; `manualAnchorBackground` in JS. |
 
@@ -896,7 +900,7 @@ rounding must itself meet the predicate (refused where max|I| / span exceeds ~4 
 The page's twins (`computeBackgroundCore`) run the server's arithmetic operation for
 operation: EVERY background is BIT-IDENTICAL to fitting.py (Tougaard's loss sum term
 for term with numpy's pairwise summation, `_npPairwiseSum`; `shirley_linear` on both
-grid directions; linear the exact line through the window's ends; manual the exact
+grid directions; linear the exact line through the window's edge levels; manual the exact
 piecewise-affine value through the anchors — both rounded once — `Fraction` on the server, `BigInt` on the page, since np.interp's
 formula overflowed or cancelled on far anchors) on the parity file's synthetic, real and 200
 randomised spectra at averaging 1, 3 and 10, and `_bgCertificate` gives the server's
@@ -920,28 +924,45 @@ Batch Fit (that target is NOT fitted, with the reason), chart-click placement (t
 clicked height, nothing subtracted), stack reconstruction (the entry shows no fit),
 spectrum save (`background: null` + `backgroundFailure`), TSV export (empty columns +
 WARNING) and the publication figure (refused). A RESTORED fit (project or spectrum
-file) is kept only when the curve it stored IS the certified background its saved
-settings (and, for manual, its own anchors) give now — exactly, or exactly as the
-save rounds it (6 significant figures); no method exempt, a non-number fails closed,
-a stale spectrum file is dropped; the certified curve then replaces it
-(`_restoredFitBgFailure`, `_recordBackground` — whose ROI selection is
-`getROIData`'s own, `_roiSelect`). Otherwise the fit is dropped, the model kept, and
-the student told why. Fits saved before 2026-10-01 stored the old page's 5-iteration
-curve: on the committed projects 3 of 121 saved fits are restored (Cl 2p, where the
-old curve agrees to 6 significant figures), 118 load their model and need Run Fit
-(`scripts/bg_math_restore_census.py`; owner decision pending). The "Shirley iterations" setting is
+file; owner 2026-10-03, plan §7) is judged by the background it was FITTED AGAINST —
+its stored envelope `fittedY` less its saved peaks (`_restoredFitModel`; a pre-A03
+Voigt at its recorded η) — never by the stored background curve (older versions saved
+the page's preview beside the server's fit). The fit's points (`_restoredFitGrid`):
+the ROI selection, else the stored energies matched to raw samples (exactly or as
+saved to 4 dp), else a constant offset (the charge correction changed after the fit;
+on a uniform grid every run fits, so the run is pinned by the fit's own record — its
+stored counts, else its RMSE; a tie refuses). Today's certified background on those
+points (the record's settings and own anchors) within `BG_RESTORE_REL` = 1e-3
+(`fit_equality.SAME_MINIMUM_REL`) of max(|implied|, |today|): CURRENT, the certified
+curve installed. Beyond: STALE — the fit's own background and peaks as saved,
+`fitResult.backgroundStale = {pct}`, `_statsState` 'stale' (F1's rules: no statistic,
+σ or R shown, exported or saved as current; the notes say "background changed" with
+the size, `_bgStaleNote`), an amber notice per load. Uncheckable (no envelope, no
+stored energies, lengths differ, not points of the raw data, no converged background
+now, a stale spectrum file): peaks only, with the reason. On the 121 committed saved
+fits: 15 current, 66 stale (60 only because the old request chose the window by
+nearest index, end-exclusive — median 0.83 %, max 5.07 %; 6 under either window rule,
+0.88–2.95 %, all `smart`, which main's own server background misses too), 40 peaks
+only (`scripts/bg_math_restore_census.py`, page functions; the Python twin
+`scripts/bg_math_restore_alternative.py` agrees on all 121). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never
-read. Known, not fixed: `uploadToBackend` rounds intensities to 2 dp, so the page's
-background (raw counts) and the server's (2-dp counts) are two readings — measured on
-the 202 committed targets at ≤ 8.6e-7 of the span with identical verdicts
-(`scripts/bg_math_upload_rounding_gap.py`), far apart only on ill-conditioned input
-(Tougaard near cancellation); the class fix, a full-precision upload, changes every
-fit's input and seed (owner decision pending). Auto-Fit's result after its charge
+read. `uploadToBackend` sends every value at full precision (`String(v)`, the
+shortest round-trip decimal) since 2026-10-03, and `parser.parse_csv` reads each value
+back with Python's correctly rounded `float()` (`_exact_columns`: pandas' python engine
+is up to 2 ulp off on 17-digit text; `tests/test_full_precision_upload.py`), so page and server compute on the same numbers — it rounded intensities to
+2 dp, a gap of ≤ 8.6e-7 of the span on the committed targets
+(`scripts/bg_math_upload_rounding_gap.py`) but unbounded near Tougaard cancellation.
+Measured with seed v2 on the 202 targets (plan §7.3): backgrounds ≤ 0.001 % net area;
+six fits on basin boundaries moved 1.0–29 pp (area or atomic %), four flagged by the
+scattered-starts line — NOT 1-GTA C1s Scan_0 (10.8 pp, χ²ᵣ 3.82 → 4.62, all three
+starts reach the returned fit) nor 8-JT C1s Scan_6 (2.7 pp, level); two presses of the
+branch ≤ 0.003 pp (main 0.019 pp). Auto-Fit's result after its charge
 shift pairs the re-selected samples with the pre-shift envelope (pre-existing; logged
 for its own unit); Tougaard near cancellation is ill-conditioned (a small high-edge
 sum: tiny data changes move the background far) — the statement's property.
 Featureless windows (a drift, a peakless step) mostly have no converged Shirley
-background and are now refused (F13).
+background and are refused (F13; owner 2026-10-03: kept, and the message ends " — for a
+window with no peak, use the Linear background", `_NO_PEAK` / `_BG_NO_PEAK`).
 
 WHAT EACH METHOD SOLVES (background math foundation, 2026-09-30; checker
 `scripts/background_defining_statements.py` — its own preprocessing, integrals and
@@ -950,7 +971,7 @@ resemblance to another program: `shirley` B = T(B), T the Shirley relation's
 right-hand side over the positive net signal (the relation can have SEVERAL
 solutions — exact counterexamples in the tests — and a certified result is the one
 reached from the edge-to-edge line, F9); `smart` and `smart_exp` the constrained
-problem B = min(T(B), I); `linear` affine in energy through the end points;
+problem B = min(T(B), I); `linear` affine in energy through the edge levels;
 `tougaard` the loss-integral relation over the raw data with a constant below-window
 level and the high-BE anchor; `manual` piecewise-affine through the anchors;
 `shirley_linear` B = min(L + d(1 − F(B)), I), L affine in index — a REVERSED step,

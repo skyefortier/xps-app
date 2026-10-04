@@ -220,9 +220,11 @@ def test_matching_infinities_do_not_hide_a_finite_difference():
 
 @pytest.mark.parametrize("where", ["fit", "alternative", "not_better"])
 def test_a_scattered_start_objective_is_compared_at_the_objective_scale(where):
-    # Codex A2 round 2: the starts' chi2r got the parameter tolerance (+0.09 % passed)
+    # Codex A2 round 2: the starts' chi2r got the parameter tolerance (+0.09 % passed).
+    # The draws this was written against — v1's request seed, under the module's line
+    # pin: seed v2 (2026-10-03) draws no not-better start here, and the case needs one
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq", "fit_kws": {"seed": 1228785762}}, **SS.KW)
     b = copy.deepcopy(a)
     st = b["starts"]
     if where == "fit":

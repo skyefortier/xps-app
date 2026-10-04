@@ -143,16 +143,19 @@ def test_compute_background_forwards_endpoint_avg(bg_type_name, direct_fn):
         )
 
 
-def test_compute_background_linear_ignores_endpoint_avg():
-    """linear_background has no endpoint-averaging concept (it already
-    reads only the two edge points); endpoint_avg must be accepted without
-    error and have no effect."""
+def test_compute_background_linear_reads_the_averaged_edge_levels():
+    """Since 2026-10-03 (owner) linear runs through the two edge LEVELS — the means
+    of the window's first / last k points — as every method does; it used the raw
+    end points, so one noisy end sample tilted the whole line."""
+    from fractions import Fraction
     from autofit.engine import BackgroundType, _compute_background
 
     x, y = _noisy_endpoint_fixture()
-    no_avg = _compute_background(x, y, BackgroundType.LINEAR)
     with_avg = _compute_background(x, y, BackgroundType.LINEAR, endpoint_avg=8)
-    assert np.array_equal(no_avg, with_avg)
+    k = min(8, len(y) // 4)
+    lo, hi = sum(map(Fraction, y[:k].tolist())) / k, sum(map(Fraction, y[-k:].tolist())) / k
+    assert with_avg[0] == float(lo) and with_avg[-1] == float(hi)
+    assert not np.array_equal(with_avg, _compute_background(x, y, BackgroundType.LINEAR))
 
 
 @pytest.mark.parametrize("method", ["shirley", "smart", "tougaard"])

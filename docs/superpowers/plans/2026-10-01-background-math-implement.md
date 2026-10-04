@@ -125,6 +125,9 @@ grid was persisted); those 118 load their model and need Run Fit. (Round 2's
 rule, which allows the save's rounding — Codex round 3.) The alternatives, not
 implemented: keep an older fit with its statistics marked stale and the certified
 curve drawn; or keep it as it was (round 1's policy, which both reviewers rejected).
+SUPERSEDED 2026-10-03 by the owner's restore rule (§7): the evidence is the background
+the fit USED (envelope less peaks), within 1e-3 of its scale — 15 current, 66 reloaded
+stale, 40 peaks only.
 
 **The "Shirley iterations" setting is retired.** A 5-iteration preview is not a
 solution (F7: up to 8.6e-5 of the span from it), so under item 2 every page background
@@ -241,7 +244,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 538, exact (the owner's 512 for the two landed branches + this unit's 26 tests).
+- JS CI floor 508 -> 539, exact (the owner's 512 for the two landed branches + this unit's 27 tests; 538 before the owner round of 2026-10-03, which adds the restore-rule tests).
 
 ## 4. Measurements
 
@@ -385,24 +388,42 @@ other Auto-Fit items in CLAUDE.md's "LOGGED FOR ONE LATER UNIT".
 
 ## 5. Release note (at deploy)
 
+(Rewritten for the owner round of 2026-10-03, §7.)
+
 Backgrounds: endpoint averaging now sets only the two edge levels the background is
 anchored to; the background itself is computed from the measured data, the same way
 for every method (Shirley, Smart and Tougaard used to replace the end points of the
-data by their average). Every background is checked against its own defining
-equation; when it has no solution — most often a window with no peak in it — the page
-says "… background not converged" under the method menu and nothing is fitted,
-subtracted or exported against it. A saved fit is restored only when the background
-it was fitted against is today's (as the file stores it) — so most fits saved before
-this version are not restored (on the lab's committed projects 3 of 121 are): their
-models load, and Run Fit regenerates them. Every background now runs to convergence; the "Shirley
-iterations" setting is gone. The page now draws exactly the background the server fits
-(the linear background affine in energy, as the server always had it). On the
-committed fits the backgrounds moved by at most 0.04 % of net area (at averaging 3) and
-the fitted areas by at most 0.4 pp for the background's sake — but a changed background
-also re-draws the fit's perturbed restarts, so a fit that sits between two solutions
-can land in the other: on the 8-JT C 1s scans eight such moves of 2–28 pp, two to a
-better fit, four worse, two level. The Smart tooltips now say that constraining against noisy
-counts raises net area by about 1 %.
+data by their average), and the Linear background now uses the same averaged edge
+levels. Every background is checked against its own defining equation; when it has no
+solution — most often a window with no peak in it — the page says "… background not
+converged" under the method menu, suggests the Linear background for a window with no
+peak, and nothing is fitted, subtracted or exported against it. Every background runs
+to convergence; the "Shirley iterations" setting is gone. "Smart" and "Smart
+(experimental)" were the same calculation and are now one menu entry ("Smart"); files
+that use either still load. The page now draws exactly the background the server fits,
+and sends the server your data at full precision (it used to round intensities to two
+decimals).
+
+Saved fits: a saved fit reloads as it was when the background it was fitted against —
+its stored fitted curve less its peaks — equals the background its settings give today
+within rounding. When it differs, the fit still loads with its own background and
+peaks, but its statistics (χ², R-factor, RMSE, uncertainties) are marked out of date and
+are not shown or exported, with the size of the difference; Run Fit brings it up to
+date. On the lab's 121 committed saved fits: 15 reload as they were, 66 reload marked
+out of date (most by under 1 % of the background's own scale, at most 5 %, nearly all
+because older versions chose the background window's end points differently), and 40 —
+saved by older versions without the fitted curve or the energies it was fitted on —
+load their peaks only.
+
+Fits: the random restarts are now drawn from a seed computed from your data, window,
+settings and model rather than from the computed background, so they no longer change
+when a background's arithmetic changes in the last digit; this unit changes them once.
+On the committed fits the backgrounds moved by at most 0.001 % of net area; six fits
+that sit between two solutions landed in another (1–29 pp of area or atomic %: one to a
+better fit, four worse, one level). The "scattered starts" line under the Results table
+flags four of them; on the other two every scattered start reaches the returned
+solution (one of them 21 % worse in χ²ᵣ than the previous version's). The Smart tooltips say that constraining against noisy counts
+raises net area by about 1 %.
 
 ## 6. Codex rounds
 
@@ -675,3 +696,195 @@ Tougaard and 2 000 linear / manual probes with no accepted violation or parity m
 128 loader cases; the same reproductions — with the caveat that it "does not establish a
 universal numerical proof" (normalisation can lose tiny components on extreme mixed-scale
 inputs; no violation found). REVIEW COMPLETE — stopped for the owner, not deployed.
+
+## 7. Owner round, 2026-10-03 — restore, seed, upload, linear, F3, F13
+
+Owner, 2026-10-03 (not yet approved for deploy):
+
+> 1. RESTORE: a saved fit reloads if its stored background equals the recomputed one
+>    within fit_equality.py's rounding tolerance (on the background's own scale). Only a
+>    genuine difference loads peaks-only with a notice stating the size of the change.
+> 2. SEED: derive the request seed from INPUTS (raw data, window, settings, model), not
+>    from the computed background.
+> 3. FULL-PRECISION UPLOAD, bundled with (2) so there is one redraw.
+> 4. LINEAR uses averaged edge levels, consistent with (1) of this unit.
+> 5. F3: collapse smart and smart_exp into one "Smart" menu entry; both codes still load.
+> 6. F13: keep refusing; the message suggests Linear for windows with no peak.
+> Measure after (2)+(3)+(4) on the 202 targets [...]. Student note drafted, held.
+
+Two follow-up decisions the same day (questions asked when the census showed what
+"stored background" means in old files):
+
+> Implied only (stored fittedY − stored peaks = the background the fit actually used).
+> For the 29 with an envelope on other points: recompute today's background on the
+> STORED points and compare there; refuse only if that is impossible. The 11 with no
+> envelope load peaks-only — the stored curve was a preview, not the fit's background.
+
+> Reload marked stale, for every fit whose envelope is checkable: show the fit's own
+> implied background and peaks as saved, statistics marked stale with the size of the
+> difference from today's background. Stale fits must not export or report as current
+> results (existing F1 behaviour). The 10 that match reload as current. The 40
+> uncheckable load peaks-only with a plain message.
+
+### 7.1 What changed
+
+- **Seed v2** (`fitting._request_seed`, tag `xps-fit-seed-v2`): the background term is
+  `_background_effect` — the method, the window [i0, i1) where the method reads one, the
+  averaging AS IT ACTS (k = min(n_avg, n // 4), `_avg_k`), a manual background's anchors
+  in energy order (fewer than two: "manual-line" with its k; none / flat: "none") —
+  never the computed curve. Everything else hashed as in v1 (energies, counts, the
+  model's effective roles, method, solver options, n_perturb). So a future change in a
+  derived quantity's arithmetic (an ulp in a background) no longer redraws the restarts.
+- **Full-precision upload** (`uploadToBackend`): every value as `String(v)` (the
+  shortest round-trip decimal) instead of BE `toFixed(4)` / intensity `toFixed(2)`.
+  FOUND while pinning it: pandas' python engine does NOT round decimal text correctly —
+  17-significant-digit values came back up to 2 ulp off (3 629 of 80 000 sampled values;
+  2- and 4-decimal text, what the page used to send, is exact). `parser.parse_csv` now
+  re-reads the two chosen columns as text and converts each value with Python's
+  `float()` (correctly rounded; `_exact_columns`), so the server holds exactly the
+  doubles the page holds — pinned by `tests/test_full_precision_upload.py` (node formats
+  400 values incl. exponent forms and a subnormal, `/api/upload` stores them bit for
+  bit, in the page's order). Page and server now compute on the same numbers (the 2-dp
+  gap of §4, ≤ 8.6e-7 of the span on the committed targets, is gone by construction).
+  The measurement of §7.3 was re-run after this fix (a first run through the inexact
+  parse is not reported).
+- **Linear through averaged edge levels**: the line through (E[i0], mean of the first k
+  window points) and (E[i1−1], mean of the last k), k as for every method, evaluated
+  exactly (`_exact_edge_levels` → Fractions, `_line_through`; page `_bgExactLevels` →
+  BigInt, `_bgExactLine`) and rounded once, the rounding checked against the predicate
+  as before. `needsEpAvg` now shows the averaging field for linear; its tooltip says so.
+  The manual fallback (fewer than two anchors) reads the same levels on both sides.
+- **F3**: one "Smart" entry; `smart_exp` is a disabled, hidden option shown only when a
+  loaded file selects it (`_syncLegacyBgOption`, as `shirley_linear`), so old files load
+  with their own code (bit-identical results, measured in §4).
+- **F13**: the "no net signal" and "misses the relation" refusals end with " — for a
+  window with no peak, use the Linear background" (`_NO_PEAK` / `_BG_NO_PEAK`, same words).
+- **Restore** (`_restoredFitBgFailure`, `_restoredFitGrid`, `_restoredFitModel`):
+  - the evidence is the background the fit USED: stored `fittedY` (the server's envelope)
+    less the saved peaks evaluated at the fit's points (a Voigt saved before A03 drawn
+    at the η the server recorded, `p._backendParams.gl_ratio`, as GL — the
+    `autofit.parity.recorded_voigt_eta` rule). The stored background CURVE is not
+    evidence: before this unit the page saved its own preview beside the server's fit;
+  - the fit's points: the record's ROI selection when it reproduces the stored energies
+    (exactly or as saved to 4 dp), else each stored energy matched in order, else a
+    CONSTANT OFFSET (the charge correction changed after the fit, and the peaks moved
+    with it, `updateChargeCorrection`). On a uniform grid every run of samples is such an
+    offset, so the run is pinned by the fit's own record: the counts it saw (stored
+    background + subtracted counts) or, when it stored no background, its RMSE (counts
+    less envelope on its points) — nearest wins, a tie or no record refuses. On the 16
+    committed offset fits the chosen run reproduces the stored RMSE to 4 significant
+    figures and the next candidate is off by 139–2 150 counts; the true offsets are
+    0.001–0.13 eV (a charge shift re-entered after the fit);
+  - today's certified background is computed on those points from the saved settings
+    (manual: the record's own anchors) and compared with the implied one: worst
+    |used − today| ≤ `BG_RESTORE_REL` (1e-3, `fit_equality.SAME_MINIMUM_REL`, pinned
+    equal by a test) × max(|used|, |today|) — CURRENT, today's certified curve installed;
+    beyond — STALE: the fit's own background and peaks as saved,
+    `fr.backgroundStale = {pct}`, `_statsState` 'stale' (F1: no χ², R, RMSE or σ shown,
+    exported or saved as current; CSV / XLSX WARNING, TSV NOTE, the Results banner, the
+    header tooltip all say "background changed" with the size — `_bgStaleNote`); judged
+    afresh on every load; amber notice naming each stale fit with its size;
+  - uncheckable (no envelope; no stored energies; envelope and energies of different
+    lengths; stored points not points of the raw data; settings without a converged
+    background now): peaks only, each with its plain reason.
+
+### 7.2 The census (121 committed saved fits, `scripts/bg_math_restore_census.py`, the page's own functions)
+
+| outcome | n |
+|---|---|
+| CURRENT (implied background = today's within 1e-3 of its scale; median 3.4e-6, max 8.9e-4) | 15 |
+| STALE (reloaded with its own background; statistics not reported) | 66 |
+| — of which differ only through today's inclusive window (the old request's nearest-index, end-exclusive window reproduces them) | 60 (median 0.83 %, max 5.07 %) |
+| — of which differ under EITHER window | 6 |
+| PEAKS-ONLY: saved without the energies it was fitted on | 28 |
+| PEAKS-ONLY: saved without its fitted envelope | 11 |
+| PEAKS-ONLY: envelope and energies of different lengths | 1 |
+
+`scripts/bg_math_restore_alternative.py` recomputes the same in Python (`fitting`,
+`autofit.parity`) under both window rules: verdicts identical on all 121, stale sizes
+equal to 1e-14 relative.
+
+The six that differ under either window (same size under both rules, so not the window;
+main's own server background on the same samples, old window, misses them too — by
+0.85–2.95 % (U4f Scan_0 1.21 %, U4f Scan_3 0.95 %, the others as below), with or without
+the old 2-dp counts — so these fits were made against a background no
+version in this repository's main gives, or their peaks were edited after the fit in a
+save older than F1, which kept no model key; the record cannot tell which):
+
+| project / tab | method | difference (today) | old window |
+|---|---|---|---|
+| 4-GTA UCl4-BN / B1s Scan_1 | smart | 2.95 % | 2.95 % |
+| 4-GTA UCl4-BN / U4f Scan_0 | smart | 1.65 % | 1.65 % |
+| 4-GTA UCl4-BN / U4f Scan | smart | 1.65 % | 1.65 % |
+| 4-GTA UCl4-BN / B1s Scan_4 | smart | 1.55 % | 1.55 % |
+| 4-GTA UCl4-BN / U4f Scan_3 | smart | 1.17 % | 1.17 % |
+| UCl4_on_graphite / U4f Scan_2 | smart | 0.878 % | 0.905 % |
+
+CORRECTION to what was reported before the owner's decision: "9 genuine differences,
+4-GTA B 1s up to 127 %, 4-GTA U 4f ~97 %, UCl4 U 4f 14.9 %" was an artefact of my offset
+matching, which took the FIRST run of samples that fitted the offset — on a uniform grid
+any run — and so compared 16 fits on samples 2.4–6 eV away from their own. With the run
+pinned by the fit's own record, 4-GTA B1s Scan_2 / Scan_3, U4f Scan_1 / Scan_8 and UCl4
+U4f Scan_1 are CURRENT, and nothing differs by more than 5.07 %.
+
+### 7.3 Measurements after (2)+(3)+(4) — 202 targets, Trust-Region, n_perturb 3, as the page sends them
+
+`final_tr` / `final2_tr` (two identical presses of the branch, run AFTER the parser fix of
+§7.1) against `main_tr` / `main2_tr` (main as shipped); `node scripts/bg_math_impl_analyze.js
+docs/findings/background-math/data/impl final` → `final_analysis.json`. (A first pair of
+runs through pandas' inexact parse is not reported: every seed differed from this run's,
+as the inputs differed by ulps.)
+
+| | median | max | count > 1 pp | count > 0.1 pp |
+|---|---|---|---|---|
+| net area of the background, main → branch | 0 % | 0.001 % | 0 | 0 |
+| area %, main → branch | 0 | 28.4 pp | 4 | 8 |
+| atomic %, main → branch | 0 | 29.4 pp | 6 | 8 |
+| area %, two presses of main | 0 | 0.019 pp | 0 | 0 |
+| area %, two presses of the branch | 0 | 0.003 pp | 0 | 0 |
+| atomic %, two presses of the branch | 0 | 0.003 pp | 0 | 0 |
+
+No convergence verdict changes; the seed is identical across the branch's two presses on
+all 202. The backgrounds barely move, so every move > 1 pp is the one redraw of the
+restarts (seed v2, and inputs at full precision) landing in another minimum. The
+scattered-starts line on the branch flags FOUR of the six — not all:
+
+| target | component (largest move) | area / atomic pp | χ²ᵣ main → branch | scattered-starts line (branch) |
+|---|---|---|---|---|
+| 8-JT Graphite / C1s Scan_8 | Graphite | 28.4 / 29.4 | 35.5 → 32.3 (better) | 0 of 3 reached this solution; 1 alternative — flagged |
+| 8-JT Graphite / C1s Scan_5 | Graphite | 17.5 / 18.1 | 17.3 → 33.9 (worse) | 0 of 3; 1 alternative — flagged |
+| 1-GTA / C1s Scan_0 | Adventitious 3 | 10.8 / 11.3 | 3.82 → 4.62 (worse, +21 %) | 3 of 3 reached this solution — NOT flagged |
+| 8-JT Graphite / C1s Scan_6 | Adventitious 2 | 2.67 / 2.79 | 8.54 → 8.55 (level) | 3 of 3 — NOT flagged |
+| B4C-UCl4 / U4f Scan_7 | Satellite 1 | 0.62 / 2.17 | 2.77 → 2.93 (worse) | 2 of 3; 1 alternative — flagged |
+| Cl2p_projfit_test / U4f Scan_1 | U 4f7/2 | 0.34 / 1.02 | 1.56 → 1.58 (worse) | 2 of 3 — flagged |
+
+The two unflagged moves are the check's documented limit: its starts are scattered
+around the STUDENT'S start, and on these two every one of them reaches the solution the
+fit returned — main's better minimum for 1-GTA C1s Scan_0 (χ²ᵣ 3.82) was found only by
+main's perturbed restarts. Three of the six are worse fits than main returned (8-JT C1s
+Scan_5 is CLAUDE.md's known 33.9 / 51.9 / 17.26 case). This is the same seed lottery as
+the round-17 measurement (§4: eight 8-JT moves of 2–28 pp, then with v1's seed) —
+redrawn once more by this round, and not again for arithmetic reasons.
+
+### 7.4 Tests
+
+Restore: `tests/js/background_not_converged.test.js` (the implied rule for every
+method, within / beyond the tolerance, the stored curve not evidence, non-numbers fail
+closed, each uncheckable reason, the charge-offset case pinned by the counts and refused
+without them), `tests/test_browser_background_not_converged.py` (a fit saved now, with a
+garbage stored preview, and against the old 5-iteration Shirley reloads current — the
+5-iteration curve is 1.7e-6 of its scale from today's here; against a one-step Shirley,
+4 %, stale with its notice; manual anchors moved / method changed: stale or, without an
+envelope, peaks only), `tests/js/stale_statistics.test.js` (the background-stale note
+threads through the save fields). Seed: the pinned seed values and draws are
+re-derived for v2 — an intentional derivation change, not a numpy upgrade
+(`PINNED_SEED` 3015826926 → 2117573689); the ignored-setting test is rewritten (Linear
+now reads averaging): averaging under "none", and an averaging beyond the window's
+quarter under Linear and Shirley, leave the background and the seed bit-identical; the
+whole-fit comparison is kept for none and linear — under Shirley the certificate's
+Trust-Region continuation sent the two identical requests on this several-minima model
+into different basins once in the full suite (the accepted property), so there the
+inputs are the claim. `tests/test_fit_equality.py`'s not-better case pins v1's seed for
+the two-basin fixture (PROGRESS.md follow-up). Upload: `tests/test_full_precision_upload.py`.
+Suites at the commit: JS 539 passed + 2 TODO (floor 539, exact); pytest in the commit
+message.
