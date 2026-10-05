@@ -244,7 +244,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22).
 
 ## 4. Measurements
 
@@ -1001,3 +1001,25 @@ of 5 killed: the frame of the stored energies, the legacy 4-dp energies, the 1e-
 — a keyless fit shifted by a fraction of a step — the sum-of-squares term, the one-sided
 interval). Census unchanged (10 / 71 / 40; the stale sizes move by < 1e-3 of themselves; page
 and Python agree on all 121).
+
+### 7.9 Codex round 22 — NO-GO ×2 (`background_math_impl_r22_verdict_run{A,B}.md`, commit 423f2d1)
+
+Both runs reproduced the census, the Python twin, the measurements and the 16-fit / 0.59 %
+allowance figures.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the cap of 64 readings fired before the stored counts had their say, dropping a fit the counts single out (65 runs, or a slow ramp) | readings are collected BY VALUE (equal energies and counts are one reading), separately for "meets the RMSE" and "also meets the counts"; the cap applies to the latter, and to the former only when the counts say nothing |
+| 2 | MAJOR (A, B): the 1e-4 eV allowance (round 21) hid genuine background changes — a Gaussian's allowance is ~1.43e-4 × amplitude / FWHM counts, unbounded relative to the background (a 0.79 % / 0.99 % change read current) | WITHDRAWN. A keyless older fit whose charge correction moved after it is evaluated at today's 4-dp energies, its best estimate, with no allowance: the reconstruction's own uncertainty (≤ 1e-4 eV) can then only read as a difference — stale, never wrongly current. Census unchanged (the allowance had changed no verdict) |
+| 3 | MAJOR (A): "the record's peaks are the fit's" compared centres in two charge frames, so a charge-shifted restored-stale fit's spectrum save fell back to today's curves and the reload dropped it | centres are compared in one frame (the key's centre − (today's shift − the key's)), within an arithmetic bound for up to 64 charge changes |
+| 4 | MAJOR (A, B): Save Spectrum wrote an older fit's components on full-precision energies beside its envelope, which the server computed on 4-dp ones (0.28 counts apart) | the save writes the fit's own components (the key's values, as fitted) on the energies the restore evaluated them on (`fr._modelBe`, runtime) |
+| 5 | MAJOR (B): an older LOCAL-engine fit (it always used the page's own energies) was treated as a 4-dp upload and read stale | `engine: 'local'` is full precision |
+| 6 | MAJOR (B): the RMSE bound missed a background and components that cancel (|B| + |M| ≫ |envelope|) | the per-point arithmetic term includes 2 × Σ|amplitude| of the fit's components (an upper bound on |M|; |B| ≤ |envelope| + |M|), in the bound and in R* |
+| 7 | MINOR (A, B): the preview-vs-fit script unpacked the twin's grid as three values | fixed; it reproduces the student note's numbers |
+
+Mutation-verified (6 of 6 killed: the cap before the counts, the local engine as a 4-dp
+upload, no cancellation term, centres compared across frames; in the browser, centres
+across frames and curves on today's energies). The browser test saves and reloads a
+charge-shifted and an older restored-stale fit as spectra and checks envelope =
+background + components at every point. Census unchanged (10 / 71 / 40; page = Python on
+all 121).

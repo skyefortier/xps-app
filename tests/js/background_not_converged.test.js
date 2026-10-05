@@ -163,12 +163,12 @@ function recordEnv() {
     constBlock('_STARTS_MODEL_FIELDS') + '\n' + constBlock('_STARTS_UI_FIELDS') + '\n' +
     ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground',
      '_restoredFitBgFailure', '_dropRestoredFit', '_restoredFitGrid', '_restoredFitModel', 'evalAllPeaks', '_arrMin', '_arrMax',
-     '_restoredFitPeaks', '_asFitted', '_legacyVoigts', '_restoredStale', '_startsModelKey', '_startsRecordKey',
+     '_restoredFitPeaks', '_asFitted', '_restoredModelIsFit', '_legacyVoigts', '_restoredStale', '_startsModelKey', '_startsRecordKey',
      'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS',
      '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve',
      'dsgConvolved_array', 'evalPeakArray', 'getPeak'].map(fn).join('\n') +
     '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
-    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3, BG_RESTORE_REL, evalAllPeaks, _startsRecordKey, _restoredStale };';
+    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3, BG_RESTORE_REL, evalAllPeaks, _startsRecordKey, _restoredStale, _restoredModelIsFit };';
   return new Function(src)();
 }
 const R = recordEnv();
@@ -435,21 +435,19 @@ test('restore: a fit made before the full-precision upload is reconstructed wher
     }
   }
   // no key, and the charge correction moved after the fit by a fraction of a 4-dp step: the
-  // fit's frame is not known to better than the upload's rounding, so each point allows
-  // what 1e-4 eV moves the (sharp) component by — an unchanged background is not "stale"
+  // fit's frame is not known to better than the upload's rounding (≤ 1e-4 eV). Codex impl
+  // round 22: an allowance for that hid genuine changes; without one the reconstruction's
+  // own uncertainty can only read as a DIFFERENCE — stale, never wrongly current
   const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
   const { be, rawY } = R._recordBackground(rec);
   const fy = R.evalAllPeaks(be.map(v => Number(v.toFixed(4))), rec.peaks);
   rec.fitResult = { be: be.map(v => Math.round(v * 1e4) / 1e4), fittedY: fy, bgIntensity: be.map(() => 0),
                     rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
   rec.ccShift = 0.033337; rec.peaks.forEach(p => { p.center -= 0.033337; });
-  assert.strictEqual(R._restoredFitBgFailure(rec), null, 'keyless, shifted');
-  assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'keyless, shifted: an unchanged background');
-  assert.strictEqual(rec.fitResult.frameMoved, true);
-  const again = JSON.parse(JSON.stringify(rec)); r4be(again);            // saved and loaded again: the move is remembered
-  assert.strictEqual(R._restoredFitBgFailure(again), null); assert.strictEqual(again.fitResult.backgroundStale, undefined, 'second load');
-  // without a move there is no allowance: the old upload's energies are reproduced exactly, so a
-  // change of 0.2 % of the background's scale at the component's steep flank is a difference
+  assert.strictEqual(R._restoredFitBgFailure(rec), null, 'keyless, shifted: reloaded');
+  assert.ok(rec.fitResult.backgroundStale, 'keyless, shifted: not confirmed current');
+  // unmoved: the old upload's energies are reproduced exactly, so an unchanged background is
+  // current and a change of 0.2 % of the background's scale at a steep flank is a difference
   const still = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'manual', roiMin: '', roiMax: '' },
                           manualAnchors: [{ x: 280, y: 100 }, { x: 281.5, y: 100 }] });
   const sb = R._recordBackground(still), sm = R.evalAllPeaks(sb.be.map(v => Number(v.toFixed(4))), still.peaks);
@@ -457,7 +455,7 @@ test('restore: a fit made before the full-precision upload is reconstructed wher
   still.fitResult = { be: sb.be.map(v => Math.round(v * 1e4) / 1e4), fittedY: sfy, bgIntensity: sb.be.map(() => 0),
                       rmse: Math.sqrt(sb.rawY.reduce((a, v, i) => a + (v - sfy[i]) ** 2, 0) / sb.rawY.length) };
   assert.strictEqual(R._restoredFitBgFailure(still), null);
-  assert.ok(still.fitResult.backgroundStale && !still.fitResult.frameMoved, 'unmoved: no allowance, the difference is seen');
+  assert.ok(still.fitResult.backgroundStale, 'unmoved: the difference is seen');
 });
 
 test('restore: the RMSE bound covers the sums of squares (a large window of large counts)', () => {
@@ -484,6 +482,72 @@ test('restore: a power of ten rounded to 6 significant figures came from a one-s
   assert.strictEqual(R._restoredFitBgFailure(rec), null);
   assert.deepStrictEqual(rec.fitResult.be.slice(), [280, 281, 282, 283, 284], 'the run it was fitted on');
   assert.deepStrictEqual(rec.fitResult.bgSubtracted.map((v, i) => v + rec.fitResult.bgIntensity[i]), c, 'and its counts');
+});
+
+// ── Codex impl round 22 ──
+test('restore: the stored counts choose before any cap on the readings the RMSE leaves', () => {
+  const c = [62.5, 500, 1000, 500, 62.5], other = [62.5, 500, 999.999, 500, 62.5];
+  const rawBE = [], rawIntensity = [];
+  for (let r = 0; r < 65; r++) for (let k = 0; k < 5; k++) { rawBE.push(280 + 10 * r + k); rawIntensity.push((r ? other : c)[k]); }
+  const rec = peakRec({ rawBE, rawIntensity, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '284' } });
+  rec.fitResult = { uploadFull: true, be: [280, 281, 282, 283, 284], fittedY: c.slice(), rmse: 0,
+                    bgSubtracted: c.slice(), bgIntensity: [0, 0, 0, 0, 0] };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null, '64 other runs meet the RMSE; the counts single out the fit\'s');
+  assert.deepStrictEqual(rec.fitResult.be.slice(), [280, 281, 282, 283, 284]);
+});
+
+test('restore: a genuine background change is not hidden by the reconstruction (no allowance)', () => {
+  const rawBE = Array.from({ length: 101 }, (_, i) => 280 + 0.1 * i);
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 285, fwhm: 1, amplitude: 1e5 }];
+  const rawIntensity = rawBE.map(x => 1000 + R.evalAllPeaks([Number(x.toFixed(4))], G)[0]);
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'manual', roiMin: '', roiMax: '' },
+                        manualAnchors: [{ x: 280, y: 1000 }, { x: 290, y: 1000 }] });
+  const { be, bg, rawY } = R._recordBackground(rec);
+  const fy = Array.from(bg).map((v, i) => v + R.evalAllPeaks([Number(be[i].toFixed(4))], rec.peaks)[0]);
+  rec.fitResult = { be: be.map(v => Math.round(v * 1e4) / 1e4), fittedY: fy, bgIntensity: be.map(() => 0),
+                    rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
+  shiftAfter(rec, 0.1);
+  rec.manualAnchors = [{ x: 279.9, y: 1000 }, { x: 285.0, y: 1000 }, { x: 285.2, y: 1008 }, { x: 285.4, y: 1000 }, { x: 289.9, y: 1000 }];
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.ok(rec.fitResult.backgroundStale && rec.fitResult.backgroundStale.pct > 0.5, 'the 8-count bump is a difference: ' + JSON.stringify(rec.fitResult.backgroundStale));
+});
+
+test('restore: an older LOCAL-engine fit used the page\'s own energies (no 4-dp upload)', () => {
+  const rawBE = Array.from({ length: 11 }, (_, i) => 280.00004 + 0.1 * i);
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.5, fwhm: 0.2, amplitude: 1000 }];
+  const rawIntensity = R.evalAllPeaks(rawBE, G).map(v => v + 103);
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'manual', roiMin: '', roiMax: '' },
+                        manualAnchors: [{ x: 280, y: 100 }, { x: 281.5, y: 100 }] });
+  const { be, bg, rawY } = R._recordBackground(rec);
+  const fy = Array.from(bg).map((v, i) => v + R.evalAllPeaks(be, rec.peaks)[i]);
+  rec.fitResult = { engine: 'local', be: be.slice(), fittedY: fy, bgIntensity: be.map(() => 0),
+                    rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.strictEqual(rec.fitResult.backgroundStale, undefined);
+});
+
+test('restore: the RMSE bound covers a background and components that cancel', () => {
+  const rawBE = Array.from({ length: 8 }, (_, i) => 280 + i), rawIntensity = rawBE.map(() => 0.1);
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 283.5, fwhm: 1e16, amplitude: 1e15, fixCenter: true, fixFwhm: true }];
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G, ui: { ...peakRec().ui, bgType: 'manual', roiMin: '', roiMax: '' },
+                        manualAnchors: [{ x: 280, y: -1e15 }, { x: 287, y: -1e15 }] });
+  const { be, bg } = R._recordBackground(rec);
+  const m = R.evalAllPeaks(be, G), fy = Array.from(bg).map((v, i) => v + m[i]);
+  const server = rawIntensity.map((v, i) => (v - bg[i]) - m[i]);
+  rec.fitResult = { uploadFull: true, be: be.slice(), fittedY: fy, bgIntensity: be.map(() => 0),
+                    rmse: Math.sqrt(server.reduce((a, v) => a + v * v, 0) / server.length) };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+});
+
+test('restore: "the record\'s peaks are the fit\'s" compares centres in one charge frame', () => {
+  const rawBE = [0, 1, 2, 3, 4, 5].map(v => 280 + v);
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 282.5, fwhm: 1, amplitude: 100 }];
+  const f = fittedNone(rawBE, R.evalAllPeaks(rawBE, G).map(v => v + 10), G, 281, 284, { key: true });
+  assert.ok(R._restoredModelIsFit(f.rec));
+  shiftAfter(f.rec, 0.5); shiftAfter(f.rec, -0.2);          // two charge changes after the fit
+  assert.ok(R._restoredModelIsFit(f.rec), 'the same peaks, in today\'s frame');
+  f.rec.peaks[0].amplitude = 200;
+  assert.ok(!R._restoredModelIsFit(f.rec), 'an edit is not the fit');
 });
 
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {

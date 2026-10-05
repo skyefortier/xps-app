@@ -13,7 +13,7 @@ for f in sorted(glob.glob('docs/autofit/test_data/*.proj.zip')):
         if not (isinstance(bi,list) and isinstance(fy,list) and fr.get('be') and len(bi)==len(fy)==len(fr['be'])): continue
         gg=g['fit_grid'](rf)
         if gg is None: continue
-        x,y,mx=gg; specs=rf.backend_peak_specs()
+        x,y,mx,_moved=gg; specs=rf.backend_peak_specs()
         specs=[dict(s, gl_ratio=g['recorded_voigt_eta'](p)) if p.get('shape')=='Voigt' and g['recorded_voigt_eta'](p) is not None else s for s,p in zip(specs, rf.peaks)]
         used=np.asarray(fy,float)-g['evaluate_model'](mx,specs); pv=np.asarray(bi,float)
         sc=max(np.max(np.abs(used)),np.max(np.abs(pv))); d=np.max(np.abs(used-pv))/sc

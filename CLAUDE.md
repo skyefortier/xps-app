@@ -938,11 +938,12 @@ with the fit's record within the record's own precision — its RMSE within the 
 upload's 0.005 plus the arithmetic, the stored counts (6 significant figures) choosing
 among those left. Nothing is ranked: one agreeing reading, or the fit loads peaks-only
 ("cannot be told apart"). The fit's own record says how to reconstruct it: `uploadFull`
-(every fit since 2026-10-03; older ones were fitted on toFixed(4) energies and are
-reconstructed there), `beShift` (the frame its stored energies are in after a restore) and
-`frameMoved` (no key and the charge correction changed after the fit: each point allows
-what 1e-4 eV moves its components by — 16 of the committed fits, ≤ 0.59 % of the
-background's scale). Today's
+(every fit since 2026-10-03, and the local engine always; older server fits were fitted
+on toFixed(4) energies and are reconstructed there) and `beShift` (the frame its stored
+energies are in after a restore). A keyless older fit whose charge correction moved after
+it is reconstructed to ≤ 1e-4 eV with no allowance (an allowance hid genuine changes, Codex
+impl round 22): its own uncertainty can only read as a difference — stale, never wrongly
+current. Readings are compared by value, and the stored counts choose before any cap. Today's
 certified background on those points (the record's settings and own anchors) within
 `BG_RESTORE_REL` = 1e-3 (`fit_equality.SAME_MINIMUM_REL`) of max(|implied|, |today|),
 plus the precision the subtraction recovers it to (BG_REL_TOL × the envelope's scale: a

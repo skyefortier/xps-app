@@ -159,7 +159,7 @@ test('a converged backend result is applied (sanity)', async () => {
 test('the engine/objective labels of a fit result survive spectrum and project save/load', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
   // spectrum save: statistics block carries objective/engine; loader restores them
-  const save = grab('function _doSaveSpectrum()', 4000);
+  const save = grab('function _doSaveSpectrum()', 8000);
   assert.match(save, /objective: state\.fitResult\.objective/);
   assert.match(save, /engine: state\.fitResult\.engine/);
   const load = grab('function _loadSpectrumFile(', 6000);
@@ -272,8 +272,8 @@ test('Quantify shows the starting-point banner for a local result and not for a 
 test('every remaining site carries the designation: TSV export, saves, activation, status bar, history, chart labels', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
   assert.match(grab('function exportResults()', 2500), /_LOCAL_FIT_CAVEAT|_localFitCaveat\(/, 'TSV export');
-  assert.match(grab('function _doSaveSpectrum()', 4000), /caveat: _localFitCaveat\(state\.fitResult\) \|\| state\.fitResult\.caveat/, 'spectrum save persists caveat');
-  assert.match(grab('function _doSaveSpectrum()', 4000), /reportable: _isLocalFit\(state\.fitResult\) \? false : \(state\.fitResult\.reportable/, 'spectrum save persists reportable');
+  assert.match(grab('function _doSaveSpectrum()', 8000), /caveat: _localFitCaveat\(state\.fitResult\) \|\| state\.fitResult\.caveat/, 'spectrum save persists caveat');
+  assert.match(grab('function _doSaveSpectrum()', 8000), /reportable: _isLocalFit\(state\.fitResult\) \? false : \(state\.fitResult\.reportable/, 'spectrum save persists reportable');
   assert.match(grab('const buildTabData = (t) =>', 3500), /caveat: _localFitCaveat\(t\.fitResult\) \|\| t\.fitResult\.caveat/, 'project save persists caveat');
   assert.match(grab('function _loadSpectrumFile(', 6000), /'caveat'/, 'spectrum load restores caveat');
   assert.match(grab("// Update chi-squared display for this tab's fit result", 300), /_applyStatDisplay\(/, 'tab activation');
@@ -316,7 +316,7 @@ test('stack envelope/legend, history preview and auto-fit caption carry the desi
   assert.match(html, /label: _isLocalFit\(_historyPreview\.fitResult\) \? 'Preview \(local, starting point\)' : 'Preview'/, 'history preview label');
   assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatDisplay\(state\.fitResult\)/, 'auto-fit refreshes the statistic display');
   assert.match(grab('function renderResults()', 800), /_applyStatDisplay\(state\.fitResult\)/, 'renderResults refreshes the statistic display on every result change');
-  const spec = grab('function _doSaveSpectrum()', 4000);
+  const spec = grab('function _doSaveSpectrum()', 8000);
   assert.match(spec, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'spectrum save derives reportable');
   assert.match(spec, /caveat: _localFitCaveat\(state\.fitResult\)/, 'spectrum save derives caveat');
   const ex = grab('function exportFitTable(fmt)', 6000);
@@ -420,7 +420,7 @@ test('round-12 sites: undo/redo restore provenance, spectrum save/load carry it,
   assert.match(grab('function undo()', 900), /_restoreSnapshotProvenance\(t, snap\)/, 'undo');
   assert.match(grab('function redo()', 900), /_restoreSnapshotProvenance\(t, snap\)/, 'redo');
   assert.match(grab('function _pushUndoFor(', 600), /_modelProvenance/, 'batch history entry carries provenance');
-  assert.match(grab('function _doSaveSpectrum()', 5000), /modelProvenance: tab\.modelProvenance \|\| null/, 'spectrum save');
+  assert.match(grab('function _doSaveSpectrum()', 8000), /modelProvenance: tab\.modelProvenance \|\| null/, 'spectrum save');
   assert.match(grab('function _loadSpectrumFile(', 7000), /active\.modelProvenance = /, 'spectrum load');
   const fj = grab('  fromJSON(data) {', 7000);
   assert.match(fj.slice(fj.indexOf('this._restoreUI(active.ui);')), /renderResults\(\)/, 'import renders Results');

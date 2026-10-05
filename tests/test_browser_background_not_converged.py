@@ -454,3 +454,66 @@ def test_a_stale_spectrum_save_keeps_the_fits_curves_only_when_its_peaks_are_the
     # the file's curves are one model's: envelope = background + the components written beside it
     comp = [sum(c["y"][i] for c in spec["peakCurves"]) for i in range(len(spec["roiBE"]))]
     assert all(abs(f - b - m) <= 1e-9 * max(1.0, abs(f)) for f, b, m in zip(spec["fittedY"], spec["background"], comp))
+
+
+def test_a_restored_stale_spectrum_save_writes_one_fits_curves_on_one_grid(browser, server):
+    # Codex impl round 22: (a) after a charge shift the "its peaks are the fit's" check compared
+    # centres in two frames, so the save fell back to today's curves and the reload dropped the
+    # fit; (b) an older fit's components were written on full-precision energies beside an
+    # envelope the server had computed on 4-dp ones
+    import json
+    SHARP = """() => {
+        const raw = [], inten = [];
+        for (let i = 0; i <= 40; i++) { const be = 280.00004 + 0.1 * i; raw.push(be);
+          inten.push(Math.round((10 + 1000 * Math.exp(-4 * Math.log(2) * ((be - 282) / 0.4) ** 2) + (i % 3 - 1) * 0.5) * 100) / 100); }
+        tabManager.createTab('S', raw, inten);
+        document.getElementById('roi-min').value = 280; document.getElementById('roi-max').value = 284.1;
+        _setManualAnchors([{ x: 280, y: 10 }, { x: 284.1, y: 10 }]);
+        document.getElementById('bg-type').value = 'manual'; _onBgTypeChange();
+        addPeak({ center: 282, fwhm: 0.4, amplitude: 1000, shape: 'Gaussian' });
+        updatePlot();
+    }"""
+    LEGACY = """() => { const fr = state.fitResult, t = tabManager._getTab(tabManager.activeId);   // as an older version fitted it
+        delete fr.uploadFull; delete fr.startsModelKey;
+        const m = evalAllPeaks(fr.be.map(v => Number(v.toFixed(4))), state.peaks);
+        fr.fittedY = fr.be.map((_, i) => 10 + m[i]);
+        const { inten } = getROIData();
+        fr.rmse = Math.sqrt(inten.reduce((a, v, i) => a + (v - fr.fittedY[i]) ** 2, 0) / inten.length);
+        tabManager._syncActiveToRecord(); }"""
+    for name, after, shift in (("shifted", "() => {}", True), ("legacy", LEGACY, False)):
+        pg = _new_page(browser, server)
+        try:
+            saved = _fit_and_capture(pg, SHARP, "() => _doSaveProject()", after)
+        finally:
+            pg.close()
+        t = next(t for t in saved["tabs"] if t.get("fitResult"))
+        t["manualAnchors"] = [{"x": 280, "y": 20}, {"x": 284.1, "y": 20}]          # today's background differs
+        if shift:                                                                   # the charge correction moved after the fit
+            t["ccShift"] = 0.5
+            for p in t["peaks"]:
+                p["center"] -= 0.5
+            t["ui"]["roiMin"], t["ui"]["roiMax"] = "279.5", "283.6"
+            t["manualAnchors"] = [{"x": 279.5, "y": 20}, {"x": 283.6, "y": 20}]
+        pg = _new_page(browser, server)
+        try:
+            pg.evaluate(NOTIFY)
+            pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", saved)
+            pg.wait_for_timeout(400)
+            assert pg.evaluate("() => !!(state.fitResult && state.fitResult.backgroundStale)"), (name, pg.evaluate("() => window.__n"))
+            pg.evaluate(CAPTURE)
+            pg.evaluate("() => _doSaveSpectrum()")
+            pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+            spec = json.loads(pg.evaluate("() => window.__dl[0].text"))
+        finally:
+            pg.close()
+        assert spec["statistics"]["restoredStale"] is True, (name, spec["statistics"])
+        comp = [sum(c["y"][i] for c in spec["peakCurves"]) for i in range(len(spec["roiBE"]))]
+        assert all(abs(f - b - m) <= 1e-9 * max(1.0, abs(f)) for f, b, m in zip(spec["fittedY"], spec["background"], comp)), name
+        pg = _new_page(browser, server)
+        try:
+            pg.evaluate(NOTIFY)
+            pg.evaluate("data => _loadSpectrumFile(data, 's.spec.json')", spec)
+            pg.wait_for_timeout(400)
+            assert pg.evaluate("() => !!(state.fitResult && state.fitResult.backgroundStale)"), (name, pg.evaluate("() => window.__n"))
+        finally:
+            pg.close()

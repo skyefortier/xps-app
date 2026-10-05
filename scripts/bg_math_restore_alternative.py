@@ -40,7 +40,7 @@ def r4(v):
     return np.round(np.asarray(v, float) * 1e4) / 1e4
 
 
-def fit_grid(rf):
+def fit_grid(rf, amp_bound=0.0):
     """(x, y, model_x) as the page's _restoredFitGrid (Codex impl rounds 18-20): every
     in-order assignment of raw samples to the stored energies at one offset, within the
     save's 4-dp rounding (h) and the arithmetic, branching where two samples fit; each must
@@ -82,7 +82,7 @@ def fit_grid(rf):
         if not has_rmse:
             return True
         r = [I[c[k]] - fy[k] for k in range(n)]
-        big = max(abs(I[c[k]]) + abs(fy[k]) for k in range(n))
+        big = max(abs(I[c[k]]) + abs(fy[k]) + 2 * amp_bound for k in range(n))
         rc = np.sqrt(sum(v * v for v in r) / n)
         return abs(rc - rmse) <= 0.005 + 8 * U * big + (n + 4) * U * (rc + abs(rmse))
     def counts_ok(c):
@@ -183,7 +183,7 @@ for f in sorted(glob.glob(os.path.join(ROOT, "docs/autofit/test_data/*.proj.zip"
         fy = rf.fit_result.get("fittedY")
         if not isinstance(fy, list) or not fy:
             row["verdict"] = "no stored envelope"; rows.append(row); continue
-        g = fit_grid(rf)
+        g = fit_grid(rf, 2 * sum(abs(float(p.get("amplitude") or 0)) for p in rf.peaks))
         fy = np.asarray([np.nan if v is None else v for v in fy], float)
         if g is None or len(fy) != len(g[0]):
             row["verdict"] = "envelope on other points"; rows.append(row); continue
@@ -192,12 +192,12 @@ for f in sorted(glob.glob(os.path.join(ROOT, "docs/autofit/test_data/*.proj.zip"
         specs = [dict(s, gl_ratio=recorded_voigt_eta(p)) if p.get("shape") == "Voigt" and recorded_voigt_eta(p) is not None else s
                  for s, p in zip(specs, rf.peaks)]
         # the committed fits predate the full-precision upload and carry no key: the server
-        # evaluated them at toFixed(4) energies, known here to 1e-4 (the page's rule)
+        # evaluated them at toFixed(4) energies (the page's rule); a local-engine fit at its own
         from decimal import Decimal, ROUND_HALF_UP
-        to4 = np.array([float(Decimal(float(v)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)) for v in mx])
+        to4 = (np.asarray(mx, float) if rf.fit_result.get("engine") == "local" else
+               np.array([float(Decimal(float(v)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)) for v in mx]))
         m0 = evaluate_model(to4, specs)
-        sens = (np.maximum(np.abs(evaluate_model(to4 + 1e-4, specs) - m0), np.abs(evaluate_model(to4 - 1e-4, specs) - m0))
-                if moved else np.zeros_like(m0))     # only when the frame demonstrably moved
+        sens = np.zeros_like(m0)         # no allowance (Codex impl round 22): uncertainty can only read as a difference
         implied = fy - m0
         for rule, (i0, i1) in (("old", old_window(rf, x)), ("today", today_window(rf, x))):
             try:

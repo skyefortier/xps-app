@@ -9954,10 +9954,23 @@ function _restoredStale(fr) { return !!(fr && (fr.backgroundStale || fr.voigtSta
 function _restoredUnchanged(fr, key) { return !!fr && _sameFitKey(fr.loadKey, key); }
 // The record's peaks ARE the fit's components (its key's values; Codex impl round 20: a
 // model edited before the save would otherwise sit beside the fit's own envelope).
+// A centre is compared in one frame: a charge change moved every centre by today's shift −
+// the key's (updateChargeCorrection: centre −= Δ, once per change, each a rounding — at most
+// 64 changes are allowed for, 4 u of the magnitudes each; Codex impl round 22).
 function _restoredModelIsFit(rec) {
-  const row = q => _STARTS_MODEL_FIELDS.map(k => (q[k] === undefined ? null : q[k]));
-  const fit = _restoredFitPeaks(rec).peaks, now = rec.peaks || [];
-  return fit.length === now.length && JSON.stringify(fit.map(row)) === JSON.stringify(now.map(row));
+  const fit = _restoredFitPeaks(rec), now = rec.peaks || [];
+  if (fit.peaks.length !== now.length) return false;
+  const U = 2 ** -53, d = (rec.ccShift || 0) - fit.shift;
+  const ci = _STARTS_MODEL_FIELDS.indexOf('center');
+  const row = q => _STARTS_MODEL_FIELDS.map((k, i) => (i === ci ? null : (q[k] === undefined ? null : q[k])));
+  return fit.peaks.every((q, j) => {
+    const p = now[j];
+    if (JSON.stringify(row(q)) !== JSON.stringify(row(p))) return false;
+    const a = q.center, b = p.center;
+    if (a === b && d === 0) return true;
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return a === b;
+    return Math.abs((a - d) - b) <= 64 * 4 * U * (Math.abs(a) + Math.abs(b) + Math.abs(d));
+  });
 }
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack) return null;
@@ -9980,41 +9993,35 @@ function _restoredFitBgFailure(rec) {
   const fit = _restoredFitPeaks(rec);
   // the frame of the stored energies: the key's (the fit's), or the one a restore wrote them in
   const frameShift = typeof fr.beShift === 'number' && Number.isFinite(fr.beShift) ? fr.beShift : fit.keyShift;
-  const grid = _restoredFitGrid(rec, fr.be, frameShift);
+  const ampBound = 2 * fit.peaks.reduce((a, p) => a + (Number.isFinite(p.amplitude) ? Math.abs(p.amplitude) : 0), 0);
+  const grid = _restoredFitGrid(rec, fr.be, frameShift, ampBound);
   if (grid.fail) return grid.fail;
   let bg;
   try { bg = _computeBackgroundForSource(grid.be, grid.inten, rec.ui, rec.manualAnchors); }
   catch (e) { if (_isBgNotConverged(e)) return 'its background settings give no converged background now: ' + e.message; throw e; }
   // the background the fit used: its envelope less its components, at the energies the
-  // server evaluated them on. Since 2026-10-03 the page uploads full precision (fr.uploadFull):
-  // the samples' own energies in the fit's frame. Before, it uploaded toFixed(4) energies
-  // (Codex impl round 21): those exactly when the fit's frame is known (a key); without one
-  // the frame is today's and an energy is known to 1e-4 (the upload's rounding and the
-  // save's), so each point also allows what that uncertainty moves the components by.
-  const legacy = fr.uploadFull !== true;
+  // server evaluated them on. Since 2026-10-03 the page uploads full precision (fr.uploadFull,
+  // and the local engine always used the page's own energies): the samples' own energies in
+  // the fit's frame. Before, it uploaded toFixed(4) energies (Codex impl round 21): those of
+  // the samples in the fit's frame — exact with a fit key, or when the frame did not move;
+  // a keyless fit whose charge correction changed after it is evaluated at today's 4-dp
+  // energies, its best estimate, with NO allowance (Codex impl round 22: an allowance hid
+  // genuine changes) — the reconstruction's own uncertainty (≤ 1e-4 eV) can then only read
+  // as a difference, i.e. stale, never as a match.
+  const legacy = fr.uploadFull !== true && fr.engine !== 'local';
   const e0 = grid.idx.map(i => rec.rawBE[i] - fit.shift);
   const modelBe = legacy ? e0.map(v => Number(v.toFixed(4))) : e0;
   const model = _restoredFitModel(modelBe, fit.peaks);
-  // only when the frame demonstrably moved (no fit key, and the stored energies sit at a
-  // non-zero offset): otherwise the old upload's 4-dp energies are reproduced exactly
-  if (legacy && !fit.fitFrame && grid.moved) fr.frameMoved = true;   // remembered: a later load sees its own frame
-  const uE = legacy && !fit.fitFrame && fr.frameMoved === true ? 1e-4 : 0;
-  let sens = null;
-  if (uE) {
-    const up = _restoredFitModel(modelBe.map(v => v + uE), fit.peaks), dn = _restoredFitModel(modelBe.map(v => v - uE), fit.peaks);
-    sens = model.map((m, i) => Math.max(Math.abs(up[i] - m), Math.abs(dn[i] - m)));
-  }
+  fr._modelBe = modelBe;                                 // runtime: where the fit's components are (a spectrum save)
   let worst = 0, scale = 0, envScale = 0;
-  const excess = [];
   for (let i = 0; i < bg.length; i++) {
     const used = env[i] - model[i];
     if (!Number.isFinite(used)) return 'its stored peaks do not evaluate to finite numbers at its stored points';
-    excess.push(Math.max(0, Math.abs(used - bg[i]) - (sens ? sens[i] : 0)));
     worst = Math.max(worst, Math.abs(used - bg[i]));
     scale = Math.max(scale, Math.abs(used), Math.abs(bg[i]));
     envScale = Math.max(envScale, Math.abs(env[i]), Math.abs(model[i]));
   }
-  const beyond = Math.max(...excess);
+  const beyond = worst;
   if (!rec.fitResult.startsModelKey && !fr.restoredKey) fr.restoredKey = _startsRecordKey(rec);   // what an older save's fit had
   fr.loadKey = _startsRecordKey(rec);                    // the state it was loaded in (_restoredUnchanged)
   const voigt = _legacyVoigts(fit.peaks);
@@ -10079,7 +10086,7 @@ function _restoredFitPeaks(rec) {
 // a project) within their rounding. VERDICT: exactly one agreeing assignment (or several
 // with the same samples' energies and counts); none: not points of its raw data; more:
 // they cannot be told apart. { idx, be: today's corrected energies, inten } | { fail }.
-function _restoredFitGrid(rec, stored, keyShift) {
+function _restoredFitGrid(rec, stored, keyShift, ampBound = 0) {
   const U = 2 ** -53;
   const shift = rec.ccShift || 0;
   const n = stored.length, N = rec.rawBE.length;
@@ -10118,9 +10125,11 @@ function _restoredFitGrid(rec, stored, keyShift) {
   const rmseAgrees = c => {
     if (!hasRmse) return true;
     let ss = 0, big = 0;
-    for (let k = 0; k < n; k++) { ss += (I[c[k]] - fy[k]) ** 2; big = Math.max(big, Math.abs(I[c[k]]) + Math.abs(fy[k])); }
-    // per point: the server's (I − B) − M against I − (B + M), a few u of the magnitudes;
-    // the sums of n squares on either side, (n + 4) u of each RMS (Codex impl round 21)
+    for (let k = 0; k < n; k++) { ss += (I[c[k]] - fy[k]) ** 2; big = Math.max(big, Math.abs(I[c[k]]) + Math.abs(fy[k]) + 2 * ampBound); }
+    // per point: the server's (I − B) − M against I − (B + M), a few u of the magnitudes —
+    // incl. a background and components that cancel (|B| + |M| ≤ |envelope| + 2|M|, |M| ≤
+    // ampBound: Codex impl round 22); the sums of n squares on either side, (n + 4) u of
+    // each RMS (Codex impl round 21)
     const rc = Math.sqrt(ss / n);
     return Math.abs(rc - fr.rmse) <= 0.005 + 8 * U * big + (n + 4) * U * (rc + Math.abs(fr.rmse));
   };
@@ -10141,13 +10150,17 @@ function _restoredFitGrid(rec, stored, keyShift) {
   // residuals; a branch stops when too few samples remain, or when that partial sum already
   // puts its RMSE above the largest any completion could still agree with (R*: the bound
   // below, solved for the recomputed RMSE — a partial sum only grows)
-  let ambiguous = false;
-  const ok = new Map();
+  // readings are collected BY VALUE (energies and counts: two runs with equal values are one
+  // reading) — those that meet the RMSE, and those that also meet the stored counts; the cap
+  // of 64 distinct readings applies after the counts have had their say (Codex impl round 22)
+  let ambiguous = false, overR = false;
+  const okR = new Map(), okRC = new Map();
+  const valKey = idx => idx.map(i => corr[i] + ':' + I[i]).join(',');
   let maxI = 0, maxF = 0;
   for (const v of I) if (Number.isFinite(v)) maxI = Math.max(maxI, Math.abs(v));
   if (hasRmse) for (const v of fy) maxF = Math.max(maxF, Math.abs(v));
   const g = (n + 4) * U;
-  const rStar = hasRmse ? (Math.abs(fr.rmse) * (1 + g) + 0.005 + 8 * U * (maxI + maxF)) / Math.max(1 - g, 0.5) : Infinity;
+  const rStar = hasRmse ? (Math.abs(fr.rmse) * (1 + g) + 0.005 + 8 * U * (maxI + maxF + 2 * ampBound)) / Math.max(1 - g, 0.5) : Infinity;
   const ssMax = rStar * rStar * n * (1 + 4 * U);
   const pathOf = node => { const out = new Array(n); for (let k = n - 1; k >= 0; k--) { out[k] = node.i; node = node.up; } return out; };
   const search = (lo0, hi0) => {
@@ -10157,7 +10170,11 @@ function _restoredFitGrid(rec, stored, keyShift) {
       const st = stack.pop();
       if (st.k === n) {
         const idx = pathOf(st.node);
-        if (agrees(idx)) { const key = idx.join(','); if (!ok.has(key)) ok.set(key, { idx, lo: st.lo, hi: st.hi }); if (ok.size > 64) { ambiguous = true; return; } }
+        if (agrees(idx)) {
+          const key = valKey(idx);
+          if (okR.size < 64 || okR.has(key)) { if (!okR.has(key)) okR.set(key, idx); } else overR = true;
+          if (hasCounts && countsAgree(idx) && !okRC.has(key)) { okRC.set(key, idx); if (okRC.size > 64) { ambiguous = true; return; } }
+        }
         continue;
       }
       for (const i of within(st.k, st.lo, st.hi)) {
@@ -10187,18 +10204,16 @@ function _restoredFitGrid(rec, stored, keyShift) {
     }
   }
   if (ambiguous) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
-  let list = [...ok.values()];
-  if (hasCounts && (list.length > 1 || !hasRmse)) {
-    const byCounts = list.filter(r => countsAgree(r.idx));
-    if (byCounts.length || !hasRmse) list = byCounts;
+  let list;
+  if (hasCounts && (okRC.size || !hasRmse)) list = [...okRC.values()];   // the counts chose (or stand in)
+  else {
+    if (overR) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
+    list = [...okR.values()];
   }
   if (!list.length) return { fail: 'its stored points are not points of its raw data, so the background cannot be recomputed on them' };
-  const first = list[0].idx;
-  const same = r => r.idx.every((i, k) => corr[i] === corr[first[k]] && I[i] === I[first[k]]);
-  if (!list.every(same)) return { fail: 'its stored points match more than one set of samples of its raw data equally well, so they cannot be told apart' };
-  // moved: the reading's offset interval excludes zero — the frame changed since the energies were stored
-  const moved = list.every(r => !(r.lo <= 0 && 0 <= r.hi));
-  return { idx: first, be: first.map(i => corr[i]), inten: first.map(i => I[i]), moved };
+  if (list.length > 1) return { fail: 'its stored points match more than one set of samples of its raw data equally well, so they cannot be told apart' };
+  const first = list[0];
+  return { idx: first, be: first.map(i => corr[i]), inten: first.map(i => I[i]) };
 }
 // The curve the fit's own components draw at its points; a Voigt saved before A03
 // (2026-09-22) is drawn with the mix the server fitted it with
@@ -11491,7 +11506,8 @@ function _doSaveSpectrum() {
   // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
   // points, counts, envelope and background — and residuals against that envelope
   // (Codex impl round 19) — so a reload judges it afresh (as a project does)
-  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey()) && _restoredModelIsFit(tab);
+  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey()) && _restoredModelIsFit(tab) &&
+    Array.isArray(state.fitResult._modelBe) && state.fitResult._modelBe.length === state.fitResult.be.length;
   const own = _ownFit ? state.fitResult : null;
   // Compute current curves
   const { be, inten } = own
@@ -11516,8 +11532,11 @@ function _doSaveSpectrum() {
   // for LACX with caM > 0, only the array evaluator applies the shape's
   // Gaussian convolution — evalPeak silently ignores caM. These curves
   // and areas are written into the saved .spec.json file.
+  // the fit's own components beside its own envelope: as fitted (a pre-A03 Voigt at its mix),
+  // at the energies the restore evaluated them on (the old upload's 4-dp ones; Codex impl round 22)
+  const fitPeaks = own ? new Map(_restoredFitPeaks(tab).peaks.map(q => [q.id, q])) : null;
   const peakCurves = state.peaks.map(p => {
-    const yArr = evalPeakArray(be, own ? _asFitted(p) : p);   // the fit's own components beside its own envelope
+    const yArr = own ? evalPeakArray(own._modelBe, _asFitted(fitPeaks.get(p.id) || p)) : evalPeakArray(be, p);
     return {
       id: p.id, name: p.name,
       y: yArr,
@@ -11548,7 +11567,6 @@ function _doSaveSpectrum() {
     restoredStale: _ownFit || null,
     beShift: typeof state.fitResult.beShift === 'number' ? state.fitResult.beShift : null,
     uploadFull: state.fitResult.uploadFull === true || null,
-    frameMoved: state.fitResult.frameMoved === true || null,
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -11651,7 +11669,6 @@ async function _doSaveProject() {
         restoredKey: t.fitResult.restoredKey || null,   // what an older save's fit had (_restoredFitPeaks)
         beShift: typeof t.fitResult.beShift === 'number' ? t.fitResult.beShift : null,   // the frame of `be` after a restore
         uploadFull: t.fitResult.uploadFull === true || null,
-        frameMoved: t.fitResult.frameMoved === true || null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -11886,7 +11903,6 @@ function _loadSpectrumFile(data, sessionFile) {
     if (typeof data.statistics.restoredKey === 'string') fr.restoredKey = data.statistics.restoredKey;   // what an older save's fit had
     if (typeof data.statistics.beShift === 'number') fr.beShift = data.statistics.beShift;
     if (data.statistics.uploadFull === true) fr.uploadFull = true;
-    if (data.statistics.frameMoved === true) fr.frameMoved = true;
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key
