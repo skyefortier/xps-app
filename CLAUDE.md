@@ -925,25 +925,35 @@ clicked height, nothing subtracted), stack reconstruction (the entry shows no fi
 spectrum save (`background: null` + `backgroundFailure`), TSV export (empty columns +
 WARNING) and the publication figure (refused). A RESTORED fit (project or spectrum
 file; owner 2026-10-03, plan §7) is judged by the background it was FITTED AGAINST —
-its stored envelope `fittedY` less its saved peaks (`_restoredFitModel`; a pre-A03
-Voigt at its recorded η) — never by the stored background curve (older versions saved
-the page's preview beside the server's fit). The fit's points (`_restoredFitGrid`):
-the ROI selection, else the stored energies matched to raw samples (exactly or as
-saved to 4 dp), else a constant offset (the charge correction changed after the fit;
-on a uniform grid every run fits, so the run is pinned by the fit's own record — its
-stored counts, else its RMSE; a tie refuses). Today's certified background on those
-points (the record's settings and own anchors) within `BG_RESTORE_REL` = 1e-3
-(`fit_equality.SAME_MINIMUM_REL`) of max(|implied|, |today|): CURRENT, the certified
-curve installed. Beyond: STALE — the fit's own background and peaks as saved,
+its stored envelope `fittedY` less its components — the peak values its model key
+recorded (`_restoredFitPeaks`: `startsModelKey`, or a `restoredKey` stamped when an older
+save is restored), evaluated at the matched raw samples in the fit's own charge frame at
+full precision (`_restoredFitModel`; a pre-A03 Voigt at its recorded η) — never by the
+stored background curve (older versions saved the page's preview beside the server's
+fit). The fit's points (`_restoredFitGrid`): every reading that reproduces the stored
+energies (the ROI selection, an in-order match exact or as saved to 4 dp, every
+constant-offset run — a charge correction changed after the fit), the fit's own record
+choosing among several (its stored counts, else its RMSE; a tie refuses). Today's
+certified background on those points (the record's settings and own anchors) within
+`BG_RESTORE_REL` = 1e-3 (`fit_equality.SAME_MINIMUM_REL`) of max(|implied|, |today|),
+plus the precision the subtraction recovers it to (BG_REL_TOL × the envelope's scale: a
+zero background comes back as rounding noise): CURRENT, the certified curve installed. Beyond: STALE — the fit's own background and peaks as saved,
 `fitResult.backgroundStale = {pct}`, `_statsState` 'stale' (F1's rules: no statistic,
 σ or R shown, exported or saved as current; the notes say "background changed" with
-the size, `_bgStaleNote`), an amber notice per load. Uncheckable (no envelope, no
+the size, `_bgStaleNote`), an amber notice per load. A fit holding a Voigt fitted before
+A03 at a mix other than 0.5 is stale too whatever its background (`fr.voigtStale`: the
+page draws 0.5, so it cannot show that fit as fitted). A restored-stale fit carries no
+evidence (its scattered starts, choice, certificate notice and support verdicts are
+cleared; `_startsIfCurrent` / `_certificateMoveIfCurrent` refuse it), and Save Spectrum
+of one not edited since it was loaded (`fr.loadKey`) keeps its own curves
+(`restoredStale: true`) so the reload judges it afresh. Uncheckable (no envelope, no
 stored energies, lengths differ, not points of the raw data, no converged background
-now, a stale spectrum file): peaks only, with the reason. On the 121 committed saved
-fits: 15 current, 66 stale (60 only because the old request chose the window by
-nearest index, end-exclusive — median 0.83 %, max 5.07 %; 6 under either window rule,
-0.88–2.95 %, all `smart`, which main's own server background misses too), 40 peaks
-only (`scripts/bg_math_restore_census.py`, page functions; the Python twin
+now, an edited stale spectrum file): peaks only, with the reason. On the 121 committed
+saved fits: 10 current, 71 stale (66 against another background — 60 only because the
+old request chose the window by nearest index, end-exclusive, median 0.83 %, max
+5.07 %; 6 under either window rule, 0.88–2.95 %, all `smart`, which main's own server
+background misses too — and 41 with a pre-A03 Voigt, 5 for that alone), 40 peaks only
+(`scripts/bg_math_restore_census.py`, page functions; the Python twin
 `scripts/bg_math_restore_alternative.py` agrees on all 121). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never
 read. `uploadToBackend` sends every value at full precision (`String(v)`, the

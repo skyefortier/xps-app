@@ -36,14 +36,21 @@ const fn = name => {
   }
   throw new Error(name);
 };
+const constBlock = name => {
+  const s = lines.findIndex(l => l.startsWith('const ' + name + ' ='));
+  let e = s; while (!/;\s*$/.test(lines[e])) e++;
+  return lines.slice(s, e + 1).join('\n');
+};
 const src = require(path.join(root, 'tests/js/_page_background_source.js'))({ manual: 'real' }) + '\n' +
   lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG =')) + '\n' +
-  lines.find(l => l.startsWith('const BG_RESTORE_REL =')) + '\n' +
+  lines.find(l => l.startsWith('const BG_RESTORE_REL =')) + '\n' + constBlock('_STARTS_MODEL_FIELDS') + '\n' +
+  constBlock('_STARTS_UI_FIELDS') + '\n' +
   ['manualAnchorBackground', '_roiSelect', '_computeBackgroundForSource', '_recordBackground', '_restoredFitBgFailure',
    '_restoredFitGrid', '_restoredFitModel', 'evalAllPeaks', '_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt',
    'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array',
    'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
-   'evalPeakArray', 'getPeak', '_migrateLineshapeAliases'].map(fn).join('\n') +
+   'evalPeakArray', 'getPeak', '_migrateLineshapeAliases', '_restoredFitPeaks', '_legacyVoigts', '_restoredStale',
+   '_startsModelKey', '_startsRecordKey'].map(fn).join('\n') +
   '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
   '\nreturn { _restoredFitBgFailure, _migrateLineshapeAliases };';
 const { _restoredFitBgFailure, _migrateLineshapeAliases } = new Function(src)();
@@ -52,7 +59,8 @@ const out = tabs.map(t => {
   const reason = _restoredFitBgFailure(t.rec);
   return { project: t.project, tab: t.rec.name, bgType: t.rec.ui.bgType, endpointAvg: t.rec.ui.endpointAvg ?? null,
            kept: reason === null, reason,
-           stalePct: reason === null && t.rec.fitResult.backgroundStale ? t.rec.fitResult.backgroundStale.pct : null };
+           stalePct: reason === null && t.rec.fitResult.backgroundStale ? t.rec.fitResult.backgroundStale.pct : null,
+           voigtStale: reason === null && t.rec.fitResult.voigtStale ? t.rec.fitResult.voigtStale : null };
 });
 console.log(JSON.stringify(out));
 """
@@ -83,17 +91,21 @@ def main():
         res = json.loads(subprocess.run(["node", "-e", NODE, ROOT, tmp], capture_output=True, text=True, check=True).stdout)
     finally:
         os.unlink(tmp)
-    cur = [r for r in res if r["kept"] and r["stalePct"] is None]
-    stale = sorted((r for r in res if r["kept"] and r["stalePct"] is not None), key=lambda r: -r["stalePct"])
+    cur = [r for r in res if r["kept"] and r["stalePct"] is None and not r["voigtStale"]]
+    stale = sorted((r for r in res if r["kept"] and (r["stalePct"] is not None or r["voigtStale"])),
+                   key=lambda r: -(r["stalePct"] or 0))
     print(f"{len(files)} projects, {len(res)} spectrum tabs with a saved fit: {len(cur)} current, "
           f"{len(stale)} stale (reloaded, statistics not reported), {len(res) - len(cur) - len(stale)} peaks-only")
     for r in cur:
         print(f"  CURRENT  {r['project']} / {r['tab']}  ({r['bgType']}, averaging {r['endpointAvg']})")
-    pcts = sorted(r["stalePct"] for r in stale)
-    if pcts:
-        print(f"  STALE x{len(pcts)}: difference median {pcts[len(pcts) // 2]:.3g} %, max {pcts[-1]:.3g} % of the background's scale")
-        for r in stale:
-            print(f"    {r['stalePct']:9.3g} %  {r['project']} / {r['tab']}  ({r['bgType']})")
+    pcts = sorted(r["stalePct"] for r in stale if r["stalePct"] is not None)
+    nv = sum(1 for r in stale if r["voigtStale"])
+    print(f"  STALE x{len(stale)}: {len(pcts)} against another background (median {pcts[len(pcts) // 2]:.3g} %, max "
+          f"{pcts[-1]:.3g} % of its scale), {nv} with a Voigt fitted before A03 at another mix, "
+          f"{sum(1 for r in stale if r['voigtStale'] and r['stalePct'] is None)} of them for that alone")
+    for r in stale:
+        bgp = f"{r['stalePct']:9.3g} %" if r["stalePct"] is not None else "   (same) "
+        print(f"    {bgp}  {r['project']} / {r['tab']}  ({r['bgType']})" + ("  [pre-A03 Voigt]" if r["voigtStale"] else ""))
     reasons = {}
     for r in res:
         if not r["kept"]:

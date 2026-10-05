@@ -53,13 +53,19 @@ The page compares the background each saved fit was actually fitted against with
 one its settings give today, on the fit's own points:
 
 - If they agree (within rounding), the fit opens exactly as it was. On our 121 saved
-  fits: 15.
+  fits: 10.
 - If they differ, the fit opens with its OWN background and peaks, but its statistics
   (χ², R-factor, RMSE, uncertainties) are marked out of date and are not shown or
   exported, and an amber message tells you by how much the backgrounds differ. Press Run
   Fit to bring it up to date. On our saved fits: 66, nearly all because older versions
   chose the background window's end points slightly differently; most differ by under
   1 % of the background's height, at most 5 %.
+- A fit with a Voigt component made before 22 September 2026 also opens marked out of
+  date: until then the server fitted a Voigt's Gaussian/Lorentzian mix freely while the
+  page drew it at 50/50, so the page cannot draw that fit as it was fitted (the message
+  names the component and its fitted mix). On our saved fits: 41, mostly U 4f
+  satellites (5 of them for this reason alone). Re-run them; use GL if you want the mix
+  fitted.
 - If the file does not contain enough to check (older versions sometimes saved no fitted
   curve, or not the energies it was fitted on), your peaks open and you press Run Fit.
   On our saved fits: 40.

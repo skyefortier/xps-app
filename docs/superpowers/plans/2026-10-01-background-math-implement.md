@@ -126,8 +126,8 @@ rule, which allows the save's rounding — Codex round 3.) The alternatives, not
 implemented: keep an older fit with its statistics marked stale and the certified
 curve drawn; or keep it as it was (round 1's policy, which both reviewers rejected).
 SUPERSEDED 2026-10-03 by the owner's restore rule (§7): the evidence is the background
-the fit USED (envelope less peaks), within 1e-3 of its scale — 15 current, 66 reloaded
-stale, 40 peaks only.
+the fit USED (envelope less peaks), within 1e-3 of its scale — 10 current, 71 reloaded
+stale, 40 peaks only (after Codex round 18, §7.5).
 
 **The "Shirley iterations" setting is retired.** A 5-iteration preview is not a
 solution (F7: up to 8.6e-5 of the span from it), so under item 2 every page background
@@ -244,7 +244,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 539, exact (the owner's 512 for the two landed branches + this unit's 27 tests; 538 before the owner round of 2026-10-03, which adds the restore-rule tests).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18).
 
 ## 4. Measurements
 
@@ -409,11 +409,13 @@ its stored fitted curve less its peaks — equals the background its settings gi
 within rounding. When it differs, the fit still loads with its own background and
 peaks, but its statistics (χ², R-factor, RMSE, uncertainties) are marked out of date and
 are not shown or exported, with the size of the difference; Run Fit brings it up to
-date. On the lab's 121 committed saved fits: 15 reload as they were, 66 reload marked
-out of date (most by under 1 % of the background's own scale, at most 5 %, nearly all
-because older versions chose the background window's end points differently), and 40 —
-saved by older versions without the fitted curve or the energies it was fitted on —
-load their peaks only.
+date. On the lab's 121 committed saved fits: 10 reload as they were; 71 reload marked
+out of date — 66 because their background differs (most by under 1 % of its own scale,
+at most 5 %, nearly all because older versions chose the background window's end points
+differently), and 41 because they hold a Voigt component fitted before 2026-09-22 with a
+G/L mix the page does not draw (the page draws a Voigt at 50/50; 5 of these for that
+reason alone); and 40 — saved by older versions without the fitted curve or the energies
+it was fitted on — load their peaks only.
 
 Fits: the random restarts are now drawn from a seed computed from your data, window,
 settings and model rather than from the computed background, so they no longer change
@@ -790,19 +792,31 @@ Two follow-up decisions the same day (questions asked when the census showed wha
 
 ### 7.2 The census (121 committed saved fits, `scripts/bg_math_restore_census.py`, the page's own functions)
 
+After Codex round 18 (§7.5); the round-18 commit 131cc39 reported 15 / 66 / 40 — the five
+it called current hold a Voigt fitted before A03 at another mix.
+
 | outcome | n |
 |---|---|
-| CURRENT (implied background = today's within 1e-3 of its scale; median 3.4e-6, max 8.9e-4) | 15 |
-| STALE (reloaded with its own background; statistics not reported) | 66 |
-| — of which differ only through today's inclusive window (the old request's nearest-index, end-exclusive window reproduces them) | 60 (median 0.83 %, max 5.07 %) |
-| — of which differ under EITHER window | 6 |
+| CURRENT (implied background = today's within 1e-3 of its scale; median 2.2e-6, max 9.4e-5) | 10 |
+| STALE (reloaded with its own background and peaks; statistics not reported) | 71 |
+| — against another background | 66 |
+| —— of which only through today's inclusive window (the old request's nearest-index, end-exclusive window reproduces them) | 60 (median 0.83 %, max 5.07 %) |
+| —— of which under EITHER window | 6 |
+| — holding a Voigt fitted before A03 at a mix other than 0.5 (the page draws 0.5, so it cannot show the fit as fitted) | 41 |
+| —— stale for that alone (background equal to today's) | 5 |
 | PEAKS-ONLY: saved without the energies it was fitted on | 28 |
 | PEAKS-ONLY: saved without its fitted envelope | 11 |
 | PEAKS-ONLY: envelope and energies of different lengths | 1 |
 
+The pre-A03 Voigts are the U 4f satellite (and two Cl 2p) components of 47 committed
+fits (41 of them checkable): before 2026-09-22 the server fitted a Voigt's mix freely
+(recorded η from ~0 to 1.0, `p._backendParams.gl_ratio`) while the page drew 0.5 (A03). The
+restore reconstructs the implied background with the recorded η, but the page's drawn
+components are at 0.5, so such a fit's statistics are never shown as current
+(`fr.voigtStale`, the notices name the component and its η).
+
 `scripts/bg_math_restore_alternative.py` recomputes the same in Python (`fitting`,
-`autofit.parity`) under both window rules: verdicts identical on all 121, stale sizes
-equal to 1e-14 relative.
+`autofit.parity`) under both window rules: verdicts identical on all 121.
 
 The six that differ under either window (same size under both rules, so not the window;
 main's own server background on the same samples, old window, misses them too — by
@@ -824,8 +838,9 @@ CORRECTION to what was reported before the owner's decision: "9 genuine differen
 4-GTA B 1s up to 127 %, 4-GTA U 4f ~97 %, UCl4 U 4f 14.9 %" was an artefact of my offset
 matching, which took the FIRST run of samples that fitted the offset — on a uniform grid
 any run — and so compared 16 fits on samples 2.4–6 eV away from their own. With the run
-pinned by the fit's own record, 4-GTA B1s Scan_2 / Scan_3, U4f Scan_1 / Scan_8 and UCl4
-U4f Scan_1 are CURRENT, and nothing differs by more than 5.07 %.
+pinned by the fit's own record, the backgrounds of 4-GTA B1s Scan_2 / Scan_3, U4f
+Scan_1 / Scan_8 and UCl4 U4f Scan_1 equal today's (the three U 4f ones are stale for
+their pre-A03 Voigts alone), and nothing differs by more than 5.07 %.
 
 ### 7.3 Measurements after (2)+(3)+(4) — 202 targets, Trust-Region, n_perturb 3, as the page sends them
 
@@ -861,7 +876,7 @@ scattered-starts line on the branch flags FOUR of the six — not all:
 The two unflagged moves are the check's documented limit: its starts are scattered
 around the STUDENT'S start, and on these two every one of them reaches the solution the
 fit returned — main's better minimum for 1-GTA C1s Scan_0 (χ²ᵣ 3.82) was found only by
-main's perturbed restarts. Three of the six are worse fits than main returned (8-JT C1s
+main's perturbed restarts. Four of the six are worse fits than main returned (8-JT C1s
 Scan_5 is CLAUDE.md's known 33.9 / 51.9 / 17.26 case). This is the same seed lottery as
 the round-17 measurement (§4: eight 8-JT moves of 2–28 pp, then with v1's seed) —
 redrawn once more by this round, and not again for arithmetic reasons.
@@ -888,3 +903,41 @@ inputs are the claim. `tests/test_fit_equality.py`'s not-better case pins v1's s
 the two-basin fixture (PROGRESS.md follow-up). Upload: `tests/test_full_precision_upload.py`.
 Suites at the commit: JS 539 passed + 2 TODO (floor 539, exact); pytest in the commit
 message.
+
+### 7.5 Codex round 18 — NO-GO ×2 (`background_math_impl_r18_verdict_run{A,B}.md`, commit 131cc39)
+
+Both runs reproduced the census (15 / 66 / 40 at that commit), `final_analysis.json`, the
+Python twin and the student note's numbers.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): a zero background (none) reloaded 100 % stale — the server's and the page's evaluation of a component differ by ~1e-14, which IS the implied background's whole scale | the comparison allows the precision the subtraction recovers a background to: worst ≤ BG_RESTORE_REL × the background's own scale + BG_REL_TOL (the unit's certificate precision, 1e-12) × the envelope's scale — no new constant |
+| 2 | MAJOR (A, B): a charge shift by whole grid steps made an EXACT match on the wrong samples, returned before the fit's record was consulted (75.9 % / 82.4 % stale for unchanged fits) | `_restoredFitGrid` collects EVERY reading that reproduces the stored energies (the ROI selection, the in-order matches, every constant-offset run) and the fit's record (stored counts, else its RMSE) chooses among them; a tie or no record refuses |
+| 3 | MAJOR (A, B): a project save rounds the energies to 4 dp and keeps the envelope at full precision; the components were evaluated at the rounded energies (0.56 % / 4.2 % / 100 % stale for unchanged fits) | the components are evaluated at the matched raw samples' own energies in the fit's charge frame (raw − the key's shift), full precision |
+| 4 | MAJOR (A, B): a Voigt fitted before A03 was checked at its recorded η and drawn at 0.5 (Cl2p Scan_1: 338 counts) | such a fit cannot be shown as fitted: `fr.voigtStale` makes its statistics stale whatever its background, the notes name each component and its η (41 committed fits) |
+| 5 | MAJOR (A, B): Save Spectrum of a background-stale fit wrote today's background and a recomposed envelope; the reload then dropped it | a restored-stale fit not edited since it was loaded (`fr.loadKey`, runtime only) is saved with its own points, envelope and background and `restoredStale: true`; the loader judges it afresh |
+| 6 | MAJOR (B): the scattered-starts panel, the recorded choice and its export ignored background staleness | `_startsIfCurrent` / `_certificateMoveIfCurrent` refuse a restored-stale result, and the restore clears its starts, choice, certificate notice and support verdicts |
+| 7 | MAJOR (A): the full-precision upload wrote integer text; [-1, 1e19, 1] was not one integer type to pandas, which read the column as text and skipped a row | `uploadToBackend` writes a whole number with '.0', so every column is a float column; pinned by `tests/test_full_precision_upload.py` with the page's own formatter |
+| 8 | MAJOR (A) / MINOR (B): §7.3 said three of the six moves were worse fits; the table shows four | corrected |
+| 9 | MINOR (B): `_restoreUI` did not enable the averaging field for Linear | it does |
+
+Also found while fixing (2)–(3): the components of a fit with a model key are now the
+key's own peak values (`_restoredFitPeaks`) — an edit made after the fit and saved
+(the F1 stale case) no longer leaks into the reconstructed background — and an older
+save without a key gets one stamped at restore (`restoredKey`, saved with it) for the
+same reason. Mutation-verified (5 of 5 killed): components at the rounded energies, no
+subtraction-precision term, the exact match first, no key components, no Voigt stale.
+Census after the fixes: 10 current, 71 stale (66 against another background, 41 with a
+pre-A03 Voigt, 5 for that alone), 40 peaks only.
+
+Owner, 2026-10-04 (asked when the full suite went red on a test this round did not
+touch): `test_scattered_starts.py::test_the_starts_are_a_pure_function_of_the_request`
+failed in two consecutive full suites and passed alone — after `test_fit_reproducibility.py`
+or the browser module, two identical requests on the two-basin fixture sent one
+scattered start into the other basin (the certificate's Trust-Region arithmetic). "Narrow
+the test now: assert identical requests give identical inputs (seed, scattered starting
+points). Move the whole-fit comparison to the two-basin follow-up, and promote that unit
+from LOGGED to NEXT in PROGRESS.md — it runs right after this unit, before anything
+else." Done: the test records every `_scattered_start` draw and requires the same seed
+and the same four starting points bit for bit; PROGRESS.md "NEXT".
+

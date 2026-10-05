@@ -3896,7 +3896,7 @@ class TabManager {
       }
       // Endpoint averaging also applies to Tougaard (it sets the high-BE
       // amplitude anchor), not just the Shirley iteration family.
-      const needsEpAvg = needsIter || ui.bgType === 'tougaard';
+      const needsEpAvg = needsIter || ui.bgType === 'tougaard' || ui.bgType === 'linear';
       const epAvg = document.getElementById('bg-endpoint-avg');
       if (epAvg) {
         epAvg.disabled = !needsEpAvg;
@@ -5515,12 +5515,12 @@ function _roiSelect(rawBE, rawIntensity, ccShift, roiMinField, roiMaxField) {
   const roiMin = isNaN(roiMinRaw) ? -Infinity : roiMinRaw;
   const roiMax = isNaN(roiMaxRaw) ?  Infinity : roiMaxRaw;
   const shift = isNaN(ccShift) ? 0 : ccShift;
-  const be = [], inten = [];
+  const be = [], inten = [], idx = [];
   for (let i = 0; i < rawBE.length; i++) {
     const c = rawBE[i] - shift;
-    if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(rawIntensity[i]); }
+    if (c >= roiMin && c <= roiMax) { be.push(c); inten.push(rawIntensity[i]); idx.push(i); }
   }
-  return { be, inten };
+  return { be, inten, idx };
 }
 
 // ── ROI past the data / centre outside the data (2026-09-25) ─────────────
@@ -6853,7 +6853,11 @@ async function uploadToBackend(be, inten) {
   // exactly), so the server fits — and computes its background on — the numbers the
   // page holds. It used to send BE toFixed(4) and intensity toFixed(2): two readings
   // of one spectrum (the page's background on raw counts, the server's on rounded).
-  const csv = be.map((e, i) => String(e) + ',' + String(inten[i])).join('\n');
+  // A whole number gets '.0' (Codex impl round 18): integer text of mixed sign and size
+  // (-1 beside 1e19) is not one integer type to pandas, which then reads the column as
+  // text and skips a row as a header — '.0' makes every column a float column
+  const num = v => { const t = String(v); return Number.isFinite(v) && !/[.eE]/.test(t) ? t + '.0' : t; };
+  const csv = be.map((e, i) => num(e) + ',' + num(inten[i])).join('\n');
   const form = new FormData();
   form.append('file', new Blob([csv], { type: 'text/plain' }), 'spectrum.csv');
   const resp = await fetch('/api/upload', { method: 'POST', body: form });
@@ -8394,7 +8398,7 @@ function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, 
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
 function _startsIfCurrent(fr, key) {
   const st = fr && fr.starts;
-  if (!st || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;
+  if (!st || fr.backgroundStale || fr.voigtStale || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;   // (_restoredStale)
   return st;
 }
 // Unit F1 (2026-09-25): the fit STATISTICS (chi-square, sigma, R-factor, RMSE
@@ -8410,7 +8414,7 @@ function _startsIfCurrent(fr, key) {
 // The sealed fit record absorbs this: its record carries key and statistics.
 function _statsState(fr, key) {
   if (!fr) return 'none';
-  if (fr.backgroundStale) return 'stale';       // restored against an older background (2026-10-03)
+  if (fr.backgroundStale || fr.voigtStale) return 'stale';   // _restoredStale: restored against an older background / a pre-A03 Voigt (2026-10-03)
   if (!fr.startsModelKey) return 'unverified';
   return _sameFitKey(fr.startsModelKey, key) ? 'current' : 'stale';
 }
@@ -8419,13 +8423,21 @@ function _statsLiveState() { return _statsState(state.fitResult, _startsLiveKey(
 function _statsRecordState(t) { return _statsState(t && t.fitResult, t ? _startsRecordKey(t) : ''); }
 const _STATS_STALE_NOTE = 'The model or its fit settings changed after this fit: its \u03c7\u00b2, R-factor, RMSE and uncertainties belong to the previous model and are not reported. Run Fit to obtain statistics for this model.';
 const _STATS_UNVERIFIED_NOTE = 'This result was saved without the record that binds it to its model, so it cannot be confirmed that its \u03c7\u00b2, R-factor and uncertainties describe the model shown. Run Fit to confirm.';
-// A fit restored against a background other than today's (owner 2026-10-03,
-// _restoredFitBgFailure): its own stale note, with the size of the difference.
-function _bgStaleNote(fr) {
-  return 'This fit was made against a background that differs from the one its settings give now by ' +
-    _fmt3(fr.backgroundStale.pct) + ' % of the background\'s own scale (an earlier version\'s background, or settings changed after the fit): its \u03c7\u00b2, R-factor, RMSE and uncertainties are not reported. Run Fit to fit it against today\'s background.';
+// A RESTORED fit the page cannot show as it was fitted (owner 2026-10-03,
+// _restoredFitBgFailure): made against a background other than today's (with the
+// size of the difference), and / or with a Voigt mix the page does not draw.
+function _restoredStaleWhy(fr) {
+  const why = [];
+  if (fr.backgroundStale) why.push('made against a background that differs from the one its settings give now by ' +
+    _fmt3(fr.backgroundStale.pct) + ' % of the background\'s own scale (an earlier version\'s background, or settings changed after the fit)');
+  if (fr.voigtStale) why.push('fitted with a Voigt G/L mix the page does not draw (' +
+    fr.voigtStale.map(v => v.name + ' \u03b7 ' + _fmt3(v.eta)).join(', ') + '; before 2026-09-22 the server fitted a Voigt\'s mix freely, the page draws it at 0.5)');
+  return why.join('; and ');
 }
-function _staleNoteOf(fr) { return fr && fr.backgroundStale ? _bgStaleNote(fr) : _STATS_STALE_NOTE; }
+function _bgStaleNote(fr) {
+  return 'This fit was ' + _restoredStaleWhy(fr) + ': its \u03c7\u00b2, R-factor, RMSE and uncertainties are not reported. Run Fit to fit it again.';
+}
+function _staleNoteOf(fr) { return _restoredStale(fr) ? _bgStaleNote(fr) : _STATS_STALE_NOTE; }
 function _statsNote(st, fr) { return st === 'stale' ? _staleNoteOf(fr) : st === 'unverified' ? _STATS_UNVERIFIED_NOTE : ''; }
 // Fields a save adds beside the result (the key itself is saved as always).
 function _statsSaveFields(st, fr) {
@@ -8530,7 +8542,7 @@ function _certificateMoveFrom(cert) {
   return (m && Math.abs(m.ev) > _STARTS_SHIFT_RED_EV) ? { id: m.id, ev: m.ev } : null;
 }
 function _certificateMoveIfCurrent(fr, key) {
-  if (!fr || !fr.certificateMove || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;
+  if (!fr || !fr.certificateMove || fr.backgroundStale || fr.voigtStale || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;   // (_restoredStale)
   return fr.certificateMove;
 }
 function _certificateMoveText(fr) {
@@ -9005,7 +9017,7 @@ function _applyStatDisplay(fr) {
   const st = (fr && fr === state.fitResult) ? _statsLiveState() : 'current';
   if (fr && Number.isFinite(fr.chiReduced) && st === 'stale') {
     // F1: the statistic belongs to the previous model: say so, show no number
-    if (fq) { fq.textContent = _fitStatLabel(fr) + (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
+    if (fq) { fq.textContent = _fitStatLabel(fr) + (_restoredStale(fr) ? (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (Voigt mix)') : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
     if (sb) sb.textContent = '\u2014';
   } else if (fr && Number.isFinite(fr.chiReduced)) {
     const tip = (_isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP) + (st === 'unverified' ? '\n\n' + _STATS_UNVERIFIED_NOTE : '');
@@ -9483,9 +9495,9 @@ function renderResults() {
   const _stale = _stats === 'stale';
   // F1: a stale result's sigma belongs to the previous model: none is shown
   const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
-  const _statsBanner = _stale && state.fitResult.backgroundStale ? `
+  const _statsBanner = _stale && _restoredStale(state.fitResult) ? `
     <div class="stats-stale-note" data-background-stale="1" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
-      &#9888; <strong>This fit was made against a different background.</strong> ${_escHtml(_bgStaleNote(state.fitResult))}
+      &#9888; <strong>This saved fit cannot be shown as it was fitted.</strong> ${_escHtml(_bgStaleNote(state.fitResult))}
     </div>` : _stale ? `
     <div class="stats-stale-note" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
       &#9888; <strong>The model has changed since this fit.</strong> Its &#967;&#178;, RMSE, R-factor and uncertainties belong to the previous model and are not shown. The table below is the current model, not a fitted result. Press <strong>Run Fit</strong> to obtain statistics for it.
@@ -9909,28 +9921,36 @@ function _recordBackground(src) {
   return { be, rawY, bg };
 }
 
-// A RESTORED fit (a loaded project or spectrum file) is kept when the background
-// it was ACTUALLY fitted against equals the certified background its saved
-// settings give now, within rounding on the background's own scale (owner
-// 2026-10-03: fit_equality.py's SAME_MINIMUM_REL, BG_RESTORE_REL).
-// Which curve is "the background it was fitted against": the stored ENVELOPE minus
-// the stored fitted peaks — fittedY (the server's model + its own background) less
-// the components (_restoredFitModel). NOT the stored background curve: before
-// 2026-10-01 the page saved its own 5-iteration PREVIEW beside the server's fit,
-// which the server had made against its own converged background, so that curve is
-// not evidence of the fit (a fit saved without an envelope loads peaks-only).
-// Today's background is computed on the fit's STORED points (_restoredFitGrid: the
-// record's current ROI selection when it reproduces them, else each stored point
-// matched to its raw sample) — refused only when they are not points of the raw
-// data. Equal: the certified curve replaces the stored one (with the grid and the
-// net signal), the envelope and statistics are kept. Not equal — an earlier
-// version's background, settings or a model changed after the fit — the fit is
-// dropped, its model (the fitted peaks) kept, and the notice gives the size. Measured
-// on the committed projects: scripts/bg_math_restore_census.py. Returns the plain
+// A RESTORED fit (a loaded project or spectrum file) is judged by the background it
+// was ACTUALLY fitted against (owner 2026-10-03): the stored ENVELOPE fittedY (the
+// server's model + its own background) less the fit's components — NOT the stored
+// background curve (before 2026-10-01 the page saved its own 5-iteration PREVIEW
+// beside the server's fit, so that curve is not evidence of the fit).
+// - The fit's points (_restoredFitGrid): the raw samples it was fitted on.
+// - The fit's components: the peak values its model key recorded (startsModelKey, or
+//   the restoredKey stamped when an older save was restored), evaluated in the fit's
+//   own charge frame at full precision (raw energy − the key's charge shift) — so an
+//   edit made after the fit, or the save's 4-dp energies, cannot leak into the
+//   reconstruction; without a key, the saved peaks in today's frame. A Voigt saved
+//   before A03 (2026-09-22) is drawn with the mix the server fitted (its recorded
+//   gl_ratio, as GL) — and the page, which draws a Voigt at 0.5, cannot show that fit:
+//   its statistics are stale (fr.voigtStale), whatever its background.
+// - Equal to today's certified background on those points within BG_RESTORE_REL of the
+//   background's own scale (+ the precision the subtraction recovers it to, BG_REL_TOL
+//   of the envelope's: a zero background is recovered as rounding noise): CURRENT, the
+//   certified curve installed. Otherwise STALE (fr.backgroundStale = {pct}): the fit's
+//   own background shown, statistics stale (F1's rules). Uncheckable: peaks only.
+// A restored-stale fit carries no current evidence: its scattered starts, recorded
+// choice, certificate notice and support verdicts were made against another
+// background (cleared here; the accessors refuse it too, _restoredStale). Measured on
+// the committed projects: scripts/bg_math_restore_census.py. Returns the plain
 // reason, or null.
 // fit_equality.py's SAME_MINIMUM_REL: 10·√ftol, ftol = scipy least_squares' default 1e-8
 // (pinned equal to the Python value by tests/js/background_not_converged.test.js)
 const BG_RESTORE_REL = 1e-3;
+function _restoredStale(fr) { return !!(fr && (fr.backgroundStale || fr.voigtStale)); }
+// Not edited since it was loaded (fr.loadKey: the record's key at restore, runtime only).
+function _restoredUnchanged(fr, key) { return !!fr && _sameFitKey(fr.loadKey, key); }
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack) return null;
   // the certificate needs the raw data: a fit without them cannot be checked, so it
@@ -9948,97 +9968,119 @@ function _restoredFitBgFailure(rec) {
     return 'its stored envelope and the energies it was fitted on have different lengths';
   if (!env.every(v => typeof v === 'number' && Number.isFinite(v)) || !fr.be.every(v => typeof v === 'number' && Number.isFinite(v)))
     return 'its stored envelope is not a number at every point';
-  delete fr.backgroundStale;                             // judged afresh on every load
+  delete fr.backgroundStale; delete fr.voigtStale;       // judged afresh on every load
+  const fit = _restoredFitPeaks(rec);
   const grid = _restoredFitGrid(rec, fr.be);
   if (grid === null) return 'its stored points are not points of its raw data, so the background cannot be recomputed on them';
   let bg;
   try { bg = _computeBackgroundForSource(grid.be, grid.inten, rec.ui, rec.manualAnchors); }
   catch (e) { if (_isBgNotConverged(e)) return 'its background settings give no converged background now: ' + e.message; throw e; }
-  // the background the fit used: its envelope less its components, at the points it was fitted on
-  const model = _restoredFitModel(grid.modelBe, rec.peaks || []);
-  let worst = 0, scale = 0;
+  // the background the fit used: its envelope less its components, at the samples it was fitted on
+  const modelBe = grid.idx.map(i => rec.rawBE[i] - fit.shift);
+  const model = _restoredFitModel(modelBe, fit.peaks);
+  let worst = 0, scale = 0, envScale = 0;
   for (let i = 0; i < bg.length; i++) {
     const used = env[i] - model[i];
     if (!Number.isFinite(used)) return 'its stored peaks do not evaluate to finite numbers at its stored points';
     worst = Math.max(worst, Math.abs(used - bg[i]));
     scale = Math.max(scale, Math.abs(used), Math.abs(bg[i]));
+    envScale = Math.max(envScale, Math.abs(env[i]), Math.abs(model[i]));
   }
-  if (worst > BG_RESTORE_REL * scale) {
+  if (!rec.fitResult.startsModelKey && !fr.restoredKey) fr.restoredKey = _startsRecordKey(rec);   // what an older save's fit had
+  fr.loadKey = _startsRecordKey(rec);                    // the state it was loaded in (_restoredUnchanged)
+  const voigt = _legacyVoigts(fit.peaks);
+  if (voigt.length) fr.voigtStale = voigt;
+  if (worst > BG_RESTORE_REL * scale + BG_REL_TOL * envScale) {
     // owner 2026-10-03: reloaded AS STALE — the fit's own background (envelope less
-    // peaks) and its peaks as saved, its statistics marked stale with the size of the
-    // difference from today's background (_statsState; F1: never exported or
-    // reported as current). Run Fit fits it against today's background.
+    // its components) and its peaks as saved, its statistics marked stale with the
+    // size of the difference from today's background (_statsState; F1: never exported
+    // or reported as current). Run Fit fits it against today's background.
     const used = env.map((v, i) => v - model[i]);
     fr.bgIntensity = used;
     fr.be = grid.be;
     fr.bgSubtracted = grid.inten.map((v, i) => v - used[i]);
     fr.backgroundStale = { pct: 100 * worst / scale };
-    return null;
+  } else {
+    fr.bgIntensity = bg;                                 // the certified curve itself
+    fr.be = grid.be;
+    fr.bgSubtracted = grid.inten.map((v, i) => v - bg[i]);
   }
-  fr.bgIntensity = bg;                                   // the certified curve itself
-  fr.be = grid.be;
-  fr.bgSubtracted = grid.inten.map((v, i) => v - bg[i]);
+  if (_restoredStale(fr)) {                              // its evidence belonged to a fit against another background / shape
+    fr.starts = null; fr.chosenAlternative = null; fr.certificateMove = null;
+    for (const p of rec.peaks || []) if (p.support) p.support = null;
+  }
   return null;
 }
-// The fit's stored points as points of the record's raw data: the record's ROI
-// selection when it reproduces them (each sample's identity kept), else each stored
-// energy matched in order to a raw sample — exactly, then as the save rounds it
-// (4 dp); else the same samples at a CONSTANT offset (the charge correction changed
-// after the fit: every stored energy is today's corrected energy + delta, which
-// updateChargeCorrection applied to the peaks too). { be: today's corrected energies,
-// inten, modelBe: where the saved peaks reproduce the fit's components (the stored
-// points − delta) }; null when they are not points of the raw data.
+// The components the saved fit was fitted with, and the charge frame it was fitted in:
+// the peak values its model key recorded (every field the request reads, in order —
+// _STARTS_MODEL_FIELDS — so an edit after the fit is not read), merged onto the saved
+// peak of the same id for what the key does not carry (the server's recorded params);
+// without a key, the saved peaks in today's frame.
+function _restoredFitPeaks(rec) {
+  const fr = rec.fitResult || {};
+  const key = fr.startsModelKey || fr.restoredKey;
+  let o = null;
+  try { o = key ? JSON.parse(key) : null; } catch (_) { o = null; }
+  if (!o || !Array.isArray(o.p) || !o.p.every(r => Array.isArray(r) && r.length === _STARTS_MODEL_FIELDS.length))
+    return { peaks: rec.peaks || [], shift: rec.ccShift || 0 };
+  const byId = new Map((rec.peaks || []).map(p => [p.id, p]));
+  const peaks = o.p.map(r => {
+    const q = { ...(byId.get(r[0]) || {}) };
+    _STARTS_MODEL_FIELDS.forEach((k, i) => { if (r[i] === null) delete q[k]; else q[k] = r[i]; });
+    return q;
+  });
+  return { peaks, shift: Number(o.s) || 0 };
+}
+// The fit's stored points as raw samples: every reading that reproduces them — the
+// record's ROI selection, each stored energy matched in order to a raw sample (exactly,
+// then as the save rounds it, 4 dp), and every run of samples at one constant offset
+// (the charge correction changed after the fit; the peaks moved with it) — and, when
+// more than one does (on a uniform grid every run does, and a change by a whole number
+// of steps makes an exact match the WRONG run), the one the fit's own record pins: the
+// counts it saw (its stored background plus what it subtracted) or, without them, its
+// RMSE (counts less envelope on its points); nearest wins, a tie or no record refuses.
+// { idx: raw indices, be: today's corrected energies, inten }, or null.
 function _restoredFitGrid(rec, stored) {
   const shift = rec.ccShift || 0;
   const r4 = v => Math.round(v * 1e4) / 1e4;
-  const same = (c, s) => c === s || r4(c) === s;
-  const sel = _roiSelect(rec.rawBE, rec.rawIntensity, shift, rec.ui && rec.ui.roiMin, rec.ui && rec.ui.roiMax);
-  if (sel.be.length === stored.length && sel.be.every((c, k) => same(c, stored[k]))) return { ...sel, modelBe: stored };
+  const n = stored.length;
   const corr = rec.rawBE.map(b => b - shift);
+  const cands = new Map();
+  const add = idx => { if (idx && idx.length === n) cands.set(idx.join(','), idx); };
+  const roi = _roiSelect(rec.rawBE, rec.rawIntensity, shift, rec.ui && rec.ui.roiMin, rec.ui && rec.ui.roiMax).idx;
+  if (roi.length === n && roi.every((i, k) => corr[i] === stored[k] || r4(corr[i]) === stored[k])) add(roi);
   for (const rounded of [false, true]) {
-    const be = [], inten = [];
-    for (let i = 0, k = 0; i < corr.length && k < stored.length; i++) {
-      if (corr[i] === stored[k] || (rounded && r4(corr[i]) === stored[k])) { be.push(corr[i]); inten.push(rec.rawIntensity[i]); k++; }
-    }
-    if (be.length === stored.length) return { be, inten, modelBe: stored };
+    const idx = [];
+    for (let i = 0, k = 0; i < corr.length && k < n; i++)
+      if (corr[i] === stored[k] || (rounded && r4(corr[i]) === stored[k])) { idx.push(i); k++; }
+    add(idx);
   }
-  // a constant offset (the charge correction changed after the fit; the peaks moved with
-  // it): the stored points are samples j.. + one delta (as the save rounds energies). On a
-  // uniform grid EVERY j is such a run, so the samples are pinned by the fit's own record:
-  // the counts it saw (its stored background plus what it subtracted) or, when it stored
-  // no background, its RMSE (the root-mean-square of counts less envelope on its points) —
-  // nearest wins; a tie, or neither record while two runs fit, cannot be resolved
-  const fr = rec.fitResult || {};
-  const n = stored.length, fy = fr.fittedY;
-  const seen = Array.isArray(fr.bgSubtracted) && Array.isArray(fr.bgIntensity) &&
-    fr.bgSubtracted.length === n && fr.bgIntensity.length === n
-    ? stored.map((_, k) => fr.bgSubtracted[k] + fr.bgIntensity[k]) : null;
-  const byRmse = !seen && typeof fr.rmse === 'number' && Number.isFinite(fr.rmse) && Array.isArray(fy) && fy.length === n;
-  const runs = [];
-  for (let j = 0; j + stored.length <= corr.length; j++) {
+  for (let j = 0; j + n <= corr.length; j++) {
     const delta = stored[0] - corr[j];
     let ok = true;
-    for (let k = 0; k < stored.length && ok; k++) {
-      const c = corr[j + k] + delta;
-      ok = c === stored[k] || r4(c) === r4(stored[k]);
-    }
-    if (!ok) continue;
-    let dev = NaN;
-    if (seen) { dev = 0; for (let k = 0; k < n; k++) dev = Math.max(dev, Math.abs(seen[k] - rec.rawIntensity[j + k])); }
-    else if (byRmse) { let ss = 0; for (let k = 0; k < n; k++) ss += (rec.rawIntensity[j + k] - fy[k]) ** 2; dev = Math.abs(Math.sqrt(ss / n) - fr.rmse); }
-    runs.push({ j, delta, dev: Number.isFinite(dev) ? dev : NaN });
+    for (let k = 0; k < n && ok; k++) { const c = corr[j + k] + delta; ok = c === stored[k] || r4(c) === r4(stored[k]); }
+    if (ok) add(Array.from({ length: n }, (_, k) => j + k));
   }
-  if (!runs.length) return null;
-  let pick = runs[0];
-  if (runs.length > 1) {
+  const list = [...cands.values()];
+  if (!list.length) return null;
+  let idx = list[0];
+  if (list.length > 1) {
+    const fr = rec.fitResult || {}, fy = fr.fittedY;
+    const seen = Array.isArray(fr.bgSubtracted) && Array.isArray(fr.bgIntensity) &&
+      fr.bgSubtracted.length === n && fr.bgIntensity.length === n
+      ? stored.map((_, k) => fr.bgSubtracted[k] + fr.bgIntensity[k]) : null;
+    const byRmse = !seen && typeof fr.rmse === 'number' && Number.isFinite(fr.rmse) && Array.isArray(fy) && fy.length === n;
     if (!seen && !byRmse) return null;
-    runs.sort((a, b) => a.dev - b.dev);
-    if (!(runs[0].dev < runs[1].dev)) return null;     // a tie or NaN: not resolved
-    pick = runs[0];
+    const dev = c => {
+      if (seen) { let d = 0; for (let k = 0; k < n; k++) d = Math.max(d, Math.abs(seen[k] - rec.rawIntensity[c[k]])); return d; }
+      let ss = 0; for (let k = 0; k < n; k++) ss += (rec.rawIntensity[c[k]] - fy[k]) ** 2;
+      return Math.abs(Math.sqrt(ss / n) - fr.rmse);
+    };
+    const scored = list.map(c => ({ c, d: dev(c) })).sort((a, b) => a.d - b.d);
+    if (!(scored[0].d < scored[1].d)) return null;       // a tie or NaN: not resolved
+    idx = scored[0].c;
   }
-  const { j, delta } = pick;
-  return { be: corr.slice(j, j + stored.length), inten: rec.rawIntensity.slice(j, j + stored.length),
-           modelBe: stored.map(v => v - delta) };
+  return { idx, be: idx.map(i => corr[i]), inten: idx.map(i => rec.rawIntensity[i]) };
 }
 // The curve the fit's own components draw at its points; a Voigt saved before A03
 // (2026-09-22) is drawn with the mix the server fitted it with
@@ -10049,6 +10091,17 @@ function _restoredFitModel(be, peaks) {
     const g = p._backendParams && p._backendParams.gl_ratio, v = g && g.value;
     return typeof v === 'number' && Number.isFinite(v) ? { ...p, shape: 'GL', glMix: 100 * v } : p;
   }));
+}
+// The Voigts fitted with a mix the page does not draw (before A03 the server fitted η
+// free; the page draws 0.5): [{ name, eta }].
+function _legacyVoigts(peaks) {
+  const out = [];
+  for (const p of peaks || []) {
+    if (p.shape !== 'Voigt') continue;
+    const g = p._backendParams && p._backendParams.gl_ratio, v = g && g.value;
+    if (typeof v === 'number' && Number.isFinite(v) && v !== 0.5) out.push({ name: p.name || String(p.id), eta: v });
+  }
+  return out;
 }
 function _dropRestoredFit(rec) {
   rec.fitResult = null;
@@ -11332,7 +11385,11 @@ function _doSaveSpectrum() {
   // F1: a stale result's stored curve is the previous model's; the file's
   // fittedY then matches its residuals (the current model), as with no fit
   const _saveStats = _statsLiveState();
-  const fittedY = (_saveStats !== 'stale' && state.fitResult?.fittedY) || (bgFail ? null : modelFull.map((v, i) => v + bgIntensity[i]));
+  // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
+  // points, envelope and background, so a reload judges it afresh (as a project does)
+  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey());
+  const fittedY = _ownFit ? state.fitResult.fittedY
+    : (_saveStats !== 'stale' && state.fitResult?.fittedY) || (bgFail ? null : modelFull.map((v, i) => v + bgIntensity[i]));
 
   // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
   // for LACX with caM > 0, only the array evaluator applies the shape's
@@ -11366,6 +11423,8 @@ function _doSaveSpectrum() {
     startsModelKey: state.fitResult.startsModelKey || null,
     chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
     certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
+    restoredKey: state.fitResult.restoredKey || null,
+    restoredStale: _ownFit || null,
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -11383,9 +11442,9 @@ function _doSaveSpectrum() {
     peaks: tab.peaks.map(p => ({...p})),
     nextId: tab.nextId,
     ui: {...tab.ui},
-    roiBE: be,
-    background: bgFail ? null : bgIntensity,
-    backgroundFailure: bgFail || null,
+    roiBE: _ownFit ? state.fitResult.be.slice() : be,
+    background: _ownFit ? Array.from(state.fitResult.bgIntensity) : bgFail ? null : bgIntensity,
+    backgroundFailure: _ownFit ? null : bgFail || null,
     fittedY: fittedY,
     residuals: bgFail ? null : residuals,
     peakCurves: peakCurves,
@@ -11465,6 +11524,7 @@ async function _doSaveProject() {
         startsModelKey: t.fitResult.startsModelKey || null,
         chosenAlternative: _startsIfCurrent(t.fitResult, _startsRecordKey(t)) ? (t.fitResult.chosenAlternative || null) : null,
         certificateMove: _certificateMoveIfCurrent(t.fitResult, _startsRecordKey(t)),
+        restoredKey: t.fitResult.restoredKey || null,   // what an older save's fit had (_restoredFitPeaks)
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -11696,17 +11756,19 @@ function _loadSpectrumFile(data, sessionFile) {
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative', 'certificateMove']) if (data.statistics[k]) fr[k] = data.statistics[k];
+    if (typeof data.statistics.restoredKey === 'string') fr.restoredKey = data.statistics.restoredKey;   // what an older save's fit had
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key
-    if (data.fittedY && data.statistics.statisticsState !== 'stale') fr.fittedY = data.fittedY;
+    if (data.fittedY && (data.statistics.statisticsState !== 'stale' || data.statistics.restoredStale === true)) fr.fittedY = data.fittedY;
     if (data.statistics.rFactor && data.statistics.statisticsState !== 'stale') fr.rFactor = data.statistics.rFactor;
     // background math: the file stores the grid, the envelope and a background curve
     // (_doSaveSpectrum, full precision); the fit is restored only if the background it
     // was fitted against — envelope less peaks — is the certified one its settings
     // give now (_restoredFitBgFailure). A STALE save's envelope and curve are the edited
     // state's, not the fit's, so it is never offered as the fit's (Codex impl round 3).
-    const stale = data.statistics.statisticsState === 'stale';
+    // a restored-stale fit saved unedited carries its own curves (_doSaveSpectrum) and is judged afresh
+    const stale = data.statistics.statisticsState === 'stale' && data.statistics.restoredStale !== true;
     // the fit's points and envelope are what the restore check reads (2026-10-03:
     // the background it was fitted against = envelope less peaks); a stored
     // background curve, when there is one, is replaced by the certified one
@@ -11719,9 +11781,8 @@ function _loadSpectrumFile(data, sessionFile) {
     const failure = stale
       ? 'it was saved after its model or settings changed, and the file stores the background of that edited state, not the one it was fitted against'
       : _restoredFitBgFailure(active);
-    if (!failure && fr.backgroundStale) {
-      notify('Saved fit restored as STALE: it was made against a background that differs from the one its settings give now by ' +
-        _fmt3(fr.backgroundStale.pct) + ' % of the background\'s own scale (an earlier version\'s background, or settings changed after the fit). Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it against today\'s background.', 'amber', true);
+    if (!failure && _restoredStale(fr)) {
+      notify('Saved fit restored as STALE: it was ' + _restoredStaleWhy(fr) + '. Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it again.', 'amber', true);
     }
     if (failure) {
       _dropRestoredFit(active);
@@ -11907,13 +11968,13 @@ function _loadProjectJSON(data, sessionFile) {
   for (const tab of newTabs) {
     const failure = _restoredFitBgFailure(tab);
     if (failure) { _dropRestoredFit(tab); droppedFits.push(tab.name + ' — ' + failure); }
-    else if (tab.fitResult && tab.fitResult.backgroundStale) staleFits.push(tab.name + ' (' + _fmt3(tab.fitResult.backgroundStale.pct) + ' %)');
+    else if (_restoredStale(tab.fitResult)) staleFits.push(tab.name + ' — ' + _restoredStaleWhy(tab.fitResult));
   }
   if (droppedFits.length) {
     notify('Saved fit not restored: ' + droppedFits.join(' ') + ' The model (the fitted peaks) is kept; run Fit to fit it again.', 'amber', true);
   }
   if (staleFits.length) {
-    notify('Saved fit restored as STALE: ' + staleFits.join(', ') + ' — each was made against a background that differs from the one its settings give now by that much of the background\'s own scale (an earlier version\'s background, or settings changed after the fit). Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it against today\'s background.', 'amber', true);
+    notify('Saved fit restored as STALE: ' + staleFits.join('. ') + '. Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it again.', 'amber', true);
   }
 
   // Rewrite stack-entry source references through idMap BEFORE pruning.

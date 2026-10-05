@@ -41,7 +41,7 @@ function makeDoc() {
   return { els, getElementById: id => els[id] || null, querySelector: () => null, querySelectorAll: () => [] };
 }
 
-const STATE_FNS = ['_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_staleNoteOf', '_bgStaleNote', '_fmt3'];
+const STATE_FNS = ['_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_staleNoteOf', '_bgStaleNote', '_fmt3', '_restoredStale', '_restoredStaleWhy'];
 const STATE_CONSTS = ['_STATS_STALE_NOTE', '_STATS_UNVERIFIED_NOTE'];
 
 // Build a sandbox with the F1 accessor, the display functions and renderResults.
@@ -329,7 +329,7 @@ function pollify(deps) {
 // ── Codex round 1 ───────────────────────────────────────────────────────────
 function keyFns() {
   const src = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n')
-    + '\n' + ['_startsModelKey', '_fitKeyCanon', '_sameFitKey', '_statsState'].map(extractFn).join('\n');
+    + '\n' + ['_startsModelKey', '_fitKeyCanon', '_sameFitKey', '_statsState', '_restoredStale'].map(extractFn).join('\n');
   return new Function(src + '\nreturn { _startsModelKey, _sameFitKey, _statsState };')();
 }
 
@@ -424,7 +424,10 @@ test('closing the last tab clears the Results panel, header and status statistic
 
 test('reload never installs an edited-model curve or R under the original key, and activation never computes R over an edited model', () => {
   const load = extractFn('_loadSpectrumFile');
-  assert.match(load, /if \(data\.fittedY && data\.statistics\.statisticsState !== 'stale'\) fr\.fittedY = data\.fittedY;/);
+  // the one exception: a RESTORED-stale fit saved unedited, whose file carries the fit's own curves
+  // (_doSaveSpectrum's _ownFit) and is judged afresh (2026-10-04, Codex impl round 18)
+  assert.match(load, /if \(data\.fittedY && \(data\.statistics\.statisticsState !== 'stale' \|\| data\.statistics\.restoredStale === true\)\) fr\.fittedY = data\.fittedY;/);
+  assert.match(extractFn('_doSaveSpectrum'), /const _ownFit = _restoredStale\(state\.fitResult\) && _restoredUnchanged\(state\.fitResult, _startsLiveKey\(\)\);/);
   assert.match(load, /if \(data\.statistics\.rFactor && data\.statistics\.statisticsState !== 'stale'\) fr\.rFactor = data\.statistics\.rFactor;/);
   assert.match(html, /state\.fitResult\.rFactor == null && _statsLiveState\(\) !== 'stale'\) \{\s*state\.fitResult\.rFactor = _computeRFactor/, 'tab activation');
   assert.match(extractFn('_doSaveProject'), /rFactor: t\.fitResult\.rFactor \|\| null/, 'project saves keep the fit\'s own R');

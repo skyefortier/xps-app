@@ -65,7 +65,9 @@ background's scale (`fit_equality.SAME_MINIMUM_REL`), on the 121 committed saved
 `scripts/bg_math_restore_alternative.py` in Python agrees on all 121;
 `data/impl/restore_census.json`, `restore_alternative.json`):
 
-- 15 equal today's — they reload as they were (median 3.4e-6, max 8.9e-4 of the scale);
+- 15 equal today's (median 2.2e-6, max 9.4e-5 of the scale) — 10 reload as they were, and 5
+  are stale only because they hold a Voigt fitted before A03 at another mix, which the page
+  (drawing 0.5) cannot show as fitted (41 checkable fits hold one; after Codex round 18);
 - 60 differ only because older requests chose the background window by nearest index,
   end-exclusive (today: inclusive bounds) — median 0.83 %, max 5.07 % (4-GTA UCl4-BN
   B1s Scan); they reload marked stale;

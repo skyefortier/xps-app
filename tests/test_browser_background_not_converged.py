@@ -359,3 +359,55 @@ def test_a_stack_shows_the_fits_own_counts_after_the_charge_shift_changes(browse
         assert got["n"] == got["m"] > 0 and got["worst"] <= 1e-12 * got["scale"], got
     finally:
         pg.close()
+
+
+def test_a_background_stale_fit_shows_no_evidence_and_survives_a_spectrum_save(browser, server):
+    # Codex impl round 18: a background-stale reload kept its scattered-starts comparison and
+    # recorded choice (_startsIfCurrent read only the model key), and Save Spectrum wrote
+    # today's background and a recomposed envelope, so the reload then dropped the fit
+    import json
+    setup = PEAK_TAB[:-1] + """;
+        _setManualAnchors([{ x: 280, y: 300 }, { x: 292, y: 700 }]);
+        document.getElementById('bg-type').value = 'manual'; _onBgTypeChange(); updatePlot(); }"""
+    pg = _new_page(browser, server)
+    try:
+        saved = _fit_and_capture(pg, setup, "() => _doSaveProject()",
+                                 "() => { if (state.fitResult) state.fitResult.chosenAlternative = { fromChi: 9, toChi: 3, shiftName: 'x', shiftEv: 0.1 }; tabManager._syncActiveToRecord(); }")
+    finally:
+        pg.close()
+    t = next(t for t in saved["tabs"] if t.get("fitResult"))
+    assert t["fitResult"].get("starts"), "the fixture fit carries scattered-starts evidence"
+    t["manualAnchors"] = [{"x": 280, "y": 300}, {"x": 292, "y": 900}]      # today's anchors give another background
+    pg = _new_page(browser, server)
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        pg.evaluate(NOTIFY)
+        pg.evaluate("data => _loadProjectJSON(data, 'm.proj.json')", saved)
+        pg.wait_for_timeout(400)
+        got = pg.evaluate("""() => ({ stale: state.fitResult && state.fitResult.backgroundStale, st: _statsLiveState(),
+            starts: _startsIfCurrent(state.fitResult, _startsLiveKey()), chosen: _startsChosenText(state.fitResult),
+            raw: state.fitResult && state.fitResult.starts, panel: document.getElementById('results-area').innerText })""")
+        assert got["stale"] and got["st"] == "stale", got
+        assert got["starts"] is None and got["chosen"] == "" and got["raw"] is None, got
+        assert "scattered start" not in got["panel"], got["panel"][:400]
+        pct = got["stale"]["pct"]
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => _doSaveSpectrum()")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        spec = json.loads(pg.evaluate("() => window.__dl[0].text"))
+    finally:
+        pg.close()
+    assert spec["statistics"]["restoredStale"] is True
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(NOTIFY)
+        pg.evaluate("data => _loadSpectrumFile(data, 'm.spec.json')", spec)
+        pg.wait_for_timeout(400)
+        got = pg.evaluate("() => ({ fit: !!state.fitResult, stale: state.fitResult && state.fitResult.backgroundStale, n: window.__n })")
+        assert got["fit"] and got["stale"], got
+        assert abs(got["stale"]["pct"] - pct) <= 1e-9 * pct, (got["stale"], pct)
+        assert any(m.startswith("Saved fit restored as STALE: ") for m in got["n"]), got["n"]
+    finally:
+        pg.close()
+    assert errors == [], errors

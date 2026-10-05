@@ -1,0 +1,35 @@
+Review the "background math — implementation" unit, round 19 (owner round of 2026-10-03, second review): branch bg-math-implement; this unit = git diff d79b843..HEAD; the owner round = git diff 0c7ea15..HEAD; the round-18 fixes = git diff 131cc39..HEAD. The requirement: the owner's items and decisions verbatim in docs/superpowers/plans/2026-10-01-background-math-implement.md §7. Round 18's verdicts: docs/autofit/codex/background_math_impl_r18_verdict_run{A,B}.md; the plan's §7.5 maps every finding to its fix.
+
+Round-18 fixes in short (templates/index.html unless named):
+- Tolerance: worst |used − today| ≤ BG_RESTORE_REL × max(|used|, |today|) + BG_REL_TOL × the envelope's scale (the precision the subtraction recovers a background to; no new constant). A zero background recovered as 1e-14 noise is zero.
+- _restoredFitGrid: every reading that reproduces the stored energies (the ROI selection via _roiSelect's new idx, the in-order matches, every constant-offset run) is a candidate; the fit's record (stored counts, else stored RMSE) chooses among several; a tie or no record refuses.
+- Components: _restoredFitPeaks — the peak values of the fit's model key (startsModelKey, or restoredKey stamped when an older save is restored and saved with it), merged onto the saved peak of the same id; evaluated at the matched raw samples in the key's charge frame (raw − key.s), full precision. Without a key, the saved peaks in today's frame.
+- Pre-A03 Voigt (recorded gl_ratio ≠ 0.5): fr.voigtStale → stale whatever the background; notes name component and η (_restoredStaleWhy).
+- A restored-stale result: starts, chosenAlternative, certificateMove and support verdicts cleared; _startsIfCurrent / _certificateMoveIfCurrent refuse it.
+- Save Spectrum of a restored-stale fit not edited since load (fr.loadKey, runtime only; _restoredUnchanged) writes the fit's own roiBE / fittedY / background and statistics.restoredStale = true; the loader judges such a file afresh.
+- uploadToBackend: a whole number gets '.0' (the [-1, 1e19, 1] case); tests/test_full_precision_upload.py uses the page's own formatter.
+- _restoreUI enables averaging for Linear; §7.3 prose fixed (four worse).
+- Census now: 10 current, 71 stale (66 background, 41 pre-A03 Voigt, 5 Voigt only), 40 peaks-only; page and Python twin agree on all 121 (restore_census.json, restore_alternative.json).
+- Measurements (§7.3) unchanged by these fixes (restore and upload formatting do not touch run_fit's inputs for real data; verify).
+- Still dispositioned: errors INSIDE the predicate; the _legacy_line pin and the v1-seed pin in that module family; Auto-Fit's post-shift pairing.
+- Owner 2026-10-04: test_scattered_starts.py::test_the_starts_are_a_pure_function_of_the_request (two-basin fixture, failing in the full suite by process state) narrowed to the draws (same seed, same scattered starting points); its whole-fit comparison moves to the two-basin unit, now NEXT in PROGRESS.md — do not re-raise the narrowing itself, but do say if the narrowed test no longer tests the draws.
+- JS CI floor 543 (exact).
+
+Read-only. Be adversarial. Rank findings BLOCKER / MAJOR / MINOR, each with file:line and a concrete failing scenario, then give VERDICT: GO or VERDICT: NO-GO. Budget your time: a verdict is required within the run.
+
+Proportionality: rate a finding MAJOR or above only if a reachable input violates an owner item of §7 or of the unit, makes a stale or uncheckable fit display / export / save statistics or evidence as current, makes a current fit load stale or dropped, changes a displayed or saved number wrongly, or if a reported number (census, measurements, student note) is not what the committed data and generators give. Wording that changes no verdict and no number is MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. The round-18 fixes:
+   - the tolerance: can a genuinely different background now pass (a small background under a large envelope), or a current one still fail;
+   - the alignment: ties, flat or repeated counts, a stale or local-engine RMSE, project saves (6-significant-figure counts) and spectrum saves, repeated energies, unsorted records, a shift by whole steps in both orders;
+   - key components: a key whose peak count, ids or order differ from the saved peaks, linked peaks, a malformed key, a key with nulls, Auto-Fit's re-stamped key, the key's charge frame after one or several charge changes;
+   - voigtStale: every Voigt state (pre-A03 free η, post-A03 0.5, η exactly 0.5 from an old fit, missing _backendParams);
+   - evidence: any remaining consumer of starts / certificate / support / chosen alternative that shows a restored-stale fit's evidence;
+   - the spectrum save/reload of restored-stale fits, edited and unedited; project save/reload of the same.
+b. Everything the owner round promised, against the new commit: seed v2, full-precision upload + exact parser, linear on levels, F3, F13, the stale rules for display / export / save.
+c. Reproduce the census and the measurements from the committed data and generators.
+
+Suites at the commit: see its message.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

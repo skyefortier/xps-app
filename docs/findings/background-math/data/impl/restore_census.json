@@ -6,7 +6,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -15,7 +16,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.767100597091475
+  "stalePct": 0.767100597091475,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 9.454209918198494e-18
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.3911875009647999
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -24,7 +35,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.19519140781068342
+  "stalePct": 0.19519140781061803,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -33,7 +45,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8538951808525589
+  "stalePct": 0.8538951808525592,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 3.4110407184611094e-23
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.953152144716201
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -42,7 +64,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9034131899215964
+  "stalePct": 0.9034131899216568,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -51,7 +74,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.6509482755644109
+  "stalePct": 0.6509482755644109,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 2.3191368714641736e-31
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.445237233268302
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -60,7 +93,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.5088798578640935
+  "stalePct": 0.5088798578640246,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -69,7 +103,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.35650728221843403
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.7174105407109561
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -78,7 +122,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.859778926154957
+  "stalePct": 0.85977892615514,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -87,7 +132,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8054675391502539
+  "stalePct": 0.8054675391502625,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.36064955921190045
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.8270551599006711
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -96,7 +151,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.5928713105179884
+  "stalePct": 1.5928713105179209,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -105,7 +161,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6891369232585367
+  "stalePct": 1.6891369232607674,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 5.206852241754663e-19
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.886496848496264
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -114,7 +180,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.5722517217074371
+  "stalePct": 0.5722517217074896,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -123,7 +190,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.2634315413622351
+  "stalePct": 0.2634315413622351,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.9426290192925992e-16
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.39142167592867205
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -132,7 +209,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 2.36236985860475
+  "stalePct": 2.362369858604611,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -141,7 +219,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9252394623418945
+  "stalePct": 0.9252394623419015,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.8193227521727336e-16
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.642973798061189
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -150,7 +238,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8839184260486177
+  "stalePct": 0.883918426048682,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -159,7 +248,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.3718960744393056
+  "stalePct": 0.3718960744393056,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 5.38003681724462e-33
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.7544424556654077
+   }
+  ]
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -168,7 +267,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
@@ -177,7 +277,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9426304609224768
+  "stalePct": 0.9426304609224768,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 2.7346255177418145e-21
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.1944494669890677
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -186,7 +296,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 5.073465073534439
+  "stalePct": 5.073465073534017,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -195,7 +306,17 @@
   "endpointAvg": "6",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6469593369058235
+  "stalePct": 1.6469593369058446,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.535032010989274
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.535032010989274
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -204,7 +325,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 2.9104509883933525
+  "stalePct": 2.9104509883935608,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -213,7 +335,17 @@
   "endpointAvg": "6",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6527749364822837
+  "stalePct": 1.6527749364825084,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -222,7 +354,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 2.954131704380448
+  "stalePct": 2.9541317043806097,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -231,7 +364,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -240,7 +383,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -249,7 +393,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8933796062002595
+  "stalePct": 0.8933796062002645,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -258,7 +412,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -267,7 +422,17 @@
   "endpointAvg": "2",
   "kept": true,
   "reason": null,
-  "stalePct": 1.1688450776898773
+  "stalePct": 1.1688450776905306,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -276,7 +441,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.547378942592431
+  "stalePct": 1.5473789425926001,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -285,7 +451,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.5076523818598605
+  "stalePct": 0.5076523818598488,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -294,7 +470,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -303,7 +480,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.9208956136339388
+  "stalePct": 1.9208956136339517,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -312,7 +499,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -321,7 +509,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -330,7 +528,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -339,7 +538,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.2708209716992149
+  "stalePct": 0.2708209716992136,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -348,7 +557,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -357,7 +567,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": [
+   {
+    "name": "U 4f7/2 satellite",
+    "eta": 0.3
+   },
+   {
+    "name": "U 4f5/2 satellite",
+    "eta": 0.3
+   }
+  ]
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -366,7 +586,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.19791911888707067
+  "stalePct": 0.1979191188872706,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -375,7 +596,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.140818637429
+  "stalePct": 1.1408186374291676,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -384,7 +606,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.1452408312711748
+  "stalePct": 0.1452408312711031,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -393,7 +616,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.3890908530434712
+  "stalePct": 0.38909085304369323,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -402,7 +626,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -411,7 +636,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.6298466802285833
+  "stalePct": 0.629846680228496,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -420,7 +646,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.15849104784208806
+  "stalePct": 0.15849104784200296,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -429,7 +656,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.1815633899722581
+  "stalePct": 0.18156338997244129,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -438,7 +666,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9076760345314471
+  "stalePct": 0.9076760345316168,
+  "voigtStale": null
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -447,7 +676,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.7278130641173058
+  "stalePct": 0.7278130641174368,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -456,7 +686,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -465,7 +696,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -474,7 +706,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -483,7 +716,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -492,7 +726,8 @@
   "endpointAvg": "31",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -501,7 +736,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -510,7 +746,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -519,7 +756,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -528,7 +766,8 @@
   "endpointAvg": "25",
   "kept": true,
   "reason": null,
-  "stalePct": 1.2300826150490691
+  "stalePct": 1.230082615049079,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -537,7 +776,8 @@
   "endpointAvg": "25",
   "kept": false,
   "reason": "it was saved without its fitted envelope, so the background it was fitted against cannot be recovered (a stored background curve was the page's preview, not the fit's)",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -546,7 +786,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.2186968359138785
+  "stalePct": 0.2186968359138699,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.9150173855904275e-17
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9117530484155909
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -555,7 +805,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.24852686570074808
+  "stalePct": 0.24852686570074814,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.16714953736544091
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9999999999999999
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -564,7 +824,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.7613396202723801
+  "stalePct": 0.7613396202723716,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.08778573779115381
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9999999999993379
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -573,7 +843,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6670985057153154
+  "stalePct": 1.667098505715324,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 3.2684558562040205e-10
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.8948209336214737
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -582,7 +862,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.678055424797293
+  "stalePct": 0.6780554247972932,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 5.493526753255176e-16
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9851956532390698
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -591,7 +881,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.4751355936691083
+  "stalePct": 0.4751355936691,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.13378241083592782
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9999999999999999
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -600,7 +900,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.360681800974431
+  "stalePct": 0.36068180097442226,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.04440926826672713
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9999999999994521
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -609,7 +919,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.6147136896749971
+  "stalePct": 0.61471368967499,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.370119141628974
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9999999999999999
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -618,7 +938,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.809397697418702
+  "stalePct": 0.8093976974187022,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.6583614276927043e-19
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.7299248040245704
+   }
+  ]
  },
  {
   "project": "B4C-UCl4.proj.zip",
@@ -627,7 +957,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.450948069133061
+  "stalePct": 1.4509480691330614,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.7728940815068627e-17
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9999999997844493
+   }
+  ]
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -636,7 +976,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -645,7 +986,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -654,7 +996,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -663,7 +1006,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -672,7 +1016,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -681,7 +1026,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -690,7 +1036,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -699,7 +1046,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -708,7 +1056,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -717,7 +1066,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -726,7 +1076,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -735,7 +1086,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -744,7 +1096,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -753,7 +1106,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -762,7 +1116,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 3.109687040898683
+  "stalePct": 3.1096870408986512,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -771,7 +1126,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 3.6053356437248874
+  "stalePct": 3.60533564372482,
+  "voigtStale": null
  },
  {
   "project": "Cl2p_projfit_test.proj.zip",
@@ -780,7 +1136,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 2.0446894546491925
+  "stalePct": 2.0446894546491716,
+  "voigtStale": [
+   {
+    "name": "Cl 2p3/2",
+    "eta": 0.15713344108091368
+   },
+   {
+    "name": "Cl 2p1/2",
+    "eta": 0.15713344108091368
+   }
+  ]
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -789,7 +1155,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -798,7 +1165,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -807,7 +1175,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -816,7 +1185,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -825,7 +1195,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -834,7 +1205,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -843,7 +1215,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -852,7 +1225,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -861,7 +1235,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -870,7 +1245,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -879,7 +1255,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -888,7 +1265,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -897,7 +1275,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "Project9_CasaXPS_newfit.proj.zip",
@@ -906,7 +1285,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "it was saved without the energies it was fitted on (an earlier version's save), so its envelope cannot be placed on its data",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -915,7 +1295,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.299469080334322
+  "stalePct": 1.2994690803342293,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -924,7 +1305,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.601339617913261
+  "stalePct": 0.6013396179133703,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -933,7 +1315,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -942,7 +1325,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -951,7 +1335,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.3442428194921205
+  "stalePct": 1.344242819492214,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -960,7 +1345,8 @@
   "endpointAvg": "1",
   "kept": false,
   "reason": "its stored envelope and the energies it was fitted on have different lengths",
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -969,7 +1355,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.0092148566422
+  "stalePct": 1.0092148566421257,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -978,7 +1365,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -987,7 +1375,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.4533433134545313
+  "stalePct": 1.4533433134546192,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -996,7 +1385,8 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.3982541159149036
+  "stalePct": 1.3982541159147945,
+  "voigtStale": null
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1005,7 +1395,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.767100597091475
+  "stalePct": 0.767100597091475,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 2.745770059043347e-19
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.3911983417387395
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1014,7 +1414,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8538951808525589
+  "stalePct": 0.8538951808525675,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 2.3539724884823674e-34
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.9532169813442977
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1023,7 +1433,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": null
+  "stalePct": null,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 3.510922394912549e-21
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.4350369121516293
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1032,7 +1452,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8781917253350453
+  "stalePct": 0.8781917253352969,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.6013109215154849
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.7631753048865529
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1041,7 +1471,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8054675391502539
+  "stalePct": 0.805467539150254,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.3606836091295877
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.8271343550521754
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1050,7 +1490,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6891369232613294
+  "stalePct": 1.6891369232615165,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 4.802961967975993e-21
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.8864833070883086
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1059,7 +1509,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.2634315413622288
+  "stalePct": 0.2634315413622288,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.9320676141315323e-16
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.39142167120658705
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1068,7 +1528,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9252394623418945
+  "stalePct": 0.9252394623418945,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.1187799454330349e-05
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.6408915316774311
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1077,7 +1547,17 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.37571618223713066
+  "stalePct": 0.37571618223713066,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 0.1853334335448608
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.7687082277883516
+   }
+  ]
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1086,6 +1566,16 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9426304609224828
+  "stalePct": 0.9426304609224828,
+  "voigtStale": [
+   {
+    "name": "Satellite 2",
+    "eta": 1.0344287138761778e-23
+   },
+   {
+    "name": "Satellite 1",
+    "eta": 0.19456335448447323
+   }
+  ]
  }
 ]

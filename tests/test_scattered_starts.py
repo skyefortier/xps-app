@@ -145,13 +145,28 @@ def test_solutions_that_are_not_better_are_counted_not_listed(monkeypatch):
         assert "components" not in json.dumps(st["not_better_chi2r"])
 
 
-def test_the_starts_are_a_pure_function_of_the_request():
+def test_the_starts_are_a_pure_function_of_the_request(monkeypatch):
+    # The claim is about the DRAWS: identical requests give the same seed and the same
+    # scattered starting points, whatever the global generator holds. (Owner 2026-10-04:
+    # the whole-fit comparison moves to the two-basin follow-up — on this fixture, which
+    # sits on a basin boundary, the certificate's Trust-Region arithmetic sent one
+    # scattered start of two identical requests into the other basin, depending on what
+    # ran earlier in the process; PROGRESS.md "NEXT".)
     x, y, specs = _two_basin_problem()
+    drawn, real = [], fitting._scattered_start
+
+    def record(params, rng):
+        out = real(params, rng)
+        drawn[-1].append({k: (p.value, p.min, p.max, p.vary, p.expr) for k, p in out.items()})
+        return out
+    monkeypatch.setattr(fitting, "_scattered_start", record)
+    drawn.append([])
     a = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)
     np.random.seed(99)                                 # the global generator is irrelevant
+    drawn.append([])
     b = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)
-    assert a["starts"]["ran"] and a["starts"]["alternatives"]
-    assert_same_fit(a, b)                              # the whole response, the starts report included
+    assert a["starts"]["ran"] and a["random_seed"] == b["random_seed"]
+    assert len(drawn[0]) == 4 and drawn[0] == drawn[1]  # the same four starting points, bit for bit
 
 
 def test_the_third_stream_leaves_the_existing_draws_alone():
