@@ -75,16 +75,23 @@ def fit_grid(rf):
                   and all(isinstance(v, (int, float)) for v in bs + bi))
     sig6 = has_counts and all(float(f"{v:.6g}") == v for v in bs + bi)
     half6 = lambda v: 0.0 if v == 0 else 0.5 * 10.0 ** (np.floor(np.log10(abs(v))) - 5)
+    pow10 = lambda v: f"{abs(v):.5e}".startswith("1.00000e")
+    below = lambda v: 0.0 if v == 0 else (half6(v) / 10 if v > 0 and pow10(v) else half6(v))
+    above = lambda v: 0.0 if v == 0 else (half6(v) / 10 if v < 0 and pow10(v) else half6(v))
     def rmse_ok(c):
         if not has_rmse:
             return True
         r = [I[c[k]] - fy[k] for k in range(n)]
         big = max(abs(I[c[k]]) + abs(fy[k]) for k in range(n))
-        return abs(np.sqrt(sum(v * v for v in r) / n) - rmse) <= 0.005 + 8 * U * big + 2 * U * abs(rmse)
+        rc = np.sqrt(sum(v * v for v in r) / n)
+        return abs(rc - rmse) <= 0.005 + 8 * U * big + (n + 4) * U * (rc + abs(rmse))
     def counts_ok(c):
         for k in range(n):
-            tol = (half6(bs[k]) + half6(bi[k]) if sig6 else 0.0) + 16 * U * (abs(bs[k]) + abs(bi[k]) + abs(I[c[k]]))
-            if not abs(bs[k] + bi[k] - I[c[k]]) <= tol:
+            a = 16 * U * (abs(bs[k]) + abs(bi[k]) + abs(I[c[k]]))
+            lo = (below(bs[k]) + below(bi[k]) if sig6 else 0.0) + a
+            hi = (above(bs[k]) + above(bi[k]) if sig6 else 0.0) + a
+            d = I[c[k]] - (bs[k] + bi[k])
+            if not (-lo <= d <= hi):
                 return False
         return True
     ok, amb = {}, False
@@ -93,8 +100,8 @@ def fit_grid(rf):
         while stack:
             k, prev, lo, hi, idx = stack.pop()
             if k == n:
-                if rmse_ok(idx):
-                    ok[idx] = idx
+                if rmse_ok(idx) and idx not in ok:
+                    ok[idx] = (idx, lo, hi)
                 continue
             for i in within(k, lo, hi):
                 if i <= prev:
@@ -120,16 +127,18 @@ def fit_grid(rf):
             return None
     cl = list(ok.values())
     if has_counts and (len(cl) > 1 or not has_rmse):
-        bc = [c for c in cl if counts_ok(c)]
+        bc = [r for r in cl if counts_ok(r[0])]
         if bc or not has_rmse:
             cl = bc
     if not cl:
         return None
-    if not all(all(corr[i] == corr[cl[0][k]] and I[i] == I[cl[0][k]] for k, i in enumerate(c)) for c in cl):
+    first = cl[0][0]
+    if not all(all(corr[i] == corr[first[k]] and I[i] == I[first[k]] for k, i in enumerate(r[0])) for r in cl):
         return None
-    pick = np.asarray(cl[0])
+    moved = all(not (lo <= 0 <= hi) for _, lo, hi in cl)
+    pick = np.asarray(first)
     c = np.asarray(corr)
-    return c[pick], np.asarray(I)[pick], c[pick]
+    return c[pick], np.asarray(I)[pick], c[pick], moved
 
 
 def legacy_voigts(rf):
@@ -178,11 +187,18 @@ for f in sorted(glob.glob(os.path.join(ROOT, "docs/autofit/test_data/*.proj.zip"
         fy = np.asarray([np.nan if v is None else v for v in fy], float)
         if g is None or len(fy) != len(g[0]):
             row["verdict"] = "envelope on other points"; rows.append(row); continue
-        x, y, mx = g
+        x, y, mx, moved = g
         specs = rf.backend_peak_specs()
         specs = [dict(s, gl_ratio=recorded_voigt_eta(p)) if p.get("shape") == "Voigt" and recorded_voigt_eta(p) is not None else s
                  for s, p in zip(specs, rf.peaks)]
-        implied = fy - evaluate_model(mx, specs)
+        # the committed fits predate the full-precision upload and carry no key: the server
+        # evaluated them at toFixed(4) energies, known here to 1e-4 (the page's rule)
+        from decimal import Decimal, ROUND_HALF_UP
+        to4 = np.array([float(Decimal(float(v)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)) for v in mx])
+        m0 = evaluate_model(to4, specs)
+        sens = (np.maximum(np.abs(evaluate_model(to4 + 1e-4, specs) - m0), np.abs(evaluate_model(to4 - 1e-4, specs) - m0))
+                if moved else np.zeros_like(m0))     # only when the frame demonstrably moved
+        implied = fy - m0
         for rule, (i0, i1) in (("old", old_window(rf, x)), ("today", today_window(rf, x))):
             try:
                 now = background_like_run_fit(x, y, rf.bg_method, i0, i1, rf.endpoint_avg)
@@ -191,8 +207,9 @@ for f in sorted(glob.glob(os.path.join(ROOT, "docs/autofit/test_data/*.proj.zip"
             scale = max(float(np.max(np.abs(implied))), float(np.max(np.abs(now))))
             env = max(float(np.max(np.abs(fy))), float(np.max(np.abs(fy - implied))))
             d = float(np.max(np.abs(implied - now)))
+            beyond = float(np.max(np.maximum(0.0, np.abs(implied - now) - sens)))
             row[rule] = d / scale if scale else (0.0 if d == 0 else float("inf"))
-            row[rule + "_ok"] = d <= SAME_MINIMUM_REL * scale + fitting.BG_REL_TOL * env
+            row[rule + "_ok"] = beyond <= SAME_MINIMUM_REL * scale + fitting.BG_REL_TOL * env
         row["voigt"] = legacy_voigts(rf)
         ok = [row.get(r + "_ok", False) for r in ("old", "today")]
         row["verdict"] = ("reloads (today's window)" if ok[1] else "differs (today's window only)" if ok[0]

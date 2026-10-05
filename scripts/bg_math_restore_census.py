@@ -49,7 +49,7 @@ const src = require(path.join(root, 'tests/js/_page_background_source.js'))({ ma
    '_restoredFitGrid', '_restoredFitModel', 'evalAllPeaks', '_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt',
    'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array',
    'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
-   'evalPeakArray', 'getPeak', '_migrateLineshapeAliases', '_restoredFitPeaks', '_legacyVoigts', '_restoredStale',
+   'evalPeakArray', 'getPeak', '_migrateLineshapeAliases', '_restoredFitPeaks', '_asFitted', '_legacyVoigts', '_restoredStale',
    '_startsModelKey', '_startsRecordKey'].map(fn).join('\n') +
   '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
   '\nreturn { _restoredFitBgFailure, _migrateLineshapeAliases };';

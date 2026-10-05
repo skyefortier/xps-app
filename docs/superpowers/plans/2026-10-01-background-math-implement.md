@@ -244,7 +244,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21).
 
 ## 4. Measurements
 
@@ -979,3 +979,25 @@ saved fit's own samples meet its RMSE within 0.0008 and its counts within their 
 (63 of 63). Census unchanged (10 / 71 / 40; page and Python agree on all 121; the page
 judges all 121 in ~3 s). Mutation-verified (4 of 4 killed: guess among indistinguishable
 readings, greedy matching, the offset pinned to the first energy, the key ignored).
+
+### 7.8 Codex round 21 — NO-GO ×2 (`background_math_impl_r21_verdict_run{A,B}.md`, commit dcca5a4)
+
+Both runs reproduced the census, the Python twin, the measurements and the student note;
+no committed fit is refused as indistinguishable.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): a restored charge-shifted fit was lost on its SECOND save / load — the restore rewrites the stored energies in today's frame while the key keeps the fit's | the stored energies carry their frame: `fr.beShift` (today's shift, written by the restore, saved with the fit); the offset is today's shift − that frame (else the key's) |
+| 2 | MAJOR (A): a fit made before the full-precision upload was evaluated at full-precision energies, but the server had evaluated it at the upload's toFixed(4) ones (a sharp component: 100 % / 0.28 % stale for unchanged backgrounds) | this version's fits are marked `uploadFull` (every creator; saved with them); an older fit is reconstructed at toFixed(4) energies — exactly when its fit key gives the frame, or when the stored energies show the frame did NOT move (the matched offset interval contains zero); only when it demonstrably moved (no key, a non-zero offset — remembered as `fr.frameMoved` for later loads) does each point also allow what 1e-4 eV moves its components by. On the committed fits: 16 of 81 get that allowance (their charge correction changed after the fit), at most 0.59 % of the background's scale at the steepest point (median 0.27 %); the other 65 none (an earlier draft applied it to every keyless fit: 48 of 81 above the 1e-3 tolerance itself, withdrawn) |
+| 3 | MAJOR (A): the RMSE bound omitted the accumulation error of n squared residuals (16 384 points of 1e14 counts: 1.96 against 0.30 allowed) | + (n + 4) u (rc + rmse); the search's prune uses the same bound solved for the recomputed RMSE (R*) |
+| 4 | MAJOR (B): a 6-significant-figure power of ten came from a one-sided interval (1000 from [999.9995, 1000.005)), so a symmetric half-unit admitted a reading the counts separate | `below` / `above`: the side towards zero of a power of ten has a ten times finer unit |
+| 5 | MAJOR (B): Save Spectrum of an unedited pre-A03 Voigt fit wrote its envelope beside components drawn at 0.5 | the fit's own curves are its components as fitted (`_asFitted`: the recorded η, as GL) |
+
+Found while fixing (3): the search copied each path per step (quadratic in the window) — it
+now keeps parent links, prunes a branch that cannot be completed in order or whose partial
+sum of squares already exceeds R*, and stops at 64 distinct agreeing readings; the 16 384-
+point case runs in well under a second, all 121 committed fits in ~3 s. Mutation-verified (5
+of 5 killed: the frame of the stored energies, the legacy 4-dp energies, the 1e-4 allowance
+— a keyless fit shifted by a fraction of a step — the sum-of-squares term, the one-sided
+interval). Census unchanged (10 / 71 / 40; the stale sizes move by < 1e-3 of themselves; page
+and Python agree on all 121).
