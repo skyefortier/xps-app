@@ -212,10 +212,13 @@ for f in sorted(glob.glob(os.path.join(ROOT, "docs/autofit/test_data/*.proj.zip"
             row[rule + "_ok"] = beyond <= SAME_MINIMUM_REL * scale + fitting.BG_REL_TOL * env
         row["voigt"] = legacy_voigts(rf)
         ok = [row.get(r + "_ok", False) for r in ("old", "today")]
+        row["unconfirmed"] = bool(moved and rf.fit_result.get("engine") != "local")   # keyless, frame moved: never current
         row["verdict"] = ("reloads (today's window)" if ok[1] else "differs (today's window only)" if ok[0]
                           else "differs (either window)")
         if row["voigt"] and ok[1]:
             row["verdict"] = "stale (pre-A03 Voigt only)"
+        if row["unconfirmed"]:
+            row["verdict"] = "stale (unconfirmed: frame moved after a keyless older fit)"
         rows.append(row)
 c = collections.Counter(r["verdict"] for r in rows)
 print(f"{len(rows)} saved fits: {dict(c)}")

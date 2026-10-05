@@ -60,7 +60,8 @@ const out = tabs.map(t => {
   return { project: t.project, tab: t.rec.name, bgType: t.rec.ui.bgType, endpointAvg: t.rec.ui.endpointAvg ?? null,
            kept: reason === null, reason,
            stalePct: reason === null && t.rec.fitResult.backgroundStale ? t.rec.fitResult.backgroundStale.pct : null,
-           voigtStale: reason === null && t.rec.fitResult.voigtStale ? t.rec.fitResult.voigtStale : null };
+           voigtStale: reason === null && t.rec.fitResult.voigtStale ? t.rec.fitResult.voigtStale : null,
+           unconfirmed: !!(reason === null && t.rec.fitResult.backgroundStale && t.rec.fitResult.backgroundStale.unconfirmed) };
 });
 console.log(JSON.stringify(out));
 """
@@ -100,8 +101,11 @@ def main():
         print(f"  CURRENT  {r['project']} / {r['tab']}  ({r['bgType']}, averaging {r['endpointAvg']})")
     pcts = sorted(r["stalePct"] for r in stale if r["stalePct"] is not None)
     nv = sum(1 for r in stale if r["voigtStale"])
-    print(f"  STALE x{len(stale)}: {len(pcts)} against another background (median {pcts[len(pcts) // 2]:.3g} %, max "
-          f"{pcts[-1]:.3g} % of its scale), {nv} with a Voigt fitted before A03 at another mix, "
+    nu = sum(1 for r in stale if r["unconfirmed"])
+    real = sorted(r["stalePct"] for r in stale if r["stalePct"] is not None and not r["unconfirmed"])
+    print(f"  STALE x{len(stale)}: {len(real)} against another background (median {real[len(real) // 2]:.3g} %, max "
+          f"{real[-1]:.3g} % of its scale), {nu} unconfirmed (charge correction changed after a keyless older fit), "
+          f"{nv} with a Voigt fitted before A03 at another mix, "
           f"{sum(1 for r in stale if r['voigtStale'] and r['stalePct'] is None)} of them for that alone")
     for r in stale:
         bgp = f"{r['stalePct']:9.3g} %" if r["stalePct"] is not None else "   (same) "

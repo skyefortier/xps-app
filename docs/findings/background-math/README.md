@@ -65,25 +65,45 @@ background's scale (`fit_equality.SAME_MINIMUM_REL`), on the 121 committed saved
 `scripts/bg_math_restore_alternative.py` in Python agrees on all 121;
 `data/impl/restore_census.json`, `restore_alternative.json`):
 
-- 15 equal today's (median 2.2e-6, max 9.4e-5 of the scale) — 10 reload as they were, and 5
+(After Codex round 23.)
+
+- 10 equal today's (median 9.5e-7, max 9.4e-5 of the scale) — 8 reload as they were, and 2
   are stale only because they hold a Voigt fitted before A03 at another mix, which the page
-  (drawing 0.5) cannot show as fitted (41 checkable fits hold one; after Codex round 18);
-- 60 differ only because older requests chose the background window by nearest index,
+  (drawing 0.5) cannot show as fitted (41 checkable fits hold one);
+- 54 differ only because older requests chose the background window by nearest index,
   end-exclusive (today: inclusive bounds) — median 0.83 %, max 5.07 % (4-GTA UCl4-BN
   B1s Scan); they reload marked stale;
-- 6 differ under either window rule, all `smart` — these were fitted against a
-  background that neither today's code nor main's server code gives on the same samples
-  (main misses them by 0.85–2.95 % too), or their peaks were edited after the fit in a
-  save older than F1 (no model key to tell). They reload marked stale:
+- 1 differs under either window rule: 4-GTA UCl4-BN U4f Scan, 1.65 % (`smart`; main's own
+  server background misses it too — fitted against another background, or its peaks were
+  edited after the fit in a save older than F1, which kept no model key);
+- 16 are UNCONFIRMED: older fits without a model key whose charge correction changed after
+  the fit. The record keeps their energies only to 4 decimals, so their reconstruction is
+  uncertain by up to 1e-4 eV — enough to cancel a genuine change as easily as to invent one
+  — and they are never confirmed current; they reload stale with the difference as far as
+  it can be reconstructed:
 
-  | project / tab | difference of the fit's background from today's |
+  | project / tab | reconstructed difference |
   |---|---|
   | 4-GTA UCl4-BN / B1s Scan_1 | 2.95 % |
+  | 4-GTA UCl4-BN / B1s Scan_0 | 2.91 % |
+  | UCl4_on_graphite / U4f Scan_4 | 1.69 % |
   | 4-GTA UCl4-BN / U4f Scan_0 | 1.65 % |
-  | 4-GTA UCl4-BN / U4f Scan | 1.65 % |
   | 4-GTA UCl4-BN / B1s Scan_4 | 1.55 % |
   | 4-GTA UCl4-BN / U4f Scan_3 | 1.17 % |
+  | 4-GTA UCl4-BN / U4f Scan_2 | 0.893 % |
   | UCl4_on_graphite / U4f Scan_2 | 0.878 % |
+  | UCl4_on_graphite / U4f Scan | 0.767 % |
+  | 4-GTA UCl4-BN / U4f Scan_4 | 0.508 % |
+  | 4-GTA UCl4-BN / U4f Scan_7 | 0.271 % |
+  | 4-GTA UCl4-BN / U4f Scan_1 | 0.0893 % |
+  | 4-GTA UCl4-BN / U4f Scan_8 | 0.0709 % |
+  | 4-GTA UCl4-BN / B1s Scan_2 | 0.0004 % |
+  | 4-GTA UCl4-BN / B1s Scan_3 | 0.0004 % |
+  | UCl4_on_graphite / U4f Scan_1 | 0.00003 % |
+
+  (Earlier rounds named six "genuine differences under either window"; five of them are in
+  this table — their difference is real at their reconstructed energies but cannot be
+  confirmed from the record.)
 
 - 40 cannot be checked (28 saved without the energies they were fitted on, 11 without
   their fitted envelope, 1 with the two of different lengths) — peaks only.

@@ -550,6 +550,58 @@ test('restore: "the record\'s peaks are the fit\'s" compares centres in one char
   assert.ok(!R._restoredModelIsFit(f.rec), 'an edit is not the fit');
 });
 
+// ── Codex impl round 23 ──
+test('restore: a keyless older fit whose charge correction moved is never confirmed current', () => {
+  // its reconstruction is uncertain by up to 1e-4 eV, which can cancel a genuine change (a
+  // background built as 100 + (M_fitted − M_reconstructed) read "current")
+  const rawBE = Array.from({ length: 11 }, (_, i) => 280.00004 + 0.1 * i);
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.5, fwhm: 0.2, amplitude: 1000 }];
+  const rawIntensity = rawBE.map(x => 100 + R.evalAllPeaks([Number(x.toFixed(4))], G)[0]);
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'manual', roiMin: '', roiMax: '' },
+                        manualAnchors: [{ x: 280, y: 100 }, { x: 281.5, y: 100 }] });
+  const { be, bg, rawY } = R._recordBackground(rec);
+  const mOld = R.evalAllPeaks(be.map(v => Number(v.toFixed(4))), rec.peaks);
+  const fy = Array.from(bg).map((v, i) => v + mOld[i]);
+  rec.fitResult = { be: be.map(v => Math.round(v * 1e4) / 1e4), fittedY: fy, bgIntensity: be.map(() => 0),
+                    rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
+  rec.ccShift = 0.033337; rec.peaks.forEach(p => { p.center -= 0.033337; });
+  // the cancelling background: what the reconstruction gets wrong, added to the anchors
+  const corr = be.map(v => v - 0.033337);
+  const mEst = R.evalAllPeaks(corr.map(v => Number(v.toFixed(4))), rec.peaks);
+  rec.manualAnchors = corr.map((x, i) => ({ x, y: 100 + mOld[i] - mEst[i] }));
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.ok(rec.fitResult.backgroundStale && rec.fitResult.backgroundStale.unconfirmed, 'stale, unconfirmed — never current');
+  assert.strictEqual(rec.fitResult.frameMoved, true);
+  const again = JSON.parse(JSON.stringify(rec)); again.fitResult.be = again.fitResult.be.map(v => Math.round(v * 1e4) / 1e4);
+  assert.strictEqual(R._restoredFitBgFailure(again), null);
+  assert.ok(again.fitResult.backgroundStale && again.fitResult.backgroundStale.unconfirmed, 'remembered on the next load (its own frame)');
+});
+
+test('restore: repeated samples are one branch, and the stored counts prune as the search goes', () => {
+  const c = [62.5, 500, 1000, 500, 62.5];
+  const rawBE = [280, 280.5, 281, 281.5, 282], rawIntensity = c.slice();
+  for (let k = 0; k < 5; k++) for (let r = 0; r < 5; r++) { rawBE.push(290 + 0.5 * k); rawIntensity.push(k === 2 ? 999.999 : c[k]); }
+  const rec = peakRec({ rawBE, rawIntensity, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '282' } });
+  rec.fitResult = { uploadFull: true, be: [280, 280.5, 281, 281.5, 282], fittedY: c.slice(), rmse: 0,
+                    bgSubtracted: c.slice(), bgIntensity: [0, 0, 0, 0, 0] };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null, 'not "too many": duplicates do not multiply the search');
+  assert.deepStrictEqual(rec.fitResult.be.slice(), [280, 280.5, 281, 281.5, 282]);
+  // and without stored counts: a record whose every sample is repeated four times
+  const be4 = [], i4 = [];
+  for (let k = 0; k < 12; k++) for (let r = 0; r < 4; r++) { be4.push(280 + k); i4.push(100 + 10 * k); }
+  const rep = peakRec({ rawBE: be4, rawIntensity: i4, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  rep.fitResult = { uploadFull: true, be: be4.slice(), fittedY: i4.slice(), rmse: 0, bgIntensity: be4.map(() => 0) };
+  assert.strictEqual(R._restoredFitBgFailure(rep), null, 'equal samples are one reading, found once');
+  // another run whose samples are each repeated six times, its centre count a hair off, and no
+  // stored counts: two readings the RMSE cannot separate — said as such, not "too many"
+  const c7 = [10, 62.5, 500, 1000, 500, 62.5, 10], e7 = [280, 280.5, 281, 281.5, 282, 282.5, 283];
+  const c6BE = e7.slice(), c6I = c7.slice();
+  for (let k = 0; k < 7; k++) for (let r = 0; r < 6; r++) { c6BE.push(290 + 0.5 * k); c6I.push(k === 3 ? 999.999 : c7[k]); }
+  const six = peakRec({ rawBE: c6BE, rawIntensity: c6I, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '283' } });
+  six.fitResult = { uploadFull: true, be: e7.slice(), fittedY: c7.slice(), rmse: 0, bgIntensity: e7.map(() => 0) };
+  assert.match(R._restoredFitBgFailure(six) || '', /equally well/, 'equal samples did not multiply the search into "too many"');
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));

@@ -480,14 +480,17 @@ def test_a_restored_stale_spectrum_save_writes_one_fits_curves_on_one_grid(brows
         const { inten } = getROIData();
         fr.rmse = Math.sqrt(inten.reduce((a, v, i) => a + (v - fr.fittedY[i]) ** 2, 0) / inten.length);
         tabManager._syncActiveToRecord(); }"""
-    for name, after, shift in (("shifted", "() => {}", True), ("legacy", LEGACY, False)):
+    for name, after, shift in (("shifted", "() => {}", True), ("legacy", LEGACY, False), ("legacy current", LEGACY, None)):
         pg = _new_page(browser, server)
         try:
             saved = _fit_and_capture(pg, SHARP, "() => _doSaveProject()", after)
         finally:
             pg.close()
         t = next(t for t in saved["tabs"] if t.get("fitResult"))
-        t["manualAnchors"] = [{"x": 280, "y": 20}, {"x": 284.1, "y": 20}]          # today's background differs
+        if shift is None:                                    # unchanged: it restores CURRENT (Codex impl round 23)
+            t["fitResult"]["startsModelKey"] = None
+        else:
+            t["manualAnchors"] = [{"x": 280, "y": 20}, {"x": 284.1, "y": 20}]      # today's background differs
         if shift:                                                                   # the charge correction moved after the fit
             t["ccShift"] = 0.5
             for p in t["peaks"]:
@@ -499,21 +502,30 @@ def test_a_restored_stale_spectrum_save_writes_one_fits_curves_on_one_grid(brows
             pg.evaluate(NOTIFY)
             pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", saved)
             pg.wait_for_timeout(400)
-            assert pg.evaluate("() => !!(state.fitResult && state.fitResult.backgroundStale)"), (name, pg.evaluate("() => window.__n"))
+            want_stale = shift is not None
+            assert pg.evaluate("() => !!(state.fitResult && state.fitResult.backgroundStale)") is want_stale, (name, pg.evaluate("() => window.__n"))
             pg.evaluate(CAPTURE)
             pg.evaluate("() => _doSaveSpectrum()")
             pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
             spec = json.loads(pg.evaluate("() => window.__dl[0].text"))
         finally:
             pg.close()
-        assert spec["statistics"]["restoredStale"] is True, (name, spec["statistics"])
+        assert spec["statistics"].get("restoredStale") is (True if want_stale else None), (name, spec["statistics"])
         comp = [sum(c["y"][i] for c in spec["peakCurves"]) for i in range(len(spec["roiBE"]))]
-        assert all(abs(f - b - m) <= 1e-9 * max(1.0, abs(f)) for f, b, m in zip(spec["fittedY"], spec["background"], comp)), name
+        # stale: the fit's own background, so envelope = background + components exactly; current:
+        # today's certified background, equal to the fit's within the restore's tolerance
+        tol = 1e-9 if want_stale else 1e-3
+        scale = max(abs(b) for b in spec["background"])
+        assert all(abs(f - b - m) <= tol * max(1.0, scale) for f, b, m in zip(spec["fittedY"], spec["background"], comp)), name
+        at = {b - (spec.get("ccShift") or 0): v for b, v in zip(spec["rawBE"], spec["rawIntensity"])}   # today's corrected energies
+        assert all(abs(r + f - at[e]) <= 1e-9 * max(1.0, abs(at[e])) for e, r, f in zip(spec["roiBE"], spec["residuals"], spec["fittedY"])), \
+            name + ": residual = counts − the saved envelope"
         pg = _new_page(browser, server)
         try:
             pg.evaluate(NOTIFY)
             pg.evaluate("data => _loadSpectrumFile(data, 's.spec.json')", spec)
             pg.wait_for_timeout(400)
-            assert pg.evaluate("() => !!(state.fitResult && state.fitResult.backgroundStale)"), (name, pg.evaluate("() => window.__n"))
+            assert pg.evaluate("() => !!state.fitResult"), (name, pg.evaluate("() => window.__n"))
+            assert pg.evaluate("() => !!state.fitResult.backgroundStale") is want_stale, (name, pg.evaluate("() => window.__n"))
         finally:
             pg.close()

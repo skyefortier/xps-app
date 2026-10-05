@@ -943,7 +943,10 @@ on toFixed(4) energies and are reconstructed there) and `beShift` (the frame its
 energies are in after a restore). A keyless older fit whose charge correction moved after
 it is reconstructed to ≤ 1e-4 eV with no allowance (an allowance hid genuine changes, Codex
 impl round 22): its own uncertainty can only read as a difference — stale, never wrongly
-current. Readings are compared by value, and the stored counts choose before any cap. Today's
+current — and since its reconstruction can cancel a genuine change as easily as invent
+one, such a fit is NEVER confirmed current (`frameMoved`, saved; stale "unconfirmed").
+Readings are compared by value, equal samples are one branch, and the stored counts prune
+the search point by point before the RMSE-only pass. Today's
 certified background on those points (the record's settings and own anchors) within
 `BG_RESTORE_REL` = 1e-3 (`fit_equality.SAME_MINIMUM_REL`) of max(|implied|, |today|),
 plus the precision the subtraction recovers it to (BG_REL_TOL × the envelope's scale: a
@@ -959,10 +962,11 @@ of one not edited since it was loaded (`fr.loadKey`) keeps its own curves
 (`restoredStale: true`) so the reload judges it afresh. Uncheckable (no envelope, no
 stored energies, lengths differ, not points of the raw data, no converged background
 now, an edited stale spectrum file): peaks only, with the reason. On the 121 committed
-saved fits: 10 current, 71 stale (66 against another background — 60 only because the
+saved fits: 8 current, 73 stale (55 against another background — 54 only because the
 old request chose the window by nearest index, end-exclusive, median 0.83 %, max
-5.07 %; 6 under either window rule, 0.88–2.95 %, all `smart`, which main's own server
-background misses too — and 41 with a pre-A03 Voigt, 5 for that alone), 40 peaks only
+5.07 %, and 1 under either window rule, 4-GTA UCl4-BN U4f Scan, 1.65 %; 16 UNCONFIRMED:
+keyless older fits whose charge correction changed after the fit, never confirmed
+current (Codex impl round 23); 41 with a pre-A03 Voigt, 2 for that alone), 40 peaks only
 (`scripts/bg_math_restore_census.py`, page functions; the Python twin
 `scripts/bg_math_restore_alternative.py` agrees on all 121). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never

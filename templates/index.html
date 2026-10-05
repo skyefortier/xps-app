@@ -8429,7 +8429,9 @@ const _STATS_UNVERIFIED_NOTE = 'This result was saved without the record that bi
 // size of the difference), and / or with a Voigt mix the page does not draw.
 function _restoredStaleWhy(fr) {
   const why = [];
-  if (fr.backgroundStale) why.push('made against a background that differs from the one its settings give now by ' +
+  if (fr.backgroundStale && fr.backgroundStale.unconfirmed) why.push('made before its charge correction was changed, and an earlier version kept its energies only to 4 decimals, so the background it was fitted against cannot be confirmed (it differs from today\'s by ' +
+    _fmt3(fr.backgroundStale.pct) + ' % of its own scale as far as can be reconstructed)');
+  else if (fr.backgroundStale) why.push('made against a background that differs from the one its settings give now by ' +
     _fmt3(fr.backgroundStale.pct) + ' % of the background\'s own scale (an earlier version\'s background, or settings changed after the fit)');
   if (fr.voigtStale) why.push('fitted with a Voigt G/L mix the page does not draw (' +
     fr.voigtStale.map(v => v.name + ' \u03b7 ' + _fmt3(v.eta)).join(', ') + '; before 2026-09-22 the server fitted a Voigt\'s mix freely, the page draws it at 0.5)');
@@ -10005,9 +10007,11 @@ function _restoredFitBgFailure(rec) {
   // the fit's frame. Before, it uploaded toFixed(4) energies (Codex impl round 21): those of
   // the samples in the fit's frame — exact with a fit key, or when the frame did not move;
   // a keyless fit whose charge correction changed after it is evaluated at today's 4-dp
-  // energies, its best estimate, with NO allowance (Codex impl round 22: an allowance hid
-  // genuine changes) — the reconstruction's own uncertainty (≤ 1e-4 eV) can then only read
-  // as a difference, i.e. stale, never as a match.
+  // energies, its best estimate — but that estimate is uncertain by up to 1e-4 eV, and an
+  // uncertain reconstruction can cancel a genuine change as easily as invent one (Codex impl
+  // rounds 22-23: an allowance hid changes; none, a constructed change cancelled the error),
+  // so such a fit is NEVER confirmed current: it reloads stale with the difference measured,
+  // and the move is remembered (fr.frameMoved, saved) because a later load sees its own frame.
   const legacy = fr.uploadFull !== true && fr.engine !== 'local';
   const e0 = grid.idx.map(i => rec.rawBE[i] - fit.shift);
   const modelBe = legacy ? e0.map(v => Number(v.toFixed(4))) : e0;
@@ -10022,11 +10026,13 @@ function _restoredFitBgFailure(rec) {
     envScale = Math.max(envScale, Math.abs(env[i]), Math.abs(model[i]));
   }
   const beyond = worst;
+  if (legacy && !fit.fitFrame && grid.moved) fr.frameMoved = true;
+  const unconfirmed = legacy && !fit.fitFrame && fr.frameMoved === true;
   if (!rec.fitResult.startsModelKey && !fr.restoredKey) fr.restoredKey = _startsRecordKey(rec);   // what an older save's fit had
   fr.loadKey = _startsRecordKey(rec);                    // the state it was loaded in (_restoredUnchanged)
   const voigt = _legacyVoigts(fit.peaks);
   if (voigt.length) fr.voigtStale = voigt;
-  if (beyond > BG_RESTORE_REL * scale + BG_REL_TOL * envScale) {
+  if (unconfirmed || beyond > BG_RESTORE_REL * scale + BG_REL_TOL * envScale) {
     // owner 2026-10-03: reloaded AS STALE — the fit's own background (envelope less
     // its components) and its peaks as saved, its statistics marked stale with the
     // size of the difference from today's background (_statsState; F1: never exported
@@ -10035,7 +10041,7 @@ function _restoredFitBgFailure(rec) {
     fr.bgIntensity = used;
     fr.be = grid.be;
     fr.bgSubtracted = grid.inten.map((v, i) => v - used[i]);
-    fr.backgroundStale = { pct: 100 * worst / scale };
+    fr.backgroundStale = { pct: 100 * worst / scale, ...(unconfirmed ? { unconfirmed: true } : {}) };
   } else {
     fr.bgIntensity = bg;                                 // the certified curve itself
     fr.be = grid.be;
@@ -10133,87 +10139,85 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0) {
     const rc = Math.sqrt(ss / n);
     return Math.abs(rc - fr.rmse) <= 0.005 + 8 * U * big + (n + 4) * U * (rc + Math.abs(fr.rmse));
   };
-  const countsAgree = c => {
-    for (let k = 0; k < n; k++) {
-      const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[c[k]]));
-      const lo = (sig6 ? below(bs[k]) + below(bi[k]) : 0) + a, hi = (sig6 ? above(bs[k]) + above(bi[k]) : 0) + a;
-      const d = I[c[k]] - (bs[k] + bi[k]);                 // the true counts within [stored − lo, stored + hi]
-      if (!(d >= -lo && d <= hi)) return false;
-    }
-    return true;
-  };
-  // the RMSE is the fit's own statistic: every reading must meet it. The stored counts are a
-  // pair the page wrote (background + what it subtracted): they choose among the readings
-  // the RMSE leaves, and stand in without an RMSE; a pair that fits none says nothing
-  const agrees = rmseAgrees;
-  // the search keeps each path as parent links (no copies) with its running sum of squared
-  // residuals; a branch stops when too few samples remain, or when that partial sum already
-  // puts its RMSE above the largest any completion could still agree with (R*: the bound
-  // below, solved for the recomputed RMSE — a partial sum only grows)
-  // readings are collected BY VALUE (energies and counts: two runs with equal values are one
-  // reading) — those that meet the RMSE, and those that also meet the stored counts; the cap
-  // of 64 distinct readings applies after the counts have had their say (Codex impl round 22)
-  let ambiguous = false, overR = false;
-  const okR = new Map(), okRC = new Map();
-  const valKey = idx => idx.map(i => corr[i] + ':' + I[i]).join(',');
+  // THE SEARCH (Codex impl rounds 21-23): each path is parent links (no copies) with its
+  // running sum of squared residuals. A branch stops when too few samples remain, when that
+  // partial sum already puts its RMSE above the largest any completion could still agree
+  // with (R*: the bound below solved for the recomputed RMSE — a partial sum only grows),
+  // and — in the first pass, when the record has counts — at a point whose stored count it
+  // does not meet. Equal samples (energy and count) are one branch: the earliest of them is
+  // never worse for the points still to place. Readings are collected by value. The counts
+  // choose first; only if no reading meets them does a second pass run on the RMSE alone
+  // (a stored pair that fits no reading says nothing).
   let maxI = 0, maxF = 0;
   for (const v of I) if (Number.isFinite(v)) maxI = Math.max(maxI, Math.abs(v));
   if (hasRmse) for (const v of fy) maxF = Math.max(maxF, Math.abs(v));
   const g = (n + 4) * U;
   const rStar = hasRmse ? (Math.abs(fr.rmse) * (1 + g) + 0.005 + 8 * U * (maxI + maxF + 2 * ampBound)) / Math.max(1 - g, 0.5) : Infinity;
   const ssMax = rStar * rStar * n * (1 + 4 * U);
-  const pathOf = node => { const out = new Array(n); for (let k = n - 1; k >= 0; k--) { out[k] = node.i; node = node.up; } return out; };
-  const search = (lo0, hi0) => {
-    const stack = [{ k: 0, prev: -1, lo: lo0, hi: hi0, node: null, ss: 0 }];
-    let steps = 0;
-    while (stack.length) {
-      const st = stack.pop();
-      if (st.k === n) {
-        const idx = pathOf(st.node);
-        if (agrees(idx)) {
-          const key = valKey(idx);
-          if (okR.size < 64 || okR.has(key)) { if (!okR.has(key)) okR.set(key, idx); } else overR = true;
-          if (hasCounts && countsAgree(idx) && !okRC.has(key)) { okRC.set(key, idx); if (okRC.size > 64) { ambiguous = true; return; } }
-        }
-        continue;
-      }
-      for (const i of within(st.k, st.lo, st.hi)) {
-        if (i <= st.prev || N - i < n - st.k) continue;   // in order; enough samples left for the rest
-        const e = eps(stored[st.k], corr[i]);
-        const lo = Math.max(st.lo, stored[st.k] - h - corr[i] - e), hi = Math.min(st.hi, stored[st.k] + h - corr[i] + e);
-        if (lo > hi) continue;
-        const ss = hasRmse ? st.ss + (I[i] - fy[st.k]) ** 2 : 0;
-        if (ss > ssMax) continue;
-        stack.push({ k: st.k + 1, prev: i, lo, hi, node: { i, up: st.node }, ss });
-      }
-      if (++steps > 64 * (n + 1)) { ambiguous = true; return; }   // the branching, not the offsets
-    }
+  const countAt = (k, i) => {
+    const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[i]));
+    const lo = (sig6 ? below(bs[k]) + below(bi[k]) : 0) + a, hi = (sig6 ? above(bs[k]) + above(bi[k]) : 0) + a;
+    const d = I[i] - (bs[k] + bi[k]);
+    return d >= -lo && d <= hi;
   };
-  if (typeof keyShift === 'number' && Number.isFinite(keyShift)) {
-    const d = shift - keyShift, e = eps(shift, keyShift);
-    search(d - e, d + e);
-  } else {
-    const tried = new Set();
-    for (let j = 0; j < N && !ambiguous; j++) {
-      if (!Number.isFinite(corr[j])) continue;
-      const d = stored[0] - corr[j];
-      if (tried.has(d)) continue;
-      tried.add(d);
-      const e = eps(stored[0], corr[j]);
-      search(d - h - e, d + h + e);
+  const pathOf = node => { const out = new Array(n); for (let k = n - 1; k >= 0; k--) { out[k] = node.i; node = node.up; } return out; };
+  const valKey = idx => idx.map(i => corr[i] + ':' + I[i]).join(',');
+  const pass = useCounts => {
+    const found = new Map();
+    let over = false;
+    const search = (lo0, hi0) => {
+      const stack = [{ k: 0, prev: -1, lo: lo0, hi: hi0, node: null, ss: 0 }];
+      let steps = 0;
+      while (stack.length) {
+        const st = stack.pop();
+        if (st.k === n) {
+          const idx = pathOf(st.node);
+          if (rmseAgrees(idx)) { const key = valKey(idx); if (!found.has(key)) found.set(key, { idx, lo: st.lo, hi: st.hi }); if (found.size > 64) return true; }
+          continue;
+        }
+        const seenVal = new Set();
+        const cand = within(st.k, st.lo, st.hi).filter(i => i > st.prev && N - i >= n - st.k).sort((a, b) => a - b);
+        for (const i of cand) {
+          const vk = corr[i] + ':' + I[i];
+          if (seenVal.has(vk)) continue;                    // an equal sample later in order: never better
+          seenVal.add(vk);
+          if (useCounts && !countAt(st.k, i)) continue;
+          const e = eps(stored[st.k], corr[i]);
+          const lo = Math.max(st.lo, stored[st.k] - h - corr[i] - e), hi = Math.min(st.hi, stored[st.k] + h - corr[i] + e);
+          if (lo > hi) continue;
+          const ss = hasRmse ? st.ss + (I[i] - fy[st.k]) ** 2 : 0;
+          if (ss > ssMax) continue;
+          stack.push({ k: st.k + 1, prev: i, lo, hi, node: { i, up: st.node }, ss });
+        }
+        if (++steps > 4096 * (n + 1)) return true;          // bounded work: more is "ambiguous"
+      }
+      return false;
+    };
+    if (typeof keyShift === 'number' && Number.isFinite(keyShift)) {
+      const d = shift - keyShift, e = eps(shift, keyShift);
+      over = search(d - e, d + e);
+    } else {
+      const tried = new Set();
+      for (let j = 0; j < N && !over; j++) {
+        if (!Number.isFinite(corr[j])) continue;
+        const d = stored[0] - corr[j];
+        if (tried.has(d)) continue;
+        tried.add(d);
+        const e = eps(stored[0], corr[j]);
+        over = search(d - h - e, d + h + e);
+      }
     }
-  }
-  if (ambiguous) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
-  let list;
-  if (hasCounts && (okRC.size || !hasRmse)) list = [...okRC.values()];   // the counts chose (or stand in)
-  else {
-    if (overR) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
-    list = [...okR.values()];
-  }
+    return { found, over };
+  };
+  let res = hasCounts ? pass(true) : null;
+  if (!res || (!res.over && !res.found.size && hasRmse)) res = pass(false);   // the counts said nothing
+  if (res.over) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
+  const list = [...res.found.values()];
   if (!list.length) return { fail: 'its stored points are not points of its raw data, so the background cannot be recomputed on them' };
   if (list.length > 1) return { fail: 'its stored points match more than one set of samples of its raw data equally well, so they cannot be told apart' };
-  const first = list[0];
-  return { idx: first, be: first.map(i => corr[i]), inten: first.map(i => I[i]) };
+  const first = list[0].idx;
+  // moved: the reading's offset excludes zero — the frame changed since the energies were stored
+  return { idx: first, be: first.map(i => corr[i]), inten: first.map(i => I[i]), moved: !(list[0].lo <= 0 && 0 <= list[0].hi) };
 }
 // The curve the fit's own components draw at its points; a Voigt saved before A03
 // (2026-09-22) is drawn with the mix the server fitted it with
@@ -11506,7 +11510,9 @@ function _doSaveSpectrum() {
   // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
   // points, counts, envelope and background — and residuals against that envelope
   // (Codex impl round 19) — so a reload judges it afresh (as a project does)
-  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey()) && _restoredModelIsFit(tab) &&
+  // (Codex impl round 23: a restored CURRENT fit too — its components and residuals belong
+  // to its own envelope, on the energies the restore evaluated them on)
+  const _ownFit = !!state.fitResult && _restoredUnchanged(state.fitResult, _startsLiveKey()) && _restoredModelIsFit(tab) &&
     Array.isArray(state.fitResult._modelBe) && state.fitResult._modelBe.length === state.fitResult.be.length;
   const own = _ownFit ? state.fitResult : null;
   // Compute current curves
@@ -11564,9 +11570,10 @@ function _doSaveSpectrum() {
     chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
     certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
     restoredKey: state.fitResult.restoredKey || null,
-    restoredStale: _ownFit || null,
+    restoredStale: (_ownFit && _restoredStale(state.fitResult)) || null,
     beShift: typeof state.fitResult.beShift === 'number' ? state.fitResult.beShift : null,
     uploadFull: state.fitResult.uploadFull === true || null,
+    frameMoved: state.fitResult.frameMoved === true || null,
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -11669,6 +11676,7 @@ async function _doSaveProject() {
         restoredKey: t.fitResult.restoredKey || null,   // what an older save's fit had (_restoredFitPeaks)
         beShift: typeof t.fitResult.beShift === 'number' ? t.fitResult.beShift : null,   // the frame of `be` after a restore
         uploadFull: t.fitResult.uploadFull === true || null,
+        frameMoved: t.fitResult.frameMoved === true || null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -11903,6 +11911,7 @@ function _loadSpectrumFile(data, sessionFile) {
     if (typeof data.statistics.restoredKey === 'string') fr.restoredKey = data.statistics.restoredKey;   // what an older save's fit had
     if (typeof data.statistics.beShift === 'number') fr.beShift = data.statistics.beShift;
     if (data.statistics.uploadFull === true) fr.uploadFull = true;
+    if (data.statistics.frameMoved === true) fr.frameMoved = true;
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key

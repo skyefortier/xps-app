@@ -8,6 +8,7 @@
   "today": 7.421561936577961e-07,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -28,6 +29,7 @@
     0.3911875009647999
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -39,6 +41,7 @@
   "today": 0.001951914078106834,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -59,6 +62,7 @@
     0.953152144716201
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -70,6 +74,7 @@
   "today": 0.009034131899215965,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -90,6 +95,7 @@
     0.445237233268302
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -101,6 +107,7 @@
   "today": 0.005088798578640935,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -121,6 +128,7 @@
     0.7174105407109561
    ]
   ],
+  "unconfirmed": false,
   "verdict": "stale (pre-A03 Voigt only)"
  },
  {
@@ -132,6 +140,7 @@
   "today": 0.00859778926154957,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -152,6 +161,7 @@
     0.8270551599006711
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -163,6 +173,7 @@
   "today": 0.015928713105179883,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -183,6 +194,7 @@
     0.886496848496264
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -194,6 +206,7 @@
   "today": 0.0057225172170743705,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -214,6 +227,7 @@
     0.39142167592867205
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -225,6 +239,7 @@
   "today": 0.0236236985860475,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -245,6 +260,7 @@
     0.642973798061189
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -256,6 +272,7 @@
   "today": 0.008839184260486178,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -276,6 +293,7 @@
     0.7544424556654077
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -287,6 +305,7 @@
   "today": 8.041165322426431e-07,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -307,6 +326,7 @@
     0.1944494669890677
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -318,6 +338,7 @@
   "today": 0.05073465073534438,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -338,6 +359,7 @@
     0.535032010989274
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (either window)"
  },
  {
@@ -349,7 +371,8 @@
   "today": 0.02910450988393754,
   "today_ok": false,
   "voigt": [],
-  "verdict": "differs (today's window only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -369,7 +392,8 @@
     0.3
    ]
   ],
-  "verdict": "differs (either window)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -380,7 +404,8 @@
   "today": 0.02954131704380114,
   "today_ok": false,
   "voigt": [],
-  "verdict": "differs (either window)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -400,7 +425,8 @@
     0.3
    ]
   ],
-  "verdict": "stale (pre-A03 Voigt only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -411,7 +437,8 @@
   "today": 4.042257808496673e-06,
   "today_ok": true,
   "voigt": [],
-  "verdict": "reloads (today's window)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -431,7 +458,8 @@
     0.3
    ]
   ],
-  "verdict": "differs (today's window only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -442,7 +470,8 @@
   "today": 3.6030337441105705e-06,
   "today_ok": true,
   "voigt": [],
-  "verdict": "reloads (today's window)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -462,7 +491,8 @@
     0.3
    ]
   ],
-  "verdict": "differs (either window)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -473,7 +503,8 @@
   "today": 0.015473789425921435,
   "today_ok": false,
   "voigt": [],
-  "verdict": "differs (either window)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -493,7 +524,8 @@
     0.3
    ]
   ],
-  "verdict": "differs (today's window only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -519,6 +551,7 @@
     0.3
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -530,6 +563,7 @@
   "today": 3.3515881594040544e-06,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -550,6 +584,7 @@
     0.3
    ]
   ],
+  "unconfirmed": false,
   "verdict": "stale (pre-A03 Voigt only)"
  },
  {
@@ -561,6 +596,7 @@
   "today": 3.324549422035973e-06,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -581,7 +617,8 @@
     0.3
    ]
   ],
-  "verdict": "differs (today's window only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "4-GTA UCl4-BN.proj.zip",
@@ -607,7 +644,8 @@
     0.3
    ]
   ],
-  "verdict": "stale (pre-A03 Voigt only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "8-JT Graphite.proj.zip",
@@ -618,6 +656,7 @@
   "today": 0.0019791911888707068,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -629,6 +668,7 @@
   "today": 0.011408186374289999,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -640,6 +680,7 @@
   "today": 0.0014524083127117479,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -651,6 +692,7 @@
   "today": 0.0038909085304347116,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -662,6 +704,7 @@
   "today": 9.412387412123655e-05,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -673,6 +716,7 @@
   "today": 0.006298466802285833,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -684,6 +728,7 @@
   "today": 0.0015849104784208656,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -695,6 +740,7 @@
   "today": 0.001815633899722581,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -706,6 +752,7 @@
   "today": 0.009076760345314471,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -717,6 +764,7 @@
   "today": 0.007278130641173059,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -776,6 +824,7 @@
   "today": 0.012300826150490692,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -802,6 +851,7 @@
     0.9117530484155909
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -822,6 +872,7 @@
     0.9999999999999999
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -842,6 +893,7 @@
     0.9999999999993379
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -862,6 +914,7 @@
     0.8948209336214737
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -882,6 +935,7 @@
     0.9851956532390698
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -902,6 +956,7 @@
     0.9999999999999999
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -922,6 +977,7 @@
     0.9999999999994521
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -942,6 +998,7 @@
     0.9999999999999999
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -962,6 +1019,7 @@
     0.7299248040245704
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -982,6 +1040,7 @@
     0.9999999997844493
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1077,6 +1136,7 @@
   "today": 0.031096870408986833,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1088,6 +1148,7 @@
   "today": 0.03605335643724887,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1108,6 +1169,7 @@
     0.15713344108091368
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1203,6 +1265,7 @@
   "today": 0.01299469080334322,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1214,6 +1277,7 @@
   "today": 0.00601339617913261,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1225,6 +1289,7 @@
   "today": 7.777792278672668e-07,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -1236,6 +1301,7 @@
   "today": 1.0911597234057992e-06,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -1247,6 +1313,7 @@
   "today": 0.013442428194921205,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1264,6 +1331,7 @@
   "today": 0.010092148566422,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1275,6 +1343,7 @@
   "today": 6.570224054594192e-07,
   "today_ok": true,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "reloads (today's window)"
  },
  {
@@ -1286,6 +1355,7 @@
   "today": 0.014533433134545314,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1297,6 +1367,7 @@
   "today": 0.013982541159149037,
   "today_ok": false,
   "voigt": [],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1317,7 +1388,8 @@
     0.3911983417387395
    ]
   ],
-  "verdict": "differs (today's window only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1337,6 +1409,7 @@
     0.9532169813442977
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1357,7 +1430,8 @@
     0.4350369121516293
    ]
   ],
-  "verdict": "stale (pre-A03 Voigt only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1377,7 +1451,8 @@
     0.7631753048865529
    ]
   ],
-  "verdict": "differs (either window)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1397,6 +1472,7 @@
     0.8271343550521754
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1417,7 +1493,8 @@
     0.8864833070883086
    ]
   ],
-  "verdict": "differs (today's window only)"
+  "unconfirmed": true,
+  "verdict": "stale (unconfirmed: frame moved after a keyless older fit)"
  },
  {
   "project": "UCl4_on_graphite.proj.zip",
@@ -1437,6 +1514,7 @@
     0.39142167120658705
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1457,6 +1535,7 @@
     0.6408915316774311
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1477,6 +1556,7 @@
     0.7687082277883516
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  },
  {
@@ -1497,6 +1577,7 @@
     0.19456335448447323
    ]
   ],
+  "unconfirmed": false,
   "verdict": "differs (today's window only)"
  }
 ]
