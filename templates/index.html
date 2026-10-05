@@ -10055,30 +10055,47 @@ function _restoredFitGrid(rec, stored) {
       if (corr[i] === stored[k] || (rounded && r4(corr[i]) === stored[k])) { idx.push(i); k++; }
     add(idx);
   }
-  for (let j = 0; j + n <= corr.length; j++) {
-    const delta = stored[0] - corr[j];
-    let ok = true;
-    for (let k = 0; k < n && ok; k++) { const c = corr[j + k] + delta; ok = c === stored[k] || r4(c) === r4(stored[k]); }
-    if (ok) add(Array.from({ length: n }, (_, k) => j + k));
+  // one constant offset: the stored energies matched in order (any samples between them
+  // skipped, as the ROI selection skips an unsorted or interleaved record's) at each
+  // offset that maps some sample onto the first stored energy (Codex impl round 19)
+  const deltas = new Set();
+  for (let j = 0; j < corr.length; j++) deltas.add(stored[0] - corr[j]);
+  for (const delta of deltas) {
+    const idx = [];
+    for (let i = 0, k = 0; i < corr.length && k < n; i++) {
+      const c = corr[i] + delta;
+      if (c === stored[k] || r4(c) === r4(stored[k])) { idx.push(i); k++; }
+    }
+    add(idx);
   }
   const list = [...cands.values()];
   if (!list.length) return null;
   let idx = list[0];
   if (list.length > 1) {
+    // the RMSE first: the fit's own statistic, from its full-precision envelope (a
+    // project save keeps the counts only to 6 significant figures, which can tie or
+    // mislead — Codex impl round 19); the stored counts break a tie, or stand in when
+    // the save has no RMSE
     const fr = rec.fitResult || {}, fy = fr.fittedY;
     const seen = Array.isArray(fr.bgSubtracted) && Array.isArray(fr.bgIntensity) &&
       fr.bgSubtracted.length === n && fr.bgIntensity.length === n
       ? stored.map((_, k) => fr.bgSubtracted[k] + fr.bgIntensity[k]) : null;
-    const byRmse = !seen && typeof fr.rmse === 'number' && Number.isFinite(fr.rmse) && Array.isArray(fy) && fy.length === n;
+    const byRmse = typeof fr.rmse === 'number' && Number.isFinite(fr.rmse) && Array.isArray(fy) && fy.length === n;
     if (!seen && !byRmse) return null;
-    const dev = c => {
-      if (seen) { let d = 0; for (let k = 0; k < n; k++) d = Math.max(d, Math.abs(seen[k] - rec.rawIntensity[c[k]])); return d; }
+    const rmseDev = c => {
+      if (!byRmse) return 0;
       let ss = 0; for (let k = 0; k < n; k++) ss += (rec.rawIntensity[c[k]] - fy[k]) ** 2;
       return Math.abs(Math.sqrt(ss / n) - fr.rmse);
     };
-    const scored = list.map(c => ({ c, d: dev(c) })).sort((a, b) => a.d - b.d);
-    if (!(scored[0].d < scored[1].d)) return null;       // a tie or NaN: not resolved
-    idx = scored[0].c;
+    const countDev = c => {
+      if (!seen) return 0;
+      let d = 0; for (let k = 0; k < n; k++) d = Math.max(d, Math.abs(seen[k] - rec.rawIntensity[c[k]])); return d;
+    };
+    const scored = list.map(c => ({ c, a: rmseDev(c), b: countDev(c) }))
+      .sort((x, y) => (x.a - y.a) || (x.b - y.b));
+    const [s0, s1] = scored;
+    if (!(s0.a < s1.a || (s0.a === s1.a && s0.b < s1.b))) return null;   // a tie or NaN: not resolved
+    idx = s0.c;
   }
   return { idx, be: idx.map(i => corr[i]), inten: idx.map(i => rec.rawIntensity[i]) };
 }
@@ -11371,24 +11388,28 @@ function _doSaveSpectrum() {
   tabManager._syncActiveToRecord();
   const tab = tabManager._getTab(tabManager.activeId);
 
+  // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
+  // points, counts, envelope and background — and residuals against that envelope
+  // (Codex impl round 19) — so a reload judges it afresh (as a project does)
+  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey());
+  const own = _ownFit ? state.fitResult : null;
   // Compute current curves
-  const { be, inten } = getROIData();
+  const { be, inten } = own
+    ? { be: own.be.slice(), inten: own.bgSubtracted.map((v, i) => v + own.bgIntensity[i]) }
+    : getROIData();
   // a background that does not satisfy its statement is not written as one
   // (background math, 2026-10-01): no background, residuals or composed
   // envelope; the file says why (NaN, never numbers, stands in for it)
-  const bgR = _bgOrFailure(() => computeBackground(be, inten));
+  const bgR = own ? { bg: Array.from(own.bgIntensity), failure: null } : _bgOrFailure(() => computeBackground(be, inten));
   const bgFail = bgR.failure;
   const bgIntensity = bgR.bg || new Array(be.length).fill(NaN);
   const modelFull = evalAllPeaks(be, state.peaks);
   const bgSub = inten.map((v, i) => v - bgIntensity[i]);
-  const residuals = bgSub.map((v, i) => v - modelFull[i]);
+  const residuals = own ? inten.map((v, i) => v - own.fittedY[i]) : bgSub.map((v, i) => v - modelFull[i]);
   // F1: a stale result's stored curve is the previous model's; the file's
   // fittedY then matches its residuals (the current model), as with no fit
   const _saveStats = _statsLiveState();
-  // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
-  // points, envelope and background, so a reload judges it afresh (as a project does)
-  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey());
-  const fittedY = _ownFit ? state.fitResult.fittedY
+  const fittedY = own ? own.fittedY
     : (_saveStats !== 'stale' && state.fitResult?.fittedY) || (bgFail ? null : modelFull.map((v, i) => v + bgIntensity[i]));
 
   // Per-peak curves and areas. evalPeakArray(), not per-point evalPeak:
@@ -11442,9 +11463,9 @@ function _doSaveSpectrum() {
     peaks: tab.peaks.map(p => ({...p})),
     nextId: tab.nextId,
     ui: {...tab.ui},
-    roiBE: _ownFit ? state.fitResult.be.slice() : be,
-    background: _ownFit ? Array.from(state.fitResult.bgIntensity) : bgFail ? null : bgIntensity,
-    backgroundFailure: _ownFit ? null : bgFail || null,
+    roiBE: be,
+    background: bgFail ? null : bgIntensity,
+    backgroundFailure: bgFail || null,
     fittedY: fittedY,
     residuals: bgFail ? null : residuals,
     peakCurves: peakCurves,

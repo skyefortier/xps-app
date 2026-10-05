@@ -307,6 +307,43 @@ test('restore: a charge shift of whole grid steps is pinned by the fit\'s record
   }
 });
 
+// ── Codex impl round 19 ──
+test('restore: the RMSE pins the samples before the 6-significant-figure counts a project save keeps', () => {
+  // counts exactly a broad Gaussian of 1e6: rounded to 6 significant figures they are all 1000000
+  const rawBE = [], rawIntensity = [];
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.004, fwhm: 10, amplitude: 1e6 }];
+  for (let i = 0; i < 10; i++) rawBE.push(280 + 0.001 * i);
+  const model = R.evalAllPeaks(rawBE, G); rawIntensity.push(...model);
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G, ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '280.003' } });
+  const { be, rawY } = R._recordBackground(rec);
+  assert.strictEqual(be.length, 4);
+  rec.fitResult = { be: be.map(v => Math.round(v * 1e4) / 1e4), fittedY: rawY.slice(), rmse: 0,
+                    bgIntensity: be.map(() => 0), bgSubtracted: rawY.map(v => Number(v.toPrecision(6))) };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'the samples the fit saw: ' + rec.fitResult.be);
+  assert.deepStrictEqual(rec.fitResult.be, be);
+});
+
+test('restore: after a charge shift the samples are matched at one offset in order, however the record interleaves them', () => {
+  for (const order of ['as is', 'reversed']) {
+    let rawBE = [0, 9, 1, 9, 2, 9, 3, 9, 4, 9, 5].map(v => 280 + v);
+    let rawIntensity = rawBE.map((x, i) => 100 + 1000 * Math.exp(-((x - 282.5) ** 2)) + (i % 2 ? 7 : 0));
+    if (order === 'reversed') { rawBE = rawBE.slice().reverse(); rawIntensity = rawIntensity.slice().reverse(); }
+    const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 282.5, fwhm: 1.5, amplitude: 1000 }];
+    const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '281', roiMax: '284' } });
+    const { be, rawY } = R._recordBackground(rec);
+    const model = R.evalAllPeaks(be, rec.peaks);
+    rec.fitResult = { be: be.slice(), fittedY: model, bgIntensity: be.map(() => 0),
+                      rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - model[i]) ** 2, 0) / rawY.length) };
+    const d = 0.5;
+    rec.ccShift = d; rec.peaks.forEach(p => { p.center -= d; });
+    rec.ui = { ...rec.ui, roiMin: String(281 - d), roiMax: String(284 - d) };
+    assert.strictEqual(R._restoredFitBgFailure(rec), null, order);
+    assert.strictEqual(rec.fitResult.backgroundStale, undefined, order + ': the same samples');
+    assert.deepStrictEqual(rec.fitResult.bgSubtracted, rawY.map(v => v - 0), order);
+  }
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));

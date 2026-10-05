@@ -159,7 +159,7 @@ test('a converged backend result is applied (sanity)', async () => {
 test('the engine/objective labels of a fit result survive spectrum and project save/load', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
   // spectrum save: statistics block carries objective/engine; loader restores them
-  const save = grab('function _doSaveSpectrum()', 2500);
+  const save = grab('function _doSaveSpectrum()', 4000);
   assert.match(save, /objective: state\.fitResult\.objective/);
   assert.match(save, /engine: state\.fitResult\.engine/);
   const load = grab('function _loadSpectrumFile(', 6000);

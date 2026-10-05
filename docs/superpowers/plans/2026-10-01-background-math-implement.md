@@ -244,7 +244,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19).
 
 ## 4. Measurements
 
@@ -941,3 +941,19 @@ from LOGGED to NEXT in PROGRESS.md — it runs right after this unit, before any
 else." Done: the test records every `_scattered_start` draw and requires the same seed
 and the same four starting points bit for bit; PROGRESS.md "NEXT".
 
+### 7.6 Codex round 19 — NO-GO ×2 (`background_math_impl_r19_verdict_run{A,B}.md`, commit 59e0610)
+
+Both runs reproduced the census (10 / 71 / 40), the Python twin, `final_analysis.json` and
+the student note's numbers; all 202 upload inputs unchanged by the '.0' format; the
+narrowed draws test compares the actual scattered starts.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the stored counts a project save keeps (6 significant figures) were scored as exact and came before the RMSE, so rounding could tie or prefer the wrong run (100 % / 0.83 % stale for unchanged fits) | the fit's RMSE — from its full-precision envelope — chooses first; the stored counts only break a tie or stand in without an RMSE |
+| 2 | MAJOR (A, B): after a charge shift only CONTIGUOUS runs were candidates, so an unsorted or interleaved record's samples (the ROI selection skips the others) could not be found, or the wrong ones were | at each offset that maps a sample onto the first stored energy, the stored energies are matched IN ORDER, other samples skipped — both record orders |
+| 3 | MAJOR (A, B): Save Spectrum of a restored-stale fit kept its envelope and background but wrote residuals (and component curves) against today's background and ROI | the save works on the fit's own samples throughout: its energies, counts (bgSubtracted + bgIntensity), background, curves, and residuals = counts − the saved envelope |
+
+Mutation-verified (2 of 2 killed: counts before RMSE, contiguous runs only); the browser
+test checks residual + envelope = the raw counts at every saved point. Census unchanged:
+10 current, 71 stale, 40 peaks only (page and Python agree on all 121; the page judges
+all 121 in under a second).

@@ -65,10 +65,14 @@ def fit_grid(rf):
             if k < n and (corr[i] == stored[k] or (rounded and r4(corr[i]) == stored[k])):
                 idx.append(i); k += 1
         add(idx)
-    for j in range(len(corr) - n + 1):
-        c = corr[j:j + n] + (stored[0] - corr[j])
-        if np.all((c == stored) | (r4(c) == r4(stored))):
-            add(range(j, j + n))
+    for delta in dict.fromkeys((stored[0] - corr).tolist()):    # one offset, matched in order
+        idx, k = [], 0
+        c = corr + delta
+        rc = r4(c)
+        for i in range(len(corr)):
+            if k < n and (c[i] == stored[k] or rc[i] == r4(stored[k])):
+                idx.append(i); k += 1
+        add(idx)
     cl = list(cands.values())
     if not cl:
         return None
@@ -77,13 +81,13 @@ def fit_grid(rf):
         bs, bi, fy, rmse = fr.get("bgSubtracted"), fr.get("bgIntensity"), fr.get("fittedY"), fr.get("rmse")
         seen = (np.asarray(bs, float) + np.asarray(bi, float)
                 if isinstance(bs, list) and isinstance(bi, list) and len(bs) == n and len(bi) == n else None)
-        by_rmse = seen is None and isinstance(rmse, (int, float)) and isinstance(fy, list) and len(fy) == n
+        by_rmse = isinstance(rmse, (int, float)) and isinstance(fy, list) and len(fy) == n
         if seen is None and not by_rmse:
             return None
-        def dev(idx):
-            if seen is not None:
-                return float(np.max(np.abs(seen - inten[idx])))
-            return abs(float(np.sqrt(np.mean((inten[idx] - np.asarray(fy, float)) ** 2))) - rmse)
+        def dev(idx):        # the RMSE first, the stored counts break a tie (_restoredFitGrid)
+            a = abs(float(np.sqrt(np.mean((inten[idx] - np.asarray(fy, float)) ** 2))) - rmse) if by_rmse else 0.0
+            b = float(np.max(np.abs(seen - inten[idx]))) if seen is not None else 0.0
+            return (a, b)
         scored = sorted((dev(c), k, c) for k, c in enumerate(cl))
         if not (scored[0][0] < scored[1][0]):
             return None

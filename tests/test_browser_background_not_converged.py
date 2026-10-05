@@ -399,6 +399,10 @@ def test_a_background_stale_fit_shows_no_evidence_and_survives_a_spectrum_save(b
     finally:
         pg.close()
     assert spec["statistics"]["restoredStale"] is True
+    # Codex impl round 19: the file's residuals belong to ITS envelope, on its own samples
+    at = dict(zip(spec["rawBE"], spec["rawIntensity"]))
+    assert all(abs(r + f - at[e]) <= 1e-9 * max(1.0, abs(at[e]))
+               for e, r, f in zip(spec["roiBE"], spec["residuals"], spec["fittedY"])), "residual = counts − the saved envelope"
     pg = _new_page(browser, server)
     try:
         pg.evaluate(NOTIFY)
