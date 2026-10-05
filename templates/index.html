@@ -8429,8 +8429,9 @@ const _STATS_UNVERIFIED_NOTE = 'This result was saved without the record that bi
 // size of the difference), and / or with a Voigt mix the page does not draw.
 function _restoredStaleWhy(fr) {
   const why = [];
-  if (fr.backgroundStale && fr.backgroundStale.unconfirmed) why.push('made before its charge correction was changed, and an earlier version kept its energies only to 4 decimals, so the background it was fitted against cannot be confirmed (it differs from today\'s by ' +
-    _fmt3(fr.backgroundStale.pct) + ' % of its own scale as far as can be reconstructed)');
+  if (fr.backgroundStale && fr.backgroundStale.unconfirmed) why.push('saved by an earlier version without the record of the fit\'s charge correction (and with its energies to 4 decimals), so the background it was fitted against cannot be confirmed (' +
+    (fr.backgroundStale.matches ? 'as far as it can be reconstructed it equals today\'s' :
+      'as far as it can be reconstructed it differs from today\'s by ' + _fmt3(fr.backgroundStale.pct) + ' % of its own scale') + ')');
   else if (fr.backgroundStale) why.push('made against a background that differs from the one its settings give now by ' +
     _fmt3(fr.backgroundStale.pct) + ' % of the background\'s own scale (an earlier version\'s background, or settings changed after the fit)');
   if (fr.voigtStale) why.push('fitted with a Voigt G/L mix the page does not draw (' +
@@ -9996,7 +9997,10 @@ function _restoredFitBgFailure(rec) {
   // the frame of the stored energies: the key's (the fit's), or the one a restore wrote them in
   const frameShift = typeof fr.beShift === 'number' && Number.isFinite(fr.beShift) ? fr.beShift : fit.keyShift;
   const ampBound = 2 * fit.peaks.reduce((a, p) => a + (Number.isFinite(p.amplitude) ? Math.abs(p.amplitude) : 0), 0);
-  const grid = _restoredFitGrid(rec, fr.be, frameShift, ampBound);
+  // the old upload rounded counts to 2 dp, which moves an RMS by at most 0.005; a full-
+  // precision fit (and the local engine) had the page's own counts (Codex impl round 24)
+  const fullCounts = fr.uploadFull === true || fr.engine === 'local';
+  const grid = _restoredFitGrid(rec, fr.be, frameShift, ampBound, fullCounts ? 0 : 0.005);
   if (grid.fail) return grid.fail;
   let bg;
   try { bg = _computeBackgroundForSource(grid.be, grid.inten, rec.ui, rec.manualAnchors); }
@@ -10006,12 +10010,12 @@ function _restoredFitBgFailure(rec) {
   // and the local engine always used the page's own energies): the samples' own energies in
   // the fit's frame. Before, it uploaded toFixed(4) energies (Codex impl round 21): those of
   // the samples in the fit's frame — exact with a fit key, or when the frame did not move;
-  // a keyless fit whose charge correction changed after it is evaluated at today's 4-dp
-  // energies, its best estimate — but that estimate is uncertain by up to 1e-4 eV, and an
-  // uncertain reconstruction can cancel a genuine change as easily as invent one (Codex impl
-  // rounds 22-23: an allowance hid changes; none, a constructed change cancelled the error),
-  // so such a fit is NEVER confirmed current: it reloads stale with the difference measured,
-  // and the move is remembered (fr.frameMoved, saved) because a later load sees its own frame.
+  // Without the fit's own key the fit's charge frame is not on record: a charge change after
+  // the fit leaves no trace when it is smaller than the save's 4-dp rounding, and an uncertain
+  // reconstruction can cancel a genuine background change as easily as invent one (Codex impl
+  // rounds 22-24). Owner 2026-10-05: such a fit is NEVER confirmed current — it reloads stale
+  // ("unconfirmed") with the difference as far as it can be reconstructed. Its components are
+  // evaluated in today's frame (4-dp for an old upload), its best estimate.
   const legacy = fr.uploadFull !== true && fr.engine !== 'local';
   const e0 = grid.idx.map(i => rec.rawBE[i] - fit.shift);
   const modelBe = legacy ? e0.map(v => Number(v.toFixed(4))) : e0;
@@ -10026,13 +10030,13 @@ function _restoredFitBgFailure(rec) {
     envScale = Math.max(envScale, Math.abs(env[i]), Math.abs(model[i]));
   }
   const beyond = worst;
-  if (legacy && !fit.fitFrame && grid.moved) fr.frameMoved = true;
-  const unconfirmed = legacy && !fit.fitFrame && fr.frameMoved === true;
+  const unconfirmed = !fit.fitFrame;
   if (!rec.fitResult.startsModelKey && !fr.restoredKey) fr.restoredKey = _startsRecordKey(rec);   // what an older save's fit had
   fr.loadKey = _startsRecordKey(rec);                    // the state it was loaded in (_restoredUnchanged)
   const voigt = _legacyVoigts(fit.peaks);
   if (voigt.length) fr.voigtStale = voigt;
-  if (unconfirmed || beyond > BG_RESTORE_REL * scale + BG_REL_TOL * envScale) {
+  const within = beyond <= BG_RESTORE_REL * scale + BG_REL_TOL * envScale;
+  if (unconfirmed || !within) {
     // owner 2026-10-03: reloaded AS STALE — the fit's own background (envelope less
     // its components) and its peaks as saved, its statistics marked stale with the
     // size of the difference from today's background (_statsState; F1: never exported
@@ -10041,7 +10045,7 @@ function _restoredFitBgFailure(rec) {
     fr.bgIntensity = used;
     fr.be = grid.be;
     fr.bgSubtracted = grid.inten.map((v, i) => v - used[i]);
-    fr.backgroundStale = { pct: 100 * worst / scale, ...(unconfirmed ? { unconfirmed: true } : {}) };
+    fr.backgroundStale = { pct: 100 * worst / scale, ...(unconfirmed ? { unconfirmed: true, matches: within } : {}) };
   } else {
     fr.bgIntensity = bg;                                 // the certified curve itself
     fr.be = grid.be;
@@ -10092,7 +10096,7 @@ function _restoredFitPeaks(rec) {
 // a project) within their rounding. VERDICT: exactly one agreeing assignment (or several
 // with the same samples' energies and counts); none: not points of its raw data; more:
 // they cannot be told apart. { idx, be: today's corrected energies, inten } | { fail }.
-function _restoredFitGrid(rec, stored, keyShift, ampBound = 0) {
+function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.005) {
   const U = 2 ** -53;
   const shift = rec.ccShift || 0;
   const n = stored.length, N = rec.rawBE.length;
@@ -10137,7 +10141,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0) {
     // ampBound: Codex impl round 22); the sums of n squares on either side, (n + 4) u of
     // each RMS (Codex impl round 21)
     const rc = Math.sqrt(ss / n);
-    return Math.abs(rc - fr.rmse) <= 0.005 + 8 * U * big + (n + 4) * U * (rc + Math.abs(fr.rmse));
+    return Math.abs(rc - fr.rmse) <= uploadRound + 8 * U * big + (n + 4) * U * (rc + Math.abs(fr.rmse));
   };
   // THE SEARCH (Codex impl rounds 21-23): each path is parent links (no copies) with its
   // running sum of squared residuals. A branch stops when too few samples remain, when that
@@ -10152,7 +10156,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0) {
   for (const v of I) if (Number.isFinite(v)) maxI = Math.max(maxI, Math.abs(v));
   if (hasRmse) for (const v of fy) maxF = Math.max(maxF, Math.abs(v));
   const g = (n + 4) * U;
-  const rStar = hasRmse ? (Math.abs(fr.rmse) * (1 + g) + 0.005 + 8 * U * (maxI + maxF + 2 * ampBound)) / Math.max(1 - g, 0.5) : Infinity;
+  const rStar = hasRmse ? (Math.abs(fr.rmse) * (1 + g) + uploadRound + 8 * U * (maxI + maxF + 2 * ampBound)) / Math.max(1 - g, 0.5) : Infinity;
   const ssMax = rStar * rStar * n * (1 + 4 * U);
   const countAt = (k, i) => {
     const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[i]));
@@ -10166,6 +10170,34 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0) {
     const found = new Map();
     let over = false;
     const search = (lo0, hi0) => {
+      // BACKWARD first (Codex impl round 24): per point k, the samples that can stand there
+      // AND be followed, in order, by a placement of every later point (within this search's
+      // offset interval, and on its count in the counts pass), with the least sum of squared
+      // residuals such a completion adds. A branch is expanded only into those, and only if
+      // its sum so far plus that least remainder can still meet the RMSE — so branches that
+      // die later (unequal near-duplicates, a last count that excludes them) never multiply.
+      const rest = new Array(n);
+      for (let k = n - 1; k >= 0; k--) {
+        const lv = new Map();
+        let next = null, sufIdx = null, sufMin = null;
+        if (k < n - 1) {
+          next = [...rest[k + 1].keys()].sort((a, b) => a - b);
+          sufMin = new Array(next.length);
+          for (let t = next.length - 1; t >= 0; t--) sufMin[t] = Math.min(rest[k + 1].get(next[t]), t + 1 < next.length ? sufMin[t + 1] : Infinity);
+          sufIdx = next;
+        }
+        for (const i of within(k, lo0, hi0)) {
+          if (N - i < n - k) continue;
+          if (useCounts && !countAt(k, i)) continue;
+          const w = hasRmse ? (I[i] - fy[k]) ** 2 : 0;
+          if (k === n - 1) { lv.set(i, w); continue; }
+          let a = 0, b = sufIdx.length;                       // the first later sample i' > i
+          while (a < b) { const m = (a + b) >> 1; if (sufIdx[m] <= i) a = m + 1; else b = m; }
+          if (a < sufIdx.length) lv.set(i, w + sufMin[a]);
+        }
+        rest[k] = lv;
+        if (!lv.size) return false;                           // no placement of the remaining points
+      }
       const stack = [{ k: 0, prev: -1, lo: lo0, hi: hi0, node: null, ss: 0 }];
       let steps = 0;
       while (stack.length) {
@@ -10181,7 +10213,9 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0) {
           const vk = corr[i] + ':' + I[i];
           if (seenVal.has(vk)) continue;                    // an equal sample later in order: never better
           seenVal.add(vk);
-          if (useCounts && !countAt(st.k, i)) continue;
+          const least = rest[st.k].get(i);
+          if (least === undefined) continue;                  // cannot be completed (or not on its count)
+          if (hasRmse && st.ss + least > ssMax) continue;     // no completion can meet the RMSE
           const e = eps(stored[st.k], corr[i]);
           const lo = Math.max(st.lo, stored[st.k] - h - corr[i] - e), hi = Math.min(st.hi, stored[st.k] + h - corr[i] + e);
           if (lo > hi) continue;
@@ -11570,10 +11604,9 @@ function _doSaveSpectrum() {
     chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
     certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
     restoredKey: state.fitResult.restoredKey || null,
-    restoredStale: (_ownFit && _restoredStale(state.fitResult)) || null,
+    restoredStale: (_ownFit && _saveStats === 'stale') || null,   // its own curves under stale statistics: judged afresh
     beShift: typeof state.fitResult.beShift === 'number' ? state.fitResult.beShift : null,
     uploadFull: state.fitResult.uploadFull === true || null,
-    frameMoved: state.fitResult.frameMoved === true || null,
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -11676,7 +11709,6 @@ async function _doSaveProject() {
         restoredKey: t.fitResult.restoredKey || null,   // what an older save's fit had (_restoredFitPeaks)
         beShift: typeof t.fitResult.beShift === 'number' ? t.fitResult.beShift : null,   // the frame of `be` after a restore
         uploadFull: t.fitResult.uploadFull === true || null,
-        frameMoved: t.fitResult.frameMoved === true || null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -11911,7 +11943,6 @@ function _loadSpectrumFile(data, sessionFile) {
     if (typeof data.statistics.restoredKey === 'string') fr.restoredKey = data.statistics.restoredKey;   // what an older save's fit had
     if (typeof data.statistics.beShift === 'number') fr.beShift = data.statistics.beShift;
     if (data.statistics.uploadFull === true) fr.uploadFull = true;
-    if (data.statistics.frameMoved === true) fr.frameMoved = true;
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key

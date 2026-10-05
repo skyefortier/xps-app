@@ -172,6 +172,11 @@ function recordEnv() {
   return new Function(src)();
 }
 const R = recordEnv();
+// "today's background, as far as the record lets it be said": a keyed fit current (no
+// difference); a keyless one never confirmed current (owner 2026-10-05) — stale
+// "unconfirmed" with a reconstructed difference within the restore's tolerance
+const agreesToday = fr => !fr.backgroundStale ||
+  (fr.backgroundStale.unconfirmed === true && fr.backgroundStale.matches === true && !fr.startsModelKey);
 const peakRec = (over = {}) => {
   const rawBE = [], rawIntensity = [];
   for (let i = 0; i <= 120; i++) { const x = 280 + 0.1 * i; rawBE.push(x); rawIntensity.push(100 + 40 / (1 + Math.exp(-(x - 286) * 3)) + 500 * Math.exp(-((x - 285.5) ** 2) / 0.5)); }
@@ -230,7 +235,7 @@ test('restore: the background the fit USED (envelope less peaks) against today\'
     const base = peakRec({ ui: { ...peakRec().ui, bgType }, manualAnchors: [{ x: 282, y: 100 }, { x: 290, y: 140 }] });
     const rec = fitWith(base);
     assert.strictEqual(R._restoredFitBgFailure(rec), null, bgType + ': its own background reloads');
-    assert.strictEqual(rec.fitResult.backgroundStale, undefined, bgType + ': as current');
+    assert.ok(agreesToday(rec.fitResult), bgType + ': as current');
     if (bgType !== 'none') assert.ok(Array.from(rec.fitResult.bgIntensity).some(v => v !== 0), bgType + ': the certified curve is installed');
     // the settings changed after the fit: reloaded STALE with the fit's own background, sized
     const stale = fitWith(base); stale.ui = { ...stale.ui, bgType: bgType === 'none' ? 'linear' : 'none' };
@@ -250,14 +255,16 @@ test('restore: the background the fit USED (envelope less peaks) against today\'
   // within fit_equality's rounding on the background's own scale: current; beyond: stale, sized
   const base2 = fitWith(peakRec()), used = base2.fitResult.fittedY.map((v, i) => v - R.evalAllPeaks(base2.fitResult.be, G)[i]);
   const scale = Math.max(...used.map(Math.abs));
-  const near = fitWith(peakRec()); near.fitResult.fittedY[5] += 0.5 * R.BG_RESTORE_REL * scale;
-  assert.strictEqual(R._restoredFitBgFailure(near), null); assert.strictEqual(near.fitResult.backgroundStale, undefined, 'within the tolerance: current');
-  const far = fitWith(peakRec()); far.fitResult.fittedY[5] += 2 * R.BG_RESTORE_REL * scale;
+  // (the record stays consistent: its RMSE is its own envelope's — Codex impl round 24)
+  const reRmse = r => { const y = R._recordBackground(r).rawY; r.fitResult.rmse = Math.sqrt(y.reduce((a, v, i) => a + (v - r.fitResult.fittedY[i]) ** 2, 0) / y.length); };
+  const near = fitWith(peakRec()); near.fitResult.fittedY[5] += 0.5 * R.BG_RESTORE_REL * scale; reRmse(near);
+  assert.strictEqual(R._restoredFitBgFailure(near), null); assert.ok(agreesToday(near.fitResult), 'within the tolerance: current');
+  const far = fitWith(peakRec()); far.fitResult.fittedY[5] += 2 * R.BG_RESTORE_REL * scale; reRmse(far);
   assert.strictEqual(R._restoredFitBgFailure(far), null);
   assert.ok(Math.abs(far.fitResult.backgroundStale.pct - 0.2) < 1e-9, 'beyond: stale, sized ' + far.fitResult.backgroundStale.pct);
   // the stored background CURVE is not evidence: a garbage curve with a good envelope reloads current
   const garbage = fitWith(peakRec()); garbage.fitResult.bgIntensity = garbage.fitResult.be.map(() => 12345);
-  assert.strictEqual(R._restoredFitBgFailure(garbage), null); assert.strictEqual(garbage.fitResult.backgroundStale, undefined);
+  assert.strictEqual(R._restoredFitBgFailure(garbage), null); assert.ok(agreesToday(garbage.fitResult));
   // no envelope / no stored points: peaks-only, plain message
   const noEnv = fitWith(peakRec()); delete noEnv.fitResult.fittedY;
   assert.match(R._restoredFitBgFailure(noEnv) || '', /saved without its fitted envelope/);
@@ -274,7 +281,7 @@ test('restore: the background the fit USED (envelope less peaks) against today\'
   shifted.peaks = G.map(p => ({ ...p }));            // the peaks moved with the correction (they are today's)
   const fy = shifted.fitResult.fittedY.slice();
   assert.strictEqual(R._restoredFitBgFailure(shifted), null, 'a charge shift after the fit: compared on the same samples');
-  assert.strictEqual(shifted.fitResult.backgroundStale, undefined); assert.deepStrictEqual(shifted.fitResult.fittedY, fy);
+  assert.ok(agreesToday(shifted.fitResult)); assert.deepStrictEqual(shifted.fitResult.fittedY, fy);
   // on a uniform grid every run of samples is a constant offset: without the counts it saw, not resolved
   const blind = fitWith(peakRec()); blind.fitResult.be = blind.fitResult.be.map(v => v + 0.05); delete blind.fitResult.rmse;
   assert.match(R._restoredFitBgFailure(blind) || '', /cannot be told apart/);
@@ -302,7 +309,7 @@ test('restore: a charge shift of whole grid steps is pinned by the fit\'s record
     rec.ccShift = d; rec.peaks.forEach(p => { p.center -= d; });
     rec.ui = { ...rec.ui, roiMin: String(+rec.ui.roiMin - d), roiMax: String(+rec.ui.roiMax - d) };
     assert.strictEqual(R._restoredFitBgFailure(rec), null, steps + ' step(s)');
-    assert.strictEqual(rec.fitResult.backgroundStale, undefined, steps + ' step(s): the same background, on the same samples');
+    assert.ok(agreesToday(rec.fitResult), steps + ' step(s): the same background, on the same samples');
     assert.deepStrictEqual(rec.fitResult.bgSubtracted.map((v, i) => v + rec.fitResult.bgIntensity[i]), rawY, 'the samples the fit saw');
   }
 });
@@ -320,7 +327,7 @@ test('restore: the RMSE pins the samples before the 6-significant-figure counts 
   rec.fitResult = { uploadFull: true, be: be.map(v => Math.round(v * 1e4) / 1e4), fittedY: rawY.slice(), rmse: 0,
                     bgIntensity: be.map(() => 0), bgSubtracted: rawY.map(v => Number(v.toPrecision(6))) };
   assert.strictEqual(R._restoredFitBgFailure(rec), null);
-  assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'the samples the fit saw: ' + rec.fitResult.be);
+  assert.ok(agreesToday(rec.fitResult), 'the samples the fit saw: ' + rec.fitResult.be);
   assert.deepStrictEqual(rec.fitResult.be, be);
 });
 
@@ -339,7 +346,7 @@ test('restore: after a charge shift the samples are matched at one offset in ord
     rec.ccShift = d; rec.peaks.forEach(p => { p.center -= d; });
     rec.ui = { ...rec.ui, roiMin: String(281 - d), roiMax: String(284 - d) };
     assert.strictEqual(R._restoredFitBgFailure(rec), null, order);
-    assert.strictEqual(rec.fitResult.backgroundStale, undefined, order + ': the same samples');
+    assert.ok(agreesToday(rec.fitResult), order + ': the same samples');
     assert.deepStrictEqual(rec.fitResult.bgSubtracted, rawY.map(v => v - 0), order);
   }
 });
@@ -384,7 +391,7 @@ test('restore: two samples one rounded energy fits are both tried; the counts a 
   assert.strictEqual(f.be.length, 3);
   shiftAfter(f.rec, 0.5); r4be(f.rec);
   assert.strictEqual(R._restoredFitBgFailure(f.rec), null);
-  assert.strictEqual(f.rec.fitResult.backgroundStale, undefined, 'the samples it was fitted on');
+  assert.ok(agreesToday(f.rec.fitResult), 'the samples it was fitted on');
   assert.deepStrictEqual(f.rec.fitResult.bgSubtracted.slice(), f.rawY);
 });
 
@@ -408,11 +415,11 @@ test('restore: a restored charge-shifted fit survives the next save and load (it
   const f = fittedNone(rawBE, R.evalAllPeaks(rawBE, G).map(v => v + 3), G, 281, 284, { key: true });
   shiftAfter(f.rec, 0.5); r4be(f.rec);
   assert.strictEqual(R._restoredFitBgFailure(f.rec), null, 'first load');
-  assert.strictEqual(f.rec.fitResult.backgroundStale, undefined);
+  assert.ok(agreesToday(f.rec.fitResult));
   assert.strictEqual(f.rec.fitResult.beShift, 0.5, 'its energies are now in today\'s frame');
   const again = JSON.parse(JSON.stringify(f.rec)); r4be(again);           // saved as a project, loaded again
   assert.strictEqual(R._restoredFitBgFailure(again), null, 'second load');
-  assert.strictEqual(again.fitResult.backgroundStale, undefined);
+  assert.ok(agreesToday(again.fitResult));
   assert.deepStrictEqual(again.fitResult.bgSubtracted.slice(), f.rawY);
 });
 
@@ -431,7 +438,7 @@ test('restore: a fit made before the full-precision upload is reconstructed wher
                         rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
       if (keyed) rec.fitResult.startsModelKey = R._startsRecordKey(rec);
       assert.strictEqual(R._restoredFitBgFailure(rec), null, `${bgType} keyed ${keyed}`);
-      assert.strictEqual(rec.fitResult.backgroundStale, undefined, `${bgType} keyed ${keyed}: an unchanged background`);
+      assert.ok(agreesToday(rec.fitResult), `${bgType} keyed ${keyed}: an unchanged background`);
     }
   }
   // no key, and the charge correction moved after the fit by a fraction of a 4-dp step: the
@@ -523,7 +530,7 @@ test('restore: an older LOCAL-engine fit used the page\'s own energies (no 4-dp 
   rec.fitResult = { engine: 'local', be: be.slice(), fittedY: fy, bgIntensity: be.map(() => 0),
                     rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
   assert.strictEqual(R._restoredFitBgFailure(rec), null);
-  assert.strictEqual(rec.fitResult.backgroundStale, undefined);
+  assert.ok(agreesToday(rec.fitResult));
 });
 
 test('restore: the RMSE bound covers a background and components that cancel', () => {
@@ -571,10 +578,22 @@ test('restore: a keyless older fit whose charge correction moved is never confir
   rec.manualAnchors = corr.map((x, i) => ({ x, y: 100 + mOld[i] - mEst[i] }));
   assert.strictEqual(R._restoredFitBgFailure(rec), null);
   assert.ok(rec.fitResult.backgroundStale && rec.fitResult.backgroundStale.unconfirmed, 'stale, unconfirmed — never current');
-  assert.strictEqual(rec.fitResult.frameMoved, true);
   const again = JSON.parse(JSON.stringify(rec)); again.fitResult.be = again.fitResult.be.map(v => Math.round(v * 1e4) / 1e4);
   assert.strictEqual(R._restoredFitBgFailure(again), null);
-  assert.ok(again.fitResult.backgroundStale && again.fitResult.backgroundStale.unconfirmed, 'remembered on the next load (its own frame)');
+  assert.ok(again.fitResult.backgroundStale && again.fitResult.backgroundStale.unconfirmed, 'and on the next load');
+  // owner 2026-10-05: ANY keyless fit — even one whose stored energies show no move (a change
+  // below the save's rounding leaves no trace) — is never confirmed current
+  const unmoved = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'manual', roiMin: '', roiMax: '' },
+                            manualAnchors: [{ x: 280, y: 100 }, { x: 281.5, y: 100 }] });
+  unmoved.fitResult = { be: be.map(v => Math.round(v * 1e4) / 1e4), fittedY: fy.slice(), bgIntensity: be.map(() => 0),
+                        rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
+  assert.strictEqual(R._restoredFitBgFailure(unmoved), null);
+  assert.ok(unmoved.fitResult.backgroundStale && unmoved.fitResult.backgroundStale.unconfirmed && unmoved.fitResult.backgroundStale.matches,
+            'unmoved and matching as far as can be told: still not confirmed current');
+  const keyed = JSON.parse(JSON.stringify(unmoved)); delete keyed.fitResult.backgroundStale;
+  keyed.fitResult.be = be.map(v => Math.round(v * 1e4) / 1e4); keyed.fitResult.startsModelKey = R._startsRecordKey(keyed);
+  assert.strictEqual(R._restoredFitBgFailure(keyed), null);
+  assert.strictEqual(keyed.fitResult.backgroundStale, undefined, 'its fit key gives the frame: current');
 });
 
 test('restore: repeated samples are one branch, and the stored counts prune as the search goes', () => {
@@ -598,8 +617,36 @@ test('restore: repeated samples are one branch, and the stored counts prune as t
   const c6BE = e7.slice(), c6I = c7.slice();
   for (let k = 0; k < 7; k++) for (let r = 0; r < 6; r++) { c6BE.push(290 + 0.5 * k); c6I.push(k === 3 ? 999.999 : c7[k]); }
   const six = peakRec({ rawBE: c6BE, rawIntensity: c6I, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '283' } });
-  six.fitResult = { uploadFull: true, be: e7.slice(), fittedY: c7.slice(), rmse: 0, bgIntensity: e7.map(() => 0) };
+  six.fitResult = { be: e7.slice(), fittedY: c7.slice(), rmse: 0, bgIntensity: e7.map(() => 0) };   // an older upload: its RMSE is known to 0.005
   assert.match(R._restoredFitBgFailure(six) || '', /equally well/, 'equal samples did not multiply the search into "too many"');
+});
+
+// ── Codex impl round 24 ──
+test('restore: branches that cannot be completed are never expanded (unequal near-duplicates, an excluding last count)', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.85, fwhm: 1, amplitude: 1000 }];
+  const own = Array.from({ length: 18 }, (_, i) => 280 + 0.1 * i);
+  const c = own.map(x => 10000 + R.evalAllPeaks([x], G)[0]);
+  const rawBE = own.slice(), rawIntensity = c.slice();
+  for (let i = 0; i < 18; i++) {
+    const tail = i === 17;
+    rawBE.push(300 + 0.1 * i, 300 + 0.1 * i); rawIntensity.push(c[i] + (tail ? 1 : 0.001), c[i] + (tail ? 1 : 0.002));
+  }
+  const rec = peakRec({ rawBE, rawIntensity, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '281.75' } });
+  rec.fitResult = { be: own.map(v => Math.round(v * 1e4) / 1e4), fittedY: c.slice(), rmse: 0,
+                    bgSubtracted: c.map(v => Number(v.toPrecision(6))), bgIntensity: c.map(() => 0) };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null, 'not "too many": 2^17 dead branches are never grown');
+  assert.deepStrictEqual(rec.fitResult.be.slice(), own);
+});
+
+test('restore: a full-precision fit\'s RMSE carries no allowance for the old 2-dp upload', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.5, fwhm: 0.5, amplitude: 1000 }];
+  const own = Array.from({ length: 11 }, (_, i) => 280 + 0.1 * i), c = R.evalAllPeaks(own, G).map(v => v + 10000);
+  const rawBE = [279.99999].concat(own), rawIntensity = [c[0] + 0.004].concat(c);   // a sample the save's 4 dp cannot tell from 280
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '281' } });
+  rec.fitResult = { uploadFull: true, be: own.map(v => Math.round(v * 1e4) / 1e4), fittedY: c.slice(), rmse: 5e-13, bgIntensity: own.map(() => 0) };
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.deepStrictEqual(rec.fitResult.be.slice(), own, 'the RMSE (to its arithmetic) singles out the fit\'s samples');
 });
 
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
@@ -607,7 +654,7 @@ test('restore: what the subtraction cannot resolve is not a difference — a zer
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));
   none.fitResult.fittedY = none.fitResult.fittedY.map((v, i) => v + (i % 3 - 1) * 4e-14);
   assert.strictEqual(R._restoredFitBgFailure(none), null);
-  assert.strictEqual(none.fitResult.backgroundStale, undefined, 'a zero background recovered as rounding noise is zero');
+  assert.ok(agreesToday(none.fitResult), 'a zero background recovered as rounding noise is zero');
   // a project save rounds the energies to 4 dp and keeps the envelope at full precision
   const rawBE = [], rawIntensity = [];
   for (let i = 0; i <= 120; i++) { const x = 280.00004 + i / 8; rawBE.push(x); rawIntensity.push(100 + 1e4 * Math.exp(-4 * Math.LN2 * (x - 285) ** 2)); }
@@ -618,7 +665,7 @@ test('restore: what the subtraction cannot resolve is not a difference — a zer
     return { ...r, peaks: sharp, fitResult: { uploadFull: true, be: be.map(v => Math.round(v * 1e4) / 1e4), fittedY: fy, bgIntensity: be.map(() => 0),
              rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) } }; })();
   assert.strictEqual(R._restoredFitBgFailure(f), null);
-  assert.strictEqual(f.fitResult.backgroundStale, undefined, 'the components are evaluated at the samples, not at the rounded energies');
+  assert.ok(agreesToday(f.fitResult), 'the components are evaluated at the samples, not at the rounded energies');
 });
 
 test('restore: the components are the fit\'s own (its key) — an edit after the fit does not leak into its background', () => {
@@ -627,7 +674,7 @@ test('restore: the components are the fit\'s own (its key) — an edit after the
   keyed.peaks = G.map(p => ({ ...p })); keyed.fitResult.startsModelKey = R._startsRecordKey({ ...keyed, peaks: G });
   keyed.peaks[0].amplitude = 900;                          // edited after the fit, then saved
   assert.strictEqual(R._restoredFitBgFailure(keyed), null);
-  assert.strictEqual(keyed.fitResult.backgroundStale, undefined, 'its background reconstructed from the fit\'s own components');
+  assert.ok(agreesToday(keyed.fitResult), 'its background reconstructed from the fit\'s own components');
   const unkeyed = fitWith(peakRec()); unkeyed.peaks = G.map(p => ({ ...p, amplitude: 900 }));
   assert.strictEqual(R._restoredFitBgFailure(unkeyed), null);
   assert.ok(unkeyed.fitResult.backgroundStale, 'without a key the saved peaks are all there is: stale');
@@ -644,7 +691,7 @@ test('restore: a Voigt fitted before A03 cannot be shown as fitted — stale wha
   rec.fitResult = { uploadFull: true, be: be.slice(), fittedY: fy, bgIntensity: be.map(() => 0), starts: { ran: true }, certificateMove: { id: 1, ev: 2 },
                     chosenAlternative: { fromChi: 2, toChi: 1 }, rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
   assert.strictEqual(R._restoredFitBgFailure(rec), null);
-  assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'its background is today\'s');
+  assert.ok(agreesToday(rec.fitResult), 'its background is today\'s');
   assert.deepStrictEqual(rec.fitResult.voigtStale, [{ name: 'v', eta: 0.3 }]);
   assert.ok(R._restoredStale(rec.fitResult));
   assert.ok(rec.fitResult.starts === null && rec.fitResult.certificateMove === null && rec.fitResult.chosenAlternative === null && rec.peaks[0].support === null);
@@ -653,6 +700,7 @@ test('restore: a Voigt fitted before A03 cannot be shown as fitted — stale wha
   const fy2 = Array.from(g2).map((v, i) => v + m2[i]), raw2 = R._recordBackground(post).rawY;
   post.fitResult = { uploadFull: true, be: b2.slice(), fittedY: fy2, bgIntensity: b2.map(() => 0),
                      rmse: Math.sqrt(raw2.reduce((a, v, i) => a + (v - fy2[i]) ** 2, 0) / raw2.length) };
+  post.fitResult.startsModelKey = R._startsRecordKey(post);   // a recent fit carries its key
   assert.strictEqual(R._restoredFitBgFailure(post), null);
   assert.ok(!R._restoredStale(post.fitResult), 'a Voigt fitted at 0.5 is drawn as fitted');
 });

@@ -212,13 +212,16 @@ for f in sorted(glob.glob(os.path.join(ROOT, "docs/autofit/test_data/*.proj.zip"
             row[rule + "_ok"] = beyond <= SAME_MINIMUM_REL * scale + fitting.BG_REL_TOL * env
         row["voigt"] = legacy_voigts(rf)
         ok = [row.get(r + "_ok", False) for r in ("old", "today")]
-        row["unconfirmed"] = bool(moved and rf.fit_result.get("engine") != "local")   # keyless, frame moved: never current
+        # owner 2026-10-05: without the fit's own key its charge frame is not on record, so a
+        # keyless fit is never confirmed current (whether its stored energies show a move or not)
+        row["unconfirmed"] = not rf.fit_result.get("startsModelKey")
+        row["moved"] = bool(moved)
         row["verdict"] = ("reloads (today's window)" if ok[1] else "differs (today's window only)" if ok[0]
                           else "differs (either window)")
         if row["voigt"] and ok[1]:
             row["verdict"] = "stale (pre-A03 Voigt only)"
         if row["unconfirmed"]:
-            row["verdict"] = "stale (unconfirmed: frame moved after a keyless older fit)"
+            row["verdict"] = "stale (unconfirmed: no fit key)" + (" — matches today's as far as can be reconstructed" if ok[1] else "")
         rows.append(row)
 c = collections.Counter(r["verdict"] for r in rows)
 print(f"{len(rows)} saved fits: {dict(c)}")

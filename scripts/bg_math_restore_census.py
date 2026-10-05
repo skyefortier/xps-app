@@ -61,7 +61,8 @@ const out = tabs.map(t => {
            kept: reason === null, reason,
            stalePct: reason === null && t.rec.fitResult.backgroundStale ? t.rec.fitResult.backgroundStale.pct : null,
            voigtStale: reason === null && t.rec.fitResult.voigtStale ? t.rec.fitResult.voigtStale : null,
-           unconfirmed: !!(reason === null && t.rec.fitResult.backgroundStale && t.rec.fitResult.backgroundStale.unconfirmed) };
+           unconfirmed: !!(reason === null && t.rec.fitResult.backgroundStale && t.rec.fitResult.backgroundStale.unconfirmed),
+           matches: !!(reason === null && t.rec.fitResult.backgroundStale && t.rec.fitResult.backgroundStale.matches) };
 });
 console.log(JSON.stringify(out));
 """
@@ -102,9 +103,12 @@ def main():
     pcts = sorted(r["stalePct"] for r in stale if r["stalePct"] is not None)
     nv = sum(1 for r in stale if r["voigtStale"])
     nu = sum(1 for r in stale if r["unconfirmed"])
+    nm = sum(1 for r in stale if r["unconfirmed"] and r["matches"])
+    print(f"  UNCONFIRMED x{nu} (no fit key, never confirmed current): {nm} match today's as far as can be reconstructed, "
+          f"{nu - nm} differ")
     real = sorted(r["stalePct"] for r in stale if r["stalePct"] is not None and not r["unconfirmed"])
-    print(f"  STALE x{len(stale)}: {len(real)} against another background (median {real[len(real) // 2]:.3g} %, max "
-          f"{real[-1]:.3g} % of its scale), {nu} unconfirmed (charge correction changed after a keyless older fit), "
+    conf = f"(median {real[len(real) // 2]:.3g} %, max {real[-1]:.3g} % of its scale)" if real else ""
+    print(f"  STALE x{len(stale)}: {len(real)} against another background {conf}, {nu} unconfirmed (no fit key), "
           f"{nv} with a Voigt fitted before A03 at another mix, "
           f"{sum(1 for r in stale if r['voigtStale'] and r['stalePct'] is None)} of them for that alone")
     for r in stale:

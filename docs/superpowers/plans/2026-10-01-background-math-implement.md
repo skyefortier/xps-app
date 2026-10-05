@@ -126,8 +126,9 @@ rule, which allows the save's rounding — Codex round 3.) The alternatives, not
 implemented: keep an older fit with its statistics marked stale and the certified
 curve drawn; or keep it as it was (round 1's policy, which both reviewers rejected).
 SUPERSEDED 2026-10-03 by the owner's restore rule (§7): the evidence is the background
-the fit USED (envelope less peaks), within 1e-3 of its scale — 8 current, 73 reloaded
-stale, 40 peaks only (after Codex round 23, §7.10).
+the fit USED (envelope less peaks), within 1e-3 of its scale — 0 current, 81 reloaded
+stale (unconfirmed: no fit key), 40 peaks only (after Codex round 24 and the owner's
+decision, §7.11).
 
 **The "Shirley iterations" setting is retired.** A 5-iteration preview is not a
 solution (F7: up to 8.6e-5 of the span from it), so under item 2 every page background
@@ -244,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24).
 
 ## 4. Measurements
 
@@ -409,15 +410,15 @@ its stored fitted curve less its peaks — equals the background its settings gi
 within rounding. When it differs, the fit still loads with its own background and
 peaks, but its statistics (χ², R-factor, RMSE, uncertainties) are marked out of date and
 are not shown or exported, with the size of the difference; Run Fit brings it up to
-date. On the lab's 121 committed saved fits: 8 reload as they were; 73 reload marked
-out of date — 55 because their background differs (most by under 1 % of its own scale,
-at most 5 %, nearly all because older versions chose the background window's end points
-differently), 16 because their charge correction was changed after an older version
-fitted them, so the background they were fitted against cannot be confirmed, and 41
-because they hold a Voigt component fitted before 2026-09-22 with a G/L mix the page does
-not draw (the page draws a Voigt at 50/50; 2 of these for that reason alone); and 40 —
-saved by older versions without the fitted curve or the energies it was fitted on — load
-their peaks only.
+date. A fit saved before 2026-09-25 carries no record of its charge correction, so the
+background it was fitted against cannot be confirmed: it always reloads marked out of
+date, saying whether it matches today's background as far as can be reconstructed or by
+how much it differs. On the lab's 121 committed saved fits (all of that age): 81 reload
+marked out of date — 15 matching as far as can be told, 66 differing (most by under 1 % of
+the background's own scale, at most 5 %, nearly all because older versions chose the
+background window's end points differently); 41 of them also hold a Voigt component fitted
+before 2026-09-22 with a G/L mix the page does not draw — and 40, saved without the fitted
+curve or the energies it was fitted on, load their peaks only.
 
 Fits: the random restarts are now drawn from a seed computed from your data, window,
 settings and model rather than from the computed background, so they no longer change
@@ -796,7 +797,8 @@ Two follow-up decisions the same day (questions asked when the census showed wha
 
 After Codex round 18 (§7.5); the round-18 commit 131cc39 reported 15 / 66 / 40 — the five
 it called current hold a Voigt fitted before A03 at another mix. SUPERSEDED by §7.10
-(after round 23): 8 current, 73 stale, 40 peaks only.
+(after round 23): 8 current, 73 stale, 40 peaks only; and §7.11 (owner, after round 24):
+0 current, 81 stale, 40 peaks only.
 
 | outcome | n |
 |---|---|
@@ -1048,3 +1050,19 @@ stand (0.88–2.95 %), but the record cannot confirm them. Page = Python twin on
 Mutation-verified (5 of 5 killed: a moved fit can be current, the move not remembered,
 equal samples branching, the counts not pruning; in the browser, own curves only when
 stale). Docs, release note and the held student note updated to these numbers.
+
+### 7.11 Codex round 24 — NO-GO ×2 (`background_math_impl_r24_verdict_run{A,B}.md`, commit 52e9ca5) and the owner's decision
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): a charge change SMALLER than the 4-dp rounding leaves no trace in an older keyless record, so such a fit was treated as unmoved — and a background edit cancelling the reconstruction's error (5.7 %) read current | OWNER 2026-10-05 (asked): "Never current" — a fit without its fit key (`startsModelKey`) is never confirmed current; it reloads stale "unconfirmed", with `matches` (as far as can be reconstructed) or the size of the difference. `frameMoved` removed (no longer needed). Every fit since F1 carries its key |
+| 2 | MAJOR (A, B): the step cap still dropped a fit the counts single out when another run's equal-energy samples had UNEQUAL counts (2^17 branches that all die at the last point) | BACKWARD reachability per search: for each point, the samples that can be followed in order by a placement of every later point (on its count in the counts pass), with the least sum of squares such a completion adds; a branch is expanded only into those, and only if its sum so far plus that remainder can meet the RMSE |
+| 3 | MAJOR (B): the old upload's 0.005 RMSE allowance applied to full-precision fits too, admitting a wrong reading | 0.005 only for an old upload; 0 for `uploadFull` and the local engine |
+| 4 | MAJOR (A): Save Spectrum of a restored fit stale only through its key (a charge change) wrote its own curves without the mark, so the reload dropped it | `restoredStale` marks every own-curves save whose statistics are stale |
+
+Census after the decision — 0 current; 81 stale "unconfirmed" (15 match as far as can be
+reconstructed, 5 of them with a pre-A03 Voigt; 66 differ: 60 only through today's window,
+median 0.83 %, max 5.07 %, 6 under either rule, 0.88–2.95 %; 16 show a charge change after
+the fit; 41 hold a pre-A03 Voigt); 40 peaks only. Page = Python twin on all 121.
+Mutation-verified (4 of 4: no backward table, the old-upload allowance for full precision,
+the save mark only for background-stale; the never-current rule by its own test).

@@ -50,26 +50,24 @@ What changed
 What you will see when you open an older project
 
 The page compares the background each saved fit was actually fitted against with the
-one its settings give today, on the fit's own points:
+one its settings give today, on the fit's own points. Fits saved before 25 September 2026
+do not record the charge correction they were fitted under, so the page can never confirm
+them: they always open marked out of date (below), saying whether the background matches
+as far as can be told. Fits saved since then carry that record:
 
 - If they agree (within rounding), the fit opens exactly as it was. On our 121 saved
-  fits: 8.
+  fits (all older): none — 15 match as far as can be told, but are marked out of date.
 - If they differ, the fit opens with its OWN background and peaks, but its statistics
   (χ², R-factor, RMSE, uncertainties) are marked out of date and are not shown or
   exported, and an amber message tells you by how much the backgrounds differ. Press Run
-  Fit to bring it up to date. On our saved fits: 55, nearly all because older versions
+  Fit to bring it up to date. On our saved fits: 66, nearly all because older versions
   chose the background window's end points slightly differently; most differ by under
   1 % of the background's height, at most 5 %.
-- If you changed a spectrum's charge correction after fitting it in an older version, the
-  page cannot confirm which background that fit used (older versions kept its energies to
-  only 4 decimals), so it opens marked out of date as well, with the difference as far as
-  it can be reconstructed. On our saved fits: 16.
 - A fit with a Voigt component made before 22 September 2026 also opens marked out of
   date: until then the server fitted a Voigt's Gaussian/Lorentzian mix freely while the
   page drew it at 50/50, so the page cannot draw that fit as it was fitted (the message
   names the component and its fitted mix). On our saved fits: 41, mostly U 4f
-  satellites (2 of them for this reason alone). Re-run them; use GL if you want the mix
-  fitted.
+  satellites. Re-run them; use GL if you want the mix fitted.
 - If the file does not contain enough to check (older versions sometimes saved no fitted
   curve, or not the energies it was fitted on), your peaks open and you press Run Fit.
   On our saved fits: 40.
@@ -77,7 +75,7 @@ one its settings give today, on the fit's own points:
 The largest differences (all Smart): 4-GTA UCl4-BN B1s Scan_1 (2.95 %), B1s Scan_0
 (2.91 %), U4f Scan_0 (1.65 %), U4f Scan (1.65 %), B1s Scan_4 (1.55 %), U4f Scan_3 (1.17 %),
 and UCl4_on_graphite U4f Scan_4 (1.69 %) and U4f Scan_2 (0.88 %). If you reported numbers
-from these, re-run them.
+from these, re-run them. In practice: press Run Fit on any older project you still use.
 
 Will my fitted numbers change if I press Run Fit again?
 

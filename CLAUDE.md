@@ -943,8 +943,12 @@ on toFixed(4) energies and are reconstructed there) and `beShift` (the frame its
 energies are in after a restore). A keyless older fit whose charge correction moved after
 it is reconstructed to ≤ 1e-4 eV with no allowance (an allowance hid genuine changes, Codex
 impl round 22): its own uncertainty can only read as a difference — stale, never wrongly
-current — and since its reconstruction can cancel a genuine change as easily as invent
-one, such a fit is NEVER confirmed current (`frameMoved`, saved; stale "unconfirmed").
+current. OWNER 2026-10-05: a fit WITHOUT ITS FIT KEY (`startsModelKey`) is never
+confirmed current — its charge frame is not on record (a charge change below the save's
+4-dp rounding leaves no trace), and an uncertain reconstruction can cancel a genuine
+background change as easily as invent one: it reloads stale "unconfirmed", with whether it
+matches as far as can be reconstructed (`backgroundStale.matches`) or the size of the
+difference. Every fit made since F1 (2026-09-25) carries its key.
 Readings are compared by value, equal samples are one branch, and the stored counts prune
 the search point by point before the RMSE-only pass. Today's
 certified background on those points (the record's settings and own anchors) within
@@ -962,11 +966,11 @@ of one not edited since it was loaded (`fr.loadKey`) keeps its own curves
 (`restoredStale: true`) so the reload judges it afresh. Uncheckable (no envelope, no
 stored energies, lengths differ, not points of the raw data, no converged background
 now, an edited stale spectrum file): peaks only, with the reason. On the 121 committed
-saved fits: 8 current, 73 stale (55 against another background — 54 only because the
-old request chose the window by nearest index, end-exclusive, median 0.83 %, max
-5.07 %, and 1 under either window rule, 4-GTA UCl4-BN U4f Scan, 1.65 %; 16 UNCONFIRMED:
-keyless older fits whose charge correction changed after the fit, never confirmed
-current (Codex impl round 23); 41 with a pre-A03 Voigt, 2 for that alone), 40 peaks only
+saved fits (all keyless): 0 current, 81 stale UNCONFIRMED (15 match today's background as
+far as can be reconstructed; 66 differ — 60 only because the old request chose the window
+by nearest index, end-exclusive, median 0.83 %, max 5.07 %, and 6 under either window
+rule, 0.88–2.95 %; 16 show a charge change after the fit; 41 hold a pre-A03 Voigt), 40
+peaks only
 (`scripts/bg_math_restore_census.py`, page functions; the Python twin
 `scripts/bg_math_restore_alternative.py` agrees on all 121). The "Shirley iterations" setting is
 retired: hidden (kept for saved files and fit keys, which still compare it), never

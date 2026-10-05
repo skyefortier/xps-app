@@ -473,8 +473,8 @@ def test_a_restored_stale_spectrum_save_writes_one_fits_curves_on_one_grid(brows
         addPeak({ center: 282, fwhm: 0.4, amplitude: 1000, shape: 'Gaussian' });
         updatePlot();
     }"""
-    LEGACY = """() => { const fr = state.fitResult, t = tabManager._getTab(tabManager.activeId);   // as an older version fitted it
-        delete fr.uploadFull; delete fr.startsModelKey;
+    LEGACY = """() => { const fr = state.fitResult, t = tabManager._getTab(tabManager.activeId);   // as an F1-era version fitted it (a key, a 4-dp upload)
+        delete fr.uploadFull;
         const m = evalAllPeaks(fr.be.map(v => Number(v.toFixed(4))), state.peaks);
         fr.fittedY = fr.be.map((_, i) => 10 + m[i]);
         const { inten } = getROIData();
@@ -488,7 +488,7 @@ def test_a_restored_stale_spectrum_save_writes_one_fits_curves_on_one_grid(brows
             pg.close()
         t = next(t for t in saved["tabs"] if t.get("fitResult"))
         if shift is None:                                    # unchanged: it restores CURRENT (Codex impl round 23)
-            t["fitResult"]["startsModelKey"] = None
+            pass
         else:
             t["manualAnchors"] = [{"x": 280, "y": 20}, {"x": 284.1, "y": 20}]      # today's background differs
         if shift:                                                                   # the charge correction moved after the fit
@@ -529,3 +529,43 @@ def test_a_restored_stale_spectrum_save_writes_one_fits_curves_on_one_grid(brows
             assert pg.evaluate("() => !!state.fitResult.backgroundStale") is want_stale, (name, pg.evaluate("() => window.__n"))
         finally:
             pg.close()
+
+
+def test_a_restored_fit_stale_only_through_its_key_survives_a_spectrum_save(browser, server):
+    # Codex impl round 24: the charge correction changed after a keyed fit, nothing else —
+    # the background matches, but its statistics are stale (the key's shift differs). Save
+    # Spectrum wrote its own curves under statisticsState "stale" without the mark, so the
+    # reload dropped it
+    import json
+    pg = _new_page(browser, server)
+    try:
+        saved = _fit_and_capture(pg, PEAK_TAB, "() => _doSaveProject()")
+    finally:
+        pg.close()
+    t = next(t for t in saved["tabs"] if t.get("fitResult"))
+    t["ccShift"] = 0.3
+    for p in t["peaks"]:
+        p["center"] -= 0.3
+    t["ui"]["roiMin"], t["ui"]["roiMax"], t["ui"]["bgStart"], t["ui"]["bgEnd"] = "279.7", "291.7", "291.7", "279.7"
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(NOTIFY)
+        pg.evaluate("data => _loadProjectJSON(data, 'k.proj.json')", saved)
+        pg.wait_for_timeout(400)
+        got = pg.evaluate("() => ({ fit: !!state.fitResult, bgStale: !!(state.fitResult && state.fitResult.backgroundStale), st: _statsLiveState() })")
+        assert got["fit"] and got["st"] == "stale", got
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => _doSaveSpectrum()")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        spec = json.loads(pg.evaluate("() => window.__dl[0].text"))
+    finally:
+        pg.close()
+    assert spec["statistics"]["statisticsState"] == "stale" and spec["statistics"]["restoredStale"] is True, spec["statistics"]
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(NOTIFY)
+        pg.evaluate("data => _loadSpectrumFile(data, 'k.spec.json')", spec)
+        pg.wait_for_timeout(400)
+        assert pg.evaluate("() => !!state.fitResult"), pg.evaluate("() => window.__n")
+    finally:
+        pg.close()

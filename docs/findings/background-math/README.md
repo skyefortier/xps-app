@@ -65,22 +65,23 @@ background's scale (`fit_equality.SAME_MINIMUM_REL`), on the 121 committed saved
 `scripts/bg_math_restore_alternative.py` in Python agrees on all 121;
 `data/impl/restore_census.json`, `restore_alternative.json`):
 
-(After Codex round 23.)
+(After Codex round 24 and the owner's decision of 2026-10-05: a fit without its fit key is
+never confirmed current — its charge frame is not on record; a charge change below the save's
+4-dp rounding leaves no trace, and an uncertain reconstruction can cancel a genuine change as
+easily as invent one. Every committed fit predates F1 and has no key, so all 81 checkable
+ones reload stale, "unconfirmed".)
 
-- 10 equal today's (median 9.5e-7, max 9.4e-5 of the scale) — 8 reload as they were, and 2
-  are stale only because they hold a Voigt fitted before A03 at another mix, which the page
-  (drawing 0.5) cannot show as fitted (41 checkable fits hold one);
-- 54 differ only because older requests chose the background window by nearest index,
-  end-exclusive (today: inclusive bounds) — median 0.83 %, max 5.07 % (4-GTA UCl4-BN
-  B1s Scan); they reload marked stale;
-- 1 differs under either window rule: 4-GTA UCl4-BN U4f Scan, 1.65 % (`smart`; main's own
-  server background misses it too — fitted against another background, or its peaks were
-  edited after the fit in a save older than F1, which kept no model key);
-- 16 are UNCONFIRMED: older fits without a model key whose charge correction changed after
-  the fit. The record keeps their energies only to 4 decimals, so their reconstruction is
-  uncertain by up to 1e-4 eV — enough to cancel a genuine change as easily as to invent one
-  — and they are never confirmed current; they reload stale with the difference as far as
-  it can be reconstructed:
+- 15 match today's background as far as can be reconstructed (median 9.5e-7, max 9.4e-5 of
+  the scale; 5 of them also hold a Voigt fitted before A03 at another mix, which the page,
+  drawing 0.5, cannot show as fitted — 41 checkable fits hold one);
+- 60 differ only because older requests chose the background window by nearest index,
+  end-exclusive (today: inclusive bounds) — median 0.83 %, max 5.07 % (4-GTA UCl4-BN B1s Scan);
+- 6 differ under either window rule (all `smart`; main's own server background misses them
+  too — fitted against another background, or their peaks edited after the fit in a save
+  older than F1): 4-GTA UCl4-BN B1s Scan_1 2.95 %, U4f Scan_0 1.65 %, U4f Scan 1.65 %, B1s
+  Scan_4 1.55 %, U4f Scan_3 1.17 %, UCl4_on_graphite U4f Scan_2 0.878 %;
+- 16 of the 81 show a charge change after the fit (their stored energies sit at a non-zero
+  offset); their reconstructed differences:
 
   | project / tab | reconstructed difference |
   |---|---|
