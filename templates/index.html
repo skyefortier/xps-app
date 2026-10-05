@@ -10198,16 +10198,15 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
         rest[k] = lv;
         if (!lv.size) return false;                           // no placement of the remaining points
       }
-      const stack = [{ k: 0, prev: -1, lo: lo0, hi: hi0, node: null, ss: 0 }];
-      let steps = 0;
-      while (stack.length) {
-        const st = stack.pop();
-        if (st.k === n) {
-          const idx = pathOf(st.node);
-          if (rmseAgrees(idx)) { const key = valKey(idx); if (!found.has(key)) found.set(key, { idx, lo: st.lo, hi: st.hi }); if (found.size > 64) return true; }
-          continue;
-        }
-        const seenVal = new Set();
+      // then FORWARD, depth first, with a dead-state memo (Codex impl round 25): a state is the
+      // point to place next, the last sample used and the offset interval the path leaves; a
+      // state whose whole subtree held no agreeing reading, explored with partial sum ss, is
+      // dead for any later arrival with a sum ≥ ss (the offset, order and counts are the same,
+      // the RMSE only harder) — so incompatible choices that recombine are explored once
+      const dead = new Map();
+      const keyOf = st => st.k + '|' + st.prev + '|' + st.lo + '|' + st.hi;
+      const childrenOf = st => {
+        const out = [], seenVal = new Set();
         const cand = within(st.k, st.lo, st.hi).filter(i => i > st.prev && N - i >= n - st.k).sort((a, b) => a - b);
         for (const i of cand) {
           const vk = corr[i] + ':' + I[i];
@@ -10221,9 +10220,38 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           if (lo > hi) continue;
           const ss = hasRmse ? st.ss + (I[i] - fy[st.k]) ** 2 : 0;
           if (ss > ssMax) continue;
-          stack.push({ k: st.k + 1, prev: i, lo, hi, node: { i, up: st.node }, ss });
+          out.push({ k: st.k + 1, prev: i, lo, hi, node: { i, up: st.node }, ss });
         }
-        if (++steps > 4096 * (n + 1)) return true;          // bounded work: more is "ambiguous"
+        return out;
+      };
+      const root = { k: 0, prev: -1, lo: lo0, hi: hi0, node: null, ss: 0 };
+      root.kids = childrenOf(root); root.ci = 0; root.any = false;
+      const stack = [root];
+      let steps = 0;
+      while (stack.length) {
+        const top = stack[stack.length - 1];
+        if (top.ci < top.kids.length) {
+          const ch = top.kids[top.ci++];
+          if (ch.k === n) {
+            const idx = pathOf(ch.node);
+            if (rmseAgrees(idx)) {
+              top.any = true;
+              const key = valKey(idx);
+              if (!found.has(key)) found.set(key, { idx, lo: ch.lo, hi: ch.hi });
+              if (found.size > 64) return true;
+            }
+            continue;
+          }
+          const m = dead.get(keyOf(ch));
+          if (m !== undefined && ch.ss >= m) continue;         // explored from no better a start, found nothing
+          ch.kids = childrenOf(ch); ch.ci = 0; ch.any = false;
+          stack.push(ch);
+          if (++steps > 4096 * (n + 1)) return true;           // bounded work: more is "ambiguous"
+          continue;
+        }
+        stack.pop();
+        if (!top.any) { const key = keyOf(top), m = dead.get(key); if (m === undefined || top.ss < m) dead.set(key, top.ss); }
+        else if (stack.length) stack[stack.length - 1].any = true;
       }
       return false;
     };
@@ -11625,6 +11653,7 @@ function _doSaveSpectrum() {
     nextId: tab.nextId,
     ui: {...tab.ui},
     roiBE: be,
+    fitCounts: inten.slice(),        // the counts at those points: the restore's count evidence (Codex impl round 25)
     background: bgFail ? null : bgIntensity,
     backgroundFailure: bgFail || null,
     fittedY: fittedY,
@@ -11961,6 +11990,11 @@ function _loadSpectrumFile(data, sessionFile) {
     if (!stale && Array.isArray(data.roiBE)) {
       fr.be = data.roiBE.slice();
       if (Array.isArray(data.background)) fr.bgIntensity = data.background.slice();
+      // the counts the file says the fit saw (fitCounts, since 2026-10-05): with the background,
+      // the same count evidence a project carries (background + what it subtracted)
+      if (Array.isArray(data.fitCounts) && Array.isArray(data.background) &&
+          data.fitCounts.length === data.roiBE.length && data.background.length === data.roiBE.length)
+        fr.bgSubtracted = data.fitCounts.map((v, i) => v - data.background[i]);
     }
     active.fitResult = fr;
     state.fitResult = fr;

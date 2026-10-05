@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25).
 
 ## 4. Measurements
 
@@ -1066,3 +1066,16 @@ median 0.83 %, max 5.07 %, 6 under either rule, 0.88–2.95 %; 16 show a charge 
 the fit; 41 hold a pre-A03 Voigt); 40 peaks only. Page = Python twin on all 121.
 Mutation-verified (4 of 4: no backward table, the old-upload allowance for full precision,
 the save mark only for background-stale; the never-current rule by its own test).
+
+### 7.12 Codex round 25 — NO-GO ×2 (`background_math_impl_r25_verdict_run{A,B}.md`, commit c9aebdc)
+
+Both runs reproduced the census (0 / 81 / 40), the Python twin, the measurements and the
+student note; 243 keyed project-load probes passed (run A).
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the backward table judges each sample against the search's whole initial offset interval, so middle choices that each fit it but together exclude the last point still multiplied (2^18) until the cap refused an identifiable fit | the forward search keeps a DEAD-STATE memo: a state (the point to place next, the last sample used, the offset interval the path leaves) whose whole subtree held no agreeing reading, explored with partial sum ss, is dead for any later arrival with a sum ≥ ss (same offset, order and counts; the RMSE only harder) — incompatible choices that recombine are explored once. Iterative post-order (no recursion depth limit) |
+| 2 | MAJOR (B): a spectrum file stored the background but not the counts at its points, so a reload could not use count evidence a project carries (a mirrored sample a hair beyond the first point: identical RMSE) | Save Spectrum writes `fitCounts` (the counts at its points); the loader sets `bgSubtracted = fitCounts − background`, the same evidence a project carries |
+
+Mutation-verified (2 of 2 killed: no memo; the loader ignoring fitCounts). Census
+unchanged (0 / 81 / 40).

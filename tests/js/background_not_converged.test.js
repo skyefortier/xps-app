@@ -649,6 +649,22 @@ test('restore: a full-precision fit\'s RMSE carries no allowance for the old 2-d
   assert.deepStrictEqual(rec.fitResult.be.slice(), own, 'the RMSE (to its arithmetic) singles out the fit\'s samples');
 });
 
+// ── Codex impl round 25 ──
+test('restore: choices that can never share one offset are explored once (a dead-state memo), not until the cap', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.95, fwhm: 1, amplitude: 1000 }];
+  const own = Array.from({ length: 20 }, (_, i) => Math.round((280 + 0.1 * i) * 10) / 10);
+  const c = own.map(x => 10000 + R.evalAllPeaks([x], G)[0]);
+  const rawBE = own.slice(), rawIntensity = c.slice();
+  rawBE.push(300); rawIntensity.push(c[0]);
+  for (let i = 1; i <= 18; i++) { const x = 300 + 0.1 * i; rawBE.push(x + 0.00008, x + 0.00009); rawIntensity.push(c[i], c[i]); }
+  rawBE.push(301.9 - 0.00008); rawIntensity.push(c[19]);
+  const rec = peakRec({ rawBE, rawIntensity, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '281.95' } });
+  rec.fitResult = { be: own.slice(), fittedY: c.slice(), rmse: 0,
+                    bgSubtracted: c.map(v => Number(v.toPrecision(6))), bgIntensity: c.map(() => 0) };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null, 'not "too many": the middle choices narrow the offset past the last point');
+  assert.deepStrictEqual(rec.fitResult.be.slice(), own);
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));

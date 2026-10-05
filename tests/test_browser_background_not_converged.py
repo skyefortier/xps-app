@@ -569,3 +569,46 @@ def test_a_restored_fit_stale_only_through_its_key_survives_a_spectrum_save(brow
         assert pg.evaluate("() => !!state.fitResult"), pg.evaluate("() => window.__n")
     finally:
         pg.close()
+
+
+def test_a_spectrum_file_carries_the_counts_its_fit_saw(browser, server):
+    # Codex impl round 25: a spectrum file stored the background but not the counts at its
+    # points, so a reload could not tell two readings apart that the counts separate (a
+    # raw sample a hair below the first point, its residual the opposite of the fit's)
+    import json
+    SETUP = """() => {
+        const raw = [], inten = [];
+        for (let i = 0; i <= 10; i++) { const be = Math.round((280 + 0.1 * i) * 10) / 10; raw.push(be);
+          inten.push(10000 + 1000 * Math.exp(-4 * Math.log(2) * ((be - 280.5) / 0.5) ** 2) + (i % 2 ? 0.01 : -0.01)); }
+        tabManager.createTab('C', raw, inten);
+        document.getElementById('roi-min').value = 280; document.getElementById('roi-max').value = 281;
+        _setManualAnchors([{ x: 280, y: 10000 }, { x: 281, y: 10000 }]);
+        document.getElementById('bg-type').value = 'manual'; _onBgTypeChange();
+        addPeak({ center: 280.5, fwhm: 0.5, amplitude: 1000, shape: 'Gaussian' });
+        updatePlot();
+    }"""
+    pg = _new_page(browser, server)
+    try:
+        spec = _fit_and_capture(pg, SETUP, "() => _doSaveSpectrum()")
+    finally:
+        pg.close()
+    assert spec.get("fitCounts") and len(spec["fitCounts"]) == len(spec["roiBE"])
+    # a raw sample a hair beyond the fit's point at 280 eV (next to it in the file's order, which
+    # the page keeps descending), mirrored about the fit's envelope there
+    k = spec["roiBE"].index(280)
+    i0 = spec["rawBE"].index(280)
+    spec["rawBE"].insert(i0 + 1, 279.99999)
+    spec["rawIntensity"].insert(i0 + 1, 2 * spec["fittedY"][k] - spec["rawIntensity"][i0])
+    for name, data in (("with counts", spec), ("without", {k: v for k, v in spec.items() if k != "fitCounts"})):
+        pg = _new_page(browser, server)
+        try:
+            pg.evaluate(NOTIFY)
+            pg.evaluate("data => _loadSpectrumFile(data, 'c.spec.json')", data)
+            pg.wait_for_timeout(400)
+            got = pg.evaluate("() => ({ fit: !!state.fitResult, st: _statsLiveState(), n: window.__n })")
+            if name == "with counts":
+                assert got["fit"] and got["st"] == "current", (name, got)
+            else:   # the RMSE cannot choose: refused, said as such
+                assert not got["fit"] and any("cannot be told apart" in m for m in got["n"]), (name, got)
+        finally:
+            pg.close()
