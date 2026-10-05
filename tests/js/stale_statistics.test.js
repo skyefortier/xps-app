@@ -427,7 +427,7 @@ test('reload never installs an edited-model curve or R under the original key, a
   // the one exception: a RESTORED-stale fit saved unedited, whose file carries the fit's own curves
   // (_doSaveSpectrum's _ownFit) and is judged afresh (2026-10-04, Codex impl round 18)
   assert.match(load, /if \(data\.fittedY && \(data\.statistics\.statisticsState !== 'stale' \|\| data\.statistics\.restoredStale === true\)\) fr\.fittedY = data\.fittedY;/);
-  assert.match(extractFn('_doSaveSpectrum'), /const _ownFit = _restoredStale\(state\.fitResult\) && _restoredUnchanged\(state\.fitResult, _startsLiveKey\(\)\);/);
+  assert.match(extractFn('_doSaveSpectrum'), /const _ownFit = _restoredStale\(state\.fitResult\) && _restoredUnchanged\(state\.fitResult, _startsLiveKey\(\)\) && _restoredModelIsFit\(tab\);/);
   assert.match(load, /if \(data\.statistics\.rFactor && data\.statistics\.statisticsState !== 'stale'\) fr\.rFactor = data\.statistics\.rFactor;/);
   assert.match(html, /state\.fitResult\.rFactor == null && _statsLiveState\(\) !== 'stale'\) \{\s*state\.fitResult\.rFactor = _computeRFactor/, 'tab activation');
   assert.match(extractFn('_doSaveProject'), /rFactor: t\.fitResult\.rFactor \|\| null/, 'project saves keep the fit\'s own R');

@@ -9951,6 +9951,13 @@ const BG_RESTORE_REL = 1e-3;
 function _restoredStale(fr) { return !!(fr && (fr.backgroundStale || fr.voigtStale)); }
 // Not edited since it was loaded (fr.loadKey: the record's key at restore, runtime only).
 function _restoredUnchanged(fr, key) { return !!fr && _sameFitKey(fr.loadKey, key); }
+// The record's peaks ARE the fit's components (its key's values; Codex impl round 20: a
+// model edited before the save would otherwise sit beside the fit's own envelope).
+function _restoredModelIsFit(rec) {
+  const row = q => _STARTS_MODEL_FIELDS.map(k => (q[k] === undefined ? null : q[k]));
+  const fit = _restoredFitPeaks(rec).peaks, now = rec.peaks || [];
+  return fit.length === now.length && JSON.stringify(fit.map(row)) === JSON.stringify(now.map(row));
+}
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack) return null;
   // the certificate needs the raw data: a fit without them cannot be checked, so it
@@ -9970,8 +9977,8 @@ function _restoredFitBgFailure(rec) {
     return 'its stored envelope is not a number at every point';
   delete fr.backgroundStale; delete fr.voigtStale;       // judged afresh on every load
   const fit = _restoredFitPeaks(rec);
-  const grid = _restoredFitGrid(rec, fr.be);
-  if (grid === null) return 'its stored points are not points of its raw data, so the background cannot be recomputed on them';
+  const grid = _restoredFitGrid(rec, fr.be, fit.keyShift);
+  if (grid.fail) return grid.fail;
   let bg;
   try { bg = _computeBackgroundForSource(grid.be, grid.inten, rec.ui, rec.manualAnchors); }
   catch (e) { if (_isBgNotConverged(e)) return 'its background settings give no converged background now: ' + e.message; throw e; }
@@ -10022,82 +10029,121 @@ function _restoredFitPeaks(rec) {
   let o = null;
   try { o = key ? JSON.parse(key) : null; } catch (_) { o = null; }
   if (!o || !Array.isArray(o.p) || !o.p.every(r => Array.isArray(r) && r.length === _STARTS_MODEL_FIELDS.length))
-    return { peaks: rec.peaks || [], shift: rec.ccShift || 0 };
+    return { peaks: rec.peaks || [], shift: rec.ccShift || 0, keyShift: null };
   const byId = new Map((rec.peaks || []).map(p => [p.id, p]));
   const peaks = o.p.map(r => {
     const q = { ...(byId.get(r[0]) || {}) };
     _STARTS_MODEL_FIELDS.forEach((k, i) => { if (r[i] === null) delete q[k]; else q[k] = r[i]; });
     return q;
   });
-  return { peaks, shift: Number(o.s) || 0 };
+  return { peaks, shift: Number(o.s) || 0, keyShift: Number(o.s) || 0 };
 }
-// The fit's stored points as raw samples: every reading that reproduces them — the
-// record's ROI selection, each stored energy matched in order to a raw sample (exactly,
-// then as the save rounds it, 4 dp), and every run of samples at one constant offset
-// (the charge correction changed after the fit; the peaks moved with it) — and, when
-// more than one does (on a uniform grid every run does, and a change by a whole number
-// of steps makes an exact match the WRONG run), the one the fit's own record pins: the
-// counts it saw (its stored background plus what it subtracted) or, without them, its
-// RMSE (counts less envelope on its points); nearest wins, a tie or no record refuses.
-// { idx: raw indices, be: today's corrected energies, inten }, or null.
-function _restoredFitGrid(rec, stored) {
+// The fit's stored points as raw samples (Codex impl rounds 18-20: decided by the
+// record's own precision, never by which near-tie scores lower).
+// CANDIDATES: every in-order assignment of raw samples to the stored energies at ONE
+// charge offset — corrected energy + delta = stored energy within the save's own
+// rounding (a project keeps 4 dp; h = half that unit when every stored value is 4-dp,
+// else 0) and the arithmetic's — with delta known exactly when the fit has a model key
+// (today's shift − the key's) and otherwise any offset that maps a sample onto the first
+// stored energy; samples between are skipped (unsorted / interleaved records); where two
+// samples fit one stored energy the search branches (more than 64 assignments:
+// ambiguous). EVIDENCE: an assignment must agree with the fit's record within the
+// record's own precision — its RMSE (counts less envelope) within the old upload's
+// rounding of the counts (0.005, 2 dp, which moves an RMS by at most that) plus the
+// arithmetic, and its stored counts (background + subtracted, 6 significant figures in
+// a project) within their rounding. VERDICT: exactly one agreeing assignment (or several
+// with the same samples' energies and counts); none: not points of its raw data; more:
+// they cannot be told apart. { idx, be: today's corrected energies, inten } | { fail }.
+function _restoredFitGrid(rec, stored, keyShift) {
+  const U = 2 ** -53;
   const shift = rec.ccShift || 0;
-  const r4 = v => Math.round(v * 1e4) / 1e4;
-  const n = stored.length;
+  const n = stored.length, N = rec.rawBE.length;
   const corr = rec.rawBE.map(b => b - shift);
-  const cands = new Map();
-  const add = idx => { if (idx && idx.length === n) cands.set(idx.join(','), idx); };
-  const roi = _roiSelect(rec.rawBE, rec.rawIntensity, shift, rec.ui && rec.ui.roiMin, rec.ui && rec.ui.roiMax).idx;
-  if (roi.length === n && roi.every((i, k) => corr[i] === stored[k] || r4(corr[i]) === stored[k])) add(roi);
-  for (const rounded of [false, true]) {
-    const idx = [];
-    for (let i = 0, k = 0; i < corr.length && k < n; i++)
-      if (corr[i] === stored[k] || (rounded && r4(corr[i]) === stored[k])) { idx.push(i); k++; }
-    add(idx);
-  }
-  // one constant offset: the stored energies matched in order (any samples between them
-  // skipped, as the ROI selection skips an unsorted or interleaved record's) at each
-  // offset that maps some sample onto the first stored energy (Codex impl round 19)
-  const deltas = new Set();
-  for (let j = 0; j < corr.length; j++) deltas.add(stored[0] - corr[j]);
-  for (const delta of deltas) {
-    const idx = [];
-    for (let i = 0, k = 0; i < corr.length && k < n; i++) {
-      const c = corr[i] + delta;
-      if (c === stored[k] || r4(c) === r4(stored[k])) { idx.push(i); k++; }
+  const I = rec.rawIntensity;
+  const r4 = v => Math.round(v * 1e4) / 1e4;
+  const h = stored.every(v => r4(v) === v) ? 5e-5 : 0;
+  const order = corr.map((c, i) => i).filter(i => Number.isFinite(corr[i])).sort((a, b) => corr[a] - corr[b]);
+  const sortedC = order.map(i => corr[i]);
+  const lowerBound = v => { let lo = 0, hi = sortedC.length; while (lo < hi) { const m = (lo + hi) >> 1; if (sortedC[m] < v) lo = m + 1; else hi = m; } return lo; };
+  const eps = (a, b) => 4 * U * (Math.abs(a) + Math.abs(b));
+  // the samples whose corrected energy + some delta in [lo, hi] is stored[k]
+  const within = (k, lo, hi) => {
+    const out = [];
+    const a = stored[k] - h - hi, b = stored[k] + h - lo;
+    const pad = eps(stored[k], Math.max(Math.abs(a), Math.abs(b)));
+    for (let t = lowerBound(a - pad); t < sortedC.length && sortedC[t] <= b + pad; t++) out.push(order[t]);
+    return out;
+  };
+  // the record's evidence, each within its own precision
+  const fr = rec.fitResult || {}, fy = fr.fittedY;
+  const hasRmse = typeof fr.rmse === 'number' && Number.isFinite(fr.rmse) && Array.isArray(fy) && fy.length === n;
+  const bs = fr.bgSubtracted, bi = fr.bgIntensity;
+  const hasCounts = Array.isArray(bs) && Array.isArray(bi) && bs.length === n && bi.length === n &&
+    bs.every(Number.isFinite) && bi.every(Number.isFinite);
+  const sig6 = hasCounts && bs.every(v => Number(v.toPrecision(6)) === v) && bi.every(v => Number(v.toPrecision(6)) === v);
+  // half a unit of the 6th significant figure; the decimal's binary form, the subtraction
+  // that made it and this sum add a few units in the last place (16 u, below)
+  const half6 = v => v === 0 ? 0 : 0.5 * 10 ** (Math.floor(Math.log10(Math.abs(v))) - 5);
+  const rmseAgrees = c => {
+    if (!hasRmse) return true;
+    let ss = 0, big = 0;
+    for (let k = 0; k < n; k++) { ss += (I[c[k]] - fy[k]) ** 2; big = Math.max(big, Math.abs(I[c[k]]) + Math.abs(fy[k])); }
+    return Math.abs(Math.sqrt(ss / n) - fr.rmse) <= 0.005 + 8 * U * big + 2 * U * Math.abs(fr.rmse);
+  };
+  const countsAgree = c => {
+    for (let k = 0; k < n; k++) {
+      const tol = (sig6 ? half6(bs[k]) + half6(bi[k]) : 0) + 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[c[k]]));
+      if (!(Math.abs(bs[k] + bi[k] - I[c[k]]) <= tol)) return false;
     }
-    add(idx);
+    return true;
+  };
+  // the RMSE is the fit's own statistic: every reading must meet it. The stored counts are a
+  // pair the page wrote (background + what it subtracted): they choose among the readings
+  // the RMSE leaves, and stand in without an RMSE; a pair that fits none says nothing
+  const agrees = rmseAgrees;
+  let found = 0, ambiguous = false;
+  const ok = new Map();
+  const search = (lo0, hi0) => {
+    const stack = [{ k: 0, prev: -1, lo: lo0, hi: hi0, idx: [] }];
+    let steps = 0;
+    while (stack.length) {
+      const st = stack.pop();
+      if (st.k === n) { found++; if (agrees(st.idx)) ok.set(st.idx.join(','), st.idx); continue; }
+      for (const i of within(st.k, st.lo, st.hi)) {
+        if (i <= st.prev) continue;
+        const e = eps(stored[st.k], corr[i]);
+        const lo = Math.max(st.lo, stored[st.k] - h - corr[i] - e), hi = Math.min(st.hi, stored[st.k] + h - corr[i] + e);
+        if (lo > hi) continue;
+        stack.push({ k: st.k + 1, prev: i, lo, hi, idx: st.idx.concat(i) });
+      }
+      if (++steps > 64 * (n + 1)) { ambiguous = true; return; }   // the branching, not the offsets
+    }
+  };
+  if (typeof keyShift === 'number' && Number.isFinite(keyShift)) {
+    const d = shift - keyShift, e = eps(shift, keyShift);
+    search(d - e, d + e);
+  } else {
+    const tried = new Set();
+    for (let j = 0; j < N && !ambiguous; j++) {
+      if (!Number.isFinite(corr[j])) continue;
+      const d = stored[0] - corr[j];
+      if (tried.has(d)) continue;
+      tried.add(d);
+      const e = eps(stored[0], corr[j]);
+      search(d - h - e, d + h + e);
+    }
   }
-  const list = [...cands.values()];
-  if (!list.length) return null;
-  let idx = list[0];
-  if (list.length > 1) {
-    // the RMSE first: the fit's own statistic, from its full-precision envelope (a
-    // project save keeps the counts only to 6 significant figures, which can tie or
-    // mislead — Codex impl round 19); the stored counts break a tie, or stand in when
-    // the save has no RMSE
-    const fr = rec.fitResult || {}, fy = fr.fittedY;
-    const seen = Array.isArray(fr.bgSubtracted) && Array.isArray(fr.bgIntensity) &&
-      fr.bgSubtracted.length === n && fr.bgIntensity.length === n
-      ? stored.map((_, k) => fr.bgSubtracted[k] + fr.bgIntensity[k]) : null;
-    const byRmse = typeof fr.rmse === 'number' && Number.isFinite(fr.rmse) && Array.isArray(fy) && fy.length === n;
-    if (!seen && !byRmse) return null;
-    const rmseDev = c => {
-      if (!byRmse) return 0;
-      let ss = 0; for (let k = 0; k < n; k++) ss += (rec.rawIntensity[c[k]] - fy[k]) ** 2;
-      return Math.abs(Math.sqrt(ss / n) - fr.rmse);
-    };
-    const countDev = c => {
-      if (!seen) return 0;
-      let d = 0; for (let k = 0; k < n; k++) d = Math.max(d, Math.abs(seen[k] - rec.rawIntensity[c[k]])); return d;
-    };
-    const scored = list.map(c => ({ c, a: rmseDev(c), b: countDev(c) }))
-      .sort((x, y) => (x.a - y.a) || (x.b - y.b));
-    const [s0, s1] = scored;
-    if (!(s0.a < s1.a || (s0.a === s1.a && s0.b < s1.b))) return null;   // a tie or NaN: not resolved
-    idx = s0.c;
+  if (ambiguous) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
+  let list = [...ok.values()];
+  if (hasCounts && (list.length > 1 || !hasRmse)) {
+    const byCounts = list.filter(countsAgree);
+    if (byCounts.length || !hasRmse) list = byCounts;
   }
-  return { idx, be: idx.map(i => corr[i]), inten: idx.map(i => rec.rawIntensity[i]) };
+  if (!list.length) return { fail: 'its stored points are not points of its raw data, so the background cannot be recomputed on them' };
+  const same = c => c.every((i, k) => corr[i] === corr[list[0][k]] && I[i] === I[list[0][k]]);
+  if (!list.every(same)) return { fail: 'its stored points match more than one set of samples of its raw data equally well, so they cannot be told apart' };
+  const idx = list[0];
+  return { idx, be: idx.map(i => corr[i]), inten: idx.map(i => I[i]) };
 }
 // The curve the fit's own components draw at its points; a Voigt saved before A03
 // (2026-09-22) is drawn with the mix the server fitted it with
@@ -11391,7 +11437,7 @@ function _doSaveSpectrum() {
   // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
   // points, counts, envelope and background — and residuals against that envelope
   // (Codex impl round 19) — so a reload judges it afresh (as a project does)
-  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey());
+  const _ownFit = _restoredStale(state.fitResult) && _restoredUnchanged(state.fitResult, _startsLiveKey()) && _restoredModelIsFit(tab);
   const own = _ownFit ? state.fitResult : null;
   // Compute current curves
   const { be, inten } = own

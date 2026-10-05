@@ -277,7 +277,7 @@ test('restore: the background the fit USED (envelope less peaks) against today\'
   assert.strictEqual(shifted.fitResult.backgroundStale, undefined); assert.deepStrictEqual(shifted.fitResult.fittedY, fy);
   // on a uniform grid every run of samples is a constant offset: without the counts it saw, not resolved
   const blind = fitWith(peakRec()); blind.fitResult.be = blind.fitResult.be.map(v => v + 0.05); delete blind.fitResult.rmse;
-  assert.match(R._restoredFitBgFailure(blind) || '', /not points of its raw data/);
+  assert.match(R._restoredFitBgFailure(blind) || '', /cannot be told apart/);
 });
 
 // ── Codex impl round 18 ──
@@ -344,6 +344,63 @@ test('restore: after a charge shift the samples are matched at one offset in ord
   }
 });
 
+// ── Codex impl round 20 ──
+// a record fitted on its ROI with `peaks` over background none, RMSE and (optionally) 6-sig-fig counts as a project keeps them
+function fittedNone(rawBE, rawIntensity, peaks, roiMin, roiMax, { counts = false, key = false } = {}) {
+  const rec = peakRec({ rawBE, rawIntensity, peaks: peaks.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: String(roiMin), roiMax: String(roiMax) } });
+  const { be, rawY } = R._recordBackground(rec);
+  const fy = R.evalAllPeaks(be, rec.peaks);
+  rec.fitResult = { be: be.slice(), fittedY: fy, bgIntensity: be.map(() => 0),
+                    rmse: Math.sqrt(rawY.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / rawY.length) };
+  if (counts) { rec.fitResult.bgSubtracted = rawY.map(v => Number(v.toPrecision(6))); rec.fitResult.bgIntensity = be.map(() => 0); }
+  if (key) rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  return { rec, be, rawY };
+}
+const shiftAfter = (rec, d) => {                            // updateChargeCorrection: ccShift += d; peaks and fields −= d
+  rec.ccShift = (rec.ccShift || 0) + d; rec.peaks.forEach(p => { p.center -= d; });
+  rec.ui = { ...rec.ui, roiMin: String(+rec.ui.roiMin - d), roiMax: String(+rec.ui.roiMax - d) };
+};
+const r4be = rec => { rec.fitResult.be = rec.fitResult.be.map(v => Math.round(v * 1e4) / 1e4); };   // a project save
+
+test('restore: samples the record cannot tell apart are refused, not guessed — and a model key removes the offset guess', () => {
+  // two runs of samples whose counts differ by rounding: the RMSE cannot choose between them
+  const rawBE = [0, 1, 2, 3, 10, 11, 12, 13].map(v => 280 + v);
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 281.5, fwhm: 2, amplitude: 100, fixCenter: true }];
+  const base = [1, -2, 3, -4].map((r, k) => 10000 + R.evalAllPeaks([280 + k], G)[0] + r);
+  const rawIntensity = base.concat(base.map((v, k) => v + [0, 1, -1, -1][k] * 2 ** -39));
+  const a = fittedNone(rawBE, rawIntensity, G, 280, 283.5);
+  shiftAfter(a.rec, 0);                                     // keyless, no change: still two readings at different offsets
+  assert.match(R._restoredFitBgFailure(a.rec) || '', /cannot be told apart/);
+  const b = fittedNone(rawBE, rawIntensity, G, 280, 283.5, { key: true });
+  assert.strictEqual(R._restoredFitBgFailure(b.rec), null, 'the key gives the offset: one reading');
+  assert.deepStrictEqual(b.rec.fitResult.bgSubtracted.slice(), b.rawY, 'its own samples');
+});
+
+test('restore: two samples one rounded energy fits are both tried; the counts a project keeps choose', () => {
+  const rawBE = [0, 1.00001, 1.00002, 2.00002, 3.00002, 4.00002];
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 2, fwhm: 2, amplitude: 100 }];
+  const rawIntensity = R.evalAllPeaks(rawBE, G);
+  const f = fittedNone(rawBE, rawIntensity, G, 1.000015, 3.1, { counts: true });
+  assert.strictEqual(f.be.length, 3);
+  shiftAfter(f.rec, 0.5); r4be(f.rec);
+  assert.strictEqual(R._restoredFitBgFailure(f.rec), null);
+  assert.strictEqual(f.rec.fitResult.backgroundStale, undefined, 'the samples it was fitted on');
+  assert.deepStrictEqual(f.rec.fitResult.bgSubtracted.slice(), f.rawY);
+});
+
+test('restore: a project\'s rounded energies admit the offset the samples share, not one pinned to the first', () => {
+  for (const rev of [false, true]) {
+    let rawBE = [0.00004, 1.00006, 2.00004, 3.00006, 4.00004, 5.00006];
+    const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 2.5, fwhm: 2, amplitude: 100 }];
+    let rawIntensity = R.evalAllPeaks(rawBE, G).map(v => v + 5);
+    if (rev) { rawBE = rawBE.slice().reverse(); rawIntensity = rawIntensity.slice().reverse(); }
+    const f = fittedNone(rawBE, rawIntensity, G, 1, 4.1);
+    shiftAfter(f.rec, 0.5); r4be(f.rec);
+    assert.strictEqual(R._restoredFitBgFailure(f.rec), null, 'reversed ' + rev);
+    assert.deepStrictEqual(f.rec.fitResult.bgSubtracted.slice(), f.rawY, 'reversed ' + rev);
+  }
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));
@@ -392,7 +449,9 @@ test('restore: a Voigt fitted before A03 cannot be shown as fitted — stale wha
   assert.ok(rec.fitResult.starts === null && rec.fitResult.certificateMove === null && rec.fitResult.chosenAlternative === null && rec.peaks[0].support === null);
   const post = peakRec({ peaks: [{ ...V[0], _backendParams: { gl_ratio: { value: 0.5 } } }] });   // A03 and after: fitted at 0.5
   const { be: b2, bg: g2 } = R._recordBackground(post), m2 = R.evalAllPeaks(b2, post.peaks);
-  post.fitResult = { be: b2.slice(), fittedY: Array.from(g2).map((v, i) => v + m2[i]), bgIntensity: b2.map(() => 0), rmse: 1 };
+  const fy2 = Array.from(g2).map((v, i) => v + m2[i]), raw2 = R._recordBackground(post).rawY;
+  post.fitResult = { be: b2.slice(), fittedY: fy2, bgIntensity: b2.map(() => 0),
+                     rmse: Math.sqrt(raw2.reduce((a, v, i) => a + (v - fy2[i]) ** 2, 0) / raw2.length) };
   assert.strictEqual(R._restoredFitBgFailure(post), null);
   assert.ok(!R._restoredStale(post.fitResult), 'a Voigt fitted at 0.5 is drawn as fitted');
 });

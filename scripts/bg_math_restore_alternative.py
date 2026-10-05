@@ -41,59 +41,95 @@ def r4(v):
 
 
 def fit_grid(rf):
-    """(x, y, model_x) as the page's _restoredFitGrid: every reading that reproduces the
-    stored energies (the ROI selection, an in-order match exact / 4 dp, every constant-offset
-    run), the fit's record (stored counts, else its RMSE) choosing among several; the
-    components evaluated at the samples' own energies (no key in the committed saves: the
-    saved peaks, today's frame). None when unresolved."""
+    """(x, y, model_x) as the page's _restoredFitGrid (Codex impl rounds 18-20): every
+    in-order assignment of raw samples to the stored energies at one offset, within the
+    save's 4-dp rounding (h) and the arithmetic, branching where two samples fit; each must
+    meet the fit's RMSE within the old upload's 0.005 plus the arithmetic; the stored counts
+    (6 significant figures) choose among those left; several distinct survivors refuse.
+    No key in the committed saves: the offset is searched. None when unresolved."""
+    U = 2.0 ** -53
     fr = rf.fit_result
-    stored = np.asarray(fr.get("be") or [], float)
-    corr, inten = np.asarray(rf.corrected_be, float), np.asarray(rf.raw_intensity, float)
-    n = len(stored)
+    stored = [float(v) for v in fr.get("be") or []]
+    corr = [float(v) for v in np.asarray(rf.corrected_be, float)]
+    I = [float(v) for v in np.asarray(rf.raw_intensity, float)]
+    n, N = len(stored), len(corr)
     if n == 0:
         return None
-    cands = {}
-    def add(idx):
-        if idx is not None and len(idx) == n:
-            cands[tuple(idx)] = list(idx)
-    roi = np.nonzero(rf.roi_mask)[0]
-    if len(roi) == n and np.all((corr[roi] == stored) | (r4(corr[roi]) == stored)):
-        add(roi)
-    for rounded in (False, True):
-        idx, k = [], 0
-        for i in range(len(corr)):
-            if k < n and (corr[i] == stored[k] or (rounded and r4(corr[i]) == stored[k])):
-                idx.append(i); k += 1
-        add(idx)
-    for delta in dict.fromkeys((stored[0] - corr).tolist()):    # one offset, matched in order
-        idx, k = [], 0
-        c = corr + delta
-        rc = r4(c)
-        for i in range(len(corr)):
-            if k < n and (c[i] == stored[k] or rc[i] == r4(stored[k])):
-                idx.append(i); k += 1
-        add(idx)
-    cl = list(cands.values())
+    h = 5e-5 if all(round(v * 1e4) / 1e4 == v for v in stored) else 0.0
+    order = sorted((i for i in range(N) if np.isfinite(corr[i])), key=lambda i: corr[i])
+    sc = [corr[i] for i in order]
+    import bisect
+    eps = lambda a, b: 4 * U * (abs(a) + abs(b))
+    def within(k, lo, hi):
+        a, b = stored[k] - h - hi, stored[k] + h - lo
+        pad = eps(stored[k], max(abs(a), abs(b)))
+        t = bisect.bisect_left(sc, a - pad)
+        out = []
+        while t < len(sc) and sc[t] <= b + pad:
+            out.append(order[t]); t += 1
+        return out
+    fy = fr.get("fittedY"); rmse = fr.get("rmse")
+    has_rmse = isinstance(rmse, (int, float)) and np.isfinite(rmse) and isinstance(fy, list) and len(fy) == n
+    bs, bi = fr.get("bgSubtracted"), fr.get("bgIntensity")
+    has_counts = (isinstance(bs, list) and isinstance(bi, list) and len(bs) == n and len(bi) == n
+                  and all(isinstance(v, (int, float)) for v in bs + bi))
+    sig6 = has_counts and all(float(f"{v:.6g}") == v for v in bs + bi)
+    half6 = lambda v: 0.0 if v == 0 else 0.5 * 10.0 ** (np.floor(np.log10(abs(v))) - 5)
+    def rmse_ok(c):
+        if not has_rmse:
+            return True
+        r = [I[c[k]] - fy[k] for k in range(n)]
+        big = max(abs(I[c[k]]) + abs(fy[k]) for k in range(n))
+        return abs(np.sqrt(sum(v * v for v in r) / n) - rmse) <= 0.005 + 8 * U * big + 2 * U * abs(rmse)
+    def counts_ok(c):
+        for k in range(n):
+            tol = (half6(bs[k]) + half6(bi[k]) if sig6 else 0.0) + 16 * U * (abs(bs[k]) + abs(bi[k]) + abs(I[c[k]]))
+            if not abs(bs[k] + bi[k] - I[c[k]]) <= tol:
+                return False
+        return True
+    ok, amb = {}, False
+    def search(lo0, hi0):
+        stack, steps = [(0, -1, lo0, hi0, ())], 0
+        while stack:
+            k, prev, lo, hi, idx = stack.pop()
+            if k == n:
+                if rmse_ok(idx):
+                    ok[idx] = idx
+                continue
+            for i in within(k, lo, hi):
+                if i <= prev:
+                    continue
+                e = eps(stored[k], corr[i])
+                nlo, nhi = max(lo, stored[k] - h - corr[i] - e), min(hi, stored[k] + h - corr[i] + e)
+                if nlo <= nhi:
+                    stack.append((k + 1, i, nlo, nhi, idx + (i,)))
+            steps += 1
+            if steps > 64 * (n + 1):
+                return True
+        return False
+    tried = set()
+    for j in range(N):
+        if not np.isfinite(corr[j]):
+            continue
+        d = stored[0] - corr[j]
+        if d in tried:
+            continue
+        tried.add(d)
+        e = eps(stored[0], corr[j])
+        if search(d - h - e, d + h + e):
+            return None
+    cl = list(ok.values())
+    if has_counts and (len(cl) > 1 or not has_rmse):
+        bc = [c for c in cl if counts_ok(c)]
+        if bc or not has_rmse:
+            cl = bc
     if not cl:
         return None
-    pick = cl[0]
-    if len(cl) > 1:
-        bs, bi, fy, rmse = fr.get("bgSubtracted"), fr.get("bgIntensity"), fr.get("fittedY"), fr.get("rmse")
-        seen = (np.asarray(bs, float) + np.asarray(bi, float)
-                if isinstance(bs, list) and isinstance(bi, list) and len(bs) == n and len(bi) == n else None)
-        by_rmse = isinstance(rmse, (int, float)) and isinstance(fy, list) and len(fy) == n
-        if seen is None and not by_rmse:
-            return None
-        def dev(idx):        # the RMSE first, the stored counts break a tie (_restoredFitGrid)
-            a = abs(float(np.sqrt(np.mean((inten[idx] - np.asarray(fy, float)) ** 2))) - rmse) if by_rmse else 0.0
-            b = float(np.max(np.abs(seen - inten[idx]))) if seen is not None else 0.0
-            return (a, b)
-        scored = sorted((dev(c), k, c) for k, c in enumerate(cl))
-        if not (scored[0][0] < scored[1][0]):
-            return None
-        pick = scored[0][2]
-    pick = np.asarray(pick)
-    return corr[pick], inten[pick], corr[pick]
+    if not all(all(corr[i] == corr[cl[0][k]] and I[i] == I[cl[0][k]] for k, i in enumerate(c)) for c in cl):
+        return None
+    pick = np.asarray(cl[0])
+    c = np.asarray(corr)
+    return c[pick], np.asarray(I)[pick], c[pick]
 
 
 def legacy_voigts(rf):

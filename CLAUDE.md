@@ -930,12 +930,14 @@ recorded (`_restoredFitPeaks`: `startsModelKey`, or a `restoredKey` stamped when
 save is restored), evaluated at the matched raw samples in the fit's own charge frame at
 full precision (`_restoredFitModel`; a pre-A03 Voigt at its recorded η) — never by the
 stored background curve (older versions saved the page's preview beside the server's
-fit). The fit's points (`_restoredFitGrid`): every reading that reproduces the stored
-energies (the ROI selection, an in-order match exact or as saved to 4 dp, an in-order
-match at each constant offset — a charge correction changed after the fit — skipping
-samples between, as the ROI selection does in an unsorted record), the fit's own record
-choosing among several (its RMSE first, from the full-precision envelope; the stored
-counts — 6 significant figures in a project — break a tie; a tie refuses). Today's
+fit). The fit's points (`_restoredFitGrid`): every in-order assignment of raw samples to
+the stored energies at one charge offset (known from the fit's key — today's shift − the
+key's — else searched; an interval narrowed by each energy's own rounding, 4 dp in a
+project; samples between skipped; a sample that fits ambiguously is a branch) that AGREES
+with the fit's record within the record's own precision — its RMSE within the old
+upload's 0.005 plus the arithmetic, the stored counts (6 significant figures) choosing
+among those left. Nothing is ranked: one agreeing reading, or the fit loads peaks-only
+("cannot be told apart"). Today's
 certified background on those points (the record's settings and own anchors) within
 `BG_RESTORE_REL` = 1e-3 (`fit_equality.SAME_MINIMUM_REL`) of max(|implied|, |today|),
 plus the precision the subtraction recovers it to (BG_REL_TOL × the envelope's scale: a

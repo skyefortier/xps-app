@@ -161,6 +161,10 @@ def test_restored_fits_keep_only_a_stored_curve_that_satisfies_its_statement(bro
             if t.get("fitResult"):
                 fr = t["fitResult"]
                 fr["fittedY"] = [y - b + o for y, b, o in zip(fr["fittedY"], fr["bgIntensity"], c)]
+                # a fit made against that background has its own RMSE (the record is consistent)
+                at = {round(e * 1e4) / 1e4: v for e, v in zip(t["rawBE"], t["rawIntensity"])}
+                r = [at[e] - f for e, f in zip(fr["be"], fr["fittedY"])]
+                fr["rmse"] = (sum(v * v for v in r) / len(r)) ** 0.5
         return d
     five, old, preview = against(old_curve), against(one_step), json.loads(json.dumps(fresh))
     for t in preview["tabs"]:
@@ -415,3 +419,38 @@ def test_a_background_stale_fit_shows_no_evidence_and_survives_a_spectrum_save(b
     finally:
         pg.close()
     assert errors == [], errors
+
+
+def test_a_stale_spectrum_save_keeps_the_fits_curves_only_when_its_peaks_are_the_fits(browser, server):
+    # Codex impl round 20: a model edited (and the anchors moved) before the project save
+    # reloads stale with the fit's own background (from its key) beside the EDITED peaks;
+    # Save Spectrum then wrote the fit's envelope beside component curves of the edited
+    # model. Such a file is an ordinary stale save (the edited state's curves), not the fit's.
+    import json
+    setup = PEAK_TAB[:-1] + """;
+        _setManualAnchors([{ x: 280, y: 300 }, { x: 292, y: 700 }]);
+        document.getElementById('bg-type').value = 'manual'; _onBgTypeChange(); updatePlot(); }"""
+    pg = _new_page(browser, server)
+    try:
+        saved = _fit_and_capture(pg, setup, "() => _doSaveProject()",
+                                 "() => { state.peaks[0].amplitude *= 2; tabManager._syncActiveToRecord(); }")
+    finally:
+        pg.close()
+    t = next(t for t in saved["tabs"] if t.get("fitResult"))
+    t["manualAnchors"] = [{"x": 280, "y": 300}, {"x": 292, "y": 900}]
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate("data => _loadProjectJSON(data, 'm.proj.json')", saved)
+        pg.wait_for_timeout(400)
+        assert pg.evaluate("() => !!(state.fitResult && state.fitResult.backgroundStale)")
+        assert pg.evaluate("() => !_restoredModelIsFit(tabManager._getTab(tabManager.activeId))")
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => _doSaveSpectrum()")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        spec = json.loads(pg.evaluate("() => window.__dl[0].text"))
+    finally:
+        pg.close()
+    assert spec["statistics"]["statisticsState"] == "stale" and not spec["statistics"].get("restoredStale"), spec["statistics"]
+    # the file's curves are one model's: envelope = background + the components written beside it
+    comp = [sum(c["y"][i] for c in spec["peakCurves"]) for i in range(len(spec["roiBE"]))]
+    assert all(abs(f - b - m) <= 1e-9 * max(1.0, abs(f)) for f, b, m in zip(spec["fittedY"], spec["background"], comp))

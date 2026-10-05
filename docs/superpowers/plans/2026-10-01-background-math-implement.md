@@ -244,7 +244,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20).
 
 ## 4. Measurements
 
@@ -957,3 +957,25 @@ Mutation-verified (2 of 2 killed: counts before RMSE, contiguous runs only); the
 test checks residual + envelope = the raw counts at every saved point. Census unchanged:
 10 current, 71 stale, 40 peaks only (page and Python agree on all 121; the page judges
 all 121 in under a second).
+
+### 7.7 Codex round 20 — NO-GO ×2 (`background_math_impl_r20_verdict_run{A,B}.md`, commit ae9e04e)
+
+Both runs reproduced the census, the Python twin, the measurements and the student note's
+numbers; all 202 upload inputs, seeds and background curves match the measurement
+records.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): candidate readings were RANKED by the RMSE (or the counts) — an ulp-level difference between two near-identical runs of samples decided which one the fit was on (0.83 % / 89 % stale for unchanged fits) | the class, not the case (rounds 18-20 each found another variant of choosing samples by a heuristic): a reading must AGREE with the fit's record within the record's own precision — its RMSE within the old upload's rounding of the counts (0.005: 2 dp moves an RMS by at most that) plus a rigorous arithmetic term, the stored counts within their 6-significant-figure rounding — and exactly one reading (or several with the same energies and counts) must remain; more: "they cannot be told apart", peaks only. Nothing is ranked |
+| 2 | MAJOR (A): greedy in-order matching took the first sample whose ROUNDED energy fit and so excluded the exact one | every sample that fits a stored energy is a branch (bounded: more branching than 64 × the points is "ambiguous") |
+| 3 | MAJOR (B): the offset was pinned exactly to the first ROUNDED stored energy, so the rest failed | the offset is an interval: every stored energy narrows it by its own rounding (h = half a 4-dp unit when the save rounds) and the arithmetic |
+| 4 | MAJOR (B): Save Spectrum of a restored-stale fit whose peaks were edited before the project save wrote the fit's envelope beside the edited model's component curves | the fit's own curves are kept only when the record's peaks ARE the fit's components (`_restoredModelIsFit`); otherwise it is an ordinary stale save (one model's curves) |
+
+With a model key (every save of this version) the offset is no longer searched: it is
+today's shift − the key's. The RMSE is the fit's own statistic and must be met; the
+stored counts are a pair the page wrote, and choose only among the readings the RMSE
+leaves (a pair that fits none says nothing). Checked against the committed data: every
+saved fit's own samples meet its RMSE within 0.0008 and its counts within their rounding
+(63 of 63). Census unchanged (10 / 71 / 40; page and Python agree on all 121; the page
+judges all 121 in ~3 s). Mutation-verified (4 of 4 killed: guess among indistinguishable
+readings, greedy matching, the offset pinned to the first energy, the key ignored).
