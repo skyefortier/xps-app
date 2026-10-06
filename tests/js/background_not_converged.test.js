@@ -760,6 +760,15 @@ test('restore: the search\'s RMSE window is widened by the summation\'s own roun
   assert.ok(!g.fail, 'the sole reading, accepted by the verdict, is not pruned: ' + g.fail);
 });
 
+// ── Codex impl round 31 ──
+test('restore: the search\'s RMSE window holds in the subnormal range', () => {
+  const be = [280, 280.5, 281, 281.5, 282];
+  const rec = { rawBE: be, rawIntensity: [2e-162, 0, 0, 0, 0], ccShift: 0,
+                fitResult: { fittedY: [0, 0, 0, 0, 0], rmse: 0 } };     // the page's RMSE: sqrt(5e-324 / 5) underflows to 0
+  const g = R._restoredFitGrid(rec, be, 0, 0, 0);
+  assert.ok(!g.fail, 'the sole reading the verdict accepts is not pruned: ' + g.fail);
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));

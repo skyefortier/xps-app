@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29, 569 after round 31).
 
 ## 4. Measurements
 
@@ -1137,3 +1137,40 @@ note reproduced. Run B: 20 000 comparisons, no discrepancy; one MAJOR.
 
 Mutation-verified (the allowance in the same frame is killed by the new sub-case). Census
 unchanged (0 / 81 / 40). JS floor unchanged (568: a sub-case, not a new test).
+
+### 7.18 Checkpoint (owner, 2026-10-06) and Codex round 31 — NO-GO ×2 (`background_math_impl_r31_verdict_run{A,B}.md`, commit 94ea074)
+
+Owner: "Give me a one-line summary of each finding from rounds 25-31: what it was, and
+whether it could (a) change a number a student sees or exports, (b) let a wrong or unproven
+result read as current, or (c) neither (internal consistency, edge-case robustness, docs).
+Then: fix (a) and (b) findings as usual. Log (c) findings in PROGRESS.md instead of fixing
+them now, unless the fix is trivial. Ask Codex in round 32 for a proportionality ruling …
+Stop for my review after that round regardless of verdict."
+
+Every finding of rounds 25-31 ends the same way, as the verdicts state: a fit the record
+identifies is DROPPED — it loads peaks-only, with a plain reason, and Run Fit restores it.
+None shows or exports a wrong number; none lets a wrong or unproven result read as current.
+All are (c), each on a synthetic input (sub-1e-4 eV near-duplicate samples, 1e8-count
+outliers, subnormal counts, hand-built cancellation):
+
+| round | finding | category |
+|---|---|---|
+| 25 A, B | offset-incompatible branches exhausted the search's step cap → "too many sets of samples" | (c) — fixed (dead-state memo) |
+| 25 B | spectrum files lacked the counts the fit saw → a reload could not separate two readings | (c) — fixed (`fitCounts`) |
+| 26 A, B | the memo's dominance assumed one-sided RMSE failure; a too-small failure poisoned it → "not points of its raw data" | (c) — fixed (two-sided verdict) |
+| 27 A, B | too-small alternatives multiplied to the step cap → "too many" | (c) — fixed (two-sided branch and bound) |
+| 27 A | an unrelated 1e8-count sample widened the tolerance → "cannot be told apart" | (c) — fixed (the search's own samples) |
+| 28 A, B | an unusable sample (out of order / ruled out by its residual) widened the tolerance → "cannot be told apart" | (c) — fixed (the reading's own magnitudes) |
+| 29 A | a spectrum file's exact values were read as rounded → a neighbour admitted → "cannot be told apart" | (c) — fixed (`beExact`) |
+| 29 B (MINOR) | the backward and forward sums round in different orders → an ulp-boundary prune | (c) — fixed (outward widening) |
+| 30 B | exact points in the same frame still got an arithmetic allowance → a one-ulp neighbour admitted | (c) — fixed (exact comparison) |
+| 31 A | subnormal counts: the RMSE window underflowed to 0 while the sum was 5e-324 → "not points" | (c) — fixed, trivial (an absolute subnormal margin; mutation-verified) |
+| 31 B | LA(α,β,m), normalised at the grid point nearest its centre, can exceed its amplitude on an irregular grid → the magnitude bound (2 × Σ\|amplitude\|) too tight → "not points" | (c) — LOGGED in PROGRESS.md (needs evaluated component magnitudes across frames; not trivial) |
+
+Why every failure of the restore lands in (c), by construction: the reading must AGREE with
+the fit's own record (RMSE, and counts where saved) and must be the only one that does; a
+fit without its key is never current (owner, 2026-10-05); and a reading that agrees can only
+be the fit's own or one indistinguishable from it by the record — so an error in the search
+or its bounds can lose the fit's reading (a refusal) but cannot substitute another one
+silently. Census unchanged (0 / 81 / 40).
+

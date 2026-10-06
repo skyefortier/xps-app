@@ -33,6 +33,7 @@ Find Peaks is ARCHIVED (hidden from the UI, not deleted: backend, engine,
 
 | unit | logged | what | done when |
 |---|---|---|---|
+| Restore: a magnitude bound for grid-normalised components | owner, 2026-10-06 (background math, Codex impl round 31 run B; category (c): a restorable fit loads peaks-only, nothing wrong is shown) | `_restoredFitGrid`'s RMSE tolerance bounds each component's magnitude by 2 × Σ\|amplitude\|, but LA(α,β,m) normalises its convolved curve at the sample nearest its centre, so on an unsorted / irregular grid other samples can exceed its amplitude (a synthetic 2 100-point grid: 416 325 against amplitude 1 000). The tolerance is then too tight and the fit's own reading is refused ("not points of its raw data"). Synthetic, atypical of XPS sampling | the bound is the components' evaluated magnitudes at every raw sample the search can use (in the fit's frame, at the energies the server evaluated them on), or a proven shape-by-shape bound; a test reproduces the round-31 case |
 
 ## Status board
 

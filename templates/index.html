@@ -10184,7 +10184,10 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
     // outward by the summation's own rounding: the backward table and the verdict add the
     // n squares in different orders (Codex impl round 29), each within (n + 2) u of the sum
     const sw = (2 * n + 4) * U;
-    return [n * lo * lo * (1 - sw), n * hi * hi * (1 + sw)];
+    // and absolutely, for sums in the subnormal range, where relative rounding bounds do not
+    // hold (Codex impl round 31: a sum of 5e-324 against a window of 0)
+    const sa = (2 * n + 4) * Number.MIN_VALUE;
+    return [Math.max(0, n * lo * lo * (1 - sw) - sa), n * hi * hi * (1 + sw) + sa];
   };
   const countAt = (k, i) => {
     const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[i]));
