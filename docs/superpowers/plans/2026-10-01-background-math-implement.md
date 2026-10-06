@@ -1124,3 +1124,16 @@ variant without pruning or memo, no discrepancy; one MAJOR.
 Mutation-verified (2 of 2 killed). The round-25 fitCounts browser test now places the
 competing sample at the fit's own energy (exact energies separate a neighbour 1e-5 eV away).
 Census unchanged (0 / 81 / 40).
+
+### 7.17 Codex round 30 — run A GO (no findings), run B NO-GO (`background_math_impl_r30_verdict_run{A,B}.md`, commit 6bd34db)
+
+Run A: GO — 40 000 search comparisons (incl. RMSE-boundary probes) against a variant without
+pruning or memo, 243 successive project save / load checks, census, measurements and student
+note reproduced. Run B: 20 000 comparisons, no discrepancy; one MAJOR.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (B): with exact spectrum points in the same frame (zero charge change) the arithmetic energy allowance still admitted a neighbour one ulp below a stored energy (279.99999999999994 against 280) | exact points in the SAME frame (a spectrum file, today's shift = its frame's) are compared EXACTLY: the stored energies are today's corrected energies computed the same way, so no allowance applies |
+
+Mutation-verified (the allowance in the same frame is killed by the new sub-case). Census
+unchanged (0 / 81 / 40). JS floor unchanged (568: a sub-case, not a new test).

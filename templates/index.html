@@ -10111,7 +10111,11 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   const order = corr.map((c, i) => i).filter(i => Number.isFinite(corr[i])).sort((a, b) => corr[a] - corr[b]);
   const sortedC = order.map(i => corr[i]);
   const lowerBound = v => { let lo = 0, hi = sortedC.length; while (lo < hi) { const m = (lo + hi) >> 1; if (sortedC[m] < v) lo = m + 1; else hi = m; } return lo; };
-  const eps = (a, b) => 4 * U * (Math.abs(a) + Math.abs(b));
+  // exact points in the SAME frame (a spectrum file, today's shift = the frame's): the stored
+  // energies are today's corrected energies computed the same way, so they are compared
+  // exactly — no arithmetic allowance (Codex impl round 30: one ulp admitted a neighbour)
+  const sameFrame = exact && typeof keyShift === 'number' && Number.isFinite(keyShift) && shift === keyShift;
+  const eps = sameFrame ? () => 0 : (a, b) => 4 * U * (Math.abs(a) + Math.abs(b));
   // the samples whose corrected energy + some delta in [lo, hi] is stored[k]
   const within = (k, lo, hi) => {
     const out = [];

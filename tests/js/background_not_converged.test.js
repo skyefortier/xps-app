@@ -737,8 +737,9 @@ test('restore: a spectrum file\'s points and counts are exact — a simple value
   const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 1000 }];
   const own = [280, 280.5, 281, 281.5, 282], c = [62.5, 500, 1000, 500, 62.5001];
   const fy = R.evalAllPeaks(own, G);
-  for (const [nb, label] of [[62.5, 'a neighbour 1e-5 eV away'], [62.5000058823438, 'a neighbour whose count rounds like the fit\'s']]) {
-    const rawBE = [279.99999].concat(own), rawIntensity = [nb].concat(c);
+  for (const [nbE, nb, label] of [[279.99999, 62.5, 'a neighbour 1e-5 eV away'], [279.99999, 62.5000058823438, 'a neighbour whose count rounds like the fit\'s'],
+                                  [279.99999999999994, 62.5, 'a neighbour one ulp away (round 30: compared exactly in the same frame)']]) {
+    const rawBE = [nbE].concat(own), rawIntensity = [nb].concat(c);
     const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '282' } });
     rec.fitResult = { uploadFull: true, beExact: true, be: own.slice(), fittedY: fy.slice(), bgIntensity: own.map(() => 0),
                       bgSubtracted: c.slice(),                       // fitCounts − background, exact
