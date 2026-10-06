@@ -1064,7 +1064,8 @@ def background_certificate(x, y, bg, method, n_avg=1) -> dict[str, Any]:
             # certified only if a rigorous bound on that rounding meets the predicate
             # (Codex impl round 13: a high-edge sum that nearly cancels amplified it
             # 280 000-fold past it, on four ordinary points)
-            if _tougaard_rounding_bound(x, yn, n_avg) <= BG_REL_TOL * float(np.max(yn) - np.min(yn)):
+            tb, tl = _tougaard_rounding_bound(x, yn, n_avg), BG_REL_TOL * float(np.max(yn) - np.min(yn))
+            if math.isfinite(tb) and math.isfinite(tl) and tb <= tl:   # finite-only (owner 2026-10-06)
                 return {"converged": True, "residual": None, "reason": None}
             return {"converged": False, "residual": None, "reason": _TOUGAARD_CANCELS}
         if not np.any(loss):

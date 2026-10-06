@@ -4616,6 +4616,7 @@ function _bgExactLine(xs, x0, x1, lev, span) {
 // predicate, |v − num/den| <= BG_REL_TOL · span, decided exactly — v = V·2^-1074,
 // lim = TOL·SPAN at 2^-2148, so the test is |V·den·2^1074 − num·2^2148| <= lim·|den|.
 function _bgRoundingWithin(v, num, den, lim) {
+  if (!Number.isFinite(v)) return false;                                // finite-only (owner 2026-10-06)
   const d = _bgExact(v) * den * (1n << 1074n) - num * (1n << 2148n);
   const ad = den < 0n ? -den : den;
   return (d < 0n ? -d : d) <= lim * ad;
@@ -4745,7 +4746,8 @@ function _bgCertificate(be, intensity, bg, type, nAvg) {
     if (loss[0] !== 0) {
       // fitting.background_certificate: closed-form, so only rounding can move it —
       // certified only if a rigorous bound on that rounding meets the predicate
-      if (_tougaardRoundingBound(be, yn, nAvg) <= BG_REL_TOL * _bgSpan(yn)) return { converged: true, residual: null, reason: null };
+      const tb = _tougaardRoundingBound(be, yn, nAvg), tl = BG_REL_TOL * _bgSpan(yn);
+      if (Number.isFinite(tb) && Number.isFinite(tl) && tb <= tl) return { converged: true, residual: null, reason: null };   // finite-only
       return { converged: false, residual: null, reason: _TOUGAARD_CANCELS };
     }
     if (loss.every(v => v === 0)) return _tougaardZeroLossVerdict(be, intensity, bg, nAvg);
@@ -9971,8 +9973,9 @@ function _restoredModelIsFit(rec) {
     if (JSON.stringify(row(q)) !== JSON.stringify(row(p))) return false;
     const a = q.center, b = p.center;
     if (a === b && d === 0) return true;
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return a === b;
-    return Math.abs((a - d) - b) <= 64 * 4 * U * (Math.abs(a) + Math.abs(b) + Math.abs(d));
+    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(d)) return false;   // finite-only
+    const tol = 64 * 4 * U * (Math.abs(a) + Math.abs(b) + Math.abs(d)), gap = Math.abs((a - d) - b);
+    return Number.isFinite(tol) && Number.isFinite(gap) && gap <= tol;
   });
 }
 function _restoredFitBgFailure(rec) {
@@ -10030,6 +10033,9 @@ function _restoredFitBgFailure(rec) {
     envScale = Math.max(envScale, Math.abs(env[i]), Math.abs(model[i]));
   }
   const beyond = worst;
+  // finite-only (owner 2026-10-06): the comparison establishes nothing if a quantity overflows
+  if (![worst, scale, envScale].every(Number.isFinite))
+    return 'its stored envelope and today\'s background cannot be compared in floating point (a value is not finite or overflows)';
   const unconfirmed = !fit.fitFrame;
   if (!rec.fitResult.startsModelKey && !fr.restoredKey) fr.restoredKey = _startsRecordKey(rec);   // what an older save's fit had
   fr.loadKey = _startsRecordKey(rec);                    // the state it was loaded in (_restoredUnchanged)
@@ -10153,15 +10159,31 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   // say which failures stay failures for any path: an RMSE beyond even the loose tolerance
   // (+1, may be memoised). Every other failure (too small, or between the two tolerances)
   // is −1: never memoised.
+  // FINITE-ONLY (owner 2026-10-06, Codex impl round 32): the RMS is computed SCALED — by the
+  // largest residual, so squaring cannot overflow — and the reading agrees only if every
+  // quantity compared (residuals, RMS, tolerance) is finite; otherwise the verdict is NaN:
+  // refused, never memoised, and said plainly if no reading agrees (sawNonFinite).
+  let sawNonFinite = false;
   const rmseVerdict = (c, mag) => {
     if (!hasRmse) return 0;
-    let ss = 0, own = 0;
-    for (let k = 0; k < n; k++) { ss += (I[c[k]] - fy[k]) ** 2; own = Math.max(own, Math.abs(I[c[k]]) + Math.abs(fy[k])); }
-    const rc = Math.sqrt(ss / n), sums = (n + 4) * U * (rc + Math.abs(fr.rmse));
-    const tolOwn = uploadRound + 8 * U * (own + 2 * ampBound) + sums;
+    let m = 0, own = 0;
+    for (let k = 0; k < n; k++) {
+      const r = I[c[k]] - fy[k];
+      if (!Number.isFinite(r)) { sawNonFinite = true; return NaN; }
+      m = Math.max(m, Math.abs(r)); own = Math.max(own, Math.abs(I[c[k]]), Math.abs(fy[k]));
+    }
+    let q = 0;
+    if (m > 0) for (let k = 0; k < n; k++) q += ((I[c[k]] - fy[k]) / m) ** 2;
+    // the sums: the recorded RMS's n squares, and this scaled one's (a division per term
+    // more), (2n + 8) u of the RMS; and absolutely, a recorded sum of squares that fell into
+    // the subnormal range (Codex impl round 31: sqrt(5e-324 / 5) was recorded as 0)
+    const rc = m > 0 ? m * Math.sqrt(q / n) : 0;
+    const sums = (2 * n + 8) * U * (rc + Math.abs(fr.rmse)) + Math.sqrt((2 * n + 4) * Number.MIN_VALUE);
+    const tolOwn = uploadRound + 8 * U * (2 * own + 2 * ampBound) + sums;
+    if (!Number.isFinite(rc) || !Number.isFinite(tolOwn)) { sawNonFinite = true; return NaN; }
     if (Math.abs(rc - fr.rmse) <= tolOwn) return 0;
     const tolLoose = uploadRound + 8 * U * mag + sums;
-    return rc - fr.rmse > tolLoose ? 1 : -1;
+    return Number.isFinite(tolLoose) && rc - fr.rmse > tolLoose ? 1 : -1;
   };
   // THE SEARCH (Codex impl rounds 21-23): each path is parent links (no copies) with its
   // running sum of squared residuals. A branch stops when too few samples remain, when that
@@ -10174,12 +10196,12 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   // (a stored pair that fits no reading says nothing).
   let maxF = 0;
   if (hasRmse) for (const v of fy) maxF = Math.max(maxF, Math.abs(v));
-  const g = (n + 4) * U;
+  const g = (2 * n + 8) * U;                                  // as the verdict's sums (rmseVerdict)
   // the sums of squares a reading may have and still agree, for magnitude bound `mag`: the
   // verdict's bound solved for the recomputed RMSE on either side (R* above, r_* below)
   const ssWindow = mag => {
     if (!hasRmse) return [-Infinity, Infinity];
-    const t = uploadRound + 8 * U * mag, r = Math.abs(fr.rmse);
+    const t = uploadRound + 8 * U * mag + Math.sqrt((2 * n + 4) * Number.MIN_VALUE), r = Math.abs(fr.rmse);
     const hi = (r * (1 + g) + t) / Math.max(1 - g, 0.5), lo = Math.max(0, (r * (1 - g) - t) / (1 + g));
     // outward by the summation's own rounding: the backward table and the verdict add the
     // n squares in different orders (Codex impl round 29), each within (n + 2) u of the sum
@@ -10193,7 +10215,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
     const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[i]));
     const lo = (sig6 ? below(bs[k]) + below(bi[k]) : 0) + a, hi = (sig6 ? above(bs[k]) + above(bi[k]) : 0) + a;
     const d = I[i] - (bs[k] + bi[k]);
-    return d >= -lo && d <= hi;
+    return Number.isFinite(d) && Number.isFinite(lo) && Number.isFinite(hi) && d >= -lo && d <= hi;   // finite-only
   };
   const pathOf = node => { const out = new Array(n); for (let k = n - 1; k >= 0; k--) { out[k] = node.i; node = node.up; } return out; };
   const valKey = idx => idx.map(i => corr[i] + ':' + I[i]).join(',');
@@ -10237,7 +10259,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
       // round 27) — the same for every path in it, so the memo below stays sound
       let maxS = 0;
       for (const lv of rest) for (const i of lv.keys()) if (Number.isFinite(I[i])) maxS = Math.max(maxS, Math.abs(I[i]));
-      const mag = maxS + maxF + 2 * ampBound;
+      const mag = 2 * Math.max(maxS, maxF) + 2 * ampBound;   // ≥ the verdict's 2·own + 2·ampBound for every reading
       const [ssMin, ssMax] = ssWindow(mag);
       // then FORWARD, depth first, with a dead-state memo (Codex impl rounds 25-26): a state is
       // the point to place next, the last sample used and the offset interval the path leaves;
@@ -10281,7 +10303,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           if (ch.k === n) {
             const idx = pathOf(ch.node);
             const v = rmseVerdict(idx, mag);
-            if (v < 0) top.lowerFail = true;                   // not monotone in the sum: a larger one here could agree
+            if (!(v >= 0)) top.lowerFail = true;               // too small, between the tolerances, or not finite: never memoised
             if (v === 0) {
               top.any = true;
               const key = valKey(idx);
@@ -10327,7 +10349,9 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   if (!res || (!res.over && !res.found.size && hasRmse)) res = pass(false);   // the counts said nothing
   if (res.over) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
   const list = [...res.found.values()];
-  if (!list.length) return { fail: 'its stored points are not points of its raw data, so the background cannot be recomputed on them' };
+  if (!list.length) return { fail: sawNonFinite
+    ? 'its stored statistics cannot be compared with its data in floating point (a value is not finite or overflows), so the samples it was fitted on cannot be confirmed'
+    : 'its stored points are not points of its raw data, so the background cannot be recomputed on them' };
   if (list.length > 1) return { fail: 'its stored points match more than one set of samples of its raw data equally well, so they cannot be told apart' };
   const first = list[0].idx;
   // moved: the reading's offset excludes zero — the frame changed since the energies were stored

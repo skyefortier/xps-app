@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29, 569 after round 31).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29, 569 after round 31, 571 after the round-32 fix).
 
 ## 4. Measurements
 
@@ -1186,4 +1186,60 @@ and (b), deploy-blocking:
 | 1 | MAJOR (A, B), (a) + (b): the RMSE agreement test overflows. With counts of order 1e200 the squared residuals, the recomputed RMSE, the summation allowance and `tolOwn` all become Infinity, and `Infinity <= Infinity` passes; the search's squared upper bound overflows too, so no prune stops it. A hand-built, contradictory saved record (raw counts 1e200 against an envelope of 0–1 000, stored RMSE 0 or 1, a matching key) reloads CURRENT: Results shows RMSE 0.0 (true ~1e200) and the CSV exports χ²ᵣ 0.0000 without a warning. Not a backend-generated fit; it meets the round's "any input" scope | NOT FIXED — stopped for the owner's review as instructed. Both runs name the class fix: non-finite intermediate arithmetic must never establish agreement (refuse when rc, the tolerance or a sum is not finite), or overflow-safe RMS (scaled sum of squares). An in-memory finite guard makes the loader refuse both cases (run A) |
 
 Suites at 94d59c3: pytest 1194 passed, 7 skipped; JS 569 passed + 2 TODO; census 0 / 81 / 40.
+
+### 7.20 The finite-only rule (owner, 2026-10-06) — the round-32 fix
+
+Owner: "Any acceptance or 'current' check passes only if every quantity it compares (RMSE,
+tolerance, sums of squares, residuals) is finite. Non-finite → refuse, with a plain message.
+Prefer a scaled RMS that can't overflow where that's simple. Apply this to EVERY tolerance
+comparison this unit added or touched (restore, background defining-equation checks, envelope
+matching), not just the RMSE path. List them in the plan."
+
+Every tolerance comparison of this unit, and how it now treats a non-finite quantity:
+
+| # | comparison | where | non-finite handling |
+|---|---|---|---|
+| 1 | restore RMSE verdict, \|rc − rmse\| ≤ tolOwn (and the loose tolerance's monotone-failure test) | page `_restoredFitGrid` / `rmseVerdict` | **fixed (the round-32 defect: `Infinity <= Infinity` passed).** The RMS is computed SCALED by the largest residual (cannot overflow); a residual, the RMS or a tolerance that is not finite makes the verdict NaN — refused, never memoised; if no reading agrees, the plain message "its stored statistics cannot be compared with its data in floating point (a value is not finite or overflows) …". The summation allowance is now (2n + 8) u (the scaled sum's divisions) plus √((2n + 4)·MIN) for a recorded sum that fell into the subnormal range (round 31: `sqrt(5e-324 / 5)` recorded as 0) |
+| 2 | restore background comparison, worst ≤ BG_RESTORE_REL·scale + BG_REL_TOL·envScale | page `_restoredFitBgFailure` | **guarded:** worst, scale and envScale must be finite, else refused ("its stored envelope and today's background cannot be compared in floating point …"); the implied background was already required finite |
+| 3 | stored counts against raw counts (6-figure interval) | page `countAt` | **guarded explicitly** (it was a positive ≥ / ≤ conjunction, so NaN already failed and an infinite difference failed) |
+| 4 | search window and prunes (ssMin / ssMax, the least / most remainder cuts) | page `_restoredFitGrid` | cut-only — they reject branches, never accept a reading; the window now uses the verdict's own terms, and its magnitude bound is 2·max(samples, envelope) + 2·Σ\|amplitude\| ≥ every reading's own, so no prune cuts a reading the verdict accepts |
+| 5 | "the record's peaks are the fit's" (centres in one frame) | page `_restoredModelIsFit` | **guarded:** a non-finite centre, shift or gap is NOT the fit (was `Infinity === Infinity` → equal) |
+| 6 | an exact curve's rounding meets the predicate, \|round(q) − q\| ≤ BG_REL_TOL·span | page `_bgRoundingWithin` (linear, manual); server `_line_through`, `manual_anchor_background` | page **guarded explicitly** (a non-finite value was refused only implicitly, by the later finiteness check); server already `math.isfinite` per value before the exact Fraction test |
+| 7 | Tougaard's rigorous rounding bound ≤ BG_REL_TOL·span | page `_bgCertificate`; server `background_certificate` | **guarded explicitly** on both sides (already safe: data checked finite, span of the power-of-two-normalised data ≤ 2, and an infinite bound fails `<=`) |
+| 8 | the Shirley family's exact residual ≤ BG_REL_TOL·span, and the Tougaard zero-loss flat member | page `_bgExactShirleyCertificate`, `_tougaardZeroLossVerdict`; server `_exact_shirley_certificate` | unchanged: exact rationals (BigInt / Fraction) on inputs the certificate first requires finite ("the data in the window are not all finite numbers") |
+| 9 | every background is finite | page `_bgCertificate` / `computeBackgroundCore`; server `_explicit_background`, `background_certificate` | unchanged: already a finiteness test |
+| 10 | the iterations' stop, step ≤ BG_REL_TOL·span | page `shirleyBackground` & twins; server `shirley_background` & twins | not an acceptance: the stop only ends the iteration; the certificate (8) decides, on finite inputs |
+
+How the two allowances were reached — stated plainly, for Codex round 33 to check (owner:
+"if either is fitted rather than derived, that is a (b) finding"). Both were first SIZED when
+a test failed (round 29's boundary case under the scaled RMS; round 31's subnormal case);
+the derivations below were written afterwards and are what the bounds must be judged on.
+u = 2^-53; first-order error analysis (γ_k = k·u/(1 − k·u) ≈ k·u).
+
+- Relative term. The recorded RMS is fl(√(fl(Σ_k fl(r_k²)) / n)): the n squarings and the
+  n − 1 sequential additions give |fl(Σ) − Σ| ≤ γ_n·Σ (Higham, recursive summation, with
+  the squares' own rounding folded in); the division and the square root add u each, the
+  root halving the sum's relative error: |rmse_rec − rms| ≤ ((n/2) + 2)·u·rms. The scaled
+  RMS is fl(m·√(fl(Σ_k fl((r_k/m)²)) / n)): one more rounding per term (the division by m)
+  gives γ_{2n} on the sum, then the division, the root and the product by m: |rc − rms| ≤
+  (n + 3)·u·rms. Together |rc − rmse_rec| ≤ ((3n/2) + 5)·u·rms ≤ ((3n/2) + 5)·u·(rc + rmse)
+  — and (2n + 8)·u·(rc + rmse) ≥ that for every n ≥ 0. So (2n + 8) u is a derived bound
+  with margin (the round-28 (n + 4) u was below it once the RMS is scaled, which is why
+  the boundary test failed). The residual-level difference (the server's (I − B) − M
+  against I − (B + M)) is the separate 8·u·magnitude term, unchanged.
+- Absolute term. In the subnormal range rounding is absolute: each operation errs by at
+  most half the smallest subnormal, MIN/2 = 2^-1075. The recorded sum of squares takes n
+  squarings and n − 1 additions, then the division by n: |ss_rec − ss| ≤ (2n)·MIN/2 + MIN/2
+  = (2n + 1)·MIN/2, so the recorded mean square is off by at most (2n + 1)·MIN/(2n) and,
+  since √(a + e) − √a ≤ √e, the recorded RMS by at most √((2n + 1)·MIN/(2n)) ≤ √(2·MIN)
+  for n ≥ 1. √((2n + 4)·MIN) ≥ that for every n ≥ 1, with margin; the same term on the
+  scaled side (its m·√(…) does not underflow before m does) is covered by it too. Derived,
+  conservative; the search window uses the same terms (#4).
+
+Tests (`tests/js/background_not_converged.test.js`): both round-32 records (counts 1e200 against
+an envelope of 0, stored RMSE 1; a consistent fit whose raw counts were replaced by 1e200)
+are refused — not current; a NaN in the data a reading uses refuses it, in plain words (also
+directly on the grid search); round 31's subnormal case still restores (its test unchanged).
+Mutation-verified: the round-28 verdict (unscaled, unguarded) put back fails both new tests.
+Census unchanged (0 / 81 / 40).
 

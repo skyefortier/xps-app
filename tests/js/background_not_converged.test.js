@@ -769,6 +769,39 @@ test('restore: the search\'s RMSE window holds in the subnormal range', () => {
   assert.ok(!g.fail, 'the sole reading the verdict accepts is not pruned: ' + g.fail);
 });
 
+// ── Codex impl round 32 (owner 2026-10-06: every acceptance compares finite quantities only) ──
+test('restore: a record whose RMSE comparison would overflow is refused, never current', () => {
+  // run A: counts of 1e200 against an envelope of 0, stored RMSE 1
+  const be3 = [280, 281, 282];
+  const a = peakRec({ rawBE: be3, rawIntensity: [1e200, 1e200, 1e200], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 0 }],
+                      ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  a.fitResult = { uploadFull: true, beExact: true, be: be3.slice(), fittedY: [0, 0, 0], bgIntensity: [0, 0, 0], bgSubtracted: [1e200, 1e200, 1e200], rmse: 1 };
+  a.fitResult.startsModelKey = R._startsRecordKey(a);
+  const ra = R._restoredFitBgFailure(a);
+  assert.ok(ra, 'refused (peaks only), not current: ' + JSON.stringify(a.fitResult.backgroundStale));
+  // run B: a consistent fit whose raw counts were replaced by 1e200
+  const be5 = [280, 280.5, 281, 281.5, 282], G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 1000 }];
+  const fy = R.evalAllPeaks(be5, G);
+  const b = peakRec({ rawBE: be5, rawIntensity: be5.map(() => 1e200), peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  b.fitResult = { uploadFull: true, beExact: true, be: be5.slice(), fittedY: fy.slice(), bgIntensity: be5.map(() => 0), bgSubtracted: fy.slice(), rmse: 0 };
+  b.fitResult.startsModelKey = R._startsRecordKey(b);
+  assert.ok(R._restoredFitBgFailure(b), 'refused, not current');
+});
+
+test('restore: a NaN in the data a reading uses refuses it, in plain words', () => {
+  const be5 = [280, 280.5, 281, 281.5, 282], G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 1000 }];
+  const fy = R.evalAllPeaks(be5, G);
+  const rec = peakRec({ rawBE: be5, rawIntensity: [fy[0], fy[1], NaN, fy[3], fy[4]], peaks: G.map(p => ({ ...p })),
+                        ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  rec.fitResult = { uploadFull: true, beExact: true, be: be5.slice(), fittedY: fy.slice(), bgIntensity: be5.map(() => 0), rmse: 0 };
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  const r = R._restoredFitBgFailure(rec);
+  assert.match(r || '', /not finite/, 'refused: ' + r);
+  // and the grid search alone: no reading is accepted on a NaN residual
+  const g = R._restoredFitGrid({ rawBE: be5, rawIntensity: [0, 0, NaN, 0, 0], ccShift: 0, fitResult: { fittedY: [0, 0, 0, 0, 0], rmse: 0 } }, be5, 0, 0, 0);
+  assert.ok(g.fail && /not finite/.test(g.fail), g.fail);
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));

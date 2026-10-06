@@ -59,7 +59,7 @@ jobs:
           node --test --test-reporter=tap --test-reporter-destination=stdout --test-reporter=./scripts/ci_node_events_reporter.mjs --test-reporter-destination=js-events.jsonl tests/js/*.test.js 2>&1 | tee js.log
       - name: JS guard (no skip, no failure, no silent shrink, run finished)
         if: always()
-        run: python scripts/ci_check_node_events.py js-events.jsonl --min-passed 569 --max-todo 2 --expect-files tests/js/*.test.js
+        run: python scripts/ci_check_node_events.py js-events.jsonl --min-passed 571 --max-todo 2 --expect-files tests/js/*.test.js
 
   required-gates:
     runs-on: ubuntu-latest
