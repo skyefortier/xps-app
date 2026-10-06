@@ -84,7 +84,7 @@ def fit_grid(rf, amp_bound=0.0):
         if not has_rmse:
             return True
         r = [I[c[k]] - fy[k] for k in range(n)]
-        big = max_i + max_f + 2 * amp_bound          # path-independent, as the page (Codex impl round 26)
+        big = max(abs(I[c[k]]) + abs(fy[k]) for k in range(n)) + 2 * amp_bound   # the reading's own (Codex impl round 28)
         rc = np.sqrt(sum(v * v for v in r) / n)
         return abs(rc - rmse) <= 0.005 + 8 * U * big + (n + 4) * U * (rc + abs(rmse))
     def counts_ok(c):

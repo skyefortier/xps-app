@@ -10139,15 +10139,21 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   // ampBound: Codex impl round 22) — bounded over ALL samples and the envelope, so the
   // tolerance does not depend on the path; the sums of n squares on either side, (n + 4) u
   // of each RMS (Codex impl round 21).
-  // `mag` bounds the magnitudes of the samples a search can use (Codex impl round 27: not
-  // every raw sample — an unrelated one would widen the tolerance) plus the envelope's.
+  // THE VERDICT on the reading's OWN magnitudes (its samples and the envelope at its points:
+  // Codex impl rounds 27-28 — any wider set lets an unrelated or unusable sample loosen it).
+  // `mag` is the search's loose, path-independent bound (its table's samples), used ONLY to
+  // say which failures stay failures for any path: an RMSE beyond even the loose tolerance
+  // (+1, may be memoised). Every other failure (too small, or between the two tolerances)
+  // is −1: never memoised.
   const rmseVerdict = (c, mag) => {
     if (!hasRmse) return 0;
-    let ss = 0;
-    for (let k = 0; k < n; k++) ss += (I[c[k]] - fy[k]) ** 2;
-    const rc = Math.sqrt(ss / n);
-    const tol = uploadRound + 8 * U * mag + (n + 4) * U * (rc + Math.abs(fr.rmse));
-    return rc - fr.rmse > tol ? 1 : fr.rmse - rc > tol ? -1 : 0;
+    let ss = 0, own = 0;
+    for (let k = 0; k < n; k++) { ss += (I[c[k]] - fy[k]) ** 2; own = Math.max(own, Math.abs(I[c[k]]) + Math.abs(fy[k])); }
+    const rc = Math.sqrt(ss / n), sums = (n + 4) * U * (rc + Math.abs(fr.rmse));
+    const tolOwn = uploadRound + 8 * U * (own + 2 * ampBound) + sums;
+    if (Math.abs(rc - fr.rmse) <= tolOwn) return 0;
+    const tolLoose = uploadRound + 8 * U * mag + sums;
+    return rc - fr.rmse > tolLoose ? 1 : -1;
   };
   // THE SEARCH (Codex impl rounds 21-23): each path is parent links (no copies) with its
   // running sum of squared residuals. A branch stops when too few samples remain, when that
@@ -10261,7 +10267,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           if (ch.k === n) {
             const idx = pathOf(ch.node);
             const v = rmseVerdict(idx, mag);
-            if (v < 0) top.lowerFail = true;                   // too small: a larger sum here could agree
+            if (v < 0) top.lowerFail = true;                   // not monotone in the sum: a larger one here could agree
             if (v === 0) {
               top.any = true;
               const key = valKey(idx);

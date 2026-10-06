@@ -717,6 +717,21 @@ test('restore: an unrelated large sample does not widen the RMSE tolerance', () 
   assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'current');
 });
 
+// ── Codex impl round 28 ──
+test('restore: the verdict\'s tolerance is the reading\'s own — an unusable large neighbour does not loosen it', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.5, fwhm: 0.5, amplitude: 1000 }];
+  const own = Array.from({ length: 11 }, (_, i) => Math.round((280 + 0.1 * i) * 10) / 10);
+  const fy = R.evalAllPeaks(own, G);
+  // a million-count neighbour its residual rules out, and a near-copy of the first point
+  const rawBE = [279.99998, 279.99999].concat(own), rawIntensity = [1e6, fy[0] + 1e-9].concat(fy);
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '281' } });
+  rec.fitResult = { uploadFull: true, be: own.slice(), fittedY: fy.slice(), rmse: 0, bgIntensity: own.map(() => 0) };   // a spectrum file before fitCounts
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.deepStrictEqual(rec.fitResult.be.slice(), own);
+  assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'current');
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));

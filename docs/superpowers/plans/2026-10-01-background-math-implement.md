@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28).
 
 ## 4. Measurements
 
@@ -1098,3 +1098,15 @@ unchanged (0 / 81 / 40); page = Python twin on all 121.
 
 Mutation-verified (2 of 2 killed: no lower cut — with no stored counts the RMSE alone must
 cut; the tolerance over every raw sample). Census unchanged (0 / 81 / 40).
+
+### 7.15 Codex round 28 — NO-GO ×2 (`background_math_impl_r28_verdict_run{A,B}.md`, commit a0aafb9)
+
+Both runs reproduced everything; additional 5 000 / 2 000 randomised search comparisons
+against variants with the numerical pruning and the memo disabled found no discrepancy.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the tolerance's magnitude term still ran over samples no agreeing reading can use (one that cannot be placed in order; one whose residual already breaks the RMSE), so a million-count neighbour loosened it enough to admit a wrong reading of a current fit | the VERDICT uses the reading's OWN magnitudes (its samples and the envelope at its points); the search's loose, path-independent bound (its table's samples) is used only by the prunes and to say which failures stay failures for any path (beyond even the loose tolerance: may be memoised) — every other failure, too small or between the two tolerances, is never memoised. tolOwn ≤ tolLoose, so the prunes stay safe |
+
+Mutation-verified (the verdict on the loose tolerance is killed by the new test). Census
+unchanged (0 / 81 / 40); page = Python twin on all 121.
