@@ -10103,7 +10103,11 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   const corr = rec.rawBE.map(b => b - shift);
   const I = rec.rawIntensity;
   const r4 = v => Math.round(v * 1e4) / 1e4;
-  const h = stored.every(v => r4(v) === v) ? 5e-5 : 0;
+  // a project rounds the stored energies to 4 dp (and the counts to 6 significant figures);
+  // a spectrum file keeps them exact (fr.beExact, set by its loader: Codex impl round 29 —
+  // an exact 280 or 62.5 must not be read as rounded)
+  const exact = !!(rec.fitResult && rec.fitResult.beExact);
+  const h = !exact && stored.every(v => r4(v) === v) ? 5e-5 : 0;
   const order = corr.map((c, i) => i).filter(i => Number.isFinite(corr[i])).sort((a, b) => corr[a] - corr[b]);
   const sortedC = order.map(i => corr[i]);
   const lowerBound = v => { let lo = 0, hi = sortedC.length; while (lo < hi) { const m = (lo + hi) >> 1; if (sortedC[m] < v) lo = m + 1; else hi = m; } return lo; };
@@ -10122,7 +10126,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   const bs = fr.bgSubtracted, bi = fr.bgIntensity;
   const hasCounts = Array.isArray(bs) && Array.isArray(bi) && bs.length === n && bi.length === n &&
     bs.every(Number.isFinite) && bi.every(Number.isFinite);
-  const sig6 = hasCounts && bs.every(v => Number(v.toPrecision(6)) === v) && bi.every(v => Number(v.toPrecision(6)) === v);
+  const sig6 = !exact && hasCounts && bs.every(v => Number(v.toPrecision(6)) === v) && bi.every(v => Number(v.toPrecision(6)) === v);
   // half a unit of the 6th significant figure; the decimal's binary form, the subtraction
   // that made it and this sum add a few units in the last place (16 u, below)
   const half6 = v => v === 0 ? 0 : 0.5 * 10 ** (Math.floor(Math.log10(Math.abs(v))) - 5);
@@ -10173,7 +10177,10 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
     if (!hasRmse) return [-Infinity, Infinity];
     const t = uploadRound + 8 * U * mag, r = Math.abs(fr.rmse);
     const hi = (r * (1 + g) + t) / Math.max(1 - g, 0.5), lo = Math.max(0, (r * (1 - g) - t) / (1 + g));
-    return [n * lo * lo * (1 - 4 * U), n * hi * hi * (1 + 4 * U)];
+    // outward by the summation's own rounding: the backward table and the verdict add the
+    // n squares in different orders (Codex impl round 29), each within (n + 2) u of the sum
+    const sw = (2 * n + 4) * U;
+    return [n * lo * lo * (1 - sw), n * hi * hi * (1 + sw)];
   };
   const countAt = (k, i) => {
     const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[i]));
@@ -12027,6 +12034,7 @@ function _loadSpectrumFile(data, sessionFile) {
     // background curve, when there is one, is replaced by the certified one
     if (!stale && Array.isArray(data.roiBE)) {
       fr.be = data.roiBE.slice();
+      fr.beExact = true;               // a spectrum file keeps its points and counts exact (_restoredFitGrid)
       if (Array.isArray(data.background)) fr.bgIntensity = data.background.slice();
       // the counts the file says the fit saw (fitCounts, since 2026-10-05): with the background,
       // the same count evidence a project carries (background + what it subtracted)

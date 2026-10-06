@@ -168,7 +168,7 @@ function recordEnv() {
      '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve',
      'dsgConvolved_array', 'evalPeakArray', 'getPeak'].map(fn).join('\n') +
     '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
-    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3, BG_RESTORE_REL, evalAllPeaks, _startsRecordKey, _restoredStale, _restoredModelIsFit };';
+    '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3, BG_RESTORE_REL, evalAllPeaks, _startsRecordKey, _restoredStale, _restoredModelIsFit, _restoredFitGrid };';
   return new Function(src)();
 }
 const R = recordEnv();
@@ -730,6 +730,33 @@ test('restore: the verdict\'s tolerance is the reading\'s own — an unusable la
   assert.strictEqual(R._restoredFitBgFailure(rec), null);
   assert.deepStrictEqual(rec.fitResult.be.slice(), own);
   assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'current');
+});
+
+// ── Codex impl round 29 ──
+test('restore: a spectrum file\'s points and counts are exact — a simple value is not read as rounded', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 1000 }];
+  const own = [280, 280.5, 281, 281.5, 282], c = [62.5, 500, 1000, 500, 62.5001];
+  const fy = R.evalAllPeaks(own, G);
+  for (const [nb, label] of [[62.5, 'a neighbour 1e-5 eV away'], [62.5000058823438, 'a neighbour whose count rounds like the fit\'s']]) {
+    const rawBE = [279.99999].concat(own), rawIntensity = [nb].concat(c);
+    const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '282' } });
+    rec.fitResult = { uploadFull: true, beExact: true, be: own.slice(), fittedY: fy.slice(), bgIntensity: own.map(() => 0),
+                      bgSubtracted: c.slice(),                       // fitCounts − background, exact
+                      rmse: Math.sqrt(c.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / c.length) };
+    rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+    assert.strictEqual(R._restoredFitBgFailure(rec), null, label);
+    assert.deepStrictEqual(rec.fitResult.be.slice(), own, label);
+    assert.strictEqual(rec.fitResult.backgroundStale, undefined, label + ': current');
+  }
+});
+
+test('restore: the search\'s RMSE window is widened by the summation\'s own rounding (a reading at the boundary)', () => {
+  const be = [280, 280.1, 280.2, 280.3, 280.4, 280.5];
+  const rec = { rawBE: be, rawIntensity: [-87809067.2660619, 33063639.28131759, -94206236.07002199, 95697211.52074635, -9742030.92046082, 60016250.517219305],
+                fitResult: { fittedY: [19819426.350295544, 70811345.56792676, -98611670.26683688, -54457667.19058156, -80704812.00702488, -6804285.477846861],
+                             rmse: 86675042.30314377 } };
+  const g = R._restoredFitGrid(rec, be, 0, 89769475.55784136, 0);
+  assert.ok(!g.fail, 'the sole reading, accepted by the verdict, is not pruned: ' + g.fail);
 });
 
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {

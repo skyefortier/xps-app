@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29).
 
 ## 4. Measurements
 
@@ -1110,3 +1110,17 @@ against variants with the numerical pruning and the memo disabled found no discr
 
 Mutation-verified (the verdict on the loose tolerance is killed by the new test). Census
 unchanged (0 / 81 / 40); page = Python twin on all 121.
+
+### 7.16 Codex round 29 — run A NO-GO, run B GO (`background_math_impl_r29_verdict_run{A,B}.md`, commit dedeace)
+
+Run B: GO, one MINOR; 15 000 generated search comparisons. Run A: 10 000 comparisons against a
+variant without pruning or memo, no discrepancy; one MAJOR.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A): the restore inferred the save's rounding from how the numbers look, but a spectrum file keeps its points and counts exact — an exact 280 or 62.5 was read as rounded, admitting a neighbour the exact value rules out (a current fit dropped as "cannot be told apart") | the spectrum loader marks the fit's points exact (`fr.beExact`, runtime): no 4-dp energy or 6-figure count rounding is assumed for them. A project always rounds (4 dp, 6 figures), so its inference stands; a spectrum-loaded fit saved as a project is rounded by that save and read as such |
+| 2 | MINOR (B): the backward table and the verdict add the n squares in different orders, so at the exact RMSE boundary a prune could cut a reading the verdict accepts by an ulp | the search's RMSE window is widened outward by (2n + 4) u, the two summations' own rounding |
+
+Mutation-verified (2 of 2 killed). The round-25 fitCounts browser test now places the
+competing sample at the fit's own energy (exact energies separate a neighbour 1e-5 eV away).
+Census unchanged (0 / 81 / 40).

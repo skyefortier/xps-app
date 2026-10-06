@@ -593,11 +593,12 @@ def test_a_spectrum_file_carries_the_counts_its_fit_saw(browser, server):
     finally:
         pg.close()
     assert spec.get("fitCounts") and len(spec["fitCounts"]) == len(spec["roiBE"])
-    # a raw sample a hair beyond the fit's point at 280 eV (next to it in the file's order, which
-    # the page keeps descending), mirrored about the fit's envelope there
+    # a second raw sample AT the fit's point of 280 eV (a spectrum's exact energies cannot tell
+    # them apart — Codex impl round 29: a neighbour 1e-5 eV away they now do), mirrored about
+    # the fit's envelope there: the same RMSE, only the counts separate them
     k = spec["roiBE"].index(280)
     i0 = spec["rawBE"].index(280)
-    spec["rawBE"].insert(i0 + 1, 279.99999)
+    spec["rawBE"].insert(i0 + 1, 280)
     spec["rawIntensity"].insert(i0 + 1, 2 * spec["fittedY"][k] - spec["rawIntensity"][i0])
     for name, data in (("with counts", spec), ("without", {k: v for k, v in spec.items() if k != "fitCounts"})):
         pg = _new_page(browser, server)
