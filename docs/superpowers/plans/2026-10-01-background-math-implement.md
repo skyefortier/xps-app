@@ -1174,3 +1174,16 @@ be the fit's own or one indistinguishable from it by the record — so an error 
 or its bounds can lose the fit's reading (a refusal) but cannot substitute another one
 silently. Census unchanged (0 / 81 / 40).
 
+### 7.19 Codex round 32 — NO-GO ×2, the proportionality ruling (`background_math_impl_r32_verdict_run{A,B}.md`, commit 94d59c3) — STOPPED for the owner's review
+
+Ruling, both runs: (1) they agree that every finding of rounds 25-31 is (c) — a refusal,
+non-blocking; neither reclassifies any. (3) The logged round-31 B stays MINOR, (c),
+non-blocking. (2) But one NEW input restores wrong statistics as current — categories (a)
+and (b), deploy-blocking:
+
+| # | finding | status |
+|---|---|---|
+| 1 | MAJOR (A, B), (a) + (b): the RMSE agreement test overflows. With counts of order 1e200 the squared residuals, the recomputed RMSE, the summation allowance and `tolOwn` all become Infinity, and `Infinity <= Infinity` passes; the search's squared upper bound overflows too, so no prune stops it. A hand-built, contradictory saved record (raw counts 1e200 against an envelope of 0–1 000, stored RMSE 0 or 1, a matching key) reloads CURRENT: Results shows RMSE 0.0 (true ~1e200) and the CSV exports χ²ᵣ 0.0000 without a warning. Not a backend-generated fit; it meets the round's "any input" scope | NOT FIXED — stopped for the owner's review as instructed. Both runs name the class fix: non-finite intermediate arithmetic must never establish agreement (refuse when rc, the tolerance or a sum is not finite), or overflow-safe RMS (scaled sum of squares). An in-memory finite guard makes the loader refuse both cases (run A) |
+
+Suites at 94d59c3: pytest 1194 passed, 7 skipped; JS 569 passed + 2 TODO; census 0 / 81 / 40.
+
