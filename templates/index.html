@@ -10132,16 +10132,20 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   const pow10 = v => /^-?1\.00000e/.test(v.toExponential(5));
   const below = v => v === 0 ? 0 : (v > 0 && pow10(v) ? half6(v) / 10 : half6(v));
   const above = v => v === 0 ? 0 : (v < 0 && pow10(v) ? half6(v) / 10 : half6(v));
-  const rmseAgrees = c => {
-    if (!hasRmse) return true;
-    let ss = 0, big = 0;
-    for (let k = 0; k < n; k++) { ss += (I[c[k]] - fy[k]) ** 2; big = Math.max(big, Math.abs(I[c[k]]) + Math.abs(fy[k]) + 2 * ampBound); }
-    // per point: the server's (I − B) − M against I − (B + M), a few u of the magnitudes —
-    // incl. a background and components that cancel (|B| + |M| ≤ |envelope| + 2|M|, |M| ≤
-    // ampBound: Codex impl round 22); the sums of n squares on either side, (n + 4) u of
-    // each RMS (Codex impl round 21)
+  // 0: the reading meets the RMSE; +1 its RMSE is too LARGE; −1 too SMALL (Codex impl round
+  // 26: the agreement is two-sided, and the search's memo may only rest on the first kind).
+  // Per point: the server's (I − B) − M against I − (B + M), a few u of the magnitudes —
+  // incl. a background and components that cancel (|B| + |M| ≤ |envelope| + 2|M|, |M| ≤
+  // ampBound: Codex impl round 22) — bounded over ALL samples and the envelope, so the
+  // tolerance does not depend on the path; the sums of n squares on either side, (n + 4) u
+  // of each RMS (Codex impl round 21).
+  const rmseVerdict = c => {
+    if (!hasRmse) return 0;
+    let ss = 0;
+    for (let k = 0; k < n; k++) ss += (I[c[k]] - fy[k]) ** 2;
     const rc = Math.sqrt(ss / n);
-    return Math.abs(rc - fr.rmse) <= uploadRound + 8 * U * big + (n + 4) * U * (rc + Math.abs(fr.rmse));
+    const tol = uploadRound + 8 * U * (maxI + maxF + 2 * ampBound) + (n + 4) * U * (rc + Math.abs(fr.rmse));
+    return rc - fr.rmse > tol ? 1 : fr.rmse - rc > tol ? -1 : 0;
   };
   // THE SEARCH (Codex impl rounds 21-23): each path is parent links (no copies) with its
   // running sum of squared residuals. A branch stops when too few samples remain, when that
@@ -10198,11 +10202,13 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
         rest[k] = lv;
         if (!lv.size) return false;                           // no placement of the remaining points
       }
-      // then FORWARD, depth first, with a dead-state memo (Codex impl round 25): a state is the
-      // point to place next, the last sample used and the offset interval the path leaves; a
-      // state whose whole subtree held no agreeing reading, explored with partial sum ss, is
-      // dead for any later arrival with a sum ≥ ss (the offset, order and counts are the same,
-      // the RMSE only harder) — so incompatible choices that recombine are explored once
+      // then FORWARD, depth first, with a dead-state memo (Codex impl rounds 25-26): a state is
+      // the point to place next, the last sample used and the offset interval the path leaves;
+      // a state whose whole subtree held no agreeing reading, explored with partial sum ss, is
+      // dead for any later arrival with a sum ≥ ss — ONLY if every failure below it was of order,
+      // offset or counts (independent of the sum) or an RMSE too LARGE (larger with a larger
+      // sum). A subtree with a reading whose RMSE was too SMALL is not memoised (a larger sum
+      // could agree there). Incompatible choices that recombine are explored once.
       const dead = new Map();
       const keyOf = st => st.k + '|' + st.prev + '|' + st.lo + '|' + st.hi;
       const childrenOf = st => {
@@ -10225,7 +10231,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
         return out;
       };
       const root = { k: 0, prev: -1, lo: lo0, hi: hi0, node: null, ss: 0 };
-      root.kids = childrenOf(root); root.ci = 0; root.any = false;
+      root.kids = childrenOf(root); root.ci = 0; root.any = false; root.lowerFail = false;
       const stack = [root];
       let steps = 0;
       while (stack.length) {
@@ -10234,7 +10240,9 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           const ch = top.kids[top.ci++];
           if (ch.k === n) {
             const idx = pathOf(ch.node);
-            if (rmseAgrees(idx)) {
+            const v = rmseVerdict(idx);
+            if (v < 0) top.lowerFail = true;                   // too small: a larger sum here could agree
+            if (v === 0) {
               top.any = true;
               const key = valKey(idx);
               if (!found.has(key)) found.set(key, { idx, lo: ch.lo, hi: ch.hi });
@@ -10244,14 +10252,18 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           }
           const m = dead.get(keyOf(ch));
           if (m !== undefined && ch.ss >= m) continue;         // explored from no better a start, found nothing
-          ch.kids = childrenOf(ch); ch.ci = 0; ch.any = false;
+          ch.kids = childrenOf(ch); ch.ci = 0; ch.any = false; ch.lowerFail = false;
           stack.push(ch);
           if (++steps > 4096 * (n + 1)) return true;           // bounded work: more is "ambiguous"
           continue;
         }
         stack.pop();
-        if (!top.any) { const key = keyOf(top), m = dead.get(key); if (m === undefined || top.ss < m) dead.set(key, top.ss); }
-        else if (stack.length) stack[stack.length - 1].any = true;
+        if (!top.any && !top.lowerFail) { const key = keyOf(top), m = dead.get(key); if (m === undefined || top.ss < m) dead.set(key, top.ss); }
+        if (stack.length) {
+          const up = stack[stack.length - 1];
+          if (top.any) up.any = true;
+          if (top.lowerFail) up.lowerFail = true;
+        }
       }
       return false;
     };

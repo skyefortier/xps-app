@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26).
 
 ## 4. Measurements
 
@@ -1079,3 +1079,12 @@ student note; 243 keyed project-load probes passed (run A).
 
 Mutation-verified (2 of 2 killed: no memo; the loader ignoring fitCounts). Census
 unchanged (0 / 81 / 40).
+
+### 7.13 Codex round 26 — NO-GO ×2 (`background_math_impl_r26_verdict_run{A,B}.md`, commit 14560d7)
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): the dead-state dominance rule assumed failure only gets harder with a larger sum — but RMSE agreement is TWO-SIDED: a reading can fail for an RMSE too SMALL (an excluded sample whose residual is 0), and a later arrival at the same state with a larger sum could agree; the memo dropped an unchanged current fit | `rmseVerdict` says which side a reading fails on; a state is memoised only if every failure below it was of order, offset or counts (independent of the sum) or an RMSE too LARGE (larger with a larger sum) — a subtree with a too-small failure is never memoised. The tolerance's arithmetic term is bounded over all samples and the envelope, so it does not depend on the path (the memo's soundness needs that, as run A noted) |
+
+Mutation-verified (the memo ignoring too-small failures is killed by the new test). Census
+unchanged (0 / 81 / 40); page = Python twin on all 121.

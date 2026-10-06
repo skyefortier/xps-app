@@ -78,11 +78,13 @@ def fit_grid(rf, amp_bound=0.0):
     pow10 = lambda v: f"{abs(v):.5e}".startswith("1.00000e")
     below = lambda v: 0.0 if v == 0 else (half6(v) / 10 if v > 0 and pow10(v) else half6(v))
     above = lambda v: 0.0 if v == 0 else (half6(v) / 10 if v < 0 and pow10(v) else half6(v))
+    max_i = max((abs(v) for v in I if np.isfinite(v)), default=0.0)
+    max_f = max((abs(float(v)) for v in fy), default=0.0) if has_rmse else 0.0
     def rmse_ok(c):
         if not has_rmse:
             return True
         r = [I[c[k]] - fy[k] for k in range(n)]
-        big = max(abs(I[c[k]]) + abs(fy[k]) + 2 * amp_bound for k in range(n))
+        big = max_i + max_f + 2 * amp_bound          # path-independent, as the page (Codex impl round 26)
         rc = np.sqrt(sum(v * v for v in r) / n)
         return abs(rc - rmse) <= 0.005 + 8 * U * big + (n + 4) * U * (rc + abs(rmse))
     def counts_ok(c):

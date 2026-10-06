@@ -665,6 +665,24 @@ test('restore: choices that can never share one offset are explored once (a dead
   assert.deepStrictEqual(rec.fitResult.be.slice(), own);
 });
 
+// ── Codex impl round 26 ──
+test('restore: a reading whose RMSE is too SMALL does not mark the shared rest of the search dead', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.5, fwhm: 0.5, amplitude: 1e6 }];
+  const own = Array.from({ length: 11 }, (_, i) => Math.round((280 + 0.1 * i) * 10) / 10);
+  const fy = R.evalAllPeaks(own, G);
+  const c = fy.map((v, i) => v + (i % 2 ? 0.01 : -0.01));
+  const rawBE = [279.99999].concat(own), rawIntensity = [fy[0]].concat(c);   // the other first sample: residual exactly 0
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '281' } });
+  rec.fitResult = { uploadFull: true, be: own.slice(), fittedY: fy.slice(), bgIntensity: own.map(() => 0),
+                    rmse: Math.sqrt(c.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / c.length),
+                    bgSubtracted: c.map(v => Number(v.toPrecision(6))) };
+  rec.fitResult.bgIntensity = own.map(() => 0);
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  assert.strictEqual(R._restoredFitBgFailure(rec), null, 'the fit\'s own samples are found');
+  assert.deepStrictEqual(rec.fitResult.be.slice(), own);
+  assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'current');
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));
