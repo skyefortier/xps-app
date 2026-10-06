@@ -9972,8 +9972,8 @@ function _restoredModelIsFit(rec) {
     const p = now[j];
     if (JSON.stringify(row(q)) !== JSON.stringify(row(p))) return false;
     const a = q.center, b = p.center;
+    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(d)) return false;   // finite-only, before any shortcut (Codex impl round 33)
     if (a === b && d === 0) return true;
-    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(d)) return false;   // finite-only
     const tol = 64 * 4 * U * (Math.abs(a) + Math.abs(b) + Math.abs(d)), gap = Math.abs((a - d) - b);
     return Number.isFinite(tol) && Number.isFinite(gap) && gap <= tol;
   });
@@ -9995,6 +9995,11 @@ function _restoredFitBgFailure(rec) {
     return 'its stored envelope and the energies it was fitted on have different lengths';
   if (!env.every(v => typeof v === 'number' && Number.isFinite(v)) || !fr.be.every(v => typeof v === 'number' && Number.isFinite(v)))
     return 'its stored envelope is not a number at every point';
+  // a stored RMSE that is not a finite number (1e309 in a file reads as Infinity) is not
+  // evidence that can be checked — never mistaken for an absent one, which is merely not
+  // used (Codex impl round 33: Infinity skipped the check and was shown as current)
+  if (fr.rmse !== undefined && !(typeof fr.rmse === 'number' && Number.isFinite(fr.rmse)))
+    return 'its stored RMSE is not a finite number, so the samples it was fitted on cannot be confirmed';
   delete fr.backgroundStale; delete fr.voigtStale;       // judged afresh on every load
   const fit = _restoredFitPeaks(rec);
   // the frame of the stored energies: the key's (the fit's), or the one a restore wrote them in
@@ -10051,7 +10056,8 @@ function _restoredFitBgFailure(rec) {
     fr.bgIntensity = used;
     fr.be = grid.be;
     fr.bgSubtracted = grid.inten.map((v, i) => v - used[i]);
-    fr.backgroundStale = { pct: 100 * worst / scale, ...(unconfirmed ? { unconfirmed: true, matches: within } : {}) };
+    fr.backgroundStale = { pct: scale > 0 ? 100 * (worst / scale) : 0,   // the ratio first: 100 · worst can overflow (Codex impl round 33)
+      ...(unconfirmed ? { unconfirmed: true, matches: within } : {}) };
   } else {
     fr.bgIntensity = bg;                                 // the certified curve itself
     fr.be = grid.be;
@@ -10108,25 +10114,37 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   const n = stored.length, N = rec.rawBE.length;
   const corr = rec.rawBE.map(b => b - shift);
   const I = rec.rawIntensity;
+  // FINITE-ONLY (owner 2026-10-06; Codex impl round 33): a quantity this search compares that
+  // is not finite — an input, an energy allowance, an offset, a sum of squares — refuses the
+  // WHOLE record, never just the branch it arose in: a branch dropped for overflow could be
+  // the agreeing alternative that makes another reading ambiguous.
+  const nonFiniteFail = { fail: 'its stored statistics cannot be compared with its data in floating point (a value is not finite or overflows), so the samples it was fitted on cannot be confirmed' };
+  for (let i = 0; i < N; i++) if (!(typeof corr[i] === 'number' && Number.isFinite(corr[i])) || !(typeof I[i] === 'number' && Number.isFinite(I[i]))) return nonFiniteFail;
+  if (!(Number.isFinite(shift) && stored.every(v => typeof v === 'number' && Number.isFinite(v)))) return nonFiniteFail;
   const r4 = v => Math.round(v * 1e4) / 1e4;
   // a project rounds the stored energies to 4 dp (and the counts to 6 significant figures);
   // a spectrum file keeps them exact (fr.beExact, set by its loader: Codex impl round 29 —
   // an exact 280 or 62.5 must not be read as rounded)
   const exact = !!(rec.fitResult && rec.fitResult.beExact);
   const h = !exact && stored.every(v => r4(v) === v) ? 5e-5 : 0;
-  const order = corr.map((c, i) => i).filter(i => Number.isFinite(corr[i])).sort((a, b) => corr[a] - corr[b]);
+  const order = corr.map((c, i) => i).sort((a, b) => corr[a] - corr[b]);
   const sortedC = order.map(i => corr[i]);
   const lowerBound = v => { let lo = 0, hi = sortedC.length; while (lo < hi) { const m = (lo + hi) >> 1; if (sortedC[m] < v) lo = m + 1; else hi = m; } return lo; };
   // exact points in the SAME frame (a spectrum file, today's shift = the frame's): the stored
   // energies are today's corrected energies computed the same way, so they are compared
   // exactly — no arithmetic allowance (Codex impl round 30: one ulp admitted a neighbour)
   const sameFrame = exact && typeof keyShift === 'number' && Number.isFinite(keyShift) && shift === keyShift;
-  const eps = sameFrame ? () => 0 : (a, b) => 4 * U * (Math.abs(a) + Math.abs(b));
+  // 4 u of each magnitude, each scaled before the sum (4 u (|a| + |b|) overflowed near 1e308
+  // to an infinite allowance that admitted any energy: Codex impl round 33)
+  const eps = sameFrame ? () => 0 : (a, b) => 4 * U * Math.abs(a) + 4 * U * Math.abs(b);
+  let sawNonFinite = false;
+  const finite = (...v) => { if (v.every(Number.isFinite)) return true; sawNonFinite = true; return false; };
   // the samples whose corrected energy + some delta in [lo, hi] is stored[k]
   const within = (k, lo, hi) => {
     const out = [];
     const a = stored[k] - h - hi, b = stored[k] + h - lo;
     const pad = eps(stored[k], Math.max(Math.abs(a), Math.abs(b)));
+    if (!finite(a, b, pad, a - pad, b + pad)) return out;    // refused: sawNonFinite
     for (let t = lowerBound(a - pad); t < sortedC.length && sortedC[t] <= b + pad; t++) out.push(order[t]);
     return out;
   };
@@ -10161,9 +10179,8 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   // is −1: never memoised.
   // FINITE-ONLY (owner 2026-10-06, Codex impl round 32): the RMS is computed SCALED — by the
   // largest residual, so squaring cannot overflow — and the reading agrees only if every
-  // quantity compared (residuals, RMS, tolerance) is finite; otherwise the verdict is NaN:
-  // refused, never memoised, and said plainly if no reading agrees (sawNonFinite).
-  let sawNonFinite = false;
+  // quantity compared (residuals, RMS, tolerance) is finite; otherwise the verdict is NaN and
+  // the whole record is refused (sawNonFinite; Codex impl round 33), whatever else agreed.
   const rmseVerdict = (c, mag) => {
     if (!hasRmse) return 0;
     let m = 0, own = 0;
@@ -10182,8 +10199,13 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
     const tolOwn = uploadRound + 8 * U * (2 * own + 2 * ampBound) + sums;
     if (!Number.isFinite(rc) || !Number.isFinite(tolOwn)) { sawNonFinite = true; return NaN; }
     if (Math.abs(rc - fr.rmse) <= tolOwn) return 0;
+    // +1 (memoisable) only beyond the loose tolerance by SEP, the most a reading reached later
+    // in the same state with a no smaller partial sum can fall below this one's RMS (plan
+    // §7.21: the two scaled RMS and the sums of squares between them; Codex impl round 33)
     const tolLoose = uploadRound + 8 * U * mag + sums;
-    return Number.isFinite(tolLoose) && rc - fr.rmse > tolLoose ? 1 : -1;
+    // (a license for the memo, not an acceptance: an infinite loose tolerance licenses nothing)
+    const sep = (4 * n + 32) * U * rc + Math.sqrt((2 * n + 4) * Number.MIN_VALUE);
+    return Number.isFinite(tolLoose + sep) && rc - fr.rmse > tolLoose + sep ? 1 : -1;
   };
   // THE SEARCH (Codex impl rounds 21-23): each path is parent links (no copies) with its
   // running sum of squared residuals. A branch stops when too few samples remain, when that
@@ -10202,20 +10224,27 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   const ssWindow = mag => {
     if (!hasRmse) return [-Infinity, Infinity];
     const t = uploadRound + 8 * U * mag + Math.sqrt((2 * n + 4) * Number.MIN_VALUE), r = Math.abs(fr.rmse);
-    const hi = (r * (1 + g) + t) / Math.max(1 - g, 0.5), lo = Math.max(0, (r * (1 - g) - t) / (1 + g));
-    // outward by the summation's own rounding: the backward table and the verdict add the
-    // n squares in different orders (Codex impl round 29), each within (n + 2) u of the sum
-    const sw = (2 * n + 4) * U;
+    // outward (plan §7.21, Codex impl round 33): by 8 u of r + t for the rounding of hi and lo
+    // themselves (r (1 − g) − t can cancel); the sums below relatively by sw for the scaled
+    // RMS against the sums of squares the table and the paths add in their own orders (Codex
+    // impl round 29) — (2n + 9) u to first order, (4n + 32) u allowed
+    const sw = (4 * n + 32) * U, ar = 8 * U * (r + t);
+    const hi = (r * (1 + g) + t) / Math.max(1 - g, 0.5) + ar;
+    const lo = Math.max(0, (r * (1 - g) - t) / (1 + g) - ar);
     // and absolutely, for sums in the subnormal range, where relative rounding bounds do not
     // hold (Codex impl round 31: a sum of 5e-324 against a window of 0)
     const sa = (2 * n + 4) * Number.MIN_VALUE;
-    return [Math.max(0, n * lo * lo * (1 - sw) - sa), n * hi * hi * (1 + sw) + sa];
+    // a window is a PRUNE, never an acceptance: an upper end that overflows to +Infinity prunes
+    // nothing and stands; a lower end must be finite
+    const w = [Math.max(0, n * lo * lo * (1 - sw) - sa), n * hi * hi * (1 + sw) + sa];
+    if (!finite(w[0]) || Number.isNaN(w[1])) { sawNonFinite = true; return null; }
+    return w;
   };
   const countAt = (k, i) => {
-    const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[i]));
+    const a = 16 * U * Math.abs(bs[k]) + 16 * U * Math.abs(bi[k]) + 16 * U * Math.abs(I[i]);   // each scaled first
     const lo = (sig6 ? below(bs[k]) + below(bi[k]) : 0) + a, hi = (sig6 ? above(bs[k]) + above(bi[k]) : 0) + a;
     const d = I[i] - (bs[k] + bi[k]);
-    return Number.isFinite(d) && Number.isFinite(lo) && Number.isFinite(hi) && d >= -lo && d <= hi;   // finite-only
+    return finite(d, lo, hi) && d >= -lo && d <= hi;     // finite-only: an overflow refuses the record
   };
   const pathOf = node => { const out = new Array(n); for (let k = n - 1; k >= 0; k--) { out[k] = node.i; node = node.up; } return out; };
   const valKey = idx => idx.map(i => corr[i] + ':' + I[i]).join(',');
@@ -10247,10 +10276,14 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           if (N - i < n - k) continue;
           if (useCounts && !countAt(k, i)) continue;
           const w = hasRmse ? (I[i] - fy[k]) ** 2 : 0;
+          if (!finite(w)) return false;
           if (k === n - 1) { lv.set(i, [w, w]); continue; }
           let a = 0, b = sufIdx.length;                       // the first later sample i' > i
           while (a < b) { const m = (a + b) >> 1; if (sufIdx[m] <= i) a = m + 1; else b = m; }
-          if (a < sufIdx.length) lv.set(i, [w + sufMin[a], w + sufMax[a]]);   // least and most a completion adds
+          if (a < sufIdx.length) {
+            if (!finite(w + sufMin[a], w + sufMax[a])) return false;
+            lv.set(i, [w + sufMin[a], w + sufMax[a]]);         // least and most a completion adds
+          }
         }
         rest[k] = lv;
         if (!lv.size) return false;                           // no placement of the remaining points
@@ -10260,7 +10293,9 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
       let maxS = 0;
       for (const lv of rest) for (const i of lv.keys()) if (Number.isFinite(I[i])) maxS = Math.max(maxS, Math.abs(I[i]));
       const mag = 2 * Math.max(maxS, maxF) + 2 * ampBound;   // ≥ the verdict's 2·own + 2·ampBound for every reading
-      const [ssMin, ssMax] = ssWindow(mag);
+      const win = ssWindow(mag);
+      if (!win) return false;
+      const [ssMin, ssMax] = win;
       // then FORWARD, depth first, with a dead-state memo (Codex impl rounds 25-26): a state is
       // the point to place next, the last sample used and the offset interval the path leaves;
       // a state whose whole subtree held no agreeing reading, explored with partial sum ss, is
@@ -10285,8 +10320,9 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           if (hasRmse && st.ss + span[1] < ssMin) { st.lowerFail = true; continue; }   // too small: never memoised
           const e = eps(stored[st.k], corr[i]);
           const lo = Math.max(st.lo, stored[st.k] - h - corr[i] - e), hi = Math.min(st.hi, stored[st.k] + h - corr[i] + e);
-          if (lo > hi) continue;
           const ss = hasRmse ? st.ss + (I[i] - fy[st.k]) ** 2 : 0;
+          if (!finite(e, lo, hi, ss)) return out;           // refused: sawNonFinite
+          if (lo > hi) continue;
           if (ss > ssMax) continue;
           out.push({ k: st.k + 1, prev: i, lo, hi, node: { i, up: st.node }, ss });
         }
@@ -10298,6 +10334,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
       let steps = 0;
       while (stack.length) {
         const top = stack[stack.length - 1];
+        if (sawNonFinite) return false;                      // refused (below)
         if (top.ci < top.kids.length) {
           const ch = top.kids[top.ci++];
           if (ch.k === n) {
@@ -10331,27 +10368,25 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
     };
     if (typeof keyShift === 'number' && Number.isFinite(keyShift)) {
       const d = shift - keyShift, e = eps(shift, keyShift);
-      over = search(d - e, d + e);
+      if (finite(d, e, d - e, d + e)) over = search(d - e, d + e);
     } else {
       const tried = new Set();
-      for (let j = 0; j < N && !over; j++) {
-        if (!Number.isFinite(corr[j])) continue;
+      for (let j = 0; j < N && !over && !sawNonFinite; j++) {
         const d = stored[0] - corr[j];
         if (tried.has(d)) continue;
         tried.add(d);
         const e = eps(stored[0], corr[j]);
-        over = search(d - h - e, d + h + e);
+        if (finite(d, e, d - h - e, d + h + e)) over = search(d - h - e, d + h + e);
       }
     }
     return { found, over };
   };
   let res = hasCounts ? pass(true) : null;
-  if (!res || (!res.over && !res.found.size && hasRmse)) res = pass(false);   // the counts said nothing
+  if (!sawNonFinite && (!res || (!res.over && !res.found.size && hasRmse))) res = pass(false);   // the counts said nothing
+  if (sawNonFinite) return nonFiniteFail;               // whatever else was found (finite-only)
   if (res.over) return { fail: 'its stored points match too many sets of samples of its raw data to be told apart' };
   const list = [...res.found.values()];
-  if (!list.length) return { fail: sawNonFinite
-    ? 'its stored statistics cannot be compared with its data in floating point (a value is not finite or overflows), so the samples it was fitted on cannot be confirmed'
-    : 'its stored points are not points of its raw data, so the background cannot be recomputed on them' };
+  if (!list.length) return { fail: 'its stored points are not points of its raw data, so the background cannot be recomputed on them' };
   if (list.length > 1) return { fail: 'its stored points match more than one set of samples of its raw data equally well, so they cannot be told apart' };
   const first = list[0].idx;
   // moved: the reading's offset excludes zero — the frame changed since the energies were stored

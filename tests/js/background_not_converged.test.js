@@ -155,7 +155,7 @@ function constBlock(name) {
   let e = s; while (!/;\s*$/.test(lines[e])) e++;
   return lines.slice(s, e + 1).join('\n');
 }
-function recordEnv() {
+function recordEnv(edit = src => src) {
   const fn = name => enclosingFunction(lines.findIndex(l => new RegExp('^(async )?function ' + name + '\\(').test(l))).body;
   const src = require('./_page_background_source.js')({ manual: 'real' }) + '\n' +
     lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG =')) + '\n' +
@@ -169,7 +169,7 @@ function recordEnv() {
      'dsgConvolved_array', 'evalPeakArray', 'getPeak'].map(fn).join('\n') +
     '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
     '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3, BG_RESTORE_REL, evalAllPeaks, _startsRecordKey, _restoredStale, _restoredModelIsFit, _restoredFitGrid };';
-  return new Function(src)();
+  return new Function(edit(src))();
 }
 const R = recordEnv();
 // "today's background, as far as the record lets it be said": a keyed fit current (no
@@ -800,6 +800,176 @@ test('restore: a NaN in the data a reading uses refuses it, in plain words', () 
   // and the grid search alone: no reading is accepted on a NaN residual
   const g = R._restoredFitGrid({ rawBE: be5, rawIntensity: [0, 0, NaN, 0, 0], ccShift: 0, fitResult: { fittedY: [0, 0, 0, 0, 0], rmse: 0 } }, be5, 0, 0, 0);
   assert.ok(g.fail && /not finite/.test(g.fail), g.fail);
+});
+
+// ── Codex impl round 33 (finite-only, everywhere; derived allowances, plan §7.21) ──
+test('restore: a stored RMSE that is not a finite number is refused — never taken for an absent one', () => {
+  const be3 = [280, 281, 282];
+  for (const rmse of [Infinity, NaN, null, JSON.parse('{"r": 1e309}').r, '1']) {
+    const rec = peakRec({ rawBE: be3, rawIntensity: [1, 1, 1], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 0 }],
+                          ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+    rec.fitResult = { uploadFull: true, beExact: true, be: be3.slice(), fittedY: [0, 0, 0], bgIntensity: [0, 0, 0], bgSubtracted: [1, 1, 1], rmse };
+    rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+    assert.strictEqual(R._restoredFitBgFailure(rec), 'its stored RMSE is not a finite number, so the samples it was fitted on cannot be confirmed', String(rmse));
+  }
+  // the control: its true RMSE (1) is current; an ABSENT one is merely not used
+  for (const rmse of [1, undefined]) {
+    const rec = peakRec({ rawBE: be3, rawIntensity: [1, 1, 1], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 0 }],
+                          ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+    rec.fitResult = { uploadFull: true, beExact: true, be: be3.slice(), fittedY: [0, 0, 0], bgIntensity: [0, 0, 0], bgSubtracted: [1, 1, 1], rmse };
+    rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+    assert.strictEqual(R._restoredFitBgFailure(rec), null, String(rmse));
+    assert.strictEqual(rec.fitResult.backgroundStale, undefined, String(rmse) + ': current');
+  }
+});
+
+test('restore: an energy allowance near 1e308 does not overflow into accepting any energy', () => {
+  const rec = peakRec({ rawBE: [1e308, 1.1e308, 1.2e308], rawIntensity: [1, 1, 1], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 1.1e308, fwhm: 1, amplitude: 0 }],
+                        ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  rec.fitResult = { uploadFull: true, be: [1.4e308, 1.5e308, 1.6e308], fittedY: [0, 0, 0], bgIntensity: [0, 0, 0], rmse: 1 };   // a project: no beExact
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  const r = R._restoredFitBgFailure(rec);
+  assert.strictEqual(r, 'its stored points are not points of its raw data, so the background cannot be recomputed on them',
+                     'refused because the energies differ (an allowance that does not overflow), not current');
+  assert.deepStrictEqual(rec.fitResult.be.slice(), [1.4e308, 1.5e308, 1.6e308], 'the stored grid is not replaced by the raw one');
+  // the search alone, at the key's offset (without a key, 4e307 is an offset that does map
+  // the samples onto these energies)
+  const k = R._restoredFitGrid({ rawBE: [1e308, 1.1e308, 1.2e308], rawIntensity: [1, 1, 1], ccShift: 0, fitResult: { fittedY: [0, 0, 0], rmse: 1 } },
+                               [1.4e308, 1.5e308, 1.6e308], 0, 0, 0);
+  assert.ok(k.fail);
+  // an offset that itself overflows (the stored energies and the samples at opposite ends) refuses
+  const g = R._restoredFitGrid({ rawBE: [-1.7e308, -1.6e308], rawIntensity: [1, 1], ccShift: 0, fitResult: { fittedY: [0, 0], rmse: 1 } },
+                               [1.7e308, 1.75e308], undefined, 0, 0);
+  assert.match(g.fail || '', /not finite or overflows/);
+});
+
+test('restore: the stale difference is a ratio first — 100 % at 1e307, not "inf %"; 0 % for nothing at all', () => {
+  const be3 = [280, 281, 282];
+  const rec = peakRec({ rawBE: be3, rawIntensity: [1e307, 1e307, 1e307], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 0 }],
+                        ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  rec.fitResult = { uploadFull: true, beExact: true, be: be3.slice(), fittedY: [1e307, 1e307, 1e307], bgIntensity: [0, 0, 0], rmse: 0 };
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.strictEqual(rec.fitResult.backgroundStale.pct, 100);
+  // a keyless (never current) fit whose background and today's are both zero: 0 %, not NaN
+  const z = peakRec({ rawBE: be3, rawIntensity: [0, 0, 0], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 281, fwhm: 1, amplitude: 0 }],
+                      ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  z.fitResult = { uploadFull: true, beExact: true, be: be3.slice(), fittedY: [0, 0, 0], bgIntensity: [0, 0, 0], rmse: 0 };
+  assert.strictEqual(R._restoredFitBgFailure(z), null);
+  assert.deepStrictEqual(z.fitResult.backgroundStale, { pct: 0, unconfirmed: true, matches: true });
+});
+
+test('restore: a sum of squares that overflows refuses the record — it cannot hide an agreeing alternative in the memo', () => {
+  // run A: two agreeing readings at 280 (counts 2e200 at the first and third sample), one
+  // too large between them whose sum of squares overflows to Infinity
+  const rec = peakRec({ rawBE: [280, 280, 280, 281, 282], rawIntensity: [2e200, 3e200, 0, 0, 0],
+                        peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 280, fwhm: 1e-10, amplitude: 1e200 }],
+                        ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  rec.rawIntensity[2] = 2e200;
+  rec.fitResult = { uploadFull: true, beExact: true, be: [280, 281, 282], fittedY: [1e200, 0, 0], bgIntensity: [0, 0, 0], rmse: 1e200 * Math.sqrt(1 / 3) };
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  const r = R._restoredFitBgFailure(rec);
+  assert.ok(r, 'refused, not current: ' + JSON.stringify(rec.fitResult.backgroundStale));
+  // Codex's exact record (the third sample 0): refused as well
+  const c = peakRec({ rawBE: [280, 280, 280, 281, 282], rawIntensity: [2e200, 3e200, 0, 0, 0],
+                      peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 280, fwhm: 1e-10, amplitude: 1e200 }],
+                      ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  c.fitResult = { uploadFull: true, beExact: true, be: [280, 281, 282], fittedY: [1e200, 0, 0], bgIntensity: [0, 0, 0], rmse: 1e200 * Math.sqrt(1 / 3) };
+  c.fitResult.startsModelKey = R._startsRecordKey(c);
+  assert.ok(R._restoredFitBgFailure(c), 'refused');
+  // the memo alone (its window finite at the low end): two agreeing readings at 280 (counts
+  // 1e200 and one ulp above), a too-large one between them; every partial sum overflows. At
+  // f9b2ea7 the too-large reading left a dead state at sum Infinity, the next agreeing one
+  // met it (Infinity ≥ Infinity) and the first was taken as the only reading.
+  const g = R._restoredFitGrid({ rawBE: [280, 280, 280, 281, 282], rawIntensity: [1e200, 3e200, 1e200 * (1 + 2 ** -52), 0, 0], ccShift: 0,
+                                 fitResult: { beExact: true, fittedY: [1e200, 0, 0], rmse: 0 } }, [280, 281, 282], 0, 0, 0);
+  assert.match(g.fail || '', /not finite or overflows/, JSON.stringify(g));
+});
+
+test('restore: the model-is-fit check refuses a non-finite centre before any shortcut', () => {
+  const body = enclosingFunction(lines.findIndex(l => l.startsWith('function _restoredModelIsFit('))).body;
+  const guard = body.indexOf('if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(d)) return false;');
+  assert.ok(guard > 0 && guard < body.indexOf('if (a === b && d === 0) return true;'));
+});
+
+test('restore: the search\'s prunes and memo never change its verdict — against the search without them (plan §7.21)', () => {
+  // the oracle: the same function with every RMSE prune and the dead-state memo removed
+  const cuts = ['if (hasRmse && st.ss + span[0] > ssMax) continue;',
+                'if (hasRmse && st.ss + span[1] < ssMin) { st.lowerFail = true; continue; }',
+                'if (ss > ssMax) continue;',
+                'if (m !== undefined && ch.ss >= m) continue;'];
+  const O = recordEnv(src => cuts.reduce((t, c) => { assert.ok(t.includes(c), c); return t.split(c).join(''); }, src));
+  let seed = 20261006;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const U = 2 ** -53;
+  let compared = 0, agreeing = 0, ambiguous = 0;
+  for (let t = 0; t < 3000; t++) {
+    const n = 2 + Math.floor(rnd() * 3), scale = 10 ** (Math.floor(rnd() * 330) - 165);
+    const be = Array.from({ length: n }, (_, k) => 280 + k);
+    const fy = be.map(() => (rnd() - 0.5) * scale);
+    // at each energy one to three samples: residuals near one another, so readings sit at the
+    // tolerance's edges
+    const rawBE = [], rawI = [];
+    const base = fy.map(v => v + (rnd() - 0.5) * scale);
+    for (let k = 0; k < n; k++) {
+      const m = 1 + Math.floor(rnd() * 3);
+      for (let j = 0; j < m; j++) { rawBE.push(be[k]); rawI.push(j === 0 ? base[k] : base[k] * (1 + (rnd() - 0.5) * 2 ** -Math.floor(rnd() * 52)) * (rnd() < 0.2 ? -1 : 1)); }
+    }
+    // the stored RMSE: one reading's own, nudged to the edges of the verdict's tolerance
+    const r0 = Math.sqrt(base.reduce((a, v, k) => a + (v - fy[k]) ** 2, 0) / n);
+    const rmse = r0 * (1 + (rnd() - 0.5) * (8 * n + 64) * U) + (rnd() < 0.3 ? (rnd() - 0.5) * 1e-160 : 0);
+    const rec = { rawBE, rawIntensity: rawI, ccShift: 0, fitResult: { beExact: true, fittedY: fy, rmse } };
+    const a = R._restoredFitGrid(rec, be, 0, 0, 0), b = O._restoredFitGrid(rec, be, 0, 0, 0);
+    compared++;
+    if (!a.fail) agreeing++;
+    if (a.fail && /more than one/.test(a.fail)) ambiguous++;
+    assert.deepStrictEqual(a.fail ? a.fail : a.idx, b.fail ? b.fail : b.idx, JSON.stringify({ rawBE, rawI, fy, rmse }));
+  }
+  assert.ok(agreeing > 300 && ambiguous > 30, `the sample reaches both verdicts: ${agreeing} agree, ${ambiguous} ambiguous of ${compared}`);
+});
+
+test('restore: at the verdict\'s own edge (the stored RMSE bisected to where the verdict turns) the prunes still agree with the search without them', () => {
+  const cuts = ['if (hasRmse && st.ss + span[0] > ssMax) continue;',
+                'if (hasRmse && st.ss + span[1] < ssMin) { st.lowerFail = true; continue; }',
+                'if (ss > ssMax) continue;',
+                'if (m !== undefined && ch.ss >= m) continue;'];
+  const O = recordEnv(src => cuts.reduce((t, c) => t.split(c).join(''), src));
+  let seed = 1;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const step = (x, up) => { const b = new Float64Array([x]), u = new BigInt64Array(b.buffer); u[0] += (x >= 0) === up ? 1n : -1n; return b[0]; };
+  let cases = 0;
+  for (let t = 0; t < 120; t++) {
+    const n = 2 + Math.floor(rnd() * 4), scale = 10 ** (Math.floor(rnd() * 300) - 150);
+    const be = Array.from({ length: n }, (_, k) => 280 + k);
+    const fy = be.map(() => (rnd() - 0.5) * scale * (rnd() < 0.5 ? 1e3 : 1));
+    const base = fy.map(v => v + (rnd() - 0.5) * scale);
+    const twin = rnd() < 0.5;                                // a second sample at the first point
+    const rawBE = [], rawI = [];
+    for (let k = 0; k < n; k++) {
+      rawBE.push(be[k]); rawI.push(base[k]);
+      if (k === 0 && twin) { rawBE.push(be[k]); rawI.push(base[k] * (1 + (rnd() - 0.5) * 2 ** -Math.floor(10 + rnd() * 42))); }
+    }
+    const verdict = (F, r) => { const g = F._restoredFitGrid({ rawBE, rawIntensity: rawI, ccShift: 0, fitResult: { beExact: true, fittedY: fy, rmse: r } }, be, 0, 0, 0);
+                                return g.fail ? g.fail : JSON.stringify(g.idx); };
+    const r0 = Math.sqrt(base.reduce((a, v, k) => a + (v - fy[k]) ** 2, 0) / n);
+    for (const up of [true, false]) {
+      let lo = r0, hi = up ? r0 * 2 + 1e-300 : r0 / 2;
+      const v0 = verdict(O, lo);
+      if (/not points/.test(v0)) continue;
+      for (let i = 0; i < 2000; i++) {
+        const mid = lo + (hi - lo) / 2;
+        if (mid === lo || mid === hi) break;
+        if (verdict(O, mid) === v0) lo = mid; else hi = mid;
+      }
+      let x = lo;
+      for (let s = 0; s < 6; s++) x = step(x, !up);
+      for (let s = 0; s < 12; s++, x = step(x, up)) {
+        cases++;
+        assert.strictEqual(verdict(R, x), verdict(O, x), JSON.stringify({ rawBE, rawI, fy, rmse: x }));
+      }
+    }
+  }
+  assert.ok(cases > 2000, String(cases));
 });
 
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {

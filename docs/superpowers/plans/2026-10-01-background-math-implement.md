@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29, 569 after round 31, 571 after the round-32 fix).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29, 569 after round 31, 571 after the round-32 fix, 578 after the round-33 fix).
 
 ## 4. Measurements
 
@@ -1199,16 +1199,18 @@ Every tolerance comparison of this unit, and how it now treats a non-finite quan
 
 | # | comparison | where | non-finite handling |
 |---|---|---|---|
-| 1 | restore RMSE verdict, \|rc − rmse\| ≤ tolOwn (and the loose tolerance's monotone-failure test) | page `_restoredFitGrid` / `rmseVerdict` | **fixed (the round-32 defect: `Infinity <= Infinity` passed).** The RMS is computed SCALED by the largest residual (cannot overflow); a residual, the RMS or a tolerance that is not finite makes the verdict NaN — refused, never memoised; if no reading agrees, the plain message "its stored statistics cannot be compared with its data in floating point (a value is not finite or overflows) …". The summation allowance is now (2n + 8) u (the scaled sum's divisions) plus √((2n + 4)·MIN) for a recorded sum that fell into the subnormal range (round 31: `sqrt(5e-324 / 5)` recorded as 0) |
+| 1 | restore RMSE verdict, \|rc − rmse\| ≤ tolOwn (and the loose tolerance's monotone-failure test) | page `_restoredFitGrid` / `rmseVerdict` | **fixed (the round-32 defect: `Infinity <= Infinity` passed).** The RMS is computed SCALED by the largest residual (cannot overflow); a residual, the RMS or a tolerance that is not finite makes the verdict NaN — refused, never memoised; if no reading agrees, the plain message "its stored statistics cannot be compared with its data in floating point (a value is not finite or overflows) …". The summation allowance is now (2n + 8) u (the scaled sum's divisions) plus √((2n + 4)·MIN) for a recorded sum that fell into the subnormal range (round 31: `sqrt(5e-324 / 5)` recorded as 0). **Round 33:** a stored RMSE that is present but not finite (`1e309` in a file, NaN, null) is refused, never treated as absent; any non-finite verdict refuses the WHOLE record, not just that reading; the memo's "+1" licence needs a derived separation (§7.21) |
 | 2 | restore background comparison, worst ≤ BG_RESTORE_REL·scale + BG_REL_TOL·envScale | page `_restoredFitBgFailure` | **guarded:** worst, scale and envScale must be finite, else refused ("its stored envelope and today's background cannot be compared in floating point …"); the implied background was already required finite |
 | 3 | stored counts against raw counts (6-figure interval) | page `countAt` | **guarded explicitly** (it was a positive ≥ / ≤ conjunction, so NaN already failed and an infinite difference failed) |
-| 4 | search window and prunes (ssMin / ssMax, the least / most remainder cuts) | page `_restoredFitGrid` | cut-only — they reject branches, never accept a reading; the window now uses the verdict's own terms, and its magnitude bound is 2·max(samples, envelope) + 2·Σ\|amplitude\| ≥ every reading's own, so no prune cuts a reading the verdict accepts |
+| 4 | search window and prunes (ssMin / ssMax, the least / most remainder cuts) and the dead-state memo | page `_restoredFitGrid` | cut-only — they reject branches, never accept a reading; the window now uses the verdict's own terms, and its magnitude bound is 2·max(samples, envelope) + 2·Σ\|amplitude\| ≥ every reading's own, so no prune cuts a reading the verdict accepts. **Round 33: "cut-only" was not enough** — a cut that drops an AGREEING alternative makes the other reading look unique (b): a sum of squares that overflowed to Infinity left a dead state that the next agreeing reading met (`Infinity >= Infinity`). Now every sum of squares (table and paths) must be finite or the record is refused; a window's upper end may overflow to +Infinity (it then prunes nothing), its lower end must be finite; the window's margins and the memo's separation are derived (§7.21) |
 | 5 | "the record's peaks are the fit's" (centres in one frame) | page `_restoredModelIsFit` | **guarded:** a non-finite centre, shift or gap is NOT the fit (was `Infinity === Infinity` → equal) |
 | 6 | an exact curve's rounding meets the predicate, \|round(q) − q\| ≤ BG_REL_TOL·span | page `_bgRoundingWithin` (linear, manual); server `_line_through`, `manual_anchor_background` | page **guarded explicitly** (a non-finite value was refused only implicitly, by the later finiteness check); server already `math.isfinite` per value before the exact Fraction test |
 | 7 | Tougaard's rigorous rounding bound ≤ BG_REL_TOL·span | page `_bgCertificate`; server `background_certificate` | **guarded explicitly** on both sides (already safe: data checked finite, span of the power-of-two-normalised data ≤ 2, and an infinite bound fails `<=`) |
 | 8 | the Shirley family's exact residual ≤ BG_REL_TOL·span, and the Tougaard zero-loss flat member | page `_bgExactShirleyCertificate`, `_tougaardZeroLossVerdict`; server `_exact_shirley_certificate` | unchanged: exact rationals (BigInt / Fraction) on inputs the certificate first requires finite ("the data in the window are not all finite numbers") |
 | 9 | every background is finite | page `_bgCertificate` / `computeBackgroundCore`; server `_explicit_background`, `background_certificate` | unchanged: already a finiteness test |
 | 10 | the iterations' stop, step ≤ BG_REL_TOL·span | page `shirleyBackground` & twins; server `shirley_background` & twins | not an acceptance: the stop only ends the iteration; the certificate (8) decides, on finite inputs |
+| 11 | **(added round 33 — missing from this list)** energy matching: corrected sample energy + offset = stored energy within h + 4 u of the magnitudes, and the offset-interval intersection along a path | page `_restoredFitGrid` (`eps`, `within`, `childrenOf`, the offset seeds) | **fixed:** the allowance was 4u·(\|a\| + \|b\|), whose sum overflowed near 1e308 to an infinite allowance that admitted ANY energy (a stored grid replaced by an unrelated raw one, current). Now 4u·\|a\| + 4u·\|b\| (each scaled before the sum — the same value up to one rounding, cannot overflow); every interval end, allowance and offset must be finite, and every input energy and count, else the record is refused |
+| 12 | stored counts in `countAt` (row 3) | page | **round 33:** its allowance is likewise summed after scaling (16u·\|·\| per term), and a non-finite difference or bound refuses the record instead of dropping the sample |
 
 How the two allowances were reached — stated plainly, for Codex round 33 to check (owner:
 "if either is fitted rather than derived, that is a (b) finding"). Both were first SIZED when
@@ -1227,7 +1229,10 @@ u = 2^-53; first-order error analysis (γ_k = k·u/(1 − k·u) ≈ k·u).
   with margin (the round-28 (n + 4) u was below it once the RMS is scaled, which is why
   the boundary test failed). The residual-level difference (the server's (I − B) − M
   against I − (B + M)) is the separate 8·u·magnitude term, unchanged.
-- Absolute term. In the subnormal range rounding is absolute: each operation errs by at
+- Absolute term. **SUPERSEDED by §7.21 — round 33 showed this paragraph wrong as written**
+  (it divides the division's own error by n, and its claim that the scaled side's product
+  cannot underflow before m is false: residuals [MIN, 0, 0, 0, 0]). Kept for the record.
+  In the subnormal range rounding is absolute: each operation errs by at
   most half the smallest subnormal, MIN/2 = 2^-1075. The recorded sum of squares takes n
   squarings and n − 1 additions, then the division by n: |ss_rec − ss| ≤ (2n)·MIN/2 + MIN/2
   = (2n + 1)·MIN/2, so the recorded mean square is off by at most (2n + 1)·MIN/(2n) and,
@@ -1243,3 +1248,109 @@ directly on the grid search); round 31's subnormal case still restores (its test
 Mutation-verified: the round-28 verdict (unscaled, unguarded) put back fails both new tests.
 Census unchanged (0 / 81 / 40).
 
+
+### 7.21 Codex round 33 — NO-GO ×2 (`background_math_impl_r33_verdict_run{A,B}.md`, commit f9b2ea7) — fixed; STOPPED for the owner's review
+
+Owner, before the round: "If the only findings are (c), stop for my deploy review. If a new
+(a)/(b) appears, fix and stop for my review regardless." And: "are the widened rounding
+allowance (2n + 8)u and the absolute underflow term DERIVED bounds …? If either is fitted
+rather than derived, that is a (b) finding."
+
+**Proportionality ruling (both runs).** Rounds 25–31 are (c); none is reclassified. The logged
+round-31 B (grid-normalised LA magnitude bound) is MINOR, (c), non-blocking. Round 32's two
+overflow records now refuse. But new (a)/(b) findings block deploy:
+
+| finding | runs | category | fix |
+|---|---|---|---|
+| a stored RMSE that is not finite (`"rmse": 1e309` parses as Infinity; NaN) made `hasRmse` false, so the RMSE check was skipped: the fit loaded CURRENT and Results showed "RMSE Infinity" (true RMSE 1) | A, B | (a)+(b) | refused: "its stored RMSE is not a finite number, so the samples it was fitted on cannot be confirmed" — present-but-not-finite (incl. null) is never taken for absent |
+| the energy allowance 4u·(\|a\| + \|b\|) overflowed near 1e308 to Infinity and admitted incompatible stored energies; the stored grid was replaced by the raw one, current. Missing from §7.20 | A, B | (b) | 4u·\|a\| + 4u·\|b\| and finite interval ends (§7.20 row 11) |
+| the stale notice computed 100·worst / scale: "differs … by inf %" at 1e307 (true 100 %) | A, B | (a) | 100·(worst / scale); 0 % when both are zero (it was NaN for an all-zero keyless fit) |
+| a sum of squares that overflowed to Infinity left a dead memo state; the next AGREEING reading met it (`Infinity >= Infinity`) and was skipped, so the other agreeing reading was taken as unique: current | A | (b) | every sum of squares must be finite, else the record is refused (§7.20 row 4); any non-finite verdict refuses the whole record |
+| the absolute-underflow derivation (§7.20) was wrong as written: the division's error divided by n twice; "m·√(…) cannot underflow before m" is false ([MIN, 0, 0, 0, 0] gives m = MIN, rc = 0). Neither run found the constant itself too small (20 000 probes, A) | A, B | (b) by the owner's criterion | corrected derivation below — the constant stands, derived |
+| `_restoredModelIsFit`'s `a === b && d === 0` shortcut ran before its finite guard | A, B | (c), MINOR | guard first (trivial) |
+
+**Derivations (replacing the §7.20 paragraphs).** Model: fl(x ∘ y) = (x ∘ y)(1 + δ) + η,
+\|δ\| ≤ u = 2^-53, \|η\| ≤ MIN/2 = 2^-1075, δη = 0, η = 0 for + and − (an addition whose result
+is subnormal is exact); √ never underflows (√MIN is normal), so it has δ only. γ_k = ku/(1 − ku).
+n < 2^32 (a JavaScript array), so nu < 2^-21 and every second-order term is below 1e-6 of its
+first-order one — the margins below cover them. R = √(Σ r_k² / n) is the exact RMS of the
+reading's residuals r_k = fl(I_k − fy_k).
+
+1. *The recorded RMSE* (the page's `Math.sqrt(res.reduce((s, v) => s + v * v, 0) / n)`, both
+   engines): squares s_k = r_k²(1 + δ_k) + η_k; their sequential sum Σ s_k(1 + θ_k), \|θ_k\| ≤
+   γ_{n−1}; the division adds (1 + δ) + η. So the mean square is T(1 + ε₁) + α, T = R²,
+   \|ε₁\| ≤ γ_{n+1}, and α = (1/n)Σ η_k(1 + θ_k)(1 + δ) + η, \|α\| ≤ (MIN/2)(1 + γ_n) + MIN/2 ≤
+   (1 + γ_n)·MIN. (This is the step §7.20 got wrong: the division's own η is added AFTER the
+   division, not divided by n.) Since \|√(a + b) − √a\| ≤ √\|b\| (a, a + b ≥ 0), rmse_rec =
+   R(1 + ε_rec) + β, \|ε_rec\| ≤ ((n + 3)/2)u, \|β\| ≤ (1 + u)·√((1 + γ_n)·MIN).
+2. *The scaled RMS* rc = fl(m·√(fl(Σ fl(fl(r_k/m)²)) / n)), m = max\|r_k\| (exact). The term
+   with \|r_k\| = m is exactly 1, so the computed sum Q ≥ 1 and Q/n is normal. A quotient
+   r_k/m below 2^-1022 has an absolute error ≤ MIN/2, which its square makes ≤ 2^-1022·MIN;
+   each square's own η ≤ MIN/2: at most n·MIN in Q, ≤ u·Q. So Q = Q*(1 + ε₂), \|ε₂\| ≤
+   γ_{n+2} + u; with the division and the root, √(Q/n) = √(Q*/n)(1 + ε₃), \|ε₃\| ≤
+   ((n + 6)/2)u. THE PRODUCT BY m CAN UNDERFLOW (the §7.20 claim was false): rc =
+   R(1 + ε_c) + η_f, \|ε_c\| ≤ ((n + 8)/2)u, \|η_f\| ≤ MIN/2.
+3. *The verdict.* \|rc − rmse_rec\| ≤ (n + 5.5)u·R + MIN/2 + \|β\|. With R ≤ (rc + rmse_rec +
+   MIN/2 + \|β\|) / (2(1 − ((n + 8)/2)u)): relative ≤ (n/2 + 2.8)u·(rc + rmse) (+ a term below
+   u·√MIN), absolute ≤ MIN/2 + (1 + u)√((1 + γ_n)MIN) ≤ 1.01·√MIN. The code allows (2n + 8)u·
+   (rc + rmse) — ≥ 4× the relative need for every n ≥ 1 — and √((2n + 4)·MIN) ≥ √6·√MIN ≈
+   2.45·√MIN — ≥ 2.4× the absolute need. The tolerance's own evaluation (≤ 7 roundings of
+   non-negative terms, ≥ (1 − 7u) of its exact value) and the subtraction's (Sterbenz-exact
+   when rc and rmse are within 2×, else u) sit inside those margins. The per-point
+   differences between the server's residuals and ours (8u·(2·own + 2·ampBound), rounds
+   22/27) and the old upload's rounding (0.005, round 24) add directly by the triangle
+   inequality on the RMS (\|‖a‖ − ‖b‖\|/√n ≤ max\|a_k − b_k\|), unchanged. **Both constants were
+   SIZED first (by the round-29 and round-31 test cases) and are kept because they are ≥ the
+   derived bound with the stated margin — not because a case passes.**
+4. *The window* (a prune: it must never cut a reading the verdict accepts). An accepted
+   reading has rc ∈ [lo*, hi*], the exact solutions of \|rc − r\| ≤ t + g(rc + r) (t =
+   uploadRound + 8u·mag + √((2n + 4)MIN) ≥ the verdict's terms since mag ≥ 2·own + 2·ampBound;
+   g = (2n + 8)u), widened by the verdict's own evaluation (≤ 8u). Computing hi and lo errs
+   by ≤ 5u of r + t ABSOLUTELY (r(1 − g) − t can cancel), so the code widens by ar = 8u(r + t)
+   (NEW). Any sum the search forms — forward partial, backward remainder, or one plus the
+   other — is Σ r_k²(1 + φ_k) + abs, \|φ_k\| ≤ γ_{n+1}, abs ≤ n·MIN/2; and R ≤ (rc + MIN/2)/
+   (1 − \|ε_c\|), R ≥ (rc − MIN/2)/(1 + \|ε_c\|). Upper end: n·R²(1 + γ_{n+1}) ≤ n·hi²·(1 +
+   (2n + 9)u) + n·hi·MIN (relative 1e-162 since hi ≥ √(6MIN)); with the window's own 4
+   roundings, (2n + 13)u — the code allows sw = (4n + 32)u (NEW; it was (2n + 4)u, BELOW the
+   (2n + 9)u first-order need once the verdict's RMS is scaled). Lower end likewise; its
+   n·lo·MIN cross term is ≤ u·lo² when lo ≥ MIN/u and < MIN otherwise. Absolutely: the sums'
+   n·MIN/2, the product n·hi·hi's MIN/2 (it can be subnormal) and the addition: sa = (2n + 4)·
+   MIN covers them. An upper end that overflows is +Infinity and prunes nothing.
+5. *The memo's licence* (NEW). A state dead at partial sum s_A is skipped for a later
+   arrival with s_B ≥ s_A. Its children depend on the state only; adding the same addends to
+   a no smaller start gives no smaller sums (rounded addition is monotone), so every
+   ssMax prune and the structural and count failures below it recur, and a subtree with a
+   too-small or between-the-tolerances verdict is never memoised. The remaining licence is a
+   leaf whose reading A had an RMSE too LARGE: the same suffix after B gives forward sum
+   ss_B ≥ ss_A, hence by (2) and (4) rc_B ≥ rc_A(1 − (2n + 10)u) − 1.01√MIN. For B to agree
+   needs rc_B(1 − g) ≤ r(1 + g) + t (within 8u); so A is memoisable only if rc_A − r >
+   tolLoose + SEP, SEP = (4n + 32)u·rc_A + √((2n + 4)MIN): then rc_A > r + t, the (2n + 22)u·
+   rc_A left over exceeds the evaluation's 14u·(r + t), and B cannot agree. Before this the
+   licence was rc_A − r > tolLoose, so a B reached later with rc_B a few u below rc_A could
+   have been skipped while agreeing.
+6. *The energy allowance* (unchanged in value, round 22): 4u per magnitude for a corrected
+   energy's subtraction and the stored one's; now summed after scaling (cannot overflow).
+
+**Tests** (`tests/js/background_not_converged.test.js`, 54 → 61): a stored RMSE of Infinity /
+NaN / null / `1e309` from JSON / a string is refused in those words (controls: the true RMSE
+and an absent one are current); the 1e308 energies refuse as "not points of its raw data"
+and keep the stored grid, and an offset that itself overflows refuses as not finite; the
+1e307 stale notice is 100 % and an all-zero keyless fit 0 %; Codex's memo record and an
+isolated one (two agreeing readings at 280, a too-large one between, every sum overflowing —
+at f9b2ea7 it returned one reading) refuse; the guard order is pinned; and two DIFFERENTIAL
+tests run the production search against itself with every RMSE prune and the memo removed:
+3000 random records across 1e-165–1e165 with duplicated samples, and 2880 records with the
+stored RMSE bisected to the exact double where the verdict turns (± 6 doubles), on both
+sides. Mutations: putting back each runtime fix fails a test (RMSE refusal, eps, pct, the
+finite sums, the whole-record refusal, the guard order, and a window with no margin — 174
+differences in 7200 edge cases); **NOT killed**: the round-32 window margins (sw = (2n + 4)u,
+ar = 0) and SEP = 0 — 14 400 edge cases, on f9b2ea7 too, found no reading they misjudge. Those
+margins rest on derivations (4) and (5), not on a test; they only make the search prune and
+memoise less.
+
+Census unchanged: 0 current / 81 stale (15 match, 66 differ) / 40 peaks-only; the Python twin
+agrees on all 121; the regenerated `restore_census.json` differs from the committed one only
+in the last digit of 27 `stalePct` (≤ 2.2e-16 relative: the ratio is taken before × 100).
+
+STOPPED here for the owner's review (owner: "If a new (a)/(b) appears, fix and stop for my
+review regardless"). No round 34 has been launched.

@@ -39,7 +39,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.19519140781068342,
+  "stalePct": 0.1951914078106834,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -51,7 +51,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8538951808525589,
+  "stalePct": 0.8538951808525588,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -72,7 +72,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9034131899215964,
+  "stalePct": 0.9034131899215965,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -249,7 +249,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9252394623418945,
+  "stalePct": 0.9252394623418946,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -270,7 +270,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8839184260486177,
+  "stalePct": 0.8839184260486178,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -336,7 +336,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 5.073465073534439,
+  "stalePct": 5.073465073534438,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -348,7 +348,7 @@
   "endpointAvg": "6",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6469593369058235,
+  "stalePct": 1.6469593369058237,
   "voigtStale": [
    {
     "name": "U 4f7/2 satellite",
@@ -381,7 +381,7 @@
   "endpointAvg": "6",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6527749364829465,
+  "stalePct": 1.6527749364829463,
   "voigtStale": [
    {
     "name": "U 4f7/2 satellite",
@@ -468,7 +468,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.0003603033744110571,
+  "stalePct": 0.00036030337441105703,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": true
@@ -513,7 +513,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.5076523818598481,
+  "stalePct": 0.507652381859848,
   "voigtStale": [
    {
     "name": "U 4f7/2 satellite",
@@ -567,7 +567,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.00033515881594040536,
+  "stalePct": 0.0003351588159404054,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": true
@@ -612,7 +612,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.27082097169922126,
+  "stalePct": 0.2708209716992212,
   "voigtStale": [
    {
     "name": "U 4f7/2 satellite",
@@ -702,7 +702,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.3890908530434712,
+  "stalePct": 0.38909085304347113,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -714,7 +714,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.009412387412123654,
+  "stalePct": 0.009412387412123656,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": true
@@ -726,7 +726,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.6298466802285833,
+  "stalePct": 0.6298466802285834,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -927,7 +927,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.24852686570074808,
+  "stalePct": 0.2485268657007481,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -948,7 +948,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.7613396202723801,
+  "stalePct": 0.7613396202723802,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -1032,7 +1032,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.360681800974431,
+  "stalePct": 0.3606818009744309,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -1296,7 +1296,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 3.6053356437248874,
+  "stalePct": 3.605335643724887,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -1533,7 +1533,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.00010911597235741948,
+  "stalePct": 0.00010911597235741946,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": true
@@ -1593,7 +1593,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.4533433134545313,
+  "stalePct": 1.4533433134545315,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -1605,7 +1605,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.3982541159149036,
+  "stalePct": 1.3982541159149038,
   "voigtStale": null,
   "unconfirmed": true,
   "matches": false
@@ -1638,7 +1638,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8538951808525589,
+  "stalePct": 0.8538951808525588,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -1680,7 +1680,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.8781917253319826,
+  "stalePct": 0.8781917253319828,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -1722,7 +1722,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 1.6891369232589113,
+  "stalePct": 1.6891369232589115,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -1764,7 +1764,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.9252394623418945,
+  "stalePct": 0.9252394623418946,
   "voigtStale": [
    {
     "name": "Satellite 2",
@@ -1785,7 +1785,7 @@
   "endpointAvg": "1",
   "kept": true,
   "reason": null,
-  "stalePct": 0.37571618223713066,
+  "stalePct": 0.3757161822371306,
   "voigtStale": [
    {
     "name": "Satellite 2",
