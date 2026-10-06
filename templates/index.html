@@ -10139,12 +10139,14 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   // ampBound: Codex impl round 22) — bounded over ALL samples and the envelope, so the
   // tolerance does not depend on the path; the sums of n squares on either side, (n + 4) u
   // of each RMS (Codex impl round 21).
-  const rmseVerdict = c => {
+  // `mag` bounds the magnitudes of the samples a search can use (Codex impl round 27: not
+  // every raw sample — an unrelated one would widen the tolerance) plus the envelope's.
+  const rmseVerdict = (c, mag) => {
     if (!hasRmse) return 0;
     let ss = 0;
     for (let k = 0; k < n; k++) ss += (I[c[k]] - fy[k]) ** 2;
     const rc = Math.sqrt(ss / n);
-    const tol = uploadRound + 8 * U * (maxI + maxF + 2 * ampBound) + (n + 4) * U * (rc + Math.abs(fr.rmse));
+    const tol = uploadRound + 8 * U * mag + (n + 4) * U * (rc + Math.abs(fr.rmse));
     return rc - fr.rmse > tol ? 1 : fr.rmse - rc > tol ? -1 : 0;
   };
   // THE SEARCH (Codex impl rounds 21-23): each path is parent links (no copies) with its
@@ -10156,12 +10158,17 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   // never worse for the points still to place. Readings are collected by value. The counts
   // choose first; only if no reading meets them does a second pass run on the RMSE alone
   // (a stored pair that fits no reading says nothing).
-  let maxI = 0, maxF = 0;
-  for (const v of I) if (Number.isFinite(v)) maxI = Math.max(maxI, Math.abs(v));
+  let maxF = 0;
   if (hasRmse) for (const v of fy) maxF = Math.max(maxF, Math.abs(v));
   const g = (n + 4) * U;
-  const rStar = hasRmse ? (Math.abs(fr.rmse) * (1 + g) + uploadRound + 8 * U * (maxI + maxF + 2 * ampBound)) / Math.max(1 - g, 0.5) : Infinity;
-  const ssMax = rStar * rStar * n * (1 + 4 * U);
+  // the sums of squares a reading may have and still agree, for magnitude bound `mag`: the
+  // verdict's bound solved for the recomputed RMSE on either side (R* above, r_* below)
+  const ssWindow = mag => {
+    if (!hasRmse) return [-Infinity, Infinity];
+    const t = uploadRound + 8 * U * mag, r = Math.abs(fr.rmse);
+    const hi = (r * (1 + g) + t) / Math.max(1 - g, 0.5), lo = Math.max(0, (r * (1 - g) - t) / (1 + g));
+    return [n * lo * lo * (1 - 4 * U), n * hi * hi * (1 + 4 * U)];
+  };
   const countAt = (k, i) => {
     const a = 16 * U * (Math.abs(bs[k]) + Math.abs(bi[k]) + Math.abs(I[i]));
     const lo = (sig6 ? below(bs[k]) + below(bi[k]) : 0) + a, hi = (sig6 ? above(bs[k]) + above(bi[k]) : 0) + a;
@@ -10183,25 +10190,35 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
       const rest = new Array(n);
       for (let k = n - 1; k >= 0; k--) {
         const lv = new Map();
-        let next = null, sufIdx = null, sufMin = null;
+        let next = null, sufIdx = null, sufMin = null, sufMax = null;
         if (k < n - 1) {
           next = [...rest[k + 1].keys()].sort((a, b) => a - b);
-          sufMin = new Array(next.length);
-          for (let t = next.length - 1; t >= 0; t--) sufMin[t] = Math.min(rest[k + 1].get(next[t]), t + 1 < next.length ? sufMin[t + 1] : Infinity);
+          sufMin = new Array(next.length); sufMax = new Array(next.length);
+          for (let t = next.length - 1; t >= 0; t--) {
+            const [mn, mx] = rest[k + 1].get(next[t]);
+            sufMin[t] = Math.min(mn, t + 1 < next.length ? sufMin[t + 1] : Infinity);
+            sufMax[t] = Math.max(mx, t + 1 < next.length ? sufMax[t + 1] : -Infinity);
+          }
           sufIdx = next;
         }
         for (const i of within(k, lo0, hi0)) {
           if (N - i < n - k) continue;
           if (useCounts && !countAt(k, i)) continue;
           const w = hasRmse ? (I[i] - fy[k]) ** 2 : 0;
-          if (k === n - 1) { lv.set(i, w); continue; }
+          if (k === n - 1) { lv.set(i, [w, w]); continue; }
           let a = 0, b = sufIdx.length;                       // the first later sample i' > i
           while (a < b) { const m = (a + b) >> 1; if (sufIdx[m] <= i) a = m + 1; else b = m; }
-          if (a < sufIdx.length) lv.set(i, w + sufMin[a]);
+          if (a < sufIdx.length) lv.set(i, [w + sufMin[a], w + sufMax[a]]);   // least and most a completion adds
         }
         rest[k] = lv;
         if (!lv.size) return false;                           // no placement of the remaining points
       }
+      // the magnitudes this search can meet: its table's samples and the envelope (Codex impl
+      // round 27) — the same for every path in it, so the memo below stays sound
+      let maxS = 0;
+      for (const lv of rest) for (const i of lv.keys()) if (Number.isFinite(I[i])) maxS = Math.max(maxS, Math.abs(I[i]));
+      const mag = maxS + maxF + 2 * ampBound;
+      const [ssMin, ssMax] = ssWindow(mag);
       // then FORWARD, depth first, with a dead-state memo (Codex impl rounds 25-26): a state is
       // the point to place next, the last sample used and the offset interval the path leaves;
       // a state whose whole subtree held no agreeing reading, explored with partial sum ss, is
@@ -10218,9 +10235,12 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           const vk = corr[i] + ':' + I[i];
           if (seenVal.has(vk)) continue;                    // an equal sample later in order: never better
           seenVal.add(vk);
-          const least = rest[st.k].get(i);
-          if (least === undefined) continue;                  // cannot be completed (or not on its count)
-          if (hasRmse && st.ss + least > ssMax) continue;     // no completion can meet the RMSE
+          const span = rest[st.k].get(i);
+          if (span === undefined) continue;                   // cannot be completed (or not on its count)
+          // branch and bound on BOTH sides (Codex impl round 27): no completion can bring the
+          // RMSE down into the window, or up into it
+          if (hasRmse && st.ss + span[0] > ssMax) continue;
+          if (hasRmse && st.ss + span[1] < ssMin) { st.lowerFail = true; continue; }   // too small: never memoised
           const e = eps(stored[st.k], corr[i]);
           const lo = Math.max(st.lo, stored[st.k] - h - corr[i] - e), hi = Math.min(st.hi, stored[st.k] + h - corr[i] + e);
           if (lo > hi) continue;
@@ -10231,7 +10251,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
         return out;
       };
       const root = { k: 0, prev: -1, lo: lo0, hi: hi0, node: null, ss: 0 };
-      root.kids = childrenOf(root); root.ci = 0; root.any = false; root.lowerFail = false;
+      root.lowerFail = false; root.any = false; root.kids = childrenOf(root); root.ci = 0;
       const stack = [root];
       let steps = 0;
       while (stack.length) {
@@ -10240,7 +10260,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           const ch = top.kids[top.ci++];
           if (ch.k === n) {
             const idx = pathOf(ch.node);
-            const v = rmseVerdict(idx);
+            const v = rmseVerdict(idx, mag);
             if (v < 0) top.lowerFail = true;                   // too small: a larger sum here could agree
             if (v === 0) {
               top.any = true;
@@ -10252,7 +10272,7 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
           }
           const m = dead.get(keyOf(ch));
           if (m !== undefined && ch.ss >= m) continue;         // explored from no better a start, found nothing
-          ch.kids = childrenOf(ch); ch.ci = 0; ch.any = false; ch.lowerFail = false;
+          ch.lowerFail = false; ch.any = false; ch.kids = childrenOf(ch); ch.ci = 0;
           stack.push(ch);
           if (++steps > 4096 * (n + 1)) return true;           // bounded work: more is "ambiguous"
           continue;

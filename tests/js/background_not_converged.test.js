@@ -683,6 +683,40 @@ test('restore: a reading whose RMSE is too SMALL does not mark the shared rest o
   assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'current');
 });
 
+// ── Codex impl round 27 ──
+test('restore: branches whose every completion has too SMALL an RMSE are cut, not grown to the cap', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.85, fwhm: 1, amplitude: 1000 }];
+  const own = Array.from({ length: 18 }, (_, i) => Math.round((280 + 0.1 * i) * 10) / 10);
+  const fy = own.map(x => 12345.6 + R.evalAllPeaks([x], G)[0]);
+  const c = fy.map((v, i) => v + (i % 2 ? 0.02 : -0.02));
+  const rawBE = own.slice(), rawIntensity = c.slice();
+  for (let i = 0; i < 18; i++) { rawBE.push(300 + 0.1 * i, 300 + 0.1 * i); rawIntensity.push(fy[i], fy[i] + 0.001); }
+  const rec = peakRec({ rawBE, rawIntensity, peaks: [], ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '281.75' } });
+  rec.fitResult = { be: own.slice(), fittedY: fy.slice(), rmse: Math.sqrt(c.reduce((a, v, i) => a + (v - fy[i]) ** 2, 0) / c.length),
+                    bgSubtracted: c.map(v => Number(v.toPrecision(6))), bgIntensity: c.map(() => 0) };
+  assert.strictEqual(R._restoredFitBgFailure(rec), null, 'not "too many": 2^18 readings, all too small, are cut at the root');
+  assert.deepStrictEqual(rec.fitResult.be.slice(), own);
+  // and with no stored counts at all: the RMSE alone has to cut them
+  const bare = JSON.parse(JSON.stringify(rec));
+  bare.fitResult = { be: own.slice(), fittedY: fy.slice(), rmse: rec.fitResult.rmse, bgIntensity: own.map(() => 0) };
+  assert.strictEqual(R._restoredFitBgFailure(bare), null, 'RMSE only');
+  assert.deepStrictEqual(bare.fitResult.be.slice(), own);
+});
+
+test('restore: an unrelated large sample does not widen the RMSE tolerance', () => {
+  const G = [{ id: 1, name: 'g', shape: 'Gaussian', center: 280.5, fwhm: 0.5, amplitude: 1000 }];
+  const own = Array.from({ length: 11 }, (_, i) => Math.round((280 + 0.1 * i) * 10) / 10);
+  const fy = R.evalAllPeaks(own, G);
+  const rawBE = [279.99999].concat(own, [300]), rawIntensity = [fy[0] + 1e-7].concat(fy, [1e8]);
+  const rec = peakRec({ rawBE, rawIntensity, peaks: G.map(p => ({ ...p })), ui: { ...peakRec().ui, bgType: 'none', roiMin: '280', roiMax: '281' } });
+  rec.fitResult = { uploadFull: true, be: own.slice(), fittedY: fy.slice(), rmse: 0, bgIntensity: own.map(() => 0),
+                    bgSubtracted: fy.map(v => Number(v.toPrecision(6))) };
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  assert.strictEqual(R._restoredFitBgFailure(rec), null);
+  assert.deepStrictEqual(rec.fitResult.be.slice(), own);
+  assert.strictEqual(rec.fitResult.backgroundStale, undefined, 'current');
+});
+
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {
   // the server's own evaluation of a component differs from the page's in the last bits
   const none = fitWith(peakRec({ ui: { ...peakRec().ui, bgType: 'none' } }));

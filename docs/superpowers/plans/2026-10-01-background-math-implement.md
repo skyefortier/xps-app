@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27).
 
 ## 4. Measurements
 
@@ -1088,3 +1088,13 @@ unchanged (0 / 81 / 40).
 
 Mutation-verified (the memo ignoring too-small failures is killed by the new test). Census
 unchanged (0 / 81 / 40); page = Python twin on all 121.
+
+### 7.14 Codex round 27 — NO-GO ×2 (`background_math_impl_r27_verdict_run{A,B}.md`, commit fba30f5)
+
+| # | finding | fix |
+|---|---|---|
+| 1 | MAJOR (A, B): branches whose readings all had too SMALL an RMSE (round 26 rightly keeps them out of the memo) still multiplied to the step cap (2^18 alternatives) | branch and bound on BOTH sides: the backward table keeps, per sample, the least AND the most sum of squares a completion adds; a branch is cut when even its largest completion stays below the RMSE window (a too-small cut, which keeps its frame out of the memo), as when its smallest exceeds it |
+| 2 | MAJOR (A): the tolerance's magnitude term ran over every raw sample, so an unrelated 1e8-count sample widened it enough to admit a wrong reading | the magnitude bound is the search's own: its backward table's samples and the envelope — the same for every path in it, so the memo stays sound |
+
+Mutation-verified (2 of 2 killed: no lower cut — with no stored counts the RMSE alone must
+cut; the tolerance over every raw sample). Census unchanged (0 / 81 / 40).
