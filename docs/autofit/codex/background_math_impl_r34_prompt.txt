@@ -1,0 +1,39 @@
+Review the "background math — implementation" unit, round 34 (owner round of 2026-10-03, seventeenth review): branch bg-math-implement at 506be82; this unit = git diff d79b843..HEAD; the owner round = git diff 0c7ea15..HEAD; the round-32 fix (finite-only rule, scaled RMS) = git diff 1fa2d0a..f9b2ea7; THIS ROUND = the round-33 fixes = git diff f9b2ea7..506be82. The requirement: the owner's items and decisions verbatim in docs/superpowers/plans/2026-10-01-background-math-implement.md §7. Every earlier round, its scope and its fixes are listed in docs/autofit/codex/background_math_impl_r33_prompt.txt; rounds 18-33 verdicts: docs/autofit/codex/background_math_impl_r{18,...,33}_verdict_run{A,B}.md; the plan's §7.5-§7.21 map every finding to its fix or its log entry.
+
+OWNER DECISION 2026-10-05 (§7.11; do not re-litigate): a fit WITHOUT its fit key (startsModelKey) is NEVER confirmed current; it reloads stale "unconfirmed". Census 0 current / 81 stale / 40 peaks-only.
+
+ROUND 33 (NO-GO x2) agreed rounds 25-31 are (c) and the logged round-31 B is MINOR (c), and found new (a)/(b) findings. Their fixes (plan §7.21):
+1. a stored RMSE that is present but not finite (1e309 in a file, NaN, null) is REFUSED, never treated as absent (it skipped the check: current, "RMSE Infinity");
+2. the energy allowance is 4u|a| + 4u|b| (4u(|a| + |b|) overflowed near 1e308 and admitted any energy); every interval end, offset and input energy/count must be finite (§7.20 row 11, newly listed);
+3. the stale notice is 100 * (worst / scale) (was "inf %"; 0 % when both are zero, was NaN);
+4. every sum of squares (backward table, paths) must be finite, and ANY non-finite quantity in the search refuses the WHOLE record (an Infinity sum poisoned the dead-state memo and hid an agreeing alternative → false uniqueness); a window's upper end may overflow to +Infinity (it then prunes nothing), its lower end must be finite;
+5. the derivations rewritten (§7.21 items 1-6): the recorded RMSE's absolute error (the division's own error added after the division), the scaled RMS whose product by m CAN underflow (|η_f| ≤ MIN/2), the verdict's (2n + 8)u and √((2n + 4)·MIN) judged against those (the constants stand, with stated margins); the search window widened (sw = (4n + 32)u relative, ar = 8u(r + t) absolute for the cancellation in r(1 − g) − t); the memo's "+1" licence now needs a separation SEP = (4n + 32)u·rc + √((2n + 4)MIN) beyond the loose tolerance (§7.21 item 5);
+6. (c, trivial) _restoredModelIsFit's finite guard before its equality shortcut.
+Tests (tests/js/background_not_converged.test.js, 54 → 61) incl. two differential tests against the search with every RMSE prune and the memo removed (recordEnv(edit)): random records, and the stored RMSE bisected to the verdict's exact edge. §7.21 states plainly which margins no test kills (the round-32 window margins and SEP = 0 are not killed: they rest on the derivations alone).
+
+ANSWER, in a section headed PROPORTIONALITY RULING:
+1. Are all six round-33 findings fixed? Name any that is not, with a concrete input.
+2. Check the §7.21 derivations step by step (items 1-6), as the owner asked in round 33: is each bound DERIVED and correct for the case it claims, or sized to pass a case? Is the memo-licence argument (item 5) sound — monotone rounded addition, the same children for the same state, the rc ↔ sum-of-squares relation? Is the window (item 4) wide enough that no prune cuts a reading the verdict accepts? A wrong or incomplete derivation is a (b) finding (owner's criterion).
+3. Can any input make the restore show or export a wrong number, or let a wrong or unproven result read as current?
+4. Is any remaining finding severe enough to BLOCK DEPLOY?
+
+CATEGORIES (owner, unchanged): (a) a number a student sees or exports is wrong (incl. a reported number — census, measurements, student note — that is not what the committed data and generators give); (b) a wrong or unproven result reads as current; (c) neither — a refusal (a fit the record identifies loads peaks-only with a plain reason) is (c).
+
+NEW FOR THIS ROUND (owner, 2026-10-07): for EVERY (a)/(b) finding also state its REACHABILITY:
+- R1 — reachable from data a real instrument or this app could produce (XPS counts / CPS, binding energies in eV, the app's own saves and uploads, a user's ordinary edits), or
+- R2 — needs non-physical magnitudes (overflow- or underflow-scale values such as 1e200 counts, 1e308 energies, subnormal residuals that no spectrometer produces), or hand-crafted file contents the app never writes.
+Give the smallest-magnitude input you can for each. For an R2 finding also say whether a fix that makes the app REFUSE such a record (peaks-only, plain reason) is available and simple.
+
+List any new findings ranked BLOCKER / MAJOR / MINOR, each with file:line, category (a)/(b)/(c), reachability R1/R2, and a concrete failing scenario. BLOCKER / MAJOR only for (a) or (b); (c) is at most MINOR and non-blocking; a wording or documentation inconsistency is MINOR. A MINOR alone does not make NO-GO.
+
+TRY TO BREAK
+a. The round-33 fixes: the whole-record refusal (can a non-finite quantity still be dropped silently — any remaining Number.isFinite filter, a Math.max/min that swallows NaN, a comparison against NaN that reads as "pass"?); the RMSE refusal (undefined vs null vs a non-number); the energy allowance and intervals; the infinite window upper end (can +Infinity reach the memo or an acceptance?); the pct.
+b. The new margins: can the widened window or SEP ever make the search ACCEPT something (they should only prune and memoise less)? Did widening change any verdict on the committed census (reproduce: scripts/bg_math_restore_census.py; Python twin scripts/bg_math_restore_alternative.py)?
+c. The differential tests: do they test what they claim (the oracle really has every prune and the memo removed; the bisection really lands on the verdict's edge)?
+d. Ordinary data (R1): spectra of 100-5000 points, counts 0-1e7, energies 0-1500 eV, project (4-dp / 6-figure) and spectrum (exact) saves, charge corrections, duplicates, unsorted records — does anything now refuse that should restore, or restore that should refuse?
+
+Suites at the commit: see its message (JS 578 pass + 2 todo, floor 578; pytest 1194 passed, 7 skipped).
+
+Read-only. Be adversarial. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO — where NO-GO means an (a) or (b) defect, not a (c) one.

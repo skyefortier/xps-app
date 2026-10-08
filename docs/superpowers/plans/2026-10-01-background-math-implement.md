@@ -245,7 +245,7 @@ path's own ROI loop each fail it.
   overflowing evaluation (not converged, page and server).
 - `tests/js/_page_background_source.js`: the page's background section as one source
   for every JS test that runs it.
-- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29, 569 after round 31, 571 after the round-32 fix, 578 after the round-33 fix).
+- JS CI floor 508 -> 543, exact (the owner's 512 for the two landed branches + this unit's tests; 538 before the owner round of 2026-10-03, 539 at its first commit, 543 after Codex round 18, 545 after round 19, 548 after round 20, 552 after round 21, 557 after round 22, 559 after round 23, 561 after round 24, 562 after round 25, 563 after round 26, 565 after round 27, 566 after round 28, 568 after round 29, 569 after round 31, 571 after the round-32 fix, 578 after the round-33 fix, 582 after the round-34 fix).
 
 ## 4. Measurements
 
@@ -1293,7 +1293,7 @@ reading's residuals r_k = fl(I_k − fy_k).
 3. *The verdict.* \|rc − rmse_rec\| ≤ (n + 5.5)u·R + MIN/2 + \|β\|. With R ≤ (rc + rmse_rec +
    MIN/2 + \|β\|) / (2(1 − ((n + 8)/2)u)): relative ≤ (n/2 + 2.8)u·(rc + rmse) (+ a term below
    u·√MIN), absolute ≤ MIN/2 + (1 + u)√((1 + γ_n)MIN) ≤ 1.01·√MIN. The code allows (2n + 8)u·
-   (rc + rmse) — ≥ 4× the relative need for every n ≥ 1 — and √((2n + 4)·MIN) ≥ √6·√MIN ≈
+   (rc + rmse) — ≥ 3× the relative need for every n ≥ 1 (3.08 at n = 1, rising towards 4; "≥ 4×" was an overstatement, Codex round 34; strict form §7.22) — and √((2n + 4)·MIN) ≥ √6·√MIN ≈
    2.45·√MIN — ≥ 2.4× the absolute need. The tolerance's own evaluation (≤ 7 roundings of
    non-negative terms, ≥ (1 − 7u) of its exact value) and the subtraction's (Sterbenz-exact
    when rc and rmse are within 2×, else u) sit inside those margins. The per-point
@@ -1353,4 +1353,72 @@ agrees on all 121; the regenerated `restore_census.json` differs from the commit
 in the last digit of 27 `stalePct` (≤ 2.2e-16 relative: the ratio is taken before × 100).
 
 STOPPED here for the owner's review (owner: "If a new (a)/(b) appears, fix and stop for my
-review regardless"). No round 34 has been launched.
+review regardless"). Round 34 was then launched on the owner's instruction (§7.22).
+
+### 7.22 Codex round 34 — NO-GO ×2 (`background_math_impl_r34_verdict_run{A,B}.md`, commit 506be82) — every finding R2, each fixed by a REFUSAL; STOPPED for the owner's deploy review
+
+Owner's stopping rule for this round (2026-10-07): "GO, or only (c) findings → stop for my
+deploy review. (a)/(b) findings reachable from data a real instrument or this app could produce
+→ fix and stop for my review. (a)/(b) findings that need non-physical magnitudes … → fix only if
+the fix makes the app REFUSE; otherwise log in PROGRESS.md. Then stop for my deploy review."
+
+Both runs: all six round-33 findings fixed for their cases; rounds 25-31 and round-31 B stay
+(c); the census reproduces exactly (0 / 81 / 40); 72 (A) and 88 (B) ordinary-range probes
+(100-5000 points, counts < 1e7, both save precisions, charge frames, duplicates, unsorted, both
+energy directions) found NO R1 defect and no unexpected refusal or restoration. The widened
+window and SEP never loosen the acceptance test. Every new (a)/(b) finding is R2:
+
+| finding | runs | category | reachability | fix (a refusal in every case) |
+|---|---|---|---|---|
+| a raw energy that is not a number: `null − 0` is 0, so `[null, 1, 2]` read as a sample at 0 eV and the fit loaded current | A | (b) | R2 — a malformed file (the app never writes one) | every raw energy and count must be a finite NUMBER, checked before any arithmetic ("its raw data are not a finite number at every point …"); the search checks the energy itself too |
+| a negative stored RMSE (−0.001, −0.004 within the old upload's 0.005; −MIN with a full-precision fit) loaded current, shown "−0.0", saved | A, B | (a)+(b) | R2 — no fit computes one | refused: "its stored RMSE is negative, which no fit gives …" (0 and −0 restore) |
+| the counts less the installed background overflow (counts 9e307 against an envelope of −9e307; 2^1023 against a component of 2^1023): bgSubtracted Infinity, Save Spectrum wrote null | A, B | (a) | R2 — counts near 1e308 | the counts less the background (stale and current paths) must be finite, else nothing is installed: "its data less its background are not finite numbers in floating point …" |
+| §7.21's first-order bounds do not hold over its stated range n < 2^32: item 3's (n + 5.5)/(2(1 − (n + 8)u/2)) exceeds n/2 + 2.8 at n = 2^26 (67 million points); items 1-2 likewise drop higher-order terms. The implemented constants are not shown too small | B | (b) by the owner's proof criterion | R2 — 67 million points | records with more than 2^20 stored points are REFUSED ("… more stored points than the restore's arithmetic bounds are derived for …"); the derivation is restated strictly for n ≤ 2^20, below |
+| "≥ 4×" margin overstated (3.16 at n = 2) | A, B | (c) MINOR | — | corrected in §7.21 |
+
+Found while restating the derivation (not by Codex): the window's absolute widening ar = 8u(r + t)
+did not cover, in a narrow band of r just above t, the verdict's own evaluation of its tolerance
+(≤ 8u·t) on top of the rounding of the window's lower end (≤ 3u·r + 5u·t). Now ar = 16u(r + t):
+it covers both in every case (below). A widening — it can only prune less.
+
+**The derivations, strictly, for n ≤ 2^20 (superseding the numbers of §7.21 items 1-5; the
+reasoning there stands).** nu ≤ 2^-33, so γ_k ≤ 1.000001·ku for every k ≤ 2^21 and
+\|√(1 + x) − 1\| ≤ 0.5000001·\|x\| for \|x\| ≤ 2^-30.
+1. Recorded RMSE: \|ε₁\| ≤ γ_{n+1}; \|ε_rec\| ≤ 0.5000001·γ_{n+1} + u + γ_{n+1}·u ≤ 1.00001·((n + 3)/2)·u;
+   \|β\| ≤ (1 + u)√((1 + γ_n)MIN) ≤ 1.000001·√MIN.
+2. Scaled RMS: \|ε₂\| ≤ γ_{n+2} + u ≤ 1.000001·(n + 3)u; with the division by n, the root and the
+   product, \|ε_c\| ≤ 1.00001·((n + 8)/2)·u; \|η_f\| ≤ MIN/2.
+3. Verdict: rc − rmse_rec = R(ε_c − ε_rec) + η_f − β exactly, so \|rc − rmse_rec\| ≤ 1.00001·(n + 5.5)u·R
+   + MIN/2 + \|β\|. 2R ≤ (rc + rmse_rec + MIN/2 + \|β\|)/(1 − 1.00001·(n + 5.5)u/2) and (n + 5.5)u ≤ 2^-32,
+   so the relative need is ≤ 1.0001·(n/2 + 2.75)·u·(rc + rmse) (B's counterexample is outside
+   n ≤ 2^20: the excess is ≤ (n + 5.5)(n + 8)u/4 ≤ 3e-5 here), and the absolute need ≤ 1.00001·√MIN
+   (the conversion's MIN-scale terms are below 2^-500·√MIN). The tolerance as computed is ≥ (1 − γ_7)
+   of its exact value. Allowed: (2n + 8)u — ratio (2n + 8)/(1.0001·(n/2 + 2.75)) ≥ 3.07, increasing in
+   n towards 4 — and √((2n + 4)MIN) ≥ 2.449·√MIN — ratio ≥ 2.44.
+4. Window. An accepted reading has \|rc − r\| ≤ (1 + γ_8)(t + g(rc + r)) (the computed tolerance and
+   subtraction), so rc ≤ hi* + 8.01u·t and rc ≥ lo* − 8.01u·t (hi*, lo* the exact solutions with
+   t, g; the g-inflation is second order). Computing hi and lo: 1 − g and 1 + g are exact (g =
+   (2n + 8)·2^-53 with 2n + 8 even), r(1 ± g) one rounding, t ≤ 3 roundings, the sum or difference one
+   (≤ u(r + t) — cancellation), the division one: \|hi − hi*\| ≤ 4.1u·r + 6.1u·t, \|lo − lo*\| ≤ 3u·r +
+   5u·t + u·lo. With ar = 16u(r + t): hi + ar ≥ hi* + 11.9u·r + 9.9u·t ≥ rc for every accepted reading,
+   and lo − ar ≤ lo* − 13u·r − 11u·t ≤ rc (when lo* ≤ 0 the window's lower end is 0). Then the sums:
+   any sum the search forms is within (1 ± γ_{n+1}) of n·R² plus n·MIN/2, and R is within
+   (1 ± \|ε_c\|) of rc plus MIN/2, so n·(hi + ar)²·(1 + 1.0001·(2n + 9)u) bounds them above, and the
+   window's own 4 roundings make 1.0001·(2n + 13)u — sw = (4n + 32)u (ratio ≥ 2.4). Lower end likewise;
+   absolute: sa = (2n + 4)·MIN ≥ n·MIN/2 + the product's MIN/2 + the sum's.
+5. Memo licence: rc_B ≥ rc_A(1 − 1.0001·(2n + 10)u) − 1.00001·√MIN (from 1, 2 and the monotone
+   sums). B agrees ⇒ rc_B − r ≤ (1 + γ_8)(t + g(rc_B + r)); A memoised ⇒ the exact rc_A − r ≥
+   (1 − γ_8)(tolLoose + SEP) − u·rc_A. With SEP = (4n + 32)u·rc_A + √((2n + 4)MIN) and rc_A > r + t
+   (A lies beyond the tolerance), the leftover ≥ (2n + 21)u·rc_A + 1.4·√MIN exceeds the evaluations'
+   ≤ 16u·(r + t) + 1.00001·√MIN: B cannot agree.
+
+Tests (`tests/js/background_not_converged.test.js`, 61 → 65): a null / text energy, a null /
+infinite count refused before arithmetic (and the search alone); a negative RMSE (−0.001 within
+0.005, −MIN full precision) refused, 0 and −0 restore; the overflowing installed counts refused;
+2^20 + 1 stored points refused before any bound is used. The round-32 NaN test now meets the
+earlier refusal (its expected words updated). Mutations: removing each of the three runtime
+refusals fails its test; the ar widening is not killed by a test (like §7.21's margins it rests
+on derivation 4).
+
+Nothing is logged to PROGRESS.md: every finding was R2 and every fix is a refusal. STOPPED for the
+owner's deploy review.

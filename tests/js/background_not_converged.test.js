@@ -796,7 +796,7 @@ test('restore: a NaN in the data a reading uses refuses it, in plain words', () 
   rec.fitResult = { uploadFull: true, beExact: true, be: be5.slice(), fittedY: fy.slice(), bgIntensity: be5.map(() => 0), rmse: 0 };
   rec.fitResult.startsModelKey = R._startsRecordKey(rec);
   const r = R._restoredFitBgFailure(rec);
-  assert.match(r || '', /not finite/, 'refused: ' + r);
+  assert.match(r || '', /not a finite number at every point/, 'refused (round 34: before any arithmetic): ' + r);
   // and the grid search alone: no reading is accepted on a NaN residual
   const g = R._restoredFitGrid({ rawBE: be5, rawIntensity: [0, 0, NaN, 0, 0], ccShift: 0, fitResult: { fittedY: [0, 0, 0, 0, 0], rmse: 0 } }, be5, 0, 0, 0);
   assert.ok(g.fail && /not finite/.test(g.fail), g.fail);
@@ -970,6 +970,52 @@ test('restore: at the verdict\'s own edge (the stored RMSE bisected to where the
     }
   }
   assert.ok(cases > 2000, String(cases));
+});
+
+// ── Codex impl round 34 (R2: malformed records the app never writes; each now refused) ──
+test('restore: a raw value that is not a number is refused before any arithmetic — null is not 0 eV', () => {
+  const zero = (rawBE, rawIntensity) => {
+    const rec = peakRec({ rawBE, rawIntensity, peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 1, fwhm: 1, amplitude: 0 }],
+                          ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+    rec.fitResult = { uploadFull: true, be: [0, 1, 2], fittedY: [0, 0, 0], bgIntensity: [0, 0, 0], rmse: 0 };
+    rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+    return R._restoredFitBgFailure(rec);
+  };
+  for (const [be, y, label] of [[[null, 1, 2], [0, 0, 0], 'a null energy'], [['0', 1, 2], [0, 0, 0], 'a text energy'],
+                                [[0, 1, 2], [0, null, 0], 'a null count'], [[0, 1, 2], [0, 0, Infinity], 'an infinite count']])
+    assert.strictEqual(zero(be, y), 'its raw data are not a finite number at every point, so the background it was fitted against cannot be checked', label);
+  assert.strictEqual(zero([0, 1, 2], [0, 0, 0]), null, 'the control restores');
+  // the search alone does not read a null energy as 0 either
+  const g = R._restoredFitGrid({ rawBE: [null, 1, 2], rawIntensity: [0, 0, 0], ccShift: 0, fitResult: { fittedY: [0, 0, 0], rmse: 0 } }, [0, 1, 2], 0, 0, 0);
+  assert.match(g.fail || '', /not finite or overflows/);
+});
+
+test('restore: a negative stored RMSE is refused (no fit gives one) — −0.001 within the old upload\'s 0.005, and −MIN', () => {
+  for (const [rmse, full] of [[-0.001, false], [-Number.MIN_VALUE, true], [0, true], [-0, true]]) {
+    const rec = peakRec({ rawBE: [0, 1, 2], rawIntensity: [0, 0, 0], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 1, fwhm: 1, amplitude: 0 }],
+                          ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+    rec.fitResult = { ...(full ? { uploadFull: true } : {}), be: [0, 1, 2], fittedY: [0, 0, 0], bgIntensity: [0, 0, 0], rmse };
+    rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+    const r = R._restoredFitBgFailure(rec);
+    if (rmse < 0) assert.strictEqual(r, 'its stored RMSE is negative, which no fit gives, so the samples it was fitted on cannot be confirmed', String(rmse));
+    else assert.strictEqual(r, null, 'zero (' + Object.is(rmse, -0) + ') restores');
+  }
+});
+
+test('restore: the counts less the background it installs must be finite — an overflow is refused, not saved as null', () => {
+  const rec = peakRec({ rawBE: [0, 1, 2], rawIntensity: [9e307, 9e307, 9e307], peaks: [{ id: 1, name: 'g', shape: 'Gaussian', center: 1, fwhm: 1, amplitude: 0 }],
+                        ui: { ...peakRec().ui, bgType: 'none', roiMin: '', roiMax: '' } });
+  rec.fitResult = { uploadFull: true, be: [0, 1, 2], fittedY: [-9e307, -9e307, -9e307], bgIntensity: [0, 0, 0], bgSubtracted: [9e307, 9e307, 9e307] };
+  rec.fitResult.startsModelKey = R._startsRecordKey(rec);
+  assert.strictEqual(R._restoredFitBgFailure(rec), 'its data less its background are not finite numbers in floating point (a value overflows), so it cannot be restored');
+});
+
+test('restore: more stored points than the bounds are derived for (2^20) is refused, never judged', () => {
+  const n = 2 ** 20 + 1, be = Array.from({ length: n }, (_, i) => i * 0.001), z = new Array(n).fill(0);
+  const g = R._restoredFitGrid({ rawBE: be, rawIntensity: z, ccShift: 0, fitResult: { fittedY: z, rmse: 0 } }, be, 0, 0, 0);
+  assert.strictEqual(g.fail, 'it has more stored points (1048577) than the restore\'s arithmetic bounds are derived for (1048576), so it cannot be checked');
+  const body = enclosingFunction(lines.findIndex(l => l.startsWith('function _restoredFitGrid('))).body;
+  assert.ok(body.indexOf('if (n > 2 ** 20)') < body.indexOf('const rmseVerdict'), 'before any bound is used');
 });
 
 test('restore: what the subtraction cannot resolve is not a difference — a zero background, the save\'s 4-dp energies', () => {

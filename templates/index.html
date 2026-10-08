@@ -9985,6 +9985,11 @@ function _restoredFitBgFailure(rec) {
   if (!Array.isArray(rec.rawBE) || !Array.isArray(rec.rawIntensity) || rec.rawBE.length < 2 ||
       rec.rawIntensity.length !== rec.rawBE.length)
     return 'its raw data are missing or incomplete, so the background it was fitted against cannot be checked';
+  // every raw value a finite NUMBER, read before any arithmetic (Codex impl round 34: null − 0
+  // is 0, so a missing energy became a sample at 0 eV and the fit read current)
+  const num = v => typeof v === 'number' && Number.isFinite(v);
+  if (!rec.rawBE.every(num) || !rec.rawIntensity.every(num))
+    return 'its raw data are not a finite number at every point, so the background it was fitted against cannot be checked';
   const fr = rec.fitResult;
   const env = fr.fittedY;
   if (!Array.isArray(env) || !env.length)
@@ -10000,6 +10005,10 @@ function _restoredFitBgFailure(rec) {
   // used (Codex impl round 33: Infinity skipped the check and was shown as current)
   if (fr.rmse !== undefined && !(typeof fr.rmse === 'number' && Number.isFinite(fr.rmse)))
     return 'its stored RMSE is not a finite number, so the samples it was fitted on cannot be confirmed';
+  // nor one below zero, which no fit computes (Codex impl round 34: −0.001 met the old upload's
+  // 0.005 and was shown and saved as the fit's RMSE)
+  if (fr.rmse !== undefined && !(fr.rmse >= 0))
+    return 'its stored RMSE is negative, which no fit gives, so the samples it was fitted on cannot be confirmed';
   delete fr.backgroundStale; delete fr.voigtStale;       // judged afresh on every load
   const fit = _restoredFitPeaks(rec);
   // the frame of the stored energies: the key's (the fit's), or the one a restore wrote them in
@@ -10047,21 +10056,27 @@ function _restoredFitBgFailure(rec) {
   const voigt = _legacyVoigts(fit.peaks);
   if (voigt.length) fr.voigtStale = voigt;
   const within = beyond <= BG_RESTORE_REL * scale + BG_REL_TOL * envScale;
+  // the counts less the background installed with the fit: finite, or nothing is installed
+  const subFail = 'its data less its background are not finite numbers in floating point (a value overflows), so it cannot be restored';
   if (unconfirmed || !within) {
     // owner 2026-10-03: reloaded AS STALE — the fit's own background (envelope less
     // its components) and its peaks as saved, its statistics marked stale with the
     // size of the difference from today's background (_statsState; F1: never exported
     // or reported as current). Run Fit fits it against today's background.
     const used = env.map((v, i) => v - model[i]);
+    const sub = grid.inten.map((v, i) => v - used[i]);
+    if (!sub.every(Number.isFinite)) return subFail;      // Codex impl round 34: an overflow saved as null
     fr.bgIntensity = used;
     fr.be = grid.be;
-    fr.bgSubtracted = grid.inten.map((v, i) => v - used[i]);
+    fr.bgSubtracted = sub;
     fr.backgroundStale = { pct: scale > 0 ? 100 * (worst / scale) : 0,   // the ratio first: 100 · worst can overflow (Codex impl round 33)
       ...(unconfirmed ? { unconfirmed: true, matches: within } : {}) };
   } else {
+    const sub = grid.inten.map((v, i) => v - bg[i]);
+    if (!sub.every(Number.isFinite)) return subFail;
     fr.bgIntensity = bg;                                 // the certified curve itself
     fr.be = grid.be;
-    fr.bgSubtracted = grid.inten.map((v, i) => v - bg[i]);
+    fr.bgSubtracted = sub;
   }
   fr.beShift = rec.ccShift || 0;                         // fr.be is now in today's frame (Codex impl round 21)
   if (_restoredStale(fr)) {                              // its evidence belonged to a fit against another background / shape
@@ -10118,8 +10133,15 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   // is not finite — an input, an energy allowance, an offset, a sum of squares — refuses the
   // WHOLE record, never just the branch it arose in: a branch dropped for overflow could be
   // the agreeing alternative that makes another reading ambiguous.
+  // the arithmetic bounds below are derived for n ≤ 2^20 points (plan §7.22: every second-order
+  // term is then below 1e-5 of its slack; Codex impl round 34 showed a first-order step false at
+  // n = 2^26). A spectrum has thousands of points; a larger record is refused, never judged.
+  if (n > 2 ** 20) return { fail: 'it has more stored points (' + n + ') than the restore\'s arithmetic bounds are derived for (1048576), so it cannot be checked' };
   const nonFiniteFail = { fail: 'its stored statistics cannot be compared with its data in floating point (a value is not finite or overflows), so the samples it was fitted on cannot be confirmed' };
-  for (let i = 0; i < N; i++) if (!(typeof corr[i] === 'number' && Number.isFinite(corr[i])) || !(typeof I[i] === 'number' && Number.isFinite(I[i]))) return nonFiniteFail;
+  for (let i = 0; i < N; i++) {
+    const b = rec.rawBE[i];                             // the energy itself, before arithmetic (null − 0 is 0: Codex impl round 34)
+    if (!(typeof b === 'number' && Number.isFinite(b) && Number.isFinite(corr[i])) || !(typeof I[i] === 'number' && Number.isFinite(I[i]))) return nonFiniteFail;
+  }
   if (!(Number.isFinite(shift) && stored.every(v => typeof v === 'number' && Number.isFinite(v)))) return nonFiniteFail;
   const r4 = v => Math.round(v * 1e4) / 1e4;
   // a project rounds the stored energies to 4 dp (and the counts to 6 significant figures);
@@ -10224,11 +10246,12 @@ function _restoredFitGrid(rec, stored, keyShift, ampBound = 0, uploadRound = 0.0
   const ssWindow = mag => {
     if (!hasRmse) return [-Infinity, Infinity];
     const t = uploadRound + 8 * U * mag + Math.sqrt((2 * n + 4) * Number.MIN_VALUE), r = Math.abs(fr.rmse);
-    // outward (plan §7.21, Codex impl round 33): by 8 u of r + t for the rounding of hi and lo
-    // themselves (r (1 − g) − t can cancel); the sums below relatively by sw for the scaled
-    // RMS against the sums of squares the table and the paths add in their own orders (Codex
-    // impl round 29) — (2n + 9) u to first order, (4n + 32) u allowed
-    const sw = (4 * n + 32) * U, ar = 8 * U * (r + t);
+    // outward (plan §7.21-7.22, Codex impl rounds 33-34): by 16 u of r + t absolutely — the
+    // rounding of hi and lo themselves (r (1 − g) − t can cancel: ≤ 3u r + 5u t) plus the
+    // verdict's own evaluation of its tolerance (≤ 8u t); the sums below relatively by sw for
+    // the scaled RMS against the sums of squares the table and the paths add in their own
+    // orders (Codex impl round 29) — ≤ 1.0001 (2n + 13) u needed, (4n + 32) u allowed
+    const sw = (4 * n + 32) * U, ar = 16 * U * (r + t);
     const hi = (r * (1 + g) + t) / Math.max(1 - g, 0.5) + ar;
     const lo = Math.max(0, (r * (1 - g) - t) / (1 + g) - ar);
     // and absolutely, for sums in the subnormal range, where relative rounding bounds do not
