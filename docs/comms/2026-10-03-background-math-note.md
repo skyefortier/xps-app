@@ -1,11 +1,10 @@
-# Student note — backgrounds are now solved and checked; what happens to saved fits — HELD UNTIL DEPLOY
+# Student note — backgrounds are now solved and checked; what happens to saved fits — READY TO SEND
 
-Status: DRAFT, held by the owner (background-math unit, owner round 2026-10-03; not
-yet approved for deploy). Every number is from the committed data:
-`docs/superpowers/plans/2026-10-01-background-math-implement.md` §7 (the restore census
-of the 121 committed saved fits and the 202-target measurement), the preview-vs-fit
-comparison `scripts/bg_math_preview_vs_fitted.py` (63 committed fits that store both
-curves). The owner sends it.
+Status: deploy verified 2026-10-09 (`docs/deploy-log.md`); the owner sends it. Every number
+is from the committed data: `docs/superpowers/plans/2026-10-01-background-math-implement.md`
+§7 (the restore census of the 121 committed saved fits and the 202-target measurement), the
+preview-vs-fit comparison `scripts/bg_math_preview_vs_fitted.py` (63 committed fits that
+store both curves).
 
 ---
 
@@ -14,8 +13,12 @@ Subject: XPS Fitting Studio — backgrounds, and what you will see when you open
 Hi all,
 
 This update changes how backgrounds are computed and checked, and what happens when you
-open a project saved by an earlier version. Most of you will notice very little. Here
-is what changed and why.
+open a project saved by an earlier version.
+
+The short version: **fits saved by an earlier version now open either marked "out of date"
+or with their peaks only — every fit saved before 25 September 2026, and nearly every one
+since. In both cases, press Run Fit. Do not report numbers from an older save until you
+have re-run its fit in this version.** The rest of this note explains why.
 
 What was wrong
 
@@ -47,35 +50,45 @@ What changed
   "Smart". Files that used either still open.
 - The "Shirley iterations" setting is gone (every Shirley now runs to convergence).
 
-What you will see when you open an older project
+What you will see when you open an older project — and what to do
 
-The page compares the background each saved fit was actually fitted against with the
-one its settings give today, on the fit's own points. Fits saved before 25 September 2026
-do not record the charge correction they were fitted under, so the page can never confirm
-them: they always open marked out of date (below), saying whether the background matches
-as far as can be told. Fits saved since then carry that record:
+Every fit saved before 25 September 2026 opens in one of two ways, and so does nearly every
+fit saved since (the exception: a fit saved since then whose background is exactly the one
+its settings give today opens as it was, statistics included — the page has checked it).
+Neither is an error, and the fix is the same for both: press Run Fit.
 
-- If they agree (within rounding), the fit opens exactly as it was. On our 121 saved
-  fits (all older): none — 15 match as far as can be told, but are marked out of date.
-- If they differ, the fit opens with its OWN background and peaks, but its statistics
-  (χ², R-factor, RMSE, uncertainties) are marked out of date and are not shown or
-  exported, and an amber message tells you by how much the backgrounds differ. Press Run
-  Fit to bring it up to date. On our saved fits: 66, nearly all because older versions
-  chose the background window's end points slightly differently; most differ by under
-  1 % of the background's height, at most 5 %.
-- A fit with a Voigt component made before 22 September 2026 also opens marked out of
-  date: until then the server fitted a Voigt's Gaussian/Lorentzian mix freely while the
-  page drew it at 50/50, so the page cannot draw that fit as it was fitted (the message
-  names the component and its fitted mix). On our saved fits: 41, mostly U 4f
-  satellites. Re-run them; use GL if you want the mix fitted.
-- If the file does not contain enough to check (older versions sometimes saved no fitted
-  curve, or not the energies it was fitted on), your peaks open and you press Run Fit.
-  On our saved fits: 40.
+- MARKED OUT OF DATE. Your peaks and the fit's own curves are there, but its statistics
+  (χ², R-factor, RMSE, uncertainties) show as "—" and are not exported, and an amber
+  message says so. Why: the page now checks that the background a saved fit was fitted
+  against is the one its settings give today, and for a fit saved by an earlier version it
+  either cannot confirm that or finds that they differ. Fits saved before 25 September 2026 do not record the
+  charge correction they were fitted under, so the check cannot be made exactly; and many
+  were fitted against a background computed differently from today's (older versions chose
+  the background window's end points slightly differently, and Shirley, Smart and Tougaard
+  averaged the data at the window's edges). The message tells you how far the saved fit's
+  background is from today's, or that they match as far as can be told — either way the
+  page will not vouch for the old statistics. On our 121 saved fits: 81 open this way (15
+  match as far as can be told; 66 differ, most by under 1 % of the background's height, at
+  most 5 %).
+- PEAKS ONLY. Your peaks are loaded but there is no fit result. Why: older versions sometimes
+  saved no fitted curve, or not the energies it was fitted on, so there is nothing to check
+  the fit against. On our saved fits: 40.
+
+A fit with a Voigt component made before 22 September 2026 also opens out of date: until
+then the server fitted a Voigt's Gaussian/Lorentzian mix freely while the page drew it at
+50/50, so the page cannot draw that fit as it was fitted (the message names the component
+and its fitted mix). On our saved fits: 41, mostly U 4f satellites. Re-run them; use GL if
+you want the mix fitted.
+
+So: **if you reported, or plan to report, any number from a fit saved before this version —
+an area, an atomic %, a χ², a peak position — open the project, press Run Fit, and use the
+new result.** Fits you make from now on are saved with everything needed to reopen them
+exactly as they were.
 
 The largest differences (all Smart): 4-GTA UCl4-BN B1s Scan_1 (2.95 %), B1s Scan_0
 (2.91 %), U4f Scan_0 (1.65 %), U4f Scan (1.65 %), B1s Scan_4 (1.55 %), U4f Scan_3 (1.17 %),
 and UCl4_on_graphite U4f Scan_4 (1.69 %) and U4f Scan_2 (0.88 %). If you reported numbers
-from these, re-run them. In practice: press Run Fit on any older project you still use.
+from these, re-run them — as with every older save, press Run Fit before reporting.
 
 Will my fitted numbers change if I press Run Fit again?
 

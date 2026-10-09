@@ -6,6 +6,58 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-10-09 — Background math: solved, checked, drawn as fitted; saved fits judged on reload (`bg-math-implement`, c39e67e)
+
+- **Release note (backgrounds):** endpoint averaging now sets only the two edge
+  levels a background is anchored to; every method computes from the measured
+  data (Shirley, Smart and Tougaard used to replace the window's end points by
+  their average), and Linear uses the same averaged edge levels. Every
+  background runs to convergence and is checked against its own defining
+  equation; when it has no solution (most often a window with no peak in it)
+  the page says "… background not converged" under the method menu, suggests
+  Linear for a window with no peak, and nothing is fitted, subtracted or
+  exported against it. The "Shirley iterations" setting is gone. "Smart" and
+  "Smart (experimental)" were the same calculation: one entry, "Smart"; files
+  using either still load. **The page now draws exactly the background the
+  server fits**, and uploads your data at full precision (it rounded
+  intensities to two decimals).
+- **Release note (saved fits — every user sees this):** a saved fit is judged
+  on reload. The background it was actually fitted against (its stored fitted
+  curve less its peaks) is compared with the one its settings give today. A fit
+  saved before 2026-09-25 has no record of its charge correction, so it can
+  never be confirmed: it reloads **marked out of date** (statistics not shown or
+  exported; amber notice with the difference, or "matches as far as can be
+  told") — press Run Fit. A file without the fitted curve or the energies it
+  was fitted on loads its **peaks only** — press Run Fit. On the lab's 121
+  committed saved fits: 0 current, 81 out of date (15 matching as far as can
+  be told, 66 differing — most by under 1 % of the background's scale, at most
+  5 %; 41 also hold a pre-2026-09-22 Voigt the page cannot draw as fitted), 40
+  peaks only. A malformed record (non-numeric raw data, a non-finite or
+  negative stored RMSE, values that overflow, more than 2^20 points) is
+  refused with a plain reason, never shown as current.
+- **Release note (fits):** the random restarts are now seeded from your data,
+  window, settings and model rather than from the computed background, so this
+  version changes them once. On the committed fits backgrounds moved by at most
+  0.001 % of net area; six fits that sit between two solutions landed in
+  another (1–29 pp); the scattered-starts line flags four of them.
+- Codex: 34 implementation rounds (17 before the owner round of 2026-10-03,
+  GO ×2 at round 17; rounds 18–34 on the owner round and the restore rule).
+  Owner rulings: a fit without its fit key is never confirmed current
+  (2026-10-05); every acceptance compares finite quantities only (2026-10-06);
+  rounds 25–31 category (c); round 34's findings all R2 (no finding reachable
+  from real data), each fixed by a refusal. Plan:
+  `docs/superpowers/plans/2026-10-01-background-math-implement.md` §5, §7.
+- Suites at c39e67e: pytest 1194 passed / 7 skipped; JS 582 pass / 2 todo (CI
+  floor 582). Browser check on dev :5151 and on production through
+  xps.fortierlab.org: a server Run Fit on a Shirley C 1s completes with current
+  statistics and no not-converged note; the committed
+  `Cl2p_projfit_test.proj.zip` loads through the page's file input with its 3
+  fits marked out of date; no page errors. LaunchAgent running, last exit 0;
+  `/api/health` ok on :5050 and publicly; reference data loaded (legacy + 6
+  curated elements). xps2 droplet: the owner's.
+- Student note `docs/comms/2026-10-03-background-math-note.md`: the owner sends
+  it.
+
 ## 2026-10-01 — Find Peaks archived (`archive-find-peaks`)
 
 - **Release note:** Find Peaks is archived: it is no longer offered in the

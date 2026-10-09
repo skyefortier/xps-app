@@ -23,7 +23,9 @@ Find Peaks is ARCHIVED (hidden from the UI, not deleted: backend, engine,
 | Unit B — data-estimated noise | **DEFERRED, not dropped** | its Find Peaks consumers (detection / proposal gates, occupancy floor) are archived. It still matters for RUN FIT: the displayed chi2r assumes Poisson variance in the file's own units, and the measured dispersion on flat ends of the committed C 1s scans is 0.4–1.2 × the mean (`docs/findings/find-peaks-scale/README.md` §2, on branch `fix-occupancy-f-test` at `08a51d9`), so the absolute value of the displayed chi2r is not calibrated: divided by that dispersion, a calibrated chi2r would be ~0.83–2.5× the displayed one on those scans (the owner's note of 2026-09-29 gives a narrower k = 0.43–0.75, ~1.3–2.3×; that narrower range is not in the cited record). A constant variance factor changes ONLY that absolute value: the fit, the sigmas (lmfit scales the covariance by chi2r) and the support F test (a ratio of chi2 differences) are invariant to it | an owner decision to calibrate the displayed chi2r (what a reader compares with 1), or Find Peaks revived |
 
 
-## NEXT — runs right after the background-math unit, before anything else (owner, 2026-10-04)
+## NEXT — runs right after the background-math unit, before anything else (owner, 2026-10-04; background math DEPLOYED 2026-10-09)
+
+Owner 2026-10-09: order = this unit, then the read-only 2026-09-17 asym-GL check, then STOP for the owner.
 
 | unit | logged | what | done when |
 |---|---|---|---|
@@ -31,8 +33,11 @@ Find Peaks is ARCHIVED (hidden from the UI, not deleted: backend, engine,
 
 ## LOGGED — follow-up units (not started)
 
+Owner rule 2026-10-09: R2-only findings about the background-math unit (non-physical magnitudes no spectrometer produces) are LOGGED here, not fixed, unless the fix is a one-line refusal.
+
 | unit | logged | what | done when |
 |---|---|---|---|
+| `lineshape_parity.test.js` cannot hang | owner, 2026-10-09 — small unit, after the two-basin unit | its Python helper (`tests/js/lineshape_parity_backend.py`, called by `execFileSync` with `input`) once sat blocked reading stdin with 0 % CPU for 10+ min during a full JS run that had been moved to the background (2026-10-07); a rerun detached with `< /dev/null` passed. `execFileSync` has no timeout, so a stall hangs CI instead of failing | every `execFileSync` / `spawnSync` call in `tests/js/` to a helper process carries a `timeout` (a stall FAILS with a plain message naming the helper); a test proves the timeout fires (a helper that never reads its input) |
 | Restore: a magnitude bound for grid-normalised components | owner, 2026-10-06 (background math, Codex impl round 31 run B; category (c): a restorable fit loads peaks-only, nothing wrong is shown) | `_restoredFitGrid`'s RMSE tolerance bounds each component's magnitude by 2 × Σ\|amplitude\|, but LA(α,β,m) normalises its convolved curve at the sample nearest its centre, so on an unsorted / irregular grid other samples can exceed its amplitude (a synthetic 2 100-point grid: 416 325 against amplitude 1 000). The tolerance is then too tight and the fit's own reading is refused ("not points of its raw data"). Synthetic, atypical of XPS sampling | the bound is the components' evaluated magnitudes at every raw sample the search can use (in the fit's frame, at the energies the server evaluated them on), or a proven shape-by-shape bound; a test reproduces the round-31 case |
 
 ## Status board
