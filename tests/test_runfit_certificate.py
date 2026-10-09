@@ -14,7 +14,6 @@ import pytest
 import scipy.optimize
 
 import fitting
-from _legacy_line import legacy_line  # noqa: F401,E402  (autouse: the fixtures' background arithmetic)
 
 
 def _g(x, c, a, w):
@@ -204,15 +203,28 @@ def test_the_response_reports_how_far_the_continued_fit_moved_each_centre():
     assert abs(big["ev"]) == max(abs(m["ev"]) for m in moves)
 
 
-def test_a_continuation_that_relocates_a_component_by_more_than_1_ev_is_reported():
-    """The scattered-starts two-basin model without perturbed restarts:
-    Levenberg-Marquardt reports success at chi2r ~286, which is not a minimum;
-    the certificate carries the fit to the real decomposition and moves a
-    component by more than the red-band distance — the page shows that
-    (_certificateMoveFrom), as a notice."""
-    import test_scattered_starts as SS
-    x, y, specs = SS._two_basin_problem()
+def test_a_continuation_that_relocates_a_component_by_more_than_1_ev_is_reported(monkeypatch):
+    """A fit the optimiser left far from its minimum: the certificate carries it there and
+    reports a centre move beyond the red-band distance, which the page shows as a notice
+    (_certificateMoveFrom). DELIBERATE (the two-basin unit, owner 2026-10-04/09): one line
+    started 2 eV from it, and only the student's Levenberg-Marquardt run cut off after 6
+    evaluations — the certificate's Trust-Region restarts run uncapped into the line's one
+    minimum. Until 2026-10-09 this rested on Levenberg-Marquardt stalling by chance on the
+    scattered-starts model, whose basin an ulp of its background decided."""
+    import lmfit
+    g = lambda x, c, a, w: a * np.exp(-4 * np.log(2) * ((x - c) / w) ** 2)     # noqa: E731
+    x = np.arange(280.0, 292.0, 0.05)
+    y = np.random.default_rng(11).poisson(300 + g(x, 284.5, 6000, 1.0)).astype(float)
+    specs = [{"id": 1, "name": "main", "shape": "gaussian", "center": 286.5, "amplitude": 6000.0, "amplitude_min": 0, "fwhm": 2.0}]
+    real_fit = lmfit.Model.fit
+
+    def cut_off(self, *args, **kw):
+        if kw.get("method", "leastsq") == "leastsq":       # the student's fit, not the certificate's restarts
+            kw = {**kw, "max_nfev": 6}
+        return real_fit(self, *args, **kw)
+    monkeypatch.setattr(lmfit.Model, "fit", cut_off)
     res = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
     cert = res["certificate"]
-    assert cert["certified"] and cert["moved"] and cert["optimiser_flag"]
+    assert cert["certified"] and cert["moved"] and not cert["optimiser_flag"] and res["success"]
     assert abs(cert["largest_centre_move"]["ev"]) > 1.0
+    assert res["individual_peaks"][0]["params"]["center"]["value"] == pytest.approx(284.5, abs=0.01)

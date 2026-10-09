@@ -651,9 +651,14 @@ solution chosen for its score); bound to the fit by the starts model key
 continued"). On the committed targets: 0 of 202 targets with either method (the largest continuation
 moved a centre 0.043 eV with Trust-Region, 0.011 eV with Levenberg-Marquardt;
 none > 0.1 eV) — it is there for the fit that stopped far from a minimum. A certificate can carry a
-fit a long way: on the scattered-starts test's two-basin model
-Levenberg-Marquardt reports success at chi2r ~286, which is not a minimum,
-and the continuation relocates components by > 1 eV to chi2r 1.37.
+fit a long way: on the scattered-starts test's former two-basin model
+Levenberg-Marquardt reported success at chi2r ~286, which is not a minimum,
+and the continuation relocated components by > 1 eV to chi2r 1.37 (that model
+sat on a basin boundary — an ulp of its linear background decided its basin —
+and was replaced on 2026-10-09 by one inside its basins; the > 1 eV
+continuation is now a deliberate test: one line, Levenberg-Marquardt cut off
+after 6 evaluations 2 eV from it, the continuation moves the centre 1.94 eV,
+`test_a_continuation_that_relocates_a_component_by_more_than_1_ev_is_reported`).
 The C 1s parity battery (`tests/autofit/test_c1s_parity_battery.py`, seeded
 Levenberg-Marquardt refit from each saved expert fit, no perturbed restarts)
 showed 4 of 29 saved expert fits are NOT minima: the certificate carries

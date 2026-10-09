@@ -1,0 +1,22 @@
+Review the "two-basin fixture" unit, round 1: branch fix-two-basin-fixture; this unit = git diff main..HEAD (main = 853fed6, background math deployed). The requirement: docs/autofit/PROGRESS.md (the unit's row as it stood on main, "NEXT — runs right after the background-math unit", incl. the tests Codex impl round 12 named FAIL-unpinned and SUSCEPTIBLE) and the owner's words of 2026-10-09: "fixture clearly inside one basin, remove the _legacy_line and v1-seed pins, restore whole-fit reproducibility tests". The design and its measurements: docs/superpowers/plans/2026-10-09-two-basin-fixture.md; the generator that chose the fixture: scripts/two_basin_fixture_search.py.
+
+In short:
+- tests/test_scattered_starts.py::_two_basin_problem is a new model (main 284.5, weak shoulder 285.25, line 286.7, satellite 288.8; "shoulder" started at 285.2). Its request is TWO_BASIN_KW (linear background, n_perturb 0); every other test keeps KW (n_perturb 3). The plan §2 argues why perturbed restarts are excluded for this fixture (they redraw every parameter by ±15 % and so land restarts near basin boundaries on any multi-minimum model) — judge whether that is sound and whether it weakens any test's claim.
+- NEW test_the_two_basin_fixture_is_inside_its_basins: with the request seed fixed, the floating-point linear background, ulps of counts, 4-ulp start changes give the same response within rounding (fit_equality.assert_same_fit).
+- test_the_starts_are_a_pure_function_of_the_request: the whole-response comparison restored.
+- tests/_legacy_line.py deleted; the autouse pin removed from the three modules; the v1-seed pin (1228785762) removed from test_fit_equality.py.
+- test_runfit_certificate.py::test_a_continuation_that_relocates_a_component_by_more_than_1_ev_is_reported is now deliberate: one line, the student's Levenberg-Marquardt cut off after 6 evaluations (lmfit.Model.fit wrapped for method "leastsq" only); the certificate's Trust-Region restarts uncapped.
+- CLAUDE.md's certificate paragraph updated.
+
+TRY TO BREAK
+a. Is the new fixture really inside its basins? Reproduce the plan's numbers (scripts/two_basin_fixture_search.py; the fixture's own outcome: chi2r 46.9 certified without a move; 4 starts to the 13.7 alternative, 1 same, 1 not better). Try rounding-level changes the test does not: other count indices, the background window's edge levels, energies by an ulp, the API path (CSV upload at full precision), BLAS alignment / process state (run the modules in other orders, after other modules). Any change of basin is a finding.
+b. Does every test that used the old fixture still test what its name and docstring claim on the new one (e.g. an alternative with a > 1 eV centre shift; a not-better start; alternatives' curves and widths; the ambiguous-broad-component case; the API passing the check through)? Did any test become vacuous (an `if` that no longer fires, an alternative that no longer exists)?
+c. The deliberate certificate test: is the wrapping of lmfit.Model.fit sound (does it really leave the certificate's restarts, the scattered starts and any refit uncapped; could it cap something else)? Is the continuation robust (rounding-level changes, process state)? Does the test still pin what the page's notice needs (largest_centre_move, moved, certified)?
+d. Is anything else in the repo still pinned to the old fixture's numbers (docs, CLAUDE.md, findings, other tests)?
+e. Is the generator honest: does it reproduce "75 candidates, 15 qualify, 7 robust", and are its criteria the ones the plan states?
+
+Severity: BLOCKER / MAJOR for a test that no longer tests its claim, a fixture that still changes basin under a rounding-level change, a pin left in, or a reported number the committed generator does not give; MINOR for wording. A MINOR alone does not make NO-GO.
+
+Suites at the commit: see its message. Read-only. Be adversarial. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

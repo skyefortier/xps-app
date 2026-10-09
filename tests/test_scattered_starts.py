@@ -20,7 +20,6 @@ from lmfit import Parameters
 import fitting
 from app import create_app
 from fit_equality import assert_same_fit
-from _legacy_line import legacy_line  # noqa: F401,E402  (autouse: the fixtures' background arithmetic)
 
 
 @pytest.fixture()
@@ -36,20 +35,30 @@ def _g(x, c, a, w):
 
 
 def _two_basin_problem():
-    """A main line with a shoulder 2.2 eV away and a weak satellite. Both
-    leading components are started between the two features, so the student's
-    Levenberg-Marquardt fit stops in a poor minimum (reduced chi-square ~30)
-    while other starts find the real decomposition (~1.2) by moving a
-    component more than 1 eV from where the student put it."""
-    rng = np.random.default_rng(5)
+    """Two minima, each well inside its own basin (the two-basin unit, owner 2026-10-04/09).
+
+    A main line at 284.5 eV, a weak shoulder at 285.25, a line at 286.7 and a broad
+    satellite at 288.8. The student starts "shoulder" at 285.2 (on the weak shoulder) and
+    "sat" at 288.5: Levenberg-Marquardt reaches a genuine, certified minimum (reduced
+    chi-square ~47) in which "sat" covers the 286.7 line and the satellite is left
+    unfitted. Four of six scattered starts reach the better decomposition (~13.7) by moving
+    "shoulder" 1.5 eV onto the 286.7 line; one reaches another, not-better minimum.
+
+    Unlike the fixture it replaces (which sat ON a basin boundary: one rounding step of the
+    linear background at 3 of 300 points decided its basin), every outcome here is
+    unchanged by rounding-level changes of its input — the floating-point line instead of
+    the exact one, ulps of the counts or the start values
+    (test_the_two_basin_fixture_is_inside_its_basins) — so no arithmetic is pinned. It runs
+    without perturbed restarts (TWO_BASIN_KW): ±15 % redraws of every parameter of a
+    multi-minimum model land restarts near basin boundaries, which is the multiple-minima
+    property itself (CLAUDE.md, "Determinacy"), not what these tests are about."""
+    rng = np.random.default_rng(2)
     x = np.arange(280.0, 295.0, 0.05)
-    for _ in range(3):                                   # keep the generator state of the probe that found it
-        rng.poisson(300 + _g(x, 284.5, 8000, 0.8)).astype(float)
-    y = rng.poisson(300 + _g(x, 284.5, 8000, 0.8) + _g(x, 286.7, 2500, 1.2) + _g(x, 288.5, 600, 1.8)).astype(float)
-    specs = [{"id": 1, "name": "main", "shape": "gaussian", "center": 285.6, "amplitude": 3000.0, "amplitude_min": 0, "fwhm": 1.5},
-             {"id": 2, "name": "shoulder", "shape": "pseudo_voigt_gl", "gl_ratio": 0.0, "fix_gl_ratio": True, "center": 285.7,
-              "amplitude": 3000.0, "amplitude_min": 0, "fwhm": 1.5},
-             {"id": 3, "name": "sat", "shape": "gaussian", "center": 288.0, "amplitude": 500.0, "amplitude_min": 0, "fwhm": 2.0}]
+    lam = 300 + _g(x, 284.5, 8000, 0.8) + _g(x, 285.25, 1400, 0.7) + _g(x, 286.7, 3000, 1.0) + _g(x, 288.8, 600, 1.8)
+    y = rng.poisson(lam).astype(float)
+    specs = [{"id": 1, "name": "main", "shape": "gaussian", "center": 284.6, "amplitude": 6000.0, "amplitude_min": 0, "fwhm": 1.0},
+             {"id": 2, "name": "shoulder", "shape": "gaussian", "center": 285.2, "amplitude": 2000.0, "amplitude_min": 0, "fwhm": 1.0},
+             {"id": 3, "name": "sat", "shape": "gaussian", "center": 288.5, "amplitude": 500.0, "amplitude_min": 0, "fwhm": 2.0}]
     return x, y, specs
 
 
@@ -63,6 +72,7 @@ def _well_posed():
 
 
 KW = dict(background_method="linear", n_perturb=3)
+TWO_BASIN_KW = dict(background_method="linear", n_perturb=0)     # _two_basin_problem's request (no perturbed restarts)
 
 
 def _strip(res):
@@ -87,16 +97,16 @@ def test_the_fit_is_the_same_with_and_without_the_check():
     # THE FIT is what the student asked for; the check only adds a report.
     # Equal within rounding (unit A2: a fit the minimum certificate moves
     # carries Trust-Region's arithmetic; tests/fit_equality.py).
-    for make in (_well_posed, _two_basin_problem):
+    for make, kw in ((_well_posed, KW), (_two_basin_problem, TWO_BASIN_KW)):
         x, y, specs = make()
-        a = fitting.run_fit(x, y, specs, fit_kws={"method": "leastsq"}, **KW)
-        b = fitting.run_fit(x, y, specs, n_starts=5, fit_kws={"method": "leastsq"}, **KW)
+        a = fitting.run_fit(x, y, specs, fit_kws={"method": "leastsq"}, **kw)
+        b = fitting.run_fit(x, y, specs, n_starts=5, fit_kws={"method": "leastsq"}, **kw)
         assert_same_fit(json.loads(_strip(a)), json.loads(_strip(b)))
 
 
 def test_a_lower_chi_square_solution_is_reported_beside_the_fit_not_instead_of_it():
     x, y, specs = _two_basin_problem()
-    res = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **KW)
+    res = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **TWO_BASIN_KW)
     st = res["starts"]
     fit_chi = res["statistics"]["reduced_chi_square"]
     assert st["fit"]["chi2r"] == pytest.approx(fit_chi)
@@ -116,7 +126,7 @@ def test_a_lower_chi_square_solution_is_reported_beside_the_fit_not_instead_of_i
     assert abs(big["ev"]) > 1.0                       # a relocated component is visible at a glance
     assert alt["largest_fraction_difference_pp"] > 1.0
     # and the fit's own parameters are what the student's method returned
-    no_check = fitting.run_fit(x, y, specs, fit_kws={"method": "leastsq"}, **KW)
+    no_check = fitting.run_fit(x, y, specs, fit_kws={"method": "leastsq"}, **TWO_BASIN_KW)
     assert_same_fit(json.loads(_strip(res)), json.loads(_strip(no_check)))
 
 
@@ -146,12 +156,11 @@ def test_solutions_that_are_not_better_are_counted_not_listed(monkeypatch):
 
 
 def test_the_starts_are_a_pure_function_of_the_request(monkeypatch):
-    # The claim is about the DRAWS: identical requests give the same seed and the same
-    # scattered starting points, whatever the global generator holds. (Owner 2026-10-04:
-    # the whole-fit comparison moves to the two-basin follow-up — on this fixture, which
-    # sits on a basin boundary, the certificate's Trust-Region arithmetic sent one
-    # scattered start of two identical requests into the other basin, depending on what
-    # ran earlier in the process; PROGRESS.md "NEXT".)
+    # Identical requests give the same seed, the same scattered starting points — whatever
+    # the global generator holds — and the same response (within rounding: the certificate
+    # carries Trust-Region's arithmetic, tests/fit_equality.py). Restored on the two-basin
+    # fixture now that it lies inside its basins (owner 2026-10-04: narrowed to the draws
+    # while the old fixture sat on a boundary).
     x, y, specs = _two_basin_problem()
     drawn, real = [], fitting._scattered_start
 
@@ -161,12 +170,51 @@ def test_the_starts_are_a_pure_function_of_the_request(monkeypatch):
         return out
     monkeypatch.setattr(fitting, "_scattered_start", record)
     drawn.append([])
-    a = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)
+    a = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **TWO_BASIN_KW)
     np.random.seed(99)                                 # the global generator is irrelevant
     drawn.append([])
-    b = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **KW)
+    b = fitting.run_fit(x, y, specs, n_starts=4, fit_kws={"method": "leastsq"}, **TWO_BASIN_KW)
     assert a["starts"]["ran"] and a["random_seed"] == b["random_seed"]
     assert len(drawn[0]) == 4 and drawn[0] == drawn[1]  # the same four starting points, bit for bit
+    assert a["starts"]["alternatives"], "the comparison covers an alternative"
+    assert_same_fit(a, b)                              # and the same response, starts included
+
+
+def _float_line_through(x, x0, y0, x1, y1, span=None):
+    """The linear background as y0 + slope (x − x0) in floating point — what fitting.py did
+    before it evaluated the line exactly (background math, round 11): up to an ulp away."""
+    y0, y1 = float(y0), float(y1)
+    slope = (y1 - y0) / (x1 - x0) if x1 != x0 else 0.0
+    return fitting._explicit_background(y0 + slope * (np.asarray(x, dtype=float) - x0), "Linear")
+
+
+def test_the_two_basin_fixture_is_inside_its_basins(monkeypatch):
+    # What the fixture promises: rounding-level changes of its input change nothing — the
+    # fit, its certificate, every scattered start's solution (the request seed held fixed:
+    # the counts enter the seed). The fixture it replaces moved basins on an ulp of 3 of its
+    # 300 background points.
+    x, y, specs = _two_basin_problem()
+    run = lambda yy, sp, seed=None: fitting.run_fit(                              # noqa: E731
+        x, yy, sp, n_starts=6, fit_kws={"method": "leastsq", **({"fit_kws": {"seed": seed}} if seed else {})}, **TWO_BASIN_KW)
+    base = run(y, specs)
+    st = base["starts"]
+    assert base["certificate"]["certified"] and not base["certificate"]["moved"], "the student's fit is itself a minimum"
+    assert st["alternatives"] and st["n_not_better_elsewhere"] >= 1 and st["n_same_as_fit"] >= 1
+    seed = base["random_seed"]
+    rng = np.random.default_rng(7)
+    variants = []
+    for k in range(3):
+        yy = y.copy(); idx = rng.choice(len(y), 5, replace=False)
+        yy[idx] = np.nextafter(yy[idx], np.inf if k % 2 == 0 else -np.inf)
+        variants.append((f"ulps of the counts ({k})", yy, specs))
+    for f in (1 + 4 * 2.0 ** -53, 1 - 4 * 2.0 ** -53):
+        sp = [{**s, **{q: s[q] * f for q in ("center", "amplitude", "fwhm")}} for s in specs]
+        variants.append((f"start values x {f!r}", y, sp))
+    for label, yy, sp in variants:
+        r = run(yy, sp, seed)
+        assert_same_fit({**base, "random_seed": None}, {**r, "random_seed": None}), label
+    monkeypatch.setattr(fitting, "_line_through", _float_line_through)
+    assert_same_fit(base, run(y, specs))               # the floating-point line: the same fit, the same seed
 
 
 def test_the_third_stream_leaves_the_existing_draws_alone():
@@ -259,9 +307,9 @@ def test_n_starts_is_validated(bad, client):
 
 def test_the_api_passes_the_check_through(client):
     x, y, specs = _two_basin_problem()
-    csv = "\n".join(f"{a:.3f},{b:.2f}" for a, b in zip(x, y))
+    csv = "\n".join(f"{float(a)!r},{float(b)!r}" for a, b in zip(x, y))    # full precision, as the page uploads since 2026-10-03
     sid = client.post("/api/upload", data={"file": (io.BytesIO(csv.encode()), "s.csv")}).get_json()["session_id"]
-    body = {"session_id": sid, "background": {"method": "linear"}, "peaks": specs, "fit_method": "leastsq", "n_perturb": 3}
+    body = {"session_id": sid, "background": {"method": "linear"}, "peaks": specs, "fit_method": "leastsq", "n_perturb": 0}
     assert client.post("/api/fit", json=body).get_json()["starts"] is None
     st = client.post("/api/fit", json={**body, "n_starts": 6}).get_json()["starts"]
     assert st["ran"] is True and st["alternatives"] and abs(st["alternatives"][0]["largest_centre_shift_from_start"]["ev"]) > 1.0
@@ -303,6 +351,6 @@ def test_the_scatter_keeps_the_documented_ranges_beside_a_wall_and_the_sign_of_a
 
 def test_starts_and_solutions_are_counted_separately():
     x, y, specs = _two_basin_problem()
-    st = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **KW)["starts"]
+    st = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **TWO_BASIN_KW)["starts"]
     assert st["n_in_alternatives"] == sum(a["n_starts"] for a in st["alternatives"]) >= 1
     assert st["n_same_as_fit"] + st["n_not_better_elsewhere"] + st["n_in_alternatives"] == st["n_converged"]

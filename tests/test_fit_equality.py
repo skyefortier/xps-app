@@ -13,7 +13,6 @@ import fitting
 from fit_equality import OBJECTIVE_REL, SAME_MINIMUM_REL, assert_same_fit
 import test_fit_reproducibility as R
 import test_scattered_starts as SS
-from _legacy_line import legacy_line  # noqa: F401,E402  (autouse: the fixtures' background arithmetic)
 
 SEED = {"seed": 123}
 
@@ -70,10 +69,10 @@ def test_a_fit_that_lands_in_a_different_minimum_is_not_the_same_fit():
     # minimum; one scattered start finds another. Fitting again FROM that
     # solution, same method, same seed, returns that other minimum.
     x, y, specs = SS._two_basin_problem()
-    fit = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    fit = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     alt = fit["starts"]["alternatives"][0]
     # the same seed for the second fit: only the fitted quantities can differ
-    kw = dict(n_starts=6, fit_kws={"method": "leastsq", "fit_kws": {"seed": fit["random_seed"]}}, **SS.KW)
+    kw = dict(n_starts=6, fit_kws={"method": "leastsq", "fit_kws": {"seed": fit["random_seed"]}}, **SS.TWO_BASIN_KW)
     other = fitting.run_fit(x, y, _from_alternative(specs, alt), **kw)
     assert other["statistics"]["reduced_chi_square"] == pytest.approx(alt["chi2r"], rel=1e-3)
     _rejects(fit, other, "reduced_chi_square", "individual_peaks")
@@ -221,10 +220,9 @@ def test_matching_infinities_do_not_hide_a_finite_difference():
 @pytest.mark.parametrize("where", ["fit", "alternative", "not_better"])
 def test_a_scattered_start_objective_is_compared_at_the_objective_scale(where):
     # Codex A2 round 2: the starts' chi2r got the parameter tolerance (+0.09 % passed).
-    # The draws this was written against — v1's request seed, under the module's line
-    # pin: seed v2 (2026-10-03) draws no not-better start here, and the case needs one
+    # The two-basin fixture's own request draws a not-better start (no seed pinned)
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq", "fit_kws": {"seed": 1228785762}}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     b = copy.deepcopy(a)
     st = b["starts"]
     if where == "fit":
@@ -250,7 +248,7 @@ def test_an_alternatives_centres_are_scaled_by_its_own_widths():
     # Codex A2 round 4 (run A): an alternative's narrow line took the returned
     # fit's broad width as its scale, so two alternatives 0.24 eV apart passed
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     b = copy.deepcopy(a)
     for r in (a, b):
         for c in r["starts"]["alternatives"][0]["components"]:
@@ -284,7 +282,7 @@ def test_an_alternative_without_a_fwhm_parameter_is_scaled_by_its_own_curve():
     # Codex A2 round 5 (runs A, B): a DS+G alternative (alpha, beta, m_gauss — no fwhm)
     # fell back to the returned fit's width
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     c0 = a["individual_peaks"][0]["params"]["center"]["value"]
     _set_shape(a, 0, "ds_g", {"amplitude": 500.0, "center": c0, "alpha": 0.0, "beta": 0.05, "m_gauss": 0.0})
     b = copy.deepcopy(a)
@@ -318,7 +316,7 @@ def test_an_alternatives_bounded_parameter_uses_the_models_bounds():
     # (bounds 0-499) was compared relatively, and equivalent alternatives (m 0.001 vs 0.300,
     # below one data point: identical curves) were rejected
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     c0 = a["individual_peaks"][0]["params"]["center"]["value"]
     _set_shape(a, 0, "la_casaxps", {"amplitude": 3000.0, "center": c0, "fwhm": 1.5, "alpha": 1.0, "beta": 1.0, "m": 0.001})
     a["individual_peaks"][0]["params"]["m"].update(min=0.0, max=499.0)
@@ -330,7 +328,7 @@ def test_an_alternatives_curve_is_compared_against_its_own_height():
     # Codex A2 round 7 (run B): parameters inside their span, the reconstructed curve changed
     # by more than 1e-3 of its height — accepted, because alternatives' curves were not compared
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     a["individual_peaks"][0]["params"]["fwhm"].update(min=0.0, max=499.0)
     b = copy.deepcopy(a)
     b["starts"]["alternatives"][0]["components"][0]["params"]["fwhm"] += 0.3   # inside 1e-3 of the 499 span
@@ -374,7 +372,7 @@ def test_a_lorentzian_alternative_is_not_judged_by_a_gaussian_twin():
     # were reconstructed and compared, and a Lorentzian inside the resolution was rejected by
     # its fictitious Gaussian twin. The lineshape is the one reproducing the returned component.
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     c0 = a["individual_peaks"][0]["params"]["center"]["value"]
     _set_shape(a, 0, "lorentzian", {"amplitude": 3000.0, "center": c0, "fwhm": 1.0})
     xs = np.asarray(a["energy"], float)
@@ -393,7 +391,7 @@ def test_a_lorentzian_alternative_is_not_judged_by_a_gaussian_twin():
 def test_an_alternative_whose_curve_cannot_be_reconstructed_fails_closed(monkeypatch):
     # Codex A2 round 8 (runs A, B): an evaluation that raised removed the curve check silently
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     b = copy.deepcopy(a)
     assert_same_fit(a, b)
     def broken(*args, **kw):
@@ -427,7 +425,7 @@ def test_an_ambiguous_broad_component_is_identified_by_its_shape_not_its_curve()
     x, y, specs = SS._two_basin_problem()
     specs = specs + [{"id": 9, "shape": "gaussian", "center": 287.0, "amplitude": 1.0, "fwhm": 1e7,
                       "fix_center": True, "fix_amplitude": True, "fix_fwhm": True}]
-    a = fitting.run_fit(x, y + 1.0, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y + 1.0, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     assert [pk["shape"] for pk in a["individual_peaks"]] == [s_["shape"] for s_ in specs]
     assert_same_fit(a, copy.deepcopy(a))
 
@@ -435,7 +433,7 @@ def test_an_ambiguous_broad_component_is_identified_by_its_shape_not_its_curve()
 def test_a_non_finite_reconstruction_fails_closed(monkeypatch):
     # Codex A2 round 9 (run B): an evaluator returning NaN at the alternative's parameters passed
     x, y, specs = SS._two_basin_problem()
-    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.KW)
+    a = fitting.run_fit(x, y, specs, n_starts=6, fit_kws={"method": "leastsq"}, **SS.TWO_BASIN_KW)
     b = copy.deepcopy(a)
     real = fitting._SHAPE_FUNCS["gaussian"]
     alt_centres = {c["params"]["center"] for alt in a["starts"]["alternatives"] for c in alt["components"]}
