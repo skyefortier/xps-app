@@ -1,0 +1,11 @@
+Review the "two-basin fixture" unit, round 2: branch fix-two-basin-fixture; this unit = git diff main..HEAD (main = 853fed6); this round = git diff a1bfa0f..HEAD. Round 1: docs/autofit/codex/two_basin_fixture_r1_verdict_run{A,B}.md (A GO with MINORs; B NO-GO, one MAJOR). Everything else as in docs/autofit/codex/two_basin_fixture_r1_prompt.txt.
+
+Round-1 findings and their fixes (docs and the generator only; no test changed):
+1. MAJOR (B; MINOR in A): "the largest chi2 gap of the robust ones" was false (gaps 38.2, 33.3 to the best alternative beat the chosen 33.3). The selection rule is now stated and APPLIED by scripts/two_basin_fixture_search.py (printed at the end): among the robust candidates, those whose alternatives keep every centre off its ±2 eV bound, the largest student chi2r. Verify it reproduces "75 candidates, 15 qualify, 7 robust, 4 with no alternative on a bound; selected: 1400.0|285.2|2", and that every number in the plan §3 and the generator docstring (gaps 33.3; 3.2-3.8; 38.2, 33.3, 29.2) is what the generator's data give.
+2. MINOR (A, B): plan §2 now says perturbed restarts CAN land near a boundary (not that they must) and states the cost (these tests' reproducibility claims cover a request without perturbed restarts; where the perturbed-restart path keeps coverage).
+3. MINOR (A, B): the chi2 tolerance wording (1e-7 = 10·ftol; 3e-7 is the observed jitter).
+4. MINOR (A): docs/findings/runfit-certificate/README.md marks the chi2r ~286 two-basin example as historical.
+
+Also re-check anything round 1 did not reach. Severity as in round 1. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

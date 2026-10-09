@@ -15,9 +15,14 @@ the same solutions (same counts; centres within 0.01 eV; alternatives' areas wit
 
     venv/bin/python scripts/two_basin_fixture_search.py [OUT.jsonl]
 
-Measured 2026-10-09: 75 candidates, 15 qualify, 7 robust; the fixture is
-cA = 1400, sc2 = 285.2, ns = 2 (largest chi2 gap of the robust ones: 46.9 -> 13.7; the
-alternative reached by 4 of 6 starts). Its robustness is pinned by
+SELECTION (printed at the end): among the robust candidates, those whose listed alternatives
+all keep every centre off its ±2 eV bound (an alternative shifted by exactly 2.0 eV sits on
+the bound: a scattered start pushed to the wall, not a decomposition), the largest student
+chi2r. Measured 2026-10-09: 75 candidates, 15 qualify, 7 robust, 4 of them with no
+alternative on a bound; selected cA = 1400, sc2 = 285.2, ns = 2 — chi2r 46.9, its one
+alternative 13.7 (gap 33.3; the other three: 3.2-3.8) reached by 4 of 6 starts. (Three
+robust candidates — gaps 38.2, 33.3, 29.2 — each list an
+alternative on a bound.) Its robustness is pinned by
 test_the_two_basin_fixture_is_inside_its_basins."""
 import copy
 import itertools
@@ -127,11 +132,19 @@ def main(out):
             st = base["starts"]
             rec["alternatives"] = [(a["chi2r"], a["largest_centre_shift_from_start"]["ev"], a["largest_fraction_difference_pp"], a["n_starts"])
                                    for a in st["alternatives"]]
+            rec["alternative_on_bound"] = any(abs(abs(c["params"]["center"] - s["center"]) - 2.0) < 0.01
+                                              for a in st["alternatives"] for c, s in zip(a["components"], specs))
             rec["why_not_robust"] = robust(x, y, specs, copy.deepcopy(base))
             rec["robust"] = not rec["why_not_robust"]
         with open(out, "a") as f:
             f.write(json.dumps(rec) + "\n")
         print(json.dumps(rec), flush=True)
+    recs = [json.loads(line) for line in open(out)]
+    robust_ = [r for r in recs if r.get("robust")]
+    clean = [r for r in robust_ if not r["alternative_on_bound"]]
+    pick = max(clean, key=lambda r: r["chi2r"]) if clean else None
+    print(f"{len(recs)} candidates, {sum(r['qualifies'] for r in recs)} qualify, {len(robust_)} robust, "
+          f"{len(clean)} with no alternative on a bound; selected: {pick and pick['key']}")
 
 
 if __name__ == "__main__":

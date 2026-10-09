@@ -172,9 +172,11 @@ with either method.** The certificate moved the returned fit on 10 (TR) and 100
 (LM) targets, and the largest centre move was 0.043 eV (TR, 1-GTA C1s Scan_4)
 and 0.011 eV (LM); none > 0.1 eV. The area changes above come from amplitudes
 and widths (many of these models lock their centres). The notice exists for the
-fit that stopped far from a minimum — the two-basin test model, where
-Levenberg-Marquardt reports success at chi2r ~286 and the continuation moves
-components > 1 eV (`tests/test_runfit_certificate.py`).
+fit that stopped far from a minimum — at the time, the two-basin test model, where
+Levenberg-Marquardt reported success at chi2r ~286 and the continuation moved
+components > 1 eV (historical: that model sat on a basin boundary and was replaced on
+2026-10-09; `tests/test_runfit_certificate.py` now tests the > 1 eV continuation
+deliberately — plan `docs/superpowers/plans/2026-10-09-two-basin-fixture.md`).
 
 **Scan_5 check (owner: does the scattered-starts line flag the 33.9 / 51.9
 minima?)** — partly. Twenty presses of main at shifted memory alignments

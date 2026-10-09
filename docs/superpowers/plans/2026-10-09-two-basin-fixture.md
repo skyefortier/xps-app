@@ -23,11 +23,14 @@ took ~27-32 s.
 First search (n_perturb 3, as the page sends): even the best candidates changed their
 student fit under a start change of 1e-9 relative. The cause is the perturbed restarts:
 each redraws every varying parameter by ±15 % from the fitted point (centres clamped into
-their ±2 eV window), so on a model with several minima some restart starts near a basin
-boundary, and the fitted point's own convergence jitter decides which restart wins. That is
+their ±2 eV window), so on a model with several minima a restart CAN start near a basin
+boundary (nothing guarantees it, but on every candidate tried one did), and the fitted
+point's own convergence jitter then decides which restart wins. That is
 the several-minima property itself (CLAUDE.md, "Determinacy": the 29 pp synthetic case), not
 a property of the scattered-starts, certificate or equality machinery these tests exercise.
-So the fixture's request is `TWO_BASIN_KW = dict(background_method="linear", n_perturb=0)`;
+The cost, stated: these tests' reproducibility claims now cover a request WITHOUT perturbed
+restarts; the perturbed-restart path keeps its own coverage (the `_well_posed` tests with `KW`,
+tests/test_fit_reproducibility.py). So the fixture's request is `TWO_BASIN_KW = dict(background_method="linear", n_perturb=0)`;
 every other test keeps `KW` (n_perturb 3).
 
 "Inside its basins" is then two checks, with the request seed held fixed (the counts enter
@@ -37,16 +40,22 @@ the seed):
   within rounding (`tests/fit_equality.assert_same_fit`, every quantity on its own scale);
 - basin level — start values changed by 1e-6 (both signs): the same solutions (counts,
   centres within 0.01 eV, alternatives' areas within 0.1 pp). (A 1e-9 change is NOT a
-  rounding-level change: it moves the scattered starts' own convergence jitter beyond
-  `assert_same_fit`'s chi2 tolerance — 3e-7 relative — without changing a basin.)
+  rounding-level change: it moves the scattered starts' own convergence jitter — by 3e-7
+  relative in an alternative's chi2r, beyond `assert_same_fit`'s chi2 tolerance of 1e-7
+  (10·ftol) — without changing a basin.)
 
 ## 3. The new fixture
 
 `scripts/two_basin_fixture_search.py` (the committed generator: grid, criteria, both
-checks). Main 284.5 eV, a weak shoulder at 285.25, a line at 286.7, a satellite at 288.8; the
-student starts "shoulder" at 285.2 and "sat" at 288.5. 75 candidates, 15 qualify, 7 robust;
-chosen: shoulder amplitude 1400, start 285.2, noise seed 2 — the largest chi2 gap of the
-robust ones:
+checks, the selection). Main 284.5 eV, a weak shoulder at 285.25, a line at 286.7, a
+satellite at 288.8; the student starts "shoulder" at 285.2 and "sat" at 288.5. 75 candidates,
+15 qualify, 7 robust. SELECTION: of the robust candidates, those whose alternatives keep every
+centre off its ±2 eV bound (an alternative shifted by exactly 2.0 eV is a start pushed to the
+wall, not a decomposition) — 4 — the largest student chi2r: shoulder amplitude 1400, start
+285.2, noise seed 2 (gap to its alternative 33.3; the other three 3.2-3.8). Three robust
+candidates (gaps 38.2, 33.3, 29.2) each list an alternative on a bound
+(Codex round 1: an earlier draft said "the largest chi2 gap of the robust ones", which it is
+not). The chosen fixture:
 - the student's Levenberg-Marquardt fit: chi2r 46.9, certified by the certificate without a
   move ("sat" covers the 286.7 line, the satellite unfitted);
 - six scattered starts: 4 reach the better decomposition (chi2r 13.7: "shoulder" moved 1.49 eV
