@@ -50,8 +50,9 @@ def _two_basin_problem():
     the exact one, ulps of the counts or the start values
     (test_the_two_basin_fixture_is_inside_its_basins) — so no arithmetic is pinned. It runs
     without perturbed restarts (TWO_BASIN_KW): ±15 % redraws of every parameter of a
-    multi-minimum model land restarts near basin boundaries, which is the multiple-minima
-    property itself (CLAUDE.md, "Determinacy"), not what these tests are about."""
+    multi-minimum model can land restarts near basin boundaries (on every candidate tried,
+    one did), which is the multiple-minima property itself (CLAUDE.md, "Determinacy"), not
+    what these tests are about."""
     rng = np.random.default_rng(2)
     x = np.arange(280.0, 295.0, 0.05)
     lam = 300 + _g(x, 284.5, 8000, 0.8) + _g(x, 285.25, 1400, 0.7) + _g(x, 286.7, 3000, 1.0) + _g(x, 288.8, 600, 1.8)
