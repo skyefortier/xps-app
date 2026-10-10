@@ -94,6 +94,15 @@ against main on 30 / 40 fits; no property leakage). Two gaps:
 | finding | fix |
 |---|---|
 | a fit with NOTHING free runs no certificate, so `centre_moves` was empty (both runs) | the returned point is then the first stop: every component recorded with a zero move |
-| a typed averaging of 1e21 or more acts as 1 in the page's helpers (each parses the already-parsed number again) while `_bgEffect` recorded the window cap (run B) | `_bgEffect` reads the field exactly as the helpers do (the double parse); a test requires the recorded k to be the k the curve's edge levels used. The page / server difference itself is pre-existing (the server's `int()` reads 1e21) and changes a background, so it is LOGGED in PROGRESS.md, not fixed here |
+| a typed averaging of 1e21 or more acts as its exponent form's leading digits (1e21 as 1, 2e21 as 2) in the page's helpers (each parses the already-parsed number again) while `_bgEffect` recorded the window cap (run B) | `_bgEffect` reads the field exactly as the helpers do (the double parse); a test requires the recorded k to be the k the curve's edge levels used. The page / server difference itself is pre-existing (the server's `int()` reads 1e21) and changes a background, so it is LOGGED in PROGRESS.md, not fixed here |
 
 Mutation-checked (each fix removed → its test fails).
+
+## Codex round 4 — GO ×2
+
+No BLOCKER or MAJOR in either run: round 3's two resolved (every successful local exit
+covered; the recorded k matched the curve on 7 900 / 696 + 145 checks across empty,
+decimal, exponent, signed, huge and non-numeric fields), rounds 1–2 intact, existing local
+outputs identical against main on 30 / 36 fits. One MINOR (both runs), wording only: "1e21
+or more acts as 1" overgeneralised — 2e21 acts as 2 (and is recorded as 2); corrected here
+and in PROGRESS.md.
