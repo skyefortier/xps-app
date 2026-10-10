@@ -581,3 +581,60 @@ test('the local engine refuses a model with no degrees of freedom; one more poin
   const { out } = mk(40);
   assert.strictEqual(out.success, true, 'a determined model still fits');
 });
+
+// ── The local record (fit recording, Codex round 2, 2026-10-10): "moved" is the whole point,
+// and every component's centre move is recorded, locked and linked ones included ──────────
+test('recording: a fit whose centre is locked still records that the certificate moved it', () => {
+  // run B's reproduction: only the width and amplitude can move, so a centre-only "moved" said false
+  const env = makeEnv();
+  const be = grid(284, 286, 0.01);
+  const data = be.map(x => 100 * env.gaussian(x, 285.0, 0.1));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 0.2, amplitude: 10, fixCenter: true }];
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  const c = env.state.fitResult.record.certificate;
+  assert.ok(out.certifyRestarts >= 1, 'the reproduction restarts the certificate: ' + out.certifyRestarts);
+  assert.strictEqual(c.restarts, out.certifyRestarts);
+  assert.strictEqual(c.moved, true, 'an accepted restart moved the point');
+  assert.deepStrictEqual(c.centre_moves, [{ id: 1, ev: 0 }], 'the locked centre is recorded, not moved');
+  assert.deepStrictEqual(env.state.fitResult.record.backgroundVerdict,
+    { method: 'none', effect: { method: 'none' }, check: 'explicit', converged: true, residual: null, reason: '' });
+});
+
+test('recording: a fit the certificate does not move records moved: false', () => {
+  const env = makeEnv();
+  const be = grid(283, 287, 0.01);
+  const data = be.map(x => 5 * env.gaussian(x, 285.0, 1.5));
+  env.state.peaks = [{ id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 1.5, amplitude: 5 }];
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  const c = env.state.fitResult.record.certificate;
+  assert.strictEqual(out.certifyRestarts, 0);
+  assert.strictEqual(c.moved, false);
+  assert.strictEqual(c.centre_moves.length, 1);
+});
+
+test('recording: a linked component is recorded with its parent\'s move (committed C1s Scan_4)', () => {
+  // run A's reproduction: a zero-amplitude child linked to component 4 was left out of centre_moves
+  const tabs = loadProjectTabs();
+  const env = makeEnv();
+  const { be, bgSub, bg } = batchTarget(env, tabs, 'C1s Scan', 'C1s Scan_4');
+  const parent = env.state.peaks.find(p => p.id === 4);
+  env.state.peaks.push({ ...parent, id: 9999, name: 'linked child', linked: 4, linkOffset: 6, linkRatio: 0, center: parent.center + 6, amplitude: 0 });
+  const out = env.runFitLocal(be, bgSub, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  const c = env.state.fitResult.record.certificate;
+  assert.ok(out.certifyRestarts >= 1 && c.moved === true, 'the certificate moved this fit');
+  assert.deepStrictEqual(c.centre_moves.map(m => m.id), env.state.peaks.map(p => p.id), 'every component, in order');
+  const by = Object.fromEntries(c.centre_moves.map(m => [m.id, m.ev]));
+  assert.ok(by[4] !== 0, 'the parent moved');
+  assert.ok(Math.abs(by[9999] - by[4]) <= 1e-12 * Math.abs(env.state.peaks.find(p => p.id === 4).center), 'the child moved with it');
+  // the background it was fitted on, by its effect (the request's window: end exclusive, k as it acts)
+  const ui = BatchPropagation.propagateFitUi({ ...tabs.find(t => t.name === 'C1s Scan').ui }, { ...tabs.find(t => t.name === 'C1s Scan_4').ui });
+  const bv = env.state.fitResult.record.backgroundVerdict;
+  assert.strictEqual(bv.method, ui.bgType);
+  assert.ok(bv.effect && bv.effect.method === ui.bgType && Array.isArray(bv.effect.window) && Number.isInteger(bv.effect.k), JSON.stringify(bv));
+  assert.strictEqual(bv.converged, true);
+});

@@ -69,3 +69,18 @@ test.
 | CSV / XLSX / TSV lost data (anchors, reasons, every centre move, the largest move's component, unrounded values) | a lossless `Fit record (JSON)` line / row in every export beside the readable summary; the summary no longer rounds a move and names its component |
 | no numerical version | `NUMERICS_VERSION` ("2026-10-09", the background math) in `software.numerics`, bumped whenever a change can move a fitted number for the same request |
 | the export test checked labels and the in-memory XLSX | the JSON line / row of CSV, TSV and the SERIALISED XLSX (written and read back) must equal the record; the PNG's chunk likewise; `.fit.json` and its import; the analyze method; mutation-checked (each fix removed → a test fails) |
+
+## Codex round 2 (NO-GO ×2) — fixed
+
+Round 1's seven are resolved in both runs (first-stop snapshot bit-identical against main;
+the background property, imported provenance, PNG and meta tag inert). Three gaps remained
+in the LOCAL record, found once each or by both:
+
+| finding | fix |
+|---|---|
+| `moved` was inferred from the centres, so a restart that moved only a width or an amplitude (centre locked) read "not moved" (run B) | `moved` = the returned point is not where the descent first stopped, over EVERY parameter — the server's `point is not result`; the centre moves stay a separate measurement |
+| `centre_moves` came from the free parameters, leaving out linked components (and locked centres) (run A: committed C1s Scan_4 with a child linked to component 4) | every component's centre is snapshotted at the first stop and compared with the returned one, in model order — the server's list (every `_center` parameter, expressions and fixed ones included) |
+| the local background record had no `effect` (both runs, carried from round 1) | `_bgEffect`, the twin of `fitting._background_effect` (window end exclusive as the request sends it, averaging as it acts, anchors in energy order); `computeBackgroundCore` attaches it and the method to the curve it returns, so the record reads the background it was fitted on, not the menu at record time. A browser test fits eight settings (Shirley at two windows and averagings, Smart at averaging 50, Tougaard, Linear, Manual with three anchors and with none, None) on the server and then locally: the two effects are equal |
+
+Mutation-checked: centre-only `moved`, the linked components dropped, no effect, an
+inclusive window end and unsorted anchors each fail a test.

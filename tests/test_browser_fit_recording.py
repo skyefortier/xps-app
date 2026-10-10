@@ -235,6 +235,46 @@ def test_the_local_engine_records_its_own(browser, server):
     assert sw["role"] == "served_the_page" and len(sw["git_commit"]) == 40 and sw["numerics"] and sw["numpy"]
 
 
+@pytest.mark.parametrize("bg,start,end,avg,anchors", [
+    ("shirley", 292, 280, 3, None), ("shirley", 289, 281, 10, None), ("smart", 292, 280, 50, None),
+    ("tougaard", 292, 280, 1, None), ("linear", 290, 281, 3, None),
+    ("manual", 292, 280, 3, [[291.7, 700], [280.3, 300], [286.0, 450]]), ("manual", 292, 280, 3, []),
+    ("none", 292, 280, 3, None)])
+def test_the_page_records_the_background_by_its_effect_as_the_server_does(browser, server, bg, start, end, avg, anchors):
+    # two readings of one field: the local engine's record states the background exactly as the
+    # server's verdict states the background of the SAME settings (fitting._background_effect:
+    # window end exclusive, averaging as it acts, anchors in energy order)
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        pg.evaluate("""([bg, s, e, avg, anchors]) => {
+            document.getElementById('bg-start').value = s; document.getElementById('bg-end').value = e;
+            document.getElementById('bg-endpoint-avg').value = avg;
+            document.getElementById('bg-type').value = bg; _onBgTypeChange();
+            if (anchors) _setManualAnchors(anchors.map(([x, y]) => ({ x, y })));
+            updatePlot(); }""", [bg, start, end, avg, anchors])
+        pg.evaluate("() => { document.getElementById('fit-method').value = 'least_squares'; }")
+        assert pg.evaluate(FIT)
+        server_rec = pg.evaluate(RECORD)
+        assert server_rec["engine"] == "server"
+        pg.evaluate("""() => { const { be, inten } = getROIData(); const b = computeBackground(be, inten);
+            runFitLocal(be, inten.map((v, i) => v - b[i]), b); }""")
+        local_rec = pg.evaluate(RECORD)
+    finally:
+        pg.close()
+    assert local_rec["engine"] == "local"
+    sv, lv = server_rec["backgroundVerdict"], local_rec["backgroundVerdict"]
+    assert lv["effect"] == sv["effect"], (lv, sv)
+    assert lv["method"] == sv["method"] == bg and lv["converged"] is sv["converged"] is True
+    assert lv["check"] == ("explicit" if sv["check"] == "explicit" else "page_certificate")
+    if bg == "manual" and anchors:
+        assert sv["effect"] == {"method": "manual", "anchors": sorted(anchors)}
+    elif bg == "manual":
+        assert sv["effect"]["method"] == "manual-line"
+    elif bg != "none":
+        assert sv["effect"]["method"] == bg and sv["effect"]["k"] == min(avg, (sv["effect"]["window"][1] - sv["effect"]["window"][0]) // 4)
+
+
 def test_a_re_run_with_the_saved_seed_reproduces_the_fit(browser, server):
     import urllib.request
     pg = _new_page(browser, server)

@@ -13,7 +13,7 @@ const FUNCTIONS = [
   'smartExperimentalBackground', '_bgLineFailure', '_bgExactLevels', '_bgAnchorFailure', '_bgExact', '_bgBitLen', '_bgRatToDouble', '_bgExactLine', '_bgRoundingWithin', '_bgExactSpan', '_bgPrecisionWords', 'linearBackground', '_tougaardLoss', 'tougaardBackground',
   '_bgCertificate', '_bgExactShirleyCertificate', '_tougaardRoundingBound', '_tougaardZeroLossVerdict', '_bgPow2Exp', '_bgLdexp', '_fmt3', '_applyEndpointAveraging', 'shirleyLinearBackground', '_bgWindowIndices',
   '_bgMark', '_bgFailure', 'BgNotConverged', '_isBgNotConverged', '_certifiedBg', '_bgOrFailure',
-  'computeBackgroundCore', '_computeBackgroundUnchecked',
+  'computeBackgroundCore', '_computeBackgroundUnchecked', '_bgEffect',
 ];
 const CONSTANTS = ['BG_REL_TOL', 'BG_MAX_ITER', 'BG_LABELS', '_TOUGAARD_CANCELS', '_TOUGAARD_NO_AMPLITUDE', '_BG_NO_PEAK'];
 

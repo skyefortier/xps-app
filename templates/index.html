@@ -5032,6 +5032,22 @@ function _bgWindowIndices(be, bgStart, bgEnd) {
   if (i0 < 0 || i1 - i0 < 1) return full;
   return { i0, i1 };
 }
+// What a background is computed FROM, by its effect — fitting._background_effect's twin, the
+// same shape (window end exclusive, as the request sends it; averaging as it acts, k): the
+// local engine's record (recording only)
+function _bgEffect(be, settings) {
+  const m = String(settings.bgType || '').toLowerCase(), nAvg = parseInt(settings.endpointAvg) || 1;
+  const k = n => (n >= 4 ? Math.max(1, Math.min(nAvg, Math.floor(n / 4))) : 1);
+  if (m === 'none' || m === 'flat' || m === '') return { method: 'none' };
+  if (m === 'manual') {
+    const anchors = settings.anchors || _getManualAnchors();
+    if (anchors && anchors.length >= 2)
+      return { method: 'manual', anchors: anchors.map(a => [Number(a.x), Number(a.y)]).sort((p, q) => p[0] - q[0] || p[1] - q[1]) };
+    return { method: 'manual-line', k: k(be.length) };
+  }
+  const { i0, i1 } = _bgWindowIndices(be, settings.bgStart, settings.bgEnd);
+  return { method: m, window: [i0, i1 + 1], k: k(i1 + 1 - i0) };
+}
 
 // Pure-functional background computation. Takes explicit `settings`
 // (matches the shape of tab.ui — bgType, bgStart, bgEnd, shirleyIter,
@@ -5087,6 +5103,9 @@ function computeBackgroundCore(be, intensity, settings) {
   // The integral methods' certificate already requires it; fitting._explicit_background
   // is the server's twin, with the same words.
   const bg = _computeBackgroundUnchecked(be, intensity, settings);
+  // what it was computed from, for the local engine's record (non-index properties: JSON ignores them);
+  // only a background that exists is ever fitted on, as on the server (whose anchors are checked first)
+  bg.bgType = settings.bgType || null; bg.effect = bg.converged === true ? _bgEffect(be, settings) : null;
   if (bg.converged === true && !bg.every(Number.isFinite)) {
     const label = { linear: 'Linear', manual: 'Manual' }[settings.bgType] || BG_LABELS[settings.bgType] || settings.bgType;
     return _bgMark(bg, false, label + ' background not converged: it is not a finite number at every point (the arithmetic overflowed or an input is not finite).');
@@ -8570,16 +8589,21 @@ function _pageSoftware() {
   try { const m = document.querySelector('meta[name="xps-software"]'); const v = m && JSON.parse(m.getAttribute('content'));
         return v && typeof v === 'object' ? { ...v, role: 'served_the_page' } : null; } catch (e) { return null; }
 }
-function _localFitRecord(certifyRestarts, bgType, bgCert, centreMoves) {
+// bg: the background the fit was made on, as computeBackgroundCore returned it (its
+// certificate and effect ride on it as non-index properties)
+function _localFitRecord(certifyRestarts, moved, centreMoves, bg) {
+  const bgType = (bg && bg.bgType) || null;
   const moves = Array.isArray(centreMoves) ? centreMoves : [];
   const largest = moves.reduce((m, c) => (!m || Math.abs(c.ev) > Math.abs(m.ev) ? c : m), null);
+  const cert = bg && bg.certificate, explicit = ['linear', 'manual', 'none'].includes(bgType);
   return { engine: 'local', fitMethod: 'local_lm', seed: null, seedSource: null,
-           backgroundVerdict: { method: bgType || null, check: 'page_certificate',
-                                converged: bgCert ? bgCert.converged === true : true,
-                                residual: bgCert && Number.isFinite(bgCert.residual) ? bgCert.residual : null,
-                                reason: bgCert ? bgCert.reason || '' : '' },
+           backgroundVerdict: { method: bgType || null, effect: (bg && bg.effect) || null,
+                                check: explicit ? 'explicit' : 'page_certificate',
+                                converged: bg && typeof bg.converged === 'boolean' ? bg.converged : null,   // unmarked: unknown
+                                residual: cert && Number.isFinite(cert.residual) ? cert.residual : null,
+                                reason: cert ? cert.reason || '' : (bg && bg.failure) || '' },
            certificate: { certified: true, restarts: Number.isInteger(certifyRestarts) ? certifyRestarts : null,
-                          moved: moves.some(c => c.ev !== 0), centre_moves: moves, largest_centre_move: largest, check: 'coordinate' },
+                          moved: moved === true, centre_moves: moves, largest_centre_move: largest, check: 'coordinate' },
            software: _pageSoftware() };
 }
 function _isFitRecord(x) { return !!x && typeof x === 'object' && (x.engine === 'server' || x.engine === 'local'); }
@@ -9121,7 +9145,7 @@ function _applyStatDisplay(fr) {
 // committed lab project; the proof is in
 // docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md.
 function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
-  let firstStop = null;   // where the descent first stopped, before any certificate restart (the record's "moved")
+  let firstStop = null, firstStopCentres = null;   // where the descent first stopped, before any certificate restart (the record)
   const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
   // The page-wide spinner belongs to the operation that showed it (unit 2):
   // Run Fit's fallback passes its operation; Batch Fit shows no spinner and
@@ -9260,7 +9284,10 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // FTOL; otherwise moves to the best such point and returns false.
   function certify() {
     applyParams(params);                     // working copy = current point
-    if (!firstStop) firstStop = [...params];          // where the descent first stopped (the record's "moved")
+    if (!firstStop) {                                  // where the descent first stopped (the record): every parameter,
+      firstStop = [...params];                         // and every component's centre, linked ones included
+      firstStopCentres = new Map(work.map(p => [p.id, p.center]));
+    }
     let bestChi = chi, bestParams = null;
     for (let j = 0; j < params.length; j++) {
       if (isDiscrete(j)) continue;
@@ -9478,9 +9505,11 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
                       engine: 'local', status: 'converged',
                       objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))', iterations,
                       reportable: false, caveat: _LOCAL_FIT_CAVEAT,
-                      record: _localFitRecord(certifyRestarts, (document.getElementById('bg-type') || {}).value || null,
-                                              bgIntensity && bgIntensity.certificate,
-                                              firstStop ? paramMap.map((d, k) => (d.param === 'center' ? { id: d.id, ev: params[k] - firstStop[k] } : null)).filter(Boolean) : []),   // recording only
+                      // recording only: moved = the returned point is not where the descent first stopped
+                      // (any parameter — the server's "point is not result"); every component's centre move
+                      record: _localFitRecord(certifyRestarts, firstStop !== null && params.some((v, k) => v !== firstStop[k]),
+                                              firstStopCentres ? work.filter(p => firstStopCentres.has(p.id)).map(p => ({ id: p.id, ev: p.center - firstStopCentres.get(p.id) })) : [],
+                                              bgIntensity),
                       startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 

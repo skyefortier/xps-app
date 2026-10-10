@@ -58,10 +58,18 @@ test('the export rows state what the record holds', () => {
   assert.strictEqual(rows['Background check'], 'shirley: converged (defining statement, residual 1.50e-13), window 0-120, averaging 3');
   assert.strictEqual(rows['Minimum certificate'], 'certified, 1 restart, not moved, largest centre move 0.0012 eV (component 1), optimiser flag success');
   assert.match(rows['Software'], /^commit a{40}; numerics 2026-10-09; python 3\.12\.13, numpy 2\.4\.4, scipy 1\.17\.1, lmfit 1\.3\.4; seed xps-fit-seed-v2$/);
-  const lrec = H._localFitRecord(2, 'shirley', { converged: true, residual: 2e-13, reason: '' }, [{ id: 1, ev: 0.000012345 }, { id: 2, ev: -0.5 }]);
+  const bg = Object.assign([1, 2], { converged: true, failure: null, bgType: 'shirley', effect: { method: 'shirley', window: [0, 2], k: 1 },
+                                     certificate: { converged: true, residual: 2e-13, reason: '' } });
+  const lrec = H._localFitRecord(2, true, [{ id: 1, ev: 0.000012345 }, { id: 2, ev: -0.5 }], bg);
   assert.deepStrictEqual(lrec.certificate, { certified: true, restarts: 2, moved: true, centre_moves: [{ id: 1, ev: 0.000012345 }, { id: 2, ev: -0.5 }],
                                              largest_centre_move: { id: 2, ev: -0.5 }, check: 'coordinate' });
-  assert.deepStrictEqual(lrec.backgroundVerdict, { method: 'shirley', check: 'page_certificate', converged: true, residual: 2e-13, reason: '' });
+  assert.deepStrictEqual(lrec.backgroundVerdict, { method: 'shirley', effect: { method: 'shirley', window: [0, 2], k: 1 },
+                                                   check: 'page_certificate', converged: true, residual: 2e-13, reason: '' });
+  // "moved" is what the engine says (the whole point), never inferred from the centres
+  assert.strictEqual(H._localFitRecord(1, true, [{ id: 1, ev: 0 }], bg).certificate.moved, true);
+  assert.strictEqual(H._localFitRecord(0, false, [{ id: 1, ev: 0 }], bg).certificate.moved, false);
+  // an unmarked array is no verdict: unknown, not converged
+  assert.strictEqual(H._localFitRecord(0, false, [], [1, 2]).backgroundVerdict.converged, null);
   assert.strictEqual(lrec.software.role, 'served_the_page');
   const local = Object.fromEntries(H._fitRecordRows(lrec));
   assert.strictEqual(local['Fit method'], 'local engine (local_lm)');
