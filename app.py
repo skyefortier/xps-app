@@ -803,7 +803,9 @@ def _register_routes(app: Flask) -> None:
                 logging.getLogger(__name__).error(
                     "legacy reference unavailable for template injection: %s", e)
                 legacy = None
-            return render_template("index.html", legacy_reference=legacy)
+            # the software that serves the page (fit recording, owner 2026-10-10): a local-engine
+            # fit records it, since the browser has no identity of its own
+            return render_template("index.html", legacy_reference=legacy, software=fitting.SOFTWARE)
         if static.exists() and (static / "index.html").exists():
             return send_from_directory(str(static), "index.html")
         return (

@@ -12,7 +12,7 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
-from fitting import run_fit
+from fitting import fit_record, run_fit
 
 from ..grammar import CandidateGrammar
 from .base import MethodResult, PeakFitMethod, pop_endpoint_avg
@@ -88,6 +88,8 @@ class LeastSquaresMethod(PeakFitMethod):
             analysis={
                 "method": self.id,
                 "statistics": stats,
+                # what computed it (fitting.RECORD_KEYS; owner 2026-10-10 — recording only)
+                "record": fit_record(res),
                 "note": "manual-model baseline; no candidate enumeration",
             },
             confidence=confidence,

@@ -40,6 +40,19 @@ from scipy.optimize import least_squares as _scipy_least_squares
 
 
 SEED_TAG = "xps-fit-seed-v2"                      # _request_seed's derivation tag (recorded with every fit)
+# The version of the NUMERICS: bumped whenever a change can move a fitted number for the same
+# request (the background arithmetic, the optimiser path, the certificate, the seed derivation).
+# Recorded with every fit (owner 2026-10-10). History: "2026-10-09" — background math
+# (levels-only averaging, certified backgrounds, full-precision upload, seed v2), deployed then.
+NUMERICS_VERSION = "2026-10-09"
+# The fields every fit response RECORDS (owner 2026-10-10); fit_record() copies them.
+RECORD_KEYS = ("fit_method", "random_seed", "seed_source", "background_verdict", "certificate", "software")
+
+
+def fit_record(res: dict) -> dict:
+    """The record of a run_fit response: what computed it (RECORD_KEYS), for any caller that
+    re-packages a fit (autofit's least-squares method, /api/analyze)."""
+    return {k: res.get(k) for k in RECORD_KEYS}
 
 
 def _software_identity() -> dict[str, Any]:
@@ -63,7 +76,7 @@ def _software_identity() -> dict[str, Any]:
         commit = dirty = None
     return {"git_commit": commit, "git_dirty": dirty, "python": platform.python_version(),
             "numpy": np.__version__, "scipy": scipy.__version__, "lmfit": lmfit.__version__,
-            "seed_derivation": SEED_TAG}
+            "numerics": NUMERICS_VERSION, "seed_derivation": SEED_TAG}
 
 
 SOFTWARE = _software_identity()

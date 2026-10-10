@@ -58,7 +58,8 @@ def test_the_response_records_method_seed_background_certificate_and_software(bg
     sw = r["software"]
     assert sw == {"git_commit": sw["git_commit"], "git_dirty": sw["git_dirty"], "python": platform.python_version(),
                   "numpy": np.__version__, "scipy": scipy.__version__, "lmfit": lmfit.__version__,
-                  "seed_derivation": "xps-fit-seed-v2"}
+                  "numerics": fitting.NUMERICS_VERSION, "seed_derivation": "xps-fit-seed-v2"}
+    assert fitting.fit_record(r) == {k: r[k] for k in fitting.RECORD_KEYS}
     assert isinstance(sw["git_commit"], str) and len(sw["git_commit"]) == 40 and isinstance(sw["git_dirty"], bool)
 
 
@@ -78,6 +79,18 @@ def test_a_setting_the_background_ignores_is_not_recorded_as_acting():
                             fit_kws={"method": "leastsq"})["background_verdict"] for k in (1, 3))
     assert a == b == {"method": "none", "effect": {"method": "none"}, "check": "explicit", "converged": True,
                       "residual": None, "reason": ""}
+
+
+def test_the_analyze_least_squares_method_carries_the_record():
+    # /api/analyze's manual-model path re-packages run_fit: it keeps the record (Codex round 1)
+    from autofit.methods.least_squares import LeastSquaresMethod
+    x, y, specs = SS._well_posed()
+    out = LeastSquaresMethod().run(x, y, peak_specs=specs, options={"fit_method": "least_squares", "background_method": "shirley"})
+    rec = out.analysis["record"]
+    assert set(rec) == set(fitting.RECORD_KEYS)
+    assert rec["fit_method"] == "least_squares" and rec["seed_source"] == "request" and isinstance(rec["random_seed"], int)
+    assert rec["background_verdict"]["converged"] and rec["certificate"]["certified"] is True
+    assert rec["software"] == fitting.SOFTWARE
 
 
 def test_the_seed_derivation_tag_recorded_is_the_one_hashed():

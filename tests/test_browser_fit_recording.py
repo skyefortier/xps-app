@@ -95,12 +95,27 @@ def test_a_seed_of_zero_survives_the_spectrum_loader(browser, server):
         pg.close()
 
 
-def test_the_exports_carry_the_record(browser, server):
+def _json_row(rows):
+    """The lossless 'Fit record (JSON)' entry of an export's (label, text) rows."""
+    hits = [json.loads(t) for k, t in rows if k == "Fit record (JSON)"]
+    assert len(hits) == 1, rows
+    return hits[0]
+
+
+def _comment_rows(text):
+    return [tuple(l[2:].split(": ", 1)) for l in text.splitlines() if l.startswith("# ") and ": " in l]
+
+
+def test_the_exports_carry_the_whole_record(browser, server):
     pg = _new_page(browser, server)
     try:
         rec, _ = _fit(pg)
         csv = _download(pg, "() => exportFitTable('csv')")
-        pg.evaluate("""() => { window.__xlsx = null; XLSX.writeFile = wb => { window.__xlsx = XLSX.utils.sheet_to_json(wb.Sheets['Info'], { header: 1 }); }; }""")
+        # XLSX: the SERIALISED workbook, read back (Codex round 1: not the in-memory sheet)
+        pg.evaluate("""() => { window.__xlsx = null; XLSX.writeFile = wb => {
+            const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+            const back = XLSX.read(bytes, { type: 'array' });
+            window.__xlsx = XLSX.utils.sheet_to_json(back.Sheets['Info'], { header: 1 }); }; }""")
         pg.evaluate("() => exportFitTable('xlsx')")
         info = pg.evaluate("() => window.__xlsx")
         pg.evaluate("""() => { window.__tsv = null; const o = URL.createObjectURL;
@@ -110,14 +125,71 @@ def test_the_exports_carry_the_record(browser, server):
         tsv = pg.evaluate("() => window.__tsv")
     finally:
         pg.close()
+    # losslessly, in every export
+    assert _json_row(_comment_rows(csv)) == rec
+    assert _json_row(_comment_rows(tsv)) == rec
+    assert _json_row([tuple(r[:2]) for r in info if len(r) >= 2]) == rec
+    # and the readable summary
     want = {"Fit method": "least_squares", "Random seed": f"{rec['seed']} (request)"}
     for label, text in want.items():
-        assert f"# {label}: {text}" in csv, label
-        assert f"# {label}: {text}" in tsv, label
-        assert [label, text] in info, label
-    for label in ("Background check", "Minimum certificate", "Software"):
-        assert f"# {label}: " in csv and f"# {label}: " in tsv and any(r and r[0] == label for r in info), label
+        assert f"# {label}: {text}" in csv and f"# {label}: {text}" in tsv and [label, text] in info, label
     assert "shirley: converged (defining statement" in csv and "certified" in csv and rec["software"]["git_commit"] in csv
+    assert f"numerics {rec['software']['numerics']}" in csv
+
+
+def test_the_figure_png_carries_the_record(browser, server):
+    import base64, struct, zlib
+    pg = _new_page(browser, server)
+    try:
+        rec, _ = _fit(pg)
+        pg.evaluate("""() => { window.__png = null; window._downloadBlob = async (blob, name) => {
+            const b = new Uint8Array(await blob.arrayBuffer()); let s = '';
+            for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); window.__png = btoa(s); }; }""")
+        pg.evaluate("() => _doPublicationExport()")
+        pg.wait_for_function("() => window.__png !== null", timeout=30000)
+        png = base64.b64decode(pg.evaluate("() => window.__png"))
+    finally:
+        pg.close()
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    pos, chunks = 8, []
+    while pos < len(png):
+        n, = struct.unpack(">I", png[pos:pos + 4])
+        typ, data, crc = png[pos + 4:pos + 8], png[pos + 8:pos + 8 + n], png[pos + 8 + n:pos + 12 + n]
+        assert struct.unpack(">I", crc)[0] == zlib.crc32(typ + data), f"bad CRC in {typ}"   # a valid PNG
+        chunks.append((typ, data))
+        pos += 12 + n
+    assert chunks[0][0] == b"IHDR" and chunks[-1][0] == b"IEND"
+    itxt = [d for t, d in chunks if t == b"iTXt" and d.startswith(b"XPS-Fit-Record\0")]
+    assert len(itxt) == 1
+    text = itxt[0][len(b"XPS-Fit-Record\0") + 4:]          # flag 0, method 0, empty language, empty translation
+    assert json.loads(text.decode("utf-8")) == rec
+
+
+def test_a_fit_json_carries_the_record_and_an_import_keeps_it_as_provenance(browser, server):
+    pg = _new_page(browser, server)
+    try:
+        rec, _ = _fit(pg)
+        fj = json.loads(_download(pg, "() => _doSaveFit()"))
+        assert fj["fitStatistics"]["record"] == rec
+        # import onto another spectrum: parameters only, no fit — the record is the parameters' provenance
+        pg.evaluate(PEAK_TAB)
+        pg.evaluate("data => tabManager.fromJSON(data)", fj)
+        got = pg.evaluate("() => ({ fit: state.fitResult, prov: (_activeTab() || {}).modelProvenance, local: _isLocalModel() })")
+        assert got["fit"] is None and got["local"] is False
+        assert got["prov"] == {"importedFrom": "fit.json", "record": rec}
+        proj = json.loads(_download(pg, "() => _doSaveProject()"))
+        spec = json.loads(_download(pg, "() => _doSaveSpectrum()"))
+    finally:
+        pg.close()
+    assert any(t.get("modelProvenance") == {"importedFrom": "fit.json", "record": rec} for t in proj["tabs"])
+    assert spec["modelProvenance"] == {"importedFrom": "fit.json", "record": rec}
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate("data => _loadSpectrumFile(data, 'i.spec.json')", spec)
+        pg.wait_for_timeout(300)
+        assert pg.evaluate("() => (_activeTab() || {}).modelProvenance") == {"importedFrom": "fit.json", "record": rec}
+    finally:
+        pg.close()
 
 
 def test_an_older_save_without_a_record_loads_as_before(browser, server):
@@ -151,9 +223,16 @@ def test_the_local_engine_records_its_own(browser, server):
         rec = pg.evaluate(RECORD)
     finally:
         pg.close()
-    assert rec["engine"] == "local" and rec["fitMethod"] == "local_lm" and rec["seed"] is None and rec["software"] is None
-    assert rec["certificate"]["check"] == "coordinate" and isinstance(rec["certificate"]["restarts"], int)
-    assert rec["backgroundVerdict"] == {"method": "shirley", "check": "page_certificate", "converged": True, "residual": None, "reason": ""}
+    assert rec["engine"] == "local" and rec["fitMethod"] == "local_lm" and rec["seed"] is None
+    c = rec["certificate"]
+    assert c["check"] == "coordinate" and isinstance(c["restarts"], int) and isinstance(c["moved"], bool)
+    assert isinstance(c["centre_moves"], list) and len(c["centre_moves"]) == 2 and all(isinstance(m["ev"], float) or m["ev"] == 0 for m in c["centre_moves"])
+    assert c["largest_centre_move"] in c["centre_moves"]
+    bv = rec["backgroundVerdict"]
+    assert bv["method"] == "shirley" and bv["check"] == "page_certificate" and bv["converged"] is True and isinstance(bv["residual"], float)
+    # the software that served the page (its <meta name="xps-software">)
+    sw = rec["software"]
+    assert sw["role"] == "served_the_page" and len(sw["git_commit"]) == 40 and sw["numerics"] and sw["numpy"]
 
 
 def test_a_re_run_with_the_saved_seed_reproduces_the_fit(browser, server):

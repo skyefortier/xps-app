@@ -57,3 +57,15 @@ seed, read back from a reloaded project, re-runs the page's request to the same 
 `tests/js/fit_recording.test.js` (producers, saves, loader, export rows). Mutation-checked:
 removing the loader copy, the project save field, the CSV lines or the Run Fit record each fails a
 test.
+
+## Codex round 1 (NO-GO ×2, the same seven MAJOR findings) — fixed
+
+| finding | fix |
+|---|---|
+| `/api/analyze` (its least-squares method) dropped the record | `fitting.fit_record(res)` (the `RECORD_KEYS`) carried in its `analysis.record` |
+| the local / Batch record lacked "moved / how far", the background residual and the software | the local engine snapshots its parameters where its descent FIRST stops (before any certificate restart): `certificate {certified, restarts, moved, centre_moves, largest_centre_move, check: 'coordinate'}`; the background verdict is the page's own certificate (`computeBackgroundCore` attaches it to the certified curve as a non-index property); the software is the server's identity written into the page (`<meta name="xps-software">`, `role: served_the_page`) |
+| `.fit.json` dropped the record | `fitStatistics.record`; an import onto other data keeps it as the parameters' provenance (`modelProvenance = {importedFrom: 'fit.json', record}` — the existing provenance lifecycle: undo, history, Batch copies, saves, both loaders), never a fit (`fitResult` stays null, `_isLocalModel` unaffected) |
+| the figure PNG carried nothing | the record's JSON in an `iTXt` chunk (`XPS-Fit-Record`) after IHDR; the PNG stays valid (CRCs checked by the test) |
+| CSV / XLSX / TSV lost data (anchors, reasons, every centre move, the largest move's component, unrounded values) | a lossless `Fit record (JSON)` line / row in every export beside the readable summary; the summary no longer rounds a move and names its component |
+| no numerical version | `NUMERICS_VERSION` ("2026-10-09", the background math) in `software.numerics`, bumped whenever a change can move a fitted number for the same request |
+| the export test checked labels and the in-memory XLSX | the JSON line / row of CSV, TSV and the SERIALISED XLSX (written and read back) must equal the record; the PNG's chunk likewise; `.fit.json` and its import; the analyze method; mutation-checked (each fix removed → a test fails) |

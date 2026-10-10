@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="xps-software" content='{{ software|tojson }}'>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XPS Fitting Studio</title>
@@ -3450,8 +3451,11 @@ class TabManager {
       active.fitResult = null;
       // Provenance of the imported parameters (unit A0): a model saved from
       // a local (unweighted) fit stays a starting point, not a result.
+      // ...and a server fit's RECORD rides along as the parameters' provenance (recording only:
+      // nothing reads it to decide anything; there is no fit on these data — fitResult is null)
       active.modelProvenance = _isLocalProvenance(data.fitStatistics)
-        ? { ...data.fitStatistics, importedFrom: 'fit.json' } : null;
+        ? { ...data.fitStatistics, importedFrom: 'fit.json' }
+        : (_isFitRecord(data.fitStatistics && data.fitStatistics.record) ? { importedFrom: 'fit.json', record: data.fitStatistics.record } : null);
 
       // Apply charge correction
       if (data.chargeCorrection) {
@@ -5175,8 +5179,11 @@ function _computeBackgroundUnchecked(be, intensity, settings) {
     else full[i] = bgRight;
   }
 
-  return _bgMark(full, cert.converged, cert.converged ? null
+  const marked = _bgMark(full, cert.converged, cert.converged ? null
     : (BG_LABELS[type] || type) + ' background not converged: ' + cert.reason + '.');
+  // the certificate itself, for the local engine's record (a non-index property: JSON ignores it)
+  marked.certificate = { converged: cert.converged === true, residual: Number.isFinite(cert.residual) ? cert.residual : null, reason: cert.reason || '' };
+  return marked;
 }
 
 // Thin DOM-reading wrapper used by single-tab updatePlot. Stack render
@@ -8555,13 +8562,25 @@ function _fitRecordFrom(r) {
            backgroundVerdict: r.background_verdict ?? null, certificate: r.certificate ?? null,
            software: r.software ?? null };
 }
-// the local engine (and Batch Fit): no seed (it draws nothing), its own coordinate certificate,
-// the page's certified background (a failed one refuses the fit before it starts)
-function _localFitRecord(certifyRestarts, bgType) {
+// the local engine (and Batch Fit): no seed (it draws nothing); its coordinate certificate — the
+// restarts it took and how far they carried each centre from where the descent first stopped; the
+// page's own background certificate; and the software that SERVED the page (the browser has no
+// identity of its own: the server writes it into the page, <meta name="xps-software">)
+function _pageSoftware() {
+  try { const m = document.querySelector('meta[name="xps-software"]'); const v = m && JSON.parse(m.getAttribute('content'));
+        return v && typeof v === 'object' ? { ...v, role: 'served_the_page' } : null; } catch (e) { return null; }
+}
+function _localFitRecord(certifyRestarts, bgType, bgCert, centreMoves) {
+  const moves = Array.isArray(centreMoves) ? centreMoves : [];
+  const largest = moves.reduce((m, c) => (!m || Math.abs(c.ev) > Math.abs(m.ev) ? c : m), null);
   return { engine: 'local', fitMethod: 'local_lm', seed: null, seedSource: null,
-           backgroundVerdict: { method: bgType || null, check: 'page_certificate', converged: true, residual: null, reason: '' },
-           certificate: { certified: true, restarts: Number.isInteger(certifyRestarts) ? certifyRestarts : null, check: 'coordinate' },
-           software: null };
+           backgroundVerdict: { method: bgType || null, check: 'page_certificate',
+                                converged: bgCert ? bgCert.converged === true : true,
+                                residual: bgCert && Number.isFinite(bgCert.residual) ? bgCert.residual : null,
+                                reason: bgCert ? bgCert.reason || '' : '' },
+           certificate: { certified: true, restarts: Number.isInteger(certifyRestarts) ? certifyRestarts : null,
+                          moved: moves.some(c => c.ev !== 0), centre_moves: moves, largest_centre_move: largest, check: 'coordinate' },
+           software: _pageSoftware() };
 }
 function _isFitRecord(x) { return !!x && typeof x === 'object' && (x.engine === 'server' || x.engine === 'local'); }
 // one line per item, for the exports: [[label, text], …]
@@ -8578,12 +8597,15 @@ function _fitRecordRows(rec) {
   if (c) rows.push(['Minimum certificate', (c.certified ? 'certified' : 'NOT certified') +
                     (Number.isInteger(c.restarts) ? ', ' + c.restarts + ' restart' + (c.restarts === 1 ? '' : 's') : '') +
                     (c.moved !== undefined ? ', ' + (c.moved ? 'moved' : 'not moved') : '') +
-                    (c.largest_centre_move && typeof c.largest_centre_move.ev === 'number' ? ', largest centre move ' + c.largest_centre_move.ev.toFixed(4) + ' eV' : '') +
+                    (c.largest_centre_move && typeof c.largest_centre_move.ev === 'number' ? ', largest centre move ' + c.largest_centre_move.ev + ' eV (component ' + c.largest_centre_move.id + ')' : '') +
                     (c.optimiser_flag !== undefined ? ', optimiser flag ' + (c.optimiser_flag ? 'success' : 'failure') : '') +
                     (c.check ? ' (' + c.check + ')' : '')]);
   const sw = rec.software;
   if (sw) rows.push(['Software', 'commit ' + (sw.git_commit || 'unknown') + (sw.git_dirty ? ' (modified)' : '') +
-                     '; python ' + sw.python + ', numpy ' + sw.numpy + ', scipy ' + sw.scipy + ', lmfit ' + sw.lmfit + '; seed ' + sw.seed_derivation]);
+                     '; numerics ' + sw.numerics + '; python ' + sw.python + ', numpy ' + sw.numpy + ', scipy ' + sw.scipy + ', lmfit ' + sw.lmfit +
+                     '; seed ' + sw.seed_derivation + (sw.role ? ' (' + sw.role.replace(/_/g, ' ') + ')' : '')]);
+  // and the whole record, losslessly (the lines above are a summary)
+  rows.push(['Fit record (JSON)', JSON.stringify(rec)]);
   return rows;
 }
 function _certificateMoveFrom(cert) {
@@ -9099,6 +9121,7 @@ function _applyStatDisplay(fr) {
 // committed lab project; the proof is in
 // docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md.
 function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+  let firstStop = null;   // where the descent first stopped, before any certificate restart (the record's "moved")
   const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
   // The page-wide spinner belongs to the operation that showed it (unit 2):
   // Run Fit's fallback passes its operation; Batch Fit shows no spinner and
@@ -9237,6 +9260,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // FTOL; otherwise moves to the best such point and returns false.
   function certify() {
     applyParams(params);                     // working copy = current point
+    if (!firstStop) firstStop = [...params];          // where the descent first stopped (the record's "moved")
     let bestChi = chi, bestParams = null;
     for (let j = 0; j < params.length; j++) {
       if (isDiscrete(j)) continue;
@@ -9454,7 +9478,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
                       engine: 'local', status: 'converged',
                       objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))', iterations,
                       reportable: false, caveat: _LOCAL_FIT_CAVEAT,
-                      record: _localFitRecord(certifyRestarts, (document.getElementById('bg-type') || {}).value || null),   // recording only
+                      record: _localFitRecord(certifyRestarts, (document.getElementById('bg-type') || {}).value || null,
+                                              bgIntensity && bgIntensity.certificate,
+                                              firstStop ? paramMap.map((d, k) => (d.param === 'center' ? { id: d.id, ev: params[k] - firstStop[k] } : null)).filter(Boolean) : []),   // recording only
                       startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
@@ -11719,6 +11745,7 @@ function _doSaveFit() {
     // Provenance of the parameters being saved: a local (unweighted) result
     // is a starting point, not a reportable result (unit A0).
     fitStatistics: state.fitResult ? {
+      record: _isFitRecord(state.fitResult.record) ? state.fitResult.record : null,   // the parameters' provenance (recording only)
       chiReduced: state.fitResult.chiReduced ?? null,
       engine: state.fitResult.engine || null,
       objective: state.fitResult.objective || null,
@@ -11731,9 +11758,9 @@ function _doSaveFit() {
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
       ..._statsSaveFields(_statsLiveState(), state.fitResult),   // F1: says plainly when the statistics belong to the previous model
-    } : ((_activeTab() && _activeTab().modelProvenance) ? {
+    } : ((_activeTab() && _activeTab().modelProvenance) ? (_isLocalProvenance(_activeTab().modelProvenance) ? {
       ..._activeTab().modelProvenance, reportable: false, caveat: _localFitCaveat(_activeTab().modelProvenance),
-    } : null),
+    } : { ..._activeTab().modelProvenance }) : null),
   };
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
   _downloadBlob(
@@ -12146,7 +12173,8 @@ function _loadSpectrumFile(data, sessionFile) {
   active.ui = { ...active.ui, ...(data.ui || {}), endpointAvg: savedEp || LEGACY_ENDPOINT_AVG };
   tabManager._restoreUI(active.ui);
   if (data.notes) active.notes = data.notes;
-  active.modelProvenance = _isLocalProvenance(data.modelProvenance) ? data.modelProvenance : null;
+  active.modelProvenance = _isLocalProvenance(data.modelProvenance) ||
+    (data.modelProvenance && _isFitRecord(data.modelProvenance.record)) ? data.modelProvenance : null;
   if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative', 'certificateMove']) if (data.statistics[k]) fr[k] = data.statistics[k];
@@ -12938,11 +12966,42 @@ function _doPublicationExport() {
   }
 
   // ── Download ──────────────────────────────────────────────────────────────
-  canvas.toBlob(blob => {
+  // the fit's record rides in the PNG itself (an iTXt chunk, keyword XPS-Fit-Record: recording only)
+  const rec = state.fitResult && _isFitRecord(state.fitResult.record) ? state.fitResult.record : null;
+  canvas.toBlob(async blob => {
     if (!blob) { notify('Export failed.', 'red'); return; }
-    _downloadBlob(blob, fname + '.png');
+    _downloadBlob(rec ? await _pngWithText(blob, 'XPS-Fit-Record', JSON.stringify(rec)) : blob, fname + '.png');
     notify('Figure exported as PNG', 'green');
   }, 'image/png');
+}
+// A PNG with one iTXt (UTF-8 text) chunk inserted after IHDR (PNG spec §11.3.4.5): keyword,
+// NUL, compression flag 0, method 0, empty language tag and translated keyword, the text.
+function _pngCrc32(bytes) {
+  let c, crc = 0xffffffff;
+  for (let n = 0; n < bytes.length; n++) {
+    c = (crc ^ bytes[n]) & 0xff;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    crc = (crc >>> 8) ^ c;
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+async function _pngWithText(blob, keyword, text) {
+  const png = new Uint8Array(await blob.arrayBuffer());
+  const enc = new TextEncoder();
+  const kw = enc.encode(keyword), tx = enc.encode(text);
+  const data = new Uint8Array(kw.length + 5 + tx.length);
+  data.set(kw, 0);                                     // keyword, then NUL, 0, 0, "", ""
+  data.set(tx, kw.length + 5);
+  const chunk = new Uint8Array(12 + data.length);
+  const dv = new DataView(chunk.buffer);
+  dv.setUint32(0, data.length);
+  chunk.set(enc.encode('iTXt'), 4);
+  chunk.set(data, 8);
+  dv.setUint32(8 + data.length, _pngCrc32(chunk.subarray(4, 8 + data.length)));
+  const at = 8 + 12 + new DataView(png.buffer).getUint32(8);   // signature + IHDR (length, type, data, CRC)
+  const out = new Uint8Array(png.length + chunk.length);
+  out.set(png.subarray(0, at), 0); out.set(chunk, at); out.set(png.subarray(at), at + chunk.length);
+  return new Blob([out], { type: 'image/png' });
 }
 
 
