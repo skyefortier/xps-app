@@ -33,6 +33,13 @@ restarts; the perturbed-restart path keeps its own coverage (the `_well_posed` t
 tests/test_fit_reproducibility.py). So the fixture's request is `TWO_BASIN_KW = dict(background_method="linear", n_perturb=0)`;
 every other test keeps `KW` (n_perturb 3).
 
+FINDING FOR PRODUCTION (owner, 2026-10-09): that a perturbed restart landed near a basin
+boundary on EVERY candidate tried means real multi-minimum spectra can do the same in
+production — the page's Run Fit sends n_perturb 3, so two presses of the same request on such
+a spectrum can resolve to different minima (CLAUDE.md "Reproducibility": accepted and
+disclosed, 2026-09-21). It is covered by the scattered-starts line, which exists to show
+exactly that a decomposition is not unique. No new work.
+
 "Inside its basins" is then two checks, with the request seed held fixed (the counts enter
 the seed):
 - rounding level, STRICT — the floating-point line instead of the exact one, ulps of 5 counts
