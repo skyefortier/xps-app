@@ -20,7 +20,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { runHelper } = require('./_helper_process.js');
 
 const REPO_ROOT = path.join(__dirname, '../..');
 const html = fs.readFileSync(path.join(REPO_ROOT, 'templates/index.html'), 'utf8');
@@ -43,7 +43,7 @@ const PYTHON = (() => {
   return 'python3';
 })();
 const BRIDGE = path.join(__dirname, 'background_parity_backend.py');
-const py = req => JSON.parse(execFileSync(PYTHON, [BRIDGE], { input: JSON.stringify(req), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+const py = req => JSON.parse(runHelper(PYTHON, [BRIDGE], { input: JSON.stringify(req), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
 
 // The page's whole background section (background math, 2026-10-01: the twins
 // share helpers and constants).

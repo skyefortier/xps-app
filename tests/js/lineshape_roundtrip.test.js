@@ -21,7 +21,7 @@
 // kernel; now laTrueCasaXPS_array mirrors the server's continuous-m one).
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { execFileSync } = require('node:child_process');
+const { runHelper } = require('./_helper_process.js');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -55,7 +55,7 @@ function findPython() {
 const PYTHON = findPython();
 const BRIDGE = path.join(__dirname, 'lineshape_roundtrip_backend.py');
 function bridge(payload) {
-  return JSON.parse(execFileSync(PYTHON, [BRIDGE, REPO_ROOT], { input: JSON.stringify(payload), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+  return JSON.parse(runHelper(PYTHON, [BRIDGE, REPO_ROOT], { input: JSON.stringify(payload), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
 }
 
 // A realistic BE grid, descending like a real acquisition: 12 eV, 0.05 eV step.

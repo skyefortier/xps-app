@@ -1,0 +1,12 @@
+Review the "JS helper processes cannot hang" unit, round 1: branch fix-js-helper-timeout; this unit = git diff main..HEAD (main = 62de33b). The requirement (owner 2026-10-09, PROGRESS.md as it stood on main): every execFileSync / spawnSync call in tests/js/ to a helper process carries a timeout, so a stall FAILS with a plain message naming the helper instead of hanging CI; a test proves the timeout fires. Design and measurements: docs/superpowers/plans/2026-10-09-js-helper-timeout.md.
+
+TRY TO BREAK
+a. Is there any remaining way a JS test can start a process without the timeout (another child_process API, an alias, a require inside a function, a helper module the scan misses, a .mjs / .cjs file, scripts/ci_node_events_reporter.mjs)? Does the source scan in tests/js/helper_timeout.test.js really cover every file node --test runs in CI (.github/workflows/autofit-gates.yml)?
+b. Does runHelper preserve every caller's behaviour (encoding, input, cwd, env, maxBuffer, stdio; the returned value; errors that are not timeouts)? Did the mechanical replacement change any call?
+c. Does the timeout really fire for the 2026-10-07 failure mode (a helper blocked reading stdin) and for a helper that never reads a large input? Is SIGKILL reaching the helper (not just a shell)? Can a killed helper leave a grandchild running that keeps the run open?
+d. Is the 300 s budget justified by the measurement (239 calls, slowest 2.46 s), and could it fail a legitimate slow run under load?
+e. The CI floor (587) and PROGRESS.md entries are accurate.
+
+Severity: BLOCKER / MAJOR for a way to hang that remains, a changed caller behaviour, or a reported number that is not what the code gives; MINOR for wording. A MINOR alone does not make NO-GO. Suites at the commit: see its message. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

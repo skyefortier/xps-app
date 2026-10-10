@@ -1075,9 +1075,9 @@ test('restore: a Voigt fitted before A03 cannot be shown as fitted — stale wha
 });
 
 test('BG_RESTORE_REL is fit_equality.py\'s SAME_MINIMUM_REL', () => {
-  const { execFileSync } = require('node:child_process');
+  const { runHelper } = require('./_helper_process.js');
   const PY = ['/Users/skyefortier/xps-app/venv/bin/python3', path.join(__dirname, '../../venv/bin/python3')].find(p => fs.existsSync(p)) || 'python3';
-  const v = Number(execFileSync(PY, ['-c', 'import sys; sys.path[:0] = [".", "tests"]; import fit_equality; print(repr(fit_equality.SAME_MINIMUM_REL))'], { encoding: 'utf8', cwd: path.join(__dirname, '../..') }));
+  const v = Number(runHelper(PY, ['-c', 'import sys; sys.path[:0] = [".", "tests"]; import fit_equality; print(repr(fit_equality.SAME_MINIMUM_REL))'], { encoding: 'utf8', cwd: path.join(__dirname, '../..') }));
   assert.ok(Math.abs(v - R.BG_RESTORE_REL) <= 1e-15 * v, v + ' vs ' + R.BG_RESTORE_REL);
 });
 
@@ -1140,9 +1140,9 @@ test('manual: an anchor that is not a pair of finite numbers is not converged (t
 
 // ── Codex impl round 6 ──
 function serverWords(cases) {
-  const { execFileSync } = require('node:child_process');
+  const { runHelper } = require('./_helper_process.js');
   const PY = ['/Users/skyefortier/xps-app/venv/bin/python3', path.join(__dirname, '../../venv/bin/python3')].find(p => fs.existsSync(p)) || 'python3';
-  const out = execFileSync(PY, ['-c', `import json, sys, math
+  const out = runHelper(PY, ['-c', `import json, sys, math
 sys.path.insert(0, ${JSON.stringify(path.join(__dirname, '../..'))})
 import numpy as np, fitting
 res = []
@@ -1205,12 +1205,12 @@ test('every refusal: page = server, verdict and words (incl. order, overflow, an
   assert.ok(S.filter(v => v === null).length >= 4, 'and the exact lines converge on both sides');
   assert.strictEqual(S[cases.findIndex(c => c.m === 'tougaard' && c.y[0] === 3e-307)], null, 'the normalised bound certifies the 1.5e-307 case');
   // the residual text: Python's %.3g, value for value
-  const { execFileSync } = require('node:child_process');
+  const { runHelper } = require('./_helper_process.js');
   // incl. exact binary ties (12.25, 1.125, 0.125·10^k): fitting._fmt3 rounds them half up, as toExponential does
   const vals = [1.234e-5, 0.0001234, 1e-4, 0.001, 0.1, 1, 12.5, 99.95, 100, 123.4, 999.6, 1234, 2.5e-7, 5.555e-3, 0.00995, 4.2e12,
                 12.25, 1.125, 0.125, 12.75, 0.0625, 1.375, 99.96, 0.000099996, 9.995, 2.675, 1e-10, 3.14159e-8, 6.02e23];
   const PY = ['/Users/skyefortier/xps-app/venv/bin/python3', path.join(__dirname, '../../venv/bin/python3')].find(p => fs.existsSync(p)) || 'python3';
-  const py = JSON.parse(execFileSync(PY, ['-c', 'import json,sys; sys.path.insert(0, "."); import fitting; print(json.dumps([fitting._fmt3(v) for v in json.load(sys.stdin)]))'],
+  const py = JSON.parse(runHelper(PY, ['-c', 'import json,sys; sys.path.insert(0, "."); import fitting; print(json.dumps([fitting._fmt3(v) for v in json.load(sys.stdin)]))'],
     { input: JSON.stringify(vals), encoding: 'utf8', cwd: path.join(__dirname, '../..') }));
   assert.deepStrictEqual(vals.map(R._fmt3), py);
   // the certificate's residual is written with it (a residual below 1e-4 % reads '1.23e-05' on both sides)

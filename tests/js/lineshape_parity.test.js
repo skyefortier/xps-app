@@ -34,7 +34,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { execFileSync } = require('node:child_process');
+const { runHelper } = require('./_helper_process.js');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -77,7 +77,7 @@ const BRIDGE = path.join(__dirname, 'lineshape_parity_backend.py');
 
 function backendEval(shape, params, x) {
   const input = JSON.stringify({ shape, params, x });
-  const out = execFileSync(PYTHON, [BRIDGE], { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const out = runHelper(PYTHON, [BRIDGE], { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   return JSON.parse(out);
 }
 
@@ -326,7 +326,7 @@ test('(C) evalPeak() has no direct callers outside evalPeakArray()', () => {
 //     docs/superpowers/plans/2026-09-22-a03-voigt-eta-identity.md.
 function backendEvalMany(specs) {
   const input = JSON.stringify(specs);
-  const out = execFileSync(PYTHON, [BRIDGE], { input, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  const out = runHelper(PYTHON, [BRIDGE], { input, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
   return JSON.parse(out);
 }
 function combos(ranges) {

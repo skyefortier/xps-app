@@ -51,7 +51,7 @@ test('with fewer than two anchors the fallback is the page line (by index)', () 
 });
 
 test("the manual background is the exact piecewise-affine value, correctly rounded — bit-identical to the server (Codex impl rounds 2, 9-10)", () => {
-  const { execFileSync } = require('node:child_process');
+  const { runHelper } = require('./_helper_process.js');
   const PY = ['venv/bin/python3', '/Users/skyefortier/xps-app/venv/bin/python3'].map(p => path.join(__dirname, '../..', p)).concat(['/Users/skyefortier/xps-app/venv/bin/python3', 'python3'])
     .find(p => p === 'python3' || fs.existsSync(p));
   let seed = 11;
@@ -88,7 +88,7 @@ test("the manual background is the exact piecewise-affine value, correctly round
   cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 1, y: 4 }, { x: 2, y: 9 }] });
   cases.push({ be: [0, 1, 2, 3], anchors: [{ x: 0, y: 1 }, { x: 2, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 2 }] });
   cases.push({ be: [0, 1e-320, 1], anchors: [{ x: 0, y: 1e308 }, { x: 1e-320, y: 1e308 }, { x: 1, y: 0 }] });
-  const server = execFileSync(PY, ['-c', `import json,sys,numpy as np; sys.path.insert(0, ".")
+  const server = runHelper(PY, ['-c', `import json,sys,numpy as np; sys.path.insert(0, ".")
 out=[]
 for c in json.load(sys.stdin):
     import fitting

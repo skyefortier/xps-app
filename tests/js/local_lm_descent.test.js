@@ -16,7 +16,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { runHelper } = require('./_helper_process.js');
 
 const REPO_ROOT = path.join(__dirname, '../..');
 const html = fs.readFileSync(path.join(REPO_ROOT, 'templates/index.html'), 'utf8');
@@ -72,7 +72,7 @@ function loadProjectTabs() {
     : (fs.existsSync('/Users/skyefortier/xps-app/venv/bin/python3') ? '/Users/skyefortier/xps-app/venv/bin/python3' : 'python3');
   const script = 'import sys, json; sys.path.insert(0, sys.argv[1]); from autofit.reference import load_project_tabs; ' +
     'print(json.dumps([t for t in load_project_tabs(sys.argv[2]) if not t.get("isStack") and t.get("rawBE")]))';
-  return JSON.parse(execFileSync(py, ['-c', script, REPO_ROOT, PROJECT], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+  return JSON.parse(runHelper(py, ['-c', script, REPO_ROOT, PROJECT], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
 }
 
 function batchTarget(env, tabs, sourceName, targetName) {
@@ -465,7 +465,7 @@ test('server parity on GL-type models: weighted local Batch Fit matches lmfit fr
     const out = env.runFitLocal(be, bgSub, bg);
     assert.equal(out.success, true, JSON.stringify(out));
     const inten = bgSub.map((v, i) => v + bg[i]);
-    const server = JSON.parse(execFileSync(py, [bridge, REPO_ROOT], { input: JSON.stringify({ be, inten, peaks: initial, ui }), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
+    const server = JSON.parse(runHelper(py, [bridge, REPO_ROOT], { input: JSON.stringify({ be, inten, peaks: initial, ui }), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
     assert.equal(server.success, true);
     assert.ok(Math.abs(out.chiReduced / server.chi2r - 1) < 0.01, `${target}: chi2r local ${out.chiReduced} vs server ${server.chi2r}`);
     env.state.peaks.forEach((p, i) => {
