@@ -17,8 +17,15 @@ whose order the library may change with memory alignment — the server's LA (`n
 a BLAS dot: CLAUDE.md "Reproducibility"). For it, `conv_term`: the convolution's terms are all
 non-negative (a positive Lorentzian core, a positive Gaussian kernel), so a dot of K terms is
 within γ_K of its own value, and the normalisation by the curve's (equally computed) value at
-the centre at most doubles that: each evaluation within 2 γ_K |c|, two evaluations 4 γ_K |c|,
-K = 2 max(1, ⌈3.5 m / 3⌉) + 1 (the kernel length, F `_la_casaxps_true`).
+the centre adds that value's γ_K (to first order — the quotient's exact factor is
+(1 + θ1)/(1 + θ2), |θ| ≤ γ_K): each evaluation within 2 γ_K |c| to first order, two
+evaluations 4 γ_K |c| (exactly, two normalised evaluations differ by at most
+4 γ_K / (1 − γ_K)² |c|), K = 2 max(1, ⌈3.5 m / 3⌉) + 1 (the kernel length, F `_la_casaxps_true`).
+What that leaves out — the second-order part of the quotient, the division and the final
+multiplication by the amplitude, a few u |c| in all (Codex round 2: ≈ 4.0000000013 u |c| at the
+largest K, 1167) — is covered by the summation term's own margin: 4 (n + 2) u S against the
+2 γ_n S the sums need (≈ 2 n u S) leaves (2 n + 8) u S ≥ 10 u S ≥ 10 u |c| per point for
+every n ≥ 1.
 
 NOT a rounding bound: the page's DRAWN components after a server fit are the page's own
 (JavaScript) evaluators, not the server's arrays; two implementations of a transcendental

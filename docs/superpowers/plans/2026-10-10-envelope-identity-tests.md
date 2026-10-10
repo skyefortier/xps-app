@@ -47,7 +47,16 @@ formula is not a rounding bound one can derive in general. So:
   absent: DS+G β 2.0 on the server (took > 6 min to certify) and LA α 0.1 with β 5 on the page
   (does not certify — an honest refusal).
 
-The sections below are round 1's text, kept for the record; where they differ, this section governs.
+Codex round 2 (NO-GO ×2, one MAJOR): after a fit the split check examined only the component
+datasets it was handed, so a missing or duplicated drawn component passed (the envelope 94.5 %
+of its height above the drawn sum). Now every server component must be drawn exactly once
+(unique ids equal to the server's set, equal lengths) before parity is checked, with a new proof
+that removes a drawn component after a fit. MINOR: the LA term's first-order derivation now
+states the exact factor 4 γ_K / (1 − γ_K)² and allocates the second-order, division and
+final-multiplication terms (≈ 4 u |c| at K = 1167) to the summation term's margin
+((2 n + 8) u S ≥ 10 u S).
+
+The sections below are round 1's text, kept for the record; where they differ, the sections above govern.
 
 ## The bound (`tests/envelope_identity.py`)
 

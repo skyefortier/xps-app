@@ -102,6 +102,11 @@ def _check_fitted(d, label):
     # that recovery's rounding, point by point — a collapsed component (amplitude 5e-11 on a
     # 1000-count background) would otherwise read the background's ulps as a lineshape gap
     by_id = {p["id"]: p for p in sv["peaks"]}
+    # every server component is drawn exactly once, on the same number of points (Codex round 2:
+    # a missing or duplicated component dataset otherwise passed — the envelope 9 000 counts above)
+    assert len(d["ids"]) == len(set(d["ids"])) and set(d["ids"]) == set(by_id), \
+        f"{label}: drawn components {sorted(d['ids'])} are not the server's {sorted(by_id)}"
+    assert all(len(c) == len(by_id[pid]["y"]) == len(d["env"]) for pid, c in zip(d["ids"], d["comps"])), f"{label}: lengths differ"
     U = 2.0 ** -53
     worst = 0.0
     for pid, c, amp in zip(d["ids"], d["comps"], d["amps"]):
@@ -266,5 +271,18 @@ def test_a_ds_g_drawn_two_percent_too_wide_breaks_it(browser, server):
             window.dsgConvolved_array = (be, c, a, b, m) => real(be, c, a, b, m * 1.02); updatePlot(); }""")
         with pytest.raises(AssertionError, match="from the server's curve"):
             _check_fitted(pg.evaluate(DRAWN), "DS+G too wide")
+    finally:
+        pg.close()
+
+
+def test_a_component_not_drawn_after_a_fit_breaks_it(browser, server):
+    # Codex round 2: the split check must see every server component — remove one drawn dataset
+    pg = _new_page(browser, server)
+    try:
+        _fit(pg, "Gaussian")
+        pg.evaluate("""() => { const ds = state.chart.data.datasets;
+            ds.splice(ds.findIndex(d => d._peakId !== undefined), 1); }""")
+        with pytest.raises(AssertionError, match="are not the server's"):
+            _check_fitted(pg.evaluate(DRAWN), "a component not drawn")
     finally:
         pg.close()
