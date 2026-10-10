@@ -182,7 +182,7 @@ test('Quantify: excluded from the body, listed beneath with the reason; total an
 
 test('CSV / XLSX export: Status column, suppressed cells, At% empty, WARNING line', () => {
   const rows = [];
-  const env = pageEnv(['exportFitTable', '_shapeExportCols'], {
+  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows'], {
     XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
     _downloadBlob: () => {}, _isUnweightedLocal: () => false,
   });
@@ -225,7 +225,7 @@ test('persistence: support travels with the peak object through every save (the 
 
 test('CSV / XLSX: an unsupported DS+G component exports no width of any kind (beta, m)', () => {
   const rows = [];
-  const env = pageEnv(['exportFitTable', '_shapeExportCols'], {
+  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows'], {
     XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
     _downloadBlob: () => {}, _isUnweightedLocal: () => false,
   });
@@ -265,7 +265,7 @@ test('exports: a stale or keyless verdict is "not established", never "supported
   assert.strictEqual(c._currentSupport({ support: { supported: true } }), null);
   assert.deepStrictEqual(c._currentSupport({ support: { supported: true, fitKey: 'KEY' } }), { supported: true, fitKey: 'KEY' });
   const rows = [];
-  const env = pageEnv(['exportFitTable', '_shapeExportCols'], {
+  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows'], {
     XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
     _downloadBlob: () => {}, _isUnweightedLocal: () => false,
   });

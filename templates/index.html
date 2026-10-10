@@ -7800,6 +7800,7 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
     backendResult: json,
     fittedY: json.fitted_y,
     roiRange,
+    record: _fitRecordFrom(json),       // recording only (owner 2026-10-10)
     startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
   };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
@@ -8543,6 +8544,48 @@ function _startsSummaryText(st) {
 // indicator as the scattered-starts table — a notice, not a confirmation: it is
 // the student's own fit continued, not a different solution chosen for its
 // score. Bound to the fit by the same model key as the starts evidence.
+// THE FIT'S RECORD (owner 2026-10-10; RECORDING ONLY — nothing reads it to decide whether a fit
+// is current or stale): what computed the fit — the method, the seed and where it came from, the
+// background's verdict against its defining statement, the whole certificate, the software. One
+// immutable object, saved with the fit in projects and spectrum files and written to exports.
+function _fitRecordFrom(r) {
+  if (!r || typeof r !== 'object') return null;
+  return { engine: 'server', fitMethod: r.fit_method ?? null,
+           seed: Number.isInteger(r.random_seed) ? r.random_seed : null, seedSource: r.seed_source ?? null,
+           backgroundVerdict: r.background_verdict ?? null, certificate: r.certificate ?? null,
+           software: r.software ?? null };
+}
+// the local engine (and Batch Fit): no seed (it draws nothing), its own coordinate certificate,
+// the page's certified background (a failed one refuses the fit before it starts)
+function _localFitRecord(certifyRestarts, bgType) {
+  return { engine: 'local', fitMethod: 'local_lm', seed: null, seedSource: null,
+           backgroundVerdict: { method: bgType || null, check: 'page_certificate', converged: true, residual: null, reason: '' },
+           certificate: { certified: true, restarts: Number.isInteger(certifyRestarts) ? certifyRestarts : null, check: 'coordinate' },
+           software: null };
+}
+function _isFitRecord(x) { return !!x && typeof x === 'object' && (x.engine === 'server' || x.engine === 'local'); }
+// one line per item, for the exports: [[label, text], …]
+function _fitRecordRows(rec) {
+  if (!_isFitRecord(rec)) return [];
+  const rows = [['Fit method', (rec.engine === 'local' ? 'local engine (' + rec.fitMethod + ')' : String(rec.fitMethod))]];
+  if (rec.seed !== null && rec.seed !== undefined) rows.push(['Random seed', rec.seed + (rec.seedSource ? ' (' + rec.seedSource + ')' : '')]);
+  const bv = rec.backgroundVerdict;
+  if (bv) rows.push(['Background check', (bv.method || '') + ': ' + (bv.converged ? 'converged' : 'NOT converged') +
+                     (bv.check === 'defining_statement' ? ' (defining statement' + (typeof bv.residual === 'number' ? ', residual ' + bv.residual.toExponential(2) : '') + ')' : ' (' + bv.check + ')') +
+                     (bv.effect && Array.isArray(bv.effect.window) ? ', window ' + bv.effect.window.join('-') : '') +
+                     (bv.effect && Number.isInteger(bv.effect.k) ? ', averaging ' + bv.effect.k : '')]);
+  const c = rec.certificate;
+  if (c) rows.push(['Minimum certificate', (c.certified ? 'certified' : 'NOT certified') +
+                    (Number.isInteger(c.restarts) ? ', ' + c.restarts + ' restart' + (c.restarts === 1 ? '' : 's') : '') +
+                    (c.moved !== undefined ? ', ' + (c.moved ? 'moved' : 'not moved') : '') +
+                    (c.largest_centre_move && typeof c.largest_centre_move.ev === 'number' ? ', largest centre move ' + c.largest_centre_move.ev.toFixed(4) + ' eV' : '') +
+                    (c.optimiser_flag !== undefined ? ', optimiser flag ' + (c.optimiser_flag ? 'success' : 'failure') : '') +
+                    (c.check ? ' (' + c.check + ')' : '')]);
+  const sw = rec.software;
+  if (sw) rows.push(['Software', 'commit ' + (sw.git_commit || 'unknown') + (sw.git_dirty ? ' (modified)' : '') +
+                     '; python ' + sw.python + ', numpy ' + sw.numpy + ', scipy ' + sw.scipy + ', lmfit ' + sw.lmfit + '; seed ' + sw.seed_derivation]);
+  return rows;
+}
 function _certificateMoveFrom(cert) {
   const m = cert && cert.moved && cert.largest_centre_move;
   return (m && Math.abs(m.ev) > _STARTS_SHIFT_RED_EV) ? { id: m.id, ev: m.ev } : null;
@@ -8851,6 +8894,7 @@ async function runFit(opts = {}) {
                         fittedY: backendResult.fitted_y, roiRange, _preFit,
                         starts: backendResult.starts || null,
                         certificateMove: _certificateMoveFrom(backendResult.certificate),
+                        record: _fitRecordFrom(backendResult),   // recording only (owner 2026-10-10)
                         startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
                         chosenAlternative: opts.chosenAlternative || null };
     // a preview of an alternative always belongs to the PREVIOUS result (an identical
@@ -9410,6 +9454,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
                       engine: 'local', status: 'converged',
                       objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))', iterations,
                       reportable: false, caveat: _LOCAL_FIT_CAVEAT,
+                      record: _localFitRecord(certifyRestarts, (document.getElementById('bg-type') || {}).value || null),   // recording only
                       startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
@@ -11769,6 +11814,7 @@ function _doSaveSpectrum() {
     restoredStale: (_ownFit && _saveStats === 'stale') || null,   // its own curves under stale statistics: judged afresh
     beShift: typeof state.fitResult.beShift === 'number' ? state.fitResult.beShift : null,
     uploadFull: state.fitResult.uploadFull === true || null,
+    record: _isFitRecord(state.fitResult.record) ? state.fitResult.record : null,   // recording only (owner 2026-10-10)
     // Derived from the objective so an older local result (saved before
     // these fields existed) is designated on re-save too.
     reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
@@ -11872,6 +11918,7 @@ async function _doSaveProject() {
         restoredKey: t.fitResult.restoredKey || null,   // what an older save's fit had (_restoredFitPeaks)
         beShift: typeof t.fitResult.beShift === 'number' ? t.fitResult.beShift : null,   // the frame of `be` after a restore
         uploadFull: t.fitResult.uploadFull === true || null,
+        record: _isFitRecord(t.fitResult.record) ? t.fitResult.record : null,   // recording only (owner 2026-10-10)
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -12106,6 +12153,7 @@ function _loadSpectrumFile(data, sessionFile) {
     if (typeof data.statistics.restoredKey === 'string') fr.restoredKey = data.statistics.restoredKey;   // what an older save's fit had
     if (typeof data.statistics.beShift === 'number') fr.beShift = data.statistics.beShift;
     if (data.statistics.uploadFull === true) fr.uploadFull = true;
+    if (_isFitRecord(data.statistics.record)) fr.record = data.statistics.record;   // explicit: a seed of 0 is a seed
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key
@@ -12508,7 +12556,8 @@ function exportResults() {
   // are the edited, unfitted model, not the last fit's curve
   const staleNote = _statsLiveState() === 'stale'
     ? '# NOTE: the model has changed since the last fit: Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n' : '';
-  const csv = warning + staleNote + rows.map(r => r.join('\t')).join('\n');
+  const recLines = _fitRecordRows(state.fitResult && state.fitResult.record).map(([k, v]) => `# ${k}: ${v}\n`).join('');
+  const csv = warning + staleNote + recLines + rows.map(r => r.join('\t')).join('\n');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -12981,6 +13030,7 @@ function exportFitTable(fmt) {
       ...(_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey())) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))]] : []),
       ...(_startsChosenText(state.fitResult) ? [['Chosen alternative', _startsChosenText(state.fitResult)]] : []),
       ...(_certificateMoveText(state.fitResult) ? [['Fit continued', _certificateMoveText(state.fitResult)]] : []),
+      ..._fitRecordRows(state.fitResult && state.fitResult.record),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], []
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
@@ -12997,6 +13047,7 @@ function exportFitTable(fmt) {
     if (_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))}\n`;
     if (_startsChosenText(state.fitResult)) csv += `# Chosen alternative: ${_startsChosenText(state.fitResult)}\n`;
     if (_certificateMoveText(state.fitResult)) csv += `# Fit continued: ${_certificateMoveText(state.fitResult)}\n`;
+    for (const [k, v] of _fitRecordRows(state.fitResult && state.fitResult.record)) csv += `# ${k}: ${v}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');

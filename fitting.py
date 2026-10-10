@@ -38,6 +38,36 @@ from lmfit import Model, Parameters
 from scipy.integrate import trapezoid
 from scipy.optimize import least_squares as _scipy_least_squares
 
+
+SEED_TAG = "xps-fit-seed-v2"                      # _request_seed's derivation tag (recorded with every fit)
+
+
+def _software_identity() -> dict[str, Any]:
+    """The code that computes a fit, read ONCE at import — so it names what this worker process
+    loaded, not what is on disk later (fit recording, owner 2026-10-10): the git commit of
+    this checkout and whether tracked files differed from it, and the numerical libraries.
+    Recorded only; nothing reads it to decide anything."""
+    import os
+    import platform
+    import subprocess
+    import lmfit
+    import scipy
+    here = os.path.dirname(os.path.abspath(__file__))
+    commit = dirty = None
+    try:
+        commit = subprocess.run(["git", "-C", here, "rev-parse", "HEAD"], capture_output=True, text=True,
+                                timeout=10, check=True).stdout.strip() or None
+        dirty = bool(subprocess.run(["git", "-C", here, "status", "--porcelain", "--untracked-files=no"],
+                                    capture_output=True, text=True, timeout=10, check=True).stdout.strip())
+    except Exception:                                      # no git, not a checkout: said as null
+        commit = dirty = None
+    return {"git_commit": commit, "git_dirty": dirty, "python": platform.python_version(),
+            "numpy": np.__version__, "scipy": scipy.__version__, "lmfit": lmfit.__version__,
+            "seed_derivation": SEED_TAG}
+
+
+SOFTWARE = _software_identity()
+
 log = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1268,11 +1298,14 @@ def _region_in_order(x, method):
             "window along the energy axis.")
 
 
-def compute_background(x, y, method, n_avg=1) -> np.ndarray:
+def compute_background(x, y, method, n_avg=1, report=None) -> np.ndarray:
     """The integral background of ``method`` on the window (x, y), CERTIFIED:
     raises BackgroundNotConverged (a ValueError carrying a plain message) when
     the result does not satisfy its defining statement. Every caller that fits
-    against, subtracts or reports a background goes through here."""
+    against, subtracts or reports a background goes through here. ``report``, if
+    a dict, receives the certificate (``background_certificate``'s result) — so a
+    caller can RECORD the verdict without certifying twice (fit recording,
+    2026-10-10)."""
     m = (method or "").lower()
     fn = {"shirley": shirley_background, "smart": smart_background,
           "smart_exp": smart_experimental_background,
@@ -1284,6 +1317,8 @@ def compute_background(x, y, method, n_avg=1) -> np.ndarray:
     y = np.asarray(y, dtype=float)
     bg = fn(x, y, n_avg=n_avg)
     cert = background_certificate(x, y, bg, m, n_avg)
+    if report is not None:
+        report.update(cert)
     if not cert["converged"]:
         raise BackgroundNotConverged(f"{_BG_LABELS[m]} background not converged: {cert['reason']}.")
     return bg
@@ -2016,7 +2051,7 @@ def _request_seed(x, counts, background_effect, shapes, prefixes, params, *, fit
             roles.append([name, "free", par.value, par.min, par.max])
     rest = _canonical({"shapes": list(shapes), "params": roles, "fit_kws": kws, "solver": solver,
                        "n_perturb": n_perturb, "background": background_effect})
-    h = hashlib.sha256(b"xps-fit-seed-v2\0")
+    h = hashlib.sha256(SEED_TAG.encode() + b"\0")
     for arr in (x, counts):
         a = np.ascontiguousarray(arr, dtype="<f8") + 0.0       # -0.0 -> 0.0 (the CSV path keeps "-0.00")
         h.update(str(a.size).encode() + b"\0" + a.tobytes())
@@ -2378,6 +2413,7 @@ def _run_fit_impl(
     # full ROI (the line is well-defined outside the anchor window).
     bg_method = background_method.lower()
     bg_inner: np.ndarray | None = None
+    bg_cert: dict[str, Any] = {}          # the integral methods' certificate (compute_background)
 
     if bg_method == "manual":
         # no anchors sent (an omitted / null manual_bg) is the page's "fewer than two
@@ -2396,7 +2432,7 @@ def _run_fit_impl(
         # certified: a background that does not satisfy its statement raises
         # BackgroundNotConverged and no fit is made against it
         _region_in_order(x, bg_method)                  # the flat hold below is by energy
-        bg_inner = compute_background(x_bg, y_bg, bg_method, n_avg=endpoint_avg)
+        bg_inner = compute_background(x_bg, y_bg, bg_method, n_avg=endpoint_avg, report=bg_cert)
     elif bg_method == "linear":
         # Extrapolate the line through (E[i0], y[i0]) ↔ (E[i1-1], y[i1-1])
         # across the full ROI. The line is well-defined everywhere, so
@@ -2426,6 +2462,10 @@ def _run_fit_impl(
                 bg[i1:] = bg_inner[-1]
 
     y_sub = y - bg
+    # the background BY ITS EFFECT — one reading, for the seed and for the recorded verdict;
+    # taken once the background exists (its anchors have been checked: a malformed one refuses
+    # the fit above, never here)
+    bg_effect = _background_effect(background_method, len(y), i0, i1, endpoint_avg, manual_bg)
 
     # Poisson weights: σ = √(raw counts), weight = 1/σ
     # Use raw counts (before background subtraction) for uncertainty estimate,
@@ -2473,7 +2513,7 @@ def _run_fit_impl(
         random_seed = int(caller_seed)
     else:
         random_seed = _request_seed(
-            x, y, _background_effect(background_method, len(y), i0, i1, endpoint_avg, manual_bg),
+            x, y, bg_effect,
             [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
             [f"p{spec['id']}_" for spec in ordered], all_params,
             fit_kws=fit_kws, n_perturb=n_perturb)
@@ -2808,12 +2848,37 @@ def _run_fit_impl(
         },
         "charge_shift_applied": charge_shift_ev,
         "random_seed": random_seed,
+        # RECORDING (owner 2026-10-10; additive — nothing here changes a fitted number or decides
+        # whether a fit is current): the method, where the seed came from, the background's
+        # verdict against its defining statement, and the software that computed the fit
+        "fit_method": method,
+        "seed_source": "caller" if caller_seed is not None else "request",
+        "background_verdict": _background_verdict(bg_method, bg_cert, bg_effect),
+        "software": SOFTWARE,
         "starts": starts,
         "required": required,
         # the returned fit's certificate (unit A2): None for differential
         # evolution / basinhopping, whose verdict is their own refinement
         "certificate": _certificate_report(result, peak_specs),
     }
+
+
+def _background_verdict(method, cert, effect):
+    """The background's verdict against its defining statement, as recorded with the fit (owner
+    2026-10-10). The integral methods carry their certificate (``background_certificate``:
+    converged, residual, reason); the explicit ones (linear, manual, none) have nothing to
+    converge — they exist or the fit was refused before this point (BackgroundNotConverged)."""
+    # what the background was computed FROM, as it acts (`_background_effect`: the window where the
+    # method reads one, the averaging k as it acts, a manual background's anchors) — the same
+    # reading the seed hashes, so a setting the method ignores is not recorded as if it acted
+    out = {"method": method, "effect": effect}
+    if cert:
+        res = cert.get("residual")
+        out.update({"check": "defining_statement", "converged": bool(cert.get("converged")),
+                    "residual": None if res is None else float(res), "reason": cert.get("reason") or ""})
+    else:
+        out.update({"check": "explicit", "converged": True, "residual": None, "reason": ""})
+    return out
 
 
 def _certificate_report(result, peak_specs):

@@ -213,7 +213,7 @@ def test_the_two_basin_fixture_is_inside_its_basins(monkeypatch):
         variants.append((f"start values x {f!r}", y, sp))
     for label, yy, sp in variants:
         r = run(yy, sp, seed)
-        assert_same_fit({**base, "random_seed": None}, {**r, "random_seed": None}), label
+        assert_same_fit({**base, "random_seed": None, "seed_source": None}, {**r, "random_seed": None, "seed_source": None}), label
     monkeypatch.setattr(fitting, "_line_through", _float_line_through)
     assert_same_fit(base, run(y, specs))               # the floating-point line: the same fit, the same seed
 

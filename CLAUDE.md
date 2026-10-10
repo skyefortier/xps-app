@@ -51,7 +51,7 @@ compatible with multi-worker gunicorn.
 | `GET`    | `/api/session/<id>`       | Retrieve a stored session's preview data. |
 | `DELETE` | `/api/session/<id>`       | Delete session files. |
 | `POST`   | `/api/background`         | Compute background curve for a session. |
-| `POST`   | `/api/fit`                | Run lmfit on a session with peak specs; returns chi², bgIntensity, bgSubtracted, fittedY, per-peak refined params + σ. |
+| `POST`   | `/api/fit`                | Run lmfit on a session with peak specs; returns chi², bgIntensity, bgSubtracted, fittedY, per-peak refined params + σ, and the fit's RECORD (`fit_method`, `random_seed` + `seed_source`, `background_verdict`, `certificate`, `software`; 2026-10-10, recording only). Accepts `seed` (integer in [0, 2³²)) to re-run with the same draws. |
 | `POST`   | `/api/fit/start`          | The same request and validation as `/api/fit` (an immediate identical 400 / 404); runs the SAME `run_fit` in a background thread; returns `{job_id}` 202 (unit 2, 2026-09-27). |
 | `GET`    | `/api/fit/progress/<id>`  | The job record: `status` running / done / error / cancelled, `elapsed_sec`, `heartbeat_age_sec`; `result` = exactly the `/api/fit` body; `error` + `http_status` = exactly what `/api/fit` would answer. |
 | `POST`   | `/api/fit/cancel/<id>`    | Stop the job (every minimisation aborts via lmfit's `iter_cb`); also automatic after 180 s without a poll. |

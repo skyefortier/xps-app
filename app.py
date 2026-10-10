@@ -124,6 +124,15 @@ def _prepare_fit_request(app, body):
     require_component = body.get("require_component")
     if require_component is not None and not isinstance(require_component, (str, int)):
         return None, _err("require_component must be a peak id")
+    # The random seed (fit recording, owner 2026-10-10): absent, run_fit derives it from the
+    # request (seed v2) and reports it; given — the `random_seed` a fit reported — the fit is
+    # re-run with the same draws. Same rule as run_fit's caller seed: an integer in [0, 2**32).
+    seed = body.get("seed")
+    if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2 ** 32):
+        return None, _err("seed must be an integer in [0, 2**32)")
+    fit_kws = {"method": fit_method}
+    if seed is not None:
+        fit_kws["fit_kws"] = {"seed": seed}
     return dict(
         energy=energy,
         counts=counts,
@@ -132,7 +141,7 @@ def _prepare_fit_request(app, body):
         bg_start_idx=bg_start,
         bg_end_idx=bg_end,
         charge_shift_ev=0.0,
-        fit_kws={"method": fit_method},
+        fit_kws=fit_kws,
         manual_bg=manual_bg,
         n_perturb=n_perturb,
         endpoint_avg=endpoint_avg,
