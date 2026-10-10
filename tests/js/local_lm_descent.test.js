@@ -638,3 +638,34 @@ test('recording: a linked component is recorded with its parent\'s move (committ
   assert.ok(bv.effect && bv.effect.method === ui.bgType && Array.isArray(bv.effect.window) && Number.isInteger(bv.effect.k), JSON.stringify(bv));
   assert.strictEqual(bv.converged, true);
 });
+
+test('recording: a fit with nothing free records every component, unmoved (Codex round 3)', () => {
+  // the zero-free-parameter exit runs no certificate; its point is the first stop
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05);
+  const data = be.map(x => 10 * env.gaussian(x, 285.0, 1.2) + 5 * env.gaussian(x, 287.0, 1.2));
+  env.state.peaks = [
+    { id: 1, name: 'g', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 285.0, fwhm: 1.2, amplitude: 10, fixCenter: true, fixFwhm: true, fixAmplitude: true },
+    { id: 2, name: 'child', shape: 'Gaussian', glMix: 50, asymmetry: 0, center: 287.0, fwhm: 1.2, amplitude: 5, linked: 1, linkOffset: 2, linkRatio: 0.5 }];
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  const c = env.state.fitResult.record.certificate;
+  assert.deepStrictEqual({ restarts: c.restarts, moved: c.moved, centre_moves: c.centre_moves, largest_centre_move: c.largest_centre_move },
+                         { restarts: 0, moved: false, centre_moves: [{ id: 1, ev: 0 }, { id: 2, ev: 0 }], largest_centre_move: { id: 1, ev: 0 } });
+});
+
+test('recording: the averaging recorded is the averaging the curve used, even for a value the helpers re-parse (Codex round 3)', () => {
+  // run B's reproduction: 1e21 is parsed twice by the page's helpers and acts as 1 (the server
+  // reads it as 1e21, a pre-existing difference logged in PROGRESS.md); the record says what acted
+  const env = makeEnv();
+  const be = Array.from({ length: 101 }, (_, i) => i), y = be.map(x => 100 + x * x);
+  for (const [field, k] of [['1000000000000000000000', 1], ['3', 3], ['1e2', 1], ['50', 25], ['', 1]]) {
+    const bg = env.computeBackgroundCore(be, y, { bgType: 'linear', endpointAvg: field, bgStart: '', bgEnd: '' });
+    assert.strictEqual(bg.converged, true, field);
+    assert.deepStrictEqual(bg.effect, { method: 'linear', window: [0, 101], k }, field);
+    // the line passes through the means of the first / last k points: what was used
+    const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+    assert.ok(Math.abs(bg[0] - mean(y.slice(0, k))) <= 1e-9 * 10100 && Math.abs(bg[100] - mean(y.slice(101 - k))) <= 1e-9 * 10100, field);
+  }
+});

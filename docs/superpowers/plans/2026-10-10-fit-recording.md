@@ -84,3 +84,16 @@ in the LOCAL record, found once each or by both:
 
 Mutation-checked: centre-only `moved`, the linked components dropped, no effect, an
 inclusive window end and unsorted anchors each fail a test.
+
+## Codex round 3 (NO-GO ×2) — fixed
+
+Round 2's three are resolved in both runs ("moved" over every parameter; the effect
+matched the server's helper on 8 000 / 16 038 combinations; local outputs bit-identical
+against main on 30 / 40 fits; no property leakage). Two gaps:
+
+| finding | fix |
+|---|---|
+| a fit with NOTHING free runs no certificate, so `centre_moves` was empty (both runs) | the returned point is then the first stop: every component recorded with a zero move |
+| a typed averaging of 1e21 or more acts as 1 in the page's helpers (each parses the already-parsed number again) while `_bgEffect` recorded the window cap (run B) | `_bgEffect` reads the field exactly as the helpers do (the double parse); a test requires the recorded k to be the k the curve's edge levels used. The page / server difference itself is pre-existing (the server's `int()` reads 1e21) and changes a background, so it is LOGGED in PROGRESS.md, not fixed here |
+
+Mutation-checked (each fix removed → its test fails).

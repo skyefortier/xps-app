@@ -5036,7 +5036,10 @@ function _bgWindowIndices(be, bgStart, bgEnd) {
 // same shape (window end exclusive, as the request sends it; averaging as it acts, k): the
 // local engine's record (recording only)
 function _bgEffect(be, settings) {
-  const m = String(settings.bgType || '').toLowerCase(), nAvg = parseInt(settings.endpointAvg) || 1;
+  // the averaging exactly as the page's background helpers read it: _computeBackgroundUnchecked
+  // parses the field and every edge-level helper parses that again (parseInt(1e21) is 1 — the
+  // server reads the same field as 1e21; logged in PROGRESS.md, Codex recording round 3)
+  const m = String(settings.bgType || '').toLowerCase(), nAvg = parseInt(parseInt(settings.endpointAvg) || 1) || 1;
   const k = n => (n >= 4 ? Math.max(1, Math.min(nAvg, Math.floor(n / 4))) : 1);
   if (m === 'none' || m === 'flat' || m === '') return { method: 'none' };
   if (m === 'manual') {
@@ -9508,7 +9511,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
                       // recording only: moved = the returned point is not where the descent first stopped
                       // (any parameter — the server's "point is not result"); every component's centre move
                       record: _localFitRecord(certifyRestarts, firstStop !== null && params.some((v, k) => v !== firstStop[k]),
-                                              firstStopCentres ? work.filter(p => firstStopCentres.has(p.id)).map(p => ({ id: p.id, ev: p.center - firstStopCentres.get(p.id) })) : [],
+                                              // nothing free (no certificate ran): the returned point IS the first stop
+                                              firstStopCentres ? work.filter(p => firstStopCentres.has(p.id)).map(p => ({ id: p.id, ev: p.center - firstStopCentres.get(p.id) }))
+                                                               : work.map(p => ({ id: p.id, ev: 0 })),
                                               bgIntensity),
                       startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
