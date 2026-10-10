@@ -639,3 +639,33 @@ different question.
     together; the legacy adapter routes unsealed saves. One branch, one release.
 1d. REPLAY-CHECKED (Q2).
 Each with Codex ×2.
+
+## V5.9 Gate status after round 2 (NO-GO ×2) — STOPPED for the owner's review
+
+Round 2 (`sealed_fit_v5_design_r2_verdict_run{A,B}.md`) confirms revision 2 resolved round 1's
+structure: R / O / D separated, R never transformed, acceptance (`success`) required, replay
+kept out of currency, the false VERIFIED claims corrected, legacy policy consistent, the
+migration list complete for round 1's additions. Both runs independently found the SAME
+remaining defects. They are open; the proposed resolution of each is listed for the owner's
+review, not yet written into V5.3–V5.8:
+
+| # | finding (both runs) | proposed resolution |
+|---|---|---|
+| G1 BLOCKER | D cannot be "exactly `applyBackendResult(O)`": it mutates live peaks and honours locks, so re-applying to D is a fixed point (run B's probe: O centre 10, displayed 99 locked — unchanged) | a PURE display projection `project(O, R, producer)` with explicit inputs (O's values, R's spec roles and links, the producer's finalisation — Auto-Fit's charge shift, ROI reselection and centre locks as recorded steps); D is compared with `project(...)`, and the displayed numbers with O directly, independently of locks |
+| G2 BLOCKER | the records are not bound to each other: `O.counts = R.counts` is never required (a valid O for another spectrum on the same grid passes); R→D context, R's sample indices → the displayed observations, `R.seed = O.random_seed`, R / O environment overlap | explicit cross-record checks: O.energy and O.counts equal R's arrays exactly; R's index list into the tab's raw arrays equals the samples the chart shows as data; D's context maps to R's background spec and ROI through the one adapter; seed equality; ONE environment record (in R) |
+| G3 BLOCKER | drawing O's curves removed the parameter ↔ curve check: an O parameter can change while its curve stays | each O component's `y` must equal the SERVER's evaluator at O's params on O's energies — re-evaluated by the server (an additive `verify` call in 1a: same code, same library, exact) or recorded as a server-side self-check in O; areas and support statistics recomputed (support from the arrays and parameter roles, F:2185) or attributed as the server's |
+| G4 MAJOR | the statistics contract: the server's residual is `(counts − background) − fitted_sub` (F:2689, F:2774), not `counts − fitted_y` (run B's probe: 0.09999999999945 vs 0.10000000000036); `fitted_sub` is not retained; lmfit floors χ² at 1e-250·n (after χ²ᵣ); no RMSE field; areas: server trapezoid (F:2705) vs page rectangular rule (IH:9469) | retain `fitted_sub` (or the server's own statistics self-check) in O; specify each statistic's arithmetic order and its derived bound (cancellation, weights, squares, division, root), the null / zero cases and lmfit's floor; one area definition (the server's trapezoid) read through the accessor — an owner decision if the page's displayed areas change |
+| G5 MAJOR | local / Batch O and its proof are undefined (runFitLocal returns success, iterations, χ²ᵣ, certifyRestarts only, IH:9429) | an engine-specific O for the local engine (energies, the exact net / background it was given, final parameters, curves, the varied-parameter inventory, its coordinate certificate, `reportable: false`) and its own DISPLAY-CURRENT branch; reconcile with v4's R4-A4 local-seal amendment |
+| G6 MAJOR | provenance: `{commit, dirty}` does not identify dirty contents, and a checkout does not identify the loaded worker code | PROVENANCE-COMPLETE only for a clean, identified build: the server records the content hash of its own loaded source files at start; dirty or unidentified → provenance incomplete, said |
+| G7 MINOR (A) | the parameter-only `.fit.json` save / import (IH:11676) and `modelProvenance` are missing from V5.6 | add them; a `.fit.json` carries no seal (parameters for other data — already sets support null) |
+| G8 MINOR (B) | `sealedState` must expose the validated consumer view, not only a status; a replay failure is not always "a different solution" (a failed re-run, restart diagnostics); Q3's "counts only" contradicts O verbatim; "before 1e" names no step | wording fixes |
+
+Hypotheses round 2 settled: server `n_free` = the returned parameters with `vary === true` and
+no expression, excluding `area`, cross-checked with `statistics.n_free_params` (F:2453-2456,
+2713-2722, 2770); the statistics' domain is the whole incoming ROI, not the background window
+(F:2340-2365); weights use the raw counts (F:2434-2435). Still unmeasured: the twins'
+universal bit-identity (V5.4 step 4) and the replay reproduction fraction.
+
+Next, on the owner's decision: write G1–G8 into V5.3–V5.8 (revision 3) and run the gate again;
+or decide that a narrower first unit is wanted (for example 1a alone — the server's
+`background_verdict`, environment and seed over HTTP — which every design variant needs).
