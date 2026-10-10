@@ -200,9 +200,11 @@ def _run_and_apply_find_peaks(pg, full_window):
     opts = pg.eval_on_selector("#fp-options", "el => JSON.parse(el.value).fit_full_window")
     assert opts is full_window, f"checkbox state not reflected in request options: {opts}"
     pg.click("#fp-run")
+    # A TIME BUDGET, not a scientific tolerance (owner 2026-10-09): the archived Find Peaks run
+    # takes 56-85 s alone, so at 90 s machine load decided the test; 240 s.
     pg.wait_for_function(
         "document.getElementById('fp-results').style.display === 'block'",
-        timeout=90000)
+        timeout=240000)
     pg.wait_for_timeout(200)
     pg.click("#fp-apply")
     pg.wait_for_selector("#find-peaks-apply-confirm-overlay.open", timeout=5000)
