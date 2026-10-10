@@ -420,203 +420,222 @@ no `fittedY`.
 
 ---
 
-# v5 (2026-10-10, owner instruction) — the sealed fit record as a regeneration PROOF
+# v5 (2026-10-10, owner instruction) — the sealed fit record as a regeneration PROOF — revision 2
 
-Status: DESIGN ONLY — no code. Supersedes Parts 1–2 and the Round-6/7 notes where they
-conflict; Parts 3–7 shipped or were overtaken (below). Owner, 2026-10-10: "a saved fit
-carries everything needed to regenerate it and prove it current — inputs, settings, seed,
-software version, background verdict, certificate verdict — and a loaded fit is current only
-if that proof checks." Every statement about the CURRENT code is labelled **VERIFIED**
-(`path:line` on main 90651e6) or **HYPOTHESIS** (not checked, or a claim about behaviour not
-yet measured). Abbreviations: IH = templates/index.html, F = fitting.py, A = app.py,
-P = parser.py.
+Status: DESIGN ONLY — no code. Revision 2 answers the design-review gate's round 1 (NO-GO ×2,
+`docs/autofit/codex/sealed_fit_v5_design_r1_verdict_run{A,B}.md`): revision 1 called the
+starting request and the fitted model by one name, left the statistics outside its proof, used a
+summation bound as an evaluator bound, transformed the replay frame, and made a different
+re-run outcome read as stale. Supersedes v4 Parts 1–2 and the Round-6/7 notes where they
+conflict; v4 Parts 3–7 shipped or were overtaken (V5.1).
 
-## V5.1 What shipped since v4 (the pieces the seal must absorb)
+Owner, 2026-10-10: "a saved fit carries everything needed to regenerate it and prove it
+current — inputs, settings, seed, software version, background verdict, certificate verdict —
+and a loaded fit is current only if that proof checks." Every statement about the CURRENT code
+is **VERIFIED** (`path:line` on main 90651e6) or **HYPOTHESIS**. IH = templates/index.html,
+F = fitting.py, A = app.py, P = parser.py.
+
+## V5.1 What shipped since v4
 
 | piece | what it is today | VERIFIED at |
 |---|---|---|
-| window fix (Part 3, unit 1c) | inclusive `_bgWindowIndices`, shared by preview and request | shipped 2026-09-03 (Round-5 above) |
-| twins + parity (Part 4) | every background twin bit-identical to fitting.py | `tests/js/background_parity.test.js`; CLAUDE.md "Background Methods" |
-| Shirley iterations retired (Part 5) | hidden, never read; kept in keys and saves | IH:8351 (`_STARTS_UI_FIELDS` still lists `shirleyIter`) |
-| shirley_linear (Part 6) | off the menu, loads | CLAUDE.md "Background Methods" |
-| the fit key (Round 6) | `fitResult.startsModelKey` = JSON `{p, u, s, a}` of the peak fields `_STARTS_MODEL_FIELDS`, the UI fields `_STARTS_UI_FIELDS`, the charge shift and the anchors | IH:8347-8358; stamped by runFit IH:8854, runFitLocal IH:9413, applyAutoFitResult IH:7803, re-stamped `_restampSupport` IH:7666 |
-| comparison by key | `_sameFitKey` canonicalises each field through its reader (`_fitKeyCanon`, parseFloat / parseInt) | IH:8372-8393 |
-| in-flight discard | key captured before the first await, result discarded if the live key changed | IH:8747, IH:8789, IH:8831 (Auto-Fit IH:8181, 8214, 8244) |
-| statistics states (F1) | `_statsState`: none / stale / unverified (no key) / current | IH:8418-8426 |
-| certificate (A2) | Trust-Region restarts until improvement < scipy's ftol, ≤ 50; response `certificate {certified, restarts, moved, optimiser_flag, centre_moves, largest_centre_move}`; DE / basinhopping `null` | F:1868-1870, F:1873-1917, F:2815, F:2825-2831 |
-| scattered starts | third stream of the request seed; `starts {ran, n_run, n_converged, …, alternatives}` | F:2482-2483, F:2044-2082, F:2152-2161; page `n_starts` IH:8744, IH:8779 |
-| background verdict | `background_certificate` → `{converged, residual, reason}`; `compute_background` raises `BackgroundNotConverged` → HTTP 422; page twins `_bgCertificate` / `_bgMark` / `_bgFailure` / `_certifiedBg` | F:1016, F:1286-1287, A:153-156, IH:4729, IH:5045-5068, IH:5178-5185 |
-| input-derived seed (v2) | `_request_seed`: SHA-256 tag `xps-fit-seed-v2` over energies, counts, lineshapes, parameter roles by position, fit_kws, solver, n_perturb, the background BY EFFECT; reported `random_seed` | F:1951-2024, F:2810 |
-| full-precision upload | `String(v)` per value; `parser._exact_columns` reads back bit for bit; `fitResult.uploadFull` | IH:6861-6862, P:168-195, IH:8850 |
-| legacy restore rule | `_restoredFitBgFailure`: the background the fit used (stored envelope less its components) against today's certified background on the fit's own samples (`_restoredFitGrid`); within `BG_RESTORE_REL` = 1e-3 → current; beyond → stale `{pct}`; uncheckable → peaks only; **a fit without `startsModelKey` is never current** (`unconfirmed = !fit.fitFrame`) | IH:9956-10087 (rule IH:10053), IH:10126; loaders IH:12136-12146, IH:12323-12327 |
-| support verdicts | `individual_peaks[].support`, bound by `p.support.fitKey` | CLAUDE.md "Not supported by the data"; IH:6988-6999 (`_applySupport(…, _startsLiveKey())`) |
-| identity tests | envelope = background + Σ components, page and server, to rounding | branch `test-envelope-identity` (2026-10-10, under review) |
+| window fix (Part 3, 1c) | inclusive `_bgWindowIndices` shared by preview and requests; the request converts its inclusive end to exclusive | IH:5125, IH:8171, IH:8734-8752 |
+| twins + parity (Part 4) | page backgrounds bit-identical to fitting.py ON THE TESTED CASES (five integral methods at averaging 1 / 3 / 10, both directions; linear and manual in their own tests) — evidence, not a universal proof | `tests/js/background_parity.test.js:82-94,164`; `tests/js/manual_background_statement.test.js:53` |
+| Shirley iterations (Part 5) | hidden and NUMERICALLY ignored; still read by the UI capture, the key and the serialisers | IH:3851, IH:5187, IH:8351, IH:8375 |
+| shirley_linear (Part 6) | off the menu; loads | IH:3868 |
+| the fit key | `startsModelKey` = JSON `{p, u, s, a}`: `_STARTS_MODEL_FIELDS`, `_STARTS_UI_FIELDS`, charge shift, anchors; stamped AFTER the result is applied | IH:8347-8358; runFit IH:8854, runFitLocal IH:9413, Auto-Fit IH:7803, `_restampSupport` IH:7666 |
+| comparison | `_sameFitKey` through each field's reader (`_fitKeyCanon`); defaults are NOT folded in | IH:8367-8393 |
+| in-flight discard | key captured before the first await; a result is discarded if the live key changed (it inherits the key's omissions) | IH:8747, IH:8789, IH:8831; Auto-Fit IH:8181, 8214, 8244 |
+| statistics states (F1) | none / stale / unverified (no key) / current | IH:8418-8426 |
+| certificate (A2) | Trust-Region restarts until the RELATIVE improvement < scipy's ftol, ≤ 50; `certificate {certified, restarts, moved, optimiser_flag, centre_moves, largest_centre_move}`; DE / basinhopping `null` | F:1868-1870, F:1873-1917 (relative: F:1898-1900), F:2815, F:2825-2831 |
+| scattered starts | the request seed's third stream; `starts` counts and alternatives | F:2482-2483, F:2044-2082, F:2152-2161; page IH:8744, IH:8779 |
+| background verdict | `background_certificate` → `{converged, residual, reason}`; `BackgroundNotConverged` → HTTP 422; page twins | F:1016, F:1286-1287, A:153-156, IH:4729, IH:5045-5068, IH:5178-5185 |
+| seed v2 | SHA-256 tag `xps-fit-seed-v2` over energies, counts, lineshapes, parameter roles by position, fit_kws, solver, n_perturb, the background by effect; `random_seed` | F:1951-2024, F:2810 |
+| full-precision upload | `String(v)`; `_exact_columns` reads it back; the parser still drops non-finite rows; `uploadFull` | IH:6861-6862, P:159-195, IH:8850 |
+| legacy restore rule | the implied background against today's on the fit's samples; current needs the background within `BG_RESTORE_REL · scale + BG_REL_TOL · envScale` AND the key and Voigt checks (`_statsState`); a fit without `startsModelKey` is never current | IH:9956-10087 (tolerance IH:10058, rule IH:10053), IH:8420-8422 |
+| support verdicts | bound by `p.support.fitKey` | IH:7637-7658, IH:6988-6999 |
+| envelope-identity tests | NOT ON MAIN: branch `test-envelope-identity`, under review | — |
 
-## V5.2 The gap between today and the goal (all VERIFIED unless marked)
+## V5.2 The gap between today and the goal (VERIFIED unless marked)
 
-1. **The seed is not saved.** `random_seed` is in the response (F:2810) and read nowhere on
-   the page (no occurrence in IH); `backendResult` is kept in memory only (IH:8850) and not
-   persisted by the project save (IH:11850-11878) or the spectrum save (IH:11753-11777). The
-   caller-seed override exists in `run_fit` (F:2331-2338, F:2472-2473) but the HTTP route
-   cannot reach it (A:135 passes `fit_kws={"method": fit_method}` only).
-2. **The request is not fully recorded.** The fit method is read from the dropdown at request
-   time (IH:8750; Auto-Fit IH:8173) and appears in neither key list (IH:8347-8351) nor the
-   saved `ui` (`_captureUI` records `ccMethod` but no fit method). `n_perturb`, `n_starts`,
-   `require_component` and Auto-Fit's `_afCenter*` / `_afFwhm*` bounds (IH:8185-8188) are not
-   in the key either. Consequence: changing the method keeps a result "current".
-3. **The certificate verdict is discarded.** Only a > 1 eV move survives, as
-   `fitResult.certificateMove` (IH:8853, IH:8546-8549); `certified`, `restarts`,
-   `optimiser_flag` exist only in the in-memory `backendResult`.
-4. **No software version anywhere.** No app version, commit or `__version__` in F, A, P or IH
-   (grep, NOT FOUND); the response has no version field (F:2791-2816). What exists: file
-   format versions (fit file 1 IH:11649, spectrum 2 IH:11780, project 3 IH:11903), the seed
-   tag (not in the response), timestamps.
-5. **The background verdict is not stored for a successful fit.** The spectrum save writes
-   `backgroundFailure` only on failure (IH:11779-11800); `fitResult` holds the page's own
-   `bgIntensity` (IH:8849-8855), not the server's `background_y`, and no
-   `{converged, residual}`.
-6. **The saves round.** The project save writes `be` to 4 dp and the curves to 6 significant
-   figures (IH:11826-11827); the spectrum save keeps full precision; the restore has to infer
-   which (`beExact`, IH:10150). A sealed record must be lossless (HYPOTHESIS: the size cost is
-   modest — to be measured on the committed projects before 1a).
-7. **Producers differ.** Auto-Fit's fitResult has no `starts`, `certificateMove`, `engine` or
-   `chosenAlternative` (IH:7795-7804); the local engine records no seed (it has none: it is
-   deterministic, IH:9057-9430) and no certificate (its coordinate certificate's
-   `certifyRestarts` is returned, IH:9429, not stored); Batch Fit is the local engine
-   (IH:13747).
-8. **Two loaders, two rules.** The spectrum loader copies statistics fields only when truthy
-   (IH:12105); the project loader takes the record verbatim (IH:12290). `statisticsState` /
-   `statisticsNote` are written to projects (IH:11878) and read only by the spectrum loader
-   (IH:12112-12120). `restoredStale` is written by the spectrum save only (IH:11769).
+1. **Seed unsaved, unreachable over HTTP.** `random_seed` (F:2810) is read nowhere on the page;
+   `backendResult` is memory-only (IH:8850); the caller seed exists in `run_fit` (F:2331-2338,
+   F:2472-2473) but A:135 passes only `fit_kws={"method": fit_method}`.
+2. **The request is not recorded.** The method is read at request time (IH:8750; Auto-Fit
+   IH:8173) and is in neither key list (IH:8347-8351) nor `_captureUI` (IH:3846); `n_perturb`,
+   `n_starts`, `require_component`, Auto-Fit's `_afCenter*` / `_afFwhm*` overlays (IH:8183-8188)
+   are not in the key; and the key is taken AFTER the result is applied, so it describes the
+   applied model, never the starting request (IH:8854; CLAUDE.md "What seeding buys").
+3. **The certificate verdict is not persisted** (only a > 1 eV move: IH:8853, IH:8546-8549); the
+   full one lives in the memory-only `backendResult`.
+4. **No software or environment identity** in F, A, P, IH (grep: NOT FOUND) or the response
+   (F:2791-2816); `requirements.txt:9-11` allows NumPy / SciPy / lmfit to change under one app
+   commit, and `CERTIFY_FTOL` is read from the installed SciPy (F:1868).
+5. **The successful background verdict is not stored**; the spectrum save writes
+   `backgroundFailure: null` on success (IH:11779-11800); `fitResult` holds the page's own
+   `bgIntensity` (IH:8849-8855), not the server's `background_y`.
+6. **The project save rounds** `be` (4 dp), `bgIntensity` and `bgSubtracted` (6 significant
+   figures) and keeps `fittedY` at full precision (IH:11826-11827, IH:11852-11860); the
+   spectrum save keeps full precision.
+7. **Producers differ.** Auto-Fit: no `starts`, `certificateMove`, `engine` (IH:7795-7804); the
+   local engine: deterministic, no seed, its coordinate certificate's count returned (IH:9429)
+   but not stored; Batch Fit is the local engine (IH:13747).
+8. **Two loaders.** The spectrum loader assigns `chi`, `chiReduced`, `rmse` directly and copies
+   selected metadata and `rFactor` only when truthy (IH:12104-12113); the project loader takes
+   the record verbatim (IH:12290); `statisticsState` is read by the spectrum loader only
+   (IH:12112-12120); `statisticsNote` is written (IH:8450) and never read.
+9. **Readers that bypass any one accessor**: the chart's frozen-fit path (IH:10940-10976), the
+   uncertainty display from `backendResult` (IH:9461-9465), `_validateUncertainties`
+   (IH:13172), `_computeRFactor`'s fallback to live `state.peaks` (IH:13073), the history's
+   shallow copies (IH:15517, IH:15665), the alternative preview's `_historyPreview.altKey`
+   (IH:8501).
 
-## V5.3 The record
+## V5.3 Three records, three questions
 
-One object, `fitResult.sealed`, written by the producer at the moment the result is applied,
-persisted LOSSLESSLY in both save formats, and the only thing a consumer of fit evidence reads:
+The owner's sentence asks three different things, and round 1 showed that one record answering
+all three gives each a wrong answer. `fitResult.sealed` therefore has three parts, each
+immutable once written, each with one purpose:
 
-```
-sealed = {
-  schema: 'xps-sealed-fit/1',
-  software: { app: <version>, commit: <git sha>, seedTag: 'xps-fit-seed-v2', engine: 'server' | 'local' },
-  request: {                       // EXACTLY what was sent, canonical JSON (the proof's anchor)
-    energies, counts,              // as uploaded (full precision: identical to the tab's raw arrays
-                                   //   in the ROI — stored as a digest + index range, HYPOTHESIS)
-    peaks: [ <the peakSpecs sent> ], background: <the bg spec sent>, roi, chargeShift,
-    method, n_perturb, n_starts, require_component | null, solver options
-  },
-  seed: <random_seed returned>,    // server only
-  response: {                      // the server's own arrays, full precision
-    energy, background_y, fitted_y, individual_peaks: [{ id, shape, params, y, support }],
-    statistics, certificate, starts (counts AND alternatives' parameter sets), required
-  },
-  verdicts: {
-    background: { method, converged, residual, reason },     // from the server (new response field)
-    certificate: { certified, restarts, moved, optimiser_flag } | null,
-    identity: <the envelope = background + Σ components check, run by the producer>
-  },
-  page: { fitKey: <_startsLiveKey() after apply>, appliedPeaks: <peak params as applied> },
-  frame: { ccShift }                                          // as v4 Part 1 / R4-A1
-}
-```
+**R — the replay record: what was computed.** Exactly the inputs the server's `run_fit`
+received, in ITS frame, never transformed:
+- the parsed session arrays as `run_fit` saw them: energies (already charge-corrected by the
+  page, `_roiSelect` IH:5513-5525: `rawBE[i] − ccShift`), counts, in order, inline (a digest
+  cannot regenerate) — plus the index list `_roiSelect` returned into the tab's raw arrays;
+- every peak spec AS SENT, starting values included, with Auto-Fit's overlays (IH:8183-8188) and
+  links (`constrain_to`, splitting, ratio) — the exact JSON the request carried;
+- the background spec as sent: method, `start_idx`, exclusive `end_idx`, `endpoint_avg` as
+  parsed, every manual anchor pair (A:79-88);
+- method, `n_perturb`, `n_starts`, `require_component`, `charge_shift_ev` (0 over HTTP, A:134 —
+  recorded so a replay never applies the shift twice), the seed (`random_seed` returned, or the
+  caller's), and the RESOLVED solver configuration;
+- the environment: app version and commit (with a dirty flag), the page build's own hash, and
+  the NumPy / SciPy / lmfit versions (HYPOTHESIS: obtainable at server start; the page hash from
+  the served template).
+- For the local engine (and Batch Fit) R is its own recipe — the background and net arrays it
+  was given, the peak objects as it read them, `maxIterations`, LA's held `caM` (IH:9057-9080,
+  IH:9111-9117) — never a server request.
 
-Notes:
-- `request` replaces v4's `settingsSnapshot` and is the key: "the live state matches the
-  seal" means *the request the live state would send equals `sealed.request`* — built by the
-  SAME builder the fit uses (`peakToBackendSpec`, the background spec, the ROI selection), so
-  the key can never list fields the request does not read or miss ones it does (this closes
-  gap 2 by construction; the Round-6 instruction "one function, one field list"). Cosmetic
-  fields (name, colour, visibility) are not in a request (VERIFIED for name/colour: the seed
-  hashes by effect, F:1967-2024; HYPOTHESIS for every builder field — to be checked
-  field by field in 1a).
-- The server adds `software` and the background verdict to the response (new fields; additive).
-  HYPOTHESIS: `git rev-parse HEAD` at app start (the LaunchAgent serves the working tree,
-  DEPLOY.md) gives the commit; a VERSION file written by the deploy step gives `app`.
-- Auto-Fit seals after its final charge shift with v4's R4-A1 transform; the local engine and
-  Batch Fit seal `engine: 'local'` records with no seed, no server certificate (its own
-  coordinate certificate's verdict instead), and stay "a starting point".
+**O — the output: what the computation returned.** The whole response, verbatim and full
+precision: `success`, `message`, `energy`, `counts`, `fitted_y`, `background_y`, `residuals`,
+`individual_peaks` (`id`, `shape`, `params` with stderr and bounds, `y`, `support`),
+`statistics`, `certificate`, `starts` (with the alternatives' parameter sets), `required`,
+`random_seed`, `charge_shift_applied` (F:2791-2816), plus NEW `background_verdict
+{method, converged, residual, reason}` (additive). One copy: nothing else stores a
+certificate.
 
-## V5.4 "Current" is a proof, checked on every read and on load
+**D — the display binding: what the page shows from it.** The model as applied (each peak's
+fields the display and the next request read — `_STARTS_MODEL_FIELDS` — after
+`applyBackendResult`), the context (the `_STARTS_UI_FIELDS`, anchors, ccShift), the DISPLAY
+transform from R's frame to the shown frame (identity, or Auto-Fit's final charge shift
+recorded as a transform — round 1 run A: a rigid shift is not bit-invariant, so R is never
+rewritten), `chosenAlternative`, the engine, and `reportable`. D replaces `startsModelKey`;
+there is one canonicalisation (`_fitKeyCanon`'s readers) and no second key.
 
-A loaded (or live) fit is CURRENT only if ALL of these hold; otherwise it is STALE (statistics
-withheld, F1's rules, with the failed step named) or, if the record is unusable, PEAKS-ONLY:
+The fit method is a setting of the NEXT fit: changing the dropdown does not change what the
+statistics describe (they describe the fit R records, made with R's method). Revision 1's gap 2
+"changing the method keeps a result current" is therefore correct behaviour, now recorded:
+the shown result names its method from R.
 
-1. **Integrity:** `sealed.schema` known; the record's own arrays are finite and consistent
-   (lengths; `fitted_y = background_y + Σ y` within the identity bound of
-   `tests/envelope_identity.py`, incl. its FFT term).
-2. **Same request:** the request the live state would send (same builder) equals
-   `sealed.request` under the readers' canonicalisation (`_fitKeyCanon`'s rule). Covers the
-   model, the locks, the bounds, the method and the run settings, the window, ROI, anchors,
-   charge shift and the data.
-3. **Same background:** today's certified background for `sealed.request` (the page twin, which
-   is bit-identical to the server's on the tested cases — VERIFIED by
-   `tests/js/background_parity.test.js`) equals `sealed.response.background_y` EXACTLY (no
-   tolerance: same arithmetic, same inputs). Different → stale "background changed" with the
-   size (today's message, `_bgStaleNote`).
-4. **Same lineshapes:** the page's evaluators at `sealed.response.individual_peaks[].params`
-   reproduce each `y` within the identity bound (the drawn curves are the fitted ones).
-5. **Verdicts:** `verdicts.background.converged` and, for a local method,
-   `verdicts.certificate.certified` are true.
-6. **Software:** `sealed.software.commit` equals the running commit → steps 1–5 suffice.
-   Different commit → steps 1–5 still decide, AND the record is marked "made by version X"
-   (HYPOTHESIS for the owner: is a different version alone a reason to be stale? Steps 3–4
-   already detect every change that alters what is drawn or the background; a change in the
-   optimiser itself would not be detected without regeneration — see step 7).
-7. **Regeneration (optional, explicit):** "Verify by re-running": the page sends
-   `sealed.request` with `seed: sealed.seed` (a new, validated request field; the server
-   already supports a caller seed in run_fit, F:2331-2338) and compares the reply with
-   `sealed.response` WITHIN ROUNDING (`tests/fit_equality.py`'s rules, ported). Equal → the
-   proof is complete; different → stale "a re-run gives a different result" with what moved.
-   Trust-Region is not bit-reproducible (CLAUDE.md, owner 2026-09-21) — hence within rounding,
-   never byte equality; a fit near a basin boundary can legitimately fail this step, and the
-   scattered-starts line already says such a fit is not unique.
+## V5.4 The states, each with its own proof
 
-No magnitude tolerance is introduced anywhere (design rule "thresholds on data-scaled
-quantities fail"): steps 2–3 are exact, 1 and 4 use the derived rounding bound, 7 uses the
-existing fit-equality rules.
+**DISPLAY-CURRENT — the statistics shown describe what is shown.** All of:
+1. *O is internally consistent* — finite; lengths and `energy` match R's energies exactly;
+   component ids and shapes match R's specs one to one; `fitted_y = background_y + Σ y` within
+   the derived summation bound (`tests/envelope_identity.py`, its FFT term for DS+G);
+   `residuals = counts − fitted_y` exactly as the server forms it; and the STATISTICS RECOMPUTED
+   from O's own arrays agree: χ² = Σ ((counts − background − fitted_sub) · w)², w =
+   1/√max(counts, 1) (F:2433-2434), dof = n_data − n_free, χ²ᵣ, R = Σ|y_sub − fitted_sub| /
+   Σ|y_sub| (F:2776-2777), RMSE, each within the derived summation bound for its own sum (γ_n of
+   its terms; HYPOTHESIS: n_free recoverable from O's `params[].vary` / `expr` — to verify in
+   1b). The uncertainties (σ) are NOT re-derivable from O; they are reported as the server's
+   for R (stated limit; `tests/fit_equality.py` does not compare them either).
+2. *The fit was accepted* — `O.success === true` (the page's rule, IH:8812); a local server
+   method's `O.certificate.certified`; for DE / basinhopping their own verdict is `success`
+   (F:2780-2788); `O.background_verdict.converged`.
+3. *The page shows O* — D's applied model is exactly what `applyBackendResult` produces from O
+   (re-run it on O and compare exactly); the live model and context equal D exactly (the same
+   canonicalisation); and while DISPLAY-CURRENT the chart draws O's own component curves and
+   envelope (`individual_peaks[].y`, `fitted_y`, `background_y`) transformed by D — v4 Part 1's
+   rule — so no page-versus-server evaluator bound is needed (round 1: a Gaussian differs by
+   up to 85× a pointwise 12u bound in a far tail; the page's evaluators are for drawing an
+   EDITED model, which is not current anyway).
+4. *The background is today's* — the page's certified background for R's own arrays and spec
+   (through ONE adapter from R's indices / anchors to the twin's inputs) equals `O.background_y`
+   exactly. HYPOTHESIS (to be proven in 1b on the committed set and the parity cases, not
+   assumed): the twins are bit-identical for every R the app can produce. Where it does not hold
+   — a different background arithmetic in a later version — the state is STALE "background
+   changed" with the size (today's `_bgStaleNote`), the same as the restore rule.
+If any step fails: STALE (F1's rules, the failed step named) or, if R / O are unusable,
+PEAKS-ONLY.
+
+**PROVENANCE-COMPLETE** — R carries every field above with an environment. A fit can be
+display-current without it (a local fit, or a server that did not report its environment); the
+page says which.
+
+**REPLAY-CHECKED (on demand, never automatic, never a currency verdict)** — "Re-run this fit":
+the page sends R (with its seed, a new validated HTTP field mapping to `fit_kws.fit_kws.seed`)
+and reports one of: *reproduced within rounding* (`tests/fit_equality.py`'s same-minimum rules,
+ported, with its stated exclusions: σ and certificate details); *a re-run reached a different
+solution* (the fit is not unique — the scattered-starts line's message, owner 2026-09-21: an
+accepted, disclosed property, NOT stale); *different software* (R's environment ≠ the
+server's: the outcome is reported as such). The fraction of the 202 committed targets that
+reproduce under this comparator is UNMEASURED — HYPOTHESIS until measured before 1e.
+
+Tolerances, named: steps 1 and the identity use DERIVED rounding bounds (summation γ_n, the FFT
+term), steps 3–4 are exact, replay uses `fit_equality`'s documented relative rules — a
+same-minimum comparison, used only for REPLAY-CHECKED, never for currency.
 
 ## V5.5 Legacy saves
 
-- **No seal and no fit key** (every save before 2026-09-25, all 121 committed fits): NEVER
-  current (owner 2026-10-05). The existing restore rule stays as the legacy adapter: stale with
-  the reconstructed difference, or peaks only (VERIFIED IH:10053, IH:10072-10073). Unchanged.
-- **Fit key but no seal** (saves 2026-09-25 → seal deploy): today the restore rule can make them
-  current (VERIFIED: keyed, background within `BG_RESTORE_REL`). OWNER DECISION Q1: keep that
-  (they were fitted by a version with the fit key and the certificate), or treat them like
-  keyless saves (never current; "press Run Fit") because they lack the seed and the method
-  (gap 1–2)? Recommendation: never current — the proof cannot be completed without the method,
-  and the student note already tells students to re-run older saves.
+- **No seal, no key** (every save before 2026-09-25; all 121 committed fits — VERIFIED: no
+  `startsModelKey` in the seven committed project archives): never current (owner
+  2026-10-05); the restore rule stays as the adapter (stale with the reconstructed difference,
+  or peaks only).
+- **Key, no seal** (saves 2026-09-25 → the seal): RECOMMENDATION (owner Q1): never current
+  under the new contract — they lack R (the starting request, method, seed, environment) and O
+  (the server's arrays); saves before 2026-09-29 also predate the certificate. Their own curves
+  and the restore rule's explanation stay. This TIGHTENS the shipped keyed restore rule; its
+  tests change accordingly (they cannot all stay unchanged).
 - **Sealed:** V5.4.
 
-## V5.6 Retired at migration (one mechanism, per the Round-6 instruction)
+## V5.6 Migration: one accessor, everything else a view
 
-`startsModelKey`, `restoredKey`, `loadKey`, `p.support.fitKey`, `certificateMove`'s own binding,
-`backgroundStale` / `voigtStale` as restore-time flags, `statisticsState` / `statisticsNote` in
-saves, `_preFit`, `backendResult` in memory, the separate spectrum / project field lists
-(gap 8): all become views of `sealed` and its proof. Acceptance tests that must pass unchanged
-in behaviour: `tests/js/scattered_starts.test.js`, `tests/js/unsupported_components.test.js`,
-`tests/js/stale_statistics.test.js`, `tests/js/certificate_move_notice.test.js`,
-`tests/js/background_not_converged.test.js` (restore), `tests/test_browser_background_not_converged.py`,
-and the new envelope-identity tests.
+`sealedState(fr, live)` → DISPLAY-CURRENT / STALE(step) / PEAKS-ONLY, and the only reader of R, O
+and D. Every consumer below switches in the same release (round 1: a mixed release can show one
+result with another's statistics, lose σ, or drop the seal on re-save):
+the chart (IH:10940-10976), Results / header / R panel, the uncertainty display (IH:9461-9465)
+and `_validateUncertainties` (IH:13172), `_computeRFactor` (its live-peaks fallback IH:13073
+goes), CSV / XLSX / TSV / figure exports, Quantify, stack Paths A / A2 / B, history snapshots
+(deep copies of the seal), the alternatives panel and preview (`_historyPreview.altKey`
+IH:8501), the support badges, the certificate notice, both saves and both loaders (one
+function; the seal persisted losslessly).
+Retired (become views of the seal, or live only inside the legacy adapter, never authorising a
+seal): `startsModelKey`, `restoredKey`, `loadKey`, `p.support.fitKey`, `certificateMove`,
+`backgroundStale`, `voigtStale`, `restoredStale`, `statisticsState`, `statisticsNote`,
+`_preFit`, `backendResult`, `beShift`, `beExact`, `uploadFull`, `_modelBe`, `fitCounts`, and
+`p._backendParams` outside the legacy Voigt reading (IH:6995, IH:10423). Kept: the operation
+tokens (`_fitOpCurrent` and friends) — they decide which operation may apply a result, a
+different question.
 
 ## V5.7 Owner decisions requested
 
-- Q1 (V5.5): keyed-but-unsealed saves — current via the restore rule, or never current?
-- Q2 (V5.4 step 6): is a different software commit by itself a reason for stale?
-- Q3 (V5.4 step 7): regeneration on demand (a button), automatically on load (a server job per
-  fit — cost: one fit per tab), or not at all?
-- Q4 (V5.3): store the uploaded data in the seal (lossless, self-contained) or a digest + the
-  tab's raw arrays (smaller; the raw arrays are already saved — HYPOTHESIS that they are always
-  the uploaded values at full precision since 2026-10-03)?
-- Q5: the alternatives' parameter sets — persist them (the panel survives a reload) or keep
-  today's counts-only save (IH:8508-8517) and regenerate on demand (needs the seed, Q3)?
+- Q1 (V5.5): keyed-but-unsealed saves never current (recommended)?
+- Q2: REPLAY-CHECKED on demand only (recommended), or also automatic on load (one server fit
+  per tab)?
+- Q3: persist the alternatives' parameter sets in O (the panel survives a reload; recommended)
+  or counts only as today?
+- Q4: environment identity — is "different software" shown as a provenance note only
+  (recommended), or does it withhold the statistics?
 
 ## V5.8 Ship order (after approval)
 
-1a. Server: `software` + background verdict in the response; the request seed accepted over
-    HTTP (validated, as `fit_kws.fit_kws.seed`). Additive; tests.
-1b. Page producers write `sealed` (runFit, Use this solution, Auto-Fit, local engine, Batch
-    Fit); both saves persist it losslessly; both loaders read it through ONE function.
-1c. The proof (V5.4 steps 1–6) as the single currency test; consumers switch (V5.6 list).
-1d. Retire the parallel mechanisms; the legacy adapter routes keyless / unsealed saves.
-1e. (Q3) regeneration.
-Each with Codex ×2; 1b–1d one branch (mixed consumers are a transient hazard, v4 R4-6).
+1a. Server: `background_verdict`, the environment in the response, the seed over HTTP
+    (validated). Additive; tests.
+1b. Prove V5.4 step 4's HYPOTHESIS (twins bit-identical for every R the app produces) on the
+    committed set and the parity cases; measure the seal's size; measure REPLAY reproduction on
+    the 202 targets.
+1c. Producers write R / O / D (runFit, Use this solution, Auto-Fit, local, Batch); both saves and
+    both loaders persist and read them losslessly; `sealedState` and every V5.6 consumer switch
+    together; the legacy adapter routes unsealed saves. One branch, one release.
+1d. REPLAY-CHECKED (Q2).
+Each with Codex ×2.
