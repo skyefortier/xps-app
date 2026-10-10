@@ -62,7 +62,11 @@ DRAWN = """() => {
     const xs = d => d.data.map(p => p.x), ys = d => d.data.map(p => p.y);
     const b = ys(bg);
     const br = state.fitResult && state.fitResult.backendResult;
-    return { envX: xs(env), bgX: xs(bg), compX: comps.map(xs),
+    // as DRAWN means visible (Codex round 3: Chart.js hides a dataset by its `hidden` flag or its
+    // metadata; isDatasetVisible reads both) — a hidden component is not on the chart
+    const vis = d => state.chart.isDatasetVisible(ds.indexOf(d));
+    return { visible: { env: vis(env), bg: vis(bg), comps: comps.map(vis) },
+             envX: xs(env), bgX: xs(bg), compX: comps.map(xs),
              env: ys(env), bg: b, comps: comps.map(c => ys(c).map((v, i) => v - b[i])),
              ids: comps.map(c => String(c._peakId)), amps: comps.map(c => state.peaks.find(p => p.id === c._peakId).amplitude),
              server: br ? { fitted_y: br.fitted_y, background_y: br.background_y,
@@ -77,6 +81,10 @@ PARITY = 1e-6        # of a component's amplitude: tests/js/lineshape_roundtrip.
 
 
 def _same_grid(d):
+    # (every fixture here shows every component: a peak the student hides is a display choice,
+    # outside this identity — so a hidden one here is a defect)
+    v = d["visible"]
+    assert v["env"] and v["bg"] and all(v["comps"]), f"not every curve is visible on the chart: {v}"
     assert d["bgX"] == d["envX"] and all(x == d["envX"] for x in d["compX"]), "the drawn curves are not on one x-grid"
 
 
@@ -284,5 +292,18 @@ def test_a_component_not_drawn_after_a_fit_breaks_it(browser, server):
             ds.splice(ds.findIndex(d => d._peakId !== undefined), 1); }""")
         with pytest.raises(AssertionError, match="are not the server's"):
             _check_fitted(pg.evaluate(DRAWN), "a component not drawn")
+    finally:
+        pg.close()
+
+
+def test_a_component_hidden_on_the_chart_after_a_fit_breaks_it(browser, server):
+    # Codex round 3: a dataset hidden through Chart.js counted as drawn
+    pg = _new_page(browser, server)
+    try:
+        _fit(pg, "Gaussian")
+        pg.evaluate("""() => { const ds = state.chart.data.datasets;
+            state.chart.setDatasetVisibility(ds.findIndex(d => d._peakId !== undefined), false); state.chart.update('none'); }""")
+        with pytest.raises(AssertionError, match="not every curve is visible"):
+            _check_fitted(pg.evaluate(DRAWN), "a hidden component")
     finally:
         pg.close()

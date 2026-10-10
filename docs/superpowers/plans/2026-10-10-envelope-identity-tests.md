@@ -56,6 +56,11 @@ states the exact factor 4 γ_K / (1 − γ_K)² and allocates the second-order, 
 final-multiplication terms (≈ 4 u |c| at K = 1167) to the summation term's margin
 ((2 n + 8) u S ≥ 10 u S).
 
+Codex round 3 (NO-GO ×2, one MAJOR): a component hidden through Chart.js still counted as drawn.
+Now the envelope, the background and every component must be visible (`chart.isDatasetVisible`,
+which reads the dataset flag and its metadata); new proof: a component hidden after a fit fails.
+(A peak the student hides is a display choice outside this identity; every fixture shows all.)
+
 The sections below are round 1's text, kept for the record; where they differ, the sections above govern.
 
 ## The bound (`tests/envelope_identity.py`)
