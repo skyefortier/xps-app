@@ -29,18 +29,36 @@ test('a helper that finishes returns its output; its own failure is reported as 
                 e => e.status === 3 && !/did not finish/.test(e.message));
 });
 
-test('every call has a budget: the default applies when a caller gives none', () => {
-  assert.ok(Number.isFinite(HELPER_TIMEOUT_MS) && HELPER_TIMEOUT_MS > 0);
+test('every call has a budget: the default applies when a caller gives none, and no caller can disable it', () => {
+  assert.ok(Number.isInteger(HELPER_TIMEOUT_MS) && HELPER_TIMEOUT_MS > 0);
+  for (const bad of [0, -1, 1.5, NaN, Infinity, '1000'])          // (null / undefined: none given, the default applies)
+    assert.throws(() => runHelper(NODE, ['-e', ''], { timeout: bad }), /the timeout must be a positive whole number of milliseconds/, String(bad));
 });
 
+test('an output beyond maxBuffer is still ENOBUFS (only the signal Node used reads SIGKILL)', () => {
+  assert.throws(() => runHelper(NODE, ['-e', 'process.stdout.write("x".repeat(4096))'], { encoding: 'utf8', maxBuffer: 2048 }),
+                e => e.code === 'ENOBUFS' && !/did not finish/.test(e.message));
+});
+
+// Every file node can load from tests/js (any depth, .js / .mjs / .cjs) and the CI reporter; this
+// file included — its patterns are built from pieces so that they do not match themselves.
+function* sources(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) { if (e.name !== 'node_modules') yield* sources(p); }
+    else if (/\.(c|m)?js$/.test(e.name)) yield p;
+  }
+}
 test('no JS test starts a process except through runHelper', () => {
-  const dir = __dirname;
-  const self = path.basename(__filename);                  // this file names the patterns it looks for
-  const files = fs.readdirSync(dir).filter(n => n.endsWith('.js') && n !== '_helper_process.js' && n !== self);
-  assert.ok(files.length >= 30 && files.includes('lineshape_parity.test.js'), files.length + ' files scanned');
-  for (const f of files) {
-    const src = fs.readFileSync(path.join(dir, f), 'utf8');
-    assert.ok(!/child_process/.test(src.replace(/\/\/.*$/gm, '')), `${f} requires child_process directly`);
-    assert.ok(!/\b(execFileSync|execSync|spawnSync|execFile|spawn|fork)\s*\(/.test(src.replace(/\/\/.*$/gm, '')), `${f} starts a process directly`);
+  const MODULE = new RegExp(['child', 'process'].join('_'));
+  // a call of one of the module's functions — not a method of the same name (RegExp.prototype.exec)
+  const LAUNCH = new RegExp('(^|[^.\\w$])(' + ['execFileSync', 'execSync', 'spawnSync', 'execFile', 'spawn', 'fork', 'exec'].join('|') + ')\\s*\\(', 'm');
+  const files = [...sources(__dirname), path.join(__dirname, '../../scripts/ci_node_events_reporter.mjs')]
+    .filter(p => path.basename(p) !== '_helper_process.js');
+  assert.ok(files.length >= 30 && files.some(p => p.endsWith('lineshape_parity.test.js')) && files.some(p => p.endsWith('helper_timeout.test.js')), files.length + ' files');
+  for (const p of files) {
+    const src = fs.readFileSync(p, 'utf8');                 // comments included: a mention is a finding too
+    assert.ok(!MODULE.test(src), `${path.relative(__dirname, p)} names the process module directly`);
+    assert.ok(!LAUNCH.test(src), `${path.relative(__dirname, p)} starts a process directly`);
   }
 });

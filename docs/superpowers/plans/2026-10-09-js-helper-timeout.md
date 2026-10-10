@@ -20,16 +20,29 @@ so the suite never finished. A rerun detached with `< /dev/null` passed.
   `killSignal: 'SIGKILL'`; on `ETIMEDOUT` it throws `helper process "python3
   lineshape_parity_backend.py" did not finish within 300 s and was killed (a stalled helper
   fails the test instead of hanging the run)`. Any other failure of the helper is reported
-  as before. `XPS_HELPER_LOG` appends each call's duration (used for the budget below).
+  as before — with one stated exception: SIGKILL (so a helper that ignores SIGTERM is stopped
+  too) is also the signal Node uses when it kills a helper whose output exceeds `maxBuffer`, so
+  that error is still `ENOBUFS` but its `signal` reads SIGKILL instead of SIGTERM (no caller
+  reads it; pinned). A timeout that is not a positive whole number of ms (0 would disable
+  Node's deadline) is refused. `XPS_HELPER_LOG` appends each call's duration (used for the
+  budget below).
 - Every helper call in `tests/js/` (10 calls in 6 files: lineshape_parity, lineshape_roundtrip,
   background_parity, background_not_converged, manual_background_statement, local_lm_descent)
   goes through it; no test file requires `child_process`.
 - `tests/js/helper_timeout.test.js`: a helper that never reads its input and never exits is
   killed at its timeout with the plain message, promptly; so is one blocked on an input larger
   than the pipe buffer; a finishing helper returns its output and a failing one reports its own
-  status, not a timeout; the default budget is finite; and no JS test file starts a process
-  except through `runHelper` (source scan of every file in `tests/js/`).
-- CI JS floor 582 → 587.
+  status, not a timeout; a buffer overflow is still ENOBUFS; no caller can pass a timeout that
+  disables the deadline (0, negative, fractional, NaN, Infinity, a string); and no file node can
+  load from `tests/js/` (any depth, `.js` / `.mjs` / `.cjs`, the test file itself) or the CI
+  reporter names the process module or calls one of its launch functions (comments included).
+  Its limit: a static scan cannot see a module name built at run time. Mutation-checked: an
+  aliased import behind a string holding `//`, a launch in a nested `.mjs`, and removing the
+  timeout validation each fail a test.
+- Codex round 1 (NO-GO x2): `timeout: 0` disabled the deadline; the scan skipped itself,
+  nested modules, `.mjs` / `.cjs` and the reporter and stripped `//` inside strings; the
+  SIGKILL side effect on ENOBUFS was unstated. All fixed as above.
+- CI JS floor 582 → 588.
 
 ## The budget
 

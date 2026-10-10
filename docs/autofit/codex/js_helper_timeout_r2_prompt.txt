@@ -1,0 +1,10 @@
+Review the "JS helper processes cannot hang" unit, round 2: branch fix-js-helper-timeout; this unit = git diff main..HEAD (main = 62de33b); this round = the commit after round 1's (see git log). Round 1: docs/autofit/codex/js_helper_timeout_r1_verdict_run{A,B}.md (NO-GO x2). Everything else as in docs/autofit/codex/js_helper_timeout_r1_prompt.txt.
+
+Round-1 findings and their fixes:
+1. MAJOR (A, B): `timeout: 0` disabled Node's deadline. runHelper now refuses any effective timeout that is not a positive whole number of ms (TypeError); tested for 0, -1, 1.5, NaN, Infinity, '1000' (null / undefined mean "none given": the default applies).
+2. MAJOR (B; MINOR in A): the source scan skipped itself, nested modules, .mjs / .cjs and the CI reporter, and stripped "//" inside strings. It now reads every .js / .mjs / .cjs file under tests/js at any depth (node_modules excepted), the test file itself (its patterns are built from pieces) and scripts/ci_node_events_reporter.mjs, with comments INCLUDED, for the process module's name and for a call of its launch functions (not a method of the same name — RegExp.prototype.exec in the vendored acorn). Stated limit: a name built at run time is beyond a static scan. Mutation-checked (plan).
+3. MAJOR (B): SIGKILL also changes the `signal` of an ENOBUFS error (Node kills an over-maxBuffer helper with killSignal). KEPT, by design and now stated: SIGKILL is what stops a helper that ignores SIGTERM (round 1 run A's probe); the error is still ENOBUFS with its message and status; no caller reads `signal`; pinned by a test. Judge whether this is acceptable — if you hold that any caller-visible difference is a defect, say which caller could observe it.
+
+Also re-check anything round 1 did not reach (incl. the CI floor 588). Severity as in round 1. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
