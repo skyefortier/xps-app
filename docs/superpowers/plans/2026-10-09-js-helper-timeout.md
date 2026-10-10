@@ -42,7 +42,13 @@ so the suite never finished. A rerun detached with `< /dev/null` passed.
 - Codex round 1 (NO-GO x2): `timeout: 0` disabled the deadline; the scan skipped itself,
   nested modules, `.mjs` / `.cjs` and the reporter and stripped `//` inside strings; the
   SIGKILL side effect on ENOBUFS was unstated. All fixed as above.
-- CI JS floor 582 → 588.
+- Codex round 2 (NO-GO x2, one finding): the wrapper was exempted by its NAME, so a nested
+  `lib/_helper_process.js` passed unread. Now only its exact path is exempt, and a test runs the
+  same scan over a temporary tree (the wrapper, a nested namesake, an `.mjs`, a `.cjs` behind
+  a string holding `//`, a RegExp `.exec`) and requires exactly the three launches to be found
+  (mutation-checked: the name-based exemption fails it). The ENOBUFS test now asserts the
+  SIGKILL signal it pins (round 2 run A, MINOR).
+- CI JS floor 582 → 589.
 
 ## The budget
 
