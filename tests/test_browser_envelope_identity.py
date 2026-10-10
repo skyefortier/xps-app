@@ -1,6 +1,13 @@
 """Real browser, real server (owner 2026-10-10): the envelope the page DRAWS is the background
-it draws plus the sum of the components it draws, to rounding — after a server fit, after the
-student edits a peak, and with components locked at their bounds; for every lineshape.
+it draws plus the sum of the components it draws — after a server fit, after the student edits
+a peak, and with components locked at their bounds; for every lineshape. On a common x-grid
+always. After an EDIT the page draws everything with its own arithmetic: the identity holds
+to rounding (tests/envelope_identity.py). After a FIT the drawn envelope and background are
+the server's arrays — required EXACTLY — the server's own identity holds to rounding, and
+each drawn component (the page's JavaScript evaluator) equals the server's component curve
+within the page-server PARITY tolerance, 1e-6 of its amplitude
+(tests/js/lineshape_roundtrip.test.js TIGHT_TOL): two implementations of a formula, not a
+rounding bound (tests/envelope_identity.py says why).
 
 The 2026-09-17 report (an envelope above the sum of its components on a UCl4 spectrum) was
 this identity broken: the page drew asym-GL with a width that grew with distance from the
@@ -11,7 +18,7 @@ import pytest
 
 pytest.importorskip("playwright.sync_api")
 from test_browser_find_peaks_full_window import _new_page, browser, server  # noqa: E402,F401
-from envelope_identity import envelope_gap, fft_term  # noqa: E402
+from envelope_identity import conv_term, envelope_gap  # noqa: E402
 
 # a U 4f-like spectrum; the shape under test on both main lines, a GL satellite, a Gaussian
 TAB = """(shape) => {
@@ -45,39 +52,65 @@ FIT = """async () => {
     return { engine: state.fitResult && state.fitResult.engine, n: window.__n, have: !!state.fitResult };
 }"""
 
-# what the chart draws: the envelope ('Fit…'), the background and each component (drawn on it)
+# what the chart draws: the envelope ('Fit…'), the background and each component (drawn on it),
+# with their x-coordinates; and the server's own arrays for the fit on show
 DRAWN = """() => {
     const ds = state.chart.data.datasets;
     const env = ds.find(d => /^Fit/.test(d.label || ''));
     const bg = ds.find(d => d.label === 'Background');
     const comps = ds.filter(d => d._peakId !== undefined);
-    const ys = d => d.data.map(p => p.y);
+    const xs = d => d.data.map(p => p.x), ys = d => d.data.map(p => p.y);
     const b = ys(bg);
-    // each DS+G component's FFT norms, from a copy of the page's own evaluator at its fitted values
-    const probe = new Function('return ' + dsgConvolved_array.toString().replace(
-      'if (!(peakVal > 0)) return new Array(N).fill(0);',
-      'let L = 1; while (L < 2 * nTot - 1) L <<= 1; let d1 = 0, d2 = 0, k1 = 0, k2 = 0;' +
-      ' for (let t = 0; t < nTot; t++) { d1 += Math.abs(ds[t]); d2 += ds[t] * ds[t]; k1 += Math.abs(ks[t]); k2 += ks[t] * ks[t]; }' +
-      ' window.__dsgNorm = { M: Math.max(Math.sqrt(d2) * k1, d1 * Math.sqrt(k2)), peakVal, L };' +
-      ' if (!(peakVal > 0)) return new Array(N).fill(0);'))();
-    const plotBE = state.fitResult && state.fitResult.be || env.data.map(p => p.x);
-    const fft = state.peaks.filter(p => p.shape === 'DSG_LA').map(p => {
-      window.__dsgNorm = null; probe(plotBE, p.center, p.laAlpha, p.laBeta, p.laM);
-      return window.__dsgNorm && { amplitude: p.amplitude, ...window.__dsgNorm }; }).filter(Boolean);
-    return { env: ys(env), bg: b, comps: comps.map(c => ys(c).map((v, i) => v - b[i])), fft,
-             ids: comps.map(c => c._peakId), envFromServer: !!(state.fitResult && state.fitResult.fittedY && ys(env).every((v, i) => v === state.fitResult.fittedY[i])),
+    const br = state.fitResult && state.fitResult.backendResult;
+    return { envX: xs(env), bgX: xs(bg), compX: comps.map(xs),
+             env: ys(env), bg: b, comps: comps.map(c => ys(c).map((v, i) => v - b[i])),
+             ids: comps.map(c => String(c._peakId)), amps: comps.map(c => state.peaks.find(p => p.id === c._peakId).amplitude),
+             server: br ? { fitted_y: br.fitted_y, background_y: br.background_y,
+                            peaks: br.individual_peaks.map(p => ({ id: String(p.id), shape: p.shape, y: p.y, params: p.params })) } : null,
              stats: _statsLiveState() };
 }"""
 
 SHAPES = ["Gaussian", "Lorentzian", "Voigt", "GL", "asym-GL", "DS", "DSG_LA", "LACX"]
 
 
-def _gap(d):
-    # the components the chart draws are each "component + background", so each subtraction
-    # adds a rounding of the background: n more terms, n + 1 more rounding units
-    # DS+G components add their FFT rounding bound (tests/envelope_identity.py, fft_term)
-    extra = sum(fft_term(f["amplitude"], f["M"], f["peakVal"], f["L"]) for f in d["fft"])
-    return envelope_gap(d["env"], d["bg"], d["comps"], extra)
+PARITY = 1e-6        # of a component's amplitude: tests/js/lineshape_roundtrip.test.js TIGHT_TOL
+
+
+def _same_grid(d):
+    assert d["bgX"] == d["envX"] and all(x == d["envX"] for x in d["compX"]), "the drawn curves are not on one x-grid"
+
+
+def _edited_gap(d):
+    """After an edit: all of it the page's own arithmetic — the summation bound."""
+    _same_grid(d)
+    return envelope_gap(d["env"], d["bg"], d["comps"])
+
+
+def _check_fitted(d, label):
+    """After a server fit: the drawn envelope and background ARE the server's; the server's own
+    identity holds to rounding; each drawn component is the server's within parity."""
+    _same_grid(d)
+    sv = d["server"]
+    assert sv is not None, "a server fit is on show"
+    assert d["env"] == sv["fitted_y"], f"{label}: the drawn envelope is not the server's fitted_y"
+    assert d["bg"] == sv["background_y"], f"{label}: the drawn background is not the server's background_y"
+    extra = sum((conv_term(p["y"], p["params"]["m"]["value"]) for p in sv["peaks"] if p["shape"] == "la_casaxps"), 0.0)
+    ratio, rel = envelope_gap(sv["fitted_y"], sv["background_y"], [p["y"] for p in sv["peaks"]], extra)
+    assert ratio <= 1.0, f"{label}: the server's own envelope is not its background plus components ({ratio:.3g} x rounding)"
+    # each drawn component (dataset − background, so recovering it rounds by up to
+    # u (|b| + |c|): fl(fl(c + b) − b)) against the server's curve: parity of its amplitude plus
+    # that recovery's rounding, point by point — a collapsed component (amplitude 5e-11 on a
+    # 1000-count background) would otherwise read the background's ulps as a lineshape gap
+    by_id = {p["id"]: p for p in sv["peaks"]}
+    U = 2.0 ** -53
+    worst = 0.0
+    for pid, c, amp in zip(d["ids"], d["comps"], d["amps"]):
+        for ci, si, bi in zip(c, by_id[pid]["y"], d["bg"]):
+            allowed = PARITY * abs(amp) + 2 * U * (abs(bi) + abs(si))
+            worst = max(worst, abs(ci - si) / allowed)
+            assert abs(ci - si) <= allowed, (f"{label}: component {pid} drawn {abs(ci - si):.3g} from the server's curve "
+                                             f"(parity {PARITY:g} of its amplitude {amp:.3g} + the recovery's rounding)")
+    return worst
 
 
 def _fit(pg, shape):
@@ -94,14 +127,13 @@ def test_after_a_server_fit_the_drawn_envelope_is_the_drawn_background_plus_comp
     pg.on("pageerror", lambda e: errors.append(str(e)))
     try:
         d = _fit(pg, shape)
-        assert d["envFromServer"] and d["stats"] == "current", "the envelope drawn is the server's fitted_y"
-        ratio, rel = _gap(d)
-        assert ratio <= 1.0, f"{shape}: drawn envelope - (background + components) = {ratio:.3g} x rounding ({rel:.3g} of its height)"
+        assert d["stats"] == "current"
+        _check_fitted(d, shape)
         # ...after the student edits a peak (the statistics go stale; the envelope is composed)
         pg.evaluate("() => { const p = state.peaks[0]; updatePeakParam(p.id, 'amplitude', p.amplitude * 1.3); updatePlot(); }")
         d = pg.evaluate(DRAWN)
-        assert d["stats"] == "stale" and not d["envFromServer"]
-        ratio, rel = _gap(d)
+        assert d["stats"] == "stale" and d["env"] != d["server"]["fitted_y"], "after an edit the envelope is composed"
+        ratio, rel = _edited_gap(d)
         assert ratio <= 1.0, f"{shape} after an edit: {ratio:.3g} x rounding ({rel:.3g})"
         assert not errors, errors
     finally:
@@ -115,10 +147,20 @@ LOCKS = [
     ("asym-GL", {"glMix": 0, "fixGlMix": True, "asymmetry": 1, "fixAsymmetry": True}),
     ("asym-GL", {"asymmetry": 0, "fixAsymmetry": True, "fixAmplitude": True}),
     ("DS", {"dsAlpha": 0, "fixDsAlpha": True}), ("DS", {"dsAlpha": 0.5, "fixDsAlpha": True, "dsGamma": 5, "fixDsGamma": True}),
+    ("DS", {"dsGamma": 0, "fixDsGamma": True}), ("DSG_LA", {"laM": 4, "fixLaM": True}),
     ("DSG_LA", {"laAlpha": 0, "fixLaAlpha": True, "laM": 0.05, "fixLaM": True}),
     ("LACX", {"caM": 0, "fixCaM": True}), ("LACX", {"caM": 499, "fixCaM": True}),
+    ("Gaussian", {"fixAmplitude": True, "fixCenter": True, "fixFwhm": True}),
     ("LACX", {"caAlpha": 5, "fixCaAlpha": True, "caBeta": 0.1, "fixCaBeta": True}),   # (α 0.1 with β 5 together does not certify)
 ]
+# the page field a lock flag holds -> the server's parameter
+BACKEND_NAME = {"glMix": "gl_ratio", "asymmetry": "asymmetry", "dsAlpha": "alpha", "dsGamma": "gamma_asym",
+                "laAlpha": "alpha", "laBeta": "beta", "laM": "m_gauss", "caAlpha": "alpha", "caBeta": "beta", "caM": "m",
+                "amplitude": "amplitude", "center": "center", "fwhm": "fwhm"}
+# the values TAB starts the locked components with (a lock without a value holds these)
+TAB_START = """(shape) => { const sp = { 'GL': { glMix: 30 }, 'asym-GL': { glMix: 30, asymmetry: 0.35 }, 'DS': { dsAlpha: 0.15, dsGamma: 0.2 },
+    'DSG_LA': { laAlpha: 0.12, laBeta: 0.4, laM: 0.8 }, 'LACX': { caAlpha: 1.4, caBeta: 0.8, caM: 20 } }[shape] || {};
+    return [{ amplitude: 8000, center: 381.0, fwhm: 1.5, ...sp }, { amplitude: 6000, center: 391.7, fwhm: 1.5, ...sp }]; }"""
 LOCK_TAB = """([vals]) => { for (const p of state.peaks.slice(0, 2)) Object.assign(p, vals); updatePlot(); }"""
 
 
@@ -130,12 +172,18 @@ def test_with_components_locked_at_bounds(browser, server, shape, vals):
         pg.evaluate(LOCK_TAB, [vals])
         r = pg.evaluate(FIT)
         assert r["have"] and r["engine"] != "local", r
-        held = pg.evaluate("([keys]) => keys.map(k => state.peaks[0][k])", [[k for k in vals if not k.startswith("fix")]])
-        assert held == [vals[k] for k in vals if not k.startswith("fix")], "the locks were held"
         d = pg.evaluate(DRAWN)
-        assert d["envFromServer"]
-        ratio, rel = _gap(d)
-        assert ratio <= 1.0, f"{shape} {vals}: {ratio:.3g} x rounding ({rel:.3g})"
+        # the SERVER held every lock, on both locked components, at the requested value
+        start = pg.evaluate(TAB_START, shape)
+        for k, flag in [(k, v) for k, v in vals.items() if k.startswith("fix") and v]:
+            page_key = k[3].lower() + k[4:]
+            name = BACKEND_NAME[page_key]
+            for comp, st in zip(d["server"]["peaks"][:2], start):
+                par = comp["params"][name]
+                want = vals.get(page_key, st[page_key])
+                want = want / 100 if page_key == "glMix" else want
+                assert par["vary"] is False and par["value"] == want, f"{shape}: {name} not held at {want}: {par}"
+        _check_fitted(d, f"{shape} {vals}")
     finally:
         pg.close()
 
@@ -160,8 +208,8 @@ def test_the_pre_cf4938d_asym_gl_breaks_it_after_a_fit(browser, server):
         r = pg.evaluate(FIT)
         assert r["have"], r
         d = pg.evaluate(DRAWN)
-        ratio, rel = _gap(d)
-        assert ratio > 1.0 and rel > 1e-3, f"the 2026-09-17 defect must be caught: {ratio:.3g} x rounding, {rel:.3g}"
+        with pytest.raises(AssertionError, match="from the server's curve"):
+            _check_fitted(d, "old asym-GL")
     finally:
         pg.close()
 
@@ -175,7 +223,7 @@ def test_an_envelope_composed_without_a_component_breaks_it_after_an_edit(browse
             const p = state.peaks[0]; updatePeakParam(p.id, 'amplitude', p.amplitude * 1.3); updatePlot(); }""")
         d = pg.evaluate(DRAWN)
         assert d["stats"] == "stale"
-        assert _gap(d)[0] > 1.0
+        assert _edited_gap(d)[0] > 1.0
     finally:
         pg.close()
 
@@ -190,8 +238,33 @@ def test_a_locked_mix_of_zero_drawn_as_the_default_breaks_it(browser, server):
         assert r["have"]
         pg.evaluate("""() => { const real = evalPeakArray;
             window.evalPeakArray = (be, p) => real(be, p.shape === 'GL' ? { ...p, glMix: p.glMix || 50 } : p); updatePlot(); }""")
-        d = pg.evaluate(DRAWN)
-        assert d["envFromServer"]
-        assert _gap(d)[0] > 1.0
+        with pytest.raises(AssertionError, match="from the server's curve"):
+            _check_fitted(pg.evaluate(DRAWN), "mix 0 as 50")
+    finally:
+        pg.close()
+
+
+def test_a_component_drawn_on_shifted_energies_breaks_it(browser, server):
+    # Codex round 1: the check compared y by index and ignored x
+    pg = _new_page(browser, server)
+    try:
+        _fit(pg, "GL")
+        d = pg.evaluate("""() => { const c = state.chart.data.datasets.find(d => d._peakId !== undefined);
+            c.data = c.data.map(p => ({ x: p.x + 0.1, y: p.y })); }""")
+        with pytest.raises(AssertionError, match="one x-grid"):
+            _check_fitted(pg.evaluate(DRAWN), "shifted")
+    finally:
+        pg.close()
+
+
+def test_a_ds_g_drawn_two_percent_too_wide_breaks_it(browser, server):
+    # a DS+G-specific negative control: the page's FFT evaluator given a Gaussian width 2 % off
+    pg = _new_page(browser, server)
+    try:
+        _fit(pg, "DSG_LA")
+        pg.evaluate("""() => { const real = dsgConvolved_array;
+            window.dsgConvolved_array = (be, c, a, b, m) => real(be, c, a, b, m * 1.02); updatePlot(); }""")
+        with pytest.raises(AssertionError, match="from the server's curve"):
+            _check_fitted(pg.evaluate(DRAWN), "DS+G too wide")
     finally:
         pg.close()

@@ -54,8 +54,8 @@ def test_every_lineshape_free(shape):
     assert_response_identity(_fit(_model(shape)), shape)
 
 
-# each shape parameter LOCKED AT EACH OF ITS BOUNDS (fitting._make_peak_params), and the
-# amplitudes and centres locked
+# shape parameters locked at bounds (the cases below — not every bound of every parameter:
+# fitting._make_peak_params), and amplitudes, centres and widths locked
 LOCKS = [
     ("pseudo_voigt_gl", {"gl_ratio": 0.0, "fix_gl_ratio": True}),
     ("pseudo_voigt_gl", {"gl_ratio": 1.0, "fix_gl_ratio": True}),
@@ -64,6 +64,8 @@ LOCKS = [
     ("asymmetric_gl", {"gl_ratio": 0.0, "fix_gl_ratio": True, "asymmetry": 1.0, "fix_asymmetry": True}),
     ("doniach_sunjic", {"alpha": 0.0, "fix_alpha": True}),
     ("doniach_sunjic", {"alpha": 0.5, "fix_alpha": True, "gamma_asym": 5.0, "fix_gamma_asym": True}),
+    ("doniach_sunjic", {"gamma_asym": 0.0, "fix_gamma_asym": True}),
+    ("ds_g", {"m_gauss": 4.0, "fix_m_gauss": True}),
     ("ds_g", {"alpha": 0.0, "fix_alpha": True, "m_gauss": 0.05, "fix_m_gauss": True}),
     ("ds_g", {"alpha": 0.49, "fix_alpha": True, "beta": 0.05, "fix_beta": True}),   # (β at 2.0 took > 6 min to certify)
     ("la_casaxps", {"m": 0.0}),                                  # m is held by default
@@ -75,10 +77,20 @@ LOCKS = [
 
 @pytest.mark.parametrize("shape,locks", LOCKS, ids=[f"{s}-{'-'.join(sorted(k for k in l if k.startswith('fix_')) or ['m'])}-{i}" for i, (s, l) in enumerate(LOCKS)])
 def test_components_locked_at_bounds(shape, locks):
-    res = _fit(_model(shape, locks=locks))
-    for k, v in locks.items():                                    # the lock was honoured
-        if not k.startswith("fix_") and isinstance(v, float):
-            assert res["individual_peaks"][0]["params"][k]["value"] == v
+    specs = _model(shape, locks=locks)
+    res = _fit(specs)
+    # every lock was HELD by the server, on both locked components: not varied, at the requested
+    # value (a flag the server ignored would otherwise pass — Codex round 1)
+    held = [k[len("fix_"):] for k, v in locks.items() if k.startswith("fix_") and v]
+    if shape == "la_casaxps" and "fix_m" not in locks:
+        held.append("m")                                          # m is held by default
+    held = ["gl_ratio" if h == "gl_ratio" else h for h in held]
+    assert held, "the case locks something"
+    for spec, ip in zip(specs[:2], res["individual_peaks"][:2]):
+        for name in held:
+            par = ip["params"][name]
+            assert par["vary"] is False and par["expr"] is None, f"{shape}: {name} varied"
+            assert par["value"] == spec[name], f"{shape}: {name} {par['value']} != requested {spec[name]}"
     assert_response_identity(res, f"{shape} {locks}")
 
 

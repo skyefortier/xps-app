@@ -6,44 +6,46 @@ than the server fitted, fixed in cf4938d on 2026-08-31). Shared by the server te
 (tests/test_envelope_identity.py) and the page tests
 (tests/test_browser_envelope_identity.py).
 
-THE BOUND, point by point: the envelope e and our sum s = b + Σ c_k are each a sum of the
-same n + 1 terms (the background b and n components c_k), added in some order: each
-within γ_n · S of the exact sum, S = |b| + Σ |c_k| (Higham, recursive summation). A
-component evaluated twice (once inside a composite model, once on its own) can differ by
-an ulp of itself where its evaluation involves a BLAS-backed inner product (LA's
-np.convolve: CLAUDE.md, "Reproducibility"). So |e − s| ≤ (2 γ_n + 2 u) S ≤ 4 (n + 2) u S
-with ample margin for n ≤ 2^20. A difference beyond that is not rounding: the envelope
-is not the sum of what is drawn.
+THE BOUND, point by point, for curves made by ONE implementation (the server's arrays; the
+page's own composed envelope after an edit): the envelope e and our sum s = b + Σ c_k are each
+a sum of the same n + 1 terms, added in some order: each within γ_n · S of the exact sum,
+S = |b| + Σ |c_k| (Higham, recursive summation). So |e − s| ≤ 2 γ_n S ≤ 4 (n + 2) u S, with
+margin for the component-plus-background additions and subtractions of the page's drawn
+datasets (one more rounding per term), for n ≤ 2^20. A component evaluated twice by the same
+code on the same values gives the same bits, except where its evaluation contains a reduction
+whose order the library may change with memory alignment — the server's LA (`np.convolve`,
+a BLAS dot: CLAUDE.md "Reproducibility"). For it, `conv_term`: the convolution's terms are all
+non-negative (a positive Lorentzian core, a positive Gaussian kernel), so a dot of K terms is
+within γ_K of its own value, and the normalisation by the curve's (equally computed) value at
+the centre at most doubles that: each evaluation within 2 γ_K |c|, two evaluations 4 γ_K |c|,
+K = 2 max(1, ⌈3.5 m / 3⌉) + 1 (the kernel length, F `_la_casaxps_true`).
 
-FFT-EVALUATED COMPONENTS (DS+G: the page's dsgConvolved_array, the server's _ds_g) carry
-an error that is NORMWISE, not pointwise — at a point far out in a tail it can exceed any
-multiple of the local sum. Its bound (`fft_term`): for c = A · (ds ⊛ ks) / peakVal with a
-radix-2 FFT of length L (Higham, Accuracy and Stability, Thm 24.2: each transform within
-log2(L) η of its norm, η = u + γ4 (√2 + u) ≈ 6.7 u; the product one more u; the
-unnormalised forward / inverse pair maps 2-norms by √L and 1 / √L, and |FFT(x)|_∞ ≤ |x|_1),
-|computed − exact|_∞ ≤ (3 log2(L) η + u) · max(|ds|_2 |ks|_1, |ds|_1 |ks|_2) per convolution;
-dividing by peakVal (itself such a value) doubles it; the page and the server each make
-one: T = 4 A (3 log2(L) η + u) M / peakVal, added to the point's bound. M, peakVal and L
-are the page's own (tests/test_browser_envelope_identity.py reads them from a copy of
-dsgConvolved_array); the server's transform (numpy pocketfft, length ≤ L) is within the
-same bound. First order; the second-order terms are below 1e-12 of it."""
+NOT a rounding bound: the page's DRAWN components after a server fit are the page's own
+(JavaScript) evaluators, not the server's arrays; two implementations of a transcendental
+formula agree to a shape-, argument- and library-dependent accuracy for which no general
+derivation is offered here. The page tests therefore split the drawn identity into parts that
+each have a proper check: the drawn envelope IS the server's fitted_y and the drawn background
+IS the server's background_y (exactly), the server's own identity holds (this bound), and each
+drawn component equals the server's component curve within the project's page-server PARITY
+tolerance (tests/js/lineshape_roundtrip.test.js TIGHT_TOL, 1e-6 of the component's amplitude) —
+named as parity, not rounding."""
 import numpy as np
 
 U = 2.0 ** -53
 
 
-ETA = U + 4 * U / (1 - 4 * U) * (np.sqrt(2) + U)         # η of Higham Thm 24.2 (γ4 (√2 + u) + u)
-
-
-def fft_term(amplitude, m_norm, peak_val, L):
-    """T = 4 A (3 log2(L) η + u) M / peakVal: the bound on one FFT-evaluated component's
-    rounding at every point, page and server together (see the module docstring)."""
-    return 4 * abs(amplitude) * (3 * np.log2(L) * ETA + U) * m_norm / peak_val
+def conv_term(curve, m):
+    """4 γ_K |c| for an LA component with kernel parameter m (data points): see the module
+    docstring. m = 0 is no convolution (0)."""
+    if m <= 0:
+        return np.zeros_like(np.asarray(curve, float))
+    K = 2 * max(1, int(np.ceil(3.5 * m / 3))) + 1
+    return 4 * K * U / (1 - K * U) * np.abs(np.asarray(curve, float))
 
 
 def envelope_gap(envelope, background, components, extra=0.0):
     """Largest |e − (b + Σ c)| / (4 (n + 2) u S + extra) over the points: ≤ 1 means within
-    rounding (`extra`: the FFT components' Σ T, fft_term). Also returns the largest gap
+    rounding (`extra`: an LA component's conv_term, point by point). Also returns the largest gap
     relative to max |e| (for reporting)."""
     e = np.asarray(envelope, float)
     b = np.asarray(background, float)
@@ -69,7 +71,16 @@ def assert_envelope_identity(envelope, background, components, label="", extra=0
     return ratio, rel
 
 
+def response_extra(res):
+    """The conv_term of every LA component of a run_fit response."""
+    extra = np.zeros(len(res["fitted_y"]))
+    for p in res["individual_peaks"]:
+        if p.get("shape") == "la_casaxps":
+            extra = extra + conv_term(p["y"], p["params"]["m"]["value"])
+    return extra
+
+
 def assert_response_identity(res, label=""):
     """A /api/fit (run_fit) response: fitted_y = background_y + Σ individual_peaks[].y."""
     return assert_envelope_identity(res["fitted_y"], res["background_y"],
-                                    [p["y"] for p in res["individual_peaks"]], label)
+                                    [p["y"] for p in res["individual_peaks"]], label, response_extra(res))
