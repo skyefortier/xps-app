@@ -95,26 +95,14 @@ def poisson_like_weights(y: np.ndarray) -> np.ndarray:
 # ENDPOINT_AVG_MAX, so every value the engine accepts is representable by the
 # panel (Codex 2026-09-08 round 2: 1e21 passed both validators while the
 # preview's parseInt read it as 1).
-ENDPOINT_AVG_MAX = 50
+from fitting import ENDPOINT_AVG_MAX, check_endpoint_avg  # noqa: E402 — one rule for every reader
 
 
 def pop_endpoint_avg(opts: dict, default: int = 1) -> int:
     """Pop and validate the ``endpoint_avg`` option shared by every method that
     fits a background (Find Peaks honours the Background panel, 2026-09-08).
-    Must be an integer >= 1; the frontend sends the panel value, so a bad value
-    is a request error (ValueError -> 400), never a silent fallback to 1."""
-    import math
-    raw = opts.pop("endpoint_avg", default)
-    # Strict by type, not by coercion: int("1_0") == 10 and int(True) == 1
-    # would let a malformed Advanced-JSON value fit at one averaging while the
-    # frontend records another (Codex 2026-09-08, both runs). Only a JSON
-    # integer (or an integral finite float such as 3.0) is accepted.
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-        raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
-    if isinstance(raw, float):
-        if not math.isfinite(raw) or not raw.is_integer():
-            raise ValueError(f"endpoint_avg must be an integer >= 1, got {raw!r}")
-    n = int(raw)
-    if n < 1 or n > ENDPOINT_AVG_MAX:
-        raise ValueError(f"endpoint_avg must be an integer between 1 and {ENDPOINT_AVG_MAX}, got {raw!r}")
-    return n
+    ``fitting.check_endpoint_avg``: a whole number from 1 to ENDPOINT_AVG_MAX, else
+    a request error (ValueError -> 400), never a silent fallback. Strict by type, not
+    by coercion: int("1_0") == 10 and int(True) == 1 would let a malformed value fit at
+    one averaging while the frontend records another (Codex 2026-09-08, both runs)."""
+    return check_endpoint_avg(opts.pop("endpoint_avg", default))

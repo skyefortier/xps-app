@@ -414,8 +414,11 @@ def test_a_background_setting_the_method_ignores_does_not_change_the_fit():
     # continuation (alignment-dependent BLAS, the accepted property in CLAUDE.md) sends
     # identical requests on this several-minima model into different basins run to run
     # (seen once in the full suite, 2026-10-04), so there the inputs are the claim
-    for method, (e1, e2), whole in (("none", (1, 3), True), ("linear", (10 ** 6, 10 ** 7), True),
-                                    ("shirley", (10 ** 6, 10 ** 7), False)):
+    # (45 and 50: both beyond this 160-point window's quarter, 40, and inside the field's 1-50 —
+    # an averaging outside it is refused since 2026-10-11, tests/test_endpoint_avg_refusal.py)
+    assert len(x) // 4 == 40
+    for method, (e1, e2), whole in (("none", (1, 3), True), ("linear", (45, 50), True),
+                                    ("shirley", (45, 50), False)):
         a = fitting.run_fit(x, y, specs, background_method=method, endpoint_avg=e1, **kw)
         b = fitting.run_fit(x, y, specs, background_method=method, endpoint_avg=e2, **kw)
         assert np.array_equal(a["background_y"], b["background_y"]), method

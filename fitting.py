@@ -1990,6 +1990,25 @@ def _canonical(value):
     return repr(value)
 
 
+ENDPOINT_AVG_MAX = 50   # the page field's own max (#bg-endpoint-avg max="50")
+
+
+def check_endpoint_avg(raw) -> int:
+    """Endpoint averaging as every reader takes it, or a refusal (owner 2026-10-11): a whole
+    number from 1 to ENDPOINT_AVG_MAX — a JSON integer, or an integral finite float such as
+    3.0. Anything else is REFUSED (ValueError, HTTP 400), never clamped: the routes used to
+    read max(1, int(x)), so 0 or -5 fitted at 1 and 1e21 at the window's quarter while the
+    page's helpers read 1e21 as 1 (logged 2026-10-10, fit recording round 3)."""
+    import math
+    import numbers
+    ok = not isinstance(raw, (bool, np.bool_)) and (
+        isinstance(raw, numbers.Integral)
+        or (isinstance(raw, numbers.Real) and math.isfinite(raw) and float(raw).is_integer()))
+    if not ok or not 1 <= int(raw) <= ENDPOINT_AVG_MAX:
+        raise ValueError(f"endpoint_avg must be a whole number from 1 to {ENDPOINT_AVG_MAX}, got {raw!r}")
+    return int(raw)
+
+
 def _avg_k(n: int, n_avg) -> int:
     """The number of points each edge level averages: k = min(n_avg, n // 4), k >= 1
     (1 below four points) — _edge_levels' rule."""
@@ -2384,6 +2403,7 @@ def _run_fit_impl(
             isinstance(caller_seed, (bool, np.bool_)) or not isinstance(caller_seed, (int, np.integer))
             or not 0 <= int(caller_seed) < 2 ** 32):
         raise ValueError("fit_kws.fit_kws.seed must be an integer in [0, 2**32)")
+    endpoint_avg = check_endpoint_avg(endpoint_avg)
 
     # The fit runs on the ENTIRE incoming ROI; bg_start_idx / bg_end_idx
     # narrow only the anchor window used to construct the background
@@ -2918,6 +2938,7 @@ def compute_background_only(
     endpoint_avg: int = 1,
 ) -> dict[str, Any]:
     """Return just the background array without fitting peaks."""
+    endpoint_avg = check_endpoint_avg(endpoint_avg)
     i0 = start_idx if start_idx is not None else 0
     i1 = end_idx if end_idx is not None else len(energy)
     x, y = energy[i0:i1], counts[i0:i1]

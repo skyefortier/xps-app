@@ -868,7 +868,12 @@ findings `docs/findings/background-math/README.md`). Endpoint averaging sets the
 EDGE LEVELS only (`fitting._edge_levels` / page `_bgEdgeLevels`: the means of the
 first / last min(n_avg, n // 4) points); every integral and every B ≤ I clamp reads
 the raw data (F1 — until then Shirley, Smart's integrand and Tougaard replaced the
-end bands of the DATA, and Smart at n_avg > 1 solved neither reading). Every
+end bands of the DATA, and Smart at n_avg > 1 solved neither reading). The averaging
+itself is a whole number from 1 to 50 (the field's own range) or the fit is REFUSED, never
+clamped — `fitting.check_endpoint_avg` (every route, `run_fit`, Find Peaks) and the page's
+`_endpointAvgFailure` (Run Fit, Auto-Fit, Batch Fit), which also refuses text `parseInt` and
+`Number` read differently ("1e1", "1e21"); 2026-10-11,
+`docs/superpowers/plans/2026-10-11-endpoint-avg-refusal.md`. Every
 iteration stops when one more step changes it by at most `BG_REL_TOL` = 1e-12 of the
 window's intensity span (F5: relative, not 1e-6 intensity units) and returns the
 point the step was taken from; every committed spectrum converges within 19 steps

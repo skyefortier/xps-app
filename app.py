@@ -80,11 +80,12 @@ def _prepare_fit_request(app, body):
     bg_method = bg_cfg.get("method", "shirley")
     bg_start = _parse_int(bg_cfg.get("start_idx"), 0, len(energy))
     bg_end = _parse_int(bg_cfg.get("end_idx"), 0, len(energy), default=len(energy))
-    # Clean 400 for malformed endpoint_avg instead of a 500 (audit F9).
+    # endpoint_avg: a whole number from 1 to 50, or a 400 — refused, never clamped (owner
+    # 2026-10-11; it read max(1, int(x)), so 0 fitted at 1)
     try:
-        endpoint_avg = max(1, int(bg_cfg.get("endpoint_avg", 1)))
-    except (TypeError, ValueError):
-        return None, _err("endpoint_avg must be an integer")
+        endpoint_avg = fitting.check_endpoint_avg(bg_cfg.get("endpoint_avg", 1))
+    except ValueError as exc:
+        return None, _err(str(exc))
     manual_bg = bg_cfg.get("manual_bg")
 
     # Peak specs
@@ -1012,11 +1013,11 @@ def _register_routes(app: Flask) -> None:
         method = body.get("method", "shirley")
         start_idx = _parse_int(body.get("start_idx"), 0, len(energy))
         end_idx = _parse_int(body.get("end_idx"), 0, len(energy), default=len(energy))
-        # Clean 400 for malformed endpoint_avg instead of a 500 (audit F9).
+        # a whole number from 1 to 50, or a 400 — refused, never clamped (owner 2026-10-11)
         try:
-            ep_avg = max(1, int(body.get("endpoint_avg", 1)))
-        except (TypeError, ValueError):
-            return _err("endpoint_avg must be an integer")
+            ep_avg = fitting.check_endpoint_avg(body.get("endpoint_avg", 1))
+        except ValueError as exc:
+            return _err(str(exc))
 
         try:
             result = fitting.compute_background_only(

@@ -3147,6 +3147,18 @@ const LEGACY_ENDPOINT_AVG = '1';
 // Upper bound shared with the backend (autofit.methods.base.ENDPOINT_AVG_MAX)
 // and the #bg-endpoint-avg input's max attribute.
 const ENDPOINT_AVG_MAX = 50;
+// The averaging field as a fit reads it — or why not (owner 2026-10-11: refuse outside the
+// field's own 1–50, never clamp, so no background changes): a whole number from 1 to 50 that
+// parseInt — the background helpers' reader — and Number read alike. "1e1" is 10 to Number
+// and 1 to parseInt; "1e21" is 1 to the page's helpers and 1e21 to the server; a blank field
+// is what a number input holds for text it cannot read. fitting.check_endpoint_avg is the
+// server's twin.
+function _endpointAvgFailure(text, max = 50) {   // max = ENDPOINT_AVG_MAX (pinned equal by a test)
+  const s = String(text == null ? '' : text).trim(), n = Number(s);
+  if (s === '' || !Number.isInteger(n) || n !== parseInt(s) || n < 1 || n > max)
+    return 'endpoint averaging must be a whole number from 1 to ' + max + ' (it is "' + s + '").';
+  return null;
+}
 
 class TabManager {
   constructor() {
@@ -8134,6 +8146,8 @@ async function runAutoFitC1sGraphite() {
   }
   // A background that does not satisfy its statement is not used (background
   // math, 2026-10-01): refused here, in the preflight, so a running Run Fit is left alone.
+  const avgFail = _endpointAvgFailure(document.getElementById('bg-endpoint-avg').value);   // refused, never clamped
+  if (avgFail) { notify('Auto-Fit not run: ' + avgFail, 'red', true); return; }
   const bgR = _bgOrFailure(() => computeBackground(corrBE, inten));
   if (bgR.failure) {
     notify('Auto-Fit not run: ' + bgR.failure, 'red', true);
@@ -8839,6 +8853,9 @@ async function runFit(opts = {}) {
   // against (background math, 2026-10-01) — refused before anything changes:
   // no undo entry, no spinner, no request, no local fallback. The server
   // refuses the same background (HTTP 422) by the same certificate.
+  // refused, never clamped (owner 2026-10-11): before the undo entry, the spinner and any request
+  const avgFail = _endpointAvgFailure(document.getElementById('bg-endpoint-avg').value);
+  if (avgFail) { notify('Fit not run: ' + avgFail, 'red', true); return; }
   const { be, inten } = getROIData();
   const bgPre = _bgOrFailure(() => computeBackground(be, inten));
   if (bgPre.failure) { notify('Fit not run: ' + bgPre.failure, 'red', true); return; }
@@ -13930,7 +13947,9 @@ async function runPropagation() {
     const { be, inten } = getROIData();
     // a background that does not satisfy its statement is never fitted against
     // (background math, 2026-10-01): this target is NOT fitted, and says why
-    const bgR = _bgOrFailure(() => computeBackground(be, inten));
+    // and an averaging outside the field's 1–50 is refused, never clamped (owner 2026-10-11)
+    const avgFail = _endpointAvgFailure(document.getElementById('bg-endpoint-avg').value);
+    const bgR = avgFail ? { bg: null, failure: avgFail } : _bgOrFailure(() => computeBackground(be, inten));
     const bgFail = bgR.failure;
     const bgI = bgR.bg || new Array(be.length).fill(NaN);
     const bgSub = inten.map((v, idx) => v - bgI[idx]);

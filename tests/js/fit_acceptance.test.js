@@ -58,16 +58,16 @@ function jobAdapter(fetchImpl) {
 const immediate = f => { f(); return 0; };
 
 function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
-  const dom = {};
-  const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, disabled: false,
+  const dom = {};   // the page's averaging field holds a number (a blank one is refused)
+  const el = id => (dom[id] ||= { value: id === 'bg-endpoint-avg' ? '1' : '', textContent: '', innerHTML: '', style: {}, disabled: false,
     setAttribute() {}, removeAttribute() {}, classList: { add(c) { this._c = c; }, remove() { this._c = null; }, contains() { return false; }, _c: null } });
   const document = { getElementById: el, querySelector: () => el('.btn-green'), querySelectorAll: () => [] };
   const be = Array.from({ length: 50 }, (_, i) => 280 + 0.2 * i);
   const state = { rawBE: be.slice(), rawIntensity: be.map(() => 100), ccShift: 0, fitResult: { marker: 'previous' },
     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
   const owner = { id: 7 };
-  const calls = { notify: [], local: 0, applied: 0 };
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord'].map(extractFn).join('\n') + '\n' + POLL_SRC;
+  const calls = { notify: [], local: 0, applied: 0, undo: 0 };
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord'].map(extractFn).join('\n') + '\n' + POLL_SRC;
   const factory = new Function('setTimeout', 'document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
@@ -75,7 +75,7 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
     src + '\nreturn { runFit };');
   const noop = () => {};
   const { runFit } = factory(immediate, document, state, jobAdapter(withText(fetchImpl)), uploadImpl || (async () => 'sid'), (msg, kind) => calls.notify.push({ msg, kind }),
-    noop, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
+    () => { calls.undo++; }, noop, noop, () => owner, ownerActive || (o => o === owner), () => ({ be: state.rawBE.slice(), inten: state.rawIntensity.slice() }),
     b => Object.assign(b.map(() => 0), { converged: true }), specImpl || (p => ({ id: p.id, shape: 'gaussian' })), () => [], () => { calls.applied++; },
     () => 0.1, '', noop, noop, noop, noop, noop, noop,
     () => { calls.local++; return { success: true, engine: 'local' }; }, false, { warn: noop, error: noop, log: noop }, noop, () => owner);
@@ -130,7 +130,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   failing.calls.local = 0;
   // rebuild with a failing runFitLocal
   const dom = failing.dom;
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord'].map(extractFn).join('\n') + '\n' + POLL_SRC;
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\nlet _historyPreview = null;\n' + ['runFit', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord'].map(extractFn).join('\n') + '\n' + POLL_SRC;
   const noop = () => {};
   const owner = { id: 1 };
   const state = failing.state;
@@ -568,7 +568,7 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
 
 // ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
 test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows', '_isUnsupported', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure'].map(extractFn).join('\n')
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows', '_isUnsupported', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n')
     + '\nconst _statsLiveState = () => "current";';   // F1's stale note is pinned in stale_statistics.test.js
   const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const run = (fitResult, modelProvenance) => {
@@ -741,4 +741,53 @@ test('a minus sign counts only after a boundary: "x-Infinity" is malformed, "-In
   for (const tok of ['{"a":-Infinity}', '[1, -Infinity]', '{"a": -Infinity }']) {
     await assert.rejects(read(reply(tok)), e => /non-finite number/.test(e.message), tok);
   }
+});
+
+
+// ── Endpoint averaging outside the field's 1-50 is refused, never clamped (owner 2026-10-11) ──
+const _endpointAvgFailure = new Function(extractFn('_endpointAvgFailure') + '\nreturn _endpointAvgFailure;')();
+
+test('the averaging field: a whole number 1-50 that parseInt and Number read alike, or a plain refusal', () => {
+  for (const [text, n] of [['1', 1], ['3', 3], ['50', 50], [' 7 ', 7], ['3.0', 3], ['+3', 3]]) {
+    assert.strictEqual(_endpointAvgFailure(text), null, JSON.stringify(text));
+    assert.strictEqual(parseInt(parseInt(text) || 1) || 1, n, 'the helpers read it as ' + n);
+  }
+  for (const text of ['', ' ', '0', '-1', '51', '1000', '1e21', '2e21', '1e1', '3.5', 'abc', '1_0', '3 4', null, undefined]) {
+    const why = _endpointAvgFailure(text);
+    assert.match(String(why), /^endpoint averaging must be a whole number from 1 to 50 \(it is ".*"\)\.$/, JSON.stringify(text));
+  }
+  // the default bound is the page's ENDPOINT_AVG_MAX and the field's max attribute
+  assert.match(html, /const ENDPOINT_AVG_MAX = 50;/);
+  assert.match(html, /id="bg-endpoint-avg" value="3" min="1" max="50"/);
+  assert.match(extractFn('_endpointAvgFailure'), /max = 50\)/);
+});
+
+test('Run Fit refuses an averaging outside 1-50 before the undo entry, the spinner and any request', async () => {
+  for (const text of ['1e21', '0', '51', '', '2.5']) {
+    let requests = 0;
+    const env = makeEnv({ fetchImpl: async () => { requests++; return { ok: true, status: 200, json: async () => ({}) }; },
+                          uploadImpl: async () => { requests++; return 'sid'; } });
+    env.dom['bg-endpoint-avg'] = { value: text };
+    const before = JSON.stringify(env.state.peaks);
+    await env.runFit();
+    assert.strictEqual(requests, 0, text + ': no upload, no request');
+    assert.strictEqual(env.calls.undo, 0, text + ': no undo entry');
+    assert.strictEqual(env.calls.local, 0, text + ': no local fit');
+    assert.strictEqual(JSON.stringify(env.state.peaks), before);
+    assert.strictEqual(env.state.fitResult.marker, 'previous');
+    assert.ok(env.calls.notify.some(n => n.kind === 'red' && n.msg === 'Fit not run: endpoint averaging must be a whole number from 1 to 50 (it is "' + text + '").'),
+              JSON.stringify(env.calls.notify));
+  }
+  // and a value in range fits as before
+  const env = makeEnv({ fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1 }, individual_peaks: [] }) });
+  env.dom['bg-endpoint-avg'] = { value: '50' };
+  await env.runFit();
+  assert.strictEqual(env.calls.undo, 1);
+  assert.ok(!env.calls.notify.some(n => /endpoint averaging/.test(n.msg)));
+});
+
+test('Batch Fit refuses the same: that target is not fitted, with the reason (structural)', () => {
+  const src = lines.join('\n');
+  assert.match(src, /const avgFail = _endpointAvgFailure\(document\.getElementById\('bg-endpoint-avg'\)\.value\);\n    const bgR = avgFail \? \{ bg: null, failure: avgFail \} : _bgOrFailure\(\(\) => computeBackground\(be, inten\)\);/);
+  assert.match(extractFn('runAutoFitC1sGraphite'), /if \(avgFail\) \{ notify\('Auto-Fit not run: ' \+ avgFail, 'red', true\); return; \}/);
 });

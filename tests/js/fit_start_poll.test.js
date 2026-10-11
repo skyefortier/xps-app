@@ -252,7 +252,7 @@ test('both callers claim their operation before the first await and do nothing a
 });
 
 const AF_FNS = ['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor',
-  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
+  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
 test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open WINS; the confirmed Auto-Fit changes nothing (Codex round 3)', async () => {
   const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
   const modal = deferred();
@@ -314,14 +314,15 @@ test("the spinner belongs to the operation that showed it: an ended fit never hi
 // cancelled, its spinner stays, and it completes with its own result.
 test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not cancelled, spinner kept, its result arrives (Codex round 4)', async () => {
   const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
-  for (const refusal of ['no strong peak', 'empty ROI', 'no strong peak, no modal (no peaks yet)']) {
+  for (const refusal of ['no strong peak', 'empty ROI', 'no strong peak, no modal (no peaks yet)', 'averaging out of range']) {
     const tab = { id: 't1' };
     const out = { cancels: [], hides: 0, notes: [], snapshots: 0, undo: 0 };
     const poll = deferred();
     const state = { peaks: /no peaks/.test(refusal) ? [] : [{ id: 1 }], ccShift: 0, rawBE: [285, 284.5, 284], rawIntensity: [10, 20, 10] };
     const deps = {
       state, tabManager: { activeId: 't1', _getTab: () => tab, _captureUI: () => ({}) },
-      document: { getElementById: () => ({ value: '', style: {}, setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) },
+      // the averaging field holds a number; the last refusal is a value outside 1-50 (owner 2026-10-11)
+      document: { getElementById: id => ({ value: id === 'bg-endpoint-avg' ? (refusal === 'averaging out of range' ? '1e21' : '1') : '', style: {}, setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) },
       notify: (m) => out.notes.push(m), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
       _showAutoFitConfirmModal: async () => true, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore() {},
       fetch: async (u) => {
@@ -349,7 +350,8 @@ test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not c
     assert.strictEqual(runOp.jobId, 'RUN1', refusal + ': the Run Fit job is running');
     // the student confirms Auto-Fit on the same tab; its preflight refuses
     await api.runAutoFitC1sGraphite();
-    assert.ok(out.notes.some(m => /No strong peak found|ROI is empty/.test(m)), refusal + ': Auto-Fit refused: ' + out.notes.join(' | '));
+    assert.ok(out.notes.some(m => /No strong peak found|ROI is empty|Auto-Fit not run: endpoint averaging must be a whole number from 1 to 50 \(it is "1e21"\)/.test(m)),
+              refusal + ': Auto-Fit refused: ' + out.notes.join(' | '));
     assert.deepStrictEqual(out.cancels, [], refusal + ": the Run Fit's job was NOT cancelled");
     assert.ok(api._fitOpCurrent(runOp), refusal + ': the Run Fit still owns the tab');
     assert.strictEqual(api.spinner(), runOp, refusal + ': the spinner is still the Run Fit\'s');
