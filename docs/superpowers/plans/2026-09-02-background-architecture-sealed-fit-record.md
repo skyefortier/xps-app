@@ -674,8 +674,8 @@ or decide that a narrower first unit is wanted (for example 1a alone — the ser
 
 # v6 (2026-10-11, owner instruction) — revision 3: the V5.9 resolutions, on the recorded fields
 
-Status: DESIGN ONLY — no code. REVISION 3 (V6.2-V6.12 rewritten after gate rounds 1 and 2, each
-NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1,2}_verdict_run{A,B}.md`; V6.13 and V6.14
+Status: DESIGN ONLY — no code. REVISION 4 (V6.2-V6.12 rewritten after gate rounds 1-3, each
+NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1,2,3}_verdict_run{A,B}.md`; V6.13-V6.15
 map each finding).
 Owner, 2026-10-10: "park the full seal; do the RECORDING unit
 first … After it deploys: revise the sealed-fit design to v6 with the six V5.9 resolutions,
@@ -712,18 +712,24 @@ are not sent; a link forces `fix_fwhm`):
 - `R.request` — the WIRE body exactly as sent (peak specs with starting values, bounds, roles,
   links and Auto-Fit's overlays; background spec; `fit_method`; `n_perturb`; `n_starts`;
   `require_component`; an ordinary Run Fit sends no `seed` and no `charge_shift_ev`, IH:8907).
-  Every comparison with O uses the NORMALISED arguments the server derives from it with its own
-  request preparation (`_prepare_fit_request`, A:129-148: the seed absent → derived,
-  `charge_shift_ev` → 0) — run inside the verification, never re-implemented;
+  `session_id` is TRANSPORT metadata (an upload handle that expires after seven days, A:56,
+  A:241): it is not part of R's numerical request, of step 0's comparison or of the attestation;
+  a replay uploads afresh. Every comparison with O uses the NORMALISED arguments the server
+  derives from the request — by ONE function, `_normalise_fit_request(body, energy, counts)`,
+  factored out of `_prepare_fit_request` (A:65-148, which today loads the session first, A:70)
+  so that it takes the arrays explicitly: the fit routes call it after resolving the upload, the
+  verification with R's inline arrays (the seed absent → derived, `charge_shift_ev` → 0);
 - `R.energies`, `R.counts` — the uploaded arrays, inline, full precision;
 - `R.idx` — the indices into the tab's raw arrays that `_roiSelect` returned; `R.ccShift` — the
   page's charge shift those energies were formed with (distinct from `charge_shift_ev`);
   `R.roi` — the ROI fields as read;
-- `R.pageModel` — a deep copy of the page's peak objects as the request was built (every
-  `_STARTS_MODEL_FIELDS` field, IH:8377, with lock and link flags): the frontend snapshot the
-  display projection starts from — BOUND to `R.request` (V6.3 step 0);
-- `R.context0` — the producer's complete context BEFORE any finalisation: every
-  `_STARTS_UI_FIELDS` field as typed (incl. the background endpoint FIELDS — request indices
+- `R.pageModel` — a deep copy of the page's peak objects as the request was built — EVERY own
+  field, not only `_STARTS_MODEL_FIELDS` (IH:8377): Auto-Fit's overlays `_afCenterMin/Max`,
+  `_afFwhmMin/Max` and the names it selects its anchor by are read by its builder (IH:8213);
+  for "Use this solution" the `startPeaks` it was given: the frontend snapshot the projection
+  starts from — BOUND to `R.request` (V6.3 step 0);
+- `R.context0` — the producer's complete context: every `_STARTS_UI_FIELDS` field as typed, the
+  fit-method selection and the producer's settings (`n_perturb`, `n_starts`, `require_component`) (incl. the background endpoint FIELDS — request indices
   cannot recover them: on a 0.1 eV grid 280.04 and 280.09 select the same sample yet round to
   280.0 and 280.1 after a 0.01 eV shift), the anchors, the charge shift, the charge-reference
   settings; `R.producer` ('runFit', 'useSolution', 'autoFit').
@@ -763,31 +769,44 @@ leaves its LOCKED fields unchanged whatever O holds, so it cannot be the check.
    the page's lock flag — the server's expression overrides a child's lock, so a kept locked
    value would contradict the fitted curve (round 2's probe: child centre 299 / 287, amplitude
    10 / 50, FWHM 3 / 1). This CHANGES today's live path (`_applyBackendParams` keeps a linked
-   child's locked fields, IH:6998-7016 — a display defect today, ship step 0c). One function
+   child's locked fields, IH:6998-7016 — a display defect today, ship step 0c).
+   *Representability.* An expression value can only be shown if the child's frontend shape READS
+   that parameter: a Voigt child of a GL parent is sent `gl_ratio` 0.5 fixed, the server
+   overrides it with `p1_gl_ratio` (F:1570), and the page's Voigt evaluator draws 0.5 whatever
+   its `glMix` (IH:4184; round 3's probe: the fitted child differs from its drawn curve by up to
+   2.06 counts, success and certified). A linked component has its parent's lineshape (CLAUDE.md
+   "Linked (Multiplet) Peaks": shape is synced), but the page lets them differ (its shape-switch
+   propagation reaches the immediate family only, IH:5848) and the load validator accepts it
+   (IH:15797). Ship step 0c therefore also REFUSES, on the page before any request and on the
+   server (`run_fit`, a 400), a link whose child's lineshape differs from its parent's — plain
+   words, no silent change; saved projects carrying one load and say so (measured in 0c). One function
    serves both: the live path becomes `applyInPlace(livePeaks, project(...))`, so there is no
    second reading. After the projection, every displayed field equals O's value through the
    builder's mapping: an independent locked field's snapshot value is the value the builder
    sent (step 0), which is O's held value (verified, V6.5).
 2. The producer's finalisation, DERIVED, never taken as data: `finalise(producer, O, R, ctx)`
    re-derives every step from O and the recorded context and D's recorded steps must equal it.
-   Run Fit and "Use this solution": none. Auto-Fit, from `R.context0`, in its order (VERIFIED
-   IH:7793-7855, IH:5463-5480): the anchor's PROJECTED centre plus the old shift is its raw
-   centre (IH:7793), rounded `toFixed(3)` (IH:7803); the new shift is
-   `Number(rawCentre.toFixed(3)) − reference`; Δ = new − old; every peak centre and every manual
-   anchor moves by −Δ; the ROI and background endpoint FIELDS of `R.context0` are re-expressed and
-   rounded `toFixed(1)` (IH:5463-5480); the window is RESELECTED and the background recomputed
-   (IH:7808-7829); then every centre is locked (IH:7855). The derived final context and model are
-   compared with the live ones exactly. Its acceptance gates are the producer's: the anchor gate
-   in ITS OWN arithmetic (`_autoFitGraphiteIsSupported`: `counts − fitted_y`, weights
-   1/max(counts, 1), sequential sums — a different statistic from step (b)'s support by
-   definition, CLAUDE.md "Charge Correction", re-run by the page on O, deterministic), the
-   reference-centre window (IH:7769-7789), and `O.required` (authenticated, V6.5).
-3. **Auto-Fit's reselection.** When the reselected samples are not exactly R's (`R.idx`
-   against the new selection), the chart's points are not the fitted samples: the result is NOT
-   current ("Auto-Fit's charge correction re-selected the window — run the fit again"), never
-   reconciled by a translation (round 1: `(raw − old) − (new − old)` ≠ `raw − new` in floating
-   point). Whether Auto-Fit should refit after its shift is the logged Auto-Fit unit (CLAUDE.md
-   "LOGGED FOR ONE LATER UNIT"), owner decision Q8.
+   Run Fit and "Use this solution": none. **Auto-Fit: none either, by refitting after its
+   charge shift (ship step 0d, Q8).** Today it fits, shifts the frame, moves every centre and
+   manual anchor, re-selects the window and recomputes the background, then locks the centres
+   (VERIFIED IH:7793-7855, IH:5463-5490; the endpoint fields are re-rounded only when the shift
+   changed, `delta !== 0`, IH:5465) — so its shown points, background and anchors are not the
+   fitted ones, and no translation reconciles them in floating point (the logged Auto-Fit unit,
+   CLAUDE.md). With 0d, Auto-Fit is two fits: the ANCHOR fit (R₁, O₁: the model with its
+   overlays, in the original frame) decides the shift by its gates — the anchor gate in its OWN
+   arithmetic (`_autoFitGraphiteIsSupported`, IH:7726: `counts − fitted_y`, weights
+   1/max(counts, 1), sequential sums — by definition a different statistic from step (b)'s
+   support, CLAUDE.md "Charge Correction"), the reference-centre window (IH:7769-7789, its
+   existing `0.30 + 1e-6` acceptance gate, IH:7787) and `O₁.required`; the shift derived from O₁
+   exactly as today (raw centre = O₁'s anchor centre + the old shift, IH:7793, `toFixed(3)`,
+   IH:7803; Δ; the endpoint fields re-expressed `toFixed(1)` only when Δ ≠ 0); then, with every
+   centre locked, the FINAL fit (R₂, O₂) in the new frame. The seal is (R₂, O₂), with R₁ / O₁ kept
+   as the producer's evidence: the page re-derives `R₂.context0` and `R₂.pageModel` from
+   (R₁.context0, R₁.pageModel, O₁) exactly and re-runs the anchor gate on O₁; O₁ is attested
+   like any O. Without 0d, an Auto-Fit with Δ ≠ 0 is never current (said so); with Δ = 0 only
+   the centre lock follows, a derived step on the lock flags alone.
+3. (Round 1's `(raw − old) − (new − old)` ≠ `raw − new` is why no seal ever translates a
+   frame: with 0d every displayed quantity of an Auto-Fit belongs to a fit made in that frame.)
 DISPLAY-CURRENT compares the live model with `project(...)` exactly through `_fitKeyCanon`'s
 readers. The Results table reads values from `project(...)`'s output (the same numbers the
 model holds), and curves and statistics from O (V6.5) — never from the live peaks.
@@ -808,9 +827,12 @@ uses the readers exactly as they are:
   `R.counts[j] === tab.rawIntensity[R.idx[j]]`; `O.energy` and `O.counts` equal R's exactly.
 - **Display frame.** The chart's energies are formed from the raw samples and the FINAL shift by
   the same reader (`rawBE[R.idx[j]]` with `ccShift_final`) — never by translating R's energies.
-- **Context → background spec.** D's context through `_bgWindowIndices` (inclusive window →
-  the request's exclusive `end_idx`), the averaging as the request reads it, the saved anchors
-  (explicit, not `_getManualAnchors()`), equals `R.request.background`; and `_bgEffect` of it
+- **Context → background spec.** ONE context supplies every background computation of a seal:
+  `R.context0`, the context the request was built from. Through `_bgWindowIndices` (inclusive
+  window → the request's exclusive `end_idx`), the averaging as the request reads it and
+  `R.context0`'s own anchors (explicit, not `_getManualAnchors()`) it equals
+  `R.request.background`; the LIVE context equals `R.context0` (with 0d there is no later
+  context; an Auto-Fit's `R₂.context0` is itself re-derived from R₁ and O₁, V6.3); and `_bgEffect` of it
   equals `O.background_verdict.effect` (pinned on eight settings by
   `test_browser_fit_recording.py::test_the_page_records_the_background_by_its_effect_as_the_server_does`).
   PREREQUISITE: the averaging refusal (branch `feat-endpoint-avg-refusal`, not yet deployed) —
@@ -828,7 +850,8 @@ uses the readers exactly as they are:
    verifier's code reproduces O exactly from R. It is not a proof that the producer ran the same
    code — the producer's identity is attested (V6.7) and its statements authenticated (below).
    A verifier whose `software` differs from `O.software` returns UNCONFIRMED "different
-   software". It checks EXACTLY (no tolerance anywhere):
+   software". Every comparison it makes is EXACT (the existing solver, certificate, Auto-Fit-gate
+   and replay tolerances are untouched and are not currency identities):
    - roles: the lmfit parameters it builds from `R.request` (`_make_peak_params`, F:1555-1602,
      expressions before held values — a linked child's sent centre is overridden by its
      expression, so a held value is checked only for parameters with no expression) have O's
@@ -858,9 +881,34 @@ uses the readers exactly as they are:
 3. *Accepted, by the producer's AUTHENTICATED word.* Acceptance is a property of the search —
    certification restarts, a global method's refinement (F:1751, F:1853, F:1954) — which no
    evaluation reproduces; a saved `certified: true` is the FILE's assertion. So the producing
-   server attests it: `O.attestation = HMAC-SHA256(K, canonical(normalised R, O without the
-   attestation))`, K a secret held by that server outside the repository (created at first
-   start, never sent); the verification recomputes it. With it, `O.success`,
+   server attests what IT received and returned. The contract (1a′):
+   - *Signed bytes:* UTF-8 of `json.dumps({"v": "xps-seal-attest-1", "args": A, "out": B},
+     sort_keys=True, separators=(",", ":"), ensure_ascii=True)`, where A = `_canonical` (F:1979:
+     keys sorted, every number a float, −0.0 folded to 0.0, so a browser's `285` for `285.0` and
+     its `0` for `−0` do not change it) of the NORMALISED numerical arguments of `run_fit`
+     (energies, counts, every keyword after normalisation, defaults included, `session_id`
+     excluded), and B = `_canonical` of O without `attestation`. Schema: every number finite;
+     an absent field is written as null by the normaliser, never omitted. It covers only what
+     the server received: `R.pageModel`, `R.context0`, `R.idx` and `R.producer` are the page's
+     and are proved by the page's bindings (V6.3 step 0, V6.4), not by the MAC.
+   - *Who signs:* the fit routes, over the result `run_fit` just returned — never the
+     verification, which only recomputes and compares (constant-time); a valid MAC on
+     `success: false` is an authenticated failure.
+   - *Key:* 32 bytes from `secrets.token_bytes`, in a keyring outside the repository and the
+     upload folder (`XPS_ATTEST_KEYRING`, default `~/.xps-app/attest/`, directory 0700, files
+     0600); the first worker creates it atomically (`O_CREAT | O_EXCL`), every worker reads the
+     active key at import, so all four workers and every restart sign with the same key;
+     `key_id` = the first 8 bytes of SHA-256(key), hex; `O.attestation = {v, key_id, mac}`.
+     Rotation adds a key and moves the `active` pointer; earlier keys stay for verification;
+     revoking deletes one (its seals read UNCONFIRMED); a lost keyring makes every seal
+     UNCONFIRMED (backup is the owner's choice). The droplet keeps its own keyring — a separate
+     trust domain — unless the owner chooses to share one (Q9).
+   - *What it proves, and not:* an attested O cannot be paired with a different normalised
+     request; whoever holds the key (the server — the verifier is the same server) can forge
+     statements, and a leaked key lets its holder attach `certified: true` to a consistently
+     fabricated non-minimum that recomputation cannot expose. Recomputation still matters:
+     authentication gives attribution, recomputation consistency under the verifier.
+   With it, `O.success`,
    `O.certificate.certified`, a global method's `success`, `O.background_verdict.converged` and
    Auto-Fit's `O.required` are the producer's authenticated statements about THIS R and O. No
    matching key (another server, a rotated or lost key) → UNCONFIRMED "not attested by this
@@ -997,24 +1045,31 @@ read. Q3: the alternatives' parameter sets are in O (O is verbatim).
   on different software (recommended)?
 - Q7: a lineshape whose evaluation is not bit-stable (if 1b finds one) is UNCONFIRMED until its
   evaluator is made deterministic — a separate unit (recommended), never a tolerance?
-- Q8: an Auto-Fit whose charge correction re-selects the window is not current until refit
-  (recommended), with the logged Auto-Fit unit to refit after the shift?
-- Q9: acceptance authenticated by a server-held key (HMAC) — seals from another server or after a
-  lost key read UNCONFIRMED (recommended) — or narrow the state to "numerically consistent,
-  acceptance unverified"?
-- Q10: fix the two defects the gate found, as their own small units before the seal: the local
-  engine's link propagation (its χ² can describe another model, 0b), and a linked child's locked
-  fields kept against the server's expression values (0c)?
+- Q8: Auto-Fit refits after its charge shift (ship 0d: two fits, the seal the final one's; it
+  changes Auto-Fit's reported numbers, measured in 0d) (recommended) — or keep one fit, and an
+  Auto-Fit that moved the frame is never current?
+- Q9: acceptance authenticated by a server-held key (HMAC, V6.5 step 3) — seals from another
+  server or after a lost key read UNCONFIRMED (recommended) — or narrow the state to
+  "numerically consistent, acceptance unverified"? And: the i9 and the droplet separate trust
+  domains (recommended) or one shared keyring?
+- Q10: fix the defects the gate found, as their own small units before the seal: the local
+  engine's link propagation (its χ² can describe another model, 0b — it can change local
+  trajectories and outcomes, measured), and a linked child (0c: its fields take the server's
+  expression values; a link across lineshapes refused, page and server; `_altPeaks`' value-only
+  parameters, IH:8784, carry no `expr`, so an alternative's preview of a linked model follows
+  the same rule)?
 
 ## V6.11 Ship order (after approval)
 
 0.  The averaging refusal (branch `feat-endpoint-avg-refusal`) deployed. 0b. The local engine's
     dependency-ordered link propagation and frozen finalisation (Q10). 0c. A linked child's
-    fields take the server's expression values on the live path (Q10). Each with Codex ×2.
+    fields take the server's expression values on the live path, and a link across lineshapes
+    is refused (Q10). 0d. Auto-Fit refits after its charge shift (Q8). Each with Codex ×2.
 1a′. Server, additive: `fitted_sub`, `statistics.rmse`, the statistics formed from the returned
      arrays (the change MEASURED on the 202 targets and release-noted), the one background
-     assembly, `env_sha256`, untracked files in `git_dirty`, the attestation key and
-     `O.attestation`, `POST /api/verify-fit`. Tests; Codex ×2.
+     assembly, `_normalise_fit_request` with explicit arrays, `env_sha256`, untracked files in
+     `git_dirty`, the attestation keyring and `O.attestation`, `POST /api/verify-fit`. Tests;
+     Codex ×2.
 1b.  Measure and prove: evaluator bit-stability per lineshape (Q7); V5.4.4's background
      bit-identity; the area change (Q5); the seal's size; the replay reproduction fraction.
      Then Q5 / Q7 decided.
@@ -1076,3 +1131,18 @@ the model sum and χ² exactly; R suffices to rebuild the fit problem). Open, bo
 | MAJOR (A) the background check must be run_fit's whole assembly | one shared background assembly (V6.5, 1a′) |
 | MAJOR (false VERIFIED) `getCorrectedBE` maps NaN, not every non-finite shift, to 0 | corrected; seals need a finite shift (V6.4) |
 | MINOR wire request vs normalised arguments; section pointers; the rendered page's own digest | `R.request` is the wire body, compared through the server's normalisation (V6.2); pointers; digests of the render's inputs (V6.7) |
+
+## V6.15 What changed from revision 3 (gate round 3, NO-GO ×2) — revision 4
+
+Round 3 found resolved: the local engine's frozen finalisation (0b), verification owned by the
+whole seal, the verifier-relative wording, the shared background assembly, the NaN reader, the
+render-input digests; the statistics contract again confirmed (lmfit, SciPy, `_npPairwiseSum`
+on arrays up to 100 000). Open, both runs:
+
+| round-3 finding | revision 4 |
+|---|---|
+| BLOCKER a linked child whose lineshape cannot read the parent's expression-valued parameter (a Voigt child of a GL parent: drawn at 0.5, fitted at the parent's mix) | representability: a link across lineshapes refused, page and server (0c, Q10) |
+| MAJOR Auto-Fit's final context (moved anchors) still compared with the original request; the `delta !== 0` branch | one context per seal (`R.context0`); Auto-Fit refits after its shift (0d, Q8), so nothing is translated; the branch stated |
+| MAJOR the shared normaliser loads the (expiring) session; `session_id`, the method and producer settings missing from step 0's inputs; Auto-Fit's overlays outside `_STARTS_MODEL_FIELDS` | `_normalise_fit_request(body, energy, counts)`; `session_id` transport-only; `R.context0` carries the method and settings; `R.pageModel` every own field |
+| MAJOR the attestation's payload, canonicalisation and key lifecycle unspecified | V6.5 step 3: versioned signed bytes via `_canonical`, what is and is not covered, who signs, the keyring (creation, workers, rotation, revocation, loss, the droplet), what a leaked key can do |
+| MINOR "no tolerance anywhere" too broad (Auto-Fit's `0.30 + 1e-6` gate, solver and replay tolerances) | scoped to the verification's comparisons |
