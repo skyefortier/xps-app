@@ -674,8 +674,8 @@ or decide that a narrower first unit is wanted (for example 1a alone — the ser
 
 # v6 (2026-10-11, owner instruction) — the V5.9 resolutions, on the recorded fields
 
-Status: DESIGN ONLY — no code. REVISION 8 (V6.2-V6.12 rewritten after gate rounds 1-7, each
-NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1..7}_verdict_run{A,B}.md`; V6.13-V6.19
+Status: DESIGN ONLY — no code. REVISION 9 (V6.2-V6.12 rewritten after gate rounds 1-8, each
+NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1..8}_verdict_run{A,B}.md`; V6.13-V6.20
 map each finding).
 Owner, 2026-10-10: "park the full seal; do the RECORDING unit
 first … After it deploys: revise the sealed-fit design to v6 with the six V5.9 resolutions,
@@ -936,20 +936,28 @@ uses the readers exactly as they are:
    - *Who signs:* the fit routes, over the result `run_fit` just returned — never the
      verification, which only recomputes and compares (constant-time); a valid MAC on
      `success: false` is an authenticated failure.
-   - *Key:* 32 bytes from `secrets.token_bytes`, in a keyring outside the repository and the
-     upload folder (`XPS_ATTEST_KEYRING`, default `~/.xps-app/attest/`, directory 0700, files
-     0600); a key is PUBLISHED complete — written to a temporary file in the keyring, fsync'd,
-     then linked to its final name (`os.link`, which fails if the name exists, so one creator
-     wins and no reader ever sees a partial key); a crash leaves only a temporary file, ignored
-     and removed on the next start. The signer reads the `active` pointer and the verifier the
-     keyring listing on EVERY use, caching key bytes by (path, mtime, size) only — so all four
-     workers and every restart sign with the same key, and a rotation or a revocation takes
-     effect on the next request in every worker, with no in-memory copy outliving its file;
-     `key_id` = the first 8 bytes of SHA-256(key), hex; `O.attestation = {v, key_id, mac}`.
-     Rotation adds a key and moves the `active` pointer; earlier keys stay for verification;
-     revoking deletes one (its seals read UNCONFIRMED); a lost keyring makes every seal
-     UNCONFIRMED (backup is the owner's choice). The droplet keeps its own keyring — a separate
-     trust domain — unless the owner chooses to share one (Q9).
+   - *Keyring — ONE state, ONE writer protocol.* The keyring is a directory outside the
+     repository and the upload folder (`XPS_ATTEST_KEYRING`, default `~/.xps-app/attest/`,
+     0700) holding ONE authoritative file, `state.json` (0600) = `{incarnation, revision,
+     active, keys: {key_id: key bytes}}` — keys are 32 bytes from `secrets.token_bytes`,
+     `key_id` the first 8 bytes of SHA-256(key), hex; `O.attestation = {v, key_id, mac}`.
+     EVERY mutation — creation at first start, rotation (add a key, make it active; earlier
+     keys stay for verification), revocation (remove a key; its seals read UNCONFIRMED),
+     restore (a backup's keys under a FRESH incarnation) — is one transaction under an
+     exclusive cross-process lock (`fcntl.flock` on `keyring.lock`): re-read `state.json`,
+     modify, allocate `revision = previous + 1` (a new incarnation starts at 0), write a
+     temporary file, fsync it, rename it over `state.json`, fsync the directory, release. So
+     two writers can never publish states with one generation — the second re-reads the
+     first's committed state under the lock — and an acknowledged generation is durable: a
+     restart reads the last renamed state, never an earlier one; a crash leaves only a
+     temporary file, removed by the next transaction. Readers take no lock: the signer reads
+     `state.json` on every signature and the verifier on every verification (cached by
+     (inode, mtime, size), never beyond a change), so all four workers and every restart sign
+     with the one active key, and a rotation or revocation acts on the next request in every
+     worker, no in-memory key outliving its state. Mutations other than the first creation
+     are an owner's command (`scripts/attest_keyring.py`), never a request path. A lost
+     keyring makes every seal UNCONFIRMED (backup is the owner's choice). The droplet keeps
+     its own keyring — a separate trust domain — unless the owner chooses to share one (Q9).
    - *What it proves, and not:* an attested O cannot be paired with a different normalised
      request; whoever holds the key (the server — the verifier is the same server) can forge
      statements, and a leaked key lets its holder attach `certified: true` to a consistently
@@ -984,10 +992,10 @@ edits and history restores change the live model, which step 1 re-checks.
 *Trust generation.* A cached result holds two parts with different lifetimes: the numerical
 consistency (a property of the seal and the verifier's software — it can be kept) and the
 authentication (a property of the keyring — it cannot outlive a revocation or a replaced
-keyring). The keyring's whole state is ONE file, `state.json` = `{incarnation, revision, active,
-keys}` — `incarnation` 128 random bits drawn when a keyring is created (so a lost and recreated
-keyring, or another server's, never shares it), `revision` a counter advanced by every rotation
-and revocation — replaced only by an atomic rename, so every worker reads a consistent state.
+keyring). The keyring's state (`state.json`, step 3's one-writer protocol) carries the generation:
+`incarnation` — 128 random bits drawn when a keyring is created or restored (so a lost and
+recreated keyring, a restore, or another server's never shares it) — and `revision`, allocated
+under the lock by every mutation, so no two committed states share a generation.
 A verification reads that file ONCE and authenticates against that snapshot, and its reply
 carries the generation `{incarnation, revision}` it actually checked (never one read later). A
 cached authentication is valid only while the server's CURRENT generation equals the one it
@@ -1265,3 +1273,11 @@ Round 7 confirmed every other finding resolved. Open: the cache protocol, one ed
 |---|---|
 | MAJOR (A) restoring a keyring backup reused its incarnation, so a generation could repeat with other keys | a restore installs the keys under a fresh incarnation |
 | MAJOR (B) a delayed generation reply could roll the page's view back and let a delayed verification attach | `trustView` rules: only the latest-issued fetch sets the incarnation; the revision only rises; a verification is void once `trustView` changes; save / export await a fetch issued after they began |
+
+## V6.20 What changed from revision 8 (gate round 8, NO-GO ×2) — revision 9
+
+Round 8 confirmed round 7's two answers and every other finding. Open, both runs, one MAJOR:
+
+| round-8 finding | revision 9 |
+|---|---|
+| MAJOR atomic replacement does not serialise mutations: two concurrent revocations could each publish revision 8 with different key sets, and a cached authentication would match the second | ONE state file and ONE writer protocol: every mutation (creation, rotation, revocation, restore) re-reads, modifies, allocates the revision and publishes durably under an exclusive cross-process lock; mutations other than the first creation are an owner's command, never a request path; the earlier separate key-file / pointer text is replaced (V6.5 step 3) |
