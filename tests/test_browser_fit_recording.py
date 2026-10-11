@@ -102,10 +102,6 @@ def _json_row(rows):
     return hits[0]
 
 
-def _comment_rows(text):
-    return [tuple(l[2:].split(": ", 1)) for l in text.splitlines() if l.startswith("# ") and ": " in l]
-
-
 def test_the_exports_carry_the_whole_record(browser, server):
     pg = _new_page(browser, server)
     try:
@@ -125,9 +121,12 @@ def test_the_exports_carry_the_whole_record(browser, server):
         tsv = pg.evaluate("() => window.__tsv")
     finally:
         pg.close()
-    # losslessly, in every export
-    assert _json_row(_comment_rows(csv)) == rec
-    assert _json_row(_comment_rows(tsv)) == rec
+    # losslessly, in every export (CSV / TSV: base64, so the line is one cell to every reader —
+    # tests/test_browser_export_prefix.py)
+    import base64
+    for text in (csv, tsv):
+        [line] = [l for l in text.splitlines() if l.startswith("# Fit record (JSON base64): ")]
+        assert json.loads(base64.b64decode(line.split(": ", 1)[1]).decode("utf-8")) == rec
     assert _json_row([tuple(r[:2]) for r in info if len(r) >= 2]) == rec
     # and the readable summary
     want = {"Fit method": "least_squares", "Random seed": f"{rec['seed']} (request)"}

@@ -18,8 +18,8 @@ function extractFn(name) {
   }
   assert.fail('unbalanced ' + name);
 }
-const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows'].map(extractFn).join('\n') +
-  '\nreturn { _fitRecordFrom, _localFitRecord, _isFitRecord, _fitRecordRows };')(
+const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8'].map(extractFn).join('\n') +
+  '\nreturn { _fitRecordFrom, _localFitRecord, _isFitRecord, _fitRecordRows, _fitRecordTextLines };')(
   { querySelector: () => ({ getAttribute: () => JSON.stringify({ git_commit: 'b'.repeat(40), numerics: '2026-10-09' }) }) });
 
 const SERVER = { fit_method: 'leastsq', random_seed: 0, seed_source: 'caller',
@@ -78,4 +78,20 @@ test('the export rows state what the record holds', () => {
   assert.deepStrictEqual(JSON.parse(local['Fit record (JSON)']), lrec, 'lossless: an unrounded move survives');
   assert.deepStrictEqual(H._fitRecordRows(null), []);
   assert.deepStrictEqual(H._fitRecordRows({ engine: 'other' }), []);
+});
+
+test('the CSV / TSV tail: every line one cell to any reader, a comment, and the JSON lossless', () => {
+  // a reason with every character a reader splits or quotes on, and non-ASCII
+  const rec = H._fitRecordFrom({ ...SERVER, background_verdict: { ...SERVER.background_verdict, converged: false,
+    reason: 'a, "b"\tc\nd \u2265 \u00e9' } });
+  const lines = H._fitRecordTextLines(rec);
+  assert.strictEqual(lines.length, 6);
+  for (const l of lines) {
+    assert.ok(l.startsWith('# '), l);
+    assert.ok(!/[,"\t\r\n]/.test(l), 'no delimiter, quote or line break: ' + l);
+  }
+  const b64 = lines.find(l => l.startsWith('# Fit record (JSON base64): ')).split(': ')[1];
+  assert.deepStrictEqual(JSON.parse(Buffer.from(b64, 'base64').toString('utf8')), rec, 'lossless, UTF-8');
+  assert.strictEqual(lines[0], '# Fit method: leastsq');
+  assert.deepStrictEqual(H._fitRecordTextLines(null), []);
 });

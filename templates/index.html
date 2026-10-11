@@ -8609,6 +8609,23 @@ function _localFitRecord(certifyRestarts, moved, centreMoves, bg) {
                           moved: moved === true, centre_moves: moves, largest_centre_move: largest, check: 'coordinate' },
            software: _pageSoftware() };
 }
+// The record as the TAIL of the CSV and TSV exports (owner 2026-10-10: after the last data row,
+// so every existing line stays where it was). Each line begins with '#' and holds no comma,
+// double quote, tab or line break, so every reader sees ONE cell — Python csv, pandas and Excel,
+// with either delimiter — and a reader that skips '#' comments (pandas comment='#') skips it
+// as it skips the header lines. Quoting would make it one cell too, but a quoted line is not a
+// comment, so pandas would return the record as rows. The lossless JSON therefore travels
+// base64-encoded (its UTF-8 bytes); the XLSX keeps it as plain JSON in a cell.
+function _fitRecordTextLines(rec) {
+  return _fitRecordRows(rec).map(([k, v]) => (k === 'Fit record (JSON)'
+    ? '# Fit record (JSON base64): ' + _b64Utf8(v)
+    : ('# ' + k + ': ' + v).replace(/,/g, ';').replace(/"/g, "'").replace(/[\t\r\n]+/g, ' ')));
+}
+function _b64Utf8(text) {
+  let bin = '';
+  for (const b of new TextEncoder().encode(text)) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
 function _isFitRecord(x) { return !!x && typeof x === 'object' && (x.engine === 'server' || x.engine === 'local'); }
 // one line per item, for the exports: [[label, text], …]
 function _fitRecordRows(rec) {
@@ -12618,8 +12635,9 @@ function exportResults() {
   // are the edited, unfitted model, not the last fit's curve
   const staleNote = _statsLiveState() === 'stale'
     ? '# NOTE: the model has changed since the last fit: Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n' : '';
-  const recLines = _fitRecordRows(state.fitResult && state.fitResult.record).map(([k, v]) => `# ${k}: ${v}\n`).join('');
-  const csv = warning + staleNote + recLines + rows.map(r => r.join('\t')).join('\n');
+  // the record FOLLOWS the data (a blank line, then its lines): every existing line stays in place
+  const recLines = _fitRecordTextLines(state.fitResult && state.fitResult.record);
+  const csv = warning + staleNote + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -13123,8 +13141,9 @@ function exportFitTable(fmt) {
       ...(_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey())) ? [['Scattered starts', _startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))]] : []),
       ...(_startsChosenText(state.fitResult) ? [['Chosen alternative', _startsChosenText(state.fitResult)]] : []),
       ...(_certificateMoveText(state.fitResult) ? [['Fit continued', _certificateMoveText(state.fitResult)]] : []),
-      ..._fitRecordRows(state.fitResult && state.fitResult.record),
-      ['Charge correction (eV)', state.ccShift.toFixed(3)], []
+      ['Charge correction (eV)', state.ccShift.toFixed(3)], [],
+      // the record FOLLOWS the existing rows: every one of them stays in place
+      ..._fitRecordRows(state.fitResult && state.fitResult.record)
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Fit Results');
@@ -13140,10 +13159,12 @@ function exportFitTable(fmt) {
     if (_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))) csv += `# Scattered starts: ${_startsSummaryText(_startsIfCurrent(state.fitResult, _startsLiveKey()))}\n`;
     if (_startsChosenText(state.fitResult)) csv += `# Chosen alternative: ${_startsChosenText(state.fitResult)}\n`;
     if (_certificateMoveText(state.fitResult)) csv += `# Fit continued: ${_certificateMoveText(state.fitResult)}\n`;
-    for (const [k, v] of _fitRecordRows(state.fitResult && state.fitResult.record)) csv += `# ${k}: ${v}\n`;
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    // the record FOLLOWS the data (a blank line, then its lines): every existing line stays in place
+    const recLines = _fitRecordTextLines(state.fitResult && state.fitResult.record);
+    if (recLines.length) csv += '\n\n' + recLines.join('\n');
     _downloadBlob(new Blob([csv], { type: 'text/csv' }), 'fit_results.csv');
     notify('Exported CSV table', 'green');
   }

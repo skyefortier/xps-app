@@ -106,3 +106,25 @@ decimal, exponent, signed, huge and non-numeric fields), rounds 1–2 intact, ex
 outputs identical against main on 30 / 36 fits. One MINOR (both runs), wording only: "1e21
 or more acts as 1" overgeneralised — 2e21 acts as 2 (and is recorded as 2); corrected here
 and in PROGRESS.md.
+
+## Export placement (owner, 2026-10-10, before deploy)
+
+Pre-deploy check: the record had been inserted BEFORE existing lines — CSV and TSV data
+rows 6 lines lower (5 for a local / global-method fit), the XLSX Info sheet's "Charge
+correction" row 6 rows lower. Owner: the record FOLLOWS everything that exists.
+
+- CSV and TSV: after the last data row, a blank line, then the record's lines. Each begins
+  with '#' and holds no comma, double quote, tab or line break (the summary's commas become
+  ';'), so Python's csv module and pandas see ONE cell with either delimiter, and a reader
+  skipping '#' comments (pandas `comment='#'`) reads exactly the table it read before.
+  Quoting was rejected: a quoted line is not a comment, so pandas returned the record as
+  six rows. The lossless JSON travels base64 (UTF-8): `# Fit record (JSON base64): …`.
+- XLSX: the record's rows after the Info sheet's existing rows (after its blank last row);
+  plain JSON in its cell. The Fit Results sheet is unchanged.
+- `tests/test_browser_export_prefix.py`: one saved fit loaded into main's page (52e5b4a,
+  rendered from git) and this one — main's CSV and TSV are an exact prefix of today's, both
+  XLSX sheets agree row for row; a local fit run on both pages likewise; the readers' test
+  above. Mutation-checked (each export's old placement → the test fails). CI fetches full
+  history for it. Excel itself is not driven (its automation needs an interactive
+  permission). A saved local fit reloads peaks-only on main and here alike (it stores no
+  fitted envelope) — existing behaviour, unchanged.
