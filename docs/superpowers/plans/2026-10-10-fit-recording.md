@@ -140,3 +140,22 @@ comment-filtered frames equal main's in 96 / 120). Two gaps:
 |---|---|
 | a record of unbounded size (4 000 manual anchors — a crafted import, the page caps anchors at 20; run A: beyond the UI, run B: reachable with physical values) made a 207 352-character line Python's csv refuses (field limit 131 072) and a 155 491-character XLSX cell (Excel holds 32 767) (run B) | the record is split into numbered parts of at most 16 000 code points (`_recordParts`; never inside a surrogate pair): `# Fit record (JSON base64 part k of n): …`, XLSX `Fit record (JSON part k of n)`; concatenated in order they are the record. A format limit, not a property of the data. A browser test exports an 8 000-anchor record and reads it with Python's csv (default limit), pandas' C and python engines, both delimiters; every line and cell ≤ 32 767 |
 | the tests did not prove the sanitising: the adversarial text sat only in a field that travels inside the base64, so removing the quote / tab / line-break escapes passed; the TSV comment-frame comparison was omitted (run A) | the adversarial text (comma, quote, tab, CR LF, non-ASCII, a surrogate pair) now sits in the fields the summary lines print — the background method, the largest move's component id, the software strings; the TSV frame is compared too. Mutation-checked: each escape removed, and the splitting removed, fails a test |
+
+## Codex round 6 (NO-GO ×2, the same two findings) — fixed
+
+Placement, readers, encoding and the JSON parts passed (1 536 extracted-writer and 1 536
+pandas comparisons, both engines and delimiters; the 8 000-anchor record).
+
+| finding | fix |
+|---|---|
+| the SUMMARY lines were unbounded: a 140 000-character component id (crafted imported metadata) made a 140 098-character line Python's csv refuses and a > 32 767-character XLSX cell | every summary value is cut at 2 000 code points with " … (cut here; the fit record JSON holds it whole)" (`_fitRecordRows`, so every export inherits it); the JSON parts carry every value whole. Tested with a 140 000-character id and a 40 000-character software string |
+| the surrogate-pair test never placed a pair on a boundary: `text.split('')` passed | a pair placed exactly on the 16 000 boundary, and on the summary's cut; the unsafe split now fails |
+
+**A fragile case in a merged test, not this unit (2026-10-11).** The full suite failed once on
+`test_browser_envelope_identity.py::test_with_components_locked_at_bounds[LACX-12]` (α 5 and β
+0.1 locked together): the certificate still lowered χ² after 50 restarts. The page sends a
+byte-identical request on main and here; on main itself that request, in fresh processes,
+took 1–23 certificate restarts (LA's convolution jitter, unit A2), so the 50-restart failure is
+the tail of a spread main already has. The browser tallies differed (main 0 of 36, this branch
+about 3 of 19) — the server process's memory layout changed, not a formula. The case is split
+into its two single locks, each certifying in 1–3 restarts in all 24 fresh processes on both.

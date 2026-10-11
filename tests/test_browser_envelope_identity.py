@@ -164,7 +164,12 @@ LOCKS = [
     ("DSG_LA", {"laAlpha": 0, "fixLaAlpha": True, "laM": 0.05, "fixLaM": True}),
     ("LACX", {"caM": 0, "fixCaM": True}), ("LACX", {"caM": 499, "fixCaM": True}),
     ("Gaussian", {"fixAmplitude": True, "fixCenter": True, "fixFwhm": True}),
-    ("LACX", {"caAlpha": 5, "fixCaAlpha": True, "caBeta": 0.1, "fixCaBeta": True}),   # (α 0.1 with β 5 together does not certify)
+    # α and β at their bounds ONE AT A TIME (2026-10-11): together (α 5 with β 0.1) the identical
+    # request needed 1-23 certificate restarts in fresh processes on main itself — the arithmetic
+    # jitter of LA's convolution (CLAUDE.md, unit A2) — and now and then more than the 50 allowed,
+    # failing the fit; alone, each certified in 1-3 restarts in every one of 24 fresh processes.
+    # (α 0.1 with β 5 together does not certify at all.)
+    ("LACX", {"caAlpha": 5, "fixCaAlpha": True}), ("LACX", {"caBeta": 0.1, "fixCaBeta": True}),
 ]
 # the page field a lock flag holds -> the server's parameter
 BACKEND_NAME = {"glMix": "gl_ratio", "asymmetry": "asymmetry", "dsAlpha": "alpha", "dsGamma": "gamma_asym",

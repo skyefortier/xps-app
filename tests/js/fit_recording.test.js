@@ -126,3 +126,31 @@ test('a record of any size: every line and cell within every reader\'s limit, th
   for (const [, v] of cells) assert.ok(!/^[\udc00-\udfff]|[\ud800-\udbff]$/.test(v));
   assert.deepStrictEqual(H._recordParts(''), ['']);
 });
+
+test('a summary value of any length is cut within every reader\'s limit; the JSON keeps it whole (Codex round 6)', () => {
+  const longId = 'z'.repeat(140000), longPy = 'p'.repeat(40000);
+  const rec = H._fitRecordFrom({ ...SERVER, certificate: { ...SERVER.certificate, largest_centre_move: { id: longId, ev: 0.5 } },
+                                 software: { ...SERVER.software, python: longPy } });
+  for (const l of H._fitRecordTextLines(rec)) assert.ok(l.length <= 32767 && !/[,"\t\r\n]/.test(l), l.length);
+  for (const [k, v] of H._fitRecordXlsxRows(rec)) assert.ok(String(v).length <= 32767, k + ' ' + String(v).length);
+  const summary = Object.fromEntries(H._fitRecordRows(rec));
+  assert.match(summary['Minimum certificate'], / … \(cut here; the fit record JSON holds it whole\)$/);
+  assert.match(summary['Software'], / … \(cut here; the fit record JSON holds it whole\)$/);
+  const json = H._fitRecordXlsxRows(rec).filter(([k]) => k.startsWith('Fit record (JSON part ')).map(([, v]) => v).join('');
+  assert.strictEqual(JSON.parse(json).certificate.largest_centre_move.id, longId, 'whole in the record');
+  assert.strictEqual(JSON.parse(json).software.python, longPy);
+  // an ordinary summary is not cut
+  assert.ok(!Object.values(Object.fromEntries(H._fitRecordRows(H._fitRecordFrom(SERVER)))).some(v => v.includes('cut here')));
+});
+
+test('a part boundary falling on a surrogate pair keeps the pair whole (Codex round 6)', () => {
+  const E = '😀';
+  assert.deepStrictEqual(H._recordParts('x'.repeat(15999) + E + 'y'), ['x'.repeat(15999) + E, 'y']);
+  assert.deepStrictEqual(H._recordParts('x'.repeat(16000) + E), ['x'.repeat(16000), E]);
+  // the summary's cut, likewise
+  const rec = H._fitRecordFrom({ ...SERVER, certificate: { ...SERVER.certificate, largest_centre_move: { id: 'x'.repeat(5000), ev: 0.5 } } });
+  const pre = 'certified, 1 restart, not moved, largest centre move 0.5 eV (component ';
+  rec.certificate.largest_centre_move.id = 'x'.repeat(2000 - pre.length - 1) + E + 'tail';
+  const cut = Object.fromEntries(H._fitRecordRows(rec))['Minimum certificate'];
+  assert.ok(cut.startsWith(pre) && cut.includes(E + ' … (cut here'), cut.slice(1990, 2010));
+});

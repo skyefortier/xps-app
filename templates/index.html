@@ -8667,6 +8667,12 @@ function _fitRecordRows(rec) {
   if (sw) rows.push(['Software', 'commit ' + (sw.git_commit || 'unknown') + (sw.git_dirty ? ' (modified)' : '') +
                      '; numerics ' + sw.numerics + '; python ' + sw.python + ', numpy ' + sw.numpy + ', scipy ' + sw.scipy + ', lmfit ' + sw.lmfit +
                      '; seed ' + sw.seed_derivation + (sw.role ? ' (' + sw.role.replace(/_/g, ' ') + ')' : '')]);
+  // a summary is bounded (a field read from an imported file can be of any length, and every
+  // reader has a limit — Codex recording round 6); the record below holds every value whole
+  for (const r of rows) {
+    const parts = _recordParts(String(r[1]), 2000);
+    if (parts.length > 1) r[1] = parts[0] + ' … (cut here; the fit record JSON holds it whole)';
+  }
   // and the whole record, losslessly (the lines above are a summary)
   rows.push(['Fit record (JSON)', JSON.stringify(rec)]);
   return rows;
