@@ -38,7 +38,7 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
   'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_pageSoftware', '_localFitRecord', 'solveLinear',
   '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
-  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState'];
+  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState'];
 const CAVEAT_CONST = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
 
 // One isolated environment per test: a fresh `state`, a stub DOM, and the
@@ -660,7 +660,13 @@ test('recording: the averaging recorded is the averaging the curve used, even fo
   // reads it as 1e21, a pre-existing difference logged in PROGRESS.md); the record says what acted
   const env = makeEnv();
   const be = Array.from({ length: 101 }, (_, i) => i), y = be.map(x => 100 + x * x);
-  for (const [field, k] of [['1000000000000000000000', 1], ['3', 3], ['1e2', 1], ['50', 25], ['', 1]]) {
+  // since the averaging refusal (2026-10-11) the re-parsed values are refused, not read as 1
+  for (const field of ['1000000000000000000000', '1e2', '']) {
+    const bg = env.computeBackgroundCore(be, y, { bgType: 'linear', endpointAvg: field, bgStart: '', bgEnd: '' });
+    assert.strictEqual(bg.converged, false, field);
+    assert.ok(!bg.effect, 'a refused background records no effect');
+  }
+  for (const [field, k] of [['3', 3], ['50', 25], ['3.0', 3]]) {
     const bg = env.computeBackgroundCore(be, y, { bgType: 'linear', endpointAvg: field, bgStart: '', bgEnd: '' });
     assert.strictEqual(bg.converged, true, field);
     assert.deepStrictEqual(bg.effect, { method: 'linear', window: [0, 101], k }, field);

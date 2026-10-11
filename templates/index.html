@@ -5113,6 +5113,13 @@ function _refreshBgConvergenceNote(failure) {
 }
 
 function computeBackgroundCore(be, intensity, settings) {
+  // an averaging outside the field's 1-50 is refused, never clamped (owner 2026-10-11): every
+  // consumer of a background — preview, fit, restore, stack, save, export — refuses with it; an
+  // ABSENT value is the legacy 1, as it always was
+  if (settings && settings.endpointAvg !== undefined && settings.endpointAvg !== null) {
+    const avgFail = _endpointAvgFailure(settings.endpointAvg);
+    if (avgFail) return _bgMark(new Array(be.length).fill(NaN), false, 'Background not computed: ' + avgFail);
+  }
   // An explicit background (linear, manual) has nothing to converge but must exist:
   // every value a finite number (Codex impl round 5 — finite inputs can overflow).
   // The integral methods' certificate already requires it; fitting._explicit_background
@@ -8415,8 +8422,11 @@ function _startsModelKey(peaks, ui, ccShift, anchors) {
 // matching.
 function _fitKeyCanon(k) {
   if (typeof k !== 'string') return k;
+  // the averaging exactly as the refusal reads it: a refused text ("1e2", "0", "51") stays itself,
+  // never equal to the number parseInt would make of it (owner 2026-10-11)
   const PARSE = { bgStart: parseFloat, bgEnd: parseFloat, roiMin: parseFloat, roiMax: parseFloat,
-                  shirleyIter: v => parseInt(v), endpointAvg: v => parseInt(v) };
+                  shirleyIter: v => parseInt(v),
+                  endpointAvg: v => (_endpointAvgFailure(v) ? NaN : Number(String(v).trim())) };
   const memo = _fitKeyCanon._memo || (_fitKeyCanon._memo = new Map());
   let c = memo.get(k);
   if (c !== undefined) return c;
@@ -13854,6 +13864,10 @@ async function runPropagation() {
   // closed and reopened from a project during the batch has the same id on a
   // NEW object and must not be written (Codex round 2, both runs).
   const targets = checkedIds.map(id => tabManager._getTab(id)).filter(t => t && !t.isStack);
+  // the averaging every target will be given (propagateFitUi copies the source's), refused BEFORE
+  // any target is changed (owner 2026-10-11; the field as typed — _captureUI turns a blank into 1)
+  const batchAvgFail = _endpointAvgFailure(document.getElementById('bg-endpoint-avg').value);
+  if (batchAvgFail) { notify('Batch fit not run: ' + batchAvgFail, 'red', true); return; }
 
   const btn = document.getElementById('propagate-run-btn');
   btn.disabled = true;
@@ -17597,7 +17611,11 @@ async function runFindPeaks() {
   const methodTakesEp = !!(fpMethodMeta && fpMethodMeta.default_options
                            && Object.prototype.hasOwnProperty.call(fpMethodMeta.default_options, 'endpoint_avg'));
   if (methodTakesEp && options.endpoint_avg === undefined) {
-    options.endpoint_avg = parseInt(document.getElementById('bg-endpoint-avg')?.value) || 1;
+    // the field as typed, refused before any conversion (owner 2026-10-11): parseInt made 0 → 1
+    const epText = document.getElementById('bg-endpoint-avg')?.value;
+    const epFail = _endpointAvgFailure(epText);
+    if (epFail) { status.textContent = 'Not run: ' + epFail; return; }
+    options.endpoint_avg = Number(String(epText).trim());
   }
   // Strict, mirroring the backend's pop_endpoint_avg: a JSON number that is
   // a whole number >= 1. Anything else (a string like "1_0" that Python would

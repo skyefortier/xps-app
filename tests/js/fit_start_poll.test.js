@@ -252,7 +252,7 @@ test('both callers claim their operation before the first await and do nothing a
 });
 
 const AF_FNS = ['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor',
-  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'];
+  '_readFitReply', '_serverFitJob', 'runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'];
 test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open WINS; the confirmed Auto-Fit changes nothing (Codex round 3)', async () => {
   const constants = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
   const modal = deferred();
@@ -334,7 +334,9 @@ test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not c
       applyBackendResult() {}, _showFitSpinner() {}, _hideFitSpinner: () => { out.hides++; }, setTimeout: f => { setImmediate(f); return 0; }, clearTimeout() {},
       AbortController, DOMException: Error,
       getROIData: () => (refusal === 'empty ROI' ? { be: [], inten: [] } : { be: state.rawBE, inten: state.rawIntensity }),
-      computeBackground: be => Object.assign(be.map(() => 0), { converged: true }), findGraphiteRawBE: () => null,
+      computeBackground: be => Object.assign(be.map(() => 0), { converged: true }),
+      // the averaging case finds a graphite peak: only the averaging can refuse it
+      findGraphiteRawBE: () => (refusal === 'averaging out of range' ? 284.5 : null),
       uploadToBackend: async () => 'sid', pushUndo: () => { out.undo++; }, buildAutoFitModel: () => [], renderPeakList() {}, peakToBackendSpec: p => p, _getManualAnchors: () => [],
     };
     const src = constants + '\n' + [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
@@ -350,8 +352,13 @@ test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not c
     assert.strictEqual(runOp.jobId, 'RUN1', refusal + ': the Run Fit job is running');
     // the student confirms Auto-Fit on the same tab; its preflight refuses
     await api.runAutoFitC1sGraphite();
-    assert.ok(out.notes.some(m => /No strong peak found|ROI is empty|Auto-Fit not run: endpoint averaging must be a whole number from 1 to 50 \(it is "1e21"\)/.test(m)),
-              refusal + ': Auto-Fit refused: ' + out.notes.join(' | '));
+    // each refusal by ITS OWN reason (Codex averaging round 1: an assertion accepting any of them
+    // passed with the averaging check removed, the graphite search refusing instead)
+    const why = { 'no strong peak': /No strong peak found/, 'empty ROI': /ROI is empty/,
+                  'no strong peak, no modal (no peaks yet)': /No strong peak found/,
+                  'averaging out of range': /^Auto-Fit not run: endpoint averaging must be a whole number from 1 to 50 \(it is "1e21"\)\.$/ }[refusal];
+    assert.ok(out.notes.some(m => why.test(m)), refusal + ': Auto-Fit refused: ' + out.notes.join(' | '));
+    if (refusal === 'averaging out of range') assert.ok(!out.notes.some(m => /No strong peak/.test(m)), 'refused by the averaging, before the graphite search');
     assert.deepStrictEqual(out.cancels, [], refusal + ": the Run Fit's job was NOT cancelled");
     assert.ok(api._fitOpCurrent(runOp), refusal + ': the Run Fit still owns the tab');
     assert.strictEqual(api.spinner(), runOp, refusal + ': the spinner is still the Run Fit\'s');

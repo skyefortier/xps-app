@@ -46,7 +46,9 @@ def test_a_value_in_range_fits_as_before(browser, server):
     assert got["k"] == 50
 
 
-def test_batch_fit_leaves_the_target_unfitted_with_the_reason(browser, server):
+def test_batch_fit_refuses_before_any_target_is_changed(browser, server):
+    # Codex averaging round 1: the refusal used to come after the target's undo entry, peaks,
+    # settings and charge correction were replaced and its fit cleared
     pg = _new_page(browser, server)
     try:
         ids = pg.evaluate("""() => {
@@ -54,25 +56,92 @@ def test_batch_fit_leaves_the_target_unfitted_with_the_reason(browser, server):
                 for (let i = 0; i < 120; i++) { const x = 520 + i * 0.25; be.push(x);
                     inten.push(1000 + amp * Math.exp(-Math.pow(x - 535, 2) / (2 * 1.5 * 1.5)) + (x > 535 ? 200 : 0)); }
                 return { be, inten }; };
-            const s = mk(8000);
-            tabManager.createTab('SRC', s.be, s.inten);
-            const srcId = tabManager.activeId;
-            document.getElementById('bg-endpoint-avg').value = '1e21';
-            addPeak({ center: 535, fwhm: 3, amplitude: 8000 });
             const t = mk(7000);
             tabManager.createTab('TGT', t.be, t.inten);
             const tgtId = tabManager.activeId;
-            tabManager.activateTab(srcId);
+            addPeak({ center: 535.2, fwhm: 2.5, amplitude: 6000 });
+            const s = mk(8000);
+            tabManager.createTab('SRC', s.be, s.inten);
+            const srcId = tabManager.activeId;
+            addPeak({ center: 535, fwhm: 3, amplitude: 8000 });
             return { srcId, tgtId };
         }""")
+        # the target has a fit of its own
+        pg.evaluate("id => tabManager.activateTab(id)", ids["tgtId"])
+        pg.evaluate("async () => { await runFit(); }")
+        pg.evaluate("id => tabManager.activateTab(id)", ids["srcId"])
+        before = pg.evaluate("""id => { const t = tabManager._getTab(id);
+            return JSON.stringify({ peaks: t.peaks, ui: t.ui, cc: t.ccShift, fit: !!t.fitResult, undo: (t.undoStack || []).length }); }""", ids["tgtId"])
+        assert '"fit":true' in before
+        pg.evaluate("() => { document.getElementById('bg-endpoint-avg').value = '51'; }")
+        pg.evaluate(SPY)
         pg.evaluate("() => showPropagateModal()")
         pg.wait_for_timeout(100)
         pg.evaluate("""id => { const c = document.querySelector('.prop-chk[data-id="' + id + '"]'); if (c) c.checked = true; }""", ids["tgtId"])
         pg.evaluate("async () => { await runPropagation(); }")
-        got = pg.evaluate("""id => ({ fit: !!tabManager._getTab(id).fitResult, ep: tabManager._getTab(id).ui.endpointAvg,
-                                     summary: document.getElementById('propagate-summary').textContent })""", ids["tgtId"])
+        after = pg.evaluate("""id => { const t = tabManager._getTab(id);
+            return JSON.stringify({ peaks: t.peaks, ui: t.ui, cc: t.ccShift, fit: !!t.fitResult, undo: (t.undoStack || []).length }); }""", ids["tgtId"])
+        notes = pg.evaluate("() => window.__notes")
+        active = pg.evaluate("() => tabManager.activeId")
     finally:
         pg.close()
-    assert got["ep"] == "1e21", "the source's averaging reached the target (propagateFitUi)"
-    assert not got["fit"], "the target is not fitted"
-    assert 'endpoint averaging must be a whole number from 1 to 50 (it is "1e21")' in got["summary"], got["summary"]
+    assert after == before, "the target is exactly as it was"
+    assert active == ids["srcId"], "no target was activated"
+    assert ["red", 'Batch fit not run: endpoint averaging must be a whole number from 1 to 50 (it is "51").'] in notes, notes
+
+
+def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(browser, server):
+    # Codex averaging round 1: restore and stack reconstruction computed backgrounds at 51
+    import json
+    # fitted at 50 on this 201-point window (its quarter is 50), then saved as 51 in the settings
+    # AND the fit key: 51 would average the same 50 points, so the key and the background match —
+    # only the refusal can keep it from being current
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        pg.evaluate("() => { document.getElementById('bg-endpoint-avg').value = '50'; }")
+        pg.evaluate(RUN)
+        assert pg.evaluate("() => _statsLiveState()") == "current"
+        idx = pg.evaluate("() => _STARTS_UI_FIELDS.indexOf('endpointAvg')")
+        proj = json.loads(pg.evaluate("""async () => { let out = null; const o = window._downloadBlob;
+            window._downloadBlob = async (b) => { out = await b.text(); }; _doSaveProject();
+            for (let i = 0; i < 100 && out === null; i++) await new Promise(r => setTimeout(r, 50));
+            window._downloadBlob = o; return out; }"""))
+    finally:
+        pg.close()
+    for t in proj["tabs"]:
+        if t.get("ui"):
+            assert t["ui"]["endpointAvg"] == "50"
+            t["ui"]["endpointAvg"] = "51"
+        fr = t.get("fitResult")
+        if fr and fr.get("startsModelKey"):
+            key = json.loads(fr["startsModelKey"])
+            assert key["u"][idx] == "50"
+            key["u"][idx] = "51"
+            fr["startsModelKey"] = json.dumps(key)
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", proj)
+        pg.wait_for_timeout(800)
+        got = pg.evaluate("() => ({ fit: !!state.fitResult, stats: _statsLiveState(), peaks: state.peaks.length })")
+    finally:
+        pg.close()
+    assert got["peaks"] == 2 and got["stats"] != "current", got
+
+
+def test_editing_the_field_while_a_fit_runs_discards_its_result(browser, server):
+    # Codex averaging round 1: the fit key read "1e2" as 1, so a result for 1 was applied after
+    # the field was changed to a refused "1e2" during the upload
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        pg.evaluate("() => { document.getElementById('bg-endpoint-avg').value = '1'; }")
+        pg.evaluate(SPY)
+        pg.evaluate("""() => { const o = uploadToBackend; window.uploadToBackend = async (...a) => {
+            const sid = await o(...a); document.getElementById('bg-endpoint-avg').value = '1e2'; return sid; }; }""")
+        pg.evaluate(RUN)
+        got = pg.evaluate("() => ({ fit: !!state.fitResult, msg: document.getElementById('sb-msg').textContent, notes: window.__notes })")
+    finally:
+        pg.close()
+    assert not got["fit"], got
+    assert got["msg"] == "Fit discarded (model edited)", got

@@ -90,3 +90,50 @@ def test_a_valid_or_absent_value_fits_exactly_as_before(client):
         assert r.status_code == 200 and r.get_json()["success"], k
         bg = fitting.compute_background(np.asarray(x), np.asarray(y), "shirley", n_avg=int(k))
         assert np.array_equal(np.asarray(r.get_json()["background_y"]), bg), k
+
+
+# ── Codex averaging round 1: every other reader refuses too ───────────────────────────────
+
+@pytest.mark.parametrize("bad", [0, 51, 1e21], ids=repr)
+def test_find_peaks_engine_and_parity_refuse(bad):
+    import sys
+    sys.path.insert(0, "tests/autofit")
+    from test_endpoint_avg_wiring import GRAPHITE, _synthetic_c1s
+    from autofit.engine import _compute_background, fit_candidate
+    from autofit.grammar import resolve
+    from autofit.methods.base import poisson_like_weights
+    from autofit.grammar import BackgroundType
+    from autofit.parity import background_like_run_fit
+    x, y = _synthetic_c1s()
+    with pytest.raises(ValueError, match=WORDS):
+        fit_candidate(x, y, poisson_like_weights(y), resolve([GRAPHITE], "C 1s").candidates[0], endpoint_avg=bad)
+    with pytest.raises(ValueError, match=WORDS):
+        _compute_background(x, y, BackgroundType.SHIRLEY, endpoint_avg=bad)
+    with pytest.raises(ValueError, match=WORDS):
+        background_like_run_fit(x, y, "shirley", 0, len(x), endpoint_avg=bad)
+
+
+def test_the_async_analyze_route_refuses_before_a_job_exists(client):
+    x, y, _ = SS._well_posed()
+    sid = _upload(client, x, y)
+    for route in ("/api/analyze", "/api/analyze/start"):
+        r = client.post(route, json={"session_id": sid, "material_class": "conductor", "method": "ic_model_comparison", "regions": ["C 1s"], "options": {"endpoint_avg": 51}})
+        assert r.status_code == 400 and WORDS in r.get_json()["error"], (route, r.status_code, r.get_json())
+        assert "job_id" not in (r.get_json() or {})
+
+
+@pytest.mark.parametrize("saved,want", [("3", 3), ("3.0", 3), (" 7 ", 7), ("+3", 3), ("50", 50), (3, 3), (None, 1)])
+def test_the_saved_project_twin_reads_a_valid_value_as_the_page_does(saved, want):
+    from autofit.reference import ReferenceFit
+    rf = ReferenceFit.__new__(ReferenceFit)
+    rf.ui = {} if saved is None else {"endpointAvg": saved}
+    assert rf.endpoint_avg == want
+
+
+@pytest.mark.parametrize("saved", ["0", "-1", "51", "1e21", "1e1", "", "2.5", "abc"])
+def test_the_saved_project_twin_refuses_what_the_page_refuses(saved):
+    from autofit.reference import ReferenceFit
+    rf = ReferenceFit.__new__(ReferenceFit)
+    rf.ui = {"endpointAvg": saved}
+    with pytest.raises(ValueError, match="endpoint averaging must be a whole number from 1 to 50"):
+        rf.endpoint_avg

@@ -26,6 +26,8 @@ This module is read-only with respect to the app: it imports nothing from
 from __future__ import annotations
 
 import json
+import math
+import re
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -254,10 +256,12 @@ class ReferenceFit:
 
     @property
     def endpoint_avg(self) -> int:
-        try:
-            return max(1, int(self.ui.get("endpointAvg", 1)))
-        except (TypeError, ValueError):
-            return 1
+        """The saved averaging exactly as the page reads it (`_endpointAvgFailure`): a whole number
+        1-50 that JavaScript's Number and parseInt read alike, else ValueError — refused, never
+        clamped (owner 2026-10-11; this read max(1, int(x)): "0" became 1 and "3.0" became 1
+        where the page reads 3). Absent is the legacy 1."""
+        raw = self.ui.get("endpointAvg", None)
+        return 1 if raw is None else page_endpoint_avg(raw)
 
     def backend_peak_specs(self) -> list[dict]:
         return [peak_to_backend_spec(p, self.peaks) for p in self.peaks]
@@ -326,3 +330,54 @@ def load_reference_fits(path: str | Path) -> list[ReferenceFit]:
             ui=t.get("ui") or {},
         ))
     return out
+
+
+# ── the page's averaging reader, twinned (owner 2026-10-11) ─────────────────────────────────
+_JS_DECIMAL = re.compile(r"^[+-]?(?:\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)$")
+_JS_RADIX = re.compile(r"^0([xXoObB])([0-9a-zA-Z]+)$")
+
+
+def _js_number(s: str) -> float:
+    """JavaScript's Number(s) for a TRIMMED string."""
+    if s == "":
+        return 0.0
+    if s in ("Infinity", "+Infinity"):
+        return math.inf
+    if s == "-Infinity":
+        return -math.inf
+    m = _JS_RADIX.match(s)
+    if m:
+        base = {"x": 16, "o": 8, "b": 2}[m.group(1).lower()]
+        try:
+            return float(int(m.group(2), base))
+        except ValueError:
+            return math.nan
+    return float(s) if _JS_DECIMAL.match(s) else math.nan
+
+
+def _js_parse_int(s: str) -> float:
+    """JavaScript's parseInt(s) (no radix) for a TRIMMED string."""
+    sign, t = 1, s
+    if t[:1] in "+-" and t:
+        sign, t = (-1 if t[0] == "-" else 1), t[1:]
+    if t[:2] in ("0x", "0X"):
+        digits = re.match(r"[0-9a-fA-F]*", t[2:]).group(0)
+        return float(sign * int(digits, 16)) if digits else math.nan
+    digits = re.match(r"[0-9]*", t).group(0)
+    return float(sign * int(digits)) if digits else math.nan
+
+
+def page_endpoint_avg(raw) -> int:
+    """templates/index.html `_endpointAvgFailure`'s reading of a saved field: String(raw).trim(),
+    then a whole number from 1 to 50 that Number and parseInt read alike — else ValueError."""
+    if isinstance(raw, bool):
+        text = "true" if raw else "false"
+    elif isinstance(raw, float) and raw.is_integer() and math.isfinite(raw):
+        text = str(int(raw))                                   # JS String(3.0) is "3"
+    else:
+        text = str(raw)
+    s = text.strip()
+    n = _js_number(s) if s else math.nan
+    if not (s and math.isfinite(n) and n == int(n) and n == _js_parse_int(s) and 1 <= n <= 50):
+        raise ValueError(f'endpoint averaging must be a whole number from 1 to 50 (it is "{s}").')
+    return int(n)

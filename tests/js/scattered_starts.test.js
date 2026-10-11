@@ -30,7 +30,7 @@ function extractFn(name) {
 }
 const constLine = name => { const l = lines.find(x => x.startsWith('const ' + name)); assert.ok(l, name); return l; };
 
-const FNS = ['_fitKeyCanon', '_sameFitKey', '_isUnsupported', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsRecordKey', '_startsIfCurrent', '_dropStaleAltPreview',
+const FNS = ['_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_isUnsupported', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_startsRecordKey', '_startsIfCurrent', '_dropStaleAltPreview',
   '_startsChosenText', '_startsForSave', '_startsSummaryText', '_startsPeakName',
   '_startsShiftColour', '_startsEv', '_startsShiftHtml', '_startsPanelHtml', '_altPeaks', '_currentAlternative',
   'previewAlternative', 'useAlternative', '_applyBackendParams'];

@@ -44,3 +44,22 @@ in Auto-Fit's preflight leaves a running Run Fit alone); `tests/test_browser_end
 Batch Fit target given 1e21 is not fitted, with the reason). Harness stubs whose blank field
 used to mean 1 now hold "1". Mutation-checked: the route clamp, the Run Fit and Batch checks,
 and the parseInt/Number agreement each fail a test when removed.
+
+## Codex round 1 (NO-GO ×2) — fixed
+
+Both runs: the entry checks work, but other readers of the field bypassed them.
+
+| finding | fix |
+|---|---|
+| the fit key read the averaging with `parseInt`: "1" = "1e2", so a result was applied (and the local fallback run) after the field was changed to a refused value during the upload | `_fitKeyCanon` reads it as the refusal does: a refused text stays itself; "3" = "3.0" = " 3 " |
+| restored fits, stack reconstruction, saves, TSV and the figure computed backgrounds at 51 (a restored fit at 51 read current) | the refusal is in `computeBackgroundCore` itself, so every consumer refuses through the existing not-converged path ("Background not computed: …"); an ABSENT value stays the legacy 1 |
+| Batch Fit refused after the target's undo entry, peaks, settings and charge correction were replaced; a blank field went through (`_captureUI` makes it 1) | the source field is checked as typed before any target is touched |
+| Find Peaks' engine (`_compute_background`, `fit_candidate`) and `autofit/parity.background_like_run_fit` accepted 0, 51, 1e21 | both call `fitting.check_endpoint_avg` |
+| the saved-project twin (`autofit/reference.py`) clamped "0" to 1 and read "3.0" as 1 | `page_endpoint_avg`: the page reader twinned (JavaScript's `Number` and `parseInt` on the trimmed text), pinned equal to the page on 37 texts |
+| archived Find Peaks converted the field with `parseInt(…) \|\| 1` before validating | the field as typed is refused first |
+| `/api/analyze/start` created a job before the worker refused | validated in `_validate_analyze_request` |
+| two tests did not prove their claim (Auto-Fit's accepted any refusal; "before the spinner" observed no spinner) | each refusal asserted by its own reason (the averaging case finds a graphite peak); a spinner counter |
+
+Mutation-checked: the key, the core refusal (with a restore test isolated so only the refusal can
+fail it — fitted at 50 on a 201-point window, saved as 51 in the settings and the key), Batch,
+the engine, parity, the analyze route and the twin each fail a test when reverted.

@@ -262,7 +262,8 @@ def _compute_background(
     """
     # Certified (fitting.compute_background): a background that does not satisfy
     # its defining statement raises BackgroundNotConverged (background math, 2026-10-01).
-    from fitting import compute_background
+    from fitting import check_endpoint_avg, compute_background
+    endpoint_avg = check_endpoint_avg(endpoint_avg)   # refused outside 1-50, never clamped (2026-10-11)
     if bg is BackgroundType.SHIRLEY:
         return compute_background(x, y, "shirley", n_avg=endpoint_avg)
     if bg is BackgroundType.SMART:

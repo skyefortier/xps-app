@@ -397,6 +397,11 @@ def _validate_analyze_request(body: dict, upload_folder: str) -> _AnalyzeContext
     if not isinstance(options, dict):
         raise _AnalyzeError("'options' must be an object")
     opts = {**_ANALYZE_METHODS[method_id], **options}
+    if "endpoint_avg" in options:      # refused here, before a job exists (owner 2026-10-11)
+        try:
+            fitting.check_endpoint_avg(options["endpoint_avg"])
+        except ValueError as exc:
+            raise _AnalyzeError(str(exc))
 
     peak_specs = body.get("peak_specs") or None
     if method_id == "least_squares" and not peak_specs:

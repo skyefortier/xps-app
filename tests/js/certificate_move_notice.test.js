@@ -33,7 +33,7 @@ function constStmt(name) {                     // a const statement, possibly ov
   return lines.slice(start, end + 1).join('\n');
 }
 
-const FNS = ['_fitKeyCanon', '_sameFitKey', '_startsModelKey', '_startsLiveKey', '_startsPeakName', '_startsShiftColour', '_startsEv',
+const FNS = ['_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsModelKey', '_startsLiveKey', '_startsPeakName', '_startsShiftColour', '_startsEv',
   '_certificateMoveFrom', '_certificateMoveIfCurrent', '_certificateMoveText', '_certificateMoveTip', '_certificateNoticeHtml'];
 function makeEnv({ cert, stale = false }) {
   const peaks = [{ id: 1, name: 'Graphite', shape: 'GL', center: 284.4, fwhm: 0.7, amplitude: 9000, glMix: 20 },

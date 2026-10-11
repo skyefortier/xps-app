@@ -81,6 +81,8 @@ def background_like_run_fit(
     extension outside the anchor window.  Kept in lockstep with
     ``fitting.run_fit``; the eval-parity battery fails if they diverge.
     """
+    from fitting import check_endpoint_avg
+    endpoint_avg = check_endpoint_avg(endpoint_avg)   # as run_fit: refused outside 1-50 (2026-10-11)
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     i0, i1 = bg_start_idx, bg_end_idx
