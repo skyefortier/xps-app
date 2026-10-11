@@ -1281,3 +1281,38 @@ Round 8 confirmed round 7's two answers and every other finding. Open, both runs
 | round-8 finding | revision 9 |
 |---|---|
 | MAJOR atomic replacement does not serialise mutations: two concurrent revocations could each publish revision 8 with different key sets, and a cached authentication would match the second | ONE state file and ONE writer protocol: every mutation (creation, rotation, revocation, restore) re-reads, modifies, allocates the revision and publishes durably under an exclusive cross-process lock; mutations other than the first creation are an owner's command, never a request path; the earlier separate key-file / pointer text is replaced (V6.5 step 3) |
+
+## V6.21 Gate status after round 9 (NO-GO ×2) — STOPPED for the owner's review
+
+**Where the design stands.** Every finding outside the attestation key's trust protocol was
+resolved by round 5 and re-confirmed in rounds 5-9 by both runs: the projection and its
+bindings (G1, G2), exact server verification with attributed / authenticated evidence named
+(G3), the statistics, support and area contract (G4), the local engine's O (G5), provenance as
+an attestation (G6), `.fit.json` and wording (G7, G8), Auto-Fit's two-fit transaction, the typed
+schema, legacy and migration; no false VERIFIED claim, tolerance or second reading of a field
+remains. Rounds 5-9 each found ONE further edge in the trust protocol that bounds a page's
+cached authentication — a revocation outliving a cache (5), a reused counter (6), a restored
+backup and a delayed reply (7), concurrent writers (8), and now a crash after a reader saw an
+undurable state (9).
+
+**Open (round 9, both runs, MAJOR).** A reader can return a generation renamed into place
+before the directory fsync; a crash can lose it and a later mutation can publish the same
+`{incarnation, revision}` with other keys, so a cached authentication matches a state without
+its key. Proposed, NOT yet written into V6.5: give every committed state a random identity —
+`state_id`, 128 bits drawn by each mutation — and make cache validity EQUALITY of
+`{incarnation, state_id}` (any difference drops it); order replies only by the issuance of the
+page's generation fetches (rule (i)) and the voiding of verifications begun under another view
+(rule (iii)), dropping the "revision only rises" rule (a crash may legitimately go back); then
+no lost state can ever be matched again, whatever is or is not durable.
+
+**For the owner (Q9 again, now with the cost visible).** Authenticating acceptance needs a
+key, and a key needs this trust protocol — five rounds have shown it is where the remaining
+risk concentrates, and it is new infrastructure (a keyring, a lock, an owner command, a cache
+protocol in the page). The alternative Q9 named: narrow the state to "numerically consistent
+under the verifier; acceptance as recorded by the file" — no key, no keyring, no cache
+protocol; a fit is DISPLAY-CURRENT on the server's re-verified consistency and the recorded
+`success` / `certified` are shown as recorded, not authenticated (a forged file could claim a
+non-minimum certified; the page would say the acceptance is the file's). Options: (a) take the
+proposed `state_id` fix and run the gate again; (b) narrow Q9 and remove the keyring; (c) keep
+authentication but move the key protocol into 1a′'s implementation review, where it can be
+tested against a real filesystem rather than argued.
