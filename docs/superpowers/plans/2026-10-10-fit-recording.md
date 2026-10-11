@@ -159,3 +159,12 @@ took 1–23 certificate restarts (LA's convolution jitter, unit A2), so the 50-r
 the tail of a spread main already has. The browser tallies differed (main 0 of 36, this branch
 about 3 of 19) — the server process's memory layout changed, not a formula. The case is split
 into its two single locks, each certifying in 1–3 restarts in all 24 fresh processes on both.
+
+## Codex round 7 — GO ×2
+
+No BLOCKER or MAJOR in either run. Placement (1 536 writer comparisons), readers (1 536 pandas
+comment-frame comparisons, both engines and delimiters), limits (largest text line 16 044
+characters, XLSX cell 32 000 UTF-16 units) and the test proofs passed. Both runs note that the
+LACX split gives up coverage of the two locks TOGETHER, and that the browser tallies alone do
+not establish the memory-layout explanation (it is plausible; the fresh-process measurement on
+main shows the spread exists there).
