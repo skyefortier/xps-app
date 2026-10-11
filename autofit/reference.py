@@ -390,6 +390,8 @@ def _js_parse_int(s: str) -> float:
 def page_endpoint_avg(raw) -> int:
     """templates/index.html `_endpointAvgFailure`'s reading of a saved field: String(raw).trim(),
     then a whole number from 1 to 50 that Number and parseInt read alike — else ValueError."""
+    if isinstance(raw, (list, tuple, dict)):                  # the page refuses a non-scalar too
+        raise ValueError("endpoint averaging must be a whole number from 1 to 50 (it is not a number).")
     if isinstance(raw, bool):
         text = "true" if raw else "false"
     elif isinstance(raw, float) and raw.is_integer() and math.isfinite(raw):

@@ -78,3 +78,18 @@ absent settings and accepted spellings across eight methods).
 
 Mutation-checked (the capture and the source reader, each with an isolated test: a fit at 1
 saved as blank or as 0 in the settings and the key).
+
+## Codex round 3 (run A GO, run B NO-GO) — fixed
+
+Run A: no BLOCKER or MAJOR (every earlier finding resolved; 472 background comparisons against
+main bit-identical). Run B, one MAJOR:
+
+| finding | fix |
+|---|---|
+| a valid saved spelling the number input cannot hold ("+3", " 7 ", "0x10", "1.") became a blank when restored into the field (the input blanks text outside its floating-point grammar), and was then refused though every reader accepts it | `_restoreUI` writes an already-valid saved value as its plain decimal; a real-browser save → load → Run Fit round trip for each spelling (5 of 7 fail without it) |
+| MINOR (both runs) a saved array (`[3]`) read as 3 by the page, refused by the Python twin | both refuse a non-scalar (one line each) |
+
+Logged, not changed (run A, MINOR): measurement tooling keeps its own readers —
+`tests/js/local_lm_server_parity_backend.py` (`int(value or 1)`),
+`scripts/optimizer_disagreement_targets.js` (`parseInt(value) || 1`),
+`scripts/bg_window_worked_example.py` (`int(...)`); none is a production reader.

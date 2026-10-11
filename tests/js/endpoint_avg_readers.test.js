@@ -40,6 +40,14 @@ test('the Python twin reads every saved text exactly as the page does', () => {
   assert.ok(page.filter(v => v !== null).length >= 10 && page.filter(v => v === null).length >= 15, 'both outcomes exercised');
 });
 
+test('a non-scalar saved value is refused by both readers', () => {
+  for (const v of [[3], ['3'], {}, [[3]]]) assert.match(String(fail(v)), /it is not a number/, JSON.stringify(v));
+  const script = 'import json, sys; sys.path.insert(0, sys.argv[1]); from autofit.reference import page_endpoint_avg as f\n' +
+    'out = []\nfor t in json.load(sys.stdin):\n    try: f(t); out.append("accepted")\n    except ValueError: out.append("refused")\nprint(json.dumps(out))';
+  const py = JSON.parse(runHelper(PYTHON, ['-c', script, REPO_ROOT], { input: JSON.stringify([[3], ['3'], {}, [[3]]]), encoding: 'utf8' }));
+  assert.deepStrictEqual(py, ['refused', 'refused', 'refused', 'refused']);
+});
+
 test('the fit key compares the averaging as the refusal reads it', () => {
   const src = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') +
     '\n' + ['_endpointAvgFailure', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n') + '\nreturn { _sameFitKey, _STARTS_UI_FIELDS };';

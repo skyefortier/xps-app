@@ -3154,6 +3154,8 @@ const ENDPOINT_AVG_MAX = 50;
 // is what a number input holds for text it cannot read. fitting.check_endpoint_avg is the
 // server's twin.
 function _endpointAvgFailure(text, max = 50) {   // max = ENDPOINT_AVG_MAX (pinned equal by a test)
+  if (text !== null && typeof text === 'object')    // a saved array or object is no averaging
+    return 'endpoint averaging must be a whole number from 1 to ' + max + ' (it is not a number).';
   const s = String(text == null ? '' : text).trim(), n = Number(s);
   if (s === '' || !Number.isInteger(n) || n !== parseInt(s) || n < 1 || n > max)
     return 'endpoint averaging must be a whole number from 1 to ' + max + ' (it is "' + s + '").';
@@ -3885,7 +3887,10 @@ class TabManager {
     set('bg-start', ui.bgStart);
     set('bg-end', ui.bgEnd);
     set('shirley-iter', ui.shirleyIter);
-    set('bg-endpoint-avg', ui.endpointAvg ?? LEGACY_ENDPOINT_AVG);
+    // a valid saved spelling as its plain decimal: the number input blanks "+3", " 7 ", "0x10",
+    // "1." (outside its grammar), which would then be refused (Codex averaging round 3)
+    { const ep = ui.endpointAvg ?? LEGACY_ENDPOINT_AVG;
+      set('bg-endpoint-avg', _endpointAvgFailure(ep) ? ep : String(Number(String(ep).trim()))); }
     set('roi-min', ui.roiMin);
     set('roi-max', ui.roiMax);
     set('cc-method', ui.ccMethod);

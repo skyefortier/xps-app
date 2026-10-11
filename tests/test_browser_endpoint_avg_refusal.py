@@ -149,3 +149,37 @@ def test_editing_the_field_while_a_fit_runs_discards_its_result(browser, server,
         pg.close()
     assert not got["fit"], got
     assert got["msg"] == "Fit discarded (model edited)", got
+
+
+@pytest.mark.parametrize("saved,shown", [("+3", "3"), (" 7 ", "7"), ("0x10", "16"), ("1.", "1"), ("3.0", "3"), (3.0, "3"), ("50", "50")],
+                         ids=["plus", "spaces", "hex", "trailing-dot", "3.0", "json-3.0", "50"])
+def test_a_valid_saved_spelling_survives_restoration_into_the_number_field(browser, server, saved, shown):
+    # Codex averaging round 3: the number input blanks text outside its grammar ("+3", " 7 ",
+    # "0x10", "1."), which the refusal then refused although every reader accepts the value
+    import json
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        proj = json.loads(pg.evaluate("""async () => { let out = null; const o = window._downloadBlob;
+            window._downloadBlob = async (b) => { out = await b.text(); }; _doSaveProject();
+            for (let i = 0; i < 100 && out === null; i++) await new Promise(r => setTimeout(r, 50));
+            window._downloadBlob = o; return out; }"""))
+    finally:
+        pg.close()
+    for t in proj["tabs"]:
+        if t.get("ui"):
+            t["ui"]["endpointAvg"] = saved
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", proj)
+        pg.wait_for_timeout(500)
+        field = pg.evaluate("() => document.getElementById('bg-endpoint-avg').value")
+        refused = pg.evaluate("() => _endpointAvgFailure(document.getElementById('bg-endpoint-avg').value)")
+        pg.evaluate(SPY)
+        pg.evaluate(RUN)
+        notes = pg.evaluate("() => window.__notes")
+        fit = pg.evaluate("() => !!state.fitResult")
+    finally:
+        pg.close()
+    assert field == shown and refused is None, (field, refused)
+    assert fit and not any("endpoint averaging" in m for _, m in notes), notes
