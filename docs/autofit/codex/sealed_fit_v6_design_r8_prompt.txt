@@ -1,0 +1,7 @@
+ADVERSARIAL DESIGN review, round 8 — no code has been written. Same scope and questions as docs/autofit/codex/sealed_fit_v6_design_review_prompt.txt; branch design-sealed-fit-v6 at its HEAD; main = c643c5f is the code described. Rounds 1-7: docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4,5,6,7}_verdict_run{A,B}.md (NO-GO x2 each).
+
+The v6 section is now REVISION 8; V6.19 maps the two round-7 findings (both in the authentication cache protocol) to their answers: a keyring restore installs its keys under a fresh incarnation; and the page's trustView changes only by stated ordering rules (only the latest-issued generation fetch sets the incarnation, the revision only rises, a verification is void once trustView changes, save / export await a fetch issued after they began). Try hard to break the WHOLE trust protocol end to end (server state file, workers, rotation, revocation, loss, restore, another server, the page's fetches and verifications in any interleaving, O and the Auto-Fit anchor evidence), not only the two new rules.
+
+Check: are the round-7 findings (and every earlier one) BLOCKER / MAJOR resolved — name any that is not; any NEW defect revision 5 introduced. Same severity rules. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO (the design may go to the owner for approval) or VERDICT: NO-GO.

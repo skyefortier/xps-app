@@ -674,8 +674,8 @@ or decide that a narrower first unit is wanted (for example 1a alone — the ser
 
 # v6 (2026-10-11, owner instruction) — the V5.9 resolutions, on the recorded fields
 
-Status: DESIGN ONLY — no code. REVISION 7 (V6.2-V6.12 rewritten after gate rounds 1-6, each
-NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1..6}_verdict_run{A,B}.md`; V6.13-V6.18
+Status: DESIGN ONLY — no code. REVISION 8 (V6.2-V6.12 rewritten after gate rounds 1-7, each
+NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1..7}_verdict_run{A,B}.md`; V6.13-V6.19
 map each finding).
 Owner, 2026-10-10: "park the full seal; do the RECORDING unit
 first … After it deploys: revise the sealed-fit design to v6 with the six V5.9 resolutions,
@@ -993,13 +993,20 @@ carries the generation `{incarnation, revision}` it actually checked (never one 
 cached authentication is valid only while the server's CURRENT generation equals the one it
 was obtained under — any difference, a new incarnation or a newer revision, drops it. The page
 fetches the current generation (`GET /api/attest-generation`, which reads the same file)
-whenever it loads a file, activates a tab holding a seal, or exports or saves one, and learns it
-from every server reply; a verification reply whose generation differs from the latest the
-page has seen is not attached. So after a revocation, a rotation that retires the key, a lost
+whenever it loads a file, activates a tab holding a seal, or exports or saves one. Its view of
+trust, `trustView = {incarnation, revision}`, changes ONLY by these rules, so no delayed reply
+can reverse it: (i) every generation fetch carries a page-local sequence number, and only the
+reply to the most recently ISSUED fetch may set the incarnation; (ii) within one incarnation the
+revision only rises — a lower revision, from any reply, never replaces a higher one; (iii) every
+verification is tagged with the `trustView` it began under, and when `trustView` changes every
+outstanding verification is void — its reply is discarded whatever it says; (iv) a save or an
+export awaits a generation fetch issued AFTER it began and authenticates against that result. So after a revocation, a rotation that retires the key, a lost
 keyring or a move to another server, the seal is PENDING and then UNCONFIRMED at the next of
 those moments, never later than its next export or save. This applies to O and to an Auto-Fit's
 O₁ in E alike. Recovery: a lost keyring is a new incarnation by construction; restoring a
-backup restores its incarnation and every seal it signed.
+backup installs its keys under a FRESH incarnation (drawn at restore), so the seals they signed
+authenticate again while every cache taken before the restore is dropped — no generation is ever
+reused.
 
 **PROVENANCE** (G6, V6.7) and **REPLAY-CHECKED** (V5.4 with the outcomes *reproduced within
 rounding*, *a different solution*, *the re-run failed* (its message), *different software*).
@@ -1249,3 +1256,12 @@ Open, both runs: one MAJOR.
 | round-6 finding | revision 7 |
 |---|---|
 | MAJOR the trust counter can repeat (a recreated keyring, another server) and a reply could carry a generation newer than the one it checked | the generation is `{incarnation, revision}` from one atomically replaced state file; a verification reports the generation of the snapshot it used; any difference drops a cached authentication; a reply of another generation is not attached (V6.5) |
+
+## V6.19 What changed from revision 7 (gate round 7, NO-GO ×2) — revision 8
+
+Round 7 confirmed every other finding resolved. Open: the cache protocol, one edge per run.
+
+| round-7 finding | revision 8 |
+|---|---|
+| MAJOR (A) restoring a keyring backup reused its incarnation, so a generation could repeat with other keys | a restore installs the keys under a fresh incarnation |
+| MAJOR (B) a delayed generation reply could roll the page's view back and let a delayed verification attach | `trustView` rules: only the latest-issued fetch sets the incarnation; the revision only rises; a verification is void once `trustView` changes; save / export await a fetch issued after they began |
