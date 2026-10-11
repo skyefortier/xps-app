@@ -674,7 +674,9 @@ or decide that a narrower first unit is wanted (for example 1a alone — the ser
 
 # v6 (2026-10-11, owner instruction) — revision 3: the V5.9 resolutions, on the recorded fields
 
-Status: DESIGN ONLY — no code. Owner, 2026-10-10: "park the full seal; do the RECORDING unit
+Status: DESIGN ONLY — no code. REVISION 2 (V6.2-V6.13 rewritten after gate round 1, NO-GO ×2,
+`docs/autofit/codex/sealed_fit_v6_design_r1_verdict_run{A,B}.md`; V6.14 maps each finding).
+Owner, 2026-10-10: "park the full seal; do the RECORDING unit
 first … After it deploys: revise the sealed-fit design to v6 with the six V5.9 resolutions,
 built on the real recorded fields, and run the design gate again." The recording unit is
 deployed (3ced8d6, 2026-10-11, `docs/deploy-log.md`). v6 writes G1–G6 (and the minor G7, G8)
@@ -697,227 +699,302 @@ code is **VERIFIED** (`path:line` on main c643c5f = the deployed 3ced8d6 plus do
 Still open, unchanged by the recording unit (VERIFIED): the starting REQUEST is not recorded
 (V5.2.2); the project save rounds `be`, `bgIntensity`, `bgSubtracted` (V5.2.6); the two loaders
 differ (V5.2.8); readers bypass any one accessor (V5.2.9). `fitResult.record` is a SUBSET of the
-response (`fitting.RECORD_KEYS`, F:49; `_fitRecordFrom` IH:8580); the arrays O needs are still
-memory-only in `backendResult` (IH:8984).
+response (`fitting.RECORD_KEYS`, F:49; `_fitRecordFrom` IH:8580); some arrays already persist (`fittedY` at full precision in a project), but the COMPLETE
+authoritative O does not: it is memory-only in `backendResult` (IH:8984).
 
-## V6.2 The three records, revised
+## V6.2 The three records
 
-**R — what was requested (replay).** Unchanged from V5.3 except: R carries no environment and
-no seed of its own (G2: one copy of each). R's `seed` field is the seed the REQUEST sent —
-`null` for every ordinary Run Fit (the page never sends one, `test_browser_fit_recording`) —
-never the one used.
+**R — what was requested.** Exactly what the server's `run_fit` received, never transformed
+(V5.3), plus what the page needs to bind it (round 1: the as-sent specs lose frontend
+information — a fixed-0.5 Voigt and a GL fixed at 50 send the same spec; inactive shape fields
+are not sent; a link forces `fix_fwhm`):
+- `R.request` — the request body exactly as sent (peak specs with starting values, bounds,
+  roles, links and Auto-Fit's overlays; background spec; `fit_method`; `n_perturb`; `n_starts`;
+  `require_component`; `seed` as SENT — `null` for every ordinary Run Fit; `charge_shift_ev`,
+  0 over HTTP, A:134);
+- `R.energies`, `R.counts` — the uploaded arrays, inline, full precision;
+- `R.idx` — the indices into the tab's raw arrays that `_roiSelect` returned; `R.ccShift` — the
+  page's charge shift those energies were formed with (distinct from `charge_shift_ev`);
+  `R.roi` — the ROI fields as read;
+- `R.pageModel` — a deep copy of the page's peak objects as the request was built (every
+  `_STARTS_MODEL_FIELDS` field, IH:8377, with lock and link flags): the frontend snapshot the
+  display projection starts from.
+R carries no environment and no seed of its own: the one environment is `O.software`, the seed
+used is `O.random_seed`.
 
-**O — what the server returned.** The whole response verbatim, full precision (V5.3), which
-since 3ced8d6 includes `fit_method`, `random_seed`, `seed_source`, `background_verdict`,
-`certificate`, `software`. Two ADDITIVE server fields (the 1a′ unit, V6.8):
-- `fitted_sub` — the model sum the server's statistics are formed from (G4). Today the server
-  returns `fitted_y = best_fit + bg` (F:2742-2743) and not `best_fit`, and `fitted_y − bg` does
-  not recover it exactly (round 2 run A's probe).
-- `software.source_sha256` — G6, V6.7.
-`fitResult.record` becomes a VIEW of O (the same six keys); saves made 2026-10-11 → the seal
-carry the record but no O (V6.6).
+**O — what the server returned.** The response verbatim, full precision, since 3ced8d6
+including `fit_method`, `random_seed`, `seed_source`, `background_verdict`, `certificate`,
+`software`. ADDITIVE in 1a′ (V6.12): `fitted_sub` (the model sum; today only `fitted_y =
+best_fit + bg` is returned, F:2742-2743, and `fitted_y − bg` does not recover it exactly) and
+`statistics.rmse` (formed by the server over all `n_data` samples — today the page forms it, and
+Auto-Fit divides by the RESELECTED `be2.length`, IH:7822, not O's count). `fitResult.record`
+becomes a view of O.
 
-**D — what the page shows (display binding).** V5.3's D minus the claim that D "is"
-`applyBackendResult(O)` (G1, V6.3): D = the applied model, the context (`_STARTS_UI_FIELDS`
-IH:8381, anchors, ccShift), the producer's FINALISATION STEPS as data (V6.3), `chosenAlternative`,
-the engine, `reportable`.
+**D — what the page shows.** The finalisation steps (V6.3), `chosenAlternative`, the engine,
+`reportable`. The displayed model is NOT stored as authority; it is DERIVED (V6.3) and the live
+model compared with it.
 
-## V6.3 G1 — a pure display projection, never a fixed point
+## V6.3 G1 — a pure projection from the frontend snapshot
 
-`applyBackendResult` cannot reconstruct D: it writes into the live peaks it finds through
-`getPeak` (IH:7017-7020) and skips every locked field (`_applyBackendParams`, IH:6998-7016), so
-re-applying O to D returns D unchanged whatever O says (round 2 run B's probe: O's centre 10,
-the shown centre 99 locked, unchanged).
+`applyBackendResult` writes into the live peaks it finds by `getPeak` (IH:7017-7020) and skips
+every locked field (`_applyBackendParams`, IH:6998-7016): re-applying O to the displayed model
+leaves its LOCKED fields unchanged whatever O holds, so it cannot be the check.
 
-`project(O, R, steps)` — pure, explicit inputs, no globals:
-1. For each component of R's specs, in R's order: every lineshape field from O's
-   `individual_peaks[].params[*].value` — locked, free and linked alike (a linked component's
-   centre and amplitude are the server's expression values; locked values are checked against
-   R in G2, so they are never silently taken from the page); the lock and link FLAGS from R's
-   spec roles (`fix_*`, `constrain_to`, offset, ratio).
-2. Then the producer's finalisation, recorded as data in D — never inferred: Run Fit and "Use
-   this solution" none; Auto-Fit `[{op: 'charge_shift', ev: Δ}, {op: 'lock_centres'},
-   {op: 'reselect_window', roi, bg}]` in the order it performs them (VERIFIED it shifts and locks
-   AFTER applying: CLAUDE.md "Auto-Fit locks every centre and refines the charge shift AFTER the
-   result is applied"; `_restampSupport`). Each op is a pure function with a stated effect on
-   centres, bounds, ROI and anchors (v4 R4-A1's list) and NONE on amplitudes, widths, curves or
-   statistics.
-DISPLAY-CURRENT step 3 (V6.5) compares the LIVE model with `project(O, R, D.steps)` exactly,
-through `_fitKeyCanon`'s readers; the Results table reads the numbers from O through the
-accessor, not from the live peaks — so a lock cannot make the table and O disagree.
+`project(R.pageModel, O, steps)` — pure, explicit inputs:
+1. A deep copy of `R.pageModel`; for each component, `_applyBackendParams`' OWN field rules as a
+   pure function of (copy, O's params): a locked field keeps the snapshot's value (so a locked
+   GL mix of 29 stays 29 — no inverse unit conversion is ever formed); a free field takes O's
+   value through the same conversion the live path uses (`gl_ratio × 100`, IH:7005), so the
+   result is bit-for-bit what the live application produced from the same snapshot; linked
+   components as the live path treats them. One function serves both: the live path becomes
+   `applyInPlace(livePeaks, project(...))`, so there is no second reading.
+2. The producer's finalisation, DERIVED, never taken as data: `finalise(producer, O, R, ctx)`
+   re-derives every step from O and the recorded context and D's recorded steps must equal it.
+   Run Fit and "Use this solution": none. Auto-Fit, in its order (VERIFIED IH:7793-7855): the
+   reference centre from O's anchor component rounded `toFixed(3)` (IH:7793, IH:7803); the charge shift
+   from it; the ROI and background bounds re-expressed and rounded `toFixed(1)` (IH:5467-5480);
+   the window RESELECTED and the background recomputed (IH:7808-7829); then every centre locked
+   (IH:7855). Its acceptance gates are part of the producer: support of the anchor (recomputed,
+   V6.5), the required-component verdict and its refit's convergence (`O.required`, ATTRIBUTED,
+   V6.5), the reference-centre window (IH:7769-7789).
+3. **Auto-Fit's reselection.** When the reselected samples are not exactly R's (`R.idx`
+   against the new selection), the chart's points are not the fitted samples: the result is NOT
+   current ("Auto-Fit's charge correction re-selected the window — run the fit again"), never
+   reconciled by a translation (round 1: `(raw − old) − (new − old)` ≠ `raw − new` in floating
+   point). Whether Auto-Fit should refit after its shift is the logged Auto-Fit unit (CLAUDE.md
+   "LOGGED FOR ONE LATER UNIT"), owner decision Q8.
+DISPLAY-CURRENT compares the live model with `project(...)` exactly through `_fitKeyCanon`'s
+readers. The Results table reads values from `project(...)`'s output (the same numbers the
+model holds), and curves and statistics from O (V6.5) — never from the live peaks.
+"Use this solution" is an ordinary Run Fit whose R is the request its `startPeaks` produced
+(IH:8832, 8874); an alternative's PREVIEW is a preview of an unfitted model (no statistics
+claim, no currency).
 
-## V6.4 G2 — the records bound to each other (exact)
+## V6.4 G2 — bindings the page checks (exact, explicit inputs, no globals)
 
-All exact (no tolerance), all part of DISPLAY-CURRENT:
-- `O.energy` = R's energies and `O.counts` = R's counts, element for element (a valid O for
-  another spectrum on the same grid fails here — round 2's counterexample).
-- R's sample list into the tab: `R.energies[j] === tab.rawBE[R.idx[j]] − R.ccShift` (the page's
-  own operation, `getCorrectedBE`) and `R.counts[j] === tab.rawIntensity[R.idx[j]]` — so the
-  data the chart shows as points ARE the samples fitted.
-- Every component R locked: `O.params[k].value === R.spec[k]` and `vary === false` (VERIFIED
-  the server returns each parameter's `value` and `vary`: F:2766-2773; it holds a locked value at the value sent:
-  `_make_peak_params._set` widens a limit to a held value, CLAUDE.md lineshape section).
-- D's context → R's background spec through ONE adapter (`_bgWindowIndices`, the inclusive
-  window converted to R's exclusive `end_idx` as the request does): method, window, averaging
-  (now a whole number 1–50 on both sides, branch `feat-endpoint-avg-refusal`), anchors.
-- Seed: `O.seed_source === (R.seed === null ? 'request' : 'caller')` and, for a caller seed,
-  `O.random_seed === R.seed`.
-- Background: `O.background_verdict.effect` equals `_bgEffect` of D's context (the page's twin
-  of `_background_effect`, pinned equal on eight settings by
+The page's adapter is a pure function of saved inputs, reproducing each current reader exactly
+(round 1: `getCorrectedBE` reads globals and maps a non-finite shift to 0, IH:5526; `_bgEffect`
+falls back to the live anchors):
+- **Samples.** `R.idx` equals, element for element and in order, the selection `_roiSelect`
+  makes from the tab's raw arrays with `R.ccShift` and `R.roi` (completeness and order — a
+  narrower subset fails); `R.energies[j]` is that reader's corrected energy for `R.idx[j]` and
+  `R.counts[j] === tab.rawIntensity[R.idx[j]]`; `O.energy` and `O.counts` equal R's exactly.
+- **Display frame.** The chart's energies are formed from the raw samples and the FINAL shift by
+  the same reader (`rawBE[R.idx[j]]` with `ccShift_final`) — never by translating R's energies.
+- **Context → background spec.** D's context through `_bgWindowIndices` (inclusive window →
+  the request's exclusive `end_idx`), the averaging as the request reads it, the saved anchors
+  (explicit, not `_getManualAnchors()`), equals `R.request.background`; and `_bgEffect` of it
+  equals `O.background_verdict.effect` (pinned on eight settings by
   `test_browser_fit_recording.py::test_the_page_records_the_background_by_its_effect_as_the_server_does`).
-- ONE environment record: `O.software` (the server's statement of itself). R holds none.
+  PREREQUISITE: the averaging refusal (branch `feat-endpoint-avg-refusal`, not yet deployed) —
+  until it ships, the page's helpers and the server read an averaging of 1e21 or more
+  differently (A:85 `max(1, int(x))` at c643c5f; `_bgEffect`'s double parse, IH:5042).
+- Everything the page cannot recompute itself is checked by the SERVER (V6.5).
 
-## V6.5 The states, revised
+## V6.5 The states
 
 **DISPLAY-CURRENT** — all of:
-1. *O is internally consistent* — finite; G2's bindings; component ids and shapes match R one
-   to one; and the statistics RECOMPUTED from O's own arrays equal O's EXACTLY (G4, V6.6).
-2. *Accepted* — `O.success === true`; a local server method's `O.certificate.certified`;
-   `O.background_verdict.converged` (V5.4.2, unchanged).
-3. *The page shows O* — the live model equals `project(O, R, D.steps)` (G1); the chart draws O's
-   own curves and envelope while current (v4 Part 1; V5.4.3).
-4. *The background is today's* — V5.4.4, unchanged (still a HYPOTHESIS to prove in 1b; else
-   STALE "background changed").
-5. *Each parameter set describes its curve* (G3, below).
+1. *The page's bindings* — V6.4, and the live model equals `project(R.pageModel, O, steps)`
+   with the steps re-derived (V6.3).
+2. *The server's verification* — one `POST /api/verify-fit {R, O}` (1a′) returns `ok` with the
+   verifying `software`, which must equal `O.software` (else UNCONFIRMED "different software" —
+   equal version strings are not taken to mean equal code; the server compares its own record).
+   The server, with the same code that fitted, checks EXACTLY (no tolerance anywhere):
+   - roles: the lmfit parameters it builds from `R.request` (`_make_peak_params`, F:1555-1602,
+     expressions before held values — a linked child's sent centre is overridden by its
+     expression, so a held value is checked only for parameters with no expression) have O's
+     `vary`, `expr`, `min`, `max`; every expression evaluates, from O's free values in
+     dependency order (any request order), to O's value;
+   - `O.fit_method == R.request.fit_method`; `O.charge_shift_applied == R.request.charge_shift_ev`;
+     `O.random_seed` is the caller's seed, or `_request_seed` recomputed from `R.request` and R's
+     arrays (F:2525-2532) — `O.seed_source` accordingly;
+   - the background: `compute_background` from R equals `O.background_y` and its certificate
+     equals `O.background_verdict`;
+   - the model: each component `y` re-evaluated from O's params on O's energies (F:2750-2755);
+     `area` by the same trapezoid (F:2758: SciPy's signed `dx * (y[i+1] + y[i]) / 2`, summed,
+     then `abs`); `fitted_sub` re-evaluated as `best_fit` is (a fresh composite evaluation,
+     lmfit model.py:1587); then `fitted_y == fitted_sub + background_y` and `residuals ==
+     (counts − background_y) − fitted_sub` (F:2743, F:2827) in those exact associations;
+   - the statistics from those arrays (V6.6), AIC / BIC by lmfit's formula, `n_free_params`
+     from the roles, `rmse`, the R-factor; each component's support by `_component_support`
+     (F:2233) with the linked-root rule (F:2802-2819).
+   Re-evaluation is exact only if every evaluator is bit-stable on this server: HYPOTHESIS for
+   LA(α,β,m) (`np.convolve`, F:1424) and DS+G (NumPy FFT, F:330-332) — two different mechanisms;
+   round 1's bounded probes (14 fits, seven shapes) found re-evaluation and recomputed χ² equal.
+   Measured in 1b; a shape whose evaluation is not bit-stable cannot be verified exactly and its
+   fits are UNCONFIRMED — never compared within a measured tolerance (design rule) — until its
+   evaluator is made deterministic (owner Q7).
+3. *Accepted* — `O.success === true`; `O.background_verdict.converged`; for a local server
+   method `O.certificate.certified`; DE / basinhopping their own `success`.
+4. *The background is today's* — V5.4.4 (the page's certified background for R's inputs equals
+   `O.background_y` exactly; HYPOTHESIS to prove in 1b, else STALE "background changed").
 
-**G3 — parameters ↔ curves.** Drawing O's curves leaves O's parameters unchecked against them
-(round 2: change one `amplitude.value`, nothing fails). Resolution: the SERVER re-evaluates.
-- A fresh fit in this session is consistent by construction: its O came from `run_fit`, which
-  evaluated each `y` from those very params (F:2752-2755) — no call needed.
-- A LOADED O is sent once, on load, to an additive `POST /api/verify-components` (1a′): the
-  server evaluates each component from O's params on O's energies with the same code that fit
-  it, and returns `{y, area, support}` per component; the page requires `y` and `area` to equal
-  O's EXACTLY and recomputes support from them. Exactness holds when the evaluating software is
-  O's: same `software.numerics` and libraries (HYPOTHESIS for LA(α,β,m) and DS+G: their
-  convolutions carry alignment-dependent BLAS rounding — CLAUDE.md "Reproducibility", unit A2 —
-  to be measured in 1b; if they are not bit-stable on re-evaluation, their branch compares
-  within the measured rounding, labelled as such, the owner's accepted "parity, not rounding"
-  wording for the envelope tests).
-- Server unreachable or different software → not current: UNCONFIRMED (values shown with the
-  reason, like F1's "unverified"), never DISPLAY-CURRENT. Owner decision Q6.
-- σ remains the server's statement for R (not re-derivable; V5.4.1's stated limit).
+**ATTRIBUTED, not recomputed** (said beside them): σ; the certificate's restarts, `moved` and
+centre moves (`certified` gates acceptance on the server's word); `starts` (counts,
+alternatives' scores, areas, fractions, moves); `required` (Auto-Fit's refit verdict); messages.
+A re-run, not a verification, is what tests them (REPLAY-CHECKED).
 
-**PROVENANCE-COMPLETE** (G6, V6.7) and **REPLAY-CHECKED** (V5.4, with G8's outcomes:
-*reproduced within rounding*, *a different solution*, *the re-run failed* (its message),
-*different software*) — unchanged otherwise.
+**PENDING** — while the verification is outstanding (a fresh fit included: no "by construction"
+exemption); statistics shown with "confirming …". **UNCONFIRMED** — the server unreachable, a
+different server software, or a shape not verifiable exactly; values shown with the reason,
+never current; distinct from a detected mismatch, which is STALE / PEAKS-ONLY with the failed
+check named. Owner Q6.
 
-## V6.6 G4 — the statistics: one association, recomputed exactly
+The verification result is owned by the immutable O object it checked (a WeakMap from the
+frozen O to `{verifier software, result}`): a result for another O, a replaced tab or a stale
+request never applies; edits and history restores change the live model, which step 1 re-checks.
+
+**PROVENANCE** (G6, V6.7) and **REPLAY-CHECKED** (V5.4 with the outcomes *reproduced within
+rounding*, *a different solution*, *the re-run failed* (its message), *different software*).
+
+## V6.6 G4 — the statistics: one association
 
 VERIFIED today: `y_sub = y − bg` (F:2477); weights `1/√max(counts, 1)` from the RAW counts
-(F:2487-2488); lmfit's residual `(data − model)·weights` and `chisqr = (residual**2).sum()`
-(L:318) — a pairwise NumPy sum, not a BLAS dot — then `redchi = chisqr / max(1, nfree)` (L:325)
-BEFORE `chisqr = max(chisqr, 1e-250·ndata)` (L:327); the response's `chi_square` /
-`reduced_chi_square` are lmfit's (F:2824-2825), formed from the residual of lmfit's LAST
-evaluation, not from the returned arrays; `residuals = y_sub − fitted_sub` unweighted (F:2827);
-`r_factor = Σ|y_sub − fitted_sub| / Σ|y_sub|`, `null` when the denominator is 0 (F:2830-2831);
-`n_free = result.nvarys` (F:2823); the page's RMSE = √(Σ residuals² / n) from O's `residuals`
-with a left-to-right sum (IH:8981, Auto-Fit IH:7822).
+(F:2487-2488); lmfit's residual `(data − model)·weights`, `chisqr_raw = (residual**2).sum()`
+(L:318, a NumPy pairwise sum), `redchi = chisqr_raw / max(1, ndata − nvarys)` (L:325, lmfit's
+`nfree`) BEFORE `chisqr = max(chisqr_raw, 1e-250·ndata)` (L:327); `aic` / `bic` from the
+floored χ² (L:328-330); the response's `chi_square`, `reduced_chi_square` are lmfit's (F:2824-2825),
+from a residual evaluated inside the minimiser — `best_fit` is a SEPARATE evaluation (lmfit
+model.py:1587); `n_free_params = result.nvarys` (F:2823); `residuals = y_sub − fitted_sub`
+unweighted (F:2827); `r_factor = Σ|y_sub − fitted_sub| / Σ|y_sub|`, `null` when 0 (F:2830-2831);
+the server refuses a model with n_free ≥ n_data (CLAUDE.md "Determinacy").
 
-Resolution:
-- The server forms its reported statistics FROM THE ARRAYS IT RETURNS: χ² = Σ(((y_sub −
-  fitted_sub)·w)²) in that association, NumPy's pairwise sum, χ²ᵣ = χ² / max(1, n_free), then
-  the reported χ² floored at 1e-250·n exactly as lmfit does (so it equals lmfit's value whenever
-  `best_fit` is the model of lmfit's last evaluation — HYPOTHESIS: true bit for bit except where
-  a lineshape's evaluation is not bit-stable (LA, DS+G); 1b measures the difference on the 202
-  targets; it is below rounding by construction and is said in the release note). R-factor as
-  today, from `fitted_sub`.
-- The page recomputes each EXACTLY: the elementwise operations are IEEE-identical; the sums use
-  `_npPairwiseSum` (IH:4923), already bit-identical to NumPy's pairwise sum on the Tougaard
-  loss sums (`tests/js/background_parity.test.js`). No tolerance: a mismatch is a defect or a
-  different record. HYPOTHESIS until 1b proves the twin on these sums (block size, unrolling).
-- RMSE stays the page's own statistic of O's `residuals` (no server counterpart; deterministic,
-  so recomputed exactly by the same function).
-- **Areas: ONE definition.** The server integrates each component by the trapezoid rule over O's
-  energies, as a magnitude (F:2759); the page's Results, sidebar, Quantify and CSV/XLSX use a
-  rectangle sum × the first step (`_peakArea`, IH:9616-9622). Two readings of one quantity
-  (CLAUDE.md design rule). Recommended: the server's trapezoid, read from O through the
-  accessor; a CHANGE of displayed areas and atomic % (to be measured on the committed set before
-  approval) — owner decision Q5.
-- Support (step (b)): recomputed from O's arrays and the parameter roles — `_component_support`
-  (F:2233) from `y_sub`, `fitted_sub`, each `y`, the weights, each component's free-parameter
-  count (F:2788-2789) — the page's twin `_componentSupportFromResponse` given `fitted_sub`.
+The contract (1a′), names unambiguous: `n_data` = len(O.energy); `n_varys` = the parameters
+with `vary` and no `expr`, the synthetic `area` excluded (= `statistics.n_free_params`);
+`chi2_raw = Σ(((y_sub − fitted_sub)·w)²)` (NumPy pairwise sum); `reduced_chi_square =
+chi2_raw / max(1, n_data − n_varys)`; `chi_square = max(chi2_raw, 1e-250·n_data)`; `aic`, `bic`
+by lmfit's formulas from that `chi_square`; `rmse = √(Σ residuals² / n_data)`; R-factor as today.
+The server REPORTS these from the arrays it returns, so its verification recomputes them
+exactly. Equal to today's lmfit values whenever `best_fit` reproduces the minimiser's last model
+(round 1's probes: equal on 14 fits); where not, a change whose size is MEASURED in 1a′ on the
+202 targets and release-noted — no size is claimed in advance (cancellation can amplify a model
+difference in a residual statistic). `starts.fit.chi2r` and the alternatives keep their own
+values (ATTRIBUTED, V6.5).
 
-## V6.7 G5 — the local engine's own O, and G6 — provenance
+Nullable by schema (not "finite everywhere"): `stderr`, `min`, `max`, `expr`, `r_factor`,
+`aic` / `bic` when undefined, `support.f`, `certificate` (DE / basinhopping), `required`,
+`starts`; every array and every other number finite.
 
-**Local O** (Batch Fit and the fallback; reconciles v4 R4-A4 "stores exactly what local LM
-fit"): `{engine: 'local', energies, counts (raw), background (the certified array it was given,
-with its certificate and effect), net, final parameters per component, curves (each
-`evalPeakArray` at the final parameters on the energies), the varied-parameter inventory
-(`paramMap`: id, parameter), the weights rule, χ², dof, χ²ᵣ, RMSE, iterations, the coordinate
-certificate (today's `record.certificate`), support verdicts, reportable: false}` — VERIFIED
-today it returns only `{success, engine, iterations, acceptedSteps, chiReduced, certifyRestarts}`
-(IH:9576) and writes the rest into state separately. Its DISPLAY-CURRENT branch: steps 1–3 and 5
-with the PAGE as evaluator (the same functions, so exact); step 4 its own certified background;
-acceptance `success` and its certificate; and the starting-point designation unchanged
-(`_isLocalFit`, CLAUDE.md "A local result is a STARTING POINT").
+**Areas — ONE definition (Q5).** Three today: the server's trapezoid as a magnitude (F:2758);
+the page's rectangle sum × the first step (`_peakArea`, IH:9616-9622) — Results, sidebar,
+sidebar support patching (IH:7707), Quantify, CSV/XLSX, Auto-Fit's 40 % graphite warning
+(IH:7562-7566, so a decision can change, not only a number); the spectrum save's sequential
+trapezoid with |dx| per interval (IH:11888-11897; on the grid [0, 2, 1] with unit samples:
+server 1, spectrum save 3, rectangle 6); and the alternatives' server areas and fractions
+(F:2133-2146, IH:8747-8756). Recommended: the server's, read from O (and the local O's own, the
+same formula) through the accessor, for EVERY reader listed. The change is measured in 1b on
+the committed set; Q5 is decided on that measurement, after 1b, before 1c.
 
-**Provenance (G6).** `{git_commit, git_dirty}` does not identify a dirty build, and
-`--untracked-files=no` (F:73) does not see an untracked module the worker imported. Resolution:
-at import the server also records `source_sha256` — SHA-256 over the bytes of every repository
-file it has loaded (the modules under the checkout in `sys.modules`, the template it serves),
-sorted by path. PROVENANCE-COMPLETE iff `git_commit` is 40 hex, `git_dirty === false`, and
-`source_sha256` equals the same digest computed from the commit's tree (checkable offline from
-the repository) — HYPOTHESIS: computable at import without a measurable start-up cost. Dirty,
-unidentified or mismatched → provenance incomplete, said; it never withholds the statistics
-(owner Q4). Local fits: the page's copy of the serving worker's software, `role:
-served_the_page`, under the same rule.
+## V6.7 G5 — the local engine's O; G6 — provenance
 
-## V6.8 Legacy saves, revised
+**Local O** (Batch Fit and the fallback; v4 R4-A4 "stores exactly what local LM fit"):
+`{engine: 'local', success: true, energies, net, background (the certified array given, with
+its certificate and effect), weights by the ENGINE's association — 1/√max(net + background, 1),
+IH:9214, never recomputed from raw counts — the varied-parameter inventory (`paramMap`), the
+final model as ONE snapshot (the working peaks after the last `applyParams`, IH:9297-9305 —
+links are propagated once, in peak order, so the snapshot, not a re-propagation, is
+authoritative), each component's curve (`evalPeakArray` on that snapshot), the model sum, χ²
+and χ²ᵣ as the engine sums them (sequentially, no floor, IH:9318), RMSE, R-factor
+(`_computeRFactor`), areas (Q5's definition), iterations, the coordinate certificate, support
+(`_componentSupportCore`), reportable: false}`. VERIFIED today it returns only `{success,
+engine, iterations, acceptedSteps, chiReduced, certifyRestarts}` (IH:9576) and does not keep the
+inventory or the curves. Its DISPLAY-CURRENT: the page is its own verifier (the same functions
+on the snapshot: exact), V6.4's bindings, its own certified background, acceptance its
+certificate. No σ; LA's `caM` held. The starting-point designation stays through every
+provenance path: `_isLocalFit`, `_isLocalModel`, `_provenanceOf` (IH:9128), undo, Batch
+copies, `.fit.json`, history, stacks, exports (IH:9074-9139).
+
+**Provenance (G6) — narrowed to an ATTESTATION.** Hashing source files does not identify the
+executed code (bytecode caches, later imports, replaced files), and versions do not identify
+native artifacts; the frontend is served from disk independently of the worker's restart and
+renders runtime reference data (DEPLOY.md:31-37; A:800-808). v6 claims no execution proof.
+`PROVENANCE: attested` when the server reports, at import, a 40-hex `git_commit`,
+`git_dirty === false` and NO untracked file under the checkout (`git status --porcelain` without
+`--untracked-files=no`, F:73 today excludes them), plus `env_sha256` — SHA-256 of the sorted
+`name==version` list of the installed distributions (the lockfile identity) — and the page's
+`page_sha256` of the template as rendered, per response (the meta tag). Anything else:
+`PROVENANCE: incomplete`, with what is missing. Never withholds the statistics (Q4).
+
+## V6.8 Legacy saves
 
 - No key (all 121 committed fits): V5.5, unchanged — never current; the restore rule is the
   adapter.
-- Key, no record (2026-09-25 → 2026-10-10): never current (Q1, recommended).
-- Key + record, no O (2026-10-11 → the seal): never current either — the record proves what
-  computed the fit but not that the shown curves and statistics are its output; the record is
-  shown as provenance. (Recommended; part of Q1.)
-- Sealed: V6.5.
-- `.fit.json` (G7): parameters for other data, never a seal; its import keeps the record as
-  `modelProvenance` (VERIFIED IH:3457-3458), support null — unchanged.
+- Key, no record (2026-09-25 → 2026-10-10) and key + record, no seal (2026-10-11 → the seal):
+  never current (Q1); a record is kept and shown as provenance EVEN when the reconstruction
+  falls back to peaks-only — today `_dropRestoredFit` nulls `fitResult` and the record with it
+  (IH:10585-10587), so the adapter keeps it separately (`tab.provenance`).
+- `.fit.json` (G7): parameters for other data, never a seal; the record as `modelProvenance`
+  (VERIFIED IH:3457-3458), support null.
 
-## V6.9 Migration (V5.6 plus G7, G8)
+## V6.9 Migration (V5.6 plus)
 
-V5.6's consumer list, plus: the `.fit.json` save and import and `modelProvenance` (G7), the
-record's export tail (IH:8627, IH:8650, now a view of O), the PNG chunk. `sealedState(fr, live)`
-returns `{state, step, reason, view}` — `view` the validated consumer view (model, curves,
-statistics, areas, support, provenance), the only thing consumers read (G8). Q3 resolved by O
-being verbatim: the alternatives' parameter sets are in O; "counts only" would make O
-"verbatim except `starts.alternatives[].params`", stated if chosen.
+V5.6's consumers, plus: every area reader of V6.6; the `.fit.json` save and import and
+`modelProvenance`; the record's export tail (IH:8627, IH:8650) and PNG chunk as views of O;
+the verification's pending / failed / owned states on load, tab switch and history restore
+(V6.5). `sealedState(fr, live)` returns `{state, failedCheck, reason, view}`; `view` (model,
+curves, statistics, areas, support, attributed evidence, provenance) is the only thing consumers
+read. Q3: the alternatives' parameter sets are in O (O is verbatim).
 
 ## V6.10 Owner decisions requested
 
-- Q1 (V6.8): keyed, recorded-but-unsealed saves never current (recommended)?
+- Q1: keyed and recorded-but-unsealed saves never current (recommended)?
 - Q2: REPLAY-CHECKED on demand only (recommended)?
 - Q3: alternatives' parameter sets kept in O (recommended)?
-- Q4: incomplete provenance is a note, never withholds statistics (recommended)?
-- Q5 (V6.6): one area definition — the server's trapezoid (recommended; changes displayed areas
-  and atomic % by an amount to be measured), or keep the page's rectangle sum and make the
-  server report it?
-- Q6 (V6.5 G3): a loaded fit is confirmed by one server evaluation call; offline it is
-  UNCONFIRMED, never current (recommended)?
+- Q4: incomplete provenance a note, never withholding statistics (recommended)?
+- Q5: one area definition, the server's trapezoid, for every reader (recommended) — decided
+  after 1b measures the change (it can flip Auto-Fit's 40 % warning)?
+- Q6: every server fit verified by one server call; PENDING until then, UNCONFIRMED offline or
+  on different software (recommended)?
+- Q7: a lineshape whose evaluation is not bit-stable (if 1b finds one) is UNCONFIRMED until its
+  evaluator is made deterministic — a separate unit (recommended), never a tolerance?
+- Q8: an Auto-Fit whose charge correction re-selects the window is not current until refit
+  (recommended), with the logged Auto-Fit unit to refit after the shift?
 
 ## V6.11 Ship order (after approval)
 
-1a′. Server, additive: `fitted_sub`; the statistics formed from the returned arrays (an ulp-level
-     change in reported χ² where a lineshape is not bit-stable — measured, release-noted);
-     `software.source_sha256`; `POST /api/verify-components`. Tests; Codex ×2.
-1b.  Measure and prove: the page's pairwise twin on the statistics sums; `/api/verify-components`
-     exactness per lineshape on the committed set; V5.4.4's background bit-identity; the area
-     change (Q5); the seal's size; the replay reproduction fraction. Before 1c.
-1c.  Producers write R / O / D (Run Fit, Use this solution, Auto-Fit with its steps, local and
-     Batch Fit with the local O); both saves and both loaders persist them losslessly;
-     `sealedState` and every V6.9 consumer switch together; the legacy adapter routes everything
-     unsealed. One branch, one release. Codex ×2.
+0.  The averaging refusal (branch `feat-endpoint-avg-refusal`) deployed.
+1a′. Server, additive: `fitted_sub`, `statistics.rmse`, the statistics formed from the returned
+     arrays (the change MEASURED on the 202 targets and release-noted), `env_sha256`, untracked
+     files in `git_dirty`, `POST /api/verify-fit`. Tests; Codex ×2.
+1b.  Measure and prove: evaluator bit-stability per lineshape (Q7); V5.4.4's background
+     bit-identity; the area change (Q5); the seal's size; the replay reproduction fraction.
+     Then Q5 / Q7 decided.
+1c.  Producers write R / O / D (Run Fit, Use this solution, Auto-Fit with its derived steps and
+     gates, the local O for the fallback and Batch Fit); both saves and both loaders persist them
+     losslessly; `project` replaces the live application path; `sealedState` and every V6.9
+     consumer switch together; the legacy adapter routes everything unsealed. One branch, one
+     release. Codex ×2.
 1d.  REPLAY-CHECKED (Q2). Codex ×2.
 
-## V6.12 What each round-2 finding became
+## V6.12 What each V5.9 finding became
 
 | finding | v6 |
 |---|---|
-| G1 D is a fixed point of `applyBackendResult` | V6.3 `project(O, R, steps)`; the table reads O |
-| G2 records not bound | V6.4 exact cross-record checks; one environment (O.software); R.seed = the requested seed |
-| G3 parameters not checked against curves | V6.5: fresh by construction; loaded by `/api/verify-components`, exact; else UNCONFIRMED |
-| G4 statistics contract | V6.6: `fitted_sub` returned; statistics formed from the returned arrays; exact page recomputation; RMSE the page's; one area definition (Q5) |
-| G5 local O undefined | V6.7 local O and its branch |
-| G6 dirty builds unidentified | V6.7 `source_sha256` against the commit's tree |
-| G7 `.fit.json`, `modelProvenance` | V6.8, V6.9 |
-| G8 wording | V6.5 replay outcomes; V6.9 `sealedState` view; Q3; "before 1c" |
+| G1 D a fixed point of `applyBackendResult` | V6.3: `project(R.pageModel, O, steps)` — the live path's own rules as a pure function; steps re-derived; Auto-Fit's reselection not reconciled |
+| G2 records not bound | V6.4 page bindings (samples complete and ordered, display frame, context); V6.5 server: roles, expressions, method, shift, derived seed |
+| G3 parameters ↔ curves | V6.5: every server O verified by the server, exactly; attributed evidence named; PENDING / UNCONFIRMED |
+| G4 statistics | V6.6: one association with lmfit's denominators and floor; `fitted_sub`, `rmse` in O; every identity; nullable schema; one area definition across every reader |
+| G5 local O | V6.7: complete, the engine's own weights and snapshot |
+| G6 provenance | V6.7: an attestation (clean commit incl. untracked, environment identity, rendered page), not an execution proof |
+| G7 `.fit.json` | V6.8, V6.9 |
+| G8 wording | V6.5 replay outcomes; V6.9 `sealedState` view; Q3 |
+
+## V6.13 What changed from v6 revision 1 (gate round 1, NO-GO ×2)
+
+| round-1 finding (both runs unless marked) | revision 2 |
+|---|---|
+| BLOCKER χ²ᵣ divided by `max(1, n_free)` with n_free = nvarys | `max(1, n_data − n_varys)`; names disambiguated (V6.6) |
+| BLOCKER `fitted_sub` not bound to the components, `fitted_y`, `residuals` | the server re-evaluates `fitted_sub` and checks both identities exactly (V6.5) |
+| BLOCKER / MAJOR the projection cannot be rebuilt from the as-sent specs; expressions override locks; unit conversion not invertible | `R.pageModel`; the live path's own rules, no inverse conversion; held values checked only without an expression (V6.3, V6.5) |
+| BLOCKER Auto-Fit order, rounding, reselection, gates | derived steps in the verified order; reselection not current (Q8); gates (V6.3) |
+| BLOCKER / MAJOR derived seed, roles, bounds, method, shift unbound; selection completeness; display frame | V6.4, V6.5 |
+| MAJOR averaging "1–50 on both sides" stated as deployed | a ship prerequisite (V6.4, V6.11 step 0) |
+| MAJOR measured-rounding fallback (design rule) | removed: not bit-stable → UNCONFIRMED (Q7) |
+| MAJOR attributed evidence unnamed (certificate, starts, required) | named ATTRIBUTED (V6.5) |
+| MAJOR support twin trusts `ip.support`, different arithmetic | support recomputed by the server's own function (V6.5) |
+| MAJOR AIC / BIC, nullable fields, `starts.fit.chi2r` | V6.6 |
+| MAJOR area consumers incomplete; a third definition | V6.6 (every reader; Q5 after measurement) |
+| MAJOR local O: success, weights, links, designation paths | V6.7 |
+| MAJOR source hash ≠ executed code; manifest undefined; page served from disk | narrowed to an attestation (V6.7) |
+| MAJOR verification ownership; record lost on peaks-only | V6.5 ownership; V6.8 `tab.provenance` |
+| MINOR "unchanged whatever O says"; area line F:2758; section pointers; measure-before-approval order | corrected |
