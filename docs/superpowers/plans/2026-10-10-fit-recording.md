@@ -118,7 +118,7 @@ correction" row 6 rows lower. Owner: the record FOLLOWS everything that exists.
   ';'), so Python's csv module and pandas see ONE cell with either delimiter, and a reader
   skipping '#' comments (pandas `comment='#'`) reads exactly the table it read before.
   Quoting was rejected: a quoted line is not a comment, so pandas returned the record as
-  six rows. The lossless JSON travels base64 (UTF-8): `# Fit record (JSON base64): …`.
+  six rows. The lossless JSON travels base64 (UTF-8): `# Fit record (JSON base64 part k of n): …`.
 - XLSX: the record's rows after the Info sheet's existing rows (after its blank last row);
   plain JSON in its cell. The Fit Results sheet is unchanged.
 - `tests/test_browser_export_prefix.py`: one saved fit loaded into main's page (52e5b4a,
@@ -128,3 +128,15 @@ correction" row 6 rows lower. Owner: the record FOLLOWS everything that exists.
   history for it. Excel itself is not driven (its automation needs an interactive
   permission). A saved local fit reloads peaks-only on main and here alike (it stores no
   fitted envelope) — existing behaviour, unchanged.
+
+## Codex round 5 (NO-GO ×2) — fixed
+
+Placement and encoding passed in both runs (384 / 480 comparisons of the export functions
+against main across server / local / global / legacy records, current / stale / unverified,
+unsupported components, failed backgrounds and the optional notice lines; pandas'
+comment-filtered frames equal main's in 96 / 120). Two gaps:
+
+| finding | fix |
+|---|---|
+| a record of unbounded size (4 000 manual anchors — a crafted import, the page caps anchors at 20; run A: beyond the UI, run B: reachable with physical values) made a 207 352-character line Python's csv refuses (field limit 131 072) and a 155 491-character XLSX cell (Excel holds 32 767) (run B) | the record is split into numbered parts of at most 16 000 code points (`_recordParts`; never inside a surrogate pair): `# Fit record (JSON base64 part k of n): …`, XLSX `Fit record (JSON part k of n)`; concatenated in order they are the record. A format limit, not a property of the data. A browser test exports an 8 000-anchor record and reads it with Python's csv (default limit), pandas' C and python engines, both delimiters; every line and cell ≤ 32 767 |
+| the tests did not prove the sanitising: the adversarial text sat only in a field that travels inside the base64, so removing the quote / tab / line-break escapes passed; the TSV comment-frame comparison was omitted (run A) | the adversarial text (comma, quote, tab, CR LF, non-ASCII, a surrogate pair) now sits in the fields the summary lines print — the background method, the largest move's component id, the software strings; the TSV frame is compared too. Mutation-checked: each escape removed, and the splitting removed, fails a test |

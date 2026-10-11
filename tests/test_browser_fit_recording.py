@@ -97,7 +97,7 @@ def test_a_seed_of_zero_survives_the_spectrum_loader(browser, server):
 
 def _json_row(rows):
     """The lossless 'Fit record (JSON)' entry of an export's (label, text) rows."""
-    hits = [json.loads(t) for k, t in rows if k == "Fit record (JSON)"]
+    hits = [json.loads(t) for k, t in rows if k == "Fit record (JSON part 1 of 1)"]
     assert len(hits) == 1, rows
     return hits[0]
 
@@ -125,7 +125,7 @@ def test_the_exports_carry_the_whole_record(browser, server):
     # tests/test_browser_export_prefix.py)
     import base64
     for text in (csv, tsv):
-        [line] = [l for l in text.splitlines() if l.startswith("# Fit record (JSON base64): ")]
+        [line] = [l for l in text.splitlines() if l.startswith("# Fit record (JSON base64 part 1 of 1): ")]
         assert json.loads(base64.b64decode(line.split(": ", 1)[1]).decode("utf-8")) == rec
     assert _json_row([tuple(r[:2]) for r in info if len(r) >= 2]) == rec
     # and the readable summary

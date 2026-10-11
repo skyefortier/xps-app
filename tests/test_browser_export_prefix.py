@@ -12,6 +12,7 @@ import base64
 import csv
 import io
 import json
+import re
 import subprocess
 
 import pytest
@@ -87,10 +88,24 @@ def _record_lines(tail):
     return lines
 
 
+PART = re.compile(r"^# Fit record \(JSON base64 part (\d+) of (\d+)\): (.*)$")
+
+
 def _decoded(lines):
-    hits = [l for l in lines if l.startswith("# Fit record (JSON base64): ")]
-    assert len(hits) == 1, lines
-    return json.loads(base64.b64decode(hits[0].split(": ", 1)[1]).decode("utf-8"))
+    """The record from its numbered base64 parts (in order, all of them)."""
+    parts = [PART.match(l) for l in lines if l.startswith("# Fit record")]
+    assert parts and all(parts), lines
+    n = int(parts[0].group(2))
+    assert [(int(m.group(1)), int(m.group(2))) for m in parts] == [(i + 1, n) for i in range(n)]
+    return json.loads(base64.b64decode("".join(m.group(3) for m in parts)).decode("utf-8"))
+
+
+def _xlsx_record(extra):
+    cells = [r for r in extra if r and str(r[0]).startswith("Fit record (JSON part ")]
+    n = len(cells)
+    assert [r[0] for r in cells] == [f"Fit record (JSON part {i + 1} of {n})" for i in range(n)]
+    assert all(len(r[1]) <= 32767 for r in cells)
+    return json.loads("".join(r[1] for r in cells))
 
 
 @pytest.mark.parametrize("local", [False, True], ids=["server-fit", "local-fit"])
@@ -125,10 +140,9 @@ def test_the_record_follows_every_existing_line_row_and_column(browser, server, 
     # so the earlier sheet reads back without it), then the record's rows
     assert all(v is None for v in info_now[len(info_then)]), info_now[len(info_then)]
     extra = info_now[len(info_then) + 1:]
-    hits = [r for r in extra if r and r[0] == "Fit record (JSON)"]
-    assert len(hits) == 1 and json.loads(hits[0][1]) == rec
+    assert _xlsx_record(extra) == rec
     assert [r[0] for r in extra] == [k for k in ("Fit method", "Random seed", "Background check", "Minimum certificate",
-                                                   "Software", "Fit record (JSON)") if not (local and k == "Random seed")]
+                                                   "Software", "Fit record (JSON part 1 of 1)") if not (local and k == "Random seed")]
 
 
 def test_each_record_line_is_one_cell_to_every_reader_and_a_comment_to_a_comment_reader(browser, server, before_html):
@@ -152,15 +166,50 @@ def test_each_record_line_is_one_cell_to_every_reader_and_a_comment_to_a_comment
         # Python's csv module: each record line is one cell; the JSON decodes to the record
         rows = list(csv.reader(io.StringIO(text), delimiter=sep))
         tail = [r for r in rows if r and r[0].startswith("# ") and r[0][2:].split(":")[0] in
-                ("Fit method", "Random seed", "Background check", "Minimum certificate", "Software", "Fit record (JSON base64)")]
+                ("Fit method", "Random seed", "Background check", "Minimum certificate", "Software", "Fit record (JSON base64 part 1 of 1)")]
         assert len(tail) == 6 and all(len(r) == 1 for r in tail), (fmt, tail)
         assert _decoded([r[0] for r in tail]) == rec
         # pandas without comment handling: one non-empty cell per record line
         width = max(len(r) for r in rows)
         df = pd.read_csv(io.StringIO(text), sep=sep, header=None, names=range(width), skip_blank_lines=True, dtype=str)
-        rec_rows = df[df[0].fillna("").str.startswith("# Fit record (JSON base64)")]
+        rec_rows = df[df[0].fillna("").str.startswith("# Fit record (JSON base64 part ")]
         assert len(rec_rows) == 1 and rec_rows.iloc[0, 1:].isna().all(), fmt
         # pandas skipping '#' comments: exactly the table it read before the record existed
-        if fmt == "csv":
-            a, b = (pd.read_csv(io.StringIO(t), comment="#") for t in (text, then[fmt]))
-            pd.testing.assert_frame_equal(a, b)
+        a, b = (pd.read_csv(io.StringIO(t), sep=sep, comment="#") for t in (text, then[fmt]))
+        pd.testing.assert_frame_equal(a, b)
+
+
+def test_a_record_of_any_size_stays_within_every_readers_limit(browser, server):
+    # Codex recording round 5: 4 000 manual-background anchors (a crafted import; the page caps
+    # anchors at 20) made a 207 352-character line Python's csv refuses (field limit 131 072) and
+    # a 155 491-character XLSX cell (Excel holds 32 767). The record is split into numbered parts.
+    import pandas as pd
+    pg = _new_page(browser, server)
+    try:
+        _fit(pg)
+        pg.evaluate("""() => { const bv = state.fitResult.record.backgroundVerdict;
+            bv.effect = { method: 'manual', anchors: Array.from({ length: 8000 }, (_, i) => [280 + i * 0.00125, 1000 + i / 7]) }; }""")
+        rec = pg.evaluate(RECORD)
+        text = {"csv": _download(pg, "() => exportFitTable('csv')")}
+        pg.evaluate(TSV_HOOK)
+        pg.evaluate("() => exportResults()")
+        pg.wait_for_function("() => window.__tsv !== null", timeout=20000)
+        text["tsv"] = pg.evaluate("() => window.__tsv")
+        pg.evaluate(XLSX_HOOK)
+        pg.evaluate("() => exportFitTable('xlsx')")
+        info = pg.evaluate("() => window.__xlsx")["Info"]
+    finally:
+        pg.close()
+    # larger than one field may be, even before base64
+    assert len(json.dumps(rec, separators=(",", ":"), ensure_ascii=False)) > 131072
+    for fmt, sep in (("csv", ","), ("tsv", "\t")):
+        rows = list(csv.reader(io.StringIO(text[fmt]), delimiter=sep))      # the default field limit
+        lines = [r[0] for r in rows if r and r[0].startswith("# Fit record")]
+        assert len(lines) > 1 and all(len(r) == 1 for r in rows if r and r[0].startswith("# "))
+        assert _decoded(lines) == rec
+        for engine in ("c", "python"):
+            pd.read_csv(io.StringIO(text[fmt]), sep=sep, comment="#", engine=engine)
+            width = max(len(r) for r in rows)
+            pd.read_csv(io.StringIO(text[fmt]), sep=sep, header=None, names=range(width), dtype=str, engine=engine)
+        assert all(len(l) <= 32767 for l in text[fmt].split("\n"))
+    assert _xlsx_record([r for r in info if r]) == rec

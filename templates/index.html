@@ -8616,10 +8616,29 @@ function _localFitRecord(certifyRestarts, moved, centreMoves, bg) {
 // as it skips the header lines. Quoting would make it one cell too, but a quoted line is not a
 // comment, so pandas would return the record as rows. The lossless JSON therefore travels
 // base64-encoded (its UTF-8 bytes); the XLSX keeps it as plain JSON in a cell.
+// A record of any size is split into numbered parts (concatenated in order they are the whole),
+// each within every reader's limit: Excel's 32 767-character cell and Python csv's 131 072-
+// character field — a FORMAT limit, not a property of the data (Codex recording round 5).
+function _recordParts(text, size = 16000) {
+  const cps = Array.from(text), out = [];          // by code point: a surrogate pair is never split
+  for (let i = 0; i < cps.length; i += size) out.push(cps.slice(i, i + size).join(''));
+  return out.length ? out : [''];
+}
 function _fitRecordTextLines(rec) {
-  return _fitRecordRows(rec).map(([k, v]) => (k === 'Fit record (JSON)'
-    ? '# Fit record (JSON base64): ' + _b64Utf8(v)
-    : ('# ' + k + ': ' + v).replace(/,/g, ';').replace(/"/g, "'").replace(/[\t\r\n]+/g, ' ')));
+  return _fitRecordRows(rec).flatMap(([k, v]) => {
+    if (k !== 'Fit record (JSON)')
+      return [('# ' + k + ': ' + v).replace(/,/g, ';').replace(/"/g, "'").replace(/[\t\r\n]+/g, ' ')];
+    const parts = _recordParts(_b64Utf8(v));
+    return parts.map((t, i) => '# Fit record (JSON base64 part ' + (i + 1) + ' of ' + parts.length + '): ' + t);
+  });
+}
+// the XLSX Info rows: the summary as it is, the JSON in numbered cells
+function _fitRecordXlsxRows(rec) {
+  return _fitRecordRows(rec).flatMap(([k, v]) => {
+    if (k !== 'Fit record (JSON)') return [[k, v]];
+    const parts = _recordParts(v);
+    return parts.map((t, i) => ['Fit record (JSON part ' + (i + 1) + ' of ' + parts.length + ')', t]);
+  });
 }
 function _b64Utf8(text) {
   let bin = '';
@@ -13143,7 +13162,7 @@ function exportFitTable(fmt) {
       ...(_certificateMoveText(state.fitResult) ? [['Fit continued', _certificateMoveText(state.fitResult)]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], [],
       // the record FOLLOWS the existing rows: every one of them stays in place
-      ..._fitRecordRows(state.fitResult && state.fitResult.record)
+      ..._fitRecordXlsxRows(state.fitResult && state.fitResult.record)
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Fit Results');

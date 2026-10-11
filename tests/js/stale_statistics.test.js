@@ -41,7 +41,7 @@ function makeDoc() {
   return { els, getElementById: id => els[id] || null, querySelector: () => null, querySelectorAll: () => [] };
 }
 
-const STATE_FNS = ['_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_staleNoteOf', '_bgStaleNote', '_fmt3', '_restoredStale', '_restoredStaleWhy', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8'];
+const STATE_FNS = ['_fitKeyCanon', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_staleNoteOf', '_bgStaleNote', '_fmt3', '_restoredStale', '_restoredStaleWhy', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'];
 const STATE_CONSTS = ['_STATS_STALE_NOTE', '_STATS_UNVERIFIED_NOTE'];
 
 // Build a sandbox with the F1 accessor, the display functions and renderResults.

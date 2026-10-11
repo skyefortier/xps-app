@@ -18,8 +18,8 @@ function extractFn(name) {
   }
   assert.fail('unbalanced ' + name);
 }
-const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8'].map(extractFn).join('\n') +
-  '\nreturn { _fitRecordFrom, _localFitRecord, _isFitRecord, _fitRecordRows, _fitRecordTextLines };')(
+const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'].map(extractFn).join('\n') +
+  '\nreturn { _fitRecordFrom, _localFitRecord, _isFitRecord, _fitRecordRows, _fitRecordTextLines, _fitRecordXlsxRows, _recordParts };')(
   { querySelector: () => ({ getAttribute: () => JSON.stringify({ git_commit: 'b'.repeat(40), numerics: '2026-10-09' }) }) });
 
 const SERVER = { fit_method: 'leastsq', random_seed: 0, seed_source: 'caller',
@@ -80,18 +80,49 @@ test('the export rows state what the record holds', () => {
   assert.deepStrictEqual(H._fitRecordRows({ engine: 'other' }), []);
 });
 
+const BAD = 'a, "b"\tc\r\nd ≥ é 😀';   // every character a reader splits or quotes on, and non-ASCII
+const reassemble = (lines, label) => lines.filter(l => l.startsWith(label)).map(l => l.slice(l.indexOf('): ') + 3)).join('');
+
 test('the CSV / TSV tail: every line one cell to any reader, a comment, and the JSON lossless', () => {
-  // a reason with every character a reader splits or quotes on, and non-ASCII
-  const rec = H._fitRecordFrom({ ...SERVER, background_verdict: { ...SERVER.background_verdict, converged: false,
-    reason: 'a, "b"\tc\nd \u2265 \u00e9' } });
+  // the adversarial text in fields the SUMMARY lines print (component id, software strings,
+  // the background method) — and in the base64-only reason (Codex recording round 5)
+  const rec = H._fitRecordFrom({ ...SERVER,
+    background_verdict: { ...SERVER.background_verdict, method: BAD, converged: false, reason: BAD },
+    certificate: { ...SERVER.certificate, largest_centre_move: { id: BAD, ev: 0.5 } },
+    software: { ...SERVER.software, git_commit: BAD, python: BAD, numerics: BAD } });
+  const summary = Object.fromEntries(H._fitRecordRows(rec).slice(0, -1));
+  for (const k of ['Background check', 'Minimum certificate', 'Software']) assert.ok(/[,"\t\r\n]/.test(summary[k]), k + ' carries the text');
   const lines = H._fitRecordTextLines(rec);
   assert.strictEqual(lines.length, 6);
   for (const l of lines) {
     assert.ok(l.startsWith('# '), l);
     assert.ok(!/[,"\t\r\n]/.test(l), 'no delimiter, quote or line break: ' + l);
   }
-  const b64 = lines.find(l => l.startsWith('# Fit record (JSON base64): ')).split(': ')[1];
+  assert.ok(lines.every(l => !l.includes('Fit record') || l.startsWith('# Fit record (JSON base64 part 1 of 1): ')));
+  const b64 = reassemble(lines, '# Fit record (JSON base64 part ');
   assert.deepStrictEqual(JSON.parse(Buffer.from(b64, 'base64').toString('utf8')), rec, 'lossless, UTF-8');
   assert.strictEqual(lines[0], '# Fit method: leastsq');
   assert.deepStrictEqual(H._fitRecordTextLines(null), []);
+});
+
+test('a record of any size: every line and cell within every reader\'s limit, the parts reassemble losslessly', () => {
+  // Codex round 5: 4 000 manual anchors made one 207 352-character line (Python csv refuses
+  // fields over 131 072) and a 155 491-character cell (Excel holds 32 767)
+  const anchors = Array.from({ length: 4000 }, (_, i) => [280 + i * 0.0025, 1000 + i / 7]);
+  const rec = H._fitRecordFrom({ ...SERVER, background_verdict: { ...SERVER.background_verdict, method: 'manual',
+    effect: { method: 'manual', anchors } } });
+  rec.backgroundVerdict.reason = BAD.repeat(500);    // surrogate pairs across part boundaries
+  const lines = H._fitRecordTextLines(rec);
+  const parts = lines.filter(l => l.startsWith('# Fit record (JSON base64 part '));
+  assert.ok(parts.length > 1, 'split: ' + parts.length);
+  parts.forEach((l, i) => assert.ok(l.startsWith(`# Fit record (JSON base64 part ${i + 1} of ${parts.length}): `), l.slice(0, 60)));
+  for (const l of lines) assert.ok(l.length <= 32767 && !/[,"\t\r\n]/.test(l), l.length);
+  assert.deepStrictEqual(JSON.parse(Buffer.from(reassemble(parts, '# Fit record'), 'base64').toString('utf8')), rec);
+  const cells = H._fitRecordXlsxRows(rec).filter(([k]) => k.startsWith('Fit record (JSON part '));
+  assert.ok(cells.length > 1);
+  cells.forEach(([k, v], i) => { assert.strictEqual(k, `Fit record (JSON part ${i + 1} of ${cells.length})`); assert.ok(v.length <= 32767, v.length); });
+  assert.deepStrictEqual(JSON.parse(cells.map(([, v]) => v).join('')), rec, 'the XLSX parts are the JSON');
+  // a part boundary never splits a surrogate pair
+  for (const [, v] of cells) assert.ok(!/^[\udc00-\udfff]|[\ud800-\udbff]$/.test(v));
+  assert.deepStrictEqual(H._recordParts(''), ['']);
 });
