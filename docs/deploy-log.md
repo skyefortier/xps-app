@@ -6,6 +6,53 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-10-11 — Every fit records what computed it (`feat-fit-recording`, 3ced8d6)
+
+- **Release note (exports — every user sees this):** every existing column and
+  row of the CSV, TSV and XLSX exports is unchanged and in the same place; the
+  fit's record FOLLOWS them. CSV and TSV: after the last data row, a blank line,
+  then lines beginning with `#` — Fit method, Random seed, Background check,
+  Minimum certificate, Software, and the complete record as `# Fit record (JSON
+  base64 part k of n)` (base64 of UTF-8 JSON; concatenate the parts in order).
+  Each is one cell to Python's csv, pandas and spreadsheets, and a reader that
+  skips `#` comments (`pandas.read_csv(..., comment='#')`) reads exactly the
+  table it read before. XLSX: the same rows after the Info sheet's existing rows
+  (the JSON as plain text in `Fit record (JSON part k of n)` cells); the Fit
+  Results sheet is unchanged. Proven against the deployed page before this one
+  (`tests/test_browser_export_prefix.py`: main 52e5b4a's CSV and TSV are an exact
+  prefix of today's, both XLSX sheets row for row).
+- **Release note (the record):** every fit now carries the method, the random
+  seed and whether it was derived or given, the background's check against its
+  defining equation (with what it was computed from), the minimum certificate in
+  full (restarts, whether and how far it moved the fit), and the software (git
+  commit, a numerics version, Python / numpy / scipy / lmfit). Saved with the fit
+  in projects, spectrum files and `.fit.json`, and inside the figure PNG (an
+  `XPS-Fit-Record` text chunk). Files saved before load exactly as before. It is
+  recorded only — nothing uses it yet to decide whether a fit is current.
+  `/api/fit` and `/api/fit/start` accept `seed` (integer in [0, 2³²)), so a fit
+  can be re-run with the same random draws.
+- No fitted number changes. A summary value longer than 2 000 characters (only
+  from a crafted file) is cut in the summary line, never in the record's JSON.
+- Logged, not changed (pre-existing): an endpoint-averaging value of 1e21 or
+  more is read differently by the page and the server — the next unit refuses
+  values outside the field's 1–50.
+- Test change: `test_browser_envelope_identity`'s LACX case with α 5 and β 0.1
+  locked TOGETHER certified in 1–23 restarts on main itself and occasionally
+  failed past 50 (LA's convolution jitter); split into the two single locks
+  (1–3 restarts in 24 fresh processes). The together case is no longer covered.
+- Codex: 7 rounds (NO-GO ×2 rounds 1–3, GO ×2 round 4; the owner's pre-deploy
+  export check moved the record to the end: NO-GO ×2 rounds 5–6, GO ×2 round 7).
+  Plan: `docs/superpowers/plans/2026-10-10-fit-recording.md`.
+- Suites at 414e932 (code; later commits docs only): pytest 1305 passed / 7
+  skipped; JS 602 pass / 2 todo (CI floor 602). Production check through
+  xps.fortierlab.org: a fresh fit's record names 3ced8d6, git_dirty false,
+  numerics 2026-10-09, Python 3.12.13, numpy 2.4.4, scipy 1.17.1, lmfit 1.3.4
+  (the production venv's); the page's software tag the same on 8 of 8 loads; a
+  re-run with the recorded seed reproduces the fit within `fit_equality`; a page
+  Run Fit's CSV export ends with the blank line and 6 record lines, its JSON
+  equal to the record, no page errors. LaunchAgent running, last exit 0;
+  `/api/health` ok on :5050 and publicly. xps2 droplet: the owner's.
+
 ## 2026-10-09 — Background math: solved, checked, drawn as fitted; saved fits judged on reload (`bg-math-implement`, c39e67e)
 
 - **Release note (backgrounds):** endpoint averaging now sets only the two edge
