@@ -674,8 +674,8 @@ or decide that a narrower first unit is wanted (for example 1a alone — the ser
 
 # v6 (2026-10-11, owner instruction) — the V5.9 resolutions, on the recorded fields
 
-Status: DESIGN ONLY — no code. REVISION 6 (V6.2-V6.12 rewritten after gate rounds 1-5, each
-NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4,5}_verdict_run{A,B}.md`; V6.13-V6.17
+Status: DESIGN ONLY — no code. REVISION 7 (V6.2-V6.12 rewritten after gate rounds 1-6, each
+NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1..6}_verdict_run{A,B}.md`; V6.13-V6.18
 map each finding).
 Owner, 2026-10-10: "park the full seal; do the RECORDING unit
 first … After it deploys: revise the sealed-fit design to v6 with the six V5.9 resolutions,
@@ -983,14 +983,23 @@ operation or another tab is discarded. Seals are frozen, so history snapshots ma
 edits and history restores change the live model, which step 1 re-checks.
 *Trust generation.* A cached result holds two parts with different lifetimes: the numerical
 consistency (a property of the seal and the verifier's software — it can be kept) and the
-authentication (a property of the keyring — it cannot outlive a revocation). Every server
-response carries `attest_epoch`, a counter the keyring advances on every rotation and
-revocation; a cached authentication is valid only for the epoch it was obtained under. The page
-learns the current epoch from every response and fetches it (`GET /api/attest-epoch`) whenever
-it loads a file, activates a tab holding a seal, or exports or saves one; on a newer epoch every
-cached authentication is dropped and the seal is PENDING until re-verified — so after a
-revocation it reads UNCONFIRMED at the next of those moments, never later than its next export
-or save. This applies to O and to an Auto-Fit's O₁ in E alike.
+authentication (a property of the keyring — it cannot outlive a revocation or a replaced
+keyring). The keyring's whole state is ONE file, `state.json` = `{incarnation, revision, active,
+keys}` — `incarnation` 128 random bits drawn when a keyring is created (so a lost and recreated
+keyring, or another server's, never shares it), `revision` a counter advanced by every rotation
+and revocation — replaced only by an atomic rename, so every worker reads a consistent state.
+A verification reads that file ONCE and authenticates against that snapshot, and its reply
+carries the generation `{incarnation, revision}` it actually checked (never one read later). A
+cached authentication is valid only while the server's CURRENT generation equals the one it
+was obtained under — any difference, a new incarnation or a newer revision, drops it. The page
+fetches the current generation (`GET /api/attest-generation`, which reads the same file)
+whenever it loads a file, activates a tab holding a seal, or exports or saves one, and learns it
+from every server reply; a verification reply whose generation differs from the latest the
+page has seen is not attached. So after a revocation, a rotation that retires the key, a lost
+keyring or a move to another server, the seal is PENDING and then UNCONFIRMED at the next of
+those moments, never later than its next export or save. This applies to O and to an Auto-Fit's
+O₁ in E alike. Recovery: a lost keyring is a new incarnation by construction; restoring a
+backup restores its incarnation and every seal it signed.
 
 **PROVENANCE** (G6, V6.7) and **REPLAY-CHECKED** (V5.4 with the outcomes *reproduced within
 rounding*, *a different solution*, *the re-run failed* (its message), *different software*).
@@ -1230,3 +1239,13 @@ worker refresh) and no new false VERIFIED claim, tolerance or second reading. Op
 |---|---|
 | MAJOR a cached verification survives a key revocation | trust generation: `attest_epoch` on every response and on demand; a cached authentication valid for its epoch only; re-verified on load, tab activation, export and save (V6.5) |
 | MAJOR the rollback rule included supersession, which would overwrite the newer operation's work | owned failure: discard staged work (nothing was published); superseded: discard and write nothing, as today (V6.3) |
+
+## V6.18 What changed from revision 6 (gate round 6, NO-GO ×2) — revision 7
+
+Round 6 found every earlier blocker and major resolved at design level, revision 5's
+supersession error repaired, and no new false VERIFIED claim, tolerance or second reading.
+Open, both runs: one MAJOR.
+
+| round-6 finding | revision 7 |
+|---|---|
+| MAJOR the trust counter can repeat (a recreated keyring, another server) and a reply could carry a generation newer than the one it checked | the generation is `{incarnation, revision}` from one atomically replaced state file; a verification reports the generation of the snapshot it used; any difference drops a cached authentication; a reply of another generation is not attached (V6.5) |
