@@ -672,10 +672,10 @@ or decide that a narrower first unit is wanted (for example 1a alone — the ser
 
 ---
 
-# v6 (2026-10-11, owner instruction) — revision 3: the V5.9 resolutions, on the recorded fields
+# v6 (2026-10-11, owner instruction) — the V5.9 resolutions, on the recorded fields
 
-Status: DESIGN ONLY — no code. REVISION 4 (V6.2-V6.12 rewritten after gate rounds 1-3, each
-NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1,2,3}_verdict_run{A,B}.md`; V6.13-V6.15
+Status: DESIGN ONLY — no code. REVISION 5 (V6.2-V6.12 rewritten after gate rounds 1-4, each
+NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4}_verdict_run{A,B}.md`; V6.13-V6.16
 map each finding).
 Owner, 2026-10-10: "park the full seal; do the RECORDING unit
 first … After it deploys: revise the sealed-fit design to v6 with the six V5.9 resolutions,
@@ -777,9 +777,19 @@ leaves its LOCKED fields unchanged whatever O holds, so it cannot be the check.
    2.06 counts, success and certified). A linked component has its parent's lineshape (CLAUDE.md
    "Linked (Multiplet) Peaks": shape is synced), but the page lets them differ (its shape-switch
    propagation reaches the immediate family only, IH:5848) and the load validator accepts it
-   (IH:15797). Ship step 0c therefore also REFUSES, on the page before any request and on the
-   server (`run_fit`, a 400), a link whose child's lineshape differs from its parent's — plain
-   words, no silent change; saved projects carrying one load and say so (measured in 0c). One function
+   (IH:15797). Ship step 0c therefore validates the LINK GRAPH, on the page before any request
+   (Run Fit, Auto-Fit, Batch Fit and the local engine alike) and on the server (`run_fit`, a 400),
+   and in every seal's verification: every `linked` resolves to a component of the model (today
+   removing a chain's root deletes only its immediate children, IH:6400, and the builder then
+   silently drops the orphan's `constrain_to`, IH:6983, as the local engine silently skips it,
+   IH:9285 — refused instead); ids are unique; no cycle; and a child's FRONTEND lineshape equals
+   its parent's. The server cannot see the frontend shape — a Voigt and a GL both arrive as
+   `pseudo_voigt_gl` (IH:6929) — so every spec carries it in a new field `frontend_shape`
+   (additive; part of the normalised, attested arguments) and the server refuses a link whose
+   two `frontend_shape`s differ. Plain words, no silent change; saved projects carrying such a
+   model load and say so (measured in 0c). For same-shape families no other parameter is
+   unrepresentable (round 4: DS, DS+G, LA and asym-GL map every expression-valued parameter;
+   Voigt → Voigt keeps 0.5). One function
    serves both: the live path becomes `applyInPlace(livePeaks, project(...))`, so there is no
    second reading. After the projection, every displayed field equals O's value through the
    builder's mapping: an independent locked field's snapshot value is the value the builder
@@ -800,11 +810,28 @@ leaves its LOCKED fields unchanged whatever O holds, so it cannot be the check.
    existing `0.30 + 1e-6` acceptance gate, IH:7787) and `O₁.required`; the shift derived from O₁
    exactly as today (raw centre = O₁'s anchor centre + the old shift, IH:7793, `toFixed(3)`,
    IH:7803; Δ; the endpoint fields re-expressed `toFixed(1)` only when Δ ≠ 0); then, with every
-   centre locked, the FINAL fit (R₂, O₂) in the new frame. The seal is (R₂, O₂), with R₁ / O₁ kept
-   as the producer's evidence: the page re-derives `R₂.context0` and `R₂.pageModel` from
-   (R₁.context0, R₁.pageModel, O₁) exactly and re-runs the anchor gate on O₁; O₁ is attested
-   like any O. Without 0d, an Auto-Fit with Δ ≠ 0 is never current (said so); with Δ = 0 only
-   the centre lock follows, a derived step on the lock flags alone.
+   centre locked, the FINAL fit (R₂, O₂) in the new frame. The seal is (R₂, O₂, E) with the
+   anchor evidence E = (R₁, O₁) INSIDE it (and so inside the verification's identity).
+   *E is a full prerequisite, not a footnote:* R₁ passes every page binding of V6.4 against the
+   same tab's raw data under `R₁.context0` (an authentic anchor fit of ANOTHER spectrum fails
+   here); O₁ passes V6.5's verification and its POSITIVE acceptance (`success === true` — an
+   authenticated failure stays a failure — as Auto-Fit requires today before its gates,
+   IH:8267); the anchor gate, the reference-centre window and `O₁.required` hold. Then
+   `derive(R₁, O₁)` — the projection of O₁ onto `R₁.pageModel`, every centre and manual anchor
+   moved by −Δ, the endpoint fields re-rounded only when Δ ≠ 0, the overlays carried, the window
+   freshly selected from the raw samples in the new frame, every centre locked, the producer's
+   settings unchanged — must equal (`R₂.pageModel`, `R₂.context0`) exactly.
+   *The transaction:* one operation token spans both fits and both verifications; nothing is
+   published until it ends — between the fits the page shows the progress line only ("Auto-Fit:
+   anchor fitted, refitting in the corrected frame …"), no statistics, no support, no snapshot,
+   no save. COMMIT when O₂ is accepted, verified and its anchor still passes the gate: the
+   charge correction, the model and the seal are written at once, ONE undo entry, one history
+   snapshot. ROLLBACK otherwise — the final fit failed, was cancelled or superseded, could not
+   be verified, or its anchor no longer passes (unsupported or not required after the refit):
+   the previous model, context and charge correction restored exactly as today's failure paths
+   do (IH:8283), with the reason; the anchor fit alone never sets a charge correction
+   (recommended; Q8). Without 0d, an Auto-Fit with Δ ≠ 0 is never current (said so); with Δ = 0
+   only the centre lock follows, a derived step on the lock flags alone.
 3. (Round 1's `(raw − old) − (new − old)` ≠ `raw − new` is why no seal ever translates a
    frame: with 0d every displayed quantity of an Auto-Fit belongs to a fit made in that frame.)
 DISPLAY-CURRENT compares the live model with `project(...)` exactly through `_fitKeyCanon`'s
@@ -886,9 +913,19 @@ uses the readers exactly as they are:
      sort_keys=True, separators=(",", ":"), ensure_ascii=True)`, where A = `_canonical` (F:1979:
      keys sorted, every number a float, −0.0 folded to 0.0, so a browser's `285` for `285.0` and
      its `0` for `−0` do not change it) of the NORMALISED numerical arguments of `run_fit`
-     (energies, counts, every keyword after normalisation, defaults included, `session_id`
-     excluded), and B = `_canonical` of O without `attestation`. Schema: every number finite;
-     an absent field is written as null by the normaliser, never omitted. It covers only what
+     (energies, counts, every keyword after normalisation, `session_id` excluded), and B =
+     `_canonical` of O without `attestation`. The normaliser is a recursive, versioned, TYPED
+     schema, applied before fitting and before signing, so the signed form is the executed
+     recipe: every field EXPANDED TO ITS EFFECTIVE VALUE, field by field (absent is not null —
+     an absent `fwhm_min` means 0.1 and an explicit null means unbounded, F:1618; a link's
+     absent `fix_fwhm` means true, F:1568 — each written as the bound or flag that acts, so two
+     requests that execute alike sign alike and two that differ never do); identifiers (`id`,
+     `constrain_to`, `require_component`) as STRINGS, losslessly (round 4: integer ids
+     9007199254740992 and 9007199254740993 canonicalise to one float and their `required`
+     verdicts differ; an id of 10**400 fits today and overflows `_canonical`) — a non-string id
+     accepted only as an integer within ±(2⁵³ − 1) and converted to its decimal string, anything
+     else refused before fitting; counts (`n_perturb`, `n_starts`, the averaging) as integers in
+     their ranges; every number finite. It covers only what
      the server received: `R.pageModel`, `R.context0`, `R.idx` and `R.producer` are the page's
      and are proved by the page's bindings (V6.3 step 0, V6.4), not by the MAC.
    - *Who signs:* the fit routes, over the result `run_fit` just returned — never the
@@ -896,8 +933,13 @@ uses the readers exactly as they are:
      `success: false` is an authenticated failure.
    - *Key:* 32 bytes from `secrets.token_bytes`, in a keyring outside the repository and the
      upload folder (`XPS_ATTEST_KEYRING`, default `~/.xps-app/attest/`, directory 0700, files
-     0600); the first worker creates it atomically (`O_CREAT | O_EXCL`), every worker reads the
-     active key at import, so all four workers and every restart sign with the same key;
+     0600); a key is PUBLISHED complete — written to a temporary file in the keyring, fsync'd,
+     then linked to its final name (`os.link`, which fails if the name exists, so one creator
+     wins and no reader ever sees a partial key); a crash leaves only a temporary file, ignored
+     and removed on the next start. The signer reads the `active` pointer and the verifier the
+     keyring listing on EVERY use, caching key bytes by (path, mtime, size) only — so all four
+     workers and every restart sign with the same key, and a rotation or a revocation takes
+     effect on the next request in every worker, with no in-memory copy outliving its file;
      `key_id` = the first 8 bytes of SHA-256(key), hex; `O.attestation = {v, key_id, mac}`.
      Rotation adds a key and moves the `active` pointer; earlier keys stay for verification;
      revoking deletes one (its seals read UNCONFIRMED); a lost keyring makes every seal
@@ -1146,3 +1188,19 @@ on arrays up to 100 000). Open, both runs:
 | MAJOR the shared normaliser loads the (expiring) session; `session_id`, the method and producer settings missing from step 0's inputs; Auto-Fit's overlays outside `_STARTS_MODEL_FIELDS` | `_normalise_fit_request(body, energy, counts)`; `session_id` transport-only; `R.context0` carries the method and settings; `R.pageModel` every own field |
 | MAJOR the attestation's payload, canonicalisation and key lifecycle unspecified | V6.5 step 3: versioned signed bytes via `_canonical`, what is and is not covered, who signs, the keyring (creation, workers, rotation, revocation, loss, the droplet), what a leaked key can do |
 | MINOR "no tolerance anywhere" too broad (Auto-Fit's `0.30 + 1e-6` gate, solver and replay tolerances) | scoped to the verification's comparisons |
+
+## V6.16 What changed from revision 4 (gate round 4, NO-GO ×2) — revision 5
+
+Round 4 found resolved: the expiring-session normaliser and the reconstruction inputs; the
+original / final context contradiction and the zero-shift branch; the tolerance scope; the
+statistics contract (again confirmed); 0b / 0c / 0d correctly stated as behaviour changes.
+Open, both runs:
+
+| round-4 finding | revision 5 |
+|---|---|
+| BLOCKER a dangling link (a chain's root deleted) is silently dropped from the request; the server cannot see the frontend shape (Voigt and GL are one backend shape) | 0c validates the whole link graph on page, server and verification (resolves, unique ids, no cycle, same frontend shape); every spec carries `frontend_shape` |
+| BLOCKER the anchor fit not bound to this spectrum, nor required to have succeeded | E = (R₁, O₁) inside the seal and its verification identity; R₁ passes every page binding, O₁ verification and positive acceptance and the gates; R₂ = derive(R₁, O₁) exactly |
+| MAJOR the two-fit transaction (what is shown between, commit, rollback, ownership, a final anchor that no longer passes) | one operation token; nothing published until the end; commit with one undo entry; rollback as today's failure paths; the anchor fit alone never sets a charge correction (Q8) |
+| BLOCKER / MAJOR the signed schema: absent ≠ null; integer ids collide or overflow | a typed recursive schema expanding every field to its effective value; ids as lossless strings, integers beyond ±(2⁵³ − 1) refused |
+| MAJOR / MINOR key publication and worker refresh | complete-key publication by link; per-use reads of the pointer and keyring, cached by (path, mtime, size) |
+| MINOR the heading still read "revision 3" | corrected |
