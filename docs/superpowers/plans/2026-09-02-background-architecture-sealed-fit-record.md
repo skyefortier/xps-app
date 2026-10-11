@@ -674,8 +674,8 @@ or decide that a narrower first unit is wanted (for example 1a alone — the ser
 
 # v6 (2026-10-11, owner instruction) — the V5.9 resolutions, on the recorded fields
 
-Status: DESIGN ONLY — no code. REVISION 5 (V6.2-V6.12 rewritten after gate rounds 1-4, each
-NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4}_verdict_run{A,B}.md`; V6.13-V6.16
+Status: DESIGN ONLY — no code. REVISION 6 (V6.2-V6.12 rewritten after gate rounds 1-5, each
+NO-GO ×2, `docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4,5}_verdict_run{A,B}.md`; V6.13-V6.17
 map each finding).
 Owner, 2026-10-10: "park the full seal; do the RECORDING unit
 first … After it deploys: revise the sealed-fit design to v6 with the six V5.9 resolutions,
@@ -827,10 +827,15 @@ leaves its LOCKED fields unchanged whatever O holds, so it cannot be the check.
    no save. COMMIT when O₂ is accepted, verified and its anchor still passes the gate: the
    charge correction, the model and the seal are written at once, ONE undo entry, one history
    snapshot. ROLLBACK otherwise — the final fit failed, was cancelled or superseded, could not
-   be verified, or its anchor no longer passes (unsupported or not required after the refit):
-   the previous model, context and charge correction restored exactly as today's failure paths
-   do (IH:8283), with the reason; the anchor fit alone never sets a charge correction
-   (recommended; Q8). Without 0d, an Auto-Fit with Δ ≠ 0 is never current (said so); with Δ = 0
+   be verified, or its anchor no longer passes (unsupported or not required after the refit),
+   WHILE the operation still owns the tab: since nothing was published, the staged work is
+   discarded and the live model, context and charge correction are exactly as they were, with
+   the reason (today's failure paths restore a snapshot, IH:8283, because today's path
+   publishes before it fails). SUPERSEDED — another operation took the tab: the staged work is
+   discarded and NOTHING is written, neither a restore nor a message into the newer owner's
+   state, exactly as today returns without rollback when superseded (IH:8247, IH:8292); the
+   same for each fit's and each verification's reply. The anchor fit alone never sets a charge
+   correction (recommended; Q8). Without 0d, an Auto-Fit with Δ ≠ 0 is never current (said so); with Δ = 0
    only the centre lock follows, a derived step on the lock flags alone.
 3. (Round 1's `(raw − old) − (new − old)` ≠ `raw − new` is why no seal ever translates a
    frame: with 0d every displayed quantity of an Auto-Fit belongs to a fit made in that frame.)
@@ -976,6 +981,16 @@ pairing is a new seal and is verified anew); the request is issued under the fit
 token and the tab's ownership (`_opOwner` / `_ownerActive`), and a reply for a superseded
 operation or another tab is discarded. Seals are frozen, so history snapshots may share them;
 edits and history restores change the live model, which step 1 re-checks.
+*Trust generation.* A cached result holds two parts with different lifetimes: the numerical
+consistency (a property of the seal and the verifier's software — it can be kept) and the
+authentication (a property of the keyring — it cannot outlive a revocation). Every server
+response carries `attest_epoch`, a counter the keyring advances on every rotation and
+revocation; a cached authentication is valid only for the epoch it was obtained under. The page
+learns the current epoch from every response and fetches it (`GET /api/attest-epoch`) whenever
+it loads a file, activates a tab holding a seal, or exports or saves one; on a newer epoch every
+cached authentication is dropped and the seal is PENDING until re-verified — so after a
+revocation it reads UNCONFIRMED at the next of those moments, never later than its next export
+or save. This applies to O and to an Auto-Fit's O₁ in E alike.
 
 **PROVENANCE** (G6, V6.7) and **REPLAY-CHECKED** (V5.4 with the outcomes *reproduced within
 rounding*, *a different solution*, *the re-run failed* (its message), *different software*).
@@ -1204,3 +1219,14 @@ Open, both runs:
 | BLOCKER / MAJOR the signed schema: absent ≠ null; integer ids collide or overflow | a typed recursive schema expanding every field to its effective value; ids as lossless strings, integers beyond ±(2⁵³ − 1) refused |
 | MAJOR / MINOR key publication and worker refresh | complete-key publication by link; per-use reads of the pointer and keyring, cached by (path, mtime, size) |
 | MINOR the heading still read "revision 3" | corrected |
+
+## V6.17 What changed from revision 5 (gate round 5, NO-GO ×2) — revision 6
+
+Round 5 found every round-4 blocker resolved (the link graph and `frontend_shape`; the anchor
+evidence's bindings and acceptance; the typed schema and lossless ids; key publication and
+worker refresh) and no new false VERIFIED claim, tolerance or second reading. Open, both runs:
+
+| round-5 finding | revision 6 |
+|---|---|
+| MAJOR a cached verification survives a key revocation | trust generation: `attest_epoch` on every response and on demand; a cached authentication valid for its epoch only; re-verified on load, tab activation, export and save (V6.5) |
+| MAJOR the rollback rule included supersession, which would overwrite the newer operation's work | owned failure: discard staged work (nothing was published); superseded: discard and write nothing, as today (V6.3) |

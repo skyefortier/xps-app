@@ -1,0 +1,7 @@
+ADVERSARIAL DESIGN review, round 6 — no code has been written. Same scope and questions as docs/autofit/codex/sealed_fit_v6_design_review_prompt.txt; branch design-sealed-fit-v6 at its HEAD; main = c643c5f is the code described. Rounds 1-5: docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4,5}_verdict_run{A,B}.md (NO-GO x2 each).
+
+The v6 section is now REVISION 6; V6.17 maps the two round-5 findings to their answers: a trust generation (attest_epoch) bounding every cached authentication, re-verified on load, tab activation, export and save; and the two-fit transaction distinguishing an owned failure (discard staged work) from supersession (discard, write nothing).
+
+Check: is each round-5 (and every earlier) BLOCKER / MAJOR resolved — name any that is not; any NEW defect revision 5 introduced. Same severity rules. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO (the design may go to the owner for approval) or VERDICT: NO-GO.
