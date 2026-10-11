@@ -93,3 +93,10 @@ Logged, not changed (run A, MINOR): measurement tooling keeps its own readers �
 `tests/js/local_lm_server_parity_backend.py` (`int(value or 1)`),
 `scripts/optimizer_disagreement_targets.js` (`parseInt(value) || 1`),
 `scripts/bg_window_worked_example.py` (`int(...)`); none is a production reader.
+
+## Codex round 4 — GO ×2
+
+No BLOCKER or MAJOR in either run. Two MINOR, both logged in PROGRESS.md, not changed (the unit
+stays as reviewed): a malformed saved ARRAY can still be restored into the field as its string
+form (non-physical; a one-line "restore an object as blank" would close it); the measurement
+tooling's own readers (logged in round 3). Ready to merge WITH THE NEXT DEPLOY (owner).
