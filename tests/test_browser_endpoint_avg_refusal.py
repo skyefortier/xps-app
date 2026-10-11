@@ -90,16 +90,18 @@ def test_batch_fit_refuses_before_any_target_is_changed(browser, server):
     assert ["red", 'Batch fit not run: endpoint averaging must be a whole number from 1 to 50 (it is "51").'] in notes, notes
 
 
-def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(browser, server):
+@pytest.mark.parametrize("fitted,saved", [("50", "51"), ("1", ""), ("1", 0)], ids=["51", "blank", "zero"])
+def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(browser, server, fitted, saved):
     # Codex averaging round 1: restore and stack reconstruction computed backgrounds at 51
     import json
     # fitted at 50 on this 201-point window (its quarter is 50), then saved as 51 in the settings
     # AND the fit key: 51 would average the same 50 points, so the key and the background match —
-    # only the refusal can keep it from being current
+    # only the refusal can keep it from being current. Likewise a fit at 1 saved as blank or 0
+    # (round 2: the source reader turned them into 1)
     pg = _new_page(browser, server)
     try:
         pg.evaluate(PEAK_TAB)
-        pg.evaluate("() => { document.getElementById('bg-endpoint-avg').value = '50'; }")
+        pg.evaluate("v => { document.getElementById('bg-endpoint-avg').value = v; }", fitted)
         pg.evaluate(RUN)
         assert pg.evaluate("() => _statsLiveState()") == "current"
         idx = pg.evaluate("() => _STARTS_UI_FIELDS.indexOf('endpointAvg')")
@@ -111,13 +113,13 @@ def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(
         pg.close()
     for t in proj["tabs"]:
         if t.get("ui"):
-            assert t["ui"]["endpointAvg"] == "50"
-            t["ui"]["endpointAvg"] = "51"
+            assert t["ui"]["endpointAvg"] == fitted
+            t["ui"]["endpointAvg"] = saved
         fr = t.get("fitResult")
         if fr and fr.get("startsModelKey"):
             key = json.loads(fr["startsModelKey"])
-            assert key["u"][idx] == "50"
-            key["u"][idx] = "51"
+            assert key["u"][idx] == fitted
+            key["u"][idx] = str(saved)       # the live key reads the field as text
             fr["startsModelKey"] = json.dumps(key)
     pg = _new_page(browser, server)
     try:
@@ -129,7 +131,8 @@ def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(
     assert got["peaks"] == 2 and got["stats"] != "current", got
 
 
-def test_editing_the_field_while_a_fit_runs_discards_its_result(browser, server):
+@pytest.mark.parametrize("edited", ["1e2", ""], ids=["1e2", "cleared"])
+def test_editing_the_field_while_a_fit_runs_discards_its_result(browser, server, edited):
     # Codex averaging round 1: the fit key read "1e2" as 1, so a result for 1 was applied after
     # the field was changed to a refused "1e2" during the upload
     pg = _new_page(browser, server)
@@ -137,8 +140,9 @@ def test_editing_the_field_while_a_fit_runs_discards_its_result(browser, server)
         pg.evaluate(PEAK_TAB)
         pg.evaluate("() => { document.getElementById('bg-endpoint-avg').value = '1'; }")
         pg.evaluate(SPY)
+        pg.evaluate("v => { window.__edit = v; }", edited)
         pg.evaluate("""() => { const o = uploadToBackend; window.uploadToBackend = async (...a) => {
-            const sid = await o(...a); document.getElementById('bg-endpoint-avg').value = '1e2'; return sid; }; }""")
+            const sid = await o(...a); document.getElementById('bg-endpoint-avg').value = window.__edit; return sid; }; }""")
         pg.evaluate(RUN)
         got = pg.evaluate("() => ({ fit: !!state.fitResult, msg: document.getElementById('sb-msg').textContent, notes: window.__notes })")
     finally:

@@ -333,8 +333,20 @@ def load_reference_fits(path: str | Path) -> list[ReferenceFit]:
 
 
 # ── the page's averaging reader, twinned (owner 2026-10-11) ─────────────────────────────────
-_JS_DECIMAL = re.compile(r"^[+-]?(?:\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)$")
+# ASCII digits only (Python's \d and int() take any Unicode digit; JavaScript does not)
+_JS_DECIMAL = re.compile(r"^[+-]?(?:[0-9]+\.?[0-9]*(?:[eE][+-]?[0-9]+)?|\.[0-9]+(?:[eE][+-]?[0-9]+)?)$")
 _JS_RADIX = re.compile(r"^0([xXoObB])([0-9a-zA-Z]+)$")
+# String.prototype.trim's set: WhiteSpace and LineTerminator (not Python's str.strip set, which
+# adds U+001C-U+001F and U+0085 and lacks U+FEFF)
+_JS_WS = "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+
+
+def _js_digits_value(digits: str, base: int) -> float:
+    """The value of a digit string without big-integer conversion (Python limits int() to 4 300
+    digits, and a value this reader can accept is at most 50): leading zeros dropped, a value of
+    more than 4 significant digits is reported as inf — never equal to an accepted 1-50."""
+    d = digits.lstrip("0") or "0"
+    return float(int(d, base)) if len(d) <= 4 else math.inf
 
 
 def _js_number(s: str) -> float:
@@ -349,10 +361,18 @@ def _js_number(s: str) -> float:
     if m:
         base = {"x": 16, "o": 8, "b": 2}[m.group(1).lower()]
         try:
-            return float(int(m.group(2), base))
+            int(m.group(2)[:1] or "0", base)                      # a digit of this base?
+            if any(int(c, 36) >= base for c in m.group(2)):
+                return math.nan
+            return _js_digits_value(m.group(2), base)
         except ValueError:
             return math.nan
-    return float(s) if _JS_DECIMAL.match(s) else math.nan
+    if not _JS_DECIMAL.match(s):
+        return math.nan
+    try:
+        return float(s)
+    except (ValueError, OverflowError):
+        return math.nan
 
 
 def _js_parse_int(s: str) -> float:
@@ -362,9 +382,9 @@ def _js_parse_int(s: str) -> float:
         sign, t = (-1 if t[0] == "-" else 1), t[1:]
     if t[:2] in ("0x", "0X"):
         digits = re.match(r"[0-9a-fA-F]*", t[2:]).group(0)
-        return float(sign * int(digits, 16)) if digits else math.nan
+        return sign * _js_digits_value(digits, 16) if digits else math.nan
     digits = re.match(r"[0-9]*", t).group(0)
-    return float(sign * int(digits)) if digits else math.nan
+    return sign * _js_digits_value(digits, 10) if digits else math.nan
 
 
 def page_endpoint_avg(raw) -> int:
@@ -376,7 +396,7 @@ def page_endpoint_avg(raw) -> int:
         text = str(int(raw))                                   # JS String(3.0) is "3"
     else:
         text = str(raw)
-    s = text.strip()
+    s = text.strip(_JS_WS)
     n = _js_number(s) if s else math.nan
     if not (s and math.isfinite(n) and n == int(n) and n == _js_parse_int(s) and 1 <= n <= 50):
         raise ValueError(f'endpoint averaging must be a whole number from 1 to 50 (it is "{s}").')

@@ -26,7 +26,10 @@ const fail = new Function(extractFn('_endpointAvgFailure') + '\nreturn _endpoint
 
 const TEXTS = ['1', '3', '50', ' 7 ', '3.0', '+3', '007', '1.', '0x10', '0X1f', '3e0', '30e-1',
   '', ' ', '0', '-1', '-0', '51', '1000', '1e1', '1e2', '1e21', '2e21', '2.5', '.5', 'abc', '1_0', '3 4',
-  '0b11', '0o7', '+0x10', 'Infinity', 'NaN', '1,0', '0'.repeat(400) + '3'];
+  '0b11', '0o7', '+0x10', 'Infinity', 'NaN', '1,0', '0'.repeat(400) + '3',
+  // Codex averaging round 2: JavaScript's whitespace, ASCII-only digits, no big-integer limits
+  '\ufeff3', '\u00853', '\u00a07\u00a0', '\u20283', '3e\u0660', '\u0663', '0'.repeat(5000) + '3', '0x' + 'f'.repeat(6000),
+  '0x1g', '0b2', '-0x3'];
 
 test('the Python twin reads every saved text exactly as the page does', () => {
   const page = TEXTS.map(t => { const f = fail(t); return f ? null : Number(String(t).trim()); });

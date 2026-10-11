@@ -63,3 +63,18 @@ Both runs: the entry checks work, but other readers of the field bypassed them.
 Mutation-checked: the key, the core refusal (with a restore test isolated so only the refusal can
 fail it — fitted at 50 on a 201-point window, saved as 51 in the settings and the key), Batch,
 the engine, parity, the analyze route and the twin each fail a test when reverted.
+
+## Codex round 2 (NO-GO ×2, the same two findings) — fixed
+
+Round 1's engine, parity, Batch, archived Find Peaks, analyze-route and test findings resolved
+(both runs: 456 / 472 background comparisons against main bit-identical for every valid value,
+absent settings and accepted spellings across eight methods).
+
+| finding | fix |
+|---|---|
+| clearing the field during a fit still passed the in-flight check: `_captureUI` turned a blank into "1" before the key's reader saw it (a result applied, or the local fallback run) | the capture keeps the field as typed (`?? LEGACY_ENDPOINT_AVG` only when the field does not exist) |
+| a saved 0 or blank became 1 before the refusal: `_computeBackgroundForSource`, `_restoreUI` and both loaders used `endpointAvg \|\| LEGACY` (a restored fit at 0 read current) | every one defaults only an ABSENT value (`??`); a saved 0 or blank reaches the refusal |
+| the Python twin's synthetic spellings (logged under the owner's rule, but cheap): Python's `strip` set vs JavaScript's `trim`, Unicode digits, `int()`'s 4 300-digit limit and radix overflow | JavaScript's whitespace set, ASCII-only digits, no big-integer conversion (a value with more than four significant digits is never 1-50); the parity table adds those spellings |
+
+Mutation-checked (the capture and the source reader, each with an isolated test: a fit at 1
+saved as blank or as 0 in the settings and the key).

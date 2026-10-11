@@ -3486,7 +3486,7 @@ class TabManager {
       // it (those fits were made at 1), and an accepted peaks-only file must
       // not inherit the fresh target tab's new-tab default either (Codex
       // round 1, both runs).
-      active.ui.endpointAvg = (data.background && data.background.endpointAvg) || LEGACY_ENDPOINT_AVG;
+      active.ui.endpointAvg = (data.background && data.background.endpointAvg) ?? LEGACY_ENDPOINT_AVG;   // absent only: a blank or 0 is kept, and refused
 
       // Apply background
       if (data.background) {
@@ -3865,7 +3865,7 @@ class TabManager {
       bgStart:     document.getElementById('bg-start')?.value || '',
       bgEnd:       document.getElementById('bg-end')?.value || '',
       shirleyIter: document.getElementById('shirley-iter')?.value || '5',
-      endpointAvg: document.getElementById('bg-endpoint-avg')?.value || LEGACY_ENDPOINT_AVG,
+      endpointAvg: document.getElementById('bg-endpoint-avg')?.value ?? LEGACY_ENDPOINT_AVG,   // the field as typed: a blank is kept, and refused
       roiMin:      document.getElementById('roi-min')?.value || '',
       roiMax:      document.getElementById('roi-max')?.value || '',
       ccMethod:    document.getElementById('cc-method')?.value || 'none',
@@ -3885,7 +3885,7 @@ class TabManager {
     set('bg-start', ui.bgStart);
     set('bg-end', ui.bgEnd);
     set('shirley-iter', ui.shirleyIter);
-    set('bg-endpoint-avg', ui.endpointAvg || LEGACY_ENDPOINT_AVG);
+    set('bg-endpoint-avg', ui.endpointAvg ?? LEGACY_ENDPOINT_AVG);
     set('roi-min', ui.roiMin);
     set('roi-max', ui.roiMax);
     set('cc-method', ui.ccMethod);
@@ -10025,7 +10025,7 @@ function _computeBackgroundForSource(be, inten, srcUi, srcAnchors) {
   let settings = {
     bgType:      (srcUi && srcUi.bgType)      || 'shirley',
     shirleyIter: (srcUi && srcUi.shirleyIter) || '5',
-    endpointAvg: (srcUi && srcUi.endpointAvg) || LEGACY_ENDPOINT_AVG,
+    endpointAvg: (srcUi && srcUi.endpointAvg) ?? LEGACY_ENDPOINT_AVG,   // absent only (owner 2026-10-11): a saved 0 or blank is refused, not read as 1
     bgStart:     (srcUi && srcUi.bgStart)     || '',
     bgEnd:       (srcUi && srcUi.bgEnd)       || '',
   };
@@ -12273,7 +12273,7 @@ function _loadSpectrumFile(data, sessionFile) {
   // saved values are honoured verbatim. Restore the DOM either way so the
   // record and the inputs agree before any switch-away capture.
   const savedEp = data.ui && data.ui.endpointAvg;
-  active.ui = { ...active.ui, ...(data.ui || {}), endpointAvg: savedEp || LEGACY_ENDPOINT_AVG };
+  active.ui = { ...active.ui, ...(data.ui || {}), endpointAvg: savedEp ?? LEGACY_ENDPOINT_AVG };
   tabManager._restoreUI(active.ui);
   if (data.notes) active.notes = data.notes;
   active.modelProvenance = _isLocalProvenance(data.modelProvenance) ||
@@ -17909,7 +17909,7 @@ async function applyFindPeaks() {
   // un-froze it, caught by test_checkbox_off_preserves_todays_cropped_behavior;
   // with it ON, state.fitResult is cleared below and the preview recomputes
   // from the panel value anyway.)
-  const usedEp = (_fpLast && _fpLast.endpointAvg) || LEGACY_ENDPOINT_AVG;
+  const usedEp = (_fpLast && _fpLast.endpointAvg) ?? LEGACY_ENDPOINT_AVG;
   const epEl = document.getElementById('bg-endpoint-avg');
   const epChanged = !!epEl && epEl.value !== usedEp;
   if (epEl) epEl.value = usedEp;
