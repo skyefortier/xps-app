@@ -16,14 +16,14 @@ own values are set before the link pass.
 
 ## The fix
 
-- `linkOrder`: the linked peaks sorted so each follows its parent (a fixed point over the link
-  graph, peak order kept among peers); `applyParams` walks it, so one application resolves a chain
-  in any order and applying the same parameters twice gives the same model. A peak whose parent is
-  missing is skipped as before; a cycle keeps its peak order (graph validation is Q10 0c′).
-- For a valid (acyclic) link graph one application is idempotent, so the χ² the engine keeps is
-  the committed model's. A cycle or a self-link keeps its peak order and its old, non-idempotent
-  behaviour unchanged (Codex round 1: an extra final χ² evaluation, tried first, changed what such
-  an invalid graph committed — removed); those graphs are refused by Q10 0c′.
+- `linkOrder`: for a WELL-FORMED link graph (unique ids, every parent present, no cycle) the
+  linked peaks sorted so each follows its parent (a fixed point over the link graph, peak order
+  kept among peers); `applyParams` walks it, so one application resolves a chain in any order and
+  applying the same parameters twice gives the same model, and the χ² the engine keeps is the
+  committed model's.
+- Any other graph — two peaks sharing an id, a link to a missing peak, a self-link, a cycle —
+  keeps main's peak-order pass EXACTLY, its old behaviour included (Codex rounds 1-3); those
+  graphs are refused by Q10 0c′, not reinterpreted here.
 
 ## Measured
 
@@ -62,3 +62,15 @@ two-peak cycle run through main's `runFitLocal` (read from git at 8cc3750) besid
 and must commit the same peaks and the same χ² (`Object.is`); it fails with the id-tracked order
 restored. Identity re-run: 121 / 121. Both runs otherwise confirmed the order (2 000 shuffled
 forests against a recursive oracle, 1 000-peak reversed chains), the consumers and the identity.
+
+## Codex round 3 (NO-GO ×2, the same finding) — fixed
+
+A malformed graph that also held a reversed chain was still reordered: four held peaks
+4 → 3 → 2 → 1 → 99 (missing), and the same chain under a root id that two peaks share. Main
+committed peak 4 at 285 / 0.5, the branch at 291 / 12.5. Round 2's object tracking had kept every
+peak but still reinterpreted these graphs. Now only a well-formed graph (unique ids, every parent
+present, no cycle) is reordered; anything else walks main's peak-order list unchanged. Both
+reproducers and a reversed chain hanging off a cycle are added to the main-vs-branch comparison,
+which fails on b6d0f2c. Identity re-run: 121 / 121. Both runs otherwise confirmed the valid-graph
+order (2 000 shuffled forests against a recursive oracle; already-ordered forests match the
+legacy pass; a 1 000-peak reversed chain), the consumers and the identity.

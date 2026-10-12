@@ -743,7 +743,7 @@ test('links: an invalid graph (a self-link) commits exactly what it did before (
   assert.strictEqual(env.state.peaks[0].amplitude, 25);
 });
 
-test('links: malformed graphs (duplicate ids, a self-link, a cycle) commit exactly what main committed (Codex 0b rounds 1-2)', () => {
+test('links: malformed graphs (duplicate ids, a missing parent, a self-link, a cycle — with or without a reversed chain) commit exactly what main committed (Codex 0b rounds 1-3)', () => {
   // this unit changes valid chains only; invalid graphs are refused by Q10 0c′, never altered here.
   // main's engine (8cc3750, read from git) runs beside this one on each and must agree exactly.
   let mainHtml;
@@ -780,6 +780,16 @@ test('links: malformed graphs (duplicate ids, a self-link, a cycle) commit exact
                       { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 3, linkRatio: 0.25 }],
     'self-link': [{ id: 1, ...G, center: 285, amplitude: 100, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
     'two-peak cycle': [{ id: 1, ...G, center: 285, amplitude: 100, linked: 2, linkOffset: 1, linkRatio: 0.5 }, { id: 2, ...G, center: 287, amplitude: 50, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
+    // Codex 0b round 3: malformed graphs that ALSO hold a reversed chain keep main's pass
+    'reversed chain under a missing root': [{ id: 4, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100, linked: 99, linkOffset: 2, linkRatio: 0.5 }],
+    'reversed chain under a duplicated root': [{ id: 4, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100 }, { id: 1, ...G, center: 286, amplitude: 60 }],
+    'reversed chain hanging off a cycle': [{ id: 5, ...G, center: 279, amplitude: 1, linked: 4, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 4, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100, linked: 2, linkOffset: 1, linkRatio: 0.5 }, { id: 2, ...G, center: 287, amplitude: 50, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
     'free root, duplicate children': [{ id: 1, ...G, fixAmplitude: false, center: 285, amplitude: 80 }, { id: 2, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
                       { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 3, linkRatio: 0.25 }],
   };

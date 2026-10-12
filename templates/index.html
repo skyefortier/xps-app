@@ -9321,25 +9321,25 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // resolves a chain whatever the peak order and applying the same parameters twice gives the
   // same model (Q10 0b, owner 2026-10-11). In peak order a chain whose middle peak is listed
   // after its own child left that child on the middle peak's previous values, and the χ² kept
-  // could describe another model than the peaks committed. For a valid (acyclic) link graph one
-  // application is therefore idempotent and the χ² kept describes the committed peaks. A peak
-  // whose parent is missing is skipped as before; a cycle or a self-link keeps its peak order and
-  // is NOT idempotent — such graphs are refused by Q10 0c′.
-  // Peaks are tracked as OBJECTS and parents found exactly as applyParams finds them (the first
-  // peak with that id), so a model with duplicate ids keeps every peak (Codex 0b round 2).
+  // could describe another model than the peaks committed. Only a WELL-FORMED graph is reordered —
+  // unique ids, every parent present, no cycle — and then one application is idempotent and the χ²
+  // kept describes the committed peaks. Any other graph (two peaks sharing an id, a link to a
+  // missing peak, a self-link, a cycle) keeps main's peak-order pass exactly (Codex 0b rounds 1-3):
+  // such graphs are refused by Q10 0c′, not reinterpreted here.
   const linkOrder = (() => {
     const linkedPeaks = work.filter(q => q.linked);
+    const ids = work.map(q => q.id);
+    if (new Set(ids).size !== ids.length || !linkedPeaks.every(q => workPeak(q.linked))) return linkedPeaks;
     const done = new Set(), out = [];
     for (let progressed = true; progressed;) {
       progressed = false;
       for (const q of linkedPeaks) {
         if (done.has(q)) continue;
         const parent = workPeak(q.linked);
-        if (!parent || !parent.linked || done.has(parent)) { out.push(q); done.add(q); progressed = true; }
+        if (!parent.linked || done.has(parent)) { out.push(q); done.add(q); progressed = true; }
       }
     }
-    for (const q of linkedPeaks) if (!done.has(q)) out.push(q);
-    return out;
+    return out.length === linkedPeaks.length ? out : linkedPeaks;   // a cycle: peak order
   })();
 
   function applyParams(params) {
