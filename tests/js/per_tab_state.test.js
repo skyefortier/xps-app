@@ -105,10 +105,21 @@ test('async operations capture their owning record before the first await', () =
   assert.ok(ap.indexOf('_ownerActive(owner)') > ap.indexOf('await _showFindPeaksApplyConfirmModal'), 'owner must be re-validated after the confirmation await');
   // fits: owner is the record OBJECT, not an id, and EVERY request input is read before the upload await
   for (const fn of ['async function runFit(', 'async function runAutoFitC1sGraphite()']) {
-    const body = grab(fn, 7000);
+    const body = grab(fn, 9000);
     assert.doesNotMatch(body, /fittingTabId = tabManager\.activeId/);
     const up = body.indexOf('await uploadToBackend');
     assert.ok(up > 0, fn + ' upload await');
+    if (fn.includes('AutoFit')) {
+      // Auto-Fit reads its inputs in _autoFitRequest (Q8: the anchor fit and the final fit alike),
+      // each call before that fit's upload await
+      const req = grab('function _autoFitRequest(', 3000);
+      for (const input of ["getElementById('fit-method')", "getElementById('bg-endpoint-avg')", '_getManualAnchors()', 'peakToBackendSpec'])
+        assert.ok(req.indexOf(input) > 0, '_autoFitRequest: ' + input);
+      const r1 = body.indexOf('const req1 = _autoFitRequest(anchorId);'), r2 = body.indexOf('const req2 = _autoFitRequest(anchorId);');
+      assert.ok(r1 > 0 && r1 < up, 'the anchor fit\'s inputs before its upload');
+      assert.ok(r2 > 0 && r2 < body.indexOf('await uploadToBackend(req2.be, req2.inten)'), 'the final fit\'s inputs before its upload');
+      continue;
+    }
     for (const input of ["getElementById('fit-method')", "getElementById('bg-endpoint-avg')", '_getManualAnchors()', 'peakToBackendSpec']) {
       const at = body.indexOf(input);
       assert.ok(at > 0 && at < up, fn + ': ' + input + ' must be read before the upload await');

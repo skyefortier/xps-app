@@ -1,0 +1,682 @@
+{
+ "compared": 50,
+ "applied_mismatch": [
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_0",
+   "shipped_applied": true,
+   "measured_applied": false
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_8",
+   "shipped_applied": false,
+   "measured_applied": true
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_4",
+   "shipped_applied": true,
+   "measured_applied": false
+  }
+ ],
+ "shipped_vs_measured_max": {
+  "chi2r_rel": 0.005994781387319089,
+  "R_pts": 0.020220003814937826,
+  "max_dpp": 11.51633751078549
+ },
+ "refit_of_shipped_max": {
+  "chi2r_rel": 7.748248959880502e-09,
+  "R_pts": 8.03019049522291e-06,
+  "max_dpp": 0.0002910811035974348
+ },
+ "rows": [
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan",
+   "vs_measured": {
+    "chi2r_rel": 2.469442728821449e-12,
+    "R_pts": 3.581957641607403e-08,
+    "max_dpp": 1.6319310979895363e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.0056739836481865e-14,
+    "R_pts": 6.730844770430622e-09,
+    "max_dpp": 1.5143357998681495e-06
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_0",
+   "vs_measured": {
+    "chi2r_rel": 8.770056142639444e-07,
+    "R_pts": 6.007530235496716e-07,
+    "max_dpp": 0.00013549327716688708
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 8.47890392921591e-13,
+    "R_pts": 1.2073809174673045e-07,
+    "max_dpp": 8.76963677853837e-06
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_1",
+   "vs_measured": {
+    "chi2r_rel": 3.3044957206790418e-12,
+    "R_pts": 2.1365292868225083e-08,
+    "max_dpp": 4.944327745981525e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.3377713636769964e-11,
+    "R_pts": 2.8670345408876585e-07,
+    "max_dpp": 8.1706800568071e-05
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_2",
+   "vs_measured": {
+    "chi2r_rel": 1.674960682247828e-11,
+    "R_pts": 1.8214641139824295e-06,
+    "max_dpp": 3.767022492517924e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 3.947002827490693e-14,
+    "R_pts": 2.5423712246563923e-08,
+    "max_dpp": 4.994195279550695e-07
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_3",
+   "vs_measured": {
+    "chi2r_rel": 1.1613218972959287e-07,
+    "R_pts": 2.302954136723656e-06,
+    "max_dpp": 0.00016648946674724385
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 3.8388336402857023e-16,
+    "R_pts": 2.2375662211970848e-08,
+    "max_dpp": 5.981065989146828e-07
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_4",
+   "vs_measured": {
+    "chi2r_rel": 6.613063161210463e-07,
+    "R_pts": 6.531579113122632e-07,
+    "max_dpp": 1.9915622794908217e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 3.0793744274413807e-10,
+    "R_pts": 4.204225120485461e-06,
+    "max_dpp": 0.0002910811035974348
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_5",
+   "vs_measured": {
+    "chi2r_rel": 7.1483705441279095e-06,
+    "R_pts": 2.675189742573636e-05,
+    "max_dpp": 0.0006731592496498351
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 7.102621081814656e-15,
+    "R_pts": 1.703956487020264e-08,
+    "max_dpp": 1.5463566427342812e-06
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_6",
+   "vs_measured": {
+    "chi2r_rel": 3.307962573224334e-10,
+    "R_pts": 9.143525232513383e-07,
+    "max_dpp": 0.00022378648606036222
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.0477509987557458e-13,
+    "R_pts": 4.0526484834657595e-08,
+    "max_dpp": 1.0310658211665213e-06
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_7",
+   "vs_measured": {
+    "chi2r_rel": 2.0243388841340564e-07,
+    "R_pts": 1.2439459641910844e-05,
+    "max_dpp": 0.0003120717928268846
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.1200938320897559e-12,
+    "R_pts": 5.688047810537e-08,
+    "max_dpp": 6.952800603698961e-06
+   }
+  },
+  {
+   "tab": "1-GTA UCl4-graphite one set of U doublets.proj.zip / C1s Scan_8",
+   "vs_measured": {
+    "chi2r_rel": 2.68334834905538e-09,
+    "R_pts": 6.637891396543694e-07,
+    "max_dpp": 6.225376331769894e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 5.411805440523584e-11,
+    "R_pts": 7.173381433300818e-07,
+    "max_dpp": 6.809809578456338e-05
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan",
+   "vs_measured": {
+    "chi2r_rel": 2.3660798229759966e-06,
+    "R_pts": 2.684839514266457e-06,
+    "max_dpp": 0.00042229085465095295
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 9.526532082704624e-10,
+    "R_pts": 8.03019049522291e-06,
+    "max_dpp": 7.702714086121887e-05
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_0",
+   "vs_measured": {
+    "chi2r_rel": 0.0,
+    "R_pts": 0.0,
+    "max_dpp": 0.0
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 6.455800661839663e-10,
+    "R_pts": 2.3251074841024177e-06,
+    "max_dpp": 7.358940696633454e-05
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_1",
+   "vs_measured": {
+    "chi2r_rel": 0.0,
+    "R_pts": 0.0,
+    "max_dpp": 0.0
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.4823027999377584e-12,
+    "R_pts": 2.763078890133386e-07,
+    "max_dpp": 4.660976173909148e-07
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_2",
+   "vs_measured": {
+    "chi2r_rel": 2.52805095624657e-09,
+    "R_pts": 7.10720712726598e-07,
+    "max_dpp": 1.6891472860436352e-06
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 6.476443049617744e-13,
+    "R_pts": 5.045340236708995e-07,
+    "max_dpp": 1.2614041153824473e-06
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_3",
+   "vs_measured": {
+    "chi2r_rel": 3.7243528062766563e-09,
+    "R_pts": 1.63346400807729e-05,
+    "max_dpp": 0.0002884481220428725
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 3.796000322464438e-13,
+    "R_pts": 2.450570255607687e-07,
+    "max_dpp": 5.952119934704569e-07
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_4",
+   "vs_measured": {
+    "chi2r_rel": 1.5726428854527526e-15,
+    "R_pts": 3.8633396481913e-09,
+    "max_dpp": 1.3490223693679582e-07
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 4.59735936847354e-13,
+    "R_pts": 1.0859712995525683e-07,
+    "max_dpp": 2.9225373054941883e-07
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_5",
+   "vs_measured": {
+    "chi2r_rel": 1.2147782793366313e-09,
+    "R_pts": 1.7211252867355142e-07,
+    "max_dpp": 1.972220378121392e-06
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 3.137153043846908e-14,
+    "R_pts": 2.553818534423158e-08,
+    "max_dpp": 2.1260075300233439e-07
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_6",
+   "vs_measured": {
+    "chi2r_rel": 1.6303780124307742e-06,
+    "R_pts": 1.8398620782456021e-06,
+    "max_dpp": 0.00016125050151938325
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 6.264783396952009e-13,
+    "R_pts": 8.096221248976576e-08,
+    "max_dpp": 2.0734735137750704e-06
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_7",
+   "vs_measured": {
+    "chi2r_rel": 2.01907073768496e-06,
+    "R_pts": 9.442378088309056e-07,
+    "max_dpp": 0.0002782698320489274
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 9.549202079851784e-10,
+    "R_pts": 3.6331002390976863e-06,
+    "max_dpp": 8.590228498661645e-05
+   }
+  },
+  {
+   "tab": "8-JT Graphite.proj.zip / C1s Scan_8",
+   "vs_measured": {
+    "chi2r_rel": 1.9580874263503347e-12,
+    "R_pts": 4.199005496641206e-07,
+    "max_dpp": 5.822841645297672e-06
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.6369687363394776e-12,
+    "R_pts": 4.5134859938400496e-07,
+    "max_dpp": 1.9956896899486765e-06
+   }
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_4",
+   "vs_measured": {
+    "chi2r_rel": 8.070610930431614e-07,
+    "R_pts": 1.8328643147214052e-05,
+    "max_dpp": 0.0010937278007090434
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 4.823225362165138e-10,
+    "R_pts": 7.4268453431614034e-06,
+    "max_dpp": 0.00017849227348687435
+   }
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_5",
+   "vs_measured": {
+    "chi2r_rel": 2.6248035041921983e-13,
+    "R_pts": 1.2646985680930811e-09,
+    "max_dpp": 5.104140576861482e-07
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 6.234102656379937e-12,
+    "R_pts": 4.2997249316556463e-07,
+    "max_dpp": 1.484808905605206e-05
+   }
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_7",
+   "vs_measured": {
+    "chi2r_rel": 4.5674442138076105e-07,
+    "R_pts": 0.00013312356676298265,
+    "max_dpp": 0.25585114427610023
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.221788920841332e-10,
+    "R_pts": 3.800001353582161e-07,
+    "max_dpp": 5.193251547286337e-05
+   }
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_6",
+   "vs_measured": {
+    "chi2r_rel": 6.75667212402208e-09,
+    "R_pts": 3.61159453454718e-07,
+    "max_dpp": 0.0011547363441692937
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.4828985894506988e-09,
+    "R_pts": 8.555508141938617e-07,
+    "max_dpp": 4.404223701164056e-05
+   }
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_2",
+   "vs_measured": {
+    "chi2r_rel": 2.771208898577142e-06,
+    "R_pts": 0.0004761836006306197,
+    "max_dpp": 0.03724768394476907
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 7.748248959880502e-09,
+    "R_pts": 1.3271483574328613e-06,
+    "max_dpp": 6.712893869043057e-05
+   }
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan_1",
+   "vs_measured": {
+    "chi2r_rel": 0.005994781387319089,
+    "R_pts": 0.020220003814937826,
+    "max_dpp": 11.51633751078549
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 6.418225857705575e-10,
+    "R_pts": 3.4677432605434433e-06,
+    "max_dpp": 0.00012554429214617358
+   }
+  },
+  {
+   "tab": "B4C-UCl4.proj.zip / C1s Scan",
+   "vs_measured": {
+    "chi2r_rel": 1.9045813556447062e-09,
+    "R_pts": 2.1392665371600117e-05,
+    "max_dpp": 0.0004927690035660959
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 4.590496376626085e-13,
+    "R_pts": 1.7253829476260307e-07,
+    "max_dpp": 2.604696203345469e-05
+   }
+  },
+  {
+   "tab": "Cl2p_projfit_test.proj.zip / C1s Scan",
+   "vs_measured": {
+    "chi2r_rel": 3.350755904240188e-11,
+    "R_pts": 1.7802455531956696e-07,
+    "max_dpp": 1.0943166802945825e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.5437247268619337e-14,
+    "R_pts": 1.3483458793928094e-09,
+    "max_dpp": 2.3518103908770627e-08
+   }
+  },
+  {
+   "tab": "Cl2p_projfit_test.proj.zip / C1s Scan_0",
+   "vs_measured": {
+    "chi2r_rel": 3.293759472438143e-06,
+    "R_pts": 1.395937482051579e-06,
+    "max_dpp": 0.0007588451716316058
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.062375527282524e-13,
+    "R_pts": 1.2660816839371591e-08,
+    "max_dpp": 6.678936621540288e-07
+   }
+  },
+  {
+   "tab": "Cl2p_projfit_test.proj.zip / C1s Scan_1",
+   "vs_measured": {
+    "chi2r_rel": 8.928855990339685e-07,
+    "R_pts": 3.9598269419016674e-07,
+    "max_dpp": 0.0014512462471714116
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.5371764030173973e-14,
+    "R_pts": 1.2198408949615214e-08,
+    "max_dpp": 2.569514165884357e-07
+   }
+  },
+  {
+   "tab": "Cl2p_projfit_test.proj.zip / C1s Scan_2",
+   "vs_measured": {
+    "chi2r_rel": 2.2175326367390864e-06,
+    "R_pts": 4.325643597535844e-06,
+    "max_dpp": 0.00031802579886708315
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 4.318038137486961e-10,
+    "R_pts": 3.204577267990061e-06,
+    "max_dpp": 3.01638377919744e-05
+   }
+  },
+  {
+   "tab": "Cl2p_projfit_test.proj.zip / C1s Scan_3",
+   "vs_measured": {
+    "chi2r_rel": 6.082611915453508e-10,
+    "R_pts": 3.397327261733807e-06,
+    "max_dpp": 0.00011929776063346331
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 4.634914703906725e-14,
+    "R_pts": 2.260807452358904e-08,
+    "max_dpp": 9.46081197383819e-07
+   }
+  },
+  {
+   "tab": "Cl2p_projfit_test.proj.zip / C1s Scan_4",
+   "vs_measured": {
+    "chi2r_rel": 1.179195103526733e-08,
+    "R_pts": 1.2403403415461867e-08,
+    "max_dpp": 8.479212638690115e-07
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 5.123628935634731e-13,
+    "R_pts": 2.9627095887718724e-08,
+    "max_dpp": 2.227881488181538e-06
+   }
+  },
+  {
+   "tab": "Cl2p_projfit_test.proj.zip / C1s Scan_5",
+   "vs_measured": {
+    "chi2r_rel": 8.869904102206498e-06,
+    "R_pts": 7.668179164088684e-06,
+    "max_dpp": 0.006288882389737793
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 8.776088581762604e-14,
+    "R_pts": 3.811372772943855e-09,
+    "max_dpp": 4.4780707497693584e-07
+   }
+  },
+  {
+   "tab": "Project9_CasaXPS_newfit.proj.zip / C1s Scan",
+   "vs_measured": {
+    "chi2r_rel": 3.5272785691148295e-11,
+    "R_pts": 1.2219877154606706e-07,
+    "max_dpp": 1.0162120695156318e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.3994429756497385e-12,
+    "R_pts": 6.873382174532594e-08,
+    "max_dpp": 2.5991797958369034e-07
+   }
+  },
+  {
+   "tab": "Project9_CasaXPS_newfit.proj.zip / C1s Scan_0",
+   "vs_measured": {
+    "chi2r_rel": 1.5143922765773656e-07,
+    "R_pts": 1.9289934618527127e-06,
+    "max_dpp": 0.0005682471083554574
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.2740742168755288e-13,
+    "R_pts": 5.0286371955365894e-08,
+    "max_dpp": 1.4833079440279562e-06
+   }
+  },
+  {
+   "tab": "Project9_CasaXPS_newfit.proj.zip / C1s Scan_1",
+   "vs_measured": {
+    "chi2r_rel": 9.189462168074344e-07,
+    "R_pts": 3.847216309971202e-07,
+    "max_dpp": 0.0014459106555690937
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.4533304875654222e-14,
+    "R_pts": 5.662668556283279e-09,
+    "max_dpp": 6.024957457384517e-07
+   }
+  },
+  {
+   "tab": "Project9_CasaXPS_newfit.proj.zip / C1s Scan_2",
+   "vs_measured": {
+    "chi2r_rel": 1.2785500661026283e-06,
+    "R_pts": 4.142376282212368e-06,
+    "max_dpp": 0.0002623060430329005
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 4.150647651450991e-10,
+    "R_pts": 3.1326455065538994e-06,
+    "max_dpp": 2.9769083170094746e-05
+   }
+  },
+  {
+   "tab": "Project9_CasaXPS_newfit.proj.zip / C1s Scan_3",
+   "vs_measured": {
+    "chi2r_rel": 1.9526601369529056e-11,
+    "R_pts": 8.475177368350018e-06,
+    "max_dpp": 0.0001608256811422848
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 8.442166068646107e-14,
+    "R_pts": 1.8810693447335325e-08,
+    "max_dpp": 5.043356239298191e-07
+   }
+  },
+  {
+   "tab": "Project9_CasaXPS_newfit.proj.zip / C1s Scan_4",
+   "vs_measured": {
+    "chi2r_rel": 2.0748633881113905e-08,
+    "R_pts": 2.000943521984766e-08,
+    "max_dpp": 5.652838765968227e-07
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.467168689055321e-14,
+    "R_pts": 2.8993520695408392e-08,
+    "max_dpp": 5.575497823429032e-07
+   }
+  },
+  {
+   "tab": "Project9_CasaXPS_newfit.proj.zip / C1s Scan_5",
+   "vs_measured": {
+    "chi2r_rel": 5.805920190266732e-06,
+    "R_pts": 2.2181168295443143e-06,
+    "max_dpp": 0.003847119426135137
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.4061713306484577e-14,
+    "R_pts": 9.538569933909002e-11,
+    "max_dpp": 1.536293368076258e-07
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan",
+   "vs_measured": {
+    "chi2r_rel": 6.040764661387005e-12,
+    "R_pts": 1.4035188344863059e-08,
+    "max_dpp": 2.5238709167041407e-06
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 3.0873745360855437e-13,
+    "R_pts": 2.9672222012777638e-08,
+    "max_dpp": 1.177706192123651e-06
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_0",
+   "vs_measured": {
+    "chi2r_rel": 4.612355346902167e-06,
+    "R_pts": 6.441175289584322e-06,
+    "max_dpp": 0.00015840977972647607
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 9.690462556003338e-10,
+    "R_pts": 2.286874277057649e-06,
+    "max_dpp": 5.155067950823877e-05
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_1",
+   "vs_measured": {
+    "chi2r_rel": 1.993742829338686e-09,
+    "R_pts": 1.842431878840145e-06,
+    "max_dpp": 5.275700404538952e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 6.781063430465093e-11,
+    "R_pts": 3.456926191969245e-07,
+    "max_dpp": 1.0896447449004754e-05
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_2",
+   "vs_measured": {
+    "chi2r_rel": 1.6116882448430026e-12,
+    "R_pts": 1.1257661469699087e-12,
+    "max_dpp": 5.649349286152017e-07
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 1.2661673374278524e-11,
+    "R_pts": 7.005952000760374e-07,
+    "max_dpp": 2.1732887081071794e-05
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_3",
+   "vs_measured": {
+    "chi2r_rel": 1.664558712714871e-07,
+    "R_pts": 9.818298680741577e-06,
+    "max_dpp": 0.00022283926221433603
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 5.913982058526861e-10,
+    "R_pts": 6.8449415249194345e-06,
+    "max_dpp": 0.0001518991509961154
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_5",
+   "vs_measured": {
+    "chi2r_rel": 6.966003945506401e-09,
+    "R_pts": 6.652582440480614e-07,
+    "max_dpp": 2.719104454129706e-05
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 9.702250322251921e-15,
+    "R_pts": 1.7121420503585227e-08,
+    "max_dpp": 6.262308325233334e-07
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_6",
+   "vs_measured": {
+    "chi2r_rel": 1.8156413764605242e-09,
+    "R_pts": 1.0689359368765139e-05,
+    "max_dpp": 0.0007629456734612461
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 2.85387168618646e-14,
+    "R_pts": 1.3000973630994395e-08,
+    "max_dpp": 5.158090239376634e-07
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_7",
+   "vs_measured": {
+    "chi2r_rel": 1.7226468686330563e-06,
+    "R_pts": 1.1295346837858489e-06,
+    "max_dpp": 0.00021573217257642163
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 5.300729483852018e-15,
+    "R_pts": 3.3030407298184628e-09,
+    "max_dpp": 6.832390084809958e-07
+   }
+  },
+  {
+   "tab": "UCl4_on_graphite.proj.zip / C1s Scan_8",
+   "vs_measured": {
+    "chi2r_rel": 1.527697522610291e-09,
+    "R_pts": 1.3231516549083722e-08,
+    "max_dpp": 4.034612111070146e-07
+   },
+   "refit_of_shipped": {
+    "chi2r_rel": 9.931232809746882e-15,
+    "R_pts": 2.822100553245832e-09,
+    "max_dpp": 5.3135535083015384e-08
+   }
+  }
+ ]
+}

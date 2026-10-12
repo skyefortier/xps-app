@@ -32,7 +32,7 @@ function makeEnv(peaks) {
   const el = id => (dom[id] ||= { value: '', textContent: '', setAttribute() {} });
   const calls = { notify: [], chargeCorrection: 0 };
   const state = { peaks, ccShift: 0.4, fitResult: { marker: 'previous' } };
-  const src = ['applyAutoFitResult', '_autoFitGraphiteIsSupported'].map(extractFn).join('\n');
+  const src = ['applyAutoFitResult', '_autoFitAnchorRefusal', '_autoFitGraphiteIsSupported'].map(extractFn).join('\n');
   const konst = lines.find(l => l.startsWith('const _AUTOFIT_ANCHOR_MIN_F'));
   assert.ok(konst, 'threshold constant not found');
   const factory = new Function('document', 'state', 'notify', 'updateChargeCorrection', 'getROIData',
@@ -113,8 +113,11 @@ test('removing a component that costs nothing is the definition of unsupported',
 });
 
 test('the support check precedes every write of the charge-correction inputs', () => {
+  // the gates live in _autoFitAnchorRefusal (Q8: read for the anchor fit and the final fit); the
+  // charge-correction writes follow its call
+  assert.ok(extractFn('_autoFitAnchorRefusal').indexOf('_autoFitGraphiteIsSupported(') > 0);
   const src = extractFn('applyAutoFitResult');
-  const gate = src.indexOf('_autoFitGraphiteIsSupported(');
+  const gate = src.indexOf('const refusal = _autoFitAnchorRefusal(json);');
   assert.ok(gate > 0);
   for (const marker of ["getElementById('cc-method')", "getElementById('cc-obs')", 'updateChargeCorrection()'])
     assert.ok(src.indexOf(marker) > gate, marker + ' must come after the gate');

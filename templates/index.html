@@ -7817,12 +7817,14 @@ function _autoFitGraphiteIsSupported(gPeak, json) {
   return (delta / p) / (withC / dof) >= _AUTOFIT_ANCHOR_MIN_F;
 }
 
-function applyAutoFitResult(json, graphiteRaw, roi) {
+// The anchor's gates, on a fit's response: supported, required (the refit without it converged and
+// made the fit significantly worse), and its centre inside the reference window. A plain refusal, or
+// null. Read for the anchor fit AND for Auto-Fit's final fit in the corrected frame (Q8).
+function _autoFitAnchorRefusal(json) {
   // 1. Locate the graphite peak in state.peaks (named "Graphite").
   const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
   if (!gPeak || !Number.isFinite(gPeak.center)) {
-    notify('Auto-fit failed: graphite center not found in fit result.', 'red', true);
-    return false;
+    return 'Auto-fit failed: graphite center not found in fit result.';
   }
   // 1b. The charge correction below is derived from this component's fitted
   // centre and then shifts EVERY binding energy in the spectrum, so the
@@ -7836,26 +7838,32 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   // significantly worse. A redundant anchor is refused the same way.
   const req = json && json.required;
   if (req && req.ran === true && req.required === false) {
-    notify('Auto-fit: the Graphite component is not required by the data — refitting the other components without it fits the data as well' + (req.f != null ? ' (F = ' + Number(req.f).toFixed(1) + ', threshold 10)' : '') + '. No charge correction was derived from it and the fit was not applied. The model gives the other components enough freedom to absorb the graphite line; lock or narrow them and try again.', 'red', true);
-    return false;
+    return 'Auto-fit: the Graphite component is not required by the data — refitting the other components without it fits the data as well' + (req.f != null ? ' (F = ' + Number(req.f).toFixed(1) + ', threshold 10)' : '') + '. No charge correction was derived from it and the fit was not applied. The model gives the other components enough freedom to absorb the graphite line; lock or narrow them and try again.';
   }
   // F2 (2026-09-26): the refit without the anchor did not converge, so the
   // server could not establish that the anchor is required. The anchor would
   // set the energy reference of the whole spectrum: refused, like a
   // redundant one (a check that did not RUN at all still never blocks).
   if (req && req.ran === true && req.refit_converged === false) {
-    notify('Auto-fit: it could not be established that the data require the Graphite component — refitting the other components without it did not converge. No charge correction was derived from it and the fit was not applied. Try Run Fit, or narrow the ROI, and run Auto-Fit again.', 'red', true);
-    return false;
+    return 'Auto-fit: it could not be established that the data require the Graphite component — refitting the other components without it did not converge. No charge correction was derived from it and the fit was not applied. Try Run Fit, or narrow the ROI, and run Auto-Fit again.';
   }
   if (!_autoFitGraphiteIsSupported(gPeak, json)) {
-    notify('Auto-fit: the data do not support the Graphite component (removing it does not worsen the fit), so no charge correction was derived from it and the fit was not applied.', 'red', true);
-    return false;
+    return 'Auto-fit: the data do not support the Graphite component (removing it does not worsen the fit), so no charge correction was derived from it and the fit was not applied.';
   }
   // 2. Validate within ±0.3 of 284.50 (the LA center bound).
   if (Math.abs(gPeak.center - 284.50) > 0.30 + 1e-6) {
-    notify('Fit failed to converge or produced an unphysical graphite position.', 'red', true);
-    return false;
+    return 'Fit failed to converge or produced an unphysical graphite position.';
   }
+  return null;
+}
+
+function applyAutoFitResult(json, graphiteRaw, roi) {
+  // The ANCHOR fit (sealed-fit v6 Q8, owner 2026-10-12): its gates decide the charge shift, and nothing
+  // is published from it — runAutoFitC1sGraphite then refits in the corrected frame and publishes
+  // that fit (_autoFitPublish). Until then this fit's numbers were shown with the moved points.
+  const refusal = _autoFitAnchorRefusal(json);
+  if (refusal) { notify(refusal, 'red', true); return false; }
+  const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
   // 3. Compute fitted raw center using APP CONVENTION:
   //    raw = corrected + state.ccShift (state.ccShift is the provisional value).
   const graphiteFittedRaw = gPeak.center + (Number.isFinite(state.ccShift) ? state.ccShift : 0);
@@ -7873,11 +7881,26 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
     if (typeof updateChargeCorrection === 'function') updateChargeCorrection();
   }
 
-  // 5. Build state.fitResult exactly as runFit() does.
+  // After the charge shift the window may hold other points: a background that does not satisfy its
+  // statement is refused (the caller restores everything, the charge correction included).
   const { be: be2, inten: inten2 } = getROIData();
-  // After the charge shift the window may hold other points: a background that
-  // does not satisfy its statement is refused (the caller restores everything,
-  // the charge correction included).
+  const bgR2 = _bgOrFailure(() => computeBackground(be2, inten2));
+  if (bgR2.failure) {
+    notify('Auto-fit not applied: ' + bgR2.failure, 'red', true);
+    return false;
+  }
+  // Lock every centre: the final fit refines widths and amplitudes in this frame, and a later Run Fit
+  // keeps the converged positions (the user can unlock any centre with its padlock).
+  for (const p of state.peaks) p.fixCenter = true;
+  return true;
+}
+
+// Publish Auto-Fit's FINAL fit — made in the corrected frame on exactly the points, background and
+// model it shows (Q8) — as runFit() publishes a result: the statistics, the record, the Results, one
+// history snapshot, the 40 % graphite warning. Returns false (nothing published) on a refused background.
+function _autoFitPublish(json) {
+  // Build state.fitResult exactly as runFit() does.
+  const { be: be2, inten: inten2 } = getROIData();
   const bgR2 = _bgOrFailure(() => computeBackground(be2, inten2));
   if (bgR2.failure) {
     notify('Auto-fit not applied: ' + bgR2.failure, 'red', true);
@@ -7916,11 +7939,6 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   if (sbMsg) sbMsg.textContent = 'Auto-fit complete';
   if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult.rFactor);
   if (typeof _updateROIDisplay === 'function') _updateROIDisplay(roiRange);
-  // Lock all peak centers after a successful auto-fit. Users frequently
-  // run "Run Fit" again to refine FWHMs/amplitudes; without this lock the
-  // converged auto-fit positions can drift. The user can manually unlock
-  // any center via the existing padlock icon in the peak editor.
-  for (const p of state.peaks) p.fixCenter = true;
   // the locks and the refined charge shift are part of THIS result: the
   // support verdicts describe the model as finalised here
   if (typeof _restampSupport === 'function') _restampSupport();
@@ -8162,6 +8180,44 @@ async function _serverFitJob(fitReq, guard) {
   }
 }
 
+// Auto-Fit's request, read from the page as it stands: the window and its points, the background, the
+// model with the per-peak bounds buildAutoFitModel attached, the method, three perturbed restarts and
+// the anchor check. The anchor fit and the final fit (Q8) read it the same way.
+function _autoFitRequest(anchorId) {
+  const { be, inten } = getROIData();
+  const bgType = document.getElementById('bg-type').value;
+  const bgStart = parseFloat(document.getElementById('bg-start').value);
+  const bgEnd = parseFloat(document.getElementById('bg-end').value);
+  // Inclusive bg window — the same point set computeBackgroundCore draws;
+  // the backend slices end-exclusive, so the request sends i1 + 1.
+  const bgWin = _bgWindowIndices(be, bgStart, bgEnd);
+  const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
+  const fitMethod = document.getElementById('fit-method').value;
+  // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
+  const peakSpecs = state.peaks.map(p => {
+    const spec = peakToBackendSpec(p);
+    if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
+    if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
+    if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
+    if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
+    spec.amplitude_min = 0;
+    return spec;
+  });
+  const background = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
+  if (bgType === 'manual') {
+    // Anchors are stored in corrected-BE space, same frame as the uploaded
+    // session data; backend expects [x, y] pairs.
+    background.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
+  }
+  return { be, inten, body: {
+    background, peaks: peakSpecs, fit_method: fitMethod, n_perturb: 3,
+    // step (c): is the charge-reference anchor REQUIRED? The server refits
+    // the model without it; a redundant anchor must not set the energy
+    // reference of a whole spectrum (see _autoFitAnchorRefusal).
+    require_component: anchorId,
+  } };
+}
+
 async function runAutoFitC1sGraphite() {
   // Pre-conditions
   if (!state.rawBE || !state.rawBE.length) { notify('Load a spectrum first.', 'amber'); return; }
@@ -8259,19 +8315,9 @@ async function runAutoFitC1sGraphite() {
   if (runBtn) runBtn.disabled = true;
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
+  let timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
 
   try {
-    const { be: be2, inten: inten2 } = getROIData();
-    const bgType = document.getElementById('bg-type').value;
-    const bgStart = parseFloat(document.getElementById('bg-start').value);
-    const bgEnd = parseFloat(document.getElementById('bg-end').value);
-    // Inclusive bg window — the same point set computeBackgroundCore draws;
-    // the backend slices end-exclusive, so the request sends i1 + 1.
-    const bgWin = _bgWindowIndices(be2, bgStart, bgEnd);
-    const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
-    const fitMethod = document.getElementById('fit-method').value;
-
     // The anchor whose necessity the server must test — captured with the
     // other request inputs, before the first await (a tab switch during the
     // upload must not send another tab's id).
@@ -8279,36 +8325,11 @@ async function runAutoFitC1sGraphite() {
     // the model and its fit context as sent (F1, Codex round 1): a result must
     // not be applied, and stamped current, over a model edited while it ran
     const ctxAtRequest = _startsLiveKey();
-    // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
-    const peakSpecs = state.peaks.map(p => {
-      const spec = peakToBackendSpec(p);
-      if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
-      if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
-      if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
-      if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
-      spec.amplitude_min = 0;
-      return spec;
-    });
-
-    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
-    if (bgType === 'manual') {
-      // Anchors are stored in corrected-BE space, same frame as the uploaded
-      // session data; backend expects [x, y] pairs.
-      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
-    }
+    const req1 = _autoFitRequest(anchorId);
+    const { be: be2, inten: inten2 } = req1;
     const sessionId = await uploadToBackend(be2, inten2);   // after EVERY input above is captured
     // Unit 2: started and polled, like Run Fit (the 2-minute abort still applies)
-    const json = await _serverFitJob({
-        session_id: sessionId,
-        background: bgPayload,
-        peaks: peakSpecs,
-        fit_method: fitMethod,
-        n_perturb: 3,
-        // step (c): is the charge-reference anchor REQUIRED? The server refits
-        // the model without it; a redundant anchor must not set the energy
-        // reference of a whole spectrum (see applyAutoFitResult).
-        require_component: anchorId,
-    }, {
+    const json = await _serverFitJob({ session_id: sessionId, ...req1.body }, {
       op: afOp,
       signal: ctrl.signal,
       abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxAtRequest) ? 'model' : null)),
@@ -8350,8 +8371,62 @@ async function runAutoFitC1sGraphite() {
 
     applyBackendResult(json);
 
+    // The anchor fit's gates decide the charge shift; the shift moves the frame and locks every centre.
     const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
     if (!ok) {
+      _hideFitSpinnerFor(afOp);
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+
+    // The FINAL fit, in the corrected frame (sealed-fit v6 Q8, owner 2026-10-12): the same model with
+    // every centre locked, the same bounds, method, restarts and anchor check, on the window and
+    // background the shift selected. It is what Auto-Fit shows: until now the anchor fit's numbers
+    // were shown with the moved points, and its R-factor compared the fit with other points (on 18
+    // of 51 committed C 1s Auto-Fits R 15-17 % shown for a fit whose own R is ~2 %;
+    // docs/findings/q8-autofit-refit). Nothing is published from the anchor fit; a final fit that
+    // fails, is discarded, or whose anchor no longer passes restores everything, like a failed one.
+    if (spinLabel) spinLabel.textContent = 'Auto-Fit: anchor fitted, refitting in the corrected frame…';
+    const ctxFinal = _startsLiveKey();
+    const req2 = _autoFitRequest(anchorId);
+    clearTimeout(timer);
+    timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);   // its own 2 minutes
+    const sessionId2 = await uploadToBackend(req2.be, req2.inten);
+    const json2 = await _serverFitJob({ session_id: sessionId2, ...req2.body }, {
+      op: afOp,
+      signal: ctrl.signal,
+      abandoned: () => (!_ownerActive(fittingTab) ? 'tab' : (!_sameFitKey(_startsLiveKey(), ctxFinal) ? 'model' : null)),
+    });
+    clearTimeout(timer);
+    if (json2 && json2._abandoned === 'superseded') return;
+    if ((json2 && json2._abandoned === 'tab') || !_ownerActive(fittingTab)) {
+      _hideFitSpinnerFor(afOp);
+      notify('Auto-fit discarded — tab switched during fit.', 'amber');
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+    if ((json2 && json2._abandoned === 'model') || !_sameFitKey(_startsLiveKey(), ctxFinal)) {
+      _hideFitSpinnerFor(afOp);
+      notify('Auto-fit discarded because the model or its background / ROI settings were edited while it was running. Previous peaks and result restored. Run it again.', 'amber', true);
+      _autoFitRestore(snap, fittingTab);
+      return;
+    }
+    if (json2.error) throw new Error(json2.error);
+    if (json2.success !== true) {
+      _hideFitSpinnerFor(afOp);
+      _autoFitRestore(snap, fittingTab);
+      notify('Auto-fit not applied: the final fit in the corrected frame did not converge' + (json2.message ? ' (' + json2.message + ')' : '') + '. Previous peaks and result restored.', 'red', true);
+      return;
+    }
+    applyBackendResult(json2);
+    const refusal2 = _autoFitAnchorRefusal(json2);
+    if (refusal2) {
+      _hideFitSpinnerFor(afOp);
+      _autoFitRestore(snap, fittingTab);
+      notify('After the refit in the corrected frame — ' + refusal2, 'red', true);
+      return;
+    }
+    if (!_autoFitPublish(json2)) {
       _hideFitSpinnerFor(afOp);
       _autoFitRestore(snap, fittingTab);
       return;
