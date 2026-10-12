@@ -161,10 +161,12 @@ test('a linked Voigt follows its parent and both are drawn as fitted (η follows
 // exactly as fitted, and every expression-valued field must carry the server's value.
 const LINKED_LOCKED = {
   GL: { glMix: 10 }, 'asym-GL': { glMix: 10, asymmetry: 0.9 }, DS: { dsAlpha: 0.45, dsGamma: 2 },
-  DSG_LA: { laAlpha: 0.4, laBeta: 1.5, laM: 0.1 }, LACX: { caAlpha: 3, caBeta: 3 },
+  DSG_LA: { laAlpha: 0.4, laBeta: 1.5, laM: 0.1 }, LACX: { caAlpha: 3, caBeta: 3, caM: 5 },
 };
 const LOCK_FLAG = { glMix: 'fixGlMix', asymmetry: 'fixAsymmetry', dsAlpha: 'fixDsAlpha', dsGamma: 'fixDsGamma',
-  laAlpha: 'fixLaAlpha', laBeta: 'fixLaBeta', laM: 'fixLaM', caAlpha: 'fixCaAlpha', caBeta: 'fixCaBeta' };
+  laAlpha: 'fixLaAlpha', laBeta: 'fixLaBeta', laM: 'fixLaM', caAlpha: 'fixCaAlpha', caBeta: 'fixCaBeta', caM: 'fixCaM' };
+const SERVER_NAME = { glMix: ['gl_ratio', 0.01], asymmetry: ['asymmetry', 1], dsAlpha: ['alpha', 1], dsGamma: ['gamma_asym', 1],
+  laAlpha: ['alpha', 1], laBeta: ['beta', 1], laM: ['m_gauss', 1], caAlpha: ['alpha', 1], caBeta: ['beta', 1], caM: ['m', 1] };
 for (const [shape, stale] of Object.entries(LINKED_LOCKED)) {
   test(`a linked ${shape} child with its linked fields LOCKED at stale values is drawn as the server fitted it (Q10 0c)`, () => {
     const flags = Object.fromEntries(Object.keys(stale).map(k => [LOCK_FLAG[k], true]));
@@ -177,6 +179,12 @@ for (const [shape, stale] of Object.entries(LINKED_LOCKED)) {
     assert.strictEqual(p.center, ipChild.params.center.value, 'the locked centre carries the server\'s value');
     assert.strictEqual(p.amplitude, ipChild.params.amplitude.value);
     if (ipChild.params.fwhm) assert.strictEqual(p.fwhm, ipChild.params.fwhm.value);   // DS+G has no fwhm (β, m)
+    // every LOCKED shape field carries the server's (expression) value, not the stale one
+    for (const k of Object.keys(stale)) {
+      const [name, scale] = SERVER_NAME[k], sp = ipChild.params[name];
+      assert.ok(sp && sp.expr, `${shape}: ${name} is an expression on the parent`);
+      assert.strictEqual(p[k], sp.value / scale, `${shape}: the locked ${k} carries the server's value`);
+    }
     const rel = maxRelDiff(env.evalPeakArray(res.energy, p), ipChild.y, p.amplitude);
     assert.ok(rel < TIGHT_TOL, `${shape} child: drawn vs fitted ${(rel * 100).toExponential(3)} % of amplitude`);
   });
@@ -274,10 +282,24 @@ test('autofit.reference.apply_backend_params is the page’s _applyBackendParams
     items.push({ peak: fullPeak({ ...c.truth, id: items.length + 1, fixCenter: true, fixFwhm: true, fixAmplitude: true, fixGlMix: true, fixAsymmetry: true,
       fixDsAlpha: true, fixDsGamma: true, fixLaAlpha: true, fixLaBeta: true, fixLaM: true, fixCaAlpha: true, fixCaBeta: true, fixCaM: true }), params });
   }
+  // Q10 0c: a LOCKED field the server fitted by an EXPRESSION takes the server's value — with the
+  // server's own parameters (expr set), and with a plain-value record (expr lost) on a linked peak
+  const exprParams = Object.fromEntries(Object.entries(PAR).map(([k, v]) => [k, { value: v, stderr: null, vary: false, expr: 'p1_' + k, min: null, max: null }]));
+  const plain = Object.fromEntries(Object.entries(PAR));
+  const allLocks = { fixCenter: true, fixFwhm: true, fixAmplitude: true, fixGlMix: true, fixAsymmetry: true,
+    fixDsAlpha: true, fixDsGamma: true, fixLaAlpha: true, fixLaBeta: true, fixLaM: true, fixCaAlpha: true, fixCaBeta: true, fixCaM: true };
+  for (const [shape, c] of Object.entries(CASES)) {
+    items.push({ peak: fullPeak({ ...c.truth, id: items.length + 1, linked: 1, ...allLocks }), params: exprParams });
+    items.push({ peak: fullPeak({ ...c.truth, id: items.length + 1, linked: 1, ...allLocks }), params: plain });
+    items.push({ peak: fullPeak({ ...c.truth, id: items.length + 1, ...allLocks }), params: plain });   // unlinked: locks hold
+  }
   const py = bridge({ twin_apply: items }).twin_applied;
   items.forEach((it, i) => {
     const js = { ...it.peak };
-    env._applyBackendParams(js, it.params);
+    // the page reads plain values the way _altPeaks hands them over: a linked peak's are expressions
+    const asPage = Object.fromEntries(Object.entries(it.params).map(([k, v]) => [k, (v && typeof v === 'object') ? v
+      : { value: v, expr: it.peak.linked ? 'linked' : null }]));
+    env._applyBackendParams(js, asPage);
     assert.deepStrictEqual(py[i], js, `peak ${it.peak.shape}${it.peak.fixCenter ? ' (locked)' : ''}: Python twin and page write-back differ`);
   });
 });

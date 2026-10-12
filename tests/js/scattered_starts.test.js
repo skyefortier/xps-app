@@ -307,7 +307,9 @@ test('an alternative previewed on a LINKED child takes its values whatever the c
   // the server derives a linked child's fields from its parent; the alternative's values for it
   // are those expressions, so a lock on the child must not keep the page's stale numbers
   const peaks = PEAKS();
-  peaks[2] = { ...peaks[2], linked: 1, linkOffset: 6.7, linkRatio: 0.03, center: 280, amplitude: 1, fwhm: 9,
+  // a solution the server could return: the alternative's child (comp 3: centre 291.1, amplitude
+  // 3000, width 1.1, mix 0.25) is its parent's (comp 1: 284.45, 1000, 1.1, 0.25) through the link
+  peaks[2] = { ...peaks[2], shape: 'asym-GL', linked: 1, linkOffset: 291.1 - 284.45, linkRatio: 3, center: 280, amplitude: 1, fwhm: 9,
                fixCenter: true, fixAmplitude: true, fixFwhm: true, fixGlMix: true };
   const env = makeEnv({ peaks, starts: STARTS([ALT(0.3)]) });
   const got = env._altPeaks(ALT(0.3));

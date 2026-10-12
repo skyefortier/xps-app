@@ -36,3 +36,16 @@ and applied by `_applyBackendParams`, is drawn exactly as fitted (≤ 1e-6 of am
 parity bound) and carries the server's centre and amplitude; all five fail with the old rule.
 `tests/js/scattered_starts.test.js`: a linked child's alternative preview takes the alternative's
 values despite its locks, an unlinked locked field keeps its own; fails with the old preview.
+
+## Codex round 1 (NO-GO ×2) — fixed
+
+Both runs confirmed the page fix (expressions only from links; Voigt guard intact; every apply
+path; the measurement reproduced: the 12 locks are inactive `fixCaM` flags on GL / Voigt peaks).
+
+| finding | fix |
+|---|---|
+| MAJOR the Python write-back twin (`autofit.reference.apply_backend_params`, used by `autofit.parity.refit_record`) kept the old rule, and its equivalence test fed only `expr: null` (both runs) | the twin takes an expression-valued locked field; a plain-value record (expressions lost) counts a linked peak's fields as expressions — the page's `_altPeaks` rule; the equivalence test adds locked linked peaks with real expressions and with plain values, and unlinked locked peaks whose locks hold |
+| MAJOR the LA case locked no `caM`, so restoring the old rule for `m` alone passed (run A) | the LA child's stale `caM` is locked; every locked shape field is asserted to carry the server's expression value |
+| MINOR the alternative fixture was not a solution the server could return (run A) | the child's offset and ratio now make the alternative's child its parent's through the link (and one lineshape) |
+
+Mutation-checked: the old rule for LA's `m` alone, and the old rule in the twin, each fail a test.

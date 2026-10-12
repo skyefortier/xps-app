@@ -158,7 +158,7 @@ def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
 def apply_backend_params(p: dict, par: dict) -> dict:
     """Write a server component's fitted parameters onto a page peak dict, in
     place — the twin of the page's ``_applyBackendParams`` (honours the peak's
-    locks; a shape parameter is written only for the shape that reads it, so
+    locks, except on a field the server fitted by an expression; a shape parameter is written only for the shape that reads it, so
     a Voigt keeps the ``glMix`` it carries for a later switch to GL). ``par``
     is ``individual_peaks[].params`` (``{name: {"value": …}}``) or a plain
     ``{name: value}`` map. Pinned to the page's function, shape by shape, by
@@ -166,32 +166,47 @@ def apply_backend_params(p: dict, par: dict) -> dict:
     def val(name):
         v = par[name]
         return v["value"] if isinstance(v, dict) else v
+
+    linked = p.get("linked") not in (None, "")
+
+    def take(name, lock):
+        # a locked field keeps its value EXCEPT one the server fitted by an expression (a linked
+        # component's fields come from its parent whatever the child's lock — Q10 0c): a server
+        # parameter says so in its `expr`; a plain-value record has lost it, and for a linked peak
+        # every field it carries is an expression value (the page's _altPeaks rule)
+        if name not in par:
+            return False
+        if not p.get(lock):
+            return True
+        v = par[name]
+        return bool(v.get("expr")) if isinstance(v, dict) else linked
+
     shape = p.get("shape")
-    if "center" in par and not p.get("fixCenter"):
+    if take("center", "fixCenter"):
         p["center"] = val("center")
-    if "amplitude" in par and not p.get("fixAmplitude"):
+    if take("amplitude", "fixAmplitude"):
         p["amplitude"] = val("amplitude")
-    if "fwhm" in par and not p.get("fixFwhm"):
+    if take("fwhm", "fixFwhm"):
         p["fwhm"] = val("fwhm")
-    if "gl_ratio" in par and shape in ("GL", "asym-GL") and not p.get("fixGlMix"):
+    if take("gl_ratio", "fixGlMix") and shape in ("GL", "asym-GL"):
         p["glMix"] = val("gl_ratio") * 100
-    if "asymmetry" in par and shape == "asym-GL" and not p.get("fixAsymmetry"):
+    if take("asymmetry", "fixAsymmetry") and shape == "asym-GL":
         p["asymmetry"] = val("asymmetry")
-    if "alpha" in par and shape == "DS" and not p.get("fixDsAlpha"):
+    if take("alpha", "fixDsAlpha") and shape == "DS":
         p["dsAlpha"] = val("alpha")
-    if "gamma_asym" in par and shape == "DS" and not p.get("fixDsGamma"):
+    if take("gamma_asym", "fixDsGamma") and shape == "DS":
         p["dsGamma"] = val("gamma_asym")
-    if "alpha" in par and shape == "DSG_LA" and not p.get("fixLaAlpha"):
+    if take("alpha", "fixLaAlpha") and shape == "DSG_LA":
         p["laAlpha"] = val("alpha")
-    if "beta" in par and shape == "DSG_LA" and not p.get("fixLaBeta"):
+    if take("beta", "fixLaBeta") and shape == "DSG_LA":
         p["laBeta"] = val("beta")
-    if "m_gauss" in par and shape == "DSG_LA" and not p.get("fixLaM"):
+    if take("m_gauss", "fixLaM") and shape == "DSG_LA":
         p["laM"] = val("m_gauss")
-    if "alpha" in par and shape == "LACX" and not p.get("fixCaAlpha"):
+    if take("alpha", "fixCaAlpha") and shape == "LACX":
         p["caAlpha"] = val("alpha")
-    if "beta" in par and shape == "LACX" and not p.get("fixCaBeta"):
+    if take("beta", "fixCaBeta") and shape == "LACX":
         p["caBeta"] = val("beta")
-    if "m" in par and shape == "LACX" and not p.get("fixCaM"):
+    if take("m", "fixCaM") and shape == "LACX":
         p["caM"] = val("m")
     return p
 
