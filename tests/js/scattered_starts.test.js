@@ -307,17 +307,25 @@ test('an alternative previewed on a LINKED child takes its values whatever the c
   // the server derives a linked child's fields from its parent; the alternative's values for it
   // are those expressions, so a lock on the child must not keep the page's stale numbers
   const peaks = PEAKS();
-  // a solution the server could return: the alternative's child (comp 3: centre 291.1, amplitude
-  // 3000, width 1.1, mix 0.25) is its parent's (comp 1: 284.45, 1000, 1.1, 0.25) through the link
-  peaks[2] = { ...peaks[2], shape: 'asym-GL', linked: 1, linkOffset: 291.1 - 284.45, linkRatio: 3, center: 280, amplitude: 1, fwhm: 9,
+  // a solution the server could return: the parent's centre is locked, so it is reported at its
+  // locked 284.40, and the alternative's child (comp 3: centre 291.1, amplitude 3000, width 1.1,
+  // mix 0.25) is that parent (comp 1: 284.40, 1000, 1.1, 0.25) through the link (Codex 0c round 2)
+  const base = ALT(0.3);
+  const alt = { ...base, components: base.components.map(c => c.id === 1 ? comp(1, 49, 284.40, 0) : c) };
+  peaks[2] = { ...peaks[2], shape: 'asym-GL', linked: 1, linkOffset: 291.1 - 284.40, linkRatio: 3, center: 280, amplitude: 1, fwhm: 9,
                fixCenter: true, fixAmplitude: true, fixFwhm: true, fixGlMix: true };
-  const env = makeEnv({ peaks, starts: STARTS([ALT(0.3)]) });
-  const got = env._altPeaks(ALT(0.3));
+  const env = makeEnv({ peaks, starts: STARTS([alt]) });
+  const got = env._altPeaks(alt);
   const child = got.find(p => p.id === 3);
   assert.strictEqual(child.center, 291.1, 'the alternative\'s centre, not the locked 280');
   assert.strictEqual(child.amplitude, 3000);
   assert.strictEqual(child.fwhm, 1.1);
   assert.strictEqual(child.glMix, 25);
-  // an UNLINKED locked field still keeps its value (the graphite centre is locked at 284.40)
-  assert.strictEqual(got.find(p => p.id === 1).center, 284.40);
+  // the previewed child sits exactly where the link puts it
+  const parent = got.find(p => p.id === 1);
+  assert.strictEqual(parent.center, 284.40);
+  assert.ok(Math.abs(child.center - (parent.center + child.linkOffset)) < 1e-12, 'child = parent + offset');
+  assert.strictEqual(child.amplitude, parent.amplitude * child.linkRatio);
+  // an UNLINKED locked field still keeps its value: the same alternative with the graphite at 284.45
+  assert.strictEqual(env._altPeaks(base).find(p => p.id === 1).center, 284.40);
 });

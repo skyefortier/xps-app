@@ -49,3 +49,14 @@ path; the measurement reproduced: the 12 locks are inactive `fixCaM` flags on GL
 | MINOR the alternative fixture was not a solution the server could return (run A) | the child's offset and ratio now make the alternative's child its parent's through the link (and one lineshape) |
 
 Mutation-checked: the old rule for LA's `m` alone, and the old rule in the twin, each fail a test.
+
+## Codex round 2 (GO ×2) — one MINOR fixed
+
+Both runs: no BLOCKER or MAJOR; round 1's findings fixed; every added test fails with the old
+rule; the committed-data measurement reproduced (67 linked children, 12 with locks — all inactive
+`fixCaM` flags — no active-parameter difference). The same MINOR from both: the alternative-
+preview fixture gave the LOCKED parent centre 284.45, which the server would report at its locked
+284.40, so the previewed child did not sit at parent + offset. Fixed in the test: the alternative
+reports the parent at 284.40, the child's offset is taken from it, and the test asserts child =
+parent + offset and amplitude = parent × ratio; the unlinked-lock assertion keeps the 284.45
+alternative.
