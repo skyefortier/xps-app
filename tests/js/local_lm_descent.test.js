@@ -36,7 +36,7 @@ function extractFn(name) {
 
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
   'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
-  'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_pageSoftware', '_localFitRecord', 'solveLinear',
+  'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_linkGraphFailure', '_pageSoftware', '_localFitRecord', 'solveLinear',
   '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
   '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState'];
 const CAVEAT_CONST = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
@@ -674,4 +674,17 @@ test('recording: the averaging recorded is the averaging the curve used, even fo
     const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
     assert.ok(Math.abs(bg[0] - mean(y.slice(0, k))) <= 1e-9 * 10100 && Math.abs(bg[100] - mean(y.slice(101 - k))) <= 1e-9 * 10100, field);
   }
+});
+
+test('links: the local engine refuses a graph the server would refuse (Q10 0c′)', () => {
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05), data = be.map(x => 100 * env.gaussian(x, 285, 1));
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  env.state.peaks = [{ id: 1, name: 'parent', shape: 'GL', glMix: 30, asymmetry: 0, fwhm: 1, center: 285, amplitude: 90 },
+                     { id: 2, name: 'child', shape: 'Voigt', glMix: 50, asymmetry: 0, fwhm: 1, center: 287, amplitude: 9, linked: 1, linkOffset: 2, linkRatio: 0.1 }];
+  const before = JSON.stringify(env.state.peaks);
+  const out = env.runFitLocal(be, data, bg);
+  assert.strictEqual(out.success, false);
+  assert.match(out.message, /^"child" is linked to "parent" but has a different lineshape/);
+  assert.strictEqual(JSON.stringify(env.state.peaks), before, 'nothing changed');
 });

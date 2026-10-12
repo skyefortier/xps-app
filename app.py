@@ -97,6 +97,12 @@ def _prepare_fit_request(app, body):
     ids = [p.get("id") for p in peak_specs]
     if len(ids) != len(set(ids)):
         return None, _err("Duplicate peak ids found – each peak must have a unique 'id'")
+    # the link graph (a self-link, a cycle, a link across lineshapes) refused HERE, so /api/fit/start
+    # answers with the same immediate 400 as /api/fit (Q10 0c'; it used to start a job that failed)
+    try:
+        fitting._validate_constraint_graph(peak_specs)
+    except ValueError as exc:
+        return None, _err(str(exc))
 
     _ALLOWED_METHODS = {
         "leastsq", "least_squares", "nelder",

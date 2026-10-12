@@ -1469,6 +1469,7 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
     that names a non-existent peak is left for ``_make_peak_params`` to report.
     """
     parent: dict = {}
+    by_id = {s.get("id"): s for s in peak_specs}
     for s in peak_specs:
         sid = s.get("id")
         master = s.get("constrain_to")
@@ -1477,6 +1478,18 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
         if master == sid:
             raise ValueError(f"Peak '{sid}' cannot constrain to itself")
         parent[sid] = master
+        # a linked peak has its parent's lineshape (Q10 0c', owner 2026-10-11): an expression on a
+        # parameter the child's shape does not read was fitted but never drawn (a Voigt child of a
+        # GL parent: fitted at the parent's mix, drawn at 0.5). Voigt and GL are one backend shape,
+        # so the page sends each peak's `frontend_shape` too.
+        m = by_id.get(master)
+        if m is not None:
+            fs, fm = s.get("frontend_shape"), m.get("frontend_shape")
+            differ = (fs != fm) if (fs is not None and fm is not None) else (s.get("shape") != m.get("shape"))
+            if differ:
+                raise ValueError(
+                    f"Peak '{s.get('name') or sid}' is linked to '{m.get('name') or master}' but has a different "
+                    f"lineshape ({fs or s.get('shape')}, {fm or m.get('shape')}); a linked peak takes its parent's lineshape")
 
     # Walk each constrained peak's master chain; a repeat is a cycle.
     for start in parent:

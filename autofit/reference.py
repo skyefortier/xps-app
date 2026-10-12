@@ -88,6 +88,7 @@ def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
     spec: dict[str, Any] = {
         "id": str(p["id"]),
         "name": p.get("name"),
+        "frontend_shape": p.get("shape"),     # the page's lineshape (Q10 0c'): Voigt and GL share a backend shape
         "center": p["center"],
         "amplitude": p["amplitude"],
         "fwhm": p["fwhm"],

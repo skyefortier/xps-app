@@ -366,6 +366,13 @@ parameter — failing to add a new param breaks spin-orbit constraints
 during fitting. Search for the `syncKeys` array and the `applyParams`
 closure in `runFit` when adding parameters; both need the new key.
 
+A link the server cannot fit as drawn is REFUSED, never dropped: a link to a
+peak no longer in the model, a self-link, a cycle, a child of another
+lineshape, or two peaks sharing an id (`_linkGraphFailure` on the page — Run Fit, Batch Fit, the local
+engine — and `fitting._validate_constraint_graph` on the server, which also
+receives each peak's `frontend_shape` because Voigt and GL share a backend
+shape; Q10 0c′, 2026-10-12).
+
 | Parent param changes | Linked peak receives |
 |----------------------|----------------------|
 | `center` | `parent.center + linkOffset` |

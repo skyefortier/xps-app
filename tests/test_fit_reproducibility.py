@@ -445,11 +445,12 @@ def test_bounds_that_cannot_act_and_values_a_constraint_overrides_do_not_change_
 
 def test_a_broken_constraint_is_still_a_solver_failure_not_a_crash():
     # A linked GL child of a Gaussian master refers to p1_gl_ratio, which does
-    # not exist. On main that surfaces inside the fit as RuntimeError (HTTP
-    # 422); deriving the seed must not turn it into an unhandled NameError (500).
+    # not exist. Deriving the seed must not turn it into an unhandled NameError
+    # (500). Until Q10 0c' it surfaced inside the fit as RuntimeError (HTTP 422);
+    # a link across lineshapes is now refused before the fit, in plain words (400).
     x, y, specs = _two_peaks()
     broken = [{**specs[0], "shape": "gaussian"}, {**specs[1], "constrain_to": 1, "splitting": 3.8}]
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError, match="a linked peak takes its parent's lineshape"):
         fitting.run_fit(x, y, broken, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
 
 

@@ -1,0 +1,66 @@
+# Q10 0c′ — a link the server cannot fit as drawn is refused (owner, 2026-10-11)
+
+Owner: "Q10: yes to all three, each its own small unit, BEFORE any seal build … measured, Codex
+x2." The third; found by the sealed-fit v6 design gate (rounds 3-4).
+
+## The defect
+
+- **Across lineshapes.** A linked peak takes its parent's lineshape (CLAUDE.md "Linked
+  (Multiplet) Peaks"), but the page allowed a child of another shape. A Voigt child of a GL parent
+  was sent `gl_ratio` 0.5 fixed; the server overrode it with the parent's mix (expression
+  `p1_gl_ratio`) while the page drew the child at 0.5 (round 3's probe: up to 2.06 counts apart,
+  success and certified). The server could not even see it: Voigt and GL are one backend shape.
+- **A link to a peak that is gone.** Removing a chain's root deletes only its immediate children
+  (`removePeak`); a grandchild stays linked to a deleted peak. The request builder silently drops
+  its `constrain_to` and the local engine silently skips it: the peak is fitted free while the page
+  shows it linked.
+- Self-links and cycles were already refused by the server (audit F11) — but only when the fit
+  ran, so `/api/fit/start` accepted the job and failed it later.
+- **Two peaks sharing an id** (a project load keeps the ids it reads). The server's route refuses
+  them ("Duplicate peak ids"); Batch Fit and the local engine fitted them, finding each link's
+  parent as the FIRST peak with that id (found while reviewing 0b, Codex 0b round 2).
+
+## The fix
+
+- Page `_linkGraphFailure(peaks)`: a link to a missing peak (ids matched exactly, as `getPeak` and
+  the local engine match them), a self-link, a cycle, or a link across lineshapes is refused in
+  plain words, naming the peaks; so are two peaks sharing an id ("delete both and add them
+  again": `removePeak` removes every peak with the id). Run Fit (incl. "Use this solution", on its start model) before the
+  background, the undo entry and any request; Batch Fit before any target is touched; the local
+  engine at its start.
+- The request carries each peak's page lineshape, `frontend_shape` (additive; the seed and the fit
+  ignore it — tested). Server `_validate_constraint_graph` refuses a link whose two
+  `frontend_shape`s differ, or, without them, whose backend shapes differ; and it now runs in the
+  shared request preparation, so `/api/fit/start` answers with the same immediate 400 as `/api/fit`.
+  The Python twin `autofit.reference.peak_to_backend_spec` sends the field too.
+
+## Measured
+
+`scripts/link_graph_census.js` runs the page's `_linkGraphFailure` on every committed tab
+(`docs/findings/link-graph/census.json`): 121 tabs, 530 peaks, 67 links in 57 tabs — none across
+lineshapes, none to a missing peak, none self-linked, none in a cycle, no shared id. Nothing a user
+has saved is refused, and no fit changes.
+
+## Changed for direct server callers
+
+A request made without the page (a script, a test, a Python twin) that links two different
+BACKEND shapes is refused before the fit, HTTP 400, in plain words. Until now it reached lmfit:
+a GL child of a Gaussian master referred to a `p1_gl_ratio` that does not exist and failed inside
+the fit as RuntimeError (422, "Fit failed — see server log"); an asymmetric-GL master with a
+pseudo-Voigt child fitted the expressions the two shapes share. Two existing tests built such
+links: `test_a_broken_constraint_is_still_a_solver_failure_not_a_crash` now expects the earlier
+refusal (still not a crash, the test's point), and the transitive-removal test in
+`tests/test_component_required.py` gives its linked chain the parent's lineshape (its subject is
+the chain, not the shapes). Nothing else on the server builds links: Find Peaks' engine has none,
+and the scripts copy them from page models, which the census shows all share one lineshape.
+
+## Tests
+
+`tests/test_link_graph_refusal.py` (server: Voigt child of a GL parent refused; backend-shape
+mismatch refused without the field; one lineshape fits with the same seed and curve with and
+without the field; `/api/fit` and `/api/fit/start` both 400). `tests/js/link_graph.test.js` (the
+page check's table; the builder's field; every call site). `tests/js/local_lm_descent.test.js`
+(the local engine refuses, nothing changes). `tests/test_browser_link_graph_refusal.py` (real
+page: the Voigt-under-GL case and a chain orphaned by `removePeak` are refused with nothing sent;
+Batch Fit leaves the target untouched). Mutation-checked: removing the Run Fit or the Batch Fit
+check fails the browser tests.

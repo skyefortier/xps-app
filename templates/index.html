@@ -6442,6 +6442,37 @@ function clearAllPeaks() {
 
 function getPeak(id) { return state.peaks.find(p => p.id === id); }
 
+// A link the server cannot fit as drawn is REFUSED, never dropped or approximated (Q10 0c′, owner
+// 2026-10-11): every `linked` names another peak of the model (ids matched exactly, as getPeak and
+// the local engine do), no chain closes on itself, and a linked peak has its parent's lineshape —
+// a Voigt child of a GL parent was fitted at the parent's mix and drawn at 0.5. The builder used to
+// drop a link to a missing peak silently (a removed chain root left an orphan). The server's twin:
+// fitting._validate_constraint_graph, which also receives each peak's `frontend_shape`.
+function _linkGraphFailure(peaks) {
+  const name = p => '"' + (p.name || ('peak ' + p.id)) + '"';
+  const byId = id => peaks.find(q => q.id === id);
+  // two peaks sharing an id make every link to it ambiguous; the server refuses them already
+  // (`_prepare_fit_request`: "Duplicate peak ids"), Batch Fit and the local engine fitted them
+  for (let i = 0; i < peaks.length; i++)
+    if (peaks.findIndex(q => q.id === peaks[i].id) !== i)
+      return name(byId(peaks[i].id)) + ' and ' + name(peaks[i]) + ' share one internal id, so the model is ambiguous; delete both and add them again.';
+  for (const p of peaks) {
+    if (p.linked === null || p.linked === undefined || p.linked === '') continue;
+    if (p.linked === p.id) return name(p) + ' is linked to itself; unlink it.';
+    const parent = byId(p.linked);
+    if (!parent) return name(p) + ' is linked to a peak that is no longer in the model; unlink it or link it to another peak.';
+    if (parent.shape !== p.shape)
+      return name(p) + ' is linked to ' + name(parent) + ' but has a different lineshape (' + p.shape + ', ' + parent.shape +
+             '); a linked peak takes its parent\'s lineshape — give them one lineshape or unlink it.';
+    const seen = new Set([p.id]);
+    for (let q = parent; q && q.linked !== null && q.linked !== undefined && q.linked !== ''; q = byId(q.linked)) {
+      if (seen.has(q.id)) return name(p) + ' is in a circle of links; unlink one of them.';
+      seen.add(q.id);
+    }
+  }
+  return null;
+}
+
 function unlinkPeak(id) {
   if (!confirm('Unlink this peak? It will become fully independent.')) return;
   pushUndo();
@@ -6936,6 +6967,7 @@ function peakToBackendSpec(p) {
   const spec = {
     id: String(p.id),
     name: p.name,
+    frontend_shape: p.shape,     // the page's lineshape: Voigt and GL are one backend shape (Q10 0c′)
     center: p.center,
     amplitude: p.amplitude,
     fwhm: p.fwhm,
@@ -8871,6 +8903,8 @@ async function runFit(opts = {}) {
   // refused, never clamped (owner 2026-10-11): before the undo entry, the spinner and any request
   const avgFail = _endpointAvgFailure(document.getElementById('bg-endpoint-avg').value);
   if (avgFail) { notify('Fit not run: ' + avgFail, 'red', true); return; }
+  const linkFail = _linkGraphFailure(opts.startPeaks || state.peaks);   // refused, never dropped (Q10 0c′)
+  if (linkFail) { notify('Fit not run: ' + linkFail, 'red', true); return; }
   const { be, inten } = getROIData();
   const bgPre = _bgOrFailure(() => computeBackground(be, inten));
   if (bgPre.failure) { notify('Fit not run: ' + bgPre.failure, 'red', true); return; }
@@ -9247,6 +9281,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // Work on copies: live peaks are touched only on success.
   const work = state.peaks.map(p => ({ ...p }));
   if (!work.length) return fail('no peaks to fit.');
+  { const linkFail = _linkGraphFailure(work); if (linkFail) return fail(linkFail); }   // Q10 0c′
   const workPeak = id => work.find(q => q.id === id);
 
   const freeParams = [];
@@ -13873,6 +13908,8 @@ async function runPropagation() {
   // any target is changed (owner 2026-10-11; the field as typed — _captureUI turns a blank into 1)
   const batchAvgFail = _endpointAvgFailure(document.getElementById('bg-endpoint-avg').value);
   if (batchAvgFail) { notify('Batch fit not run: ' + batchAvgFail, 'red', true); return; }
+  const batchLinkFail = _linkGraphFailure(state.peaks);   // the model every target is given (Q10 0c′)
+  if (batchLinkFail) { notify('Batch fit not run: ' + batchLinkFail, 'red', true); return; }
 
   const btn = document.getElementById('propagate-run-btn');
   btn.disabled = true;
