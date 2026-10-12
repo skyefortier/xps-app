@@ -675,3 +675,55 @@ test('recording: the averaging recorded is the averaging the curve used, even fo
     assert.ok(Math.abs(bg[0] - mean(y.slice(0, k))) <= 1e-9 * 10100 && Math.abs(bg[100] - mean(y.slice(101 - k))) <= 1e-9 * 10100, field);
   }
 });
+
+// ── Q10 0b (owner 2026-10-11): links in dependency order; one frozen model at the end ──────────
+// A chain grandchild → child → root listed in that order: in peak order the grandchild read the
+// child's PREVIOUS values, so the χ² kept described another model than the peaks committed
+// (Codex sealed-fit gate round 2: 2237.98 reported against 2620.21 for the committed peaks).
+function engineChi(env, be, bgSub, bg) {      // the engine's own arithmetic: Σ (r·w)², sequential
+  const m = env.evalAllPeaks(be, env.state.peaks);
+  return be.reduce((s, _, i) => { const w = 1 / Math.sqrt(Math.max(bgSub[i] + bg[i], 1)); const r = (bgSub[i] - m[i]) * w; return s + r * r; }, 0);
+}
+for (const free of [false, true]) {
+  test(`links: a reversed chain is resolved whatever the peak order (${free ? 'root amplitude free' : 'all held'})`, () => {
+    const env = makeEnv();
+    const be = grid(280, 295, 0.05);
+    const truth = [[285, 100], [287, 50], [289, 25]];
+    const data = be.map(x => truth.reduce((s, [c, a]) => s + a * env.gaussian(x, c, 1.0), 0) + 5);
+    const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+    const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1.0 };
+    env.state.peaks = [
+      { id: 3, name: 'grandchild', ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 },   // stale values
+      { id: 2, name: 'child', ...G, center: 281, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+      { id: 1, name: 'root', ...G, center: 285, amplitude: free ? 80 : 100, fixCenter: true, fixFwhm: true, fixAmplitude: !free }];
+    const out = env.runFitLocal(be, data, bg);
+    assert.equal(out.success, true, JSON.stringify(out));
+    const by = Object.fromEntries(env.state.peaks.map(p => [p.id, p]));
+    assert.strictEqual(by[2].center, by[1].center + 2, 'the child follows the root');
+    assert.strictEqual(by[3].center, by[2].center + 2, 'the grandchild follows the child — not its previous values');
+    assert.strictEqual(by[3].amplitude, by[2].amplitude * 0.5);
+    // every statistic describes the committed model
+    assert.strictEqual(env.state.fitResult.chi, engineChi(env, be, data, bg), 'the χ² kept is the committed model\'s');
+  });
+}
+
+test('links: a four-level reversed chain with nothing free — one pass resolves it, and the χ² kept is the committed model\'s', () => {
+  // with nothing free the engine applies the links only a few times (start, the final χ², the
+  // commit): in peak order each application resolves ONE more level, so a deep reversed chain is
+  // committed half-resolved or with a χ² of another state; in dependency order one pass suffices
+  const env = makeEnv();
+  const be = grid(280, 300, 0.05);
+  const data = be.map(x => [285, 287, 289, 291, 293].reduce((s, c, k) => s + 100 * 0.5 ** k * env.gaussian(x, c, 1.0), 0) + 5);
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1.0, center: 270, amplitude: 1, linkOffset: 2, linkRatio: 0.5 };
+  env.state.peaks = [{ id: 5, ...G, linked: 4 }, { id: 4, ...G, linked: 3 }, { id: 3, ...G, linked: 2 }, { id: 2, ...G, linked: 1 },
+    { id: 1, shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1.0, center: 285, amplitude: 100, fixCenter: true, fixFwhm: true, fixAmplitude: true }];
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  const by = Object.fromEntries(env.state.peaks.map(p => [p.id, p]));
+  for (const [c, p] of [[2, 1], [3, 2], [4, 3], [5, 4]]) {
+    assert.strictEqual(by[c].center, by[p].center + 2, `peak ${c} follows peak ${p}`);
+    assert.strictEqual(by[c].amplitude, by[p].amplitude * 0.5);
+  }
+  assert.strictEqual(env.state.fitResult.chi, engineChi(env, be, data, bg), 'the χ² kept is the committed model\'s');
+});

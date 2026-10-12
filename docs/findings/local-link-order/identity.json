@@ -1,0 +1,856 @@
+{
+ "ref": "main",
+ "tabs": 121,
+ "identical": 121,
+ "differ": 0,
+ "skipped": 0,
+ "rows": [
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "C1s Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+   "tab": "U4f Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "B1s Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "4-GTA UCl4-BN.proj.zip",
+   "tab": "U4f Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "8-JT Graphite.proj.zip",
+   "tab": "C1s Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "B1s Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "B4C-UCl4.proj.zip",
+   "tab": "U4f Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "C1s Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "C1s Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "C1s Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "C1s Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "C1s Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "C1s Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "C1s Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "U4f Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "Cl2p Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "Cl2p Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Cl2p_projfit_test.proj.zip",
+   "tab": "Cl2p Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "C1s Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "C1s Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "C1s Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "C1s Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "C1s Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "C1s Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "C1s Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "Project9_CasaXPS_newfit.proj.zip",
+   "tab": "U4f Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "C1s Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_0",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_1",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_2",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_3",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_4",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_5",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_6",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_7",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  },
+  {
+   "file": "UCl4_on_graphite.proj.zip",
+   "tab": "U4f Scan_8",
+   "skipped": null,
+   "identical": true,
+   "success": true
+  }
+ ]
+}

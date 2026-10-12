@@ -283,7 +283,7 @@ test('every remaining site carries the designation: TSV export, saves, activatio
   const fig = grab('function exportFigure()', 60000);
   assert.match(fig, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'figure legend label');
   // the local fit result itself declares it
-  const rfl = grab('function runFitLocal(', 20000);
+  const rfl = extractFn('runFitLocal');   // the whole function (a fixed-length slice broke when it grew)
   assert.match(rfl, /reportable: false, caveat: _LOCAL_FIT_CAVEAT/, 'runFitLocal marks its result');
 });
 
