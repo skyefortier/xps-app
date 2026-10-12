@@ -6,6 +6,37 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-10-12 — Linked peaks: link order, linked-child values, broken links refused (`q10-integration`, 432f4db)
+
+- **Release note:** a fit whose links cannot be fitted as drawn is now refused in plain
+  words, before anything is sent or changed — e.g. "Fit not run: "C-O" is linked to "C-C"
+  but has a different lineshape (Voigt, GL); a linked peak takes its parent's lineshape —
+  give them one lineshape or unlink it." The same for a peak linked to one that is no longer
+  in the model (left behind when a chain's top peak is deleted; it used to be fitted unlinked
+  while shown linked), a self-link, a circle of links, and two peaks sharing an id. Run Fit,
+  "Use this solution", Batch Fit, the local engine and every server route (including the
+  start routes, at once) refuse alike. Switching a peak's lineshape now switches its whole
+  linked family, grandchildren included.
+- Batch Fit / the local engine resolve a chain of links in dependency order (Q10 0b): a chain
+  listed child-before-parent no longer leaves the χ² describing other peaks than those
+  committed.
+- A locked linked peak shows and draws the value the server fitted (its parent's, through the
+  link), not its own stale value (Q10 0c); an unlinked locked value is kept as before.
+- No saved result changes: the local engine is bit-identical to the previous version on all
+  121 committed tabs; no committed model is refused (121 tabs, 67 links); no committed locked
+  linked child differs on a value its lineshape reads.
+- Codex: 0b GO ×2 at round 5, 0c at round 2, 0c′ at round 4, the combination GO ×2 (round 1).
+  Plans: `docs/superpowers/plans/2026-10-12-{local-link-order,linked-child-values,link-graph-refusal,q10-integration}.md`.
+  Logged for the next unit: the refusal for a malformed API request (two backend shapes both
+  labelled "GL" — not buildable by the page) names the page shapes instead of the backend ones.
+- Suites on the combination: pytest 1404 passed / 7 skipped; JS 629 passed (CI floor 629).
+  Production check through xps.fortierlab.org: `/api/fit` and `/api/fit/start` refuse an
+  orphan link, a cross-shape link and a shared id with HTTP 400 and the plain message; a
+  valid linked doublet fits (success, child at parent + 2.0 eV, record commit 432f4db,
+  clean); on the page a Voigt child of a GL parent is refused before any request and the same
+  doublet with one lineshape fits, no page errors. LaunchAgent running, last exit 0;
+  `/api/health` ok on :5050 and publicly. xps2 droplet: the owner's.
+
 ## 2026-10-12 — Endpoint averaging outside 1–50 is refused (`feat-endpoint-avg-refusal`, bfe0069)
 
 - **Release note:** the endpoint-averaging box takes a whole number from 1 to 50
