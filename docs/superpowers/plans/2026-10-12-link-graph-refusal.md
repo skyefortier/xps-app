@@ -64,3 +64,30 @@ page check's table; the builder's field; every call site). `tests/js/local_lm_de
 page: the Voigt-under-GL case and a chain orphaned by `removePeak` are refused with nothing sent;
 Batch Fit leaves the target untouched). Mutation-checked: removing the Run Fit or the Batch Fit
 check fails the browser tests.
+
+## Codex round 1 (NO-GO ×2) — fixed
+
+- **`linked: false` (and 0) was read as a link.** The loader keeps `false` for an unlinked peak,
+  and the request builder, the peak controls and the local engine read any falsy value as no link;
+  the check searched for a parent with id `false` and refused a valid model. It now reads a link
+  as they do: a truthy `linked`.
+- **Two builders erased the evidence.** The page's `peakToBackendSpec` and its Python twin dropped
+  `constrain_to` when the parent was gone, so Find Peaks' "Refit my current peaks" (`/api/analyze`,
+  no page check) and the twin's refit path fitted an orphan free and reported success. Both now
+  send the link whatever the parent; the server refuses it. The Find Peaks refit also runs the
+  page check before any request.
+- **The server's shared check** (`_validate_constraint_graph`, every route and `run_fit`) now
+  refuses a constraint naming no peak in the request and two peaks sharing an id (compared as the
+  parameter prefix spells it: 1 and "1" are one `p1_`): `/api/fit/start` answers 400 at once
+  instead of starting a job that fails, and `/api/analyze` answers 400 instead of "Internal
+  analyze error" (500). The page compares ids the same way and refuses a peak its own lookup
+  cannot find (an id of NaN).
+- **A lineshape switch reached only the parent and its immediate children,** so switching a
+  three-level chain left the grandchild on the old shape — a model the new check refuses, which
+  the switch could not repair (switching the grandchild returned early because its parent already
+  had the shape). `_switchPeakShape` now switches the whole family — the root and every peak
+  linked to it at any depth, from any member — and completes a family left mixed.
+- Both runs noted that the same-lineshape rule is stricter than "cannot fit as drawn": some
+  cross-shape links (a GL child of a Voigt parent) fit and draw identically. The rule is the
+  owner's (a linked peak takes its parent's lineshape, CLAUDE.md), stated as such.
+- Census re-run: 121 tabs, 67 links, none refused. Tests: each new case fails on 1dc2c87.

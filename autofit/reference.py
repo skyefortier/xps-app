@@ -146,13 +146,12 @@ def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
     else:
         spec["shape"] = "gaussian"
 
+    # a link is sent even when its parent is gone, so the server refuses it (Q10 0c' Codex round 1)
     if p.get("linked"):
-        parent = next((q for q in all_peaks if q.get("id") == p["linked"]), None)
-        if parent is not None:
-            spec["constrain_to"] = str(p["linked"])
-            spec["splitting"] = p.get("linkOffset")
-            spec["area_ratio"] = p.get("linkRatio")
-            spec["fix_fwhm"] = True
+        spec["constrain_to"] = str(p["linked"])
+        spec["splitting"] = p.get("linkOffset")
+        spec["area_ratio"] = p.get("linkRatio")
+        spec["fix_fwhm"] = True
     return spec
 
 

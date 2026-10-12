@@ -52,3 +52,42 @@ test('the request names each peak\'s page lineshape, and every fit path refuses 
   const rp = extractFn('runPropagation');
   assert.ok(rp.indexOf('batchLinkFail') < rp.indexOf('btn.disabled = true'), 'before the batch starts');
 });
+
+// ── Codex 0c′ round 1 ─────────────────────────────────────────────────────────
+test('a link is read as every reader reads it: null, false, 0 are no link', () => {
+  for (const v of [null, undefined, false, 0, '']) assert.strictEqual(fail([P(1, 'GL', v), P(2, 'GL')]), null, String(v));
+});
+
+test('ids are compared as the request sends them, and each peak must be found by its own id', () => {
+  assert.match(fail([P(1, 'GL', undefined, 'num'), P('1', 'GL', undefined, 'str')]), /^"num" and "str" share one internal id/,
+    '1 and "1" are one server id (p1_)');
+  assert.match(fail([P(NaN, 'GL', undefined, 'nan')]), /^"nan" has an internal id the page cannot look up \(NaN\)/);
+});
+
+test('no request builder drops a link, and Find Peaks\' refit checks the graph first', () => {
+  const b = extractFn('peakToBackendSpec');
+  assert.match(b, /if \(p\.linked\) \{\n\s+spec\.constrain_to = String\(p\.linked\);/, 'sent whatever the parent');
+  assert.doesNotMatch(b, /getPeak\(p\.linked\)/);
+  const fp = extractFn('runFindPeaks');
+  const at = fp.indexOf('const linkFail = _linkGraphFailure(state.peaks);');
+  assert.ok(at > 0 && at < fp.indexOf('payload.peak_specs = state.peaks.map(peakToBackendSpec)') &&
+            fp.indexOf('payload.peak_specs = state.peaks.map(peakToBackendSpec)') < fp.indexOf('await uploadToBackend'),
+    'before the specs are built and before any request');
+});
+
+test('a lineshape switch reaches the whole family, at any depth and from any member', () => {
+  const run = (peaks, id, shape) => {
+    const state = { peaks: peaks.map(p => ({ ...p })) };
+    const getPeak = id => state.peaks.find(p => p.id === id);
+    const sw = new Function('state', 'getPeak', 'SHAPE_PARAM_SCHEMA', '_applyShapeSwitch', '_pushUndoDebounced', '_invalidateFittedY', 'renderPeakControls', 'updatePlot',
+      extractFn('_switchPeakShape') + '\nreturn _switchPeakShape;')(state, getPeak, { GL: 1, Voigt: 1 }, (p, s) => { p.shape = s; }, () => {}, () => {}, () => {}, () => {});
+    sw(id, shape);
+    return state.peaks.map(p => p.shape);
+  };
+  const chain = [P(3, 'GL', 2), P(2, 'GL', 1), P(1, 'GL'), P(4, 'GL')];
+  assert.deepStrictEqual(run(chain, 1, 'Voigt'), ['Voigt', 'Voigt', 'Voigt', 'GL'], 'from the root: the grandchild too, the unrelated peak not');
+  assert.deepStrictEqual(run(chain, 3, 'Voigt'), ['Voigt', 'Voigt', 'Voigt', 'GL'], 'from the grandchild');
+  // a family left mixed by the old switch is completed from the member that still differs
+  assert.deepStrictEqual(run([P(3, 'GL', 2), P(2, 'Voigt', 1), P(1, 'Voigt')], 3, 'Voigt'), ['Voigt', 'Voigt', 'Voigt']);
+  assert.strictEqual(fail([P(3, 'Voigt', 2), P(2, 'Voigt', 1), P(1, 'Voigt')]), null, 'and the switched family fits');
+});

@@ -5867,9 +5867,12 @@ function _switchPeakShape(id, newShape) {
   const p = getPeak(id);
   if (!p || p.shape === newShape) return;
   if (!(newShape in SHAPE_PARAM_SCHEMA)) return;
-  const parent = p.linked ? (getPeak(p.linked) || p) : p;
-  if (parent.shape === newShape) return;
-  const family = [parent, ...state.peaks.filter(q => q.linked === parent.id)];
+  // the WHOLE family — the root and every peak linked to it at any depth (Q10 0c′ Codex round 1: a
+  // grandchild kept its shape, a link across lineshapes the fit now refuses)
+  const rootOf = q => { const seen = new Set(); while (q.linked && !seen.has(q)) { seen.add(q); const up = getPeak(q.linked); if (!up) break; q = up; } return q; };
+  const root = rootOf(p);
+  const family = state.peaks.filter(q => rootOf(q) === root && q.shape !== newShape);
+  if (!family.length) return;
   _pushUndoDebounced();
   for (const peak of family) _applyShapeSwitch(peak, newShape);
   _invalidateFittedY();
@@ -6451,23 +6454,28 @@ function getPeak(id) { return state.peaks.find(p => p.id === id); }
 function _linkGraphFailure(peaks) {
   const name = p => '"' + (p.name || ('peak ' + p.id)) + '"';
   const byId = id => peaks.find(q => q.id === id);
-  // two peaks sharing an id make every link to it ambiguous; the server refuses them already
-  // (`_prepare_fit_request`: "Duplicate peak ids"), Batch Fit and the local engine fitted them
-  for (let i = 0; i < peaks.length; i++)
-    if (peaks.findIndex(q => q.id === peaks[i].id) !== i)
-      return name(byId(peaks[i].id)) + ' and ' + name(peaks[i]) + ' share one internal id, so the model is ambiguous; delete both and add them again.';
+  // a link is a truthy `linked`, as the request builder, the peak controls and the local engine read
+  // it (null, false, 0 are no link; Codex 0c′ round 1). Ids are compared as the request sends them
+  // (String(id): 1 and "1" are one server id) and each peak must be found by its own id (NaN is not).
+  for (let i = 0; i < peaks.length; i++) {
+    const twin = peaks.findIndex(q => String(q.id) === String(peaks[i].id));
+    if (twin !== i)
+      return name(peaks[twin]) + ' and ' + name(peaks[i]) + ' share one internal id, so the model is ambiguous; delete both and add them again.';
+    if (byId(peaks[i].id) !== peaks[i])
+      return name(peaks[i]) + ' has an internal id the page cannot look up (' + String(peaks[i].id) + '); delete it and add it again.';
+  }
   for (const p of peaks) {
-    if (p.linked === null || p.linked === undefined || p.linked === '') continue;
+    if (!p.linked) continue;
     if (p.linked === p.id) return name(p) + ' is linked to itself; unlink it.';
     const parent = byId(p.linked);
     if (!parent) return name(p) + ' is linked to a peak that is no longer in the model; unlink it or link it to another peak.';
     if (parent.shape !== p.shape)
       return name(p) + ' is linked to ' + name(parent) + ' but has a different lineshape (' + p.shape + ', ' + parent.shape +
              '); a linked peak takes its parent\'s lineshape — give them one lineshape or unlink it.';
-    const seen = new Set([p.id]);
-    for (let q = parent; q && q.linked !== null && q.linked !== undefined && q.linked !== ''; q = byId(q.linked)) {
-      if (seen.has(q.id)) return name(p) + ' is in a circle of links; unlink one of them.';
-      seen.add(q.id);
+    const seen = new Set([p]);
+    for (let q = parent; q && q.linked; q = byId(q.linked)) {
+      if (seen.has(q)) return name(p) + ' is in a circle of links; unlink one of them.';
+      seen.add(q);
     }
   }
   return null;
@@ -7036,14 +7044,13 @@ function peakToBackendSpec(p) {
   } else {
     spec.shape = 'gaussian';
   }
+  // a link is sent even when its parent is gone, so the server refuses it (Q10 0c′ Codex round 1:
+  // dropping it here fitted the peak free while the page showed it linked)
   if (p.linked) {
-    const parent = getPeak(p.linked);
-    if (parent) {
-      spec.constrain_to = String(p.linked);
-      spec.splitting = p.linkOffset;
-      spec.area_ratio = p.linkRatio;
-      spec.fix_fwhm = true;
-    }
+    spec.constrain_to = String(p.linked);
+    spec.splitting = p.linkOffset;
+    spec.area_ratio = p.linkRatio;
+    spec.fix_fwhm = true;
   }
   return spec;
 }
@@ -17692,6 +17699,8 @@ async function runFindPeaks() {
       regions, method, options,
     };
     if (method === 'least_squares') {
+      const linkFail = _linkGraphFailure(state.peaks);   // Q10 0c′ Codex round 1
+      if (linkFail) { status.textContent = 'Not run: ' + linkFail; return; }
       payload.peak_specs = state.peaks.map(peakToBackendSpec);
       if (!payload.peak_specs.length) {
         status.textContent = '“Refit my current peaks” needs peaks on ' +
