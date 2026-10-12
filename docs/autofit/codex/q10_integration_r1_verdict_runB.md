@@ -1,0 +1,13 @@
+No integration BLOCKER, MAJOR, or MINOR findings in `272cd06` against `8cc3750` and the three reviewed branches. Non-physical-input classification: not applicable; no defect found.
+
+- **Merge preservation:** `runFitLocal` is exactly 0b’s version plus 0c′’s early refusal, before parameter setup. `_applyBackendParams` and `_altPeaks` match 0c exactly. The builder, family switch, graph validator and caller guards match 0c′ exactly. No lost or wrongly interleaved changes found.
+- **Tests and CI:** Both branches’ remaining tests are retained. Replacing two malformed-graph tests with one accounts for the combined floor: **610 + 6 + 6 + 8 − 1 = 629**.
+- **Graph interaction:** Both checks use strict ID lookup and truthy links. Every malformed category triggering 0b’s fallback is refused first. Exhaustive probes over **82,944 combinations**, including shared IDs, `NaN`, missing parents, falsy links and cycles, found **zero unrefused fallback cases**. Refusal additionally rejects server-string ID collisions and cross-shape links; these intentional restrictions do not reinterpret an accepted graph.
+- **Replacement proof:** The [replacement test](/Users/skyefortier/xps-app/.claude/worktrees/q10/tests/js/local_lm_descent.test.js:731) executes the combined engine, checks graph-specific refusal and unchanged peaks/result, and fails when the refusal is removed in memory. A separate probe verified preservation of an existing result’s contents and identity. The finite cases support the regression; inspection of both guards establishes coverage of the fallback categories.
+- **Shape/write-back interaction:** Cross-shape refusal precedes fitting. Same-shape expression values still override child locks while genuine independent locks remain protected. **192 family-switch / builder / locked-expression combinations passed**, covering eight shapes and switching from every member of a three-peak chain.
+- **Measurements:** Reproduced **121/121 bit-identical results**, zero differences or skips, against `8cc3750`; census reproduced **121 tabs, 530 peaks, 67 links, zero refusals**. These establish corpus identity, not identity for previously incorrect multilevel chains.
+- **Other merge changes:** Python builder/write-back changes compose without overlap. Measurement extraction and test-harness adjustments are appropriate. No unrelated runtime change found.
+
+Validation: **171 focused tests passed** using an in-memory bootstrap for read-only Python dependency initialization. Measurement artifact writes were suppressed. Full-suite and real-browser tests were not rerun. No files changed.
+
+VERDICT: GO

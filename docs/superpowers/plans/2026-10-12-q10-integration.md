@@ -32,3 +32,14 @@ unit's reviewed history) for one deploy.
   refused.
 - 0c's committed-data measurement (no committed locked linked child differs on a parameter its
   shape reads) is unaffected by the other two.
+
+## Codex on the combination (round 1, GO ×2)
+
+Both runs: no BLOCKER, MAJOR or MINOR. Each merged function equals its branch's version
+(`runFitLocal` = 0b's plus 0c′'s early refusal; `_applyBackendParams` / `_altPeaks` = 0c's; the
+builder, validator, family switch and guards = 0c′'s); the floor 610 + 6 + 6 + 8 − 1 = 629;
+82 944 and 287 496 adversarial graph cases found no malformed graph reaching 0b's fallback
+unrefused; the replacement test fails with the refusal removed; family switches with locked
+children pass real backend fitting and write-back; identity 121 / 121 and the census reproduced.
+Suites on the combination: pytest 1404 passed / 7 skipped, JS 629 passed. READY for the owner's
+deploy approval.
