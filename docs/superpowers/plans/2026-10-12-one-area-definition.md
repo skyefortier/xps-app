@@ -21,11 +21,11 @@ deploy approval. Measurement before the decision: `docs/findings/q5-area/README.
 
 ## Measured
 
-- The switch (`scripts/q5_area_definitions.js`, 121 committed tabs, 530 components): a
-  component's area moves by a median 0.007 %; area % by at most 0.034 pp; no 40 % warning flips.
-- The note (`scripts/outside_window_census.js` → `docs/findings/q5-area/outside_window.json`): 8 of
-  530 saved components, in 8 tabs — every "B-O" of the `B4C-UCl4` B 1s scans, centred at 193.00 eV,
-  1.68 eV above the 175.42–191.32 eV window (exactly the components whose area moves 17–19 %).
+`scripts/q5_areas_on_load.py` (every committed project loaded into the page in a real browser) →
+`docs/findings/q5-area/on_load.json`: a component's area moves by a median 0.007 % (max 0.20 %); area %
+by at most 0.008 pp; no 40 % warning flips; **no saved component gets the note** after loading. The
+pre-decision "8 B-O components centred outside, 17–19 %" (raw records, `scripts/q5_area_definitions.js`)
+was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (README).
 
 ## Tests
 
@@ -40,3 +40,26 @@ deploy approval. Measurement before the decision: `docs/findings/q5-area/README.
   before it exports, so its CSV / TSV are still an exact prefix of today's and both XLSX sheets agree
   row for row — every line, row and column other than the area values is unchanged (without the
   override the comparison fails on the area cells, which is this unit's change).
+
+## Codex round 1 (NO-GO ×2, the same findings) — fixed
+
+- **One grid, not only one formula.** Results integrated on the frozen `fitResult.be`, the sidebar,
+  its support patching and the spectrum save on the live ROI grid: after a charge correction they
+  showed different areas (1 284 vs 9 361 in the reviewers' reproduction) and Results flagged a
+  component inside its window. Every reader now integrates on `_areaGrid()`: the fit's own energies
+  while it is current (a restored fit's `_modelBe` — the energies the old server integrated on — else
+  `fitResult.be`), otherwise the live ROI grid. The spectrum save integrates the fit's own components
+  on the energies they were evaluated on (`_modelBe`), and otherwise writes what Results shows.
+- **The note follows edits.** `_refreshStartsEvidence` (every `updatePlot`) compares the note's
+  `data-peak-ids` with the components now outside and re-renders Results when they differ: it had
+  stayed as it was while Results was already stale. It is also shown with no fit (a saved fit the
+  load cannot reconstruct, a model not yet fitted), judged on the live window.
+- **The count** was of raw records and of a wrongly framed grid: measured again through the page's
+  own load (above) — 0.
+- **Tests** prove behaviour: `tests/test_browser_one_area.py` (after a Run Fit the server's area,
+  Results/Quantify, the spectrum save, the CSV and the sidebar % agree exactly; after a charge
+  correction they agree on the live grid; the note appears and disappears as a centre moves while
+  stale; the note with no fit — both fail on 5319bf5); `tests/js/one_area.test.js` the grid rule incl.
+  `_modelBe`.
+- MINOR: `scripts/q5_area_definitions.js` froze its rectangle baseline explicitly (it called the
+  page's `_peakArea`, now the trapezoid) and runs again; marked superseded.

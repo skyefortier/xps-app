@@ -9,6 +9,11 @@
 // definition: each component's area, its area %, and whether Auto-Fit's 40 % graphite warning flips.
 // The curves are the page's own (evalPeakArray: equal to the server's to ≤ 1e-6 of amplitude by the
 // lineshape parity harnesses), on the grid the page integrates on (fitResult.be, else the ROI grid).
+// SUPERSEDED (Codex Q5 round 1) by scripts/q5_areas_on_load.py, which measures what the page shows
+// after a real load: this reads the RAW saved records and integrates on the saved fit grid, which
+// older saves hold in the UNCORRECTED frame (the B4C B 1s scans: 175.4-191.3 eV for peaks in the
+// corrected 181.3-197.3 eV frame), so it reported a "B-O centred outside, 17-19 %" that the page never
+// shows. Kept as the record of the pre-decision measurement; both baselines are explicit here.
 // Usage: node scripts/q5_area_definitions.js. Writes docs/findings/q5-area/areas.json.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -29,7 +34,9 @@ const extract = name => {
 };
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
   'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array',
-  '_fftRadix2', '_circularConvolve', 'dsgConvolved_array', 'evalPeakArray', '_peakArea', '_roiSelect', '_autoFitDecideAreaWarning'];
+  '_fftRadix2', '_circularConvolve', 'dsgConvolved_array', 'evalPeakArray', '_roiSelect', '_autoFitDecideAreaWarning'];
+// the page's area BEFORE this unit, frozen here (the page's _peakArea is now the server's trapezoid)
+const rectArea = (y, be) => y.reduce((s, v) => s + v, 0) * (be.length > 1 ? Math.abs(be[1] - be[0]) : 1);
 const P = new Function(NAMES.map(extract).join('\n\n') + '\nreturn { ' + NAMES.join(', ') + ' };')();
 
 const script = 'import glob, json, sys; sys.path.insert(0, sys.argv[1]); from autofit.reference import load_project_tabs\n' +
@@ -52,7 +59,7 @@ for (const t of tabs) {
   const steps = be.slice(1).map((v, i) => Math.abs(v - be[i]));
   const step0 = steps[0], irregular = Math.max(...steps.map(s => Math.abs(s - step0) / step0));
   const curves = t.peaks.map(p => P.evalPeakArray(be, p));
-  const rect = t.peaks.map(p => P._peakArea(p, be));
+  const rect = curves.map(y => rectArea(y, be));
   const server = curves.map(y => trapzServer(y, be));
   const save = curves.map(y => trapzSave(y, be));
   const comps = t.peaks.map((p, i) => ({

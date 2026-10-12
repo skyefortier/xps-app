@@ -42,13 +42,28 @@ test('the page\'s trapezoid is scipy\'s, bit for bit, on every grid shape', () =
   assert.strictEqual(P._trapezoidArea([5], [280]), 0, 'one point has no area');
 });
 
-test('every area reader goes through the one definition', () => {
+test('the one grid: the fit\'s own energies while it is current (a restored fit\'s _modelBe first), else the live ROI grid', () => {
+  const run = (fitResult, stats) => {
+    const state = { fitResult, rawBE: [1, 2, 3] };
+    return new Function('state', '_statsLiveState', 'getROIData', extractFn('_areaGrid') + '\nreturn _areaGrid;')(
+      state, () => stats, () => ({ be: ['ROI'] , inten: [] }))();
+  };
+  assert.deepStrictEqual(run({ be: [1, 2, 3] }, 'current'), [1, 2, 3], 'a fresh fit: the energies it was fitted on');
+  assert.deepStrictEqual(run({ be: [1, 2, 3], _modelBe: [1.0001, 2.0001, 3.0001] }, 'current'), [1.0001, 2.0001, 3.0001],
+    'a restored fit: the energies the server evaluated and integrated its components on');
+  for (const st of ['stale', 'unverified']) assert.deepStrictEqual(run({ be: [1, 2, 3], _modelBe: [1, 2] }, st), ['ROI'], st + ': the live grid');
+  assert.deepStrictEqual(run(null, 'none'), ['ROI'], 'no fit: the live grid');
+  assert.deepStrictEqual(run({ be: [1] }, 'current'), ['ROI'], 'a fit grid of one point is no grid');
+});
+
+test('every area reader integrates on the one grid (behaviour: tests/test_browser_one_area.py)', () => {
   assert.match(extractFn('_peakArea'), /return _trapezoidArea\(evalPeakArray\(be, p\), be\);/);
   assert.doesNotMatch(extractFn('_peakArea'), /\* step|reduce\(/, 'no rectangle sum left');
-  // the spectrum save's per-peak areas
-  assert.match(html, /area: _trapezoidArea\(yArr, be\)/);
+  // Results (and Quantify, which takes its areas), the sidebar, its support patching, the 40 % warning, the export
+  for (const fn of ['renderResults', 'renderPeakList', '_patchPeakCardsForSupport', '_autoFitCheckGraphiteFraction', 'exportFitTable'])
+    assert.match(extractFn(fn), /_areaGrid\(\)/, fn);
+  assert.match(extractFn('renderResults'), /renderQuantify\(areas, totalArea\)/, 'Quantify takes Results\' areas');
+  // the spectrum save: what Results shows, or the fit's own components on the energies they were evaluated on
+  assert.match(html, /area: own \? _trapezoidArea\(yArr, own\._modelBe\) : _peakArea\(p, _areaGrid\(\)\)/);
   assert.doesNotMatch(html, /0\.5 \* \(yArr\[i - 1\] \+ y\) \* dx/, 'the save\'s own trapezoid is gone');
-  // the readers that integrate on the page: Results, sidebar, support patching, the 40 % warning, the export
-  for (const fn of ['renderResults', 'renderPeakList', '_autoFitCheckGraphiteFraction', 'exportFitTable'])
-    assert.match(extractFn(fn), /_peakArea\(p, /, fn);
 });

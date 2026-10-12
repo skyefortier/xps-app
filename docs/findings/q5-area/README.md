@@ -1,4 +1,26 @@
-# Q5 — one area definition: what changes (measured 2026-10-12)
+# Q5 — one area definition: what changes (measured 2026-10-12; corrected after Codex round 1)
+
+**Corrected numbers, measured as the page shows them** (`scripts/q5_areas_on_load.py`: every committed
+project loaded into the page in a real browser, each tab activated; the area each reader now shows —
+the server's trapezoid on the one area grid — beside the page's old rectangle sum on the same grid →
+`on_load.json`):
+
+| Quantity (121 tabs, 530 components) | Change |
+|---|---|
+| A component's area | median 0.007 %, 90th percentile 0.024 %, max 0.20 % (6 components > 0.1 %: π→π* satellites near a window edge) |
+| A component's area % | largest per tab: median 0.002 pp, max 0.008 pp |
+| Auto-Fit's 40 % graphite warning | 44 Graphite models: 0 warn before, 0 now; no flip (nearest 45.2 %) |
+| The "centred outside the window" note | **0 components** after loading |
+
+The earlier table below read the RAW records and integrated on the saved fit grid. Older saves hold
+that grid in the UNCORRECTED frame: the `B4C-UCl4` B 1s scans store 175.4–191.3 eV for peaks in the
+charge-corrected 181.3–197.3 eV frame, so "B-O centred at 193.0 eV, outside the window, area −17 to
+−19 %" was an artefact of the measurement — B-O is inside its window, and the page never showed it
+that way. The same artefact gave the old maximum of 0.034 pp. (The pre-decision table is kept below
+as the record of what was shown to the owner.)
+
+## Pre-decision measurement (raw records; superseded above)
+
 
 Sealed-fit v6 Q5 (owner 2026-10-11: measure first, show the numbers before switching). Today the
 page's areas (Results, sidebar, Quantify, CSV/XLSX, Auto-Fit's 40 % graphite warning) are a
