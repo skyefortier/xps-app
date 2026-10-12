@@ -106,7 +106,8 @@ function pageEnv(fns, extraArgs = {}) {
       center: { value: p.center, stderr: 0.01, vary: true, min: null, max: null }, fwhm: { value: p.fwhm, stderr: 0.02, vary: true, min: 0.1, max: 15 },
       amplitude: { value: p.amplitude, stderr: 3, vary: true, min: 0, max: null } } })) } } };
   const names = [...CORE, ...fns];
-  const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...names.map(extractFn)].join('\n');
+  const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), constLine('_OUTSIDE_WINDOW_NOTE'),
+    ...[...names, '_centredOutsideWindow', '_arrMin', '_arrMax'].map(extractFn)].join('\n');
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
     _startsLiveKey: () => 'KEY',
     _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
@@ -151,6 +152,22 @@ test('results table: greyed row, no centre / width / sigma, area kept, percentag
   assert.match(h, /excluded from the percentages and from Quantify/);
   const gRow = h.slice(h.indexOf('Graphite'), h.indexOf('</tr>', h.indexOf('Graphite')));
   assert.match(gRow, new RegExp((86000 * 0.64 / (86000 * 0.64 + 2600 * 3.5) * 100).toFixed(1) + '%'), 'percentages over supported area only');
+});
+
+test('results: a component centred outside the fit window gets a plain note (owner 2026-10-12, Q5)', () => {
+  const fns = ['renderResults', 'fmtVal'].filter(n => lines.some(l => new RegExp('^function ' + n + '\\(').test(l)));
+  const html = env => { env.renderResults(); return env.els['results-area'].innerHTML; };
+  // the fixture's grid is 280-290 eV: "sat" (291.10) is outside, the others inside
+  let h = html(pageEnv(fns));
+  assert.match(h, /<b>sat<\/b> is centred outside the window — its area is poorly determined by the data\./);
+  assert.strictEqual((h.match(/outside-window-note/g) || []).length, 1);
+  // two outside: one note naming both
+  const env2 = pageEnv(fns); env2.state.peaks[0].center = 279.5;
+  h = html(env2);
+  assert.match(h, /<b>Graphite<\/b>, <b>sat<\/b> are centred outside the window — their areas are poorly determined by the data\./);
+  // none outside (a centre ON the window's edge is inside): no note
+  const env3 = pageEnv(fns); env3.state.peaks[2].center = 290;
+  assert.doesNotMatch(html(env3), /outside-window-note/);
 });
 
 test('uncertainty panel: one rule-0 warning for the component, no per-parameter alarms and no "locked" note for it', () => {

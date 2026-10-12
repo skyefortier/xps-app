@@ -9722,13 +9722,34 @@ function _buildStderrMap(fitResult) {
 
 // Rectangular-rule area for one peak over a BE grid
 function _peakArea(p, be) {
-  const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
   // evalPeakArray(), not a per-point evalPeak map: for LACX with caM > 0,
   // only the array evaluator applies the shape's Gaussian convolution —
   // evalPeak silently returns the unconvolved base regardless of caM.
-  // Feeds the Results panel/sidebar Area+% and the CSV/XLSX export.
-  return evalPeakArray(be, p).reduce((s, y) => s + y, 0) * step;
+  // Feeds the Results panel/sidebar Area+%, Quantify, the CSV/XLSX export,
+  // Auto-Fit's 40 % graphite warning and the spectrum save.
+  return _trapezoidArea(evalPeakArray(be, p), be);
 }
+
+// ONE area definition (sealed-fit v6 Q5, owner 2026-10-12): the server's, |trapezoid(y, x)| on the
+// fit grid (fitting.py individual_peaks[].params.area), in numpy's order — d = diff(x), the terms
+// d * (y[1:] + y[:-1]) / 2, their pairwise sum — so every reader shows the area the server reports.
+// Until then the page summed rectangles × the first step (and the spectrum save a sequential
+// trapezoid with |dx|): on the committed fits a median 0.007 % apart, ≤ 0.034 pp in any area %,
+// 17-19 % for a component centred outside the window (docs/findings/q5-area).
+function _trapezoidArea(y, x) {
+  const n = Math.min(y.length, x.length) - 1;
+  if (n < 1) return 0;
+  const t = new Array(n);
+  for (let i = 0; i < n; i++) t[i] = (x[i + 1] - x[i]) * (y[i + 1] + y[i]) / 2;
+  return Math.abs(_npPairwiseSum(t, 0, n));
+}
+
+// A component centred outside the grid the fit was made on: only its tail is in the window, so its
+// area (and its width) rest on the data's edge (owner 2026-10-12: a plain note in Results).
+function _centredOutsideWindow(p, be) {
+  return Array.isArray(be) && be.length > 1 && Number.isFinite(p.center) && (p.center < _arrMin(be) || p.center > _arrMax(be));
+}
+const _OUTSIDE_WINDOW_NOTE = 'centred outside the window — its area is poorly determined by the data';
 
 function renderResults() {
   const el = document.getElementById('results-area');
@@ -9843,6 +9864,11 @@ function renderResults() {
   });
 
   html += '</tbody></table>';
+  const outsidePeaks = state.peaks.filter(p => _centredOutsideWindow(p, be));
+  if (outsidePeaks.length) {
+    html += `<div class="outside-window-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px">
+      ${outsidePeaks.map(q => '<b>' + _escHtml(q.name) + '</b>').join(', ')} ${outsidePeaks.length === 1 ? 'is' : 'are'} ${_OUTSIDE_WINDOW_NOTE.replace('its area is', outsidePeaks.length === 1 ? 'its area is' : 'their areas are')}.</div>`;
+  }
   if (unsupportedPeaks.length) {
     html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px" title="${_escAttr(_UNSUPPORTED_TIP)}">
       ${unsupportedPeaks.length === 1 ? 'One component is' : unsupportedPeaks.length + ' components are'} <b>${_UNSUPPORTED_LABEL}</b> (${unsupportedPeaks.map(q => _escHtml(q.name)).join(', ')}): with the other components held as fitted, removing ${unsupportedPeaks.length === 1 ? 'it' : 'any one of them'} does not make the fit significantly worse, so this fit did not determine ${unsupportedPeaks.length === 1 ? 'its' : 'their'} position or width. ${unsupportedPeaks.length === 1 ? 'Its' : 'Their'} area is excluded from the percentages and from Quantify.</div>`;
@@ -11998,11 +12024,7 @@ function _doSaveSpectrum() {
     return {
       id: p.id, name: p.name,
       y: yArr,
-      area: yArr.reduce((sum, y, i) => {
-        if (i === 0) return 0;
-        const dx = Math.abs(be[i] - be[i - 1]);
-        return sum + 0.5 * (yArr[i - 1] + y) * dx;
-      }, 0)
+      area: _trapezoidArea(yArr, be)   // the one area definition (Q5)
     };
   });
 

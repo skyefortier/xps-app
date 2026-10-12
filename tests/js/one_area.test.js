@@ -1,0 +1,54 @@
+// ONE area definition (sealed-fit v6 Q5, owner 2026-10-12): every page reader of an area — Results,
+// the sidebar and its support patching, Quantify, the CSV/XLSX export, Auto-Fit's 40 % graphite
+// warning, the spectrum save — shows the SERVER's, |trapezoid(y, x)| on the fit grid
+// (fitting.py individual_peaks[].params.area). The page's formula is pinned bit for bit to scipy's
+// here; tests/js/lineshape_roundtrip.test.js pins the page's area to the server's for every lineshape.
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const { runHelper } = require('./_helper_process.js');
+const REPO_ROOT = path.join(__dirname, '../..');
+const html = fs.readFileSync(path.join(REPO_ROOT, 'templates/index.html'), 'utf8');
+const lines = html.split('\n');
+function extractFn(name) {
+  const start = lines.findIndex(l => new RegExp('^(async )?function ' + name + '\\(').test(l));
+  assert.ok(start >= 0, name);
+  let depth = 0, seen = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+    if (seen && depth === 0) return lines.slice(start, i + 1).join('\n');
+  }
+  assert.fail('unbalanced ' + name);
+}
+const P = new Function(['_npPairwiseSum', '_trapezoidArea'].map(extractFn).join('\n') + '\nreturn { _trapezoidArea };')();
+const PY = [path.join(REPO_ROOT, 'venv/bin/python3'), '/Users/skyefortier/xps-app/venv/bin/python3'].find(p => fs.existsSync(p)) || 'python3';
+
+test('the page\'s trapezoid is scipy\'s, bit for bit, on every grid shape', () => {
+  let s = 12345 >>> 0; const rnd = () => { s = (1664525 * s + 1013904223) >>> 0; return s / 4294967296; };
+  const cases = [];
+  for (const n of [2, 3, 7, 8, 9, 100, 128, 129, 241, 1001]) {
+    const asc = Array.from({ length: n }, (_, i) => 280 + 0.05 * i);
+    const irregular = []; let x = 280; for (let i = 0; i < n; i++) { irregular.push(x); x += 0.02 + 0.08 * rnd(); }
+    const y = Array.from({ length: n }, () => 1e4 * rnd());
+    cases.push({ x: asc, y }, { x: asc.slice().reverse(), y }, { x: irregular, y });
+  }
+  cases.push({ x: [0, 2, 1], y: [1, 1, 1] });          // the design memo's example: server 1 (rectangle 6, |dx| trapezoid 3)
+  const script = 'import json, sys; from scipy.integrate import trapezoid; import numpy as np\n' +
+    'print(json.dumps([float(abs(trapezoid(np.array(c["y"], dtype=float), np.array(c["x"], dtype=float)))) for c in json.load(sys.stdin)]))';
+  const want = JSON.parse(runHelper(PY, ['-c', script], { input: JSON.stringify(cases), encoding: 'utf8', maxBuffer: 64 << 20 }));
+  cases.forEach((c, k) => assert.strictEqual(P._trapezoidArea(c.y, c.x), want[k], `case ${k} (n = ${c.x.length})`));
+  assert.strictEqual(P._trapezoidArea([1, 1, 1], [0, 2, 1]), 1);
+  assert.strictEqual(P._trapezoidArea([5], [280]), 0, 'one point has no area');
+});
+
+test('every area reader goes through the one definition', () => {
+  assert.match(extractFn('_peakArea'), /return _trapezoidArea\(evalPeakArray\(be, p\), be\);/);
+  assert.doesNotMatch(extractFn('_peakArea'), /\* step|reduce\(/, 'no rectangle sum left');
+  // the spectrum save's per-peak areas
+  assert.match(html, /area: _trapezoidArea\(yArr, be\)/);
+  assert.doesNotMatch(html, /0\.5 \* \(yArr\[i - 1\] \+ y\) \* dx/, 'the save\'s own trapezoid is gone');
+  // the readers that integrate on the page: Results, sidebar, support patching, the 40 % warning, the export
+  for (const fn of ['renderResults', 'renderPeakList', '_autoFitCheckGraphiteFraction', 'exportFitTable'])
+    assert.match(extractFn(fn), /_peakArea\(p, /, fn);
+});

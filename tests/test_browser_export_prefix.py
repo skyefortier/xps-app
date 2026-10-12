@@ -7,7 +7,10 @@ agree row for row, the record's rows following the Info sheet's. Each record lin
 to Python's csv, pandas and either delimiter, and a reader skipping '#' comments reads exactly
 what it read before. (Excel is not driven here — its automation needs an interactive
 permission; each line holds no comma, double quote, tab or line break, so under RFC 4180 it is
-one cell to any delimiter-based reader.)"""
+one cell to any delimiter-based reader.) Since the one area definition (Q5, owner 2026-10-12) every
+area is the server's trapezoid, not the rectangle sum the earlier page wrote: the earlier page is given
+TODAY's area function (TODAY_AREA) before it exports, so the comparison still proves that every other
+line, row and column is unchanged — the area values themselves are tests/js/one_area.test.js'."""
 import base64
 import csv
 import io
@@ -23,6 +26,10 @@ from test_browser_fit_recording import RECORD, _download, _fit  # noqa: E402
 from test_browser_background_not_converged import PEAK_TAB  # noqa: E402
 
 BEFORE = "52e5b4a"   # main as deployed before the fit record
+# today's _peakArea (tests/js/one_area.test.js pins it to scipy), installed in the earlier page
+TODAY_AREA = """() => { window._peakArea = (p, be) => { const y = evalPeakArray(be, p), n = Math.min(y.length, be.length) - 1;
+    if (n < 1) return 0; const t = new Array(n); for (let i = 0; i < n; i++) t[i] = (be[i + 1] - be[i]) * (y[i + 1] + y[i]) / 2;
+    return Math.abs(_npPairwiseSum(t, 0, n)); }; }"""
 
 XLSX_HOOK = """() => { window.__xlsx = null; XLSX.writeFile = wb => {
     const back = XLSX.read(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), { type: 'array' });
@@ -121,6 +128,7 @@ def test_the_record_follows_every_existing_line_row_and_column(browser, server, 
         pg.route(server + "/", lambda route: route.fulfill(status=200, content_type="text/html; charset=utf-8", body=before_html))
         pg.goto(server + "/", wait_until="load")
         assert pg.evaluate("() => typeof _fitRecordRows") == "undefined", "the page before the record"
+        pg.evaluate(TODAY_AREA)
         then = _exports(pg, project)
     finally:
         pg.close()
@@ -157,6 +165,7 @@ def test_each_record_line_is_one_cell_to_every_reader_and_a_comment_to_a_comment
     try:
         pg.route(server + "/", lambda route: route.fulfill(status=200, content_type="text/html; charset=utf-8", body=before_html))
         pg.goto(server + "/", wait_until="load")
+        pg.evaluate(TODAY_AREA)
         then = _exports(pg, project)
     finally:
         pg.close()

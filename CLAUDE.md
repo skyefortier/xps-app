@@ -1042,7 +1042,15 @@ spectral window is very narrow and featureless.
 
 ## Quantification
 
-Peak areas are integrated numerically (trapezoidal over BE grid). RSF
+Peak areas have ONE definition, the server's: |trapezoid(y, x)| on the fit
+grid (`fitting.py` `individual_peaks[].params.area`). Every page reader —
+Results, sidebar, Quantify, CSV/XLSX, Auto-Fit's 40 % graphite warning, the
+spectrum save — computes it with `_trapezoidArea` in numpy's order, bit for
+bit scipy's (sealed-fit v6 Q5, owner 2026-10-12; until then the page summed
+rectangles × the first step: a median 0.007 % apart on the committed fits,
+≤ 0.034 pp in any area %, `docs/findings/q5-area`). A component centred
+outside the fit window gets a note in Results ("centred outside the window —
+its area is poorly determined by the data"; 8 of 530 committed components). RSF
 (relative sensitivity factor) corrections are applied in the Quantify
 tab. Atomic percent = (area/RSF) / Σ(area/RSF) × 100.
 
