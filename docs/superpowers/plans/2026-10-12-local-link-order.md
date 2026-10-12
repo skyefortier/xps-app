@@ -20,9 +20,10 @@ own values are set before the link pass.
   graph, peak order kept among peers); `applyParams` walks it, so one application resolves a chain
   in any order and applying the same parameters twice gives the same model. A peak whose parent is
   missing is skipped as before; a cycle keeps its peak order (graph validation is Q10 0c′).
-- Finalisation on one frozen model: χ² is taken once more at the final point, from the model
-  committed. Given the dependency order this equals the kept χ² (a guarantee, not separately
-  testable: no mutation of it alone can fail).
+- For a valid (acyclic) link graph one application is idempotent, so the χ² the engine keeps is
+  the committed model's. A cycle or a self-link keeps its peak order and its old, non-idempotent
+  behaviour unchanged (Codex round 1: an extra final χ² evaluation, tried first, changed what such
+  an invalid graph committed — removed); those graphs are refused by Q10 0c′.
 
 ## Measured
 
@@ -38,3 +39,13 @@ own values are set before the link pass.
 amplitude free) and a four-level reversed chain with nothing free — every linked peak follows its
 parent exactly, and the χ² kept equals the committed model's in the engine's own arithmetic. The
 four-level case fails with the peak-order pass restored.
+
+## Codex round 1 (NO-GO ×2, the same finding) — fixed
+
+The final χ² evaluation added one more link pass, which changed what an INVALID graph (a
+self-link, a cycle — finite numbers, an inconsistent graph) committed: centre 287 → 288. For
+valid graphs it was redundant. Removed; the guarantee is stated for acyclic graphs; the identity
+script compares numbers with `Object.is` (JSON equality would miss −0 / 0). Both runs otherwise
+confirmed the dependency order (28 803 graph / order / idempotence checks incl. 1 000-peak
+reversed chains, mixed id types), the other consumers, the 121 / 121 identity and the four-level
+test.

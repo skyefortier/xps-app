@@ -72,11 +72,19 @@ function fit(make, t) {
   const fr = env.state.fitResult;
   return { out, peaks: env.state.peaks, chi: fr && fr.chi, chiReduced: fr && fr.chiReduced, rmse: fr && fr.rmse };
 }
+// exact equality: every number by Object.is (−0 ≠ 0, NaN = NaN), every key and array element
+function deepSame(a, b) {
+  if (typeof a === 'number' || typeof b === 'number') return Object.is(a, b);
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return a === b;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a), kb = Object.keys(b);
+  return ka.length === kb.length && ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && deepSame(a[k], b[k]));
+}
 const rows = [];
 let identical = 0, differ = 0, skipped = 0;
 for (const t of tabs) {
   const a = fit(MAIN, t), b = fit(HERE, t);
-  const same = JSON.stringify(a) === JSON.stringify(b);
+  const same = deepSame(a, b);
   if (a.skipped) skipped++; else if (same) identical++; else differ++;
   rows.push({ file: t.file, tab: t.name, skipped: a.skipped || null, identical: same, success: a.out && a.out.success });
 }

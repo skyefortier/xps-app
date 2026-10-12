@@ -708,9 +708,9 @@ for (const free of [false, true]) {
 }
 
 test('links: a four-level reversed chain with nothing free — one pass resolves it, and the χ² kept is the committed model\'s', () => {
-  // with nothing free the engine applies the links only a few times (start, the final χ², the
-  // commit): in peak order each application resolves ONE more level, so a deep reversed chain is
-  // committed half-resolved or with a χ² of another state; in dependency order one pass suffices
+  // with nothing free the engine applies the links only a few times (the start and the commit): in
+  // peak order each application resolves ONE more level, so a deep reversed chain is committed
+  // half-resolved or with a χ² of another state; in dependency order one pass suffices
   const env = makeEnv();
   const be = grid(280, 300, 0.05);
   const data = be.map(x => [285, 287, 289, 291, 293].reduce((s, c, k) => s + 100 * 0.5 ** k * env.gaussian(x, c, 1.0), 0) + 5);
@@ -726,4 +726,19 @@ test('links: a four-level reversed chain with nothing free — one pass resolves
     assert.strictEqual(by[c].amplitude, by[p].amplitude * 0.5);
   }
   assert.strictEqual(env.state.fitResult.chi, engineChi(env, be, data, bg), 'the χ² kept is the committed model\'s');
+});
+
+test('links: an invalid graph (a self-link) commits exactly what it did before (Codex 0b round 1)', () => {
+  // a self-link or a cycle is not a valid chain and keeps its old, non-idempotent behaviour —
+  // refused outright by Q10 0c′; this unit must not change what it commits (main: 287 / 25)
+  const env = makeEnv();
+  const be = grid(280, 300, 0.05);
+  const data = be.map(() => 10);
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  env.state.peaks = [{ id: 1, shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, center: 285, amplitude: 100,
+                       linked: 1, linkOffset: 1, linkRatio: 0.5, fixCenter: true, fixFwhm: true, fixAmplitude: true }];
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.strictEqual(env.state.peaks[0].center, 287);
+  assert.strictEqual(env.state.peaks[0].amplitude, 25);
 });

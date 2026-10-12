@@ -9321,8 +9321,10 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // resolves a chain whatever the peak order and applying the same parameters twice gives the
   // same model (Q10 0b, owner 2026-10-11). In peak order a chain whose middle peak is listed
   // after its own child left that child on the middle peak's previous values, and the χ² kept
-  // could describe another model than the peaks committed. A peak whose parent is missing is
-  // left as before (skipped below); a cycle keeps the peak order it had.
+  // could describe another model than the peaks committed. For a valid (acyclic) link graph one
+  // application is therefore idempotent and the χ² kept describes the committed peaks. A peak
+  // whose parent is missing is skipped as before; a cycle or a self-link keeps its peak order and
+  // is NOT idempotent — such graphs are refused by Q10 0c′.
   const linkOrder = (() => {
     const byId = new Map(work.map(p => [p.id, p])), linkedPeaks = work.filter(q => q.linked);
     const done = new Set(), out = [];
@@ -9562,9 +9564,6 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   if (!converged) return fail('iteration limit (' + maxIter + ') reached.', iterations);
 
   // ── Converged: commit the working copy to the live peaks ──────────────────
-  // FINALISE on one frozen model (Q10 0b): χ² is taken once more at the final point, from the
-  // very model committed below, so every statistic describes the peaks the student is shown
-  chi = chiSq(params);
   applyParams(params);
   for (const p of work) {
     const live = getPeak(p.id);
