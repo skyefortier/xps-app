@@ -1316,3 +1316,31 @@ non-minimum certified; the page would say the acceptance is the file's). Options
 proposed `state_id` fix and run the gate again; (b) narrow Q9 and remove the keyring; (c) keep
 authentication but move the key protocol into 1a′'s implementation review, where it can be
 tested against a real filesystem rather than argued.
+
+## V6.22 Owner decisions (2026-10-11) — the design as approved for building
+
+- **The key: option (b).** No server key, no keyring, no attestation, no trust-generation
+  protocol: V6.5 step 3's HMAC, its keyring, `attest_epoch` / `trustView` and every rule built on
+  them are WITHDRAWN. Acceptance (`success`, `certificate.certified`, a global method's `success`,
+  `required`) is shown AS RECORDED BY THE FILE, labelled "as recorded — not proven"; a fit is
+  DISPLAY-CURRENT on the page's bindings (V6.3, V6.4) and the server's exact re-verification of
+  its numbers (V6.5 step 2), with acceptance read from O and so labelled. The re-run check
+  (REPLAY-CHECKED, Q2) is the real proof of acceptance and is EASY TO FIND: a visible "Re-run this
+  fit" control beside every restored result, not a menu item. Q9 is moot (no trust domains).
+- **Q1-Q8: the recommendations accepted.** Q5 (one area definition) and Q8 (Auto-Fit refits
+  after its charge shift) are MEASURED FIRST and the numbers shown to the owner before anything
+  switches.
+- **Q10: yes to all three**, each its own small unit, measured, Codex ×2, BEFORE any seal build:
+  0b the local engine's link propagation and frozen finalisation; 0c a linked child's fields take
+  the server's expression values; 0c′ a link across lineshapes refused on page and server.
+- **Order:** (1) the averaging refusal, re-checked and deployed; (2) the three Q10 units, one at a
+  time; (3) the Q5 and Q8 measurements, shown to the owner; (4) the seal build with option (b),
+  stopped at the owner's review before deploy.
+
+What option (b) removes from the design: V6.5 step 3's attestation paragraph and its keyring
+bullets, the trust-generation paragraph, V6.10 Q9, V6.11 1a′'s keyring and attestation items, and
+the gate history V6.16-V6.21 as far as it concerns the key (kept as the record of why). What it
+keeps unchanged: R / O / D, the projection and its step 0, every page binding, the server's exact
+verification (now without an attestation to check), PENDING / UNCONFIRMED, the local O,
+provenance as an attestation of identity only, legacy, migration, the area and Auto-Fit
+measurements, and prerequisites 0 (averaging), 0b, 0c, 0c′, 0d.
