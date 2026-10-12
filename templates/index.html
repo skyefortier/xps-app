@@ -9317,6 +9317,33 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   const LINK_SYNC_KEYS = ['glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
     'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM'];
 
+  // Linked peaks are resolved in DEPENDENCY order — each after its parent — so one pass
+  // resolves a chain whatever the peak order and applying the same parameters twice gives the
+  // same model (Q10 0b, owner 2026-10-11). In peak order a chain whose middle peak is listed
+  // after its own child left that child on the middle peak's previous values, and the χ² kept
+  // could describe another model than the peaks committed. A link is a truthy `linked`, as every
+  // reader of the field reads it (the request builder, the peak controls, this pass): null, false,
+  // 0 are no link. Only a WELL-FORMED graph is reordered — every peak found by its own id (no shared
+  // id, no id the lookup cannot match, such as NaN), every link naming a peak that is there, no
+  // cycle — and then one application is idempotent and the χ² kept describes the committed peaks.
+  // Any other graph (a shared or unmatchable id, a link to a missing peak, a self-link, a cycle)
+  // keeps main's peak-order pass exactly (Codex 0b rounds 1-4): such graphs are refused by Q10 0c′,
+  // not reinterpreted here.
+  const linkOrder = (() => {
+    const linkedPeaks = work.filter(q => q.linked);
+    if (!work.every(q => workPeak(q.id) === q && (!q.linked || workPeak(q.linked)))) return linkedPeaks;
+    const done = new Set(), out = [];
+    for (let progressed = true; progressed;) {
+      progressed = false;
+      for (const q of linkedPeaks) {
+        if (done.has(q)) continue;
+        const parent = workPeak(q.linked);
+        if (!parent.linked || done.has(parent)) { out.push(q); done.add(q); progressed = true; }
+      }
+    }
+    return out.length === linkedPeaks.length ? out : linkedPeaks;   // a cycle: peak order
+  })();
+
   function applyParams(params) {
     for (let i = 0; i < params.length; i++) {
       const { id, param } = paramMap[i];
@@ -9326,7 +9353,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     // Linked peaks follow their parent: centre + offset, amplitude x ratio,
     // and every lineshape parameter (the same constraint set the backend
     // enforces through lmfit expressions).
-    for (const q of work) {
+    for (const q of linkOrder) {
       if (!q.linked) continue;
       const parent = workPeak(q.linked);
       if (!parent) continue;

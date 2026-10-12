@@ -675,3 +675,160 @@ test('recording: the averaging recorded is the averaging the curve used, even fo
     assert.ok(Math.abs(bg[0] - mean(y.slice(0, k))) <= 1e-9 * 10100 && Math.abs(bg[100] - mean(y.slice(101 - k))) <= 1e-9 * 10100, field);
   }
 });
+
+// ── Q10 0b (owner 2026-10-11): links in dependency order; one frozen model at the end ──────────
+// A chain grandchild → child → root listed in that order: in peak order the grandchild read the
+// child's PREVIOUS values, so the χ² kept described another model than the peaks committed
+// (Codex sealed-fit gate round 2: 2237.98 reported against 2620.21 for the committed peaks).
+function engineChi(env, be, bgSub, bg) {      // the engine's own arithmetic: Σ (r·w)², sequential
+  const m = env.evalAllPeaks(be, env.state.peaks);
+  return be.reduce((s, _, i) => { const w = 1 / Math.sqrt(Math.max(bgSub[i] + bg[i], 1)); const r = (bgSub[i] - m[i]) * w; return s + r * r; }, 0);
+}
+for (const free of [false, true]) {
+  test(`links: a reversed chain is resolved whatever the peak order (${free ? 'root amplitude free' : 'all held'})`, () => {
+    const env = makeEnv();
+    const be = grid(280, 295, 0.05);
+    const truth = [[285, 100], [287, 50], [289, 25]];
+    const data = be.map(x => truth.reduce((s, [c, a]) => s + a * env.gaussian(x, c, 1.0), 0) + 5);
+    const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+    const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1.0 };
+    env.state.peaks = [
+      { id: 3, name: 'grandchild', ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 },   // stale values
+      { id: 2, name: 'child', ...G, center: 281, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+      { id: 1, name: 'root', ...G, center: 285, amplitude: free ? 80 : 100, fixCenter: true, fixFwhm: true, fixAmplitude: !free }];
+    const out = env.runFitLocal(be, data, bg);
+    assert.equal(out.success, true, JSON.stringify(out));
+    const by = Object.fromEntries(env.state.peaks.map(p => [p.id, p]));
+    assert.strictEqual(by[2].center, by[1].center + 2, 'the child follows the root');
+    assert.strictEqual(by[3].center, by[2].center + 2, 'the grandchild follows the child — not its previous values');
+    assert.strictEqual(by[3].amplitude, by[2].amplitude * 0.5);
+    // every statistic describes the committed model
+    assert.strictEqual(env.state.fitResult.chi, engineChi(env, be, data, bg), 'the χ² kept is the committed model\'s');
+  });
+}
+
+test('links: a four-level reversed chain with nothing free — one pass resolves it, and the χ² kept is the committed model\'s', () => {
+  // with nothing free the engine applies the links only a few times (the start and the commit): in
+  // peak order each application resolves ONE more level, so a deep reversed chain is committed
+  // half-resolved or with a χ² of another state; in dependency order one pass suffices
+  const env = makeEnv();
+  const be = grid(280, 300, 0.05);
+  const data = be.map(x => [285, 287, 289, 291, 293].reduce((s, c, k) => s + 100 * 0.5 ** k * env.gaussian(x, c, 1.0), 0) + 5);
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1.0, center: 270, amplitude: 1, linkOffset: 2, linkRatio: 0.5 };
+  env.state.peaks = [{ id: 5, ...G, linked: 4 }, { id: 4, ...G, linked: 3 }, { id: 3, ...G, linked: 2 }, { id: 2, ...G, linked: 1 },
+    { id: 1, shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1.0, center: 285, amplitude: 100, fixCenter: true, fixFwhm: true, fixAmplitude: true }];
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  const by = Object.fromEntries(env.state.peaks.map(p => [p.id, p]));
+  for (const [c, p] of [[2, 1], [3, 2], [4, 3], [5, 4]]) {
+    assert.strictEqual(by[c].center, by[p].center + 2, `peak ${c} follows peak ${p}`);
+    assert.strictEqual(by[c].amplitude, by[p].amplitude * 0.5);
+  }
+  assert.strictEqual(env.state.fitResult.chi, engineChi(env, be, data, bg), 'the χ² kept is the committed model\'s');
+});
+
+test('links: an invalid graph (a self-link) commits exactly what it did before (Codex 0b round 1)', () => {
+  // a self-link or a cycle is not a valid chain and keeps its old, non-idempotent behaviour —
+  // refused outright by Q10 0c′; this unit must not change what it commits (main: 287 / 25)
+  const env = makeEnv();
+  const be = grid(280, 300, 0.05);
+  const data = be.map(() => 10);
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  env.state.peaks = [{ id: 1, shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, center: 285, amplitude: 100,
+                       linked: 1, linkOffset: 1, linkRatio: 0.5, fixCenter: true, fixFwhm: true, fixAmplitude: true }];
+  const out = env.runFitLocal(be, data, bg);
+  assert.equal(out.success, true, JSON.stringify(out));
+  assert.strictEqual(env.state.peaks[0].center, 287);
+  assert.strictEqual(env.state.peaks[0].amplitude, 25);
+});
+
+test('links: malformed graphs (shared or unmatchable ids, a missing parent, a self-link, a cycle — with or without a reversed chain) commit exactly what main committed (Codex 0b rounds 1-4)', () => {
+  // this unit changes valid chains only; invalid graphs are refused by Q10 0c′, never altered here.
+  // main's engine (8cc3750, read from git) runs beside this one on each and must agree exactly.
+  let mainHtml;
+  try { mainHtml = runHelper('git', ['-C', REPO_ROOT, 'show', '8cc3750:templates/index.html'], { encoding: 'utf8', maxBuffer: 64 << 20 }); }
+  catch (e) { assert.fail('commit 8cc3750 is not in this checkout (CI checks out full history)'); }
+  const mainLines = mainHtml.split('\n');
+  const extractFrom = (ls, name) => {
+    const re = new RegExp('^(async )?function ' + name.replace(/\$/g, '\\$') + '\\(');
+    const start = ls.findIndex(l => re.test(l)); assert.ok(start >= 0, name);
+    let depth = 0, seen = false;
+    for (let i = start; i < ls.length; i++) {
+      for (const ch of ls[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+      if (seen && depth === 0) return ls.slice(start, i + 1).join('\n');
+    }
+  };
+  // main's runFitLocal in the same environment as makeEnv's
+  const src = CAVEAT_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' +
+    NAMES.map(n => (n === 'runFitLocal' ? extractFrom(mainLines, n) : extractFn(n))).join('\n\n') +
+    '\n' + require('./_page_background_source.js')({ manual: 'none' });
+  const makeMain = () => {
+    const dom = {};
+    const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, setAttribute() {}, removeAttribute() {}, classList: { add() {}, remove() {}, contains: () => false } });
+    const state = { peaks: [], fitResult: null, rawBE: [], rawIntensity: [], ccShift: 0 };
+    const noop = () => {};
+    const f = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
+      'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
+      src + '\nreturn { runFitLocal, computeBackgroundCore };')({ getElementById: el, querySelectorAll: () => [] }, state, noop, '', '', () => null,
+      x => String(x), null, null, noop, noop, noop, noop, noop, noop, noop, be => new Array(be.length).fill(0));
+    return { ...f, state };
+  };
+  const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, fixCenter: true, fixFwhm: true, fixAmplitude: true };
+  const cases = {
+    'duplicate ids': [{ id: 1, ...G, center: 285, amplitude: 100 }, { id: 2, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 3, linkRatio: 0.25 }],
+    'self-link': [{ id: 1, ...G, center: 285, amplitude: 100, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
+    'two-peak cycle': [{ id: 1, ...G, center: 285, amplitude: 100, linked: 2, linkOffset: 1, linkRatio: 0.5 }, { id: 2, ...G, center: 287, amplitude: 50, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
+    // Codex 0b round 3: malformed graphs that ALSO hold a reversed chain keep main's pass
+    'reversed chain under a missing root': [{ id: 4, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100, linked: 99, linkOffset: 2, linkRatio: 0.5 }],
+    'reversed chain under a duplicated root': [{ id: 4, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100 }, { id: 1, ...G, center: 286, amplitude: 60 }],
+    'reversed chain hanging off a cycle': [{ id: 5, ...G, center: 279, amplitude: 1, linked: 4, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 4, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100, linked: 2, linkOffset: 1, linkRatio: 0.5 }, { id: 2, ...G, center: 287, amplitude: 50, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
+    // Codex 0b round 4: an id the lookup cannot match, and ids 0 / -0 (one id to the lookup)
+    'reversed chain with a NaN-id leaf': [{ id: NaN, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100 }],
+    'reversed chain through ids 0 and -0': [{ id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100 }, { id: 0, ...G, center: 290, amplitude: 5 }, { id: -0, ...G, center: 291, amplitude: 5 }],
+    'free root, duplicate children': [{ id: 1, ...G, fixAmplitude: false, center: 285, amplitude: 80 }, { id: 2, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 3, linkRatio: 0.25 }],
+  };
+  const be = grid(280, 300, 0.05), data = be.map(x => 10 + 100 * Math.exp(-((x - 285) ** 2)));
+  for (const [label, peaks] of Object.entries(cases)) {
+    const run = make => { const env = make(); const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+      env.state.peaks = structuredClone(peaks); const out = env.runFitLocal(be, data, bg);
+      return { out, peaks: env.state.peaks, chi: env.state.fitResult && env.state.fitResult.chi }; };
+    const here = run(makeEnv), there = run(makeMain);
+    assert.deepStrictEqual(here.peaks, there.peaks, label + ': committed peaks');
+    assert.ok(Object.is(here.chi, there.chi), `${label}: χ² ${here.chi} vs main ${there.chi}`);
+  }
+});
+
+test('links: a falsy link value (null, false, 0, -0) is no link, as every reader of the field reads it (Codex 0b round 4)', () => {
+  // the request builder sends no constraint for it and the peak controls show the peak as independent;
+  // the engine agrees, so a reversed chain under such a root is resolved exactly as under linked: null
+  const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, fixCenter: true, fixFwhm: true, fixAmplitude: true };
+  const chain = rootLink => [{ id: 4, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+    { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+    { id: 1, ...G, center: 285, amplitude: 100, linked: rootLink, linkOffset: 2, linkRatio: 0.5 }];
+  const be = grid(280, 300, 0.05), data = be.map(() => 10);
+  const run = rootLink => { const env = makeEnv(); const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+    env.state.peaks = structuredClone(chain(rootLink)); const out = env.runFitLocal(be, data, bg);
+    return { out, peaks: env.state.peaks.map(({ linked, ...rest }) => rest), chi: env.state.fitResult && env.state.fitResult.chi }; };
+  const ref = run(null);
+  assert.strictEqual(ref.out.success, true);
+  const leaf = ref.peaks.find(p => p.id === 4);
+  assert.strictEqual(leaf.center, 291, 'the leaf follows the whole chain: 285 + 2 + 2 + 2');
+  assert.strictEqual(leaf.amplitude, 12.5);
+  for (const v of [undefined, false, 0, -0]) {
+    const got = run(v);
+    assert.deepStrictEqual(got.peaks, ref.peaks, `linked: ${Object.is(v, -0) ? '-0' : String(v)}`);
+    assert.ok(Object.is(got.chi, ref.chi));
+  }
+});

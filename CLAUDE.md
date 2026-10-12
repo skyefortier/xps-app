@@ -681,7 +681,11 @@ student is told the fit is not unique either way.
 
 `runFitLocal` in `templates/index.html` is a JS Levenberg-Marquardt
 implementation used as a fallback when the backend is unreachable, and
-the ONLY engine Batch Fit uses. Central-difference Jacobian (centre
+the ONLY engine Batch Fit uses. Linked peaks of a well-formed link graph
+are resolved in dependency order (each after its parent), so its χ²
+describes the peaks it commits (Q10 0b, 2026-10-12; in peak order a
+reversed chain two levels deep did not; a malformed graph keeps the old
+peak-order pass and is refused by 0c′). Central-difference Jacobian (centre
 step scaled by the peak width), active-set step (parameters pushed into a
 box wall are held fixed), max 3000 iterations. Terminates on a gradient
 cosine < 1e-6, on actual and predicted relative χ² reductions both < 1e-6
