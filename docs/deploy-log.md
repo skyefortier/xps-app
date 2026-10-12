@@ -6,6 +6,33 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-10-12 — Endpoint averaging outside 1–50 is refused (`feat-endpoint-avg-refusal`, bfe0069)
+
+- **Release note:** the endpoint-averaging box takes a whole number from 1 to 50
+  (its own range). Anything else — 0, 51, a blank box, or a spelling the browser and
+  the server would read differently, such as `1e1` — is now refused in plain words
+  ("endpoint averaging must be a whole number from 1 to 50 (it is "51")"), never
+  silently changed: Run Fit, Auto-Fit and Batch Fit do not run, the preview shows
+  the reason, and a saved fit carrying such a value reopens as not current. Before,
+  the server read 0 as 1 and 51 as the window's quarter, and the page read 1e21 as 1.
+  Every value from 1 to 50 computes exactly as before (≈470 backgrounds checked
+  bit-for-bit against the previous version), and every committed project's saved
+  averaging is in range, so no saved fit changes.
+- Codex: 5 rounds (rounds 1–3 found other readers of the field that bypassed the
+  refusal — the fit-change check, the saved-settings reader, Batch Fit's order, the
+  browser's number box blanking "+3"; round 4 GO ×2; the owner closed the last logged
+  gap, round 5 GO ×2). Plan: `docs/superpowers/plans/2026-10-11-endpoint-avg-refusal.md`.
+- Test change: `test_browser_envelope_identity`'s LACX β = 0.1 lock failed 2 of 12 on
+  main too; replaced by α = 5, α = 0.1 and β = 5 alone (12 of 12 each); β's lower bound
+  alone is no longer covered.
+- Suites at 1c5b49c (later commit docs only): pytest 1393 passed / 7 skipped; JS 610
+  pass / 2 todo (CI floor 610). Production check through xps.fortierlab.org: `/api/fit`
+  refuses averaging 51, 0 and 1e21 with HTTP 400 and the plain message; averaging 3
+  fits (success, k = 3, record commit bfe0069, clean); on the page a typed 51 is
+  refused before any request ("Fit not run: …") and 3 fits, no page errors.
+  LaunchAgent running, last exit 0; `/api/health` ok on :5050 and publicly. xps2
+  droplet: the owner's.
+
 ## 2026-10-11 — Every fit records what computed it (`feat-fit-recording`, 3ced8d6)
 
 - **Release note (exports — every user sees this):** every existing column and
