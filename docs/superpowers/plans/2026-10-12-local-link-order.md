@@ -97,3 +97,12 @@ legacy pass; a 1 000-peak reversed chain), the consumers and the identity.
 - Identity re-run: 121 / 121. Both runs otherwise confirmed the valid-graph order (2 000 shuffled
   forests), the 12 000 malformed variants that kept the legacy pass, the consumers and the
   identity.
+
+## Codex round 5 (GO ×2) — no findings
+
+Both runs: no BLOCKER, MAJOR or MINOR. The guard matches the engine's strict-equality lookup;
+shared ids (incl. 0 / −0), an unmatchable NaN id, missing parents, self-links and cycles keep
+main's pass; the falsy-link reading is supported (builder, controls and pass all read
+truthiness). Adversarial checks: 18 001 and 126 417 graph cases (valid graphs against a recursive
+oracle and idempotent; malformed graphs keeping the legacy order). Identity 121 / 121 reproduced.
+The main-vs-branch comparison catches each earlier round's defect (39d04d6, b6d0f2c, d37cdd9).
