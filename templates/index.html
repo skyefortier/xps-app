@@ -3890,7 +3890,7 @@ class TabManager {
     // a valid saved spelling as its plain decimal: the number input blanks "+3", " 7 ", "0x10",
     // "1." (outside its grammar), which would then be refused (Codex averaging round 3)
     { const ep = ui.endpointAvg ?? LEGACY_ENDPOINT_AVG;
-      set('bg-endpoint-avg', _endpointAvgFailure(ep) ? ep : String(Number(String(ep).trim()))); }
+      set('bg-endpoint-avg', _endpointAvgFailure(ep) ? (typeof ep === 'object' && ep !== null ? '' : ep) : String(Number(String(ep).trim()))); }
     set('roi-min', ui.roiMin);
     set('roi-max', ui.roiMax);
     set('cc-method', ui.ccMethod);

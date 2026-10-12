@@ -167,9 +167,12 @@ LOCKS = [
     # α and β at their bounds ONE AT A TIME (2026-10-11): together (α 5 with β 0.1) the identical
     # request needed 1-23 certificate restarts in fresh processes on main itself — the arithmetic
     # jitter of LA's convolution (CLAUDE.md, unit A2) — and now and then more than the 50 allowed,
-    # failing the fit; alone, each certified in 1-3 restarts in every one of 24 fresh processes.
-    # (α 0.1 with β 5 together does not certify at all.)
-    ("LACX", {"caAlpha": 5, "fixCaAlpha": True}), ("LACX", {"caBeta": 0.1, "fixCaBeta": True}),
+    # failing the fit. β 0.1 ALONE then failed 2 of 12 through this browser path on main too, though
+    # it certified in all 24 fresh-process probes; α 5, α 0.1 and β 5 alone each passed 12 of 12
+    # through the browser path. So β's lower bound alone is not covered here. (α 0.1 with β 5
+    # together does not certify at all.)
+    ("LACX", {"caAlpha": 5, "fixCaAlpha": True}), ("LACX", {"caAlpha": 0.1, "fixCaAlpha": True}),
+    ("LACX", {"caBeta": 5, "fixCaBeta": True}),
 ]
 # the page field a lock flag holds -> the server's parameter
 BACKEND_NAME = {"glMix": "gl_ratio", "asymmetry": "asymmetry", "dsAlpha": "alpha", "dsGamma": "gamma_asym",

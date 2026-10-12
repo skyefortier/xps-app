@@ -100,3 +100,16 @@ No BLOCKER or MAJOR in either run. Two MINOR, both logged in PROGRESS.md, not ch
 stays as reviewed): a malformed saved ARRAY can still be restored into the field as its string
 form (non-physical; a one-line "restore an object as blank" would close it); the measurement
 tooling's own readers (logged in round 3). Ready to merge WITH THE NEXT DEPLOY (owner).
+
+## After round 4 (owner, 2026-10-11): the logged array gap closed
+
+The owner closed the round-4 MINOR by the one-line-refusal rule: `_restoreUI` restores a
+non-scalar saved averaging (`[3]`, `["3"]`, an object) as a blank field, which is then refused
+("Fit not run: endpoint averaging …"). Real-browser test for each; the array cases fail without
+the line.
+
+Test-only, same commit: `test_browser_envelope_identity`'s LACX β = 0.1 lock (split out of the
+α + β case on 2026-10-11) failed 2 of 12 through the browser path on main as on this branch —
+its certificate ran past 50 restarts — although it certified in all 24 fresh-process probes. The
+LACX cases are now α = 5, α = 0.1 and β = 5 alone, each 12 of 12 through the browser path; β's
+lower bound alone is not covered.

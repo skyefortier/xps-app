@@ -183,3 +183,36 @@ def test_a_valid_saved_spelling_survives_restoration_into_the_number_field(brows
         pg.close()
     assert field == shown and refused is None, (field, refused)
     assert fit and not any("endpoint averaging" in m for _, m in notes), notes
+
+
+
+@pytest.mark.parametrize("saved", [[3], ["3"], {"v": 3}], ids=["array", "string-array", "object"])
+def test_a_malformed_saved_value_is_restored_as_blank_and_refused(browser, server, saved):
+    # Codex averaging round 4 (MINOR, closed by the owner's one-line-refusal rule): a saved array
+    # was written into the number field as its text ("3") although both readers refuse it
+    import json
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        proj = json.loads(pg.evaluate("""async () => { let out = null; const o = window._downloadBlob;
+            window._downloadBlob = async (b) => { out = await b.text(); }; _doSaveProject();
+            for (let i = 0; i < 100 && out === null; i++) await new Promise(r => setTimeout(r, 50));
+            window._downloadBlob = o; return out; }"""))
+    finally:
+        pg.close()
+    for t in proj["tabs"]:
+        if t.get("ui"):
+            t["ui"]["endpointAvg"] = saved
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", proj)
+        pg.wait_for_timeout(500)
+        field = pg.evaluate("() => document.getElementById('bg-endpoint-avg').value")
+        pg.evaluate(SPY)
+        pg.evaluate(RUN)
+        notes = pg.evaluate("() => window.__notes")
+        api = pg.evaluate("() => window.__api")
+    finally:
+        pg.close()
+    assert field == "", field
+    assert api == [] and ["red", 'Fit not run: endpoint averaging must be a whole number from 1 to 50 (it is "").'] in notes, notes

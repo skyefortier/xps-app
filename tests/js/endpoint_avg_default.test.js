@@ -37,7 +37,7 @@ test('new tabs default to endpoint averaging 3, via one constant', () => {
 test('legacy fallbacks resolve a saved ui without endpointAvg to 1', () => {
   assert.strictEqual(constant('LEGACY_ENDPOINT_AVG'), '1');
   // ABSENT only (`??`, owner 2026-10-11): a saved 0 or blank is kept and refused, not read as 1
-  assert.match(html, /const ep = ui\.endpointAvg \?\? LEGACY_ENDPOINT_AVG;\n\s+set\('bg-endpoint-avg', _endpointAvgFailure\(ep\) \? ep : String\(Number\(String\(ep\)\.trim\(\)\)\)\);/, '_restoreUI (a valid spelling as its plain decimal)');
+  assert.match(html, /const ep = ui\.endpointAvg \?\? LEGACY_ENDPOINT_AVG;\n\s+set\('bg-endpoint-avg', _endpointAvgFailure\(ep\) \? \(typeof ep === 'object' && ep !== null \? '' : ep\) : String\(Number\(String\(ep\)\.trim\(\)\)\)\);/, '_restoreUI (a valid spelling as its plain decimal)');
   assert.match(html, /endpointAvg: \(srcUi && srcUi\.endpointAvg\) \?\? LEGACY_ENDPOINT_AVG,/, 'stack Path B');
   assert.ok(!/endpointAvg[^\n]*\|\| *LEGACY_ENDPOINT_AVG/.test(html), 'no `|| LEGACY` turns a 0 or blank into 1');
   const uses = (html.match(/LEGACY_ENDPOINT_AVG/g) || []).length;
