@@ -361,7 +361,10 @@ lineshapes — Voigt or GL. Do not apply DS or LA lineshapes to satellites.
 ### Linked (Multiplet) Peaks
 
 A linked peak derives its center, amplitude, and **all lineshape
-parameters** from its parent. The sync block must cover every shape
+parameters** from its parent — on the page too, whatever the child's lock
+flags: a field the server reports with an expression takes the server's
+value (`_applyBackendParams`, Q10 0c, 2026-10-12; a locked child used to
+keep its own value while the server fitted the parent's). The sync block must cover every shape
 parameter — failing to add a new param breaks spin-orbit constraints
 during fitting. Search for the `syncKeys` array and the `applyParams`
 closure in `runFit` when adding parameters; both need the new key.
