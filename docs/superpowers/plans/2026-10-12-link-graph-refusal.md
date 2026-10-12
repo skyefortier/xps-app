@@ -116,3 +116,12 @@ labelling a gaussian parent and a pseudo_voigt_gl child both "GL" — which the 
 (it derives the backend shape from its own) — was admitted by the start routes and failed inside
 the fit (`p1_gl_ratio is not defined`). The check now compares the backend shapes always and the
 page's shapes too when both are named. Added to the shared-check and every-route tests.
+
+## Codex round 4 (GO ×2)
+
+Both runs: no BLOCKER or MAJOR; 28 HTTP probes (seven invalid-graph cases × four routes) all an
+immediate 400; Run Fit, "Use this solution" and Batch Fit refuse before any change; the complete
+fit result unchanged by `frontend_shape`; census reproduced. LOGGED, not fixed (run B, MINOR,
+wording only, inputs the page cannot build): when two DIFFERENT backend shapes carry the same
+`frontend_shape`, the refusal reads "different lineshape (GL, GL)" — it should name the backend
+shapes. The refusal itself is correct.
