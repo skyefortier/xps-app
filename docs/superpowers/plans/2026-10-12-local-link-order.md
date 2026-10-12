@@ -16,12 +16,15 @@ own values are set before the link pass.
 
 ## The fix
 
-- `linkOrder`: for a WELL-FORMED link graph (unique ids, every parent present, no cycle) the
+- A link is a truthy `linked`, as every reader of the field reads it (the request builder, the
+  peak controls, the engine's pass): null, false and 0 are no link.
+- `linkOrder`: for a WELL-FORMED link graph (every peak found by its own id, every link naming a
+  peak that is there, no cycle) the
   linked peaks sorted so each follows its parent (a fixed point over the link graph, peak order
   kept among peers); `applyParams` walks it, so one application resolves a chain in any order and
   applying the same parameters twice gives the same model, and the χ² the engine keeps is the
   committed model's.
-- Any other graph — two peaks sharing an id, a link to a missing peak, a self-link, a cycle —
+- Any other graph — a shared or unmatchable id, a link to a missing peak, a self-link, a cycle —
   keeps main's peak-order pass EXACTLY, its old behaviour included (Codex rounds 1-3); those
   graphs are refused by Q10 0c′, not reinterpreted here.
 
@@ -74,3 +77,23 @@ reproducers and a reversed chain hanging off a cycle are added to the main-vs-br
 which fails on b6d0f2c. Identity re-run: 121 / 121. Both runs otherwise confirmed the valid-graph
 order (2 000 shuffled forests against a recursive oracle; already-ordered forests match the
 legacy pass; a 1 000-peak reversed chain), the consumers and the identity.
+
+## Codex round 4 (NO-GO ×2) — one fixed, one answered by the field's reading
+
+- **An id the lookup cannot match** (a lone peak with id NaN; strict equality never finds it)
+  passed the uniqueness test, so its chain was reordered, its committed values never written and
+  the χ² kept described other peaks. The test is now "every peak is found by its own id"
+  (`workPeak(q.id) === q`), which also covers shared ids and 0 / −0. Added to the main-vs-branch
+  comparison (fails on d37cdd9).
+- **A link value of 0, −0 or NaN** above a reversed chain: both runs counted it a link to a
+  missing peak, so the chain below should keep main's order. It is NOT a link to any reader of the
+  field — the request builder sends no constraint for it (`if (p.linked)`), the peak controls show
+  the peak as independent, main's own pass skips it (`if (!q.linked) continue`) — so the graph is
+  a valid reversed chain, and main's result for it (the leaf at 285 / 0.5 instead of
+  285 + 2 + 2 + 2 = 291 / 12.5) is the defect this unit fixes. One reading of the field
+  (CLAUDE.md "Two readings of one field"); 0c′'s check reads it the same way. A new test pins it:
+  the chain under a root linked to undefined / false / 0 / −0 commits exactly what it commits under
+  null. (A saved file cannot carry NaN or "" — the loader refuses them.)
+- Identity re-run: 121 / 121. Both runs otherwise confirmed the valid-graph order (2 000 shuffled
+  forests), the 12 000 malformed variants that kept the legacy pass, the consumers and the
+  identity.

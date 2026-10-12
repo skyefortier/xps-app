@@ -743,7 +743,7 @@ test('links: an invalid graph (a self-link) commits exactly what it did before (
   assert.strictEqual(env.state.peaks[0].amplitude, 25);
 });
 
-test('links: malformed graphs (duplicate ids, a missing parent, a self-link, a cycle — with or without a reversed chain) commit exactly what main committed (Codex 0b rounds 1-3)', () => {
+test('links: malformed graphs (shared or unmatchable ids, a missing parent, a self-link, a cycle — with or without a reversed chain) commit exactly what main committed (Codex 0b rounds 1-4)', () => {
   // this unit changes valid chains only; invalid graphs are refused by Q10 0c′, never altered here.
   // main's engine (8cc3750, read from git) runs beside this one on each and must agree exactly.
   let mainHtml;
@@ -790,16 +790,45 @@ test('links: malformed graphs (duplicate ids, a missing parent, a self-link, a c
     'reversed chain hanging off a cycle': [{ id: 5, ...G, center: 279, amplitude: 1, linked: 4, linkOffset: 2, linkRatio: 0.5 },
                       { id: 4, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
                       { id: 1, ...G, center: 285, amplitude: 100, linked: 2, linkOffset: 1, linkRatio: 0.5 }, { id: 2, ...G, center: 287, amplitude: 50, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
+    // Codex 0b round 4: an id the lookup cannot match, and ids 0 / -0 (one id to the lookup)
+    'reversed chain with a NaN-id leaf': [{ id: NaN, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100 }],
+    'reversed chain through ids 0 and -0': [{ id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 1, ...G, center: 285, amplitude: 100 }, { id: 0, ...G, center: 290, amplitude: 5 }, { id: -0, ...G, center: 291, amplitude: 5 }],
     'free root, duplicate children': [{ id: 1, ...G, fixAmplitude: false, center: 285, amplitude: 80 }, { id: 2, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
                       { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 3, linkRatio: 0.25 }],
   };
   const be = grid(280, 300, 0.05), data = be.map(x => 10 + 100 * Math.exp(-((x - 285) ** 2)));
   for (const [label, peaks] of Object.entries(cases)) {
     const run = make => { const env = make(); const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
-      env.state.peaks = JSON.parse(JSON.stringify(peaks)); const out = env.runFitLocal(be, data, bg);
+      env.state.peaks = structuredClone(peaks); const out = env.runFitLocal(be, data, bg);
       return { out, peaks: env.state.peaks, chi: env.state.fitResult && env.state.fitResult.chi }; };
     const here = run(makeEnv), there = run(makeMain);
     assert.deepStrictEqual(here.peaks, there.peaks, label + ': committed peaks');
     assert.ok(Object.is(here.chi, there.chi), `${label}: χ² ${here.chi} vs main ${there.chi}`);
+  }
+});
+
+test('links: a falsy link value (null, false, 0, -0) is no link, as every reader of the field reads it (Codex 0b round 4)', () => {
+  // the request builder sends no constraint for it and the peak controls show the peak as independent;
+  // the engine agrees, so a reversed chain under such a root is resolved exactly as under linked: null
+  const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, fixCenter: true, fixFwhm: true, fixAmplitude: true };
+  const chain = rootLink => [{ id: 4, ...G, center: 279, amplitude: 1, linked: 3, linkOffset: 2, linkRatio: 0.5 },
+    { id: 3, ...G, center: 280, amplitude: 1, linked: 2, linkOffset: 2, linkRatio: 0.5 }, { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+    { id: 1, ...G, center: 285, amplitude: 100, linked: rootLink, linkOffset: 2, linkRatio: 0.5 }];
+  const be = grid(280, 300, 0.05), data = be.map(() => 10);
+  const run = rootLink => { const env = makeEnv(); const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+    env.state.peaks = structuredClone(chain(rootLink)); const out = env.runFitLocal(be, data, bg);
+    return { out, peaks: env.state.peaks.map(({ linked, ...rest }) => rest), chi: env.state.fitResult && env.state.fitResult.chi }; };
+  const ref = run(null);
+  assert.strictEqual(ref.out.success, true);
+  const leaf = ref.peaks.find(p => p.id === 4);
+  assert.strictEqual(leaf.center, 291, 'the leaf follows the whole chain: 285 + 2 + 2 + 2');
+  assert.strictEqual(leaf.amplitude, 12.5);
+  for (const v of [undefined, false, 0, -0]) {
+    const got = run(v);
+    assert.deepStrictEqual(got.peaks, ref.peaks, `linked: ${Object.is(v, -0) ? '-0' : String(v)}`);
+    assert.ok(Object.is(got.chi, ref.chi));
   }
 });
