@@ -17,7 +17,8 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
   'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_pageSoftware', '_localFitRecord', 'solveLinear',
   '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
-  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState'];
+  '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState',
+  '_linkGraphFailure'];   // Q10 0c′; absent from pages before it (taken only where the page has it)
 
 function engine(html) {
   const lines = html.split('\n');
@@ -33,7 +34,7 @@ function engine(html) {
     throw new Error('unbalanced ' + name);
   };
   const consts = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
-  const src = consts + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extract).join('\n\n') +
+  const src = consts + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.filter(n => n !== '_linkGraphFailure' || html.includes('\nfunction _linkGraphFailure(')).map(extract).join('\n\n') +
     '\n' + require(path.join(REPO, 'tests/js/_page_background_source.js'))({ manual: 'none' });
   return () => {
     const dom = {};

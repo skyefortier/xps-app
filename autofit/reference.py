@@ -77,6 +77,18 @@ def _finite(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and np.isfinite(v)
 
 
+def _page_same_id(a, b) -> bool:
+    """The page's ``a === b`` on values read from JSON: two numbers of equal value (1 and 1.0 are one
+    JS number; NaN equals nothing), or two equal strings; a boolean or anything else is never a match."""
+    def kind(v):
+        if isinstance(v, bool):
+            return "bool"
+        if isinstance(v, (int, float)):
+            return "num"
+        return "str" if isinstance(v, str) else "other"
+    return kind(a) == kind(b) and kind(a) in ("num", "str") and a == b
+
+
 def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
     """
     Python mirror of the frontend's ``peakToBackendSpec``.
@@ -88,6 +100,7 @@ def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
     spec: dict[str, Any] = {
         "id": str(p["id"]),
         "name": p.get("name"),
+        "frontend_shape": p.get("shape"),     # the page's lineshape (Q10 0c'): Voigt and GL share a backend shape
         "center": p["center"],
         "amplitude": p["amplitude"],
         "fwhm": p["fwhm"],
@@ -145,13 +158,16 @@ def peak_to_backend_spec(p: dict, all_peaks: list[dict]) -> dict:
     else:
         spec["shape"] = "gaussian"
 
+    # a link whose parent the PAGE cannot find is refused here, before the ids become text: the page
+    # matches ids exactly (1 is not "1"), and str() would join a child linked to "1" to peak 1 (Q10 0c'
+    # Codex rounds 1-2: the twin dropped such a link, then joined it — a fit of another model)
     if p.get("linked"):
-        parent = next((q for q in all_peaks if q.get("id") == p["linked"]), None)
-        if parent is not None:
-            spec["constrain_to"] = str(p["linked"])
-            spec["splitting"] = p.get("linkOffset")
-            spec["area_ratio"] = p.get("linkRatio")
-            spec["fix_fwhm"] = True
+        if not any(_page_same_id(q.get("id"), p["linked"]) for q in all_peaks):
+            raise ValueError(f"peak {p.get('name') or p.get('id')!r} is linked to a peak that is no longer in the model")
+        spec["constrain_to"] = str(p["linked"])
+        spec["splitting"] = p.get("linkOffset")
+        spec["area_ratio"] = p.get("linkRatio")
+        spec["fix_fwhm"] = True
     return spec
 
 

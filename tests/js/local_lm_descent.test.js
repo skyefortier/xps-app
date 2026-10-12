@@ -36,7 +36,7 @@ function extractFn(name) {
 
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
   'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
-  'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_pageSoftware', '_localFitRecord', 'solveLinear',
+  'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_linkGraphFailure', '_pageSoftware', '_localFitRecord', 'solveLinear',
   '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
   '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState'];
 const CAVEAT_CONST = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
@@ -728,52 +728,10 @@ test('links: a four-level reversed chain with nothing free — one pass resolves
   assert.strictEqual(env.state.fitResult.chi, engineChi(env, be, data, bg), 'the χ² kept is the committed model\'s');
 });
 
-test('links: an invalid graph (a self-link) commits exactly what it did before (Codex 0b round 1)', () => {
-  // a self-link or a cycle is not a valid chain and keeps its old, non-idempotent behaviour —
-  // refused outright by Q10 0c′; this unit must not change what it commits (main: 287 / 25)
-  const env = makeEnv();
-  const be = grid(280, 300, 0.05);
-  const data = be.map(() => 10);
-  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
-  env.state.peaks = [{ id: 1, shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, center: 285, amplitude: 100,
-                       linked: 1, linkOffset: 1, linkRatio: 0.5, fixCenter: true, fixFwhm: true, fixAmplitude: true }];
-  const out = env.runFitLocal(be, data, bg);
-  assert.equal(out.success, true, JSON.stringify(out));
-  assert.strictEqual(env.state.peaks[0].center, 287);
-  assert.strictEqual(env.state.peaks[0].amplitude, 25);
-});
-
-test('links: malformed graphs (shared or unmatchable ids, a missing parent, a self-link, a cycle — with or without a reversed chain) commit exactly what main committed (Codex 0b rounds 1-4)', () => {
-  // this unit changes valid chains only; invalid graphs are refused by Q10 0c′, never altered here.
-  // main's engine (8cc3750, read from git) runs beside this one on each and must agree exactly.
-  let mainHtml;
-  try { mainHtml = runHelper('git', ['-C', REPO_ROOT, 'show', '8cc3750:templates/index.html'], { encoding: 'utf8', maxBuffer: 64 << 20 }); }
-  catch (e) { assert.fail('commit 8cc3750 is not in this checkout (CI checks out full history)'); }
-  const mainLines = mainHtml.split('\n');
-  const extractFrom = (ls, name) => {
-    const re = new RegExp('^(async )?function ' + name.replace(/\$/g, '\\$') + '\\(');
-    const start = ls.findIndex(l => re.test(l)); assert.ok(start >= 0, name);
-    let depth = 0, seen = false;
-    for (let i = start; i < ls.length; i++) {
-      for (const ch of ls[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
-      if (seen && depth === 0) return ls.slice(start, i + 1).join('\n');
-    }
-  };
-  // main's runFitLocal in the same environment as makeEnv's
-  const src = CAVEAT_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' +
-    NAMES.map(n => (n === 'runFitLocal' ? extractFrom(mainLines, n) : extractFn(n))).join('\n\n') +
-    '\n' + require('./_page_background_source.js')({ manual: 'none' });
-  const makeMain = () => {
-    const dom = {};
-    const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, setAttribute() {}, removeAttribute() {}, classList: { add() {}, remove() {}, contains: () => false } });
-    const state = { peaks: [], fitResult: null, rawBE: [], rawIntensity: [], ccShift: 0 };
-    const noop = () => {};
-    const f = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
-      'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
-      src + '\nreturn { runFitLocal, computeBackgroundCore };')({ getElementById: el, querySelectorAll: () => [] }, state, noop, '', '', () => null,
-      x => String(x), null, null, noop, noop, noop, noop, noop, noop, noop, be => new Array(be.length).fill(0));
-    return { ...f, state };
-  };
+test('links: every malformed graph is refused before the engine changes anything (Q10 0b + 0c′)', () => {
+  // 0b reorders only a well-formed graph and leaves any other on main's peak-order pass; 0c′ refuses
+  // every such graph at the engine's start, so none is fitted at all. The cases are 0b's Codex
+  // rounds 1-4 malformed graphs (on its own branch they committed exactly what main committed).
   const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, fixCenter: true, fixFwhm: true, fixAmplitude: true };
   const cases = {
     'duplicate ids': [{ id: 1, ...G, center: 285, amplitude: 100 }, { id: 2, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
@@ -801,12 +759,13 @@ test('links: malformed graphs (shared or unmatchable ids, a missing parent, a se
   };
   const be = grid(280, 300, 0.05), data = be.map(x => 10 + 100 * Math.exp(-((x - 285) ** 2)));
   for (const [label, peaks] of Object.entries(cases)) {
-    const run = make => { const env = make(); const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
-      env.state.peaks = structuredClone(peaks); const out = env.runFitLocal(be, data, bg);
-      return { out, peaks: env.state.peaks, chi: env.state.fitResult && env.state.fitResult.chi }; };
-    const here = run(makeEnv), there = run(makeMain);
-    assert.deepStrictEqual(here.peaks, there.peaks, label + ': committed peaks');
-    assert.ok(Object.is(here.chi, there.chi), `${label}: χ² ${here.chi} vs main ${there.chi}`);
+    const env = makeEnv(); const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+    env.state.peaks = structuredClone(peaks);
+    const out = env.runFitLocal(be, data, bg);
+    assert.strictEqual(out.success, false, label);
+    assert.match(out.message, /share one internal id|cannot look up|linked to itself|no longer in the model|circle of links/, label);
+    assert.deepStrictEqual(env.state.peaks, peaks, label + ': nothing changed');
+    assert.strictEqual(env.state.fitResult, null, label);
   }
 });
 
@@ -831,4 +790,17 @@ test('links: a falsy link value (null, false, 0, -0) is no link, as every reader
     assert.deepStrictEqual(got.peaks, ref.peaks, `linked: ${Object.is(v, -0) ? '-0' : String(v)}`);
     assert.ok(Object.is(got.chi, ref.chi));
   }
+});
+
+test('links: the local engine refuses a graph the server would refuse (Q10 0c′)', () => {
+  const env = makeEnv();
+  const be = grid(280, 290, 0.05), data = be.map(x => 100 * env.gaussian(x, 285, 1));
+  const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+  env.state.peaks = [{ id: 1, name: 'parent', shape: 'GL', glMix: 30, asymmetry: 0, fwhm: 1, center: 285, amplitude: 90 },
+                     { id: 2, name: 'child', shape: 'Voigt', glMix: 50, asymmetry: 0, fwhm: 1, center: 287, amplitude: 9, linked: 1, linkOffset: 2, linkRatio: 0.1 }];
+  const before = JSON.stringify(env.state.peaks);
+  const out = env.runFitLocal(be, data, bg);
+  assert.strictEqual(out.success, false);
+  assert.match(out.message, /^"child" is linked to "parent" but has a different lineshape/);
+  assert.strictEqual(JSON.stringify(env.state.peaks), before, 'nothing changed');
 });

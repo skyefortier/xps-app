@@ -120,7 +120,9 @@ def test_everything_linked_to_the_removed_component_goes_with_it_transitively():
     # child ordered BEFORE its parent broke expression construction.
     y = np.round(1000 + _gl(X, 10000, 284.8, 1.4) + _gl(X, 15000, 283.3, 1.8), 2)
     specs = _autofit_model(1000, [(10000, 284.8, 1.4), (15000, 283.3, 1.8)])
-    specs += [_linked("9", "1", 1.0), _linked("10", "9", 1.0)]
+    # a linked peak takes its parent's lineshape (Q10 0c': a link across lineshapes is refused)
+    asym = {"shape": "asymmetric_gl", "asymmetry": 0.25}
+    specs += [{**_linked("9", "1", 1.0), **asym}, {**_linked("10", "9", 1.0), **asym}]
     res = fitting.run_fit(X, y, specs, require_component="1", **KW)
     assert res["required"]["ran"] is True, res["required"]
     assert res["required"]["required"] is False

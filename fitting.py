@@ -1465,10 +1465,22 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
     A peak whose ``constrain_to`` names its own id — or a cycle such as
     A→B→A — produces a self-referencing lmfit expression that recurses to
     "maximum recursion depth exceeded". Catch it here with a clean ValueError
-    (→ 400) before any lmfit parameter/expression is built. A ``constrain_to``
-    that names a non-existent peak is left for ``_make_peak_params`` to report.
+    (→ 400) before any lmfit parameter/expression is built. Two peaks sharing an
+    id, a ``constrain_to`` that names no peak in the request (matched as
+    ``_make_peak_params`` matches it) and a link across lineshapes are refused
+    here too (Q10 0c').
     """
+    # every id once, as the parameter prefix spells it (f"p{id}_": 1 and "1" collide), and every
+    # constraint naming a peak that is there — refused HERE, before a job starts and on every route
+    # (Q10 0c' Codex round 1: /api/fit/start admitted a missing master, /api/analyze answered 500
+    # for a shared id)
+    seen_ids: set = set()
+    for s in peak_specs:
+        if str(s.get("id")) in seen_ids:
+            raise ValueError(f"Two peaks share the id '{s.get('id')}'; each peak must have its own id")
+        seen_ids.add(str(s.get("id")))
     parent: dict = {}
+    by_id = {s.get("id"): s for s in peak_specs}
     for s in peak_specs:
         sid = s.get("id")
         master = s.get("constrain_to")
@@ -1476,7 +1488,23 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
             continue
         if master == sid:
             raise ValueError(f"Peak '{sid}' cannot constrain to itself")
+        if master not in by_id:
+            raise ValueError(f"Peak '{s.get('name') or sid}' is linked to a peak that is not in the model ('{master}')")
         parent[sid] = master
+        # a linked peak has its parent's lineshape (Q10 0c', owner 2026-10-11): an expression on a
+        # parameter the child's shape does not read was fitted but never drawn (a Voigt child of a
+        # GL parent: fitted at the parent's mix, drawn at 0.5). Voigt and GL are one backend shape,
+        # so the page sends each peak's `frontend_shape` too.
+        m = by_id.get(master)
+        if m is not None:
+            fs, fm = s.get("frontend_shape"), m.get("frontend_shape")
+            # the backend shapes always, and the page's shapes too when both are named (Codex round 3:
+            # two peaks of different backend shapes both labelled "GL" passed)
+            differ = s.get("shape") != m.get("shape") or (fs is not None and fm is not None and fs != fm)
+            if differ:
+                raise ValueError(
+                    f"Peak '{s.get('name') or sid}' is linked to '{m.get('name') or master}' but has a different "
+                    f"lineshape ({fs or s.get('shape')}, {fm or m.get('shape')}); a linked peak takes its parent's lineshape")
 
     # Walk each constrained peak's master chain; a repeat is a cycle.
     for start in parent:
