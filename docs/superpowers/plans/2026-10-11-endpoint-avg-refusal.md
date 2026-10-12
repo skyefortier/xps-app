@@ -113,3 +113,8 @@ Test-only, same commit: `test_browser_envelope_identity`'s LACX β = 0.1 lock (s
 its certificate ran past 50 restarts — although it certified in all 24 fresh-process probes. The
 LACX cases are now α = 5, α = 0.1 and β = 5 alone, each 12 of 12 through the browser path; β's
 lower bound alone is not covered.
+
+## Codex round 5 — GO ×2
+
+The closing line and the LACX test change reviewed: no BLOCKER or MAJOR; the logged tooling
+MINOR only. Deploy approved by the owner (2026-10-11).
