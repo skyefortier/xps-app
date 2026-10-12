@@ -91,3 +91,19 @@ check fails the browser tests.
   cross-shape links (a GL child of a Voigt parent) fit and draw identically. The rule is the
   owner's (a linked peak takes its parent's lineshape, CLAUDE.md), stated as such.
 - Census re-run: 121 tabs, 67 links, none refused. Tests: each new case fails on 1dc2c87.
+
+## Codex round 2 (NO-GO ×2, the same MAJOR) — fixed
+
+- **The Python twin joined a link the page cannot resolve.** A root with id 1 and a child linked
+  to "1": the page's exact lookup finds no parent and refuses; the twin turned both ids into text
+  and sent a valid constraint, and `autofit.parity.refit_record` reported a successful fit of
+  another model. The twin's builder now looks the parent up as the page does (`_page_same_id`:
+  two numbers of equal value or two equal strings; a boolean never matches) BEFORE the ids become
+  text, and refuses a link it cannot resolve. Tested both mixed-type directions and the boolean
+  ones; all-number and all-string graphs still link. (A float id such as 1.0 is written "1.0" by
+  the twin and "1" by the page — an old twin difference no saved file reaches, page ids being
+  whole numbers; its only effect is that the twin refuses such a model, the safe side.)
+- **MINOR (run A): `/api/analyze/start` admitted an invalid graph** and refused it inside the job.
+  The analyze request preparation now runs the shared check, so the start route answers 400 at
+  once like `/api/analyze`; a malformed `peak_specs` list is still left to the method's own
+  validation. Added to the every-route test.

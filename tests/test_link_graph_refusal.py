@@ -70,15 +70,19 @@ def test_a_missing_parent_and_a_shared_id_are_refused_by_the_shared_check():
         fitting.run_fit(x, y, shared, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
 
 
-def test_the_python_twin_keeps_a_link_to_a_missing_peak_so_the_server_refuses_it():
+def test_the_python_twin_refuses_a_link_the_page_cannot_resolve():
+    # round 1: the twin dropped an orphan's link (fitted free); round 2: str() joined a child linked
+    # to "1" to peak 1, which the page's exact lookup does not find. The twin refuses both.
     from autofit.reference import peak_to_backend_spec
-    peaks = [{"id": 3, "shape": "GL", "center": 286.0, "fwhm": 1.0, "amplitude": 100.0, "glMix": 30, "linked": 2,
-              "linkOffset": 1.0, "linkRatio": 0.5}]
-    spec = peak_to_backend_spec(peaks[0], peaks)
-    assert spec["constrain_to"] == "2", "the twin used to drop it: the orphan was fitted free"
-    x, y, _ = _pair()
-    with pytest.raises(ValueError, match="not in the model"):
-        fitting.run_fit(x, y, [spec], background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
+    pk = lambda pid, linked=None: {"id": pid, "shape": "GL", "center": 286.0, "fwhm": 1.0, "amplitude": 100.0, "glMix": 30,
+                                   "linked": linked, "linkOffset": 1.0, "linkRatio": 0.5}
+    for peaks in ([pk(3, 2)], [pk(1), pk(2, "1")], [pk("1"), pk(2, 1)], [pk(1), pk(2, True)], [pk(True), pk(2, 1)]):
+        with pytest.raises(ValueError, match="linked to a peak that is no longer in the model"):
+            peak_to_backend_spec(peaks[-1], peaks)
+    # all numbers and all strings still link
+    for peaks in ([pk(1), pk(2, 1)], [pk("1"), pk("2", "1")]):
+        assert peak_to_backend_spec(peaks[-1], peaks)["constrain_to"] == "1"
+    assert "constrain_to" not in peak_to_backend_spec(pk(2, 0), [pk(2, 0)]), "a falsy link is no link"
 
 
 def test_every_route_refuses_at_once(tmp_path):
@@ -93,9 +97,12 @@ def test_every_route_refuses_at_once(tmp_path):
             r = c.post(route, json={"session_id": sid, "background": {"method": "linear"}, "peaks": orphan,
                                     "fit_method": "leastsq", "n_perturb": 0})
             assert r.status_code == 400 and "not in the model" in r.get_json()["error"], (route, r.get_json())
-        # Find Peaks' "Refit my current peaks": a 400 in plain words, not "Internal analyze error" (500)
-        for bad, words in ((shared, "share the id"), (orphan, "not in the model")):
-            r = c.post("/api/analyze", json={"session_id": sid, "material_class": "insulator", "regions": ["C 1s"],
+        # Find Peaks' "Refit my current peaks": a 400 in plain words, not "Internal analyze error" (500),
+        # and /api/analyze/start before any job exists (Codex round 2)
+        cross = _pair(child_shape="Voigt", parent_shape="GL")[2]
+        for (bad, words), route in [(c_, r_) for c_ in ((shared, "share the id"), (orphan, "not in the model"), (cross, "different lineshape"))
+                                    for r_ in ("/api/analyze", "/api/analyze/start")]:
+            r = c.post(route, json={"session_id": sid, "material_class": "insulator", "regions": ["C 1s"],
                                              "method": "least_squares", "peak_specs": bad,
                                              "options": {"background_method": "linear"}})
-            assert r.status_code == 400 and words in r.get_json()["error"], r.get_json()
+            assert r.status_code == 400 and words in r.get_json()["error"], (route, r.get_json())

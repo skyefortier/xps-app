@@ -413,6 +413,13 @@ def _validate_analyze_request(body: dict, upload_folder: str) -> _AnalyzeContext
     if method_id == "least_squares" and not peak_specs:
         raise _AnalyzeError("least_squares is the manual-model baseline — "
                             "provide 'peak_specs'")
+    # the link graph refused HERE, so /api/analyze/start answers at once like /api/analyze (Q10 0c'
+    # Codex round 2); a malformed list is left to the method's own validation, as before
+    if isinstance(peak_specs, list) and all(isinstance(s, dict) for s in peak_specs):
+        try:
+            fitting._validate_constraint_graph(peak_specs)
+        except ValueError as exc:
+            raise _AnalyzeError(str(exc))
 
     phase_kwargs = body.get("phase")
     phase_kwargs = {} if phase_kwargs is None else phase_kwargs
