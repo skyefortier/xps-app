@@ -7020,22 +7020,27 @@ function peakToBackendSpec(p) {
 // Shared by a fit result and by an alternative solution (previewed on a COPY
 // of the peaks, or adopted as the start of a new fit).
 function _applyBackendParams(p, par) {
-  if (par.center    && !p.fixCenter)    p.center    = par.center.value;
-  if (par.amplitude && !p.fixAmplitude) p.amplitude = par.amplitude.value;
-  if (par.fwhm      && !p.fixFwhm)     p.fwhm      = par.fwhm.value;
+  // A locked field keeps its value — EXCEPT one the server reports with an EXPRESSION: a linked
+  // component's centre, amplitude, width and shape parameters come from its parent whatever the
+  // child's lock (fitting._make_peak_params sets the expression before any held value), so keeping
+  // the locked value showed numbers the server did not fit (Q10 0c, owner 2026-10-11)
+  const take = (key, locked) => !!par[key] && (!locked || !!par[key].expr);
+  if (take('center', p.fixCenter))       p.center    = par.center.value;
+  if (take('amplitude', p.fixAmplitude)) p.amplitude = par.amplitude.value;
+  if (take('fwhm', p.fixFwhm))           p.fwhm      = par.fwhm.value;
   // glMix is read only by GL / asym-GL; a Voigt's fixed 0.5 (A03) is not a
   // fitted value and must not overwrite the mix the peak carries for a later
   // switch to GL.
-  if (par.gl_ratio  && (p.shape === 'GL' || p.shape === 'asym-GL') && !p.fixGlMix) p.glMix = par.gl_ratio.value * 100;
-  if (par.asymmetry && p.shape === 'asym-GL' && !p.fixAsymmetry) p.asymmetry = par.asymmetry.value;
-  if (par.alpha && p.shape === 'DS' && !p.fixDsAlpha) p.dsAlpha = par.alpha.value;
-  if (par.gamma_asym && p.shape === 'DS' && !p.fixDsGamma) p.dsGamma = par.gamma_asym.value;
-  if (par.alpha   && p.shape === 'DSG_LA' && !p.fixLaAlpha) p.laAlpha = par.alpha.value;
-  if (par.beta    && p.shape === 'DSG_LA' && !p.fixLaBeta)  p.laBeta  = par.beta.value;
-  if (par.m_gauss && p.shape === 'DSG_LA' && !p.fixLaM)     p.laM     = par.m_gauss.value;
-  if (par.alpha   && p.shape === 'LACX' && !p.fixCaAlpha) p.caAlpha = par.alpha.value;
-  if (par.beta    && p.shape === 'LACX' && !p.fixCaBeta)  p.caBeta  = par.beta.value;
-  if (par.m       && p.shape === 'LACX' && !p.fixCaM)     p.caM     = par.m.value;
+  if (take('gl_ratio', p.fixGlMix) && (p.shape === 'GL' || p.shape === 'asym-GL')) p.glMix = par.gl_ratio.value * 100;
+  if (take('asymmetry', p.fixAsymmetry) && p.shape === 'asym-GL') p.asymmetry = par.asymmetry.value;
+  if (take('alpha', p.fixDsAlpha) && p.shape === 'DS') p.dsAlpha = par.alpha.value;
+  if (take('gamma_asym', p.fixDsGamma) && p.shape === 'DS') p.dsGamma = par.gamma_asym.value;
+  if (take('alpha', p.fixLaAlpha) && p.shape === 'DSG_LA') p.laAlpha = par.alpha.value;
+  if (take('beta', p.fixLaBeta) && p.shape === 'DSG_LA')   p.laBeta  = par.beta.value;
+  if (take('m_gauss', p.fixLaM) && p.shape === 'DSG_LA')   p.laM     = par.m_gauss.value;
+  if (take('alpha', p.fixCaAlpha) && p.shape === 'LACX') p.caAlpha = par.alpha.value;
+  if (take('beta', p.fixCaBeta) && p.shape === 'LACX')   p.caBeta  = par.beta.value;
+  if (take('m', p.fixCaM) && p.shape === 'LACX')         p.caM     = par.m.value;
 }
 
 function applyBackendResult(result) {
@@ -8810,8 +8815,10 @@ function _altPeaks(alt) {
   for (const c of alt.components) {
     const p = peaks.find(q => String(q.id) === String(c.id));
     if (!p) return null;
+    // a linked component's values are its parent's expressions on the server (the request
+    // links every field it syncs), so they apply whatever the child's locks (Q10 0c)
     const par = {};
-    for (const k in c.params) par[k] = { value: c.params[k] };
+    for (const k in c.params) par[k] = { value: c.params[k], expr: p.linked ? 'linked' : null };
     _applyBackendParams(p, par);
   }
   return peaks;

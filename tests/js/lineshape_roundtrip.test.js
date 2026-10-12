@@ -155,6 +155,33 @@ test('a linked Voigt follows its parent and both are drawn as fitted (η follows
   assert.ok(ipChild.params.gl_ratio.expr, 'the child’s η is an expression on the parent');
 });
 
+// Q10 0c (owner 2026-10-11): a linked child's LOCKED fields used to keep the page's values while
+// the server fitted them from the parent's expressions — the child was drawn as a model the server
+// did not fit. Each family: the child's linked fields locked at stale values; it must be drawn
+// exactly as fitted, and every expression-valued field must carry the server's value.
+const LINKED_LOCKED = {
+  GL: { glMix: 10 }, 'asym-GL': { glMix: 10, asymmetry: 0.9 }, DS: { dsAlpha: 0.45, dsGamma: 2 },
+  DSG_LA: { laAlpha: 0.4, laBeta: 1.5, laM: 0.1 }, LACX: { caAlpha: 3, caBeta: 3 },
+};
+const LOCK_FLAG = { glMix: 'fixGlMix', asymmetry: 'fixAsymmetry', dsAlpha: 'fixDsAlpha', dsGamma: 'fixDsGamma',
+  laAlpha: 'fixLaAlpha', laBeta: 'fixLaBeta', laM: 'fixLaM', caAlpha: 'fixCaAlpha', caBeta: 'fixCaBeta' };
+for (const [shape, stale] of Object.entries(LINKED_LOCKED)) {
+  test(`a linked ${shape} child with its linked fields LOCKED at stale values is drawn as the server fitted it (Q10 0c)`, () => {
+    const flags = Object.fromEntries(Object.keys(stale).map(k => [LOCK_FLAG[k], true]));
+    const child = { truth: { id: 2, shape, linked: 1, linkOffset: -10.9, linkRatio: 0.75, center: CENTER - 10.9, amplitude: 9000 },
+                    start: { center: CENTER - 8, amplitude: 300, fwhm: 3.1, ...stale, fixCenter: true, fixAmplitude: true, fixFwhm: true, ...flags } };
+    const { res, peaks } = roundTrip(shape, { ...CASES[shape], extraPeaks: [child] });
+    const ipChild = res.individual_peaks.find(ip => String(ip.id) === '2');
+    const p = peaks.find(q => String(q.id) === '2');
+    assert.ok(ipChild.params.center.expr && ipChild.params.amplitude.expr, 'the server derives them from the parent');
+    assert.strictEqual(p.center, ipChild.params.center.value, 'the locked centre carries the server\'s value');
+    assert.strictEqual(p.amplitude, ipChild.params.amplitude.value);
+    if (ipChild.params.fwhm) assert.strictEqual(p.fwhm, ipChild.params.fwhm.value);   // DS+G has no fwhm (β, m)
+    const rel = maxRelDiff(env.evalPeakArray(res.energy, p), ipChild.y, p.amplitude);
+    assert.ok(rel < TIGHT_TOL, `${shape} child: drawn vs fitted ${(rel * 100).toExponential(3)} % of amplitude`);
+  });
+}
+
 // Codex round 1 reproduced two builder defects at ZERO endpoints: `p.glMix || 50`
 // sent an asym-GL mix of 0 as 50 and `p.dsAlpha || 0.1` a DS alpha of 0 as
 // 0.1 — values the page never drew; locked, the server held the substitute
