@@ -35,6 +35,13 @@ def test_different_backend_shapes_are_refused_without_frontend_shapes():
         fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
 
 
+def test_different_backend_shapes_are_refused_whatever_the_page_shapes_say():
+    # Codex round 3: a gaussian parent and a pseudo_voigt_gl child, both labelled "GL"
+    x, y, specs = _pair(child_shape="GL", parent_shape="GL", backend_parent="gaussian")
+    with pytest.raises(ValueError, match="different lineshape"):
+        fitting._validate_constraint_graph(specs)
+
+
 def test_one_lineshape_fits_as_before_and_the_new_field_changes_nothing():
     x, y, specs = _pair(child_shape="GL", parent_shape="GL")
     a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
@@ -100,7 +107,9 @@ def test_every_route_refuses_at_once(tmp_path):
         # Find Peaks' "Refit my current peaks": a 400 in plain words, not "Internal analyze error" (500),
         # and /api/analyze/start before any job exists (Codex round 2)
         cross = _pair(child_shape="Voigt", parent_shape="GL")[2]
-        for (bad, words), route in [(c_, r_) for c_ in ((shared, "share the id"), (orphan, "not in the model"), (cross, "different lineshape"))
+        mislabelled = _pair(child_shape="GL", parent_shape="GL", backend_parent="gaussian")[2]
+        for (bad, words), route in [(c_, r_) for c_ in ((shared, "share the id"), (orphan, "not in the model"), (cross, "different lineshape"),
+                                                        (mislabelled, "different lineshape"))
                                     for r_ in ("/api/analyze", "/api/analyze/start")]:
             r = c.post(route, json={"session_id": sid, "material_class": "insulator", "regions": ["C 1s"],
                                              "method": "least_squares", "peak_specs": bad,

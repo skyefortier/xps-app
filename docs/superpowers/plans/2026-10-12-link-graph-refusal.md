@@ -107,3 +107,12 @@ check fails the browser tests.
   The analyze request preparation now runs the shared check, so the start route answers 400 at
   once like `/api/analyze`; a malformed `peak_specs` list is still left to the method's own
   validation. Added to the every-route test.
+
+## Codex round 3 (A GO, B NO-GO on one MINOR) — fixed
+
+Run A: no findings (24 route probes, the page paths, the twin, the census). Run B, MINOR: when
+both peaks carried `frontend_shape`, the server compared only those labels, so a request
+labelling a gaussian parent and a pseudo_voigt_gl child both "GL" — which the page cannot build
+(it derives the backend shape from its own) — was admitted by the start routes and failed inside
+the fit (`p1_gl_ratio is not defined`). The check now compares the backend shapes always and the
+page's shapes too when both are named. Added to the shared-check and every-route tests.

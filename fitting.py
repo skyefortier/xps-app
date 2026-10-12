@@ -1498,7 +1498,9 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
         m = by_id.get(master)
         if m is not None:
             fs, fm = s.get("frontend_shape"), m.get("frontend_shape")
-            differ = (fs != fm) if (fs is not None and fm is not None) else (s.get("shape") != m.get("shape"))
+            # the backend shapes always, and the page's shapes too when both are named (Codex round 3:
+            # two peaks of different backend shapes both labelled "GL" passed)
+            differ = s.get("shape") != m.get("shape") or (fs is not None and fm is not None and fs != fm)
             if differ:
                 raise ValueError(
                     f"Peak '{s.get('name') or sid}' is linked to '{m.get('name') or master}' but has a different "
