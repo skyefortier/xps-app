@@ -49,3 +49,16 @@ script compares numbers with `Object.is` (JSON equality would miss −0 / 0). Bo
 confirmed the dependency order (28 803 graph / order / idempotence checks incl. 1 000-peak
 reversed chains, mixed id types), the other consumers, the 121 / 121 identity and the four-level
 test.
+
+## Codex round 2 (NO-GO ×2, the same finding) — fixed
+
+The order tracked peaks by ID, so with DUPLICATE ids (a project load accepts them) a second
+child sharing an id was left out of the pass and its link never applied: main committed the
+first id-2 child at centre 288 / 289 and amplitude 25, the branch at its start values 281 / 2.
+The order now tracks peak OBJECTS and finds each parent exactly as `applyParams` does (the first
+peak with that id), so every linked peak is applied once per pass, in main's order whenever no
+chain needs reordering. Regression: duplicate ids (held, and with a free root), a self-link and a
+two-peak cycle run through main's `runFitLocal` (read from git at 8cc3750) beside the branch's
+and must commit the same peaks and the same χ² (`Object.is`); it fails with the id-tracked order
+restored. Identity re-run: 121 / 121. Both runs otherwise confirmed the order (2 000 shuffled
+forests against a recursive oracle, 1 000-peak reversed chains), the consumers and the identity.

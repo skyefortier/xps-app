@@ -742,3 +742,54 @@ test('links: an invalid graph (a self-link) commits exactly what it did before (
   assert.strictEqual(env.state.peaks[0].center, 287);
   assert.strictEqual(env.state.peaks[0].amplitude, 25);
 });
+
+test('links: malformed graphs (duplicate ids, a self-link, a cycle) commit exactly what main committed (Codex 0b rounds 1-2)', () => {
+  // this unit changes valid chains only; invalid graphs are refused by Q10 0c′, never altered here.
+  // main's engine (8cc3750, read from git) runs beside this one on each and must agree exactly.
+  let mainHtml;
+  try { mainHtml = runHelper('git', ['-C', REPO_ROOT, 'show', '8cc3750:templates/index.html'], { encoding: 'utf8', maxBuffer: 64 << 20 }); }
+  catch (e) { assert.fail('commit 8cc3750 is not in this checkout (CI checks out full history)'); }
+  const mainLines = mainHtml.split('\n');
+  const extractFrom = (ls, name) => {
+    const re = new RegExp('^(async )?function ' + name.replace(/\$/g, '\\$') + '\\(');
+    const start = ls.findIndex(l => re.test(l)); assert.ok(start >= 0, name);
+    let depth = 0, seen = false;
+    for (let i = start; i < ls.length; i++) {
+      for (const ch of ls[i]) { if (ch === '{') { depth++; seen = true; } else if (ch === '}') depth--; }
+      if (seen && depth === 0) return ls.slice(start, i + 1).join('\n');
+    }
+  };
+  // main's runFitLocal in the same environment as makeEnv's
+  const src = CAVEAT_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' +
+    NAMES.map(n => (n === 'runFitLocal' ? extractFrom(mainLines, n) : extractFn(n))).join('\n\n') +
+    '\n' + require('./_page_background_source.js')({ manual: 'none' });
+  const makeMain = () => {
+    const dom = {};
+    const el = id => (dom[id] ||= { value: '', textContent: '', innerHTML: '', style: {}, setAttribute() {}, removeAttribute() {}, classList: { add() {}, remove() {}, contains: () => false } });
+    const state = { peaks: [], fitResult: null, rawBE: [], rawIntensity: [], ccShift: 0 };
+    const noop = () => {};
+    const f = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
+      'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
+      src + '\nreturn { runFitLocal, computeBackgroundCore };')({ getElementById: el, querySelectorAll: () => [] }, state, noop, '', '', () => null,
+      x => String(x), null, null, noop, noop, noop, noop, noop, noop, noop, be => new Array(be.length).fill(0));
+    return { ...f, state };
+  };
+  const G = { shape: 'Gaussian', glMix: 50, asymmetry: 0, fwhm: 1, fixCenter: true, fixFwhm: true, fixAmplitude: true };
+  const cases = {
+    'duplicate ids': [{ id: 1, ...G, center: 285, amplitude: 100 }, { id: 2, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 3, linkRatio: 0.25 }],
+    'self-link': [{ id: 1, ...G, center: 285, amplitude: 100, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
+    'two-peak cycle': [{ id: 1, ...G, center: 285, amplitude: 100, linked: 2, linkOffset: 1, linkRatio: 0.5 }, { id: 2, ...G, center: 287, amplitude: 50, linked: 1, linkOffset: 1, linkRatio: 0.5 }],
+    'free root, duplicate children': [{ id: 1, ...G, fixAmplitude: false, center: 285, amplitude: 80 }, { id: 2, ...G, center: 280, amplitude: 1, linked: 1, linkOffset: 2, linkRatio: 0.5 },
+                      { id: 2, ...G, center: 281, amplitude: 2, linked: 1, linkOffset: 3, linkRatio: 0.25 }],
+  };
+  const be = grid(280, 300, 0.05), data = be.map(x => 10 + 100 * Math.exp(-((x - 285) ** 2)));
+  for (const [label, peaks] of Object.entries(cases)) {
+    const run = make => { const env = make(); const bg = env.computeBackgroundCore(be, data.map(() => 0), { bgType: 'none', endpointAvg: '1' });
+      env.state.peaks = JSON.parse(JSON.stringify(peaks)); const out = env.runFitLocal(be, data, bg);
+      return { out, peaks: env.state.peaks, chi: env.state.fitResult && env.state.fitResult.chi }; };
+    const here = run(makeEnv), there = run(makeMain);
+    assert.deepStrictEqual(here.peaks, there.peaks, label + ': committed peaks');
+    assert.ok(Object.is(here.chi, there.chi), `${label}: χ² ${here.chi} vs main ${there.chi}`);
+  }
+});

@@ -9325,18 +9325,20 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // application is therefore idempotent and the χ² kept describes the committed peaks. A peak
   // whose parent is missing is skipped as before; a cycle or a self-link keeps its peak order and
   // is NOT idempotent — such graphs are refused by Q10 0c′.
+  // Peaks are tracked as OBJECTS and parents found exactly as applyParams finds them (the first
+  // peak with that id), so a model with duplicate ids keeps every peak (Codex 0b round 2).
   const linkOrder = (() => {
-    const byId = new Map(work.map(p => [p.id, p])), linkedPeaks = work.filter(q => q.linked);
+    const linkedPeaks = work.filter(q => q.linked);
     const done = new Set(), out = [];
     for (let progressed = true; progressed;) {
       progressed = false;
       for (const q of linkedPeaks) {
-        if (done.has(q.id)) continue;
-        const parent = byId.get(q.linked);
-        if (!parent || !parent.linked || done.has(parent.id)) { out.push(q); done.add(q.id); progressed = true; }
+        if (done.has(q)) continue;
+        const parent = workPeak(q.linked);
+        if (!parent || !parent.linked || done.has(parent)) { out.push(q); done.add(q); progressed = true; }
       }
     }
-    for (const q of linkedPeaks) if (!done.has(q.id)) out.push(q);
+    for (const q of linkedPeaks) if (!done.has(q)) out.push(q);
     return out;
   })();
 
