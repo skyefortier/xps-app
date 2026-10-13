@@ -118,9 +118,16 @@ def test_shown_areas_follow_every_edit_while_the_result_is_stale(browser, server
         pg.close()
 
 
-def test_a_reloaded_fit_saved_unedited_keeps_its_own_area_and_adds_the_display_value(browser, server):
-    # Codex round 2's case: a committed restored fit whose own grid and the live window differ.
-    # Owner 2026-10-13: the fit's own record is never rewritten; the display value goes beside it, labelled.
+def _save_spectrum(pg):
+    pg.evaluate(CAPTURE)
+    pg.evaluate("() => _doSaveSpectrum()")
+    pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+    return json.loads(pg.evaluate("() => window.__dl[0].text"))
+
+
+def test_a_reloaded_fit_saved_unedited_keeps_its_own_area_verbatim_and_adds_the_display_value(browser, server, tmp_path):
+    # Owner 2026-10-13: a saved fit record is never silently rewritten; the display value goes beside it,
+    # labelled. Codex Q5 round 3: proven by a real save -> load -> save round trip.
     import os
     from test_browser_find_peaks_full_window import REPO_ROOT
     pg = _new_page(browser, server)
@@ -128,19 +135,28 @@ def test_a_reloaded_fit_saved_unedited_keeps_its_own_area_and_adds_the_display_v
         pg.set_input_files("#load-session-input", os.path.join(REPO_ROOT, "docs/autofit/test_data/4-GTA UCl4-BN.proj.zip"))
         pg.wait_for_function("() => tabManager.tabs.some(t => t.name === 'B1s Scan_4')", timeout=60000)
         pg.evaluate("() => tabManager.activateTab(tabManager.tabs.find(t => t.name === 'B1s Scan_4').id)")
-        server_area = pg.evaluate("""() => state.peaks.map(p => p._backendParams && p._backendParams.area ? Math.abs(p._backendParams.area.value) : null)""")
-        shown = pg.evaluate(READERS)["results"]
-        pg.evaluate(CAPTURE)
-        pg.evaluate("() => _doSaveSpectrum()")
-        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
-        curves = json.loads(pg.evaluate("() => window.__dl[0].text"))["peakCurves"]
+        server_area = pg.evaluate("() => state.peaks.map(p => Math.abs(p._backendParams.area.value))")
+        first = _save_spectrum(pg)
     finally:
         pg.close()
-    assert all("displayArea" in c for c in curves), "an unedited restored fit: its own components are saved"
-    assert [c["displayArea"] for c in curves] == shown, "the display value is exactly what Results shows"
+    # a fit restored from a project (no per-component areas in its save): its own area is the server's number
+    assert all("displayArea" in c for c in first["peakCurves"]), "an unedited restored fit: its own components"
+    assert [c["area"] for c in first["peakCurves"]] == server_area
+    # the round trip: give the file's areas values nothing could recompute, then reload and save unedited
+    marked = [12345.678 + k for k in range(len(first["peakCurves"]))]
+    for c, v in zip(first["peakCurves"], marked):
+        c["area"] = v
+    path = tmp_path / "b1s_scan_4.spec.json"
+    path.write_text(json.dumps(first))
+    pg = _new_page(browser, server)
+    try:
+        pg.set_input_files("#load-session-input", str(path))
+        pg.wait_for_function("() => tabManager.tabs.length > 0 && state.peaks.length > 0", timeout=60000)
+        shown = pg.evaluate(READERS)["results"]
+        second = _save_spectrum(pg)
+    finally:
+        pg.close()
+    curves = second["peakCurves"]
+    assert [c["area"] for c in curves] == marked, "the saved record's areas, verbatim"
+    assert [c["displayArea"] for c in curves] == shown, "beside them, exactly what Results shows"
     assert all(c["displayAreaNote"].startswith("the area Results shows now") for c in curves)
-    # its own area is the server's number for that fit, unchanged
-    for c, sa in zip(curves, server_area):
-        if sa:
-            assert abs(c["area"] - sa) <= 1e-9 * sa, (c["name"], c["area"], sa)
-    assert any(c["area"] != c["displayArea"] for c in curves), "the case differs: both are kept"

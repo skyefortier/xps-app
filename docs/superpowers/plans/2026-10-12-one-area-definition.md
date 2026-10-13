@@ -23,7 +23,7 @@ deploy approval. Measurement before the decision: `docs/findings/q5-area/README.
 
 `scripts/q5_areas_on_load.py` (every committed project loaded into the page in a real browser) →
 `docs/findings/q5-area/on_load.json`: a component's area moves by a median 0.007 % (max 0.20 %); area %
-by at most 0.008 pp; no 40 % warning flips; **no saved component gets the note** after loading. The
+by at most 0.0084 pp (measured maximum 0.00832); no 40 % warning flips; **no saved component gets the note** after loading. The
 pre-decision "8 B-O components centred outside, 17–19 %" (raw records, `scripts/q5_area_definitions.js`)
 was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (README).
 
@@ -80,7 +80,7 @@ was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (
   server reported for that fit, `_backendParams.area`, to 1e-9 on the committed case) — and
   `displayArea` + `displayAreaNote` carry what Results shows now. Every other save writes Results' area
   as `area`.
-- MINOR: the measured bound is 0.0083 pp, written so.
+- MINOR: the measured bound (0.00832 pp) is written as a bound (≤ 0.0084 pp).
 - Tests (`tests/test_browser_one_area.py`, both fail on b0c4355): successive edits of a stale result
   and an ROI change keep the server-method areas in Results / Quantify, the save, the CSV and the
   sidebar % equal; a renamed component's note; the committed `4-GTA UCl4-BN` B1s Scan_4 restored fit
@@ -90,3 +90,19 @@ was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (
   full-window option off — they had kept the empty table rendered before the peaks were applied. They
   now show the applied peaks' areas (this unit's behaviour); the test keeps the status bar byte-for-byte
   and requires Results to list the applied peaks under the stale result's own note.
+
+## Codex round 3 (NO-GO ×2, the same finding) — fixed
+
+- **The record's own area, verbatim.** Round 2 kept a reloaded fit's own area by RECOMPUTING it, and the
+  spectrum loader dropped the file's `peakCurves[].area`, so an unedited reload → save still rewrote
+  the saved number (40119.7714413772 → 40119.771441377176 on the committed case; 656.25 → 406.25 on a
+  non-monotonic grid). The loader now keeps the file's per-component areas (runtime
+  `fitResult._savedPeakAreas`, never read for display) and `_ownFitArea` writes them back unchanged;
+  a fit restored from a project, whose save holds no per-component areas, writes the area the server
+  reported for that fit (`_backendParams.area`); only when neither exists is it computed (the server's
+  formula on the energies the server integrated on). `displayArea` + `displayAreaNote` beside it, as before.
+- **The test proves it.** `tests/test_browser_one_area.py`: the committed project fit saved unedited
+  writes the server's number exactly; that file, its areas replaced by values nothing could recompute,
+  reloaded and saved unedited writes those exact values back, with Results' areas as `displayArea`
+  (fails on de35d7e); `tests/js/one_area.test.js` pins `_ownFitArea`'s order.
+- MINOR: the bound is written as ≤ 0.0084 pp (measured maximum 0.00832).

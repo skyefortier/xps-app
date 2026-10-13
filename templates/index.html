@@ -9753,6 +9753,18 @@ function _trapezoidArea(y, x) {
   return Math.abs(_npPairwiseSum(t, 0, n));
 }
 
+// A restored fit saved unedited writes ITS OWN area, never a recomputed one (owner 2026-10-13; Codex Q5
+// round 3): the area the file it was loaded from holds, verbatim; else (a fit restored from a project,
+// whose save holds no per-component areas) the area the server reported for that fit, as stored with
+// the peak; only when neither exists, the server's formula on the energies the server integrated on.
+function _ownFitArea(fr, p, yArr) {
+  const kept = fr && fr._savedPeakAreas ? fr._savedPeakAreas[String(p.id)] : undefined;
+  if (typeof kept === 'number' && Number.isFinite(kept)) return kept;
+  const bp = p && p._backendParams && p._backendParams.area;
+  if (bp && typeof bp.value === 'number' && Number.isFinite(bp.value)) return Math.abs(bp.value);
+  return _trapezoidArea(yArr, fr._modelBe);
+}
+
 // ONE grid as well as one formula (Q5, Codex round 1): every area reader integrates on the same
 // energies. While the fit is CURRENT they are the fit's own — the energies the server evaluated and
 // integrated its components on (a restored fit's `_modelBe`, the old upload's rounded energies; else
@@ -12060,7 +12072,7 @@ function _doSaveSpectrum() {
       // is never silently rewritten — the sealed fit depends on it): `area` is its components as fitted,
       // on the energies the server integrated them on (the server's own number for that fit). Beside it,
       // labelled, the area Results shows now. Any other save: `area` IS what Results shows (Q5).
-      area: own ? _trapezoidArea(yArr, own._modelBe) : _peakArea(p, _areaGrid()),
+      area: own ? _ownFitArea(own, p, yArr) : _peakArea(p, _areaGrid()),
       ...(own ? { displayArea: _peakArea(p, _areaGrid()),
                   displayAreaNote: 'the area Results shows now: the current model, the server\'s trapezoid on the current window' } : {})
     };
@@ -12426,6 +12438,13 @@ function _loadSpectrumFile(data, sessionFile) {
     if (typeof data.statistics.beShift === 'number') fr.beShift = data.statistics.beShift;
     if (data.statistics.uploadFull === true) fr.uploadFull = true;
     if (_isFitRecord(data.statistics.record)) fr.record = data.statistics.record;   // explicit: a seed of 0 is a seed
+    // the file's own per-component areas, kept VERBATIM for a save of this fit unedited (owner 2026-10-13:
+    // a saved fit record is never silently rewritten; runtime only — never read for display)
+    if (Array.isArray(data.peakCurves)) {
+      const kept = {};
+      for (const c of data.peakCurves) if (c && c.id != null && typeof c.area === 'number' && Number.isFinite(c.area)) kept[String(c.id)] = c.area;
+      if (Object.keys(kept).length) fr._savedPeakAreas = kept;
+    }
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key

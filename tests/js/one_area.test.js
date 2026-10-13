@@ -65,6 +65,15 @@ test('every area reader integrates on the one grid (behaviour: tests/test_browse
   assert.match(extractFn('renderResults'), /renderQuantify\(areas, totalArea\)/, 'Quantify takes Results\' areas');
   // the spectrum save: what Results shows; a restored fit saved unedited keeps its own record's area
   // (its components on the energies the server integrated them on) and adds the display value, labelled
-  assert.match(html, /area: own \? _trapezoidArea\(yArr, own\._modelBe\) : _peakArea\(p, _areaGrid\(\)\),\n\s+\.\.\.\(own \? \{ displayArea: _peakArea\(p, _areaGrid\(\)\),/);
+  assert.match(html, /area: own \? _ownFitArea\(own, p, yArr\) : _peakArea\(p, _areaGrid\(\)\),\n\s+\.\.\.\(own \? \{ displayArea: _peakArea\(p, _areaGrid\(\)\),/);
   assert.doesNotMatch(html, /0\.5 \* \(yArr\[i - 1\] \+ y\) \* dx/, 'the save\'s own trapezoid is gone');
+});
+
+test('a restored fit\'s own area: the file\'s value verbatim, else the server\'s reported number, else computed (owner 2026-10-13)', () => {
+  const f = new Function(['_npPairwiseSum', '_trapezoidArea', '_ownFitArea'].map(extractFn).join('\n') + '\nreturn _ownFitArea;')();
+  const y = [1, 1, 1], g = [0, 1, 2];
+  assert.strictEqual(f({ _savedPeakAreas: { 7: 1234.5678 }, _modelBe: g }, { id: 7, _backendParams: { area: { value: -99 } } }, y), 1234.5678, 'the file\'s own value, untouched');
+  assert.strictEqual(f({ _savedPeakAreas: { 8: 1 }, _modelBe: g }, { id: 7, _backendParams: { area: { value: -99 } } }, y), 99, 'the server\'s number for that fit');
+  assert.strictEqual(f({ _modelBe: g }, { id: 7 }, y), 2, 'neither: the server\'s formula on its energies');
+  assert.strictEqual(f({ _savedPeakAreas: { 7: NaN }, _modelBe: g }, { id: 7 }, y), 2, 'a non-number is not a value');
 });

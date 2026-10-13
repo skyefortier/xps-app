@@ -8,7 +8,7 @@ the server's trapezoid on the one area grid — beside the page's old rectangle 
 | Quantity (121 tabs, 530 components) | Change |
 |---|---|
 | A component's area | median 0.007 %, 90th percentile 0.024 %, max 0.20 % (6 components > 0.1 %: π→π* satellites near a window edge) |
-| A component's area % | largest per tab: median 0.002 pp, max 0.0083 pp |
+| A component's area % | largest per tab: median 0.002 pp, max 0.00832 pp |
 | Auto-Fit's 40 % graphite warning | 44 Graphite models: 0 warn before, 0 now; no flip (nearest 45.2 %) |
 | The "centred outside the window" note | **0 components** after loading |
 
