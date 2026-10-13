@@ -1,0 +1,11 @@
+Reviewed `b804968..929212e`, focusing on the commit after `5aabcec`. **No remaining BLOCKER, MAJOR or MINOR finding identified.**
+
+- **Round 4 preservation defect is fixed.** The [project serializer](/Users/skyefortier/xps-app/.claude/worktrees/one-area/templates/index.html:12208) carries the retained areas, and `_ownFitArea` reads them after reload. Using the production spectrum loader, serializers and restoration checker in memory, marked areas survived three successive spectrum → project → reload → spectrum cycles exactly. `displayArea` remained separate and matched the current display calculation. The regression now exercises the missing route.
+- **Readers and grids:** no remaining component rectangle integrator or additional grid/note defect found in the inspected paths. Results, sidebar/support patching, Quantify, CSV/XLSX and the graphite warning share the area calculation. Scattered-starts fractions come from the server. TSV, stack plots and publication figures do not independently report scalar component areas.
+- **Numerics:** 33 additional SciPy comparisons matched exactly, including irregular/non-monotonic grids and arrays through 100,001 points; empty/single-point and NaN checks also passed. The lineshape tests correctly distinguish exact integration of the server’s curve from evaluator parity within tolerance.
+- **Measurements:** independently reproduced 121 tabs and 530 components using the production restoration and area functions: median **0.006892%**, maximum **0.198027%**, maximum fraction change **0.008316645 pp**, zero outside-window notes and no warning flips across 44 graphite models. Thus **≤0.0084 pp** is correct; the prompt’s **≤0.008 pp** is too tight. The README’s saved-frame explanation is supported.
+- **Test claims and scope:** export-prefix normalization proves compatibility with area semantics normalized, not historical numerical equality; its revised description states that limitation. No Q8 runtime implementation or unrelated production change found.
+
+Validation: **98 focused JavaScript tests and 49 lineshape tests passed**, plus the independent numerical and persistence checks above. Browser suites were inspected, not executed in this read-only environment. No files changed.
+
+**VERDICT: GO**

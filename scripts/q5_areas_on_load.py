@@ -6,7 +6,7 @@ page in a real browser and each tab activated; for every component it records th
 now shows (_peakArea on _areaGrid: the server's trapezoid) beside the rectangle sum the page showed
 until now on the same grid, the area % under both, Auto-Fit's 40 % graphite warning under both, and
 whether Results shows the "centred outside the window" note. Usage:
-venv/bin/python scripts/outside_window_note_on_load.py BASE_URL. Writes docs/findings/q5-area/on_load.json."""
+venv/bin/python scripts/q5_areas_on_load.py BASE_URL. Writes docs/findings/q5-area/on_load.json."""
 import glob, json, os, sys, time
 from playwright.sync_api import sync_playwright
 

@@ -115,3 +115,11 @@ was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (
   (`fitResult.savedPeakAreas`) and `_ownFitArea` reads either name. The round-trip test continues through
   a project save and reload and requires the marked values back exactly (fails on 5aabcec).
 - MINOR: the helper's comments no longer describe a rectangle rule or quote the superseded figures.
+
+## Codex round 5 (GO ×2)
+
+Both runs: no BLOCKER or MAJOR. Marked historical areas survive spectrum → project → reload → spectrum
+cycles exactly (JSON and ZIP share the serializer); no reader left on another formula or grid; the
+measurements (121 tabs, 530 components, median 0.006892 %, max 0.198027 %, ≤ 0.0084 pp, 0 notes, no
+flips) reproduce. MINOR (run A): the generator's usage line named the old script — corrected. READY for
+the owner's deploy approval.
