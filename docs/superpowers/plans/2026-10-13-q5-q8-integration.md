@@ -20,3 +20,14 @@ Both units merge the measurement branch `measure-q5-q8` (docs and scripts only).
   one area grid) is now called from Q8's `_autoFitPublish`, for the final fit; Q8's undo of an
   Auto-Fit restores the previous result, after which Q5's readers integrate on `_areaGrid()` of that
   result (current or stale) and the area signatures re-render what changed.
+
+## Codex on the combination (round 1, GO ×2)
+
+Both runs: no BLOCKER, MAJOR or MINOR. The merged serializers and export keep Q5's area handling and
+Q8's busy guard; the floor 629 + 13 + 5 = 647; `_autoFitPublish` installs the final result before the
+40 % check, which uses the one area grid; rollback and Undo / Redo restore the grid, area signature and
+note for restored-current and restored-stale fits; marked historical areas survive a rollback, a refused
+mid-transaction save and an Undo / Redo, then save verbatim. Observed, not a defect: while Auto-Fit's
+overlay is up, the area refresh can repaint the sidebar or the no-fit note BEHIND it — nothing is
+published, saved or snapshotted (state.fitResult is null between the fits). Suites on the combination:
+pytest 1417 passed / 7 skipped, JS 647 passed. READY for the owner's deploy approval.
