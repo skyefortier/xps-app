@@ -160,3 +160,23 @@ def test_a_reloaded_fit_saved_unedited_keeps_its_own_area_verbatim_and_adds_the_
     assert [c["area"] for c in curves] == marked, "the saved record's areas, verbatim"
     assert [c["displayArea"] for c in curves] == shown, "beside them, exactly what Results shows"
     assert all(c["displayAreaNote"].startswith("the area Results shows now") for c in curves)
+    # and through a PROJECT save and reload in between (Codex round 4)
+    pg = _new_page(browser, server)
+    try:
+        pg.set_input_files("#load-session-input", str(path))
+        pg.wait_for_function("() => tabManager.tabs.length > 0 && state.peaks.length > 0", timeout=60000)
+        pg.evaluate(CAPTURE)
+        pg.evaluate("async () => { await _doSaveProject(); }")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        proj = tmp_path / "round_trip.proj.json"
+        proj.write_text(pg.evaluate("() => window.__dl[0].text"))
+    finally:
+        pg.close()
+    pg = _new_page(browser, server)
+    try:
+        pg.set_input_files("#load-session-input", str(proj))
+        pg.wait_for_function("() => tabManager.tabs.length > 0 && state.peaks.length > 0", timeout=60000)
+        third = _save_spectrum(pg)
+    finally:
+        pg.close()
+    assert [c["area"] for c in third["peakCurves"]] == marked, "verbatim through a project save and reload"

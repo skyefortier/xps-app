@@ -106,3 +106,12 @@ was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (
   reloaded and saved unedited writes those exact values back, with Results' areas as `displayArea`
   (fails on de35d7e); `tests/js/one_area.test.js` pins `_ownFitArea`'s order.
 - MINOR: the bound is written as ≤ 0.0084 pp (measured maximum 0.00832).
+
+## Codex round 4 (NO-GO ×2, the same finding) — fixed
+
+- **Verbatim through a project save too.** The kept areas (`_savedPeakAreas`) were not written by the
+  project serializer, so spectrum → project → reload → spectrum save fell back to the server's reported
+  number (40119.7714413772 → 40119.771441377176). The project save now carries them
+  (`fitResult.savedPeakAreas`) and `_ownFitArea` reads either name. The round-trip test continues through
+  a project save and reload and requires the marked values back exactly (fails on 5aabcec).
+- MINOR: the helper's comments no longer describe a rectangle rule or quote the superseded figures.

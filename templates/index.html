@@ -9729,7 +9729,7 @@ function _buildStderrMap(fitResult) {
   return m;
 }
 
-// Rectangular-rule area for one peak over a BE grid
+// One peak's area over a BE grid: the server's trapezoid (_trapezoidArea), on the grid the caller passes
 function _peakArea(p, be) {
   // evalPeakArray(), not a per-point evalPeak map: for LACX with caM > 0,
   // only the array evaluator applies the shape's Gaussian convolution —
@@ -9743,8 +9743,9 @@ function _peakArea(p, be) {
 // fit grid (fitting.py individual_peaks[].params.area), in numpy's order — d = diff(x), the terms
 // d * (y[1:] + y[:-1]) / 2, their pairwise sum — so every reader shows the area the server reports.
 // Until then the page summed rectangles × the first step (and the spectrum save a sequential
-// trapezoid with |dx|): on the committed fits a median 0.007 % apart, ≤ 0.034 pp in any area %,
-// 17-19 % for a component centred outside the window (docs/findings/q5-area).
+// trapezoid with |dx|): on the committed fits as loaded a median 0.007 % apart (max 0.20 %), ≤ 0.0084 pp
+// in any area % (docs/findings/q5-area; an earlier "17-19 %" was a measurement artefact of saved grids
+// held in the uncorrected frame).
 function _trapezoidArea(y, x) {
   const n = Math.min(y.length, x.length) - 1;
   if (n < 1) return 0;
@@ -9758,7 +9759,8 @@ function _trapezoidArea(y, x) {
 // whose save holds no per-component areas) the area the server reported for that fit, as stored with
 // the peak; only when neither exists, the server's formula on the energies the server integrated on.
 function _ownFitArea(fr, p, yArr) {
-  const kept = fr && fr._savedPeakAreas ? fr._savedPeakAreas[String(p.id)] : undefined;
+  const store = fr && (fr._savedPeakAreas || fr.savedPeakAreas);   // from a spectrum file, or carried by a project save
+  const kept = store ? store[String(p.id)] : undefined;
   if (typeof kept === 'number' && Number.isFinite(kept)) return kept;
   const bp = p && p._backendParams && p._backendParams.area;
   if (bp && typeof bp.value === 'number' && Number.isFinite(bp.value)) return Math.abs(bp.value);
@@ -12202,6 +12204,8 @@ async function _doSaveProject() {
         beShift: typeof t.fitResult.beShift === 'number' ? t.fitResult.beShift : null,   // the frame of `be` after a restore
         uploadFull: t.fitResult.uploadFull === true || null,
         record: _isFitRecord(t.fitResult.record) ? t.fitResult.record : null,   // recording only (owner 2026-10-10)
+        // a reloaded fit's own saved per-component areas travel with it, verbatim (owner 2026-10-13; Codex Q5 round 4)
+        savedPeakAreas: t.fitResult._savedPeakAreas || t.fitResult.savedPeakAreas || null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
