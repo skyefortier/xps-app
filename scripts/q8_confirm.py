@@ -24,6 +24,8 @@ def diff(a, b):
     pairs = {r: b["peaks"][c] for r, c in zip(rows, cols)}
     def match(p):
         return pairs.get(a["peaks"].index(p), {"pct": float("inf")})
+    if len(cols) < len(b["peaks"]):     # a component on the OTHER side left without a partner (Codex round 3)
+        return {"chi2r_rel": abs(a["chi2r"] - b["chi2r"]) / b["chi2r"], "R_pts": float("inf"), "max_dpp": float("inf")}
     return {"chi2r_rel": abs(a["chi2r"] - b["chi2r"]) / b["chi2r"],
             "R_pts": abs((a["rFactor"] or {}).get("rPct", 0) - (b["rFactor"] or {}).get("rPct", 0)),
             "max_dpp": max(abs(p["pct"] - match(p)["pct"]) for p in a["peaks"])}

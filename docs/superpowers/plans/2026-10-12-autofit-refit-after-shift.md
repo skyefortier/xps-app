@@ -123,3 +123,13 @@ Scan_8 were such runs. The unit reproduces main's result wherever main's own anc
   (grid, background, envelope, χ²ᵣ) and the id counter as well; a pending slider edit before a failed
   Auto-Fit keeps its entry and undoes; the dialog by keyboard (focus, Tab, Ctrl+Z refused, Enter cancels
   and everything is restored).
+
+## Codex round 3 (GO ×2)
+
+Both runs: no BLOCKER or MAJOR; actual-function probes confirm Undo / Redo restore the previous result,
+id counter, peaks, correction, fields and anchors, a pending slider edit survives a rollback, Cancel
+works by keyboard; the final request is rebuilt from the shifted page on both Δ branches; the anchor
+request matches main's; measurements and the student note's numbers reproduce. The one MINOR (both):
+`scripts/q8_confirm.py` checked unmatched components on one side only — it now reports a component
+left without a partner on either side (every committed comparison has equal counts: unchanged).
+READY for the owner's deploy approval.
