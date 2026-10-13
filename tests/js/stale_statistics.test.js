@@ -395,7 +395,7 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
     const out = { restored: false, applied: 0, notes: [] };
     const tabManager = { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: document.getElementById('bg-type').value, roiMin: '284', roiMax: '285' }), _syncActiveToRecord() {} };
     const deps = { state, document, tabManager, notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-      _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
+      _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _flushUndoDebounce() {}, _showAutoFitConfirmModal: async () => true,
       getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => Object.assign(be.map(() => 0), { converged: true }),
       findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
       buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
@@ -446,7 +446,7 @@ test('F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply mes
   const out = { restored: false, applied: 0, notes: [] };
   const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
     notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
+    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _flushUndoDebounce() {}, _showAutoFitConfirmModal: async () => true,
     getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => Object.assign(be.map(() => 0), { converged: true }),
     findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
     buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
@@ -473,7 +473,7 @@ for (const [label, reply, expect] of [
   const out = { restored: false, applied: 0, notes: [] };
   const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
     notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
+    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _flushUndoDebounce() {}, _showAutoFitConfirmModal: async () => true,
     getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => Object.assign(be.map(() => 0), { converged: true }),
     findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
     buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],

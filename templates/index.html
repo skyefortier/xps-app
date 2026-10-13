@@ -2411,7 +2411,10 @@ function _peaksSnapshot(extra) {
 }
 function _historyContext() {
   const v = id => document.getElementById(id)?.value ?? '';
+  // the result too (Codex round 2: an undo kept the final fit's frozen grid and background beside the
+  // restored peaks), shallow-copied as the Auto-Fit snapshot copies it, and the id counter
   return { ccShift: state.ccShift, manualAnchors: JSON.parse(JSON.stringify(_getManualAnchors())),
+           fitResult: state.fitResult ? { ...state.fitResult } : null, nextId: state.nextId,
            ccMethod: v('cc-method') || 'none', ccObs: v('cc-obs'), ccLit: v('cc-lit'),
            roiMin: v('roi-min'), roiMax: v('roi-max'), bgStart: v('bg-start'), bgEnd: v('bg-end') };
 }
@@ -2419,6 +2422,8 @@ function _restoreSnapshotContext(tab, snap) {
   const c = snap && snap._context;
   if (!c) return;
   state.ccShift = c.ccShift;
+  state.fitResult = c.fitResult ? { ...c.fitResult } : null;
+  if (c.nextId !== undefined) state.nextId = c.nextId;
   _setManualAnchors(JSON.parse(JSON.stringify(c.manualAnchors || [])));
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   set('cc-method', c.ccMethod); set('cc-obs', c.ccObs); set('cc-lit', c.ccLit);
@@ -6378,8 +6383,16 @@ function handleChartClick(event) {
 
 // Global keyboard shortcuts
 document.addEventListener('keydown', function(e) {
-  // An Auto-Fit in progress owns the page (Q8): no shortcut — undo, save, Run Fit, the switcher — runs
-  if (_autoFitBusy) { e.preventDefault(); e.stopPropagation(); return; }
+  // An Auto-Fit in progress owns the page (Q8): no shortcut — undo, save, Run Fit, the switcher — runs.
+  // Its own dialog stays operable by keyboard: focus stays on Cancel, Enter / Space press it, Escape cancels.
+  if (_autoFitBusy) {
+    const cancelBtn = document.getElementById('autofit-busy-cancel');
+    if (e.key === 'Escape') { e.preventDefault(); _autoFitBusy.cancel(); return; }
+    if (e.target === cancelBtn && (e.key === 'Enter' || e.key === ' ')) return;   // the button's own activation
+    e.preventDefault(); e.stopPropagation();
+    if (cancelBtn) cancelBtn.focus();                                               // Tab and every other key stay in the dialog
+    return;
+  }
   // Ctrl+K / Ctrl+P: spectrum switcher (works even from input fields)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
     e.preventDefault();
@@ -7549,7 +7562,7 @@ function _autoFitBusyBegin(op, cancel) {
   if (el) el.style.display = 'flex';
   _autoFitBusyLabel('Auto-fitting…');
   const b = document.getElementById('autofit-busy-cancel');
-  if (b) b.onclick = () => { if (_autoFitBusy && _autoFitBusy.op === op) _autoFitBusy.cancel(); };
+  if (b) { b.onclick = () => { if (_autoFitBusy && _autoFitBusy.op === op) _autoFitBusy.cancel(); }; b.focus(); }
 }
 function _autoFitBusyLabel(text) {
   const l = document.getElementById('autofit-busy-label');
@@ -8320,7 +8333,9 @@ async function runAutoFitC1sGraphite() {
   // a Run Fit pressed while the confirmation was open is newer: it wins, and
   // this Auto-Fit does nothing at all (nothing has been changed yet)
   if (_fitOpOutdated(afOp)) return;
-  // Snapshot for failure rollback (separate from pushUndo, which only covers peaks).
+  // Snapshot for failure rollback (separate from pushUndo, which only covers peaks). A pending slider
+  // burst is OLDER than this Auto-Fit: it goes onto the history first, so a rollback keeps it (Codex round 2)
+  _flushUndoDebounce();
   const snap = _autoFitSnapshot();
 
   // Step 1: find graphite in raw BE

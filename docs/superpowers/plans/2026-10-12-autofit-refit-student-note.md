@@ -18,7 +18,8 @@ What this means for results you already have:
   and background you see.
 - If you run Auto-Fit again on a spectrum, its result can also differ from your earlier one for a
   reason that is not new: on a few spectra the first fit can land on a different solution from run to
-  run (the "scattered starts" line under Results says when a fit is not unique). Compare with care.
+  run. To check a result, press Run Fit after Auto-Fit: its "scattered starts" line under Results says
+  whether other starting points reach the same solution. Compare with care.
 
 If you reported numbers from an Auto-Fit, run it again on that spectrum and use the new values.
 Nothing else about the app changes.

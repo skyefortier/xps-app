@@ -15,9 +15,15 @@ shipped = {(r["file"], r["tab"]): r for r in json.load(open(os.path.join(D, "res
 
 def diff(a, b):
     # components by CENTRE (Auto-Fit locks every centre): neither the ids nor the "Unknown n" names are
-    # assigned to the same component in every run
+    # assigned to the same component in every run. ONE-TO-ONE (Codex Q8 round 2): the assignment that
+    # minimises the total centre distance; a component left without a partner counts as a full mismatch
+    import numpy as np
+    from scipy.optimize import linear_sum_assignment
+    cost = np.array([[abs(p["center"] - q["center"]) for q in b["peaks"]] for p in a["peaks"]])
+    rows, cols = linear_sum_assignment(cost)
+    pairs = {r: b["peaks"][c] for r, c in zip(rows, cols)}
     def match(p):
-        return min(b["peaks"], key=lambda q: abs(q["center"] - p["center"]))
+        return pairs.get(a["peaks"].index(p), {"pct": float("inf")})
     return {"chi2r_rel": abs(a["chi2r"] - b["chi2r"]) / b["chi2r"],
             "R_pts": abs((a["rFactor"] or {}).get("rPct", 0) - (b["rFactor"] or {}).get("rPct", 0)),
             "max_dpp": max(abs(p["pct"] - match(p)["pct"]) for p in a["peaks"])}

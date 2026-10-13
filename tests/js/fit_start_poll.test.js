@@ -324,7 +324,7 @@ test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not c
       // the averaging field holds a number; the last refusal is a value outside 1-50 (owner 2026-10-11)
       document: { getElementById: id => ({ value: id === 'bg-endpoint-avg' ? (refusal === 'averaging out of range' ? '1e21' : '1') : '', style: {}, setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) },
       notify: (m) => out.notes.push(m), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-      _showAutoFitConfirmModal: async () => true, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore() {},
+      _showAutoFitConfirmModal: async () => true, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore() {}, _flushUndoDebounce() {},
       fetch: async (u) => {
         if (u.startsWith('/api/fit/cancel/')) { out.cancels.push(u); return ok({}); }
         if (u === '/api/fit/start') return ok({ job_id: 'RUN1' }, 202);

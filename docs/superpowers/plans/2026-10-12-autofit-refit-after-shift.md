@@ -104,3 +104,22 @@ Scan_8 were such runs. The unit reproduces main's result wherever main's own anc
 - MINOR: the R count is 16 tabs at 15–17 % → ~2 %, plus 2 B4C tabs 11–12 % → ~6 % (18 above 10 %);
   corrected everywhere. The student note now qualifies its numbers as paired with the same Auto-Fit's
   first fit and separates rerun variability.
+
+## Codex round 2 (NO-GO ×2, the same findings) — fixed
+
+- **Undo restores the previous RESULT too.** Auto-Fit's undo entry carried the frame but not the
+  result, so an Undo put the old peaks and correction beside the final fit's frozen grid, background
+  and envelope (which the chart draws even when stale). `_historyContext()` now carries the result
+  (shallow-copied, as the rollback snapshot copies it) and the id counter; Undo and Redo restore them.
+- **A slider edit just before Auto-Fit stays undoable.** The rollback snapshot was taken before
+  `pushUndo` flushed a pending slider burst (500 ms debounce), so a rollback dropped that older edit's
+  entry. The burst is now flushed before the snapshot.
+- MINOR: the busy dialog is keyboard-operable — Cancel takes focus, Enter / Space press it, Escape
+  cancels, Tab keeps focus in the dialog; every other key is still refused.
+- MINOR: the student note no longer points to a check Auto-Fit does not run (Run Fit after Auto-Fit
+  gives the scattered-starts line); `scripts/q8_confirm.py` pairs components one-to-one (minimum total
+  centre distance) — the reported maxima are unchanged.
+- Tests (`tests/test_browser_autofit_refit.py`, each fails on b27f366): Undo / Redo compare the result
+  (grid, background, envelope, χ²ᵣ) and the id counter as well; a pending slider edit before a failed
+  Auto-Fit keeps its entry and undoes; the dialog by keyboard (focus, Tab, Ctrl+Z refused, Enter cancels
+  and everything is restored).

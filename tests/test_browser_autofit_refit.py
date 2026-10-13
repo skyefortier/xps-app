@@ -48,7 +48,7 @@ def test_auto_fit_shows_the_fit_it_made_in_the_corrected_frame(browser, server):
 STATE = """() => { const t = _activeTab(), v = id => document.getElementById(id).value;
   return { peaks: JSON.stringify(state.peaks), ccShift: state.ccShift, anchors: JSON.stringify(_getManualAnchors()), nextId: state.nextId,
            fields: ['cc-method', 'cc-obs', 'cc-lit', 'roi-min', 'roi-max', 'bg-start', 'bg-end'].map(v),
-           fit: state.fitResult ? JSON.stringify({ chi: state.fitResult.chiReduced, n: (state.fitResult.be || []).length }) : null,
+           fit: state.fitResult ? JSON.stringify({ chi: state.fitResult.chiReduced, be: state.fitResult.be || null, bg: state.fitResult.bgIntensity || null, fitted: state.fitResult.fittedY || null }) : null,
            undo: JSON.stringify(t.undoStack || []), redo: JSON.stringify(t.redoStack || []) }; }"""
 SETUP = """() => { window._showAutoFitConfirmModal = () => Promise.resolve(true);
   window.__notes = []; const n = window.notify; window.notify = (m, k, ...r) => { window.__notes.push([k, String(m)]); return n(m, k, ...r); };
@@ -171,11 +171,64 @@ def test_one_undo_returns_the_whole_spectrum_and_redo_the_auto_fit(browser, serv
         assert len(json.loads(after["undo"])) == len(json.loads(before["undo"])) + 1, "ONE undo entry"
         pg.evaluate("() => undo()")
         u = pg.evaluate(STATE)
-        for k in ("peaks", "ccShift", "anchors", "fields"):
+        for k in ("peaks", "ccShift", "anchors", "fields", "fit", "nextId"):   # the previous result too (Codex round 2)
             assert u[k] == before[k], (k, before[k], u[k])
         pg.evaluate("() => redo()")
         r = pg.evaluate(STATE)
-        for k in ("peaks", "ccShift", "anchors", "fields"):
+        for k in ("peaks", "ccShift", "anchors", "fields", "fit", "nextId"):
             assert r[k] == after[k], (k, after[k], r[k])
+    finally:
+        pg.close()
+
+
+# ── Codex Q8 round 2 ───────────────────────────────────────────────────────────
+
+def test_a_slider_edit_just_before_a_failed_auto_fit_stays_undoable(browser, server):
+    pg = _page_on_c1s(browser, server)
+    try:
+        pg.route("**/api/fit/start", _fail_second_start())
+        # a slider burst still pending (its undo entry is pushed 500 ms later) when Auto-Fit starts
+        amp0 = pg.evaluate("() => { const a = state.peaks[0].amplitude; _pushUndoDebounced(); state.peaks[0].amplitude = a * 1.25; return a; }")
+        n0 = len(json.loads(pg.evaluate(STATE)["undo"]))
+        pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
+        after = pg.evaluate(STATE)
+        assert len(json.loads(after["undo"])) == n0 + 1, "the slider edit's entry survives the rollback"
+        assert json.loads(after["peaks"])[0]["amplitude"] == amp0 * 1.25
+        pg.evaluate("() => undo()")
+        assert json.loads(pg.evaluate(STATE)["peaks"])[0]["amplitude"] == amp0, "and undoes it"
+    finally:
+        pg.close()
+
+
+def _fail_second_start():
+    n = {"starts": 0}
+    def route(r):
+        n["starts"] += 1
+        if n["starts"] < 2:
+            return r.continue_()
+        return r.fulfill(status=400, content_type="application/json", body='{"error": "forced for the test"}')
+    return route
+
+
+def test_the_busy_dialog_works_by_keyboard(browser, server):
+    pg = _page_on_c1s(browser, server)
+    try:
+        before = pg.evaluate(STATE)
+        held = _hold_final_fit(pg)
+        pg.evaluate("() => { window.__af = runAutoFitC1sGraphite(); }")
+        for _ in range(600):
+            if held:
+                break
+            pg.wait_for_timeout(100)
+        assert held
+        assert pg.evaluate("() => document.activeElement && document.activeElement.id") == "autofit-busy-cancel"
+        pg.keyboard.press("Tab")
+        assert pg.evaluate("() => document.activeElement.id") == "autofit-busy-cancel", "focus stays in the dialog"
+        pg.keyboard.press("Control+z")
+        assert len(json.loads(pg.evaluate(STATE)["undo"])) == len(json.loads(before["undo"])) + 1, "no shortcut runs"
+        pg.keyboard.press("Enter")                     # presses Cancel
+        pg.evaluate("async () => { await window.__af; }")
+        assert pg.evaluate(STATE) == before
+        assert any("Auto-fit cancelled" in m for k, m in pg.evaluate("() => window.__notes"))
     finally:
         pg.close()
